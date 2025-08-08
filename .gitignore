@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# 仮想環境
+.venv/
+env/
+venv/
+
+# VSCode / PyCharm
+.vscode/
+.idea/
+
+# ログや一時ファイル
+*.log
+*.sqlite3
+instance/
+
+# 環境変数ファイル（パスワード含む）
+.env
+
+# OSごとの不要ファイル
+.DS_Store
+Thumbs.db
+
+# Flask-Migrateのキャッシュ（必要なら残してもOK）
+migrations/versions/__pycache__/

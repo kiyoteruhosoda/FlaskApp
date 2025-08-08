@@ -1,0 +1,12 @@
+import pyotp
+
+def new_totp_secret():
+    return pyotp.random_base32()
+
+def provisioning_uri(email: str, secret: str, issuer: str = "MyFlaskApp"):
+    return pyotp.totp.TOTP(secret).provisioning_uri(name=email, issuer_name=issuer)
+
+def verify_totp(secret: str, token: str, valid_window: int = 1):
+    # valid_windowで前後コードを許容（時刻ズレ許容）
+    totp = pyotp.TOTP(secret)
+    return totp.verify(token, valid_window=valid_window)

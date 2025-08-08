@@ -1,0 +1,53 @@
+msgid "Home"
+msgstr "Home"
+
+msgid "Dashboard"
+msgstr "Dashboard"
+
+msgid "Login"
+msgstr "Login"
+
+msgid "Register"
+msgstr "Register"
+
+msgid "Logout"
+msgstr "Logout"
+
+msgid "Top"
+msgstr "Top"
+
+msgid "Welcome!"
+msgstr "Welcome!"
+
+msgid "You are logged in."
+msgstr "You are logged in."
+
+msgid "Please login to continue."
+msgstr "Please login to continue."
+
+msgid "Password"
+msgstr "Password"
+
+msgid "Create account"
+msgstr "Create account"
+
+msgid "Invalid email or password"
+msgstr "Invalid email or password"
+
+msgid "Email and password are required"
+msgstr "Email and password are required"
+
+msgid "Email already exists"
+msgstr "Email already exists"
+
+msgid "Registration successful. Please log in."
+msgstr "Registration successful. Please log in."
+
+msgid "Logged out"
+msgstr "Logged out"
+
+msgid "This page requires login."
+msgstr "This page requires login."
+
+msgid "Please log in to access this page."
+msgstr "Please log in to access this page."

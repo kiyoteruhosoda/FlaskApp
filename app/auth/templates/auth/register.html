@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Register') }}{% endblock %}
+{% block content %}
+<h2>{{ _('Register') }}</h2>
+<form method="post">
+  <label>Email</label>
+  <input type="email" name="email" required>
+  <label>{{ _('Password') }}</label>
+  <input type="password" name="password" required>
+  <button type="submit">{{ _('Create account') }}</button>
+</form>
+{% endblock %}

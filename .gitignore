@@ -29,3 +29,5 @@ Thumbs.db
 
 # Flask-Migrateのキャッシュ（必要なら残してもOK）
 migrations/versions/__pycache__/
+
+*:[Zz]one.Identifier

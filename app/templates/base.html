@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="{{ get_locale() or 'ja' }}">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}FlaskApp{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header>
+  <nav>
+    <a href="{{ url_for('index') }}">{{ _('Home') }}</a>
+    <a href="{{ url_for('feature_x.dashboard') }}">{{ _('Dashboard') }}</a>
+    <span style="margin-left:1rem">
+      <a href="{{ url_for('set_lang', lang_code='ja') }}">日本語</a> |
+      <a href="{{ url_for('set_lang', lang_code='en') }}">English</a>
+    </span>
+    <span style="float:right">
+      {% if current_user.is_authenticated %}
+        {{ current_user.email }} |
+        <a href="{{ url_for('auth.logout') }}">{{ _('Logout') }}</a>
+      {% else %}
+        <a href="{{ url_for('auth.login') }}">{{ _('Login') }}</a>
+        <a href="{{ url_for('auth.register') }}">{{ _('Register') }}</a>
+      {% endif %}
+    </span>
+  </nav>
+</header>
+
+<main>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <ul class="flash">
+        {% for cat, msg in messages %}
+          <li class="{{ cat }}">{{ msg }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+</main>
+
+<footer>
+  <p>&copy; 2025 FlaskApp</p>
+</footer>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Top') }}{% endblock %}
+{% block content %}
+<h1>{{ _('Welcome!') }}</h1>
+<p>
+  {% if current_user.is_authenticated %}
+    {{ _('You are logged in.') }}
+  {% else %}
+    {{ _('Please login to continue.') }}
+  {% endif %}
+</p>
+{% endblock %}

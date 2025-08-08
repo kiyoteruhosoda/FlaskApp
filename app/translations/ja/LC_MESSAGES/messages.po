@@ -1,0 +1,53 @@
+msgid "Home"
+msgstr "ホーム"
+
+msgid "Dashboard"
+msgstr "ダッシュボード"
+
+msgid "Login"
+msgstr "ログイン"
+
+msgid "Register"
+msgstr "新規登録"
+
+msgid "Logout"
+msgstr "ログアウト"
+
+msgid "Top"
+msgstr "トップ"
+
+msgid "Welcome!"
+msgstr "ようこそ！"
+
+msgid "You are logged in."
+msgstr "ログイン済みです。"
+
+msgid "Please login to continue."
+msgstr "続行するにはログインしてください。"
+
+msgid "Password"
+msgstr "パスワード"
+
+msgid "Create account"
+msgstr "アカウント作成"
+
+msgid "Invalid email or password"
+msgstr "メールアドレスまたはパスワードが正しくありません"
+
+msgid "Email and password are required"
+msgstr "メールアドレスとパスワードは必須です"
+
+msgid "Email already exists"
+msgstr "このメールアドレスは既に登録されています"
+
+msgid "Registration successful. Please log in."
+msgstr "登録が完了しました。ログインしてください。"
+
+msgid "Logged out"
+msgstr "ログアウトしました"
+
+msgid "This page requires login."
+msgstr "このページはログインが必要です。"
+
+msgid "Please log in to access this page."
+msgstr "このページにアクセスするにはログインが必要です。"

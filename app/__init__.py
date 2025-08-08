@@ -2,6 +2,7 @@
 import os
 from flask import Flask, request, redirect, url_for, render_template, make_response, flash
 from dotenv import load_dotenv
+from datetime import datetime, timezone
 
 # .env を最初に読む（これより後の import で環境変数が使える）
 load_dotenv()
@@ -35,10 +36,16 @@ def create_app():
     from .feature_x import bp as feature_x_bp
     app.register_blueprint(feature_x_bp, url_prefix="/feature-x")
 
+    @app.after_request
+    def add_time_header(response):
+        response.headers["X-Server-Time"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        return response
+
     # ルート
     @app.route("/")
     def index():
-        return render_template("index.html")
+        # HTML レスポンスを生成
+        return make_response(render_template("index.html"))
 
     # 言語切替（/lang/ja, /lang/en）
     @app.get("/lang/<lang_code>")
@@ -67,7 +74,6 @@ def create_app():
             "t_Home": _("Home"),
             "t_LoginMessage": _("Please log in to access this page."),
         }
-
 
     return app
 

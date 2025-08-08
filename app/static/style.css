@@ -1,6 +1,1 @@
-body { font-family: system-ui, sans-serif; margin: 2rem; }
-nav a { margin-right: 1rem; }
-.flash { list-style: none; padding: 0; }
-.flash li { padding: .5rem; margin:.25rem 0; border-radius: 4px; }
-.flash li.error { background: #ffe0e0; }
-.flash li.success { background: #e0ffe9; }
+body { font-family: system-ui, sans-serif; background-color: #f8f9fa; }

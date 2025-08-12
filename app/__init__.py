@@ -36,6 +36,9 @@ def create_app():
     from .feature_x import bp as feature_x_bp
     app.register_blueprint(feature_x_bp, url_prefix="/feature-x")
 
+    from .admin.routes import bp as admin_bp
+    app.register_blueprint(admin_bp, url_prefix="/admin")
+
     @app.after_request
     def add_time_header(response):
         response.headers["X-Server-Time"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")

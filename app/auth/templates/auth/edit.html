@@ -8,7 +8,7 @@
   <label>{{ _('Role') }}</label>
   <select name="role">
     {% for r in roles %}
-    <option value="{{ r }}" {% if current_user.role == r %}selected{% endif %}>{{ r }}</option>
+  <option value="{{ r.id }}" {% if r in current_user.roles %}selected{% endif %}>{{ r.name }}</option>
     {% endfor %}
   </select>
   <label>{{ _('New Password') }}</label>

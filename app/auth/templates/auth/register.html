@@ -2,12 +2,16 @@
 {% block title %}{{ _('Register') }}{% endblock %}
 {% block content %}
 <h2>{{ _('Register') }}</h2>
-<form method="post">
-  <label>Email</label>
-  <input type="email" name="email" required>
-  <label>{{ _('Password') }}</label>
-  <input type="password" name="password" required>
-  <button type="submit">{{ _('Next') }}</button>
+<form method="post" class="mt-3 mx-auto form-narrow">
+  <div class="mb-3">
+    <label for="email" class="form-label">{{ _('Email') }}</label>
+    <input type="email" class="form-control" id="email" name="email" required>
+  </div>
+  <div class="mb-3">
+    <label for="password" class="form-label">{{ _('Password') }}</label>
+    <input type="password" class="form-control" id="password" name="password" required>
+  </div>
+  <button type="submit" class="btn btn-primary">{{ _('Next') }}</button>
 </form>
-<p><a href="{{ url_for('auth.register_no_totp') }}">{{ _('Register without two-factor authentication') }}</a></p>
+<p class="mt-3"><a class="link-primary" href="{{ url_for('auth.register_no_totp') }}">{{ _('Register without two-factor authentication') }}</a></p>
 {% endblock %}

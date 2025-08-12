@@ -1,1 +1,5 @@
 body { font-family: system-ui, sans-serif; background-color: #f8f9fa; }
+
+.form-narrow {
+  max-width: 400px;
+}

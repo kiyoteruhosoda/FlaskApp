@@ -4,9 +4,11 @@
 <h2>{{ _('Setup TOTP') }}</h2>
 <p>{{ _('Scan the QR code with your authenticator app and enter the current code.') }}</p>
 <img src="{{ qr_data }}" alt="QR Code">
-<form method="post">
-  <label>{{ _('Authentication Code') }}</label>
-  <input type="text" name="token" required>
-  <button type="submit">{{ _('Enable two-factor authentication') }}</button>
+<form method="post" class="mt-3 mx-auto form-narrow">
+  <div class="mb-3">
+    <label for="token" class="form-label">{{ _('Authentication Code') }}</label>
+    <input type="text" class="form-control" id="token" name="token" required>
+  </div>
+  <button type="submit" class="btn btn-primary">{{ _('Enable two-factor authentication') }}</button>
 </form>
 {% endblock %}

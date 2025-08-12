@@ -32,6 +32,7 @@ class User(db.Model, UserMixin):
     email = db.Column(db.String(255), unique=True, index=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    totp_secret = db.Column(db.String(32), nullable=True)
 
     # 追加：ロール関連
     roles = db.relationship("Role", secondary=user_roles, backref="users")

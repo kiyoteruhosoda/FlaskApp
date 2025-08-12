@@ -4,13 +4,7 @@ from flask_babel import gettext as _
 from . import bp
 from ..extensions import db
 from ..models.user import User
-
-from flask import render_template, request, redirect, url_for, flash
-from flask_login import login_user, logout_user, login_required, current_user
-from flask_babel import gettext as _
-from . import bp
-from ..extensions import db
-from ..models.user import User
+from .totp import new_totp_secret, verify_totp
 
 @bp.route("/login", methods=["GET", "POST"])
 def login():
@@ -19,10 +13,15 @@ def login():
     if request.method == "POST":
         email = request.form.get("email")
         password = request.form.get("password")
+        token = request.form.get("token")
         user = User.query.filter_by(email=email).first()
         if not user or not user.check_password(password):
             flash(_("Invalid email or password"), "error")
             return render_template("auth/login.html")
+        if user.totp_secret:
+            if not token or not verify_totp(user.totp_secret, token):
+                flash(_("Invalid authentication code"), "error")
+                return render_template("auth/login.html")
         login_user(user)
         return redirect(url_for("feature_x.dashboard"))
     return render_template("auth/login.html")
@@ -43,6 +42,7 @@ def register():
             return render_template("auth/register.html")
         u = User(email=email)
         u.set_password(password)
+        u.totp_secret = new_totp_secret()
         member_role = Role.query.filter_by(name='member').first()
         if not member_role:
             flash(_("Default role 'member' does not exist"), "error")
@@ -50,7 +50,7 @@ def register():
         u.roles.append(member_role)
         db.session.add(u)
         db.session.commit()
-        flash(_("Registration successful. Please log in."), "success")
+        flash(_("Registration successful. Set up your authenticator with code: %(code)s", code=u.totp_secret), "success")
         return redirect(url_for("auth.login"))
     return render_template("auth/register.html")
 

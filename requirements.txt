@@ -6,3 +6,5 @@ Flask-Babel
 PyMySQL
 pyotp
 python-dotenv
+qrcode
+Pillow

@@ -7,7 +7,7 @@
   <input type="email" name="email" required>
   <label>{{ _('Password') }}</label>
   <input type="password" name="password" required>
-  <button type="submit">{{ _('Next') }}</button>
+  <button type="submit">{{ _('Create account') }}</button>
 </form>
-<p><a href="{{ url_for('auth.register_no_totp') }}">{{ _('Register without two-factor authentication') }}</a></p>
+<p><a href="{{ url_for('auth.register') }}">{{ _('Register with two-factor authentication') }}</a></p>
 {% endblock %}

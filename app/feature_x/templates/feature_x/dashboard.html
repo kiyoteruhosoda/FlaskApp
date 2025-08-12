@@ -3,4 +3,11 @@
 {% block content %}
 <h2>{{ _('Dashboard') }}</h2>
 <p>{{ _('This page requires login.') }}</p>
+
+<p>
+  <a href="{{ url_for('photo_view.google_accounts') }}" class="btn btn-outline-primary">
+    {{ _('Manage Google Accounts') }}
+  </a>
+</p>
+
 {% endblock %}

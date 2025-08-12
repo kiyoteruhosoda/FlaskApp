@@ -17,6 +17,7 @@
     <span style="float:right">
       {% if current_user.is_authenticated %}
         {{ current_user.email }} |
+        <a href="{{ url_for('auth.edit') }}">{{ _('Edit Profile') }}</a> |
         <a href="{{ url_for('auth.logout') }}">{{ _('Logout') }}</a>
       {% else %}
         <a href="{{ url_for('auth.login') }}">{{ _('Login') }}</a>

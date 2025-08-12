@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Edit Profile') }}{% endblock %}
+{% block content %}
+<h2>{{ _('Edit Profile') }}</h2>
+<form method="post">
+  <label>Email</label>
+  <input type="email" name="email" value="{{ current_user.email }}" required>
+  <label>{{ _('Role') }}</label>
+  <select name="role">
+    {% for r in roles %}
+    <option value="{{ r }}" {% if current_user.role == r %}selected{% endif %}>{{ r }}</option>
+    {% endfor %}
+  </select>
+  <label>{{ _('New Password') }}</label>
+  <input type="password" name="password">
+  <button type="submit">{{ _('Update') }}</button>
+</form>
+{% endblock %}

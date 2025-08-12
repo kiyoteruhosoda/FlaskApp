@@ -25,19 +25,44 @@ def register():
     if request.method == "POST":
         email = request.form.get("email")
         password = request.form.get("password")
+        role = request.form.get("role", "user")
         if not email or not password:
             flash(_("Email and password are required"), "error")
             return render_template("auth/register.html")
         if User.query.filter_by(email=email).first():
             flash(_("Email already exists"), "error")
             return render_template("auth/register.html")
-        u = User(email=email)
+        u = User(email=email, role=role)
         u.set_password(password)
         db.session.add(u)
         db.session.commit()
         flash(_("Registration successful. Please log in."), "success")
         return redirect(url_for("auth.login"))
     return render_template("auth/register.html")
+
+@bp.route("/edit", methods=["GET", "POST"])
+@login_required
+def edit():
+    roles = ["user", "admin"]
+    if request.method == "POST":
+        email = request.form.get("email")
+        password = request.form.get("password")
+        role = request.form.get("role")
+        if not email:
+            flash(_("Email is required"), "error")
+            return render_template("auth/edit.html", roles=roles)
+        if email != current_user.email and User.query.filter_by(email=email).first():
+            flash(_("Email already exists"), "error")
+            return render_template("auth/edit.html", roles=roles)
+        current_user.email = email
+        if role:
+            current_user.role = role
+        if password:
+            current_user.set_password(password)
+        db.session.commit()
+        flash(_("Profile updated"), "success")
+        return redirect(url_for("feature_x.dashboard"))
+    return render_template("auth/edit.html", roles=roles)
 
 @bp.route("/logout")
 @login_required

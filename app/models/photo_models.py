@@ -18,15 +18,6 @@ media_tag = db.Table(
     db.Column("tag_id", db.BigInteger, db.ForeignKey("tag.id"), primary_key=True),
 )
 
-class GoogleAccount(db.Model):
-    id = db.Column(db.BigInteger, primary_key=True)
-    account_email = db.Column(db.String(255), nullable=False)
-    oauth_token_json = db.Column(db.Text, nullable=False)
-    status = db.Column(db.Enum('active', 'inactive', 'revoked', name='google_account_status'), nullable=False)
-    last_synced_at = db.Column(db.DateTime)
-    media = db.relationship('Media', backref='account')
-    created_at = db.Column(db.DateTime)
-    updated_at = db.Column(db.DateTime)
 
 class Media(db.Model):
     id = db.Column(db.BigInteger, primary_key=True)

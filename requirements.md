@@ -662,8 +662,107 @@ flowchart LR
 
 
 
+### 19. Google認証トークン取得画面（設計）
 
-## 19. 実装メモ（参考）
+> 目的：cronバッチ（毎日 02:00）でGoogle Photos連携を実行するための**リフレッシュトークン**を安全に取得・維持する。複数アカウント対応。
+
+**重要なお知らせ（2025年変更）**
+
+* Google Photos Library API の一部スコープは **2025-03-31** で廃止。以降は**アプリ作成データのみ**読み取り可能（`photoslibrary.readonly.appcreateddata` など）。ライブラリ全体の読み取り（`photoslibrary.readonly`）は廃止対象。**既存ライブラリ全体の自動取得は不可**となる。代替として **Photos Picker API** でユーザー選択のメディアを扱う方式が推奨。詳細は公式ドキュメント参照。〔根拠: Google Photos Authorization scopes, Updates to the Google Photos APIs〕
+
+
+
+#### 19.1 画面パス / 役割
+
+* パス：`/family-photo-view/settings/google-accounts`
+* 役割：
+
+  * アカウント一覧（メール／状態／許可スコープ／最終同期／トークン有効性）
+  * 「連携を追加」→ OAuth同意→ リフレッシュトークン保存
+  * 「再認証」「無効化」「削除」「トークン確認」「デフォルト設定」
+  * （任意）Pickerインポート起点（ユーザー選択→インポートキュー投入）
+
+#### 19.2 UIコンポーネント
+
+* **アカウントテーブル**：`email`、`status(active/disabled)`、`scopes`（バッジ表示）、`last_synced_at`、`token(OK/失効/要再同意)`、操作（再認証/無効化/削除/テスト）。
+* **連携追加ダイアログ**：説明（求める権限/用途）、「同意して連携」ボタン。
+* **詳細ドロワー**：発行日時、失効日時（アクセストークン）、リフレッシュトークン有無、エラー履歴。
+* **警告バナー**：`photoslibrary.readonly` 廃止説明と代替（Picker/Takeout）案内。
+
+#### 19.3 フロー（OAuth 2.0, Webサーバーアプリ）
+
+* 推奨パラメータ：`access_type=offline`、`prompt=consent`（初回の確実なリフレッシュトークン発行のため）、`include_granted_scopes=true`。
+* スコープ選択（2025年以降の安全案）
+
+  * **読み取り（アプリ作成分のみ）**：`https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata`
+  * **アップロード/作成**：`https://www.googleapis.com/auth/photoslibrary.appendonly`
+  * **ユーザー識別**（メール取得）：`openid email`
+  * （参考：`photoslibrary.readonly` は廃止。Picker利用でライブラリ全体からの**都度選択**を可能にする）
+
+#### 19.4 画面から見た遷移（Mermaid）
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant UI as Settings UI
+  participant API as Backend API
+  participant GA as Google OAuth
+
+  U->>UI: 連携を追加をクリック
+  UI->>API: POST /api/google/oauth/start (scopes, state)
+  API->>GA: 認可URL生成（offline, prompt=consent）
+  API-->>UI: auth_url 返却
+  UI->>GA: ブラウザでリダイレクト（同意）
+  GA->>API: GET /auth/google/callback?code=...
+  API->>GA: /tokenでコード交換（access+refresh）
+  GA-->>API: tokens返却
+  API->>API: refresh_token を暗号化保存（google_account）
+  API-->>UI: 連携成功（メール/スコープ/状態）
+  UI-->>U: 一覧に追加 & トークンOK表示
+```
+
+#### 19.5 API（要件）
+
+* `POST /api/google/oauth/start` → `{ auth_url, server_time }`
+
+  * 入力：`scopes[]`, `redirect`（戻り先）
+  * 生成：`state`（CSRF対策）、セッション保持
+* `GET /auth/google/callback`（公開エンドポイント）
+
+  * 動作：`code` を `https://oauth2.googleapis.com/token` で交換、`id_token` から email 抽出 or `userinfo` 呼び出し
+  * 保存：`google_account` に `oauth_token_json`（暗号化）、`last_synced_at` 更新
+* `GET /api/google/accounts` → 一覧（状態・スコープ・テスト結果含む）
+* `POST /api/google/accounts/{id}/test` → アクセストークン発行テスト（/token refresh）
+* `PATCH /api/google/accounts/{id}` → `status=disabled` 等の切替
+* `DELETE /api/google/accounts/{id}` → 連携解除（サーバ側破棄＋Googleの `/revoke`）
+
+#### 19.6 DB/セキュリティ
+
+* `google_account.oauth_token_json` は**アプリ側で暗号化**（OS KMS or ファイル鍵）
+* `state` パラメータ検証、`redirect_uri` 厳密一致、`PKCE` 併用可（追加防御）。
+* トークンは**最小権限**（scopes最小化）。
+* 監査ログ：連携追加／再認証／削除／失敗。
+
+#### 19.7 バッチとの連携
+
+* 毎日 02:00：各 `active` アカウントで**リフレッシュトークン**→アクセストークン取得。
+* 取得モード：
+
+  * **A: アプリ作成データ同期**（`appendonly` で作成したメディアを `readonly.appcreateddata` で取得）
+  * **B: Picker選択インポート**（ユーザーがUIで選んだ項目をキュー登録→バッチがダウンロード）
+
+#### 19.8 エラーとUX
+
+* `invalid_grant`（失効/取り消し）：一覧に「要再認証」バッジ、ワンクリック再認証導線。
+* `insufficient_scope`：対象機能の利用制限を説明。Picker/Takeout案内。
+* リフレッシュ失敗の連続閾値超過で通知（管理者）。
+
+#### 19.9 備考（参考情報）
+
+* 認可フロー・offline取得・`prompt=consent` はGoogle公式のWebサーバ向けガイドを参照。〔Using OAuth 2.0 for Web Server Apps〕
+* Photos APIのスコープと2025年の変更点は公式のスコープ一覧・更新ページを参照。〔Authorization scopes / Updates to the Google Photos APIs〕
+
+## 99. 実装メモ（参考）
 
 * `Range` 対応の動画配信はアプリ or nginx で対応（`Accept-Ranges`）。
 * ffmpeg 例:

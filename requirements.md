@@ -579,7 +579,7 @@ flowchart LR
 **補足**
 
 * すべての詳細遷移はブラウザ戻るに対応（履歴API利用想定）。
-* `設定(/photo-viewer/settings)` と `同期ジョブ履歴(/photo-viewer/sync/jobs)` は **認可（admin.settings,admin.job-settings）** 前提。
+* `設定(/photo-viewer/settings)` と `同期ジョブ履歴(/photo-viewer/sync/jobs)` は **認可（admin.photo-settings,admin.job-settings）** 前提。
 * 一覧→詳細→一覧の往復でスクロール位置を保持する（仮想リスト & 位置復元）。
 * 直接URLアクセス時（リロード/共有）も復元可能（ID/クエリで状態再構成）。
 

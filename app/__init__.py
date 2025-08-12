@@ -26,9 +26,12 @@ def create_app():
     app.jinja_env.globals["get_locale"] = get_locale
 
 
+
     # モデル import（migrate 用に認識させる）
     from .models import user as _user  # noqa: F401
-    from .models import photo_models  # noqa: F401
+    from .models import google_account as _google_account  # noqa: F401
+    from .models import photo_models as _photo_models    # noqa: F401
+
 
     # Blueprint 登録
     from .auth import bp as auth_bp
@@ -39,6 +42,9 @@ def create_app():
 
     from .admin.routes import bp as admin_bp
     app.register_blueprint(admin_bp, url_prefix="/admin")
+
+    from .photo_view import bp as photo_view_bp
+    app.register_blueprint(photo_view_bp, url_prefix="/photo-view")
 
     @app.after_request
     def add_time_header(response):

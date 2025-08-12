@@ -8,3 +8,4 @@ pyotp
 python-dotenv
 qrcode
 Pillow
+requests

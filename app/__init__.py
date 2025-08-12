@@ -96,3 +96,4 @@ def _select_locale():
     if cookie_lang in current_app.config["LANGUAGES"]:
         return cookie_lang
     return request.accept_languages.best_match(current_app.config["LANGUAGES"])
+

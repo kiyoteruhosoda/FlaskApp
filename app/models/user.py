@@ -4,6 +4,7 @@ from ..extensions import db, login_manager
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
+
 # --- 中間テーブル ---
 user_roles = db.Table(
     "user_roles",
@@ -26,12 +27,11 @@ class Permission(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(120), unique=True, nullable=False)  # 'reservation:create' 等
 
-
-
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(255), unique=True, index=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
+    role = db.Column(db.String(64), default="user", nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # 追加：ロール関連

@@ -3,16 +3,15 @@
 {% block content %}
 <h2>{{ _('Edit Profile') }}</h2>
 <form method="post">
-  <label>Email</label>
+  <label>{{ _('Email') }}</label>
   <input type="email" name="email" value="{{ current_user.email }}" required>
-  <label>{{ _('Role') }}</label>
-  <select name="role">
-    {% for r in roles %}
-  <option value="{{ r.id }}" {% if r in current_user.roles %}selected{% endif %}>{{ r.name }}</option>
-    {% endfor %}
-  </select>
   <label>{{ _('New Password') }}</label>
   <input type="password" name="password">
   <button type="submit">{{ _('Update') }}</button>
 </form>
+{% if not current_user.totp_secret %}
+<p><a href="{{ url_for('auth.setup_totp') }}">{{ _('Enable Two-Factor Authentication') }}</a></p>
+{% else %}
+<p>{{ _('Two-Factor Authentication is enabled.') }}</p>
+{% endif %}
 {% endblock %}

@@ -24,3 +24,7 @@ class Config:
         "max_overflow": 20,
         "connect_args": {"connect_timeout": 10},
     }
+
+    # Google OAuth
+    GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+    GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")

@@ -56,11 +56,13 @@ def register_totp():
         return redirect(url_for("auth.register"))
     uri = provisioning_uri(email, secret)
     qr_data = qr_code_data_uri(uri)
+    # シークレットもテンプレートに渡す
+    secret_display = secret
     if request.method == "POST":
         token = request.form.get("token")
         if not token or not verify_totp(secret, token):
             flash(_("Invalid authentication code"), "error")
-            return render_template("auth/register_totp.html", qr_data=qr_data)
+            return render_template("auth/register_totp.html", qr_data=qr_data, secret=secret_display)
         u = User(email=email)
         u.set_password(password)
         u.totp_secret = secret
@@ -75,8 +77,10 @@ def register_totp():
         session.pop("reg_password", None)
         session.pop("reg_secret", None)
         flash(_("Registration successful"), "success")
-        return redirect(url_for("auth.login"))
-    return render_template("auth/register_totp.html", qr_data=qr_data)
+        login_user(u)
+        return redirect(url_for("feature_x.dashboard"))
+        #return redirect(url_for("auth.login"))
+    return render_template("auth/register_totp.html", qr_data=qr_data, secret=secret_display)
 
 
 @bp.route("/register/no_totp", methods=["GET", "POST"])

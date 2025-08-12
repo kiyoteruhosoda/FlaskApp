@@ -51,3 +51,6 @@ msgstr "This page requires login."
 
 msgid "Please log in to access this page."
 msgstr "Please log in to access this page."
+
+msgid "If you cannot scan the QR code, add this secret manually in your app:"
+msgstr "If you cannot scan the QR code, add this secret manually in your app:"

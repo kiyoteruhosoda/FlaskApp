@@ -51,3 +51,9 @@ msgstr "このページはログインが必要です。"
 
 msgid "Please log in to access this page."
 msgstr "このページにアクセスするにはログインが必要です。"
+
+msgid "Scan the QR code with your authenticator app and enter the current code."
+msgstr "Scan the QR code with your authenticator app and enter the current code."
+
+msgid "If you cannot scan the QR code, add this secret manually in your app:"
+msgstr "QRコードを読み取れない場合は、以下のシークレットをアプリに登録してください。"

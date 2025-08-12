@@ -28,6 +28,7 @@ def create_app():
 
     # モデル import（migrate 用に認識させる）
     from .models import user as _user  # noqa: F401
+    from .models import photo_models  # noqa: F401
 
     # Blueprint 登録
     from .auth import bp as auth_bp

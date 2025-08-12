@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Verify TOTP') }}{% endblock %}
+{% block content %}
+<h2>{{ _('Verify TOTP') }}</h2>
+<p>{{ _('Scan the QR code with your authenticator app and enter the current code.') }}</p>
+<img src="{{ qr_data }}" alt="QR Code">
+<form method="post">
+  <label>{{ _('Authentication Code') }}</label>
+  <input type="text" name="token" required>
+  <button type="submit">{{ _('Complete registration') }}</button>
+</form>
+{% endblock %}

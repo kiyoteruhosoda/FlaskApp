@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% block title %}{{ _('Verify TOTP') }}{% endblock %}
+{% block title %}{{ _('Setup TOTP') }}{% endblock %}
 {% block content %}
-<h2>{{ _('Verify TOTP') }}</h2>
+<h2>{{ _('Setup TOTP') }}</h2>
 <p>{{ _('Scan the QR code with your authenticator app and enter the current code.') }}</p>
 <img src="{{ qr_data }}" alt="QR Code">
 <form method="post" class="mt-3 mx-auto form-narrow">
@@ -9,6 +9,6 @@
     <label for="token" class="form-label">{{ _('Authentication Code') }}</label>
     <input type="text" class="form-control" id="token" name="token" required>
   </div>
-  <button type="submit" class="btn btn-primary">{{ _('Complete registration') }}</button>
+  <button type="submit" class="btn btn-primary">{{ _('Enable two-factor authentication') }}</button>
 </form>
 {% endblock %}

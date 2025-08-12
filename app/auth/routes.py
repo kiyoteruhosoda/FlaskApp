@@ -107,30 +107,47 @@ def register_no_totp():
 @bp.route("/edit", methods=["GET", "POST"])
 @login_required
 def edit():
-    from ..models.user import Role
-    roles = Role.query.all()
     if request.method == "POST":
         email = request.form.get("email")
         password = request.form.get("password")
-        role_id = request.form.get("role")
         if not email:
             flash(_("Email is required"), "error")
-            return render_template("auth/edit.html", roles=roles)
+            return render_template("auth/edit.html")
         if email != current_user.email and User.query.filter_by(email=email).first():
             flash(_("Email already exists"), "error")
-            return render_template("auth/edit.html", roles=roles)
+            return render_template("auth/edit.html")
         current_user.email = email
-        if role_id:
-            from ..models.user import Role
-            role_obj = Role.query.get(int(role_id))
-            if role_obj and role_obj not in current_user.roles:
-                current_user.roles = [role_obj]
         if password:
             current_user.set_password(password)
         db.session.commit()
         flash(_("Profile updated"), "success")
-        return redirect(url_for("feature_x.dashboard"))
-    return render_template("auth/edit.html", roles=roles)
+        return redirect(url_for("auth.edit"))
+    return render_template("auth/edit.html")
+
+
+@bp.route("/setup_totp", methods=["GET", "POST"])
+@login_required
+def setup_totp():
+    if current_user.totp_secret:
+        flash(_("Two-factor authentication already configured"), "error")
+        return redirect(url_for("auth.edit"))
+    secret = session.get("setup_totp_secret")
+    if not secret:
+        secret = new_totp_secret()
+        session["setup_totp_secret"] = secret
+    uri = provisioning_uri(current_user.email, secret)
+    qr_data = qr_code_data_uri(uri)
+    if request.method == "POST":
+        token = request.form.get("token")
+        if not token or not verify_totp(secret, token):
+            flash(_("Invalid authentication code"), "error")
+            return render_template("auth/setup_totp.html", qr_data=qr_data)
+        current_user.totp_secret = secret
+        db.session.commit()
+        session.pop("setup_totp_secret", None)
+        flash(_("Two-factor authentication enabled"), "success")
+        return redirect(url_for("auth.edit"))
+    return render_template("auth/setup_totp.html", qr_data=qr_data)
 
 @bp.route("/logout")
 @login_required

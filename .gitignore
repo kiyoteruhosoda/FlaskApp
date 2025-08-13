@@ -6,6 +6,13 @@ __pycache__/
 .Python
 *.so
 
+.dist/
+build/
+dist/
+*.egg-info/
+
+
+
 # 仮想環境
 .venv/
 env/

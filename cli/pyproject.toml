@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "photonest-cli"
+version = "0.1.0"
+description = "PhotoNest CLI (fpv): family photo sync utilities"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "PhotoNest Team" }]
+license = { text = "MIT" }
+dependencies = [
+  "typer[all]>=0.12.0",
+  "rich>=13.7"
+]
+
+[project.scripts]
+fpv = "fpv.cli:app"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

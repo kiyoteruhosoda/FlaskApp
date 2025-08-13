@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{{ permission and _('Edit Permission') or _('Add Permission') }}{% endblock %}
+{% block content %}
+<h2>{{ permission and _('Edit Permission') or _('Add Permission') }}</h2>
+<form method="post">
+  <div class="mb-3">
+    <label class="form-label">{{ _('Code') }}</label>
+    <input type="text" class="form-control" name="code" value="{{ permission.code if permission else '' }}">
+  </div>
+  <button type="submit" class="btn btn-primary">{{ _('Save') }}</button>
+  <a href="{{ url_for('admin.permissions') }}" class="btn btn-secondary">{{ _('Cancel') }}</a>
+</form>
+{% endblock %}
+

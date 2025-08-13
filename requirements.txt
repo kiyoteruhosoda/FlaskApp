@@ -10,3 +10,4 @@ qrcode
 Pillow
 requests
 cryptography
+click

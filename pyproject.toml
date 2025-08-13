@@ -1,0 +1,20 @@
+[tool.babel.extractors]
+python = { glob = ["**/*.py"] }
+jinja2 = { glob = ["**/templates/**/*.html"], extensions = ["jinja2.ext.i18n"] }
+
+[build-system]
+requires = ["setuptools>=42"]         # ビルドに必要なパッケージ
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "PhotoNest"                    # パッケージ名
+version = "0.1.0"                      # バージョン
+description = "Flask + CLI + Library project"
+authors = [
+    { name = "kiyoteru hosoda", email = "kiyoteru.hosoda@gmail.com" }
+]
+dependencies = [                       # インストール時の依存関係
+    "flask",
+    "click"
+]
+requires-python = ">=3.10"

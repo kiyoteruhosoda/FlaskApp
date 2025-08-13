@@ -20,6 +20,7 @@ from flask_babel import gettext as _
 from . import bp
 from ..extensions import db
 from ..models.google_account import GoogleAccount
+from ..crypto import decrypt, encrypt
 
 
 
@@ -91,7 +92,7 @@ def api_google_account_update(account_id):
 def api_google_account_delete(account_id):
     """Delete a linked Google account and revoke token."""
     account = GoogleAccount.query.get_or_404(account_id)
-    token_json = json.loads(account.oauth_token_json or "{}")
+    token_json = json.loads(decrypt(account.oauth_token_json) or "{}")
     refresh_token = token_json.get("refresh_token")
     if refresh_token:
         try:
@@ -112,7 +113,7 @@ def api_google_account_delete(account_id):
 def api_google_account_test(account_id):
     """Test refresh token by attempting to obtain a new access token."""
     account = GoogleAccount.query.get_or_404(account_id)
-    tokens = json.loads(account.oauth_token_json or "{}")
+    tokens = json.loads(decrypt(account.oauth_token_json) or "{}")
     refresh_token = tokens.get("refresh_token")
     if not refresh_token:
         return jsonify({"error": "no_refresh_token"}), 400
@@ -130,7 +131,7 @@ def api_google_account_test(account_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     tokens.update(result)
-    account.oauth_token_json = json.dumps(tokens)
+    account.oauth_token_json = encrypt(json.dumps(tokens))
     account.last_synced_at = datetime.utcnow()
     db.session.commit()
     return jsonify({"result": "ok"})

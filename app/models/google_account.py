@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 import json
 
 from ..extensions import db
+from ..crypto import decrypt
 
 
 class GoogleAccount(db.Model):
@@ -27,7 +28,7 @@ class GoogleAccount(db.Model):
         if not self.oauth_token_json:
             return None
         try:
-            data = json.loads(self.oauth_token_json)
+            data = json.loads(decrypt(self.oauth_token_json))
         except Exception:
             return None
 

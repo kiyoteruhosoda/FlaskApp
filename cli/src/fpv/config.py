@@ -95,6 +95,12 @@ class PhotoNestConfig:
 
         if env.get("FPV_OAUTH_KEY"):
             oauth_key = env.get("FPV_OAUTH_KEY", "").strip()
+        elif env.get("FPV_OAUTH_TOKEN_KEY_FILE"):
+            try:
+                with open(env.get("FPV_OAUTH_TOKEN_KEY_FILE"), "r") as f:
+                    oauth_key = f.read().strip()
+            except OSError:
+                oauth_key = ""
         elif env.get("OAUTH_TOKEN_KEY"):
             oauth_key = env.get("OAUTH_TOKEN_KEY", "").strip()
         elif env.get("OAUTH_TOKEN_KEY_FILE"):

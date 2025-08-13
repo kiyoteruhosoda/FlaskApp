@@ -42,12 +42,14 @@ def _read_int(
         v = int(raw)
         if v < min_v or v > max_v:
             msgs.append(
-                f"{key}: 範囲外({v}), 許容 {min_v}..{max_v} -> 既定 {default} を使用"
+                f"{key}: out of range ({v}), allowed {min_v}..{max_v} -> using default {default}"
             )
             return default, msgs
         return v, msgs
     except ValueError:
-        msgs.append(f"{key}: 数値として解釈できません -> 既定 {default} を使用")
+        msgs.append(
+            f"{key}: could not parse as integer -> using default {default}"
+        )
         return default, msgs
 
 
@@ -144,10 +146,10 @@ class PhotoNestConfig:
 
         for k, v in required.items():
             if not v:
-                errs.append(f"{k}: 未設定です")
+                errs.append(f"{k}: not set")
 
         if self.db_url and not self.db_url.startswith("mysql+pymysql://"):
-            warns.append("FPV_DB_URL: 推奨スキームは mysql+pymysql:// です")
+            warns.append("FPV_DB_URL: recommended scheme is mysql+pymysql://")
 
         for key, path in [
             ("FPV_NAS_ORIG_DIR", self.nas_orig_dir),
@@ -156,20 +158,22 @@ class PhotoNestConfig:
             ("FPV_TMP_DIR", self.tmp_dir),
         ]:
             if path and not _is_abs(path):
-                errs.append(f"{key}: 絶対パスを指定してください（現在: {path}）")
+                errs.append(f"{key}: specify an absolute path (current: {path})")
             if self.strict_path_check and path and not Path(path).exists():
-                errs.append(f"{key}: パスが存在しません（strict-path-check有効）: {path}")
+                errs.append(
+                    f"{key}: path does not exist (strict-path-check enabled): {path}"
+                )
 
         ok, why = _validate_oauth_key(self.oauth_key)
         if not ok:
-            errs.append(f"FPV_OAUTH_KEY: 不正 ({why})")
+            errs.append(f"FPV_OAUTH_KEY: invalid ({why})")
 
         if not (1 <= self.transcode_workers <= 8):
-            errs.append("FPV_TRANSCODE_WORKERS: 1..8 の範囲外")
+            errs.append("FPV_TRANSCODE_WORKERS: out of range 1..8")
         if not (10 <= self.transcode_crf <= 28):
-            errs.append("FPV_TRANSCODE_CRF: 10..28 の範囲外")
+            errs.append("FPV_TRANSCODE_CRF: out of range 10..28")
         if not (1 <= self.max_retries <= 10):
-            errs.append("FPV_MAX_RETRIES: 1..10 の範囲外")
+            errs.append("FPV_MAX_RETRIES: out of range 1..10")
 
         return warns, errs
 

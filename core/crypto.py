@@ -22,9 +22,9 @@ def _decode_key(raw: str) -> bytes:
     try:
         key = base64.urlsafe_b64decode(raw)
     except Exception as exc:  # pragma: no cover - defensive
-        raise ValueError(f"base64デコード失敗: {exc}") from exc
+        raise ValueError(f"base64 decode failed: {exc}") from exc
     if len(key) != 32:
-        raise ValueError(f"base64長さが不正: {len(key)} bytes (32必要)")
+        raise ValueError(f"invalid base64 length: {len(key)} bytes (32 required)")
     return key
 
 
@@ -32,7 +32,7 @@ def validate_oauth_key(raw: str) -> Tuple[bool, str]:
     """Validate OAuth encryption key string using ``_load_key`` logic."""
 
     if not raw:
-        return False, "未設定"
+        return False, "not set"
     try:
         _load_key(raw)  # will raise on error
         return True, "base64(32bytes)"

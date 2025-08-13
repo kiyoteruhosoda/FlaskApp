@@ -8,6 +8,7 @@ from . import bp
 from ..extensions import db
 from ..models.user import User
 from ..models.google_account import GoogleAccount
+from ..crypto import encrypt
 from .totp import new_totp_secret, verify_totp, provisioning_uri, qr_code_data_uri
 
 @bp.route("/login", methods=["GET", "POST"])
@@ -223,7 +224,7 @@ def google_oauth_callback():
     else:
         account.scopes = ",".join(scopes)
         account.status = "active"
-    account.oauth_token_json = json.dumps(tokens)
+    account.oauth_token_json = encrypt(json.dumps(tokens))
     account.last_synced_at = datetime.utcnow()
     db.session.commit()
 

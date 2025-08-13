@@ -716,7 +716,7 @@ sequenceDiagram
   GA->>API: GET /auth/google/callback?code=...
   API->>GA: /tokenでコード交換（access+refresh）
   GA-->>API: tokens返却
-  API->>API: refresh_token を暗号化保存（google_account）
+  API->>API: refresh_token を AES-256-GCM で暗号化保存（google_account）
   API-->>UI: 連携成功（メール/スコープ/状態）
   UI-->>U: 一覧に追加 & トークンOK表示
 ```
@@ -738,7 +738,7 @@ sequenceDiagram
 
 #### 19.6 DB/セキュリティ
 
-* `google_account.oauth_token_json` は**アプリ側で暗号化**（OS KMS or ファイル鍵）
+* `google_account.oauth_token_json` は**AES-256-GCM で暗号化**（OS KMS or ファイル鍵）
 * `state` パラメータ検証、`redirect_uri` 厳密一致、`PKCE` 併用可（追加防御）。
 * トークンは**最小権限**（scopes最小化）。
 * 監査ログ：連携追加／再認証／削除／失敗。

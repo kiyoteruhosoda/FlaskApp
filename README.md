@@ -10,6 +10,12 @@ pybabel compile -d app/translations -f
 
 
 
+## Google OAuth Token Encryption
+
+`google_account.oauth_token_json` は AES-256-GCM で暗号化して保存します。
+`OAUTH_TOKEN_KEY`（Base64）または `OAUTH_TOKEN_KEY_FILE` で 32 バイト鍵を指定してください。
+鍵は OS の KMS もしくは鍵ファイルで管理できます。
+
 ## Flask-Migrate マイグレーション手順
 
 ### 1. モデル変更後にマイグレーションファイルを作成

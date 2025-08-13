@@ -28,4 +28,7 @@ class Config:
     # Google OAuth
     GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
     GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
-    print("GOOGLE_CLIENT_SECRET:", os.environ.get("GOOGLE_CLIENT_SECRET"))
+
+    # Encryption for OAuth tokens
+    OAUTH_TOKEN_KEY = os.environ.get("OAUTH_TOKEN_KEY")
+    OAUTH_TOKEN_KEY_FILE = os.environ.get("OAUTH_TOKEN_KEY_FILE")

@@ -12,7 +12,8 @@ authors = [{ name = "PhotoNest Team" }]
 license = { text = "MIT" }
 dependencies = [
   "typer[all]>=0.12.0",
-  "rich>=13.7"
+  "rich>=13.7",
+  "python-dotenv>=1.0"
 ]
 
 [project.scripts]

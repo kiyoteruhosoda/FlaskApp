@@ -5,7 +5,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Tuple, Any
 
+from dotenv import load_dotenv
 from core.crypto import validate_oauth_key as _validate_oauth_key
+
+# Load .env at import time so CLI and tests pick it up
+load_dotenv()
 
 
 # ---------------------------------------------------------------------------
@@ -90,11 +94,11 @@ class PhotoNestConfig:
         if env.get("FPV_OAUTH_KEY"):
             oauth_key = env.get("FPV_OAUTH_KEY", "").strip()
         elif env.get("OAUTH_TOKEN_KEY"):
-            oauth_key = f"base64:{env.get('OAUTH_TOKEN_KEY').strip()}"
+            oauth_key = env.get("OAUTH_TOKEN_KEY", "").strip()
         elif env.get("OAUTH_TOKEN_KEY_FILE"):
             try:
                 with open(env.get("OAUTH_TOKEN_KEY_FILE"), "r") as f:
-                    oauth_key = f"base64:{f.read().strip()}"
+                    oauth_key = f.read().strip()
             except OSError:
                 oauth_key = ""
         else:

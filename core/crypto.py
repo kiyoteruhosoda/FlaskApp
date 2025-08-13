@@ -1,55 +1,60 @@
 import base64
 import os
-from typing import Optional
+from typing import Optional, Tuple
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from typing import Tuple
 
 
 _KEY_ENV = "OAUTH_TOKEN_KEY"
 _KEY_FILE_ENV = "OAUTH_TOKEN_KEY_FILE"
 
 
-def validate_oauth_key(raw: str) -> Tuple[bool, str]:
-    """Validate OAuth encryption key string.
+def _decode_key(raw: str) -> bytes:
+    """Decode a key string into 32 bytes.
 
-    Accepts either ``"base64:<b64>"`` where decoded length is 32 bytes or an
-    arbitrary string of length at least 32 characters.  Returns ``(ok, why)``
-    tuple for use by config validators.
+    Supports values prefixed with ``"base64:"`` as well as plain base64
+    strings.  Raises :class:`ValueError` if the key is invalid or the decoded
+    length is not 32 bytes.
     """
+
+    if raw.startswith("base64:"):
+        raw = raw.split(":", 1)[1]
+    try:
+        key = base64.urlsafe_b64decode(raw)
+    except Exception as exc:  # pragma: no cover - defensive
+        raise ValueError(f"base64デコード失敗: {exc}") from exc
+    if len(key) != 32:
+        raise ValueError(f"base64長さが不正: {len(key)} bytes (32必要)")
+    return key
+
+
+def validate_oauth_key(raw: str) -> Tuple[bool, str]:
+    """Validate OAuth encryption key string using ``_load_key`` logic."""
 
     if not raw:
         return False, "未設定"
+    try:
+        _load_key(raw)  # will raise on error
+        return True, "base64(32bytes)"
+    except Exception as exc:  # pragma: no cover - defensive
+        return False, str(exc)
 
-    if raw.startswith("base64:"):
-        b64 = raw.split(":", 1)[1]
-        try:
-            key = base64.urlsafe_b64decode(b64)
-        except Exception as exc:  # pragma: no cover - defensive
-            return False, f"base64デコード失敗: {exc}"
-        if len(key) == 32:
-            return True, "base64(32bytes)"
-        return False, f"base64長さが不正: {len(key)} bytes (32必要)"
+def _load_key(raw: Optional[str] = None) -> bytes:
+    """Load 32-byte encryption key from a string, env var, or file."""
 
-    if len(raw) >= 32:
-        return True, "文字長>=32"
+    if raw is not None:
+        return _decode_key(raw)
 
-    return False, "32文字未満"
+    key_str = os.environ.get(_KEY_ENV)
+    if key_str:
+        return _decode_key(key_str)
 
-def _load_key() -> bytes:
-    """Load 32-byte encryption key from env var or file."""
-    key_b64 = os.environ.get(_KEY_ENV)
-    if key_b64:
-        key = base64.urlsafe_b64decode(key_b64)
-    else:
-        path = os.environ.get(_KEY_FILE_ENV)
-        if not path:
-            raise RuntimeError("Encryption key not configured")
-        with open(path, "rb") as f:
-            key = base64.urlsafe_b64decode(f.read().strip())
-    if len(key) != 32:
-        raise ValueError("AES-256-GCM key must be 32 bytes")
-    return key
+    path = os.environ.get(_KEY_FILE_ENV)
+    if path:
+        with open(path, "r") as f:
+            return _decode_key(f.read().strip())
+
+    raise RuntimeError("Encryption key not configured")
 
 
 def encrypt(plaintext: str) -> str:

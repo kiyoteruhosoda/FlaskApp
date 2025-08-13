@@ -90,20 +90,22 @@ document.addEventListener('DOMContentLoaded', () => {
   if (addBtn) {
     addBtn.addEventListener('click', async (e) => {
       e.preventDefault();
-      try {
-        const resp = await fetch('{{ url_for("api.google_oauth_start") }}', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scopes: [], redirect: '{{ url_for("auth.google_accounts") }}' })
-        });
-        const data = await resp.json();
-        if (data.auth_url) {
-          window.location.href = data.auth_url;
+      await withLoading(e.currentTarget, async () => {
+        try {
+          const resp = await fetch('{{ url_for("api.google_oauth_start") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scopes: [], redirect: '{{ url_for("auth.google_accounts") }}' })
+          });
+          const data = await resp.json();
+          if (data.auth_url) {
+            window.location.href = data.auth_url;
+          }
+        } catch (err) {
+          console.error(err);
+          alert('Failed to start OAuth.');
         }
-      } catch (err) {
-        console.error(err);
-        alert('Failed to start OAuth.');
-      }
+      });
     });
   }
 
@@ -111,23 +113,25 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.btn-reauth').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
-      const group = e.target.closest('[data-id]');
-      const scopes = (group?.dataset.scopes || '')
-        .split(',').map(s => s.trim()).filter(Boolean);
-      try {
-        const resp = await fetch('{{ url_for("api.google_oauth_start") }}', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scopes, redirect: '{{ url_for("auth.google_accounts") }}' })
-        });
-        const data = await resp.json();
-        if (data.auth_url) {
-          window.location.href = data.auth_url;
+      await withLoading(e.currentTarget, async () => {
+        const group = e.target.closest('[data-id]');
+        const scopes = (group?.dataset.scopes || '')
+          .split(',').map(s => s.trim()).filter(Boolean);
+        try {
+          const resp = await fetch('{{ url_for("api.google_oauth_start") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scopes, redirect: '{{ url_for("auth.google_accounts") }}' })
+          });
+          const data = await resp.json();
+          if (data.auth_url) {
+            window.location.href = data.auth_url;
+          }
+        } catch (err) {
+          console.error(err);
+          alert('Failed to start re-auth.');
         }
-      } catch (err) {
-        console.error(err);
-        alert('Failed to start re-auth.');
-      }
+      });
     });
   });
 
@@ -135,14 +139,16 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.btn-disable').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
-      const id = e.target.closest('[data-id]')?.dataset.id;
-      if (!id) return;
-      const resp = await fetch(`/api/google/accounts/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'disabled' })
+      await withLoading(e.currentTarget, async () => {
+        const id = e.target.closest('[data-id]')?.dataset.id;
+        if (!id) return;
+        const resp = await fetch(`/api/google/accounts/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'disabled' })
+        });
+        if (resp.ok) location.reload();
       });
-      if (resp.ok) location.reload();
     });
   });
 
@@ -150,11 +156,13 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.btn-delete').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
-      const id = e.target.closest('[data-id]')?.dataset.id;
-      if (!id) return;
-      if (!confirm('Delete this account?')) return;
-      const resp = await fetch(`/api/google/accounts/${id}`, { method: 'DELETE' });
-      if (resp.ok) location.reload();
+      await withLoading(e.currentTarget, async () => {
+        const id = e.target.closest('[data-id]')?.dataset.id;
+        if (!id) return;
+        if (!confirm('Delete this account?')) return;
+        const resp = await fetch(`/api/google/accounts/${id}`, { method: 'DELETE' });
+        if (resp.ok) location.reload();
+      });
     });
   });
 
@@ -162,29 +170,18 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.btn-test').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
-      const target = e.currentTarget;
-      if (target.dataset.loading) return;
-      const id = target.closest('[data-id]')?.dataset.id;
-      if (!id) return;
-      target.dataset.loading = 'true';
-      target.classList.add('disabled');
-      const spinner = document.createElement('span');
-      spinner.className = 'spinner-border spinner-border-sm ms-1';
-      spinner.setAttribute('role', 'status');
-      spinner.setAttribute('aria-hidden', 'true');
-      target.appendChild(spinner);
-      try {
-        const resp = await fetch(`/api/google/accounts/${id}/test`, { method: 'POST' });
-        const data = await resp.json();
-        alert(data.result || data.error || 'OK');
-      } catch (err) {
-        console.error(err);
-        alert('Test failed');
-      } finally {
-        spinner.remove();
-        target.classList.remove('disabled');
-        delete target.dataset.loading;
-      }
+      await withLoading(e.currentTarget, async () => {
+        const id = e.currentTarget.closest('[data-id]')?.dataset.id;
+        if (!id) return;
+        try {
+          const resp = await fetch(`/api/google/accounts/${id}/test`, { method: 'POST' });
+          const data = await resp.json();
+          alert(data.result || data.error || 'OK');
+        } catch (err) {
+          console.error(err);
+          alert('Test failed');
+        }
+      });
     });
   });
 });

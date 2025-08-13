@@ -70,3 +70,67 @@ def api_google_accounts():
             for a in accounts
         ]
     )
+
+
+@bp.patch("/google/accounts/<int:account_id>")
+@login_required
+def api_google_account_update(account_id):
+    """Update status of a Google account."""
+    account = GoogleAccount.query.get_or_404(account_id)
+    data = request.get_json() or {}
+    status = data.get("status")
+    if status not in ("active", "disabled"):
+        return jsonify({"error": "invalid_status"}), 400
+    account.status = status
+    db.session.commit()
+    return jsonify({"result": "ok", "status": account.status})
+
+
+@bp.delete("/google/accounts/<int:account_id>")
+@login_required
+def api_google_account_delete(account_id):
+    """Delete a linked Google account and revoke token."""
+    account = GoogleAccount.query.get_or_404(account_id)
+    token_json = json.loads(account.oauth_token_json or "{}")
+    refresh_token = token_json.get("refresh_token")
+    if refresh_token:
+        try:
+            requests.post(
+                "https://oauth2.googleapis.com/revoke",
+                params={"token": refresh_token},
+                timeout=10,
+            )
+        except Exception:
+            pass
+    db.session.delete(account)
+    db.session.commit()
+    return jsonify({"result": "deleted"})
+
+
+@bp.post("/google/accounts/<int:account_id>/test")
+@login_required
+def api_google_account_test(account_id):
+    """Test refresh token by attempting to obtain a new access token."""
+    account = GoogleAccount.query.get_or_404(account_id)
+    tokens = json.loads(account.oauth_token_json or "{}")
+    refresh_token = tokens.get("refresh_token")
+    if not refresh_token:
+        return jsonify({"error": "no_refresh_token"}), 400
+    data = {
+        "client_id": current_app.config.get("GOOGLE_CLIENT_ID"),
+        "client_secret": current_app.config.get("GOOGLE_CLIENT_SECRET"),
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token,
+    }
+    try:
+        res = requests.post("https://oauth2.googleapis.com/token", data=data, timeout=10)
+        result = res.json()
+        if "error" in result:
+            return jsonify({"error": result["error"]}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    tokens.update(result)
+    account.oauth_token_json = json.dumps(tokens)
+    account.last_synced_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({"result": "ok"})

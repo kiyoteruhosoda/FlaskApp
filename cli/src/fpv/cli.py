@@ -5,6 +5,7 @@ from rich.table import Table
 
 from .version import __version__
 from .config import PhotoNestConfig
+from .sync import run_sync
 
 
 console = Console()
@@ -78,7 +79,7 @@ def config_check(
 # existing commands
 
 
-@app.command(help="Sync Google Photos (multi-account)")
+@app.command(help="Fetch Google Photos delta (multiple accounts, dry-run supported)")
 def sync(
     all_accounts: bool = typer.Option(
         True,
@@ -86,7 +87,14 @@ def sync(
         help="Process all active accounts (default: True)",
     ),
     account_id: Optional[int] = typer.Option(
-        None, "--account-id", help="Process a single account by ID"
+        None,
+        "--account-id",
+        help="Target a single account by ID",
+    ),
+    dry_run: bool = typer.Option(
+        True,
+        "--dry-run/--no-dry-run",
+        help="Outline only (record job, no downloads). default: --dry-run",
     ),
 ) -> None:
     cfg = PhotoNestConfig.from_env()
@@ -94,7 +102,8 @@ def sync(
     if errs:
         console.print("[red]Configuration error[/]: " + "; ".join(errs))
         raise typer.Exit(1)
-    console.print("[cyan]TODO[/]: implement sync")
+    code = run_sync(all_accounts=all_accounts, account_id=account_id, dry_run=dry_run)
+    raise typer.Exit(code)
 
 
 @app.command("import", help="Import existing local files (fixed directory)")

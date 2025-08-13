@@ -1,4 +1,5 @@
 import json
+import json
 from datetime import datetime
 from typing import List
 
@@ -54,7 +55,7 @@ def test_run_sync_dry_run(monkeypatch, capsys):
     with Session(engine) as session:
         job = session.query(JobSync).one()
         assert job.status == "success"
-        assert json.loads(job.stats_json) == {"new": 3, "dup": 0, "failed": 0}
+        assert json.loads(job.stats_json) == {"listed": 3, "new": 0, "dup": 0, "failed": 0}
 
 
 def test_run_sync_no_accounts(monkeypatch, capsys):

@@ -7,13 +7,19 @@
   <a href="{{ url_for('admin.roles') }}" class="btn btn-secondary ms-2">{{ _('Role Management') }}</a>
   <a href="{{ url_for('admin.users') }}" class="btn btn-secondary ms-2">{{ _('User Management') }}</a>
   <a href="{{ url_for('admin.show_config') }}" class="btn btn-info ms-2">{{ _('Show Config Settings') }}</a>
-  
+
 </div>
+<form method="get" class="d-flex mb-3">
+  <input type="text" name="search" class="form-control me-2" placeholder="{{ _('Search by code') }}" value="{{ search }}">
+  <input type="hidden" name="sort" value="{{ sort }}">
+  <input type="hidden" name="order" value="{{ order }}">
+  <button type="submit" class="btn btn-outline-primary">{{ _('Search') }}</button>
+</form>
 <table class="table table-bordered">
   <thead>
     <tr>
-      <th>ID</th>
-      <th>{{ _('Code') }}</th>
+      <th><a href="{{ url_for('admin.permissions', search=search, sort='id', order='asc' if sort!='id' or order=='desc' else 'desc') }}">ID</a></th>
+      <th><a href="{{ url_for('admin.permissions', search=search, sort='code', order='asc' if sort!='code' or order=='desc' else 'desc') }}">{{ _('Code') }}</a></th>
       <th>{{ _('Actions') }}</th>
     </tr>
   </thead>

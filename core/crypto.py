@@ -1,6 +1,6 @@
 import base64
 import os
-from typing import Optional
+from typing import Optional, Tuple
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
@@ -9,20 +9,52 @@ _KEY_ENV = "OAUTH_TOKEN_KEY"
 _KEY_FILE_ENV = "OAUTH_TOKEN_KEY_FILE"
 
 
-def _load_key() -> bytes:
-    """Load 32-byte encryption key from env var or file."""
-    key_b64 = os.environ.get(_KEY_ENV)
-    if key_b64:
-        key = base64.urlsafe_b64decode(key_b64)
-    else:
-        path = os.environ.get(_KEY_FILE_ENV)
-        if not path:
-            raise RuntimeError("Encryption key not configured")
-        with open(path, "rb") as f:
-            key = base64.urlsafe_b64decode(f.read().strip())
+def _decode_key(raw: str) -> bytes:
+    """Decode a key string into 32 bytes.
+
+    Supports values prefixed with ``"base64:"`` as well as plain base64
+    strings.  Raises :class:`ValueError` if the key is invalid or the decoded
+    length is not 32 bytes.
+    """
+
+    if raw.startswith("base64:"):
+        raw = raw.split(":", 1)[1]
+    try:
+        key = base64.urlsafe_b64decode(raw)
+    except Exception as exc:  # pragma: no cover - defensive
+        raise ValueError(f"base64 decode failed: {exc}") from exc
     if len(key) != 32:
-        raise ValueError("AES-256-GCM key must be 32 bytes")
+        raise ValueError(f"invalid base64 length: {len(key)} bytes (32 required)")
     return key
+
+
+def validate_oauth_key(raw: str) -> Tuple[bool, str]:
+    """Validate OAuth encryption key string using ``_load_key`` logic."""
+
+    if not raw:
+        return False, "not set"
+    try:
+        _load_key(raw)  # will raise on error
+        return True, "base64(32bytes)"
+    except Exception as exc:  # pragma: no cover - defensive
+        return False, str(exc)
+
+def _load_key(raw: Optional[str] = None) -> bytes:
+    """Load 32-byte encryption key from a string, env var, or file."""
+
+    if raw is not None:
+        return _decode_key(raw)
+
+    key_str = os.environ.get(_KEY_ENV)
+    if key_str:
+        return _decode_key(key_str)
+
+    path = os.environ.get(_KEY_FILE_ENV)
+    if path:
+        with open(path, "r") as f:
+            return _decode_key(f.read().strip())
+
+    raise RuntimeError("Encryption key not configured")
 
 
 def encrypt(plaintext: str) -> str:

@@ -63,3 +63,22 @@ flask db downgrade base
 モデルを修正 → **1** に戻って再実行。
 
 
+## Configuration
+
+Configure via environment variables. Copy `.env.example` to `.env` (loaded automatically by `python-dotenv`).
+
+```bash
+cp .env.example .env
+# edit values
+```
+
+Show and validate:
+
+```bash
+fpv config show                # display with masking
+fpv config check               # basic validation
+fpv config check --strict-path # also verify path existence
+```
+
+`FPV_OAUTH_KEY` references the existing `OAUTH_TOKEN_KEY` (set `FPV_OAUTH_KEY=${OAUTH_TOKEN_KEY}` in `.env`). `OAUTH_TOKEN_KEY` should specify a 32-byte key in the form `base64:xxxxxxxxxx`.
+

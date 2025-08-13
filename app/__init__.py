@@ -46,6 +46,9 @@ def create_app():
     from .photo_view import bp as photo_view_bp
     app.register_blueprint(photo_view_bp, url_prefix="/photo-view")
 
+    from .api import bp as api_bp
+    app.register_blueprint(api_bp, url_prefix="/api")
+
     @app.after_request
     def add_time_header(response):
         response.headers["X-Server-Time"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")

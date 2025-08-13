@@ -35,15 +35,14 @@
         <span class="badge text-bg-secondary">{{ s }}</span>
         {% endfor %}
       </td>
-        <td>{{ a.last_synced_at or '-' }}</td>
-        <td>
-          {% if a.oauth_token_json %}
-          <span class="badge bg-success">OK</span>
-          {% else %}
-          <span class="badge bg-danger">NG</span>
-          {% endif %}
-        </td>
-        <td>{{ a.refresh_token_expires_at() or '-' }}</td>
+      <td>{{ a.last_synced_at or '-' }}</td>
+      <td>
+        {% if a.oauth_token_json %}
+        <span class="badge bg-success">OK</span>
+        {% else %}
+        <span class="badge bg-danger">NG</span>
+        {% endif %}
+      </td>
       <td>
         <div class="btn-group btn-group-sm" role="group" data-id="{{ a.id }}" data-scopes="{{ a.scopes }}">
           <a href="#" class="btn btn-outline-secondary btn-reauth">{{ _('Reauth') }}</a>

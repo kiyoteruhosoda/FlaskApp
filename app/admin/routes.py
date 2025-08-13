@@ -23,7 +23,7 @@ def show_config():
     from app.config import Config
     public_keys = [
         k for k in dir(Config)
-        if not k.startswith("_") and k.isupper() and k not in ("SECRET_KEY", "GOOGLE_CLIENT_SECRET")
+        if not k.startswith("_") and k.isupper() and k not in ("SECRET_KEY")
     ]
     config_dict = {k: getattr(Config, k) for k in public_keys}
     return render_template("admin/config_view.html", config=config_dict)

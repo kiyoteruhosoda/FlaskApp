@@ -170,7 +170,7 @@ def upgrade():
     )
     # ### end Alembic commands ###
     op.execute("INSERT INTO role (id, name) VALUES (1, 'admin'), (2, 'manager'), (3, 'member')")
-    op.execute("INSERT INTO permission (id, code) VALUES (1, 'admin.photo-settings'), (2, 'admin.job-settings'), (3, 'user:manage'), (4, 'album:create'), (5, 'album:edit'), (6, 'album:view'), (7, 'media:view')")
+    op.execute("INSERT INTO permission (id, code) VALUES (1, 'admin:photo-settings'), (2, 'admin:job-settings'), (3, 'user:manage'), (4, 'album:create'), (5, 'album:edit'), (6, 'album:view'), (7, 'media:view')")
     op.execute("INSERT INTO role_permissions (role_id, perm_id) VALUES (1, 1), (1, 2), (1, 3),(1,4),(1,5),(1,6),(1,7),(2,1),(2,4),(2,5),(2,6),(2,7),(3,6),(3,7)")
     op.execute("INSERT INTO user (id, email,  password_hash,created_at) VALUES (1, 'admin@example.com', 'scrypt:32768:8:1$7oTcIUdekNLXGSXC$fd0f3320bde4570c7e1ea9d9d289aeb916db7a50fb62489a7e89d99c6cc576813506fd99f50904101c1eb85ff925f8dc879df5ded781ef2613224d702938c9c8', NOW())")
     op.execute("INSERT INTO user_role (user_id, role_id) VALUES (1, 1)")

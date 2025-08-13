@@ -94,7 +94,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const resp = await fetch('{{ url_for("api.google_oauth_start") }}', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scopes: [], redirect: '{{ url_for("auth.google_accounts") }}' })
+          body: JSON.stringify({   scopes: [
+            'https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata',
+            'https://www.googleapis.com/auth/photoslibrary.appendonly',
+            'email'
+          ],
+          redirect: '{{ url_for("auth.google_accounts") }}' })
         });
         const data = await resp.json();
         if (data.auth_url) {

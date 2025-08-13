@@ -4,11 +4,12 @@ import json
 from core.db import db
 from core.crypto import decrypt
 
+BigInt = db.BigInteger().with_variant(db.Integer, "sqlite")
 
 class GoogleAccount(db.Model):
     __tablename__ = "google_account"
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(BigInt, primary_key=True, autoincrement=True)
     email = db.Column(db.String(255), unique=True, nullable=False)
     status = db.Column(db.String(20), nullable=False, default="active")
     scopes = db.Column(db.Text, nullable=False)

@@ -31,6 +31,7 @@ def create_app():
     from core.models import user as _user  # noqa: F401
     from core.models import google_account as _google_account  # noqa: F401
     from core.models import photo_models as _photo_models    # noqa: F401
+    from core.models import job_sync as _job_sync    # noqa: F401
 
 
     # Blueprint 登録

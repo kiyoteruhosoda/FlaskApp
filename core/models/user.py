@@ -5,31 +5,33 @@ from webapp.extensions import login_manager
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
+# Define BIGINT type compatible with SQLite auto increment
+BigInt = db.BigInteger().with_variant(db.Integer, "sqlite")
 
 # --- 中間テーブル ---
 user_roles = db.Table(
     "user_roles",
-    db.Column("user_id", db.Integer, db.ForeignKey("user.id"), primary_key=True),
-    db.Column("role_id", db.Integer, db.ForeignKey("role.id"), primary_key=True),
+    db.Column("user_id", BigInt, db.ForeignKey("user.id"), primary_key=True),
+    db.Column("role_id", BigInt, db.ForeignKey("role.id"), primary_key=True),
 )
 
 role_permissions = db.Table(
     "role_permissions",
-    db.Column("role_id", db.Integer, db.ForeignKey("role.id"), primary_key=True),
-    db.Column("perm_id", db.Integer, db.ForeignKey("permission.id"), primary_key=True),
+    db.Column("role_id", BigInt, db.ForeignKey("role.id"), primary_key=True),
+    db.Column("perm_id", BigInt, db.ForeignKey("permission.id"), primary_key=True),
 )
 
 class Role(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(BigInt, primary_key=True, autoincrement=True)
     name = db.Column(db.String(80), unique=True, nullable=False)  # 'admin' 等
     permissions = db.relationship("Permission", secondary=role_permissions, backref="roles")
 
 class Permission(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(BigInt, primary_key=True, autoincrement=True)
     code = db.Column(db.String(120), unique=True, nullable=False)  # 'reservation:create' 等
 
 class User(db.Model, UserMixin):
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(BigInt, primary_key=True, autoincrement=True)
     email = db.Column(db.String(255), unique=True, index=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

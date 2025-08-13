@@ -53,8 +53,48 @@ flask db downgrade 6d1ad4f0b9ax
 
 #### ■ すべてのマイグレーションを取り消して初期状態に戻す場合
 
+
+```SQL
+SET FOREIGN_KEY_CHECKS = 0;
+
+DROP TABLE IF EXISTS album;
+DROP TABLE IF EXISTS album_item;
+DROP TABLE IF EXISTS exif;
+DROP TABLE IF EXISTS google_account;
+DROP TABLE IF EXISTS media;
+DROP TABLE IF EXISTS media_playback;
+DROP TABLE IF EXISTS media_sidecar;
+DROP TABLE IF EXISTS media_tag;
+DROP TABLE IF EXISTS permission;
+DROP TABLE IF EXISTS role;
+DROP TABLE IF EXISTS role_permissions;
+DROP TABLE IF EXISTS tag;
+DROP TABLE IF EXISTS user;
+DROP TABLE IF EXISTS user_roles;
+DROP TABLE IF EXISTS job_sync;
+DROP TABLE IF EXISTS alembic_version;
+
+SET FOREIGN_KEY_CHECKS = 1;
+```
+
 ```bash
-flask db downgrade base
+flask db migrate -m "base"
+```
+
+出来たマイグレーションファイルのdef upgrade():末尾に以下を追記
+
+```python
+    op.execute("INSERT INTO role (id, name) VALUES (1, 'admin'), (2, 'manager'), (3, 'member')")
+    op.execute(
+        "INSERT INTO permission (id, code) VALUES " \
+        "(1, 'admin:photo-settings'), (2, 'admin:job-settings'), (3, 'user:manage'), (4, 'album:create'), (5, 'album:edit'), " \
+        "(6, 'album:view'), (7, 'media:view'), (8, 'permission:manage'), (9, 'role:manage'), (10, 'system:manage')")
+    op.execute(
+        "INSERT INTO role_permissions (role_id, perm_id) VALUES " \
+        "(1, 1), (1, 2), (1, 3), (1, 4), (1, 5)," \
+        "(1, 6), (1, 7), (2, 1), (2, 4), (2, 5), (2, 6), (2, 7), (3, 6), (3, 7)")
+    op.execute("INSERT INTO user (id, email,  password_hash,created_at) VALUES (1, 'admin@example.com', 'scrypt:32768:8:1$7oTcIUdekNLXGSXC$fd0f3320bde4570c7e1ea9d9d289aeb916db7a50fb62489a7e89d99c6cc576813506fd99f50904101c1eb85ff925f8dc879df5ded781ef2613224d702938c9c8', NOW())")
+    op.execute("INSERT INTO user_roles (user_id, role_id) VALUES (1, 1)")
 ```
 
 

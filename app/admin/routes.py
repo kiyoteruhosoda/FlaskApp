@@ -125,8 +125,26 @@ def permissions():
     if not current_user.can('permission:manage'):
         flash(_("You do not have permission to access this page."), "error")
         return redirect(url_for("index"))
-    perms = Permission.query.all()
-    return render_template("admin/permissions.html", permissions=perms)
+    search = request.args.get("search", "").strip()
+    sort = request.args.get("sort", "id")
+    order = request.args.get("order", "asc")
+
+    query = Permission.query
+    if search:
+        query = query.filter(Permission.code.contains(search))
+
+    if sort not in ["id", "code"]:
+        sort = "id"
+    sort_column = getattr(Permission, sort)
+    if order == "desc":
+        sort_column = sort_column.desc()
+    else:
+        sort_column = sort_column.asc()
+
+    perms = query.order_by(sort_column).all()
+    return render_template(
+        "admin/permissions.html", permissions=perms, search=search, sort=sort, order=order
+    )
 
 
 @bp.route("/permissions/add", methods=["GET", "POST"])

@@ -31,3 +31,6 @@ Thumbs.db
 migrations/versions/__pycache__/
 
 *:[Zz]one.Identifier
+
+# 管理外
+tmp/

@@ -1,6 +1,6 @@
 # PhotoNest CLI (`fpv`)
 
-最小のCLIスケルトン。`fpv --help` が表示でき、各サブコマンドのヘルプも出ます。
+Minimal CLI skeleton. `fpv --help` shows the help screen and subcommand usage.
 
 ## Install (editable)
 
@@ -9,20 +9,20 @@ cd cli
 python -m pip install -e .
 ```
 
-## Sync (外形テスト: dry-run)
+## Sync (dry-run outline)
 
-まずはDDL適用と設定チェック:
+First apply the DDL and check configuration:
 
 ```bash
 fpv config check
 ```
 
-dry-run 実行（ジョブ履歴が記録され、構造化ログが出ます）:
+Run dry-run (records job history and outputs structured logs):
 
 ```bash
 fpv sync --dry-run
-# 単一IDのみ:
+# Single account only:
 # fpv sync --single-account --account-id 1 --dry-run
 ```
 
-`--no-dry-run` は次ステップ以降（実API実装）で有効になります。
+`--no-dry-run` will be effective in later steps when the actual API implementation is added.

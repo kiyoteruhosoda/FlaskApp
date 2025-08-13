@@ -1,4 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timedelta
+import json
+
 from ..extensions import db
 
 
@@ -19,3 +21,25 @@ class GoogleAccount(db.Model):
         if not self.scopes:
             return []
         return [s.strip() for s in self.scopes.split(",") if s.strip()]
+
+    def refresh_token_expires_at(self):
+        """Return refresh token expiry timestamp in ISO format if available."""
+        if not self.oauth_token_json:
+            return None
+        try:
+            data = json.loads(self.oauth_token_json)
+        except Exception:
+            return None
+
+        expiry = data.get("refresh_token_expires_at") or data.get("refresh_token_expiry")
+        if expiry:
+            return expiry
+
+        expires_in = data.get("refresh_token_expires_in")
+        if expires_in:
+            try:
+                base = self.last_synced_at or datetime.utcnow()
+                return (base + timedelta(seconds=int(expires_in))).isoformat()
+            except Exception:
+                return None
+        return None

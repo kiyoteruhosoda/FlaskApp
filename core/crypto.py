@@ -3,11 +3,38 @@ import os
 from typing import Optional
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from typing import Tuple
 
 
 _KEY_ENV = "OAUTH_TOKEN_KEY"
 _KEY_FILE_ENV = "OAUTH_TOKEN_KEY_FILE"
 
+
+def validate_oauth_key(raw: str) -> Tuple[bool, str]:
+    """Validate OAuth encryption key string.
+
+    Accepts either ``"base64:<b64>"`` where decoded length is 32 bytes or an
+    arbitrary string of length at least 32 characters.  Returns ``(ok, why)``
+    tuple for use by config validators.
+    """
+
+    if not raw:
+        return False, "未設定"
+
+    if raw.startswith("base64:"):
+        b64 = raw.split(":", 1)[1]
+        try:
+            key = base64.urlsafe_b64decode(b64)
+        except Exception as exc:  # pragma: no cover - defensive
+            return False, f"base64デコード失敗: {exc}"
+        if len(key) == 32:
+            return True, "base64(32bytes)"
+        return False, f"base64長さが不正: {len(key)} bytes (32必要)"
+
+    if len(raw) >= 32:
+        return True, "文字長>=32"
+
+    return False, "32文字未満"
 
 def _load_key() -> bytes:
     """Load 32-byte encryption key from env var or file."""

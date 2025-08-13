@@ -63,3 +63,22 @@ flask db downgrade base
 モデルを修正 → **1** に戻って再実行。
 
 
+## Configuration
+
+環境変数で設定します。`.env.example` をコピーして `.env` を作成してください（python-dotenv は使わず、標準の環境変数で読み込みます）。
+
+```bash
+cp .env.example .env
+# 値を編集
+```
+
+表示と検証:
+
+```bash
+fpv config show          # マスク付きで表示
+fpv config check         # 形式検証（既定）
+fpv config check --strict-path   # パス存在チェックも実施
+```
+
+`FPV_OAUTH_KEY` は `base64:<32bytes>` を推奨（AES-256鍵）。あるいは暫定で32文字以上の文字列でも可。
+

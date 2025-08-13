@@ -162,11 +162,29 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.btn-test').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
-      const id = e.target.closest('[data-id]')?.dataset.id;
+      const target = e.currentTarget;
+      if (target.dataset.loading) return;
+      const id = target.closest('[data-id]')?.dataset.id;
       if (!id) return;
-      const resp = await fetch(`/api/google/accounts/${id}/test`, { method: 'POST' });
-      const data = await resp.json();
-      alert(data.result || data.error || 'OK');
+      target.dataset.loading = 'true';
+      target.classList.add('disabled');
+      const spinner = document.createElement('span');
+      spinner.className = 'spinner-border spinner-border-sm ms-1';
+      spinner.setAttribute('role', 'status');
+      spinner.setAttribute('aria-hidden', 'true');
+      target.appendChild(spinner);
+      try {
+        const resp = await fetch(`/api/google/accounts/${id}/test`, { method: 'POST' });
+        const data = await resp.json();
+        alert(data.result || data.error || 'OK');
+      } catch (err) {
+        console.error(err);
+        alert('Test failed');
+      } finally {
+        spinner.remove();
+        target.classList.remove('disabled');
+        delete target.dataset.loading;
+      }
     });
   });
 });

@@ -1,8 +1,12 @@
 from __future__ import annotations
 from typing import Optional, Dict, Any, List
-from sqlalchemy import text
+from datetime import datetime
+from sqlalchemy.orm import Session
+
 from .db import get_engine_from_env
 from .logs import log, new_trace_id
+from core.models.google_account import GoogleAccount
+from core.models.job_sync import JobSync
 
 
 def run_sync(all_accounts: bool = True,
@@ -14,33 +18,29 @@ def run_sync(all_accounts: bool = True,
     trace = new_trace_id()
     eng = get_engine_from_env()
 
-    # アカウント抽出
-    sql = "SELECT id, account_email, oauth_token_json FROM google_account WHERE status='active'"
-    params: Dict[str, Any] = {}
-    if not all_accounts and account_id is not None:
-        sql += " AND id=:id"
-        params["id"] = account_id
+    # アカウント抽出 (ORM)
+    with Session(eng) as session:
+        query = session.query(GoogleAccount).filter(GoogleAccount.status == "active")
+        if not all_accounts and account_id is not None:
+            query = query.filter(GoogleAccount.id == account_id)
+        accounts: List[GoogleAccount] = query.all()
 
-    with eng.connect() as conn:
-        rows = conn.execute(text(sql), params).fetchall()
-
-    if not rows:
+    if not accounts:
         log("sync.no_accounts", trace=trace)
         return 0
 
     overall_failed = 0
 
-    for r in rows:
-        aid, email, token_json = int(r[0]), r[1], r[2]
+    for acc in accounts:
+        aid, email, token_json = int(acc.id), acc.email, acc.oauth_token_json
         log("sync.account.begin", trace=trace, account_id=aid, email=email, dry_run=dry_run)
 
-        # ジョブ開始
-        with eng.begin() as conn:
-            job_id = conn.execute(
-                text("INSERT INTO job_sync (target, account_id, started_at, status, stats_json) "
-                     "VALUES ('google_photos', :aid, UTC_TIMESTAMP(), 'running', :stats)"),
-                {"aid": aid, "stats": "{}"}
-            ).lastrowid
+        # ジョブ開始 (ORM)
+        with Session(eng) as session:
+            job = JobSync(target="google_photos", account_id=aid, status="running")
+            session.add(job)
+            session.commit()
+            job_id = job.id
 
         # ダミー処理（dry-run）: 3件処理した体で統計を出す
         stats: Dict[str, Any] = {"new": 3, "dup": 0, "failed": 0}
@@ -61,13 +61,14 @@ def run_sync(all_accounts: bool = True,
             log("sync.account.error", trace=trace, account_id=aid, error=str(e))
             overall_failed += 1
         finally:
-            # ジョブ終了
-            with eng.begin() as conn:
-                conn.execute(
-                    text("UPDATE job_sync SET finished_at=UTC_TIMESTAMP(), status=:st, stats_json=:js "
-                         "WHERE account_id=:aid AND id=:jid"),
-                    {"st": status, "js": json_dumps(stats), "aid": aid, "jid": job_id}
-                )
+            # ジョブ終了 (ORM)
+            with Session(eng) as session:
+                job = session.get(JobSync, job_id)
+                if job:
+                    job.finished_at = datetime.utcnow()
+                    job.status = status
+                    job.stats_json = json_dumps(stats)
+                    session.commit()
         log("sync.account.end", trace=trace, account_id=aid, status=status, stats=stats)
 
     if overall_failed:

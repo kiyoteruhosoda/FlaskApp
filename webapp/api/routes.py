@@ -19,8 +19,8 @@ from flask_babel import gettext as _
 
 from . import bp
 from ..extensions import db
-from ..models.google_account import GoogleAccount
-from ..crypto import decrypt, encrypt
+from core.models.google_account import GoogleAccount
+from core.crypto import decrypt, encrypt
 
 
 

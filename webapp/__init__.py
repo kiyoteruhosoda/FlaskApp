@@ -28,9 +28,9 @@ def create_app():
 
 
     # モデル import（migrate 用に認識させる）
-    from .models import user as _user  # noqa: F401
-    from .models import google_account as _google_account  # noqa: F401
-    from .models import photo_models as _photo_models    # noqa: F401
+    from core.models import user as _user  # noqa: F401
+    from core.models import google_account as _google_account  # noqa: F401
+    from core.models import photo_models as _photo_models    # noqa: F401
 
 
     # Blueprint 登録

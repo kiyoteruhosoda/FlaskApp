@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 
 from ..extensions import db
@@ -13,8 +13,8 @@ class GoogleAccount(db.Model):
     scopes = db.Column(db.Text, nullable=False)
     last_synced_at = db.Column(db.DateTime, nullable=True)
     oauth_token_json = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     def scopes_list(self):
         """Return scopes as list."""
@@ -38,7 +38,7 @@ class GoogleAccount(db.Model):
         expires_in = data.get("refresh_token_expires_in")
         if expires_in:
             try:
-                base = self.last_synced_at or datetime.utcnow()
+                base = self.last_synced_at or datetime.now(timezone.utc)
                 return (base + timedelta(seconds=int(expires_in))).isoformat()
             except Exception:
                 return None

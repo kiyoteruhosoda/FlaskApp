@@ -5,6 +5,7 @@ from rich.table import Table
 
 from .version import __version__
 from .config import PhotoNestConfig
+from .sync import run_sync
 
 
 console = Console()
@@ -78,23 +79,21 @@ def config_check(
 # existing commands
 
 
-@app.command(help="Sync Google Photos (multi-account)")
+@app.command(help="Google Photos 差分取得（複数アカウント対応, dry-run可）")
 def sync(
-    all_accounts: bool = typer.Option(
-        True,
-        "--all-accounts/--single-account",
-        help="Process all active accounts (default: True)",
-    ),
-    account_id: Optional[int] = typer.Option(
-        None, "--account-id", help="Process a single account by ID"
-    ),
+    all_accounts: bool = typer.Option(True, "--all-accounts/--single-account",
+                                      help="すべてのactiveアカウントを処理（既定: True）"),
+    account_id: Optional[int] = typer.Option(None, "--account-id", help="単一アカウントIDを指定する場合に利用"),
+    dry_run: bool = typer.Option(True, "--dry-run/--no-dry-run",
+                                 help="外形のみ（DBにjob記録し、実ダウンロードなし）。既定: --dry-run"),
 ) -> None:
     cfg = PhotoNestConfig.from_env()
     _, errs = cfg.validate()
     if errs:
-        console.print("[red]Configuration error[/]: " + "; ".join(errs))
+        console.print("[red]設定エラー[/]: " + "; ".join(errs))
         raise typer.Exit(1)
-    console.print("[cyan]TODO[/]: implement sync")
+    code = run_sync(all_accounts=all_accounts, account_id=account_id, dry_run=dry_run)
+    raise typer.Exit(code)
 
 
 @app.command("import", help="Import existing local files (fixed directory)")

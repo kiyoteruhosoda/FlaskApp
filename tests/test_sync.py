@@ -2,9 +2,13 @@ import json
 from datetime import datetime
 from typing import List
 
-from sqlalchemy import create_engine, text, event
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import Session
 
 from fpv.sync import run_sync
+from core.db import db
+from core.models.google_account import GoogleAccount
+from core.models.job_sync import JobSync
 
 
 def _setup_engine(with_account: bool = True):
@@ -16,35 +20,18 @@ def _setup_engine(with_account: bool = True):
             "UTC_TIMESTAMP", 0, lambda: datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
         )
 
-    with engine.begin() as conn:
-        conn.execute(text(
-            """
-            CREATE TABLE google_account (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                account_email TEXT,
-                oauth_token_json TEXT,
-                status TEXT
+    db.Model.metadata.create_all(engine)
+
+    if with_account:
+        with Session(engine) as session:
+            account = GoogleAccount(
+                email="test@example.com",
+                scopes="",
+                status="active",
+                oauth_token_json="{}",
             )
-            """
-        ))
-        conn.execute(text(
-            """
-            CREATE TABLE job_sync (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                target TEXT,
-                account_id INTEGER,
-                started_at TEXT,
-                finished_at TEXT,
-                status TEXT,
-                stats_json TEXT
-            )
-            """
-        ))
-        if with_account:
-            conn.execute(text(
-                "INSERT INTO google_account (account_email, oauth_token_json, status) "
-                "VALUES ('test@example.com', '{}', 'active')"
-            ))
+            session.add(account)
+            session.commit()
     return engine
 
 
@@ -64,10 +51,10 @@ def test_run_sync_dry_run(monkeypatch, capsys):
     assert events.count("sync.dryrun.item") == 3
     assert events[-2] == "sync.account.end"
     assert events[-1] == "sync.done"
-    with engine.connect() as conn:
-        row = conn.execute(text("SELECT status, stats_json FROM job_sync")).fetchone()
-        assert row[0] == "success"
-        assert json.loads(row[1]) == {"new": 3, "dup": 0, "failed": 0}
+    with Session(engine) as session:
+        job = session.query(JobSync).one()
+        assert job.status == "success"
+        assert json.loads(job.stats_json) == {"new": 3, "dup": 0, "failed": 0}
 
 
 def test_run_sync_no_accounts(monkeypatch, capsys):
@@ -77,6 +64,6 @@ def test_run_sync_no_accounts(monkeypatch, capsys):
     assert code == 0
     events = _collect_events(capsys.readouterr().out)
     assert events == ["sync.no_accounts"]
-    with engine.connect() as conn:
-        rows = conn.execute(text("SELECT * FROM job_sync")).fetchall()
+    with Session(engine) as session:
+        rows = session.query(JobSync).all()
         assert rows == []

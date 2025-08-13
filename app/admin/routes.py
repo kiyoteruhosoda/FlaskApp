@@ -3,11 +3,30 @@ from flask import Blueprint, render_template, flash, redirect, url_for, request
 from ..extensions import db
 from flask_login import login_required, current_user
 from flask_babel import gettext as _
+
 from ..models.user import User, Role
+
 
 bp = Blueprint("admin", __name__, template_folder="templates")
 
+
 # --- ここから各ルート定義 ---
+
+
+# Config表示ページ（管理者のみ）
+@bp.route("/config")
+@login_required
+def show_config():
+    if not (hasattr(current_user, 'has_role') and current_user.has_role("admin")):
+        return _(u"You do not have permission to access this page."), 403
+    # Only show public config values, not secrets
+    from app.config import Config
+    public_keys = [
+        k for k in dir(Config)
+        if not k.startswith("_") and k.isupper() and k not in ("SECRET_KEY", "GOOGLE_CLIENT_SECRET")
+    ]
+    config_dict = {k: getattr(Config, k) for k in public_keys}
+    return render_template("admin/config_view.html", config=config_dict)
 
 # TOTPリセット
 @bp.route("/users/<int:user_id>/reset_totp", methods=["POST"])

@@ -2,7 +2,7 @@
 # Each class represents a table in the database
 
 
-from ..extensions import db
+from core.db import db
 
 # --- 中間テーブル ---
 album_item = db.Table(

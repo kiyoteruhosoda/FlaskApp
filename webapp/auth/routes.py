@@ -6,9 +6,9 @@ from flask_login import login_user, logout_user, login_required, current_user
 from flask_babel import gettext as _
 from . import bp
 from ..extensions import db
-from ..models.user import User
-from ..models.google_account import GoogleAccount
-from ..crypto import encrypt
+from core.models.user import User
+from core.models.google_account import GoogleAccount
+from core.crypto import encrypt
 from .totp import new_totp_secret, verify_totp, provisioning_uri, qr_code_data_uri
 
 @bp.route("/login", methods=["GET", "POST"])
@@ -52,7 +52,7 @@ def register():
 
 @bp.route("/register/totp", methods=["GET", "POST"])
 def register_totp():
-    from ..models.user import Role
+    from core.models.user import Role
     email = session.get("reg_email")
     password = session.get("reg_password")
     secret = session.get("reg_secret")
@@ -90,7 +90,7 @@ def register_totp():
 
 @bp.route("/register/no_totp", methods=["GET", "POST"])
 def register_no_totp():
-    from ..models.user import Role
+    from core.models.user import Role
     if request.method == "POST":
         email = request.form.get("email")
         password = request.form.get("password")

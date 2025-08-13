@@ -4,7 +4,7 @@ from ..extensions import db
 from flask_login import login_required, current_user
 from flask_babel import gettext as _
 
-from ..models.user import User, Role, Permission
+from core.models.user import User, Role, Permission
 
 
 bp = Blueprint("admin", __name__, template_folder="templates")

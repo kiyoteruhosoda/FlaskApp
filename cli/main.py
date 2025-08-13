@@ -1,5 +1,5 @@
 import click
-from mylib import utils
+from core import utils
 
 @click.command()
 @click.argument('name', default='World')

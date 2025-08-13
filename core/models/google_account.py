@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta, timezone
 import json
 
-from ..extensions import db
-from ..crypto import decrypt
+from core.db import db
+from core.crypto import decrypt
 
 
 class GoogleAccount(db.Model):

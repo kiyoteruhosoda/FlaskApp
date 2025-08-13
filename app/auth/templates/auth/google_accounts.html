@@ -10,12 +10,13 @@
 <table class="table table-striped">
   <thead>
     <tr>
-      <th>{{ _('Email') }}</th>
-      <th>{{ _('Status') }}</th>
-      <th>{{ _('Scopes') }}</th>
-      <th>{{ _('Last Synced') }}</th>
-      <th>{{ _('Token') }}</th>
-      <th>{{ _('Actions') }}</th>
+        <th>{{ _('Email') }}</th>
+        <th>{{ _('Status') }}</th>
+        <th>{{ _('Scopes') }}</th>
+        <th>{{ _('Last Synced') }}</th>
+        <th>{{ _('Token') }}</th>
+        <th>{{ _('Refresh Token Expiry') }}</th>
+        <th>{{ _('Actions') }}</th>
     </tr>
   </thead>
   <tbody>
@@ -34,20 +35,21 @@
         <span class="badge text-bg-secondary">{{ s }}</span>
         {% endfor %}
       </td>
-      <td>{{ a.last_synced_at or '-' }}</td>
+        <td>{{ a.last_synced_at or '-' }}</td>
+        <td>
+          {% if a.oauth_token_json %}
+          <span class="badge bg-success">OK</span>
+          {% else %}
+          <span class="badge bg-danger">NG</span>
+          {% endif %}
+        </td>
+        <td>{{ a.refresh_token_expires_at() or '-' }}</td>
       <td>
-        {% if a.oauth_token_json %}
-        <span class="badge bg-success">OK</span>
-        {% else %}
-        <span class="badge bg-danger">NG</span>
-        {% endif %}
-      </td>
-      <td>
-        <div class="btn-group btn-group-sm" role="group">
-          <a href="#" class="btn btn-outline-secondary">{{ _('Reauth') }}</a>
-          <a href="#" class="btn btn-outline-secondary">{{ _('Disable') }}</a>
-          <a href="#" class="btn btn-outline-secondary">{{ _('Delete') }}</a>
-          <a href="#" class="btn btn-outline-secondary">{{ _('Test') }}</a>
+        <div class="btn-group btn-group-sm" role="group" data-id="{{ a.id }}" data-scopes="{{ a.scopes }}">
+          <a href="#" class="btn btn-outline-secondary btn-reauth">{{ _('Reauth') }}</a>
+          <a href="#" class="btn btn-outline-secondary btn-disable">{{ _('Disable') }}</a>
+          <a href="#" class="btn btn-outline-secondary btn-delete">{{ _('Delete') }}</a>
+          <a href="#" class="btn btn-outline-secondary btn-test">{{ _('Test') }}</a>
         </div>
       </td>
     </tr>
@@ -75,6 +77,59 @@ document.getElementById('btn-add-account').addEventListener('click', async funct
   if (data.auth_url) {
     window.location.href = data.auth_url;
   }
+});
+
+document.querySelectorAll('.btn-reauth').forEach(btn => {
+  btn.addEventListener('click', async e => {
+    e.preventDefault();
+    const group = e.target.closest('[data-id]');
+    const scopes = (group.dataset.scopes || '').split(',').map(s => s.trim()).filter(s => s);
+    const resp = await fetch('{{ url_for("api.google_oauth_start") }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scopes, redirect: '{{ url_for("auth.google_accounts") }}' })
+    });
+    const data = await resp.json();
+    if (data.auth_url) {
+      window.location.href = data.auth_url;
+    }
+  });
+});
+
+document.querySelectorAll('.btn-disable').forEach(btn => {
+  btn.addEventListener('click', async e => {
+    e.preventDefault();
+    const id = e.target.closest('[data-id]').dataset.id;
+    const resp = await fetch(`/api/google/accounts/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'disabled' })
+    });
+    if (resp.ok) {
+      location.reload();
+    }
+  });
+});
+
+document.querySelectorAll('.btn-delete').forEach(btn => {
+  btn.addEventListener('click', async e => {
+    e.preventDefault();
+    const id = e.target.closest('[data-id]').dataset.id;
+    const resp = await fetch(`/api/google/accounts/${id}`, { method: 'DELETE' });
+    if (resp.ok) {
+      location.reload();
+    }
+  });
+});
+
+document.querySelectorAll('.btn-test').forEach(btn => {
+  btn.addEventListener('click', async e => {
+    e.preventDefault();
+    const id = e.target.closest('[data-id]').dataset.id;
+    const resp = await fetch(`/api/google/accounts/${id}/test`, { method: 'POST' });
+    const data = await resp.json();
+    alert(data.result || data.error);
+  });
 });
 </script>
 {% endblock %}

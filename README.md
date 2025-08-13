@@ -14,7 +14,7 @@ pybabel compile -d webapp/translations -f
 ## Google OAuth Token Encryption
 
 `google_account.oauth_token_json` は AES-256-GCM で暗号化して保存します。
-`OAUTH_TOKEN_KEY`（Base64）または `OAUTH_TOKEN_KEY_FILE` で 32 バイト鍵を指定してください。
+`OAUTH_TOKEN_KEY`（Base64）または `OAUTH_TOKEN_KEY_FILE` / `FPV_OAUTH_TOKEN_KEY_FILE` で 32 バイト鍵を指定してください。
 鍵は OS の KMS もしくは鍵ファイルで管理できます。
 
 ## Flask-Migrate マイグレーション手順
@@ -80,5 +80,5 @@ fpv config check               # basic validation
 fpv config check --strict-path # also verify path existence
 ```
 
-`FPV_OAUTH_KEY` references the existing `OAUTH_TOKEN_KEY` (set `FPV_OAUTH_KEY=${OAUTH_TOKEN_KEY}` in `.env`). `OAUTH_TOKEN_KEY` should specify a 32-byte key in the form `base64:xxxxxxxxxx`.
+`FPV_OAUTH_KEY` references the existing `OAUTH_TOKEN_KEY` (set `FPV_OAUTH_KEY=${OAUTH_TOKEN_KEY}` in `.env`). Alternatively, specify `FPV_OAUTH_TOKEN_KEY_FILE` to load the key from a file (e.g. `FPV_OAUTH_TOKEN_KEY_FILE=${OAUTH_TOKEN_KEY_FILE}`). `OAUTH_TOKEN_KEY` should specify a 32-byte key in the form `base64:xxxxxxxxxx`.
 

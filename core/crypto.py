@@ -7,6 +7,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 _KEY_ENV = "OAUTH_TOKEN_KEY"
 _KEY_FILE_ENV = "OAUTH_TOKEN_KEY_FILE"
+_FPV_KEY_FILE_ENV = "FPV_OAUTH_TOKEN_KEY_FILE"
 
 
 def _decode_key(raw: str) -> bytes:
@@ -49,7 +50,7 @@ def _load_key(raw: Optional[str] = None) -> bytes:
     if key_str:
         return _decode_key(key_str)
 
-    path = os.environ.get(_KEY_FILE_ENV)
+    path = os.environ.get(_KEY_FILE_ENV) or os.environ.get(_FPV_KEY_FILE_ENV)
     if path:
         with open(path, "r") as f:
             return _decode_key(f.read().strip())

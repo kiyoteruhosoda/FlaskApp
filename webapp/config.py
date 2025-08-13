@@ -31,4 +31,6 @@ class Config:
 
     # Encryption for OAuth tokens
     OAUTH_TOKEN_KEY = os.environ.get("OAUTH_TOKEN_KEY")
-    OAUTH_TOKEN_KEY_FILE = os.environ.get("OAUTH_TOKEN_KEY_FILE")
+    OAUTH_TOKEN_KEY_FILE = os.environ.get("OAUTH_TOKEN_KEY_FILE") or os.environ.get(
+        "FPV_OAUTH_TOKEN_KEY_FILE"
+    )

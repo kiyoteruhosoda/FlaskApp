@@ -4,7 +4,7 @@ from ..extensions import db
 from flask_login import login_required, current_user
 from flask_babel import gettext as _
 
-from ..models.user import User, Role
+from ..models.user import User, Role, Permission
 
 
 bp = Blueprint("admin", __name__, template_folder="templates")
@@ -117,3 +117,145 @@ def users():
     users = User.query.all()
     roles = Role.query.all()
     return render_template("admin/admin_users.html", users=users, roles=roles)
+
+
+@bp.route("/permissions", methods=["GET"])
+@login_required
+def permissions():
+    if not current_user.can('permission:manage'):
+        flash(_("You do not have permission to access this page."), "error")
+        return redirect(url_for("index"))
+    perms = Permission.query.all()
+    return render_template("admin/permissions.html", permissions=perms)
+
+
+@bp.route("/permissions/add", methods=["GET", "POST"])
+@login_required
+def permission_add():
+    if not current_user.can('permission:manage'):
+        flash(_("You do not have permission to access this page."), "error")
+        return redirect(url_for("index"))
+    if request.method == "POST":
+        code = request.form.get("code")
+        if not code:
+            flash(_("Code is required."), "error")
+            return render_template("admin/permission_edit.html", permission=None)
+        if Permission.query.filter_by(code=code).first():
+            flash(_("Permission already exists."), "error")
+            return render_template("admin/permission_edit.html", permission=None)
+        p = Permission(code=code)
+        db.session.add(p)
+        db.session.commit()
+        flash(_("Permission created successfully."), "success")
+        return redirect(url_for("admin.permissions"))
+    return render_template("admin/permission_edit.html", permission=None)
+
+
+@bp.route("/permissions/<int:perm_id>/edit", methods=["GET", "POST"])
+@login_required
+def permission_edit(perm_id):
+    if not current_user.can('permission:manage'):
+        flash(_("You do not have permission to access this page."), "error")
+        return redirect(url_for("index"))
+    perm = Permission.query.get_or_404(perm_id)
+    if request.method == "POST":
+        code = request.form.get("code")
+        if not code:
+            flash(_("Code is required."), "error")
+            return render_template("admin/permission_edit.html", permission=perm)
+        perm.code = code
+        db.session.commit()
+        flash(_("Permission updated."), "success")
+        return redirect(url_for("admin.permissions"))
+    return render_template("admin/permission_edit.html", permission=perm)
+
+
+@bp.route("/permissions/<int:perm_id>/delete", methods=["POST"])
+@login_required
+def permission_delete(perm_id):
+    if not current_user.can('permission:manage'):
+        flash(_("You do not have permission to access this page."), "error")
+        return redirect(url_for("index"))
+    perm = Permission.query.get_or_404(perm_id)
+    db.session.delete(perm)
+    db.session.commit()
+    flash(_("Permission deleted."), "success")
+    return redirect(url_for("admin.permissions"))
+
+
+@bp.route("/roles", methods=["GET"])
+@login_required
+def roles():
+    if not current_user.can('role:manage'):
+        flash(_("You do not have permission to access this page."), "error")
+        return redirect(url_for("index"))
+    roles = Role.query.all()
+    return render_template("admin/roles.html", roles=roles)
+
+
+@bp.route("/roles/add", methods=["GET", "POST"])
+@login_required
+def role_add():
+    if not current_user.can('role:manage'):
+        flash(_("You do not have permission to access this page."), "error")
+        return redirect(url_for("index"))
+    permissions = Permission.query.all()
+    if request.method == "POST":
+        name = request.form.get("name")
+        perm_ids = request.form.getlist("permissions")
+        if not name:
+            flash(_("Name is required."), "error")
+            return render_template("admin/role_edit.html", role=None, permissions=permissions, selected=[])
+        if Role.query.filter_by(name=name).first():
+            flash(_("Role already exists."), "error")
+            return render_template("admin/role_edit.html", role=None, permissions=permissions, selected=[])
+        role = Role(name=name)
+        for pid in perm_ids:
+            perm = Permission.query.get(int(pid))
+            if perm:
+                role.permissions.append(perm)
+        db.session.add(role)
+        db.session.commit()
+        flash(_("Role created successfully."), "success")
+        return redirect(url_for("admin.roles"))
+    return render_template("admin/role_edit.html", role=None, permissions=permissions, selected=[])
+
+
+@bp.route("/roles/<int:role_id>/edit", methods=["GET", "POST"])
+@login_required
+def role_edit(role_id):
+    if not current_user.can('role:manage'):
+        flash(_("You do not have permission to access this page."), "error")
+        return redirect(url_for("index"))
+    role = Role.query.get_or_404(role_id)
+    permissions = Permission.query.all()
+    if request.method == "POST":
+        name = request.form.get("name")
+        perm_ids = request.form.getlist("permissions")
+        if not name:
+            flash(_("Name is required."), "error")
+            return render_template("admin/role_edit.html", role=role, permissions=permissions, selected=[p.id for p in role.permissions])
+        role.name = name
+        role.permissions = []
+        for pid in perm_ids:
+            perm = Permission.query.get(int(pid))
+            if perm:
+                role.permissions.append(perm)
+        db.session.commit()
+        flash(_("Role updated."), "success")
+        return redirect(url_for("admin.roles"))
+    selected = [p.id for p in role.permissions]
+    return render_template("admin/role_edit.html", role=role, permissions=permissions, selected=selected)
+
+
+@bp.route("/roles/<int:role_id>/delete", methods=["POST"])
+@login_required
+def role_delete(role_id):
+    if not current_user.can('role:manage'):
+        flash(_("You do not have permission to access this page."), "error")
+        return redirect(url_for("index"))
+    role = Role.query.get_or_404(role_id)
+    db.session.delete(role)
+    db.session.commit()
+    flash(_("Role deleted."), "success")
+    return redirect(url_for("admin.roles"))

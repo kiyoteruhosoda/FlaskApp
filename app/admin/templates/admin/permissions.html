@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Permission Management') }}{% endblock %}
+{% block content %}
+<h2>{{ _('Permission Management') }}</h2>
+<div class="mb-3">
+  <a href="{{ url_for('admin.permission_add') }}" class="btn btn-success">{{ _('Add Permission') }}</a>
+  <a href="{{ url_for('admin.roles') }}" class="btn btn-secondary ms-2">{{ _('Role Management') }}</a>
+  <a href="{{ url_for('admin.users') }}" class="btn btn-secondary ms-2">{{ _('User Management') }}</a>
+  <a href="{{ url_for('admin.show_config') }}" class="btn btn-info ms-2">{{ _('Show Config Settings') }}</a>
+  
+</div>
+<table class="table table-bordered">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>{{ _('Code') }}</th>
+      <th>{{ _('Actions') }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for perm in permissions %}
+    <tr>
+      <td>{{ perm.id }}</td>
+      <td>{{ perm.code }}</td>
+      <td>
+        <a href="{{ url_for('admin.permission_edit', perm_id=perm.id) }}" class="btn btn-primary btn-sm">{{ _('Edit') }}</a>
+        <form method="post" action="{{ url_for('admin.permission_delete', perm_id=perm.id) }}" class="d-inline" onsubmit="return confirm('{{ _('Are you sure you want to delete this permission?') }}');">
+          <button type="submit" class="btn btn-danger btn-sm">{{ _('Delete') }}</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
+

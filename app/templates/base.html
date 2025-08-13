@@ -41,6 +41,16 @@
             <a class="nav-link" href="{{ url_for('admin.users') }}">{{ _('User Management') }}</a>
           </li>
           {% endif %}
+          {% if current_user.can('role:manage') %}
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('admin.roles') }}">{{ _('Role Management') }}</a>
+          </li>
+          {% endif %}
+          {% if current_user.can('permission:manage') %}
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('admin.permissions') }}">{{ _('Permission Management') }}</a>
+          </li>
+          {% endif %}
           <li class="nav-item">
             <a class="nav-link" href="{{ url_for('auth.logout') }}">{{ _('Logout') }}</a>
           </li>

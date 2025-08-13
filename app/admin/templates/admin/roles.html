@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Role Management') }}{% endblock %}
+{% block content %}
+<h2>{{ _('Role Management') }}</h2>
+<div class="mb-3">
+  <a href="{{ url_for('admin.role_add') }}" class="btn btn-success">{{ _('Add Role') }}</a>
+  <a href="{{ url_for('admin.permissions') }}" class="btn btn-secondary ms-2">{{ _('Permission Management') }}</a>
+  <a href="{{ url_for('admin.users') }}" class="btn btn-secondary ms-2">{{ _('User Management') }}</a>
+  <a href="{{ url_for('admin.show_config') }}" class="btn btn-info ms-2">{{ _('Show Config Settings') }}</a>
+</div>
+<table class="table table-bordered">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>{{ _('Name') }}</th>
+      <th>{{ _('Permissions') }}</th>
+      <th>{{ _('Actions') }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for role in roles %}
+    <tr>
+      <td>{{ role.id }}</td>
+      <td>{{ role.name }}</td>
+      <td>
+        {% for perm in role.permissions %}
+          <span class="badge bg-secondary">{{ perm.code }}</span>
+        {% endfor %}
+      </td>
+      <td>
+        <a href="{{ url_for('admin.role_edit', role_id=role.id) }}" class="btn btn-primary btn-sm">{{ _('Edit') }}</a>
+        <form method="post" action="{{ url_for('admin.role_delete', role_id=role.id) }}" class="d-inline" onsubmit="return confirm('{{ _('Are you sure you want to delete this role?') }}');">
+          <button type="submit" class="btn btn-danger btn-sm">{{ _('Delete') }}</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
+

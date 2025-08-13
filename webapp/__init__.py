@@ -1,4 +1,4 @@
-# app/__init__.py
+# webapp/__init__.py
 import os
 from flask import Flask, request, redirect, url_for, render_template, make_response, flash
 from dotenv import load_dotenv

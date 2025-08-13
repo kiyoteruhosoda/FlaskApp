@@ -20,7 +20,7 @@ def show_config():
     if not (hasattr(current_user, 'has_role') and current_user.has_role("admin")):
         return _(u"You do not have permission to access this page."), 403
     # Only show public config values, not secrets
-    from app.config import Config
+    from webapp.config import Config
     public_keys = [
         k for k in dir(Config)
         if not k.startswith("_") and k.isupper() and k not in ("SECRET_KEY")

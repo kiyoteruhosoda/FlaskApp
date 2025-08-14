@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from .db import get_engine_from_env
 from .logs import log, new_trace_id
+from .config import PhotoNestConfig
+from . import google
 from core.models.google_account import GoogleAccount
 from core.models.job_sync import JobSync
 
@@ -17,6 +19,7 @@ def run_sync(all_accounts: bool = True,
     """
     trace = new_trace_id()
     eng = get_engine_from_env()
+    cfg = PhotoNestConfig.from_env()
 
     # アカウント抽出 (ORM)
     with Session(eng) as session:
@@ -43,25 +46,50 @@ def run_sync(all_accounts: bool = True,
             job_id = job.id
 
         # ダミー処理（dry-run）: 3件処理した体で統計を出す
-        stats: Dict[str, Any] = {"new": 3, "dup": 0, "failed": 0}
+        stats: Dict[str, Any] = {"listed": 0, "new": 0, "dup": 0, "failed": 0}
         status = "success"
 
-        # 例外処理の雛形（将来: API/IOエラーで failed/partial 更新）
         try:
             if dry_run:
-                # ここでは何もしない（ログだけ）
                 for i in range(1, 4):
                     log("sync.dryrun.item", trace=trace, account_id=aid, idx=i)
+                stats["listed"] = 3
             else:
-                # 次ステップで実装: token refresh -> list media -> download -> insert ...
-                pass
+                token, meta = google.refresh_access_token(
+                    token_json, cfg.oauth_key, cfg.google_client_id, cfg.google_client_secret
+                )
+                log(
+                    "sync.token.ok",
+                    trace=trace,
+                    account_id=aid,
+                    expires_in=meta.get("expires_in", 0),
+                )
+                page = google.list_media_items_once(token, page_size=100)
+                items = page.get("mediaItems") or []
+                stats["listed"] = len(items)
+                log(
+                    "sync.list.ok",
+                    trace=trace,
+                    account_id=aid,
+                    listed=len(items),
+                    nextPageToken=bool(page.get("nextPageToken")),
+                )
+        except google.ReauthRequired as e:
+            status = "failed"
+            overall_failed += 1
+            stats["failed"] += 1
+            log(
+                "sync.account.reauth_required",
+                trace=trace,
+                account_id=aid,
+                error=str(e),
+            )
         except Exception as e:
             status = "failed"
-            stats["failed"] = 1
-            log("sync.account.error", trace=trace, account_id=aid, error=str(e))
             overall_failed += 1
+            stats["failed"] += 1
+            log("sync.account.error", trace=trace, account_id=aid, error=str(e))
         finally:
-            # ジョブ終了 (ORM)
             with Session(eng) as session:
                 job = session.get(JobSync, job_id)
                 if job:

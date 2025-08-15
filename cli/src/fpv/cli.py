@@ -2,10 +2,15 @@ from typing import Optional
 import typer
 from rich.console import Console
 from rich.table import Table
+from sqlalchemy.orm import Session
+import httpx
 
 from .version import __version__
 from .config import PhotoNestConfig
 from .sync import run_sync
+from .db import get_engine_from_env
+from . import google
+from core.models.google_account import GoogleAccount
 
 
 console = Console()
@@ -20,6 +25,10 @@ app = typer.Typer(
 # sub-app: config
 config_app = typer.Typer(name="config", help="Show and validate configuration")
 app.add_typer(config_app, name="config")
+
+# sub-app: google
+google_app = typer.Typer(name="google", help="Google Photos diagnostics")
+app.add_typer(google_app, name="google")
 
 
 @app.callback()
@@ -73,6 +82,72 @@ def config_check(
         console.print("[red]ERROR[/] " + " | ".join(errs))
         raise typer.Exit(code=1)
     console.print("[green]OK[/] Configuration is valid")
+
+
+# ---------------------------------------------------------------------------
+# google subcommands
+
+
+@google_app.command("tokeninfo", help="Show token info for an account")
+def google_tokeninfo(
+    account_id: int = typer.Option(..., "--account-id", help="Target account ID"),
+) -> None:
+    cfg = PhotoNestConfig.from_env()
+    _, errs = cfg.validate()
+    if errs:
+        console.print("[red]Configuration error[/]: " + "; ".join(errs))
+        raise typer.Exit(1)
+    eng = get_engine_from_env()
+    with Session(eng) as session:
+        acc = session.get(GoogleAccount, account_id)
+        if not acc:
+            console.print(f"[red]Account {account_id} not found")
+            raise typer.Exit(1)
+        token_json = acc.oauth_token_json
+    token, _meta = google.refresh_access_token(
+        token_json,
+        cfg.oauth_key,
+        cfg.google_client_id,
+        cfg.google_client_secret,
+    )
+    info = google.tokeninfo(token)
+    console.print_json(data=info)
+
+
+@google_app.command(
+    "diagnose-list", help="Call /mediaItems and show JSON error body"
+)
+def google_diagnose_list(
+    account_id: int = typer.Option(..., "--account-id", help="Target account ID"),
+) -> None:
+    cfg = PhotoNestConfig.from_env()
+    _, errs = cfg.validate()
+    if errs:
+        console.print("[red]Configuration error[/]: " + "; ".join(errs))
+        raise typer.Exit(1)
+    eng = get_engine_from_env()
+    with Session(eng) as session:
+        acc = session.get(GoogleAccount, account_id)
+        if not acc:
+            console.print(f"[red]Account {account_id} not found")
+            raise typer.Exit(1)
+        token_json = acc.oauth_token_json
+    token, _meta = google.refresh_access_token(
+        token_json,
+        cfg.oauth_key,
+        cfg.google_client_id,
+        cfg.google_client_secret,
+    )
+    try:
+        page = google.list_media_items_once(token, page_size=1)
+        console.print_json(data=page)
+    except httpx.HTTPStatusError as e:
+        ct = e.response.headers.get("content-type", "")
+        if ct.startswith("application/json"):
+            console.print_json(data=e.response.json())
+        else:
+            console.print(e.response.text)
+        raise typer.Exit(1)
 
 
 # ---------------------------------------------------------------------------

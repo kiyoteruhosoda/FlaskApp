@@ -141,3 +141,14 @@ def list_media_items_once(
         r = client.get(url, params=params)
     r.raise_for_status()
     return r.json()
+
+
+def tokeninfo(access_token: str, timeout_sec: float = 10.0) -> Dict[str, Any]:
+    """Return token info for an access token."""
+    url = "https://oauth2.googleapis.com/tokeninfo"
+    params = {"access_token": access_token}
+    headers = {"User-Agent": UA}
+    with httpx.Client(timeout=timeout_sec, headers=headers) as client:
+        r = client.get(url, params=params)
+    r.raise_for_status()
+    return r.json()

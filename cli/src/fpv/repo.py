@@ -3,8 +3,8 @@ from typing import Dict, Any, List
 import os, json
 from sqlalchemy import create_engine, select, insert, update, text
 from sqlalchemy.engine import Engine
-from .schema import google_account, job_sync, media, media_playback, exif as exif_tbl
-
+from core.models import google_account, job_sync, photo_models, media_playback, exif as exif_tbl
+from .config import PhotoNestConfig
 
 def get_engine(env: Dict[str, str] | None = None) -> Engine:
     env = env or os.environ
@@ -65,7 +65,7 @@ def finalize_job(
 
 
 def media_exists_by_hash(engine: Engine, hash_hex: str) -> bool:
-    stmt = select(media.c.id).where(media.c.hash_sha256 == hash_hex).limit(1)
+    stmt = select(photo_models.Media.c.id).where(photo_models.Media.c.hash_sha256 == hash_hex).limit(1)
     with engine.begin() as conn:
         row = conn.execute(stmt).first()
     return row is not None
@@ -97,7 +97,7 @@ def insert_media(
     shot_at_utc,
     is_video: bool,
 ) -> int:
-    stmt = insert(media).values(
+    stmt = insert(photo_models.Media).values(
         google_media_id=google_media_id,
         account_id=account_id,
         local_rel_path=rel_path,
@@ -140,17 +140,6 @@ def upsert_exif(engine: Engine, media_id: int, raw_json: dict) -> None:
         gps_lat=gps_lat,
         gps_lng=gps_lng,
         raw_json=json.dumps(raw_json, ensure_ascii=False),
-    )
-    sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
-    ondup = (
-        " ON CONFLICT(media_id) DO UPDATE SET "
-        "camera_make=excluded.camera_make, "
-        "camera_model=excluded.camera_model, "
-        "lens=excluded.lens, iso=excluded.iso, shutter=excluded.shutter, "
-        "f_number=excluded.f_number, focal_len=excluded.focal_len, "
-        "gps_lat=excluded.gps_lat, gps_lng=excluded.gps_lng, raw_json=excluded.raw_json"
-    )
-    with engine.begin() as conn:
     ).on_conflict_do_update(
         index_elements=[exif_tbl.c.media_id],
         set_={

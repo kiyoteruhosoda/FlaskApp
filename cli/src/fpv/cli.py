@@ -154,30 +154,51 @@ def google_diagnose_list(
 # existing commands
 
 
-@app.command(help="Fetch Google Photos delta (multiple accounts, dry-run supported)")
+@app.command(
+    help="Google Photos 差分取得（複数アカウント対応, ページングDL/保存）"
+)
 def sync(
     all_accounts: bool = typer.Option(
         True,
         "--all-accounts/--single-account",
-        help="Process all active accounts (default: True)",
+        help="すべてのactiveアカウントを処理（既定: True）",
     ),
     account_id: Optional[int] = typer.Option(
         None,
         "--account-id",
-        help="Target a single account by ID",
+        help="単一アカウントIDを指定する場合に利用",
     ),
     dry_run: bool = typer.Option(
         True,
         "--dry-run/--no-dry-run",
-        help="Outline only (record job, no downloads). default: --dry-run",
+        help="外形のみ（既定: --dry-run）。--no-dry-runで実ダウンロード",
+    ),
+    page_size: int = typer.Option(
+        50,
+        "--page-size",
+        min=1,
+        max=100,
+        help="APIページサイズ（既定: 50）",
+    ),
+    max_pages: int = typer.Option(
+        1,
+        "--max-pages",
+        min=1,
+        help="取得ページ数の上限（既定: 1）",
     ),
 ) -> None:
     cfg = PhotoNestConfig.from_env()
     _, errs = cfg.validate()
     if errs:
-        console.print("[red]Configuration error[/]: " + "; ".join(errs))
+        console.print("[red]設定エラー[/]: " + "; ".join(errs))
         raise typer.Exit(1)
-    code = run_sync(all_accounts=all_accounts, account_id=account_id, dry_run=dry_run)
+    code = run_sync(
+        all_accounts=all_accounts,
+        account_id=account_id,
+        dry_run=dry_run,
+        page_size=page_size,
+        max_pages=max_pages,
+    )
     raise typer.Exit(code)
 
 

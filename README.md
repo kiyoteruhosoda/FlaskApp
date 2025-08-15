@@ -122,3 +122,18 @@ fpv config check --strict-path # also verify path existence
 
 `FPV_OAUTH_KEY` references the existing `OAUTH_TOKEN_KEY` (set `FPV_OAUTH_KEY=${OAUTH_TOKEN_KEY}` in `.env`). Alternatively, specify `FPV_OAUTH_TOKEN_KEY_FILE` to load the key from a file (e.g. `FPV_OAUTH_TOKEN_KEY_FILE=${OAUTH_TOKEN_KEY_FILE}`). `OAUTH_TOKEN_KEY` should specify a 32-byte key in the form `base64:xxxxxxxxxx`.
 
+## Sync 実行（ダウンロード→保存）
+
+```bash
+# まずは1ページだけ、実ダウンロード
+fpv sync --no-dry-run --page-size 50 --max-pages 1
+
+# ページ数を増やしていく場合
+fpv sync --no-dry-run --page-size 100 --max-pages 5
+```
+
+- 既存重複は `hash_sha256` でスキップされます。
+- 保存先は `originals/YYYY/MM/DD/` 以下、ファイル名は `YYYYMMDD_HHMMSS_gphotos_<hash8>.<ext>`。
+- 動画は `media_playback` に `queued` で登録されます（変換は `fpv transcode` 側で処理）。
+- 途中状態は `job_sync.stats_json.cursor.nextPageToken` に保持され、再実行で続きから再開します。
+

@@ -152,3 +152,13 @@ def tokeninfo(access_token: str, timeout_sec: float = 10.0) -> Dict[str, Any]:
         r = client.get(url, params=params)
     r.raise_for_status()
     return r.json()
+
+def build_download_url(base_url: str, mime_type: str) -> str:
+    """
+    Photos API の baseUrl からダウンロードURLを組み立てる。
+    画像: '=d' でオリジナル
+    動画: '=dv' で動画データ
+    """
+    if (mime_type or "").lower().startswith("video/"):
+        return f"{base_url}=dv"
+    return f"{base_url}=d"

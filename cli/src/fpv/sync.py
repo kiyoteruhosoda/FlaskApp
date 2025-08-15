@@ -151,7 +151,11 @@ def run_sync(
                                 upsert_exif(eng, m_id, meta_md)
 
                             if is_video:
-                                play_rel = rel.replace("originals/", "playback/") if "originals/" in rel else rel
+                                rel_path = Path(rel)
+                                parts = list(rel_path.parts)
+                                if parts and parts[0] == "originals":
+                                    parts[0] = "playback"
+                                play_rel = str(Path(*parts))
                                 if not play_rel.endswith(".mp4"):
                                     play_rel = play_rel.rsplit(".", 1)[0] + ".mp4"
                                 upsert_media_playback_queue(eng, m_id, play_rel)

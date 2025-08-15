@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import secrets
 from urllib.parse import urlencode
@@ -49,7 +49,7 @@ def google_oauth_start():
         "state": state,
     }
     auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode(params)
-    return jsonify({"auth_url": auth_url, "server_time": datetime.utcnow().isoformat()})
+    return jsonify({"auth_url": auth_url, "server_time": datetime.now(timezone.utc).isoformat()})
 
 
 
@@ -132,6 +132,6 @@ def api_google_account_test(account_id):
         return jsonify({"error": str(e)}), 500
     tokens.update(result)
     account.oauth_token_json = encrypt(json.dumps(tokens))
-    account.last_synced_at = datetime.utcnow()
+    account.last_synced_at = datetime.now(timezone.utc)
     db.session.commit()
     return jsonify({"result": "ok"})

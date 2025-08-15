@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from flask_login import UserMixin
 from core.db import db
 from webapp.extensions import login_manager
@@ -34,7 +34,7 @@ class User(db.Model, UserMixin):
     id = db.Column(BigInt, primary_key=True, autoincrement=True)
     email = db.Column(db.String(255), unique=True, index=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     totp_secret = db.Column(db.String(32), nullable=True)
 
     # 追加：ロール関連

@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
 
@@ -22,7 +23,6 @@ exif_tbl = Exif.__table__
 
 def _setup_engine(with_account: bool = True):
     engine = create_engine("sqlite:///:memory:", future=True)
-
     metadata.create_all(engine, tables=[google_account, job_sync, media, media_playback, exif_tbl])
 
     if with_account:

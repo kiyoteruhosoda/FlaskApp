@@ -3,6 +3,9 @@ from typing import Tuple, Optional
 from pathlib import Path
 import hashlib, os, shutil, time, httpx
 from .config import PhotoNestConfig
+import datetime
+import datetime as _dt
+from datetime import timezone
 
 UA = "PhotoNest/0.1 (fpv)"
 
@@ -41,9 +44,8 @@ def download_to_tmp(url: str, tmp_dir: Path, timeout: float = 60.0) -> Tuple[Pat
         size = tmp_path.stat().st_size
     return tmp_path, size, ctype
 
-def decide_relpath(shot_at_utc: Optional[datetime], src: str, hash_hex: str, ext: str) -> str:
-    import datetime as _dt
-    dt = shot_at_utc or _dt.datetime.utcnow()
+def decide_relpath(shot_at_utc: Optional[datetime.datetime], src: str, hash_hex: str, ext: str) -> str:
+    dt = shot_at_utc or _dt.datetime.now(timezone.utc)
     y, m, d = dt.year, dt.month, dt.day
     hash8 = hash_hex[:8]
     fname = f"{dt.strftime('%Y%m%d_%H%M%S')}_{src}_{hash8}.{ext}"

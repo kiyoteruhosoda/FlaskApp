@@ -1,7 +1,7 @@
 from flask import render_template, request, redirect, url_for, flash, session, current_app
 import requests
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_babel import gettext as _
 from . import bp
@@ -225,7 +225,7 @@ def google_oauth_callback():
         account.scopes = ",".join(scopes)
         account.status = "active"
     account.oauth_token_json = encrypt(json.dumps(tokens))
-    account.last_synced_at = datetime.utcnow()
+    account.last_synced_at = datetime.now(timezone.utc)
     db.session.commit()
 
     redirect_to = saved.get("redirect") or url_for("auth.google_accounts")

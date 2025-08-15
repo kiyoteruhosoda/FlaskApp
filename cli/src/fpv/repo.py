@@ -1,14 +1,26 @@
 from __future__ import annotations
-from typing import Dict, Any, List
-import os, json
-from sqlalchemy import create_engine, select, insert, update, text
+from typing import Any, Dict
+import json
+from datetime import datetime, timezone
+from sqlalchemy import create_engine, select, insert, update
 from sqlalchemy.engine import Engine
-from core.models import google_account, job_sync, photo_models, media_playback, exif as exif_tbl
+from sqlalchemy.exc import IntegrityError
+from core.models.google_account import GoogleAccount
+from core.models.job_sync import JobSync
+from core.models.photo_models import Media, MediaPlayback, Exif
 from .config import PhotoNestConfig
 
-def get_engine(env: Dict[str, str] | None = None) -> Engine:
-    env = env or os.environ
-    url = env.get("FPV_DB_URL") or env.get("DATABASE_URI")
+
+google_account = GoogleAccount.__table__
+job_sync = JobSync.__table__
+media = Media.__table__
+media_playback = MediaPlayback.__table__
+exif_tbl = Exif.__table__
+
+
+def get_engine(cfg: PhotoNestConfig | None = None) -> Engine:
+    cfg = cfg or PhotoNestConfig.from_env()
+    url = cfg.db_url
     if not url:
         raise RuntimeError("FPV_DB_URL or DATABASE_URI not set")
     return create_engine(url, future=True)
@@ -17,7 +29,7 @@ def get_engine(env: Dict[str, str] | None = None) -> Engine:
 def get_active_accounts(engine: Engine, account_id: int | None = None):
     stmt = select(
         google_account.c.id,
-        google_account.c.account_email,
+        google_account.c.email,
         google_account.c.oauth_token_json,
     ).where(google_account.c.status == "active")
     if account_id is not None:
@@ -32,7 +44,6 @@ def create_job(engine: Engine, *, account_id: int, target: str) -> int:
         account_id=account_id,
         target=target,
         status="running",
-        created_at=text("UTC_TIMESTAMP()"),
     )
     with engine.begin() as conn:
         res = conn.execute(stmt)
@@ -57,7 +68,7 @@ def finalize_job(
             update(job_sync)
             .where(job_sync.c.id == job_id)
             .values(
-                finished_at=text("UTC_TIMESTAMP()"),
+                finished_at=datetime.now(timezone.utc),
                 status=status,
                 stats_json=json.dumps(cur, ensure_ascii=False),
             )
@@ -65,7 +76,7 @@ def finalize_job(
 
 
 def media_exists_by_hash(engine: Engine, hash_hex: str) -> bool:
-    stmt = select(photo_models.Media.c.id).where(photo_models.Media.c.hash_sha256 == hash_hex).limit(1)
+    stmt = select(media.c.id).where(media.c.hash_sha256 == hash_hex).limit(1)
     with engine.begin() as conn:
         row = conn.execute(stmt).first()
     return row is not None
@@ -97,7 +108,7 @@ def insert_media(
     shot_at_utc,
     is_video: bool,
 ) -> int:
-    stmt = insert(photo_models.Media).values(
+    stmt = insert(media).values(
         google_media_id=google_media_id,
         account_id=account_id,
         local_rel_path=rel_path,
@@ -108,7 +119,7 @@ def insert_media(
         height=height,
         duration_ms=duration_ms,
         shot_at=shot_at_utc,
-        imported_at=text("UTC_TIMESTAMP()"),
+        imported_at=datetime.now(timezone.utc),
         is_video=1 if is_video else 0,
         is_deleted=0,
         has_playback=0,
@@ -128,35 +139,29 @@ def upsert_exif(engine: Engine, media_id: int, raw_json: dict) -> None:
     fnum = photo.get("apertureFNumber")
     focal = photo.get("focalLength")
     gps_lat = gps_lng = None
-    stmt = insert(exif_tbl).values(
-        media_id=media_id,
-        camera_make=make,
-        camera_model=model,
-        lens=lens,
-        iso=iso,
-        shutter=shutter,
-        f_number=fnum,
-        focal_len=focal,
-        gps_lat=gps_lat,
-        gps_lng=gps_lng,
-        raw_json=json.dumps(raw_json, ensure_ascii=False),
-    ).on_conflict_do_update(
-        index_elements=[exif_tbl.c.media_id],
-        set_={
-            "camera_make": stmt.excluded.camera_make,
-            "camera_model": stmt.excluded.camera_model,
-            "lens": stmt.excluded.lens,
-            "iso": stmt.excluded.iso,
-            "shutter": stmt.excluded.shutter,
-            "f_number": stmt.excluded.f_number,
-            "focal_len": stmt.excluded.focal_len,
-            "gps_lat": stmt.excluded.gps_lat,
-            "gps_lng": stmt.excluded.gps_lng,
-            "raw_json": stmt.excluded.raw_json,
-        }
-    )
+    values = {
+        "media_id": media_id,
+        "camera_make": make,
+        "camera_model": model,
+        "lens": lens,
+        "iso": iso,
+        "shutter": shutter,
+        "f_number": fnum,
+        "focal_len": focal,
+        "gps_lat": gps_lat,
+        "gps_lng": gps_lng,
+        "raw_json": json.dumps(raw_json, ensure_ascii=False),
+    }
+    stmt = insert(exif_tbl).values(values)
     with engine.begin() as conn:
-        conn.execute(stmt)
+        try:
+            conn.execute(stmt)
+        except IntegrityError:
+            conn.execute(
+                update(exif_tbl)
+                .where(exif_tbl.c.media_id == media_id)
+                .values(values)
+            )
 
 
 def update_job_stats(engine: Engine, job_id: int, **delta_counts) -> None:

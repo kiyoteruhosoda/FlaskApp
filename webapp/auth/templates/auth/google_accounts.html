@@ -95,6 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({   scopes: [
+            'https://www.googleapis.com/auth/photospicker.mediaitems.readonly',
             'https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata',
             'https://www.googleapis.com/auth/photoslibrary.appendonly',
             'email'

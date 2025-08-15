@@ -31,6 +31,21 @@ def run_sync(
     page_size: int = 50,
     max_pages: int = 1,
 ) -> int:
+    """Synchronize media items from Google Photos.
+
+    Parameters
+    ----------
+    all_accounts: bool
+        Process all active accounts when ``True``.
+    account_id: Optional[int]
+        Target a single account when provided.
+    dry_run: bool
+        Skip downloads when ``True``.
+    page_size: int
+        Page size to request from the API.
+    max_pages: int
+        Maximum number of pages to retrieve.
+    """
     trace = new_trace_id()
     eng = get_engine()
     cfg = PhotoNestConfig.from_env()

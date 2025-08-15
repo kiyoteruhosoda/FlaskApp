@@ -1,4 +1,5 @@
 import base64
+import json
 import os
 from typing import Optional, Tuple
 
@@ -58,10 +59,12 @@ def _load_key(raw: Optional[str] = None) -> bytes:
     raise RuntimeError("Encryption key not configured")
 
 
-def encrypt(plaintext: str) -> str:
+def encrypt(plaintext: str, *, envelope: bool = True) -> str:
     """Encrypt text using AES-256-GCM.
 
-    Returns base64 encoded nonce + ciphertext.
+    When ``envelope`` is ``True`` (default), returns a JSON envelope that
+    matches the format expected by the CLI.  If ``False`` it returns the
+    legacy ``nonce+ciphertext`` base64 string for backwards compatibility.
     """
     if plaintext is None:
         return ""
@@ -69,14 +72,35 @@ def encrypt(plaintext: str) -> str:
     aesgcm = AESGCM(key)
     nonce = os.urandom(12)
     ct = aesgcm.encrypt(nonce, plaintext.encode("utf-8"), None)
+    if envelope:
+        env = {
+            "alg": "AES-256-GCM",
+            "nonce": base64.b64encode(nonce).decode("utf-8"),
+            "ct": base64.b64encode(ct).decode("utf-8"),
+        }
+        return json.dumps(env)
     return base64.urlsafe_b64encode(nonce + ct).decode("utf-8")
 
 
 def decrypt(token: Optional[str]) -> str:
-    """Decrypt base64 encoded nonce + ciphertext."""
+    """Decrypt a token produced by :func:`encrypt`.
+
+    Supports both the JSON envelope format and the legacy ``nonce+ciphertext``
+    base64 format.
+    """
     if not token:
         return ""
     key = _load_key()
+    try:
+        env = json.loads(token)
+        if isinstance(env, dict) and env.get("alg") == "AES-256-GCM":
+            nonce = base64.b64decode(env["nonce"])
+            ct = base64.b64decode(env["ct"])
+            aesgcm = AESGCM(key)
+            return aesgcm.decrypt(nonce, ct, None).decode("utf-8")
+    except Exception:
+        pass
+
     raw = base64.urlsafe_b64decode(token.encode("utf-8"))
     nonce, ct = raw[:12], raw[12:]
     aesgcm = AESGCM(key)

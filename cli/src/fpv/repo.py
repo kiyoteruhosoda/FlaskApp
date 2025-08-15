@@ -151,7 +151,23 @@ def upsert_exif(engine: Engine, media_id: int, raw_json: dict) -> None:
         "gps_lat=excluded.gps_lat, gps_lng=excluded.gps_lng, raw_json=excluded.raw_json"
     )
     with engine.begin() as conn:
-        conn.exec_driver_sql(sql + ondup)
+    ).on_conflict_do_update(
+        index_elements=[exif_tbl.c.media_id],
+        set_={
+            "camera_make": stmt.excluded.camera_make,
+            "camera_model": stmt.excluded.camera_model,
+            "lens": stmt.excluded.lens,
+            "iso": stmt.excluded.iso,
+            "shutter": stmt.excluded.shutter,
+            "f_number": stmt.excluded.f_number,
+            "focal_len": stmt.excluded.focal_len,
+            "gps_lat": stmt.excluded.gps_lat,
+            "gps_lng": stmt.excluded.gps_lng,
+            "raw_json": stmt.excluded.raw_json,
+        }
+    )
+    with engine.begin() as conn:
+        conn.execute(stmt)
 
 
 def update_job_stats(engine: Engine, job_id: int, **delta_counts) -> None:

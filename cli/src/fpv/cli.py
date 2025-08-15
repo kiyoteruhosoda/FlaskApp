@@ -190,7 +190,7 @@ def sync(
     cfg = PhotoNestConfig.from_env()
     _, errs = cfg.validate()
     if errs:
-        console.print("[red]設定エラー[/]: " + "; ".join(errs))
+        console.print("[red]設定エラー[/]: ", "; ".join(errs))
         raise typer.Exit(1)
     code = run_sync(
         all_accounts=all_accounts,

@@ -47,8 +47,8 @@ def run_sync(
         Maximum number of pages to retrieve.
     """
     trace = new_trace_id()
-    eng = get_engine()
     cfg = PhotoNestConfig.from_env()
+    eng = get_engine(cfg)
 
     accounts = get_active_accounts(eng, account_id=None if all_accounts else account_id)
     if not accounts:
@@ -58,7 +58,7 @@ def run_sync(
     overall_failed = 0
 
     for acc in accounts:
-        aid, email, enc = int(acc["id"]), acc["account_email"], acc["oauth_token_json"]
+        aid, email, enc = int(acc["id"]), acc["email"], acc["oauth_token_json"]
         log("sync.account.begin", trace=trace, account_id=aid, email=email, dry_run=dry_run)
 
         job_id = create_job(eng, account_id=aid, target="google_photos")

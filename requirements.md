@@ -326,7 +326,7 @@ CREATE TABLE user (
 -- Googleアカウント（複数対応）
 CREATE TABLE google_account (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  account_email VARCHAR(191) NOT NULL UNIQUE,
+  email VARCHAR(191) NOT NULL UNIQUE,
   oauth_token_json LONGTEXT NOT NULL,
   status ENUM('active','disabled') NOT NULL DEFAULT 'active',
   last_synced_at DATETIME NULL
@@ -411,7 +411,7 @@ erDiagram
 
   google_account {
     BIGINT id PK
-    VARCHAR account_email
+    VARCHAR email
     LONGTEXT oauth_token_json
     ENUM status
     DATETIME last_synced_at

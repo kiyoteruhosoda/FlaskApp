@@ -32,7 +32,7 @@ fpv sync --dry-run
 1) 事前に DB へ `google_account` を1件投入（開発初期は **平文JSON** でも可）:
 
 ```sql
-INSERT INTO google_account (account_email, oauth_token_json, status)
+INSERT INTO google_account (email, oauth_token_json, status)
 VALUES (
   'you@example.com',
   '{"refresh_token":"<実際のRefreshToken>"}',

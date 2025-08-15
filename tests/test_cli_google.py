@@ -25,7 +25,7 @@ def _base_env(tmp_path):
 
 def _setup_engine():
     engine = create_engine("sqlite:///:memory:", future=True)
-    db.Model.metadata.create_all(engine)
+    db.Model.metadata.create_all(engine, tables=[GoogleAccount.__table__])
     with Session(engine) as session:
         acc = GoogleAccount(email="a@b", scopes="", status="active", oauth_token_json="{}")
         session.add(acc)

@@ -1,34 +1,37 @@
 import json
-from datetime import datetime
 from pathlib import Path
-import json
 from typing import List
 
-from sqlalchemy import create_engine, event, insert, select, func
+from sqlalchemy import create_engine, insert, select, func
 
 from fpv.sync import run_sync
 from fpv.config import PhotoNestConfig
 from fpv import google
-from fpv.schema import metadata, google_account, job_sync, media, media_playback
+from core.db import db
+from core.models.google_account import GoogleAccount
+from core.models.job_sync import JobSync
+from core.models.photo_models import Media, MediaPlayback, Exif
+
+metadata = db.metadata
+google_account = GoogleAccount.__table__
+job_sync = JobSync.__table__
+media = Media.__table__
+media_playback = MediaPlayback.__table__
+exif_tbl = Exif.__table__
 
 
 def _setup_engine(with_account: bool = True):
     engine = create_engine("sqlite:///:memory:", future=True)
 
-    @event.listens_for(engine, "connect")
-    def _connect(dbapi_connection, connection_record):
-        dbapi_connection.create_function(
-            "UTC_TIMESTAMP", 0, lambda: datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-        )
-
-    metadata.create_all(engine)
+    metadata.create_all(engine, tables=[google_account, job_sync, media, media_playback, exif_tbl])
 
     if with_account:
         with engine.begin() as conn:
             conn.execute(
                 insert(google_account).values(
                     id=1,
-                    account_email="test@example.com",
+                    email="test@example.com",
+                    scopes="",
                     oauth_token_json="{}",
                     status="active",
                 )
@@ -43,7 +46,7 @@ def _collect_events(output: str) -> List[str]:
 
 def test_run_sync_dry_run(monkeypatch, capsys, tmp_path):
     engine = _setup_engine(with_account=True)
-    monkeypatch.setattr("fpv.sync.get_engine", lambda: engine)
+    monkeypatch.setattr("fpv.sync.get_engine", lambda cfg: engine)
     cfg = PhotoNestConfig(
         db_url="",
         nas_orig_dir=str(tmp_path / "orig"),
@@ -72,7 +75,7 @@ def test_run_sync_dry_run(monkeypatch, capsys, tmp_path):
 
 def test_run_sync_download_and_dedup(monkeypatch, tmp_path, capsys):
     engine = _setup_engine(with_account=True)
-    monkeypatch.setattr("fpv.sync.get_engine", lambda: engine)
+    monkeypatch.setattr("fpv.sync.get_engine", lambda cfg: engine)
 
     cfg = PhotoNestConfig(
         db_url="",

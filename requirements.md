@@ -694,6 +694,7 @@ flowchart LR
 * 推奨パラメータ：`access_type=offline`、`prompt=consent`（初回の確実なリフレッシュトークン発行のため）、`include_granted_scopes=true`。
 * スコープ選択（2025年以降の安全案）
 
+  * **Picker選択メディア読み取り**：`https://www.googleapis.com/auth/photospicker.mediaitems.readonly`
   * **読み取り（アプリ作成分のみ）**：`https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata`
   * **アップロード/作成**：`https://www.googleapis.com/auth/photoslibrary.appendonly`
   * **ユーザー識別**（メール取得）：`openid email`

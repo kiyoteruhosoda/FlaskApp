@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Photo Picker') }}{% endblock %}
+
+{% block content %}
+<h2>{{ _('Photo Picker') }}</h2>
+<p><a href="{{ picker_uri }}" target="_blank" rel="noopener">{{ _('Open Photo Picker') }}</a></p>
+<img src="{{ qr_data }}" alt="QR Code" class="mt-3">
+{% endblock %}

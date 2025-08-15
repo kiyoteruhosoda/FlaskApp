@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from sqlalchemy.orm import Session
+import httpx
 
 from .db import get_engine_from_env
 from .logs import log, new_trace_id
@@ -56,13 +57,19 @@ def run_sync(all_accounts: bool = True,
                 stats["listed"] = 3
             else:
                 token, meta = google.refresh_access_token(
-                    token_json, cfg.oauth_key, cfg.google_client_id, cfg.google_client_secret
+                    token_json,
+                    cfg.oauth_key,
+                    cfg.google_client_id,
+                    cfg.google_client_secret,
                 )
                 log(
                     "sync.token.ok",
                     trace=trace,
                     account_id=aid,
                     expires_in=meta.get("expires_in", 0),
+                    token_type=meta.get("token_type"),
+                    scope=meta.get("scope"),
+                    token_preview=f"{token[:8]}...",
                 )
                 page = google.list_media_items_once(token, page_size=100)
                 items = page.get("mediaItems") or []
@@ -83,6 +90,18 @@ def run_sync(all_accounts: bool = True,
                 trace=trace,
                 account_id=aid,
                 error=str(e),
+            )
+        except httpx.HTTPStatusError as e:
+            status = "failed"
+            overall_failed += 1
+            stats["failed"] += 1
+            log(
+                "sync.account.error",
+                trace=trace,
+                account_id=aid,
+                error=str(e),
+                status_code=e.response.status_code,
+                response=e.response.text[:200],
             )
         except Exception as e:
             status = "failed"

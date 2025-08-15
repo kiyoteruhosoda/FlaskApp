@@ -161,16 +161,7 @@ def upsert_exif(engine: Engine, media_id: int, raw_json: dict) -> None:
                 update(exif_tbl)
                 .where(exif_tbl.c.media_id == media_id)
                 .values(values)
-    stmt = (
-        insert(exif_tbl)
-        .values(values)
-        .on_conflict_do_update(
-            index_elements=[exif_tbl.c.media_id],
-            set_=values,
-        )
-    )
-    with engine.begin() as conn:
-        conn.execute(stmt)
+            )
 
 
 def update_job_stats(engine: Engine, job_id: int, **delta_counts) -> None:

@@ -98,7 +98,7 @@ def decrypt(token: Optional[str]) -> str:
             ct = base64.b64decode(env["ct"])
             aesgcm = AESGCM(key)
             return aesgcm.decrypt(nonce, ct, None).decode("utf-8")
-    except Exception:
+    except (json.JSONDecodeError, KeyError, ValueError):
         pass
 
     raw = base64.urlsafe_b64decode(token.encode("utf-8"))

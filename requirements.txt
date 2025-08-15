@@ -12,3 +12,5 @@ requests
 cryptography
 click
 pytest
+httpx
+typer

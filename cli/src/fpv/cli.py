@@ -182,3 +182,7 @@ def clean(
         raise typer.Exit(1)
     console.print(f"[cyan]TODO[/]: clean (tmp={tmp}, days={days})")
 
+
+# Typerアプリのエントリーポイント
+if __name__ == "__main__":
+    app()

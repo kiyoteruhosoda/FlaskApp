@@ -44,9 +44,6 @@ def create_app():
     from .admin.routes import bp as admin_bp
     app.register_blueprint(admin_bp, url_prefix="/admin")
 
-    from .photo_view import bp as photo_view_bp
-    app.register_blueprint(photo_view_bp, url_prefix="/photo-view")
-
     from .api import bp as api_bp
     app.register_blueprint(api_bp, url_prefix="/api")
 

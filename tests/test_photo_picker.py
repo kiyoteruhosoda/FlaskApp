@@ -62,7 +62,7 @@ def test_picker_route(monkeypatch, client, app):
         raise AssertionError("unexpected url" + url)
 
     monkeypatch.setattr("requests.post", fake_post)
-    res = client.get("/photo-view/picker/1")
+    res = client.get("/auth/picker/1")
     assert b"https://picker.example" in res.data
 
 

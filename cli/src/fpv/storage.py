@@ -41,7 +41,7 @@ def download_to_tmp(url: str, tmp_dir: Path, timeout: float = 60.0) -> Tuple[Pat
         size = tmp_path.stat().st_size
     return tmp_path, size, ctype
 
-def decide_relpath(shot_at_utc, src: str, hash_hex: str, ext: str) -> str:
+def decide_relpath(shot_at_utc: Optional[datetime], src: str, hash_hex: str, ext: str) -> str:
     import datetime as _dt
     dt = shot_at_utc or _dt.datetime.utcnow()
     y, m, d = dt.year, dt.month, dt.day

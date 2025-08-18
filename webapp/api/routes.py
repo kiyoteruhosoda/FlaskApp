@@ -156,6 +156,19 @@ def api_picker_session_create():
     data = request.get_json(silent=True) or {}
     account_id = data.get("account_id")
     title = data.get("title") or "Select from Google Photos"
+
+    if account_id is None:
+        account = GoogleAccount.query.filter_by(status="active").first()
+        if not account:
+            return jsonify({"error": "invalid_account"}), 400
+        account_id = account.id
+    else:
+        if not isinstance(account_id, int):
+            return jsonify({"error": "invalid_account"}), 400
+        account = GoogleAccount.query.filter_by(id=account_id, status="active").first()
+        if not account:
+            return jsonify({"error": "not_found"}), 404
+
     current_app.logger.info(
         json.dumps(
             {
@@ -165,11 +178,6 @@ def api_picker_session_create():
             }
         )
     )
-    if not isinstance(account_id, int):
-        return jsonify({"error": "invalid_account"}), 400
-    account = GoogleAccount.query.filter_by(id=account_id, status="active").first()
-    if not account:
-        return jsonify({"error": "not_found"}), 404
 
     tokens = json.loads(decrypt(account.oauth_token_json) or "{}")
     refresh_token = tokens.get("refresh_token")

@@ -2,8 +2,8 @@ from datetime import datetime
 from ..db import db
 
 
-class ErrorLog(db.Model):
-    __tablename__ = "error_log"
+class Log(db.Model):
+    __tablename__ = "log"
 
     id = db.Column(db.Integer, primary_key=True)
     level = db.Column(db.String(50), nullable=False)
@@ -13,4 +13,4 @@ class ErrorLog(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
 
-__all__ = ["ErrorLog"]
+__all__ = ["Log"]

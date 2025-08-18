@@ -41,7 +41,7 @@ from core.crypto import decrypt, encrypt
 @login_required
 def google_oauth_start():
     """Start Google OAuth flow by returning an authorization URL."""
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     scopes = data.get("scopes") or []
     redirect_target = data.get("redirect")
     state = secrets.token_urlsafe(16)
@@ -90,7 +90,7 @@ def api_google_accounts():
 def api_google_account_update(account_id):
     """Update status of a Google account."""
     account = GoogleAccount.query.get_or_404(account_id)
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     status = data.get("status")
     if status not in ("active", "disabled"):
         return jsonify({"error": "invalid_status"}), 400
@@ -153,7 +153,7 @@ def api_google_account_test(account_id):
 @login_required
 def api_picker_session_create():
     """Create a Google Photos Picker session."""
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     account_id = data.get("account_id")
     title = data.get("title") or "Select from Google Photos"
     current_app.logger.info(
@@ -272,7 +272,7 @@ def api_picker_session_callback(picker_session_id):
     ps = PickerSession.query.get(picker_session_id)
     if not ps:
         return jsonify({"error": "not_found"}), 404
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     ids = data.get("mediaItemIds") or []
     if isinstance(ids, str):
         ids = [ids]
@@ -360,7 +360,7 @@ def api_picker_session_status(picker_session_id):
 @login_required
 def api_picker_session_import(picker_session_id):
     """Enqueue import task for picker session."""
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     account_id = data.get("account_id")
     ps = PickerSession.query.get(picker_session_id)
     if not ps or ps.account_id != account_id:
@@ -641,7 +641,7 @@ def _verify_token(token: str):
 @bp.post("/media/<int:media_id>/thumb-url")
 @login_required
 def api_media_thumb_url(media_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     size = data.get("size")
     if size not in (256, 1024, 2048):
         return jsonify({"error": "invalid_size"}), 400

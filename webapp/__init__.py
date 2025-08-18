@@ -15,6 +15,7 @@ from flask_babel import gettext as _
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
+    app.config.setdefault("LAST_BEAT_AT", None)
 
     # 拡張初期化
     db.init_app(app)

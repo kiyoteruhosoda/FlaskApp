@@ -1,0 +1,192 @@
+import base64
+import json
+import os
+import uuid
+
+import pytest
+
+from core.crypto import encrypt
+
+
+@pytest.fixture
+def app(tmp_path):
+    db_path = tmp_path / "test.db"
+    db_uri = f"sqlite:///{db_path}"
+    os.environ["SECRET_KEY"] = "test"
+    os.environ["DATABASE_URI"] = db_uri
+    os.environ["GOOGLE_CLIENT_ID"] = "cid"
+    os.environ["GOOGLE_CLIENT_SECRET"] = "sec"
+    key = base64.urlsafe_b64encode(b"0" * 32).decode()
+    os.environ["OAUTH_TOKEN_KEY"] = key
+    from webapp.config import Config
+    Config.SQLALCHEMY_ENGINE_OPTIONS = {}
+    from webapp import create_app
+    app = create_app()
+    app.config.update(TESTING=True)
+    from webapp.extensions import db
+    from core.models.user import User
+    from core.models.google_account import GoogleAccount
+    with app.app_context():
+        db.create_all()
+        if not User.query.filter_by(email="u@example.com").first():
+            u = User(email="u@example.com")
+            u.set_password("pass")
+            db.session.add(u)
+        if not GoogleAccount.query.filter_by(email="g@example.com").first():
+            acc = GoogleAccount(
+                email="g@example.com",
+                scopes="",
+                oauth_token_json=encrypt(json.dumps({"refresh_token": "r"})),
+            )
+            db.session.add(acc)
+        db.session.commit()
+    yield app
+
+
+@pytest.fixture
+def client(app):
+    return app.test_client()
+
+
+class FakeResp:
+    def __init__(self, data, status=200):
+        self._data = data
+        self.status_code = status
+
+    def json(self):
+        return self._data
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise Exception("error")
+
+
+def login(client, app):
+    from core.models.user import User
+    with app.app_context():
+        user = User.query.first()
+    client.post(
+        "/auth/login",
+        data={"email": user.email, "password": "pass"},
+        follow_redirects=True,
+    )
+
+
+def test_create_ok(monkeypatch, client, app):
+    login(client, app)
+
+    def fake_post(url, *a, **k):
+        if url == "https://oauth2.googleapis.com/token":
+            return FakeResp({"access_token": "acc"})
+        if url == "https://photospicker.googleapis.com/v1/sessions":
+            sid = "picker_sessions/" + uuid.uuid4().hex
+            return FakeResp({"sessionId": sid, "pickerUri": "https://picker"})
+        raise AssertionError("unexpected url" + url)
+
+    monkeypatch.setattr("requests.post", fake_post)
+    res = client.post("/api/picker/session", json={"account_id": 1})
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["pickerSessionId"] > 0
+    assert data["sessionId"]
+    assert data["pickerUri"]
+
+
+def test_create_account_not_found(monkeypatch, client, app):
+    login(client, app)
+    res = client.post("/api/picker/session", json={"account_id": 999})
+    assert res.status_code == 404
+
+
+def test_create_oauth_error(monkeypatch, client, app):
+    login(client, app)
+
+    def fake_post(url, *a, **k):
+        if url == "https://oauth2.googleapis.com/token":
+            return FakeResp({"error": "invalid_grant"})
+        raise AssertionError("unexpected url" + url)
+
+    monkeypatch.setattr("requests.post", fake_post)
+    res = client.post("/api/picker/session", json={"account_id": 1})
+    assert res.status_code == 401 or res.status_code == 502
+
+
+def test_status_ok(monkeypatch, client, app):
+    login(client, app)
+
+    def fake_post(url, *a, **k):
+        if url == "https://oauth2.googleapis.com/token":
+            return FakeResp({"access_token": "acc"})
+        if url == "https://photospicker.googleapis.com/v1/sessions":
+            sid = "picker_sessions/" + uuid.uuid4().hex
+            return FakeResp({"sessionId": sid, "pickerUri": "https://picker"})
+        raise AssertionError("unexpected url" + url)
+
+    monkeypatch.setattr("requests.post", fake_post)
+    # create session
+    res = client.post("/api/picker/session", json={"account_id": 1})
+    ps_id = res.get_json()["pickerSessionId"]
+
+    def fake_get(url, *a, **k):
+        return FakeResp({"selectedMediaCount": 0})
+
+    monkeypatch.setattr("requests.get", fake_get)
+    res = client.get(f"/api/picker/session/{ps_id}")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["status"] == "pending"
+    assert data["serverTimeRFC1123"].endswith("GMT")
+
+
+def test_status_not_found(monkeypatch, client, app):
+    login(client, app)
+    res = client.get("/api/picker/session/999")
+    assert res.status_code == 404
+
+
+def test_import_enqueue_ok(monkeypatch, client, app):
+    login(client, app)
+
+    def fake_post(url, *a, **k):
+        if url == "https://oauth2.googleapis.com/token":
+            return FakeResp({"access_token": "acc"})
+        if url == "https://photospicker.googleapis.com/v1/sessions":
+            sid = "picker_sessions/" + uuid.uuid4().hex
+            return FakeResp({"sessionId": sid, "pickerUri": "https://picker"})
+        raise AssertionError("unexpected url" + url)
+
+    monkeypatch.setattr("requests.post", fake_post)
+    res = client.post("/api/picker/session", json={"account_id": 1})
+    ps_id = res.get_json()["pickerSessionId"]
+
+    res = client.post(f"/api/picker/session/{ps_id}/import", json={"account_id": 1})
+    assert res.status_code == 202
+    data = res.get_json()
+    assert data["enqueued"] is True
+    assert data["celeryTaskId"]
+
+
+def test_import_idempotent(monkeypatch, client, app):
+    login(client, app)
+
+    def fake_post(url, *a, **k):
+        if url == "https://oauth2.googleapis.com/token":
+            return FakeResp({"access_token": "acc"})
+        if url == "https://photospicker.googleapis.com/v1/sessions":
+            sid = "picker_sessions/" + uuid.uuid4().hex
+            return FakeResp({"sessionId": sid, "pickerUri": "https://picker"})
+        raise AssertionError("unexpected url" + url)
+
+    monkeypatch.setattr("requests.post", fake_post)
+    res = client.post("/api/picker/session", json={"account_id": 1})
+    ps_id = res.get_json()["pickerSessionId"]
+    res = client.post(f"/api/picker/session/{ps_id}/import", json={"account_id": 1})
+    assert res.status_code == 202
+    res = client.post(f"/api/picker/session/{ps_id}/import", json={"account_id": 1})
+    assert res.status_code == 409
+
+
+def test_import_not_found(monkeypatch, client, app):
+    login(client, app)
+    res = client.post("/api/picker/session/999/import", json={"account_id": 1})
+    assert res.status_code == 404

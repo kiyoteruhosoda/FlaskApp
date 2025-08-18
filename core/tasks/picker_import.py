@@ -74,7 +74,7 @@ def _download(url: str, dest_dir: Path) -> Downloaded:
 
 def _ensure_dirs() -> Tuple[Path, Path]:
     """Return (tmp_dir, originals_dir) creating them if necessary."""
-    tmp_dir = Path(os.environ.get("FPV_NAS_TMP_DIR", "/tmp/fpv_tmp"))
+    tmp_dir = Path(os.environ.get("FPV_TMP_DIR", "/tmp/fpv_tmp"))
     orig_dir = Path(os.environ.get("FPV_NAS_ORIG_DIR", "/tmp/fpv_orig"))
     tmp_dir.mkdir(parents=True, exist_ok=True)
     orig_dir.mkdir(parents=True, exist_ok=True)

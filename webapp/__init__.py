@@ -1,18 +1,21 @@
 # webapp/__init__.py
-import os
 from flask import Flask, request, redirect, url_for, render_template, make_response, flash
-from dotenv import load_dotenv
 from datetime import datetime, timezone
 
-# .env を最初に読む（これより後の import で環境変数が使える）
-load_dotenv()
-
-from .extensions import db, migrate, login_manager, babel
-from .config import Config
 from flask_babel import get_locale
 from flask_babel import gettext as _
 
+from .extensions import db, migrate, login_manager, babel
+
+
 def create_app():
+    """アプリケーションファクトリ"""
+    from dotenv import load_dotenv
+    from .config import Config
+
+    # .env を読み込む（環境変数が未設定の場合のみ）
+    load_dotenv()
+
     app = Flask(__name__)
     app.config.from_object(Config)
     app.config.setdefault("LAST_BEAT_AT", None)

@@ -8,6 +8,8 @@ implementation work.
 
 from flask import render_template
 
+from core.models.authz import require_roles
+
 from . import bp
 
 
@@ -51,3 +53,36 @@ def tags():
 def settings():
     """Photo view settings page."""
     return render_template("photo_view/settings.html")
+
+
+# --- Admin routes ---------------------------------------------------------
+
+
+@bp.route("/admin/settings")
+@require_roles("admin")
+def admin_settings():
+    """Placeholder admin settings page.
+
+    The actual UI will be implemented in later tasks.  Having this route in
+    place allows navigation and access control wiring to be verified.
+    """
+
+    return render_template("photo_view/admin/settings.html")
+
+
+@bp.route("/admin/exports")
+@require_roles("admin")
+def admin_exports():
+    """Placeholder admin exports listing page."""
+
+    return render_template("photo_view/admin/exports.html")
+
+
+@bp.route("/admin/exports/<int:export_id>")
+@require_roles("admin")
+def admin_export_detail(export_id: int):
+    """Placeholder admin export detail page."""
+
+    return render_template(
+        "photo_view/admin/export_detail.html", export_id=export_id
+    )

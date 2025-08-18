@@ -32,6 +32,7 @@ def create_app():
     from core.models import google_account as _google_account  # noqa: F401
     from core.models import photo_models as _photo_models    # noqa: F401
     from core.models import job_sync as _job_sync    # noqa: F401
+    from core.models import picker_session as _picker_session  # noqa: F401
 
 
     # Blueprint 登録

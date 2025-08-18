@@ -54,6 +54,7 @@
             <a href="#" class="btn btn-outline-secondary btn-reauth">{{ _('Reauth') }}</a>
             <a href="#" class="btn btn-outline-secondary btn-disable">{{ _('Disable') }}</a>
             <a href="#" class="btn btn-outline-secondary btn-delete">{{ _('Delete') }}</a>
+            <a href="{{ url_for('auth.picker', account_id=a.id) }}" class="btn btn-outline-secondary">{{ _('Picker') }}</a>
             <a href="#" class="btn btn-outline-secondary btn-test">{{ _('Test') }}</a>
           </div>
         </td>

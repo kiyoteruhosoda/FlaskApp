@@ -1,11 +1,14 @@
 # webapp/__init__.py
-from flask import Flask, request, redirect, url_for, render_template, make_response, flash
+import logging
+
+from flask import Flask, request, redirect, url_for, render_template, make_response, flash, g
 from datetime import datetime, timezone
 
 from flask_babel import get_locale
 from flask_babel import gettext as _
 
 from .extensions import db, migrate, login_manager, babel
+from core.db_log_handler import DBLogHandler
 
 
 def create_app():
@@ -28,6 +31,13 @@ def create_app():
 
     # ★ Jinja から get_locale() を使えるようにする
     app.jinja_env.globals["get_locale"] = get_locale
+
+    # Logging configuration
+    if not any(isinstance(h, DBLogHandler) for h in app.logger.handlers):
+        db_handler = DBLogHandler()
+        db_handler.setLevel(logging.INFO)
+        app.logger.addHandler(db_handler)
+    app.logger.setLevel(logging.INFO)
 
 
 
@@ -58,10 +68,8 @@ def create_app():
     app.register_blueprint(api_bp, url_prefix="/api")
 
     # エラーハンドラ
-    import traceback
     from flask import jsonify
     from werkzeug.exceptions import HTTPException
-    from core.models.log import Log
 
     @app.errorhandler(Exception)
     def handle_exception(e):
@@ -72,14 +80,21 @@ def create_app():
             code = 500
             message = str(e)
 
-        trace = traceback.format_exc()
-        log = Log(level="ERROR", message=message, trace=trace, path=request.path)
-        db.session.add(log)
-        db.session.commit()
+        app.logger.error(message, exc_info=e, extra={"path": request.path})
+        g.exception_logged = True
 
         if request.path.startswith("/api"):
             return jsonify({"error": "internal_error", "message": message}), code
         return render_template("error.html", message=message), code
+
+    @app.after_request
+    def log_server_error(response):
+        if response.status_code >= 500 and not getattr(g, "exception_logged", False):
+            app.logger.error(
+                f"{response.status_code} {request.path}",
+                extra={"path": request.path},
+            )
+        return response
 
     @app.after_request
     def add_time_header(response):

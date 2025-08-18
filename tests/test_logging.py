@@ -44,6 +44,10 @@ def app(tmp_path):
         def boom():
             raise Exception("boom")
 
+        @app.route("/bad")
+        def bad():
+            return "bad", 502
+
     yield app
 
     del sys.modules["webapp.config"]
@@ -66,3 +70,16 @@ def test_log_written(client):
         log = logs[0]
         assert log.message == "boom"
         assert log.path == "/boom"
+
+
+def test_502_logged(client):
+    from core.models.log import Log
+
+    resp = client.get("/bad")
+    assert resp.status_code == 502
+    with client.application.app_context():
+        logs = Log.query.all()
+        assert len(logs) == 1
+        log = logs[0]
+        assert "502" in log.message
+        assert log.path == "/bad"

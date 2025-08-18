@@ -30,6 +30,7 @@ from . import bp
 from ..extensions import db
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
+from core.models.picker_import_item import PickerImportItem
 from core.models.photo_models import Media, Exif, MediaSidecar, MediaPlayback
 from core.crypto import decrypt, encrypt
 
@@ -265,6 +266,33 @@ def api_picker_session_create():
     )
 
 
+@bp.post("/picker/session/<int:picker_session_id>/callback")
+def api_picker_session_callback(picker_session_id):
+    """Receive selected media item IDs from Google Photos Picker."""
+    ps = PickerSession.query.get(picker_session_id)
+    if not ps:
+        return jsonify({"error": "not_found"}), 404
+    data = request.get_json() or {}
+    ids = data.get("mediaItemIds") or []
+    if isinstance(ids, str):
+        ids = [ids]
+    saved = 0
+    for mid in ids:
+        if not isinstance(mid, str):
+            continue
+        exists = PickerImportItem.query.filter_by(
+            picker_session_id=ps.id, media_item_id=mid
+        ).first()
+        if exists:
+            continue
+        db.session.add(PickerImportItem(picker_session_id=ps.id, media_item_id=mid))
+        saved += 1
+    ps.selected_count = (ps.selected_count or 0) + saved
+    ps.status = "ready"
+    db.session.commit()
+    return jsonify({"result": "ok", "count": saved})
+
+
 @bp.get("/picker/session/<int:picker_session_id>")
 @login_required
 def api_picker_session_status(picker_session_id):
@@ -273,8 +301,8 @@ def api_picker_session_status(picker_session_id):
     if not ps:
         return jsonify({"error": "not_found"}), 404
     account = GoogleAccount.query.get(ps.account_id)
-    selected = None
-    if account and account.status == "active" and ps.session_id:
+    selected = ps.selected_count
+    if selected is None and account and account.status == "active" and ps.session_id:
         try:
             tokens = json.loads(decrypt(account.oauth_token_json) or "{}")
             refresh_token = tokens.get("refresh_token")

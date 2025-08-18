@@ -1,13 +1,25 @@
 # PhotoNest
 ## FlaskApp
 
-Python パッケージをまとめてインストールする場合
+### セットアップ
+
+```bash
 pip install -r requirements.txt
+cp .env.example .env  # 必要に応じて編集
+python main.py        # 開発サーバーを起動
+```
 
-古いバージョンの pip を使っている場合は、先にアップデート
+古いバージョンの pip を使っている場合は先にアップデートします。
+
+```bash
 python -m pip install --upgrade pip
+```
 
+翻訳ファイルを更新する場合は次を実行します。
+
+```bash
 pybabel compile -d webapp/translations -f
+```
 
 
 

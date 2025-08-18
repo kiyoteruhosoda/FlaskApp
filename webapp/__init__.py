@@ -38,7 +38,7 @@ def create_app():
     from core.models import job_sync as _job_sync    # noqa: F401
     from core.models import picker_session as _picker_session  # noqa: F401
     from core.models import picker_import_item as _picker_import_item  # noqa: F401
-    from core.models import error_log as _error_log  # noqa: F401
+    from core.models import log as _log  # noqa: F401
 
 
     # Blueprint 登録
@@ -61,7 +61,7 @@ def create_app():
     import traceback
     from flask import jsonify
     from werkzeug.exceptions import HTTPException
-    from core.models.error_log import ErrorLog
+    from core.models.log import Log
 
     @app.errorhandler(Exception)
     def handle_exception(e):
@@ -73,7 +73,7 @@ def create_app():
             message = str(e)
 
         trace = traceback.format_exc()
-        log = ErrorLog(level="ERROR", message=message, trace=trace, path=request.path)
+        log = Log(level="ERROR", message=message, trace=trace, path=request.path)
         db.session.add(log)
         db.session.commit()
 

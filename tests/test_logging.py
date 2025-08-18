@@ -55,13 +55,13 @@ def client(app):
     return app.test_client()
 
 
-def test_error_logged(client):
-    from core.models.error_log import ErrorLog
+def test_log_written(client):
+    from core.models.log import Log
 
     resp = client.get("/boom")
     assert resp.status_code == 500
     with client.application.app_context():
-        logs = ErrorLog.query.all()
+        logs = Log.query.all()
         assert len(logs) == 1
         log = logs[0]
         assert log.message == "boom"

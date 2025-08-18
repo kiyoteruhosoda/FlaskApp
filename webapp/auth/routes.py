@@ -254,12 +254,17 @@ def picker(account_id: int):
     }
     try:
         res = requests.post("https://oauth2.googleapis.com/token", data=data, timeout=10)
+        res.raise_for_status()
         token_res = res.json()
-        if "error" in token_res:
-            flash(token_res["error"], "error")
-            return redirect(url_for("auth.google_accounts"))
-    except Exception as e:  # pragma: no cover - network failure
-        flash(str(e), "error")
+    except requests.RequestException as e:  # pragma: no cover - network failure
+        flash(_("Failed to refresh token: %(msg)s", msg=str(e)), "error")
+        return redirect(url_for("auth.google_accounts"))
+    except ValueError:
+        flash(_("Invalid response from token endpoint."), "error")
+        return redirect(url_for("auth.google_accounts"))
+    if "error" in token_res:
+        msg = token_res.get("error_description") or token_res["error"]
+        flash(_("Failed to refresh token: %(msg)s", msg=msg), "error")
         return redirect(url_for("auth.google_accounts"))
 
     access_token = token_res.get("access_token")
@@ -279,14 +284,19 @@ def picker(account_id: int):
             json={},
             timeout=10,
         )
+        res.raise_for_status()
         picker_data = res.json()
-    except Exception as e:  # pragma: no cover - network failure
-        flash(str(e), "error")
+    except requests.RequestException as e:  # pragma: no cover - network failure
+        flash(_("Failed to create picker session: %(msg)s", msg=str(e)), "error")
+        return redirect(url_for("auth.google_accounts"))
+    except ValueError:
+        flash(_("Invalid response from picker API."), "error")
         return redirect(url_for("auth.google_accounts"))
 
     picker_uri = picker_data.get("pickerUri")
     if not picker_uri:
-        flash(_("Failed to create picker session."), "error")
+        msg = picker_data.get("error") or _("Failed to create picker session.")
+        flash(msg, "error")
         return redirect(url_for("auth.google_accounts"))
 
     qr_data = qr_code_data_uri(picker_uri)

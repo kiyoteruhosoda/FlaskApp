@@ -38,6 +38,7 @@ def create_app():
     from core.models import job_sync as _job_sync    # noqa: F401
     from core.models import picker_session as _picker_session  # noqa: F401
     from core.models import picker_import_item as _picker_import_item  # noqa: F401
+    from core.models import error_log as _error_log  # noqa: F401
 
 
     # Blueprint 登録
@@ -55,6 +56,30 @@ def create_app():
 
     from .api import bp as api_bp
     app.register_blueprint(api_bp, url_prefix="/api")
+
+    # エラーハンドラ
+    import traceback
+    from flask import jsonify
+    from werkzeug.exceptions import HTTPException
+    from core.models.error_log import ErrorLog
+
+    @app.errorhandler(Exception)
+    def handle_exception(e):
+        if isinstance(e, HTTPException):
+            code = e.code
+            message = e.description
+        else:
+            code = 500
+            message = str(e)
+
+        trace = traceback.format_exc()
+        log = ErrorLog(level="ERROR", message=message, trace=trace, path=request.path)
+        db.session.add(log)
+        db.session.commit()
+
+        if request.path.startswith("/api"):
+            return jsonify({"error": "internal_error", "message": message}), code
+        return render_template("error.html", message=message), code
 
     @app.after_request
     def add_time_header(response):

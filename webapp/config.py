@@ -34,3 +34,10 @@ class Config:
     OAUTH_TOKEN_KEY_FILE = os.environ.get("OAUTH_TOKEN_KEY_FILE") or os.environ.get(
         "FPV_OAUTH_TOKEN_KEY_FILE"
     )
+
+    # Download URL signing
+    FPV_DL_SIGN_KEY = os.environ.get("FPV_DL_SIGN_KEY", "")
+    FPV_URL_TTL_THUMB = int(os.environ.get("FPV_URL_TTL_THUMB", "600"))
+    FPV_URL_TTL_PLAYBACK = int(os.environ.get("FPV_URL_TTL_PLAYBACK", "600"))
+    FPV_NAS_THUMBS_DIR = os.environ.get("FPV_NAS_THUMBS_DIR", "")
+    FPV_NAS_PLAY_DIR = os.environ.get("FPV_NAS_PLAY_DIR", "")

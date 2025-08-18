@@ -86,7 +86,10 @@ class Tag(db.Model):
 class MediaPlayback(db.Model):
     id = db.Column(BigInt, primary_key=True, autoincrement=True)
     media_id = db.Column(BigInt, db.ForeignKey('media.id'), nullable=False)
-    preset = db.Column(db.Enum('original', 'preview', 'mobile', name='media_playback_preset'), nullable=False)
+    preset = db.Column(
+        db.Enum('original', 'preview', 'mobile', 'std1080p', name='media_playback_preset'),
+        nullable=False,
+    )
     rel_path = db.Column(db.String(255))
     width = db.Column(db.Integer)
     height = db.Column(db.Integer)

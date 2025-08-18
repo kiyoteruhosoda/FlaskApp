@@ -92,6 +92,26 @@ def test_create_ok(monkeypatch, client, app):
     assert data["pickerUri"]
 
 
+def test_create_default_account(monkeypatch, client, app):
+    login(client, app)
+
+    def fake_post(url, *a, **k):
+        if url == "https://oauth2.googleapis.com/token":
+            return FakeResp({"access_token": "acc"})
+        if url == "https://photospicker.googleapis.com/v1/sessions":
+            sid = "picker_sessions/" + uuid.uuid4().hex
+            return FakeResp({"sessionId": sid, "pickerUri": "https://picker"})
+        raise AssertionError("unexpected url" + url)
+
+    monkeypatch.setattr("requests.post", fake_post)
+    res = client.post("/api/picker/session")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["pickerSessionId"] > 0
+    assert data["sessionId"]
+    assert data["pickerUri"]
+
+
 def test_create_account_not_found(monkeypatch, client, app):
     login(client, app)
     res = client.post("/api/picker/session", json={"account_id": 999})

@@ -80,7 +80,17 @@ def create_app():
             code = 500
             message = str(e)
 
-        app.logger.error(message, exc_info=e, extra={"path": request.path})
+        app.logger.error(
+            message,
+            exc_info=e,
+            extra={
+                "path": request.path,
+                "method": request.method,
+                "remote_addr": request.remote_addr,
+                "user_agent": request.user_agent.string,
+                "query_string": request.query_string.decode(),
+            },
+        )
         g.exception_logged = True
 
         if request.path.startswith("/api"):
@@ -92,7 +102,13 @@ def create_app():
         if response.status_code >= 500 and not getattr(g, "exception_logged", False):
             app.logger.error(
                 f"{response.status_code} {request.path}",
-                extra={"path": request.path},
+                extra={
+                    "path": request.path,
+                    "method": request.method,
+                    "remote_addr": request.remote_addr,
+                    "user_agent": request.user_agent.string,
+                    "query_string": request.query_string.decode(),
+                },
             )
         return response
 

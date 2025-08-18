@@ -29,6 +29,7 @@ from core.crypto import decrypt
 from core.db import db
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
+from core.models.picker_import_item import PickerImportItem
 from core.models.photo_models import Exif, Media, MediaPlayback
 
 # ---------------------------------------------------------------------------
@@ -148,24 +149,27 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
     headers = {"Authorization": f"Bearer {access_token}"}
 
     # ------------------------------------------------------------------
-    # 3. Fetch selected IDs from picker session
+    # 3. Fetch selected IDs from callback storage or picker session
     # ------------------------------------------------------------------
-    try:
-        r = requests.get(
-            "https://photospicker.googleapis.com/v1/sessions", params={"sessionId": ps.session_id}, headers=headers
-        )
-        r.raise_for_status()
-        sess_data = r.json()
-    except Exception:
-        ps.status = "error"
-        db.session.commit()
-        return {"ok": False, "imported": 0, "dup": 0, "failed": 0, "note": "session_get_error"}
-
-    selected_ids: List[str] = []
-    if sess_data.get("selectedMediaItemIds"):
-        selected_ids = list(sess_data["selectedMediaItemIds"])
-    elif sess_data.get("selectedMediaItems"):
-        selected_ids = [m["id"] for m in sess_data["selectedMediaItems"]]
+    items = PickerImportItem.query.filter_by(picker_session_id=ps.id).all()
+    selected_ids: List[str] = [i.media_item_id for i in items]
+    if not selected_ids and ps.session_id:
+        try:
+            r = requests.get(
+                "https://photospicker.googleapis.com/v1/sessions",
+                params={"sessionId": ps.session_id},
+                headers=headers,
+            )
+            r.raise_for_status()
+            sess_data = r.json()
+            if sess_data.get("selectedMediaItemIds"):
+                selected_ids = list(sess_data["selectedMediaItemIds"])
+            elif sess_data.get("selectedMediaItems"):
+                selected_ids = [m["id"] for m in sess_data["selectedMediaItems"]]
+        except Exception:
+            ps.status = "error"
+            db.session.commit()
+            return {"ok": False, "imported": 0, "dup": 0, "failed": 0, "note": "session_get_error"}
     count = len(selected_ids)
     ps.selected_count = count
 

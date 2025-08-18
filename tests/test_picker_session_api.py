@@ -190,3 +190,52 @@ def test_import_not_found(monkeypatch, client, app):
     login(client, app)
     res = client.post("/api/picker/session/999/import", json={"account_id": 1})
     assert res.status_code == 404
+
+
+def test_callback_stores_ids(monkeypatch, client, app):
+    login(client, app)
+
+    class FakeResp:
+        def __init__(self, data, status=200):
+            self._data = data
+            self.status_code = status
+
+        def json(self):
+            return self._data
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise Exception("error")
+
+    def fake_post(url, *a, **k):
+        if url == "https://oauth2.googleapis.com/token":
+            return FakeResp({"access_token": "acc"})
+        if url == "https://photospicker.googleapis.com/v1/sessions":
+            sid = "picker_sessions/" + uuid.uuid4().hex
+            return FakeResp({"sessionId": sid, "pickerUri": "https://picker"})
+        raise AssertionError("unexpected url" + url)
+
+    monkeypatch.setattr("requests.post", fake_post)
+    res = client.post("/api/picker/session", json={"account_id": 1})
+    ps_id = res.get_json()["pickerSessionId"]
+
+    payload = {"mediaItemIds": ["m1", "m2"]}
+    res = client.post(f"/api/picker/session/{ps_id}/callback", json=payload)
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["count"] == 2
+
+    from core.models.picker_import_item import PickerImportItem
+    from core.models.picker_session import PickerSession
+    with app.app_context():
+        items = PickerImportItem.query.filter_by(picker_session_id=ps_id).all()
+        assert len(items) == 2
+        ps = PickerSession.query.get(ps_id)
+        assert ps.status == "ready"
+        assert ps.selected_count == 2
+
+    res = client.get(f"/api/picker/session/{ps_id}")
+    assert res.status_code == 200
+    status = res.get_json()
+    assert status["selectedCount"] == 2
+    assert status["status"] == "ready"

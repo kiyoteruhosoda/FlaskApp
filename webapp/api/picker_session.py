@@ -270,7 +270,7 @@ def api_picker_session_status(picker_session_id):
 	)
 
 
-@bp.post("/picker/session/<int:picker_session_id>/import")
+@bp.post("/picker/session/<picker_session_id>/import")
 @login_required
 def api_picker_session_import(picker_session_id):
 	"""Enqueue import task for picker session.
@@ -283,7 +283,7 @@ def api_picker_session_import(picker_session_id):
 	"""
 	data = request.get_json(silent=True) or {}
 	account_id = data.get("account_id")
-	ps = PickerSession.query.get(picker_session_id)
+	ps = PickerSession.query.filter_by(session_id=picker_session_id).first()
 	if not ps or (account_id and ps.account_id != account_id):
 		return jsonify({"error": "not_found"}), 404
 	# Use the session's account id when not explicitly supplied

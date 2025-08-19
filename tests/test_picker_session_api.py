@@ -90,6 +90,8 @@ def test_create_ok(monkeypatch, client, app):
     assert data["pickerSessionId"] > 0
     assert data["sessionId"]
     assert data["pickerUri"]
+    with client.session_transaction() as sess:
+        assert sess["picker_session_id"] == data["pickerSessionId"]
 
 
 def test_create_default_account(monkeypatch, client, app):

@@ -258,6 +258,7 @@ def api_picker_session_create():
     ps.session_id = picker_data.get("sessionId") or picker_data.get("name")
     ps.picker_uri = picker_data.get("pickerUri")
     db.session.commit()
+    session["picker_session_id"] = ps.id
     current_app.logger.info(
         json.dumps(
             {

@@ -3,8 +3,7 @@
 {% block content %}
 <h1>Photo View Home</h1>
 
-<!-- セッションIDは data 属性に格納（未定義でも空文字で安全） -->
-<div id="picker-root" data-session-id="{{ picker_session_id or '' }}"></div>
+
 
 <div class="mb-3">
   <button id="btn-import-start" class="btn btn-primary">
@@ -16,8 +15,17 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  const root = document.getElementById('picker-root');
-  const pickerSessionId = root.dataset.sessionId; // 文字列（空の可能性あり）
+  // クエリパラメータからsession_idを取得
+  function getSessionIdFromQuery() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('session_id') || '';
+  }
+  const pickerSessionId = getSessionIdFromQuery();
+  if (!pickerSessionId) {
+    // セッションIDが無ければGoogleアカウント管理ページに遷移
+    window.location.href = '/auth/settings/google-accounts';
+    return;
+  }
   const importBtn = document.getElementById('btn-import-start');
   const statusEl = document.getElementById('import-status');
 

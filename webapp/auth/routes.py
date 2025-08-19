@@ -334,10 +334,9 @@ def picker(account_id: int):
         ps.media_items_set = picker_data.get("mediaItemsSet")
     db.session.add(ps)
     db.session.commit()
-    session["picker_session_id"] = ps.id
 
     qr_data = qr_code_data_uri(picker_uri)
-    return render_template("auth/picker.html", picker_uri=picker_uri, qr_data=qr_data)
+    return render_template("auth/picker.html", session_id=ps.id, picker_uri=picker_uri, qr_data=qr_data)
 
 @bp.route("/settings/google-accounts")
 @login_required

@@ -8,6 +8,6 @@
 </p>
 <img src="{{ qr_data }}" alt="QR Code" class="mt-3">
 <p>
-    <a href="{{ url_for('photo_view.home') }}" target="_blank" rel="noopener" class="btn btn-secondary">{{ _('Open Photo View') }}</a>
+    <a href="{{ url_for('photo_view.home', session_id=session_id) }}" target="_blank" rel="noopener" class="btn btn-secondary">{{ _('Open Photo View') }}</a>
 </p>
 {% endblock %}

@@ -3,36 +3,83 @@
 
 {% block content %}
 <h2>{{ _('Photo Picker') }}</h2>
+
 <p>
-    <a href="{{ picker_uri }}" target="_blank" rel="noopener" class="btn btn-primary">{{ _('Open Photo Picker') }}</a>
+  <a href="{{ picker_uri }}" target="_blank" rel="noopener" class="btn btn-primary">
+    {{ _('Open Photo Picker') }}
+  </a>
 </p>
+
 <img src="{{ qr_data }}" alt="QR Code" class="mt-3">
+
 <p>
-    <a href="{{ url_for('photo_view.home', session_id=session_id) }}" target="_blank" rel="noopener" class="btn btn-secondary">{{ _('Open Photo View') }}</a>
+  <a href="{{ url_for('photo_view.home', session_id=session_id) }}"
+     target="_blank" rel="noopener" class="btn btn-secondary">
+    {{ _('Open Photo View') }}
+  </a>
 </p>
+
+<!-- 埋め込み用データ（この要素が元コードに無かった） -->
+<script id="session-data" type="application/json">
+  {{ {
+      "db_session_id": session_id,      # 内部ID（参考用）
+      "session_name": session_name,     # Google Picker の sessionId（外部API用）
+      "poll_interval": poll_interval    # "5s" / 5000 / "500ms" などを想定
+    } | tojson | safe }}
+</script>
+
 <script>
-  const rawInterval = {{ (poll_interval or 0)|tojson }};
-  const sessionName = {{ session_name|tojson }};
+  // JSONデータ読込
+  const dataEl = document.getElementById('session-data');
+  const sessionData = JSON.parse(dataEl.textContent);
+
+  // interval パース（ms/s対応・デフォルトms）
   function parseInterval(v) {
-    if (typeof v === 'string' && v.endsWith('s')) {
-      return parseFloat(v) * 1000;
+    if (typeof v === 'number') return v;
+    if (typeof v === 'string') {
+      const m = v.trim().match(/^(\d+(?:\.\d+)?)(ms|s)?$/i);
+      if (!m) return NaN;
+      const num = Number(m[1]);
+      const unit = (m[2] || 'ms').toLowerCase();
+      return unit === 's' ? num * 1000 : num;
     }
-    return parseInt(v);
+    return NaN;
   }
-  const intervalMs = parseInterval(rawInterval);
+
+  const intervalMs = parseInterval(sessionData.poll_interval);
+
   async function poll() {
     try {
-      await fetch('/api/picker/session/mediaItems', {
+      const resp = await fetch('/api/picker/session/mediaItems', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: sessionName })
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // API が期待するのは "sessionId" → Google Picker の sessionId を渡す
+        body: JSON.stringify({ sessionId: sessionData.session_name })
       });
+      // 必要なら resp.ok チェックやエラーハンドリングを追加
+      if (!resp.ok) {
+        console.warn('poll failed:', resp.status);
+      }
     } catch (e) {
       console.error(e);
     }
   }
-  if (intervalMs) {
-    setInterval(poll, intervalMs);
+
+  if (Number.isFinite(intervalMs) && intervalMs > 0) {
+    // 初回即時 + インターバル
+    poll();
+    let timer = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        poll();
+      }
+    }, intervalMs);
+
+    // ページ離脱で停止（念のため）
+    window.addEventListener('beforeunload', () => clearInterval(timer));
+  } else {
+    console.warn('Invalid poll interval:', sessionData.poll_interval);
   }
 </script>
 {% endblock %}

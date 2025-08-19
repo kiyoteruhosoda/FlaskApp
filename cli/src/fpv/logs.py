@@ -5,8 +5,8 @@ from typing import Any, Dict
 
 def log(event: str, **fields: Any) -> None:
     rec: Dict[str, Any] = {
-        "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "event": event,
+        "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
     rec.update(fields)
     sys.stdout.write(json.dumps(rec, ensure_ascii=False) + "\n")

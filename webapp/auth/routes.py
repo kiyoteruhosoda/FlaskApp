@@ -188,8 +188,14 @@ def google_oauth_callback():
         "redirect_uri": url_for("auth.google_oauth_callback", _external=True),
         "grant_type": "authorization_code",
     }
+
     try:
-        token_res = requests.post("https://oauth2.googleapis.com/token", data=token_data, timeout=10)
+        token_res = log_requests_and_send(
+            "post",
+            "https://oauth2.googleapis.com/token",
+            data=token_data,
+            timeout=10
+        )
         tokens = token_res.json()
         if "error" in tokens:
             flash(_("Google token error: %(msg)s", msg=tokens.get("error_description", tokens["error"])), "error")
@@ -200,12 +206,14 @@ def google_oauth_callback():
 
     access_token = tokens.get("access_token")
     email = None
+
     if access_token:
         try:
-            ui_res = requests.get(
+            ui_res = log_requests_and_send(
+                "get",
                 "https://www.googleapis.com/oauth2/v2/userinfo",
                 headers={"Authorization": f"Bearer {access_token}"},
-                timeout=10,
+                timeout=10
             )
             if ui_res.ok:
                 email = ui_res.json().get("email")
@@ -253,7 +261,12 @@ def picker(account_id: int):
         "refresh_token": refresh_token,
     }
     try:
-        res = requests.post("https://oauth2.googleapis.com/token", data=data, timeout=10)
+        res = log_requests_and_send(
+            "post",
+            "https://oauth2.googleapis.com/token",
+            data=data,
+            timeout=10
+        )
         res.raise_for_status()
         token_res = res.json()
     except requests.RequestException as e:  # pragma: no cover - network failure
@@ -278,11 +291,12 @@ def picker(account_id: int):
     db.session.commit()
 
     try:
-        res = requests.post(
+        res = log_requests_and_send(
+            "post",
             "https://photospicker.googleapis.com/v1/sessions",
             headers={"Authorization": f"Bearer {access_token}"},
-            json={},
-            timeout=10,
+            json_data={},
+            timeout=10
         )
         res.raise_for_status()
         picker_data = res.json()
@@ -308,3 +322,36 @@ def google_accounts():
     """Display Google account linkage settings."""
     accounts = GoogleAccount.query.all()
     return render_template("auth/google_accounts.html", accounts=accounts)
+
+def log_requests_and_send(method, url, *, headers=None, data=None, json_data=None, timeout=10):
+    """requestsリクエスト・レスポンスをlogに記録して送信する共通関数"""
+    from flask import current_app
+    import requests
+    import json as _json
+    # 送信前ログ
+    current_app.logger.info(
+        _json.dumps({
+            "method": method,
+            "headers": dict(headers) if headers else None,
+            "data": data,
+            "json": json_data,
+        }, ensure_ascii=False),
+        extra={"event": "requests.send", "path": url}
+    )
+    # 実リクエスト
+    req_func = getattr(requests, method.lower())
+    res = req_func(url, headers=headers, data=data, json=json_data, timeout=timeout)
+    # 受信後ログ
+    try:
+        res_body = res.json()
+    except Exception:
+        res_body = res.text
+    current_app.logger.info(
+        _json.dumps({
+            "status_code": res.status_code,
+            "headers": dict(res.headers),
+            "body": res_body,
+        }, ensure_ascii=False),
+        extra={"event": "requests.recv", "path": url}
+    )
+    return res

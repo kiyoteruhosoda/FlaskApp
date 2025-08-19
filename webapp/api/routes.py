@@ -173,10 +173,10 @@ def api_picker_session_create():
         json.dumps(
             {
                 "ts": datetime.now(timezone.utc).isoformat(),
-                "event": "picker.create.begin",
                 "account_id": account_id,
             }
-        )
+        ),
+        extra={"event": "picker.create.begin"}
     )
 
     tokens = json.loads(decrypt(account.oauth_token_json) or "{}")
@@ -199,11 +199,11 @@ def api_picker_session_create():
                 json.dumps(
                     {
                         "ts": datetime.now(timezone.utc).isoformat(),
-                        "event": "picker.create.fail",
                         "account_id": account_id,
                         "response": token_data,
                     }
-                )
+                ),
+                extra={"event": "picker.create.fail"}
             )
             return (
                 jsonify(
@@ -219,11 +219,11 @@ def api_picker_session_create():
             json.dumps(
                 {
                     "ts": datetime.now(timezone.utc).isoformat(),
-                    "event": "picker.create.fail",
                     "account_id": account_id,
                     "message": str(e),
                 }
-            )
+            ),
+            extra={"event": "picker.create.fail"}
         )
         return jsonify({"error": "oauth_error", "message": str(e)}), 502
 
@@ -244,11 +244,11 @@ def api_picker_session_create():
             json.dumps(
                 {
                     "ts": datetime.now(timezone.utc).isoformat(),
-                    "event": "picker.create.fail",
                     "account_id": account_id,
                     "message": str(e),
                 }
-            )
+            ),
+            extra={"event": "picker.create.fail"}
         )
         return jsonify({"error": "picker_error", "message": str(e)}), 502
 
@@ -262,11 +262,11 @@ def api_picker_session_create():
         json.dumps(
             {
                 "ts": datetime.now(timezone.utc).isoformat(),
-                "event": "picker.create.success",
                 "account_id": account_id,
                 "picker_session_id": ps.id,
             }
-        )
+        ),
+        extra={"event": "picker.create.success"}
     )
     return jsonify(
         {
@@ -351,11 +351,11 @@ def api_picker_session_status(picker_session_id):
         json.dumps(
             {
                 "ts": datetime.now(timezone.utc).isoformat(),
-                "event": "picker.status.get",
                 "picker_session_id": picker_session_id,
                 "status": ps.status,
             }
-        )
+        ),
+        extra={"event": "picker.status.get"}
     )
     return jsonify(
         {
@@ -381,11 +381,11 @@ def api_picker_session_import(picker_session_id):
             json.dumps(
                 {
                     "ts": datetime.now(timezone.utc).isoformat(),
-                    "event": "picker.import.suppress",
                     "picker_session_id": picker_session_id,
                     "status": ps.status,
                 }
-            )
+            ),
+            extra={"event": "picker.import.suppress"}
         )
         return jsonify({"error": "already_done"}), 409
     stats = ps.stats()
@@ -394,11 +394,11 @@ def api_picker_session_import(picker_session_id):
             json.dumps(
                 {
                     "ts": datetime.now(timezone.utc).isoformat(),
-                    "event": "picker.import.suppress",
                     "picker_session_id": picker_session_id,
                     "status": ps.status,
                 }
-            )
+            ),
+            extra={"event": "picker.import.suppress"}
         )
         return jsonify({"error": "already_enqueued"}), 409
     task_id = uuid4().hex
@@ -409,11 +409,11 @@ def api_picker_session_import(picker_session_id):
         json.dumps(
             {
                 "ts": datetime.now(timezone.utc).isoformat(),
-                "event": "picker.import.enqueue",
                 "picker_session_id": picker_session_id,
                 "status": ps.status,
             }
-        )
+        ),
+        extra={"event": "picker.import.enqueue"}
     )
     return jsonify({"enqueued": True, "celeryTaskId": task_id}), 202
 
@@ -427,12 +427,12 @@ def api_media_list():
         json.dumps(
             {
                 "ts": datetime.now(timezone.utc).isoformat(),
-                "event": "media.list.begin",
                 "trace": trace,
                 "cursor": request.args.get("cursor"),
                 "limit": request.args.get("limit"),
             }
-        )
+        ),
+        extra={"event": "media.list.begin"}
     )
     try:
         limit = int(request.args.get("limit", 200))
@@ -498,14 +498,14 @@ def api_media_list():
         json.dumps(
             {
                 "ts": datetime.now(timezone.utc).isoformat(),
-                "event": "media.list.success",
                 "trace": trace,
                 "count": len(items),
                 "cursor": cursor,
                 "nextCursor": next_cursor,
                 "serverTimeRFC1123": server_time,
             }
-        )
+        ),
+        extra={"event": "media.list.success"}
     )
     return jsonify(
         {"items": data_items, "nextCursor": next_cursor, "serverTimeRFC1123": server_time}
@@ -521,11 +521,11 @@ def api_media_detail(media_id):
         json.dumps(
             {
                 "ts": datetime.now(timezone.utc).isoformat(),
-                "event": "media.detail.begin",
                 "media_id": media_id,
                 "trace": trace,
             }
-        )
+        ),
+        extra={"event": "media.detail.begin"}
     )
     media = Media.query.get(media_id)
     if not media or media.is_deleted:
@@ -533,11 +533,11 @@ def api_media_detail(media_id):
             json.dumps(
                 {
                     "ts": datetime.now(timezone.utc).isoformat(),
-                    "event": "media.detail.not_found",
                     "media_id": media_id,
                     "trace": trace,
                 }
-            )
+            ),
+            extra={"event": "media.detail.not_found"}
         )
         return jsonify({"error": "not_found"}), 404
 
@@ -602,12 +602,12 @@ def api_media_detail(media_id):
         json.dumps(
             {
                 "ts": datetime.now(timezone.utc).isoformat(),
-                "event": "media.detail.success",
                 "media_id": media_id,
                 "trace": trace,
                 "serverTimeRFC1123": server_time,
             }
-        )
+        ),
+        extra={"event": "media.detail.success"}
     )
     return jsonify(data)
 
@@ -688,13 +688,13 @@ def api_media_thumb_url(media_id):
         json.dumps(
             {
                 "ts": datetime.now(timezone.utc).isoformat(),
-                "event": "url.thumb.issue",
                 "mid": media_id,
                 "size": size,
                 "ttl": ttl,
                 "nonce": payload["nonce"],
             }
-        )
+        ),
+        extra={"event": "url.thumb.issue"}
     )
     return (
         jsonify(
@@ -748,12 +748,12 @@ def api_media_playback_url(media_id):
         json.dumps(
             {
                 "ts": datetime.now(timezone.utc).isoformat(),
-                "event": "url.playback.issue",
                 "mid": media_id,
                 "ttl": ttl,
                 "nonce": payload["nonce"],
             }
-        )
+        ),
+        extra={"event": "url.playback.issue"}
     )
     return (
         jsonify(
@@ -780,11 +780,11 @@ def api_download(token):
             json.dumps(
                 {
                     "ts": datetime.now(timezone.utc).isoformat(),
-                    "event": "dl.forbidden",
                     "mid": payload.get("mid"),
                     "nonce": payload.get("nonce"),
                 }
-            )
+            ),
+            extra={"event": "dl.forbidden"}
         )
         return jsonify({"error": "forbidden"}), 403
 
@@ -804,11 +804,11 @@ def api_download(token):
             json.dumps(
                 {
                     "ts": datetime.now(timezone.utc).isoformat(),
-                    "event": "dl.notfound",
                     "mid": payload.get("mid"),
                     "nonce": payload.get("nonce"),
                 }
-            )
+            ),
+            extra={"event": "dl.notfound"}
         )
         return jsonify({"error": "not_found"}), 404
 
@@ -838,13 +838,12 @@ def api_download(token):
                 json.dumps(
                     {
                         "ts": datetime.now(timezone.utc).isoformat(),
-                        "event": "dl.range",
                         "mid": payload.get("mid"),
                         "nonce": payload.get("nonce"),
                         "start": start,
                         "end": end,
                     }
-                )
+                ), extra={"event": "dl.range"}
             )
             return resp
 
@@ -865,10 +864,10 @@ def api_download(token):
         json.dumps(
             {
                 "ts": datetime.now(timezone.utc).isoformat(),
-                "event": "dl.success",
                 "mid": payload.get("mid"),
                 "nonce": payload.get("nonce"),
             }
-        )
+        ),
+        extra={"event": "dl.success"}
     )
     return resp

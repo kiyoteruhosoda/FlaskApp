@@ -21,7 +21,9 @@ class DBLogHandler(logging.Handler):
                     trace=trace,
                     path=getattr(record, "path", None),
                     request_id=getattr(record, "request_id", None),
+                    event=getattr(record, "event", None), 
                 )
                 conn.execute(stmt)
-        except Exception:
+        except Exception as e:
+            print("DBLogHandler error:", e)
             pass

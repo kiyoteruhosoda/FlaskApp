@@ -5,7 +5,7 @@ import json
 import time
 from uuid import uuid4
 
-from flask import Flask, request, redirect, url_for, render_template, make_response, flash, g
+from flask import Flask, app, request, redirect, url_for, render_template, make_response, flash, g
 from datetime import datetime, timezone
 
 from flask_babel import get_locale
@@ -80,16 +80,30 @@ def create_app():
         if request.path.startswith("/api"):
             req_id = str(uuid4())
             g.request_id = req_id
+            # Inputログ
+            try:
+                input_json = request.get_json(silent=True)
+            except Exception:
+                input_json = None
+
+            log_dict = {
+                "method": request.method,
+            }
+            args_dict = request.args.to_dict()
+            if args_dict:
+                log_dict["args"] = args_dict
+            form_dict = request.form.to_dict()
+            if form_dict:
+                log_dict["form"] = form_dict
+            if input_json:
+                log_dict["json"] = input_json
             app.logger.info(
-                json.dumps(
-                    {
-                        "event": "api.request",
-                        "id": req_id,
-                        "path": request.path,
-                        "method": request.method,
-                        "json": request.get_json(silent=True),
-                    }
-                )
+                json.dumps(log_dict, ensure_ascii=False),
+                extra={
+                    "event": "api.input",
+                    "request_id": req_id,
+                    "path": request.path,
+                }
             )
 
     @app.after_request
@@ -100,18 +114,20 @@ def create_app():
             if response.mimetype == "application/json":
                 try:
                     resp_json = response.get_json()
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"Error parsing JSON response {request.path}:", e)
+                    resp_json = None
+            # Outputログ
             app.logger.info(
-                json.dumps(
-                    {
-                        "event": "api.response",
-                        "id": req_id,
-                        "path": request.path,
-                        "status": response.status_code,
-                        "json": resp_json,
-                    }
-                )
+                json.dumps({
+                    "status": response.status_code,
+                    "json": resp_json,
+                }, ensure_ascii=False),
+                extra={
+                    "event": "api.output",
+                    "request_id": req_id,
+                    "path": request.path,
+                }
             )
         return response
 
@@ -128,15 +144,29 @@ def create_app():
             code = 500
             message = str(e)
 
-        app.logger.error(
-            message,
-            exc_info=e,
+        # POSTパラメータも含めて出力
+        try:
+            input_json = request.get_json(silent=True)
+        except Exception:
+            input_json = None
+        log_dict = {
+            "message": message,
+            "method": request.method,
+            "user_agent": request.user_agent.string,
+        }
+        qs = request.query_string.decode()
+        if qs:
+            log_dict["query_string"] = qs
+        form_dict = request.form.to_dict()
+        if form_dict:
+            log_dict["form"] = form_dict
+        if input_json:
+            log_dict["json"] = input_json
+        app.logger.exception(
+            json.dumps(log_dict, ensure_ascii=False),
             extra={
-                "path": request.path,
-                "method": request.method,
-                "remote_addr": request.remote_addr,
-                "user_agent": request.user_agent.string,
-                "query_string": request.query_string.decode(),
+                "event": "api.handle_exception",
+                "path": request.url,
                 "request_id": getattr(g, "request_id", None),
             },
         )
@@ -149,14 +179,28 @@ def create_app():
     @app.after_request
     def log_server_error(response):
         if response.status_code >= 500 and not getattr(g, "exception_logged", False):
+            try:
+                input_json = request.get_json(silent=True)
+            except Exception:
+                input_json = None
+            log_dict = {
+                "status": response.status_code,
+                "method": request.method,
+                "user_agent": request.user_agent.string,
+            }
+            qs = request.query_string.decode()
+            if qs:
+                log_dict["query_string"] = qs
+            form_dict = request.form.to_dict()
+            if form_dict:
+                log_dict["form"] = form_dict
+            if input_json:
+                log_dict["json"] = input_json
             app.logger.error(
-                f"{response.status_code} {request.path}",
+                json.dumps(log_dict, ensure_ascii=False),
                 extra={
-                    "path": request.path,
-                    "method": request.method,
-                    "remote_addr": request.remote_addr,
-                    "user_agent": request.user_agent.string,
-                    "query_string": request.query_string.decode(),
+                    "event": "api.server_error",
+                    "path": request.url,
                     "request_id": getattr(g, "request_id", None),
                 },
             )

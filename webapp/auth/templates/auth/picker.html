@@ -3,6 +3,11 @@
 
 {% block content %}
 <h2>{{ _('Photo Picker') }}</h2>
-<p><a href="{{ picker_uri }}" target="_blank" rel="noopener">{{ _('Open Photo Picker') }}</a></p>
+<p>
+    <a href="{{ picker_uri }}" target="_blank" rel="noopener" class="btn btn-primary">{{ _('Open Photo Picker') }}</a>
+</p>
 <img src="{{ qr_data }}" alt="QR Code" class="mt-3">
+<p>
+    <a href="{{ url_for('photo_view.home') }}" target="_blank" rel="noopener" class="btn btn-primary">{{ _('Open Photo View') }}</a>
+</p>
 {% endblock %}

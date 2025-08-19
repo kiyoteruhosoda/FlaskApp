@@ -172,6 +172,7 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
             return {"ok": False, "imported": 0, "dup": 0, "failed": 0, "note": "session_get_error"}
     count = len(selected_ids)
     ps.selected_count = count
+    ps.media_items_set = count > 0
 
     if count == 0:
         ps.status = "ready"

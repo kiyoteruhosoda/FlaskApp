@@ -320,6 +320,18 @@ def picker(account_id: int):
         picker_uri=picker_uri,
         status="pending",
     )
+    expire = picker_data.get("expireTime")
+    if expire:
+        try:
+            ps.expire_time = datetime.fromisoformat(expire.replace("Z", "+00:00"))
+        except Exception:
+            pass
+    if picker_data.get("pollingConfig"):
+        ps.polling_config_json = json.dumps(picker_data.get("pollingConfig"))
+    if picker_data.get("pickingConfig"):
+        ps.picking_config_json = json.dumps(picker_data.get("pickingConfig"))
+    if "mediaItemsSet" in picker_data:
+        ps.media_items_set = picker_data.get("mediaItemsSet")
     db.session.add(ps)
     db.session.commit()
     session["picker_session_id"] = ps.id

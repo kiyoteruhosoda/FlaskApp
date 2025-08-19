@@ -12,7 +12,6 @@ from urllib.parse import urlencode
 from email.utils import formatdate
 from uuid import uuid4
 
-import requests
 from flask import (
     current_app,
     jsonify,
@@ -33,7 +32,7 @@ from core.models.picker_session import PickerSession
 from core.models.picker_import_item import PickerImportItem
 from core.models.photo_models import Media, Exif, MediaSidecar, MediaPlayback
 from core.crypto import decrypt
-from ..auth.utils import refresh_google_token, RefreshTokenError
+from ..auth.utils import refresh_google_token, RefreshTokenError, log_requests_and_send
 
 
 
@@ -109,9 +108,10 @@ def api_google_account_delete(account_id):
     refresh_token = token_json.get("refresh_token")
     if refresh_token:
         try:
-            requests.post(
+            log_requests_and_send(
+                "POST",
                 "https://oauth2.googleapis.com/revoke",
-                params={"token": refresh_token},
+                data={"token": refresh_token},
                 timeout=10,
             )
         except Exception:

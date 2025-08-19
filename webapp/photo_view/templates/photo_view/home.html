@@ -10,7 +10,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  let pickerSessionId = null;
+  let pickerSessionId = {{ picker_session_id|tojson }};
   const importBtn = document.getElementById('btn-import-start');
   const statusEl = document.getElementById('import-status');
 

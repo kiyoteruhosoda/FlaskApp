@@ -2,10 +2,14 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 import subprocess
+import shutil
 
 import pytest
 
 from core.tasks import transcode_queue_scan, transcode_worker
+
+
+ffmpeg_missing = shutil.which("ffmpeg") is None
 
 
 @pytest.fixture
@@ -213,6 +217,7 @@ def test_queue_scan_skip_existing(app):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")
 def test_worker_transcode_basic(app):
     orig_dir = Path(os.environ["FPV_NAS_ORIG_DIR"])
     video_path = orig_dir / "2025/08/18/basic.mp4"
@@ -234,6 +239,7 @@ def test_worker_transcode_basic(app):
         assert out.exists()
 
 
+@pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")
 def test_worker_transcode_downscale(app):
     orig_dir = Path(os.environ["FPV_NAS_ORIG_DIR"])
     video_path = orig_dir / "2025/08/18/large.mp4"
@@ -250,6 +256,7 @@ def test_worker_transcode_downscale(app):
         assert pb.width == 1920 and pb.height == 1080
 
 
+@pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")
 def test_worker_missing_audio(app):
     orig_dir = Path(os.environ["FPV_NAS_ORIG_DIR"])
     video_path = orig_dir / "2025/08/18/noaudio.mp4"
@@ -280,6 +287,7 @@ def test_worker_missing_input(app):
         assert pb.error_msg == "missing_input"
 
 
+@pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")
 def test_worker_already_running(app):
     orig_dir = Path(os.environ["FPV_NAS_ORIG_DIR"])
     video_path = orig_dir / "2025/08/18/run.mp4"

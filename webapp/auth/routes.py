@@ -1,5 +1,4 @@
 from flask import render_template, request, redirect, url_for, flash, session, current_app
-import requests
 import json
 from datetime import datetime, timezone
 from flask_login import login_user, logout_user, login_required, current_user
@@ -9,6 +8,7 @@ from ..extensions import db
 from core.models.user import User
 from core.models.google_account import GoogleAccount
 from core.crypto import encrypt, decrypt
+from core.picker import create_picker_session, PickerSessionError
 from .totp import new_totp_secret, verify_totp, provisioning_uri, qr_code_data_uri
 
 @bp.route("/login", methods=["GET", "POST"])
@@ -248,63 +248,13 @@ def picker(account_id: int):
     """Create a Photo Picker session and show its URI as a QR code."""
     account = GoogleAccount.query.get_or_404(account_id)
 
-    tokens = json.loads(decrypt(account.oauth_token_json) or "{}")
-    refresh_token = tokens.get("refresh_token")
-    if not refresh_token:
-        flash(_("No refresh token available."), "error")
-        return redirect(url_for("auth.google_accounts"))
-
-    data = {
-        "client_id": current_app.config.get("GOOGLE_CLIENT_ID"),
-        "client_secret": current_app.config.get("GOOGLE_CLIENT_SECRET"),
-        "grant_type": "refresh_token",
-        "refresh_token": refresh_token,
-    }
     try:
-        res = log_requests_and_send(
-            "post",
-            "https://oauth2.googleapis.com/token",
-            data=data,
-            timeout=10
-        )
-        res.raise_for_status()
-        token_res = res.json()
-    except requests.RequestException as e:  # pragma: no cover - network failure
-        flash(_("Failed to refresh token: %(msg)s", msg=str(e)), "error")
-        return redirect(url_for("auth.google_accounts"))
-    except ValueError:
-        flash(_("Invalid response from token endpoint."), "error")
-        return redirect(url_for("auth.google_accounts"))
-    if "error" in token_res:
-        msg = token_res.get("error_description") or token_res["error"]
-        flash(_("Failed to refresh token: %(msg)s", msg=msg), "error")
-        return redirect(url_for("auth.google_accounts"))
-
-    access_token = token_res.get("access_token")
-    if not access_token:
-        flash(_("Failed to obtain access token."), "error")
-        return redirect(url_for("auth.google_accounts"))
-
-    tokens.update(token_res)
-    account.oauth_token_json = encrypt(json.dumps(tokens))
-    account.last_synced_at = datetime.now(timezone.utc)
-    db.session.commit()
-
-    try:
-        res = log_requests_and_send(
-            "post",
-            "https://photospicker.googleapis.com/v1/sessions",
-            headers={"Authorization": f"Bearer {access_token}"},
-            json_data={},
-            timeout=10
-        )
-        res.raise_for_status()
-        picker_data = res.json()
-    except requests.RequestException as e:  # pragma: no cover - network failure
-        flash(_("Failed to create picker session: %(msg)s", msg=str(e)), "error")
-        return redirect(url_for("auth.google_accounts"))
-    except ValueError:
-        flash(_("Invalid response from picker API."), "error")
+        picker_data = create_picker_session(account)
+    except PickerSessionError as e:
+        if e.code == "no_refresh_token":
+            flash(_("No refresh token available."), "error")
+        else:
+            flash(_("Failed to create picker session: %(msg)s", msg=e.message), "error")
         return redirect(url_for("auth.google_accounts"))
 
     picker_uri = picker_data.get("pickerUri")

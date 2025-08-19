@@ -88,6 +88,7 @@ def create_app():
 
             log_dict = {
                 "method": request.method,
+                "event": "api.request",
             }
             args_dict = request.args.to_dict()
             if args_dict:
@@ -100,7 +101,7 @@ def create_app():
             app.logger.info(
                 json.dumps(log_dict, ensure_ascii=False),
                 extra={
-                    "event": "api.input",
+                    "event": "api.request",
                     "request_id": req_id,
                     "path": request.path,
                 }
@@ -117,14 +118,16 @@ def create_app():
                 except Exception as e:
                     print(f"Error parsing JSON response {request.path}:", e)
                     resp_json = None
+            log_dict = {
+                "status": response.status_code,
+                "json": resp_json,
+                "event": "api.response",
+            }
             # Outputログ
             app.logger.info(
-                json.dumps({
-                    "status": response.status_code,
-                    "json": resp_json,
-                }, ensure_ascii=False),
+                json.dumps(log_dict, ensure_ascii=False),
                 extra={
-                    "event": "api.output",
+                    "event": "api.response",
                     "request_id": req_id,
                     "path": request.path,
                 }
@@ -144,29 +147,11 @@ def create_app():
             code = 500
             message = str(e)
 
-        # POSTパラメータも含めて出力
-        try:
-            input_json = request.get_json(silent=True)
-        except Exception:
-            input_json = None
-        log_dict = {
-            "message": message,
-            "method": request.method,
-            "user_agent": request.user_agent.string,
-        }
-        qs = request.query_string.decode()
-        if qs:
-            log_dict["query_string"] = qs
-        form_dict = request.form.to_dict()
-        if form_dict:
-            log_dict["form"] = form_dict
-        if input_json:
-            log_dict["json"] = input_json
         app.logger.exception(
-            json.dumps(log_dict, ensure_ascii=False),
+            message,
             extra={
                 "event": "api.handle_exception",
-                "path": request.url,
+                "path": request.path,
                 "request_id": getattr(g, "request_id", None),
             },
         )
@@ -200,7 +185,7 @@ def create_app():
                 json.dumps(log_dict, ensure_ascii=False),
                 extra={
                     "event": "api.server_error",
-                    "path": request.url,
+                    "path": request.path,
                     "request_id": getattr(g, "request_id", None),
                 },
             )

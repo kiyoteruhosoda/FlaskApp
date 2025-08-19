@@ -2,10 +2,15 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 import subprocess
+import shutil
 
 import pytest
 
 from core.tasks import transcode_queue_scan, transcode_worker
+
+# ffmpeg がインストールされていない環境では本モジュール全体をスキップ
+if shutil.which("ffmpeg") is None:
+    pytest.skip("ffmpeg not installed", allow_module_level=True)
 
 
 @pytest.fixture

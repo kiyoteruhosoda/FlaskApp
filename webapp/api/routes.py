@@ -33,6 +33,7 @@ from core.models.picker_session import PickerSession
 from core.models.picker_import_item import PickerImportItem
 from core.models.photo_models import Media, Exif, MediaSidecar, MediaPlayback
 from core.crypto import decrypt, encrypt
+from core.picker import create_picker_session, PickerSessionError
 
 
 
@@ -176,82 +177,24 @@ def api_picker_session_create():
                 "account_id": account_id,
             }
         ),
-        extra={"event": "picker.create.begin"}
+        extra={"event": "picker.create.begin"},
     )
 
-    tokens = json.loads(decrypt(account.oauth_token_json) or "{}")
-    refresh_token = tokens.get("refresh_token")
-    if not refresh_token:
-        return jsonify({"error": "no_refresh_token"}), 401
-    token_req = {
-        "client_id": current_app.config.get("GOOGLE_CLIENT_ID"),
-        "client_secret": current_app.config.get("GOOGLE_CLIENT_SECRET"),
-        "grant_type": "refresh_token",
-        "refresh_token": refresh_token,
-    }
     try:
-        token_res = requests.post(
-            "https://oauth2.googleapis.com/token", data=token_req, timeout=15
-        )
-        token_data = token_res.json()
-        if "access_token" not in token_data:
-            current_app.logger.error(
-                json.dumps(
-                    {
-                        "ts": datetime.now(timezone.utc).isoformat(),
-                        "account_id": account_id,
-                        "response": token_data,
-                    }
-                ),
-                extra={"event": "picker.create.fail"}
-            )
-            return (
-                jsonify(
-                    {
-                        "error": token_data.get("error", "oauth_error"),
-                        "message": token_data.get("error_description"),
-                    }
-                ),
-                401,
-            )
-    except Exception as e:
+        picker_data = create_picker_session(account, title=title)
+    except PickerSessionError as e:
         current_app.logger.exception(
             json.dumps(
                 {
                     "ts": datetime.now(timezone.utc).isoformat(),
                     "account_id": account_id,
-                    "message": str(e),
+                    "message": e.message,
                 }
             ),
-            extra={"event": "picker.create.fail"}
+            extra={"event": "picker.create.fail"},
         )
-        return jsonify({"error": "oauth_error", "message": str(e)}), 502
-
-    access_token = token_data["access_token"]
-    headers = {"Authorization": f"Bearer {access_token}"}
-    body = {"title": title}
-    try:
-        picker_res = requests.post(
-            "https://photospicker.googleapis.com/v1/sessions",
-            json=body,
-            headers=headers,
-            timeout=15,
-        )
-        picker_res.raise_for_status()
-        picker_data = picker_res.json()
-    except Exception as e:
-        current_app.logger.exception(
-            json.dumps(
-                {
-                    "ts": datetime.now(timezone.utc).isoformat(),
-                    "account_id": account_id,
-                    "message": str(e),
-                }
-            ),
-            extra={"event": "picker.create.fail"}
-        )
-        return jsonify({"error": "picker_error", "message": str(e)}), 502
-
+        status = 401 if e.code == "no_refresh_token" else 502
+        return jsonify({"error": e.code, "message": e.message}), status
     ps = PickerSession(account_id=account.id, status="pending")
     db.session.add(ps)
     db.session.commit()

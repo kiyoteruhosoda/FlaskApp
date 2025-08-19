@@ -20,6 +20,7 @@ class DBLogHandler(logging.Handler):
                     message=record.getMessage(),
                     trace=trace,
                     path=getattr(record, "path", None),
+                    request_id=getattr(record, "request_id", None),
                 )
                 conn.execute(stmt)
         except Exception:

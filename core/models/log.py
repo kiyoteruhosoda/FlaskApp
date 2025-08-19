@@ -10,6 +10,7 @@ class Log(db.Model):
     message = db.Column(db.Text, nullable=False)
     trace = db.Column(db.Text)
     path = db.Column(db.String(255))
+    request_id = db.Column(db.String(36))
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
 

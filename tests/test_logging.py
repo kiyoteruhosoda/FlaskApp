@@ -1,6 +1,7 @@
 import base64
 import os
 import importlib
+import json
 import sys
 
 import pytest
@@ -48,6 +49,10 @@ def app(tmp_path):
         def bad():
             return "bad", 502
 
+        @app.post("/api/ping")
+        def api_ping():
+            return {"ok": True}
+
     yield app
 
     del sys.modules["webapp.config"]
@@ -83,3 +88,21 @@ def test_502_logged(client):
         log = logs[0]
         assert "502" in log.message
         assert log.path == "/bad"
+
+
+def test_api_request_response_logged(client):
+    from core.models.log import Log
+
+    resp = client.post("/api/ping", json={"hello": "world"})
+    assert resp.status_code == 200
+    with client.application.app_context():
+        logs = Log.query.order_by(Log.id).all()
+        assert len(logs) == 2
+        req_log, resp_log = logs
+        req_data = json.loads(req_log.message)
+        resp_data = json.loads(resp_log.message)
+        assert req_data["event"] == "api.request"
+        assert resp_data["event"] == "api.response"
+        assert req_log.request_id == resp_log.request_id
+        assert req_log.path == "/api/ping"
+        assert resp_log.path == "/api/ping"

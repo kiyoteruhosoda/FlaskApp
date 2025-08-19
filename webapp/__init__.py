@@ -1,6 +1,7 @@
 # webapp/__init__.py
 import logging
 import json
+
 import time
 from uuid import uuid4
 
@@ -136,6 +137,7 @@ def create_app():
                 "remote_addr": request.remote_addr,
                 "user_agent": request.user_agent.string,
                 "query_string": request.query_string.decode(),
+                "request_id": getattr(g, "request_id", None),
             },
         )
         g.exception_logged = True
@@ -155,6 +157,7 @@ def create_app():
                     "remote_addr": request.remote_addr,
                     "user_agent": request.user_agent.string,
                     "query_string": request.query_string.decode(),
+                    "request_id": getattr(g, "request_id", None),
                 },
             )
         return response

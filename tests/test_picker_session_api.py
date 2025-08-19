@@ -80,7 +80,14 @@ def test_create_ok(monkeypatch, client, app):
             return FakeResp({"access_token": "acc"})
         if url == "https://photospicker.googleapis.com/v1/sessions":
             sid = "picker_sessions/" + uuid.uuid4().hex
-            return FakeResp({"sessionId": sid, "pickerUri": "https://picker"})
+            return FakeResp({
+                "sessionId": sid,
+                "pickerUri": "https://picker",
+                "expireTime": "2025-03-10T00:00:00Z",
+                "pollingConfig": {"pollInterval": "3s", "timeoutIn": "30s"},
+                "pickingConfig": {"maxItemCount": "5"},
+                "mediaItemsSet": False,
+            })
         raise AssertionError("unexpected url" + url)
 
     monkeypatch.setattr("requests.post", fake_post)
@@ -90,8 +97,14 @@ def test_create_ok(monkeypatch, client, app):
     assert data["pickerSessionId"] > 0
     assert data["sessionId"]
     assert data["pickerUri"]
+    assert data["expireTime"]
+    assert "pollInterval" in data["pollingConfig"]
     with client.session_transaction() as sess:
         assert sess["picker_session_id"] == data["pickerSessionId"]
+    from core.models.picker_session import PickerSession
+    with app.app_context():
+        ps = PickerSession.query.get(data["pickerSessionId"])
+        assert ps.expire_time is not None
 
 
 def test_create_default_account(monkeypatch, client, app):
@@ -102,7 +115,14 @@ def test_create_default_account(monkeypatch, client, app):
             return FakeResp({"access_token": "acc"})
         if url == "https://photospicker.googleapis.com/v1/sessions":
             sid = "picker_sessions/" + uuid.uuid4().hex
-            return FakeResp({"sessionId": sid, "pickerUri": "https://picker"})
+            return FakeResp({
+                "sessionId": sid,
+                "pickerUri": "https://picker",
+                "expireTime": "2025-03-10T00:00:00Z",
+                "pollingConfig": {"pollInterval": "3s", "timeoutIn": "30s"},
+                "pickingConfig": {"maxItemCount": "5"},
+                "mediaItemsSet": False,
+            })
         raise AssertionError("unexpected url" + url)
 
     monkeypatch.setattr("requests.post", fake_post)
@@ -112,6 +132,7 @@ def test_create_default_account(monkeypatch, client, app):
     assert data["pickerSessionId"] > 0
     assert data["sessionId"]
     assert data["pickerUri"]
+    assert data["expireTime"]
 
 
 def test_create_account_not_found(monkeypatch, client, app):
@@ -141,7 +162,14 @@ def test_status_ok(monkeypatch, client, app):
             return FakeResp({"access_token": "acc"})
         if url == "https://photospicker.googleapis.com/v1/sessions":
             sid = "picker_sessions/" + uuid.uuid4().hex
-            return FakeResp({"sessionId": sid, "pickerUri": "https://picker"})
+            return FakeResp({
+                "sessionId": sid,
+                "pickerUri": "https://picker",
+                "expireTime": "2025-03-10T00:00:00Z",
+                "pollingConfig": {"pollInterval": "3s", "timeoutIn": "30s"},
+                "pickingConfig": {"maxItemCount": "5"},
+                "mediaItemsSet": False,
+            })
         raise AssertionError("unexpected url" + url)
 
     monkeypatch.setattr("requests.post", fake_post)
@@ -174,7 +202,14 @@ def test_import_enqueue_ok(monkeypatch, client, app):
             return FakeResp({"access_token": "acc"})
         if url == "https://photospicker.googleapis.com/v1/sessions":
             sid = "picker_sessions/" + uuid.uuid4().hex
-            return FakeResp({"sessionId": sid, "pickerUri": "https://picker"})
+            return FakeResp({
+                "sessionId": sid,
+                "pickerUri": "https://picker",
+                "expireTime": "2025-03-10T00:00:00Z",
+                "pollingConfig": {"pollInterval": "3s", "timeoutIn": "30s"},
+                "pickingConfig": {"maxItemCount": "5"},
+                "mediaItemsSet": False,
+            })
         raise AssertionError("unexpected url" + url)
 
     monkeypatch.setattr("requests.post", fake_post)
@@ -200,7 +235,14 @@ def test_import_idempotent(monkeypatch, client, app):
             return FakeResp({"access_token": "acc"})
         if url == "https://photospicker.googleapis.com/v1/sessions":
             sid = "picker_sessions/" + uuid.uuid4().hex
-            return FakeResp({"sessionId": sid, "pickerUri": "https://picker"})
+            return FakeResp({
+                "sessionId": sid,
+                "pickerUri": "https://picker",
+                "expireTime": "2025-03-10T00:00:00Z",
+                "pollingConfig": {"pollInterval": "3s", "timeoutIn": "30s"},
+                "pickingConfig": {"maxItemCount": "5"},
+                "mediaItemsSet": False,
+            })
         raise AssertionError("unexpected url" + url)
 
     monkeypatch.setattr("requests.post", fake_post)
@@ -238,7 +280,14 @@ def test_callback_stores_ids(monkeypatch, client, app):
             return FakeResp({"access_token": "acc"})
         if url == "https://photospicker.googleapis.com/v1/sessions":
             sid = "picker_sessions/" + uuid.uuid4().hex
-            return FakeResp({"sessionId": sid, "pickerUri": "https://picker"})
+            return FakeResp({
+                "sessionId": sid,
+                "pickerUri": "https://picker",
+                "expireTime": "2025-03-10T00:00:00Z",
+                "pollingConfig": {"pollInterval": "3s", "timeoutIn": "30s"},
+                "pickingConfig": {"maxItemCount": "5"},
+                "mediaItemsSet": False,
+            })
         raise AssertionError("unexpected url" + url)
 
     monkeypatch.setattr("requests.post", fake_post)
@@ -259,6 +308,7 @@ def test_callback_stores_ids(monkeypatch, client, app):
         ps = PickerSession.query.get(ps_id)
         assert ps.status == "ready"
         assert ps.selected_count == 2
+        assert ps.media_items_set is True
 
     res = client.get(f"/api/picker/session/{ps_id}")
     assert res.status_code == 200

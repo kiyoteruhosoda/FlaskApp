@@ -257,6 +257,18 @@ def api_picker_session_create():
     db.session.commit()
     ps.session_id = picker_data.get("sessionId") or picker_data.get("name")
     ps.picker_uri = picker_data.get("pickerUri")
+    expire = picker_data.get("expireTime")
+    if expire:
+        try:
+            ps.expire_time = datetime.fromisoformat(expire.replace("Z", "+00:00"))
+        except Exception:
+            ps.expire_time = None
+    if picker_data.get("pollingConfig"):
+        ps.polling_config_json = json.dumps(picker_data.get("pollingConfig"))
+    if picker_data.get("pickingConfig"):
+        ps.picking_config_json = json.dumps(picker_data.get("pickingConfig"))
+    if "mediaItemsSet" in picker_data:
+        ps.media_items_set = picker_data.get("mediaItemsSet")
     db.session.commit()
     session["picker_session_id"] = ps.id
     current_app.logger.info(
@@ -274,6 +286,10 @@ def api_picker_session_create():
             "pickerSessionId": ps.id,
             "sessionId": ps.session_id,
             "pickerUri": ps.picker_uri,
+            "expireTime": expire,
+            "pollingConfig": picker_data.get("pollingConfig"),
+            "pickingConfig": picker_data.get("pickingConfig"),
+            "mediaItemsSet": picker_data.get("mediaItemsSet"),
         }
     )
 
@@ -301,6 +317,8 @@ def api_picker_session_callback(picker_session_id):
         saved += 1
     ps.selected_count = (ps.selected_count or 0) + saved
     ps.status = "ready"
+    if saved > 0:
+        ps.media_items_set = True
     db.session.commit()
     return jsonify({"result": "ok", "count": saved})
 
@@ -343,6 +361,19 @@ def api_picker_session_status(picker_session_id):
                         or data.get("selectedMediaCount")
                         or data.get("selectedMediaItems")
                     )
+                    if data.get("expireTime"):
+                        try:
+                            ps.expire_time = datetime.fromisoformat(
+                                data["expireTime"].replace("Z", "+00:00")
+                            )
+                        except Exception:
+                            pass
+                    if data.get("pollingConfig"):
+                        ps.polling_config_json = json.dumps(data.get("pollingConfig"))
+                    if data.get("pickingConfig"):
+                        ps.picking_config_json = json.dumps(data.get("pickingConfig"))
+                    if "mediaItemsSet" in data:
+                        ps.media_items_set = data.get("mediaItemsSet")
         except Exception:
             selected = None
     ps.selected_count = selected
@@ -364,6 +395,12 @@ def api_picker_session_status(picker_session_id):
             "selectedCount": ps.selected_count,
             "lastPolledAt": ps.last_polled_at.isoformat().replace("+00:00", "Z"),
             "serverTimeRFC1123": formatdate(usegmt=True),
+            "sessionId": ps.session_id,
+            "pickerUri": ps.picker_uri,
+            "expireTime": ps.expire_time.isoformat().replace("+00:00", "Z") if ps.expire_time else None,
+            "pollingConfig": json.loads(ps.polling_config_json) if ps.polling_config_json else None,
+            "pickingConfig": json.loads(ps.picking_config_json) if ps.picking_config_json else None,
+            "mediaItemsSet": ps.media_items_set,
         }
     )
 

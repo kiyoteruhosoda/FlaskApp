@@ -11,6 +11,7 @@ from core.models.google_account import GoogleAccount
 from core.crypto import encrypt, decrypt
 from .totp import new_totp_secret, verify_totp, provisioning_uri, qr_code_data_uri
 from core.models.picker_session import PickerSession
+from .utils import refresh_google_token, log_requests_and_send, RefreshTokenError
 
 @bp.route("/login", methods=["GET", "POST"])
 def login():
@@ -249,47 +250,19 @@ def picker(account_id: int):
     """Create a Photo Picker session and show its URI as a QR code."""
     account = GoogleAccount.query.get_or_404(account_id)
 
-    tokens = json.loads(decrypt(account.oauth_token_json) or "{}")
-    refresh_token = tokens.get("refresh_token")
-    if not refresh_token:
-        flash(_("No refresh token available."), "error")
-        return redirect(url_for("auth.google_accounts"))
-
-    data = {
-        "client_id": current_app.config.get("GOOGLE_CLIENT_ID"),
-        "client_secret": current_app.config.get("GOOGLE_CLIENT_SECRET"),
-        "grant_type": "refresh_token",
-        "refresh_token": refresh_token,
-    }
     try:
-        res = log_requests_and_send(
-            "post",
-            "https://oauth2.googleapis.com/token",
-            data=data,
-            timeout=10
-        )
-        res.raise_for_status()
-        token_res = res.json()
-    except requests.RequestException as e:  # pragma: no cover - network failure
-        flash(_("Failed to refresh token: %(msg)s", msg=str(e)), "error")
-        return redirect(url_for("auth.google_accounts"))
-    except ValueError:
-        flash(_("Invalid response from token endpoint."), "error")
-        return redirect(url_for("auth.google_accounts"))
-    if "error" in token_res:
-        msg = token_res.get("error_description") or token_res["error"]
-        flash(_("Failed to refresh token: %(msg)s", msg=msg), "error")
+        tokens = refresh_google_token(account)
+    except RefreshTokenError as e:
+        if str(e) == "no_refresh_token":
+            flash(_("No refresh token available."), "error")
+        else:
+            flash(_("Failed to refresh token: %(msg)s", msg=str(e)), "error")
         return redirect(url_for("auth.google_accounts"))
 
-    access_token = token_res.get("access_token")
+    access_token = tokens.get("access_token")
     if not access_token:
         flash(_("Failed to obtain access token."), "error")
         return redirect(url_for("auth.google_accounts"))
-
-    tokens.update(token_res)
-    account.oauth_token_json = encrypt(json.dumps(tokens))
-    account.last_synced_at = datetime.now(timezone.utc)
-    db.session.commit()
 
     try:
         res = log_requests_and_send(
@@ -353,36 +326,3 @@ def google_accounts():
     """Display Google account linkage settings."""
     accounts = GoogleAccount.query.all()
     return render_template("auth/google_accounts.html", accounts=accounts)
-
-def log_requests_and_send(method, url, *, headers=None, data=None, json_data=None, timeout=10):
-    """requestsリクエスト・レスポンスをlogに記録して送信する共通関数"""
-    from flask import current_app
-    import requests
-    import json as _json
-    # 送信前ログ
-    current_app.logger.info(
-        _json.dumps({
-            "method": method,
-            "headers": dict(headers) if headers else None,
-            "data": data,
-            "json": json_data,
-        }, ensure_ascii=False),
-        extra={"event": "requests.send", "path": url}
-    )
-    # 実リクエスト
-    req_func = getattr(requests, method.lower())
-    res = req_func(url, headers=headers, data=data, json=json_data, timeout=timeout)
-    # 受信後ログ
-    try:
-        res_body = res.json()
-    except Exception:
-        res_body = res.text
-    current_app.logger.info(
-        _json.dumps({
-            "status_code": res.status_code,
-            "headers": dict(res.headers) if hasattr(res, "headers") else None,
-            "body": res_body,
-        }, ensure_ascii=False),
-        extra={"event": "requests.recv", "path": url}
-    )
-    return res

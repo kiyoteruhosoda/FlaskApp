@@ -32,7 +32,8 @@ from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
 from core.models.picker_import_item import PickerImportItem
 from core.models.photo_models import Media, Exif, MediaSidecar, MediaPlayback
-from core.crypto import decrypt, encrypt
+from core.crypto import decrypt
+from ..auth.utils import refresh_google_token, RefreshTokenError
 
 
 
@@ -125,27 +126,10 @@ def api_google_account_delete(account_id):
 def api_google_account_test(account_id):
     """Test refresh token by attempting to obtain a new access token."""
     account = GoogleAccount.query.get_or_404(account_id)
-    tokens = json.loads(decrypt(account.oauth_token_json) or "{}")
-    refresh_token = tokens.get("refresh_token")
-    if not refresh_token:
-        return jsonify({"error": "no_refresh_token"}), 400
-    data = {
-        "client_id": current_app.config.get("GOOGLE_CLIENT_ID"),
-        "client_secret": current_app.config.get("GOOGLE_CLIENT_SECRET"),
-        "grant_type": "refresh_token",
-        "refresh_token": refresh_token,
-    }
     try:
-        res = requests.post("https://oauth2.googleapis.com/token", data=data, timeout=10)
-        result = res.json()
-        if "error" in result:
-            return jsonify({"error": result["error"]}), 400
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    tokens.update(result)
-    account.oauth_token_json = encrypt(json.dumps(tokens))
-    account.last_synced_at = datetime.now(timezone.utc)
-    db.session.commit()
+        refresh_google_token(account)
+    except RefreshTokenError as e:
+        return jsonify({"error": str(e)}), e.status_code
     return jsonify({"result": "ok"})
 
 

@@ -346,37 +346,45 @@ def test_media_items_endpoint(monkeypatch, client, app):
                 "pollingConfig": {"pollInterval": "3s"},
                 "mediaItemsSet": False,
             })
-        if url == "https://photospicker.googleapis.com/v1/mediaItems":
-            return FakeResp({
-                "mediaItems": [
-                    {
-                        "id": "m1",
-                        "baseUrl": "https://base/1",
-                        "mimeType": "image/jpeg",
-                        "filename": "a.jpg",
-                        "mediaMetadata": {
-                            "creationTime": "2025-01-01T00:00:00Z",
-                            "width": "100",
-                            "height": "50",
-                            "photo": {
-                                "cameraMake": "Canon",
-                                "cameraModel": "EOS",
-                                "focalLength": 10.0,
-                                "apertureFNumber": 2.8,
-                                "isoEquivalent": 100,
-                                "exposureTime": "1/50",
-                            },
-                        },
-                    }
-                ],
-                "nextPageToken": "tok",
-            })
         raise AssertionError("unexpected url" + url)
 
     monkeypatch.setattr("requests.post", fake_post)
 
     res = client.post("/api/picker/session", json={"account_id": 1})
     session_name = res.get_json()["sessionId"]
+
+    def fake_get(url, *a, **k):
+        if url == "https://photospicker.googleapis.com/v1/mediaItems":
+            assert k.get("params", {}).get("sessionId") == session_name
+            return FakeResp(
+                {
+                    "mediaItems": [
+                        {
+                            "id": "m1",
+                            "baseUrl": "https://base/1",
+                            "mimeType": "image/jpeg",
+                            "filename": "a.jpg",
+                            "mediaMetadata": {
+                                "creationTime": "2025-01-01T00:00:00Z",
+                                "width": "100",
+                                "height": "50",
+                                "photo": {
+                                    "cameraMake": "Canon",
+                                    "cameraModel": "EOS",
+                                    "focalLength": 10.0,
+                                    "apertureFNumber": 2.8,
+                                    "isoEquivalent": 100,
+                                    "exposureTime": "1/50",
+                                },
+                            },
+                        }
+                    ],
+                    "nextPageToken": "tok",
+                }
+            )
+        raise AssertionError("unexpected url" + url)
+
+    monkeypatch.setattr("requests.get", fake_get)
 
     res = client.post("/api/picker/session/mediaItems", json={"sessionId": session_name})
     assert res.status_code == 200

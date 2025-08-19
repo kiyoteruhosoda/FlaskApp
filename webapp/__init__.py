@@ -1,6 +1,8 @@
 # webapp/__init__.py
 import logging
 import json
+
+import time
 from uuid import uuid4
 
 from flask import Flask, request, redirect, url_for, render_template, make_response, flash, g
@@ -70,6 +72,10 @@ def create_app():
     app.register_blueprint(api_bp, url_prefix="/api")
 
     @app.before_request
+    def start_timer():
+        g.start_time = time.perf_counter()
+
+    @app.before_request
     def log_api_request():
         if request.path.startswith("/api"):
             req_id = str(uuid4())
@@ -78,11 +84,12 @@ def create_app():
                 json.dumps(
                     {
                         "event": "api.request",
+                        "id": req_id,
+                        "path": request.path,
                         "method": request.method,
                         "json": request.get_json(silent=True),
                     }
-                ),
-                extra={"path": request.path, "request_id": req_id},
+                )
             )
 
     @app.after_request
@@ -99,11 +106,12 @@ def create_app():
                 json.dumps(
                     {
                         "event": "api.response",
+                        "id": req_id,
+                        "path": request.path,
                         "status": response.status_code,
                         "json": resp_json,
                     }
-                ),
-                extra={"path": request.path, "request_id": req_id},
+                )
             )
         return response
 
@@ -155,6 +163,14 @@ def create_app():
         return response
 
     @app.after_request
+    def add_server_timing(response):
+        start = getattr(g, "start_time", None)
+        if start is not None:
+            duration = (time.perf_counter() - start) * 1000
+            response.headers["Server-Timing"] = f"app;dur={duration:.2f}"
+        return response
+
+    @app.after_request
     def add_time_header(response):
         response.headers["X-Server-Time"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         return response
@@ -192,6 +208,10 @@ def create_app():
             "t_Home": _("Home"),
             "t_LoginMessage": _("Please log in to access this page."),
         }
+
+    @app.route("/.well-known/appspecific/com.chrome.devtools.json")
+    def chrome_devtools_json():
+        return {}, 204  # 空レスポンスを返す
 
     return app
 

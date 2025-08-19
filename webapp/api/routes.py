@@ -195,12 +195,13 @@ def api_picker_session_create():
         )
         token_data = token_res.json()
         if "access_token" not in token_data:
-            current_app.logger.info(
+            current_app.logger.error(
                 json.dumps(
                     {
                         "ts": datetime.now(timezone.utc).isoformat(),
                         "event": "picker.create.fail",
                         "account_id": account_id,
+                        "response": token_data,
                     }
                 )
             )
@@ -214,12 +215,13 @@ def api_picker_session_create():
                 401,
             )
     except Exception as e:
-        current_app.logger.info(
+        current_app.logger.exception(
             json.dumps(
                 {
                     "ts": datetime.now(timezone.utc).isoformat(),
                     "event": "picker.create.fail",
                     "account_id": account_id,
+                    "message": str(e),
                 }
             )
         )
@@ -238,12 +240,13 @@ def api_picker_session_create():
         picker_res.raise_for_status()
         picker_data = picker_res.json()
     except Exception as e:
-        current_app.logger.info(
+        current_app.logger.exception(
             json.dumps(
                 {
                     "ts": datetime.now(timezone.utc).isoformat(),
                     "event": "picker.create.fail",
                     "account_id": account_id,
+                    "message": str(e),
                 }
             )
         )

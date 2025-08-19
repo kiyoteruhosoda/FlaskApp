@@ -10,6 +10,7 @@ from core.models.user import User
 from core.models.google_account import GoogleAccount
 from core.crypto import encrypt, decrypt
 from .totp import new_totp_secret, verify_totp, provisioning_uri, qr_code_data_uri
+from core.models.picker_session import PickerSession
 
 @bp.route("/login", methods=["GET", "POST"])
 def login():
@@ -313,6 +314,16 @@ def picker(account_id: int):
         flash(msg, "error")
         return redirect(url_for("auth.google_accounts"))
 
+    ps = PickerSession(
+        account_id=account.id,
+        session_id=picker_data.get("sessionId") or picker_data.get("name"),
+        picker_uri=picker_uri,
+        status="pending",
+    )
+    db.session.add(ps)
+    db.session.commit()
+    session["picker_session_id"] = ps.id
+
     qr_data = qr_code_data_uri(picker_uri)
     return render_template("auth/picker.html", picker_uri=picker_uri, qr_data=qr_data)
 
@@ -349,7 +360,7 @@ def log_requests_and_send(method, url, *, headers=None, data=None, json_data=Non
     current_app.logger.info(
         _json.dumps({
             "status_code": res.status_code,
-            "headers": dict(res.headers),
+            "headers": dict(res.headers) if hasattr(res, "headers") else None,
             "body": res_body,
         }, ensure_ascii=False),
         extra={"event": "requests.recv", "path": url}

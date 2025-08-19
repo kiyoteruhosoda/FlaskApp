@@ -6,7 +6,7 @@ navigation to be wired up and provides a starting point for further
 implementation work.
 """
 
-from flask import render_template
+from flask import render_template, session
 
 from core.models.authz import require_roles
 
@@ -16,7 +16,8 @@ from . import bp
 @bp.route("/")
 def home():
     """Photo view home page."""
-    return render_template("photo_view/home.html")
+    picker_session_id = session.get("picker_session_id")
+    return render_template("photo_view/home.html", picker_session_id=picker_session_id)
 
 
 @bp.route("/media")

@@ -73,8 +73,9 @@ def test_log_written(client):
         logs = Log.query.all()
         assert len(logs) == 1
         log = logs[0]
-        assert log.message == "boom"
-        assert log.path == "/boom"
+        data = json.loads(log.message)
+        assert data["message"] == "boom"
+        assert log.path.endswith("/boom")
 
 
 def test_502_logged(client):
@@ -86,8 +87,9 @@ def test_502_logged(client):
         logs = Log.query.all()
         assert len(logs) == 1
         log = logs[0]
-        assert "502" in log.message
-        assert log.path == "/bad"
+        data = json.loads(log.message)
+        assert data["status"] == 502
+        assert log.path.endswith("/bad")
 
 
 def test_api_request_response_logged(client):
@@ -101,8 +103,12 @@ def test_api_request_response_logged(client):
         req_log, resp_log = logs
         req_data = json.loads(req_log.message)
         resp_data = json.loads(resp_log.message)
-        assert req_data["event"] == "api.request"
-        assert resp_data["event"] == "api.response"
+        assert req_log.event == "api.input"
+        assert resp_log.event == "api.output"
+        assert req_data["method"] == "POST"
+        assert req_data["json"] == {"hello": "world"}
+        assert resp_data["status"] == 200
+        assert resp_data["json"] == {"ok": True}
         assert req_log.request_id == resp_log.request_id
-        assert req_log.path == "/api/ping"
-        assert resp_log.path == "/api/ping"
+        assert req_log.path.endswith("/api/ping")
+        assert resp_log.path.endswith("/api/ping")

@@ -399,3 +399,20 @@ def test_media_items_endpoint(monkeypatch, client, app):
         assert pmi is not None
         assert pmi.status == "pending"
         assert pmi.media_file_metadata.width == 100
+
+
+def test_media_items_busy(monkeypatch, client, app):
+    login(client, app)
+    session_id = "sid"
+
+    from webapp.api import picker_session as ps_module
+    lock = ps_module._get_media_items_lock(session_id)
+    assert lock.acquire(blocking=False)
+    try:
+        res = client.post(
+            "/api/picker/session/mediaItems", json={"sessionId": session_id}
+        )
+        assert res.status_code == 409
+    finally:
+        lock.release()
+        ps_module._release_media_items_lock(session_id, lock)

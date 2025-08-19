@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 import json
 from uuid import uuid4
+from threading import Lock
 from flask import (
     Blueprint, current_app, jsonify, request, session
 )
@@ -19,6 +20,25 @@ from core.crypto import decrypt
 from ..auth.utils import refresh_google_token, RefreshTokenError, log_requests_and_send
 
 bp = Blueprint('picker_session_api', __name__)
+
+
+_media_items_locks = {}
+_media_items_locks_lock = Lock()
+
+
+def _get_media_items_lock(session_id):
+    with _media_items_locks_lock:
+        lock = _media_items_locks.get(session_id)
+        if lock is None:
+            lock = Lock()
+            _media_items_locks[session_id] = lock
+        return lock
+
+
+def _release_media_items_lock(session_id, lock):
+    with _media_items_locks_lock:
+        if not lock.locked():
+            _media_items_locks.pop(session_id, None)
 
 @bp.post("/picker/session")
 @login_required
@@ -243,96 +263,105 @@ def api_picker_session_media_items():
     cursor = data.get("cursor")
     if not session_id or not isinstance(session_id, str):
         return jsonify({"error": "invalid_session"}), 400
-    ps = PickerSession.query.filter_by(session_id=session_id).first()
-    if not ps:
-        return jsonify({"error": "not_found"}), 404
-    account = GoogleAccount.query.get(ps.account_id)
-    if not account:
-        return jsonify({"error": "not_found"}), 404
+
+    lock = _get_media_items_lock(session_id)
+    if not lock.acquire(blocking=False):
+        return jsonify({"error": "busy"}), 409
+
     try:
-        tokens = refresh_google_token(account)
-    except RefreshTokenError as e:
-        status = 502 if e.status_code >= 500 else 401
-        return jsonify({"error": str(e)}), status
-    headers = {"Authorization": f"Bearer {tokens.get('access_token')}"}
-    params = {"sessionId": session_id, "pageSize": 100}
-    if cursor:
-        params["pageToken"] = cursor
-    try:
-        res = log_requests_and_send(
-            "GET",
-            "https://photospicker.googleapis.com/v1/mediaItems",
-            params=params,
-            headers=headers,
-            timeout=15,
+        ps = PickerSession.query.filter_by(session_id=session_id).first()
+        if not ps:
+            return jsonify({"error": "not_found"}), 404
+        account = GoogleAccount.query.get(ps.account_id)
+        if not account:
+            return jsonify({"error": "not_found"}), 404
+        try:
+            tokens = refresh_google_token(account)
+        except RefreshTokenError as e:
+            status = 502 if e.status_code >= 500 else 401
+            return jsonify({"error": str(e)}), status
+        headers = {"Authorization": f"Bearer {tokens.get('access_token')}"}
+        params = {"sessionId": session_id, "pageSize": 100}
+        if cursor:
+            params["pageToken"] = cursor
+        try:
+            res = log_requests_and_send(
+                "GET",
+                "https://photospicker.googleapis.com/v1/mediaItems",
+                params=params,
+                headers=headers,
+                timeout=15,
+            )
+            res.raise_for_status()
+            picker_data = res.json()
+        except Exception as e:
+            return jsonify({"error": "picker_error", "message": str(e)}), 502
+        items = picker_data.get("mediaItems") or []
+        saved = 0
+        dup = 0
+        for item in items:
+            item_id = item.get("id") or item.get("mediaItemId")
+            if not item_id:
+                continue
+            pmi = PickedMediaItem.query.get(item_id)
+            is_dup = pmi is not None
+            if not pmi:
+                pmi = PickedMediaItem(id=item_id, status="pending")
+            pmi.base_url = item.get("baseUrl")
+            pmi.mime_type = item.get("mimeType")
+            pmi.filename = item.get("filename")
+            meta = item.get("mediaMetadata") or {}
+            ctime = meta.get("creationTime")
+            if ctime:
+                try:
+                    pmi.create_time = datetime.fromisoformat(ctime.replace("Z", "+00:00"))
+                except Exception:
+                    pass
+            pmi.type = "VIDEO" if meta.get("video") else "PHOTO"
+            mf = pmi.media_file_metadata or MediaFileMetadata()
+            width = meta.get("width")
+            height = meta.get("height")
+            if width is not None:
+                try:
+                    mf.width = int(width)
+                except Exception:
+                    mf.width = None
+            if height is not None:
+                try:
+                    mf.height = int(height)
+                except Exception:
+                    mf.height = None
+            photo_meta = meta.get("photo") or {}
+            if photo_meta:
+                mf.camera_make = photo_meta.get("cameraMake")
+                mf.camera_model = photo_meta.get("cameraModel")
+                pm = mf.photo_metadata or PhotoMetadata()
+                pm.focal_length = photo_meta.get("focalLength")
+                pm.aperture_f_number = photo_meta.get("apertureFNumber")
+                pm.iso_equivalent = photo_meta.get("isoEquivalent")
+                pm.exposure_time = photo_meta.get("exposureTime")
+                mf.photo_metadata = pm
+            video_meta = meta.get("video") or {}
+            if video_meta:
+                mf.camera_make = video_meta.get("cameraMake") or mf.camera_make
+                mf.camera_model = video_meta.get("cameraModel") or mf.camera_model
+                vm = mf.video_metadata or VideoMetadata()
+                vm.fps = video_meta.get("fps")
+                vm.processing_status = video_meta.get("status")
+                mf.video_metadata = vm
+            pmi.media_file_metadata = mf
+            db.session.add(pmi)
+            if is_dup:
+                dup += 1
+            else:
+                saved += 1
+        db.session.commit()
+        return jsonify(
+            {"saved": saved, "duplicates": dup, "nextCursor": picker_data.get("nextPageToken")}
         )
-        res.raise_for_status()
-        picker_data = res.json()
-    except Exception as e:
-        return jsonify({"error": "picker_error", "message": str(e)}), 502
-    items = picker_data.get("mediaItems") or []
-    saved = 0
-    dup = 0
-    for item in items:
-        item_id = item.get("id") or item.get("mediaItemId")
-        if not item_id:
-            continue
-        pmi = PickedMediaItem.query.get(item_id)
-        is_dup = pmi is not None
-        if not pmi:
-            pmi = PickedMediaItem(id=item_id, status="pending")
-        pmi.base_url = item.get("baseUrl")
-        pmi.mime_type = item.get("mimeType")
-        pmi.filename = item.get("filename")
-        meta = item.get("mediaMetadata") or {}
-        ctime = meta.get("creationTime")
-        if ctime:
-            try:
-                pmi.create_time = datetime.fromisoformat(ctime.replace("Z", "+00:00"))
-            except Exception:
-                pass
-        pmi.type = "VIDEO" if meta.get("video") else "PHOTO"
-        mf = pmi.media_file_metadata or MediaFileMetadata()
-        width = meta.get("width")
-        height = meta.get("height")
-        if width is not None:
-            try:
-                mf.width = int(width)
-            except Exception:
-                mf.width = None
-        if height is not None:
-            try:
-                mf.height = int(height)
-            except Exception:
-                mf.height = None
-        photo_meta = meta.get("photo") or {}
-        if photo_meta:
-            mf.camera_make = photo_meta.get("cameraMake")
-            mf.camera_model = photo_meta.get("cameraModel")
-            pm = mf.photo_metadata or PhotoMetadata()
-            pm.focal_length = photo_meta.get("focalLength")
-            pm.aperture_f_number = photo_meta.get("apertureFNumber")
-            pm.iso_equivalent = photo_meta.get("isoEquivalent")
-            pm.exposure_time = photo_meta.get("exposureTime")
-            mf.photo_metadata = pm
-        video_meta = meta.get("video") or {}
-        if video_meta:
-            mf.camera_make = video_meta.get("cameraMake") or mf.camera_make
-            mf.camera_model = video_meta.get("cameraModel") or mf.camera_model
-            vm = mf.video_metadata or VideoMetadata()
-            vm.fps = video_meta.get("fps")
-            vm.processing_status = video_meta.get("status")
-            mf.video_metadata = vm
-        pmi.media_file_metadata = mf
-        db.session.add(pmi)
-        if is_dup:
-            dup += 1
-        else:
-            saved += 1
-    db.session.commit()
-    return jsonify(
-        {"saved": saved, "duplicates": dup, "nextCursor": picker_data.get("nextPageToken")}
-    )
+    finally:
+        lock.release()
+        _release_media_items_lock(session_id, lock)
 
 
 @bp.post("/picker/session/<path:picker_session_id>/import")

@@ -1,6 +1,7 @@
 # webapp/__init__.py
 import logging
 import json
+import time
 from uuid import uuid4
 
 from flask import Flask, request, redirect, url_for, render_template, make_response, flash, g
@@ -68,6 +69,10 @@ def create_app():
 
     from .api import bp as api_bp
     app.register_blueprint(api_bp, url_prefix="/api")
+
+    @app.before_request
+    def start_timer():
+        g.start_time = time.perf_counter()
 
     @app.before_request
     def log_api_request():
@@ -152,6 +157,14 @@ def create_app():
                     "query_string": request.query_string.decode(),
                 },
             )
+        return response
+
+    @app.after_request
+    def add_server_timing(response):
+        start = getattr(g, "start_time", None)
+        if start is not None:
+            duration = (time.perf_counter() - start) * 1000
+            response.headers["Server-Timing"] = f"app;dur={duration:.2f}"
         return response
 
     @app.after_request

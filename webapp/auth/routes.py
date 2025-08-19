@@ -326,8 +326,9 @@ def picker(account_id: int):
             ps.expire_time = datetime.fromisoformat(expire.replace("Z", "+00:00"))
         except Exception:
             pass
-    if picker_data.get("pollingConfig"):
-        ps.polling_config_json = json.dumps(picker_data.get("pollingConfig"))
+    polling_conf = picker_data.get("pollingConfig") or {}
+    if polling_conf:
+        ps.polling_config_json = json.dumps(polling_conf)
     if picker_data.get("pickingConfig"):
         ps.picking_config_json = json.dumps(picker_data.get("pickingConfig"))
     if "mediaItemsSet" in picker_data:
@@ -335,8 +336,16 @@ def picker(account_id: int):
     db.session.add(ps)
     db.session.commit()
 
+    poll_interval = polling_conf.get("pollInterval")
     qr_data = qr_code_data_uri(picker_uri)
-    return render_template("auth/picker.html", session_id=ps.id, picker_uri=picker_uri, qr_data=qr_data)
+    return render_template(
+        "auth/picker.html",
+        session_id=ps.id,
+        session_name=ps.session_id,
+        picker_uri=picker_uri,
+        qr_data=qr_data,
+        poll_interval=poll_interval,
+    )
 
 @bp.route("/settings/google-accounts")
 @login_required

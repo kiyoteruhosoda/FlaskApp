@@ -215,8 +215,9 @@ def test_import_enqueue_ok(monkeypatch, client, app):
     monkeypatch.setattr("requests.post", fake_post)
     res = client.post("/api/picker/session", json={"account_id": 1})
     ps_id = res.get_json()["pickerSessionId"]
+    session_name = res.get_json()["sessionId"]
 
-    res = client.post(f"/api/picker/session/{ps_id}/import")
+    res = client.post(f"/api/picker/session/{session_name}/import")
     assert res.status_code == 202
     data = res.get_json()
     assert data["enqueued"] is True
@@ -248,9 +249,10 @@ def test_import_idempotent(monkeypatch, client, app):
     monkeypatch.setattr("requests.post", fake_post)
     res = client.post("/api/picker/session", json={"account_id": 1})
     ps_id = res.get_json()["pickerSessionId"]
-    res = client.post(f"/api/picker/session/{ps_id}/import")
+    session_name = res.get_json()["sessionId"]
+    res = client.post(f"/api/picker/session/{session_name}/import")
     assert res.status_code == 202
-    res = client.post(f"/api/picker/session/{ps_id}/import")
+    res = client.post(f"/api/picker/session/{session_name}/import")
     assert res.status_code == 409
 
 
@@ -315,3 +317,77 @@ def test_callback_stores_ids(monkeypatch, client, app):
     status = res.get_json()
     assert status["selectedCount"] == 2
     assert status["status"] == "ready"
+
+
+def test_media_items_endpoint(monkeypatch, client, app):
+    login(client, app)
+
+    class FakeResp:
+        def __init__(self, data, status=200):
+            self._data = data
+            self.status_code = status
+
+        def json(self):
+            return self._data
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise Exception("error")
+
+    def fake_post(url, *a, **k):
+        if url == "https://oauth2.googleapis.com/token":
+            return FakeResp({"access_token": "acc"})
+        if url == "https://photospicker.googleapis.com/v1/sessions":
+            sid = "picker_sessions/" + uuid.uuid4().hex
+            return FakeResp({
+                "sessionId": sid,
+                "pickerUri": "https://picker",
+                "expireTime": "2025-03-10T00:00:00Z",
+                "pollingConfig": {"pollInterval": "3s"},
+                "mediaItemsSet": False,
+            })
+        if url == "https://photospicker.googleapis.com/v1/mediaItems:list":
+            return FakeResp({
+                "mediaItems": [
+                    {
+                        "id": "m1",
+                        "baseUrl": "https://base/1",
+                        "mimeType": "image/jpeg",
+                        "filename": "a.jpg",
+                        "mediaMetadata": {
+                            "creationTime": "2025-01-01T00:00:00Z",
+                            "width": "100",
+                            "height": "50",
+                            "photo": {
+                                "cameraMake": "Canon",
+                                "cameraModel": "EOS",
+                                "focalLength": 10.0,
+                                "apertureFNumber": 2.8,
+                                "isoEquivalent": 100,
+                                "exposureTime": "1/50",
+                            },
+                        },
+                    }
+                ],
+                "nextPageToken": "tok",
+            })
+        raise AssertionError("unexpected url" + url)
+
+    monkeypatch.setattr("requests.post", fake_post)
+
+    res = client.post("/api/picker/session", json={"account_id": 1})
+    session_name = res.get_json()["sessionId"]
+
+    res = client.post("/api/picker/session/mediaItems", json={"sessionId": session_name})
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["saved"] == 1
+    assert data["duplicates"] == 0
+    assert data["nextCursor"] == "tok"
+
+    from core.models.photo_models import PickedMediaItem
+    with app.app_context():
+        pmi = PickedMediaItem.query.get("m1")
+        assert pmi is not None
+        assert pmi.status == "pending"
+        assert pmi.media_file_metadata.width == 100

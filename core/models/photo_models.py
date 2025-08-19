@@ -115,6 +115,15 @@ class PickedMediaItem(db.Model):
     base_url = db.Column(db.String(255))
     mime_type = db.Column(db.String(255))
     filename = db.Column(db.String(255))
+    status = db.Column(
+        db.Enum(
+            'pending', 'imported', 'dup', 'failed', 'expired', 'skipped',
+            name='picked_media_item_status'
+        ),
+        nullable=False,
+        default='pending',
+        server_default='pending',
+    )
     media_file_metadata_id = db.Column(
         BigInt, db.ForeignKey('media_file_metadata.id')
     )

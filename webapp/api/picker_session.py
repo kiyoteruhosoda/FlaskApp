@@ -255,14 +255,14 @@ def api_picker_session_media_items():
         status = 502 if e.status_code >= 500 else 401
         return jsonify({"error": str(e)}), status
     headers = {"Authorization": f"Bearer {tokens.get('access_token')}"}
-    body = {"sessionId": session_id}
+    params = {"sessionId": session_id, "pageSize": 100}
     if cursor:
-        body["pageToken"] = cursor
+        params["pageToken"] = cursor
     try:
         res = log_requests_and_send(
             "GET",
             "https://photospicker.googleapis.com/v1/mediaItems",
-            json_data=body,
+            params=params,
             headers=headers,
             timeout=15,
         )

@@ -15,7 +15,16 @@ class RefreshTokenError(Exception):
         self.status_code = status_code
 
 
-def log_requests_and_send(method, url, *, headers=None, data=None, json_data=None, timeout=10):
+def log_requests_and_send(
+    method,
+    url,
+    *,
+    headers=None,
+    params=None,
+    data=None,
+    json_data=None,
+    timeout=10,
+):
     """requestsリクエスト・レスポンスをlogに記録して送信する共通関数"""
     import json as _json
 
@@ -25,6 +34,7 @@ def log_requests_and_send(method, url, *, headers=None, data=None, json_data=Non
             {
                 "method": method,
                 "headers": dict(headers) if headers else None,
+                "params": params,
                 "data": data,
                 "json": json_data,
             },
@@ -35,7 +45,14 @@ def log_requests_and_send(method, url, *, headers=None, data=None, json_data=Non
 
     # 実リクエスト
     req_func = getattr(requests, method.lower())
-    res = req_func(url, headers=headers, data=data, json=json_data, timeout=timeout)
+    res = req_func(
+        url,
+        headers=headers,
+        params=params,
+        data=data,
+        json=json_data,
+        timeout=timeout,
+    )
 
     # 受信後ログ
     try:

@@ -58,6 +58,8 @@ def create_app():
     # Blueprint 登録
     from .auth import bp as auth_bp
     app.register_blueprint(auth_bp, url_prefix="/auth")
+    from .auth.routes import picker as picker_view
+    app.add_url_rule("/picker/<int:account_id>", view_func=picker_view, endpoint="picker")
 
     from .feature_x import bp as feature_x_bp
     app.register_blueprint(feature_x_bp, url_prefix="/feature-x")

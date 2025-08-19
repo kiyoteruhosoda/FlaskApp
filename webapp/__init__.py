@@ -206,6 +206,10 @@ def create_app():
             "t_LoginMessage": _("Please log in to access this page."),
         }
 
+    @app.route("/.well-known/appspecific/com.chrome.devtools.json")
+    def chrome_devtools_json():
+        return {}, 204  # 空レスポンスを返す
+
     return app
 
 

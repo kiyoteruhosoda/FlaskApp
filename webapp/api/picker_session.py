@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
 import json
 from uuid import uuid4
-import requests
 from flask import (
         Blueprint, current_app, jsonify, request, session
 )
@@ -17,6 +16,7 @@ from core.models.photo_models import (
     VideoMetadata,
 )
 from core.crypto import decrypt
+from ..auth.utils import refresh_google_token, RefreshTokenError, log_requests_and_send
 
 bp = Blueprint('picker_session_api', __name__)
 
@@ -50,61 +50,30 @@ def api_picker_session_create():
                 extra={"event": "picker.create.begin"}
         )
 
-        tokens = json.loads(decrypt(account.oauth_token_json) or "{}")
-        refresh_token = tokens.get("refresh_token")
-        if not refresh_token:
-                return jsonify({"error": "no_refresh_token"}), 401
-        token_req = {
-                "client_id": current_app.config.get("GOOGLE_CLIENT_ID"),
-                "client_secret": current_app.config.get("GOOGLE_CLIENT_SECRET"),
-                "grant_type": "refresh_token",
-                "refresh_token": refresh_token,
-        }
         try:
-                token_res = requests.post(
-                        "https://oauth2.googleapis.com/token", data=token_req, timeout=15
-                )
-                token_data = token_res.json()
-                if "access_token" not in token_data:
-                        current_app.logger.error(
-                                json.dumps(
-                                        {
-                                                "ts": datetime.now(timezone.utc).isoformat(),
-                                                "account_id": account_id,
-                                                "response": token_data,
-                                        }
-                                ),
-                                extra={"event": "picker.create.fail"}
-                        )
-                        return (
-                                jsonify(
-                                        {
-                                                "error": token_data.get("error", "oauth_error"),
-                                                "message": token_data.get("error_description"),
-                                        }
-                                ),
-                                401,
-                        )
-        except Exception as e:
-                current_app.logger.exception(
+                tokens = refresh_google_token(account)
+        except RefreshTokenError as e:
+                current_app.logger.error(
                         json.dumps(
                                 {
                                         "ts": datetime.now(timezone.utc).isoformat(),
                                         "account_id": account_id,
-                                        "message": str(e),
+                                        "error": str(e),
                                 }
                         ),
                         extra={"event": "picker.create.fail"}
                 )
-                return jsonify({"error": "oauth_error", "message": str(e)}), 502
+                status = 502 if e.status_code >= 500 else 401
+                return jsonify({"error": str(e)}), status
 
-        access_token = token_data["access_token"]
+        access_token = tokens.get("access_token")
         headers = {"Authorization": f"Bearer {access_token}"}
         body = {"title": title}
         try:
-                picker_res = requests.post(
+                picker_res = log_requests_and_send(
+                        "POST",
                         "https://photospicker.googleapis.com/v1/sessions",
-                        json=body,
+                        json_data=body,
                         headers=headers,
                         timeout=15,
                 )
@@ -205,46 +174,34 @@ def api_picker_session_status(picker_session_id):
         selected = ps.selected_count
         if selected is None and account and account.status == "active" and ps.session_id:
                 try:
-                        tokens = json.loads(decrypt(account.oauth_token_json) or "{}")
-                        refresh_token = tokens.get("refresh_token")
-                        if refresh_token:
-                                token_req = {
-                                        "client_id": current_app.config.get("GOOGLE_CLIENT_ID"),
-                                        "client_secret": current_app.config.get("GOOGLE_CLIENT_SECRET"),
-                                        "grant_type": "refresh_token",
-                                        "refresh_token": refresh_token,
-                                }
-                                token_res = requests.post(
-                                        "https://oauth2.googleapis.com/token", data=token_req, timeout=15
-                                )
-                                token_data = token_res.json()
-                                access_token = token_data.get("access_token")
-                                if access_token:
-                                        res = requests.get(
-                                                f"https://photospicker.googleapis.com/v1/{ps.session_id}",
-                                                headers={"Authorization": f"Bearer {access_token}"},
-                                                timeout=15,
+                        tokens = refresh_google_token(account)
+                        access_token = tokens.get("access_token")
+                        res = log_requests_and_send(
+                                "GET",
+                                f"https://photospicker.googleapis.com/v1/{ps.session_id}",
+                                headers={"Authorization": f"Bearer {access_token}"},
+                                timeout=15,
+                        )
+                        res.raise_for_status()
+                        data = res.json()
+                        selected = (
+                                data.get("selectedCount")
+                                or data.get("selectedMediaCount")
+                                or data.get("selectedMediaItems")
+                        )
+                        if data.get("expireTime"):
+                                try:
+                                        ps.expire_time = datetime.fromisoformat(
+                                                data["expireTime"].replace("Z", "+00:00")
                                         )
-                                        res.raise_for_status()
-                                        data = res.json()
-                                        selected = (
-                                                data.get("selectedCount")
-                                                or data.get("selectedMediaCount")
-                                                or data.get("selectedMediaItems")
-                                        )
-                                        if data.get("expireTime"):
-                                                try:
-                                                        ps.expire_time = datetime.fromisoformat(
-                                                                data["expireTime"].replace("Z", "+00:00")
-                                                        )
-                                                except Exception:
-                                                        pass
-                                        if data.get("pollingConfig"):
-                                                ps.polling_config_json = json.dumps(data.get("pollingConfig"))
-                                        if data.get("pickingConfig"):
-                                                ps.picking_config_json = json.dumps(data.get("pickingConfig"))
-                                        if "mediaItemsSet" in data:
-                                                ps.media_items_set = data.get("mediaItemsSet")
+                                except Exception:
+                                        pass
+                        if data.get("pollingConfig"):
+                                ps.polling_config_json = json.dumps(data.get("pollingConfig"))
+                        if data.get("pickingConfig"):
+                                ps.picking_config_json = json.dumps(data.get("pickingConfig"))
+                        if "mediaItemsSet" in data:
+                                ps.media_items_set = data.get("mediaItemsSet")
                 except Exception:
                         selected = None
         ps.selected_count = selected
@@ -292,34 +249,20 @@ def api_picker_session_media_items():
     account = GoogleAccount.query.get(ps.account_id)
     if not account:
         return jsonify({"error": "not_found"}), 404
-    tokens = json.loads(decrypt(account.oauth_token_json) or "{}")
-    refresh_token = tokens.get("refresh_token")
-    if not refresh_token:
-        return jsonify({"error": "no_refresh_token"}), 401
-    token_req = {
-        "client_id": current_app.config.get("GOOGLE_CLIENT_ID"),
-        "client_secret": current_app.config.get("GOOGLE_CLIENT_SECRET"),
-        "grant_type": "refresh_token",
-        "refresh_token": refresh_token,
-    }
     try:
-        token_res = requests.post(
-            "https://oauth2.googleapis.com/token", data=token_req, timeout=15
-        )
-        token_data = token_res.json()
-        access_token = token_data.get("access_token")
-        if not access_token:
-            return jsonify({"error": token_data.get("error", "oauth_error")}), 502
-    except Exception as e:
-        return jsonify({"error": "oauth_error", "message": str(e)}), 502
-    headers = {"Authorization": f"Bearer {access_token}"}
+        tokens = refresh_google_token(account)
+    except RefreshTokenError as e:
+        status = 502 if e.status_code >= 500 else 401
+        return jsonify({"error": str(e)}), status
+    headers = {"Authorization": f"Bearer {tokens.get('access_token')}"}
     body = {"sessionId": session_id}
     if cursor:
         body["pageToken"] = cursor
     try:
-        res = requests.post(
-            "https://photospicker.googleapis.com/v1/mediaItems:list",
-            json=body,
+        res = log_requests_and_send(
+            "POST",
+            "https://photospicker.googleapis.com/v1/mediaItems",
+            json_data=body,
             headers=headers,
             timeout=15,
         )

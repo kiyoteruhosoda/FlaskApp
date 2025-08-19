@@ -21,12 +21,12 @@
 
 <!-- 埋め込み用データ（この要素が元コードに無かった） -->
 <script id="session-data" type="application/json">
-  {{ {
-      "db_session_id": session_id,      # 内部ID（参考用）
-      "session_name": session_name,     # Google Picker の sessionId（外部API用）
-      "poll_interval": poll_interval    # "5s" / 5000 / "500ms" などを想定
-    } | tojson | safe }}
-</script>
+    {{ {
+        "db_session_id": session_id,
+        "session_name": session_name,
+        "poll_interval": poll_interval
+      } | tojson | safe }}
+  </script>
 
 <script>
   // JSONデータ読込

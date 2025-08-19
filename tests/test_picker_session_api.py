@@ -346,7 +346,7 @@ def test_media_items_endpoint(monkeypatch, client, app):
                 "pollingConfig": {"pollInterval": "3s"},
                 "mediaItemsSet": False,
             })
-        if url == "https://photospicker.googleapis.com/v1/mediaItems:list":
+        if url == "https://photospicker.googleapis.com/v1/mediaItems":
             return FakeResp({
                 "mediaItems": [
                     {

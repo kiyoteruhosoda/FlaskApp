@@ -11,8 +11,8 @@
     <a href="{{ url_for('photo_view.home', session_id=session_id) }}" target="_blank" rel="noopener" class="btn btn-secondary">{{ _('Open Photo View') }}</a>
 </p>
 <script>
-  const rawInterval = {{ (poll_interval or 0)|tojson }};
-  const sessionName = {{ session_name|tojson }};
+  const rawInterval = {{ poll_interval|default(0)|tojson }};
+  const sessionId = {{ session_name|tojson }};
   function parseInterval(v) {
     if (typeof v === 'string' && v.endsWith('s')) {
       return parseFloat(v) * 1000;
@@ -25,7 +25,7 @@
       await fetch('/api/picker/session/mediaItems', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: sessionName })
+        body: JSON.stringify({ sessionId })
       });
     } catch (e) {
       console.error(e);

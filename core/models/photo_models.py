@@ -103,3 +103,47 @@ class MediaPlayback(db.Model):
     error_msg = db.Column(db.Text)
     created_at = db.Column(db.DateTime)
     updated_at = db.Column(db.DateTime)
+
+
+class PickedMediaItem(db.Model):
+    id = db.Column(db.String(255), primary_key=True)
+    create_time = db.Column(db.DateTime)
+    type = db.Column(
+        db.Enum('TYPE_UNSPECIFIED', 'PHOTO', 'VIDEO', name='picked_media_item_type'),
+        nullable=False,
+    )
+    base_url = db.Column(db.String(255))
+    mime_type = db.Column(db.String(255))
+    filename = db.Column(db.String(255))
+    media_file_metadata_id = db.Column(
+        BigInt, db.ForeignKey('media_file_metadata.id')
+    )
+    media_file_metadata = db.relationship('MediaFileMetadata', backref='picked_media_items')
+
+
+class MediaFileMetadata(db.Model):
+    id = db.Column(BigInt, primary_key=True, autoincrement=True)
+    width = db.Column(db.Integer)
+    height = db.Column(db.Integer)
+    camera_make = db.Column(db.String(255))
+    camera_model = db.Column(db.String(255))
+    photo_metadata_id = db.Column(BigInt, db.ForeignKey('photo_metadata.id'))
+    video_metadata_id = db.Column(BigInt, db.ForeignKey('video_metadata.id'))
+    photo_metadata = db.relationship('PhotoMetadata', backref='media_file_metadata', uselist=False)
+    video_metadata = db.relationship('VideoMetadata', backref='media_file_metadata', uselist=False)
+
+
+class PhotoMetadata(db.Model):
+    id = db.Column(BigInt, primary_key=True, autoincrement=True)
+    focal_length = db.Column(db.Float)
+    aperture_f_number = db.Column(db.Float)
+    iso_equivalent = db.Column(db.Integer)
+    exposure_time = db.Column(db.String(32))
+
+
+class VideoMetadata(db.Model):
+    id = db.Column(BigInt, primary_key=True, autoincrement=True)
+    fps = db.Column(db.Float)
+    processing_status = db.Column(
+        db.Enum('UNSPECIFIED', 'PROCESSING', 'READY', 'FAILED', name='video_processing_status')
+    )

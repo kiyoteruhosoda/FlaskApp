@@ -181,11 +181,15 @@ def test_import_enqueue_ok(monkeypatch, client, app):
     res = client.post("/api/picker/session", json={"account_id": 1})
     ps_id = res.get_json()["pickerSessionId"]
 
-    res = client.post(f"/api/picker/session/{ps_id}/import", json={"account_id": 1})
+    res = client.post(f"/api/picker/session/{ps_id}/import")
     assert res.status_code == 202
     data = res.get_json()
     assert data["enqueued"] is True
     assert data["celeryTaskId"]
+    from core.models.picker_session import PickerSession
+    with app.app_context():
+        ps = PickerSession.query.get(ps_id)
+        assert ps.status == "importing"
 
 
 def test_import_idempotent(monkeypatch, client, app):
@@ -202,9 +206,9 @@ def test_import_idempotent(monkeypatch, client, app):
     monkeypatch.setattr("requests.post", fake_post)
     res = client.post("/api/picker/session", json={"account_id": 1})
     ps_id = res.get_json()["pickerSessionId"]
-    res = client.post(f"/api/picker/session/{ps_id}/import", json={"account_id": 1})
+    res = client.post(f"/api/picker/session/{ps_id}/import")
     assert res.status_code == 202
-    res = client.post(f"/api/picker/session/{ps_id}/import", json={"account_id": 1})
+    res = client.post(f"/api/picker/session/{ps_id}/import")
     assert res.status_code == 409
 
 

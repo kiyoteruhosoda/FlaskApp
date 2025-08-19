@@ -371,12 +371,21 @@ def api_picker_session_status(picker_session_id):
 @bp.post("/picker/session/<int:picker_session_id>/import")
 @login_required
 def api_picker_session_import(picker_session_id):
-    """Enqueue import task for picker session."""
+    """Enqueue import task for picker session.
+
+    The frontend does not pass ``account_id`` in the request body, so the
+    parameter is now optional.  If provided it must match the session's
+    ``account_id``; otherwise the session's own ``account_id`` is used.
+    The picker session status is also updated to ``importing`` so that the
+    client can immediately reflect the change in state.
+    """
     data = request.get_json(silent=True) or {}
     account_id = data.get("account_id")
     ps = PickerSession.query.get(picker_session_id)
-    if not ps or ps.account_id != account_id:
+    if not ps or (account_id and ps.account_id != account_id):
         return jsonify({"error": "not_found"}), 404
+    # Use the session's account id when not explicitly supplied
+    account_id = account_id or ps.account_id
     if ps.status in ("imported", "canceled", "expired"):
         current_app.logger.info(
             json.dumps(
@@ -405,6 +414,7 @@ def api_picker_session_import(picker_session_id):
     task_id = uuid4().hex
     stats["celery_task_id"] = task_id
     ps.set_stats(stats)
+    ps.status = "importing"
     db.session.commit()
     current_app.logger.info(
         json.dumps(

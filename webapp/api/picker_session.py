@@ -350,6 +350,7 @@ def api_picker_session_media_items():
                 vm.processing_status = video_meta.get("status")
                 mf.video_metadata = vm
             pmi.media_file_metadata = mf
+            pmi.updated_at = datetime.now(timezone.utc)
             db.session.add(pmi)
             if is_dup:
                 dup += 1

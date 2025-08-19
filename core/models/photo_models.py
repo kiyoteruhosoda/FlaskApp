@@ -2,6 +2,7 @@
 # Each class represents a table in the database
 
 
+from datetime import datetime, timezone
 from core.db import db
 
 BigInt = db.BigInteger().with_variant(db.Integer, "sqlite")
@@ -43,8 +44,8 @@ class Media(db.Model):
     albums = db.relationship('Album', secondary=album_item, backref='media')
     tags = db.relationship('Tag', secondary=media_tag, backref='media')
     playbacks = db.relationship('MediaPlayback', backref='media')
-    created_at = db.Column(db.DateTime)
-    updated_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
 
 class MediaSidecar(db.Model):
     id = db.Column(BigInt, primary_key=True, autoincrement=True)
@@ -72,16 +73,16 @@ class Album(db.Model):
     description = db.Column(db.Text)
     cover_media_id = db.Column(BigInt, db.ForeignKey('media.id'))
     visibility = db.Column(db.Enum('public', 'private', 'unlisted', name='album_visibility'), nullable=False)
-    created_at = db.Column(db.DateTime)
-    updated_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
 
 class Tag(db.Model):
     id = db.Column(BigInt, primary_key=True, autoincrement=True)
     name = db.Column(db.String(255), nullable=False)
     attr = db.Column(db.Enum('person', 'place', 'thing', name='tag_attr'), nullable=False)
-    created_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
     created_by = db.Column(BigInt, db.ForeignKey('user.id'))
-    updated_at = db.Column(db.DateTime)
+    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
 
 class MediaPlayback(db.Model):
     id = db.Column(BigInt, primary_key=True, autoincrement=True)
@@ -101,8 +102,8 @@ class MediaPlayback(db.Model):
     hash_sha256 = db.Column(db.CHAR(64))
     status = db.Column(db.Enum('pending', 'processing', 'done', 'error', name='media_playback_status'), nullable=False)
     error_msg = db.Column(db.Text)
-    created_at = db.Column(db.DateTime)
-    updated_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
 
 
 class PickedMediaItem(db.Model):
@@ -128,6 +129,8 @@ class PickedMediaItem(db.Model):
         BigInt, db.ForeignKey('media_file_metadata.id')
     )
     media_file_metadata = db.relationship('MediaFileMetadata', backref='picked_media_items')
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
 
 
 class MediaFileMetadata(db.Model):

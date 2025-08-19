@@ -316,7 +316,7 @@ def picker(account_id: int):
 
     ps = PickerSession(
         account_id=account.id,
-        session_id=picker_data.get("sessionId") or picker_data.get("name"),
+        session_id=picker_data.get("id"),
         picker_uri=picker_uri,
         status="pending",
     )

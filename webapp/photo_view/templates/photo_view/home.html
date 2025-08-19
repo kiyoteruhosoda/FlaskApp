@@ -3,32 +3,81 @@
 {% block content %}
 <h1>Photo View Home</h1>
 
+<!-- セッションIDは data 属性に格納（未定義でも空文字で安全） -->
+<div id="picker-root" data-session-id="{{ picker_session_id or '' }}"></div>
+
 <div class="mb-3">
-  <button id="btn-import-start" class="btn btn-secondary">{{ _('Start Import') }}</button>
+  <button id="btn-import-start" class="btn btn-primary">
+    {{ _('Start Import') }}
+  </button>
 </div>
-<div id="import-status" class="mt-3"></div>
+
+<div id="import-status" class="mt-3" aria-live="polite"></div>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  let pickerSessionId = {{ picker_session_id|tojson }};
+  const root = document.getElementById('picker-root');
+  const pickerSessionId = root.dataset.sessionId; // 文字列（空の可能性あり）
   const importBtn = document.getElementById('btn-import-start');
   const statusEl = document.getElementById('import-status');
 
-  importBtn.addEventListener('click', async () => {
-    if (!pickerSessionId) {
-      return;
-    }
+  // pickerSessionId が無い場合はボタンを無効化
+  if (!pickerSessionId) {
+    importBtn.disabled = true;
+    statusEl.textContent = '{{ _("No session is ready.") }}';
+  }
+
+  function getCsrfTokenFromCookie() {
+    // Flask-WTF の既定名が "csrf_token" の想定。環境に合わせて変更してください。
+    const m = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+
+  async function withBusy(btn, fn) {
+    const originalHtml = btn.innerHTML;
+    // シンプルなスピナー（Bootstrap 前提）
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> {{ _("Working...") }}';
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
     try {
-      const resp = await fetch(`/api/picker/session/${pickerSessionId}/import`, {method: 'POST'});
-      if (!resp.ok) {
-        alert('Failed to start import');
-        return;
-      }
-      statusEl.textContent = '{{ _("start import") }}';
-    } catch (err) {
-      console.error(err);
-      alert('Failed to start import');
+      return await fn();
+    } finally {
+      btn.innerHTML = originalHtml;
+      btn.disabled = false;
+      btn.removeAttribute('aria-busy');
     }
+  }
+
+  importBtn.addEventListener('click', async () => {
+    if (!pickerSessionId) return;
+
+    await withBusy(importBtn, async () => {
+      try {
+        const headers = {};
+        const csrf = getCsrfTokenFromCookie();
+        if (csrf) headers['X-CSRFToken'] = csrf;
+
+        const resp = await fetch(`/api/picker/session/${encodeURIComponent(pickerSessionId)}/import`, {
+          method: 'POST',
+          headers
+          // body が不要なら送らない。必要なら JSON を設定し Content-Type を追加。
+        });
+
+        if (!resp.ok) {
+          const text = await resp.text().catch(() => '');
+          console.error('Import start failed:', resp.status, text);
+          statusEl.textContent = '{{ _("Failed to start import.") }}';
+          alert('{{ _("Failed to start import.") }}');
+          return;
+        }
+
+        statusEl.textContent = '{{ _("Import started.") }}';
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = '{{ _("Failed to start import.") }}';
+        alert('{{ _("Failed to start import.") }}');
+      }
+    });
   });
 });
 </script>

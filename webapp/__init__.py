@@ -1,5 +1,7 @@
 # webapp/__init__.py
 import logging
+import json
+from uuid import uuid4
 
 from flask import Flask, request, redirect, url_for, render_template, make_response, flash, g
 from datetime import datetime, timezone
@@ -66,6 +68,46 @@ def create_app():
 
     from .api import bp as api_bp
     app.register_blueprint(api_bp, url_prefix="/api")
+
+    @app.before_request
+    def log_api_request():
+        if request.path.startswith("/api"):
+            req_id = str(uuid4())
+            g.request_id = req_id
+            app.logger.info(
+                json.dumps(
+                    {
+                        "event": "api.request",
+                        "id": req_id,
+                        "path": request.path,
+                        "method": request.method,
+                        "json": request.get_json(silent=True),
+                    }
+                )
+            )
+
+    @app.after_request
+    def log_api_response(response):
+        if request.path.startswith("/api"):
+            req_id = getattr(g, "request_id", None)
+            resp_json = None
+            if response.mimetype == "application/json":
+                try:
+                    resp_json = response.get_json()
+                except Exception:
+                    pass
+            app.logger.info(
+                json.dumps(
+                    {
+                        "event": "api.response",
+                        "id": req_id,
+                        "path": request.path,
+                        "status": response.status_code,
+                        "json": resp_json,
+                    }
+                )
+            )
+        return response
 
     # エラーハンドラ
     from flask import jsonify

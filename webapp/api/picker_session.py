@@ -198,7 +198,7 @@ def api_picker_session_status(picker_session_id):
             access_token = tokens.get("access_token")
             res = log_requests_and_send(
                 "GET",
-                f"https://photospicker.googleapis.com/v1/{ps.session_id}",
+                f"https://photospicker.googleapis.com/v1/sessions/{ps.session_id}",
                 headers={"Authorization": f"Bearer {access_token}"},
                 timeout=15,
             )
@@ -270,7 +270,7 @@ def api_picker_session_media_items():
 
     try:
         ps = PickerSession.query.filter_by(session_id=session_id).first()
-        if not ps or not (ps.status == "processing" and cursor):
+        if not ps or (ps.status == "processing" and not cursor) or (ps.status not in ("pending", "processing")):
             return jsonify({"error": "not_found"}), 404
         # ステータスをprocessingにし、updated_atも更新
         ps.status = "processing"
@@ -298,8 +298,14 @@ def api_picker_session_media_items():
             )
             res.raise_for_status()
             picker_data = res.json()
-        except Exception as e:
-            return jsonify({"error": "picker_error", "message": str(e)}), 502
+        except Exception as fetch_exc:
+            res_text = getattr(fetch_exc, 'response', None)
+            if res_text is not None:
+                res_text = res_text.text
+            else:
+                res_text = None
+            raise RuntimeError(f"mediaItems fetch failed: {fetch_exc}")
+
         items = picker_data.get("mediaItems") or []
         saved = 0
         dup = 0
@@ -377,6 +383,28 @@ def api_picker_session_media_items():
         return jsonify(
             {"saved": saved, "duplicates": dup, "nextCursor": picker_data.get("nextPageToken")}
         )
+    except Exception as e:
+        db.session.rollback()
+        ps.status = "pending"
+        ps.updated_at = datetime.now(timezone.utc)
+        db.session.commit()
+        res_text = None
+        if hasattr(e, '__cause__') and hasattr(e.__cause__, 'response'):
+            res_obj = getattr(e.__cause__, 'response', None)
+            if res_obj is not None:
+                res_text = res_obj.text
+        current_app.logger.error(
+            json.dumps(
+                {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "session_id": session_id,
+                    "error": str(e),
+                    "detail": res_text,
+                }
+            ),
+            extra={"event": "picker.mediaItems.fail"}
+        )
+        return jsonify({"error": "picker_error", "message": str(e)}), 502
     finally:
         lock.release()
         _release_media_items_lock(session_id, lock)

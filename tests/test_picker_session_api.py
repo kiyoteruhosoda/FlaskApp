@@ -352,29 +352,39 @@ def test_media_items_endpoint(monkeypatch, client, app):
 
     res = client.post("/api/picker/session", json={"account_id": 1})
     session_name = res.get_json()["sessionId"]
+    cursor = "c1"
+    from webapp.extensions import db
+    from core.models.picker_session import PickerSession
+    with app.app_context():
+        ps = PickerSession.query.filter_by(session_id=session_name).first()
+        ps.status = "processing"
+        db.session.commit()
 
     def fake_get(url, *a, **k):
         if url == "https://photospicker.googleapis.com/v1/mediaItems":
-            assert k.get("params", {}).get("sessionId") == session_name
+            params = k.get("params", {})
+            assert params.get("sessionId") == session_name
+            assert params.get("pageToken") == cursor
             return FakeResp(
                 {
                     "mediaItems": [
                         {
                             "id": "m1",
-                            "baseUrl": "https://base/1",
-                            "mimeType": "image/jpeg",
-                            "filename": "a.jpg",
-                            "mediaMetadata": {
-                                "creationTime": "2025-01-01T00:00:00Z",
-                                "width": "100",
-                                "height": "50",
-                                "photo": {
-                                    "cameraMake": "Canon",
-                                    "cameraModel": "EOS",
-                                    "focalLength": 10.0,
-                                    "apertureFNumber": 2.8,
-                                    "isoEquivalent": 100,
-                                    "exposureTime": "1/50",
+                            "mediaFile": {
+                                "baseUrl": "https://base/1",
+                                "mimeType": "image/jpeg",
+                                "filename": "a.jpg",
+                                "mediaFileMetadata": {
+                                    "width": "100",
+                                    "height": "50",
+                                    "photoMetadata": {
+                                        "cameraMake": "Canon",
+                                        "cameraModel": "EOS",
+                                        "focalLength": 10.0,
+                                        "apertureFNumber": 2.8,
+                                        "isoEquivalent": 100,
+                                        "exposureTime": "1/50",
+                                    },
                                 },
                             },
                         }
@@ -386,7 +396,10 @@ def test_media_items_endpoint(monkeypatch, client, app):
 
     monkeypatch.setattr("requests.get", fake_get)
 
-    res = client.post("/api/picker/session/mediaItems", json={"sessionId": session_name})
+    res = client.post(
+        "/api/picker/session/mediaItems",
+        json={"sessionId": session_name, "cursor": cursor},
+    )
     assert res.status_code == 200
     data = res.get_json()
     assert data["saved"] == 1
@@ -398,7 +411,7 @@ def test_media_items_endpoint(monkeypatch, client, app):
         pmi = PickedMediaItem.query.get("m1")
         assert pmi is not None
         assert pmi.status == "pending"
-        assert pmi.media_file_metadata.width == 100
+        assert pmi.media_file_metadata[0].width == 100
 
 
 def test_media_items_busy(monkeypatch, client, app):

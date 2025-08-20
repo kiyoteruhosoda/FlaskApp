@@ -255,7 +255,7 @@ def api_picker_session_status(picker_session_id):
 
 @bp.post("/picker/session/mediaItems")
 @login_required
-def api_picker_session_media_items(nextPageToken):
+def api_picker_session_media_items():
     """Fetch selected media items from Google Photos Picker and store them."""
 
     data = request.get_json(silent=True) or {}
@@ -270,7 +270,7 @@ def api_picker_session_media_items(nextPageToken):
 
     try:
         ps = PickerSession.query.filter_by(session_id=session_id).first()
-        if not ps or not (ps.status == "processing" and nextPageToken):
+        if not ps or not (ps.status == "processing" and cursor):
             return jsonify({"error": "not_found"}), 404
         # ステータスをprocessingにし、updated_atも更新
         ps.status = "processing"
@@ -311,6 +311,7 @@ def api_picker_session_media_items(nextPageToken):
             is_dup = pmi is not None
             if not pmi:
                 pmi = PickedMediaItem(id=item_id, status="pending")
+
             mf_dict = item.get("mediaFile")
             if isinstance(mf_dict, dict):
                 mf = MediaFileMetadata()
@@ -360,7 +361,7 @@ def api_picker_session_media_items(nextPageToken):
                 mf.video_metadata = vm
                 pmi.type = "VIDEO"
             
-            pmi.media_file_metadata = mf
+            pmi.media_file_metadata.append(mf)
             pmi.updated_at = datetime.now(timezone.utc)
             db.session.add(pmi)
             if is_dup:

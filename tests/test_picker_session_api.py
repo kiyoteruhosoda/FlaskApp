@@ -1,4 +1,5 @@
 import base64
+import base64
 import json
 import os
 import uuid
@@ -356,6 +357,7 @@ def test_media_items_endpoint(monkeypatch, client, app):
         ps = PickerSession.query.filter_by(session_id=session_name).first()
         ps.status = "processing"
         db.session.commit()
+        ps_id = ps.id
 
     def fake_get(url, *a, **k):
         if url == "https://photospicker.googleapis.com/v1/mediaItems":
@@ -403,12 +405,16 @@ def test_media_items_endpoint(monkeypatch, client, app):
     assert data["duplicates"] == 0
     assert data["nextCursor"] == "tok"
 
-    from core.models.photo_models import PickedMediaItem
+    from core.models.photo_models import MediaItem, PickedMediaItem
     with app.app_context():
-        pmi = PickedMediaItem.query.get("m1")
+        mi = MediaItem.query.get("m1")
+        assert mi is not None
+        assert mi.media_file_metadata.width == 100
+        pmi = PickedMediaItem.query.filter_by(
+            picker_session_id=ps_id, media_item_id="m1"
+        ).first()
         assert pmi is not None
         assert pmi.status == "pending"
-        assert pmi.media_file_metadata[0].width == 100
 
 
 def test_media_items_busy(monkeypatch, client, app):

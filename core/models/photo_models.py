@@ -105,16 +105,34 @@ class MediaPlayback(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
 
-
-class PickedMediaItem(db.Model):
+class MediaItem(db.Model):
     id = db.Column(db.String(255), primary_key=True)
     type = db.Column(
-        db.Enum('TYPE_UNSPECIFIED', 'PHOTO', 'VIDEO', name='picked_media_item_type'),
+        db.Enum('TYPE_UNSPECIFIED', 'PHOTO', 'VIDEO', name='media_item_type'),
         nullable=False,
     )
-    base_url = db.Column(db.String(255))
     mime_type = db.Column(db.String(255))
     filename = db.Column(db.String(255))
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+
+    media_file_metadata = db.relationship(
+        'MediaFileMetadata',
+        backref='media_item',
+        uselist=False,
+        cascade='all, delete-orphan',
+    )
+
+
+class PickedMediaItem(db.Model):
+    id = db.Column(BigInt, primary_key=True, autoincrement=True)
+    picker_session_id = db.Column(
+        BigInt, db.ForeignKey('picker_session.id'), nullable=False
+    )
+    media_item_id = db.Column(
+        db.String(255), db.ForeignKey('media_item.id'), nullable=False
+    )
+    base_url = db.Column(db.String(255))
     status = db.Column(
         db.Enum(
             'pending', 'imported', 'dup', 'failed', 'expired', 'skipped',
@@ -124,19 +142,21 @@ class PickedMediaItem(db.Model):
         default='pending',
         server_default='pending',
     )
-    media_file_metadata = db.relationship(
-        'MediaFileMetadata',
-        backref='picked_media_item',
-        cascade='all, delete-orphan',
-    )
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+
+    media_item = db.relationship('MediaItem', backref='picked_media_items')
+    picker_session = db.relationship('PickerSession', backref='picked_media_items')
+
+    __table_args__ = (
+        db.UniqueConstraint('picker_session_id', 'media_item_id', name='uniq_picker_session_media'),
+    )
 
 
 class MediaFileMetadata(db.Model):
     id = db.Column(BigInt, primary_key=True, autoincrement=True)
-    picked_media_item_id = db.Column(
-        db.String(255), db.ForeignKey('picked_media_item.id'), nullable=False, unique=True
+    media_item_id = db.Column(
+        db.String(255), db.ForeignKey('media_item.id'), nullable=False, unique=True
     )
     width = db.Column(db.Integer)
     height = db.Column(db.Integer)

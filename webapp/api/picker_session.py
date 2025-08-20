@@ -10,6 +10,7 @@ from ..extensions import db
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
 from core.models.photo_models import (
+    MediaItem,
     PickedMediaItem,
     MediaFileMetadata,
     PhotoMetadata,
@@ -296,33 +297,27 @@ def api_picker_session_media_items():
             item_id = item.get("id")
             if not item_id:
                 continue
-            pmi = PickedMediaItem.query.get(item_id)
-            is_dup = pmi is not None
-            if not pmi:
-                pmi = PickedMediaItem(id=item_id, status="pending")
+
+            mi = MediaItem.query.get(item_id)
+            if not mi:
+                mi = MediaItem(id=item_id, type="TYPE_UNSPECIFIED")
 
             # MediaFileMetadataの重複チェック・上書き
-            mf = MediaFileMetadata.query.filter_by(picked_media_item_id=item_id).first()
-            is_update = False
+            mf = MediaFileMetadata.query.filter_by(media_item_id=item_id).first()
             if not mf:
                 mf = MediaFileMetadata()
-            else:
-                is_update = True
 
             mf_dict = item.get("mediaFile")
             if isinstance(mf_dict, dict):
-                mf.base_url = mf_dict.get("baseUrl")
-                mf.mime_type = mf_dict.get("mimeType")
-                mf.filename = mf_dict.get("filename")
+                base_url = mf_dict.get("baseUrl")
+                mi.mime_type = mf_dict.get("mimeType")
+                mi.filename = mf_dict.get("filename")
                 meta = mf_dict.get("mediaFileMetadata") or {}
             else:
-                mf = mf_dict or mf
-                meta = getattr(mf, "media_file_metadata", None) or {}
-
-            mf.picked_media_item_id = item_id
-            pmi.base_url = mf.base_url
-            pmi.mime_type = mf.mime_type
-            pmi.filename = mf.filename
+                base_url = getattr(mf_dict, "base_url", None)
+                mi.mime_type = getattr(mf_dict, "mime_type", None)
+                mi.filename = getattr(mf_dict, "filename", None)
+                meta = getattr(mf_dict, "media_file_metadata", None) or {}
 
             width = meta.get("width")
             height = meta.get("height")
@@ -338,8 +333,6 @@ def api_picker_session_media_items():
                     mf.height = None
             mf.camera_make = meta.get("cameraMake")
             mf.camera_model = meta.get("cameraModel")
-
-
             photo_meta = meta.get("photoMetadata") or {}
             video_meta = meta.get("videoMetadata") or {}
 
@@ -354,7 +347,7 @@ def api_picker_session_media_items():
                 pm.iso_equivalent = photo_meta.get("isoEquivalent")
                 pm.exposure_time = photo_meta.get("exposureTime")
                 mf.photo_metadata = pm
-                pmi.type = "PHOTO"
+                mi.type = "PHOTO"
 
             # video_metadata: 既存があればupdate、なければinsert
             if video_meta:
@@ -365,15 +358,26 @@ def api_picker_session_media_items():
                 vm.fps = video_meta.get("fps")
                 vm.processing_status = video_meta.get("processingStatus")
                 mf.video_metadata = vm
-                pmi.type = "VIDEO"
+                mi.type = "VIDEO"
+
+            mf.media_item_id = item_id
+            db.session.add(mi)
+            db.session.add(mf)
 
             # PickedMediaItemとの関連付け
-            if not is_update:
-                pmi.media_file_metadata.append(mf)
-            mf.picked_media_item_id = item_id
-            pmi.updated_at = datetime.now(timezone.utc)
+            pmi = PickedMediaItem.query.filter_by(
+                picker_session_id=ps.id, media_item_id=item_id
+            ).first()
+            if pmi:
+                dup += 1
+                continue
+            pmi = PickedMediaItem(
+                picker_session_id=ps.id,
+                media_item_id=item_id,
+                status="pending",
+                base_url=base_url,
+            )
             db.session.add(pmi)
-            db.session.add(mf)
             saved += 1
 
         # ステータスをimportedにし、updated_atも更新

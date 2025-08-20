@@ -17,7 +17,7 @@ class PickerImportTask(db.Model):
         BigInt, db.ForeignKey("picker_session.id"), nullable=False
     )
     picked_media_item_id = db.Column(
-        db.String(255), db.ForeignKey("picked_media_item.id"), nullable=False
+        BigInt, db.ForeignKey("picked_media_item.id"), nullable=False
     )
 
     # 進捗とリトライ管理

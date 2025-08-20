@@ -40,6 +40,25 @@ def _release_media_items_lock(session_id, lock):
         if not lock.locked():
             _media_items_locks.pop(session_id, None)
 
+
+def _update_picker_session_from_data(ps, data):
+    """Apply Google Photos Picker session data to the model."""
+    ps.session_id = data.get("sessionId") or data.get("name")
+    ps.picker_uri = data.get("pickerUri")
+    expire = data.get("expireTime")
+    if expire is not None:
+        try:
+            ps.expire_time = datetime.fromisoformat(expire.replace("Z", "+00:00"))
+        except Exception:
+            ps.expire_time = None
+    if data.get("pollingConfig"):
+        ps.polling_config_json = json.dumps(data.get("pollingConfig"))
+    if data.get("pickingConfig"):
+        ps.picking_config_json = json.dumps(data.get("pickingConfig"))
+    if "mediaItemsSet" in data:
+        ps.media_items_set = data.get("mediaItemsSet")
+    ps.updated_at = datetime.now(timezone.utc)
+
 @bp.post("/picker/session")
 @login_required
 def api_picker_session_create():
@@ -115,20 +134,7 @@ def api_picker_session_create():
     ps = PickerSession(account_id=account.id, status="pending")
     db.session.add(ps)
     db.session.commit()
-    ps.session_id = picker_data.get("sessionId") or picker_data.get("name")
-    ps.picker_uri = picker_data.get("pickerUri")
-    expire = picker_data.get("expireTime")
-    if expire:
-        try:
-            ps.expire_time = datetime.fromisoformat(expire.replace("Z", "+00:00"))
-        except Exception:
-            ps.expire_time = None
-    if picker_data.get("pollingConfig"):
-        ps.polling_config_json = json.dumps(picker_data.get("pollingConfig"))
-    if picker_data.get("pickingConfig"):
-        ps.picking_config_json = json.dumps(picker_data.get("pickingConfig"))
-    if "mediaItemsSet" in picker_data:
-        ps.media_items_set = picker_data.get("mediaItemsSet")
+    _update_picker_session_from_data(ps, picker_data)
     db.session.commit()
     session["picker_session_id"] = ps.id
     current_app.logger.info(
@@ -146,7 +152,7 @@ def api_picker_session_create():
             "pickerSessionId": ps.id,
             "sessionId": ps.session_id,
             "pickerUri": ps.picker_uri,
-            "expireTime": expire,
+            "expireTime": picker_data.get("expireTime"),
             "pollingConfig": picker_data.get("pollingConfig"),
             "pickingConfig": picker_data.get("pickingConfig"),
             "mediaItemsSet": picker_data.get("mediaItemsSet"),
@@ -209,23 +215,12 @@ def api_picker_session_status(picker_session_id):
                 or data.get("selectedMediaCount")
                 or data.get("selectedMediaItems")
             )
-            if data.get("expireTime"):
-                try:
-                    ps.expire_time = datetime.fromisoformat(
-                        data["expireTime"].replace("Z", "+00:00")
-                    )
-                except Exception:
-                    pass
-            if data.get("pollingConfig"):
-                ps.polling_config_json = json.dumps(data.get("pollingConfig"))
-            if data.get("pickingConfig"):
-                ps.picking_config_json = json.dumps(data.get("pickingConfig"))
-            if "mediaItemsSet" in data:
-                ps.media_items_set = data.get("mediaItemsSet")
+            _update_picker_session_from_data(ps, data)
         except Exception:
             selected = None
     ps.selected_count = selected
     ps.last_polled_at = datetime.now(timezone.utc)
+    ps.updated_at = datetime.now(timezone.utc)
     db.session.commit()
     current_app.logger.info(
         json.dumps(

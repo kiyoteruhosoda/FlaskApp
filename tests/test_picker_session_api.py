@@ -175,13 +175,13 @@ def test_status_ok(monkeypatch, client, app):
     monkeypatch.setattr("requests.post", fake_post)
     # create session
     res = client.post("/api/picker/session", json={"account_id": 1})
-    ps_id = res.get_json()["pickerSessionId"]
+    session_id = res.get_json()["sessionId"]
 
     def fake_get(url, *a, **k):
         return FakeResp({"selectedMediaCount": 0})
 
     monkeypatch.setattr("requests.get", fake_get)
-    res = client.get(f"/api/picker/session/{ps_id}")
+    res = client.get(f"/api/picker/session/{session_id}")
     assert res.status_code == 200
     data = res.get_json()
     assert data["status"] == "pending"
@@ -190,7 +190,7 @@ def test_status_ok(monkeypatch, client, app):
 
 def test_status_not_found(monkeypatch, client, app):
     login(client, app)
-    res = client.get("/api/picker/session/999")
+    res = client.get("/api/picker/session/unknown")
     assert res.status_code == 404
 
 
@@ -295,9 +295,10 @@ def test_callback_stores_ids(monkeypatch, client, app):
     monkeypatch.setattr("requests.post", fake_post)
     res = client.post("/api/picker/session", json={"account_id": 1})
     ps_id = res.get_json()["pickerSessionId"]
+    session_id = res.get_json()["sessionId"]
 
     payload = {"mediaItemIds": ["m1", "m2"]}
-    res = client.post(f"/api/picker/session/{ps_id}/callback", json=payload)
+    res = client.post(f"/api/picker/session/{session_id}/callback", json=payload)
     assert res.status_code == 200
     data = res.get_json()
     assert data["count"] == 2
@@ -309,7 +310,7 @@ def test_callback_stores_ids(monkeypatch, client, app):
         assert ps.selected_count == 2
         assert ps.media_items_set is True
 
-    res = client.get(f"/api/picker/session/{ps_id}")
+    res = client.get(f"/api/picker/session/{session_id}")
     assert res.status_code == 200
     status = res.get_json()
     assert status["selectedCount"] == 2

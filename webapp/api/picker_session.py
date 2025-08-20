@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import json
+import time
 from uuid import uuid4
 from threading import Lock
 from flask import (
@@ -253,7 +254,7 @@ def api_picker_session_media_items():
 
     try:
         ps = PickerSession.query.filter_by(session_id=session_id).first()
-        if not ps or (ps.status == "processing" and not cursor) or (ps.status not in ("pending", "processing")):
+        if not ps or ps.status not in ("pending", "processing"):
             return jsonify({"error": "not_found"}), 404
         # ステータスをprocessingにし、updated_atも更新
         ps.status = "processing"
@@ -271,119 +272,138 @@ def api_picker_session_media_items():
         params = {"sessionId": session_id, "pageSize": 100}
         if cursor:
             params["pageToken"] = cursor
-        try:
-            res = log_requests_and_send(
-                "GET",
-                "https://photospicker.googleapis.com/v1/mediaItems",
-                params=params,
-                headers=headers,
-                timeout=15,
-            )
-            res.raise_for_status()
-            picker_data = res.json()
-        except Exception as fetch_exc:
-            res_text = getattr(fetch_exc, 'response', None)
-            if res_text is not None:
-                res_text = res_text.text
-            else:
-                res_text = None
-            raise RuntimeError(f"mediaItems fetch failed: {fetch_exc}")
-
-        items = picker_data.get("mediaItems") or []
         saved = 0
         dup = 0
-        for item in items:
-            item_id = item.get("id")
-            if not item_id:
+        while True:
+            try:
+                res = log_requests_and_send(
+                    "GET",
+                    "https://photospicker.googleapis.com/v1/mediaItems",
+                    params=params,
+                    headers=headers,
+                    timeout=15,
+                )
+            except Exception as fetch_exc:
+                res_text = getattr(fetch_exc, 'response', None)
+                if res_text is not None:
+                    res_text = res_text.text
+                else:
+                    res_text = None
+                raise RuntimeError(f"mediaItems fetch failed: {fetch_exc}")
+
+            if res.status_code == 429:
+                time.sleep(1)
                 continue
-            pmi = PickedMediaItem.query.get(item_id)
-            is_dup = pmi is not None
-            if not pmi:
-                pmi = PickedMediaItem(id=item_id, status="pending")
-
-            # MediaFileMetadataの重複チェック・上書き
-            mf = MediaFileMetadata.query.filter_by(picked_media_item_id=item_id).first()
-            is_update = False
-            if not mf:
-                mf = MediaFileMetadata()
-            else:
-                is_update = True
-
-            mf_dict = item.get("mediaFile")
-            if isinstance(mf_dict, dict):
-                mf.base_url = mf_dict.get("baseUrl")
-                mf.mime_type = mf_dict.get("mimeType")
-                mf.filename = mf_dict.get("filename")
-                meta = mf_dict.get("mediaFileMetadata") or {}
-            else:
-                mf = mf_dict or mf
-                meta = getattr(mf, "media_file_metadata", None) or {}
-
-            mf.picked_media_item_id = item_id
-            pmi.base_url = mf.base_url
-            pmi.mime_type = mf.mime_type
-            pmi.filename = mf.filename
-
-            width = meta.get("width")
-            height = meta.get("height")
-            if width is not None:
-                try:
-                    mf.width = int(width)
-                except Exception:
-                    mf.width = None
-            if height is not None:
-                try:
-                    mf.height = int(height)
-                except Exception:
-                    mf.height = None
-            mf.camera_make = meta.get("cameraMake")
-            mf.camera_model = meta.get("cameraModel")
-
-
-            photo_meta = meta.get("photoMetadata") or {}
-            video_meta = meta.get("videoMetadata") or {}
-
-            # photo_metadata: 既存があればupdate、なければinsert
-            if photo_meta:
-                if mf.photo_metadata:
-                    pm = mf.photo_metadata
+            try:
+                res.raise_for_status()
+                picker_data = res.json()
+            except Exception as fetch_exc:
+                res_text = getattr(fetch_exc, 'response', None)
+                if res_text is not None:
+                    res_text = res_text.text
                 else:
-                    pm = PhotoMetadata()
-                pm.focal_length = photo_meta.get("focalLength")
-                pm.aperture_f_number = photo_meta.get("apertureFNumber")
-                pm.iso_equivalent = photo_meta.get("isoEquivalent")
-                pm.exposure_time = photo_meta.get("exposureTime")
-                mf.photo_metadata = pm
-                pmi.type = "PHOTO"
+                    res_text = None
+                raise RuntimeError(f"mediaItems fetch failed: {fetch_exc}")
 
-            # video_metadata: 既存があればupdate、なければinsert
-            if video_meta:
-                if mf.video_metadata:
-                    vm = mf.video_metadata
+            items = picker_data.get("mediaItems") or []
+            for item in items:
+                item_id = item.get("id")
+                if not item_id:
+                    continue
+                pmi = PickedMediaItem.query.get(item_id)
+                is_dup = pmi is not None
+                if not pmi:
+                    pmi = PickedMediaItem(id=item_id, status="pending")
+
+                # MediaFileMetadataの重複チェック・上書き
+                mf = MediaFileMetadata.query.filter_by(picked_media_item_id=item_id).first()
+                is_update = False
+                if not mf:
+                    mf = MediaFileMetadata()
                 else:
-                    vm = VideoMetadata()
-                vm.fps = video_meta.get("fps")
-                vm.processing_status = video_meta.get("processingStatus")
-                mf.video_metadata = vm
-                pmi.type = "VIDEO"
+                    is_update = True
 
-            # PickedMediaItemとの関連付け
-            if not is_update:
-                pmi.media_file_metadata.append(mf)
-            mf.picked_media_item_id = item_id
-            pmi.updated_at = datetime.now(timezone.utc)
-            db.session.add(pmi)
-            db.session.add(mf)
-            saved += 1
+                mf_dict = item.get("mediaFile")
+                if isinstance(mf_dict, dict):
+                    mf.base_url = mf_dict.get("baseUrl")
+                    mf.mime_type = mf_dict.get("mimeType")
+                    mf.filename = mf_dict.get("filename")
+                    meta = mf_dict.get("mediaFileMetadata") or {}
+                else:
+                    mf = mf_dict or mf
+                    meta = getattr(mf, "media_file_metadata", None) or {}
+
+                mf.picked_media_item_id = item_id
+                pmi.base_url = mf.base_url
+                pmi.mime_type = mf.mime_type
+                pmi.filename = mf.filename
+
+                width = meta.get("width")
+                height = meta.get("height")
+                if width is not None:
+                    try:
+                        mf.width = int(width)
+                    except Exception:
+                        mf.width = None
+                if height is not None:
+                    try:
+                        mf.height = int(height)
+                    except Exception:
+                        mf.height = None
+                mf.camera_make = meta.get("cameraMake")
+                mf.camera_model = meta.get("cameraModel")
+
+                photo_meta = meta.get("photoMetadata") or {}
+                video_meta = meta.get("videoMetadata") or {}
+
+                # photo_metadata: 既存があればupdate、なければinsert
+                if photo_meta:
+                    if mf.photo_metadata:
+                        pm = mf.photo_metadata
+                    else:
+                        pm = PhotoMetadata()
+                    pm.focal_length = photo_meta.get("focalLength")
+                    pm.aperture_f_number = photo_meta.get("apertureFNumber")
+                    pm.iso_equivalent = photo_meta.get("isoEquivalent")
+                    pm.exposure_time = photo_meta.get("exposureTime")
+                    mf.photo_metadata = pm
+                    pmi.type = "PHOTO"
+
+                # video_metadata: 既存があればupdate、なければinsert
+                if video_meta:
+                    if mf.video_metadata:
+                        vm = mf.video_metadata
+                    else:
+                        vm = VideoMetadata()
+                    vm.fps = video_meta.get("fps")
+                    vm.processing_status = video_meta.get("processingStatus")
+                    mf.video_metadata = vm
+                    pmi.type = "VIDEO"
+
+                # PickedMediaItemとの関連付け
+                if not is_update:
+                    pmi.media_file_metadata.append(mf)
+                mf.picked_media_item_id = item_id
+                pmi.updated_at = datetime.now(timezone.utc)
+                db.session.add(pmi)
+                db.session.add(mf)
+                if is_dup:
+                    dup += 1
+                else:
+                    saved += 1
+
+            cursor = picker_data.get("nextPageToken")
+            if cursor:
+                params["pageToken"] = cursor
+                continue
+            break
 
         # ステータスをimportedにし、updated_atも更新
         ps.status = "imported"
         ps.updated_at = datetime.now(timezone.utc)
         db.session.commit()
 
-        return jsonify(
-            {"saved": saved, "duplicates": dup, "nextCursor": picker_data.get("nextPageToken")}
-        )
+        return jsonify({"saved": saved, "duplicates": dup, "nextCursor": None})
     except Exception as e:
         db.session.rollback()
         ps.status = "pending"

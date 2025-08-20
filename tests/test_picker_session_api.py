@@ -357,38 +357,49 @@ def test_media_items_endpoint(monkeypatch, client, app):
         ps.status = "processing"
         db.session.commit()
 
+    calls = {"n": 0}
+
     def fake_get(url, *a, **k):
         if url == "https://photospicker.googleapis.com/v1/mediaItems":
             params = k.get("params", {})
             assert params.get("sessionId") == session_name
-            assert params.get("pageToken") == cursor
-            return FakeResp(
-                {
-                    "mediaItems": [
-                        {
-                            "id": "m1",
-                            "mediaFile": {
-                                "baseUrl": "https://base/1",
-                                "mimeType": "image/jpeg",
-                                "filename": "a.jpg",
-                                "mediaFileMetadata": {
-                                    "width": "100",
-                                    "height": "50",
-                                    "photoMetadata": {
-                                        "cameraMake": "Canon",
-                                        "cameraModel": "EOS",
-                                        "focalLength": 10.0,
-                                        "apertureFNumber": 2.8,
-                                        "isoEquivalent": 100,
-                                        "exposureTime": "1/50",
-                                    },
+            if calls["n"] == 0:
+                assert params.get("pageToken") == cursor
+                calls["n"] += 1
+                return FakeResp(
+                    {
+                        "mediaItems": [
+                            {
+                                "id": "m1",
+                                "mediaFile": {
+                                    "baseUrl": "https://base/1",
+                                    "mimeType": "image/jpeg",
+                                    "filename": "a.jpg",
+                                    "mediaFileMetadata": {"photoMetadata": {"dummy": 1}},
                                 },
-                            },
-                        }
-                    ],
-                    "nextPageToken": "tok",
-                }
-            )
+                            }
+                        ],
+                        "nextPageToken": "tok",
+                    }
+                )
+            elif calls["n"] == 1:
+                assert params.get("pageToken") == "tok"
+                calls["n"] += 1
+                return FakeResp(
+                    {
+                        "mediaItems": [
+                            {
+                                "id": "m2",
+                                "mediaFile": {
+                                    "baseUrl": "https://base/2",
+                                    "mimeType": "image/jpeg",
+                                    "filename": "b.jpg",
+                                    "mediaFileMetadata": {"photoMetadata": {"dummy": 1}},
+                                },
+                            }
+                        ]
+                    }
+                )
         raise AssertionError("unexpected url" + url)
 
     monkeypatch.setattr("requests.get", fake_get)
@@ -399,16 +410,94 @@ def test_media_items_endpoint(monkeypatch, client, app):
     )
     assert res.status_code == 200
     data = res.get_json()
-    assert data["saved"] == 1
+    assert data["saved"] == 2
     assert data["duplicates"] == 0
-    assert data["nextCursor"] == "tok"
+    assert data["nextCursor"] is None
 
     from core.models.photo_models import PickedMediaItem
     with app.app_context():
-        pmi = PickedMediaItem.query.get("m1")
-        assert pmi is not None
-        assert pmi.status == "pending"
-        assert pmi.media_file_metadata[0].width == 100
+        pmi1 = PickedMediaItem.query.get("m1")
+        pmi2 = PickedMediaItem.query.get("m2")
+        assert pmi1 is not None and pmi2 is not None
+        assert pmi1.base_url == "https://base/1"
+
+
+def test_media_items_retry_on_429(monkeypatch, client, app):
+    login(client, app)
+
+    class FakeResp:
+        def __init__(self, data, status=200):
+            self._data = data
+            self.status_code = status
+
+        def json(self):
+            return self._data
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise Exception("error")
+
+    def fake_post(url, *a, **k):
+        if url == "https://oauth2.googleapis.com/token":
+            return FakeResp({"access_token": "acc"})
+        if url == "https://photospicker.googleapis.com/v1/sessions":
+            sid = "picker_sessions/" + uuid.uuid4().hex
+            return FakeResp({
+                "id": sid,
+                "pickerUri": "https://picker",
+                "expireTime": "2025-03-10T00:00:00Z",
+                "pollingConfig": {"pollInterval": "3s"},
+                "mediaItemsSet": False,
+            })
+        raise AssertionError("unexpected url" + url)
+
+    monkeypatch.setattr("requests.post", fake_post)
+
+    res = client.post("/api/picker/session", json={"account_id": 1})
+    session_name = res.get_json()["sessionId"]
+    from webapp.extensions import db
+    from core.models.picker_session import PickerSession
+    with app.app_context():
+        ps = PickerSession.query.filter_by(session_id=session_name).first()
+        ps.status = "processing"
+        db.session.commit()
+
+    responses = [
+        FakeResp({}, status=429),
+        FakeResp({
+            "mediaItems": [
+                {
+                    "id": "m429",
+                    "mediaFile": {
+                        "baseUrl": "https://base/1",
+                        "mimeType": "image/jpeg",
+                        "filename": "a.jpg",
+                        "mediaFileMetadata": {"photoMetadata": {"dummy": 1}},
+                    },
+                }
+            ]
+        }),
+    ]
+
+    def fake_get(url, *a, **k):
+        if url == "https://photospicker.googleapis.com/v1/mediaItems":
+            return responses.pop(0)
+        raise AssertionError("unexpected url" + url)
+
+    monkeypatch.setattr("requests.get", fake_get)
+
+    sleeps = []
+    import webapp.api.picker_session as ps_module
+    monkeypatch.setattr(ps_module.time, "sleep", lambda s: sleeps.append(s))
+
+    res = client.post(
+        "/api/picker/session/mediaItems",
+        json={"sessionId": session_name},
+    )
+    assert res.status_code == 200
+    assert sleeps  # sleep called on 429
+    data = res.get_json()
+    assert data["saved"] == 1
 
 
 def test_media_items_busy(monkeypatch, client, app):

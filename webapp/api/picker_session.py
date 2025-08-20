@@ -13,7 +13,6 @@ from core.models.picker_session import PickerSession
 from core.models.photo_models import (
     PickedMediaItem,
     MediaItem,
-    MediaFileMetadata,
     PhotoMetadata,
     VideoMetadata,
 )
@@ -324,10 +323,6 @@ def api_picker_session_media_items():
                         picker_session_id=ps.id, media_item_id=item_id, status="pending"
                     )
 
-                mf = MediaFileMetadata.query.filter_by(media_item_id=item_id).first()
-                if not mf:
-                    mf = MediaFileMetadata(media_item_id=item_id)
-
                 mf_dict = item.get("mediaFile")
                 if isinstance(mf_dict, dict):
                     mi.mime_type = mf_dict.get("mimeType")
@@ -340,46 +335,44 @@ def api_picker_session_media_items():
                 height = meta.get("height")
                 if width is not None:
                     try:
-                        mf.width = int(width)
+                        mi.width = int(width)
                     except Exception:
-                        mf.width = None
+                        mi.width = None
                 if height is not None:
                     try:
-                        mf.height = int(height)
+                        mi.height = int(height)
                     except Exception:
-                        mf.height = None
-                mf.camera_make = meta.get("cameraMake")
-                mf.camera_model = meta.get("cameraModel")
+                        mi.height = None
+                mi.camera_make = meta.get("cameraMake")
+                mi.camera_model = meta.get("cameraModel")
 
                 photo_meta = meta.get("photoMetadata") or {}
                 video_meta = meta.get("videoMetadata") or {}
 
                 if photo_meta:
-                    if mf.photo_metadata:
-                        pm = mf.photo_metadata
+                    if mi.photo_metadata:
+                        pm = mi.photo_metadata
                     else:
                         pm = PhotoMetadata()
                     pm.focal_length = photo_meta.get("focalLength")
                     pm.aperture_f_number = photo_meta.get("apertureFNumber")
                     pm.iso_equivalent = photo_meta.get("isoEquivalent")
                     pm.exposure_time = photo_meta.get("exposureTime")
-                    mf.photo_metadata = pm
+                    mi.photo_metadata = pm
                     mi.type = "PHOTO"
 
                 if video_meta:
-                    if mf.video_metadata:
-                        vm = mf.video_metadata
+                    if mi.video_metadata:
+                        vm = mi.video_metadata
                     else:
                         vm = VideoMetadata()
                     vm.fps = video_meta.get("fps")
                     vm.processing_status = video_meta.get("processingStatus")
-                    mf.video_metadata = vm
+                    mi.video_metadata = vm
                     mi.type = "VIDEO"
 
-                mi.media_file_metadata = mf
                 pmi.updated_at = datetime.now(timezone.utc)
                 db.session.add(mi)
-                db.session.add(mf)
                 db.session.add(pmi)
                 if is_dup:
                     dup += 1

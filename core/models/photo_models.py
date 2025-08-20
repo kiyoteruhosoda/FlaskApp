@@ -113,14 +113,16 @@ class MediaItem(db.Model):
     )
     mime_type = db.Column(db.String(255))
     filename = db.Column(db.String(255))
+    width = db.Column(db.Integer)
+    height = db.Column(db.Integer)
+    camera_make = db.Column(db.String(255))
+    camera_model = db.Column(db.String(255))
+    photo_metadata_id = db.Column(BigInt, db.ForeignKey('photo_metadata.id'))
+    video_metadata_id = db.Column(BigInt, db.ForeignKey('video_metadata.id'))
+    photo_metadata = db.relationship('PhotoMetadata', backref='media_item', uselist=False)
+    video_metadata = db.relationship('VideoMetadata', backref='media_item', uselist=False)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
-    media_file_metadata = db.relationship(
-        'MediaFileMetadata',
-        backref='media_item',
-        cascade='all, delete-orphan',
-        uselist=False,
-    )
 
 
 class PickedMediaItem(db.Model):
@@ -150,21 +152,6 @@ class PickedMediaItem(db.Model):
         db.UniqueConstraint('picker_session_id', 'media_item_id',
                             name='uq_picked_media_item_session_media'),
     )
-
-
-class MediaFileMetadata(db.Model):
-    id = db.Column(BigInt, primary_key=True, autoincrement=True)
-    media_item_id = db.Column(
-        db.String(255), db.ForeignKey('media_item.id'), nullable=False, unique=True
-    )
-    width = db.Column(db.Integer)
-    height = db.Column(db.Integer)
-    camera_make = db.Column(db.String(255))
-    camera_model = db.Column(db.String(255))
-    photo_metadata_id = db.Column(BigInt, db.ForeignKey('photo_metadata.id'))
-    video_metadata_id = db.Column(BigInt, db.ForeignKey('video_metadata.id'))
-    photo_metadata = db.relationship('PhotoMetadata', backref='media_file_metadata', uselist=False)
-    video_metadata = db.relationship('VideoMetadata', backref='media_file_metadata', uselist=False)
 
 
 class PhotoMetadata(db.Model):

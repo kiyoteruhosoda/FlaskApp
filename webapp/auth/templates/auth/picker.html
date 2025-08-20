@@ -48,7 +48,7 @@
 
   const intervalMs = parseInterval(sessionData.poll_interval);
 
-  async function poll() {
+  async function fetchMediaItems() {
     try {
       let cursor = null;
       do {
@@ -63,7 +63,7 @@
           }),
         });
         if (!resp.ok) {
-          console.warn('poll failed:', resp.status);
+          console.warn('mediaItems fetch failed:', resp.status);
           break;
         }
         const data = await resp.json();
@@ -74,10 +74,29 @@
     }
   }
 
+  let timer;
+
+  async function poll() {
+    try {
+      const resp = await fetch(`/api/picker/session/${sessionData.db_session_id}`);
+      if (!resp.ok) {
+        console.warn('status poll failed:', resp.status);
+        return;
+      }
+      const data = await resp.json();
+      if (data.mediaItemsSet) {
+        clearInterval(timer);
+        await fetchMediaItems();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
   if (Number.isFinite(intervalMs) && intervalMs > 0) {
     // 初回即時 + インターバル
     poll();
-    let timer = setInterval(() => {
+    timer = setInterval(() => {
       if (document.visibilityState === 'visible') {
         poll();
       }

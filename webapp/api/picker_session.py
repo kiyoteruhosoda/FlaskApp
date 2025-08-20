@@ -160,10 +160,10 @@ def api_picker_session_create():
     )
 
 
-@bp.post("/picker/session/<int:picker_session_id>/callback")
-def api_picker_session_callback(picker_session_id):
+@bp.post("/picker/session/<path:session_id>/callback")
+def api_picker_session_callback(session_id):
     """Receive selected media item IDs from Google Photos Picker."""
-    ps = PickerSession.query.get(picker_session_id)
+    ps = PickerSession.query.filter_by(session_id=session_id).first()
     if not ps:
         return jsonify({"error": "not_found"}), 404
     data = request.get_json(silent=True) or {}
@@ -179,11 +179,11 @@ def api_picker_session_callback(picker_session_id):
     return jsonify({"result": "ok", "count": count})
 
 
-@bp.get("/picker/session/<int:picker_session_id>")
+@bp.get("/picker/session/<path:session_id>")
 @login_required
-def api_picker_session_status(picker_session_id):
+def api_picker_session_status(session_id):
     """Return status of a picker session."""
-    ps = PickerSession.query.get(picker_session_id)
+    ps = PickerSession.query.filter_by(session_id=session_id).first()
     if not ps:
         return jsonify({"error": "not_found"}), 404
     account = GoogleAccount.query.get(ps.account_id)
@@ -216,7 +216,7 @@ def api_picker_session_status(picker_session_id):
         json.dumps(
             {
                 "ts": datetime.now(timezone.utc).isoformat(),
-                "picker_session_id": picker_session_id,
+                "session_id": session_id,
                 "status": ps.status,
             }
         ),

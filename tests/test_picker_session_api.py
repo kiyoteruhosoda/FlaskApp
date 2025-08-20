@@ -414,12 +414,21 @@ def test_media_items_endpoint(monkeypatch, client, app):
     assert data["duplicates"] == 0
     assert data["nextCursor"] is None
 
-    from core.models.photo_models import PickedMediaItem
+    from core.models.photo_models import MediaItem, PickedMediaItem
+    from core.models.picker_session import PickerSession
     with app.app_context():
-        pmi1 = PickedMediaItem.query.get("m1")
-        pmi2 = PickedMediaItem.query.get("m2")
+        mi1 = MediaItem.query.get("m1")
+        mi2 = MediaItem.query.get("m2")
+        assert mi1 is not None and mi2 is not None
+        assert mi1.filename == "a.jpg"
+        ps = PickerSession.query.filter_by(session_id=session_name).first()
+        pmi1 = PickedMediaItem.query.filter_by(
+            picker_session_id=ps.id, media_item_id="m1"
+        ).first()
+        pmi2 = PickedMediaItem.query.filter_by(
+            picker_session_id=ps.id, media_item_id="m2"
+        ).first()
         assert pmi1 is not None and pmi2 is not None
-        assert pmi1.base_url == "https://base/1"
 
 
 def test_media_items_retry_on_429(monkeypatch, client, app):

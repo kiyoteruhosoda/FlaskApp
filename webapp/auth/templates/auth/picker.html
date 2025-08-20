@@ -4,15 +4,16 @@
 {% block content %}
 <h2>{{ _('Photo Picker') }}</h2>
 
-<p>
+
+<p id="picker-link-block">
   <a href="{{ picker_uri }}" target="_blank" rel="noopener" class="btn btn-primary">
     {{ _('Open Photo Picker') }}
   </a>
 </p>
 
-<img src="{{ qr_data }}" alt="QR Code" class="mt-3">
+<img id="qr-img" src="{{ qr_data }}" alt="QR Code" class="mt-3">
 
-<p>
+<p id="photo-view-link-block" style="display:none;">
   <a href="{{ url_for('photo_view.home', session_id=session_id) }}"
      target="_blank" rel="noopener" class="btn btn-secondary">
     {{ _('Open Photo View') }}
@@ -76,6 +77,7 @@
 
   let timer;
 
+
   async function poll() {
     try {
       const resp = await fetch(`/api/picker/session/${sessionData.db_session_id}`);
@@ -86,6 +88,14 @@
       const data = await resp.json();
       if (data.mediaItemsSet) {
         clearInterval(timer);
+        // picker_uriリンクとqr_dataを非表示にする
+        const linkBlock = document.getElementById('picker-link-block');
+        if (linkBlock) linkBlock.style.display = 'none';
+        const qrImg = document.getElementById('qr-img');
+        if (qrImg) qrImg.style.display = 'none';
+        // photo_viewリンクを表示
+        const photoViewBlock = document.getElementById('photo-view-link-block');
+        if (photoViewBlock) photoViewBlock.style.display = '';
         await fetchMediaItems();
       }
     } catch (e) {

@@ -108,7 +108,6 @@ class MediaPlayback(db.Model):
 
 class PickedMediaItem(db.Model):
     id = db.Column(db.String(255), primary_key=True)
-    create_time = db.Column(db.DateTime)
     type = db.Column(
         db.Enum('TYPE_UNSPECIFIED', 'PHOTO', 'VIDEO', name='picked_media_item_type'),
         nullable=False,

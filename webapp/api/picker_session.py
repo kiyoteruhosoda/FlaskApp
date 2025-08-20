@@ -255,7 +255,7 @@ def api_picker_session_status(picker_session_id):
 
 @bp.post("/picker/session/mediaItems")
 @login_required
-def api_picker_session_media_items():
+def api_picker_session_media_items(nextPageToken):
     """Fetch selected media items from Google Photos Picker and store them."""
 
     data = request.get_json(silent=True) or {}
@@ -270,8 +270,12 @@ def api_picker_session_media_items():
 
     try:
         ps = PickerSession.query.filter_by(session_id=session_id).first()
-        if not ps:
+        if not ps or not (ps.status == "processing" and nextPageToken):
             return jsonify({"error": "not_found"}), 404
+        # ステータスをprocessingにし、updated_atも更新
+        ps.status = "processing"
+        ps.updated_at = datetime.now(timezone.utc)
+        db.session.commit()
         account = GoogleAccount.query.get(ps.account_id)
         if not account:
             return jsonify({"error": "not_found"}), 404
@@ -300,25 +304,28 @@ def api_picker_session_media_items():
         saved = 0
         dup = 0
         for item in items:
-            item_id = item.get("id") or item.get("mediaItemId")
+            item_id = item.get("id")
             if not item_id:
                 continue
             pmi = PickedMediaItem.query.get(item_id)
             is_dup = pmi is not None
             if not pmi:
                 pmi = PickedMediaItem(id=item_id, status="pending")
-            pmi.base_url = item.get("baseUrl")
-            pmi.mime_type = item.get("mimeType")
-            pmi.filename = item.get("filename")
-            meta = item.get("mediaMetadata") or {}
-            ctime = meta.get("creationTime")
-            if ctime:
-                try:
-                    pmi.create_time = datetime.fromisoformat(ctime.replace("Z", "+00:00"))
-                except Exception:
-                    pass
-            pmi.type = "VIDEO" if meta.get("video") else "PHOTO"
-            mf = pmi.media_file_metadata or MediaFileMetadata()
+            mf_dict = item.get("mediaFile")
+            if isinstance(mf_dict, dict):
+                mf = MediaFileMetadata()
+                mf.base_url = mf_dict.get("baseUrl")
+                mf.mime_type = mf_dict.get("mimeType")
+                mf.filename = mf_dict.get("filename")
+                meta = mf_dict.get("mediaFileMetadata") or {}
+            else:
+                mf = mf_dict or MediaFileMetadata()
+                meta = getattr(mf, "media_file_metadata", None) or {}
+
+            pmi.base_url = mf.base_url
+            pmi.mime_type = mf.mime_type
+            pmi.filename = mf.filename
+
             width = meta.get("width")
             height = meta.get("height")
             if width is not None:
@@ -331,24 +338,28 @@ def api_picker_session_media_items():
                     mf.height = int(height)
                 except Exception:
                     mf.height = None
-            photo_meta = meta.get("photo") or {}
+            mf.camera_make = meta.get("cameraMake")
+            mf.camera_model = meta.get("cameraModel")
+
+            photo_meta = meta.get("photoMetadata") or {}
+            video_meta = meta.get("videoMetadata") or {}
+
             if photo_meta:
-                mf.camera_make = photo_meta.get("cameraMake")
-                mf.camera_model = photo_meta.get("cameraModel")
-                pm = mf.photo_metadata or PhotoMetadata()
+                pm = PhotoMetadata()
                 pm.focal_length = photo_meta.get("focalLength")
                 pm.aperture_f_number = photo_meta.get("apertureFNumber")
                 pm.iso_equivalent = photo_meta.get("isoEquivalent")
                 pm.exposure_time = photo_meta.get("exposureTime")
                 mf.photo_metadata = pm
-            video_meta = meta.get("video") or {}
+                pmi.type = "PHOTO"
+
             if video_meta:
-                mf.camera_make = video_meta.get("cameraMake") or mf.camera_make
-                mf.camera_model = video_meta.get("cameraModel") or mf.camera_model
-                vm = mf.video_metadata or VideoMetadata()
+                vm = VideoMetadata()
                 vm.fps = video_meta.get("fps")
-                vm.processing_status = video_meta.get("status")
+                vm.processing_status = video_meta.get("processingStatus")
                 mf.video_metadata = vm
+                pmi.type = "VIDEO"
+            
             pmi.media_file_metadata = mf
             pmi.updated_at = datetime.now(timezone.utc)
             db.session.add(pmi)
@@ -356,7 +367,12 @@ def api_picker_session_media_items():
                 dup += 1
             else:
                 saved += 1
+
+        # ステータスをimportedにし、updated_atも更新
+        ps.status = "imported"
+        ps.updated_at = datetime.now(timezone.utc)
         db.session.commit()
+
         return jsonify(
             {"saved": saved, "duplicates": dup, "nextCursor": picker_data.get("nextPageToken")}
         )

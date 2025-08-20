@@ -351,11 +351,16 @@ def api_picker_session_media_items():
             mf.camera_make = meta.get("cameraMake")
             mf.camera_model = meta.get("cameraModel")
 
+
             photo_meta = meta.get("photoMetadata") or {}
             video_meta = meta.get("videoMetadata") or {}
 
+            # photo_metadata: 既存があればupdate、なければinsert
             if photo_meta:
-                pm = PhotoMetadata()
+                if mf.photo_metadata:
+                    pm = mf.photo_metadata
+                else:
+                    pm = PhotoMetadata()
                 pm.focal_length = photo_meta.get("focalLength")
                 pm.aperture_f_number = photo_meta.get("apertureFNumber")
                 pm.iso_equivalent = photo_meta.get("isoEquivalent")
@@ -363,8 +368,12 @@ def api_picker_session_media_items():
                 mf.photo_metadata = pm
                 pmi.type = "PHOTO"
 
+            # video_metadata: 既存があればupdate、なければinsert
             if video_meta:
-                vm = VideoMetadata()
+                if mf.video_metadata:
+                    vm = mf.video_metadata
+                else:
+                    vm = VideoMetadata()
                 vm.fps = video_meta.get("fps")
                 vm.processing_status = video_meta.get("processingStatus")
                 mf.video_metadata = vm

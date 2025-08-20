@@ -270,7 +270,7 @@ def api_picker_session_media_items():
 
     try:
         ps = PickerSession.query.filter_by(session_id=session_id).first()
-        if not ps:
+        if not ps or not (ps.status == "processing" and cursor):
             return jsonify({"error": "not_found"}), 404
         # ステータスをprocessingにし、updated_atも更新
         ps.status = "processing"
@@ -312,12 +312,20 @@ def api_picker_session_media_items():
             if not pmi:
                 pmi = PickedMediaItem(id=item_id, status="pending")
 
-            pmi.base_url = item.get("baseUrl")
-            pmi.mime_type = item.get("mimeType")
-            pmi.filename = item.get("filename")
+            mf_dict = item.get("mediaFile")
+            if isinstance(mf_dict, dict):
+                mf = MediaFileMetadata()
+                mf.base_url = mf_dict.get("baseUrl")
+                mf.mime_type = mf_dict.get("mimeType")
+                mf.filename = mf_dict.get("filename")
+                meta = mf_dict.get("mediaFileMetadata") or {}
+            else:
+                mf = mf_dict or MediaFileMetadata()
+                meta = getattr(mf, "media_file_metadata", None) or {}
 
-            meta = item.get("mediaMetadata") or {}
-            mf = MediaFileMetadata()
+            pmi.base_url = mf.base_url
+            pmi.mime_type = mf.mime_type
+            pmi.filename = mf.filename
 
             width = meta.get("width")
             height = meta.get("height")
@@ -334,8 +342,8 @@ def api_picker_session_media_items():
             mf.camera_make = meta.get("cameraMake")
             mf.camera_model = meta.get("cameraModel")
 
-            photo_meta = meta.get("photo") or {}
-            video_meta = meta.get("video") or {}
+            photo_meta = meta.get("photoMetadata") or {}
+            video_meta = meta.get("videoMetadata") or {}
 
             if photo_meta:
                 pm = PhotoMetadata()

@@ -313,8 +313,7 @@ def picker(account_id: int):
     qr_data = qr_code_data_uri(picker_uri)
     return render_template(
         "auth/picker.html",
-        session_id=ps.id,
-        session_name=ps.session_id,
+        session_id=ps.session_id,
         picker_uri=picker_uri,
         qr_data=qr_data,
         poll_interval=poll_interval,

@@ -23,8 +23,7 @@
 <!-- 埋め込み用データ（この要素が元コードに無かった） -->
 <script id="session-data" type="application/json">
     {{ {
-        "db_session_id": session_id,
-        "session_name": session_name,
+        "session_id": session_id,
         "poll_interval": poll_interval
       } | tojson | safe }}
   </script>
@@ -59,7 +58,7 @@
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            sessionId: sessionData.session_name,
+            sessionId: sessionData.session_id,
             cursor: cursor,
           }),
         });
@@ -80,7 +79,7 @@
 
   async function poll() {
     try {
-      const resp = await fetch(`/api/picker/session/${sessionData.db_session_id}`);
+      const resp = await fetch(`/api/picker/session/${sessionData.session_id}`);
       if (!resp.ok) {
         console.warn('status poll failed:', resp.status);
         return;

@@ -398,7 +398,7 @@ def test_media_items_endpoint(monkeypatch, client, app):
         pmi = PickedMediaItem.query.get("m1")
         assert pmi is not None
         assert pmi.status == "pending"
-        assert pmi.media_file_metadata.width == 100
+        assert pmi.media_file_metadata[0].width == 100
 
 
 def test_media_items_busy(monkeypatch, client, app):

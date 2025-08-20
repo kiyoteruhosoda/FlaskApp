@@ -124,16 +124,20 @@ class PickedMediaItem(db.Model):
         default='pending',
         server_default='pending',
     )
-    media_file_metadata_id = db.Column(
-        BigInt, db.ForeignKey('media_file_metadata.id')
+    media_file_metadata = db.relationship(
+        'MediaFileMetadata',
+        backref='picked_media_item',
+        cascade='all, delete-orphan',
     )
-    media_file_metadata = db.relationship('MediaFileMetadata', backref='picked_media_items')
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
 
 
 class MediaFileMetadata(db.Model):
     id = db.Column(BigInt, primary_key=True, autoincrement=True)
+    picked_media_item_id = db.Column(
+        db.String(255), db.ForeignKey('picked_media_item.id'), nullable=False
+    )
     width = db.Column(db.Integer)
     height = db.Column(db.Integer)
     camera_make = db.Column(db.String(255))

@@ -50,18 +50,25 @@
 
   async function poll() {
     try {
-      const resp = await fetch('/api/picker/session/mediaItems', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        // API が期待するのは "sessionId" → Google Picker の sessionId を渡す
-        body: JSON.stringify({ sessionId: sessionData.session_name })
-      });
-      // 必要なら resp.ok チェックやエラーハンドリングを追加
-      if (!resp.ok) {
-        console.warn('poll failed:', resp.status);
-      }
+      let cursor = null;
+      do {
+        const resp = await fetch('/api/picker/session/mediaItems', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            sessionId: sessionData.session_name,
+            cursor: cursor,
+          }),
+        });
+        if (!resp.ok) {
+          console.warn('poll failed:', resp.status);
+          break;
+        }
+        const data = await resp.json();
+        cursor = data.nextCursor;
+      } while (cursor);
     } catch (e) {
       console.error(e);
     }

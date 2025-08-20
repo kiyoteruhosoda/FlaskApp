@@ -51,7 +51,7 @@ def create_app():
     from core.models import photo_models as _photo_models    # noqa: F401
     from core.models import job_sync as _job_sync    # noqa: F401
     from core.models import picker_session as _picker_session  # noqa: F401
-    from core.models import picker_import_item as _picker_import_item  # noqa: F401
+    from core.models import picker_download_task as _picker_download_task  # noqa: F401
     from core.models import log as _log  # noqa: F401
 
 

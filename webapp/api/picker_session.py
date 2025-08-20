@@ -43,7 +43,7 @@ def _release_media_items_lock(session_id, lock):
 
 def _update_picker_session_from_data(ps, data):
     """Apply Google Photos Picker session data to the model."""
-    ps.session_id = data.get("sessionId") or data.get("name")
+    ps.session_id = data.get("id")
     ps.picker_uri = data.get("pickerUri")
     expire = data.get("expireTime")
     if expire is not None:

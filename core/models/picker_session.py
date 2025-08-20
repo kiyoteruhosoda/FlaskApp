@@ -11,7 +11,7 @@ class PickerSession(db.Model):
 
     id = db.Column(BigInt, primary_key=True, autoincrement=True)
     account_id = db.Column(BigInt, db.ForeignKey("google_account.id"), nullable=False)
-    session_id = db.Column(db.String(255), unique=True, nullable=True)
+    session_id = db.Column(db.String(255), unique=True, nullable=False)
     picker_uri = db.Column(db.Text, nullable=True)
     expire_time = db.Column(db.DateTime, nullable=True)
     polling_config_json = db.Column(db.Text, nullable=True)

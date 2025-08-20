@@ -313,17 +313,25 @@ def api_picker_session_media_items():
             if not pmi:
                 pmi = PickedMediaItem(id=item_id, status="pending")
 
+            # MediaFileMetadataの重複チェック・上書き
+            mf = MediaFileMetadata.query.filter_by(picked_media_item_id=item_id).first()
+            is_update = False
+            if not mf:
+                mf = MediaFileMetadata()
+            else:
+                is_update = True
+
             mf_dict = item.get("mediaFile")
             if isinstance(mf_dict, dict):
-                mf = MediaFileMetadata()
                 mf.base_url = mf_dict.get("baseUrl")
                 mf.mime_type = mf_dict.get("mimeType")
                 mf.filename = mf_dict.get("filename")
                 meta = mf_dict.get("mediaFileMetadata") or {}
             else:
-                mf = mf_dict or MediaFileMetadata()
+                mf = mf_dict or mf
                 meta = getattr(mf, "media_file_metadata", None) or {}
 
+            mf.picked_media_item_id = item_id
             pmi.base_url = mf.base_url
             pmi.mime_type = mf.mime_type
             pmi.filename = mf.filename
@@ -361,14 +369,15 @@ def api_picker_session_media_items():
                 vm.processing_status = video_meta.get("processingStatus")
                 mf.video_metadata = vm
                 pmi.type = "VIDEO"
-            
-            pmi.media_file_metadata.append(mf)
+
+            # PickedMediaItemとの関連付け
+            if not is_update:
+                pmi.media_file_metadata.append(mf)
+            mf.picked_media_item_id = item_id
             pmi.updated_at = datetime.now(timezone.utc)
             db.session.add(pmi)
-            if is_dup:
-                dup += 1
-            else:
-                saved += 1
+            db.session.add(mf)
+            saved += 1
 
         # ステータスをimportedにし、updated_atも更新
         ps.status = "imported"

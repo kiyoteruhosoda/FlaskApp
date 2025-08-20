@@ -136,7 +136,7 @@ class PickedMediaItem(db.Model):
 class MediaFileMetadata(db.Model):
     id = db.Column(BigInt, primary_key=True, autoincrement=True)
     picked_media_item_id = db.Column(
-        db.String(255), db.ForeignKey('picked_media_item.id'), nullable=False
+        db.String(255), db.ForeignKey('picked_media_item.id'), nullable=False, unique=True
     )
     width = db.Column(db.Integer)
     height = db.Column(db.Integer)

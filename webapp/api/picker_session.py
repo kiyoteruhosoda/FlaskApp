@@ -12,6 +12,7 @@ from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
 from core.models.photo_models import (
     PickedMediaItem,
+    MediaItem,
     MediaFileMetadata,
     PhotoMetadata,
     VideoMetadata,
@@ -310,33 +311,30 @@ def api_picker_session_media_items():
                 item_id = item.get("id")
                 if not item_id:
                     continue
-                pmi = PickedMediaItem.query.get(item_id)
+                mi = MediaItem.query.get(item_id)
+                if not mi:
+                    mi = MediaItem(id=item_id, type="TYPE_UNSPECIFIED")
+
+                pmi = PickedMediaItem.query.filter_by(
+                    picker_session_id=ps.id, media_item_id=item_id
+                ).first()
                 is_dup = pmi is not None
                 if not pmi:
-                    pmi = PickedMediaItem(id=item_id, status="pending")
+                    pmi = PickedMediaItem(
+                        picker_session_id=ps.id, media_item_id=item_id, status="pending"
+                    )
 
-                # MediaFileMetadataの重複チェック・上書き
-                mf = MediaFileMetadata.query.filter_by(picked_media_item_id=item_id).first()
-                is_update = False
+                mf = MediaFileMetadata.query.filter_by(media_item_id=item_id).first()
                 if not mf:
-                    mf = MediaFileMetadata()
-                else:
-                    is_update = True
+                    mf = MediaFileMetadata(media_item_id=item_id)
 
                 mf_dict = item.get("mediaFile")
                 if isinstance(mf_dict, dict):
-                    mf.base_url = mf_dict.get("baseUrl")
-                    mf.mime_type = mf_dict.get("mimeType")
-                    mf.filename = mf_dict.get("filename")
+                    mi.mime_type = mf_dict.get("mimeType")
+                    mi.filename = mf_dict.get("filename")
                     meta = mf_dict.get("mediaFileMetadata") or {}
                 else:
-                    mf = mf_dict or mf
-                    meta = getattr(mf, "media_file_metadata", None) or {}
-
-                mf.picked_media_item_id = item_id
-                pmi.base_url = mf.base_url
-                pmi.mime_type = mf.mime_type
-                pmi.filename = mf.filename
+                    meta = {}
 
                 width = meta.get("width")
                 height = meta.get("height")
@@ -356,7 +354,6 @@ def api_picker_session_media_items():
                 photo_meta = meta.get("photoMetadata") or {}
                 video_meta = meta.get("videoMetadata") or {}
 
-                # photo_metadata: 既存があればupdate、なければinsert
                 if photo_meta:
                     if mf.photo_metadata:
                         pm = mf.photo_metadata
@@ -367,9 +364,8 @@ def api_picker_session_media_items():
                     pm.iso_equivalent = photo_meta.get("isoEquivalent")
                     pm.exposure_time = photo_meta.get("exposureTime")
                     mf.photo_metadata = pm
-                    pmi.type = "PHOTO"
+                    mi.type = "PHOTO"
 
-                # video_metadata: 既存があればupdate、なければinsert
                 if video_meta:
                     if mf.video_metadata:
                         vm = mf.video_metadata
@@ -378,15 +374,13 @@ def api_picker_session_media_items():
                     vm.fps = video_meta.get("fps")
                     vm.processing_status = video_meta.get("processingStatus")
                     mf.video_metadata = vm
-                    pmi.type = "VIDEO"
+                    mi.type = "VIDEO"
 
-                # PickedMediaItemとの関連付け
-                if not is_update:
-                    pmi.media_file_metadata.append(mf)
-                mf.picked_media_item_id = item_id
+                mi.media_file_metadata = mf
                 pmi.updated_at = datetime.now(timezone.utc)
-                db.session.add(pmi)
+                db.session.add(mi)
                 db.session.add(mf)
+                db.session.add(pmi)
                 if is_dup:
                     dup += 1
                 else:

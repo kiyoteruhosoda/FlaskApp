@@ -21,7 +21,6 @@ class PickerSession(db.Model):
     selected_count = db.Column(db.Integer, nullable=True)
     stats_json = db.Column(db.Text, nullable=True)
     last_polled_at = db.Column(db.DateTime, nullable=True)
-    completed_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(
         db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
     )

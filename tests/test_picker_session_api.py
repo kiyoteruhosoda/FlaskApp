@@ -81,7 +81,7 @@ def test_create_ok(monkeypatch, client, app):
         if url == "https://photospicker.googleapis.com/v1/sessions":
             sid = "picker_sessions/" + uuid.uuid4().hex
             return FakeResp({
-                "sessionId": sid,
+                "id": sid,
                 "pickerUri": "https://picker",
                 "expireTime": "2025-03-10T00:00:00Z",
                 "pollingConfig": {"pollInterval": "3s", "timeoutIn": "30s"},
@@ -116,7 +116,7 @@ def test_create_default_account(monkeypatch, client, app):
         if url == "https://photospicker.googleapis.com/v1/sessions":
             sid = "picker_sessions/" + uuid.uuid4().hex
             return FakeResp({
-                "sessionId": sid,
+                "id": sid,
                 "pickerUri": "https://picker",
                 "expireTime": "2025-03-10T00:00:00Z",
                 "pollingConfig": {"pollInterval": "3s", "timeoutIn": "30s"},
@@ -163,7 +163,7 @@ def test_status_ok(monkeypatch, client, app):
         if url == "https://photospicker.googleapis.com/v1/sessions":
             sid = "picker_sessions/" + uuid.uuid4().hex
             return FakeResp({
-                "sessionId": sid,
+                "id": sid,
                 "pickerUri": "https://picker",
                 "expireTime": "2025-03-10T00:00:00Z",
                 "pollingConfig": {"pollInterval": "3s", "timeoutIn": "30s"},
@@ -203,7 +203,7 @@ def test_import_enqueue_ok(monkeypatch, client, app):
         if url == "https://photospicker.googleapis.com/v1/sessions":
             sid = "picker_sessions/" + uuid.uuid4().hex
             return FakeResp({
-                "sessionId": sid,
+                "id": sid,
                 "pickerUri": "https://picker",
                 "expireTime": "2025-03-10T00:00:00Z",
                 "pollingConfig": {"pollInterval": "3s", "timeoutIn": "30s"},
@@ -237,7 +237,7 @@ def test_import_idempotent(monkeypatch, client, app):
         if url == "https://photospicker.googleapis.com/v1/sessions":
             sid = "picker_sessions/" + uuid.uuid4().hex
             return FakeResp({
-                "sessionId": sid,
+                "id": sid,
                 "pickerUri": "https://picker",
                 "expireTime": "2025-03-10T00:00:00Z",
                 "pollingConfig": {"pollInterval": "3s", "timeoutIn": "30s"},
@@ -283,7 +283,7 @@ def test_callback_stores_ids(monkeypatch, client, app):
         if url == "https://photospicker.googleapis.com/v1/sessions":
             sid = "picker_sessions/" + uuid.uuid4().hex
             return FakeResp({
-                "sessionId": sid,
+                "id": sid,
                 "pickerUri": "https://picker",
                 "expireTime": "2025-03-10T00:00:00Z",
                 "pollingConfig": {"pollInterval": "3s", "timeoutIn": "30s"},
@@ -302,11 +302,8 @@ def test_callback_stores_ids(monkeypatch, client, app):
     data = res.get_json()
     assert data["count"] == 2
 
-    from core.models.picker_import_item import PickerImportItem
     from core.models.picker_session import PickerSession
     with app.app_context():
-        items = PickerImportItem.query.filter_by(picker_session_id=ps_id).all()
-        assert len(items) == 2
         ps = PickerSession.query.get(ps_id)
         assert ps.status == "ready"
         assert ps.selected_count == 2
@@ -340,7 +337,7 @@ def test_media_items_endpoint(monkeypatch, client, app):
         if url == "https://photospicker.googleapis.com/v1/sessions":
             sid = "picker_sessions/" + uuid.uuid4().hex
             return FakeResp({
-                "sessionId": sid,
+                "id": sid,
                 "pickerUri": "https://picker",
                 "expireTime": "2025-03-10T00:00:00Z",
                 "pollingConfig": {"pollInterval": "3s"},

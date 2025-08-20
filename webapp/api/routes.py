@@ -29,7 +29,6 @@ from . import bp
 from ..extensions import db
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
-from core.models.picker_import_item import PickerImportItem
 from core.models.photo_models import Media, Exif, MediaSidecar, MediaPlayback
 from core.crypto import decrypt
 from ..auth.utils import refresh_google_token, RefreshTokenError, log_requests_and_send

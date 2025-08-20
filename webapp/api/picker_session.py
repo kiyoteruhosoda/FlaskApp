@@ -9,7 +9,6 @@ from flask_login import login_required
 from ..extensions import db
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
-from core.models.picker_import_item import PickerImportItem
 from core.models.photo_models import (
     PickedMediaItem,
     MediaFileMetadata,
@@ -133,7 +132,6 @@ def api_picker_session_create():
 
     ps = PickerSession(account_id=account.id, status="pending")
     db.session.add(ps)
-    db.session.commit()
     _update_picker_session_from_data(ps, picker_data)
     db.session.commit()
     session["picker_session_id"] = ps.id
@@ -170,23 +168,13 @@ def api_picker_session_callback(picker_session_id):
     ids = data.get("mediaItemIds") or []
     if isinstance(ids, str):
         ids = [ids]
-    saved = 0
-    for mid in ids:
-        if not isinstance(mid, str):
-            continue
-        exists = PickerImportItem.query.filter_by(
-            picker_session_id=ps.id, media_item_id=mid
-        ).first()
-        if exists:
-            continue
-        db.session.add(PickerImportItem(picker_session_id=ps.id, media_item_id=mid))
-        saved += 1
-    ps.selected_count = (ps.selected_count or 0) + saved
+    count = sum(1 for mid in ids if isinstance(mid, str))
+    ps.selected_count = (ps.selected_count or 0) + count
     ps.status = "ready"
-    if saved > 0:
+    if count > 0:
         ps.media_items_set = True
     db.session.commit()
-    return jsonify({"result": "ok", "count": saved})
+    return jsonify({"result": "ok", "count": count})
 
 
 @bp.get("/picker/session/<int:picker_session_id>")

@@ -29,7 +29,6 @@ from core.crypto import decrypt
 from core.db import db
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
-from core.models.picker_import_item import PickerImportItem
 from core.models.photo_models import Exif, Media, MediaPlayback
 
 # ---------------------------------------------------------------------------
@@ -151,9 +150,8 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
     # ------------------------------------------------------------------
     # 3. Fetch selected IDs from callback storage or picker session
     # ------------------------------------------------------------------
-    items = PickerImportItem.query.filter_by(picker_session_id=ps.id).all()
-    selected_ids: List[str] = [i.media_item_id for i in items]
-    if not selected_ids and ps.session_id:
+    selected_ids: List[str] = []
+    if ps.session_id:
         try:
             r = requests.get(
                 "https://photospicker.googleapis.com/v1/sessions",

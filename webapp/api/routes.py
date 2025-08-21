@@ -348,6 +348,8 @@ def _verify_token(token: str):
     try:
         payload_b64, sig_b64 = token.split(".", 1)
         payload_bytes = _b64url_decode(payload_b64)
+        if _b64url_encode(payload_bytes) != payload_b64:
+            return None, "invalid_token"
         payload = json.loads(payload_bytes)
     except Exception:
         return None, "invalid_token"
@@ -356,7 +358,10 @@ def _verify_token(token: str):
     key = _b64url_decode(key_b64) if key_b64 else b""
     canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
     expected_sig = hmac.new(key, canonical, hashlib.sha256).digest()
-    if not hmac.compare_digest(expected_sig, _b64url_decode(sig_b64)):
+    sig_bytes = _b64url_decode(sig_b64)
+    if _b64url_encode(sig_bytes) != sig_b64:
+        return None, "invalid_token"
+    if not hmac.compare_digest(expected_sig, sig_bytes):
         return None, "invalid_token"
 
     if payload.get("exp", 0) < int(time.time()):

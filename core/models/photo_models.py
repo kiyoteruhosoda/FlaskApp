@@ -146,6 +146,7 @@ class PickedMediaItem(db.Model):
         'MediaItem',
         backref=db.backref('picked_media_items', cascade='all, delete-orphan')
     )
+    create_time = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
     __table_args__ = (

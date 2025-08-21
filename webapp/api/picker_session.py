@@ -323,6 +323,13 @@ def api_picker_session_media_items():
                         picker_session_id=ps.id, media_item_id=item_id, status="pending"
                     )
 
+                ct = item.get("createTime")
+                if ct:
+                    try:
+                        pmi.create_time = datetime.fromisoformat(ct.replace("Z", "+00:00"))
+                    except Exception:
+                        pmi.create_time = None
+
                 mf_dict = item.get("mediaFile")
                 if isinstance(mf_dict, dict):
                     mi.mime_type = mf_dict.get("mimeType")

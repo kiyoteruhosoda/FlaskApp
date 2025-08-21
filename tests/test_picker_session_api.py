@@ -372,6 +372,7 @@ def test_media_items_endpoint(monkeypatch, client, app):
                         "mediaItems": [
                             {
                                 "id": "m1",
+                                "createTime": "2024-01-01T00:00:00Z",
                                 "mediaFile": {
                                     "baseUrl": "https://base/1",
                                     "mimeType": "image/jpeg",
@@ -391,6 +392,7 @@ def test_media_items_endpoint(monkeypatch, client, app):
                         "mediaItems": [
                             {
                                 "id": "m2",
+                                "createTime": "2024-01-02T00:00:00Z",
                                 "mediaFile": {
                                     "baseUrl": "https://base/2",
                                     "mimeType": "image/jpeg",
@@ -429,7 +431,10 @@ def test_media_items_endpoint(monkeypatch, client, app):
         pmi2 = PickedMediaItem.query.filter_by(
             picker_session_id=ps.id, media_item_id="m2"
         ).first()
+        from datetime import datetime
         assert pmi1 is not None and pmi2 is not None
+        assert pmi1.create_time == datetime(2024, 1, 1)
+        assert pmi2.create_time == datetime(2024, 1, 2)
 
 
 def test_media_items_retry_on_429(monkeypatch, client, app):
@@ -478,6 +483,7 @@ def test_media_items_retry_on_429(monkeypatch, client, app):
             "mediaItems": [
                 {
                     "id": "m429",
+                    "createTime": "2024-01-03T00:00:00Z",
                     "mediaFile": {
                         "baseUrl": "https://base/1",
                         "mimeType": "image/jpeg",

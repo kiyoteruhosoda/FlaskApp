@@ -1,8 +1,8 @@
 """base
 
-Revision ID: ccd70c9597ff
+Revision ID: 02a871f6064b
 Revises: 
-Create Date: 2025-08-20 16:21:31.739974
+Create Date: 2025-08-20 17:14:19.001722
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'ccd70c9597ff'
+revision = '02a871f6064b'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -49,15 +49,6 @@ def upgrade():
     sa.Column('path', sa.String(length=255), nullable=True),
     sa.Column('request_id', sa.String(length=36), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('media_item',
-    sa.Column('id', sa.String(length=255), nullable=False),
-    sa.Column('type', sa.Enum('TYPE_UNSPECIFIED', 'PHOTO', 'VIDEO', name='media_item_type'), nullable=False),
-    sa.Column('mime_type', sa.String(length=255), nullable=True),
-    sa.Column('filename', sa.String(length=255), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('permission',
@@ -120,20 +111,22 @@ def upgrade():
     sa.ForeignKeyConstraint(['account_id'], ['google_account.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('media_file_metadata',
-    sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
-    sa.Column('media_item_id', sa.String(length=255), nullable=False),
+    op.create_table('media_item',
+    sa.Column('id', sa.String(length=255), nullable=False),
+    sa.Column('type', sa.Enum('TYPE_UNSPECIFIED', 'PHOTO', 'VIDEO', name='media_item_type'), nullable=False),
+    sa.Column('mime_type', sa.String(length=255), nullable=True),
+    sa.Column('filename', sa.String(length=255), nullable=True),
     sa.Column('width', sa.Integer(), nullable=True),
     sa.Column('height', sa.Integer(), nullable=True),
     sa.Column('camera_make', sa.String(length=255), nullable=True),
     sa.Column('camera_model', sa.String(length=255), nullable=True),
     sa.Column('photo_metadata_id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), nullable=True),
     sa.Column('video_metadata_id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), nullable=True),
-    sa.ForeignKeyConstraint(['media_item_id'], ['media_item.id'], ),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['photo_metadata_id'], ['photo_metadata.id'], ),
     sa.ForeignKeyConstraint(['video_metadata_id'], ['video_metadata.id'], ),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('media_item_id')
+    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('picker_session',
     sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
@@ -311,7 +304,7 @@ def downgrade():
     op.drop_table('tag')
     op.drop_table('role_permissions')
     op.drop_table('picker_session')
-    op.drop_table('media_file_metadata')
+    op.drop_table('media_item')
     op.drop_table('media')
     op.drop_table('video_metadata')
     with op.batch_alter_table('user', schema=None) as batch_op:
@@ -321,7 +314,6 @@ def downgrade():
     op.drop_table('role')
     op.drop_table('photo_metadata')
     op.drop_table('permission')
-    op.drop_table('media_item')
     op.drop_table('log')
     op.drop_table('job_sync')
     op.drop_table('google_account')

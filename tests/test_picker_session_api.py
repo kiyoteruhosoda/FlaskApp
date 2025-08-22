@@ -215,9 +215,8 @@ def test_import_enqueue_ok(monkeypatch, client, app):
     monkeypatch.setattr("requests.post", fake_post)
     res = client.post("/api/picker/session", json={"account_id": 1})
     ps_id = res.get_json()["pickerSessionId"]
-    session_name = res.get_json()["sessionId"]
 
-    res = client.post(f"/api/picker/session/{session_name}/import")
+    res = client.post(f"/api/picker/session/{ps_id}/import")
     assert res.status_code == 202
     data = res.get_json()
     assert data["enqueued"] is True
@@ -249,10 +248,9 @@ def test_import_idempotent(monkeypatch, client, app):
     monkeypatch.setattr("requests.post", fake_post)
     res = client.post("/api/picker/session", json={"account_id": 1})
     ps_id = res.get_json()["pickerSessionId"]
-    session_name = res.get_json()["sessionId"]
-    res = client.post(f"/api/picker/session/{session_name}/import")
+    res = client.post(f"/api/picker/session/{ps_id}/import")
     assert res.status_code == 202
-    res = client.post(f"/api/picker/session/{session_name}/import")
+    res = client.post(f"/api/picker/session/{ps_id}/import")
     assert res.status_code == 409
 
 

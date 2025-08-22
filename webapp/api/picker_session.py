@@ -474,9 +474,9 @@ def api_picker_session_media_items():
         _release_media_items_lock(session_id, lock)
 
 
-@bp.post("/picker/session/<path:picker_session_id>/import")
+@bp.post("/picker/session/<int:picker_session_id>/import")
 @login_required
-def api_picker_session_import(picker_session_id):
+def api_picker_session_import(picker_session_id: int):
     """Enqueue import task for picker session.
 
     The frontend does not pass ``account_id`` in the request body, so the
@@ -488,7 +488,7 @@ def api_picker_session_import(picker_session_id):
     data = request.get_json(silent=True) or {}
     account_id_in = data.get("account_id")
 
-    ps = PickerSession.query.filter_by(session_id=picker_session_id).first()
+    ps = PickerSession.query.get(picker_session_id)
     if not ps or (account_id_in and ps.account_id != account_id_in):
         return jsonify({"error": "not_found"}), 404
 

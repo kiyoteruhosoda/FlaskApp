@@ -135,8 +135,8 @@ class PickedMediaItem(db.Model):
     )
     status = db.Column(
         db.Enum(
-            'pending', 'imported', 'dup', 'failed', 'expired', 'skipped',
-            name='picked_media_item_status'
+            'pending', 'enqueued', 'running', 'imported', 'dup',
+            'failed', 'expired', 'skipped', name='picked_media_item_status'
         ),
         nullable=False,
         default='pending',
@@ -147,6 +147,12 @@ class PickedMediaItem(db.Model):
         backref=db.backref('picked_media_items', cascade='all, delete-orphan')
     )
     create_time = db.Column(db.DateTime)
+    enqueued_at = db.Column(db.DateTime)
+    started_at = db.Column(db.DateTime)
+    finished_at = db.Column(db.DateTime)
+    attempts = db.Column(db.Integer, nullable=False, default=0, server_default='0')
+    base_url_fetched_at = db.Column(db.DateTime)
+    base_url_valid_until = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
     __table_args__ = (

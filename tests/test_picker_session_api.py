@@ -225,7 +225,7 @@ def test_import_enqueue_ok(monkeypatch, client, app):
     from core.models.picker_session import PickerSession
     with app.app_context():
         ps = PickerSession.query.get(ps_id)
-        assert ps.status == "importing"
+        assert ps.status == "enqueued"
 
 
 def test_import_idempotent(monkeypatch, client, app):

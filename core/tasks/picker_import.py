@@ -140,11 +140,22 @@ def _exchange_refresh_token(gacc: GoogleAccount, ps: PickerSession) -> tuple[str
             },
         )
         data = resp.json()
-        return data["access_token"], None
     except Exception:
         ps.status = "error"
         db.session.commit()
         return None, "oauth_error"
+
+    if resp.status_code == 401 or data.get("error") == "invalid_grant":
+        ps.status = "failed"
+        db.session.commit()
+        return None, "oauth_failed"
+
+    if resp.status_code >= 400 or "access_token" not in data:
+        ps.status = "error"
+        db.session.commit()
+        return None, "oauth_error"
+
+    return data["access_token"], None
 
 
 def _fetch_selected_ids(ps: PickerSession, headers: Dict[str, str]) -> tuple[List[str], str | None]:

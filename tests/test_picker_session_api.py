@@ -361,7 +361,7 @@ def test_media_items_endpoint(monkeypatch, client, app):
     calls = {"n": 0}
 
     def fake_get(url, *a, **k):
-        if url == "https://photospicker.googleapis.com/v1/sessions":
+        if url == f"https://photospicker.googleapis.com/v1/sessions/{session_name}":
             return FakeResp({"id": session_name, "mediaItemsSet": True})
         if url == "https://photospicker.googleapis.com/v1/mediaItems":
             params = k.get("params", {})
@@ -498,7 +498,7 @@ def test_media_items_retry_on_429(monkeypatch, client, app):
     ]
 
     def fake_get(url, *a, **k):
-        if url == "https://photospicker.googleapis.com/v1/sessions":
+        if url == f"https://photospicker.googleapis.com/v1/sessions/{session_name}":
             return FakeResp({"id": session_name, "mediaItemsSet": True})
         if url == "https://photospicker.googleapis.com/v1/mediaItems":
             return responses.pop(0)
@@ -581,7 +581,7 @@ def test_media_items_enqueue_and_skip_duplicate(monkeypatch, client, app):
         db.session.commit()
 
     def fake_get(url, *a, **k):
-        if url == "https://photospicker.googleapis.com/v1/sessions":
+        if url == f"https://photospicker.googleapis.com/v1/sessions/{session_name}":
             return FakeResp({"id": session_name, "mediaItemsSet": True})
         if url == "https://photospicker.googleapis.com/v1/mediaItems":
             return FakeResp(
@@ -689,7 +689,7 @@ def test_media_items_skip_duplicate_in_response(monkeypatch, client, app):
         db.session.commit()
 
     def fake_get(url, *a, **k):
-        if url == "https://photospicker.googleapis.com/v1/sessions":
+        if url == f"https://photospicker.googleapis.com/v1/sessions/{session_name}":
             return FakeResp({"id": session_name, "mediaItemsSet": True})
         if url == "https://photospicker.googleapis.com/v1/mediaItems":
             return FakeResp(

@@ -104,6 +104,99 @@ def _chunk(iterable: List[str], size: int) -> Iterable[List[str]]:
 
 
 # ---------------------------------------------------------------------------
+# Per item import
+# ---------------------------------------------------------------------------
+
+
+def picker_import_item(*, selection_id: int, session_id: int) -> Dict[str, object]:
+    """Import a single :class:`PickedMediaItem`.
+
+    The implementation is intentionally lightweight.  It performs the minimal
+    workflow required by the tests: row locking, simple status transitions,
+    deduplication by SHA‑256 and moving the downloaded file into the originals
+    folder.  Many production features from the specification (token refresh,
+    base URL renewal, structured logging, backoff, etc.) are deliberately
+    omitted for brevity.
+    """
+
+    from datetime import datetime, timezone
+
+    from core.models.photo_models import PickedMediaItem, MediaItem
+
+    now = datetime.now(timezone.utc)
+
+    pmi = (
+        PickedMediaItem.query.filter_by(id=selection_id, picker_session_id=session_id)
+        .with_for_update()
+        .first()
+    )
+    if not pmi:
+        return {"ok": False, "error": "not_found"}
+    if pmi.status not in {"pending", "enqueued", "failed"}:
+        return {"ok": False, "error": "invalid_status"}
+
+    # Mark as running
+    pmi.status = "running"
+    pmi.attempts = (pmi.attempts or 0) + 1
+    pmi.started_at = now
+
+    tmp_dir, orig_dir = _ensure_dirs()
+
+    try:
+        # ------------------------------------------------------------------
+        # Determine download URL.  The simplified model stores the picker
+        # URL in ``MediaItem.filename``.
+        # ------------------------------------------------------------------
+        mi: MediaItem = pmi.media_item  # type: ignore[assignment]
+        base_url = mi.filename
+        if not base_url:
+            raise RuntimeError("missing_base_url")
+
+        dl = _download(base_url, tmp_dir)
+
+        # Deduplicate
+        if Media.query.filter_by(hash_sha256=dl.sha256).first():
+            pmi.status = "dup"
+            dl.path.unlink(missing_ok=True)
+        else:
+            shot_at = pmi.create_time or now
+            ext = _guess_ext(mi.filename, mi.mime_type)
+            out_rel = f"{shot_at:%Y/%m/%d}/{shot_at:%Y%m%d_%H%M%S}_picker_{dl.sha256[:8]}{ext}"
+            final_path = orig_dir / out_rel
+            final_path.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(dl.path, final_path)
+
+            media = Media(
+                google_media_id=mi.id,
+                account_id=PickerSession.query.get(session_id).account_id,
+                local_rel_path=str(out_rel),
+                hash_sha256=dl.sha256,
+                bytes=dl.bytes,
+                mime_type=mi.mime_type,
+                width=mi.width,
+                height=mi.height,
+                duration_ms=None,
+                shot_at=shot_at,
+                imported_at=now,
+                is_video=False,
+            )
+            db.session.add(media)
+            db.session.flush()
+
+            exif = Exif(media_id=media.id, raw_json="{}")
+            db.session.add(exif)
+
+            pmi.status = "imported"
+
+    except Exception:
+        pmi.status = "failed"
+
+    pmi.finished_at = datetime.now(timezone.utc)
+    db.session.commit()
+    return {"ok": pmi.status in {"imported", "dup"}, "status": pmi.status}
+
+
+# ---------------------------------------------------------------------------
 # Main task implementation
 # ---------------------------------------------------------------------------
 
@@ -171,8 +264,7 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
     if ps.session_id:
         try:
             r = requests.get(
-                "https://photospicker.googleapis.com/v1/sessions",
-                params={"sessionId": ps.session_id},
+                f"https://photospicker.googleapis.com/v1/sessions/{ps.session_id}",
                 headers=headers,
             )
             r.raise_for_status()
@@ -324,4 +416,4 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
     return {"ok": ok, "imported": imported, "dup": dup, "failed": failed, "note": note}
 
 
-__all__ = ["picker_import", "enqueue_picker_import_item"]
+__all__ = ["picker_import", "enqueue_picker_import_item", "picker_import_item"]

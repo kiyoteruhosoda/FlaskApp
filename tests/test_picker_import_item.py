@@ -1,13 +1,10 @@
-import os
 import hashlib
-from pathlib import Path
-
 import os
-import hashlib
+import time
 
 import pytest
 
-from core.tasks import picker_import_item
+from core.tasks import picker_import_item, picker_import_queue_scan
 
 
 @pytest.fixture
@@ -148,3 +145,59 @@ def test_picker_import_item_dup(monkeypatch, app, tmp_path):
         assert res["ok"] is True
         assert pmi.status == "dup"
         assert Media.query.count() == 1
+
+
+def test_picker_import_queue_scan(monkeypatch, app):
+    ps_id, pmi_id = _setup_item(app)
+
+    called: list[int] = []
+
+    import importlib
+    mod = importlib.import_module("core.tasks.picker_import")
+
+    def fake_enqueue(selection_id):
+        called.append(selection_id)
+
+    monkeypatch.setattr(mod, "enqueue_picker_import_item", fake_enqueue)
+
+    with app.app_context():
+        res = picker_import_queue_scan()
+        assert res["queued"] == 1
+        assert called == [pmi_id]
+
+
+def test_picker_import_item_heartbeat(monkeypatch, app, tmp_path):
+    ps_id, pmi_id = _setup_item(app)
+
+    import importlib
+    mod = importlib.import_module("core.tasks.picker_import")
+
+    content = b"hi"
+    sha = hashlib.sha256(content).hexdigest()
+
+    def fake_download(url, dest_dir):
+        path = dest_dir / "dl"
+        with open(path, "wb") as fh:
+            fh.write(content)
+        time.sleep(0.05)
+        return mod.Downloaded(path, len(content), sha)
+
+    monkeypatch.setattr(mod, "_download", fake_download)
+
+    with app.app_context():
+        res = picker_import_item(
+            selection_id=pmi_id,
+            session_id=ps_id,
+            locked_by="w1",
+            heartbeat_interval=0.01,
+        )
+        from core.models.photo_models import PickerSelection
+
+        pmi = PickerSelection.query.get(pmi_id)
+        assert res["ok"] is True
+        assert pmi.locked_by == "w1"
+        assert pmi.attempts == 1
+        assert pmi.started_at is not None
+        assert pmi.lock_heartbeat_at is not None
+        diff = (pmi.lock_heartbeat_at - pmi.started_at).total_seconds()
+        assert diff >= 0.01

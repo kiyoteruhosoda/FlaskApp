@@ -21,15 +21,23 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import threading
 from typing import Dict, Iterable, List, Tuple
 
 import requests
+from sqlalchemy import update
 
 from core.crypto import decrypt
 from core.db import db
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
-from core.models.photo_models import Exif, Media, MediaPlayback
+from core.models.photo_models import (
+    Exif,
+    Media,
+    MediaItem,
+    MediaPlayback,
+    PickerSelection,
+)
 
 # ---------------------------------------------------------------------------
 # Queue hook
@@ -47,6 +55,27 @@ def enqueue_picker_import_item(selection_id: int) -> None:
     # The default implementation is a no-op; tests are expected to
     # monkeypatch this function.
     return None
+
+
+def picker_import_queue_scan() -> Dict[str, int]:
+    """Publish ``enqueued`` :class:`PickerSelection` rows to the worker queue."""
+
+    queued = 0
+    now = datetime.now(timezone.utc)
+
+    selections: List[PickerSelection] = (
+        PickerSelection.query.filter_by(status="enqueued").order_by(PickerSelection.id).all()
+    )
+
+    for sel in selections:
+        sel.enqueued_at = sel.enqueued_at or now
+        enqueue_picker_import_item(sel.id)
+        queued += 1
+
+    if queued:
+        db.session.commit()
+
+    return {"queued": queued}
 
 # ---------------------------------------------------------------------------
 # Helper utilities
@@ -101,6 +130,30 @@ def _ensure_dirs() -> Tuple[Path, Path]:
 def _chunk(iterable: List[str], size: int) -> Iterable[List[str]]:
     for i in range(0, len(iterable), size):
         yield iterable[i : i + size]
+
+
+def _start_lock_heartbeat(selection_id: int, locked_by: str, interval: float) -> tuple[threading.Event, threading.Thread]:
+    """Start background thread sending lock heartbeats."""
+
+    stop = threading.Event()
+
+    def _beat() -> None:
+        while not stop.is_set():
+            ts = datetime.now(timezone.utc)
+            with db.engine.begin() as conn:
+                conn.execute(
+                    update(PickerSelection)
+                    .where(
+                        PickerSelection.id == selection_id,
+                        PickerSelection.locked_by == locked_by,
+                    )
+                    .values(lock_heartbeat_at=ts)
+                )
+            stop.wait(interval)
+
+    thread = threading.Thread(target=_beat, daemon=True)
+    thread.start()
+    return stop, thread
 
 
 # ---------------------------------------------------------------------------
@@ -194,44 +247,53 @@ def _fetch_selected_ids(ps: PickerSession, headers: Dict[str, str]) -> tuple[Lis
 # ---------------------------------------------------------------------------
 
 
-def picker_import_item(*, selection_id: int, session_id: int) -> Dict[str, object]:
+def picker_import_item(
+    *,
+    selection_id: int,
+    session_id: int,
+    locked_by: str = "worker",
+    heartbeat_interval: float = 30.0,
+) -> Dict[str, object]:
     """Import a single :class:`PickerSelection`.
 
-    The implementation is intentionally lightweight.  It performs the minimal
-    workflow required by the tests: row locking, simple status transitions,
-    deduplication by SHA‑256 and moving the downloaded file into the originals
-    folder.  Many production features from the specification (token refresh,
-    base URL renewal, structured logging, backoff, etc.) are deliberately
-    omitted for brevity.
+    The function now performs an atomic claim of the selection row and updates
+    lock heartbeat timestamps while processing the item.
     """
-
-    from datetime import datetime, timezone
-
-    from core.models.photo_models import PickerSelection, MediaItem
 
     now = datetime.now(timezone.utc)
 
-    sel = (
-        PickerSelection.query.filter_by(id=selection_id, session_id=session_id)
-        .with_for_update()
-        .first()
+    stmt = (
+        update(PickerSelection)
+        .where(
+            PickerSelection.id == selection_id,
+            PickerSelection.session_id == session_id,
+            PickerSelection.status == "enqueued",
+        )
+        .values(
+            status="running",
+            locked_by=locked_by,
+            lock_heartbeat_at=now,
+            attempts=PickerSelection.attempts + 1,
+            started_at=now,
+            last_transition_at=now,
+        )
     )
+    res = db.session.execute(stmt)
+    if res.rowcount == 0:
+        db.session.rollback()
+        return {"ok": False, "error": "not_enqueued"}
+    db.session.commit()
+
+    sel = PickerSelection.query.get(selection_id)
     if not sel:
         return {"ok": False, "error": "not_found"}
-    if sel.status not in {"pending", "enqueued", "failed"}:
-        return {"ok": False, "error": "invalid_status"}
 
-    # Mark as running
-    sel.status = "running"
-    sel.attempts = (sel.attempts or 0) + 1
-    sel.started_at = now
+    stop_evt, hb_thread = _start_lock_heartbeat(sel.id, locked_by, heartbeat_interval)
 
     tmp_dir, orig_dir = _ensure_dirs()
 
     try:
-        # ------------------------------------------------------------------
         # Determine download URL stored in the selection.
-        # ------------------------------------------------------------------
         mi: MediaItem = sel.media_item  # type: ignore[assignment]
         base_url = sel.base_url
         if not base_url:
@@ -276,8 +338,15 @@ def picker_import_item(*, selection_id: int, session_id: int) -> Dict[str, objec
     except Exception:
         sel.status = "failed"
 
-    sel.finished_at = datetime.now(timezone.utc)
-    db.session.commit()
+    finally:
+        stop_evt.set()
+        hb_thread.join()
+        end = datetime.now(timezone.utc)
+        sel.finished_at = end
+        sel.last_transition_at = end
+        sel.lock_heartbeat_at = end
+        db.session.commit()
+
     return {"ok": sel.status in {"imported", "dup"}, "status": sel.status}
 
 

@@ -20,7 +20,6 @@ from core.models.photo_models import (
 from core.crypto import decrypt
 from ..auth.utils import refresh_google_token, RefreshTokenError, log_requests_and_send
 from core.tasks.picker_import import enqueue_picker_import_item
-from sqlalchemy.exc import IntegrityError
 
 bp = Blueprint('picker_session_api', __name__)
 
@@ -335,9 +334,20 @@ def api_picker_session_media_items():
                 item_id = item.get("id")
                 if not item_id:
                     continue
-                # Skip if already imported
-                if Media.query.filter_by(google_media_id=item_id, account_id=ps.account_id).first():
+                # Skip if already imported or already picked in this session
+                if Media.query.filter_by(google_media_id=item_id, account_id=ps.account_id).first() or \
+                        PickedMediaItem.query.filter_by(picker_session_id=ps.id, media_item_id=item_id).first():
                     dup += 1
+                    current_app.logger.info(
+                        json.dumps(
+                            {
+                                "ts": datetime.now(timezone.utc).isoformat(),
+                                "session_id": session_id,
+                                "media_item_id": item_id,
+                            }
+                        ),
+                        extra={"event": "picker.mediaItems.duplicate"},
+                    )
                     continue
                 mi = MediaItem.query.get(item_id)
                 if not mi:
@@ -404,12 +414,7 @@ def api_picker_session_media_items():
                 pmi.updated_at = datetime.now(timezone.utc)
                 db.session.add(mi)
                 db.session.add(pmi)
-                try:
-                    db.session.flush()
-                except IntegrityError:
-                    db.session.rollback()
-                    dup += 1
-                    continue
+                db.session.flush()
                 saved += 1
                 new_pmis.append(pmi)
 
@@ -422,15 +427,13 @@ def api_picker_session_media_items():
         # ステージを完了し、アイテムをキューに投入
         ps.status = "imported"
         ps.updated_at = datetime.now(timezone.utc)
-        db.session.commit()
-
         now = datetime.now(timezone.utc)
         for pmi in new_pmis:
             pmi.status = "enqueued"
             pmi.enqueued_at = now
-            db.session.add(pmi)
-            enqueue_picker_import_item(pmi.id)
         db.session.commit()
+        for pmi in new_pmis:
+            enqueue_picker_import_item(pmi.id)
 
         return jsonify({"saved": saved, "duplicates": dup, "nextCursor": None})
     except Exception as e:

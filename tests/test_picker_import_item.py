@@ -53,7 +53,7 @@ def app(tmp_path):
             os.environ[k] = v
 
 
-def _setup_item(app):
+def _setup_item(app, *, mime="image/jpeg", filename="a.jpg", mtype="PHOTO"):
     from webapp.extensions import db
     from core.models.photo_models import MediaItem, PickerSelection
     from core.models.picker_session import PickerSession
@@ -61,10 +61,10 @@ def _setup_item(app):
     with app.app_context():
         ps = PickerSession(account_id=1, status="pending")
         db.session.add(ps)
-        mi = MediaItem(id="m1", mime_type="image/jpeg", filename="a.jpg", type="PHOTO")
+        mi = MediaItem(id="m1", mime_type=mime, filename=filename, type=mtype)
         db.session.add(mi)
         db.session.flush()
-        pmi = PickerSelection(session_id=ps.id, google_media_id="m1", status="enqueued", base_url="http://example/file")
+        pmi = PickerSelection(session_id=ps.id, google_media_id="m1", status="enqueued")
         db.session.add(pmi)
         db.session.commit()
         return ps.id, pmi.id
@@ -73,31 +73,50 @@ def _setup_item(app):
 def test_picker_import_item_imports(monkeypatch, app, tmp_path):
     ps_id, pmi_id = _setup_item(app)
 
-    # fake download
     import importlib
     mod = importlib.import_module("core.tasks.picker_import")
 
     content = b"hello"
     sha = hashlib.sha256(content).hexdigest()
 
-    def fake_download(url, dest_dir):
+    def fake_download(url, dest_dir, headers=None):
         path = dest_dir / "dl"
         with open(path, "wb") as fh:
             fh.write(content)
         return mod.Downloaded(path, len(content), sha)
 
     monkeypatch.setattr(mod, "_download", fake_download)
+    monkeypatch.setattr(mod, "_exchange_refresh_token", lambda g, p: ("tok", None))
+
+    class FakeResp:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"baseUrl": "http://example/file", "mediaMetadata": {"width": "1", "height": "1"}}
+
+    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None: FakeResp())
+
+    called_thumbs: list[int] = []
+    called_play: list[int] = []
+    monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: called_thumbs.append(mid))
+    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid: called_play.append(mid))
 
     with app.app_context():
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
         from core.models.photo_models import PickerSelection, Media
 
         pmi = PickerSelection.query.get(pmi_id)
+        media = Media.query.one()
         assert res["ok"] is True
         assert pmi.status == "imported"
         assert pmi.attempts == 1
         assert pmi.finished_at is not None
+        assert pmi.locked_by is None
+        assert pmi.lock_heartbeat_at is None
         assert Media.query.count() == 1
+        assert called_thumbs == [media.id]
+        assert called_play == []
 
 
 def test_picker_import_item_dup(monkeypatch, app, tmp_path):
@@ -108,13 +127,28 @@ def test_picker_import_item_dup(monkeypatch, app, tmp_path):
     content = b"hello"
     sha = hashlib.sha256(content).hexdigest()
 
-    def fake_download(url, dest_dir):
+    def fake_download(url, dest_dir, headers=None):
         path = dest_dir / "dl"
         with open(path, "wb") as fh:
             fh.write(content)
         return mod.Downloaded(path, len(content), sha)
 
     monkeypatch.setattr(mod, "_download", fake_download)
+    monkeypatch.setattr(mod, "_exchange_refresh_token", lambda g, p: ("tok", None))
+
+    class FakeResp:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"baseUrl": "http://example/file", "mediaMetadata": {"width": "1", "height": "1"}}
+
+    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None: FakeResp())
+
+    called_thumbs: list[int] = []
+    called_play: list[int] = []
+    monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: called_thumbs.append(mid))
+    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid: called_play.append(mid))
 
     # pre-create media with same hash
     from core.models.photo_models import Media
@@ -144,7 +178,58 @@ def test_picker_import_item_dup(monkeypatch, app, tmp_path):
         pmi = PickerSelection.query.get(pmi_id)
         assert res["ok"] is True
         assert pmi.status == "dup"
+        assert pmi.locked_by is None
+        assert pmi.lock_heartbeat_at is None
         assert Media.query.count() == 1
+        assert called_thumbs == []
+        assert called_play == []
+
+
+def test_picker_import_item_video_queues_playback(monkeypatch, app, tmp_path):
+    ps_id, pmi_id = _setup_item(app, mime="video/mp4", filename="v.mp4", mtype="VIDEO")
+
+    import importlib
+    mod = importlib.import_module("core.tasks.picker_import")
+    content = b"hello"
+    sha = hashlib.sha256(content).hexdigest()
+
+    def fake_download(url, dest_dir, headers=None):
+        path = dest_dir / "dl"
+        with open(path, "wb") as fh:
+            fh.write(content)
+        return mod.Downloaded(path, len(content), sha)
+
+    monkeypatch.setattr(mod, "_download", fake_download)
+    monkeypatch.setattr(mod, "_exchange_refresh_token", lambda g, p: ("tok", None))
+
+    class FakeResp:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "baseUrl": "http://example/file",
+                "mediaMetadata": {"width": "1", "height": "1", "video": {"durationMillis": "1000"}},
+            }
+
+    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None: FakeResp())
+
+    called_thumbs: list[int] = []
+    called_play: list[int] = []
+    monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: called_thumbs.append(mid))
+    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid: called_play.append(mid))
+
+    with app.app_context():
+        res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
+        from core.models.photo_models import PickerSelection, Media
+
+        pmi = PickerSelection.query.get(pmi_id)
+        media = Media.query.one()
+        assert res["ok"] is True
+        assert pmi.status == "imported"
+        assert media.is_video is True
+        assert called_thumbs == []
+        assert called_play == [media.id]
 
 
 def test_picker_import_queue_scan(monkeypatch, app):
@@ -175,14 +260,30 @@ def test_picker_import_item_heartbeat(monkeypatch, app, tmp_path):
     content = b"hi"
     sha = hashlib.sha256(content).hexdigest()
 
-    def fake_download(url, dest_dir):
+    heartbeat_vals: list = []
+
+    def fake_download(url, dest_dir, headers=None):
         path = dest_dir / "dl"
         with open(path, "wb") as fh:
             fh.write(content)
         time.sleep(0.05)
+        from core.models.photo_models import PickerSelection as PS
+        heartbeat_vals.append(PS.query.get(pmi_id).lock_heartbeat_at)
         return mod.Downloaded(path, len(content), sha)
 
     monkeypatch.setattr(mod, "_download", fake_download)
+    monkeypatch.setattr(mod, "_exchange_refresh_token", lambda g, p: ("tok", None))
+
+    class FakeResp:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"baseUrl": "http://example/file", "mediaMetadata": {"width": "1", "height": "1"}}
+
+    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None: FakeResp())
+    monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: None)
+    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid: None)
 
     with app.app_context():
         res = picker_import_item(
@@ -195,9 +296,9 @@ def test_picker_import_item_heartbeat(monkeypatch, app, tmp_path):
 
         pmi = PickerSelection.query.get(pmi_id)
         assert res["ok"] is True
-        assert pmi.locked_by == "w1"
+        assert heartbeat_vals[0] is not None
+        assert pmi.locked_by is None
+        assert pmi.lock_heartbeat_at is None
         assert pmi.attempts == 1
         assert pmi.started_at is not None
-        assert pmi.lock_heartbeat_at is not None
-        diff = (pmi.lock_heartbeat_at - pmi.started_at).total_seconds()
-        assert diff >= 0.01
+        assert pmi.finished_at is not None

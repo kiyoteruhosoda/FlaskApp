@@ -275,8 +275,7 @@ def api_picker_session_media_items():
         try:
             sess_res = log_requests_and_send(
                 "GET",
-                "https://photospicker.googleapis.com/v1/sessions",
-                params={"sessionId": session_id},
+                f"https://photospicker.googleapis.com/v1/sessions/{session_id}",
                 headers=headers,
                 timeout=15,
             )

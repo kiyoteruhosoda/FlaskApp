@@ -1,6 +1,9 @@
 import hashlib
 import os
 import time
+from datetime import datetime, timezone, timedelta
+
+import requests
 
 import pytest
 
@@ -302,3 +305,153 @@ def test_picker_import_item_heartbeat(monkeypatch, app, tmp_path):
         assert pmi.attempts == 1
         assert pmi.started_at is not None
         assert pmi.finished_at is not None
+
+
+def test_picker_import_item_reresolves_expired_base_url(monkeypatch, app, tmp_path):
+    ps_id, pmi_id = _setup_item(app)
+
+    import importlib
+    mod = importlib.import_module("core.tasks.picker_import")
+
+    from webapp.extensions import db
+    from core.models.photo_models import PickerSelection
+    from core.models.picker_session import PickerSession
+    with app.app_context():
+        pmi = PickerSelection.query.get(pmi_id)
+        pmi.base_url = "http://old"
+        pmi.base_url_fetched_at = datetime.now(timezone.utc) - timedelta(hours=2)
+        pmi.base_url_valid_until = datetime.now(timezone.utc) - timedelta(seconds=1)
+        db.session.commit()
+        before = PickerSession.query.get(ps_id).last_progress_at
+
+    monkeypatch.setattr(mod, "_exchange_refresh_token", lambda g, p: ("tok", None))
+
+    def fake_get(url, headers=None):
+        class Resp:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {"baseUrl": "http://new", "mediaMetadata": {"width": "1", "height": "1"}}
+
+        assert url.endswith("mediaItems/m1")
+        return Resp()
+
+    monkeypatch.setattr(mod.requests, "get", fake_get)
+    content = b"hi"
+    sha = hashlib.sha256(content).hexdigest()
+
+    def fake_download(url, dest_dir, headers=None):
+        assert url.startswith("http://new")
+        path = dest_dir / "dl"
+        with open(path, "wb") as fh:
+            fh.write(content)
+        return mod.Downloaded(path, len(content), sha)
+
+    monkeypatch.setattr(mod, "_download", fake_download)
+    monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: None)
+    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid: None)
+
+    with app.app_context():
+        res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
+        pmi = PickerSelection.query.get(pmi_id)
+        ps = PickerSession.query.get(ps_id)
+        assert res["status"] == "imported"
+        assert pmi.base_url == "http://new"
+        assert pmi.base_url_valid_until is not None
+        assert ps.last_progress_at > before
+
+
+def test_picker_import_item_reresolve_failure_marks_expired(monkeypatch, app, tmp_path):
+    ps_id, pmi_id = _setup_item(app)
+
+    import importlib
+    mod = importlib.import_module("core.tasks.picker_import")
+
+    from webapp.extensions import db
+    from core.models.photo_models import PickerSelection
+    from core.models.picker_session import PickerSession
+    with app.app_context():
+        pmi = PickerSelection.query.get(pmi_id)
+        pmi.base_url = "http://old"
+        pmi.base_url_valid_until = datetime.now(timezone.utc) - timedelta(seconds=1)
+        db.session.commit()
+        before = PickerSession.query.get(ps_id).last_progress_at
+
+    monkeypatch.setattr(mod, "_exchange_refresh_token", lambda g, p: ("tok", None))
+
+    class Resp:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {}
+
+    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None: Resp())
+    monkeypatch.setattr(mod, "_download", lambda url, dest_dir, headers=None: None)
+    monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: None)
+    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid: None)
+
+    with app.app_context():
+        res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
+        pmi = PickerSelection.query.get(pmi_id)
+        ps = PickerSession.query.get(ps_id)
+        assert res["status"] == "expired"
+        assert pmi.status == "expired"
+        assert ps.last_progress_at > before
+
+
+def test_picker_import_item_network_error_requeues(monkeypatch, app, tmp_path):
+    ps_id, pmi_id = _setup_item(app)
+
+    import importlib
+    mod = importlib.import_module("core.tasks.picker_import")
+
+    monkeypatch.setattr(mod, "_exchange_refresh_token", lambda g, p: ("tok", None))
+
+    class FakeResp:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"baseUrl": "http://example/file", "mediaMetadata": {"width": "1", "height": "1"}}
+
+    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None: FakeResp())
+
+    def fail_download(url, dest_dir, headers=None):
+        raise requests.exceptions.ConnectionError()
+
+    monkeypatch.setattr(mod, "_download", fail_download)
+    monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: None)
+    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid: None)
+
+    with app.app_context():
+        from core.models.picker_session import PickerSession
+        before = PickerSession.query.get(ps_id).last_progress_at
+        res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
+        from core.models.photo_models import PickerSelection
+        pmi = PickerSelection.query.get(pmi_id)
+        ps = PickerSession.query.get(ps_id)
+        assert res["status"] == "enqueued"
+        assert pmi.finished_at is None
+        assert ps.last_progress_at == before
+
+
+def test_picker_import_item_auth_error_fails(monkeypatch, app, tmp_path):
+    ps_id, pmi_id = _setup_item(app)
+
+    import importlib
+    mod = importlib.import_module("core.tasks.picker_import")
+
+    monkeypatch.setattr(mod, "_exchange_refresh_token", lambda g, p: (None, "oauth_failed"))
+
+    with app.app_context():
+        from core.models.picker_session import PickerSession
+        before = PickerSession.query.get(ps_id).last_progress_at
+        res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
+        from core.models.photo_models import PickerSelection
+        pmi = PickerSelection.query.get(pmi_id)
+        ps = PickerSession.query.get(ps_id)
+        assert res["status"] == "failed"
+        assert pmi.finished_at is not None
+        assert ps.last_progress_at > before

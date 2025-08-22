@@ -16,7 +16,7 @@ core control‑flow so that unit tests can exercise the behaviour of the worker.
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import hashlib
 import json
 import os
@@ -39,6 +39,18 @@ from core.models.photo_models import (
     PickerSelection,
 )
 from flask import current_app
+
+
+class AuthError(Exception):
+    """Authorization failure that should not be retried."""
+
+
+class NetworkError(Exception):
+    """Transient network error that is safe to retry."""
+
+
+class BaseUrlExpired(Exception):
+    """Base URL could not be resolved and item should expire."""
 
 # ---------------------------------------------------------------------------
 # Queue hook
@@ -323,33 +335,57 @@ def picker_import_item(
         ps = PickerSession.query.get(session_id)
         gacc = GoogleAccount.query.get(ps.account_id) if ps else None
         if not ps or not gacc:
-            raise RuntimeError("account_not_found")
+            raise AuthError()
         access_token, note = _exchange_refresh_token(gacc, ps)
         if not access_token:
-            raise RuntimeError(note or "oauth_failed")
+            if note == "oauth_failed":
+                raise AuthError()
+            raise NetworkError()
 
         headers = {"Authorization": f"Bearer {access_token}"}
 
-        # Fetch media item details to obtain base_url
         mi: MediaItem = sel.media_item  # type: ignore[assignment]
-        try:
-            r = requests.get(
-                f"https://photospicker.googleapis.com/v1/mediaItems/{mi.id}",
-                headers=headers,
-            )
-            r.raise_for_status()
-            item = r.json()
-        except Exception:
-            raise RuntimeError("base_url_fetch_failed")
+        base_url: str | None = None
+        item: dict | None = None
+        now = datetime.now(timezone.utc)
+        valid_until = sel.base_url_valid_until
+        if valid_until and valid_until.tzinfo is None:
+            valid_until = valid_until.replace(tzinfo=timezone.utc)
+        if sel.base_url and valid_until and valid_until > now:
+            base_url = sel.base_url
+        else:
+            try:
+                r = requests.get(
+                    f"https://photospicker.googleapis.com/v1/mediaItems/{mi.id}",
+                    headers=headers,
+                )
+                r.raise_for_status()
+                item = r.json()
+            except requests.HTTPError as e:
+                if e.response is not None and e.response.status_code in (401, 403):
+                    raise AuthError()
+                raise NetworkError()
+            except requests.RequestException:
+                raise NetworkError()
 
-        base_url = item.get("baseUrl")
-        if not base_url:
-            raise RuntimeError("missing_base_url")
+            base_url = item.get("baseUrl")
+            if not base_url:
+                raise BaseUrlExpired()
+            sel.base_url = base_url
+            sel.base_url_fetched_at = now
+            sel.base_url_valid_until = now + timedelta(hours=1)
 
-        meta = item.get("mediaMetadata", {})
+        meta = item.get("mediaMetadata", {}) if item else {}
         is_video = bool(meta.get("video")) or (mi.mime_type or "").startswith("video/")
         dl_url = base_url + ("=dv" if is_video else "=d")
-        dl = _download(dl_url, tmp_dir, headers=headers)
+        try:
+            dl = _download(dl_url, tmp_dir, headers=headers)
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code in (401, 403):
+                raise AuthError()
+            raise NetworkError()
+        except requests.RequestException:
+            raise NetworkError()
 
         # Deduplication by hash
         if Media.query.filter_by(hash_sha256=dl.sha256).first():
@@ -382,7 +418,7 @@ def picker_import_item(
             db.session.add(media)
             db.session.flush()
 
-            exif = Exif(media_id=media.id, raw_json=json.dumps(item))
+            exif = Exif(media_id=media.id, raw_json=json.dumps(item or {}))
             db.session.add(exif)
 
             if is_video:
@@ -392,14 +428,29 @@ def picker_import_item(
 
             sel.status = "imported"
 
-    except Exception:
+    except AuthError as e:
         sel.status = "failed"
+        sel.error_msg = str(e)
+    except BaseUrlExpired as e:
+        sel.status = "expired"
+        sel.error_msg = str(e)
+    except NetworkError as e:
+        sel.status = "enqueued"
+        sel.error_msg = str(e)
+    except Exception as e:
+        sel.status = "failed"
+        sel.error_msg = str(e)
 
     finally:
         stop_evt.set()
         hb_thread.join()
         end = datetime.now(timezone.utc)
-        sel.finished_at = end
+        terminal = {"imported", "dup", "failed", "expired"}
+        if sel.status in terminal:
+            sel.finished_at = end
+            ps = PickerSession.query.get(session_id)
+            if ps:
+                ps.last_progress_at = end
         sel.last_transition_at = end
         sel.locked_by = None
         sel.lock_heartbeat_at = None

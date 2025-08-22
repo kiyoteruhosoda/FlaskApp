@@ -38,6 +38,7 @@ from core.models.photo_models import (
     MediaPlayback,
     PickerSelection,
 )
+from flask import current_app
 
 # ---------------------------------------------------------------------------
 # Queue hook
@@ -54,6 +55,26 @@ def enqueue_picker_import_item(selection_id: int) -> None:
 
     # The default implementation is a no-op; tests are expected to
     # monkeypatch this function.
+    return None
+
+
+def enqueue_thumbs_generate(media_id: int) -> None:
+    """Enqueue thumbnail generation for *media_id*.
+
+    This is a hook allowing tests to observe which media would have their
+    thumbnails generated.  The default implementation is a no-op.
+    """
+
+    return None
+
+
+def enqueue_media_playback(media_id: int) -> None:
+    """Enqueue playback generation for a video *media_id*.
+
+    The real application would push a job onto a background worker.  Tests can
+    monkeypatch this function to inspect the queued items.
+    """
+
     return None
 
 
@@ -106,9 +127,12 @@ def _guess_ext(filename: str | None, mime: str | None) -> str:
     return ""
 
 
-def _download(url: str, dest_dir: Path) -> Downloaded:
-    """Download URL to *dest_dir* returning :class:`Downloaded`."""
-    resp = requests.get(url)
+def _download(url: str, dest_dir: Path, headers: Dict[str, str] | None = None) -> Downloaded:
+    """Download URL to *dest_dir* returning :class:`Downloaded`.
+
+    The optional *headers* parameter allows authenticated downloads.
+    """
+    resp = requests.get(url, headers=headers)
     resp.raise_for_status()
     tmp_name = hashlib.sha1(url.encode("utf-8")).hexdigest()
     tmp_path = dest_dir / tmp_name
@@ -136,20 +160,22 @@ def _start_lock_heartbeat(selection_id: int, locked_by: str, interval: float) ->
     """Start background thread sending lock heartbeats."""
 
     stop = threading.Event()
+    app = current_app._get_current_object()
 
     def _beat() -> None:
-        while not stop.is_set():
-            ts = datetime.now(timezone.utc)
-            with db.engine.begin() as conn:
-                conn.execute(
-                    update(PickerSelection)
-                    .where(
-                        PickerSelection.id == selection_id,
-                        PickerSelection.locked_by == locked_by,
+        with app.app_context():
+            while not stop.is_set():
+                ts = datetime.now(timezone.utc)
+                with db.engine.begin() as conn:
+                    conn.execute(
+                        update(PickerSelection)
+                        .where(
+                            PickerSelection.id == selection_id,
+                            PickerSelection.locked_by == locked_by,
+                        )
+                        .values(lock_heartbeat_at=ts)
                     )
-                    .values(lock_heartbeat_at=ts)
-                )
-            stop.wait(interval)
+                stop.wait(interval)
 
     thread = threading.Thread(target=_beat, daemon=True)
     thread.start()
@@ -293,15 +319,39 @@ def picker_import_item(
     tmp_dir, orig_dir = _ensure_dirs()
 
     try:
-        # Determine download URL stored in the selection.
+        # Retrieve account and access token
+        ps = PickerSession.query.get(session_id)
+        gacc = GoogleAccount.query.get(ps.account_id) if ps else None
+        if not ps or not gacc:
+            raise RuntimeError("account_not_found")
+        access_token, note = _exchange_refresh_token(gacc, ps)
+        if not access_token:
+            raise RuntimeError(note or "oauth_failed")
+
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        # Fetch media item details to obtain base_url
         mi: MediaItem = sel.media_item  # type: ignore[assignment]
-        base_url = sel.base_url
+        try:
+            r = requests.get(
+                f"https://photospicker.googleapis.com/v1/mediaItems/{mi.id}",
+                headers=headers,
+            )
+            r.raise_for_status()
+            item = r.json()
+        except Exception:
+            raise RuntimeError("base_url_fetch_failed")
+
+        base_url = item.get("baseUrl")
         if not base_url:
             raise RuntimeError("missing_base_url")
 
-        dl = _download(base_url, tmp_dir)
+        meta = item.get("mediaMetadata", {})
+        is_video = bool(meta.get("video")) or (mi.mime_type or "").startswith("video/")
+        dl_url = base_url + ("=dv" if is_video else "=d")
+        dl = _download(dl_url, tmp_dir, headers=headers)
 
-        # Deduplicate
+        # Deduplication by hash
         if Media.query.filter_by(hash_sha256=dl.sha256).first():
             sel.status = "dup"
             dl.path.unlink(missing_ok=True)
@@ -315,23 +365,30 @@ def picker_import_item(
 
             media = Media(
                 google_media_id=mi.id,
-                account_id=PickerSession.query.get(session_id).account_id,
+                account_id=ps.account_id,
                 local_rel_path=str(out_rel),
                 hash_sha256=dl.sha256,
                 bytes=dl.bytes,
                 mime_type=mi.mime_type,
-                width=mi.width,
-                height=mi.height,
-                duration_ms=None,
+                width=int(meta.get("width", mi.width or 0) or 0),
+                height=int(meta.get("height", mi.height or 0) or 0),
+                duration_ms=int(meta.get("video", {}).get("durationMillis", 0) or 0)
+                if is_video
+                else None,
                 shot_at=shot_at,
                 imported_at=now,
-                is_video=False,
+                is_video=is_video,
             )
             db.session.add(media)
             db.session.flush()
 
-            exif = Exif(media_id=media.id, raw_json="{}")
+            exif = Exif(media_id=media.id, raw_json=json.dumps(item))
             db.session.add(exif)
+
+            if is_video:
+                enqueue_media_playback(media.id)
+            else:
+                enqueue_thumbs_generate(media.id)
 
             sel.status = "imported"
 
@@ -344,7 +401,8 @@ def picker_import_item(
         end = datetime.now(timezone.utc)
         sel.finished_at = end
         sel.last_transition_at = end
-        sel.lock_heartbeat_at = end
+        sel.locked_by = None
+        sel.lock_heartbeat_at = None
         db.session.commit()
 
     return {"ok": sel.status in {"imported", "dup"}, "status": sel.status}
@@ -521,4 +579,11 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
     return {"ok": ok, "imported": imported, "dup": dup, "failed": failed, "note": note}
 
 
-__all__ = ["picker_import", "enqueue_picker_import_item", "picker_import_item"]
+__all__ = [
+    "picker_import",
+    "enqueue_picker_import_item",
+    "picker_import_item",
+    "picker_import_queue_scan",
+    "enqueue_thumbs_generate",
+    "enqueue_media_playback",
+]

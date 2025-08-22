@@ -125,18 +125,16 @@ class MediaItem(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
 
 
-class PickedMediaItem(db.Model):
+class PickerSelection(db.Model):
     id = db.Column(BigInt, primary_key=True, autoincrement=True)
-    picker_session_id = db.Column(
-        BigInt, db.ForeignKey('picker_session.id'), nullable=False
-    )
-    media_item_id = db.Column(
+    session_id = db.Column(BigInt, db.ForeignKey('picker_session.id'), nullable=False)
+    google_media_id = db.Column(
         db.String(255), db.ForeignKey('media_item.id'), nullable=False
     )
     status = db.Column(
         db.Enum(
             'pending', 'enqueued', 'running', 'imported', 'dup',
-            'failed', 'expired', 'skipped', name='picked_media_item_status'
+            'failed', 'expired', 'skipped', name='picker_selection_status'
         ),
         nullable=False,
         default='pending',
@@ -144,20 +142,27 @@ class PickedMediaItem(db.Model):
     )
     media_item = db.relationship(
         'MediaItem',
-        backref=db.backref('picked_media_items', cascade='all, delete-orphan')
+        backref=db.backref('picker_selections', cascade='all, delete-orphan')
     )
     create_time = db.Column(db.DateTime)
     enqueued_at = db.Column(db.DateTime)
     started_at = db.Column(db.DateTime)
     finished_at = db.Column(db.DateTime)
     attempts = db.Column(db.Integer, nullable=False, default=0, server_default='0')
+    error_msg = db.Column(db.Text)
+    base_url = db.Column(db.Text)
     base_url_fetched_at = db.Column(db.DateTime)
     base_url_valid_until = db.Column(db.DateTime)
+    locked_by = db.Column(db.String(255))
+    lock_heartbeat_at = db.Column(db.DateTime)
+    last_transition_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
     __table_args__ = (
-        db.UniqueConstraint('picker_session_id', 'media_item_id',
-                            name='uq_picked_media_item_session_media'),
+        db.UniqueConstraint('session_id', 'google_media_id',
+                            name='uq_picker_selection_session_media'),
+        db.Index('idx_picker_selection_session_status', 'session_id', 'status'),
+        db.Index('idx_picker_selection_status_lock', 'status', 'lock_heartbeat_at'),
     )
 
 

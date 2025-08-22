@@ -58,16 +58,16 @@ def app(tmp_path):
 
 def _setup_item(app):
     from webapp.extensions import db
-    from core.models.photo_models import MediaItem, PickedMediaItem
+    from core.models.photo_models import MediaItem, PickerSelection
     from core.models.picker_session import PickerSession
 
     with app.app_context():
         ps = PickerSession(account_id=1, status="pending")
         db.session.add(ps)
-        mi = MediaItem(id="m1", mime_type="image/jpeg", filename="http://example/file", type="PHOTO")
+        mi = MediaItem(id="m1", mime_type="image/jpeg", filename="a.jpg", type="PHOTO")
         db.session.add(mi)
         db.session.flush()
-        pmi = PickedMediaItem(picker_session_id=ps.id, media_item_id="m1", status="enqueued")
+        pmi = PickerSelection(session_id=ps.id, google_media_id="m1", status="enqueued", base_url="http://example/file")
         db.session.add(pmi)
         db.session.commit()
         return ps.id, pmi.id
@@ -93,9 +93,9 @@ def test_picker_import_item_imports(monkeypatch, app, tmp_path):
 
     with app.app_context():
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
-        from core.models.photo_models import PickedMediaItem, Media
+        from core.models.photo_models import PickerSelection, Media
 
-        pmi = PickedMediaItem.query.get(pmi_id)
+        pmi = PickerSelection.query.get(pmi_id)
         assert res["ok"] is True
         assert pmi.status == "imported"
         assert pmi.attempts == 1
@@ -143,8 +143,8 @@ def test_picker_import_item_dup(monkeypatch, app, tmp_path):
         db.session.commit()
 
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
-        from core.models.photo_models import PickedMediaItem
-        pmi = PickedMediaItem.query.get(pmi_id)
+        from core.models.photo_models import PickerSelection
+        pmi = PickerSelection.query.get(pmi_id)
         assert res["ok"] is True
         assert pmi.status == "dup"
         assert Media.query.count() == 1

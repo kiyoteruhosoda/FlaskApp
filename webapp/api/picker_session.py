@@ -12,7 +12,7 @@ from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
 from core.models.job_sync import JobSync
 from core.models.photo_models import (
-    PickedMediaItem,
+    PickerSelection,
     MediaItem,
     PhotoMetadata,
     VideoMetadata,
@@ -336,14 +336,14 @@ def api_picker_session_media_items():
                     continue
                 # Skip if already imported or already picked in this session
                 if Media.query.filter_by(google_media_id=item_id, account_id=ps.account_id).first() or \
-                        PickedMediaItem.query.filter_by(picker_session_id=ps.id, media_item_id=item_id).first():
+                        PickerSelection.query.filter_by(session_id=ps.id, google_media_id=item_id).first():
                     dup += 1
                     current_app.logger.info(
                         json.dumps(
                             {
                                 "ts": datetime.now(timezone.utc).isoformat(),
                                 "session_id": session_id,
-                                "media_item_id": item_id,
+                                "google_media_id": item_id,
                             }
                         ),
                         extra={"event": "picker.mediaItems.duplicate"},
@@ -352,8 +352,8 @@ def api_picker_session_media_items():
                 mi = MediaItem.query.get(item_id)
                 if not mi:
                     mi = MediaItem(id=item_id, type="TYPE_UNSPECIFIED")
-                pmi = PickedMediaItem(
-                    picker_session_id=ps.id, media_item_id=item_id, status="pending"
+                pmi = PickerSelection(
+                    session_id=ps.id, google_media_id=item_id, status="pending"
                 )
 
                 ct = item.get("createTime")
@@ -367,6 +367,7 @@ def api_picker_session_media_items():
                 if isinstance(mf_dict, dict):
                     mi.mime_type = mf_dict.get("mimeType")
                     mi.filename = mf_dict.get("filename")
+                    pmi.base_url = mf_dict.get("baseUrl")
                     meta = mf_dict.get("mediaFileMetadata") or {}
                 else:
                     meta = {}

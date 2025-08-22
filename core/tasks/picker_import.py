@@ -35,7 +35,7 @@ from core.models.photo_models import Exif, Media, MediaPlayback
 # Queue hook
 # ---------------------------------------------------------------------------
 
-def enqueue_picker_import_item(picked_media_item_id: int) -> None:
+def enqueue_picker_import_item(selection_id: int) -> None:
     """Enqueue import task for a single picked media item.
 
     The real application would push a job onto a background worker system
@@ -195,7 +195,7 @@ def _fetch_selected_ids(ps: PickerSession, headers: Dict[str, str]) -> tuple[Lis
 
 
 def picker_import_item(*, selection_id: int, session_id: int) -> Dict[str, object]:
-    """Import a single :class:`PickedMediaItem`.
+    """Import a single :class:`PickerSelection`.
 
     The implementation is intentionally lightweight.  It performs the minimal
     workflow required by the tests: row locking, simple status transitions,
@@ -207,34 +207,33 @@ def picker_import_item(*, selection_id: int, session_id: int) -> Dict[str, objec
 
     from datetime import datetime, timezone
 
-    from core.models.photo_models import PickedMediaItem, MediaItem
+    from core.models.photo_models import PickerSelection, MediaItem
 
     now = datetime.now(timezone.utc)
 
-    pmi = (
-        PickedMediaItem.query.filter_by(id=selection_id, picker_session_id=session_id)
+    sel = (
+        PickerSelection.query.filter_by(id=selection_id, session_id=session_id)
         .with_for_update()
         .first()
     )
-    if not pmi:
+    if not sel:
         return {"ok": False, "error": "not_found"}
-    if pmi.status not in {"pending", "enqueued", "failed"}:
+    if sel.status not in {"pending", "enqueued", "failed"}:
         return {"ok": False, "error": "invalid_status"}
 
     # Mark as running
-    pmi.status = "running"
-    pmi.attempts = (pmi.attempts or 0) + 1
-    pmi.started_at = now
+    sel.status = "running"
+    sel.attempts = (sel.attempts or 0) + 1
+    sel.started_at = now
 
     tmp_dir, orig_dir = _ensure_dirs()
 
     try:
         # ------------------------------------------------------------------
-        # Determine download URL.  The simplified model stores the picker
-        # URL in ``MediaItem.filename``.
+        # Determine download URL stored in the selection.
         # ------------------------------------------------------------------
-        mi: MediaItem = pmi.media_item  # type: ignore[assignment]
-        base_url = mi.filename
+        mi: MediaItem = sel.media_item  # type: ignore[assignment]
+        base_url = sel.base_url
         if not base_url:
             raise RuntimeError("missing_base_url")
 
@@ -242,10 +241,10 @@ def picker_import_item(*, selection_id: int, session_id: int) -> Dict[str, objec
 
         # Deduplicate
         if Media.query.filter_by(hash_sha256=dl.sha256).first():
-            pmi.status = "dup"
+            sel.status = "dup"
             dl.path.unlink(missing_ok=True)
         else:
-            shot_at = pmi.create_time or now
+            shot_at = sel.create_time or now
             ext = _guess_ext(mi.filename, mi.mime_type)
             out_rel = f"{shot_at:%Y/%m/%d}/{shot_at:%Y%m%d_%H%M%S}_picker_{dl.sha256[:8]}{ext}"
             final_path = orig_dir / out_rel
@@ -272,14 +271,14 @@ def picker_import_item(*, selection_id: int, session_id: int) -> Dict[str, objec
             exif = Exif(media_id=media.id, raw_json="{}")
             db.session.add(exif)
 
-            pmi.status = "imported"
+            sel.status = "imported"
 
     except Exception:
-        pmi.status = "failed"
+        sel.status = "failed"
 
-    pmi.finished_at = datetime.now(timezone.utc)
+    sel.finished_at = datetime.now(timezone.utc)
     db.session.commit()
-    return {"ok": pmi.status in {"imported", "dup"}, "status": pmi.status}
+    return {"ok": sel.status in {"imported", "dup"}, "status": sel.status}
 
 
 # ---------------------------------------------------------------------------

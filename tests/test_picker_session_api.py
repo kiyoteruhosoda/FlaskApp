@@ -419,7 +419,7 @@ def test_media_items_endpoint(monkeypatch, client, app):
     assert data["duplicates"] == 0
     assert data["nextCursor"] is None
 
-    from core.models.photo_models import MediaItem, PickedMediaItem
+    from core.models.photo_models import MediaItem, PickerSelection
     from core.models.picker_session import PickerSession
     with app.app_context():
         mi1 = MediaItem.query.get("m1")
@@ -427,11 +427,11 @@ def test_media_items_endpoint(monkeypatch, client, app):
         assert mi1 is not None and mi2 is not None
         assert mi1.filename == "a.jpg"
         ps = PickerSession.query.filter_by(session_id=session_name).first()
-        pmi1 = PickedMediaItem.query.filter_by(
-            picker_session_id=ps.id, media_item_id="m1"
+        pmi1 = PickerSelection.query.filter_by(
+            session_id=ps.id, google_media_id="m1"
         ).first()
-        pmi2 = PickedMediaItem.query.filter_by(
-            picker_session_id=ps.id, media_item_id="m2"
+        pmi2 = PickerSelection.query.filter_by(
+            session_id=ps.id, google_media_id="m2"
         ).first()
         from datetime import datetime
         assert pmi1 is not None and pmi2 is not None
@@ -617,8 +617,8 @@ def test_media_items_enqueue_and_skip_duplicate(monkeypatch, client, app):
 
     def fake_enqueue(pmi_id):
         with app.app_context():
-            from core.models.photo_models import PickedMediaItem
-            pmi = PickedMediaItem.query.get(pmi_id)
+            from core.models.photo_models import PickerSelection
+            pmi = PickerSelection.query.get(pmi_id)
             assert pmi.status == "enqueued"
             assert pmi.enqueued_at is not None
         enqueued.append(pmi_id)
@@ -634,11 +634,11 @@ def test_media_items_enqueue_and_skip_duplicate(monkeypatch, client, app):
     assert data["saved"] == 1
     assert data["duplicates"] == 1
 
-    from core.models.photo_models import PickedMediaItem
+    from core.models.photo_models import PickerSelection
     with app.app_context():
         ps = PickerSession.query.filter_by(session_id=session_name).first()
-        pmi = PickedMediaItem.query.filter_by(
-            picker_session_id=ps.id, media_item_id="m1"
+        pmi = PickerSelection.query.filter_by(
+            session_id=ps.id, google_media_id="m1"
         ).first()
         assert pmi is not None
         assert pmi.status == "enqueued"
@@ -725,8 +725,8 @@ def test_media_items_skip_duplicate_in_response(monkeypatch, client, app):
 
     def fake_enqueue(pmi_id):
         with app.app_context():
-            from core.models.photo_models import PickedMediaItem
-            pmi = PickedMediaItem.query.get(pmi_id)
+            from core.models.photo_models import PickerSelection
+            pmi = PickerSelection.query.get(pmi_id)
             assert pmi.status == "enqueued"
         enqueued.append(pmi_id)
 
@@ -741,9 +741,9 @@ def test_media_items_skip_duplicate_in_response(monkeypatch, client, app):
     assert data["saved"] == 1
     assert data["duplicates"] == 1
 
-    from core.models.photo_models import PickedMediaItem
+    from core.models.photo_models import PickerSelection
     with app.app_context():
         ps = PickerSession.query.filter_by(session_id=session_name).first()
-        assert PickedMediaItem.query.filter_by(picker_session_id=ps.id).count() == 1
+        assert PickerSelection.query.filter_by(session_id=ps.id).count() == 1
 
     assert len(enqueued) == 1

@@ -62,6 +62,101 @@ def _update_picker_session_from_data(ps, data):
         ps.media_items_set = data.get("mediaItemsSet")
     ps.updated_at = datetime.now(timezone.utc)
 
+
+def _process_media_item(ps, item, session_id):
+    """Validate and persist a single picker media item."""
+    item_id = item.get("id")
+    if not item_id:
+        return False, False, None
+
+    # Skip duplicates already imported or picked
+    if (
+        Media.query.filter_by(google_media_id=item_id, account_id=ps.account_id).first()
+        or PickedMediaItem.query.filter_by(
+            picker_session_id=ps.id, media_item_id=item_id
+        ).first()
+    ):
+        current_app.logger.info(
+            json.dumps(
+                {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "session_id": session_id,
+                    "media_item_id": item_id,
+                }
+            ),
+            extra={"event": "picker.mediaItems.duplicate"},
+        )
+        return False, True, None
+
+    mi = MediaItem.query.get(item_id)
+    if not mi:
+        mi = MediaItem(id=item_id, type="TYPE_UNSPECIFIED")
+
+    pmi = PickedMediaItem(
+        picker_session_id=ps.id, media_item_id=item_id, status="pending"
+    )
+
+    ct = item.get("createTime")
+    if ct:
+        try:
+            pmi.create_time = datetime.fromisoformat(ct.replace("Z", "+00:00"))
+        except Exception:
+            pmi.create_time = None
+
+    mf_dict = item.get("mediaFile")
+    if isinstance(mf_dict, dict):
+        mi.mime_type = mf_dict.get("mimeType")
+        mi.filename = mf_dict.get("filename")
+        meta = mf_dict.get("mediaFileMetadata") or {}
+    else:
+        meta = {}
+
+    width = meta.get("width")
+    height = meta.get("height")
+    if width is not None:
+        try:
+            mi.width = int(width)
+        except Exception:
+            mi.width = None
+    if height is not None:
+        try:
+            mi.height = int(height)
+        except Exception:
+            mi.height = None
+    mi.camera_make = meta.get("cameraMake")
+    mi.camera_model = meta.get("cameraModel")
+
+    photo_meta = meta.get("photoMetadata") or {}
+    video_meta = meta.get("videoMetadata") or {}
+
+    if photo_meta:
+        if mi.photo_metadata:
+            pm = mi.photo_metadata
+        else:
+            pm = PhotoMetadata()
+        pm.focal_length = photo_meta.get("focalLength")
+        pm.aperture_f_number = photo_meta.get("apertureFNumber")
+        pm.iso_equivalent = photo_meta.get("isoEquivalent")
+        pm.exposure_time = photo_meta.get("exposureTime")
+        mi.photo_metadata = pm
+        mi.type = "PHOTO"
+
+    if video_meta:
+        if mi.video_metadata:
+            vm = mi.video_metadata
+        else:
+            vm = VideoMetadata()
+        vm.fps = video_meta.get("fps")
+        vm.processing_status = video_meta.get("processingStatus")
+        mi.video_metadata = vm
+        mi.type = "VIDEO"
+
+    pmi.updated_at = datetime.now(timezone.utc)
+    db.session.add(mi)
+    db.session.add(pmi)
+    db.session.flush()
+    return True, False, pmi
+
 @bp.post("/picker/session")
 @login_required
 def api_picker_session_create():
@@ -309,10 +404,7 @@ def api_picker_session_media_items():
                 )
             except Exception as fetch_exc:
                 res_text = getattr(fetch_exc, 'response', None)
-                if res_text is not None:
-                    res_text = res_text.text
-                else:
-                    res_text = None
+                res_text = res_text.text if res_text is not None else None
                 raise RuntimeError(f"mediaItems fetch failed: {fetch_exc}")
 
             if res.status_code == 429:
@@ -323,100 +415,17 @@ def api_picker_session_media_items():
                 picker_data = res.json()
             except Exception as fetch_exc:
                 res_text = getattr(fetch_exc, 'response', None)
-                if res_text is not None:
-                    res_text = res_text.text
-                else:
-                    res_text = None
+                res_text = res_text.text if res_text is not None else None
                 raise RuntimeError(f"mediaItems fetch failed: {fetch_exc}")
 
             items = picker_data.get("mediaItems") or []
             for item in items:
-                item_id = item.get("id")
-                if not item_id:
-                    continue
-                # Skip if already imported or already picked in this session
-                if Media.query.filter_by(google_media_id=item_id, account_id=ps.account_id).first() or \
-                        PickedMediaItem.query.filter_by(picker_session_id=ps.id, media_item_id=item_id).first():
+                ok, is_dup, pmi = _process_media_item(ps, item, session_id)
+                if is_dup:
                     dup += 1
-                    current_app.logger.info(
-                        json.dumps(
-                            {
-                                "ts": datetime.now(timezone.utc).isoformat(),
-                                "session_id": session_id,
-                                "media_item_id": item_id,
-                            }
-                        ),
-                        extra={"event": "picker.mediaItems.duplicate"},
-                    )
-                    continue
-                mi = MediaItem.query.get(item_id)
-                if not mi:
-                    mi = MediaItem(id=item_id, type="TYPE_UNSPECIFIED")
-                pmi = PickedMediaItem(
-                    picker_session_id=ps.id, media_item_id=item_id, status="pending"
-                )
-
-                ct = item.get("createTime")
-                if ct:
-                    try:
-                        pmi.create_time = datetime.fromisoformat(ct.replace("Z", "+00:00"))
-                    except Exception:
-                        pmi.create_time = None
-
-                mf_dict = item.get("mediaFile")
-                if isinstance(mf_dict, dict):
-                    mi.mime_type = mf_dict.get("mimeType")
-                    mi.filename = mf_dict.get("filename")
-                    meta = mf_dict.get("mediaFileMetadata") or {}
-                else:
-                    meta = {}
-
-                width = meta.get("width")
-                height = meta.get("height")
-                if width is not None:
-                    try:
-                        mi.width = int(width)
-                    except Exception:
-                        mi.width = None
-                if height is not None:
-                    try:
-                        mi.height = int(height)
-                    except Exception:
-                        mi.height = None
-                mi.camera_make = meta.get("cameraMake")
-                mi.camera_model = meta.get("cameraModel")
-
-                photo_meta = meta.get("photoMetadata") or {}
-                video_meta = meta.get("videoMetadata") or {}
-
-                if photo_meta:
-                    if mi.photo_metadata:
-                        pm = mi.photo_metadata
-                    else:
-                        pm = PhotoMetadata()
-                    pm.focal_length = photo_meta.get("focalLength")
-                    pm.aperture_f_number = photo_meta.get("apertureFNumber")
-                    pm.iso_equivalent = photo_meta.get("isoEquivalent")
-                    pm.exposure_time = photo_meta.get("exposureTime")
-                    mi.photo_metadata = pm
-                    mi.type = "PHOTO"
-
-                if video_meta:
-                    if mi.video_metadata:
-                        vm = mi.video_metadata
-                    else:
-                        vm = VideoMetadata()
-                    vm.fps = video_meta.get("fps")
-                    vm.processing_status = video_meta.get("processingStatus")
-                    mi.video_metadata = vm
-                    mi.type = "VIDEO"
-
-                pmi.updated_at = datetime.now(timezone.utc)
-                db.session.add(mi)
-                db.session.add(pmi)
-                db.session.flush()
-                saved += 1
-                new_pmis.append(pmi)
+                elif ok and pmi:
+                    saved += 1
+                    new_pmis.append(pmi)
 
             cursor = picker_data.get("nextPageToken")
             if cursor:
@@ -424,7 +433,6 @@ def api_picker_session_media_items():
                 continue
             break
 
-        # ステージを完了し、アイテムをキューに投入
         ps.status = "imported"
         ps.updated_at = datetime.now(timezone.utc)
         now = datetime.now(timezone.utc)
@@ -535,7 +543,9 @@ def api_picker_session_import(picker_session_id):
     stats["celery_task_id"] = task_id
     stats["job_id"] = None
     ps.set_stats(stats)
-    ps.status = "enqueued"
+    # セッションの状態は enqueue 時点で "importing" にしておく
+    # フロントエンドや既存テストはこの状態変化を期待している
+    ps.status = "importing"
     db.session.flush()      # job.id を取得するため
 
     # Back-fill job_id into session stats

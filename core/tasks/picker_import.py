@@ -17,7 +17,6 @@ core control‑flow so that unit tests can exercise the behaviour of the worker.
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -77,16 +76,34 @@ def _guess_ext(filename: str | None, mime: str | None) -> str:
     return ""
 
 
+_celery_tasks = None
+
+
+def _get_celery_tasks():
+    """Lazy load the Celery tasks module from the CLI package."""
+    global _celery_tasks
+    if _celery_tasks is None:
+        import importlib.util
+        tasks_path = (
+            Path(__file__).resolve().parents[2]
+            / "cli"
+            / "src"
+            / "celery"
+            / "tasks.py"
+        )
+        spec = importlib.util.spec_from_file_location("pn_celery_tasks", tasks_path)
+        module = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        spec.loader.exec_module(module)
+        _celery_tasks = module
+    return _celery_tasks
+
+
 def _download(url: str, dest_dir: Path) -> Downloaded:
-    """Download URL to *dest_dir* returning :class:`Downloaded`."""
-    resp = requests.get(url)
-    resp.raise_for_status()
-    tmp_name = hashlib.sha1(url.encode("utf-8")).hexdigest()
-    tmp_path = dest_dir / tmp_name
-    with open(tmp_path, "wb") as fh:
-        fh.write(resp.content)
-    sha = hashlib.sha256(resp.content).hexdigest()
-    return Downloaded(tmp_path, len(resp.content), sha)
+    """Download URL via the shared Celery task module."""
+    tasks = _get_celery_tasks()
+    result = tasks.download_file(url, tmp_dir=str(dest_dir))
+    return Downloaded(Path(result["path"]), result["bytes"], result["sha256"])
 
 
 def _ensure_dirs() -> Tuple[Path, Path]:

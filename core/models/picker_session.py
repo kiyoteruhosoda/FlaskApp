@@ -17,10 +17,30 @@ class PickerSession(db.Model):
     polling_config_json = db.Column(db.Text, nullable=True)
     picking_config_json = db.Column(db.Text, nullable=True)
     media_items_set = db.Column(db.Boolean, nullable=True)
-    status = db.Column(db.String(20), nullable=False, default="pending")
+    status = db.Column(
+        db.Enum(
+            "pending",
+            "ready",
+            "processing",
+            "enqueued",
+            "importing",
+            "imported",
+            "canceled",
+            "expired",
+            "error",
+            "failed",
+            name="picker_session_status",
+        ),
+        nullable=False,
+        default="pending",
+        server_default="pending",
+    )
     selected_count = db.Column(db.Integer, nullable=True)
     stats_json = db.Column(db.Text, nullable=True)
     last_polled_at = db.Column(db.DateTime, nullable=True)
+    last_progress_at = db.Column(
+        db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=True
+    )
     created_at = db.Column(
         db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
     )

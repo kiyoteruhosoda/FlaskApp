@@ -8,6 +8,7 @@ from flask import (
 )
 from flask_login import login_required
 from ..extensions import db
+from sqlalchemy import func
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
 from core.models.job_sync import JobSync
@@ -134,7 +135,11 @@ def api_picker_session_create():
         )
         return jsonify({"error": "picker_error", "message": str(e)}), 502
 
-    ps = PickerSession(account_id=account.id, status="pending")
+    ps = PickerSession(
+        account_id=account.id,
+        status="pending",
+        last_progress_at=datetime.now(timezone.utc),
+    )
     db.session.add(ps)
     _update_picker_session_from_data(ps, picker_data)
     db.session.commit()
@@ -175,6 +180,7 @@ def api_picker_session_callback(session_id):
     count = sum(1 for mid in ids if isinstance(mid, str))
     ps.selected_count = (ps.selected_count or 0) + count
     ps.status = "ready"
+    ps.last_progress_at = datetime.now(timezone.utc)
     if count > 0:
         ps.media_items_set = True
     db.session.commit()
@@ -262,6 +268,7 @@ def api_picker_session_media_items():
         # ステータスをprocessingにし、updated_atも更新
         ps.status = "processing"
         ps.updated_at = datetime.now(timezone.utc)
+        ps.last_progress_at = ps.updated_at
         db.session.commit()
         account = GoogleAccount.query.get(ps.account_id)
         if not account:
@@ -427,8 +434,9 @@ def api_picker_session_media_items():
 
         # ステージを完了し、アイテムをキューに投入
         ps.status = "imported"
-        ps.updated_at = datetime.now(timezone.utc)
         now = datetime.now(timezone.utc)
+        ps.updated_at = now
+        ps.last_progress_at = now
         for pmi in new_pmis:
             pmi.status = "enqueued"
             pmi.enqueued_at = now
@@ -440,7 +448,9 @@ def api_picker_session_media_items():
     except Exception as e:
         db.session.rollback()
         ps.status = "pending"
-        ps.updated_at = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)
+        ps.updated_at = now
+        ps.last_progress_at = now
         db.session.commit()
         res_text = None
         if hasattr(e, '__cause__') and hasattr(e.__cause__, 'response'):
@@ -537,6 +547,7 @@ def api_picker_session_import(picker_session_id):
     stats["job_id"] = None
     ps.set_stats(stats)
     ps.status = "enqueued"
+    ps.last_progress_at = datetime.now(timezone.utc)
     db.session.flush()      # job.id を取得するため
 
     # Back-fill job_id into session stats
@@ -563,6 +574,7 @@ def api_picker_session_import(picker_session_id):
             "error": str(e),
         })
         ps.status = "error"
+        ps.last_progress_at = datetime.now(timezone.utc)
         db.session.commit()
         current_app.logger.exception("Failed to enqueue picker_import",
                                      extra={"event": "picker.import.enqueue_error"})
@@ -579,3 +591,51 @@ def api_picker_session_import(picker_session_id):
         extra={"event": "picker.import.enqueue"},
     )
     return jsonify({"enqueued": True, "jobId": job.id, "celeryTaskId": task_id, "status": "queued"}), 202
+
+
+@bp.post("/picker/session/<int:picker_session_id>/finish")
+@login_required
+def api_picker_session_finish(picker_session_id):
+    data = request.get_json(silent=True) or {}
+    status = data.get("status")
+    if status not in {"imported", "expired", "error"}:
+        return jsonify({"error": "invalid_status"}), 400
+
+    ps = PickerSession.query.get(picker_session_id)
+    if not ps:
+        return jsonify({"error": "not_found"}), 404
+
+    now = datetime.now(timezone.utc)
+    ps.status = status
+    ps.last_progress_at = now
+    ps.updated_at = now
+
+    counts = dict(
+        db.session.query(
+            PickerSelection.status, func.count(PickerSelection.id)
+        )
+        .filter(PickerSelection.session_id == ps.id)
+        .group_by(PickerSelection.status)
+        .all()
+    )
+
+    job = (
+        JobSync.query.filter_by(target="picker_import", session_id=ps.id)
+        .order_by(JobSync.started_at.desc().nullslast())
+        .first()
+    )
+    if job:
+        job.finished_at = now
+        if status == "imported":
+            job.status = "success"
+        elif status == "error":
+            job.status = "failed"
+        else:
+            job.status = status
+        stats = json.loads(job.stats_json or "{}")
+        stats["countsByStatus"] = counts
+        job.stats_json = json.dumps(stats)
+
+    db.session.commit()
+
+    return jsonify({"status": status, "countsByStatus": counts})

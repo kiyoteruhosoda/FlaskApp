@@ -39,10 +39,17 @@ def get_active_accounts(engine: Engine, account_id: int | None = None):
     return rows
 
 
-def create_job(engine: Engine, *, account_id: int, target: str) -> int:
+def create_job(engine: Engine, *, account_id: int, target: str, session_id: int | None = None) -> int:
+    """Create a job_sync row and return its id.
+
+    CLI の同期処理では picker セッションに紐づかないため
+    ``session_id`` は常に 0 を入れておく。
+    ``JobSync.session_id`` は NOT NULL 制約があるため必須。
+    """
     stmt = insert(job_sync).values(
         account_id=account_id,
         target=target,
+        session_id=session_id or 0,
         status="running",
     )
     with engine.begin() as conn:

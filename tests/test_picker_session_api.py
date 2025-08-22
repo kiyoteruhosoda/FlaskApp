@@ -647,6 +647,67 @@ def test_media_items_enqueue_and_skip_duplicate(monkeypatch, client, app):
     assert len(enqueued) == 1
 
 
+def test_finish_updates_counts_and_job(monkeypatch, client, app):
+    login(client, app)
+
+    class FakeResp:
+        def __init__(self, data, status=200):
+            self._data = data
+            self.status_code = status
+
+        def json(self):
+            return self._data
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise Exception("error")
+
+    def fake_post(url, *a, **k):
+        if url == "https://oauth2.googleapis.com/token":
+            return FakeResp({"access_token": "acc"})
+        if url == "https://photospicker.googleapis.com/v1/sessions":
+            sid = "picker_sessions/" + uuid.uuid4().hex
+            return FakeResp({
+                "id": sid,
+                "pickerUri": "https://picker",
+                "expireTime": "2025-03-10T00:00:00Z",
+                "pollingConfig": {"pollInterval": "3s"},
+                "mediaItemsSet": True,
+            })
+        raise AssertionError("unexpected url" + url)
+
+    monkeypatch.setattr("requests.post", fake_post)
+
+    res = client.post("/api/picker/session", json={"account_id": 1})
+    ps_id = res.get_json()["pickerSessionId"]
+
+    from webapp.extensions import db
+    from core.models.picker_session import PickerSession
+    from core.models.photo_models import PickerSelection
+    from core.models.job_sync import JobSync
+
+    with app.app_context():
+        ps = PickerSession.query.get(ps_id)
+        db.session.add(PickerSelection(session_id=ps.id, google_media_id="m1", status="imported"))
+        db.session.add(PickerSelection(session_id=ps.id, google_media_id="m2", status="failed"))
+        db.session.add(JobSync(target="picker_import", account_id=ps.account_id, session_id=ps.id, status="running"))
+        db.session.commit()
+
+    res = client.post(f"/api/picker/session/{ps_id}/finish", json={"status": "imported"})
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["countsByStatus"]["imported"] == 1
+    assert data["countsByStatus"]["failed"] == 1
+
+    with app.app_context():
+        job = JobSync.query.filter_by(session_id=ps_id).first()
+        stats = json.loads(job.stats_json)
+        assert job.status == "success"
+        assert stats["countsByStatus"]["failed"] == 1
+        ps = PickerSession.query.get(ps_id)
+        assert ps.last_progress_at is not None
+
+
 def test_media_items_skip_duplicate_in_response(monkeypatch, client, app):
     login(client, app)
 

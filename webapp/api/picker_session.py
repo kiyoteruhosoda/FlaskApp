@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import json
 import time
 from uuid import uuid4
@@ -375,6 +375,10 @@ def api_picker_session_media_items():
                     mi.mime_type = mf_dict.get("mimeType")
                     mi.filename = mf_dict.get("filename")
                     pmi.base_url = mf_dict.get("baseUrl")
+                    if pmi.base_url:
+                        now = datetime.now(timezone.utc)
+                        pmi.base_url_fetched_at = now
+                        pmi.base_url_valid_until = now + timedelta(hours=1)
                     meta = mf_dict.get("mediaFileMetadata") or {}
                 else:
                     meta = {}

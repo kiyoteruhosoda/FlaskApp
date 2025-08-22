@@ -32,6 +32,23 @@ from core.models.picker_session import PickerSession
 from core.models.photo_models import Exif, Media, MediaPlayback
 
 # ---------------------------------------------------------------------------
+# Queue hook
+# ---------------------------------------------------------------------------
+
+def enqueue_picker_import_item(picked_media_item_id: int) -> None:
+    """Enqueue import task for a single picked media item.
+
+    The real application would push a job onto a background worker system
+    such as Celery.  For the purposes of the tests this function merely acts
+    as a hook that can be monkeypatched to observe which items would be
+    queued.
+    """
+
+    # The default implementation is a no-op; tests are expected to
+    # monkeypatch this function.
+    return None
+
+# ---------------------------------------------------------------------------
 # Helper utilities
 # ---------------------------------------------------------------------------
 
@@ -307,4 +324,4 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
     return {"ok": ok, "imported": imported, "dup": dup, "failed": failed, "note": note}
 
 
-__all__ = ["picker_import"]
+__all__ = ["picker_import", "enqueue_picker_import_item"]

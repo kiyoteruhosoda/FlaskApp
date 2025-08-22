@@ -15,9 +15,11 @@ from core.models.photo_models import (
     MediaItem,
     PhotoMetadata,
     VideoMetadata,
+    Media,
 )
 from core.crypto import decrypt
 from ..auth.utils import refresh_google_token, RefreshTokenError, log_requests_and_send
+from core.tasks.picker_import import enqueue_picker_import_item
 
 bp = Blueprint('picker_session_api', __name__)
 
@@ -269,11 +271,33 @@ def api_picker_session_media_items():
             status = 502 if e.status_code >= 500 else 401
             return jsonify({"error": str(e)}), status
         headers = {"Authorization": f"Bearer {tokens.get('access_token')}"}
+        # Fetch session info to ensure media items are set
+        try:
+            sess_res = log_requests_and_send(
+                "GET",
+                "https://photospicker.googleapis.com/v1/sessions",
+                params={"sessionId": session_id},
+                headers=headers,
+                timeout=15,
+            )
+            sess_res.raise_for_status()
+            sess_data = sess_res.json()
+            _update_picker_session_from_data(ps, sess_data)
+            db.session.commit()
+        except Exception as fetch_exc:
+            res_text = getattr(fetch_exc, 'response', None)
+            if res_text is not None:
+                res_text = res_text.text
+            else:
+                res_text = None
+            raise RuntimeError(f"sessions.get failed: {fetch_exc}")
+
         params = {"sessionId": session_id, "pageSize": 100}
         if cursor:
             params["pageToken"] = cursor
         saved = 0
         dup = 0
+        new_pmis = []
         while True:
             try:
                 res = log_requests_and_send(
@@ -310,18 +334,27 @@ def api_picker_session_media_items():
                 item_id = item.get("id")
                 if not item_id:
                     continue
+                # Skip if already imported or already picked in this session
+                if Media.query.filter_by(google_media_id=item_id, account_id=ps.account_id).first() or \
+                        PickedMediaItem.query.filter_by(picker_session_id=ps.id, media_item_id=item_id).first():
+                    dup += 1
+                    current_app.logger.info(
+                        json.dumps(
+                            {
+                                "ts": datetime.now(timezone.utc).isoformat(),
+                                "session_id": session_id,
+                                "media_item_id": item_id,
+                            }
+                        ),
+                        extra={"event": "picker.mediaItems.duplicate"},
+                    )
+                    continue
                 mi = MediaItem.query.get(item_id)
                 if not mi:
                     mi = MediaItem(id=item_id, type="TYPE_UNSPECIFIED")
-
-                pmi = PickedMediaItem.query.filter_by(
-                    picker_session_id=ps.id, media_item_id=item_id
-                ).first()
-                is_dup = pmi is not None
-                if not pmi:
-                    pmi = PickedMediaItem(
-                        picker_session_id=ps.id, media_item_id=item_id, status="pending"
-                    )
+                pmi = PickedMediaItem(
+                    picker_session_id=ps.id, media_item_id=item_id, status="pending"
+                )
 
                 ct = item.get("createTime")
                 if ct:
@@ -381,10 +414,9 @@ def api_picker_session_media_items():
                 pmi.updated_at = datetime.now(timezone.utc)
                 db.session.add(mi)
                 db.session.add(pmi)
-                if is_dup:
-                    dup += 1
-                else:
-                    saved += 1
+                db.session.flush()
+                saved += 1
+                new_pmis.append(pmi)
 
             cursor = picker_data.get("nextPageToken")
             if cursor:
@@ -392,10 +424,16 @@ def api_picker_session_media_items():
                 continue
             break
 
-        # ステータスをimportedにし、updated_atも更新
+        # ステージを完了し、アイテムをキューに投入
         ps.status = "imported"
         ps.updated_at = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)
+        for pmi in new_pmis:
+            pmi.status = "enqueued"
+            pmi.enqueued_at = now
         db.session.commit()
+        for pmi in new_pmis:
+            enqueue_picker_import_item(pmi.id)
 
         return jsonify({"saved": saved, "duplicates": dup, "nextCursor": None})
     except Exception as e:

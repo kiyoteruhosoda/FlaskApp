@@ -361,6 +361,8 @@ def test_media_items_endpoint(monkeypatch, client, app):
     calls = {"n": 0}
 
     def fake_get(url, *a, **k):
+        if url == "https://photospicker.googleapis.com/v1/sessions":
+            return FakeResp({"id": session_name, "mediaItemsSet": True})
         if url == "https://photospicker.googleapis.com/v1/mediaItems":
             params = k.get("params", {})
             assert params.get("sessionId") == session_name
@@ -496,6 +498,8 @@ def test_media_items_retry_on_429(monkeypatch, client, app):
     ]
 
     def fake_get(url, *a, **k):
+        if url == "https://photospicker.googleapis.com/v1/sessions":
+            return FakeResp({"id": session_name, "mediaItemsSet": True})
         if url == "https://photospicker.googleapis.com/v1/mediaItems":
             return responses.pop(0)
         raise AssertionError("unexpected url" + url)
@@ -531,3 +535,106 @@ def test_media_items_busy(monkeypatch, client, app):
     finally:
         lock.release()
         ps_module._release_media_items_lock(session_id, lock)
+
+
+def test_media_items_enqueue_and_skip_duplicate(monkeypatch, client, app):
+    login(client, app)
+
+    class FakeResp:
+        def __init__(self, data, status=200):
+            self._data = data
+            self.status_code = status
+
+        def json(self):
+            return self._data
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise Exception("error")
+
+    def fake_post(url, *a, **k):
+        if url == "https://oauth2.googleapis.com/token":
+            return FakeResp({"access_token": "acc"})
+        if url == "https://photospicker.googleapis.com/v1/sessions":
+            sid = "picker_sessions/" + uuid.uuid4().hex
+            return FakeResp({
+                "id": sid,
+                "pickerUri": "https://picker",
+                "expireTime": "2025-03-10T00:00:00Z",
+                "pollingConfig": {"pollInterval": "3s"},
+                "mediaItemsSet": True,
+            })
+        raise AssertionError("unexpected url" + url)
+
+    monkeypatch.setattr("requests.post", fake_post)
+
+    res = client.post("/api/picker/session", json={"account_id": 1})
+    session_name = res.get_json()["sessionId"]
+
+    from webapp.extensions import db
+    from core.models.picker_session import PickerSession
+    from core.models.photo_models import Media
+    with app.app_context():
+        ps = PickerSession.query.filter_by(session_id=session_name).first()
+        ps.status = "processing"
+        db.session.add(Media(google_media_id="m2", account_id=ps.account_id))
+        db.session.commit()
+
+    def fake_get(url, *a, **k):
+        if url == "https://photospicker.googleapis.com/v1/sessions":
+            return FakeResp({"id": session_name, "mediaItemsSet": True})
+        if url == "https://photospicker.googleapis.com/v1/mediaItems":
+            return FakeResp(
+                {
+                    "mediaItems": [
+                        {
+                            "id": "m1",
+                            "createTime": "2024-01-01T00:00:00Z",
+                            "mediaFile": {
+                                "mimeType": "image/jpeg",
+                                "filename": "a.jpg",
+                                "mediaFileMetadata": {"photoMetadata": {"dummy": 1}},
+                            },
+                        },
+                        {
+                            "id": "m2",
+                            "createTime": "2024-01-02T00:00:00Z",
+                            "mediaFile": {
+                                "mimeType": "image/jpeg",
+                                "filename": "b.jpg",
+                                "mediaFileMetadata": {"photoMetadata": {"dummy": 1}},
+                            },
+                        },
+                    ]
+                }
+            )
+        raise AssertionError("unexpected url" + url)
+
+    monkeypatch.setattr("requests.get", fake_get)
+
+    enqueued = []
+    import webapp.api.picker_session as ps_module
+    monkeypatch.setattr(
+        ps_module, "enqueue_picker_import_item", lambda pmi_id: enqueued.append(pmi_id)
+    )
+
+    res = client.post(
+        "/api/picker/session/mediaItems",
+        json={"sessionId": session_name},
+    )
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["saved"] == 1
+    assert data["duplicates"] == 1
+
+    from core.models.photo_models import PickedMediaItem
+    with app.app_context():
+        ps = PickerSession.query.filter_by(session_id=session_name).first()
+        pmi = PickedMediaItem.query.filter_by(
+            picker_session_id=ps.id, media_item_id="m1"
+        ).first()
+        assert pmi is not None
+        assert pmi.status == "enqueued"
+        assert pmi.enqueued_at is not None
+
+    assert len(enqueued) == 1

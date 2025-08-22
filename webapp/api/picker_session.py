@@ -546,6 +546,7 @@ def api_picker_session_import(picker_session_id):
 
     # Publish Celery task (Worker 側で job_sync を running/success... に更新)
     try:
+        print("dummy")
         # 例: picker_import.apply_async(args=[ps.id, account_id, job.id], task_id=task_id, queue="default")
         #Picker_import.apply_async(
         #    args=[ps.id, account_id, job.id],

@@ -104,6 +104,81 @@ def _chunk(iterable: List[str], size: int) -> Iterable[List[str]]:
 
 
 # ---------------------------------------------------------------------------
+# Internal helpers for main import task
+# ---------------------------------------------------------------------------
+
+
+def _lookup_session_and_account(picker_session_id: int, account_id: int) -> tuple[PickerSession | None, GoogleAccount | None, str | None]:
+    ps = PickerSession.query.get(picker_session_id)
+    if not ps or ps.account_id != account_id:
+        return None, None, "invalid_session"
+    if ps.status in {"imported", "canceled", "expired"}:
+        return ps, None, "already_done"
+    gacc = GoogleAccount.query.get(account_id)
+    if not gacc:
+        return ps, None, "account_not_found"
+    return ps, gacc, None
+
+
+def _exchange_refresh_token(gacc: GoogleAccount, ps: PickerSession) -> tuple[str | None, str | None]:
+    try:
+        token_data = json.loads(decrypt(gacc.oauth_token_json))
+        refresh_token = token_data.get("refresh_token")
+    except Exception:
+        ps.status = "error"
+        db.session.commit()
+        return None, "token_error"
+
+    try:
+        resp = requests.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "client_id": os.environ.get("GOOGLE_CLIENT_ID", ""),
+                "client_secret": os.environ.get("GOOGLE_CLIENT_SECRET", ""),
+                "refresh_token": refresh_token,
+                "grant_type": "refresh_token",
+            },
+        )
+        data = resp.json()
+        return data["access_token"], None
+    except Exception:
+        ps.status = "error"
+        db.session.commit()
+        return None, "oauth_error"
+
+
+def _fetch_selected_ids(ps: PickerSession, headers: Dict[str, str]) -> tuple[List[str], str | None]:
+    selected_ids: List[str] = []
+    if ps.session_id:
+        try:
+            r = requests.get(
+                f"https://photospicker.googleapis.com/v1/sessions/{ps.session_id}",
+                headers=headers,
+            )
+            r.raise_for_status()
+            sess_data = r.json()
+            if sess_data.get("selectedMediaItemIds"):
+                selected_ids = list(sess_data["selectedMediaItemIds"])
+            elif sess_data.get("selectedMediaItems"):
+                selected_ids = [m["id"] for m in sess_data["selectedMediaItems"]]
+        except Exception:
+            ps.status = "error"
+            db.session.commit()
+            return [], "session_get_error"
+
+    count = len(selected_ids)
+    ps.selected_count = count
+    ps.media_items_set = count > 0
+
+    if count == 0:
+        ps.status = "ready"
+        db.session.commit()
+        return [], "no_selection"
+
+    return selected_ids, None
+
+
+# ---------------------------------------------------------------------------
 # Per item import
 # ---------------------------------------------------------------------------
 
@@ -214,80 +289,31 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
     failed = 0
     note = None
 
-    # ------------------------------------------------------------------
     # 1. Lookup picker session and account
-    # ------------------------------------------------------------------
-    ps = PickerSession.query.get(picker_session_id)
-    if not ps or ps.account_id != account_id:
-        return {"ok": False, "imported": 0, "dup": 0, "failed": 0, "note": "invalid_session"}
-    if ps.status in {"imported", "canceled", "expired"}:
-        return {"ok": True, "imported": 0, "dup": 0, "failed": 0, "note": "already_done"}
+    ps, gacc, note = _lookup_session_and_account(picker_session_id, account_id)
+    if note == "invalid_session":
+        return {"ok": False, "imported": 0, "dup": 0, "failed": 0, "note": note}
+    if note == "already_done":
+        return {"ok": True, "imported": 0, "dup": 0, "failed": 0, "note": note}
+    if note == "account_not_found":
+        return {"ok": False, "imported": 0, "dup": 0, "failed": 0, "note": note}
 
-    gacc = GoogleAccount.query.get(account_id)
-    if not gacc:
-        return {"ok": False, "imported": 0, "dup": 0, "failed": 0, "note": "account_not_found"}
-
-    # ------------------------------------------------------------------
     # 2. Exchange refresh token for access token
-    # ------------------------------------------------------------------
-    try:
-        token_data = json.loads(decrypt(gacc.oauth_token_json))
-        refresh_token = token_data.get("refresh_token")
-    except Exception:
-        ps.status = "error"
-        db.session.commit()
-        return {"ok": False, "imported": 0, "dup": 0, "failed": 0, "note": "token_error"}
-
-    try:
-        resp = requests.post(
-            "https://oauth2.googleapis.com/token",
-            data={
-                "client_id": os.environ.get("GOOGLE_CLIENT_ID", ""),
-                "client_secret": os.environ.get("GOOGLE_CLIENT_SECRET", ""),
-                "refresh_token": refresh_token,
-                "grant_type": "refresh_token",
-            },
-        )
-        data = resp.json()
-        access_token = data["access_token"]
-    except Exception as exc:  # pragma: no cover - defensive
-        ps.status = "error"
-        db.session.commit()
-        return {"ok": False, "imported": 0, "dup": 0, "failed": 0, "note": "oauth_error"}
+    access_token, note = _exchange_refresh_token(gacc, ps)  # type: ignore[arg-type]
+    if note:
+        return {"ok": False, "imported": 0, "dup": 0, "failed": 0, "note": note}
 
     headers = {"Authorization": f"Bearer {access_token}"}
 
-    # ------------------------------------------------------------------
     # 3. Fetch selected IDs from callback storage or picker session
-    # ------------------------------------------------------------------
-    selected_ids: List[str] = []
-    if ps.session_id:
-        try:
-            r = requests.get(
-                f"https://photospicker.googleapis.com/v1/sessions/{ps.session_id}",
-                headers=headers,
-            )
-            r.raise_for_status()
-            sess_data = r.json()
-            if sess_data.get("selectedMediaItemIds"):
-                selected_ids = list(sess_data["selectedMediaItemIds"])
-            elif sess_data.get("selectedMediaItems"):
-                selected_ids = [m["id"] for m in sess_data["selectedMediaItems"]]
-        except Exception:
-            ps.status = "error"
-            db.session.commit()
-            return {"ok": False, "imported": 0, "dup": 0, "failed": 0, "note": "session_get_error"}
-    count = len(selected_ids)
-    ps.selected_count = count
-    ps.media_items_set = count > 0
-
-    if count == 0:
-        ps.status = "ready"
-        db.session.commit()
+    selected_ids, note = _fetch_selected_ids(ps, headers)  # type: ignore[arg-type]
+    if note == "session_get_error":
+        return {"ok": False, "imported": 0, "dup": 0, "failed": 0, "note": note}
+    if note == "no_selection":
         return {"ok": True, "imported": 0, "dup": 0, "failed": 0}
 
     stats = ps.stats()
-    stats["selected_count"] = count
+    stats["selected_count"] = len(selected_ids)
     processed_ids = stats.get("processed_ids", [])
 
     tmp_dir, orig_dir = _ensure_dirs()

@@ -3,7 +3,8 @@ import os
 class Config:
     SECRET_KEY = os.environ["SECRET_KEY"]
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_DATABASE_URI = os.environ["DATABASE_URI"]
+    db_uri = os.environ.get("DATABASE_URI", "sqlite://")
+    SQLALCHEMY_DATABASE_URI = db_uri
 
     SQLALCHEMY_BINDS = {}
     fx = os.environ.get("FEATURE_X_DB_URI")
@@ -22,8 +23,10 @@ class Config:
         "pool_pre_ping": True,
         "pool_size": 10,
         "max_overflow": 20,
-        "connect_args": {"connect_timeout": 10},
     }
+
+    if db_uri.startswith("mysql"):
+        SQLALCHEMY_ENGINE_OPTIONS["connect_args"] = {"connect_timeout": 10}
 
     # Google OAuth
     GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")

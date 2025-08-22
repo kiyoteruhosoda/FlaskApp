@@ -10,6 +10,7 @@ from flask_login import login_required
 from ..extensions import db
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
+from core.models.job_sync import JobSync
 from core.models.photo_models import (
     PickedMediaItem,
     MediaItem,
@@ -474,50 +475,105 @@ def api_picker_session_import(picker_session_id):
     client can immediately reflect the change in state.
     """
     data = request.get_json(silent=True) or {}
-    account_id = data.get("account_id")
+    account_id_in = data.get("account_id")
+
     ps = PickerSession.query.filter_by(session_id=picker_session_id).first()
-    if not ps or (account_id and ps.account_id != account_id):
+    if not ps or (account_id_in and ps.account_id != account_id_in):
         return jsonify({"error": "not_found"}), 404
+
     # Use the session's account id when not explicitly supplied
-    account_id = account_id or ps.account_id
-    if ps.status in ("imported", "canceled", "expired"):
+    account_id = account_id_in or ps.account_id
+    if ps.status in ("imported", "canceled", "expired", "error"):
         current_app.logger.info(
-            json.dumps(
-                {
-                    "ts": datetime.now(timezone.utc).isoformat(),
-                    "picker_session_id": picker_session_id,
-                    "status": ps.status,
-                }
-            ),
-            extra={"event": "picker.import.suppress"}
-        )
-        return jsonify({"error": "already_done"}), 409
-    stats = ps.stats()
-    if stats.get("celery_task_id"):
-        current_app.logger.info(
-            json.dumps(
-                {
-                    "ts": datetime.now(timezone.utc).isoformat(),
-                    "picker_session_id": picker_session_id,
-                    "status": ps.status,
-                }
-            ),
-            extra={"event": "picker.import.suppress"}
-        )
-        return jsonify({"error": "already_enqueued"}), 409
-    task_id = uuid4().hex
-    stats["celery_task_id"] = task_id
-    ps.set_stats(stats)
-    ps.status = "importing"
-    db.session.commit()
-    current_app.logger.info(
-        json.dumps(
-            {
+            json.dumps({
                 "ts": datetime.now(timezone.utc).isoformat(),
                 "picker_session_id": picker_session_id,
                 "status": ps.status,
-            }
-        ),
-        extra={"event": "picker.import.enqueue"}
+            }),
+            extra={"event": "picker.import.suppress"},
+        )
+        return jsonify({"error": "already_done"}), 409
+
+    # Already enqueued/running job?
+    existing_job = (
+        JobSync.query
+        .filter(JobSync.target == "picker_import",
+                JobSync.session_id == ps.id,
+                JobSync.status.in_(("queued", "running")))
+        .order_by(JobSync.started_at.desc().nullslast())
+        .first()
     )
-    return jsonify({"enqueued": True, "celeryTaskId": task_id}), 202
+    if existing_job:
+        current_app.logger.info(
+            json.dumps({
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "picker_session_id": picker_session_id,
+                "status": ps.status,
+                "job_id": existing_job.id,
+                "job_status": existing_job.status,
+            }),
+            extra={"event": "picker.import.suppress"},
+        )
+        return jsonify({"error": "already_enqueued", "jobId": existing_job.id}), 409
+
+    # Create job_sync row in 'queued'
+    task_id = uuid4().hex
+    job = JobSync(
+        target="picker_import",
+        account_id=account_id,
+        session_id=ps.id,
+        started_at=None,                     # set on Worker start
+        finished_at=None,
+        stats_json=json.dumps({
+            "celery_task_id": task_id,
+            "selected": getattr(ps, "selected_count", 0),
+        }),
+    )
+    db.session.add(job)
+
+    stats = ps.stats()
+    stats["celery_task_id"] = task_id
+    stats["job_id"] = None
+    ps.set_stats(stats)
+    ps.status = "enqueued"
+    db.session.flush()      # job.id を取得するため
+
+    # Back-fill job_id into session stats
+    stats["job_id"] = job.id
+    ps.set_stats(stats)
+    db.session.commit()
+
+
+    # Publish Celery task (Worker 側で job_sync を running/success... に更新)
+    try:
+        # 例: picker_import.apply_async(args=[ps.id, account_id, job.id], task_id=task_id, queue="default")
+        #Picker_import.apply_async(
+        #    args=[ps.id, account_id, job.id],
+        #    task_id=task_id,
+        #    queue="default",
+        #)
+    except Exception as e:
+        # 失敗時は job を failed にして返す
+        job.status = "failed"
+        job.finished_at = datetime.now(timezone.utc)
+        job.stats_json = json.dumps({
+            "celery_task_id": task_id,
+            "error": str(e),
+        })
+        ps.status = "error"
+        db.session.commit()
+        current_app.logger.exception("Failed to enqueue picker_import",
+                                     extra={"event": "picker.import.enqueue_error"})
+        return jsonify({"error": "enqueue_failed"}), 500
+    
+    current_app.logger.info(
+        json.dumps({
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "picker_session_id": picker_session_id,
+            "job_id": job.id,
+            "job_status": "queued",
+            "celery_task_id": task_id,
+        }),
+        extra={"event": "picker.import.enqueue"},
+    )
+    return jsonify({"enqueued": True, "jobId": job.id, "celeryTaskId": task_id, "status": "queued"}), 202

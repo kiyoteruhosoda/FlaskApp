@@ -15,6 +15,9 @@
   <button id="btn-import-start" class="btn btn-primary">
     {{ _('Start Import') }}
   </button>
+  <div id="session-info" class="text-muted mt-2" style="display: none;">
+    <!-- セッション情報が表示されます -->
+  </div>
 </div>
 
 <div id="import-status" class="mt-3" aria-live="polite"></div>
@@ -73,11 +76,36 @@ document.addEventListener('DOMContentLoaded', () => {
   const statusEl = document.getElementById('import-status');
   const selectionBody = document.getElementById('selection-body');
   const countsEl = document.getElementById('selection-counts');
+  const sessionInfoEl = document.getElementById('session-info');
+  let isLocalImport = false;
 
   function getCsrfTokenFromCookie() {
     // Flask-WTF の既定名が "csrf_token" の想定。環境に合わせて変更してください。
     const m = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
     return m ? decodeURIComponent(m[1]) : null;
+  }
+
+  async function checkSessionInfo() {
+    try {
+      const resp = await fetch(`/api/picker/session/${encodeURIComponent(pickerSessionId)}`);
+      if (resp.ok) {
+        const sessionData = await resp.json();
+        
+        // ローカルインポートセッションの判定（session_idがlocal_importで始まる、またはaccountIdがnull）
+        isLocalImport = !sessionData.sessionId || 
+                       sessionData.sessionId.startsWith('local_import_') || 
+                       sessionData.accountId === null;
+        
+        if (isLocalImport) {
+          // ローカルインポートセッションの場合
+          importBtn.style.display = 'none';
+          sessionInfoEl.style.display = 'block';
+          sessionInfoEl.innerHTML = '<i class="bi bi-info-circle"></i> これはローカルインポートセッションです。インポートは自動的に実行されました。';
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to fetch session info:', error);
+    }
   }
 
   async function withBusy(btn, fn) {
@@ -97,6 +125,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   importBtn.addEventListener('click', async () => {
     if (!pickerSessionId) return;
+    
+    // ローカルインポートセッションの場合は処理をスキップ
+    if (isLocalImport) {
+      statusEl.textContent = 'ローカルインポートセッションでは手動インポートできません。';
+      return;
+    }
 
     await withBusy(importBtn, async () => {
       try {
@@ -134,7 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function createSelectionRow(selection) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${selection.filename || selection.googleMediaId}</td>
+      <td>${selection.filename || selection.googleMediaId || 'N/A'}</td>
       <td>
         <span class="badge bg-${getStatusBadgeClass(selection.status)}">
           ${selection.status}
@@ -159,6 +193,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function refreshSelections() {
+    // セッション情報をチェック（初回のみ）
+    if (!paginationClient) {
+      await checkSessionInfo();
+    }
+    
     // 数値IDの場合はAPIリクエストを送信せずリダイレクト
     if (/^\d+$/.test(pickerSessionId)) {
       console.warn('Numeric session ID detected in refresh, redirecting to sessions list');

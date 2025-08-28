@@ -1,0 +1,251 @@
+"""
+PickerSessionServiceのローカルインポート対応追加テスト
+"""
+
+import tempfile
+from pathlib import Path
+import os
+
+import pytest
+
+from webapp import create_app
+from webapp.extensions import db
+from webapp.api.picker_session_service import PickerSessionService
+from webapp.api.pagination import PaginationParams
+from core.models.picker_session import PickerSession
+from core.models.photo_models import PickerSelection
+from core.tasks.local_import import local_import_task
+
+
+@pytest.fixture
+def app():
+    """テスト用のFlaskアプリケーションを作成"""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        db_path = Path(temp_dir) / "test.db"
+        import_dir = Path(temp_dir) / "import"
+        originals_dir = Path(temp_dir) / "originals"
+        
+        import_dir.mkdir()
+        originals_dir.mkdir()
+        
+        # 環境変数設定
+        test_config = {
+            'TESTING': True,
+            'SECRET_KEY': 'test-secret-key',
+            'DATABASE_URI': f'sqlite:///{db_path}',
+            'LOCAL_IMPORT_DIR': str(import_dir),
+            'FPV_NAS_ORIGINALS_DIR': str(originals_dir),
+            'FPV_TMP_DIR': str(temp_dir),
+            'SQLALCHEMY_ENGINE_OPTIONS': {},
+        }
+        
+        # 環境変数を一時的に設定
+        old_env = {}
+        for key, value in test_config.items():
+            old_env[key] = os.environ.get(key)
+            os.environ[key] = str(value)
+        
+        try:
+            app = create_app()
+            app.config.update(test_config)
+            
+            with app.app_context():
+                db.create_all()
+                yield app
+                
+        finally:
+            # 環境変数を復元
+            for key, old_value in old_env.items():
+                if old_value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = old_value
+
+
+@pytest.fixture
+def local_import_session(app):
+    """ローカルインポートセッションを作成"""
+    import_dir = Path(app.config['LOCAL_IMPORT_DIR'])
+    
+    # テストファイル作成
+    (import_dir / "test_image.jpg").write_bytes(b"fake image data")
+    (import_dir / "test_video.mp4").write_bytes(b"fake video data")
+    
+    with app.app_context():
+        result = local_import_task()
+        session_id = result['session_id']
+        session = PickerSession.query.filter_by(session_id=session_id).first()
+        return session
+
+
+class TestPickerSessionServiceLocalImport:
+    """PickerSessionServiceのローカルインポート対応テスト"""
+    
+    def test_resolve_local_import_session_identifier(self, app, local_import_session):
+        """ローカルインポートセッションIDの解決テスト"""
+        with app.app_context():
+            session_id = local_import_session.session_id
+            
+            # セッションIDで解決
+            resolved = PickerSessionService.resolve_session_identifier(session_id)
+            assert resolved is not None
+            assert resolved.id == local_import_session.id
+            assert resolved.session_id == session_id
+            assert resolved.account_id is None
+    
+    def test_status_for_local_import_session(self, app, local_import_session):
+        """ローカルインポートセッションのステータス取得テスト"""
+        with app.app_context():
+            status = PickerSessionService.status(local_import_session)
+            
+            assert status['status'] == 'imported'
+            assert status['sessionId'] == local_import_session.session_id
+            assert status['selectedCount'] == 2
+            assert status['pickerUri'] is None
+            assert status['expireTime'] is None
+            assert status['pollingConfig'] is None
+            assert status['pickingConfig'] is None
+            assert status['mediaItemsSet'] is None
+    
+    def test_selection_details_for_local_import(self, app, local_import_session):
+        """ローカルインポートセッションの選択詳細テスト"""
+        with app.app_context():
+            params = PaginationParams(page_size=10)
+            details = PickerSessionService.selection_details(local_import_session, params)
+            
+            # 基本構造の確認
+            assert 'selections' in details
+            assert 'counts' in details
+            assert 'pagination' in details
+            
+            # 選択数の確認
+            assert len(details['selections']) == 2
+            assert details['counts']['imported'] == 2
+            
+            # 各選択の詳細確認
+            for selection in details['selections']:
+                assert selection['googleMediaId'] is None
+                assert selection['filename'] in ['test_image.jpg', 'test_video.mp4']
+                assert selection['status'] == 'imported'
+                assert selection['attempts'] >= 0
+                assert selection['enqueuedAt'] is not None
+                assert selection['startedAt'] is not None
+                assert selection['finishedAt'] is not None
+                assert selection['error'] is None
+            
+            # ページング情報の確認
+            assert details['pagination']['hasNext'] is False
+            assert details['pagination']['hasPrev'] is False
+    
+    def test_selection_details_pagination_for_local_import(self, app):
+        """ローカルインポートセッションの選択詳細ページングテスト"""
+        with app.app_context():
+            import_dir = Path(app.config['LOCAL_IMPORT_DIR'])
+            
+            # 複数ファイルを作成
+            for i in range(5):
+                (import_dir / f"test_file_{i}.jpg").write_bytes(f"fake data {i}".encode())
+            
+            # ローカルインポート実行
+            result = local_import_task()
+            session = PickerSession.query.filter_by(session_id=result['session_id']).first()
+            
+            # ページサイズ2でテスト
+            params = PaginationParams(page_size=2)
+            details = PickerSessionService.selection_details(session, params)
+            
+            assert len(details['selections']) == 2
+            assert details['counts']['imported'] == 5
+            assert details['pagination']['hasNext'] is True
+            assert details['pagination']['hasPrev'] is False
+    
+    def test_selection_details_with_mixed_statuses(self, app):
+        """異なるステータスが混在するローカルインポートセッションのテスト"""
+        with app.app_context():
+            import_dir = Path(app.config['LOCAL_IMPORT_DIR'])
+            
+            # 正常ファイル
+            (import_dir / "good_file.jpg").write_bytes(b"good data")
+            
+            # 空ファイル（エラーになる可能性）
+            (import_dir / "empty_file.jpg").write_bytes(b"")
+            
+            # ローカルインポート実行
+            result = local_import_task()
+            session = PickerSession.query.filter_by(session_id=result['session_id']).first()
+            
+            details = PickerSessionService.selection_details(session)
+            
+            # 結果の確認
+            assert len(details['selections']) >= 1
+            total_count = sum(details['counts'].values())
+            assert total_count >= 1
+            
+            # 少なくとも1つは成功していることを確認
+            success_count = details['counts'].get('imported', 0)
+            assert success_count >= 1
+
+
+class TestPickerSessionServiceMixedSessions:
+    """通常のPickerSessionとローカルインポートセッションの混在テスト"""
+    
+    def test_mixed_session_types_in_list(self, app, local_import_session):
+        """通常セッションとローカルインポートセッションが混在する一覧テスト"""
+        with app.app_context():
+            # 通常のPickerSessionを作成
+            normal_session = PickerSession(
+                account_id=1,
+                session_id="picker_sessions/normal_uuid",
+                status="ready",
+                selected_count=0
+            )
+            db.session.add(normal_session)
+            db.session.commit()
+            
+            # 全セッション取得
+            all_sessions = PickerSession.query.all()
+            
+            # ローカルインポートセッションと通常セッションが含まれることを確認
+            local_sessions = [s for s in all_sessions if s.account_id is None]
+            normal_sessions = [s for s in all_sessions if s.account_id is not None]
+            
+            assert len(local_sessions) >= 1
+            assert len(normal_sessions) >= 1
+            
+            # それぞれのセッションが正しく解決できることを確認
+            for session in all_sessions:
+                resolved = PickerSessionService.resolve_session_identifier(session.session_id)
+                assert resolved is not None
+                assert resolved.id == session.id
+    
+    def test_selection_details_for_different_session_types(self, app, local_import_session):
+        """異なるタイプのセッションの選択詳細比較テスト"""
+        with app.app_context():
+            # ローカルインポートセッションの詳細
+            local_details = PickerSessionService.selection_details(local_import_session)
+            
+            # ローカルインポートの特徴確認
+            for selection in local_details['selections']:
+                assert selection['googleMediaId'] is None
+                assert selection['filename'] is not None
+            
+            # 通常のPickerSessionを作成（選択なし）
+            normal_session = PickerSession(
+                account_id=1,
+                session_id="picker_sessions/normal_uuid",
+                status="ready",
+                selected_count=0
+            )
+            db.session.add(normal_session)
+            db.session.commit()
+            
+            # 通常セッションの詳細
+            normal_details = PickerSessionService.selection_details(normal_session)
+            
+            # 通常セッションは選択なし
+            assert len(normal_details['selections']) == 0
+            assert normal_details['counts'] == {}
+
+
+if __name__ == '__main__':
+    pytest.main([__file__, '-v'])

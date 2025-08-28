@@ -129,8 +129,10 @@ class PickerSelection(db.Model):
     id = db.Column(BigInt, primary_key=True, autoincrement=True)
     session_id = db.Column(BigInt, db.ForeignKey('picker_session.id'), nullable=False)
     google_media_id = db.Column(
-        db.String(255), db.ForeignKey('media_item.id'), nullable=False
+        db.String(255), db.ForeignKey('media_item.id'), nullable=True  # ローカルインポート用にNULL許可
     )
+    local_file_path = db.Column(db.Text, nullable=True)  # ローカルインポート用ファイルパス
+    local_filename = db.Column(db.String(500), nullable=True)  # ローカルインポート用ファイル名
     status = db.Column(
         db.Enum(
             'pending', 'enqueued', 'running', 'imported', 'dup',

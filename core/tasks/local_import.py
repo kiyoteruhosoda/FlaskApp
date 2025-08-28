@@ -12,9 +12,10 @@ from typing import Dict, List, Optional, Tuple
 
 from PIL import Image
 from PIL.ExifTags import TAGS
+from flask import current_app
 
 from core.db import db
-from core.models.photo_models import Media, Exif
+from core.models.photo_models import Media, Exif, PickerSelection
 from core.models.job_sync import JobSync
 from core.models.picker_session import PickerSession
 from core.utils import get_file_date_from_name, get_file_date_from_exif
@@ -283,8 +284,14 @@ def local_import_task(task_instance=None) -> Dict:
     Returns:
         処理結果辞書
     """
-    import_dir = Config.LOCAL_IMPORT_DIR
-    originals_dir = Config.FPV_NAS_ORIGINALS_DIR
+    # Flaskアプリケーションのコンテキストから設定を取得
+    try:
+        import_dir = current_app.config.get('LOCAL_IMPORT_DIR', Config.LOCAL_IMPORT_DIR)
+        originals_dir = current_app.config.get('FPV_NAS_ORIGINALS_DIR', Config.FPV_NAS_ORIGINALS_DIR)
+    except RuntimeError:
+        # Flaskアプリケーションコンテキスト外の場合は設定クラスから取得
+        import_dir = Config.LOCAL_IMPORT_DIR
+        originals_dir = Config.FPV_NAS_ORIGINALS_DIR
     
     result = {
         "ok": True,
@@ -352,6 +359,25 @@ def local_import_task(task_instance=None) -> Dict:
         # ファイルごとの処理
         for index, file_path in enumerate(files, 1):
             result["processed"] += 1
+            filename = os.path.basename(file_path)
+            
+            # PickerSelectionレコードを作成（ローカルインポート用）
+            selection = None
+            if session:
+                try:
+                    selection = PickerSelection(
+                        session_id=session.id,
+                        google_media_id=None,  # ローカルファイルなのでNone
+                        local_file_path=file_path,
+                        local_filename=filename,
+                        status="pending",
+                        attempts=0,
+                        enqueued_at=datetime.now(timezone.utc)
+                    )
+                    db.session.add(selection)
+                    db.session.commit()
+                except Exception as e:
+                    current_app.logger.warning(f"Failed to create picker selection for {filename}: {e}")
             
             # 進行状況の更新
             if task_instance:
@@ -359,7 +385,7 @@ def local_import_task(task_instance=None) -> Dict:
                 task_instance.update_state(
                     state='PROGRESS',
                     meta={
-                        'status': f'ファイル処理中: {os.path.basename(file_path)}',
+                        'status': f'ファイル処理中: {filename}',
                         'progress': progress,
                         'current': index,
                         'total': total_files,
@@ -367,11 +393,38 @@ def local_import_task(task_instance=None) -> Dict:
                     }
                 )
             
+            # Selectionの状態を処理中に更新
+            if selection:
+                try:
+                    selection.status = "running"
+                    selection.started_at = datetime.now(timezone.utc)
+                    db.session.commit()
+                except Exception:
+                    pass
+            
             file_result = import_single_file(file_path, import_dir, originals_dir)
+            
+            # Selectionの状態を処理結果に応じて更新
+            if selection:
+                try:
+                    if file_result["success"]:
+                        selection.status = "imported"
+                        selection.finished_at = datetime.now(timezone.utc)
+                    elif "重複ファイル" in file_result["reason"]:
+                        selection.status = "dup"
+                        selection.finished_at = datetime.now(timezone.utc)
+                    else:
+                        selection.status = "failed"
+                        selection.error = file_result["reason"]
+                        selection.finished_at = datetime.now(timezone.utc)
+                        selection.attempts = 1
+                    db.session.commit()
+                except Exception as e:
+                    current_app.logger.warning(f"Failed to update picker selection for {filename}: {e}")
             
             # 詳細な結果を記録
             detail = {
-                "file": os.path.basename(file_path),
+                "file": filename,
                 "status": "success" if file_result["success"] else "failed",
                 "reason": file_result["reason"],
                 "media_id": file_result.get("media_id")

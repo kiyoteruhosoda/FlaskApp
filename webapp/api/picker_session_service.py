@@ -177,7 +177,7 @@ class PickerSessionService:
             return {
                 "id": sel.id,
                 "googleMediaId": sel.google_media_id,
-                "filename": mi.filename if mi else None,
+                "filename": sel.local_filename or (mi.filename if mi else None),  # ローカルインポート用にlocal_filenameを優先
                 "status": sel.status,
                 "attempts": sel.attempts,
                 "error": sel.error_msg,

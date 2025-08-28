@@ -20,6 +20,38 @@ from core.tasks.picker_import import enqueue_picker_import_item  # re-export for
 
 bp = Blueprint('picker_session_api', __name__)
 
+@bp.get("/picker/sessions")
+@login_required
+def api_picker_sessions_list():
+    """Return list of all picker sessions."""
+    sessions = PickerSession.query.order_by(PickerSession.created_at.desc()).all()
+    result = []
+    for ps in sessions:
+        # 各セッションの選択数を集計
+        selection_counts = (
+            db.session.query(
+                PickerSelection.status,
+                func.count(PickerSelection.id).label('count')
+            )
+            .filter(PickerSelection.session_id == ps.id)
+            .group_by(PickerSelection.status)
+            .all()
+        )
+        counts = {status: count for status, count in selection_counts}
+        
+        result.append({
+            "id": ps.id,
+            "sessionId": ps.session_id,
+            "accountId": ps.account_id,
+            "status": ps.status,
+            "selectedCount": ps.selected_count or 0,
+            "createdAt": ps.created_at.isoformat().replace("+00:00", "Z") if ps.created_at else None,
+            "lastProgressAt": ps.last_progress_at.isoformat().replace("+00:00", "Z") if ps.last_progress_at else None,
+            "counts": counts
+        })
+    
+    return jsonify({"sessions": result})
+
 @bp.post("/picker/session")
 @login_required
 def api_picker_session_create():

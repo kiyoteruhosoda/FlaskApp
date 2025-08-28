@@ -3,133 +3,145 @@
 {% block content %}
 <h1>Photo View Home</h1>
 
-
-
 <div class="mb-3">
-  <button id="btn-import-start" class="btn btn-primary">
-    {{ _('Start Import') }}
-  </button>
+  <a href="/auth/picker" class="btn btn-success">
+    {{ _('Create New Session') }}
+  </a>
 </div>
-
-<div id="import-status" class="mt-3" aria-live="polite"></div>
 
 <div class="mt-4">
-  <h2>{{ _('Selected Files') }}</h2>
-  <div id="selection-counts" class="mb-2"></div>
-  <table class="table table-sm">
-    <thead>
-      <tr>
-        <th>{{ _('File') }}</th>
-        <th>{{ _('Status') }}</th>
-        <th>{{ _('Attempts') }}</th>
-        <th>{{ _('Error') }}</th>
-      </tr>
-    </thead>
-    <tbody id="selection-body"></tbody>
-  </table>
+  <h2>{{ _('All Picker Sessions') }}</h2>
+  <div id="sessions-list"></div>
 </div>
-
-<div id="server-data" 
-     data-picker-session-id="{{ picker_session_id or '' }}" 
-     style="display: none;"></div>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  // クエリパラメータ、もしくはサーバー側セッションから session_id を取得
-  function resolveSessionId() {
-    const params = new URLSearchParams(window.location.search);
-    const fromQuery = params.get('session_id');
-    if (fromQuery) return fromQuery;
-    const serverDataEl = document.getElementById('server-data');
-    const fromServer = serverDataEl.getAttribute('data-picker-session-id');
-    return fromServer || '';
+  const sessionsListEl = document.getElementById('sessions-list');
+
+  function formatDateTime(isoString) {
+    if (!isoString) return '-';
+    const date = new Date(isoString);
+    return date.toLocaleString();
   }
-  const pickerSessionId = resolveSessionId();
-  if (!pickerSessionId) {
-    // セッションIDが無ければGoogleアカウント管理ページに遷移
-    window.location.href = '/auth/settings/google-accounts';
-    return;
+
+  function formatCounts(counts) {
+    if (!counts || Object.keys(counts).length === 0) return '-';
+    return Object.entries(counts)
+      .map(([status, count]) => `${status}: ${count}`)
+      .join(', ');
   }
-  const importBtn = document.getElementById('btn-import-start');
-  const statusEl = document.getElementById('import-status');
-  const selectionBody = document.getElementById('selection-body');
-  const countsEl = document.getElementById('selection-counts');
+
+  async function loadSessions() {
+    try {
+      const resp = await fetch('/api/picker/sessions');
+      if (!resp.ok) {
+        console.error('Failed to load sessions:', resp.status);
+        sessionsListEl.innerHTML = '<div class="alert alert-danger">{{ _("Failed to load sessions.") }}</div>';
+        return;
+      }
+
+      const data = await resp.json();
+      
+      if (!data.sessions || data.sessions.length === 0) {
+        sessionsListEl.innerHTML = '<div class="alert alert-info">{{ _("No sessions found.") }}</div>';
+        return;
+      }
+
+      let html = `
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th>{{ _('Session ID') }}</th>
+              <th>{{ _('Status') }}</th>
+              <th>{{ _('Selected Count') }}</th>
+              <th>{{ _('File Status') }}</th>
+              <th>{{ _('Created At') }}</th>
+              <th>{{ _('Last Progress') }}</th>
+              <th>{{ _('Actions') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      data.sessions.forEach(session => {
+        html += `
+          <tr>
+            <td>${session.sessionId || 'N/A'}</td>
+            <td><span class="badge bg-${getStatusBadgeClass(session.status)}">${session.status}</span></td>
+            <td>${session.selectedCount || 0}</td>
+            <td>${formatCounts(session.counts)}</td>
+            <td>${formatDateTime(session.createdAt)}</td>
+            <td>${formatDateTime(session.lastProgressAt)}</td>
+            <td>
+              <a href="/photo-view?session_id=${session.id}" class="btn btn-sm btn-primary">{{ _('View Details') }}</a>
+              ${session.status === 'ready' ? `<button class="btn btn-sm btn-success ms-1" onclick="startImport(${session.id})">{{ _('Start Import') }}</button>` : ''}
+            </td>
+          </tr>
+        `;
+      });
+
+      html += `
+          </tbody>
+        </table>
+      `;
+
+      sessionsListEl.innerHTML = html;
+    } catch (err) {
+      console.error('Error loading sessions:', err);
+      sessionsListEl.innerHTML = '<div class="alert alert-danger">{{ _("Error loading sessions.") }}</div>';
+    }
+  }
+
+  function getStatusBadgeClass(status) {
+    switch (status) {
+      case 'pending': return 'secondary';
+      case 'ready': return 'primary';
+      case 'processing': return 'warning';
+      case 'importing': return 'info';
+      case 'imported': return 'success';
+      case 'expired': return 'danger';
+      case 'error': return 'danger';
+      default: return 'secondary';
+    }
+  }
 
   function getCsrfTokenFromCookie() {
-    // Flask-WTF の既定名が "csrf_token" の想定。環境に合わせて変更してください。
     const m = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
     return m ? decodeURIComponent(m[1]) : null;
   }
 
-  async function withBusy(btn, fn) {
-    const originalHtml = btn.innerHTML;
-    // シンプルなスピナー（Bootstrap 前提）
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> {{ _("Working...") }}';
-    btn.disabled = true;
-    btn.setAttribute('aria-busy', 'true');
+  window.startImport = async function(sessionId) {
     try {
-      return await fn();
-    } finally {
-      btn.innerHTML = originalHtml;
-      btn.disabled = false;
-      btn.removeAttribute('aria-busy');
-    }
-  }
+      const headers = {};
+      const csrf = getCsrfTokenFromCookie();
+      if (csrf) headers['X-CSRFToken'] = csrf;
 
-  importBtn.addEventListener('click', async () => {
-    if (!pickerSessionId) return;
-
-    await withBusy(importBtn, async () => {
-      try {
-        const headers = {};
-        const csrf = getCsrfTokenFromCookie();
-        if (csrf) headers['X-CSRFToken'] = csrf;
-
-        const resp = await fetch(`/api/picker/session/${encodeURIComponent(pickerSessionId)}/import`, {
-          method: 'POST',
-          headers
-          // body が不要なら送らない。必要なら JSON を設定し Content-Type を追加。
-        });
-
-        if (!resp.ok) {
-          const text = await resp.text().catch(() => '');
-          console.error('Import start failed:', resp.status, text);
-          statusEl.textContent = '{{ _("Failed to start import.") }}';
-          alert('{{ _("Failed to start import.") }}');
-          return;
-        }
-
-        statusEl.textContent = '{{ _("Import started.") }}';
-      } catch (err) {
-        console.error(err);
-        statusEl.textContent = '{{ _("Failed to start import.") }}';
-        alert('{{ _("Failed to start import.") }}');
-      }
-    });
-  });
-
-  async function refreshSelections() {
-    try {
-      const resp = await fetch(`/api/picker/session/${encodeURIComponent(pickerSessionId)}/selections`);
-      if (!resp.ok) return;
-      const data = await resp.json();
-      selectionBody.innerHTML = '';
-      data.selections.forEach(sel => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${sel.filename || sel.googleMediaId}</td>` +
-                        `<td>${sel.status}</td>` +
-                        `<td>${sel.attempts}</td>` +
-                        `<td>${sel.error || ''}</td>`;
-        selectionBody.appendChild(tr);
+      const resp = await fetch(`/api/picker/session/${sessionId}/import`, {
+        method: 'POST',
+        headers
       });
-      countsEl.textContent = Object.entries(data.counts).map(([k,v]) => `${k}: ${v}`).join(', ');
+
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => '');
+        console.error('Import start failed:', resp.status, text);
+        alert('{{ _("Failed to start import.") }}');
+        return;
+      }
+
+      alert('{{ _("Import started.") }}');
+      // セッション一覧を再読み込み
+      loadSessions();
     } catch (err) {
       console.error(err);
+      alert('{{ _("Failed to start import.") }}');
     }
-  }
+  };
 
-  setInterval(refreshSelections, 3000);
-  refreshSelections();
+  // 初期読み込み
+  loadSessions();
+  
+  // 定期的に更新
+  setInterval(loadSessions, 5000);
 });
 </script>
 {% endblock %}

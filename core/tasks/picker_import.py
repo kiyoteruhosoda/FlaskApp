@@ -98,9 +98,54 @@ def enqueue_thumbs_generate(media_id: int) -> None:
 def enqueue_media_playback(media_id: int) -> None:
     """Enqueue playback generation for a video *media_id*.
 
-    The real application would push a job onto a background worker.  Tests can
-    monkeypatch this function to inspect the queued items.
+    This function immediately starts video transcoding upon import for better
+    user experience. In production, this could be replaced with async queuing.
     """
+    import shutil
+    from .transcode import transcode_worker
+    from core.models.photo_models import MediaPlayback
+    
+    # Check if ffmpeg is available
+    if not shutil.which("ffmpeg"):
+        logger.warning(f"ffmpeg not available, skipping video transcoding for media_id={media_id}")
+        return None
+    
+    try:
+        # Find or create MediaPlayback record for this media
+        pb = MediaPlayback.query.filter_by(media_id=media_id, preset="std1080p").first()
+        if not pb:
+            # Create new MediaPlayback record
+            from core.models.photo_models import Media
+            media = Media.query.get(media_id)
+            if not media:
+                logger.error(f"Media not found for media_id={media_id}")
+                return None
+                
+            from pathlib import Path
+            rel_path = str(Path(media.local_rel_path).with_suffix(".mp4"))
+            
+            pb = MediaPlayback(
+                media_id=media_id,
+                preset="std1080p",
+                rel_path=rel_path,
+                status="pending",
+            )
+            db.session.add(pb)
+            db.session.commit()
+        
+        # Skip if already processed or processing
+        if pb.status in {"done", "processing"}:
+            logger.info(f"Video playback already {pb.status} for media_id={media_id}")
+            return None
+            
+        # Execute transcoding
+        result = transcode_worker(media_playback_id=pb.id)
+        if result.get("ok"):
+            logger.info(f"Video transcoding completed for media_id={media_id}: {result.get('width')}x{result.get('height')}")
+        else:
+            logger.warning(f"Video transcoding failed for media_id={media_id}: {result.get('note', 'unknown error')}")
+    except Exception as e:
+        logger.error(f"Exception during video transcoding for media_id={media_id}: {e}")
 
     return None
 

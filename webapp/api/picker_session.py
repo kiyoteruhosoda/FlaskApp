@@ -186,10 +186,6 @@ def api_picker_session_selections_by_session_id(session_id: str):
     resolves that identifier and delegates to the integer based handler so that
     behavior remains consistent.
     """
-    # If a purely numeric identifier is supplied, delegate to the existing
-    # integer-based endpoint to avoid conflicts.
-    if session_id.isdigit():
-        return api_picker_session_selections(int(session_id))
     ps = PickerSessionService.resolve_session_identifier(session_id)
     if not ps:
         return jsonify({"error": "not_found"}), 404
@@ -324,12 +320,6 @@ def api_picker_session_import_by_session_id(session_id: str):
     corresponding internal picker session and delegates to the integer-based
     import handler to keep behavior identical.
     """
-    # Accept both bare UUID and full "picker_sessions/<uuid>" forms.
-    # If a purely numeric identifier is supplied, delegate directly to the
-    # integer-based endpoint to avoid routing conflicts where this handler
-    # captures numeric IDs intended for the other route.
-    if session_id.isdigit():
-        return api_picker_session_import(int(session_id))
     ps = PickerSessionService.resolve_session_identifier(session_id)
     if not ps:
         return jsonify({"error": "not_found"}), 404

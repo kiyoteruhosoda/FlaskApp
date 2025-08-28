@@ -73,8 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <td>${formatDateTime(session.createdAt)}</td>
             <td>${formatDateTime(session.lastProgressAt)}</td>
             <td>
-              <a href="/photo-view?session_id=${session.id}" class="btn btn-sm btn-primary">{{ _('View Details') }}</a>
-              ${session.status === 'ready' ? `<button class="btn btn-sm btn-success ms-1" onclick="startImport(${session.id})">{{ _('Start Import') }}</button>` : ''}
+              <a href="/photo-view?session_id=${session.sessionId}" class="btn btn-sm btn-primary">{{ _('View Details') }}</a>
+              ${session.status === 'ready' ? `<button class="btn btn-sm btn-success ms-1" onclick="startImport('${session.sessionId}')">{{ _('Start Import') }}</button>` : ''}
             </td>
           </tr>
         `;

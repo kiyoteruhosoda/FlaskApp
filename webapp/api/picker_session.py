@@ -144,6 +144,27 @@ def api_picker_session_selections(picker_session_id: int):
     return jsonify(payload)
 
 
+@bp.get("/picker/session/<path:session_id>/selections")
+@login_required
+def api_picker_session_selections_by_session_id(session_id: str):
+    """Return selection list using external ``session_id`` string.
+
+    Clients may only know the Google Photos Picker ``session_id`` which can be a
+    bare UUID or include the ``picker_sessions/`` prefix.  This endpoint
+    resolves that identifier and delegates to the integer based handler so that
+    behavior remains consistent.
+    """
+    # If a purely numeric identifier is supplied, delegate to the existing
+    # integer-based endpoint to avoid conflicts.
+    if session_id.isdigit():
+        return api_picker_session_selections(int(session_id))
+    ps = PickerSessionService.resolve_session_identifier(session_id)
+    if not ps:
+        return jsonify({"error": "not_found"}), 404
+    payload = PickerSessionService.selection_details(ps)
+    return jsonify(payload)
+
+
 @bp.get("/picker/session/<string:session_id>")
 @login_required
 def api_picker_session_status(session_id):

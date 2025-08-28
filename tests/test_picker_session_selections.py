@@ -76,3 +76,32 @@ def test_picker_session_selections_endpoint(app):
     data = resp.get_json()
     assert data["counts"]["pending"] == 1
     assert data["selections"][0]["filename"] == "a.jpg"
+
+
+def test_picker_session_selections_by_session_id_endpoint(app):
+    import uuid
+    from webapp.extensions import db
+    from core.models.photo_models import MediaItem, PickerSelection
+    from core.models.picker_session import PickerSession
+
+    with app.app_context():
+        sess_id = f"picker_sessions/{uuid.uuid4().hex}"
+        ps = PickerSession(account_id=1, status="pending", session_id=sess_id)
+        db.session.add(ps)
+        mi = MediaItem(id="m2", mime_type="image/jpeg", filename="b.jpg", type="PHOTO")
+        db.session.add(mi)
+        db.session.flush()
+        sel = PickerSelection(session_id=ps.id, google_media_id="m2", status="pending")
+        db.session.add(sel)
+        db.session.commit()
+
+    client = app.test_client()
+    with client.session_transaction() as sess:
+        sess["_user_id"] = "1"
+        sess["_fresh"] = True
+    uuid_part = sess_id.split("/", 1)[1]
+    resp = client.get(f"/api/picker/session/{uuid_part}/selections")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["counts"]["pending"] == 1
+    assert data["selections"][0]["filename"] == "b.jpg"

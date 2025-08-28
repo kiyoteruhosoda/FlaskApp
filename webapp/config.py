@@ -1,4 +1,8 @@
 import os
+from dotenv import load_dotenv
+
+# .envファイルを読み込み
+load_dotenv()
 
 class Config:
     SECRET_KEY = os.environ["SECRET_KEY"]

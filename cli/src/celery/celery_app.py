@@ -1,7 +1,12 @@
+import os
+from dotenv import load_dotenv
 from celery import Celery
 from flask import Flask
 from webapp.config import Config
 from datetime import timedelta
+
+# .envファイルを読み込み
+load_dotenv()
 
 def make_celery(app: Flask):
     celery = Celery(

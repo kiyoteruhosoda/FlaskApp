@@ -1,47 +1,222 @@
 {% extends "base.html" %}
 {% block title %}{{ _('User Management') }}{% endblock %}
+
+{% block extra_head %}
+<script src="{{ url_for('static', filename='js/pagination.js') }}"></script>
+{% endblock %}
+
 {% block content %}
 <h2>{{ _('User Management') }}</h2>
-<div class="mb-3">
-  <a href="{{ url_for('admin.user_add') }}" class="btn btn-success">{{ _('Add User') }}</a>
-  <a href="{{ url_for('admin.show_config') }}" class="btn btn-info ms-2">{{ _('Show Config Settings') }}</a>
+<div class="mb-3 d-flex justify-content-between align-items-center">
+  <div>
+    <a href="{{ url_for('admin.user_add') }}" class="btn btn-success">{{ _('Add User') }}</a>
+    <a href="{{ url_for('admin.show_config') }}" class="btn btn-info ms-2">{{ _('Show Config Settings') }}</a>
+  </div>
+  <div class="d-flex gap-2">
+    <input type="text" id="search-input" class="form-control form-control-sm" placeholder="{{ _('Search users...') }}" style="width: 200px;">
+    <button id="refresh-btn" class="btn btn-outline-primary btn-sm">
+      <i class="fas fa-refresh"></i> {{ _('Refresh') }}
+    </button>
+  </div>
 </div>
-<table class="table table-bordered">
-  <thead>
-    <tr>
-      <th>ID</th>
-      <th>Email</th>
-      <th>Roles</th>
-      <th>Actions</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for user in users %}
-    <tr>
-      <td>{{ user.id }}</td>
-      <td>{{ user.email }}</td>
+
+<div id="user-stats" class="mb-3">
+  <span id="user-count" class="badge bg-info">{{ _('Loading...') }}</span>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-bordered">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>{{ _('Email') }}</th>
+        <th>{{ _('Roles') }}</th>
+        <th>{{ _('Created At') }}</th>
+        <th>{{ _('Actions') }}</th>
+      </tr>
+    </thead>
+    <tbody id="users-body">
+      <!-- ユーザーが動的に追加されます -->
+    </tbody>
+  </table>
+</div>
+
+<div id="loading-indicator" class="text-center" style="display: none;">
+  <div class="spinner-border text-primary" role="status">
+    <span class="visually-hidden">{{ _('Loading...') }}</span>
+  </div>
+  <p class="mt-2">{{ _('Loading more users...') }}</p>
+</div>
+
+<div id="no-more-data" class="text-center text-muted" style="display: none;">
+  <p>{{ _('All users loaded') }}</p>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const usersBody = document.getElementById('users-body');
+  const loadingIndicator = document.getElementById('loading-indicator');
+  const noMoreData = document.getElementById('no-more-data');
+  const refreshBtn = document.getElementById('refresh-btn');
+  const searchInput = document.getElementById('search-input');
+  const userCount = document.getElementById('user-count');
+  
+  let infiniteScroll;
+  let totalLoaded = 0;
+  let searchTimeout;
+
+  function formatDateTime(isoString) {
+    if (!isoString) return '-';
+    const date = new Date(isoString);
+    return date.toLocaleDateString();
+  }
+
+  function getCsrfToken() {
+    const metaTag = document.querySelector('meta[name="csrf-token"]');
+    return metaTag ? metaTag.getAttribute('content') : '';
+  }
+
+  function createUserRow(user) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${user.id}</td>
+      <td>${user.email}</td>
       <td>
-        {% for role in user.roles %}
-          <span class="badge bg-secondary">{{ role.name }}</span>
-        {% endfor %}
+        ${user.roles.map(role => `<span class="badge bg-secondary">${role.name}</span>`).join(' ')}
       </td>
+      <td><small>${formatDateTime(user.createdAt)}</small></td>
       <td>
-        <form method="post" action="{{ url_for('admin.user_change_role', user_id=user.id) }}" class="d-inline">
-          <select name="role" class="form-select form-select-sm d-inline w-auto" onchange="this.form.submit()">
-            {% for role in roles %}
-              <option value="{{ role.id }}" {% if role in user.roles %}selected{% endif %}>{{ role.name }}</option>
-            {% endfor %}
-          </select>
-        </form>
-        <form method="post" action="{{ url_for('admin.user_reset_totp', user_id=user.id) }}" class="d-inline" onsubmit="return confirm('Reset TOTP for this user?');">
-          <button type="submit" class="btn btn-warning btn-sm">{{ _('Reset TOTP') }}</button>
-        </form>
-        <form method="post" action="{{ url_for('admin.user_delete', user_id=user.id) }}" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this user?');">
-          <button type="submit" class="btn btn-danger btn-sm">{{ _('Delete') }}</button>
-        </form>
+        <div class="btn-group btn-group-sm" role="group">
+          <button class="btn btn-outline-primary btn-sm" onclick="editUserRoles(${user.id})">
+            {{ _('Edit Roles') }}
+          </button>
+          <button class="btn btn-warning btn-sm" onclick="resetUserTotp(${user.id})" title="{{ _('Reset TOTP') }}">
+            <i class="fas fa-key"></i>
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="deleteUser(${user.id})" title="{{ _('Delete User') }}">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
       </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+    `;
+    return tr;
+  }
+
+  function initializeInfiniteScroll() {
+    const searchQuery = searchInput.value.trim();
+    const params = {};
+    if (searchQuery) {
+      params.search = searchQuery;
+    }
+
+    const paginationClient = new PaginationClient({
+      baseUrl: '/api/admin/users',
+      pageSize: 50,
+      parameters: params,
+      onItemsLoaded: (items, meta) => {
+        if (meta.isFirstPage) {
+          usersBody.innerHTML = '';
+          totalLoaded = 0;
+        }
+        
+        items.forEach(user => {
+          const row = createUserRow(user);
+          usersBody.appendChild(row);
+          totalLoaded++;
+        });
+        
+        userCount.textContent = `${totalLoaded} ${_('users loaded')}`;
+      },
+      onError: (error) => {
+        console.error('Users loading error:', error);
+        usersBody.innerHTML = '<tr><td colspan="5"><div class="alert alert-danger">{{ _("Failed to load users.") }}</div></td></tr>';
+      }
+    });
+
+    infiniteScroll = new InfiniteScrollHelper({
+      paginationClient: paginationClient,
+      loadingIndicator: loadingIndicator,
+      noMoreDataIndicator: noMoreData,
+      container: document.body,
+      threshold: 200
+    });
+
+    infiniteScroll.start();
+  }
+
+  function refreshUsers() {
+    if (infiniteScroll) {
+      infiniteScroll.destroy();
+    }
+    initializeInfiniteScroll();
+  }
+
+  // 検索機能
+  searchInput.addEventListener('input', () => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      refreshUsers();
+    }, 500); // 500ms のデバウンス
+  });
+
+  // 更新ボタンの処理
+  refreshBtn.addEventListener('click', refreshUsers);
+
+  // グローバル関数（既存の管理機能との互換性のため）
+  window.editUserRoles = function(userId) {
+    // 既存のロール編集機能を呼び出し
+    alert('{{ _("Role editing functionality to be implemented") }}');
+  };
+
+  window.resetUserTotp = function(userId) {
+    if (!confirm('{{ _("Reset TOTP for this user?") }}')) return;
+    
+    fetch(`/admin/user/${userId}/reset-totp`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken()
+      }
+    })
+    .then(response => {
+      if (response.ok) {
+        alert('{{ _("TOTP reset successfully") }}');
+      } else {
+        alert('{{ _("Failed to reset TOTP") }}');
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('{{ _("Failed to reset TOTP") }}');
+    });
+  };
+
+  window.deleteUser = function(userId) {
+    if (!confirm('{{ _("Are you sure you want to delete this user?") }}')) return;
+    
+    fetch(`/admin/user/${userId}/delete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken()
+      }
+    })
+    .then(response => {
+      if (response.ok) {
+        alert('{{ _("User deleted successfully") }}');
+        refreshUsers();
+      } else {
+        alert('{{ _("Failed to delete user") }}');
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('{{ _("Failed to delete user") }}');
+    });
+  };
+
+  // 初期化
+  initializeInfiniteScroll();
+});
+</script>
 {% endblock %}

@@ -1,6 +1,217 @@
 {% extends 'base.html' %}
 {% block title %}Media List{% endblock %}
+
+{% block extra_head %}
+<script src="{{ url_for('static', filename='js/pagination.js') }}"></script>
+<style>
+  .media-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+    padding: 20px 0;
+  }
+  
+  .media-card {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  
+  .media-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  }
+  
+  .media-thumbnail {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    background: #f8f9fa;
+  }
+  
+  .media-info {
+    padding: 10px;
+    background: white;
+  }
+  
+  .media-title {
+    font-size: 0.9rem;
+    margin: 0 0 5px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .media-meta {
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin: 0;
+  }
+  
+  .loading-spinner {
+    text-align: center;
+    padding: 40px;
+  }
+  
+  .no-more-data {
+    text-align: center;
+    padding: 20px;
+    color: #6c757d;
+    font-style: italic;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<h1>Media List</h1>
-<p>Placeholder for infinite scrolling media grid.</p>
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1>{{ _('Media List') }}</h1>
+  <div class="d-flex gap-2">
+    <select id="sort-order" class="form-select form-select-sm" style="width: auto;">
+      <option value="desc">{{ _('Newest First') }}</option>
+      <option value="asc">{{ _('Oldest First') }}</option>
+    </select>
+    <button id="refresh-btn" class="btn btn-outline-primary btn-sm">
+      <i class="fas fa-refresh"></i> {{ _('Refresh') }}
+    </button>
+  </div>
+</div>
+
+<div id="media-stats" class="mb-3">
+  <span id="media-count" class="badge bg-info">{{ _('Loading...') }}</span>
+</div>
+
+<div id="media-grid" class="media-grid">
+  <!-- メディアアイテムが動的に追加されます -->
+</div>
+
+<div id="loading-indicator" class="loading-spinner" style="display: none;">
+  <div class="spinner-border text-primary" role="status">
+    <span class="visually-hidden">{{ _('Loading...') }}</span>
+  </div>
+  <p class="mt-2">{{ _('Loading more media...') }}</p>
+</div>
+
+<div id="no-more-data" class="no-more-data" style="display: none;">
+  <p>{{ _('All media loaded') }}</p>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const mediaGrid = document.getElementById('media-grid');
+  const loadingIndicator = document.getElementById('loading-indicator');
+  const noMoreData = document.getElementById('no-more-data');
+  const sortOrder = document.getElementById('sort-order');
+  const refreshBtn = document.getElementById('refresh-btn');
+  const mediaCount = document.getElementById('media-count');
+  
+  let infiniteScroll;
+  let totalLoaded = 0;
+
+  function formatDateTime(isoString) {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    return date.toLocaleDateString();
+  }
+
+  function formatFileSize(bytes) {
+    if (!bytes || bytes === 0) return '';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let size = bytes;
+    let unitIndex = 0;
+    while (size >= 1024 && unitIndex < units.length - 1) {
+      size /= 1024;
+      unitIndex++;
+    }
+    return `${size.toFixed(1)} ${units[unitIndex]}`;
+  }
+
+  function createMediaCard(media) {
+    const card = document.createElement('div');
+    card.className = 'media-card';
+    card.innerHTML = `
+      <img class="media-thumbnail" 
+           src="/api/media/${media.id}/thumbnail?size=256" 
+           alt="${media.filename || 'Media'}"
+           loading="lazy"
+           onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzZjNzU3ZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
+      <div class="media-info">
+        <h6 class="media-title">${media.filename || media.googleMediaId || 'Unknown'}</h6>
+        <p class="media-meta">
+          ${formatDateTime(media.shotAt)} • ${formatFileSize(media.bytes)}
+          ${media.width && media.height ? ` • ${media.width}×${media.height}` : ''}
+        </p>
+      </div>
+    `;
+    
+    // クリックでメディア詳細ページに遷移
+    card.addEventListener('click', () => {
+      window.location.href = `/photo-view/media/${media.id}`;
+    });
+    
+    return card;
+  }
+
+  function initializeInfiniteScroll() {
+    const paginationClient = new PaginationClient({
+      baseUrl: '/api/media',
+      pageSize: 200,
+      parameters: {
+        order: sortOrder.value
+      },
+      onItemsLoaded: (items, meta) => {
+        if (meta.isFirstPage) {
+          mediaGrid.innerHTML = '';
+          totalLoaded = 0;
+        }
+        
+        items.forEach(media => {
+          const card = createMediaCard(media);
+          mediaGrid.appendChild(card);
+          totalLoaded++;
+        });
+        
+        mediaCount.textContent = `${totalLoaded} ${_('media items loaded')}`;
+      },
+      onError: (error) => {
+        console.error('Media loading error:', error);
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'alert alert-danger';
+        errorDiv.textContent = '{{ _("Failed to load media. Please try again.") }}';
+        mediaGrid.appendChild(errorDiv);
+      }
+    });
+
+    infiniteScroll = new InfiniteScrollHelper({
+      paginationClient: paginationClient,
+      loadingIndicator: loadingIndicator,
+      noMoreDataIndicator: noMoreData,
+      container: document.body,
+      threshold: 200
+    });
+
+    infiniteScroll.start();
+  }
+
+  // ソート順変更時の処理
+  sortOrder.addEventListener('change', () => {
+    if (infiniteScroll) {
+      infiniteScroll.destroy();
+    }
+    initializeInfiniteScroll();
+  });
+
+  // 更新ボタンの処理
+  refreshBtn.addEventListener('click', () => {
+    if (infiniteScroll) {
+      infiniteScroll.destroy();
+    }
+    initializeInfiniteScroll();
+  });
+
+  // 初期化
+  initializeInfiniteScroll();
+});
+</script>
 {% endblock %}

@@ -525,6 +525,8 @@ def picker_import_item(
             except requests.HTTPError as e:
                 if e.response is not None and e.response.status_code in (401, 403):
                     raise AuthError()
+                elif e.response is not None and e.response.status_code == 404:
+                    raise BaseUrlExpired()
                 raise NetworkError()
             except requests.RequestException:
                 raise NetworkError()

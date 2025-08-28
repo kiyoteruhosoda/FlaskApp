@@ -118,7 +118,7 @@ def api_picker_session_summary(picker_session_id):
 
     job = (
         JobSync.query.filter_by(target="picker_import", session_id=ps.id)
-        .order_by(JobSync.started_at.desc().nullslast())
+        .order_by(JobSync.started_at.is_(None), JobSync.started_at.desc())
         .first()
     )
     job_summary = None

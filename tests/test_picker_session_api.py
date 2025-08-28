@@ -260,6 +260,41 @@ def test_import_not_found(monkeypatch, client, app):
     assert res.status_code == 404
 
 
+def test_import_by_session_id_ok(monkeypatch, client, app):
+    login(client, app)
+
+    def fake_post(url, *a, **k):
+        if url == "https://oauth2.googleapis.com/token":
+            return FakeResp({"access_token": "acc"})
+        if url == "https://photospicker.googleapis.com/v1/sessions":
+            sid = "picker_sessions/" + uuid.uuid4().hex
+            return FakeResp(
+                {
+                    "id": sid,
+                    "pickerUri": "https://picker",
+                    "expireTime": "2025-03-10T00:00:00Z",
+                    "pollingConfig": {"pollInterval": "3s", "timeoutIn": "30s"},
+                    "pickingConfig": {"maxItemCount": "5"},
+                    "mediaItemsSet": False,
+                }
+            )
+        raise AssertionError("unexpected url" + url)
+
+    monkeypatch.setattr("requests.post", fake_post)
+
+    res = client.post("/api/picker/session", json={"account_id": 1})
+    session_str = res.get_json()["sessionId"]
+
+    res = client.post(f"/api/picker/session/{session_str}/import")
+    assert res.status_code == 202
+    data = res.get_json()
+    assert data["enqueued"] is True
+    from core.models.picker_session import PickerSession
+    with app.app_context():
+        ps = PickerSession.query.filter_by(session_id=session_str).first()
+        assert ps.status == "importing"
+
+
 def test_callback_stores_ids(monkeypatch, client, app):
     login(client, app)
 

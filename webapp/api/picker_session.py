@@ -168,12 +168,9 @@ def api_picker_session_summary(picker_session_id):
 @bp.get("/picker/session/<int:picker_session_id>/selections")
 @login_required
 def api_picker_session_selections(picker_session_id: int):
-    """Return detailed picker selection list for a session."""
-    ps = PickerSession.query.get(picker_session_id)
-    if not ps:
-        return jsonify({"error": "not_found"}), 404
-    payload = PickerSessionService.selection_details(ps)
-    return jsonify(payload)
+    """Return detailed picker selection list for a session (DEPRECATED: Use session_id instead)."""
+    # セキュリティ改善：数値IDの使用を拒否
+    return jsonify({"error": "numeric_ids_not_supported", "message": "Use session_id hash instead"}), 400
 
 
 @bp.get("/picker/session/<path:session_id>/selections")
@@ -272,42 +269,9 @@ def api_picker_session_media_items():
 @bp.post("/picker/session/<int:picker_session_id>/import")
 @login_required
 def api_picker_session_import(picker_session_id: int):
-    """Enqueue import task for picker session.
-
-    The frontend does not pass ``account_id`` in the request body, so the
-    parameter is now optional.  If provided it must match the session's
-    ``account_id``; otherwise the session's own ``account_id`` is used.
-    The picker session status is also updated to ``importing`` so that the
-    client can immediately reflect the change in state.
-    """
-    data = request.get_json(silent=True) or {}
-    account_id_in = data.get("account_id")
-    ps = PickerSession.query.get(picker_session_id)
-    if not ps:
-        return jsonify({"error": "not_found"}), 404
-    payload, status = PickerSessionService.enqueue_import(ps, account_id_in)
-    if status in (409, 500):
-        current_app.logger.info(
-            json.dumps({
-                "ts": datetime.now(timezone.utc).isoformat(),
-                "picker_session_id": picker_session_id,
-                "status": ps.status,
-                **({"job_id": payload.get("jobId")} if payload.get("jobId") else {}),
-            }),
-            extra={"event": "picker.import.suppress"},
-        )
-    else:
-        current_app.logger.info(
-            json.dumps({
-                "ts": datetime.now(timezone.utc).isoformat(),
-                "picker_session_id": picker_session_id,
-                "job_id": payload.get("jobId"),
-                "job_status": payload.get("status"),
-                "celery_task_id": payload.get("celeryTaskId"),
-            }),
-            extra={"event": "picker.import.enqueue"},
-        )
-    return jsonify(payload), status
+    """Enqueue import task for picker session (DEPRECATED: Use session_id instead)."""
+    # セキュリティ改善：数値IDの使用を拒否
+    return jsonify({"error": "numeric_ids_not_supported", "message": "Use session_id hash instead"}), 400
 
 
 @bp.post("/picker/session/<path:session_id>/import")
@@ -317,14 +281,41 @@ def api_picker_session_import_by_session_id(session_id: str):
 
     Some clients only know the Google Photos Picker ``session_id`` (which may
     include a slash like ``picker_sessions/<uuid>``). This endpoint resolves the
-    corresponding internal picker session and delegates to the integer-based
-    import handler to keep behavior identical.
+    corresponding internal picker session and processes the import directly.
     """
     ps = PickerSessionService.resolve_session_identifier(session_id)
     if not ps:
         return jsonify({"error": "not_found"}), 404
-    # Delegate to the primary import implementation
-    return api_picker_session_import(ps.id)
+    
+    # 直接インポート処理を実行
+    data = request.get_json(silent=True) or {}
+    account_id_in = data.get("account_id")
+    payload, status = PickerSessionService.enqueue_import(ps, account_id_in)
+    
+    if status in (409, 500):
+        current_app.logger.info(
+            json.dumps({
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "picker_session_id": ps.id,
+                "session_id": session_id,
+                "status": ps.status,
+                **({"job_id": payload.get("jobId")} if payload.get("jobId") else {}),
+            }),
+            extra={"event": "picker.import.suppress"},
+        )
+    else:
+        current_app.logger.info(
+            json.dumps({
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "picker_session_id": ps.id,
+                "session_id": session_id,
+                "job_id": payload.get("jobId"),
+                "job_status": payload.get("status"),
+                "celery_task_id": payload.get("celeryTaskId"),
+            }),
+            extra={"event": "picker.import.enqueue"},
+        )
+    return jsonify(payload), status
 
 
 @bp.post("/picker/session/<int:picker_session_id>/finish")

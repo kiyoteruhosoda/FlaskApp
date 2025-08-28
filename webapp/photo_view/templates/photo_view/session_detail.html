@@ -51,6 +51,13 @@ document.addEventListener('DOMContentLoaded', () => {
     window.location.href = '/photo-view';
     return;
   }
+  
+  // 数値IDの場合はセッション一覧に戻る（セキュリティ対策）
+  if (/^\d+$/.test(pickerSessionId)) {
+    console.warn('Numeric session ID detected, redirecting to sessions list');
+    window.location.href = '/photo-view';
+    return;
+  }
   const importBtn = document.getElementById('btn-import-start');
   const statusEl = document.getElementById('import-status');
   const selectionBody = document.getElementById('selection-body');
@@ -110,6 +117,13 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   async function refreshSelections() {
+    // 数値IDの場合はAPIリクエストを送信せずリダイレクト
+    if (/^\d+$/.test(pickerSessionId)) {
+      console.warn('Numeric session ID detected in refresh, redirecting to sessions list');
+      window.location.href = '/photo-view';
+      return;
+    }
+    
     try {
       const resp = await fetch(`/api/picker/session/${encodeURIComponent(pickerSessionId)}/selections`);
       if (!resp.ok) return;

@@ -55,9 +55,9 @@ def picker_import_watchdog_task():
 
 
 @celery.task(bind=True, name="local_import.run")
-def local_import_task_celery(self):
+def local_import_task_celery(self, session_id=None):
     """ローカルファイル取り込みタスク"""
-    return local_import_task(task_instance=self)
+    return local_import_task(task_instance=self, session_id=session_id)
 
 
 __all__ = [

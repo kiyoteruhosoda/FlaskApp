@@ -13,7 +13,7 @@
     {{ _('Create New Session') }}
   </a>
   <button id="refresh-sessions" class="btn btn-outline-primary ms-2">
-    <i class="fas fa-refresh"></i> {{ _('Refresh') }}
+    <i id="refresh-icon" class="fas fa-refresh"></i> {{ _('Refresh') }}
   </button>
   
   <!-- ローカルインポートボタン -->
@@ -129,6 +129,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function initializeInfiniteScroll() {
+    const refreshIcon = document.getElementById('refresh-icon');
+    
     const paginationClient = new PaginationClient({
       baseUrl: '/api/picker/sessions',
       pageSize: 50, // セッションは1ページ50件程度で十分
@@ -136,6 +138,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (meta.currentPage === 1) {
           sessionsBody.innerHTML = '';
           totalLoaded = 0;
+          // ローディングアイコンを停止
+          if (refreshIcon) {
+            refreshIcon.style.animation = '';
+            refreshIcon.classList.remove('fa-spin');
+          }
         }
         
         items.forEach(session => {
@@ -194,6 +201,8 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   function refreshSessions() {
+    // リフレッシュ開始をトースト通知で案内
+    showInfoToast('セッション一覧を更新しています...', 3000);
     initializeInfiniteScroll();
   }
 

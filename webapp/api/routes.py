@@ -631,16 +631,39 @@ def api_download(token):
 def trigger_local_import():
     """ローカルファイル取り込みを手動実行"""
     from cli.src.celery.tasks import local_import_task_celery
+    from core.models.picker_session import PickerSession
+    from core.db import db
+    import uuid
+    import random
+    import string
     
     try:
-        # Celeryタスクを非同期実行
-        task = local_import_task_celery.delay()
+        # PickerSessionを先に作成
+        now = datetime.now(timezone.utc)
+        random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
+        session_id = f"local_import_{now.strftime('%Y%m%d_%H%M%S')}_{now.microsecond}_{random_suffix}"
+        
+        session = PickerSession(
+            account_id=None,  # ローカルインポートの場合はNone
+            session_id=session_id,
+            status="processing",
+            selected_count=0,
+            created_at=now,
+            updated_at=now,
+            last_progress_at=now
+        )
+        db.session.add(session)
+        db.session.commit()
+        
+        # Celeryタスクにセッション情報を渡して非同期実行
+        task = local_import_task_celery.delay(session_id)
         
         return jsonify({
             "success": True,
             "task_id": task.id,
+            "session_id": session_id,
             "message": "ローカルインポートタスクを開始しました",
-            "server_time": datetime.now(timezone.utc).isoformat()
+            "server_time": now.isoformat()
         })
     
     except Exception as e:

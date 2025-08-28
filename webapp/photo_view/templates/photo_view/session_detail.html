@@ -205,6 +205,21 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     
+    // セッション情報を取得してステータスを確認
+    let sessionStatus = 'unknown';
+    try {
+      const sessionResp = await fetch(`/api/picker/sessions?pageSize=1`);
+      if (sessionResp.ok) {
+        const sessionData = await sessionResp.json();
+        const currentSession = sessionData.sessions.find(s => s.sessionId === pickerSessionId);
+        if (currentSession) {
+          sessionStatus = currentSession.status;
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to fetch session status:', err);
+    }
+    
     try {
       if (!paginationClient) {
         // 初回読み込み時にページングクライアントを初期化
@@ -219,10 +234,33 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             // アイテムを追加
-            items.forEach(selection => {
-              const row = createSelectionRow(selection);
-              selectionBody.appendChild(row);
-            });
+            if (items.length === 0 && meta.currentPage === 1) {
+              // ファイルが0件の場合 - ステータスに応じてメッセージを変更
+              const tr = document.createElement('tr');
+              let message = '';
+              if (sessionStatus === 'processing') {
+                message = '<i class="bi bi-clock"></i> Celery処理待ち中...';
+              } else if (sessionStatus === 'ready') {
+                message = '<i class="bi bi-info-circle"></i> 対象ファイルがありません';
+              } else if (sessionStatus === 'imported') {
+                message = '<i class="bi bi-check-circle"></i> 処理完了（対象ファイル: 0件）';
+              } else if (sessionStatus === 'error') {
+                message = '<i class="bi bi-exclamation-triangle text-danger"></i> 処理エラー';
+              } else {
+                message = '<i class="bi bi-info-circle"></i> 対象ファイルがありません';
+              }
+              tr.innerHTML = `
+                <td colspan="4" class="text-center text-muted py-4">
+                  ${message}
+                </td>
+              `;
+              selectionBody.appendChild(tr);
+            } else {
+              items.forEach(selection => {
+                const row = createSelectionRow(selection);
+                selectionBody.appendChild(row);
+              });
+            }
           },
           onError: (error) => {
             console.error('Selection loading error:', error);
@@ -237,10 +275,25 @@ document.addEventListener('DOMContentLoaded', () => {
       const countResp = await fetch(`/api/picker/session/${encodeURIComponent(pickerSessionId)}/selections?pageSize=1`);
       if (countResp.ok) {
         const countData = await countResp.json();
-        if (countData.counts) {
+        if (countData.counts && Object.keys(countData.counts).length > 0) {
           currentCounts = countData.counts;
           countsEl.textContent = Object.entries(currentCounts).map(([k,v]) => `${k}: ${v}`).join(', ');
+        } else {
+          // ステータスに応じてカウント表示を変更
+          if (sessionStatus === 'processing') {
+            countsEl.textContent = 'ステータス: 処理待ち';
+          } else if (sessionStatus === 'ready') {
+            countsEl.textContent = '選択されたファイル: 0件';
+          } else if (sessionStatus === 'imported') {
+            countsEl.textContent = '処理完了: 0件';
+          } else if (sessionStatus === 'error') {
+            countsEl.textContent = 'ステータス: エラー';
+          } else {
+            countsEl.textContent = '選択されたファイル: 0件';
+          }
         }
+      } else {
+        countsEl.textContent = '選択されたファイル: 0件';
       }
       
     } catch (err) {

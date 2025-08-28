@@ -274,12 +274,13 @@ def scan_import_directory(import_dir: str) -> List[str]:
     return files
 
 
-def local_import_task(task_instance=None) -> Dict:
+def local_import_task(task_instance=None, session_id=None) -> Dict:
     """
     ローカル取り込みタスクのメイン処理
     
     Args:
         task_instance: Celeryタスクインスタンス（進行状況報告用）
+        session_id: API側で作成されたPickerSessionのID
     
     Returns:
         処理結果辞書
@@ -301,47 +302,91 @@ def local_import_task(task_instance=None) -> Dict:
         "failed": 0,
         "errors": [],
         "details": [],
-        "session_id": None
+        "session_id": session_id
     }
     
-    # ローカルインポート用のセッションを作成
+    # API側で作成されたセッションを取得
     session = None
-    try:
-        session = PickerSession(
-            account_id=None,  # ローカルインポートの場合はNone
-            session_id=f"local_import_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
-            status="processing",
-            selected_count=0,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc)
-        )
-        db.session.add(session)
-        db.session.commit()
-        
-        result["session_id"] = session.session_id
-    except Exception as e:
-        result["errors"].append(f"セッション作成エラー: {str(e)}")
+    if session_id:
+        try:
+            session = PickerSession.query.filter_by(session_id=session_id).first()
+            if not session:
+                result["errors"].append(f"セッションが見つかりません: {session_id}")
+                return result
+        except Exception as e:
+            result["errors"].append(f"セッション取得エラー: {str(e)}")
+            return result
+    else:
+        result["errors"].append("セッションIDが指定されていません")
+        return result
     
     try:
         # ディレクトリの存在チェック
         if not os.path.exists(import_dir):
-            result["ok"] = False
+            # ディレクトリが存在しない場合も0件処理として完了扱い
+            session.status = "imported"
+            session.selected_count = 0
+            session.updated_at = datetime.now(timezone.utc)
+            session.last_progress_at = datetime.now(timezone.utc)
+            
+            # 統計情報を設定
+            stats = {
+                "total": 0,
+                "success": 0,
+                "skipped": 0,
+                "failed": 0
+            }
+            session.set_stats(stats)
+            db.session.commit()
+            
             result["errors"].append(f"取り込みディレクトリが存在しません: {import_dir}")
             return result
         
         if not os.path.exists(originals_dir):
-            result["ok"] = False
+            # 保存先ディレクトリが存在しない場合も0件処理として完了扱い
+            session.status = "imported"
+            session.selected_count = 0
+            session.updated_at = datetime.now(timezone.utc)
+            session.last_progress_at = datetime.now(timezone.utc)
+            
+            # 統計情報を設定
+            stats = {
+                "total": 0,
+                "success": 0,
+                "skipped": 0,
+                "failed": 0
+            }
+            session.set_stats(stats)
+            db.session.commit()
+            
             result["errors"].append(f"保存先ディレクトリが存在しません: {originals_dir}")
             return result
         
         # ファイル一覧の取得
         files = scan_import_directory(import_dir)
         
-        if not files:
+        # ファイルが0件でも正常処理として扱う
+        total_files = len(files)
+        
+        if total_files == 0:
+            # 0件処理として完了
+            session.status = "imported"
+            session.selected_count = 0
+            session.updated_at = datetime.now(timezone.utc)
+            session.last_progress_at = datetime.now(timezone.utc)
+            
+            # 統計情報を設定
+            stats = {
+                "total": 0,
+                "success": 0,
+                "skipped": 0,
+                "failed": 0
+            }
+            session.set_stats(stats)
+            db.session.commit()
+            
             result["errors"].append(f"取り込み対象ファイルが見つかりません: {import_dir}")
             return result
-        
-        total_files = len(files)
         
         # 進行状況の初期化
         if task_instance:

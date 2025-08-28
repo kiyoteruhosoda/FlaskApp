@@ -556,6 +556,23 @@ def picker_import_item(
             final_path = orig_dir / out_rel
             final_path.parent.mkdir(parents=True, exist_ok=True)
             os.replace(dl.path, final_path)
+            
+            # ファイル保存ログ
+            logger.info(
+                json.dumps(
+                    {
+                        "ts": now.isoformat(),
+                        "selection_id": sel.id,
+                        "session_id": session_id,
+                        "file_path": str(final_path),
+                        "file_size": dl.bytes,
+                        "mime_type": mi.mime_type,
+                        "sha256": dl.sha256,
+                        "original_filename": mi.filename,
+                    }
+                ),
+                extra={"event": "picker.file.saved"},
+            )
 
             media = Media(
                 google_media_id=mi.id,
@@ -644,19 +661,48 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
     dup = 0
     failed = 0
     note = None
+    start_time = datetime.now(timezone.utc)
+
+    # セッション開始ログ
+    logger.info(
+        json.dumps(
+            {
+                "ts": start_time.isoformat(),
+                "session_id": picker_session_id,
+                "account_id": account_id,
+            }
+        ),
+        extra={"event": "picker.session.start"},
+    )
 
     # 1. Lookup picker session and account
     ps, gacc, note = _lookup_session_and_account(picker_session_id, account_id)
     if note == "invalid_session":
+        logger.error(
+            json.dumps({"ts": start_time.isoformat(), "session_id": picker_session_id, "error": note}),
+            extra={"event": "picker.session.error"},
+        )
         return {"ok": False, "imported": 0, "dup": 0, "failed": 0, "note": note}
     if note == "already_done":
+        logger.info(
+            json.dumps({"ts": start_time.isoformat(), "session_id": picker_session_id, "note": note}),
+            extra={"event": "picker.session.skip"},
+        )
         return {"ok": True, "imported": 0, "dup": 0, "failed": 0, "note": note}
     if note == "account_not_found":
+        logger.error(
+            json.dumps({"ts": start_time.isoformat(), "session_id": picker_session_id, "error": note}),
+            extra={"event": "picker.session.error"},
+        )
         return {"ok": False, "imported": 0, "dup": 0, "failed": 0, "note": note}
 
     # 2. Exchange refresh token for access token
     access_token, note = _exchange_refresh_token(gacc, ps)  # type: ignore[arg-type]
     if note:
+        logger.error(
+            json.dumps({"ts": datetime.now(timezone.utc).isoformat(), "session_id": picker_session_id, "error": note}),
+            extra={"event": "picker.session.error"},
+        )
         return {"ok": False, "imported": 0, "dup": 0, "failed": 0, "note": note}
 
     headers = {"Authorization": f"Bearer {access_token}"}
@@ -697,12 +743,31 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
             elif item_data.get("mediaItems"):
                 results.extend(item_data["mediaItems"])
 
-        for item in results:
+        for i, item in enumerate(results):
             media_id = item.get("id")
             if not media_id:
                 failed += 1
                 continue
             processed_ids.append(media_id)
+            
+            # 進捗ログ (10件ごとまたは最初と最後)
+            total_count = len(results)
+            if i == 0 or i == total_count - 1 or (i + 1) % 10 == 0:
+                logger.info(
+                    json.dumps(
+                        {
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                            "session_id": picker_session_id,
+                            "progress": f"{i + 1}/{total_count}",
+                            "media_id": media_id,
+                            "imported": imported,
+                            "duplicates": dup,
+                            "failed": failed,
+                        }
+                    ),
+                    extra={"event": "picker.session.progress"},
+                )
+            
             base_url = item.get("baseUrl")
             filename = item.get("filename")
             mime = item.get("mimeType")
@@ -781,16 +846,36 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
     stats["processed_ids"] = processed_ids
     ps.set_stats(stats)
 
+    end_time = datetime.now(timezone.utc)
     if imported > 0:
         ps.status = "imported"
-        ps.completed_at = datetime.now(timezone.utc)
+        ps.completed_at = end_time
     elif failed > 0:
         ps.status = "error"
     else:  # only duplicates
         ps.status = "imported"
-        ps.completed_at = datetime.now(timezone.utc)
+        ps.completed_at = end_time
 
     db.session.commit()
+
+    # セッション完了ログ
+    duration_seconds = (end_time - start_time).total_seconds()
+    logger.info(
+        json.dumps(
+            {
+                "ts": end_time.isoformat(),
+                "session_id": picker_session_id,
+                "account_id": account_id,
+                "status": ps.status,
+                "duration_seconds": duration_seconds,
+                "imported": imported,
+                "duplicates": dup,
+                "failed": failed,
+                "processed_total": len(processed_ids),
+            }
+        ),
+        extra={"event": "picker.session.complete"},
+    )
 
     ok = imported > 0 or failed == 0
     if imported > 0 and failed > 0:

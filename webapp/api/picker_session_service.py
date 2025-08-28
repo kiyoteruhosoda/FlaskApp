@@ -370,7 +370,7 @@ class PickerSessionService:
 
     @staticmethod
     def _enqueue_new_items(ps: PickerSession, new_pmis: Iterable[PickerSelection]) -> None:
-        ps.status = "imported"
+        # ps.status = "imported"  # 削除: 新しいアイテムをキューに追加しただけで、まだインポート完了ではない
         now = datetime.now(timezone.utc)
         ps.updated_at = now
         ps.last_progress_at = now
@@ -388,7 +388,7 @@ class PickerSessionService:
     def enqueue_import(ps: PickerSession, account_id_in: Optional[int]) -> Tuple[dict, int]:
         if account_id_in and ps.account_id != account_id_in:
             return {"error": "not_found"}, 404
-        if ps.status in ("imported", "canceled", "expired", "error"):
+        if ps.status in ("importing", "imported", "canceled", "expired", "error"):
             return {"error": "already_done"}, 409
 
         existing = (
@@ -434,7 +434,7 @@ class PickerSessionService:
         stats["celery_task_id"] = task_id
         stats["job_id"] = None
         ps.set_stats(stats)
-        ps.status = "enqueued"
+        ps.status = "importing"  # 修正: enqueued → importing
         ps.last_progress_at = datetime.now(timezone.utc)
         db.session.flush()
         stats["job_id"] = job.id

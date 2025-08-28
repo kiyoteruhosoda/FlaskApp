@@ -170,6 +170,16 @@ def picker_import_watchdog(
             sel.enqueued_at = now
             sel.last_transition_at = now
             metrics["requeued"] += 1
+            logger.info(
+                json.dumps(
+                    {
+                        "ts": now.isoformat(),
+                        "selection_id": sel.id,
+                        "attempts": sel.attempts,
+                    }
+                ),
+                extra={"event": "scavenger.requeue"},
+            )
         else:
             sel.status = "failed"
             sel.locked_by = None
@@ -177,6 +187,16 @@ def picker_import_watchdog(
             sel.finished_at = now
             sel.last_transition_at = now
             metrics["failed"] += 1
+            logger.info(
+                json.dumps(
+                    {
+                        "ts": now.isoformat(),
+                        "selection_id": sel.id,
+                        "attempts": sel.attempts,
+                    }
+                ),
+                extra={"event": "scavenger.finalize_failed"},
+            )
 
     if metrics["requeued"] or metrics["failed"]:
         db.session.commit()
@@ -193,6 +213,16 @@ def picker_import_watchdog(
             sel.finished_at = None
             sel.last_transition_at = now
             metrics["recovered"] += 1
+            logger.info(
+                json.dumps(
+                    {
+                        "ts": now.isoformat(),
+                        "selection_id": sel.id,
+                        "attempts": sel.attempts,
+                    }
+                ),
+                extra={"event": "scavenger.requeue"},
+            )
 
     if metrics["recovered"]:
         db.session.commit()
@@ -294,6 +324,16 @@ def _start_lock_heartbeat(selection_id: int, locked_by: str, interval: float) ->
                         )
                         .values(lock_heartbeat_at=ts)
                     )
+                logger.info(
+                    json.dumps(
+                        {
+                            "ts": ts.isoformat(),
+                            "selection_id": selection_id,
+                            "locked_by": locked_by,
+                        }
+                    ),
+                    extra={"event": "picker.item.heartbeat"},
+                )
                 stop.wait(interval)
 
     thread = threading.Thread(target=_beat, daemon=True)
@@ -433,6 +473,18 @@ def picker_import_item(
     if not sel:
         return {"ok": False, "error": "not_found"}
 
+    logger.info(
+        json.dumps(
+            {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "selection_id": sel.id,
+                "session_id": session_id,
+                "locked_by": locked_by,
+            }
+        ),
+        extra={"event": "picker.item.claim"},
+    )
+
     stop_evt, hb_thread = _start_lock_heartbeat(sel.id, locked_by, heartbeat_interval)
 
     tmp_dir, orig_dir = _ensure_dirs()
@@ -562,6 +614,16 @@ def picker_import_item(
         sel.locked_by = None
         sel.lock_heartbeat_at = None
         db.session.commit()
+        logger.info(
+            json.dumps(
+                {
+                    "ts": end.isoformat(),
+                    "selection_id": sel.id,
+                    "status": sel.status,
+                }
+            ),
+            extra={"event": "picker.item.end"},
+        )
 
     return {"ok": sel.status in {"imported", "dup"}, "status": sel.status}
 

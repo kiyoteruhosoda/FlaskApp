@@ -645,6 +645,43 @@ def test_media_items_enqueue_and_skip_duplicate(monkeypatch, client, app):
     assert len(enqueued) == 1
 
 
+def test_session_summary_api(monkeypatch, client, app):
+    login(client, app)
+
+    def fake_post(url, *a, **k):
+        if url == "https://oauth2.googleapis.com/token":
+            return FakeResp({"access_token": "acc"})
+        if url == "https://photospicker.googleapis.com/v1/sessions":
+            sid = "picker_sessions/" + uuid.uuid4().hex
+            return FakeResp({"id": sid, "pickerUri": "https://picker"})
+        raise AssertionError("unexpected url" + url)
+
+    monkeypatch.setattr("requests.post", fake_post)
+    res = client.post("/api/picker/session", json={"account_id": 1})
+    ps_id = res.get_json()["pickerSessionId"]
+
+    from webapp.extensions import db
+    from core.models.picker_session import PickerSession
+    from core.models.photo_models import PickerSelection
+    from core.models.job_sync import JobSync
+    with app.app_context():
+        ps = PickerSession.query.get(ps_id)
+        db.session.add(PickerSelection(session_id=ps.id, google_media_id="m1", status="imported"))
+        db.session.add(PickerSelection(session_id=ps.id, google_media_id="m2", status="failed"))
+        job = JobSync(target="picker_import", account_id=ps.account_id, session_id=ps.id, status="running")
+        db.session.add(job)
+        db.session.commit()
+        job_id = job.id
+
+    res = client.get(f"/api/picker/session/{ps_id}")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["countsByStatus"]["imported"] == 1
+    assert data["countsByStatus"]["failed"] == 1
+    assert data["jobSync"]["id"] == job_id
+    assert data["jobSync"]["status"] == "running"
+
+
 def test_finish_updates_counts_and_job(monkeypatch, client, app):
     login(client, app)
 

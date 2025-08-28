@@ -61,12 +61,9 @@ celery.conf.beat_schedule = {
     "picker-import-watchdog": {
         "task": "picker_import.watchdog",
         "schedule": timedelta(minutes=1),
-    }
-}
-
-celery.conf.beat_schedule = {
-    "picker-import-watchdog": {
-        "task": "picker_import.watchdog",
-        "schedule": timedelta(minutes=1),
+    },
+    "session-recovery": {
+        "task": "session_recovery.cleanup_stale_sessions",
+        "schedule": timedelta(minutes=5),  # 5分毎に実行
     }
 }

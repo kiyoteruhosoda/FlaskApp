@@ -1,172 +1,528 @@
 # PhotoNest 使い方手順書
 
 ## 1. 概要
-PhotoNest は Flask をベースにしたウェブアプリケーションで、Google フォト同期やサムネイル生成などの処理をバックグラウンドジョブ（Celery）で行う構成です。
+PhotoNest はDDD（ドメイン駆動設計）アーキテクチャを採用したFlaskベースの家族写真管理・同期プラットフォームです。Google Photos同期、ローカルファイルインポート、動画変換、サムネイル生成などの処理をCeleryによるバックグラウンドジョブで実行します。
 
 ## 2. 必要環境
 - Python 3.10 以上
 - Redis（Celery の broker / backend 用）
-- `requirements.txt` に記載されたライブラリ
+- MariaDB 10.11（データベース）
+- FFmpeg（動画変換用）
+- 仮想環境（`.venv`）
 
-## 3. セットアップ
+## 3. 初期セットアップ
 ```bash
+# 仮想環境作成・有効化
+python -m venv .venv
+source .venv/bin/activate  # Linux/Mac
+# .venv\Scripts\activate  # Windows
+
+# パッケージインストール
+pip install --upgrade pip
 pip install -r requirements.txt
-cp .env.example .env  # 必要に応じて編集
-python main.py        # 開発サーバーを起動
+
+# 環境設定
+cp .env.example .env
+# .envファイルを編集してデータベース接続情報やAPIキーを設定
+
+# データベースマイグレーション
+flask db upgrade
 ```
 
-古い pip を使っている場合は先にアップデートします。
-```bash
-python -m pip install --upgrade pip
-```
+## 4. アプリケーション起動手順
 
-## 4. 開発サーバーの起動
-アプリケーションファクトリから Flask アプリを生成し、デバッグモードで起動します。
+### 4.1 開発サーバーの起動
 ```bash
+# 仮想環境を有効化
+source .venv/bin/activate
+
+# Flaskアプリケーションを起動
 python main.py
 ```
+デフォルトで `http://localhost:5000` でアクセス可能です。
 
-## 5. 翻訳ファイルのコンパイル
-多言語対応のメッセージファイルを更新したら、次のコマンドでコンパイルします。
+### 4.2 Celeryワーカーの起動（重要）
+**注意**: 正しいCeleryアプリケーションを指定することが重要です。
+
 ```bash
-pybabel compile -d webapp/translations -f
+# 仮想環境を有効化
+source .venv/bin/activate
+
+# Celeryワーカーを起動（正しいコマンド）
+celery -A cli.src.celery.tasks worker --loglevel=info --concurrency=2
+
+# バックグラウンドで実行する場合
+nohup celery -A cli.src.celery.tasks worker --loglevel=info --concurrency=2 &
 ```
+
+### 4.3 Celeryスケジューラの起動（定期実行タスク用）
+```bash
+# Celeryビートスケジューラを起動
+celery -A cli.src.celery.tasks beat --loglevel=info
+
+# バックグラウンドで実行する場合
+nohup celery -A cli.src.celery.tasks beat --loglevel=info &
+```
+
+### 4.4 Redis の起動確認
+```bash
+# Redisが動作しているか確認
+redis-cli ping
+# "PONG" が返ってくればOK
+
+# Redisが停止している場合
+sudo systemctl start redis-server
+# または Docker使用の場合
+docker run -d -p 6379:6379 redis:alpine
+```
+
+## 5. プロジェクト構成とアーキテクチャ
+
+### 5.1 ディレクトリ構成
+```
+PhotoNest/
+├── webapp/           # Webアプリケーション層
+│   ├── api/         # REST API エンドポイント
+│   ├── auth/        # 認証機能
+│   ├── admin/       # 管理機能
+│   ├── photo_view/  # 写真表示機能
+│   └── templates/   # HTMLテンプレート
+├── domain/          # ドメイン層（DDD）
+├── application/     # アプリケーションサービス層（DDD）
+├── infrastructure/  # インフラストラクチャ層（DDD）
+├── core/           # コア機能（DB、暗号化、タスク）
+├── cli/            # Celery設定とタスク定義
+├── migrations/     # データベースマイグレーション
+└── tests/         # テストコード
+```
+
+### 5.2 主要機能
+- **ローカルインポート**: ローカルディレクトリから写真・動画をインポート
+- **Google Photos同期**: Google PhotosのOAuth認証とコンテンツ同期
+- **動画変換**: FFmpegによるH.264/AAC MP4変換（1080p、CRF20）
+- **サムネイル生成**: 256px/1024px/2048pxの多段階サムネイル
+- **セッション管理**: インポート処理の進行状況管理
+- **ロールベース認証**: Permission モデルによる権限管理
 
 ## 6. 環境変数と設定
-`.env` をコピーして必要な値を設定します。
+`.env.example` をコピーして必要な値を設定します。
 ```bash
 cp .env.example .env
-# 値を編集
+# エディタで .env を編集
 ```
-主な設定項目（抜粋）:
-- `SECRET_KEY`: アプリケーションの秘密鍵
-- `DATABASE_URI`: SQLAlchemy の接続文字列
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`: Google OAuth
-- `OAUTH_TOKEN_KEY` または `OAUTH_TOKEN_KEY_FILE`: OAuth トークン暗号化用鍵
+
+### 6.1 主要設定項目
+```bash
+# Flask基本設定
+SECRET_KEY=your-secret-key-here
+FLASK_ENV=development
+
+# データベース接続（MariaDB）
+DATABASE_URI=mysql+pymysql://username:password@localhost/photonest
+
+# Redis接続（Celery用）
+CELERY_BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/0
+
+# Google OAuth（Google Photos同期用）
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# OAuth トークン暗号化用鍵（AES-256-GCM）
+OAUTH_TOKEN_KEY=base64:your-32-byte-base64-encoded-key
+# または
+OAUTH_TOKEN_KEY_FILE=/path/to/key/file
+
+# メディアストレージパス
+MEDIA_STORAGE_PATH=/path/to/media/storage
+LOCAL_IMPORT_PATH=/path/to/local/import/directory
+```
+
+### 6.2 Google OAuth設定
+1. Google Cloud Console でプロジェクトを作成
+2. OAuth 2.0クライアントIDを作成
+3. 認証済みリダイレクトURIに `http://localhost:5000/auth/google/callback` を追加
+4. `.env` にクライアントIDとシークレットを設定
 
 ## 7. データベースマイグレーション
-1. モデル変更後にマイグレーションファイルを作成  
+Alembicを使用してデータベーススキーマを管理します。
+
+### 7.1 初回セットアップ
+```bash
+# マイグレーションディレクトリの初期化（既存の場合は不要）
+flask db init
+
+# 初回マイグレーション適用
+flask db upgrade
+```
+
+### 7.2 モデル変更時の手順
+1. `core/models/` のモデルファイルを変更
+2. マイグレーションファイルを生成
    ```bash
-   flask db migrate -m "変更内容のコメント"
+   flask db migrate -m "変更内容の説明"
    ```
-2. マイグレーションを適用  
+3. 生成されたマイグレーションファイルを確認・編集
+4. マイグレーションを適用
    ```bash
    flask db upgrade
    ```
 
-## 8. Celery バックグラウンドジョブ
-定義済みタスクを実行するにはワーカーとスケジューラを起動します。
-
-### 8.1 ワーカーの起動
+### 7.3 マイグレーション管理コマンド
 ```bash
-# ワーカー（修正後のアプリケーションコンテキスト対応版）
-celery -A cli.src.celery.celery_app worker --loglevel=info --concurrency=2
-
-# バックグラウンドで実行する場合
-nohup celery -A cli.src.celery.celery_app worker --loglevel=info --concurrency=2 &
-```
-
-### 8.2 スケジューラの起動
-```bash
-# スケジューラ (beat)
-celery -A cli.src.celery.celery_app beat --loglevel=info
-
-# バックグラウンドで実行する場合
-nohup celery -A cli.src.celery.celery_app beat --loglevel=info &
-```
-
-### 8.3 重要な修正内容
-- **アプリケーションコンテキスト対応**: Celeryタスクが自動的にFlaskアプリケーションコンテキスト内で実行されるよう修正されました
-- **"Working outside of application context" エラーの解消**: ContextTaskクラスにより、すべてのCeleryタスクがデータベースアクセス可能になりました
-- **タスク登録の改善**: `cli.src.celery.celery_app` から統一的にタスクを管理
-
-### 8.4 利用可能なタスク
-- `picker_import.watchdog`: Photo picker のwatchdogタスク（1分毎に自動実行）
-- `picker_import.item`: 個別のpicker importタスク
-- `cli.src.celery.tasks.dummy_long_task`: サンプルの長時間実行タスク
-- `cli.src.celery.tasks.download_file`: ファイルダウンロードタスク
-
-### 8.5 手動でのタスク実行例
-```python
-# Python shell でのタスク実行例
-from cli.src.celery.tasks import picker_import_watchdog_task
-result = picker_import_watchdog_task.delay()
-print(f'Task ID: {result.id}')
-```
-
-## 9. Google OAuth トークン暗号化
-`google_account.oauth_token_json` は AES-256-GCM で暗号化されます。`OAUTH_TOKEN_KEY`（Base64 形式 32 バイト）または鍵ファイルを `.env` で指定してください。
-
-## 10. テストの実行
-`pytest` を使用してユニットテストを実行できます。
-
-### 10.1 全テストの実行
-```bash
-pytest
-```
-
-### 10.2 Celeryテストの実行
-今回のアプリケーションコンテキスト修正に対応したCeleryテストも追加されています：
-```bash
-# Celery関連のテストのみ実行
-pytest tests/test_celery_*.py -v
-
-# 特定のテストクラス実行
-pytest tests/test_celery_context.py::TestCeleryAppContext -v
-
-# Celeryアプリケーション設定テスト
-pytest tests/test_celery_app.py::TestCeleryAppConfiguration -v
-```
-
-### 10.3 テストカバレッジ
-Celeryテストは以下をカバーします：
-- アプリケーションコンテキストの正常動作
-- データベースアクセスの確認  
-- タスク登録の確認
-- エラーハンドリング
-- パフォーマンステスト
-
-## 11. トラブルシューティング
-
-### 11.1 Celeryタスクで "Working outside of application context" エラーが発生する場合
-このエラーは修正済みですが、もし発生した場合：
-```bash
-# 古いワーカープロセスを停止
-pkill -f "celery.*worker"
-pkill -f "celery.*beat"
-
-# 新しいワーカーを起動（修正版）
-celery -A cli.src.celery.celery_app worker --loglevel=info --concurrency=2
-celery -A cli.src.celery.celery_app beat --loglevel=info
-```
-
-### 11.2 Redisへの接続エラー
-```bash
-# Redisの状態確認
-redis-cli ping
-
-# Redisが停止している場合は起動
-sudo systemctl start redis-server
-# または Docker の場合
-docker run -d -p 6379:6379 redis:alpine
-```
-
-### 11.3 データベースマイグレーションエラー
-```bash
-# マイグレーション状態確認
+# 現在のマイグレーション状態確認
 flask db current
 
-# 強制的にマイグレーション実行
+# マイグレーション履歴表示
+flask db history
+
+# 特定バージョンに戻す
+flask db downgrade <revision>
+
+# 強制的にヘッドに設定（緊急時のみ）
 flask db stamp head
+```
+
+## 8. Celeryバックグラウンドジョブ
+
+### 8.1 重要な注意事項
+**正しいCeleryアプリケーション**: `cli.src.celery.tasks` を使用してください。
+`cli.src.celery.celery_app` ではAPIからのタスク呼び出しが失敗します。
+
+### 8.2 ワーカーの起動
+```bash
+# 仮想環境を有効化
+source .venv/bin/activate
+
+# 正しいワーカー起動コマンド
+celery -A cli.src.celery.tasks worker --loglevel=info --concurrency=2
+
+# バックグラウンド実行
+nohup celery -A cli.src.celery.tasks worker --loglevel=info --concurrency=2 &
+
+# プロセス確認
+ps aux | grep celery
+```
+
+### 8.3 スケジューラの起動（定期実行タスク + 自動リカバリ）
+```bash
+# ビートスケジューラ（定期実行タスク）
+celery -A cli.src.celery.tasks beat --loglevel=info
+
+# バックグラウンド実行
+nohup celery -A cli.src.celery.tasks beat --loglevel=info &
+```
+
+**スケジューラが実行する定期タスク**:
+- `picker_import.watchdog`: Photo picker監視（1分毎）
+- `session_recovery.cleanup_stale_sessions`: 古いセッションの自動リカバリ（5分毎）
+
+**自動リカバリ機能**: 30分以上前に作成されて「processing」状態のままのセッションを自動的に「error」状態に変更します。これにより、Celeryワーカーの予期しない停止やシステム再起動後でも、UI上で「Celery処理待ち中...」が永続的に表示される問題を防げます。
+
+### 8.4 利用可能なタスク
+- `local_import.run`: ローカルファイルインポート処理
+- `picker_import.item`: 個別アイテムインポート
+- `picker_import.watchdog`: Photo picker監視タスク（1分毎実行）
+- `session_recovery.cleanup_stale_sessions`: 古いセッション自動リカバリ（5分毎実行）
+- `session_recovery.force_cleanup_all`: 全セッション強制クリーンアップ（緊急時用）
+- `transcode_worker`: 動画変換処理（H.264/AAC MP4）
+- `thumbs_generate`: サムネイル生成（256/1024/2048px）
+- `cli.src.celery.tasks.download_file`: ファイルダウンロード
+- `cli.src.celery.tasks.dummy_long_task`: テスト用長時間タスク
+
+### 8.5 タスク監視とデバッグ
+```bash
+# アクティブなタスク確認
+python -c "
+from cli.src.celery.celery_app import celery
+i = celery.control.inspect()
+print('Active:', i.active())
+print('Scheduled:', i.scheduled())
+"
+
+# ワーカー停止
+pkill -f celery
+
+# Redis内のタスクキュー確認
+redis-cli
+> LLEN celery
+> LRANGE celery 0 -1
+```
+
+## 9. 多言語対応（i18n）
+Babel を使用した国際化機能です。
+
+### 9.1 翻訳ファイルのコンパイル
+```bash
+# 翻訳ファイルをコンパイル
+pybabel compile -d webapp/translations -f
+```
+
+### 9.2 新しい翻訳の追加
+```bash
+# メッセージ抽出
+pybabel extract -F babel.cfg -k _l -o messages.pot .
+
+# 新しい言語追加
+pybabel init -i messages.pot -d webapp/translations -l ja
+
+# 既存翻訳の更新
+pybabel update -i messages.pot -d webapp/translations
+```
+
+## 10. OAuth トークン暗号化
+Google アカウントの OAuth トークンは AES-256-GCM で暗号化して保存されます。
+
+### 10.1 暗号化鍵の生成
+```python
+import os
+import base64
+
+# 32バイトのランダムキーを生成
+key = os.urandom(32)
+key_b64 = base64.b64encode(key).decode()
+print(f"OAUTH_TOKEN_KEY=base64:{key_b64}")
+```
+
+### 10.2 暗号化の仕組み
+- トークンは `google_account.oauth_token_json` フィールドに暗号化保存
+- 復号化は `core/crypto.py` の `decrypt_oauth_token()` で実行
+- 鍵は環境変数 `OAUTH_TOKEN_KEY` または `OAUTH_TOKEN_KEY_FILE` で指定
+
+## 11. テストの実行
+pytest を使用した包括的なテストスイートが用意されています。
+
+### 11.1 基本的なテスト実行
+```bash
+# 仮想環境を有効化
+source .venv/bin/activate
+
+# 全テスト実行
+pytest
+
+# 詳細な出力
+pytest -v
+
+# 特定のテストファイル実行
+pytest tests/test_local_import.py -v
+```
+
+### 11.2 カテゴリ別テスト実行
+```bash
+# Celery関連テスト
+pytest tests/test_celery_*.py -v
+
+# API関連テスト  
+pytest tests/test_*_api.py -v
+
+# メディア処理テスト
+pytest tests/test_transcode.py tests/test_thumbs_generate.py -v
+
+# 暗号化テスト
+pytest tests/test_crypto.py -v
+```
+
+### 11.3 テストカバレッジ
+```bash
+# カバレッジ付きでテスト実行
+pytest --cov=webapp --cov=core --cov=domain --cov=application --cov=infrastructure
+
+# HTMLレポート生成
+pytest --cov=webapp --cov=core --cov-report=html
+```
+
+### 11.4 主要テストコンポーネント
+- **Celery統合テスト**: アプリケーションコンテキスト、データベースアクセス
+- **API テスト**: REST エンドポイント、認証、ペジネーション
+- **メディア処理テスト**: 動画変換、サムネイル生成、ファイルインポート
+- **セキュリティテスト**: OAuth トークン暗号化、権限管理
+
+## 12. トラブルシューティング
+
+### 12.1 Celery関連の問題
+
+#### 「Celery処理待ち中...」が消えない
+```bash
+# 1. スケジューラが動作しているか確認
+ps aux | grep "celery.*beat"
+
+# 2. スケジューラが停止している場合は起動
+celery -A cli.src.celery.tasks beat --loglevel=info &
+
+# 3. 手動でセッションリカバリを実行
+python -c "
+from cli.src.celery.tasks import cleanup_stale_sessions_task
+result = cleanup_stale_sessions_task.delay()
+print(f'Task ID: {result.id}')
+"
+
+# 4. 緊急時: 全セッションを強制クリーンアップ
+python -c "
+from cli.src.celery.tasks import force_cleanup_all_sessions_task  
+result = force_cleanup_all_sessions_task.delay()
+print(f'Force cleanup task ID: {result.id}')
+"
+
+# 5. ワーカーとスケジューラの状況確認
+ps aux | grep celery
+```
+
+**注意**: 通常は5分毎の自動リカバリで解決されるため、手動でのクリーンアップは不要です。
+
+#### "Working outside of application context" エラー
+```bash
+# Celeryアプリケーション名を確認
+# 正しい: cli.src.celery.tasks
+# 間違い: cli.src.celery.celery_app
+
+# 正しいワーカーを起動
+celery -A cli.src.celery.tasks worker --loglevel=info
+```
+
+### 12.2 データベース関連の問題
+
+#### マイグレーションエラー
+```bash
+# 現在の状態確認
+flask db current
+
+# 強制的にヘッドに設定（注意: データ損失の可能性）
+flask db stamp head
+
+# マイグレーション再実行
 flask db upgrade
 ```
 
-### 11.4 OAuth トークン暗号化エラー
-`.env`で以下が正しく設定されているか確認：
+#### 接続エラー
 ```bash
-# 32バイトのBase64エンコードされたキー
-OAUTH_TOKEN_KEY=base64:...
+# MariaDBサービス確認
+sudo systemctl status mariadb
+sudo systemctl start mariadb
 
-# またはキーファイルのパス
-OAUTH_TOKEN_KEY_FILE=/path/to/key/file
+# 接続テスト
+mysql -u username -p database_name
 ```
+
+### 12.3 Redis関連の問題
+
+#### Redis接続エラー
+```bash
+# Redis状態確認
+redis-cli ping
+
+# Redisサービス開始
+sudo systemctl start redis-server
+
+# Docker使用の場合
+docker run -d -p 6379:6379 redis:alpine
+
+# キューの確認
+redis-cli
+> LLEN celery
+> FLUSHALL  # 全キューをクリア（注意）
+```
+
+### 12.4 Google OAuth関連の問題
+
+#### トークン暗号化エラー
+```bash
+# 暗号化鍵の確認
+echo $OAUTH_TOKEN_KEY
+
+# 新しい鍵を生成
+python -c "
+import os, base64
+key = base64.b64encode(os.urandom(32)).decode()
+print(f'OAUTH_TOKEN_KEY=base64:{key}')
+"
+```
+
+#### OAuth設定エラー
+1. Google Cloud Console で設定確認
+2. リダイレクトURI: `http://localhost:5000/auth/google/callback`
+3. スコープ: `https://www.googleapis.com/auth/photoslibrary.readonly`
+
+### 12.5 メディア処理関連の問題
+
+#### FFmpeg不足
+```bash
+# Ubuntu/Debian
+sudo apt update && sudo apt install ffmpeg
+
+# CentOS/RHEL
+sudo yum install epel-release
+sudo yum install ffmpeg
+
+# macOS
+brew install ffmpeg
+```
+
+#### ストレージパス権限エラー
+```bash
+# メディアディレクトリの権限確認
+ls -la /path/to/media/storage
+
+# 権限修正
+sudo chown -R username:username /path/to/media/storage
+chmod -R 755 /path/to/media/storage
+```
+
+### 12.6 パフォーマンス問題
+
+#### ログ監視
+```bash
+# Celeryワーカーログ
+tail -f /var/log/celery/worker.log
+
+# Flaskアプリログ
+tail -f logs/app.log
+
+# システムリソース確認
+htop
+df -h
+```
+
+## 13. 本番環境デプロイ
+
+### 13.1 本番環境設定
+```bash
+# 本番環境用の環境変数
+FLASK_ENV=production
+SECRET_KEY=strong-production-secret-key
+
+# データベース接続（本番用）
+DATABASE_URI=mysql+pymysql://user:pass@prod-db-host/photonest
+
+# セキュリティ設定
+SESSION_COOKIE_SECURE=True
+SESSION_COOKIE_HTTPONLY=True
+```
+
+### 13.2 WSGI設定（Gunicorn）
+```bash
+# Gunicornでの起動
+gunicorn --bind 0.0.0.0:8000 --workers 4 wsgi:app
+```
+
+## 14. API仕様概要
+
+### 14.1 主要エンドポイント
+- `GET /api/picker/sessions` - セッション一覧
+- `POST /api/local-import` - ローカルインポート開始
+- `POST /api/media/{id}/thumb-url` - サムネイルURL取得
+- `POST /api/media/{id}/playback-url` - 再生URL取得
+
+## 15. クイックスタートチェックリスト
+
+- [ ] 仮想環境作成・有効化
+- [ ] 依存関係インストール（`requirements.txt`）
+- [ ] `.env` ファイル設定
+- [ ] MariaDB起動・接続確認
+- [ ] Redis起動・接続確認
+- [ ] データベースマイグレーション実行
+- [ ] **正しいCeleryワーカー起動**（`cli.src.celery.tasks`）
+- [ ] Flaskアプリケーション起動
+- [ ] ブラウザで `http://localhost:5000` アクセス確認
+- [ ] ローカルインポート機能テスト
+
+**重要**: Celeryワーカーは必ず `celery -A cli.src.celery.tasks worker` で起動してください。

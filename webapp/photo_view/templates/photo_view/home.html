@@ -201,8 +201,11 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   function refreshSessions() {
-    // リフレッシュ開始をトースト通知で案内
-    showInfoToast('セッション一覧を更新しています...', 3000);
+    // リフレッシュ開始時にローディングアイコンを回転させる
+    const refreshIcon = document.getElementById('refresh-icon');
+    if (refreshIcon) {
+      refreshIcon.classList.add('fa-spin');
+    }
     initializeInfiniteScroll();
   }
 

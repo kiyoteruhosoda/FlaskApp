@@ -8,6 +8,7 @@ import requests
 
 from core.tasks.picker_import import picker_import_watchdog, picker_import_item
 from core.tasks.local_import import local_import_task
+from core.tasks.session_recovery import cleanup_stale_sessions, force_cleanup_all_processing_sessions
 
 
 def _save_content(path: Path, content: bytes) -> None:
@@ -60,10 +61,24 @@ def local_import_task_celery(self, session_id=None):
     return local_import_task(task_instance=self, session_id=session_id)
 
 
+@celery.task(bind=True, name="session_recovery.cleanup_stale_sessions")
+def cleanup_stale_sessions_task(self):
+    """定期的に古い処理中セッションをクリーンアップする"""
+    return cleanup_stale_sessions()
+
+
+@celery.task(bind=True, name="session_recovery.force_cleanup_all")
+def force_cleanup_all_sessions_task(self):
+    """全ての処理中セッションを強制的にクリーンアップする（緊急時用）"""
+    return force_cleanup_all_processing_sessions()
+
+
 __all__ = [
     "dummy_long_task",
     "download_file",
     "picker_import_item_task",
     "picker_import_watchdog_task",
     "local_import_task_celery",
+    "cleanup_stale_sessions_task",
+    "force_cleanup_all_sessions_task",
 ]

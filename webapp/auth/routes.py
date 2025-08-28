@@ -239,6 +239,16 @@ def google_oauth_callback():
     return redirect(redirect_to)
 
 
+@bp.get("/picker")
+@login_required
+def picker_auto():
+    """Auto-select the first available Google account and create a Photo Picker session."""
+    account = GoogleAccount.query.filter_by(user_id=current_user.id).first()
+    if not account:
+        flash(_("No Google account linked. Please link a Google account first."), "error")
+        return redirect(url_for("auth.google_accounts"))
+    return redirect(url_for("auth.picker", account_id=account.id))
+
 @bp.get("/picker/<int:account_id>")
 @login_required
 def picker(account_id: int):
@@ -318,5 +328,5 @@ def picker(account_id: int):
 @login_required
 def google_accounts():
     """Display Google account linkage settings."""
-    accounts = GoogleAccount.query.all()
+    accounts = GoogleAccount.query.filter_by(user_id=current_user.id).all()
     return render_template("auth/google_accounts.html", accounts=accounts)

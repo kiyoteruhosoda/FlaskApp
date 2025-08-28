@@ -247,6 +247,72 @@ def picker_import_watchdog(
     if metrics["republished"]:
         db.session.commit()
 
+    # --- 4. auto-complete finished sessions -----------------------------
+    from core.models.picker_session import PickerSession
+    from core.models.job_sync import JobSync
+    
+    # Find sessions in "importing" status that might be complete
+    importing_sessions = PickerSession.query.filter_by(status="importing").all()
+    metrics["completed_sessions"] = 0
+    
+    for ps in importing_sessions:
+        # Check if all selections for this session are in terminal states
+        selections = PickerSelection.query.filter_by(session_id=ps.id).all()
+        if not selections:
+            continue
+            
+        terminal_states = {"imported", "dup", "failed", "expired"}
+        all_terminal = all(sel.status in terminal_states for sel in selections)
+        
+        if all_terminal:
+            # Count results
+            status_counts = {}
+            for sel in selections:
+                status_counts[sel.status] = status_counts.get(sel.status, 0) + 1
+            
+            # Update session status
+            has_imported = status_counts.get("imported", 0) > 0 or status_counts.get("dup", 0) > 0
+            has_failed = status_counts.get("failed", 0) > 0 or status_counts.get("expired", 0) > 0
+            
+            if has_imported and not has_failed:
+                ps.status = "imported"
+            elif has_imported and has_failed:
+                ps.status = "imported"  # Partial success still counts as imported
+            else:
+                ps.status = "error"
+            
+            ps.last_progress_at = now
+            ps.updated_at = now
+            
+            # Update related job
+            job = JobSync.query.filter_by(target="picker_import", session_id=ps.id).order_by(JobSync.id.desc()).first()
+            if job and job.status in ("queued", "running"):
+                job.finished_at = now
+                if ps.status == "imported":
+                    job.status = "success"
+                else:
+                    job.status = "failed"
+                
+                # Update job stats
+                stats = json.loads(job.stats_json or "{}")
+                stats["countsByStatus"] = status_counts
+                stats["completed_at"] = now.isoformat()
+                job.stats_json = json.dumps(stats)
+            
+            metrics["completed_sessions"] += 1
+            logger.info(
+                json.dumps({
+                    "ts": now.isoformat(),
+                    "session_id": ps.id,
+                    "status": ps.status,
+                    "counts": status_counts,
+                }),
+                extra={"event": "watchdog.session.complete"},
+            )
+    
+    if metrics["completed_sessions"]:
+        db.session.commit()
+
     return metrics
 
 # ---------------------------------------------------------------------------

@@ -8,15 +8,22 @@ BigInt = db.BigInteger().with_variant(db.Integer, "sqlite")
 
 class GoogleAccount(db.Model):
     __tablename__ = "google_account"
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'email', name='uq_user_google_email'),
+    )
 
     id = db.Column(BigInt, primary_key=True, autoincrement=True)
-    email = db.Column(db.String(255), unique=True, nullable=False)
+    user_id = db.Column(BigInt, db.ForeignKey("user.id"), nullable=False)
+    email = db.Column(db.String(255), nullable=False)
     status = db.Column(db.String(20), nullable=False, default="active")
     scopes = db.Column(db.Text, nullable=False)
     last_synced_at = db.Column(db.DateTime, nullable=True)
     oauth_token_json = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+    # リレーションシップ
+    user = db.relationship("User", backref="google_accounts")
 
     def scopes_list(self):
         """Return scopes as list."""

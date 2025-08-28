@@ -114,7 +114,10 @@ class PaginationClient {
             });
             
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
+                error.status = response.status;
+                error.response = response;
+                throw error;
             }
             
             const data = await response.json();

@@ -6,6 +6,8 @@
 import os
 import hashlib
 import shutil
+import json
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -15,7 +17,7 @@ from PIL.ExifTags import TAGS
 from flask import current_app
 
 from core.db import db
-from core.models.photo_models import Media, Exif, PickerSelection
+from core.models.photo_models import Media, Exif, PickerSelection, MediaItem, PhotoMetadata, VideoMetadata
 from core.models.job_sync import JobSync
 from core.models.picker_session import PickerSession
 from core.utils import get_file_date_from_name, get_file_date_from_exif
@@ -75,6 +77,52 @@ def extract_exif_data(file_path: str) -> Dict:
     return exif_data
 
 
+def extract_video_metadata(file_path: str) -> Dict:
+    """動画ファイルからメタデータを抽出（ffprobeを使用）"""
+    metadata = {}
+    try:
+        cmd = [
+            "ffprobe",
+            "-v", "error",
+            "-show_streams",
+            "-show_format",
+            "-of", "json",
+            str(file_path)
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode == 0:
+            info = json.loads(proc.stdout)
+            
+            # ビデオストリーム情報を取得
+            video_streams = [s for s in info.get("streams", []) if s.get("codec_type") == "video"]
+            if video_streams:
+                v_stream = video_streams[0]
+                # FPSを取得
+                if "r_frame_rate" in v_stream:
+                    fps_str = v_stream["r_frame_rate"]
+                    if "/" in fps_str:
+                        num, den = fps_str.split("/")
+                        if den != "0":
+                            metadata["fps"] = float(num) / float(den)
+                    else:
+                        metadata["fps"] = float(fps_str)
+                
+                # 幅・高さを取得
+                metadata["width"] = v_stream.get("width")
+                metadata["height"] = v_stream.get("height")
+            
+            # フォーマット情報から時間を取得
+            format_info = info.get("format", {})
+            if "duration" in format_info:
+                metadata["duration_ms"] = int(float(format_info["duration"]) * 1000)
+    
+    except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError, ValueError):
+        # ffprobeが使えない場合やエラーの場合は空のメタデータを返す
+        pass
+    
+    return metadata
+
+
 def generate_filename(shot_at: datetime, file_extension: str, file_hash: str) -> str:
     """
     ファイル名を生成
@@ -99,6 +147,54 @@ def check_duplicate_media(file_hash: str, file_size: int) -> Optional[Media]:
         hash_sha256=file_hash,
         bytes=file_size
     ).first()
+
+
+def create_media_item_for_local(filename: str, mime_type: str, width: Optional[int], height: Optional[int], 
+                               is_video: bool, exif_data: Optional[Dict] = None, video_metadata: Optional[Dict] = None) -> MediaItem:
+    """ローカルファイル用のMediaItemを作成"""
+    import uuid
+    
+    # ファイル名からユニークなIDを生成
+    media_item_id = f"local_{uuid.uuid4().hex[:16]}"
+    
+    # MediaItemタイプの決定
+    item_type = "VIDEO" if is_video else "PHOTO"
+    
+    media_item = MediaItem(
+        id=media_item_id,
+        type=item_type,
+        mime_type=mime_type,
+        filename=filename,
+        width=width,
+        height=height,
+        camera_make=exif_data.get('Make') if exif_data else None,
+        camera_model=exif_data.get('Model') if exif_data else None
+    )
+    
+    # メタデータの作成
+    if is_video:
+        # ビデオメタデータ（ffprobeから取得、取れない場合はNULL）
+        video_meta = VideoMetadata(
+            fps=video_metadata.get('fps') if video_metadata else None,
+            processing_status='UNSPECIFIED'
+        )
+        db.session.add(video_meta)
+        db.session.flush()  # IDを取得
+        media_item.video_metadata_id = video_meta.id
+    else:
+        # フォトメタデータ（EXIFから取得、取れない場合はNULL）
+        photo_meta = PhotoMetadata(
+            focal_length=exif_data.get('FocalLength') if exif_data else None,
+            aperture_f_number=exif_data.get('FNumber') if exif_data else None,
+            iso_equivalent=exif_data.get('ISOSpeedRatings') if exif_data else None,
+            exposure_time=str(exif_data.get('ExposureTime', '')) if exif_data and exif_data.get('ExposureTime') else None
+        )
+        db.session.add(photo_meta)
+        db.session.flush()  # IDを取得
+        media_item.photo_metadata_id = photo_meta.id
+    
+    db.session.add(media_item)
+    return media_item
 
 
 def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> Dict:
@@ -174,7 +270,7 @@ def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> D
         if not is_video:
             width, height, orientation = get_image_dimensions(file_path)
         else:
-            # 動画の場合は後でffprobeなどで取得可能
+            # 動画の場合はffprobeで取得（後でvideo_metaに保存）
             pass
         
         # MIMEタイプの決定
@@ -191,10 +287,34 @@ def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> D
         # ファイルコピー
         shutil.copy2(file_path, dest_path)
         
+        # EXIFデータと動画メタデータの事前取得（MediaItem作成で使用）
+        exif_data = None
+        video_meta = None
+        if not is_video and file_extension in SUPPORTED_IMAGE_EXTENSIONS:
+            exif_data = extract_exif_data(file_path)
+        elif is_video:
+            video_meta = extract_video_metadata(file_path)
+            # 動画メタデータから寸法・時間を取得
+            if video_meta:
+                width = video_meta.get('width') or width
+                height = video_meta.get('height') or height
+                duration_ms = video_meta.get('duration_ms') or duration_ms
+        
+        # MediaItemとメタデータの作成
+        media_item = create_media_item_for_local(
+            filename=os.path.basename(file_path),
+            mime_type=mime_type,
+            width=width,
+            height=height,
+            is_video=is_video,
+            exif_data=exif_data,
+            video_metadata=video_meta
+        )
+        
         # DBへの登録
         media = Media(
-            google_media_id=None,  # ローカルファイルの場合はNone
-            account_id=None,       # ローカルファイルの場合はNone
+            google_media_id=media_item.id,  # ローカルファイルの場合はmedia_item.idを使用
+            account_id=None,                # ローカルファイルの場合はNone
             local_rel_path=rel_path,
             hash_sha256=file_hash,
             bytes=file_size,
@@ -214,24 +334,22 @@ def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> D
         db.session.add(media)
         db.session.flush()  # IDを取得
         
-        # EXIFデータの保存（画像の場合）
-        if not is_video and file_extension in SUPPORTED_IMAGE_EXTENSIONS:
-            exif_data = extract_exif_data(file_path)
-            if exif_data:
-                exif = Exif(
-                    media_id=media.id,
-                    camera_make=exif_data.get('Make'),
-                    camera_model=exif_data.get('Model'),
-                    lens=exif_data.get('LensModel'),
-                    iso=exif_data.get('ISOSpeedRatings'),
-                    shutter=str(exif_data.get('ExposureTime', '')),
-                    f_number=exif_data.get('FNumber'),
-                    focal_len=exif_data.get('FocalLength'),
-                    gps_lat=exif_data.get('GPSLatitude'),
-                    gps_lng=exif_data.get('GPSLongitude'),
-                    raw_json=str(exif_data) if exif_data else None
-                )
-                db.session.add(exif)
+        # EXIFデータの保存（画像の場合、すでに取得済みのデータを使用）
+        if not is_video and file_extension in SUPPORTED_IMAGE_EXTENSIONS and exif_data:
+            exif = Exif(
+                media_id=media.id,
+                camera_make=exif_data.get('Make'),
+                camera_model=exif_data.get('Model'),
+                lens=exif_data.get('LensModel'),
+                iso=exif_data.get('ISOSpeedRatings'),
+                shutter=str(exif_data.get('ExposureTime', '')),
+                f_number=exif_data.get('FNumber'),
+                focal_len=exif_data.get('FocalLength'),
+                gps_lat=exif_data.get('GPSLatitude'),
+                gps_lng=exif_data.get('GPSLongitude'),
+                raw_json=str(exif_data) if exif_data else None
+            )
+            db.session.add(exif)
         
         db.session.commit()
         

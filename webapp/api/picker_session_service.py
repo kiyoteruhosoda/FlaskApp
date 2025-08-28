@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from flask import current_app
 
+from .pagination import PaginationParams, Paginator
 from ..extensions import db
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
@@ -156,35 +157,60 @@ class PickerSessionService:
         }
 
     @staticmethod
-    def selection_details(ps: PickerSession) -> dict:
+    def selection_details(ps: PickerSession, params: Optional[PaginationParams] = None) -> dict:
         """Return detailed status of each picker selection for a session."""
-        rows = (
+        
+        # デフォルトページングパラメータ
+        if params is None:
+            params = PaginationParams(page_size=200)
+        
+        # ベースクエリ
+        query = (
             db.session.query(PickerSelection, MediaItem)
             .outerjoin(MediaItem, PickerSelection.google_media_id == MediaItem.id)
             .filter(PickerSelection.session_id == ps.id)
-            .order_by(PickerSelection.id.asc())
+        )
+        
+        # 選択アイテムのシリアライザ関数
+        def serialize_selection(row):
+            sel, mi = row
+            return {
+                "id": sel.id,
+                "googleMediaId": sel.google_media_id,
+                "filename": mi.filename if mi else None,
+                "status": sel.status,
+                "attempts": sel.attempts,
+                "error": sel.error_msg,
+                "enqueuedAt": sel.enqueued_at.isoformat().replace("+00:00", "Z") if sel.enqueued_at else None,
+                "startedAt": sel.started_at.isoformat().replace("+00:00", "Z") if sel.started_at else None,
+                "finishedAt": sel.finished_at.isoformat().replace("+00:00", "Z") if sel.finished_at else None,
+            }
+        
+        # ページング処理
+        paginated_result = Paginator.paginate_query(
+            query=query,
+            params=params,
+            id_column=PickerSelection.id,
+            count_total=not params.use_cursor
+        )
+        
+        # 選択状況の集計（全体）
+        counts_query = (
+            db.session.query(
+                PickerSelection.status, 
+                db.func.count(PickerSelection.id)
+            )
+            .filter(PickerSelection.session_id == ps.id)
+            .group_by(PickerSelection.status)
             .all()
         )
-        selections = []
-        counts: Dict[str, int] = {}
-        for sel, mi in rows:
-            counts[sel.status] = counts.get(sel.status, 0) + 1
-            selections.append(
-                {
-                    "id": sel.id,
-                    "googleMediaId": sel.google_media_id,
-                    "filename": mi.filename if mi else None,
-                    "status": sel.status,
-                    "attempts": sel.attempts,
-                    "error": sel.error_msg,
-                    "enqueuedAt": sel.enqueued_at.isoformat().replace("+00:00", "Z") if sel.enqueued_at else None,
-                    "startedAt": sel.started_at.isoformat().replace("+00:00", "Z") if sel.started_at else None,
-                    "finishedAt": sel.finished_at.isoformat().replace("+00:00", "Z") if sel.finished_at else None,
-                }
-            )
+        counts: Dict[str, int] = dict(counts_query)
+        
+        # アイテムのシリアライズ
+        selections = [serialize_selection(row) for row in paginated_result.items]
         
         # PickerSessionのステータス自動更新ロジック
-        if ps.status in ("processing", "importing") and len(rows) > 0:
+        if ps.status in ("processing", "importing") and len(counts) > 0:
             pending_statuses = ["pending", "enqueued", "running"]
             pending_count = sum(counts.get(status, 0) for status in pending_statuses)
             
@@ -210,7 +236,29 @@ class PickerSessionService:
                     ps.updated_at = datetime.now(timezone.utc)
                     db.session.commit()
         
-        return {"selections": selections, "counts": counts}
+        # レスポンス構築
+        result = {
+            "selections": selections,
+            "counts": counts,
+            "pagination": {
+                "hasNext": paginated_result.has_next,
+                "hasPrev": paginated_result.has_prev,
+            }
+        }
+        
+        # ページング情報の追加
+        if paginated_result.next_cursor:
+            result["pagination"]["nextCursor"] = paginated_result.next_cursor
+        if paginated_result.prev_cursor:
+            result["pagination"]["prevCursor"] = paginated_result.prev_cursor
+        if paginated_result.current_page:
+            result["pagination"]["currentPage"] = paginated_result.current_page
+        if paginated_result.total_pages:
+            result["pagination"]["totalPages"] = paginated_result.total_pages
+        if paginated_result.total_count is not None:
+            result["pagination"]["totalCount"] = paginated_result.total_count
+        
+        return result
 
     # --- Media Items ------------------------------------------------------
     @staticmethod

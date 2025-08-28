@@ -32,6 +32,7 @@ from core.models.picker_session import PickerSession
 from core.models.photo_models import Media, Exif, MediaSidecar, MediaPlayback
 from core.crypto import decrypt
 from ..auth.utils import refresh_google_token, RefreshTokenError, log_requests_and_send
+from .pagination import PaginationParams, paginate_and_respond
 
 
 @bp.post("/google/oauth/start")
@@ -66,23 +67,38 @@ def google_oauth_start():
 @bp.get("/google/accounts")
 @login_required
 def api_google_accounts():
-    """Return list of linked Google accounts."""
-    accounts = GoogleAccount.query.all()
-    return jsonify(
-        [
-            {
-                "id": a.id,
-                "email": a.email,
-                "status": a.status,
-                "scopes": a.scopes_list(),
-                "last_synced_at": (
-                    a.last_synced_at.isoformat() if a.last_synced_at else None
-                ),
-                "has_token": bool(a.oauth_token_json),
-            }
-            for a in accounts
-        ]
+    """Return paginated list of linked Google accounts."""
+    
+    # ページングパラメータの取得
+    params = PaginationParams.from_request(default_page_size=200)
+    
+    # ベースクエリ
+    query = GoogleAccount.query
+    
+    # Googleアカウントのシリアライザ関数
+    def serialize_google_account(account):
+        return {
+            "id": account.id,
+            "email": account.email,
+            "status": account.status,
+            "scopes": account.scopes_list(),
+            "last_synced_at": (
+                account.last_synced_at.isoformat() if account.last_synced_at else None
+            ),
+            "has_token": bool(account.oauth_token_json),
+        }
+    
+    # ページング処理
+    result = paginate_and_respond(
+        query=query,
+        params=params,
+        serializer_func=serialize_google_account,
+        id_column=GoogleAccount.id,
+        count_total=not params.use_cursor,
+        default_page_size=200
     )
+    
+    return jsonify(result)
 
 
 @bp.patch("/google/accounts/<int:account_id>")
@@ -149,21 +165,21 @@ def api_media_list():
         ),
         extra={"event": "media.list.begin"},
     )
-    try:
-        limit = int(request.args.get("limit", 200))
-    except Exception:
-        limit = 200
-    limit = max(1, min(limit, 200))
-    cursor = request.args.get("cursor", type=int)
+    
+    # ページングパラメータの取得
+    params = PaginationParams.from_request(default_page_size=200)
+    
+    # フィルタパラメータ
     include_deleted = request.args.get("include_deleted", type=int, default=0)
     after_param = request.args.get("after")
     before_param = request.args.get("before")
-
+    
+    # ベースクエリの構築
     query = Media.query
     if not include_deleted:
         query = query.filter(Media.is_deleted.is_(False))
-    if cursor is not None:
-        query = query.filter(Media.id <= cursor)
+        
+    # 日付範囲フィルタ
     if after_param:
         try:
             after_dt = datetime.fromisoformat(after_param.replace("Z", "+00:00"))
@@ -176,59 +192,49 @@ def api_media_list():
             query = query.filter(Media.shot_at <= before_dt)
         except Exception:
             pass
-
-    query = query.order_by(
-        Media.shot_at.is_(None),
-        Media.shot_at.desc(),
-        Media.imported_at.desc(),
-        Media.id.desc(),
+    
+    # メディアアイテムのシリアライザ関数
+    def serialize_media_item(media):
+        return {
+            "id": media.id,
+            "shot_at": (
+                media.shot_at.isoformat().replace("+00:00", "Z") if media.shot_at else None
+            ),
+            "mime_type": media.mime_type,
+            "width": media.width,
+            "height": media.height,
+            "is_video": int(bool(media.is_video)),
+            "local_rel_path": media.local_rel_path,
+            "has_playback": int(bool(media.has_playback)),
+        }
+    
+    # ページング処理
+    result = paginate_and_respond(
+        query=query,
+        params=params,
+        serializer_func=serialize_media_item,
+        id_column=Media.id,
+        shot_at_column=Media.shot_at,
+        count_total=False,  # 高速化のため総件数はカウントしない
+        default_page_size=200
     )
-    items = query.limit(limit).all()
-
-    next_cursor = None
-    if len(items) == limit:
-        last_id = items[-1].id
-        if last_id and last_id > 1:
-            next_cursor = last_id - 1
-
-    data_items = []
-    for m in items:
-        data_items.append(
-            {
-                "id": m.id,
-                "shot_at": (
-                    m.shot_at.isoformat().replace("+00:00", "Z") if m.shot_at else None
-                ),
-                "mime_type": m.mime_type,
-                "width": m.width,
-                "height": m.height,
-                "is_video": int(bool(m.is_video)),
-                "local_rel_path": m.local_rel_path,
-                "has_playback": int(bool(m.has_playback)),
-            }
-        )
-
-    server_time = formatdate(usegmt=True)
+    
+    # ログ出力
     current_app.logger.info(
         json.dumps(
             {
                 "ts": datetime.now(timezone.utc).isoformat(),
                 "trace": trace,
-                "count": len(items),
-                "cursor": cursor,
-                "nextCursor": next_cursor,
-                "serverTimeRFC1123": server_time,
+                "count": len(result["items"]),
+                "cursor": params.cursor,
+                "nextCursor": result.get("nextCursor"),
+                "serverTimeRFC1123": result.get("serverTimeRFC1123"),
             }
         ),
         extra={"event": "media.list.success"},
     )
-    return jsonify(
-        {
-            "items": data_items,
-            "nextCursor": next_cursor,
-            "serverTimeRFC1123": server_time,
-        }
-    )
+    
+    return jsonify(result)
 
 
 def build_playback_dict(playback: MediaPlayback | None) -> dict:

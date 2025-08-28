@@ -17,16 +17,23 @@ from .picker_session_service import (
     time,
 )
 from core.tasks.picker_import import enqueue_picker_import_item  # re-export for tests
+from .pagination import PaginationParams, paginate_and_respond
 
 bp = Blueprint('picker_session_api', __name__)
 
 @bp.get("/picker/sessions")
 @login_required
 def api_picker_sessions_list():
-    """Return list of all picker sessions."""
-    sessions = PickerSession.query.order_by(PickerSession.created_at.desc()).all()
-    result = []
-    for ps in sessions:
+    """Return paginated list of all picker sessions."""
+    
+    # ページングパラメータの取得
+    params = PaginationParams.from_request(default_page_size=200)
+    
+    # ベースクエリの構築
+    query = PickerSession.query
+    
+    # セッションアイテムのシリアライザ関数
+    def serialize_picker_session(ps):
         # 各セッションの選択数を集計
         selection_counts = (
             db.session.query(
@@ -39,7 +46,7 @@ def api_picker_sessions_list():
         )
         counts = {status: count for status, count in selection_counts}
         
-        result.append({
+        return {
             "id": ps.id,
             "sessionId": ps.session_id,
             "accountId": ps.account_id,
@@ -48,9 +55,33 @@ def api_picker_sessions_list():
             "createdAt": ps.created_at.isoformat().replace("+00:00", "Z") if ps.created_at else None,
             "lastProgressAt": ps.last_progress_at.isoformat().replace("+00:00", "Z") if ps.last_progress_at else None,
             "counts": counts
-        })
+        }
     
-    return jsonify({"sessions": result})
+    # ページング処理
+    result = paginate_and_respond(
+        query=query,
+        params=params,
+        serializer_func=serialize_picker_session,
+        id_column=PickerSession.id,
+        created_at_column=PickerSession.created_at,
+        count_total=not params.use_cursor,  # カーソルベースでない場合のみ総件数カウント
+        default_page_size=200
+    )
+    
+    # レスポンス形式を既存のAPIと合わせるため、sessionsキーで包む
+    return jsonify({
+        "sessions": result["items"],
+        "pagination": {
+            "hasNext": result["hasNext"],
+            "hasPrev": result["hasPrev"],
+            "nextCursor": result.get("nextCursor"),
+            "prevCursor": result.get("prevCursor"),
+            "currentPage": result.get("currentPage"),
+            "totalPages": result.get("totalPages"),
+            "totalCount": result.get("totalCount")
+        },
+        "serverTimeRFC1123": result.get("serverTimeRFC1123")
+    })
 
 @bp.post("/picker/session")
 @login_required
@@ -176,7 +207,7 @@ def api_picker_session_selections(picker_session_id: int):
 @bp.get("/picker/session/<path:session_id>/selections")
 @login_required
 def api_picker_session_selections_by_session_id(session_id: str):
-    """Return selection list using external ``session_id`` string.
+    """Return paginated selection list using external ``session_id`` string.
 
     Clients may only know the Google Photos Picker ``session_id`` which can be a
     bare UUID or include the ``picker_sessions/`` prefix.  This endpoint
@@ -186,7 +217,11 @@ def api_picker_session_selections_by_session_id(session_id: str):
     ps = PickerSessionService.resolve_session_identifier(session_id)
     if not ps:
         return jsonify({"error": "not_found"}), 404
-    payload = PickerSessionService.selection_details(ps)
+    
+    # ページングパラメータの取得
+    params = PaginationParams.from_request(default_page_size=200)
+    
+    payload = PickerSessionService.selection_details(ps, params)
     return jsonify(payload)
 
 

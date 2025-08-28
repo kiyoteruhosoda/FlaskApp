@@ -1,5 +1,10 @@
 {% extends 'base.html' %}
 {% block title %}Session Details{% endblock %}
+
+{% block extra_head %}
+<script src="{{ url_for('static', filename='js/pagination.js') }}"></script>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1>{{ _('Session Details') }}</h1>
@@ -17,17 +22,21 @@
 <div class="mt-4">
   <h2>{{ _('Selected Files') }}</h2>
   <div id="selection-counts" class="mb-2"></div>
-  <table class="table table-sm">
-    <thead>
-      <tr>
-        <th>{{ _('File') }}</th>
-        <th>{{ _('Status') }}</th>
-        <th>{{ _('Attempts') }}</th>
-        <th>{{ _('Error') }}</th>
-      </tr>
-    </thead>
-    <tbody id="selection-body"></tbody>
-  </table>
+  <div class="table-responsive">
+    <table class="table table-sm">
+      <thead>
+        <tr>
+          <th>{{ _('File') }}</th>
+          <th>{{ _('Status') }}</th>
+          <th>{{ _('Attempts') }}</th>
+          <th>{{ _('Error') }}</th>
+        </tr>
+      </thead>
+      <tbody id="selection-body">
+        <!-- アイテムが動的に追加されます -->
+      </tbody>
+    </table>
+  </div>
 </div>
 
 <div id="server-data" 
@@ -45,19 +54,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const fromServer = serverDataEl.getAttribute('data-picker-session-id');
     return fromServer || '';
   }
+  
   const pickerSessionId = resolveSessionId();
   if (!pickerSessionId) {
     // セッションIDが無ければセッション一覧ページに遷移
     window.location.href = '/photo-view';
     return;
   }
-  
+
   // 数値IDの場合はセッション一覧に戻る（セキュリティ対策）
   if (/^\d+$/.test(pickerSessionId)) {
     console.warn('Numeric session ID detected, redirecting to sessions list');
     window.location.href = '/photo-view';
     return;
   }
+  
   const importBtn = document.getElementById('btn-import-start');
   const statusEl = document.getElementById('import-status');
   const selectionBody = document.getElementById('selection-body');
@@ -116,6 +127,37 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // 無限スクロール設定（ただし、このケースでは自動更新も行うため手動制御）
+  let paginationClient;
+  let currentCounts = {};
+
+  function createSelectionRow(selection) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${selection.filename || selection.googleMediaId}</td>
+      <td>
+        <span class="badge bg-${getStatusBadgeClass(selection.status)}">
+          ${selection.status}
+        </span>
+      </td>
+      <td>${selection.attempts}</td>
+      <td><small class="text-danger">${selection.error || ''}</small></td>
+    `;
+    return tr;
+  }
+
+  function getStatusBadgeClass(status) {
+    switch (status) {
+      case 'pending': return 'secondary';
+      case 'enqueued': return 'info';
+      case 'running': return 'warning';
+      case 'imported': return 'success';
+      case 'failed': return 'danger';
+      case 'dup': return 'light';
+      default: return 'secondary';
+    }
+  }
+
   async function refreshSelections() {
     // 数値IDの場合はAPIリクエストを送信せずリダイレクト
     if (/^\d+$/.test(pickerSessionId)) {
@@ -125,24 +167,49 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     try {
-      const resp = await fetch(`/api/picker/session/${encodeURIComponent(pickerSessionId)}/selections`);
-      if (!resp.ok) return;
-      const data = await resp.json();
-      selectionBody.innerHTML = '';
-      data.selections.forEach(sel => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${sel.filename || sel.googleMediaId}</td>` +
-                        `<td>${sel.status}</td>` +
-                        `<td>${sel.attempts}</td>` +
-                        `<td>${sel.error || ''}</td>`;
-        selectionBody.appendChild(tr);
-      });
-      countsEl.textContent = Object.entries(data.counts).map(([k,v]) => `${k}: ${v}`).join(', ');
+      if (!paginationClient) {
+        // 初回読み込み時にページングクライアントを初期化
+        paginationClient = new PaginationClient({
+          baseUrl: `/api/picker/session/${encodeURIComponent(pickerSessionId)}/selections`,
+          pageSize: 200,
+          autoLoad: false, // 手動制御
+          onItemsLoaded: (items, meta) => {
+            // 新しい読み込みの場合はクリア
+            if (meta.currentPage === 1) {
+              selectionBody.innerHTML = '';
+            }
+            
+            // アイテムを追加
+            items.forEach(selection => {
+              const row = createSelectionRow(selection);
+              selectionBody.appendChild(row);
+            });
+          },
+          onError: (error) => {
+            console.error('Selection loading error:', error);
+          }
+        });
+      }
+
+      // ページングクライアントを使用してデータを読み込み
+      await paginationClient.loadFirst();
+
+      // 別途カウント情報を取得（カウントは全体の情報が必要なため）
+      const countResp = await fetch(`/api/picker/session/${encodeURIComponent(pickerSessionId)}/selections?pageSize=1`);
+      if (countResp.ok) {
+        const countData = await countResp.json();
+        if (countData.counts) {
+          currentCounts = countData.counts;
+          countsEl.textContent = Object.entries(currentCounts).map(([k,v]) => `${k}: ${v}`).join(', ');
+        }
+      }
+      
     } catch (err) {
       console.error(err);
     }
   }
 
+  // 3秒ごとに自動更新
   setInterval(refreshSelections, 3000);
   refreshSelections();
 });

@@ -170,8 +170,30 @@ def api_picker_session_media_items():
     if not session_id or not isinstance(session_id, str):
         return jsonify({"error": "invalid_session"}), 400
     cursor = data.get("cursor")
+    current_app.logger.info(
+        json.dumps(
+            {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "session_id": session_id,
+                "cursor": cursor,
+            }
+        ),
+        extra={"event": "picker.mediaItems.begin"},
+    )
     try:
         payload, status = PickerSessionService.media_items(session_id, cursor)
+        current_app.logger.info(
+            json.dumps(
+                {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "session_id": session_id,
+                    "saved": payload.get("saved"),
+                    "duplicates": payload.get("duplicates"),
+                    "status": status,
+                }
+            ),
+            extra={"event": "picker.mediaItems.success"},
+        )
         return jsonify(payload), status
     except Exception as e:
         current_app.logger.error(

@@ -34,8 +34,6 @@ from core.crypto import decrypt
 from ..auth.utils import refresh_google_token, RefreshTokenError, log_requests_and_send
 
 
-
-
 @bp.post("/google/oauth/start")
 @login_required
 def google_oauth_start():
@@ -60,8 +58,9 @@ def google_oauth_start():
         "state": state,
     }
     auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode(params)
-    return jsonify({"auth_url": auth_url, "server_time": datetime.now(timezone.utc).isoformat()})
-
+    return jsonify(
+        {"auth_url": auth_url, "server_time": datetime.now(timezone.utc).isoformat()}
+    )
 
 
 @bp.get("/google/accounts")
@@ -76,7 +75,9 @@ def api_google_accounts():
                 "email": a.email,
                 "status": a.status,
                 "scopes": a.scopes_list(),
-                "last_synced_at": a.last_synced_at.isoformat() if a.last_synced_at else None,
+                "last_synced_at": (
+                    a.last_synced_at.isoformat() if a.last_synced_at else None
+                ),
                 "has_token": bool(a.oauth_token_json),
             }
             for a in accounts
@@ -132,8 +133,6 @@ def api_google_account_test(account_id):
     return jsonify({"result": "ok"})
 
 
-
-
 @bp.get("/media")
 @login_required
 def api_media_list():
@@ -148,7 +147,7 @@ def api_media_list():
                 "limit": request.args.get("limit"),
             }
         ),
-        extra={"event": "media.list.begin"}
+        extra={"event": "media.list.begin"},
     )
     try:
         limit = int(request.args.get("limit", 200))
@@ -197,9 +196,9 @@ def api_media_list():
         data_items.append(
             {
                 "id": m.id,
-                "shot_at": m.shot_at.isoformat().replace("+00:00", "Z")
-                if m.shot_at
-                else None,
+                "shot_at": (
+                    m.shot_at.isoformat().replace("+00:00", "Z") if m.shot_at else None
+                ),
                 "mime_type": m.mime_type,
                 "width": m.width,
                 "height": m.height,
@@ -221,11 +220,78 @@ def api_media_list():
                 "serverTimeRFC1123": server_time,
             }
         ),
-        extra={"event": "media.list.success"}
+        extra={"event": "media.list.success"},
     )
     return jsonify(
-        {"items": data_items, "nextCursor": next_cursor, "serverTimeRFC1123": server_time}
+        {
+            "items": data_items,
+            "nextCursor": next_cursor,
+            "serverTimeRFC1123": server_time,
+        }
     )
+
+
+def build_playback_dict(playback: MediaPlayback | None) -> dict:
+    """Return playback information dictionary."""
+    return {
+        "available": bool(playback and playback.status == "done"),
+        "preset": playback.preset if playback else None,
+        "rel_path": playback.rel_path if playback else None,
+        "status": playback.status if playback else None,
+    }
+
+
+def build_exif_dict(exif: Exif | None) -> dict:
+    """Return EXIF information dictionary."""
+    return {
+        "camera_make": exif.camera_make if exif else None,
+        "camera_model": exif.camera_model if exif else None,
+        "lens": exif.lens if exif else None,
+        "iso": exif.iso if exif else None,
+        "shutter": exif.shutter if exif else None,
+        "f_number": (
+            float(exif.f_number) if exif and exif.f_number is not None else None
+        ),
+        "focal_len": (
+            float(exif.focal_len) if exif and exif.focal_len is not None else None
+        ),
+        "gps_lat": float(exif.gps_lat) if exif and exif.gps_lat is not None else None,
+        "gps_lng": float(exif.gps_lng) if exif and exif.gps_lng is not None else None,
+    }
+
+
+def serialize_media_detail(media: Media) -> dict:
+    """Serialize detailed information for a media item."""
+    sidecars = [
+        {"type": s.type, "rel_path": s.rel_path, "bytes": s.bytes}
+        for s in media.sidecars
+    ]
+    playback_record = media.playbacks[0] if media.playbacks else None
+    return {
+        "id": media.id,
+        "google_media_id": media.google_media_id,
+        "account_id": media.account_id,
+        "local_rel_path": media.local_rel_path,
+        "bytes": media.bytes,
+        "mime_type": media.mime_type,
+        "width": media.width,
+        "height": media.height,
+        "duration_ms": media.duration_ms,
+        "shot_at": (
+            media.shot_at.isoformat().replace("+00:00", "Z") if media.shot_at else None
+        ),
+        "imported_at": (
+            media.imported_at.isoformat().replace("+00:00", "Z")
+            if media.imported_at
+            else None
+        ),
+        "is_video": int(bool(media.is_video)),
+        "is_deleted": int(bool(media.is_deleted)),
+        "has_playback": int(bool(media.has_playback)),
+        "exif": build_exif_dict(media.exif),
+        "sidecars": sidecars,
+        "playback": build_playback_dict(playback_record),
+    }
 
 
 @bp.get("/media/<int:media_id>")
@@ -241,7 +307,7 @@ def api_media_detail(media_id):
                 "trace": trace,
             }
         ),
-        extra={"event": "media.detail.begin"}
+        extra={"event": "media.detail.begin"},
     )
     media = Media.query.get(media_id)
     if not media or media.is_deleted:
@@ -253,67 +319,14 @@ def api_media_detail(media_id):
                     "trace": trace,
                 }
             ),
-            extra={"event": "media.detail.not_found"}
+            extra={"event": "media.detail.not_found"},
         )
         return jsonify({"error": "not_found"}), 404
 
-    exif = media.exif
-    sidecars = [
-        {"type": s.type, "rel_path": s.rel_path, "bytes": s.bytes}
-        for s in media.sidecars
-    ]
-    pb = media.playbacks[0] if media.playbacks else None
-    playback = {
-        "available": bool(pb and pb.status == "done"),
-        "preset": pb.preset if pb else None,
-        "rel_path": pb.rel_path if pb else None,
-        "status": pb.status if pb else None,
-    }
-
-    data = {
-        "id": media.id,
-        "google_media_id": media.google_media_id,
-        "account_id": media.account_id,
-        "local_rel_path": media.local_rel_path,
-        "bytes": media.bytes,
-        "mime_type": media.mime_type,
-        "width": media.width,
-        "height": media.height,
-        "duration_ms": media.duration_ms,
-        "shot_at": media.shot_at.isoformat().replace("+00:00", "Z")
-        if media.shot_at
-        else None,
-        "imported_at": media.imported_at.isoformat().replace("+00:00", "Z")
-        if media.imported_at
-        else None,
-        "is_video": int(bool(media.is_video)),
-        "is_deleted": int(bool(media.is_deleted)),
-        "has_playback": int(bool(media.has_playback)),
-        "exif": {
-            "camera_make": exif.camera_make if exif else None,
-            "camera_model": exif.camera_model if exif else None,
-            "lens": exif.lens if exif else None,
-            "iso": exif.iso if exif else None,
-            "shutter": exif.shutter if exif else None,
-            "f_number": float(exif.f_number)
-            if exif and exif.f_number is not None
-            else None,
-            "focal_len": float(exif.focal_len)
-            if exif and exif.focal_len is not None
-            else None,
-            "gps_lat": float(exif.gps_lat)
-            if exif and exif.gps_lat is not None
-            else None,
-            "gps_lng": float(exif.gps_lng)
-            if exif and exif.gps_lng is not None
-            else None,
-        },
-        "sidecars": sidecars,
-        "playback": playback,
-    }
+    media_data = serialize_media_detail(media)
 
     server_time = formatdate(usegmt=True)
-    data["serverTimeRFC1123"] = server_time
+    media_data["serverTimeRFC1123"] = server_time
     current_app.logger.info(
         json.dumps(
             {
@@ -323,9 +336,9 @@ def api_media_detail(media_id):
                 "serverTimeRFC1123": server_time,
             }
         ),
-        extra={"event": "media.detail.success"}
+        extra={"event": "media.detail.success"},
     )
-    return jsonify(data)
+    return jsonify(media_data)
 
 
 def _b64url_encode(data: bytes) -> str:
@@ -386,11 +399,17 @@ def api_media_thumb_url(media_id):
 
     rel_path = media.local_rel_path
     token_path = f"thumbs/{size}/{rel_path}"
-    abs_path = os.path.join(current_app.config.get("FPV_NAS_THUMBS_DIR", ""), str(size), rel_path)
+    abs_path = os.path.join(
+        current_app.config.get("FPV_NAS_THUMBS_DIR", ""), str(size), rel_path
+    )
     if not os.path.exists(abs_path):
         return jsonify({"error": "not_found"}), 404
 
-    ct = mimetypes.guess_type(abs_path)[0] or media.mime_type or "application/octet-stream"
+    ct = (
+        mimetypes.guess_type(abs_path)[0]
+        or media.mime_type
+        or "application/octet-stream"
+    )
     ttl = current_app.config.get("FPV_URL_TTL_THUMB", 600)
     exp = int(time.time()) + ttl
     payload = {
@@ -404,7 +423,9 @@ def api_media_thumb_url(media_id):
         "nonce": uuid4().hex,
     }
     token = _sign_payload(payload)
-    expires_at = datetime.fromtimestamp(exp, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+    expires_at = (
+        datetime.fromtimestamp(exp, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+    )
     current_app.logger.info(
         json.dumps(
             {
@@ -415,7 +436,7 @@ def api_media_thumb_url(media_id):
                 "nonce": payload["nonce"],
             }
         ),
-        extra={"event": "url.thumb.issue"}
+        extra={"event": "url.thumb.issue"},
     )
     return (
         jsonify(
@@ -464,7 +485,9 @@ def api_media_playback_url(media_id):
         "nonce": uuid4().hex,
     }
     token = _sign_payload(payload)
-    expires_at = datetime.fromtimestamp(exp, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+    expires_at = (
+        datetime.fromtimestamp(exp, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+    )
     current_app.logger.info(
         json.dumps(
             {
@@ -474,7 +497,7 @@ def api_media_playback_url(media_id):
                 "nonce": payload["nonce"],
             }
         ),
-        extra={"event": "url.playback.issue"}
+        extra={"event": "url.playback.issue"},
     )
     return (
         jsonify(
@@ -505,7 +528,7 @@ def api_download(token):
                     "nonce": payload.get("nonce"),
                 }
             ),
-            extra={"event": "dl.forbidden"}
+            extra={"event": "dl.forbidden"},
         )
         return jsonify({"error": "forbidden"}), 403
 
@@ -529,7 +552,7 @@ def api_download(token):
                     "nonce": payload.get("nonce"),
                 }
             ),
-            extra={"event": "dl.notfound"}
+            extra={"event": "dl.notfound"},
         )
         return jsonify({"error": "not_found"}), 404
 
@@ -550,7 +573,9 @@ def api_download(token):
             with open(abs_path, "rb") as f:
                 f.seek(start)
                 data = f.read(length)
-            resp = current_app.response_class(data, 206, mimetype=ct, direct_passthrough=True)
+            resp = current_app.response_class(
+                data, 206, mimetype=ct, direct_passthrough=True
+            )
             resp.headers["Content-Range"] = f"bytes {start}-{end}/{size}"
             resp.headers["Accept-Ranges"] = "bytes"
             resp.headers["Content-Length"] = str(length)
@@ -564,7 +589,8 @@ def api_download(token):
                         "start": start,
                         "end": end,
                     }
-                ), extra={"event": "dl.range"}
+                ),
+                extra={"event": "dl.range"},
             )
             return resp
 
@@ -589,6 +615,6 @@ def api_download(token):
                 "nonce": payload.get("nonce"),
             }
         ),
-        extra={"event": "dl.success"}
+        extra={"event": "dl.success"},
     )
     return resp

@@ -133,6 +133,17 @@ def api_picker_session_summary(picker_session_id):
     return jsonify({"countsByStatus": counts, "jobSync": job_summary})
 
 
+@bp.get("/picker/session/<int:picker_session_id>/selections")
+@login_required
+def api_picker_session_selections(picker_session_id: int):
+    """Return detailed picker selection list for a session."""
+    ps = PickerSession.query.get(picker_session_id)
+    if not ps:
+        return jsonify({"error": "not_found"}), 404
+    payload = PickerSessionService.selection_details(ps)
+    return jsonify(payload)
+
+
 @bp.get("/picker/session/<string:session_id>")
 @login_required
 def api_picker_session_status(session_id):

@@ -13,6 +13,22 @@
 
 <div id="import-status" class="mt-3" aria-live="polite"></div>
 
+<div class="mt-4">
+  <h2>{{ _('Selected Files') }}</h2>
+  <div id="selection-counts" class="mb-2"></div>
+  <table class="table table-sm">
+    <thead>
+      <tr>
+        <th>{{ _('File') }}</th>
+        <th>{{ _('Status') }}</th>
+        <th>{{ _('Attempts') }}</th>
+        <th>{{ _('Error') }}</th>
+      </tr>
+    </thead>
+    <tbody id="selection-body"></tbody>
+  </table>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   // クエリパラメータからsession_idを取得
@@ -28,6 +44,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const importBtn = document.getElementById('btn-import-start');
   const statusEl = document.getElementById('import-status');
+  const selectionBody = document.getElementById('selection-body');
+  const countsEl = document.getElementById('selection-counts');
 
   // pickerSessionId が無い場合はボタンを無効化
   if (!pickerSessionId) {
@@ -87,6 +105,29 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   });
+
+  async function refreshSelections() {
+    try {
+      const resp = await fetch(`/api/picker/session/${encodeURIComponent(pickerSessionId)}/selections`);
+      if (!resp.ok) return;
+      const data = await resp.json();
+      selectionBody.innerHTML = '';
+      data.selections.forEach(sel => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${sel.filename || sel.googleMediaId}</td>` +
+                        `<td>${sel.status}</td>` +
+                        `<td>${sel.attempts}</td>` +
+                        `<td>${sel.error || ''}</td>`;
+        selectionBody.appendChild(tr);
+      });
+      countsEl.textContent = Object.entries(data.counts).map(([k,v]) => `${k}: ${v}`).join(', ');
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  setInterval(refreshSelections, 3000);
+  refreshSelections();
 });
 </script>
 {% endblock %}

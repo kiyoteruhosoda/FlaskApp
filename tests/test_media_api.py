@@ -5,6 +5,7 @@ import hmac
 import hashlib
 import time
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
@@ -48,7 +49,8 @@ def app(tmp_path):
         u = User(email="u@example.com")
         u.set_password("pass")
         db.session.add(u)
-        acc = GoogleAccount(email="g@example.com", scopes="", oauth_token_json="{}")
+        db.session.flush()
+        acc = GoogleAccount(user_id=u.id, email="g@example.com", scopes="", oauth_token_json="{}")
         db.session.add(acc)
         db.session.commit()
 
@@ -374,8 +376,9 @@ def test_list_first_page(client, seed_media_bulk):
     assert res.status_code == 200
     data = res.get_json()
     assert len(data["items"]) == 200
-    assert data["nextCursor"] is not None
-    assert data["nextCursor"] < data["items"][-1]["id"]
+    assert data.get("nextCursor") is not None
+    decoded = json.loads(base64.urlsafe_b64decode(data["nextCursor"] + "==").decode())
+    assert decoded["id"] == data["items"][-1]["id"]
     ids = [item["id"] for item in data["items"]]
     assert ids == sorted(ids, reverse=True)
     assert data["serverTimeRFC1123"].endswith("GMT")
@@ -390,7 +393,7 @@ def test_list_second_page(client, seed_media_bulk):
     assert res.status_code == 200
     data = res.get_json()
     assert len(data["items"]) <= 50
-    assert data["nextCursor"] is None
+    assert data.get("nextCursor") is None
 
 
 def test_list_deleted_excluded(client, seed_media_bulk):
@@ -536,4 +539,40 @@ def test_thumb_url_deleted_media(client, seed_deleted_media):
     login(client)
     res = client.post(f"/api/media/{media_id}/thumb-url", json={"size": 256})
     assert res.status_code == 410
+
+
+def test_media_thumbnail_route(client, app):
+    from webapp.extensions import db
+    from core.models.photo_models import Media
+
+    with app.app_context():
+        m = Media(
+            google_media_id="thumb",
+            account_id=1,
+            local_rel_path="thumb.jpg",
+            bytes=3,
+            mime_type="image/jpeg",
+            width=1,
+            height=1,
+            shot_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 1, 2, tzinfo=timezone.utc),
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        db.session.add(m)
+        db.session.commit()
+        media_id = m.id
+
+    thumb_dir = Path(os.environ["FPV_NAS_THUMBS_DIR"]) / "256"
+    thumb_dir.mkdir(parents=True, exist_ok=True)
+    thumb_path = thumb_dir / "thumb.jpg"
+    data = b"testdata"
+    thumb_path.write_bytes(data)
+
+    login(client)
+    res = client.get(f"/api/media/{media_id}/thumbnail?size=256")
+    assert res.status_code == 200
+    assert res.data == data
+    assert res.headers["Cache-Control"].startswith("private")
 

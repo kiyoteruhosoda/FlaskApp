@@ -67,10 +67,13 @@ def enqueue_picker_import_item(selection_id: int, session_id: int) -> None:
     as Celery.  For tests the function acts as a hook that can be
     monkeypatched to observe which items would be queued.
     """
-
-    # The default implementation is a no-op; tests are expected to
-    # monkeypatch this function.
-    return None
+    try:
+        # Try to import and use Celery task
+        from cli.src.celery.tasks import picker_import_item_task
+        picker_import_item_task.delay(selection_id, session_id)
+    except ImportError:
+        # Fall back to no-op for tests
+        return None
 
 
 def enqueue_thumbs_generate(media_id: int) -> None:

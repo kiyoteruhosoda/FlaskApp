@@ -473,8 +473,20 @@ class PickerSessionService:
 
     @staticmethod
     def _publish_celery(ps: PickerSession, job: JobSync, task_id: str) -> None:
-        # Placeholder for Celery integration
-        print("dummy")
+        """Publish Celery task for picker import session."""
+        try:
+            # Try to import and use Celery watchdog task
+            from cli.src.celery.tasks import picker_import_watchdog_task
+            
+            # Start the watchdog task which will process all pending selections
+            picker_import_watchdog_task.delay()
+                
+        except ImportError:
+            # Fall back to dummy for tests or when Celery is not available
+            print(f"Celery not available, would start watchdog for session {ps.id}")
+        except Exception as e:
+            current_app.logger.error(f"Failed to publish Celery task: {e}")
+            raise
 
     # --- Finish -----------------------------------------------------------
     @staticmethod

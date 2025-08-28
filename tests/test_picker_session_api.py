@@ -214,16 +214,16 @@ def test_import_enqueue_ok(monkeypatch, client, app):
 
     monkeypatch.setattr("requests.post", fake_post)
     res = client.post("/api/picker/session", json={"account_id": 1})
-    ps_id = res.get_json()["pickerSessionId"]
+    session_id = res.get_json()["sessionId"]
 
-    res = client.post(f"/api/picker/session/{ps_id}/import")
+    res = client.post(f"/api/picker/session/{session_id}/import")
     assert res.status_code == 202
     data = res.get_json()
     assert data["enqueued"] is True
     assert data["celeryTaskId"]
     from core.models.picker_session import PickerSession
     with app.app_context():
-        ps = PickerSession.query.get(ps_id)
+        ps = PickerSession.query.filter_by(session_id=session_id).first()
         assert ps.status == "importing"
 
 
@@ -247,17 +247,27 @@ def test_import_idempotent(monkeypatch, client, app):
 
     monkeypatch.setattr("requests.post", fake_post)
     res = client.post("/api/picker/session", json={"account_id": 1})
-    ps_id = res.get_json()["pickerSessionId"]
-    res = client.post(f"/api/picker/session/{ps_id}/import")
+    session_id = res.get_json()["sessionId"]
+    res = client.post(f"/api/picker/session/{session_id}/import")
     assert res.status_code == 202
-    res = client.post(f"/api/picker/session/{ps_id}/import")
+    res = client.post(f"/api/picker/session/{session_id}/import")
     assert res.status_code == 409
 
 
 def test_import_not_found(monkeypatch, client, app):
     login(client, app)
-    res = client.post("/api/picker/session/999/import", json={"account_id": 1})
+    # 存在しないsession_idで404エラーを期待
+    res = client.post("/api/picker/session/nonexistent-session/import", json={"account_id": 1})
     assert res.status_code == 404
+
+
+def test_import_numeric_id_deprecated(monkeypatch, client, app):
+    login(client, app)
+    # 数値IDエンドポイントは廃止されたため400エラーを期待
+    res = client.post("/api/picker/session/999/import", json={"account_id": 1})
+    assert res.status_code == 400
+    data = res.get_json()
+    assert data["error"] == "numeric_ids_not_supported"
 
 
 def test_import_by_session_id_ok(monkeypatch, client, app):

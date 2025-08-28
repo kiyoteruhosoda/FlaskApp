@@ -44,3 +44,12 @@ class Config:
     FPV_URL_TTL_PLAYBACK = int(os.environ.get("FPV_URL_TTL_PLAYBACK", "600"))
     FPV_NAS_THUMBS_DIR = os.environ.get("FPV_NAS_THUMBS_DIR", "")
     FPV_NAS_PLAY_DIR = os.environ.get("FPV_NAS_PLAY_DIR", "")
+
+    # Celery settings
+    broker_url = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+    result_backend = os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
+    task_serializer = "json"
+    result_serializer = "json"
+    accept_content = ["json"]
+    timezone = "UTC"
+    enable_utc = True

@@ -283,6 +283,10 @@ def api_picker_session_import_by_session_id(session_id: str):
     include a slash like ``picker_sessions/<uuid>``). This endpoint resolves the
     corresponding internal picker session and processes the import directly.
     """
+    # 数値のみの場合は拒否（セキュリティ改善）
+    if session_id.isdigit():
+        return jsonify({"error": "numeric_ids_not_supported", "message": "Use session_id hash instead"}), 400
+    
     ps = PickerSessionService.resolve_session_identifier(session_id)
     if not ps:
         return jsonify({"error": "not_found"}), 404

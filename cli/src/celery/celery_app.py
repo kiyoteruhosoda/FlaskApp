@@ -6,8 +6,8 @@ from datetime import timedelta
 def make_celery(app: Flask):
     celery = Celery(
         app.import_name,
-        broker="redis://localhost:6379/0",  # Broker
-        backend="redis://localhost:6379/0"  # 結果を取得する場合
+        broker=app.config.get("broker_url", "redis://localhost:6379/0"),
+        backend=app.config.get("result_backend", "redis://localhost:6379/0")
     )
     celery.conf.update(app.config)
     return celery

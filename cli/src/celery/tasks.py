@@ -8,7 +8,11 @@ import requests
 
 from core.tasks.picker_import import picker_import_watchdog, picker_import_item
 from core.tasks.local_import import local_import_task
-from core.tasks.session_recovery import cleanup_stale_sessions, force_cleanup_all_processing_sessions
+from core.tasks.session_recovery import (
+    cleanup_stale_sessions, 
+    force_cleanup_all_processing_sessions,
+    get_session_status_report
+)
 
 
 def _save_content(path: Path, content: bytes) -> None:
@@ -73,6 +77,12 @@ def force_cleanup_all_sessions_task(self):
     return force_cleanup_all_processing_sessions()
 
 
+@celery.task(bind=True, name="session_recovery.status_report")
+def session_status_report_task(self):
+    """セッション状況の詳細レポートを生成する（デバッグ用）"""
+    return get_session_status_report()
+
+
 __all__ = [
     "dummy_long_task",
     "download_file",
@@ -81,4 +91,5 @@ __all__ = [
     "local_import_task_celery",
     "cleanup_stale_sessions_task",
     "force_cleanup_all_sessions_task",
+    "session_status_report_task",
 ]

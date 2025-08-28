@@ -1,90 +1,194 @@
 """Tests for session recovery functionality."""
 
 import pytest
+from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta
-from core.tasks.session_recovery import cleanup_stale_sessions, force_cleanup_all_processing_sessions
+from core.tasks.session_recovery import (
+    cleanup_stale_sessions, 
+    force_cleanup_all_processing_sessions,
+    get_session_status_report
+)
 from core.models.picker_session import PickerSession
 from core.db import db
 
 
 class TestSessionRecovery:
-    """セッションリカバリ機能のテスト"""
+    """厳密なセッションリカバリ機能のテスト"""
 
     def test_cleanup_stale_sessions_no_stale_sessions(self, app_context):
         """古いセッションがない場合のテスト"""
-        result = cleanup_stale_sessions()
-        
-        assert result["ok"] is True
-        assert result["updated_count"] == 0
-        assert "クリーンアップが必要なセッション" in result["message"]
+        with patch('core.tasks.session_recovery.celery') as mock_celery:
+            # Celeryの active tasks をモック
+            mock_inspect = MagicMock()
+            mock_inspect.active.return_value = {}
+            mock_celery.control.inspect.return_value = mock_inspect
+            
+            result = cleanup_stale_sessions()
+            
+            assert result["ok"] is True
+            assert result["updated_count"] == 0
+            assert "クリーンアップが必要なセッション" in result["message"]
 
-    def test_cleanup_stale_sessions_with_stale_sessions(self, app_context):
-        """古いセッションがある場合のテスト"""
-        # 30分以上前の処理中セッションを作成
-        old_time = datetime.now() - timedelta(minutes=35)
-        session = PickerSession(
-            session_id="test-stale-session",
-            status="processing",
-            created_at=old_time,
-            updated_at=old_time
-        )
-        db.session.add(session)
-        db.session.commit()
-        
-        result = cleanup_stale_sessions()
-        
-        assert result["ok"] is True
-        assert result["updated_count"] == 1
-        assert "1個の古いセッション" in result["message"]
-        
-        # セッションがエラー状態に更新されていることを確認
-        updated_session = PickerSession.query.filter_by(session_id="test-stale-session").first()
-        assert updated_session.status == "error"
-        assert "タイムアウト" in updated_session.error_message
+    def test_cleanup_respects_session_type_timeouts(self, app_context):
+        """セッションタイプに応じたタイムアウト時間のテスト"""
+        with patch('core.tasks.session_recovery.celery') as mock_celery:
+            mock_inspect = MagicMock()
+            mock_inspect.active.return_value = {}
+            mock_celery.control.inspect.return_value = mock_inspect
+            
+            now = datetime.now()
+            
+            # ローカルインポート: 1.5時間前（2時間タイムアウトなのでまだOK）
+            local_session = PickerSession(
+                session_id="local-import-test",
+                status="processing",
+                created_at=now - timedelta(hours=1.5),
+                updated_at=now - timedelta(hours=1.5)
+            )
+            
+            # Picker インポート: 1.5時間前（1時間タイムアウトなのでアウト）
+            picker_session = PickerSession(
+                session_id="picker-test",
+                status="processing", 
+                created_at=now - timedelta(hours=1.5),
+                updated_at=now - timedelta(hours=1.5)
+            )
+            
+            db.session.add_all([local_session, picker_session])
+            db.session.commit()
+            
+            result = cleanup_stale_sessions()
+            
+            assert result["ok"] is True
+            assert result["updated_count"] == 1  # picker のみクリーンアップ
+            
+            # ローカルインポートは保護されている
+            updated_local = PickerSession.query.filter_by(session_id="local-import-test").first()
+            assert updated_local.status == "processing"
+            
+            # Picker インポートはクリーンアップされた
+            updated_picker = PickerSession.query.filter_by(session_id="picker-test").first()
+            assert updated_picker.status == "error"
+            assert "picker_import" in updated_picker.error_message
 
-    def test_cleanup_stale_sessions_ignores_recent_sessions(self, app_context):
-        """最近のセッションは無視されることのテスト"""
-        # 10分前の処理中セッション（まだ新しい）
-        recent_time = datetime.now() - timedelta(minutes=10)
-        session = PickerSession(
-            session_id="test-recent-session",
-            status="processing",
-            created_at=recent_time,
-            updated_at=recent_time
-        )
-        db.session.add(session)
-        db.session.commit()
-        
-        result = cleanup_stale_sessions()
-        
-        assert result["ok"] is True
-        assert result["updated_count"] == 0
-        
-        # セッションが変更されていないことを確認
-        unchanged_session = PickerSession.query.filter_by(session_id="test-recent-session").first()
-        assert unchanged_session.status == "processing"
+    def test_cleanup_protects_active_celery_tasks(self, app_context):
+        """Celeryで実行中のタスクが保護されることのテスト"""
+        with patch('core.tasks.session_recovery.celery') as mock_celery:
+            # 実行中タスクをモック
+            mock_inspect = MagicMock()
+            mock_inspect.active.return_value = {
+                'worker1': [
+                    {
+                        'name': 'local_import.run',
+                        'id': 'task-123',
+                        'args': ['active-session-id']
+                    }
+                ]
+            }
+            mock_celery.control.inspect.return_value = mock_inspect
+            
+            now = datetime.now()
+            
+            # 3時間前の古いセッション（Celeryで実行中）
+            active_session = PickerSession(
+                session_id="active-session-id",
+                status="processing",
+                created_at=now - timedelta(hours=3),
+                updated_at=now - timedelta(hours=3)
+            )
+            
+            # 3時間前の古いセッション（Celeryで実行されていない）
+            inactive_session = PickerSession(
+                session_id="inactive-session-id", 
+                status="processing",
+                created_at=now - timedelta(hours=3),
+                updated_at=now - timedelta(hours=3)
+            )
+            
+            db.session.add_all([active_session, inactive_session])
+            db.session.commit()
+            
+            result = cleanup_stale_sessions()
+            
+            assert result["ok"] is True
+            assert result["updated_count"] == 1  # inactive のみクリーンアップ
+            
+            # 実行中セッションは保護された
+            active = PickerSession.query.filter_by(session_id="active-session-id").first()
+            assert active.status == "processing"
+            
+            # 非実行中セッションはクリーンアップされた
+            inactive = PickerSession.query.filter_by(session_id="inactive-session-id").first()
+            assert inactive.status == "error"
 
-    def test_cleanup_stale_sessions_ignores_non_processing_sessions(self, app_context):
-        """processing以外のステータスのセッションは無視されることのテスト"""
-        # 古いが完了済みのセッション
-        old_time = datetime.now() - timedelta(minutes=35)
-        session = PickerSession(
-            session_id="test-completed-session",
-            status="ready",
-            created_at=old_time,
-            updated_at=old_time
-        )
-        db.session.add(session)
-        db.session.commit()
-        
-        result = cleanup_stale_sessions()
-        
-        assert result["ok"] is True
-        assert result["updated_count"] == 0
-        
-        # セッションが変更されていないことを確認
-        unchanged_session = PickerSession.query.filter_by(session_id="test-completed-session").first()
-        assert unchanged_session.status == "ready"
+    def test_get_session_status_report(self, app_context):
+        """セッション状況レポート生成のテスト"""
+        with patch('core.tasks.session_recovery.celery') as mock_celery:
+            mock_inspect = MagicMock()
+            mock_inspect.active.return_value = {
+                'worker1': [
+                    {
+                        'name': 'local_import.run',
+                        'id': 'task-123',
+                        'args': ['test-session']
+                    }
+                ]
+            }
+            mock_inspect.scheduled.return_value = {}
+            mock_celery.control.inspect.return_value = mock_inspect
+            
+            # テストセッション作成
+            session = PickerSession(
+                session_id="test-session",
+                status="processing",
+                created_at=datetime.now() - timedelta(minutes=30),
+                updated_at=datetime.now() - timedelta(minutes=30)
+            )
+            db.session.add(session)
+            db.session.commit()
+            
+            report = get_session_status_report()
+            
+            assert 'timestamp' in report
+            assert 'celery_workers_count' in report
+            assert 'active_tasks_count' in report
+            assert 'processing_sessions_count' in report
+            assert 'session_analysis' in report
+            assert len(report['session_analysis']) == 1
+            
+            session_info = report['session_analysis'][0]
+            assert session_info['session_id'] == "test-session"
+            assert session_info['is_active_in_celery'] is True
+            assert session_info['type'] == 'other'  # test-session は other タイプ
+
+    def test_cleanup_uses_updated_at_not_created_at(self, app_context):
+        """updated_at を基準にタイムアウト判定することのテスト"""
+        with patch('core.tasks.session_recovery.celery') as mock_celery:
+            mock_inspect = MagicMock()
+            mock_inspect.active.return_value = {}
+            mock_celery.control.inspect.return_value = mock_inspect
+            
+            now = datetime.now()
+            
+            # 作成は古いが、最近更新されたセッション
+            recent_update_session = PickerSession(
+                session_id="recent-update",
+                status="processing",
+                created_at=now - timedelta(hours=3),  # 作成は3時間前
+                updated_at=now - timedelta(minutes=30)  # 更新は30分前
+            )
+            
+            db.session.add(recent_update_session)
+            db.session.commit()
+            
+            result = cleanup_stale_sessions()
+            
+            assert result["ok"] is True
+            assert result["updated_count"] == 0  # クリーンアップされない
+            
+            # セッションは保護されている
+            session = PickerSession.query.filter_by(session_id="recent-update").first()
+            assert session.status == "processing"
 
     def test_force_cleanup_all_processing_sessions(self, app_context):
         """全処理中セッションの強制クリーンアップテスト"""

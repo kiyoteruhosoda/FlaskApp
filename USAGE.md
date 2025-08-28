@@ -215,16 +215,23 @@ nohup celery -A cli.src.celery.tasks beat --loglevel=info &
 
 **スケジューラが実行する定期タスク**:
 - `picker_import.watchdog`: Photo picker監視（1分毎）
-- `session_recovery.cleanup_stale_sessions`: 古いセッションの自動リカバリ（5分毎）
+- `session_recovery.cleanup_stale_sessions`: 厳密なセッション自動リカバリ（5分毎）
 
-**自動リカバリ機能**: 30分以上前に作成されて「processing」状態のままのセッションを自動的に「error」状態に変更します。これにより、Celeryワーカーの予期しない停止やシステム再起動後でも、UI上で「Celery処理待ち中...」が永続的に表示される問題を防げます。
+**厳密な自動リカバリ機能**: 
+以下の条件をすべて満たすセッションのみをエラー状態に変更します：
+1. ステータスが「processing」
+2. 最終更新から一定時間経過（ローカルインポート：2時間、その他：1時間）
+3. Celeryワーカーで実際のタスクが実行されていない
+
+これにより、動画変換などの長時間処理が誤ってタイムアウトすることを防ぎ、真に停止したセッションのみを適切にクリーンアップします。
 
 ### 8.4 利用可能なタスク
 - `local_import.run`: ローカルファイルインポート処理
 - `picker_import.item`: 個別アイテムインポート
 - `picker_import.watchdog`: Photo picker監視タスク（1分毎実行）
-- `session_recovery.cleanup_stale_sessions`: 古いセッション自動リカバリ（5分毎実行）
+- `session_recovery.cleanup_stale_sessions`: 厳密なセッション自動リカバリ（5分毎実行）
 - `session_recovery.force_cleanup_all`: 全セッション強制クリーンアップ（緊急時用）
+- `session_recovery.status_report`: セッション状況詳細レポート（デバッグ用）
 - `transcode_worker`: 動画変換処理（H.264/AAC MP4）
 - `thumbs_generate`: サムネイル生成（256/1024/2048px）
 - `cli.src.celery.tasks.download_file`: ファイルダウンロード
@@ -342,6 +349,40 @@ pytest --cov=webapp --cov=core --cov-report=html
 ### 12.1 Celery関連の問題
 
 #### 「Celery処理待ち中...」が消えない
+```bash
+# 1. セッション状況の詳細レポートを確認
+python -c "
+from cli.src.celery.tasks import session_status_report_task
+result = session_status_report_task.delay()
+print(f'Report task ID: {result.id}')
+print('レポート結果は、タスク完了後にCeleryログまたは結果バックエンドで確認できます')
+"
+
+# 2. スケジューラが動作しているか確認
+ps aux | grep "celery.*beat"
+
+# 3. スケジューラが停止している場合は起動
+celery -A cli.src.celery.tasks beat --loglevel=info &
+
+# 4. 手動でセッションリカバリを実行
+python -c "
+from cli.src.celery.tasks import cleanup_stale_sessions_task
+result = cleanup_stale_sessions_task.delay()
+print(f'Cleanup task ID: {result.id}')
+"
+
+# 5. 緊急時: 全セッションを強制クリーンアップ（注意: 実行中タスクも停止）
+python -c "
+from cli.src.celery.tasks import force_cleanup_all_sessions_task  
+result = force_cleanup_all_sessions_task.delay()
+print(f'Force cleanup task ID: {result.id}')
+"
+
+# 6. ワーカーとスケジューラの状況確認
+ps aux | grep celery
+```
+
+**注意**: 厳密なリカバリシステムにより、通常は実行中の長時間タスク（動画変換など）が誤ってタイムアウトすることはありません。ローカルインポートは2時間、その他は1時間のタイムアウトが設定されており、Celeryで実際に実行中のタスクは保護されます。
 ```bash
 # 1. スケジューラが動作しているか確認
 ps aux | grep "celery.*beat"

@@ -1,8 +1,8 @@
 """base
 
-Revision ID: 02a871f6064b
+Revision ID: 9a9a54990c3e
 Revises: 
-Create Date: 2025-08-20 17:14:19.001722
+Create Date: 2025-08-28 13:23:04.002304
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '02a871f6064b'
+revision = '9a9a54990c3e'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -29,17 +29,6 @@ def upgrade():
     sa.Column('updated_at', sa.DateTime(), nullable=False),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('email')
-    )
-    op.create_table('job_sync',
-    sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
-    sa.Column('target', sa.String(length=50), nullable=False),
-    sa.Column('account_id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), nullable=False),
-    sa.Column('session_id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), nullable=True),
-    sa.Column('started_at', sa.DateTime(), nullable=False),
-    sa.Column('finished_at', sa.DateTime(), nullable=True),
-    sa.Column('status', sa.String(length=20), nullable=False),
-    sa.Column('stats_json', sa.Text(), nullable=False),
-    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('log',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -64,6 +53,10 @@ def upgrade():
     sa.Column('aperture_f_number', sa.Float(), nullable=True),
     sa.Column('iso_equivalent', sa.Integer(), nullable=True),
     sa.Column('exposure_time', sa.String(length=32), nullable=True),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('picker_import_task',
+    sa.Column('id', sa.Integer(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('role',
@@ -138,10 +131,11 @@ def upgrade():
     sa.Column('polling_config_json', sa.Text(), nullable=True),
     sa.Column('picking_config_json', sa.Text(), nullable=True),
     sa.Column('media_items_set', sa.Boolean(), nullable=True),
-    sa.Column('status', sa.String(length=20), nullable=False),
+    sa.Column('status', sa.Enum('pending', 'ready', 'processing', 'enqueued', 'importing', 'imported', 'canceled', 'expired', 'error', 'failed', name='picker_session_status'), server_default='pending', nullable=False),
     sa.Column('selected_count', sa.Integer(), nullable=True),
     sa.Column('stats_json', sa.Text(), nullable=True),
     sa.Column('last_polled_at', sa.DateTime(), nullable=True),
+    sa.Column('last_progress_at', sa.DateTime(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['account_id'], ['google_account.id'], ),
@@ -198,6 +192,18 @@ def upgrade():
     sa.ForeignKeyConstraint(['media_id'], ['media.id'], ),
     sa.PrimaryKeyConstraint('media_id')
     )
+    op.create_table('job_sync',
+    sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
+    sa.Column('target', sa.String(length=50), nullable=False),
+    sa.Column('account_id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), nullable=False),
+    sa.Column('session_id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), nullable=False),
+    sa.Column('started_at', sa.DateTime(), nullable=False),
+    sa.Column('finished_at', sa.DateTime(), nullable=True),
+    sa.Column('status', sa.Enum('queued', 'running', 'success', 'partial', 'failed', 'canceled', name='job_sync_status'), server_default='queued', nullable=False),
+    sa.Column('stats_json', sa.Text(), server_default='{}', nullable=False),
+    sa.ForeignKeyConstraint(['session_id'], ['picker_session.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('media_playback',
     sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
     sa.Column('media_id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), nullable=False),
@@ -234,26 +240,34 @@ def upgrade():
     sa.ForeignKeyConstraint(['tag_id'], ['tag.id'], ),
     sa.PrimaryKeyConstraint('media_id', 'tag_id')
     )
-    op.create_table('picked_media_item',
+    op.create_table('picker_selection',
     sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
-    sa.Column('picker_session_id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), nullable=False),
+    sa.Column('session_id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), nullable=False),
+    sa.Column('google_media_id', sa.String(length=255), nullable=False),
+    sa.Column('status', sa.Enum('pending', 'enqueued', 'running', 'imported', 'dup', 'failed', 'expired', 'skipped', name='picker_selection_status'), server_default='pending', nullable=False),
     sa.Column('create_time', sa.DateTime(), nullable=True),
-    sa.Column('media_item_id', sa.String(length=255), nullable=False),
-    sa.Column('status', sa.Enum('pending', 'enqueued', 'running', 'imported', 'dup', 'failed', 'expired', 'skipped', name='picked_media_item_status'), server_default='pending', nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
     sa.Column('enqueued_at', sa.DateTime(), nullable=True),
     sa.Column('started_at', sa.DateTime(), nullable=True),
     sa.Column('finished_at', sa.DateTime(), nullable=True),
-    sa.Column('attempts', sa.Integer(), nullable=False, server_default='0'),
+    sa.Column('attempts', sa.Integer(), server_default='0', nullable=False),
+    sa.Column('error_msg', sa.Text(), nullable=True),
+    sa.Column('base_url', sa.Text(), nullable=True),
     sa.Column('base_url_fetched_at', sa.DateTime(), nullable=True),
     sa.Column('base_url_valid_until', sa.DateTime(), nullable=True),
-
-    sa.ForeignKeyConstraint(['media_item_id'], ['media_item.id'], ),
-    sa.ForeignKeyConstraint(['picker_session_id'], ['picker_session.id'], ),
+    sa.Column('locked_by', sa.String(length=255), nullable=True),
+    sa.Column('lock_heartbeat_at', sa.DateTime(), nullable=True),
+    sa.Column('last_transition_at', sa.DateTime(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['google_media_id'], ['media_item.id'], ),
+    sa.ForeignKeyConstraint(['session_id'], ['picker_session.id'], ),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('picker_session_id', 'media_item_id', name='uq_picked_media_item_session_media')
+    sa.UniqueConstraint('session_id', 'google_media_id', name='uq_picker_selection_session_media')
     )
+    with op.batch_alter_table('picker_selection', schema=None) as batch_op:
+        batch_op.create_index('idx_picker_selection_session_status', ['session_id', 'status'], unique=False)
+        batch_op.create_index('idx_picker_selection_status_lock', ['status', 'lock_heartbeat_at'], unique=False)
+
     op.create_table('album_item',
     sa.Column('album_id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), nullable=False),
     sa.Column('media_id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), nullable=False),
@@ -262,7 +276,6 @@ def upgrade():
     sa.ForeignKeyConstraint(['media_id'], ['media.id'], ),
     sa.PrimaryKeyConstraint('album_id', 'media_id')
     )
-
     # ### end Alembic commands ###
     op.execute("INSERT INTO role (id, name) VALUES (1, 'admin'), (2, 'manager'), (3, 'member')")
     op.execute(
@@ -287,14 +300,19 @@ def upgrade():
     )
     op.execute("INSERT INTO user_roles (user_id, role_id) VALUES (1, 1)")
 
+
 def downgrade():
     # ### commands auto generated by Alembic - please adjust! ###
-
     op.drop_table('album_item')
-    op.drop_table('picked_media_item')
+    with op.batch_alter_table('picker_selection', schema=None) as batch_op:
+        batch_op.drop_index('idx_picker_selection_status_lock')
+        batch_op.drop_index('idx_picker_selection_session_status')
+
+    op.drop_table('picker_selection')
     op.drop_table('media_tag')
     op.drop_table('media_sidecar')
     op.drop_table('media_playback')
+    op.drop_table('job_sync')
     op.drop_table('exif')
     op.drop_table('album')
     op.drop_table('user_roles')
@@ -309,9 +327,9 @@ def downgrade():
 
     op.drop_table('user')
     op.drop_table('role')
+    op.drop_table('picker_import_task')
     op.drop_table('photo_metadata')
     op.drop_table('permission')
     op.drop_table('log')
-    op.drop_table('job_sync')
     op.drop_table('google_account')
     # ### end Alembic commands ###

@@ -1,67 +1,18 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 import json
-import time
-from uuid import uuid4
-from threading import Lock
 from flask import (
     Blueprint, current_app, jsonify, request, session
 )
 from flask_login import login_required
-from ..extensions import db
 from sqlalchemy import func
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
 from core.models.job_sync import JobSync
-from core.models.photo_models import (
-    PickerSelection,
-    MediaItem,
-    PhotoMetadata,
-    VideoMetadata,
-    Media,
-)
-from core.crypto import decrypt
-from ..auth.utils import refresh_google_token, RefreshTokenError, log_requests_and_send
-from core.tasks.picker_import import enqueue_picker_import_item
+from core.models.photo_models import PickerSelection
+from .picker_session_service import PickerSessionService
+from core.tasks.picker_import import enqueue_picker_import_item  # re-export for tests
 
 bp = Blueprint('picker_session_api', __name__)
-
-
-_media_items_locks = {}
-_media_items_locks_lock = Lock()
-
-
-def _get_media_items_lock(session_id):
-    with _media_items_locks_lock:
-        lock = _media_items_locks.get(session_id)
-        if lock is None:
-            lock = Lock()
-            _media_items_locks[session_id] = lock
-        return lock
-
-
-def _release_media_items_lock(session_id, lock):
-    with _media_items_locks_lock:
-        if not lock.locked():
-            _media_items_locks.pop(session_id, None)
-
-
-def _update_picker_session_from_data(ps, data):
-    """Apply Google Photos Picker session data to the model."""
-    ps.session_id = data.get("id")
-    ps.picker_uri = data.get("pickerUri")
-    expire = data.get("expireTime")
-    if expire is not None:
-        try:
-            ps.expire_time = datetime.fromisoformat(expire.replace("Z", "+00:00"))
-        except Exception:
-            ps.expire_time = None
-    if data.get("pollingConfig"):
-        ps.polling_config_json = json.dumps(data.get("pollingConfig"))
-    if data.get("pickingConfig"):
-        ps.picking_config_json = json.dumps(data.get("pickingConfig"))
-    if "mediaItemsSet" in data:
-        ps.media_items_set = data.get("mediaItemsSet")
-    ps.updated_at = datetime.now(timezone.utc)
 
 @bp.post("/picker/session")
 @login_required
@@ -93,78 +44,33 @@ def api_picker_session_create():
         extra={"event": "picker.create.begin"}
     )
 
-    try:
-        tokens = refresh_google_token(account)
-    except RefreshTokenError as e:
-        current_app.logger.error(
-            json.dumps(
-                {
-                    "ts": datetime.now(timezone.utc).isoformat(),
-                    "account_id": account_id,
-                    "error": str(e),
-                }
-            ),
-            extra={"event": "picker.create.fail"}
-        )
-        status = 502 if e.status_code >= 500 else 401
-        return jsonify({"error": str(e)}), status
-
-    access_token = tokens.get("access_token")
-    headers = {"Authorization": f"Bearer {access_token}"}
-    body = {"title": title}
-    try:
-        picker_res = log_requests_and_send(
-            "POST",
-            "https://photospicker.googleapis.com/v1/sessions",
-            json_data=body,
-            headers=headers,
-            timeout=15,
-        )
-        picker_res.raise_for_status()
-        picker_data = picker_res.json()
-    except Exception as e:
+    # Delegate to service
+    payload, status = PickerSessionService.create(account, title)
+    if status != 200:
         current_app.logger.exception(
             json.dumps(
                 {
                     "ts": datetime.now(timezone.utc).isoformat(),
                     "account_id": account_id,
-                    "message": str(e),
+                    "message": payload.get("message") if isinstance(payload, dict) else None,
                 }
             ),
             extra={"event": "picker.create.fail"}
         )
-        return jsonify({"error": "picker_error", "message": str(e)}), 502
+        return jsonify(payload), status
 
-    ps = PickerSession(
-        account_id=account.id,
-        status="pending",
-        last_progress_at=datetime.now(timezone.utc),
-    )
-    db.session.add(ps)
-    _update_picker_session_from_data(ps, picker_data)
-    db.session.commit()
-    session["picker_session_id"] = ps.id
+    session["picker_session_id"] = payload.get("pickerSessionId")
     current_app.logger.info(
         json.dumps(
             {
                 "ts": datetime.now(timezone.utc).isoformat(),
                 "account_id": account_id,
-                "picker_session_id": ps.id,
+                "picker_session_id": payload.get("pickerSessionId"),
             }
         ),
         extra={"event": "picker.create.success"}
     )
-    return jsonify(
-        {
-            "pickerSessionId": ps.id,
-            "sessionId": ps.session_id,
-            "pickerUri": ps.picker_uri,
-            "expireTime": picker_data.get("expireTime"),
-            "pollingConfig": picker_data.get("pollingConfig"),
-            "pickingConfig": picker_data.get("pickingConfig"),
-            "mediaItemsSet": picker_data.get("mediaItemsSet"),
-        }
-    )
+    return jsonify(payload)
 
 
 @bp.post("/picker/session/<path:session_id>/callback")
@@ -221,295 +127,57 @@ def api_picker_session_summary(picker_session_id):
     return jsonify({"countsByStatus": counts, "jobSync": job_summary})
 
 
-@bp.get("/picker/session/<path:session_id>")
+@bp.get("/picker/session/<string:session_id>")
 @login_required
 def api_picker_session_status(session_id):
     """Return status of a picker session."""
-    ps = PickerSession.query.filter_by(session_id=session_id).first()
+    ps = PickerSessionService.resolve_session_identifier(session_id)
     if not ps:
         return jsonify({"error": "not_found"}), 404
-    account = GoogleAccount.query.get(ps.account_id)
-    selected = ps.selected_count
-    if selected is None and account and account.status == "active" and ps.session_id:
-        try:
-            tokens = refresh_google_token(account)
-            access_token = tokens.get("access_token")
-            res = log_requests_and_send(
-                "GET",
-                f"https://photospicker.googleapis.com/v1/sessions/{ps.session_id}",
-                headers={"Authorization": f"Bearer {access_token}"},
-                timeout=15,
-            )
-            res.raise_for_status()
-            data = res.json()
-            selected = (
-                data.get("selectedCount")
-                or data.get("selectedMediaCount")
-                or data.get("selectedMediaItems")
-            )
-            _update_picker_session_from_data(ps, data)
-        except Exception:
-            selected = None
-    ps.selected_count = selected
-    ps.last_polled_at = datetime.now(timezone.utc)
-    ps.updated_at = datetime.now(timezone.utc)
-    db.session.commit()
+    payload = PickerSessionService.status(ps)
     current_app.logger.info(
         json.dumps(
             {
                 "ts": datetime.now(timezone.utc).isoformat(),
                 "session_id": session_id,
-                "status": ps.status,
+                "status": payload.get("status"),
             }
         ),
         extra={"event": "picker.status.get"}
     )
-    return jsonify(
-        {
-            "status": ps.status,
-            "selectedCount": ps.selected_count,
-            "lastPolledAt": ps.last_polled_at.isoformat().replace("+00:00", "Z"),
-            "serverTimeRFC1123": datetime.now(timezone.utc).strftime('%a, %d %b %Y %H:%M:%S GMT'),
-            "sessionId": ps.session_id,
-            "pickerUri": ps.picker_uri,
-            "expireTime": ps.expire_time.isoformat().replace("+00:00", "Z") if ps.expire_time else None,
-            "pollingConfig": json.loads(ps.polling_config_json) if ps.polling_config_json else None,
-            "pickingConfig": json.loads(ps.picking_config_json) if ps.picking_config_json else None,
-            "mediaItemsSet": ps.media_items_set,
-        }
-    )
+    return jsonify(payload)
+
+
+@bp.get("/picker/session/picker_sessions/<string:uuid>")
+@login_required
+def api_picker_session_status_prefixed(uuid: str):
+    """Alias for status that accepts the picker_sessions prefix as a segment."""
+    return api_picker_session_status(f"picker_sessions/{uuid}")
 
 
 @bp.post("/picker/session/mediaItems")
 @login_required
 def api_picker_session_media_items():
     """Fetch selected media items from Google Photos Picker and store them."""
-
     data = request.get_json(silent=True) or {}
     session_id = data.get("sessionId")
-    cursor = data.get("cursor")
     if not session_id or not isinstance(session_id, str):
         return jsonify({"error": "invalid_session"}), 400
-
-    lock = _get_media_items_lock(session_id)
-    if not lock.acquire(blocking=False):
-        return jsonify({"error": "busy"}), 409
-
     try:
-        ps = PickerSession.query.filter_by(session_id=session_id).first()
-        if not ps or ps.status not in ("pending", "processing"):
-            return jsonify({"error": "not_found"}), 404
-        # ステータスをprocessingにし、updated_atも更新
-        ps.status = "processing"
-        ps.updated_at = datetime.now(timezone.utc)
-        ps.last_progress_at = ps.updated_at
-        db.session.commit()
-        account = GoogleAccount.query.get(ps.account_id)
-        if not account:
-            return jsonify({"error": "not_found"}), 404
-        try:
-            tokens = refresh_google_token(account)
-        except RefreshTokenError as e:
-            status = 502 if e.status_code >= 500 else 401
-            return jsonify({"error": str(e)}), status
-        headers = {"Authorization": f"Bearer {tokens.get('access_token')}"}
-        # Fetch session info to ensure media items are set
-        try:
-            sess_res = log_requests_and_send(
-                "GET",
-                f"https://photospicker.googleapis.com/v1/sessions/{session_id}",
-                headers=headers,
-                timeout=15,
-            )
-            sess_res.raise_for_status()
-            sess_data = sess_res.json()
-            _update_picker_session_from_data(ps, sess_data)
-            db.session.commit()
-        except Exception as fetch_exc:
-            res_text = getattr(fetch_exc, 'response', None)
-            if res_text is not None:
-                res_text = res_text.text
-            else:
-                res_text = None
-            raise RuntimeError(f"sessions.get failed: {fetch_exc}")
-
-        params = {"sessionId": session_id, "pageSize": 100}
-        if cursor:
-            params["pageToken"] = cursor
-        saved = 0
-        dup = 0
-        new_pmis = []
-        while True:
-            try:
-                res = log_requests_and_send(
-                    "GET",
-                    "https://photospicker.googleapis.com/v1/mediaItems",
-                    params=params,
-                    headers=headers,
-                    timeout=15,
-                )
-            except Exception as fetch_exc:
-                res_text = getattr(fetch_exc, 'response', None)
-                if res_text is not None:
-                    res_text = res_text.text
-                else:
-                    res_text = None
-                raise RuntimeError(f"mediaItems fetch failed: {fetch_exc}")
-
-            if res.status_code == 429:
-                time.sleep(1)
-                continue
-            try:
-                res.raise_for_status()
-                picker_data = res.json()
-            except Exception as fetch_exc:
-                res_text = getattr(fetch_exc, 'response', None)
-                if res_text is not None:
-                    res_text = res_text.text
-                else:
-                    res_text = None
-                raise RuntimeError(f"mediaItems fetch failed: {fetch_exc}")
-
-            items = picker_data.get("mediaItems") or []
-            for item in items:
-                item_id = item.get("id")
-                if not item_id:
-                    continue
-                # Skip if already imported or already picked in this session
-                if Media.query.filter_by(google_media_id=item_id, account_id=ps.account_id).first() or \
-                        PickerSelection.query.filter_by(session_id=ps.id, google_media_id=item_id).first():
-                    dup += 1
-                    current_app.logger.info(
-                        json.dumps(
-                            {
-                                "ts": datetime.now(timezone.utc).isoformat(),
-                                "session_id": session_id,
-                                "google_media_id": item_id,
-                            }
-                        ),
-                        extra={"event": "picker.mediaItems.duplicate"},
-                    )
-                    continue
-                mi = MediaItem.query.get(item_id)
-                if not mi:
-                    mi = MediaItem(id=item_id, type="TYPE_UNSPECIFIED")
-                pmi = PickerSelection(
-                    session_id=ps.id, google_media_id=item_id, status="pending"
-                )
-
-                ct = item.get("createTime")
-                if ct:
-                    try:
-                        pmi.create_time = datetime.fromisoformat(ct.replace("Z", "+00:00"))
-                    except Exception:
-                        pmi.create_time = None
-
-                mf_dict = item.get("mediaFile")
-                if isinstance(mf_dict, dict):
-                    mi.mime_type = mf_dict.get("mimeType")
-                    mi.filename = mf_dict.get("filename")
-                    pmi.base_url = mf_dict.get("baseUrl")
-                    if pmi.base_url:
-                        now = datetime.now(timezone.utc)
-                        pmi.base_url_fetched_at = now
-                        pmi.base_url_valid_until = now + timedelta(hours=1)
-                    meta = mf_dict.get("mediaFileMetadata") or {}
-                else:
-                    meta = {}
-
-                width = meta.get("width")
-                height = meta.get("height")
-                if width is not None:
-                    try:
-                        mi.width = int(width)
-                    except Exception:
-                        mi.width = None
-                if height is not None:
-                    try:
-                        mi.height = int(height)
-                    except Exception:
-                        mi.height = None
-                mi.camera_make = meta.get("cameraMake")
-                mi.camera_model = meta.get("cameraModel")
-
-                photo_meta = meta.get("photoMetadata") or {}
-                video_meta = meta.get("videoMetadata") or {}
-
-                if photo_meta:
-                    if mi.photo_metadata:
-                        pm = mi.photo_metadata
-                    else:
-                        pm = PhotoMetadata()
-                    pm.focal_length = photo_meta.get("focalLength")
-                    pm.aperture_f_number = photo_meta.get("apertureFNumber")
-                    pm.iso_equivalent = photo_meta.get("isoEquivalent")
-                    pm.exposure_time = photo_meta.get("exposureTime")
-                    mi.photo_metadata = pm
-                    mi.type = "PHOTO"
-
-                if video_meta:
-                    if mi.video_metadata:
-                        vm = mi.video_metadata
-                    else:
-                        vm = VideoMetadata()
-                    vm.fps = video_meta.get("fps")
-                    vm.processing_status = video_meta.get("processingStatus")
-                    mi.video_metadata = vm
-                    mi.type = "VIDEO"
-
-                pmi.updated_at = datetime.now(timezone.utc)
-                db.session.add(mi)
-                db.session.add(pmi)
-                db.session.flush()
-                saved += 1
-                new_pmis.append(pmi)
-
-            cursor = picker_data.get("nextPageToken")
-            if cursor:
-                params["pageToken"] = cursor
-                continue
-            break
-
-        # ステージを完了し、アイテムをキューに投入
-        ps.status = "imported"
-        now = datetime.now(timezone.utc)
-        ps.updated_at = now
-        ps.last_progress_at = now
-        for pmi in new_pmis:
-            pmi.status = "enqueued"
-            pmi.enqueued_at = now
-        db.session.commit()
-        for pmi in new_pmis:
-            enqueue_picker_import_item(pmi.id, ps.id)
-
-        return jsonify({"saved": saved, "duplicates": dup, "nextCursor": None})
+        payload, status = PickerSessionService.media_items(session_id)
+        return jsonify(payload), status
     except Exception as e:
-        db.session.rollback()
-        ps.status = "pending"
-        now = datetime.now(timezone.utc)
-        ps.updated_at = now
-        ps.last_progress_at = now
-        db.session.commit()
-        res_text = None
-        if hasattr(e, '__cause__') and hasattr(e.__cause__, 'response'):
-            res_obj = getattr(e.__cause__, 'response', None)
-            if res_obj is not None:
-                res_text = res_obj.text
         current_app.logger.error(
             json.dumps(
                 {
                     "ts": datetime.now(timezone.utc).isoformat(),
                     "session_id": session_id,
                     "error": str(e),
-                    "detail": res_text,
                 }
             ),
             extra={"event": "picker.mediaItems.fail"}
         )
         return jsonify({"error": "picker_error", "message": str(e)}), 502
-    finally:
-        lock.release()
-        _release_media_items_lock(session_id, lock)
 
 
 @bp.post("/picker/session/<int:picker_session_id>/import")
@@ -525,110 +193,50 @@ def api_picker_session_import(picker_session_id: int):
     """
     data = request.get_json(silent=True) or {}
     account_id_in = data.get("account_id")
-
     ps = PickerSession.query.get(picker_session_id)
-    if not ps or (account_id_in and ps.account_id != account_id_in):
+    if not ps:
         return jsonify({"error": "not_found"}), 404
-
-    # Use the session's account id when not explicitly supplied
-    account_id = account_id_in or ps.account_id
-    if ps.status in ("imported", "canceled", "expired", "error"):
+    payload, status = PickerSessionService.enqueue_import(ps, account_id_in)
+    if status in (409, 500):
         current_app.logger.info(
             json.dumps({
                 "ts": datetime.now(timezone.utc).isoformat(),
                 "picker_session_id": picker_session_id,
                 "status": ps.status,
+                **({"job_id": payload.get("jobId")} if payload.get("jobId") else {}),
             }),
             extra={"event": "picker.import.suppress"},
         )
-        return jsonify({"error": "already_done"}), 409
-
-    # Already enqueued/running job?
-    existing_job = (
-        JobSync.query
-        .filter(JobSync.target == "picker_import",
-                JobSync.session_id == ps.id,
-                JobSync.status.in_(("queued", "running")))
-        .order_by(JobSync.started_at.desc().nullslast())
-        .first()
-    )
-    if existing_job:
+    else:
         current_app.logger.info(
             json.dumps({
                 "ts": datetime.now(timezone.utc).isoformat(),
                 "picker_session_id": picker_session_id,
-                "status": ps.status,
-                "job_id": existing_job.id,
-                "job_status": existing_job.status,
+                "job_id": payload.get("jobId"),
+                "job_status": payload.get("status"),
+                "celery_task_id": payload.get("celeryTaskId"),
             }),
-            extra={"event": "picker.import.suppress"},
+            extra={"event": "picker.import.enqueue"},
         )
-        return jsonify({"error": "already_enqueued", "jobId": existing_job.id}), 409
-
-    # Create job_sync row in 'queued'
-    task_id = uuid4().hex
-    job = JobSync(
-        target="picker_import",
-        account_id=account_id,
-        session_id=ps.id,
-        started_at=None,                     # set on Worker start
-        finished_at=None,
-        stats_json=json.dumps({
-            "celery_task_id": task_id,
-            "selected": getattr(ps, "selected_count", 0),
-        }),
-    )
-    db.session.add(job)
-
-    stats = ps.stats()
-    stats["celery_task_id"] = task_id
-    stats["job_id"] = None
-    ps.set_stats(stats)
-    ps.status = "enqueued"
-    ps.last_progress_at = datetime.now(timezone.utc)
-    db.session.flush()      # job.id を取得するため
-
-    # Back-fill job_id into session stats
-    stats["job_id"] = job.id
-    ps.set_stats(stats)
-    db.session.commit()
+    return jsonify(payload), status
 
 
-    # Publish Celery task (Worker 側で job_sync を running/success... に更新)
-    try:
-        print("dummy")
-        # 例: picker_import.apply_async(args=[ps.id, account_id, job.id], task_id=task_id, queue="default")
-        #Picker_import.apply_async(
-        #    args=[ps.id, account_id, job.id],
-        #    task_id=task_id,
-        #    queue="default",
-        #)
-    except Exception as e:
-        # 失敗時は job を failed にして返す
-        job.status = "failed"
-        job.finished_at = datetime.now(timezone.utc)
-        job.stats_json = json.dumps({
-            "celery_task_id": task_id,
-            "error": str(e),
-        })
-        ps.status = "error"
-        ps.last_progress_at = datetime.now(timezone.utc)
-        db.session.commit()
-        current_app.logger.exception("Failed to enqueue picker_import",
-                                     extra={"event": "picker.import.enqueue_error"})
-        return jsonify({"error": "enqueue_failed"}), 500
-    
-    current_app.logger.info(
-        json.dumps({
-            "ts": datetime.now(timezone.utc).isoformat(),
-            "picker_session_id": picker_session_id,
-            "job_id": job.id,
-            "job_status": "queued",
-            "celery_task_id": task_id,
-        }),
-        extra={"event": "picker.import.enqueue"},
-    )
-    return jsonify({"enqueued": True, "jobId": job.id, "celeryTaskId": task_id, "status": "queued"}), 202
+@bp.post("/picker/session/<path:session_id>/import")
+@login_required
+def api_picker_session_import_by_session_id(session_id: str):
+    """Enqueue import task using external ``session_id``.
+
+    Some clients only know the Google Photos Picker ``session_id`` (which may
+    include a slash like ``picker_sessions/<uuid>``). This endpoint resolves the
+    corresponding internal picker session and delegates to the integer-based
+    import handler to keep behavior identical.
+    """
+    # Accept both bare UUID and full "picker_sessions/<uuid>" forms
+    ps = PickerSessionService.resolve_session_identifier(session_id)
+    if not ps:
+        return jsonify({"error": "not_found"}), 404
+    # Delegate to the primary import implementation
+    return api_picker_session_import(ps.id)
 
 
 @bp.post("/picker/session/<int:picker_session_id>/finish")
@@ -643,37 +251,5 @@ def api_picker_session_finish(picker_session_id):
     if not ps:
         return jsonify({"error": "not_found"}), 404
 
-    now = datetime.now(timezone.utc)
-    ps.status = status
-    ps.last_progress_at = now
-    ps.updated_at = now
-
-    counts = dict(
-        db.session.query(
-            PickerSelection.status, func.count(PickerSelection.id)
-        )
-        .filter(PickerSelection.session_id == ps.id)
-        .group_by(PickerSelection.status)
-        .all()
-    )
-
-    job = (
-        JobSync.query.filter_by(target="picker_import", session_id=ps.id)
-        .order_by(JobSync.started_at.desc().nullslast())
-        .first()
-    )
-    if job:
-        job.finished_at = now
-        if status == "imported":
-            job.status = "success"
-        elif status == "error":
-            job.status = "failed"
-        else:
-            job.status = status
-        stats = json.loads(job.stats_json or "{}")
-        stats["countsByStatus"] = counts
-        job.stats_json = json.dumps(stats)
-
-    db.session.commit()
-
-    return jsonify({"status": status, "countsByStatus": counts})
+    payload, status_code = PickerSessionService.finish(ps, status)
+    return jsonify(payload), status_code

@@ -12,6 +12,12 @@ from core.crypto import encrypt, decrypt
 from .totp import new_totp_secret, verify_totp, provisioning_uri, qr_code_data_uri
 from core.models.picker_session import PickerSession
 from .utils import refresh_google_token, log_requests_and_send, RefreshTokenError
+from application.auth_service import AuthService
+from infrastructure.user_repository import SqlAlchemyUserRepository
+
+
+user_repo = SqlAlchemyUserRepository(db.session)
+auth_service = AuthService(user_repo)
 
 @bp.route("/login", methods=["GET", "POST"])
 def login():
@@ -21,15 +27,15 @@ def login():
         email = request.form.get("email")
         password = request.form.get("password")
         token = request.form.get("token")
-        user = User.query.filter_by(email=email).first()
-        if not user or not user.check_password(password):
+        user = auth_service.authenticate(email, password)
+        if not user:
             flash(_("Invalid email or password"), "error")
             return render_template("auth/login.html")
         if user.totp_secret:
             if not token or not verify_totp(user.totp_secret, token):
                 flash(_("Invalid authentication code"), "error")
                 return render_template("auth/login.html")
-        login_user(user)
+        login_user(user_repo.get_model(user))
         return redirect(url_for("feature_x.dashboard"))
     return render_template("auth/login.html")
 
@@ -41,7 +47,7 @@ def register():
         if not email or not password:
             flash(_("Email and password are required"), "error")
             return render_template("auth/register.html")
-        if User.query.filter_by(email=email).first():
+        if user_repo.get_by_email(email):
             flash(_("Email already exists"), "error")
             return render_template("auth/register.html")
         secret = new_totp_secret()
@@ -54,7 +60,6 @@ def register():
 
 @bp.route("/register/totp", methods=["GET", "POST"])
 def register_totp():
-    from core.models.user import Role
     email = session.get("reg_email")
     password = session.get("reg_password")
     secret = session.get("reg_secret")
@@ -70,21 +75,16 @@ def register_totp():
         if not token or not verify_totp(secret, token):
             flash(_("Invalid authentication code"), "error")
             return render_template("auth/register_totp.html", qr_data=qr_data, secret=secret_display)
-        u = User(email=email)
-        u.set_password(password)
-        u.totp_secret = secret
-        member_role = Role.query.filter_by(name='member').first()
-        if not member_role:
+        try:
+            u = auth_service.register(email, password, totp_secret=secret, roles=["member"])
+        except ValueError:
             flash(_("Default role 'member' does not exist"), "error")
             return redirect(url_for("auth.register"))
-        u.roles.append(member_role)
-        db.session.add(u)
-        db.session.commit()
         session.pop("reg_email", None)
         session.pop("reg_password", None)
         session.pop("reg_secret", None)
         flash(_("Registration successful"), "success")
-        login_user(u)
+        login_user(user_repo.get_model(u))
         return redirect(url_for("feature_x.dashboard"))
         #return redirect(url_for("auth.login"))
     return render_template("auth/register_totp.html", qr_data=qr_data, secret=secret_display)
@@ -92,25 +92,20 @@ def register_totp():
 
 @bp.route("/register/no_totp", methods=["GET", "POST"])
 def register_no_totp():
-    from core.models.user import Role
     if request.method == "POST":
         email = request.form.get("email")
         password = request.form.get("password")
         if not email or not password:
             flash(_("Email and password are required"), "error")
             return render_template("auth/register_no_totp.html")
-        if User.query.filter_by(email=email).first():
+        if user_repo.get_by_email(email):
             flash(_("Email already exists"), "error")
             return render_template("auth/register_no_totp.html")
-        u = User(email=email)
-        u.set_password(password)
-        member_role = Role.query.filter_by(name='member').first()
-        if not member_role:
+        try:
+            auth_service.register(email, password, roles=["member"])
+        except ValueError:
             flash(_("Default role 'member' does not exist"), "error")
             return render_template("auth/register_no_totp.html")
-        u.roles.append(member_role)
-        db.session.add(u)
-        db.session.commit()
         flash(_("Registration successful"), "success")
         return redirect(url_for("auth.login"))
     return render_template("auth/register_no_totp.html")

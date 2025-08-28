@@ -155,6 +155,35 @@ class PickerSessionService:
             "mediaItemsSet": ps.media_items_set,
         }
 
+    @staticmethod
+    def selection_details(ps: PickerSession) -> dict:
+        """Return detailed status of each picker selection for a session."""
+        rows = (
+            db.session.query(PickerSelection, MediaItem)
+            .outerjoin(MediaItem, PickerSelection.google_media_id == MediaItem.id)
+            .filter(PickerSelection.session_id == ps.id)
+            .order_by(PickerSelection.id.asc())
+            .all()
+        )
+        selections = []
+        counts: Dict[str, int] = {}
+        for sel, mi in rows:
+            counts[sel.status] = counts.get(sel.status, 0) + 1
+            selections.append(
+                {
+                    "id": sel.id,
+                    "googleMediaId": sel.google_media_id,
+                    "filename": mi.filename if mi else None,
+                    "status": sel.status,
+                    "attempts": sel.attempts,
+                    "error": sel.error_msg,
+                    "enqueuedAt": sel.enqueued_at.isoformat().replace("+00:00", "Z") if sel.enqueued_at else None,
+                    "startedAt": sel.started_at.isoformat().replace("+00:00", "Z") if sel.started_at else None,
+                    "finishedAt": sel.finished_at.isoformat().replace("+00:00", "Z") if sel.finished_at else None,
+                }
+            )
+        return {"selections": selections, "counts": counts}
+
     # --- Media Items ------------------------------------------------------
     @staticmethod
     def media_items(session_id: str, cursor: Optional[str] = None) -> Tuple[dict, int]:

@@ -6,6 +6,8 @@ import hashlib
 import time
 import requests
 
+from core.tasks.picker_import import picker_import_watchdog
+
 
 def _save_content(path: Path, content: bytes) -> None:
     """ファイルへ内容を書き込むヘルパー関数。"""
@@ -40,4 +42,11 @@ def download_file(self, url: str, dest_dir: str) -> dict:
     return {"path": str(dest_path), "bytes": len(content), "sha256": sha}
 
 
-__all__ = ["dummy_long_task", "download_file"]
+
+
+@celery.task(name="picker_import.watchdog")
+def picker_import_watchdog_task():
+    return picker_import_watchdog()
+
+
+__all__ = ["dummy_long_task", "download_file", "picker_import_watchdog_task"]

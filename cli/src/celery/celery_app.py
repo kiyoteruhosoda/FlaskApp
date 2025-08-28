@@ -1,6 +1,7 @@
 from celery import Celery
 from flask import Flask
 from webapp.config import Config
+from datetime import timedelta
 
 def make_celery(app: Flask):
     celery = Celery(
@@ -14,3 +15,10 @@ def make_celery(app: Flask):
 app = Flask(__name__)
 app.config.from_object(Config)
 celery = make_celery(app)
+
+celery.conf.beat_schedule = {
+    "picker-import-watchdog": {
+        "task": "picker_import.watchdog",
+        "schedule": timedelta(minutes=1),
+    }
+}

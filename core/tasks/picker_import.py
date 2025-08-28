@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 import hashlib
 import json
+import logging
 import os
 from pathlib import Path
 import threading
@@ -39,6 +40,9 @@ from core.models.photo_models import (
     PickerSelection,
 )
 from flask import current_app
+
+
+logger = logging.getLogger(__name__)
 
 
 class AuthError(Exception):
@@ -109,6 +113,109 @@ def picker_import_queue_scan() -> Dict[str, int]:
         db.session.commit()
 
     return {"queued": queued}
+
+
+def backoff(attempts: int) -> timedelta:
+    """Return retry delay for *attempts* using exponential backoff."""
+
+    return timedelta(seconds=60 * (2 ** attempts))
+
+
+def picker_import_watchdog(
+    *,
+    lock_lease: int = 120,
+    stale_running: int = 600,
+    max_attempts: int = 3,
+) -> Dict[str, int]:
+    """Housekeeping task for :class:`PickerSelection` rows.
+
+    The function performs the following maintenance steps:
+
+    1. ``running`` rows with expired heartbeats are released.  If the
+       ``attempts`` value is below ``max_attempts`` the row returns to
+       ``enqueued``.  Otherwise it is marked ``failed`` and ``finished_at`` is
+       set.
+    2. ``failed`` rows are retried once their backoff delay has elapsed.
+    3. ``enqueued`` rows that have been waiting for more than five minutes are
+       republished to the worker queue and a warning is logged.
+    """
+
+    now = datetime.now(timezone.utc)
+    metrics = {"requeued": 0, "failed": 0, "recovered": 0, "republished": 0}
+
+    # --- 1. handle stale running rows -----------------------------------
+    running = PickerSelection.query.filter_by(status="running").all()
+    for sel in running:
+        hb = sel.lock_heartbeat_at
+        if hb and hb.tzinfo is None:
+            hb = hb.replace(tzinfo=timezone.utc)
+        started = sel.started_at
+        if started and started.tzinfo is None:
+            started = started.replace(tzinfo=timezone.utc)
+
+        stale = False
+        if hb is None or hb < now - timedelta(seconds=lock_lease):
+            stale = True
+        if started and started < now - timedelta(seconds=stale_running):
+            stale = True
+
+        if not stale:
+            continue
+
+        if sel.attempts < max_attempts:
+            sel.status = "enqueued"
+            sel.locked_by = None
+            sel.lock_heartbeat_at = None
+            sel.started_at = None
+            sel.enqueued_at = now
+            sel.last_transition_at = now
+            metrics["requeued"] += 1
+        else:
+            sel.status = "failed"
+            sel.locked_by = None
+            sel.lock_heartbeat_at = None
+            sel.finished_at = now
+            sel.last_transition_at = now
+            metrics["failed"] += 1
+
+    if metrics["requeued"] or metrics["failed"]:
+        db.session.commit()
+
+    # --- 2. retry failed rows after backoff ------------------------------
+    failed_rows = PickerSelection.query.filter_by(status="failed").all()
+    for sel in failed_rows:
+        lt = sel.last_transition_at
+        if lt and lt.tzinfo is None:
+            lt = lt.replace(tzinfo=timezone.utc)
+        if lt and lt + backoff(sel.attempts) <= now:
+            sel.status = "enqueued"
+            sel.enqueued_at = now
+            sel.finished_at = None
+            sel.last_transition_at = now
+            metrics["recovered"] += 1
+
+    if metrics["recovered"]:
+        db.session.commit()
+
+    # --- 3. republish stalled enqueued rows ------------------------------
+    enqueued_rows = PickerSelection.query.filter_by(status="enqueued").all()
+    stale_threshold = now - timedelta(minutes=5)
+    for sel in enqueued_rows:
+        enq_at = sel.enqueued_at or sel.last_transition_at
+        if not enq_at:
+            continue
+        if enq_at.tzinfo is None:
+            enq_at = enq_at.replace(tzinfo=timezone.utc)
+        if enq_at < stale_threshold:
+            enqueue_picker_import_item(sel.id)
+            sel.enqueued_at = now
+            metrics["republished"] += 1
+            logger.warning("republished stalled selection %s", sel.id)
+
+    if metrics["republished"]:
+        db.session.commit()
+
+    return metrics
 
 # ---------------------------------------------------------------------------
 # Helper utilities

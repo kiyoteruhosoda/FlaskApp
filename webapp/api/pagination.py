@@ -19,39 +19,49 @@ from email.utils import formatdate
 class PaginationParams:
     """ページングパラメータを管理するクラス"""
     
-    def __init__(self, 
+    def __init__(self,
                  page: Optional[int] = None,
                  page_size: Optional[int] = None,
                  cursor: Optional[str] = None,
-                 order: str = "desc"):
+                 order: str = "desc",
+                 use_cursor: Optional[bool] = None):
         self.page = page or 1
-        # page_sizeが明示的に0やNoneの場合のデフォルト値処理
         if page_size is None:
             page_size = 200
-        self.page_size = min(max(page_size, 1), 500)  # 1-500の範囲
+        self.page_size = min(max(page_size, 1), 500)
         self.cursor = cursor
         self.order = order.lower() if order else "desc"
-        
-        # cursorが指定されている場合はページベースを無視
-        self.use_cursor = bool(cursor)
+
+        if use_cursor is None:
+            use_cursor = bool(cursor)
+        self.use_cursor = use_cursor
     
     @classmethod
     def from_request(cls, default_page_size: int = 200) -> 'PaginationParams':
         """リクエストパラメータからPaginationParamsを生成"""
+        page_str = request.args.get("page")
         try:
-            page = int(request.args.get("page", 1))
+            page = int(page_str) if page_str is not None else 1
         except (ValueError, TypeError):
             page = 1
-            
+
         try:
             page_size = int(request.args.get("pageSize", default_page_size))
         except (ValueError, TypeError):
             page_size = default_page_size
-            
+
         cursor = request.args.get("cursor")
         order = request.args.get("order", "desc")
-        
-        return cls(page=page, page_size=page_size, cursor=cursor, order=order)
+
+        use_cursor = cursor is not None or page_str is None
+
+        return cls(
+            page=page,
+            page_size=page_size,
+            cursor=cursor,
+            order=order,
+            use_cursor=use_cursor,
+        )
 
 
 class CursorInfo:

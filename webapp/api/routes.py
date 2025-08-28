@@ -387,6 +387,40 @@ def _verify_token(token: str):
         return None, "expired"
 
     return payload, None
+@bp.get("/media/<int:media_id>/thumbnail")
+@login_required
+def api_media_thumbnail(media_id):
+    """Return thumbnail image for a media item."""
+    size = request.args.get("size", type=int, default=256)
+    if size not in (256, 1024, 2048):
+        return jsonify({"error": "invalid_size"}), 400
+
+    media = Media.query.get(media_id)
+    if not media:
+        return jsonify({"error": "not_found"}), 404
+    if media.is_deleted:
+        return jsonify({"error": "gone"}), 410
+
+    rel_path = media.local_rel_path
+    abs_path = os.path.join(
+        current_app.config.get("FPV_NAS_THUMBS_DIR", ""), str(size), rel_path
+    )
+    if not os.path.exists(abs_path):
+        return jsonify({"error": "not_found"}), 404
+
+    ct = (
+        mimetypes.guess_type(abs_path)[0]
+        or media.mime_type
+        or "application/octet-stream"
+    )
+    ttl = current_app.config.get("FPV_URL_TTL_THUMB", 600)
+    with open(abs_path, "rb") as f:
+        data = f.read()
+    resp = current_app.response_class(data, mimetype=ct, direct_passthrough=True)
+    resp.headers["Content-Length"] = str(os.path.getsize(abs_path))
+    resp.headers["Cache-Control"] = f"private, max-age={ttl}"
+    return resp
+
 
 
 @bp.post("/media/<int:media_id>/thumb-url")

@@ -29,6 +29,10 @@
   </table>
 </div>
 
+<div id="server-data" 
+     data-picker-session-id="{{ picker_session_id or '' }}" 
+     style="display: none;"></div>
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   // クエリパラメータ、もしくはサーバー側セッションから session_id を取得
@@ -36,8 +40,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
     const fromQuery = params.get('session_id');
     if (fromQuery) return fromQuery;
-    const fromServer = {{ picker_session_id|tojson }};
-    return fromServer ? String(fromServer) : '';
+    const serverDataEl = document.getElementById('server-data');
+    const fromServer = serverDataEl.getAttribute('data-picker-session-id');
+    return fromServer || '';
   }
   const pickerSessionId = resolveSessionId();
   if (!pickerSessionId) {

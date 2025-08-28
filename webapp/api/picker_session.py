@@ -187,6 +187,51 @@ def api_picker_session_callback(session_id):
     return jsonify({"result": "ok", "count": count})
 
 
+@bp.get("/picker/session/<int:picker_session_id>")
+@login_required
+def api_picker_session_summary(picker_session_id: int):
+    """Return picker session summary by numeric id."""
+    ps = PickerSession.query.get(picker_session_id)
+    if not ps:
+        return jsonify({"error": "not_found"}), 404
+
+    counts = dict(
+        db.session.query(
+            PickerSelection.status, func.count(PickerSelection.id)
+        )
+        .filter(PickerSelection.session_id == ps.id)
+        .group_by(PickerSelection.status)
+        .all()
+    )
+
+    job = (
+        JobSync.query.filter_by(target="picker_import", session_id=ps.id)
+        .order_by(JobSync.started_at.desc().nullslast())
+        .first()
+    )
+    job_summary = None
+    if job:
+        job_summary = {
+            "id": job.id,
+            "status": job.status,
+            "startedAt": job.started_at.isoformat().replace("+00:00", "Z")
+            if job.started_at
+            else None,
+            "finishedAt": job.finished_at.isoformat().replace("+00:00", "Z")
+            if job.finished_at
+            else None,
+        }
+
+    return jsonify(
+        {
+            "id": ps.id,
+            "status": ps.status,
+            "countsByStatus": counts,
+            "jobSync": job_summary,
+        }
+    )
+
+
 @bp.get("/picker/session/<path:session_id>")
 @login_required
 def api_picker_session_status(session_id):

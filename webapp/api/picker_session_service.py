@@ -182,6 +182,34 @@ class PickerSessionService:
                     "finishedAt": sel.finished_at.isoformat().replace("+00:00", "Z") if sel.finished_at else None,
                 }
             )
+        
+        # PickerSessionのステータス自動更新ロジック
+        if ps.status in ("processing", "importing") and len(rows) > 0:
+            pending_statuses = ["pending", "enqueued", "running"]
+            pending_count = sum(counts.get(status, 0) for status in pending_statuses)
+            
+            if pending_count == 0:
+                # 全て完了している場合、ステータスを更新
+                imported_count = counts.get("imported", 0)
+                failed_count = counts.get("failed", 0)
+                dup_count = counts.get("dup", 0)
+                
+                if imported_count > 0:
+                    new_status = "imported"
+                elif failed_count > 0:
+                    new_status = "error"
+                elif dup_count > 0:
+                    new_status = "imported"  # 重複のみの場合も imported として扱う
+                else:
+                    new_status = "imported"
+                
+                if ps.status != new_status:
+                    ps.status = new_status
+                    ps.completed_at = datetime.now(timezone.utc)
+                    ps.last_progress_at = datetime.now(timezone.utc)
+                    ps.updated_at = datetime.now(timezone.utc)
+                    db.session.commit()
+        
         return {"selections": selections, "counts": counts}
 
     # --- Media Items ------------------------------------------------------
@@ -316,8 +344,20 @@ class PickerSessionService:
         item_id = item.get("id")
         if not item_id:
             return None
-        if Media.query.filter_by(google_media_id=item_id, account_id=ps.account_id).first() or \
-                PickerSelection.query.filter_by(session_id=ps.id, google_media_id=item_id).first():
+        
+        # 既存のメディアまたは他のセッションでの選択をチェック
+        existing_media = Media.query.filter_by(google_media_id=item_id, account_id=ps.account_id).first()
+        existing_selection = PickerSelection.query.filter_by(session_id=ps.id, google_media_id=item_id).first()
+        
+        # 現在のセッションで既に存在する場合は何もしない
+        if existing_selection:
+            return None
+            
+        # 重複判定
+        is_duplicate = existing_media is not None
+        status = "dup" if is_duplicate else "pending"
+        
+        if is_duplicate:
             current_app.logger.info(
                 json.dumps(
                     {
@@ -328,10 +368,9 @@ class PickerSessionService:
                 ),
                 extra={"event": "picker.mediaItems.duplicate"},
             )
-            return None
 
         mi = MediaItem.query.get(item_id) or MediaItem(id=item_id, type="TYPE_UNSPECIFIED")
-        pmi = PickerSelection(session_id=ps.id, google_media_id=item_id, status="pending")
+        pmi = PickerSelection(session_id=ps.id, google_media_id=item_id, status=status)
 
         ct = item.get("createTime")
         if ct:

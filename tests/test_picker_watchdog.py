@@ -140,7 +140,9 @@ def test_watchdog_republishes_stalled_enqueued(monkeypatch, app, caplog):
     mod = importlib.import_module("core.tasks.picker_import")
 
     called: list[int] = []
-    monkeypatch.setattr(mod, "enqueue_picker_import_item", lambda sid: called.append(sid))
+    monkeypatch.setattr(
+        mod, "enqueue_picker_import_item", lambda sid, sess: called.append(sid)
+    )
 
     from webapp.extensions import db
     from core.models.photo_models import PickerSelection

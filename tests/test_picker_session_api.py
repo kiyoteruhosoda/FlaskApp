@@ -613,13 +613,13 @@ def test_media_items_enqueue_and_skip_duplicate(monkeypatch, client, app):
     enqueued = []
     import webapp.api.picker_session as ps_module
 
-    def fake_enqueue(pmi_id):
+    def fake_enqueue(pmi_id, sess_id):
         with app.app_context():
             from core.models.photo_models import PickerSelection
             pmi = PickerSelection.query.get(pmi_id)
             assert pmi.status == "enqueued"
             assert pmi.enqueued_at is not None
-        enqueued.append(pmi_id)
+        enqueued.append((pmi_id, sess_id))
 
     monkeypatch.setattr(ps_module, "enqueue_picker_import_item", fake_enqueue)
 
@@ -819,12 +819,12 @@ def test_media_items_skip_duplicate_in_response(monkeypatch, client, app):
     enqueued = []
     import webapp.api.picker_session as ps_module
 
-    def fake_enqueue(pmi_id):
+    def fake_enqueue(pmi_id, sess_id):
         with app.app_context():
             from core.models.photo_models import PickerSelection
             pmi = PickerSelection.query.get(pmi_id)
             assert pmi.status == "enqueued"
-        enqueued.append(pmi_id)
+        enqueued.append((pmi_id, sess_id))
 
     monkeypatch.setattr(ps_module, "enqueue_picker_import_item", fake_enqueue)
 

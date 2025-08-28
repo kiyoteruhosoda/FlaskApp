@@ -243,15 +243,15 @@ def test_picker_import_queue_scan(monkeypatch, app):
     import importlib
     mod = importlib.import_module("core.tasks.picker_import")
 
-    def fake_enqueue(selection_id):
-        called.append(selection_id)
+    def fake_enqueue(selection_id, session_id):
+        called.append((selection_id, session_id))
 
     monkeypatch.setattr(mod, "enqueue_picker_import_item", fake_enqueue)
 
     with app.app_context():
         res = picker_import_queue_scan()
         assert res["queued"] == 1
-        assert called == [pmi_id]
+        assert called == [(pmi_id, ps_id)]
 
 
 def test_picker_import_item_heartbeat(monkeypatch, app, tmp_path):

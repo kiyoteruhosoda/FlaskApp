@@ -60,13 +60,12 @@ class BaseUrlExpired(Exception):
 # Queue hook
 # ---------------------------------------------------------------------------
 
-def enqueue_picker_import_item(selection_id: int) -> None:
+def enqueue_picker_import_item(selection_id: int, session_id: int) -> None:
     """Enqueue import task for a single picked media item.
 
-    The real application would push a job onto a background worker system
-    such as Celery.  For the purposes of the tests this function merely acts
-    as a hook that can be monkeypatched to observe which items would be
-    queued.
+    In production this would push a job onto a background worker system such
+    as Celery.  For tests the function acts as a hook that can be
+    monkeypatched to observe which items would be queued.
     """
 
     # The default implementation is a no-op; tests are expected to
@@ -106,7 +105,7 @@ def picker_import_queue_scan() -> Dict[str, int]:
 
     for sel in selections:
         sel.enqueued_at = sel.enqueued_at or now
-        enqueue_picker_import_item(sel.id)
+        enqueue_picker_import_item(sel.id, sel.session_id)
         queued += 1
 
     if queued:
@@ -237,7 +236,7 @@ def picker_import_watchdog(
         if enq_at.tzinfo is None:
             enq_at = enq_at.replace(tzinfo=timezone.utc)
         if enq_at < stale_threshold:
-            enqueue_picker_import_item(sel.id)
+            enqueue_picker_import_item(sel.id, sel.session_id)
             sel.enqueued_at = now
             metrics["republished"] += 1
             logger.warning("republished stalled selection %s", sel.id)

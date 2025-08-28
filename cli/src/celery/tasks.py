@@ -6,7 +6,7 @@ import hashlib
 import time
 import requests
 
-from core.tasks.picker_import import picker_import_watchdog
+from core.tasks.picker_import import picker_import_watchdog, picker_import_item
 
 
 def _save_content(path: Path, content: bytes) -> None:
@@ -42,6 +42,10 @@ def download_file(self, url: str, dest_dir: str) -> dict:
     return {"path": str(dest_path), "bytes": len(content), "sha256": sha}
 
 
+@celery.task(bind=True, name="picker_import.item")
+def picker_import_item_task(self, selection_id: int, session_id: int) -> dict:
+    """Run picker import for a single selection."""
+    return picker_import_item(selection_id=selection_id, session_id=session_id)
 
 
 @celery.task(name="picker_import.watchdog")
@@ -49,4 +53,9 @@ def picker_import_watchdog_task():
     return picker_import_watchdog()
 
 
-__all__ = ["dummy_long_task", "download_file", "picker_import_watchdog_task"]
+__all__ = [
+    "dummy_long_task",
+    "download_file",
+    "picker_import_item_task",
+    "picker_import_watchdog_task",
+]

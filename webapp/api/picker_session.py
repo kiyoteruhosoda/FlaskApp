@@ -480,7 +480,7 @@ def api_picker_session_media_items():
             pmi.enqueued_at = now
         db.session.commit()
         for pmi in new_pmis:
-            enqueue_picker_import_item(pmi.id)
+            enqueue_picker_import_item(pmi.id, ps.id)
 
         return jsonify({"saved": saved, "duplicates": dup, "nextCursor": None})
     except Exception as e:

@@ -79,9 +79,18 @@ def enqueue_picker_import_item(selection_id: int, session_id: int) -> None:
 def enqueue_thumbs_generate(media_id: int) -> None:
     """Enqueue thumbnail generation for *media_id*.
 
-    This is a hook allowing tests to observe which media would have their
-    thumbnails generated.  The default implementation is a no-op.
+    This function immediately generates thumbnails upon import for better
+    user experience. In production, this could be replaced with async queuing.
     """
+    from .thumbs_generate import thumbs_generate
+    try:
+        result = thumbs_generate(media_id=media_id)
+        if result.get("ok"):
+            logger.info(f"Thumbnails generated for media_id={media_id}: {result.get('generated', [])}")
+        else:
+            logger.warning(f"Thumbnail generation failed for media_id={media_id}: {result.get('notes', 'unknown error')}")
+    except Exception as e:
+        logger.error(f"Exception during thumbnail generation for media_id={media_id}: {e}")
 
     return None
 
@@ -908,7 +917,9 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
                     db.session.add(mp)
                 else:
                     mp.status = "queued"
-            # image thumbnail tasks are not implemented; would be enqueued here
+            else:
+                # Generate thumbnails immediately for images during import
+                enqueue_thumbs_generate(media.id)
 
             imported += 1
 

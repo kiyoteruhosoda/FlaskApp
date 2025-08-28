@@ -645,6 +645,39 @@ def test_media_items_enqueue_and_skip_duplicate(monkeypatch, client, app):
     assert len(enqueued) == 1
 
 
+def test_get_session_summary(client, app):
+    login(client, app)
+
+    from webapp.extensions import db
+    from core.models.picker_session import PickerSession
+    from core.models.photo_models import PickerSelection
+    from core.models.job_sync import JobSync
+
+    with app.app_context():
+        ps = PickerSession(account_id=1, status="pending")
+        db.session.add(ps)
+        db.session.flush()
+        db.session.add_all(
+            [
+                PickerSelection(session_id=ps.id, google_media_id="m1", status="imported"),
+                PickerSelection(session_id=ps.id, google_media_id="m2", status="failed"),
+            ]
+        )
+        job = JobSync(target="picker_import", account_id=1, session_id=ps.id, status="running")
+        db.session.add(job)
+        db.session.commit()
+        ps_id = ps.id
+        job_id = job.id
+
+    res = client.get(f"/api/picker/session/{ps_id}")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["countsByStatus"]["imported"] == 1
+    assert data["countsByStatus"]["failed"] == 1
+    assert data["jobSync"]["id"] == job_id
+    assert data["jobSync"]["status"] == "running"
+
+
 def test_finish_updates_counts_and_job(monkeypatch, client, app):
     login(client, app)
 

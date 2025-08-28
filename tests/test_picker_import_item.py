@@ -1,6 +1,7 @@
 import hashlib
 import os
 import time
+import logging
 from datetime import datetime, timezone, timedelta
 
 import requests
@@ -254,7 +255,8 @@ def test_picker_import_queue_scan(monkeypatch, app):
         assert called == [pmi_id]
 
 
-def test_picker_import_item_heartbeat(monkeypatch, app, tmp_path):
+def test_picker_import_item_heartbeat(monkeypatch, app, tmp_path, caplog):
+    caplog.set_level(logging.INFO)
     ps_id, pmi_id = _setup_item(app)
 
     import importlib
@@ -305,6 +307,56 @@ def test_picker_import_item_heartbeat(monkeypatch, app, tmp_path):
         assert pmi.attempts == 1
         assert pmi.started_at is not None
         assert pmi.finished_at is not None
+
+    events = [r.event for r in caplog.records]
+    assert "picker.item.claim" in events
+    assert "picker.item.heartbeat" in events
+    assert "picker.item.end" in events
+
+
+def test_picker_import_scavenger_logs(monkeypatch, app, caplog):
+    caplog.set_level(logging.INFO)
+    import importlib
+    mod = importlib.import_module("core.tasks.picker_import")
+
+    called = []
+    monkeypatch.setattr(mod, "enqueue_picker_import_item", lambda sid: called.append(sid))
+
+    from webapp.extensions import db
+    from core.models.picker_session import PickerSession
+    from core.models.photo_models import PickerSelection
+
+    with app.app_context():
+        ps = PickerSession(account_id=1, status="pending")
+        db.session.add(ps)
+        db.session.flush()
+        stale = datetime.now(timezone.utc) - timedelta(seconds=100)
+        running = PickerSelection(
+            session_id=ps.id,
+            google_media_id="m1",
+            status="running",
+            lock_heartbeat_at=stale,
+        )
+        failed = PickerSelection(
+            session_id=ps.id,
+            google_media_id="m2",
+            status="failed",
+        )
+        db.session.add_all([running, failed])
+        db.session.commit()
+
+        res = mod.picker_import_scavenger(heartbeat_timeout=30)
+        assert res["requeued"] == 1
+        assert res["finalized"] == 1
+
+        db.session.refresh(running)
+        db.session.refresh(failed)
+        assert running.status == "enqueued"
+        assert failed.finished_at is not None
+
+    events = [r.event for r in caplog.records]
+    assert "scavenger.requeue" in events
+    assert "scavenger.finalize_failed" in events
 
 
 def test_picker_import_item_reresolves_expired_base_url(monkeypatch, app, tmp_path):

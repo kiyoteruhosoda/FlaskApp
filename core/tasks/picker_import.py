@@ -25,7 +25,7 @@ import threading
 from typing import Dict, Iterable, List, Tuple
 
 import requests
-from sqlalchemy import update
+from sqlalchemy import update, or_
 
 from core.crypto import decrypt
 from core.db import db
@@ -110,6 +110,81 @@ def picker_import_queue_scan() -> Dict[str, int]:
 
     return {"queued": queued}
 
+
+def picker_import_scavenger(*, heartbeat_timeout: float = 300.0) -> Dict[str, int]:
+    """Requeue or finalize stale picker selections.
+
+    * ``running`` items with a missing or stale heartbeat are moved back to
+      ``enqueued`` so that they may be processed again.  A requeue audit log is
+      emitted for each such item.
+    * ``failed``/``expired`` items without a ``finished_at`` timestamp are
+      finalized by setting ``finished_at`` and clearing any locks.  A finalize
+      audit log is emitted for each item.
+    """
+
+    now = datetime.now(timezone.utc)
+    stale_before = now - timedelta(seconds=heartbeat_timeout)
+
+    requeued = []
+    finalized = []
+
+    stuck = (
+        PickerSelection.query.filter(
+            PickerSelection.status == "running",
+            or_(
+                PickerSelection.lock_heartbeat_at.is_(None),
+                PickerSelection.lock_heartbeat_at < stale_before,
+            ),
+        ).all()
+    )
+    for sel in stuck:
+        sel.status = "enqueued"
+        sel.locked_by = None
+        sel.lock_heartbeat_at = None
+        sel.enqueued_at = now
+        sel.last_transition_at = now
+        requeued.append(sel)
+        current_app.logger.info(
+            json.dumps(
+                {
+                    "ts": now.isoformat(),
+                    "selection_id": sel.id,
+                    "session_id": sel.session_id,
+                }
+            ),
+            extra={"event": "scavenger.requeue"},
+        )
+        enqueue_picker_import_item(sel.id)
+
+    failed_items = (
+        PickerSelection.query.filter(
+            PickerSelection.status.in_(["failed", "expired"]),
+            PickerSelection.finished_at.is_(None),
+        ).all()
+    )
+    for sel in failed_items:
+        sel.finished_at = now
+        sel.locked_by = None
+        sel.lock_heartbeat_at = None
+        sel.last_transition_at = now
+        finalized.append(sel)
+        current_app.logger.info(
+            json.dumps(
+                {
+                    "ts": now.isoformat(),
+                    "selection_id": sel.id,
+                    "session_id": sel.session_id,
+                    "status": sel.status,
+                }
+            ),
+            extra={"event": "scavenger.finalize_failed"},
+        )
+
+    if requeued or finalized:
+        db.session.commit()
+
+    return {"requeued": len(requeued), "finalized": len(finalized)}
+
 # ---------------------------------------------------------------------------
 # Helper utilities
 # ---------------------------------------------------------------------------
@@ -187,6 +262,16 @@ def _start_lock_heartbeat(selection_id: int, locked_by: str, interval: float) ->
                         )
                         .values(lock_heartbeat_at=ts)
                     )
+                app.logger.info(
+                    json.dumps(
+                        {
+                            "ts": ts.isoformat(),
+                            "selection_id": selection_id,
+                            "locked_by": locked_by,
+                        }
+                    ),
+                    extra={"event": "picker.item.heartbeat"},
+                )
                 stop.wait(interval)
 
     thread = threading.Thread(target=_beat, daemon=True)
@@ -322,6 +407,18 @@ def picker_import_item(
         return {"ok": False, "error": "not_enqueued"}
     db.session.commit()
 
+    current_app.logger.info(
+        json.dumps(
+            {
+                "ts": now.isoformat(),
+                "selection_id": selection_id,
+                "session_id": session_id,
+                "locked_by": locked_by,
+            }
+        ),
+        extra={"event": "picker.item.claim"},
+    )
+
     sel = PickerSelection.query.get(selection_id)
     if not sel:
         return {"ok": False, "error": "not_found"}
@@ -455,6 +552,17 @@ def picker_import_item(
         sel.locked_by = None
         sel.lock_heartbeat_at = None
         db.session.commit()
+        current_app.logger.info(
+            json.dumps(
+                {
+                    "ts": end.isoformat(),
+                    "selection_id": sel.id,
+                    "session_id": session_id,
+                    "status": sel.status,
+                }
+            ),
+            extra={"event": "picker.item.end"},
+        )
 
     return {"ok": sel.status in {"imported", "dup"}, "status": sel.status}
 

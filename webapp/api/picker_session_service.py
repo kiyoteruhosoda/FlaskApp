@@ -5,6 +5,7 @@ import json
 import time
 from threading import Lock
 from typing import Dict, Optional, Tuple, Iterable
+from uuid import uuid4
 
 from flask import current_app
 
@@ -156,18 +157,18 @@ class PickerSessionService:
 
     # --- Media Items ------------------------------------------------------
     @staticmethod
-    def media_items(session_id: str) -> Tuple[dict, int]:
+    def media_items(session_id: str, cursor: Optional[str] = None) -> Tuple[dict, int]:
         lock = _get_lock(session_id)
         if not lock.acquire(blocking=False):
             return {"error": "busy"}, 409
         try:
-            return PickerSessionService._media_items_locked(session_id)
+            return PickerSessionService._media_items_locked(session_id, cursor)
         finally:
             lock.release()
             _release_lock(session_id, lock)
 
     @staticmethod
-    def _media_items_locked(session_id: str) -> Tuple[dict, int]:
+    def _media_items_locked(session_id: str, cursor: Optional[str]) -> Tuple[dict, int]:
         ps = PickerSession.query.filter_by(session_id=session_id).first()
         if not ps or ps.status not in ("pending", "processing"):
             return {"error": "not_found"}, 404
@@ -179,7 +180,7 @@ class PickerSessionService:
 
             PickerSessionService._refresh_session_snapshot(ps, headers, session_id)
             saved, dup, new_pmis = PickerSessionService._fetch_and_store_items(
-                ps, headers, session_id
+                ps, headers, session_id, cursor
             )
             PickerSessionService._enqueue_new_items(ps, new_pmis)
             return {"saved": saved, "duplicates": dup, "nextCursor": None}, 200
@@ -225,8 +226,10 @@ class PickerSessionService:
         db.session.commit()
 
     @staticmethod
-    def _fetch_and_store_items(ps: PickerSession, headers: dict, session_id: str) -> Tuple[int, int, Iterable[PickerSelection]]:
+    def _fetch_and_store_items(ps: PickerSession, headers: dict, session_id: str, cursor: Optional[str]) -> Tuple[int, int, Iterable[PickerSelection]]:
         params = {"sessionId": session_id, "pageSize": 100}
+        if cursor:
+            params["pageToken"] = cursor
         saved = 0
         dup = 0
         new_pmis = []

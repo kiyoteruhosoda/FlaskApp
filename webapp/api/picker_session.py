@@ -10,7 +10,12 @@ from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
 from core.models.job_sync import JobSync
 from core.models.photo_models import PickerSelection
-from .picker_session_service import PickerSessionService
+from .picker_session_service import (
+    PickerSessionService,
+    _get_lock as _get_media_items_lock,
+    _release_lock as _release_media_items_lock,
+    time,
+)
 from core.tasks.picker_import import enqueue_picker_import_item  # re-export for tests
 
 bp = Blueprint('picker_session_api', __name__)
@@ -164,8 +169,9 @@ def api_picker_session_media_items():
     session_id = data.get("sessionId")
     if not session_id or not isinstance(session_id, str):
         return jsonify({"error": "invalid_session"}), 400
+    cursor = data.get("cursor")
     try:
-        payload, status = PickerSessionService.media_items(session_id)
+        payload, status = PickerSessionService.media_items(session_id, cursor)
         return jsonify(payload), status
     except Exception as e:
         current_app.logger.error(
@@ -232,7 +238,12 @@ def api_picker_session_import_by_session_id(session_id: str):
     corresponding internal picker session and delegates to the integer-based
     import handler to keep behavior identical.
     """
-    # Accept both bare UUID and full "picker_sessions/<uuid>" forms
+    # Accept both bare UUID and full "picker_sessions/<uuid>" forms.
+    # If a purely numeric identifier is supplied, delegate directly to the
+    # integer-based endpoint to avoid routing conflicts where this handler
+    # captures numeric IDs intended for the other route.
+    if session_id.isdigit():
+        return api_picker_session_import(int(session_id))
     ps = PickerSessionService.resolve_session_identifier(session_id)
     if not ps:
         return jsonify({"error": "not_found"}), 404

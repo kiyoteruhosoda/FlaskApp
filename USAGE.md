@@ -56,11 +56,42 @@ cp .env.example .env
 
 ## 8. Celery バックグラウンドジョブ
 定義済みタスクを実行するにはワーカーとスケジューラを起動します。
+
+### 8.1 ワーカーの起動
 ```bash
-# ワーカー
-celery -A cli.src.celery.tasks worker --loglevel=info
+# ワーカー（修正後のアプリケーションコンテキスト対応版）
+celery -A cli.src.celery.celery_app worker --loglevel=info --concurrency=2
+
+# バックグラウンドで実行する場合
+nohup celery -A cli.src.celery.celery_app worker --loglevel=info --concurrency=2 &
+```
+
+### 8.2 スケジューラの起動
+```bash
 # スケジューラ (beat)
-celery -A cli.src.celery.tasks beat --loglevel=info
+celery -A cli.src.celery.celery_app beat --loglevel=info
+
+# バックグラウンドで実行する場合
+nohup celery -A cli.src.celery.celery_app beat --loglevel=info &
+```
+
+### 8.3 重要な修正内容
+- **アプリケーションコンテキスト対応**: Celeryタスクが自動的にFlaskアプリケーションコンテキスト内で実行されるよう修正されました
+- **"Working outside of application context" エラーの解消**: ContextTaskクラスにより、すべてのCeleryタスクがデータベースアクセス可能になりました
+- **タスク登録の改善**: `cli.src.celery.celery_app` から統一的にタスクを管理
+
+### 8.4 利用可能なタスク
+- `picker_import.watchdog`: Photo picker のwatchdogタスク（1分毎に自動実行）
+- `picker_import.item`: 個別のpicker importタスク
+- `cli.src.celery.tasks.dummy_long_task`: サンプルの長時間実行タスク
+- `cli.src.celery.tasks.download_file`: ファイルダウンロードタスク
+
+### 8.5 手動でのタスク実行例
+```python
+# Python shell でのタスク実行例
+from cli.src.celery.tasks import picker_import_watchdog_task
+result = picker_import_watchdog_task.delay()
+print(f'Task ID: {result.id}')
 ```
 
 ## 9. Google OAuth トークン暗号化
@@ -68,6 +99,74 @@ celery -A cli.src.celery.tasks beat --loglevel=info
 
 ## 10. テストの実行
 `pytest` を使用してユニットテストを実行できます。
+
+### 10.1 全テストの実行
 ```bash
 pytest
+```
+
+### 10.2 Celeryテストの実行
+今回のアプリケーションコンテキスト修正に対応したCeleryテストも追加されています：
+```bash
+# Celery関連のテストのみ実行
+pytest tests/test_celery_*.py -v
+
+# 特定のテストクラス実行
+pytest tests/test_celery_context.py::TestCeleryAppContext -v
+
+# Celeryアプリケーション設定テスト
+pytest tests/test_celery_app.py::TestCeleryAppConfiguration -v
+```
+
+### 10.3 テストカバレッジ
+Celeryテストは以下をカバーします：
+- アプリケーションコンテキストの正常動作
+- データベースアクセスの確認  
+- タスク登録の確認
+- エラーハンドリング
+- パフォーマンステスト
+
+## 11. トラブルシューティング
+
+### 11.1 Celeryタスクで "Working outside of application context" エラーが発生する場合
+このエラーは修正済みですが、もし発生した場合：
+```bash
+# 古いワーカープロセスを停止
+pkill -f "celery.*worker"
+pkill -f "celery.*beat"
+
+# 新しいワーカーを起動（修正版）
+celery -A cli.src.celery.celery_app worker --loglevel=info --concurrency=2
+celery -A cli.src.celery.celery_app beat --loglevel=info
+```
+
+### 11.2 Redisへの接続エラー
+```bash
+# Redisの状態確認
+redis-cli ping
+
+# Redisが停止している場合は起動
+sudo systemctl start redis-server
+# または Docker の場合
+docker run -d -p 6379:6379 redis:alpine
+```
+
+### 11.3 データベースマイグレーションエラー
+```bash
+# マイグレーション状態確認
+flask db current
+
+# 強制的にマイグレーション実行
+flask db stamp head
+flask db upgrade
+```
+
+### 11.4 OAuth トークン暗号化エラー
+`.env`で以下が正しく設定されているか確認：
+```bash
+# 32バイトのBase64エンコードされたキー
+OAUTH_TOKEN_KEY=base64:...
+
+# またはキーファイルのパス
+OAUTH_TOKEN_KEY_FILE=/path/to/key/file
 ```

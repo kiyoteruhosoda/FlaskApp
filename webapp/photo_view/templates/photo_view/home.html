@@ -31,12 +31,15 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  // クエリパラメータからsession_idを取得
-  function getSessionIdFromQuery() {
+  // クエリパラメータ、もしくはサーバー側セッションから session_id を取得
+  function resolveSessionId() {
     const params = new URLSearchParams(window.location.search);
-    return params.get('session_id') || '';
+    const fromQuery = params.get('session_id');
+    if (fromQuery) return fromQuery;
+    const fromServer = {{ picker_session_id|tojson }};
+    return fromServer ? String(fromServer) : '';
   }
-  const pickerSessionId = getSessionIdFromQuery();
+  const pickerSessionId = resolveSessionId();
   if (!pickerSessionId) {
     // セッションIDが無ければGoogleアカウント管理ページに遷移
     window.location.href = '/auth/settings/google-accounts';
@@ -46,12 +49,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const statusEl = document.getElementById('import-status');
   const selectionBody = document.getElementById('selection-body');
   const countsEl = document.getElementById('selection-counts');
-
-  // pickerSessionId が無い場合はボタンを無効化
-  if (!pickerSessionId) {
-    importBtn.disabled = true;
-    statusEl.textContent = '{{ _("No session is ready.") }}';
-  }
 
   function getCsrfTokenFromCookie() {
     // Flask-WTF の既定名が "csrf_token" の想定。環境に合わせて変更してください。

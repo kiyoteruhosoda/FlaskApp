@@ -427,7 +427,7 @@ class PickerSessionService:
                 JobSync.session_id == ps.id,
                 JobSync.status.in_(("queued", "running")),
             )
-            .order_by(JobSync.started_at.desc().nullslast())
+            .order_by(JobSync.started_at.is_(None), JobSync.started_at.desc())
             .first()
         )
         if existing:
@@ -495,7 +495,7 @@ class PickerSessionService:
 
         job = (
             JobSync.query.filter_by(target="picker_import", session_id=ps.id)
-            .order_by(JobSync.started_at.desc().nullslast())
+            .order_by(JobSync.started_at.is_(None), JobSync.started_at.desc())
             .first()
         )
         if job:

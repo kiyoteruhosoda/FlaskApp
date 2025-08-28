@@ -118,7 +118,7 @@ def api_picker_session_summary(picker_session_id):
 
     job = (
         JobSync.query.filter_by(target="picker_import", session_id=ps.id)
-        .order_by(JobSync.started_at.desc().nullslast())
+        .order_by(JobSync.started_at.is_(None), JobSync.started_at.desc())
         .first()
     )
     job_summary = None
@@ -138,6 +138,27 @@ def api_picker_session_summary(picker_session_id):
 def api_picker_session_selections(picker_session_id: int):
     """Return detailed picker selection list for a session."""
     ps = PickerSession.query.get(picker_session_id)
+    if not ps:
+        return jsonify({"error": "not_found"}), 404
+    payload = PickerSessionService.selection_details(ps)
+    return jsonify(payload)
+
+
+@bp.get("/picker/session/<path:session_id>/selections")
+@login_required
+def api_picker_session_selections_by_session_id(session_id: str):
+    """Return selection list using external ``session_id`` string.
+
+    Clients may only know the Google Photos Picker ``session_id`` which can be a
+    bare UUID or include the ``picker_sessions/`` prefix.  This endpoint
+    resolves that identifier and delegates to the integer based handler so that
+    behavior remains consistent.
+    """
+    # If a purely numeric identifier is supplied, delegate to the existing
+    # integer-based endpoint to avoid conflicts.
+    if session_id.isdigit():
+        return api_picker_session_selections(int(session_id))
+    ps = PickerSessionService.resolve_session_identifier(session_id)
     if not ps:
         return jsonify({"error": "not_found"}), 404
     payload = PickerSessionService.selection_details(ps)

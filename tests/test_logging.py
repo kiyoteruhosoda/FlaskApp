@@ -112,3 +112,32 @@ def test_api_request_response_logged(client):
         assert req_log.request_id == resp_log.request_id
         assert req_log.path.endswith("/api/ping")
         assert resp_log.path.endswith("/api/ping")
+
+
+def test_status_change_logged(client):
+    """Statusフィールドの変更がログに記録されることを確認する。"""
+    import json
+    from core.db import db
+    from core.utils import log_status_change
+    from core.models.log import Log
+    from core.models.google_account import GoogleAccount
+    from core.models.picker_session import PickerSession
+
+    with client.application.app_context():
+        gacc = GoogleAccount(email="a@example.com", scopes="scope")
+        db.session.add(gacc)
+        db.session.commit()
+
+        ps = PickerSession(account_id=gacc.id)
+        db.session.add(ps)
+        db.session.commit()
+
+        old = ps.status
+        ps.status = "ready"
+        log_status_change(ps, old, ps.status)
+        db.session.commit()
+
+        log = Log.query.filter_by(event="status.change").order_by(Log.id.desc()).first()
+        data = json.loads(log.message)
+        assert data["model"] == "PickerSession"
+        assert data["to"] == "ready"

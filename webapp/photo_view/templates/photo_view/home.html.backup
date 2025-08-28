@@ -16,19 +16,16 @@
     <i class="fas fa-refresh"></i> {{ _('Refresh') }}
   </button>
   
-  <!-- ローカルインポートボタン -->
-  <a href="#" id="local-import-btn" class="btn btn-outline-info ms-2">
-    <i class="bi bi-folder-plus"></i> ローカルインポート
-  </a>
-  
-  <!-- 設定リンク -->
+  <!-- 設定とローカルインポートのリンク -->
   <div class="float-end">
     <a href="{{ url_for('photo_view.settings') }}" class="btn btn-outline-secondary me-2">
-      設定
+      <i class="bi bi-gear"></i> {{ _('Settings') }}
     </a>
+    {% if current_user.can('admin') %}
     <a href="{{ url_for('photo_view.admin_settings') }}" class="btn btn-outline-warning">
-      管理者設定
+      <i class="bi bi-tools"></i> {{ _('Admin Settings') }}
     </a>
+    {% endif %}
   </div>
 </div>
 
@@ -201,44 +198,58 @@ document.addEventListener('DOMContentLoaded', () => {
   // 更新ボタンの処理
   refreshBtn.addEventListener('click', refreshSessions);
 
-  // ローカルインポートボタンの処理
-  document.getElementById('local-import-btn').addEventListener('click', async function(e) {
-    e.preventDefault();
-    
-    if (!confirm('ローカルディレクトリからファイルをインポートしますか？\n取り込まれたファイルは元の場所から削除されます。')) {
-      return;
+  // 初期化
+  initializeInfiniteScroll();
+  
+  // 定期的に更新（5秒ごと）
+  setInterval(refreshSessions, 5000);
+});
+</script>
+{% endblock %}
+      case 'imported': return 'success';
+      case 'expired': return 'danger';
+      case 'error': return 'danger';
+      default: return 'secondary';
     }
-    
+  }
+
+  function getCsrfTokenFromCookie() {
+    const m = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+
+  window.startImport = async function(sessionId) {
     try {
       const headers = {};
       const csrf = getCsrfTokenFromCookie();
       if (csrf) headers['X-CSRFToken'] = csrf;
 
-      const resp = await fetch('/api/sync/local-import', {
+      const resp = await fetch(`/api/picker/session/${sessionId}/import`, {
         method: 'POST',
         headers
       });
 
       if (!resp.ok) {
         const text = await resp.text().catch(() => '');
-        console.error('Local import failed:', resp.status, text);
-        alert('ローカルインポートの開始に失敗しました。');
+        console.error('Import start failed:', resp.status, text);
+        alert('{{ _("Failed to start import.") }}');
         return;
       }
 
-      const result = await resp.json();
-      alert(`ローカルインポートを開始しました。\n詳細は管理者設定画面で確認できます。`);
+      alert('{{ _("Import started.") }}');
+      // セッション一覧を再読み込み
+      loadSessions();
     } catch (err) {
       console.error(err);
-      alert('ローカルインポートの開始に失敗しました。');
+      alert('{{ _("Failed to start import.") }}');
     }
-  });
+  };
 
-  // 初期化
-  initializeInfiniteScroll();
+  // 初期読み込み
+  loadSessions();
   
-  // 定期的に更新（5秒ごと）
-  setInterval(refreshSessions, 5000);
+  // 定期的に更新
+  setInterval(loadSessions, 5000);
 });
 </script>
 {% endblock %}

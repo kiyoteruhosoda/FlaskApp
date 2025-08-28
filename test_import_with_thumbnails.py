@@ -73,7 +73,7 @@ def create_test_import():
             mock_requests.get.return_value = mock_response
             
             # Create a test image file to download
-            orig_dir = Path(os.environ["FPV_NAS_ORIG_DIR"])
+            orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
             test_image_data = b"fake_image_data_for_testing"
             
             # Mock the download response

@@ -23,7 +23,7 @@ def app(tmp_path):
         "SECRET_KEY": "test",
         "DATABASE_URI": f"sqlite:///{db_path}",
         "FPV_TMP_DIR": str(tmp_dir),
-        "FPV_NAS_ORIG_DIR": str(orig_dir),
+        "FPV_NAS_ORIGINALS_DIR": str(orig_dir),
     }
     prev = {k: os.environ.get(k) for k in env}
     os.environ.update(env)

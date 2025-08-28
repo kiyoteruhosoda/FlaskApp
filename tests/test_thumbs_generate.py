@@ -22,7 +22,7 @@ def app(tmp_path):
     env_keys = {
         "SECRET_KEY": "test",
         "DATABASE_URI": f"sqlite:///{db_path}",
-        "FPV_NAS_ORIG_DIR": str(orig),
+        "FPV_NAS_ORIGINALS_DIR": str(orig),
         "FPV_NAS_PLAY_DIR": str(play),
         "FPV_NAS_THUMBS_DIR": str(thumbs),
     }
@@ -96,7 +96,7 @@ def _make_media(app, *, rel_path: str, is_video: bool, width: int, height: int, 
 
 
 def test_image_generation(app):
-    orig_dir = Path(os.environ["FPV_NAS_ORIG_DIR"])
+    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
     path = orig_dir / "2025/08/18/img.jpg"
     path.parent.mkdir(parents=True, exist_ok=True)
     img = Image.new("RGB", (4032, 3024), color=(1, 2, 3))
@@ -115,7 +115,7 @@ def test_image_generation(app):
 
 
 def test_image_skip_existing(app):
-    orig_dir = Path(os.environ["FPV_NAS_ORIG_DIR"])
+    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
     path = orig_dir / "2025/08/18/img2.jpg"
     path.parent.mkdir(parents=True, exist_ok=True)
     Image.new("RGB", (3000, 2000), color=0).save(path)

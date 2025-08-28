@@ -26,7 +26,7 @@ def app(tmp_path):
     env_keys = {
         "SECRET_KEY": "test",
         "DATABASE_URI": f"sqlite:///{db_path}",
-        "FPV_NAS_ORIG_DIR": str(orig),
+        "FPV_NAS_ORIGINALS_DIR": str(orig),
         "FPV_NAS_PLAY_DIR": str(play),
         "FPV_TMP_DIR": str(tmpd),
     }
@@ -171,7 +171,7 @@ def _make_video(path: Path, size: str, audio: bool = True) -> None:
 
 
 def test_queue_scan_basic(app):
-    orig_dir = Path(os.environ["FPV_NAS_ORIG_DIR"])
+    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
     for i in range(3):
         p = orig_dir / f"2025/08/18/v{i}.mp4"
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -189,7 +189,7 @@ def test_queue_scan_basic(app):
 
 
 def test_queue_scan_skip_existing(app):
-    orig_dir = Path(os.environ["FPV_NAS_ORIG_DIR"])
+    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
     names = ["a.mp4", "b.mp4", "c.mp4"]
     ids = []
     for name in names:
@@ -219,7 +219,7 @@ def test_queue_scan_skip_existing(app):
 
 @pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")
 def test_worker_transcode_basic(app):
-    orig_dir = Path(os.environ["FPV_NAS_ORIG_DIR"])
+    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
     video_path = orig_dir / "2025/08/18/basic.mp4"
     _make_video(video_path, "1280x720", audio=True)
     media_id = _make_media(app, rel_path="2025/08/18/basic.mp4", width=1280, height=720)
@@ -241,7 +241,7 @@ def test_worker_transcode_basic(app):
 
 @pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")
 def test_worker_transcode_downscale(app):
-    orig_dir = Path(os.environ["FPV_NAS_ORIG_DIR"])
+    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
     video_path = orig_dir / "2025/08/18/large.mp4"
     _make_video(video_path, "3840x2160", audio=True)
     media_id = _make_media(app, rel_path="2025/08/18/large.mp4", width=3840, height=2160)
@@ -258,7 +258,7 @@ def test_worker_transcode_downscale(app):
 
 @pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")
 def test_worker_missing_audio(app):
-    orig_dir = Path(os.environ["FPV_NAS_ORIG_DIR"])
+    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
     video_path = orig_dir / "2025/08/18/noaudio.mp4"
     _make_video(video_path, "640x480", audio=False)
     media_id = _make_media(app, rel_path="2025/08/18/noaudio.mp4", width=640, height=480)
@@ -289,7 +289,7 @@ def test_worker_missing_input(app):
 
 @pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")
 def test_worker_already_running(app):
-    orig_dir = Path(os.environ["FPV_NAS_ORIG_DIR"])
+    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
     video_path = orig_dir / "2025/08/18/run.mp4"
     _make_video(video_path, "640x480", audio=True)
     media_id = _make_media(app, rel_path="2025/08/18/run.mp4", width=640, height=480)

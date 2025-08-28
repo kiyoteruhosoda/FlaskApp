@@ -48,6 +48,10 @@ class Config:
     FPV_URL_TTL_PLAYBACK = int(os.environ.get("FPV_URL_TTL_PLAYBACK", "600"))
     FPV_NAS_THUMBS_DIR = os.environ.get("FPV_NAS_THUMBS_DIR", "")
     FPV_NAS_PLAY_DIR = os.environ.get("FPV_NAS_PLAY_DIR", "")
+    
+    # Local import settings
+    LOCAL_IMPORT_DIR = os.environ.get("LOCAL_IMPORT_DIR", "/mnt/nas/import")
+    FPV_NAS_ORIGINALS_DIR = os.environ.get("FPV_NAS_ORIGINALS_DIR", "/mnt/nas/photos/originals")
 
     # Celery settings
     broker_url = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")

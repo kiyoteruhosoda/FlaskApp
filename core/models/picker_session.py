@@ -10,7 +10,7 @@ class PickerSession(db.Model):
     __tablename__ = "picker_session"
 
     id = db.Column(BigInt, primary_key=True, autoincrement=True)
-    account_id = db.Column(BigInt, db.ForeignKey("google_account.id"), nullable=False)
+    account_id = db.Column(BigInt, db.ForeignKey("google_account.id"), nullable=True)  # ローカルインポート用にNULL許可
     session_id = db.Column(db.String(255), unique=True, nullable=True)
     picker_uri = db.Column(db.Text, nullable=True)
     expire_time = db.Column(db.DateTime, nullable=True)

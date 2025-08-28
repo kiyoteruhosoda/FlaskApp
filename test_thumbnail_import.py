@@ -18,7 +18,7 @@ def test_thumbnail_generation():
     
     with app.app_context():
         # Create a test image file
-        orig_dir = Path(os.environ["FPV_NAS_ORIG_DIR"])
+        orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
         test_file = orig_dir / "2025/08/28/test_import.jpg"
         test_file.parent.mkdir(parents=True, exist_ok=True)
         

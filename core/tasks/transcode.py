@@ -34,7 +34,7 @@ from core.models.photo_models import Media, MediaPlayback
 # ---------------------------------------------------------------------------
 
 def _orig_dir() -> Path:
-    return Path(os.environ.get("FPV_NAS_ORIG_DIR", "/tmp/fpv_orig"))
+    return Path(os.environ.get("FPV_NAS_ORIGINALS_DIR", "/tmp/fpv_orig"))
 
 
 def _play_dir() -> Path:

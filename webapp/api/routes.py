@@ -624,3 +624,121 @@ def api_download(token):
         extra={"event": "dl.success"},
     )
     return resp
+
+
+@bp.post("/sync/local-import")
+@login_required
+def trigger_local_import():
+    """ローカルファイル取り込みを手動実行"""
+    from cli.src.celery.tasks import local_import_task_celery
+    
+    try:
+        # Celeryタスクを非同期実行
+        task = local_import_task_celery.delay()
+        
+        return jsonify({
+            "success": True,
+            "task_id": task.id,
+            "message": "ローカルインポートタスクを開始しました",
+            "server_time": datetime.now(timezone.utc).isoformat()
+        })
+    
+    except Exception as e:
+        current_app.logger.error(f"Failed to start local import task: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "server_time": datetime.now(timezone.utc).isoformat()
+        }), 500
+
+
+@bp.get("/sync/local-import/status")
+@login_required
+def local_import_status():
+    """ローカルインポートの設定と状態を取得"""
+    from webapp.config import Config
+    
+    # 設定情報
+    import_dir = Config.LOCAL_IMPORT_DIR
+    originals_dir = Config.FPV_NAS_ORIGINALS_DIR
+    
+    # ディレクトリの存在確認
+    import_dir_exists = os.path.exists(import_dir) if import_dir else False
+    originals_dir_exists = os.path.exists(originals_dir) if originals_dir else False
+    
+    # 取り込み対象ファイル数の計算
+    file_count = 0
+    if import_dir_exists:
+        try:
+            from core.tasks.local_import import scan_import_directory
+            files = scan_import_directory(import_dir)
+            file_count = len(files)
+        except Exception as e:
+            current_app.logger.warning(f"Failed to scan import directory: {e}")
+    
+    return jsonify({
+        "config": {
+            "import_dir": import_dir,
+            "originals_dir": originals_dir,
+            "import_dir_exists": import_dir_exists,
+            "originals_dir_exists": originals_dir_exists
+        },
+        "status": {
+            "pending_files": file_count,
+            "ready": import_dir_exists and originals_dir_exists
+        },
+        "server_time": datetime.now(timezone.utc).isoformat()
+    })
+
+
+@bp.get("/sync/local-import/task/<task_id>")
+@login_required
+def get_local_import_task_result(task_id):
+    """ローカルインポートタスクの結果を取得"""
+    from cli.src.celery.celery_app import celery
+    
+    try:
+        # タスクの結果を取得
+        result = celery.AsyncResult(task_id)
+        
+        if result.state == 'PENDING':
+            response = {
+                "state": result.state,
+                "status": "タスクが実行待ちです",
+                "progress": 0
+            }
+        elif result.state == 'PROGRESS':
+            response = {
+                "state": result.state,
+                "status": result.info.get('status', ''),
+                "progress": result.info.get('progress', 0),
+                "current": result.info.get('current', 0),
+                "total": result.info.get('total', 0),
+                "message": result.info.get('message', '')
+            }
+        elif result.state == 'SUCCESS':
+            response = {
+                "state": result.state,
+                "status": "完了",
+                "progress": 100,
+                "result": result.result
+            }
+        else:  # FAILURE
+            response = {
+                "state": result.state,
+                "status": "エラー",
+                "progress": 0,
+                "error": str(result.info)
+            }
+        
+        response["server_time"] = datetime.now(timezone.utc).isoformat()
+        return jsonify(response)
+        
+    except Exception as e:
+        current_app.logger.error(f"Failed to get task result: {e}")
+        return jsonify({
+            "state": "ERROR",
+            "status": "タスク結果の取得に失敗しました",
+            "error": str(e),
+            "server_time": datetime.now(timezone.utc).isoformat()
+        }), 500

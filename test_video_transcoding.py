@@ -41,7 +41,7 @@ def test_video_transcoding():
     
     with app.app_context():
         # Create test video file
-        orig_dir = Path(os.environ["FPV_NAS_ORIG_DIR"])
+        orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
         test_file = orig_dir / "2025/08/28/test_video.mp4"
         
         has_ffmpeg = create_test_video(test_file)

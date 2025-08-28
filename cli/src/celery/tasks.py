@@ -7,6 +7,7 @@ import time
 import requests
 
 from core.tasks.picker_import import picker_import_watchdog, picker_import_item
+from core.tasks.local_import import local_import_task
 
 
 def _save_content(path: Path, content: bytes) -> None:
@@ -53,9 +54,16 @@ def picker_import_watchdog_task():
     return picker_import_watchdog()
 
 
+@celery.task(bind=True, name="local_import.run")
+def local_import_task_celery(self):
+    """ローカルファイル取り込みタスク"""
+    return local_import_task(task_instance=self)
+
+
 __all__ = [
     "dummy_long_task",
     "download_file",
     "picker_import_item_task",
     "picker_import_watchdog_task",
+    "local_import_task_celery",
 ]

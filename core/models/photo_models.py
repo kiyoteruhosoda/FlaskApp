@@ -23,8 +23,8 @@ media_tag = db.Table(
 
 class Media(db.Model):
     id = db.Column(BigInt, primary_key=True, autoincrement=True)
-    google_media_id = db.Column(db.String(255), nullable=False)
-    account_id = db.Column(BigInt, db.ForeignKey('google_account.id'), nullable=False)
+    google_media_id = db.Column(db.String(255), nullable=True)  # ローカルファイルの場合はNULL
+    account_id = db.Column(BigInt, db.ForeignKey('google_account.id'), nullable=True)  # ローカルファイルの場合はNULL
     local_rel_path = db.Column(db.String(255))
     hash_sha256 = db.Column(db.CHAR(64))
     bytes = db.Column(BigInt)

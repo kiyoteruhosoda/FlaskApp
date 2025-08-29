@@ -102,12 +102,13 @@ def register_no_totp():
             flash(_("Email already exists"), "error")
             return render_template("auth/register_no_totp.html")
         try:
-            auth_service.register(email, password, roles=["member"])
+            u = auth_service.register(email, password, roles=["member"])
         except ValueError:
             flash(_("Default role 'member' does not exist"), "error")
             return render_template("auth/register_no_totp.html")
         flash(_("Registration successful"), "success")
-        return redirect(url_for("auth.login"))
+        login_user(user_repo.get_model(u))
+        return redirect(url_for("feature_x.dashboard"))
     return render_template("auth/register_no_totp.html")
 
 @bp.route("/edit", methods=["GET", "POST"])

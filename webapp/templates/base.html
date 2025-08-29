@@ -28,6 +28,7 @@
         <li class="nav-item">
           <a class="nav-link" href="{{ url_for('feature_x.dashboard') }}">{{ _('Dashboard') }}</a>
         </li>
+        {% if current_user.can('media:view') %}
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" id="photoNavDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
             {{ _('Photo View') }}
@@ -35,11 +36,14 @@
           <ul class="dropdown-menu" aria-labelledby="photoNavDropdown">
             <li><a class="dropdown-item" href="{{ url_for('photo_view.home') }}">{{ _('Sessions') }}</a></li>
             <li><a class="dropdown-item" href="{{ url_for('photo_view.media_list') }}">{{ _('Media Gallery') }}</a></li>
+            {% if current_user.can('album:view') %}
             <li><a class="dropdown-item" href="{{ url_for('photo_view.albums') }}">{{ _('Albums') }}</a></li>
+            {% endif %}
             <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item" href="{{ url_for('photo_view.settings') }}">{{ _('Settings') }}</a></li>
           </ul>
         </li>
+        {% endif %}
         {% endif %}
       </ul>
       <ul class="navbar-nav">
@@ -53,7 +57,7 @@
           <li class="nav-item">
             <a class="nav-link" href="{{ url_for('auth.edit') }}">{{ current_user.email }}</a>
           </li>
-          {% if current_user.can('user:manage') or current_user.can('role:manage') or current_user.can('permission:manage') %}
+          {% if current_user.can('user:manage') or current_user.can('role:manage') or current_user.can('permission:manage') or current_user.has_role('admin') %}
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" id="managementNavDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
               {{ _('Management') }}
@@ -70,6 +74,11 @@
               {% endif %}
               {% if current_user.can('permission:manage') %}
               <li><a class="dropdown-item" href="{{ url_for('admin.permissions') }}">{{ _('Permissions') }}</a></li>
+              {% endif %}
+              {% if current_user.has_role('admin') %}
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="{{ url_for('photo_view.admin_settings') }}">{{ _('Photo View Admin') }}</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('photo_view.admin_exports') }}">{{ _('Photo Exports') }}</a></li>
               {% endif %}
             </ul>
           </li>

@@ -8,12 +8,13 @@ implementation work.
 
 from flask import render_template, session, request
 
-from core.models.authz import require_roles
+from core.models.authz import require_roles, require_perms
 
 from . import bp
 
 
 @bp.route("/")
+@require_perms("media:view")
 def home():
     """Photo view home page."""
     # クエリパラメータでsession_idが指定されている場合は詳細ページを表示
@@ -26,36 +27,42 @@ def home():
 
 
 @bp.route("/media")
+@require_perms("media:view")
 def media_list():
     """List of media items with infinite scroll (placeholder)."""
     return render_template("photo_view/media_list.html")
 
 
 @bp.route("/media/<int:media_id>")
+@require_perms("media:view")
 def media_detail(media_id: int):
     """Detail view for a single media item."""
     return render_template("photo_view/media_detail.html", media_id=media_id)
 
 
 @bp.route("/albums")
+@require_perms("media:view", "album:view")
 def albums():
     """List of albums."""
     return render_template("photo_view/albums.html")
 
 
 @bp.route("/albums/<int:album_id>")
+@require_perms("media:view", "album:view")
 def album_detail(album_id: int):
     """Detail view for a single album."""
     return render_template("photo_view/album_detail.html", album_id=album_id)
 
 
 @bp.route("/tags")
+@require_perms("media:view")
 def tags():
     """List of tags."""
     return render_template("photo_view/tags.html")
 
 
 @bp.route("/settings")
+@require_perms("media:view")
 def settings():
     """Photo view settings page."""
     return render_template("photo_view/settings.html")

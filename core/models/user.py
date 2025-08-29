@@ -37,6 +37,8 @@ class User(db.Model, UserMixin):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     totp_secret = db.Column(db.String(32), nullable=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
+    # API リフレッシュトークンを検証するためのハッシュ
+    refresh_token_hash = db.Column(db.String(255), nullable=True)
 
     # 追加：ロール関連
     roles = db.relationship("Role", secondary=user_roles, backref="users")
@@ -47,6 +49,15 @@ class User(db.Model, UserMixin):
 
     def check_password(self, raw):
         return check_password_hash(self.password_hash, raw)
+
+    # リフレッシュトークンの管理ヘルパ
+    def set_refresh_token(self, token: str) -> None:
+        self.refresh_token_hash = generate_password_hash(token)
+
+    def check_refresh_token(self, token: str) -> bool:
+        if not self.refresh_token_hash:
+            return False
+        return check_password_hash(self.refresh_token_hash, token)
 
     # 認可ヘルパ
     @property

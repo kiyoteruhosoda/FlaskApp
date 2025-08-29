@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import base64
 import hashlib
 import hmac
@@ -35,6 +35,47 @@ from core.crypto import decrypt
 from ..auth.utils import refresh_google_token, RefreshTokenError, log_requests_and_send
 from .pagination import PaginationParams, paginate_and_respond
 from flask_login import current_user
+from application.auth_service import AuthService
+from infrastructure.user_repository import SqlAlchemyUserRepository
+import jwt
+
+
+user_repo = SqlAlchemyUserRepository(db.session)
+auth_service = AuthService(user_repo)
+
+
+@bp.post("/login")
+def api_login():
+    """ユーザー認証してJWTを発行"""
+    data = request.get_json(silent=True) or {}
+    email = data.get("email")
+    password = data.get("password")
+    user = auth_service.authenticate(email, password)
+    if not user:
+        return jsonify({"error": "invalid_credentials"}), 401
+    token = jwt.encode(
+        {"sub": user.id, "exp": datetime.now(timezone.utc) + timedelta(hours=1)},
+        current_app.config["JWT_SECRET_KEY"],
+        algorithm="HS256",
+    )
+    resp = jsonify({"access_token": token})
+    resp.set_cookie(
+        "access_token",
+        token,
+        httponly=True,
+        secure=current_app.config.get("SESSION_COOKIE_SECURE", False),
+        samesite="Lax",
+    )
+    return resp
+
+
+@bp.post("/logout")
+@login_required
+def api_logout():
+    """JWT Cookieを削除"""
+    resp = jsonify({"result": "ok"})
+    resp.delete_cookie("access_token")
+    return resp
 
 
 @bp.post("/google/oauth/start")

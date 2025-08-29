@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import base64
 import hashlib
 import hmac
@@ -31,10 +31,111 @@ from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
 from core.models.photo_models import Media, Exif, MediaSidecar, MediaPlayback
 from core.models.user import User, Role
+from core.models.refresh_token import RefreshToken
 from core.crypto import decrypt
 from ..auth.utils import refresh_google_token, RefreshTokenError, log_requests_and_send
 from .pagination import PaginationParams, paginate_and_respond
 from flask_login import current_user
+from application.auth_service import AuthService
+from infrastructure.user_repository import SqlAlchemyUserRepository
+import jwt
+
+
+user_repo = SqlAlchemyUserRepository(db.session)
+auth_service = AuthService(user_repo)
+
+
+@bp.post("/login")
+def api_login():
+    """ユーザー認証してJWTを発行"""
+    data = request.get_json(silent=True) or {}
+    email = data.get("email")
+    password = data.get("password")
+    user = auth_service.authenticate(email, password)
+    if not user:
+        return jsonify({"error": "invalid_credentials"}), 401
+    access_token = jwt.encode(
+        {"sub": user.id, "exp": datetime.now(timezone.utc) + timedelta(hours=1)},
+        current_app.config["JWT_SECRET_KEY"],
+        algorithm="HS256",
+    )
+    RefreshToken.query.filter_by(user_id=user.id).delete()
+    refresh_raw = secrets.token_urlsafe(32)
+    refresh = RefreshToken(
+        user_id=user.id,
+        token_hash=RefreshToken.hash_token(refresh_raw),
+        expires_at=datetime.utcnow() + timedelta(days=30),
+    )
+    db.session.add(refresh)
+    db.session.commit()
+    resp = jsonify({"access_token": access_token})
+    resp.set_cookie(
+        "access_token",
+        access_token,
+        httponly=True,
+        secure=current_app.config.get("SESSION_COOKIE_SECURE", False),
+        samesite="Lax",
+    )
+    resp.set_cookie(
+        "refresh_token",
+        refresh_raw,
+        httponly=True,
+        secure=current_app.config.get("SESSION_COOKIE_SECURE", False),
+        samesite="Lax",
+    )
+    return resp
+
+
+@bp.post("/logout")
+@login_required
+def api_logout():
+    """JWT Cookieを削除"""
+    rt = request.cookies.get("refresh_token")
+    if rt:
+        RefreshToken.query.filter_by(token_hash=RefreshToken.hash_token(rt)).delete()
+        db.session.commit()
+    resp = jsonify({"result": "ok"})
+    resp.delete_cookie("access_token")
+    resp.delete_cookie("refresh_token")
+    return resp
+
+
+@bp.post("/refresh")
+def api_refresh():
+    """リフレッシュトークンから新しいアクセスJWTを発行"""
+    rt = request.cookies.get("refresh_token")
+    if not rt:
+        return jsonify({"error": "missing_refresh_token"}), 401
+    token_hash = RefreshToken.hash_token(rt)
+    record = RefreshToken.query.filter_by(token_hash=token_hash).first()
+    now = datetime.utcnow()
+    if not record or record.expires_at < now:
+        return jsonify({"error": "invalid_refresh_token"}), 401
+    access_token = jwt.encode(
+        {"sub": record.user_id, "exp": datetime.now(timezone.utc) + timedelta(hours=1)},
+        current_app.config["JWT_SECRET_KEY"],
+        algorithm="HS256",
+    )
+    new_refresh_raw = secrets.token_urlsafe(32)
+    record.token_hash = RefreshToken.hash_token(new_refresh_raw)
+    record.expires_at = now + timedelta(days=30)
+    db.session.commit()
+    resp = jsonify({"access_token": access_token})
+    resp.set_cookie(
+        "access_token",
+        access_token,
+        httponly=True,
+        secure=current_app.config.get("SESSION_COOKIE_SECURE", False),
+        samesite="Lax",
+    )
+    resp.set_cookie(
+        "refresh_token",
+        new_refresh_raw,
+        httponly=True,
+        secure=current_app.config.get("SESSION_COOKIE_SECURE", False),
+        samesite="Lax",
+    )
+    return resp
 
 
 @bp.post("/google/oauth/start")

@@ -7,6 +7,7 @@ from .photo_models import *
 from .job_sync import JobSync
 from .picker_session import PickerSession
 from .picker_import_task import PickerImportTask
+from .refresh_token import RefreshToken
 
 __all__ = [
     'User',
@@ -20,4 +21,5 @@ __all__ = [
     'JobSync',
     'PickerSession',
     'PickerImportTask',
+    'RefreshToken',
 ]

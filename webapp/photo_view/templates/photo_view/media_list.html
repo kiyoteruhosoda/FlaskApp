@@ -209,7 +209,10 @@ document.addEventListener('DOMContentLoaded', () => {
   function formatDateTime(isoString) {
     if (!isoString) return '';
     const date = new Date(isoString);
-    return date.toLocaleDateString();
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString('ja-JP', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
   }
 
   function formatFileSize(bytes) {
@@ -243,10 +246,11 @@ document.addEventListener('DOMContentLoaded', () => {
       ${isVideo ? '<div class="video-overlay"><i class="fas fa-play"></i></div>' : ''}
       
       <div class="media-info">
-        <h6 class="media-title">${media.filename || media.googleMediaId || 'Unknown'}</h6>
+        <h6 class="media-title">${formatDateTime(media.shot_at) || 'Unknown Date'}</h6>
         <p class="media-meta">
-          ${formatDateTime(media.shotAt)} • ${formatFileSize(media.bytes)}
+          ${formatFileSize(media.bytes)} • ${media.source_type || 'unknown'}
           ${isVideo ? ' • Video' : ' • Photo'}
+          ${media.camera_make ? ` • ${media.camera_make}` : ''}
         </p>
       </div>
     `;

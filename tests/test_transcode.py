@@ -83,8 +83,9 @@ def _make_media(
 
     with app.app_context():
         m = Media(
-            google_media_id=rel_path,
-            account_id=1,
+            source_type='local',
+            google_media_id=None,
+            account_id=None,
             local_rel_path=rel_path,
             bytes=1,
             mime_type="video/mp4",

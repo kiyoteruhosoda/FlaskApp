@@ -223,6 +223,7 @@ def test_pagination_integration(app):
         test_media = []
         for i in range(5):
             media = Media(
+                source_type='google_photos',
                 google_media_id=f"test_media_id_{i}",
                 account_id=account.id,
                 local_rel_path=f"test/path_{i}.jpg",
@@ -231,7 +232,11 @@ def test_pagination_integration(app):
                 mime_type="image/jpeg",
                 width=1920,
                 height=1080,
-                shot_at=datetime(2025, 1, i+1, 12, 0, 0, tzinfo=timezone.utc)
+                shot_at=datetime(2025, 1, i+1, 12, 0, 0, tzinfo=timezone.utc),
+                is_video=False,
+                is_deleted=False,
+                has_playback=False,
+                imported_at=datetime.now(timezone.utc)
             )
             test_media.append(media)
             db.session.add(media)
@@ -299,6 +304,7 @@ def test_cursor_based_pagination(app):
         test_media = []
         for i in range(5):  # 5件に増やす
             media = Media(
+                source_type='google_photos',
                 google_media_id=f"test_cursor_id_{i}",
                 account_id=account.id,
                 local_rel_path=f"test/cursor_{i}.jpg",
@@ -307,7 +313,11 @@ def test_cursor_based_pagination(app):
                 mime_type="image/jpeg",
                 width=1920,
                 height=1080,
-                shot_at=datetime(2025, 1, i+10, 12, 0, 0, tzinfo=timezone.utc)
+                shot_at=datetime(2025, 1, i+10, 12, 0, 0, tzinfo=timezone.utc),
+                is_video=False,
+                is_deleted=False,
+                has_playback=False,
+                imported_at=datetime.now(timezone.utc)
             )
             test_media.append(media)
             db.session.add(media)
@@ -413,6 +423,7 @@ def test_pagination_order(app, order):
         test_media = []
         for i in range(3):
             media = Media(
+                source_type='google_photos',
                 google_media_id=f"test_order_id_{i}",
                 account_id=account.id,
                 local_rel_path=f"test/order_{i}.jpg",
@@ -421,7 +432,11 @@ def test_pagination_order(app, order):
                 mime_type="image/jpeg",
                 width=1920,
                 height=1080,
-                shot_at=datetime(2025, 1, i+20, 12, 0, 0, tzinfo=timezone.utc)
+                shot_at=datetime(2025, 1, i+20, 12, 0, 0, tzinfo=timezone.utc),
+                is_video=False,
+                is_deleted=False,
+                has_playback=False,
+                imported_at=datetime.now(timezone.utc)
             )
             test_media.append(media)
             db.session.add(media)

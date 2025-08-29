@@ -99,6 +99,7 @@ def seed_media_bulk(app):
     with app.app_context():
         for i in range(250):
             m = Media(
+                source_type='google_photos',
                 google_media_id=f"gm{i}",
                 account_id=1,
                 local_rel_path=f"{i}.jpg",
@@ -115,6 +116,7 @@ def seed_media_bulk(app):
             db.session.add(m)
         for i in range(5):
             m = Media(
+                source_type='google_photos',
                 google_media_id=f"del{i}",
                 account_id=1,
                 local_rel_path=f"del{i}.jpg",

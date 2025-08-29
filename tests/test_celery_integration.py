@@ -55,7 +55,9 @@ def sample_data(app):
         for i in range(3):
             media_item = MediaItem(
                 id=f"test_item_{i}",
-                account_id=account.id
+                type="PHOTO",
+                mime_type="image/jpeg",
+                filename=f"test_file_{i}.jpg"
             )
             media_items.append(media_item)
             db.session.add(media_item)

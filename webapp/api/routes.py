@@ -418,8 +418,11 @@ def api_media_list():
             "width": media.width,
             "height": media.height,
             "is_video": int(bool(media.is_video)),
-            "local_rel_path": media.local_rel_path,
             "has_playback": int(bool(media.has_playback)),
+            "bytes": media.bytes,
+            "source_type": media.source_type,
+            "camera_make": media.camera_make,
+            "camera_model": media.camera_model,
         }
     
     # ページング処理

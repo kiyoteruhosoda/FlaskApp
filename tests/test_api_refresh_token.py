@@ -1,5 +1,6 @@
 import os
 import pytest
+import uuid
 
 
 @pytest.fixture(scope="module")
@@ -18,10 +19,14 @@ def app(tmp_path_factory):
     from core.models.user import User
     with app.app_context():
         db.create_all()
-        u = User(email="u@example.com")
+        # ユニークなメールアドレスを使用
+        unique_email = f"u{uuid.uuid4().hex[:8]}@example.com"
+        u = User(email=unique_email)
         u.set_password("pass")
         db.session.add(u)
         db.session.commit()
+        # テスト用にユーザー情報を保存
+        app.test_user_email = unique_email
     yield app
 
 
@@ -30,21 +35,21 @@ def client(app):
     return app.test_client()
 
 
-def login(client):
-    res = client.post("/api/login", json={"email": "u@example.com", "password": "pass"})
+def login(client, app):
+    res = client.post("/api/login", json={"email": app.test_user_email, "password": "pass"})
     assert res.status_code == 200
     data = res.get_json()
     return data["access_token"], data["refresh_token"]
 
 
-def test_login_returns_refresh_token(client):
-    access, refresh = login(client)
+def test_login_returns_refresh_token(client, app):
+    access, refresh = login(client, app)
     assert access
     assert refresh
 
 
-def test_refresh_works(client):
-    old_access, refresh = login(client)
+def test_refresh_works(client, app):
+    old_access, refresh = login(client, app)
     res = client.post("/api/refresh", json={"refresh_token": refresh})
     assert res.status_code == 200
     data = res.get_json()
@@ -52,7 +57,7 @@ def test_refresh_works(client):
     assert data["refresh_token"] != refresh
 
 
-def test_refresh_invalid_token(client):
+def test_refresh_invalid_token(client, app):
     res = client.post("/api/refresh", json={"refresh_token": "invalid"})
     assert res.status_code == 401
 

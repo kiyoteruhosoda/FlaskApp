@@ -80,7 +80,7 @@ def api_picker_sessions_list():
             "totalPages": result.get("totalPages"),
             "totalCount": result.get("totalCount")
         },
-        "serverTimeRFC1123": result.get("serverTimeRFC1123")
+        "serverTime": result.get("serverTime")
     })
 
 @bp.post("/picker/session")

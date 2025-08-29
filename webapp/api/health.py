@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from email.utils import formatdate
 import os
 
@@ -62,7 +62,7 @@ def health_beat():
         jsonify(
             {
                 "lastBeatAt": last.isoformat() if isinstance(last, datetime) else None,
-                "serverTimeRFC1123": formatdate(usegmt=True),
+                "serverTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             }
         ),
         200,

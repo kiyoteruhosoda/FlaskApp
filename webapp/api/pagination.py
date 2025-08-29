@@ -13,7 +13,6 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from flask import request, current_app
 from sqlalchemy import asc, desc
 from sqlalchemy.orm import Query
-from email.utils import formatdate
 
 
 class PaginationParams:
@@ -175,8 +174,8 @@ class PaginatedResult:
             
         # サーバー時刻
         if include_server_time:
-            server_time = formatdate(usegmt=True)
-            result["serverTimeRFC1123"] = server_time
+            server_time = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            result["serverTime"] = server_time
             
         return result
 

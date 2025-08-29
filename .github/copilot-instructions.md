@@ -1,5 +1,7 @@
 # Copilot Instructions for PhotoNest (FlaskApp)
 回答は日本語で
+コンソール実行時は仮想環境venvを使うため最初に`source /home/kyon/myproject/.venv/bin/activate`を実行
+Python実行時は `source /home/kyon/myproject/.venv/bin/activate && python main.py`
 
 ## Project Overview
 - **PhotoNest** is a family photo viewer and sync platform, with a Python backend (Flask), MariaDB, and Celery-based background processing.

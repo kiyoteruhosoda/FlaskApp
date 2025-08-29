@@ -24,6 +24,7 @@ from flask import (
 )
 from flask_login import login_required
 from flask_babel import gettext as _
+from functools import wraps
 
 from . import bp
 from ..extensions import db
@@ -44,6 +45,115 @@ user_repo = SqlAlchemyUserRepository(db.session)
 auth_service = AuthService(user_repo)
 
 
+def jwt_required(f):
+    """JWT認証が必要なエンドポイント用のデコレータ"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Authorizationヘッダーからトークンを取得
+        auth_header = request.headers.get('Authorization')
+        token = None
+        
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+        elif request.cookies.get('access_token'):
+            # Cookieからもトークンを取得（既存の実装との互換性）
+            token = request.cookies.get('access_token')
+        
+        if not token:
+            return jsonify({'error': 'token_missing'}), 401
+        
+        try:
+            payload = jwt.decode(
+                token,
+                current_app.config['JWT_SECRET_KEY'],
+                algorithms=['HS256']
+            )
+            user_id = int(payload['sub'])  # 文字列から整数に変換
+            user = User.query.get(user_id)
+            if not user or not user.is_active:
+                return jsonify({'error': 'invalid_token'}), 401
+            
+            # Flask-Loginのcurrent_userと同じように使えるよう設定
+            from flask import g
+            g.current_user = user
+            
+        except jwt.ExpiredSignatureError:
+            return jsonify({'error': 'token_expired'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'error': 'invalid_token'}), 401
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def login_or_jwt_required(f):
+    """Flask-LoginまたはJWT認証の両方に対応するデコレータ"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # デバッグログ
+        current_app.logger.info(f"login_or_jwt_required: endpoint={request.endpoint}")
+        current_app.logger.info(f"current_user.is_authenticated: {current_user.is_authenticated}")
+        
+        # まずFlask-Loginでの認証をチェック
+        if current_user.is_authenticated:
+            current_app.logger.info("Flask-Login authentication successful")
+            return f(*args, **kwargs)
+        
+        # Flask-Loginで認証されていない場合、JWTをチェック
+        auth_header = request.headers.get('Authorization')
+        current_app.logger.info(f"Authorization header: {auth_header}")
+        token = None
+        
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+            current_app.logger.info(f"JWT token extracted from Bearer header: {token[:20] if token else 'None'}...")
+        elif request.cookies.get('access_token'):
+            token = request.cookies.get('access_token')
+            current_app.logger.info(f"JWT token extracted from cookie: {token[:20] if token else 'None'}...")
+        
+        if not token:
+            current_app.logger.info("No token found, returning 401")
+            return jsonify({'error': 'authentication_required'}), 401
+        
+        try:
+            payload = jwt.decode(
+                token,
+                current_app.config['JWT_SECRET_KEY'],
+                algorithms=['HS256']
+            )
+            user_id = int(payload['sub'])  # 文字列から整数に変換
+            current_app.logger.info(f"JWT decoded successfully, user_id: {user_id}")
+            
+            user = User.query.get(user_id)
+            if not user or not user.is_active:
+                current_app.logger.info(f"User not found or inactive: user={user}, active={user.is_active if user else 'N/A'}")
+                return jsonify({'error': 'invalid_token'}), 401
+            
+            # Flask-Loginのcurrent_userと同じように使えるよう設定
+            from flask import g
+            g.current_user = user
+            current_app.logger.info(f"JWT authentication successful for user: {user.email}")
+            
+        except jwt.ExpiredSignatureError:
+            current_app.logger.info("JWT token expired")
+            return jsonify({'error': 'token_expired'}), 401
+        except jwt.InvalidTokenError as e:
+            current_app.logger.info(f"JWT token invalid: {e}")
+            return jsonify({'error': 'invalid_token'}), 401
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def get_current_user():
+    """現在のユーザーを取得（Flask-LoginまたはJWT認証から）"""
+    if current_user.is_authenticated:
+        return current_user
+    
+    from flask import g
+    return getattr(g, 'current_user', None)
+
+
 @bp.post("/login")
 def api_login():
     """ユーザー認証してJWTを発行"""
@@ -62,7 +172,7 @@ def api_login():
 
     now = datetime.now(timezone.utc)
     payload = {
-        "sub": user.id,
+        "sub": str(user.id),  # 文字列に変換
         "exp": now + timedelta(hours=1),
         "iat": now,
         "jti": secrets.token_urlsafe(8),
@@ -166,7 +276,7 @@ def google_oauth_start():
 
 
 @bp.get("/google/accounts")
-@login_required
+@login_or_jwt_required
 def api_google_accounts():
     """Return paginated list of linked Google accounts."""
     
@@ -251,7 +361,7 @@ def api_google_account_test(account_id):
 
 
 @bp.get("/media")
-@login_required
+@login_or_jwt_required
 def api_media_list():
     """Return paginated list of media items."""
     trace = uuid4().hex
@@ -278,7 +388,10 @@ def api_media_list():
     # ベースクエリの構築
     query = Media.query
     if not include_deleted:
-        query = query.filter(Media.is_deleted.is_(False))
+        # is_deletedがNullまたはFalseの場合を含める
+        query = query.filter(
+            db.or_(Media.is_deleted.is_(False), Media.is_deleted.is_(None))
+        )
         
     # 日付範囲フィルタ
     if after_param:
@@ -329,7 +442,7 @@ def api_media_list():
                 "count": len(result["items"]),
                 "cursor": params.cursor,
                 "nextCursor": result.get("nextCursor"),
-                "serverTimeRFC1123": result.get("serverTimeRFC1123"),
+                "serverTime": result.get("serverTime"),
             }
         ),
         extra={"event": "media.list.success"},
@@ -402,7 +515,7 @@ def serialize_media_detail(media: Media) -> dict:
 
 
 @bp.get("/media/<int:media_id>")
-@login_required
+@login_or_jwt_required
 def api_media_detail(media_id):
     """Return detailed info for a single media item."""
     trace = uuid4().hex
@@ -432,15 +545,15 @@ def api_media_detail(media_id):
 
     media_data = serialize_media_detail(media)
 
-    server_time = formatdate(usegmt=True)
-    media_data["serverTimeRFC1123"] = server_time
+    server_time = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    media_data["serverTime"] = server_time
     current_app.logger.info(
         json.dumps(
             {
                 "ts": datetime.now(timezone.utc).isoformat(),
                 "media_id": media_id,
                 "trace": trace,
-                "serverTimeRFC1123": server_time,
+                "serverTime": server_time,
             }
         ),
         extra={"event": "media.detail.success"},
@@ -489,7 +602,7 @@ def _verify_token(token: str):
 
     return payload, None
 @bp.get("/media/<int:media_id>/thumbnail")
-@login_required
+@login_or_jwt_required
 def api_media_thumbnail(media_id):
     """Return thumbnail image for a media item."""
     size = request.args.get("size", type=int, default=256)
@@ -525,7 +638,7 @@ def api_media_thumbnail(media_id):
 
 
 @bp.post("/media/<int:media_id>/thumb-url")
-@login_required
+@login_or_jwt_required
 def api_media_thumb_url(media_id):
     data = request.get_json(silent=True) or {}
     size = data.get("size")
@@ -592,7 +705,7 @@ def api_media_thumb_url(media_id):
 
 
 @bp.post("/media/<int:media_id>/playback-url")
-@login_required
+@login_or_jwt_required
 def api_media_playback_url(media_id):
     media = Media.query.get(media_id)
     if not media or not media.is_video:
@@ -762,7 +875,7 @@ def api_download(token):
 
 
 @bp.post("/sync/local-import")
-@login_required
+@login_or_jwt_required
 def trigger_local_import():
     """ローカルファイル取り込みを手動実行"""
     from cli.src.celery.tasks import local_import_task_celery
@@ -903,11 +1016,12 @@ def get_local_import_task_result(task_id):
 
 
 @bp.get("/admin/user")
-@login_required
+@login_or_jwt_required
 def api_admin_user():
     """ユーザー一覧API（ページング対応）"""
     # 管理者権限チェック
-    if not current_user.can('user:manage'):
+    user = get_current_user()
+    if not user or not user.can('user:manage'):
         return jsonify({"error": _("You do not have permission to access this page.")}), 403
     
     # ページング用パラメータ
@@ -943,17 +1057,18 @@ def api_admin_user():
 
 
 @bp.post("/admin/user/<int:user_id>/toggle-active")
-@login_required
+@login_or_jwt_required
 def api_admin_user_toggle_active(user_id):
     """ユーザーのアクティブ状態を切り替えるAPI"""
     # 管理者権限チェック
-    if not current_user.can('user:manage'):
+    current_admin = get_current_user()
+    if not current_admin or not current_admin.can('user:manage'):
         return jsonify({"error": _("You do not have permission to access this page.")}), 403
     
     user = User.query.get_or_404(user_id)
     
     # 自分自身を無効化することを防ぐ
-    if user.id == current_user.id:
+    if user.id == current_admin.id:
         return jsonify({"error": _("You cannot deactivate yourself.")}), 400
     
     # アクティブ状態を切り替え

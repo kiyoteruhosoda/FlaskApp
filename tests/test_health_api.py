@@ -60,5 +60,5 @@ def test_health_beat(client, app):
     resp = client.get("/api/health/beat")
     assert resp.status_code == 200
     assert resp.json["lastBeatAt"] == app.config["LAST_BEAT_AT"].isoformat()
-    assert "GMT" in resp.json["serverTimeRFC1123"]
+    assert "T" in resp.json["serverTime"] and "Z" in resp.json["serverTime"]
 

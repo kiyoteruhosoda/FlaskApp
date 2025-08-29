@@ -147,7 +147,7 @@ class PickerSessionService:
             "status": ps.status,
             "selectedCount": ps.selected_count,
             "lastPolledAt": ps.last_polled_at.isoformat().replace("+00:00", "Z"),
-            "serverTimeRFC1123": datetime.now(timezone.utc).strftime('%a, %d %b %Y %H:%M:%S GMT'),
+            "serverTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "sessionId": ps.session_id,
             "pickerUri": ps.picker_uri,
             "expireTime": ps.expire_time.isoformat().replace("+00:00", "Z") if ps.expire_time else None,

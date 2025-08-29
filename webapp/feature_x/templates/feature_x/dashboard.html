@@ -8,7 +8,7 @@
               {% if current_user.can('user:manage') %}
        <ul class="list-unstyled">
          <li>
-           <a href="{{ url_for('admin.users') }}" class="btn btn-outline-primary">
+           <a href="{{ url_for('admin.user') }}" class="btn btn-outline-primary">
              {{ _('Manage Users') }}
            </a>
          </li>

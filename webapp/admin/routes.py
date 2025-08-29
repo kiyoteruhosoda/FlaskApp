@@ -29,7 +29,7 @@ def show_config():
     return render_template("admin/config_view.html", config=config_dict)
 
 # TOTPリセット
-@bp.route("/users/<int:user_id>/reset_totp", methods=["POST"])
+@bp.route("/user/<int:user_id>/reset-totp", methods=["POST"])
 @login_required
 def user_reset_totp(user_id):
     if not current_user.can('user:manage'):
@@ -40,10 +40,10 @@ def user_reset_totp(user_id):
     user.totp_secret = None
     db.session.commit()
     flash(_("TOTP secret reset for user."), "success")
-    return redirect(url_for("admin.users"))
+    return redirect(url_for("admin.user"))
 
 # ユーザー削除
-@bp.route("/users/<int:user_id>/delete", methods=["POST"])
+@bp.route("/user/<int:user_id>/delete", methods=["POST"])
 @login_required
 def user_delete(user_id):
     if not current_user.can('user:manage'):
@@ -52,14 +52,14 @@ def user_delete(user_id):
     user = User.query.get_or_404(user_id)
     if user.id == current_user.id:
         flash(_("You cannot delete yourself."), "error")
-        return redirect(url_for("admin.users"))
+        return redirect(url_for("admin.user"))
     db.session.delete(user)
     db.session.commit()
     flash(_("User deleted successfully."), "success")
-    return redirect(url_for("admin.users"))
+    return redirect(url_for("admin.user"))
 
 # ユーザーロール変更
-@bp.route("/users/<int:user_id>/role", methods=["POST"])
+@bp.route("/user/<int:user_id>/role", methods=["POST"])
 @login_required
 def user_change_role(user_id):
     if not current_user.can('user:manage'):
@@ -70,14 +70,14 @@ def user_change_role(user_id):
     role_obj = Role.query.get(int(role_id)) if role_id else None
     if not role_obj:
         flash(_("Selected role does not exist."), "error")
-        return redirect(url_for("admin.users"))
+        return redirect(url_for("admin.user"))
     user.roles = [role_obj]
     db.session.commit()
     flash(_("User role updated."), "success")
-    return redirect(url_for("admin.users"))
+    return redirect(url_for("admin.user"))
 
 # ユーザーのロール編集画面
-@bp.route("/users/<int:user_id>/edit-roles", methods=["GET"])
+@bp.route("/user/<int:user_id>/edit-roles", methods=["GET"])
 @login_required
 def user_edit_roles(user_id):
     if not current_user.can('user:manage'):
@@ -88,7 +88,7 @@ def user_edit_roles(user_id):
     return render_template("admin/user_role_edit.html", user=user, roles=roles)
 
 # ユーザー追加
-@bp.route("/users/add", methods=["GET", "POST"])
+@bp.route("/user/add", methods=["GET", "POST"])
 @login_required
 def user_add():
     if not current_user.can('user:manage'):
@@ -115,13 +115,13 @@ def user_add():
         db.session.add(u)
         db.session.commit()
         flash(_("User created successfully."), "success")
-        return redirect(url_for("admin.users"))
+        return redirect(url_for("admin.user"))
     return render_template("admin/user_add.html", roles=roles)
 
 
-@bp.route("/users", methods=["GET"])
+@bp.route("/user", methods=["GET"])
 @login_required
-def users():
+def user():
     if not current_user.can('user:manage'):
         flash(_("You do not have permission to access this page."), "error")
         return redirect(url_for("index"))

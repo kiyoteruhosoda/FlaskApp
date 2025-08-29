@@ -12,7 +12,7 @@
 <ul class="nav nav-tabs mb-4">
   {% if current_user.can('user:manage') %}
   <li class="nav-item">
-    <a class="nav-link active" href="{{ url_for('admin.users') }}">
+    <a class="nav-link active" href="{{ url_for('admin.user') }}">
       <i class="fas fa-users"></i> {{ _('User Management') }}
     </a>
   </li>
@@ -170,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const paginationClient = new PaginationClient({
-      baseUrl: '/api/admin/users',
+      baseUrl: '/api/admin/user',
       pageSize: 50,
       parameters: params,
       onItemsLoaded: (items, meta) => {
@@ -227,13 +227,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // グローバル関数（既存の管理機能との互換性のため）
   window.editUserRoles = function(userId) {
     // ユーザーのロール編集画面にリダイレクト
-    window.location.href = `/admin/users/${userId}/edit-roles`;
+    window.location.href = `/admin/user/${userId}/edit-roles`;
   };
 
   window.resetUserTotp = function(userId) {
     if (!confirm('{{ _("Reset TOTP for this user?") }}')) return;
     
-    fetch(`/admin/user/${userId}/reset-totp`, {
+    fetch(`/admin/user/${userId}/reset_totp`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -281,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const action = currentStatus ? translations.deactivate : translations.activate;
     if (!confirm(`${translations.areYouSureYouWantTo} ${action} ${translations.thisUser}`)) return;
     
-    fetch(`/api/admin/users/${userId}/toggle-active`, {
+    fetch(`/api/admin/user/${userId}/toggle-active`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

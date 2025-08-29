@@ -803,9 +803,9 @@ def get_local_import_task_result(task_id):
         }), 500
 
 
-@bp.get("/admin/users")
+@bp.get("/admin/user")
 @login_required
-def api_admin_users():
+def api_admin_user():
     """ユーザー一覧API（ページング対応）"""
     # 管理者権限チェック
     if not current_user.can('user:manage'):
@@ -843,7 +843,7 @@ def api_admin_users():
     )
 
 
-@bp.post("/admin/users/<int:user_id>/toggle-active")
+@bp.post("/admin/user/<int:user_id>/toggle-active")
 @login_required
 def api_admin_user_toggle_active(user_id):
     """ユーザーのアクティブ状態を切り替えるAPI"""

@@ -16,3 +16,4 @@ requests
 typer
 Celery
 redis
+PyJWT

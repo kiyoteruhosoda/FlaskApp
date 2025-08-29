@@ -16,10 +16,11 @@ description = "Flask + CLI + Library project"
 authors = [
     { name = "kiyoteru hosoda", email = "kiyoteru.hosoda@gmail.com" }
 ]
-dependencies = [                       # インストール時の依存関係
-    "flask",
-    "click",
-    "httpx",
-    "typer"
-]
+    dependencies = [                       # インストール時の依存関係
+        "flask",
+        "click",
+        "httpx",
+        "typer",
+        "PyJWT"
+    ]
 requires-python = ">=3.10"

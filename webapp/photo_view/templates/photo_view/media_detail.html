@@ -1,6 +1,410 @@
 {% extends 'base.html' %}
 {% block title %}Media Detail{% endblock %}
+
+{% block extra_head %}
+<style>
+  .media-viewer {
+    min-height: 80vh;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .media-header {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  
+  .media-display {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #000;
+    border-radius: 8px;
+    position: relative;
+    min-height: 500px;
+  }
+  
+  .media-image {
+    max-width: 100%;
+    max-height: 80vh;
+    object-fit: contain;
+    cursor: zoom-in;
+  }
+  
+  .media-image.zoomed {
+    cursor: zoom-out;
+    max-width: none;
+    max-height: none;
+    width: auto;
+    height: auto;
+  }
+  
+  .media-video {
+    max-width: 100%;
+    max-height: 80vh;
+  }
+  
+  .media-controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    gap: 5px;
+  }
+  
+  .media-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0,0,0,0.7);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1.2rem;
+  }
+  
+  .media-nav:hover {
+    background: rgba(0,0,0,0.9);
+  }
+  
+  .media-nav.prev {
+    left: 10px;
+  }
+  
+  .media-nav.next {
+    right: 10px;
+  }
+  
+  .media-info-panel {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+  }
+  
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+  }
+  
+  .info-section h5 {
+    color: #495057;
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 5px;
+    margin-bottom: 15px;
+  }
+  
+  .info-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    padding: 5px 0;
+    border-bottom: 1px solid #f8f9fa;
+  }
+  
+  .info-label {
+    font-weight: 500;
+    color: #6c757d;
+  }
+  
+  .info-value {
+    text-align: right;
+    word-break: break-word;
+  }
+  
+  .loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 1.2rem;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<h1>Media Detail</h1>
-<p>Placeholder for media ID: {{ media_id }}</p>
+<div class="media-viewer">
+  <div class="media-header">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <h1 class="h3 mb-1" id="media-title">Loading...</h1>
+        <p class="text-muted mb-0" id="media-meta">Loading media details...</p>
+      </div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary" onclick="history.back()">
+          <i class="fas fa-arrow-left"></i> {{ _('Back') }}
+        </button>
+        <button class="btn btn-outline-primary" id="download-btn" disabled>
+          <i class="fas fa-download"></i> {{ _('Download') }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="media-display" id="media-display">
+    <div class="loading-overlay" id="loading-overlay">
+      <div class="spinner-border text-light" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <span class="ms-2">Loading media...</span>
+    </div>
+    
+    <div class="media-controls">
+      <button class="btn btn-sm btn-light" id="fullscreen-btn" title="Fullscreen">
+        <i class="fas fa-expand"></i>
+      </button>
+      <button class="btn btn-sm btn-light" id="zoom-btn" title="Toggle Zoom" style="display: none;">
+        <i class="fas fa-search-plus"></i>
+      </button>
+    </div>
+    
+    <!-- Navigation arrows -->
+    <button class="media-nav prev" id="prev-btn" style="display: none;" title="Previous">
+      <i class="fas fa-chevron-left"></i>
+    </button>
+    <button class="media-nav next" id="next-btn" style="display: none;" title="Next">
+      <i class="fas fa-chevron-right"></i>
+    </button>
+  </div>
+
+  <div class="media-info-panel">
+    <div class="info-grid">
+      <div class="info-section">
+        <h5>{{ _('Basic Information') }}</h5>
+        <div id="basic-info">
+          <!-- 基本情報がここに表示されます -->
+        </div>
+      </div>
+      
+      <div class="info-section">
+        <h5>{{ _('Technical Details') }}</h5>
+        <div id="technical-info">
+          <!-- 技術情報がここに表示されます -->
+        </div>
+      </div>
+      
+      <div class="info-section" id="exif-section" style="display: none;">
+        <h5>{{ _('EXIF Data') }}</h5>
+        <div id="exif-info">
+          <!-- EXIF情報がここに表示されます -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const mediaId = parseInt('{{ media_id }}');
+  const mediaDisplay = document.getElementById('media-display');
+  const loadingOverlay = document.getElementById('loading-overlay');
+  const mediaTitle = document.getElementById('media-title');
+  const mediaMeta = document.getElementById('media-meta');
+  const downloadBtn = document.getElementById('download-btn');
+  const fullscreenBtn = document.getElementById('fullscreen-btn');
+  const zoomBtn = document.getElementById('zoom-btn');
+  const basicInfo = document.getElementById('basic-info');
+  const technicalInfo = document.getElementById('technical-info');
+  const exifInfo = document.getElementById('exif-info');
+  const exifSection = document.getElementById('exif-section');
+  
+  let currentMedia = null;
+  let isZoomed = false;
+
+  // メディア詳細を読み込み
+  async function loadMediaDetail() {
+    try {
+      const response = await fetch(`/api/media/${mediaId}`);
+      if (!response.ok) {
+        throw new Error('Media not found');
+      }
+      
+      currentMedia = await response.json();
+      displayMedia(currentMedia);
+      displayMediaInfo(currentMedia);
+      
+    } catch (error) {
+      console.error('Error loading media:', error);
+      mediaDisplay.innerHTML = '<div class="text-center text-danger p-5"><h4>Error loading media</h4><p>The requested media could not be found or loaded.</p></div>';
+    }
+  }
+  
+  function displayMedia(media) {
+    loadingOverlay.style.display = 'none';
+    
+    // タイトルとメタ情報を更新
+    mediaTitle.textContent = media.filename || media.googleMediaId || 'Unknown Media';
+    mediaMeta.textContent = `${formatDateTime(media.shotAt)} • ${formatFileSize(media.bytes)} • ${media.width}×${media.height}`;
+    
+    if (media.isVideo || media.is_video) {
+      displayVideo(media);
+    } else {
+      displayImage(media);
+    }
+    
+    downloadBtn.disabled = false;
+  }
+  
+  function displayImage(media) {
+    const img = document.createElement('img');
+    img.className = 'media-image';
+    img.src = `/api/media/${media.id}/thumbnail?size=1024`;
+    img.alt = media.filename || 'Media';
+    
+    // ズーム機能
+    img.addEventListener('click', toggleZoom);
+    zoomBtn.style.display = 'block';
+    zoomBtn.addEventListener('click', toggleZoom);
+    
+    // コンテナをクリア
+    const controls = mediaDisplay.querySelector('.media-controls');
+    const navs = mediaDisplay.querySelectorAll('.media-nav');
+    mediaDisplay.innerHTML = '';
+    mediaDisplay.appendChild(img);
+    mediaDisplay.appendChild(controls);
+    navs.forEach(nav => mediaDisplay.appendChild(nav));
+  }
+  
+  function displayVideo(media) {
+    // 動画表示の実装（後で追加）
+    const video = document.createElement('div');
+    video.className = 'text-center text-white p-5';
+    video.innerHTML = '<h4>Video Player</h4><p>Video playback will be implemented here</p>';
+    
+    const controls = mediaDisplay.querySelector('.media-controls');
+    const navs = mediaDisplay.querySelectorAll('.media-nav');
+    mediaDisplay.innerHTML = '';
+    mediaDisplay.appendChild(video);
+    mediaDisplay.appendChild(controls);
+    navs.forEach(nav => mediaDisplay.appendChild(nav));
+  }
+  
+  function toggleZoom() {
+    const img = mediaDisplay.querySelector('.media-image');
+    if (!img) return;
+    
+    isZoomed = !isZoomed;
+    if (isZoomed) {
+      img.classList.add('zoomed');
+      zoomBtn.innerHTML = '<i class="fas fa-search-minus"></i>';
+    } else {
+      img.classList.remove('zoomed');
+      zoomBtn.innerHTML = '<i class="fas fa-search-plus"></i>';
+    }
+  }
+  
+  function displayMediaInfo(media) {
+    // 基本情報
+    basicInfo.innerHTML = `
+      <div class="info-item">
+        <span class="info-label">File Name:</span>
+        <span class="info-value">${media.filename || 'Unknown'}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Type:</span>
+        <span class="info-value">${media.isVideo || media.is_video ? 'Video' : 'Photo'}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Date Taken:</span>
+        <span class="info-value">${formatDateTime(media.shotAt)}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Imported:</span>
+        <span class="info-value">${formatDateTime(media.importedAt)}</span>
+      </div>
+    `;
+    
+    // 技術情報
+    technicalInfo.innerHTML = `
+      <div class="info-item">
+        <span class="info-label">Dimensions:</span>
+        <span class="info-value">${media.width}×${media.height}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">File Size:</span>
+        <span class="info-value">${formatFileSize(media.bytes)}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">MIME Type:</span>
+        <span class="info-value">${media.mimeType}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Media ID:</span>
+        <span class="info-value">${media.id}</span>
+      </div>
+    `;
+  }
+  
+  // フルスクリーン
+  fullscreenBtn.addEventListener('click', () => {
+    if (mediaDisplay.requestFullscreen) {
+      mediaDisplay.requestFullscreen();
+    }
+  });
+  
+  // ダウンロード
+  downloadBtn.addEventListener('click', async () => {
+    try {
+      const response = await fetch(`/api/media/${mediaId}/thumb-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ size: 2048 })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        window.open(data.url, '_blank');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+    }
+  });
+  
+  // ユーティリティ関数
+  function formatDateTime(isoString) {
+    if (!isoString) return 'Unknown';
+    const date = new Date(isoString);
+    return date.toLocaleString();
+  }
+
+  function formatFileSize(bytes) {
+    if (!bytes || bytes === 0) return 'Unknown';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let size = bytes;
+    let unitIndex = 0;
+    while (size >= 1024 && unitIndex < units.length - 1) {
+      size /= 1024;
+      unitIndex++;
+    }
+    return `${size.toFixed(1)} ${units[unitIndex]}`;
+  }
+  
+  // キーボードナビゲーション
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      history.back();
+    } else if (e.key === ' ') {
+      e.preventDefault();
+      toggleZoom();
+    } else if (e.key === 'f' || e.key === 'F') {
+      fullscreenBtn.click();
+    }
+  });
+  
+  // 初期化
+  loadMediaDetail();
+});
+</script>
 {% endblock %}

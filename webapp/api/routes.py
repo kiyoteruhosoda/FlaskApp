@@ -30,9 +30,11 @@ from ..extensions import db
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
 from core.models.photo_models import Media, Exif, MediaSidecar, MediaPlayback
+from core.models.user import User, Role
 from core.crypto import decrypt
 from ..auth.utils import refresh_google_token, RefreshTokenError, log_requests_and_send
 from .pagination import PaginationParams, paginate_and_respond
+from flask_login import current_user
 
 
 @bp.post("/google/oauth/start")
@@ -799,3 +801,68 @@ def get_local_import_task_result(task_id):
             "error": str(e),
             "server_time": datetime.now(timezone.utc).isoformat()
         }), 500
+
+
+@bp.get("/admin/users")
+@login_required
+def api_admin_users():
+    """ユーザー一覧API（ページング対応）"""
+    # 管理者権限チェック
+    if not current_user.can('user:manage'):
+        return jsonify({"error": _("You do not have permission to access this page.")}), 403
+    
+    # ページング用パラメータ
+    params = PaginationParams.from_request(default_page_size=50)
+    
+    # 検索パラメータ
+    search = request.args.get('search', '').strip()
+    
+    # ベースクエリ
+    query = User.query
+    
+    # 検索フィルタ
+    if search:
+        query = query.filter(User.email.contains(search))
+    
+    # ソート（IDで降順）
+    query = query.order_by(User.id.desc())
+    
+    # ページング実行
+    return paginate_and_respond(
+        query=query,
+        params=params,
+        serializer_func=lambda user: {
+            "id": user.id,
+            "email": user.email,
+            "is_active": user.is_active,
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+            "roles": [{"id": role.id, "name": role.name} for role in user.roles] if user.roles else [],
+            "totp_enabled": bool(user.totp_secret)
+        },
+        id_column=User.id
+    )
+
+
+@bp.post("/admin/users/<int:user_id>/toggle-active")
+@login_required
+def api_admin_user_toggle_active(user_id):
+    """ユーザーのアクティブ状態を切り替えるAPI"""
+    # 管理者権限チェック
+    if not current_user.can('user:manage'):
+        return jsonify({"error": _("You do not have permission to access this page.")}), 403
+    
+    user = User.query.get_or_404(user_id)
+    
+    # 自分自身を無効化することを防ぐ
+    if user.id == current_user.id:
+        return jsonify({"error": _("You cannot deactivate yourself.")}), 400
+    
+    # アクティブ状態を切り替え
+    user.is_active = not user.is_active
+    db.session.commit()
+    
+    return jsonify({
+        "success": True,
+        "is_active": user.is_active,
+        "message": _("User status updated successfully.")
+    })

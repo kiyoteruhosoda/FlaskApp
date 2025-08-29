@@ -4,11 +4,48 @@
 {% block extra_head %}
 <script src="{{ url_for('static', filename='js/pagination.js') }}"></script>
 <style>
+  .controls-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+  }
+  
+  .view-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  
+  .size-control {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  
   .media-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 15px;
     padding: 20px 0;
+    transition: all 0.3s ease;
+  }
+  
+  .media-grid.size-small {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+  
+  .media-grid.size-medium {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+  }
+  
+  .media-grid.size-large {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
   }
   
   .media-card {
@@ -17,18 +54,53 @@
     overflow: hidden;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
   }
   
   .media-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
   }
   
   .media-thumbnail {
     width: 100%;
-    height: 200px;
     object-fit: cover;
     background: #f8f9fa;
+  }
+  
+  .media-grid.size-small .media-thumbnail {
+    height: 150px;
+  }
+  
+  .media-grid.size-medium .media-thumbnail {
+    height: 200px;
+  }
+  
+  .media-grid.size-large .media-thumbnail {
+    height: 280px;
+  }
+  
+  .media-overlay {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+  }
+  
+  .video-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 8px;
+    border-radius: 50%;
+    font-size: 1.2rem;
   }
   
   .media-info {
@@ -61,28 +133,53 @@
     color: #6c757d;
     font-style: italic;
   }
+  
+  .filter-badge {
+    background: #007bff;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    margin-left: 5px;
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h1>{{ _('Media List') }}</h1>
-  <div class="d-flex gap-2">
+<div class="controls-bar">
+  <div class="d-flex align-items-center">
+    <h1 class="h3 mb-0">{{ _('Media Gallery') }}</h1>
+    <span id="media-count" class="filter-badge">{{ _('Loading...') }}</span>
+  </div>
+  
+  <div class="view-controls">
+    <!-- フィルタ -->
+    <select id="type-filter" class="form-select form-select-sm" style="width: auto;">
+      <option value="all">{{ _('All Media') }}</option>
+      <option value="photo">{{ _('Photos Only') }}</option>
+      <option value="video">{{ _('Videos Only') }}</option>
+    </select>
+    
+    <!-- 表示サイズ -->
+    <div class="size-control">
+      <label for="size-slider" class="form-label mb-0 me-2" style="font-size: 0.9rem;">{{ _('Size') }}:</label>
+      <input type="range" id="size-slider" class="form-range" min="1" max="3" value="2" style="width: 80px;">
+    </div>
+    
+    <!-- ソート -->
     <select id="sort-order" class="form-select form-select-sm" style="width: auto;">
       <option value="desc">{{ _('Newest First') }}</option>
       <option value="asc">{{ _('Oldest First') }}</option>
     </select>
+    
+    <!-- リフレッシュ -->
     <button id="refresh-btn" class="btn btn-outline-primary btn-sm">
       <i class="fas fa-refresh"></i> {{ _('Refresh') }}
     </button>
   </div>
 </div>
 
-<div id="media-stats" class="mb-3">
-  <span id="media-count" class="badge bg-info">{{ _('Loading...') }}</span>
-</div>
-
-<div id="media-grid" class="media-grid">
+<div id="media-grid" class="media-grid size-medium">
   <!-- メディアアイテムが動的に追加されます -->
 </div>
 
@@ -130,17 +227,26 @@ document.addEventListener('DOMContentLoaded', () => {
   function createMediaCard(media) {
     const card = document.createElement('div');
     card.className = 'media-card';
+    
+    // 動画かどうかの判定
+    const isVideo = media.isVideo || media.is_video;
+    
     card.innerHTML = `
       <img class="media-thumbnail" 
            src="/api/media/${media.id}/thumbnail?size=256" 
            alt="${media.filename || 'Media'}"
            loading="lazy"
            onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzZjNzU3ZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
+      
+      ${media.width && media.height ? `<div class="media-overlay">${media.width}×${media.height}</div>` : ''}
+      
+      ${isVideo ? '<div class="video-overlay"><i class="fas fa-play"></i></div>' : ''}
+      
       <div class="media-info">
         <h6 class="media-title">${media.filename || media.googleMediaId || 'Unknown'}</h6>
         <p class="media-meta">
           ${formatDateTime(media.shotAt)} • ${formatFileSize(media.bytes)}
-          ${media.width && media.height ? ` • ${media.width}×${media.height}` : ''}
+          ${isVideo ? ' • Video' : ' • Photo'}
         </p>
       </div>
     `;
@@ -154,12 +260,20 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function initializeInfiniteScroll() {
+    // 現在のフィルタ設定を取得
+    const typeFilter = document.getElementById('type-filter').value;
+    const sortOrder = document.getElementById('sort-order').value;
+    
+    // パラメータ設定
+    const parameters = { order: sortOrder };
+    if (typeFilter !== 'all') {
+      parameters.type = typeFilter;
+    }
+    
     const paginationClient = new PaginationClient({
       baseUrl: '/api/media',
       pageSize: 200,
-      parameters: {
-        order: sortOrder.value
-      },
+      parameters: parameters,
       onItemsLoaded: (items, meta) => {
         if (meta.isFirstPage) {
           mediaGrid.innerHTML = '';
@@ -172,7 +286,11 @@ document.addEventListener('DOMContentLoaded', () => {
           totalLoaded++;
         });
         
-        mediaCount.textContent = `${totalLoaded} ${_('media items loaded')}`;
+        mediaCount.textContent = `${totalLoaded} media loaded`;
+        
+        if (items.length === 0 && meta.isFirstPage) {
+          mediaGrid.innerHTML = '<div class="text-center text-muted p-5"><h4>No media found</h4><p>Try adjusting your filters or add some media to your collection.</p></div>';
+        }
       },
       onError: (error) => {
         console.error('Media loading error:', error);
@@ -193,6 +311,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     infiniteScroll.start();
   }
+
+  // サイズ変更
+  const sizeSlider = document.getElementById('size-slider');
+  sizeSlider.addEventListener('input', () => {
+    const sizeClasses = ['size-small', 'size-medium', 'size-large'];
+    mediaGrid.className = `media-grid ${sizeClasses[sizeSlider.value - 1]}`;
+  });
+  
+  // フィルタ変更
+  const typeFilter = document.getElementById('type-filter');
+  typeFilter.addEventListener('change', () => {
+    if (infiniteScroll) {
+      infiniteScroll.destroy();
+    }
+    initializeInfiniteScroll();
+  });
 
   // ソート順変更時の処理
   sortOrder.addEventListener('change', () => {

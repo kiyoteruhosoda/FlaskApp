@@ -1,13 +1,42 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Permission Management') }}{% endblock %}
 {% block content %}
-<h2>{{ _('Permission Management') }}</h2>
-<div class="mb-3">
-  <a href="{{ url_for('admin.permission_add') }}" class="btn btn-success">{{ _('Add Permission') }}</a>
-  <a href="{{ url_for('admin.roles') }}" class="btn btn-secondary ms-2">{{ _('Role Management') }}</a>
-  <a href="{{ url_for('admin.users') }}" class="btn btn-secondary ms-2">{{ _('User Management') }}</a>
-  <a href="{{ url_for('admin.show_config') }}" class="btn btn-info ms-2">{{ _('Show Config Settings') }}</a>
+<h2>{{ _('Management') }}</h2>
 
+<!-- Management Navigation Tabs -->
+<ul class="nav nav-tabs mb-4">
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.users') }}">
+      <i class="fas fa-users"></i> {{ _('User Management') }}
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.google_accounts') }}">
+      <i class="fab fa-google"></i> {{ _('Google Accounts') }}
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.show_config') }}">
+      <i class="fas fa-cogs"></i> {{ _('Config Settings') }}
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.roles') }}">
+      <i class="fas fa-user-tag"></i> {{ _('Roles') }}
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link active" href="{{ url_for('admin.permissions') }}">
+      <i class="fas fa-shield-alt"></i> {{ _('Permissions') }}
+    </a>
+  </li>
+</ul>
+
+<h3>{{ _('Permission Management') }}</h3>
+<div class="mb-3">
+  <a href="{{ url_for('admin.permission_add') }}" class="btn btn-success">
+    <i class="fas fa-plus"></i> {{ _('Add Permission') }}
+  </a>
 </div>
 <form method="get" class="d-flex mb-3">
   <input type="text" name="search" class="form-control me-2" placeholder="{{ _('Search by code') }}" value="{{ search }}">

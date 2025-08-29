@@ -76,6 +76,17 @@ def user_change_role(user_id):
     flash(_("User role updated."), "success")
     return redirect(url_for("admin.users"))
 
+# ユーザーのロール編集画面
+@bp.route("/users/<int:user_id>/edit-roles", methods=["GET"])
+@login_required
+def user_edit_roles(user_id):
+    if not current_user.can('user:manage'):
+        flash(_("You do not have permission to access this page."), "error")
+        return redirect(url_for("index"))
+    user = User.query.get_or_404(user_id)
+    roles = Role.query.all()
+    return render_template("admin/user_role_edit.html", user=user, roles=roles)
+
 # ユーザー追加
 @bp.route("/users/add", methods=["GET", "POST"])
 @login_required
@@ -277,3 +288,14 @@ def role_delete(role_id):
     db.session.commit()
     flash(_("Role deleted."), "success")
     return redirect(url_for("admin.roles"))
+
+# Google Accounts管理
+@bp.route("/google-accounts", methods=["GET"])
+@login_required
+def google_accounts():
+    if not current_user.can('user:manage'):
+        flash(_("You do not have permission to access this page."), "error")
+        return redirect(url_for("index"))
+    from core.models.google_account import GoogleAccount
+    accounts = GoogleAccount.query.all()
+    return render_template("admin/google_accounts.html", accounts=accounts)

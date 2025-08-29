@@ -285,7 +285,8 @@ def upgrade():
     op.execute(
         "INSERT INTO role_permissions (role_id, perm_id) VALUES " \
         "(1, 1), (1, 2), (1, 3), (1, 4), (1, 5)," \
-        "(1, 6), (1, 7), (2, 1), (2, 4), (2, 5), (2, 6), (2, 7), (3, 6), (3, 7)")
+        "(1, 6), (1, 7), (1, 8), (1, 9), (1, 10)," \
+        "(2, 1), (2, 4), (2, 5), (2, 6), (2, 7), (3, 6), (3, 7)")
     from datetime import datetime, timezone
     op.get_bind().execute(
         sa.text(

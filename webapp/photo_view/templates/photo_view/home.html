@@ -21,6 +21,16 @@
     <i class="bi bi-folder-plus"></i> ローカルインポート
   </a>
   
+  <!-- メディアギャラリーリンク -->
+  <a href="{{ url_for('photo_view.media_list') }}" class="btn btn-primary ms-2">
+    <i class="fas fa-images"></i> {{ _('View Media Gallery') }}
+  </a>
+  
+  <!-- アルバムリンク -->
+  <a href="{{ url_for('photo_view.albums') }}" class="btn btn-outline-success ms-2">
+    <i class="fas fa-folder"></i> {{ _('Albums') }}
+  </a>
+  
   <!-- 設定リンク -->
   <div class="float-end">
     <a href="{{ url_for('photo_view.settings') }}" class="btn btn-outline-secondary me-2">

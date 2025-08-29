@@ -36,6 +36,7 @@ class User(db.Model, UserMixin):
     password_hash = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     totp_secret = db.Column(db.String(32), nullable=True)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
 
     # 追加：ロール関連
     roles = db.relationship("Role", secondary=user_roles, backref="users")

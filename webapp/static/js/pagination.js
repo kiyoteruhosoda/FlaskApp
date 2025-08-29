@@ -10,6 +10,8 @@ class PaginationClient {
         this.pageSize = options.pageSize || 200;
         this.autoLoad = options.autoLoad !== false;
         this.loadThreshold = options.loadThreshold || 0.8;
+        // 追加のデフォルトパラメータ（初回・以降の読み込み時に常に付与）
+        this.defaultParams = options.parameters || {};
         
         // コールバック関数
         this.onItemsLoaded = options.onItemsLoaded || (() => {});
@@ -93,6 +95,7 @@ class PaginationClient {
         try {
             const queryParams = {
                 pageSize: this.pageSize,
+                ...this.defaultParams,
                 ...params
             };
             
@@ -135,7 +138,10 @@ class PaginationClient {
             this.onItemsLoaded(normalizedData.items, {
                 hasNext: this.hasNext,
                 total: normalizedData.totalCount,
-                currentPage: this.currentPage - 1
+                currentPage: this.currentPage - 1,
+                // currentPage は次回読み込むページを指しているため、
+                // 読み込み直後に 2 であればそれは 1 ページ目の読み込み完了を意味する
+                isFirstPage: this.currentPage === 2
             });
             
         } catch (error) {
@@ -271,22 +277,110 @@ class PaginationClient {
  * 無限スクロール用のヘルパー関数
  */
 class InfiniteScrollHelper {
-    constructor(containerSelector, itemRenderer, options = {}) {
-        this.container = document.querySelector(containerSelector);
-        if (!this.container) {
-            throw new Error(`Container not found: ${containerSelector}`);
+    constructor(arg1, itemRenderer, options = {}) {
+        // 2系コンストラクタ互換: new InfiniteScrollHelper(selectorOrElem, itemRenderer, options)
+        // 新API互換: new InfiniteScrollHelper({ paginationClient, container, loadingIndicator, noMoreDataIndicator, threshold })
+        this._scrollHandler = null;
+
+        if (typeof arg1 === 'object' && (arg1 !== null) && !('nodeType' in arg1) && !Array.isArray(arg1)) {
+            // 新API: optionsオブジェクト受け取り
+            const cfg = arg1 || {};
+
+            // container は要素またはセレクタ文字列のどちらでも許可
+            if (typeof cfg.container === 'string') {
+                this.container = document.querySelector(cfg.container);
+            } else if (cfg.container && cfg.container.nodeType === 1) {
+                this.container = cfg.container;
+            } else {
+                this.container = document.body;
+            }
+            if (!this.container) {
+                throw new Error('Container not found for InfiniteScrollHelper');
+            }
+
+            // 既存の PaginationClient を利用、なければ作成（最低限の互換）
+            if (cfg.paginationClient instanceof PaginationClient) {
+                this.pagination = cfg.paginationClient;
+            } else {
+                this.pagination = new PaginationClient({
+                    baseUrl: cfg.baseUrl || '',
+                    pageSize: cfg.pageSize || 200,
+                    autoLoad: false,
+                    parameters: cfg.parameters || {},
+                });
+            }
+
+            // ローディング/終端インジケータ設定
+            this.loadingIndicator = cfg.loadingIndicator || this.createLoadingIndicator();
+            this.noMoreDataIndicator = cfg.noMoreDataIndicator || null;
+            this.threshold = typeof cfg.threshold === 'number' ? cfg.threshold : 200; // px 単位
+
+            // 既存コールバックをラップしてUI連動
+            const prevOnItemsLoaded = this.pagination.onItemsLoaded;
+            const prevOnError = this.pagination.onError;
+
+            this.pagination.onItemsLoaded = (items, meta) => {
+                // UI: 終端表示制御
+                if (this.noMoreDataIndicator) {
+                    if (!meta.hasNext) {
+                        this.noMoreDataIndicator.style.display = '';
+                    } else {
+                        this.noMoreDataIndicator.style.display = 'none';
+                    }
+                }
+                if (typeof prevOnItemsLoaded === 'function') {
+                    prevOnItemsLoaded(items, meta);
+                }
+            };
+
+            this.pagination.onLoadingStateChange = (loading) => {
+                if (this.loadingIndicator) {
+                    this.loadingIndicator.style.display = loading ? '' : 'none';
+                }
+            };
+
+            this.pagination.onError = (err) => {
+                if (typeof prevOnError === 'function') {
+                    prevOnError(err);
+                } else {
+                    this.onError(err);
+                }
+            };
+
+            // 既存の自動スクロール監視は使わず、こちらで制御
+            this.pagination.destroyScrollListener?.();
+
+        } else {
+            // 旧API互換: selector + itemRenderer + options
+            const containerSelector = arg1;
+            this.container = typeof containerSelector === 'string'
+                ? document.querySelector(containerSelector)
+                : containerSelector;
+            if (!this.container) {
+                throw new Error(`Container not found: ${containerSelector}`);
+            }
+
+            this.itemRenderer = itemRenderer;
+            this.loadingIndicator = this.createLoadingIndicator();
+            this.pagination = new PaginationClient({
+                ...options,
+                onItemsLoaded: this.onItemsLoaded.bind(this),
+                onError: this.onError.bind(this),
+                onLoadingStateChange: this.onLoadingStateChange.bind(this)
+            });
         }
-        
-        this.itemRenderer = itemRenderer;
-        this.loadingIndicator = this.createLoadingIndicator();
-        this.pagination = new PaginationClient({
-            ...options,
-            onItemsLoaded: this.onItemsLoaded.bind(this),
-            onError: this.onError.bind(this),
-            onLoadingStateChange: this.onLoadingStateChange.bind(this)
-        });
-        
-        this.container.appendChild(this.loadingIndicator);
+
+        // 必要ならローディングインジケータをDOMに配置
+        if (this.loadingIndicator && !this.loadingIndicator.parentNode) {
+            this.container.appendChild(this.loadingIndicator);
+        }
+        // 初期状態では非表示
+        if (this.loadingIndicator) {
+            this.loadingIndicator.style.display = 'none';
+        }
+        if (this.noMoreDataIndicator) {
+            this.noMoreDataIndicator.style.display = 'none';
+        }
     }
     
     /**
@@ -339,10 +433,13 @@ class InfiniteScrollHelper {
      * ローディング状態変更時の処理
      */
     onLoadingStateChange(loading) {
+        if (!this.loadingIndicator) return;
         if (loading) {
             this.loadingIndicator.classList.remove('d-none');
+            this.loadingIndicator.style.display = '';
         } else {
             this.loadingIndicator.classList.add('d-none');
+            this.loadingIndicator.style.display = 'none';
         }
     }
     
@@ -373,6 +470,42 @@ class InfiniteScrollHelper {
         this.clear();
         return this.pagination.loadFirst(params);
     }
+
+    /**
+     * 新API向け: 監視開始 + 初回ロード
+     */
+    start(params = {}) {
+        // スクロールイベント設定
+        this.stop();
+        const container = this.container === document.body ? document.documentElement : this.container;
+        const handler = () => {
+            const scrollTop = this.container === document.body ? (window.pageYOffset || document.documentElement.scrollTop) : container.scrollTop;
+            const scrollHeight = container.scrollHeight;
+            const clientHeight = this.container === document.body ? window.innerHeight : container.clientHeight;
+            const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
+            if (distanceFromBottom <= this.threshold && !this.pagination.isLoading && this.pagination.hasNext) {
+                this.pagination.loadNext();
+            }
+        };
+        this._scrollHandler = this.pagination.throttle ? this.pagination.throttle(handler, 200) : handler;
+        const target = this.container === document.body ? window : this.container;
+        target.addEventListener('scroll', this._scrollHandler);
+
+        // 初回ロード
+        if (this.noMoreDataIndicator) this.noMoreDataIndicator.style.display = 'none';
+        return this.pagination.loadFirst(params);
+    }
+
+    /**
+     * スクロール監視停止
+     */
+    stop() {
+        const target = this.container === document.body ? window : this.container;
+        if (this._scrollHandler) {
+            target.removeEventListener('scroll', this._scrollHandler);
+            this._scrollHandler = null;
+        }
+    }
     
     /**
      * コンテンツをクリア
@@ -395,8 +528,12 @@ class InfiniteScrollHelper {
      * 破棄処理
      */
     destroy() {
+        this.stop();
         this.pagination.destroy();
-        this.container.innerHTML = '';
+        // 旧API互換: すべてクリア
+        if (!this.noMoreDataIndicator && !this.loadingIndicator) {
+            this.container.innerHTML = '';
+        }
     }
 }
 

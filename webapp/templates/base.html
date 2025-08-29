@@ -27,8 +27,17 @@
         <li class="nav-item">
           <a class="nav-link" href="{{ url_for('feature_x.dashboard') }}">{{ _('Dashboard') }}</a>
         </li>
-        <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('photo_view.home') }}">{{ _('Photo View') }}</a>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" id="photoNavDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            {{ _('Photo View') }}
+          </a>
+          <ul class="dropdown-menu" aria-labelledby="photoNavDropdown">
+            <li><a class="dropdown-item" href="{{ url_for('photo_view.home') }}">{{ _('Sessions') }}</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('photo_view.media_list') }}">{{ _('Media Gallery') }}</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('photo_view.albums') }}">{{ _('Albums') }}</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{{ url_for('photo_view.settings') }}">{{ _('Settings') }}</a></li>
+          </ul>
         </li>
       </ul>
       <ul class="navbar-nav">
@@ -42,19 +51,25 @@
           <li class="nav-item">
             <a class="nav-link" href="{{ url_for('auth.edit') }}">{{ current_user.email }}</a>
           </li>
-          {% if current_user.can('user:manage') %}
-          <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('admin.users') }}">{{ _('User Management') }}</a>
-          </li>
-          {% endif %}
-          {% if current_user.can('role:manage') %}
-          <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('admin.roles') }}">{{ _('Role Management') }}</a>
-          </li>
-          {% endif %}
-          {% if current_user.can('permission:manage') %}
-          <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('admin.permissions') }}">{{ _('Permission Management') }}</a>
+          {% if current_user.can('user:manage') or current_user.can('role:manage') or current_user.can('permission:manage') %}
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="managementNavDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              {{ _('Management') }}
+            </a>
+            <ul class="dropdown-menu" aria-labelledby="managementNavDropdown">
+              {% if current_user.can('user:manage') %}
+              <li><a class="dropdown-item" href="{{ url_for('admin.users') }}">{{ _('User Management') }}</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('admin.google_accounts') }}">{{ _('Google Accounts') }}</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="{{ url_for('admin.show_config') }}">{{ _('Config Settings') }}</a></li>
+              {% endif %}
+              {% if current_user.can('role:manage') %}
+              <li><a class="dropdown-item" href="{{ url_for('admin.roles') }}">{{ _('Roles') }}</a></li>
+              {% endif %}
+              {% if current_user.can('permission:manage') %}
+              <li><a class="dropdown-item" href="{{ url_for('admin.permissions') }}">{{ _('Permissions') }}</a></li>
+              {% endif %}
+            </ul>
           </li>
           {% endif %}
           <li class="nav-item">

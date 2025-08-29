@@ -1,12 +1,42 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Role Management') }}{% endblock %}
 {% block content %}
-<h2>{{ _('Role Management') }}</h2>
+<h2>{{ _('Management') }}</h2>
+
+<!-- Management Navigation Tabs -->
+<ul class="nav nav-tabs mb-4">
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.users') }}">
+      <i class="fas fa-users"></i> {{ _('User Management') }}
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.google_accounts') }}">
+      <i class="fab fa-google"></i> {{ _('Google Accounts') }}
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.show_config') }}">
+      <i class="fas fa-cogs"></i> {{ _('Config Settings') }}
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link active" href="{{ url_for('admin.roles') }}">
+      <i class="fas fa-user-tag"></i> {{ _('Roles') }}
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.permissions') }}">
+      <i class="fas fa-shield-alt"></i> {{ _('Permissions') }}
+    </a>
+  </li>
+</ul>
+
+<h3>{{ _('Role Management') }}</h3>
 <div class="mb-3">
-  <a href="{{ url_for('admin.role_add') }}" class="btn btn-success">{{ _('Add Role') }}</a>
-  <a href="{{ url_for('admin.permissions') }}" class="btn btn-secondary ms-2">{{ _('Permission Management') }}</a>
-  <a href="{{ url_for('admin.users') }}" class="btn btn-secondary ms-2">{{ _('User Management') }}</a>
-  <a href="{{ url_for('admin.show_config') }}" class="btn btn-info ms-2">{{ _('Show Config Settings') }}</a>
+  <a href="{{ url_for('admin.role_add') }}" class="btn btn-success">
+    <i class="fas fa-plus"></i> {{ _('Add Role') }}
+  </a>
 </div>
 <table class="table table-bordered">
   <thead>

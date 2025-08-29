@@ -6,11 +6,49 @@
 {% endblock %}
 
 {% block content %}
-<h2>{{ _('User Management') }}</h2>
+<h2>{{ _('Management') }}</h2>
+
+<!-- Management Navigation Tabs -->
+<ul class="nav nav-tabs mb-4">
+  {% if current_user.can('user:manage') %}
+  <li class="nav-item">
+    <a class="nav-link active" href="{{ url_for('admin.users') }}">
+      <i class="fas fa-users"></i> {{ _('User Management') }}
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.google_accounts') }}">
+      <i class="fab fa-google"></i> {{ _('Google Accounts') }}
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.show_config') }}">
+      <i class="fas fa-cogs"></i> {{ _('Config Settings') }}
+    </a>
+  </li>
+  {% endif %}
+  {% if current_user.can('role:manage') %}
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.roles') }}">
+      <i class="fas fa-user-tag"></i> {{ _('Roles') }}
+    </a>
+  </li>
+  {% endif %}
+  {% if current_user.can('permission:manage') %}
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.permissions') }}">
+      <i class="fas fa-shield-alt"></i> {{ _('Permissions') }}
+    </a>
+  </li>
+  {% endif %}
+</ul>
+
+<h3>{{ _('User Management') }}</h3>
 <div class="mb-3 d-flex justify-content-between align-items-center">
   <div>
-    <a href="{{ url_for('admin.user_add') }}" class="btn btn-success">{{ _('Add User') }}</a>
-    <a href="{{ url_for('admin.show_config') }}" class="btn btn-info ms-2">{{ _('Show Config Settings') }}</a>
+    <a href="{{ url_for('admin.user_add') }}" class="btn btn-success">
+      <i class="fas fa-user-plus"></i> {{ _('Add User') }}
+    </a>
   </div>
   <div class="d-flex gap-2">
     <input type="text" id="search-input" class="form-control form-control-sm" placeholder="{{ _('Search users...') }}" style="width: 200px;">
@@ -30,6 +68,7 @@
       <tr>
         <th>ID</th>
         <th>{{ _('Email') }}</th>
+        <th>{{ _('Status') }}</th>
         <th>{{ _('Roles') }}</th>
         <th>{{ _('Created At') }}</th>
         <th>{{ _('Actions') }}</th>
@@ -54,6 +93,17 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+  // 翻訳文字列の定義
+  const translations = {
+    active: '{{ _("Active") }}',
+    inactive: '{{ _("Inactive") }}',
+    usersLoaded: '{{ _("users loaded") }}',
+    deactivate: '{{ _("deactivate") }}',
+    activate: '{{ _("activate") }}',
+    areYouSureYouWantTo: '{{ _("Are you sure you want to") }}',
+    thisUser: '{{ _("this user?") }}'
+  };
+
   const usersBody = document.getElementById('users-body');
   const loadingIndicator = document.getElementById('loading-indicator');
   const noMoreData = document.getElementById('no-more-data');
@@ -82,11 +132,21 @@ document.addEventListener('DOMContentLoaded', () => {
       <td>${user.id}</td>
       <td>${user.email}</td>
       <td>
+        <span class="badge ${user.is_active ? 'bg-success' : 'bg-danger'}">
+          ${user.is_active ? translations.active : translations.inactive}
+        </span>
+      </td>
+      <td>
         ${user.roles.map(role => `<span class="badge bg-secondary">${role.name}</span>`).join(' ')}
       </td>
-      <td><small>${formatDateTime(user.createdAt)}</small></td>
+      <td><small>${formatDateTime(user.created_at)}</small></td>
       <td>
         <div class="btn-group btn-group-sm" role="group">
+          <button class="btn ${user.is_active ? 'btn-warning' : 'btn-success'} btn-sm" 
+                  onclick="toggleUserActive(${user.id}, ${user.is_active})" 
+                  title="${user.is_active ? '{{ _("Deactivate User") }}' : '{{ _("Activate User") }}'}">
+            <i class="fas ${user.is_active ? 'fa-user-slash' : 'fa-user-check'}"></i>
+          </button>
           <button class="btn btn-outline-primary btn-sm" onclick="editUserRoles(${user.id})">
             {{ _('Edit Roles') }}
           </button>
@@ -125,11 +185,13 @@ document.addEventListener('DOMContentLoaded', () => {
           totalLoaded++;
         });
         
-        userCount.textContent = `${totalLoaded} ${_('users loaded')}`;
+        userCount.textContent = `${totalLoaded} ${translations.usersLoaded}`;
       },
       onError: (error) => {
         console.error('Users loading error:', error);
-        usersBody.innerHTML = '<tr><td colspan="5"><div class="alert alert-danger">{{ _("Failed to load users.") }}</div></td></tr>';
+        console.error('Error status:', error.status);
+        console.error('Error response:', error.response);
+        usersBody.innerHTML = '<tr><td colspan="6"><div class="alert alert-danger">{{ _("Failed to load users.") }}</div></td></tr>';
       }
     });
 
@@ -164,8 +226,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // グローバル関数（既存の管理機能との互換性のため）
   window.editUserRoles = function(userId) {
-    // 既存のロール編集機能を呼び出し
-    alert('{{ _("Role editing functionality to be implemented") }}');
+    // ユーザーのロール編集画面にリダイレクト
+    window.location.href = `/admin/users/${userId}/edit-roles`;
   };
 
   window.resetUserTotp = function(userId) {
@@ -212,6 +274,32 @@ document.addEventListener('DOMContentLoaded', () => {
     .catch(error => {
       console.error('Error:', error);
       alert('{{ _("Failed to delete user") }}');
+    });
+  };
+
+  window.toggleUserActive = function(userId, currentStatus) {
+    const action = currentStatus ? translations.deactivate : translations.activate;
+    if (!confirm(`${translations.areYouSureYouWantTo} ${action} ${translations.thisUser}`)) return;
+    
+    fetch(`/api/admin/users/${userId}/toggle-active`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken()
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        alert(data.message);
+        refreshUsers();
+      } else {
+        alert(data.error || '{{ _("Failed to update user status") }}');
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('{{ _("Failed to update user status") }}');
     });
   };
 

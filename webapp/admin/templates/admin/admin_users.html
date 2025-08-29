@@ -233,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.resetUserTotp = function(userId) {
     if (!confirm('{{ _("Reset TOTP for this user?") }}')) return;
     
-    fetch(`/admin/user/${userId}/reset_totp`, {
+    fetch(`/admin/user/${userId}/reset-totp`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

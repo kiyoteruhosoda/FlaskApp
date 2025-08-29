@@ -64,7 +64,7 @@
             </a>
             <ul class="dropdown-menu" aria-labelledby="managementNavDropdown">
               {% if current_user.can('user:manage') %}
-              <li><a class="dropdown-item" href="{{ url_for('admin.users') }}">{{ _('User Management') }}</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('admin.user') }}">{{ _('User Management') }}</a></li>
               <li><a class="dropdown-item" href="{{ url_for('admin.google_accounts') }}">{{ _('Google Accounts') }}</a></li>
               <li><hr class="dropdown-divider"></li>
               <li><a class="dropdown-item" href="{{ url_for('admin.show_config') }}">{{ _('Config Settings') }}</a></li>

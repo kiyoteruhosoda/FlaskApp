@@ -138,3 +138,66 @@ msgstr "登録完了"
 
 msgid "Completing Registration..."
 msgstr "登録完了中..."
+
+msgid "Show setup key"
+msgstr "設定キーを表示"
+
+msgid "Hide setup key"
+msgstr "設定キーを非表示"
+
+msgid "If you cannot scan the QR code, enter this setup key manually in your authenticator app:"
+msgstr "QRコードをスキャンできない場合は、この設定キーを認証アプリに手動で入力してください："
+
+msgid "Copy to clipboard"
+msgstr "クリップボードにコピー"
+
+msgid "Manual setup instructions:"
+msgstr "手動設定の手順："
+
+msgid "Open your authenticator app (Google Authenticator, Authy, etc.)"
+msgstr "認証アプリ（Google Authenticator、Authy等）を開く"
+
+msgid "Select \"Add account\" or \"+\""
+msgstr "「アカウント追加」または「+」を選択"
+
+msgid "Choose \"Enter a setup key\" or \"Manual entry\""
+msgstr "「設定キーを入力」または「手動入力」を選択"
+
+msgid "Enter the account name:"
+msgstr "アカウント名を入力："
+
+msgid "Enter the setup key shown above"
+msgstr "上記の設定キーを入力"
+
+msgid "Select \"Time-based\" if asked"
+msgstr "時間ベース（Time-based）を選択（聞かれた場合）"
+
+msgid "Save and enter the 6-digit code below"
+msgstr "保存して下記に6桁のコードを入力"
+
+msgid "Enable Two-Factor Authentication"
+msgstr "二要素認証を有効にする"
+
+msgid "Back to Profile"
+msgstr "プロフィールに戻る"
+
+msgid "Enabling..."
+msgstr "有効化中..."
+
+msgid "Cancel Registration"
+msgstr "登録をキャンセル"
+
+msgid "Cancel Setup"
+msgstr "設定をキャンセル"
+
+msgid "Registration cancelled. You can start over."
+msgstr "登録がキャンセルされました。最初からやり直せます。"
+
+msgid "Two-factor authentication setup cancelled."
+msgstr "二要素認証の設定がキャンセルされました。"
+
+msgid "Registration session invalid. Please register again."
+msgstr "登録セッションが無効です。再度登録してください。"
+
+msgid "Registration failed: {}"
+msgstr "登録に失敗しました: {}"

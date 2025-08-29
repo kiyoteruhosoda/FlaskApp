@@ -135,3 +135,66 @@ msgstr "Complete Registration"
 
 msgid "Completing Registration..."
 msgstr "Completing Registration..."
+
+msgid "Show setup key"
+msgstr "Show setup key"
+
+msgid "Hide setup key"
+msgstr "Hide setup key"
+
+msgid "If you cannot scan the QR code, enter this setup key manually in your authenticator app:"
+msgstr "If you cannot scan the QR code, enter this setup key manually in your authenticator app:"
+
+msgid "Copy to clipboard"
+msgstr "Copy to clipboard"
+
+msgid "Manual setup instructions:"
+msgstr "Manual setup instructions:"
+
+msgid "Open your authenticator app (Google Authenticator, Authy, etc.)"
+msgstr "Open your authenticator app (Google Authenticator, Authy, etc.)"
+
+msgid "Select \"Add account\" or \"+\""
+msgstr "Select \"Add account\" or \"+\""
+
+msgid "Choose \"Enter a setup key\" or \"Manual entry\""
+msgstr "Choose \"Enter a setup key\" or \"Manual entry\""
+
+msgid "Enter the account name:"
+msgstr "Enter the account name:"
+
+msgid "Enter the setup key shown above"
+msgstr "Enter the setup key shown above"
+
+msgid "Select \"Time-based\" if asked"
+msgstr "Select \"Time-based\" if asked"
+
+msgid "Save and enter the 6-digit code below"
+msgstr "Save and enter the 6-digit code below"
+
+msgid "Enable Two-Factor Authentication"
+msgstr "Enable Two-Factor Authentication"
+
+msgid "Back to Profile"
+msgstr "Back to Profile"
+
+msgid "Enabling..."
+msgstr "Enabling..."
+
+msgid "Cancel Registration"
+msgstr "Cancel Registration"
+
+msgid "Cancel Setup"
+msgstr "Cancel Setup"
+
+msgid "Registration cancelled. You can start over."
+msgstr "Registration cancelled. You can start over."
+
+msgid "Two-factor authentication setup cancelled."
+msgstr "Two-factor authentication setup cancelled."
+
+msgid "Registration session invalid. Please register again."
+msgstr "Registration session invalid. Please register again."
+
+msgid "Registration failed: {}"
+msgstr "Registration failed: {}"

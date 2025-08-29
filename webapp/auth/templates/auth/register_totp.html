@@ -11,6 +11,32 @@
     
     <div class="qr-code-container">
       <img src="{{ qr_data }}" alt="QR Code" class="qr-code">
+      
+      <!-- QRコードが読めない場合の文字列表示セクション -->
+      <div class="secret-key-section">
+        <div class="secret-key-toggle">
+          <button type="button" class="btn-secret-toggle" onclick="toggleSecretKey()">
+            <i class="fas fa-eye"></i>
+            <span id="toggle-text">{{ _('Show setup key') }}</span>
+          </button>
+        </div>
+        
+        <div id="secret-key-display" class="secret-key-display" style="display: none;">
+          <div class="secret-key-info">
+            <i class="fas fa-info-circle"></i>
+            {{ _('If you cannot scan the QR code, enter this setup key manually in your authenticator app:') }}
+          </div>
+          <div class="secret-key-container">
+            <div class="secret-key-value">
+              <code id="secret-key">{{ secret }}</code>
+            </div>
+            <button type="button" class="btn-copy" onclick="copySecretKey()" title="{{ _('Copy to clipboard') }}">
+              <i class="fas fa-copy"></i>
+            </button>
+          </div>
+
+        </div>
+      </div>
     </div>
     
     <form method="post" class="login-form">
@@ -33,6 +59,15 @@
         {{ _('Complete Registration') }}
       </button>
     </form>
+    
+    <div class="forgot-password">
+      <form method="post" action="{{ url_for('auth.register_totp_cancel') }}" style="display: inline;">
+        <button type="submit" class="btn-cancel-link">
+          <i class="fas fa-times" style="margin-right: 4px;"></i>
+          {{ _('Cancel Registration') }}
+        </button>
+      </form>
+    </div>
   </div>
 </div>
 
@@ -68,6 +103,147 @@ footer {
   height: auto;
   border-radius: 10px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Secret key display styles */
+.secret-key-section {
+  margin-top: 20px;
+}
+
+.secret-key-toggle {
+  text-align: center;
+  margin-bottom: 15px;
+}
+
+.btn-secret-toggle {
+  background: none;
+  border: 1px solid #cbd5e0;
+  color: #4a5568;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.btn-secret-toggle:hover {
+  border-color: #667eea;
+  color: #667eea;
+  background: rgba(102, 126, 234, 0.05);
+}
+
+.secret-key-display {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 15px;
+}
+
+.secret-key-info {
+  color: #4a5568;
+  font-size: 14px;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.secret-key-info i {
+  color: #667eea;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.secret-key-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.secret-key-value {
+  flex: 1;
+  background: white;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.secret-key-value code {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 16px;
+  letter-spacing: 2px;
+  color: #2d3748;
+  word-break: break-all;
+  font-weight: 600;
+}
+
+.btn-copy {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-copy:hover {
+  background: #5a67d8;
+}
+
+.btn-copy.copied {
+  background: #48bb78;
+}
+
+.setup-instructions {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 15px;
+}
+
+.setup-instructions h4 {
+  margin: 0 0 10px 0;
+  color: #2d3748;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.setup-instructions ol {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  color: #4a5568;
+  line-height: 1.5;
+}
+
+.setup-instructions li {
+  margin-bottom: 5px;
+}
+
+.setup-instructions strong {
+  color: #2d3748;
+}
+
+/* Cancel button styles */
+.btn-cancel-link {
+  background: none;
+  border: none;
+  color: #e53e3e;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.btn-cancel-link:hover {
+  color: #c53030;
+  text-decoration: underline;
 }
 
 /* Enhanced input focus effects */
@@ -142,5 +318,56 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 });
+
+// Secret key display toggle
+function toggleSecretKey() {
+  const display = document.getElementById('secret-key-display');
+  const toggleText = document.getElementById('toggle-text');
+  const icon = document.querySelector('.btn-secret-toggle i');
+  
+  if (display.style.display === 'none') {
+    display.style.display = 'block';
+    toggleText.textContent = '{{ _("Hide setup key") }}';
+    icon.className = 'fas fa-eye-slash';
+  } else {
+    display.style.display = 'none';
+    toggleText.textContent = '{{ _("Show setup key") }}';
+    icon.className = 'fas fa-eye';
+  }
+}
+
+// Copy secret key to clipboard
+function copySecretKey() {
+  const secretKey = document.getElementById('secret-key').textContent;
+  const copyBtn = document.querySelector('.btn-copy');
+  const originalIcon = copyBtn.innerHTML;
+  
+  navigator.clipboard.writeText(secretKey).then(function() {
+    copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+    copyBtn.classList.add('copied');
+    
+    setTimeout(function() {
+      copyBtn.innerHTML = originalIcon;
+      copyBtn.classList.remove('copied');
+    }, 2000);
+  }).catch(function(err) {
+    console.error('Failed to copy: ', err);
+    // Fallback for older browsers
+    const textArea = document.createElement('textarea');
+    textArea.value = secretKey;
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+    
+    copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+    copyBtn.classList.add('copied');
+    
+    setTimeout(function() {
+      copyBtn.innerHTML = originalIcon;
+      copyBtn.classList.remove('copied');
+    }, 2000);
+  });
+}
 </script>
 {% endblock %}

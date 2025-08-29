@@ -9,6 +9,12 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     db_uri = os.environ.get("DATABASE_URI", "sqlite://")
     SQLALCHEMY_DATABASE_URI = db_uri
+    
+    # セッション設定
+    PERMANENT_SESSION_LIFETIME = 1800  # 30分（秒）
+    SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "False").lower() == "true"
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
 
     SQLALCHEMY_BINDS = {}
     fx = os.environ.get("FEATURE_X_DB_URI")

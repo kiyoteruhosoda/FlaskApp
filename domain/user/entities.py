@@ -11,6 +11,7 @@ class User:
     totp_secret: Optional[str] = None
     id: Optional[int] = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    is_active: bool = True
 
     def set_password(self, raw: str) -> None:
         self.password_hash = generate_password_hash(raw)

@@ -1,7 +1,7 @@
 from flask import render_template, request, redirect, url_for, flash, session, current_app
 import requests
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_babel import gettext as _
 from . import bp
@@ -19,12 +19,43 @@ from infrastructure.user_repository import SqlAlchemyUserRepository
 user_repo = SqlAlchemyUserRepository(db.session)
 auth_service = AuthService(user_repo)
 
+# セッション有効期限（30分）
+SESSION_TIMEOUT_MINUTES = 30
 
-def _complete_registration(user, clear_session_keys=None):
+def _is_session_expired(key_prefix):
+    """セッションが期限切れかどうかをチェック"""
+    timestamp_key = f"{key_prefix}_timestamp"
+    timestamp = session.get(timestamp_key)
+    if not timestamp:
+        return True
+    
+    try:
+        session_time = datetime.fromisoformat(timestamp)
+        current_time = datetime.now(timezone.utc)
+        return (current_time - session_time) > timedelta(minutes=SESSION_TIMEOUT_MINUTES)
+    except (ValueError, TypeError):
+        return True
+
+def _set_session_timestamp(key_prefix):
+    """セッションのタイムスタンプを設定"""
+    timestamp_key = f"{key_prefix}_timestamp"
+    session[timestamp_key] = datetime.now(timezone.utc).isoformat()
+
+def _clear_registration_session():
+    """登録関連のセッションデータをクリア"""
+    keys_to_clear = ["reg_user_id", "reg_secret", "reg_timestamp"]
+    for key in keys_to_clear:
+        session.pop(key, None)
+
+def _clear_setup_totp_session():
+    """2FA設定関連のセッションデータをクリア"""
+    keys_to_clear = ["setup_totp_secret", "setup_totp_timestamp"]
+    for key in keys_to_clear:
+        session.pop(key, None)
+
+
+def _complete_registration(user):
     """ユーザー登録完了後の共通処理"""
-    if clear_session_keys:
-        for key in clear_session_keys:
-            session.pop(key, None)
     flash(_("Registration successful"), "success")
     login_user(user_repo.get_model(user))
     return redirect(url_for("feature_x.dashboard"))
@@ -77,44 +108,89 @@ def register():
         if not email or not password:
             flash(_("Email and password are required"), "error")
             return render_template("auth/register.html")
-        if user_repo.get_by_email(email):
+        
+        # アクティブユーザーが存在するかチェック
+        existing_user = user_repo.get_by_email(email)
+        if existing_user and existing_user.is_active:
             flash(_("Email already exists"), "error")
             return render_template("auth/register.html")
-        secret = new_totp_secret()
-        session["reg_email"] = email
-        session["reg_password"] = password
-        session["reg_secret"] = secret
-        return redirect(url_for("auth.register_totp"))
+        
+        # 既存の登録セッションをクリア
+        _clear_registration_session()
+        
+        try:
+            # TOTP設定待ちの非アクティブユーザーとして登録
+            u = auth_service.register_with_pending_totp(email, password, roles=["guest"])
+            
+            secret = new_totp_secret()
+            session["reg_user_id"] = u.id
+            session["reg_secret"] = secret
+            _set_session_timestamp("reg")
+            return redirect(url_for("auth.register_totp"))
+        except ValueError as e:
+            flash(_("Registration failed: {}").format(str(e)), "error")
+            return render_template("auth/register.html")
     return render_template("auth/register.html")
 
 
 @bp.route("/register/totp", methods=["GET", "POST"])
 def register_totp():
-    email = session.get("reg_email")
-    password = session.get("reg_password")
+    user_id = session.get("reg_user_id")
     secret = session.get("reg_secret")
-    if not email or not password or not secret:
+    
+    # セッション有効性をチェック
+    if not user_id or not secret or _is_session_expired("reg"):
+        _clear_registration_session()
         flash(_("Session expired. Please register again."), "error")
         return redirect(url_for("auth.register"))
     
-    uri = provisioning_uri(email, secret)
+    # ユーザーを取得
+    user_model = User.query.get(user_id)
+    if not user_model or user_model.is_active:
+        _clear_registration_session()
+        flash(_("Registration session invalid. Please register again."), "error")
+        return redirect(url_for("auth.register"))
+    
+    uri = provisioning_uri(user_model.email, secret)
     qr_data = qr_code_data_uri(uri)
-    secret_display = secret
     
     if request.method == "POST":
         token = request.form.get("token")
         if not token or not verify_totp(secret, token):
             flash(_("Invalid authentication code"), "error")
-            return render_template("auth/register_totp.html", qr_data=qr_data, secret=secret_display)
+            return render_template("auth/register_totp.html", qr_data=qr_data, secret=secret)
         
         try:
-            u = auth_service.register(email, password, totp_secret=secret, roles=["guest"])
-        except ValueError:
-            return _handle_registration_error("auth/register_totp.html")
-        
-        return _complete_registration(u, ["reg_email", "reg_password", "reg_secret"])
+            # ユーザーをTOTPと共にアクティブ化
+            domain_user = user_repo._to_domain(user_model)
+            u = auth_service.activate_user_with_totp(domain_user, secret)
+            
+            _clear_registration_session()
+            flash(_("Registration successful"), "success")
+            login_user(user_repo.get_model(u))
+            return redirect(url_for("feature_x.dashboard"))
+        except Exception as e:
+            flash(_("Registration failed: {}").format(str(e)), "error")
+            return render_template("auth/register_totp.html", qr_data=qr_data, secret=secret)
     
-    return render_template("auth/register_totp.html", qr_data=qr_data, secret=secret_display)
+    return render_template("auth/register_totp.html", qr_data=qr_data, secret=secret)
+
+
+@bp.route("/register/totp/cancel", methods=["POST"])
+def register_totp_cancel():
+    """2FA登録をキャンセルして、非アクティブユーザーを削除"""
+    user_id = session.get("reg_user_id")
+    
+    if user_id:
+        # 非アクティブユーザーを削除
+        user_model = User.query.get(user_id)
+        if user_model and not user_model.is_active:
+            domain_user = user_repo._to_domain(user_model)
+            user_repo.delete(domain_user)
+    
+    _clear_registration_session()
+    flash(_("Registration cancelled. You can start over."), "info")
+    return redirect(url_for("auth.register"))
 
 
 @bp.route("/register/no_totp", methods=["GET", "POST"])
@@ -164,23 +240,41 @@ def setup_totp():
     if current_user.totp_secret:
         flash(_("Two-factor authentication already configured"), "error")
         return redirect(url_for("auth.edit"))
+    
     secret = session.get("setup_totp_secret")
+    
+    # セッション有効性をチェック
+    if secret and _is_session_expired("setup_totp"):
+        _clear_setup_totp_session()
+        secret = None
+    
     if not secret:
         secret = new_totp_secret()
         session["setup_totp_secret"] = secret
+        _set_session_timestamp("setup_totp")
+    
     uri = provisioning_uri(current_user.email, secret)
     qr_data = qr_code_data_uri(uri)
+    
     if request.method == "POST":
         token = request.form.get("token")
         if not token or not verify_totp(secret, token):
             flash(_("Invalid authentication code"), "error")
-            return render_template("auth/setup_totp.html", qr_data=qr_data)
+            return render_template("auth/setup_totp.html", qr_data=qr_data, secret=secret)
         current_user.totp_secret = secret
         db.session.commit()
-        session.pop("setup_totp_secret", None)
+        _clear_setup_totp_session()
         flash(_("Two-factor authentication enabled"), "success")
         return redirect(url_for("auth.edit"))
-    return render_template("auth/setup_totp.html", qr_data=qr_data)
+    return render_template("auth/setup_totp.html", qr_data=qr_data, secret=secret)
+
+@bp.route("/setup_totp/cancel", methods=["POST"])
+@login_required
+def setup_totp_cancel():
+    """2FA設定をキャンセル"""
+    _clear_setup_totp_session()
+    flash(_("Two-factor authentication setup cancelled."), "info")
+    return redirect(url_for("auth.edit"))
 
 @bp.route("/logout")
 @login_required

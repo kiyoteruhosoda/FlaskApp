@@ -164,16 +164,34 @@ class PickerSessionService:
         if params is None:
             params = PaginationParams(page_size=200)
         
-        # ベースクエリ
-        query = (
-            db.session.query(PickerSelection, MediaItem)
-            .outerjoin(MediaItem, PickerSelection.google_media_id == MediaItem.id)
+        # ベースクエリ（効率的なJOIN）
+        base_query = (
+            db.session.query(PickerSelection)
             .filter(PickerSelection.session_id == ps.id)
         )
         
+        # ページング処理
+        paginated_result = Paginator.paginate_query(
+            query=base_query,
+            params=params,
+            id_column=PickerSelection.id,
+            count_total=not params.use_cursor
+        )
+        
+        # ページング結果からgoogle_media_idを取得
+        selection_items = paginated_result.items
+        google_media_ids = [sel.google_media_id for sel in selection_items if sel.google_media_id]
+        
+        # 一括でMediaItemを取得
+        media_items = {}
+        if google_media_ids:
+            media_items_query = db.session.query(MediaItem).filter(MediaItem.id.in_(google_media_ids)).all()
+            media_items = {mi.id: mi for mi in media_items_query}
+        
         # 選択アイテムのシリアライザ関数
-        def serialize_selection(row):
-            sel, mi = row
+        def serialize_selection(sel):
+            mi = media_items.get(sel.google_media_id) if sel.google_media_id else None
+            
             return {
                 "id": sel.id,
                 "googleMediaId": sel.google_media_id,
@@ -185,14 +203,6 @@ class PickerSessionService:
                 "startedAt": sel.started_at.isoformat().replace("+00:00", "Z") if sel.started_at else None,
                 "finishedAt": sel.finished_at.isoformat().replace("+00:00", "Z") if sel.finished_at else None,
             }
-        
-        # ページング処理
-        paginated_result = Paginator.paginate_query(
-            query=query,
-            params=params,
-            id_column=PickerSelection.id,
-            count_total=not params.use_cursor
-        )
         
         # 選択状況の集計（全体）
         counts_query = (
@@ -207,7 +217,7 @@ class PickerSessionService:
         counts: Dict[str, int] = dict(counts_query)
         
         # アイテムのシリアライズ
-        selections = [serialize_selection(row) for row in paginated_result.items]
+        selections = [serialize_selection(sel) for sel in paginated_result.items]
         
         # PickerSessionのステータス自動更新ロジック
         if ps.status in ("processing", "importing") and len(counts) > 0:

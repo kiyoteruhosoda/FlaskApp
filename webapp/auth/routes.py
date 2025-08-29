@@ -19,6 +19,36 @@ from infrastructure.user_repository import SqlAlchemyUserRepository
 user_repo = SqlAlchemyUserRepository(db.session)
 auth_service = AuthService(user_repo)
 
+
+def _complete_registration(user, clear_session_keys=None):
+    """ユーザー登録完了後の共通処理"""
+    if clear_session_keys:
+        for key in clear_session_keys:
+            session.pop(key, None)
+    flash(_("Registration successful"), "success")
+    login_user(user_repo.get_model(user))
+    return redirect(url_for("feature_x.dashboard"))
+
+
+def _validate_registration_input(email, password, template_name):
+    """登録時の入力バリデーション"""
+    if not email or not password:
+        flash(_("Email and password are required"), "error")
+        return render_template(template_name)
+    if user_repo.get_by_email(email):
+        flash(_("Email already exists"), "error")
+        return render_template(template_name)
+    return None
+
+
+def _handle_registration_error(template_name, **template_kwargs):
+    """登録時のロールエラーハンドリング"""
+    flash(_("Default role 'guest' does not exist"), "error")
+    if template_name == "auth/register_totp.html":
+        return redirect(url_for("auth.register"))
+    return render_template(template_name, **template_kwargs)
+
+
 @bp.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
@@ -66,27 +96,24 @@ def register_totp():
     if not email or not password or not secret:
         flash(_("Session expired. Please register again."), "error")
         return redirect(url_for("auth.register"))
+    
     uri = provisioning_uri(email, secret)
     qr_data = qr_code_data_uri(uri)
-    # シークレットもテンプレートに渡す
     secret_display = secret
+    
     if request.method == "POST":
         token = request.form.get("token")
         if not token or not verify_totp(secret, token):
             flash(_("Invalid authentication code"), "error")
             return render_template("auth/register_totp.html", qr_data=qr_data, secret=secret_display)
+        
         try:
-            u = auth_service.register(email, password, totp_secret=secret, roles=["member"])
+            u = auth_service.register(email, password, totp_secret=secret, roles=["guest"])
         except ValueError:
-            flash(_("Default role 'member' does not exist"), "error")
-            return redirect(url_for("auth.register"))
-        session.pop("reg_email", None)
-        session.pop("reg_password", None)
-        session.pop("reg_secret", None)
-        flash(_("Registration successful"), "success")
-        login_user(user_repo.get_model(u))
-        return redirect(url_for("feature_x.dashboard"))
-        #return redirect(url_for("auth.login"))
+            return _handle_registration_error("auth/register_totp.html")
+        
+        return _complete_registration(u, ["reg_email", "reg_password", "reg_secret"])
+    
     return render_template("auth/register_totp.html", qr_data=qr_data, secret=secret_display)
 
 
@@ -95,20 +122,19 @@ def register_no_totp():
     if request.method == "POST":
         email = request.form.get("email")
         password = request.form.get("password")
-        if not email or not password:
-            flash(_("Email and password are required"), "error")
-            return render_template("auth/register_no_totp.html")
-        if user_repo.get_by_email(email):
-            flash(_("Email already exists"), "error")
-            return render_template("auth/register_no_totp.html")
+        
+        # 入力バリデーション
+        validation_error = _validate_registration_input(email, password, "auth/register_no_totp.html")
+        if validation_error:
+            return validation_error
+        
         try:
-            u = auth_service.register(email, password, roles=["member"])
+            u = auth_service.register(email, password, roles=["guest"])
         except ValueError:
-            flash(_("Default role 'member' does not exist"), "error")
-            return render_template("auth/register_no_totp.html")
-        flash(_("Registration successful"), "success")
-        login_user(user_repo.get_model(u))
-        return redirect(url_for("feature_x.dashboard"))
+            return _handle_registration_error("auth/register_no_totp.html")
+        
+        return _complete_registration(u)
+    
     return render_template("auth/register_no_totp.html")
 
 @bp.route("/edit", methods=["GET", "POST"])

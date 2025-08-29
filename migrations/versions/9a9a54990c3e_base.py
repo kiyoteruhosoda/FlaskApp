@@ -277,7 +277,7 @@ def upgrade():
     sa.PrimaryKeyConstraint('album_id', 'media_id')
     )
     # ### end Alembic commands ###
-    op.execute("INSERT INTO role (id, name) VALUES (1, 'admin'), (2, 'manager'), (3, 'member')")
+    op.execute("INSERT INTO role (id, name) VALUES (1, 'admin'), (2, 'manager'), (3, 'member'), (4, 'guest')")
     op.execute(
         "INSERT INTO permission (id, code) VALUES " \
         "(1, 'admin:photo-settings'), (2, 'admin:job-settings'), (3, 'user:manage'), (4, 'album:create'), (5, 'album:edit'), " \

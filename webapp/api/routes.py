@@ -53,12 +53,26 @@ def api_login():
     user = auth_service.authenticate(email, password)
     if not user:
         return jsonify({"error": "invalid_credentials"}), 401
+    # リフレッシュトークン生成しDBに保存
+    user_model = user_repo.get_model(user)
+    refresh_raw = secrets.token_urlsafe(32)
+    refresh_token = f"{user_model.id}:{refresh_raw}"
+    user_model.set_refresh_token(refresh_token)
+    db.session.commit()
+
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": user.id,
+        "exp": now + timedelta(hours=1),
+        "iat": now,
+        "jti": secrets.token_urlsafe(8),
+    }
     token = jwt.encode(
-        {"sub": user.id, "exp": datetime.now(timezone.utc) + timedelta(hours=1)},
+        payload,
         current_app.config["JWT_SECRET_KEY"],
         algorithm="HS256",
     )
-    resp = jsonify({"access_token": token})
+    resp = jsonify({"access_token": token, "refresh_token": refresh_token})
     resp.set_cookie(
         "access_token",
         token,
@@ -75,6 +89,50 @@ def api_logout():
     """JWT Cookieを削除"""
     resp = jsonify({"result": "ok"})
     resp.delete_cookie("access_token")
+    return resp
+
+
+@bp.post("/refresh")
+def api_refresh():
+    """リフレッシュトークンから新しいアクセス・リフレッシュトークンを発行"""
+    data = request.get_json(silent=True) or {}
+    refresh_token = data.get("refresh_token")
+    if not refresh_token:
+        return jsonify({"error": "missing_refresh_token"}), 400
+    try:
+        user_id_str, _ = refresh_token.split(":", 1)
+        user_id = int(user_id_str)
+    except Exception:
+        return jsonify({"error": "invalid_token"}), 401
+    user = User.query.get(user_id)
+    if not user or not user.check_refresh_token(refresh_token):
+        return jsonify({"error": "invalid_token"}), 401
+
+    # 新しいトークンを発行しローテーション
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": user.id,
+        "exp": now + timedelta(hours=1),
+        "iat": now,
+        "jti": secrets.token_urlsafe(8),
+    }
+    access_token = jwt.encode(
+        payload,
+        current_app.config["JWT_SECRET_KEY"],
+        algorithm="HS256",
+    )
+    new_raw = secrets.token_urlsafe(32)
+    new_refresh = f"{user.id}:{new_raw}"
+    user.set_refresh_token(new_refresh)
+    db.session.commit()
+    resp = jsonify({"access_token": access_token, "refresh_token": new_refresh})
+    resp.set_cookie(
+        "access_token",
+        access_token,
+        httponly=True,
+        secure=current_app.config.get("SESSION_COOKIE_SECURE", False),
+        samesite="Lax",
+    )
     return resp
 
 

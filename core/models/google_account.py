@@ -13,7 +13,8 @@ class GoogleAccount(db.Model):
     )
 
     id = db.Column(BigInt, primary_key=True, autoincrement=True)
-    user_id = db.Column(BigInt, db.ForeignKey("user.id"), nullable=False)
+    # ユーザー未紐付けのアカウントを許容するため user_id を nullable に
+    user_id = db.Column(BigInt, db.ForeignKey("user.id"), nullable=True)
     email = db.Column(db.String(255), nullable=False)
     status = db.Column(db.String(20), nullable=False, default="active")
     scopes = db.Column(db.Text, nullable=False)

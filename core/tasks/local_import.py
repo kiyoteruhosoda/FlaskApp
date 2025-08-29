@@ -8,6 +8,7 @@ import hashlib
 import shutil
 import json
 import subprocess
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -435,8 +436,16 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
             result["errors"].append(f"セッション取得エラー: {str(e)}")
             return result
     else:
-        result["errors"].append("セッションIDが指定されていません")
-        return result
+        # セッションIDが無い場合は新規セッションを作成
+        session = PickerSession(
+            session_id=uuid.uuid4().hex,
+            status="processing",
+            selected_count=0,
+        )
+        db.session.add(session)
+        db.session.commit()
+        session_id = session.session_id
+        result["session_id"] = session_id
     
     try:
         # ディレクトリの存在チェック

@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    SECRET_KEY = os.environ["SECRET_KEY"]
+    # 環境変数にSECRET_KEYが無い場合はデフォルト値を使用
+    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     db_uri = os.environ.get("DATABASE_URI", "sqlite://")
     SQLALCHEMY_DATABASE_URI = db_uri
@@ -31,12 +32,18 @@ class Config:
     SQLALCHEMY_ENGINE_OPTIONS = {
         "pool_recycle": 1800,
         "pool_pre_ping": True,
-        "pool_size": 10,
-        "max_overflow": 20,
     }
 
-    if db_uri.startswith("mysql"):
-        SQLALCHEMY_ENGINE_OPTIONS["connect_args"] = {"connect_timeout": 10}
+    if db_uri.startswith("sqlite"):
+        # SQLiteでは接続プール関連の設定は無効
+        pass
+    else:
+        SQLALCHEMY_ENGINE_OPTIONS.update({
+            "pool_size": 10,
+            "max_overflow": 20,
+        })
+        if db_uri.startswith("mysql"):
+            SQLALCHEMY_ENGINE_OPTIONS["connect_args"] = {"connect_timeout": 10}
 
     # Google OAuth
     GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")

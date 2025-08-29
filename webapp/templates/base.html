@@ -21,6 +21,7 @@
     </button>
     <div class="collapse navbar-collapse" id="navbarNav">
       <ul class="navbar-nav me-auto">
+        {% if current_user.is_authenticated %}
         <li class="nav-item">
           <a class="nav-link" href="{{ url_for('index') }}">{{ _('Home') }}</a>
         </li>
@@ -39,6 +40,7 @@
             <li><a class="dropdown-item" href="{{ url_for('photo_view.settings') }}">{{ _('Settings') }}</a></li>
           </ul>
         </li>
+        {% endif %}
       </ul>
       <ul class="navbar-nav">
         <li class="nav-item">

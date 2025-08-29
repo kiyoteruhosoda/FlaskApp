@@ -57,3 +57,84 @@ msgstr "Scan the QR code with your authenticator app and enter the current code.
 
 msgid "If you cannot scan the QR code, add this secret manually in your app:"
 msgstr "QRコードを読み取れない場合は、以下のシークレットをアプリに登録してください。"
+
+msgid "Welcome Back"
+msgstr "おかえりなさい"
+
+msgid "Sign in to your PhotoNest account"
+msgstr "PhotoNestアカウントにサインイン"
+
+msgid "Email Address"
+msgstr "メールアドレス"
+
+msgid "Enter your email"
+msgstr "メールアドレスを入力"
+
+msgid "Enter your password"
+msgstr "パスワードを入力"
+
+msgid "Authentication Code"
+msgstr "認証コード"
+
+msgid "Enter the 6-digit code from your authenticator app (optional if not set up)"
+msgstr "認証アプリから6桁のコードを入力（設定していない場合は省略可）"
+
+msgid "Sign In"
+msgstr "サインイン"
+
+msgid "Don't have an account? Sign up"
+msgstr "アカウントをお持ちでない方はこちら"
+
+msgid "Create Account"
+msgstr "アカウント作成"
+
+msgid "Join PhotoNest and start organizing your memories"
+msgstr "PhotoNestに参加して思い出を整理しましょう"
+
+msgid "Create a strong password"
+msgstr "強力なパスワードを作成"
+
+msgid "Two-factor authentication will be set up in the next step for enhanced security"
+msgstr "セキュリティ強化のため、次のステップで二要素認証を設定します"
+
+msgid "Already have an account? Sign in"
+msgstr "既にアカウントをお持ちの方はこちら"
+
+msgid "Join PhotoNest without two-factor authentication"
+msgstr "二要素認証なしでPhotoNestに参加"
+
+msgid "Note: This account will not have two-factor authentication enabled"
+msgstr "注意：このアカウントでは二要素認証が有効になりません"
+
+msgid "Register with two-factor authentication"
+msgstr "二要素認証ありで登録"
+
+msgid "Register without two-factor authentication"
+msgstr "二要素認証なしで登録"
+
+msgid "000000"
+msgstr "000000"
+
+msgid "Signing In..."
+msgstr "サインイン中..."
+
+msgid "Creating Account..."
+msgstr "アカウント作成中..."
+
+msgid "Email"
+msgstr "メール"
+
+msgid "Next"
+msgstr "次へ"
+
+msgid "Setup Two-Factor Authentication"
+msgstr "二要素認証の設定"
+
+msgid "Scan the QR code with your authenticator app and enter the current code"
+msgstr "認証アプリでQRコードをスキャンし、現在のコードを入力してください"
+
+msgid "Complete Registration"
+msgstr "登録完了"
+
+msgid "Completing Registration..."
+msgstr "登録完了中..."

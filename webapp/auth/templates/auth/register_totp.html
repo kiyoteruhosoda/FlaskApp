@@ -1,16 +1,146 @@
 {% extends "base.html" %}
-{% block title %}{{ _('Verify TOTP') }}{% endblock %}
+{% block title %}{{ _('Verify TOTP') }} - PhotoNest{% endblock %}
+
 {% block content %}
-<h2>{{ _('Verify TOTP') }}</h2>
-<p>{{ _('Scan the QR code with your authenticator app and enter the current code.') }}</p>
-<img src="{{ qr_data }}" alt="QR Code">
-
-<form method="post" class="mt-3 mx-auto form-narrow">
-  <div class="mb-3">
-    <label for="token" class="form-label">{{ _('Authentication Code') }}</label>
-    <input type="text" class="form-control" id="token" name="token" required>
+<div class="login-container">
+  <div class="login-card">
+    <div class="login-header">
+      <h1 class="login-title">{{ _('Setup Two-Factor Authentication') }}</h1>
+      <p class="login-subtitle">{{ _('Scan the QR code with your authenticator app and enter the current code') }}</p>
+    </div>
+    
+    <div class="qr-code-container">
+      <img src="{{ qr_data }}" alt="QR Code" class="qr-code">
+    </div>
+    
+    <form method="post" class="login-form">
+      <div class="form-group auth-code-field">
+        <label for="token" class="form-label">
+          <i class="fas fa-shield-alt"></i>
+          {{ _('Authentication Code') }}
+        </label>
+        <div class="input-wrapper">
+          <div class="input-icon">
+            <i class="fas fa-shield-alt"></i>
+          </div>
+          <input type="text" class="form-control" id="token" name="token" 
+                 placeholder="{{ _('000000') }}" maxlength="6" pattern="[0-9]{6}" required>
+        </div>
+      </div>
+      
+      <button type="submit" class="btn btn-login">
+        <i class="fas fa-check" style="margin-right: 8px;"></i>
+        {{ _('Complete Registration') }}
+      </button>
+    </form>
   </div>
-  <button type="submit" class="btn btn-primary">{{ _('Complete registration') }}</button>
+</div>
 
-</form>
+<style>
+/* Additional page-specific styles */
+body {
+  overflow-x: hidden;
+}
+
+/* Hide footer on register page to prevent unnecessary scrolling */
+footer {
+  display: none;
+}
+
+/* Adjust container height since footer is hidden */
+.login-container {
+  min-height: calc(100vh - 80px); /* ナビゲーションバー + 余白のみ */
+}
+
+/* QR Code specific styles */
+.qr-code-container {
+  text-align: center;
+  margin: 20px 0 30px 0;
+  padding: 20px;
+  background: rgba(248, 250, 252, 0.5);
+  border-radius: 15px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.qr-code {
+  max-width: 200px;
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Enhanced input focus effects */
+.form-control:focus + .input-icon,
+.form-control:valid + .input-icon {
+  color: #667eea;
+}
+
+/* Loading state for button */
+.btn-login.loading {
+  pointer-events: none;
+  color: transparent; /* Hide the original text/icon */
+}
+
+.btn-login.loading * {
+  opacity: 0; /* Hide all child elements */
+}
+
+.btn-login.loading::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  margin: auto;
+  border: 2px solid transparent;
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Add loading state to form submission - Only one loading indicator
+  const form = document.querySelector('.login-form');
+  const submitBtn = document.querySelector('.btn-login');
+  const originalContent = submitBtn.innerHTML;
+  
+  form.addEventListener('submit', function() {
+    submitBtn.classList.add('loading');
+    submitBtn.innerHTML = '<span style="opacity: 0;">{{ _("Completing Registration...") }}</span>';
+  });
+  
+  // Auto-format authentication code
+  const tokenInput = document.getElementById('token');
+  tokenInput.addEventListener('input', function(e) {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 6) {
+      value = value.substring(0, 6);
+    }
+    e.target.value = value;
+  });
+  
+  // Enhanced focus effects
+  const inputs = document.querySelectorAll('.form-control');
+  inputs.forEach(input => {
+    input.addEventListener('focus', function() {
+      this.parentElement.classList.add('focused');
+    });
+    
+    input.addEventListener('blur', function() {
+      this.parentElement.classList.remove('focused');
+    });
+  });
+});
+</script>
 {% endblock %}

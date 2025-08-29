@@ -54,3 +54,84 @@ msgstr "Please log in to access this page."
 
 msgid "If you cannot scan the QR code, add this secret manually in your app:"
 msgstr "If you cannot scan the QR code, add this secret manually in your app:"
+
+msgid "Welcome Back"
+msgstr "Welcome Back"
+
+msgid "Sign in to your PhotoNest account"
+msgstr "Sign in to your PhotoNest account"
+
+msgid "Email Address"
+msgstr "Email Address"
+
+msgid "Enter your email"
+msgstr "Enter your email"
+
+msgid "Enter your password"
+msgstr "Enter your password"
+
+msgid "Authentication Code"
+msgstr "Authentication Code"
+
+msgid "Enter the 6-digit code from your authenticator app (optional if not set up)"
+msgstr "Enter the 6-digit code from your authenticator app (optional if not set up)"
+
+msgid "Sign In"
+msgstr "Sign In"
+
+msgid "Don't have an account? Sign up"
+msgstr "Don't have an account? Sign up"
+
+msgid "Create Account"
+msgstr "Create Account"
+
+msgid "Join PhotoNest and start organizing your memories"
+msgstr "Join PhotoNest and start organizing your memories"
+
+msgid "Create a strong password"
+msgstr "Create a strong password"
+
+msgid "Two-factor authentication will be set up in the next step for enhanced security"
+msgstr "Two-factor authentication will be set up in the next step for enhanced security"
+
+msgid "Already have an account? Sign in"
+msgstr "Already have an account? Sign in"
+
+msgid "Join PhotoNest without two-factor authentication"
+msgstr "Join PhotoNest without two-factor authentication"
+
+msgid "Note: This account will not have two-factor authentication enabled"
+msgstr "Note: This account will not have two-factor authentication enabled"
+
+msgid "Register with two-factor authentication"
+msgstr "Register with two-factor authentication"
+
+msgid "Register without two-factor authentication"
+msgstr "Register without two-factor authentication"
+
+msgid "000000"
+msgstr "000000"
+
+msgid "Signing In..."
+msgstr "Signing In..."
+
+msgid "Creating Account..."
+msgstr "Creating Account..."
+
+msgid "Email"
+msgstr "Email"
+
+msgid "Next"
+msgstr "Next"
+
+msgid "Setup Two-Factor Authentication"
+msgstr "Setup Two-Factor Authentication"
+
+msgid "Scan the QR code with your authenticator app and enter the current code"
+msgstr "Scan the QR code with your authenticator app and enter the current code"
+
+msgid "Complete Registration"
+msgstr "Complete Registration"
+
+msgid "Completing Registration..."
+msgstr "Completing Registration..."

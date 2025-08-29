@@ -313,6 +313,33 @@ def picker_import_watchdog(
         # Check if all selections for this session are in terminal states
         selections = PickerSelection.query.filter_by(session_id=ps.id).all()
         if not selections:
+            # No selections means import should be marked as completed (empty import)
+            ps.status = "imported"
+            ps.last_progress_at = now
+            ps.updated_at = now
+            
+            # Update related job
+            job = JobSync.query.filter_by(target="picker_import", session_id=ps.id).order_by(JobSync.id.desc()).first()
+            if job and job.status in ("queued", "running"):
+                job.finished_at = now
+                job.status = "success"
+                
+                # Update job stats
+                stats = json.loads(job.stats_json or "{}")
+                stats["countsByStatus"] = {}
+                stats["completed_at"] = now.isoformat()
+                job.stats_json = json.dumps(stats)
+            
+            metrics["completed_sessions"] += 1
+            logger.info(
+                json.dumps({
+                    "ts": now.isoformat(),
+                    "session_id": ps.id,
+                    "status": "imported",
+                    "reason": "no_selections",
+                }),
+                extra={"event": "picker.session.auto_complete"},
+            )
             continue
             
         terminal_states = {"imported", "dup", "failed", "expired"}

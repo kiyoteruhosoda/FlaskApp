@@ -242,14 +242,14 @@ document.addEventListener('DOMContentLoaded', () => {
     })
     .then(response => {
       if (response.ok) {
-        alert('{{ _("TOTP reset successfully") }}');
+        showSuccessToast('{{ _("TOTP reset successfully") }}');
       } else {
-        alert('{{ _("Failed to reset TOTP") }}');
+        showErrorToast('{{ _("Failed to reset TOTP") }}');
       }
     })
     .catch(error => {
       console.error('Error:', error);
-      alert('{{ _("Failed to reset TOTP") }}');
+      showErrorToast('{{ _("Failed to reset TOTP") }}');
     });
   };
 
@@ -265,15 +265,15 @@ document.addEventListener('DOMContentLoaded', () => {
     })
     .then(response => {
       if (response.ok) {
-        alert('{{ _("User deleted successfully") }}');
+        showSuccessToast('{{ _("User deleted successfully") }}');
         refreshUsers();
       } else {
-        alert('{{ _("Failed to delete user") }}');
+        showErrorToast('{{ _("Failed to delete user") }}');
       }
     })
     .catch(error => {
       console.error('Error:', error);
-      alert('{{ _("Failed to delete user") }}');
+      showErrorToast('{{ _("Failed to delete user") }}');
     });
   };
 
@@ -291,15 +291,15 @@ document.addEventListener('DOMContentLoaded', () => {
     .then(response => response.json())
     .then(data => {
       if (data.success) {
-        alert(data.message);
+        showSuccessToast(data.message);
         refreshUsers();
       } else {
-        alert(data.error || '{{ _("Failed to update user status") }}');
+        showErrorToast(data.error || '{{ _("Failed to update user status") }}');
       }
     })
     .catch(error => {
       console.error('Error:', error);
-      alert('{{ _("Failed to update user status") }}');
+      showErrorToast('{{ _("Failed to update user status") }}');
     });
   };
 

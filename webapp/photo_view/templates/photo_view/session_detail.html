@@ -148,15 +148,16 @@ document.addEventListener('DOMContentLoaded', () => {
           const text = await resp.text().catch(() => '');
           console.error('Import start failed:', resp.status, text);
           statusEl.textContent = '{{ _("Failed to start import.") }}';
-          alert('{{ _("Failed to start import.") }}');
+          showErrorToast('{{ _("Failed to start import.") }}');
           return;
         }
 
         statusEl.textContent = '{{ _("Import started.") }}';
+        showSuccessToast('{{ _("Import started.") }}');
       } catch (err) {
         console.error(err);
         statusEl.textContent = '{{ _("Failed to start import.") }}';
-        alert('{{ _("Failed to start import.") }}');
+        showErrorToast('{{ _("Failed to start import.") }}');
       }
     });
   });

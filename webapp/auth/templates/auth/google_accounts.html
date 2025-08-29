@@ -109,7 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } catch (err) {
         console.error(err);
-        alert('Failed to start OAuth.');
+        showErrorToast('Failed to start OAuth.');
       }
     });
   }
@@ -133,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } catch (err) {
         console.error(err);
-        alert('Failed to start re-auth.');
+        showErrorToast('Failed to start re-auth.');
       }
     });
   });
@@ -149,7 +149,12 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'disabled' })
       });
-      if (resp.ok) location.reload();
+      if (resp.ok) {
+        showSuccessToast('Account disabled successfully');
+        location.reload();
+      } else {
+        showErrorToast('Failed to disable account');
+      }
     });
   });
 
@@ -161,7 +166,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!id) return;
       if (!confirm('Delete this account?')) return;
       const resp = await fetch(`/api/google/accounts/${id}`, { method: 'DELETE' });
-      if (resp.ok) location.reload();
+      if (resp.ok) {
+        showSuccessToast('Account deleted successfully');
+        location.reload();
+      } else {
+        showErrorToast('Failed to delete account');
+      }
     });
   });
 
@@ -173,7 +183,13 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!id) return;
       const resp = await fetch(`/api/google/accounts/${id}/test`, { method: 'POST' });
       const data = await resp.json();
-      alert(data.result || data.error || 'OK');
+      if (data.result) {
+        showSuccessToast(data.result);
+      } else if (data.error) {
+        showErrorToast(data.error);
+      } else {
+        showInfoToast('OK');
+      }
     });
   });
 });

@@ -411,6 +411,7 @@ def api_media_list():
     def serialize_media_item(media):
         return {
             "id": media.id,
+            "filename": media.filename,
             "shot_at": (
                 media.shot_at.isoformat().replace("+00:00", "Z") if media.shot_at else None
             ),
@@ -495,6 +496,10 @@ def serialize_media_detail(media: Media) -> dict:
         "google_media_id": media.google_media_id,
         "account_id": media.account_id,
         "local_rel_path": media.local_rel_path,
+        "filename": media.filename,
+        "source_type": media.source_type,
+        "camera_make": media.camera_make,
+        "camera_model": media.camera_model,
         "bytes": media.bytes,
         "mime_type": media.mime_type,
         "width": media.width,

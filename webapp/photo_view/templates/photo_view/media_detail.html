@@ -245,8 +245,9 @@ document.addEventListener('DOMContentLoaded', () => {
     loadingOverlay.style.display = 'none';
     
     // タイトルとメタ情報を更新
-    mediaTitle.textContent = media.filename || media.googleMediaId || 'Unknown Media';
-    mediaMeta.textContent = `${formatDateTime(media.shotAt)} • ${formatFileSize(media.bytes)} • ${media.width}×${media.height}`;
+    const displayTitle = formatDateTime(media.shot_at) || media.filename || media.google_media_id || 'Media';
+    mediaTitle.textContent = displayTitle;
+    mediaMeta.textContent = `${formatDateTime(media.shot_at)} • ${formatFileSize(media.bytes)} • ${media.width}×${media.height}`;
     
     if (media.isVideo || media.is_video) {
       displayVideo(media);
@@ -310,19 +311,19 @@ document.addEventListener('DOMContentLoaded', () => {
     basicInfo.innerHTML = `
       <div class="info-item">
         <span class="info-label">File Name:</span>
-        <span class="info-value">${media.filename || 'Unknown'}</span>
+        <span class="info-value">${media.filename || '(No filename)'}</span>
       </div>
       <div class="info-item">
         <span class="info-label">Type:</span>
         <span class="info-value">${media.isVideo || media.is_video ? 'Video' : 'Photo'}</span>
       </div>
       <div class="info-item">
-        <span class="info-label">Date Taken:</span>
-        <span class="info-value">${formatDateTime(media.shotAt)}</span>
+        <span class="info-label">Source:</span>
+        <span class="info-value">${media.source_type === 'local' ? 'Local File' : 'Google Photos'}</span>
       </div>
       <div class="info-item">
         <span class="info-label">Imported:</span>
-        <span class="info-value">${formatDateTime(media.importedAt)}</span>
+        <span class="info-value">${formatDateTime(media.imported_at)}</span>
       </div>
     `;
     
@@ -338,14 +339,13 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
       <div class="info-item">
         <span class="info-label">MIME Type:</span>
-        <span class="info-value">${media.mimeType}</span>
+        <span class="info-value">${media.mime_type || 'Unknown'}</span>
       </div>
       <div class="info-item">
         <span class="info-label">Media ID:</span>
         <span class="info-value">${media.id}</span>
       </div>
     `;
-  }
   
   // フルスクリーン
   fullscreenBtn.addEventListener('click', () => {
@@ -374,7 +374,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // ユーティリティ関数
   function formatDateTime(isoString) {
-    if (!isoString) return 'Unknown';
+    if (!isoString) return 'Not available';
     const date = new Date(isoString);
     return date.toLocaleString();
   }

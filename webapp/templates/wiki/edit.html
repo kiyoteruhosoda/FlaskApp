@@ -59,7 +59,7 @@
                             
                             <div class="form-text">
                                 Markdownをサポートしています。http:やhttps:で始まるURLは自動的にリンクになります。<br>
-                                <strong>図表サポート:</strong> PlantUMLは <code>```plantuml</code>、Mermaidは <code>```mermaid</code> でコードブロックを作成できます。
+                                <strong>図表サポート:</strong> Mermaidは <code>```mermaid</code> でコードブロックを作成できます。
                             </div>
                         </div>
 
@@ -206,22 +206,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// PlantUMLソース表示/非表示
-function togglePlantUMLSource(hash) {
-    const sourceDiv = document.getElementById('plantuml-source-' + hash);
-    const button = event.target.closest('button');
-    
-    if (sourceDiv.classList.contains('show')) {
-        sourceDiv.classList.remove('show');
-        button.innerHTML = '<i class="fas fa-code"></i>';
-        button.title = 'ソースコードを表示';
-    } else {
-        sourceDiv.classList.add('show');
-        button.innerHTML = '<i class="fas fa-eye-slash"></i>';
-        button.title = 'ソースコードを非表示';
-    }
-}
-
 // Mermaidソース表示/非表示
 function toggleMermaidSource(hash) {
     const sourceDiv = document.getElementById('mermaid-source-' + hash);
@@ -255,7 +239,7 @@ function reRenderMermaid() {
 
 <style>
 /* プレビュー用の図表スタイル */
-.plantuml-diagram, .mermaid-diagram {
+.mermaid-diagram {
     margin: 1rem 0;
     border: 1px solid #dee2e6;
     border-radius: 0.375rem;

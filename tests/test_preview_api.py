@@ -6,15 +6,6 @@ import json
 # テスト用のMarkdownコンテンツ
 test_content = """# 図表テストページ
 
-## PlantUMLシーケンス図
-
-```plantuml
-@startuml
-Alice -> Bob: Hello
-Bob --> Alice: Hi!
-@enduml
-```
-
 ## Mermaidフローチャート
 
 ```mermaid

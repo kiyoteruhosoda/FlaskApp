@@ -7,7 +7,7 @@ sys.path.append('/home/kyon/myproject')
 from webapp.wiki.utils import markdown_to_html
 
 # テストファイルを読み込み
-with open('/home/kyon/myproject/test_diagrams_wiki.md', 'r', encoding='utf-8') as f:
+with open('/home/kyon/myproject/tests/test_diagrams_wiki.md', 'r', encoding='utf-8') as f:
     content = f.read()
 
 print("=== 入力 ===")

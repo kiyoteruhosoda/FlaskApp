@@ -115,9 +115,8 @@ def sanitize_html(html_content):
     placeholder_pattern = "___DIAGRAM_PLACEHOLDER_{}_DIAGRAM___"
     counter = 0
     
-    # PlantUMLとMermaidの図表を保護
+    # Mermaidの図表を保護
     diagram_patterns = [
-        r'<div class="plantuml-diagram"[^>]*>.*?</div>',
         r'<div class="mermaid-diagram"[^>]*>.*?</div>'
     ]
     
@@ -161,7 +160,7 @@ def sanitize_html(html_content):
         html_content = re.sub(pattern, '', html_content, flags=re.IGNORECASE)
     
     # 一般的なonclick（図表関数以外）を除去
-    onclick_pattern = r'onclick\s*=\s*["\'](?!toggle(?:PlantUML|Mermaid)Source)[^"\']*["\']'
+    onclick_pattern = r'onclick\s*=\s*["\'](?!toggleMermaidSource)[^"\']*["\']'
     html_content = re.sub(onclick_pattern, '', html_content, flags=re.IGNORECASE)
     
     # 図表HTMLを復元
@@ -171,68 +170,7 @@ def sanitize_html(html_content):
     return html_content
 
 
-def process_plantuml_blocks(text):
-    """PlantUMLコードブロックを処理してHTMLに変換"""
-    if not text:
-        return text
-    
-    # PlantUMLコードブロックを検出するパターン
-    pattern = r'```plantuml\s*\n(.*?)\n```'
-    
-    def replace_plantuml(match):
-        uml_code = match.group(1).strip()
-        if not uml_code:
-            return match.group(0)  # 空の場合は元のコードブロックを返す
-        
-        # PlantUMLコードのハッシュ値を生成（キャッシュキーとして使用）
-        code_hash = hashlib.md5(uml_code.encode('utf-8')).hexdigest()[:8]
-        
-        # PlantUMLコードをエンコード（高速、ネットワーク不要）
-        try:
-            import zlib
-            import base64
-            
-            # PlantUML標準エンコーディング
-            # 1. UTF-8でエンコード
-            utf8_bytes = uml_code.encode('utf-8')
-            
-            # 2. zlib圧縮（ヘッダーとトレイラーを除去してraw deflateにする）
-            compressed = zlib.compress(utf8_bytes)[2:-4]
-            
-            # 3. Base64エンコード（URL安全文字に変換）
-            encoded = base64.b64encode(compressed).decode('ascii')
-            encoded = encoded.replace('+', '-').replace('/', '_').rstrip('=')
-            
-            # PlantUMLサーバーのURL
-            plantuml_server = "https://www.plantuml.com/plantuml"
-            image_url = f"{plantuml_server}/png/{encoded}"
-            
-            # HTMLを生成（URLの自動リンク化を避けるため、プレースホルダーを使用）
-            html_output = f'''
-<div class="plantuml-diagram" data-hash="{code_hash}">
-    <div class="diagram-header">
-        <small class="text-muted">PlantUML Diagram</small>
-        <button class="btn btn-sm btn-outline-secondary ms-2" 
-                onclick="togglePlantUMLSource('{code_hash}')" 
-                title="ソースコードを表示/非表示">
-            <i class="fas fa-code"></i>
-        </button>
-    </div>
-    <div class="diagram-content">
-        <img src="__PLANTUML_URL__{image_url}__PLANTUML_URL__" alt="PlantUML Diagram" class="img-fluid" 
-             onerror="this.parentElement.innerHTML='&lt;div class=&quot;alert alert-warning&quot;&gt;PlantUML図表の読み込みに失敗しました&lt;/div&gt;';"/>
-    </div>
-    <div class="diagram-source" id="plantuml-source-{code_hash}">
-        <pre><code class="language-plantuml">{html.escape(uml_code)}</code></pre>
-    </div>
-</div>'''
-            return html_output
-            
-        except Exception as e:
-            # エラーの場合は元のコードブロックを返す
-            return f'<div class="alert alert-warning">PlantUML処理エラー: {str(e)}</div>\n{match.group(0)}'
-    
-    return re.sub(pattern, replace_plantuml, text, flags=re.DOTALL)
+
 
 
 def process_mermaid_blocks(text):
@@ -320,8 +258,7 @@ def markdown_to_html(text):
     # セキュリティ: Markdown処理前にユーザー入力のHTMLタグをエスケープ
     text = escape_user_html(text)
     
-    # PlantUMLとMermaidのコードブロックを先に処理
-    text = process_plantuml_blocks(text)
+    # Mermaidのコードブロックを先に処理
     text = process_mermaid_blocks(text)
     
     # 1つの改行を2つのスペース+改行に変換（Markdownの強制改行）
@@ -343,9 +280,6 @@ def markdown_to_html(text):
     
     # セキュリティ: 危険なHTMLタグとスクリプトを除去（但し、図表HTMLは保護）
     html_content = sanitize_html(html_content)
-    
-    # PlantUMLのURLプレースホルダーを復元（自動リンク化より前に実行）
-    html_content = re.sub(r'__PLANTUML_URL__(.*?)__PLANTUML_URL__', r'\1', html_content)
     
     # Markdown変換後にURL自動リンク化を適用
     html_content = auto_link_urls(html_content)

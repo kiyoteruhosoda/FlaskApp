@@ -1,16 +1,4 @@
-# PlantUMLとMermaidテスト
-
-## PlantUMLの例
-
-```plantuml
-@startuml
-Alice -> Bob: Authentication Request
-Bob --> Alice: Authentication Response
-
-Alice -> Bob: Another authentication Request
-Alice <-- Bob: another authentication Response
-@enduml
-```
+# Mermaid図表テスト
 
 ## Mermaidの例
 

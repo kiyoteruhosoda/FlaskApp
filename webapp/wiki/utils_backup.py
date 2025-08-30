@@ -10,7 +10,13 @@ import html
 
 
 def auto_link_urls(text):
-    """http:やhttps:で始まるURLを自動的にリンクに変換"""
+    # Markdown変換後にURL自動リンク化を適用
+    html_content = auto_link_urls(html_content)
+    
+    # デバッグ: 出力を確認
+    print(f"[DEBUG] markdown_to_html output: {repr(str(html_content)[:100])}...")
+    
+    return Markup(html_content)http:やhttps:で始まるURLを自動的にリンクに変換"""
     if not text:
         return ""
     
@@ -62,7 +68,7 @@ def preprocess_single_newlines(text):
     if not text:
         return ""
     
-    # まず改行コードを統一（Windows形式のCRLFをUnix形式のLFに変換）
+    # まず改行コードを統一（Windows形式の\r\nをUnix形式の\nに変換）
     text = text.replace('\r\n', '\n').replace('\r', '\n')
     
     lines = text.split('\n')
@@ -100,11 +106,11 @@ def sanitize_html(html_content):
     if not html_content:
         return ""
     
-    # 危険なタグを除去（Markdownが生成する基本的なHTMLタグは保持）
+    # 危険なタグを除去
     dangerous_tags = [
         'script', 'iframe', 'object', 'embed', 'applet', 
         'form', 'input', 'button', 'textarea', 'select',
-        'meta', 'link', 'style', 'base', 'frame', 'frameset'
+        'meta', 'link', 'style', 'base'
     ]
     
     for tag in dangerous_tags:
@@ -119,7 +125,6 @@ def sanitize_html(html_content):
     dangerous_attrs = [
         'onclick', 'onload', 'onerror', 'onmouseover', 'onmouseout',
         'onfocus', 'onblur', 'onchange', 'onsubmit', 'onreset',
-        'onkeydown', 'onkeyup', 'onkeypress', 'onmousedown', 'onmouseup',
         'javascript:', 'vbscript:', 'data:'
     ]
     
@@ -135,39 +140,6 @@ def sanitize_html(html_content):
     return html_content
 
 
-def escape_user_html(text):
-    """ユーザー入力のHTMLタグをエスケープ（Markdownのコードブロック内は除外）"""
-    if not text:
-        return ""
-    
-    lines = text.split('\n')
-    result_lines = []
-    in_fenced_code = False
-    
-    for i, line in enumerate(lines):
-        # フェンスコードブロック（```）の検出
-        if line.strip().startswith('```'):
-            in_fenced_code = not in_fenced_code
-            result_lines.append(line)
-            continue
-        
-        # コードブロック内でない場合のみHTMLエスケープを検討
-        if not in_fenced_code:
-            # インデントコードブロック（4つ以上のスペースで始まる行）の検出
-            if line.startswith('    ') or line.startswith('\t'):
-                # インデントコードブロックの場合はエスケープしない
-                result_lines.append(line)
-            else:
-                # 通常のテキストの場合のみHTMLエスケープ
-                line = line.replace('<', '&lt;').replace('>', '&gt;')
-                result_lines.append(line)
-        else:
-            # フェンスコードブロック内はエスケープしない
-            result_lines.append(line)
-    
-    return '\n'.join(result_lines)
-
-
 def markdown_to_html(text):
     """MarkdownテキストをHTMLに変換"""
     if not text:
@@ -175,9 +147,6 @@ def markdown_to_html(text):
     
     # デバッグ: 入力を確認
     print(f"[DEBUG] markdown_to_html input: {repr(text[:100])}...")
-    
-    # セキュリティ: Markdown処理前にユーザー入力のHTMLタグをエスケープ
-    text = escape_user_html(text)
     
     # 1つの改行を2つのスペース+改行に変換（Markdownの強制改行）
     preprocessed_text = preprocess_single_newlines(text)
@@ -198,14 +167,13 @@ def markdown_to_html(text):
     
     # セキュリティ: 危険なHTMLタグとスクリプトを除去
     html_content = sanitize_html(html_content)
-    
     # Markdown変換後にURL自動リンク化を適用
-    html_content = auto_link_urls(html_content)
+    html = auto_link_urls(html)
     
-    # デバッグ: 出力を確認
-    print(f"[DEBUG] markdown_to_html output: {repr(str(html_content)[:100])}...")
+    # デバッグ: 最終出力を確認
+    print(f"[DEBUG] markdown_to_html output: {repr(str(html)[:100])}...")
     
-    return Markup(html_content)
+    return Markup(html)
 
 
 def nl2br(text):
@@ -232,83 +200,72 @@ def generate_slug(title):
     if not title:
         return ""
     
-    # 日本語やその他の文字を適切に処理
-    import unicodedata
-    
-    # Unicode正規化
-    title = unicodedata.normalize('NFKC', title)
-    
-    # 小文字に変換
+    # 日本語対応のスラッグ生成
     slug = title.lower()
-    
-    # 英数字とハイフン、アンダースコア以外を除去
-    slug = re.sub(r'[^\w\s-]', '', slug)
-    
-    # スペースをハイフンに変換
-    slug = re.sub(r'[-\s]+', '-', slug)
-    
-    # 先頭末尾のハイフンを除去
-    slug = slug.strip('-')
+    slug = re.sub(r'[^\w\s-]', '', slug)  # 特殊文字を削除
+    slug = re.sub(r'[-\s]+', '-', slug)   # スペースとハイフンを統一
+    slug = slug.strip('-')                # 前後のハイフンを削除
     
     return slug
 
 
-def format_datetime(dt):
-    """日時をフォーマット"""
-    if not dt:
-        return ""
-    
-    if isinstance(dt, str):
-        return dt
-    
-    return dt.strftime('%Y/%m/%d %H:%M')
-
-
 def highlight_search_term(text, term):
-    """検索語をハイライト"""
+    """検索語句をハイライト"""
     if not text or not term:
         return text
     
-    # HTMLエスケープしてからハイライト
-    escaped_text = html.escape(str(text))
-    escaped_term = html.escape(str(term))
-    
-    # 大文字小文字を区別しないハイライト
-    pattern = re.compile(re.escape(escaped_term), re.IGNORECASE)
-    highlighted = pattern.sub(f'<mark>{escaped_term}</mark>', escaped_text)
+    # 大文字小文字を区別しない検索
+    pattern = re.compile(re.escape(term), re.IGNORECASE)
+    highlighted = pattern.sub(f'<mark>{term}</mark>', text)
     
     return Markup(highlighted)
 
 
+def format_datetime(dt, format_str='%Y/%m/%d %H:%M'):
+    """日時を指定されたフォーマットで文字列に変換"""
+    if not dt:
+        return ""
+    
+    # タイムゾーンを日本時間に変換（必要に応じて）
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    
+    return dt.strftime(format_str)
+
+
+def get_page_breadcrumb(page):
+    """ページの階層パンくずリストを生成"""
+    breadcrumb = []
+    current_page = page
+    
+    while current_page:
+        breadcrumb.insert(0, {
+            'title': current_page.title,
+            'slug': current_page.slug,
+            'id': current_page.id
+        })
+        current_page = current_page.parent
+    
+    return breadcrumb
+
+
 def extract_headings(markdown_text):
     """Markdownテキストから見出しを抽出してTOCを生成"""
-    if not markdown_text:
-        return []
-    
-    lines = markdown_text.split('\n')
     headings = []
+    lines = markdown_text.split('\n')
     
     for line in lines:
         line = line.strip()
         if line.startswith('#'):
-            # 見出しレベルを取得
-            level = 0
-            for char in line:
-                if char == '#':
-                    level += 1
-                else:
-                    break
-            
-            if level <= 6:  # H1-H6のみ
-                title = line[level:].strip()
-                if title:
-                    # スラッグを生成（アンカーリンク用）
-                    slug = generate_slug(title)
-                    headings.append({
-                        'level': level,
-                        'title': title,
-                        'slug': slug
-                    })
+            level = len(line) - len(line.lstrip('#'))
+            if level <= 6:  # H1からH6まで
+                title = line.lstrip('#').strip()
+                slug = generate_slug(title)
+                headings.append({
+                    'level': level,
+                    'title': title,
+                    'slug': slug
+                })
     
     return headings
 

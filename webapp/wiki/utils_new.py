@@ -100,11 +100,11 @@ def sanitize_html(html_content):
     if not html_content:
         return ""
     
-    # 危険なタグを除去（Markdownが生成する基本的なHTMLタグは保持）
+    # 危険なタグを除去
     dangerous_tags = [
         'script', 'iframe', 'object', 'embed', 'applet', 
         'form', 'input', 'button', 'textarea', 'select',
-        'meta', 'link', 'style', 'base', 'frame', 'frameset'
+        'meta', 'link', 'style', 'base'
     ]
     
     for tag in dangerous_tags:
@@ -119,7 +119,6 @@ def sanitize_html(html_content):
     dangerous_attrs = [
         'onclick', 'onload', 'onerror', 'onmouseover', 'onmouseout',
         'onfocus', 'onblur', 'onchange', 'onsubmit', 'onreset',
-        'onkeydown', 'onkeyup', 'onkeypress', 'onmousedown', 'onmouseup',
         'javascript:', 'vbscript:', 'data:'
     ]
     
@@ -135,39 +134,6 @@ def sanitize_html(html_content):
     return html_content
 
 
-def escape_user_html(text):
-    """ユーザー入力のHTMLタグをエスケープ（Markdownのコードブロック内は除外）"""
-    if not text:
-        return ""
-    
-    lines = text.split('\n')
-    result_lines = []
-    in_fenced_code = False
-    
-    for i, line in enumerate(lines):
-        # フェンスコードブロック（```）の検出
-        if line.strip().startswith('```'):
-            in_fenced_code = not in_fenced_code
-            result_lines.append(line)
-            continue
-        
-        # コードブロック内でない場合のみHTMLエスケープを検討
-        if not in_fenced_code:
-            # インデントコードブロック（4つ以上のスペースで始まる行）の検出
-            if line.startswith('    ') or line.startswith('\t'):
-                # インデントコードブロックの場合はエスケープしない
-                result_lines.append(line)
-            else:
-                # 通常のテキストの場合のみHTMLエスケープ
-                line = line.replace('<', '&lt;').replace('>', '&gt;')
-                result_lines.append(line)
-        else:
-            # フェンスコードブロック内はエスケープしない
-            result_lines.append(line)
-    
-    return '\n'.join(result_lines)
-
-
 def markdown_to_html(text):
     """MarkdownテキストをHTMLに変換"""
     if not text:
@@ -175,9 +141,6 @@ def markdown_to_html(text):
     
     # デバッグ: 入力を確認
     print(f"[DEBUG] markdown_to_html input: {repr(text[:100])}...")
-    
-    # セキュリティ: Markdown処理前にユーザー入力のHTMLタグをエスケープ
-    text = escape_user_html(text)
     
     # 1つの改行を2つのスペース+改行に変換（Markdownの強制改行）
     preprocessed_text = preprocess_single_newlines(text)

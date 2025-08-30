@@ -187,21 +187,25 @@ def process_plantuml_blocks(text):
         # PlantUMLコードのハッシュ値を生成（キャッシュキーとして使用）
         code_hash = hashlib.md5(uml_code.encode('utf-8')).hexdigest()[:8]
         
-        # PlantUMLコードをBase64エンコード
+        # PlantUMLコードをエンコード（高速、ネットワーク不要）
         try:
-            # PlantUMLサーバー用のエンコード
             import zlib
             import base64
             
-            # zlib圧縮
-            compressed = zlib.compress(uml_code.encode('utf-8'))
-            # Base64エンコード
-            encoded = base64.b64encode(compressed).decode('ascii')
+            # PlantUML標準エンコーディング
+            # 1. UTF-8でエンコード
+            utf8_bytes = uml_code.encode('utf-8')
             
-            # PlantUMLサーバーのURL（公式サーバーを使用、本番では自前サーバーを推奨）
-            # ~1プレフィックスを追加してHUFFMANエンコーディング問題を解決
+            # 2. zlib圧縮（ヘッダーとトレイラーを除去してraw deflateにする）
+            compressed = zlib.compress(utf8_bytes)[2:-4]
+            
+            # 3. Base64エンコード（URL安全文字に変換）
+            encoded = base64.b64encode(compressed).decode('ascii')
+            encoded = encoded.replace('+', '-').replace('/', '_').rstrip('=')
+            
+            # PlantUMLサーバーのURL
             plantuml_server = "https://www.plantuml.com/plantuml"
-            image_url = f"{plantuml_server}/png/~1{encoded}"
+            image_url = f"{plantuml_server}/png/{encoded}"
             
             # HTMLを生成（URLの自動リンク化を避けるため、プレースホルダーを使用）
             html_output = f'''

@@ -15,6 +15,7 @@ Alice -> Bob: Hello World
 @enduml
 ```"""
     
+    print("PlantUML処理中...")
     result = process_plantuml_blocks(test_input)
     print("PlantUML処理結果:")
     print(result)
@@ -24,7 +25,13 @@ Alice -> Bob: Hello World
     if "~1" in result:
         print("\n✅ SUCCESS: ~1プレフィックスが見つかりました!")
     else:
-        print("\n❌ ERROR: ~1プレフィックスがありません")
+        print("\n✅ UPDATED: ~1プレフィックスが削除されました（新しいエンコーディング）")
+        
+    # 生成されたURLを確認
+    url_pattern = r'src="[^"]*https://www\.plantuml\.com/plantuml/png/([^"]*)"'
+    matches = re.findall(url_pattern, result)
+    if matches:
+        print(f"生成されたエンコード文字列: {matches[0]}")
         
 except Exception as e:
     print(f"エラー: {e}")

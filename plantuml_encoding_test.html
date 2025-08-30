@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PlantUML新エンコーディングテスト</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .test-case { margin: 30px 0; border: 1px solid #ddd; border-radius: 8px; }
+        .test-header { background: #f8f9fa; padding: 15px; border-bottom: 1px solid #ddd; }
+        .test-content { padding: 20px; }
+        .plantuml-diagram { margin: 20px 0; border: 1px solid #ddd; }
+        .diagram-header { background: #f8f9fa; padding: 10px; }
+        .diagram-content { padding: 20px; text-align: center; }
+        .diagram-source { background: #f8f9fa; padding: 15px; margin-top: 10px; }
+        .url-info { background: #e3f2fd; padding: 10px; margin: 10px 0; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mt-4">PlantUML新エンコーディングテスト</h1>
+        <div class="alert alert-info">
+            <strong>テスト内容:</strong> ~1プレフィックスを削除した新しいDEFLATE + Base64URLエンコーディング
+        </div>
+
+        <div class="test-case">
+            <div class="test-header">
+                <h3>テストケース 1: Simple Sequence Diagram</h3>
+            </div>
+            <div class="test-content">
+                <div class="url-info">
+                    <strong>生成URL:</strong><br>
+                    <a href="https://www.plantuml.com/plantuml/png/cyguSSwqKc3N4XLMyUxOVdC1U3DKT7JS8EjNyclXCM8vyknhAgoo6AIlwCqAUpkKJRmpRamKXA6peSlArQA" target="_blank">https://www.plantuml.com/plantuml/png/cyguSSwqKc3N4XLMyUxOVdC1U3DKT7JS8EjNyclXCM8vyknhAgoo6AIlwCqAUpkKJRmpRamKXA6peSlArQA</a><br>
+                    <small>エンコード部分: <code>cyguSSwqKc3N4XLMyUxOVdC1U3DKT7JS8EjNyclXCM8vyknhAgoo6AIlwCqAUpkKJRmpRamKXA6peSlArQA</code></small>
+                </div>
+                
+<div class="plantuml-diagram" data-hash="bbc9e165">
+    <div class="diagram-header">
+        <small class="text-muted">PlantUML Diagram</small>
+        <button class="btn btn-sm btn-outline-secondary ms-2" 
+                onclick="togglePlantUMLSource('bbc9e165')" 
+                title="ソースコードを表示/非表示">
+            <i class="fas fa-code"></i>
+        </button>
+    </div>
+    <div class="diagram-content">
+        <img src="https://www.plantuml.com/plantuml/png/cyguSSwqKc3N4XLMyUxOVdC1U3DKT7JS8EjNyclXCM8vyknhAgoo6AIlwCqAUpkKJRmpRamKXA6peSlArQA" alt="PlantUML Diagram" class="img-fluid" 
+             onerror="this.parentElement.innerHTML='&lt;div class=&quot;alert alert-warning&quot;&gt;PlantUML図表の読み込みに失敗しました&lt;/div&gt;';"/>
+    </div>
+    <div class="diagram-source" id="plantuml-source-bbc9e165">
+        <pre><code class="language-plantuml">@startuml
+Alice -&gt; Bob: Hello World
+Bob --&gt; Alice: Hi there!
+@enduml</code></pre>
+    </div>
+</div>
+                <div class="mt-3">
+                    <button class="btn btn-sm btn-outline-primary" onclick="testUrl1()">URLを直接テスト</button>
+                    <div id="test-result-1" class="mt-2"></div>
+                </div>
+            </div>
+        </div>
+        <div class="test-case">
+            <div class="test-header">
+                <h3>テストケース 2: Class Diagram</h3>
+            </div>
+            <div class="test-content">
+                <div class="url-info">
+                    <strong>生成URL:</strong><br>
+                    <a href="https://www.plantuml.com/plantuml/png/Vc6xDsIwDATQ3V9hdQKh_kCmrmwsfICVWiVS4kjxdWr5d2jLUMa74d0NDmmYS6aYxZ2fro0XYr6ZFA3saMmmLWuRlM_FpLiPl2vgZKA3_YBHdRwAEvKfEKtBDedKZrxqC_vsZuzz69r3dTmkwF1sKlDvaFAbv08_" target="_blank">https://www.plantuml.com/plantuml/png/Vc6xDsIwDATQ3V9hdQKh_kCmrmwsfICVWiVS4kjxdWr5d2jLUMa74d0NDmmYS6aYxZ2fro0XYr6ZFA3saMmmLWuRlM_FpLiPl2vgZKA3_YBHdRwAEvKfEKtBDedKZrxqC_vsZuzz69r3dTmkwF1sKlDvaFAbv08_</a><br>
+                    <small>エンコード部分: <code>Vc6xDsIwDATQ3V9hdQKh_kCmrmwsfICVWiVS4kjxdWr5d2jLUMa74d0NDmmYS6aYxZ2fro0XYr6ZFA3saMmmLWuRlM_FpLiPl2vgZKA3_YBHdRwAEvKfEKtBDedKZrxqC_vsZuzz69r3dTmkwF1sKlDvaFAbv08_</code></small>
+                </div>
+                
+<div class="plantuml-diagram" data-hash="29c3687f">
+    <div class="diagram-header">
+        <small class="text-muted">PlantUML Diagram</small>
+        <button class="btn btn-sm btn-outline-secondary ms-2" 
+                onclick="togglePlantUMLSource('29c3687f')" 
+                title="ソースコードを表示/非表示">
+            <i class="fas fa-code"></i>
+        </button>
+    </div>
+    <div class="diagram-content">
+        <img src="https://www.plantuml.com/plantuml/png/Vc6xDsIwDATQ3V9hdQKh_kCmrmwsfICVWiVS4kjxdWr5d2jLUMa74d0NDmmYS6aYxZ2fro0XYr6ZFA3saMmmLWuRlM_FpLiPl2vgZKA3_YBHdRwAEvKfEKtBDedKZrxqC_vsZuzz69r3dTmkwF1sKlDvaFAbv08_" alt="PlantUML Diagram" class="img-fluid" 
+             onerror="this.parentElement.innerHTML='&lt;div class=&quot;alert alert-warning&quot;&gt;PlantUML図表の読み込みに失敗しました&lt;/div&gt;';"/>
+    </div>
+    <div class="diagram-source" id="plantuml-source-29c3687f">
+        <pre><code class="language-plantuml">@startuml
+class User {
+  +name: string
+  +email: string
+  +getId(): int
+}
+
+class Post {
+  +title: string
+  +content: string
+  +author: User
+}
+
+User ||--o{ Post : &quot;creates&quot;
+@enduml</code></pre>
+    </div>
+</div>
+                <div class="mt-3">
+                    <button class="btn btn-sm btn-outline-primary" onclick="testUrl2()">URLを直接テスト</button>
+                    <div id="test-result-2" class="mt-2"></div>
+                </div>
+            </div>
+        </div>
+        <div class="test-case">
+            <div class="test-header">
+                <h3>テストケース 3: Activity Diagram</h3>
+            </div>
+            <div class="test-content">
+                <div class="url-info">
+                    <strong>生成URL:</strong><br>
+                    <a href="https://www.plantuml.com/plantuml/png/Hc0xDsIwDEDR3afwmF6hHejWA1SwW4lLLRkb2UGI2xN1-9Ib_pqdon9eClfAfE8OVH-KLSAHlgepNKzBja0Lad4m7Ccblh_nBIjzFmQdqVbOXIA1GYv5RfvpX-QIjwHW5BgXf8M6eiz_" target="_blank">https://www.plantuml.com/plantuml/png/Hc0xDsIwDEDR3afwmF6hHejWA1SwW4lLLRkb2UGI2xN1-9Ib_pqdon9eClfAfE8OVH-KLSAHlgepNKzBja0Lad4m7Ccblh_nBIjzFmQdqVbOXIA1GYv5RfvpX-QIjwHW5BgXf8M6eiz_</a><br>
+                    <small>エンコード部分: <code>Hc0xDsIwDEDR3afwmF6hHejWA1SwW4lLLRkb2UGI2xN1-9Ib_pqdon9eClfAfE8OVH-KLSAHlgepNKzBja0Lad4m7Ccblh_nBIjzFmQdqVbOXIA1GYv5RfvpX-QIjwHW5BgXf8M6eiz_</code></small>
+                </div>
+                
+<div class="plantuml-diagram" data-hash="e6f72c03">
+    <div class="diagram-header">
+        <small class="text-muted">PlantUML Diagram</small>
+        <button class="btn btn-sm btn-outline-secondary ms-2" 
+                onclick="togglePlantUMLSource('e6f72c03')" 
+                title="ソースコードを表示/非表示">
+            <i class="fas fa-code"></i>
+        </button>
+    </div>
+    <div class="diagram-content">
+        <img src="https://www.plantuml.com/plantuml/png/Hc0xDsIwDEDR3afwmF6hHejWA1SwW4lLLRkb2UGI2xN1-9Ib_pqdon9eClfAfE8OVH-KLSAHlgepNKzBja0Lad4m7Ccblh_nBIjzFmQdqVbOXIA1GYv5RfvpX-QIjwHW5BgXf8M6eiz_" alt="PlantUML Diagram" class="img-fluid" 
+             onerror="this.parentElement.innerHTML='&lt;div class=&quot;alert alert-warning&quot;&gt;PlantUML図表の読み込みに失敗しました&lt;/div&gt;';"/>
+    </div>
+    <div class="diagram-source" id="plantuml-source-e6f72c03">
+        <pre><code class="language-plantuml">@startuml
+start
+:User login;
+if (Valid credentials?) then (yes)
+  :Grant access;
+else (no)
+  :Show error;
+endif
+stop
+@enduml</code></pre>
+    </div>
+</div>
+                <div class="mt-3">
+                    <button class="btn btn-sm btn-outline-primary" onclick="testUrl3()">URLを直接テスト</button>
+                    <div id="test-result-3" class="mt-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function togglePlantUMLSource(hash) {
+            const sourceDiv = document.getElementById('plantuml-source-' + hash);
+            const button = event.target.closest('button');
+            
+            if (sourceDiv.style.display === 'none') {
+                sourceDiv.style.display = 'block';
+                button.innerHTML = '<i class="fas fa-eye-slash"></i>';
+            } else {
+                sourceDiv.style.display = 'none';
+                button.innerHTML = '<i class="fas fa-code"></i>';
+            }
+        }
+        
+        function testUrl1() { testPlantUMLUrl(1, '@startuml\nAlice -> Bob: Hello World\nBob --> Alice: Hi there!\n@enduml'); }
+        function testUrl2() { testPlantUMLUrl(2, '@startuml\nclass User {\n  +name: string\n  +email: string\n  +getId(): int\n}\n\nclass Post {\n  +title: string\n  +content: string\n  +author: User\n}\n\nUser ||--o{ Post : "creates"\n@enduml'); }
+        function testUrl3() { testPlantUMLUrl(3, '@startuml\nstart\n:User login;\nif (Valid credentials?) then (yes)\n  :Grant access;\nelse (no)\n  :Show error;\nendif\nstop\n@enduml'); }
+        
+        function testPlantUMLUrl(testId, originalCode) {
+            const resultDiv = document.getElementById('test-result-' + testId);
+            resultDiv.innerHTML = '<div class="alert alert-info">URLをテスト中...</div>';
+            
+            // 同じページ内のイメージを確認
+            const img = document.querySelector('.test-case:nth-child(' + (testId + 1) + ') img');
+            if (img) {
+                const testImg = new Image();
+                testImg.onload = function() {
+                    resultDiv.innerHTML = '<div class="alert alert-success">✅ URLは正常に動作します（画像サイズ: ' + this.width + 'x' + this.height + 'px）</div>';
+                };
+                testImg.onerror = function() {
+                    resultDiv.innerHTML = '<div class="alert alert-danger">❌ URLでエラーが発生しました</div>';
+                };
+                testImg.src = img.src;
+            }
+        }
+    </script>
+</body>
+</html>

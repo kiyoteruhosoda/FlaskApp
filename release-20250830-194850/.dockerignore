@@ -1,0 +1,71 @@
+# Docker用の除外ファイル
+# 開発環境のファイル
+.env
+.env.local
+.env.development
+*.log
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Git関連
+.git/
+.gitignore
+.gitattributes
+
+# IDE関連
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node.js関連（もしあれば）
+node_modules/
+npm-debug.log*
+
+# OS関連
+.DS_Store
+Thumbs.db
+
+# 一時ファイル
+tmp/
+*.tmp
+*.temp
+
+# データベースファイル
+*.db
+*.sqlite
+
+# Celeryファイル
+celerybeat-schedule*
+celery.log
+
+# テストファイル
+tests/
+test_*.py
+*_test.py
+
+# ドキュメント
+docs/
+README.md
+USAGE.md
+requirements.md
+
+# 開発用設定
+requirements-dev.txt
+docker-compose.dev.yml
+
+# データディレクトリ（ボリュームマウント用）
+data/media/
+data/thumbs/
+data/playback/
+
+# ビルド関連
+build/
+dist/
+*.egg-info/

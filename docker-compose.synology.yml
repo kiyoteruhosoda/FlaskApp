@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  photonest-web:
+    image: photonest:latest
+    container_name: photonest-web
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - TZ=Asia/Tokyo
+      - PUID=1026
+      - PGID=100
+    env_file:
+      - /volume1/docker/photonest/config/.env
+    volumes:
+      - /volume1/docker/photonest/data/media:/app/data/media
+      - /volume1/docker/photonest/data/thumbs:/app/data/thumbs
+      - /volume1/docker/photonest/data/playback:/app/data/playback
+    depends_on:
+      - photonest-redis
+    networks:
+      - photonest-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  photonest-worker:
+    image: photonest:latest
+    container_name: photonest-worker
+    restart: unless-stopped
+    command: celery -A cli.src.celery.tasks worker --loglevel=info --concurrency=2
+    environment:
+      - TZ=Asia/Tokyo
+      - PUID=1026
+      - PGID=100
+    env_file:
+      - /volume1/docker/photonest/config/.env
+    volumes:
+      - /volume1/docker/photonest/data/media:/app/data/media
+      - /volume1/docker/photonest/data/thumbs:/app/data/thumbs
+      - /volume1/docker/photonest/data/playback:/app/data/playback
+    depends_on:
+      - photonest-redis
+    networks:
+      - photonest-network
+
+  photonest-beat:
+    image: photonest:latest
+    container_name: photonest-beat
+    restart: unless-stopped
+    command: celery -A cli.src.celery.tasks beat --loglevel=info
+    environment:
+      - TZ=Asia/Tokyo
+      - PUID=1026
+      - PGID=100
+    env_file:
+      - /volume1/docker/photonest/config/.env
+    depends_on:
+      - photonest-redis
+    networks:
+      - photonest-network
+
+  photonest-redis:
+    image: redis:7-alpine
+    container_name: photonest-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
+    environment:
+      - TZ=Asia/Tokyo
+    env_file:
+      - /volume1/docker/photonest/config/.env
+    volumes:
+      - /volume1/docker/photonest/data/redis:/data
+    networks:
+      - photonest-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  photonest-network:
+    driver: bridge

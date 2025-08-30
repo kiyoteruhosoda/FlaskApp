@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}{{ category.name }} - Wiki{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='wiki/wiki.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1>
+                        <i class="fas fa-tag"></i> {{ category.name }}
+                        <span class="badge bg-secondary">{{ pages|length }}ページ</span>
+                    </h1>
+                    {% if category.description %}
+                    <p class="text-muted">{{ category.description }}</p>
+                    {% endif %}
+                </div>
+                <a href="{{ url_for('wiki.index') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Wiki トップに戻る
+                </a>
+            </div>
+
+            <!-- カテゴリ内ページ一覧 -->
+            {% if pages %}
+            <div class="card">
+                <div class="card-header">
+                    <h5>このカテゴリのページ</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for page in pages %}
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">
+                                        <a href="{{ url_for('wiki.view_page', slug=page.slug) }}" 
+                                           class="text-decoration-none">
+                                            {{ page.title }}
+                                        </a>
+                                        {% if page.parent %}
+                                        <small class="text-muted">
+                                            ({{ page.parent.title }} の子ページ)
+                                        </small>
+                                        {% endif %}
+                                    </h6>
+                                    <p class="mb-1 text-muted">
+                                        {{ page.content[:150] }}{% if page.content|length > 150 %}...{% endif %}
+                                    </p>
+                                    <small class="text-muted">
+                                        <i class="fas fa-user"></i> {{ page.created_by.display_name if page.created_by else _('Unknown') }}
+                                        <span class="mx-2">|</span>
+                                        <i class="fas fa-calendar"></i> 更新: {{ page.updated_at.strftime('%Y/%m/%d %H:%M') }}
+                                        {% if page.categories|length > 1 %}
+                                        <span class="mx-2">|</span>
+                                        <i class="fas fa-tags"></i>
+                                        {% for cat in page.categories %}
+                                        {% if cat.id != category.id %}
+                                        <span class="badge bg-light text-dark me-1">{{ cat.name }}</span>
+                                        {% endif %}
+                                        {% endfor %}
+                                        {% endif %}
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    {% if current_user.is_authenticated and page.created_by_id == current_user.id %}
+                                    <a href="{{ url_for('wiki.edit_page', slug=page.slug) }}" 
+                                       class="btn btn-sm btn-outline-secondary">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">このカテゴリにはまだページがありません</h5>
+                    <p class="text-muted">
+                        最初のページを作成してみましょう。
+                    </p>
+                    <a href="{{ url_for('wiki.create_page') }}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> ページを作成
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 関連アクション -->
+            <div class="mt-4">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6>このカテゴリで</h6>
+                            </div>
+                            <div class="card-body">
+                                <a href="{{ url_for('wiki.create_page') }}?category={{ category.id }}" 
+                                   class="btn btn-primary btn-sm me-2">
+                                    <i class="fas fa-plus"></i> 新しいページを作成
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6>カテゴリ情報</h6>
+                            </div>
+                            <div class="card-body">
+                                <small class="text-muted">
+                                    <div>スラッグ: {{ category.slug }}</div>
+                                    <div>作成日: {{ category.created_at.strftime('%Y/%m/%d') }}</div>
+                                    <div>ページ数: {{ pages|length }}</div>
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

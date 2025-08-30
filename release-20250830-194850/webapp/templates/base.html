@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="{{ get_locale() or 'ja' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}FlaskApp{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<header>
+  <nav class="navbar navbar-expand-lg navbar-light bg-light">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="{{ url_for('index') }}">FlaskApp</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav me-auto">
+        {% if current_user.is_authenticated %}
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('index') }}">{{ _('Home') }}</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('feature_x.dashboard') }}">{{ _('Dashboard') }}</a>
+        </li>
+        {% if current_user.can('media:view') %}
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" id="photoNavDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            {{ _('Photo View') }}
+          </a>
+          <ul class="dropdown-menu" aria-labelledby="photoNavDropdown">
+            <li><a class="dropdown-item" href="{{ url_for('photo_view.home') }}">{{ _('Sessions') }}</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('photo_view.media_list') }}">{{ _('Media Gallery') }}</a></li>
+            {% if current_user.can('album:view') %}
+            <li><a class="dropdown-item" href="{{ url_for('photo_view.albums') }}">{{ _('Albums') }}</a></li>
+            {% endif %}
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{{ url_for('photo_view.settings') }}">{{ _('Settings') }}</a></li>
+          </ul>
+        </li>
+        {% endif %}
+        {% if current_user.can('wiki:read') %}
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('wiki.index') }}">
+            <i class="fas fa-book"></i> Wiki
+          </a>
+        </li>
+        {% endif %}
+        {% endif %}
+      </ul>
+      <ul class="navbar-nav">
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('set_lang', lang_code='ja') }}">日本語</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('set_lang', lang_code='en') }}">English</a>
+        </li>
+        {% if current_user.is_authenticated %}
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('auth.edit') }}">{{ current_user.email }}</a>
+          </li>
+          {% if current_user.can('user:manage') or current_user.can('role:manage') or current_user.can('permission:manage') or current_user.has_role('admin') %}
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="managementNavDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              {{ _('Management') }}
+            </a>
+            <ul class="dropdown-menu" aria-labelledby="managementNavDropdown">
+              {% if current_user.can('user:manage') %}
+              <li><a class="dropdown-item" href="{{ url_for('admin.user') }}">{{ _('User Management') }}</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('admin.google_accounts') }}">{{ _('Google Accounts') }}</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="{{ url_for('admin.show_config') }}">{{ _('Config Settings') }}</a></li>
+              {% endif %}
+              {% if current_user.can('role:manage') %}
+              <li><a class="dropdown-item" href="{{ url_for('admin.roles') }}">{{ _('Roles') }}</a></li>
+              {% endif %}
+              {% if current_user.can('permission:manage') %}
+              <li><a class="dropdown-item" href="{{ url_for('admin.permissions') }}">{{ _('Permissions') }}</a></li>
+              {% endif %}
+              {% if current_user.has_role('admin') %}
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="{{ url_for('photo_view.admin_settings') }}">{{ _('Photo View Admin') }}</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('photo_view.admin_exports') }}">{{ _('Photo Exports') }}</a></li>
+              {% endif %}
+            </ul>
+          </li>
+          {% endif %}
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('auth.logout') }}">{{ _('Logout') }}</a>
+          </li>
+        {% else %}
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('auth.login') }}">{{ _('Login') }}</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('auth.register') }}">{{ _('Register') }}</a>
+          </li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+</nav>
+</header>
+
+<main class="container-fluid mt-4">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for cat, msg in messages %}
+        <div class="alert alert-{{ 'danger' if cat == 'error' else cat }} alert-dismissible fade show" role="alert">
+          {{ msg }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+</main>
+
+<!-- Toast Container -->
+<div aria-live="polite" aria-atomic="true" class="position-relative">
+  <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toast-container">
+    <!-- Toasts will be dynamically added here -->
+  </div>
+</div>
+
+<footer class="text-center mt-5 mb-3">
+  <p class="text-muted">&copy; 2025 FlaskApp</p>
+</footer>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js"></script>
+  <script src="{{ url_for('static', filename='js/api-client.js') }}"></script>
+  <script src="{{ url_for('static', filename='main.js') }}"></script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

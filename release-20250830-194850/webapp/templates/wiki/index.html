@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Wiki - PhotoNest{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- サイドバー -->
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{{ _('Categories') }}</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        {% for category in categories %}
+                        <li>
+                            <a href="{{ url_for('wiki.view_category', slug=category.slug) }}" 
+                               class="text-decoration-none">
+                                {{ category.name }}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5>{{ _('Page Hierarchy') }}</h5>
+                </div>
+                <div class="card-body">
+                    {% if page_hierarchy %}
+                        {% macro render_page_tree(pages) %}
+                            <ul class="list-unstyled">
+                                {% for page in pages %}
+                                <li>
+                                    <a href="{{ url_for('wiki.view_page', slug=page.slug) }}" 
+                                       class="text-decoration-none">
+                                        {{ page.title }}
+                                    </a>
+                                    {% if page.children %}
+                                        {{ render_page_tree(page.children) }}
+                                    {% endif %}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        {% endmacro %}
+                        {{ render_page_tree(page_hierarchy) }}
+                    {% else %}
+                        <p class="text-muted">{{ _('No pages available') }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- メインコンテンツ -->
+        <div class="col-md-9">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>Wiki</h1>
+                <div>
+                    {% if current_user.can('wiki:write') %}
+                    <a href="{{ url_for('wiki.create_page') }}" class="btn btn-primary me-2">
+                        <i class="fas fa-plus"></i> {{ _('New Page') }}
+                    </a>
+                    {% endif %}
+                    <a href="{{ url_for('wiki.categories') }}" class="btn btn-outline-secondary me-2">
+                        <i class="fas fa-tags"></i> {{ _('Categories') }}
+                    </a>
+                    {% if current_user.can('wiki:admin') %}
+                    <a href="{{ url_for('wiki.admin') }}" class="btn btn-outline-info">
+                        <i class="fas fa-cogs"></i> {{ _('Admin') }}
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- 検索フォーム -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <form method="GET" action="{{ url_for('wiki.search') }}">
+                        <div class="input-group">
+                            <input type="text" name="q" class="form-control" 
+                                   placeholder="{{ _('Search pages...') }}" value="{{ request.args.get('q', '') }}">
+                            <button type="submit" class="btn btn-outline-secondary">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- 最近更新されたページ -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>{{ _('Recently Updated Pages') }}</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_pages %}
+                        <div class="list-group list-group-flush">
+                            {% for page in recent_pages %}
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">
+                                        <a href="{{ url_for('wiki.view_page', slug=page.slug) }}" 
+                                           class="text-decoration-none">
+                                            {{ page.title }}
+                                        </a>
+                                    </h6>
+                                    <small class="text-muted">
+                                        {{ page.updated_at.strftime('%Y/%m/%d %H:%M') }}
+                                    </small>
+                                </div>
+                                <p class="mb-1 text-muted">
+                                    {{ page.content[:100] }}{% if page.content|length > 100 %}...{% endif %}
+                                </p>
+                                <small class="text-muted">
+                                    {{ _('Created By') }}: {{ page.created_by.display_name if page.created_by else _('Unknown') }}
+                                </small>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">{{ _('No pages yet.') }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

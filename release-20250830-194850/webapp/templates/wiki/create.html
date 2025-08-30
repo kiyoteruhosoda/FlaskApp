@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+
+{% block title %}{{ _('Create New Page') }} - Wiki{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='wiki/wiki.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>{{ _('Create New Page') }}</h1>
+                <a href="{{ url_for('wiki.index') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> {{ _('Back to Wiki Top') }}
+                </a>
+            </div>
+
+            <form method="POST">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="mb-3">
+                            <label for="title" class="form-label">タイトル <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="title" name="title" 
+                                   value="{{ request.form.get('title', '') }}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="slug" class="form-label">スラッグ</label>
+                            <input type="text" class="form-control" id="slug" name="slug" 
+                                   value="{{ request.form.get('slug', '') }}"
+                                   placeholder="自動生成されます（カスタムも可能）">
+                            <div class="form-text">
+                                URLで使用される識別子です。英数字、ハイフン、アンダースコアが使用できます。
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label for="content" class="form-label">内容 <span class="text-danger">*</span></label>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <input type="radio" class="btn-check" name="editor-mode" id="edit-mode" checked>
+                                    <label class="btn btn-outline-secondary" for="edit-mode">
+                                        <i class="fas fa-edit"></i> 編集
+                                    </label>
+                                    <input type="radio" class="btn-check" name="editor-mode" id="preview-mode">
+                                    <label class="btn btn-outline-secondary" for="preview-mode">
+                                        <i class="fas fa-eye"></i> プレビュー
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <!-- 編集モード -->
+                            <div id="editor-container">
+                                <textarea class="form-control" id="content" name="content" rows="15" required>{{ request.form.get('content', '') }}</textarea>
+                            </div>
+                            
+                            <!-- プレビューモード -->
+                            <div id="preview-container" style="display: none;">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <div id="preview-content" class="wiki-content">
+                                            <p class="text-muted">プレビューを読み込み中...</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-text">
+                                Markdownをサポートしています。http:やhttps:で始まるURLは自動的にリンクになります。<br>
+                                <strong>図表サポート:</strong> Mermaidは <code>```mermaid</code> でコードブロックを作成できます。
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6>設定</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label for="parent_id" class="form-label">親ページ</label>
+                                    <select class="form-select" id="parent_id" name="parent_id">
+                                        <option value="">なし（トップレベル）</option>
+                                        {% for page in pages %}
+                                        <option value="{{ page.id }}" 
+                                                {% if request.form.get('parent_id') == page.id|string %}selected{% endif %}>
+                                            {{ page.title }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text">
+                                        このページを子ページとして配置する親ページを選択
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">カテゴリ</label>
+                                    {% for category in categories %}
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" 
+                                               name="category_ids" value="{{ category.id }}" 
+                                               id="category_{{ category.id }}"
+                                               {% if category.id|string in request.form.getlist('category_ids') %}checked{% endif %}>
+                                        <label class="form-check-label" for="category_{{ category.id }}">
+                                            {{ category.name }}
+                                        </label>
+                                    </div>
+                                    {% endfor %}
+                                    
+                                    {% if not categories %}
+                                    <p class="text-muted small">カテゴリがありません。</p>
+                                    {% endif %}
+                                </div>
+
+                                <div class="d-grid gap-2">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-plus"></i> ページを作成
+                                    </button>
+                                    <a href="{{ url_for('wiki.index') }}" 
+                                       class="btn btn-outline-secondary">
+                                        キャンセル
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card mt-3">
+                            <div class="card-header">
+                                <h6>ヘルプ</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="small">
+                                    <h6>Markdown例:</h6>
+                                    <pre class="small"># 見出し1
+## 見出し2
+**太字**
+*斜体*
+[リンク](URL)
+- リスト項目</pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// タイトル入力時に自動でスラッグを生成
+document.getElementById('title').addEventListener('input', function() {
+    const slugField = document.getElementById('slug');
+    if (!slugField.value || slugField.value === generateSlug(slugField.dataset.lastTitle || '')) {
+        const newSlug = generateSlug(this.value);
+        slugField.value = newSlug;
+        slugField.dataset.lastTitle = this.value;
+    }
+});
+
+function generateSlug(title) {
+    return title
+        .toLowerCase()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/[\s_-]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+}
+
+// Auto-resize textarea
+const contentTextarea = document.getElementById('content');
+contentTextarea.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = this.scrollHeight + 'px';
+});
+
+// プレビュー機能
+const editModeRadio = document.getElementById('edit-mode');
+const previewModeRadio = document.getElementById('preview-mode');
+const editorContainer = document.getElementById('editor-container');
+const previewContainer = document.getElementById('preview-container');
+const previewContent = document.getElementById('preview-content');
+
+let previewTimeout;
+
+// モード切り替え
+function switchMode() {
+    if (editModeRadio.checked) {
+        editorContainer.style.display = 'block';
+        previewContainer.style.display = 'none';
+    } else {
+        editorContainer.style.display = 'none';
+        previewContainer.style.display = 'block';
+        updatePreview();
+    }
+}
+
+editModeRadio.addEventListener('change', switchMode);
+previewModeRadio.addEventListener('change', switchMode);
+
+// プレビュー更新
+function updatePreview() {
+    const content = contentTextarea.value;
+    
+    if (!content.trim()) {
+        previewContent.innerHTML = '<p class="text-muted">プレビューするコンテンツがありません</p>';
+        return;
+    }
+    
+    previewContent.innerHTML = '<p class="text-muted">プレビューを読み込み中...</p>';
+    
+    fetch('{{ url_for("wiki.api_preview") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            content: content
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        previewContent.innerHTML = data.html;
+    })
+    .catch(error => {
+        console.error('プレビューエラー:', error);
+        previewContent.innerHTML = '<p class="text-danger">プレビューの読み込みに失敗しました</p>';
+    });
+}
+
+// プレビューモードの時は定期的に更新
+contentTextarea.addEventListener('input', function() {
+    if (previewModeRadio.checked) {
+        clearTimeout(previewTimeout);
+        previewTimeout = setTimeout(updatePreview, 1000); // 1秒後に更新
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,1342 @@
+# Japanese translations for PROJECT.
+# Copyright (C) 2025 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2025-08-30 14:55+0900\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: webapp/__init__.py:252 webapp/__init__.py:264
+msgid "Please log in to access this page."
+msgstr "このページにアクセスするにはログインが必要です。"
+
+#: webapp/__init__.py:262 webapp/auth/templates/auth/login.html:2
+#: webapp/templates/base.html:98
+msgid "Login"
+msgstr "ログイン"
+
+#: webapp/__init__.py:263 webapp/templates/base.html:26
+msgid "Home"
+msgstr "ホーム"
+
+#: webapp/admin/routes.py:21 webapp/admin/routes.py:36
+#: webapp/admin/routes.py:50 webapp/admin/routes.py:66
+#: webapp/admin/routes.py:84 webapp/admin/routes.py:95
+#: webapp/admin/routes.py:126 webapp/admin/routes.py:137
+#: webapp/admin/routes.py:165 webapp/admin/routes.py:187
+#: webapp/admin/routes.py:206 webapp/admin/routes.py:219
+#: webapp/admin/routes.py:229 webapp/admin/routes.py:257
+#: webapp/admin/routes.py:284 webapp/admin/routes.py:297
+#: webapp/api/routes.py:979 webapp/api/routes.py:1020
+#, fuzzy
+msgid "You do not have permission to access this page."
+msgstr "このページにアクセスするにはログインが必要です。"
+
+#: webapp/admin/routes.py:42
+msgid "TOTP secret reset for user."
+msgstr ""
+
+#: webapp/admin/routes.py:54
+msgid "You cannot delete yourself."
+msgstr ""
+
+#: webapp/admin/routes.py:58
+msgid "User deleted successfully."
+msgstr ""
+
+#: webapp/admin/routes.py:72 webapp/admin/routes.py:110
+msgid "Selected role does not exist."
+msgstr ""
+
+#: webapp/admin/routes.py:76
+msgid "User role updated."
+msgstr ""
+
+#: webapp/admin/routes.py:103
+#, fuzzy
+msgid "Email, password, and role are required."
+msgstr "メールアドレスとパスワードは必須です"
+
+#: webapp/admin/routes.py:106
+#, fuzzy
+msgid "Email already exists."
+msgstr "このメールアドレスは既に登録されています"
+
+#: webapp/admin/routes.py:117
+msgid "User created successfully."
+msgstr ""
+
+#: webapp/admin/routes.py:170 webapp/admin/routes.py:193
+msgid "Code is required."
+msgstr ""
+
+#: webapp/admin/routes.py:173
+#, fuzzy
+msgid "Permission already exists."
+msgstr "このメールアドレスは既に登録されています"
+
+#: webapp/admin/routes.py:178
+msgid "Permission created successfully."
+msgstr ""
+
+#: webapp/admin/routes.py:197
+msgid "Permission updated."
+msgstr ""
+
+#: webapp/admin/routes.py:211
+msgid "Permission deleted."
+msgstr ""
+
+#: webapp/admin/routes.py:236 webapp/admin/routes.py:265
+msgid "Name is required."
+msgstr ""
+
+#: webapp/admin/routes.py:239
+#, fuzzy
+msgid "Role already exists."
+msgstr "このメールアドレスは既に登録されています"
+
+#: webapp/admin/routes.py:248
+msgid "Role created successfully."
+msgstr ""
+
+#: webapp/admin/routes.py:274
+msgid "Role updated."
+msgstr ""
+
+#: webapp/admin/routes.py:289
+msgid "Role deleted."
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:2
+#: webapp/admin/templates/admin/admin_users.html:16
+#: webapp/admin/templates/admin/admin_users.html:46
+#: webapp/admin/templates/admin/config_view.html:10
+#: webapp/admin/templates/admin/google_accounts.html:11
+#: webapp/admin/templates/admin/permissions.html:10
+#: webapp/admin/templates/admin/roles.html:10 webapp/templates/base.html:74
+msgid "User Management"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:9
+#: webapp/admin/templates/admin/config_view.html:4
+#: webapp/admin/templates/admin/google_accounts.html:5
+#: webapp/admin/templates/admin/permissions.html:4
+#: webapp/admin/templates/admin/roles.html:4 webapp/templates/base.html:70
+msgid "Management"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:21
+#: webapp/admin/templates/admin/config_view.html:15
+#: webapp/admin/templates/admin/google_accounts.html:16
+#: webapp/admin/templates/admin/permissions.html:15
+#: webapp/admin/templates/admin/roles.html:15
+#: webapp/auth/templates/auth/google_accounts.html:2
+#: webapp/auth/templates/auth/google_accounts.html:7
+#: webapp/templates/base.html:75
+#, fuzzy
+msgid "Google Accounts"
+msgstr "アカウント作成"
+
+#: webapp/admin/templates/admin/admin_users.html:26
+#: webapp/admin/templates/admin/config_view.html:2
+#: webapp/admin/templates/admin/config_view.html:20
+#: webapp/admin/templates/admin/config_view.html:35
+#: webapp/admin/templates/admin/google_accounts.html:21
+#: webapp/admin/templates/admin/permissions.html:20
+#: webapp/admin/templates/admin/roles.html:20 webapp/templates/base.html:77
+msgid "Config Settings"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:33
+#: webapp/admin/templates/admin/admin_users.html:72
+#: webapp/admin/templates/admin/config_view.html:25
+#: webapp/admin/templates/admin/google_accounts.html:26
+#: webapp/admin/templates/admin/permissions.html:25
+#: webapp/admin/templates/admin/roles.html:25 webapp/templates/base.html:80
+msgid "Roles"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:40
+#: webapp/admin/templates/admin/config_view.html:30
+#: webapp/admin/templates/admin/google_accounts.html:31
+#: webapp/admin/templates/admin/permissions.html:30
+#: webapp/admin/templates/admin/role_edit.html:11
+#: webapp/admin/templates/admin/roles.html:30
+#: webapp/admin/templates/admin/roles.html:46 webapp/templates/base.html:83
+msgid "Permissions"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:50
+#: webapp/admin/templates/admin/user_add.html:2
+#: webapp/admin/templates/admin/user_add.html:4
+msgid "Add User"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:54
+msgid "Search users..."
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:56
+#: webapp/photo_view/templates/photo_view/albums.html:107
+#: webapp/photo_view/templates/photo_view/home.html:16
+#: webapp/photo_view/templates/photo_view/media_list.html:177
+msgid "Refresh"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:62
+#: webapp/admin/templates/admin/admin_users.html:85
+#: webapp/photo_view/templates/photo_view/albums.html:113
+#: webapp/photo_view/templates/photo_view/albums.html:122
+#: webapp/photo_view/templates/photo_view/home.html:48
+#: webapp/photo_view/templates/photo_view/home.html:74
+#: webapp/photo_view/templates/photo_view/media_list.html:152
+#: webapp/photo_view/templates/photo_view/media_list.html:188
+#, fuzzy
+msgid "Loading..."
+msgstr "有効化中..."
+
+#: webapp/admin/templates/admin/admin_users.html:70
+#: webapp/admin/templates/admin/google_accounts.html:44
+#: webapp/auth/templates/auth/google_accounts.html:15
+msgid "Email"
+msgstr "メール"
+
+#: webapp/admin/templates/admin/admin_users.html:71
+#: webapp/admin/templates/admin/google_accounts.html:45
+#: webapp/auth/templates/auth/google_accounts.html:16
+#: webapp/photo_view/templates/photo_view/home.html:56
+#: webapp/photo_view/templates/photo_view/session_detail.html:33
+msgid "Status"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:73
+#: webapp/photo_view/templates/photo_view/home.html:59
+#, fuzzy
+msgid "Created At"
+msgstr "アカウント作成"
+
+#: webapp/admin/templates/admin/admin_users.html:74
+#: webapp/admin/templates/admin/google_accounts.html:50
+#: webapp/admin/templates/admin/permissions.html:52
+#: webapp/admin/templates/admin/roles.html:47
+#: webapp/auth/templates/auth/google_accounts.html:21
+#: webapp/photo_view/templates/photo_view/home.html:61
+msgid "Actions"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:87
+msgid "Loading more users..."
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:91
+msgid "All users loaded"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:98
+msgid "Active"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:99
+msgid "Inactive"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:100
+msgid "users loaded"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:101
+msgid "deactivate"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:102
+msgid "activate"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:103
+msgid "Are you sure you want to"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:104
+msgid "this user?"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:147
+msgid "Deactivate User"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:147
+msgid "Activate User"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:151
+msgid "Edit Roles"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:153
+msgid "Reset TOTP"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:156
+msgid "Delete User"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:194
+msgid "Failed to load users."
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:234
+msgid "Reset TOTP for this user?"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:245
+msgid "TOTP reset successfully"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:247
+#: webapp/admin/templates/admin/admin_users.html:252
+msgid "Failed to reset TOTP"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:257
+msgid "Are you sure you want to delete this user?"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:268
+msgid "User deleted successfully"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:271
+#: webapp/admin/templates/admin/admin_users.html:276
+msgid "Failed to delete user"
+msgstr ""
+
+#: webapp/admin/templates/admin/admin_users.html:297
+#: webapp/admin/templates/admin/admin_users.html:302
+msgid "Failed to update user status"
+msgstr ""
+
+#: webapp/admin/templates/admin/google_accounts.html:2
+#: webapp/admin/templates/admin/google_accounts.html:36
+msgid "Google Accounts Management"
+msgstr ""
+
+#: webapp/admin/templates/admin/google_accounts.html:43
+msgid "User"
+msgstr ""
+
+#: webapp/admin/templates/admin/google_accounts.html:46
+#: webapp/auth/templates/auth/google_accounts.html:17
+msgid "Scopes"
+msgstr ""
+
+#: webapp/admin/templates/admin/google_accounts.html:47
+#: webapp/auth/templates/auth/google_accounts.html:18
+msgid "Last Synced"
+msgstr ""
+
+#: webapp/admin/templates/admin/google_accounts.html:48
+#: webapp/auth/templates/auth/google_accounts.html:19
+msgid "Token"
+msgstr ""
+
+#: webapp/admin/templates/admin/google_accounts.html:49
+#: webapp/auth/templates/auth/google_accounts.html:20
+msgid "Refresh Token Expiry"
+msgstr ""
+
+#: webapp/admin/templates/admin/google_accounts.html:61
+msgid "No User"
+msgstr ""
+
+#: webapp/admin/templates/admin/google_accounts.html:67
+#: webapp/auth/templates/auth/google_accounts.html:30
+msgid "active"
+msgstr ""
+
+#: webapp/admin/templates/admin/google_accounts.html:91
+#: webapp/auth/templates/auth/google_accounts.html:55
+msgid "Disable"
+msgstr ""
+
+#: webapp/admin/templates/admin/google_accounts.html:92
+#: webapp/admin/templates/admin/permissions.html:65
+#: webapp/admin/templates/admin/roles.html:63
+#: webapp/auth/templates/auth/google_accounts.html:56
+msgid "Delete"
+msgstr ""
+
+#: webapp/admin/templates/admin/google_accounts.html:93
+#: webapp/auth/templates/auth/google_accounts.html:58
+msgid "Test"
+msgstr ""
+
+#: webapp/admin/templates/admin/google_accounts.html:130
+msgid "Disable this Google account?"
+msgstr ""
+
+#: webapp/admin/templates/admin/google_accounts.html:137
+msgid "Google account disabled successfully"
+msgstr ""
+
+#: webapp/admin/templates/admin/google_accounts.html:140
+msgid "Failed to disable Google account"
+msgstr ""
+
+#: webapp/admin/templates/admin/google_accounts.html:151
+#, fuzzy
+msgid "Delete this Google account?"
+msgstr "アカウント名を入力："
+
+#: webapp/admin/templates/admin/google_accounts.html:154
+msgid "Google account deleted successfully"
+msgstr ""
+
+#: webapp/admin/templates/admin/google_accounts.html:157
+msgid "Failed to delete Google account"
+msgstr ""
+
+#: webapp/admin/templates/admin/permission_edit.html:2
+#: webapp/admin/templates/admin/permission_edit.html:4
+msgid "Edit Permission"
+msgstr ""
+
+#: webapp/admin/templates/admin/permission_edit.html:2
+#: webapp/admin/templates/admin/permission_edit.html:4
+#: webapp/admin/templates/admin/permissions.html:38
+msgid "Add Permission"
+msgstr ""
+
+#: webapp/admin/templates/admin/permission_edit.html:7
+#: webapp/admin/templates/admin/permissions.html:51
+msgid "Code"
+msgstr ""
+
+#: webapp/admin/templates/admin/permission_edit.html:10
+#: webapp/admin/templates/admin/role_edit.html:19
+msgid "Save"
+msgstr ""
+
+#: webapp/admin/templates/admin/permission_edit.html:11
+#: webapp/admin/templates/admin/role_edit.html:20
+#: webapp/admin/templates/admin/user_add.html:23
+#: webapp/admin/templates/admin/user_role_edit.html:45
+#, fuzzy
+msgid "Cancel"
+msgstr "設定をキャンセル"
+
+#: webapp/admin/templates/admin/permissions.html:2
+#: webapp/admin/templates/admin/permissions.html:35
+msgid "Permission Management"
+msgstr ""
+
+#: webapp/admin/templates/admin/permissions.html:42
+msgid "Search by code"
+msgstr ""
+
+#: webapp/admin/templates/admin/permissions.html:45
+msgid "Search"
+msgstr ""
+
+#: webapp/admin/templates/admin/permissions.html:61
+#: webapp/admin/templates/admin/roles.html:61
+msgid "Edit"
+msgstr ""
+
+#: webapp/admin/templates/admin/permissions.html:64
+msgid "Are you sure you want to delete this permission?"
+msgstr "この権限を削除してもよろしいですか？"
+
+#: webapp/admin/templates/admin/role_edit.html:2
+#: webapp/admin/templates/admin/role_edit.html:4
+msgid "Edit Role"
+msgstr ""
+
+#: webapp/admin/templates/admin/role_edit.html:2
+#: webapp/admin/templates/admin/role_edit.html:4
+#: webapp/admin/templates/admin/roles.html:38
+msgid "Add Role"
+msgstr ""
+
+#: webapp/admin/templates/admin/role_edit.html:7
+#: webapp/admin/templates/admin/roles.html:45
+msgid "Name"
+msgstr ""
+
+#: webapp/admin/templates/admin/roles.html:2
+#: webapp/admin/templates/admin/roles.html:35
+msgid "Role Management"
+msgstr ""
+
+#: webapp/admin/templates/admin/roles.html:62
+msgid "Are you sure you want to delete this role?"
+msgstr ""
+
+#: webapp/admin/templates/admin/user_add.html:11
+#: webapp/auth/templates/auth/login.html:28
+#: webapp/auth/templates/auth/register.html:28
+#: webapp/auth/templates/auth/register_no_totp.html:28
+msgid "Password"
+msgstr "パスワード"
+
+#: webapp/admin/templates/admin/user_add.html:15
+msgid "Role"
+msgstr ""
+
+#: webapp/admin/templates/admin/user_add.html:22
+#, fuzzy
+msgid "Create"
+msgstr "アカウント作成"
+
+#: webapp/admin/templates/admin/user_role_edit.html:2
+#: webapp/admin/templates/admin/user_role_edit.html:5
+msgid "Edit User Roles"
+msgstr ""
+
+#: webapp/admin/templates/admin/user_role_edit.html:11
+msgid "Current User"
+msgstr ""
+
+#: webapp/admin/templates/admin/user_role_edit.html:16
+msgid "Current Roles"
+msgstr ""
+
+#: webapp/admin/templates/admin/user_role_edit.html:23
+msgid "No roles assigned"
+msgstr ""
+
+#: webapp/admin/templates/admin/user_role_edit.html:29
+msgid "Select New Role"
+msgstr ""
+
+#: webapp/admin/templates/admin/user_role_edit.html:31
+msgid "Choose a role..."
+msgstr ""
+
+#: webapp/admin/templates/admin/user_role_edit.html:44
+msgid "Update Role"
+msgstr ""
+
+#: webapp/admin/templates/admin/user_role_edit.html:52
+msgid "Available Roles and Permissions"
+msgstr ""
+
+#: webapp/admin/templates/admin/user_role_edit.html:66
+msgid "No permissions"
+msgstr ""
+
+#: webapp/api/routes.py:1026
+msgid "You cannot deactivate yourself."
+msgstr ""
+
+#: webapp/api/routes.py:1035
+msgid "User status updated successfully."
+msgstr ""
+
+#: webapp/auth/routes.py:59 webapp/auth/routes.py:169
+#, fuzzy
+msgid "Registration successful"
+msgstr "登録が完了しました。ログインしてください。"
+
+#: webapp/auth/routes.py:67 webapp/auth/routes.py:109
+msgid "Email and password are required"
+msgstr "メールアドレスとパスワードは必須です"
+
+#: webapp/auth/routes.py:70 webapp/auth/routes.py:115 webapp/auth/routes.py:226
+msgid "Email already exists"
+msgstr "このメールアドレスは既に登録されています"
+
+#: webapp/auth/routes.py:77
+msgid "Default role 'guest' does not exist"
+msgstr ""
+
+#: webapp/auth/routes.py:93
+msgid "Invalid email or password"
+msgstr "メールアドレスまたはパスワードが正しくありません"
+
+#: webapp/auth/routes.py:97 webapp/auth/routes.py:160 webapp/auth/routes.py:262
+#, fuzzy
+msgid "Invalid authentication code"
+msgstr "認証コード"
+
+#: webapp/auth/routes.py:131 webapp/auth/routes.py:173
+#, python-brace-format
+msgid "Registration failed: {}"
+msgstr "登録に失敗しました: {}"
+
+#: webapp/auth/routes.py:144
+#, fuzzy
+msgid "Session expired. Please register again."
+msgstr "登録セッションが無効です。再度登録してください。"
+
+#: webapp/auth/routes.py:151
+msgid "Registration session invalid. Please register again."
+msgstr "登録セッションが無効です。再度登録してください。"
+
+#: webapp/auth/routes.py:192
+msgid "Registration cancelled. You can start over."
+msgstr "登録がキャンセルされました。最初からやり直せます。"
+
+#: webapp/auth/routes.py:223
+#, fuzzy
+msgid "Email is required"
+msgstr "メールアドレスとパスワードは必須です"
+
+#: webapp/auth/routes.py:232
+msgid "Profile updated"
+msgstr ""
+
+#: webapp/auth/routes.py:241
+#, fuzzy
+msgid "Two-factor authentication already configured"
+msgstr "二要素認証の設定がキャンセルされました。"
+
+#: webapp/auth/routes.py:267
+#, fuzzy
+msgid "Two-factor authentication enabled"
+msgstr "二要素認証の設定がキャンセルされました。"
+
+#: webapp/auth/routes.py:276
+msgid "Two-factor authentication setup cancelled."
+msgstr "二要素認証の設定がキャンセルされました。"
+
+#: webapp/auth/routes.py:283
+msgid "Logged out"
+msgstr "ログアウトしました"
+
+#: webapp/auth/routes.py:292
+#, python-format
+msgid "Google OAuth error: %(msg)s"
+msgstr ""
+
+#: webapp/auth/routes.py:299
+msgid "Invalid OAuth state."
+msgstr ""
+
+#: webapp/auth/routes.py:319
+#, python-format
+msgid "Google token error: %(msg)s"
+msgstr ""
+
+#: webapp/auth/routes.py:322
+#, python-format
+msgid "Failed to obtain token from Google: %(msg)s"
+msgstr ""
+
+#: webapp/auth/routes.py:342
+msgid "Failed to fetch email from Google."
+msgstr ""
+
+#: webapp/auth/routes.py:359
+#, python-format
+msgid "Google account linked: %(email)s"
+msgstr ""
+
+#: webapp/auth/routes.py:369
+msgid "No Google account linked. Please link a Google account first."
+msgstr ""
+
+#: webapp/auth/routes.py:383
+msgid "No refresh token available."
+msgstr ""
+
+#: webapp/auth/routes.py:385
+#, python-format
+msgid "Failed to refresh token: %(msg)s"
+msgstr ""
+
+#: webapp/auth/routes.py:390
+msgid "Failed to obtain access token."
+msgstr ""
+
+#: webapp/auth/routes.py:404
+#, python-format
+msgid "Failed to create picker session: %(msg)s"
+msgstr ""
+
+#: webapp/auth/routes.py:407
+msgid "Invalid response from picker API."
+msgstr ""
+
+#: webapp/auth/routes.py:412
+msgid "Failed to create picker session."
+msgstr ""
+
+#: webapp/auth/templates/auth/edit.html:2
+#: webapp/auth/templates/auth/edit.html:8
+#, fuzzy
+msgid "Edit Profile"
+msgstr "プロフィールに戻る"
+
+#: webapp/auth/templates/auth/edit.html:9
+msgid "Update your account information"
+msgstr ""
+
+#: webapp/auth/templates/auth/edit.html:16
+#: webapp/auth/templates/auth/login.html:16
+#: webapp/auth/templates/auth/register.html:16
+#: webapp/auth/templates/auth/register_no_totp.html:16
+msgid "Email Address"
+msgstr "メールアドレス"
+
+#: webapp/auth/templates/auth/edit.html:23
+#: webapp/auth/templates/auth/login.html:22
+#: webapp/auth/templates/auth/register.html:22
+#: webapp/auth/templates/auth/register_no_totp.html:22
+msgid "Enter your email"
+msgstr "メールアドレスを入力"
+
+#: webapp/auth/templates/auth/edit.html:29
+#, fuzzy
+msgid "New Password"
+msgstr "パスワード"
+
+#: webapp/auth/templates/auth/edit.html:35
+msgid "Leave blank to keep current password"
+msgstr ""
+
+#: webapp/auth/templates/auth/edit.html:40
+#, fuzzy
+msgid "Update Profile"
+msgstr "プロフィールに戻る"
+
+#: webapp/auth/templates/auth/edit.html:49
+#, fuzzy
+msgid "Two-factor authentication is not enabled"
+msgstr "二要素認証の設定がキャンセルされました。"
+
+#: webapp/auth/templates/auth/edit.html:53
+#: webapp/auth/templates/auth/setup_totp.html:59
+msgid "Enable Two-Factor Authentication"
+msgstr "二要素認証を有効にする"
+
+#: webapp/auth/templates/auth/edit.html:60
+#, fuzzy
+msgid "Two-factor authentication is enabled"
+msgstr "二要素認証の設定がキャンセルされました。"
+
+#: webapp/auth/templates/auth/edit.html:67
+#, fuzzy
+msgid "Back to Dashboard"
+msgstr "ダッシュボード"
+
+#: webapp/auth/templates/auth/google_accounts.html:8
+#, fuzzy
+msgid "Add Account"
+msgstr "アカウント作成"
+
+#: webapp/auth/templates/auth/google_accounts.html:54
+msgid "Reauth"
+msgstr ""
+
+#: webapp/auth/templates/auth/google_accounts.html:57
+msgid "Picker"
+msgstr ""
+
+#: webapp/auth/templates/auth/login.html:8
+msgid "Welcome Back"
+msgstr "おかえりなさい"
+
+#: webapp/auth/templates/auth/login.html:9
+msgid "Sign in to your PhotoNest account"
+msgstr "PhotoNestアカウントにサインイン"
+
+#: webapp/auth/templates/auth/login.html:34
+msgid "Enter your password"
+msgstr "パスワードを入力"
+
+#: webapp/auth/templates/auth/login.html:40
+#: webapp/auth/templates/auth/register_totp.html:46
+#: webapp/auth/templates/auth/setup_totp.html:46
+msgid "Authentication Code"
+msgstr "認証コード"
+
+#: webapp/auth/templates/auth/login.html:44
+msgid ""
+"Enter the 6-digit code from your authenticator app (optional if not set "
+"up)"
+msgstr "認証アプリから6桁のコードを入力（設定していない場合は省略可）"
+
+#: webapp/auth/templates/auth/login.html:51
+#: webapp/auth/templates/auth/register_totp.html:53
+#: webapp/auth/templates/auth/setup_totp.html:53
+msgid "000000"
+msgstr "000000"
+
+#: webapp/auth/templates/auth/login.html:57
+#: webapp/auth/templates/auth/login.html:201
+msgid "Sign In"
+msgstr "サインイン"
+
+#: webapp/auth/templates/auth/login.html:62
+msgid "Don't have an account? Sign up"
+msgstr "アカウントをお持ちでない方はこちら"
+
+#: webapp/auth/templates/auth/login.html:133
+msgid "Signing In..."
+msgstr "サインイン中..."
+
+#: webapp/auth/templates/auth/login.html:161
+msgid "Login successful"
+msgstr ""
+
+#: webapp/auth/templates/auth/login.html:175
+#, fuzzy
+msgid "Invalid email, password, or authentication code"
+msgstr "メールアドレスまたはパスワードが正しくありません"
+
+#: webapp/auth/templates/auth/login.html:176
+msgid "Login failed. Please try again."
+msgstr ""
+
+#: webapp/auth/templates/auth/login.html:193
+msgid "Network error. Falling back to standard login."
+msgstr ""
+
+#: webapp/auth/templates/auth/picker.html:2
+#: webapp/auth/templates/auth/picker.html:5
+msgid "Photo Picker"
+msgstr ""
+
+#: webapp/auth/templates/auth/picker.html:10
+msgid "Open Photo Picker"
+msgstr ""
+
+#: webapp/auth/templates/auth/picker.html:19
+msgid "Open Photo View"
+msgstr ""
+
+#: webapp/auth/templates/auth/register.html:2
+#: webapp/auth/templates/auth/register_no_totp.html:2
+#: webapp/templates/base.html:101
+msgid "Register"
+msgstr "新規登録"
+
+#: webapp/auth/templates/auth/register.html:8
+#: webapp/auth/templates/auth/register.html:44
+#: webapp/auth/templates/auth/register_no_totp.html:8
+#: webapp/auth/templates/auth/register_no_totp.html:44
+msgid "Create Account"
+msgstr "アカウント作成"
+
+#: webapp/auth/templates/auth/register.html:9
+msgid "Join PhotoNest and start organizing your memories"
+msgstr "PhotoNestに参加して思い出を整理しましょう"
+
+#: webapp/auth/templates/auth/register.html:34
+#: webapp/auth/templates/auth/register_no_totp.html:34
+msgid "Create a strong password"
+msgstr "強力なパスワードを作成"
+
+#: webapp/auth/templates/auth/register.html:39
+msgid ""
+"Two-factor authentication will be set up in the next step for enhanced "
+"security"
+msgstr "セキュリティ強化のため、次のステップで二要素認証を設定します"
+
+#: webapp/auth/templates/auth/register.html:49
+#: webapp/auth/templates/auth/register_no_totp.html:49
+msgid "Already have an account? Sign in"
+msgstr "既にアカウントをお持ちの方はこちら"
+
+#: webapp/auth/templates/auth/register.html:53
+msgid "Register without two-factor authentication"
+msgstr "二要素認証なしで登録"
+
+#: webapp/auth/templates/auth/register.html:121
+#: webapp/auth/templates/auth/register_no_totp.html:121
+msgid "Creating Account..."
+msgstr "アカウント作成中..."
+
+#: webapp/auth/templates/auth/register_no_totp.html:9
+msgid "Join PhotoNest without two-factor authentication"
+msgstr "二要素認証なしでPhotoNestに参加"
+
+#: webapp/auth/templates/auth/register_no_totp.html:39
+msgid "Note: This account will not have two-factor authentication enabled"
+msgstr "注意：このアカウントでは二要素認証が有効になりません"
+
+#: webapp/auth/templates/auth/register_no_totp.html:53
+msgid "Register with two-factor authentication"
+msgstr "二要素認証ありで登録"
+
+#: webapp/auth/templates/auth/register_totp.html:2
+msgid "Verify TOTP"
+msgstr ""
+
+#: webapp/auth/templates/auth/register_totp.html:8
+#: webapp/auth/templates/auth/setup_totp.html:2
+#: webapp/auth/templates/auth/setup_totp.html:8
+msgid "Setup Two-Factor Authentication"
+msgstr "二要素認証の設定"
+
+#: webapp/auth/templates/auth/register_totp.html:9
+#: webapp/auth/templates/auth/setup_totp.html:9
+msgid "Scan the QR code with your authenticator app and enter the current code"
+msgstr "認証アプリでQRコードをスキャンし、現在のコードを入力してください"
+
+#: webapp/auth/templates/auth/register_totp.html:20
+#: webapp/auth/templates/auth/register_totp.html:334
+#: webapp/auth/templates/auth/setup_totp.html:20
+#: webapp/auth/templates/auth/setup_totp.html:336
+msgid "Show setup key"
+msgstr "設定キーを表示"
+
+#: webapp/auth/templates/auth/register_totp.html:27
+#: webapp/auth/templates/auth/setup_totp.html:27
+msgid ""
+"If you cannot scan the QR code, enter this setup key manually in your "
+"authenticator app:"
+msgstr "QRコードをスキャンできない場合は、この設定キーを認証アプリに手動で入力してください："
+
+#: webapp/auth/templates/auth/register_totp.html:33
+#: webapp/auth/templates/auth/setup_totp.html:33
+msgid "Copy to clipboard"
+msgstr "クリップボードにコピー"
+
+#: webapp/auth/templates/auth/register_totp.html:59
+msgid "Complete Registration"
+msgstr "登録完了"
+
+#: webapp/auth/templates/auth/register_totp.html:67
+msgid "Cancel Registration"
+msgstr "登録をキャンセル"
+
+#: webapp/auth/templates/auth/register_totp.html:296
+msgid "Completing Registration..."
+msgstr "登録完了中..."
+
+#: webapp/auth/templates/auth/register_totp.html:330
+#: webapp/auth/templates/auth/setup_totp.html:332
+msgid "Hide setup key"
+msgstr "設定キーを非表示"
+
+#: webapp/auth/templates/auth/setup_totp.html:64
+msgid "Back to Profile"
+msgstr "プロフィールに戻る"
+
+#: webapp/auth/templates/auth/setup_totp.html:69
+msgid "Cancel Setup"
+msgstr "設定をキャンセル"
+
+#: webapp/auth/templates/auth/setup_totp.html:298
+msgid "Enabling..."
+msgstr "有効化中..."
+
+#: webapp/feature_x/templates/feature_x/dashboard.html:2
+#: webapp/feature_x/templates/feature_x/dashboard.html:4
+#: webapp/templates/base.html:29 webapp/templates/index.html:21
+msgid "Dashboard"
+msgstr "ダッシュボード"
+
+#: webapp/feature_x/templates/feature_x/dashboard.html:5
+msgid "This page requires login."
+msgstr "このページはログインが必要です。"
+
+#: webapp/feature_x/templates/feature_x/dashboard.html:58
+msgid "Manage Users"
+msgstr ""
+
+#: webapp/feature_x/templates/feature_x/dashboard.html:63
+msgid "View Config Settings"
+msgstr ""
+
+#: webapp/feature_x/templates/feature_x/dashboard.html:68
+msgid "Manage Google Accounts"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/albums.html:100
+#: webapp/photo_view/templates/photo_view/home.html:31
+#: webapp/templates/base.html:40
+msgid "Albums"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/albums.html:103
+#: webapp/photo_view/templates/photo_view/media_list.html:171
+msgid "Newest First"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/albums.html:104
+#: webapp/photo_view/templates/photo_view/media_list.html:172
+msgid "Oldest First"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/albums.html:124
+msgid "Loading more albums..."
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/albums.html:128
+msgid "All albums loaded"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/albums.html:133
+msgid "No Albums Found"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/albums.html:134
+msgid "Albums will appear here when they are created from your media collection."
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/albums.html:173
+msgid "photos"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/albums.html:228
+msgid "Failed to load albums. Please try again."
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/home.html:13
+msgid "Create New Session"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/home.html:26
+msgid "View Media Gallery"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/home.html:46
+msgid "All Picker Sessions"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/home.html:55
+msgid "Session ID"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/home.html:57
+#, fuzzy
+msgid "Selected Count"
+msgstr "アカウント作成"
+
+#: webapp/photo_view/templates/photo_view/home.html:58
+msgid "File Status"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/home.html:60
+msgid "Last Progress"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/home.html:76
+msgid "Loading more sessions..."
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/home.html:80
+msgid "All sessions loaded"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/home.html:129
+msgid "View Details"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/home.html:130
+#: webapp/photo_view/templates/photo_view/session_detail.html:16
+msgid "Start Import"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/home.html:188
+#: webapp/photo_view/templates/photo_view/home.html:197
+#: webapp/photo_view/templates/photo_view/session_detail.html:136
+#: webapp/photo_view/templates/photo_view/session_detail.html:137
+#: webapp/photo_view/templates/photo_view/session_detail.html:145
+#: webapp/photo_view/templates/photo_view/session_detail.html:146
+msgid "Failed to start import."
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/home.html:192
+#: webapp/photo_view/templates/photo_view/session_detail.html:141
+#: webapp/photo_view/templates/photo_view/session_detail.html:142
+msgid "Import started."
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/media_detail.html:147
+msgid "Back"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/media_detail.html:150
+msgid "Download"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/media_detail.html:185
+msgid "Basic Information"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/media_detail.html:192
+msgid "Technical Details"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/media_detail.html:199
+msgid "EXIF Data"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/media_list.html:151
+#: webapp/templates/base.html:38
+msgid "Media Gallery"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/media_list.html:158
+msgid "All Media"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/media_list.html:159
+msgid "Photos Only"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/media_list.html:160
+msgid "Videos Only"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/media_list.html:165
+msgid "Size"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/media_list.html:190
+msgid "Loading more media..."
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/media_list.html:194
+msgid "All media loaded"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/media_list.html:303
+msgid "Failed to load media. Please try again."
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:10
+msgid "Session Details"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:11
+msgid "Back to Sessions"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:26
+msgid "Selected Files"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:32
+msgid "File"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:34
+msgid "Attempts"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:35
+#: webapp/templates/error.html:2 webapp/templates/error.html:4
+msgid "Error"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:108
+msgid "Working..."
+msgstr ""
+
+#: webapp/templates/base.html:34 webapp/templates/index.html:34
+msgid "Photo View"
+msgstr ""
+
+#: webapp/templates/base.html:37
+msgid "Sessions"
+msgstr ""
+
+#: webapp/templates/base.html:43
+msgid "Settings"
+msgstr ""
+
+#: webapp/templates/base.html:87
+msgid "Photo View Admin"
+msgstr ""
+
+#: webapp/templates/base.html:88
+msgid "Photo Exports"
+msgstr ""
+
+#: webapp/templates/base.html:94
+msgid "Logout"
+msgstr "ログアウト"
+
+#: webapp/templates/index.html:2
+msgid "Top"
+msgstr "トップ"
+
+#: webapp/templates/index.html:5
+msgid "Welcome!"
+msgstr "ようこそ！"
+
+#: webapp/templates/index.html:8
+msgid "You are logged in."
+msgstr "ログイン済みです。"
+
+#: webapp/templates/index.html:10
+msgid "Please login to continue."
+msgstr "続行するにはログインしてください。"
+
+#~ msgid "Create account"
+#~ msgstr "アカウント作成"
+
+#~ msgid ""
+#~ "Scan the QR code with your "
+#~ "authenticator app and enter the current"
+#~ " code."
+#~ msgstr ""
+#~ "Scan the QR code with your "
+#~ "authenticator app and enter the current"
+#~ " code."
+
+#~ msgid "If you cannot scan the QR code, add this secret manually in your app:"
+#~ msgstr "QRコードを読み取れない場合は、以下のシークレットをアプリに登録してください。"
+
+#~ msgid "Next"
+#~ msgstr "次へ"
+
+#~ msgid "Manual setup instructions:"
+#~ msgstr "手動設定の手順："
+
+#~ msgid "Open your authenticator app (Google Authenticator, Authy, etc.)"
+#~ msgstr "認証アプリ（Google Authenticator、Authy等）を開く"
+
+#~ msgid "Select \"Add account\" or \"+\""
+#~ msgstr "「アカウント追加」または「+」を選択"
+
+#~ msgid "Choose \"Enter a setup key\" or \"Manual entry\""
+#~ msgstr "「設定キーを入力」または「手動入力」を選択"
+
+#~ msgid "Enter the setup key shown above"
+#~ msgstr "上記の設定キーを入力"
+
+#~ msgid "Select \"Time-based\" if asked"
+#~ msgstr "時間ベース（Time-based）を選択（聞かれた場合）"
+
+#~ msgid "Save and enter the 6-digit code below"
+#~ msgstr "保存して下記に6桁のコードを入力"
+
+msgid "Created"
+msgstr "作成"
+
+msgid "Updated"
+msgstr "更新"
+
+msgid "Unknown"
+msgstr "不明"
+
+msgid "Page Information"
+msgstr "ページ情報"
+
+msgid "Created Date"
+msgstr "作成日"
+
+msgid "Created By"
+msgstr "作成者"
+
+msgid "Slug"
+msgstr "スラッグ"
+
+msgid "Statistics"
+msgstr "統計"
+
+msgid "Total Revisions"
+msgstr "総リビジョン数"
+
+msgid "Last Updated"
+msgstr "最終更新"
+
+msgid "Last Updated By"
+msgstr "最終更新者"
+
+msgid "Current Title"
+msgstr "現在のタイトル"
+
+msgid "Title"
+msgstr "タイトル"
+
+msgid "Content Length"
+msgstr "内容長"
+
+msgid "characters"
+msgstr "文字"
+
+msgid "Show Content"
+msgstr "内容を表示"
+
+msgid "Hide Content"
+msgstr "内容を隠す"
+
+msgid "Page content at this point"
+msgstr "この時点でのページ内容"
+
+msgid "Change History"
+msgstr "変更履歴"
+
+msgid "No History"
+msgstr "履歴がありません"
+
+msgid "This page has no change history yet."
+msgstr "このページの変更履歴はまだありません。"
+
+msgid "Back to Page"
+msgstr "ページに戻る"
+
+msgid "Wiki Top"
+msgstr "Wiki トップ"
+
+msgid "Categories"
+msgstr "カテゴリ"
+
+msgid "Page Hierarchy"
+msgstr "ページ階層"
+
+msgid "No pages available"
+msgstr "ページがありません"
+
+msgid "New Page"
+msgstr "新規ページ"
+
+msgid "Admin"
+msgstr "管理"
+
+msgid "Search pages..."
+msgstr "ページを検索..."
+
+msgid "Recently Updated Pages"
+msgstr "最近更新されたページ"
+
+msgid "No pages yet."
+msgstr "まだページがありません。"
+
+msgid "Create New Page"
+msgstr "新規ページ作成"
+
+msgid "Back to Wiki Top"
+msgstr "Wiki トップに戻る"
+
+msgid "No categories"
+msgstr "カテゴリなし"
+
+msgid "Navigation"
+msgstr "ナビゲーション"
+
+msgid "Search"
+msgstr "検索"
+
+msgid "Edit"
+msgstr "編集"
+
+msgid "History"
+msgstr "履歴"
+
+msgid "Sub Pages"
+msgstr "サブページ"
+
+msgid "Parent Page"
+msgstr "親ページ"
+

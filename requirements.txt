@@ -1,23 +1,24 @@
+# 本番環境で必要な依存関係
 Flask
-Flask-Babel
+flask-babel
 Flask-Login
-Flask-Migrate
 Flask-SQLAlchemy
-Pillow
+pillow
 PyMySQL
 click
 cryptography
-httpx
 pyotp
-pytest
 python-dotenv
 qrcode
 requests
-typer
-Celery
+celery
 redis
 PyJWT
-markdown
-alembic
+Markdown
 python-dateutil
 MarkupSafe
+
+# 開発環境でのみ必要な依存関係
+Flask-Migrate
+alembic
+pytest

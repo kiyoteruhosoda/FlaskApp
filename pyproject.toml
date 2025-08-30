@@ -19,8 +19,6 @@ authors = [
     dependencies = [                       # インストール時の依存関係
         "flask",
         "click",
-        "httpx",
-        "typer",
         "PyJWT"
     ]
 requires-python = ">=3.10"

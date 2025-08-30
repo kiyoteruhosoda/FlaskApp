@@ -1,0 +1,294 @@
+{% extends 'base.html' %}
+{% block title %}Photo View Admin Settings{% endblock %}
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">Photo View Admin Settings</h1>
+    
+    <!-- ローカルインポート設定 -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="card-title">ローカルファイル取り込み</h3>
+        </div>
+        <div class="card-body">
+            <div id="local-import-status" class="mb-3">
+                <div class="spinner-border spinner-border-sm me-2" role="status">
+                    <span class="visually-hidden">読み込み中...</span>
+                </div>
+                設定を読み込み中...
+            </div>
+            
+            <div id="local-import-controls" style="display: none;">
+                <div class="mb-3">
+                    <label class="form-label">取り込みディレクトリ:</label>
+                    <code id="import-dir"></code>
+                    <span id="import-dir-status" class="badge ms-2"></span>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">保存先ディレクトリ:</label>
+                    <code id="originals-dir"></code>
+                    <span id="originals-dir-status" class="badge ms-2"></span>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">取り込み待ちファイル数:</label>
+                    <span id="pending-files" class="badge bg-info fs-6">0</span>
+                </div>
+                
+                <div class="d-grid gap-2 d-md-flex">
+                    <button id="refresh-status-btn" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-clockwise"></i> 状態を更新
+                    </button>
+                    <button id="start-import-btn" class="btn btn-primary" disabled>
+                        <i class="bi bi-upload"></i> 取り込み開始
+                    </button>
+                </div>
+                
+                <div id="import-result" class="mt-3" style="display: none;"></div>
+                
+                <!-- 進行状況表示 -->
+                <div id="import-progress" class="mt-3" style="display: none;">
+                    <h5>取り込み進行状況</h5>
+                    <div class="progress mb-2">
+                        <div id="progress-bar" class="progress-bar" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                    </div>
+                    <div id="progress-status" class="mb-2">
+                        <small class="text-muted">準備中...</small>
+                    </div>
+                    <div id="progress-details" class="mb-2" style="display: none;">
+                        <small><span id="progress-current">0</span> / <span id="progress-total">0</span> ファイル処理済み</small>
+                    </div>
+                    <div id="progress-message" class="mb-2">
+                        <small class="text-info"></small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- その他の設定（将来の拡張用） -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="card-title">その他の設定</h3>
+        </div>
+        <div class="card-body">
+            <p class="text-muted">その他の管理機能は今後追加予定です。</p>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const statusDiv = document.getElementById('local-import-status');
+    const controlsDiv = document.getElementById('local-import-controls');
+    const importDirEl = document.getElementById('import-dir');
+    const importDirStatusEl = document.getElementById('import-dir-status');
+    const originalsDirEl = document.getElementById('originals-dir');
+    const originalsDirStatusEl = document.getElementById('originals-dir-status');
+    const pendingFilesEl = document.getElementById('pending-files');
+    const refreshBtn = document.getElementById('refresh-status-btn');
+    const startImportBtn = document.getElementById('start-import-btn');
+    const resultDiv = document.getElementById('import-result');
+    
+    // 進行状況表示要素
+    const progressDiv = document.getElementById('import-progress');
+    const progressBar = document.getElementById('progress-bar');
+    const progressStatus = document.getElementById('progress-status');
+    const progressDetails = document.getElementById('progress-details');
+    const progressCurrent = document.getElementById('progress-current');
+    const progressTotal = document.getElementById('progress-total');
+    const progressMessage = document.getElementById('progress-message');
+    
+    let currentTaskId = null;
+    let progressInterval = null;
+    
+    // ステータス取得
+    async function loadStatus() {
+        try {
+            const response = await fetch('/api/sync/local-import/status');
+            const data = await response.json();
+            
+            // UI更新
+            importDirEl.textContent = data.config.import_dir || '未設定';
+            importDirStatusEl.textContent = data.config.import_dir_exists ? '存在' : '存在しない';
+            importDirStatusEl.className = `badge ms-2 ${data.config.import_dir_exists ? 'bg-success' : 'bg-danger'}`;
+            
+            originalsDirEl.textContent = data.config.originals_dir || '未設定';
+            originalsDirStatusEl.textContent = data.config.originals_dir_exists ? '存在' : '存在しない';
+            originalsDirStatusEl.className = `badge ms-2 ${data.config.originals_dir_exists ? 'bg-success' : 'bg-danger'}`;
+            
+            pendingFilesEl.textContent = data.status.pending_files;
+            
+            // ボタンの有効/無効化
+            startImportBtn.disabled = !data.status.ready || data.status.pending_files === 0;
+            
+            // 表示切替
+            statusDiv.style.display = 'none';
+            controlsDiv.style.display = 'block';
+            
+        } catch (error) {
+            statusDiv.innerHTML = '<div class="alert alert-danger">設定の読み込みに失敗しました: ' + error.message + '</div>';
+        }
+    }
+    
+    // 進行状況チェック
+    async function checkProgress(taskId) {
+        try {
+            const response = await fetch(`/api/sync/local-import/task/${taskId}`);
+            const data = await response.json();
+            
+            if (data.state === 'PROGRESS') {
+                // 進行状況を更新
+                const progress = data.progress || 0;
+                progressBar.style.width = `${progress}%`;
+                progressBar.setAttribute('aria-valuenow', progress);
+                progressBar.textContent = `${progress}%`;
+                
+                progressStatus.innerHTML = `<small class="text-info">${data.status || '処理中...'}</small>`;
+                
+                if (data.current && data.total) {
+                    progressCurrent.textContent = data.current;
+                    progressTotal.textContent = data.total;
+                    progressDetails.style.display = 'block';
+                }
+                
+                if (data.message) {
+                    progressMessage.innerHTML = `<small class="text-info">${data.message}</small>`;
+                }
+                
+            } else if (data.state === 'SUCCESS') {
+                // 完了
+                clearInterval(progressInterval);
+                progressBar.style.width = '100%';
+                progressBar.setAttribute('aria-valuenow', 100);
+                progressBar.textContent = '100%';
+                progressBar.classList.add('bg-success');
+                
+                progressStatus.innerHTML = '<small class="text-success">完了</small>';
+                
+                // 結果を表示
+                const result = data.result;
+                if (result) {
+                    let resultHtml = `
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle"></i> 取り込み完了
+                            <br><small>
+                                処理済み: ${result.processed || 0}件, 
+                                成功: ${result.success || 0}件, 
+                                スキップ: ${result.skipped || 0}件, 
+                                失敗: ${result.failed || 0}件
+                            </small>
+                        </div>
+                    `;
+                    
+                    // 詳細情報がある場合は表示
+                    if (result.details && result.details.length > 0) {
+                        resultHtml += '<div class="mt-2"><h6>詳細:</h6><ul class="list-group list-group-flush">';
+                        result.details.forEach(detail => {
+                            const statusIcon = detail.status === 'success' ? 'check-circle text-success' : 
+                                             detail.status === 'skipped' ? 'skip-forward text-warning' : 
+                                             'x-circle text-danger';
+                            resultHtml += `<li class="list-group-item"><i class="bi bi-${statusIcon}"></i> ${detail.file}: ${detail.reason}</li>`;
+                        });
+                        resultHtml += '</ul></div>';
+                    }
+                    
+                    resultDiv.innerHTML = resultHtml;
+                }
+                
+                resultDiv.style.display = 'block';
+                progressDiv.style.display = 'none';
+                
+                // ステータス更新
+                setTimeout(loadStatus, 2000);
+                
+            } else if (data.state === 'FAILURE' || data.state === 'ERROR') {
+                // エラー
+                clearInterval(progressInterval);
+                progressBar.classList.add('bg-danger');
+                progressStatus.innerHTML = '<small class="text-danger">エラー</small>';
+                
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle"></i> エラー: ${data.error || '不明なエラー'}
+                    </div>
+                `;
+                resultDiv.style.display = 'block';
+                progressDiv.style.display = 'none';
+            }
+            
+        } catch (error) {
+            console.error('Progress check failed:', error);
+        }
+    }
+    
+    // インポート実行
+    async function startImport() {
+        startImportBtn.disabled = true;
+        startImportBtn.innerHTML = '<div class="spinner-border spinner-border-sm me-2" role="status"></div>実行中...';
+        
+        try {
+            const response = await fetch('/api/sync/local-import', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // タスクIDを保存
+                currentTaskId = data.task_id;
+                
+                // 進行状況表示を開始
+                progressDiv.style.display = 'block';
+                resultDiv.style.display = 'none';
+                
+                // 進行状況をリセット
+                progressBar.style.width = '0%';
+                progressBar.setAttribute('aria-valuenow', 0);
+                progressBar.textContent = '0%';
+                progressBar.classList.remove('bg-success', 'bg-danger');
+                progressStatus.innerHTML = '<small class="text-info">開始...</small>';
+                progressDetails.style.display = 'none';
+                progressMessage.innerHTML = '';
+                
+                // 進行状況の監視を開始
+                progressInterval = setInterval(() => {
+                    if (currentTaskId) {
+                        checkProgress(currentTaskId);
+                    }
+                }, 1000); // 1秒ごとにチェック
+                
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle"></i> エラー: ${data.error}
+                    </div>
+                `;
+                resultDiv.style.display = 'block';
+            }
+            
+        } catch (error) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i> リクエストエラー: ${error.message}
+                </div>
+            `;
+            resultDiv.style.display = 'block';
+        } finally {
+            startImportBtn.innerHTML = '<i class="bi bi-upload"></i> 取り込み開始';
+            startImportBtn.disabled = false;
+        }
+    }
+    
+    // イベントリスナー
+    refreshBtn.addEventListener('click', loadStatus);
+    startImportBtn.addEventListener('click', startImport);
+    
+    // 初期読み込み
+    loadStatus();
+});
+</script>
+{% endblock %}

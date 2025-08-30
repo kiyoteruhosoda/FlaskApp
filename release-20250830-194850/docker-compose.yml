@@ -1,0 +1,115 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    image: photonest:latest
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=mysql+pymysql://photonest_user:${DB_PASSWORD}@db:3306/photonest
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - AES_KEY=${AES_KEY}
+    env_file:
+      - .env.production
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - media_data:/app/data/media
+      - thumb_data:/app/data/thumbs
+      - playback_data:/app/data/playback
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  worker:
+    build: .
+    image: photonest:latest
+    command: celery -A cli.src.celery.tasks worker --loglevel=info --concurrency=2
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=mysql+pymysql://photonest_user:${DB_PASSWORD}@db:3306/photonest
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - AES_KEY=${AES_KEY}
+    env_file:
+      - .env.production
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - media_data:/app/data/media
+      - thumb_data:/app/data/thumbs
+      - playback_data:/app/data/playback
+    restart: unless-stopped
+
+  beat:
+    build: .
+    image: photonest:latest
+    command: celery -A cli.src.celery.tasks beat --loglevel=info
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=mysql+pymysql://photonest_user:${DB_PASSWORD}@db:3306/photonest
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - AES_KEY=${AES_KEY}
+    env_file:
+      - .env.production
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  db:
+    image: mariadb:10.11
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+      - MYSQL_DATABASE=photonest
+      - MYSQL_USER=photonest_user
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "3306:3306"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mariadb_data:
+  redis_data:
+  media_data:
+  thumb_data:
+  playback_data:

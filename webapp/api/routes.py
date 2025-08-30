@@ -193,7 +193,7 @@ def api_refresh():
 
 
 @bp.post("/google/oauth/start")
-@login_required
+@login_or_jwt_required
 def google_oauth_start():
     """Start Google OAuth flow by returning an authorization URL."""
     data = request.get_json(silent=True) or {}
@@ -259,7 +259,7 @@ def api_google_accounts():
 
 
 @bp.patch("/google/accounts/<int:account_id>")
-@login_required
+@login_or_jwt_required
 def api_google_account_update(account_id):
     """Update status of a Google account."""
     account = GoogleAccount.query.get_or_404(account_id)
@@ -273,7 +273,7 @@ def api_google_account_update(account_id):
 
 
 @bp.delete("/google/accounts/<int:account_id>")
-@login_required
+@login_or_jwt_required
 def api_google_account_delete(account_id):
     """Delete a linked Google account and revoke token."""
     account = GoogleAccount.query.get_or_404(account_id)
@@ -295,7 +295,7 @@ def api_google_account_delete(account_id):
 
 
 @bp.post("/google/accounts/<int:account_id>/test")
-@login_required
+@login_or_jwt_required
 def api_google_account_test(account_id):
     """Test refresh token by attempting to obtain a new access token."""
     account = GoogleAccount.query.get_or_404(account_id)
@@ -878,7 +878,7 @@ def trigger_local_import():
 
 
 @bp.get("/sync/local-import/status")
-@login_required
+@login_or_jwt_required
 def local_import_status():
     """ローカルインポートの設定と状態を取得"""
     from webapp.config import Config
@@ -917,7 +917,7 @@ def local_import_status():
 
 
 @bp.get("/sync/local-import/task/<task_id>")
-@login_required
+@login_or_jwt_required
 def get_local_import_task_result(task_id):
     """ローカルインポートタスクの結果を取得"""
     from cli.src.celery.celery_app import celery

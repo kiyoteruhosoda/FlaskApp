@@ -116,11 +116,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function getCsrfTokenFromCookie() {
-    const m = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
-    return m ? decodeURIComponent(m[1]) : null;
-  }
-
   function createSessionRow(session) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -183,16 +178,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.startImport = async function(sessionId) {
     try {
-      const headers = {};
-      const csrf = getCsrfTokenFromCookie();
-      if (csrf) headers['X-CSRFToken'] = csrf;
-
       showInfoToast('インポートを開始しています...', 3000);
 
-      const resp = await fetch(`/api/picker/session/${sessionId}/import`, {
-        method: 'POST',
-        headers
-      });
+      const resp = await window.apiClient.post(`/api/picker/session/${sessionId}/import`);
 
       if (!resp.ok) {
         const text = await resp.text().catch(() => '');
@@ -231,17 +219,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     try {
-      const headers = {};
-      const csrf = getCsrfTokenFromCookie();
-      if (csrf) headers['X-CSRFToken'] = csrf;
-
       // インポート開始の通知
       showInfoToast('ローカルインポートを開始しています...', 3000);
 
-      const resp = await fetch('/api/sync/local-import', {
-        method: 'POST',
-        headers
-      });
+      const resp = await window.apiClient.post('/api/sync/local-import');
 
       if (!resp.ok) {
         const text = await resp.text().catch(() => '');
@@ -265,12 +246,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 認証状態をチェックし、必要に応じてリダイレクト
   function checkAuthAndRedirect() {
-    // 簡単な認証チェック用のAPIエンドポイント呼び出し
-    fetch('/api/picker/sessions', {
-      method: 'HEAD',  // データは不要なのでHEADリクエスト
-      headers: {
-        'Content-Type': 'application/json'
-      }
+    // APIクライアントが自動的に認証チェックとリフレッシュを処理するため、
+    // 単純なAPIコールを行うだけで十分
+    window.apiClient.get('/api/picker/sessions', {
+      method: 'HEAD'
     }).then(response => {
       if (response.status === 401 || response.status === 302) {
         // 認証が必要な場合はログインページにリダイレクト

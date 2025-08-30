@@ -18,11 +18,12 @@ from .picker_session_service import (
 )
 from core.tasks.picker_import import enqueue_picker_import_item  # re-export for tests
 from .pagination import PaginationParams, paginate_and_respond
+from .routes import login_or_jwt_required  # JWT認証対応のデコレータをインポート
 
 bp = Blueprint('picker_session_api', __name__)
 
 @bp.get("/picker/sessions")
-@login_required
+@login_or_jwt_required
 def api_picker_sessions_list():
     """Return paginated list of all picker sessions."""
     
@@ -84,7 +85,7 @@ def api_picker_sessions_list():
     })
 
 @bp.post("/picker/session")
-@login_required
+@login_or_jwt_required
 def api_picker_session_create():
     """Create a Google Photos Picker session."""
     data = request.get_json(silent=True) or {}
@@ -163,7 +164,7 @@ def api_picker_session_callback(session_id):
 
 
 @bp.get("/picker/session/<int:picker_session_id>")
-@login_required
+@login_or_jwt_required
 def api_picker_session_summary(picker_session_id):
     """Return selection counts and job summary for picker session."""
     ps = PickerSession.query.get(picker_session_id)
@@ -197,7 +198,7 @@ def api_picker_session_summary(picker_session_id):
 
 
 @bp.get("/picker/session/<int:picker_session_id>/selections")
-@login_required
+@login_or_jwt_required
 def api_picker_session_selections(picker_session_id: int):
     """Return detailed picker selection list for a session (DEPRECATED: Use session_id instead)."""
     # セキュリティ改善：数値IDの使用を拒否
@@ -205,7 +206,7 @@ def api_picker_session_selections(picker_session_id: int):
 
 
 @bp.get("/picker/session/<path:session_id>/selections")
-@login_required
+@login_or_jwt_required
 def api_picker_session_selections_by_session_id(session_id: str):
     """Return paginated selection list using external ``session_id`` string.
 
@@ -226,7 +227,7 @@ def api_picker_session_selections_by_session_id(session_id: str):
 
 
 @bp.get("/picker/session/<string:session_id>")
-@login_required
+@login_or_jwt_required
 def api_picker_session_status(session_id):
     """Return status of a picker session."""
     ps = PickerSessionService.resolve_session_identifier(session_id)
@@ -247,14 +248,14 @@ def api_picker_session_status(session_id):
 
 
 @bp.get("/picker/session/picker_sessions/<string:uuid>")
-@login_required
+@login_or_jwt_required
 def api_picker_session_status_prefixed(uuid: str):
     """Alias for status that accepts the picker_sessions prefix as a segment."""
     return api_picker_session_status(f"picker_sessions/{uuid}")
 
 
 @bp.post("/picker/session/mediaItems")
-@login_required
+@login_or_jwt_required
 def api_picker_session_media_items():
     """Fetch selected media items from Google Photos Picker and store them."""
     data = request.get_json(silent=True) or {}
@@ -302,7 +303,7 @@ def api_picker_session_media_items():
 
 
 @bp.post("/picker/session/<int:picker_session_id>/import")
-@login_required
+@login_or_jwt_required
 def api_picker_session_import(picker_session_id: int):
     """Enqueue import task for picker session (DEPRECATED: Use session_id instead)."""
     # セキュリティ改善：数値IDの使用を拒否
@@ -310,7 +311,7 @@ def api_picker_session_import(picker_session_id: int):
 
 
 @bp.post("/picker/session/<path:session_id>/import")
-@login_required
+@login_or_jwt_required
 def api_picker_session_import_by_session_id(session_id: str):
     """Enqueue import task using external ``session_id``.
 
@@ -358,7 +359,7 @@ def api_picker_session_import_by_session_id(session_id: str):
 
 
 @bp.post("/picker/session/<int:picker_session_id>/finish")
-@login_required
+@login_or_jwt_required
 def api_picker_session_finish(picker_session_id):
     data = request.get_json(silent=True) or {}
     status = data.get("status")

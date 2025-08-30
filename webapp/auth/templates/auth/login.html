@@ -9,7 +9,7 @@
       <p class="login-subtitle">{{ _('Sign in to your PhotoNest account') }}</p>
     </div>
     
-    <form method="post" class="login-form">
+    <form method="post" class="login-form" id="loginForm">
       <div class="form-group">
         <label for="email" class="form-label">
           <i class="fas fa-envelope"></i>
@@ -121,12 +121,85 @@ footer {
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   // Add loading state to form submission
-  const form = document.querySelector('.login-form');
+  const form = document.getElementById('loginForm');
   const submitBtn = document.querySelector('.btn-login');
+  const originalFormAction = form.action;
   
-  form.addEventListener('submit', function() {
+  // APIベースの認証処理
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
     submitBtn.classList.add('loading');
     submitBtn.innerHTML = '<span style="opacity: 0;">{{ _("Signing In...") }}</span>';
+    
+    try {
+      const formData = new FormData(form);
+      const loginData = {
+        email: formData.get('email'),
+        password: formData.get('password'),
+        token: formData.get('token') || null
+      };
+      
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(loginData)
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        
+        // リフレッシュトークンをlocalStorageに保存
+        if (result.refresh_token) {
+          localStorage.setItem('refresh_token', result.refresh_token);
+        }
+        
+        // ログイン成功メッセージ
+        if (typeof showSuccessToast === 'function') {
+          showSuccessToast('{{ _("Login successful") }}');
+        }
+        
+        // リダイレクト処理
+        const redirectPath = localStorage.getItem('redirect_after_login');
+        if (redirectPath) {
+          localStorage.removeItem('redirect_after_login');
+          window.location.href = redirectPath;
+        } else {
+          window.location.href = '{{ url_for("feature_x.dashboard") }}';
+        }
+      } else {
+        const errorData = await response.json();
+        const errorMessage = errorData.error === 'invalid_credentials' 
+          ? '{{ _("Invalid email, password, or authentication code") }}'
+          : '{{ _("Login failed. Please try again.") }}';
+        
+        if (typeof showErrorToast === 'function') {
+          showErrorToast(errorMessage);
+        } else {
+          alert(errorMessage);
+        }
+        
+        // フォールバック: 従来のフォーム送信
+        form.action = originalFormAction;
+        form.submit();
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      
+      // ネットワークエラーの場合は従来のフォーム送信にフォールバック
+      if (typeof showErrorToast === 'function') {
+        showErrorToast('{{ _("Network error. Falling back to standard login.") }}');
+      }
+      
+      form.action = originalFormAction;
+      form.submit();
+    } finally {
+      // ローディング状態を解除
+      submitBtn.classList.remove('loading');
+      submitBtn.innerHTML = '<i class="fas fa-sign-in-alt" style="margin-right: 8px;"></i>{{ _("Sign In") }}';
+    }
   });
   
   // Auto-format authentication code

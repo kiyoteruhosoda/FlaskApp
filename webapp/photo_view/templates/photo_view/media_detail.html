@@ -227,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadMediaDetail() {
     try {
       console.log('Loading media detail for ID:', mediaId);
-      const response = await fetch(`/api/media/${mediaId}`);
+      const response = await window.apiClient.get(`/api/media/${mediaId}`);
       if (!response.ok) {
         throw new Error(`Media not found: ${response.status}`);
       }
@@ -240,7 +240,13 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       console.error('Error loading media:', error);
       loadingOverlay.style.display = 'none';
-      mediaDisplay.innerHTML = '<div class="text-center text-danger p-5"><h4>Error loading media</h4><p>The requested media could not be found or loaded.</p></div>';
+      
+      // 認証エラーの場合は自動的にリダイレクト処理が実行される
+      if (error.message.includes('401')) {
+        mediaDisplay.innerHTML = '<div class="text-center text-warning p-5"><h4>認証が必要です</h4><p>ログインページにリダイレクトしています...</p></div>';
+      } else {
+        mediaDisplay.innerHTML = '<div class="text-center text-danger p-5"><h4>Error loading media</h4><p>The requested media could not be found or loaded.</p></div>';
+      }
     }
   }
   
@@ -361,10 +367,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // ダウンロード
   downloadBtn.addEventListener('click', async () => {
     try {
-      const response = await fetch(`/api/media/${mediaId}/thumb-url`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ size: 2048 })
+      const response = await window.apiClient.post(`/api/media/${mediaId}/thumb-url`, {
+        size: 2048
       });
       
       if (response.ok) {
@@ -373,6 +377,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (error) {
       console.error('Download error:', error);
+      if (typeof showErrorToast === 'function') {
+        showErrorToast('ダウンロードに失敗しました');
+      }
     }
   });
   

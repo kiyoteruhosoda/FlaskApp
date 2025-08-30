@@ -79,15 +79,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const sessionInfoEl = document.getElementById('session-info');
   let isLocalImport = false;
 
-  function getCsrfTokenFromCookie() {
-    // Flask-WTF の既定名が "csrf_token" の想定。環境に合わせて変更してください。
-    const m = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
-    return m ? decodeURIComponent(m[1]) : null;
-  }
-
   async function checkSessionInfo() {
     try {
-      const resp = await fetch(`/api/picker/session/${encodeURIComponent(pickerSessionId)}`);
+      const resp = await window.apiClient.get(`/api/picker/session/${encodeURIComponent(pickerSessionId)}`);
       if (resp.ok) {
         const sessionData = await resp.json();
         
@@ -134,15 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     await withBusy(importBtn, async () => {
       try {
-        const headers = {};
-        const csrf = getCsrfTokenFromCookie();
-        if (csrf) headers['X-CSRFToken'] = csrf;
-
-        const resp = await fetch(`/api/picker/session/${encodeURIComponent(pickerSessionId)}/import`, {
-          method: 'POST',
-          headers
-          // body が不要なら送らない。必要なら JSON を設定し Content-Type を追加。
-        });
+        const resp = await window.apiClient.post(`/api/picker/session/${encodeURIComponent(pickerSessionId)}/import`);
 
         if (!resp.ok) {
           const text = await resp.text().catch(() => '');
@@ -209,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // セッション情報を取得してステータスを確認
     let sessionStatus = 'unknown';
     try {
-      const sessionResp = await fetch(`/api/picker/sessions?pageSize=1`);
+      const sessionResp = await window.apiClient.get(`/api/picker/sessions?pageSize=1`);
       if (sessionResp.ok) {
         const sessionData = await sessionResp.json();
         const currentSession = sessionData.sessions.find(s => s.sessionId === pickerSessionId);
@@ -273,7 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
       await paginationClient.loadFirst();
 
       // 別途カウント情報を取得（カウントは全体の情報が必要なため）
-      const countResp = await fetch(`/api/picker/session/${encodeURIComponent(pickerSessionId)}/selections?pageSize=1`);
+      const countResp = await window.apiClient.get(`/api/picker/session/${encodeURIComponent(pickerSessionId)}/selections?pageSize=1`);
       if (countResp.ok) {
         const countData = await countResp.json();
         if (countData.counts && Object.keys(countData.counts).length > 0) {

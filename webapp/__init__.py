@@ -227,6 +227,11 @@ def create_app():
         # HTML レスポンスを生成
         return make_response(render_template("index.html"))
 
+    # テストページ（デバッグ用）
+    @app.route("/test/session-refresh")
+    def test_session_refresh():
+        return render_template("test_session_refresh.html")
+
     # 言語切替（/lang/ja, /lang/en）
     @app.get("/lang/<lang_code>")
     def set_lang(lang_code):

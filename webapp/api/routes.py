@@ -38,6 +38,7 @@ from .pagination import PaginationParams, paginate_and_respond
 from flask_login import current_user
 from application.auth_service import AuthService
 from infrastructure.user_repository import SqlAlchemyUserRepository
+from ..services.token_service import TokenService
 import jwt
 
 
@@ -62,25 +63,13 @@ def jwt_required(f):
         if not token:
             return jsonify({'error': 'token_missing'}), 401
         
-        try:
-            payload = jwt.decode(
-                token,
-                current_app.config['JWT_SECRET_KEY'],
-                algorithms=['HS256']
-            )
-            user_id = int(payload['sub'])  # 文字列から整数に変換
-            user = User.query.get(user_id)
-            if not user or not user.is_active:
-                return jsonify({'error': 'invalid_token'}), 401
-            
-            # Flask-Loginのcurrent_userと同じように使えるよう設定
-            from flask import g
-            g.current_user = user
-            
-        except jwt.ExpiredSignatureError:
-            return jsonify({'error': 'token_expired'}), 401
-        except jwt.InvalidTokenError:
+        user = TokenService.verify_access_token(token)
+        if not user:
             return jsonify({'error': 'invalid_token'}), 401
+        
+        # Flask-Loginのcurrent_userと同じように使えるよう設定
+        from flask import g
+        g.current_user = user
         
         return f(*args, **kwargs)
     return decorated_function
@@ -115,31 +104,15 @@ def login_or_jwt_required(f):
             current_app.logger.info("No token found, returning 401")
             return jsonify({'error': 'authentication_required'}), 401
         
-        try:
-            payload = jwt.decode(
-                token,
-                current_app.config['JWT_SECRET_KEY'],
-                algorithms=['HS256']
-            )
-            user_id = int(payload['sub'])  # 文字列から整数に変換
-            current_app.logger.info(f"JWT decoded successfully, user_id: {user_id}")
-            
-            user = User.query.get(user_id)
-            if not user or not user.is_active:
-                current_app.logger.info(f"User not found or inactive: user={user}, active={user.is_active if user else 'N/A'}")
-                return jsonify({'error': 'invalid_token'}), 401
-            
-            # Flask-Loginのcurrent_userと同じように使えるよう設定
-            from flask import g
-            g.current_user = user
-            current_app.logger.info(f"JWT authentication successful for user: {user.email}")
-            
-        except jwt.ExpiredSignatureError:
-            current_app.logger.info("JWT token expired")
-            return jsonify({'error': 'token_expired'}), 401
-        except jwt.InvalidTokenError as e:
-            current_app.logger.info(f"JWT token invalid: {e}")
+        user = TokenService.verify_access_token(token)
+        if not user:
+            current_app.logger.info("JWT token verification failed")
             return jsonify({'error': 'invalid_token'}), 401
+        
+        # Flask-Loginのcurrent_userと同じように使えるよう設定
+        from flask import g
+        g.current_user = user
+        current_app.logger.info(f"JWT authentication successful for user: {user.email}")
         
         return f(*args, **kwargs)
     return decorated_function
@@ -163,29 +136,15 @@ def api_login():
     user = auth_service.authenticate(email, password)
     if not user:
         return jsonify({"error": "invalid_credentials"}), 401
-    # リフレッシュトークン生成しDBに保存
+    
+    # TokenServiceを使用してトークンペアを生成
     user_model = user_repo.get_model(user)
-    refresh_raw = secrets.token_urlsafe(32)
-    refresh_token = f"{user_model.id}:{refresh_raw}"
-    user_model.set_refresh_token(refresh_token)
-    db.session.commit()
-
-    now = datetime.now(timezone.utc)
-    payload = {
-        "sub": str(user.id),  # 文字列に変換
-        "exp": now + timedelta(hours=1),
-        "iat": now,
-        "jti": secrets.token_urlsafe(8),
-    }
-    token = jwt.encode(
-        payload,
-        current_app.config["JWT_SECRET_KEY"],
-        algorithm="HS256",
-    )
-    resp = jsonify({"access_token": token, "refresh_token": refresh_token})
+    access_token, refresh_token = TokenService.generate_token_pair(user_model)
+    
+    resp = jsonify({"access_token": access_token, "refresh_token": refresh_token})
     resp.set_cookie(
         "access_token",
-        token,
+        access_token,
         httponly=True,
         secure=current_app.config.get("SESSION_COOKIE_SECURE", False),
         samesite="Lax",
@@ -194,9 +153,13 @@ def api_login():
 
 
 @bp.post("/logout")
-@login_required
+@login_or_jwt_required
 def api_logout():
-    """JWT Cookieを削除"""
+    """JWT Cookieを削除し、リフレッシュトークンを無効化"""
+    user = get_current_user()
+    if user:
+        TokenService.revoke_refresh_token(user)
+    
     resp = jsonify({"result": "ok"})
     resp.delete_cookie("access_token")
     return resp
@@ -207,35 +170,18 @@ def api_refresh():
     """リフレッシュトークンから新しいアクセス・リフレッシュトークンを発行"""
     data = request.get_json(silent=True) or {}
     refresh_token = data.get("refresh_token")
+    
     if not refresh_token:
         return jsonify({"error": "missing_refresh_token"}), 400
-    try:
-        user_id_str, _ = refresh_token.split(":", 1)
-        user_id = int(user_id_str)
-    except Exception:
+    
+    # TokenServiceを使用してトークンをリフレッシュ
+    token_pair = TokenService.refresh_tokens(refresh_token)
+    if not token_pair:
         return jsonify({"error": "invalid_token"}), 401
-    user = User.query.get(user_id)
-    if not user or not user.check_refresh_token(refresh_token):
-        return jsonify({"error": "invalid_token"}), 401
-
-    # 新しいトークンを発行しローテーション
-    now = datetime.now(timezone.utc)
-    payload = {
-        "sub": user.id,
-        "exp": now + timedelta(hours=1),
-        "iat": now,
-        "jti": secrets.token_urlsafe(8),
-    }
-    access_token = jwt.encode(
-        payload,
-        current_app.config["JWT_SECRET_KEY"],
-        algorithm="HS256",
-    )
-    new_raw = secrets.token_urlsafe(32)
-    new_refresh = f"{user.id}:{new_raw}"
-    user.set_refresh_token(new_refresh)
-    db.session.commit()
-    resp = jsonify({"access_token": access_token, "refresh_token": new_refresh})
+    
+    access_token, new_refresh_token = token_pair
+    
+    resp = jsonify({"access_token": access_token, "refresh_token": new_refresh_token})
     resp.set_cookie(
         "access_token",
         access_token,

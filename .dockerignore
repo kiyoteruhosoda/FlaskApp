@@ -55,17 +55,31 @@ docs/
 README.md
 USAGE.md
 requirements.md
+ContainerManagerGuide.md
+SynologyUsage.md
 
 # 開発用設定
 requirements-dev.txt
 docker-compose.dev.yml
 
 # データディレクトリ（ボリュームマウント用）
+data/
 data/media/
 data/thumbs/
 data/playback/
+instance/
 
 # ビルド関連
 build/
 dist/
 *.egg-info/
+PhotoNest.egg-info/
+
+# リリースアーカイブ
+*.tar.gz
+*.tar.gz.sha256
+release-*/
+synology-deploy/
+
+# 開発用スクリプト
+scripts/

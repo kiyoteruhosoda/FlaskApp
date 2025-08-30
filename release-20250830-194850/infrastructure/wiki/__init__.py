@@ -1,1 +1,0 @@
-# Wiki infrastructure module

@@ -8,15 +8,14 @@ services:
       - "5000:5000"
     environment:
       - FLASK_ENV=production
-      - DATABASE_URL=mysql+pymysql://photonest_user:${DB_PASSWORD}@db:3306/photonest
-      - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=${SECRET_KEY}
       - AES_KEY=${AES_KEY}
+      - TZ=${TZ:-Asia/Tokyo}
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
     env_file:
-      - .env.production
+      - .env
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_started
     volumes:
@@ -37,15 +36,14 @@ services:
     command: celery -A cli.src.celery.tasks worker --loglevel=info --concurrency=2
     environment:
       - FLASK_ENV=production
-      - DATABASE_URL=mysql+pymysql://photonest_user:${DB_PASSWORD}@db:3306/photonest
-      - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=${SECRET_KEY}
       - AES_KEY=${AES_KEY}
+      - TZ=${TZ:-Asia/Tokyo}
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
     env_file:
-      - .env.production
+      - .env
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_started
     volumes:
@@ -60,55 +58,35 @@ services:
     command: celery -A cli.src.celery.tasks beat --loglevel=info
     environment:
       - FLASK_ENV=production
-      - DATABASE_URL=mysql+pymysql://photonest_user:${DB_PASSWORD}@db:3306/photonest
-      - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=${SECRET_KEY}
       - AES_KEY=${AES_KEY}
+      - TZ=${TZ:-Asia/Tokyo}
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
     env_file:
-      - .env.production
+      - .env
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_started
     restart: unless-stopped
 
-  db:
-    image: mariadb:10.11
-    environment:
-      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
-      - MYSQL_DATABASE=photonest
-      - MYSQL_USER=photonest_user
-      - MYSQL_PASSWORD=${DB_PASSWORD}
-    volumes:
-      - mariadb_data:/var/lib/mysql
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    ports:
-      - "3306:3306"
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-
   redis:
     image: redis:7-alpine
-    command: redis-server --appendonly yes
+    command: redis-server --requirepass ${REDIS_PASSWORD:-photonest123} --appendonly yes
+    environment:
+      - TZ=${TZ:-Asia/Tokyo}
     volumes:
       - redis_data:/data
     ports:
       - "6379:6379"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD:-photonest123}", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
 
 volumes:
-  mariadb_data:
   redis_data:
   media_data:
   thumb_data:

@@ -9,7 +9,7 @@
         <div class="col-md-3">
             <div class="card">
                 <div class="card-header">
-                    <h5>カテゴリ</h5>
+                    <h5>{{ _('Categories') }}</h5>
                 </div>
                 <div class="card-body">
                     <ul class="list-unstyled">
@@ -27,7 +27,7 @@
             
             <div class="card mt-3">
                 <div class="card-header">
-                    <h5>ページ階層</h5>
+                    <h5>{{ _('Page Hierarchy') }}</h5>
                 </div>
                 <div class="card-body">
                     {% if page_hierarchy %}
@@ -48,7 +48,7 @@
                         {% endmacro %}
                         {{ render_page_tree(page_hierarchy) }}
                     {% else %}
-                        <p class="text-muted">ページがありません</p>
+                        <p class="text-muted">{{ _('No pages available') }}</p>
                     {% endif %}
                 </div>
             </div>
@@ -61,15 +61,15 @@
                 <div>
                     {% if current_user.can('wiki:write') %}
                     <a href="{{ url_for('wiki.create_page') }}" class="btn btn-primary me-2">
-                        <i class="fas fa-plus"></i> 新規ページ
+                        <i class="fas fa-plus"></i> {{ _('New Page') }}
                     </a>
                     {% endif %}
                     <a href="{{ url_for('wiki.categories') }}" class="btn btn-outline-secondary me-2">
-                        <i class="fas fa-tags"></i> カテゴリ
+                        <i class="fas fa-tags"></i> {{ _('Categories') }}
                     </a>
                     {% if current_user.can('wiki:admin') %}
                     <a href="{{ url_for('wiki.admin') }}" class="btn btn-outline-info">
-                        <i class="fas fa-cogs"></i> 管理
+                        <i class="fas fa-cogs"></i> {{ _('Admin') }}
                     </a>
                     {% endif %}
                 </div>
@@ -81,7 +81,7 @@
                     <form method="GET" action="{{ url_for('wiki.search') }}">
                         <div class="input-group">
                             <input type="text" name="q" class="form-control" 
-                                   placeholder="ページを検索..." value="{{ request.args.get('q', '') }}">
+                                   placeholder="{{ _('Search pages...') }}" value="{{ request.args.get('q', '') }}">
                             <button type="submit" class="btn btn-outline-secondary">
                                 <i class="fas fa-search"></i>
                             </button>
@@ -93,7 +93,7 @@
             <!-- 最近更新されたページ -->
             <div class="card">
                 <div class="card-header">
-                    <h5>最近更新されたページ</h5>
+                    <h5>{{ _('Recently Updated Pages') }}</h5>
                 </div>
                 <div class="card-body">
                     {% if recent_pages %}
@@ -121,7 +121,7 @@
                             {% endfor %}
                         </div>
                     {% else %}
-                        <p class="text-muted">まだページがありません。</p>
+                        <p class="text-muted">{{ _('No pages yet.') }}</p>
                     {% endif %}
                 </div>
             </div>

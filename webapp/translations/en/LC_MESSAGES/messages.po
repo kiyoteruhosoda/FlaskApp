@@ -267,3 +267,33 @@ msgstr "Back to Page"
 
 msgid "Wiki Top"
 msgstr "Wiki Top"
+
+msgid "Categories"
+msgstr "Categories"
+
+msgid "Page Hierarchy"
+msgstr "Page Hierarchy"
+
+msgid "No pages available"
+msgstr "No pages available"
+
+msgid "New Page"
+msgstr "New Page"
+
+msgid "Admin"
+msgstr "Admin"
+
+msgid "Search pages..."
+msgstr "Search pages..."
+
+msgid "Recently Updated Pages"
+msgstr "Recently Updated Pages"
+
+msgid "No pages yet."
+msgstr "No pages yet."
+
+msgid "Create New Page"
+msgstr "Create New Page"
+
+msgid "Back to Wiki Top"
+msgstr "Back to Wiki Top"

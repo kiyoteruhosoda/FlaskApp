@@ -1289,3 +1289,33 @@ msgstr "ページに戻る"
 msgid "Wiki Top"
 msgstr "Wiki トップ"
 
+msgid "Categories"
+msgstr "カテゴリ"
+
+msgid "Page Hierarchy"
+msgstr "ページ階層"
+
+msgid "No pages available"
+msgstr "ページがありません"
+
+msgid "New Page"
+msgstr "新規ページ"
+
+msgid "Admin"
+msgstr "管理"
+
+msgid "Search pages..."
+msgstr "ページを検索..."
+
+msgid "Recently Updated Pages"
+msgstr "最近更新されたページ"
+
+msgid "No pages yet."
+msgstr "まだページがありません。"
+
+msgid "Create New Page"
+msgstr "新規ページ作成"
+
+msgid "Back to Wiki Top"
+msgstr "Wiki トップに戻る"
+

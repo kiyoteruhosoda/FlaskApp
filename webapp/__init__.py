@@ -77,6 +77,9 @@ def create_app():
     from .wiki import bp as wiki_bp
     app.register_blueprint(wiki_bp, url_prefix="/wiki")
 
+    # CLI コマンド登録
+    register_cli_commands(app)
+
     @app.before_request
     def start_timer():
         g.start_time = time.perf_counter()
@@ -279,4 +282,50 @@ def _select_locale():
     if cookie_lang in current_app.config["LANGUAGES"]:
         return cookie_lang
     return request.accept_languages.best_match(current_app.config["LANGUAGES"])
+
+
+def register_cli_commands(app):
+    """CLI コマンドを登録"""
+    import click
+    from datetime import datetime, timezone
+    from core.models.user import User, Role, Permission
+
+    @app.cli.command("seed-master")
+    @click.option('--force', is_flag=True, help='既存データがあっても強制実行')
+    def seed_master_data(force):
+        """マスタデータを投入"""
+        from scripts.seed_master_data import (
+            seed_roles, seed_permissions, seed_role_permissions, seed_admin_user
+        )
+        
+        click.echo("=== PhotoNest Master Data Seeding ===")
+        
+        # 既存データチェック
+        if not force:
+            if Role.query.first() or Permission.query.first():
+                click.echo("Warning: Master data already exists. Use --force to override.")
+                return
+        
+        try:
+            click.echo("\n1. Seeding roles...")
+            seed_roles()
+            
+            click.echo("\n2. Seeding permissions...")
+            seed_permissions()
+            
+            db.session.commit()
+            
+            click.echo("\n3. Seeding role-permission relationships...")
+            seed_role_permissions()
+            
+            click.echo("\n4. Seeding admin user...")
+            seed_admin_user()
+            
+            db.session.commit()
+            click.echo("\n=== Seeding completed successfully! ===")
+            
+        except Exception as e:
+            db.session.rollback()
+            click.echo(f"\n=== Seeding failed: {e} ===", err=True)
+            raise click.ClickException(str(e))
 

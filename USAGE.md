@@ -27,7 +27,82 @@ cp .env.example .env
 
 # データベースマイグレーション
 flask db upgrade
+
+# マスタデータ投入
+flask seed-master
 ```
+
+## 3.1 マスタデータ管理
+
+PhotoNestでは、ロール・権限・初期ユーザーなどのマスタデータをmigrationファイルとは分離して管理しています。これにより、migrationファイルの再作成時にマスタデータを手動で追加する手間を省けます。
+
+### 3.1.1 Flaskコマンドでの投入（推奨）
+```bash
+# 仮想環境を有効化
+source .venv/bin/activate
+
+# マスタデータ投入
+flask seed-master
+
+# 既存データがあっても強制投入
+flask seed-master --force
+```
+
+### 3.1.2 YAMLファイルからの投入
+```bash
+# デフォルトYAMLから投入
+python scripts/seed_from_yaml.py
+
+# 特定のYAMLファイルから投入
+python scripts/seed_from_yaml.py data/production_master.yml
+```
+
+### 3.1.3 Pythonスクリプトでの投入
+```bash
+python scripts/seed_master_data.py
+```
+
+### 3.1.4 マスタデータの構成
+投入されるマスタデータは以下の通りです：
+
+#### ロール（Roles）
+- `admin` (ID: 1) - 管理者
+- `manager` (ID: 2) - マネージャー  
+- `member` (ID: 3) - メンバー
+- `guest` (ID: 4) - ゲスト
+
+#### 権限（Permissions）
+- `admin:photo-settings` - 写真設定管理
+- `admin:job-settings` - ジョブ設定管理
+- `user:manage` - ユーザー管理
+- `album:create` - アルバム作成
+- `album:edit` - アルバム編集
+- `album:view` - アルバム閲覧
+- `media:view` - メディア閲覧
+- `permission:manage` - 権限管理
+- `role:manage` - ロール管理
+- `system:manage` - システム管理
+- `wiki:admin` - Wiki管理
+- `wiki:read` - Wiki読み取り
+- `wiki:write` - Wiki書き込み
+
+#### デフォルトユーザー
+- Email: `admin@example.com`
+- Password: `admin123` (初回ログイン後に変更してください)
+- Role: `admin`
+
+### 3.1.5 環境別マスタデータ管理
+本番環境と開発環境で異なるマスタデータを使用する場合：
+
+```bash
+# 開発環境用
+python scripts/seed_from_yaml.py data/master_data.yml
+
+# 本番環境用
+python scripts/seed_from_yaml.py data/production_master.yml
+```
+
+`data/master_data.yml`ファイルを編集することで、マスタデータをカスタマイズできます。
 
 ## 4. アプリケーション起動手順
 
@@ -383,6 +458,70 @@ ps aux | grep celery
 ```
 
 **注意**: 厳密なリカバリシステムにより、通常は実行中の長時間タスク（動画変換など）が誤ってタイムアウトすることはありません。ローカルインポートは2時間、その他は1時間のタイムアウトが設定されており、Celeryで実際に実行中のタスクは保護されます。
+
+### 12.2 マスタデータ関連の問題
+
+#### ログインできない（初期ユーザーが存在しない）
+```bash
+# マスタデータが投入されているか確認
+python -c "
+from webapp import create_app
+from core.models.user import User, Role
+app = create_app()
+with app.app_context():
+    user_count = User.query.count()
+    role_count = Role.query.count()
+    print(f'Users: {user_count}, Roles: {role_count}')
+    if user_count == 0:
+        print('マスタデータが投入されていません')
+"
+
+# マスタデータを投入
+flask seed-master
+```
+
+#### 権限エラーが発生する
+```bash
+# ロール・権限の状況確認
+python -c "
+from webapp import create_app
+from core.models.user import User, Role, Permission
+app = create_app()
+with app.app_context():
+    admin_user = User.query.filter_by(email='admin@example.com').first()
+    if admin_user:
+        print(f'Admin roles: {[r.name for r in admin_user.roles]}')
+        for role in admin_user.roles:
+            print(f'Role {role.name} permissions: {[p.code for p in role.permissions]}')
+    else:
+        print('Admin user not found')
+"
+
+# 権限が不足している場合は再投入
+flask seed-master --force
+```
+
+#### マスタデータの初期化
+```bash
+# 全マスタデータを削除して再投入
+python -c "
+from webapp import create_app
+from core.models.user import User, Role, Permission
+from core.db import db
+app = create_app()
+with app.app_context():
+    # 注意: 全ユーザー・ロール・権限が削除されます
+    db.session.query(User).delete()
+    db.session.query(Role).delete()
+    db.session.query(Permission).delete()
+    db.session.commit()
+    print('All master data deleted')
+"
+
+flask seed-master
+```
+
+### 12.3 Celery関連の問題
 ```bash
 # 1. スケジューラが動作しているか確認
 ps aux | grep "celery.*beat"
@@ -553,6 +692,59 @@ gunicorn --bind 0.0.0.0:8000 --workers 4 wsgi:app
 - `POST /api/media/{id}/thumb-url` - サムネイルURL取得
 - `POST /api/media/{id}/playback-url` - 再生URL取得
 
+## 14.2 マスタデータ管理コマンドリファレンス
+
+### 14.2.1 Flaskコマンド
+```bash
+# 基本的なマスタデータ投入
+flask seed-master
+
+# 既存データを無視して強制投入
+flask seed-master --force
+```
+
+### 14.2.2 YAMLベースの投入
+```bash
+# デフォルトYAMLファイル（data/master_data.yml）から投入
+python scripts/seed_from_yaml.py
+
+# 指定したYAMLファイルから投入
+python scripts/seed_from_yaml.py path/to/custom_master.yml
+```
+
+### 14.2.3 Pythonスクリプト
+```bash
+# 単純なPythonスクリプトでの投入
+python scripts/seed_master_data.py
+```
+
+### 14.2.4 YAMLファイル形式例
+```yaml
+# data/master_data.yml
+roles:
+  - id: 1
+    name: admin
+  - id: 2
+    name: manager
+
+permissions:
+  - id: 1
+    code: admin:photo-settings
+  - id: 2
+    code: user:manage
+
+role_permissions:
+  - role_id: 1
+    permissions: [1, 2]
+
+default_users:
+  - id: 1
+    email: admin@example.com
+    password_hash: "scrypt:..."
+    roles: [1]
+    is_active: true
+```
+
 ## 15. クイックスタートチェックリスト
 
 - [ ] 仮想環境作成・有効化
@@ -560,10 +752,12 @@ gunicorn --bind 0.0.0.0:8000 --workers 4 wsgi:app
 - [ ] `.env` ファイル設定
 - [ ] MariaDB起動・接続確認
 - [ ] Redis起動・接続確認
-- [ ] データベースマイグレーション実行
+- [ ] データベースマイグレーション実行（`flask db upgrade`）
+- [ ] **マスタデータ投入**（`flask seed-master`）
 - [ ] **正しいCeleryワーカー起動**（`cli.src.celery.tasks`）
 - [ ] Flaskアプリケーション起動
 - [ ] ブラウザで `http://localhost:5000` アクセス確認
+- [ ] 初期ユーザーでログイン確認（admin@example.com / admin@example.com）
 - [ ] ローカルインポート機能テスト
 
 **重要**: Celeryワーカーは必ず `celery -A cli.src.celery.tasks worker` で起動してください。

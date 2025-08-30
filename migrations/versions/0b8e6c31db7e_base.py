@@ -339,31 +339,6 @@ def upgrade():
     sa.PrimaryKeyConstraint('album_id', 'media_id')
     )
     # ### end Alembic commands ###
-    op.execute("INSERT INTO role (id, name) VALUES (1, 'admin'), (2, 'manager'), (3, 'member'), (4, 'guest')")
-    op.execute(
-        "INSERT INTO permission (id, code) VALUES " \
-        "(1, 'admin:photo-settings'), (2, 'admin:job-settings'), (3, 'user:manage'), (4, 'album:create'), (5, 'album:edit'), " \
-        "(6, 'album:view'), (7, 'media:view'), (8, 'permission:manage'), (9, 'role:manage'), (10, 'system:manage'), " \
-        "(11, 'wiki:admin'), (12, 'wiki:read'), (13, 'wiki:write')")
-    op.execute(
-        "INSERT INTO role_permissions (role_id, perm_id) VALUES " \
-        "(1, 1), (1, 2), (1, 3), (1, 4), (1, 5)," \
-        "(1, 6), (1, 7), (1, 8), (1, 9), (1, 10)," \
-        "(1, 11), (1, 12), (1, 13)," \
-        "(2, 1), (2, 4), (2, 5), (2, 6), (2, 7), (3, 6), (3, 7)")
-    from datetime import datetime, timezone
-    op.get_bind().execute(
-        sa.text(
-            "INSERT INTO user (id, email,  password_hash,created_at) VALUES (:id, :email, :pw, :created_at)"
-        ),
-        {
-            "id": 1,
-            "email": "admin@example.com",
-            "pw": "scrypt:32768:8:1$7oTcIUdekNLXGSXC$fd0f3320bde4570c7e1ea9d9d289aeb916db7a50fb62489a7e89d99c6cc576813506fd99f50904101c1eb85ff925f8dc879df5ded781ef2613224d702938c9c8",
-            "created_at": datetime.now(timezone.utc),
-        },
-    )
-    op.execute("INSERT INTO user_roles (user_id, role_id) VALUES (1, 1)")
 
 
 def downgrade():

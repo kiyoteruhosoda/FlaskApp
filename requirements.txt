@@ -17,3 +17,7 @@ typer
 Celery
 redis
 PyJWT
+markdown
+alembic
+python-dateutil
+MarkupSafe

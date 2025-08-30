@@ -1,6 +1,6 @@
 # マルチステージビルドで本番環境用Dockerfile
 # ビルドステージ
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
@@ -12,8 +12,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Python依存関係をインストール
-COPY requirements-prod.txt .
-RUN pip install --no-cache-dir --user -r requirements-prod.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
 
 # 本番ステージ
 FROM python:3.11-slim

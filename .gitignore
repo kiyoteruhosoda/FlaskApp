@@ -33,6 +33,7 @@ instance/
 # OSごとの不要ファイル
 .DS_Store
 Thumbs.db
+*.tar
 
 # Flask-Migrateのキャッシュ（必要なら残してもOK）
 migrations/versions/__pycache__/

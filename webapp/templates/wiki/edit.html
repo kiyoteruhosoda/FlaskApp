@@ -58,7 +58,8 @@
                             </div>
                             
                             <div class="form-text">
-                                Markdownをサポートしています。http:やhttps:で始まるURLは自動的にリンクになります。
+                                Markdownをサポートしています。http:やhttps:で始まるURLは自動的にリンクになります。<br>
+                                <strong>図表サポート:</strong> PlantUMLは <code>```plantuml</code>、Mermaidは <code>```mermaid</code> でコードブロックを作成できます。
                             </div>
                         </div>
 
@@ -177,6 +178,8 @@ function updatePreview() {
     .then(response => response.json())
     .then(data => {
         previewContent.innerHTML = data.html;
+        // Mermaidを再レンダリング
+        reRenderMermaid();
     })
     .catch(error => {
         console.error('プレビューエラー:', error);
@@ -191,5 +194,106 @@ contentTextarea.addEventListener('input', function() {
         previewTimeout = setTimeout(updatePreview, 1000); // 1秒後に更新
     }
 });
+
+// Mermaid初期化
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof mermaid !== 'undefined') {
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'loose'
+        });
+    }
+});
+
+// PlantUMLソース表示/非表示
+function togglePlantUMLSource(hash) {
+    const sourceDiv = document.getElementById('plantuml-source-' + hash);
+    const button = event.target.closest('button');
+    
+    if (sourceDiv.classList.contains('show')) {
+        sourceDiv.classList.remove('show');
+        button.innerHTML = '<i class="fas fa-code"></i>';
+        button.title = 'ソースコードを表示';
+    } else {
+        sourceDiv.classList.add('show');
+        button.innerHTML = '<i class="fas fa-eye-slash"></i>';
+        button.title = 'ソースコードを非表示';
+    }
+}
+
+// Mermaidソース表示/非表示
+function toggleMermaidSource(hash) {
+    const sourceDiv = document.getElementById('mermaid-source-' + hash);
+    const button = event.target.closest('button');
+    
+    if (sourceDiv.classList.contains('show')) {
+        sourceDiv.classList.remove('show');
+        button.innerHTML = '<i class="fas fa-code"></i>';
+        button.title = 'ソースコードを表示';
+    } else {
+        sourceDiv.classList.add('show');
+        button.innerHTML = '<i class="fas fa-eye-slash"></i>';
+        button.title = 'ソースコードを非表示';
+    }
+}
+
+// プレビューでMermaidを再レンダリング
+function reRenderMermaid() {
+    if (typeof mermaid !== 'undefined') {
+        // プレビューエリア内のMermaidを再レンダリング
+        const previewContent = document.getElementById('preview-content');
+        if (previewContent) {
+            const mermaidElements = previewContent.querySelectorAll('.mermaid');
+            mermaidElements.forEach(element => {
+                mermaid.init(undefined, element);
+            });
+        }
+    }
+}
 </script>
+
+<style>
+/* プレビュー用の図表スタイル */
+.plantuml-diagram, .mermaid-diagram {
+    margin: 1rem 0;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    overflow: hidden;
+}
+
+.diagram-header {
+    background-color: #f8f9fa;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.diagram-content {
+    padding: 1rem;
+    text-align: center;
+}
+
+.diagram-source {
+    background-color: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    display: none !important; /* 確実に非表示にする */
+}
+
+.diagram-source.show {
+    display: block !important; /* 表示時のクラス */
+}
+
+.diagram-source pre {
+    margin: 0;
+    background-color: transparent;
+    border: none;
+}
+
+.mermaid {
+    font-family: 'treefont', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+</style>
 {% endblock %}

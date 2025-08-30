@@ -7,6 +7,8 @@ import markdown
 from markupsafe import Markup
 from datetime import datetime, timezone
 import html
+import base64
+import hashlib
 
 
 def auto_link_urls(text):
@@ -32,6 +34,14 @@ def auto_link_urls(text):
     # Markdownリンクを保護
     md_link_pattern = r'\[([^\]]*)\]\(([^)]+)\)'
     for match in re.finditer(md_link_pattern, text):
+        placeholder = placeholder_pattern.format(counter)
+        temp_replacements[placeholder] = match.group(0)
+        text = text.replace(match.group(0), placeholder)
+        counter += 1
+    
+    # HTML属性内のURLを保護（src, hrefなど）
+    html_attr_pattern = r'(?:src|href|action|data-[^=]*)\s*=\s*["\'][^"\']*https?://[^"\']*["\']'
+    for match in re.finditer(html_attr_pattern, text, re.IGNORECASE):
         placeholder = placeholder_pattern.format(counter)
         temp_replacements[placeholder] = match.group(0)
         text = text.replace(match.group(0), placeholder)
@@ -96,9 +106,27 @@ def preprocess_single_newlines(text):
 
 
 def sanitize_html(html_content):
-    """HTMLからセキュリティ上危険なタグと属性を除去"""
+    """HTMLからセキュリティ上危険なタグと属性を除去（図表HTMLは保護）"""
     if not html_content:
         return ""
+    
+    # 図表関連のHTMLを一時的に保護
+    diagram_placeholders = {}
+    placeholder_pattern = "___DIAGRAM_PLACEHOLDER_{}_DIAGRAM___"
+    counter = 0
+    
+    # PlantUMLとMermaidの図表を保護
+    diagram_patterns = [
+        r'<div class="plantuml-diagram"[^>]*>.*?</div>',
+        r'<div class="mermaid-diagram"[^>]*>.*?</div>'
+    ]
+    
+    for pattern in diagram_patterns:
+        for match in re.finditer(pattern, html_content, re.DOTALL):
+            placeholder = placeholder_pattern.format(counter)
+            diagram_placeholders[placeholder] = match.group(0)
+            html_content = html_content.replace(match.group(0), placeholder)
+            counter += 1
     
     # 危険なタグを除去（Markdownが生成する基本的なHTMLタグは保持）
     dangerous_tags = [
@@ -115,9 +143,9 @@ def sanitize_html(html_content):
         pattern = rf'<\s*{tag}[^>]*/?>'
         html_content = re.sub(pattern, '', html_content, flags=re.IGNORECASE)
     
-    # 危険な属性を除去
+    # 危険な属性を除去（但し、onclick属性は図表用に部分的に許可）
     dangerous_attrs = [
-        'onclick', 'onload', 'onerror', 'onmouseover', 'onmouseout',
+        'onload', 'onerror', 'onmouseover', 'onmouseout',
         'onfocus', 'onblur', 'onchange', 'onsubmit', 'onreset',
         'onkeydown', 'onkeyup', 'onkeypress', 'onmousedown', 'onmouseup',
         'javascript:', 'vbscript:', 'data:'
@@ -132,7 +160,116 @@ def sanitize_html(html_content):
             pattern = rf'{attr}\s*=\s*["\'][^"\']*["\']'
         html_content = re.sub(pattern, '', html_content, flags=re.IGNORECASE)
     
+    # 一般的なonclick（図表関数以外）を除去
+    onclick_pattern = r'onclick\s*=\s*["\'](?!toggle(?:PlantUML|Mermaid)Source)[^"\']*["\']'
+    html_content = re.sub(onclick_pattern, '', html_content, flags=re.IGNORECASE)
+    
+    # 図表HTMLを復元
+    for placeholder, original_html in diagram_placeholders.items():
+        html_content = html_content.replace(placeholder, original_html)
+    
     return html_content
+
+
+def process_plantuml_blocks(text):
+    """PlantUMLコードブロックを処理してHTMLに変換"""
+    if not text:
+        return text
+    
+    # PlantUMLコードブロックを検出するパターン
+    pattern = r'```plantuml\s*\n(.*?)\n```'
+    
+    def replace_plantuml(match):
+        uml_code = match.group(1).strip()
+        if not uml_code:
+            return match.group(0)  # 空の場合は元のコードブロックを返す
+        
+        # PlantUMLコードのハッシュ値を生成（キャッシュキーとして使用）
+        code_hash = hashlib.md5(uml_code.encode('utf-8')).hexdigest()[:8]
+        
+        # PlantUMLコードをBase64エンコード
+        try:
+            # PlantUMLサーバー用のエンコード
+            import zlib
+            import base64
+            
+            # zlib圧縮
+            compressed = zlib.compress(uml_code.encode('utf-8'))
+            # Base64エンコード
+            encoded = base64.b64encode(compressed).decode('ascii')
+            
+            # PlantUMLサーバーのURL（公式サーバーを使用、本番では自前サーバーを推奨）
+            # ~1プレフィックスを追加してHUFFMANエンコーディング問題を解決
+            plantuml_server = "https://www.plantuml.com/plantuml"
+            image_url = f"{plantuml_server}/png/~1{encoded}"
+            
+            # HTMLを生成（URLの自動リンク化を避けるため、プレースホルダーを使用）
+            html_output = f'''
+<div class="plantuml-diagram" data-hash="{code_hash}">
+    <div class="diagram-header">
+        <small class="text-muted">PlantUML Diagram</small>
+        <button class="btn btn-sm btn-outline-secondary ms-2" 
+                onclick="togglePlantUMLSource('{code_hash}')" 
+                title="ソースコードを表示/非表示">
+            <i class="fas fa-code"></i>
+        </button>
+    </div>
+    <div class="diagram-content">
+        <img src="__PLANTUML_URL__{image_url}__PLANTUML_URL__" alt="PlantUML Diagram" class="img-fluid" 
+             onerror="this.parentElement.innerHTML='&lt;div class=&quot;alert alert-warning&quot;&gt;PlantUML図表の読み込みに失敗しました&lt;/div&gt;';"/>
+    </div>
+    <div class="diagram-source" id="plantuml-source-{code_hash}">
+        <pre><code class="language-plantuml">{html.escape(uml_code)}</code></pre>
+    </div>
+</div>'''
+            return html_output
+            
+        except Exception as e:
+            # エラーの場合は元のコードブロックを返す
+            return f'<div class="alert alert-warning">PlantUML処理エラー: {str(e)}</div>\n{match.group(0)}'
+    
+    return re.sub(pattern, replace_plantuml, text, flags=re.DOTALL)
+
+
+def process_mermaid_blocks(text):
+    """Mermaidコードブロックを処理してHTMLに変換"""
+    if not text:
+        return text
+    
+    # Mermaidコードブロックを検出するパターン
+    pattern = r'```mermaid\s*\n(.*?)\n```'
+    
+    def replace_mermaid(match):
+        mermaid_code = match.group(1).strip()
+        if not mermaid_code:
+            return match.group(0)  # 空の場合は元のコードブロックを返す
+        
+        # MermaidコードのハッシュValues生成（IDとして使用）
+        code_hash = hashlib.md5(mermaid_code.encode('utf-8')).hexdigest()[:8]
+        
+        # HTMLを生成
+        html_output = f'''
+<div class="mermaid-diagram" data-hash="{code_hash}">
+    <div class="diagram-header">
+        <small class="text-muted">Mermaid Diagram</small>
+        <button class="btn btn-sm btn-outline-secondary ms-2" 
+                onclick="toggleMermaidSource('{code_hash}')" 
+                title="ソースコードを表示/非表示">
+            <i class="fas fa-code"></i>
+        </button>
+    </div>
+    <div class="diagram-content">
+        <div class="mermaid" id="mermaid-{code_hash}">
+{html.escape(mermaid_code)}
+        </div>
+    </div>
+    <div class="diagram-source" id="mermaid-source-{code_hash}">
+        <pre><code class="language-mermaid">{html.escape(mermaid_code)}</code></pre>
+    </div>
+</div>'''
+        return html_output
+    
+    return re.sub(pattern, replace_mermaid, text, flags=re.DOTALL)
 
 
 def escape_user_html(text):
@@ -179,6 +316,10 @@ def markdown_to_html(text):
     # セキュリティ: Markdown処理前にユーザー入力のHTMLタグをエスケープ
     text = escape_user_html(text)
     
+    # PlantUMLとMermaidのコードブロックを先に処理
+    text = process_plantuml_blocks(text)
+    text = process_mermaid_blocks(text)
+    
     # 1つの改行を2つのスペース+改行に変換（Markdownの強制改行）
     preprocessed_text = preprocess_single_newlines(text)
     
@@ -196,8 +337,11 @@ def markdown_to_html(text):
     # HTMLを生成
     html_content = md.convert(preprocessed_text)
     
-    # セキュリティ: 危険なHTMLタグとスクリプトを除去
+    # セキュリティ: 危険なHTMLタグとスクリプトを除去（但し、図表HTMLは保護）
     html_content = sanitize_html(html_content)
+    
+    # PlantUMLのURLプレースホルダーを復元（自動リンク化より前に実行）
+    html_content = re.sub(r'__PLANTUML_URL__(.*?)__PLANTUML_URL__', r'\1', html_content)
     
     # Markdown変換後にURL自動リンク化を適用
     html_content = auto_link_urls(html_content)

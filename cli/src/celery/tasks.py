@@ -13,6 +13,7 @@ from core.tasks.session_recovery import (
     force_cleanup_all_processing_sessions,
     get_session_status_report
 )
+from core.tasks.backup_cleanup import cleanup_old_backups, get_backup_status
 
 
 def _save_content(path: Path, content: bytes) -> None:
@@ -83,6 +84,29 @@ def session_status_report_task(self):
     return get_session_status_report()
 
 
+@celery.task(bind=True, name="backup_cleanup.cleanup")
+def backup_cleanup_task(self, retention_days: int = 30):
+    """古いバックアップファイルを自動削除する定期タスク
+    
+    Args:
+        retention_days: バックアップファイルの保持日数（デフォルト: 30日）
+        
+    Returns:
+        dict: 削除結果の詳細
+    """
+    return cleanup_old_backups(retention_days=retention_days)
+
+
+@celery.task(bind=True, name="backup_cleanup.status")
+def backup_status_task(self):
+    """バックアップディレクトリの状況を確認する
+    
+    Returns:
+        dict: バックアップディレクトリの詳細情報
+    """
+    return get_backup_status()
+
+
 __all__ = [
     "dummy_long_task",
     "download_file",
@@ -92,4 +116,6 @@ __all__ = [
     "cleanup_stale_sessions_task",
     "force_cleanup_all_sessions_task",
     "session_status_report_task",
+    "backup_cleanup_task",
+    "backup_status_task",
 ]

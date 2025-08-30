@@ -65,5 +65,10 @@ celery.conf.beat_schedule = {
     "session-recovery": {
         "task": "session_recovery.cleanup_stale_sessions",
         "schedule": timedelta(minutes=5),  # 5分毎に実行
-    }
+    },
+    "backup-cleanup": {
+        "task": "backup_cleanup.cleanup",
+        "schedule": timedelta(days=1),  # 毎日実行
+        "kwargs": {"retention_days": 30},  # 30日より古いファイルを削除
+    },
 }

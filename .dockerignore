@@ -52,11 +52,7 @@ test_*.py
 
 # ドキュメント
 docs/
-README.md
-USAGE.md
-requirements.md
-ContainerManagerGuide.md
-SynologyUsage.md
+*.md
 
 # 開発用設定
 requirements-dev.txt

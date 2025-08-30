@@ -1,128 +1,216 @@
 # PhotoNest
-## FlaskApp
 
-詳細な使用方法は [USAGE.md](USAGE.md) を参照してください。
+PhotoNestは、DDD（ドメイン駆動設計）アーキテクチャを採用したFlaskベースの家族写真管理・同期プラットフォームです。Google Photos同期、ローカルファイルインポート、動画変換、サムネイル生成などの処理をCeleryによるバックグラウンドジョブで実行します。
 
-### セットアップ
+## 🚀 クイックスタート
 
+### 開発環境（ローカル）
 ```bash
+# 1. 仮想環境作成・有効化
+python -m venv .venv
+source .venv/bin/activate  # Linux/Mac
+
+# 2. 依存関係インストール
+pip install --upgrade pip
 pip install -r requirements.txt
-cp .env.example .env  # 必要に応じて編集
-python main.py        # 開発サーバーを起動
-```
 
-古いバージョンの pip を使っている場合は先にアップデートします。
-
-```bash
-python -m pip install --upgrade pip
-```
-
-翻訳ファイルを更新する場合は次を実行します。
-
-```bash
-pybabel compile -d webapp/translations -f
-```
-
-
-
-## Google OAuth Token Encryption
-
-`google_account.oauth_token_json` は AES-256-GCM で暗号化して保存します。
-`OAUTH_TOKEN_KEY`（Base64）または `OAUTH_TOKEN_KEY_FILE` / `FPV_OAUTH_TOKEN_KEY_FILE` で 32 バイト鍵を指定してください。
-鍵は OS の KMS もしくは鍵ファイルで管理できます。
-
-## Flask-Migrate マイグレーション手順
-
-### 1. モデル変更後にマイグレーションファイルを作成
-
-```bash
-flask db migrate -m "変更内容のコメント（例: add column xxx）"
-```
-
-### 2. マイグレーションを適用
-
-```bash
-flask db upgrade
-```
-
-
-### 3. マイグレーション失敗時の対応
-
-#### ■ 手動で戻す場合
-
-対象テーブルやカラムを削除・修正し、`alembic_version` を前のバージョンに戻す
-
-```sql
-DROP TABLE IF EXISTS xxxx;
-UPDATE alembic_version 
-SET version_num = '7ddda1a4f37x' 
-WHERE version_num = '6d1ad4f0b9ax';
-```
-
-#### ■ 特定バージョンまで巻き戻す場合
-
-```bash
-flask db downgrade 6d1ad4f0b9ax
-```
-
-#### ■ すべてのマイグレーションを取り消して初期状態に戻す場合
-
-
-```SQL
-SET FOREIGN_KEY_CHECKS = 0;
-
-DROP TABLE IF EXISTS album;
-DROP TABLE IF EXISTS album_item;
-DROP TABLE IF EXISTS exif;
-DROP TABLE IF EXISTS google_account;
-DROP TABLE IF EXISTS media;
-DROP TABLE IF EXISTS media_playback;
-DROP TABLE IF EXISTS media_sidecar;
-DROP TABLE IF EXISTS media_tag;
-DROP TABLE IF EXISTS permission;
-DROP TABLE IF EXISTS role;
-DROP TABLE IF EXISTS role_permissions;
-DROP TABLE IF EXISTS tag;
-DROP TABLE IF EXISTS user;
-DROP TABLE IF EXISTS user_roles;
-DROP TABLE IF EXISTS job_sync;
-DROP TABLE IF EXISTS alembic_version;
-
-SET FOREIGN_KEY_CHECKS = 1;
-```
-
-```bash
-flask db migrate -m "base"
-```
-
-出来たマイグレーションファイルのdef upgrade():末尾に以下を追記
-
-```python
-    op.execute("INSERT INTO role (id, name) VALUES (1, 'admin'), (2, 'manager'), (3, 'member')")
-    op.execute(
-        "INSERT INTO permission (id, code) VALUES " \
-        "(1, 'admin:photo-settings'), (2, 'admin:job-settings'), (3, 'user:manage'), (4, 'album:create'), (5, 'album:edit'), " \
-        "(6, 'album:view'), (7, 'media:view'), (8, 'permission:manage'), (9, 'role:manage'), (10, 'system:manage')")
-    op.execute(
-        "INSERT INTO role_permissions (role_id, perm_id) VALUES " \
-        "(1, 1), (1, 2), (1, 3), (1, 4), (1, 5)," \
-        "(1, 6), (1, 7), (2, 1), (2, 4), (2, 5), (2, 6), (2, 7), (3, 6), (3, 7)")
-    op.execute("INSERT INTO user (id, email,  password_hash,created_at) VALUES (1, 'admin@example.com', 'scrypt:32768:8:1$7oTcIUdekNLXGSXC$fd0f3320bde4570c7e1ea9d9d289aeb916db7a50fb62489a7e89d99c6cc576813506fd99f50904101c1eb85ff925f8dc879df5ded781ef2613224d702938c9c8', NOW())")
-    op.execute("INSERT INTO user_roles (user_id, role_id) VALUES (1, 1)")
-```
-
-
-### 4. 再度マイグレーションファイル作成に戻る
-
-モデルを修正 → **1** に戻って再実行。
-
-
-## Configuration
-
-Configure via environment variables. Copy `.env.example` to `.env` (loaded automatically by `python-dotenv`).
-
-```bash
+# 3. 環境設定
 cp .env.example .env
-# edit values
+# .envファイルを編集してデータベース接続情報等を設定
+
+# 4. データベースセットアップ
+flask db upgrade
+flask seed-master
+
+# 5. アプリケーション起動
+python main.py
 ```
+
+### 本番環境（Docker推奨）
+```bash
+# 1. Dockerイメージビルド
+docker build -t photonest:latest .
+
+# 2. 環境設定
+cp .env.example .env
+# .envファイルを本番環境用に編集
+
+# 3. サービス起動
+docker-compose up -d
+
+# 4. 初期データベースセットアップ
+docker-compose exec web flask db upgrade
+docker-compose exec web flask seed-master
+```
+
+## 📚 ドキュメント
+
+- **[開発ガイド](DEVELOPMENT.md)** - 詳細なセットアップ、Celery、テスト実行
+- **[Synologyデプロイ](synology-deployment.md)** - Synology NAS専用デプロイガイド
+- **[API仕様](requirements.md)** - 技術仕様書・API設計
+
+## 🏗️ アーキテクチャ
+
+### DDD構成
+```
+PhotoNest/
+├── webapp/           # Webアプリケーション層（Flask）
+├── domain/          # ドメイン層（ビジネスロジック）
+├── application/     # アプリケーションサービス層
+├── infrastructure/  # インフラストラクチャ層（DB、外部API）
+├── core/           # 共通機能（暗号化、タスク）
+├── cli/            # Celeryタスク定義
+└── migrations/     # データベースマイグレーション
+```
+
+### 主要機能
+- 🔐 **セキュア認証**: JWT + ロールベース権限管理
+- 📸 **メディア管理**: 写真・動画の統合管理
+- ☁️ **Google Photos同期**: OAuth認証による自動同期
+- 🎬 **動画変換**: FFmpegによるH.264/AAC変換
+- 🖼️ **サムネイル生成**: 多段階サムネイル（256/1024/2048px）
+- ⚡ **バックグラウンド処理**: Celery + Redisによる非同期処理
+
+## 🔧 必要環境
+
+### 開発環境
+- Python 3.10+
+- Redis（Celery用）
+- MariaDB 10.11+
+- FFmpeg（動画変換用）
+
+### 本番環境（Docker）
+- Docker 20.10+
+- Docker Compose v2+
+- 2GB+ RAM
+- 10GB+ ディスク容量
+
+## 🚨 重要な注意事項
+
+### Celeryワーカー（必須）
+PhotoNestのバックグラウンド処理には**Celeryワーカーが必須**です：
+
+```bash
+# 正しいワーカー起動コマンド
+celery -A cli.src.celery.tasks worker --loglevel=info
+
+# スケジューラも起動（自動リカバリ機能用）
+celery -A cli.src.celery.tasks beat --loglevel=info
+```
+
+### 初期ユーザー
+マスタデータ投入後、以下でログイン可能：
+- **Email**: `admin@example.com`
+- **Password**: `admin123`
+- **⚠️ 初回ログイン後は必ずパスワード変更してください**
+
+## 🔒 セキュリティ
+
+### OAuth トークン暗号化
+Google アカウントのOAuthトークンはAES-256-GCMで暗号化保存：
+
+```bash
+# 暗号化鍵生成（32バイト）
+python -c "
+import os, base64
+key = base64.b64encode(os.urandom(32)).decode()
+print(f'OAUTH_TOKEN_KEY=base64:{key}')
+"
+```
+
+### 環境変数設定
+`.env.example`をコピーして必要な値を設定：
+
+```env
+# セキュリティキー（必ず変更）
+SECRET_KEY=<your-strong-secret-key>
+AES_KEY=<your-32-byte-encryption-key>
+
+# データベース接続
+DATABASE_URI=mysql+pymysql://<user>:<pass>@<host>/<db>
+
+# Google OAuth（Google Photos同期用）
+GOOGLE_CLIENT_ID=<your-google-client-id>
+GOOGLE_CLIENT_SECRET=<your-google-client-secret>
+```
+
+## 🧪 テスト実行
+
+```bash
+# 全テスト実行
+pytest
+
+# カバレッジ付き
+pytest --cov=webapp --cov=core
+
+# 特定テスト
+pytest tests/test_celery_*.py -v
+```
+
+## 📦 デプロイ方法
+
+### 開発環境
+詳細は [DEVELOPMENT.md](DEVELOPMENT.md) を参照
+
+### Synology NAS
+Synology Container Manager用の詳細デプロイガイド：
+[synology-deployment.md](synology-deployment.md)
+
+### 本番サーバー
+```bash
+# リリースパッケージ作成
+./create-release.sh
+
+# Dockerデプロイ
+docker-compose -f docker-compose.yml up -d
+```
+
+## 🆘 トラブルシューティング
+
+### よくある問題
+
+#### 1. 「Celery処理待ち中...」が消えない
+```bash
+# 自動リカバリが動作しているか確認
+ps aux | grep "celery.*beat"
+
+# 手動でセッションクリーンアップ
+python -c "
+from cli.src.celery.tasks import cleanup_stale_sessions_task
+result = cleanup_stale_sessions_task.delay()
+"
+```
+
+#### 2. ログインできない
+```bash
+# マスタデータ投入確認
+flask seed-master
+```
+
+#### 3. Redis接続エラー
+```bash
+# Redis起動確認
+redis-cli ping
+
+# Docker使用の場合
+docker run -d -p 6379:6379 redis:7-alpine
+```
+
+詳細なトラブルシューティングは [DEVELOPMENT.md](DEVELOPMENT.md) を参照してください。
+
+## 🤝 コントリビューション
+
+1. このリポジトリをフォーク
+2. 機能ブランチを作成 (`git checkout -b feature/amazing-feature`)
+3. 変更をコミット (`git commit -m 'Add amazing feature'`)
+4. ブランチにプッシュ (`git push origin feature/amazing-feature`)
+5. プルリクエストを作成
+
+## 📄 ライセンス
+
+[MIT License](LICENSE)
+
+---
+
+**📖 詳細情報**: [DEVELOPMENT.md](DEVELOPMENT.md) | **🚀 Synologyデプロイ**: [synology-deployment.md](synology-deployment.md)
 

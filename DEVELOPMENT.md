@@ -98,7 +98,7 @@ python scripts/seed_master_data.py
 
 #### デフォルトユーザー
 - Email: `admin@example.com`
-- Password: `admin123` (初回ログイン後に変更してください)
+- Password: `admin@example.com` (初回ログイン後に変更してください)
 - Role: `admin`
 
 ### 3.1.5 環境別マスタデータ管理

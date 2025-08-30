@@ -1319,3 +1319,24 @@ msgstr "新規ページ作成"
 msgid "Back to Wiki Top"
 msgstr "Wiki トップに戻る"
 
+msgid "No categories"
+msgstr "カテゴリなし"
+
+msgid "Navigation"
+msgstr "ナビゲーション"
+
+msgid "Search"
+msgstr "検索"
+
+msgid "Edit"
+msgstr "編集"
+
+msgid "History"
+msgstr "履歴"
+
+msgid "Sub Pages"
+msgstr "サブページ"
+
+msgid "Parent Page"
+msgstr "親ページ"
+

@@ -39,7 +39,16 @@ def view_page(slug):
     # 子ページを取得
     children = wiki_service.get_page_hierarchy(page.id)
     
-    return render_template("wiki/page.html", page=page, children=children)
+    # サイドバー用のデータを取得
+    category_service = WikiCategoryService()
+    categories = category_service.get_all_categories()
+    page_hierarchy = wiki_service.get_page_hierarchy()
+    
+    return render_template("wiki/page.html", 
+                         page=page, 
+                         children=children,
+                         categories=categories,
+                         page_hierarchy=page_hierarchy)
 
 
 @bp.route("/create", methods=["GET", "POST"])

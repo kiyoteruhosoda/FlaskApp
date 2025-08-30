@@ -297,3 +297,24 @@ msgstr "Create New Page"
 
 msgid "Back to Wiki Top"
 msgstr "Back to Wiki Top"
+
+msgid "No categories"
+msgstr "No categories"
+
+msgid "Navigation"
+msgstr "Navigation"
+
+msgid "Search"
+msgstr "Search"
+
+msgid "Edit"
+msgstr "Edit"
+
+msgid "History"
+msgstr "History"
+
+msgid "Sub Pages"
+msgstr "Sub Pages"
+
+msgid "Parent Page"
+msgstr "Parent Page"

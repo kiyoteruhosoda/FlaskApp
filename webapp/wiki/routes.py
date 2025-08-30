@@ -223,6 +223,20 @@ def api_search():
     })
 
 
+@bp.route("/api/preview", methods=["POST"])
+@require_perms("wiki:read")
+def api_preview():
+    """Markdownプレビュー用API"""
+    content = request.get_json().get("content", "")
+    
+    from .utils import markdown_to_html
+    html = markdown_to_html(content)
+    
+    return jsonify({
+        "html": str(html)
+    })
+
+
 # カテゴリ管理機能
 @bp.route("/categories")
 @require_perms("wiki:read")

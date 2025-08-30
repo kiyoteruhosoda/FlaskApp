@@ -8,6 +8,53 @@ from markupsafe import Markup
 from datetime import datetime, timezone
 
 
+def auto_link_urls(text):
+    """http:やhttps:で始まるURLを自動的にリンクに変換"""
+    if not text:
+        return ""
+    
+    # すでにHTMLリンクやMarkdownリンクになっているものを除外してURLを自動リンク化
+    
+    # まず、すでにリンクになっているものを一時的に置換
+    temp_replacements = {}
+    placeholder_pattern = "___TEMP_LINK_{}_TEMP___"
+    
+    # HTMLリンクを保護
+    html_link_pattern = r'<a\s[^>]*href=["\'][^"\']*["\'][^>]*>.*?</a>'
+    counter = 0
+    for match in re.finditer(html_link_pattern, text, re.IGNORECASE | re.DOTALL):
+        placeholder = placeholder_pattern.format(counter)
+        temp_replacements[placeholder] = match.group(0)
+        text = text.replace(match.group(0), placeholder)
+        counter += 1
+    
+    # Markdownリンクを保護
+    md_link_pattern = r'\[([^\]]*)\]\(([^)]+)\)'
+    for match in re.finditer(md_link_pattern, text):
+        placeholder = placeholder_pattern.format(counter)
+        temp_replacements[placeholder] = match.group(0)
+        text = text.replace(match.group(0), placeholder)
+        counter += 1
+    
+    # URL自動リンク化（IPv6アドレス対応）
+    # IPv6アドレスを含むURLに対応
+    url_pattern = r'(https?://(?:\[[0-9a-fA-F:]+\]|[^\s<>"\'`\]]+)(?::[0-9]+)?[^\s<>"\'`]*)'
+    
+    def replace_url(match):
+        url = match.group(1)
+        # URLの末尾の句読点を除去（ただし、IPv6の角括弧は保持）
+        url = re.sub(r'[.,;!?]+$', '', url)
+        return f'<a href="{url}" target="_blank" rel="noopener noreferrer">{url}</a>'
+    
+    text = re.sub(url_pattern, replace_url, text)
+    
+    # 保護したリンクを復元
+    for placeholder, original in temp_replacements.items():
+        text = text.replace(placeholder, original)
+    
+    return text
+
+
 def markdown_to_html(text):
     """MarkdownテキストをHTMLに変換"""
     if not text:
@@ -22,6 +69,8 @@ def markdown_to_html(text):
     ])
     
     html = md.convert(text)
+    # Markdown変換後にURL自動リンク化を適用
+    html = auto_link_urls(html)
     return Markup(html)
 
 
@@ -169,4 +218,5 @@ TEMPLATE_FILTERS = {
     'format_datetime': format_datetime,
     'word_count': word_count,
     'reading_time': reading_time,
+    'auto_link_urls': auto_link_urls,
 }

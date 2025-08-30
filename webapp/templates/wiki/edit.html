@@ -27,10 +27,38 @@
                         </div>
 
                         <div class="mb-3">
-                            <label for="content" class="form-label">内容 <span class="text-danger">*</span></label>
-                            <textarea class="form-control" id="content" name="content" rows="15" required>{{ page.content }}</textarea>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label for="content" class="form-label">内容 <span class="text-danger">*</span></label>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <input type="radio" class="btn-check" name="editor-mode" id="edit-mode" checked>
+                                    <label class="btn btn-outline-secondary" for="edit-mode">
+                                        <i class="fas fa-edit"></i> 編集
+                                    </label>
+                                    <input type="radio" class="btn-check" name="editor-mode" id="preview-mode">
+                                    <label class="btn btn-outline-secondary" for="preview-mode">
+                                        <i class="fas fa-eye"></i> プレビュー
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <!-- 編集モード -->
+                            <div id="editor-container">
+                                <textarea class="form-control" id="content" name="content" rows="15" required>{{ page.content }}</textarea>
+                            </div>
+                            
+                            <!-- プレビューモード -->
+                            <div id="preview-container" style="display: none;">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <div id="preview-content" class="wiki-content">
+                                            <p class="text-muted">プレビューを読み込み中...</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <div class="form-text">
-                                Markdownをサポートしています。改行は自動的に&lt;br&gt;タグに変換されます。
+                                Markdownをサポートしています。http:やhttps:で始まるURLは自動的にリンクになります。
                             </div>
                         </div>
 
@@ -96,9 +124,72 @@
 
 <script>
 // Auto-resize textarea
-document.getElementById('content').addEventListener('input', function() {
+const contentTextarea = document.getElementById('content');
+contentTextarea.addEventListener('input', function() {
     this.style.height = 'auto';
     this.style.height = this.scrollHeight + 'px';
+});
+
+// プレビュー機能
+const editModeRadio = document.getElementById('edit-mode');
+const previewModeRadio = document.getElementById('preview-mode');
+const editorContainer = document.getElementById('editor-container');
+const previewContainer = document.getElementById('preview-container');
+const previewContent = document.getElementById('preview-content');
+
+let previewTimeout;
+
+// モード切り替え
+function switchMode() {
+    if (editModeRadio.checked) {
+        editorContainer.style.display = 'block';
+        previewContainer.style.display = 'none';
+    } else {
+        editorContainer.style.display = 'none';
+        previewContainer.style.display = 'block';
+        updatePreview();
+    }
+}
+
+editModeRadio.addEventListener('change', switchMode);
+previewModeRadio.addEventListener('change', switchMode);
+
+// プレビュー更新
+function updatePreview() {
+    const content = contentTextarea.value;
+    
+    if (!content.trim()) {
+        previewContent.innerHTML = '<p class="text-muted">プレビューするコンテンツがありません</p>';
+        return;
+    }
+    
+    previewContent.innerHTML = '<p class="text-muted">プレビューを読み込み中...</p>';
+    
+    fetch('{{ url_for("wiki.api_preview") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            content: content
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        previewContent.innerHTML = data.html;
+    })
+    .catch(error => {
+        console.error('プレビューエラー:', error);
+        previewContent.innerHTML = '<p class="text-danger">プレビューの読み込みに失敗しました</p>';
+    });
+}
+
+// プレビューモードの時は定期的に更新
+contentTextarea.addEventListener('input', function() {
+    if (previewModeRadio.checked) {
+        clearTimeout(previewTimeout);
+        previewTimeout = setTimeout(updatePreview, 1000); // 1秒後に更新
+    }
 });
 </script>
 {% endblock %}

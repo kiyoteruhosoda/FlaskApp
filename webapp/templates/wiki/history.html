@@ -31,20 +31,20 @@
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-6">
-                            <h6>ページ情報</h6>
+                            <h6>{{ _('Page Information') }}</h6>
                             <div class="small text-muted">
-                                <div>現在のタイトル: {{ page.title }}</div>
-                                <div>スラッグ: {{ page.slug }}</div>
-                                <div>作成者: {{ page.created_by.username }}</div>
-                                <div>作成日: {{ page.created_at.strftime('%Y/%m/%d %H:%M') }}</div>
+                                <div>{{ _('Current Title') }}: {{ page.title }}</div>
+                                <div>{{ _('Slug') }}: {{ page.slug }}</div>
+                                <div>{{ _('Created By') }}: {{ page.created_by.display_name if page.created_by else _('Unknown') }}</div>
+                                <div>{{ _('Created Date') }}: {{ page.created_at.strftime('%Y/%m/%d %H:%M') }}</div>
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <h6>統計</h6>
+                            <h6>{{ _('Statistics') }}</h6>
                             <div class="small text-muted">
-                                <div>総リビジョン数: {{ revisions|length }}</div>
-                                <div>最終更新: {{ page.updated_at.strftime('%Y/%m/%d %H:%M') }}</div>
-                                <div>最終更新者: {{ page.updated_by.username }}</div>
+                                <div>{{ _('Total Revisions') }}: {{ revisions|length }}</div>
+                                <div>{{ _('Last Updated') }}: {{ page.updated_at.strftime('%Y/%m/%d %H:%M') }}</div>
+                                <div>{{ _('Last Updated By') }}: {{ page.updated_by.display_name if page.updated_by else _('Unknown') }}</div>
                             </div>
                         </div>
                     </div>
@@ -55,7 +55,7 @@
             {% if revisions %}
             <div class="card">
                 <div class="card-header">
-                    <h5>変更履歴</h5>
+                    <h5>{{ _('Change History') }}</h5>
                 </div>
                 <div class="card-body p-0">
                     <div class="wiki-revision-list">
@@ -68,7 +68,7 @@
                                             <i class="fas fa-code-branch"></i> v{{ revision.revision_number }}
                                         </span>
                                         <span class="text-muted">
-                                            <i class="fas fa-user"></i> {{ revision.created_by.username }}
+                                            <i class="fas fa-user"></i> {{ revision.created_by.display_name if revision.created_by else _('Unknown') }}
                                         </span>
                                         <span class="text-muted mx-2">|</span>
                                         <span class="text-muted">
@@ -86,12 +86,12 @@
                                         <div class="row">
                                             <div class="col-md-6">
                                                 <small class="text-muted">
-                                                    <strong>タイトル:</strong> {{ revision.title }}
+                                                    <strong>{{ _('Title') }}:</strong> {{ revision.title }}
                                                 </small>
                                             </div>
                                             <div class="col-md-6">
                                                 <small class="text-muted">
-                                                    <strong>内容長:</strong> {{ revision.content|length }} 文字
+                                                    <strong>{{ _('Content Length') }}:</strong> {{ revision.content|length }} {{ _('characters') }}
                                                 </small>
                                             </div>
                                         </div>
@@ -101,7 +101,7 @@
                                 <div class="revision-actions">
                                     <button class="btn btn-sm btn-outline-info" 
                                             onclick="toggleRevisionContent({{ revision.id }})">
-                                        <i class="fas fa-eye"></i> 内容を表示
+                                        <i class="fas fa-eye"></i> {{ _('Show Content') }}
                                     </button>
                                 </div>
                             </div>
@@ -109,7 +109,7 @@
                             <!-- リビジョン内容（初期は非表示） -->
                             <div id="revision-content-{{ revision.id }}" class="revision-content mt-3" style="display: none;">
                                 <div class="border-top pt-3">
-                                    <h6>この時点でのページ内容:</h6>
+                                    <h6>{{ _('Page content at this point') }}:</h6>
                                     <div class="wiki-content border rounded p-3 bg-light">
                                         {{ revision.content | markdown | safe }}
                                     </div>
@@ -124,9 +124,9 @@
             <div class="card">
                 <div class="card-body text-center py-5">
                     <i class="fas fa-history fa-3x text-muted mb-3"></i>
-                    <h5 class="text-muted">履歴がありません</h5>
+                    <h5 class="text-muted">{{ _('No History') }}</h5>
                     <p class="text-muted">
-                        このページの変更履歴はまだありません。
+                        {{ _('This page has no change history yet.') }}
                     </p>
                 </div>
             </div>
@@ -135,10 +135,10 @@
             <!-- ナビゲーション -->
             <div class="mt-4">
                 <a href="{{ url_for('wiki.view_page', slug=page.slug) }}" class="btn btn-primary">
-                    <i class="fas fa-arrow-left"></i> ページに戻る
+                    <i class="fas fa-arrow-left"></i> {{ _('Back to Page') }}
                 </a>
                 <a href="{{ url_for('wiki.index') }}" class="btn btn-outline-secondary">
-                    <i class="fas fa-home"></i> Wiki トップ
+                    <i class="fas fa-home"></i> {{ _('Wiki Top') }}
                 </a>
             </div>
         </div>
@@ -152,12 +152,12 @@ function toggleRevisionContent(revisionId) {
     
     if (content.style.display === 'none') {
         content.style.display = 'block';
-        button.innerHTML = '<i class="fas fa-eye-slash"></i> 内容を隠す';
+        button.innerHTML = '<i class="fas fa-eye-slash"></i> {{ _("Hide Content") }}';
         button.classList.remove('btn-outline-info');
         button.classList.add('btn-outline-warning');
     } else {
         content.style.display = 'none';
-        button.innerHTML = '<i class="fas fa-eye"></i> 内容を表示';
+        button.innerHTML = '<i class="fas fa-eye"></i> {{ _("Show Content") }}';
         button.classList.remove('btn-outline-warning');
         button.classList.add('btn-outline-info');
     }

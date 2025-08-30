@@ -115,7 +115,7 @@
                                     {{ page.content[:100] }}{% if page.content|length > 100 %}...{% endif %}
                                 </p>
                                 <small class="text-muted">
-                                    作成者: {{ page.created_by.username }}
+                                    {{ _('Created By') }}: {{ page.created_by.display_name if page.created_by else _('Unknown') }}
                                 </small>
                             </div>
                             {% endfor %}

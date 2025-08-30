@@ -1220,3 +1220,72 @@ msgstr "続行するにはログインしてください。"
 #~ msgid "Save and enter the 6-digit code below"
 #~ msgstr "保存して下記に6桁のコードを入力"
 
+msgid "Created"
+msgstr "作成"
+
+msgid "Updated"
+msgstr "更新"
+
+msgid "Unknown"
+msgstr "不明"
+
+msgid "Page Information"
+msgstr "ページ情報"
+
+msgid "Created Date"
+msgstr "作成日"
+
+msgid "Created By"
+msgstr "作成者"
+
+msgid "Slug"
+msgstr "スラッグ"
+
+msgid "Statistics"
+msgstr "統計"
+
+msgid "Total Revisions"
+msgstr "総リビジョン数"
+
+msgid "Last Updated"
+msgstr "最終更新"
+
+msgid "Last Updated By"
+msgstr "最終更新者"
+
+msgid "Current Title"
+msgstr "現在のタイトル"
+
+msgid "Title"
+msgstr "タイトル"
+
+msgid "Content Length"
+msgstr "内容長"
+
+msgid "characters"
+msgstr "文字"
+
+msgid "Show Content"
+msgstr "内容を表示"
+
+msgid "Hide Content"
+msgstr "内容を隠す"
+
+msgid "Page content at this point"
+msgstr "この時点でのページ内容"
+
+msgid "Change History"
+msgstr "変更履歴"
+
+msgid "No History"
+msgstr "履歴がありません"
+
+msgid "This page has no change history yet."
+msgstr "このページの変更履歴はまだありません。"
+
+msgid "Back to Page"
+msgstr "ページに戻る"
+
+msgid "Wiki Top"
+msgstr "Wiki トップ"
+

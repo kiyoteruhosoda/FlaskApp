@@ -57,7 +57,7 @@
                             </div>
                             <div class="search-result-meta">
                                 <span class="me-3">
-                                    <i class="fas fa-user"></i> {{ page.created_by.username }}
+                                    <i class="fas fa-user"></i> {{ page.created_by.display_name if page.created_by else _('Unknown') }}
                                 </span>
                                 <span class="me-3">
                                     <i class="fas fa-calendar"></i> {{ page.updated_at.strftime('%Y/%m/%d') }}

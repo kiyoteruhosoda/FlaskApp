@@ -33,6 +33,7 @@ class Permission(db.Model):
 class User(db.Model, UserMixin):
     id = db.Column(BigInt, primary_key=True, autoincrement=True)
     email = db.Column(db.String(255), unique=True, index=True, nullable=False)
+    username = db.Column(db.String(80), nullable=True)  # ユーザー名フィールドを追加
     password_hash = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     totp_secret = db.Column(db.String(32), nullable=True)
@@ -75,6 +76,15 @@ class User(db.Model, UserMixin):
     def can(self, *codes: str) -> bool:
         have = self.permissions
         return any(c in have for c in codes)
+
+    @property
+    def display_name(self) -> str:
+        """表示用の名前を取得（username > emailのローカル部分の順）"""
+        if self.username:
+            return self.username
+        if self.email:
+            return self.email.split('@')[0]
+        return 'Unknown User'
 
 @login_manager.user_loader
 def load_user(user_id):

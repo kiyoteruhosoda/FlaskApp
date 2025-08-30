@@ -96,11 +96,11 @@
                                 </div>
 
                                 <div class="mb-3">
-                                    <label class="form-label">ページ情報</label>
+                                    <label class="form-label">{{ _('Page Information') }}</label>
                                     <div class="small text-muted">
-                                        <div>作成日: {{ page.created_at.strftime('%Y/%m/%d %H:%M') }}</div>
-                                        <div>作成者: {{ page.created_by.username }}</div>
-                                        <div>スラッグ: {{ page.slug }}</div>
+                                        <div>{{ _('Created Date') }}: {{ page.created_at.strftime('%Y/%m/%d %H:%M') }}</div>
+                                        <div>{{ _('Created By') }}: {{ page.created_by.display_name if page.created_by else _('Unknown') }}</div>
+                                        <div>{{ _('Slug') }}: {{ page.slug }}</div>
                                     </div>
                                 </div>
 

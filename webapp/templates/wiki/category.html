@@ -52,7 +52,7 @@
                                         {{ page.content[:150] }}{% if page.content|length > 150 %}...{% endif %}
                                     </p>
                                     <small class="text-muted">
-                                        <i class="fas fa-user"></i> {{ page.created_by.username }}
+                                        <i class="fas fa-user"></i> {{ page.created_by.display_name if page.created_by else _('Unknown') }}
                                         <span class="mx-2">|</span>
                                         <i class="fas fa-calendar"></i> 更新: {{ page.updated_at.strftime('%Y/%m/%d %H:%M') }}
                                         {% if page.categories|length > 1 %}

@@ -198,3 +198,72 @@ msgstr "Registration session invalid. Please register again."
 
 msgid "Registration failed: {}"
 msgstr "Registration failed: {}"
+
+msgid "Created"
+msgstr "Created"
+
+msgid "Updated"
+msgstr "Updated"
+
+msgid "Unknown"
+msgstr "Unknown"
+
+msgid "Page Information"
+msgstr "Page Information"
+
+msgid "Created Date"
+msgstr "Created Date"
+
+msgid "Created By"
+msgstr "Created By"
+
+msgid "Slug"
+msgstr "Slug"
+
+msgid "Statistics"
+msgstr "Statistics"
+
+msgid "Total Revisions"
+msgstr "Total Revisions"
+
+msgid "Last Updated"
+msgstr "Last Updated"
+
+msgid "Last Updated By"
+msgstr "Last Updated By"
+
+msgid "Current Title"
+msgstr "Current Title"
+
+msgid "Title"
+msgstr "Title"
+
+msgid "Content Length"
+msgstr "Content Length"
+
+msgid "characters"
+msgstr "characters"
+
+msgid "Show Content"
+msgstr "Show Content"
+
+msgid "Hide Content"
+msgstr "Hide Content"
+
+msgid "Page content at this point"
+msgstr "Page content at this point"
+
+msgid "Change History"
+msgstr "Change History"
+
+msgid "No History"
+msgstr "No History"
+
+msgid "This page has no change history yet."
+msgstr "This page has no change history yet."
+
+msgid "Back to Page"
+msgstr "Back to Page"
+
+msgid "Wiki Top"
+msgstr "Wiki Top"

@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}ページ編集: {{ page.title }} - Wiki{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='wiki/wiki.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>ページ編集: {{ page.title }}</h1>
+                <a href="{{ url_for('wiki.view_page', slug=page.slug) }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> ページに戻る
+                </a>
+            </div>
+
+            <form method="POST">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="mb-3">
+                            <label for="title" class="form-label">タイトル <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="title" name="title" 
+                                   value="{{ page.title }}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="content" class="form-label">内容 <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="content" name="content" rows="15" required>{{ page.content }}</textarea>
+                            <div class="form-text">
+                                Markdownをサポートしています。改行は自動的に&lt;br&gt;タグに変換されます。
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="change_summary" class="form-label">変更概要</label>
+                            <input type="text" class="form-control" id="change_summary" name="change_summary" 
+                                   placeholder="どのような変更を行ったかを簡潔に説明してください">
+                            <div class="form-text">履歴で表示される変更の説明です（省略可）</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6>設定</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label">カテゴリ</label>
+                                    {% for category in categories %}
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" 
+                                               name="category_ids" value="{{ category.id }}" 
+                                               id="category_{{ category.id }}"
+                                               {% if category in page.categories %}checked{% endif %}>
+                                        <label class="form-check-label" for="category_{{ category.id }}">
+                                            {{ category.name }}
+                                        </label>
+                                    </div>
+                                    {% endfor %}
+                                    
+                                    {% if not categories %}
+                                    <p class="text-muted small">カテゴリがありません</p>
+                                    {% endif %}
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">ページ情報</label>
+                                    <div class="small text-muted">
+                                        <div>作成日: {{ page.created_at.strftime('%Y/%m/%d %H:%M') }}</div>
+                                        <div>作成者: {{ page.created_by.username }}</div>
+                                        <div>スラッグ: {{ page.slug }}</div>
+                                    </div>
+                                </div>
+
+                                <div class="d-grid gap-2">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> 保存
+                                    </button>
+                                    <a href="{{ url_for('wiki.view_page', slug=page.slug) }}" 
+                                       class="btn btn-outline-secondary">
+                                        キャンセル
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-resize textarea
+document.getElementById('content').addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = this.scrollHeight + 'px';
+});
+</script>
+{% endblock %}

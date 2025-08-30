@@ -53,6 +53,7 @@ def create_app():
     from core.models import picker_session as _picker_session  # noqa: F401
     from core.models import picker_import_task as _picker_import_task  # noqa: F401
     from core.models import log as _log  # noqa: F401
+    from core.models.wiki import models as _wiki_models  # noqa: F401
 
 
     # Blueprint 登録
@@ -72,6 +73,9 @@ def create_app():
 
     from .api import bp as api_bp
     app.register_blueprint(api_bp, url_prefix="/api")
+
+    from .wiki import bp as wiki_bp
+    app.register_blueprint(wiki_bp, url_prefix="/wiki")
 
     @app.before_request
     def start_timer():

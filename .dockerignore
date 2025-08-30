@@ -1,5 +1,5 @@
 # Docker用の除外ファイル
-# 開発環境のファイル
+# 開発環境のファイル（.envはdocker-compose.ymlで参照するため除外しない）
 .env
 .env.local
 .env.development

@@ -49,10 +49,10 @@ PhotoNestは外部のMariaDB/MySQLデータベースを利用します：
 CREATE DATABASE photonest CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 # 2. ユーザー作成
-CREATE USER 'photonest_user'@'%' IDENTIFIED BY 'your-strong-password';
+CREATE USER '<photonest_user>'@'%' IDENTIFIED BY '<your-strong-password>';
 
 # 3. 権限付与
-GRANT ALL PRIVILEGES ON photonest.* TO 'photonest_user'@'%';
+GRANT ALL PRIVILEGES ON photonest.* TO '<photonest_user>'@'%';
 FLUSH PRIVILEGES;
 ```
 
@@ -62,8 +62,8 @@ FLUSH PRIVILEGES;
 mysql -u root -p
 
 CREATE DATABASE photonest CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'photonest_user'@'%' IDENTIFIED BY 'your-strong-password';
-GRANT ALL PRIVILEGES ON photonest.* TO 'photonest_user'@'%';
+CREATE USER '<photonest_user>'@'%' IDENTIFIED BY '<your-strong-password>';
+GRANT ALL PRIVILEGES ON photonest.* TO '<photonest_user>'@'%';
 FLUSH PRIVILEGES;
 
 # ファイアウォール設定（必要に応じて）
@@ -92,67 +92,39 @@ DSMのFile Stationで以下のフォルダを作成：
 └── backups/
 ```
 
-### 1.3 リリースファイルの準備
-1. PhotoNestのリリースパッケージをSynologyにアップロード
-2. `/docker/photonest/`フォルダに展開
-3. 必要ファイルを配置
-
-```bash
-# SynologyのSSH接続（有効化要）、またはFile Station経由で実行
-cd /volume1/docker/photonest/
-# リリースパッケージを展開
-tar -xzf photonest-*.tar.gz
-mv release-*/* ./
-```
+### 1.3 docker-compose.ymlとDockerイメージの準備
+PhotoNestのdocker-compose.ymlは外部データベース対応済みです。開発環境でDockerイメージをビルドしてSynologyにインポートします。
 
 ## 2. 環境設定ファイルの準備
 
 ### 2.1 .envファイルの作成
-`/docker/photonest/config/.env`ファイルを作成（`.env.example`をベースに）：
+Synology上で`/volume1/docker/photonest/.env`ファイルを作成します。
+`.env.example`をコピーして、**以下の項目のみ変更**してください：
 
 ```env
-```env
-# ===========================================
-# PhotoNest Synology Production Environment
-# ===========================================
+# 必ず変更が必要な項目
+SECRET_KEY=<your-very-strong-secret-key-here-change-this-immediately>
+AES_KEY=<your-32-byte-aes-encryption-key-change-this-now>
+JWT_SECRET_KEY=<your-jwt-secret-key-here>
 
-# セキュリティキー（必ず変更してください）
-SECRET_KEY=your-very-strong-secret-key-here-change-this-immediately
-AES_KEY=your-32-byte-aes-encryption-key-change-this-now
+# 外部データベース設定（Synology MariaDB または別サーバー）
+DATABASE_URI=mysql+pymysql://<photonest_user>:<your-password>@<your-db-host>:3306/photonest
 
-# 外部データベース設定（Synology MariaDB/MySQL または別サーバー）
-# 例: DATABASE_URL=mysql+pymysql://photonest_user:password@192.168.1.100:3306/photonest
-DATABASE_URL=mysql+pymysql://photonest_user:your-password@your-db-host:3306/photonest
+# Redis認証設定
+REDIS_PASSWORD=<strong-redis-password-here>
+REDIS_URL=redis://:<strong-redis-password-here>@photonest-redis:6379/0
+CELERY_BROKER_URL=redis://:<strong-redis-password-here>@photonest-redis:6379/0
+CELERY_RESULT_BACKEND=redis://:<strong-redis-password-here>@photonest-redis:6379/0
 
-# Redis設定（認証付き）
-REDIS_PASSWORD=strong-redis-password-here
-REDIS_URL=redis://:strong-redis-password-here@photonest-redis:6379/0
+# Google OAuth設定（使用する場合のみ）
+GOOGLE_CLIENT_ID=<your-google-client-id>
+GOOGLE_CLIENT_SECRET=<your-google-client-secret>
 
-# Celery設定（Redis認証対応）
-CELERY_BROKER_URL=redis://:strong-redis-password-here@photonest-redis:6379/0
-CELERY_RESULT_BACKEND=redis://:strong-redis-password-here@photonest-redis:6379/0
-
-# Flask設定
-FLASK_ENV=production
-FLASK_DEBUG=False
-
-# ログ設定
-LOG_LEVEL=INFO
-
-# Google OAuth設定（オプション）
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-
-# セキュリティ設定
-SESSION_COOKIE_SECURE=True
-SESSION_COOKIE_HTTPONLY=True
-
-# Synology固有設定
-TZ=Asia/Tokyo
-PUID=1026
-PGID=100
+# ダウンロードURL署名設定
+FPV_DL_SIGN_KEY=<your-download-signing-key-here>
 ```
-```
+
+**注意**: その他の設定項目（TZ、PUID、PGID等）はデフォルト値のまま使用可能です。
 
 ### 2.2 docker-compose.ymlの設定確認
 PhotoNestのdocker-compose.ymlは外部データベース対応済みです：
@@ -164,62 +136,40 @@ PhotoNestのdocker-compose.ymlは外部データベース対応済みです：
 設定例：
 ```env
 # .env
-DATABASE_URL=mysql+pymysql://photonest_user:password@your-db-host:3306/photonest
-REDIS_PASSWORD=strong-redis-password-here
-REDIS_URL=redis://:strong-redis-password-here@photonest-redis:6379/0
+DATABASE_URI=mysql+pymysql://<photonest_user>:<password>@<your-db-host>:3306/photonest
+REDIS_PASSWORD=<strong-redis-password-here>
+REDIS_URL=redis://:<strong-redis-password-here>@photonest-redis:6379/0
 ```
 
 ## 3. Container Managerでのデプロイ
 
-### 3.1 イメージのビルド方法
+### 3.1 Dockerイメージのビルドとデプロイ
 
-#### 方法1: SSH経由でビルド（推奨）
-Container Managerで「Dockerfileからビルド」が見つからない場合は、SSH経由でビルドします：
+開発環境でDockerイメージをビルドして、SynologyのContainer Managerにインポートします。
 
-```bash
-# SynologyにSSH接続（事前にSSHサービスを有効化）
-ssh admin@your-nas-ip
-
-# プロジェクトディレクトリに移動
-cd /volume1/docker/photonest/
-
-# Dockerイメージをビルド
-docker build -t photonest:latest .
-
-# ビルド完了後、Container Managerの「イメージ」タブで確認
-```
-
-#### 方法2: 外部でビルドしてインポート
 ```bash
 # 開発マシンでイメージをビルド
+cd /path/to/photonest/project
 docker build -t photonest:latest .
 
 # イメージをtarファイルとして保存
 docker save photonest:latest > photonest-latest.tar
 
-# SynologyにアップロードしてContainer Managerでインポート
-# Container Manager > イメージ > 追加 > ファイルからインポート
-```
+# tarファイルをSynologyにアップロード（scp、File Station、USBなど）
+scp photonest-latest.tar <admin>@<your-nas-ip>:/volume1/docker/
 
-#### 方法3: Container Managerでの直接ビルド
-新しいバージョンのContainer Managerでは以下の手順：
-1. Container Managerを開く
-2. 「イメージ」タブを選択
-3. 「追加」→「ファイルからビルド」または「レジストリからダウンロード」を選択
-4. 設定：
-   - **イメージ名**: `photonest:latest`
-   - **Dockerfileパス**: `/docker/photonest/Dockerfile`
-   - **コンテキストパス**: `/docker/photonest/`
-5. 「ビルド」を実行
+# Container Managerでインポート
+# Container Manager > イメージ > 追加 > ファイルからインポート > photonest-latest.tar を選択
+```
 
 ### 3.2 プロジェクトの作成
 1. Container Managerで「プロジェクト」タブを選択
 2. 「作成」をクリック
 3. 設定：
    - **プロジェクト名**: `photonest`
-   - **パス**: `/docker/photonest/`
+   - **パス**: `/volume1/docker/photonest/`
    - **ソース**: 「既存のdocker-compose.ymlをアップロード」を選択
-   - **ファイル**: `docker-compose.yml`を選択
+   - **ファイル**: `/volume1/docker/photonest/docker-compose.yml`を選択
 
 ### 3.3 サービスの起動
 1. プロジェクト一覧で「photonest」を選択
@@ -250,7 +200,7 @@ Container Managerで各コンテナのポートを確認：
 4. 設定：
    - **説明**: PhotoNest
    - **ソースプロトコル**: HTTPS
-   - **ソースホスト名**: your-nas-domain.synology.me
+   - **ソースホスト名**: <your-nas-domain.synology.me>
    - **ソースポート**: 443
    - **デスティネーションプロトコル**: HTTP
    - **デスティネーションホスト名**: localhost
@@ -266,7 +216,7 @@ Container Managerで各コンテナのポートを確認：
 #### 4.3.1 DDNS設定
 1. 「コントロールパネル」→「外部アクセス」→「DDNS」
 2. Synology DDNS またはカスタムDDNSを設定
-3. ドメイン名を取得（例：your-nas.synology.me）
+3. ドメイン名を取得（例：<your-nas.synology.me>）
 
 #### 4.3.2 ファイアウォール設定
 1. 「コントロールパネル」→「セキュリティ」→「ファイアウォール」
@@ -302,7 +252,7 @@ flask create-admin
 ```
 
 ### 5.2 初回アクセスと動作確認
-1. ブラウザで `https://your-nas-domain.synology.me` にアクセス
+1. ブラウザで `https://<your-nas-domain.synology.me>` にアクセス
 2. PhotoNestのログイン画面が表示されることを確認
 3. 管理者アカウントでログイン
 4. 基本機能の動作確認
@@ -336,11 +286,11 @@ DATE=$(date +%Y%m%d_%H%M%S)
 
 # 外部データベースのバックアップ（例：Synology MariaDBパッケージの場合）
 # Synology MariaDBの場合：
-mysqldump -h your-db-host -u photonest_user -p photonest > \
+mysqldump -h <your-db-host> -u <photonest_user> -p photonest > \
     ${BACKUP_DIR}/db_backup_${DATE}.sql
 
 # 別サーバーのMySQL/MariaDBの場合：
-# mysqldump -h your-external-db-server -u photonest_user -p photonest > \
+# mysqldump -h <your-external-db-server> -u <photonest_user> -p photonest > \
 #     ${BACKUP_DIR}/db_backup_${DATE}.sql
 
 # メディアファイルバックアップ（必要に応じて）
@@ -414,7 +364,7 @@ chown -R 1026:100 /volume1/docker/photonest/data/
 cd /volume1/docker/photonest/
 docker-compose up -d
 echo "PhotoNest started successfully!"
-echo "Access URL: https://your-nas-domain.synology.me"
+echo "Access URL: https://<your-nas-domain.synology.me>"
 ```
 
 #### stop-photonest.sh
@@ -434,17 +384,17 @@ mkdir -p ${BACKUP_DIR}
 
 # 外部データベースバックアップ
 # Synology MariaDBパッケージの場合
-mysqldump -h localhost -u photonest_user -p photonest \
+mysqldump -h localhost -u <photonest_user> -p photonest \
     --single-transaction --routines --triggers > \
     ${BACKUP_DIR}/photonest_db_${DATE}.sql
 
 # 別サーバーのデータベースの場合
-# mysqldump -h your-db-server -u photonest_user -p photonest \
+# mysqldump -h <your-db-server> -u <photonest_user> -p photonest \
 #     --single-transaction --routines --triggers > \
 #     ${BACKUP_DIR}/photonest_db_${DATE}.sql
 
 # 設定ファイルバックアップ
-cp /volume1/docker/photonest/config/.env ${BACKUP_DIR}/env_${DATE}.backup
+cp /volume1/docker/photonest/.env ${BACKUP_DIR}/env_${DATE}.backup
 
 echo "Backup completed: ${BACKUP_DIR}"
 echo "Database: photonest_db_${DATE}.sql"
@@ -486,15 +436,15 @@ docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"
 #### nginx.conf（外部リバースプロキシ使用時）
 ```nginx
 upstream photonest {
-    server your-nas-ip:5000;
+    server <your-nas-ip>:5000;
 }
 
 server {
     listen 443 ssl http2;
-    server_name your-domain.com;
+    server_name <your-domain.com>;
 
-    ssl_certificate /path/to/certificate.crt;
-    ssl_certificate_key /path/to/private.key;
+    ssl_certificate <path/to/certificate.crt>;
+    ssl_certificate_key <path/to/private.key>;
 
     location / {
         proxy_pass http://photonest;

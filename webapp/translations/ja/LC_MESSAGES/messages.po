@@ -149,7 +149,7 @@ msgstr ""
 #: webapp/templates/base.html:75
 #, fuzzy
 msgid "Google Accounts"
-msgstr "アカウント作成"
+msgstr "Googleアカウント"
 
 #: webapp/admin/templates/admin/admin_users.html:26
 #: webapp/admin/templates/admin/config_view.html:2
@@ -260,11 +260,11 @@ msgstr ""
 
 #: webapp/admin/templates/admin/admin_users.html:101
 msgid "deactivate"
-msgstr ""
+msgstr "無効化"
 
 #: webapp/admin/templates/admin/admin_users.html:102
 msgid "activate"
-msgstr ""
+msgstr "有効化"
 
 #: webapp/admin/templates/admin/admin_users.html:103
 msgid "Are you sure you want to"
@@ -332,7 +332,7 @@ msgstr ""
 #: webapp/admin/templates/admin/google_accounts.html:2
 #: webapp/admin/templates/admin/google_accounts.html:36
 msgid "Google Accounts Management"
-msgstr ""
+msgstr "Googleアカウント管理"
 
 #: webapp/admin/templates/admin/google_accounts.html:43
 msgid "User"
@@ -736,11 +736,11 @@ msgstr "ダッシュボード"
 #: webapp/auth/templates/auth/google_accounts.html:8
 #, fuzzy
 msgid "Add Account"
-msgstr "アカウント作成"
+msgstr "アカウント追加"
 
 #: webapp/auth/templates/auth/google_accounts.html:54
 msgid "Reauth"
-msgstr ""
+msgstr "再認証"
 
 #: webapp/auth/templates/auth/google_accounts.html:57
 msgid "Picker"
@@ -956,7 +956,7 @@ msgstr ""
 
 #: webapp/feature_x/templates/feature_x/dashboard.html:68
 msgid "Manage Google Accounts"
-msgstr ""
+msgstr "Googleアカウント管理"
 
 #: webapp/photo_view/templates/photo_view/albums.html:100
 #: webapp/photo_view/templates/photo_view/home.html:31

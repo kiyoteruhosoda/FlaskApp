@@ -290,14 +290,14 @@ def google_oauth_callback():
     """Google OAuth callback handler."""
     if request.args.get("error"):
         flash(_("Google OAuth error: %(msg)s", msg=request.args["error"]), "error")
-        return redirect(url_for("auth.google_accounts"))
+        return redirect(url_for("admin.google_accounts"))
 
     code = request.args.get("code")
     state = request.args.get("state")
     saved = session.get("google_oauth_state") or {}
     if not code or state != saved.get("state"):
         flash(_("Invalid OAuth state."), "error")
-        return redirect(url_for("auth.google_accounts"))
+        return redirect(url_for("admin.google_accounts"))
 
     token_data = {
         "code": code,
@@ -307,6 +307,11 @@ def google_oauth_callback():
         "grant_type": "authorization_code",
     }
 
+    # デバッグログを追加
+    current_app.logger.info(f"OAuth callback - client_id: {token_data['client_id']}")
+    current_app.logger.info(f"OAuth callback - client_secret exists: {bool(token_data['client_secret'])}")
+    current_app.logger.info(f"OAuth callback - redirect_uri: {token_data['redirect_uri']}")
+
     try:
         token_res = log_requests_and_send(
             "post",
@@ -315,12 +320,14 @@ def google_oauth_callback():
             timeout=10
         )
         tokens = token_res.json()
+        current_app.logger.info(f"OAuth token response: {tokens}")
         if "error" in tokens:
             flash(_("Google token error: %(msg)s", msg=tokens.get("error_description", tokens["error"])), "error")
-            return redirect(url_for("auth.google_accounts"))
+            return redirect(url_for("admin.google_accounts"))
     except Exception as e:
+        current_app.logger.error(f"Failed to obtain token from Google: {str(e)}")
         flash(_("Failed to obtain token from Google: %(msg)s", msg=str(e)), "error")
-        return redirect(url_for("auth.google_accounts"))
+        return redirect(url_for("admin.google_accounts"))
 
     access_token = tokens.get("access_token")
     email = None
@@ -340,21 +347,22 @@ def google_oauth_callback():
 
     if not email:
         flash(_("Failed to fetch email from Google."), "error")
-        return redirect(url_for("auth.google_accounts"))
+        return redirect(url_for("admin.google_accounts"))
 
     account = GoogleAccount.query.filter_by(email=email).first()
     scopes = saved.get("scopes") or []
     if not account:
-        account = GoogleAccount(email=email, scopes=",".join(scopes))
+        account = GoogleAccount(email=email, scopes=",".join(scopes), user_id=current_user.id)
         db.session.add(account)
     else:
         account.scopes = ",".join(scopes)
         account.status = "active"
+        account.user_id = current_user.id
     account.oauth_token_json = encrypt(json.dumps(tokens))
     account.last_synced_at = datetime.now(timezone.utc)
     db.session.commit()
 
-    redirect_to = saved.get("redirect") or url_for("auth.google_accounts")
+    redirect_to = saved.get("redirect") or url_for("admin.google_accounts")
     session.pop("google_oauth_state", None)
     flash(_("Google account linked: %(email)s", email=email), "success")
     return redirect(redirect_to)
@@ -367,7 +375,7 @@ def picker_auto():
     account = GoogleAccount.query.filter_by(user_id=current_user.id).first()
     if not account:
         flash(_("No Google account linked. Please link a Google account first."), "error")
-        return redirect(url_for("auth.google_accounts"))
+        return redirect(url_for("admin.google_accounts"))
     return redirect(url_for("auth.picker", account_id=account.id))
 
 @bp.get("/picker/<int:account_id>")
@@ -383,12 +391,12 @@ def picker(account_id: int):
             flash(_("No refresh token available."), "error")
         else:
             flash(_("Failed to refresh token: %(msg)s", msg=str(e)), "error")
-        return redirect(url_for("auth.google_accounts"))
+        return redirect(url_for("admin.google_accounts"))
 
     access_token = tokens.get("access_token")
     if not access_token:
         flash(_("Failed to obtain access token."), "error")
-        return redirect(url_for("auth.google_accounts"))
+        return redirect(url_for("admin.google_accounts"))
 
     try:
         res = log_requests_and_send(
@@ -402,16 +410,16 @@ def picker(account_id: int):
         picker_data = res.json()
     except requests.RequestException as e:  # pragma: no cover - network failure
         flash(_("Failed to create picker session: %(msg)s", msg=str(e)), "error")
-        return redirect(url_for("auth.google_accounts"))
+        return redirect(url_for("admin.google_accounts"))
     except ValueError:
         flash(_("Invalid response from picker API."), "error")
-        return redirect(url_for("auth.google_accounts"))
+        return redirect(url_for("admin.google_accounts"))
 
     picker_uri = picker_data.get("pickerUri")
     if not picker_uri:
         msg = picker_data.get("error") or _("Failed to create picker session.")
         flash(msg, "error")
-        return redirect(url_for("auth.google_accounts"))
+        return redirect(url_for("admin.google_accounts"))
 
     ps = PickerSession(
         account_id=account.id,
@@ -448,6 +456,5 @@ def picker(account_id: int):
 @bp.route("/settings/google-accounts")
 @login_required
 def google_accounts():
-    """Display Google account linkage settings."""
-    accounts = GoogleAccount.query.filter_by(user_id=current_user.id).all()
-    return render_template("auth/google_accounts.html", accounts=accounts)
+    """Redirect to admin Google accounts page."""
+    return redirect(url_for("admin.google_accounts"))

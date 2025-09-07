@@ -33,7 +33,10 @@
   </li>
 </ul>
 
-<h3>{{ _('Google Accounts Management') }}</h3>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="mb-0">{{ _('Google Accounts Management') }}</h3>
+  <a href="#" id="btn-add-account" class="btn btn-primary">{{ _('Add Account') }}</a>
+</div>
 
 <div class="table-responsive">
   <table class="table table-striped align-middle">
@@ -88,8 +91,14 @@
         <td>
           <div class="btn-group btn-group-sm" role="group"
                data-id="{{ a.id }}" data-scopes="{{ a.scopes }}">
-            <a href="#" class="btn btn-outline-secondary btn-disable">{{ _('Disable') }}</a>
+            {% if a.status == 'disabled' %}
+              <a href="#" class="btn btn-outline-success btn-activate">{{ _('Activate') }}</a>
+            {% else %}
+              <a href="#" class="btn btn-outline-secondary btn-disable">{{ _('Disable') }}</a>
+            {% endif %}
+            <a href="#" class="btn btn-outline-info btn-reauth">{{ _('Re-auth') }}</a>
             <a href="#" class="btn btn-outline-danger btn-delete">{{ _('Delete') }}</a>
+            <a href="{{ url_for('auth.picker', account_id=a.id) }}" class="btn btn-outline-secondary">{{ _('Picker') }}</a>
             <a href="#" class="btn btn-outline-secondary btn-test">{{ _('Test') }}</a>
           </div>
         </td>
@@ -121,6 +130,78 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+  // Add Account
+  const btnAddAccount = document.getElementById('btn-add-account');
+  if (btnAddAccount) {
+    btnAddAccount.addEventListener('click', async (e) => {
+      e.preventDefault();
+      try {
+        const resp = await fetch('{{ url_for("api.google_oauth_start") }}', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            scopes: [
+              'https://www.googleapis.com/auth/photoslibrary.readonly',
+              'https://www.googleapis.com/auth/photoslibrary.appendonly'
+            ],
+            redirect: '{{ url_for("admin.google_accounts") }}' })
+        });
+        const data = await resp.json();
+        if (data.auth_url) {
+          window.location.href = data.auth_url;
+        }
+      } catch (err) {
+        console.error(err);
+        showErrorToast('{{ _("Failed to start OAuth.") }}');
+      }
+    });
+  }
+
+  // Re-auth
+  document.querySelectorAll('.btn-reauth').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const group = e.target.closest('[data-id]');
+      const scopes = (group?.dataset.scopes || '')
+        .split(',').map(s => s.trim()).filter(Boolean);
+      try {
+        const resp = await fetch('{{ url_for("api.google_oauth_start") }}', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scopes, redirect: '{{ url_for("admin.google_accounts") }}' })
+        });
+        const data = await resp.json();
+        if (data.auth_url) {
+          window.location.href = data.auth_url;
+        }
+      } catch (err) {
+        console.error(err);
+        showErrorToast('{{ _("Failed to start re-auth.") }}');
+      }
+    });
+  });
+
+  // Activate
+  document.querySelectorAll('.btn-activate').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const id = e.target.closest('[data-id]')?.dataset.id;
+      if (!id) return;
+      if (!confirm('{{ _("Activate this Google account?") }}')) return;
+      const resp = await fetch(`/api/google/accounts/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'active' })
+      });
+      if (resp.ok) {
+        showSuccessToast('{{ _("Google account activated successfully") }}');
+        location.reload();
+      } else {
+        showErrorToast('{{ _("Failed to activate Google account") }}');
+      }
+    });
+  });
+
   // Disable
   document.querySelectorAll('.btn-disable').forEach(btn => {
     btn.addEventListener('click', async (e) => {

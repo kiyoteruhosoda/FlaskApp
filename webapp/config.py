@@ -51,28 +51,6 @@ class Config:
 
     # Google OAuth
     GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
-
-
-class TestConfig(Config):
-    """テスト用の設定クラス"""
-    TESTING = True
-    # SQLiteを強制的に使用（インメモリDBでも可）
-    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
-    SQLALCHEMY_ENGINE_OPTIONS = {}
-    
-    # 必要な最小限の設定
-    SECRET_KEY = "test-secret-key"
-    JWT_SECRET_KEY = "test-jwt-secret"
-    
-    # OAuth設定
-    GOOGLE_CLIENT_ID = ""
-    GOOGLE_CLIENT_SECRET = ""
-    
-    # Session設定
-    SESSION_COOKIE_SECURE = False
-    
-    # Feature X DB binding（テスト時は無効）
-    SQLALCHEMY_BINDS = {}
     GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 
     # Encryption for OAuth tokens
@@ -100,3 +78,25 @@ class TestConfig(Config):
     accept_content = ["json"]
     timezone = "UTC"
     enable_utc = True
+
+
+class TestConfig(Config):
+    """テスト用の設定クラス"""
+    TESTING = True
+    # SQLiteを強制的に使用（インメモリDBでも可）
+    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    SQLALCHEMY_ENGINE_OPTIONS = {}
+    
+    # 必要な最小限の設定
+    SECRET_KEY = "test-secret-key"
+    JWT_SECRET_KEY = "test-jwt-secret"
+    
+    # OAuth設定
+    GOOGLE_CLIENT_ID = ""
+    GOOGLE_CLIENT_SECRET = ""
+    
+    # Session設定
+    SESSION_COOKIE_SECURE = False
+    
+    # Feature X DB binding（テスト時は無効）
+    SQLALCHEMY_BINDS = {}

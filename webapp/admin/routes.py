@@ -303,9 +303,12 @@ def role_delete(role_id):
 @bp.route("/google-accounts", methods=["GET"])
 @login_required
 def google_accounts():
-    if not current_user.can('user:manage'):
-        flash(_("You do not have permission to access this page."), "error")
-        return redirect(url_for("index"))
     from core.models.google_account import GoogleAccount
-    accounts = GoogleAccount.query.all()
+    
+    # 管理者は全てのアカウントを表示、一般ユーザーは自分のアカウントのみ表示
+    if current_user.can('user:manage'):
+        accounts = GoogleAccount.query.all()
+    else:
+        accounts = GoogleAccount.query.filter_by(user_id=current_user.id).all()
+    
     return render_template("admin/google_accounts.html", accounts=accounts)

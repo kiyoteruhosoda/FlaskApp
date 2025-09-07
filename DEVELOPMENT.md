@@ -559,10 +559,40 @@ LOCAL_IMPORT_PATH=/path/to/local/import/directory
 ```
 
 ### 6.2 Google OAuth設定
+
+#### 開発環境
 1. Google Cloud Console でプロジェクトを作成
 2. OAuth 2.0クライアントIDを作成
 3. 認証済みリダイレクトURIに `http://localhost:5000/auth/google/callback` を追加
 4. `.env` にクライアントIDとシークレットを設定
+
+#### 本番環境
+1. 本番ドメインでリダイレクトURIを追加（例：`https://yourdomain.com/auth/google/callback`）
+2. `.env` に `PREFERRED_URL_SCHEME=https` を設定
+3. リバースプロキシ（nginx等）で適切な `X-Forwarded-Proto` ヘッダーを設定
+
+##### nginx設定例
+```nginx
+server {
+    listen 443 ssl;
+    server_name n.nolumia.com;
+    
+    # SSL設定
+    ssl_certificate /path/to/ssl/cert.pem;
+    ssl_certificate_key /path/to/ssl/private.key;
+    
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;  # 重要: HTTPSスキームを渡す
+        proxy_set_header X-Forwarded-Host $host;
+    }
+}
+```
+
+**重要**: `X-Forwarded-Proto $scheme` の設定がないと、FlaskアプリケーションはHTTPSリクエストを認識できません。
 
 ## 7. データベースマイグレーション
 Alembicを使用してデータベーススキーマを管理します。

@@ -205,9 +205,17 @@ def google_oauth_start():
         "scopes": scopes,
         "redirect": redirect_target,
     }
+    
+    # デバッグ情報を追加
+    current_app.logger.info(f"OAuth start - Headers: {dict(request.headers)}")
+    current_app.logger.info(f"OAuth start - PREFERRED_URL_SCHEME: {current_app.config.get('PREFERRED_URL_SCHEME')}")
+    
+    callback_url = url_for("auth.google_oauth_callback", _external=True)
+    current_app.logger.info(f"OAuth start - Generated callback URL: {callback_url}")
+    
     params = {
         "client_id": current_app.config.get("GOOGLE_CLIENT_ID"),
-        "redirect_uri": url_for("auth.google_oauth_callback", _external=True),
+        "redirect_uri": callback_url,
         "response_type": "code",
         "scope": " ".join(scopes),
         "access_type": "offline",
@@ -219,6 +227,30 @@ def google_oauth_start():
     return jsonify(
         {"auth_url": auth_url, "server_time": datetime.now(timezone.utc).isoformat()}
     )
+
+
+@bp.get("/debug/request-info")
+def debug_request_info():
+    """デバッグ用: リクエスト情報と生成されるURLを確認"""
+    info = {
+        "headers": dict(request.headers),
+        "environ": {k: v for k, v in request.environ.items() if isinstance(v, str)},
+        "url_root": request.url_root,
+        "host": request.host,
+        "scheme": request.scheme,
+        "config": {
+            "PREFERRED_URL_SCHEME": current_app.config.get("PREFERRED_URL_SCHEME"),
+        }
+    }
+    
+    # テスト用のURL生成
+    try:
+        callback_url = url_for("auth.google_oauth_callback", _external=True)
+        info["generated_callback_url"] = callback_url
+    except Exception as e:
+        info["callback_url_error"] = str(e)
+    
+    return jsonify(info)
 
 
 @bp.get("/google/accounts")

@@ -19,6 +19,7 @@ def create_app():
     """アプリケーションファクトリ"""
     from dotenv import load_dotenv
     from .config import Config
+    from werkzeug.middleware.proxy_fix import ProxyFix
 
     # .env を読み込む（環境変数が未設定の場合のみ）
     load_dotenv()
@@ -26,6 +27,21 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     app.config.setdefault("LAST_BEAT_AT", None)
+    
+    # リバースプロキシ（nginx等）使用時のHTTPS検出
+    # ProxyFixをカスタマイズしてデバッグ情報を追加
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    
+    class DebugProxyFix(ProxyFix):
+        def __call__(self, environ, start_response):
+            app.logger.debug(f"ProxyFix - Original scheme: {environ.get('wsgi.url_scheme')}")
+            app.logger.debug(f"ProxyFix - X-Forwarded-Proto: {environ.get('HTTP_X_FORWARDED_PROTO')}")
+            app.logger.debug(f"ProxyFix - X-Forwarded-Host: {environ.get('HTTP_X_FORWARDED_HOST')}")
+            result = super().__call__(environ, start_response)
+            app.logger.debug(f"ProxyFix - Final scheme: {environ.get('wsgi.url_scheme')}")
+            return result
+    
+    app.wsgi_app = DebugProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
     # 拡張初期化
     db.init_app(app)
@@ -36,12 +52,30 @@ def create_app():
     # ★ Jinja から get_locale() を使えるようにする
     app.jinja_env.globals["get_locale"] = get_locale
 
+    # テンプレートコンテキストプロセッサ：バージョン情報を追加
+    from core.version import get_version_string
+    @app.context_processor
+    def inject_version():
+        return dict(app_version=get_version_string())
+
     # Logging configuration
     if not any(isinstance(h, DBLogHandler) for h in app.logger.handlers):
         db_handler = DBLogHandler()
         db_handler.setLevel(logging.INFO)
         app.logger.addHandler(db_handler)
-    app.logger.setLevel(logging.INFO)
+    
+    # デバッグモードでは詳細ログを有効化
+    if app.debug:
+        app.logger.setLevel(logging.DEBUG)
+        # コンソールハンドラーも追加
+        import sys
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setLevel(logging.DEBUG)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        console_handler.setFormatter(formatter)
+        app.logger.addHandler(console_handler)
+    else:
+        app.logger.setLevel(logging.INFO)
 
 
 
@@ -77,6 +111,11 @@ def create_app():
     # 認証なしの健康チェック用Blueprint
     from .health import health_bp
     app.register_blueprint(health_bp, url_prefix="/health")
+
+    # デバッグ用Blueprint（開発環境のみ）
+    if app.debug or app.config.get('TESTING'):
+        from .debug_routes import debug_bp
+        app.register_blueprint(debug_bp, url_prefix="/debug")
 
     from .wiki import bp as wiki_bp
     app.register_blueprint(wiki_bp, url_prefix="/wiki")
@@ -293,6 +332,20 @@ def register_cli_commands(app):
     import click
     from datetime import datetime, timezone
     from core.models.user import User, Role, Permission
+
+    @app.cli.command("version")
+    def show_version():
+        """アプリケーションのバージョン情報を表示"""
+        from core.version import get_version_info, get_version_string
+        
+        click.echo("=== PhotoNest Version Information ===")
+        version_info = get_version_info()
+        
+        click.echo(f"Version: {get_version_string()}")
+        click.echo(f"Commit Hash: {version_info['commit_hash']}")
+        click.echo(f"Branch: {version_info['branch']}")
+        click.echo(f"Commit Date: {version_info['commit_date']}")
+        click.echo(f"Build Date: {version_info['build_date']}")
 
     @app.cli.command("seed-master")
     @click.option('--force', is_flag=True, help='既存データがあっても強制実行')

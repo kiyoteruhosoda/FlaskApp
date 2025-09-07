@@ -11,11 +11,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     default-libmysqlclient-dev \
     pkg-config \
+    git \
   && rm -rf /var/lib/apt/lists/*
 
 # 依存関係（グローバルにインストール）← 重要：--user を使わない
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# アプリコードをコピーしてバージョンファイルを生成
+COPY . .
+RUN if [ -d .git ]; then \
+      ./scripts/generate_version.sh; \
+    else \
+      echo '{"version":"docker-build","commit_hash":"unknown","branch":"unknown","commit_date":"unknown","build_date":"'$(date -Iseconds)'"}' > core/version.json; \
+    fi
 
 
 # ========= 実行ステージ =========
@@ -48,8 +57,9 @@ RUN groupadd -g ${APP_GID} -r appuser \
 # これで gunicorn を含む全パッケージが全ユーザーで見える
 COPY --from=builder /usr/local /usr/local
 
-# アプリ本体
+# アプリ本体とバージョンファイル
 COPY --chown=appuser:appuser . .
+COPY --from=builder --chown=appuser:appuser /app/core/version.json /app/core/version.json
 
 # 翻訳ファイルをコンパイル（無ければスキップ）
 RUN python -m compileall webapp/translations/ || true

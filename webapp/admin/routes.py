@@ -1,5 +1,5 @@
 
-from flask import Blueprint, render_template, flash, redirect, url_for, request
+from flask import Blueprint, render_template, flash, redirect, url_for, request, jsonify
 from ..extensions import db
 from flask_login import login_required, current_user
 from flask_babel import gettext as _
@@ -27,6 +27,16 @@ def show_config():
     ]
     config_dict = {k: getattr(Config, k) for k in public_keys}
     return render_template("admin/config_view.html", config=config_dict)
+
+# バージョン情報表示ページ（管理者のみ）
+@bp.route("/version")
+@login_required
+def show_version():
+    if not (hasattr(current_user, 'has_role') and current_user.has_role("admin")):
+        return _(u"You do not have permission to access this page."), 403
+    from core.version import get_version_info
+    version_info = get_version_info()
+    return render_template("admin/version_view.html", version_info=version_info)
 
 # TOTPリセット
 @bp.route("/user/<int:user_id>/reset-totp", methods=["POST"])

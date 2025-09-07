@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}バージョン情報 - 管理{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>バージョン情報</h1>
+                <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> 戻る
+                </a>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-code-branch"></i> アプリケーション情報
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <th style="width: 40%;">コミットハッシュ:</th>
+                                    <td>
+                                        <code>{{ version_info.commit_hash }}</code>
+                                        {% if version_info.commit_hash_full and version_info.commit_hash_full != 'unknown' %}
+                                        <a href="https://github.com/kiyoteruhosoda/FlaskApp/commit/{{ version_info.commit_hash_full }}" 
+                                           target="_blank" class="btn btn-outline-primary btn-sm ms-2">
+                                            <i class="fab fa-github"></i> GitHub
+                                        </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>ブランチ:</th>
+                                    <td><code>{{ version_info.branch }}</code></td>
+                                </tr>
+                                <tr>
+                                    <th>コミット日時:</th>
+                                    <td>{{ version_info.commit_date }}</td>
+                                </tr>
+                                <tr>
+                                    <th>ビルド日時:</th>
+                                    <td>{{ version_info.build_date }}</td>
+                                </tr>
+                                {% if version_info.app_start_date %}
+                                <tr>
+                                    <th>アプリ起動時刻:</th>
+                                    <td>{{ version_info.app_start_date }}</td>
+                                </tr>
+                                {% endif %}
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="alert alert-info">
+                                <h6><i class="fas fa-info-circle"></i> バージョン文字列</h6>
+                                <code class="fs-5">{{ app_version }}</code>
+                                <button class="btn btn-outline-primary btn-sm ms-2" onclick="copyVersion()">
+                                    <i class="fas fa-copy"></i> コピー
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-info"></i> API エンドポイント
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p>APIを通じてバージョン情報を取得できます:</p>
+                    <div class="mb-3">
+                        <code>GET {{ url_for('api.version', _external=True) }}</code>
+                        <button class="btn btn-outline-primary btn-sm ms-2" onclick="testVersionAPI()">
+                            <i class="fas fa-play"></i> テスト
+                        </button>
+                    </div>
+                    <div id="api-result" class="mt-3" style="display: none;">
+                        <h6>API レスポンス:</h6>
+                        <pre id="api-response" class="bg-light p-3 rounded"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyVersion() {
+    const versionText = "{{ app_version }}";
+    navigator.clipboard.writeText(versionText).then(() => {
+        alert('バージョン文字列をコピーしました: ' + versionText);
+    }).catch(err => {
+        console.error('コピーに失敗しました:', err);
+    });
+}
+
+async function testVersionAPI() {
+    try {
+        const response = await fetch('{{ url_for("api.version") }}');
+        const data = await response.json();
+        
+        document.getElementById('api-response').textContent = JSON.stringify(data, null, 2);
+        document.getElementById('api-result').style.display = 'block';
+    } catch (error) {
+        document.getElementById('api-response').textContent = 'エラー: ' + error.message;
+        document.getElementById('api-result').style.display = 'block';
+    }
+}
+</script>
+{% endblock %}

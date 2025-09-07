@@ -9,54 +9,79 @@ import pytest
 
 @pytest.fixture
 def app(tmp_path):
-    db_path = tmp_path / "test.db"
+    # テスト専用の環境変数を設定
     thumbs = tmp_path / "thumbs"
     play = tmp_path / "play"
     thumbs.mkdir()
     play.mkdir()
-    os.environ["SECRET_KEY"] = "test"
-    os.environ["DATABASE_URI"] = f"sqlite:///{db_path}"
-    os.environ["GOOGLE_CLIENT_ID"] = ""
-    os.environ["GOOGLE_CLIENT_SECRET"] = ""
-    os.environ["OAUTH_TOKEN_KEY"] = base64.urlsafe_b64encode(b"0" * 32).decode()
-    os.environ["FPV_DL_SIGN_KEY"] = base64.urlsafe_b64encode(b"1" * 32).decode()
-    os.environ["FPV_URL_TTL_THUMB"] = "600"
-    os.environ["FPV_URL_TTL_PLAYBACK"] = "600"
-    os.environ["FPV_NAS_THUMBS_DIR"] = str(thumbs)
-    os.environ["FPV_NAS_PLAY_DIR"] = str(play)
+    
+    # 環境変数をクリア（.envファイルの設定を無効化）
+    test_env_vars = {
+        "SECRET_KEY": "test-secret-key",
+        "JWT_SECRET_KEY": "test-jwt-secret",
+        "DATABASE_URI": "sqlite:///:memory:",
+        "GOOGLE_CLIENT_ID": "",
+        "GOOGLE_CLIENT_SECRET": "",
+        "OAUTH_TOKEN_KEY": base64.urlsafe_b64encode(b"0" * 32).decode(),
+        "FPV_DL_SIGN_KEY": base64.urlsafe_b64encode(b"1" * 32).decode(),
+        "FPV_URL_TTL_THUMB": "600",
+        "FPV_URL_TTL_PLAYBACK": "600",
+        "FPV_NAS_THUMBS_DIR": str(thumbs),
+        "FPV_NAS_PLAY_DIR": str(play),
+        "FEATURE_X_DB_URI": "",  # Feature X DBを無効化
+    }
+    
+    # 既存の環境変数を保存
+    original_env = {}
+    for key, value in test_env_vars.items():
+        original_env[key] = os.environ.get(key)
+        os.environ[key] = value
 
-    import webapp.config as config_module
-    importlib.reload(config_module)
-    import webapp as webapp_module
-    importlib.reload(webapp_module)
-    from webapp import create_app
-    from webapp.config import Config
-    Config.SQLALCHEMY_ENGINE_OPTIONS = {}
+    try:
+        # configモジュールをリロードして新しい環境変数を反映
+        import webapp.config as config_module
+        importlib.reload(config_module)
+        import webapp as webapp_module
+        importlib.reload(webapp_module)
+        
+        from webapp import create_app
+        from webapp.config import TestConfig
 
-    app = create_app()
-    app.config.update(TESTING=True)
+        app = create_app()
+        app.config.from_object(TestConfig)
 
-    from webapp.extensions import db
+        from webapp.extensions import db
 
-    with app.app_context():
-        db.create_all()
+        with app.app_context():
+            db.create_all()
 
-        @app.route("/boom")
-        def boom():
-            raise Exception("boom")
+            @app.route("/boom")
+            def boom():
+                raise Exception("boom")
 
-        @app.route("/bad")
-        def bad():
-            return "bad", 502
+            @app.route("/bad")
+            def bad():
+                return "bad", 502
 
-        @app.post("/api/ping")
-        def api_ping():
-            return {"ok": True}
+            @app.post("/api/ping")
+            def api_ping():
+                return {"ok": True}
 
-    yield app
+        yield app
 
-    del sys.modules["webapp.config"]
-    del sys.modules["webapp"]
+    finally:
+        # 環境変数を元に戻す
+        for key, original_value in original_env.items():
+            if original_value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = original_value
+        
+        # モジュールをクリーンアップ
+        if "webapp.config" in sys.modules:
+            del sys.modules["webapp.config"]
+        if "webapp" in sys.modules:
+            del sys.modules["webapp"]
 
 
 @pytest.fixture

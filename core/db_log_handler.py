@@ -14,6 +14,12 @@ class DBLogHandler(logging.Handler):
             if record.exc_info:
                 formatter = logging.Formatter()
                 trace = formatter.formatException(record.exc_info)
+            
+            # eventがNoneの場合はデフォルト値を設定
+            event = getattr(record, "event", None)
+            if event is None:
+                event = "general"
+            
             with db.engine.begin() as conn:
                 stmt = insert(Log).values(
                     level=record.levelname,
@@ -21,7 +27,7 @@ class DBLogHandler(logging.Handler):
                     trace=trace,
                     path=getattr(record, "path", None),
                     request_id=getattr(record, "request_id", None),
-                    event=getattr(record, "event", None), 
+                    event=event, 
                 )
                 conn.execute(stmt)
         except Exception as e:

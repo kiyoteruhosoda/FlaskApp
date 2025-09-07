@@ -17,6 +17,7 @@ PyJWT
 Markdown
 python-dateutil
 MarkupSafe
+gunicorn
 
 # 開発環境でのみ必要な依存関係
 Flask-Migrate

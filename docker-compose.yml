@@ -2,9 +2,9 @@ version: '3.8'
 
 services:
   web:
-    image: photonest:latest
+    image: photonest:latest    # ← Container Manager でインポートしたタグ名と一致
     ports:
-      - "5000:5000"
+      - "127.0.0.1:8050:5000"  # nginx 経由
     environment:
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY}
@@ -16,21 +16,22 @@ services:
       - .env
     depends_on:
       redis:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - media_data:/app/data/media
       - thumb_data:/app/data/thumbs
       - playback_data:/app/data/playback
+    user: "${PUID:-1000}:${PGID:-1000}"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5000/api/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
 
   worker:
-    image: photonest:latest
+    image: photonest:latest    # ← 同じイメージを利用
     command: celery -A cli.src.celery.tasks worker --loglevel=info --concurrency=2
     environment:
       - FLASK_ENV=production
@@ -43,16 +44,24 @@ services:
       - .env
     depends_on:
       redis:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - media_data:/app/data/media
       - thumb_data:/app/data/thumbs
       - playback_data:/app/data/playback
+    user: "${PUID:-1000}:${PGID:-1000}"
     restart: unless-stopped
+    stop_grace_period: 30s
 
   beat:
     image: photonest:latest
-    command: celery -A cli.src.celery.tasks beat --loglevel=info
+    command: [
+      "celery", "-A", "cli.src.celery.tasks", "beat",
+      "--loglevel=info",
+      "--schedule=/app/data/celerybeat-schedule"
+    ]
+    volumes:
+      - /volume1/docker/photonest/data/celery:/app/data
     environment:
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY}
@@ -64,18 +73,30 @@ services:
       - .env
     depends_on:
       redis:
-        condition: service_started
+        condition: service_healthy
+    user: "${PUID:-1000}:${PGID:-1000}"
     restart: unless-stopped
+    stop_grace_period: 30s
 
   redis:
     image: redis:7-alpine
-    command: redis-server --requirepass ${REDIS_PASSWORD:-photonest123} --appendonly yes
+    command:
+      - redis-server
+      - --user
+      - default
+      - on
+      - ">${REDIS_PASSWORD:-photonest123}"
+      - +@all
+      - ~*
+      - allchannels
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
     environment:
       - TZ=${TZ:-Asia/Tokyo}
     volumes:
       - redis_data:/data
-    ports:
-      - "6379:6379"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD:-photonest123}", "ping"]
@@ -88,3 +109,10 @@ volumes:
   media_data:
   thumb_data:
   playback_data:
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.22.0.0/16

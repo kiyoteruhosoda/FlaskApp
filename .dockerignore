@@ -48,6 +48,13 @@ celery.log
 # テストファイル
 tests/
 test_*.py
+
+# Docker関連ファイル（ビルド時に除外）
+*.tar
+*.tar.gz
+*.tar.bz2
+Dockerfile
+docker-compose*.yml
 *_test.py
 
 # ドキュメント

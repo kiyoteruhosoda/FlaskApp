@@ -1,33 +1,23 @@
 from datetime import datetime, timezone
 from email.utils import formatdate
 import os
-from functools import wraps
 
-from flask import current_app, jsonify, request
+from flask import Blueprint, current_app, jsonify
 from sqlalchemy import text
 
-from . import bp
-from ..extensions import db
+from .extensions import db
+
+# 認証なしのhealth用Blueprint
+health_bp = Blueprint("health", __name__, url_prefix="/health")
 
 
-def skip_auth(f):
-    """Skip authentication for this endpoint"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        return f(*args, **kwargs)
-    decorated_function._skip_auth = True
-    return decorated_function
-
-
-@bp.get("/health/live")
-@skip_auth
+@health_bp.get("/live")
 def health_live():
     """Simple liveness probe."""
     return jsonify({"status": "ok"}), 200
 
 
-@bp.get("/health/ready")
-@skip_auth
+@health_bp.get("/ready")
 def health_ready():
     """Readiness probe checking database and NAS paths."""
     ok = True
@@ -66,8 +56,7 @@ def health_ready():
     return jsonify(details), status
 
 
-@bp.get("/health/beat")
-@skip_auth
+@health_bp.get("/beat")
 def health_beat():
     """Return last beat timestamp and current server time."""
     last = current_app.config.get("LAST_BEAT_AT")
@@ -80,4 +69,3 @@ def health_beat():
         ),
         200,
     )
-

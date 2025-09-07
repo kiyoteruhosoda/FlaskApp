@@ -33,6 +33,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libmariadb3 \
     curl \
+    procps \
   && rm -rf /var/lib/apt/lists/*
 
 # 任意：ホストのUID/GIDに合わせたい場合に使える引数（デフォルト1000）
@@ -61,7 +62,7 @@ USER appuser
 
 # ヘルスチェック（curl 利用）
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-  CMD curl -fsS http://localhost:5000/api/health || exit 1
+  CMD curl -fsS http://localhost:5000/health/live || exit 1
 
 EXPOSE 5000
 

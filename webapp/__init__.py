@@ -74,6 +74,10 @@ def create_app():
     from .api import bp as api_bp
     app.register_blueprint(api_bp, url_prefix="/api")
 
+    # 認証なしの健康チェック用Blueprint
+    from .health import health_bp
+    app.register_blueprint(health_bp, url_prefix="/health")
+
     from .wiki import bp as wiki_bp
     app.register_blueprint(wiki_bp, url_prefix="/wiki")
 

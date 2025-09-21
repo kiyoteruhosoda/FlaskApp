@@ -45,17 +45,34 @@ def api_picker_sessions_list():
             .group_by(PickerSelection.status)
             .all()
         )
-        counts = {status: count for status, count in selection_counts}
-        
+        raw_counts = {row[0]: row[1] for row in selection_counts}
+        counts = PickerSessionService._normalize_selection_counts(raw_counts)
+
+        if ps.selected_count not in (None, 0) or not counts:
+            selected_count = ps.selected_count or 0
+        else:
+            selected_count = sum(counts.values())
+
+        display_status = ps.status
+        if ps.status in ("processing", "importing", "error", "failed"):
+            normalized = PickerSessionService._determine_completion_status(counts)
+            if normalized:
+                display_status = normalized
+
+        account = getattr(ps, "account", None)
+        is_local_import = ps.account_id is None
+
         return {
             "id": ps.id,
             "sessionId": ps.session_id,
             "accountId": ps.account_id,
-            "status": ps.status,
-            "selectedCount": ps.selected_count or 0,
+            "status": display_status,
+            "selectedCount": selected_count,
             "createdAt": ps.created_at.isoformat().replace("+00:00", "Z") if ps.created_at else None,
             "lastProgressAt": ps.last_progress_at.isoformat().replace("+00:00", "Z") if ps.last_progress_at else None,
-            "counts": counts
+            "counts": counts,
+            "accountEmail": getattr(account, "email", None),
+            "isLocalImport": is_local_import
         }
     
     # ページング処理

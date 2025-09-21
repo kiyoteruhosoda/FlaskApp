@@ -12,11 +12,11 @@
 </div>
 
 <div class="mb-3">
-  <button id="btn-import-start" class="btn btn-primary">
+  <button id="btn-import-start" class="btn btn-primary" disabled aria-disabled="true">
     {{ _('Start Import') }}
   </button>
-  <div id="session-info" class="text-muted mt-2" style="display: none;">
-    <!-- セッション情報が表示されます -->
+  <div id="session-info" class="text-muted mt-2">
+    {{ _('Loading session info...') }}
   </div>
 </div>
 
@@ -24,7 +24,7 @@
 
 <div class="mt-4">
   <h2>{{ _('Selected Files') }}</h2>
-  <div id="selection-counts" class="mb-2"></div>
+  <div id="selection-counts" class="mb-2 text-muted">{{ _('Loading...') }}</div>
   <div class="table-responsive">
     <table class="table table-sm">
       <thead>
@@ -48,7 +48,6 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  // クエリパラメータ、もしくはサーバー側セッションから session_id を取得
   function resolveSessionId() {
     const params = new URLSearchParams(window.location.search);
     const fromQuery = params.get('session_id');
@@ -57,54 +56,253 @@ document.addEventListener('DOMContentLoaded', () => {
     const fromServer = serverDataEl.getAttribute('data-picker-session-id');
     return fromServer || '';
   }
-  
+
   const pickerSessionId = resolveSessionId();
   if (!pickerSessionId) {
-    // セッションIDが無ければセッション一覧ページに遷移
     window.location.href = '/photo-view';
     return;
   }
 
-  // 数値IDの場合はセッション一覧に戻る（セキュリティ対策）
   if (/^\d+$/.test(pickerSessionId)) {
     console.warn('Numeric session ID detected, redirecting to sessions list');
     window.location.href = '/photo-view';
     return;
   }
-  
+
   const importBtn = document.getElementById('btn-import-start');
   const statusEl = document.getElementById('import-status');
   const selectionBody = document.getElementById('selection-body');
   const countsEl = document.getElementById('selection-counts');
   const sessionInfoEl = document.getElementById('session-info');
-  let isLocalImport = false;
 
-  async function checkSessionInfo() {
-    try {
-      const resp = await window.apiClient.get(`/api/picker/session/${encodeURIComponent(pickerSessionId)}`);
-      if (resp.ok) {
-        const sessionData = await resp.json();
-        
-        // ローカルインポートセッションの判定（session_idがlocal_importで始まる、またはaccountIdがnull）
-        isLocalImport = !sessionData.sessionId || 
-                       sessionData.sessionId.startsWith('local_import_') || 
-                       sessionData.accountId === null;
-        
-        if (isLocalImport) {
-          // ローカルインポートセッションの場合
-          importBtn.style.display = 'none';
-          sessionInfoEl.style.display = 'block';
-          sessionInfoEl.innerHTML = '<i class="bi bi-info-circle"></i> これはローカルインポートセッションです。インポートは自動的に実行されました。';
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to fetch session info:', error);
+  const selectionStatusLabels = {
+    pending: '{{ _('Pending') }}',
+    enqueued: '{{ _('Enqueued') }}',
+    running: '{{ _('Running') }}',
+    imported: '{{ _('Imported') }}',
+    failed: '{{ _('Failed') }}',
+    dup: '{{ _('Duplicate') }}',
+    skipped: '{{ _('Skipped') }}'
+  };
+
+  const sessionStatusLabels = {
+    pending: '{{ _('Pending') }}',
+    ready: '{{ _('Ready') }}',
+    processing: '{{ _('Processing') }}',
+    enqueued: '{{ _('Enqueued') }}',
+    importing: '{{ _('Importing') }}',
+    imported: '{{ _('Imported') }}',
+    canceled: '{{ _('Canceled') }}',
+    expired: '{{ _('Expired') }}',
+    error: '{{ _('Error') }}',
+    failed: '{{ _('Failed') }}'
+  };
+
+  function getStatusBadgeClass(status) {
+    switch (status) {
+      case 'pending': return 'secondary';
+      case 'enqueued': return 'info';
+      case 'running': return 'warning';
+      case 'imported': return 'success';
+      case 'failed': return 'danger';
+      case 'dup': return 'light';
+      default: return 'secondary';
     }
+  }
+
+  function getSessionBadgeClass(status) {
+    switch (status) {
+      case 'pending': return 'secondary';
+      case 'ready': return 'primary';
+      case 'processing': return 'warning';
+      case 'importing': return 'info';
+      case 'imported': return 'success';
+      case 'expired': return 'danger';
+      case 'error':
+      case 'failed':
+        return 'danger';
+      default:
+        return 'secondary';
+    }
+  }
+
+  let paginationClient;
+  let isLocalImport = false;
+  let latestStatus = 'unknown';
+  let isRefreshing = false;
+  let currentCounts = {};
+
+  function formatDateTime(isoString) {
+    if (!isoString) return '-';
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleString();
+    } catch (e) {
+      return isoString;
+    }
+  }
+
+  function formatCounts(counts) {
+    if (!counts || Object.keys(counts).length === 0) {
+      return '';
+    }
+    return Object.entries(counts)
+      .map(([status, count]) => `${selectionStatusLabels[status] || status}: ${count}`)
+      .join(', ');
+  }
+
+  function totalFromCounts(counts = {}) {
+    return Object.values(counts).reduce((total, value) => total + (Number(value) || 0), 0);
+  }
+
+  function duplicateCount(counts = {}) {
+    return Number(counts?.dup || 0);
+  }
+
+  function hasOnlyDuplicates(counts = {}) {
+    let dupTotal = 0;
+    let otherTotal = 0;
+
+    Object.entries(counts).forEach(([status, count]) => {
+      const numericCount = Number(count) || 0;
+      if (status === 'dup') {
+        dupTotal += numericCount;
+      } else if (numericCount > 0) {
+        otherTotal += numericCount;
+      }
+    });
+
+    return dupTotal > 0 && otherTotal === 0;
+  }
+
+  function determineDisplayStatus(sessionData) {
+    const baseStatus = sessionData?.status || 'pending';
+    if (['processing', 'importing', 'error', 'failed'].includes(baseStatus) && hasOnlyDuplicates(sessionData?.counts || {})) {
+      return 'imported';
+    }
+    return baseStatus;
+  }
+
+  function deriveSelectedCount(sessionData) {
+    const countsTotal = totalFromCounts(sessionData?.counts || {});
+    if (countsTotal > 0) {
+      return countsTotal;
+    }
+    const selected = sessionData?.selectedCount;
+    if (typeof selected === 'number' && selected > 0) {
+      return selected;
+    }
+    return selected || 0;
+  }
+
+  function createSelectionRow(selection) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${selection.filename || selection.googleMediaId || 'N/A'}</td>
+      <td>
+        <span class="badge bg-${getStatusBadgeClass(selection.status)}">
+          ${selectionStatusLabels[selection.status] || selection.status}
+        </span>
+      </td>
+      <td>${selection.attempts}</td>
+      <td><small class="text-danger">${selection.error || ''}</small></td>
+    `;
+    return tr;
+  }
+
+  function buildEmptyMessage(sessionStatus) {
+    if (sessionStatus === 'processing') {
+      return '<i class="bi bi-clock"></i> Celery処理待ち中...';
+    }
+    if (sessionStatus === 'ready') {
+      return '<i class="bi bi-info-circle"></i> 対象ファイルがありません';
+    }
+    if (sessionStatus === 'imported') {
+      return '<i class="bi bi-check-circle"></i> 処理完了（対象ファイル: 0件）';
+    }
+    if (sessionStatus === 'error') {
+      return '<i class="bi bi-exclamation-triangle text-danger"></i> 処理エラー';
+    }
+    return '<i class="bi bi-info-circle"></i> 対象ファイルがありません';
+  }
+
+  function updateCountsDisplay(counts, sessionStatus) {
+    if (counts && Object.keys(counts).length > 0) {
+      if (hasOnlyDuplicates(counts)) {
+        const dupTotal = duplicateCount(counts);
+        const duplicateLabel = selectionStatusLabels.dup || 'Duplicate';
+        countsEl.textContent = `${duplicateLabel}: ${dupTotal}`;
+      } else {
+        countsEl.textContent = formatCounts(counts);
+      }
+      return;
+    }
+
+    if (sessionStatus === 'processing') {
+      countsEl.textContent = 'ステータス: 処理待ち';
+    } else if (sessionStatus === 'ready') {
+      countsEl.textContent = '選択されたファイル: 0件';
+    } else if (sessionStatus === 'imported') {
+      countsEl.textContent = '処理完了: 0件';
+    } else if (sessionStatus === 'error') {
+      countsEl.textContent = 'ステータス: エラー';
+    } else {
+      countsEl.textContent = '選択されたファイル: 0件';
+    }
+  }
+
+  function updateImportButtonState(sessionData) {
+    if (!sessionData) return;
+    if (sessionData.isLocalImport) {
+      importBtn.style.display = 'none';
+      importBtn.disabled = true;
+      importBtn.classList.add('disabled');
+      importBtn.setAttribute('aria-disabled', 'true');
+      return;
+    }
+
+    importBtn.style.display = '';
+    const canImport = sessionData.status === 'ready';
+    importBtn.disabled = !canImport;
+    importBtn.classList.toggle('disabled', !canImport);
+    importBtn.setAttribute('aria-disabled', (!canImport).toString());
+  }
+
+  function updateSessionInfo(sessionData) {
+    if (!sessionData) {
+      return;
+    }
+
+    const accountLabel = sessionData.isLocalImport
+      ? '{{ _('Local Import') }}'
+      : (sessionData.accountEmail || '-');
+    const selectedCount = deriveSelectedCount(sessionData);
+    const countsSummary = formatCounts(sessionData.counts) || '-';
+    const createdAt = formatDateTime(sessionData.createdAt);
+    const lastProgress = formatDateTime(sessionData.lastProgressAt);
+    const statusLabel = sessionStatusLabels[sessionData.status] || sessionData.status || '-';
+    const statusBadge = `<span class="badge bg-${getSessionBadgeClass(sessionData.status)}">${statusLabel}</span>`;
+
+    const infoParts = [
+      `<div><strong>{{ _('Status') }}:</strong> ${statusBadge}</div>`,
+      `<div><strong>{{ _('Target Account') }}:</strong> ${accountLabel}</div>`,
+      `<div><strong>{{ _('Selected Files') }}:</strong> ${selectedCount}</div>`,
+      `<div><strong>{{ _('File Status') }}:</strong> ${countsSummary}</div>`,
+      `<div><strong>{{ _('Created At') }}:</strong> ${createdAt}</div>`,
+      `<div><strong>{{ _('Last Progress') }}:</strong> ${lastProgress}</div>`
+    ];
+
+    if (sessionData.isLocalImport) {
+      infoParts.push(`<div class="mt-2 text-muted"><i class="bi bi-info-circle"></i> {{ _('Local Import Session. Import runs automatically.') }}</div>`);
+    } else if (sessionData.status !== 'ready') {
+      infoParts.push(`<div class="mt-2 text-warning"><i class="bi bi-exclamation-triangle"></i> {{ _('Import can only be started when the session status is ready.') }}</div>`);
+    }
+
+    sessionInfoEl.innerHTML = infoParts.join('');
   }
 
   async function withBusy(btn, fn) {
     const originalHtml = btn.innerHTML;
-    // シンプルなスピナー（Bootstrap 前提）
     btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> {{ _("Working...") }}';
     btn.disabled = true;
     btn.setAttribute('aria-busy', 'true');
@@ -117,12 +315,93 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  async function fetchSessionStatus() {
+    try {
+      const resp = await window.apiClient.get(`/api/picker/session/${encodeURIComponent(pickerSessionId)}`);
+      if (resp.status === 404) {
+        window.location.href = '/photo-view';
+        return null;
+      }
+      if (resp.status === 401 || resp.status === 302) {
+        window.location.href = '/auth/login?next=' + encodeURIComponent(window.location.pathname + window.location.search);
+        return null;
+      }
+      if (!resp.ok) {
+        throw new Error(`HTTP ${resp.status}`);
+      }
+
+      const data = await resp.json();
+      data.counts = data.counts || {};
+      data.status = determineDisplayStatus(data);
+      isLocalImport = Boolean(data.isLocalImport);
+      updateImportButtonState(data);
+      updateSessionInfo(data);
+      return data;
+    } catch (error) {
+      console.warn('Failed to fetch session status:', error);
+      return null;
+    }
+  }
+
+  async function refreshSelections() {
+    if (isRefreshing) {
+      return;
+    }
+    isRefreshing = true;
+    try {
+      const sessionData = await fetchSessionStatus();
+      latestStatus = sessionData?.status || latestStatus;
+      currentCounts = sessionData?.counts || currentCounts || {};
+      updateCountsDisplay(currentCounts, latestStatus);
+
+      if (!paginationClient) {
+        paginationClient = new PaginationClient({
+          baseUrl: `/api/picker/session/${encodeURIComponent(pickerSessionId)}/selections`,
+          pageSize: 200,
+          autoLoad: false,
+          onItemsLoaded: (items, meta) => {
+            if (meta.currentPage === 1) {
+              selectionBody.innerHTML = '';
+            }
+
+            if (items.length === 0 && meta.currentPage === 1) {
+              const tr = document.createElement('tr');
+              tr.innerHTML = `
+                <td colspan="4" class="text-center text-muted py-4">
+                  ${buildEmptyMessage(latestStatus)}
+                </td>
+              `;
+              selectionBody.appendChild(tr);
+            } else {
+              items.forEach(selection => {
+                const row = createSelectionRow(selection);
+                selectionBody.appendChild(row);
+              });
+            }
+          },
+          onError: (error) => {
+            console.error('Selection loading error:', error);
+          }
+        });
+      }
+
+      await paginationClient.loadFirst();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      isRefreshing = false;
+    }
+  }
+
   importBtn.addEventListener('click', async () => {
     if (!pickerSessionId) return;
-    
-    // ローカルインポートセッションの場合は処理をスキップ
-    if (isLocalImport) {
-      statusEl.textContent = 'ローカルインポートセッションでは手動インポートできません。';
+
+    if (importBtn.disabled) {
+      if (isLocalImport) {
+        statusEl.textContent = 'ローカルインポートセッションでは手動インポートできません。';
+      } else {
+        statusEl.textContent = '{{ _('Import is not available for the current status.') }}';
+      }
       return;
     }
 
@@ -140,6 +419,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         statusEl.textContent = '{{ _("Import started.") }}';
         showSuccessToast('{{ _("Import started.") }}');
+        refreshSelections();
       } catch (err) {
         console.error(err);
         statusEl.textContent = '{{ _("Failed to start import.") }}';
@@ -148,147 +428,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // 無限スクロール設定（ただし、このケースでは自動更新も行うため手動制御）
-  let paginationClient;
-  let currentCounts = {};
-
-  function createSelectionRow(selection) {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${selection.filename || selection.googleMediaId || 'N/A'}</td>
-      <td>
-        <span class="badge bg-${getStatusBadgeClass(selection.status)}">
-          ${selection.status}
-        </span>
-      </td>
-      <td>${selection.attempts}</td>
-      <td><small class="text-danger">${selection.error || ''}</small></td>
-    `;
-    return tr;
-  }
-
-  function getStatusBadgeClass(status) {
-    switch (status) {
-      case 'pending': return 'secondary';
-      case 'enqueued': return 'info';
-      case 'running': return 'warning';
-      case 'imported': return 'success';
-      case 'failed': return 'danger';
-      case 'dup': return 'light';
-      default: return 'secondary';
-    }
-  }
-
-  async function refreshSelections() {
-    // セッション情報をチェック（初回のみ）
-    if (!paginationClient) {
-      await checkSessionInfo();
-    }
-    
-    // 数値IDの場合はAPIリクエストを送信せずリダイレクト
-    if (/^\d+$/.test(pickerSessionId)) {
-      console.warn('Numeric session ID detected in refresh, redirecting to sessions list');
-      window.location.href = '/photo-view';
-      return;
-    }
-    
-    // セッション情報を取得してステータスを確認
-    let sessionStatus = 'unknown';
-    try {
-      const sessionResp = await window.apiClient.get(`/api/picker/sessions?pageSize=1`);
-      if (sessionResp.ok) {
-        const sessionData = await sessionResp.json();
-        const currentSession = sessionData.sessions.find(s => s.sessionId === pickerSessionId);
-        if (currentSession) {
-          sessionStatus = currentSession.status;
-        }
-      }
-    } catch (err) {
-      console.warn('Failed to fetch session status:', err);
-    }
-    
-    try {
-      if (!paginationClient) {
-        // 初回読み込み時にページングクライアントを初期化
-        paginationClient = new PaginationClient({
-          baseUrl: `/api/picker/session/${encodeURIComponent(pickerSessionId)}/selections`,
-          pageSize: 200,
-          autoLoad: false, // 手動制御
-          onItemsLoaded: (items, meta) => {
-            // 新しい読み込みの場合はクリア
-            if (meta.currentPage === 1) {
-              selectionBody.innerHTML = '';
-            }
-            
-            // アイテムを追加
-            if (items.length === 0 && meta.currentPage === 1) {
-              // ファイルが0件の場合 - ステータスに応じてメッセージを変更
-              const tr = document.createElement('tr');
-              let message = '';
-              if (sessionStatus === 'processing') {
-                message = '<i class="bi bi-clock"></i> Celery処理待ち中...';
-              } else if (sessionStatus === 'ready') {
-                message = '<i class="bi bi-info-circle"></i> 対象ファイルがありません';
-              } else if (sessionStatus === 'imported') {
-                message = '<i class="bi bi-check-circle"></i> 処理完了（対象ファイル: 0件）';
-              } else if (sessionStatus === 'error') {
-                message = '<i class="bi bi-exclamation-triangle text-danger"></i> 処理エラー';
-              } else {
-                message = '<i class="bi bi-info-circle"></i> 対象ファイルがありません';
-              }
-              tr.innerHTML = `
-                <td colspan="4" class="text-center text-muted py-4">
-                  ${message}
-                </td>
-              `;
-              selectionBody.appendChild(tr);
-            } else {
-              items.forEach(selection => {
-                const row = createSelectionRow(selection);
-                selectionBody.appendChild(row);
-              });
-            }
-          },
-          onError: (error) => {
-            console.error('Selection loading error:', error);
-          }
-        });
-      }
-
-      // ページングクライアントを使用してデータを読み込み
-      await paginationClient.loadFirst();
-
-      // 別途カウント情報を取得（カウントは全体の情報が必要なため）
-      const countResp = await window.apiClient.get(`/api/picker/session/${encodeURIComponent(pickerSessionId)}/selections?pageSize=1`);
-      if (countResp.ok) {
-        const countData = await countResp.json();
-        if (countData.counts && Object.keys(countData.counts).length > 0) {
-          currentCounts = countData.counts;
-          countsEl.textContent = Object.entries(currentCounts).map(([k,v]) => `${k}: ${v}`).join(', ');
-        } else {
-          // ステータスに応じてカウント表示を変更
-          if (sessionStatus === 'processing') {
-            countsEl.textContent = 'ステータス: 処理待ち';
-          } else if (sessionStatus === 'ready') {
-            countsEl.textContent = '選択されたファイル: 0件';
-          } else if (sessionStatus === 'imported') {
-            countsEl.textContent = '処理完了: 0件';
-          } else if (sessionStatus === 'error') {
-            countsEl.textContent = 'ステータス: エラー';
-          } else {
-            countsEl.textContent = '選択されたファイル: 0件';
-          }
-        }
-      } else {
-        countsEl.textContent = '選択されたファイル: 0件';
-      }
-      
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  // 3秒ごとに自動更新
   setInterval(refreshSelections, 3000);
   refreshSelections();
 });

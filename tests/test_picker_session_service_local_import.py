@@ -13,6 +13,7 @@ from webapp.extensions import db
 from webapp.api.picker_session_service import PickerSessionService
 from webapp.api.pagination import PaginationParams
 from core.models.picker_session import PickerSession
+from core.models.google_account import GoogleAccount
 from core.models.photo_models import PickerSelection
 from core.tasks.local_import import local_import_task
 
@@ -97,7 +98,7 @@ class TestPickerSessionServiceLocalImport:
         """ローカルインポートセッションのステータス取得テスト"""
         with app.app_context():
             status = PickerSessionService.status(local_import_session)
-            
+
             assert status['status'] == 'imported'
             assert status['sessionId'] == local_import_session.session_id
             assert status['selectedCount'] == 2
@@ -106,6 +107,23 @@ class TestPickerSessionServiceLocalImport:
             assert status['pollingConfig'] is None
             assert status['pickingConfig'] is None
             assert status['mediaItemsSet'] is None
+
+    def test_normalize_selection_counts_collapses_aliases(self):
+        """選択ステータスの集計がエイリアスを正規化することを確認"""
+        raw_counts = {
+            'dup': 1,
+            'duplicates': 2,
+            'FAILED': 3,
+            '': 5,
+            None: 4,
+        }
+
+        normalized = PickerSessionService._normalize_selection_counts(raw_counts)
+
+        assert normalized['dup'] == 3
+        assert normalized['failed'] == 3
+        assert '' not in normalized
+        assert 'duplicates' not in normalized
     
     def test_selection_details_for_local_import(self, app, local_import_session):
         """ローカルインポートセッションの選択詳細テスト"""
@@ -158,7 +176,7 @@ class TestPickerSessionServiceLocalImport:
             assert details['counts']['imported'] == 5
             assert details['pagination']['hasNext'] is True
             assert details['pagination']['hasPrev'] is False
-    
+
     def test_selection_details_with_mixed_statuses(self, app):
         """異なるステータスが混在するローカルインポートセッションのテスト"""
         with app.app_context():
@@ -184,6 +202,63 @@ class TestPickerSessionServiceLocalImport:
             # 少なくとも1つは成功していることを確認
             success_count = details['counts'].get('imported', 0)
             assert success_count >= 1
+
+    def test_error_status_with_only_duplicates_becomes_imported(self, app):
+        """重複のみのセッションはエラーではなく imported として扱われる"""
+        with app.app_context():
+            ps = PickerSession(
+                account_id=1,
+                session_id="picker_sessions/dup_only",
+                status="error",
+            )
+            db.session.add(ps)
+            db.session.commit()
+
+            dup_selection = PickerSelection(session_id=ps.id, status='dup')
+            db.session.add(dup_selection)
+            db.session.commit()
+
+            params = PaginationParams(page_size=10)
+            details = PickerSessionService.selection_details(ps, params)
+
+            db.session.refresh(ps)
+            assert ps.status == 'imported'
+            assert details['counts'].get('dup') == 1
+
+    def test_status_prefers_counts_over_remote_poll(self, app, monkeypatch):
+        """PickerSessionService.status should not call remote API when local counts exist."""
+        with app.app_context():
+            account = GoogleAccount(
+                email='dup@example.com',
+                scopes='',
+                oauth_token_json=None,
+            )
+            db.session.add(account)
+            db.session.commit()
+
+            ps = PickerSession(
+                account_id=account.id,
+                session_id='picker_sessions/dup_check',
+                status='error',
+            )
+            db.session.add(ps)
+            db.session.commit()
+
+            db.session.add(PickerSelection(session_id=ps.id, status='dup'))
+            db.session.commit()
+
+            def fail_refresh(_account):
+                raise AssertionError('refresh_google_token should not run when counts are available')
+
+            monkeypatch.setattr('webapp.api.picker_session_service.refresh_google_token', fail_refresh)
+
+            result = PickerSessionService.status(ps)
+
+            db.session.refresh(ps)
+            assert ps.status == 'imported'
+            assert result['status'] == 'imported'
+            assert result['selectedCount'] == 1
+            assert result['counts'].get('dup') == 1
 
 
 class TestPickerSessionServiceMixedSessions:

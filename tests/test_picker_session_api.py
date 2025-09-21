@@ -690,6 +690,40 @@ def test_media_items_enqueue_and_skip_duplicate(monkeypatch, client, app):
     assert len(enqueued) == 1
 
 
+def test_sessions_list_reports_duplicate_only_as_imported(client, app):
+    """API list endpoint should surface duplicate-only sessions as imported with counts."""
+    login(client, app)
+
+    from webapp.extensions import db
+    from core.models.picker_session import PickerSession
+    from core.models.photo_models import PickerSelection
+    from core.models.google_account import GoogleAccount
+
+    with app.app_context():
+        account = GoogleAccount.query.first()
+        ps = PickerSession(
+            account_id=account.id,
+            session_id="picker_sessions/list_dup_case",
+            status="error",
+        )
+        db.session.add(ps)
+        db.session.commit()
+
+        db.session.add(PickerSelection(session_id=ps.id, status="dup"))
+        db.session.commit()
+
+        session_id = ps.session_id
+
+    res = client.get("/api/picker/sessions")
+    assert res.status_code == 200
+    data = res.get_json()
+    sessions = data.get("sessions", [])
+    target = next((item for item in sessions if item.get("sessionId") == session_id), None)
+    assert target is not None
+    assert target["status"] == "imported"
+    assert target["selectedCount"] == 1
+
+
 def test_session_summary_api(monkeypatch, client, app):
     login(client, app)
 

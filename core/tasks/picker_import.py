@@ -88,12 +88,31 @@ def enqueue_picker_import_item(selection_id: int, session_id: int) -> None:
     monkeypatched to observe which items would be queued.
     """
     try:
-        # Try to import and use Celery task
         from cli.src.celery.tasks import picker_import_item_task
-        picker_import_item_task.delay(selection_id, session_id)
     except ImportError:
-        # Fall back to no-op for tests
         return None
+
+    try:
+        picker_import_item_task.delay(selection_id, session_id)
+    except Exception as exc:  # pragma: no cover - network failure path
+        try:
+            from flask import current_app
+
+            if current_app and current_app.config.get("TESTING"):
+                current_app.logger.warning(
+                    "Celery worker unavailable for picker import item; skipping in test mode.",
+                    extra={
+                        "event": "picker.import.enqueue.skip",
+                        "selection_id": selection_id,
+                        "session_id": session_id,
+                        "error": str(exc),
+                    },
+                )
+                return None
+        except RuntimeError:
+            # Outside of Flask context (e.g., unit tests), simply ignore
+            return None
+        raise
 
 
 def enqueue_thumbs_generate(media_id: int) -> None:

@@ -54,7 +54,7 @@
           <tr>
             <th>{{ _('Session ID') }}</th>
             <th>{{ _('Status') }}</th>
-            <th>{{ _('Selected Count') }}</th>
+            <th>{{ _('Target Account') }}</th>
             <th>{{ _('File Status') }}</th>
             <th>{{ _('Created At') }}</th>
             <th>{{ _('Last Progress') }}</th>
@@ -87,8 +87,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const noMoreData = document.getElementById('no-more-data');
   const refreshBtn = document.getElementById('refresh-sessions');
   const sessionCount = document.getElementById('session-count');
-  
+
   let totalLoaded = 0;
+  const sessionsLoadedLabel = '{{ _('sessions loaded') }}';
+  const noSessionsLoadedLabel = '{{ _('No sessions loaded yet') }}';
 
   function formatDateTime(isoString) {
     if (!isoString) return '-';
@@ -96,11 +98,44 @@ document.addEventListener('DOMContentLoaded', () => {
     return date.toLocaleString();
   }
 
+  const selectionStatusLabels = {
+    pending: '{{ _('Pending') }}',
+    enqueued: '{{ _('Enqueued') }}',
+    running: '{{ _('Running') }}',
+    imported: '{{ _('Imported') }}',
+    failed: '{{ _('Failed') }}',
+    dup: '{{ _('Duplicate') }}',
+    skipped: '{{ _('Skipped') }}'
+  };
+
+  const sessionStatusLabels = {
+    pending: '{{ _('Pending') }}',
+    ready: '{{ _('Ready') }}',
+    processing: '{{ _('Processing') }}',
+    enqueued: '{{ _('Enqueued') }}',
+    importing: '{{ _('Importing') }}',
+    imported: '{{ _('Imported') }}',
+    canceled: '{{ _('Canceled') }}',
+    expired: '{{ _('Expired') }}',
+    error: '{{ _('Error') }}',
+    failed: '{{ _('Failed') }}'
+  };
+
   function formatCounts(counts) {
     if (!counts || Object.keys(counts).length === 0) return '-';
     return Object.entries(counts)
-      .map(([status, count]) => `${status}: ${count}`)
+      .map(([status, count]) => `${selectionStatusLabels[status] || status}: ${count}`)
       .join(', ');
+  }
+
+  function formatAccountLabel(session) {
+    if (session.isLocalImport) {
+      return '{{ _('Local Import') }}';
+    }
+    if (session.accountEmail) {
+      return session.accountEmail;
+    }
+    return '-';
   }
 
   function getStatusBadgeClass(status) {
@@ -116,18 +151,51 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function hasOnlyDuplicates(counts = {}) {
+    let duplicateTotal = 0;
+    let otherTotal = 0;
+
+    Object.entries(counts).forEach(([status, count]) => {
+      const numericCount = Number(count) || 0;
+      if (status === 'dup') {
+        duplicateTotal += numericCount;
+        return;
+      }
+      if (numericCount > 0) {
+        otherTotal += numericCount;
+      }
+    });
+
+    return duplicateTotal > 0 && otherTotal === 0;
+  }
+
+  function determineDisplayStatus(session) {
+    const baseStatus = session.status;
+    if (!baseStatus) {
+      return 'pending';
+    }
+
+    if (['processing', 'importing', 'error', 'failed'].includes(baseStatus) && hasOnlyDuplicates(session.counts)) {
+      return 'imported';
+    }
+
+    return baseStatus;
+  }
+
   function createSessionRow(session) {
     const tr = document.createElement('tr');
+    const displayStatus = determineDisplayStatus(session);
+    const statusLabel = sessionStatusLabels[displayStatus] || displayStatus;
     tr.innerHTML = `
       <td>${session.sessionId || 'N/A'}</td>
-      <td><span class="badge bg-${getStatusBadgeClass(session.status)}">${session.status}</span></td>
-      <td>${session.selectedCount || 0}</td>
+      <td><span class="badge bg-${getStatusBadgeClass(displayStatus)}">${statusLabel}</span></td>
+      <td>${formatAccountLabel(session)}</td>
       <td><small>${formatCounts(session.counts)}</small></td>
       <td><small>${formatDateTime(session.createdAt)}</small></td>
       <td><small>${formatDateTime(session.lastProgressAt)}</small></td>
       <td>
         <a href="/photo-view?session_id=${session.sessionId}" class="btn btn-sm btn-primary">{{ _('View Details') }}</a>
-        ${session.status === 'ready' ? `<button class="btn btn-sm btn-success ms-1" onclick="startImport('${session.sessionId}')">{{ _('Start Import') }}</button>` : ''}
+        ${(displayStatus === 'ready' && !session.isLocalImport) ? `<button class="btn btn-sm btn-success ms-1" onclick="startImport('${session.sessionId}')">{{ _('Start Import') }}</button>` : ''}
       </td>
     `;
     return tr;
@@ -156,19 +224,23 @@ document.addEventListener('DOMContentLoaded', () => {
           totalLoaded++;
         });
         
-        sessionCount.textContent = `${totalLoaded} sessions loaded`;
+        if (totalLoaded > 0) {
+          sessionCount.textContent = `${totalLoaded} ${sessionsLoadedLabel}`;
+        } else {
+          sessionCount.textContent = noSessionsLoadedLabel;
+        }
       },
       onError: (error) => {
         console.error('Sessions loading error:', error);
-        
+
         // 認証エラーの場合はログインページにリダイレクト
         if (error.status === 401 || error.status === 302) {
           window.location.href = '/auth/login?next=' + encodeURIComponent(window.location.pathname);
           return;
         }
-        
-        sessionsBody.innerHTML = '<tr><td colspan="7"><div class="alert alert-danger">Failed to load sessions.</div></td></tr>';
-        sessionCount.textContent = 'Error loading sessions';
+
+        sessionsBody.innerHTML = `<tr><td colspan="7"><div class="alert alert-danger">{{ _('Failed to load sessions.') }}</div></td></tr>`;
+        sessionCount.textContent = '{{ _('Error loading sessions') }}';
       }
     });
 

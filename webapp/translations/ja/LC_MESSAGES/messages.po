@@ -3,7 +3,6 @@
 # This file is distributed under the same license as the PROJECT project.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
 #
-#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
@@ -41,7 +40,6 @@ msgstr "ホーム"
 #: webapp/admin/routes.py:229 webapp/admin/routes.py:257
 #: webapp/admin/routes.py:284 webapp/admin/routes.py:297
 #: webapp/api/routes.py:979 webapp/api/routes.py:1020
-#, fuzzy
 msgid "You do not have permission to access this page."
 msgstr "このページにアクセスするにはログインが必要です。"
 
@@ -66,12 +64,10 @@ msgid "User role updated."
 msgstr ""
 
 #: webapp/admin/routes.py:103
-#, fuzzy
 msgid "Email, password, and role are required."
 msgstr "メールアドレスとパスワードは必須です"
 
 #: webapp/admin/routes.py:106
-#, fuzzy
 msgid "Email already exists."
 msgstr "このメールアドレスは既に登録されています"
 
@@ -84,7 +80,6 @@ msgid "Code is required."
 msgstr ""
 
 #: webapp/admin/routes.py:173
-#, fuzzy
 msgid "Permission already exists."
 msgstr "このメールアドレスは既に登録されています"
 
@@ -105,7 +100,6 @@ msgid "Name is required."
 msgstr ""
 
 #: webapp/admin/routes.py:239
-#, fuzzy
 msgid "Role already exists."
 msgstr "このメールアドレスは既に登録されています"
 
@@ -147,7 +141,6 @@ msgstr ""
 #: webapp/auth/templates/auth/google_accounts.html:2
 #: webapp/auth/templates/auth/google_accounts.html:7
 #: webapp/templates/base.html:75
-#, fuzzy
 msgid "Google Accounts"
 msgstr "Googleアカウント"
 
@@ -195,7 +188,7 @@ msgstr ""
 #: webapp/photo_view/templates/photo_view/home.html:16
 #: webapp/photo_view/templates/photo_view/media_list.html:177
 msgid "Refresh"
-msgstr ""
+msgstr "再読み込み"
 
 #: webapp/admin/templates/admin/admin_users.html:62
 #: webapp/admin/templates/admin/admin_users.html:85
@@ -205,7 +198,6 @@ msgstr ""
 #: webapp/photo_view/templates/photo_view/home.html:74
 #: webapp/photo_view/templates/photo_view/media_list.html:152
 #: webapp/photo_view/templates/photo_view/media_list.html:188
-#, fuzzy
 msgid "Loading..."
 msgstr "有効化中..."
 
@@ -221,13 +213,12 @@ msgstr "メール"
 #: webapp/photo_view/templates/photo_view/home.html:56
 #: webapp/photo_view/templates/photo_view/session_detail.html:33
 msgid "Status"
-msgstr ""
+msgstr "ステータス"
 
 #: webapp/admin/templates/admin/admin_users.html:73
 #: webapp/photo_view/templates/photo_view/home.html:59
-#, fuzzy
 msgid "Created At"
-msgstr "アカウント作成"
+msgstr "作成日時"
 
 #: webapp/admin/templates/admin/admin_users.html:74
 #: webapp/admin/templates/admin/google_accounts.html:50
@@ -236,7 +227,7 @@ msgstr "アカウント作成"
 #: webapp/auth/templates/auth/google_accounts.html:21
 #: webapp/photo_view/templates/photo_view/home.html:61
 msgid "Actions"
-msgstr ""
+msgstr "操作"
 
 #: webapp/admin/templates/admin/admin_users.html:87
 msgid "Loading more users..."
@@ -397,7 +388,6 @@ msgid "Failed to disable Google account"
 msgstr ""
 
 #: webapp/admin/templates/admin/google_accounts.html:151
-#, fuzzy
 msgid "Delete this Google account?"
 msgstr "アカウント名を入力："
 
@@ -434,7 +424,6 @@ msgstr ""
 #: webapp/admin/templates/admin/role_edit.html:20
 #: webapp/admin/templates/admin/user_add.html:23
 #: webapp/admin/templates/admin/user_role_edit.html:45
-#, fuzzy
 msgid "Cancel"
 msgstr "設定をキャンセル"
 
@@ -497,7 +486,6 @@ msgid "Role"
 msgstr ""
 
 #: webapp/admin/templates/admin/user_add.html:22
-#, fuzzy
 msgid "Create"
 msgstr "アカウント作成"
 
@@ -547,7 +535,6 @@ msgid "User status updated successfully."
 msgstr ""
 
 #: webapp/auth/routes.py:59 webapp/auth/routes.py:169
-#, fuzzy
 msgid "Registration successful"
 msgstr "登録が完了しました。ログインしてください。"
 
@@ -568,7 +555,6 @@ msgid "Invalid email or password"
 msgstr "メールアドレスまたはパスワードが正しくありません"
 
 #: webapp/auth/routes.py:97 webapp/auth/routes.py:160 webapp/auth/routes.py:262
-#, fuzzy
 msgid "Invalid authentication code"
 msgstr "認証コード"
 
@@ -578,7 +564,6 @@ msgid "Registration failed: {}"
 msgstr "登録に失敗しました: {}"
 
 #: webapp/auth/routes.py:144
-#, fuzzy
 msgid "Session expired. Please register again."
 msgstr "登録セッションが無効です。再度登録してください。"
 
@@ -591,7 +576,6 @@ msgid "Registration cancelled. You can start over."
 msgstr "登録がキャンセルされました。最初からやり直せます。"
 
 #: webapp/auth/routes.py:223
-#, fuzzy
 msgid "Email is required"
 msgstr "メールアドレスとパスワードは必須です"
 
@@ -600,12 +584,10 @@ msgid "Profile updated"
 msgstr ""
 
 #: webapp/auth/routes.py:241
-#, fuzzy
 msgid "Two-factor authentication already configured"
 msgstr "二要素認証の設定がキャンセルされました。"
 
 #: webapp/auth/routes.py:267
-#, fuzzy
 msgid "Two-factor authentication enabled"
 msgstr "二要素認証の設定がキャンセルされました。"
 
@@ -677,7 +659,6 @@ msgstr ""
 
 #: webapp/auth/templates/auth/edit.html:2
 #: webapp/auth/templates/auth/edit.html:8
-#, fuzzy
 msgid "Edit Profile"
 msgstr "プロフィールに戻る"
 
@@ -700,7 +681,6 @@ msgid "Enter your email"
 msgstr "メールアドレスを入力"
 
 #: webapp/auth/templates/auth/edit.html:29
-#, fuzzy
 msgid "New Password"
 msgstr "パスワード"
 
@@ -709,12 +689,10 @@ msgid "Leave blank to keep current password"
 msgstr ""
 
 #: webapp/auth/templates/auth/edit.html:40
-#, fuzzy
 msgid "Update Profile"
 msgstr "プロフィールに戻る"
 
 #: webapp/auth/templates/auth/edit.html:49
-#, fuzzy
 msgid "Two-factor authentication is not enabled"
 msgstr "二要素認証の設定がキャンセルされました。"
 
@@ -724,17 +702,14 @@ msgid "Enable Two-Factor Authentication"
 msgstr "二要素認証を有効にする"
 
 #: webapp/auth/templates/auth/edit.html:60
-#, fuzzy
 msgid "Two-factor authentication is enabled"
 msgstr "二要素認証の設定がキャンセルされました。"
 
 #: webapp/auth/templates/auth/edit.html:67
-#, fuzzy
 msgid "Back to Dashboard"
 msgstr "ダッシュボード"
 
 #: webapp/auth/templates/auth/google_accounts.html:8
-#, fuzzy
 msgid "Add Account"
 msgstr "アカウント追加"
 
@@ -794,7 +769,6 @@ msgid "Login successful"
 msgstr ""
 
 #: webapp/auth/templates/auth/login.html:175
-#, fuzzy
 msgid "Invalid email, password, or authentication code"
 msgstr "メールアドレスまたはパスワードが正しくありません"
 
@@ -1000,49 +974,151 @@ msgstr ""
 
 #: webapp/photo_view/templates/photo_view/home.html:13
 msgid "Create New Session"
-msgstr ""
+msgstr "新しいセッションを作成"
 
 #: webapp/photo_view/templates/photo_view/home.html:26
 msgid "View Media Gallery"
-msgstr ""
+msgstr "メディアギャラリーを見る"
 
 #: webapp/photo_view/templates/photo_view/home.html:46
 msgid "All Picker Sessions"
-msgstr ""
+msgstr "ピッカーセッション一覧"
 
 #: webapp/photo_view/templates/photo_view/home.html:55
 msgid "Session ID"
-msgstr ""
+msgstr "セッションID"
 
 #: webapp/photo_view/templates/photo_view/home.html:57
-#, fuzzy
 msgid "Selected Count"
-msgstr "アカウント作成"
+msgstr "選択数"
+
+#: webapp/photo_view/templates/photo_view/home.html:57
+#: webapp/photo_view/templates/photo_view/session_detail.html:72
+msgid "Target Account"
+msgstr "対象アカウント"
 
 #: webapp/photo_view/templates/photo_view/home.html:58
 msgid "File Status"
-msgstr ""
+msgstr "ファイル状況"
 
 #: webapp/photo_view/templates/photo_view/home.html:60
 msgid "Last Progress"
-msgstr ""
+msgstr "最終更新"
 
 #: webapp/photo_view/templates/photo_view/home.html:76
 msgid "Loading more sessions..."
-msgstr ""
+msgstr "セッションを読み込み中..."
 
 #: webapp/photo_view/templates/photo_view/home.html:80
 msgid "All sessions loaded"
-msgstr ""
+msgstr "すべてのセッションを読み込み済みです"
+
+#: webapp/photo_view/templates/photo_view/home.html:83
+msgid "sessions loaded"
+msgstr "件のセッションを読み込み済み"
+
+#: webapp/photo_view/templates/photo_view/home.html:84
+msgid "No sessions loaded yet"
+msgstr "まだセッションが読み込まれていません"
+
+#: webapp/photo_view/templates/photo_view/home.html:118
+msgid "Failed to load sessions."
+msgstr "セッションの読み込みに失敗しました。"
+
+#: webapp/photo_view/templates/photo_view/home.html:119
+msgid "Error loading sessions"
+msgstr "セッションの読み込みでエラーが発生しました"
+
+#: webapp/photo_view/templates/photo_view/home.html:48
+#: webapp/photo_view/templates/photo_view/session_detail.html:69
+msgid "Pending"
+msgstr "保留"
+
+#: webapp/photo_view/templates/photo_view/home.html:85
+#: webapp/photo_view/templates/photo_view/session_detail.html:100
+msgid "Ready"
+msgstr "準備完了"
+
+#: webapp/photo_view/templates/photo_view/home.html:49
+#: webapp/photo_view/templates/photo_view/session_detail.html:70
+msgid "Enqueued"
+msgstr "キュー投入"
+
+#: webapp/photo_view/templates/photo_view/home.html:86
+#: webapp/photo_view/templates/photo_view/session_detail.html:101
+msgid "Processing"
+msgstr "処理中"
+
+#: webapp/photo_view/templates/photo_view/home.html:50
+#: webapp/photo_view/templates/photo_view/session_detail.html:71
+msgid "Running"
+msgstr "処理中"
+
+#: webapp/photo_view/templates/photo_view/home.html:88
+#: webapp/photo_view/templates/photo_view/session_detail.html:102
+msgid "Importing"
+msgstr "インポート中"
+
+#: webapp/photo_view/templates/photo_view/home.html:47
+#: webapp/photo_view/templates/photo_view/home.html:87
+#: webapp/photo_view/templates/photo_view/session_detail.html:72
+msgid "Imported"
+msgstr "取り込み完了"
+
+#: webapp/photo_view/templates/photo_view/home.html:89
+#: webapp/photo_view/templates/photo_view/session_detail.html:103
+msgid "Canceled"
+msgstr "キャンセル済み"
+
+#: webapp/photo_view/templates/photo_view/home.html:90
+#: webapp/photo_view/templates/photo_view/session_detail.html:104
+msgid "Expired"
+msgstr "期限切れ"
+
+#: webapp/photo_view/templates/photo_view/home.html:91
+#: webapp/photo_view/templates/photo_view/session_detail.html:105
+msgid "Error"
+msgstr "エラー"
+
+#: webapp/photo_view/templates/photo_view/home.html:52
+#: webapp/photo_view/templates/photo_view/session_detail.html:73
+msgid "Failed"
+msgstr "失敗"
+
+#: webapp/photo_view/templates/photo_view/home.html:53
+#: webapp/photo_view/templates/photo_view/session_detail.html:74
+msgid "Duplicate"
+msgstr "重複"
+
+#: webapp/photo_view/templates/photo_view/home.html:54
+#: webapp/photo_view/templates/photo_view/session_detail.html:75
+msgid "Skipped"
+msgstr "スキップ"
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:96
+msgid "Local Import"
+msgstr "ローカルインポート"
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:117
+msgid "Local Import Session. Import runs automatically."
+msgstr "ローカルインポートセッションです。インポートは自動的に実行されました。"
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:119
+msgid "Import can only be started when the session status is ready."
+msgstr "ステータスがreadyのときのみインポートを開始できます。"
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:197
+msgid "Import is not available for the current status."
+msgstr "現在のステータスではインポートを実行できません。"
 
 #: webapp/photo_view/templates/photo_view/home.html:129
 msgid "View Details"
-msgstr ""
+msgstr "詳細を見る"
 
 #: webapp/photo_view/templates/photo_view/home.html:130
 #: webapp/photo_view/templates/photo_view/session_detail.html:16
 msgid "Start Import"
-msgstr ""
+msgstr "インポート開始"
 
 #: webapp/photo_view/templates/photo_view/home.html:188
 #: webapp/photo_view/templates/photo_view/home.html:197
@@ -1051,115 +1127,120 @@ msgstr ""
 #: webapp/photo_view/templates/photo_view/session_detail.html:145
 #: webapp/photo_view/templates/photo_view/session_detail.html:146
 msgid "Failed to start import."
-msgstr ""
+msgstr "インポートの開始に失敗しました。"
 
 #: webapp/photo_view/templates/photo_view/home.html:192
 #: webapp/photo_view/templates/photo_view/session_detail.html:141
 #: webapp/photo_view/templates/photo_view/session_detail.html:142
 msgid "Import started."
-msgstr ""
+msgstr "インポートを開始しました。"
 
 #: webapp/photo_view/templates/photo_view/media_detail.html:147
 msgid "Back"
-msgstr ""
+msgstr "戻る"
 
 #: webapp/photo_view/templates/photo_view/media_detail.html:150
 msgid "Download"
-msgstr ""
+msgstr "ダウンロード"
 
 #: webapp/photo_view/templates/photo_view/media_detail.html:185
 msgid "Basic Information"
-msgstr ""
+msgstr "基本情報"
 
 #: webapp/photo_view/templates/photo_view/media_detail.html:192
 msgid "Technical Details"
-msgstr ""
+msgstr "技術情報"
 
 #: webapp/photo_view/templates/photo_view/media_detail.html:199
 msgid "EXIF Data"
-msgstr ""
+msgstr "EXIFデータ"
 
 #: webapp/photo_view/templates/photo_view/media_list.html:151
 #: webapp/templates/base.html:38
 msgid "Media Gallery"
-msgstr ""
+msgstr "メディアギャラリー"
 
 #: webapp/photo_view/templates/photo_view/media_list.html:158
 msgid "All Media"
-msgstr ""
+msgstr "すべてのメディア"
 
 #: webapp/photo_view/templates/photo_view/media_list.html:159
 msgid "Photos Only"
-msgstr ""
+msgstr "写真のみ"
 
 #: webapp/photo_view/templates/photo_view/media_list.html:160
 msgid "Videos Only"
-msgstr ""
+msgstr "動画のみ"
 
 #: webapp/photo_view/templates/photo_view/media_list.html:165
 msgid "Size"
-msgstr ""
+msgstr "サイズ"
 
 #: webapp/photo_view/templates/photo_view/media_list.html:190
 msgid "Loading more media..."
-msgstr ""
+msgstr "メディアを読み込み中..."
 
 #: webapp/photo_view/templates/photo_view/media_list.html:194
 msgid "All media loaded"
-msgstr ""
+msgstr "すべてのメディアを読み込み済みです"
 
 #: webapp/photo_view/templates/photo_view/media_list.html:303
 msgid "Failed to load media. Please try again."
-msgstr ""
+msgstr "メディアの読み込みに失敗しました。再度お試しください。"
 
 #: webapp/photo_view/templates/photo_view/session_detail.html:10
 msgid "Session Details"
-msgstr ""
+msgstr "セッション詳細"
 
 #: webapp/photo_view/templates/photo_view/session_detail.html:11
 msgid "Back to Sessions"
-msgstr ""
+msgstr "セッション一覧に戻る"
 
+#: webapp/photo_view/templates/photo_view/session_detail.html:15
+msgid "Loading session info..."
+msgstr "セッション情報を読み込み中..."
+
+#: webapp/photo_view/templates/photo_view/home.html:93
 #: webapp/photo_view/templates/photo_view/session_detail.html:26
 msgid "Selected Files"
-msgstr ""
+msgstr "選択ファイル数"
 
 #: webapp/photo_view/templates/photo_view/session_detail.html:32
 msgid "File"
-msgstr ""
+msgstr "ファイル"
 
 #: webapp/photo_view/templates/photo_view/session_detail.html:34
 msgid "Attempts"
-msgstr ""
+msgstr "試行回数"
 
 #: webapp/photo_view/templates/photo_view/session_detail.html:35
 #: webapp/templates/error.html:2 webapp/templates/error.html:4
 msgid "Error"
-msgstr ""
+msgstr "エラー"
 
 #: webapp/photo_view/templates/photo_view/session_detail.html:108
 msgid "Working..."
-msgstr ""
+msgstr "処理中..."
 
 #: webapp/templates/base.html:34 webapp/templates/index.html:34
 msgid "Photo View"
-msgstr ""
+msgstr "フォトビュー"
 
 #: webapp/templates/base.html:37
 msgid "Sessions"
-msgstr ""
+msgstr "セッション"
 
 #: webapp/templates/base.html:43
 msgid "Settings"
-msgstr ""
+msgstr "設定"
 
 #: webapp/templates/base.html:87
 msgid "Photo View Admin"
-msgstr ""
+msgstr "フォトビュー管理"
 
 #: webapp/templates/base.html:88
 msgid "Photo Exports"
-msgstr ""
+msgstr "フォトエクスポート"
 
 #: webapp/templates/base.html:94
 msgid "Logout"

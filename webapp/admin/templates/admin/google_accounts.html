@@ -139,10 +139,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const resp = await fetch('{{ url_for("api.google_oauth_start") }}', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             scopes: [
               'https://www.googleapis.com/auth/photoslibrary.readonly',
-              'https://www.googleapis.com/auth/photoslibrary.appendonly'
+              'https://www.googleapis.com/auth/photoslibrary.appendonly',
+              'https://www.googleapis.com/auth/userinfo.email'
             ],
             redirect: '{{ url_for("admin.google_accounts") }}' })
         });

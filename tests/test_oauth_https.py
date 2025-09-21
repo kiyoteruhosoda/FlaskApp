@@ -78,6 +78,14 @@ def test_oauth_start_api_with_https():
             # redirect_uriパラメータがhttpsになっていることを確認
             assert 'redirect_uri=https%3A' in auth_url
 
+            # userinfo.emailスコープが必ず含まれることを確認
+            from urllib.parse import urlparse, parse_qs
+
+            parsed = urlparse(auth_url)
+            scope_param = parse_qs(parsed.query).get('scope', [''])[0]
+            scopes = scope_param.split(' ')
+            assert 'https://www.googleapis.com/auth/userinfo.email' in scopes
+
 
 def test_proxy_fix_headers():
     """ProxyFixによるヘッダー処理のテスト"""

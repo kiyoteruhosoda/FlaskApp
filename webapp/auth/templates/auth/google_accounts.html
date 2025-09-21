@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'https://www.googleapis.com/auth/photospicker.mediaitems.readonly',
             'https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata',
             'https://www.googleapis.com/auth/photoslibrary.appendonly',
-            'email'
+            'https://www.googleapis.com/auth/userinfo.email'
           ],
           redirect: '{{ url_for("auth.google_accounts") }}' })
         });

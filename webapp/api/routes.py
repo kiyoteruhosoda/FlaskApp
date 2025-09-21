@@ -192,17 +192,24 @@ def api_refresh():
     return resp
 
 
+REQUIRED_GOOGLE_OAUTH_SCOPES = {
+    "https://www.googleapis.com/auth/userinfo.email",
+}
+
+
 @bp.post("/google/oauth/start")
 @login_or_jwt_required
 def google_oauth_start():
     """Start Google OAuth flow by returning an authorization URL."""
     data = request.get_json(silent=True) or {}
-    scopes = data.get("scopes") or []
+    scopes = set(data.get("scopes") or [])
+    scopes.update(REQUIRED_GOOGLE_OAUTH_SCOPES)
+    sorted_scopes = sorted(scopes)
     redirect_target = data.get("redirect")
     state = secrets.token_urlsafe(16)
     session["google_oauth_state"] = {
         "state": state,
-        "scopes": scopes,
+        "scopes": sorted_scopes,
         "redirect": redirect_target,
     }
     
@@ -217,7 +224,7 @@ def google_oauth_start():
         "client_id": current_app.config.get("GOOGLE_CLIENT_ID"),
         "redirect_uri": callback_url,
         "response_type": "code",
-        "scope": " ".join(scopes),
+        "scope": " ".join(sorted_scopes),
         "access_type": "offline",
         "include_granted_scopes": "true",
         "prompt": "consent",

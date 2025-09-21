@@ -19,6 +19,7 @@ without requiring a full Celery deployment:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
+import logging
 import os
 from pathlib import Path
 import shutil
@@ -27,6 +28,11 @@ from typing import Dict, List
 
 from core.db import db
 from core.models.photo_models import Media, MediaPlayback
+
+# transcode専用ロガーを取得（両方のログハンドラーが設定済み）
+logger = logging.getLogger('celery.task.transcode')
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -178,6 +184,19 @@ def transcode_worker(*, media_playback_id: int) -> Dict[str, object]:
     m = pb.media
     src_path = _orig_dir() / m.local_rel_path
     if not src_path.exists():
+        error_details = {
+            "playback_id": pb.id,
+            "media_id": pb.media_id,
+            "expected_path": str(src_path),
+            "media_rel_path": m.local_rel_path
+        }
+        logger.error(
+            f"変換対象ファイルが見つからない: playback_id={pb.id}, path={src_path}",
+            extra={
+                "event": "transcode.input.missing",
+                "error_details": json.dumps(error_details)
+            }
+        )
         pb.status = "error"
         pb.error_msg = "missing_input"
         pb.updated_at = datetime.now(timezone.utc)
@@ -225,6 +244,23 @@ def transcode_worker(*, media_playback_id: int) -> Dict[str, object]:
     ]
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
+        error_details = {
+            "playback_id": pb.id,
+            "media_id": pb.media_id,
+            "input_path": str(src_path),
+            "output_path": str(tmp_out),
+            "ffmpeg_command": " ".join(cmd),
+            "return_code": proc.returncode,
+            "stderr": proc.stderr,
+            "stdout": proc.stdout
+        }
+        logger.error(
+            f"FFmpeg変換失敗: playback_id={pb.id}, media_id={pb.media_id} - return_code={proc.returncode}",
+            extra={
+                "event": "transcode.ffmpeg.failed",
+                "error_details": json.dumps(error_details)
+            }
+        )
         pb.status = "error"
         pb.error_msg = proc.stderr[-1000:]
         pb.updated_at = datetime.now(timezone.utc)
@@ -240,6 +276,21 @@ def transcode_worker(*, media_playback_id: int) -> Dict[str, object]:
     try:
         info = _probe(tmp_out)
     except Exception as exc:  # pragma: no cover - defensive
+        error_details = {
+            "playback_id": pb.id,
+            "media_id": pb.media_id,
+            "output_path": str(tmp_out),
+            "error_type": type(exc).__name__,
+            "error_message": str(exc)
+        }
+        logger.error(
+            f"FFmpeg変換後のプローブ失敗: playback_id={pb.id}, media_id={pb.media_id} - {exc}",
+            extra={
+                "event": "transcode.probe.failed",
+                "error_details": json.dumps(error_details)
+            },
+            exc_info=True
+        )
         pb.status = "error"
         pb.error_msg = str(exc)[:1000]
         pb.updated_at = datetime.now(timezone.utc)
@@ -255,6 +306,21 @@ def transcode_worker(*, media_playback_id: int) -> Dict[str, object]:
     vstreams = [s for s in info.get("streams", []) if s.get("codec_type") == "video"]
     astreams = [s for s in info.get("streams", []) if s.get("codec_type") == "audio"]
     if not vstreams or not astreams:
+        error_details = {
+            "playback_id": pb.id,
+            "media_id": pb.media_id,
+            "output_path": str(tmp_out),
+            "video_streams_count": len(vstreams),
+            "audio_streams_count": len(astreams),
+            "all_streams": info.get("streams", [])
+        }
+        logger.error(
+            f"変換されたファイルに必要なストリームが不足: playback_id={pb.id}, video={len(vstreams)}, audio={len(astreams)}",
+            extra={
+                "event": "transcode.missing_stream",
+                "error_details": json.dumps(error_details)
+            }
+        )
         pb.status = "error"
         pb.error_msg = "missing_stream"
         pb.updated_at = datetime.now(timezone.utc)
@@ -276,7 +342,47 @@ def transcode_worker(*, media_playback_id: int) -> Dict[str, object]:
 
     dest_path = _play_dir() / out_rel
     dest_path.parent.mkdir(parents=True, exist_ok=True)
-    shutil.move(str(tmp_out), dest_path)
+    try:
+        shutil.move(str(tmp_out), dest_path)
+        logger.info(
+            f"変換ファイル移動成功: playback_id={pb.id} - {tmp_out} -> {dest_path}",
+            extra={
+                "event": "transcode.file.moved",
+                "playback_id": pb.id,
+                "media_id": pb.media_id,
+                "source_path": str(tmp_out),
+                "dest_path": str(dest_path)
+            }
+        )
+    except Exception as e:
+        error_details = {
+            "playback_id": pb.id,
+            "media_id": pb.media_id,
+            "source_path": str(tmp_out),
+            "dest_path": str(dest_path),
+            "error_type": type(e).__name__,
+            "error_message": str(e)
+        }
+        logger.error(
+            f"変換ファイル移動失敗: playback_id={pb.id} - {tmp_out} -> {dest_path} - {e}",
+            extra={
+                "event": "transcode.file.move.failed",
+                "error_details": json.dumps(error_details)
+            },
+            exc_info=True
+        )
+        pb.status = "error"
+        pb.error_msg = f"file_move_error: {str(e)}"
+        pb.updated_at = datetime.now(timezone.utc)
+        db.session.commit()
+        tmp_out.unlink(missing_ok=True)
+        return {
+            "ok": False,
+            "duration_ms": 0,
+            "width": 0,
+            "height": 0,
+            "note": "file_move_error",
+        }
 
     pb.width = width
     pb.height = height

@@ -7,6 +7,7 @@ import os
 import hashlib
 import shutil
 import json
+import logging
 import subprocess
 import uuid
 from datetime import datetime, timezone
@@ -22,7 +23,13 @@ from core.models.photo_models import Media, Exif, PickerSelection, MediaItem, Ph
 from core.models.job_sync import JobSync
 from core.models.picker_session import PickerSession
 from core.utils import get_file_date_from_name, get_file_date_from_exif
+from core.logging_config import setup_task_logging, log_task_error, log_task_info
 from webapp.config import Config
+
+# Setup logger for this module - use Celery task logger for consistency
+logger = setup_task_logging(__name__)
+# Also get celery task logger for cross-compatibility
+celery_logger = logging.getLogger('celery.task.local_import')
 
 
 # サポートするファイル拡張子
@@ -363,14 +370,30 @@ def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> D
         
     except Exception as e:
         db.session.rollback()
+        error_details = {
+            "file_path": file_path,
+            "target_dir": target_dir,
+            "account_id": account_id,
+            "error_type": type(e).__name__,
+            "error_message": str(e)
+        }
+        logger.error(
+            f"ローカルファイル取り込み失敗: {file_path} - {e}",
+            extra={
+                "event": "local_import.file.failed",
+                "error_details": json.dumps(error_details)
+            },
+            exc_info=True
+        )
         result["reason"] = f"エラー: {str(e)}"
         
         # コピー先ファイルが作成されていた場合は削除
         try:
             if 'dest_path' in locals() and os.path.exists(dest_path):
                 os.remove(dest_path)
-        except:
-            pass
+                logger.info(f"エラー時のファイルクリーンアップ: {dest_path}")
+        except Exception as cleanup_error:
+            logger.warning(f"ファイルクリーンアップ失敗: {dest_path} - {cleanup_error}")
     
     return result
 
@@ -549,7 +572,8 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                     db.session.add(selection)
                     db.session.commit()
                 except Exception as e:
-                    current_app.logger.warning(f"Failed to create picker selection for {filename}: {e}")
+                    log_task_error(logger, f"Failed to create picker selection for {filename}: {e}", 
+                                  event="local_import_selection_create", filename=filename, exc_info=False)
             
             # 進行状況の更新
             if task_instance:
@@ -592,7 +616,8 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                         selection.attempts = 1
                     db.session.commit()
                 except Exception as e:
-                    current_app.logger.warning(f"Failed to update picker selection for {filename}: {e}")
+                    log_task_error(logger, f"Failed to update picker selection for {filename}: {e}", 
+                                  event="local_import_selection_update", filename=filename, exc_info=False)
             
             # 詳細な結果を記録
             detail = {

@@ -3,19 +3,10 @@
 from datetime import datetime, timedelta
 from core.models.picker_session import PickerSession
 from core.db import db
+from core.logging_config import setup_task_logging, log_task_error, log_task_info
 import logging
 
-logger = logging.getLogger(__name__)
-
-
-"""Session recovery tasks for cleaning up stale processing sessions."""
-
-from datetime import datetime, timedelta
-from core.models.picker_session import PickerSession
-from core.db import db
-import logging
-
-logger = logging.getLogger(__name__)
+logger = setup_task_logging(__name__)
 
 
 def cleanup_stale_sessions():

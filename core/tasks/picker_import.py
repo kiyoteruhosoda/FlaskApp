@@ -39,10 +39,11 @@ from core.models.photo_models import (
     MediaPlayback,
     PickerSelection,
 )
+from core.logging_config import setup_task_logging, log_task_error, log_task_info
 from flask import current_app
 
-
-logger = logging.getLogger(__name__)
+# picker_import専用ロガーを取得（両方のログハンドラーが設定済み）
+logger = logging.getLogger('picker_import')
 
 
 class AuthError(Exception):
@@ -90,7 +91,8 @@ def enqueue_thumbs_generate(media_id: int) -> None:
         else:
             logger.warning(f"Thumbnail generation failed for media_id={media_id}: {result.get('notes', 'unknown error')}")
     except Exception as e:
-        logger.error(f"Exception during thumbnail generation for media_id={media_id}: {e}")
+        log_task_error(logger, f"Exception during thumbnail generation for media_id={media_id}: {e}", 
+                      event="thumbnail_generation", media_id=media_id)
 
     return None
 
@@ -118,7 +120,8 @@ def enqueue_media_playback(media_id: int) -> None:
             from core.models.photo_models import Media
             media = Media.query.get(media_id)
             if not media:
-                logger.error(f"Media not found for media_id={media_id}")
+                log_task_error(logger, f"Media not found for media_id={media_id}", 
+                              event="media_playback_media_not_found", media_id=media_id, exc_info=False)
                 return None
                 
             from pathlib import Path
@@ -145,7 +148,8 @@ def enqueue_media_playback(media_id: int) -> None:
         else:
             logger.warning(f"Video transcoding failed for media_id={media_id}: {result.get('note', 'unknown error')}")
     except Exception as e:
-        logger.error(f"Exception during video transcoding for media_id={media_id}: {e}")
+        log_task_error(logger, f"Exception during video transcoding for media_id={media_id}: {e}", 
+                      event="video_transcoding", media_id=media_id)
 
     return None
 
@@ -430,14 +434,60 @@ def _download(url: str, dest_dir: Path, headers: Dict[str, str] | None = None) -
 
     The optional *headers* parameter allows authenticated downloads.
     """
-    resp = requests.get(url, headers=headers)
-    resp.raise_for_status()
-    tmp_name = hashlib.sha1(url.encode("utf-8")).hexdigest()
-    tmp_path = dest_dir / tmp_name
-    with open(tmp_path, "wb") as fh:
-        fh.write(resp.content)
-    sha = hashlib.sha256(resp.content).hexdigest()
-    return Downloaded(tmp_path, len(resp.content), sha)
+    try:
+        resp = requests.get(url, headers=headers, timeout=30)
+        resp.raise_for_status()
+        
+        # ダウンロード成功ログ
+        logger.info(
+            f"ファイルダウンロード成功: {url} ({len(resp.content)} bytes)",
+            extra={
+                "event": "picker.download.success",
+                "url": url,
+                "content_length": len(resp.content),
+                "status_code": resp.status_code
+            }
+        )
+        
+        tmp_name = hashlib.sha1(url.encode("utf-8")).hexdigest()
+        tmp_path = dest_dir / tmp_name
+        with open(tmp_path, "wb") as fh:
+            fh.write(resp.content)
+        sha = hashlib.sha256(resp.content).hexdigest()
+        return Downloaded(tmp_path, len(resp.content), sha)
+    except requests.Timeout as e:
+        logger.error(
+            f"ダウンロードタイムアウト: {url}",
+            extra={
+                "event": "picker.download.timeout",
+                "url": url,
+                "error_message": str(e)
+            }
+        )
+        raise
+    except requests.HTTPError as e:
+        logger.error(
+            f"ダウンロードHTTPエラー: {url} - Status: {e.response.status_code if e.response else 'Unknown'}",
+            extra={
+                "event": "picker.download.http_error",
+                "url": url,
+                "status_code": e.response.status_code if e.response else None,
+                "response_text": e.response.text if e.response else None
+            }
+        )
+        raise
+    except Exception as e:
+        logger.error(
+            f"ダウンロード予期しないエラー: {url} - {str(e)}",
+            extra={
+                "event": "picker.download.error",
+                "url": url,
+                "error_type": type(e).__name__,
+                "error_message": str(e)
+            },
+            exc_info=True
+        )
+        raise
 
 
 def _ensure_dirs() -> Tuple[Path, Path]:
@@ -552,6 +602,7 @@ def _fetch_selected_ids(ps: PickerSession, headers: Dict[str, str]) -> tuple[Lis
             r = requests.get(
                 f"https://photospicker.googleapis.com/v1/sessions/{ps.session_id}",
                 headers=headers,
+                timeout=30
             )
             r.raise_for_status()
             sess_data = r.json()
@@ -559,7 +610,66 @@ def _fetch_selected_ids(ps: PickerSession, headers: Dict[str, str]) -> tuple[Lis
                 selected_ids = list(sess_data["selectedMediaItemIds"])
             elif sess_data.get("selectedMediaItems"):
                 selected_ids = [m["id"] for m in sess_data["selectedMediaItems"]]
-        except Exception:
+                
+            logger.info(
+                f"Google Photos セッション取得成功: session_id={ps.session_id}, 選択アイテム数={len(selected_ids)}",
+                extra={
+                    "event": "picker.session.fetch.success",
+                    "picker_session_id": ps.id,
+                    "google_session_id": ps.session_id,
+                    "selected_count": len(selected_ids)
+                }
+            )
+        except requests.HTTPError as e:
+            error_details = {
+                "picker_session_id": ps.id,
+                "google_session_id": ps.session_id,
+                "status_code": e.response.status_code if e.response else None,
+                "response_text": e.response.text if e.response else None,
+                "error_type": "HTTPError"
+            }
+            logger.error(
+                f"Google Photos セッション取得HTTPエラー: session_id={ps.session_id} - {e}",
+                extra={
+                    "event": "picker.session.fetch.http_error",
+                    "error_details": json.dumps(error_details)
+                }
+            )
+            ps.status = "error"
+            db.session.commit()
+            return [], "session_get_error"
+        except requests.RequestException as e:
+            error_details = {
+                "picker_session_id": ps.id,
+                "google_session_id": ps.session_id,
+                "error_type": "RequestException",
+                "error_message": str(e)
+            }
+            logger.error(
+                f"Google Photos セッション取得リクエストエラー: session_id={ps.session_id} - {e}",
+                extra={
+                    "event": "picker.session.fetch.request_error",
+                    "error_details": json.dumps(error_details)
+                }
+            )
+            ps.status = "error"
+            db.session.commit()
+            return [], "session_get_error"
+        except Exception as e:
+            error_details = {
+                "picker_session_id": ps.id,
+                "google_session_id": ps.session_id,
+                "error_type": type(e).__name__,
+                "error_message": str(e)
+            }
+            logger.error(
+                f"Google Photos セッション取得予期しないエラー: session_id={ps.session_id} - {e}",
+                extra={
+                    "event": "picker.session.fetch.unexpected_error",
+                    "error_details": json.dumps(error_details)
+                },
+                exc_info=True
+            )
             ps.status = "error"
             db.session.commit()
             return [], "session_get_error"
@@ -666,16 +776,88 @@ def picker_import_item(
                 r = requests.get(
                     f"https://photospicker.googleapis.com/v1/mediaItems/{mi.id}",
                     headers=headers,
+                    timeout=30
                 )
                 r.raise_for_status()
                 item = r.json()
+                
+                logger.info(
+                    f"Google Photos メディアアイテム取得成功: media_id={mi.id}",
+                    extra={
+                        "event": "picker.media.fetch.success",
+                        "google_media_id": mi.id,
+                        "selection_id": sel.id,
+                        "session_id": session_id
+                    }
+                )
             except requests.HTTPError as e:
+                error_details = {
+                    "google_media_id": mi.id,
+                    "selection_id": sel.id,
+                    "session_id": session_id,
+                    "status_code": e.response.status_code if e.response else None,
+                    "response_text": e.response.text if e.response else None,
+                    "error_type": "HTTPError"
+                }
                 if e.response is not None and e.response.status_code in (401, 403):
+                    logger.error(
+                        f"Google Photos メディアアイテム取得認証エラー: media_id={mi.id} - {e}",
+                        extra={
+                            "event": "picker.media.fetch.auth_error",
+                            "error_details": json.dumps(error_details)
+                        }
+                    )
                     raise AuthError()
                 elif e.response is not None and e.response.status_code == 404:
+                    logger.warning(
+                        f"Google Photos メディアアイテムが見つからない: media_id={mi.id} - {e}",
+                        extra={
+                            "event": "picker.media.fetch.not_found",
+                            "error_details": json.dumps(error_details)
+                        }
+                    )
                     raise BaseUrlExpired()
+                else:
+                    logger.error(
+                        f"Google Photos メディアアイテム取得HTTPエラー: media_id={mi.id} - {e}",
+                        extra={
+                            "event": "picker.media.fetch.http_error",
+                            "error_details": json.dumps(error_details)
+                        }
+                    )
+                    raise NetworkError()
+            except requests.RequestException as e:
+                error_details = {
+                    "google_media_id": mi.id,
+                    "selection_id": sel.id,
+                    "session_id": session_id,
+                    "error_type": "RequestException",
+                    "error_message": str(e)
+                }
+                logger.error(
+                    f"Google Photos メディアアイテム取得リクエストエラー: media_id={mi.id} - {e}",
+                    extra={
+                        "event": "picker.media.fetch.request_error",
+                        "error_details": json.dumps(error_details)
+                    }
+                )
                 raise NetworkError()
-            except requests.RequestException:
+            except Exception as e:
+                error_details = {
+                    "google_media_id": mi.id,
+                    "selection_id": sel.id,
+                    "session_id": session_id,
+                    "error_type": type(e).__name__,
+                    "error_message": str(e)
+                }
+                logger.error(
+                    f"Google Photos メディアアイテム取得予期しないエラー: media_id={mi.id} - {e}",
+                    extra={
+                        "event": "picker.media.fetch.unexpected_error",
+                        "error_details": json.dumps(error_details)
+                    },
+                    exc_info=True
+                )
                 raise NetworkError()
 
             base_url = item.get("baseUrl")
@@ -691,11 +873,72 @@ def picker_import_item(
         try:
             dl = _download(dl_url, tmp_dir, headers=headers)
         except requests.HTTPError as e:
+            # HTTPエラーの詳細をログDBに記録
+            error_details = {
+                "ts": now.isoformat(),
+                "selection_id": sel.id,
+                "session_id": session_id,
+                "url": dl_url,
+                "status_code": e.response.status_code if e.response else None,
+                "response_text": e.response.text if e.response else None,
+                "error_type": "HTTPError",
+                "google_media_id": mi.id,
+                "filename": mi.filename,
+                "mime_type": mi.mime_type
+            }
+            logger.error(
+                f"ファイルダウンロード失敗 (HTTP Error): {e}",
+                extra={
+                    "event": "picker.download.failed.http",
+                    "error_details": json.dumps(error_details)
+                }
+            )
             if e.response is not None and e.response.status_code in (401, 403):
                 raise AuthError()
             raise NetworkError()
-        except requests.RequestException:
+        except requests.RequestException as e:
+            # リクエスト例外の詳細をログDBに記録
+            error_details = {
+                "ts": now.isoformat(),
+                "selection_id": sel.id,
+                "session_id": session_id,
+                "url": dl_url,
+                "error_type": "RequestException",
+                "error_message": str(e),
+                "google_media_id": mi.id,
+                "filename": mi.filename,
+                "mime_type": mi.mime_type
+            }
+            logger.error(
+                f"ファイルダウンロード失敗 (Request Error): {e}",
+                extra={
+                    "event": "picker.download.failed.request",
+                    "error_details": json.dumps(error_details)
+                }
+            )
             raise NetworkError()
+        except Exception as e:
+            # その他の予期しないエラーもログDBに記録
+            error_details = {
+                "ts": now.isoformat(),
+                "selection_id": sel.id,
+                "session_id": session_id,
+                "url": dl_url,
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "google_media_id": mi.id,
+                "filename": mi.filename,
+                "mime_type": mi.mime_type
+            }
+            logger.error(
+                f"ファイルダウンロード失敗 (Unexpected Error): {e}",
+                extra={
+                    "event": "picker.download.failed.unexpected",
+                    "error_details": json.dumps(error_details)
+                },
+                exc_info=True
+            )
+            raise
 
         # Deduplication by hash
         if Media.query.filter_by(hash_sha256=dl.sha256).first():
@@ -707,66 +950,195 @@ def picker_import_item(
             out_rel = f"{shot_at:%Y/%m/%d}/{shot_at:%Y%m%d_%H%M%S}_picker_{dl.sha256[:8]}{ext}"
             final_path = orig_dir / out_rel
             final_path.parent.mkdir(parents=True, exist_ok=True)
-            os.replace(dl.path, final_path)
-            
-            # ファイル保存ログ
-            logger.info(
-                json.dumps(
-                    {
-                        "ts": now.isoformat(),
-                        "selection_id": sel.id,
-                        "session_id": session_id,
-                        "file_path": str(final_path),
-                        "file_size": dl.bytes,
-                        "mime_type": mi.mime_type,
-                        "sha256": dl.sha256,
-                        "original_filename": mi.filename,
+            try:
+                os.replace(dl.path, final_path)
+                
+                # ファイル保存ログ
+                logger.info(
+                    json.dumps(
+                        {
+                            "ts": now.isoformat(),
+                            "selection_id": sel.id,
+                            "session_id": session_id,
+                            "file_path": str(final_path),
+                            "file_size": dl.bytes,
+                            "mime_type": mi.mime_type,
+                            "sha256": dl.sha256,
+                            "original_filename": mi.filename,
+                        }
+                    ),
+                    extra={"event": "picker.file.saved"},
+                )
+            except OSError as e:
+                # ファイル移動エラーをログDBに記録
+                error_details = {
+                    "ts": now.isoformat(),
+                    "selection_id": sel.id,
+                    "session_id": session_id,
+                    "source_path": str(dl.path),
+                    "dest_path": str(final_path),
+                    "error_type": "OSError",
+                    "error_message": str(e),
+                    "google_media_id": mi.id,
+                    "filename": mi.filename,
+                    "sha256": dl.sha256
+                }
+                logger.error(
+                    f"ファイル移動失敗: {dl.path} -> {final_path} - {e}",
+                    extra={
+                        "event": "picker.file.move.failed",
+                        "error_details": json.dumps(error_details)
                     }
-                ),
-                extra={"event": "picker.file.saved"},
-            )
+                )
+                # 一時ファイルのクリーンアップ
+                dl.path.unlink(missing_ok=True)
+                raise
+            except Exception as e:
+                # その他のファイル操作エラーをログDBに記録
+                error_details = {
+                    "ts": now.isoformat(),
+                    "selection_id": sel.id,
+                    "session_id": session_id,
+                    "source_path": str(dl.path),
+                    "dest_path": str(final_path),
+                    "error_type": type(e).__name__,
+                    "error_message": str(e),
+                    "google_media_id": mi.id,
+                    "filename": mi.filename,
+                    "sha256": dl.sha256
+                }
+                logger.error(
+                    f"ファイル操作予期しないエラー: {dl.path} -> {final_path} - {e}",
+                    extra={
+                        "event": "picker.file.operation.failed",
+                        "error_details": json.dumps(error_details)
+                    },
+                    exc_info=True
+                )
+                # 一時ファイルのクリーンアップ
+                dl.path.unlink(missing_ok=True)
+                raise
 
-            media = Media(
-                google_media_id=mi.id,
-                account_id=ps.account_id,
-                local_rel_path=str(out_rel),
-                hash_sha256=dl.sha256,
-                bytes=dl.bytes,
-                mime_type=mi.mime_type,
-                width=int(meta.get("width", mi.width or 0) or 0),
-                height=int(meta.get("height", mi.height or 0) or 0),
-                duration_ms=int(meta.get("video", {}).get("durationMillis", 0) or 0)
-                if is_video
-                else None,
-                shot_at=shot_at,
-                imported_at=now,
-                is_video=is_video,
-            )
-            db.session.add(media)
-            db.session.flush()
+            try:
+                media = Media(
+                    google_media_id=mi.id,
+                    account_id=ps.account_id,
+                    local_rel_path=str(out_rel),
+                    hash_sha256=dl.sha256,
+                    bytes=dl.bytes,
+                    mime_type=mi.mime_type,
+                    width=int(meta.get("width", mi.width or 0) or 0),
+                    height=int(meta.get("height", mi.height or 0) or 0),
+                    duration_ms=int(meta.get("video", {}).get("durationMillis", 0) or 0)
+                    if is_video
+                    else None,
+                    shot_at=shot_at,
+                    imported_at=now,
+                    is_video=is_video,
+                )
+                db.session.add(media)
+                db.session.flush()
 
-            exif = Exif(media_id=media.id, raw_json=json.dumps(item or {}))
-            db.session.add(exif)
+                exif = Exif(media_id=media.id, raw_json=json.dumps(item or {}))
+                db.session.add(exif)
 
-            if is_video:
-                enqueue_media_playback(media.id)
-            else:
-                enqueue_thumbs_generate(media.id)
+                if is_video:
+                    enqueue_media_playback(media.id)
+                else:
+                    enqueue_thumbs_generate(media.id)
 
-            sel.status = "imported"
+                sel.status = "imported"
+                
+                # DB登録成功ログ
+                logger.info(
+                    f"メディアDB登録成功: media_id={media.id}, google_media_id={mi.id}",
+                    extra={
+                        "event": "picker.media.db.saved",
+                        "media_id": media.id,
+                        "google_media_id": mi.id,
+                        "selection_id": sel.id,
+                        "session_id": session_id
+                    }
+                )
+            except Exception as e:
+                # DB登録エラーをログDBに記録
+                error_details = {
+                    "ts": now.isoformat(),
+                    "selection_id": sel.id,
+                    "session_id": session_id,
+                    "google_media_id": mi.id,
+                    "filename": mi.filename,
+                    "sha256": dl.sha256,
+                    "file_path": str(final_path),
+                    "error_type": type(e).__name__,
+                    "error_message": str(e)
+                }
+                logger.error(
+                    f"メディアDB登録失敗: {mi.id} - {e}",
+                    extra={
+                        "event": "picker.media.db.failed",
+                        "error_details": json.dumps(error_details)
+                    },
+                    exc_info=True
+                )
+                # ファイルのクリーンアップ（DB登録に失敗した場合）
+                try:
+                    final_path.unlink(missing_ok=True)
+                    logger.info(f"DB登録失敗によりファイルクリーンアップ: {final_path}")
+                except Exception as cleanup_error:
+                    logger.warning(f"ファイルクリーンアップ失敗: {final_path} - {cleanup_error}")
+                raise
 
     except AuthError as e:
         sel.status = "failed"
         sel.error_msg = str(e)
+        logger.error(
+            f"認証エラー: selection_id={sel.id} - {e}",
+            extra={
+                "event": "picker.import.auth_error",
+                "selection_id": sel.id,
+                "session_id": session_id,
+                "error_message": str(e)
+            }
+        )
     except BaseUrlExpired as e:
         sel.status = "expired"
         sel.error_msg = str(e)
+        logger.warning(
+            f"ベースURL有効期限切れ: selection_id={sel.id} - {e}",
+            extra={
+                "event": "picker.import.url_expired",
+                "selection_id": sel.id,
+                "session_id": session_id,
+                "error_message": str(e)
+            }
+        )
     except NetworkError as e:
         sel.status = "enqueued"
         sel.error_msg = str(e)
+        logger.warning(
+            f"ネットワークエラー（再試行予定）: selection_id={sel.id} - {e}",
+            extra={
+                "event": "picker.import.network_error",
+                "selection_id": sel.id,
+                "session_id": session_id,
+                "error_message": str(e)
+            }
+        )
     except Exception as e:
         sel.status = "failed"
         sel.error_msg = str(e)
+        logger.error(
+            f"予期しないエラー: selection_id={sel.id} - {e}",
+            extra={
+                "event": "picker.import.unexpected_error",
+                "selection_id": sel.id,
+                "session_id": session_id,
+                "error_type": type(e).__name__,
+                "error_message": str(e)
+            },
+            exc_info=True
+        )
 
     finally:
         stop_evt.set()

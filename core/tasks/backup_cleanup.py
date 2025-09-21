@@ -1,11 +1,11 @@
 """バックアップファイルの自動クリーンアップタスク"""
 
 import os
-import logging
 from datetime import datetime, timedelta
 from pathlib import Path
+from core.logging_config import setup_task_logging, log_task_error, log_task_info
 
-logger = logging.getLogger(__name__)
+logger = setup_task_logging(__name__)
 
 
 def cleanup_old_backups(backup_dir: str = None, retention_days: int = 30) -> dict:

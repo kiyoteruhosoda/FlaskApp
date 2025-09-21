@@ -1,5 +1,6 @@
 """Celery background tasks."""
 
+import logging
 from .celery_app import celery
 from pathlib import Path
 import hashlib
@@ -14,6 +15,10 @@ from core.tasks.session_recovery import (
     get_session_status_report
 )
 from core.tasks.backup_cleanup import cleanup_old_backups, get_backup_status
+from core.logging_config import log_task_info, log_task_error
+
+# Celery task logger
+logger = logging.getLogger('celery.task')
 
 
 def _save_content(path: Path, content: bytes) -> None:
@@ -35,53 +40,101 @@ def _download_content(url: str) -> tuple[bytes, str]:
 @celery.task(bind=True)
 def dummy_long_task(self, x, y):
     """擬似的に長時間処理を行うサンプルタスク。"""
-    time.sleep(5)
-    return {"result": x + y}
+    try:
+        # Test for intentional error
+        if isinstance(y, str):
+            raise ValueError(f"Invalid type for y: {type(y)}")
+            
+        time.sleep(2)  # Reduced sleep time for testing
+        result = x + y
+        
+        # Log success
+        log_task_info(logger, f"Dummy task completed successfully: {x} + {y} = {result}", 
+                     event="dummy_task_success", x=x, y=y, result=result)
+        
+        return {"ok": True, "result": result}
+    except Exception as e:
+        self.log_error(f"Dummy task failed: {str(e)}", event="dummy_task_error", exc_info=True)
+        return {"ok": False, "error": str(e)}
 
 
 @celery.task(bind=True)
 def download_file(self, url: str, dest_dir: str) -> dict:
     """指定した URL をダウンロードし保存するタスク。"""
-    content, sha = _download_content(url)
-    tmp_name = hashlib.sha1(url.encode("utf-8")).hexdigest()
-    dest_path = Path(dest_dir) / tmp_name
-    _save_content(dest_path, content)
-    return {"path": str(dest_path), "bytes": len(content), "sha256": sha}
+    try:
+        content, sha = _download_content(url)
+        tmp_name = hashlib.sha1(url.encode("utf-8")).hexdigest()
+        dest_path = Path(dest_dir) / tmp_name
+        _save_content(dest_path, content)
+        return {"path": str(dest_path), "bytes": len(content), "sha256": sha}
+    except Exception as e:
+        self.log_error(f"Download file failed for {url}: {str(e)}", event="download_file", exc_info=True)
+        return {"ok": False, "error": str(e)}
 
 
 @celery.task(bind=True, name="picker_import.item")
 def picker_import_item_task(self, selection_id: int, session_id: int) -> dict:
     """Run picker import for a single selection."""
-    return picker_import_item(selection_id=selection_id, session_id=session_id)
+    try:
+        return picker_import_item(selection_id=selection_id, session_id=session_id)
+    except Exception as e:
+        self.log_error(f"Picker import item failed (selection_id={selection_id}, session_id={session_id}): {str(e)}", 
+                      event="picker_import_item", exc_info=True)
+        return {"ok": False, "error": str(e)}
 
 
 @celery.task(name="picker_import.watchdog")
 def picker_import_watchdog_task():
-    return picker_import_watchdog()
+    try:
+        return picker_import_watchdog()
+    except Exception as e:
+        logger.error(f"Picker import watchdog failed: {str(e)}", 
+                    extra={'event': 'picker_import_watchdog'}, exc_info=True)
+        return {"ok": False, "error": str(e)}
 
 
 @celery.task(bind=True, name="local_import.run")
 def local_import_task_celery(self, session_id=None):
     """ローカルファイル取り込みタスク"""
-    return local_import_task(task_instance=self, session_id=session_id)
+    try:
+        return local_import_task(task_instance=self, session_id=session_id)
+    except Exception as e:
+        self.log_error(f"Local import task failed (session_id={session_id}): {str(e)}", 
+                      event="local_import", exc_info=True)
+        return {"ok": False, "error": str(e)}
 
 
 @celery.task(bind=True, name="session_recovery.cleanup_stale_sessions")
 def cleanup_stale_sessions_task(self):
     """定期的に古い処理中セッションをクリーンアップする"""
-    return cleanup_stale_sessions()
+    try:
+        return cleanup_stale_sessions()
+    except Exception as e:
+        self.log_error(f"Cleanup stale sessions failed: {str(e)}", 
+                      event="session_recovery_cleanup", exc_info=True)
+        return {"ok": False, "error": str(e)}
 
 
 @celery.task(bind=True, name="session_recovery.force_cleanup_all")
 def force_cleanup_all_sessions_task(self):
     """全ての処理中セッションを強制的にクリーンアップする（緊急時用）"""
-    return force_cleanup_all_processing_sessions()
+    try:
+        return force_cleanup_all_processing_sessions()
+    except Exception as e:
+        self.log_error(f"Force cleanup all sessions failed: {str(e)}", 
+                      event="session_recovery_force_cleanup", exc_info=True)
+        return {"ok": False, "error": str(e)}
 
 
 @celery.task(bind=True, name="session_recovery.status_report")
 def session_status_report_task(self):
     """セッション状況の詳細レポートを生成する（デバッグ用）"""
-    return get_session_status_report()
+    try:
+        return get_session_status_report()
+    except Exception as e:
+        self.log_error(f"Session status report failed: {str(e)}", 
+                      event="session_recovery_status", exc_info=True)
+        return {"ok": False, "error": str(e)}
 
 
 @celery.task(bind=True, name="backup_cleanup.cleanup")
@@ -94,7 +147,12 @@ def backup_cleanup_task(self, retention_days: int = 30):
     Returns:
         dict: 削除結果の詳細
     """
-    return cleanup_old_backups(retention_days=retention_days)
+    try:
+        return cleanup_old_backups(retention_days=retention_days)
+    except Exception as e:
+        self.log_error(f"Backup cleanup failed (retention_days={retention_days}): {str(e)}", 
+                      event="backup_cleanup", exc_info=True)
+        return {"ok": False, "error": str(e)}
 
 
 @celery.task(bind=True, name="backup_cleanup.status")
@@ -104,7 +162,12 @@ def backup_status_task(self):
     Returns:
         dict: バックアップディレクトリの詳細情報
     """
-    return get_backup_status()
+    try:
+        return get_backup_status()
+    except Exception as e:
+        self.log_error(f"Backup status check failed: {str(e)}", 
+                      event="backup_status", exc_info=True)
+        return {"ok": False, "error": str(e)}
 
 
 __all__ = [

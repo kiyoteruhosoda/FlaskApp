@@ -87,10 +87,63 @@ def test_oauth_start_api_with_https():
             assert 'https://www.googleapis.com/auth/userinfo.email' in scopes
 
 
+def test_oauth_start_api_with_scope_profile_photo_picker():
+    """スコーププロファイル指定時にPicker用スコープが付与されることを確認"""
+    app = create_app()
+    app.config['PREFERRED_URL_SCHEME'] = 'https'
+    app.config['TESTING'] = True
+    app.config['GOOGLE_CLIENT_ID'] = 'test-client-id'
+
+    from webapp.api.routes import google_oauth_start
+
+    with app.test_request_context(
+        '/api/google/oauth/start',
+        json={'scope_profile': 'photo_picker'},
+        headers={'X-Forwarded-Proto': 'https'}
+    ):
+        response = app.make_response(google_oauth_start.__wrapped__())
+
+        assert response.status_code == 200
+        data = response.get_json()
+        auth_url = data.get('auth_url', '')
+        from urllib.parse import urlparse, parse_qs
+
+        parsed = urlparse(auth_url)
+        scope_param = parse_qs(parsed.query).get('scope', [''])[0]
+        scopes = set(scope_param.split(' '))
+
+        assert 'https://www.googleapis.com/auth/photospicker.mediaitems.readonly' in scopes
+        assert 'https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata' in scopes
+        assert 'https://www.googleapis.com/auth/photoslibrary.appendonly' in scopes
+        assert 'https://www.googleapis.com/auth/userinfo.email' in scopes
+
+
+def test_oauth_start_api_with_invalid_scope_profile():
+    """存在しないスコーププロファイル指定時は400を返す"""
+    app = create_app()
+    app.config['PREFERRED_URL_SCHEME'] = 'https'
+    app.config['TESTING'] = True
+    app.config['GOOGLE_CLIENT_ID'] = 'test-client-id'
+
+    from webapp.api.routes import google_oauth_start
+
+    with app.test_request_context(
+        '/api/google/oauth/start',
+        json={'scope_profile': 'unknown_profile'},
+        headers={'X-Forwarded-Proto': 'https'}
+    ):
+        response = app.make_response(google_oauth_start.__wrapped__())
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data.get('error') == 'invalid_scope_profile'
+        assert data.get('scope_profile') == 'unknown_profile'
+
+
 def test_proxy_fix_headers():
     """ProxyFixによるヘッダー処理のテスト"""
     app = create_app()
-    
+
     with app.test_client() as client:
         # X-Forwarded-* ヘッダーをセット
         response = client.get('/debug/headers', headers={

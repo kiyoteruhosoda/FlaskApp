@@ -2,10 +2,23 @@ version: '3.8'
 
 services:
   web:
-    image: photonest:latest    # ← Container Manager でインポートしたタグ名と一致
-    container_name: photonest-web-1
+    image: photonest:latest
+    # container_name: 削除 ← プロジェクト名に任せる
+    init: true
+    stop_grace_period: 60s
+    command: >
+      gunicorn wsgi:app
+      --bind 0.0.0.0:5000
+      --workers 2
+      --threads 4
+      --timeout 120
+      --graceful-timeout 90
+      --keep-alive 5
+      --max-requests 1000
+      --max-requests-jitter 100
+      --worker-tmp-dir /dev/shm
     ports:
-      - "127.0.0.1:8050:5000"  # nginx 経由
+      - "127.0.0.1:8050:5000"
     environment:
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY}
@@ -32,7 +45,10 @@ services:
       start_period: 40s
 
   worker:
-    image: photonest:latest    # ← 同じイメージを利用
+    image: photonest:latest
+    # container_name: 付けない
+    init: true
+    stop_grace_period: 60s
     command: celery -A cli.src.celery.tasks worker --loglevel=info --concurrency=2
     environment:
       - FLASK_ENV=production
@@ -52,7 +68,6 @@ services:
       - playback_data:/app/data/playback
     user: "${PUID:-1000}:${PGID:-1000}"
     restart: unless-stopped
-    stop_grace_period: 30s
     healthcheck:
       test: ["CMD-SHELL", "ps aux | grep -q '[c]elery.*worker' || exit 1"]
       interval: 60s
@@ -62,7 +77,9 @@ services:
 
   beat:
     image: photonest:latest
-    container_name: photonest-beat-1
+    # container_name: 削除
+    init: true
+    stop_grace_period: 60s
     command: [
       "celery", "-A", "cli.src.celery.tasks", "beat",
       "--loglevel=info",
@@ -84,7 +101,6 @@ services:
         condition: service_healthy
     user: "${PUID:-1000}:${PGID:-1000}"
     restart: unless-stopped
-    stop_grace_period: 30s
     healthcheck:
       test: ["CMD-SHELL", "ps aux | grep -q '[c]elery.*beat' || exit 1"]
       interval: 60s

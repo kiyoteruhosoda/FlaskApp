@@ -196,6 +196,14 @@ REQUIRED_GOOGLE_OAUTH_SCOPES = {
     "https://www.googleapis.com/auth/userinfo.email",
 }
 
+GOOGLE_OAUTH_SCOPE_SETS = {
+    "photo_picker": {
+        "https://www.googleapis.com/auth/photospicker.mediaitems.readonly",
+        "https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata",
+        "https://www.googleapis.com/auth/photoslibrary.appendonly",
+    },
+}
+
 
 @bp.post("/google/oauth/start")
 @login_or_jwt_required
@@ -203,6 +211,17 @@ def google_oauth_start():
     """Start Google OAuth flow by returning an authorization URL."""
     data = request.get_json(silent=True) or {}
     scopes = set(data.get("scopes") or [])
+    scope_profile = data.get("scope_profile")
+
+    if scope_profile:
+        profile_scopes = GOOGLE_OAUTH_SCOPE_SETS.get(scope_profile)
+        if profile_scopes is None:
+            return (
+                jsonify({"error": "invalid_scope_profile", "scope_profile": scope_profile}),
+                400,
+            )
+        scopes.update(profile_scopes)
+
     scopes.update(REQUIRED_GOOGLE_OAUTH_SCOPES)
     sorted_scopes = sorted(scopes)
     redirect_target = data.get("redirect")

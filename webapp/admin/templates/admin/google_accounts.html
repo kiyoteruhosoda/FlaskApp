@@ -35,7 +35,7 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h3 class="mb-0">{{ _('Google Accounts Management') }}</h3>
-  <a href="#" id="btn-add-account" class="btn btn-primary">{{ _('Add Account') }}</a>
+  <a href="#" id="btn-add-account" class="btn btn-primary" data-scope-profile="photo_picker">{{ _('Add Account') }}</a>
 </div>
 
 <div class="table-responsive">
@@ -90,7 +90,7 @@
         <td>{{ a.refresh_token_expires_at() or '-' }}</td>
         <td>
           <div class="btn-group btn-group-sm" role="group"
-               data-id="{{ a.id }}" data-scopes="{{ a.scopes }}">
+               data-id="{{ a.id }}" data-scopes="{{ a.scopes }}" data-scope-profile="photo_picker">
             {% if a.status == 'disabled' %}
               <a href="#" class="btn btn-outline-success btn-activate">{{ _('Activate') }}</a>
             {% else %}
@@ -132,20 +132,22 @@
 document.addEventListener('DOMContentLoaded', () => {
   // Add Account
   const btnAddAccount = document.getElementById('btn-add-account');
+  const defaultScopeProfile = btnAddAccount?.dataset.scopeProfile || 'photo_picker';
   if (btnAddAccount) {
     btnAddAccount.addEventListener('click', async (e) => {
       e.preventDefault();
       try {
+        const payload = {
+          redirect: '{{ url_for("admin.google_accounts") }}'
+        };
+        if (defaultScopeProfile) {
+          payload.scope_profile = defaultScopeProfile;
+        }
+
         const resp = await fetch('{{ url_for("api.google_oauth_start") }}', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            scopes: [
-              'https://www.googleapis.com/auth/photoslibrary.readonly',
-              'https://www.googleapis.com/auth/photoslibrary.appendonly',
-              'https://www.googleapis.com/auth/userinfo.email'
-            ],
-            redirect: '{{ url_for("admin.google_accounts") }}' })
+          body: JSON.stringify(payload)
         });
         const data = await resp.json();
         if (data.auth_url) {
@@ -165,11 +167,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const group = e.target.closest('[data-id]');
       const scopes = (group?.dataset.scopes || '')
         .split(',').map(s => s.trim()).filter(Boolean);
+      const scopeProfile = group?.dataset.scopeProfile || defaultScopeProfile;
       try {
+        const payload = {
+          redirect: '{{ url_for("admin.google_accounts") }}'
+        };
+        if (scopes.length) {
+          payload.scopes = scopes;
+        }
+        if (scopeProfile) {
+          payload.scope_profile = scopeProfile;
+        }
+
         const resp = await fetch('{{ url_for("api.google_oauth_start") }}', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scopes, redirect: '{{ url_for("admin.google_accounts") }}' })
+          body: JSON.stringify(payload)
         });
         const data = await resp.json();
         if (data.auth_url) {

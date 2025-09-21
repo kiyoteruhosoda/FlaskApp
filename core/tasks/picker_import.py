@@ -17,10 +17,14 @@ core control‑flow so that unit tests can exercise the behaviour of the worker.
 
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
+import contextlib
+import errno
 import hashlib
 import json
 import logging
 import os
+import shutil
+import tempfile
 from pathlib import Path
 import threading
 from typing import Dict, Iterable, List, Tuple
@@ -44,6 +48,21 @@ from flask import current_app
 
 # picker_import専用ロガーを取得（両方のログハンドラーが設定済み）
 logger = logging.getLogger('picker_import')
+
+
+def _fsync_dir(path: Path) -> None:
+    """Best-effort fsync for directory entries."""
+
+    try:
+        dir_fd = os.open(str(path), os.O_DIRECTORY)
+    except OSError:
+        return
+    try:
+        os.fsync(dir_fd)
+    except OSError:
+        pass
+    finally:
+        os.close(dir_fd)
 
 
 class AuthError(Exception):
@@ -951,8 +970,46 @@ def picker_import_item(
             final_path = orig_dir / out_rel
             final_path.parent.mkdir(parents=True, exist_ok=True)
             try:
-                os.replace(dl.path, final_path)
-                
+                move_method = "replace"
+                try:
+                    os.replace(dl.path, final_path)
+                except OSError as e:
+                    if e.errno == errno.EXDEV:
+                        move_method = "copy+replace"
+                        fd, tmp_name = tempfile.mkstemp(
+                            dir=str(final_path.parent), prefix=".tmp_picker_import_"
+                        )
+                        tmp_path = Path(tmp_name)
+                        try:
+                            with os.fdopen(fd, "wb", closefd=True) as wf, dl.path.open(
+                                "rb"
+                            ) as rf:
+                                shutil.copyfileobj(rf, wf, length=16 * 1024 * 1024)
+                                wf.flush()
+                                os.fsync(wf.fileno())
+                            with contextlib.suppress(OSError):
+                                shutil.copystat(dl.path, tmp_path, follow_symlinks=True)
+                            _fsync_dir(final_path.parent)
+                            os.replace(tmp_path, final_path)
+                            _fsync_dir(final_path.parent)
+                        except Exception:
+                            with contextlib.suppress(FileNotFoundError):
+                                tmp_path.unlink()
+                            raise
+                        with contextlib.suppress(FileNotFoundError):
+                            dl.path.unlink()
+                        logger.warning(
+                            f"クロスデバイス移動を検知しコピーで保存: {dl.path} -> {final_path}",
+                            extra={
+                                "event": "picker.file.move.cross_device",
+                                "selection_id": sel.id,
+                                "session_id": session_id,
+                                "sha256": dl.sha256,
+                            },
+                        )
+                    else:
+                        raise
+
                 # ファイル保存ログ
                 logger.info(
                     json.dumps(
@@ -965,6 +1022,7 @@ def picker_import_item(
                             "mime_type": mi.mime_type,
                             "sha256": dl.sha256,
                             "original_filename": mi.filename,
+                            "move_method": move_method,
                         }
                     ),
                     extra={"event": "picker.file.saved"},

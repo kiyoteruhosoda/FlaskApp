@@ -5,7 +5,7 @@ import json
 import time
 from uuid import uuid4
 
-from flask import Flask, app, request, redirect, url_for, render_template, make_response, flash, g
+from flask import Flask, app, request, redirect, url_for, render_template, make_response, flash, jsonify, g
 from datetime import datetime, timezone
 
 from flask_babel import get_locale
@@ -13,6 +13,9 @@ from flask_babel import gettext as _
 
 from .extensions import db, migrate, login_manager, babel
 from core.db_log_handler import DBLogHandler
+
+# エラーハンドラ
+from werkzeug.exceptions import HTTPException
 
 
 def create_app():
@@ -183,50 +186,72 @@ def create_app():
             )
         return response
 
-    # エラーハンドラ
-    from flask import jsonify
-    from werkzeug.exceptions import HTTPException
+    # 404だけ個別に（テンプレでもJSONでも可）
+    @app.errorhandler(404)
+    def handle_404(e):
+        app.logger.info("404 path=%s full=%s ua=%s",
+                        request.path, request.full_path, request.user_agent)
+        # return render_template("404.html"), 404
+        return jsonify(error="Not Found"), 404
 
     @app.errorhandler(Exception)
     def handle_exception(e):
-        if isinstance(e, HTTPException):
-            code = e.code
-            message = e.description
-        else:
-            code = 500
-            message = str(e)
+        is_http = isinstance(e, HTTPException)
+        code = e.code if is_http else 500
+        # 外部公開メッセージ：5xxは伏せる（内部情報漏えい対策）
+        public_message = e.description if (is_http and code < 500) else "Internal Server Error"
 
-        # POSTパラメータも含めて出力
+        # ログ用の詳細（必要に応じてマスキング）
         try:
             input_json = request.get_json(silent=True)
         except Exception:
             input_json = None
+
         log_dict = {
-            "message": message,
             "method": request.method,
-            "user_agent": request.user_agent.string,
+            "path": request.path,
+            "full_path": request.full_path,
+            "ua": request.user_agent.string,
+            "status": code,
         }
         qs = request.query_string.decode()
         if qs:
             log_dict["query_string"] = qs
+
         form_dict = request.form.to_dict()
         if form_dict:
+            # ここで鍵っぽいキーはマスク推奨（例）
+            for k in list(form_dict.keys()):
+                if k.lower() in {"password", "secret", "token"}:
+                    form_dict[k] = "***"
             log_dict["form"] = form_dict
+
         if input_json:
-            log_dict["json"] = input_json
-        app.logger.exception(
-            json.dumps(log_dict, ensure_ascii=False),
-            extra={
-                "event": "api.handle_exception",
-                "path": request.url,
-                "request_id": getattr(g, "request_id", None),
-            },
-        )
+            # JSON もマスク推奨
+            scrubbed = dict(input_json)
+            for k in list(scrubbed.keys()):
+                if k.lower() in {"password", "secret", "token"}:
+                    scrubbed[k] = "***"
+            log_dict["json"] = scrubbed
+
+        # ★ ログ出力方針：4xxはstackなし、5xxはstack付き
+        if is_http and 400 <= code < 500:
+            app.logger.warning(json.dumps(log_dict, ensure_ascii=False),
+                            extra={"event": "api.http_4xx", "request_id": getattr(g, "request_id", None)})
+        else:
+            # 5xxのみ stacktrace
+            app.logger.exception(json.dumps(log_dict, ensure_ascii=False),
+                                extra={"event": "api.http_5xx", "request_id": getattr(g, "request_id", None)})
+
         g.exception_logged = True
 
+        # レスポンス
         if request.path.startswith("/api"):
-            return jsonify({"error": "internal_error", "message": message}), code
-        return render_template("error.html", message=message), code
+            # 5xxの詳細messageは返さない（public_messageに統一）
+            return jsonify({"error": "error", "message": public_message}), code
+
+        # HTML（5xxはgenericに）
+        return render_template("error.html", message=public_message), code
 
     @app.after_request
     def log_server_error(response):

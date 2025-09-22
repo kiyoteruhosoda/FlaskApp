@@ -398,6 +398,7 @@ def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> D
             google_media_id=media_item.id,  # ローカルファイルの場合はmedia_item.idを使用
             account_id=None,                # ローカルファイルの場合はNone
             local_rel_path=rel_path,
+            filename=os.path.basename(file_path),
             hash_sha256=file_hash,
             bytes=file_size,
             mime_type=mime_type,

@@ -1,0 +1,139 @@
+{% macro render_album_form(is_editor_view=False, cancel_url='') %}
+  <form id="album-form">
+    <div class="modal-header">
+      <h5 class="modal-title" id="albumModalLabel">{{ _('Create Album') }}</h5>
+      {% if is_editor_view %}
+        <a href="{{ cancel_url }}" class="btn-close" aria-label="{{ _('Close') }}"></a>
+      {% else %}
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ _('Close') }}"></button>
+      {% endif %}
+    </div>
+    <div class="modal-body">
+      <div class="row g-4">
+        <div class="col-lg-4">
+          <div class="card album-form-panel">
+            <div class="card-body">
+              <div class="mb-3">
+                <label for="album-name" class="form-label">{{ _('Album Title') }}</label>
+                <input type="text" class="form-control" id="album-name" maxlength="255" required>
+              </div>
+              <div class="mb-3">
+                <label for="album-description" class="form-label">{{ _('Description') }}</label>
+                <textarea class="form-control" id="album-description" rows="3"></textarea>
+              </div>
+              <div class="mb-3">
+                <label for="album-visibility" class="form-label">{{ _('Visibility') }}</label>
+                <select id="album-visibility" class="form-select">
+                  <option value="private">{{ _('Private') }}</option>
+                  <option value="unlisted">{{ _('Unlisted') }}</option>
+                  <option value="public">{{ _('Public') }}</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">{{ _('Album Cover') }}</label>
+                <div class="album-cover-preview" id="album-cover-preview">
+                  <div class="album-cover-placeholder" id="album-cover-placeholder">{{ _('Select media to preview cover') }}</div>
+                  <img id="album-cover-preview-image" src="" alt="{{ _('Album cover preview') }}" class="d-none">
+                </div>
+                <select id="album-cover-select" class="form-select form-select-sm mt-2"></select>
+              </div>
+              <hr>
+              <div class="selected-media-summary">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <h6 class="mb-0">{{ _('Selected Media') }}</h6>
+                  <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn btn-outline-secondary" id="album-clear-selection">
+                      <i class="bi bi-x-circle me-1"></i>{{ _('Clear') }}
+                    </button>
+                  </div>
+                </div>
+                <div id="selected-media-count" class="text-muted small mb-2">{{ _('No media selected') }}</div>
+                <div id="selected-media-list" class="selected-media-grid"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-8">
+          <div class="card album-media-panel">
+            <div class="card-body">
+              <div class="album-media-filters">
+                <div class="row g-3 align-items-end">
+                  <div class="col-md-6">
+                    <label class="form-label">{{ _('Filter by tags') }}</label>
+                    <div class="tag-filter-box" id="album-tag-filter-box">
+                      <div id="album-selected-tags" class="tag-chip-container"></div>
+                      <input id="album-tag-filter-input" type="text" class="tag-filter-input" autocomplete="off" placeholder="{{ _('Search tags...') }}">
+                      <div id="album-tag-suggestions" class="tag-suggestions"></div>
+                    </div>
+                  </div>
+                  <div class="col-md-3">
+                    <label for="album-filter-after" class="form-label">{{ _('Taken after') }}</label>
+                    <input type="date" class="form-control" id="album-filter-after">
+                  </div>
+                  <div class="col-md-3">
+                    <label for="album-filter-before" class="form-label">{{ _('Taken before') }}</label>
+                    <input type="date" class="form-control" id="album-filter-before">
+                  </div>
+                </div>
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+                  <div class="btn-group btn-group-sm" role="group" aria-label="{{ _('Media type filter') }}">
+                    <input type="radio" class="btn-check" name="album-media-type" id="album-type-all" value="" checked>
+                    <label class="btn btn-outline-primary" for="album-type-all">{{ _('All media') }}</label>
+                    <input type="radio" class="btn-check" name="album-media-type" id="album-type-photos" value="photo">
+                    <label class="btn btn-outline-primary" for="album-type-photos">{{ _('Photos') }}</label>
+                    <input type="radio" class="btn-check" name="album-media-type" id="album-type-videos" value="video">
+                    <label class="btn btn-outline-primary" for="album-type-videos">{{ _('Videos') }}</label>
+                  </div>
+                  <div class="d-flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="album-reset-filters">
+                      <i class="bi bi-arrow-counterclockwise me-1"></i>{{ _('Reset') }}
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm" id="apply-media-filter">
+                      <i class="bi bi-funnel me-1"></i>{{ _('Apply filters') }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <hr>
+              <div class="album-media-toolbar">
+                <div class="text-muted small" id="album-media-hint">{{ _('Click thumbnails to toggle selection. Use the quick actions to select or clear the visible media.') }}</div>
+                <div class="btn-group btn-group-sm">
+                  <button type="button" class="btn btn-outline-primary" id="album-select-all-visible">
+                    <i class="bi bi-check2-square me-1"></i>{{ _('Select all shown') }}
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary" id="album-deselect-all-visible">
+                    <i class="bi bi-x-square me-1"></i>{{ _('Unselect shown') }}
+                  </button>
+                </div>
+              </div>
+              <div id="album-media-scroll" class="album-media-scroll mt-3">
+                <div id="album-media-grid" class="album-media-grid"></div>
+                <div id="album-media-loading" class="loading-spinner d-none">
+                  <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">{{ _('Loading...') }}</span>
+                  </div>
+                </div>
+                <div id="album-media-empty" class="text-center text-muted py-4 d-none">{{ _('No media matches the current filters.') }}</div>
+                <div id="album-media-end" class="text-center text-muted py-3 d-none">{{ _('All matching media loaded.') }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer justify-content-between">
+      <div class="text-muted small" id="album-form-status"></div>
+      <div>
+        {% if is_editor_view %}
+          <a href="{{ cancel_url }}" class="btn btn-outline-secondary">{{ _('Cancel') }}</a>
+        {% else %}
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+        {% endif %}
+        <button type="submit" class="btn btn-primary" id="save-album-btn">
+          <span class="save-label-create">{{ _('Create Album') }}</span>
+          <span class="save-label-update d-none">{{ _('Save Changes') }}</span>
+        </button>
+      </div>
+    </div>
+  </form>
+{% endmacro %}

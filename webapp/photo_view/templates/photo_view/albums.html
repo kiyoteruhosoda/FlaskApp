@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from 'photo_view/_album_form.html' import render_album_form %}
 {% block title %}{{ _('Albums') }}{% endblock %}
 
 {% block extra_head %}
@@ -292,6 +293,43 @@
     align-items: center;
   }
 
+  .album-editor-header {
+    max-width: 1200px;
+    margin: 0 auto 1.5rem;
+  }
+
+  .album-editor-page.modal {
+    position: static;
+    display: block;
+    background: transparent;
+  }
+
+  .album-editor-page .modal-dialog {
+    margin: 0 auto;
+    max-width: 1200px;
+  }
+
+  .album-editor-page .modal-content {
+    border: none;
+    border-radius: 18px;
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
+  }
+
+  .album-editor-page .modal-body {
+    padding: 2rem;
+  }
+
+  .album-editor-page .modal-header,
+  .album-editor-page .modal-footer {
+    padding: 1.5rem 2rem;
+  }
+
+  .album-editor-page .album-media-panel,
+  .album-editor-page .album-form-panel {
+    box-shadow: none;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+  }
+
   .tag-chip {
     display: inline-flex;
     align-items: center;
@@ -377,183 +415,78 @@
 {% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-  <h1 class="mb-0">{{ _('Albums') }}</h1>
-  <div class="d-flex flex-wrap gap-2">
-    <button id="create-album-btn" class="btn btn-primary">
-      <i class="bi bi-plus-circle me-1"></i>{{ _('New Album') }}
-    </button>
-    <select id="sort-order" class="form-select form-select-sm" style="width: auto;">
-      <option value="desc">{{ _('Newest First') }}</option>
-      <option value="asc">{{ _('Oldest First') }}</option>
-    </select>
-    <button id="refresh-btn" class="btn btn-outline-primary btn-sm">
-      <i class="bi bi-arrow-repeat me-1"></i>{{ _('Refresh') }}
-    </button>
+{% set is_editor_view = editor_view|default(False) %}
+{% if is_editor_view %}
+  <div class="album-editor-header d-flex flex-wrap justify-content-between align-items-start gap-3">
+    <div>
+      <h1 class="mb-1">{{ _('Create Album') }}</h1>
+      <p class="text-muted mb-0">{{ _('Select media and configure details to build a new album.') }}</p>
+    </div>
+    <a href="{{ url_for('photo_view.albums') }}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>{{ _('Back to albums') }}
+    </a>
   </div>
-</div>
-
-<div id="album-stats" class="mb-3">
-  <span id="album-count" class="badge bg-info text-dark">{{ _('Loading...') }}</span>
-</div>
-
-<div id="albums-grid" class="album-grid"></div>
-
-<div id="loading-indicator" class="loading-spinner" style="display: none;">
-  <div class="spinner-border text-primary" role="status">
-    <span class="visually-hidden">{{ _('Loading...') }}</span>
-  </div>
-  <p class="mt-2 text-muted">{{ _('Loading more albums...') }}</p>
-</div>
-
-<div id="no-more-data" class="text-center text-muted" style="display: none;">
-  <p>{{ _('All albums loaded') }}</p>
-</div>
-
-<div id="no-albums" class="no-albums" style="display: none;">
-  <div class="icon">📁</div>
-  <h3>{{ _('No Albums Found') }}</h3>
-  <p>{{ _('Create your first album by selecting media from your library.') }}</p>
-  <button type="button" class="btn btn-primary" id="empty-create-btn">
-    <i class="bi bi-plus-circle me-1"></i>{{ _('Create an album') }}
-  </button>
-</div>
-
-<div class="modal fade" id="albumModal" tabindex="-1" aria-labelledby="albumModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-xl modal-dialog-scrollable">
-    <div class="modal-content">
-      <form id="album-form">
-        <div class="modal-header">
-          <h5 class="modal-title" id="albumModalLabel">{{ _('Create Album') }}</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ _('Close') }}"></button>
-        </div>
-        <div class="modal-body">
-          <div class="row g-4">
-            <div class="col-lg-4">
-              <div class="card album-form-panel">
-                <div class="card-body">
-                  <div class="mb-3">
-                    <label for="album-name" class="form-label">{{ _('Album Title') }}</label>
-                    <input type="text" class="form-control" id="album-name" maxlength="255" required>
-                  </div>
-                  <div class="mb-3">
-                    <label for="album-description" class="form-label">{{ _('Description') }}</label>
-                    <textarea class="form-control" id="album-description" rows="3"></textarea>
-                  </div>
-                  <div class="mb-3">
-                    <label for="album-visibility" class="form-label">{{ _('Visibility') }}</label>
-                    <select id="album-visibility" class="form-select">
-                      <option value="private">{{ _('Private') }}</option>
-                      <option value="unlisted">{{ _('Unlisted') }}</option>
-                      <option value="public">{{ _('Public') }}</option>
-                    </select>
-                  </div>
-                  <div class="mb-3">
-                    <label class="form-label">{{ _('Album Cover') }}</label>
-                    <div class="album-cover-preview" id="album-cover-preview">
-                      <div class="album-cover-placeholder" id="album-cover-placeholder">{{ _('Select media to preview cover') }}</div>
-                      <img id="album-cover-preview-image" src="" alt="{{ _('Album cover preview') }}" class="d-none">
-                    </div>
-                    <select id="album-cover-select" class="form-select form-select-sm mt-2"></select>
-                  </div>
-                  <hr>
-                  <div class="selected-media-summary">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                      <h6 class="mb-0">{{ _('Selected Media') }}</h6>
-                      <div class="btn-group btn-group-sm">
-                        <button type="button" class="btn btn-outline-secondary" id="album-clear-selection">
-                          <i class="bi bi-x-circle me-1"></i>{{ _('Clear') }}
-                        </button>
-                      </div>
-                    </div>
-                    <div id="selected-media-count" class="text-muted small mb-2">{{ _('No media selected') }}</div>
-                    <div id="selected-media-list" class="selected-media-grid"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="col-lg-8">
-              <div class="card album-media-panel">
-                <div class="card-body">
-                  <div class="album-media-filters">
-                    <div class="row g-3 align-items-end">
-                      <div class="col-md-6">
-                        <label class="form-label">{{ _('Filter by tags') }}</label>
-                        <div class="tag-filter-box" id="album-tag-filter-box">
-                          <div id="album-selected-tags" class="tag-chip-container"></div>
-                          <input id="album-tag-filter-input" type="text" class="tag-filter-input" autocomplete="off" placeholder="{{ _('Search tags...') }}">
-                          <div id="album-tag-suggestions" class="tag-suggestions"></div>
-                        </div>
-                      </div>
-                      <div class="col-md-3">
-                        <label for="album-filter-after" class="form-label">{{ _('Taken after') }}</label>
-                        <input type="date" class="form-control" id="album-filter-after">
-                      </div>
-                      <div class="col-md-3">
-                        <label for="album-filter-before" class="form-label">{{ _('Taken before') }}</label>
-                        <input type="date" class="form-control" id="album-filter-before">
-                      </div>
-                    </div>
-                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
-                      <div class="btn-group btn-group-sm" role="group" aria-label="{{ _('Media type filter') }}">
-                        <input type="radio" class="btn-check" name="album-media-type" id="album-type-all" value="" checked>
-                        <label class="btn btn-outline-primary" for="album-type-all">{{ _('All media') }}</label>
-                        <input type="radio" class="btn-check" name="album-media-type" id="album-type-photos" value="photo">
-                        <label class="btn btn-outline-primary" for="album-type-photos">{{ _('Photos') }}</label>
-                        <input type="radio" class="btn-check" name="album-media-type" id="album-type-videos" value="video">
-                        <label class="btn btn-outline-primary" for="album-type-videos">{{ _('Videos') }}</label>
-                      </div>
-                      <div class="d-flex flex-wrap gap-2">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" id="album-reset-filters">
-                          <i class="bi bi-arrow-counterclockwise me-1"></i>{{ _('Reset') }}
-                        </button>
-                        <button type="button" class="btn btn-primary btn-sm" id="apply-media-filter">
-                          <i class="bi bi-funnel me-1"></i>{{ _('Apply filters') }}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <hr>
-                  <div class="album-media-toolbar">
-                    <div class="text-muted small" id="album-media-hint">{{ _('Click thumbnails to toggle selection. Use the quick actions to select or clear the visible media.') }}</div>
-                    <div class="btn-group btn-group-sm">
-                      <button type="button" class="btn btn-outline-primary" id="album-select-all-visible">
-                        <i class="bi bi-check2-square me-1"></i>{{ _('Select all shown') }}
-                      </button>
-                      <button type="button" class="btn btn-outline-secondary" id="album-deselect-all-visible">
-                        <i class="bi bi-x-square me-1"></i>{{ _('Unselect shown') }}
-                      </button>
-                    </div>
-                  </div>
-                  <div id="album-media-scroll" class="album-media-scroll mt-3">
-                    <div id="album-media-grid" class="album-media-grid"></div>
-                    <div id="album-media-loading" class="loading-spinner d-none">
-                      <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">{{ _('Loading...') }}</span>
-                      </div>
-                    </div>
-                    <div id="album-media-empty" class="text-center text-muted py-4 d-none">{{ _('No media matches the current filters.') }}</div>
-                    <div id="album-media-end" class="text-center text-muted py-3 d-none">{{ _('All matching media loaded.') }}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer justify-content-between">
-          <div class="text-muted small" id="album-form-status"></div>
-          <div>
-            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
-            <button type="submit" class="btn btn-primary" id="save-album-btn">
-              <span class="save-label-create">{{ _('Create Album') }}</span>
-              <span class="save-label-update d-none">{{ _('Save Changes') }}</span>
-            </button>
-          </div>
-        </div>
-      </form>
+{% else %}
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <h1 class="mb-0">{{ _('Albums') }}</h1>
+    <div class="d-flex flex-wrap gap-2">
+      <a id="create-album-btn" class="btn btn-primary" href="{{ url_for('photo_view.album_create') }}">
+        <i class="bi bi-plus-circle me-1"></i>{{ _('New Album') }}
+      </a>
+      <select id="sort-order" class="form-select form-select-sm" style="width: auto;">
+        <option value="desc">{{ _('Newest First') }}</option>
+        <option value="asc">{{ _('Oldest First') }}</option>
+      </select>
+      <button id="refresh-btn" class="btn btn-outline-primary btn-sm">
+        <i class="bi bi-arrow-repeat me-1"></i>{{ _('Refresh') }}
+      </button>
     </div>
   </div>
-</div>
+
+  <div id="album-stats" class="mb-3">
+    <span id="album-count" class="badge bg-info text-dark">{{ _('Loading...') }}</span>
+  </div>
+
+  <div id="albums-grid" class="album-grid"></div>
+
+  <div id="loading-indicator" class="loading-spinner" style="display: none;">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">{{ _('Loading...') }}</span>
+    </div>
+    <p class="mt-2 text-muted">{{ _('Loading more albums...') }}</p>
+  </div>
+
+  <div id="no-more-data" class="text-center text-muted" style="display: none;">
+    <p>{{ _('All albums loaded') }}</p>
+  </div>
+
+  <div id="no-albums" class="no-albums" style="display: none;">
+    <div class="icon">📁</div>
+    <h3>{{ _('No Albums Found') }}</h3>
+    <p>{{ _('Create your first album by selecting media from your library.') }}</p>
+    <a class="btn btn-primary" id="empty-create-btn" href="{{ url_for('photo_view.album_create') }}">
+      <i class="bi bi-plus-circle me-1"></i>{{ _('Create an album') }}
+    </a>
+  </div>
+{% endif %}
+
+{% if is_editor_view %}
+  <div class="album-editor-page modal d-block show" id="albumModal" tabindex="-1" aria-labelledby="albumModalLabel" data-editor-mode="page" data-success-url="{{ url_for('photo_view.albums') }}">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        {{ render_album_form(True, url_for('photo_view.albums')) }}
+      </div>
+    </div>
+  </div>
+{% else %}
+  <div class="modal fade" id="albumModal" tabindex="-1" aria-labelledby="albumModalLabel" aria-hidden="true" data-editor-mode="modal" data-success-url="">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        {{ render_album_form(False) }}
+      </div>
+    </div>
+  </div>
+{% endif %}
 {% endblock %}
 
 {% block extra_scripts %}
@@ -566,11 +499,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const sortOrder = document.getElementById('sort-order');
   const refreshBtn = document.getElementById('refresh-btn');
   const albumCountBadge = document.getElementById('album-count');
-  const createAlbumBtn = document.getElementById('create-album-btn');
-  const emptyCreateBtn = document.getElementById('empty-create-btn');
 
   const albumModalElement = document.getElementById('albumModal');
-  const albumModal = new bootstrap.Modal(albumModalElement);
+  const editorView = albumModalElement?.dataset.editorMode === 'page';
+  const successRedirectUrl = albumModalElement?.dataset.successUrl || '/photo-view/albums';
+  const albumModal = albumModalElement
+    ? editorView
+      ? {
+          show() {
+            albumModalElement.classList.add('show');
+            albumModalElement.style.display = 'block';
+          },
+          hide() {},
+        }
+      : new bootstrap.Modal(albumModalElement)
+    : null;
   const albumForm = document.getElementById('album-form');
   const albumModalLabel = document.getElementById('albumModalLabel');
   const albumFormStatus = document.getElementById('album-form-status');
@@ -647,7 +590,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const defaultCoverDataUrl = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjUwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcw48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiM2NjdlZWEiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM3NjRiYTIiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2cpIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7wn5OCPC90ZXh0Pjwvc3ZnPg==';
 
   function adjustMediaScrollHeight() {
-    if (!albumModalElement.classList.contains('show')) {
+    if (!albumModalElement || !albumModalElement.classList.contains('show')) {
       return;
     }
 
@@ -788,6 +731,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function updateAlbumCount(total) {
+    if (!albumCountBadge) {
+      return;
+    }
     albumCountBadge.textContent = formatCount(strings.albumsLoadedSingular, strings.albumsLoadedPlural, total);
   }
 
@@ -1292,8 +1238,12 @@ document.addEventListener('DOMContentLoaded', () => {
         showSuccessToast(strings.albumCreated);
       }
 
-      albumModal.hide();
-      reloadAlbums();
+      if (editorView) {
+        window.location.href = successRedirectUrl;
+      } else {
+        albumModal.hide();
+        reloadAlbums();
+      }
     } catch (error) {
       console.error('Failed to save album', error);
       showErrorToast(error.message || 'Save failed');
@@ -1419,14 +1369,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function reloadAlbums() {
+    if (editorView) {
+      return;
+    }
     initializeAlbumsScroll();
   }
 
-  sortOrder.addEventListener('change', reloadAlbums);
-  refreshBtn.addEventListener('click', reloadAlbums);
-  createAlbumBtn.addEventListener('click', () => openAlbumModal('create'));
-  if (emptyCreateBtn) {
-    emptyCreateBtn.addEventListener('click', () => openAlbumModal('create'));
+  if (sortOrder) {
+    sortOrder.addEventListener('change', reloadAlbums);
+  }
+
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', reloadAlbums);
   }
 
   albumForm.addEventListener('submit', saveAlbum);
@@ -1504,25 +1458,40 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  albumsGrid.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-album-action]');
-    if (!button) return;
-    event.preventDefault();
-  });
+  if (albumsGrid) {
+    albumsGrid.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-album-action]');
+      if (!button) return;
+      event.preventDefault();
+    });
+  }
 
-  albumModalElement.addEventListener('hidden.bs.modal', () => {
-    resetAlbumForm();
-    albumMediaScroll.style.maxHeight = '';
-  });
+  if (albumModalElement && !editorView) {
+    albumModalElement.addEventListener('hidden.bs.modal', () => {
+      resetAlbumForm();
+      if (albumMediaScroll) {
+        albumMediaScroll.style.maxHeight = '';
+      }
+    });
 
-  albumModalElement.addEventListener('shown.bs.modal', () => {
+    albumModalElement.addEventListener('shown.bs.modal', () => {
+      scheduleMediaScrollAdjustment();
+      setTimeout(adjustMediaScrollHeight, 150);
+    });
+  } else if (albumModalElement && editorView) {
     scheduleMediaScrollAdjustment();
     setTimeout(adjustMediaScrollHeight, 150);
-  });
+  }
 
-  window.addEventListener('resize', scheduleMediaScrollAdjustment);
+  if (albumModalElement) {
+    window.addEventListener('resize', scheduleMediaScrollAdjustment);
+  }
 
-  initializeAlbumsScroll();
+  if (editorView) {
+    openAlbumModal('create');
+  } else {
+    initializeAlbumsScroll();
+  }
 });
 </script>
 {% endblock %}

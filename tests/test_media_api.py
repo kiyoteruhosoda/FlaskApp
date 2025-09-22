@@ -595,6 +595,25 @@ def test_media_update_tags_success(client, app, seed_media_with_tags):
     assert returned_ids == [new_tag]
 
 
+def test_unused_tags_removed_from_master(client, app, seed_media_with_tags):
+    grant_permission(app, "media:tag-manage")
+    login(client)
+
+    media_id = seed_media_with_tags["media1"]
+    place_tag_id = seed_media_with_tags["tags"]["place"]
+    person_tag_id = seed_media_with_tags["tags"]["person"]
+
+    res = client.put(f"/api/media/{media_id}/tags", json={"tag_ids": []})
+    assert res.status_code == 200
+
+    with app.app_context():
+        from core.models.photo_models import Tag
+        from webapp.extensions import db
+
+        assert db.session.get(Tag, place_tag_id) is None
+        assert db.session.get(Tag, person_tag_id) is not None
+
+
 def test_create_tag_requires_permission(client, app):
     login(client)
     res = client.post("/api/tags", json={"name": "Sunset", "attr": "thing"})

@@ -58,12 +58,6 @@
     align-items: center;
   }
 
-  .tag-chip-container.empty::before {
-    content: '{{ _('Type to search tags...') }}';
-    color: #adb5bd;
-    font-size: 0.85rem;
-  }
-
   .tag-chip {
     display: inline-flex;
     align-items: center;
@@ -97,6 +91,10 @@
     font-size: 0.9rem;
     padding: 6px 2px 0 2px;
     background: transparent;
+  }
+
+  #tag-filter-input::placeholder {
+    color: #adb5bd;
   }
 
   .tag-suggestions {

@@ -182,6 +182,20 @@
     min-width: 200px;
   }
 
+  .tag-search-input {
+    background-color: #f8f9fa;
+    border-radius: 999px;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid #ced4da;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  }
+
+  .tag-search-input:focus {
+    background-color: #ffffff;
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.15rem rgba(13, 110, 253, 0.1);
+  }
+
   #tag-attr-select {
     width: auto;
   }
@@ -297,7 +311,7 @@
         {% if current_user.can('media:tag-manage') %}
         <div id="tag-editor" class="tag-editor">
           <div class="tag-editor-input">
-            <input type="text" id="tag-manage-input" class="form-control form-control-sm" placeholder="{{ _('Search tags...') }}" autocomplete="off">
+            <input type="text" id="tag-manage-input" class="form-control form-control-sm tag-search-input" placeholder="{{ _('Search tags...') }}" autocomplete="off">
             <select id="tag-attr-select" class="form-select form-select-sm">
               <option value="person">{{ _('Person') }}</option>
               <option value="place">{{ _('Place') }}</option>

@@ -12,7 +12,7 @@ import subprocess
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from PIL import Image
 from PIL.ExifTags import TAGS
@@ -30,6 +30,40 @@ from webapp.config import Config
 logger = setup_task_logging(__name__)
 # Also get celery task logger for cross-compatibility
 celery_logger = logging.getLogger('celery.task.local_import')
+
+
+def _serialize_details(details: Dict[str, Any]) -> str:
+    """詳細情報をJSON文字列へ変換。失敗時は文字列表現を返す。"""
+    if not details:
+        return ""
+
+    try:
+        return json.dumps(details, ensure_ascii=False, default=str)
+    except TypeError:
+        return str(details)
+
+
+def _compose_message(message: str, details: Dict[str, Any]) -> str:
+    """メッセージと詳細を結合してログに出力する文字列を生成。"""
+    serialized = _serialize_details(details)
+    if not serialized:
+        return message
+    return f"{message} | details={serialized}"
+
+
+def _log_info(event: str, message: str, **details: Any) -> None:
+    """情報ログを記録。"""
+    log_task_info(logger, _compose_message(message, details), event=event)
+
+
+def _log_warning(event: str, message: str, **details: Any) -> None:
+    """警告ログを記録。"""
+    logger.warning(_compose_message(message, details), extra={"event": event})
+
+
+def _log_error(event: str, message: str, *, exc_info: bool = False, **details: Any) -> None:
+    """エラーログを記録。"""
+    log_task_error(logger, _compose_message(message, details), event=event, exc_info=exc_info)
 
 
 # サポートするファイル拡張子
@@ -219,30 +253,60 @@ def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> D
         "media_id": None
     }
     
+    _log_info(
+        "local_import.file.begin",
+        "ローカルファイルの取り込みを開始",
+        file_path=file_path,
+        import_dir=import_dir,
+        originals_dir=originals_dir,
+    )
+
     try:
         # ファイル存在チェック
         if not os.path.exists(file_path):
             result["reason"] = "ファイルが存在しません"
+            _log_warning(
+                "local_import.file.missing",
+                "取り込み対象ファイルが見つかりません",
+                file_path=file_path,
+            )
             return result
-        
+
         # 拡張子チェック
         file_extension = Path(file_path).suffix.lower()
         if file_extension not in SUPPORTED_EXTENSIONS:
             result["reason"] = f"サポートされていない拡張子: {file_extension}"
+            _log_warning(
+                "local_import.file.unsupported",
+                "サポート対象外拡張子のためスキップ",
+                file_path=file_path,
+                extension=file_extension,
+            )
             return result
-        
+
         # ファイルサイズとハッシュ計算
         file_size = os.path.getsize(file_path)
         if file_size == 0:
             result["reason"] = "ファイルサイズが0です"
+            _log_warning(
+                "local_import.file.empty",
+                "ファイルサイズが0のためスキップ",
+                file_path=file_path,
+            )
             return result
-        
+
         file_hash = calculate_file_hash(file_path)
-        
+
         # 重複チェック
         existing_media = check_duplicate_media(file_hash, file_size)
         if existing_media:
             result["reason"] = f"重複ファイル (既存ID: {existing_media.id})"
+            _log_info(
+                "local_import.file.duplicate",
+                "重複ファイルを検出したためスキップ",
+                file_path=file_path,
+                media_id=existing_media.id,
+            )
             return result
         
         # 撮影日時の取得
@@ -294,6 +358,12 @@ def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> D
         
         # ファイルコピー
         shutil.copy2(file_path, dest_path)
+        _log_info(
+            "local_import.file.copied",
+            "ファイルを保存先にコピーしました",
+            file_path=file_path,
+            destination=dest_path,
+        )
         
         # EXIFデータと動画メタデータの事前取得（MediaItem作成で使用）
         exif_data = None
@@ -341,7 +411,7 @@ def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> D
         
         db.session.add(media)
         db.session.flush()  # IDを取得
-        
+
         # EXIFデータの保存（画像の場合、すでに取得済みのデータを使用）
         if not is_video and file_extension in SUPPORTED_IMAGE_EXTENSIONS and exif_data:
             exif = Exif(
@@ -363,38 +433,54 @@ def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> D
         
         # 元ファイルの削除
         os.remove(file_path)
-        
+        _log_info(
+            "local_import.file.source_removed",
+            "取り込み完了後に元ファイルを削除",
+            file_path=file_path,
+        )
+
         result["success"] = True
         result["media_id"] = media.id
         result["reason"] = "取り込み成功"
-        
+
+        _log_info(
+            "local_import.file.success",
+            "ローカルファイルの取り込みが完了",
+            file_path=file_path,
+            media_id=media.id,
+            relative_path=rel_path,
+        )
+
     except Exception as e:
         db.session.rollback()
-        error_details = {
-            "file_path": file_path,
-            "target_dir": target_dir,
-            "account_id": account_id,
-            "error_type": type(e).__name__,
-            "error_message": str(e)
-        }
-        logger.error(
-            f"ローカルファイル取り込み失敗: {file_path} - {e}",
-            extra={
-                "event": "local_import.file.failed",
-                "error_details": json.dumps(error_details)
-            },
-            exc_info=True
+        _log_error(
+            "local_import.file.failed",
+            "ローカルファイル取り込み中にエラーが発生",
+            file_path=file_path,
+            error_type=type(e).__name__,
+            error_message=str(e),
+            exc_info=True,
         )
         result["reason"] = f"エラー: {str(e)}"
-        
+
         # コピー先ファイルが作成されていた場合は削除
         try:
             if 'dest_path' in locals() and os.path.exists(dest_path):
                 os.remove(dest_path)
-                logger.info(f"エラー時のファイルクリーンアップ: {dest_path}")
+                _log_info(
+                    "local_import.file.cleanup",
+                    "エラー発生時にコピー済みファイルを削除",
+                    destination=dest_path,
+                )
         except Exception as cleanup_error:
-            logger.warning(f"ファイルクリーンアップ失敗: {dest_path} - {cleanup_error}")
-    
+            _log_warning(
+                "local_import.file.cleanup_failed",
+                "エラー発生時のコピー済みファイル削除に失敗",
+                destination=dest_path if 'dest_path' in locals() else None,
+                error_type=type(cleanup_error).__name__,
+                error_message=str(cleanup_error),
+            )
+
     return result
 
 
@@ -435,7 +521,7 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
         # Flaskアプリケーションコンテキスト外の場合は設定クラスから取得
         import_dir = Config.LOCAL_IMPORT_DIR
         originals_dir = Config.FPV_NAS_ORIGINALS_DIR
-    
+
     result = {
         "ok": True,
         "processed": 0,
@@ -446,22 +532,48 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
         "details": [],
         "session_id": session_id
     }
-    
+
+    _log_info(
+        "local_import.task.start",
+        "ローカルインポートタスクを開始",
+        session_id=session_id,
+        import_dir=import_dir,
+        originals_dir=originals_dir,
+    )
+
     # API側で作成されたセッションを取得
     session = None
     if session_id:
         try:
             session = PickerSession.query.filter_by(session_id=session_id).first()
             if not session:
+                _log_error(
+                    "local_import.session.missing",
+                    "指定されたセッションIDのレコードが見つかりません",
+                    session_id=session_id,
+                )
                 result["errors"].append(f"セッションが見つかりません: {session_id}")
                 return result
+            _log_info(
+                "local_import.session.attach",
+                "既存セッションをローカルインポートに紐付け",
+                session_id=session_id,
+            )
         except Exception as e:
+            _log_error(
+                "local_import.session.load_failed",
+                "セッション取得時にエラーが発生",
+                session_id=session_id,
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
             result["errors"].append(f"セッション取得エラー: {str(e)}")
             return result
     else:
         # セッションIDが無い場合は新規セッションを作成
+        generated_session_id = f"local_import_{uuid.uuid4().hex}"
         session = PickerSession(
-            session_id=uuid.uuid4().hex,
+            session_id=generated_session_id,
             status="processing",
             selected_count=0,
         )
@@ -469,7 +581,12 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
         db.session.commit()
         session_id = session.session_id
         result["session_id"] = session_id
-    
+        _log_info(
+            "local_import.session.created",
+            "ローカルインポート用セッションを新規作成",
+            session_id=session_id,
+        )
+
     try:
         # ディレクトリの存在チェック
         if not os.path.exists(import_dir):
@@ -488,10 +605,15 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
             }
             session.set_stats(stats)
             db.session.commit()
-            
+
+            _log_error(
+                "local_import.dir.import_missing",
+                "取り込み元ディレクトリが存在しません",
+                import_dir=import_dir,
+            )
             result["errors"].append(f"取り込みディレクトリが存在しません: {import_dir}")
             return result
-        
+
         if not os.path.exists(originals_dir):
             # 保存先ディレクトリが存在しない場合も0件処理として完了扱い
             session.status = "imported"
@@ -508,16 +630,28 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
             }
             session.set_stats(stats)
             db.session.commit()
-            
+
+            _log_error(
+                "local_import.dir.destination_missing",
+                "保存先ディレクトリが存在しません",
+                originals_dir=originals_dir,
+            )
             result["errors"].append(f"保存先ディレクトリが存在しません: {originals_dir}")
             return result
-        
+
         # ファイル一覧の取得
         files = scan_import_directory(import_dir)
-        
+        _log_info(
+            "local_import.scan.complete",
+            "取り込み対象ファイルのスキャンが完了",
+            import_dir=import_dir,
+            total=len(files),
+            samples=files[:5],
+        )
+
         # ファイルが0件でも正常処理として扱う
         total_files = len(files)
-        
+
         if total_files == 0:
             # 0件処理として完了
             session.status = "imported"
@@ -534,10 +668,15 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
             }
             session.set_stats(stats)
             db.session.commit()
-            
+
+            _log_info(
+                "local_import.scan.empty",
+                "取り込み対象ファイルが存在しませんでした",
+                import_dir=import_dir,
+            )
             result["errors"].append(f"取り込み対象ファイルが見つかりません: {import_dir}")
             return result
-        
+
         # 進行状況の初期化
         if task_instance:
             task_instance.update_state(
@@ -571,10 +710,22 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                     )
                     db.session.add(selection)
                     db.session.commit()
+                    _log_info(
+                        "local_import.selection.created",
+                        "取り込み対象ファイルのSelectionを作成",
+                        session_db_id=session.id,
+                        file_path=file_path,
+                        selection_id=selection.id,
+                    )
                 except Exception as e:
-                    log_task_error(logger, f"Failed to create picker selection for {filename}: {e}", 
-                                  event="local_import_selection_create", filename=filename, exc_info=False)
-            
+                    _log_error(
+                        "local_import.selection.create_failed",
+                        "PickerSelectionの作成に失敗",
+                        file_path=file_path,
+                        error_type=type(e).__name__,
+                        error_message=str(e),
+                    )
+
             # 進行状況の更新
             if task_instance:
                 progress = int((index / total_files) * 100)
@@ -595,11 +746,17 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                     selection.status = "running"
                     selection.started_at = datetime.now(timezone.utc)
                     db.session.commit()
+                    _log_info(
+                        "local_import.selection.running",
+                        "Selectionを処理中に更新",
+                        selection_id=selection.id,
+                        file_path=file_path,
+                    )
                 except Exception:
                     pass
-            
+
             file_result = import_single_file(file_path, import_dir, originals_dir)
-            
+
             # Selectionの状態を処理結果に応じて更新
             if selection:
                 try:
@@ -615,9 +772,22 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                         selection.finished_at = datetime.now(timezone.utc)
                         selection.attempts = 1
                     db.session.commit()
+                    _log_info(
+                        "local_import.selection.updated",
+                        "Selectionの状態を更新",
+                        selection_id=selection.id,
+                        file_path=file_path,
+                        status=selection.status,
+                    )
                 except Exception as e:
-                    log_task_error(logger, f"Failed to update picker selection for {filename}: {e}", 
-                                  event="local_import_selection_update", filename=filename, exc_info=False)
+                    _log_error(
+                        "local_import.selection.update_failed",
+                        "Selectionの状態更新に失敗",
+                        file_path=file_path,
+                        selection_id=getattr(selection, "id", None),
+                        error_type=type(e).__name__,
+                        error_message=str(e),
+                    )
             
             # 詳細な結果を記録
             detail = {
@@ -630,6 +800,12 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
             
             if file_result["success"]:
                 result["success"] += 1
+                _log_info(
+                    "local_import.file.processed_success",
+                    "ファイルの取り込みに成功",
+                    file_path=file_path,
+                    media_id=file_result.get("media_id"),
+                )
             else:
                 if "重複ファイル" in file_result["reason"]:
                     result["skipped"] += 1
@@ -637,12 +813,27 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                     # 重複の場合も元ファイルを削除
                     try:
                         os.remove(file_path)
+                        _log_info(
+                            "local_import.file.duplicate_cleanup",
+                            "重複ファイルの元ファイルを削除",
+                            file_path=file_path,
+                        )
                     except:
-                        pass
+                        _log_warning(
+                            "local_import.file.duplicate_cleanup_failed",
+                            "重複ファイルの削除に失敗",
+                            file_path=file_path,
+                        )
                 else:
                     result["failed"] += 1
                     result["errors"].append(f"{file_path}: {file_result['reason']}")
-        
+                    _log_warning(
+                        "local_import.file.processed_failed",
+                        "ファイルの取り込みに失敗",
+                        file_path=file_path,
+                        reason=file_result["reason"],
+                    )
+
         # 最終進行状況の更新
         if task_instance:
             task_instance.update_state(
@@ -659,7 +850,14 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
     except Exception as e:
         result["ok"] = False
         result["errors"].append(f"取り込み処理でエラーが発生しました: {str(e)}")
-    
+        _log_error(
+            "local_import.task.failed",
+            "ローカルインポート処理中に予期しないエラーが発生",
+            error_type=type(e).__name__,
+            error_message=str(e),
+            exc_info=True,
+        )
+
     # セッションステータスの更新
     if session:
         try:
@@ -676,11 +874,36 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                 "failed": result["failed"]
             }
             session.set_stats(stats)
-            
+
             db.session.commit()
+            _log_info(
+                "local_import.session.updated",
+                "セッション情報を更新",
+                session_id=session.session_id,
+                status=session.status,
+                stats=stats,
+            )
         except Exception as e:
             result["errors"].append(f"セッション更新エラー: {str(e)}")
-    
+            _log_error(
+                "local_import.session.update_failed",
+                "セッション更新時にエラーが発生",
+                session_id=session.session_id if session else None,
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
+
+    _log_info(
+        "local_import.task.summary",
+        "ローカルインポートタスクが完了",
+        ok=result["ok"],
+        processed=result["processed"],
+        success=result["success"],
+        skipped=result["skipped"],
+        failed=result["failed"],
+        session_id=result.get("session_id"),
+    )
+
     return result
 
 

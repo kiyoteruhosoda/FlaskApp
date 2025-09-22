@@ -22,16 +22,39 @@
                     <label class="form-label">取り込み待ちファイル数:</label>
                     <span id="pending-files" class="badge bg-info fs-6">0</span>
                 </div>
-                
+
                 <div class="mb-3">
                     <label class="form-label">システム状態:</label>
                     <span id="system-status" class="badge"></span>
                 </div>
-                
+
+                {% if is_admin %}
+                <hr>
+                <div class="mb-3">
+                    <label class="form-label mb-0">取り込みディレクトリ:</label>
+                    <div>
+                        <code id="import-dir"></code>
+                        <span id="import-dir-status" class="badge ms-2"></span>
+                    </div>
+                    <div id="import-dir-extra" class="form-text text-muted" style="display: none;"></div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label mb-0">保存先ディレクトリ:</label>
+                    <div>
+                        <code id="originals-dir"></code>
+                        <span id="originals-dir-status" class="badge ms-2"></span>
+                    </div>
+                    <div id="originals-dir-extra" class="form-text text-muted" style="display: none;"></div>
+                </div>
+                {% endif %}
+
                 <button id="refresh-status-btn" class="btn btn-outline-secondary btn-sm">
                     <i class="bi bi-arrow-clockwise"></i> 更新
                 </button>
-                
+
+                <div id="status-message" class="alert alert-warning mt-3" style="display: none;"></div>
+
                 <p class="text-muted mt-3">
                     <small>
                         取り込み機能の管理は管理者のみが行えます。
@@ -60,28 +83,122 @@ document.addEventListener('DOMContentLoaded', function() {
     const pendingFilesEl = document.getElementById('pending-files');
     const systemStatusEl = document.getElementById('system-status');
     const refreshBtn = document.getElementById('refresh-status-btn');
-    
+    const importDirEl = document.getElementById('import-dir');
+    const importDirStatusEl = document.getElementById('import-dir-status');
+    const importDirExtraEl = document.getElementById('import-dir-extra');
+    const originalsDirEl = document.getElementById('originals-dir');
+    const originalsDirStatusEl = document.getElementById('originals-dir-status');
+    const originalsDirExtraEl = document.getElementById('originals-dir-extra');
+    const statusMessageEl = document.getElementById('status-message');
+
+    function escapeHtml(str) {
+        if (!str) {
+            return '';
+        }
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function updatePathDisplay(raw, absolute, realpath, exists, codeEl, badgeEl, extraEl) {
+        if (!codeEl) {
+            return;
+        }
+
+        const display = realpath || absolute || raw || '未設定';
+        codeEl.textContent = display;
+
+        if (badgeEl) {
+            badgeEl.textContent = exists ? '存在' : '存在しない';
+            badgeEl.className = `badge ms-2 ${exists ? 'bg-success' : 'bg-danger'}`;
+        }
+
+        if (!extraEl) {
+            return;
+        }
+
+        const extraLines = [];
+        if (raw && raw !== display) {
+            extraLines.push(`設定値: <code>${escapeHtml(raw)}</code>`);
+        }
+        if (absolute && absolute !== display) {
+            extraLines.push(`絶対パス: <code>${escapeHtml(absolute)}</code>`);
+        }
+        if (realpath && realpath !== display) {
+            extraLines.push(`実際のパス: <code>${escapeHtml(realpath)}</code>`);
+        }
+
+        if (extraLines.length) {
+            extraEl.innerHTML = extraLines.join('<br>');
+            extraEl.style.display = 'block';
+        } else {
+            extraEl.textContent = '';
+            extraEl.style.display = 'none';
+        }
+    }
+
     // ステータス取得
     async function loadStatus() {
         try {
             const response = await fetch('/api/sync/local-import/status');
             const data = await response.json();
-            
+
             // UI更新
             pendingFilesEl.textContent = data.status.pending_files;
-            
+
             if (data.status.ready) {
                 systemStatusEl.textContent = '正常';
                 systemStatusEl.className = 'badge bg-success';
+                if (statusMessageEl) {
+                    statusMessageEl.style.display = 'none';
+                    statusMessageEl.textContent = '';
+                }
             } else {
-                systemStatusEl.textContent = '設定エラー';
-                systemStatusEl.className = 'badge bg-warning';
+                systemStatusEl.textContent = '要確認';
+                systemStatusEl.className = 'badge bg-warning text-dark';
+                if (statusMessageEl) {
+                    const issues = [];
+                    if (!data.config.import_dir_exists) {
+                        issues.push('取り込みディレクトリが見つかりません。');
+                    }
+                    if (!data.config.originals_dir_exists) {
+                        issues.push('保存先ディレクトリが見つかりません。');
+                    }
+                    if (issues.length === 0) {
+                        issues.push('設定を確認してください。');
+                    }
+                    statusMessageEl.innerHTML = `<strong>注意:</strong><br>${issues.join('<br>')}`;
+                    statusMessageEl.style.display = 'block';
+                }
             }
-            
+
+            updatePathDisplay(
+                data.config.import_dir,
+                data.config.import_dir_absolute,
+                data.config.import_dir_realpath,
+                data.config.import_dir_exists,
+                importDirEl,
+                importDirStatusEl,
+                importDirExtraEl
+            );
+
+            updatePathDisplay(
+                data.config.originals_dir,
+                data.config.originals_dir_absolute,
+                data.config.originals_dir_realpath,
+                data.config.originals_dir_exists,
+                originalsDirEl,
+                originalsDirStatusEl,
+                originalsDirExtraEl
+            );
+
             // 表示切替
             statusDiv.style.display = 'none';
             infoDiv.style.display = 'block';
-            
+
         } catch (error) {
             statusDiv.innerHTML = '<div class="alert alert-danger">状況の読み込みに失敗しました: ' + error.message + '</div>';
         }

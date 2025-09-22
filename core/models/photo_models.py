@@ -28,6 +28,7 @@ class Media(db.Model):
     source_type = db.Column(db.Enum('local', 'google_photos', name='media_source_type'), nullable=False, default='local')
     google_media_id = db.Column(db.String(255), nullable=True)  # Google Photos ID
     account_id = db.Column(BigInt, db.ForeignKey('google_account.id'), nullable=True)
+    account = db.relationship('GoogleAccount', backref='media_items')
     
     # ファイル情報
     local_rel_path = db.Column(db.String(255), nullable=True)  # ローカルファイルパス

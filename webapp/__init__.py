@@ -127,6 +127,11 @@ def create_app():
     register_cli_commands(app)
 
     @app.before_request
+    def _apply_login_disabled_for_testing():
+        if app.config.get("TESTING"):
+            app.config['LOGIN_DISABLED'] = True
+
+    @app.before_request
     def start_timer():
         g.start_time = time.perf_counter()
 

@@ -22,12 +22,14 @@
                     <label class="form-label">取り込みディレクトリ:</label>
                     <code id="import-dir"></code>
                     <span id="import-dir-status" class="badge ms-2"></span>
+                    <div id="import-dir-extra" class="form-text text-muted" style="display: none;"></div>
                 </div>
-                
+
                 <div class="mb-3">
                     <label class="form-label">保存先ディレクトリ:</label>
                     <code id="originals-dir"></code>
                     <span id="originals-dir-status" class="badge ms-2"></span>
+                    <div id="originals-dir-extra" class="form-text text-muted" style="display: none;"></div>
                 </div>
                 
                 <div class="mb-3">
@@ -85,6 +87,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const importDirStatusEl = document.getElementById('import-dir-status');
     const originalsDirEl = document.getElementById('originals-dir');
     const originalsDirStatusEl = document.getElementById('originals-dir-status');
+    const importDirExtraEl = document.getElementById('import-dir-extra');
+    const originalsDirExtraEl = document.getElementById('originals-dir-extra');
     const pendingFilesEl = document.getElementById('pending-files');
     const refreshBtn = document.getElementById('refresh-status-btn');
     const startImportBtn = document.getElementById('start-import-btn');
@@ -102,23 +106,84 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentTaskId = null;
     let progressInterval = null;
     
+    function escapeHtml(str) {
+        if (!str) {
+            return '';
+        }
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function updatePathDisplay(raw, absolute, realpath, exists, codeEl, badgeEl, extraEl) {
+        if (!codeEl) {
+            return;
+        }
+
+        const display = realpath || absolute || raw || '未設定';
+        codeEl.textContent = display;
+
+        if (badgeEl) {
+            badgeEl.textContent = exists ? '存在' : '存在しない';
+            badgeEl.className = `badge ms-2 ${exists ? 'bg-success' : 'bg-danger'}`;
+        }
+
+        if (!extraEl) {
+            return;
+        }
+
+        const extraLines = [];
+        if (raw && raw !== display) {
+            extraLines.push(`設定値: <code>${escapeHtml(raw)}</code>`);
+        }
+        if (absolute && absolute !== display) {
+            extraLines.push(`絶対パス: <code>${escapeHtml(absolute)}</code>`);
+        }
+        if (realpath && realpath !== display) {
+            extraLines.push(`実際のパス: <code>${escapeHtml(realpath)}</code>`);
+        }
+
+        if (extraLines.length) {
+            extraEl.innerHTML = extraLines.join('<br>');
+            extraEl.style.display = 'block';
+        } else {
+            extraEl.textContent = '';
+            extraEl.style.display = 'none';
+        }
+    }
+
     // ステータス取得
     async function loadStatus() {
         try {
             const response = await fetch('/api/sync/local-import/status');
             const data = await response.json();
-            
+
             // UI更新
-            importDirEl.textContent = data.config.import_dir || '未設定';
-            importDirStatusEl.textContent = data.config.import_dir_exists ? '存在' : '存在しない';
-            importDirStatusEl.className = `badge ms-2 ${data.config.import_dir_exists ? 'bg-success' : 'bg-danger'}`;
-            
-            originalsDirEl.textContent = data.config.originals_dir || '未設定';
-            originalsDirStatusEl.textContent = data.config.originals_dir_exists ? '存在' : '存在しない';
-            originalsDirStatusEl.className = `badge ms-2 ${data.config.originals_dir_exists ? 'bg-success' : 'bg-danger'}`;
-            
+            updatePathDisplay(
+                data.config.import_dir,
+                data.config.import_dir_absolute,
+                data.config.import_dir_realpath,
+                data.config.import_dir_exists,
+                importDirEl,
+                importDirStatusEl,
+                importDirExtraEl
+            );
+
+            updatePathDisplay(
+                data.config.originals_dir,
+                data.config.originals_dir_absolute,
+                data.config.originals_dir_realpath,
+                data.config.originals_dir_exists,
+                originalsDirEl,
+                originalsDirStatusEl,
+                originalsDirExtraEl
+            );
+
             pendingFilesEl.textContent = data.status.pending_files;
-            
+
             // ボタンの有効/無効化
             startImportBtn.disabled = !data.status.ready || data.status.pending_files === 0;
             

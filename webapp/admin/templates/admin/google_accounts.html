@@ -73,9 +73,17 @@
           {% endif %}
         </td>
         <td style="max-width: 340px;">
+          {% set scope_prefix = 'https://www.googleapis.com/auth/' %}
+          {% set scope_prefix_len = scope_prefix|length %}
           <div class="d-flex flex-wrap gap-1">
             {% for s in a.scopes_list() %}
-              <span class="badge text-bg-secondary scope-badge" title="{{ s }}">{{ s }}</span>
+              {% set has_prefix = s.startswith(scope_prefix) %}
+              <span class="badge text-bg-secondary scope-badge text-start" title="{{ s }}">
+                {% if has_prefix %}
+                  <span class="scope-prefix">{{ scope_prefix }}</span>
+                {% endif %}
+                <span class="scope-name">{{ has_prefix and s[scope_prefix_len:] or s }}</span>
+              </span>
             {% endfor %}
           </div>
         </td>
@@ -109,16 +117,27 @@
 </div>
 
 <style>
-/* スコープバッジを長文でも崩さず見せる（省略表示＋ホバーで読みやすく） */
 .scope-badge {
-  display: inline-block;
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  vertical-align: middle;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  max-width: 240px;
+  white-space: normal;
+  word-break: break-all;
   cursor: default;
+  line-height: 1.2;
 }
+
+.scope-badge .scope-prefix {
+  font-size: 0.7rem;
+  color: #6c757d;
+}
+
+.scope-badge .scope-name {
+  font-weight: 600;
+}
+
 .scope-badge:hover,
 .scope-badge:focus {
   background: #e9ecef;

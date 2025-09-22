@@ -227,16 +227,43 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${size.toFixed(1)} ${units[unitIndex]}`;
   }
 
+  const sourceLabels = {
+    local: '{{ _('ローカルインポート') }}',
+    google_photos: '{{ _('Google フォト') }}'
+  };
+  const unknownSourceLabel = '{{ _('不明なソース') }}';
+  const videoLabel = '{{ _('動画') }}';
+  const photoLabel = '{{ _('写真') }}';
+
   function createMediaCard(media) {
     const card = document.createElement('div');
     card.className = 'media-card';
-    
+
     // 動画かどうかの判定
     const isVideo = media.isVideo || media.is_video;
-    
+
+    const sourceText = media.source_label || sourceLabels[media.source_type] || unknownSourceLabel;
+    const accountText = media.account_email ? ` (${media.account_email})` : '';
+    const metaParts = [];
+    const typeLabel = isVideo ? videoLabel : photoLabel;
+    const sizeLabel = formatFileSize(media.bytes);
+
+    if (sizeLabel) {
+      metaParts.push(sizeLabel);
+    }
+    if (sourceText) {
+      metaParts.push(`${sourceText}${accountText}`);
+    }
+    metaParts.push(typeLabel);
+    if (media.camera_make) {
+      metaParts.push(media.camera_make);
+    }
+
+    const metaLine = metaParts.filter(Boolean).join(' • ');
+
     card.innerHTML = `
-      <img class="media-thumbnail" 
-           src="/api/media/${media.id}/thumbnail?size=256" 
+      <img class="media-thumbnail"
+           src="/api/media/${media.id}/thumbnail?size=256"
            alt="${media.filename || 'Media'}"
            loading="lazy"
            onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzZjNzU3ZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
@@ -244,14 +271,10 @@ document.addEventListener('DOMContentLoaded', () => {
       ${media.width && media.height ? `<div class="media-overlay">${media.width}×${media.height}</div>` : ''}
       
       ${isVideo ? '<div class="video-overlay"><i class="fas fa-play"></i></div>' : ''}
-      
+
       <div class="media-info">
         <h6 class="media-title">${formatDateTime(media.shot_at) || 'Unknown Date'}</h6>
-        <p class="media-meta">
-          ${formatFileSize(media.bytes)} • ${media.source_type || 'unknown'}
-          ${isVideo ? ' • Video' : ' • Photo'}
-          ${media.camera_make ? ` • ${media.camera_make}` : ''}
-        </p>
+        <p class="media-meta">${metaLine}</p>
       </div>
     `;
     

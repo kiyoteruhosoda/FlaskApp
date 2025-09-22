@@ -65,13 +65,13 @@
     </div>
 
     <!-- 設定リンク -->
-    <div class="ms-auto d-flex flex-wrap gap-2">
+    <div class="ms-auto d-flex flex-wrap gap-2 align-items-center">
       <a href="{{ url_for('photo_view.settings') }}" class="btn btn-outline-secondary">
         設定
       </a>
-      <a href="{{ url_for('photo_view.admin_settings') }}" class="btn btn-outline-warning">
-        管理者設定
-      </a>
+      {% if is_admin %}
+      <span class="badge bg-warning text-dark">{{ _('Admin tools available') }}</span>
+      {% endif %}
     </div>
   </div>
 

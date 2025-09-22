@@ -126,5 +126,5 @@ if __name__ == "__main__":
     print("\n使用方法:")
     print("1. 環境変数 LOCAL_IMPORT_DIR に取り込み元ディレクトリを設定")
     print("2. 環境変数 FPV_NAS_ORIGINALS_DIR に保存先ディレクトリを設定")
-    print("3. Web管理画面 (/photo-view/admin/settings) からインポート実行")
+    print("3. Web管理画面 (/photo-view/settings) からインポート実行")
     print("4. または Celery タスクから実行: local_import_task_celery.delay()")

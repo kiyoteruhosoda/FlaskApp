@@ -391,6 +391,7 @@ def api_media_list():
     
     # フィルタパラメータ
     include_deleted = request.args.get("include_deleted", type=int, default=0)
+    media_type = (request.args.get("type") or "").lower()
     after_param = request.args.get("after")
     before_param = request.args.get("before")
     
@@ -401,6 +402,13 @@ def api_media_list():
         query = query.filter(
             db.or_(Media.is_deleted.is_(False), Media.is_deleted.is_(None))
         )
+
+    if media_type == "photo":
+        query = query.filter(
+            db.or_(Media.is_video.is_(False), Media.is_video.is_(None))
+        )
+    elif media_type == "video":
+        query = query.filter(Media.is_video.is_(True))
         
     # 日付範囲フィルタ
     if after_param:
@@ -905,6 +913,13 @@ def api_download(token):
 @login_or_jwt_required
 def trigger_local_import():
     """ローカルファイル取り込みを手動実行"""
+    user = get_current_user()
+    if not user or not getattr(user, "has_role", None) or not user.has_role("admin"):
+        return (
+            jsonify({"error": _("You do not have permission to start a local import.")}),
+            403,
+        )
+
     from cli.src.celery.tasks import local_import_task_celery
     from core.models.picker_session import PickerSession
     from core.db import db
@@ -950,37 +965,51 @@ def trigger_local_import():
         }), 500
 
 
+def _prepare_local_import_path(path_value):
+    if not path_value:
+        return {
+            "raw": None,
+            "absolute": None,
+            "realpath": None,
+            "exists": False,
+        }
+
+    absolute = os.path.abspath(path_value)
+    realpath = os.path.realpath(absolute)
+    exists = os.path.isdir(realpath)
+    return {
+        "raw": path_value,
+        "absolute": absolute,
+        "realpath": realpath,
+        "exists": exists,
+    }
+
+
+def _resolve_local_import_config():
+    from webapp.config import Config
+
+    import_dir_raw = current_app.config.get("LOCAL_IMPORT_DIR") or Config.LOCAL_IMPORT_DIR
+    originals_dir_raw = current_app.config.get("FPV_NAS_ORIGINALS_DIR") or Config.FPV_NAS_ORIGINALS_DIR
+
+    import_dir_info = _prepare_local_import_path(import_dir_raw)
+    originals_dir_info = _prepare_local_import_path(originals_dir_raw)
+
+    return {
+        "import_dir": import_dir_raw,
+        "originals_dir": originals_dir_raw,
+        "import_dir_info": import_dir_info,
+        "originals_dir_info": originals_dir_info,
+    }
+
+
 @bp.get("/sync/local-import/status")
 @login_or_jwt_required
 def local_import_status():
     """ローカルインポートの設定と状態を取得"""
-    from webapp.config import Config
+    config_info = _resolve_local_import_config()
 
-    # 設定情報
-    import_dir_raw = current_app.config.get("LOCAL_IMPORT_DIR") or Config.LOCAL_IMPORT_DIR
-    originals_dir_raw = current_app.config.get("FPV_NAS_ORIGINALS_DIR") or Config.FPV_NAS_ORIGINALS_DIR
-
-    def _prepare_path(path_value):
-        if not path_value:
-            return {
-                "raw": None,
-                "absolute": None,
-                "realpath": None,
-                "exists": False,
-            }
-
-        absolute = os.path.abspath(path_value)
-        realpath = os.path.realpath(absolute)
-        exists = os.path.isdir(realpath)
-        return {
-            "raw": path_value,
-            "absolute": absolute,
-            "realpath": realpath,
-            "exists": exists,
-        }
-
-    import_dir_info = _prepare_path(import_dir_raw)
-    originals_dir_info = _prepare_path(originals_dir_raw)
+    import_dir_info = config_info["import_dir_info"]
+    originals_dir_info = config_info["originals_dir_info"]
 
     # 取り込み対象ファイル数の計算
     file_count = 0
@@ -994,8 +1023,8 @@ def local_import_status():
 
     return jsonify({
         "config": {
-            "import_dir": import_dir_raw,
-            "originals_dir": originals_dir_raw,
+            "import_dir": config_info["import_dir"],
+            "originals_dir": config_info["originals_dir"],
             "import_dir_absolute": import_dir_info["absolute"],
             "import_dir_realpath": import_dir_info["realpath"],
             "import_dir_exists": import_dir_info["exists"],
@@ -1005,16 +1034,85 @@ def local_import_status():
         },
         "status": {
             "pending_files": file_count,
-            "ready": import_dir_info["exists"] and originals_dir_info["exists"]
+            "ready": import_dir_info["exists"] and originals_dir_info["exists"],
         },
-        "server_time": datetime.now(timezone.utc).isoformat()
+        "server_time": datetime.now(timezone.utc).isoformat(),
     })
+
+
+@bp.post("/sync/local-import/directories")
+@login_or_jwt_required
+def ensure_local_import_directories():
+    """Ensure that local import directories exist (admin only)."""
+
+    user = get_current_user()
+    if not user or not getattr(user, "has_role", None) or not user.has_role("admin"):
+        return (
+            jsonify({"error": _("You do not have permission to manage local import directories.")}),
+            403,
+        )
+
+    initial_config = _resolve_local_import_config()
+
+    created = []
+    errors = {}
+
+    for key in ("import_dir", "originals_dir"):
+        raw_path = initial_config.get(key)
+        path_info = initial_config.get(f"{key}_info") or {}
+        if not raw_path:
+            continue
+
+        if path_info.get("exists"):
+            continue
+
+        target_path = path_info.get("realpath") or os.path.abspath(raw_path)
+        try:
+            os.makedirs(target_path, exist_ok=True)
+            created.append(key)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            current_app.logger.error("Failed to create %s: %s", target_path, exc)
+            errors[key] = str(exc)
+
+    updated_config = _resolve_local_import_config()
+
+    payload = {
+        "success": len(errors) == 0,
+        "created": created,
+        "errors": errors,
+        "config": {
+            "import_dir": updated_config["import_dir"],
+            "originals_dir": updated_config["originals_dir"],
+            "import_dir_absolute": updated_config["import_dir_info"]["absolute"],
+            "import_dir_realpath": updated_config["import_dir_info"]["realpath"],
+            "import_dir_exists": updated_config["import_dir_info"]["exists"],
+            "originals_dir_absolute": updated_config["originals_dir_info"]["absolute"],
+            "originals_dir_realpath": updated_config["originals_dir_info"]["realpath"],
+            "originals_dir_exists": updated_config["originals_dir_info"]["exists"],
+        },
+        "message": _("Directories created successfully.") if created else _("Directories already exist."),
+        "server_time": datetime.now(timezone.utc).isoformat(),
+    }
+
+    status_code = 200 if not errors else 500
+    if errors and not created:
+        payload["message"] = _("Failed to create one or more directories.")
+
+    return jsonify(payload), status_code
 
 
 @bp.get("/sync/local-import/task/<task_id>")
 @login_or_jwt_required
 def get_local_import_task_result(task_id):
     """ローカルインポートタスクの結果を取得"""
+
+    user = get_current_user()
+    if not user or not getattr(user, "has_role", None) or not user.has_role("admin"):
+        return (
+            jsonify({"error": _("You do not have permission to view local import progress.")}),
+            403,
+        )
+
     from cli.src.celery.celery_app import celery
     
     try:

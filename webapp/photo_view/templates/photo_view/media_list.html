@@ -6,6 +6,8 @@
 <style>
   .controls-bar {
     display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
@@ -16,8 +18,10 @@
   
   .view-controls {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
     align-items: center;
+    justify-content: flex-end;
   }
   
   .size-control {
@@ -164,6 +168,7 @@
     <div class="size-control">
       <label for="size-slider" class="form-label mb-0 me-2" style="font-size: 0.9rem;">{{ _('Size') }}:</label>
       <input type="range" id="size-slider" class="form-range" min="1" max="3" value="2" style="width: 80px;">
+      <span id="size-label" class="badge bg-light text-dark border">{{ _('Comfortable grid') }}</span>
     </div>
     
     <!-- ソート -->
@@ -313,7 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
           totalLoaded++;
         });
         
-        mediaCount.textContent = `${totalLoaded} media loaded`;
+        mediaCount.textContent = `${totalLoaded} {{ _('items') }}`;
         
         if (items.length === 0 && meta.isFirstPage) {
           mediaGrid.innerHTML = '<div class="text-center text-muted p-5"><h4>No media found</h4><p>Try adjusting your filters or add some media to your collection.</p></div>';
@@ -341,10 +346,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // サイズ変更
   const sizeSlider = document.getElementById('size-slider');
-  sizeSlider.addEventListener('input', () => {
-    const sizeClasses = ['size-small', 'size-medium', 'size-large'];
-    mediaGrid.className = `media-grid ${sizeClasses[sizeSlider.value - 1]}`;
+  const sizeLabel = document.getElementById('size-label');
+  const sizeClasses = ['size-small', 'size-medium', 'size-large'];
+  const sizeDescriptions = {
+    1: '{{ _('Compact grid') }}',
+    2: '{{ _('Comfortable grid') }}',
+    3: '{{ _('Large preview') }}',
+  };
+
+  function applyGridSize(value) {
+    const index = Math.min(Math.max(parseInt(value, 10) || 2, 1), 3) - 1;
+    mediaGrid.className = `media-grid ${sizeClasses[index]}`;
+    if (sizeLabel) {
+      const label = sizeDescriptions[index + 1] || '';
+      sizeLabel.textContent = label;
+      sizeLabel.classList.toggle('d-none', !label);
+    }
+  }
+
+  sizeSlider.addEventListener('input', (event) => {
+    applyGridSize(event.target.value);
   });
+
+  applyGridSize(sizeSlider.value);
   
   // フィルタ変更
   const typeFilter = document.getElementById('type-filter');

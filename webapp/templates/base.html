@@ -85,7 +85,7 @@
               {% endif %}
               {% if current_user.has_role('admin') %}
               <li><hr class="dropdown-divider"></li>
-              <li><a class="dropdown-item" href="{{ url_for('photo_view.admin_settings') }}">{{ _('Photo View Admin') }}</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('photo_view.settings') }}">{{ _('Photo View Settings') }}</a></li>
               <li><a class="dropdown-item" href="{{ url_for('photo_view.admin_exports') }}">{{ _('Photo Exports') }}</a></li>
               {% endif %}
             </ul>

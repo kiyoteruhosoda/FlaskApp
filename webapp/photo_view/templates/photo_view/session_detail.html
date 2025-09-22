@@ -6,9 +6,14 @@
 {% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h1>{{ _('Session Details') }}</h1>
-  <a href="/photo-view" class="btn btn-secondary">{{ _('Back to Sessions') }}</a>
+<div class="d-flex flex-column flex-lg-row gap-2 align-items-lg-center justify-content-lg-between mb-3">
+  <div>
+    <h1 id="session-title" class="mb-1">{{ _('Session Details') }}</h1>
+    <p id="session-subtitle" class="text-muted small mb-0 d-none"></p>
+  </div>
+  <a href="/photo-view" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left"></i> {{ _('Back to Sessions') }}
+  </a>
 </div>
 
 <div class="mb-3">
@@ -74,6 +79,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const selectionBody = document.getElementById('selection-body');
   const countsEl = document.getElementById('selection-counts');
   const sessionInfoEl = document.getElementById('session-info');
+  const sessionTitleEl = document.getElementById('session-title');
+  const sessionSubtitleEl = document.getElementById('session-subtitle');
 
   const selectionStatusLabels = {
     pending: '{{ _('Pending') }}',
@@ -271,6 +278,24 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateSessionInfo(sessionData) {
     if (!sessionData) {
       return;
+    }
+
+    if (sessionTitleEl) {
+      sessionTitleEl.textContent = sessionData.isLocalImport
+        ? '{{ _('Local Import Session') }}'
+        : '{{ _('Session Details') }}';
+    }
+
+    if (sessionSubtitleEl) {
+      const subtitleParts = [];
+      if (sessionData.sessionId) {
+        subtitleParts.push(sessionData.sessionId);
+      }
+      if (!sessionData.isLocalImport && sessionData.accountEmail) {
+        subtitleParts.push(sessionData.accountEmail);
+      }
+      sessionSubtitleEl.textContent = subtitleParts.join(' • ');
+      sessionSubtitleEl.classList.toggle('d-none', subtitleParts.length === 0);
     }
 
     const accountLabel = sessionData.isLocalImport

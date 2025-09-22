@@ -322,3 +322,35 @@ body {
 .admin-filter-actions .btn {
   padding: 0.4rem 0.75rem;
 }
+
+/* Admin action buttons */
+.admin-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admin-action-form {
+  display: inline-flex;
+  margin: 0;
+}
+
+.admin-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-width: 7rem;
+  white-space: nowrap;
+}
+
+.admin-action-button.btn-sm {
+  padding: 0.35rem 0.6rem;
+}
+
+@media (max-width: 576px) {
+  .admin-action-button {
+    flex: 1 1 100%;
+  }
+}

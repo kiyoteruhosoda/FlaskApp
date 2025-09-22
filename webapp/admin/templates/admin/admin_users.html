@@ -100,6 +100,11 @@ document.addEventListener('DOMContentLoaded', () => {
     usersLoaded: '{{ _("users loaded") }}',
     deactivate: '{{ _("deactivate") }}',
     activate: '{{ _("activate") }}',
+    deactivateLabel: '{{ _("Deactivate") }}',
+    activateLabel: '{{ _("Activate") }}',
+    editRoles: '{{ _("Edit Roles") }}',
+    resetTotp: '{{ _("Reset TOTP") }}',
+    deleteUser: '{{ _("Delete User") }}',
     areYouSureYouWantTo: '{{ _("Are you sure you want to") }}',
     thisUser: '{{ _("this user?") }}'
   };
@@ -141,20 +146,24 @@ document.addEventListener('DOMContentLoaded', () => {
       </td>
       <td><small>${formatDateTime(user.created_at)}</small></td>
       <td>
-        <div class="btn-group btn-group-sm" role="group">
-          <button class="btn ${user.is_active ? 'btn-warning' : 'btn-success'} btn-sm" 
-                  onclick="toggleUserActive(${user.id}, ${user.is_active})" 
+        <div class="admin-action-buttons">
+          <button class="btn ${user.is_active ? 'btn-warning' : 'btn-success'} btn-sm admin-action-button"
+                  onclick="toggleUserActive(${user.id}, ${user.is_active})"
                   title="${user.is_active ? '{{ _("Deactivate User") }}' : '{{ _("Activate User") }}'}">
             <i class="fas ${user.is_active ? 'fa-user-slash' : 'fa-user-check'}"></i>
+            <span>${user.is_active ? translations.deactivateLabel : translations.activateLabel}</span>
           </button>
-          <button class="btn btn-outline-primary btn-sm" onclick="editUserRoles(${user.id})">
-            {{ _('Edit Roles') }}
+          <button class="btn btn-outline-primary btn-sm admin-action-button" onclick="editUserRoles(${user.id})">
+            <i class="fas fa-user-cog"></i>
+            <span>${translations.editRoles}</span>
           </button>
-          <button class="btn btn-warning btn-sm" onclick="resetUserTotp(${user.id})" title="{{ _('Reset TOTP') }}">
+          <button class="btn btn-warning btn-sm admin-action-button" onclick="resetUserTotp(${user.id})" title="{{ _('Reset TOTP') }}">
             <i class="fas fa-key"></i>
+            <span>${translations.resetTotp}</span>
           </button>
-          <button class="btn btn-danger btn-sm" onclick="deleteUser(${user.id})" title="{{ _('Delete User') }}">
+          <button class="btn btn-danger btn-sm admin-action-button" onclick="deleteUser(${user.id})" title="{{ _('Delete User') }}">
             <i class="fas fa-trash"></i>
+            <span>${translations.deleteUser}</span>
           </button>
         </div>
       </td>

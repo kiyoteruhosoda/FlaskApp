@@ -362,7 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentTags = [];
   let tagEditorTimeout = null;
 
-  const canManageTags = {{ 'true' if current_user.can('media:tag-manage') else 'false' }};
+  const canManageTags = {{ current_user.can('media:tag-manage') | tojson }};
   const tagAttrLabels = {
     person: '{{ _("Person") }}',
     place: '{{ _("Place") }}',

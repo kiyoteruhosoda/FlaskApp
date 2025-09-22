@@ -72,6 +72,8 @@ body {
   font-size: 1rem;
   transition: all 0.3s ease;
   background-color: #fff;
+  padding: 12px 16px;
+  box-sizing: border-box;
 }
 
 .form-control:focus {
@@ -80,15 +82,34 @@ body {
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-.input-icon {
+.input-wrapper {
+  position: relative;
+}
+
+.input-wrapper .form-control {
+  padding-left: 48px;
+}
+
+.input-wrapper .input-icon {
   position: absolute;
   left: 16px;
   top: 50%;
   transform: translateY(-50%);
   color: #a0aec0;
   font-size: 1.1rem;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
   z-index: 2;
-  margin-top: 14px;
+}
+
+.input-wrapper .form-control:focus + .input-icon,
+.input-wrapper .form-control:valid + .input-icon {
+  color: #667eea;
+}
+
+.input-wrapper:focus-within .input-icon {
+  color: #667eea;
 }
 
 .btn-login {
@@ -210,22 +231,14 @@ body {
 }
 
 /* Authentication code field specific icon positioning */
-.input-wrapper {
-  position: relative;
-}
-
 .auth-code-field .input-icon {
   top: 50%;
-  bottom: auto;
-  margin-top: 0;
   transform: translateY(-50%);
 }
 
 /* Fallback for browsers that don't support :has() */
-.form-group:has(.auth-code-info) .input-icon {
+.form-group:has(.auth-code-info) .input-wrapper .input-icon {
   top: 50%;
-  bottom: auto;
-  margin-top: 0;
   transform: translateY(-50%);
 }
 

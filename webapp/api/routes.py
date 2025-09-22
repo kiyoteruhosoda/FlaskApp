@@ -34,10 +34,12 @@ from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
 from core.models.photo_models import (
     Media,
+    Album,
     Exif,
     MediaSidecar,
     MediaPlayback,
     Tag,
+    album_item,
     media_tag,
 )
 from core.models.user import User, Role
@@ -50,6 +52,7 @@ from infrastructure.user_repository import SqlAlchemyUserRepository
 from ..services.token_service import TokenService
 import jwt
 from sqlalchemy.orm import joinedload
+from sqlalchemy import func
 
 
 user_repo = SqlAlchemyUserRepository(db.session)
@@ -287,9 +290,487 @@ def get_current_user():
     """現在のユーザーを取得（Flask-LoginまたはJWT認証から）"""
     if current_user.is_authenticated:
         return current_user
-    
+
     from flask import g
     return getattr(g, 'current_user', None)
+
+
+def require_api_perms(*perm_codes):
+    """APIエンドポイント向けの権限チェックデコレータ"""
+
+    def decorator(func):
+        @wraps(func)
+        @login_or_jwt_required
+        def wrapper(*args, **kwargs):
+            if current_app.config.get('LOGIN_DISABLED'):
+                return func(*args, **kwargs)
+
+            user = get_current_user()
+            if not user or not user.can(*perm_codes):
+                return jsonify({'error': 'forbidden'}), 403
+
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def _parse_media_ids(raw_value):
+    """リクエストペイロードからメディアIDの配列を整形する。"""
+
+    if raw_value is None:
+        return []
+
+    if not isinstance(raw_value, (list, tuple)):
+        raise ValueError('mediaIds must be a list')
+
+    ordered: list[int] = []
+    seen: set[int] = set()
+    for item in raw_value:
+        if item in (None, ''):
+            continue
+        try:
+            media_id = int(item)
+        except (TypeError, ValueError) as exc:
+            raise ValueError('mediaIds must contain integers') from exc
+
+        if media_id not in seen:
+            seen.add(media_id)
+            ordered.append(media_id)
+
+    return ordered
+
+
+def _load_ordered_media(media_ids: list[int]):
+    """指定されたID順にMediaレコードを取得する。"""
+
+    if not media_ids:
+        return [], []
+
+    medias = Media.query.filter(Media.id.in_(media_ids)).all()
+    media_map = {media.id: media for media in medias}
+
+    ordered: list[Media] = []
+    missing: list[int] = []
+    for media_id in media_ids:
+        media = media_map.get(media_id)
+        if media is None:
+            missing.append(media_id)
+        else:
+            ordered.append(media)
+
+    return ordered, missing
+
+
+def _update_album_sort_indexes(album_id: int, media_ids: list[int]) -> None:
+    """アルバム内のメディア順序をsort_indexに保存する。"""
+
+    if not media_ids:
+        return
+
+    for position, media_id in enumerate(media_ids):
+        db.session.execute(
+            album_item.update()
+            .where(
+                album_item.c.album_id == album_id,
+                album_item.c.media_id == media_id,
+            )
+            .values(sort_index=position)
+        )
+
+
+def _get_album_media_rows(album_id: int):
+    """アルバムに紐づくメディア情報を取得する。"""
+
+    return (
+        db.session.query(Media, album_item.c.sort_index)
+        .join(album_item, album_item.c.media_id == Media.id)
+        .filter(album_item.c.album_id == album_id)
+        .options(joinedload(Media.tags))
+        .order_by(album_item.c.sort_index.asc(), Media.id.asc())
+        .all()
+    )
+
+
+def serialize_album_summary(
+    album: Album,
+    *,
+    media_count: int | None = None,
+    fallback_cover_id: int | None = None,
+) -> dict:
+    """アルバム情報をリスト表示向けにシリアライズする。"""
+
+    cover_id = album.cover_media_id or fallback_cover_id
+    created_at = (
+        album.created_at.isoformat().replace('+00:00', 'Z')
+        if album.created_at
+        else None
+    )
+    updated_at = (
+        album.updated_at.isoformat().replace('+00:00', 'Z')
+        if album.updated_at
+        else None
+    )
+
+    return {
+        'id': album.id,
+        'title': album.name,
+        'description': album.description,
+        'visibility': album.visibility,
+        'coverImageId': cover_id,
+        'coverMediaId': cover_id,
+        'mediaCount': int(media_count or 0),
+        'createdAt': created_at,
+        'lastModified': updated_at,
+    }
+
+
+def serialize_album_detail(album: Album, media_rows) -> dict:
+    """アルバム詳細情報を構築する。"""
+
+    media_items: list[dict] = []
+    fallback_cover_id: int | None = None
+
+    for media, sort_index in media_rows:
+        if fallback_cover_id is None:
+            fallback_cover_id = media.id
+
+        tags = sorted(media.tags, key=lambda t: (t.name or '').lower())
+        media_items.append(
+            {
+                'id': media.id,
+                'filename': media.filename,
+                'shotAt': (
+                    media.shot_at.isoformat().replace('+00:00', 'Z')
+                    if media.shot_at
+                    else None
+                ),
+                'thumbnailUrl': f"/api/media/{media.id}/thumbnail?size=512",
+                'sortIndex': sort_index,
+                'tags': [serialize_tag(tag) for tag in tags],
+            }
+        )
+
+    summary = serialize_album_summary(
+        album,
+        media_count=len(media_items),
+        fallback_cover_id=fallback_cover_id,
+    )
+    summary['coverMediaId'] = summary.get('coverMediaId')
+    summary['media'] = media_items
+    summary['mediaIds'] = [item['id'] for item in media_items]
+
+    return summary
+
+
+ALBUM_VISIBILITY_VALUES = {"public", "private", "unlisted"}
+
+
+@bp.get("/albums")
+@require_api_perms("media:view", "album:view")
+def api_albums_list():
+    """アルバムの一覧をページングして返す。"""
+
+    params = PaginationParams.from_request(default_page_size=24)
+
+    stats_subquery = (
+        db.session.query(
+            album_item.c.album_id.label("album_id"),
+            func.count(album_item.c.media_id).label("media_count"),
+            func.min(album_item.c.media_id).label("first_media_id"),
+        )
+        .group_by(album_item.c.album_id)
+        .subquery()
+    )
+
+    query = (
+        Album.query
+        .outerjoin(stats_subquery, Album.id == stats_subquery.c.album_id)
+        .add_columns(
+            stats_subquery.c.media_count,
+            stats_subquery.c.first_media_id,
+        )
+    )
+
+    search_text = (request.args.get("q") or "").strip()
+    if search_text:
+        like_expr = f"%{search_text}%"
+        query = query.filter(Album.name.ilike(like_expr))
+
+    result = paginate_and_respond(
+        query=query,
+        params=params,
+        serializer_func=lambda row: serialize_album_summary(
+            row[0],
+            media_count=row[1] or 0,
+            fallback_cover_id=row[2],
+        ),
+        id_column=Album.id,
+        created_at_column=Album.created_at,
+        count_total=False,
+        default_page_size=24,
+    )
+
+    return jsonify(result)
+
+
+@bp.get("/albums/<int:album_id>")
+@require_api_perms("media:view", "album:view")
+def api_album_detail(album_id: int):
+    """アルバム詳細情報を取得する。"""
+
+    album = Album.query.get(album_id)
+    if not album:
+        return (
+            jsonify({"error": "not_found", "message": _("Album not found.")}),
+            404,
+        )
+
+    media_rows = _get_album_media_rows(album_id)
+    detail = serialize_album_detail(album, media_rows)
+
+    return jsonify({"album": detail})
+
+
+@bp.post("/albums")
+@require_api_perms("album:create")
+def api_album_create():
+    """アルバムを新規作成する。"""
+
+    payload = request.get_json(silent=True) or {}
+    name = (payload.get("name") or "").strip()
+    description = (payload.get("description") or "").strip()
+    visibility = (payload.get("visibility") or "private").strip().lower()
+
+    if not name:
+        return (
+            jsonify({"error": "name_required", "message": _("Album name is required.")}),
+            400,
+        )
+
+    if visibility not in ALBUM_VISIBILITY_VALUES:
+        return (
+            jsonify({"error": "invalid_visibility", "message": _("Invalid album visibility value.")}),
+            400,
+        )
+
+    try:
+        media_ids = _parse_media_ids(payload.get("mediaIds"))
+    except ValueError:
+        return (
+            jsonify(
+                {
+                    "error": "invalid_media_ids",
+                    "message": _("Invalid media selection payload."),
+                }
+            ),
+            400,
+        )
+
+    cover_media_raw = payload.get("coverMediaId")
+    if cover_media_raw in (None, ""):
+        cover_media_id = None
+    else:
+        try:
+            cover_media_id = int(cover_media_raw)
+        except (TypeError, ValueError):
+            return (
+                jsonify({"error": "invalid_cover", "message": _("Cover media id must be an integer.")}),
+                400,
+            )
+
+    ordered_medias, missing_ids = _load_ordered_media(media_ids)
+    if missing_ids:
+        return (
+            jsonify(
+                {
+                    "error": "invalid_media",
+                    "message": _("Some selected media could not be found."),
+                    "missingMediaIds": missing_ids,
+                }
+            ),
+            400,
+        )
+
+    if cover_media_id and cover_media_id not in media_ids:
+        return (
+            jsonify(
+                {
+                    "error": "invalid_cover",
+                    "message": _("Cover image must be one of the selected media items."),
+                }
+            ),
+            400,
+        )
+
+    now = datetime.now(timezone.utc)
+    album = Album(
+        name=name,
+        description=description or None,
+        visibility=visibility,
+        cover_media_id=cover_media_id,
+        created_at=now,
+        updated_at=now,
+    )
+    db.session.add(album)
+    db.session.flush()
+
+    album.media = ordered_medias
+    db.session.flush()
+    _update_album_sort_indexes(album.id, media_ids)
+
+    if not album.cover_media_id and media_ids:
+        album.cover_media_id = media_ids[0]
+
+    album.updated_at = now
+    db.session.commit()
+
+    detail = serialize_album_detail(album, _get_album_media_rows(album.id))
+    return jsonify({"album": detail, "created": True}), 201
+
+
+@bp.put("/albums/<int:album_id>")
+@require_api_perms("album:edit")
+def api_album_update(album_id: int):
+    """アルバム情報を更新する。"""
+
+    album = Album.query.get(album_id)
+    if not album:
+        return (
+            jsonify({"error": "not_found", "message": _("Album not found.")}),
+            404,
+        )
+
+    payload = request.get_json(silent=True) or {}
+
+    name = payload.get("name")
+    description = payload.get("description")
+    visibility = payload.get("visibility")
+    media_ids_raw = payload.get("mediaIds")
+    cover_media_raw = payload.get("coverMediaId") if "coverMediaId" in payload else None
+
+    has_changes = False
+
+    if isinstance(name, str):
+        stripped = name.strip()
+        if not stripped:
+            return (
+                jsonify({"error": "name_required", "message": _("Album name is required.")}),
+                400,
+            )
+        if stripped != album.name:
+            album.name = stripped
+            has_changes = True
+
+    if isinstance(description, str):
+        normalized_desc = description.strip() or None
+        if normalized_desc != album.description:
+            album.description = normalized_desc
+            has_changes = True
+
+    if isinstance(visibility, str):
+        vis_value = visibility.strip().lower()
+        if vis_value not in ALBUM_VISIBILITY_VALUES:
+            return (
+                jsonify({"error": "invalid_visibility", "message": _("Invalid album visibility value.")}),
+                400,
+            )
+        if vis_value != album.visibility:
+            album.visibility = vis_value
+            has_changes = True
+
+    if media_ids_raw is not None:
+        try:
+            media_ids = _parse_media_ids(media_ids_raw)
+        except ValueError:
+            return (
+                jsonify(
+                    {
+                        "error": "invalid_media_ids",
+                        "message": _("Invalid media selection payload."),
+                    }
+                ),
+                400,
+            )
+
+        ordered_medias, missing_ids = _load_ordered_media(media_ids)
+        if missing_ids:
+            return (
+                jsonify(
+                    {
+                        "error": "invalid_media",
+                        "message": _("Some selected media could not be found."),
+                        "missingMediaIds": missing_ids,
+                    }
+                ),
+                400,
+            )
+
+        album.media = ordered_medias
+        db.session.flush()
+        _update_album_sort_indexes(album.id, media_ids)
+        has_changes = True
+        current_media_ids = media_ids
+    else:
+        current_media_ids = [media.id for media in album.media]
+
+    if "coverMediaId" in payload:
+        if cover_media_raw in (None, ""):
+            cover_media_id = None
+        else:
+            try:
+                cover_media_id = int(cover_media_raw)
+            except (TypeError, ValueError):
+                return (
+                    jsonify({"error": "invalid_cover", "message": _("Cover media id must be an integer.")}),
+                    400,
+                )
+
+        if cover_media_id and cover_media_id not in current_media_ids:
+            return (
+                jsonify(
+                    {
+                        "error": "invalid_cover",
+                        "message": _("Cover image must be one of the selected media items."),
+                    }
+                ),
+                400,
+            )
+
+        if cover_media_id != album.cover_media_id:
+            album.cover_media_id = cover_media_id
+            has_changes = True
+
+    if not album.cover_media_id and current_media_ids:
+        album.cover_media_id = current_media_ids[0]
+
+    now = datetime.now(timezone.utc)
+    if has_changes:
+        album.updated_at = now
+
+    db.session.commit()
+
+    detail = serialize_album_detail(album, _get_album_media_rows(album.id))
+    return jsonify({"album": detail, "updated": has_changes})
+
+
+@bp.delete("/albums/<int:album_id>")
+@require_api_perms("album:edit")
+def api_album_delete(album_id: int):
+    """アルバムを削除する。"""
+
+    album = Album.query.get(album_id)
+    if not album:
+        return (
+            jsonify({"error": "not_found", "message": _("Album not found.")}),
+            404,
+        )
+
+    db.session.delete(album)
+    db.session.commit()
+
+    return jsonify({"result": "deleted"})
 
 
 @bp.post("/login")

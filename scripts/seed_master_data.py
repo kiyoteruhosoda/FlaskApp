@@ -51,6 +51,7 @@ def seed_permissions():
         {'id': 12, 'code': 'wiki:read'},
         {'id': 13, 'code': 'wiki:write'},
         {'id': 14, 'code': 'media:tag-manage'},
+        {'id': 15, 'code': 'media:delete'},
     ]
     
     for perm_data in permissions_data:
@@ -69,9 +70,9 @@ def seed_role_permissions():
         # admin (role_id=1) - all permissions
         (1, 1), (1, 2), (1, 3), (1, 4), (1, 5),
         (1, 6), (1, 7), (1, 8), (1, 9), (1, 10),
-        (1, 11), (1, 12), (1, 13), (1, 14),
+        (1, 11), (1, 12), (1, 13), (1, 14), (1, 15),
         # manager (role_id=2) - limited permissions
-        (2, 1), (2, 4), (2, 5), (2, 6), (2, 7), (2, 14),
+        (2, 1), (2, 4), (2, 5), (2, 6), (2, 7), (2, 14), (2, 15),
         # member (role_id=3) - view only
         (3, 6), (3, 7)
     ]

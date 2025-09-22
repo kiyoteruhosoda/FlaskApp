@@ -787,3 +787,75 @@ def test_media_thumbnail_route(client, app):
     assert res.data == data
     assert res.headers["Cache-Control"].startswith("private")
 
+
+def test_media_delete_requires_permission(client, app):
+    from webapp.extensions import db
+    from core.models.photo_models import Media
+
+    with app.app_context():
+        media = Media(
+            google_media_id="del-test",
+            account_id=1,
+            local_rel_path="del-test.jpg",
+            bytes=10,
+            mime_type="image/jpeg",
+            width=100,
+            height=100,
+            shot_at=datetime(2025, 2, 1, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 2, 2, tzinfo=timezone.utc),
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        db.session.add(media)
+        db.session.commit()
+        media_id = media.id
+
+    login(client)
+    response = client.delete(f"/api/media/{media_id}")
+    assert response.status_code == 403
+    data = response.get_json()
+    assert data["error"] == "forbidden"
+
+    with app.app_context():
+        refreshed = Media.query.get(media_id)
+        assert refreshed is not None
+        assert refreshed.is_deleted is False
+
+
+def test_media_delete_success(client, app):
+    from webapp.extensions import db
+    from core.models.photo_models import Media
+
+    with app.app_context():
+        media = Media(
+            google_media_id="del-success",
+            account_id=1,
+            local_rel_path="del-success.jpg",
+            bytes=5,
+            mime_type="image/jpeg",
+            width=80,
+            height=80,
+            shot_at=datetime(2025, 3, 1, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 3, 2, tzinfo=timezone.utc),
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        db.session.add(media)
+        db.session.commit()
+        media_id = media.id
+
+    grant_permission(app, "media:delete")
+    login(client)
+
+    response = client.delete(f"/api/media/{media_id}")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["result"] == "deleted"
+
+    with app.app_context():
+        refreshed = Media.query.get(media_id)
+        assert refreshed is not None
+        assert refreshed.is_deleted is True
+

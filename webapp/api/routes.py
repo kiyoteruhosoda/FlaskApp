@@ -744,6 +744,43 @@ def api_media_detail(media_id):
     return jsonify(media_data)
 
 
+@bp.delete("/media/<int:media_id>")
+@login_or_jwt_required
+def api_media_delete(media_id: int):
+    """Soft delete a media item when the user has permission."""
+    user = get_current_user()
+    if not user or not user.can("media:delete"):
+        return (
+            jsonify(
+                {
+                    "error": "forbidden",
+                    "message": _("You do not have permission to delete media."),
+                }
+            ),
+            403,
+        )
+
+    media = Media.query.get(media_id)
+    if not media or media.is_deleted:
+        return jsonify({"error": "not_found"}), 404
+
+    media.is_deleted = True
+    db.session.commit()
+
+    current_app.logger.info(
+        json.dumps(
+            {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "media_id": media_id,
+                "user_id": getattr(user, "id", None),
+            }
+        ),
+        extra={"event": "media.delete"},
+    )
+
+    return jsonify({"result": "deleted"})
+
+
 @bp.get("/tags")
 @login_or_jwt_required
 def api_tags_list():

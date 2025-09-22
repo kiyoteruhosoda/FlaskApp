@@ -1153,3 +1153,63 @@ msgstr ""
 msgid "Please login to continue."
 msgstr ""
 
+#: webapp/api/routes.py:??? webapp/photo_view/templates/photo_view/media_detail.html:???
+msgid "You do not have permission to delete media."
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/media_detail.html:???
+msgid "Are you sure you want to delete this media? This action cannot be undone."
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/media_detail.html:???
+msgid "Media was deleted successfully."
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/media_detail.html:???
+msgid "Failed to delete media."
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/media_detail.html:???
+msgid "Media was not found or is already deleted."
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/media_detail.html:???
+msgid "Deleting..."
+msgstr ""
+
+#: webapp/admin/templates/admin/role_edit.html:???
+msgid "Define role basics and choose the permissions it should include."
+msgstr ""
+
+#: webapp/admin/templates/admin/role_edit.html:???
+msgid "Enter role name"
+msgstr ""
+
+#: webapp/admin/templates/admin/role_edit.html:???
+msgid "Selected permissions"
+msgstr ""
+
+#: webapp/admin/templates/admin/role_edit.html:???
+msgid "This role currently grants the following number of permissions."
+msgstr ""
+
+#: webapp/admin/templates/admin/role_edit.html:???
+msgid "Tip: Use the search box to quickly filter permissions by name or category."
+msgstr ""
+
+#: webapp/admin/templates/admin/role_edit.html:???
+msgid "Select the capabilities that should be included in this role."
+msgstr ""
+
+#: webapp/admin/templates/admin/role_edit.html:???
+msgid "Search permissions..."
+msgstr ""
+
+#: webapp/admin/templates/admin/role_edit.html:???
+msgid "Search permissions"
+msgstr ""
+
+#: webapp/admin/templates/admin/role_edit.html:???
+msgid "No permissions match your search."
+msgstr ""
+

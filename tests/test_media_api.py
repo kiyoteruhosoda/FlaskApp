@@ -865,3 +865,58 @@ def test_media_delete_success(client, app):
         assert refreshed.is_deleted is True
         assert not (Path(app.config["FPV_NAS_ORIGINALS_DIR"]) / refreshed.local_rel_path).exists()
 
+
+def test_picker_session_service_allows_reimport_of_deleted_media(app):
+    from webapp.extensions import db
+    from core.models.photo_models import Media
+    from core.models.picker_session import PickerSession
+    from core.models.google_account import GoogleAccount
+    from webapp.api.picker_session_service import PickerSessionService
+
+    with app.app_context():
+        account = GoogleAccount.query.first()
+        assert account is not None
+
+        session = PickerSession(
+            account_id=account.id,
+            session_id="picker_sessions/reimport",
+            status="pending",
+        )
+        db.session.add(session)
+        db.session.commit()
+
+        deleted_media = Media(
+            source_type="google_photos",
+            google_media_id="gid-reimport",
+            account_id=account.id,
+            local_rel_path="2024/01/dup.jpg",
+            filename="dup.jpg",
+            hash_sha256="0" * 64,
+            bytes=123,
+            mime_type="image/jpeg",
+            width=10,
+            height=10,
+            shot_at=datetime.now(timezone.utc),
+            imported_at=datetime.now(timezone.utc),
+            is_video=False,
+            is_deleted=True,
+        )
+        db.session.add(deleted_media)
+        db.session.commit()
+
+        item = {
+            "id": deleted_media.google_media_id,
+            "createTime": datetime.now(timezone.utc).isoformat(),
+            "mediaFile": {
+                "mimeType": "image/jpeg",
+                "filename": "dup.jpg",
+                "baseUrl": "http://example.com/base",
+                "mediaFileMetadata": {"width": "10", "height": "10"},
+            },
+        }
+
+        selection = PickerSessionService._save_single_item(session, item)
+        assert selection is not None
+        assert selection.status == "pending"
+        assert selection.google_media_id == deleted_media.google_media_id
+

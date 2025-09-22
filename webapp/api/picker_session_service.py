@@ -539,7 +539,11 @@ class PickerSessionService:
             return None
         
         # 既存のメディアまたは他のセッションでの選択をチェック
-        existing_media = Media.query.filter_by(google_media_id=item_id, account_id=ps.account_id).first()
+        existing_media = (
+            Media.query.filter_by(
+                google_media_id=item_id, account_id=ps.account_id, is_deleted=False
+            ).first()
+        )
         existing_selection = PickerSelection.query.filter_by(session_id=ps.id, google_media_id=item_id).first()
         
         # 現在のセッションで既に存在する場合は何もしない

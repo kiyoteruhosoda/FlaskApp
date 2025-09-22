@@ -522,22 +522,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 200);
   }
 
-  const sourceLabels = {{ {
-    'local': _("Local import"),
-    'google_photos': _("Google Photos"),
-  } | tojson }};
-  const unknownSourceLabel = {{ _("Unknown source") | tojson }};
-  const videoLabel = {{ _("Video") | tojson }};
-  const photoLabel = {{ _("Photo") | tojson }};
-  const removeTagLabel = {{ _("Remove") | tojson }};
-  const noTagsFoundText = {{ _("No tags found") | tojson }};
-  const itemsLabel = {{ _("items") | tojson }};
-  const failedToLoadMediaText = {{ _("Failed to load media. Please try again.") | tojson }};
-  const tagAttrLabels = {{ {
-    'person': _("Person"),
-    'place': _("Place"),
-    'thing': _("Thing"),
-  } | tojson }};
+  const sourceLabels = {
+    local: '{{ _("Local import")|escapejs }}',
+    google_photos: '{{ _("Google Photos")|escapejs }}'
+  };
+  const unknownSourceLabel = '{{ _("Unknown source")|escapejs }}';
+  const videoLabel = '{{ _("Video")|escapejs }}';
+  const photoLabel = '{{ _("Photo")|escapejs }}';
+  const removeTagLabel = '{{ _("Remove")|escapejs }}';
+  const noTagsFoundText = '{{ _("No tags found")|escapejs }}';
+  const itemsLabel = '{{ _("items")|escapejs }}';
+  const failedToLoadMediaText = '{{ _("Failed to load media. Please try again.")|escapejs }}';
+  const tagAttrLabels = {
+    person: '{{ _("Person")|escapejs }}',
+    place: '{{ _("Place")|escapejs }}',
+    thing: '{{ _("Thing")|escapejs }}'
+  };
 
   function createMediaCard(media) {
     const card = document.createElement('div');
@@ -662,11 +662,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const sizeSlider = document.getElementById('size-slider');
   const sizeLabel = document.getElementById('size-label');
   const sizeClasses = ['size-small', 'size-medium', 'size-large'];
-  const sizeDescriptions = {{ {
-    1: _("Compact"),
-    2: _("Medium"),
-    3: _("Large"),
-  } | tojson }};
+  const sizeDescriptions = {
+    1: '{{ _("Compact")|escapejs }}',
+    2: '{{ _("Medium")|escapejs }}',
+    3: '{{ _("Large")|escapejs }}'
+  };
 
   function applyGridSize(value) {
     const index = Math.min(Math.max(parseInt(value, 10) || 2, 1), 3) - 1;

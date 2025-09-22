@@ -359,6 +359,7 @@ def seed_thumb_media(app):
             google_media_id="thumb",
             account_id=1,
             local_rel_path=rel,
+            filename="Original Name.jpg",
             bytes=10,
             mime_type="image/jpeg",
             width=100,
@@ -389,6 +390,7 @@ def seed_playback_media(app):
             google_media_id="v1",
             account_id=1,
             local_rel_path="v1.mp4",
+            filename="Playback Clip.mp4",
             bytes=20,
             mime_type="video/mp4",
             width=100,
@@ -401,6 +403,7 @@ def seed_playback_media(app):
             google_media_id="v2",
             account_id=1,
             local_rel_path="v2.mp4",
+            filename="Processing Clip.mp4",
             bytes=20,
             mime_type="video/mp4",
             width=100,
@@ -413,6 +416,7 @@ def seed_playback_media(app):
             google_media_id="v3",
             account_id=1,
             local_rel_path="v3.mp4",
+            filename="Missing Playback.mp4",
             bytes=20,
             mime_type="video/mp4",
             width=100,
@@ -663,6 +667,10 @@ def test_thumb_url_ok(client, seed_thumb_media):
     dl = client.get(data["url"])
     assert dl.status_code == 200
     assert dl.headers["Content-Type"] == "image/jpeg"
+    cd = dl.headers.get("Content-Disposition")
+    assert cd is not None and cd.startswith("attachment")
+    assert "filename=\"Original_Name.jpg\"" in cd
+    assert "filename*=UTF-8''Original%20Name.jpg" in cd
 
 
 def test_thumb_url_not_found(client, seed_thumb_media):
@@ -723,6 +731,9 @@ def test_range_video(client, seed_playback_media):
     assert res2.status_code == 206
     assert res2.headers["Content-Range"].startswith("bytes 0-")
     assert res2.headers["Accept-Ranges"] == "bytes"
+    cd = res2.headers.get("Content-Disposition")
+    assert cd is not None and "filename=\"Playback_Clip.mp4\"" in cd
+    assert "filename*=UTF-8''Playback%20Clip.mp4" in cd
 
 
 def test_ct_mismatch(client):

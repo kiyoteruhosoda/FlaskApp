@@ -9,7 +9,7 @@ import re
 import secrets
 import time
 from pathlib import Path
-from urllib.parse import urlencode
+from urllib.parse import urlencode, quote
 from email.utils import formatdate
 from uuid import uuid4
 
@@ -53,6 +53,7 @@ from ..services.token_service import TokenService
 import jwt
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func
+from werkzeug.utils import secure_filename
 
 
 user_repo = SqlAlchemyUserRepository(db.session)
@@ -1529,6 +1530,40 @@ def _verify_token(token: str):
         return None, "expired"
 
     return payload, None
+
+
+def _resolve_download_filename(payload: dict, rel: str, abs_path: str) -> str | None:
+    """Return preferred download file name for a signed URL."""
+    filename: str | None = None
+    media_id = payload.get("mid")
+    if media_id is not None:
+        media = Media.query.get(media_id)
+        if media and media.filename:
+            filename = media.filename
+
+    if not filename:
+        rel_name = os.path.basename(rel) if rel else None
+        if rel_name:
+            filename = rel_name
+        else:
+            filename = os.path.basename(abs_path) if abs_path else None
+
+    if filename:
+        base, ext = os.path.splitext(filename)
+        if not ext:
+            path_ext = os.path.splitext(abs_path)[1] if abs_path else ""
+            if path_ext:
+                filename = base + path_ext
+    return filename
+
+
+def _build_content_disposition(filename: str) -> str:
+    """Build Content-Disposition header value keeping UTF-8 names intact."""
+    sanitized = (filename or "").replace("\r", " ").replace("\n", " ").strip()
+    fallback = secure_filename(sanitized) or "download"
+    if sanitized and sanitized != fallback:
+        return f'attachment; filename="{fallback}"; filename*=UTF-8\'\'{quote(sanitized, safe="")}'
+    return f'attachment; filename="{fallback}"'
 @bp.get("/media/<int:media_id>/thumbnail")
 @login_or_jwt_required
 def api_media_thumbnail(media_id):
@@ -1738,6 +1773,8 @@ def api_download(token):
         )
         return jsonify({"error": "not_found"}), 404
 
+    download_filename = _resolve_download_filename(payload, rel, abs_path)
+
     guessed = mimetypes.guess_type(abs_path)[0]
     if guessed != ct:
         return jsonify({"error": "forbidden"}), 403
@@ -1762,6 +1799,10 @@ def api_download(token):
             resp.headers["Accept-Ranges"] = "bytes"
             resp.headers["Content-Length"] = str(length)
             resp.headers["Cache-Control"] = cache_control
+            if download_filename:
+                resp.headers["Content-Disposition"] = _build_content_disposition(
+                    download_filename
+                )
             current_app.logger.info(
                 json.dumps(
                     {
@@ -1781,6 +1822,10 @@ def api_download(token):
         resp.headers["Content-Length"] = str(size)
         resp.headers["Accept-Ranges"] = "bytes"
         resp.headers["Cache-Control"] = cache_control
+        if download_filename:
+            resp.headers["Content-Disposition"] = _build_content_disposition(
+                download_filename
+            )
         return resp
 
     with open(abs_path, "rb") as f:
@@ -1789,6 +1834,10 @@ def api_download(token):
     resp.headers["Content-Length"] = str(size)
     resp.headers["Accept-Ranges"] = "bytes"
     resp.headers["Cache-Control"] = cache_control
+    if download_filename:
+        resp.headers["Content-Disposition"] = _build_content_disposition(
+            download_filename
+        )
     current_app.logger.info(
         json.dumps(
             {

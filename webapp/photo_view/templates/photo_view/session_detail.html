@@ -225,7 +225,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const tr = document.createElement('tr');
     const displayName = selection.filename || selection.googleMediaId || 'N/A';
     const safeDisplayName = escapeHtml(displayName);
-    const fileCellContent = selection.mediaId
+    const canDisplayLink = selection.mediaId && ['imported', 'dup'].includes(selection.status);
+    const fileCellContent = canDisplayLink
       ? `<a href="/photo-view/media/${selection.mediaId}" class="text-decoration-none">${safeDisplayName}</a>`
       : safeDisplayName;
     tr.innerHTML = `

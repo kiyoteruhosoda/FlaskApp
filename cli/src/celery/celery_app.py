@@ -5,6 +5,7 @@ from celery import Celery
 from flask import Flask
 from webapp.config import Config
 from datetime import timedelta
+from core.logging_config import ensure_appdb_file_logging
 
 # .envファイルを読み込み
 load_dotenv()
@@ -66,6 +67,8 @@ def setup_celery_logging():
         console_handler.setLevel(logging.INFO)
         console_handler.setFormatter(formatter)
         celery_logger.addHandler(console_handler)
+
+    ensure_appdb_file_logging(celery_logger)
     
     # DBログハンドラー
     if not any(isinstance(h, DBLogHandler) for h in celery_logger.handlers):
@@ -83,12 +86,14 @@ def setup_celery_logging():
         task_console_handler.setLevel(logging.INFO)
         task_console_handler.setFormatter(formatter)
         task_logger.addHandler(task_console_handler)
-    
+
     # タスクロガーにもDBハンドラーを追加
     if not any(isinstance(h, DBLogHandler) for h in task_logger.handlers):
         task_db_handler = DBLogHandler(app=flask_app)
         task_db_handler.setLevel(logging.INFO)
         task_logger.addHandler(task_db_handler)
+
+    ensure_appdb_file_logging(task_logger)
     
     # picker_import 専用ロガーの設定
     picker_logger = logging.getLogger('picker_import')
@@ -100,18 +105,22 @@ def setup_celery_logging():
         picker_console_handler.setLevel(logging.INFO)
         picker_console_handler.setFormatter(formatter)
         picker_logger.addHandler(picker_console_handler)
-    
+
     if not any(isinstance(h, DBLogHandler) for h in picker_logger.handlers):
         picker_db_handler = DBLogHandler(app=flask_app)
         picker_db_handler.setLevel(logging.INFO)
         picker_logger.addHandler(picker_db_handler)
-    
+
+    ensure_appdb_file_logging(picker_logger)
+
     # ルートロガーには重要なエラーのみ
     root_logger = logging.getLogger()
     if not any(isinstance(h, DBLogHandler) for h in root_logger.handlers):
         root_db_handler = DBLogHandler(app=flask_app)
         root_db_handler.setLevel(logging.ERROR)  # Only capture errors in root logger
         root_logger.addHandler(root_db_handler)
+
+    ensure_appdb_file_logging(root_logger)
 
 # Setup logging when app is created
 with flask_app.app_context():

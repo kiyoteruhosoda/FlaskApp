@@ -1,7 +1,49 @@
 (function () {
   const docEl = document.documentElement;
   const timezoneMeta = document.querySelector('meta[name="user-timezone"]');
-  const timezoneName = (timezoneMeta?.getAttribute('content') || docEl?.dataset?.timezone || 'UTC').trim() || 'UTC';
+
+  function normalizeTimezone(value) {
+    if (!value) {
+      return '';
+    }
+    return String(value).trim();
+  }
+
+  function readCookie(name) {
+    try {
+      const pattern = new RegExp(`(?:^|;\\s*)${name}=([^;]+)`);
+      const match = document.cookie.match(pattern);
+      return match ? decodeURIComponent(match[1]) : '';
+    } catch (error) {
+      console.warn('appTime failed to read cookie', error);
+      return '';
+    }
+  }
+
+  let browserTimezone = '';
+  try {
+    if (typeof Intl !== 'undefined' && typeof Intl.DateTimeFormat === 'function') {
+      browserTimezone = normalizeTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    }
+  } catch (error) {
+    console.warn('appTime failed to detect browser timezone', error);
+    browserTimezone = '';
+  }
+
+  const cookieTimezone = normalizeTimezone(readCookie('tz'));
+  const metaTimezone = normalizeTimezone(timezoneMeta?.getAttribute('content'));
+  const datasetTimezone = normalizeTimezone(docEl?.dataset?.timezone);
+  const timezoneName =
+    cookieTimezone ||
+    browserTimezone ||
+    metaTimezone ||
+    datasetTimezone ||
+    'UTC';
+
+  if (docEl && !docEl.dataset.timezone) {
+    docEl.dataset.timezone = timezoneName;
+  }
+
   const locale = docEl?.lang || undefined;
 
   function parseDate(value) {

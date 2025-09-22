@@ -24,7 +24,7 @@ from flask import (
     flash,
     g,
 )
-from flask_login import login_required
+from flask_login import login_required, logout_user
 from flask_babel import gettext as _
 from functools import wraps
 
@@ -324,7 +324,12 @@ def api_logout():
     user = get_current_user()
     if user:
         TokenService.revoke_refresh_token(user)
-    
+
+    if current_user.is_authenticated:
+        logout_user()
+
+    session.pop("picker_session_id", None)
+
     resp = jsonify({"result": "ok"})
     resp.delete_cookie("access_token")
     return resp

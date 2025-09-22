@@ -32,9 +32,9 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - media_data:/app/data/media
-      - thumb_data:/app/data/thumbs
-      - playback_data:/app/data/playback
+      - /volume1/docker/photonest/data/media:/app/data/media
+      - /volume1/docker/photonest/data/thumbs:/app/data/thumbs
+      - /volume1/docker/photonest/data/playback:/app/data/playback
       - /tmp/local_import:/tmp/local_import
     user: "${PUID:-1000}:${PGID:-1000}"
     restart: unless-stopped
@@ -64,9 +64,9 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - media_data:/app/data/media
-      - thumb_data:/app/data/thumbs
-      - playback_data:/app/data/playback
+      - /volume1/docker/photonest/data/media:/app/data/media
+      - /volume1/docker/photonest/data/thumbs:/app/data/thumbs
+      - /volume1/docker/photonest/data/playback:/app/data/playback
       - /tmp/local_import:/tmp/local_import
     user: "${PUID:-1000}:${PGID:-1000}"
     restart: unless-stopped

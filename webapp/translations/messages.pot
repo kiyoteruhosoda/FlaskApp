@@ -1096,6 +1096,10 @@ msgstr ""
 msgid "Selected Files"
 msgstr ""
 
+#: webapp/photo_view/templates/photo_view/session_detail.html:33
+msgid "Failed files will be retried up to three times."
+msgstr ""
+
 #: webapp/photo_view/templates/photo_view/session_detail.html:32
 msgid "File"
 msgstr ""

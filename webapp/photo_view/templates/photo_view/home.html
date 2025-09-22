@@ -6,105 +6,121 @@
 {% endblock %}
 
 {% block content %}
-<h1>Photo View Home</h1>
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+  <div>
+    <h1 class="h2 mb-1">{{ _('Photo View Home') }}</h1>
+    <p class="text-muted mb-0">{{ _('Create new picker sessions and keep track of imports at a glance.') }}</p>
+  </div>
+  <div class="d-flex flex-wrap align-items-center gap-2">
+    {% if is_admin %}
+      <span class="badge bg-warning text-dark d-flex align-items-center px-3 py-2">
+        <i class="bi bi-tools me-1"></i>{{ _('Admin tools available') }}
+      </span>
+    {% endif %}
+    <a href="{{ url_for('photo_view.settings') }}" class="btn btn-outline-secondary">
+      <i class="bi bi-gear me-1"></i>{{ _('Settings') }}
+    </a>
+  </div>
+</div>
 
-<div class="mb-3">
-  <div class="d-flex flex-wrap gap-3 align-items-end">
-    <div class="flex-grow-1" style="min-width: 260px;">
-      <label for="session-account" class="form-label mb-1">{{ _('新規セッションに利用する Google アカウント') }}</label>
-      <div class="input-group">
-        {% set has_multiple_accounts = google_accounts|length > 1 %}
-        <select id="session-account" class="form-select" {% if not google_accounts %}disabled{% endif %}>
-          {% if not google_accounts %}
-            <option value="" selected disabled>{{ _('Googleアカウントが連携されていません') }}</option>
-          {% else %}
-            <option value="" disabled {% if has_multiple_accounts %}selected{% endif %}>{{ _('アカウントを選択') }}</option>
-            {% for account in google_accounts %}
-              <option value="{{ account.id }}" {% if not has_multiple_accounts and loop.first %}selected{% endif %}>{{ account.email }}</option>
-            {% endfor %}
-          {% endif %}
-        </select>
-        <button id="create-session-btn" class="btn btn-success" {% if not google_accounts %}disabled{% endif %}>
-          {{ _('Create New Session') }}
-        </button>
+<div class="row g-3 align-items-stretch mb-4">
+  <div class="col-xl-7">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-white">
+        <h2 class="h5 mb-0">{{ _('Start a new picker session') }}</h2>
       </div>
-      {% if not google_accounts %}
-        <div class="form-text text-muted mt-1">
-          {{ _('新規セッションを作成する前に管理画面でGoogleアカウントを連携してください。') }}
+      <div class="card-body">
+        <label for="session-account" class="form-label">{{ _('Google account for the new session') }}</label>
+        <div class="input-group">
+          {% set has_multiple_accounts = google_accounts|length > 1 %}
+          <select id="session-account" class="form-select" {% if not google_accounts %}disabled{% endif %}>
+            {% if not google_accounts %}
+              <option value="" selected disabled>{{ _('No Google accounts are linked yet') }}</option>
+            {% else %}
+              <option value="" disabled {% if has_multiple_accounts %}selected{% endif %}>{{ _('Select an account') }}</option>
+              {% for account in google_accounts %}
+                <option value="{{ account.id }}" {% if not has_multiple_accounts and loop.first %}selected{% endif %}>{{ account.email }}</option>
+              {% endfor %}
+            {% endif %}
+          </select>
+          <button id="create-session-btn" class="btn btn-success" {% if not google_accounts %}disabled{% endif %}>
+            <i class="bi bi-plus-circle me-1"></i>{{ _('Create new session') }}
+          </button>
         </div>
-      {% endif %}
-    </div>
-
-    <div class="d-flex flex-wrap gap-2">
-      <button id="refresh-sessions" class="btn btn-outline-primary">
-        <i id="refresh-icon" class="fas fa-refresh"></i> {{ _('Refresh') }}
-      </button>
-
-      <!-- ローカルインポートボタン -->
-      <a href="#" id="local-import-btn" class="btn btn-outline-info"
-         data-import-display="{{ local_import_info.import.display or '' }}"
-         data-import-absolute="{{ local_import_info.import.absolute or '' }}"
-         data-import-realpath="{{ local_import_info.import.realpath or '' }}"
-         data-import-exists="{{ '1' if local_import_info.import.exists else '0' }}"
-         data-destination-display="{{ local_import_info.originals.display or '' }}"
-         data-destination-absolute="{{ local_import_info.originals.absolute or '' }}"
-         data-destination-realpath="{{ local_import_info.originals.realpath or '' }}"
-         data-destination-exists="{{ '1' if local_import_info.originals.exists else '0' }}">
-        <i class="bi bi-folder-plus"></i> ローカルインポート
-      </a>
-
-      <!-- メディアギャラリーリンク -->
-      <a href="{{ url_for('photo_view.media_list') }}" class="btn btn-primary">
-        <i class="fas fa-images"></i> {{ _('View Media Gallery') }}
-      </a>
-
-      <!-- アルバムリンク -->
-      <a href="{{ url_for('photo_view.albums') }}" class="btn btn-outline-success">
-        <i class="fas fa-folder"></i> {{ _('Albums') }}
-      </a>
-    </div>
-
-    <!-- 設定リンク -->
-    <div class="ms-auto d-flex flex-wrap gap-2 align-items-center">
-      <a href="{{ url_for('photo_view.settings') }}" class="btn btn-outline-secondary">
-        設定
-      </a>
-      {% if is_admin %}
-      <span class="badge bg-warning text-dark">{{ _('Admin tools available') }}</span>
-      {% endif %}
+        {% if not google_accounts %}
+          <div class="form-text text-muted mt-2">
+            {{ _('Link a Google account from the admin console before creating a new session.') }}
+          </div>
+        {% endif %}
+      </div>
     </div>
   </div>
 
-  {% if local_import_info.import.display %}
-    <div class="mt-2 text-muted small">
-      {{ _('ローカルインポート対象') }}:
+  <div class="col-xl-5">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h2 class="h6 mb-0">{{ _('Quick actions') }}</h2>
+        <span class="text-muted small">{{ _('Everything you need for day-to-day work') }}</span>
+      </div>
+      <div class="card-body d-flex flex-column gap-2">
+        <button id="refresh-sessions" class="btn btn-outline-primary d-flex align-items-center justify-content-center">
+          <i id="refresh-icon" class="fas fa-arrows-rotate me-2"></i>{{ _('Refresh sessions') }}
+        </button>
+        <button type="button" id="local-import-btn" class="btn btn-outline-info d-flex align-items-center justify-content-center"
+                data-import-display="{{ local_import_info.import.display or '' }}"
+                data-import-absolute="{{ local_import_info.import.absolute or '' }}"
+                data-import-realpath="{{ local_import_info.import.realpath or '' }}"
+                data-import-exists="{{ '1' if local_import_info.import.exists else '0' }}"
+                data-destination-display="{{ local_import_info.originals.display or '' }}"
+                data-destination-absolute="{{ local_import_info.originals.absolute or '' }}"
+                data-destination-realpath="{{ local_import_info.originals.realpath or '' }}"
+                data-destination-exists="{{ '1' if local_import_info.originals.exists else '0' }}">
+          <i class="bi bi-folder-plus me-2"></i>{{ _('Start local import') }}
+        </button>
+        <a href="{{ url_for('photo_view.media_list') }}" class="btn btn-primary d-flex align-items-center justify-content-center">
+          <i class="fas fa-images me-2"></i>{{ _('Open media gallery') }}
+        </a>
+        <a href="{{ url_for('photo_view.albums') }}" class="btn btn-outline-success d-flex align-items-center justify-content-center">
+          <i class="fas fa-folder me-2"></i>{{ _('Browse albums') }}
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if local_import_info.import.display %}
+  <div class="alert alert-light border small" role="status">
+    <div class="fw-semibold mb-1">{{ _('Local import paths') }}</div>
+    <div>
+      {{ _('Local import source') }}:
       <code>{{ local_import_info.import.display }}</code>
       {% if local_import_info.import.absolute and local_import_info.import.absolute != local_import_info.import.display %}
-        <span class="ms-1">({{ _('設定値') }}: <code>{{ local_import_info.import.absolute }}</code>)</span>
+        <span class="ms-1">({{ _('Configured value') }}: <code>{{ local_import_info.import.absolute }}</code>)</span>
       {% elif local_import_info.import.raw and local_import_info.import.raw != local_import_info.import.display %}
-        <span class="ms-1">({{ _('設定値') }}: <code>{{ local_import_info.import.raw }}</code>)</span>
+        <span class="ms-1">({{ _('Configured value') }}: <code>{{ local_import_info.import.raw }}</code>)</span>
       {% endif %}
       {% if not local_import_info.import.exists %}
-        <span class="ms-1 text-danger">{{ _('未検出') }}</span>
+        <span class="ms-1 text-danger">{{ _('Not found') }}</span>
       {% endif %}
-      <br>
-      {{ _('保存先') }}:
+    </div>
+    <div class="mt-1">
+      {{ _('Destination') }}:
       {% if local_import_info.originals.display %}
         <code>{{ local_import_info.originals.display }}</code>
         {% if local_import_info.originals.absolute and local_import_info.originals.absolute != local_import_info.originals.display %}
-          <span class="ms-1">({{ _('設定値') }}: <code>{{ local_import_info.originals.absolute }}</code>)</span>
+          <span class="ms-1">({{ _('Configured value') }}: <code>{{ local_import_info.originals.absolute }}</code>)</span>
         {% elif local_import_info.originals.raw and local_import_info.originals.raw != local_import_info.originals.display %}
-          <span class="ms-1">({{ _('設定値') }}: <code>{{ local_import_info.originals.raw }}</code>)</span>
+          <span class="ms-1">({{ _('Configured value') }}: <code>{{ local_import_info.originals.raw }}</code>)</span>
         {% endif %}
         {% if not local_import_info.originals.exists %}
-          <span class="ms-1 text-danger">{{ _('未検出') }}</span>
+          <span class="ms-1 text-danger">{{ _('Not found') }}</span>
         {% endif %}
       {% else %}
-        <span class="text-warning">{{ _('保存先ディレクトリが設定されていません。') }}</span>
+        <span class="text-warning">{{ _('No destination directory configured.') }}</span>
       {% endif %}
     </div>
-  {% endif %}
-</div>
+  </div>
+{% endif %}
 
 <div class="mt-4">
   <h2>{{ _('All Picker Sessions') }}</h2>
@@ -126,7 +142,7 @@
           </tr>
         </thead>
         <tbody id="sessions-body">
-          <!-- セッションが動的に追加されます -->
+          <!-- Sessions will be added dynamically -->
         </tbody>
       </table>
     </div>
@@ -155,14 +171,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const accountSelect = document.getElementById('session-account');
   const localImportBtn = document.getElementById('local-import-btn');
 
-  const selectAccountMessage = '{{ _('先にGoogleアカウントを選択してください。') }}';
-  const localImportPromptHeader = '{{ _('以下のディレクトリからローカルインポートを開始しますか？') }}';
-  const localImportSourceLabel = '{{ _('取り込み元') }}';
-  const localImportDestinationLabel = '{{ _('保存先') }}';
-  const localImportResolvedLabel = '{{ _('解決パス') }}';
-  const localImportMissingLabel = '{{ _('未検出') }}';
-  const localImportRemovalNotice = '{{ _('取り込み後、元のディレクトリからファイルは削除されます。') }}';
-  const localImportDestinationUnset = '{{ _('保存先ディレクトリが設定されていません。') }}';
+  const selectAccountMessage = '{{ _('Please choose a Google account first.') }}';
+  const localImportPromptHeader = '{{ _('Start a local import from the following directories?') }}';
+  const localImportSourceLabel = '{{ _('Source') }}';
+  const localImportDestinationLabel = '{{ _('Destination') }}';
+  const localImportResolvedLabel = '{{ _('Resolved path') }}';
+  const localImportMissingLabel = '{{ _('Not found') }}';
+  const localImportRemovalNotice = '{{ _('Files will be removed from the original directory after import completes.') }}';
+  const localImportDestinationUnset = '{{ _('No destination directory configured.') }}';
+  const localImportStartingNotice = '{{ _('Starting local import...') }}';
+  const localImportSuccessNotice = '{{ _('Local import has started. Track the progress in the session list.') }}';
+  const localImportErrorNotice = '{{ _('Failed to start the local import.') }}';
+  const startingImportNotice = '{{ _('Starting import...') }}';
 
   let totalLoaded = 0;
   const sessionsLoadedLabel = '{{ _('sessions loaded') }}';
@@ -282,12 +302,12 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const paginationClient = new PaginationClient({
       baseUrl: '/api/picker/sessions',
-      pageSize: 50, // セッションは1ページ50件程度で十分
+      pageSize: 50, // Fetch up to 50 sessions per page
       onItemsLoaded: (items, meta) => {
         if (meta.currentPage === 1) {
           sessionsBody.innerHTML = '';
           totalLoaded = 0;
-          // ローディングアイコンを停止
+          // Stop the loading animation
           if (refreshIcon) {
             refreshIcon.style.animation = '';
             refreshIcon.classList.remove('fa-spin');
@@ -309,7 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
       onError: (error) => {
         console.error('Sessions loading error:', error);
 
-        // 認証エラーの場合はログインページにリダイレクト
+        // Redirect to login when authentication fails
         if (error.status === 401 || error.status === 302) {
           window.location.href = '/auth/login?next=' + encodeURIComponent(window.location.pathname);
           return;
@@ -320,13 +340,13 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // 最初のページを読み込み
+    // Load the initial page
     paginationClient.loadFirst();
   }
 
   window.startImport = async function(sessionId) {
     try {
-      showInfoToast('インポートを開始しています...', 3000);
+      showInfoToast(startingImportNotice, 3000);
 
       const resp = await window.apiClient.post(`/api/picker/session/${sessionId}/import`);
 
@@ -338,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       showSuccessToast('{{ _("Import started.") }}', 5000);
-      // セッション一覧を再読み込み
+      // Reload the session list
       refreshSessions();
     } catch (err) {
       console.error(err);
@@ -347,7 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   function refreshSessions() {
-    // リフレッシュ開始時にローディングアイコンを回転させる
+    // Spin the refresh icon while reloading
     const refreshIcon = document.getElementById('refresh-icon');
     if (refreshIcon) {
       refreshIcon.classList.add('fa-spin');
@@ -355,7 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeInfiniteScroll();
   }
 
-  // 更新ボタンの処理
+  // Refresh button handler
   refreshBtn.addEventListener('click', refreshSessions);
 
   if (accountSelect) {
@@ -391,7 +411,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ローカルインポートボタンの処理
+  // Local import button handler
   if (localImportBtn) {
     localImportBtn.addEventListener('click', async (e) => {
       e.preventDefault();
@@ -433,54 +453,53 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       try {
-        // インポート開始の通知
-        showInfoToast('ローカルインポートを開始しています...', 3000);
+        // Notify that the import is starting
+        showInfoToast(localImportStartingNotice, 3000);
 
         const resp = await window.apiClient.post('/api/sync/local-import');
 
         if (!resp.ok) {
           const text = await resp.text().catch(() => '');
           console.error('Local import failed:', resp.status, text);
-          showErrorToast('ローカルインポートの開始に失敗しました。');
+          showErrorToast(localImportErrorNotice);
           return;
         }
 
         await resp.json();
-        showSuccessToast('ローカルインポートを開始しました。セッション一覧で進行状況を確認できます。', 8000);
+        showSuccessToast(localImportSuccessNotice, 8000);
 
-        // セッション一覧を自動更新
+        // Automatically refresh the session list
         setTimeout(() => {
           refreshSessions();
         }, 2000);
       } catch (err) {
         console.error(err);
-        showErrorToast('ローカルインポートの開始に失敗しました。');
+        showErrorToast(localImportErrorNotice);
       }
     });
   }
 
-  // 認証状態をチェックし、必要に応じてリダイレクト
+  // Check authentication status and redirect when necessary
   function checkAuthAndRedirect() {
-    // APIクライアントが自動的に認証チェックとリフレッシュを処理するため、
-    // 単純なAPIコールを行うだけで十分
+    // A simple API call is enough because the API client handles refresh tokens
     window.apiClient.get('/api/picker/sessions', {
       method: 'HEAD'
     }).then(response => {
       if (response.status === 401 || response.status === 302) {
-        // 認証が必要な場合はログインページにリダイレクト
+        // Redirect to login when authentication is required
         window.location.href = '/auth/login?next=' + encodeURIComponent(window.location.pathname);
       }
     }).catch(error => {
       console.warn('Auth check failed:', error);
-      // ネットワークエラーの場合は継続
+      // Ignore network errors
     });
   }
 
-  // 初期化
+  // Initialise the page
   checkAuthAndRedirect();
   initializeInfiniteScroll();
-  
-  // 定期的に更新（5秒ごと）
+
+  // Periodically refresh (every five seconds)
   setInterval(refreshSessions, 5000);
 });
 </script>

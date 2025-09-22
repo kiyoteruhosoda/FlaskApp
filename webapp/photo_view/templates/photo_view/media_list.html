@@ -133,6 +133,38 @@
     align-items: center;
     gap: 5px;
   }
+
+  .size-control .form-range {
+    width: 110px;
+    accent-color: #0d6efd;
+  }
+
+  .size-control .form-range:focus {
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
+  }
+
+  .size-control .form-range::-webkit-slider-runnable-track {
+    background: linear-gradient(90deg, #0d6efd 0%, #6ea8fe 100%);
+    height: 0.35rem;
+    border-radius: 999px;
+  }
+
+  .size-control .form-range::-webkit-slider-thumb {
+    margin-top: -6px;
+    background-color: #0a58ca;
+    border: 2px solid #ffffff;
+  }
+
+  .size-control .form-range::-moz-range-track {
+    background: linear-gradient(90deg, #0d6efd 0%, #6ea8fe 100%);
+    height: 0.35rem;
+    border-radius: 999px;
+  }
+
+  .size-control .form-range::-moz-range-thumb {
+    background-color: #0a58ca;
+    border: 2px solid #ffffff;
+  }
   
   .media-grid {
     display: grid;

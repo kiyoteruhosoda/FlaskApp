@@ -14,6 +14,7 @@ from flask_babel import gettext as _
 from .extensions import db, migrate, login_manager, babel
 from .timezone import resolve_timezone, convert_to_timezone
 from core.db_log_handler import DBLogHandler
+from core.logging_config import ensure_appdb_file_logging
 
 # エラーハンドラ
 from werkzeug.exceptions import HTTPException
@@ -113,6 +114,8 @@ def create_app():
         db_handler = DBLogHandler(app=app)
         db_handler.setLevel(logging.INFO)
         app.logger.addHandler(db_handler)
+
+    ensure_appdb_file_logging(app.logger)
     
     # デバッグモードでは詳細ログを有効化
     if app.debug:

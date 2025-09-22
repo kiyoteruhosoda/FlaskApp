@@ -1,5 +1,6 @@
 """Session recovery tasks for cleaning up stale processing sessions."""
 
+import json
 from datetime import datetime, timedelta
 from core.models.picker_session import PickerSession
 from core.db import db
@@ -32,11 +33,13 @@ def cleanup_stale_sessions():
         inspect = celery.control.inspect()
         active_tasks = inspect.active()
         active_session_ids = set()
-        
+        active_task_details = []
+
         if active_tasks:
             for worker_name, tasks in active_tasks.items():
                 for task in tasks:
                     # タスクの引数からsession_idを抽出
+                    session_id = None
                     if task.get('args') and len(task['args']) > 0:
                         try:
                             # local_import_task_celery(session_id) の場合
@@ -44,9 +47,29 @@ def cleanup_stale_sessions():
                             if isinstance(session_id, str):
                                 active_session_ids.add(session_id)
                         except (IndexError, TypeError):
-                            pass
-        
-        logger.info(f"Active Celery tasks with session IDs: {active_session_ids}")
+                            session_id = None
+
+                    task_summary = {
+                        'worker': worker_name,
+                        'task_name': task.get('name'),
+                        'task_id': task.get('id'),
+                        'session_id': session_id,
+                        'args': task.get('args', []),
+                    }
+                    active_task_details.append(task_summary)
+        logger.info(
+            json.dumps(
+                {
+                    'message': 'Active Celery tasks snapshot',
+                    'active_task_count': len(active_task_details),
+                    'active_session_ids': sorted(active_session_ids),
+                    'tasks': active_task_details,
+                },
+                ensure_ascii=False,
+                default=str,
+            ),
+            extra={'event': 'session_recovery'},
+        )
         
         # 各タイプのタイムアウト時間を定義
         timeout_configs = {
@@ -82,12 +105,34 @@ def cleanup_stale_sessions():
             for session in stale_sessions:
                 # Celeryで実際に実行中の場合はスキップ
                 if session.session_id in active_session_ids:
-                    logger.info(f"Session {session.session_id} is actively running in Celery, skipping")
+                    logger.info(
+                        json.dumps(
+                            {
+                                'message': 'Session still active in Celery, skipping cleanup',
+                                'session_id': session.session_id,
+                                'session_type': session_type,
+                            },
+                            ensure_ascii=False,
+                            default=str,
+                        ),
+                        extra={'event': 'session_recovery'},
+                    )
                     continue
-                
-                logger.warning(f"Cleaning up stale session {session.session_id} "
-                             f"(type: {session_type}, last_updated: {session.updated_at}, "
-                             f"timeout: {timeout_delta})")
+
+                logger.warning(
+                    json.dumps(
+                        {
+                            'message': 'Cleaning up stale session',
+                            'session_id': session.session_id,
+                            'session_type': session_type,
+                            'last_updated': session.updated_at,
+                            'timeout_seconds': int(timeout_delta.total_seconds()),
+                        },
+                        ensure_ascii=False,
+                        default=str,
+                    ),
+                    extra={'event': 'session_recovery'},
+                )
                 
                 session.status = 'error'
                 session.error_message = (
@@ -108,7 +153,18 @@ def cleanup_stale_sessions():
         
         if total_updated > 0:
             db.session.commit()
-            logger.warning(f"Session recovery: Updated {total_updated} stale sessions to error state")
+            logger.warning(
+                json.dumps(
+                    {
+                        'message': 'Session recovery updated stale sessions to error state',
+                        'updated_count': total_updated,
+                        'sessions': updated_sessions,
+                    },
+                    ensure_ascii=False,
+                    default=str,
+                ),
+                extra={'event': 'session_recovery'},
+            )
             return {
                 "ok": True,
                 "updated_count": total_updated,
@@ -116,16 +172,35 @@ def cleanup_stale_sessions():
                 "details": updated_sessions
             }
         else:
-            logger.debug("Session recovery: No stale sessions found")
+            logger.debug(
+                json.dumps(
+                    {
+                        'message': 'Session recovery found no stale sessions',
+                        'active_session_ids': sorted(active_session_ids),
+                    },
+                    ensure_ascii=False,
+                    default=str,
+                ),
+                extra={'event': 'session_recovery'},
+            )
             return {
                 "ok": True,
                 "updated_count": 0,
                 "message": "クリーンアップが必要なセッションはありませんでした",
                 "details": []
             }
-            
+
     except Exception as e:
-        logger.error(f"Session recovery failed: {e}")
+        logger.error(
+            json.dumps(
+                {
+                    'message': 'Session recovery failed',
+                    'error': str(e),
+                },
+                ensure_ascii=False,
+            ),
+            extra={'event': 'session_recovery'},
+        )
         db.session.rollback()
         return {
             "ok": False,
@@ -246,7 +321,19 @@ def force_cleanup_all_processing_sessions():
         
         updated_count = 0
         for session in processing_sessions:
-            logger.warning(f"Force cleaning session {session.id}")
+            logger.warning(
+                json.dumps(
+                    {
+                        'message': 'Force cleaning session',
+                        'session_db_id': session.id,
+                        'session_id': session.session_id,
+                        'status_before': session.status,
+                    },
+                    ensure_ascii=False,
+                    default=str,
+                ),
+                extra={'event': 'session_recovery'},
+            )
             session.status = 'error'
             session.error_message = (
                 '強制クリーンアップによりセッションが終了されました。'
@@ -254,19 +341,37 @@ def force_cleanup_all_processing_sessions():
             )
             session.updated_at = datetime.now()
             updated_count += 1
-        
+
         if updated_count > 0:
             db.session.commit()
-            logger.warning(f"Force cleanup: Updated {updated_count} sessions to error state")
-        
+            logger.warning(
+                json.dumps(
+                    {
+                        'message': 'Force cleanup completed',
+                        'updated_count': updated_count,
+                    },
+                    ensure_ascii=False,
+                ),
+                extra={'event': 'session_recovery'},
+            )
+
         return {
             "ok": True,
             "updated_count": updated_count,
             "message": f"{updated_count}個のセッションを強制的にクリーンアップしました"
         }
-        
+
     except Exception as e:
-        logger.error(f"Force cleanup failed: {e}")
+        logger.error(
+            json.dumps(
+                {
+                    'message': 'Force cleanup failed',
+                    'error': str(e),
+                },
+                ensure_ascii=False,
+            ),
+            extra={'event': 'session_recovery'},
+        )
         db.session.rollback()
         return {
             "ok": False,

@@ -528,7 +528,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const albumCoverPlaceholder = document.getElementById('album-cover-placeholder');
   const selectedMediaList = document.getElementById('selected-media-list');
   const selectedMediaCount = document.getElementById('selected-media-count');
-  const clearSelectionBtn = document.getElementById('album-clear-selection');
   const tagFilterInput = document.getElementById('album-tag-filter-input');
   const tagSuggestions = document.getElementById('album-tag-suggestions');
   const selectedTagsContainer = document.getElementById('album-selected-tags');
@@ -536,6 +535,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const filterAfterInput = document.getElementById('album-filter-after');
   const filterBeforeInput = document.getElementById('album-filter-before');
   const mediaTypeInputs = document.querySelectorAll('input[name="album-media-type"]');
+  const selectionFilterInputs = document.querySelectorAll('input[name="album-selection-filter"]');
+  const selectionFilterAllInput = document.getElementById('album-selection-all');
   const applyFilterBtn = document.getElementById('apply-media-filter');
   const resetFilterBtn = document.getElementById('album-reset-filters');
   const selectAllVisibleBtn = document.getElementById('album-select-all-visible');
@@ -545,6 +546,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const albumMediaLoading = document.getElementById('album-media-loading');
   const albumMediaEmpty = document.getElementById('album-media-empty');
   const albumMediaEnd = document.getElementById('album-media-end');
+  const defaultMediaEmptyMessage = albumMediaEmpty ? albumMediaEmpty.textContent : '';
 
   const strings = {
     albumCreated: "{{ _('Album created successfully.')|escapejs }}",
@@ -555,6 +557,7 @@ document.addEventListener('DOMContentLoaded', () => {
     filterApplyError: "{{ _('Failed to load media for the selected filters.')|escapejs }}",
     nameRequired: "{{ _('Album title is required.')|escapejs }}",
     noSelection: "{{ _('No media selected')|escapejs }}",
+    noUnselectedMatches: "{{ _('No unselected media matches the current filters.')|escapejs }}",
     selectedCountSingular: "{{ ngettext('%(count)s media selected', '%(count)s media selected', 1, count='%(count)s')|escapejs }}",
     selectedCountPlural: "{{ ngettext('%(count)s media selected', '%(count)s media selected', 2, count='%(count)s')|escapejs }}",
     albumsLoadedSingular: "{{ ngettext('%(count)s album loaded', '%(count)s albums loaded', 1, count='%(count)s')|escapejs }}",
@@ -581,6 +584,7 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedMedia: new Map(),
     mediaCache: new Map(),
     coverMediaId: null,
+    selectionFilter: 'all',
     tagFilters: [],
     mediaPagination: null,
     mediaInfiniteScroll: null,
@@ -741,6 +745,20 @@ document.addEventListener('DOMContentLoaded', () => {
     return formatCount(strings.mediaCountSingular, strings.mediaCountPlural, count);
   }
 
+  function updateMediaEmptyMessage() {
+    if (!albumMediaEmpty) {
+      return;
+    }
+
+    if (albumState.selectionFilter === 'selected') {
+      albumMediaEmpty.textContent = strings.noSelection;
+    } else if (albumState.selectionFilter === 'unselected') {
+      albumMediaEmpty.textContent = strings.noUnselectedMatches;
+    } else {
+      albumMediaEmpty.textContent = defaultMediaEmptyMessage;
+    }
+  }
+
   function serializeMediaForState(media) {
     if (!media) {
       return null;
@@ -796,17 +814,34 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderSelectedMedia() {
-    selectedMediaList.innerHTML = '';
     const entries = Array.from(albumState.selectedMedia.entries());
 
+    if (selectedMediaList) {
+      selectedMediaList.innerHTML = '';
+    }
+
     if (entries.length === 0) {
-      selectedMediaCount.textContent = strings.noSelection;
+      if (selectedMediaCount) {
+        selectedMediaCount.textContent = strings.noSelection;
+      }
       updateCoverOptions();
       scheduleMediaScrollAdjustment();
       return;
     }
 
-    selectedMediaCount.textContent = formatCount(strings.selectedCountSingular, strings.selectedCountPlural, entries.length);
+    if (selectedMediaCount) {
+      selectedMediaCount.textContent = formatCount(
+        strings.selectedCountSingular,
+        strings.selectedCountPlural,
+        entries.length
+      );
+    }
+
+    if (!selectedMediaList) {
+      updateCoverOptions();
+      scheduleMediaScrollAdjustment();
+      return;
+    }
 
     entries.forEach(([id, media]) => {
       const item = document.createElement('div');
@@ -841,6 +876,93 @@ document.addEventListener('DOMContentLoaded', () => {
     scheduleMediaScrollAdjustment();
   }
 
+  function renderSelectedOnlyView() {
+    if (!albumMediaGrid) {
+      return;
+    }
+
+    albumState.mediaInfiniteScroll?.stop();
+    albumState.mediaPagination?.reset?.();
+    albumMediaGrid.innerHTML = '';
+    albumState.mediaCache.clear();
+    albumMediaLoading?.classList.add('d-none');
+    albumMediaEnd?.classList.add('d-none');
+
+    updateMediaEmptyMessage();
+
+    const items = Array.from(albumState.selectedMedia.values());
+
+    if (items.length === 0) {
+      albumMediaEmpty?.classList.remove('d-none');
+      scheduleMediaScrollAdjustment();
+      return;
+    }
+
+    albumMediaEmpty?.classList.add('d-none');
+
+    items.forEach((media) => {
+      if (media && typeof media.id === 'number') {
+        albumState.mediaCache.set(media.id, media);
+      }
+      const tile = buildMediaTile(media);
+      albumMediaGrid.appendChild(tile);
+    });
+
+    updateMediaTileSelectionState();
+    scheduleMediaScrollAdjustment();
+  }
+
+  function renderMediaGridFromPagination(meta) {
+    if (!albumMediaGrid || !albumState.mediaPagination) {
+      return;
+    }
+
+    const allItems = albumState.mediaPagination.items || [];
+    allItems.forEach((item) => {
+      if (item && typeof item.id !== 'undefined') {
+        albumState.mediaCache.set(Number(item.id), item);
+      }
+    });
+
+    updateMediaEmptyMessage();
+
+    let itemsToRender = allItems;
+    if (albumState.selectionFilter === 'unselected') {
+      itemsToRender = allItems.filter((item) => !albumState.selectedMedia.has(Number(item.id)));
+    }
+
+    albumMediaGrid.innerHTML = '';
+
+    itemsToRender.forEach((item) => {
+      const tile = buildMediaTile(item);
+      albumMediaGrid.appendChild(tile);
+    });
+
+    if (itemsToRender.length === 0) {
+      if (albumState.selectionFilter === 'unselected' && albumState.mediaPagination.hasNext) {
+        albumMediaEmpty?.classList.add('d-none');
+        window.setTimeout(() => {
+          if (albumState.selectionFilter === 'unselected') {
+            albumState.mediaPagination.loadNext();
+          }
+        }, 0);
+      } else if (albumMediaEmpty) {
+        albumMediaEmpty.classList.remove('d-none');
+      }
+    } else {
+      albumMediaEmpty?.classList.add('d-none');
+    }
+
+    if (!meta.hasNext && itemsToRender.length > 0) {
+      albumMediaEnd.classList.remove('d-none');
+    } else {
+      albumMediaEnd.classList.add('d-none');
+    }
+
+    updateMediaTileSelectionState();
+    scheduleMediaScrollAdjustment();
+  }
+
   function updateMediaTileSelectionState() {
     const tiles = albumMediaGrid.querySelectorAll('.album-media-tile');
     tiles.forEach((tile) => {
@@ -870,6 +992,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     renderSelectedMedia();
     updateMediaTileSelectionState();
+    if (albumState.selectionFilter !== 'all') {
+      reloadMediaLibrary();
+    }
   }
 
   function buildMediaTile(media) {
@@ -913,6 +1038,10 @@ document.addEventListener('DOMContentLoaded', () => {
     filterAfterInput.value = '';
     filterBeforeInput.value = '';
     document.getElementById('album-type-all').checked = true;
+    if (selectionFilterAllInput) {
+      selectionFilterAllInput.checked = true;
+    }
+    albumState.selectionFilter = 'all';
     renderSelectedTags();
   }
 
@@ -952,30 +1081,15 @@ document.addEventListener('DOMContentLoaded', () => {
       autoLoad: false,
       parameters: buildMediaQueryParams(),
       onItemsLoaded: (items, meta) => {
+        if (albumState.selectionFilter === 'selected') {
+          return;
+        }
+
         if (meta.isFirstPage) {
-          albumMediaGrid.innerHTML = '';
           albumState.mediaCache.clear();
-          albumMediaEmpty.classList.add('d-none');
         }
 
-        if (items.length === 0 && meta.isFirstPage) {
-          albumMediaEmpty.classList.remove('d-none');
-        }
-
-        items.forEach((item) => {
-          albumState.mediaCache.set(Number(item.id), item);
-          const tile = buildMediaTile(item);
-          albumMediaGrid.appendChild(tile);
-        });
-
-        if (!meta.hasNext && albumState.mediaPagination.items.length > 0) {
-          albumMediaEnd.classList.remove('d-none');
-        } else {
-          albumMediaEnd.classList.add('d-none');
-        }
-
-        updateMediaTileSelectionState();
-        scheduleMediaScrollAdjustment();
+        renderMediaGridFromPagination(meta);
       },
       onError: (error) => {
         console.error('Media load error', error);
@@ -995,8 +1109,20 @@ document.addEventListener('DOMContentLoaded', () => {
   async function reloadMediaLibrary() {
     ensureMediaBrowserInitialized();
     const params = buildMediaQueryParams();
+
+    if (albumState.mediaPagination) {
+      albumState.mediaPagination.defaultParams = params;
+    }
+
+    updateMediaEmptyMessage();
+
+    if (albumState.selectionFilter === 'selected') {
+      renderSelectedOnlyView();
+      return;
+    }
+
     albumMediaEnd.classList.add('d-none');
-    albumMediaEmpty.classList.add('d-none');
+    albumMediaEmpty?.classList.add('d-none');
     try {
       await albumState.mediaInfiniteScroll.start(params);
       scheduleMediaScrollAdjustment();
@@ -1102,15 +1228,20 @@ document.addEventListener('DOMContentLoaded', () => {
     albumForm.reset();
     albumState.selectedMedia = new Map();
     albumState.coverMediaId = null;
+    albumState.selectionFilter = 'all';
     albumState.tagFilters = [];
     albumState.mediaCache.clear();
     albumMediaGrid.innerHTML = '';
     albumMediaEmpty.classList.add('d-none');
     albumMediaEnd.classList.add('d-none');
+    if (selectionFilterAllInput) {
+      selectionFilterAllInput.checked = true;
+    }
     renderSelectedTags();
     renderSelectedMedia();
     updateCoverOptions();
     albumFormStatus.textContent = '';
+    updateMediaEmptyMessage();
     scheduleMediaScrollAdjustment();
   }
 
@@ -1385,30 +1516,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   albumForm.addEventListener('submit', saveAlbum);
 
-  clearSelectionBtn.addEventListener('click', () => {
-    albumState.selectedMedia.clear();
-    albumState.coverMediaId = null;
-    renderSelectedMedia();
-    updateMediaTileSelectionState();
-  });
-
   albumCoverSelect.addEventListener('change', () => {
     albumState.coverMediaId = albumCoverSelect.value ? Number(albumCoverSelect.value) : null;
     updateCoverPreview();
-  });
-
-  selectedMediaList.addEventListener('click', (event) => {
-    const button = event.target.closest('.selected-media-remove');
-    if (!button) return;
-    const mediaId = Number(button.dataset.mediaId);
-    if (albumState.selectedMedia.has(mediaId)) {
-      albumState.selectedMedia.delete(mediaId);
-      if (albumState.coverMediaId === mediaId) {
-        albumState.coverMediaId = null;
-      }
-      renderSelectedMedia();
-      updateMediaTileSelectionState();
-    }
   });
 
   selectAllVisibleBtn.addEventListener('click', () => {
@@ -1420,6 +1530,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     renderSelectedMedia();
     updateMediaTileSelectionState();
+    if (albumState.selectionFilter !== 'all') {
+      reloadMediaLibrary();
+    }
   });
 
   deselectAllVisibleBtn.addEventListener('click', () => {
@@ -1433,6 +1546,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     renderSelectedMedia();
     updateMediaTileSelectionState();
+    if (albumState.selectionFilter !== 'all') {
+      reloadMediaLibrary();
+    }
+  });
+
+  Array.from(selectionFilterInputs).forEach((input) => {
+    input.addEventListener('change', () => {
+      if (!input.checked) {
+        return;
+      }
+      albumState.selectionFilter = input.value;
+      updateMediaEmptyMessage();
+      reloadMediaLibrary();
+    });
   });
 
   applyFilterBtn.addEventListener('click', reloadMediaLibrary);

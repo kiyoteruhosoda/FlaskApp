@@ -78,6 +78,33 @@ def login(client):
     )
 
 
+def grant_permission(app, code: str) -> None:
+    from webapp.extensions import db
+    from core.models.user import User, Role, Permission
+
+    with app.app_context():
+        perm = Permission.query.filter_by(code=code).first()
+        if not perm:
+            perm = Permission(code=code)
+            db.session.add(perm)
+            db.session.flush()
+
+        role = Role.query.filter_by(name="tag-manager").first()
+        if not role:
+            role = Role(name="tag-manager")
+            db.session.add(role)
+            db.session.flush()
+
+        if perm not in role.permissions:
+            role.permissions.append(perm)
+
+        user = User.query.first()
+        if role not in user.roles:
+            user.roles.append(role)
+
+        db.session.commit()
+
+
 def make_token(payload: dict) -> str:
     canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
     key = base64.urlsafe_b64decode(os.environ["FPV_DL_SIGN_KEY"])
@@ -186,6 +213,79 @@ def seed_media_range(app):
         )
         db.session.add_all([m1, m2, m3])
         db.session.commit()
+
+
+@pytest.fixture
+def seed_media_with_tags(app):
+    from webapp.extensions import db
+    from core.models.photo_models import Media, Tag
+
+    with app.app_context():
+        tag_person = Tag(name="Alice", attr="person")
+        tag_place = Tag(name="Paris", attr="place")
+        tag_thing = Tag(name="Camera", attr="thing")
+
+        base_time = datetime(2025, 1, 1, tzinfo=timezone.utc)
+        media1 = Media(
+            google_media_id="tag1",
+            account_id=1,
+            local_rel_path="tag1.jpg",
+            bytes=1,
+            mime_type="image/jpeg",
+            width=10,
+            height=10,
+            shot_at=base_time,
+            imported_at=base_time,
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        media2 = Media(
+            google_media_id="tag2",
+            account_id=1,
+            local_rel_path="tag2.jpg",
+            bytes=1,
+            mime_type="image/jpeg",
+            width=10,
+            height=10,
+            shot_at=base_time + timedelta(days=1),
+            imported_at=base_time + timedelta(days=1),
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        media3 = Media(
+            google_media_id="tag3",
+            account_id=1,
+            local_rel_path="tag3.jpg",
+            bytes=1,
+            mime_type="image/jpeg",
+            width=10,
+            height=10,
+            shot_at=base_time + timedelta(days=2),
+            imported_at=base_time + timedelta(days=2),
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+
+        media1.tags.extend([tag_person, tag_place])
+        media2.tags.append(tag_person)
+        media3.tags.append(tag_thing)
+
+        db.session.add_all([tag_person, tag_place, tag_thing, media1, media2, media3])
+        db.session.commit()
+
+        return {
+            "media1": media1.id,
+            "media2": media2.id,
+            "media3": media3.id,
+            "tags": {
+                "person": tag_person.id,
+                "place": tag_place.id,
+                "thing": tag_thing.id,
+            },
+        }
 
 
 @pytest.fixture
@@ -433,6 +533,7 @@ def test_detail_ok(client, seed_media_detail):
     assert data["sidecars"]
     assert data["playback"]["available"] is True
     assert data["serverTime"].endswith("Z") and "T" in data["serverTime"]
+    assert "tags" in data
 
 
 def test_detail_404(client):
@@ -441,6 +542,95 @@ def test_detail_404(client):
     assert res.status_code == 404
 
 
+def test_media_list_filters_by_tags(client, seed_media_with_tags):
+    login(client)
+    person_tag = seed_media_with_tags["tags"]["person"]
+    res = client.get(f"/api/media?tags={person_tag}")
+    assert res.status_code == 200
+    data = res.get_json()
+    ids = {item["id"] for item in data["items"]}
+    assert seed_media_with_tags["media1"] in ids
+    assert seed_media_with_tags["media2"] in ids
+    assert seed_media_with_tags["media3"] not in ids
+    assert all("tags" in item for item in data["items"])
+
+    place_tag = seed_media_with_tags["tags"]["place"]
+    res = client.get(f"/api/media?tags={person_tag},{place_tag}")
+    assert res.status_code == 200
+    data = res.get_json()
+    ids = {item["id"] for item in data["items"]}
+    assert ids == {seed_media_with_tags["media1"]}
+
+
+def test_media_detail_includes_tags(client, seed_media_with_tags):
+    login(client)
+    media_id = seed_media_with_tags["media1"]
+    res = client.get(f"/api/media/{media_id}")
+    assert res.status_code == 200
+    data = res.get_json()
+    tag_names = {tag["name"] for tag in data["tags"]}
+    assert {"Alice", "Paris"}.issubset(tag_names)
+
+
+def test_media_update_tags_requires_permission(client, seed_media_with_tags):
+    login(client)
+    media_id = seed_media_with_tags["media2"]
+    res = client.put(f"/api/media/{media_id}/tags", json={"tag_ids": []})
+    assert res.status_code == 403
+
+
+def test_media_update_tags_success(client, app, seed_media_with_tags):
+    grant_permission(app, "media:tag-manage")
+    login(client)
+    media_id = seed_media_with_tags["media2"]
+    new_tag = seed_media_with_tags["tags"]["thing"]
+
+    res = client.put(
+        f"/api/media/{media_id}/tags",
+        json={"tag_ids": [new_tag]},
+    )
+    assert res.status_code == 200
+    data = res.get_json()
+    returned_ids = [tag["id"] for tag in data["tags"]]
+    assert returned_ids == [new_tag]
+
+
+def test_create_tag_requires_permission(client, app):
+    login(client)
+    res = client.post("/api/tags", json={"name": "Sunset", "attr": "thing"})
+    assert res.status_code == 403
+
+    grant_permission(app, "media:tag-manage")
+    res = client.post("/api/tags", json={"name": "Sunset", "attr": "thing"})
+    assert res.status_code == 201
+    data = res.get_json()
+    assert data["tag"]["name"] == "Sunset"
+    assert data["created"] is True
+
+    res = client.post("/api/tags", json={"name": "Sunset", "attr": "thing"})
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["created"] is False
+
+
+def test_tag_search_returns_matches(client, seed_media_with_tags):
+    login(client)
+    res = client.get("/api/tags?q=Ali")
+    assert res.status_code == 200
+    data = res.get_json()
+    names = [tag["name"] for tag in data["items"]]
+    assert "Alice" in names
+
+
+def test_update_tag_success(client, app, seed_media_with_tags):
+    grant_permission(app, "media:tag-manage")
+    login(client)
+    tag_id = seed_media_with_tags["tags"]["person"]
+
+    res = client.put(f"/api/tags/{tag_id}", json={"name": "Alison"})
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["tag"]["name"] == "Alison"
 def test_thumb_url_ok(client, seed_thumb_media):
     media_id, _ = seed_thumb_media
     login(client)

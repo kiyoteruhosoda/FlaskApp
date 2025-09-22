@@ -23,6 +23,110 @@
     align-items: center;
     justify-content: flex-end;
   }
+
+  .tag-filter {
+    flex: 1 1 260px;
+    max-width: 420px;
+    position: relative;
+  }
+
+  .tag-filter label {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-bottom: 4px;
+    display: block;
+  }
+
+  .tag-filter-box {
+    position: relative;
+    background: white;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 6px;
+    min-height: 38px;
+  }
+
+  .tag-filter-box:focus-within {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.1);
+  }
+
+  .tag-chip-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .tag-chip-container.empty::before {
+    content: '{{ _('Type to search tags...') }}';
+    color: #adb5bd;
+    font-size: 0.85rem;
+  }
+
+  .tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: #e7f1ff;
+    color: #0d6efd;
+    border-radius: 999px;
+    font-size: 0.8rem;
+  }
+
+  .tag-chip-remove {
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+  }
+
+  .tag-chip-remove:hover {
+    color: #084298;
+  }
+
+  #tag-filter-input {
+    border: none;
+    outline: none;
+    width: 200px;
+    max-width: 100%;
+    font-size: 0.9rem;
+    padding: 6px 2px 0 2px;
+    background: transparent;
+  }
+
+  .tag-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ced4da;
+    border-radius: 0 0 6px 6px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    z-index: 10;
+    max-height: 220px;
+    overflow-y: auto;
+    display: none;
+  }
+
+  .tag-suggestions.visible {
+    display: block;
+  }
+
+  .tag-suggestion-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+
+  .tag-suggestion-item:hover {
+    background: #f1f3f5;
+  }
   
   .size-control {
     display: flex;
@@ -155,7 +259,16 @@
     <h1 class="h3 mb-0">{{ _('Media Gallery') }}</h1>
     <span id="media-count" class="filter-badge">{{ _('Loading...') }}</span>
   </div>
-  
+
+  <div class="tag-filter">
+    <label for="tag-filter-input" class="form-label mb-1">{{ _('Filter by tags') }}</label>
+    <div class="tag-filter-box" id="tag-filter-box">
+      <div id="selected-tag-filters" class="tag-chip-container empty"></div>
+      <input type="text" id="tag-filter-input" placeholder="{{ _('Type to search tags...') }}" autocomplete="off">
+      <div id="tag-filter-suggestions" class="tag-suggestions"></div>
+    </div>
+  </div>
+
   <div class="view-controls">
     <!-- Filter -->
     <select id="type-filter" class="form-select form-select-sm" style="width: auto;">
@@ -207,9 +320,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const sortOrder = document.getElementById('sort-order');
   const refreshBtn = document.getElementById('refresh-btn');
   const mediaCount = document.getElementById('media-count');
-  
+  const tagFilterInput = document.getElementById('tag-filter-input');
+  const tagFilterSuggestions = document.getElementById('tag-filter-suggestions');
+  const selectedTagFiltersContainer = document.getElementById('selected-tag-filters');
+  const tagFilterBox = document.getElementById('tag-filter-box');
+
   let infiniteScroll;
   let totalLoaded = 0;
+  let selectedTagFilters = [];
+  let tagSuggestionTimeout = null;
 
   function formatDateTime(isoString) {
     if (!isoString) return '';
@@ -233,6 +352,133 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${size.toFixed(1)} ${units[unitIndex]}`;
   }
 
+  function renderSelectedTagFilters() {
+    if (!selectedTagFiltersContainer) {
+      return;
+    }
+
+    selectedTagFiltersContainer.innerHTML = '';
+    if (selectedTagFilters.length === 0) {
+      selectedTagFiltersContainer.classList.add('empty');
+      return;
+    }
+
+    selectedTagFiltersContainer.classList.remove('empty');
+    selectedTagFilters.forEach((tag) => {
+      const chip = document.createElement('span');
+      chip.className = 'tag-chip';
+
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = tag.name;
+      chip.appendChild(nameSpan);
+
+      if (tag.attr && tagAttrLabels[tag.attr]) {
+        const attrSpan = document.createElement('span');
+        attrSpan.style.fontSize = '0.75rem';
+        attrSpan.style.opacity = '0.7';
+        attrSpan.textContent = ` (${tagAttrLabels[tag.attr]})`;
+        chip.appendChild(attrSpan);
+      }
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'tag-chip-remove';
+      removeBtn.innerHTML = '&times;';
+      removeBtn.setAttribute('aria-label', `${removeTagLabel} ${tag.name}`);
+      removeBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        removeTagFilter(tag.id);
+      });
+      chip.appendChild(removeBtn);
+
+      selectedTagFiltersContainer.appendChild(chip);
+    });
+  }
+
+  function hideTagSuggestions() {
+    if (!tagFilterSuggestions) {
+      return;
+    }
+    tagFilterSuggestions.classList.remove('visible');
+    tagFilterSuggestions.innerHTML = '';
+  }
+
+  function showTagSuggestions(items) {
+    if (!tagFilterSuggestions) {
+      return;
+    }
+
+    tagFilterSuggestions.innerHTML = '';
+    if (!items || items.length === 0) {
+      const emptyItem = document.createElement('div');
+      emptyItem.className = 'tag-suggestion-item text-muted';
+      emptyItem.textContent = noTagsFoundText;
+      tagFilterSuggestions.appendChild(emptyItem);
+      tagFilterSuggestions.classList.add('visible');
+      return;
+    }
+
+    items.forEach((tag) => {
+      const item = document.createElement('div');
+      item.className = 'tag-suggestion-item';
+      const attrLabel = tag.attr && tagAttrLabels[tag.attr] ? ` · ${tagAttrLabels[tag.attr]}` : '';
+      item.textContent = `${tag.name}${attrLabel}`;
+      item.addEventListener('click', () => {
+        addTagFilter(tag);
+        tagFilterInput.value = '';
+        hideTagSuggestions();
+      });
+      tagFilterSuggestions.appendChild(item);
+    });
+
+    tagFilterSuggestions.classList.add('visible');
+  }
+
+  async function fetchTagSuggestions(query) {
+    try {
+      const response = await window.apiClient.get(`/api/tags?q=${encodeURIComponent(query)}&limit=10`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch tag suggestions: ${response.status}`);
+      }
+      const data = await response.json();
+      return data.items || [];
+    } catch (error) {
+      console.error('Failed to fetch tag suggestions', error);
+      return [];
+    }
+  }
+
+  function addTagFilter(tag) {
+    if (selectedTagFilters.some((t) => t.id === tag.id)) {
+      return;
+    }
+    selectedTagFilters.push(tag);
+    renderSelectedTagFilters();
+    restartMediaQuery();
+  }
+
+  function removeTagFilter(tagId) {
+    selectedTagFilters = selectedTagFilters.filter((tag) => tag.id !== tagId);
+    renderSelectedTagFilters();
+    restartMediaQuery();
+  }
+
+  function scheduleTagSuggestionFetch(value) {
+    clearTimeout(tagSuggestionTimeout);
+    if (!value) {
+      hideTagSuggestions();
+      return;
+    }
+
+    tagSuggestionTimeout = setTimeout(async () => {
+      const suggestions = await fetchTagSuggestions(value);
+      const available = suggestions.filter(
+        (suggestion) => !selectedTagFilters.some((tag) => tag.id === suggestion.id)
+      );
+      showTagSuggestions(available);
+    }, 200);
+  }
+
   const sourceLabels = {
     local: '{{ _('Local import') }}',
     google_photos: '{{ _('Google Photos') }}'
@@ -240,6 +486,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const unknownSourceLabel = '{{ _('Unknown source') }}';
   const videoLabel = '{{ _('Video') }}';
   const photoLabel = '{{ _('Photo') }}';
+  const removeTagLabel = '{{ _('Remove') }}';
+  const noTagsFoundText = '{{ _('No tags found') }}';
+  const tagAttrLabels = {
+    person: '{{ _('Person') }}',
+    place: '{{ _('Place') }}',
+    thing: '{{ _('Thing') }}'
+  };
 
   function createMediaCard(media) {
     const card = document.createElement('div');
@@ -292,15 +545,25 @@ document.addEventListener('DOMContentLoaded', () => {
     return card;
   }
 
+  function restartMediaQuery() {
+    if (infiniteScroll) {
+      infiniteScroll.destroy();
+    }
+    initializeInfiniteScroll();
+  }
+
   function initializeInfiniteScroll() {
     // Read the current filter settings
     const typeFilter = document.getElementById('type-filter').value;
     const sortOrder = document.getElementById('sort-order').value;
-    
+
     // Build the request parameters
     const parameters = { order: sortOrder };
     if (typeFilter !== 'all') {
       parameters.type = typeFilter;
+    }
+    if (selectedTagFilters.length > 0) {
+      parameters.tags = selectedTagFilters.map((tag) => tag.id).join(',');
     }
     
     const paginationClient = new PaginationClient({
@@ -374,29 +637,55 @@ document.addEventListener('DOMContentLoaded', () => {
   // Filter change
   const typeFilter = document.getElementById('type-filter');
   typeFilter.addEventListener('change', () => {
-    if (infiniteScroll) {
-      infiniteScroll.destroy();
-    }
-    initializeInfiniteScroll();
+    restartMediaQuery();
   });
 
   // Sort order change handler
   sortOrder.addEventListener('change', () => {
-    if (infiniteScroll) {
-      infiniteScroll.destroy();
-    }
-    initializeInfiniteScroll();
+    restartMediaQuery();
   });
 
   // Refresh button handler
   refreshBtn.addEventListener('click', () => {
-    if (infiniteScroll) {
-      infiniteScroll.destroy();
+    restartMediaQuery();
+  });
+
+  if (tagFilterInput) {
+    tagFilterInput.addEventListener('input', (event) => {
+      scheduleTagSuggestionFetch(event.target.value.trim());
+    });
+
+    tagFilterInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        if (tagFilterSuggestions) {
+          const firstSuggestion = tagFilterSuggestions.querySelector('.tag-suggestion-item');
+          if (firstSuggestion) {
+            firstSuggestion.click();
+          }
+        }
+      } else if (event.key === 'Escape') {
+        hideTagSuggestions();
+        tagFilterInput.value = '';
+      }
+    });
+
+    tagFilterInput.addEventListener('focus', () => {
+      const value = tagFilterInput.value.trim();
+      if (value) {
+        scheduleTagSuggestionFetch(value);
+      }
+    });
+  }
+
+  document.addEventListener('click', (event) => {
+    if (tagFilterBox && !tagFilterBox.contains(event.target)) {
+      hideTagSuggestions();
     }
-    initializeInfiniteScroll();
   });
 
   // Initialise infinite scrolling
+  renderSelectedTagFilters();
   initializeInfiniteScroll();
 });
 </script>

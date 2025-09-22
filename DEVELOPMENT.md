@@ -89,6 +89,7 @@ python scripts/seed_master_data.py
 - `album:edit` - アルバム編集
 - `album:view` - アルバム閲覧
 - `media:view` - メディア閲覧
+- `media:tag-manage` - メディアのタグ管理
 - `permission:manage` - 権限管理
 - `role:manage` - ロール管理
 - `system:manage` - システム管理

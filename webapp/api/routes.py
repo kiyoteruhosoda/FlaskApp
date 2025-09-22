@@ -31,7 +31,7 @@ from . import bp
 from ..extensions import db
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
-from core.models.photo_models import Media, Exif, MediaSidecar, MediaPlayback
+from core.models.photo_models import Media, Exif, MediaSidecar, MediaPlayback, Tag
 from core.models.user import User, Role
 from core.crypto import decrypt
 from ..auth.utils import refresh_google_token, RefreshTokenError, log_requests_and_send
@@ -46,6 +46,9 @@ from sqlalchemy.orm import joinedload
 
 user_repo = SqlAlchemyUserRepository(db.session)
 auth_service = AuthService(user_repo)
+
+
+VALID_TAG_ATTRS = {"person", "place", "thing"}
 
 
 def _serialize_user_for_log(user):
@@ -483,11 +486,26 @@ def api_media_list():
     # フィルタパラメータ
     include_deleted = request.args.get("include_deleted", type=int, default=0)
     media_type = (request.args.get("type") or "").lower()
+    raw_tag_ids = request.args.get("tags") or ""
     after_param = request.args.get("after")
     before_param = request.args.get("before")
-    
+
+    tag_ids: list[int] = []
+    if raw_tag_ids:
+        for part in raw_tag_ids.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                tag_ids.append(int(part))
+            except ValueError:
+                continue
+
     # ベースクエリの構築
-    query = Media.query.options(joinedload(Media.account))
+    query = Media.query.options(
+        joinedload(Media.account),
+        joinedload(Media.tags),
+    )
     if not include_deleted:
         # is_deletedがNullまたはFalseの場合を含める
         query = query.filter(
@@ -500,6 +518,17 @@ def api_media_list():
         )
     elif media_type == "video":
         query = query.filter(Media.is_video.is_(True))
+
+    # タグフィルタ：すべての指定タグを含むメディアのみ
+    if tag_ids:
+        seen: set[int] = set()
+        unique_tag_ids: list[int] = []
+        for tid in tag_ids:
+            if tid not in seen:
+                seen.add(tid)
+                unique_tag_ids.append(tid)
+        for tid in unique_tag_ids:
+            query = query.filter(Media.tags.any(Tag.id == tid))
         
     # 日付範囲フィルタ
     if after_param:
@@ -523,6 +552,7 @@ def api_media_list():
             "google_photos": "Google Photos",
         }.get(source_type, source_type or "unknown")
         account_email = media.account.email if getattr(media, "account", None) else None
+        tags = sorted(media.tags, key=lambda t: (t.name or "").lower())
 
         return {
             "id": media.id,
@@ -542,6 +572,7 @@ def api_media_list():
             "account_email": account_email,
             "camera_make": media.camera_make,
             "camera_model": media.camera_model,
+            "tags": [serialize_tag(tag) for tag in tags],
         }
     
     # ページング処理
@@ -571,6 +602,14 @@ def api_media_list():
     )
     
     return jsonify(result)
+
+
+def serialize_tag(tag: Tag) -> dict:
+    return {
+        "id": tag.id,
+        "name": tag.name,
+        "attr": tag.attr,
+    }
 
 
 def build_playback_dict(playback: MediaPlayback | None) -> dict:
@@ -637,6 +676,10 @@ def serialize_media_detail(media: Media) -> dict:
         "exif": build_exif_dict(media.exif),
         "sidecars": sidecars,
         "playback": build_playback_dict(playback_record),
+        "tags": [
+            serialize_tag(tag)
+            for tag in sorted(media.tags, key=lambda t: (t.name or "").lower())
+        ],
     }
 
 
@@ -655,7 +698,14 @@ def api_media_detail(media_id):
         ),
         extra={"event": "media.detail.begin"},
     )
-    media = Media.query.get(media_id)
+    media = (
+        Media.query.options(
+            joinedload(Media.tags),
+            joinedload(Media.sidecars),
+            joinedload(Media.playbacks),
+        )
+        .get(media_id)
+    )
     if not media or media.is_deleted:
         current_app.logger.info(
             json.dumps(
@@ -685,6 +735,151 @@ def api_media_detail(media_id):
         extra={"event": "media.detail.success"},
     )
     return jsonify(media_data)
+
+
+@bp.get("/tags")
+@login_or_jwt_required
+def api_tags_list():
+    """Return list of tags for incremental search."""
+    query_text = (request.args.get("q") or "").strip()
+    limit = request.args.get("limit", type=int)
+    if limit is None or limit <= 0:
+        limit = 20
+    limit = min(limit, 100)
+
+    query = Tag.query
+    if query_text:
+        like_expr = f"%{query_text}%"
+        query = query.filter(Tag.name.ilike(like_expr))
+
+    tags = query.order_by(Tag.name.asc()).limit(limit).all()
+    return jsonify({"items": [serialize_tag(tag) for tag in tags]})
+
+
+@bp.post("/tags")
+@login_or_jwt_required
+def api_tags_create():
+    """Create a new tag (requires tag management permission)."""
+    if not current_user.can("media:tag-manage"):
+        return jsonify({"error": "forbidden"}), 403
+
+    payload = request.get_json(silent=True) or {}
+    name = (payload.get("name") or "").strip()
+    attr = (payload.get("attr") or "").strip()
+
+    if not name:
+        return jsonify({"error": "name_required"}), 400
+    if attr not in VALID_TAG_ATTRS:
+        return jsonify({"error": "invalid_attr"}), 400
+
+    existing = Tag.query.filter(db.func.lower(Tag.name) == name.lower()).first()
+    if existing:
+        return jsonify({"tag": serialize_tag(existing), "created": False}), 200
+
+    tag = Tag(name=name, attr=attr, created_by=getattr(current_user, "id", None))
+    db.session.add(tag)
+    db.session.commit()
+
+    return jsonify({"tag": serialize_tag(tag), "created": True}), 201
+
+
+@bp.put("/tags/<int:tag_id>")
+@login_or_jwt_required
+def api_tags_update(tag_id: int):
+    """Update an existing tag."""
+    if not current_user.can("media:tag-manage"):
+        return jsonify({"error": "forbidden"}), 403
+
+    tag = Tag.query.get(tag_id)
+    if not tag:
+        return jsonify({"error": "not_found"}), 404
+
+    payload = request.get_json(silent=True) or {}
+    name = payload.get("name")
+    attr = payload.get("attr")
+
+    has_changes = False
+
+    if isinstance(name, str):
+        stripped = name.strip()
+        if not stripped:
+            return jsonify({"error": "name_required"}), 400
+        if stripped.lower() != tag.name.lower():
+            duplicate = Tag.query.filter(
+                db.func.lower(Tag.name) == stripped.lower(),
+                Tag.id != tag.id,
+            ).first()
+            if duplicate:
+                return jsonify({"error": "duplicate_name"}), 409
+            tag.name = stripped
+            has_changes = True
+
+    if isinstance(attr, str):
+        if attr not in VALID_TAG_ATTRS:
+            return jsonify({"error": "invalid_attr"}), 400
+        if attr != tag.attr:
+            tag.attr = attr
+            has_changes = True
+
+    if has_changes:
+        tag.updated_at = datetime.now(timezone.utc)
+        db.session.commit()
+
+    return jsonify({"tag": serialize_tag(tag), "updated": has_changes})
+
+
+@bp.put("/media/<int:media_id>/tags")
+@login_or_jwt_required
+def api_media_update_tags(media_id: int):
+    """Replace tag assignments for a media item."""
+    if not current_user.can("media:tag-manage"):
+        return jsonify({"error": "forbidden"}), 403
+
+    media = (
+        Media.query.options(joinedload(Media.tags))
+        .filter(Media.id == media_id)
+        .first()
+    )
+    if not media or media.is_deleted:
+        return jsonify({"error": "not_found"}), 404
+
+    payload = request.get_json(silent=True) or {}
+    tag_ids = payload.get("tag_ids")
+    if tag_ids is None:
+        return jsonify({"error": "tag_ids_required"}), 400
+    if not isinstance(tag_ids, list):
+        return jsonify({"error": "invalid_tag_ids"}), 400
+
+    normalized_ids: list[int] = []
+    seen: set[int] = set()
+    for raw_id in tag_ids:
+        try:
+            value = int(raw_id)
+        except (TypeError, ValueError):
+            return jsonify({"error": "invalid_tag_id"}), 400
+        if value not in seen:
+            seen.add(value)
+            normalized_ids.append(value)
+
+    if normalized_ids:
+        tags = Tag.query.filter(Tag.id.in_(normalized_ids)).all()
+        found_ids = {tag.id for tag in tags}
+        missing = [tid for tid in normalized_ids if tid not in found_ids]
+        if missing:
+            return jsonify({"error": "unknown_tag", "missing": missing}), 400
+    else:
+        tags = []
+
+    media.tags = tags
+    media.updated_at = datetime.now(timezone.utc)
+    db.session.commit()
+
+    return jsonify({
+        "tags": [
+            serialize_tag(tag)
+            for tag in sorted(media.tags, key=lambda t: (t.name or "").lower())
+        ]
+    })
 
 
 def _b64url_encode(data: bytes) -> str:

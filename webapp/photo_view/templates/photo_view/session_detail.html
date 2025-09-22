@@ -53,6 +53,18 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+  function escapeHtml(value) {
+    if (value === null || value === undefined) {
+      return '';
+    }
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   function resolveSessionId() {
     const params = new URLSearchParams(window.location.search);
     const fromQuery = params.get('session_id');
@@ -204,8 +216,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function createSelectionRow(selection) {
     const tr = document.createElement('tr');
+    const displayName = selection.filename || selection.googleMediaId || 'N/A';
+    const safeDisplayName = escapeHtml(displayName);
+    const fileCellContent = selection.mediaId
+      ? `<a href="/photo-view/media/${selection.mediaId}" class="text-decoration-none">${safeDisplayName}</a>`
+      : safeDisplayName;
     tr.innerHTML = `
-      <td>${selection.filename || selection.googleMediaId || 'N/A'}</td>
+      <td>${fileCellContent}</td>
       <td>
         <span class="badge bg-${getStatusBadgeClass(selection.status)}">
           ${selectionStatusLabels[selection.status] || selection.status}

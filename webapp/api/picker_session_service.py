@@ -315,14 +315,28 @@ class PickerSessionService:
         
         # 一括でMediaItemを取得
         media_items = {}
+        media_map = {}
         if google_media_ids:
             media_items_query = db.session.query(MediaItem).filter(MediaItem.id.in_(google_media_ids)).all()
             media_items = {mi.id: mi for mi in media_items_query}
+
+            media_query = db.session.query(Media).filter(Media.google_media_id.in_(google_media_ids))
+            if ps.account_id is None:
+                media_query = media_query.filter(Media.account_id.is_(None))
+            else:
+                media_query = media_query.filter(Media.account_id == ps.account_id)
+            media_records = media_query.all()
+            media_map = {
+                media.google_media_id: media
+                for media in media_records
+                if media.google_media_id
+            }
         
         # 選択アイテムのシリアライザ関数
         def serialize_selection(sel):
             mi = media_items.get(sel.google_media_id) if sel.google_media_id else None
-            
+            media = media_map.get(sel.google_media_id) if sel.google_media_id else None
+
             return {
                 "id": sel.id,
                 "googleMediaId": sel.google_media_id,
@@ -333,6 +347,7 @@ class PickerSessionService:
                 "enqueuedAt": sel.enqueued_at.isoformat().replace("+00:00", "Z") if sel.enqueued_at else None,
                 "startedAt": sel.started_at.isoformat().replace("+00:00", "Z") if sel.started_at else None,
                 "finishedAt": sel.finished_at.isoformat().replace("+00:00", "Z") if sel.finished_at else None,
+                "mediaId": media.id if media else None,
             }
         
         # 選択状況の集計（全体）

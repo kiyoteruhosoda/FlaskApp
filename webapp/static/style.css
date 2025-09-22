@@ -365,3 +365,156 @@ body {
     flex: 1 1 100%;
   }
 }
+
+/* Album slideshow shared styles */
+.album-slideshow-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  z-index: 1080;
+  backdrop-filter: blur(6px);
+}
+
+.album-slideshow-overlay .album-slideshow-dialog {
+  position: relative;
+  width: min(1100px, 100%);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  color: #f8fafc;
+}
+
+.album-slideshow-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 18px;
+  overflow: hidden;
+  min-height: 420px;
+}
+
+.album-slideshow-stage img {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  background: rgba(15, 23, 42, 0.3);
+}
+
+.album-slideshow-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(15, 23, 42, 0.7);
+  border: none;
+  color: #f8fafc;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.album-slideshow-nav:hover {
+  background: rgba(59, 130, 246, 0.85);
+}
+
+.album-slideshow-nav.prev {
+  left: 18px;
+}
+
+.album-slideshow-nav.next {
+  right: 18px;
+}
+
+.album-slideshow-close {
+  position: absolute;
+  top: -18px;
+  right: -18px;
+  background: rgba(15, 23, 42, 0.85);
+  border-radius: 50%;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f8fafc;
+  cursor: pointer;
+}
+
+.album-slideshow-footer {
+  margin-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.album-slideshow-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.album-slideshow-info .album-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.album-slideshow-info .album-meta {
+  font-size: 0.95rem;
+  color: rgba(226, 232, 240, 0.9);
+}
+
+.album-slideshow-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.album-slideshow-counter {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.album-slideshow-empty {
+  margin-top: 20px;
+  padding: 40px 20px;
+  text-align: center;
+  background: rgba(15, 23, 42, 0.55);
+  border-radius: 16px;
+  font-size: 1.1rem;
+}
+
+.album-slideshow-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px 20px;
+}
+
+@media (max-width: 768px) {
+  .album-slideshow-stage {
+    min-height: 320px;
+  }
+
+  .album-slideshow-nav {
+    width: 40px;
+    height: 40px;
+  }
+
+  .album-slideshow-info .album-title {
+    font-size: 1.05rem;
+  }
+}

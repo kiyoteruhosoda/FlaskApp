@@ -52,7 +52,7 @@ from infrastructure.user_repository import SqlAlchemyUserRepository
 from ..services.token_service import TokenService
 import jwt
 from sqlalchemy.orm import joinedload
-from sqlalchemy import func
+from sqlalchemy import func, select
 from werkzeug.utils import secure_filename
 
 
@@ -1309,6 +1309,53 @@ def api_media_delete(media_id: int):
     media = Media.query.get(media_id)
     if not media or media.is_deleted:
         return jsonify({"error": "not_found"}), 404
+
+    associated_albums = (
+        Album.query.join(album_item, Album.id == album_item.c.album_id)
+        .filter(album_item.c.media_id == media_id)
+        .all()
+    )
+
+    if associated_albums:
+        db.session.execute(
+            album_item.delete().where(album_item.c.media_id == media_id)
+        )
+        now = datetime.now(timezone.utc)
+        for album in associated_albums:
+            if album.cover_media_id == media_id:
+                new_cover_id = db.session.execute(
+                    select(album_item.c.media_id)
+                    .where(album_item.c.album_id == album.id)
+                    .order_by(
+                        album_item.c.sort_index.asc(),
+                        album_item.c.media_id.asc(),
+                    )
+                    .limit(1)
+                ).scalar()
+                album.cover_media_id = new_cover_id
+            else:
+                if album.cover_media_id is not None:
+                    existing_cover = db.session.execute(
+                        select(album_item.c.media_id)
+                        .where(
+                            album_item.c.album_id == album.id,
+                            album_item.c.media_id == album.cover_media_id,
+                        )
+                        .limit(1)
+                    ).scalar()
+                    if existing_cover is None:
+                        new_cover_id = db.session.execute(
+                            select(album_item.c.media_id)
+                            .where(album_item.c.album_id == album.id)
+                            .order_by(
+                                album_item.c.sort_index.asc(),
+                                album_item.c.media_id.asc(),
+                            )
+                            .limit(1)
+                        ).scalar()
+                        album.cover_media_id = new_cover_id
+
+            album.updated_at = now
 
     _remove_media_files(media)
     media.is_deleted = True

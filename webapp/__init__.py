@@ -92,6 +92,22 @@ def create_app():
             return localized
         return localized.strftime(fmt)
 
+    @app.template_filter("escapejs")
+    def _escapejs_filter(value):
+        """Escape a string for safe embedding inside JavaScript strings."""
+
+        if value is None:
+            return ""
+
+        if not isinstance(value, str):
+            value = str(value)
+
+        # ``json.dumps`` provides the necessary escaping for characters that
+        # would otherwise break out of a JavaScript string literal (quotes,
+        # newlines, etc.). The surrounding quotes added by ``json.dumps`` are
+        # removed because the template already provides them.
+        return json.dumps(value, ensure_ascii=False)[1:-1]
+
     # Logging configuration
     if not any(isinstance(h, DBLogHandler) for h in app.logger.handlers):
         db_handler = DBLogHandler(app=app)

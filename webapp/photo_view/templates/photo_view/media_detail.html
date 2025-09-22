@@ -254,14 +254,14 @@
       </div>
       <div class="d-flex flex-wrap gap-2 justify-content-end">
         <button class="btn btn-outline-secondary" onclick="history.back()">
-          <i class="fas fa-arrow-left"></i> {{ _('Back') }}
+          <i class="fas fa-arrow-left"></i> {{ _("Back") }}
         </button>
         <button class="btn btn-outline-primary" id="download-btn" disabled>
-          <i class="fas fa-download"></i> {{ _('Download') }}
+          <i class="fas fa-download"></i> {{ _("Download") }}
         </button>
         {% if current_user.can('media:delete') %}
         <button class="btn btn-outline-danger" id="delete-btn">
-          <i class="fas fa-trash-alt"></i> {{ _('Delete') }}
+          <i class="fas fa-trash-alt"></i> {{ _("Delete") }}
         </button>
         {% endif %}
       </div>
@@ -297,32 +297,32 @@
   <div class="media-info-panel">
     <div class="info-grid">
       <div class="info-section">
-        <h5>{{ _('Basic Information') }}</h5>
+        <h5>{{ _("Basic Information") }}</h5>
         <div id="basic-info">
           <!-- 基本情報がここに表示されます -->
         </div>
       </div>
 
       <div class="info-section">
-        <h5>{{ _('Technical Details') }}</h5>
+        <h5>{{ _("Technical Details") }}</h5>
         <div id="technical-info">
           <!-- 技術情報がここに表示されます -->
         </div>
       </div>
 
       <div class="info-section">
-        <h5>{{ _('Tags') }}</h5>
-        <div id="media-tags" class="tag-chip-container empty" data-empty-text="{{ _('No tags assigned') }}"></div>
+        <h5>{{ _("Tags") }}</h5>
+        <div id="media-tags" class="tag-chip-container empty" data-empty-text="{{ _("No tags assigned") }}"></div>
         {% if current_user.can('media:tag-manage') %}
         <div id="tag-editor" class="tag-editor">
           <div class="tag-editor-input">
-            <input type="text" id="tag-manage-input" class="form-control form-control-sm tag-search-input" placeholder="{{ _('Search tags...') }}" autocomplete="off">
+            <input type="text" id="tag-manage-input" class="form-control form-control-sm tag-search-input" placeholder="{{ _("Search tags...") }}" autocomplete="off">
             <select id="tag-attr-select" class="form-select form-select-sm">
-              <option value="person">{{ _('Person') }}</option>
-              <option value="place">{{ _('Place') }}</option>
-              <option value="thing" selected>{{ _('Thing') }}</option>
+              <option value="person">{{ _("Person") }}</option>
+              <option value="place">{{ _("Place") }}</option>
+              <option value="thing" selected>{{ _("Thing") }}</option>
             </select>
-            <button class="btn btn-sm btn-outline-primary" id="create-tag-btn">{{ _('Create and add') }}</button>
+            <button class="btn btn-sm btn-outline-primary" id="create-tag-btn">{{ _("Create and add") }}</button>
           </div>
           <div id="tag-manage-suggestions" class="tag-suggestions"></div>
         </div>
@@ -330,7 +330,7 @@
       </div>
 
       <div class="info-section" id="exif-section" style="display: none;">
-        <h5>{{ _('EXIF Data') }}</h5>
+        <h5>{{ _("EXIF Data") }}</h5>
         <div id="exif-info">
           <!-- EXIF情報がここに表示されます -->
         </div>
@@ -368,21 +368,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const canManageTags = {{ 'true' if current_user.can('media:tag-manage') else 'false' }};
   const tagAttrLabels = {
-    person: '{{ _('Person') }}',
-    place: '{{ _('Place') }}',
-    thing: '{{ _('Thing') }}'
+    person: '{{ _("Person") }}',
+    place: '{{ _("Place") }}',
+    thing: '{{ _("Thing") }}'
   };
-  const noTagsAssignedText = '{{ _('No tags assigned') }}';
-  const noTagSuggestionsText = '{{ _('No tags found') }}';
-  const tagUpdateErrorText = '{{ _('Failed to update tags.') }}';
-  const tagCreateErrorText = '{{ _('Failed to create tag.') }}';
-  const removeTagLabel = '{{ _('Remove') }}';
-  const deleteConfirmText = '{{ _('Are you sure you want to delete this media? This action cannot be undone.') }}';
-  const deleteSuccessText = '{{ _('Media was deleted successfully.') }}';
-  const deleteErrorText = '{{ _('Failed to delete media.') }}';
-  const deleteForbiddenText = '{{ _('You do not have permission to delete media.') }}';
-  const deleteMissingText = '{{ _('Media was not found or is already deleted.') }}';
-  const deleteInProgressText = '{{ _('Deleting...') }}';
+  const noTagsAssignedText = '{{ _("No tags assigned") }}';
+  const noTagSuggestionsText = '{{ _("No tags found") }}';
+  const tagUpdateErrorText = '{{ _("Failed to update tags.") }}';
+  const tagCreateErrorText = '{{ _("Failed to create tag.") }}';
+  const removeTagLabel = '{{ _("Remove") }}';
+  const deleteConfirmText = '{{ _("Are you sure you want to delete this media? This action cannot be undone.") }}';
+  const deleteSuccessText = '{{ _("Media was deleted successfully.") }}';
+  const deleteErrorText = '{{ _("Failed to delete media.") }}';
+  const deleteForbiddenText = '{{ _("You do not have permission to delete media.") }}';
+  const deleteMissingText = '{{ _("Media was not found or is already deleted.") }}';
+  const deleteInProgressText = '{{ _("Deleting...") }}';
   const redirectAfterDeleteUrl = '{{ url_for("photo_view.media_list") }}';
 
   if (mediaTagsContainer && !mediaTagsContainer.dataset.emptyText) {

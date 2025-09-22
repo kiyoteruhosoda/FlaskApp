@@ -8,17 +8,17 @@
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
   <div>
-    <h1 class="h2 mb-1">{{ _('Photo View Home') }}</h1>
-    <p class="text-muted mb-0">{{ _('Create new picker sessions and keep track of imports at a glance.') }}</p>
+    <h1 class="h2 mb-1">{{ _("Photo View Home") }}</h1>
+    <p class="text-muted mb-0">{{ _("Create new picker sessions and keep track of imports at a glance.") }}</p>
   </div>
   <div class="d-flex flex-wrap align-items-center gap-2">
     {% if is_admin %}
       <span class="badge bg-warning text-dark d-flex align-items-center px-3 py-2">
-        <i class="bi bi-tools me-1"></i>{{ _('Admin tools available') }}
+        <i class="bi bi-tools me-1"></i>{{ _("Admin tools available") }}
       </span>
     {% endif %}
     <a href="{{ url_for('photo_view.settings') }}" class="btn btn-outline-secondary">
-      <i class="bi bi-gear me-1"></i>{{ _('Settings') }}
+      <i class="bi bi-gear me-1"></i>{{ _("Settings") }}
     </a>
   </div>
 </div>
@@ -27,29 +27,29 @@
   <div class="col-xl-7">
     <div class="card shadow-sm h-100">
       <div class="card-header bg-white">
-        <h2 class="h5 mb-0">{{ _('Start a new picker session') }}</h2>
+        <h2 class="h5 mb-0">{{ _("Start a new picker session") }}</h2>
       </div>
       <div class="card-body">
-        <label for="session-account" class="form-label">{{ _('Google account for the new session') }}</label>
+        <label for="session-account" class="form-label">{{ _("Google account for the new session") }}</label>
         <div class="input-group">
           {% set has_multiple_accounts = google_accounts|length > 1 %}
           <select id="session-account" class="form-select" {% if not google_accounts %}disabled{% endif %}>
             {% if not google_accounts %}
-              <option value="" selected disabled>{{ _('No Google accounts are linked yet') }}</option>
+              <option value="" selected disabled>{{ _("No Google accounts are linked yet") }}</option>
             {% else %}
-              <option value="" disabled {% if has_multiple_accounts %}selected{% endif %}>{{ _('Select an account') }}</option>
+              <option value="" disabled {% if has_multiple_accounts %}selected{% endif %}>{{ _("Select an account") }}</option>
               {% for account in google_accounts %}
                 <option value="{{ account.id }}" {% if not has_multiple_accounts and loop.first %}selected{% endif %}>{{ account.email }}</option>
               {% endfor %}
             {% endif %}
           </select>
           <button id="create-session-btn" class="btn btn-success" {% if not google_accounts %}disabled{% endif %}>
-            <i class="bi bi-plus-circle me-1"></i>{{ _('Create new session') }}
+            <i class="bi bi-plus-circle me-1"></i>{{ _("Create new session") }}
           </button>
         </div>
         {% if not google_accounts %}
           <div class="form-text text-muted mt-2">
-            {{ _('Link a Google account from the admin console before creating a new session.') }}
+            {{ _("Link a Google account from the admin console before creating a new session.") }}
           </div>
         {% endif %}
       </div>
@@ -59,12 +59,12 @@
   <div class="col-xl-5">
     <div class="card shadow-sm h-100">
       <div class="card-header bg-white d-flex justify-content-between align-items-center">
-        <h2 class="h6 mb-0">{{ _('Quick actions') }}</h2>
-        <span class="text-muted small">{{ _('Everything you need for day-to-day work') }}</span>
+        <h2 class="h6 mb-0">{{ _("Quick actions") }}</h2>
+        <span class="text-muted small">{{ _("Everything you need for day-to-day work") }}</span>
       </div>
       <div class="card-body d-flex flex-column gap-2">
         <button id="refresh-sessions" class="btn btn-outline-primary d-flex align-items-center justify-content-center">
-          <i id="refresh-icon" class="fas fa-arrows-rotate me-2"></i>{{ _('Refresh sessions') }}
+          <i id="refresh-icon" class="fas fa-arrows-rotate me-2"></i>{{ _("Refresh sessions") }}
         </button>
         <button type="button" id="local-import-btn" class="btn btn-outline-info d-flex align-items-center justify-content-center"
                 data-import-display="{{ local_import_info.import.display or '' }}"
@@ -75,13 +75,13 @@
                 data-destination-absolute="{{ local_import_info.originals.absolute or '' }}"
                 data-destination-realpath="{{ local_import_info.originals.realpath or '' }}"
                 data-destination-exists="{{ '1' if local_import_info.originals.exists else '0' }}">
-          <i class="bi bi-folder-plus me-2"></i>{{ _('Start local import') }}
+          <i class="bi bi-folder-plus me-2"></i>{{ _("Start local import") }}
         </button>
         <a href="{{ url_for('photo_view.media_list') }}" class="btn btn-primary d-flex align-items-center justify-content-center">
-          <i class="fas fa-images me-2"></i>{{ _('Open media gallery') }}
+          <i class="fas fa-images me-2"></i>{{ _("Open media gallery") }}
         </a>
         <a href="{{ url_for('photo_view.albums') }}" class="btn btn-outline-success d-flex align-items-center justify-content-center">
-          <i class="fas fa-folder me-2"></i>{{ _('Browse albums') }}
+          <i class="fas fa-folder me-2"></i>{{ _("Browse albums") }}
         </a>
       </div>
     </div>
@@ -90,55 +90,55 @@
 
 {% if local_import_info.import.display %}
   <div class="alert alert-light border small" role="status">
-    <div class="fw-semibold mb-1">{{ _('Local import paths') }}</div>
+    <div class="fw-semibold mb-1">{{ _("Local import paths") }}</div>
     <div>
-      {{ _('Local import source') }}:
+      {{ _("Local import source") }}:
       <code>{{ local_import_info.import.display }}</code>
       {% if local_import_info.import.absolute and local_import_info.import.absolute != local_import_info.import.display %}
-        <span class="ms-1">({{ _('Configured value') }}: <code>{{ local_import_info.import.absolute }}</code>)</span>
+        <span class="ms-1">({{ _("Configured value") }}: <code>{{ local_import_info.import.absolute }}</code>)</span>
       {% elif local_import_info.import.raw and local_import_info.import.raw != local_import_info.import.display %}
-        <span class="ms-1">({{ _('Configured value') }}: <code>{{ local_import_info.import.raw }}</code>)</span>
+        <span class="ms-1">({{ _("Configured value") }}: <code>{{ local_import_info.import.raw }}</code>)</span>
       {% endif %}
       {% if not local_import_info.import.exists %}
-        <span class="ms-1 text-danger">{{ _('Not found') }}</span>
+        <span class="ms-1 text-danger">{{ _("Not found") }}</span>
       {% endif %}
     </div>
     <div class="mt-1">
-      {{ _('Destination') }}:
+      {{ _("Destination") }}:
       {% if local_import_info.originals.display %}
         <code>{{ local_import_info.originals.display }}</code>
         {% if local_import_info.originals.absolute and local_import_info.originals.absolute != local_import_info.originals.display %}
-          <span class="ms-1">({{ _('Configured value') }}: <code>{{ local_import_info.originals.absolute }}</code>)</span>
+          <span class="ms-1">({{ _("Configured value") }}: <code>{{ local_import_info.originals.absolute }}</code>)</span>
         {% elif local_import_info.originals.raw and local_import_info.originals.raw != local_import_info.originals.display %}
-          <span class="ms-1">({{ _('Configured value') }}: <code>{{ local_import_info.originals.raw }}</code>)</span>
+          <span class="ms-1">({{ _("Configured value") }}: <code>{{ local_import_info.originals.raw }}</code>)</span>
         {% endif %}
         {% if not local_import_info.originals.exists %}
-          <span class="ms-1 text-danger">{{ _('Not found') }}</span>
+          <span class="ms-1 text-danger">{{ _("Not found") }}</span>
         {% endif %}
       {% else %}
-        <span class="text-warning">{{ _('No destination directory configured.') }}</span>
+        <span class="text-warning">{{ _("No destination directory configured.") }}</span>
       {% endif %}
     </div>
   </div>
 {% endif %}
 
 <div class="mt-4">
-  <h2>{{ _('All Picker Sessions') }}</h2>
+  <h2>{{ _("All Picker Sessions") }}</h2>
   <div id="session-stats" class="mb-3">
-    <span id="session-count" class="badge bg-info">{{ _('Loading...') }}</span>
+    <span id="session-count" class="badge bg-info">{{ _("Loading...") }}</span>
   </div>
   <div id="sessions-list">
     <div class="table-responsive">
       <table class="table table-striped">
         <thead>
           <tr>
-            <th>{{ _('Session ID') }}</th>
-            <th>{{ _('Status') }}</th>
-            <th>{{ _('Target Account') }}</th>
-            <th>{{ _('File Status') }}</th>
-            <th>{{ _('Created At') }}</th>
-            <th>{{ _('Last Progress') }}</th>
-            <th>{{ _('Actions') }}</th>
+            <th>{{ _("Session ID") }}</th>
+            <th>{{ _("Status") }}</th>
+            <th>{{ _("Target Account") }}</th>
+            <th>{{ _("File Status") }}</th>
+            <th>{{ _("Created At") }}</th>
+            <th>{{ _("Last Progress") }}</th>
+            <th>{{ _("Actions") }}</th>
           </tr>
         </thead>
         <tbody id="sessions-body">
@@ -151,13 +151,13 @@
 
 <div id="loading-indicator" class="text-center" style="display: none;">
   <div class="spinner-border text-primary" role="status">
-    <span class="visually-hidden">{{ _('Loading...') }}</span>
+    <span class="visually-hidden">{{ _("Loading...") }}</span>
   </div>
-  <p class="mt-2">{{ _('Loading more sessions...') }}</p>
+  <p class="mt-2">{{ _("Loading more sessions...") }}</p>
 </div>
 
 <div id="no-more-data" class="text-center text-muted" style="display: none;">
-  <p>{{ _('All sessions loaded') }}</p>
+  <p>{{ _("All sessions loaded") }}</p>
 </div>
 
 <script>
@@ -171,22 +171,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const accountSelect = document.getElementById('session-account');
   const localImportBtn = document.getElementById('local-import-btn');
 
-  const selectAccountMessage = '{{ _('Please choose a Google account first.') }}';
-  const localImportPromptHeader = '{{ _('Start a local import from the following directories?') }}';
-  const localImportSourceLabel = '{{ _('Source') }}';
-  const localImportDestinationLabel = '{{ _('Destination') }}';
-  const localImportResolvedLabel = '{{ _('Resolved path') }}';
-  const localImportMissingLabel = '{{ _('Not found') }}';
-  const localImportRemovalNotice = '{{ _('Files will be removed from the original directory after import completes.') }}';
-  const localImportDestinationUnset = '{{ _('No destination directory configured.') }}';
-  const localImportStartingNotice = '{{ _('Starting local import...') }}';
-  const localImportSuccessNotice = '{{ _('Local import has started. Track the progress in the session list.') }}';
-  const localImportErrorNotice = '{{ _('Failed to start the local import.') }}';
-  const startingImportNotice = '{{ _('Starting import...') }}';
+  const selectAccountMessage = '{{ _("Please choose a Google account first.") }}';
+  const localImportPromptHeader = '{{ _("Start a local import from the following directories?") }}';
+  const localImportSourceLabel = '{{ _("Source") }}';
+  const localImportDestinationLabel = '{{ _("Destination") }}';
+  const localImportResolvedLabel = '{{ _("Resolved path") }}';
+  const localImportMissingLabel = '{{ _("Not found") }}';
+  const localImportRemovalNotice = '{{ _("Files will be removed from the original directory after import completes.") }}';
+  const localImportDestinationUnset = '{{ _("No destination directory configured.") }}';
+  const localImportStartingNotice = '{{ _("Starting local import...") }}';
+  const localImportSuccessNotice = '{{ _("Local import has started. Track the progress in the session list.") }}';
+  const localImportErrorNotice = '{{ _("Failed to start the local import.") }}';
+  const startingImportNotice = '{{ _("Starting import...") }}';
 
   let totalLoaded = 0;
-  const sessionsLoadedLabel = '{{ _('sessions loaded') }}';
-  const noSessionsLoadedLabel = '{{ _('No sessions loaded yet') }}';
+  const sessionsLoadedLabel = '{{ _("sessions loaded") }}';
+  const noSessionsLoadedLabel = '{{ _("No sessions loaded yet") }}';
 
   function formatDateTime(isoString) {
     if (!isoString) return '-';
@@ -195,26 +195,26 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const selectionStatusLabels = {
-    pending: '{{ _('Pending') }}',
-    enqueued: '{{ _('Enqueued') }}',
-    running: '{{ _('Running') }}',
-    imported: '{{ _('Imported') }}',
-    failed: '{{ _('Failed') }}',
-    dup: '{{ _('Duplicate') }}',
-    skipped: '{{ _('Skipped') }}'
+    pending: '{{ _("Pending") }}',
+    enqueued: '{{ _("Enqueued") }}',
+    running: '{{ _("Running") }}',
+    imported: '{{ _("Imported") }}',
+    failed: '{{ _("Failed") }}',
+    dup: '{{ _("Duplicate") }}',
+    skipped: '{{ _("Skipped") }}'
   };
 
   const sessionStatusLabels = {
-    pending: '{{ _('Pending') }}',
-    ready: '{{ _('Ready') }}',
-    processing: '{{ _('Processing') }}',
-    enqueued: '{{ _('Enqueued') }}',
-    importing: '{{ _('Importing') }}',
-    imported: '{{ _('Imported') }}',
-    canceled: '{{ _('Canceled') }}',
-    expired: '{{ _('Expired') }}',
-    error: '{{ _('Error') }}',
-    failed: '{{ _('Failed') }}'
+    pending: '{{ _("Pending") }}',
+    ready: '{{ _("Ready") }}',
+    processing: '{{ _("Processing") }}',
+    enqueued: '{{ _("Enqueued") }}',
+    importing: '{{ _("Importing") }}',
+    imported: '{{ _("Imported") }}',
+    canceled: '{{ _("Canceled") }}',
+    expired: '{{ _("Expired") }}',
+    error: '{{ _("Error") }}',
+    failed: '{{ _("Failed") }}'
   };
 
   function formatCounts(counts) {
@@ -226,7 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function formatAccountLabel(session) {
     if (session.isLocalImport) {
-      return '{{ _('Local Import') }}';
+      return '{{ _("Local Import") }}';
     }
     if (session.accountEmail) {
       return session.accountEmail;
@@ -290,8 +290,8 @@ document.addEventListener('DOMContentLoaded', () => {
       <td><small>${formatDateTime(session.createdAt)}</small></td>
       <td><small>${formatDateTime(session.lastProgressAt)}</small></td>
       <td>
-        <a href="/photo-view?session_id=${session.sessionId}" class="btn btn-sm btn-primary">{{ _('View Details') }}</a>
-        ${(displayStatus === 'ready' && !session.isLocalImport) ? `<button class="btn btn-sm btn-success ms-1" onclick="startImport('${session.sessionId}')">{{ _('Start Import') }}</button>` : ''}
+        <a href="/photo-view?session_id=${session.sessionId}" class="btn btn-sm btn-primary">{{ _("View Details") }}</a>
+        ${(displayStatus === 'ready' && !session.isLocalImport) ? `<button class="btn btn-sm btn-success ms-1" onclick="startImport('${session.sessionId}')">{{ _("Start Import") }}</button>` : ''}
       </td>
     `;
     return tr;
@@ -335,8 +335,8 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
 
-        sessionsBody.innerHTML = `<tr><td colspan="7"><div class="alert alert-danger">{{ _('Failed to load sessions.') }}</div></td></tr>`;
-        sessionCount.textContent = '{{ _('Error loading sessions') }}';
+        sessionsBody.innerHTML = `<tr><td colspan="7"><div class="alert alert-danger">{{ _("Failed to load sessions.") }}</div></td></tr>`;
+        sessionCount.textContent = '{{ _("Error loading sessions") }}';
       }
     });
 

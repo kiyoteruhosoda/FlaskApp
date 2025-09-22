@@ -877,6 +877,133 @@ def test_media_delete_success(client, app):
         assert not (Path(app.config["FPV_NAS_ORIGINALS_DIR"]) / refreshed.local_rel_path).exists()
 
 
+def test_media_delete_removes_media_from_albums(client, app):
+    from webapp.extensions import db
+    from core.models.photo_models import Media, Album, album_item
+
+    with app.app_context():
+        media1 = Media(
+            google_media_id="album-media-1",
+            account_id=1,
+            local_rel_path="album-media-1.jpg",
+            bytes=5,
+            mime_type="image/jpeg",
+            width=80,
+            height=80,
+            shot_at=datetime(2025, 4, 1, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 4, 2, tzinfo=timezone.utc),
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        media2 = Media(
+            google_media_id="album-media-2",
+            account_id=1,
+            local_rel_path="album-media-2.jpg",
+            bytes=5,
+            mime_type="image/jpeg",
+            width=80,
+            height=80,
+            shot_at=datetime(2025, 4, 3, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 4, 4, tzinfo=timezone.utc),
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        album = Album(
+            name="Album",
+            description=None,
+            visibility="private",
+            cover_media_id=None,
+        )
+        db.session.add_all([media1, media2, album])
+        db.session.commit()
+
+        db.session.execute(
+            album_item.insert(),
+            [
+                {"album_id": album.id, "media_id": media1.id, "sort_index": 0},
+                {"album_id": album.id, "media_id": media2.id, "sort_index": 1},
+            ],
+        )
+        album.cover_media_id = media1.id
+        db.session.commit()
+
+        media_id = media1.id
+        album_id = album.id
+        remaining_id = media2.id
+
+    grant_permission(app, "media:delete")
+    login(client)
+
+    response = client.delete(f"/api/media/{media_id}")
+    assert response.status_code == 200
+
+    with app.app_context():
+        album = Album.query.get(album_id)
+        remaining_entries = db.session.execute(
+            album_item.select().where(album_item.c.album_id == album_id)
+        ).all()
+        remaining_media_ids = [row.media_id for row in remaining_entries]
+
+        assert media_id not in remaining_media_ids
+        assert remaining_id in remaining_media_ids
+        assert album.cover_media_id == remaining_id
+
+
+def test_media_delete_clears_cover_when_album_becomes_empty(client, app):
+    from webapp.extensions import db
+    from core.models.photo_models import Media, Album, album_item
+
+    with app.app_context():
+        media = Media(
+            google_media_id="album-only-media",
+            account_id=1,
+            local_rel_path="album-only-media.jpg",
+            bytes=5,
+            mime_type="image/jpeg",
+            width=80,
+            height=80,
+            shot_at=datetime(2025, 5, 1, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 5, 2, tzinfo=timezone.utc),
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        album = Album(
+            name="Solo Album",
+            description=None,
+            visibility="private",
+            cover_media_id=None,
+        )
+        db.session.add_all([media, album])
+        db.session.commit()
+
+        db.session.execute(
+            album_item.insert(),
+            [{"album_id": album.id, "media_id": media.id, "sort_index": 0}],
+        )
+        album.cover_media_id = media.id
+        db.session.commit()
+
+        media_id = media.id
+        album_id = album.id
+
+    grant_permission(app, "media:delete")
+    login(client)
+
+    response = client.delete(f"/api/media/{media_id}")
+    assert response.status_code == 200
+
+    with app.app_context():
+        album = Album.query.get(album_id)
+        remaining_entries = db.session.execute(
+            album_item.select().where(album_item.c.album_id == album_id)
+        ).all()
+        assert remaining_entries == []
+        assert album.cover_media_id is None
+
+
 def test_picker_session_service_allows_reimport_of_deleted_media(app):
     from webapp.extensions import db
     from core.models.photo_models import Media

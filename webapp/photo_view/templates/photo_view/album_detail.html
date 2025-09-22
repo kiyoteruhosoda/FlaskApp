@@ -1,6 +1,442 @@
 {% extends 'base.html' %}
-{% block title %}Album Detail{% endblock %}
+{% block title %}{{ _('Album Detail') }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  .album-detail-page {
+    max-width: 1200px;
+  }
+
+  .album-detail-header h1 {
+    font-size: clamp(1.8rem, 2.4vw, 2.4rem);
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .album-detail-header .text-muted {
+    font-size: 0.95rem;
+  }
+
+  .album-detail-description {
+    font-size: 1.05rem;
+    color: #475569;
+  }
+
+  .album-badges .badge {
+    font-size: 0.9rem;
+    padding: 0.45rem 0.9rem;
+    border-radius: 999px;
+  }
+
+  .album-media-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 18px;
+  }
+
+  .album-media-tile {
+    position: relative;
+    border: none;
+    border-radius: 16px;
+    overflow: hidden;
+    padding: 0;
+    background: #0f172a;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .album-media-tile:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.28);
+  }
+
+  .album-media-tile img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    aspect-ratio: 4 / 3;
+  }
+
+  .album-media-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 12px;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.05) 0%, rgba(15, 23, 42, 0.6) 80%);
+    color: #f8fafc;
+  }
+
+  .album-media-overlay .badge {
+    align-self: flex-start;
+    background: rgba(15, 23, 42, 0.65);
+    border-radius: 999px;
+    padding: 0.35rem 0.8rem;
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+  }
+
+  .album-media-overlay .media-meta {
+    font-size: 0.85rem;
+    color: rgba(241, 245, 249, 0.9);
+  }
+
+  .album-media-empty {
+    font-size: 1.1rem;
+  }
+
+  @media (max-width: 768px) {
+    .album-media-grid {
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<h1>Album Detail</h1>
-<p>Placeholder for album ID: {{ album_id }}</p>
+<div class="album-detail-page container-xl py-4" data-album-id="{{ album_id }}">
+  <div class="album-detail-header d-flex align-items-start justify-content-between flex-wrap gap-3 mb-4">
+    <div class="d-flex align-items-center gap-2">
+      <a class="btn btn-outline-secondary" href="{{ url_for('photo_view.albums') }}">
+        <i class="bi bi-arrow-left"></i> {{ _('Back to albums') }}
+      </a>
+    </div>
+    <div class="flex-grow-1">
+      <h1 id="album-title" class="mb-2">{{ _('Album Detail') }}</h1>
+      <div id="album-meta" class="text-muted"></div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <button type="button" class="btn btn-primary" id="start-slideshow-btn" disabled>
+        <i class="bi bi-play-fill me-1"></i>{{ _('Start Slideshow') }}
+      </button>
+      <a class="btn btn-outline-primary" href="{{ url_for('photo_view.media_list') }}">
+        <i class="bi bi-images me-1"></i>{{ _('View Media Library') }}
+      </a>
+    </div>
+  </div>
+
+  <p id="album-description" class="album-detail-description d-none"></p>
+
+  <div id="album-loading" class="text-center py-5">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">{{ _('Loading...') }}</span>
+    </div>
+  </div>
+
+  <div id="album-error" class="alert alert-danger d-none" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ _('Failed to load album information.') }}
+  </div>
+
+  <div id="album-detail-content" class="d-none">
+    <div class="album-badges d-flex flex-wrap gap-2 mb-3">
+      <span class="badge bg-primary" id="album-visibility"></span>
+      <span class="badge bg-secondary" id="album-media-count"></span>
+      <span class="badge bg-light text-muted" id="album-created-at"></span>
+      <span class="badge bg-light text-muted d-none" id="album-updated-at"></span>
+    </div>
+
+    <div id="album-media-empty" class="album-media-empty alert alert-info d-none" role="status">
+      <i class="bi bi-info-circle me-2"></i>{{ _('This album has no media yet.') }}
+    </div>
+
+    <div id="album-media-grid" class="album-media-grid"></div>
+  </div>
+</div>
+
+<div id="album-slideshow-overlay" class="album-slideshow-overlay d-none" aria-hidden="true">
+  <div class="album-slideshow-dialog">
+    <button type="button" class="album-slideshow-close" id="album-slideshow-close" aria-label="{{ _('Close') }}">
+      <i class="bi bi-x-lg"></i>
+    </button>
+    <div id="album-slideshow-loading" class="album-slideshow-loading d-none">
+      <div class="spinner-border text-light" role="status"></div>
+      <span>{{ _('Loading slideshow...') }}</span>
+    </div>
+    <div id="album-slideshow-stage" class="album-slideshow-stage d-none">
+      <button type="button" class="album-slideshow-nav prev" id="album-slideshow-prev" aria-label="{{ _('Previous') }}">
+        <i class="bi bi-chevron-left"></i>
+      </button>
+      <img id="album-slideshow-image" src="" alt="" loading="lazy">
+      <button type="button" class="album-slideshow-nav next" id="album-slideshow-next" aria-label="{{ _('Next') }}">
+        <i class="bi bi-chevron-right"></i>
+      </button>
+    </div>
+    <div id="album-slideshow-empty" class="album-slideshow-empty d-none">
+      {{ _('This album has no media yet.') }}
+    </div>
+    <div class="album-slideshow-footer">
+      <div class="album-slideshow-info">
+        <span class="album-title" id="album-slideshow-title"></span>
+        <span class="album-meta" id="album-slideshow-meta"></span>
+      </div>
+      <div class="album-slideshow-controls">
+        <div class="album-slideshow-counter" id="album-slideshow-counter"></div>
+        <button type="button" class="btn btn-outline-light" id="album-slideshow-toggle">
+          <i class="bi bi-play-fill me-1"></i><span data-label>{{ _('Play') }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/album-slideshow.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const albumId = Number('{{ album_id }}');
+  const apiClient = new APIClient();
+  const state = {
+    album: null,
+    media: [],
+  };
+
+  const strings = {
+    untitledAlbum: "{{ _('Untitled Album')|escapejs }}",
+    mediaCountSingular: "{{ ngettext('%(count)s photo', '%(count)s photos', 1, count='%(count)s')|escapejs }}",
+    mediaCountPlural: "{{ ngettext('%(count)s photo', '%(count)s photos', 2, count='%(count)s')|escapejs }}",
+    createdLabel: "{{ _('Created')|escapejs }}",
+    updatedLabel: "{{ _('Updated')|escapejs }}",
+    shotAtLabel: "{{ _('Shot at')|escapejs }}",
+    positionLabel: "{{ _('%(current)s / %(total)s')|escapejs }}",
+    loadingError: "{{ _('Failed to load album information.')|escapejs }}",
+    slideshowLoading: "{{ _('Loading slideshow...')|escapejs }}",
+    noMedia: "{{ _('This album has no media yet.')|escapejs }}",
+    visibilityLabels: {
+      public: "{{ _('Public')|escapejs }}",
+      private: "{{ _('Private')|escapejs }}",
+      unlisted: "{{ _('Unlisted')|escapejs }}",
+    },
+  };
+
+  const elements = {
+    loading: document.getElementById('album-loading'),
+    error: document.getElementById('album-error'),
+    content: document.getElementById('album-detail-content'),
+    title: document.getElementById('album-title'),
+    meta: document.getElementById('album-meta'),
+    description: document.getElementById('album-description'),
+    visibility: document.getElementById('album-visibility'),
+    mediaCount: document.getElementById('album-media-count'),
+    createdAt: document.getElementById('album-created-at'),
+    updatedAt: document.getElementById('album-updated-at'),
+    mediaGrid: document.getElementById('album-media-grid'),
+    mediaEmpty: document.getElementById('album-media-empty'),
+    slideshowButton: document.getElementById('start-slideshow-btn'),
+  };
+
+  const slideshow = new AlbumSlideshow({
+    overlayElement: document.getElementById('album-slideshow-overlay'),
+    stageElement: document.getElementById('album-slideshow-stage'),
+    imageElement: document.getElementById('album-slideshow-image'),
+    titleElement: document.getElementById('album-slideshow-title'),
+    metaElement: document.getElementById('album-slideshow-meta'),
+    counterElement: document.getElementById('album-slideshow-counter'),
+    emptyStateElement: document.getElementById('album-slideshow-empty'),
+    loadingElement: document.getElementById('album-slideshow-loading'),
+    playPauseButton: document.getElementById('album-slideshow-toggle'),
+    prevButton: document.getElementById('album-slideshow-prev'),
+    nextButton: document.getElementById('album-slideshow-next'),
+    closeButton: document.getElementById('album-slideshow-close'),
+    labels: {
+      play: "{{ _('Play')|escapejs }}",
+      pause: "{{ _('Pause')|escapejs }}",
+      next: "{{ _('Next')|escapejs }}",
+      previous: "{{ _('Previous')|escapejs }}",
+      close: "{{ _('Close')|escapejs }}",
+      counter: "{{ _('%(current)s / %(total)s')|escapejs }}",
+      noMedia: strings.noMedia,
+      shotAt: strings.shotAtLabel,
+      albumTitleFallback: "{{ _('Album')|escapejs }}",
+    },
+    imageUrlResolver: (item) => (item?.id ? `/api/media/${item.id}/thumbnail?size=1600` : (item?.thumbnailUrl || '')),
+    metadataFormatter: (item, context) => {
+      const parts = [];
+      if (item?.shotAt) {
+        const formatted = formatDateTime(item.shotAt);
+        if (formatted) {
+          parts.push(`${strings.shotAtLabel} ${formatted}`);
+        }
+      }
+      parts.push(
+        strings.positionLabel
+          .replace('%(current)s', (context.index + 1).toString())
+          .replace('%(total)s', context.total.toString()),
+      );
+      return parts.join(' · ');
+    },
+  });
+
+  async function loadAlbumDetail() {
+    elements.loading.classList.remove('d-none');
+    elements.error.classList.add('d-none');
+    elements.content.classList.add('d-none');
+    try {
+      const response = await apiClient.get(`/api/albums/${albumId}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      if (!data?.album) {
+        throw new Error('Missing album payload');
+      }
+      state.album = data.album;
+      state.media = Array.isArray(data.album.media) ? data.album.media : [];
+      renderAlbumDetail();
+      elements.content.classList.remove('d-none');
+      elements.slideshowButton.disabled = state.media.length === 0;
+      slideshow.load(state.media, { albumTitle: state.album.title || strings.untitledAlbum });
+    } catch (error) {
+      console.error('Failed to load album detail', error);
+      elements.error.classList.remove('d-none');
+      elements.error.textContent = strings.loadingError;
+      elements.content.classList.add('d-none');
+    } finally {
+      elements.loading.classList.add('d-none');
+    }
+  }
+
+  function renderAlbumDetail() {
+    const album = state.album;
+    const title = album.title?.trim() || strings.untitledAlbum;
+    elements.title.textContent = title;
+
+    const visibilityLabel = strings.visibilityLabels[album.visibility] || album.visibility || '';
+    elements.visibility.textContent = visibilityLabel;
+
+    const mediaCountText = formatMediaCount(album.mediaCount ?? state.media.length);
+    elements.mediaCount.textContent = mediaCountText;
+
+    const createdText = formatDateTime(album.createdAt);
+    elements.createdAt.textContent = createdText ? `${strings.createdLabel}: ${createdText}` : '';
+
+    const updatedText = formatDateTime(album.lastModified);
+    if (updatedText) {
+      elements.updatedAt.textContent = `${strings.updatedLabel}: ${updatedText}`;
+      elements.updatedAt.classList.remove('d-none');
+    } else {
+      elements.updatedAt.classList.add('d-none');
+    }
+
+    if (album.description) {
+      elements.description.textContent = album.description;
+      elements.description.classList.remove('d-none');
+    } else {
+      elements.description.textContent = '';
+      elements.description.classList.add('d-none');
+    }
+
+    const metaParts = [];
+    if (visibilityLabel) {
+      metaParts.push(visibilityLabel);
+    }
+    if (mediaCountText) {
+      metaParts.push(mediaCountText);
+    }
+    if (createdText) {
+      metaParts.push(`${strings.createdLabel}: ${createdText}`);
+    }
+    if (updatedText) {
+      metaParts.push(`${strings.updatedLabel}: ${updatedText}`);
+    }
+    elements.meta.textContent = metaParts.join(' · ');
+
+    renderMediaGrid();
+  }
+
+  function renderMediaGrid() {
+    elements.mediaGrid.innerHTML = '';
+    if (!state.media.length) {
+      elements.mediaEmpty.classList.remove('d-none');
+      elements.slideshowButton.disabled = true;
+      return;
+    }
+
+    elements.mediaEmpty.classList.add('d-none');
+    elements.slideshowButton.disabled = false;
+
+    state.media.forEach((item, index) => {
+      const tile = document.createElement('button');
+      tile.type = 'button';
+      tile.className = 'album-media-tile';
+      tile.innerHTML = `
+        <img src="${item.thumbnailUrl || `/api/media/${item.id}/thumbnail?size=512`}" alt="${escapeHtml(item.filename || titleForMedia(item))}" loading="lazy">
+        <div class="album-media-overlay">
+          <span class="badge">${index + 1}</span>
+          ${item.shotAt ? `<div class="media-meta">${escapeHtml(formatShotAt(item.shotAt))}</div>` : ''}
+        </div>
+      `;
+      tile.addEventListener('click', () => {
+        slideshow.open(index);
+      });
+      elements.mediaGrid.appendChild(tile);
+    });
+  }
+
+  function formatMediaCount(count) {
+    const value = Number(count) || 0;
+    const template = value === 1 ? strings.mediaCountSingular : strings.mediaCountPlural;
+    return template.replace('%(count)s', value.toString());
+  }
+
+  function formatShotAt(isoString) {
+    const formatted = formatDateTime(isoString);
+    return formatted || '';
+  }
+
+  function formatDateTime(isoString) {
+    if (!isoString) {
+      return '';
+    }
+    const helper = window.appTime;
+    if (helper && typeof helper.formatDateTime === 'function') {
+      try {
+        const formatted = helper.formatDateTime(isoString, { dateStyle: 'medium', timeStyle: 'short' });
+        if (formatted) {
+          return formatted;
+        }
+      } catch (error) {
+        console.warn('formatDateTime failed', error);
+      }
+    }
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    return date.toLocaleString();
+  }
+
+  function titleForMedia(item) {
+    if (!item) {
+      return strings.untitledAlbum;
+    }
+    return item.filename || item.id?.toString() || strings.untitledAlbum;
+  }
+
+  function escapeHtml(value) {
+    if (value === null || value === undefined) {
+      return '';
+    }
+    return value
+      .toString()
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  elements.slideshowButton.addEventListener('click', () => {
+    if (!state.media.length) {
+      showInfoToast(strings.noMedia);
+      return;
+    }
+    slideshow.open(0);
+  });
+
+  loadAlbumDetail();
+});
+</script>
 {% endblock %}

@@ -1,39 +1,81 @@
 """Logging configuration for core tasks."""
 
+from __future__ import annotations
+
 import logging
+import os
+from logging.handlers import WatchedFileHandler
+from pathlib import Path
 from typing import Optional
 
 from flask import current_app, has_app_context
 
 
+_APPDB_HANDLER_ATTR = "_is_appdb_log_handler"
+_APPDB_LOG_ENV = "APP_DB_LOG_PATH"
+_APPDB_DEFAULT_FILENAME = "appdb.log"
+
+
+def _resolve_appdb_log_path() -> Path:
+    """Return filesystem path for the appdb log file."""
+
+    env_path = os.environ.get(_APPDB_LOG_ENV)
+    if env_path:
+        path = Path(env_path)
+    else:
+        path = Path(_APPDB_DEFAULT_FILENAME)
+    if not path.is_absolute():
+        path = Path.cwd() / path
+    return path
+
+
+def _create_appdb_file_handler() -> logging.Handler:
+    """Create a file handler for appdb.log with sane defaults."""
+
+    log_path = _resolve_appdb_log_path()
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    handler = WatchedFileHandler(log_path)
+    handler.setLevel(logging.INFO)
+    handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s'))
+    setattr(handler, _APPDB_HANDLER_ATTR, True)
+    return handler
+
+
+def ensure_appdb_file_logging(logger: logging.Logger) -> None:
+    """Attach the appdb.log file handler to *logger* if missing."""
+
+    for handler in logger.handlers:
+        if getattr(handler, _APPDB_HANDLER_ATTR, False):
+            break
+    else:
+        file_handler = _create_appdb_file_handler()
+        logger.addHandler(file_handler)
+
+    if logger.level == logging.NOTSET:
+        logger.setLevel(logging.INFO)
+
+
 def setup_task_logging(logger_name: Optional[str] = None) -> logging.Logger:
-    """Setup logging for core tasks to use DBLogHandler.
-    
-    Args:
-        logger_name: Name of the logger. If None, uses root logger.
-        
-    Returns:
-        Configured logger instance.
-    """
+    """Setup logging for core tasks to use DBLogHandler and appdb.log."""
+
     from core.db_log_handler import DBLogHandler
-    
+
     # Get logger
     if logger_name:
         logger = logging.getLogger(logger_name)
     else:
         logger = logging.getLogger()
-    
+
     # Check if DBLogHandler is already added
     if not any(isinstance(h, DBLogHandler) for h in logger.handlers):
         app_obj = current_app._get_current_object() if has_app_context() else None
         db_handler = DBLogHandler(app=app_obj)
         db_handler.setLevel(logging.INFO)
         logger.addHandler(db_handler)
-        
-        # Set logger level if not already set
-        if logger.level == logging.NOTSET:
-            logger.setLevel(logging.INFO)
-    
+
+    ensure_appdb_file_logging(logger)
+
     return logger
 
 

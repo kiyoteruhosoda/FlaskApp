@@ -24,10 +24,13 @@ def app(tmp_path):
     os.environ["FPV_URL_TTL_PLAYBACK"] = "600"
     thumbs = tmp_path / "thumbs"
     play = tmp_path / "play"
+    orig = tmp_path / "orig"
     thumbs.mkdir()
     play.mkdir()
+    orig.mkdir()
     os.environ["FPV_NAS_THUMBS_DIR"] = str(thumbs)
     os.environ["FPV_NAS_PLAY_DIR"] = str(play)
+    os.environ["FPV_NAS_ORIGINALS_DIR"] = str(orig)
     import importlib, sys
     import webapp.config as config_module
     importlib.reload(config_module)
@@ -845,6 +848,8 @@ def test_media_delete_success(client, app):
         db.session.add(media)
         db.session.commit()
         media_id = media.id
+        orig_dir = Path(app.config["FPV_NAS_ORIGINALS_DIR"])
+        (orig_dir / media.local_rel_path).write_bytes(b"data")
 
     grant_permission(app, "media:delete")
     login(client)
@@ -858,4 +863,5 @@ def test_media_delete_success(client, app):
         refreshed = Media.query.get(media_id)
         assert refreshed is not None
         assert refreshed.is_deleted is True
+        assert not (Path(app.config["FPV_NAS_ORIGINALS_DIR"]) / refreshed.local_rel_path).exists()
 

@@ -8,6 +8,7 @@ import os
 import re
 import secrets
 import time
+from pathlib import Path
 from urllib.parse import urlencode
 from email.utils import formatdate
 from uuid import uuid4
@@ -142,6 +143,64 @@ def jwt_required(f):
         
         return f(*args, **kwargs)
     return decorated_function
+
+
+def _normalize_rel_path(value: str | None) -> Path | None:
+    if not value:
+        return None
+    normalized = value.lstrip("/\\")
+    if not normalized:
+        return None
+    return Path(normalized)
+
+
+def _remove_media_files(media: Media) -> None:
+    rel_path = _normalize_rel_path(media.local_rel_path)
+    if rel_path is None:
+        return
+
+    def _unlink(target: Path) -> None:
+        try:
+            target.unlink()
+        except FileNotFoundError:
+            return
+        except OSError as exc:
+            current_app.logger.warning(
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "media_id": media.id,
+                        "path": str(target),
+                        "error": str(exc),
+                    }
+                ),
+                extra={"event": "media.delete.cleanup_failed"},
+            )
+
+    orig_base = current_app.config.get("FPV_NAS_ORIGINALS_DIR") or os.environ.get(
+        "FPV_NAS_ORIGINALS_DIR"
+    )
+    if orig_base:
+        _unlink(Path(orig_base) / rel_path)
+
+    thumbs_base = current_app.config.get("FPV_NAS_THUMBS_DIR") or os.environ.get(
+        "FPV_NAS_THUMBS_DIR"
+    )
+    if thumbs_base:
+        for size in (256, 1024, 2048):
+            _unlink(Path(thumbs_base) / str(size) / rel_path)
+
+    play_base = current_app.config.get("FPV_NAS_PLAY_DIR") or os.environ.get(
+        "FPV_NAS_PLAY_DIR"
+    )
+    if play_base:
+        for playback in media.playbacks:
+            rel = _normalize_rel_path(playback.rel_path)
+            if rel:
+                _unlink(Path(play_base) / rel)
+            poster_rel = _normalize_rel_path(playback.poster_rel_path)
+            if poster_rel:
+                _unlink(Path(play_base) / poster_rel)
 
 
 def login_or_jwt_required(f):
@@ -764,6 +823,7 @@ def api_media_delete(media_id: int):
     if not media or media.is_deleted:
         return jsonify({"error": "not_found"}), 404
 
+    _remove_media_files(media)
     media.is_deleted = True
     db.session.commit()
 

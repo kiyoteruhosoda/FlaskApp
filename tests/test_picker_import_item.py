@@ -189,6 +189,78 @@ def test_picker_import_item_dup(monkeypatch, app, tmp_path):
         assert called_play == []
 
 
+def test_picker_import_item_reimports_deleted_media(monkeypatch, app, tmp_path):
+    ps_id, pmi_id = _setup_item(app)
+
+    import importlib
+    mod = importlib.import_module("core.tasks.picker_import")
+
+    content = b"hello"
+    sha = hashlib.sha256(content).hexdigest()
+
+    def fake_download(url, dest_dir, headers=None):
+        path = dest_dir / "dl"
+        with open(path, "wb") as fh:
+            fh.write(content)
+        return mod.Downloaded(path, len(content), sha)
+
+    monkeypatch.setattr(mod, "_download", fake_download)
+    monkeypatch.setattr(mod, "_exchange_refresh_token", lambda g, p: ("tok", None))
+
+    class FakeResp:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"baseUrl": "http://example/file", "mediaMetadata": {"width": "1", "height": "1"}}
+
+    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None: FakeResp())
+
+    called_thumbs: list[int] = []
+    called_play: list[int] = []
+    monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: called_thumbs.append(mid))
+    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid: called_play.append(mid))
+
+    from core.models.photo_models import Media
+    from webapp.extensions import db
+    from datetime import datetime, timezone
+
+    with app.app_context():
+        Media.query.delete()
+        db.session.commit()
+
+        deleted_media = Media(
+            google_media_id="x",
+            account_id=1,
+            local_rel_path="x",
+            hash_sha256=sha,
+            bytes=len(content),
+            mime_type="image/jpeg",
+            width=None,
+            height=None,
+            duration_ms=None,
+            shot_at=datetime.now(timezone.utc),
+            imported_at=datetime.now(timezone.utc),
+            is_video=False,
+            is_deleted=True,
+        )
+        db.session.add(deleted_media)
+        db.session.commit()
+
+        res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
+        from core.models.photo_models import PickerSelection
+
+        pmi = PickerSelection.query.get(pmi_id)
+        assert res["ok"] is True
+        assert pmi.status == "imported"
+        assert Media.query.filter_by(is_deleted=False).count() == 1
+        new_media = Media.query.filter_by(is_deleted=False).one()
+        assert new_media.hash_sha256 == sha
+        assert Media.query.count() == 2
+        assert called_thumbs == [new_media.id]
+        assert called_play == []
+
+
 def test_picker_import_item_video_queues_playback(monkeypatch, app, tmp_path):
     ps_id, pmi_id = _setup_item(app, mime="video/mp4", filename="v.mp4", mtype="VIDEO")
 

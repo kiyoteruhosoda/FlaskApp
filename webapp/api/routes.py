@@ -1776,6 +1776,7 @@ def api_media_playback_url(media_id):
 
 
 @bp.route("/dl/<path:token>", methods=["GET", "HEAD"])
+@login_or_jwt_required
 def api_download(token):
     payload, err = _verify_token(token)
     if err:

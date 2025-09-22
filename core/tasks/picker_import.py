@@ -1098,6 +1098,7 @@ def picker_import_item(
 
             try:
                 media = Media(
+                    source_type="google_photos",
                     google_media_id=mi.id,
                     account_id=ps.account_id,
                     local_rel_path=str(out_rel),
@@ -1406,6 +1407,7 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
             os.replace(dl.path, final_path)
 
             media = Media(
+                source_type="google_photos",
                 google_media_id=media_id,
                 account_id=account_id,
                 local_rel_path=str(out_rel),

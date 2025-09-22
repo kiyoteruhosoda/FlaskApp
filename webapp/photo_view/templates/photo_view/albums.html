@@ -646,6 +646,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const defaultCoverDataUrl = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjUwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcw48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiM2NjdlZWEiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM3NjRiYTIiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2cpIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7wn5OCPC90ZXh0Pjwvc3ZnPg==';
 
+  function adjustMediaScrollHeight() {
+    if (!albumModalElement.classList.contains('show')) {
+      return;
+    }
+
+    if (!albumMediaScroll) {
+      return;
+    }
+
+    const modalBody = albumModalElement.querySelector('.modal-body');
+    if (!modalBody) {
+      return;
+    }
+
+    const modalBodyStyles = window.getComputedStyle(modalBody);
+    const paddingBottom = parseFloat(modalBodyStyles.paddingBottom || '0');
+    const modalBodyRect = modalBody.getBoundingClientRect();
+    const scrollRect = albumMediaScroll.getBoundingClientRect();
+    const offsetWithinBody = scrollRect.top - modalBodyRect.top;
+    const available = modalBody.clientHeight - offsetWithinBody - paddingBottom - 12;
+
+    if (!Number.isFinite(available)) {
+      return;
+    }
+
+    const nextHeight = Math.floor(available);
+
+    if (nextHeight <= 0) {
+      albumMediaScroll.style.maxHeight = '180px';
+      return;
+    }
+
+    albumMediaScroll.style.maxHeight = `${nextHeight}px`;
+  }
+
+  function scheduleMediaScrollAdjustment() {
+    window.requestAnimationFrame(adjustMediaScrollHeight);
+  }
+
   function escapeHtml(text) {
     if (text === null || text === undefined) {
       return '';
@@ -764,6 +803,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (entries.length === 0) {
       selectedMediaCount.textContent = strings.noSelection;
       updateCoverOptions();
+      scheduleMediaScrollAdjustment();
       return;
     }
 
@@ -805,6 +845,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     updateCoverOptions();
+    scheduleMediaScrollAdjustment();
   }
 
   function updateMediaTileSelectionState() {
@@ -943,6 +984,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         updateMediaTileSelectionState();
+        scheduleMediaScrollAdjustment();
       },
       onError: (error) => {
         console.error('Media load error', error);
@@ -966,6 +1008,7 @@ document.addEventListener('DOMContentLoaded', () => {
     albumMediaEmpty.classList.add('d-none');
     try {
       await albumState.mediaInfiniteScroll.start(params);
+      scheduleMediaScrollAdjustment();
     } catch (error) {
       console.error('Failed to reload media library', error);
       showErrorToast(strings.filterApplyError);
@@ -975,6 +1018,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderSelectedTags() {
     selectedTagsContainer.innerHTML = '';
     if (albumState.tagFilters.length === 0) {
+      scheduleMediaScrollAdjustment();
       return;
     }
 
@@ -993,6 +1037,8 @@ document.addEventListener('DOMContentLoaded', () => {
       chip.appendChild(button);
       selectedTagsContainer.appendChild(chip);
     });
+
+    scheduleMediaScrollAdjustment();
   }
 
   function hideTagSuggestions() {
@@ -1074,6 +1120,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderSelectedMedia();
     updateCoverOptions();
     albumFormStatus.textContent = '';
+    scheduleMediaScrollAdjustment();
   }
 
   function openAlbumModal(mode, albumData = null) {
@@ -1118,7 +1165,11 @@ document.addEventListener('DOMContentLoaded', () => {
     ensureMediaBrowserInitialized();
     reloadMediaLibrary();
     albumModal.show();
-    setTimeout(() => albumNameInput.focus(), 200);
+    scheduleMediaScrollAdjustment();
+    setTimeout(() => {
+      albumNameInput.focus();
+      scheduleMediaScrollAdjustment();
+    }, 200);
   }
 
   async function loadAlbumForEdit(albumId) {
@@ -1416,7 +1467,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   albumModalElement.addEventListener('hidden.bs.modal', () => {
     resetAlbumForm();
+    albumMediaScroll.style.maxHeight = '';
   });
+
+  albumModalElement.addEventListener('shown.bs.modal', () => {
+    scheduleMediaScrollAdjustment();
+    setTimeout(adjustMediaScrollHeight, 150);
+  });
+
+  window.addEventListener('resize', scheduleMediaScrollAdjustment);
 
   initializeAlbumsScroll();
 });

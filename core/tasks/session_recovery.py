@@ -1,4 +1,11 @@
-"""Session recovery tasks for cleaning up stale processing sessions."""
+"""Session recovery tasks for cleaning up stale processing sessions.
+
+`cleanup_stale_sessions` は Celery Beat から 5 分間隔で起動される定期タスクです。
+そのため、ログアウト直後などユーザー操作とほぼ同じタイミングで
+`session_recovery.cleanup_stale_sessions` というログが出力されることがありますが、
+これはスケジュール実行によるものであり、ログアウト処理が直接トリガーしている
+わけではありません。
+"""
 
 import json
 from datetime import datetime, timedelta

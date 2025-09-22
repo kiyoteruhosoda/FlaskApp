@@ -1,5 +1,8 @@
 from datetime import datetime, timezone
+from typing import Optional
+
 from flask_login import UserMixin
+
 from core.db import db
 from webapp.extensions import login_manager
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -52,7 +55,11 @@ class User(db.Model, UserMixin):
         return check_password_hash(self.password_hash, raw)
 
     # リフレッシュトークンの管理ヘルパ
-    def set_refresh_token(self, token: str) -> None:
+    def set_refresh_token(self, token: Optional[str]) -> None:
+        if not token:
+            self.refresh_token_hash = None
+            return
+
         self.refresh_token_hash = generate_password_hash(token)
 
     def check_refresh_token(self, token: str) -> bool:

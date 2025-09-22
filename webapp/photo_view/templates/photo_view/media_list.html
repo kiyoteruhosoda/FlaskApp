@@ -97,7 +97,6 @@
     width: 200px;
     max-width: 100%;
     font-size: 0.9rem;
-    padding: 6px 2px 0 2px;
     background: transparent;
   }
 
@@ -533,9 +532,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const removeTagLabel = '{{ _('Remove') }}';
   const noTagsFoundText = '{{ _('No tags found') }}';
   const tagAttrLabels = {
-    person: '{{ _('Person') }}',
-    place: '{{ _('Place') }}',
-    thing: '{{ _('Thing') }}'
+    person: "{{ _('Person')|escapejs }}",
+    place: "{{ _('Place')|escapejs }}",
+    thing: "{{ _('Thing')|escapejs }}"
   };
 
   function createMediaCard(media) {

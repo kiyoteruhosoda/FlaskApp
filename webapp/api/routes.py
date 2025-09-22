@@ -40,6 +40,7 @@ from application.auth_service import AuthService
 from infrastructure.user_repository import SqlAlchemyUserRepository
 from ..services.token_service import TokenService
 import jwt
+from sqlalchemy.orm import joinedload
 
 
 user_repo = SqlAlchemyUserRepository(db.session)
@@ -83,6 +84,10 @@ def login_or_jwt_required(f):
         current_app.logger.info(f"login_or_jwt_required: endpoint={request.endpoint}")
         current_app.logger.info(f"current_user.is_authenticated: {current_user.is_authenticated}")
         
+        if current_app.config.get('LOGIN_DISABLED'):
+            current_app.logger.info("LOGIN_DISABLED is active; skipping authentication checks")
+            return f(*args, **kwargs)
+
         # まずFlask-Loginでの認証をチェック
         if current_user.is_authenticated:
             current_app.logger.info("Flask-Login authentication successful")
@@ -390,7 +395,7 @@ def api_media_list():
     before_param = request.args.get("before")
     
     # ベースクエリの構築
-    query = Media.query
+    query = Media.query.options(joinedload(Media.account))
     if not include_deleted:
         # is_deletedがNullまたはFalseの場合を含める
         query = query.filter(
@@ -413,6 +418,13 @@ def api_media_list():
     
     # メディアアイテムのシリアライザ関数
     def serialize_media_item(media):
+        source_type = media.source_type
+        source_label = {
+            "local": "Local Import",
+            "google_photos": "Google Photos",
+        }.get(source_type, source_type or "unknown")
+        account_email = media.account.email if getattr(media, "account", None) else None
+
         return {
             "id": media.id,
             "filename": media.filename,
@@ -425,7 +437,10 @@ def api_media_list():
             "is_video": int(bool(media.is_video)),
             "has_playback": int(bool(media.has_playback)),
             "bytes": media.bytes,
-            "source_type": media.source_type,
+            "source_type": source_type,
+            "source_label": source_label,
+            "account_id": media.account_id,
+            "account_email": account_email,
             "camera_make": media.camera_make,
             "camera_model": media.camera_model,
         }
@@ -940,35 +955,57 @@ def trigger_local_import():
 def local_import_status():
     """ローカルインポートの設定と状態を取得"""
     from webapp.config import Config
-    
+
     # 設定情報
-    import_dir = Config.LOCAL_IMPORT_DIR
-    originals_dir = Config.FPV_NAS_ORIGINALS_DIR
-    
-    # ディレクトリの存在確認
-    import_dir_exists = os.path.exists(import_dir) if import_dir else False
-    originals_dir_exists = os.path.exists(originals_dir) if originals_dir else False
-    
+    import_dir_raw = current_app.config.get("LOCAL_IMPORT_DIR") or Config.LOCAL_IMPORT_DIR
+    originals_dir_raw = current_app.config.get("FPV_NAS_ORIGINALS_DIR") or Config.FPV_NAS_ORIGINALS_DIR
+
+    def _prepare_path(path_value):
+        if not path_value:
+            return {
+                "raw": None,
+                "absolute": None,
+                "realpath": None,
+                "exists": False,
+            }
+
+        absolute = os.path.abspath(path_value)
+        realpath = os.path.realpath(absolute)
+        exists = os.path.isdir(realpath)
+        return {
+            "raw": path_value,
+            "absolute": absolute,
+            "realpath": realpath,
+            "exists": exists,
+        }
+
+    import_dir_info = _prepare_path(import_dir_raw)
+    originals_dir_info = _prepare_path(originals_dir_raw)
+
     # 取り込み対象ファイル数の計算
     file_count = 0
-    if import_dir_exists:
+    if import_dir_info["exists"]:
         try:
             from core.tasks.local_import import scan_import_directory
-            files = scan_import_directory(import_dir)
+            files = scan_import_directory(import_dir_info["realpath"])
             file_count = len(files)
         except Exception as e:
             current_app.logger.warning(f"Failed to scan import directory: {e}")
-    
+
     return jsonify({
         "config": {
-            "import_dir": import_dir,
-            "originals_dir": originals_dir,
-            "import_dir_exists": import_dir_exists,
-            "originals_dir_exists": originals_dir_exists
+            "import_dir": import_dir_raw,
+            "originals_dir": originals_dir_raw,
+            "import_dir_absolute": import_dir_info["absolute"],
+            "import_dir_realpath": import_dir_info["realpath"],
+            "import_dir_exists": import_dir_info["exists"],
+            "originals_dir_absolute": originals_dir_info["absolute"],
+            "originals_dir_realpath": originals_dir_info["realpath"],
+            "originals_dir_exists": originals_dir_info["exists"],
         },
         "status": {
             "pending_files": file_count,
-            "ready": import_dir_exists and originals_dir_exists
+            "ready": import_dir_info["exists"] and originals_dir_info["exists"]
         },
         "server_time": datetime.now(timezone.utc).isoformat()
     })

@@ -9,37 +9,101 @@
 <h1>Photo View Home</h1>
 
 <div class="mb-3">
-  <a href="/auth/picker" class="btn btn-success">
-    {{ _('Create New Session') }}
-  </a>
-  <button id="refresh-sessions" class="btn btn-outline-primary ms-2">
-    <i id="refresh-icon" class="fas fa-refresh"></i> {{ _('Refresh') }}
-  </button>
-  
-  <!-- ローカルインポートボタン -->
-  <a href="#" id="local-import-btn" class="btn btn-outline-info ms-2">
-    <i class="bi bi-folder-plus"></i> ローカルインポート
-  </a>
-  
-  <!-- メディアギャラリーリンク -->
-  <a href="{{ url_for('photo_view.media_list') }}" class="btn btn-primary ms-2">
-    <i class="fas fa-images"></i> {{ _('View Media Gallery') }}
-  </a>
-  
-  <!-- アルバムリンク -->
-  <a href="{{ url_for('photo_view.albums') }}" class="btn btn-outline-success ms-2">
-    <i class="fas fa-folder"></i> {{ _('Albums') }}
-  </a>
-  
-  <!-- 設定リンク -->
-  <div class="float-end">
-    <a href="{{ url_for('photo_view.settings') }}" class="btn btn-outline-secondary me-2">
-      設定
-    </a>
-    <a href="{{ url_for('photo_view.admin_settings') }}" class="btn btn-outline-warning">
-      管理者設定
-    </a>
+  <div class="d-flex flex-wrap gap-3 align-items-end">
+    <div class="flex-grow-1" style="min-width: 260px;">
+      <label for="session-account" class="form-label mb-1">{{ _('新規セッションに利用する Google アカウント') }}</label>
+      <div class="input-group">
+        {% set has_multiple_accounts = google_accounts|length > 1 %}
+        <select id="session-account" class="form-select" {% if not google_accounts %}disabled{% endif %}>
+          {% if not google_accounts %}
+            <option value="" selected disabled>{{ _('Googleアカウントが連携されていません') }}</option>
+          {% else %}
+            <option value="" disabled {% if has_multiple_accounts %}selected{% endif %}>{{ _('アカウントを選択') }}</option>
+            {% for account in google_accounts %}
+              <option value="{{ account.id }}" {% if not has_multiple_accounts and loop.first %}selected{% endif %}>{{ account.email }}</option>
+            {% endfor %}
+          {% endif %}
+        </select>
+        <button id="create-session-btn" class="btn btn-success" {% if not google_accounts %}disabled{% endif %}>
+          {{ _('Create New Session') }}
+        </button>
+      </div>
+      {% if not google_accounts %}
+        <div class="form-text text-muted mt-1">
+          {{ _('新規セッションを作成する前に管理画面でGoogleアカウントを連携してください。') }}
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="d-flex flex-wrap gap-2">
+      <button id="refresh-sessions" class="btn btn-outline-primary">
+        <i id="refresh-icon" class="fas fa-refresh"></i> {{ _('Refresh') }}
+      </button>
+
+      <!-- ローカルインポートボタン -->
+      <a href="#" id="local-import-btn" class="btn btn-outline-info"
+         data-import-display="{{ local_import_info.import.display or '' }}"
+         data-import-absolute="{{ local_import_info.import.absolute or '' }}"
+         data-import-realpath="{{ local_import_info.import.realpath or '' }}"
+         data-import-exists="{{ '1' if local_import_info.import.exists else '0' }}"
+         data-destination-display="{{ local_import_info.originals.display or '' }}"
+         data-destination-absolute="{{ local_import_info.originals.absolute or '' }}"
+         data-destination-realpath="{{ local_import_info.originals.realpath or '' }}"
+         data-destination-exists="{{ '1' if local_import_info.originals.exists else '0' }}">
+        <i class="bi bi-folder-plus"></i> ローカルインポート
+      </a>
+
+      <!-- メディアギャラリーリンク -->
+      <a href="{{ url_for('photo_view.media_list') }}" class="btn btn-primary">
+        <i class="fas fa-images"></i> {{ _('View Media Gallery') }}
+      </a>
+
+      <!-- アルバムリンク -->
+      <a href="{{ url_for('photo_view.albums') }}" class="btn btn-outline-success">
+        <i class="fas fa-folder"></i> {{ _('Albums') }}
+      </a>
+    </div>
+
+    <!-- 設定リンク -->
+    <div class="ms-auto d-flex flex-wrap gap-2">
+      <a href="{{ url_for('photo_view.settings') }}" class="btn btn-outline-secondary">
+        設定
+      </a>
+      <a href="{{ url_for('photo_view.admin_settings') }}" class="btn btn-outline-warning">
+        管理者設定
+      </a>
+    </div>
   </div>
+
+  {% if local_import_info.import.display %}
+    <div class="mt-2 text-muted small">
+      {{ _('ローカルインポート対象') }}:
+      <code>{{ local_import_info.import.display }}</code>
+      {% if local_import_info.import.absolute and local_import_info.import.absolute != local_import_info.import.display %}
+        <span class="ms-1">({{ _('設定値') }}: <code>{{ local_import_info.import.absolute }}</code>)</span>
+      {% elif local_import_info.import.raw and local_import_info.import.raw != local_import_info.import.display %}
+        <span class="ms-1">({{ _('設定値') }}: <code>{{ local_import_info.import.raw }}</code>)</span>
+      {% endif %}
+      {% if not local_import_info.import.exists %}
+        <span class="ms-1 text-danger">{{ _('未検出') }}</span>
+      {% endif %}
+      <br>
+      {{ _('保存先') }}:
+      {% if local_import_info.originals.display %}
+        <code>{{ local_import_info.originals.display }}</code>
+        {% if local_import_info.originals.absolute and local_import_info.originals.absolute != local_import_info.originals.display %}
+          <span class="ms-1">({{ _('設定値') }}: <code>{{ local_import_info.originals.absolute }}</code>)</span>
+        {% elif local_import_info.originals.raw and local_import_info.originals.raw != local_import_info.originals.display %}
+          <span class="ms-1">({{ _('設定値') }}: <code>{{ local_import_info.originals.raw }}</code>)</span>
+        {% endif %}
+        {% if not local_import_info.originals.exists %}
+          <span class="ms-1 text-danger">{{ _('未検出') }}</span>
+        {% endif %}
+      {% else %}
+        <span class="text-warning">{{ _('保存先ディレクトリが設定されていません。') }}</span>
+      {% endif %}
+    </div>
+  {% endif %}
 </div>
 
 <div class="mt-4">
@@ -87,6 +151,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const noMoreData = document.getElementById('no-more-data');
   const refreshBtn = document.getElementById('refresh-sessions');
   const sessionCount = document.getElementById('session-count');
+  const createSessionBtn = document.getElementById('create-session-btn');
+  const accountSelect = document.getElementById('session-account');
+  const localImportBtn = document.getElementById('local-import-btn');
+
+  const selectAccountMessage = '{{ _('先にGoogleアカウントを選択してください。') }}';
+  const localImportPromptHeader = '{{ _('以下のディレクトリからローカルインポートを開始しますか？') }}';
+  const localImportSourceLabel = '{{ _('取り込み元') }}';
+  const localImportDestinationLabel = '{{ _('保存先') }}';
+  const localImportResolvedLabel = '{{ _('解決パス') }}';
+  const localImportMissingLabel = '{{ _('未検出') }}';
+  const localImportRemovalNotice = '{{ _('取り込み後、元のディレクトリからファイルは削除されます。') }}';
+  const localImportDestinationUnset = '{{ _('保存先ディレクトリが設定されていません。') }}';
 
   let totalLoaded = 0;
   const sessionsLoadedLabel = '{{ _('sessions loaded') }}';
@@ -282,39 +358,106 @@ document.addEventListener('DOMContentLoaded', () => {
   // 更新ボタンの処理
   refreshBtn.addEventListener('click', refreshSessions);
 
+  if (accountSelect) {
+    accountSelect.addEventListener('change', () => {
+      accountSelect.classList.remove('is-invalid');
+    });
+    accountSelect.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && createSessionBtn) {
+        event.preventDefault();
+        createSessionBtn.click();
+      }
+    });
+  }
+
+  if (createSessionBtn) {
+    createSessionBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      if (!accountSelect) {
+        window.location.href = '/auth/picker';
+        return;
+      }
+      const selected = accountSelect.value;
+      if (!selected) {
+        accountSelect.classList.add('is-invalid');
+        if (typeof showInfoToast === 'function') {
+          showInfoToast(selectAccountMessage, 4000);
+        } else {
+          alert(selectAccountMessage);
+        }
+        return;
+      }
+      window.location.href = `/auth/picker/${selected}`;
+    });
+  }
+
   // ローカルインポートボタンの処理
-  document.getElementById('local-import-btn').addEventListener('click', async function(e) {
-    e.preventDefault();
-    
-    if (!confirm('ローカルディレクトリからファイルをインポートしますか？\n取り込まれたファイルは元の場所から削除されます。')) {
-      return;
-    }
-    
-    try {
-      // インポート開始の通知
-      showInfoToast('ローカルインポートを開始しています...', 3000);
+  if (localImportBtn) {
+    localImportBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
 
-      const resp = await window.apiClient.post('/api/sync/local-import');
+      const importDisplay = localImportBtn.dataset.importDisplay || localImportBtn.dataset.importAbsolute || '';
+      const importReal = localImportBtn.dataset.importRealpath || '';
+      const importExists = localImportBtn.dataset.importExists === '1';
+      const destinationDisplay = localImportBtn.dataset.destinationDisplay || localImportBtn.dataset.destinationAbsolute || '';
+      const destinationReal = localImportBtn.dataset.destinationRealpath || '';
+      const destinationExists = localImportBtn.dataset.destinationExists === '1';
 
-      if (!resp.ok) {
-        const text = await resp.text().catch(() => '');
-        console.error('Local import failed:', resp.status, text);
-        showErrorToast('ローカルインポートの開始に失敗しました。');
+      const confirmLines = [localImportPromptHeader];
+      if (importDisplay) {
+        let sourceLine = `${localImportSourceLabel}: ${importDisplay}`;
+        if (importReal && importReal !== importDisplay) {
+          sourceLine += ` (${localImportResolvedLabel}: ${importReal})`;
+        }
+        if (!importExists) {
+          sourceLine += ` [${localImportMissingLabel}]`;
+        }
+        confirmLines.push(sourceLine);
+      }
+      if (destinationDisplay) {
+        let destinationLine = `${localImportDestinationLabel}: ${destinationDisplay}`;
+        if (destinationReal && destinationReal !== destinationDisplay) {
+          destinationLine += ` (${localImportResolvedLabel}: ${destinationReal})`;
+        }
+        if (!destinationExists) {
+          destinationLine += ` [${localImportMissingLabel}]`;
+        }
+        confirmLines.push(destinationLine);
+      } else {
+        confirmLines.push(localImportDestinationUnset);
+      }
+      confirmLines.push(localImportRemovalNotice);
+
+      if (!confirm(confirmLines.join('\n'))) {
         return;
       }
 
-      const result = await resp.json();
-      showSuccessToast('ローカルインポートを開始しました。セッション一覧で進行状況を確認できます。', 8000);
-      
-      // セッション一覧を自動更新
-      setTimeout(() => {
-        refreshSessions();
-      }, 2000);
-    } catch (err) {
-      console.error(err);
-      showErrorToast('ローカルインポートの開始に失敗しました。');
-    }
-  });
+      try {
+        // インポート開始の通知
+        showInfoToast('ローカルインポートを開始しています...', 3000);
+
+        const resp = await window.apiClient.post('/api/sync/local-import');
+
+        if (!resp.ok) {
+          const text = await resp.text().catch(() => '');
+          console.error('Local import failed:', resp.status, text);
+          showErrorToast('ローカルインポートの開始に失敗しました。');
+          return;
+        }
+
+        await resp.json();
+        showSuccessToast('ローカルインポートを開始しました。セッション一覧で進行状況を確認できます。', 8000);
+
+        // セッション一覧を自動更新
+        setTimeout(() => {
+          refreshSessions();
+        }, 2000);
+      } catch (err) {
+        console.error(err);
+        showErrorToast('ローカルインポートの開始に失敗しました。');
+      }
+    });
+  }
 
   // 認証状態をチェックし、必要に応じてリダイレクト
   function checkAuthAndRedirect() {

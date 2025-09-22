@@ -729,6 +729,59 @@ document.addEventListener('DOMContentLoaded', () => {
     return date.toLocaleDateString();
   }
 
+  function formatMediaDateTime(isoString, fallbackLabel = '') {
+    if (!isoString) {
+      return fallbackLabel;
+    }
+
+    const helper = window.appTime;
+    const parseFn = helper && typeof helper.parseDate === 'function' ? helper.parseDate : (value) => {
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+
+    const date = parseFn(isoString);
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+      return fallbackLabel;
+    }
+
+    try {
+      const formatter = new Intl.DateTimeFormat(helper?.locale || undefined, {
+        timeZone: helper?.timezone || undefined,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+      const parts = formatter.formatToParts(date);
+      const pick = (type) => parts.find((part) => part.type === type)?.value || '';
+      const year = pick('year');
+      const month = pick('month');
+      const day = pick('day');
+      const hour = pick('hour');
+      const minute = pick('minute');
+      if (year && month && day && hour && minute) {
+        return `${year}-${month}-${day} ${hour}:${minute}`;
+      }
+      const formatted = formatter.format(date);
+      if (formatted) {
+        return formatted.replace(/[\u202F\u2009]/g, ' ').replace(',', '').trim();
+      }
+    } catch (error) {
+      console.warn('formatMediaDateTime failed', error);
+    }
+
+    const pad = (value) => value.toString().padStart(2, '0');
+    const year = date.getFullYear();
+    const month = pad(date.getMonth() + 1);
+    const day = pad(date.getDate());
+    const hour = pad(date.getHours());
+    const minute = pad(date.getMinutes());
+    return `${year}-${month}-${day} ${hour}:${minute}`;
+  }
+
   function formatCount(templateSingular, templatePlural, count) {
     const template = count === 1 ? templateSingular : templatePlural;
     return template.replace('%(count)s', count.toString());
@@ -783,7 +836,7 @@ document.addEventListener('DOMContentLoaded', () => {
     entries.forEach(([id, media]) => {
       const option = document.createElement('option');
       option.value = id.toString();
-      option.textContent = media.filename || `${strings.untitledMedia} #${id}`;
+      option.textContent = formatMediaDateTime(media.shotAt, `${strings.untitledMedia} #${id}`);
       albumCoverSelect.appendChild(option);
     });
 
@@ -822,14 +875,8 @@ document.addEventListener('DOMContentLoaded', () => {
       meta.className = 'selected-media-meta';
       const title = document.createElement('div');
       title.className = 'selected-media-title';
-      title.textContent = media.filename || `${strings.untitledMedia} #${id}`;
-      const date = document.createElement('div');
-      date.className = 'selected-media-date';
-      date.textContent = formatDate(media.shotAt);
+      title.textContent = formatMediaDateTime(media.shotAt, `${strings.untitledMedia} #${id}`);
       meta.appendChild(title);
-      if (date.textContent) {
-        meta.appendChild(date);
-      }
 
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
@@ -896,13 +943,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const meta = document.createElement('div');
     meta.className = 'album-media-meta';
     const nameSpan = document.createElement('span');
-    nameSpan.textContent = media.filename || strings.untitledMedia;
-    const dateSpan = document.createElement('span');
-    dateSpan.textContent = formatDate(media.shot_at);
+    nameSpan.textContent = formatMediaDateTime(
+      media.shot_at || media.shotAt,
+      `${strings.untitledMedia} #${media.id}`
+    );
     meta.appendChild(nameSpan);
-    if (dateSpan.textContent) {
-      meta.appendChild(dateSpan);
-    }
 
     tile.appendChild(thumb);
     tile.appendChild(overlay);

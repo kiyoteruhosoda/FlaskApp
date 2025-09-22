@@ -2,7 +2,10 @@
 {% block title %}{{ _('Google Accounts Management') }}{% endblock %}
 
 {% block content %}
-<h2>{{ _('Management') }}</h2>
+<div class="mb-4">
+  <h1 class="h2 mb-1">{{ _('Google Accounts Management') }}</h1>
+  <p class="text-muted mb-0">{{ _('Monitor and control the Google accounts connected for photo imports.') }}</p>
+</div>
 
 <!-- Management Navigation Tabs -->
 <ul class="nav nav-tabs mb-4">
@@ -33,87 +36,111 @@
   </li>
 </ul>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h3 class="mb-0">{{ _('Google Accounts Management') }}</h3>
-  <a href="#" id="btn-add-account" class="btn btn-primary" data-scope-profile="photo_picker">{{ _('Add Account') }}</a>
-</div>
-
-<div class="table-responsive">
-  <table class="table table-striped align-middle">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>{{ _('User') }}</th>
-        <th>{{ _('Email') }}</th>
-        <th>{{ _('Status') }}</th>
-        <th>{{ _('Scopes') }}</th>
-        <th>{{ _('Last Synced') }}</th>
-        <th>{{ _('Token') }}</th>
-        <th>{{ _('Refresh Token Expiry') }}</th>
-        <th>{{ _('Actions') }}</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for a in accounts %}
-      <tr>
-        <td>{{ a.id }}</td>
-        <td>
-          {% if a.user %}
-            {{ a.user.email }}
-          {% else %}
-            <span class="text-muted">{{ _('No User') }}</span>
-          {% endif %}
-        </td>
-        <td>{{ a.email }}</td>
-        <td>
-          {% if a.status == 'active' %}
-            <span class="badge bg-success">{{ _('active') }}</span>
-          {% else %}
-            <span class="badge bg-secondary">{{ a.status }}</span>
-          {% endif %}
-        </td>
-        <td style="min-width: 320px;">
-          {% set scope_prefix = 'https://www.googleapis.com/auth/' %}
-          {% set scope_prefix_len = scope_prefix|length %}
-          <div class="d-flex flex-wrap gap-1 scope-list">
-            {% for s in a.scopes_list() %}
-              {% set has_prefix = s.startswith(scope_prefix) %}
-              <span class="badge text-bg-secondary scope-badge" title="{{ s }}">
-                {% if has_prefix %}
-                  <span class="scope-prefix">{{ scope_prefix }}</span>
-                {% endif %}
-                <span class="scope-name">{{ has_prefix and s[scope_prefix_len:] or s }}</span>
-              </span>
-            {% endfor %}
-          </div>
-        </td>
-        <td>{{ a.last_synced_at or '-' }}</td>
-        <td>
-          {% if a.oauth_token_json %}
-            <span class="badge bg-success">OK</span>
-          {% else %}
-            <span class="badge bg-danger">NG</span>
-          {% endif %}
-        </td>
-        <td>{{ a.refresh_token_expires_at() or '-' }}</td>
-        <td>
-          <div class="btn-group btn-group-sm" role="group"
-               data-id="{{ a.id }}" data-scopes="{{ a.scopes }}" data-scope-profile="photo_picker">
-            {% if a.status == 'disabled' %}
-              <a href="#" class="btn btn-outline-success btn-activate">{{ _('Activate') }}</a>
-            {% else %}
-              <a href="#" class="btn btn-outline-secondary btn-disable">{{ _('Disable') }}</a>
-            {% endif %}
-            <a href="#" class="btn btn-outline-info btn-reauth">{{ _('Re-auth') }}</a>
-            <a href="#" class="btn btn-outline-danger btn-delete">{{ _('Delete') }}</a>
-            <a href="{{ url_for('auth.picker', account_id=a.id) }}" class="btn btn-outline-secondary">{{ _('Picker') }}</a>
-            <a href="#" class="btn btn-outline-secondary btn-test">{{ _('Test') }}</a>
-          </div>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="card shadow-sm">
+  <div class="card-header bg-white py-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+      <div>
+        <h2 class="h4 mb-1">{{ _('Connected accounts') }}</h2>
+        <p class="text-muted mb-0 small">{{ _('Keep accounts healthy and up to date to avoid sync interruptions.') }}</p>
+      </div>
+      <button type="button" id="btn-add-account" class="btn btn-primary d-flex align-items-center gap-2" data-scope-profile="photo_picker">
+        <i class="bi bi-plus-circle"></i>
+        <span>{{ _('Add account') }}</span>
+      </button>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light text-uppercase small text-muted">
+          <tr>
+            <th scope="col">{{ _('ID') }}</th>
+            <th scope="col">{{ _('User') }}</th>
+            <th scope="col">{{ _('Email') }}</th>
+            <th scope="col">{{ _('Status') }}</th>
+            <th scope="col">{{ _('Scopes') }}</th>
+            <th scope="col">{{ _('Last synced') }}</th>
+            <th scope="col">{{ _('Token health') }}</th>
+            <th scope="col">{{ _('Refresh token expires') }}</th>
+            <th scope="col" class="text-end">{{ _('Actions') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in accounts %}
+          <tr>
+            <td class="text-muted">#{{ a.id }}</td>
+            <td>
+              {% if a.user %}
+                <div class="fw-semibold">{{ a.user.email }}</div>
+              {% else %}
+                <span class="text-muted">{{ _('No linked user') }}</span>
+              {% endif %}
+            </td>
+            <td><span class="fw-semibold">{{ a.email }}</span></td>
+            <td>
+              {% if a.status == 'active' %}
+                <span class="badge text-bg-success d-inline-flex align-items-center gap-1">
+                  <i class="bi bi-check-circle"></i>{{ _('Active') }}
+                </span>
+              {% elif a.status == 'disabled' %}
+                <span class="badge text-bg-secondary">{{ _('Disabled') }}</span>
+              {% else %}
+                <span class="badge text-bg-warning text-dark">{{ a.status|capitalize }}</span>
+              {% endif %}
+            </td>
+            <td style="min-width: 320px;">
+              {% set scope_prefix = 'https://www.googleapis.com/auth/' %}
+              {% set scope_prefix_len = scope_prefix|length %}
+              <div class="d-flex flex-wrap gap-1 scope-list">
+                {% for s in a.scopes_list() %}
+                  {% set has_prefix = s.startswith(scope_prefix) %}
+                  <span class="badge text-bg-secondary scope-badge" title="{{ s }}">
+                    {% if has_prefix %}
+                      <span class="scope-prefix">{{ scope_prefix }}</span>
+                    {% endif %}
+                    <span class="scope-name">{{ has_prefix and s[scope_prefix_len:] or s }}</span>
+                  </span>
+                {% endfor %}
+              </div>
+            </td>
+            <td class="text-nowrap">{{ a.last_synced_at or _('Never') }}</td>
+            <td>
+              {% if a.oauth_token_json %}
+                <span class="badge text-bg-success d-inline-flex align-items-center gap-1">
+                  <i class="bi bi-shield-check"></i>{{ _('Healthy') }}
+                </span>
+              {% else %}
+                <span class="badge text-bg-danger d-inline-flex align-items-center gap-1">
+                  <i class="bi bi-exclamation-triangle"></i>{{ _('Action required') }}
+                </span>
+              {% endif %}
+            </td>
+            <td class="text-nowrap">{{ a.refresh_token_expires_at() or _('Unknown') }}</td>
+            <td class="text-end">
+              <div class="dropdown action-menu" data-id="{{ a.id }}" data-scopes="{{ a.scopes }}" data-scope-profile="photo_picker">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                  <i class="bi bi-sliders"></i> {{ _('Manage') }}
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                  {% if a.status == 'disabled' %}
+                    <li><a class="dropdown-item btn-activate" href="#"><i class="bi bi-check-circle me-2"></i>{{ _('Activate account') }}</a></li>
+                  {% else %}
+                    <li><a class="dropdown-item btn-disable" href="#"><i class="bi bi-pause-circle me-2"></i>{{ _('Disable account') }}</a></li>
+                  {% endif %}
+                  <li><a class="dropdown-item btn-reauth" href="#"><i class="bi bi-arrow-repeat me-2"></i>{{ _('Re-authorise') }}</a></li>
+                  <li><a class="dropdown-item btn-test" href="#"><i class="bi bi-activity me-2"></i>{{ _('Run connectivity test') }}</a></li>
+                  <li><a class="dropdown-item" href="{{ url_for('auth.picker', account_id=a.id) }}"><i class="bi bi-collection-play me-2"></i>{{ _('Open picker') }}</a></li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li><a class="dropdown-item text-danger btn-delete" href="#"><i class="bi bi-trash me-2"></i>{{ _('Remove account') }}</a></li>
+                </ul>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <style>

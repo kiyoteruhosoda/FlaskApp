@@ -1,15 +1,19 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Dashboard') }}{% endblock %}
 {% block content %}
-<h2>{{ _('Dashboard') }}</h2>
-<p>{{ _('This page requires login.') }}</p>
+<div class="d-flex flex-wrap justify-content-between align-items-end mb-4">
+  <div>
+    <h1 class="h2 mb-1">{{ _('Dashboard') }}</h1>
+    <p class="text-muted mb-0">{{ _('Get quick access to the tools you use most every day.') }}</p>
+  </div>
+  <span class="badge bg-light text-dark border">{{ _('Signed-in experience') }}</span>
+</div>
 
 <div class="row">
   <div class="col-md-8">
-    <!-- メイン機能 -->
     <div class="card mb-4">
       <div class="card-header">
-        <h5><i class="fas fa-tachometer-alt"></i> メイン機能</h5>
+        <h5 class="mb-0"><i class="fas fa-tachometer-alt me-2"></i>{{ _('Primary tools') }}</h5>
       </div>
       <div class="card-body">
         <div class="row">
@@ -19,9 +23,9 @@
               <div class="card-body text-center">
                 <i class="fas fa-book fa-3x text-primary mb-3"></i>
                 <h6 class="card-title">Wiki</h6>
-                <p class="card-text text-muted">ナレッジベースの作成・管理</p>
+                <p class="card-text text-muted">{{ _('Create and maintain your knowledge base.') }}</p>
                 <a href="{{ url_for('wiki.index') }}" class="btn btn-primary">
-                  <i class="fas fa-arrow-right"></i> Wikiを開く
+                  <i class="fas fa-arrow-right"></i> {{ _('Open wiki') }}
                 </a>
               </div>
             </div>
@@ -32,10 +36,10 @@
             <div class="card h-100">
               <div class="card-body text-center">
                 <i class="fas fa-images fa-3x text-success mb-3"></i>
-                <h6 class="card-title">フォトビュー</h6>
-                <p class="card-text text-muted">写真・メディアの管理</p>
+                <h6 class="card-title">{{ _('Photo View') }}</h6>
+                <p class="card-text text-muted">{{ _('Manage your photos and media library.') }}</p>
                 <a href="{{ url_for('photo_view.home') }}" class="btn btn-success">
-                  <i class="fas fa-arrow-right"></i> フォトビューを開く
+                  <i class="fas fa-arrow-right"></i> {{ _('Open Photo View') }}
                 </a>
               </div>
             </div>
@@ -46,10 +50,9 @@
     </div>
 
     {% if current_user.can('user:manage') %}
-    <!-- 管理機能 -->
     <div class="card">
       <div class="card-header">
-        <h5><i class="fas fa-cog"></i> 管理機能</h5>
+        <h5 class="mb-0"><i class="fas fa-cog me-2"></i>{{ _('Administration') }}</h5>
       </div>
       <div class="card-body">
         <div class="row">
@@ -75,31 +78,30 @@
   </div>
   
   <div class="col-md-4">
-    <!-- サイドバー情報 -->
     <div class="card mb-4">
       <div class="card-header">
-        <h6><i class="fas fa-info-circle"></i> クイックアクセス</h6>
+        <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>{{ _('Quick access') }}</h6>
       </div>
       <div class="card-body">
         <ul class="list-unstyled">
           {% if current_user.can('wiki:write') %}
           <li class="mb-2">
             <a href="{{ url_for('wiki.create_page') }}" class="text-decoration-none">
-              <i class="fas fa-plus text-primary"></i> 新しいWikiページを作成
+              <i class="fas fa-plus text-primary"></i> {{ _('Create a new wiki page') }}
             </a>
           </li>
           {% endif %}
           {% if current_user.can('wiki:read') %}
           <li class="mb-2">
             <a href="{{ url_for('wiki.search') }}" class="text-decoration-none">
-              <i class="fas fa-search text-success"></i> Wikiを検索
+              <i class="fas fa-search text-success"></i> {{ _('Search the wiki') }}
             </a>
           </li>
           {% endif %}
           {% if current_user.can('media:view') %}
           <li class="mb-2">
             <a href="{{ url_for('photo_view.media_list') }}" class="text-decoration-none">
-              <i class="fas fa-images text-info"></i> メディアギャラリー
+              <i class="fas fa-images text-info"></i> {{ _('Media gallery') }}
             </a>
           </li>
           {% endif %}
@@ -109,19 +111,19 @@
     
     <div class="card">
       <div class="card-header">
-        <h6><i class="fas fa-chart-line"></i> 統計情報</h6>
+        <h6 class="mb-0"><i class="fas fa-chart-line me-2"></i>{{ _('Statistics') }}</h6>
       </div>
       <div class="card-body">
         <div class="row text-center">
           <div class="col-6">
             <div class="border-end">
               <h4 class="text-primary mb-1">{{ stats.wiki_pages or 0 }}</h4>
-              <small class="text-muted">Wikiページ</small>
+              <small class="text-muted">{{ _('Wiki pages') }}</small>
             </div>
           </div>
           <div class="col-6">
             <h4 class="text-success mb-1">{{ stats.media_count or 0 }}</h4>
-            <small class="text-muted">メディア</small>
+            <small class="text-muted">{{ _('Media items') }}</small>
           </div>
         </div>
       </div>

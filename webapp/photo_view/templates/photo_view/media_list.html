@@ -157,27 +157,27 @@
   </div>
   
   <div class="view-controls">
-    <!-- フィルタ -->
+    <!-- Filter -->
     <select id="type-filter" class="form-select form-select-sm" style="width: auto;">
       <option value="all">{{ _('All Media') }}</option>
       <option value="photo">{{ _('Photos Only') }}</option>
       <option value="video">{{ _('Videos Only') }}</option>
     </select>
     
-    <!-- 表示サイズ -->
+    <!-- Thumbnail size -->
     <div class="size-control">
-      <label for="size-slider" class="form-label mb-0 me-2" style="font-size: 0.9rem;">{{ _('Size') }}:</label>
+      <label for="size-slider" class="form-label mb-0 me-2" style="font-size: 0.9rem;">{{ _('Thumbnail size') }}</label>
       <input type="range" id="size-slider" class="form-range" min="1" max="3" value="2" style="width: 80px;">
-      <span id="size-label" class="badge bg-light text-dark border">{{ _('Comfortable grid') }}</span>
+      <span id="size-label" class="text-muted small fw-semibold">{{ _('Medium thumbnails') }}</span>
     </div>
-    
-    <!-- ソート -->
+
+    <!-- Sort order -->
     <select id="sort-order" class="form-select form-select-sm" style="width: auto;">
       <option value="desc">{{ _('Newest First') }}</option>
       <option value="asc">{{ _('Oldest First') }}</option>
     </select>
     
-    <!-- リフレッシュ -->
+    <!-- Refresh -->
     <button id="refresh-btn" class="btn btn-outline-primary btn-sm">
       <i class="fas fa-refresh"></i> {{ _('Refresh') }}
     </button>
@@ -185,7 +185,7 @@
 </div>
 
 <div id="media-grid" class="media-grid size-medium">
-  <!-- メディアアイテムが動的に追加されます -->
+  <!-- Media cards are injected dynamically -->
 </div>
 
 <div id="loading-indicator" class="loading-spinner" style="display: none;">
@@ -214,10 +214,11 @@ document.addEventListener('DOMContentLoaded', () => {
   function formatDateTime(isoString) {
     if (!isoString) return '';
     const date = new Date(isoString);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString('ja-JP', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
+    const locale = navigator.language || 'en-US';
+    return `${date.toLocaleDateString(locale)} ${date.toLocaleTimeString(locale, {
+      hour: '2-digit',
+      minute: '2-digit'
+    })}`;
   }
 
   function formatFileSize(bytes) {
@@ -233,18 +234,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const sourceLabels = {
-    local: '{{ _('ローカルインポート') }}',
-    google_photos: '{{ _('Google フォト') }}'
+    local: '{{ _('Local import') }}',
+    google_photos: '{{ _('Google Photos') }}'
   };
-  const unknownSourceLabel = '{{ _('不明なソース') }}';
-  const videoLabel = '{{ _('動画') }}';
-  const photoLabel = '{{ _('写真') }}';
+  const unknownSourceLabel = '{{ _('Unknown source') }}';
+  const videoLabel = '{{ _('Video') }}';
+  const photoLabel = '{{ _('Photo') }}';
 
   function createMediaCard(media) {
     const card = document.createElement('div');
     card.className = 'media-card';
 
-    // 動画かどうかの判定
+    // Determine whether the media is a video
     const isVideo = media.isVideo || media.is_video;
 
     const sourceText = media.source_label || sourceLabels[media.source_type] || unknownSourceLabel;
@@ -283,7 +284,7 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     `;
     
-    // クリックでメディア詳細ページに遷移
+    // Navigate to the media detail page on click
     card.addEventListener('click', () => {
       window.location.href = `/photo-view/media/${media.id}`;
     });
@@ -292,11 +293,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function initializeInfiniteScroll() {
-    // 現在のフィルタ設定を取得
+    // Read the current filter settings
     const typeFilter = document.getElementById('type-filter').value;
     const sortOrder = document.getElementById('sort-order').value;
     
-    // パラメータ設定
+    // Build the request parameters
     const parameters = { order: sortOrder };
     if (typeFilter !== 'all') {
       parameters.type = typeFilter;
@@ -321,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
         mediaCount.textContent = `${totalLoaded} {{ _('items') }}`;
         
         if (items.length === 0 && meta.isFirstPage) {
-          mediaGrid.innerHTML = '<div class="text-center text-muted p-5"><h4>No media found</h4><p>Try adjusting your filters or add some media to your collection.</p></div>';
+        mediaGrid.innerHTML = '<div class="text-center text-muted p-5"><h4>{{ _('No media found') }}</h4><p>{{ _('Try adjusting your filters or add more media to your library.') }}</p></div>';
         }
       },
       onError: (error) => {
@@ -344,14 +345,14 @@ document.addEventListener('DOMContentLoaded', () => {
     infiniteScroll.start();
   }
 
-  // サイズ変更
+  // Handle size changes
   const sizeSlider = document.getElementById('size-slider');
   const sizeLabel = document.getElementById('size-label');
   const sizeClasses = ['size-small', 'size-medium', 'size-large'];
   const sizeDescriptions = {
-    1: '{{ _('Compact grid') }}',
-    2: '{{ _('Comfortable grid') }}',
-    3: '{{ _('Large preview') }}',
+    1: '{{ _('Compact thumbnails') }}',
+    2: '{{ _('Medium thumbnails') }}',
+    3: '{{ _('Large previews') }}',
   };
 
   function applyGridSize(value) {
@@ -370,7 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   applyGridSize(sizeSlider.value);
   
-  // フィルタ変更
+  // Filter change
   const typeFilter = document.getElementById('type-filter');
   typeFilter.addEventListener('change', () => {
     if (infiniteScroll) {
@@ -379,7 +380,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeInfiniteScroll();
   });
 
-  // ソート順変更時の処理
+  // Sort order change handler
   sortOrder.addEventListener('change', () => {
     if (infiniteScroll) {
       infiniteScroll.destroy();
@@ -387,7 +388,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeInfiniteScroll();
   });
 
-  // 更新ボタンの処理
+  // Refresh button handler
   refreshBtn.addEventListener('click', () => {
     if (infiniteScroll) {
       infiniteScroll.destroy();
@@ -395,7 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeInfiniteScroll();
   });
 
-  // 初期化
+  // Initialise infinite scrolling
   initializeInfiniteScroll();
 });
 </script>

@@ -117,7 +117,103 @@
     text-align: right;
     word-break: break-word;
   }
-  
+
+  .tag-chip-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+
+  #media-tags {
+    min-height: 32px;
+  }
+
+  #media-tags.empty::before {
+    content: attr(data-empty-text);
+    color: #adb5bd;
+    font-size: 0.85rem;
+  }
+
+  .tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: #e7f1ff;
+    color: #0d6efd;
+    border-radius: 999px;
+    font-size: 0.85rem;
+  }
+
+  .tag-chip .tag-attr {
+    font-size: 0.75rem;
+    opacity: 0.7;
+  }
+
+  .tag-chip-remove {
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+  }
+
+  .tag-chip-remove:hover {
+    color: #084298;
+  }
+
+  .tag-editor {
+    margin-top: 12px;
+    position: relative;
+  }
+
+  .tag-editor-input {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
+  #tag-manage-input {
+    flex: 1 1 240px;
+    min-width: 200px;
+  }
+
+  #tag-attr-select {
+    width: auto;
+  }
+
+  .tag-suggestions {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    max-height: 220px;
+    overflow-y: auto;
+    display: none;
+    z-index: 20;
+  }
+
+  .tag-suggestions.visible {
+    display: block;
+  }
+
+  .tag-suggestion-item {
+    padding: 8px 12px;
+    cursor: pointer;
+  }
+
+  .tag-suggestion-item:hover {
+    background: #f1f3f5;
+  }
+
   .loading-overlay {
     position: absolute;
     top: 0;
@@ -187,14 +283,33 @@
           <!-- 基本情報がここに表示されます -->
         </div>
       </div>
-      
+
       <div class="info-section">
         <h5>{{ _('Technical Details') }}</h5>
         <div id="technical-info">
           <!-- 技術情報がここに表示されます -->
         </div>
       </div>
-      
+
+      <div class="info-section">
+        <h5>{{ _('Tags') }}</h5>
+        <div id="media-tags" class="tag-chip-container empty" data-empty-text="{{ _('No tags assigned') }}"></div>
+        {% if current_user.can('media:tag-manage') %}
+        <div id="tag-editor" class="tag-editor">
+          <div class="tag-editor-input">
+            <input type="text" id="tag-manage-input" class="form-control form-control-sm" placeholder="{{ _('Search tags...') }}" autocomplete="off">
+            <select id="tag-attr-select" class="form-select form-select-sm">
+              <option value="person">{{ _('Person') }}</option>
+              <option value="place">{{ _('Place') }}</option>
+              <option value="thing" selected>{{ _('Thing') }}</option>
+            </select>
+            <button class="btn btn-sm btn-outline-primary" id="create-tag-btn">{{ _('Create and add') }}</button>
+          </div>
+          <div id="tag-manage-suggestions" class="tag-suggestions"></div>
+        </div>
+        {% endif %}
+      </div>
+
       <div class="info-section" id="exif-section" style="display: none;">
         <h5>{{ _('EXIF Data') }}</h5>
         <div id="exif-info">
@@ -219,9 +334,33 @@ document.addEventListener('DOMContentLoaded', () => {
   const technicalInfo = document.getElementById('technical-info');
   const exifInfo = document.getElementById('exif-info');
   const exifSection = document.getElementById('exif-section');
-  
+  const mediaTagsContainer = document.getElementById('media-tags');
+  const tagEditorWrapper = document.getElementById('tag-editor');
+  const tagManageInput = document.getElementById('tag-manage-input');
+  const tagAttrSelect = document.getElementById('tag-attr-select');
+  const tagManageSuggestions = document.getElementById('tag-manage-suggestions');
+  const createTagBtn = document.getElementById('create-tag-btn');
+
   let currentMedia = null;
   let isZoomed = false;
+  let currentTags = [];
+  let tagEditorTimeout = null;
+
+  const canManageTags = {{ 'true' if current_user.can('media:tag-manage') else 'false' }};
+  const tagAttrLabels = {
+    person: '{{ _('Person') }}',
+    place: '{{ _('Place') }}',
+    thing: '{{ _('Thing') }}'
+  };
+  const noTagsAssignedText = '{{ _('No tags assigned') }}';
+  const noTagSuggestionsText = '{{ _('No tags found') }}';
+  const tagUpdateErrorText = '{{ _('Failed to update tags.') }}';
+  const tagCreateErrorText = '{{ _('Failed to create tag.') }}';
+  const removeTagLabel = '{{ _('Remove') }}';
+
+  if (mediaTagsContainer && !mediaTagsContainer.dataset.emptyText) {
+    mediaTagsContainer.dataset.emptyText = noTagsAssignedText;
+  }
 
   // メディア詳細を読み込み
   async function loadMediaDetail() {
@@ -236,7 +375,9 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log('Media data loaded:', currentMedia);
       displayMedia(currentMedia);
       displayMediaInfo(currentMedia);
-      
+      currentTags = Array.isArray(currentMedia.tags) ? currentMedia.tags : [];
+      renderMediaTags();
+
     } catch (error) {
       console.error('Error loading media:', error);
       loadingOverlay.style.display = 'none';
@@ -356,14 +497,235 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     `;
   }
-  
+
+  function renderMediaTags() {
+    if (!mediaTagsContainer) {
+      return;
+    }
+
+    mediaTagsContainer.innerHTML = '';
+    if (!currentTags || currentTags.length === 0) {
+      mediaTagsContainer.classList.add('empty');
+      return;
+    }
+
+    mediaTagsContainer.classList.remove('empty');
+    currentTags.forEach((tag) => {
+      const chip = document.createElement('span');
+      chip.className = 'tag-chip';
+
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = tag.name;
+      chip.appendChild(nameSpan);
+
+      if (tag.attr && tagAttrLabels[tag.attr]) {
+        const attrSpan = document.createElement('span');
+        attrSpan.className = 'tag-attr';
+        attrSpan.textContent = tagAttrLabels[tag.attr];
+        chip.appendChild(attrSpan);
+      }
+
+      if (canManageTags) {
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'tag-chip-remove';
+        removeBtn.innerHTML = '&times;';
+        removeBtn.setAttribute('aria-label', `${removeTagLabel} ${tag.name}`);
+        removeBtn.addEventListener('click', (event) => {
+          event.stopPropagation();
+          removeTagFromMedia(tag.id);
+        });
+        chip.appendChild(removeBtn);
+      }
+
+      mediaTagsContainer.appendChild(chip);
+    });
+  }
+
+  function hideTagManageSuggestions() {
+    if (!tagManageSuggestions) {
+      return;
+    }
+    tagManageSuggestions.classList.remove('visible');
+    tagManageSuggestions.innerHTML = '';
+  }
+
+  function showTagManageSuggestions(items) {
+    if (!tagManageSuggestions) {
+      return;
+    }
+
+    tagManageSuggestions.innerHTML = '';
+    if (!items || items.length === 0) {
+      const emptyItem = document.createElement('div');
+      emptyItem.className = 'tag-suggestion-item text-muted';
+      emptyItem.textContent = noTagSuggestionsText;
+      tagManageSuggestions.appendChild(emptyItem);
+      tagManageSuggestions.classList.add('visible');
+      return;
+    }
+
+    items.forEach((tag) => {
+      const item = document.createElement('div');
+      item.className = 'tag-suggestion-item';
+      const attrLabel = tag.attr && tagAttrLabels[tag.attr] ? ` · ${tagAttrLabels[tag.attr]}` : '';
+      item.textContent = `${tag.name}${attrLabel}`;
+      item.addEventListener('click', () => {
+        addTagToMedia(tag);
+      });
+      tagManageSuggestions.appendChild(item);
+    });
+
+    tagManageSuggestions.classList.add('visible');
+  }
+
+  async function fetchTagOptions(query) {
+    try {
+      const response = await window.apiClient.get(`/api/tags?q=${encodeURIComponent(query)}&limit=10`);
+      if (!response.ok) {
+        throw new Error(`Failed to load tags: ${response.status}`);
+      }
+      const data = await response.json();
+      return data.items || [];
+    } catch (error) {
+      console.error('Failed to load tag suggestions', error);
+      return [];
+    }
+  }
+
+  async function saveMediaTags(tagIds) {
+    try {
+      const response = await window.apiClient.put(`/api/media/${mediaId}/tags`, { tag_ids: tagIds });
+      if (!response.ok) {
+        throw new Error(`Failed to update tags: ${response.status}`);
+      }
+      const data = await response.json();
+      currentTags = data.tags || [];
+      renderMediaTags();
+      return true;
+    } catch (error) {
+      console.error('Failed to update media tags', error);
+      if (typeof showErrorToast === 'function') {
+        showErrorToast(tagUpdateErrorText);
+      }
+      return false;
+    }
+  }
+
+  async function addTagToMedia(tag) {
+    if (!canManageTags) {
+      return;
+    }
+    if (currentTags.some((t) => t.id === tag.id)) {
+      tagManageInput.value = '';
+      hideTagManageSuggestions();
+      return;
+    }
+
+    const tagIds = currentTags.map((t) => t.id).concat(tag.id);
+    const success = await saveMediaTags(tagIds);
+    if (success) {
+      tagManageInput.value = '';
+      hideTagManageSuggestions();
+    }
+  }
+
+  function removeTagFromMedia(tagId) {
+    if (!canManageTags) {
+      return;
+    }
+    const tagIds = currentTags.filter((tag) => tag.id !== tagId).map((tag) => tag.id);
+    saveMediaTags(tagIds);
+  }
+
+  function scheduleTagEditorSuggestions(value) {
+    clearTimeout(tagEditorTimeout);
+    if (!value) {
+      hideTagManageSuggestions();
+      return;
+    }
+
+    tagEditorTimeout = setTimeout(async () => {
+      const suggestions = await fetchTagOptions(value);
+      const available = suggestions.filter(
+        (suggestion) => !currentTags.some((tag) => tag.id === suggestion.id)
+      );
+      showTagManageSuggestions(available);
+    }, 200);
+  }
+
+  async function createTagAndAdd() {
+    if (!canManageTags) {
+      return;
+    }
+    const name = tagManageInput ? tagManageInput.value.trim() : '';
+    if (!name) {
+      return;
+    }
+    const attr = tagAttrSelect ? tagAttrSelect.value : 'thing';
+
+    try {
+      const response = await window.apiClient.post('/api/tags', { name, attr });
+      if (!response.ok) {
+        throw new Error(`Failed to create tag: ${response.status}`);
+      }
+      const data = await response.json();
+      if (data && data.tag) {
+        await addTagToMedia(data.tag);
+      }
+    } catch (error) {
+      console.error('Failed to create tag', error);
+      if (typeof showErrorToast === 'function') {
+        showErrorToast(tagCreateErrorText);
+      }
+    }
+  }
+
   // フルスクリーン
   fullscreenBtn.addEventListener('click', () => {
     if (mediaDisplay.requestFullscreen) {
       mediaDisplay.requestFullscreen();
     }
   });
-  
+
+  if (canManageTags && tagManageInput) {
+    tagManageInput.addEventListener('input', (event) => {
+      scheduleTagEditorSuggestions(event.target.value.trim());
+    });
+
+    tagManageInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        if (tagManageSuggestions) {
+          const firstSuggestion = tagManageSuggestions.querySelector('.tag-suggestion-item');
+          if (firstSuggestion && !firstSuggestion.classList.contains('text-muted')) {
+            firstSuggestion.click();
+            return;
+          }
+        }
+        createTagAndAdd();
+      } else if (event.key === 'Escape') {
+        hideTagManageSuggestions();
+        tagManageInput.value = '';
+      }
+    });
+  }
+
+  if (canManageTags && createTagBtn) {
+    createTagBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      createTagAndAdd();
+    });
+  }
+
+  if (tagEditorWrapper) {
+    document.addEventListener('click', (event) => {
+      if (!tagEditorWrapper.contains(event.target)) {
+        hideTagManageSuggestions();
+      }
+    });
+  }
+
   // ダウンロード
   downloadBtn.addEventListener('click', async () => {
     try {

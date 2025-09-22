@@ -620,7 +620,7 @@ document.addEventListener('DOMContentLoaded', () => {
     previousLabel: "{{ _('Previous')|escapejs }}",
     closeLabel: "{{ _('Close')|escapejs }}",
     shotAtLabel: "{{ _('Shot at')|escapejs }}",
-    positionLabel: "{{ _('%(current)s / %(total)s')|escapejs }}",
+    positionLabel: "{{ _('%(current)s / %(total)s', current='%(current)s', total='%(total)s')|escapejs }}",
     slideshowLoadError: "{{ _('Unable to load album for slideshow.')|escapejs }}",
     slideshowNoMedia: "{{ _('This album has no media yet.')|escapejs }}",
     startSlideshow: "{{ _('Start Slideshow')|escapejs }}",

@@ -69,7 +69,7 @@ def setup_celery_logging():
     
     # DBログハンドラー
     if not any(isinstance(h, DBLogHandler) for h in celery_logger.handlers):
-        db_handler = DBLogHandler()
+        db_handler = DBLogHandler(app=flask_app)
         db_handler.setLevel(logging.INFO)
         celery_logger.addHandler(db_handler)
     
@@ -86,7 +86,7 @@ def setup_celery_logging():
     
     # タスクロガーにもDBハンドラーを追加
     if not any(isinstance(h, DBLogHandler) for h in task_logger.handlers):
-        task_db_handler = DBLogHandler()
+        task_db_handler = DBLogHandler(app=flask_app)
         task_db_handler.setLevel(logging.INFO)
         task_logger.addHandler(task_db_handler)
     
@@ -102,14 +102,14 @@ def setup_celery_logging():
         picker_logger.addHandler(picker_console_handler)
     
     if not any(isinstance(h, DBLogHandler) for h in picker_logger.handlers):
-        picker_db_handler = DBLogHandler()
+        picker_db_handler = DBLogHandler(app=flask_app)
         picker_db_handler.setLevel(logging.INFO)
         picker_logger.addHandler(picker_db_handler)
     
     # ルートロガーには重要なエラーのみ
     root_logger = logging.getLogger()
     if not any(isinstance(h, DBLogHandler) for h in root_logger.handlers):
-        root_db_handler = DBLogHandler()
+        root_db_handler = DBLogHandler(app=flask_app)
         root_db_handler.setLevel(logging.ERROR)  # Only capture errors in root logger
         root_logger.addHandler(root_db_handler)
 

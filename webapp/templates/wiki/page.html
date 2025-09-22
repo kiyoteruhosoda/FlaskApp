@@ -87,9 +87,9 @@
                 <div>
                     <h1>{{ page.title }}</h1>
                     <p class="text-muted mb-0">
-                        {{ _('Created') }}: {{ page.created_at.strftime('%Y/%m/%d %H:%M') }} by {{ page.created_by.display_name if page.created_by else _('Unknown') }}
+                        {{ _('Created') }}: {{ page.created_at|localtime('%Y/%m/%d %H:%M') }} by {{ page.created_by.display_name if page.created_by else _('Unknown') }}
                         {% if page.updated_at != page.created_at %}
-                        | {{ _('Updated') }}: {{ page.updated_at.strftime('%Y/%m/%d %H:%M') }} by {{ page.updated_by.display_name if page.updated_by else _('Unknown') }}
+                        | {{ _('Updated') }}: {{ page.updated_at|localtime('%Y/%m/%d %H:%M') }} by {{ page.updated_by.display_name if page.updated_by else _('Unknown') }}
                         {% endif %}
                     </p>
                 </div>
@@ -150,7 +150,7 @@
                                         {{ child.content[:100] }}{% if child.content|length > 100 %}...{% endif %}
                                     </p>
                                     <small class="text-muted">
-                                        {{ _('Updated') }}: {{ child.updated_at.strftime('%Y/%m/%d') }}
+                                        {{ _('Updated') }}: {{ child.updated_at|localtime('%Y/%m/%d') }}
                                     </small>
                                 </div>
                             </div>

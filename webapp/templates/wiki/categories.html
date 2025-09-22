@@ -51,7 +51,7 @@
                             
                             <div class="small text-muted">
                                 <div>スラッグ: {{ category.slug }}</div>
-                                <div>作成日: {{ category.created_at.strftime('%Y/%m/%d') }}</div>
+                                <div>作成日: {{ category.created_at|localtime('%Y/%m/%d') }}</div>
                             </div>
                         </div>
                         <div class="card-footer">

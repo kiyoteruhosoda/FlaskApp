@@ -54,7 +54,7 @@
                                     <small class="text-muted">
                                         <i class="fas fa-user"></i> {{ page.created_by.display_name if page.created_by else _('Unknown') }}
                                         <span class="mx-2">|</span>
-                                        <i class="fas fa-calendar"></i> 更新: {{ page.updated_at.strftime('%Y/%m/%d %H:%M') }}
+                                        <i class="fas fa-calendar"></i> 更新: {{ page.updated_at|localtime('%Y/%m/%d %H:%M') }}
                                         {% if page.categories|length > 1 %}
                                         <span class="mx-2">|</span>
                                         <i class="fas fa-tags"></i>
@@ -119,7 +119,7 @@
                             <div class="card-body">
                                 <small class="text-muted">
                                     <div>スラッグ: {{ category.slug }}</div>
-                                    <div>作成日: {{ category.created_at.strftime('%Y/%m/%d') }}</div>
+                                    <div>作成日: {{ category.created_at|localtime('%Y/%m/%d') }}</div>
                                     <div>ページ数: {{ pages|length }}</div>
                                 </small>
                             </div>

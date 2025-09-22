@@ -12,6 +12,7 @@ from flask_babel import get_locale
 from flask_babel import gettext as _
 
 from .extensions import db, migrate, login_manager, babel
+from .timezone import resolve_timezone, convert_to_timezone
 from core.db_log_handler import DBLogHandler
 
 # エラーハンドラ
@@ -55,15 +56,45 @@ def create_app():
     # ★ Jinja から get_locale() を使えるようにする
     app.jinja_env.globals["get_locale"] = get_locale
 
-    # テンプレートコンテキストプロセッサ：バージョン情報を追加
+    # テンプレートコンテキストプロセッサ：バージョン情報とタイムゾーンを追加
     from core.version import get_version_string
+
+    @app.before_request
+    def _set_request_timezone():
+        tz_cookie = request.cookies.get("tz")
+        fallback = app.config.get("BABEL_DEFAULT_TIMEZONE", "UTC")
+        tz_name, tzinfo = resolve_timezone(tz_cookie, fallback)
+        g.user_timezone_name = tz_name
+        g.user_timezone = tzinfo
+
     @app.context_processor
     def inject_version():
-        return dict(app_version=get_version_string())
+        return dict(
+            app_version=get_version_string(),
+            current_timezone=getattr(g, "user_timezone", timezone.utc),
+            current_timezone_name=getattr(g, "user_timezone_name", "UTC"),
+        )
+
+    @app.template_filter("localtime")
+    def _localtime_filter(value, fmt="%Y/%m/%d %H:%M"):
+        """Render *value* in the user's preferred time zone."""
+
+        if value is None:
+            return ""
+        if not isinstance(value, datetime):
+            return value
+
+        tzinfo = getattr(g, "user_timezone", timezone.utc)
+        localized = convert_to_timezone(value, tzinfo)
+        if localized is None:
+            return ""
+        if fmt is None:
+            return localized
+        return localized.strftime(fmt)
 
     # Logging configuration
     if not any(isinstance(h, DBLogHandler) for h in app.logger.handlers):
-        db_handler = DBLogHandler()
+        db_handler = DBLogHandler(app=app)
         db_handler.setLevel(logging.INFO)
         app.logger.addHandler(db_handler)
     
@@ -343,6 +374,11 @@ def create_app():
     @app.route("/.well-known/appspecific/com.chrome.devtools.json")
     def chrome_devtools_json():
         return {}, 204  # 空レスポンスを返す
+
+    db_uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
+    if db_uri.startswith("sqlite://"):
+        with app.app_context():
+            db.create_all()
 
     return app
 

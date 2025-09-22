@@ -60,7 +60,7 @@
                                     <i class="fas fa-user"></i> {{ page.created_by.display_name if page.created_by else _('Unknown') }}
                                 </span>
                                 <span class="me-3">
-                                    <i class="fas fa-calendar"></i> {{ page.updated_at.strftime('%Y/%m/%d') }}
+                                    <i class="fas fa-calendar"></i> {{ page.updated_at|localtime('%Y/%m/%d') }}
                                 </span>
                                 {% if page.categories %}
                                 <span>

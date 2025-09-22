@@ -129,18 +129,6 @@ def settings():
 # --- Admin routes ---------------------------------------------------------
 
 
-@bp.route("/admin/settings")
-@require_roles("admin")
-def admin_settings():
-    """Placeholder admin settings page.
-
-    The actual UI will be implemented in later tasks.  Having this route in
-    place allows navigation and access control wiring to be verified.
-    """
-
-    return render_template("photo_view/admin/settings.html", local_import_info=_build_local_import_info())
-
-
 @bp.route("/admin/exports")
 @require_roles("admin")
 def admin_exports():

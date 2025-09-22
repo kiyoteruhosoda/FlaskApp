@@ -628,7 +628,12 @@ document.addEventListener('DOMContentLoaded', () => {
         mediaCount.textContent = `${totalLoaded} {{ _("items") }}`;
         
         if (items.length === 0 && meta.isFirstPage) {
-        mediaGrid.innerHTML = '<div class="text-center text-muted p-5"><h4>{{ _("No media found") }}</h4><p>{{ _("Try adjusting your filters or add more media to your library.") }}</p></div>';
+          mediaGrid.innerHTML = `
+            <div class="text-center text-muted p-5">
+              <h4>{{ _("No media found") }}</h4>
+              <p>{{ _("Try adjusting your filters or add more media to your library.") }}</p>
+            </div>
+          `.trim();
         }
       },
       onError: (error) => {

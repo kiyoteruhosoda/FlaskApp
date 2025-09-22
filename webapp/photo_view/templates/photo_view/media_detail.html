@@ -252,13 +252,18 @@
         <h1 class="h3 mb-1" id="media-title">Loading...</h1>
         <p class="text-muted mb-0" id="media-meta">Loading media details...</p>
       </div>
-      <div class="d-flex gap-2">
+      <div class="d-flex flex-wrap gap-2 justify-content-end">
         <button class="btn btn-outline-secondary" onclick="history.back()">
           <i class="fas fa-arrow-left"></i> {{ _('Back') }}
         </button>
         <button class="btn btn-outline-primary" id="download-btn" disabled>
           <i class="fas fa-download"></i> {{ _('Download') }}
         </button>
+        {% if current_user.can('media:delete') %}
+        <button class="btn btn-outline-danger" id="delete-btn">
+          <i class="fas fa-trash-alt"></i> {{ _('Delete') }}
+        </button>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -344,6 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const downloadBtn = document.getElementById('download-btn');
   const fullscreenBtn = document.getElementById('fullscreen-btn');
   const zoomBtn = document.getElementById('zoom-btn');
+  const deleteBtn = document.getElementById('delete-btn');
   const basicInfo = document.getElementById('basic-info');
   const technicalInfo = document.getElementById('technical-info');
   const exifInfo = document.getElementById('exif-info');
@@ -371,6 +377,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const tagUpdateErrorText = '{{ _('Failed to update tags.') }}';
   const tagCreateErrorText = '{{ _('Failed to create tag.') }}';
   const removeTagLabel = '{{ _('Remove') }}';
+  const deleteConfirmText = '{{ _('Are you sure you want to delete this media? This action cannot be undone.') }}';
+  const deleteSuccessText = '{{ _('Media was deleted successfully.') }}';
+  const deleteErrorText = '{{ _('Failed to delete media.') }}';
+  const deleteForbiddenText = '{{ _('You do not have permission to delete media.') }}';
+  const deleteMissingText = '{{ _('Media was not found or is already deleted.') }}';
+  const deleteInProgressText = '{{ _('Deleting...') }}';
+  const redirectAfterDeleteUrl = '{{ url_for("photo_view.media_list") }}';
 
   if (mediaTagsContainer && !mediaTagsContainer.dataset.emptyText) {
     mediaTagsContainer.dataset.emptyText = noTagsAssignedText;
@@ -403,6 +416,53 @@ document.addEventListener('DOMContentLoaded', () => {
         mediaDisplay.innerHTML = '<div class="text-center text-danger p-5"><h4>Error loading media</h4><p>The requested media could not be found or loaded.</p></div>';
       }
     }
+  }
+
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', async () => {
+      if (!confirm(deleteConfirmText)) {
+        return;
+      }
+
+      const originalHtml = deleteBtn.innerHTML;
+      deleteBtn.disabled = true;
+      deleteBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>${deleteInProgressText}`;
+
+      try {
+        const response = await window.apiClient.delete(`/api/media/${mediaId}`);
+        if (response.ok) {
+          deleteBtn.dataset.redirecting = 'true';
+          showSuccessToast(deleteSuccessText);
+          setTimeout(() => {
+            window.location.href = redirectAfterDeleteUrl;
+          }, 1200);
+          return;
+        }
+
+        let payload = null;
+        try {
+          payload = await response.json();
+        } catch (error) {
+          payload = null;
+        }
+
+        if (response.status === 403) {
+          showErrorToast((payload && payload.message) || deleteForbiddenText);
+        } else if (response.status === 404) {
+          showErrorToast(deleteMissingText);
+        } else {
+          showErrorToast(deleteErrorText);
+        }
+      } catch (error) {
+        console.error('Media deletion failed:', error);
+        showErrorToast(deleteErrorText);
+      } finally {
+        if (!deleteBtn.dataset.redirecting) {
+          deleteBtn.disabled = false;
+          deleteBtn.innerHTML = originalHtml;
+        }
+      }
+    });
   }
   
   function displayMedia(media) {

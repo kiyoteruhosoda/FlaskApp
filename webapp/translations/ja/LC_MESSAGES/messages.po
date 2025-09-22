@@ -1421,3 +1421,48 @@ msgstr "サブページ"
 msgid "Parent Page"
 msgstr "親ページ"
 
+msgid "You do not have permission to delete media."
+msgstr "メディアを削除する権限がありません。"
+
+msgid "Are you sure you want to delete this media? This action cannot be undone."
+msgstr "このメディアを削除してよろしいですか？この操作は元に戻せません。"
+
+msgid "Media was deleted successfully."
+msgstr "メディアを削除しました。"
+
+msgid "Failed to delete media."
+msgstr "メディアの削除に失敗しました。"
+
+msgid "Media was not found or is already deleted."
+msgstr "メディアが見つからないか、すでに削除されています。"
+
+msgid "Deleting..."
+msgstr "削除しています..."
+
+msgid "Define role basics and choose the permissions it should include."
+msgstr "ロールの基本情報を設定し、付与する権限を選択してください。"
+
+msgid "Enter role name"
+msgstr "ロール名を入力"
+
+msgid "Selected permissions"
+msgstr "選択中の権限"
+
+msgid "This role currently grants the following number of permissions."
+msgstr "このロールに現在付与されている権限数です。"
+
+msgid "Tip: Use the search box to quickly filter permissions by name or category."
+msgstr "ヒント: 検索ボックスで名前やカテゴリから権限を絞り込めます。"
+
+msgid "Select the capabilities that should be included in this role."
+msgstr "このロールに含める機能を選択してください。"
+
+msgid "Search permissions..."
+msgstr "権限を検索..."
+
+msgid "Search permissions"
+msgstr "権限を検索"
+
+msgid "No permissions match your search."
+msgstr "該当する権限がありません。"
+

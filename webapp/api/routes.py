@@ -21,6 +21,7 @@ from flask import (
     session,
     url_for,
     flash,
+    g,
 )
 from flask_login import login_required
 from flask_babel import gettext as _
@@ -45,6 +46,63 @@ from sqlalchemy.orm import joinedload
 
 user_repo = SqlAlchemyUserRepository(db.session)
 auth_service = AuthService(user_repo)
+
+
+def _serialize_user_for_log(user):
+    """ユーザー情報をログ出力用に整形する。"""
+    if user is None:
+        return None
+    return {
+        'id': getattr(user, 'id', None),
+        'email': getattr(user, 'email', None),
+        'name': getattr(user, 'name', None),
+    }
+
+
+def _resolve_remote_addr():
+    """リクエスト送信元IPアドレスを取得する。"""
+    forwarded_for = request.headers.get('X-Forwarded-For')
+    if forwarded_for:
+        return forwarded_for.split(',')[0].strip()
+    return request.remote_addr
+
+
+def _build_auth_log_context(**extra):
+    """認証系ログの共通情報を構築する。"""
+    context = {
+        'endpoint': request.endpoint,
+        'method': request.method,
+        'path': request.path,
+        'blueprint': request.blueprint,
+        'remote_addr': _resolve_remote_addr(),
+        'session_id': session.get('session_id'),
+        'user_agent': request.user_agent.string,
+    }
+
+    # current_user もしくは g.current_user からユーザー情報を取得
+    active_user = None
+    if current_user.is_authenticated:
+        active_user = current_user
+    else:
+        active_user = getattr(g, 'current_user', None)
+
+    user_snapshot = _serialize_user_for_log(active_user)
+    if user_snapshot:
+        context['user'] = user_snapshot
+
+    context.update({k: v for k, v in extra.items() if v is not None})
+    return context
+
+
+def _auth_log(message: str, *, level: str = 'info', event: str = 'auth', **extra_context):
+    """認証周りのログを構造化して出力する。"""
+    payload = {
+        'message': message,
+        'context': _build_auth_log_context(**extra_context),
+    }
+
+    log_method = getattr(current_app.logger, level, current_app.logger.info)
+    log_method(json.dumps(payload, ensure_ascii=False, default=str), extra={'event': event})
 
 
 def jwt_required(f):
@@ -80,45 +138,78 @@ def login_or_jwt_required(f):
     """Flask-LoginまたはJWT認証の両方に対応するデコレータ"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # デバッグログ
-        current_app.logger.info(f"login_or_jwt_required: endpoint={request.endpoint}")
-        current_app.logger.info(f"current_user.is_authenticated: {current_user.is_authenticated}")
-        
+        _auth_log(
+            'Authentication check started',
+            stage='start',
+        )
+
         if current_app.config.get('LOGIN_DISABLED'):
-            current_app.logger.info("LOGIN_DISABLED is active; skipping authentication checks")
+            _auth_log(
+                'Authentication bypassed because LOGIN_DISABLED is active',
+                stage='bypass',
+            )
             return f(*args, **kwargs)
 
         # まずFlask-Loginでの認証をチェック
         if current_user.is_authenticated:
-            current_app.logger.info("Flask-Login authentication successful")
+            _auth_log(
+                'Authentication successful via Flask-Login',
+                stage='success',
+                auth_method='flask_login',
+                authenticated_user=_serialize_user_for_log(current_user),
+            )
             return f(*args, **kwargs)
-        
+
         # Flask-Loginで認証されていない場合、JWTをチェック
         auth_header = request.headers.get('Authorization')
-        current_app.logger.info(f"Authorization header: {auth_header}")
+        token_source = None
         token = None
-        
+
         if auth_header and auth_header.startswith('Bearer '):
             token = auth_header.split(' ')[1]
-            current_app.logger.info(f"JWT token extracted from Bearer header: {token[:20] if token else 'None'}...")
+            token_source = 'authorization_header'
         elif request.cookies.get('access_token'):
             token = request.cookies.get('access_token')
-            current_app.logger.info(f"JWT token extracted from cookie: {token[:20] if token else 'None'}...")
-        
+            token_source = 'cookie'
+
+        _auth_log(
+            'Flask-Login authentication unavailable; evaluating JWT credentials',
+            stage='jwt_check',
+            token_source=token_source or 'none',
+            has_authorization_header=bool(auth_header),
+        )
+
         if not token:
-            current_app.logger.info("No token found, returning 401")
+            _auth_log(
+                'JWT token missing',
+                level='warning',
+                stage='failure',
+                reason='token_missing',
+                token_source=token_source or 'none',
+            )
             return jsonify({'error': 'authentication_required'}), 401
-        
+
         user = TokenService.verify_access_token(token)
         if not user:
-            current_app.logger.info("JWT token verification failed")
+            _auth_log(
+                'JWT token verification failed',
+                level='warning',
+                stage='failure',
+                reason='invalid_token',
+                token_source=token_source or 'unknown',
+            )
             return jsonify({'error': 'invalid_token'}), 401
-        
+
         # Flask-Loginのcurrent_userと同じように使えるよう設定
-        from flask import g
         g.current_user = user
-        current_app.logger.info(f"JWT authentication successful for user: {user.email}")
-        
+        _auth_log(
+            'Authentication successful via JWT',
+            stage='success',
+            auth_method='jwt',
+            token_source=token_source or 'unknown',
+            authenticated_user=_serialize_user_for_log(user),
+        )
+
         return f(*args, **kwargs)
     return decorated_function
 

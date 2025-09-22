@@ -118,6 +118,7 @@ def test_picker_import_item_imports(monkeypatch, app, tmp_path):
         assert pmi.locked_by is None
         assert pmi.lock_heartbeat_at is None
         assert Media.query.count() == 1
+        assert media.source_type == "google_photos"
         assert called_thumbs == [media.id]
         assert called_play == []
 

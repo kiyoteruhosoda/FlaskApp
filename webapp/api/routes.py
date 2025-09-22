@@ -1534,7 +1534,7 @@ def _verify_token(token: str):
 def api_media_thumbnail(media_id):
     """Return thumbnail image for a media item."""
     size = request.args.get("size", type=int, default=256)
-    if size not in (256, 1024, 2048):
+    if size not in (256, 512, 1024, 2048):
         return jsonify({"error": "invalid_size"}), 400
 
     media = Media.query.get(media_id)
@@ -1570,7 +1570,7 @@ def api_media_thumbnail(media_id):
 def api_media_thumb_url(media_id):
     data = request.get_json(silent=True) or {}
     size = data.get("size")
-    if size not in (256, 1024, 2048):
+    if size not in (256, 512, 1024, 2048):
         return jsonify({"error": "invalid_size"}), 400
 
     media = Media.query.get(media_id)

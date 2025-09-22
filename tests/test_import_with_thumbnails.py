@@ -112,7 +112,7 @@ def create_test_import():
                     
                     # Check that thumbnails were generated
                     thumbs_dir = Path(os.environ["FPV_NAS_THUMBS_DIR"])
-                    sizes = [256, 1024, 2048]
+                    sizes = [256, 512, 1024, 2048]
                     
                     rel_path = "2025/08/28/20250828_100000_picker_testhash.jpg"
                     

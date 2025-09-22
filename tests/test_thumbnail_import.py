@@ -50,7 +50,7 @@ def test_thumbnail_generation():
             
             # Check that thumbnails were created
             thumbs_dir = Path(os.environ["FPV_NAS_THUMBS_DIR"])
-            sizes = [256, 1024, 2048]
+            sizes = [256, 512, 1024, 2048]
             
             for size in sizes:
                 thumb_path = thumbs_dir / str(size) / "2025/08/28/test_import.jpg"
@@ -62,12 +62,12 @@ def test_thumbnail_generation():
         finally:
             # Cleanup
             test_file.unlink(missing_ok=True)
-            for size in [256, 1024, 2048]:
+            for size in [256, 512, 1024, 2048]:
                 thumb_path = thumbs_dir / str(size) / "2025/08/28/test_import.jpg"
                 thumb_path.unlink(missing_ok=True)
-            
+
             # Remove empty directories
-            for size in [256, 1024, 2048]:
+            for size in [256, 512, 1024, 2048]:
                 try:
                     (thumbs_dir / str(size) / "2025/08/28").rmdir()
                     (thumbs_dir / str(size) / "2025/08").rmdir()

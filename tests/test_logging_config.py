@@ -4,6 +4,8 @@ import logging
 
 import pytest
 
+from core import logging_config
+from core.db_log_handler import DBLogHandler
 from core.logging_config import ensure_appdb_file_logging, setup_task_logging
 
 
@@ -37,9 +39,17 @@ def _flush_handlers(logger: logging.Logger) -> None:
             flush()
 
 
-def test_ensure_appdb_file_logging_writes_progress(tmp_path, monkeypatch, cleanup_logger):
-    log_path = tmp_path / "appdb.log"
-    monkeypatch.setenv("APP_DB_LOG_PATH", str(log_path))
+def test_ensure_appdb_logging_uses_database_handler(monkeypatch, cleanup_logger):
+    records = []
+
+    class DummyHandler(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:  # pragma: no cover - simple data push
+            records.append(record)
+
+    dummy_handler = DummyHandler()
+    setattr(dummy_handler, "_is_appdb_log_handler", True)
+
+    monkeypatch.setattr(logging_config, "_create_appdb_db_handler", lambda: dummy_handler)
 
     logger = cleanup_logger("test.ensure_appdb")
     logger.propagate = False
@@ -49,17 +59,21 @@ def test_ensure_appdb_file_logging_writes_progress(tmp_path, monkeypatch, cleanu
     logger.info("progress message", extra={"event": "test.progress"})
     _flush_handlers(logger)
 
-    assert log_path.exists()
-    content = log_path.read_text(encoding="utf-8")
-    assert "progress message" in content
-    assert any(getattr(h, "_is_appdb_log_handler", False) for h in logger.handlers)
+    assert dummy_handler in logger.handlers
+    assert records and records[0].getMessage() == "progress message"
 
 
-def test_setup_task_logging_includes_appdb_handler(tmp_path, monkeypatch, cleanup_logger):
-    log_path = tmp_path / "custom_appdb.log"
-    db_path = tmp_path / "log.db"
-    monkeypatch.setenv("APP_DB_LOG_PATH", str(log_path))
-    monkeypatch.setenv("DATABASE_URI", f"sqlite:///{db_path}")
+def test_setup_task_logging_includes_appdb_handler(monkeypatch, cleanup_logger):
+    records = []
+
+    class DummyHandler(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:  # pragma: no cover - simple data push
+            records.append(record)
+
+    dummy_handler = DummyHandler()
+    setattr(dummy_handler, "_is_appdb_log_handler", True)
+
+    monkeypatch.setattr(logging_config, "_create_appdb_db_handler", lambda: dummy_handler)
 
     logger_name = "core.tasks.test_logger"
     logger = cleanup_logger(logger_name)
@@ -71,7 +85,23 @@ def test_setup_task_logging_includes_appdb_handler(tmp_path, monkeypatch, cleanu
     logger.info("task finished", extra={"event": "test.task"})
     _flush_handlers(logger)
 
-    assert log_path.exists()
-    content = log_path.read_text(encoding="utf-8")
-    assert "task finished" in content
-    assert any(getattr(h, "_is_appdb_log_handler", False) for h in logger.handlers)
+    assert dummy_handler in logger.handlers
+    assert records and records[0].getMessage() == "task finished"
+
+
+def test_ensure_appdb_logging_marks_existing_handler(monkeypatch, cleanup_logger):
+    def fail_create():  # pragma: no cover - we ensure it's never called
+        raise AssertionError("Should not create a new handler when one already exists")
+
+    monkeypatch.setattr(logging_config, "_create_appdb_db_handler", fail_create)
+
+    logger = cleanup_logger("test.ensure_appdb.reuse")
+    logger.propagate = False
+
+    existing_handler = DBLogHandler()
+    logger.addHandler(existing_handler)
+
+    ensure_appdb_file_logging(logger)
+
+    assert getattr(existing_handler, "_is_appdb_log_handler", False)
+    assert logger.level == logging.INFO

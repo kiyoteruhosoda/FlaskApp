@@ -661,6 +661,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function formatDate(isoString) {
     if (!isoString) return '';
+    const helper = window.appTime;
+    if (helper && typeof helper.formatDate === 'function') {
+      const formatted = helper.formatDate(isoString, { dateStyle: 'medium' });
+      if (formatted) {
+        return formatted;
+      }
+    }
     const date = new Date(isoString);
     if (Number.isNaN(date.getTime())) return '';
     return date.toLocaleDateString();
@@ -668,6 +675,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function formatDateTime(isoString) {
     if (!isoString) return '';
+    const helper = window.appTime;
+    if (helper && typeof helper.formatDateTime === 'function') {
+      const formatted = helper.formatDateTime(isoString, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      });
+      if (formatted) {
+        return formatted;
+      }
+    }
     const date = new Date(isoString);
     if (Number.isNaN(date.getTime())) return '';
     return date.toLocaleDateString();

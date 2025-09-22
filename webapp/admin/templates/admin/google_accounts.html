@@ -103,7 +103,13 @@
                 {% endfor %}
               </div>
             </td>
-            <td class="text-nowrap">{{ a.last_synced_at or _('Never') }}</td>
+            <td class="text-nowrap">
+              {% if a.last_synced_at %}
+                {{ a.last_synced_at|localtime('%Y-%m-%d %H:%M') }}
+              {% else %}
+                {{ _('Never') }}
+              {% endif %}
+            </td>
             <td>
               {% if a.oauth_token_json %}
                 <span class="badge text-bg-success d-inline-flex align-items-center gap-1">
@@ -115,7 +121,14 @@
                 </span>
               {% endif %}
             </td>
-            <td class="text-nowrap">{{ a.refresh_token_expires_at() or _('Unknown') }}</td>
+            {% set refresh_expiry = a.refresh_token_expires_at(as_datetime=True) %}
+            <td class="text-nowrap">
+              {% if refresh_expiry %}
+                {{ refresh_expiry|localtime('%Y-%m-%d %H:%M') }}
+              {% else %}
+                {{ _('Unknown') }}
+              {% endif %}
+            </td>
             <td class="text-end">
               <div class="dropdown action-menu" data-id="{{ a.id }}" data-scopes="{{ a.scopes }}" data-scope-profile="photo_picker">
                 <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">

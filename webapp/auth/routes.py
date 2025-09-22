@@ -24,6 +24,7 @@ from .utils import refresh_google_token, log_requests_and_send, RefreshTokenErro
 from application.auth_service import AuthService
 from infrastructure.user_repository import SqlAlchemyUserRepository
 from ..timezone import resolve_timezone, convert_to_timezone
+from ..services.token_service import TokenService
 
 
 user_repo = SqlAlchemyUserRepository(db.session)
@@ -406,9 +407,27 @@ def setup_totp_cancel():
 @bp.route("/logout")
 @login_required
 def logout():
+    user = current_user._get_current_object()
+    user_payload = {
+        "message": "User logged out",
+        "user_id": user.id,
+        "email": user.email,
+    }
+
+    TokenService.revoke_refresh_token(user)
     logout_user()
+    session.pop("picker_session_id", None)
+
+    response = make_response(redirect(url_for("index")))
+    response.delete_cookie("access_token")
+
+    current_app.logger.info(
+        json.dumps(user_payload, ensure_ascii=False),
+        extra={"event": "auth.logout", "path": request.path},
+    )
+
     flash(_("Logged out"), "success")
-    return redirect(url_for("index"))
+    return response
 
 
 

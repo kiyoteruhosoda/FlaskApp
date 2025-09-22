@@ -39,7 +39,13 @@
             {% endfor %}
           </div>
         </td>
-        <td>{{ a.last_synced_at or '-' }}</td>
+        <td>
+          {% if a.last_synced_at %}
+            {{ a.last_synced_at|localtime('%Y-%m-%d %H:%M') }}
+          {% else %}
+            -
+          {% endif %}
+        </td>
         <td>
           {% if a.oauth_token_json %}
             <span class="badge bg-success">OK</span>
@@ -47,7 +53,14 @@
             <span class="badge bg-danger">NG</span>
           {% endif %}
         </td>
-        <td>{{ a.refresh_token_expires_at() or '-' }}</td>
+        {% set refresh_expiry = a.refresh_token_expires_at(as_datetime=True) %}
+        <td>
+          {% if refresh_expiry %}
+            {{ refresh_expiry|localtime('%Y-%m-%d %H:%M') }}
+          {% else %}
+            -
+          {% endif %}
+        </td>
         <td>
           <div class="btn-group btn-group-sm" role="group"
                data-id="{{ a.id }}" data-scopes="{{ a.scopes }}" data-scope-profile="photo_picker">

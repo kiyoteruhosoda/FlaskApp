@@ -818,8 +818,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // ユーティリティ関数
   function formatDateTime(isoString) {
     if (!isoString) return 'Not available';
+    const helper = window.appTime;
+    if (helper && typeof helper.formatDateTime === 'function') {
+      const formatted = helper.formatDateTime(isoString);
+      if (formatted) {
+        return formatted;
+      }
+    }
     const date = new Date(isoString);
-    return date.toLocaleString();
+    return Number.isNaN(date.getTime()) ? 'Not available' : date.toLocaleString();
   }
 
   function formatFileSize(bytes) {

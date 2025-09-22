@@ -381,7 +381,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function formatDateTime(isoString) {
     if (!isoString) return '';
+    const helper = window.appTime;
+    if (helper && typeof helper.formatDateTime === 'function') {
+      const formatted = helper.formatDateTime(isoString);
+      if (formatted) {
+        return formatted;
+      }
+    }
     const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
     const locale = navigator.language || 'en-US';
     return `${date.toLocaleDateString(locale)} ${date.toLocaleTimeString(locale, {
       hour: '2-digit',

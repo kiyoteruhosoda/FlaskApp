@@ -153,9 +153,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function formatDateTime(isoString) {
     if (!isoString) return '-';
+    const helper = window.appTime;
+    if (helper && typeof helper.formatDateTime === 'function') {
+      const formatted = helper.formatDateTime(isoString);
+      if (formatted) {
+        return formatted;
+      }
+    }
     try {
       const date = new Date(isoString);
-      return date.toLocaleString();
+      return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString();
     } catch (e) {
       return isoString;
     }

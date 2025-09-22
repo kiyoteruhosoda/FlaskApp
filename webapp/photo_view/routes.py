@@ -98,7 +98,7 @@ def media_detail(media_id: int):
 @require_perms("media:view", "album:view")
 def albums():
     """List of albums."""
-    return render_template("photo_view/albums.html")
+    return render_template("photo_view/albums.html", editor_view=False)
 
 
 @bp.route("/albums/<int:album_id>")
@@ -106,6 +106,13 @@ def albums():
 def album_detail(album_id: int):
     """Detail view for a single album."""
     return render_template("photo_view/album_detail.html", album_id=album_id)
+
+
+@bp.route("/albums/create")
+@require_perms("media:view", "album:view")
+def album_create():
+    """Standalone page for creating a new album."""
+    return render_template("photo_view/albums.html", editor_view=True)
 
 
 @bp.route("/tags")

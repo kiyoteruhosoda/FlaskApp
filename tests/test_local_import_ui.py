@@ -145,7 +145,9 @@ class TestSessionDetailAPI:
         
         # 選択の詳細確認
         selection = data['selections'][0]
-        assert selection['googleMediaId'] is None
+        assert selection['googleMediaId'] is not None
+        assert selection['googleMediaId'].startswith('local_')
+        assert selection['mediaId'] is not None
         assert selection['filename'] == 'test_file.jpg'
         assert selection['status'] == 'imported'
         assert selection['attempts'] >= 0
@@ -277,7 +279,8 @@ class TestLocalImportIntegration:
         selection = selections_data['selections'][0]
         assert selection['filename'] == 'test_file.jpg'
         assert selection['status'] == 'imported'
-        assert selection['googleMediaId'] is None
+        assert selection['googleMediaId'] is not None
+        assert selection['mediaId'] is not None
         
         # 5. 状態確認（取り込み済みなのでファイル数は0）
         response = client.get('/api/sync/local-import/status')

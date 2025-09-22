@@ -250,7 +250,8 @@ def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> D
         "success": False,
         "file_path": file_path,
         "reason": "",
-        "media_id": None
+        "media_id": None,
+        "media_google_id": None,
     }
     
     _log_info(
@@ -301,6 +302,8 @@ def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> D
         existing_media = check_duplicate_media(file_hash, file_size)
         if existing_media:
             result["reason"] = f"重複ファイル (既存ID: {existing_media.id})"
+            result["media_id"] = existing_media.id
+            result["media_google_id"] = existing_media.google_media_id
             _log_info(
                 "local_import.file.duplicate",
                 "重複ファイルを検出したためスキップ",
@@ -441,6 +444,7 @@ def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> D
 
         result["success"] = True
         result["media_id"] = media.id
+        result["media_google_id"] = media.google_media_id
         result["reason"] = "取り込み成功"
 
         _log_info(
@@ -760,6 +764,10 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
             # Selectionの状態を処理結果に応じて更新
             if selection:
                 try:
+                    media_google_id = file_result.get("media_google_id")
+                    if media_google_id:
+                        selection.google_media_id = media_google_id
+
                     if file_result["success"]:
                         selection.status = "imported"
                         selection.finished_at = datetime.now(timezone.utc)

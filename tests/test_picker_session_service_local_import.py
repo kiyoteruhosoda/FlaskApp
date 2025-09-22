@@ -142,7 +142,8 @@ class TestPickerSessionServiceLocalImport:
             
             # 各選択の詳細確認
             for selection in details['selections']:
-                assert selection['googleMediaId'] is None
+                assert selection['googleMediaId'] is not None
+                assert selection['mediaId'] is not None
                 assert selection['filename'] in ['test_image.jpg', 'test_video.mp4']
                 assert selection['status'] == 'imported'
                 assert selection['attempts'] >= 0
@@ -301,7 +302,8 @@ class TestPickerSessionServiceMixedSessions:
             
             # ローカルインポートの特徴確認
             for selection in local_details['selections']:
-                assert selection['googleMediaId'] is None
+                assert selection['googleMediaId'] is not None
+                assert selection['mediaId'] is not None
                 assert selection['filename'] is not None
             
             # 通常のPickerSessionを作成（選択なし）

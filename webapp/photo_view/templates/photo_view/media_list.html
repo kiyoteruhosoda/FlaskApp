@@ -523,18 +523,20 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const sourceLabels = {
-    local: '{{ _("Local import") }}',
-    google_photos: '{{ _("Google Photos") }}'
+    local: '{{ _("Local import")|escapejs }}',
+    google_photos: '{{ _("Google Photos")|escapejs }}'
   };
-  const unknownSourceLabel = '{{ _("Unknown source") }}';
-  const videoLabel = '{{ _("Video") }}';
-  const photoLabel = '{{ _("Photo") }}';
-  const removeTagLabel = '{{ _("Remove") }}';
-  const noTagsFoundText = '{{ _("No tags found") }}';
+  const unknownSourceLabel = '{{ _("Unknown source")|escapejs }}';
+  const videoLabel = '{{ _("Video")|escapejs }}';
+  const photoLabel = '{{ _("Photo")|escapejs }}';
+  const removeTagLabel = '{{ _("Remove")|escapejs }}';
+  const noTagsFoundText = '{{ _("No tags found")|escapejs }}';
+  const itemsLabel = '{{ _("items")|escapejs }}';
+  const failedToLoadMediaText = '{{ _("Failed to load media. Please try again.")|escapejs }}';
   const tagAttrLabels = {
-    person: "{{ _("Person")|escapejs }}",
-    place: "{{ _("Place")|escapejs }}",
-    thing: "{{ _("Thing")|escapejs }}"
+    person: '{{ _("Person")|escapejs }}',
+    place: '{{ _("Place")|escapejs }}',
+    thing: '{{ _("Thing")|escapejs }}'
   };
 
   function createMediaCard(media) {
@@ -625,7 +627,7 @@ document.addEventListener('DOMContentLoaded', () => {
           totalLoaded++;
         });
         
-        mediaCount.textContent = `${totalLoaded} {{ _("items") }}`;
+        mediaCount.textContent = `${totalLoaded} ${itemsLabel}`;
         
         if (items.length === 0 && meta.isFirstPage) {
           mediaGrid.innerHTML = `
@@ -640,7 +642,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('Media loading error:', error);
         const errorDiv = document.createElement('div');
         errorDiv.className = 'alert alert-danger';
-        errorDiv.textContent = '{{ _("Failed to load media. Please try again.") }}';
+        errorDiv.textContent = failedToLoadMediaText;
         mediaGrid.appendChild(errorDiv);
       }
     });
@@ -661,9 +663,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const sizeLabel = document.getElementById('size-label');
   const sizeClasses = ['size-small', 'size-medium', 'size-large'];
   const sizeDescriptions = {
-    1: '{{ _("Compact") }}',
-    2: '{{ _("Medium") }}',
-    3: '{{ _("Large") }}',
+    1: '{{ _("Compact")|escapejs }}',
+    2: '{{ _("Medium")|escapejs }}',
+    3: '{{ _("Large")|escapejs }}'
   };
 
   function applyGridSize(value) {

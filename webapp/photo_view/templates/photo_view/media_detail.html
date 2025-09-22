@@ -364,22 +364,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const canManageTags = {{ current_user.can('media:tag-manage') | tojson }};
   const tagAttrLabels = {
-    person: '{{ _("Person") }}',
-    place: '{{ _("Place") }}',
-    thing: '{{ _("Thing") }}'
+    person: '{{ _("Person")|escapejs }}',
+    place: '{{ _("Place")|escapejs }}',
+    thing: '{{ _("Thing")|escapejs }}'
   };
-  const noTagsAssignedText = '{{ _("No tags assigned") }}';
-  const noTagSuggestionsText = '{{ _("No tags found") }}';
-  const tagUpdateErrorText = '{{ _("Failed to update tags.") }}';
-  const tagCreateErrorText = '{{ _("Failed to create tag.") }}';
-  const removeTagLabel = '{{ _("Remove") }}';
-  const deleteConfirmText = '{{ _("Are you sure you want to delete this media? This action cannot be undone.") }}';
-  const deleteSuccessText = '{{ _("Media was deleted successfully.") }}';
-  const deleteErrorText = '{{ _("Failed to delete media.") }}';
-  const deleteForbiddenText = '{{ _("You do not have permission to delete media.") }}';
-  const deleteMissingText = '{{ _("Media was not found or is already deleted.") }}';
-  const deleteInProgressText = '{{ _("Deleting...") }}';
-  const redirectAfterDeleteUrl = '{{ url_for("photo_view.media_list") }}';
+  const noTagsAssignedText = '{{ _("No tags assigned")|escapejs }}';
+  const noTagSuggestionsText = '{{ _("No tags found")|escapejs }}';
+  const tagUpdateErrorText = '{{ _("Failed to update tags.")|escapejs }}';
+  const tagCreateErrorText = '{{ _("Failed to create tag.")|escapejs }}';
+  const removeTagLabel = '{{ _("Remove")|escapejs }}';
+  const deleteConfirmText = '{{ _("Are you sure you want to delete this media? This action cannot be undone.")|escapejs }}';
+  const deleteSuccessText = '{{ _("Media was deleted successfully.")|escapejs }}';
+  const deleteErrorText = '{{ _("Failed to delete media.")|escapejs }}';
+  const deleteForbiddenText = '{{ _("You do not have permission to delete media.")|escapejs }}';
+  const deleteMissingText = '{{ _("Media was not found or is already deleted.")|escapejs }}';
+  const deleteInProgressText = '{{ _("Deleting...")|escapejs }}';
+  const redirectAfterDeleteUrl = '{{ url_for("photo_view.media_list")|escapejs }}';
 
   if (mediaTagsContainer && !mediaTagsContainer.dataset.emptyText) {
     mediaTagsContainer.dataset.emptyText = noTagsAssignedText;

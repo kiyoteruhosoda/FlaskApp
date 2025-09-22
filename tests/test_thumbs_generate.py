@@ -107,7 +107,12 @@ def test_image_generation(app):
     media_id = _make_media(app, rel_path="2025/08/18/img.jpg", is_video=False, width=4032, height=3024)
     with app.app_context():
         res = thumbs_generate(media_id=media_id)
-    assert res == {"ok": True, "generated": [256, 1024, 2048], "skipped": [], "notes": None}
+    assert res == {
+        "ok": True,
+        "generated": [256, 512, 1024, 2048],
+        "skipped": [],
+        "notes": None,
+    }
 
     out = Path(os.environ["FPV_NAS_THUMBS_DIR"])
     im256 = Image.open(out / "256/2025/08/18/img.jpg")
@@ -129,7 +134,7 @@ def test_image_skip_existing(app):
 
     with app.app_context():
         res = thumbs_generate(media_id=media_id)
-    assert res["generated"] == [256, 2048]
+    assert res["generated"] == [256, 512, 2048]
     assert res["skipped"] == [1024]
 
 
@@ -157,7 +162,7 @@ def test_video_with_playback(app):
 
     with app.app_context():
         res = thumbs_generate(media_id=media_id)
-    assert res["generated"] == [256, 1024, 2048]
+    assert res["generated"] == [256, 512, 1024, 2048]
     out = Path(os.environ["FPV_NAS_THUMBS_DIR"])
     assert (out / "256/2025/08/18/video.jpg").exists()
 
@@ -169,6 +174,6 @@ def test_video_playback_not_ready(app):
     assert res == {
         "ok": True,
         "generated": [],
-        "skipped": [256, 1024, 2048],
+        "skipped": [256, 512, 1024, 2048],
         "notes": "playback not ready",
     }

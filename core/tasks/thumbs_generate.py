@@ -19,7 +19,7 @@ from PIL import Image, ImageOps
 from core.models.photo_models import Media, MediaPlayback
 
 # Target thumbnail sizes (long side)
-SIZES = [256, 1024, 2048]
+SIZES = [256, 512, 1024, 2048]
 
 
 @dataclass

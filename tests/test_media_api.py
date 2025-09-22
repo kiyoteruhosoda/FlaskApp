@@ -681,6 +681,36 @@ def test_thumb_url_not_found(client, seed_thumb_media):
     assert res.get_json()["error"] == "not_found"
 
 
+def test_download_requires_auth(client, seed_thumb_media):
+    media_id, rel = seed_thumb_media
+    payload = {
+        "v": 1,
+        "typ": "thumb",
+        "mid": media_id,
+        "size": 1024,
+        "path": f"thumbs/1024/{rel}",
+        "ct": "image/jpeg",
+        "exp": int(time.time()) + 600,
+        "nonce": "auth",
+    }
+    token = make_token(payload)
+    app = client.application
+    original_testing = app.config.get("TESTING")
+    original_login_disabled = app.config.get("LOGIN_DISABLED")
+    app.config["TESTING"] = False
+    app.config["LOGIN_DISABLED"] = False
+    try:
+        res = client.get(f"/api/dl/{token}")
+    finally:
+        app.config["TESTING"] = original_testing
+        if original_login_disabled is None:
+            app.config.pop("LOGIN_DISABLED", None)
+        else:
+            app.config["LOGIN_DISABLED"] = original_login_disabled
+    assert res.status_code == 401
+    assert res.get_json()["error"] == "authentication_required"
+
+
 def test_playback_url_states(client, seed_playback_media):
     ok_id, run_id, none_id = seed_playback_media
     login(client)
@@ -706,6 +736,7 @@ def test_token_tamper(client, seed_thumb_media):
 
 def test_token_expired(client, seed_thumb_media):
     media_id, rel = seed_thumb_media
+    login(client)
     payload = {
         "v": 1,
         "typ": "thumb",
@@ -737,6 +768,7 @@ def test_range_video(client, seed_playback_media):
 
 
 def test_ct_mismatch(client):
+    login(client)
     rel = "2025/08/18/foo.png"
     base = os.environ["FPV_NAS_THUMBS_DIR"]
     path = os.path.join(base, "256", rel)

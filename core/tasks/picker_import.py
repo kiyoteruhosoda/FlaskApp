@@ -979,7 +979,7 @@ def picker_import_item(
             raise
 
         # Deduplication by hash
-        if Media.query.filter_by(hash_sha256=dl.sha256).first():
+        if Media.query.filter_by(hash_sha256=dl.sha256, is_deleted=False).first():
             sel.status = "dup"
             dl.path.unlink(missing_ok=True)
         else:
@@ -1383,7 +1383,7 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
                 continue
 
             # Deduplication by hash
-            if Media.query.filter_by(hash_sha256=dl.sha256).first():
+            if Media.query.filter_by(hash_sha256=dl.sha256, is_deleted=False).first():
                 dup += 1
                 dl.path.unlink(missing_ok=True)
                 continue

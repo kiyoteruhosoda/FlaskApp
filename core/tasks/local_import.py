@@ -187,7 +187,8 @@ def check_duplicate_media(file_hash: str, file_size: int) -> Optional[Media]:
     """重複チェック: SHA-256 + サイズ一致"""
     return Media.query.filter_by(
         hash_sha256=file_hash,
-        bytes=file_size
+        bytes=file_size,
+        is_deleted=False,
     ).first()
 
 

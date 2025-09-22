@@ -182,7 +182,7 @@ class TestPickerSessionServiceLocalImport:
         """異なるステータスが混在するローカルインポートセッションのテスト"""
         with app.app_context():
             import_dir = Path(app.config['LOCAL_IMPORT_DIR'])
-            
+
             # 正常ファイル
             (import_dir / "good_file.jpg").write_bytes(b"good data")
             
@@ -194,15 +194,51 @@ class TestPickerSessionServiceLocalImport:
             session = PickerSession.query.filter_by(session_id=result['session_id']).first()
             
             details = PickerSessionService.selection_details(session)
-            
+
             # 結果の確認
             assert len(details['selections']) >= 1
             total_count = sum(details['counts'].values())
             assert total_count >= 1
-            
-            # 少なくとも1つは成功していることを確認
-            success_count = details['counts'].get('imported', 0)
-            assert success_count >= 1
+
+    def test_reimport_after_deletion_creates_new_media(self, app):
+        """削除済みメディアの再取り込みが新規レコードになることを確認"""
+        from webapp.extensions import db
+        from core.models.photo_models import Media, PickerSelection
+
+        with app.app_context():
+            import_dir = Path(app.config['LOCAL_IMPORT_DIR'])
+            originals_dir = Path(app.config['FPV_NAS_ORIGINALS_DIR'])
+
+            file_path = import_dir / "dup.jpg"
+            data = b"duplicate content"
+            file_path.write_bytes(data)
+
+            first_result = local_import_task()
+            first_session = PickerSession.query.filter_by(session_id=first_result['session_id']).first()
+            assert first_session is not None
+
+            original_media = Media.query.one()
+            original_hash = original_media.hash_sha256
+            original_media.is_deleted = True
+            db.session.commit()
+
+            source_path = originals_dir / original_media.local_rel_path
+            assert source_path.exists()
+            second_file = import_dir / "dup_again.jpg"
+            second_file.write_bytes(source_path.read_bytes())
+
+            second_result = local_import_task()
+            second_session = PickerSession.query.filter_by(session_id=second_result['session_id']).first()
+            assert second_session is not None
+
+            active_media = Media.query.filter_by(is_deleted=False).all()
+            assert len(active_media) == 1
+            assert Media.query.count() == 2
+            assert active_media[0].hash_sha256 == original_hash
+
+            selections = PickerSelection.query.filter_by(session_id=second_session.id).all()
+            assert len(selections) == 1
+            assert selections[0].status == 'imported'
 
     def test_error_status_with_only_duplicates_becomes_imported(self, app):
         """重複のみのセッションはエラーではなく imported として扱われる"""

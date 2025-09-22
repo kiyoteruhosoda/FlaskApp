@@ -626,6 +626,150 @@ document.addEventListener('DOMContentLoaded', () => {
     startSlideshow: "{{ _('Start Slideshow')|escapejs }}",
   };
 
+  const THUMBNAIL_SIZE_PRIORITY = [2048, 1024, 512];
+
+  function normalizeThumbnailSize(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed) {
+        const parsed = Number.parseInt(trimmed, 10);
+        if (Number.isFinite(parsed)) {
+          return parsed;
+        }
+      }
+    }
+    return null;
+  }
+
+  function collectThumbnailAvailability(item) {
+    const available = new Set();
+    const urlBySize = new Map();
+
+    const register = (size, url) => {
+      if (!Number.isFinite(size)) {
+        return;
+      }
+      available.add(size);
+      if (typeof url === 'string' && url) {
+        urlBySize.set(size, url);
+      }
+    };
+
+    const variantSources = [
+      item?.thumbnailUrls,
+      item?.thumbnails,
+      item?.thumbnail_variants,
+      item?.thumbnailVariants,
+    ];
+
+    variantSources.forEach((source) => {
+      if (!source) {
+        return;
+      }
+      if (Array.isArray(source)) {
+        source.forEach((entry) => {
+          if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+            const size = normalizeThumbnailSize(entry.size ?? entry.dimension ?? entry.width ?? entry.height);
+            const url = entry.url ?? entry.href ?? entry.path ?? null;
+            if (size !== null) {
+              register(size, typeof url === 'string' ? url : null);
+            }
+          } else {
+            const size = normalizeThumbnailSize(entry);
+            if (size !== null) {
+              register(size);
+            }
+          }
+        });
+      } else if (typeof source === 'object') {
+        Object.entries(source).forEach(([key, value]) => {
+          const keySize = normalizeThumbnailSize(key);
+          if (typeof value === 'string') {
+            if (keySize !== null) {
+              register(keySize, value);
+            }
+            return;
+          }
+          if (value && typeof value === 'object' && !Array.isArray(value)) {
+            const nestedSize = normalizeThumbnailSize(
+              value.size ?? value.dimension ?? value.width ?? value.height ?? keySize,
+            );
+            const url = value.url ?? value.href ?? value.path ?? null;
+            if (nestedSize !== null) {
+              register(nestedSize, typeof url === 'string' ? url : null);
+            } else if (keySize !== null) {
+              register(keySize, typeof url === 'string' ? url : null);
+            }
+          } else if (value && keySize !== null) {
+            register(keySize);
+          }
+        });
+      }
+    });
+
+    const availabilitySources = [
+      item?.availableThumbnailSizes,
+      item?.thumbnailSizes,
+      item?.availableThumbnails,
+    ];
+
+    availabilitySources.forEach((source) => {
+      if (!source) {
+        return;
+      }
+      if (Array.isArray(source)) {
+        source.forEach((entry) => {
+          const size = normalizeThumbnailSize(entry);
+          if (size !== null) {
+            available.add(size);
+          }
+        });
+      } else if (typeof source === 'object') {
+        Object.entries(source).forEach(([key, value]) => {
+          if (!value) {
+            return;
+          }
+          const size = normalizeThumbnailSize(key);
+          if (size !== null) {
+            available.add(size);
+          }
+        });
+      }
+    });
+
+    return { available, urlBySize };
+  }
+
+  function resolveSlideshowImageUrl(item) {
+    if (!item) {
+      return '';
+    }
+
+    const { available, urlBySize } = collectThumbnailAvailability(item);
+    const buildUrl = (size) => (item.id ? `/api/media/${item.id}/thumbnail?size=${size}` : '');
+
+    for (const size of THUMBNAIL_SIZE_PRIORITY) {
+      if (urlBySize.has(size)) {
+        return urlBySize.get(size);
+      }
+      if (available.has(size)) {
+        const resolved = buildUrl(size);
+        if (resolved) {
+          return resolved;
+        }
+      }
+    }
+
+    if (typeof item.thumbnailUrl === 'string' && item.thumbnailUrl) {
+      return item.thumbnailUrl;
+    }
+
+    return buildUrl(512);
+  }
+
   const albumState = {
     mode: 'create',
     editingId: null,
@@ -680,7 +824,7 @@ document.addEventListener('DOMContentLoaded', () => {
       shotAt: strings.shotAtLabel,
       albumTitleFallback: strings.untitledAlbum,
     },
-    imageUrlResolver: (item) => (item?.id ? `/api/media/${item.id}/thumbnail?size=1600` : (item?.thumbnailUrl || '')),
+    imageUrlResolver: resolveSlideshowImageUrl,
     metadataFormatter: (item, context) => {
       const parts = [];
       if (item?.shotAt) {

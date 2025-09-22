@@ -2,38 +2,86 @@
 {% block title %}{{ _('Photo Picker') }}{% endblock %}
 
 {% block content %}
-<h2>{{ _('Photo Picker') }}</h2>
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-8 col-xl-6">
+      <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+          <h1 class="h3 mb-3">{{ _('Photo Picker') }}</h1>
+          <p class="text-muted mb-4">
+            {{ _('Connect your Google Photos account and bring the selected images into the app. Follow the steps below to complete the process.') }}
+          </p>
 
+          <div class="mb-4">
+            <h2 class="h5 mb-2">{{ _('1. Authorize Google Photos') }}</h2>
+            <p class="mb-3">
+              {{ _('Open the picker in a new window or scan the QR code with your mobile device to sign in to Google Photos.') }}
+            </p>
+            <div class="d-flex flex-column flex-md-row gap-3 align-items-start">
+              <a href="{{ picker_uri }}" target="_blank" rel="noopener"
+                 class="btn btn-primary btn-lg w-100" id="open-picker-btn">
+                {{ _('Open Photo Picker') }}
+              </a>
+              <img id="qr-img" src="{{ qr_data }}" alt="{{ _('QR Code for the Google Photos picker') }}"
+                   class="img-fluid rounded border shadow-sm" style="max-width: 220px;">
+            </div>
+          </div>
 
-<p id="picker-link-block">
-  <a href="{{ picker_uri }}" target="_blank" rel="noopener" class="btn btn-primary">
-    {{ _('Open Photo Picker') }}
-  </a>
-</p>
+          <hr class="my-4">
 
-<img id="qr-img" src="{{ qr_data }}" alt="QR Code" class="mt-3">
+          <div>
+            <h2 class="h5 mb-2">{{ _('2. Confirm the connection status') }}</h2>
+            <p class="mb-3">
+              {{ _('After completing the picker, confirm the status below and continue once everything looks correct.') }}
+            </p>
 
-<p id="photo-view-link-block" style="display:none;">
-  <a href="{{ url_for('photo_view.home', session_id=session_id) }}"
-     target="_blank" rel="noopener" class="btn btn-secondary">
-    {{ _('Open Photo View') }}
-  </a>
-</p>
+            <div id="status-alert" class="alert alert-info d-flex align-items-center gap-2 mb-3" role="status">
+              <span id="status-spinner" class="spinner-border spinner-border-sm" role="presentation" aria-hidden="true"></span>
+              <span id="status-text" class="flex-grow-1">
+                {{ _('Waiting for Google Photos to finish...') }}
+              </span>
+            </div>
 
-<!-- 埋め込み用データ（この要素が元コードに無かった） -->
+            <div class="d-flex flex-column flex-md-row gap-2">
+              <button type="button" class="btn btn-outline-secondary" id="manual-check-btn">
+                {{ _('Check status now') }}
+              </button>
+              <button type="button" class="btn btn-success flex-grow-1" id="open-photo-view-btn" disabled
+                      data-photo-view-url="{{ url_for('photo_view.home', session_id=session_id) }}">
+                {{ _('Open Photo View') }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="text-muted small text-center mt-3">
+        {{ _('The photo viewer will open in a new tab after you confirm that the import has completed.') }}
+      </p>
+    </div>
+  </div>
+</div>
+
 <script id="session-data" type="application/json">
-    {{ {
-        "session_id": session_id,
-        "poll_interval": poll_interval
-      } | tojson | safe }}
-  </script>
+  {{ {
+    "session_id": session_id,
+    "poll_interval": poll_interval
+  } | tojson | safe }}
+</script>
+<script id="status-messages" type="application/json">
+  {{ {
+    "waiting": _('Waiting for Google Photos to finish...'),
+    "checking": _('Checking the latest status...'),
+    "ready": _('Photos are ready. Review them before moving on.'),
+    "error": _('Could not confirm the status. Please try again in a few seconds.'),
+    "invalidInterval": _('The automatic status check is unavailable. Use the button above to refresh manually.')
+  } | tojson | safe }}
+</script>
 
 <script>
-  // JSONデータ読込
-  const dataEl = document.getElementById('session-data');
-  const sessionData = JSON.parse(dataEl.textContent);
+  const sessionData = JSON.parse(document.getElementById('session-data').textContent);
+  const statusMessages = JSON.parse(document.getElementById('status-messages').textContent);
 
-  // interval パース（ms/s対応・デフォルトms）
   function parseInterval(v) {
     if (typeof v === 'number') return v;
     if (typeof v === 'string') {
@@ -47,6 +95,49 @@
   }
 
   const intervalMs = parseInterval(sessionData.poll_interval);
+
+  const statusAlert = document.getElementById('status-alert');
+  const statusText = document.getElementById('status-text');
+  const statusSpinner = document.getElementById('status-spinner');
+  const manualCheckBtn = document.getElementById('manual-check-btn');
+  const openPhotoViewBtn = document.getElementById('open-photo-view-btn');
+
+  let timer;
+  let isChecking = false;
+
+  function setStatus(type, message, { spinner = false } = {}) {
+    if (!statusAlert || !statusText) return;
+    statusAlert.className = `alert alert-${type} d-flex align-items-center gap-2 mb-3`;
+    statusText.textContent = message;
+    if (statusSpinner) {
+      statusSpinner.classList.toggle('d-none', !spinner);
+    }
+  }
+
+  function setManualButtonBusy(busy) {
+    if (!manualCheckBtn) return;
+    manualCheckBtn.disabled = busy;
+    manualCheckBtn.classList.toggle('disabled', busy);
+  }
+
+  function setOpenButtonEnabled(enabled) {
+    if (!openPhotoViewBtn) return;
+    openPhotoViewBtn.disabled = !enabled;
+    openPhotoViewBtn.classList.toggle('disabled', !enabled);
+  }
+
+  setOpenButtonEnabled(false);
+  setStatus('info', statusMessages.waiting, { spinner: true });
+
+  if (openPhotoViewBtn) {
+    openPhotoViewBtn.addEventListener('click', () => {
+      if (openPhotoViewBtn.disabled) return;
+      const url = openPhotoViewBtn.dataset.photoViewUrl;
+      if (url) {
+        window.open(url, '_blank', 'noopener');
+      }
+    });
+  }
 
   async function fetchMediaItems() {
     try {
@@ -74,47 +165,68 @@
     }
   }
 
-  let timer;
+  async function poll({ manual = false } = {}) {
+    if (isChecking) return;
+    isChecking = true;
 
+    if (manual) {
+      setManualButtonBusy(true);
+      setStatus('info', statusMessages.checking, { spinner: true });
+    }
 
-  async function poll() {
     try {
       const resp = await fetch(`/api/picker/session/${sessionData.session_id}`);
       if (!resp.ok) {
         console.warn('status poll failed:', resp.status);
+        if (manual) {
+          setStatus('warning', statusMessages.error, { spinner: false });
+        }
         return;
       }
       const data = await resp.json();
-      if (data.mediaItemsSet) {
-        clearInterval(timer);
-        // picker_uriリンクとqr_dataを非表示にする
-        const linkBlock = document.getElementById('picker-link-block');
-        if (linkBlock) linkBlock.style.display = 'none';
-        const qrImg = document.getElementById('qr-img');
-        if (qrImg) qrImg.style.display = 'none';
-        // photo_viewリンクを表示
-        const photoViewBlock = document.getElementById('photo-view-link-block');
-        if (photoViewBlock) photoViewBlock.style.display = '';
+        if (data.mediaItemsSet) {
+          if (timer) {
+            clearInterval(timer);
+          }
+        setStatus('success', statusMessages.ready, { spinner: false });
+        setOpenButtonEnabled(true);
         await fetchMediaItems();
+      } else if (manual) {
+        setStatus('info', statusMessages.waiting, { spinner: true });
       }
     } catch (e) {
       console.error(e);
+      if (manual) {
+        setStatus('warning', statusMessages.error, { spinner: false });
+      }
+    } finally {
+      if (manual) {
+        setManualButtonBusy(false);
+      }
+      isChecking = false;
     }
   }
 
+  if (manualCheckBtn) {
+    manualCheckBtn.addEventListener('click', () => poll({ manual: true }));
+  }
+
   if (Number.isFinite(intervalMs) && intervalMs > 0) {
-    // 初回即時 + インターバル
     poll();
     timer = setInterval(() => {
-      if (document.visibilityState === 'visible') {
+      if (!document.hidden) {
         poll();
       }
     }, intervalMs);
 
-    // ページ離脱で停止（念のため）
-    window.addEventListener('beforeunload', () => clearInterval(timer));
+    window.addEventListener('beforeunload', () => {
+      if (timer) {
+        clearInterval(timer);
+      }
+    });
   } else {
     console.warn('Invalid poll interval:', sessionData.poll_interval);
+    setStatus('warning', statusMessages.invalidInterval, { spinner: false });
   }
 </script>
 {% endblock %}

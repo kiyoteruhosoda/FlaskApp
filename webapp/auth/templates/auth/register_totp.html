@@ -46,11 +46,11 @@
           {{ _('Authentication Code') }}
         </label>
         <div class="input-wrapper">
+          <input type="text" class="form-control" id="token" name="token"
+                 placeholder="{{ _('000000') }}" maxlength="6" pattern="[0-9]{6}" required>
           <div class="input-icon">
             <i class="fas fa-shield-alt"></i>
           </div>
-          <input type="text" class="form-control" id="token" name="token" 
-                 placeholder="{{ _('000000') }}" maxlength="6" pattern="[0-9]{6}" required>
         </div>
       </div>
       
@@ -244,12 +244,6 @@ footer {
 .btn-cancel-link:hover {
   color: #c53030;
   text-decoration: underline;
-}
-
-/* Enhanced input focus effects */
-.form-control:focus + .input-icon,
-.form-control:valid + .input-icon {
-  color: #667eea;
 }
 
 /* Loading state for button */

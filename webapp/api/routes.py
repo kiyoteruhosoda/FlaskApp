@@ -31,7 +31,14 @@ from . import bp
 from ..extensions import db
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
-from core.models.photo_models import Media, Exif, MediaSidecar, MediaPlayback, Tag
+from core.models.photo_models import (
+    Media,
+    Exif,
+    MediaSidecar,
+    MediaPlayback,
+    Tag,
+    media_tag,
+)
 from core.models.user import User, Role
 from core.crypto import decrypt
 from ..auth.utils import refresh_google_token, RefreshTokenError, log_requests_and_send
@@ -870,8 +877,25 @@ def api_media_update_tags(media_id: int):
     else:
         tags = []
 
+    previous_tag_ids = {tag.id for tag in media.tags}
+    new_tag_ids = {tag.id for tag in tags}
+
     media.tags = tags
     media.updated_at = datetime.now(timezone.utc)
+    db.session.flush()
+
+    removed_tag_ids = previous_tag_ids - new_tag_ids
+    if removed_tag_ids:
+        unused_tags = (
+            Tag.query.filter(Tag.id.in_(removed_tag_ids))
+            .outerjoin(media_tag, Tag.id == media_tag.c.tag_id)
+            .group_by(Tag.id)
+            .having(db.func.count(media_tag.c.media_id) == 0)
+            .all()
+        )
+        for unused_tag in unused_tags:
+            db.session.delete(unused_tag)
+
     db.session.commit()
 
     return jsonify({

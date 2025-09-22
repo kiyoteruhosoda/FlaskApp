@@ -1,4 +1,13 @@
-from flask import render_template, request, redirect, url_for, flash, session, current_app
+from flask import (
+    render_template,
+    request,
+    redirect,
+    url_for,
+    flash,
+    session,
+    current_app,
+    make_response,
+)
 import requests
 import json
 from datetime import datetime, timezone, timedelta
@@ -14,10 +23,25 @@ from core.models.picker_session import PickerSession
 from .utils import refresh_google_token, log_requests_and_send, RefreshTokenError
 from application.auth_service import AuthService
 from infrastructure.user_repository import SqlAlchemyUserRepository
+from ..timezone import resolve_timezone, convert_to_timezone
 
 
 user_repo = SqlAlchemyUserRepository(db.session)
 auth_service = AuthService(user_repo)
+
+
+PROFILE_TIMEZONES = [
+    "UTC",
+    "Asia/Tokyo",
+    "Asia/Seoul",
+    "Asia/Shanghai",
+    "Asia/Singapore",
+    "Australia/Sydney",
+    "Europe/London",
+    "Europe/Paris",
+    "America/Los_Angeles",
+    "America/New_York",
+]
 
 # セッション有効期限（30分）
 SESSION_TIMEOUT_MINUTES = 30
@@ -213,6 +237,109 @@ def register_no_totp():
     
     return render_template("auth/register_no_totp.html")
 
+
+@bp.route("/profile", methods=["GET", "POST"])
+@login_required
+def profile():
+    languages = current_app.config.get("LANGUAGES", ["ja", "en"])
+    if not languages:
+        languages = [current_app.config.get("BABEL_DEFAULT_LOCALE", "en")]
+    language_labels = {
+        "ja": _("Japanese"),
+        "en": _("English"),
+    }
+    default_language = current_app.config.get("BABEL_DEFAULT_LOCALE", languages[0])
+    if default_language not in language_labels:
+        language_labels[default_language] = default_language
+    selected_language = request.cookies.get("lang") or default_language
+    if selected_language not in languages:
+        selected_language = default_language
+
+    default_timezone = current_app.config.get("BABEL_DEFAULT_TIMEZONE", "UTC")
+    timezone_codes = list(PROFILE_TIMEZONES)
+    if default_timezone not in timezone_codes:
+        timezone_codes.insert(0, default_timezone)
+
+    selected_timezone = request.cookies.get("tz") or default_timezone
+    if selected_timezone not in timezone_codes:
+        selected_timezone = (
+            default_timezone if default_timezone in timezone_codes else timezone_codes[0]
+        )
+
+    selected_timezone, tzinfo = resolve_timezone(selected_timezone, default_timezone)
+    server_time_utc = datetime.now(timezone.utc)
+    localized_time = convert_to_timezone(server_time_utc, tzinfo)
+
+    if request.method == "POST":
+        form_lang = request.form.get("language")
+        form_tz = request.form.get("timezone")
+        response = make_response(redirect(url_for("auth.profile")))
+        updated = False
+
+        if form_lang and form_lang in languages:
+            selected_language = form_lang
+            response.set_cookie(
+                "lang",
+                form_lang,
+                max_age=60 * 60 * 24 * 30,
+                httponly=False,
+                samesite="Lax",
+            )
+            updated = True
+
+        if form_tz and form_tz in timezone_codes:
+            selected_timezone, tzinfo = resolve_timezone(form_tz, default_timezone)
+            localized_time = convert_to_timezone(server_time_utc, tzinfo)
+            response.set_cookie(
+                "tz",
+                selected_timezone,
+                max_age=60 * 60 * 24 * 30,
+                httponly=False,
+                samesite="Lax",
+            )
+            updated = True
+
+        if updated:
+            flash(_("Profile preferences updated."), "success")
+        else:
+            flash(_("No changes were applied."), "info")
+        return response
+
+    language_choices = [
+        {"code": code, "label": language_labels.get(code, code)} for code in languages
+    ]
+    timezone_labels = {
+        "UTC": _("UTC"),
+        "Asia/Tokyo": _("Asia/Tokyo (Japan)"),
+        "Asia/Seoul": _("Asia/Seoul (Korea)"),
+        "Asia/Shanghai": _("Asia/Shanghai (China)"),
+        "Asia/Singapore": _("Asia/Singapore"),
+        "Australia/Sydney": _("Australia/Sydney"),
+        "Europe/London": _("Europe/London (UK)"),
+        "Europe/Paris": _("Europe/Paris (France)"),
+        "America/Los_Angeles": _("America/Los Angeles (USA)"),
+        "America/New_York": _("America/New York (USA)"),
+    }
+    if default_timezone not in timezone_labels:
+        timezone_labels[default_timezone] = default_timezone
+    timezone_choices = []
+    for code in timezone_codes:
+        label = timezone_labels.get(code)
+        if not label:
+            label = code
+        timezone_choices.append({"code": code, "label": label})
+
+    return render_template(
+        "auth/profile.html",
+        language_choices=language_choices,
+        selected_language=selected_language,
+        timezone_choices=timezone_choices,
+        selected_timezone=selected_timezone,
+        server_time_utc=server_time_utc,
+        localized_time=localized_time,
+    )
+
+
 @bp.route("/edit", methods=["GET", "POST"])
 @login_required
 def edit():
@@ -230,7 +357,7 @@ def edit():
             current_user.set_password(password)
         db.session.commit()
         flash(_("Profile updated"), "success")
-        return redirect(url_for("auth.edit"))
+        return redirect(url_for("auth.profile"))
     return render_template("auth/edit.html")
 
 

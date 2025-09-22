@@ -1,23 +1,20 @@
 #!/usr/bin/env python3
-"""
-DBLogHandlerのevent処理をテストする簡単なスクリプト
-"""
+"""DBLogHandler の event 決定ロジックを検証する簡単なスクリプト。"""
 
 import logging
-from unittest.mock import Mock, patch
 
 
 def test_event_default_value():
-    """eventがNoneの場合にデフォルト値'general'が設定されることをテスト"""
-    
-    # DBLogHandlerのemitメソッドの重要部分を模擬
+    """event が未指定の場合はロガー名が利用されることをテスト"""
+
+    # DBLogHandler の emit メソッドで利用するロジックを模擬
     def emit_logic(record):
         event = getattr(record, "event", None)
-        if event is None:
-            event = "general"
+        if not event:
+            event = record.name or "general"
         return event
-    
-    # event属性が設定されていないログレコードを作成
+
+    # event 属性が設定されていないログレコードを作成
     record = logging.LogRecord(
         name="test",
         level=logging.INFO,
@@ -25,19 +22,19 @@ def test_event_default_value():
         lineno=1,
         msg="Flask-Login authentication successful",
         args=(),
-        exc_info=None
+        exc_info=None,
     )
-    
+
     # ロジックをテスト
     result_event = emit_logic(record)
-    
+
     print(f"✓ Test passed: event={result_event}")
-    assert result_event == "general", f"Expected 'general', got '{result_event}'"
-    
-    # event属性が設定されている場合のテスト
+    assert result_event == "test", f"Expected 'test', got '{result_event}'"
+
+    # event 属性が設定されている場合のテスト
     record.event = "api.test"
     result_event = emit_logic(record)
-    
+
     print(f"✓ Test passed: event={result_event}")
     assert result_event == "api.test", f"Expected 'api.test', got '{result_event}'"
 

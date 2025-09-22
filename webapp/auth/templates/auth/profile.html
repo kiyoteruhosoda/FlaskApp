@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Profile') }} - PhotoNest{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-xl-6 col-lg-7 col-md-9">
+    <div class="card shadow-sm profile-card">
+      <div class="card-body p-4 p-lg-5">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+          <div>
+            <h1 class="h3 mb-1">{{ _('Profile') }}</h1>
+            <p class="text-muted mb-0">{{ _('Manage how your account looks and feels.') }}</p>
+          </div>
+          <div class="text-end">
+            <span class="badge rounded-pill text-bg-light text-secondary">
+              <i class="fas fa-clock me-1"></i>
+              {{ _('Current time') }}
+            </span>
+            <div class="mt-2 small text-muted">
+              <div>{{ _('Local time ({tz})').format(tz=selected_timezone) }}<br><strong>{{ localized_time.strftime('%Y-%m-%d %H:%M:%S %Z') }}</strong></div>
+              <div class="mt-1">UTC<br><strong>{{ server_time_utc.strftime('%Y-%m-%d %H:%M:%S UTC') }}</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="profile-section mb-4">
+          <h2 class="h5 mb-3">{{ _('Account overview') }}</h2>
+          <div class="row g-3">
+            <div class="col-sm-6">
+              <div class="profile-summary">
+                <span class="text-muted small text-uppercase">{{ _('Signed in as') }}</span>
+                <p class="mb-0 fw-semibold">{{ current_user.display_name }}</p>
+                <p class="mb-0 text-muted">{{ current_user.email }}</p>
+              </div>
+            </div>
+            <div class="col-sm-6">
+              <div class="profile-summary">
+                <span class="text-muted small text-uppercase">{{ _('Two-factor authentication') }}</span>
+                {% if current_user.totp_secret %}
+                  <span class="badge bg-success">{{ _('Enabled') }}</span>
+                {% else %}
+                  <span class="badge bg-secondary">{{ _('Disabled') }}</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <form method="post" class="profile-section">
+          <h2 class="h5 mb-3">{{ _('Display preferences') }}</h2>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label for="language" class="form-label">{{ _('Language') }}</label>
+              <select class="form-select" id="language" name="language">
+                {% for item in language_choices %}
+                  <option value="{{ item.code }}" {% if item.code == selected_language %}selected{% endif %}>{{ item.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label for="timezone" class="form-label">{{ _('Location / Timezone') }}</label>
+              <select class="form-select" id="timezone" name="timezone">
+                {% for item in timezone_choices %}
+                  <option value="{{ item.code }}" {% if item.code == selected_timezone %}selected{% endif %}>{{ item.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-save me-2"></i>{{ _('Save preferences') }}
+            </button>
+            <a href="{{ url_for('auth.edit') }}" class="btn btn-outline-secondary">
+              <i class="fas fa-user-edit me-2"></i>{{ _('Edit profile details') }}
+            </a>
+            {% if not current_user.totp_secret %}
+              <a href="{{ url_for('auth.setup_totp') }}" class="btn btn-outline-warning">
+                <i class="fas fa-mobile-alt me-2"></i>{{ _('Enable two-factor authentication') }}
+              </a>
+            {% endif %}
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

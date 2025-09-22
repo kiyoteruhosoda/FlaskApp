@@ -3,11 +3,14 @@
 DBLogHandlerの修正をテストするための簡単なスクリプト
 """
 
+import json
 import logging
 import os
 import sys
 import tempfile
 from unittest.mock import Mock, patch
+
+import pytest
 
 # プロジェクトのルートパスをsys.pathに追加
 project_root = os.path.dirname(os.path.abspath(__file__))
@@ -47,12 +50,14 @@ def test_db_log_handler_with_event():
         assert mock_conn.execute.called
         args, kwargs = mock_conn.execute.call_args
         stmt = args[0]
-        
+
         # eventが正しく設定されているかチェック
         values = stmt.compile().params
         assert values['event'] == "api.test"
         assert values['level'] == "INFO"
-        assert values['message'] == "Test message with event"
+        payload = json.loads(values['message'])
+        assert payload['message'] == "Test message with event"
+        assert payload['_meta']['logger'] == "test"
         
         print("✓ Event attribute test passed")
 
@@ -87,12 +92,14 @@ def test_db_log_handler_without_event():
         assert mock_conn.execute.called
         args, kwargs = mock_conn.execute.call_args
         stmt = args[0]
-        
-        # eventがデフォルト値"general"に設定されているかチェック
+
+        # eventがロガー名に設定されているかチェック
         values = stmt.compile().params
-        assert values['event'] == "general"
+        assert values['event'] == "test"
         assert values['level'] == "INFO"
-        assert values['message'] == "Flask-Login authentication successful"
+        payload = json.loads(values['message'])
+        assert payload['message'] == "Flask-Login authentication successful"
+        assert payload['_meta']['logger'] == "test"
         
         print("✓ No event attribute test passed (default value 'general' used)")
 
@@ -117,13 +124,9 @@ def test_db_log_handler_exception_handling():
             exc_info=None
         )
         
-        # エラーが発生しても例外が外に出ないことを確認
-        try:
+        with pytest.raises(RuntimeError):
             handler.emit(record)
-            print("✓ Exception handling test passed (no exception propagated)")
-        except Exception as e:
-            print(f"✗ Exception handling test failed: {e}")
-            raise
+        print("✓ Exception handling test passed (exception propagated)")
 
 
 if __name__ == "__main__":

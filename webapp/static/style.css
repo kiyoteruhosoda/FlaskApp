@@ -272,3 +272,53 @@ body {
     font-size: 1rem;
   }
 }
+
+/* Profile page */
+.profile-card {
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  border-radius: 20px;
+}
+
+.profile-section {
+  background: rgba(248, 250, 252, 0.8);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.profile-summary {
+  background: white;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 12px;
+  padding: 16px;
+  height: 100%;
+}
+
+.profile-summary .badge {
+  margin-top: 6px;
+}
+
+@media (max-width: 576px) {
+  .profile-section {
+    padding: 18px;
+  }
+}
+
+/* Admin filter styling */
+.admin-filter-form {
+  gap: 0.75rem;
+}
+
+.admin-filter-actions {
+  gap: 0.75rem;
+}
+
+.admin-filter-input {
+  width: clamp(240px, 32vw, 420px);
+  padding: 0.4rem 0.65rem;
+}
+
+.admin-filter-form .btn,
+.admin-filter-actions .btn {
+  padding: 0.4rem 0.75rem;
+}

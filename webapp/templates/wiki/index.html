@@ -108,7 +108,7 @@
                                         </a>
                                     </h6>
                                     <small class="text-muted">
-                                        {{ page.updated_at.strftime('%Y/%m/%d %H:%M') }}
+                                        {{ page.updated_at|localtime('%Y/%m/%d %H:%M') }}
                                     </small>
                                 </div>
                                 <p class="mb-1 text-muted">

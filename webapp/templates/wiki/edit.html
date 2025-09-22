@@ -99,7 +99,7 @@
                                 <div class="mb-3">
                                     <label class="form-label">{{ _('Page Information') }}</label>
                                     <div class="small text-muted">
-                                        <div>{{ _('Created Date') }}: {{ page.created_at.strftime('%Y/%m/%d %H:%M') }}</div>
+                                        <div>{{ _('Created Date') }}: {{ page.created_at|localtime('%Y/%m/%d %H:%M') }}</div>
                                         <div>{{ _('Created By') }}: {{ page.created_by.display_name if page.created_by else _('Unknown') }}</div>
                                         <div>{{ _('Slug') }}: {{ page.slug }}</div>
                                     </div>

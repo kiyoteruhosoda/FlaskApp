@@ -29,45 +29,61 @@ def log_requests_and_send(
     import json as _json
 
     # 送信前ログ
+    request_payload = {
+        "method": method,
+        "headers": dict(headers) if headers else None,
+        "params": params,
+        "data": data,
+        "json": json_data,
+    }
     current_app.logger.info(
-        _json.dumps(
-            {
-                "method": method,
-                "headers": dict(headers) if headers else None,
-                "params": params,
-                "data": data,
-                "json": json_data,
-            },
-            ensure_ascii=False,
-        ),
+        _json.dumps(request_payload, ensure_ascii=False, default=str),
         extra={"event": "requests.send", "path": url},
     )
 
     # 実リクエスト
     req_func = getattr(requests, method.lower())
-    res = req_func(
-        url,
-        headers=headers,
-        params=params,
-        data=data,
-        json=json_data,
-        timeout=timeout,
-    )
+    try:
+        res = req_func(
+            url,
+            headers=headers,
+            params=params,
+            data=data,
+            json=json_data,
+            timeout=timeout,
+        )
+    except requests.RequestException as exc:
+        error_payload = {
+            "error": str(exc),
+            "method": method,
+            "params": params,
+            "data": data,
+            "json": json_data,
+        }
+        current_app.logger.error(
+            _json.dumps(error_payload, ensure_ascii=False, default=str),
+            extra={"event": "requests.error", "path": url},
+            exc_info=True,
+        )
+        raise
 
     # 受信後ログ
     try:
         res_body = res.json()
     except Exception:
         res_body = res.text
-    current_app.logger.info(
-        _json.dumps(
-            {
-                "status_code": res.status_code,
-                "headers": dict(res.headers) if hasattr(res, "headers") else None,
-                "body": res_body,
-            },
-            ensure_ascii=False,
-        ),
+    response_payload = {
+        "status_code": res.status_code,
+        "headers": dict(res.headers) if hasattr(res, "headers") else None,
+        "body": res_body,
+    }
+    log_callable = current_app.logger.info
+    if res.status_code >= 500:
+        log_callable = current_app.logger.error
+    elif res.status_code >= 400:
+        log_callable = current_app.logger.warning
+    log_callable(
+        _json.dumps(response_payload, ensure_ascii=False, default=str),
         extra={"event": "requests.recv", "path": url},
     )
     return res

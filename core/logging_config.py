@@ -3,6 +3,8 @@
 import logging
 from typing import Optional
 
+from flask import current_app, has_app_context
+
 
 def setup_task_logging(logger_name: Optional[str] = None) -> logging.Logger:
     """Setup logging for core tasks to use DBLogHandler.
@@ -23,7 +25,8 @@ def setup_task_logging(logger_name: Optional[str] = None) -> logging.Logger:
     
     # Check if DBLogHandler is already added
     if not any(isinstance(h, DBLogHandler) for h in logger.handlers):
-        db_handler = DBLogHandler()
+        app_obj = current_app._get_current_object() if has_app_context() else None
+        db_handler = DBLogHandler(app=app_obj)
         db_handler.setLevel(logging.INFO)
         logger.addHandler(db_handler)
         

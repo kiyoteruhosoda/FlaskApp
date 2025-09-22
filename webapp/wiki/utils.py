@@ -9,6 +9,9 @@ from datetime import datetime, timezone
 import html
 import base64
 import hashlib
+from flask import g
+
+from ..timezone import convert_to_timezone
 
 
 def auto_link_urls(text):
@@ -339,11 +342,15 @@ def format_datetime(dt):
     """日時をフォーマット"""
     if not dt:
         return ""
-    
+
     if isinstance(dt, str):
         return dt
-    
-    return dt.strftime('%Y/%m/%d %H:%M')
+
+    tzinfo = getattr(g, "user_timezone", timezone.utc)
+    localized = convert_to_timezone(dt, tzinfo)
+    if localized is None:
+        return ""
+    return localized.strftime('%Y/%m/%d %H:%M')
 
 
 def highlight_search_term(text, term):

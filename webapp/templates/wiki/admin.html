@@ -110,7 +110,7 @@
                                     <small class="text-muted">
                                         <i class="fas fa-user"></i> {{ page.updated_by.display_name if page.updated_by else _('Unknown') }}
                                         <span class="mx-2">|</span>
-                                        <i class="fas fa-calendar"></i> {{ page.updated_at.strftime('%Y/%m/%d %H:%M') }}
+                                        <i class="fas fa-calendar"></i> {{ page.updated_at|localtime('%Y/%m/%d %H:%M') }}
                                     </small>
                                 </div>
                                 <div class="text-end">

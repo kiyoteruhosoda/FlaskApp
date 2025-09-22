@@ -299,15 +299,15 @@
 {% block content %}
 <div class="controls-bar">
   <div class="d-flex align-items-center">
-    <h1 class="h3 mb-0">{{ _('Media Gallery') }}</h1>
-    <span id="media-count" class="filter-badge">{{ _('Loading...') }}</span>
+    <h1 class="h3 mb-0">{{ _("Media Gallery") }}</h1>
+    <span id="media-count" class="filter-badge">{{ _("Loading...") }}</span>
   </div>
 
   <div class="tag-filter">
-    <label for="tag-filter-input" class="form-label mb-1">{{ _('Filter by tags') }}</label>
+    <label for="tag-filter-input" class="form-label mb-1">{{ _("Filter by tags") }}</label>
     <div class="tag-filter-box" id="tag-filter-box">
       <div id="selected-tag-filters" class="tag-chip-container empty"></div>
-      <input type="text" id="tag-filter-input" placeholder="{{ _('Type to search tags...') }}" autocomplete="off">
+      <input type="text" id="tag-filter-input" placeholder="{{ _("Type to search tags...") }}" autocomplete="off">
       <div id="tag-filter-suggestions" class="tag-suggestions"></div>
     </div>
   </div>
@@ -315,27 +315,27 @@
   <div class="view-controls">
     <!-- Filter -->
     <select id="type-filter" class="form-select form-select-sm" style="width: auto;">
-      <option value="all">{{ _('All Media') }}</option>
-      <option value="photo">{{ _('Photos Only') }}</option>
-      <option value="video">{{ _('Videos Only') }}</option>
+      <option value="all">{{ _("All Media") }}</option>
+      <option value="photo">{{ _("Photos Only") }}</option>
+      <option value="video">{{ _("Videos Only") }}</option>
     </select>
     
     <!-- Thumbnail size -->
     <div class="size-control">
-      <label for="size-slider" class="form-label mb-0 me-2" style="font-size: 0.9rem;">{{ _('Thumbnail size') }}</label>
+      <label for="size-slider" class="form-label mb-0 me-2" style="font-size: 0.9rem;">{{ _("Thumbnail size") }}</label>
       <input type="range" id="size-slider" class="form-range" min="1" max="3" value="2" style="width: 80px;">
-      <span id="size-label" class="text-muted small fw-semibold">{{ _('Medium thumbnails') }}</span>
+      <span id="size-label" class="text-muted small fw-semibold">{{ _("Medium thumbnails") }}</span>
     </div>
 
     <!-- Sort order -->
     <select id="sort-order" class="form-select form-select-sm" style="width: auto;">
-      <option value="desc">{{ _('Newest First') }}</option>
-      <option value="asc">{{ _('Oldest First') }}</option>
+      <option value="desc">{{ _("Newest First") }}</option>
+      <option value="asc">{{ _("Oldest First") }}</option>
     </select>
     
     <!-- Refresh -->
     <button id="refresh-btn" class="btn btn-outline-primary btn-sm">
-      <i class="fas fa-refresh"></i> {{ _('Refresh') }}
+      <i class="fas fa-refresh"></i> {{ _("Refresh") }}
     </button>
   </div>
 </div>
@@ -346,13 +346,13 @@
 
 <div id="loading-indicator" class="loading-spinner" style="display: none;">
   <div class="spinner-border text-primary" role="status">
-    <span class="visually-hidden">{{ _('Loading...') }}</span>
+    <span class="visually-hidden">{{ _("Loading...") }}</span>
   </div>
-  <p class="mt-2">{{ _('Loading more media...') }}</p>
+  <p class="mt-2">{{ _("Loading more media...") }}</p>
 </div>
 
 <div id="no-more-data" class="no-more-data" style="display: none;">
-  <p>{{ _('All media loaded') }}</p>
+  <p>{{ _("All media loaded") }}</p>
 </div>
 
 <script>
@@ -523,18 +523,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const sourceLabels = {
-    local: '{{ _('Local import') }}',
-    google_photos: '{{ _('Google Photos') }}'
+    local: '{{ _("Local import") }}',
+    google_photos: '{{ _("Google Photos") }}'
   };
-  const unknownSourceLabel = '{{ _('Unknown source') }}';
-  const videoLabel = '{{ _('Video') }}';
-  const photoLabel = '{{ _('Photo') }}';
-  const removeTagLabel = '{{ _('Remove') }}';
-  const noTagsFoundText = '{{ _('No tags found') }}';
+  const unknownSourceLabel = '{{ _("Unknown source") }}';
+  const videoLabel = '{{ _("Video") }}';
+  const photoLabel = '{{ _("Photo") }}';
+  const removeTagLabel = '{{ _("Remove") }}';
+  const noTagsFoundText = '{{ _("No tags found") }}';
   const tagAttrLabels = {
-    person: "{{ _('Person')|escapejs }}",
-    place: "{{ _('Place')|escapejs }}",
-    thing: "{{ _('Thing')|escapejs }}"
+    person: "{{ _("Person")|escapejs }}",
+    place: "{{ _("Place")|escapejs }}",
+    thing: "{{ _("Thing")|escapejs }}"
   };
 
   function createMediaCard(media) {
@@ -625,13 +625,13 @@ document.addEventListener('DOMContentLoaded', () => {
           totalLoaded++;
         });
         
-        mediaCount.textContent = `${totalLoaded} {{ _('items') }}`;
+        mediaCount.textContent = `${totalLoaded} {{ _("items") }}`;
         
         if (items.length === 0 && meta.isFirstPage) {
           mediaGrid.innerHTML = `
             <div class="text-center text-muted p-5">
-              <h4>{{ _('No media found') }}</h4>
-              <p>{{ _('Try adjusting your filters or add more media to your library.') }}</p>
+              <h4>{{ _("No media found") }}</h4>
+              <p>{{ _("Try adjusting your filters or add more media to your library.") }}</p>
             </div>
           `.trim();
         }
@@ -661,9 +661,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const sizeLabel = document.getElementById('size-label');
   const sizeClasses = ['size-small', 'size-medium', 'size-large'];
   const sizeDescriptions = {
-    1: '{{ _('Compact thumbnails') }}',
-    2: '{{ _('Medium thumbnails') }}',
-    3: '{{ _('Large previews') }}',
+    1: '{{ _("Compact thumbnails") }}',
+    2: '{{ _("Medium thumbnails") }}',
+    3: '{{ _("Large previews") }}',
   };
 
   function applyGridSize(value) {

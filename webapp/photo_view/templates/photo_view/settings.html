@@ -139,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const progressMessage = document.getElementById('progress-message');
   const resultDiv = document.getElementById('import-result');
 
-  const isAdmin = JSON.parse('{{ is_admin | tojson }}');
+  const isAdmin = JSON.parse("{{ is_admin | tojson }}");
 
   let currentTaskId = null;
   let progressInterval = null;

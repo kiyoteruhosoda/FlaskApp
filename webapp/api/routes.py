@@ -1003,9 +1003,11 @@ def api_login():
     user = auth_service.authenticate(email, password)
     if not user:
         return jsonify({"error": "invalid_credentials"}), 401
-    
+
     # TokenServiceを使用してトークンペアを生成
-    user_model = user_repo.get_model(user)
+    user_model = getattr(user, "_model", None)
+    if user_model is None:
+        user_model = user_repo.get_model(user)
     access_token, refresh_token = TokenService.generate_token_pair(user_model)
     
     resp = jsonify({"access_token": access_token, "refresh_token": refresh_token})

@@ -47,6 +47,15 @@ PROFILE_TIMEZONES = [
 # セッション有効期限（30分）
 SESSION_TIMEOUT_MINUTES = 30
 
+
+def _login_with_domain_user(user):
+    """ドメインユーザーが保持するORMモデルでログイン処理を行う。"""
+    model = getattr(user, "_model", None)
+    if model is None:
+        model = user_repo.get_model(user)
+    login_user(model)
+
+
 def _is_session_expired(key_prefix):
     """セッションが期限切れかどうかをチェック"""
     timestamp_key = f"{key_prefix}_timestamp"
@@ -82,7 +91,7 @@ def _clear_setup_totp_session():
 def _complete_registration(user):
     """ユーザー登録完了後の共通処理"""
     flash(_("Registration successful"), "success")
-    login_user(user_repo.get_model(user))
+    _login_with_domain_user(user)
     return redirect(url_for("feature_x.dashboard"))
 
 
@@ -121,7 +130,7 @@ def login():
             if not token or not verify_totp(user.totp_secret, token):
                 flash(_("Invalid authentication code"), "error")
                 return render_template("auth/login.html")
-        login_user(user_repo.get_model(user))
+        _login_with_domain_user(user)
         return redirect(url_for("feature_x.dashboard"))
     return render_template("auth/login.html")
 
@@ -192,7 +201,7 @@ def register_totp():
             
             _clear_registration_session()
             flash(_("Registration successful"), "success")
-            login_user(user_repo.get_model(u))
+            _login_with_domain_user(u)
             return redirect(url_for("feature_x.dashboard"))
         except Exception as e:
             flash(_("Registration failed: {}").format(str(e)), "error")

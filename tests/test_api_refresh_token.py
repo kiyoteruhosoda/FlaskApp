@@ -35,8 +35,11 @@ def client(app):
     return app.test_client()
 
 
-def login(client, app):
-    res = client.post("/api/login", json={"email": app.test_user_email, "password": "pass"})
+def login(client, app, *, token: str | None = None):
+    payload = {"email": app.test_user_email, "password": "pass"}
+    if token:
+        payload["token"] = token
+    res = client.post("/api/login", json=payload)
     assert res.status_code == 200
     data = res.get_json()
     return data["access_token"], data["refresh_token"]
@@ -76,4 +79,3 @@ def test_refresh_inactive_user(client, app):
 
     res = client.post("/api/refresh", json={"refresh_token": refresh})
     assert res.status_code == 401
-

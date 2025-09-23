@@ -203,45 +203,9 @@
   </div>
 </div>
 
-<div id="album-slideshow-overlay" class="album-slideshow-overlay d-none" aria-hidden="true">
-  <div class="album-slideshow-dialog">
-    <button type="button" class="album-slideshow-close" id="album-slideshow-close" aria-label="{{ _('Close') }}">
-      <i class="bi bi-x-lg"></i>
-    </button>
-    <div id="album-slideshow-loading" class="album-slideshow-loading d-none">
-      <div class="spinner-border text-light" role="status"></div>
-      <span>{{ _('Loading slideshow...') }}</span>
-    </div>
-    <div id="album-slideshow-stage" class="album-slideshow-stage d-none">
-      <button type="button" class="album-slideshow-nav prev" id="album-slideshow-prev" aria-label="{{ _('Previous') }}">
-        <i class="bi bi-chevron-left"></i>
-      </button>
-      <img id="album-slideshow-image" src="" alt="" loading="lazy">
-      <button type="button" class="album-slideshow-nav next" id="album-slideshow-next" aria-label="{{ _('Next') }}">
-        <i class="bi bi-chevron-right"></i>
-      </button>
-    </div>
-    <div id="album-slideshow-empty" class="album-slideshow-empty d-none">
-      {{ _('This album has no media yet.') }}
-    </div>
-    <div class="album-slideshow-footer">
-      <div class="album-slideshow-info">
-        <span class="album-title" id="album-slideshow-title"></span>
-        <span class="album-meta" id="album-slideshow-meta"></span>
-      </div>
-      <div class="album-slideshow-controls">
-        <div class="album-slideshow-counter" id="album-slideshow-counter"></div>
-        <button type="button" class="btn btn-outline-light" id="album-slideshow-toggle">
-          <i class="bi bi-play-fill me-1"></i><span data-label>{{ _('Play') }}</span>
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/album-slideshow.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const albumId = Number('{{ album_id }}');
@@ -251,90 +215,13 @@ document.addEventListener('DOMContentLoaded', () => {
     media: [],
   };
 
-  const slideshowIntentStorageKey = 'photoView.slideshowIntent';
-  const autoplayQueryKeys = ['slideshow', 'autoplay'];
-
-  function parseAutoplayFlag(value) {
-    if (value === null || value === undefined) {
-      return false;
-    }
-    const normalized = value.toString().trim().toLowerCase();
-    if (!normalized) {
-      return false;
-    }
-    return !['0', 'false', 'no', 'off'].includes(normalized);
-  }
-
-  function consumeSlideshowIntent() {
-    let shouldAutoplay = false;
-    const params = new URLSearchParams(window.location.search);
-    const queryValues = autoplayQueryKeys.map((key) => params.get(key));
-    if (queryValues.some((value) => parseAutoplayFlag(value))) {
-      shouldAutoplay = true;
-    }
-
-    let storedIntentRaw = null;
-    try {
-      storedIntentRaw = window.sessionStorage?.getItem(slideshowIntentStorageKey) || null;
-    } catch (error) {
-      console.warn('Failed to access slideshow intent storage', error);
-    }
-
-    if (storedIntentRaw) {
-      try {
-        const parsedIntent = JSON.parse(storedIntentRaw);
-        if (Number(parsedIntent?.albumId) === albumId) {
-          const expiresAt = Number(parsedIntent?.expiresAt);
-          if (!Number.isFinite(expiresAt) || expiresAt >= Date.now()) {
-            shouldAutoplay = true;
-          }
-        }
-      } catch (error) {
-        console.warn('Failed to parse slideshow intent payload', error);
-      }
-    }
-
-    try {
-      window.sessionStorage?.removeItem(slideshowIntentStorageKey);
-    } catch (error) {
-      console.warn('Failed to clear slideshow intent storage', error);
-    }
-
-    if (queryValues.some((value) => value !== null)) {
-      autoplayQueryKeys.forEach((key) => params.delete(key));
-      const newQuery = params.toString();
-      const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}${window.location.hash}`;
-      try {
-        window.history.replaceState({}, document.title, newUrl);
-      } catch (error) {
-        console.warn('Failed to update URL after consuming slideshow intent', error);
-      }
-    }
-
-    return shouldAutoplay;
-  }
-
-  let autoplayOnLoad = consumeSlideshowIntent();
-
-  const reorderState = {
-    active: false,
-    originalMedia: [],
-    originalIds: [],
-    dirty: false,
-    saving: false,
-    dragSourceIndex: null,
-  };
-
   const strings = {
     untitledAlbum: "{{ _('Untitled Album')|escapejs }}",
     mediaCountSingular: "{{ ngettext('%(count)s photo', '%(count)s photos', 1, count='%(count)s')|escapejs }}",
     mediaCountPlural: "{{ ngettext('%(count)s photo', '%(count)s photos', 2, count='%(count)s')|escapejs }}",
     createdLabel: "{{ _('Created')|escapejs }}",
     updatedLabel: "{{ _('Updated')|escapejs }}",
-    shotAtLabel: "{{ _('Shot at')|escapejs }}",
-    positionLabel: "{{ _('%(current)s / %(total)s', current='%(current)s', total='%(total)s')|escapejs }}",
     loadingError: "{{ _('Failed to load album information.')|escapejs }}",
-    slideshowLoading: "{{ _('Loading slideshow...')|escapejs }}",
     noMedia: "{{ _('This album has no media yet.')|escapejs }}",
     reorderHint: "{{ _('Drag and drop media tiles to change their order.')|escapejs }}",
     reorderDirtyHint: "{{ _('Don\'t forget to save your changes.')|escapejs }}",
@@ -347,172 +234,6 @@ document.addEventListener('DOMContentLoaded', () => {
       unlisted: "{{ _('Unlisted')|escapejs }}",
     },
   };
-
-  const THUMBNAIL_SIZE_PRIORITY = [2048, 1024, 512];
-
-  function sortAlbumMediaItems(items) {
-    if (!Array.isArray(items)) {
-      return [];
-    }
-    const normalizeIndex = (value, fallback = Number.MAX_SAFE_INTEGER) => {
-      const numeric = Number(value);
-      return Number.isFinite(numeric) ? numeric : fallback;
-    };
-    return items
-      .slice()
-      .sort((a, b) => {
-        const sortA = normalizeIndex(a?.sortIndex);
-        const sortB = normalizeIndex(b?.sortIndex);
-        if (sortA !== sortB) {
-          return sortA - sortB;
-        }
-        const idA = normalizeIndex(a?.id);
-        const idB = normalizeIndex(b?.id);
-        return idA - idB;
-      });
-  }
-
-  function normalizeThumbnailSize(value) {
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      return value;
-    }
-    if (typeof value === 'string') {
-      const trimmed = value.trim();
-      if (trimmed) {
-        const parsed = Number.parseInt(trimmed, 10);
-        if (Number.isFinite(parsed)) {
-          return parsed;
-        }
-      }
-    }
-    return null;
-  }
-
-  function collectThumbnailAvailability(item) {
-    const available = new Set();
-    const urlBySize = new Map();
-
-    const register = (size, url) => {
-      if (!Number.isFinite(size)) {
-        return;
-      }
-      available.add(size);
-      if (typeof url === 'string' && url) {
-        urlBySize.set(size, url);
-      }
-    };
-
-    const variantSources = [
-      item?.thumbnailUrls,
-      item?.thumbnails,
-      item?.thumbnail_variants,
-      item?.thumbnailVariants,
-    ];
-
-    variantSources.forEach((source) => {
-      if (!source) {
-        return;
-      }
-      if (Array.isArray(source)) {
-        source.forEach((entry) => {
-          if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
-            const size = normalizeThumbnailSize(entry.size ?? entry.dimension ?? entry.width ?? entry.height);
-            const url = entry.url ?? entry.href ?? entry.path ?? null;
-            if (size !== null) {
-              register(size, typeof url === 'string' ? url : null);
-            }
-          } else {
-            const size = normalizeThumbnailSize(entry);
-            if (size !== null) {
-              register(size);
-            }
-          }
-        });
-      } else if (typeof source === 'object') {
-        Object.entries(source).forEach(([key, value]) => {
-          const keySize = normalizeThumbnailSize(key);
-          if (typeof value === 'string') {
-            if (keySize !== null) {
-              register(keySize, value);
-            }
-            return;
-          }
-          if (value && typeof value === 'object' && !Array.isArray(value)) {
-            const nestedSize = normalizeThumbnailSize(
-              value.size ?? value.dimension ?? value.width ?? value.height ?? keySize,
-            );
-            const url = value.url ?? value.href ?? value.path ?? null;
-            if (nestedSize !== null) {
-              register(nestedSize, typeof url === 'string' ? url : null);
-            } else if (keySize !== null) {
-              register(keySize, typeof url === 'string' ? url : null);
-            }
-          } else if (value && keySize !== null) {
-            register(keySize);
-          }
-        });
-      }
-    });
-
-    const availabilitySources = [
-      item?.availableThumbnailSizes,
-      item?.thumbnailSizes,
-      item?.availableThumbnails,
-    ];
-
-    availabilitySources.forEach((source) => {
-      if (!source) {
-        return;
-      }
-      if (Array.isArray(source)) {
-        source.forEach((entry) => {
-          const size = normalizeThumbnailSize(entry);
-          if (size !== null) {
-            available.add(size);
-          }
-        });
-      } else if (typeof source === 'object') {
-        Object.entries(source).forEach(([key, value]) => {
-          if (!value) {
-            return;
-          }
-          const size = normalizeThumbnailSize(key);
-          if (size !== null) {
-            available.add(size);
-          }
-        });
-      }
-    });
-
-    return { available, urlBySize };
-  }
-
-  function resolveSlideshowImageUrl(item) {
-    if (!item) {
-      return '';
-    }
-
-    const { available, urlBySize } = collectThumbnailAvailability(item);
-    const buildUrl = (size) => (item.id ? `/api/media/${item.id}/thumbnail?size=${size}` : '');
-
-    for (const size of THUMBNAIL_SIZE_PRIORITY) {
-      if (urlBySize.has(size)) {
-        return urlBySize.get(size);
-      }
-      if (available.has(size)) {
-        const resolved = buildUrl(size);
-        if (resolved) {
-          return resolved;
-        }
-      }
-    }
-
-    if (typeof item.thumbnailUrl === 'string' && item.thumbnailUrl) {
-      return item.thumbnailUrl;
-    }
-
-    return buildUrl(512);
-  }
 
   const elements = {
     loading: document.getElementById('album-loading'),
@@ -536,48 +257,6 @@ document.addEventListener('DOMContentLoaded', () => {
     cancel: document.getElementById('album-reorder-cancel'),
     hint: document.getElementById('album-reorder-hint'),
   };
-
-  const slideshow = new AlbumSlideshow({
-    overlayElement: document.getElementById('album-slideshow-overlay'),
-    stageElement: document.getElementById('album-slideshow-stage'),
-    imageElement: document.getElementById('album-slideshow-image'),
-    titleElement: document.getElementById('album-slideshow-title'),
-    metaElement: document.getElementById('album-slideshow-meta'),
-    counterElement: document.getElementById('album-slideshow-counter'),
-    emptyStateElement: document.getElementById('album-slideshow-empty'),
-    loadingElement: document.getElementById('album-slideshow-loading'),
-    playPauseButton: document.getElementById('album-slideshow-toggle'),
-    prevButton: document.getElementById('album-slideshow-prev'),
-    nextButton: document.getElementById('album-slideshow-next'),
-    closeButton: document.getElementById('album-slideshow-close'),
-    labels: {
-      play: "{{ _('Play')|escapejs }}",
-      pause: "{{ _('Pause')|escapejs }}",
-      next: "{{ _('Next')|escapejs }}",
-      previous: "{{ _('Previous')|escapejs }}",
-      close: "{{ _('Close')|escapejs }}",
-      counter: "{{ _('%(current)s / %(total)s', current='%(current)s', total='%(total)s')|escapejs }}",
-      noMedia: strings.noMedia,
-      shotAt: strings.shotAtLabel,
-      albumTitleFallback: "{{ _('Album')|escapejs }}",
-    },
-    imageUrlResolver: resolveSlideshowImageUrl,
-    metadataFormatter: (item, context) => {
-      const parts = [];
-      if (item?.shotAt) {
-        const formatted = formatDateTime(item.shotAt);
-        if (formatted) {
-          parts.push(`${strings.shotAtLabel} ${formatted}`);
-        }
-      }
-      parts.push(
-        strings.positionLabel
-          .replace('%(current)s', (context.index + 1).toString())
-          .replace('%(total)s', context.total.toString()),
-      );
-      return parts.join(' · ');
-    },
-  });
 
   function showReorderHint(message, level = 'info') {
     if (!reorderElements.hint) {
@@ -712,7 +391,6 @@ document.addEventListener('DOMContentLoaded', () => {
     state.media = reorderState.originalMedia.slice();
     resetReorderState();
     renderAlbumDetail();
-    slideshow.load(state.media, { albumTitle: state.album?.title || strings.untitledAlbum });
   }
 
   async function saveMediaOrder() {
@@ -745,7 +423,6 @@ document.addEventListener('DOMContentLoaded', () => {
       showSuccessToast(strings.reorderSaved);
       resetReorderState();
       renderAlbumDetail();
-      slideshow.load(state.media, { albumTitle: state.album?.title || strings.untitledAlbum });
     } catch (error) {
       console.error('Failed to save album media order', error);
       showErrorToast(strings.reorderSaveError);
@@ -885,16 +562,6 @@ document.addEventListener('DOMContentLoaded', () => {
       renderAlbumDetail();
       elements.content.classList.remove('d-none');
       updateSlideshowButtonState();
-      slideshow.load(state.media, { albumTitle: state.album.title || strings.untitledAlbum });
-      if (autoplayOnLoad) {
-        if (!state.media.length) {
-          showInfoToast(strings.noMedia);
-          slideshow.open(0, { autoplay: false });
-        } else {
-          slideshow.open(0);
-        }
-        autoplayOnLoad = false;
-      }
     } catch (error) {
       console.error('Failed to load album detail', error);
       elements.error.classList.remove('d-none');
@@ -953,6 +620,26 @@ document.addEventListener('DOMContentLoaded', () => {
     renderMediaGrid();
   }
 
+  function navigateToSlideshow(startIndex = 0, options = {}) {
+    const url = new URL(`/photo-view/albums/${albumId}/slideshow`, window.location.origin);
+    const params = new URLSearchParams();
+
+    const normalizedIndex = Number(startIndex);
+    if (Number.isInteger(normalizedIndex) && normalizedIndex >= 0) {
+      params.set('start', normalizedIndex.toString());
+    }
+
+    if (options.autoplay === false) {
+      params.set('autoplay', '0');
+    }
+
+    if ([...params.keys()].length > 0) {
+      url.search = params.toString();
+    }
+
+    window.location.href = url.toString();
+  }
+
   function renderMediaGrid() {
     elements.mediaGrid.innerHTML = '';
     elements.mediaGrid.classList.toggle('reorder-active', reorderState.active);
@@ -1004,7 +691,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tile.addEventListener('dragend', onTileDragEnd);
       } else {
         tile.addEventListener('click', () => {
-          slideshow.open(index, { autoplay: false });
+          navigateToSlideshow(index, { autoplay: false });
         });
       }
 
@@ -1074,7 +761,7 @@ document.addEventListener('DOMContentLoaded', () => {
       showInfoToast(strings.noMedia);
       return;
     }
-    slideshow.open(0);
+    navigateToSlideshow(0);
   });
 
   if (reorderElements.toggle) {

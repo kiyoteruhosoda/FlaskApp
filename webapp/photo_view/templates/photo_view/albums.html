@@ -546,14 +546,21 @@
 
 {% block content %}
 {% set is_editor_view = editor_view|default(False) %}
+{% set editor_album_id = editor_album_id|default(None) %}
+{% set editor_success_url = editor_success_url|default(url_for('photo_view.albums')) %}
+{% set editor_cancel_url = editor_cancel_url|default(url_for('photo_view.albums')) %}
+{% set is_edit_mode = is_editor_view and editor_album_id is not none %}
+{% set editor_heading = _('Edit Album') if is_edit_mode else _('Create Album') %}
+{% set editor_description = _('Update the album details and media selection.') if is_edit_mode else _('Select media and configure details to build a new album.') %}
+{% set editor_back_label = _('Back to album') if is_edit_mode else _('Back to albums') %}
 {% if is_editor_view %}
   <div class="album-editor-header d-flex flex-wrap justify-content-between align-items-start gap-3">
     <div>
-      <h1 class="mb-1">{{ _('Create Album') }}</h1>
-      <p class="text-muted mb-0">{{ _('Select media and configure details to build a new album.') }}</p>
+      <h1 class="mb-1">{{ editor_heading }}</h1>
+      <p class="text-muted mb-0">{{ editor_description }}</p>
     </div>
-    <a href="{{ url_for('photo_view.albums') }}" class="btn btn-outline-secondary">
-      <i class="bi bi-arrow-left me-1"></i>{{ _('Back to albums') }}
+    <a href="{{ editor_cancel_url }}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>{{ editor_back_label }}
     </a>
   </div>
 {% else %}
@@ -611,48 +618,13 @@
     </a>
   </div>
 
-  <div id="album-slideshow-overlay" class="album-slideshow-overlay d-none" aria-hidden="true">
-    <div class="album-slideshow-dialog">
-      <button type="button" class="album-slideshow-close" id="album-slideshow-close" aria-label="{{ _('Close') }}">
-        <i class="bi bi-x-lg"></i>
-      </button>
-      <div id="album-slideshow-loading" class="album-slideshow-loading d-none">
-        <div class="spinner-border text-light" role="status"></div>
-        <span>{{ _('Loading slideshow...') }}</span>
-      </div>
-      <div id="album-slideshow-stage" class="album-slideshow-stage d-none">
-        <button type="button" class="album-slideshow-nav prev" id="album-slideshow-prev" aria-label="{{ _('Previous') }}">
-          <i class="bi bi-chevron-left"></i>
-        </button>
-        <img id="album-slideshow-image" src="" alt="" loading="lazy">
-        <button type="button" class="album-slideshow-nav next" id="album-slideshow-next" aria-label="{{ _('Next') }}">
-          <i class="bi bi-chevron-right"></i>
-        </button>
-      </div>
-      <div id="album-slideshow-empty" class="album-slideshow-empty d-none">
-        {{ _('This album has no media yet.') }}
-      </div>
-      <div class="album-slideshow-footer">
-        <div class="album-slideshow-info">
-          <span class="album-title" id="album-slideshow-title"></span>
-          <span class="album-meta" id="album-slideshow-meta"></span>
-        </div>
-        <div class="album-slideshow-controls">
-          <div class="album-slideshow-counter" id="album-slideshow-counter"></div>
-          <button type="button" class="btn btn-outline-light" id="album-slideshow-toggle">
-            <i class="bi bi-play-fill me-1"></i><span data-label>{{ _('Play') }}</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
 {% endif %}
 
 {% if is_editor_view %}
-  <div class="album-editor-page modal d-block show" id="albumModal" tabindex="-1" aria-labelledby="albumModalLabel" data-editor-mode="page" data-success-url="{{ url_for('photo_view.albums') }}">
+  <div class="album-editor-page modal d-block show" id="albumModal" tabindex="-1" aria-labelledby="albumModalLabel" data-editor-mode="page" data-success-url="{{ editor_success_url }}" data-album-id="{{ editor_album_id if editor_album_id is not none else '' }}">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
       <div class="modal-content">
-        {{ render_album_form(True, url_for('photo_view.albums')) }}
+        {{ render_album_form(True, editor_cancel_url) }}
       </div>
     </div>
   </div>
@@ -668,7 +640,6 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/album-slideshow.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const albumsGrid = document.getElementById('albums-grid');
@@ -686,6 +657,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const albumModalElement = document.getElementById('albumModal');
   const editorView = albumModalElement?.dataset.editorMode === 'page';
   const successRedirectUrl = albumModalElement?.dataset.successUrl || '/photo-view/albums';
+  const editorAlbumIdRaw = albumModalElement?.dataset.albumId || '';
+  const editorAlbumId = Number.parseInt(editorAlbumIdRaw, 10);
   const albumModal = albumModalElement
     ? editorView
       ? {
@@ -761,15 +734,6 @@ document.addEventListener('DOMContentLoaded', () => {
     createdLabel: "{{ _('Created')|escapejs }}",
     updatedLabel: "{{ _('Updated')|escapejs }}",
     photosLabel: "{{ _('photos')|escapejs }}",
-    playLabel: "{{ _('Play')|escapejs }}",
-    pauseLabel: "{{ _('Pause')|escapejs }}",
-    nextLabel: "{{ _('Next')|escapejs }}",
-    previousLabel: "{{ _('Previous')|escapejs }}",
-    closeLabel: "{{ _('Close')|escapejs }}",
-    shotAtLabel: "{{ _('Shot at')|escapejs }}",
-    positionLabel: "{{ _('%(current)s / %(total)s', current='%(current)s', total='%(total)s')|escapejs }}",
-    slideshowLoadError: "{{ _('Unable to load album for slideshow.')|escapejs }}",
-    slideshowNoMedia: "{{ _('This album has no media yet.')|escapejs }}",
     startSlideshow: "{{ _('Start Slideshow')|escapejs }}",
     customOrderLabel: "{{ _('Custom Order')|escapejs }}",
     reorderHint: "{{ _('Use the arrow buttons to change the album order, then choose "Save Order".')|escapejs }}",
@@ -781,150 +745,6 @@ document.addEventListener('DOMContentLoaded', () => {
     moveUp: "{{ _('Move up')|escapejs }}",
     moveDown: "{{ _('Move down')|escapejs }}",
   };
-
-  const THUMBNAIL_SIZE_PRIORITY = [2048, 1024, 512];
-
-  function normalizeThumbnailSize(value) {
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      return value;
-    }
-    if (typeof value === 'string') {
-      const trimmed = value.trim();
-      if (trimmed) {
-        const parsed = Number.parseInt(trimmed, 10);
-        if (Number.isFinite(parsed)) {
-          return parsed;
-        }
-      }
-    }
-    return null;
-  }
-
-  function collectThumbnailAvailability(item) {
-    const available = new Set();
-    const urlBySize = new Map();
-
-    const register = (size, url) => {
-      if (!Number.isFinite(size)) {
-        return;
-      }
-      available.add(size);
-      if (typeof url === 'string' && url) {
-        urlBySize.set(size, url);
-      }
-    };
-
-    const variantSources = [
-      item?.thumbnailUrls,
-      item?.thumbnails,
-      item?.thumbnail_variants,
-      item?.thumbnailVariants,
-    ];
-
-    variantSources.forEach((source) => {
-      if (!source) {
-        return;
-      }
-      if (Array.isArray(source)) {
-        source.forEach((entry) => {
-          if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
-            const size = normalizeThumbnailSize(entry.size ?? entry.dimension ?? entry.width ?? entry.height);
-            const url = entry.url ?? entry.href ?? entry.path ?? null;
-            if (size !== null) {
-              register(size, typeof url === 'string' ? url : null);
-            }
-          } else {
-            const size = normalizeThumbnailSize(entry);
-            if (size !== null) {
-              register(size);
-            }
-          }
-        });
-      } else if (typeof source === 'object') {
-        Object.entries(source).forEach(([key, value]) => {
-          const keySize = normalizeThumbnailSize(key);
-          if (typeof value === 'string') {
-            if (keySize !== null) {
-              register(keySize, value);
-            }
-            return;
-          }
-          if (value && typeof value === 'object' && !Array.isArray(value)) {
-            const nestedSize = normalizeThumbnailSize(
-              value.size ?? value.dimension ?? value.width ?? value.height ?? keySize,
-            );
-            const url = value.url ?? value.href ?? value.path ?? null;
-            if (nestedSize !== null) {
-              register(nestedSize, typeof url === 'string' ? url : null);
-            } else if (keySize !== null) {
-              register(keySize, typeof url === 'string' ? url : null);
-            }
-          } else if (value && keySize !== null) {
-            register(keySize);
-          }
-        });
-      }
-    });
-
-    const availabilitySources = [
-      item?.availableThumbnailSizes,
-      item?.thumbnailSizes,
-      item?.availableThumbnails,
-    ];
-
-    availabilitySources.forEach((source) => {
-      if (!source) {
-        return;
-      }
-      if (Array.isArray(source)) {
-        source.forEach((entry) => {
-          const size = normalizeThumbnailSize(entry);
-          if (size !== null) {
-            available.add(size);
-          }
-        });
-      } else if (typeof source === 'object') {
-        Object.entries(source).forEach(([key, value]) => {
-          if (!value) {
-            return;
-          }
-          const size = normalizeThumbnailSize(key);
-          if (size !== null) {
-            available.add(size);
-          }
-        });
-      }
-    });
-
-    return { available, urlBySize };
-  }
-
-  function resolveSlideshowImageUrl(item) {
-    if (!item) {
-      return '';
-    }
-
-    const { available, urlBySize } = collectThumbnailAvailability(item);
-    const buildUrl = (size) => (item.id ? `/api/media/${item.id}/thumbnail?size=${size}` : '');
-
-    for (const size of THUMBNAIL_SIZE_PRIORITY) {
-      if (urlBySize.has(size)) {
-        return urlBySize.get(size);
-      }
-      if (available.has(size)) {
-        const resolved = buildUrl(size);
-        if (resolved) {
-          return resolved;
-        }
-      }
-    }
-
-    if (typeof item.thumbnailUrl === 'string' && item.thumbnailUrl) {
-      return item.thumbnailUrl;
-    }
-
-    return buildUrl(512);
-  }
 
   const albumState = {
     mode: 'create',
@@ -942,63 +762,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const defaultCoverDataUrl = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjUwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcw48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiM2NjdlZWEiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM3NjRiYTIiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2cpIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7wn5OCPC90ZXh0Pjwvc3ZnPg==';
 
   const apiClient = new APIClient();
-
-  const slideshowOverlay = document.getElementById('album-slideshow-overlay');
-  const slideshowStage = document.getElementById('album-slideshow-stage');
-  const slideshowImage = document.getElementById('album-slideshow-image');
-  const slideshowMeta = document.getElementById('album-slideshow-meta');
-  const slideshowCounter = document.getElementById('album-slideshow-counter');
-  const slideshowTitle = document.getElementById('album-slideshow-title');
-  const slideshowEmpty = document.getElementById('album-slideshow-empty');
-  const slideshowLoading = document.getElementById('album-slideshow-loading');
-  const slideshowToggle = document.getElementById('album-slideshow-toggle');
-  const slideshowPrev = document.getElementById('album-slideshow-prev');
-  const slideshowNext = document.getElementById('album-slideshow-next');
-  const slideshowClose = document.getElementById('album-slideshow-close');
-
-  const albumSlideshow = new AlbumSlideshow({
-    overlayElement: slideshowOverlay,
-    stageElement: slideshowStage,
-    imageElement: slideshowImage,
-    titleElement: slideshowTitle,
-    metaElement: slideshowMeta,
-    counterElement: slideshowCounter,
-    emptyStateElement: slideshowEmpty,
-    loadingElement: slideshowLoading,
-    playPauseButton: slideshowToggle,
-    prevButton: slideshowPrev,
-    nextButton: slideshowNext,
-    closeButton: slideshowClose,
-    labels: {
-      play: strings.playLabel,
-      pause: strings.pauseLabel,
-      next: strings.nextLabel,
-      previous: strings.previousLabel,
-      close: strings.closeLabel,
-      counter: strings.positionLabel,
-      noMedia: strings.slideshowNoMedia,
-      shotAt: strings.shotAtLabel,
-      albumTitleFallback: strings.untitledAlbum,
-    },
-    imageUrlResolver: resolveSlideshowImageUrl,
-    metadataFormatter: (item, context) => {
-      const parts = [];
-      if (item?.shotAt) {
-        const formatted = formatDateTime(item.shotAt);
-        if (formatted) {
-          parts.push(`${strings.shotAtLabel} ${formatted}`);
-        }
-      }
-      parts.push(
-        strings.positionLabel
-          .replace('%(current)s', (context.index + 1).toString())
-          .replace('%(total)s', context.total.toString()),
-      );
-      return parts.join(' · ');
-    },
-  });
-
-  const slideshowIntentStorageKey = 'photoView.slideshowIntent';
 
   let reorderMode = false;
   let reorderDirty = false;
@@ -1860,24 +1623,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function openAlbumSlideshow(albumId) {
+  function openAlbumSlideshow(albumId, options = {}) {
     if (!Number.isFinite(albumId)) {
       return;
     }
-    try {
-      if (window.sessionStorage) {
-        const intent = {
-          albumId,
-          expiresAt: Date.now() + 2 * 60 * 1000,
-        };
-        window.sessionStorage.setItem(slideshowIntentStorageKey, JSON.stringify(intent));
-      }
-    } catch (error) {
-      console.warn('Failed to persist slideshow intent', error);
+
+    const url = new URL(`/photo-view/albums/${albumId}/slideshow`, window.location.origin);
+    const params = new URLSearchParams();
+
+    const startIndex = Number(options.startIndex);
+    if (Number.isInteger(startIndex) && startIndex >= 0) {
+      params.set('start', startIndex.toString());
     }
-    const targetUrl = new URL(`/photo-view/albums/${albumId}`, window.location.origin);
-    targetUrl.searchParams.set('slideshow', '1');
-    window.location.href = `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`;
+
+    if (options.autoplay === false) {
+      params.set('autoplay', '0');
+    }
+
+    if ([...params.keys()].length > 0) {
+      url.search = params.toString();
+    }
+
+    window.location.href = url.toString();
   }
 
   function showReorderHint(message, type = 'info') {
@@ -2200,7 +1967,7 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
         if (actionButton.dataset.albumAction === 'edit') {
-          loadAlbumForEdit(albumId);
+          window.location.href = `/photo-view/albums/${albumId}/edit`;
         } else if (actionButton.dataset.albumAction === 'delete') {
           deleteAlbum(albumId);
         } else if (actionButton.dataset.albumAction === 'slideshow') {
@@ -2467,7 +2234,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (editorView) {
-    openAlbumModal('create');
+    if (Number.isInteger(editorAlbumId) && editorAlbumId > 0) {
+      loadAlbumForEdit(editorAlbumId);
+    } else {
+      openAlbumModal('create');
+    }
   } else {
     initializeAlbumsScroll();
   }

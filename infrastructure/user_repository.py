@@ -20,8 +20,8 @@ class SqlAlchemyUserRepository(UserRepository):
 
     def add(self, user: User, role_names: List[str]) -> User:
         model = UserModel(
-            email=user.email, 
-            password_hash=user.password_hash, 
+            email=user.email,
+            password_hash=user.password_hash,
             totp_secret=user.totp_secret,
             is_active=user.is_active
         )
@@ -34,6 +34,7 @@ class SqlAlchemyUserRepository(UserRepository):
         self.session.add(model)
         self.session.commit()
         user.id = model.id
+        user.attach_model(model)
         return user
 
     def update(self, user: User) -> User:
@@ -47,8 +48,9 @@ class SqlAlchemyUserRepository(UserRepository):
         model.password_hash = user.password_hash
         model.totp_secret = user.totp_secret
         model.is_active = user.is_active
-        
+
         self.session.commit()
+        user.attach_model(model)
         return user
 
     def delete(self, user: User) -> None:
@@ -60,16 +62,23 @@ class SqlAlchemyUserRepository(UserRepository):
             self.session.commit()
 
     def get_model(self, user: User) -> UserModel:
+        if getattr(user, "_model", None) is not None:
+            return user._model
+
         stmt = select(UserModel).filter_by(id=user.id)
-        return self.session.execute(stmt).scalar_one_or_none()
+        model = self.session.execute(stmt).scalar_one_or_none()
+        if model is not None:
+            user.attach_model(model)
+        return model
 
     def _to_domain(self, model: UserModel) -> User:
         user = User(
-            email=model.email, 
-            totp_secret=model.totp_secret, 
-            id=model.id, 
+            email=model.email,
+            totp_secret=model.totp_secret,
+            id=model.id,
             created_at=model.created_at,
             is_active=model.is_active
         )
         user.password_hash = model.password_hash
+        user.attach_model(model)
         return user

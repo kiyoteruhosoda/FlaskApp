@@ -18,6 +18,11 @@ class AuthService:
     def authenticate(self, email: str, password: str) -> Optional[User]:
         user = self.repo.get_by_email(email)
         if user and user.check_password(password) and user.is_active:
+            # 認証に成功した場合は取得済みのORMモデルを再利用できるように保持しておく
+            if getattr(user, "_model", None) is None:
+                model = self.repo.get_model(user)
+                if model is not None:
+                    user.attach_model(model)
             return user
         return None
 

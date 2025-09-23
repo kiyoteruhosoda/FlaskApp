@@ -251,6 +251,71 @@ document.addEventListener('DOMContentLoaded', () => {
     media: [],
   };
 
+  const slideshowIntentStorageKey = 'photoView.slideshowIntent';
+  const autoplayQueryKeys = ['slideshow', 'autoplay'];
+
+  function parseAutoplayFlag(value) {
+    if (value === null || value === undefined) {
+      return false;
+    }
+    const normalized = value.toString().trim().toLowerCase();
+    if (!normalized) {
+      return false;
+    }
+    return !['0', 'false', 'no', 'off'].includes(normalized);
+  }
+
+  function consumeSlideshowIntent() {
+    let shouldAutoplay = false;
+    const params = new URLSearchParams(window.location.search);
+    const queryValues = autoplayQueryKeys.map((key) => params.get(key));
+    if (queryValues.some((value) => parseAutoplayFlag(value))) {
+      shouldAutoplay = true;
+    }
+
+    let storedIntentRaw = null;
+    try {
+      storedIntentRaw = window.sessionStorage?.getItem(slideshowIntentStorageKey) || null;
+    } catch (error) {
+      console.warn('Failed to access slideshow intent storage', error);
+    }
+
+    if (storedIntentRaw) {
+      try {
+        const parsedIntent = JSON.parse(storedIntentRaw);
+        if (Number(parsedIntent?.albumId) === albumId) {
+          const expiresAt = Number(parsedIntent?.expiresAt);
+          if (!Number.isFinite(expiresAt) || expiresAt >= Date.now()) {
+            shouldAutoplay = true;
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to parse slideshow intent payload', error);
+      }
+    }
+
+    try {
+      window.sessionStorage?.removeItem(slideshowIntentStorageKey);
+    } catch (error) {
+      console.warn('Failed to clear slideshow intent storage', error);
+    }
+
+    if (queryValues.some((value) => value !== null)) {
+      autoplayQueryKeys.forEach((key) => params.delete(key));
+      const newQuery = params.toString();
+      const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}${window.location.hash}`;
+      try {
+        window.history.replaceState({}, document.title, newUrl);
+      } catch (error) {
+        console.warn('Failed to update URL after consuming slideshow intent', error);
+      }
+    }
+
+    return shouldAutoplay;
+  }
+
+  let autoplayOnLoad = consumeSlideshowIntent();
+
   const reorderState = {
     active: false,
     originalMedia: [],
@@ -821,6 +886,15 @@ document.addEventListener('DOMContentLoaded', () => {
       elements.content.classList.remove('d-none');
       updateSlideshowButtonState();
       slideshow.load(state.media, { albumTitle: state.album.title || strings.untitledAlbum });
+      if (autoplayOnLoad) {
+        if (!state.media.length) {
+          showInfoToast(strings.noMedia);
+          slideshow.open(0, { autoplay: false });
+        } else {
+          slideshow.open(0);
+        }
+        autoplayOnLoad = false;
+      }
     } catch (error) {
       console.error('Failed to load album detail', error);
       elements.error.classList.remove('d-none');

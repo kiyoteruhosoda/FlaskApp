@@ -2075,8 +2075,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const actionButton = event.target.closest('[data-album-action]');
       if (actionButton) {
+        event.preventDefault();
         event.stopPropagation();
         const albumId = Number(actionButton.dataset.albumId);
+        if (!Number.isFinite(albumId)) {
+          return;
+        }
         if (actionButton.dataset.albumAction === 'edit') {
           loadAlbumForEdit(albumId);
         } else if (actionButton.dataset.albumAction === 'delete') {
@@ -2088,6 +2092,23 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       window.location.href = `/photo-view/albums/${album.id}`;
     });
+
+    const slideshowButton = card.querySelector('button[data-album-action="slideshow"]');
+    if (slideshowButton) {
+      slideshowButton.addEventListener('click', (event) => {
+        if (reorderMode) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        const albumId = Number(slideshowButton.dataset.albumId);
+        if (Number.isFinite(albumId)) {
+          openAlbumSlideshow(albumId);
+        }
+      });
+    }
 
     const reorderControls = card.querySelector('.album-reorder-controls');
     if (reorderControls) {

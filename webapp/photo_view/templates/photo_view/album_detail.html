@@ -285,6 +285,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const THUMBNAIL_SIZE_PRIORITY = [2048, 1024, 512];
 
+  function sortAlbumMediaItems(items) {
+    if (!Array.isArray(items)) {
+      return [];
+    }
+    const normalizeIndex = (value, fallback = Number.MAX_SAFE_INTEGER) => {
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? numeric : fallback;
+    };
+    return items
+      .slice()
+      .sort((a, b) => {
+        const sortA = normalizeIndex(a?.sortIndex);
+        const sortB = normalizeIndex(b?.sortIndex);
+        if (sortA !== sortB) {
+          return sortA - sortB;
+        }
+        const idA = normalizeIndex(a?.id);
+        const idB = normalizeIndex(b?.id);
+        return idA - idB;
+      });
+  }
+
   function normalizeThumbnailSize(value) {
     if (typeof value === 'number' && Number.isFinite(value)) {
       return value;
@@ -653,7 +675,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (data?.album) {
         state.album = data.album;
-        state.media = Array.isArray(data.album.media) ? data.album.media : state.media;
+        state.media = sortAlbumMediaItems(Array.isArray(data.album.media) ? data.album.media : state.media);
       }
       showSuccessToast(strings.reorderSaved);
       resetReorderState();
@@ -793,7 +815,7 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error('Missing album payload');
       }
       state.album = data.album;
-      state.media = Array.isArray(data.album.media) ? data.album.media : [];
+      state.media = sortAlbumMediaItems(Array.isArray(data.album.media) ? data.album.media : []);
       resetReorderState();
       renderAlbumDetail();
       elements.content.classList.remove('d-none');
@@ -908,7 +930,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tile.addEventListener('dragend', onTileDragEnd);
       } else {
         tile.addEventListener('click', () => {
-          slideshow.open(index);
+          slideshow.open(index, { autoplay: false });
         });
       }
 

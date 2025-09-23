@@ -231,6 +231,7 @@ def upgrade():
     sa.Column('name', sa.String(length=255), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
     sa.Column('cover_media_id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), nullable=True),
+    sa.Column('display_order', sa.Integer(), nullable=True),
     sa.Column('visibility', sa.Enum('public', 'private', 'unlisted', name='album_visibility'), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),

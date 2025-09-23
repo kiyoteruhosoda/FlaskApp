@@ -27,6 +27,74 @@
     box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
   }
 
+  .album-grid.reorder-active .album-card {
+    cursor: default;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
+    transform: none;
+  }
+
+  .album-grid.reorder-active .album-card:hover {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
+  }
+
+  .album-card.reorder-enabled::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    box-shadow: inset 0 0 0 2px rgba(148, 163, 184, 0.35);
+    pointer-events: none;
+  }
+
+  .album-card.reorder-enabled {
+    cursor: default;
+  }
+
+  .album-card.reorder-enabled:hover {
+    transform: none;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+  }
+
+  .album-reorder-controls {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(15, 23, 42, 0.78);
+    border-radius: 999px;
+    padding: 4px 10px;
+    color: #e2e8f0;
+    z-index: 4;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25);
+  }
+
+  .album-reorder-controls button {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    padding: 0;
+  }
+
+  .album-reorder-controls .album-order-index {
+    font-weight: 600;
+    font-size: 0.85rem;
+    min-width: 24px;
+    text-align: center;
+  }
+
+  .album-reorder-controls.d-none {
+    display: none !important;
+  }
+
+  .album-grid.reorder-active .album-actions {
+    display: none;
+  }
+
   .album-actions {
     position: absolute;
     top: 12px;
@@ -436,9 +504,19 @@
       <select id="sort-order" class="form-select form-select-sm" style="width: auto;">
         <option value="desc">{{ _('Newest First') }}</option>
         <option value="asc">{{ _('Oldest First') }}</option>
+        <option value="custom">{{ _('Custom Order') }}</option>
       </select>
       <button id="refresh-btn" class="btn btn-outline-primary btn-sm">
         <i class="bi bi-arrow-repeat me-1"></i>{{ _('Refresh') }}
+      </button>
+      <button id="reorder-toggle" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-up-down me-1"></i>{{ _('Reorder') }}
+      </button>
+      <button id="reorder-save" class="btn btn-success btn-sm d-none">
+        <i class="bi bi-check-lg me-1"></i>{{ _('Save Order') }}
+      </button>
+      <button id="reorder-cancel" class="btn btn-outline-secondary btn-sm d-none">
+        <i class="bi bi-x-lg me-1"></i>{{ _('Cancel') }}
       </button>
     </div>
   </div>
@@ -446,6 +524,8 @@
   <div id="album-stats" class="mb-3">
     <span id="album-count" class="badge bg-info text-dark">{{ _('Loading...') }}</span>
   </div>
+
+  <div id="reorder-hint" class="alert alert-info d-none" role="status"></div>
 
   <div id="albums-grid" class="album-grid"></div>
 
@@ -536,6 +616,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const sortOrder = document.getElementById('sort-order');
   const refreshBtn = document.getElementById('refresh-btn');
   const albumCountBadge = document.getElementById('album-count');
+  const reorderToggleBtn = document.getElementById('reorder-toggle');
+  const reorderSaveBtn = document.getElementById('reorder-save');
+  const reorderCancelBtn = document.getElementById('reorder-cancel');
+  const reorderHint = document.getElementById('reorder-hint');
 
   const albumModalElement = document.getElementById('albumModal');
   const editorView = albumModalElement?.dataset.editorMode === 'page';
@@ -624,6 +708,15 @@ document.addEventListener('DOMContentLoaded', () => {
     slideshowLoadError: "{{ _('Unable to load album for slideshow.')|escapejs }}",
     slideshowNoMedia: "{{ _('This album has no media yet.')|escapejs }}",
     startSlideshow: "{{ _('Start Slideshow')|escapejs }}",
+    customOrderLabel: "{{ _('Custom Order')|escapejs }}",
+    reorderHint: "{{ _('Use the arrow buttons to change the album order, then choose "Save Order".')|escapejs }}",
+    reorderLoading: "{{ _('Loading all albums for reordering...')|escapejs }}",
+    reorderLoadError: "{{ _('Unable to prepare albums for reordering.')|escapejs }}",
+    reorderSaved: "{{ _('Album order updated.')|escapejs }}",
+    reorderSaveError: "{{ _('Failed to update album order.')|escapejs }}",
+    reorderSaving: "{{ _('Saving album order...')|escapejs }}",
+    moveUp: "{{ _('Move up')|escapejs }}",
+    moveDown: "{{ _('Move down')|escapejs }}",
   };
 
   const THUMBNAIL_SIZE_PRIORITY = [2048, 1024, 512];
@@ -841,6 +934,10 @@ document.addEventListener('DOMContentLoaded', () => {
       return parts.join(' · ');
     },
   });
+
+  let reorderMode = false;
+  let reorderDirty = false;
+  let albumsInitialLoadPromise = null;
 
   function adjustMediaScrollHeight() {
     if (!albumModalElement || !albumModalElement.classList.contains('show')) {
@@ -1649,6 +1746,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const album = data.album;
       const mediaItems = Array.isArray(album.media) ? album.media : [];
       albumSlideshow.load(mediaItems, { albumTitle: album.title || strings.untitledAlbum });
+      albumSlideshow.setLoading(false);
       if (!mediaItems.length) {
         showInfoToast(strings.slideshowNoMedia);
         albumSlideshow.open(0, { autoplay: false });
@@ -1664,6 +1762,260 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function showReorderHint(message, type = 'info') {
+    if (!reorderHint) {
+      return;
+    }
+    reorderHint.textContent = message;
+    reorderHint.classList.remove('d-none', 'alert-info', 'alert-warning', 'alert-danger', 'alert-success');
+    reorderHint.classList.add(`alert-${type}`);
+  }
+
+  function hideReorderHint() {
+    if (!reorderHint) {
+      return;
+    }
+    reorderHint.classList.add('d-none');
+    reorderHint.textContent = '';
+    reorderHint.classList.remove('alert-warning', 'alert-danger', 'alert-success');
+    reorderHint.classList.add('alert-info');
+  }
+
+  function setCardReorderState(card, enabled) {
+    if (!card) {
+      return;
+    }
+    const controls = card.querySelector('.album-reorder-controls');
+    if (enabled) {
+      card.classList.add('reorder-enabled');
+      if (controls) {
+        controls.classList.remove('d-none');
+      }
+    } else {
+      card.classList.remove('reorder-enabled');
+      if (controls) {
+        controls.classList.add('d-none');
+      }
+    }
+  }
+
+  function updateReorderSaveState() {
+    if (reorderSaveBtn) {
+      reorderSaveBtn.disabled = !reorderMode || !reorderDirty;
+    }
+    if (reorderCancelBtn) {
+      reorderCancelBtn.disabled = false;
+    }
+  }
+
+  function updateAlbumOrderIndicators() {
+    if (!albumsGrid) {
+      return;
+    }
+    const cards = Array.from(albumsGrid.querySelectorAll('.album-card'));
+    cards.forEach((card, index) => {
+      const indicator = card.querySelector('.album-order-index');
+      if (indicator) {
+        indicator.textContent = (index + 1).toString();
+      }
+      const upBtn = card.querySelector('button[data-reorder="up"]');
+      const downBtn = card.querySelector('button[data-reorder="down"]');
+      if (upBtn) {
+        upBtn.disabled = index === 0;
+      }
+      if (downBtn) {
+        downBtn.disabled = index === cards.length - 1;
+      }
+    });
+  }
+
+  function markReorderDirty() {
+    if (!reorderMode) {
+      return;
+    }
+    reorderDirty = true;
+    updateReorderSaveState();
+  }
+
+  function moveAlbumCard(card, direction) {
+    if (!reorderMode || !albumsGrid || !card) {
+      return;
+    }
+    if (direction === 'up') {
+      const previous = card.previousElementSibling;
+      if (previous) {
+        albumsGrid.insertBefore(card, previous);
+        markReorderDirty();
+        updateAlbumOrderIndicators();
+      }
+    } else if (direction === 'down') {
+      const next = card.nextElementSibling;
+      if (next) {
+        albumsGrid.insertBefore(next, card);
+        markReorderDirty();
+        updateAlbumOrderIndicators();
+      }
+    }
+  }
+
+  function collectCurrentAlbumOrder() {
+    if (!albumsGrid) {
+      return [];
+    }
+    return Array.from(albumsGrid.querySelectorAll('.album-card'))
+      .map((card) => Number(card.dataset.albumId))
+      .filter((id) => Number.isInteger(id));
+  }
+
+  async function ensureAllAlbumsLoaded() {
+    if (!albumsInfiniteScroll) {
+      return;
+    }
+    if (albumsInitialLoadPromise) {
+      try {
+        await albumsInitialLoadPromise;
+      } catch (error) {
+        console.error('Initial albums load failed', error);
+      }
+    }
+    while (albumsInfiniteScroll.pagination?.hasNext) {
+      await albumsInfiniteScroll.pagination.loadNext();
+    }
+  }
+
+  function applyReorderState(enabled) {
+    reorderMode = enabled;
+    if (!albumsGrid) {
+      return;
+    }
+
+    const cards = albumsGrid.querySelectorAll('.album-card');
+    cards.forEach((card) => setCardReorderState(card, enabled));
+
+    if (enabled) {
+      albumsGrid.classList.add('reorder-active');
+      if (reorderToggleBtn) {
+        reorderToggleBtn.classList.add('d-none');
+      }
+      if (reorderSaveBtn) {
+        reorderSaveBtn.classList.remove('d-none');
+      }
+      if (reorderCancelBtn) {
+        reorderCancelBtn.classList.remove('d-none');
+      }
+      if (sortOrder) {
+        sortOrder.disabled = true;
+      }
+      if (albumsInfiniteScroll) {
+        albumsInfiniteScroll.stop();
+      }
+    } else {
+      albumsGrid.classList.remove('reorder-active');
+      if (reorderToggleBtn) {
+        reorderToggleBtn.classList.remove('d-none');
+        reorderToggleBtn.disabled = false;
+      }
+      if (reorderSaveBtn) {
+        reorderSaveBtn.classList.add('d-none');
+        reorderSaveBtn.disabled = true;
+      }
+      if (reorderCancelBtn) {
+        reorderCancelBtn.classList.add('d-none');
+        reorderCancelBtn.disabled = false;
+      }
+      if (sortOrder) {
+        sortOrder.disabled = false;
+      }
+    }
+
+    updateReorderSaveState();
+  }
+
+  async function enterReorderMode() {
+    if (reorderMode || !albumsGrid) {
+      return;
+    }
+
+    if (reorderToggleBtn) {
+      reorderToggleBtn.disabled = true;
+    }
+
+    if (sortOrder && sortOrder.value !== 'custom') {
+      sortOrder.value = 'custom';
+    }
+
+    showReorderHint(strings.reorderLoading, 'warning');
+
+    try {
+      await ensureAllAlbumsLoaded();
+      reorderDirty = false;
+      applyReorderState(true);
+      updateAlbumOrderIndicators();
+      showReorderHint(strings.reorderHint, 'info');
+    } catch (error) {
+      console.error('Failed to enter album reorder mode', error);
+      showErrorToast(strings.reorderLoadError);
+      hideReorderHint();
+      applyReorderState(false);
+    } finally {
+      if (reorderToggleBtn) {
+        reorderToggleBtn.disabled = false;
+      }
+    }
+  }
+
+  function exitReorderMode(options = {}) {
+    const { keepHint = false } = options;
+    reorderDirty = false;
+    applyReorderState(false);
+    if (keepHint) {
+      if (reorderHint) {
+        reorderHint.classList.remove('alert-warning', 'alert-danger', 'alert-success');
+        reorderHint.classList.add('alert-info');
+      }
+    } else {
+      hideReorderHint();
+    }
+  }
+
+  async function saveAlbumOrder() {
+    if (!reorderMode) {
+      return;
+    }
+
+    const orderedIds = collectCurrentAlbumOrder();
+    if (!orderedIds.length) {
+      showErrorToast(strings.reorderSaveError);
+      return;
+    }
+
+    if (reorderSaveBtn) {
+      reorderSaveBtn.disabled = true;
+    }
+    if (reorderCancelBtn) {
+      reorderCancelBtn.disabled = true;
+    }
+
+    showReorderHint(strings.reorderSaving, 'warning');
+
+    try {
+      const response = await apiClient.put('/api/albums/order', { albumIds: orderedIds });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const message = data?.message || `HTTP ${response.status}`;
+        throw new Error(message);
+      }
+      showSuccessToast(strings.reorderSaved);
+      exitReorderMode();
+      reloadAlbums();
+    } catch (error) {
+      console.error('Failed to save album order', error);
+      showErrorToast(strings.reorderSaveError);
+      updateReorderSaveState();
+      showReorderHint(strings.reorderHint, 'info');
+    }
+  }
+
   function createAlbumCard(album) {
     const card = document.createElement('div');
     card.className = 'album-card';
@@ -1676,6 +2028,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const visibilityLabel = strings.visibilityLabels[album.visibility] || album.visibility;
 
     card.innerHTML = `
+      <div class="album-reorder-controls d-none">
+        <button type="button" class="btn btn-light btn-sm" data-reorder="up" aria-label="${strings.moveUp}">
+          <i class="bi bi-chevron-up"></i>
+        </button>
+        <span class="album-order-index">1</span>
+        <button type="button" class="btn btn-light btn-sm" data-reorder="down" aria-label="${strings.moveDown}">
+          <i class="bi bi-chevron-down"></i>
+        </button>
+      </div>
       <div class="album-actions">
         <button type="button" class="btn btn-light btn-sm" data-album-action="slideshow" data-album-id="${album.id}" title="${strings.startSlideshow}">
           <i class="bi bi-play-fill"></i>
@@ -1708,6 +2069,10 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
 
     card.addEventListener('click', (event) => {
+      if (reorderMode) {
+        event.preventDefault();
+        return;
+      }
       const actionButton = event.target.closest('[data-album-action]');
       if (actionButton) {
         event.stopPropagation();
@@ -1723,6 +2088,21 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       window.location.href = `/photo-view/albums/${album.id}`;
     });
+
+    const reorderControls = card.querySelector('.album-reorder-controls');
+    if (reorderControls) {
+      reorderControls.addEventListener('click', (event) => {
+        const controlButton = event.target.closest('button[data-reorder]');
+        if (!controlButton) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        moveAlbumCard(card, controlButton.dataset.reorder);
+      });
+    }
+
+    setCardReorderState(card, reorderMode);
 
     return card;
   }
@@ -1780,12 +2160,18 @@ document.addEventListener('DOMContentLoaded', () => {
       threshold: 200,
     });
 
-    albumsInfiniteScroll.start({ order: sortOrder.value });
+    albumsInitialLoadPromise = albumsInfiniteScroll.start({ order: sortOrder.value });
+    return albumsInitialLoadPromise;
   }
 
   function reloadAlbums() {
     if (editorView) {
       return;
+    }
+    if (reorderMode) {
+      exitReorderMode();
+    } else {
+      hideReorderHint();
     }
     initializeAlbumsScroll();
   }
@@ -1797,6 +2183,27 @@ document.addEventListener('DOMContentLoaded', () => {
   if (refreshBtn) {
     refreshBtn.addEventListener('click', reloadAlbums);
   }
+
+  if (reorderToggleBtn) {
+    reorderToggleBtn.addEventListener('click', () => {
+      enterReorderMode();
+    });
+  }
+
+  if (reorderCancelBtn) {
+    reorderCancelBtn.addEventListener('click', () => {
+      exitReorderMode();
+      reloadAlbums();
+    });
+  }
+
+  if (reorderSaveBtn) {
+    reorderSaveBtn.addEventListener('click', () => {
+      saveAlbumOrder();
+    });
+  }
+
+  updateReorderSaveState();
 
   albumForm.addEventListener('submit', saveAlbum);
 

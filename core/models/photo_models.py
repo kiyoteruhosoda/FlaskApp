@@ -113,6 +113,7 @@ class Album(db.Model):
     description = db.Column(db.Text)
     cover_media_id = db.Column(BigInt, db.ForeignKey('media.id'))
     visibility = db.Column(db.Enum('public', 'private', 'unlisted', name='album_visibility'), nullable=False)
+    display_order = db.Column(db.Integer, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
 

@@ -1,0 +1,328 @@
+{% extends 'base.html' %}
+{% block title %}{{ _('Album Slideshow') }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  .album-slideshow-page {
+    min-height: calc(100vh - var(--navbar-height, 0px));
+    background: rgba(15, 23, 42, 0.9);
+  }
+
+  .album-slideshow-dialog {
+    padding: 24px;
+  }
+
+  .album-slideshow-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .album-slideshow-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  @media (max-width: 576px) {
+    .album-slideshow-dialog {
+      padding: 16px;
+    }
+
+    .album-slideshow-actions {
+      width: 100%;
+      justify-content: space-between;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div
+  class="album-slideshow-page"
+  data-album-id="{{ album_id }}"
+  data-start-index="{{ start_index if start_index is not none else '' }}"
+  data-autoplay="{{ 'true' if autoplay_enabled else 'false' }}"
+  data-back-url="{{ url_for('photo_view.album_detail', album_id=album_id) }}"
+  data-albums-url="{{ url_for('photo_view.albums') }}"
+>
+  <div id="album-slideshow-overlay" class="album-slideshow-overlay d-none" aria-hidden="true">
+    <div class="album-slideshow-dialog">
+      <div class="album-slideshow-header">
+        <div class="album-slideshow-actions">
+          <a href="{{ url_for('photo_view.album_detail', album_id=album_id) }}" class="btn btn-outline-light btn-sm" id="album-slideshow-back">
+            <i class="bi bi-arrow-left"></i> {{ _('Back to album') }}
+          </a>
+          <a href="{{ url_for('photo_view.albums') }}" class="btn btn-outline-light btn-sm" id="album-slideshow-albums">
+            <i class="bi bi-collection"></i> {{ _('Albums') }}
+          </a>
+        </div>
+        <button type="button" class="album-slideshow-close" id="album-slideshow-close" aria-label="{{ _('Close') }}">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      <div id="album-slideshow-loading" class="album-slideshow-loading">
+        <div class="spinner-border text-light" role="status"></div>
+        <span>{{ _('Loading slideshow...') }}</span>
+      </div>
+      <div id="album-slideshow-stage" class="album-slideshow-stage d-none">
+        <button type="button" class="album-slideshow-nav prev" id="album-slideshow-prev" aria-label="{{ _('Previous') }}">
+          <i class="bi bi-chevron-left"></i>
+        </button>
+        <img id="album-slideshow-image" src="" alt="" loading="lazy">
+        <button type="button" class="album-slideshow-nav next" id="album-slideshow-next" aria-label="{{ _('Next') }}">
+          <i class="bi bi-chevron-right"></i>
+        </button>
+      </div>
+      <div id="album-slideshow-empty" class="album-slideshow-empty d-none">
+        {{ _('This album has no media yet.') }}
+      </div>
+      <div class="album-slideshow-footer">
+        <div class="album-slideshow-info">
+          <span class="album-title" id="album-slideshow-title"></span>
+          <span class="album-meta" id="album-slideshow-meta"></span>
+        </div>
+        <div class="album-slideshow-controls">
+          <div class="album-slideshow-counter" id="album-slideshow-counter"></div>
+          <button type="button" class="btn btn-outline-light" id="album-slideshow-toggle">
+            <i class="bi bi-play-fill me-1"></i><span data-label>{{ _('Play') }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/album-slideshow.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const container = document.querySelector('.album-slideshow-page');
+  if (!container) {
+    return;
+  }
+
+  const albumId = Number(container.dataset.albumId);
+  if (!Number.isInteger(albumId) || albumId <= 0) {
+    console.error('Invalid album id for slideshow');
+    return;
+  }
+
+  const startIndex = Number.parseInt(container.dataset.startIndex || '', 10);
+  const autoplay = container.dataset.autoplay !== 'false';
+  const backUrl = container.dataset.backUrl || `/photo-view/albums/${albumId}`;
+  const albumsUrl = container.dataset.albumsUrl || '/photo-view/albums';
+
+  const strings = {
+    untitledAlbum: "{{ _('Untitled Album')|escapejs }}",
+    noMedia: "{{ _('This album has no media yet.')|escapejs }}",
+    loadError: "{{ _('Unable to load album for slideshow.')|escapejs }}",
+    play: "{{ _('Play')|escapejs }}",
+    pause: "{{ _('Pause')|escapejs }}",
+    next: "{{ _('Next')|escapejs }}",
+    previous: "{{ _('Previous')|escapejs }}",
+    close: "{{ _('Close')|escapejs }}",
+    shotAt: "{{ _('Shot at')|escapejs }}",
+    position: "{{ _('%(current)s / %(total)s', current='%(current)s', total='%(total)s')|escapejs }}",
+    mediaCountSingular: "{{ ngettext('%(count)s photo', '%(count)s photos', 1, count='%(count)s')|escapejs }}",
+    mediaCountPlural: "{{ ngettext('%(count)s photo', '%(count)s photos', 2, count='%(count)s')|escapejs }}",
+    createdLabel: "{{ _('Created')|escapejs }}",
+    updatedLabel: "{{ _('Updated')|escapejs }}",
+    visibilityLabels: {
+      public: "{{ _('Public')|escapejs }}",
+      private: "{{ _('Private')|escapejs }}",
+      unlisted: "{{ _('Unlisted')|escapejs }}",
+    },
+  };
+
+  function formatDateTime(isoString) {
+    if (!isoString) {
+      return '';
+    }
+    const helper = window.appTime;
+    if (helper && typeof helper.formatDateTime === 'function') {
+      try {
+        const formatted = helper.formatDateTime(isoString, { dateStyle: 'medium', timeStyle: 'short' });
+        if (formatted) {
+          return formatted;
+        }
+      } catch (error) {
+        console.warn('formatDateTime failed', error);
+      }
+    }
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    return date.toLocaleString();
+  }
+
+  function formatMediaCount(count) {
+    const value = Number(count) || 0;
+    const template = value === 1 ? strings.mediaCountSingular : strings.mediaCountPlural;
+    return template.replace('%(count)s', value.toString());
+  }
+
+  function updateAlbumMeta(album, mediaItems) {
+    const metaElement = document.getElementById('album-slideshow-meta');
+    if (!metaElement) {
+      return;
+    }
+
+    const parts = [];
+    const visibilityLabel = strings.visibilityLabels[album.visibility] || album.visibility || '';
+    if (visibilityLabel) {
+      parts.push(visibilityLabel);
+    }
+
+    const mediaCountText = formatMediaCount(mediaItems.length);
+    if (mediaCountText) {
+      parts.push(mediaCountText);
+    }
+
+    const createdText = formatDateTime(album.createdAt);
+    if (createdText) {
+      parts.push(`${strings.createdLabel}: ${createdText}`);
+    }
+
+    const updatedText = formatDateTime(album.lastModified);
+    if (updatedText) {
+      parts.push(`${strings.updatedLabel}: ${updatedText}`);
+    }
+
+    metaElement.textContent = parts.join(' · ');
+  }
+
+  function resolveImageUrl(item) {
+    if (!item) {
+      return '';
+    }
+    if (typeof item.fullUrl === 'string' && item.fullUrl) {
+      return item.fullUrl;
+    }
+    if (typeof item.thumbnailUrl === 'string' && item.thumbnailUrl) {
+      return item.thumbnailUrl;
+    }
+    if (Number.isFinite(Number(item.id))) {
+      return `/api/media/${item.id}/thumbnail?size=2048`;
+    }
+    return '';
+  }
+
+  function navigateTo(url) {
+    window.location.href = url;
+  }
+
+  function handleExit(targetUrl) {
+    return (event) => {
+      event.preventDefault();
+      try {
+        if (window.history.length > 1) {
+          window.history.back();
+          return;
+        }
+      } catch (error) {
+        console.warn('History navigation failed', error);
+      }
+      navigateTo(targetUrl);
+    };
+  }
+
+  const backButton = document.getElementById('album-slideshow-back');
+  if (backButton) {
+    backButton.addEventListener('click', handleExit(backUrl));
+  }
+
+  const closeButton = document.getElementById('album-slideshow-close');
+  if (closeButton) {
+    closeButton.addEventListener('click', handleExit(backUrl));
+  }
+
+  const albumsButton = document.getElementById('album-slideshow-albums');
+  if (albumsButton) {
+    albumsButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      navigateTo(albumsUrl);
+    });
+  }
+
+  const emptyElement = document.getElementById('album-slideshow-empty');
+
+  const slideshow = new AlbumSlideshow({
+    overlayElement: document.getElementById('album-slideshow-overlay'),
+    stageElement: document.getElementById('album-slideshow-stage'),
+    imageElement: document.getElementById('album-slideshow-image'),
+    titleElement: document.getElementById('album-slideshow-title'),
+    metaElement: document.getElementById('album-slideshow-meta'),
+    counterElement: document.getElementById('album-slideshow-counter'),
+    emptyStateElement: emptyElement,
+    loadingElement: document.getElementById('album-slideshow-loading'),
+    playPauseButton: document.getElementById('album-slideshow-toggle'),
+    prevButton: document.getElementById('album-slideshow-prev'),
+    nextButton: document.getElementById('album-slideshow-next'),
+    closeButton,
+    labels: {
+      play: strings.play,
+      pause: strings.pause,
+      next: strings.next,
+      previous: strings.previous,
+      close: strings.close,
+      counter: strings.position,
+      noMedia: strings.noMedia,
+      shotAt: strings.shotAt,
+      albumTitleFallback: strings.untitledAlbum,
+    },
+    imageUrlResolver: resolveImageUrl,
+    metadataFormatter: (item, context) => {
+      const parts = [];
+      const shot = formatDateTime(item?.shotAt);
+      if (shot) {
+        parts.push(`${strings.shotAt} ${shot}`);
+      }
+      parts.push(
+        strings.position
+          .replace('%(current)s', (context.index + 1).toString())
+          .replace('%(total)s', context.total.toString()),
+      );
+      return parts.join(' · ');
+    },
+  });
+
+  const apiClient = new APIClient();
+
+  async function loadSlideshow() {
+    slideshow.setLoading(true);
+    try {
+      const response = await apiClient.get(`/api/albums/${albumId}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      const album = data?.album;
+      if (!album) {
+        throw new Error('Missing album payload');
+      }
+      const mediaItems = Array.isArray(album.media) ? album.media : [];
+      const albumTitle = album.title?.trim() || strings.untitledAlbum;
+      slideshow.load(mediaItems, { albumTitle });
+      updateAlbumMeta(album, mediaItems);
+
+      const normalizedIndex = Number.isInteger(startIndex) && startIndex >= 0 ? startIndex : 0;
+      slideshow.open(normalizedIndex, { autoplay });
+    } catch (error) {
+      console.error('Failed to load slideshow', error);
+      slideshow.setLoading(false);
+      if (emptyElement) {
+        emptyElement.textContent = strings.loadError;
+        emptyElement.classList.remove('d-none');
+      }
+    }
+  }
+
+  loadSlideshow();
+});
+</script>
+{% endblock %}

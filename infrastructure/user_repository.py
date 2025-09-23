@@ -1,4 +1,7 @@
 from typing import List
+
+from sqlalchemy import select
+
 from core.models.user import User as UserModel, Role
 from domain.user.entities import User
 from domain.user.repository import UserRepository
@@ -9,7 +12,8 @@ class SqlAlchemyUserRepository(UserRepository):
         self.session = session
 
     def get_by_email(self, email: str) -> User | None:
-        model = UserModel.query.filter_by(email=email).first()
+        stmt = select(UserModel).filter_by(email=email)
+        model = self.session.execute(stmt).scalar_one_or_none()
         if model:
             return self._to_domain(model)
         return None
@@ -22,7 +26,8 @@ class SqlAlchemyUserRepository(UserRepository):
             is_active=user.is_active
         )
         if role_names:
-            roles = Role.query.filter(Role.name.in_(role_names)).all()
+            stmt = select(Role).where(Role.name.in_(role_names))
+            roles = self.session.execute(stmt).scalars().all()
             if len(roles) != len(role_names):
                 raise ValueError("Role not found")
             model.roles.extend(roles)
@@ -33,10 +38,11 @@ class SqlAlchemyUserRepository(UserRepository):
 
     def update(self, user: User) -> User:
         """ユーザー情報を更新"""
-        model = UserModel.query.get(user.id)
+        stmt = select(UserModel).filter_by(id=user.id)
+        model = self.session.execute(stmt).scalar_one_or_none()
         if not model:
             raise ValueError("User not found")
-        
+
         model.email = user.email
         model.password_hash = user.password_hash
         model.totp_secret = user.totp_secret
@@ -47,13 +53,15 @@ class SqlAlchemyUserRepository(UserRepository):
 
     def delete(self, user: User) -> None:
         """ユーザーを削除"""
-        model = UserModel.query.get(user.id)
+        stmt = select(UserModel).filter_by(id=user.id)
+        model = self.session.execute(stmt).scalar_one_or_none()
         if model:
             self.session.delete(model)
             self.session.commit()
 
     def get_model(self, user: User) -> UserModel:
-        return UserModel.query.get(user.id)
+        stmt = select(UserModel).filter_by(id=user.id)
+        return self.session.execute(stmt).scalar_one_or_none()
 
     def _to_domain(self, model: UserModel) -> User:
         user = User(

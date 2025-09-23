@@ -898,8 +898,7 @@ def api_login():
         return jsonify({"error": "invalid_credentials"}), 401
     
     # TokenServiceを使用してトークンペアを生成
-    user_model = user_repo.get_model(user)
-    access_token, refresh_token = TokenService.generate_token_pair(user_model)
+    access_token, refresh_token = TokenService.generate_token_pair(user._model)
     
     resp = jsonify({"access_token": access_token, "refresh_token": refresh_token})
     resp.set_cookie(

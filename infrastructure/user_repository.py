@@ -29,6 +29,7 @@ class SqlAlchemyUserRepository(UserRepository):
         self.session.add(model)
         self.session.commit()
         user.id = model.id
+        user._model = model
         return user
 
     def update(self, user: User) -> User:
@@ -43,6 +44,7 @@ class SqlAlchemyUserRepository(UserRepository):
         model.is_active = user.is_active
         
         self.session.commit()
+        user._model = model
         return user
 
     def delete(self, user: User) -> None:
@@ -53,15 +55,19 @@ class SqlAlchemyUserRepository(UserRepository):
             self.session.commit()
 
     def get_model(self, user: User) -> UserModel:
+        model = getattr(user, "_model", None)
+        if model is not None:
+            return model
         return UserModel.query.get(user.id)
 
     def _to_domain(self, model: UserModel) -> User:
         user = User(
-            email=model.email, 
-            totp_secret=model.totp_secret, 
+            email=model.email,
+            totp_secret=model.totp_secret,
             id=model.id, 
             created_at=model.created_at,
             is_active=model.is_active
         )
         user.password_hash = model.password_hash
+        user._model = model
         return user

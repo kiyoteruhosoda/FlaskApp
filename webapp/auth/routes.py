@@ -82,7 +82,7 @@ def _clear_setup_totp_session():
 def _complete_registration(user):
     """ユーザー登録完了後の共通処理"""
     flash(_("Registration successful"), "success")
-    login_user(user_repo.get_model(user))
+    login_user(user._model)
     return redirect(url_for("feature_x.dashboard"))
 
 
@@ -121,7 +121,7 @@ def login():
             if not token or not verify_totp(user.totp_secret, token):
                 flash(_("Invalid authentication code"), "error")
                 return render_template("auth/login.html")
-        login_user(user_repo.get_model(user))
+        login_user(user._model)
         return redirect(url_for("feature_x.dashboard"))
     return render_template("auth/login.html")
 
@@ -192,7 +192,7 @@ def register_totp():
             
             _clear_registration_session()
             flash(_("Registration successful"), "success")
-            login_user(user_repo.get_model(u))
+            login_user(u._model)
             return redirect(url_for("feature_x.dashboard"))
         except Exception as e:
             flash(_("Registration failed: {}").format(str(e)), "error")

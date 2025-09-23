@@ -8,7 +8,7 @@ implementation work.
 
 import os
 
-from flask import current_app, render_template, request
+from flask import current_app, render_template, request, url_for
 from flask_login import current_user
 
 from core.models.authz import require_roles, require_perms
@@ -112,7 +112,44 @@ def album_detail(album_id: int):
 @require_perms("media:view", "album:view")
 def album_create():
     """Standalone page for creating a new album."""
-    return render_template("photo_view/albums.html", editor_view=True)
+    return render_template(
+        "photo_view/albums.html",
+        editor_view=True,
+        editor_album_id=None,
+        editor_success_url=url_for("photo_view.albums"),
+        editor_cancel_url=url_for("photo_view.albums"),
+    )
+
+
+@bp.route("/albums/<int:album_id>/edit")
+@require_perms("media:view", "album:view")
+def album_edit(album_id: int):
+    """Standalone page for editing an existing album."""
+
+    return render_template(
+        "photo_view/albums.html",
+        editor_view=True,
+        editor_album_id=album_id,
+        editor_success_url=url_for("photo_view.album_detail", album_id=album_id),
+        editor_cancel_url=url_for("photo_view.album_detail", album_id=album_id),
+    )
+
+
+@bp.route("/albums/<int:album_id>/slideshow")
+@require_perms("media:view", "album:view")
+def album_slideshow(album_id: int):
+    """Dedicated slideshow view for an album."""
+
+    start_index = request.args.get("start", type=int)
+    autoplay = request.args.get("autoplay", default="1")
+    autoplay_enabled = str(autoplay).lower() not in {"0", "false", "no"}
+
+    return render_template(
+        "photo_view/album_slideshow.html",
+        album_id=album_id,
+        start_index=start_index if isinstance(start_index, int) else None,
+        autoplay_enabled=autoplay_enabled,
+    )
 
 
 @bp.route("/tags")

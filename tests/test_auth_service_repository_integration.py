@@ -49,6 +49,7 @@ def test_register_and_authenticate_with_custom_session(session, auth_service):
 
     authenticated = auth_service.authenticate("user@example.com", "secret")
     assert authenticated is not None
+    assert isinstance(authenticated, UserModel)
     assert authenticated.id == user.id
 
     assert auth_service.authenticate("user@example.com", "wrong") is None
@@ -98,5 +99,6 @@ def test_inactive_user_replaced_on_register(session, auth_service):
 
     authenticated = auth_service.authenticate("replace@example.com", "new-secret")
     assert authenticated is not None
+    assert isinstance(authenticated, UserModel)
     assert authenticated.id == new_user.id
     assert auth_service.authenticate("replace@example.com", "old-secret") is None

@@ -52,7 +52,7 @@ def _login_with_domain_user(user):
     """ドメインユーザーが保持するORMモデルでログイン処理を行う。"""
     model = getattr(user, "_model", None)
     if model is None:
-        model = user_repo.get_model(user)
+        raise ValueError("Domain user is missing attached ORM model for login")
     login_user(model)
 
 
@@ -122,15 +122,15 @@ def login():
         email = request.form.get("email")
         password = request.form.get("password")
         token = request.form.get("token")
-        user = auth_service.authenticate(email, password)
-        if not user:
+        user_model = auth_service.authenticate(email, password)
+        if not user_model:
             flash(_("Invalid email or password"), "error")
             return render_template("auth/login.html")
-        if user.totp_secret:
-            if not token or not verify_totp(user.totp_secret, token):
+        if user_model.totp_secret:
+            if not token or not verify_totp(user_model.totp_secret, token):
                 flash(_("Invalid authentication code"), "error")
                 return render_template("auth/login.html")
-        _login_with_domain_user(user)
+        login_user(user_model)
         return redirect(url_for("feature_x.dashboard"))
     return render_template("auth/login.html")
 

@@ -1,6 +1,10 @@
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 from domain.user.entities import User
 from domain.user.repository import UserRepository
+
+
+if TYPE_CHECKING:
+    from core.models.user import User as UserModel
 
 
 class AuthService:
@@ -15,15 +19,17 @@ class AuthService:
         if existing_user and not existing_user.is_active:
             self.repo.delete(existing_user)
 
-    def authenticate(self, email: str, password: str) -> Optional[User]:
+    def authenticate(self, email: str, password: str) -> Optional["UserModel"]:
         user = self.repo.get_by_email(email)
         if user and user.check_password(password) and user.is_active:
-            # 認証に成功した場合は取得済みのORMモデルを再利用できるように保持しておく
-            if getattr(user, "_model", None) is None:
+            # 認証時に取得したORMモデルを再利用できるよう返却する
+            model = getattr(user, "_model", None)
+            if model is None:
                 model = self.repo.get_model(user)
-                if model is not None:
-                    user.attach_model(model)
-            return user
+                if model is None:
+                    return None
+                user.attach_model(model)
+            return model
         return None
 
     def register(self, email: str, password: str, totp_secret: str | None = None, roles: List[str] | None = None) -> User:

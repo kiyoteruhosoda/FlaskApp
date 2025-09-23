@@ -356,8 +356,8 @@ def upgrade():
     from datetime import datetime, timezone
     op.get_bind().execute(
     sa.text(
-    "INSERT INTO user (id, email, password_hash,created_at) VALUES (:id, :email, :pw, :created_at)"
-    ),
+    "INSERT INTO user (id, email, password_hash, username, created_at, is_active) VALUES (:id, :email, :pw, :username, :created_at, :is_active)"
+        ),
     {
     "id": 1,
     "email": "admin@example.com",

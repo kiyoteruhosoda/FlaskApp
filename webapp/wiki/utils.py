@@ -1,296 +1,86 @@
-"""
-Wiki機能用のユーティリティ関数
-"""
+"""Wiki 機能で利用するユーティリティ群。"""
 
-import re
-import markdown
-from markupsafe import Markup
-from datetime import datetime, timezone
+from __future__ import annotations
+
 import html
-import base64
-import hashlib
+import logging
+import re
+from datetime import datetime, timezone
+
 from flask import g
+from markupsafe import Markup
+
+from domain.wiki.markdown import (
+    HtmlEscaper,
+    HtmlSanitizer,
+    MarkdownContent,
+    MarkdownRenderer,
+    MermaidDiagramProcessor,
+    SingleNewlineProcessor,
+    UrlAutoLinker,
+)
 
 from ..timezone import convert_to_timezone
 
 
-def auto_link_urls(text):
-    """http:やhttps:で始まるURLを自動的にリンクに変換"""
+logger = logging.getLogger(__name__)
+
+
+# ドメイン層のサービス/値オブジェクトを初期化し、再利用する
+_auto_linker = UrlAutoLinker()
+_newline_processor = SingleNewlineProcessor()
+_sanitizer = HtmlSanitizer()
+_diagram_processor = MermaidDiagramProcessor()
+_html_escaper = HtmlEscaper()
+_renderer = MarkdownRenderer(
+    auto_linker=_auto_linker,
+    preprocessor=_newline_processor,
+    sanitizer=_sanitizer,
+    diagram_processor=_diagram_processor,
+    html_escaper=_html_escaper,
+)
+
+
+def auto_link_urls(text: str | None) -> str:
+    """テキスト中の URL を自動でリンク化する。"""
+
+    return _auto_linker.convert(text or "")
+
+
+def preprocess_single_newlines(text: str | None) -> str:
+    """単一改行を Markdown の強制改行へ変換する。"""
+
+    return _newline_processor.apply(text or "")
+
+
+def sanitize_html(html_content: str | None) -> str:
+    """HTML から危険な要素を除去する。"""
+
+    return _sanitizer.clean(html_content or "")
+
+
+def process_mermaid_blocks(text: str | None) -> str:
+    """Mermaid 記法のコードブロックを HTML に変換する。"""
+
+    return _diagram_processor.process(text or "")
+
+
+def escape_user_html(text: str | None) -> str:
+    """Markdown 入力中の危険な HTML をエスケープする。"""
+
+    return _html_escaper.escape(text or "")
+
+
+def markdown_to_html(text: str | None) -> Markup:
+    """Markdown テキストを安全な HTML へ変換する。"""
+
     if not text:
-        return ""
-    
-    # すでにHTMLリンクやMarkdownリンクになっているものを除外してURLを自動リンク化
-    
-    # まず、すでにリンクになっているものを一時的に置換
-    temp_replacements = {}
-    placeholder_pattern = "___TEMP_LINK_{}_TEMP___"
-    
-    # HTMLリンクを保護
-    html_link_pattern = r'<a\s[^>]*href=["\'][^"\']*["\'][^>]*>.*?</a>'
-    counter = 0
-    for match in re.finditer(html_link_pattern, text, re.IGNORECASE | re.DOTALL):
-        placeholder = placeholder_pattern.format(counter)
-        temp_replacements[placeholder] = match.group(0)
-        text = text.replace(match.group(0), placeholder)
-        counter += 1
-    
-    # Markdownリンクを保護
-    md_link_pattern = r'\[([^\]]*)\]\(([^)]+)\)'
-    for match in re.finditer(md_link_pattern, text):
-        placeholder = placeholder_pattern.format(counter)
-        temp_replacements[placeholder] = match.group(0)
-        text = text.replace(match.group(0), placeholder)
-        counter += 1
-    
-    # HTML属性内のURLを保護（src, hrefなど）
-    html_attr_pattern = r'(?:src|href|action|data-[^=]*)\s*=\s*["\'][^"\']*https?://[^"\']*["\']'
-    for match in re.finditer(html_attr_pattern, text, re.IGNORECASE):
-        placeholder = placeholder_pattern.format(counter)
-        temp_replacements[placeholder] = match.group(0)
-        text = text.replace(match.group(0), placeholder)
-        counter += 1
-    
-    # URL自動リンク化（IPv6アドレス対応）
-    # IPv6アドレスを含むURLに対応
-    url_pattern = r'(https?://(?:\[[0-9a-fA-F:]+\]|[^\s<>"\'`\]]+)(?::[0-9]+)?[^\s<>"\'`]*)'
-    
-    def replace_url(match):
-        url = match.group(1)
-        # URLの末尾の句読点を除去（ただし、IPv6の角括弧は保持）
-        url = re.sub(r'[.,;!?]+$', '', url)
-        return f'<a href="{url}" target="_blank" rel="noopener noreferrer">{url}</a>'
-    
-    text = re.sub(url_pattern, replace_url, text)
-    
-    # 保護したリンクを復元
-    for placeholder, original in temp_replacements.items():
-        text = text.replace(placeholder, original)
-    
-    return text
+        return Markup("")
 
-
-def preprocess_single_newlines(text):
-    """単一の改行を2つのスペース+改行に変換（Markdownの強制改行）
-    ただし、コードブロック内は除外"""
-    if not text:
-        return ""
-    
-    # まず改行コードを統一（Windows形式のCRLFをUnix形式のLFに変換）
-    text = text.replace('\r\n', '\n').replace('\r', '\n')
-    
-    lines = text.split('\n')
-    result_lines = []
-    in_fenced_code = False
-    
-    for i, line in enumerate(lines):
-        # フェンスコードブロック（```）の検出
-        if line.strip().startswith('```'):
-            in_fenced_code = not in_fenced_code
-            result_lines.append(line)
-            continue
-        
-        # コードブロック内の場合はそのまま追加
-        if in_fenced_code:
-            result_lines.append(line)
-            continue
-        
-        # 次の行が存在し、現在の行が空でなく、次の行も空でない場合
-        if (i + 1 < len(lines) and 
-            line.strip() and 
-            lines[i + 1].strip() and
-            not lines[i + 1].startswith('#') and  # 見出しの前は改行しない
-            not line.endswith('  ')):  # 既に強制改行がある場合は除外
-            # Markdownの強制改行（行末に2つのスペース）を追加
-            result_lines.append(line + '  ')
-        else:
-            result_lines.append(line)
-    
-    return '\n'.join(result_lines)
-
-
-def sanitize_html(html_content):
-    """HTMLからセキュリティ上危険なタグと属性を除去（図表HTMLは保護）"""
-    if not html_content:
-        return ""
-    
-    # 図表関連のHTMLを一時的に保護
-    diagram_placeholders = {}
-    placeholder_pattern = "___DIAGRAM_PLACEHOLDER_{}_DIAGRAM___"
-    counter = 0
-    
-    # Mermaidの図表を保護
-    diagram_patterns = [
-        r'<div class="mermaid-diagram"[^>]*>.*?</div>'
-    ]
-    
-    for pattern in diagram_patterns:
-        for match in re.finditer(pattern, html_content, re.DOTALL):
-            placeholder = placeholder_pattern.format(counter)
-            diagram_placeholders[placeholder] = match.group(0)
-            html_content = html_content.replace(match.group(0), placeholder)
-            counter += 1
-    
-    # 危険なタグを除去（Markdownが生成する基本的なHTMLタグは保持）
-    dangerous_tags = [
-        'script', 'iframe', 'object', 'embed', 'applet', 
-        'form', 'input', 'button', 'textarea', 'select',
-        'meta', 'link', 'style', 'base', 'frame', 'frameset'
-    ]
-    
-    for tag in dangerous_tags:
-        # 開始タグと終了タグを除去
-        pattern = rf'<\s*{tag}[^>]*>.*?<\s*/\s*{tag}\s*>'
-        html_content = re.sub(pattern, '', html_content, flags=re.IGNORECASE | re.DOTALL)
-        # 自己終了タグを除去
-        pattern = rf'<\s*{tag}[^>]*/?>'
-        html_content = re.sub(pattern, '', html_content, flags=re.IGNORECASE)
-    
-    # 危険な属性を除去（但し、onclick属性は図表用に部分的に許可）
-    dangerous_attrs = [
-        'onload', 'onerror', 'onmouseover', 'onmouseout',
-        'onfocus', 'onblur', 'onchange', 'onsubmit', 'onreset',
-        'onkeydown', 'onkeyup', 'onkeypress', 'onmousedown', 'onmouseup',
-        'javascript:', 'vbscript:', 'data:'
-    ]
-    
-    for attr in dangerous_attrs:
-        if attr.endswith(':'):
-            # プロトコル系の除去
-            pattern = rf'{attr}[^"\'\s>]*'
-        else:
-            # イベントハンドラ系の除去
-            pattern = rf'{attr}\s*=\s*["\'][^"\']*["\']'
-        html_content = re.sub(pattern, '', html_content, flags=re.IGNORECASE)
-    
-    # 一般的なonclick（図表関数以外）を除去
-    onclick_pattern = r'onclick\s*=\s*["\'](?!toggleMermaidSource)[^"\']*["\']'
-    html_content = re.sub(onclick_pattern, '', html_content, flags=re.IGNORECASE)
-    
-    # 図表HTMLを復元
-    for placeholder, original_html in diagram_placeholders.items():
-        html_content = html_content.replace(placeholder, original_html)
-    
-    return html_content
-
-
-
-
-
-def process_mermaid_blocks(text):
-    """Mermaidコードブロックを処理してHTMLに変換"""
-    if not text:
-        return text
-    
-    # Mermaidコードブロックを検出するパターン
-    pattern = r'```mermaid\s*\n(.*?)\n```'
-    
-    def replace_mermaid(match):
-        mermaid_code = match.group(1).strip()
-        if not mermaid_code:
-            return match.group(0)  # 空の場合は元のコードブロックを返す
-        
-        # MermaidコードのハッシュValues生成（IDとして使用）
-        code_hash = hashlib.md5(mermaid_code.encode('utf-8')).hexdigest()[:8]
-        
-        # HTMLを生成
-        html_output = f'''
-<div class="mermaid-diagram" data-hash="{code_hash}">
-    <div class="diagram-header">
-        <small class="text-muted">Mermaid Diagram</small>
-        <button class="btn btn-sm btn-outline-secondary ms-2" 
-                onclick="toggleMermaidSource('{code_hash}')" 
-                title="ソースコードを表示/非表示">
-            <i class="fas fa-code"></i>
-        </button>
-    </div>
-    <div class="diagram-content">
-        <div class="mermaid" id="mermaid-{code_hash}">
-{html.escape(mermaid_code)}
-        </div>
-    </div>
-    <div class="diagram-source" id="mermaid-source-{code_hash}">
-        <pre><code class="language-mermaid">{html.escape(mermaid_code)}</code></pre>
-    </div>
-</div>'''
-        return html_output
-    
-    return re.sub(pattern, replace_mermaid, text, flags=re.DOTALL)
-
-
-def escape_user_html(text):
-    """ユーザー入力のHTMLタグをエスケープ（Markdownのコードブロック内は除外）"""
-    if not text:
-        return ""
-    
-    lines = text.split('\n')
-    result_lines = []
-    in_fenced_code = False
-    
-    for i, line in enumerate(lines):
-        # フェンスコードブロック（```）の検出
-        if line.strip().startswith('```'):
-            in_fenced_code = not in_fenced_code
-            result_lines.append(line)
-            continue
-        
-        # コードブロック内でない場合のみHTMLエスケープを検討
-        if not in_fenced_code:
-            # インデントコードブロック（4つ以上のスペースで始まる行）の検出
-            if line.startswith('    ') or line.startswith('\t'):
-                # インデントコードブロックの場合はエスケープしない
-                result_lines.append(line)
-            else:
-                # 通常のテキストの場合のみHTMLエスケープ
-                line = line.replace('<', '&lt;').replace('>', '&gt;')
-                result_lines.append(line)
-        else:
-            # フェンスコードブロック内はエスケープしない
-            result_lines.append(line)
-    
-    return '\n'.join(result_lines)
-
-
-def markdown_to_html(text):
-    """MarkdownテキストをHTMLに変換"""
-    if not text:
-        return ""
-    
-    # デバッグ: 入力を確認
-    print(f"[DEBUG] markdown_to_html input: {repr(text[:100])}...")
-    
-    # セキュリティ: Markdown処理前にユーザー入力のHTMLタグをエスケープ
-    text = escape_user_html(text)
-    
-    # Mermaidのコードブロックを先に処理
-    text = process_mermaid_blocks(text)
-    
-    # 1つの改行を2つのスペース+改行に変換（Markdownの強制改行）
-    preprocessed_text = preprocess_single_newlines(text)
-    
-    # デバッグ: 前処理後のテキストを確認
-    print(f"[DEBUG] after preprocessing: {repr(preprocessed_text[:100])}...")
-    
-    # Markdownエクステンションを設定
-    md = markdown.Markdown(extensions=[
-        'markdown.extensions.fenced_code',  # コードブロック
-        'markdown.extensions.tables',       # テーブル
-        'markdown.extensions.toc',          # 目次
-        'markdown.extensions.codehilite',   # シンタックスハイライト
-    ])
-    
-    # HTMLを生成
-    html_content = md.convert(preprocessed_text)
-    
-    # セキュリティ: 危険なHTMLタグとスクリプトを除去（但し、図表HTMLは保護）
-    html_content = sanitize_html(html_content)
-    
-    # Markdown変換後にURL自動リンク化を適用
-    html_content = auto_link_urls(html_content)
-    
-    # デバッグ: 出力を確認
-    print(f"[DEBUG] markdown_to_html output: {repr(str(html_content)[:100])}...")
-    
-    return Markup(html_content)
+    logger.debug("markdown_to_html input: %s", text[:100])
+    rendered = _renderer.render(MarkdownContent(text))
+    logger.debug("markdown_to_html output: %s", rendered[:100])
+    return Markup(rendered)
 
 
 def nl2br(text):

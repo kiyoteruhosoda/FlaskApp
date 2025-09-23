@@ -16,6 +16,40 @@ from .timezone import resolve_timezone, convert_to_timezone
 from core.db_log_handler import DBLogHandler
 from core.logging_config import ensure_appdb_file_logging
 
+
+_SENSITIVE_KEYWORDS = {
+    "password",
+    "passwd",
+    "secret",
+    "token",
+    "access_token",
+    "refresh_token",
+    "api_key",
+}
+
+
+def _is_sensitive_key(key):
+    if not isinstance(key, str):
+        return False
+    key_lower = key.lower()
+    return any(keyword in key_lower for keyword in _SENSITIVE_KEYWORDS)
+
+
+def _mask_sensitive_data(data):
+    """再帰的に辞書やリスト内の機密情報をマスクする。"""
+
+    if isinstance(data, dict):
+        masked = {}
+        for key, value in data.items():
+            if _is_sensitive_key(key):
+                masked[key] = "***"
+            else:
+                masked[key] = _mask_sensitive_data(value)
+        return masked
+    if isinstance(data, list):
+        return [_mask_sensitive_data(item) for item in data]
+    return data
+
 # エラーハンドラ
 from werkzeug.exceptions import HTTPException
 
@@ -201,12 +235,12 @@ def create_app():
             }
             args_dict = request.args.to_dict()
             if args_dict:
-                log_dict["args"] = args_dict
+                log_dict["args"] = _mask_sensitive_data(args_dict)
             form_dict = request.form.to_dict()
             if form_dict:
-                log_dict["form"] = form_dict
-            if input_json:
-                log_dict["json"] = input_json
+                log_dict["form"] = _mask_sensitive_data(form_dict)
+            if input_json is not None:
+                log_dict["json"] = _mask_sensitive_data(input_json)
             app.logger.info(
                 json.dumps(log_dict, ensure_ascii=False),
                 extra={
@@ -231,7 +265,7 @@ def create_app():
             app.logger.info(
                 json.dumps({
                     "status": response.status_code,
-                    "json": resp_json,
+                    "json": _mask_sensitive_data(resp_json) if resp_json is not None else None,
                 }, ensure_ascii=False),
                 extra={
                     "event": "api.output",
@@ -275,19 +309,10 @@ def create_app():
 
         form_dict = request.form.to_dict()
         if form_dict:
-            # ここで鍵っぽいキーはマスク推奨（例）
-            for k in list(form_dict.keys()):
-                if k.lower() in {"password", "secret", "token"}:
-                    form_dict[k] = "***"
-            log_dict["form"] = form_dict
+            log_dict["form"] = _mask_sensitive_data(form_dict)
 
-        if input_json:
-            # JSON もマスク推奨
-            scrubbed = dict(input_json)
-            for k in list(scrubbed.keys()):
-                if k.lower() in {"password", "secret", "token"}:
-                    scrubbed[k] = "***"
-            log_dict["json"] = scrubbed
+        if input_json is not None:
+            log_dict["json"] = _mask_sensitive_data(input_json)
 
         # ★ ログ出力方針：4xxはstackなし、5xxはstack付き
         if is_http and 400 <= code < 500:
@@ -325,9 +350,9 @@ def create_app():
                 log_dict["query_string"] = qs
             form_dict = request.form.to_dict()
             if form_dict:
-                log_dict["form"] = form_dict
-            if input_json:
-                log_dict["json"] = input_json
+                log_dict["form"] = _mask_sensitive_data(form_dict)
+            if input_json is not None:
+                log_dict["json"] = _mask_sensitive_data(input_json)
             app.logger.error(
                 json.dumps(log_dict, ensure_ascii=False),
                 extra={

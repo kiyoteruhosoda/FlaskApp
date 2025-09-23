@@ -5,6 +5,7 @@ import json
 import sys
 
 import pytest
+from flask import request
 
 
 @pytest.fixture
@@ -65,7 +66,12 @@ def app(tmp_path):
 
             @app.post("/api/ping")
             def api_ping():
-                return {"ok": True}
+                body = request.get_json(silent=True) or {}
+                return {"ok": True, "access_token": "real-token", "echo": body}
+
+            @app.post("/api/form")
+            def api_form():
+                return {"ok": True, "refresh_token": "form-token"}
 
         yield app
 
@@ -120,7 +126,20 @@ def test_502_logged(client):
 def test_api_request_response_logged(client):
     from core.models.log import Log
 
-    resp = client.post("/api/ping", json={"hello": "world"})
+    payload = {
+        "hello": "world",
+        "password": "super-secret",
+        "credentials": {
+            "access_token": "abc",
+            "refresh_token": "xyz",
+            "note": "keep",
+        },
+        "items": [
+            {"name": "public"},
+            {"refresh_token": "nested"},
+        ],
+    }
+    resp = client.post("/api/ping", json=payload)
     assert resp.status_code == 200
     with client.application.app_context():
         logs = Log.query.order_by(Log.id).all()
@@ -131,12 +150,57 @@ def test_api_request_response_logged(client):
         assert req_log.event == "api.input"
         assert resp_log.event == "api.output"
         assert req_data["method"] == "POST"
-        assert req_data["json"] == {"hello": "world"}
+        assert req_data["json"]["hello"] == "world"
+        assert req_data["json"]["password"] == "***"
+        assert req_data["json"]["credentials"]["access_token"] == "***"
+        assert req_data["json"]["credentials"]["refresh_token"] == "***"
+        assert req_data["json"]["credentials"]["note"] == "keep"
+        assert req_data["json"]["items"][0]["name"] == "public"
+        assert req_data["json"]["items"][1]["refresh_token"] == "***"
         assert resp_data["status"] == 200
-        assert resp_data["json"] == {"ok": True}
+        assert resp_data["json"]["ok"] is True
+        assert resp_data["json"]["access_token"] == "***"
+        assert resp_data["json"]["echo"]["hello"] == "world"
+        assert resp_data["json"]["echo"]["password"] == "***"
+        assert resp_data["json"]["echo"]["credentials"]["access_token"] == "***"
+        assert resp_data["json"]["echo"]["credentials"]["note"] == "keep"
+        assert resp_data["json"]["echo"]["items"][0]["name"] == "public"
+        assert resp_data["json"]["echo"]["items"][1]["refresh_token"] == "***"
         assert req_log.request_id == resp_log.request_id
         assert req_log.path.endswith("/api/ping")
         assert resp_log.path.endswith("/api/ping")
+
+
+def test_api_form_logging_masks_sensitive_data(client):
+    from core.models.log import Log
+
+    resp = client.post(
+        "/api/form",
+        data={
+            "username": "alice",
+            "password": "top-secret",
+            "access_token": "form-access",
+        },
+    )
+    assert resp.status_code == 200
+
+    with client.application.app_context():
+        logs = Log.query.order_by(Log.id).all()
+        assert len(logs) == 2
+        req_log, resp_log = logs
+        req_data = json.loads(req_log.message)
+        resp_data = json.loads(resp_log.message)
+
+        assert req_log.event == "api.input"
+        assert resp_log.event == "api.output"
+        assert req_data["form"]["username"] == "alice"
+        assert req_data["form"]["password"] == "***"
+        assert req_data["form"]["access_token"] == "***"
+        assert resp_data["json"]["ok"] is True
+        assert resp_data["json"]["refresh_token"] == "***"
+        assert req_log.request_id == resp_log.request_id
+        assert req_log.path.endswith("/api/form")
+        assert resp_log.path.endswith("/api/form")
 
 
 def test_status_change_logged(client):

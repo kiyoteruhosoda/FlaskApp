@@ -449,8 +449,8 @@ body {
 
 .album-slideshow-close {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  top: 28px;
+  right: 28px;
   background: rgba(15, 23, 42, 0.85);
   border-radius: 50%;
   border: 1px solid rgba(148, 163, 184, 0.4);
@@ -525,6 +525,11 @@ body {
   .album-slideshow-nav {
     width: 40px;
     height: 40px;
+  }
+
+  .album-slideshow-close {
+    top: 20px;
+    right: 20px;
   }
 
   .album-slideshow-info .album-title {

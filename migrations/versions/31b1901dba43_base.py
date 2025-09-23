@@ -362,7 +362,9 @@ def upgrade():
     "id": 1,
     "email": "admin@example.com",
     "pw": "scrypt:32768:8:1$7oTcIUdekNLXGSXC$fd0f3320bde4570c7e1ea9d9d289aeb916db7a50fb62489a7e89d99c6cc576813506fd99f50904101c1eb85ff925f8dc879df5ded781ef2613224d702938c9c8",
+    "username": "admin",
     "created_at": datetime.now(timezone.utc),
+    "is_active": True
     },
     )
     op.execute("INSERT INTO user_roles (user_id, role_id) VALUES (1, 1)")

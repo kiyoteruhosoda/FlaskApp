@@ -61,3 +61,19 @@ def test_refresh_invalid_token(client, app):
     res = client.post("/api/refresh", json={"refresh_token": "invalid"})
     assert res.status_code == 401
 
+
+def test_refresh_inactive_user(client, app):
+    _, refresh = login(client, app)
+
+    from webapp.extensions import db
+    from core.models.user import User
+
+    with app.app_context():
+        user = User.query.filter_by(email=app.test_user_email).first()
+        assert user is not None
+        user.is_active = False
+        db.session.commit()
+
+    res = client.post("/api/refresh", json={"refresh_token": refresh})
+    assert res.status_code == 401
+

@@ -139,10 +139,18 @@ class TokenService:
             return None
         
         user = User.query.get(user_id)
-        if not user or not user.check_refresh_token(refresh_token):
+        if not user:
+            current_app.logger.debug("Refresh token verification failed: user not found")
+            return None
+
+        if not user.is_active:
+            current_app.logger.debug("Refresh token verification failed: user inactive")
+            return None
+
+        if not user.check_refresh_token(refresh_token):
             current_app.logger.debug("Refresh token verification failed")
             return None
-            
+
         return user
     
     @classmethod

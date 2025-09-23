@@ -4,7 +4,6 @@ from flask_login import LoginManager
 from flask_babel import Babel
 from flask_babel import lazy_gettext as _l
 from flask import current_app
-import jwt
 
 
 migrate = Migrate()
@@ -26,18 +25,15 @@ def load_user_from_request(request):
         token = request.cookies.get("access_token")
     if not token:
         return None
-    try:
-        payload = jwt.decode(
-            token,
-            current_app.config["JWT_SECRET_KEY"],
-            algorithms=["HS256"],
-        )
-    except jwt.PyJWTError:
-        return None
-    user_id = payload.get("sub")
-    if not user_id:
-        return None
-    from core.models.user import User
+    from webapp.services.token_service import TokenService
 
-    return User.query.get(user_id)
+    user = TokenService.verify_access_token(token)
+    if not user:
+        current_app.logger.debug(
+            "JWT token verification failed in request_loader",
+            extra={"event": "auth.jwt.invalid"},
+        )
+        return None
+
+    return user
 

@@ -52,3 +52,28 @@ def test_api_logout_revokes_tokens_and_clears_session(client):
     # クッキー削除の指示が返されることを確認
     cookies = response.headers.getlist("Set-Cookie")
     assert any("access_token=;" in cookie for cookie in cookies)
+
+
+def test_api_logout_rejects_inactive_user_token_via_request_loader(client):
+    user = _create_user(email="inactive-user@example.com")
+    access_token, _ = TokenService.generate_token_pair(user)
+
+    user.is_active = False
+    db.session.commit()
+
+    client.set_cookie("access_token", access_token)
+
+    app = client.application
+    original_testing = app.config.get("TESTING", False)
+    original_login_disabled = app.config.get("LOGIN_DISABLED", False)
+    app.config["TESTING"] = False
+    app.config["LOGIN_DISABLED"] = False
+
+    try:
+        response = client.post("/api/logout")
+    finally:
+        app.config["TESTING"] = original_testing
+        app.config["LOGIN_DISABLED"] = original_login_disabled
+
+    assert response.status_code == 401
+    assert response.get_json() == {"error": "invalid_token"}

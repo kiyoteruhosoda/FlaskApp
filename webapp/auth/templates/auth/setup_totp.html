@@ -11,7 +11,7 @@
     
     <div class="qr-code-container">
       <img src="{{ qr_data }}" alt="QR Code" class="qr-code">
-      
+
       <!-- QRコードが読めない場合の文字列表示セクション -->
       <div class="secret-key-section">
         <div class="secret-key-toggle">
@@ -20,7 +20,7 @@
             <span id="toggle-text">{{ _('Show setup key') }}</span>
           </button>
         </div>
-        
+
         <div id="secret-key-display" class="secret-key-display" style="display: none;">
           <div class="secret-key-info">
             <i class="fas fa-info-circle"></i>
@@ -34,6 +34,27 @@
               <i class="fas fa-copy"></i>
             </button>
           </div>
+
+          {% if otpauth_uri %}
+          <div class="otpauth-link-section">
+            <div class="otpauth-link-info">
+              <i class="fas fa-external-link-alt"></i>
+              {{ _('If you are using this device, you can open the setup link directly:') }}
+            </div>
+            <div class="otpauth-link-container">
+              <a href="{{ otpauth_uri }}" class="btn-open-link" id="open-otpauth-link">
+                <i class="fas fa-external-link-alt"></i>
+                {{ _('Open setup link') }}
+              </a>
+              <button type="button" class="btn-copy-link" onclick="copyOtpAuthLink()" title="{{ _('Copy setup link') }}">
+                <i class="fas fa-copy"></i>
+              </button>
+            </div>
+            <div class="otpauth-link-value">
+              <code id="otpauth-link">{{ otpauth_uri }}</code>
+            </div>
+          </div>
+          {% endif %}
 
         </div>
       </div>
@@ -162,6 +183,83 @@ footer {
   align-items: center;
   gap: 10px;
   margin-bottom: 20px;
+}
+
+.otpauth-link-section {
+  margin-top: 10px;
+  padding-top: 15px;
+  border-top: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.otpauth-link-info {
+  color: #4a5568;
+  font-size: 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.otpauth-link-info i {
+  color: #667eea;
+  margin-top: 2px;
+}
+
+.otpauth-link-container {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.btn-open-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #3182ce;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.btn-open-link:hover {
+  background: #2b6cb0;
+}
+
+.btn-copy-link {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-copy-link:hover {
+  background: #5a67d8;
+}
+
+.btn-copy-link.copied {
+  background: #48bb78;
+}
+
+.otpauth-link-value {
+  background: white;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  padding: 12px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+  color: #2d3748;
+  word-break: break-all;
 }
 
 .secret-key-value {
@@ -337,11 +435,11 @@ function copySecretKey() {
   const secretKey = document.getElementById('secret-key').textContent;
   const copyBtn = document.querySelector('.btn-copy');
   const originalIcon = copyBtn.innerHTML;
-  
+
   navigator.clipboard.writeText(secretKey).then(function() {
     copyBtn.innerHTML = '<i class="fas fa-check"></i>';
     copyBtn.classList.add('copied');
-    
+
     setTimeout(function() {
       copyBtn.innerHTML = originalIcon;
       copyBtn.classList.remove('copied');
@@ -355,10 +453,46 @@ function copySecretKey() {
     textArea.select();
     document.execCommand('copy');
     document.body.removeChild(textArea);
-    
+
     copyBtn.innerHTML = '<i class="fas fa-check"></i>';
     copyBtn.classList.add('copied');
-    
+
+    setTimeout(function() {
+      copyBtn.innerHTML = originalIcon;
+      copyBtn.classList.remove('copied');
+    }, 2000);
+  });
+}
+
+function copyOtpAuthLink() {
+  const otpauthElement = document.getElementById('otpauth-link');
+  const copyBtn = document.querySelector('.btn-copy-link');
+  if (!otpauthElement || !copyBtn) {
+    return;
+  }
+  const linkValue = otpauthElement.textContent;
+  const originalIcon = copyBtn.innerHTML;
+
+  navigator.clipboard.writeText(linkValue).then(function() {
+    copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+    copyBtn.classList.add('copied');
+
+    setTimeout(function() {
+      copyBtn.innerHTML = originalIcon;
+      copyBtn.classList.remove('copied');
+    }, 2000);
+  }).catch(function(err) {
+    console.error('Failed to copy: ', err);
+    const textArea = document.createElement('textarea');
+    textArea.value = linkValue;
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+
+    copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+    copyBtn.classList.add('copied');
+
     setTimeout(function() {
       copyBtn.innerHTML = originalIcon;
       copyBtn.classList.remove('copied');

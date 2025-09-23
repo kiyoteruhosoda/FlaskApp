@@ -192,7 +192,12 @@ def register_totp():
         token = request.form.get("token")
         if not token or not verify_totp(secret, token):
             flash(_("Invalid authentication code"), "error")
-            return render_template("auth/register_totp.html", qr_data=qr_data, secret=secret)
+            return render_template(
+                "auth/register_totp.html",
+                qr_data=qr_data,
+                secret=secret,
+                otpauth_uri=uri,
+            )
         
         try:
             # ユーザーをTOTPと共にアクティブ化
@@ -205,9 +210,19 @@ def register_totp():
             return redirect(url_for("feature_x.dashboard"))
         except Exception as e:
             flash(_("Registration failed: {}").format(str(e)), "error")
-            return render_template("auth/register_totp.html", qr_data=qr_data, secret=secret)
-    
-    return render_template("auth/register_totp.html", qr_data=qr_data, secret=secret)
+            return render_template(
+                "auth/register_totp.html",
+                qr_data=qr_data,
+                secret=secret,
+                otpauth_uri=uri,
+            )
+
+    return render_template(
+        "auth/register_totp.html",
+        qr_data=qr_data,
+        secret=secret,
+        otpauth_uri=uri,
+    )
 
 
 @bp.route("/register/totp/cancel", methods=["POST"])
@@ -397,13 +412,23 @@ def setup_totp():
         token = request.form.get("token")
         if not token or not verify_totp(secret, token):
             flash(_("Invalid authentication code"), "error")
-            return render_template("auth/setup_totp.html", qr_data=qr_data, secret=secret)
+            return render_template(
+                "auth/setup_totp.html",
+                qr_data=qr_data,
+                secret=secret,
+                otpauth_uri=uri,
+            )
         current_user.totp_secret = secret
         db.session.commit()
         _clear_setup_totp_session()
         flash(_("Two-factor authentication enabled"), "success")
         return redirect(url_for("auth.edit"))
-    return render_template("auth/setup_totp.html", qr_data=qr_data, secret=secret)
+    return render_template(
+        "auth/setup_totp.html",
+        qr_data=qr_data,
+        secret=secret,
+        otpauth_uri=uri,
+    )
 
 @bp.route("/setup_totp/cancel", methods=["POST"])
 @login_required

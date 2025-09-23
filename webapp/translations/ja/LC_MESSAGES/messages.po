@@ -881,6 +881,21 @@ msgstr "QRコードをスキャンできない場合は、この設定キーを�
 msgid "Copy to clipboard"
 msgstr "クリップボードにコピー"
 
+#: webapp/auth/templates/auth/register_totp.html:42
+#: webapp/auth/templates/auth/setup_totp.html:42
+msgid "If you are using this device, you can open the setup link directly:"
+msgstr "この端末をご利用の場合は、以下の設定リンクを直接開くことができます："
+
+#: webapp/auth/templates/auth/register_totp.html:47
+#: webapp/auth/templates/auth/setup_totp.html:47
+msgid "Open setup link"
+msgstr "設定リンクを開く"
+
+#: webapp/auth/templates/auth/register_totp.html:49
+#: webapp/auth/templates/auth/setup_totp.html:49
+msgid "Copy setup link"
+msgstr "設定リンクをコピー"
+
 #: webapp/auth/templates/auth/register_totp.html:59
 msgid "Complete Registration"
 msgstr "登録完了"

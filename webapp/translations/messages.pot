@@ -880,6 +880,21 @@ msgstr ""
 msgid "Copy to clipboard"
 msgstr ""
 
+#: webapp/auth/templates/auth/register_totp.html:42
+#: webapp/auth/templates/auth/setup_totp.html:42
+msgid "If you are using this device, you can open the setup link directly:"
+msgstr ""
+
+#: webapp/auth/templates/auth/register_totp.html:47
+#: webapp/auth/templates/auth/setup_totp.html:47
+msgid "Open setup link"
+msgstr ""
+
+#: webapp/auth/templates/auth/register_totp.html:49
+#: webapp/auth/templates/auth/setup_totp.html:49
+msgid "Copy setup link"
+msgstr ""
+
 #: webapp/auth/templates/auth/register_totp.html:59
 msgid "Complete Registration"
 msgstr ""

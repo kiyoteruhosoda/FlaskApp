@@ -278,32 +278,66 @@
     text-overflow: ellipsis;
   }
 
-  .selected-media-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  .selected-media-container {
+    border-top: 1px solid rgba(148, 163, 184, 0.25);
+    padding-top: 1rem;
+  }
+
+  .selected-media-list {
+    display: flex;
+    flex-direction: column;
     gap: 12px;
+    max-height: 360px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .selected-media-empty {
+    padding: 1rem;
+    text-align: center;
+    color: #64748b;
+    font-size: 0.9rem;
+    border: 1px dashed rgba(148, 163, 184, 0.4);
+    border-radius: 12px;
+    background: #f8fafc;
   }
 
   .selected-media-item {
     position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
     background: #f8fafc;
     border: 1px solid rgba(148, 163, 184, 0.35);
     border-radius: 12px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
+    padding: 10px 12px;
+  }
+
+  .selected-media-index {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    font-weight: 600;
+    background: rgba(37, 99, 235, 0.12);
+    color: #1d4ed8;
+    flex-shrink: 0;
   }
 
   .selected-media-thumb {
-    width: 100%;
-    padding-bottom: 65%;
+    width: 72px;
+    height: 72px;
+    border-radius: 10px;
     background-size: cover;
     background-position: center;
+    flex-shrink: 0;
   }
 
   .selected-media-meta {
-    padding: 10px 12px 12px;
-    font-size: 0.8rem;
+    flex: 1;
+    min-width: 0;
     color: #475569;
   }
 
@@ -314,11 +348,39 @@
     text-overflow: ellipsis;
   }
 
+  .selected-media-filename {
+    font-size: 0.8rem;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .selected-media-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .selected-media-reorder {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .selected-media-reorder .btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   .selected-media-remove {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    padding: 4px 6px;
+    padding: 4px 8px;
   }
 
   .album-cover-preview {
@@ -679,6 +741,7 @@ document.addEventListener('DOMContentLoaded', () => {
     nameRequired: "{{ _('Album title is required.')|escapejs }}",
     noSelection: "{{ _('No media selected')|escapejs }}",
     noUnselectedMatches: "{{ _('No unselected media matches the current filters.')|escapejs }}",
+    selectedMediaEmpty: "{{ _('Selected media will appear here once added.')|escapejs }}",
     selectedCountSingular: "{{ ngettext('%(count)s media selected', '%(count)s media selected', 1, count='%(count)s')|escapejs }}",
     selectedCountPlural: "{{ ngettext('%(count)s media selected', '%(count)s media selected', 2, count='%(count)s')|escapejs }}",
     albumsLoadedSingular: "{{ ngettext('%(count)s album loaded', '%(count)s albums loaded', 1, count='%(count)s')|escapejs }}",
@@ -935,6 +998,8 @@ document.addEventListener('DOMContentLoaded', () => {
     },
   });
 
+  const slideshowIntentStorageKey = 'photoView.slideshowIntent';
+
   let reorderMode = false;
   let reorderDirty = false;
   let albumsInitialLoadPromise = null;
@@ -1161,65 +1226,129 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderSelectedMedia() {
     const entries = Array.from(albumState.selectedMedia.entries());
+    if (selectedMediaCount) {
+      selectedMediaCount.textContent = entries.length
+        ? formatCount(strings.selectedCountSingular, strings.selectedCountPlural, entries.length)
+        : strings.noSelection;
+    }
 
     if (selectedMediaList) {
       selectedMediaList.innerHTML = '';
-    }
+      if (entries.length === 0) {
+        const emptyState = document.createElement('div');
+        emptyState.className = 'selected-media-empty';
+        emptyState.textContent = strings.selectedMediaEmpty;
+        selectedMediaList.appendChild(emptyState);
+      } else {
+        entries.forEach(([id, media], index) => {
+          const item = document.createElement('div');
+          item.className = 'selected-media-item';
+          item.dataset.mediaId = id.toString();
 
-    if (entries.length === 0) {
-      if (selectedMediaCount) {
-        selectedMediaCount.textContent = strings.noSelection;
+          const orderBadge = document.createElement('span');
+          orderBadge.className = 'selected-media-index';
+          orderBadge.textContent = (index + 1).toString();
+
+          const thumb = document.createElement('div');
+          thumb.className = 'selected-media-thumb';
+          thumb.style.backgroundImage = `url('${media.thumbnailUrl || defaultCoverDataUrl}')`;
+
+          const meta = document.createElement('div');
+          meta.className = 'selected-media-meta';
+          const title = document.createElement('div');
+          title.className = 'selected-media-title';
+          title.textContent = formatMediaDateTime(media.shotAt, `${strings.untitledMedia} #${id}`);
+          meta.appendChild(title);
+          if (media.filename) {
+            const filename = document.createElement('div');
+            filename.className = 'selected-media-filename';
+            filename.textContent = media.filename;
+            meta.appendChild(filename);
+          }
+
+          const actions = document.createElement('div');
+          actions.className = 'selected-media-actions';
+
+          const reorderControls = document.createElement('div');
+          reorderControls.className = 'selected-media-reorder';
+
+          const upBtn = document.createElement('button');
+          upBtn.type = 'button';
+          upBtn.className = 'btn btn-outline-secondary btn-sm';
+          upBtn.dataset.selectedMediaAction = 'move-up';
+          upBtn.dataset.mediaId = id.toString();
+          upBtn.innerHTML = '<i class="bi bi-chevron-up"></i>';
+          upBtn.setAttribute('aria-label', `${strings.moveUp} #${id}`);
+          upBtn.disabled = index === 0;
+
+          const downBtn = document.createElement('button');
+          downBtn.type = 'button';
+          downBtn.className = 'btn btn-outline-secondary btn-sm';
+          downBtn.dataset.selectedMediaAction = 'move-down';
+          downBtn.dataset.mediaId = id.toString();
+          downBtn.innerHTML = '<i class="bi bi-chevron-down"></i>';
+          downBtn.setAttribute('aria-label', `${strings.moveDown} #${id}`);
+          downBtn.disabled = index === entries.length - 1;
+
+          reorderControls.appendChild(upBtn);
+          reorderControls.appendChild(downBtn);
+
+          const removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.className = 'btn btn-outline-danger btn-sm selected-media-remove';
+          removeBtn.dataset.selectedMediaAction = 'remove';
+          removeBtn.dataset.mediaId = id.toString();
+          removeBtn.innerHTML = '<i class="bi bi-x-lg"></i>';
+          removeBtn.setAttribute('aria-label', `${strings.removeMediaLabel} #${id}`);
+
+          actions.appendChild(reorderControls);
+          actions.appendChild(removeBtn);
+
+          item.appendChild(orderBadge);
+          item.appendChild(thumb);
+          item.appendChild(meta);
+          item.appendChild(actions);
+          selectedMediaList.appendChild(item);
+        });
       }
-      updateCoverOptions();
-      scheduleMediaScrollAdjustment();
-      return;
     }
-
-    if (selectedMediaCount) {
-      selectedMediaCount.textContent = formatCount(
-        strings.selectedCountSingular,
-        strings.selectedCountPlural,
-        entries.length
-      );
-    }
-
-    if (!selectedMediaList) {
-      updateCoverOptions();
-      scheduleMediaScrollAdjustment();
-      return;
-    }
-
-    entries.forEach(([id, media]) => {
-      const item = document.createElement('div');
-      item.className = 'selected-media-item';
-      item.dataset.mediaId = id.toString();
-
-      const thumb = document.createElement('div');
-      thumb.className = 'selected-media-thumb';
-      thumb.style.backgroundImage = `url('${media.thumbnailUrl || defaultCoverDataUrl}')`;
-
-      const meta = document.createElement('div');
-      meta.className = 'selected-media-meta';
-      const title = document.createElement('div');
-      title.className = 'selected-media-title';
-      title.textContent = formatMediaDateTime(media.shotAt, `${strings.untitledMedia} #${id}`);
-      meta.appendChild(title);
-
-      const removeBtn = document.createElement('button');
-      removeBtn.type = 'button';
-      removeBtn.className = 'btn btn-sm btn-outline-danger selected-media-remove';
-      removeBtn.dataset.mediaId = id.toString();
-      removeBtn.innerHTML = '<i class="bi bi-x"></i>';
-      removeBtn.setAttribute('aria-label', `${strings.removeMediaLabel} #${id}`);
-
-      item.appendChild(thumb);
-      item.appendChild(meta);
-      item.appendChild(removeBtn);
-      selectedMediaList.appendChild(item);
-    });
 
     updateCoverOptions();
     scheduleMediaScrollAdjustment();
+  }
+
+  function removeSelectedMedia(mediaId) {
+    if (!albumState.selectedMedia.has(mediaId)) {
+      return;
+    }
+    albumState.selectedMedia.delete(mediaId);
+    if (albumState.coverMediaId === mediaId) {
+      albumState.coverMediaId = null;
+    }
+    renderSelectedMedia();
+    updateMediaTileSelectionState();
+    if (albumState.selectionFilter !== 'all') {
+      reloadMediaLibrary();
+    }
+  }
+
+  function moveSelectedMedia(mediaId, direction) {
+    const entries = Array.from(albumState.selectedMedia.entries());
+    const currentIndex = entries.findIndex(([id]) => id === mediaId);
+    if (currentIndex === -1) {
+      return;
+    }
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= entries.length) {
+      return;
+    }
+    const [entry] = entries.splice(currentIndex, 1);
+    entries.splice(targetIndex, 0, entry);
+    albumState.selectedMedia = new Map(entries);
+    renderSelectedMedia();
+    if (albumState.selectionFilter === 'selected') {
+      renderSelectedOnlyView();
+    }
   }
 
   function renderSelectedOnlyView() {
@@ -1731,35 +1860,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  async function openAlbumSlideshow(albumId) {
+  function openAlbumSlideshow(albumId) {
+    if (!Number.isFinite(albumId)) {
+      return;
+    }
     try {
-      albumSlideshow.showOverlay();
-      albumSlideshow.setLoading(true);
-      const response = await apiClient.get(`/api/albums/${albumId}`);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      const data = await response.json();
-      if (!data?.album) {
-        throw new Error('Missing album payload');
-      }
-      const album = data.album;
-      const mediaItems = Array.isArray(album.media) ? album.media : [];
-      albumSlideshow.load(mediaItems, { albumTitle: album.title || strings.untitledAlbum });
-      albumSlideshow.setLoading(false);
-      if (!mediaItems.length) {
-        showInfoToast(strings.slideshowNoMedia);
-        albumSlideshow.open(0, { autoplay: false });
-      } else {
-        albumSlideshow.open(0);
+      if (window.sessionStorage) {
+        const intent = {
+          albumId,
+          expiresAt: Date.now() + 2 * 60 * 1000,
+        };
+        window.sessionStorage.setItem(slideshowIntentStorageKey, JSON.stringify(intent));
       }
     } catch (error) {
-      console.error('Album slideshow load failed', error);
-      albumSlideshow.hideOverlay();
-      showErrorToast(strings.slideshowLoadError);
-    } finally {
-      albumSlideshow.setLoading(false);
+      console.warn('Failed to persist slideshow intent', error);
     }
+    const targetUrl = new URL(`/photo-view/albums/${albumId}`, window.location.origin);
+    targetUrl.searchParams.set('slideshow', '1');
+    window.location.href = `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`;
   }
 
   function showReorderHint(message, type = 'info') {
@@ -2262,6 +2380,28 @@ document.addEventListener('DOMContentLoaded', () => {
       reloadMediaLibrary();
     }
   });
+
+  if (selectedMediaList) {
+    selectedMediaList.addEventListener('click', (event) => {
+      const actionButton = event.target.closest('[data-selected-media-action]');
+      if (!actionButton) {
+        return;
+      }
+      event.preventDefault();
+      const mediaId = Number(actionButton.dataset.mediaId);
+      if (!Number.isFinite(mediaId)) {
+        return;
+      }
+      const action = actionButton.dataset.selectedMediaAction;
+      if (action === 'remove') {
+        removeSelectedMedia(mediaId);
+      } else if (action === 'move-up') {
+        moveSelectedMedia(mediaId, 'up');
+      } else if (action === 'move-down') {
+        moveSelectedMedia(mediaId, 'down');
+      }
+    });
+  }
 
   Array.from(selectionFilterInputs).forEach((input) => {
     input.addEventListener('change', () => {

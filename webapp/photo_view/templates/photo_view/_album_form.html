@@ -37,6 +37,14 @@
                 </div>
                 <select id="album-cover-select" class="form-select form-select-sm mt-2"></select>
               </div>
+              <div class="selected-media-container mt-4">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <h6 class="mb-0">{{ _('Album media order') }}</h6>
+                  <span id="selected-media-count" class="text-muted small">{{ _('No media selected') }}</span>
+                </div>
+                <div id="selected-media-list" class="selected-media-list"></div>
+                <div class="form-text">{{ _('Use the buttons to adjust the playback order.') }}</div>
+              </div>
             </div>
           </div>
         </div>

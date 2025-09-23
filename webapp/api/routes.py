@@ -50,6 +50,7 @@ from flask_login import current_user
 from application.auth_service import AuthService
 from infrastructure.user_repository import SqlAlchemyUserRepository
 from ..services.token_service import TokenService
+from ..auth.totp import verify_totp
 import jwt
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func, select, case
@@ -1000,9 +1001,16 @@ def api_login():
     data = request.get_json(silent=True) or {}
     email = data.get("email")
     password = data.get("password")
+    token = data.get("token")
     user_model = auth_service.authenticate(email, password)
     if not user_model:
         return jsonify({"error": "invalid_credentials"}), 401
+
+    if user_model.totp_secret:
+        if not token:
+            return jsonify({"error": "totp_required"}), 401
+        if not verify_totp(user_model.totp_secret, token):
+            return jsonify({"error": "invalid_totp"}), 401
 
     # TokenServiceを使用してトークンペアを生成
     access_token, refresh_token = TokenService.generate_token_pair(user_model)

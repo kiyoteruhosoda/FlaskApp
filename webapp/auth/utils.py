@@ -1,5 +1,8 @@
 import json
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
+from typing import Any
+
 from flask import current_app
 import requests
 
@@ -31,10 +34,10 @@ def log_requests_and_send(
     # 送信前ログ
     request_payload = {
         "method": method,
-        "headers": dict(headers) if headers else None,
-        "params": params,
-        "data": data,
-        "json": json_data,
+        "headers": _mask_sensitive_values(dict(headers)) if headers else None,
+        "params": _mask_sensitive_values(params),
+        "data": _mask_sensitive_values(data),
+        "json": _mask_sensitive_values(json_data),
     }
     current_app.logger.info(
         _json.dumps(request_payload, ensure_ascii=False, default=str),
@@ -56,9 +59,9 @@ def log_requests_and_send(
         error_payload = {
             "error": str(exc),
             "method": method,
-            "params": params,
-            "data": data,
-            "json": json_data,
+            "params": _mask_sensitive_values(params),
+            "data": _mask_sensitive_values(data),
+            "json": _mask_sensitive_values(json_data),
         }
         current_app.logger.error(
             _json.dumps(error_payload, ensure_ascii=False, default=str),
@@ -74,8 +77,10 @@ def log_requests_and_send(
         res_body = res.text
     response_payload = {
         "status_code": res.status_code,
-        "headers": dict(res.headers) if hasattr(res, "headers") else None,
-        "body": res_body,
+        "headers": _mask_sensitive_values(dict(res.headers))
+        if hasattr(res, "headers")
+        else None,
+        "body": _mask_sensitive_values(res_body),
     }
     log_callable = current_app.logger.info
     if res.status_code >= 500:
@@ -119,3 +124,44 @@ def refresh_google_token(account):
     account.last_synced_at = datetime.now(timezone.utc)
     db.session.commit()
     return tokens
+
+MASKED_VALUE = "***"
+SENSITIVE_HEADER_KEYS = {
+    "authorization",
+    "proxy-authorization",
+    "x-api-key",
+    "x-api-token",
+    "x-auth-token",
+    "x-access-token",
+    "x-refresh-token",
+}
+SENSITIVE_BODY_KEYS = {
+    "access_token",
+    "refresh_token",
+    "id_token",
+    "token",
+}
+
+
+def _mask_sensitive_values(value: Any):
+    """ヘッダーやボディ内の機密値をマスクした新しいオブジェクトを返す"""
+
+    if value is None:
+        return None
+
+    if isinstance(value, Mapping):
+        masked = {}
+        for key, item in value.items():
+            key_lower = str(key).lower()
+            if key_lower in SENSITIVE_HEADER_KEYS or key_lower in SENSITIVE_BODY_KEYS:
+                masked[key] = MASKED_VALUE
+            else:
+                masked[key] = _mask_sensitive_values(item)
+        return masked
+
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        if isinstance(value, tuple):
+            return tuple(_mask_sensitive_values(item) for item in value)
+        return [_mask_sensitive_values(item) for item in value]
+
+    return value

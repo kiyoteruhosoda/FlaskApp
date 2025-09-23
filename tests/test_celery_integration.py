@@ -183,7 +183,7 @@ class TestCeleryTaskFileOperations:
     
     def test_download_file_task_integration(self, app, tmp_path):
         """Test download file task with mocked HTTP request."""
-        from cli.src.celery.tasks import download_file
+        from cli.src.celery.tasks import download_file, DEFAULT_DOWNLOAD_TIMEOUT
         
         test_content = b"Hello, World!"
         test_url = "http://example.com/test.txt"
@@ -212,8 +212,8 @@ class TestCeleryTaskFileOperations:
                 expected_sha = hashlib.sha256(test_content).hexdigest()
                 assert result['sha256'] == expected_sha
                 
-                mock_get.assert_called_once_with(test_url)
-    
+                mock_get.assert_called_once_with(test_url, timeout=DEFAULT_DOWNLOAD_TIMEOUT)
+
     def test_download_file_task_error_handling(self, app, tmp_path):
         """Test download file task error handling."""
         from cli.src.celery.tasks import download_file
@@ -228,6 +228,37 @@ class TestCeleryTaskFileOperations:
             with app.app_context():
                 with pytest.raises(requests.RequestException):
                     download_file(url=test_url, dest_dir=str(tmp_path))
+
+    def test_download_file_custom_timeout(self, app, tmp_path):
+        """カスタムタイムアウト値が requests.get に渡されることを確認する。"""
+        from cli.src.celery.tasks import download_file
+
+        test_url = "http://example.com/custom-timeout.txt"
+
+        with patch('cli.src.celery.tasks.requests.get') as mock_get:
+            mock_response = MagicMock()
+            mock_response.content = b"content"
+            mock_response.raise_for_status.return_value = None
+            mock_get.return_value = mock_response
+
+            with app.app_context():
+                download_file(url=test_url, dest_dir=str(tmp_path), timeout=5)
+
+                mock_get.assert_called_once_with(test_url, timeout=5)
+
+    def test_download_file_timeout_error(self, app, tmp_path):
+        """タイムアウト例外が伝播することを確認する。"""
+        from cli.src.celery.tasks import download_file
+        import requests
+
+        slow_url = "http://example.com/slow-response"
+
+        with patch('cli.src.celery.tasks.requests.get') as mock_get:
+            mock_get.side_effect = requests.Timeout("Request timed out")
+
+            with app.app_context():
+                with pytest.raises(requests.Timeout):
+                    download_file(url=slow_url, dest_dir=str(tmp_path))
 
 
 class TestCeleryTaskErrorScenarios:

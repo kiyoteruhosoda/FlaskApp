@@ -133,7 +133,7 @@ class TestCeleryAppContext:
     
     def test_download_file_task_context(self, app, celery_app, tmp_path):
         """Test that download_file task has proper Flask context."""
-        from cli.src.celery.tasks import download_file
+        from cli.src.celery.tasks import download_file, DEFAULT_DOWNLOAD_TIMEOUT
         
         # Mock the helper functions
         mock_content = b"test content"
@@ -153,7 +153,7 @@ class TestCeleryAppContext:
                     assert result['bytes'] == len(mock_content)
                     assert result['sha256'] == mock_sha
                     
-                    mock_download.assert_called_once_with("http://example.com/file")
+                    mock_download.assert_called_once_with("http://example.com/file", timeout=DEFAULT_DOWNLOAD_TIMEOUT)
                     mock_save.assert_called_once()
 
 

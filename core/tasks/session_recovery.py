@@ -8,13 +8,28 @@
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from core.models.picker_session import PickerSession
 from core.db import db
 from core.logging_config import setup_task_logging, log_task_error, log_task_info
 import logging
 
 logger = setup_task_logging(__name__)
+
+
+def ensure_utc(dt):
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def format_utc(dt):
+    dt_utc = ensure_utc(dt)
+    if dt_utc is None:
+        return None
+    return dt_utc.isoformat().replace("+00:00", "Z")
 
 
 def cleanup_stale_sessions():
@@ -89,7 +104,7 @@ def cleanup_stale_sessions():
         total_updated = 0
         
         for session_type, timeout_delta in timeout_configs.items():
-            cutoff_time = datetime.now() - timeout_delta
+            cutoff_time = datetime.now(timezone.utc) - timeout_delta
             
             # セッションタイプに応じたクエリ条件
             if session_type == 'local_import':
@@ -132,7 +147,7 @@ def cleanup_stale_sessions():
                             'message': 'Cleaning up stale session',
                             'session_id': session.session_id,
                             'session_type': session_type,
-                            'last_updated': session.updated_at,
+                            'last_updated': format_utc(session.updated_at),
                             'timeout_seconds': int(timeout_delta.total_seconds()),
                         },
                         ensure_ascii=False,
@@ -146,14 +161,14 @@ def cleanup_stale_sessions():
                     f'セッションがタイムアウトしました（{session_type}タイプ、'
                     f'タイムアウト時間: {timeout_delta}）。'
                     'Celeryワーカーの停止またはタスクの異常終了により処理が中断された可能性があります。'
-                    f' (自動リカバリ実行時刻: {datetime.now()})'
+                    f' (自動リカバリ実行時刻: {format_utc(datetime.now(timezone.utc))})'
                 )
-                session.updated_at = datetime.now()
-                
+                session.updated_at = datetime.now(timezone.utc)
+
                 updated_sessions.append({
                     'session_id': session.session_id,
                     'type': session_type,
-                    'last_updated': session.updated_at,
+                    'last_updated': format_utc(session.updated_at),
                     'timeout_used': str(timeout_delta)
                 })
                 total_updated += 1
@@ -262,9 +277,13 @@ def get_session_status_report():
         
         # セッション分析
         session_analysis = []
+        current_time = datetime.now(timezone.utc)
+
         for session in processing_sessions:
-            age_since_created = datetime.now() - session.created_at
-            age_since_updated = datetime.now() - session.updated_at
+            created_at_utc = ensure_utc(session.created_at) or current_time
+            updated_at_utc = ensure_utc(session.updated_at) or current_time
+            age_since_created = current_time - created_at_utc
+            age_since_updated = current_time - updated_at_utc
             is_active_in_celery = session.session_id in active_session_ids
             
             # セッションタイプ判定
@@ -284,8 +303,8 @@ def get_session_status_report():
                 'session_id': session.session_id,
                 'status': session.status,
                 'type': session_type,
-                'created_at': session.created_at.isoformat(),
-                'updated_at': session.updated_at.isoformat(),
+                'created_at': format_utc(created_at_utc),
+                'updated_at': format_utc(updated_at_utc),
                 'age_since_created_minutes': int(age_since_created.total_seconds() / 60),
                 'age_since_updated_minutes': int(age_since_updated.total_seconds() / 60),
                 'timeout_threshold_minutes': int(timeout_threshold.total_seconds() / 60),
@@ -295,7 +314,7 @@ def get_session_status_report():
             })
         
         return {
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': format_utc(current_time),
             'celery_workers_count': len(active_tasks.keys()),
             'active_tasks_count': sum(len(tasks) for tasks in active_tasks.values()),
             'scheduled_tasks_count': sum(len(tasks) for tasks in scheduled_tasks.values()),
@@ -305,12 +324,12 @@ def get_session_status_report():
             'session_analysis': session_analysis,
             'stale_sessions_count': sum(1 for s in session_analysis if s['is_stale'])
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to generate session status report: {e}")
         return {
             'error': str(e),
-            'timestamp': datetime.now().isoformat()
+            'timestamp': format_utc(datetime.now(timezone.utc))
         }
 
 
@@ -344,9 +363,9 @@ def force_cleanup_all_processing_sessions():
             session.status = 'error'
             session.error_message = (
                 '強制クリーンアップによりセッションが終了されました。'
-                f' (実行時刻: {datetime.now()})'
+                f' (実行時刻: {format_utc(datetime.now(timezone.utc))})'
             )
-            session.updated_at = datetime.now()
+            session.updated_at = datetime.now(timezone.utc)
             updated_count += 1
 
         if updated_count > 0:

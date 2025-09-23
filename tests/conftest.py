@@ -62,7 +62,6 @@ SKIP_RULES = [
     ("tests/test_celery_", "CeleryワーカーやRedisが必要なためスキップ"),
     ("tests/test_picker_", "Google Photos連携やCeleryワーカーが必要なためスキップ"),
     ("tests/test_local_import", "ローカルインポート用のNASディレクトリ・バックグラウンドサービスが必要なためスキップ"),
-    ("tests/test_session_recovery", "Celeryタスク監視用の外部サービスが必要なためスキップ"),
     ("tests/test_thumbnail_import.py", "オリジナル写真格納先へのアクセスが必要なためスキップ"),
     ("tests/test_video_transcoding.py", "動画トランスコード用のFFmpeg等外部依存が必要なためスキップ"),
     ("tests/test_backup_cleanup_tasks.py", "バックアップCeleryタスク用のジョブ環境が必要なためスキップ"),

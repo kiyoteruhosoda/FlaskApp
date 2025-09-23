@@ -1092,6 +1092,237 @@ def test_album_reorder_updates_display_order(client, app):
         assert refreshed[desired_order[1]] == 1
         assert refreshed[desired_order[2]] == 2
 
+
+def test_album_update_removing_all_media_clears_cover(client, app):
+    from webapp.extensions import db
+    from core.models.photo_models import Media, Album, album_item
+
+    with app.app_context():
+        media1 = Media(
+            google_media_id="album-update-media-1",
+            account_id=1,
+            local_rel_path="album-update-media-1.jpg",
+            bytes=5,
+            mime_type="image/jpeg",
+            width=80,
+            height=80,
+            shot_at=datetime(2025, 6, 1, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 6, 2, tzinfo=timezone.utc),
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        media2 = Media(
+            google_media_id="album-update-media-2",
+            account_id=1,
+            local_rel_path="album-update-media-2.jpg",
+            bytes=5,
+            mime_type="image/jpeg",
+            width=80,
+            height=80,
+            shot_at=datetime(2025, 6, 3, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 6, 4, tzinfo=timezone.utc),
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        album = Album(
+            name="Update Album",
+            description=None,
+            visibility="private",
+            cover_media_id=None,
+        )
+        db.session.add_all([media1, media2, album])
+        db.session.commit()
+
+        db.session.execute(
+            album_item.insert(),
+            [
+                {"album_id": album.id, "media_id": media1.id, "sort_index": 0},
+                {"album_id": album.id, "media_id": media2.id, "sort_index": 1},
+            ],
+        )
+        album.cover_media_id = media1.id
+        db.session.commit()
+
+        album_id = album.id
+
+    grant_permission(app, "album:edit")
+    login(client)
+
+    response = client.put(f"/api/albums/{album_id}", json={"mediaIds": []})
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["updated"] is True
+    assert payload["album"]["mediaIds"] == []
+    assert payload["album"]["coverMediaId"] is None
+
+    with app.app_context():
+        refreshed = Album.query.get(album_id)
+        assert refreshed.cover_media_id is None
+
+
+def test_album_api_handles_missing_cover_media(client, app):
+    from webapp.extensions import db
+    from core.models.photo_models import Album
+
+    with app.app_context():
+        album = Album(
+            name="Stale Cover",
+            description=None,
+            visibility="private",
+            cover_media_id=999,
+        )
+        db.session.add(album)
+        db.session.commit()
+        album_id = album.id
+
+    grant_permission(app, "media:view")
+    grant_permission(app, "album:view")
+    login(client)
+
+    detail_resp = client.get(f"/api/albums/{album_id}")
+    assert detail_resp.status_code == 200
+    detail_payload = detail_resp.get_json()
+    assert detail_payload["album"]["media"] == []
+    assert detail_payload["album"]["coverMediaId"] is None
+
+    list_resp = client.get("/api/albums?pageSize=10")
+    assert list_resp.status_code == 200
+    list_payload = list_resp.get_json()
+    assert list_payload["items"][0]["coverImageId"] is None
+
+
+def test_album_media_reorder_updates_sort_index(client, app):
+    from webapp.extensions import db
+    from core.models.photo_models import Media, Album, album_item
+
+    with app.app_context():
+        media_items = []
+        for index in range(3):
+            media = Media(
+                google_media_id=f"album-reorder-{index}",
+                account_id=1,
+                local_rel_path=f"album-reorder-{index}.jpg",
+                bytes=5,
+                mime_type="image/jpeg",
+                width=80,
+                height=80,
+                shot_at=datetime(2025, 7, index + 1, tzinfo=timezone.utc),
+                imported_at=datetime(2025, 7, index + 2, tzinfo=timezone.utc),
+                is_video=False,
+                is_deleted=False,
+                has_playback=False,
+            )
+            media_items.append(media)
+
+        album = Album(
+            name="Reorder Album",
+            description=None,
+            visibility="private",
+            cover_media_id=None,
+        )
+        db.session.add(album)
+        db.session.add_all(media_items)
+        db.session.commit()
+
+        for position, media in enumerate(media_items):
+            db.session.execute(
+                album_item.insert(),
+                [{"album_id": album.id, "media_id": media.id, "sort_index": position}],
+            )
+        db.session.commit()
+
+        album_id = album.id
+        reordered_ids = [media_items[2].id, media_items[0].id, media_items[1].id]
+
+    grant_permission(app, "album:edit")
+    login(client)
+
+    response = client.put(
+        f"/api/albums/{album_id}/media/order",
+        json={"mediaIds": reordered_ids},
+    )
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["updated"] is True
+    assert [item["id"] for item in payload["album"]["media"]] == reordered_ids
+    assert [item["sortIndex"] for item in payload["album"]["media"]] == [0, 1, 2]
+
+    with app.app_context():
+        rows = db.session.execute(
+            album_item.select()
+            .where(album_item.c.album_id == album_id)
+            .order_by(album_item.c.sort_index.asc())
+        ).all()
+        assert [row.media_id for row in rows] == reordered_ids
+        assert [row.sort_index for row in rows] == [0, 1, 2]
+
+
+def test_album_media_reorder_rejects_missing_ids(client, app):
+    from webapp.extensions import db
+    from core.models.photo_models import Media, Album, album_item
+
+    with app.app_context():
+        media1 = Media(
+            google_media_id="album-reorder-missing-1",
+            account_id=1,
+            local_rel_path="album-reorder-missing-1.jpg",
+            bytes=5,
+            mime_type="image/jpeg",
+            width=80,
+            height=80,
+            shot_at=datetime(2025, 8, 1, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 8, 2, tzinfo=timezone.utc),
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        media2 = Media(
+            google_media_id="album-reorder-missing-2",
+            account_id=1,
+            local_rel_path="album-reorder-missing-2.jpg",
+            bytes=5,
+            mime_type="image/jpeg",
+            width=80,
+            height=80,
+            shot_at=datetime(2025, 8, 3, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 8, 4, tzinfo=timezone.utc),
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        album = Album(
+            name="Reorder Invalid",
+            description=None,
+            visibility="private",
+            cover_media_id=None,
+        )
+        db.session.add_all([album, media1, media2])
+        db.session.commit()
+
+        db.session.execute(
+            album_item.insert(),
+            [
+                {"album_id": album.id, "media_id": media1.id, "sort_index": 0},
+                {"album_id": album.id, "media_id": media2.id, "sort_index": 1},
+            ],
+        )
+        db.session.commit()
+
+        media1_id = media1.id
+        album_id = album.id
+
+    grant_permission(app, "album:edit")
+    login(client)
+
+    response = client.put(
+        f"/api/albums/{album_id}/media/order",
+        json={"mediaIds": [media1_id]},
+    )
+    assert response.status_code == 400
+    payload = response.get_json()
+    assert payload["error"] == "invalid_media_order"
 def test_picker_session_service_allows_reimport_of_deleted_media(app):
     from webapp.extensions import db
     from core.models.photo_models import Media

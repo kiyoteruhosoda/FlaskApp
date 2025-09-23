@@ -399,10 +399,22 @@ def serialize_album_summary(
     *,
     media_count: int | None = None,
     fallback_cover_id: int | None = None,
+    available_media_ids: list[int] | None = None,
 ) -> dict:
     """アルバム情報をリスト表示向けにシリアライズする。"""
 
-    cover_id = album.cover_media_id or fallback_cover_id
+    available_set = set(available_media_ids or [])
+    computed_count = media_count if media_count is not None else len(available_set)
+
+    cover_id = album.cover_media_id
+    if computed_count == 0:
+        cover_id = None
+    elif available_set and (cover_id not in available_set):
+        cover_id = None
+
+    if cover_id is None:
+        cover_id = fallback_cover_id
+
     created_at = (
         album.created_at.isoformat().replace('+00:00', 'Z')
         if album.created_at
@@ -421,7 +433,7 @@ def serialize_album_summary(
         'visibility': album.visibility,
         'coverImageId': cover_id,
         'coverMediaId': cover_id,
-        'mediaCount': int(media_count or 0),
+        'mediaCount': int(computed_count or 0),
         'createdAt': created_at,
         'lastModified': updated_at,
         'displayOrder': album.display_order,
@@ -433,11 +445,13 @@ def serialize_album_detail(album: Album, media_rows) -> dict:
 
     media_items: list[dict] = []
     fallback_cover_id: int | None = None
+    media_ids: list[int] = []
 
     for media, sort_index in media_rows:
         if fallback_cover_id is None:
             fallback_cover_id = media.id
 
+        media_ids.append(media.id)
         tags = sorted(media.tags, key=lambda t: (t.name or '').lower())
         media_items.append(
             {
@@ -458,6 +472,7 @@ def serialize_album_detail(album: Album, media_rows) -> dict:
         album,
         media_count=len(media_items),
         fallback_cover_id=fallback_cover_id,
+        available_media_ids=media_ids,
     )
     summary['coverMediaId'] = summary.get('coverMediaId')
     summary['media'] = media_items
@@ -744,6 +759,10 @@ def api_album_update(album_id: int):
     else:
         current_media_ids = [media.id for media in album.media]
 
+    if album.cover_media_id and album.cover_media_id not in current_media_ids:
+        album.cover_media_id = current_media_ids[0] if current_media_ids else None
+        has_changes = True
+
     if "coverMediaId" in payload:
         if cover_media_raw in (None, ""):
             cover_media_id = None
@@ -782,6 +801,94 @@ def api_album_update(album_id: int):
 
     detail = serialize_album_detail(album, _get_album_media_rows(album.id))
     return jsonify({"album": detail, "updated": has_changes})
+
+
+@bp.put("/albums/<int:album_id>/media/order")
+@require_api_perms("album:edit")
+def api_album_media_reorder(album_id: int):
+    """アルバム内のメディア表示順を更新する。"""
+
+    album = Album.query.get(album_id)
+    if not album:
+        return (
+            jsonify({"error": "not_found", "message": _("Album not found.")}),
+            404,
+        )
+
+    payload = request.get_json(silent=True) or {}
+    media_ids_raw = payload.get("mediaIds")
+
+    if not isinstance(media_ids_raw, list):
+        return (
+            jsonify(
+                {
+                    "error": "invalid_media_order",
+                    "message": _("Media order payload must be a list of media ids."),
+                }
+            ),
+            400,
+        )
+
+    normalized_ids: list[int] = []
+    seen: set[int] = set()
+
+    try:
+        for value in media_ids_raw:
+            media_id = int(value)
+            if media_id in seen:
+                raise ValueError("duplicate media id")
+            seen.add(media_id)
+            normalized_ids.append(media_id)
+    except (TypeError, ValueError):
+        return (
+            jsonify(
+                {
+                    "error": "invalid_media_order",
+                    "message": _("Media order payload must include each album media id exactly once."),
+                }
+            ),
+            400,
+        )
+
+    media_rows = _get_album_media_rows(album_id)
+    current_media_ids = [media.id for media, _ in media_rows]
+
+    if not normalized_ids:
+        if current_media_ids:
+            return (
+                jsonify(
+                    {
+                        "error": "invalid_media_order",
+                        "message": _("Media order payload must include every media id currently in the album."),
+                    }
+                ),
+                400,
+            )
+
+        detail = serialize_album_detail(album, media_rows)
+        return jsonify({"updated": False, "album": detail})
+
+    if len(normalized_ids) != len(current_media_ids) or set(normalized_ids) != set(current_media_ids):
+        return (
+            jsonify(
+                {
+                    "error": "invalid_media_order",
+                    "message": _("Media order payload must include every media id currently in the album."),
+                }
+            ),
+            400,
+        )
+
+    if normalized_ids == current_media_ids:
+        detail = serialize_album_detail(album, media_rows)
+        return jsonify({"updated": False, "album": detail})
+
+    _update_album_sort_indexes(album.id, normalized_ids)
+    album.updated_at = datetime.now(timezone.utc)
+    db.session.commit()
+
+    detail = serialize_album_detail(album, _get_album_media_rows(album.id))
+    return jsonify({"updated": True, "album": detail})
 
 
 @bp.put("/albums/order")

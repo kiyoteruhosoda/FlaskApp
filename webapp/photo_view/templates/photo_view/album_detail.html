@@ -34,6 +34,10 @@
     gap: 18px;
   }
 
+  .album-media-grid.reorder-active .album-media-tile {
+    cursor: grab;
+  }
+
   .album-media-tile {
     position: relative;
     border: none;
@@ -87,6 +91,49 @@
     font-size: 1.1rem;
   }
 
+  .album-media-tile.reorder-dragging {
+    opacity: 0.65;
+  }
+
+  .album-media-tile.reorder-drop-before::after,
+  .album-media-tile.reorder-drop-after::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: rgba(37, 99, 235, 0.85);
+    box-shadow: 0 0 12px rgba(37, 99, 235, 0.45);
+  }
+
+  .album-media-tile.reorder-drop-before::after {
+    top: 0;
+  }
+
+  .album-media-tile.reorder-drop-after::after {
+    bottom: 0;
+  }
+
+  .album-media-drag-handle {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(15, 23, 42, 0.7);
+    border-radius: 999px;
+    padding: 0.25rem 0.45rem;
+    color: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    pointer-events: none;
+  }
+
+  .album-reorder-hint {
+    border-radius: 12px;
+    padding: 0.85rem 1rem;
+  }
+
   @media (max-width: 768px) {
     .album-media-grid {
       grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -107,13 +154,22 @@
       <h1 id="album-title" class="mb-2">{{ _('Album Detail') }}</h1>
       <div id="album-meta" class="text-muted"></div>
     </div>
-    <div class="d-flex flex-wrap gap-2">
+    <div class="d-flex flex-wrap gap-2 align-items-center">
       <button type="button" class="btn btn-primary" id="start-slideshow-btn" disabled>
         <i class="bi bi-play-fill me-1"></i>{{ _('Start Slideshow') }}
       </button>
       <a class="btn btn-outline-primary" href="{{ url_for('photo_view.media_list') }}">
         <i class="bi bi-images me-1"></i>{{ _('View Media Library') }}
       </a>
+      <button type="button" class="btn btn-outline-secondary" id="album-reorder-toggle">
+        <i class="bi bi-arrow-down-up me-1"></i>{{ _('Reorder media') }}
+      </button>
+      <button type="button" class="btn btn-success d-none" id="album-reorder-save">
+        <i class="bi bi-check-lg me-1"></i>{{ _('Save order') }}
+      </button>
+      <button type="button" class="btn btn-outline-secondary d-none" id="album-reorder-cancel">
+        <i class="bi bi-x-lg me-1"></i>{{ _('Cancel') }}
+      </button>
     </div>
   </div>
 
@@ -136,6 +192,8 @@
       <span class="badge bg-light text-muted" id="album-created-at"></span>
       <span class="badge bg-light text-muted d-none" id="album-updated-at"></span>
     </div>
+
+    <div id="album-reorder-hint" class="album-reorder-hint alert alert-info d-none" role="status" aria-live="polite"></div>
 
     <div id="album-media-empty" class="album-media-empty alert alert-info d-none" role="status">
       <i class="bi bi-info-circle me-2"></i>{{ _('This album has no media yet.') }}
@@ -193,6 +251,15 @@ document.addEventListener('DOMContentLoaded', () => {
     media: [],
   };
 
+  const reorderState = {
+    active: false,
+    originalMedia: [],
+    originalIds: [],
+    dirty: false,
+    saving: false,
+    dragSourceIndex: null,
+  };
+
   const strings = {
     untitledAlbum: "{{ _('Untitled Album')|escapejs }}",
     mediaCountSingular: "{{ ngettext('%(count)s photo', '%(count)s photos', 1, count='%(count)s')|escapejs }}",
@@ -204,6 +271,11 @@ document.addEventListener('DOMContentLoaded', () => {
     loadingError: "{{ _('Failed to load album information.')|escapejs }}",
     slideshowLoading: "{{ _('Loading slideshow...')|escapejs }}",
     noMedia: "{{ _('This album has no media yet.')|escapejs }}",
+    reorderHint: "{{ _('Drag and drop media tiles to change their order.')|escapejs }}",
+    reorderDirtyHint: "{{ _('Don\'t forget to save your changes.')|escapejs }}",
+    reorderSaving: "{{ _('Saving order...')|escapejs }}",
+    reorderSaved: "{{ _('Media order updated.')|escapejs }}",
+    reorderSaveError: "{{ _('Failed to save media order.')|escapejs }}",
     visibilityLabels: {
       public: "{{ _('Public')|escapejs }}",
       private: "{{ _('Private')|escapejs }}",
@@ -371,6 +443,13 @@ document.addEventListener('DOMContentLoaded', () => {
     slideshowButton: document.getElementById('start-slideshow-btn'),
   };
 
+  const reorderElements = {
+    toggle: document.getElementById('album-reorder-toggle'),
+    save: document.getElementById('album-reorder-save'),
+    cancel: document.getElementById('album-reorder-cancel'),
+    hint: document.getElementById('album-reorder-hint'),
+  };
+
   const slideshow = new AlbumSlideshow({
     overlayElement: document.getElementById('album-slideshow-overlay'),
     stageElement: document.getElementById('album-slideshow-stage'),
@@ -413,6 +492,293 @@ document.addEventListener('DOMContentLoaded', () => {
     },
   });
 
+  function showReorderHint(message, level = 'info') {
+    if (!reorderElements.hint) {
+      return;
+    }
+    const normalized = ['success', 'warning', 'danger', 'info'].includes(level) ? level : 'info';
+    reorderElements.hint.textContent = message;
+    reorderElements.hint.classList.remove('d-none', 'alert-info', 'alert-success', 'alert-warning', 'alert-danger');
+    reorderElements.hint.classList.add(`alert-${normalized}`);
+  }
+
+  function hideReorderHint() {
+    if (!reorderElements.hint) {
+      return;
+    }
+    reorderElements.hint.classList.add('d-none');
+    reorderElements.hint.classList.remove('alert-info', 'alert-success', 'alert-warning', 'alert-danger');
+    reorderElements.hint.textContent = '';
+  }
+
+  function updateSlideshowButtonState() {
+    if (!elements.slideshowButton) {
+      return;
+    }
+    elements.slideshowButton.disabled = reorderState.active || state.media.length === 0;
+  }
+
+  function updateReorderToggleAvailability() {
+    if (!reorderElements.toggle || reorderState.active) {
+      return;
+    }
+    reorderElements.toggle.disabled = state.media.length < 2;
+  }
+
+  function updateReorderSaveState() {
+    if (reorderElements.save) {
+      reorderElements.save.disabled = !reorderState.dirty || reorderState.saving;
+    }
+    if (reorderElements.cancel) {
+      reorderElements.cancel.disabled = reorderState.saving;
+    }
+  }
+
+  function clearAllDropIndicators() {
+    if (!elements.mediaGrid) {
+      return;
+    }
+    elements.mediaGrid.querySelectorAll('.album-media-tile').forEach((tile) => {
+      tile.classList.remove('reorder-drop-before', 'reorder-drop-after', 'reorder-dragging');
+      if (reorderState.active) {
+        tile.setAttribute('aria-grabbed', 'false');
+      } else {
+        tile.removeAttribute('aria-grabbed');
+      }
+    });
+  }
+
+  function evaluateReorderDirty() {
+    if (!reorderState.active) {
+      reorderState.dirty = false;
+      return false;
+    }
+    const currentIds = state.media
+      .map((item) => Number(item?.id))
+      .filter((id) => Number.isFinite(id));
+    const reference = reorderState.originalIds;
+    const isDirty =
+      currentIds.length !== reference.length ||
+      currentIds.some((id, index) => id !== reference[index]);
+    reorderState.dirty = isDirty;
+    return isDirty;
+  }
+
+  function applyReorderMode() {
+    if (elements.mediaGrid) {
+      elements.mediaGrid.classList.toggle('reorder-active', reorderState.active);
+    }
+    if (reorderElements.toggle) {
+      reorderElements.toggle.classList.toggle('d-none', reorderState.active);
+      if (!reorderState.active) {
+        reorderElements.toggle.disabled = state.media.length < 2;
+      }
+    }
+    if (reorderElements.save) {
+      reorderElements.save.classList.toggle('d-none', !reorderState.active);
+    }
+    if (reorderElements.cancel) {
+      reorderElements.cancel.classList.toggle('d-none', !reorderState.active);
+    }
+    updateSlideshowButtonState();
+    updateReorderSaveState();
+    if (!reorderState.active) {
+      clearAllDropIndicators();
+    }
+  }
+
+  function resetReorderState() {
+    reorderState.active = false;
+    reorderState.originalMedia = [];
+    reorderState.originalIds = [];
+    reorderState.dirty = false;
+    reorderState.saving = false;
+    reorderState.dragSourceIndex = null;
+    hideReorderHint();
+    applyReorderMode();
+  }
+
+  function enterReorderMode() {
+    if (reorderState.active || state.media.length === 0) {
+      if (state.media.length === 0) {
+        showInfoToast(strings.noMedia);
+      }
+      return;
+    }
+    reorderState.active = true;
+    reorderState.originalMedia = state.media.slice();
+    reorderState.originalIds = reorderState.originalMedia
+      .map((item) => Number(item?.id))
+      .filter((id) => Number.isFinite(id));
+    reorderState.dirty = false;
+    reorderState.saving = false;
+    reorderState.dragSourceIndex = null;
+    applyReorderMode();
+    renderMediaGrid();
+    showReorderHint(strings.reorderHint, 'info');
+  }
+
+  function cancelReorderMode() {
+    if (!reorderState.active || reorderState.saving) {
+      return;
+    }
+    state.media = reorderState.originalMedia.slice();
+    resetReorderState();
+    renderAlbumDetail();
+    slideshow.load(state.media, { albumTitle: state.album?.title || strings.untitledAlbum });
+  }
+
+  async function saveMediaOrder() {
+    if (!reorderState.active || reorderState.saving) {
+      return;
+    }
+    const mediaIds = state.media
+      .map((item) => Number(item?.id))
+      .filter((id) => Number.isFinite(id));
+    if (mediaIds.length !== state.media.length) {
+      showErrorToast(strings.reorderSaveError);
+      return;
+    }
+
+    reorderState.saving = true;
+    updateReorderSaveState();
+    showReorderHint(strings.reorderSaving, 'warning');
+
+    try {
+      const response = await apiClient.put(`/api/albums/${albumId}/media/order`, { mediaIds });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const message = data?.message || `HTTP ${response.status}`;
+        throw new Error(message);
+      }
+      if (data?.album) {
+        state.album = data.album;
+        state.media = Array.isArray(data.album.media) ? data.album.media : state.media;
+      }
+      showSuccessToast(strings.reorderSaved);
+      resetReorderState();
+      renderAlbumDetail();
+      slideshow.load(state.media, { albumTitle: state.album?.title || strings.untitledAlbum });
+    } catch (error) {
+      console.error('Failed to save album media order', error);
+      showErrorToast(strings.reorderSaveError);
+      showReorderHint(strings.reorderHint, 'info');
+      evaluateReorderDirty();
+      updateReorderSaveState();
+    } finally {
+      reorderState.saving = false;
+      updateReorderSaveState();
+    }
+  }
+
+  function performMediaReorder(fromIndex, toIndex) {
+    if (!reorderState.active) {
+      return;
+    }
+    if (!Number.isInteger(fromIndex) || !Number.isInteger(toIndex)) {
+      return;
+    }
+    const count = state.media.length;
+    if (count <= 1) {
+      return;
+    }
+    const clampedFrom = Math.max(0, Math.min(fromIndex, count - 1));
+    let clampedTo = Math.max(0, Math.min(toIndex, count));
+    if (clampedFrom === clampedTo || clampedFrom + 1 === clampedTo) {
+      clearAllDropIndicators();
+      return;
+    }
+    const reordered = state.media.slice();
+    const [moved] = reordered.splice(clampedFrom, 1);
+    if (!moved) {
+      return;
+    }
+    if (clampedFrom < clampedTo) {
+      clampedTo -= 1;
+    }
+    reordered.splice(clampedTo, 0, moved);
+    state.media = reordered;
+    reorderState.dragSourceIndex = null;
+    clearAllDropIndicators();
+    const dirty = evaluateReorderDirty();
+    renderMediaGrid();
+    showReorderHint(dirty ? strings.reorderDirtyHint : strings.reorderHint, 'info');
+  }
+
+  function onTileDragStart(event) {
+    if (!reorderState.active) {
+      event.preventDefault();
+      return;
+    }
+    const tile = event.currentTarget;
+    const index = Number(tile.dataset.index);
+    if (!Number.isInteger(index)) {
+      event.preventDefault();
+      return;
+    }
+    reorderState.dragSourceIndex = index;
+    tile.classList.add('reorder-dragging');
+    tile.setAttribute('aria-grabbed', 'true');
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', index.toString());
+  }
+
+  function onTileDragOver(event) {
+    if (!reorderState.active) {
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    const tile = event.currentTarget;
+    const rect = tile.getBoundingClientRect();
+    const offsetX = event.clientX - rect.left;
+    const offsetY = event.clientY - rect.top;
+    const dropAfter = rect.width >= rect.height ? offsetX > rect.width / 2 : offsetY > rect.height / 2;
+    tile.classList.toggle('reorder-drop-before', !dropAfter);
+    tile.classList.toggle('reorder-drop-after', dropAfter);
+  }
+
+  function onTileDragLeave(event) {
+    if (!reorderState.active) {
+      return;
+    }
+    const tile = event.currentTarget;
+    tile.classList.remove('reorder-drop-before', 'reorder-drop-after');
+  }
+
+  function onTileDrop(event) {
+    if (!reorderState.active) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const tile = event.currentTarget;
+    const targetIndex = Number(tile.dataset.index);
+    const sourceIndex = reorderState.dragSourceIndex;
+    if (!Number.isInteger(targetIndex) || !Number.isInteger(sourceIndex)) {
+      clearAllDropIndicators();
+      return;
+    }
+    const rect = tile.getBoundingClientRect();
+    const offsetX = event.clientX - rect.left;
+    const offsetY = event.clientY - rect.top;
+    const dropAfter = rect.width >= rect.height ? offsetX > rect.width / 2 : offsetY > rect.height / 2;
+    const insertIndex = dropAfter ? targetIndex + 1 : targetIndex;
+    performMediaReorder(sourceIndex, insertIndex);
+  }
+
+  function onTileDragEnd(event) {
+    if (!reorderState.active) {
+      return;
+    }
+    const tile = event.currentTarget;
+    tile.classList.remove('reorder-dragging');
+    tile.classList.remove('reorder-drop-before', 'reorder-drop-after');
+    tile.setAttribute('aria-grabbed', 'false');
+    reorderState.dragSourceIndex = null;
+    clearAllDropIndicators();
+  }
+
   async function loadAlbumDetail() {
     elements.loading.classList.remove('d-none');
     elements.error.classList.add('d-none');
@@ -428,9 +794,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       state.album = data.album;
       state.media = Array.isArray(data.album.media) ? data.album.media : [];
+      resetReorderState();
       renderAlbumDetail();
       elements.content.classList.remove('d-none');
-      elements.slideshowButton.disabled = state.media.length === 0;
+      updateSlideshowButtonState();
       slideshow.load(state.media, { albumTitle: state.album.title || strings.untitledAlbum });
     } catch (error) {
       console.error('Failed to load album detail', error);
@@ -492,31 +859,65 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderMediaGrid() {
     elements.mediaGrid.innerHTML = '';
+    elements.mediaGrid.classList.toggle('reorder-active', reorderState.active);
+
     if (!state.media.length) {
       elements.mediaEmpty.classList.remove('d-none');
-      elements.slideshowButton.disabled = true;
+      hideReorderHint();
+      updateSlideshowButtonState();
+      updateReorderToggleAvailability();
+      updateReorderSaveState();
       return;
     }
 
     elements.mediaEmpty.classList.add('d-none');
-    elements.slideshowButton.disabled = false;
 
     state.media.forEach((item, index) => {
       const tile = document.createElement('button');
       tile.type = 'button';
       tile.className = 'album-media-tile';
+      tile.dataset.index = index.toString();
+      const mediaId = Number(item?.id);
+      if (Number.isFinite(mediaId)) {
+        tile.dataset.mediaId = mediaId.toString();
+      }
+
+      const thumbnailSrc = item?.thumbnailUrl || (Number.isFinite(mediaId) ? `/api/media/${mediaId}/thumbnail?size=512` : '');
+      const safeTitle = escapeHtml(item?.filename || titleForMedia(item));
+      const shotMeta = item?.shotAt ? `<div class="media-meta">${escapeHtml(formatShotAt(item.shotAt))}</div>` : '';
+      const dragHandle = reorderState.active
+        ? '<div class="album-media-drag-handle" aria-hidden="true"><i class="bi bi-grip-vertical"></i></div>'
+        : '';
+
       tile.innerHTML = `
-        <img src="${item.thumbnailUrl || `/api/media/${item.id}/thumbnail?size=512`}" alt="${escapeHtml(item.filename || titleForMedia(item))}" loading="lazy">
+        <img src="${thumbnailSrc}" alt="${safeTitle}" loading="lazy">
         <div class="album-media-overlay">
           <span class="badge">${index + 1}</span>
-          ${item.shotAt ? `<div class="media-meta">${escapeHtml(formatShotAt(item.shotAt))}</div>` : ''}
+          ${shotMeta}
         </div>
+        ${dragHandle}
       `;
-      tile.addEventListener('click', () => {
-        slideshow.open(index);
-      });
+
+      if (reorderState.active) {
+        tile.setAttribute('draggable', 'true');
+        tile.setAttribute('aria-grabbed', 'false');
+        tile.addEventListener('dragstart', onTileDragStart);
+        tile.addEventListener('dragover', onTileDragOver);
+        tile.addEventListener('dragleave', onTileDragLeave);
+        tile.addEventListener('drop', onTileDrop);
+        tile.addEventListener('dragend', onTileDragEnd);
+      } else {
+        tile.addEventListener('click', () => {
+          slideshow.open(index);
+        });
+      }
+
       elements.mediaGrid.appendChild(tile);
     });
+
+    updateSlideshowButtonState();
+    updateReorderToggleAvailability();
+    updateReorderSaveState();
   }
 
   function formatMediaCount(count) {
@@ -579,6 +980,51 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     slideshow.open(0);
   });
+
+  if (reorderElements.toggle) {
+    reorderElements.toggle.addEventListener('click', () => {
+      enterReorderMode();
+    });
+  }
+
+  if (reorderElements.cancel) {
+    reorderElements.cancel.addEventListener('click', () => {
+      cancelReorderMode();
+    });
+  }
+
+  if (reorderElements.save) {
+    reorderElements.save.addEventListener('click', () => {
+      saveMediaOrder();
+    });
+  }
+
+  if (elements.mediaGrid) {
+    elements.mediaGrid.addEventListener('dragover', (event) => {
+      if (!reorderState.active) {
+        return;
+      }
+      event.preventDefault();
+    });
+
+    elements.mediaGrid.addEventListener('drop', (event) => {
+      if (!reorderState.active) {
+        return;
+      }
+      event.preventDefault();
+      const targetTile = event.target instanceof Element ? event.target.closest('.album-media-tile') : null;
+      if (targetTile) {
+        return;
+      }
+      const sourceIndex = reorderState.dragSourceIndex;
+      if (!Number.isInteger(sourceIndex)) {
+        clearAllDropIndicators();
+        reorderState.dragSourceIndex = null;
+        return;
+      }
+      performMediaReorder(sourceIndex, state.media.length);
+    });
+  }
 
   loadAlbumDetail();
 });

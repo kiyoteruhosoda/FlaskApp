@@ -7,6 +7,14 @@ class AuthService:
     def __init__(self, repo: UserRepository):
         self.repo = repo
 
+    def _prepare_new_account(self, email: str) -> None:
+        existing_user = self.repo.get_by_email(email)
+        if existing_user and existing_user.is_active:
+            raise ValueError("Email already exists")
+
+        if existing_user and not existing_user.is_active:
+            self.repo.delete(existing_user)
+
     def authenticate(self, email: str, password: str) -> Optional[User]:
         user = self.repo.get_by_email(email)
         if user and user.check_password(password) and user.is_active:
@@ -14,15 +22,8 @@ class AuthService:
         return None
 
     def register(self, email: str, password: str, totp_secret: str | None = None, roles: List[str] | None = None) -> User:
-        # 既存の非アクティブユーザーをチェック
-        existing_user = self.repo.get_by_email(email)
-        if existing_user and existing_user.is_active:
-            raise ValueError("Email already exists")
-        
-        # 非アクティブユーザーが存在する場合は削除
-        if existing_user and not existing_user.is_active:
-            self.repo.delete(existing_user)
-        
+        self._prepare_new_account(email)
+
         # TOTP設定がある場合はアクティブ、ない場合も従来通りアクティブ
         is_active = True
         user = User(email=email, totp_secret=totp_secret, is_active=is_active)
@@ -31,15 +32,8 @@ class AuthService:
 
     def register_with_pending_totp(self, email: str, password: str, roles: List[str] | None = None) -> User:
         """TOTP設定待ちのユーザーを登録（非アクティブ状態）"""
-        # 既存の非アクティブユーザーをチェック
-        existing_user = self.repo.get_by_email(email)
-        if existing_user and existing_user.is_active:
-            raise ValueError("Email already exists")
-        
-        # 非アクティブユーザーが存在する場合は削除
-        if existing_user and not existing_user.is_active:
-            self.repo.delete(existing_user)
-        
+        self._prepare_new_account(email)
+
         # 非アクティブ状態で登録
         user = User(email=email, totp_secret=None, is_active=False)
         user.set_password(password)

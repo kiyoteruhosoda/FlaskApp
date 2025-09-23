@@ -1036,6 +1036,62 @@ def test_media_delete_clears_cover_when_album_becomes_empty(client, app):
         assert album.cover_media_id is None
 
 
+def test_album_list_custom_order(client, app):
+    from webapp.extensions import db
+    from core.models.photo_models import Album
+
+    with app.app_context():
+        a1 = Album(name="First", description=None, visibility="private", display_order=2)
+        a2 = Album(name="Second", description=None, visibility="private", display_order=0)
+        a3 = Album(name="Third", description=None, visibility="private", display_order=1)
+        db.session.add_all([a1, a2, a3])
+        db.session.commit()
+        ids = [a1.id, a2.id, a3.id]
+
+    grant_permission(app, "media:view")
+    grant_permission(app, "album:view")
+    login(client)
+
+    response = client.get("/api/albums?order=custom&pageSize=10")
+    assert response.status_code == 200
+    data = response.get_json()
+    returned_ids = [item["id"] for item in data["items"]]
+    assert returned_ids == [ids[1], ids[2], ids[0]]
+    assert data["items"][0]["displayOrder"] == 0
+
+
+def test_album_reorder_updates_display_order(client, app):
+    from webapp.extensions import db
+    from core.models.photo_models import Album
+
+    with app.app_context():
+        albums = [
+            Album(name="One", description=None, visibility="private"),
+            Album(name="Two", description=None, visibility="private"),
+            Album(name="Three", description=None, visibility="private"),
+        ]
+        db.session.add_all(albums)
+        db.session.commit()
+        album_ids = [album.id for album in albums]
+
+    grant_permission(app, "album:edit")
+    login(client)
+
+    desired_order = [album_ids[2], album_ids[0], album_ids[1]]
+    response = client.put("/api/albums/order", json={"albumIds": desired_order})
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["updated"] is True
+
+    with app.app_context():
+        refreshed = {
+            album.id: album.display_order
+            for album in Album.query.filter(Album.id.in_(desired_order)).all()
+        }
+        assert refreshed[desired_order[0]] == 0
+        assert refreshed[desired_order[1]] == 1
+        assert refreshed[desired_order[2]] == 2
+
 def test_picker_session_service_allows_reimport_of_deleted_media(app):
     from webapp.extensions import db
     from core.models.photo_models import Media

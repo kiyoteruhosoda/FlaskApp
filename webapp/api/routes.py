@@ -52,7 +52,7 @@ from infrastructure.user_repository import SqlAlchemyUserRepository
 from ..services.token_service import TokenService
 import jwt
 from sqlalchemy.orm import joinedload
-from sqlalchemy import func, select
+from sqlalchemy import func, select, case
 from werkzeug.utils import secure_filename
 
 
@@ -424,6 +424,7 @@ def serialize_album_summary(
         'mediaCount': int(media_count or 0),
         'createdAt': created_at,
         'lastModified': updated_at,
+        'displayOrder': album.display_order,
     }
 
 
@@ -474,6 +475,11 @@ def api_albums_list():
     """アルバムの一覧をページングして返す。"""
 
     params = PaginationParams.from_request(default_page_size=24)
+    order_value = (params.order or "desc").lower()
+    custom_order_requested = order_value == "custom"
+
+    if custom_order_requested:
+        params.use_cursor = False
 
     stats_subquery = (
         db.session.query(
@@ -499,19 +505,41 @@ def api_albums_list():
         like_expr = f"%{search_text}%"
         query = query.filter(Album.name.ilike(like_expr))
 
-    result = paginate_and_respond(
-        query=query,
-        params=params,
-        serializer_func=lambda row: serialize_album_summary(
-            row[0],
-            media_count=row[1] or 0,
-            fallback_cover_id=row[2],
-        ),
-        id_column=Album.id,
-        created_at_column=Album.created_at,
-        count_total=False,
-        default_page_size=24,
-    )
+    if custom_order_requested:
+        order_columns = [
+            case((Album.display_order.is_(None), 1), else_=0).asc(),
+            Album.display_order.asc(),
+            Album.created_at.desc(),
+            Album.id.desc(),
+        ]
+        query = query.order_by(*order_columns)
+        result = paginate_and_respond(
+            query=query,
+            params=params,
+            serializer_func=lambda row: serialize_album_summary(
+                row[0],
+                media_count=row[1] or 0,
+                fallback_cover_id=row[2],
+            ),
+            id_column=None,
+            created_at_column=None,
+            count_total=False,
+            default_page_size=24,
+        )
+    else:
+        result = paginate_and_respond(
+            query=query,
+            params=params,
+            serializer_func=lambda row: serialize_album_summary(
+                row[0],
+                media_count=row[1] or 0,
+                fallback_cover_id=row[2],
+            ),
+            id_column=Album.id,
+            created_at_column=Album.created_at,
+            count_total=False,
+            default_page_size=24,
+        )
 
     return jsonify(result)
 
@@ -754,6 +782,91 @@ def api_album_update(album_id: int):
 
     detail = serialize_album_detail(album, _get_album_media_rows(album.id))
     return jsonify({"album": detail, "updated": has_changes})
+
+
+@bp.put("/albums/order")
+@require_api_perms("album:edit")
+def api_albums_reorder():
+    """アルバムの表示順序を更新する。"""
+
+    payload = request.get_json(silent=True) or {}
+    album_ids_raw = payload.get("albumIds")
+
+    if not isinstance(album_ids_raw, list) or not album_ids_raw:
+        return (
+            jsonify(
+                {
+                    "error": "invalid_payload",
+                    "message": _("Album order payload must include at least one album id."),
+                }
+            ),
+            400,
+        )
+
+    normalized_ids = []
+    seen = set()
+
+    try:
+        for value in album_ids_raw:
+            album_id = int(value)
+            if album_id in seen:
+                continue
+            normalized_ids.append(album_id)
+            seen.add(album_id)
+    except (TypeError, ValueError):
+        return (
+            jsonify(
+                {
+                    "error": "invalid_payload",
+                    "message": _("Album order payload must include integer ids."),
+                }
+            ),
+            400,
+        )
+
+    if not normalized_ids:
+        return (
+            jsonify(
+                {
+                    "error": "invalid_payload",
+                    "message": _("Album order payload must include at least one album id."),
+                }
+            ),
+            400,
+        )
+
+    albums = Album.query.filter(Album.id.in_(normalized_ids)).all()
+    album_by_id = {album.id: album for album in albums}
+    missing_ids = [album_id for album_id in normalized_ids if album_id not in album_by_id]
+
+    if missing_ids:
+        return (
+            jsonify(
+                {
+                    "error": "invalid_album",
+                    "message": _("Some specified albums could not be found."),
+                    "missingAlbumIds": missing_ids,
+                }
+            ),
+            400,
+        )
+
+    now = datetime.now(timezone.utc)
+    updated_count = 0
+
+    for index, album_id in enumerate(normalized_ids):
+        album = album_by_id[album_id]
+        if album.display_order != index:
+            album.display_order = index
+            album.updated_at = now
+            updated_count += 1
+
+    if updated_count:
+        db.session.commit()
+    else:
+        db.session.rollback()
+
+    return jsonify({"updated": bool(updated_count), "albumIds": normalized_ids})
 
 
 @bp.delete("/albums/<int:album_id>")

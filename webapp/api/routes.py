@@ -5,6 +5,7 @@ import hmac
 import json
 import mimetypes
 import os
+import posixpath
 import re
 import secrets
 import time
@@ -2158,11 +2159,15 @@ def api_download(token):
             return jsonify({"error": "forbidden"}), 403
         rel = path[len("thumbs/") :]
         base = current_app.config.get("FPV_NAS_THUMBS_DIR", "")
+        accel_prefix = current_app.config.get("FPV_ACCEL_THUMBS_LOCATION", "")
+        ttl = current_app.config.get("FPV_URL_TTL_THUMB", 600)
     else:
         if not path.startswith("playback/"):
             return jsonify({"error": "forbidden"}), 403
         rel = path[len("playback/") :]
         base = current_app.config.get("FPV_NAS_PLAY_DIR", "")
+        accel_prefix = current_app.config.get("FPV_ACCEL_PLAYBACK_LOCATION", "")
+        ttl = current_app.config.get("FPV_URL_TTL_PLAYBACK", 600)
     abs_path = os.path.join(base, rel)
     if not os.path.exists(abs_path):
         current_app.logger.info(
@@ -2184,8 +2189,37 @@ def api_download(token):
         return jsonify({"error": "forbidden"}), 403
 
     size = os.path.getsize(abs_path)
-    cache_control = f"private, max-age={current_app.config.get('FPV_URL_TTL_THUMB' if payload.get('typ') == 'thumb' else 'FPV_URL_TTL_PLAYBACK', 600)}"
+    cache_control = f"private, max-age={ttl}"
     range_header = request.headers.get("Range")
+
+    accel_prefix = (accel_prefix or "").strip()
+    accel_target = None
+    if accel_prefix:
+        rel_posix = rel.replace(os.sep, "/").lstrip("/")
+        accel_target = posixpath.join(accel_prefix.rstrip("/"), rel_posix)
+
+    if accel_target:
+        resp = current_app.response_class(b"", mimetype=ct)
+        resp.headers["Cache-Control"] = cache_control
+        resp.headers["Accept-Ranges"] = "bytes"
+        resp.headers["X-Accel-Redirect"] = accel_target
+        resp.headers["Content-Length"] = str(size)
+        if download_filename:
+            resp.headers["Content-Disposition"] = _build_content_disposition(
+                download_filename
+            )
+        current_app.logger.info(
+            json.dumps(
+                {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "mid": payload.get("mid"),
+                    "nonce": payload.get("nonce"),
+                }
+            ),
+            extra={"event": "dl.accel"},
+        )
+        return resp
+
     if range_header:
         m = re.match(r"bytes=(\d+)-(\d*)", range_header)
         if m:

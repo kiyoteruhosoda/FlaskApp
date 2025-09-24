@@ -767,6 +767,21 @@ def test_range_video(client, seed_playback_media):
     assert "filename*=UTF-8''Playback%20Clip.mp4" in cd
 
 
+def test_download_with_accel_redirect(client, seed_thumb_media, app):
+    media_id, rel = seed_thumb_media
+    login(client)
+    app.config["FPV_ACCEL_THUMBS_LOCATION"] = "/protected/thumbs"
+    res = client.post(f"/api/media/{media_id}/thumb-url", json={"size": 1024})
+    assert res.status_code == 200
+    token_url = res.get_json()["url"]
+    res2 = client.get(token_url)
+    assert res2.status_code == 200
+    expected = "/protected/thumbs/" + "/".join(("1024", rel.replace(os.sep, "/")))
+    assert res2.headers["X-Accel-Redirect"] == expected
+    assert res2.headers["Cache-Control"].startswith("private")
+    assert res2.data == b""
+
+
 def test_ct_mismatch(client):
     login(client)
     rel = "2025/08/18/foo.png"

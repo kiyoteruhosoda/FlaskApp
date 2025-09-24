@@ -38,8 +38,12 @@
     cursor: zoom-out;
     max-width: none;
     max-height: none;
-    width: 100%;
-    height: 100%;
+    width: auto;
+    height: auto;
+  }
+
+  .media-display.zoomed {
+    overflow: auto;
   }
   
   .media-video {
@@ -481,10 +485,13 @@ document.addEventListener('DOMContentLoaded', () => {
   function displayImage(media) {
     const img = document.createElement('img');
     img.className = 'media-image';
-    img.src = `/api/media/${media.id}/thumbnail?size=1024`;
+    img.src = `/api/media/${media.id}/thumbnail?size=2048`;
     img.alt = media.filename || 'Media';
     
     // ズーム機能
+    isZoomed = false;
+    mediaDisplay.classList.remove('zoomed');
+    zoomBtn.innerHTML = '<i class="fas fa-search-plus"></i>';
     img.addEventListener('click', toggleZoom);
     zoomBtn.style.display = 'block';
     zoomBtn.addEventListener('click', toggleZoom);
@@ -517,6 +524,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!img) return;
     
     isZoomed = !isZoomed;
+    mediaDisplay.classList.toggle('zoomed', isZoomed);
+
     if (isZoomed) {
       img.classList.add('zoomed');
       zoomBtn.innerHTML = '<i class="fas fa-search-minus"></i>';
@@ -753,9 +762,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // フルスクリーン
   fullscreenBtn.addEventListener('click', () => {
-    if (mediaDisplay.requestFullscreen) {
+    if (document.fullscreenElement) {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    } else if (mediaDisplay.requestFullscreen) {
       mediaDisplay.requestFullscreen();
     }
+  });
+
+  document.addEventListener('fullscreenchange', () => {
+    const isFullscreen = document.fullscreenElement === mediaDisplay;
+    fullscreenBtn.innerHTML = isFullscreen
+      ? '<i class="fas fa-compress"></i>'
+      : '<i class="fas fa-expand"></i>';
+    fullscreenBtn.title = isFullscreen ? 'Exit Fullscreen' : 'Fullscreen';
   });
 
   if (canManageTags && tagManageInput) {

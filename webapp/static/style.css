@@ -20,7 +20,6 @@ body.login-page footer {
 }
 
 .login-container {
-  min-height: calc(100vh - 80px); /* ナビゲーションバー + 余白のみ */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -297,8 +296,7 @@ body.login-page main.container-fluid {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 60px 20px 40px;
-  min-height: calc(100vh - 60px);
+  min-height: calc(100vh - 100px);
   box-sizing: border-box;
   margin-top: 0;
 }

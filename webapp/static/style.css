@@ -83,6 +83,11 @@ body.login-page footer {
   box-sizing: border-box;
 }
 
+.form-control::placeholder {
+  color: #cbd5e0;
+  opacity: 1;
+}
+
 .form-control:focus {
   outline: none;
   border-color: #667eea;
@@ -286,8 +291,36 @@ body.login-page footer {
   }
 }
 
-.login-page main.container-fluid {
+body.login-page main.container-fluid {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 60px 20px 40px;
+  min-height: calc(100vh - 60px);
+  box-sizing: border-box;
   margin-top: 0;
+}
+
+body.login-page .flash-messages {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(420px, calc(100% - 40px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 20;
+  pointer-events: none;
+}
+
+body.login-page .flash-messages .alert {
+  margin: 0;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.15);
+  border-radius: 12px;
+  pointer-events: auto;
 }
 
 .login-card {
@@ -305,6 +338,15 @@ body.login-page footer {
 
 /* Responsive Design */
 @media (max-width: 480px) {
+  body.login-page main.container-fluid {
+    padding: 80px 16px 30px;
+  }
+
+  body.login-page .flash-messages {
+    top: 16px;
+    width: calc(100% - 32px);
+  }
+
   .login-container {
     min-height: calc(100vh - 80px); /* モバイル時のナビゲーションバー + 余白 */
     padding: 10px;

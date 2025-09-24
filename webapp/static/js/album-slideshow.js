@@ -37,6 +37,7 @@ class AlbumSlideshow {
     this.timerId = null;
     this.isPlaying = false;
     this.isOpen = false;
+    this.preloadedImages = new Map();
 
     this.handleKeydown = this.handleKeydown.bind(this);
 
@@ -133,6 +134,7 @@ class AlbumSlideshow {
     } else {
       this.mediaItems = [];
     }
+    this.preloadedImages.clear();
     this.albumTitle = context.albumTitle || this.labels.albumTitleFallback;
     this.currentIndex = 0;
     if (this.titleElement) {
@@ -289,6 +291,8 @@ class AlbumSlideshow {
     if (this.titleElement) {
       this.titleElement.textContent = this.albumTitle;
     }
+
+    this.preloadAdjacentImages();
   }
 
   buildAltText(item) {
@@ -385,6 +389,34 @@ class AlbumSlideshow {
       event.preventDefault();
       this.togglePlay();
     }
+  }
+
+  preloadAdjacentImages() {
+    if (!this.mediaItems.length) {
+      return;
+    }
+
+    const indexes = new Set([this.currentIndex]);
+    if (this.mediaItems.length > 1) {
+      indexes.add((this.currentIndex + 1) % this.mediaItems.length);
+      indexes.add((this.currentIndex - 1 + this.mediaItems.length) % this.mediaItems.length);
+    }
+
+    indexes.forEach((index) => {
+      const item = this.mediaItems[index];
+      const imageUrl = this.imageUrlResolver(item);
+      this.preloadImage(imageUrl);
+    });
+  }
+
+  preloadImage(url) {
+    if (!url || this.preloadedImages.has(url)) {
+      return;
+    }
+    const image = new Image();
+    image.decoding = 'async';
+    image.src = url;
+    this.preloadedImages.set(url, image);
   }
 }
 

@@ -64,11 +64,16 @@ def _log_lifecycle_event(app: Flask, action: str, lifecycle_id: str, reason: Opt
 def register_lifecycle_logging(app: Flask) -> None:
     """サーバー起動・停止イベントのログを登録する。"""
 
+    if getattr(app, "_lifecycle_logging_registered", False):
+        return
+
     # Flask のリロード親プロセスではログを出力しない
     if app.debug and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
         return
 
     lifecycle_id = str(uuid4())
+
+    ext_state = app.extensions.setdefault("lifecycle_logging", {})
 
     _log_lifecycle_event(app, "startup", lifecycle_id)
 
@@ -76,6 +81,7 @@ def register_lifecycle_logging(app: Flask) -> None:
         _log_lifecycle_event(app, "shutdown", lifecycle_id, reason="atexit")
 
     atexit.register(_atexit_handler)
+    ext_state["atexit_handler"] = _atexit_handler
 
     def _make_signal_handler(previous: Optional[LifecycleHandler], signum: int) -> LifecycleHandler:
         def _handler(sig: int, frame: Optional[FrameType]) -> None:
@@ -93,11 +99,17 @@ def register_lifecycle_logging(app: Flask) -> None:
 
         return _handler
 
+    signal_handlers = ext_state.setdefault("signal_handlers", {})
+
     for sig in (signal.SIGINT, signal.SIGTERM):
         try:
             previous_handler = signal.getsignal(sig)
             signal.signal(sig, _make_signal_handler(previous_handler, sig))
+            signal_handlers[sig] = previous_handler
         except (ValueError, OSError):
             # マルチスレッド環境などで signal 登録が失敗した場合は無視
             app.logger.debug("ライフサイクルログ用のシグナルハンドラ登録に失敗しました", extra={"event": "app.lifecycle"})
+
+    setattr(app, "_lifecycle_logging_registered", True)
+    ext_state["lifecycle_id"] = lifecycle_id
 

@@ -3,72 +3,101 @@
 Flask アプリケーションコンテキストでページネーション修正をテスト
 """
 import os
-import sys
-
-# プロジェクトパスを追加
-sys.path.insert(0, os.path.abspath('.'))
+from datetime import datetime, timezone
 
 from webapp import create_app
 from core.db import db
+from webapp.api.pagination import PaginationParams
+from webapp.api.picker_session_service import PickerSessionService
+from core.models.picker_session import PickerSession
+from core.models.photo_models import Media, MediaItem, PickerSelection
 
-def test_pagination_fix():
+
+def _restore_env(key: str, original_value: str | None) -> None:
+    if original_value is None:
+        os.environ.pop(key, None)
+    else:
+        os.environ[key] = original_value
+
+
+def test_pagination_fix(tmp_path):
     """Flask アプリケーションコンテキストでページネーション修正をテスト"""
-    
-    # Flaskアプリケーションを作成
-    app = create_app()
-    
-    with app.app_context():
-        print("ページネーション修正のテスト開始")
-        
-        from webapp.api.picker_session_service import PickerSessionService
-        from webapp.api.pagination import PaginationParams
-        from core.models.picker_session import PickerSession
-        
-        # 既存のPickerSessionを取得
-        ps = db.session.query(PickerSession).filter(
-            PickerSession.session_id == "313bc13c-9fd0-4314-868c-93092a38585b"
-        ).first()
-        
-        if not ps:
-            print("❌ テスト対象のPickerSessionが見つからない")
-            return False
-        
-        print(f"📋 PickerSession found: ID={ps.id}, session_id={ps.session_id}")
-        
-        # PaginationParamsを作成
-        params = PaginationParams(page_size=1, use_cursor=True)
-        
-        try:
-            # selection_detailsメソッドを呼び出し
-            result = PickerSessionService.selection_details(ps, params)
-            print("✅ ページネーション修正が成功: エラーなく実行完了")
-            print(f"結果キー: {list(result.keys())}")
-            
-            if 'selections' in result:
-                print(f"選択項目数: {len(result['selections'])}")
-                if result['selections']:
-                    print(f"最初の選択項目: {result['selections'][0].get('id', 'N/A')}")
-            
-            if 'pagination' in result:
-                pagination = result['pagination']
-                print(f"ページネーション: hasNext={pagination.get('hasNext')}, hasPrev={pagination.get('hasPrev')}")
-            
-            return True
-            
-        except AttributeError as e:
-            if "'id'" in str(e):
-                print("❌ ページネーション修正が失敗: まだ'id'属性エラーが発生")
-                print(f"エラー: {e}")
-                return False
-            else:
-                print(f"❌ 予期しないAttributeError: {e}")
-                return False
-        except Exception as e:
-            print(f"❌ その他のエラー: {type(e).__name__}: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
 
-if __name__ == "__main__":
-    success = test_pagination_fix()
-    sys.exit(0 if success else 1)
+    db_path = tmp_path / "picker_session.db"
+    db_uri_key = "DATABASE_URI"
+    original_db_uri = os.environ.get(db_uri_key)
+    os.environ[db_uri_key] = f"sqlite:///{db_path}"
+
+    try:
+        app = create_app()
+        app.config.update(
+            TESTING=True,
+            SQLALCHEMY_DATABASE_URI=os.environ[db_uri_key],
+            SQLALCHEMY_ENGINE_OPTIONS={},
+        )
+
+        with app.app_context():
+            db.create_all()
+
+            now = datetime.now(timezone.utc)
+
+            session = PickerSession(
+                session_id="test-session",
+                status="processing",
+                selected_count=1,
+                media_items_set=True,
+            )
+            session.last_polled_at = now
+            session.last_progress_at = now
+            db.session.add(session)
+            db.session.commit()
+
+            media_item = MediaItem(
+                id="media-1",
+                type="PHOTO",
+                filename="local-file.jpg",
+            )
+            media_record = Media(
+                google_media_id="media-1",
+                filename="local-file.jpg",
+                source_type="google_photos",
+            )
+            db.session.add_all([media_item, media_record])
+            db.session.commit()
+
+            picker_selection = PickerSelection(
+                session_id=session.id,
+                google_media_id="media-1",
+                status="imported",
+                attempts=1,
+                enqueued_at=now,
+                started_at=now,
+                finished_at=now,
+                local_filename="local-file.jpg",
+            )
+            db.session.add(picker_selection)
+            db.session.commit()
+
+            params = PaginationParams(page_size=1, use_cursor=True)
+
+            refreshed_session = db.session.get(PickerSession, session.id)
+            details = PickerSessionService.selection_details(refreshed_session, params)
+
+            selections = details["selections"]
+            assert len(selections) == 1
+            selection_data = selections[0]
+            assert selection_data["id"] == picker_selection.id
+            assert selection_data["googleMediaId"] == "media-1"
+            assert selection_data["filename"] == "local-file.jpg"
+            assert selection_data["status"] == "imported"
+            assert selection_data["attempts"] == 1
+            assert selection_data["mediaId"] == media_record.id
+
+            counts = details["counts"]
+            assert counts["imported"] == 1
+
+            pagination = details["pagination"]
+            assert pagination["hasNext"] is False
+            assert pagination["hasPrev"] is False
+    finally:
+        _restore_env(db_uri_key, original_db_uri)

@@ -1,12 +1,24 @@
 # webapp/__init__.py
+import hashlib
 import logging
 import json
-
 import time
+from datetime import datetime, timezone
 from uuid import uuid4
 
-from flask import Flask, app, request, redirect, url_for, render_template, make_response, flash, jsonify, g
-from datetime import datetime, timezone
+from flask import (
+    Flask,
+    app,
+    flash,
+    g,
+    jsonify,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 
 from flask_babel import get_locale
 from flask_babel import gettext as _
@@ -399,6 +411,51 @@ def create_app():
     
     @login_manager.unauthorized_handler
     def unauthorized():
+        existing_request_id = getattr(g, "request_id", None)
+        request_id = existing_request_id or str(uuid4())
+        if existing_request_id is None:
+            g.request_id = request_id
+
+        raw_user_id = session.get("_user_id")
+        user_hash = None
+        if raw_user_id is not None:
+            user_hash = hashlib.sha256(str(raw_user_id).encode("utf-8")).hexdigest()
+
+        forwarded_for = request.headers.get("X-Forwarded-For")
+        client_ip = None
+        if forwarded_for:
+            client_ip = forwarded_for.split(",")[0].strip()
+        if not client_ip:
+            client_ip = request.remote_addr
+
+        log_payload = {
+            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "id": request_id,
+            "event": "auth.unauthorized",
+            "message": "Redirected to login due to unauthorized access.",
+            "user": {
+                "id_hash": user_hash,
+                "is_authenticated": raw_user_id is not None,
+            },
+            "request": {
+                "method": request.method,
+                "path": request.path,
+                "full_path": request.full_path,
+                "ip": client_ip,
+                "forwarded_for": forwarded_for,
+                "user_agent": request.user_agent.string,
+            },
+        }
+
+        app.logger.warning(
+            json.dumps(log_payload, ensure_ascii=False),
+            extra={
+                "event": "auth.unauthorized",
+                "path": request.path,
+                "request_id": request_id,
+            },
+        )
+
         # i18nメッセージを自分で出す（カテゴリも自由）
         flash(_("Please log in to access this page."), "error")
         # 元のURLへ戻れるよう next を付ける

@@ -161,6 +161,11 @@
       <a class="btn btn-outline-primary" href="{{ url_for('photo_view.media_list') }}">
         <i class="bi bi-images me-1"></i>{{ _('View Media Library') }}
       </a>
+      {% if current_user.can('album:edit') %}
+      <a class="btn btn-outline-secondary" href="{{ url_for('photo_view.album_edit', album_id=album_id) }}">
+        <i class="bi bi-pencil-square me-1"></i>{{ _('Edit Album') }}
+      </a>
+      {% endif %}
       <button type="button" class="btn btn-outline-secondary" id="album-reorder-toggle">
         <i class="bi bi-arrow-down-up me-1"></i>{{ _('Reorder media') }}
       </button>
@@ -213,6 +218,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const state = {
     album: null,
     media: [],
+  };
+  const reorderState = {
+    active: false,
+    originalMedia: [],
+    originalIds: [],
+    dirty: false,
+    saving: false,
+    dragSourceIndex: null,
   };
 
   const strings = {

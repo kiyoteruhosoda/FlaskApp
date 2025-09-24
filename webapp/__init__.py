@@ -22,6 +22,7 @@ from flask import (
 
 from flask_babel import get_locale
 from flask_babel import gettext as _
+from sqlalchemy.engine import make_url
 
 from .extensions import db, migrate, login_manager, babel
 from .timezone import resolve_timezone, convert_to_timezone
@@ -189,6 +190,22 @@ def create_app():
         app.logger.addHandler(db_handler)
 
     ensure_appdb_file_logging(app.logger)
+
+    should_bind_db_handlers = True
+    database_uri = app.config.get("SQLALCHEMY_DATABASE_URI")
+    if database_uri:
+        try:
+            url = make_url(database_uri)
+        except Exception:  # pragma: no cover - invalid URI should not block logging
+            url = None
+        if url is not None and url.get_backend_name() == "sqlite":
+            if url.database in (None, "", ":memory:"):
+                should_bind_db_handlers = False
+
+    if should_bind_db_handlers:
+        for handler in app.logger.handlers:
+            if isinstance(handler, DBLogHandler):
+                handler.bind_to_app(app)
     
     # デバッグモードでは詳細ログを有効化
     if app.debug:

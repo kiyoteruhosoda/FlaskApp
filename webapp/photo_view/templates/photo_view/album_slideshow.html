@@ -309,6 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const albumTitle = album.title?.trim() || strings.untitledAlbum;
       slideshow.load(mediaItems, { albumTitle });
       updateAlbumMeta(album, mediaItems);
+      slideshow.setLoading(false);
 
       const normalizedIndex = Number.isInteger(startIndex) && startIndex >= 0 ? startIndex : 0;
       slideshow.open(normalizedIndex, { autoplay });

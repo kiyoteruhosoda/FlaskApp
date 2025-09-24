@@ -65,14 +65,33 @@ VALID_TAG_ATTRS = {"person", "place", "thing"}
 
 
 def _serialize_user_for_log(user):
-    """ユーザー情報をログ出力用に整形する。"""
+    """ユーザー情報を匿名化した形でログ出力用に整形する。"""
     if user is None:
         return None
-    return {
-        'id': getattr(user, 'id', None),
-        'email': getattr(user, 'email', None),
-        'name': getattr(user, 'name', None),
-    }
+
+    identifier_parts = []
+    if getattr(user, 'id', None) is not None:
+        identifier_parts.append(f"id:{user.id}")
+    if getattr(user, 'email', None):
+        identifier_parts.append(f"email:{user.email}")
+    if getattr(user, 'name', None):
+        identifier_parts.append(f"name:{user.name}")
+
+    if not identifier_parts:
+        return None
+
+    raw_identifier = "|".join(str(part) for part in identifier_parts)
+    digest = hashlib.sha256(raw_identifier.encode('utf-8')).hexdigest()
+
+    snapshot = {'id_hash': digest}
+
+    roles = getattr(user, 'roles', None)
+    if roles:
+        role_names = [getattr(role, 'name', None) for role in roles if getattr(role, 'name', None)]
+        if role_names:
+            snapshot['roles'] = role_names
+
+    return snapshot
 
 
 def _resolve_remote_addr():
@@ -85,51 +104,74 @@ def _resolve_remote_addr():
 
 def _build_auth_log_context(**extra):
     """認証系ログの共通情報を構築する。"""
+
+    request_id = extra.pop('request_id', None) or request.headers.get('X-Request-ID') or str(uuid4())
+    remote_addr = _resolve_remote_addr()
+
+    request_info = {
+        'id': request_id,
+        'ip': remote_addr,
+        'userAgent': request.user_agent.string,
+        'path': request.path,
+        'method': request.method,
+    }
+
     context = {
         'endpoint': request.endpoint,
         'method': request.method,
         'path': request.path,
         'blueprint': request.blueprint,
-        'remote_addr': _resolve_remote_addr(),
         'session_id': session.get('session_id'),
+        'request': request_info,
+        'remote_addr': remote_addr,
         'user_agent': request.user_agent.string,
     }
 
     # current_user もしくは g.current_user からユーザー情報を取得
-    active_user = None
-    if current_user.is_authenticated:
-        active_user = current_user
-    else:
-        active_user = getattr(g, 'current_user', None)
+    active_user = current_user if current_user.is_authenticated else getattr(g, 'current_user', None)
 
     user_snapshot = _serialize_user_for_log(active_user)
     if user_snapshot:
         context['user'] = user_snapshot
 
-    context.update({k: v for k, v in extra.items() if v is not None})
+    if extra:
+        context['extra'] = {k: v for k, v in extra.items() if v is not None}
+
     return context
+
+
+def _emit_structured_api_log(message: str, *, level: str, event: str, **extra_context):
+    """共通の構造化APIログ出力処理。"""
+
+    context = _build_auth_log_context(**extra_context)
+    request_id = None
+    if isinstance(context.get('request'), dict):
+        request_id = context['request'].get('id')
+
+    payload = {
+        'ts': datetime.now(timezone.utc).isoformat(),
+        'event': event,
+        'level': level.upper(),
+        'message': message,
+        'requestId': request_id,
+        'context': context,
+    }
+
+    log_method = getattr(current_app.logger, level, current_app.logger.info)
+    log_method(
+        json.dumps(payload, ensure_ascii=False, default=str),
+        extra={'event': event, 'request_id': request_id},
+    )
 
 
 def _auth_log(message: str, *, level: str = 'info', event: str = 'auth', **extra_context):
     """認証周りのログを構造化して出力する。"""
-    payload = {
-        'message': message,
-        'context': _build_auth_log_context(**extra_context),
-    }
-
-    log_method = getattr(current_app.logger, level, current_app.logger.info)
-    log_method(json.dumps(payload, ensure_ascii=False, default=str), extra={'event': event})
+    _emit_structured_api_log(message, level=level, event=event, **extra_context)
 
 
 def _local_import_log(message: str, *, level: str = 'info', event: str = 'local_import.api', **extra_context):
     """ローカルインポート関連のAPIログを出力する。"""
-    payload = {
-        'message': message,
-        'context': _build_auth_log_context(**extra_context),
-    }
-
-    log_method = getattr(current_app.logger, level, current_app.logger.info)
-    log_method(json.dumps(payload, ensure_ascii=False, default=str), extra={'event': event})
+    _emit_structured_api_log(message, level=level, event=event, **extra_context)
 
 
 def jwt_required(f):

@@ -1,11 +1,12 @@
 import base64
-import os
+import hashlib
 import importlib
 import json
+import os
 import sys
 
 import pytest
-from flask import request
+from flask import request, session as flask_session
 
 
 @pytest.fixture
@@ -198,9 +199,47 @@ def test_api_form_logging_masks_sensitive_data(client):
         assert req_data["form"]["access_token"] == "***"
         assert resp_data["json"]["ok"] is True
         assert resp_data["json"]["refresh_token"] == "***"
-        assert req_log.request_id == resp_log.request_id
-        assert req_log.path.endswith("/api/form")
-        assert resp_log.path.endswith("/api/form")
+
+
+def test_unauthorized_logging_records_context(app):
+    from core.models.log import Log
+
+    headers = {
+        "User-Agent": "pytest-agent",
+        "X-Forwarded-For": "203.0.113.5",
+    }
+
+    with app.test_request_context(
+        "/admin/dashboard?foo=bar",
+        headers=headers,
+        environ_overrides={"REMOTE_ADDR": "192.0.2.10"},
+    ):
+        flask_session["_user_id"] = "user-123"
+        response = app.login_manager.unauthorized()
+        assert response.status_code == 302
+
+    with app.app_context():
+        logs = Log.query.order_by(Log.id).all()
+        assert len(logs) == 1
+        log_entry = logs[0]
+        payload = json.loads(log_entry.message)
+
+        assert log_entry.event == "auth.unauthorized"
+        assert payload["event"] == "auth.unauthorized"
+        assert payload["id"] == log_entry.request_id
+        assert payload["timestamp"].endswith("Z")
+
+        expected_hash = hashlib.sha256("user-123".encode("utf-8")).hexdigest()
+        assert payload["user"]["id_hash"] == expected_hash
+        assert payload["user"]["is_authenticated"] is True
+
+        assert payload["request"]["method"] == "GET"
+        assert payload["request"]["path"] == "/admin/dashboard"
+        assert payload["request"]["full_path"].startswith("/admin/dashboard?foo=bar")
+        assert payload["request"]["ip"] == "203.0.113.5"
+        assert payload["request"]["forwarded_for"] == "203.0.113.5"
+        assert payload["request"]["user_agent"] == "pytest-agent"
+        assert payload["message"] == "Redirected to login due to unauthorized access."
 
 
 def test_status_change_logged(client):

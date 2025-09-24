@@ -37,14 +37,6 @@
                 </div>
                 <select id="album-cover-select" class="form-select form-select-sm mt-2"></select>
               </div>
-              <div class="selected-media-container mt-4">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <h6 class="mb-0">{{ _('Album media order') }}</h6>
-                  <span id="selected-media-count" class="text-muted small">{{ _('No media selected') }}</span>
-                </div>
-                <div id="selected-media-list" class="selected-media-list"></div>
-                <div class="form-text">{{ _('Use the buttons to adjust the playback order.') }}</div>
-              </div>
             </div>
           </div>
         </div>
@@ -111,15 +103,29 @@
                   </button>
                 </div>
               </div>
-              <div id="album-media-scroll" class="album-media-scroll mt-3">
-                <div id="album-media-grid" class="album-media-grid"></div>
-                <div id="album-media-loading" class="loading-spinner d-none">
-                  <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">{{ _('Loading...') }}</span>
+              <div class="album-media-layout mt-3">
+                <div>
+                  <div id="album-media-scroll" class="album-media-scroll">
+                    <div id="album-media-grid" class="album-media-grid"></div>
+                    <div id="album-media-loading" class="loading-spinner d-none">
+                      <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">{{ _('Loading...') }}</span>
+                      </div>
+                    </div>
+                    <div id="album-media-empty" class="text-center text-muted py-4 d-none">{{ _('No media matches the current filters.') }}</div>
+                    <div id="album-media-end" class="text-center text-muted py-3 d-none">{{ _('All matching media loaded.') }}</div>
                   </div>
                 </div>
-                <div id="album-media-empty" class="text-center text-muted py-4 d-none">{{ _('No media matches the current filters.') }}</div>
-                <div id="album-media-end" class="text-center text-muted py-3 d-none">{{ _('All matching media loaded.') }}</div>
+                <div>
+                  <div class="selected-media-container">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <h6 class="mb-0">{{ _('Selected media & order') }}</h6>
+                      <span id="selected-media-count" class="text-muted small">{{ _('No media selected') }}</span>
+                    </div>
+                    <div id="selected-media-list" class="selected-media-list"></div>
+                    <div class="form-text">{{ _('Drag and drop to adjust the playback order.') }}</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

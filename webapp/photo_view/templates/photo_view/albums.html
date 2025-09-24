@@ -282,18 +282,52 @@
     text-overflow: ellipsis;
   }
 
+  .album-media-layout {
+    display: grid;
+    gap: 18px;
+  }
+
+  @media (min-width: 1200px) {
+    .album-media-layout {
+      grid-template-columns: minmax(0, 1.75fr) minmax(280px, 1fr);
+      align-items: flex-start;
+    }
+  }
+
   .selected-media-container {
-    border-top: 1px solid rgba(148, 163, 184, 0.25);
-    padding-top: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 12px;
+    background: #fff;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-height: 280px;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+  }
+
+  .selected-media-container .form-text {
+    margin: 0;
+    color: #64748b;
   }
 
   .selected-media-list {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    max-height: 360px;
+    max-height: 380px;
     overflow-y: auto;
-    padding-right: 4px;
+    padding: 6px;
+    padding-right: 10px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    transition: background 0.2s ease, border-color 0.2s ease;
+    flex: 1;
+  }
+
+  .selected-media-list.drag-over {
+    background: rgba(59, 130, 246, 0.08);
+    border-color: rgba(59, 130, 246, 0.35);
   }
 
   .selected-media-empty {
@@ -315,6 +349,35 @@
     border: 1px solid rgba(148, 163, 184, 0.35);
     border-radius: 12px;
     padding: 10px 12px;
+    cursor: grab;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+    user-select: none;
+  }
+
+  .selected-media-item:hover {
+    border-color: rgba(59, 130, 246, 0.35);
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+  }
+
+  .selected-media-item.dragging {
+    opacity: 0.75;
+    cursor: grabbing;
+    border-color: rgba(59, 130, 246, 0.55);
+    box-shadow: 0 16px 36px rgba(15, 23, 42, 0.2);
+  }
+
+  .selected-media-handle {
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+
+  .selected-media-item.dragging .selected-media-handle {
+    color: #2563eb;
   }
 
   .selected-media-index {
@@ -362,25 +425,9 @@
 
   .selected-media-actions {
     display: flex;
-    flex-direction: column;
-    align-items: flex-end;
+    align-items: center;
     gap: 6px;
     flex-shrink: 0;
-  }
-
-  .selected-media-reorder {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .selected-media-reorder .btn {
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
 
   .selected-media-remove {
@@ -711,8 +758,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const strings = {
     albumCreated: "{{ _('Album created successfully.')|escapejs }}",
     albumUpdated: "{{ _('Album updated successfully.')|escapejs }}",
-    albumDeleted: "{{ _('Album deleted.')|escapejs }}",
-    deleteConfirm: "{{ _('Are you sure you want to delete this album? This action cannot be undone.')|escapejs }}",
     loadAlbumError: "{{ _('Unable to load album details.')|escapejs }}",
     filterApplyError: "{{ _('Failed to load media for the selected filters.')|escapejs }}",
     nameRequired: "{{ _('Album title is required.')|escapejs }}",
@@ -770,6 +815,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let reorderMode = false;
   let reorderDirty = false;
   let albumsInitialLoadPromise = null;
+  let isDragReordering = false;
 
   function adjustMediaScrollHeight() {
     if (!albumModalElement || !albumModalElement.classList.contains('show')) {
@@ -1011,6 +1057,11 @@ document.addEventListener('DOMContentLoaded', () => {
           const item = document.createElement('div');
           item.className = 'selected-media-item';
           item.dataset.mediaId = id.toString();
+          item.draggable = true;
+
+          const dragHandle = document.createElement('span');
+          dragHandle.className = 'selected-media-handle';
+          dragHandle.innerHTML = '<i class="bi bi-grip-vertical"></i>';
 
           const orderBadge = document.createElement('span');
           orderBadge.className = 'selected-media-index';
@@ -1036,30 +1087,6 @@ document.addEventListener('DOMContentLoaded', () => {
           const actions = document.createElement('div');
           actions.className = 'selected-media-actions';
 
-          const reorderControls = document.createElement('div');
-          reorderControls.className = 'selected-media-reorder';
-
-          const upBtn = document.createElement('button');
-          upBtn.type = 'button';
-          upBtn.className = 'btn btn-outline-secondary btn-sm';
-          upBtn.dataset.selectedMediaAction = 'move-up';
-          upBtn.dataset.mediaId = id.toString();
-          upBtn.innerHTML = '<i class="bi bi-chevron-up"></i>';
-          upBtn.setAttribute('aria-label', `${strings.moveUp} #${id}`);
-          upBtn.disabled = index === 0;
-
-          const downBtn = document.createElement('button');
-          downBtn.type = 'button';
-          downBtn.className = 'btn btn-outline-secondary btn-sm';
-          downBtn.dataset.selectedMediaAction = 'move-down';
-          downBtn.dataset.mediaId = id.toString();
-          downBtn.innerHTML = '<i class="bi bi-chevron-down"></i>';
-          downBtn.setAttribute('aria-label', `${strings.moveDown} #${id}`);
-          downBtn.disabled = index === entries.length - 1;
-
-          reorderControls.appendChild(upBtn);
-          reorderControls.appendChild(downBtn);
-
           const removeBtn = document.createElement('button');
           removeBtn.type = 'button';
           removeBtn.className = 'btn btn-outline-danger btn-sm selected-media-remove';
@@ -1068,13 +1095,16 @@ document.addEventListener('DOMContentLoaded', () => {
           removeBtn.innerHTML = '<i class="bi bi-x-lg"></i>';
           removeBtn.setAttribute('aria-label', `${strings.removeMediaLabel} #${id}`);
 
-          actions.appendChild(reorderControls);
           actions.appendChild(removeBtn);
 
+          item.appendChild(dragHandle);
           item.appendChild(orderBadge);
           item.appendChild(thumb);
           item.appendChild(meta);
           item.appendChild(actions);
+
+          attachSelectedMediaDragEvents(item);
+
           selectedMediaList.appendChild(item);
         });
       }
@@ -1082,6 +1112,130 @@ document.addEventListener('DOMContentLoaded', () => {
 
     updateCoverOptions();
     scheduleMediaScrollAdjustment();
+  }
+
+  function attachSelectedMediaDragEvents(item) {
+    item.addEventListener('dragstart', handleSelectedMediaDragStart);
+    item.addEventListener('dragend', handleSelectedMediaDragEnd);
+  }
+
+  function handleSelectedMediaDragStart(event) {
+    const target = event.currentTarget;
+    if (!target) {
+      return;
+    }
+    isDragReordering = true;
+    target.classList.add('dragging');
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      const mediaId = target.dataset.mediaId || '';
+      event.dataTransfer.setData('text/plain', mediaId);
+    }
+  }
+
+  function handleSelectedMediaDragEnd(event) {
+    const target = event.currentTarget;
+    if (target) {
+      target.classList.remove('dragging');
+    }
+    if (selectedMediaList) {
+      selectedMediaList.classList.remove('drag-over');
+    }
+    if (isDragReordering) {
+      syncSelectedMediaOrderFromDom();
+      renderSelectedMedia();
+      if (albumState.selectionFilter === 'selected') {
+        renderSelectedOnlyView();
+      }
+      isDragReordering = false;
+    }
+  }
+
+  function handleSelectedMediaDragOver(event) {
+    if (!selectedMediaList) {
+      return;
+    }
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+    }
+    const draggingItem = selectedMediaList.querySelector('.selected-media-item.dragging');
+    if (!draggingItem) {
+      return;
+    }
+    selectedMediaList.classList.add('drag-over');
+    const afterElement = getDragAfterElement(selectedMediaList, event.clientY);
+    if (!afterElement) {
+      selectedMediaList.appendChild(draggingItem);
+    } else if (afterElement !== draggingItem) {
+      selectedMediaList.insertBefore(draggingItem, afterElement);
+    }
+  }
+
+  function handleSelectedMediaDrop(event) {
+    if (!selectedMediaList) {
+      return;
+    }
+    event.preventDefault();
+    selectedMediaList.classList.remove('drag-over');
+    if (!isDragReordering) {
+      return;
+    }
+    syncSelectedMediaOrderFromDom();
+    renderSelectedMedia();
+    if (albumState.selectionFilter === 'selected') {
+      renderSelectedOnlyView();
+    }
+    isDragReordering = false;
+  }
+
+  function handleSelectedMediaDragLeave(event) {
+    if (!selectedMediaList) {
+      return;
+    }
+    const related = event.relatedTarget;
+    if (!related || !selectedMediaList.contains(related)) {
+      selectedMediaList.classList.remove('drag-over');
+    }
+  }
+
+  function getDragAfterElement(container, y) {
+    const elements = Array.from(container.querySelectorAll('.selected-media-item:not(.dragging)'));
+    return elements.reduce(
+      (closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) {
+          return { offset, element: child };
+        }
+        return closest;
+      },
+      { offset: Number.NEGATIVE_INFINITY, element: null }
+    ).element;
+  }
+
+  function syncSelectedMediaOrderFromDom() {
+    if (!selectedMediaList) {
+      return;
+    }
+    const items = selectedMediaList.querySelectorAll('.selected-media-item');
+    if (!items.length) {
+      return;
+    }
+    const orderedEntries = [];
+    items.forEach((element) => {
+      const id = Number(element.dataset.mediaId);
+      if (!Number.isFinite(id)) {
+        return;
+      }
+      const media = albumState.selectedMedia.get(id);
+      if (media) {
+        orderedEntries.push([id, media]);
+      }
+    });
+    if (orderedEntries.length === albumState.selectedMedia.size) {
+      albumState.selectedMedia = new Map(orderedEntries);
+    }
   }
 
   function removeSelectedMedia(mediaId) {
@@ -1096,25 +1250,6 @@ document.addEventListener('DOMContentLoaded', () => {
     updateMediaTileSelectionState();
     if (albumState.selectionFilter !== 'all') {
       reloadMediaLibrary();
-    }
-  }
-
-  function moveSelectedMedia(mediaId, direction) {
-    const entries = Array.from(albumState.selectedMedia.entries());
-    const currentIndex = entries.findIndex(([id]) => id === mediaId);
-    if (currentIndex === -1) {
-      return;
-    }
-    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-    if (targetIndex < 0 || targetIndex >= entries.length) {
-      return;
-    }
-    const [entry] = entries.splice(currentIndex, 1);
-    entries.splice(targetIndex, 0, entry);
-    albumState.selectedMedia = new Map(entries);
-    renderSelectedMedia();
-    if (albumState.selectionFilter === 'selected') {
-      renderSelectedOnlyView();
     }
   }
 
@@ -1553,25 +1688,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  async function deleteAlbum(albumId) {
-    if (!window.confirm(strings.deleteConfirm)) {
-      return;
-    }
-
-    try {
-      const response = await apiClient.delete(`/api/albums/${albumId}`);
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.message || 'Delete failed');
-      }
-      showSuccessToast(strings.albumDeleted);
-      reloadAlbums();
-    } catch (error) {
-      console.error('Failed to delete album', error);
-      showErrorToast(error.message || 'Delete failed');
-    }
-  }
-
   async function saveAlbum(event) {
     event.preventDefault();
 
@@ -1931,12 +2047,6 @@ document.addEventListener('DOMContentLoaded', () => {
         <button type="button" class="btn btn-light btn-sm" data-album-action="slideshow" data-album-id="${album.id}" title="${strings.startSlideshow}">
           <i class="bi bi-play-fill"></i>
         </button>
-        <button type="button" class="btn btn-light btn-sm" data-album-action="edit" data-album-id="${album.id}">
-          <i class="bi bi-pencil"></i>
-        </button>
-        <button type="button" class="btn btn-light btn-sm" data-album-action="delete" data-album-id="${album.id}">
-          <i class="bi bi-trash"></i>
-        </button>
       </div>
       <div class="album-cover${coverClass}">
         ${coverUrl ? `<img src="${coverUrl}" alt="${escapeHtml(album.title || 'Album')}" loading="lazy">` : ''}
@@ -1971,11 +2081,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!Number.isFinite(albumId)) {
           return;
         }
-        if (actionButton.dataset.albumAction === 'edit') {
-          window.location.href = `/photo-view/albums/${albumId}/edit`;
-        } else if (actionButton.dataset.albumAction === 'delete') {
-          deleteAlbum(albumId);
-        } else if (actionButton.dataset.albumAction === 'slideshow') {
+        if (actionButton.dataset.albumAction === 'slideshow') {
           openAlbumSlideshow(albumId);
         }
         return;
@@ -2164,15 +2270,13 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!Number.isFinite(mediaId)) {
         return;
       }
-      const action = actionButton.dataset.selectedMediaAction;
-      if (action === 'remove') {
+      if (actionButton.dataset.selectedMediaAction === 'remove') {
         removeSelectedMedia(mediaId);
-      } else if (action === 'move-up') {
-        moveSelectedMedia(mediaId, 'up');
-      } else if (action === 'move-down') {
-        moveSelectedMedia(mediaId, 'down');
       }
     });
+    selectedMediaList.addEventListener('dragover', handleSelectedMediaDragOver);
+    selectedMediaList.addEventListener('drop', handleSelectedMediaDrop);
+    selectedMediaList.addEventListener('dragleave', handleSelectedMediaDragLeave);
   }
 
   Array.from(selectionFilterInputs).forEach((input) => {

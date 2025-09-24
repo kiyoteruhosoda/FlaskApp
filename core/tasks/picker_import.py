@@ -44,6 +44,11 @@ from core.models.photo_models import (
     PickerSelection,
 )
 from core.logging_config import setup_task_logging, log_task_error, log_task_info
+from core.tasks.media_post_processing import (
+    enqueue_media_playback as common_enqueue_media_playback,
+    enqueue_thumbs_generate as common_enqueue_thumbs_generate,
+    process_media_post_import,
+)
 from flask import current_app
 
 # picker_import専用ロガーを取得（両方のログハンドラーが設定済み）
@@ -116,80 +121,15 @@ def enqueue_picker_import_item(selection_id: int, session_id: int) -> None:
 
 
 def enqueue_thumbs_generate(media_id: int) -> None:
-    """Enqueue thumbnail generation for *media_id*.
+    """Backward compatible wrapper around the shared thumbnail helper."""
 
-    This function immediately generates thumbnails upon import for better
-    user experience. In production, this could be replaced with async queuing.
-    """
-    from .thumbs_generate import thumbs_generate
-    try:
-        result = thumbs_generate(media_id=media_id)
-        if result.get("ok"):
-            logger.info(f"Thumbnails generated for media_id={media_id}: {result.get('generated', [])}")
-        else:
-            logger.warning(f"Thumbnail generation failed for media_id={media_id}: {result.get('notes', 'unknown error')}")
-    except Exception as e:
-        log_task_error(logger, f"Exception during thumbnail generation for media_id={media_id}: {e}", 
-                      event="thumbnail_generation", media_id=media_id)
-
-    return None
+    common_enqueue_thumbs_generate(media_id, logger_override=logger)
 
 
 def enqueue_media_playback(media_id: int) -> None:
-    """Enqueue playback generation for a video *media_id*.
+    """Backward compatible wrapper around the shared video helper."""
 
-    This function immediately starts video transcoding upon import for better
-    user experience. In production, this could be replaced with async queuing.
-    """
-    import shutil
-    from .transcode import transcode_worker
-    from core.models.photo_models import MediaPlayback
-    
-    # Check if ffmpeg is available
-    if not shutil.which("ffmpeg"):
-        logger.warning(f"ffmpeg not available, skipping video transcoding for media_id={media_id}")
-        return None
-    
-    try:
-        # Find or create MediaPlayback record for this media
-        pb = MediaPlayback.query.filter_by(media_id=media_id, preset="std1080p").first()
-        if not pb:
-            # Create new MediaPlayback record
-            from core.models.photo_models import Media
-            media = Media.query.get(media_id)
-            if not media:
-                log_task_error(logger, f"Media not found for media_id={media_id}", 
-                              event="media_playback_media_not_found", media_id=media_id, exc_info=False)
-                return None
-                
-            from pathlib import Path
-            rel_path = str(Path(media.local_rel_path).with_suffix(".mp4"))
-            
-            pb = MediaPlayback(
-                media_id=media_id,
-                preset="std1080p",
-                rel_path=rel_path,
-                status="pending",
-            )
-            db.session.add(pb)
-            db.session.commit()
-        
-        # Skip if already processed or processing
-        if pb.status in {"done", "processing"}:
-            logger.info(f"Video playback already {pb.status} for media_id={media_id}")
-            return None
-            
-        # Execute transcoding
-        result = transcode_worker(media_playback_id=pb.id)
-        if result.get("ok"):
-            logger.info(f"Video transcoding completed for media_id={media_id}: {result.get('width')}x{result.get('height')}")
-        else:
-            logger.warning(f"Video transcoding failed for media_id={media_id}: {result.get('note', 'unknown error')}")
-    except Exception as e:
-        log_task_error(logger, f"Exception during video transcoding for media_id={media_id}: {e}", 
-                      event="video_transcoding", media_id=media_id)
-
-    return None
+    common_enqueue_media_playback(media_id, logger_override=logger)
 
 
 def picker_import_queue_scan() -> Dict[str, int]:
@@ -1121,10 +1061,15 @@ def picker_import_item(
                 exif = Exif(media_id=media.id, raw_json=json.dumps(item or {}))
                 db.session.add(exif)
 
-                if is_video:
-                    enqueue_media_playback(media.id)
-                else:
-                    enqueue_thumbs_generate(media.id)
+                process_media_post_import(
+                    media,
+                    logger_override=logger,
+                    request_context={
+                        "session_id": session_id,
+                        "selection_id": sel.id,
+                        "source": "picker_import",
+                    },
+                )
 
                 sel.status = "imported"
                 
@@ -1429,22 +1374,14 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
             exif = Exif(media_id=media.id, raw_json=json.dumps(item))
             db.session.add(exif)
 
-            if is_video:
-                mp = (
-                    MediaPlayback.query.filter_by(media_id=media.id, preset="std1080p").one_or_none()
-                )
-                if not mp:
-                    mp = MediaPlayback(
-                        media_id=media.id,
-                        preset="std1080p",
-                        status="queued",
-                    )
-                    db.session.add(mp)
-                else:
-                    mp.status = "queued"
-            else:
-                # Generate thumbnails immediately for images during import
-                enqueue_thumbs_generate(media.id)
+            process_media_post_import(
+                media,
+                logger_override=logger,
+                request_context={
+                    "session_id": picker_session_id,
+                    "source": "picker_import_session_replay",
+                },
+            )
 
             imported += 1
 

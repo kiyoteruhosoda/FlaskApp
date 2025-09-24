@@ -26,6 +26,7 @@ from core.models.job_sync import JobSync
 from core.models.picker_session import PickerSession
 from core.utils import get_file_date_from_name, get_file_date_from_exif
 from core.logging_config import setup_task_logging, log_task_error, log_task_info
+from core.tasks.media_post_processing import process_media_post_import
 from webapp.config import Config
 
 # Setup logger for this module - use Celery task logger for consistency
@@ -621,7 +622,16 @@ def import_single_file(
             db.session.add(exif)
         
         db.session.commit()
-        
+
+        process_media_post_import(
+            media,
+            logger_override=logger,
+            request_context={
+                "session_id": session_id,
+                "source": "local_import",
+            },
+        )
+
         # 元ファイルの削除
         os.remove(file_path)
         _log_info(

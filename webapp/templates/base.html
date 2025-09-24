@@ -108,12 +108,14 @@
 <main class="container-fluid mt-4">
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      {% for cat, msg in messages %}
-        <div class="alert alert-{{ 'danger' if cat == 'error' else cat }} alert-dismissible fade show" role="alert">
-          {{ msg }}
-          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-      {% endfor %}
+      <div class="flash-messages">
+        {% for cat, msg in messages %}
+          <div class="alert alert-{{ 'danger' if cat == 'error' else cat }} alert-dismissible fade show" role="alert">
+            {{ msg }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      </div>
     {% endif %}
   {% endwith %}
 

@@ -35,7 +35,7 @@ services:
       - /volume1/docker/photonest/data/media:/app/data/media
       - /volume1/docker/photonest/data/thumbs:/app/data/thumbs
       - /volume1/docker/photonest/data/playback:/app/data/playback
-      - /tmp/local_import:/tmp/local_import
+      - /volume1/docker/photonest/data/local_import:/tmp/local_import
     user: "${PUID:-1000}:${PGID:-1000}"
     restart: unless-stopped
     healthcheck:
@@ -67,7 +67,7 @@ services:
       - /volume1/docker/photonest/data/media:/app/data/media
       - /volume1/docker/photonest/data/thumbs:/app/data/thumbs
       - /volume1/docker/photonest/data/playback:/app/data/playback
-      - /tmp/local_import:/tmp/local_import
+      - /volume1/docker/photonest/data/local_import:/tmp/local_import
     user: "${PUID:-1000}:${PGID:-1000}"
     restart: unless-stopped
     healthcheck:

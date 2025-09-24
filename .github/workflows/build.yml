@@ -1,0 +1,28 @@
+name: Build Photonest
+
+on:
+  push:
+    branches:
+      - main   # main ブランチへの push で実行
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. リポジトリを取得
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Docker イメージをビルド & エクスポート
+      - name: Build Docker image
+        run: |
+          docker build -t photonest:latest .
+          docker save photonest:latest -o photonest-latest.tar
+
+      # 3. 成果物を保存（ダウンロード可能にする）
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: photonest-image
+          path: photonest-latest.tar

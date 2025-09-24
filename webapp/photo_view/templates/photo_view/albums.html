@@ -27,14 +27,25 @@
     box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
   }
 
+  .album-grid.reorder-active {
+    user-select: none;
+  }
+
   .album-grid.reorder-active .album-card {
-    cursor: default;
+    cursor: grab;
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
     transform: none;
   }
 
   .album-grid.reorder-active .album-card:hover {
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.24);
+  }
+
+  .album-grid.reorder-active .album-card.dragging {
+    opacity: 0.82;
+    transform: scale(0.98);
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.24);
+    cursor: grabbing;
   }
 
   .album-card.reorder-enabled::after {
@@ -47,7 +58,11 @@
   }
 
   .album-card.reorder-enabled {
-    cursor: default;
+    cursor: grab;
+  }
+
+  .album-card.reorder-enabled:active {
+    cursor: grabbing;
   }
 
   .album-card.reorder-enabled:hover {
@@ -61,23 +76,13 @@
     left: 12px;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     background: rgba(15, 23, 42, 0.78);
     border-radius: 999px;
-    padding: 4px 10px;
+    padding: 6px 12px;
     color: #e2e8f0;
     z-index: 4;
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25);
-  }
-
-  .album-reorder-controls button {
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    padding: 0;
   }
 
   .album-reorder-controls .album-order-index {
@@ -85,6 +90,33 @@
     font-size: 0.85rem;
     min-width: 24px;
     text-align: center;
+  }
+
+  .album-reorder-handle {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(148, 163, 184, 0.25);
+    color: #e2e8f0;
+    cursor: grab;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .album-reorder-handle:focus {
+    outline: 2px solid rgba(148, 163, 184, 0.55);
+    outline-offset: 2px;
+  }
+
+  .album-reorder-handle:hover {
+    background: rgba(148, 163, 184, 0.4);
+    color: #ffffff;
+  }
+
+  .album-reorder-handle:active {
+    cursor: grabbing;
   }
 
   .album-reorder-controls.d-none {
@@ -637,14 +669,13 @@ document.addEventListener('DOMContentLoaded', () => {
     photosLabel: "{{ _('photos')|escapejs }}",
     startSlideshow: "{{ _('Start Slideshow')|escapejs }}",
     customOrderLabel: "{{ _('Custom Order')|escapejs }}",
-    reorderHint: "{{ _('Use the arrow buttons to change the album order, then choose "Save Order".')|escapejs }}",
+    reorderHint: "{{ _('Drag and drop albums to change the order, then choose "Save Order".')|escapejs }}",
     reorderLoading: "{{ _('Loading all albums for reordering...')|escapejs }}",
     reorderLoadError: "{{ _('Unable to prepare albums for reordering.')|escapejs }}",
     reorderSaved: "{{ _('Album order updated.')|escapejs }}",
     reorderSaveError: "{{ _('Failed to update album order.')|escapejs }}",
     reorderSaving: "{{ _('Saving album order...')|escapejs }}",
-    moveUp: "{{ _('Move up')|escapejs }}",
-    moveDown: "{{ _('Move down')|escapejs }}",
+    reorderHandle: "{{ _('Drag to reorder')|escapejs }}",
   };
 
   const albumState = {
@@ -667,6 +698,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let reorderMode = false;
   let reorderDirty = false;
   let albumsInitialLoadPromise = null;
+  let draggingAlbumCard = null;
+  let draggingAlbumStartIndex = -1;
+  let draggingAlbumHasMoved = false;
   let isDragReordering = false;
 
   function adjustMediaScrollHeight() {
@@ -1643,15 +1677,29 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     const controls = card.querySelector('.album-reorder-controls');
+    const handle = card.querySelector('.album-reorder-handle');
     if (enabled) {
       card.classList.add('reorder-enabled');
       if (controls) {
         controls.classList.remove('d-none');
+        controls.setAttribute('aria-hidden', 'false');
+      }
+      if (handle) {
+        handle.setAttribute('draggable', 'true');
+        handle.setAttribute('tabindex', '0');
+        handle.setAttribute('aria-hidden', 'false');
       }
     } else {
       card.classList.remove('reorder-enabled');
+      card.classList.remove('dragging');
       if (controls) {
         controls.classList.add('d-none');
+        controls.setAttribute('aria-hidden', 'true');
+      }
+      if (handle) {
+        handle.removeAttribute('draggable');
+        handle.setAttribute('tabindex', '-1');
+        handle.setAttribute('aria-hidden', 'true');
       }
     }
   }
@@ -1675,14 +1723,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (indicator) {
         indicator.textContent = (index + 1).toString();
       }
-      const upBtn = card.querySelector('button[data-reorder="up"]');
-      const downBtn = card.querySelector('button[data-reorder="down"]');
-      if (upBtn) {
-        upBtn.disabled = index === 0;
-      }
-      if (downBtn) {
-        downBtn.disabled = index === cards.length - 1;
-      }
     });
   }
 
@@ -1694,25 +1734,150 @@ document.addEventListener('DOMContentLoaded', () => {
     updateReorderSaveState();
   }
 
-  function moveAlbumCard(card, direction) {
-    if (!reorderMode || !albumsGrid || !card) {
+  function getAlbumCardIndex(card) {
+    if (!albumsGrid || !card) {
+      return -1;
+    }
+    return Array.from(albumsGrid.querySelectorAll('.album-card')).indexOf(card);
+  }
+
+  function resetAlbumDragState(options = {}) {
+    const { markDirty = true } = options;
+    if (!draggingAlbumCard) {
+      draggingAlbumHasMoved = false;
+      draggingAlbumStartIndex = -1;
       return;
     }
-    if (direction === 'up') {
-      const previous = card.previousElementSibling;
-      if (previous) {
-        albumsGrid.insertBefore(card, previous);
-        markReorderDirty();
-        updateAlbumOrderIndicators();
-      }
-    } else if (direction === 'down') {
-      const next = card.nextElementSibling;
-      if (next) {
-        albumsGrid.insertBefore(next, card);
-        markReorderDirty();
-        updateAlbumOrderIndicators();
+
+    const card = draggingAlbumCard;
+    card.classList.remove('dragging');
+
+    const currentIndex = getAlbumCardIndex(card);
+    const moved = draggingAlbumHasMoved && currentIndex !== -1 && currentIndex !== draggingAlbumStartIndex;
+
+    draggingAlbumCard = null;
+    draggingAlbumStartIndex = -1;
+    draggingAlbumHasMoved = false;
+
+    updateAlbumOrderIndicators();
+
+    if (markDirty && moved) {
+      markReorderDirty();
+    }
+  }
+
+  function finalizeAlbumDrag() {
+    resetAlbumDragState({ markDirty: true });
+  }
+
+  function cancelAlbumDrag() {
+    resetAlbumDragState({ markDirty: false });
+  }
+
+  function handleAlbumDragStart(event) {
+    if (!reorderMode) {
+      event.preventDefault();
+      return;
+    }
+
+    const handle = event.currentTarget;
+    const card = handle?.closest('.album-card');
+    if (!card || !albumsGrid) {
+      event.preventDefault();
+      return;
+    }
+
+    draggingAlbumCard = card;
+    draggingAlbumStartIndex = getAlbumCardIndex(card);
+    draggingAlbumHasMoved = false;
+
+    card.classList.add('dragging');
+
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', card.dataset.albumId || '');
+      const rect = card.getBoundingClientRect();
+      const offsetX = event.clientX - rect.left;
+      const offsetY = event.clientY - rect.top;
+      if (event.dataTransfer.setDragImage) {
+        event.dataTransfer.setDragImage(card, offsetX, offsetY);
       }
     }
+
+    event.stopPropagation();
+  }
+
+  function handleAlbumDragOver(event) {
+    if (!reorderMode || !draggingAlbumCard || !albumsGrid) {
+      return;
+    }
+
+    const targetCard = event.currentTarget;
+    if (!targetCard || targetCard === draggingAlbumCard || !targetCard.classList.contains('album-card')) {
+      return;
+    }
+
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+    }
+
+    const rect = targetCard.getBoundingClientRect();
+    const shouldInsertBefore = event.clientY < rect.top + rect.height / 2;
+    const referenceNode = shouldInsertBefore ? targetCard : targetCard.nextElementSibling;
+
+    if (referenceNode === draggingAlbumCard) {
+      return;
+    }
+
+    albumsGrid.insertBefore(draggingAlbumCard, referenceNode);
+    draggingAlbumHasMoved = true;
+    updateAlbumOrderIndicators();
+  }
+
+  function handleAlbumsGridDragOver(event) {
+    if (!reorderMode || !draggingAlbumCard || !albumsGrid) {
+      return;
+    }
+
+    const targetCard = event.target.closest('.album-card');
+    if (targetCard) {
+      return;
+    }
+
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+    }
+
+    const lastCard = albumsGrid.querySelector('.album-card:last-of-type');
+    if (!lastCard) {
+      return;
+    }
+
+    if (lastCard !== draggingAlbumCard) {
+      albumsGrid.appendChild(draggingAlbumCard);
+      draggingAlbumHasMoved = true;
+      updateAlbumOrderIndicators();
+    }
+  }
+
+  function handleAlbumDrop(event) {
+    if (!reorderMode || !draggingAlbumCard) {
+      return;
+    }
+
+    event.preventDefault();
+    finalizeAlbumDrag();
+  }
+
+  function handleAlbumDragEnd(event) {
+    if (!draggingAlbumCard) {
+      return;
+    }
+
+    event.preventDefault();
+    finalizeAlbumDrag();
   }
 
   function collectCurrentAlbumOrder() {
@@ -1823,6 +1988,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function exitReorderMode(options = {}) {
     const { keepHint = false } = options;
+    cancelAlbumDrag();
     reorderDirty = false;
     applyReorderState(false);
     if (keepHint) {
@@ -1886,14 +2052,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const visibilityLabel = strings.visibilityLabels[album.visibility] || album.visibility;
 
     card.innerHTML = `
-      <div class="album-reorder-controls d-none">
-        <button type="button" class="btn btn-light btn-sm" data-reorder="up" aria-label="${strings.moveUp}">
-          <i class="bi bi-chevron-up"></i>
-        </button>
+      <div class="album-reorder-controls d-none" aria-hidden="true">
         <span class="album-order-index">1</span>
-        <button type="button" class="btn btn-light btn-sm" data-reorder="down" aria-label="${strings.moveDown}">
-          <i class="bi bi-chevron-down"></i>
-        </button>
+        <div class="album-reorder-handle" role="button" tabindex="-1" aria-label="${strings.reorderHandle}">
+          <i class="bi bi-grip-vertical" aria-hidden="true"></i>
+        </div>
       </div>
       <div class="album-actions">
         <button type="button" class="btn btn-light btn-sm" data-album-action="slideshow" data-album-id="${album.id}" title="${strings.startSlideshow}">
@@ -1958,18 +2121,23 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    const reorderControls = card.querySelector('.album-reorder-controls');
-    if (reorderControls) {
-      reorderControls.addEventListener('click', (event) => {
-        const controlButton = event.target.closest('button[data-reorder]');
-        if (!controlButton) {
-          return;
-        }
+    const reorderHandle = card.querySelector('.album-reorder-handle');
+    if (reorderHandle) {
+      reorderHandle.addEventListener('dragstart', handleAlbumDragStart);
+      reorderHandle.addEventListener('dragend', handleAlbumDragEnd);
+      reorderHandle.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-        moveAlbumCard(card, controlButton.dataset.reorder);
+      });
+      reorderHandle.addEventListener('keydown', (event) => {
+        if (event.key === ' ' || event.key === 'Enter') {
+          event.preventDefault();
+        }
       });
     }
+
+    card.addEventListener('dragover', handleAlbumDragOver);
+    card.addEventListener('drop', handleAlbumDrop);
 
     setCardReorderState(card, reorderMode);
 
@@ -2043,6 +2211,11 @@ document.addEventListener('DOMContentLoaded', () => {
       hideReorderHint();
     }
     initializeAlbumsScroll();
+  }
+
+  if (albumsGrid) {
+    albumsGrid.addEventListener('dragover', handleAlbumsGridDragOver);
+    albumsGrid.addEventListener('drop', handleAlbumDrop);
   }
 
   if (sortOrder) {

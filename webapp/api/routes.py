@@ -441,6 +441,27 @@ def serialize_album_summary(
     }
 
 
+def _resolve_best_thumbnail_url(media: Media) -> str | None:
+    """Return the largest available thumbnail URL for a media item."""
+
+    rel_path = _normalize_rel_path(media.local_rel_path)
+    if rel_path is None:
+        return None
+
+    thumbs_base = current_app.config.get("FPV_NAS_THUMBS_DIR") or os.environ.get(
+        "FPV_NAS_THUMBS_DIR"
+    )
+    if not thumbs_base:
+        return None
+
+    for size in (2048, 1024, 512):
+        candidate = Path(thumbs_base) / str(size) / rel_path
+        if candidate.exists():
+            return f"/api/media/{media.id}/thumbnail?size={size}"
+
+    return None
+
+
 def serialize_album_detail(album: Album, media_rows) -> dict:
     """アルバム詳細情報を構築する。"""
 
@@ -454,6 +475,9 @@ def serialize_album_detail(album: Album, media_rows) -> dict:
 
         media_ids.append(media.id)
         tags = sorted(media.tags, key=lambda t: (t.name or '').lower())
+        thumbnail_url = f"/api/media/{media.id}/thumbnail?size=512"
+        full_url = _resolve_best_thumbnail_url(media) or thumbnail_url
+
         media_items.append(
             {
                 'id': media.id,
@@ -463,7 +487,8 @@ def serialize_album_detail(album: Album, media_rows) -> dict:
                     if media.shot_at
                     else None
                 ),
-                'thumbnailUrl': f"/api/media/{media.id}/thumbnail?size=512",
+                'thumbnailUrl': thumbnail_url,
+                'fullUrl': full_url,
                 'sortIndex': sort_index,
                 'tags': [serialize_tag(tag) for tag in tags],
             }

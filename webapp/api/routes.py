@@ -121,6 +121,17 @@ def _auth_log(message: str, *, level: str = 'info', event: str = 'auth', **extra
     log_method(json.dumps(payload, ensure_ascii=False, default=str), extra={'event': event})
 
 
+def _local_import_log(message: str, *, level: str = 'info', event: str = 'local_import.api', **extra_context):
+    """ローカルインポート関連のAPIログを出力する。"""
+    payload = {
+        'message': message,
+        'context': _build_auth_log_context(**extra_context),
+    }
+
+    log_method = getattr(current_app.logger, level, current_app.logger.info)
+    log_method(json.dumps(payload, ensure_ascii=False, default=str), extra={'event': event})
+
+
 def jwt_required(f):
     """JWT認証が必要なエンドポイント用のデコレータ"""
     @wraps(f)
@@ -2208,6 +2219,12 @@ def trigger_local_import():
     """ローカルファイル取り込みを手動実行"""
     user = get_current_user()
     if not user or not getattr(user, "has_role", None) or not user.has_role("admin"):
+        _local_import_log(
+            "Local import trigger rejected: insufficient permissions",
+            level="warning",
+            event="local_import.api.trigger",
+            stage="denied",
+        )
         return (
             jsonify({"error": _("You do not have permission to start a local import.")}),
             403,
@@ -2219,7 +2236,13 @@ def trigger_local_import():
     import uuid
     import random
     import string
-    
+
+    _local_import_log(
+        "Local import trigger requested",
+        event="local_import.api.trigger",
+        stage="start",
+    )
+
     try:
         # PickerSessionを先に作成
         now = datetime.now(timezone.utc)
@@ -2237,10 +2260,19 @@ def trigger_local_import():
         )
         db.session.add(session)
         db.session.commit()
-        
+
         # Celeryタスクにセッション情報を渡して非同期実行
         task = local_import_task_celery.delay(session_id)
-        
+
+        _local_import_log(
+            "Local import task dispatched",
+            event="local_import.api.trigger",
+            stage="dispatched",
+            session_id=session_id,
+            celery_task_id=task.id,
+            picker_session_db_id=session.id,
+        )
+
         return jsonify({
             "success": True,
             "task_id": task.id,
@@ -2248,9 +2280,15 @@ def trigger_local_import():
             "message": "ローカルインポートタスクを開始しました",
             "server_time": now.isoformat()
         })
-    
+
     except Exception as e:
-        current_app.logger.error(f"Failed to start local import task: {e}")
+        _local_import_log(
+            "Failed to start local import task",
+            level="error",
+            event="local_import.api.trigger",
+            stage="error",
+            error=str(e),
+        )
         return jsonify({
             "success": False,
             "error": str(e),
@@ -2312,7 +2350,25 @@ def local_import_status():
             files = scan_import_directory(import_dir_info["realpath"])
             file_count = len(files)
         except Exception as e:
-            current_app.logger.warning(f"Failed to scan import directory: {e}")
+            _local_import_log(
+                "Failed to scan local import directory",
+                level="warning",
+                event="local_import.api.status",
+                stage="scan_failed",
+                error=str(e),
+                import_dir=import_dir_info["realpath"],
+            )
+
+    _local_import_log(
+        "Local import status requested",
+        event="local_import.api.status",
+        stage="status",
+        import_dir=config_info["import_dir"],
+        import_dir_exists=import_dir_info["exists"],
+        originals_dir=config_info["originals_dir"],
+        originals_dir_exists=originals_dir_info["exists"],
+        pending_files=file_count,
+    )
 
     return jsonify({
         "config": {
@@ -2340,10 +2396,22 @@ def ensure_local_import_directories():
 
     user = get_current_user()
     if not user or not getattr(user, "has_role", None) or not user.has_role("admin"):
+        _local_import_log(
+            "Local import directory ensure rejected: insufficient permissions",
+            level="warning",
+            event="local_import.api.directories",
+            stage="denied",
+        )
         return (
             jsonify({"error": _("You do not have permission to manage local import directories.")}),
             403,
         )
+
+    _local_import_log(
+        "Local import directory ensure requested",
+        event="local_import.api.directories",
+        stage="start",
+    )
 
     initial_config = _resolve_local_import_config()
 
@@ -2364,7 +2432,14 @@ def ensure_local_import_directories():
             os.makedirs(target_path, exist_ok=True)
             created.append(key)
         except Exception as exc:  # pragma: no cover - defensive logging
-            current_app.logger.error("Failed to create %s: %s", target_path, exc)
+            _local_import_log(
+                "Failed to create local import directory",
+                level="error",
+                event="local_import.api.directories",
+                stage="create_failed",
+                target_path=target_path,
+                error=str(exc),
+            )
             errors[key] = str(exc)
 
     updated_config = _resolve_local_import_config()
@@ -2391,6 +2466,15 @@ def ensure_local_import_directories():
     if errors and not created:
         payload["message"] = _("Failed to create one or more directories.")
 
+    _local_import_log(
+        "Local import directory ensure completed",
+        event="local_import.api.directories",
+        stage="completed",
+        created=created,
+        errors=errors,
+        status_code=status_code,
+    )
+
     return jsonify(payload), status_code
 
 
@@ -2401,17 +2485,31 @@ def get_local_import_task_result(task_id):
 
     user = get_current_user()
     if not user or not getattr(user, "has_role", None) or not user.has_role("admin"):
+        _local_import_log(
+            "Local import task result rejected: insufficient permissions",
+            level="warning",
+            event="local_import.api.task_status",
+            stage="denied",
+            task_id=task_id,
+        )
         return (
             jsonify({"error": _("You do not have permission to view local import progress.")}),
             403,
         )
 
     from cli.src.celery.celery_app import celery
-    
+
+    _local_import_log(
+        "Local import task result requested",
+        event="local_import.api.task_status",
+        stage="start",
+        task_id=task_id,
+    )
+
     try:
         # タスクの結果を取得
         result = celery.AsyncResult(task_id)
-        
+
         if result.state == 'PENDING':
             response = {
                 "state": result.state,
@@ -2441,12 +2539,30 @@ def get_local_import_task_result(task_id):
                 "progress": 0,
                 "error": str(result.info)
             }
-        
+
         response["server_time"] = datetime.now(timezone.utc).isoformat()
+
+        _local_import_log(
+            "Local import task result returned",
+            event="local_import.api.task_status",
+            stage="completed",
+            task_id=task_id,
+            state=response.get("state"),
+            progress=response.get("progress"),
+            status=response.get("status"),
+            has_error=response.get("error") is not None,
+        )
         return jsonify(response)
-        
+
     except Exception as e:
-        current_app.logger.error(f"Failed to get task result: {e}")
+        _local_import_log(
+            "Failed to get local import task result",
+            level="error",
+            event="local_import.api.task_status",
+            stage="error",
+            task_id=task_id,
+            error=str(e),
+        )
         return jsonify({
             "state": "ERROR",
             "status": "タスク結果の取得に失敗しました",

@@ -65,7 +65,7 @@ COPY --from=builder --chown=appuser:appuser /app/core/version.json /app/core/ver
 RUN python -m compileall webapp/translations/ || true
 
 # データディレクトリ（本番環境用）
-RUN mkdir -p data/media data/thumbs data/playback \
+RUN mkdir -p data/media data/thumbs data/playback data/local_import \
  && chown -R appuser:appuser data/
 
 USER appuser

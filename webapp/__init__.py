@@ -116,10 +116,37 @@ def create_app():
 
     @app.context_processor
     def inject_version():
+        languages = [str(lang).strip() for lang in app.config.get("LANGUAGES", ["ja", "en"]) if lang]
+        if not languages:
+            default_language = app.config.get("BABEL_DEFAULT_LOCALE", "en")
+            if default_language:
+                languages = [default_language]
+
+        default_language = app.config.get("BABEL_DEFAULT_LOCALE", languages[0] if languages else "en")
+
+        locale_obj = get_locale()
+        current_language = str(locale_obj) if locale_obj else default_language
+        if "_" in current_language:
+            short_lang = current_language.split("_")[0]
+            if short_lang in languages:
+                current_language = short_lang
+        if current_language not in languages and languages:
+            current_language = languages[0]
+
+        language_labels = {
+            "ja": _("Japanese"),
+            "en": _("English"),
+        }
+        for lang in languages:
+            language_labels.setdefault(lang, lang.upper())
+
         return dict(
             app_version=get_version_string(),
             current_timezone=getattr(g, "user_timezone", timezone.utc),
             current_timezone_name=getattr(g, "user_timezone_name", "UTC"),
+            language_selector_languages=languages,
+            language_labels=language_labels,
+            current_language=current_language,
         )
 
     @app.template_filter("localtime")

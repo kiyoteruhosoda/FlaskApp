@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Login') }} - PhotoNest{% endblock %}
+{% block body_attributes %} class="login-page"{% endblock %}
 
 {% block content %}
 <div class="login-container">
@@ -67,54 +68,6 @@
     </div>
   </div>
 </div>
-
-<style>
-/* Additional page-specific styles */
-body {
-  overflow-x: hidden;
-}
-
-/* Hide footer on login page to prevent unnecessary scrolling */
-footer {
-  display: none;
-}
-
-/* Adjust container height since footer is hidden */
-.login-container {
-  min-height: calc(100vh - 80px); /* ナビゲーションバー + 余白のみ */
-}
-
-/* Loading state for button */
-.btn-login.loading {
-  pointer-events: none;
-  color: transparent; /* Hide the original text/icon */
-}
-
-.btn-login.loading * {
-  opacity: 0; /* Hide all child elements */
-}
-
-.btn-login.loading::after {
-  content: '';
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  margin: auto;
-  border: 2px solid transparent;
-  border-top-color: #ffffff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-</style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {

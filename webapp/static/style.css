@@ -11,8 +11,16 @@ body {
 }
 
 /* Modern Login Page Styles */
+body.login-page {
+  overflow-x: hidden;
+}
+
+body.login-page footer {
+  display: none;
+}
+
 .login-container {
-  min-height: calc(100vh - 140px); /* ナビゲーションバー(56px) + フッター(約60px) + 余白(24px) */
+  min-height: calc(100vh - 80px); /* ナビゲーションバー + 余白のみ */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -125,6 +133,31 @@ body {
   margin-top: 20px;
   position: relative;
   overflow: hidden;
+}
+
+.btn-login.loading {
+  pointer-events: none;
+  color: transparent;
+}
+
+.btn-login.loading * {
+  opacity: 0;
+}
+
+.btn-login.loading::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  margin: auto;
+  border: 2px solid transparent;
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: loginButtonSpin 1s linear infinite;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
 }
 
 .btn-login:hover {
@@ -253,14 +286,27 @@ body {
   }
 }
 
+.login-page main.container-fluid {
+  margin-top: 0;
+}
+
 .login-card {
   animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes loginButtonSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* Responsive Design */
 @media (max-width: 480px) {
   .login-container {
-    min-height: calc(100vh - 120px); /* モバイル時のナビゲーションバー + フッター + 余白 */
+    min-height: calc(100vh - 80px); /* モバイル時のナビゲーションバー + 余白 */
     padding: 10px;
   }
   

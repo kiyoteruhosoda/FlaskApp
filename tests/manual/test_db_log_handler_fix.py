@@ -13,8 +13,9 @@ from unittest.mock import Mock, patch
 import pytest
 
 # プロジェクトのルートパスをsys.pathに追加
-project_root = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, project_root)
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 # Core modulesをインポート
 from core.db_log_handler import DBLogHandler

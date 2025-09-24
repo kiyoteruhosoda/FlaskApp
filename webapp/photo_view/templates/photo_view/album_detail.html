@@ -258,6 +258,47 @@ document.addEventListener('DOMContentLoaded', () => {
     hint: document.getElementById('album-reorder-hint'),
   };
 
+  function sortAlbumMediaItems(items) {
+    if (!Array.isArray(items)) {
+      return [];
+    }
+
+    const clone = items.slice();
+    return clone.sort((a, b) => {
+      const aSortRaw = Number(a?.sortIndex);
+      const bSortRaw = Number(b?.sortIndex);
+      const aHasSort = Number.isFinite(aSortRaw);
+      const bHasSort = Number.isFinite(bSortRaw);
+
+      if (aHasSort && bHasSort && aSortRaw !== bSortRaw) {
+        return aSortRaw - bSortRaw;
+      }
+      if (aHasSort && !bHasSort) {
+        return -1;
+      }
+      if (!aHasSort && bHasSort) {
+        return 1;
+      }
+
+      const aId = Number(a?.id);
+      const bId = Number(b?.id);
+      const aHasId = Number.isFinite(aId);
+      const bHasId = Number.isFinite(bId);
+
+      if (aHasId && bHasId && aId !== bId) {
+        return aId - bId;
+      }
+      if (aHasId && !bHasId) {
+        return -1;
+      }
+      if (!aHasId && bHasId) {
+        return 1;
+      }
+
+      return 0;
+    });
+  }
+
   function showReorderHint(message, level = 'info') {
     if (!reorderElements.hint) {
       return;

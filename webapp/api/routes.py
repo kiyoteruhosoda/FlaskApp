@@ -565,15 +565,66 @@ def api_albums_list():
 def api_album_detail(album_id: int):
     """アルバム詳細情報を取得する。"""
 
-    album = Album.query.get(album_id)
+    requester = get_current_user()
+    requester_info = None
+    if requester:
+        requester_info = {
+            "id": getattr(requester, "id", None),
+            "email": getattr(requester, "email", None),
+        }
+
+    log_context = {
+        "event": "album.detail.fetch",
+        "album_id": album_id,
+        "requested_by": requester_info,
+    }
+
+    current_app.logger.info(
+        json.dumps({**log_context, "stage": "start"}),
+        extra={"event": "album.detail.fetch"},
+    )
+
+    try:
+        album = Album.query.get(album_id)
+    except Exception as exc:  # pragma: no cover - unexpected database failure
+        current_app.logger.exception(
+            json.dumps({**log_context, "stage": "query_failed", "error": str(exc)}),
+            extra={"event": "album.detail.fetch"},
+        )
+        raise
+
     if not album:
+        current_app.logger.warning(
+            json.dumps({**log_context, "stage": "not_found"}),
+            extra={"event": "album.detail.fetch"},
+        )
         return (
             jsonify({"error": "not_found", "message": _("Album not found.")}),
             404,
         )
 
-    media_rows = _get_album_media_rows(album_id)
-    detail = serialize_album_detail(album, media_rows)
+    try:
+        media_rows = _get_album_media_rows(album_id)
+        detail = serialize_album_detail(album, media_rows)
+    except Exception as exc:  # pragma: no cover - unexpected serialization failure
+        current_app.logger.exception(
+            json.dumps({**log_context, "stage": "serialization_failed", "error": str(exc)}),
+            extra={"event": "album.detail.fetch"},
+        )
+        raise
+
+    current_app.logger.info(
+        json.dumps(
+            {
+                **log_context,
+                "stage": "success",
+                "media_count": len(media_rows),
+                "visibility": album.visibility,
+                "cover_media_id": detail.get("coverMediaId"),
+            }
+        ),
+        extra={"event": "album.detail.fetch"},
+    )
 
     return jsonify({"album": detail})
 

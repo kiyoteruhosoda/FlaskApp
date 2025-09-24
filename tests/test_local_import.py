@@ -5,9 +5,10 @@
 
 import os
 import sys
-import tempfile
 import shutil
 from pathlib import Path
+import tempfile
+import zipfile
 import pytest
 
 # プロジェクトルートを追加
@@ -118,7 +119,36 @@ def test_scan_directory():
         txt_files = [f for f in scanned_files if f.endswith('.txt')]
         assert len(txt_files) == 0, "txt ファイルは除外されるべき"
         
-        print("✓ ディレクトリスキャンのテスト完了")
+    print("✓ ディレクトリスキャンのテスト完了")
+
+
+def test_scan_directory_extracts_zip(tmp_path):
+    """ZIPファイル内のサポートファイルが展開されることをテスト"""
+    import_dir = tmp_path
+
+    png_data = (b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde'
+                b'\x00\x00\x00\x0cIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xdb\x00\x00\x00\x00IEND\xaeB`\x82')
+
+    file1 = import_dir / "1.png"
+    file3 = import_dir / "3.png"
+    file1.write_bytes(png_data)
+    file3.write_bytes(png_data)
+
+    zip_path = import_dir / "2.zip"
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        zf.writestr("4.png", png_data)
+        zf.writestr("nested/5.png", png_data)
+        zf.writestr("6.txt", b"nope")
+
+    scanned_files = scan_import_directory(str(import_dir))
+
+    basenames = sorted(Path(path).name for path in scanned_files)
+    assert basenames == ["1.png", "3.png", "4.png", "5.png"]
+
+    assert not zip_path.exists(), "ZIPファイルは展開後に削除されるべき"
+
+    for path in scanned_files:
+        assert os.path.exists(path)
 
 def test_local_import_task_with_session(app, db_session, temp_dir):
     """ローカルインポートタスクでPickerSessionとPickerSelectionが作成されることをテスト"""

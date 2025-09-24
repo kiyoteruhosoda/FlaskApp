@@ -9,7 +9,9 @@ import shutil
 import json
 import logging
 import subprocess
+import tempfile
 import uuid
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -70,6 +72,130 @@ def _log_error(event: str, message: str, *, exc_info: bool = False, **details: A
 SUPPORTED_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.tiff', '.tif', '.bmp', '.heic', '.heif'}
 SUPPORTED_VIDEO_EXTENSIONS = {'.mp4', '.mov', '.avi', '.mkv', '.m4v', '.3gp', '.webm'}
 SUPPORTED_EXTENSIONS = SUPPORTED_IMAGE_EXTENSIONS | SUPPORTED_VIDEO_EXTENSIONS
+
+
+_EXTRACTED_DIRECTORIES: List[Path] = []
+
+
+def _zip_extraction_base_dir() -> Path:
+    """ZIP展開用のベースディレクトリを返す。"""
+    base_dir = Path(tempfile.gettempdir()) / "local_import_zip"
+    base_dir.mkdir(parents=True, exist_ok=True)
+    return base_dir
+
+
+def _register_extracted_directory(path: Path) -> None:
+    """後でクリーンアップするため展開先ディレクトリを登録。"""
+    _EXTRACTED_DIRECTORIES.append(path)
+
+
+def _cleanup_extracted_directories() -> None:
+    """ZIP展開で生成されたディレクトリを削除。"""
+    while _EXTRACTED_DIRECTORIES:
+        dir_path = _EXTRACTED_DIRECTORIES.pop()
+        try:
+            shutil.rmtree(dir_path)
+        except FileNotFoundError:
+            continue
+        except Exception as e:
+            _log_warning(
+                "local_import.zip.cleanup_failed",
+                "ZIP展開ディレクトリの削除に失敗",
+                directory=str(dir_path),
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
+
+
+def _extract_zip_archive(zip_path: str) -> List[str]:
+    """ZIPファイルを展開し、サポート対象ファイルのパスを返す。"""
+    extracted_files: List[str] = []
+    archive_path = Path(zip_path)
+    extraction_dir = _zip_extraction_base_dir() / f"{archive_path.stem}_{uuid.uuid4().hex}"
+    extraction_dir.mkdir(parents=True, exist_ok=True)
+    _register_extracted_directory(extraction_dir)
+
+    should_remove_archive = False
+
+    try:
+        with zipfile.ZipFile(zip_path) as archive:
+            should_remove_archive = True
+            for member in archive.infolist():
+                if member.is_dir():
+                    continue
+
+                member_path = Path(member.filename)
+                if member_path.is_absolute() or any(part == ".." for part in member_path.parts):
+                    _log_warning(
+                        "local_import.zip.unsafe_member",
+                        "ZIP内の危険なパスをスキップ",
+                        zip_path=zip_path,
+                        member=member.filename,
+                    )
+                    continue
+
+                if member_path.suffix.lower() not in SUPPORTED_EXTENSIONS:
+                    continue
+
+                target_path = extraction_dir / member_path
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+
+                with archive.open(member) as src, open(target_path, "wb") as dst:
+                    shutil.copyfileobj(src, dst)
+
+                extracted_files.append(str(target_path))
+
+    except zipfile.BadZipFile as e:
+        _log_error(
+            "local_import.zip.invalid",
+            "ZIPファイルの展開に失敗",
+            zip_path=zip_path,
+            error_type=type(e).__name__,
+            error_message=str(e),
+        )
+    except Exception as e:
+        _log_error(
+            "local_import.zip.extract_failed",
+            "ZIPファイル展開中にエラーが発生",
+            zip_path=zip_path,
+            error_type=type(e).__name__,
+            error_message=str(e),
+            exc_info=True,
+        )
+    else:
+        if extracted_files:
+            _log_info(
+                "local_import.zip.extracted",
+                "ZIPファイルを展開",
+                zip_path=zip_path,
+                extracted_count=len(extracted_files),
+                extraction_dir=str(extraction_dir),
+            )
+        else:
+            _log_warning(
+                "local_import.zip.no_supported_files",
+                "ZIPファイルに取り込み対象ファイルがありません",
+                zip_path=zip_path,
+            )
+
+    if should_remove_archive:
+        try:
+            os.remove(zip_path)
+            _log_info(
+                "local_import.zip.removed",
+                "ZIPファイルを削除",
+                zip_path=zip_path,
+            )
+        except OSError as e:
+            _log_warning(
+                "local_import.zip.remove_failed",
+                "ZIPファイルの削除に失敗",
+                zip_path=zip_path,
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
+
+    return extracted_files
 
 
 def calculate_file_hash(file_path: str) -> str:
@@ -501,10 +627,13 @@ def scan_import_directory(import_dir: str) -> List[str]:
         for filename in filenames:
             file_path = os.path.join(root, filename)
             file_extension = Path(filename).suffix.lower()
-            
+
             if file_extension in SUPPORTED_EXTENSIONS:
                 files.append(file_path)
-    
+            elif file_extension == ".zip":
+                extracted = _extract_zip_archive(file_path)
+                files.extend(extracted)
+
     return files
 
 
@@ -867,6 +996,8 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
             error_message=str(e),
             exc_info=True,
         )
+    finally:
+        _cleanup_extracted_directories()
 
     # セッションステータスの更新
     if session:

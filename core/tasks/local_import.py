@@ -53,19 +53,60 @@ def _compose_message(message: str, details: Dict[str, Any]) -> str:
     return f"{message} | details={serialized}"
 
 
-def _log_info(event: str, message: str, **details: Any) -> None:
+def _with_session(details: Dict[str, Any], session_id: Optional[str]) -> Dict[str, Any]:
+    """ログ詳細に session_id を追加した辞書を返す。"""
+
+    merged = dict(details)
+    if session_id is not None and "session_id" not in merged:
+        merged["session_id"] = session_id
+    return merged
+
+
+def _log_info(event: str, message: str, *, session_id: Optional[str] = None, **details: Any) -> None:
     """情報ログを記録。"""
-    log_task_info(logger, _compose_message(message, details), event=event)
+    payload = _with_session(details, session_id)
+    log_task_info(logger, _compose_message(message, payload), event=event, **payload)
+    if session_id:
+        celery_logger.info(
+            _compose_message(message, payload),
+            extra={"event": event, **payload},
+        )
 
 
-def _log_warning(event: str, message: str, **details: Any) -> None:
+def _log_warning(event: str, message: str, *, session_id: Optional[str] = None, **details: Any) -> None:
     """警告ログを記録。"""
-    logger.warning(_compose_message(message, details), extra={"event": event})
+    payload = _with_session(details, session_id)
+    logger.warning(_compose_message(message, payload), extra={"event": event, **payload})
+    if session_id:
+        celery_logger.warning(
+            _compose_message(message, payload),
+            extra={"event": event, **payload},
+        )
 
 
-def _log_error(event: str, message: str, *, exc_info: bool = False, **details: Any) -> None:
+def _log_error(
+    event: str,
+    message: str,
+    *,
+    exc_info: bool = False,
+    session_id: Optional[str] = None,
+    **details: Any,
+) -> None:
     """エラーログを記録。"""
-    log_task_error(logger, _compose_message(message, details), event=event, exc_info=exc_info)
+    payload = _with_session(details, session_id)
+    log_task_error(
+        logger,
+        _compose_message(message, payload),
+        event=event,
+        exc_info=exc_info,
+        **payload,
+    )
+    if session_id:
+        celery_logger.error(
+            _compose_message(message, payload),
+            extra={"event": event, **payload},
+            exc_info=exc_info,
+        )
 
 
 # サポートするファイル拡張子
@@ -107,7 +148,7 @@ def _cleanup_extracted_directories() -> None:
             )
 
 
-def _extract_zip_archive(zip_path: str) -> List[str]:
+def _extract_zip_archive(zip_path: str, *, session_id: Optional[str] = None) -> List[str]:
     """ZIPファイルを展開し、サポート対象ファイルのパスを返す。"""
     extracted_files: List[str] = []
     archive_path = Path(zip_path)
@@ -131,6 +172,7 @@ def _extract_zip_archive(zip_path: str) -> List[str]:
                         "ZIP内の危険なパスをスキップ",
                         zip_path=zip_path,
                         member=member.filename,
+                        session_id=session_id,
                     )
                     continue
 
@@ -152,6 +194,7 @@ def _extract_zip_archive(zip_path: str) -> List[str]:
             zip_path=zip_path,
             error_type=type(e).__name__,
             error_message=str(e),
+            session_id=session_id,
         )
     except Exception as e:
         _log_error(
@@ -161,6 +204,7 @@ def _extract_zip_archive(zip_path: str) -> List[str]:
             error_type=type(e).__name__,
             error_message=str(e),
             exc_info=True,
+            session_id=session_id,
         )
     else:
         if extracted_files:
@@ -170,12 +214,14 @@ def _extract_zip_archive(zip_path: str) -> List[str]:
                 zip_path=zip_path,
                 extracted_count=len(extracted_files),
                 extraction_dir=str(extraction_dir),
+                session_id=session_id,
             )
         else:
             _log_warning(
                 "local_import.zip.no_supported_files",
                 "ZIPファイルに取り込み対象ファイルがありません",
                 zip_path=zip_path,
+                session_id=session_id,
             )
 
     if should_remove_archive:
@@ -185,6 +231,7 @@ def _extract_zip_archive(zip_path: str) -> List[str]:
                 "local_import.zip.removed",
                 "ZIPファイルを削除",
                 zip_path=zip_path,
+                session_id=session_id,
             )
         except OSError as e:
             _log_warning(
@@ -193,6 +240,7 @@ def _extract_zip_archive(zip_path: str) -> List[str]:
                 zip_path=zip_path,
                 error_type=type(e).__name__,
                 error_message=str(e),
+                session_id=session_id,
             )
 
     return extracted_files
@@ -366,7 +414,13 @@ def create_media_item_for_local(filename: str, mime_type: str, width: Optional[i
     return media_item
 
 
-def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> Dict:
+def import_single_file(
+    file_path: str,
+    import_dir: str,
+    originals_dir: str,
+    *,
+    session_id: Optional[str] = None,
+) -> Dict:
     """
     単一ファイルの取り込み処理
     
@@ -387,6 +441,7 @@ def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> D
         file_path=file_path,
         import_dir=import_dir,
         originals_dir=originals_dir,
+        session_id=session_id,
     )
 
     try:
@@ -397,6 +452,7 @@ def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> D
                 "local_import.file.missing",
                 "取り込み対象ファイルが見つかりません",
                 file_path=file_path,
+                session_id=session_id,
             )
             return result
 
@@ -409,6 +465,7 @@ def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> D
                 "サポート対象外拡張子のためスキップ",
                 file_path=file_path,
                 extension=file_extension,
+                session_id=session_id,
             )
             return result
 
@@ -420,6 +477,7 @@ def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> D
                 "local_import.file.empty",
                 "ファイルサイズが0のためスキップ",
                 file_path=file_path,
+                session_id=session_id,
             )
             return result
 
@@ -436,6 +494,7 @@ def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> D
                 "重複ファイルを検出したためスキップ",
                 file_path=file_path,
                 media_id=existing_media.id,
+                session_id=session_id,
             )
             return result
         
@@ -493,6 +552,7 @@ def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> D
             "ファイルを保存先にコピーしました",
             file_path=file_path,
             destination=dest_path,
+            session_id=session_id,
         )
         
         # EXIFデータと動画メタデータの事前取得（MediaItem作成で使用）
@@ -568,6 +628,7 @@ def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> D
             "local_import.file.source_removed",
             "取り込み完了後に元ファイルを削除",
             file_path=file_path,
+            session_id=session_id,
         )
 
         result["success"] = True
@@ -581,6 +642,7 @@ def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> D
             file_path=file_path,
             media_id=media.id,
             relative_path=rel_path,
+            session_id=session_id,
         )
 
     except Exception as e:
@@ -592,6 +654,7 @@ def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> D
             error_type=type(e).__name__,
             error_message=str(e),
             exc_info=True,
+            session_id=session_id,
         )
         result["reason"] = f"エラー: {str(e)}"
 
@@ -603,6 +666,7 @@ def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> D
                     "local_import.file.cleanup",
                     "エラー発生時にコピー済みファイルを削除",
                     destination=dest_path,
+                    session_id=session_id,
                 )
         except Exception as cleanup_error:
             _log_warning(
@@ -611,12 +675,13 @@ def import_single_file(file_path: str, import_dir: str, originals_dir: str) -> D
                 destination=dest_path if 'dest_path' in locals() else None,
                 error_type=type(cleanup_error).__name__,
                 error_message=str(cleanup_error),
+                session_id=session_id,
             )
 
     return result
 
 
-def scan_import_directory(import_dir: str) -> List[str]:
+def scan_import_directory(import_dir: str, *, session_id: Optional[str] = None) -> List[str]:
     """取り込みディレクトリをスキャンしてサポートファイルを取得"""
     files = []
     
@@ -631,7 +696,7 @@ def scan_import_directory(import_dir: str) -> List[str]:
             if file_extension in SUPPORTED_EXTENSIONS:
                 files.append(file_path)
             elif file_extension == ".zip":
-                extracted = _extract_zip_archive(file_path)
+                extracted = _extract_zip_archive(file_path, session_id=session_id)
                 files.extend(extracted)
 
     return files
@@ -657,6 +722,11 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
         import_dir = Config.LOCAL_IMPORT_DIR
         originals_dir = Config.FPV_NAS_ORIGINALS_DIR
 
+    celery_task_id = None
+    if task_instance is not None:
+        request = getattr(task_instance, "request", None)
+        celery_task_id = getattr(request, "id", None)
+
     result = {
         "ok": True,
         "processed": 0,
@@ -665,16 +735,9 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
         "failed": 0,
         "errors": [],
         "details": [],
-        "session_id": session_id
+        "session_id": session_id,
+        "celery_task_id": celery_task_id,
     }
-
-    _log_info(
-        "local_import.task.start",
-        "ローカルインポートタスクを開始",
-        session_id=session_id,
-        import_dir=import_dir,
-        originals_dir=originals_dir,
-    )
 
     # API側で作成されたセッションを取得
     session = None
@@ -693,6 +756,7 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                 "local_import.session.attach",
                 "既存セッションをローカルインポートに紐付け",
                 session_id=session_id,
+                celery_task_id=celery_task_id,
             )
         except Exception as e:
             _log_error(
@@ -720,95 +784,118 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
             "local_import.session.created",
             "ローカルインポート用セッションを新規作成",
             session_id=session_id,
+            celery_task_id=celery_task_id,
         )
+
+    active_session_id = session.session_id if session else session_id
+
+    _log_info(
+        "local_import.task.start",
+        "ローカルインポートタスクを開始",
+        session_id=active_session_id,
+        import_dir=import_dir,
+        originals_dir=originals_dir,
+        celery_task_id=celery_task_id,
+    )
 
     try:
         # ディレクトリの存在チェック
         if not os.path.exists(import_dir):
-            # ディレクトリが存在しない場合も0件処理として完了扱い
-            session.status = "imported"
+            session.status = "error"
             session.selected_count = 0
             session.updated_at = datetime.now(timezone.utc)
             session.last_progress_at = datetime.now(timezone.utc)
-            
-            # 統計情報を設定
+
             stats = {
                 "total": 0,
                 "success": 0,
                 "skipped": 0,
-                "failed": 0
+                "failed": 0,
+                "reason": "import_dir_missing",
+                "celery_task_id": celery_task_id,
             }
             session.set_stats(stats)
             db.session.commit()
 
+            result["ok"] = False
             _log_error(
                 "local_import.dir.import_missing",
                 "取り込み元ディレクトリが存在しません",
                 import_dir=import_dir,
+                session_id=active_session_id,
+                celery_task_id=celery_task_id,
             )
             result["errors"].append(f"取り込みディレクトリが存在しません: {import_dir}")
             return result
 
         if not os.path.exists(originals_dir):
-            # 保存先ディレクトリが存在しない場合も0件処理として完了扱い
-            session.status = "imported"
+            session.status = "error"
             session.selected_count = 0
             session.updated_at = datetime.now(timezone.utc)
             session.last_progress_at = datetime.now(timezone.utc)
-            
-            # 統計情報を設定
+
             stats = {
                 "total": 0,
                 "success": 0,
                 "skipped": 0,
-                "failed": 0
+                "failed": 0,
+                "reason": "destination_dir_missing",
+                "celery_task_id": celery_task_id,
             }
             session.set_stats(stats)
             db.session.commit()
 
+            result["ok"] = False
             _log_error(
                 "local_import.dir.destination_missing",
                 "保存先ディレクトリが存在しません",
                 originals_dir=originals_dir,
+                session_id=active_session_id,
+                celery_task_id=celery_task_id,
             )
             result["errors"].append(f"保存先ディレクトリが存在しません: {originals_dir}")
             return result
 
         # ファイル一覧の取得
-        files = scan_import_directory(import_dir)
+        files = scan_import_directory(import_dir, session_id=active_session_id)
         _log_info(
             "local_import.scan.complete",
             "取り込み対象ファイルのスキャンが完了",
             import_dir=import_dir,
             total=len(files),
             samples=files[:5],
+            session_id=active_session_id,
+            celery_task_id=celery_task_id,
         )
 
         # ファイルが0件でも正常処理として扱う
         total_files = len(files)
 
         if total_files == 0:
-            # 0件処理として完了
-            session.status = "imported"
+            session.status = "error"
             session.selected_count = 0
             session.updated_at = datetime.now(timezone.utc)
             session.last_progress_at = datetime.now(timezone.utc)
-            
-            # 統計情報を設定
+
             stats = {
                 "total": 0,
                 "success": 0,
                 "skipped": 0,
-                "failed": 0
+                "failed": 0,
+                "reason": "no_files_found",
+                "celery_task_id": celery_task_id,
             }
             session.set_stats(stats)
             db.session.commit()
 
-            _log_info(
+            _log_warning(
                 "local_import.scan.empty",
                 "取り込み対象ファイルが存在しませんでした",
                 import_dir=import_dir,
+                session_id=active_session_id,
+                celery_task_id=celery_task_id,
             )
+            result["ok"] = False
             result["errors"].append(f"取り込み対象ファイルが見つかりません: {import_dir}")
             return result
 
@@ -851,6 +938,8 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                         session_db_id=session.id,
                         file_path=file_path,
                         selection_id=selection.id,
+                        session_id=active_session_id,
+                        celery_task_id=celery_task_id,
                     )
                 except Exception as e:
                     _log_error(
@@ -859,6 +948,8 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                         file_path=file_path,
                         error_type=type(e).__name__,
                         error_message=str(e),
+                        session_id=active_session_id,
+                        celery_task_id=celery_task_id,
                     )
 
             # 進行状況の更新
@@ -886,11 +977,18 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                         "Selectionを処理中に更新",
                         selection_id=selection.id,
                         file_path=file_path,
+                        session_id=active_session_id,
+                        celery_task_id=celery_task_id,
                     )
                 except Exception:
                     pass
 
-            file_result = import_single_file(file_path, import_dir, originals_dir)
+            file_result = import_single_file(
+                file_path,
+                import_dir,
+                originals_dir,
+                session_id=active_session_id,
+            )
 
             # Selectionの状態を処理結果に応じて更新
             if selection:
@@ -917,6 +1015,8 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                         selection_id=selection.id,
                         file_path=file_path,
                         status=selection.status,
+                        session_id=active_session_id,
+                        celery_task_id=celery_task_id,
                     )
                 except Exception as e:
                     _log_error(
@@ -926,6 +1026,8 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                         selection_id=getattr(selection, "id", None),
                         error_type=type(e).__name__,
                         error_message=str(e),
+                        session_id=active_session_id,
+                        celery_task_id=celery_task_id,
                     )
             
             # 詳細な結果を記録
@@ -944,6 +1046,8 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                     "ファイルの取り込みに成功",
                     file_path=file_path,
                     media_id=file_result.get("media_id"),
+                    session_id=active_session_id,
+                    celery_task_id=celery_task_id,
                 )
             else:
                 if "重複ファイル" in file_result["reason"]:
@@ -956,12 +1060,16 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                             "local_import.file.duplicate_cleanup",
                             "重複ファイルの元ファイルを削除",
                             file_path=file_path,
+                            session_id=active_session_id,
+                            celery_task_id=celery_task_id,
                         )
                     except:
                         _log_warning(
                             "local_import.file.duplicate_cleanup_failed",
                             "重複ファイルの削除に失敗",
                             file_path=file_path,
+                            session_id=active_session_id,
+                            celery_task_id=celery_task_id,
                         )
                 else:
                     result["failed"] += 1
@@ -971,6 +1079,8 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                         "ファイルの取り込みに失敗",
                         file_path=file_path,
                         reason=file_result["reason"],
+                        session_id=active_session_id,
+                        celery_task_id=celery_task_id,
                     )
 
         # 最終進行状況の更新
@@ -995,6 +1105,8 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
             error_type=type(e).__name__,
             error_message=str(e),
             exc_info=True,
+            session_id=active_session_id,
+            celery_task_id=celery_task_id,
         )
     finally:
         _cleanup_extracted_directories()
@@ -1012,7 +1124,8 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                 "total": result["processed"],
                 "success": result["success"],
                 "skipped": result["skipped"],
-                "failed": result["failed"]
+                "failed": result["failed"],
+                "celery_task_id": celery_task_id,
             }
             session.set_stats(stats)
 
@@ -1023,6 +1136,7 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                 session_id=session.session_id,
                 status=session.status,
                 stats=stats,
+                celery_task_id=celery_task_id,
             )
         except Exception as e:
             result["errors"].append(f"セッション更新エラー: {str(e)}")
@@ -1032,6 +1146,7 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                 session_id=session.session_id if session else None,
                 error_type=type(e).__name__,
                 error_message=str(e),
+                celery_task_id=celery_task_id,
             )
 
     _log_info(
@@ -1043,6 +1158,7 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
         skipped=result["skipped"],
         failed=result["failed"],
         session_id=result.get("session_id"),
+        celery_task_id=celery_task_id,
     )
 
     return result

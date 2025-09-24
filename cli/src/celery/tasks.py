@@ -99,12 +99,34 @@ def picker_import_watchdog_task():
 @celery.task(bind=True, name="local_import.run")
 def local_import_task_celery(self, session_id=None):
     """ローカルファイル取り込みタスク"""
+    celery_task_id = getattr(getattr(self, "request", None), "id", None)
+    log_task_info(
+        logger,
+        "Local import Celery task invoked",
+        event="local_import.celery.start",
+        session_id=session_id,
+        celery_task_id=celery_task_id,
+    )
     try:
-        return local_import_task(task_instance=self, session_id=session_id)
+        result = local_import_task(task_instance=self, session_id=session_id)
     except Exception as e:
-        self.log_error(f"Local import task failed (session_id={session_id}): {str(e)}", 
+        self.log_error(f"Local import task failed (session_id={session_id}): {str(e)}",
                       event="local_import", exc_info=True)
         return {"ok": False, "error": str(e)}
+    else:
+        log_task_info(
+            logger,
+            "Local import Celery task finished",
+            event="local_import.celery.finish",
+            session_id=session_id,
+            celery_task_id=celery_task_id,
+            ok=result.get("ok"),
+            processed=result.get("processed"),
+            success=result.get("success"),
+            skipped=result.get("skipped"),
+            failed=result.get("failed"),
+        )
+        return result
 
 
 @celery.task(bind=True, name="session_recovery.cleanup_stale_sessions")

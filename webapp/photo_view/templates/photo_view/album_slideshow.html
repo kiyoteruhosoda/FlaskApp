@@ -219,14 +219,6 @@ document.addEventListener('DOMContentLoaded', () => {
   function handleExit(targetUrl) {
     return (event) => {
       event.preventDefault();
-      try {
-        if (window.history.length > 1) {
-          window.history.back();
-          return;
-        }
-      } catch (error) {
-        console.warn('History navigation failed', error);
-      }
       navigateTo(targetUrl);
     };
   }

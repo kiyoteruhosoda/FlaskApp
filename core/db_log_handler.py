@@ -62,6 +62,14 @@ class DBLogHandler(logging.Handler):
         self._fallback_engine: Optional[Engine] = None
         self._ensured_engines: Set[int] = set()
 
+    def bind_to_app(self, app: "Flask") -> None:
+        """Rebind this handler to *app* and reset cached engines."""
+
+        self._app = app
+        self._engine = None
+        self._fallback_engine = None
+        self._ensured_engines.clear()
+
     def _resolve_engine(self) -> Engine:
         if self._engine is not None:
             return self._engine

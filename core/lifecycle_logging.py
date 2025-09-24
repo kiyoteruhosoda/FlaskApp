@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import atexit
 import json
+import logging
 import os
 import signal
 import socket
@@ -13,6 +14,11 @@ from typing import Callable, Optional
 from uuid import uuid4
 
 from flask import Flask
+
+from sqlalchemy.engine import make_url
+
+from core.db_log_handler import DBLogHandler
+from core.logging_config import ensure_appdb_file_logging
 
 
 LifecycleHandler = Callable[[int, Optional[FrameType]], None]
@@ -75,7 +81,36 @@ def register_lifecycle_logging(app: Flask) -> None:
 
     ext_state = app.extensions.setdefault("lifecycle_logging", {})
 
-    _log_lifecycle_event(app, "startup", lifecycle_id)
+    ensure_appdb_file_logging(app.logger)
+
+    should_bind_handlers = True
+    database_uri = app.config.get("SQLALCHEMY_DATABASE_URI")
+    if database_uri:
+        try:
+            url = make_url(database_uri)
+        except Exception:  # pragma: no cover - invalid URI should not block logging
+            url = None
+        if url is not None and url.get_backend_name() == "sqlite":
+            if url.database in (None, "", ":memory:"):
+                should_bind_handlers = False
+
+    if should_bind_handlers:
+        for handler in app.logger.handlers:
+            if isinstance(handler, DBLogHandler):
+                handler.bind_to_app(app)
+
+
+    original_level = app.logger.level
+    level_temporarily_lowered = False
+    if not app.logger.isEnabledFor(logging.INFO):
+        app.logger.setLevel(logging.INFO)
+        level_temporarily_lowered = True
+
+    try:
+        _log_lifecycle_event(app, "startup", lifecycle_id)
+    finally:
+        if level_temporarily_lowered:
+            app.logger.setLevel(original_level)
 
     def _atexit_handler() -> None:
         _log_lifecycle_event(app, "shutdown", lifecycle_id, reason="atexit")

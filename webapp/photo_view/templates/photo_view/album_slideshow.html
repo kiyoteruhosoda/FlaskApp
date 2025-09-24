@@ -200,6 +200,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!item) {
       return '';
     }
+    if (typeof item.previewUrl === 'string' && item.previewUrl) {
+      return item.previewUrl;
+    }
     if (typeof item.fullUrl === 'string' && item.fullUrl) {
       return item.fullUrl;
     }

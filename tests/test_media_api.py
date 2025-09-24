@@ -1259,6 +1259,88 @@ def test_album_media_reorder_updates_sort_index(client, app):
         assert [row.sort_index for row in rows] == [0, 1, 2]
 
 
+def _create_album_with_media(app, *, rel_path: str = "fullsize.jpg"):
+    from webapp.extensions import db
+    from core.models.photo_models import Media, Album, album_item
+
+    with app.app_context():
+        media = Media(
+            google_media_id="album-full",
+            account_id=1,
+            local_rel_path=rel_path,
+            bytes=5,
+            mime_type="image/jpeg",
+            width=80,
+            height=80,
+            shot_at=datetime(2025, 7, 1, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 7, 2, tzinfo=timezone.utc),
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        album = Album(
+            name="Preview Album",
+            description=None,
+            visibility="private",
+            cover_media_id=None,
+        )
+        db.session.add_all([media, album])
+        db.session.commit()
+
+        db.session.execute(
+            album_item.insert(),
+            [{"album_id": album.id, "media_id": media.id, "sort_index": 0}],
+        )
+        db.session.commit()
+
+        return album.id, media.id
+
+
+def test_album_detail_includes_full_size_thumbnail(client, app):
+    rel_path = "albums/preview/test.jpg"
+    thumbs_base = Path(os.environ["FPV_NAS_THUMBS_DIR"])
+    for size in ("512", "2048"):
+        target = thumbs_base / size / rel_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b"thumb")
+
+    album_id, _ = _create_album_with_media(app, rel_path=rel_path)
+
+    grant_permission(app, "media:view")
+    grant_permission(app, "album:view")
+    login(client)
+
+    response = client.get(f"/api/albums/{album_id}")
+    assert response.status_code == 200
+    payload = response.get_json()
+    media_items = payload["album"]["media"]
+    assert len(media_items) == 1
+    media_entry = media_items[0]
+    assert media_entry["thumbnailUrl"].endswith("size=512")
+    assert media_entry["fullUrl"].endswith("size=2048")
+
+
+def test_album_detail_full_size_fallback(client, app):
+    rel_path = "albums/preview/fallback.jpg"
+    thumbs_base = Path(os.environ["FPV_NAS_THUMBS_DIR"])
+    target = thumbs_base / "512" / rel_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(b"thumb")
+
+    album_id, _ = _create_album_with_media(app, rel_path=rel_path)
+
+    grant_permission(app, "media:view")
+    grant_permission(app, "album:view")
+    login(client)
+
+    response = client.get(f"/api/albums/{album_id}")
+    assert response.status_code == 200
+    payload = response.get_json()
+    media_entry = payload["album"]["media"][0]
+    assert media_entry["thumbnailUrl"].endswith("size=512")
+    assert media_entry["fullUrl"].endswith("size=512")
+
+
 def test_album_media_reorder_rejects_missing_ids(client, app):
     from webapp.extensions import db
     from core.models.photo_models import Media, Album, album_item

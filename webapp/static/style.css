@@ -116,13 +116,52 @@ body.login-page footer {
   z-index: 2;
 }
 
-.input-wrapper .form-control:focus + .input-icon,
-.input-wrapper .form-control:valid + .input-icon {
+.input-wrapper .form-control:focus ~ .input-icon,
+.input-wrapper .form-control:valid ~ .input-icon {
   color: #667eea;
 }
 
 .input-wrapper:focus-within .input-icon {
   color: #667eea;
+}
+
+.password-toggle-wrapper {
+  position: relative;
+}
+
+.password-toggle-wrapper .form-control {
+  padding-right: 48px;
+}
+
+.password-toggle-wrapper .toggle-password-btn {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.password-toggle-wrapper .toggle-password-btn:hover {
+  color: #4f46e5;
+  background-color: rgba(79, 70, 229, 0.08);
+}
+
+.password-toggle-wrapper .toggle-password-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25);
+}
+
+.password-toggle-wrapper .toggle-password-btn:active {
+  color: #4338ca;
 }
 
 .btn-size-lg,

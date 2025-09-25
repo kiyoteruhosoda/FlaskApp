@@ -30,9 +30,16 @@
           <i class="fas fa-lock"></i>
           {{ _('Password') }}
         </label>
-        <div class="input-wrapper">
+        <div class="input-wrapper password-toggle-wrapper">
           <input type="password" class="form-control" id="password" name="password"
                  placeholder="{{ _('Create a strong password') }}" required>
+          <button type="button" class="toggle-password-btn" aria-label="{{ _('Show password') }}"
+                  aria-pressed="false" aria-controls="password"
+                  data-show-label="{{ _('Show password') }}"
+                  data-hide-label="{{ _('Hide password') }}">
+            <i class="fas fa-eye"></i>
+            <span class="visually-hidden">{{ _('Toggle password visibility') }}</span>
+          </button>
           <div class="input-icon">
             <i class="fas fa-lock"></i>
           </div>

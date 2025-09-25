@@ -21,6 +21,7 @@ class PickerSession(db.Model):
         db.Enum(
             "pending",
             "ready",
+            "expanding",
             "processing",
             "enqueued",
             "importing",

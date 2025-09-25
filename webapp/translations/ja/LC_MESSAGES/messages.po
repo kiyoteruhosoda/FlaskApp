@@ -1106,39 +1106,44 @@ msgstr "セッションの読み込みでエラーが発生しました"
 msgid "Pending"
 msgstr "保留"
 
+#: webapp/photo_view/templates/photo_view/home.html:49
+#: webapp/photo_view/templates/photo_view/session_detail.html:70
+msgid "Expanding"
+msgstr "展開中"
+
 #: webapp/photo_view/templates/photo_view/home.html:85
-#: webapp/photo_view/templates/photo_view/session_detail.html:100
+#: webapp/photo_view/templates/photo_view/session_detail.html:101
 msgid "Ready"
 msgstr "準備完了"
 
-#: webapp/photo_view/templates/photo_view/home.html:49
-#: webapp/photo_view/templates/photo_view/session_detail.html:70
+#: webapp/photo_view/templates/photo_view/home.html:50
+#: webapp/photo_view/templates/photo_view/session_detail.html:71
 msgid "Enqueued"
 msgstr "キュー投入"
 
-#: webapp/photo_view/templates/photo_view/home.html:86
-#: webapp/photo_view/templates/photo_view/session_detail.html:101
+#: webapp/photo_view/templates/photo_view/home.html:87
+#: webapp/photo_view/templates/photo_view/session_detail.html:102
 msgid "Processing"
 msgstr "処理中"
 
-#: webapp/photo_view/templates/photo_view/home.html:50
-#: webapp/photo_view/templates/photo_view/session_detail.html:71
+#: webapp/photo_view/templates/photo_view/home.html:51
+#: webapp/photo_view/templates/photo_view/session_detail.html:72
 msgid "Running"
 msgstr "処理中"
 
-#: webapp/photo_view/templates/photo_view/home.html:88
-#: webapp/photo_view/templates/photo_view/session_detail.html:102
+#: webapp/photo_view/templates/photo_view/home.html:89
+#: webapp/photo_view/templates/photo_view/session_detail.html:103
 msgid "Importing"
 msgstr "インポート中"
 
 #: webapp/photo_view/templates/photo_view/home.html:47
-#: webapp/photo_view/templates/photo_view/home.html:87
-#: webapp/photo_view/templates/photo_view/session_detail.html:72
+#: webapp/photo_view/templates/photo_view/home.html:88
+#: webapp/photo_view/templates/photo_view/session_detail.html:73
 msgid "Imported"
 msgstr "取り込み完了"
 
-#: webapp/photo_view/templates/photo_view/home.html:89
-#: webapp/photo_view/templates/photo_view/session_detail.html:103
+#: webapp/photo_view/templates/photo_view/home.html:90
+#: webapp/photo_view/templates/photo_view/session_detail.html:104
 msgid "Canceled"
 msgstr "キャンセル済み"
 

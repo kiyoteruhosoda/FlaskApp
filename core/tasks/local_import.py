@@ -727,6 +727,297 @@ def _resolve_directory(config_key: str) -> str:
     raise RuntimeError(f"No storage directory candidates available for {config_key}")
 
 
+def _set_session_progress(
+    session: Optional[PickerSession],
+    *,
+    status: Optional[str] = None,
+    stage: Optional[str] = None,
+    celery_task_id: Optional[str] = None,
+    stats_updates: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Update session status/stats during local import processing."""
+
+    if not session:
+        return
+
+    now = datetime.now(timezone.utc)
+    if status:
+        session.status = status
+    session.last_progress_at = now
+    session.updated_at = now
+
+    stats = session.stats() if hasattr(session, "stats") else {}
+    if not isinstance(stats, dict):
+        stats = {}
+    if stage is not None:
+        stats["stage"] = stage
+    if celery_task_id is not None:
+        stats["celery_task_id"] = celery_task_id
+    if stats_updates:
+        stats.update(stats_updates)
+    session.set_stats(stats)
+    db.session.commit()
+
+
+def _enqueue_local_import_selections(
+    session: Optional[PickerSession],
+    file_paths: List[str],
+    *,
+    active_session_id: Optional[str],
+    celery_task_id: Optional[str],
+) -> int:
+    """Ensure :class:`PickerSelection` rows exist for *file_paths* and mark them enqueued."""
+
+    if not session or not file_paths:
+        return 0
+
+    now = datetime.now(timezone.utc)
+    existing: Dict[str, PickerSelection] = {}
+    selections = (
+        PickerSelection.query.filter(
+            PickerSelection.session_id == session.id,
+            PickerSelection.local_file_path.in_(file_paths),
+        ).all()
+    )
+    for sel in selections:
+        if sel.local_file_path:
+            existing[sel.local_file_path] = sel
+
+    enqueued = 0
+    for file_path in file_paths:
+        filename = os.path.basename(file_path)
+        selection = existing.get(file_path)
+        if selection is None:
+            selection = PickerSelection(
+                session_id=session.id,
+                google_media_id=None,
+                local_file_path=file_path,
+                local_filename=filename,
+                status="enqueued",
+                attempts=0,
+                enqueued_at=now,
+            )
+            db.session.add(selection)
+            db.session.flush()
+            enqueued += 1
+            _log_info(
+                "local_import.selection.created",
+                "取り込み対象ファイルのSelectionを作成",
+                session_db_id=session.id,
+                file_path=file_path,
+                selection_id=selection.id,
+                session_id=active_session_id,
+                celery_task_id=celery_task_id,
+            )
+        else:
+            if selection.status in ("imported", "dup"):
+                continue
+            selection.status = "enqueued"
+            selection.enqueued_at = now
+            selection.local_filename = filename
+            selection.local_file_path = file_path
+            enqueued += 1
+            _log_info(
+                "local_import.selection.requeued",
+                "既存Selectionを再キュー",
+                session_db_id=session.id,
+                file_path=file_path,
+                selection_id=selection.id,
+                session_id=active_session_id,
+                celery_task_id=celery_task_id,
+            )
+
+    db.session.commit()
+    return enqueued
+
+
+def _pending_selections_query(session: PickerSession):
+    pending_statuses = ("pending", "enqueued", "running")
+    return (
+        PickerSelection.query.filter(
+            PickerSelection.session_id == session.id,
+            PickerSelection.status.in_(pending_statuses),
+        )
+        .order_by(PickerSelection.id)
+    )
+
+
+def _process_local_import_queue(
+    session: Optional[PickerSession],
+    *,
+    import_dir: str,
+    originals_dir: str,
+    result: Dict[str, Any],
+    active_session_id: Optional[str],
+    celery_task_id: Optional[str],
+    task_instance=None,
+) -> int:
+    """Process pending selections for the session and import media files."""
+
+    if not session:
+        return 0
+
+    selections = list(_pending_selections_query(session).all())
+    total_files = len(selections)
+
+    if task_instance and total_files:
+        task_instance.update_state(
+            state="PROGRESS",
+            meta={
+                "status": f"{total_files}個のファイルの取り込みを開始します",
+                "progress": 0,
+                "current": 0,
+                "total": total_files,
+                "message": "取り込み開始",
+            },
+        )
+
+    for index, selection in enumerate(selections, 1):
+        file_path = selection.local_file_path
+        filename = selection.local_filename or (os.path.basename(file_path) if file_path else f"selection_{selection.id}")
+
+        result["processed"] += 1
+
+        try:
+            selection.status = "running"
+            selection.started_at = datetime.now(timezone.utc)
+            selection.error = None
+            db.session.commit()
+            _log_info(
+                "local_import.selection.running",
+                "Selectionを処理中に更新",
+                selection_id=selection.id,
+                file_path=file_path,
+                session_id=active_session_id,
+                celery_task_id=celery_task_id,
+            )
+        except Exception:
+            db.session.rollback()
+
+        file_result = import_single_file(
+            file_path or "",
+            import_dir,
+            originals_dir,
+            session_id=active_session_id,
+        )
+
+        detail = {
+            "file": filename,
+            "status": "success" if file_result["success"] else "failed",
+            "reason": file_result["reason"],
+            "media_id": file_result.get("media_id"),
+        }
+        result["details"].append(detail)
+
+        try:
+            media_google_id = file_result.get("media_google_id")
+            if media_google_id:
+                selection.google_media_id = media_google_id
+
+            if file_result["success"]:
+                selection.status = "imported"
+                selection.finished_at = datetime.now(timezone.utc)
+                result["success"] += 1
+                _log_info(
+                    "local_import.file.processed_success",
+                    "ファイルの取り込みに成功",
+                    file_path=file_path,
+                    media_id=file_result.get("media_id"),
+                    session_id=active_session_id,
+                    celery_task_id=celery_task_id,
+                )
+            else:
+                reason = file_result["reason"]
+                if "重複ファイル" in reason:
+                    selection.status = "dup"
+                    selection.finished_at = datetime.now(timezone.utc)
+                    result["skipped"] += 1
+                    detail["status"] = "skipped"
+                    try:
+                        if file_path and os.path.exists(file_path):
+                            os.remove(file_path)
+                            _log_info(
+                                "local_import.file.duplicate_cleanup",
+                                "重複ファイルの元ファイルを削除",
+                                file_path=file_path,
+                                session_id=active_session_id,
+                                celery_task_id=celery_task_id,
+                            )
+                    except Exception:
+                        _log_warning(
+                            "local_import.file.duplicate_cleanup_failed",
+                            "重複ファイルの削除に失敗",
+                            file_path=file_path,
+                            session_id=active_session_id,
+                            celery_task_id=celery_task_id,
+                        )
+                else:
+                    selection.status = "failed"
+                    selection.error = reason
+                    selection.finished_at = datetime.now(timezone.utc)
+                    selection.attempts = (selection.attempts or 0) + 1
+                    result["failed"] += 1
+                    result["errors"].append(f"{file_path}: {reason}")
+                    _log_warning(
+                        "local_import.file.processed_failed",
+                        "ファイルの取り込みに失敗",
+                        file_path=file_path,
+                        reason=reason,
+                        session_id=active_session_id,
+                        celery_task_id=celery_task_id,
+                    )
+
+            db.session.commit()
+            _log_info(
+                "local_import.selection.updated",
+                "Selectionの状態を更新",
+                selection_id=selection.id,
+                file_path=file_path,
+                status=selection.status,
+                session_id=active_session_id,
+                celery_task_id=celery_task_id,
+            )
+        except Exception as e:
+            db.session.rollback()
+            _log_error(
+                "local_import.selection.update_failed",
+                "Selectionの状態更新に失敗",
+                file_path=file_path,
+                selection_id=getattr(selection, "id", None),
+                error_type=type(e).__name__,
+                error_message=str(e),
+                session_id=active_session_id,
+                celery_task_id=celery_task_id,
+            )
+
+        if task_instance and total_files:
+            progress = int((index / total_files) * 100)
+            task_instance.update_state(
+                state="PROGRESS",
+                meta={
+                    "status": f"ファイル処理中: {filename}",
+                    "progress": progress,
+                    "current": index,
+                    "total": total_files,
+                    "message": f"{index}/{total_files} 処理中",
+                },
+            )
+
+    if task_instance and total_files:
+        task_instance.update_state(
+            state="PROGRESS",
+            meta={
+                "status": "取り込み完了",
+                "progress": 100,
+                "current": total_files,
+                "total": total_files,
+                "message": f"完了: 成功{result['success']}, スキップ{result['skipped']}, 失敗{result['failed']}",
+            },
+        )
+
+    return total_files
+
+
 def local_import_task(task_instance=None, session_id=None) -> Dict:
     """
     ローカル取り込みタスクのメイン処理
@@ -800,7 +1091,7 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
         generated_session_id = f"local_import_{uuid.uuid4().hex}"
         session = PickerSession(
             session_id=generated_session_id,
-            status="processing",
+            status="expanding",
             selected_count=0,
         )
         db.session.add(session)
@@ -816,6 +1107,19 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
 
     active_session_id = session.session_id if session else session_id
 
+    _set_session_progress(
+        session,
+        status="expanding",
+        stage="expanding",
+        celery_task_id=celery_task_id,
+        stats_updates={
+            "total": 0,
+            "success": 0,
+            "skipped": 0,
+            "failed": 0,
+        },
+    )
+
     _log_info(
         "local_import.task.start",
         "ローカルインポートタスクを開始",
@@ -828,21 +1132,21 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
     try:
         # ディレクトリの存在チェック
         if not os.path.exists(import_dir):
-            session.status = "error"
-            session.selected_count = 0
-            session.updated_at = datetime.now(timezone.utc)
-            session.last_progress_at = datetime.now(timezone.utc)
-
-            stats = {
-                "total": 0,
-                "success": 0,
-                "skipped": 0,
-                "failed": 0,
-                "reason": "import_dir_missing",
-                "celery_task_id": celery_task_id,
-            }
-            session.set_stats(stats)
-            db.session.commit()
+            if session:
+                session.selected_count = 0
+            _set_session_progress(
+                session,
+                status="error",
+                stage=None,
+                celery_task_id=celery_task_id,
+                stats_updates={
+                    "total": 0,
+                    "success": 0,
+                    "skipped": 0,
+                    "failed": 0,
+                    "reason": "import_dir_missing",
+                },
+            )
 
             result["ok"] = False
             _log_error(
@@ -856,21 +1160,21 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
             return result
 
         if not os.path.exists(originals_dir):
-            session.status = "error"
-            session.selected_count = 0
-            session.updated_at = datetime.now(timezone.utc)
-            session.last_progress_at = datetime.now(timezone.utc)
-
-            stats = {
-                "total": 0,
-                "success": 0,
-                "skipped": 0,
-                "failed": 0,
-                "reason": "destination_dir_missing",
-                "celery_task_id": celery_task_id,
-            }
-            session.set_stats(stats)
-            db.session.commit()
+            if session:
+                session.selected_count = 0
+            _set_session_progress(
+                session,
+                status="error",
+                stage=None,
+                celery_task_id=celery_task_id,
+                stats_updates={
+                    "total": 0,
+                    "success": 0,
+                    "skipped": 0,
+                    "failed": 0,
+                    "reason": "destination_dir_missing",
+                },
+            )
 
             result["ok"] = False
             _log_error(
@@ -895,25 +1199,24 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
             celery_task_id=celery_task_id,
         )
 
-        # ファイルが0件でも正常処理として扱う
         total_files = len(files)
 
         if total_files == 0:
-            session.status = "error"
-            session.selected_count = 0
-            session.updated_at = datetime.now(timezone.utc)
-            session.last_progress_at = datetime.now(timezone.utc)
-
-            stats = {
-                "total": 0,
-                "success": 0,
-                "skipped": 0,
-                "failed": 0,
-                "reason": "no_files_found",
-                "celery_task_id": celery_task_id,
-            }
-            session.set_stats(stats)
-            db.session.commit()
+            if session:
+                session.selected_count = 0
+            _set_session_progress(
+                session,
+                status="error",
+                stage=None,
+                celery_task_id=celery_task_id,
+                stats_updates={
+                    "total": 0,
+                    "success": 0,
+                    "skipped": 0,
+                    "failed": 0,
+                    "reason": "no_files_found",
+                },
+            )
 
             _log_warning(
                 "local_import.scan.empty",
@@ -926,202 +1229,48 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
             result["errors"].append(f"取り込み対象ファイルが見つかりません: {import_dir}")
             return result
 
-        # 進行状況の初期化
-        if task_instance:
-            task_instance.update_state(
-                state='PROGRESS',
-                meta={
-                    'status': f'{total_files}個のファイルの取り込みを開始します',
-                    'progress': 0,
-                    'current': 0,
-                    'total': total_files,
-                    'message': '取り込み開始'
-                }
-            )
-        
-        # ファイルごとの処理
-        for index, file_path in enumerate(files, 1):
-            result["processed"] += 1
-            filename = os.path.basename(file_path)
-            
-            # PickerSelectionレコードを作成（ローカルインポート用）
-            selection = None
-            if session:
-                try:
-                    selection = PickerSelection(
-                        session_id=session.id,
-                        google_media_id=None,  # ローカルファイルなのでNone
-                        local_file_path=file_path,
-                        local_filename=filename,
-                        status="pending",
-                        attempts=0,
-                        enqueued_at=datetime.now(timezone.utc)
-                    )
-                    db.session.add(selection)
-                    db.session.commit()
-                    _log_info(
-                        "local_import.selection.created",
-                        "取り込み対象ファイルのSelectionを作成",
-                        session_db_id=session.id,
-                        file_path=file_path,
-                        selection_id=selection.id,
-                        session_id=active_session_id,
-                        celery_task_id=celery_task_id,
-                    )
-                except Exception as e:
-                    _log_error(
-                        "local_import.selection.create_failed",
-                        "PickerSelectionの作成に失敗",
-                        file_path=file_path,
-                        error_type=type(e).__name__,
-                        error_message=str(e),
-                        session_id=active_session_id,
-                        celery_task_id=celery_task_id,
-                    )
+        enqueued_count = _enqueue_local_import_selections(
+            session,
+            files,
+            active_session_id=active_session_id,
+            celery_task_id=celery_task_id,
+        )
 
-            # 進行状況の更新
-            if task_instance:
-                progress = int((index / total_files) * 100)
-                task_instance.update_state(
-                    state='PROGRESS',
-                    meta={
-                        'status': f'ファイル処理中: {filename}',
-                        'progress': progress,
-                        'current': index,
-                        'total': total_files,
-                        'message': f'{index}/{total_files} 処理中'
-                    }
-                )
-            
-            # Selectionの状態を処理中に更新
-            if selection:
-                try:
-                    selection.status = "running"
-                    selection.started_at = datetime.now(timezone.utc)
-                    db.session.commit()
-                    _log_info(
-                        "local_import.selection.running",
-                        "Selectionを処理中に更新",
-                        selection_id=selection.id,
-                        file_path=file_path,
-                        session_id=active_session_id,
-                        celery_task_id=celery_task_id,
-                    )
-                except Exception:
-                    pass
+        pending_total = 0
+        if session:
+            pending_total = _pending_selections_query(session).count()
 
-            file_result = import_single_file(
-                file_path,
-                import_dir,
-                originals_dir,
-                session_id=active_session_id,
-            )
+        _set_session_progress(
+            session,
+            status="processing",
+            stage="processing",
+            celery_task_id=celery_task_id,
+            stats_updates={
+                "total": pending_total,
+                "success": 0,
+                "skipped": 0,
+                "failed": 0,
+            },
+        )
 
-            # Selectionの状態を処理結果に応じて更新
-            if selection:
-                try:
-                    media_google_id = file_result.get("media_google_id")
-                    if media_google_id:
-                        selection.google_media_id = media_google_id
+        _log_info(
+            "local_import.queue.prepared",
+            "取り込み処理キューを準備",
+            enqueued=enqueued_count,
+            pending=pending_total,
+            session_id=active_session_id,
+            celery_task_id=celery_task_id,
+        )
 
-                    if file_result["success"]:
-                        selection.status = "imported"
-                        selection.finished_at = datetime.now(timezone.utc)
-                    elif "重複ファイル" in file_result["reason"]:
-                        selection.status = "dup"
-                        selection.finished_at = datetime.now(timezone.utc)
-                    else:
-                        selection.status = "failed"
-                        selection.error = file_result["reason"]
-                        selection.finished_at = datetime.now(timezone.utc)
-                        selection.attempts = 1
-                    db.session.commit()
-                    _log_info(
-                        "local_import.selection.updated",
-                        "Selectionの状態を更新",
-                        selection_id=selection.id,
-                        file_path=file_path,
-                        status=selection.status,
-                        session_id=active_session_id,
-                        celery_task_id=celery_task_id,
-                    )
-                except Exception as e:
-                    _log_error(
-                        "local_import.selection.update_failed",
-                        "Selectionの状態更新に失敗",
-                        file_path=file_path,
-                        selection_id=getattr(selection, "id", None),
-                        error_type=type(e).__name__,
-                        error_message=str(e),
-                        session_id=active_session_id,
-                        celery_task_id=celery_task_id,
-                    )
-            
-            # 詳細な結果を記録
-            detail = {
-                "file": filename,
-                "status": "success" if file_result["success"] else "failed",
-                "reason": file_result["reason"],
-                "media_id": file_result.get("media_id")
-            }
-            result["details"].append(detail)
-            
-            if file_result["success"]:
-                result["success"] += 1
-                _log_info(
-                    "local_import.file.processed_success",
-                    "ファイルの取り込みに成功",
-                    file_path=file_path,
-                    media_id=file_result.get("media_id"),
-                    session_id=active_session_id,
-                    celery_task_id=celery_task_id,
-                )
-            else:
-                if "重複ファイル" in file_result["reason"]:
-                    result["skipped"] += 1
-                    detail["status"] = "skipped"
-                    # 重複の場合も元ファイルを削除
-                    try:
-                        os.remove(file_path)
-                        _log_info(
-                            "local_import.file.duplicate_cleanup",
-                            "重複ファイルの元ファイルを削除",
-                            file_path=file_path,
-                            session_id=active_session_id,
-                            celery_task_id=celery_task_id,
-                        )
-                    except:
-                        _log_warning(
-                            "local_import.file.duplicate_cleanup_failed",
-                            "重複ファイルの削除に失敗",
-                            file_path=file_path,
-                            session_id=active_session_id,
-                            celery_task_id=celery_task_id,
-                        )
-                else:
-                    result["failed"] += 1
-                    result["errors"].append(f"{file_path}: {file_result['reason']}")
-                    _log_warning(
-                        "local_import.file.processed_failed",
-                        "ファイルの取り込みに失敗",
-                        file_path=file_path,
-                        reason=file_result["reason"],
-                        session_id=active_session_id,
-                        celery_task_id=celery_task_id,
-                    )
-
-        # 最終進行状況の更新
-        if task_instance:
-            task_instance.update_state(
-                state='PROGRESS',
-                meta={
-                    'status': '取り込み完了',
-                    'progress': 100,
-                    'current': total_files,
-                    'total': total_files,
-                    'message': f'完了: 成功{result["success"]}, スキップ{result["skipped"]}, 失敗{result["failed"]}'
-                }
-            )
+        _process_local_import_queue(
+            session,
+            import_dir=import_dir,
+            originals_dir=originals_dir,
+            result=result,
+            active_session_id=active_session_id,
+            celery_task_id=celery_task_id,
+            task_instance=task_instance,
+        )
         
     except Exception as e:
         result["ok"] = False
@@ -1141,27 +1290,43 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
     # セッションステータスの更新
     if session:
         try:
-            session.status = "imported" if result["ok"] and result["success"] > 0 else ("error" if not result["ok"] else "ready")
+            pending_remaining = _pending_selections_query(session).count()
+
+            if pending_remaining > 0:
+                final_status = "processing"
+            else:
+                if (not result["ok"]) or result["failed"] > 0:
+                    final_status = "error"
+                elif result["success"] > 0 or result["skipped"] > 0 or result["processed"] > 0:
+                    final_status = "imported"
+                else:
+                    final_status = "ready"
+
             session.selected_count = result["success"]
-            session.updated_at = datetime.now(timezone.utc)
-            session.last_progress_at = datetime.now(timezone.utc)
-            
-            # 統計情報を設定
+
             stats = {
                 "total": result["processed"],
                 "success": result["success"],
                 "skipped": result["skipped"],
                 "failed": result["failed"],
+                "pending": pending_remaining,
                 "celery_task_id": celery_task_id,
             }
-            session.set_stats(stats)
 
-            db.session.commit()
+            stage_value = "completed" if pending_remaining == 0 else "processing"
+            _set_session_progress(
+                session,
+                status=final_status,
+                stage=stage_value,
+                celery_task_id=celery_task_id,
+                stats_updates=stats,
+            )
+
             _log_info(
                 "local_import.session.updated",
                 "セッション情報を更新",
                 session_id=session.session_id,
-                status=session.status,
+                status=final_status,
                 stats=stats,
                 celery_task_id=celery_task_id,
             )

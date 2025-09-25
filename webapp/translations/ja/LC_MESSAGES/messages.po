@@ -525,7 +525,59 @@ msgstr ""
 
 #: webapp/admin/templates/admin/user_role_edit.html:52
 msgid "Available Roles and Permissions"
-msgstr ""
+msgstr "利用可能なロールと権限"
+
+#: webapp/auth/routes.py:329
+msgid "Active role cleared. All assigned roles are now in effect."
+msgstr "アクティブロールを解除しました。割り当てられているすべてのロールが有効になります。"
+
+#: webapp/auth/routes.py:334
+msgid "Active role switched to %(role)s."
+msgstr "アクティブロールを%(role)sに切り替えました。"
+
+#: webapp/auth/routes.py:337 webapp/admin/routes.py:87
+msgid "Invalid role selection."
+msgstr "無効なロールが選択されました。"
+
+#: webapp/admin/routes.py:81 webapp/admin/routes.py:91
+msgid "At least one role must be selected."
+msgstr "少なくとも1つのロールを選択してください。"
+
+#: webapp/admin/routes.py:110
+msgid "User roles updated."
+msgstr "ユーザーのロールを更新しました。"
+
+#: webapp/auth/templates/auth/profile.html:51
+msgid "Role settings"
+msgstr "ロール設定"
+
+#: webapp/auth/templates/auth/profile.html:55
+msgid "Active role"
+msgstr "アクティブロール"
+
+#: webapp/auth/templates/auth/profile.html:57
+msgid "Use all assigned roles"
+msgstr "割り当てられているすべてのロールを使用"
+
+#: webapp/auth/templates/auth/profile.html:62
+msgid "Selecting a specific role limits your permissions to that role."
+msgstr "特定のロールを選択すると、そのロールの権限だけが有効になります。"
+
+#: webapp/auth/templates/auth/profile.html:65
+msgid "Switch role"
+msgstr "ロールを切り替える"
+
+#: webapp/admin/templates/admin/user_role_edit.html:29
+msgid "Select roles to assign"
+msgstr "割り当てるロールを選択"
+
+#: webapp/admin/templates/admin/user_role_edit.html:40
+msgid "Hold Ctrl (Windows) or Command (macOS) to select multiple roles."
+msgstr "複数選択するには Ctrl (Windows) または Command (macOS) キーを押しながら選択してください。"
+
+#: webapp/admin/templates/admin/user_role_edit.html:44
+msgid "Update roles"
+msgstr "ロールを更新"
 
 #: webapp/admin/templates/admin/user_role_edit.html:66
 msgid "No permissions"

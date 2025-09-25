@@ -48,12 +48,31 @@ PROFILE_TIMEZONES = [
 SESSION_TIMEOUT_MINUTES = 30
 
 
+def _sync_active_role(user_model):
+    """Ensure the active role stored in the session is valid for the given user."""
+    role_ids = [role.id for role in getattr(user_model, "roles", [])]
+    if not role_ids:
+        session.pop("active_role_id", None)
+        return
+
+    active_role_id = session.get("active_role_id")
+    if active_role_id in role_ids:
+        return
+
+    if len(role_ids) == 1:
+        session["active_role_id"] = role_ids[0]
+    else:
+        session.pop("active_role_id", None)
+
+
 def _login_with_domain_user(user):
     """ドメインユーザーが保持するORMモデルでログイン処理を行う。"""
     model = getattr(user, "_model", None)
     if model is None:
         raise ValueError("Domain user is missing attached ORM model for login")
     login_user(model)
+    session.pop("active_role_id", None)
+    _sync_active_role(model)
 
 
 def _is_session_expired(key_prefix):
@@ -131,6 +150,8 @@ def login():
                 flash(_("Invalid authentication code"), "error")
                 return render_template("auth/login.html")
         login_user(user_model)
+        session.pop("active_role_id", None)
+        _sync_active_role(user_model)
         return redirect(url_for("feature_x.dashboard"))
     return render_template("auth/login.html")
 
@@ -296,6 +317,26 @@ def profile():
     localized_time = convert_to_timezone(server_time_utc, tzinfo)
 
     if request.method == "POST":
+        action = request.form.get("action", "update-preferences")
+        if action == "switch-role":
+            response = make_response(redirect(url_for("auth.profile")))
+            role_choice = request.form.get("active_role")
+            available_roles = {str(role.id): role for role in current_user.roles}
+
+            if role_choice == "all":
+                session.pop("active_role_id", None)
+                _sync_active_role(current_user)
+                flash(_("Active role cleared. All assigned roles are now in effect."), "success")
+                return response
+
+            if role_choice and role_choice in available_roles:
+                session["active_role_id"] = available_roles[role_choice].id
+                flash(_("Active role switched to %(role)s.", role=available_roles[role_choice].name), "success")
+                return response
+
+            flash(_("Invalid role selection."), "error")
+            return response
+
         form_lang = request.form.get("language")
         form_tz = request.form.get("timezone")
         response = make_response(redirect(url_for("auth.profile")))
@@ -362,6 +403,7 @@ def profile():
         selected_timezone=selected_timezone,
         server_time_utc=server_time_utc,
         localized_time=localized_time,
+        active_role=current_user.active_role,
     )
 
 
@@ -451,6 +493,7 @@ def logout():
     TokenService.revoke_refresh_token(user)
     logout_user()
     session.pop("picker_session_id", None)
+    session.pop("active_role_id", None)
 
     response = make_response(redirect(url_for("index")))
     response.delete_cookie("access_token")

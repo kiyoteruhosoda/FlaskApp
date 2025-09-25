@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Iterable, Optional
 
+from flask import has_request_context, session
 from flask_login import UserMixin
 
 from core.db import db
@@ -68,16 +69,40 @@ class User(db.Model, UserMixin):
         return check_password_hash(self.refresh_token_hash, token)
 
     # 認可ヘルパ
+    def _iter_effective_roles(self) -> Iterable["Role"]:
+        roles: list[Role] = list(self.roles or [])
+        if not roles:
+            return []
+        if has_request_context():
+            active_role_id = session.get("active_role_id")
+            if active_role_id:
+                selected = [role for role in roles if role.id == active_role_id]
+                if selected:
+                    return selected
+        return roles
+
+    @property
+    def active_role(self) -> Optional["Role"]:
+        if not has_request_context():
+            return None
+        active_role_id = session.get("active_role_id")
+        if not active_role_id:
+            return None
+        for role in self.roles:
+            if role.id == active_role_id:
+                return role
+        return None
+
     @property
     def permissions(self) -> set[str]:
         codes = set()
-        for r in self.roles:
+        for r in self._iter_effective_roles():
             for p in r.permissions:
                 codes.add(p.code)
         return codes
 
     def has_role(self, *names: str) -> bool:
-        have = {r.name for r in self.roles}
+        have = {r.name for r in self._iter_effective_roles()}
         return any(n in have for n in names)
 
     def can(self, *codes: str) -> bool:

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Select Role') }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-6 col-xl-5">
+      <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+          <h1 class="h4 mb-3">{{ _('Select the role to use') }}</h1>
+          <p class="text-muted mb-4">{{ _('Choose which role should be active for this session.') }}</p>
+          <form method="post" class="d-flex flex-column gap-3">
+            <div class="list-group">
+              <label class="list-group-item d-flex align-items-center gap-3">
+                <input class="form-check-input me-2" type="radio" name="active_role" value="all"
+                       {% if not selected_role_id %}checked{% endif %} required>
+                <div>
+                  <div class="fw-semibold">{{ _('Use all assigned roles') }}</div>
+                  <div class="text-muted small">{{ _('Keep every role available just like before switching.') }}</div>
+                </div>
+              </label>
+              {% for role in roles %}
+              <label class="list-group-item d-flex align-items-center gap-3">
+                <input class="form-check-input me-2" type="radio" name="active_role" value="{{ role.id }}"
+                       {% if selected_role_id and role.id == selected_role_id %}checked{% endif %}
+                       {% if not selected_role_id and loop.first %}required{% endif %}>
+                <div>
+                  <div class="fw-semibold">{{ role.name }}</div>
+                  {% if role.permissions %}
+                  <div class="text-muted small">
+                    {{ _('%(count)s permissions', count=role.permissions|length) }}
+                  </div>
+                  {% else %}
+                  <div class="text-muted small">{{ _('No additional permissions') }}</div>
+                  {% endif %}
+                </div>
+              </label>
+              {% endfor %}
+            </div>
+            <div class="d-flex gap-2 justify-content-end">
+              <a href="{{ url_for('auth.logout') }}" class="btn btn-outline-secondary">{{ _('Cancel') }}</a>
+              <button type="submit" class="btn btn-primary">{{ _('Continue') }}</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <p class="text-muted small text-center mt-3">
+        {{ _('You can change the active role later from your profile settings.') }}
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Dict, List
 import os
 
-from core.utils import register_heif_support
+from core.utils import open_image_compat, register_heif_support
 
 register_heif_support()
 
@@ -153,13 +153,13 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
                 "skipped": [],
                 "notes": "source missing",
             }
-        img = Image.open(src_path)
-        img = ImageOps.exif_transpose(img)
-        has_alpha = img.mode in ("RGBA", "LA") or (
-            img.mode == "P" and "transparency" in img.info
-        )
+        with open_image_compat(src_path) as opened:
+            opened = ImageOps.exif_transpose(opened)
+            has_alpha = opened.mode in ("RGBA", "LA") or (
+                opened.mode == "P" and "transparency" in opened.info
+            )
+            img = opened.convert("RGBA" if has_alpha else "RGB")
         out_ext = ".png" if has_alpha else ".jpg"
-        img = img.convert("RGBA" if has_alpha else "RGB")
         rel_name = Path(m.local_rel_path).with_suffix(out_ext)
 
     # ------------------------------------------------------------------

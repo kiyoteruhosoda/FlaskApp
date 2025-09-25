@@ -6,10 +6,11 @@ import sys
 from pathlib import Path
 
 import pytest
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from pillow_heif import register_heif_opener
 
 from core.tasks.local_import import (
+    extract_exif_data,
     get_image_dimensions,
     import_single_file,
     scan_import_directory,
@@ -98,6 +99,29 @@ def test_get_image_dimensions_for_heic(tmp_path: Path) -> None:
 
     assert (width, height) == (64, 48)
     assert orientation in (None, 1)
+
+
+def test_heic_dimension_fallback_when_plugin_unavailable(monkeypatch, tmp_path: Path) -> None:
+    """HEIC読み込みが失敗してもフォールバックで寸法を取得できることを確認。"""
+
+    heic_path = tmp_path / "fallback.heic"
+    Image.new("RGB", (20, 10), "purple").save(heic_path)
+
+    original_open = Image.open
+
+    def _raising_open(path, *args, **kwargs):
+        if str(path).endswith(".heic"):
+            raise UnidentifiedImageError("mock failure")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Image, "open", _raising_open)
+
+    width, height, orientation = get_image_dimensions(str(heic_path))
+    assert (width, height) == (20, 10)
+    assert orientation in (None, 1)
+
+    exif = extract_exif_data(str(heic_path))
+    assert isinstance(exif, dict)
 
 
 def test_import_single_heic_file(local_import_app) -> None:

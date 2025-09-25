@@ -16,11 +16,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from core.utils import register_heif_support
+from core.utils import open_image_compat, register_heif_support
 
 register_heif_support()
 
-from PIL import Image
 from PIL.ExifTags import TAGS
 from flask import current_app
 
@@ -348,9 +347,9 @@ def calculate_file_hash(file_path: str) -> str:
 def get_image_dimensions(file_path: str) -> Tuple[Optional[int], Optional[int], Optional[int]]:
     """画像の幅、高さ、向きを取得"""
     try:
-        with Image.open(file_path) as img:
+        with open_image_compat(file_path) as img:
             width, height = img.size
-            
+
             # EXIF orientationを取得
             orientation = None
             if hasattr(img, '_getexif') and img._getexif() is not None:
@@ -359,7 +358,7 @@ def get_image_dimensions(file_path: str) -> Tuple[Optional[int], Optional[int], 
                     if TAGS.get(tag) == 'Orientation':
                         orientation = value
                         break
-            
+
             return width, height, orientation
     except Exception:
         return None, None, None
@@ -369,10 +368,10 @@ def extract_exif_data(file_path: str) -> Dict:
     """EXIFデータを抽出"""
     exif_data = {}
     try:
-        with Image.open(file_path) as img:
+        with open_image_compat(file_path) as img:
             if hasattr(img, '_getexif') and img._getexif() is not None:
                 exif_dict = img._getexif()
-                
+
                 for tag_id, value in exif_dict.items():
                     tag = TAGS.get(tag_id, tag_id)
                     exif_data[tag] = value

@@ -57,6 +57,11 @@ import jwt
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func, select, case
 from werkzeug.utils import secure_filename
+from core.storage_paths import (
+    first_existing_storage_path,
+    resolve_storage_file,
+    storage_path_candidates,
+)
 
 
 user_repo = SqlAlchemyUserRepository(db.session)
@@ -66,69 +71,16 @@ auth_service = AuthService(user_repo)
 VALID_TAG_ATTRS = {"person", "place", "thing"}
 
 
-_STORAGE_ENV_FALLBACKS = {
-    "FPV_NAS_THUMBS_DIR": (
-        "FPV_NAS_THUMBS_CONTAINER_DIR",
-        "FPV_NAS_THUMBS_DIR",
-    ),
-    "FPV_NAS_PLAY_DIR": (
-        "FPV_NAS_PLAY_CONTAINER_DIR",
-        "FPV_NAS_PLAY_DIR",
-    ),
-    "FPV_NAS_ORIGINALS_DIR": ("FPV_NAS_ORIGINALS_DIR",),
-}
-
-_STORAGE_DEFAULTS = {
-    "FPV_NAS_THUMBS_DIR": "/app/data/thumbs",
-    "FPV_NAS_PLAY_DIR": "/app/data/playback",
-    "FPV_NAS_ORIGINALS_DIR": "/app/data/media",
-}
-
-
 def _storage_path_candidates(config_key: str) -> list[str]:
-    """Return ordered storage path candidates for a given config key."""
-
-    candidates: list[str] = []
-
-    value = current_app.config.get(config_key)
-    if value:
-        candidates.append(value)
-
-    for env_name in _STORAGE_ENV_FALLBACKS.get(config_key, (config_key,)):
-        candidate = os.environ.get(env_name)
-        if candidate and candidate not in candidates:
-            candidates.append(candidate)
-
-    default_candidate = _STORAGE_DEFAULTS.get(config_key)
-    if default_candidate and default_candidate not in candidates:
-        candidates.append(default_candidate)
-
-    return [c for c in candidates if c]
+    return storage_path_candidates(config_key)
 
 
 def _storage_path(config_key: str) -> str | None:
-    """Return first storage path candidate for compatibility."""
-
-    for candidate in _storage_path_candidates(config_key):
-        if os.path.exists(candidate):
-            return candidate
-
-    candidates = _storage_path_candidates(config_key)
-    return candidates[0] if candidates else None
+    return first_existing_storage_path(config_key)
 
 
 def _resolve_storage_file(config_key: str, *path_parts: str) -> tuple[str | None, str | None, bool]:
-    """Resolve a file path by scanning storage candidates."""
-
-    candidates = _storage_path_candidates(config_key)
-    for base in candidates:
-        candidate_path = os.path.join(base, *path_parts)
-        if os.path.exists(candidate_path):
-            return base, candidate_path, True
-
-    fallback_base = candidates[0] if candidates else None
-    fallback_path = os.path.join(fallback_base, *path_parts) if fallback_base else None
-    return fallback_base, fallback_path, False
+    return resolve_storage_file(config_key, *path_parts)
 
 
 def _serialize_user_for_log(user):

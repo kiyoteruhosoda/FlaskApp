@@ -153,6 +153,39 @@ def _log_error(
     )
 
 
+def _commit_with_error_logging(
+    event: str,
+    message: str,
+    *,
+    session_id: Optional[str] = None,
+    celery_task_id: Optional[str] = None,
+    exc_info: bool = True,
+    **details: Any,
+) -> None:
+    """db.session.commit() を実行し、失敗時には詳細ログを記録する。"""
+
+    try:
+        db.session.commit()
+    except Exception as exc:
+        try:
+            db.session.rollback()
+        except Exception:
+            # ロールバック自体が失敗しても続行（元例外を優先）
+            pass
+
+        _log_error(
+            event,
+            message,
+            session_id=session_id,
+            celery_task_id=celery_task_id,
+            error_type=type(exc).__name__,
+            error_message=str(exc),
+            exc_info=exc_info,
+            **details,
+        )
+        raise
+
+
 # サポートするファイル拡張子
 SUPPORTED_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.tiff', '.tif', '.bmp', '.heic', '.heif'}
 SUPPORTED_VIDEO_EXTENSIONS = {'.mp4', '.mov', '.avi', '.mkv', '.m4v', '.3gp', '.webm'}
@@ -846,7 +879,21 @@ def _set_session_progress(
     if stats_updates:
         stats.update(stats_updates)
     session.set_stats(stats)
-    db.session.commit()
+
+    try:
+        db.session.commit()
+    except Exception as exc:  # pragma: no cover - exercised via integration tests
+        db.session.rollback()
+        _log_error(
+            "local_import.session.progress_update_failed",
+            "セッション状態の更新中にエラーが発生",
+            session_id=session.session_id if hasattr(session, "session_id") else None,
+            session_db_id=getattr(session, "id", None),
+            error_type=type(exc).__name__,
+            error_message=str(exc),
+            exc_info=True,
+        )
+        raise
 
 
 def _session_cancel_requested(
@@ -954,7 +1001,14 @@ def _enqueue_local_import_selections(
                 celery_task_id=celery_task_id,
             )
 
-    db.session.commit()
+    _commit_with_error_logging(
+        "local_import.selection.commit_failed",
+        "Selectionの状態保存に失敗",
+        session_id=active_session_id,
+        celery_task_id=celery_task_id,
+        session_db_id=getattr(session, "id", None),
+        enqueued=enqueued,
+    )
     return enqueued
 
 
@@ -1053,8 +1107,18 @@ def _process_local_import_queue(
                 session_id=active_session_id,
                 celery_task_id=celery_task_id,
             )
-        except Exception:
+        except Exception as exc:
             db.session.rollback()
+            _log_error(
+                "local_import.selection.running_update_failed",
+                "Selectionを処理中に更新できませんでした",
+                selection_id=getattr(selection, "id", None),
+                file_path=file_path,
+                error_type=type(exc).__name__,
+                error_message=str(exc),
+                session_id=active_session_id,
+                celery_task_id=celery_task_id,
+            )
 
         file_result = import_single_file(
             file_path or "",
@@ -1262,7 +1326,23 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
             selected_count=0,
         )
         db.session.add(session)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception as exc:
+            db.session.rollback()
+            result["ok"] = False
+            error_message = f"セッション作成エラー: {str(exc)}"
+            result["errors"].append(error_message)
+            _log_error(
+                "local_import.session.create_failed",
+                "ローカルインポート用セッションの作成に失敗",
+                session_id=generated_session_id,
+                celery_task_id=celery_task_id,
+                error_type=type(exc).__name__,
+                error_message=str(exc),
+            )
+            return result
+
         session_id = session.session_id
         result["session_id"] = session_id
         _log_info(

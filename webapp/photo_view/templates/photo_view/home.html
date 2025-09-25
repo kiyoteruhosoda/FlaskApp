@@ -312,7 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let localStatusMessage = '';
     if (session.isLocalImport) {
       if (session.status === 'canceled') {
-        localStatusMessage = `<div class="d-inline-flex align-items-center gap-1 small text-danger mt-1"><i class="bi bi-stop-circle"></i> ${localImportStopSuccessNotice}</div>`;
+        localStatusMessage = `<div class="d-inline-flex align-items-center gap-1 small text-muted mt-1"><i class="bi bi-x-circle"></i> ${localImportStopSuccessNotice}</div>`;
       } else if (showStopButton) {
         localStatusMessage = `<div class="d-inline-flex align-items-center gap-1 small text-muted mt-1"><i class="bi bi-info-circle"></i> ${localImportRunningMessage}</div>`;
       } else {

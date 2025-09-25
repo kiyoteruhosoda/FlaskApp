@@ -107,16 +107,17 @@ def test_role_selection_sets_active_role(client, app):
     with client.session_transaction() as sess:
         assert sess["active_role_id"] == role_ids[0]
 
-    # Allow switching back to all roles
+    # Invalid selections should not clear the active role
     response = client.post(
         "/auth/select-role",
         data={"active_role": "all"},
         follow_redirects=False,
     )
-    assert response.status_code == 302
+    assert response.status_code == 200
+    assert b"Invalid role selection" in response.data
 
     with client.session_transaction() as sess:
-        assert "active_role_id" not in sess
+        assert sess["active_role_id"] == role_ids[0]
 
 
 def test_api_login_requires_role_selection(client, app):

@@ -55,10 +55,10 @@
             <input type="hidden" name="action" value="switch-role">
             <div class="mb-3">
               <label for="active-role" class="form-label">{{ _('Active role') }}</label>
-              <select class="form-select" id="active-role" name="active_role">
-                <option value="all" {% if not active_role %}selected{% endif %}>{{ _('Use all assigned roles') }}</option>
+              <select class="form-select" id="active-role" name="active_role" required>
                 {% for role in current_user.roles %}
-                  <option value="{{ role.id }}" {% if active_role and role.id == active_role.id %}selected{% endif %}>{{ role.name }}</option>
+                  {% set is_selected = (active_role and role.id == active_role.id) or (not active_role and loop.first) %}
+                  <option value="{{ role.id }}" {% if is_selected %}selected{% endif %}>{{ role.name }}</option>
                 {% endfor %}
               </select>
               <div class="form-text">{{ _('Selecting a specific role limits your permissions to that role.') }}</div>

@@ -456,7 +456,13 @@ def create_app():
             lang_code = app.config["BABEL_DEFAULT_LOCALE"]
         resp = make_response(redirect(request.headers.get("Referer", url_for("index"))))
         # 30日保持
-        resp.set_cookie("lang", lang_code, max_age=60 * 60 * 24 * 30, httponly=False)
+        resp.set_cookie(
+            "lang",
+            lang_code,
+            max_age=60 * 60 * 24 * 30,
+            httponly=False,
+            path="/",
+        )
         return resp
     
     @login_manager.unauthorized_handler

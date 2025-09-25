@@ -1,4 +1,6 @@
 import os
+import uuid
+
 import pytest
 
 
@@ -114,4 +116,25 @@ def test_role_selection_sets_active_role(client, app):
     assert response.status_code == 302
 
     with client.session_transaction() as sess:
+        assert "active_role_id" not in sess
+
+
+def test_api_login_requires_role_selection(client, app):
+    unique_email = f"api-multi-{uuid.uuid4().hex[:8]}@example.com"
+    email, _, _ = _create_user_with_roles(
+        app, unique_email, "pass", ["admin", "editor"]
+    )
+
+    res = client.post(
+        "/api/login",
+        json={"email": email, "password": "pass", "next": "/feature-x/library"},
+    )
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["requires_role_selection"] is True
+    assert data["redirect_url"].endswith("/auth/select-role")
+    assert "access_token" in data and "refresh_token" in data
+
+    with client.session_transaction() as sess:
+        assert sess.get("role_selection_next") == "/feature-x/library"
         assert "active_role_id" not in sess

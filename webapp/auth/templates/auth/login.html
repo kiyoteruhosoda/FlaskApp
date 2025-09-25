@@ -105,12 +105,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     try {
       const formData = new FormData(form);
+      const storedRedirectPath = localStorage.getItem('redirect_after_login');
       const loginData = {
         email: formData.get('email'),
         password: formData.get('password'),
-        token: formData.get('token') || null
+        token: formData.get('token') || null,
+        next: storedRedirectPath || null
       };
-      
+
       const response = await fetch('/api/login', {
         method: 'POST',
         headers: {
@@ -118,25 +120,34 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         body: JSON.stringify(loginData)
       });
-      
+
       if (response.ok) {
         const result = await response.json();
-        
+
         // リフレッシュトークンをlocalStorageに保存
         if (result.refresh_token) {
           localStorage.setItem('refresh_token', result.refresh_token);
         }
-        
+
+        if (result.requires_role_selection) {
+          if (storedRedirectPath) {
+            localStorage.removeItem('redirect_after_login');
+          }
+          window.location.href = result.redirect_url || '/auth/select-role';
+          return;
+        }
+
         // ログイン成功メッセージ
         if (typeof showSuccessToast === 'function') {
           showSuccessToast('{{ _("Login successful") }}');
         }
-        
+
         // リダイレクト処理
-        const redirectPath = localStorage.getItem('redirect_after_login');
-        if (redirectPath) {
+        if (storedRedirectPath) {
           localStorage.removeItem('redirect_after_login');
-          window.location.href = redirectPath;
+          window.location.href = storedRedirectPath;
+        } else if (result.redirect_url) {
+          window.location.href = result.redirect_url;
         } else {
           window.location.href = '{{ url_for("feature_x.dashboard") }}';
         }

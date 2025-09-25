@@ -46,6 +46,7 @@ from core.models.photo_models import (
 from core.models.user import User, Role
 from core.crypto import decrypt
 from ..auth.utils import refresh_google_token, RefreshTokenError, log_requests_and_send
+from ..auth.routes import _sync_active_role
 from .pagination import PaginationParams, paginate_and_respond
 from flask_login import current_user
 from application.auth_service import AuthService
@@ -1201,8 +1202,34 @@ def api_login():
 
     # TokenServiceを使用してトークンペアを生成
     access_token, refresh_token = TokenService.generate_token_pair(user_model)
-    
-    resp = jsonify({"access_token": access_token, "refresh_token": refresh_token})
+
+    session.pop("active_role_id", None)
+    roles = list(getattr(user_model, "roles", []) or [])
+
+    raw_next = data.get("next") or request.args.get("next")
+    if isinstance(raw_next, str) and raw_next.startswith("/") and not raw_next.startswith("//"):
+        redirect_target = raw_next
+    else:
+        redirect_target = url_for("feature_x.dashboard")
+
+    if len(roles) > 1:
+        session["role_selection_next"] = redirect_target
+        response_payload = {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "requires_role_selection": True,
+            "redirect_url": url_for("auth.select_role"),
+        }
+    else:
+        _sync_active_role(user_model)
+        response_payload = {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "requires_role_selection": False,
+            "redirect_url": redirect_target,
+        }
+
+    resp = jsonify(response_payload)
     resp.set_cookie(
         "access_token",
         access_token,

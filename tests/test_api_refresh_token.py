@@ -42,6 +42,7 @@ def login(client, app, *, token: str | None = None):
     res = client.post("/api/login", json=payload)
     assert res.status_code == 200
     data = res.get_json()
+    assert data["requires_role_selection"] is False
     return data["access_token"], data["refresh_token"]
 
 

@@ -17,10 +17,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
   && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+# version.json を生成するために最低限必要なファイルだけ
+COPY scripts/ ./scripts/
+COPY core/ ./core/
+COPY .git/ .git/   # Git がある場合にのみ使われる（なければ無視される）
 RUN if [ -d .git ]; then \
       ./scripts/generate_version.sh; \
     else \
@@ -51,7 +54,16 @@ RUN groupadd -g ${APP_GID} -r appuser \
 
 COPY --from=builder /usr/local /usr/local
 
-COPY --chown=appuser:appuser . .
+# --- アプリ本体のみに限定してコピー ---
+COPY --chown=appuser:appuser wsgi.py ./wsgi.py
+COPY --chown=appuser:appuser core/ ./core/
+COPY --chown=appuser:appuser webapp/ ./webapp/
+COPY --chown=appuser:appuser application/ ./application/
+COPY --chown=appuser:appuser domain/ ./domain/
+COPY --chown=appuser:appuser infrastructure/ ./infrastructure/
+COPY --chown=appuser:appuser cli/ ./cli/
+
+# version.json はビルダーで生成したものを上書きコピーする
 COPY --from=builder --chown=appuser:appuser /app/core/version.json /app/core/version.json
 
 RUN python -m compileall webapp/translations/ || true

@@ -58,9 +58,9 @@
             </select>
             <div class="form-text">{{ _('Hold Ctrl (Windows) or Command (macOS) to select multiple roles.') }}</div>
           </div>
-          <div class="mt-auto d-flex flex-wrap gap-2">
-            <button type="submit" class="btn btn-primary">{{ _('Update roles') }}</button>
-            <a href="{{ url_for('admin.user') }}" class="btn btn-outline-secondary">{{ _('Cancel') }}</a>
+          <div class="d-flex flex-column flex-sm-row flex-wrap gap-2">
+            <button type="submit" class="btn btn-primary btn-size-md w-100 w-sm-auto">{{ _('Update roles') }}</button>
+            <a href="{{ url_for('admin.user') }}" class="btn btn-outline-secondary btn-size-md w-100 w-sm-auto">{{ _('Cancel') }}</a>
           </div>
         </form>
       </div>

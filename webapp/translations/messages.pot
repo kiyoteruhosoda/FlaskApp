@@ -526,6 +526,58 @@ msgstr ""
 msgid "Available Roles and Permissions"
 msgstr ""
 
+#: webapp/auth/routes.py:329
+msgid "Active role cleared. All assigned roles are now in effect."
+msgstr ""
+
+#: webapp/auth/routes.py:334
+msgid "Active role switched to %(role)s."
+msgstr ""
+
+#: webapp/auth/routes.py:337 webapp/admin/routes.py:87
+msgid "Invalid role selection."
+msgstr ""
+
+#: webapp/admin/routes.py:81 webapp/admin/routes.py:91
+msgid "At least one role must be selected."
+msgstr ""
+
+#: webapp/admin/routes.py:110
+msgid "User roles updated."
+msgstr ""
+
+#: webapp/auth/templates/auth/profile.html:51
+msgid "Role settings"
+msgstr ""
+
+#: webapp/auth/templates/auth/profile.html:55
+msgid "Active role"
+msgstr ""
+
+#: webapp/auth/templates/auth/profile.html:57
+msgid "Use all assigned roles"
+msgstr ""
+
+#: webapp/auth/templates/auth/profile.html:62
+msgid "Selecting a specific role limits your permissions to that role."
+msgstr ""
+
+#: webapp/auth/templates/auth/profile.html:65
+msgid "Switch role"
+msgstr ""
+
+#: webapp/admin/templates/admin/user_role_edit.html:29
+msgid "Select roles to assign"
+msgstr ""
+
+#: webapp/admin/templates/admin/user_role_edit.html:40
+msgid "Hold Ctrl (Windows) or Command (macOS) to select multiple roles."
+msgstr ""
+
+#: webapp/admin/templates/admin/user_role_edit.html:44
+msgid "Update roles"
+msgstr ""
+
 #: webapp/admin/templates/admin/user_role_edit.html:66
 msgid "No permissions"
 msgstr ""

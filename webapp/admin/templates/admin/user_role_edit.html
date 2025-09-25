@@ -26,9 +26,8 @@
       </div>
 
       <div class="mb-3">
-        <label for="role" class="form-label">{{ _('Select New Role') }}</label>
-        <select class="form-select" id="role" name="role" required>
-          <option value="">{{ _('Choose a role...') }}</option>
+        <label for="roles" class="form-label">{{ _('Select roles to assign') }}</label>
+        <select class="form-select" id="roles" name="roles" multiple size="8" required>
           {% for role in roles %}
             <option value="{{ role.id }}" {% if user.roles and role.id in user.roles|map(attribute='id')|list %}selected{% endif %}>
               {{ role.name }}
@@ -38,10 +37,11 @@
             </option>
           {% endfor %}
         </select>
+        <div class="form-text">{{ _('Hold Ctrl (Windows) or Command (macOS) to select multiple roles.') }}</div>
       </div>
 
       <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-primary">{{ _('Update Role') }}</button>
+        <button type="submit" class="btn btn-primary">{{ _('Update roles') }}</button>
         <a href="{{ url_for('admin.user') }}" class="btn btn-secondary">{{ _('Cancel') }}</a>
       </div>
     </form>

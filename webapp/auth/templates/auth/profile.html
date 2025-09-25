@@ -46,7 +46,30 @@
           </div>
         </div>
 
+        {% if current_user.roles %}
+        <div class="profile-section mb-4">
+          <h2 class="h5 mb-3">{{ _('Role settings') }}</h2>
+          <form method="post" class="role-switcher-form">
+            <input type="hidden" name="action" value="switch-role">
+            <div class="mb-3">
+              <label for="active-role" class="form-label">{{ _('Active role') }}</label>
+              <select class="form-select" id="active-role" name="active_role">
+                <option value="all" {% if not active_role %}selected{% endif %}>{{ _('Use all assigned roles') }}</option>
+                {% for role in current_user.roles %}
+                  <option value="{{ role.id }}" {% if active_role and role.id == active_role.id %}selected{% endif %}>{{ role.name }}</option>
+                {% endfor %}
+              </select>
+              <div class="form-text">{{ _('Selecting a specific role limits your permissions to that role.') }}</div>
+            </div>
+            <button type="submit" class="btn btn-outline-primary">
+              <i class="fas fa-exchange-alt me-2"></i>{{ _('Switch role') }}
+            </button>
+          </form>
+        </div>
+        {% endif %}
+
         <form method="post" class="profile-section">
+          <input type="hidden" name="action" value="update-preferences">
           <h2 class="h5 mb-3">{{ _('Display preferences') }}</h2>
           <div class="row g-3 mb-3">
             <div class="col-md-6">

@@ -1,5 +1,5 @@
 
-from flask import Blueprint, render_template, flash, redirect, url_for, request, jsonify
+from flask import Blueprint, render_template, flash, redirect, url_for, request, jsonify, session
 from ..extensions import db
 from flask_login import login_required, current_user
 from flask_babel import gettext as _
@@ -76,14 +76,38 @@ def user_change_role(user_id):
         flash(_("You do not have permission to access this page."), "error")
         return redirect(url_for("index"))
     user = User.query.get_or_404(user_id)
-    role_id = request.form.get("role")
-    role_obj = Role.query.get(int(role_id)) if role_id else None
-    if not role_obj:
+    role_ids = request.form.getlist("roles")
+    if not role_ids:
+        flash(_("At least one role must be selected."), "error")
+        return redirect(url_for("admin.user"))
+
+    try:
+        unique_role_ids = {int(role_id) for role_id in role_ids if role_id}
+    except ValueError:
+        flash(_("Invalid role selection."), "error")
+        return redirect(url_for("admin.user"))
+
+    if not unique_role_ids:
+        flash(_("At least one role must be selected."), "error")
+        return redirect(url_for("admin.user"))
+
+    selected_roles = Role.query.filter(Role.id.in_(unique_role_ids)).all()
+    if len(selected_roles) != len(unique_role_ids):
         flash(_("Selected role does not exist."), "error")
         return redirect(url_for("admin.user"))
-    user.roles = [role_obj]
+
+    user.roles = selected_roles
+
+    if user.id == current_user.id:
+        active_role_id = session.get("active_role_id")
+        selected_ids = {role.id for role in selected_roles}
+        if active_role_id not in selected_ids:
+            if len(selected_ids) == 1:
+                session["active_role_id"] = selected_roles[0].id
+            else:
+                session.pop("active_role_id", None)
     db.session.commit()
-    flash(_("User role updated."), "success")
+    flash(_("User roles updated."), "success")
     return redirect(url_for("admin.user"))
 
 # ユーザーのロール編集画面

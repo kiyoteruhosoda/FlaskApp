@@ -133,13 +133,18 @@ def enqueue_media_playback(media_id: int) -> None:
 
 
 def picker_import_queue_scan() -> Dict[str, int]:
-    """Publish ``enqueued`` :class:`PickerSelection` rows to the worker queue."""
+    """Publish ``enqueued`` Google Photos selections to the worker queue."""
 
     queued = 0
     now = datetime.now(timezone.utc)
 
     selections: List[PickerSelection] = (
-        PickerSelection.query.filter_by(status="enqueued").order_by(PickerSelection.id).all()
+        PickerSelection.query.filter(
+            PickerSelection.status == "enqueued",
+            PickerSelection.google_media_id.isnot(None),
+        )
+        .order_by(PickerSelection.id)
+        .all()
     )
 
     for sel in selections:
@@ -182,7 +187,12 @@ def picker_import_watchdog(
     metrics = {"requeued": 0, "failed": 0, "recovered": 0, "republished": 0}
 
     # --- 1. handle stale running rows -----------------------------------
-    running = PickerSelection.query.filter_by(status="running").all()
+    running = (
+        PickerSelection.query.filter(
+            PickerSelection.status == "running",
+            PickerSelection.google_media_id.isnot(None),
+        ).all()
+    )
     for sel in running:
         hb = sel.lock_heartbeat_at
         if hb and hb.tzinfo is None:
@@ -240,7 +250,12 @@ def picker_import_watchdog(
         db.session.commit()
 
     # --- 2. retry failed rows after backoff ------------------------------
-    failed_rows = PickerSelection.query.filter_by(status="failed").all()
+    failed_rows = (
+        PickerSelection.query.filter(
+            PickerSelection.status == "failed",
+            PickerSelection.google_media_id.isnot(None),
+        ).all()
+    )
     for sel in failed_rows:
         lt = sel.last_transition_at
         if lt and lt.tzinfo is None:
@@ -266,7 +281,12 @@ def picker_import_watchdog(
         db.session.commit()
 
     # --- 3. republish stalled enqueued rows ------------------------------
-    enqueued_rows = PickerSelection.query.filter_by(status="enqueued").all()
+    enqueued_rows = (
+        PickerSelection.query.filter(
+            PickerSelection.status == "enqueued",
+            PickerSelection.google_media_id.isnot(None),
+        ).all()
+    )
     stale_threshold = now - timedelta(minutes=5)
     for sel in enqueued_rows:
         enq_at = sel.enqueued_at or sel.last_transition_at
@@ -288,7 +308,12 @@ def picker_import_watchdog(
     from core.models.job_sync import JobSync
     
     # Find sessions in "importing" status that might be complete
-    importing_sessions = PickerSession.query.filter_by(status="importing").all()
+    importing_sessions = (
+        PickerSession.query.filter(
+            PickerSession.status == "importing",
+            PickerSession.account_id.isnot(None),
+        ).all()
+    )
     metrics["completed_sessions"] = 0
     
     for ps in importing_sessions:

@@ -540,7 +540,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (sessionData.isLocalImport) {
       if (sessionData.status === 'canceled') {
-        infoParts.push(`<div class="mt-2 text-danger"><i class="bi bi-stop-circle"></i> {{ _("Local import was canceled.") }}</div>`);
+        infoParts.push(`<div class="mt-2 text-muted"><i class="bi bi-x-circle"></i> {{ _("Local import was canceled.") }}</div>`);
       } else if (stats.cancel_requested) {
         infoParts.push(`<div class="mt-2 text-warning"><i class="bi bi-hourglass-split"></i> {{ _("Canceling local import...") }}</div>`);
       } else {

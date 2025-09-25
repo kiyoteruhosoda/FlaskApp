@@ -1,8 +1,8 @@
 msgid "Home"
 msgstr "Home"
 
-msgid "FlaskApp"
-msgstr "FlaskApp"
+msgid "AppName"
+msgstr "AppName"
 
 msgid "Dashboard"
 msgstr "Dashboard"

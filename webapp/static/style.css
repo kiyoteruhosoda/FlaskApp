@@ -25,6 +25,8 @@ body.login-page footer {
   justify-content: center;
   padding: 20px;
   box-sizing: border-box;
+  flex: 1 1 auto;
+  width: 100%;
 }
 
 .login-card {
@@ -294,11 +296,17 @@ body.login-page main.container-fluid {
   position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
+  justify-content: flex-start;
+  align-items: stretch;
   min-height: calc(100vh - 100px);
   box-sizing: border-box;
   margin-top: 0;
+  padding: 40px 12px 40px;
+  gap: 32px;
+}
+
+body.login-page .language-selector {
+  align-self: stretch;
 }
 
 body.login-page .flash-messages {

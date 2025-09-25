@@ -301,24 +301,30 @@ def create_app():
                     print(f"Error parsing JSON response {request.path}:", e)
                     resp_json = None
             # Outputログ
-            app.logger.info(
-                json.dumps({
-                    "status": response.status_code,
-                    "json": _mask_sensitive_data(resp_json) if resp_json is not None else None,
-                }, ensure_ascii=False),
-                extra={
-                    "event": "api.output",
-                    "request_id": req_id,
-                    "path": request.path,
-                }
-            )
+            log_payload = json.dumps({
+                "status": response.status_code,
+                "json": _mask_sensitive_data(resp_json) if resp_json is not None else None,
+            }, ensure_ascii=False)
+            log_extra = {
+                "event": "api.output",
+                "request_id": req_id,
+                "path": request.path,
+            }
+            if response.status_code >= 400:
+                app.logger.warning(log_payload, extra=log_extra)
+            else:
+                app.logger.info(log_payload, extra=log_extra)
         return response
 
     # 404だけ個別に（テンプレでもJSONでも可）
     @app.errorhandler(404)
     def handle_404(e):
-        app.logger.info("404 path=%s full=%s ua=%s",
-                        request.path, request.full_path, request.user_agent)
+        app.logger.warning(
+            "404 path=%s full=%s ua=%s",
+            request.path,
+            request.full_path,
+            request.user_agent,
+        )
         # return render_template("404.html"), 404
         return jsonify(error="Not Found"), 404
 

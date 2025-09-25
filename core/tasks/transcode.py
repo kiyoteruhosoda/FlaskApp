@@ -44,7 +44,10 @@ def _orig_dir() -> Path:
 
 
 def _play_dir() -> Path:
-    return Path(os.environ.get("FPV_NAS_PLAY_DIR", "/tmp/fpv_play"))
+    return Path(
+        os.environ.get("FPV_NAS_PLAY_CONTAINER_DIR")
+        or os.environ.get("FPV_NAS_PLAY_DIR", "/tmp/fpv_play")
+    )
 
 
 def _tmp_dir() -> Path:

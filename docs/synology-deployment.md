@@ -122,9 +122,22 @@ GOOGLE_CLIENT_SECRET=<your-google-client-secret>
 
 # ダウンロードURL署名設定
 FPV_DL_SIGN_KEY=<your-download-signing-key-here>
+
+# NASパス（Nginx X-Accel-Redirectを使う場合の例）
+FPV_NAS_THUMBS_DIR=/volume1/docker/photonest/data/thumbs
+FPV_NAS_PLAY_DIR=/volume1/docker/photonest/data/playback
+FPV_NAS_THUMBS_CONTAINER_DIR=/app/data/thumbs
+FPV_NAS_PLAY_CONTAINER_DIR=/app/data/playback
+FPV_ACCEL_THUMBS_LOCATION=/media/thumbs
+FPV_ACCEL_PLAYBACK_LOCATION=/media/playback
+FPV_ACCEL_REDIRECT_ENABLED=true
 ```
 
 **注意**: その他の設定項目（TZ、PUID、PGID等）はデフォルト値のまま使用可能です。
+
+X-Accel-Redirectを使用しない構成の場合は、`FPV_ACCEL_REDIRECT_ENABLED=false`を設定するか、
+`FPV_ACCEL_THUMBS_LOCATION`および`FPV_ACCEL_PLAYBACK_LOCATION`の値を空にしてください。
+この設定により、Flaskアプリが直接ファイルを配信します。
 
 ### 2.2 docker-compose.ymlの設定確認
 PhotoNestのdocker-compose.ymlは外部データベース対応済みです：

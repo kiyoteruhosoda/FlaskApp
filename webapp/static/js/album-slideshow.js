@@ -40,6 +40,16 @@ class AlbumSlideshow {
     this.preloadedImages = new Map();
 
     this.handleKeydown = this.handleKeydown.bind(this);
+    this.handleStageClick = this.handleStageClick.bind(this);
+    this.handleTouchStart = this.handleTouchStart.bind(this);
+    this.handleTouchMove = this.handleTouchMove.bind(this);
+    this.handleTouchEnd = this.handleTouchEnd.bind(this);
+
+    this.touchStartX = 0;
+    this.touchStartY = 0;
+    this.touchStartTime = 0;
+    this.touchPreventClick = false;
+    this.touchStartTarget = null;
 
     this.bindEvents();
     this.updatePlayButton();
@@ -81,6 +91,13 @@ class AlbumSlideshow {
           this.hideOverlay();
         }
       });
+    }
+
+    if (this.stageElement) {
+      this.stageElement.addEventListener('click', this.handleStageClick);
+      this.stageElement.addEventListener('touchstart', this.handleTouchStart, { passive: true });
+      this.stageElement.addEventListener('touchmove', this.handleTouchMove, { passive: true });
+      this.stageElement.addEventListener('touchend', this.handleTouchEnd);
     }
   }
 
@@ -389,6 +406,79 @@ class AlbumSlideshow {
       event.preventDefault();
       this.togglePlay();
     }
+  }
+
+  handleStageClick(event) {
+    if (this.touchPreventClick) {
+      this.touchPreventClick = false;
+      return;
+    }
+    if (event.target.closest('.album-slideshow-nav')) {
+      return;
+    }
+    this.togglePlay();
+  }
+
+  handleTouchStart(event) {
+    if (!event.touches || event.touches.length !== 1) {
+      return;
+    }
+    const touch = event.touches[0];
+    this.touchStartX = touch.clientX;
+    this.touchStartY = touch.clientY;
+    this.touchStartTime = Date.now();
+    this.touchPreventClick = false;
+    this.touchStartTarget = event.target;
+  }
+
+  handleTouchMove(event) {
+    if (!event.touches || event.touches.length !== 1) {
+      return;
+    }
+    // Intentionally left blank to allow passive listeners while tracking movement.
+  }
+
+  handleTouchEnd(event) {
+    if (!event.changedTouches || event.changedTouches.length === 0) {
+      return;
+    }
+    const touch = event.changedTouches[0];
+    const deltaX = touch.clientX - this.touchStartX;
+    const deltaY = touch.clientY - this.touchStartY;
+    const elapsed = Date.now() - this.touchStartTime;
+
+    if (this.touchStartTarget && this.touchStartTarget.closest('.album-slideshow-nav')) {
+      this.touchStartTarget = null;
+      this.touchPreventClick = false;
+      return;
+    }
+
+    const horizontalThreshold = 40;
+    const verticalThreshold = 100;
+    const timeThreshold = 800;
+    const isHorizontalSwipe = Math.abs(deltaX) > horizontalThreshold
+      && Math.abs(deltaY) < verticalThreshold
+      && elapsed < timeThreshold;
+
+    if (isHorizontalSwipe) {
+      event.preventDefault();
+      this.touchPreventClick = true;
+      if (deltaX < 0) {
+        this.showNext();
+      } else {
+        this.showPrevious();
+      }
+      this.touchStartTarget = null;
+      return;
+    }
+
+    const tapThreshold = 10;
+    if (Math.abs(deltaX) < tapThreshold && Math.abs(deltaY) < tapThreshold) {
+      event.preventDefault();
+      this.touchPreventClick = true;
+      this.togglePlay();
+    }
+    this.touchStartTarget = null;
   }
 
   preloadAdjacentImages() {

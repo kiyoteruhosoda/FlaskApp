@@ -80,3 +80,6 @@ def test_api_login_requires_totp(client, app):
         json={"email": totp_email, "password": "pass", "token": valid_token},
     )
     assert res.status_code == 200
+    data = res.get_json()
+    assert data["requires_role_selection"] is False
+    assert data["redirect_url"].endswith("/feature-x/dashboard")

@@ -110,6 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const sessionStatusLabels = {
     pending: '{{ _("Pending") }}',
     ready: '{{ _("Ready") }}',
+    expanding: '{{ _("Expanding") }}',
     processing: '{{ _("Processing") }}',
     enqueued: '{{ _("Enqueued") }}',
     importing: '{{ _("Importing") }}',
@@ -136,6 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
     switch (status) {
       case 'pending': return 'secondary';
       case 'ready': return 'primary';
+      case 'expanding': return 'warning';
       case 'processing': return 'warning';
       case 'importing': return 'info';
       case 'imported': return 'success';

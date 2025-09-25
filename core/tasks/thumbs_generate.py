@@ -17,6 +17,10 @@ import os
 from PIL import Image, ImageOps
 
 from core.models.photo_models import Media, MediaPlayback
+from core.storage_paths import (
+    ensure_directory,
+    first_existing_storage_path,
+)
 
 # Target thumbnail sizes (long side)
 SIZES = [256, 512, 1024, 2048]
@@ -36,23 +40,25 @@ class _ThumbResult:
 
 def _thumb_base_dir() -> Path:
     """Return thumbnail base directory creating it if necessary."""
-    base = Path(
-        os.environ.get("FPV_NAS_THUMBS_CONTAINER_DIR")
-        or os.environ.get("FPV_NAS_THUMBS_DIR", "/tmp/fpv_thumbs")
-    )
-    base.mkdir(parents=True, exist_ok=True)
-    return base
+
+    base = first_existing_storage_path("FPV_NAS_THUMBS_DIR")
+    if not base:
+        base = "/tmp/fpv_thumbs"
+    return ensure_directory(base)
 
 
 def _orig_dir() -> Path:
-    return Path(os.environ.get("FPV_NAS_ORIGINALS_DIR", "/tmp/fpv_orig"))
+    base = first_existing_storage_path("FPV_NAS_ORIGINALS_DIR")
+    if not base:
+        base = "/tmp/fpv_orig"
+    return Path(base)
 
 
 def _play_dir() -> Path:
-    return Path(
-        os.environ.get("FPV_NAS_PLAY_CONTAINER_DIR")
-        or os.environ.get("FPV_NAS_PLAY_DIR", "/tmp/fpv_play")
-    )
+    base = first_existing_storage_path("FPV_NAS_PLAY_DIR")
+    if not base:
+        base = "/tmp/fpv_play"
+    return Path(base)
 
 
 # ---------------------------------------------------------------------------

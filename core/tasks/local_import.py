@@ -27,6 +27,7 @@ from core.models.picker_session import PickerSession
 from core.utils import get_file_date_from_name, get_file_date_from_exif
 from core.logging_config import setup_task_logging, log_task_error, log_task_info
 from core.tasks.media_post_processing import process_media_post_import
+from core.storage_paths import first_existing_storage_path, storage_path_candidates
 from webapp.config import Config
 
 # Setup logger for this module - use Celery task logger for consistency
@@ -712,6 +713,20 @@ def scan_import_directory(import_dir: str, *, session_id: Optional[str] = None) 
     return files
 
 
+def _resolve_directory(config_key: str) -> str:
+    """Return a usable directory path for the given storage *config_key*."""
+
+    path = first_existing_storage_path(config_key)
+    if path:
+        return path
+
+    candidates = storage_path_candidates(config_key)
+    if candidates:
+        return candidates[0]
+
+    raise RuntimeError(f"No storage directory candidates available for {config_key}")
+
+
 def local_import_task(task_instance=None, session_id=None) -> Dict:
     """
     ローカル取り込みタスクのメイン処理
@@ -725,11 +740,13 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
     """
     # Flaskアプリケーションのコンテキストから設定を取得
     try:
-        import_dir = current_app.config.get('LOCAL_IMPORT_DIR', Config.LOCAL_IMPORT_DIR)
-        originals_dir = current_app.config.get('FPV_NAS_ORIGINALS_DIR', Config.FPV_NAS_ORIGINALS_DIR)
+        import_dir = _resolve_directory('LOCAL_IMPORT_DIR')
     except RuntimeError:
-        # Flaskアプリケーションコンテキスト外の場合は設定クラスから取得
         import_dir = Config.LOCAL_IMPORT_DIR
+
+    try:
+        originals_dir = _resolve_directory('FPV_NAS_ORIGINALS_DIR')
+    except RuntimeError:
         originals_dir = Config.FPV_NAS_ORIGINALS_DIR
 
     celery_task_id = None

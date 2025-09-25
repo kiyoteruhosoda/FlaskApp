@@ -108,6 +108,30 @@ class TestPickerSessionServiceLocalImport:
             assert status['pickingConfig'] is None
             assert status['mediaItemsSet'] is None
 
+    def test_status_reverts_to_processing_when_pending_items_exist(self, app):
+        """選択が進行中の場合はステータスが processing に戻る"""
+        from webapp.extensions import db
+        with app.app_context():
+            ps = PickerSession(
+                session_id="local_import_pending",
+                status="imported",
+                account_id=None,
+            )
+            db.session.add(ps)
+            db.session.commit()
+
+            running = PickerSelection(session_id=ps.id, status='running')
+            finished = PickerSelection(session_id=ps.id, status='imported')
+            db.session.add_all([running, finished])
+            db.session.commit()
+
+            result = PickerSessionService.status(ps)
+
+            db.session.refresh(ps)
+            assert ps.status == 'processing'
+            assert result['status'] == 'processing'
+            assert result['counts']['running'] == 1
+
     def test_normalize_selection_counts_collapses_aliases(self):
         """選択ステータスの集計がエイリアスを正規化することを確認"""
         raw_counts = {

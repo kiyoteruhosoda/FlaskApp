@@ -253,9 +253,52 @@ class PickerSessionService:
         ps.last_polled_at = now
         ps.updated_at = now
 
-        if ps.status in ("processing", "importing", "error", "failed"):
+        status_log_context = {
+            "ts": now.isoformat(),
+            "picker_session_id": ps.id,
+            "session_id": ps.session_id,
+            "status_before": ps.status,
+            "selected_count": ps.selected_count,
+            "counts": counts,
+        }
+        current_app.logger.info(
+            json.dumps(status_log_context, default=str),
+            extra={"event": "pickerSession.status.summary"},
+        )
+
+        pending_statuses = ("pending", "enqueued", "running")
+        has_pending = any(counts.get(status, 0) > 0 for status in pending_statuses)
+
+        if has_pending:
+            if ps.status != "processing":
+                current_app.logger.info(
+                    json.dumps(
+                        {
+                            **status_log_context,
+                            "status_after": "processing",
+                            "reason": "pending_selections_present",
+                        },
+                        default=str,
+                    ),
+                    extra={"event": "pickerSession.status.forceProcessing"},
+                )
+                ps.status = "processing"
+                ps.last_progress_at = now
+                ps.updated_at = now
+        elif ps.status in ("processing", "importing", "error", "failed"):
             new_status = PickerSessionService._determine_completion_status(counts)
             if new_status and ps.status != new_status:
+                current_app.logger.info(
+                    json.dumps(
+                        {
+                            **status_log_context,
+                            "status_after": new_status,
+                            "reason": "no_pending_and_completion_status_resolved",
+                        },
+                        default=str,
+                    ),
+                    extra={"event": "pickerSession.status.transition"},
+                )
                 ps.status = new_status
                 ps.last_progress_at = now
                 ps.updated_at = now

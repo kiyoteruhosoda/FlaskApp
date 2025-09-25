@@ -451,6 +451,42 @@ body.login-page .flash-messages .alert {
   padding: 0.4rem 0.65rem;
 }
 
+/* Role selection page */
+.role-selection-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.role-selection-list .role-option {
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 0.75rem;
+  padding: 0.875rem 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.role-selection-list .role-option:hover {
+  border-color: rgba(var(--bs-primary-rgb), 0.4);
+  box-shadow: 0 0.75rem 1.5rem rgba(var(--bs-primary-rgb), 0.12);
+  transform: translateY(-1px);
+}
+
+.role-selection-list .role-option:focus-within {
+  outline: 0;
+  border-color: rgba(var(--bs-primary-rgb), 0.55);
+  box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.2);
+}
+
+.role-selection-list .role-option.role-option-active {
+  border-color: rgba(var(--bs-primary-rgb), 0.95);
+  box-shadow: 0 1.25rem 2.5rem rgba(var(--bs-primary-rgb), 0.18);
+  transform: translateY(-1px);
+}
+
+.role-selection-list .role-option .role-option-body {
+  flex: 1;
+}
+
 .admin-filter-form .btn,
 .admin-filter-actions .btn {
   padding: 0.4rem 0.75rem;

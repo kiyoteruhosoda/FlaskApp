@@ -13,6 +13,52 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     });
   });
+
+  const toggleButtons = document.querySelectorAll('.toggle-password-btn');
+  toggleButtons.forEach(button => {
+    const wrapper = button.closest('.password-toggle-wrapper');
+    const input = wrapper ? wrapper.querySelector('input') : null;
+
+    if (!input) {
+      return;
+    }
+
+    const icon = button.querySelector('i');
+    const showLabel = button.dataset.showLabel || 'Show password';
+    const hideLabel = button.dataset.hideLabel || 'Hide password';
+
+    const updateButtonState = visible => {
+      if (visible) {
+        button.setAttribute('aria-label', hideLabel);
+        button.setAttribute('aria-pressed', 'true');
+        if (icon) {
+          icon.classList.remove('fa-eye');
+          icon.classList.add('fa-eye-slash');
+        }
+      } else {
+        button.setAttribute('aria-label', showLabel);
+        button.setAttribute('aria-pressed', 'false');
+        if (icon) {
+          icon.classList.add('fa-eye');
+          icon.classList.remove('fa-eye-slash');
+        }
+      }
+    };
+
+    button.addEventListener('click', () => {
+      const isVisible = input.type === 'text';
+      input.type = isVisible ? 'password' : 'text';
+      updateButtonState(!isVisible);
+
+      if (!isVisible) {
+        input.focus({ preventScroll: true });
+        const valueLength = input.value.length;
+        input.setSelectionRange(valueLength, valueLength);
+      }
+    });
+
+    updateButtonState(input.type === 'text');
+  });
 });
 
 // Toast notification function

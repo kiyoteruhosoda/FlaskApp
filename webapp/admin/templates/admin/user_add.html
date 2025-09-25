@@ -9,7 +9,16 @@
   </div>
   <div class="mb-3">
     <label for="password" class="form-label">{{ _('Password') }}</label>
-    <input type="password" class="form-control" id="password" name="password" required>
+    <div class="password-toggle-wrapper">
+      <input type="password" class="form-control" id="password" name="password" required>
+      <button type="button" class="toggle-password-btn" aria-label="{{ _('Show password') }}"
+              aria-pressed="false" aria-controls="password"
+              data-show-label="{{ _('Show password') }}"
+              data-hide-label="{{ _('Hide password') }}">
+        <i class="fas fa-eye"></i>
+        <span class="visually-hidden">{{ _('Toggle password visibility') }}</span>
+      </button>
+    </div>
   </div>
   <div class="mb-3">
     <label for="role" class="form-label">{{ _('Role') }}</label>

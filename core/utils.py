@@ -4,10 +4,13 @@ import json
 import logging
 import importlib
 import importlib.util
+from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Any, Final
+from pathlib import Path
+from typing import Any, Final, Iterator
 
 from flask import current_app
+from PIL import Image, UnidentifiedImageError
 
 _HEIF_PLUGIN_NAME: Final[str] = "pillow_heif"
 _HEIF_REGISTERED: bool = False
@@ -32,6 +35,42 @@ def register_heif_support() -> bool:
         return True
 
     return False
+
+
+@contextmanager
+def open_image_compat(path: str | Path) -> Iterator[Image.Image]:
+    """Open an image file handling HEIC/HEIF without Pillow plugin support.
+
+    This helper first attempts to open the file via :func:`PIL.Image.open`.
+    When Pillow cannot identify the file (for example because the HEIF plugin
+    was not registered), it falls back to :mod:`pillow_heif` so that HEIC files
+    can still be processed.  The returned image object is automatically closed
+    when the context exits.
+    """
+
+    image_obj: Image.Image | None = None
+
+    try:
+        image_obj = Image.open(path)
+    except UnidentifiedImageError:
+        try:
+            from pillow_heif import open_heif  # type: ignore
+        except ImportError:
+            raise
+
+        heif_file = open_heif(str(path))
+        image_obj = heif_file.to_pillow()
+        # ``heif_file`` instances do not provide ``close`` and are managed by
+        # the library, so we only manage the Pillow image here.
+
+    try:
+        yield image_obj
+    finally:
+        if image_obj is not None:
+            try:
+                image_obj.close()
+            except Exception:
+                pass
 
 
 def greet(name: str) -> str:

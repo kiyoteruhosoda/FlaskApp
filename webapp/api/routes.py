@@ -1989,12 +1989,14 @@ def _resolve_download_filename(payload: dict, rel: str, abs_path: str) -> str | 
         else:
             filename = os.path.basename(abs_path) if abs_path else None
 
+    path_ext = os.path.splitext(abs_path)[1] if abs_path else ""
     if filename:
         base, ext = os.path.splitext(filename)
-        if not ext:
-            path_ext = os.path.splitext(abs_path)[1] if abs_path else ""
-            if path_ext:
+        if payload.get("typ") == "playback" and path_ext:
+            if ext.lower() != path_ext.lower():
                 filename = base + path_ext
+        elif not ext and path_ext:
+            filename = base + path_ext
     return filename
 
 

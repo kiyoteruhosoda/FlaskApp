@@ -767,6 +767,58 @@ def test_range_video(client, seed_playback_media):
     assert "filename*=UTF-8''Playback%20Clip.mp4" in cd
 
 
+def test_playback_filename_for_mov(client, app):
+    from webapp.extensions import db
+    from core.models.photo_models import Media, MediaPlayback
+
+    login(client)
+
+    with app.app_context():
+        media = Media(
+            google_media_id="mov1",
+            account_id=1,
+            local_rel_path="mov/test.mov",
+            filename="Playback Clip.mov",
+            bytes=20,
+            mime_type="video/quicktime",
+            width=100,
+            height=100,
+            duration_ms=2000,
+            is_video=True,
+            is_deleted=False,
+            has_playback=True,
+        )
+        db.session.add(media)
+        db.session.commit()
+
+        playback = MediaPlayback(
+            media_id=media.id,
+            preset="std1080p",
+            rel_path="2025/08/18/clip.mp4",
+            status="done",
+        )
+        db.session.add(playback)
+        db.session.commit()
+
+        media_id = media.id
+        playback_rel = playback.rel_path
+
+    play_dir = Path(os.environ["FPV_NAS_PLAY_DIR"])
+    playback_path = play_dir / playback_rel
+    playback_path.parent.mkdir(parents=True, exist_ok=True)
+    playback_path.write_bytes(os.urandom(1024))
+
+    res = client.post(f"/api/media/{media_id}/playback-url")
+    assert res.status_code == 200
+    url = res.get_json()["url"]
+
+    res2 = client.get(url)
+    assert res2.status_code == 200
+    cd = res2.headers.get("Content-Disposition")
+    assert cd is not None and "filename=\"Playback_Clip.mp4\"" in cd
+    assert "filename*=UTF-8''Playback%20Clip.mp4" in cd
+
+
 def test_download_with_accel_redirect(client, seed_thumb_media, app):
     media_id, rel = seed_thumb_media
     login(client)

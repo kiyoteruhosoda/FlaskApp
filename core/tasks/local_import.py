@@ -846,7 +846,21 @@ def _set_session_progress(
     if stats_updates:
         stats.update(stats_updates)
     session.set_stats(stats)
-    db.session.commit()
+
+    try:
+        db.session.commit()
+    except Exception as exc:  # pragma: no cover - exercised via integration tests
+        db.session.rollback()
+        _log_error(
+            "local_import.session.progress_update_failed",
+            "セッション状態の更新中にエラーが発生",
+            session_id=session.session_id if hasattr(session, "session_id") else None,
+            session_db_id=getattr(session, "id", None),
+            error_type=type(exc).__name__,
+            error_message=str(exc),
+            exc_info=True,
+        )
+        raise
 
 
 def _session_cancel_requested(

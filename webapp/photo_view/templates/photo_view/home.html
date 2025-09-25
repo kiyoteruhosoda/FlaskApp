@@ -3,6 +3,15 @@
 
 {% block extra_head %}
 <script src="{{ url_for('static', filename='js/pagination.js') }}"></script>
+<style>
+  #sessions-list .session-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+</style>
 {% endblock %}
 
 {% block content %}
@@ -298,16 +307,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const cancellableStatuses = ['expanding', 'processing', 'importing', 'enqueued'];
     const showStopButton = Boolean(isAdmin) && session.isLocalImport && cancellableStatuses.includes(session.status);
     const stopButtonHtml = showStopButton
-      ? `<button class="btn btn-sm btn-outline-danger ms-1" onclick="stopLocalImport('${session.sessionId}')"><i class="bi bi-stop-circle"></i> ${stopLocalImportLabel}</button>`
+      ? `<button class="btn btn-sm btn-outline-danger btn-size-sm" onclick="stopLocalImport('${session.sessionId}')"><i class="bi bi-stop-circle"></i> ${stopLocalImportLabel}</button>`
       : '';
     let localStatusMessage = '';
     if (session.isLocalImport) {
       if (session.status === 'canceled') {
-        localStatusMessage = `<div class="small text-danger mt-1"><i class="bi bi-stop-circle"></i> ${localImportStopSuccessNotice}</div>`;
+        localStatusMessage = `<div class="d-inline-flex align-items-center gap-1 small text-danger mt-1"><i class="bi bi-stop-circle"></i> ${localImportStopSuccessNotice}</div>`;
       } else if (showStopButton) {
-        localStatusMessage = `<div class="small text-muted mt-1"><i class="bi bi-info-circle"></i> ${localImportRunningMessage}</div>`;
+        localStatusMessage = `<div class="d-inline-flex align-items-center gap-1 small text-muted mt-1"><i class="bi bi-info-circle"></i> ${localImportRunningMessage}</div>`;
       } else {
-        localStatusMessage = `<div class="small text-muted mt-1"><i class="bi bi-info-circle"></i> {{ _("Local Import Session. Import runs automatically.") }}</div>`;
+        localStatusMessage = `<div class="d-inline-flex align-items-center gap-1 small text-muted mt-1"><i class="bi bi-info-circle"></i> {{ _("Local Import Session. Import runs automatically.") }}</div>`;
       }
     }
     tr.innerHTML = `
@@ -317,9 +326,9 @@ document.addEventListener('DOMContentLoaded', () => {
       <td><small>${formatCounts(session.counts)}</small></td>
       <td><small>${formatDateTime(session.createdAt)}</small></td>
       <td><small>${formatDateTime(session.lastProgressAt)}</small></td>
-      <td>
-        <a href="/photo-view?session_id=${session.sessionId}" class="btn btn-sm btn-primary">{{ _("View Details") }}</a>
-        ${(displayStatus === 'ready' && !session.isLocalImport) ? `<button class="btn btn-sm btn-success ms-1" onclick="startImport('${session.sessionId}')">{{ _("Start Import") }}</button>` : ''}
+      <td class="session-actions">
+        <a href="/photo-view?session_id=${session.sessionId}" class="btn btn-sm btn-primary btn-size-sm">{{ _("View Details") }}</a>
+        ${(displayStatus === 'ready' && !session.isLocalImport) ? `<button class="btn btn-sm btn-success btn-size-sm" onclick="startImport('${session.sessionId}')">{{ _("Start Import") }}</button>` : ''}
         ${stopButtonHtml}
         ${localStatusMessage}
       </td>

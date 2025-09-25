@@ -327,6 +327,29 @@ def test_picker_import_queue_scan(monkeypatch, app):
         assert called == [(pmi_id, ps_id)]
 
 
+def test_picker_import_queue_scan_skips_local(app):
+    from webapp.extensions import db
+    from core.models.photo_models import PickerSelection
+    from core.models.picker_session import PickerSession
+
+    with app.app_context():
+        session = PickerSession(account_id=None, status="importing")
+        db.session.add(session)
+        db.session.flush()
+
+        local_selection = PickerSelection(
+            session_id=session.id,
+            google_media_id=None,
+            local_file_path="/tmp/example.jpg",
+            status="enqueued",
+        )
+        db.session.add(local_selection)
+        db.session.commit()
+
+        res = picker_import_queue_scan()
+        assert res["queued"] == 0
+
+
 def test_picker_import_item_heartbeat(monkeypatch, app, tmp_path):
     ps_id, pmi_id = _setup_item(app)
 

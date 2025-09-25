@@ -140,16 +140,19 @@ body.login-page footer {
 .btn-size-lg {
   min-width: 16rem;
   padding: 0.9rem 1.75rem;
+  max-width: 20rem;
 }
 
 .btn-size-md {
   min-width: 12.5rem;
   padding: 0.75rem 1.5rem;
+  max-width: 16rem;
 }
 
 .btn-size-sm {
   min-width: 9rem;
   padding: 0.6rem 1.25rem;
+  max-width: 12rem;
 }
 
 .btn-login {

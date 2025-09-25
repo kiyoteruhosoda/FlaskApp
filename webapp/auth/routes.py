@@ -81,14 +81,19 @@ def _pop_role_selection_target() -> str:
     return url_for("feature_x.dashboard")
 
 
-def _login_with_domain_user(user):
+def _login_with_domain_user(user, redirect_target=None):
     """ドメインユーザーが保持するORMモデルでログイン処理を行う。"""
     model = getattr(user, "_model", None)
     if model is None:
         raise ValueError("Domain user is missing attached ORM model for login")
     login_user(model)
     session.pop("active_role_id", None)
+    roles = list(getattr(model, "roles", []) or [])
+    if len(roles) > 1:
+        session["role_selection_next"] = redirect_target or url_for("feature_x.dashboard")
+        return redirect(url_for("auth.select_role"))
     _sync_active_role(model)
+    return None
 
 
 def _is_session_expired(key_prefix):
@@ -126,8 +131,11 @@ def _clear_setup_totp_session():
 def _complete_registration(user):
     """ユーザー登録完了後の共通処理"""
     flash(_("Registration successful"), "success")
-    _login_with_domain_user(user)
-    return redirect(url_for("feature_x.dashboard"))
+    dashboard_url = url_for("feature_x.dashboard")
+    redirect_response = _login_with_domain_user(user, dashboard_url)
+    if redirect_response:
+        return redirect_response
+    return redirect(dashboard_url)
 
 
 def _validate_registration_input(email, password, template_name):
@@ -283,11 +291,14 @@ def register_totp():
             # ユーザーをTOTPと共にアクティブ化
             domain_user = user_repo._to_domain(user_model)
             u = auth_service.activate_user_with_totp(domain_user, secret)
-            
+
             _clear_registration_session()
             flash(_("Registration successful"), "success")
-            _login_with_domain_user(u)
-            return redirect(url_for("feature_x.dashboard"))
+            dashboard_url = url_for("feature_x.dashboard")
+            redirect_response = _login_with_domain_user(u, dashboard_url)
+            if redirect_response:
+                return redirect_response
+            return redirect(dashboard_url)
         except Exception as e:
             flash(_("Registration failed: {}").format(str(e)), "error")
             return render_template(

@@ -26,8 +26,13 @@ msgstr ""
 msgid "Login"
 msgstr ""
 
-#: webapp/__init__.py:263 webapp/templates/base.html:26
+#: webapp/__init__.py:263 webapp/templates/base.html:28
 msgid "Home"
+msgstr ""
+
+#: webapp/templates/base.html:7 webapp/templates/base.html:20
+#: webapp/templates/base.html:134 webapp/templates/admin/version_view.html:3
+msgid "FlaskApp"
 msgstr ""
 
 #: webapp/admin/routes.py:21 webapp/admin/routes.py:36

@@ -196,7 +196,7 @@ def upgrade():
     sa.Column('polling_config_json', sa.Text(), nullable=True),
     sa.Column('picking_config_json', sa.Text(), nullable=True),
     sa.Column('media_items_set', sa.Boolean(), nullable=True),
-    sa.Column('status', sa.Enum('pending', 'ready', 'processing', 'enqueued', 'importing', 'imported', 'canceled', 'expired', 'error', 'failed', name='picker_session_status'), server_default='pending', nullable=False),
+    sa.Column('status', sa.Enum('pending', 'ready', 'processing', 'expanding', 'enqueued', 'importing', 'imported', 'canceled', 'expired', 'error', 'failed', name='picker_session_status'), server_default='pending', nullable=False),
     sa.Column('selected_count', sa.Integer(), nullable=True),
     sa.Column('stats_json', sa.Text(), nullable=True),
     sa.Column('last_polled_at', sa.DateTime(), nullable=True),

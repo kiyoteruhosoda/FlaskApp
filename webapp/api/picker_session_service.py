@@ -4,13 +4,14 @@ from datetime import datetime, timezone, timedelta
 import json
 import time
 from threading import Lock
-from typing import Dict, Optional, Tuple, Iterable
+from typing import Dict, Optional, Tuple, Iterable, List, Any
 from uuid import uuid4
 
 from flask import current_app
 
 from .pagination import PaginationParams, Paginator
 from ..extensions import db
+from sqlalchemy import or_
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
 from core.models.job_sync import JobSync
@@ -21,6 +22,7 @@ from core.models.photo_models import (
     VideoMetadata,
     Media,
 )
+from core.models.log import Log
 from ..auth.utils import refresh_google_token, RefreshTokenError, log_requests_and_send
 
 
@@ -74,6 +76,23 @@ def _release_lock(key: str, lk: Lock) -> None:
     with _locks_guard:
         if not lk.locked():
             _locks.pop(key, None)
+
+
+def _isoformat(dt: Optional[datetime]) -> Optional[str]:
+    if not dt:
+        return None
+    value = dt
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    else:
+        value = value.astimezone(timezone.utc)
+    return value.isoformat().replace("+00:00", "Z")
+
+
+def _normalize_log_value(value: Any) -> Any:
+    if isinstance(value, datetime):
+        return _isoformat(value)
+    return value
 
 
 def _update_picker_session_from_data(ps: PickerSession, data: dict) -> None:
@@ -453,9 +472,133 @@ class PickerSessionService:
             result["pagination"]["totalPages"] = paginated_result.total_pages
         if paginated_result.total_count is not None:
             result["pagination"]["totalCount"] = paginated_result.total_count
-        
+
         return result
 
+    @staticmethod
+    def _selection_error_logs(selection: PickerSelection, limit: int = 50) -> List[dict]:
+        """Return parsed log entries associated with *selection*."""
+
+        search_numeric = f'"selection_id": {selection.id}'
+        search_string = f'"selection_id": "{selection.id}"'
+
+        rows = (
+            Log.query.filter(
+                or_(
+                    Log.message.contains(search_numeric),
+                    Log.message.contains(search_string),
+                )
+            )
+            .order_by(Log.id.desc())
+            .limit(max(1, min(limit, 200)))
+            .all()
+        )
+
+        entries: List[dict] = []
+
+        for row in rows:
+            try:
+                payload = json.loads(row.message)
+            except Exception:
+                payload = {"message": row.message}
+
+            extras = payload.get("_extra") or {}
+            selection_match = False
+
+            candidate = extras.get("selection_id")
+            if candidate == selection.id or str(candidate) == str(selection.id):
+                selection_match = True
+
+            if not selection_match:
+                candidate = payload.get("selection_id")
+                if candidate == selection.id or str(candidate) == str(selection.id):
+                    selection_match = True
+
+            if not selection_match:
+                continue
+
+            normalized_extras = {
+                key: _normalize_log_value(value)
+                for key, value in extras.items()
+            }
+
+            error_details_raw = normalized_extras.get("error_details")
+            if isinstance(error_details_raw, str):
+                try:
+                    error_details = json.loads(error_details_raw)
+                except Exception:
+                    error_details = error_details_raw
+            else:
+                error_details = error_details_raw
+
+            if error_details is not None:
+                normalized_extras["error_details"] = error_details
+
+            entry = {
+                "id": row.id,
+                "level": row.level,
+                "event": row.event,
+                "createdAt": _isoformat(row.created_at),
+                "message": payload.get("message"),
+                "extra": normalized_extras,
+            }
+
+            if error_details is not None:
+                entry["errorDetails"] = error_details
+
+            status_value = payload.get("status")
+            if status_value is not None:
+                entry["status"] = status_value
+
+            if row.trace:
+                entry["trace"] = row.trace
+
+            entries.append(entry)
+
+        entries.reverse()
+        return entries
+
+    @staticmethod
+    def selection_error_payload(ps: PickerSession, selection_id: int) -> Optional[dict]:
+        """Return error payload for a selection belonging to *ps*."""
+
+        selection = (
+            PickerSelection.query.filter_by(id=selection_id, session_id=ps.id)
+            .first()
+        )
+        if not selection:
+            return None
+
+        selection_payload = {
+            "id": selection.id,
+            "sessionDbId": selection.session_id,
+            "googleMediaId": selection.google_media_id,
+            "filename": selection.local_filename
+            or (selection.media_item.filename if selection.media_item else None),
+            "status": selection.status,
+            "attempts": selection.attempts,
+            "error": selection.error_msg,
+            "localFilePath": selection.local_file_path,
+            "enqueuedAt": _isoformat(selection.enqueued_at),
+            "startedAt": _isoformat(selection.started_at),
+            "finishedAt": _isoformat(selection.finished_at),
+            "createTime": _isoformat(selection.create_time),
+        }
+
+        session_payload = {
+            "id": ps.id,
+            "sessionId": ps.session_id,
+            "status": ps.status,
+            "accountId": ps.account_id,
+        }
+
+        logs = PickerSessionService._selection_error_logs(selection)
+
+        return {
+            "session": session_payload,
+            "selection": selection_payload,
+            "logs": logs,
+        }
     # --- Media Items ------------------------------------------------------
     @staticmethod
     def media_items(session_id: str, cursor: Optional[str] = None) -> Tuple[dict, int]:

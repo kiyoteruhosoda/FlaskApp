@@ -144,6 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const selectionPaginationStatusEl = document.getElementById('selection-pagination-status');
   const selectionPaginationButton = document.getElementById('selection-pagination-load');
   const selectionPaginationSpinner = document.getElementById('selection-pagination-spinner');
+  const viewErrorDetailsLabel = '{{ _("View error details") }}';
 
   const selectionStatusLabels = {
     pending: '{{ _("Pending") }}',
@@ -418,6 +419,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const fileCellContent = canDisplayLink
       ? `<a href="/photo-view/media/${selection.mediaId}" class="text-decoration-none">${safeDisplayName}</a>`
       : safeDisplayName;
+    const errorMessageHtml = selection.error
+      ? `<div class="text-danger small">${escapeHtml(selection.error)}</div>`
+      : '<span class="text-muted small">-</span>';
+    const errorLinkHtml = selection.errorDetailsUrl
+      ? `<div><a href="${escapeHtml(selection.errorDetailsUrl)}" class="small link-danger link-offset-2">${escapeHtml(viewErrorDetailsLabel)}</a></div>`
+      : '';
     tr.innerHTML = `
       <td>${fileCellContent}</td>
       <td>
@@ -426,7 +433,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </span>
       </td>
       <td>${selection.attempts}</td>
-      <td><small class="text-danger">${selection.error || ''}</small></td>
+      <td>${errorMessageHtml}${errorLinkHtml}</td>
     `;
     return tr;
   }

@@ -2,6 +2,7 @@
 ローカルインポートのSession Detail UI テスト
 """
 
+import json
 import os
 import tempfile
 import zipfile
@@ -15,6 +16,7 @@ from webapp import create_app
 from webapp.extensions import db
 from core.models.picker_session import PickerSession
 from core.models.photo_models import PickerSelection
+from core.models.log import Log
 from core.tasks.local_import import local_import_task
 
 
@@ -165,6 +167,60 @@ class TestSessionDetailAPI:
 
         # カウント確認
         assert data['counts']['imported'] == 1
+
+    def test_session_selection_error_detail_link_and_page(self, app):
+        """エラー選択の詳細リンクとページが動作することを確認"""
+
+        client = app.test_client()
+
+        with client.session_transaction() as sess:
+            sess['_user_id'] = '1'
+            sess['_fresh'] = True
+
+        with app.app_context():
+            result = local_import_task()
+            session_id = result['session_id']
+            picker_session = PickerSession.query.filter_by(session_id=session_id).first()
+            selection = PickerSelection.query.filter_by(session_id=picker_session.id).first()
+
+            selection.status = 'failed'
+            selection.error_msg = 'download failed'
+            db.session.commit()
+
+            log_payload = {
+                "message": "Download failed",
+                "_extra": {
+                    "selection_id": selection.id,
+                    "session_id": picker_session.session_id,
+                    "error_message": "download failed",
+                    "error_details": {"code": 500, "reason": "network"},
+                },
+            }
+            db.session.add(
+                Log(
+                    level='ERROR',
+                    event='picker.import.unexpected_error',
+                    message=json.dumps(log_payload, ensure_ascii=False),
+                )
+            )
+            db.session.commit()
+
+        list_resp = client.get(f'/api/picker/session/{session_id}/selections')
+        assert list_resp.status_code == 200
+        list_payload = list_resp.get_json()
+        selection_payload = list_payload['selections'][0]
+        assert selection_payload['error'] == 'download failed'
+        assert 'errorDetailsUrl' in selection_payload
+
+        detail_api_resp = client.get(f"/api/picker/session/{session_id}/selections/{selection.id}/error")
+        assert detail_api_resp.status_code == 200
+        detail_data = detail_api_resp.get_json()
+        assert detail_data['selection']['error'] == 'download failed'
+        assert detail_data['logs'], 'ログ情報が含まれていること'
+
+        detail_page_resp = client.get(selection_payload['errorDetailsUrl'])
+        assert detail_page_resp.status_code == 200
+        assert 'download failed' in detail_page_resp.get_data(as_text=True)
 
     def test_session_logs_include_status(self, app):
         """ログAPIがステータス付きのログを返すことを確認"""

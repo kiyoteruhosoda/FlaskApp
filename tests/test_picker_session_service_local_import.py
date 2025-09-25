@@ -2,6 +2,7 @@
 PickerSessionServiceのローカルインポート対応追加テスト
 """
 
+import json
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -16,6 +17,7 @@ from webapp.api.pagination import PaginationParams
 from core.models.picker_session import PickerSession
 from core.models.google_account import GoogleAccount
 from core.models.photo_models import PickerSelection
+from core.models.log import Log
 from core.tasks.local_import import local_import_task
 
 
@@ -208,23 +210,71 @@ class TestPickerSessionServiceLocalImport:
         """ローカルインポートセッションの選択詳細ページングテスト"""
         with app.app_context():
             import_dir = Path(app.config['LOCAL_IMPORT_DIR'])
-            
+
             # 複数ファイルを作成
             for i in range(5):
                 (import_dir / f"test_file_{i}.jpg").write_bytes(f"fake data {i}".encode())
-            
+
             # ローカルインポート実行
             result = local_import_task()
             session = PickerSession.query.filter_by(session_id=result['session_id']).first()
-            
+
             # ページサイズ2でテスト
             params = PaginationParams(page_size=2)
             details = PickerSessionService.selection_details(session, params)
-            
+
             assert len(details['selections']) == 2
             assert details['counts']['imported'] == 5
             assert details['pagination']['hasNext'] is True
             assert details['pagination']['hasPrev'] is False
+
+    def test_selection_error_payload_includes_logs(self, app):
+        """selection_error_payloadが関連ログを返すことを確認"""
+
+        with app.app_context():
+            session = PickerSession(session_id="error_session_test", status="failed", account_id=None)
+            db.session.add(session)
+            db.session.commit()
+
+            selection = PickerSelection(
+                session_id=session.id,
+                status='failed',
+                attempts=3,
+                error_msg='network timeout',
+                google_media_id='gm_test'
+            )
+            db.session.add(selection)
+            db.session.commit()
+
+            log_payload = {
+                "message": "Picker import failed",
+                "_extra": {
+                    "selection_id": selection.id,
+                    "session_id": session.session_id,
+                    "error_message": "network timeout",
+                    "error_details": {"reason": "timeout", "retryable": False},
+                },
+            }
+            log_entry = Log(
+                level='ERROR',
+                event='picker.import.unexpected_error',
+                message=json.dumps(log_payload, ensure_ascii=False),
+            )
+            db.session.add(log_entry)
+            db.session.commit()
+
+            payload = PickerSessionService.selection_error_payload(session, selection.id)
+
+            assert payload is not None
+            assert payload['selection']['id'] == selection.id
+            assert payload['selection']['error'] == 'network timeout'
+            assert payload['session']['sessionId'] == session.session_id
+            assert payload['logs'], '少なくとも1件のログが返されること'
+
+            first_log = payload['logs'][0]
+            assert first_log['event'] == 'picker.import.unexpected_error'
+            assert first_log['extra']['selection_id'] == selection.id
+            assert first_log['errorDetails']['reason'] == 'timeout'
 
     def test_selection_details_with_mixed_statuses(self, app):
         """異なるステータスが混在するローカルインポートセッションのテスト"""

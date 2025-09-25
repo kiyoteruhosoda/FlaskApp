@@ -23,12 +23,23 @@ RUN pip install --no-cache-dir -r requirements.txt
 # version.json を生成するために最低限必要なファイルだけ
 COPY scripts/ ./scripts/
 COPY core/ ./core/
-COPY .git/ .git/   # Git がある場合にのみ使われる（なければ無視される）
-RUN if [ -d .git ]; then \
-      ./scripts/generate_version.sh; \
-    else \
-      echo '{"version":"docker-build","commit_hash":"unknown","branch":"unknown","commit_date":"unknown","build_date":"'$(date -Iseconds)'"}' > core/version.json; \
-    fi
+
+ARG COMMIT_HASH=unknown
+ARG COMMIT_HASH_FULL=unknown
+ARG BRANCH=unknown
+ARG COMMIT_DATE=unknown
+ARG BUILD_DATE=unknown
+
+RUN echo "{" \
+        "\"version\": \"v${COMMIT_HASH}-${BRANCH}\"," \
+        "\"commit_hash\": \"${COMMIT_HASH}\"," \
+        "\"commit_hash_full\": \"${COMMIT_HASH_FULL}\"," \
+        "\"branch\": \"${BRANCH}\"," \
+        "\"commit_date\": \"${COMMIT_DATE}\"," \
+        "\"build_date\": \"${BUILD_DATE}\"" \
+    "}"> core/version.json
+
+
 
 # ========= 実行ステージ =========
 FROM ${RUNTIME_BASE}

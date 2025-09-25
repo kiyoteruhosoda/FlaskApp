@@ -10,9 +10,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. リポジトリを取得
+      # 1. リポジトリを完全 clone する（浅い clone だと Git 情報が取れない）
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # ← ここに入れるのが正しい
 
       # 2. Docker イメージをビルド & エクスポート
       - name: Build Docker image

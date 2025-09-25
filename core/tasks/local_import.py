@@ -51,9 +51,19 @@ def _serialize_details(details: Dict[str, Any]) -> str:
         return str(details)
 
 
-def _compose_message(message: str, details: Dict[str, Any]) -> str:
+def _compose_message(
+    message: str,
+    details: Dict[str, Any],
+    status: Optional[str] = None,
+) -> str:
     """メッセージと詳細を結合してログに出力する文字列を生成。"""
-    serialized = _serialize_details(details)
+
+    payload = details
+    if status is not None:
+        payload = dict(details)
+        payload.setdefault("status", status)
+
+    serialized = _serialize_details(payload)
     if not serialized:
         return message
     return f"{message} | details={serialized}"
@@ -68,26 +78,51 @@ def _with_session(details: Dict[str, Any], session_id: Optional[str]) -> Dict[st
     return merged
 
 
-def _log_info(event: str, message: str, *, session_id: Optional[str] = None, **details: Any) -> None:
+def _log_info(
+    event: str,
+    message: str,
+    *,
+    session_id: Optional[str] = None,
+    status: Optional[str] = None,
+    **details: Any,
+) -> None:
     """情報ログを記録。"""
     payload = _with_session(details, session_id)
-    log_task_info(logger, _compose_message(message, payload), event=event, **payload)
-    if session_id:
-        celery_logger.info(
-            _compose_message(message, payload),
-            extra={"event": event, **payload},
-        )
+    resolved_status = status if status is not None else "info"
+    composed = _compose_message(message, payload, resolved_status)
+    log_task_info(
+        logger,
+        composed,
+        event=event,
+        status=resolved_status,
+        **payload,
+    )
+    celery_logger.info(
+        composed,
+        extra={"event": event, "status": resolved_status, **payload},
+    )
 
 
-def _log_warning(event: str, message: str, *, session_id: Optional[str] = None, **details: Any) -> None:
+def _log_warning(
+    event: str,
+    message: str,
+    *,
+    session_id: Optional[str] = None,
+    status: Optional[str] = None,
+    **details: Any,
+) -> None:
     """警告ログを記録。"""
     payload = _with_session(details, session_id)
-    logger.warning(_compose_message(message, payload), extra={"event": event, **payload})
-    if session_id:
-        celery_logger.warning(
-            _compose_message(message, payload),
-            extra={"event": event, **payload},
-        )
+    resolved_status = status if status is not None else "warning"
+    composed = _compose_message(message, payload, resolved_status)
+    logger.warning(
+        composed,
+        extra={"event": event, "status": resolved_status, **payload},
+    )
+    celery_logger.warning(
+        composed,
+        extra={"event": event, "status": resolved_status, **payload},
+    )
 
 
 def _log_error(
@@ -99,20 +134,23 @@ def _log_error(
     **details: Any,
 ) -> None:
     """エラーログを記録。"""
+    status_value = details.pop("status", None)
     payload = _with_session(details, session_id)
+    resolved_status = status_value if status_value is not None else "error"
+    composed = _compose_message(message, payload, resolved_status)
     log_task_error(
         logger,
-        _compose_message(message, payload),
+        composed,
         event=event,
         exc_info=exc_info,
+        status=resolved_status,
         **payload,
     )
-    if session_id:
-        celery_logger.error(
-            _compose_message(message, payload),
-            extra={"event": event, **payload},
-            exc_info=exc_info,
-        )
+    celery_logger.error(
+        composed,
+        extra={"event": event, "status": resolved_status, **payload},
+        exc_info=exc_info,
+    )
 
 
 # サポートするファイル拡張子
@@ -192,6 +230,15 @@ def _extract_zip_archive(zip_path: str, *, session_id: Optional[str] = None) -> 
                     shutil.copyfileobj(src, dst)
 
                 extracted_files.append(str(target_path))
+                _log_info(
+                    "local_import.zip.member_extracted",
+                    "ZIP内のファイルを抽出",
+                    session_id=session_id,
+                    status="extracted",
+                    zip_path=zip_path,
+                    member=member.filename,
+                    extracted_path=str(target_path),
+                )
 
     except zipfile.BadZipFile as e:
         _log_error(
@@ -221,6 +268,7 @@ def _extract_zip_archive(zip_path: str, *, session_id: Optional[str] = None) -> 
                 extracted_count=len(extracted_files),
                 extraction_dir=str(extraction_dir),
                 session_id=session_id,
+                status="extracted",
             )
         else:
             _log_warning(
@@ -228,6 +276,7 @@ def _extract_zip_archive(zip_path: str, *, session_id: Optional[str] = None) -> 
                 "ZIPファイルに取り込み対象ファイルがありません",
                 zip_path=zip_path,
                 session_id=session_id,
+                status="skipped",
             )
 
     if should_remove_archive:
@@ -238,6 +287,7 @@ def _extract_zip_archive(zip_path: str, *, session_id: Optional[str] = None) -> 
                 "ZIPファイルを削除",
                 zip_path=zip_path,
                 session_id=session_id,
+                status="cleaned",
             )
         except OSError as e:
             _log_warning(
@@ -247,6 +297,7 @@ def _extract_zip_archive(zip_path: str, *, session_id: Optional[str] = None) -> 
                 error_type=type(e).__name__,
                 error_message=str(e),
                 session_id=session_id,
+                status="warning",
             )
 
     return extracted_files
@@ -448,6 +499,7 @@ def import_single_file(
         import_dir=import_dir,
         originals_dir=originals_dir,
         session_id=session_id,
+        status="processing",
     )
 
     try:
@@ -459,6 +511,7 @@ def import_single_file(
                 "取り込み対象ファイルが見つかりません",
                 file_path=file_path,
                 session_id=session_id,
+                status="missing",
             )
             return result
 
@@ -472,6 +525,7 @@ def import_single_file(
                 file_path=file_path,
                 extension=file_extension,
                 session_id=session_id,
+                status="unsupported",
             )
             return result
 
@@ -484,6 +538,7 @@ def import_single_file(
                 "ファイルサイズが0のためスキップ",
                 file_path=file_path,
                 session_id=session_id,
+                status="skipped",
             )
             return result
 
@@ -501,6 +556,7 @@ def import_single_file(
                 file_path=file_path,
                 media_id=existing_media.id,
                 session_id=session_id,
+                status="duplicate",
             )
             return result
         
@@ -559,6 +615,7 @@ def import_single_file(
             file_path=file_path,
             destination=dest_path,
             session_id=session_id,
+            status="copied",
         )
         
         # EXIFデータと動画メタデータの事前取得（MediaItem作成で使用）
@@ -644,6 +701,7 @@ def import_single_file(
             "取り込み完了後に元ファイルを削除",
             file_path=file_path,
             session_id=session_id,
+            status="cleaned",
         )
 
         result["success"] = True
@@ -658,6 +716,7 @@ def import_single_file(
             media_id=media.id,
             relative_path=rel_path,
             session_id=session_id,
+            status="success",
         )
 
     except Exception as e:
@@ -670,6 +729,7 @@ def import_single_file(
             error_message=str(e),
             exc_info=True,
             session_id=session_id,
+            status="failed",
         )
         result["reason"] = f"エラー: {str(e)}"
 
@@ -682,6 +742,7 @@ def import_single_file(
                     "エラー発生時にコピー済みファイルを削除",
                     destination=dest_path,
                     session_id=session_id,
+                    status="cleaned",
                 )
         except Exception as cleanup_error:
             _log_warning(
@@ -691,6 +752,7 @@ def import_single_file(
                 error_type=type(cleanup_error).__name__,
                 error_message=str(cleanup_error),
                 session_id=session_id,
+                status="warning",
             )
 
     return result
@@ -710,9 +772,33 @@ def scan_import_directory(import_dir: str, *, session_id: Optional[str] = None) 
 
             if file_extension in SUPPORTED_EXTENSIONS:
                 files.append(file_path)
+                _log_info(
+                    "local_import.scan.file_added",
+                    "取り込み対象ファイルを検出",
+                    session_id=session_id,
+                    status="scanning",
+                    file_path=file_path,
+                    extension=file_extension,
+                )
             elif file_extension == ".zip":
+                _log_info(
+                    "local_import.scan.zip_detected",
+                    "ZIPファイルを検出",
+                    session_id=session_id,
+                    status="processing",
+                    zip_path=file_path,
+                )
                 extracted = _extract_zip_archive(file_path, session_id=session_id)
                 files.extend(extracted)
+            else:
+                _log_info(
+                    "local_import.scan.unsupported",
+                    "サポート対象外のファイルをスキップ",
+                    session_id=session_id,
+                    status="skipped",
+                    file_path=file_path,
+                    extension=file_extension,
+                )
 
     return files
 
@@ -1155,6 +1241,7 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                 "既存セッションをローカルインポートに紐付け",
                 session_id=session_id,
                 celery_task_id=celery_task_id,
+                status="attached",
             )
         except Exception as e:
             _log_error(
@@ -1183,6 +1270,7 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
             "ローカルインポート用セッションを新規作成",
             session_id=session_id,
             celery_task_id=celery_task_id,
+            status="created",
         )
 
     active_session_id = session.session_id if session else session_id
@@ -1207,6 +1295,7 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
         import_dir=import_dir,
         originals_dir=originals_dir,
         celery_task_id=celery_task_id,
+        status="running",
     )
 
     try:
@@ -1277,6 +1366,7 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
             samples=files[:5],
             session_id=active_session_id,
             celery_task_id=celery_task_id,
+            status="scanned",
         )
 
         total_files = len(files)
@@ -1304,6 +1394,7 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                 import_dir=import_dir,
                 session_id=active_session_id,
                 celery_task_id=celery_task_id,
+                status="empty",
             )
             result["ok"] = False
             result["errors"].append(f"取り込み対象ファイルが見つかりません: {import_dir}")
@@ -1340,6 +1431,7 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
             pending=pending_total,
             session_id=active_session_id,
             celery_task_id=celery_task_id,
+            status="queued",
         )
 
         _process_local_import_queue(
@@ -1466,6 +1558,7 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
         canceled=result.get("canceled", False),
         session_id=result.get("session_id"),
         celery_task_id=celery_task_id,
+        status="completed" if result.get("ok") else "error",
     )
 
     return result

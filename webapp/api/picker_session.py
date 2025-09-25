@@ -308,12 +308,29 @@ def api_picker_session_logs(session_id: str):
         if not session_matches:
             continue
 
+        excluded_keys = {
+            "session_id",
+            "session_db_id",
+            "active_session_id",
+            "target_session_id",
+            "status",
+        }
+
         details = {
             key: value
             for key, value in extras.items()
-            if key
-            not in {"session_id", "session_db_id", "active_session_id", "target_session_id"}
+            if key not in excluded_keys
         }
+
+        status_value = payload.get("status")
+        if status_value is None:
+            status_value = extras.get("status")
+
+        if status_value is not None and not isinstance(status_value, str):
+            try:
+                status_value = str(status_value)
+            except Exception:
+                status_value = None
 
         message = payload.get("message")
         if not isinstance(message, str):
@@ -330,6 +347,7 @@ def api_picker_session_logs(session_id: str):
                 else None,
                 "level": row.level,
                 "event": row.event,
+                "status": status_value,
                 "message": message,
                 "details": details,
             }

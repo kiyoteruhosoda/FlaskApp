@@ -146,6 +146,10 @@ class DBLogHandler(logging.Handler):
         except Exception:
             payload = {"message": raw_message}
 
+        status_value = getattr(record, "status", None)
+        if status_value is not None:
+            payload.setdefault("status", status_value)
+
         # Attach metadata for better traceability.
         payload.setdefault("_meta", {})
         payload["_meta"].update(

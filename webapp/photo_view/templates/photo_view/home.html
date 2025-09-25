@@ -523,10 +523,18 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
 
-        await resp.json();
+        const payload = await resp.json().catch(() => ({}));
         showSuccessToast(localImportSuccessNotice, 8000);
 
-        // Automatically refresh the session list
+        const sessionId = payload && payload.session_id;
+        if (sessionId) {
+          setTimeout(() => {
+            window.location.href = `/photo-view?session_id=${encodeURIComponent(sessionId)}`;
+          }, 1500);
+          return;
+        }
+
+        // Automatically refresh the session list when no session ID is returned
         setTimeout(() => {
           refreshSessions();
         }, 2000);

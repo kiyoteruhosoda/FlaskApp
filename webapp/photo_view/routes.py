@@ -8,13 +8,14 @@ implementation work.
 
 import os
 
-from flask import current_app, render_template, request, url_for
+from flask import abort, current_app, render_template, request, url_for
 from flask_login import current_user
 
 from core.models.authz import require_roles, require_perms
 from core.models.google_account import GoogleAccount
 
 from . import bp
+from webapp.api.picker_session_service import PickerSessionService
 
 
 def _build_local_import_info():
@@ -62,7 +63,7 @@ def home():
     session_id = request.args.get('session_id')
     if session_id:
         return render_template("photo_view/session_detail.html", picker_session_id=session_id)
-    
+
     # session_idがない場合は、すべてのセッション一覧を表示
     google_accounts = []
     if current_user.is_authenticated and getattr(current_user, "id", None):
@@ -77,6 +78,30 @@ def home():
         google_accounts=google_accounts,
         local_import_info=_build_local_import_info(),
         is_admin=hasattr(current_user, "has_role") and current_user.has_role("admin"),
+    )
+
+
+@bp.route("/session/<path:session_id>/selection/<int:selection_id>/error")
+@require_perms("media:view")
+def selection_error_detail(session_id: str, selection_id: int):
+    """Render a detail page showing why a selection failed."""
+
+    ps = PickerSessionService.resolve_session_identifier(session_id)
+    if not ps:
+        abort(404)
+
+    payload = PickerSessionService.selection_error_payload(ps, selection_id)
+    if not payload:
+        abort(404)
+
+    session_detail_url = (
+        url_for("photo_view.home") + f"?session_id={payload['session']['sessionId']}"
+    )
+
+    return render_template(
+        "photo_view/selection_error_detail.html",
+        payload=payload,
+        session_detail_url=session_detail_url,
     )
 
 

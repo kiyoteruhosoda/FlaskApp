@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 import json
 from flask import (
-    Blueprint, current_app, jsonify, request, session
+    Blueprint, current_app, jsonify, request, session, url_for
 )
 from flask_login import login_required
 from sqlalchemy import func
@@ -241,6 +241,37 @@ def api_picker_session_selections_by_session_id(session_id: str):
     params = PaginationParams.from_request(default_page_size=200)
     
     payload = PickerSessionService.selection_details(ps, params)
+
+    selections = payload.get("selections", [])
+    for item in selections:
+        item_id = item.get("id")
+        status = (item.get("status") or "").lower()
+        if not item_id:
+            continue
+        if status not in {"failed", "expired"} and not item.get("error"):
+            continue
+        item["errorDetailsUrl"] = url_for(
+            "photo_view.selection_error_detail",
+            session_id=ps.session_id,
+            selection_id=item_id,
+        )
+
+    return jsonify(payload)
+
+
+@bp.get("/picker/session/<path:session_id>/selections/<int:selection_id>/error")
+@login_or_jwt_required
+def api_picker_session_selection_error(session_id: str, selection_id: int):
+    """Return error detail payload for a single picker selection."""
+
+    ps = PickerSessionService.resolve_session_identifier(session_id)
+    if not ps:
+        return jsonify({"error": "not_found"}), 404
+
+    payload = PickerSessionService.selection_error_payload(ps, selection_id)
+    if not payload:
+        return jsonify({"error": "not_found"}), 404
+
     return jsonify(payload)
 
 

@@ -198,6 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const localImportStopErrorNotice = '{{ _("Failed to stop local import.") }}';
   const stopLocalImportLabel = '{{ _("Stop Local Import") }}';
   const localImportRunningMessage = '{{ _("Local import is running. You can stop it if needed.") }}';
+  const localImportStopConfirmQuestion = '{{ _("Are you sure you want to cancel the local import?") }}';
 
   let totalLoaded = 0;
   const sessionsLoadedLabel = '{{ _("sessions loaded") }}';
@@ -408,6 +409,10 @@ document.addEventListener('DOMContentLoaded', () => {
   window.stopLocalImport = async function(sessionId) {
     if (!isAdmin) {
       showErrorToast(localImportStopErrorNotice);
+      return;
+    }
+
+    if (!window.confirm(localImportStopConfirmQuestion)) {
       return;
     }
 

@@ -67,13 +67,14 @@
         <tr>
           <th style="width: 18%">{{ _("Time") }}</th>
           <th style="width: 18%">{{ _("Event") }}</th>
+          <th style="width: 14%">{{ _("Status") }}</th>
           <th style="width: 12%">{{ _("Level") }}</th>
           <th>{{ _("Message") }}</th>
         </tr>
       </thead>
       <tbody id="local-import-log-body">
         <tr id="local-import-log-empty">
-          <td colspan="4" class="text-center text-muted py-3">{{ _("No logs yet.") }}</td>
+          <td colspan="5" class="text-center text-muted py-3">{{ _("No logs yet.") }}</td>
         </tr>
       </tbody>
     </table>
@@ -213,6 +214,40 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function getStatusBadgeClass(status) {
+    switch ((status || '').toLowerCase()) {
+      case 'success':
+      case 'completed':
+      case 'extracted':
+      case 'imported':
+        return 'success';
+      case 'processing':
+      case 'running':
+      case 'scanning':
+      case 'queued':
+        return 'primary';
+      case 'copied':
+      case 'cleaned':
+      case 'duplicate':
+      case 'skipped':
+      case 'detected':
+        return 'secondary';
+      case 'warning':
+      case 'retrying':
+      case 'empty':
+        return 'warning';
+      case 'failed':
+      case 'error':
+      case 'missing':
+      case 'unsupported':
+        return 'danger';
+      case 'canceled':
+        return 'dark';
+      default:
+        return 'secondary';
+    }
+  }
+
   function formatLogDetails(details) {
     if (!details || typeof details !== 'object') {
       return '';
@@ -255,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!logs || logs.length === 0) {
       const emptyRow = document.createElement('tr');
       emptyRow.id = 'local-import-log-empty';
-      emptyRow.innerHTML = `<td colspan="4" class="text-center text-muted py-3">${escapeHtml(noLogsMessage)}</td>`;
+      emptyRow.innerHTML = `<td colspan="5" class="text-center text-muted py-3">${escapeHtml(noLogsMessage)}</td>`;
       logBody.appendChild(emptyRow);
       return;
     }
@@ -264,6 +299,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const row = document.createElement('tr');
       const level = (log.level || '').toUpperCase();
       const badgeClass = getLevelBadgeClass(level);
+      const statusText = (log.status || '').toString();
+      const statusBadgeClass = getStatusBadgeClass(statusText);
       const detailsText = formatLogDetails(log.details);
 
       const messageHtml = [
@@ -274,6 +311,7 @@ document.addEventListener('DOMContentLoaded', () => {
       row.innerHTML = `
         <td>${escapeHtml(formatDateTime(log.createdAt))}</td>
         <td>${log.event ? `<code>${escapeHtml(log.event)}</code>` : '-'}</td>
+        <td>${statusText ? `<span class="badge bg-${statusBadgeClass}">${escapeHtml(statusText)}</span>` : '-'}</td>
         <td>${level ? `<span class="badge bg-${badgeClass}">${escapeHtml(level)}</span>` : '-'}</td>
         <td>${messageHtml}</td>
       `;

@@ -131,25 +131,25 @@ class TestSessionDetailAPI:
     def test_session_selections_api_for_local_import(self, app):
         """ローカルインポートセッションの選択一覧API テスト"""
         client = app.test_client()
-        
+
         with client.session_transaction() as sess:
             sess['_user_id'] = '1'
             sess['_fresh'] = True
-        
+
         with app.app_context():
             # ローカルインポート実行
             result = local_import_task()
             session_id = result['session_id']
-        
+
         # セッション選択一覧API呼び出し
         response = client.get(f'/api/picker/session/{session_id}/selections')
         assert response.status_code == 200
-        
+
         data = response.get_json()
         assert 'selections' in data
         assert 'counts' in data
         assert len(data['selections']) == 1
-        
+
         # 選択の詳細確認
         selection = data['selections'][0]
         assert selection['googleMediaId'] is not None
@@ -162,9 +162,31 @@ class TestSessionDetailAPI:
         assert selection['startedAt'] is not None
         assert selection['finishedAt'] is not None
         assert selection['error'] is None
-        
+
         # カウント確認
         assert data['counts']['imported'] == 1
+
+    def test_session_logs_include_status(self, app):
+        """ログAPIがステータス付きのログを返すことを確認"""
+        client = app.test_client()
+
+        with client.session_transaction() as sess:
+            sess['_user_id'] = '1'
+            sess['_fresh'] = True
+
+        with app.app_context():
+            result = local_import_task()
+            session_id = result['session_id']
+
+        response = client.get(f'/api/picker/session/{session_id}/logs?limit=50')
+        assert response.status_code == 200
+
+        payload = response.get_json()
+        logs = payload.get('logs', [])
+
+        assert logs, '少なくとも1件のログが返されること'
+        assert all('status' in entry for entry in logs)
+        assert any(entry.get('status') for entry in logs)
     
     def test_session_import_api_blocked_for_local_import(self, app):
         """ローカルインポートセッションでインポートAPIがブロックされることをテスト"""

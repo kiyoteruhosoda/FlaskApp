@@ -1201,6 +1201,11 @@ msgstr "ローカルインポートを停止しました。"
 msgid "Failed to stop local import."
 msgstr "ローカルインポートの停止に失敗しました。"
 
+#: webapp/photo_view/templates/photo_view/home.html:201
+#: webapp/photo_view/templates/photo_view/session_detail.html:170
+msgid "Are you sure you want to cancel the local import?"
+msgstr "ローカルインポートをキャンセルしますか？"
+
 #: webapp/photo_view/templates/photo_view/session_detail.html:94
 msgid "Local import session runs automatically."
 msgstr "ローカルインポートセッションは自動で実行されます。"

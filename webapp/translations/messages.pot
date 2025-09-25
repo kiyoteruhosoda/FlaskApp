@@ -1103,6 +1103,11 @@ msgstr ""
 msgid "Import started."
 msgstr ""
 
+#: webapp/photo_view/templates/photo_view/home.html:201
+#: webapp/photo_view/templates/photo_view/session_detail.html:170
+msgid "Are you sure you want to cancel the local import?"
+msgstr ""
+
 #: webapp/photo_view/templates/photo_view/media_detail.html:147
 msgid "Back"
 msgstr ""

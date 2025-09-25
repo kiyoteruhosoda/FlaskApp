@@ -4,6 +4,7 @@ flask-babel
 Flask-Login
 Flask-SQLAlchemy
 pillow
+pillow-heif
 PyMySQL
 click
 cryptography

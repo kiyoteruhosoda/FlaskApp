@@ -14,6 +14,10 @@ from pathlib import Path
 from typing import Dict, List
 import os
 
+from core.utils import register_heif_support
+
+register_heif_support()
+
 from PIL import Image, ImageOps
 
 from core.models.photo_models import Media, MediaPlayback

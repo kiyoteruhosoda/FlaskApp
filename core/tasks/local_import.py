@@ -16,6 +16,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from core.utils import register_heif_support
+
+register_heif_support()
+
 from PIL import Image
 from PIL.ExifTags import TAGS
 from flask import current_app

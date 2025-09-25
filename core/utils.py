@@ -2,10 +2,36 @@
 
 import json
 import logging
+import importlib
+import importlib.util
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Final
 
 from flask import current_app
+
+_HEIF_PLUGIN_NAME: Final[str] = "pillow_heif"
+_HEIF_REGISTERED: bool = False
+
+
+def register_heif_support() -> bool:
+    """Register HEIF/HEIC format support if the Pillow plugin is available."""
+
+    global _HEIF_REGISTERED
+    if _HEIF_REGISTERED:
+        return True
+
+    spec = importlib.util.find_spec(_HEIF_PLUGIN_NAME)
+    if spec is None:
+        return False
+
+    module = importlib.import_module(_HEIF_PLUGIN_NAME)
+    register = getattr(module, "register_heif_opener", None)
+    if callable(register):
+        register()
+        _HEIF_REGISTERED = True
+        return True
+
+    return False
 
 
 def greet(name: str) -> str:

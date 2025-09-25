@@ -199,7 +199,7 @@ body.login-page footer {
   padding: 14px;
   border: none;
   border-radius: 12px;
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 600;
   color: white;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -208,6 +208,7 @@ body.login-page footer {
   margin-top: 20px;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 15px 30px rgba(118, 75, 162, 0.2);
 }
 
 .btn-login.loading {
@@ -237,7 +238,7 @@ body.login-page footer {
 
 .btn-login:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 18px 28px rgba(102, 126, 234, 0.35);
 }
 
 .btn-login:active {
@@ -424,24 +425,58 @@ body.login-page .flash-messages .alert {
     min-height: calc(100vh - 80px); /* モバイル時のナビゲーションバー + 余白 */
     padding: 10px;
   }
-  
+
   .login-card {
     padding: 30px 25px;
     margin: 0;
     border-radius: 15px;
   }
-  
+
   .login-title {
     font-size: 1.75rem;
   }
-  
+
   .form-control {
     padding: 10px 12px 10px 40px;
   }
-  
+
   .input-icon {
     left: 12px;
     font-size: 1rem;
+  }
+}
+
+@media (max-width: 576px) {
+  main.container-fluid {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  header .navbar {
+    padding-top: 0.6rem;
+    padding-bottom: 0.6rem;
+  }
+
+  .navbar-brand {
+    font-size: 1.1rem;
+  }
+
+  .btn-size-lg,
+  .btn-size-md,
+  .btn-size-sm {
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+  }
+
+  .language-selector {
+    justify-content: center !important;
+  }
+
+  main.container-fluid .flash-messages,
+  body.login-page .flash-messages {
+    margin-left: -0.5rem;
+    margin-right: -0.5rem;
   }
 }
 

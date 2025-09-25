@@ -822,7 +822,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
+      const loadedPagesBeforeRefresh = paginationClient
+        ? Math.max(0, paginationClient.currentPage - 1)
+        : 0;
+
       await paginationClient.loadFirst();
+
+      if (paginationClient && loadedPagesBeforeRefresh > 1) {
+        const additionalPagesToReload = loadedPagesBeforeRefresh - 1;
+        for (let pageIndex = 0; pageIndex < additionalPagesToReload; pageIndex += 1) {
+          if (!paginationClient.hasNext) {
+            break;
+          }
+          // 既に読み込んでいるページ数を維持するため、順次再取得する
+          // setIntervalによる定期リフレッシュ時に「さらに読み込む」で追加表示した行が
+          // 消えてしまう問題を防ぐ。
+          // eslint-disable-next-line no-await-in-loop
+          await paginationClient.loadNext();
+        }
+      }
     } catch (err) {
       console.error(err);
     } finally {

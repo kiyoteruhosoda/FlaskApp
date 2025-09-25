@@ -2,66 +2,89 @@
 {% block title %}{{ _('Edit User Roles') }}{% endblock %}
 
 {% block content %}
-<h2>{{ _('Edit User Roles') }} - {{ user.email }}</h2>
-
-<div class="card">
-  <div class="card-body">
-    <form method="post" action="{{ url_for('admin.user_change_role', user_id=user.id) }}">
-      <div class="mb-3">
-        <label class="form-label">{{ _('Current User') }}</label>
-        <div class="form-control-plaintext">{{ user.email }}</div>
-      </div>
-      
-      <div class="mb-3">
-        <label class="form-label">{{ _('Current Roles') }}</label>
-        <div>
-          {% if user.roles %}
-            {% for role in user.roles %}
-              <span class="badge bg-secondary me-1">{{ role.name }}</span>
-            {% endfor %}
-          {% else %}
-            <span class="text-muted">{{ _('No roles assigned') }}</span>
-          {% endif %}
-        </div>
-      </div>
-
-      <div class="mb-3">
-        <label for="roles" class="form-label">{{ _('Select roles to assign') }}</label>
-        <select class="form-select" id="roles" name="roles" multiple size="8" required>
-          {% for role in roles %}
-            <option value="{{ role.id }}" {% if user.roles and role.id in user.roles|map(attribute='id')|list %}selected{% endif %}>
-              {{ role.name }}
-              {% if role.permissions %}
-                ({{ role.permissions|map(attribute='code')|join(', ') }})
-              {% endif %}
-            </option>
-          {% endfor %}
-        </select>
-        <div class="form-text">{{ _('Hold Ctrl (Windows) or Command (macOS) to select multiple roles.') }}</div>
-      </div>
-
-      <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-primary">{{ _('Update roles') }}</button>
-        <a href="{{ url_for('admin.user') }}" class="btn btn-secondary">{{ _('Cancel') }}</a>
-      </div>
-    </form>
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+  <div>
+    <h1 class="h3 mb-1">{{ _('Edit User Roles') }}</h1>
+    <p class="text-muted mb-0">{{ user.email }}</p>
   </div>
 </div>
 
-<div class="mt-4">
-  <h5>{{ _('Available Roles and Permissions') }}</h5>
-  <div class="row">
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h5 mb-3">{{ _('Account overview') }}</h2>
+        <dl class="row mb-0">
+          <dt class="col-sm-5 text-muted small text-uppercase">{{ _('Current User') }}</dt>
+          <dd class="col-sm-7 mb-3">{{ user.email }}</dd>
+          <dt class="col-sm-5 text-muted small text-uppercase">{{ _('Current Roles') }}</dt>
+          <dd class="col-sm-7 mb-0">
+            {% if user.roles %}
+              <div class="d-flex flex-wrap gap-2">
+                {% for role in user.roles %}
+                  <span class="badge bg-secondary">{{ role.name }}</span>
+                {% endfor %}
+              </div>
+            {% else %}
+              <span class="text-muted">{{ _('No roles assigned') }}</span>
+            {% endif %}
+          </dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h5 mb-4">{{ _('Role settings') }}</h2>
+        <form method="post" action="{{ url_for('admin.user_change_role', user_id=user.id) }}" class="d-flex flex-column h-100">
+          {% set options_size = roles|length %}
+          {% if options_size < 4 %}
+            {% set options_size = 4 %}
+          {% elif options_size > 12 %}
+            {% set options_size = 12 %}
+          {% endif %}
+          <div class="mb-3">
+            <label for="roles" class="form-label">{{ _('Select roles to assign') }}</label>
+            <select class="form-select" id="roles" name="roles" multiple size="{{ options_size }}" required>
+              {% for role in roles %}
+                <option value="{{ role.id }}" {% if user.roles and role.id in user.roles|map(attribute='id')|list %}selected{% endif %}>
+                  {{ role.name }}
+                  {% if role.permissions %}
+                    ({{ role.permissions|map(attribute='code')|join(', ') }})
+                  {% endif %}
+                </option>
+              {% endfor %}
+            </select>
+            <div class="form-text">{{ _('Hold Ctrl (Windows) or Command (macOS) to select multiple roles.') }}</div>
+          </div>
+          <div class="mt-auto d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-primary">{{ _('Update roles') }}</button>
+            <a href="{{ url_for('admin.user') }}" class="btn btn-outline-secondary">{{ _('Cancel') }}</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mt-5">
+  <h2 class="h5 mb-3">{{ _('Available Roles and Permissions') }}</h2>
+  <div class="row g-3">
     {% for role in roles %}
-    <div class="col-md-6 mb-3">
-      <div class="card">
-        <div class="card-header">
-          <strong>{{ role.name }}</strong>
-        </div>
+    <div class="col-md-6 col-xl-4">
+      <div class="card h-100 border-0 shadow-sm">
         <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start mb-3">
+            <strong class="text-primary">{{ role.name }}</strong>
+            <span class="badge text-bg-light text-secondary">{{ role.permissions|length if role.permissions else 0 }}</span>
+          </div>
           {% if role.permissions %}
-            {% for perm in role.permissions %}
-              <span class="badge bg-info me-1 mb-1">{{ perm.code }}</span>
-            {% endfor %}
+            <div class="d-flex flex-wrap gap-2">
+              {% for perm in role.permissions %}
+                <span class="badge bg-info text-dark">{{ perm.code }}</span>
+              {% endfor %}
+            </div>
           {% else %}
             <span class="text-muted">{{ _('No permissions') }}</span>
           {% endif %}

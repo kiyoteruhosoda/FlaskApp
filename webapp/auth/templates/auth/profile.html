@@ -47,8 +47,10 @@
         </div>
 
         {% if current_user.roles %}
+        {% set role_count = current_user.roles|length %}
         <div class="profile-section mb-4">
           <h2 class="h5 mb-3">{{ _('Role settings') }}</h2>
+          {% if role_count > 1 %}
           <form method="post" class="role-switcher-form">
             <input type="hidden" name="action" value="switch-role">
             <div class="mb-3">
@@ -65,6 +67,16 @@
               <i class="fas fa-exchange-alt me-2"></i>{{ _('Switch role') }}
             </button>
           </form>
+          {% else %}
+          <div class="profile-summary">
+            <span class="text-muted small text-uppercase">{{ _('Current Roles') }}</span>
+            <div class="d-flex flex-wrap gap-2 mt-1">
+              {% for role in current_user.roles %}
+                <span class="badge bg-secondary">{{ role.name }}</span>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
         </div>
         {% endif %}
 

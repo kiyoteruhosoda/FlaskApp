@@ -4,6 +4,7 @@
 
 import os
 import tempfile
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -240,6 +241,39 @@ class TestSessionDetailAPI:
                 assert skipped_total >= 2
 
             mock_revoke.assert_called_once_with('fake-task', terminate=False)
+
+    def test_session_logs_api_returns_zip_events(self, app):
+        """ZIP展開ログがAPI経由で取得できることを確認"""
+
+        client = app.test_client()
+
+        with client.session_transaction() as sess:
+            sess['_user_id'] = '1'
+            sess['_fresh'] = True
+
+        import_dir = Path(app.config['LOCAL_IMPORT_DIR'])
+        zip_path = import_dir / "bundle.zip"
+        with zipfile.ZipFile(zip_path, "w") as archive:
+            archive.writestr("images/inside.jpg", b"fake image data")
+
+        with app.app_context():
+            result = local_import_task()
+            session_id = result['session_id']
+
+        response = client.get(f'/api/picker/session/{session_id}/logs?limit=20')
+        assert response.status_code == 200
+
+        data = response.get_json()
+        assert 'logs' in data
+
+        events = [entry.get('event') for entry in data['logs']]
+        assert any(event == 'local_import.zip.extracted' for event in events)
+
+        extracted_entries = [entry for entry in data['logs'] if entry.get('event') == 'local_import.zip.extracted']
+        assert extracted_entries, 'expected at least one zip extraction log entry'
+
+        details = extracted_entries[-1].get('details', {})
+        assert 'zip_path' in details
 
 
 class TestSessionDetailUI:

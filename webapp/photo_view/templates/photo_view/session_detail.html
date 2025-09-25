@@ -56,6 +56,30 @@
   </div>
 </div>
 
+<div id="local-import-logs-section" class="mt-4 d-none">
+  <h2>{{ _("Import Logs") }}</h2>
+  <p class="text-muted small mb-2">
+    <i class="bi bi-info-circle"></i> {{ _("ZIP extraction and file processing logs appear here while local import runs.") }}
+  </p>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <thead>
+        <tr>
+          <th style="width: 18%">{{ _("Time") }}</th>
+          <th style="width: 18%">{{ _("Event") }}</th>
+          <th style="width: 12%">{{ _("Level") }}</th>
+          <th>{{ _("Message") }}</th>
+        </tr>
+      </thead>
+      <tbody id="local-import-log-body">
+        <tr id="local-import-log-empty">
+          <td colspan="4" class="text-center text-muted py-3">{{ _("No logs yet.") }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
 <div id="server-data" 
      data-picker-session-id="{{ picker_session_id or '' }}" 
      style="display: none;"></div>
@@ -104,6 +128,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const sessionTitleEl = document.getElementById('session-title');
   const sessionSubtitleEl = document.getElementById('session-subtitle');
   const localImportStatusEl = document.getElementById('local-import-status');
+  const logSection = document.getElementById('local-import-logs-section');
+  const logBody = document.getElementById('local-import-log-body');
 
   const selectionStatusLabels = {
     pending: '{{ _("Pending") }}',
@@ -128,6 +154,14 @@ document.addEventListener('DOMContentLoaded', () => {
     error: '{{ _("Error") }}',
     failed: '{{ _("Failed") }}'
   };
+
+  const sessionStageLabels = {
+    expanding: '{{ _("Expanding") }}',
+    processing: '{{ _("Processing") }}',
+    importing: '{{ _("Importing") }}'
+  };
+
+  const noLogsMessage = '{{ _("No logs yet.") }}';
 
   const localImportRunningMessage = '{{ _("Local import is running. You can stop it if needed.") }}';
   const localImportCancelingMessage = '{{ _("Canceling local import...") }}';
@@ -161,6 +195,91 @@ document.addEventListener('DOMContentLoaded', () => {
       default:
         return 'secondary';
     }
+  }
+
+  function getLevelBadgeClass(level) {
+    switch ((level || '').toUpperCase()) {
+      case 'ERROR':
+      case 'CRITICAL':
+        return 'danger';
+      case 'WARNING':
+        return 'warning';
+      case 'INFO':
+        return 'info';
+      case 'DEBUG':
+        return 'secondary';
+      default:
+        return 'secondary';
+    }
+  }
+
+  function formatLogDetails(details) {
+    if (!details || typeof details !== 'object') {
+      return '';
+    }
+
+    const entries = Object.entries(details)
+      .map(([key, value]) => {
+        if (value === null || value === undefined || value === '') {
+          return null;
+        }
+        let normalized = value;
+        if (typeof normalized === 'object') {
+          try {
+            normalized = JSON.stringify(normalized);
+          } catch (err) {
+            normalized = String(normalized);
+          }
+        }
+        return `${escapeHtml(key)}=${escapeHtml(String(normalized))}`;
+      })
+      .filter(Boolean);
+
+    return entries.join(', ');
+  }
+
+  function renderLocalImportLogs(logs = [], showSection = isLocalImport) {
+    if (!logSection || !logBody) {
+      return;
+    }
+
+    if (!showSection) {
+      logSection.classList.add('d-none');
+      logBody.innerHTML = '';
+      return;
+    }
+
+    logSection.classList.remove('d-none');
+    logBody.innerHTML = '';
+
+    if (!logs || logs.length === 0) {
+      const emptyRow = document.createElement('tr');
+      emptyRow.id = 'local-import-log-empty';
+      emptyRow.innerHTML = `<td colspan="4" class="text-center text-muted py-3">${escapeHtml(noLogsMessage)}</td>`;
+      logBody.appendChild(emptyRow);
+      return;
+    }
+
+    logs.forEach((log) => {
+      const row = document.createElement('tr');
+      const level = (log.level || '').toUpperCase();
+      const badgeClass = getLevelBadgeClass(level);
+      const detailsText = formatLogDetails(log.details);
+
+      const messageHtml = [
+        escapeHtml(log.message || ''),
+        detailsText ? `<div class="text-muted small">${detailsText}</div>` : ''
+      ].join('');
+
+      row.innerHTML = `
+        <td>${escapeHtml(formatDateTime(log.createdAt))}</td>
+        <td>${log.event ? `<code>${escapeHtml(log.event)}</code>` : '-'}</td>
+        <td>${level ? `<span class="badge bg-${badgeClass}">${escapeHtml(level)}</span>` : '-'}</td>
+        <td>${messageHtml}</td>
+      `;
+
+      logBody.appendChild(row);
+    });
   }
 
   let paginationClient;
@@ -401,14 +520,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusLabel = sessionStatusLabels[sessionData.status] || sessionData.status || '-';
     const statusBadge = `<span class="badge bg-${getSessionBadgeClass(sessionData.status)}">${statusLabel}</span>`;
 
-    const infoParts = [
-      `<div><strong>{{ _("Status") }}:</strong> ${statusBadge}</div>`,
-      `<div><strong>{{ _("Target Account") }}:</strong> ${accountLabel}</div>`,
-      `<div><strong>{{ _("Selected Files") }}:</strong> ${selectedCount}</div>`,
-      `<div><strong>{{ _("File Status") }}:</strong> ${countsSummary}</div>`,
-      `<div><strong>{{ _("Created At") }}:</strong> ${createdAt}</div>`,
-      `<div><strong>{{ _("Last Progress") }}:</strong> ${lastProgress}</div>`
-    ];
+    const infoParts = [];
+    infoParts.push(`<div><strong>{{ _("Status") }}:</strong> ${statusBadge}</div>`);
+
+    if (sessionData.isLocalImport) {
+      const stageValue = stats.stage;
+      if (typeof stageValue === 'string' && stageValue.trim().length > 0) {
+        const normalizedStage = stageValue.trim().toLowerCase();
+        const stageLabel = sessionStageLabels[normalizedStage] || sessionStatusLabels[normalizedStage] || stageValue;
+        infoParts.push(`<div><strong>{{ _("Current Stage") }}:</strong> ${escapeHtml(stageLabel)}</div>`);
+      }
+    }
+
+    infoParts.push(`<div><strong>{{ _("Target Account") }}:</strong> ${accountLabel}</div>`);
+    infoParts.push(`<div><strong>{{ _("Selected Files") }}:</strong> ${selectedCount}</div>`);
+    infoParts.push(`<div><strong>{{ _("File Status") }}:</strong> ${countsSummary}</div>`);
+    infoParts.push(`<div><strong>{{ _("Created At") }}:</strong> ${createdAt}</div>`);
+    infoParts.push(`<div><strong>{{ _("Last Progress") }}:</strong> ${lastProgress}</div>`);
 
     if (sessionData.isLocalImport) {
       if (sessionData.status === 'canceled') {
@@ -468,6 +596,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  async function fetchSessionLogs() {
+    if (!pickerSessionId) {
+      return;
+    }
+
+    if (!isLocalImport) {
+      renderLocalImportLogs([], false);
+      return;
+    }
+
+    try {
+      const resp = await window.apiClient.get(`/api/picker/session/${encodeURIComponent(pickerSessionId)}/logs?limit=50`);
+      if (!resp.ok) {
+        throw new Error(`HTTP ${resp.status}`);
+      }
+
+      const payload = await resp.json().catch(() => ({}));
+      renderLocalImportLogs(payload.logs || [], true);
+    } catch (error) {
+      console.warn('Failed to fetch session logs:', error);
+    }
+  }
+
   async function stopLocalImportSession() {
     if (!pickerSessionId || !stopLocalImportBtn) {
       return;
@@ -509,6 +660,12 @@ document.addEventListener('DOMContentLoaded', () => {
       latestStatus = sessionData?.status || latestStatus;
       currentCounts = sessionData?.counts || currentCounts || {};
       updateCountsDisplay(currentCounts, latestStatus);
+
+      if (sessionData && sessionData.isLocalImport) {
+        await fetchSessionLogs();
+      } else {
+        renderLocalImportLogs([], false);
+      }
 
       if (!paginationClient) {
         paginationClient = new PaginationClient({

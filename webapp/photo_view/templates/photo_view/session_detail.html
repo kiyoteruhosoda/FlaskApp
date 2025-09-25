@@ -54,6 +54,15 @@
       </tbody>
     </table>
   </div>
+  <div id="selection-pagination" class="d-flex flex-column flex-md-row gap-2 align-items-md-center justify-content-md-between mt-2 d-none">
+    <div id="selection-pagination-status" class="small text-muted"></div>
+    <div class="d-flex align-items-center gap-2">
+      <button id="selection-pagination-load" type="button" class="btn btn-outline-primary btn-sm">
+        <span class="spinner-border spinner-border-sm align-text-bottom me-1 d-none" id="selection-pagination-spinner" role="status" aria-hidden="true"></span>
+        {{ _("Load more") }}
+      </button>
+    </div>
+  </div>
 </div>
 
 <div id="local-import-logs-section" class="mt-4 d-none">
@@ -131,6 +140,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const localImportStatusEl = document.getElementById('local-import-status');
   const logSection = document.getElementById('local-import-logs-section');
   const logBody = document.getElementById('local-import-log-body');
+  const selectionPaginationEl = document.getElementById('selection-pagination');
+  const selectionPaginationStatusEl = document.getElementById('selection-pagination-status');
+  const selectionPaginationButton = document.getElementById('selection-pagination-load');
+  const selectionPaginationSpinner = document.getElementById('selection-pagination-spinner');
 
   const selectionStatusLabels = {
     pending: '{{ _("Pending") }}',
@@ -325,6 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let latestStatus = 'unknown';
   let isRefreshing = false;
   let currentCounts = {};
+  let displayedSelectionCount = 0;
 
   function formatDateTime(isoString) {
     if (!isoString) return '-';
@@ -415,6 +429,52 @@ document.addEventListener('DOMContentLoaded', () => {
       <td><small class="text-danger">${selection.error || ''}</small></td>
     `;
     return tr;
+  }
+
+  function updateSelectionPagination(meta = {}) {
+    if (!selectionPaginationEl || !selectionPaginationButton || !selectionPaginationStatusEl) {
+      return;
+    }
+
+    const total = typeof meta.total === 'number' ? meta.total : meta.totalCount;
+    const hasNext = Boolean(meta.hasNext);
+    const hasItems = displayedSelectionCount > 0;
+
+    if (!hasItems && !hasNext) {
+      selectionPaginationEl.classList.add('d-none');
+      selectionPaginationStatusEl.textContent = '';
+      return;
+    }
+
+    selectionPaginationEl.classList.remove('d-none');
+
+    if (typeof total === 'number' && !Number.isNaN(total) && total >= 0) {
+      const formattedCurrent = displayedSelectionCount.toLocaleString();
+      const formattedTotal = total.toLocaleString();
+      selectionPaginationStatusEl.textContent = `{{ _("Showing") }} ${formattedCurrent} / ${formattedTotal}`;
+    } else {
+      selectionPaginationStatusEl.textContent = `{{ _("Showing") }} ${displayedSelectionCount.toLocaleString()}`;
+    }
+
+    selectionPaginationButton.disabled = !hasNext;
+    selectionPaginationButton.classList.toggle('disabled', !hasNext);
+    selectionPaginationButton.classList.toggle('d-none', !hasNext);
+    if (!hasNext && selectionPaginationSpinner) {
+      selectionPaginationSpinner.classList.add('d-none');
+    }
+  }
+
+  function setSelectionPaginationLoading(isLoading) {
+    if (!selectionPaginationButton || !selectionPaginationSpinner) {
+      return;
+    }
+    if (isLoading) {
+      selectionPaginationSpinner.classList.remove('d-none');
+      selectionPaginationButton.disabled = true;
+      selectionPaginationButton.classList.add('disabled');
+    } else {
+      selectionPaginationSpinner.classList.add('d-none');
+    }
   }
 
   function buildEmptyMessage(sessionStatus) {
@@ -713,6 +773,7 @@ document.addEventListener('DOMContentLoaded', () => {
           onItemsLoaded: (items, meta) => {
             if (meta.currentPage === 1) {
               selectionBody.innerHTML = '';
+              displayedSelectionCount = 0;
             }
 
             if (items.length === 0 && meta.currentPage === 1) {
@@ -723,17 +784,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 </td>
               `;
               selectionBody.appendChild(tr);
+              updateSelectionPagination({ hasNext: false, total: 0 });
             } else {
               items.forEach(selection => {
                 const row = createSelectionRow(selection);
                 selectionBody.appendChild(row);
               });
+              displayedSelectionCount += items.length;
             }
+
+            updateSelectionPagination({
+              hasNext: meta.hasNext,
+              total: meta.total,
+              totalCount: meta.total,
+            });
           },
           onError: (error) => {
             console.error('Selection loading error:', error);
-          }
+          },
+          onLoadingStateChange: (state) => {
+            setSelectionPaginationLoading(state);
+          },
         });
+        if (selectionPaginationButton) {
+          selectionPaginationButton.addEventListener('click', () => {
+            if (paginationClient) {
+              paginationClient.loadNext();
+            }
+          });
+        }
       }
 
       await paginationClient.loadFirst();

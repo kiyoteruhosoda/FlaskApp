@@ -782,6 +782,21 @@ def test_download_with_accel_redirect(client, seed_thumb_media, app):
     assert res2.data == b""
 
 
+def test_download_without_accel_redirect(client, seed_thumb_media, app):
+    media_id, rel = seed_thumb_media
+    login(client)
+    app.config["FPV_ACCEL_THUMBS_LOCATION"] = "/protected/thumbs"
+    app.config["FPV_ACCEL_REDIRECT_ENABLED"] = False
+    res = client.post(f"/api/media/{media_id}/thumb-url", json={"size": 1024})
+    assert res.status_code == 200
+    token_url = res.get_json()["url"]
+    res2 = client.get(token_url)
+    assert res2.status_code == 200
+    assert res2.headers.get("X-Accel-Redirect") is None
+    assert res2.headers["Cache-Control"].startswith("private")
+    assert res2.data == b"jpg"
+
+
 def test_ct_mismatch(client):
     login(client)
     rel = "2025/08/18/foo.png"
@@ -847,6 +862,58 @@ def test_media_thumbnail_route(client, app):
     assert res.status_code == 200
     assert res.data == data
     assert res.headers["Cache-Control"].startswith("private")
+
+
+def test_thumbnail_falls_back_to_default_path(client, app, monkeypatch, tmp_path):
+    from webapp.extensions import db
+    from core.models.photo_models import Media
+    from webapp.api import routes as api_routes
+
+    with app.app_context():
+        original_thumb_dir = app.config["FPV_NAS_THUMBS_DIR"]
+        media = Media(
+            google_media_id="thumb-fallback",
+            account_id=1,
+            local_rel_path="thumb-fallback.jpg",
+            bytes=3,
+            mime_type="image/jpeg",
+            width=1,
+            height=1,
+            shot_at=datetime(2025, 2, 1, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 2, 2, tzinfo=timezone.utc),
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        db.session.add(media)
+        db.session.commit()
+        media_id = media.id
+
+    host_path = tmp_path / "host"
+    host_path.mkdir()
+    fallback_path = tmp_path / "fallback"
+    thumb_dir = fallback_path / "512"
+    thumb_dir.mkdir(parents=True, exist_ok=True)
+    thumb_file = thumb_dir / "thumb-fallback.jpg"
+    payload = b"fallback"
+    thumb_file.write_bytes(payload)
+
+    monkeypatch.setenv("FPV_NAS_THUMBS_DIR", str(host_path))
+    with app.app_context():
+        app.config["FPV_NAS_THUMBS_DIR"] = str(host_path)
+    monkeypatch.setitem(
+        api_routes._STORAGE_DEFAULTS,
+        "FPV_NAS_THUMBS_DIR",
+        str(fallback_path),
+    )
+
+    login(client)
+    res = client.get(f"/api/media/{media_id}/thumbnail?size=512")
+    assert res.status_code == 200
+    assert res.data == payload
+
+    with app.app_context():
+        app.config["FPV_NAS_THUMBS_DIR"] = original_thumb_dir
 
 
 def test_media_delete_requires_permission(client, app):

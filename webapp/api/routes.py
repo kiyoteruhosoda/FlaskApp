@@ -65,6 +65,71 @@ auth_service = AuthService(user_repo)
 VALID_TAG_ATTRS = {"person", "place", "thing"}
 
 
+_STORAGE_ENV_FALLBACKS = {
+    "FPV_NAS_THUMBS_DIR": (
+        "FPV_NAS_THUMBS_CONTAINER_DIR",
+        "FPV_NAS_THUMBS_DIR",
+    ),
+    "FPV_NAS_PLAY_DIR": (
+        "FPV_NAS_PLAY_CONTAINER_DIR",
+        "FPV_NAS_PLAY_DIR",
+    ),
+    "FPV_NAS_ORIGINALS_DIR": ("FPV_NAS_ORIGINALS_DIR",),
+}
+
+_STORAGE_DEFAULTS = {
+    "FPV_NAS_THUMBS_DIR": "/app/data/thumbs",
+    "FPV_NAS_PLAY_DIR": "/app/data/playback",
+    "FPV_NAS_ORIGINALS_DIR": "/app/data/media",
+}
+
+
+def _storage_path_candidates(config_key: str) -> list[str]:
+    """Return ordered storage path candidates for a given config key."""
+
+    candidates: list[str] = []
+
+    value = current_app.config.get(config_key)
+    if value:
+        candidates.append(value)
+
+    for env_name in _STORAGE_ENV_FALLBACKS.get(config_key, (config_key,)):
+        candidate = os.environ.get(env_name)
+        if candidate and candidate not in candidates:
+            candidates.append(candidate)
+
+    default_candidate = _STORAGE_DEFAULTS.get(config_key)
+    if default_candidate and default_candidate not in candidates:
+        candidates.append(default_candidate)
+
+    return [c for c in candidates if c]
+
+
+def _storage_path(config_key: str) -> str | None:
+    """Return first storage path candidate for compatibility."""
+
+    for candidate in _storage_path_candidates(config_key):
+        if os.path.exists(candidate):
+            return candidate
+
+    candidates = _storage_path_candidates(config_key)
+    return candidates[0] if candidates else None
+
+
+def _resolve_storage_file(config_key: str, *path_parts: str) -> tuple[str | None, str | None, bool]:
+    """Resolve a file path by scanning storage candidates."""
+
+    candidates = _storage_path_candidates(config_key)
+    for base in candidates:
+        candidate_path = os.path.join(base, *path_parts)
+        if os.path.exists(candidate_path):
+            return base, candidate_path, True
+
+    fallback_base = candidates[0] if candidates else None
+    fallback_path = os.path.join(fallback_base, *path_parts) if fallback_base else None
+    return fallback_base, fallback_path, False
+
+
 def _serialize_user_for_log(user):
     """ユーザー情報を匿名化した形でログ出力用に整形する。"""
     if user is None:
@@ -236,22 +301,16 @@ def _remove_media_files(media: Media) -> None:
                 extra={"event": "media.delete.cleanup_failed"},
             )
 
-    orig_base = current_app.config.get("FPV_NAS_ORIGINALS_DIR") or os.environ.get(
-        "FPV_NAS_ORIGINALS_DIR"
-    )
+    orig_base = _storage_path("FPV_NAS_ORIGINALS_DIR")
     if orig_base:
         _unlink(Path(orig_base) / rel_path)
 
-    thumbs_base = current_app.config.get("FPV_NAS_THUMBS_DIR") or os.environ.get(
-        "FPV_NAS_THUMBS_DIR"
-    )
+    thumbs_base = _storage_path("FPV_NAS_THUMBS_DIR")
     if thumbs_base:
         for size in (256, 1024, 2048):
             _unlink(Path(thumbs_base) / str(size) / rel_path)
 
-    play_base = current_app.config.get("FPV_NAS_PLAY_DIR") or os.environ.get(
-        "FPV_NAS_PLAY_DIR"
-    )
+    play_base = _storage_path("FPV_NAS_PLAY_DIR")
     if play_base:
         for playback in media.playbacks:
             rel = _normalize_rel_path(playback.rel_path)
@@ -502,9 +561,7 @@ def _resolve_best_thumbnail_url(media: Media) -> str | None:
     if rel_path is None:
         return None
 
-    thumbs_base = current_app.config.get("FPV_NAS_THUMBS_DIR") or os.environ.get(
-        "FPV_NAS_THUMBS_DIR"
-    )
+    thumbs_base = _storage_path("FPV_NAS_THUMBS_DIR")
     if not thumbs_base:
         return None
 
@@ -1983,10 +2040,22 @@ def api_media_thumbnail(media_id):
         return jsonify({"error": "gone"}), 410
 
     rel_path = media.local_rel_path
-    abs_path = os.path.join(
-        current_app.config.get("FPV_NAS_THUMBS_DIR", ""), str(size), rel_path
+    thumbs_base, abs_path, found = _resolve_storage_file(
+        "FPV_NAS_THUMBS_DIR", str(size), rel_path
     )
-    if not os.path.exists(abs_path):
+
+    if not found or not abs_path:
+        _emit_structured_api_log(
+            "thumbnail file missing",
+            level="warning",
+            event="media.thumbnail",
+            media_id=media_id,
+            size=size,
+            base_dir=thumbs_base,
+            rel_path=rel_path,
+            abs_path=abs_path,
+            candidates=_storage_path_candidates("FPV_NAS_THUMBS_DIR"),
+        )
         return jsonify({"error": "not_found"}), 404
 
     ct = (
@@ -2020,10 +2089,10 @@ def api_media_thumb_url(media_id):
 
     rel_path = media.local_rel_path
     token_path = f"thumbs/{size}/{rel_path}"
-    abs_path = os.path.join(
-        current_app.config.get("FPV_NAS_THUMBS_DIR", ""), str(size), rel_path
+    thumbs_base, abs_path, found = _resolve_storage_file(
+        "FPV_NAS_THUMBS_DIR", str(size), rel_path
     )
-    if not os.path.exists(abs_path):
+    if not found or not abs_path:
         return jsonify({"error": "not_found"}), 404
 
     ct = (
@@ -2089,8 +2158,10 @@ def api_media_playback_url(media_id):
         return jsonify({"error": "not_found"}), 404
 
     token_path = f"playback/{pb.rel_path}"
-    abs_path = os.path.join(current_app.config.get("FPV_NAS_PLAY_DIR", ""), pb.rel_path)
-    if not os.path.exists(abs_path):
+    play_base, abs_path, found = _resolve_storage_file(
+        "FPV_NAS_PLAY_DIR", pb.rel_path
+    )
+    if not found or not abs_path:
         return jsonify({"error": "not_found"}), 404
     ct = mimetypes.guess_type(abs_path)[0] or "video/mp4"
     ttl = current_app.config.get("FPV_URL_TTL_PLAYBACK", 600)
@@ -2158,18 +2229,21 @@ def api_download(token):
         if not path.startswith("thumbs/"):
             return jsonify({"error": "forbidden"}), 403
         rel = path[len("thumbs/") :]
-        base = current_app.config.get("FPV_NAS_THUMBS_DIR", "")
+        base, abs_path, found = _resolve_storage_file(
+            "FPV_NAS_THUMBS_DIR", *rel.split("/")
+        )
         accel_prefix = current_app.config.get("FPV_ACCEL_THUMBS_LOCATION", "")
         ttl = current_app.config.get("FPV_URL_TTL_THUMB", 600)
     else:
         if not path.startswith("playback/"):
             return jsonify({"error": "forbidden"}), 403
         rel = path[len("playback/") :]
-        base = current_app.config.get("FPV_NAS_PLAY_DIR", "")
+        base, abs_path, found = _resolve_storage_file(
+            "FPV_NAS_PLAY_DIR", *rel.split("/")
+        )
         accel_prefix = current_app.config.get("FPV_ACCEL_PLAYBACK_LOCATION", "")
         ttl = current_app.config.get("FPV_URL_TTL_PLAYBACK", 600)
-    abs_path = os.path.join(base, rel)
-    if not os.path.exists(abs_path):
+    if not found or not abs_path:
         current_app.logger.info(
             json.dumps(
                 {
@@ -2192,7 +2266,8 @@ def api_download(token):
     cache_control = f"private, max-age={ttl}"
     range_header = request.headers.get("Range")
 
-    accel_prefix = (accel_prefix or "").strip()
+    accel_enabled = current_app.config.get("FPV_ACCEL_REDIRECT_ENABLED", True)
+    accel_prefix = (accel_prefix or "").strip() if accel_enabled else ""
     accel_target = None
     if accel_prefix:
         rel_posix = rel.replace(os.sep, "/").lstrip("/")

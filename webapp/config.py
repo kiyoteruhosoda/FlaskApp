@@ -1,6 +1,13 @@
 import os
 from dotenv import load_dotenv
 
+
+def _env_as_bool(name: str, default: bool = False) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
 # .envファイルを読み込み
 load_dotenv()
 
@@ -63,10 +70,15 @@ class Config:
     FPV_DL_SIGN_KEY = os.environ.get("FPV_DL_SIGN_KEY", "")
     FPV_URL_TTL_THUMB = int(os.environ.get("FPV_URL_TTL_THUMB", "600"))
     FPV_URL_TTL_PLAYBACK = int(os.environ.get("FPV_URL_TTL_PLAYBACK", "600"))
-    FPV_NAS_THUMBS_DIR = os.environ.get("FPV_NAS_THUMBS_DIR", "")
-    FPV_NAS_PLAY_DIR = os.environ.get("FPV_NAS_PLAY_DIR", "")
+    FPV_NAS_THUMBS_DIR = os.environ.get("FPV_NAS_THUMBS_CONTAINER_DIR") or os.environ.get(
+        "FPV_NAS_THUMBS_DIR", ""
+    )
+    FPV_NAS_PLAY_DIR = os.environ.get("FPV_NAS_PLAY_CONTAINER_DIR") or os.environ.get(
+        "FPV_NAS_PLAY_DIR", ""
+    )
     FPV_ACCEL_THUMBS_LOCATION = os.environ.get("FPV_ACCEL_THUMBS_LOCATION", "")
     FPV_ACCEL_PLAYBACK_LOCATION = os.environ.get("FPV_ACCEL_PLAYBACK_LOCATION", "")
+    FPV_ACCEL_REDIRECT_ENABLED = _env_as_bool("FPV_ACCEL_REDIRECT_ENABLED", True)
     
     # Local import settings
     LOCAL_IMPORT_DIR = os.environ.get("LOCAL_IMPORT_DIR", "/mnt/nas/import")

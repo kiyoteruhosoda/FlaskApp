@@ -36,7 +36,10 @@ class _ThumbResult:
 
 def _thumb_base_dir() -> Path:
     """Return thumbnail base directory creating it if necessary."""
-    base = Path(os.environ.get("FPV_NAS_THUMBS_DIR", "/tmp/fpv_thumbs"))
+    base = Path(
+        os.environ.get("FPV_NAS_THUMBS_CONTAINER_DIR")
+        or os.environ.get("FPV_NAS_THUMBS_DIR", "/tmp/fpv_thumbs")
+    )
     base.mkdir(parents=True, exist_ok=True)
     return base
 
@@ -46,7 +49,10 @@ def _orig_dir() -> Path:
 
 
 def _play_dir() -> Path:
-    return Path(os.environ.get("FPV_NAS_PLAY_DIR", "/tmp/fpv_play"))
+    return Path(
+        os.environ.get("FPV_NAS_PLAY_CONTAINER_DIR")
+        or os.environ.get("FPV_NAS_PLAY_DIR", "/tmp/fpv_play")
+    )
 
 
 # ---------------------------------------------------------------------------

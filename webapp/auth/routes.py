@@ -62,7 +62,7 @@ def _sync_active_role(user_model):
     if len(role_ids) == 1:
         session["active_role_id"] = role_ids[0]
     else:
-        session.pop("active_role_id", None)
+        session["active_role_id"] = role_ids[0]
 
 
 def _resolve_post_login_target() -> str:
@@ -196,12 +196,6 @@ def select_role():
     if request.method == "POST":
         role_choice = request.form.get("active_role")
         available_roles = {str(role.id): role for role in roles}
-        if role_choice == "all":
-            session.pop("active_role_id", None)
-            _sync_active_role(current_user)
-            flash(_("Active role cleared. All assigned roles are now in effect."), "success")
-            return redirect(_pop_role_selection_target())
-
         if role_choice and role_choice in available_roles:
             session["active_role_id"] = available_roles[role_choice].id
             flash(
@@ -392,12 +386,6 @@ def profile():
             response = make_response(redirect(url_for("auth.profile")))
             role_choice = request.form.get("active_role")
             available_roles = {str(role.id): role for role in current_user.roles}
-
-            if role_choice == "all":
-                session.pop("active_role_id", None)
-                _sync_active_role(current_user)
-                flash(_("Active role cleared. All assigned roles are now in effect."), "success")
-                return response
 
             if role_choice and role_choice in available_roles:
                 session["active_role_id"] = available_roles[role_choice].id

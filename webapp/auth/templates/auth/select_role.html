@@ -11,19 +11,11 @@
           <p class="text-muted mb-4">{{ _('Choose which role should be active for this session.') }}</p>
           <form method="post" class="d-flex flex-column gap-3">
             <div class="list-group">
-              <label class="list-group-item d-flex align-items-center gap-3">
-                <input class="form-check-input me-2" type="radio" name="active_role" value="all"
-                       {% if not selected_role_id %}checked{% endif %} required>
-                <div>
-                  <div class="fw-semibold">{{ _('Use all assigned roles') }}</div>
-                  <div class="text-muted small">{{ _('Keep every role available just like before switching.') }}</div>
-                </div>
-              </label>
               {% for role in roles %}
               <label class="list-group-item d-flex align-items-center gap-3">
                 <input class="form-check-input me-2" type="radio" name="active_role" value="{{ role.id }}"
                        {% if selected_role_id and role.id == selected_role_id %}checked{% endif %}
-                       {% if not selected_role_id and loop.first %}required{% endif %}>
+                       {% if not selected_role_id and loop.first %}checked{% endif %} required>
                 <div>
                   <div class="fw-semibold">{{ role.name }}</div>
                   {% if role.permissions %}

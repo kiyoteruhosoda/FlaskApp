@@ -79,6 +79,7 @@ class User(db.Model, UserMixin):
                 selected = [role for role in roles if role.id == active_role_id]
                 if selected:
                     return selected
+            return [roles[0]]
         return roles
 
     @property

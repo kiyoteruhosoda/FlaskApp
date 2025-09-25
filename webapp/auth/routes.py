@@ -65,6 +65,22 @@ def _sync_active_role(user_model):
         session.pop("active_role_id", None)
 
 
+def _resolve_post_login_target() -> str:
+    """決定したリダイレクト先を返す。安全なパスに限定する。"""
+    candidate = request.form.get("next") or request.args.get("next")
+    if candidate and candidate.startswith("/") and not candidate.startswith("//"):
+        return candidate
+    return url_for("feature_x.dashboard")
+
+
+def _pop_role_selection_target() -> str:
+    """ロール選択後の遷移先を取得する。"""
+    candidate = session.pop("role_selection_next", None) or request.args.get("next")
+    if candidate and candidate.startswith("/") and not candidate.startswith("//"):
+        return candidate
+    return url_for("feature_x.dashboard")
+
+
 def _login_with_domain_user(user):
     """ドメインユーザーが保持するORMモデルでログイン処理を行う。"""
     model = getattr(user, "_model", None)
@@ -151,9 +167,52 @@ def login():
                 return render_template("auth/login.html")
         login_user(user_model)
         session.pop("active_role_id", None)
+        redirect_target = _resolve_post_login_target()
+        roles = list(getattr(user_model, "roles", []) or [])
+        if len(roles) > 1:
+            session["role_selection_next"] = redirect_target
+            return redirect(url_for("auth.select_role"))
         _sync_active_role(user_model)
-        return redirect(url_for("feature_x.dashboard"))
+        return redirect(redirect_target)
     return render_template("auth/login.html")
+
+
+@bp.route("/select-role", methods=["GET", "POST"])
+@login_required
+def select_role():
+    roles = list(getattr(current_user, "roles", []) or [])
+    if len(roles) <= 1:
+        _sync_active_role(current_user)
+        return redirect(_pop_role_selection_target())
+
+    if request.method == "POST":
+        role_choice = request.form.get("active_role")
+        available_roles = {str(role.id): role for role in roles}
+        if role_choice == "all":
+            session.pop("active_role_id", None)
+            _sync_active_role(current_user)
+            flash(_("Active role cleared. All assigned roles are now in effect."), "success")
+            return redirect(_pop_role_selection_target())
+
+        if role_choice and role_choice in available_roles:
+            session["active_role_id"] = available_roles[role_choice].id
+            flash(
+                _(
+                    "Active role switched to %(role)s.",
+                    role=available_roles[role_choice].name,
+                ),
+                "success",
+            )
+            return redirect(_pop_role_selection_target())
+
+        flash(_("Invalid role selection."), "error")
+
+    selected_role_id = session.get("active_role_id")
+    return render_template(
+        "auth/select_role.html",
+        roles=roles,
+        selected_role_id=selected_role_id,
+    )
 
 @bp.route("/register", methods=["GET", "POST"])
 def register():

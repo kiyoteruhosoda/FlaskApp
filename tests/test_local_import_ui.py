@@ -4,12 +4,16 @@
 
 import os
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
 from webapp import create_app
 from webapp.extensions import db
+from core.models.picker_session import PickerSession
+from core.models.photo_models import PickerSelection
 from core.tasks.local_import import local_import_task
 
 
@@ -117,6 +121,8 @@ class TestSessionDetailAPI:
         assert data['sessionId'] == session_id
         assert data['status'] == 'imported'
         assert data['selectedCount'] == 1
+        assert 'stats' in data
+        assert isinstance(data['stats'], dict)
         # ローカルインポートセッションの特徴
         assert data.get('pickerUri') is None
         assert data.get('expireTime') is None
@@ -162,7 +168,7 @@ class TestSessionDetailAPI:
     def test_session_import_api_blocked_for_local_import(self, app):
         """ローカルインポートセッションでインポートAPIがブロックされることをテスト"""
         client = app.test_client()
-        
+
         with client.session_transaction() as sess:
             sess['_user_id'] = '1'
             sess['_fresh'] = True
@@ -178,6 +184,62 @@ class TestSessionDetailAPI:
         # ローカルインポートセッションでは特別な処理が必要
         # 実装によっては適切なエラーレスポンスが返される
         assert response.status_code in [400, 409, 422]
+
+    def test_stop_local_import_api_marks_session(self, app):
+        """停止APIが保留中のアイテムをスキップしセッションを更新することをテスト"""
+
+        client = app.test_client()
+
+        admin_user = type('AdminUser', (), {
+            'is_authenticated': True,
+            'has_role': lambda self, role: role == 'admin',
+            'can': lambda self, perm: True
+        })()
+
+        with patch('flask_login.utils._get_user', return_value=admin_user):
+            with app.app_context():
+                session = PickerSession(
+                    session_id='local_import_manual',
+                    account_id=None,
+                    status='processing',
+                    selected_count=0,
+                )
+                db.session.add(session)
+                db.session.commit()
+
+                stats = {
+                    'celery_task_id': 'fake-task',
+                    'stage': 'processing',
+                }
+                session.set_stats(stats)
+                db.session.commit()
+
+                pending = PickerSelection(session_id=session.id, status='pending')
+                enqueued = PickerSelection(session_id=session.id, status='enqueued')
+                imported = PickerSelection(session_id=session.id, status='imported', finished_at=datetime.now(timezone.utc))
+                db.session.add_all([pending, enqueued, imported])
+                db.session.commit()
+
+            with patch('cli.src.celery.celery_app.celery.control.revoke') as mock_revoke:
+                response = client.post('/api/sync/local-import/local_import_manual/stop')
+
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data['success'] is True
+            assert data['session_id'] == 'local_import_manual'
+            assert data['counts']['pending'] == 0
+            assert data['counts']['skipped'] >= 2
+
+            with app.app_context():
+                updated = PickerSession.query.filter_by(session_id='local_import_manual').first()
+                assert updated is not None
+                assert updated.status == 'canceled'
+                stats = updated.stats()
+                assert stats.get('cancel_requested') is True
+                skipped_total = PickerSelection.query.filter_by(session_id=updated.id, status='skipped').count()
+                assert skipped_total >= 2
+
+            mock_revoke.assert_called_once_with('fake-task', terminate=False)
 
 
 class TestSessionDetailUI:
@@ -201,10 +263,12 @@ class TestSessionDetailUI:
         assert response.status_code == 200
         
         html = response.get_data(as_text=True)
-        
+
         # 必要なHTML要素が含まれていることを確認
         assert 'Session Details' in html
         assert 'btn-import-start' in html
+        assert 'btn-local-import-stop' in html
+        assert 'local-import-status' in html
         assert 'selection-body' in html
         assert 'selection-counts' in html
         assert session_id in html or 'data-picker-session-id' in html
@@ -227,11 +291,12 @@ class TestSessionDetailUI:
         assert response.status_code == 200
         
         html = response.get_data(as_text=True)
-        
+
         # セッション一覧テーブルが含まれていることを確認
         assert 'sessions-body' in html
         assert 'All Picker Sessions' in html
         assert 'local-import-btn' in html  # ローカルインポートボタン
+        assert 'Stop Local Import' in html
 
 
 class TestLocalImportIntegration:

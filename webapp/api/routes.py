@@ -40,6 +40,7 @@ from core.models.photo_models import (
     MediaSidecar,
     MediaPlayback,
     Tag,
+    PickerSelection,
     album_item,
     media_tag,
 )
@@ -2424,6 +2425,190 @@ def trigger_local_import():
             "error": str(e),
             "server_time": datetime.now(timezone.utc).isoformat()
         }), 500
+
+
+@bp.post("/sync/local-import/<path:session_id>/stop")
+@login_or_jwt_required
+def stop_local_import(session_id):
+    """キャンセル要求を受けてローカルインポートを停止（管理者専用）。"""
+
+    user = get_current_user()
+    if not user or not getattr(user, "has_role", None) or not user.has_role("admin"):
+        _local_import_log(
+            "Local import stop rejected: insufficient permissions",
+            level="warning",
+            event="local_import.api.stop",
+            stage="denied",
+            session_id=session_id,
+        )
+        return (
+            jsonify({"error": _("You do not have permission to stop a local import.")}),
+            403,
+        )
+
+    _local_import_log(
+        "Local import stop requested",
+        event="local_import.api.stop",
+        stage="start",
+        session_id=session_id,
+    )
+
+    picker_session = (
+        PickerSession.query.filter_by(session_id=session_id, account_id=None).first()
+    )
+    if not picker_session:
+        _local_import_log(
+            "Local import stop failed: session not found",
+            level="warning",
+            event="local_import.api.stop",
+            stage="not_found",
+            session_id=session_id,
+        )
+        return jsonify({"error": _("Local import session not found.")}), 404
+
+    cancelable_statuses = {"expanding", "processing", "importing", "enqueued"}
+    if picker_session.status == "canceled":
+        _local_import_log(
+            "Local import stop noop: already canceled",
+            event="local_import.api.stop",
+            stage="already_canceled",
+            session_id=session_id,
+        )
+        return jsonify({"success": True, "message": _("Local import session is already canceled."), "session_id": session_id})
+
+    if picker_session.status not in cancelable_statuses:
+        _local_import_log(
+            "Local import stop rejected: invalid status",
+            level="warning",
+            event="local_import.api.stop",
+            stage="invalid_status",
+            session_id=session_id,
+            status=picker_session.status,
+        )
+        return (
+            jsonify({"error": _("Local import session is not currently running.")}),
+            409,
+        )
+
+    now = datetime.now(timezone.utc)
+
+    stats = picker_session.stats() if hasattr(picker_session, "stats") else {}
+    if not isinstance(stats, dict):
+        stats = {}
+
+    celery_task_id = stats.get("celery_task_id")
+
+    pending_statuses = ("pending", "enqueued")
+    skipped_items = (
+        db.session.query(PickerSelection)
+        .filter(
+            PickerSelection.session_id == picker_session.id,
+            PickerSelection.status.in_(pending_statuses),
+        )
+        .all()
+    )
+
+    skipped_count = 0
+    for selection in skipped_items:
+        selection.status = "skipped"
+        selection.finished_at = now
+        skipped_count += 1
+
+    picker_session.status = "canceled"
+    picker_session.updated_at = now
+    picker_session.last_progress_at = now
+
+    db.session.flush()
+
+    counts_query = (
+        db.session.query(
+            PickerSelection.status,
+            db.func.count(PickerSelection.id)
+        )
+        .filter(PickerSelection.session_id == picker_session.id)
+        .group_by(PickerSelection.status)
+        .all()
+    )
+    counts_map = {row[0]: row[1] for row in counts_query}
+
+    pending_remaining = sum(
+        counts_map.get(status, 0) for status in ("pending", "enqueued", "running")
+    )
+    imported_count = counts_map.get("imported", 0)
+    dup_count = counts_map.get("dup", 0)
+    skipped_total = counts_map.get("skipped", 0) + dup_count
+    failed_count = counts_map.get("failed", 0)
+
+    picker_session.selected_count = imported_count
+
+    stats.update(
+        {
+            "stage": "canceling",
+            "cancel_requested": True,
+            "canceled_at": now.isoformat().replace("+00:00", "Z"),
+            "total": imported_count + skipped_total + failed_count,
+            "success": imported_count,
+            "skipped": skipped_total,
+            "failed": failed_count,
+            "pending": pending_remaining,
+        }
+    )
+    picker_session.set_stats(stats)
+
+    db.session.commit()
+
+    _local_import_log(
+        "Local import stop marked",
+        event="local_import.api.stop",
+        stage="marked",
+        session_id=session_id,
+        celery_task_id=celery_task_id,
+        skipped=skipped_count,
+    )
+
+    revoke_error = None
+    if celery_task_id:
+        try:
+            from cli.src.celery.celery_app import celery
+
+            celery.control.revoke(celery_task_id, terminate=False)
+            _local_import_log(
+                "Local import stop revoke dispatched",
+                event="local_import.api.stop",
+                stage="revoked",
+                session_id=session_id,
+                celery_task_id=celery_task_id,
+            )
+        except Exception as exc:
+            revoke_error = str(exc)
+            _local_import_log(
+                "Local import stop revoke failed",
+                level="error",
+                event="local_import.api.stop",
+                stage="revoke_failed",
+                session_id=session_id,
+                celery_task_id=celery_task_id,
+                error=revoke_error,
+            )
+
+    payload = {
+        "success": True,
+        "session_id": session_id,
+        "celery_task_id": celery_task_id,
+        "skipped": skipped_count,
+        "counts": {
+            "imported": imported_count,
+            "skipped": skipped_total,
+            "failed": failed_count,
+            "pending": pending_remaining,
+        },
+        "message": _("Local import session was canceled."),
+    }
+
+    if revoke_error:
+        payload["revoke_error"] = revoke_error
+
+    return jsonify(payload)
 
 
 def _prepare_local_import_path(path_value):

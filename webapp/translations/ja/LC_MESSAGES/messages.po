@@ -1176,6 +1176,35 @@ msgstr "スキップ"
 msgid "Local Import"
 msgstr "ローカルインポート"
 
+#: webapp/photo_view/templates/photo_view/home.html:131
+#: webapp/photo_view/templates/photo_view/session_detail.html:24
+msgid "Stop Local Import"
+msgstr "ローカルインポートを停止"
+
+#: webapp/photo_view/templates/photo_view/home.html:73
+#: webapp/photo_view/templates/photo_view/session_detail.html:90
+msgid "Local import is running. You can stop it if needed."
+msgstr "ローカルインポートを実行中です。必要に応じてここから停止できます。"
+
+#: webapp/photo_view/templates/photo_view/home.html:70
+#: webapp/photo_view/templates/photo_view/session_detail.html:91
+msgid "Canceling local import..."
+msgstr "ローカルインポートを停止しています..."
+
+#: webapp/photo_view/templates/photo_view/home.html:71
+#: webapp/photo_view/templates/photo_view/session_detail.html:92
+msgid "Local import was canceled."
+msgstr "ローカルインポートを停止しました。"
+
+#: webapp/photo_view/templates/photo_view/home.html:72
+#: webapp/photo_view/templates/photo_view/session_detail.html:93
+msgid "Failed to stop local import."
+msgstr "ローカルインポートの停止に失敗しました。"
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:94
+msgid "Local import session runs automatically."
+msgstr "ローカルインポートセッションは自動で実行されます。"
+
 #: webapp/photo_view/templates/photo_view/session_detail.html:117
 msgid "Local Import Session. Import runs automatically."
 msgstr "ローカルインポートセッションです。インポートは自動的に実行されました。"
@@ -1546,4 +1575,24 @@ msgstr "権限を検索"
 
 msgid "No permissions match your search."
 msgstr "該当する権限がありません。"
+
+#: webapp/api/routes.py:239
+msgid "You do not have permission to stop a local import."
+msgstr "ローカルインポートを停止する権限がありません。"
+
+#: webapp/api/routes.py:247
+msgid "Local import session not found."
+msgstr "ローカルインポートセッションが見つかりません。"
+
+#: webapp/api/routes.py:255
+msgid "Local import session is already canceled."
+msgstr "ローカルインポートセッションはすでに停止済みです。"
+
+#: webapp/api/routes.py:262
+msgid "Local import session is not currently running."
+msgstr "ローカルインポートセッションは実行中ではありません。"
+
+#: webapp/api/routes.py:301
+msgid "Local import session was canceled."
+msgstr "ローカルインポートセッションを停止しました。"
 

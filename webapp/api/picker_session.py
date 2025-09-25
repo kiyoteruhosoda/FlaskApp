@@ -10,6 +10,7 @@ from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
 from core.models.job_sync import JobSync
 from core.models.photo_models import PickerSelection
+from core.models.log import Log
 from .picker_session_service import (
     PickerSessionService,
     _get_lock as _get_media_items_lock,
@@ -262,6 +263,92 @@ def api_picker_session_status(session_id):
         extra={"event": "picker.status.get"}
     )
     return jsonify(payload)
+
+
+@bp.get("/picker/session/<string:session_id>/logs")
+@login_or_jwt_required
+def api_picker_session_logs(session_id: str):
+    """Return recent local import logs for a picker session."""
+
+    ps = PickerSessionService.resolve_session_identifier(session_id)
+    if not ps:
+        return jsonify({"error": "not_found"}), 404
+
+    limit = request.args.get("limit", type=int) or 100
+    limit = max(1, min(limit, 500))
+
+    rows = (
+        Log.query.filter(Log.event.like("local_import%"))
+        .order_by(Log.id.desc())
+        .limit(limit * 5)
+        .all()
+    )
+
+    logs = []
+    session_identifier = ps.session_id
+
+    for row in rows:
+        try:
+            payload = json.loads(row.message)
+        except Exception:
+            payload = {"message": row.message}
+
+        extras = payload.get("_extra") or {}
+        session_matches = False
+
+        if extras.get("session_id") == session_identifier:
+            session_matches = True
+        elif ps.id is not None and extras.get("session_db_id") == ps.id:
+            session_matches = True
+        elif extras.get("active_session_id") == session_identifier:
+            session_matches = True
+        elif extras.get("target_session_id") == session_identifier:
+            session_matches = True
+
+        if not session_matches:
+            continue
+
+        details = {
+            key: value
+            for key, value in extras.items()
+            if key
+            not in {"session_id", "session_db_id", "active_session_id", "target_session_id"}
+        }
+
+        message = payload.get("message")
+        if not isinstance(message, str):
+            try:
+                message = json.dumps(message, ensure_ascii=False, default=str)
+            except Exception:
+                message = str(message)
+
+        logs.append(
+            {
+                "id": row.id,
+                "createdAt": row.created_at.isoformat().replace("+00:00", "Z")
+                if row.created_at
+                else None,
+                "level": row.level,
+                "event": row.event,
+                "message": message,
+                "details": details,
+            }
+        )
+
+        if len(logs) >= limit:
+            break
+
+    logs.sort(key=lambda item: item.get("id", 0))
+
+    return jsonify({"logs": logs})
+
+
+@bp.get("/picker/session/picker_sessions/<string:uuid>/logs")
+@login_or_jwt_required
+def api_picker_session_logs_prefixed(uuid: str):
+    """Alias for logs endpoint that accepts picker_sessions prefix."""
+
+    return api_picker_session_logs(f"picker_sessions/{uuid}")
 
 
 @bp.get("/picker/session/picker_sessions/<string:uuid>")

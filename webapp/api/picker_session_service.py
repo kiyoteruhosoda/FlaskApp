@@ -315,8 +315,14 @@ class PickerSessionService:
         if not isinstance(stats, dict):
             stats = {}
 
+        response_status = ps.status
+        if is_local_import and isinstance(stats, dict):
+            stage = stats.get("stage")
+            if stage == "expanding" and ps.status not in {"canceled", "error", "failed", "expired"}:
+                response_status = "expanding"
+
         return {
-            "status": ps.status,
+            "status": response_status,
             "selectedCount": selected_count_response,
             "lastPolledAt": ps.last_polled_at.isoformat().replace("+00:00", "Z"),
             "serverTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),

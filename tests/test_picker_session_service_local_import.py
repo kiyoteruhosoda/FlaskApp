@@ -135,6 +135,27 @@ class TestPickerSessionServiceLocalImport:
             assert result['status'] == 'processing'
             assert result['counts']['running'] == 1
 
+    def test_status_uses_expanding_stage_for_display(self, app):
+        """ローカルインポートのstageがexpandingのときは表示ステータスもexpandingになる"""
+
+        from webapp.extensions import db
+
+        with app.app_context():
+            ps = PickerSession(
+                session_id="local_import_stage_case",
+                status="processing",
+                account_id=None,
+            )
+            db.session.add(ps)
+            db.session.commit()
+
+            ps.set_stats({"stage": "expanding"})
+            db.session.commit()
+
+            result = PickerSessionService.status(ps)
+
+            assert result['status'] == 'expanding'
+
     def test_normalize_selection_counts_collapses_aliases(self):
         """選択ステータスの集計がエイリアスを正規化することを確認"""
         raw_counts = {

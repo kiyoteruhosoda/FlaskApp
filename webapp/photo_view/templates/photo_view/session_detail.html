@@ -17,9 +17,15 @@
 </div>
 
 <div class="mb-3">
-  <button id="btn-import-start" class="btn btn-primary" disabled aria-disabled="true">
-    {{ _("Start Import") }}
-  </button>
+  <div class="d-flex flex-wrap gap-2">
+    <button id="btn-import-start" class="btn btn-primary" disabled aria-disabled="true">
+      {{ _("Start Import") }}
+    </button>
+    <button id="btn-local-import-stop" class="btn btn-outline-danger d-none" type="button">
+      <i class="bi bi-stop-circle"></i> {{ _("Stop Local Import") }}
+    </button>
+  </div>
+  <div id="local-import-status" class="mt-2 small text-muted d-none"></div>
   <div id="session-info" class="text-muted mt-2">
     {{ _("Loading session info...") }}
   </div>
@@ -90,12 +96,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const importBtn = document.getElementById('btn-import-start');
+  const stopLocalImportBtn = document.getElementById('btn-local-import-stop');
   const statusEl = document.getElementById('import-status');
   const selectionBody = document.getElementById('selection-body');
   const countsEl = document.getElementById('selection-counts');
   const sessionInfoEl = document.getElementById('session-info');
   const sessionTitleEl = document.getElementById('session-title');
   const sessionSubtitleEl = document.getElementById('session-subtitle');
+  const localImportStatusEl = document.getElementById('local-import-status');
 
   const selectionStatusLabels = {
     pending: '{{ _("Pending") }}',
@@ -120,6 +128,11 @@ document.addEventListener('DOMContentLoaded', () => {
     error: '{{ _("Error") }}',
     failed: '{{ _("Failed") }}'
   };
+
+  const localImportRunningMessage = '{{ _("Local import is running. You can stop it if needed.") }}';
+  const localImportCancelingMessage = '{{ _("Canceling local import...") }}';
+  const localImportCanceledMessage = '{{ _("Local import was canceled.") }}';
+  const localImportStopFailedMessage = '{{ _("Failed to stop local import.") }}';
 
   function getStatusBadgeClass(status) {
     switch (status) {
@@ -305,6 +318,55 @@ document.addEventListener('DOMContentLoaded', () => {
     importBtn.setAttribute('aria-disabled', (!canImport).toString());
   }
 
+  function updateLocalImportControls(sessionData) {
+    if (!stopLocalImportBtn || !localImportStatusEl) {
+      return;
+    }
+
+    stopLocalImportBtn.classList.add('d-none');
+    stopLocalImportBtn.disabled = true;
+    stopLocalImportBtn.setAttribute('aria-disabled', 'true');
+    localImportStatusEl.classList.add('d-none');
+    localImportStatusEl.classList.remove('text-warning', 'text-danger', 'text-success');
+    localImportStatusEl.classList.add('text-muted');
+    localImportStatusEl.textContent = '';
+
+    if (!sessionData || !sessionData.isLocalImport) {
+      return;
+    }
+
+    const cancellableStatuses = ['expanding', 'processing', 'importing', 'enqueued'];
+    const stats = sessionData.stats || {};
+    const cancelRequested = Boolean(stats.cancel_requested);
+    const displayStatus = sessionData.status;
+
+    localImportStatusEl.classList.remove('d-none');
+
+    if (displayStatus === 'canceled') {
+      localImportStatusEl.textContent = localImportCanceledMessage;
+      localImportStatusEl.classList.remove('text-muted');
+      localImportStatusEl.classList.add('text-danger');
+      return;
+    }
+
+    if (cancelRequested) {
+      localImportStatusEl.textContent = localImportCancelingMessage;
+      localImportStatusEl.classList.remove('text-muted');
+      localImportStatusEl.classList.add('text-warning');
+      return;
+    }
+
+    if (cancellableStatuses.includes(displayStatus)) {
+      localImportStatusEl.textContent = localImportRunningMessage;
+      stopLocalImportBtn.classList.remove('d-none');
+      stopLocalImportBtn.disabled = false;
+      stopLocalImportBtn.setAttribute('aria-disabled', 'false');
+      return;
+    }
+
+    localImportStatusEl.textContent = '{{ _("Local import session runs automatically.") }}';
+  }
+
   function updateSessionInfo(sessionData) {
     if (!sessionData) {
       return;
@@ -328,6 +390,7 @@ document.addEventListener('DOMContentLoaded', () => {
       sessionSubtitleEl.classList.toggle('d-none', subtitleParts.length === 0);
     }
 
+    const stats = sessionData.stats || {};
     const accountLabel = sessionData.isLocalImport
       ? '{{ _("Local Import") }}'
       : (sessionData.accountEmail || '-');
@@ -348,12 +411,19 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     if (sessionData.isLocalImport) {
-      infoParts.push(`<div class="mt-2 text-muted"><i class="bi bi-info-circle"></i> {{ _("Local Import Session. Import runs automatically.") }}</div>`);
+      if (sessionData.status === 'canceled') {
+        infoParts.push(`<div class="mt-2 text-danger"><i class="bi bi-stop-circle"></i> {{ _("Local import was canceled.") }}</div>`);
+      } else if (stats.cancel_requested) {
+        infoParts.push(`<div class="mt-2 text-warning"><i class="bi bi-hourglass-split"></i> {{ _("Canceling local import...") }}</div>`);
+      } else {
+        infoParts.push(`<div class="mt-2 text-muted"><i class="bi bi-info-circle"></i> {{ _("Local Import Session. Import runs automatically.") }}</div>`);
+      }
     } else if (sessionData.status !== 'ready') {
       infoParts.push(`<div class="mt-2 text-warning"><i class="bi bi-exclamation-triangle"></i> {{ _("Import can only be started when the session status is ready.") }}</div>`);
     }
 
     sessionInfoEl.innerHTML = infoParts.join('');
+    updateLocalImportControls(sessionData);
   }
 
   async function withBusy(btn, fn) {
@@ -396,6 +466,37 @@ document.addEventListener('DOMContentLoaded', () => {
       console.warn('Failed to fetch session status:', error);
       return null;
     }
+  }
+
+  async function stopLocalImportSession() {
+    if (!pickerSessionId || !stopLocalImportBtn) {
+      return;
+    }
+
+    await withBusy(stopLocalImportBtn, async () => {
+      try {
+        const resp = await window.apiClient.post(`/api/sync/local-import/${encodeURIComponent(pickerSessionId)}/stop`);
+
+        if (!resp.ok) {
+          const text = await resp.text().catch(() => '');
+          console.error('Failed to stop local import:', resp.status, text);
+          statusEl.textContent = localImportStopFailedMessage;
+          showErrorToast(localImportStopFailedMessage);
+          return;
+        }
+
+        const payload = await resp.json().catch(() => ({}));
+        const message = (payload && payload.message) ? payload.message : localImportCanceledMessage;
+        statusEl.textContent = message;
+        showInfoToast(message, 4000);
+        await fetchSessionStatus();
+        await refreshSelections();
+      } catch (error) {
+        console.error('Stop local import failed:', error);
+        statusEl.textContent = localImportStopFailedMessage;
+        showErrorToast(localImportStopFailedMessage);
+      }
+    });
   }
 
   async function refreshSelections() {
@@ -446,6 +547,12 @@ document.addEventListener('DOMContentLoaded', () => {
     } finally {
       isRefreshing = false;
     }
+  }
+
+  if (stopLocalImportBtn) {
+    stopLocalImportBtn.addEventListener('click', () => {
+      stopLocalImportSession();
+    });
   }
 
   importBtn.addEventListener('click', async () => {

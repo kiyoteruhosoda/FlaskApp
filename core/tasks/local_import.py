@@ -759,6 +759,43 @@ def _set_session_progress(
     db.session.commit()
 
 
+def _session_cancel_requested(
+    session: Optional[PickerSession],
+    *,
+    task_instance=None,
+) -> bool:
+    """Return True when cancellation has been requested for *session*."""
+
+    if not session:
+        return False
+
+    if task_instance and hasattr(task_instance, "is_aborted"):
+        try:
+            if task_instance.is_aborted():
+                return True
+        except Exception:
+            pass
+
+    try:
+        db.session.refresh(session)
+    except Exception:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        fresh = PickerSession.query.get(session.id)
+        if not fresh:
+            return True
+        session.status = fresh.status
+        session.stats_json = fresh.stats_json
+
+    stats = session.stats() if hasattr(session, "stats") else {}
+    if isinstance(stats, dict) and stats.get("cancel_requested"):
+        return True
+
+    return session.status == "canceled"
+
+
 def _enqueue_local_import_selections(
     session: Optional[PickerSession],
     file_paths: List[str],
@@ -860,6 +897,16 @@ def _process_local_import_queue(
     selections = list(_pending_selections_query(session).all())
     total_files = len(selections)
 
+    if _session_cancel_requested(session, task_instance=task_instance):
+        _log_info(
+            "local_import.cancel.detected",
+            "キャンセル要求を検知したため処理を中断",
+            session_id=active_session_id,
+            celery_task_id=celery_task_id,
+        )
+        result["canceled"] = True
+        return 0
+
     if task_instance and total_files:
         task_instance.update_state(
             state="PROGRESS",
@@ -872,9 +919,34 @@ def _process_local_import_queue(
             },
         )
 
+    canceled = False
+
     for index, selection in enumerate(selections, 1):
         file_path = selection.local_file_path
         filename = selection.local_filename or (os.path.basename(file_path) if file_path else f"selection_{selection.id}")
+
+        if _session_cancel_requested(session, task_instance=task_instance):
+            _log_info(
+                "local_import.cancel.pending_break",
+                "キャンセル要求のため残りの処理をスキップ",
+                session_id=active_session_id,
+                celery_task_id=celery_task_id,
+                processed=index - 1,
+                remaining=total_files - (index - 1),
+            )
+            canceled = True
+            if task_instance and total_files:
+                task_instance.update_state(
+                    state="PROGRESS",
+                    meta={
+                        "status": "キャンセル要求を受信しました",
+                        "progress": int(((index - 1) / total_files) * 100) if total_files else 0,
+                        "current": index - 1,
+                        "total": total_files,
+                        "message": "キャンセル処理中",
+                    },
+                )
+            break
 
         result["processed"] += 1
 
@@ -1003,7 +1075,10 @@ def _process_local_import_queue(
                 },
             )
 
-    if task_instance and total_files:
+    if canceled:
+        result["canceled"] = True
+
+    if task_instance and total_files and not canceled:
         task_instance.update_state(
             state="PROGRESS",
             meta={
@@ -1055,6 +1130,7 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
         "details": [],
         "session_id": session_id,
         "celery_task_id": celery_task_id,
+        "canceled": False,
     }
 
     # API側で作成されたセッションを取得
@@ -1290,9 +1366,35 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
     # セッションステータスの更新
     if session:
         try:
-            pending_remaining = _pending_selections_query(session).count()
+            counts_query = (
+                db.session.query(
+                    PickerSelection.status,
+                    db.func.count(PickerSelection.id)
+                )
+                .filter(PickerSelection.session_id == session.id)
+                .group_by(PickerSelection.status)
+                .all()
+            )
+            counts_map = {row[0]: row[1] for row in counts_query}
 
-            if pending_remaining > 0:
+            pending_remaining = sum(
+                counts_map.get(status, 0) for status in ("pending", "enqueued", "running")
+            )
+            imported_count = counts_map.get("imported", 0)
+            dup_count = counts_map.get("dup", 0)
+            skipped_count = counts_map.get("skipped", 0)
+            failed_count = counts_map.get("failed", 0)
+
+            result["success"] = imported_count
+            result["skipped"] = dup_count + skipped_count
+            result["failed"] = failed_count
+            result["processed"] = imported_count + dup_count + skipped_count + failed_count
+
+            cancel_requested = bool(result.get("canceled")) or _session_cancel_requested(session)
+
+            if cancel_requested:
+                final_status = "canceled"
+            elif pending_remaining > 0:
                 final_status = "processing"
             else:
                 if (not result["ok"]) or result["failed"] > 0:
@@ -1302,7 +1404,7 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                 else:
                     final_status = "ready"
 
-            session.selected_count = result["success"]
+            session.selected_count = imported_count
 
             stats = {
                 "total": result["processed"],
@@ -1313,7 +1415,15 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                 "celery_task_id": celery_task_id,
             }
 
-            stage_value = "completed" if pending_remaining == 0 else "processing"
+            stage_value = "canceled" if cancel_requested else ("completed" if pending_remaining == 0 else "processing")
+            if cancel_requested:
+                stats.update(
+                    {
+                        "cancel_requested": False,
+                        "canceled_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                    }
+                )
+
             _set_session_progress(
                 session,
                 status=final_status,
@@ -1349,6 +1459,7 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
         success=result["success"],
         skipped=result["skipped"],
         failed=result["failed"],
+        canceled=result.get("canceled", False),
         session_id=result.get("session_id"),
         celery_task_id=celery_task_id,
     )

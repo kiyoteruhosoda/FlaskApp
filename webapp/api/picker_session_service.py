@@ -311,6 +311,10 @@ class PickerSessionService:
             selected_count_response = ps.selected_count or 0
         is_local_import = ps.account_id is None
 
+        stats = ps.stats() if hasattr(ps, "stats") else {}
+        if not isinstance(stats, dict):
+            stats = {}
+
         return {
             "status": ps.status,
             "selectedCount": selected_count_response,
@@ -328,6 +332,7 @@ class PickerSessionService:
             "isLocalImport": is_local_import,
             "lastProgressAt": ps.last_progress_at.isoformat().replace("+00:00", "Z") if ps.last_progress_at else None,
             "createdAt": ps.created_at.isoformat().replace("+00:00", "Z") if ps.created_at else None,
+            "stats": stats,
         }
 
     @staticmethod

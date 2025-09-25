@@ -3,6 +3,7 @@ PickerSessionServiceのローカルインポート対応追加テスト
 """
 
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 import os
 
@@ -107,6 +108,8 @@ class TestPickerSessionServiceLocalImport:
             assert status['pollingConfig'] is None
             assert status['pickingConfig'] is None
             assert status['mediaItemsSet'] is None
+            assert 'stats' in status
+            assert isinstance(status['stats'], dict)
 
     def test_status_reverts_to_processing_when_pending_items_exist(self, app):
         """選択が進行中の場合はステータスが processing に戻る"""
@@ -320,6 +323,71 @@ class TestPickerSessionServiceLocalImport:
             assert result['status'] == 'imported'
             assert result['selectedCount'] == 1
             assert result['counts'].get('dup') == 1
+
+    def test_local_import_task_handles_cancellation(self, app, monkeypatch):
+        """キャンセル要求時にタスクが中断されステータスが更新されることを検証"""
+
+        with app.app_context():
+            import_dir = Path(app.config['LOCAL_IMPORT_DIR'])
+            for i in range(3):
+                (import_dir / f'cancel_test_{i}.jpg').write_bytes(f'fake data {i}'.encode('utf-8'))
+
+            from core.tasks import local_import as local_import_module
+
+            original_import = local_import_module.import_single_file
+
+            def fake_import(file_path, import_dir, originals_dir, *, session_id=None):
+                result = original_import(file_path, import_dir, originals_dir, session_id=session_id)
+
+                if session_id and not getattr(fake_import, 'triggered', False):
+                    fake_import.triggered = True
+                    session = PickerSession.query.filter_by(session_id=session_id).first()
+                    assert session is not None
+
+                    stats = session.stats() if hasattr(session, 'stats') else {}
+                    if not isinstance(stats, dict):
+                        stats = {}
+                    stats['cancel_requested'] = True
+                    stats['stage'] = 'canceling'
+                    session.set_stats(stats)
+                    session.status = 'canceled'
+
+                    now = datetime.now(timezone.utc)
+                    pending = PickerSelection.query.filter(
+                        PickerSelection.session_id == session.id,
+                        PickerSelection.status.in_(('pending', 'enqueued')),
+                    ).all()
+                    for sel in pending:
+                        sel.status = 'skipped'
+                        sel.finished_at = now
+                    db.session.commit()
+
+                return result
+
+            fake_import.triggered = False
+            monkeypatch.setattr(local_import_module, 'import_single_file', fake_import)
+
+            result = local_import_module.local_import_task()
+
+            assert result['canceled'] is True
+
+            session = PickerSession.query.filter_by(session_id=result['session_id']).first()
+            assert session is not None
+            assert session.status == 'canceled'
+
+            stats = session.stats()
+            assert stats.get('stage') == 'canceled'
+            assert stats.get('cancel_requested') is False
+
+            counts = {
+                status: count for status, count in db.session.query(
+                    PickerSelection.status,
+                    db.func.count(PickerSelection.id)
+                )
+                .filter(PickerSelection.session_id == session.id)
+                .group_by(PickerSelection.status)
+            }
+            assert counts.get('skipped', 0) >= 1
 
 
 class TestPickerSessionServiceMixedSessions:

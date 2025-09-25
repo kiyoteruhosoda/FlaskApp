@@ -170,6 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const createSessionBtn = document.getElementById('create-session-btn');
   const accountSelect = document.getElementById('session-account');
   const localImportBtn = document.getElementById('local-import-btn');
+  const isAdmin = {{ 'true' if is_admin else 'false' }};
 
   const selectAccountMessage = '{{ _("Please choose a Google account first.") }}';
   const localImportPromptHeader = '{{ _("Start a local import from the following directories?") }}';
@@ -183,6 +184,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const localImportSuccessNotice = '{{ _("Local import has started. Track the progress in the session list.") }}';
   const localImportErrorNotice = '{{ _("Failed to start the local import.") }}';
   const startingImportNotice = '{{ _("Starting import...") }}';
+  const localImportStopStartingNotice = '{{ _("Canceling local import...") }}';
+  const localImportStopSuccessNotice = '{{ _("Local import was canceled.") }}';
+  const localImportStopErrorNotice = '{{ _("Failed to stop local import.") }}';
+  const stopLocalImportLabel = '{{ _("Stop Local Import") }}';
+  const localImportRunningMessage = '{{ _("Local import is running. You can stop it if needed.") }}';
 
   let totalLoaded = 0;
   const sessionsLoadedLabel = '{{ _("sessions loaded") }}';
@@ -289,6 +295,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const tr = document.createElement('tr');
     const displayStatus = determineDisplayStatus(session);
     const statusLabel = sessionStatusLabels[displayStatus] || displayStatus;
+    const cancellableStatuses = ['expanding', 'processing', 'importing', 'enqueued'];
+    const showStopButton = Boolean(isAdmin) && session.isLocalImport && cancellableStatuses.includes(session.status);
+    const stopButtonHtml = showStopButton
+      ? `<button class="btn btn-sm btn-outline-danger ms-1" onclick="stopLocalImport('${session.sessionId}')"><i class="bi bi-stop-circle"></i> ${stopLocalImportLabel}</button>`
+      : '';
+    let localStatusMessage = '';
+    if (session.isLocalImport) {
+      if (session.status === 'canceled') {
+        localStatusMessage = `<div class="small text-danger mt-1"><i class="bi bi-stop-circle"></i> ${localImportStopSuccessNotice}</div>`;
+      } else if (showStopButton) {
+        localStatusMessage = `<div class="small text-muted mt-1"><i class="bi bi-info-circle"></i> ${localImportRunningMessage}</div>`;
+      } else {
+        localStatusMessage = `<div class="small text-muted mt-1"><i class="bi bi-info-circle"></i> {{ _("Local Import Session. Import runs automatically.") }}</div>`;
+      }
+    }
     tr.innerHTML = `
       <td>${session.sessionId || 'N/A'}</td>
       <td><span class="badge bg-${getStatusBadgeClass(displayStatus)}">${statusLabel}</span></td>
@@ -299,6 +320,8 @@ document.addEventListener('DOMContentLoaded', () => {
       <td>
         <a href="/photo-view?session_id=${session.sessionId}" class="btn btn-sm btn-primary">{{ _("View Details") }}</a>
         ${(displayStatus === 'ready' && !session.isLocalImport) ? `<button class="btn btn-sm btn-success ms-1" onclick="startImport('${session.sessionId}')">{{ _("Start Import") }}</button>` : ''}
+        ${stopButtonHtml}
+        ${localStatusMessage}
       </td>
     `;
     return tr;
@@ -370,6 +393,34 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       console.error(err);
       showErrorToast('{{ _("Failed to start import.") }}');
+    }
+  };
+
+  window.stopLocalImport = async function(sessionId) {
+    if (!isAdmin) {
+      showErrorToast(localImportStopErrorNotice);
+      return;
+    }
+
+    try {
+      showInfoToast(localImportStopStartingNotice, 3000);
+
+      const resp = await window.apiClient.post(`/api/sync/local-import/${encodeURIComponent(sessionId)}/stop`);
+
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => '');
+        console.error('Local import stop failed:', resp.status, text);
+        showErrorToast(localImportStopErrorNotice);
+        return;
+      }
+
+      const payload = await resp.json().catch(() => ({}));
+      const message = (payload && payload.message) ? payload.message : localImportStopSuccessNotice;
+      showInfoToast(message, 4000);
+      refreshSessions();
+    } catch (err) {
+      console.error(err);
+      showErrorToast(localImportStopErrorNotice);
     }
   };
 

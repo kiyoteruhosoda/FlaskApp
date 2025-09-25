@@ -60,9 +60,14 @@ def home():
     """Photo view home page."""
     # クエリパラメータでsession_idが指定されている場合は詳細ページを表示
     session_id = request.args.get('session_id')
+    is_admin = hasattr(current_user, "has_role") and current_user.has_role("admin")
     if session_id:
-        return render_template("photo_view/session_detail.html", picker_session_id=session_id)
-    
+        return render_template(
+            "photo_view/session_detail.html",
+            picker_session_id=session_id,
+            is_admin=is_admin,
+        )
+
     # session_idがない場合は、すべてのセッション一覧を表示
     google_accounts = []
     if current_user.is_authenticated and getattr(current_user, "id", None):
@@ -76,7 +81,7 @@ def home():
         "photo_view/home.html",
         google_accounts=google_accounts,
         local_import_info=_build_local_import_info(),
-        is_admin=hasattr(current_user, "has_role") and current_user.has_role("admin"),
+        is_admin=is_admin,
     )
 
 

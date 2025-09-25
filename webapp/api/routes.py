@@ -2394,6 +2394,20 @@ def trigger_local_import():
         # Celeryタスクにセッション情報を渡して非同期実行
         task = local_import_task_celery.delay(session_id)
 
+        # CeleryのタスクIDをセッション統計に保存して、後からキャンセルできるようにする
+        stats = session.stats() or {}
+        stats.update({
+            "total": stats.get("total", 0),
+            "success": stats.get("success", 0),
+            "skipped": stats.get("skipped", 0),
+            "failed": stats.get("failed", 0),
+            "celery_task_id": task.id,
+        })
+        session.set_stats(stats)
+        session.last_progress_at = now
+        session.updated_at = now
+        db.session.commit()
+
         _local_import_log(
             "Local import task dispatched",
             event="local_import.api.trigger",
@@ -2517,6 +2531,148 @@ def local_import_status():
         },
         "server_time": datetime.now(timezone.utc).isoformat(),
     })
+
+
+@bp.post("/sync/local-import/<path:session_id>/cancel")
+@login_or_jwt_required
+def cancel_local_import(session_id: str):
+    """ローカルインポートセッションの実行を停止する"""
+
+    user = get_current_user()
+    if not user or not getattr(user, "has_role", None) or not user.has_role("admin"):
+        _local_import_log(
+            "Local import cancel rejected: insufficient permissions",
+            level="warning",
+            event="local_import.api.cancel",
+            stage="denied",
+            session_id=session_id,
+        )
+        return (
+            jsonify({"error": _("You do not have permission to stop a local import.")}),
+            403,
+        )
+
+    from core.db import db
+    from core.models.picker_session import PickerSession
+    from core.models.photo_models import PickerSelection
+
+    _local_import_log(
+        "Local import cancel requested",
+        event="local_import.api.cancel",
+        stage="start",
+        session_id=session_id,
+    )
+
+    session = PickerSession.query.filter_by(session_id=session_id).first()
+    if not session or session.account_id is not None:
+        _local_import_log(
+            "Local import cancel failed: session not found",
+            level="warning",
+            event="local_import.api.cancel",
+            stage="not_found",
+            session_id=session_id,
+        )
+        return jsonify({"error": _("Session not found.")}), 404
+
+    if session.status in {"imported", "canceled", "expired", "error", "failed"}:
+        _local_import_log(
+            "Local import cancel ignored: already finished",
+            level="info",
+            event="local_import.api.cancel",
+            stage="already_done",
+            session_id=session_id,
+            status=session.status,
+        )
+        return jsonify({"error": _("Session has already finished."), "status": session.status}), 409
+
+    now = datetime.now(timezone.utc)
+
+    pending_selections = (
+        PickerSelection.query
+        .filter(
+            PickerSelection.session_id == session.id,
+            PickerSelection.status.in_(("pending", "enqueued", "running"))
+        )
+        .all()
+    )
+
+    skipped_count = 0
+    for selection in pending_selections:
+        selection.status = "skipped"
+        selection.finished_at = now
+        selection.error_msg = _("Local import was canceled before processing.")
+        skipped_count += 1
+
+    session.status = "canceled"
+    session.updated_at = now
+    session.last_progress_at = now
+    stats = session.stats() or {}
+    stats.update({
+        "total": stats.get("total", session.selected_count or 0),
+        "success": stats.get("success", 0),
+        "skipped": stats.get("skipped", 0) + skipped_count,
+        "failed": stats.get("failed", 0),
+        "reason": "canceled",
+        "canceled_at": now.isoformat(),
+    })
+    session.set_stats(stats)
+
+    db.session.commit()
+
+    revoke_result = {"attempted": False, "error": None}
+    celery_task_id = stats.get("celery_task_id")
+    try:
+        from cli.src.celery.celery_app import celery
+
+        task_ids_to_revoke = []
+        if celery_task_id:
+            task_ids_to_revoke.append(celery_task_id)
+        else:
+            try:
+                inspect = celery.control.inspect()
+                active = inspect.active() or {}
+                for tasks in active.values():
+                    for task in tasks:
+                        if task.get("name") == "local_import.run":
+                            args = task.get("args") or []
+                            if args and args[0] == session_id:
+                                task_ids_to_revoke.append(task.get("id"))
+            except Exception as inspect_error:  # pragma: no cover - Celery may be unavailable
+                revoke_result["error"] = str(inspect_error)
+
+        for task_id in task_ids_to_revoke:
+            try:
+                celery.control.revoke(task_id, terminate=True, signal="SIGTERM")
+                revoke_result["attempted"] = True
+            except Exception as revoke_error:  # pragma: no cover - Celery revoke failure path
+                revoke_result["attempted"] = True
+                revoke_result["error"] = str(revoke_error)
+                break
+    except ImportError:
+        revoke_result["error"] = "celery_not_available"
+
+    _local_import_log(
+        "Local import cancel completed",
+        event="local_import.api.cancel",
+        stage="finished",
+        session_id=session_id,
+        skipped=skipped_count,
+        celery_task_id=stats.get("celery_task_id"),
+        revoke_attempted=revoke_result["attempted"],
+        revoke_error=revoke_result["error"],
+    )
+
+    response_payload = {
+        "success": True,
+        "session_id": session_id,
+        "skipped": skipped_count,
+        "status": "canceled",
+        "server_time": now.isoformat(),
+    }
+    if revoke_result["error"]:
+        response_payload["revoke_error"] = revoke_result["error"]
+
+    return jsonify(response_payload)
 
 
 @bp.post("/sync/local-import/directories")

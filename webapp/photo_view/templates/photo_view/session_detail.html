@@ -17,9 +17,14 @@
 </div>
 
 <div class="mb-3">
-  <button id="btn-import-start" class="btn btn-primary" disabled aria-disabled="true">
-    {{ _("Start Import") }}
-  </button>
+  <div class="d-flex flex-wrap gap-2 align-items-center">
+    <button id="btn-import-start" class="btn btn-primary" disabled aria-disabled="true">
+      {{ _("Start Import") }}
+    </button>
+    <button id="btn-import-cancel" type="button" class="btn btn-outline-danger d-none" aria-disabled="true">
+      {{ _("Stop Local Import") }}
+    </button>
+  </div>
   <div id="session-info" class="text-muted mt-2">
     {{ _("Loading session info...") }}
   </div>
@@ -50,12 +55,20 @@
   </div>
 </div>
 
-<div id="server-data" 
-     data-picker-session-id="{{ picker_session_id or '' }}" 
+<div id="server-data"
+     data-picker-session-id="{{ picker_session_id or '' }}"
+     data-is-admin="{{ '1' if is_admin|default(False) else '0' }}"
      style="display: none;"></div>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+  const serverDataEl = document.getElementById('server-data');
+  const isAdmin = serverDataEl?.getAttribute('data-is-admin') === '1';
+
+  const cancelConfirmMessage = '{{ _("Stop the local import session? This will skip any remaining files.") }}';
+  const cancelingNotice = '{{ _("Stopping local import...") }}';
+  const cancelFailedNotice = '{{ _("Failed to stop the local import session.") }}';
+  const cancelSuccessNotice = '{{ _("Local import session has been stopped.") }}';
   function escapeHtml(value) {
     if (value === null || value === undefined) {
       return '';
@@ -72,8 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
     const fromQuery = params.get('session_id');
     if (fromQuery) return fromQuery;
-    const serverDataEl = document.getElementById('server-data');
-    const fromServer = serverDataEl.getAttribute('data-picker-session-id');
+    const fromServer = serverDataEl?.getAttribute('data-picker-session-id');
     return fromServer || '';
   }
 
@@ -90,6 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const importBtn = document.getElementById('btn-import-start');
+  const cancelBtn = document.getElementById('btn-import-cancel');
   const statusEl = document.getElementById('import-status');
   const selectionBody = document.getElementById('selection-body');
   const countsEl = document.getElementById('selection-counts');
@@ -281,18 +294,30 @@ document.addEventListener('DOMContentLoaded', () => {
       countsEl.textContent = '処理完了: 0件';
     } else if (sessionStatus === 'error') {
       countsEl.textContent = 'ステータス: エラー';
+    } else if (sessionStatus === 'canceled') {
+      countsEl.textContent = '{{ _("Status") }}: ' + (sessionStatusLabels.canceled || 'canceled');
     } else {
       countsEl.textContent = '選択されたファイル: 0件';
     }
   }
 
-  function updateImportButtonState(sessionData) {
+  function updateActionButtons(sessionData) {
     if (!sessionData) return;
+    const rawStatus = sessionData.rawStatus || sessionData.status || 'pending';
+
     if (sessionData.isLocalImport) {
       importBtn.style.display = 'none';
       importBtn.disabled = true;
       importBtn.classList.add('disabled');
       importBtn.setAttribute('aria-disabled', 'true');
+
+      if (cancelBtn) {
+        const canCancel = isAdmin && ['processing', 'importing'].includes(rawStatus);
+        cancelBtn.classList.toggle('d-none', !canCancel);
+        cancelBtn.disabled = !canCancel;
+        cancelBtn.classList.toggle('disabled', !canCancel);
+        cancelBtn.setAttribute('aria-disabled', (!canCancel).toString());
+      }
       return;
     }
 
@@ -301,6 +326,13 @@ document.addEventListener('DOMContentLoaded', () => {
     importBtn.disabled = !canImport;
     importBtn.classList.toggle('disabled', !canImport);
     importBtn.setAttribute('aria-disabled', (!canImport).toString());
+
+    if (cancelBtn) {
+      cancelBtn.classList.add('d-none');
+      cancelBtn.disabled = true;
+      cancelBtn.classList.add('disabled');
+      cancelBtn.setAttribute('aria-disabled', 'true');
+    }
   }
 
   function updateSessionInfo(sessionData) {
@@ -385,9 +417,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const data = await resp.json();
       data.counts = data.counts || {};
-      data.status = determineDisplayStatus(data);
+      const rawStatus = data.status;
+      const displayStatus = determineDisplayStatus({ status: rawStatus, counts: data.counts });
+      data.rawStatus = rawStatus;
+      data.status = displayStatus;
       isLocalImport = Boolean(data.isLocalImport);
-      updateImportButtonState(data);
+      updateActionButtons(data);
       updateSessionInfo(data);
       return data;
     } catch (error) {
@@ -406,6 +441,9 @@ document.addEventListener('DOMContentLoaded', () => {
       latestStatus = sessionData?.status || latestStatus;
       currentCounts = sessionData?.counts || currentCounts || {};
       updateCountsDisplay(currentCounts, latestStatus);
+      if (sessionData?.status === 'canceled') {
+        statusEl.textContent = cancelSuccessNotice;
+      }
 
       if (!paginationClient) {
         paginationClient = new PaginationClient({
@@ -480,6 +518,41 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   });
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', async () => {
+      if (!pickerSessionId || !isAdmin) {
+        return;
+      }
+
+      if (!window.confirm(cancelConfirmMessage)) {
+        return;
+      }
+
+      await withBusy(cancelBtn, async () => {
+        try {
+          statusEl.textContent = cancelingNotice;
+          const resp = await window.apiClient.post(`/api/sync/local-import/${encodeURIComponent(pickerSessionId)}/cancel`);
+
+          if (!resp.ok) {
+            const text = await resp.text().catch(() => '');
+            console.error('Cancel local import failed:', resp.status, text);
+            statusEl.textContent = cancelFailedNotice;
+            showErrorToast(cancelFailedNotice);
+            return;
+          }
+
+          statusEl.textContent = cancelSuccessNotice;
+          showSuccessToast(cancelSuccessNotice);
+          refreshSelections();
+        } catch (err) {
+          console.error(err);
+          statusEl.textContent = cancelFailedNotice;
+          showErrorToast(cancelFailedNotice);
+        }
+      });
+    });
+  }
 
   setInterval(refreshSelections, 3000);
   refreshSelections();

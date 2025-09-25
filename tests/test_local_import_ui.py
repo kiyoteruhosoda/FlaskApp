@@ -4,12 +4,15 @@
 
 import os
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+from flask import current_app
 
 from webapp import create_app
 from webapp.extensions import db
+from core.models.picker_session import PickerSession
 from core.tasks.local_import import local_import_task
 
 
@@ -179,6 +182,88 @@ class TestSessionDetailAPI:
         # 実装によっては適切なエラーレスポンスが返される
         assert response.status_code in [400, 409, 422]
 
+    def test_cancel_local_import_requires_admin(self, app, monkeypatch):
+        client = app.test_client()
+
+        with client.session_transaction() as sess:
+            sess['_user_id'] = '1'
+            sess['_fresh'] = True
+
+        with app.app_context():
+            result = local_import_task()
+            session_id = result['session_id']
+            session = PickerSession.query.filter_by(session_id=session_id).first()
+            session.status = 'processing'
+            session.set_stats({'celery_task_id': 'dummy-task'})
+            db.session.commit()
+
+        class NonAdmin:
+            def has_role(self, role):
+                return False
+
+        monkeypatch.setattr('webapp.api.routes.get_current_user', lambda: NonAdmin())
+
+        response = client.post(f'/api/sync/local-import/{session_id}/cancel')
+        assert response.status_code == 403
+
+    def test_cancel_local_import_session(self, app, monkeypatch):
+        client = app.test_client()
+
+        with client.session_transaction() as sess:
+            sess['_user_id'] = '1'
+            sess['_fresh'] = True
+
+        with app.app_context():
+            result = local_import_task()
+            session_id = result['session_id']
+            session = PickerSession.query.filter_by(session_id=session_id).first()
+            session.status = 'processing'
+            session.set_stats({'celery_task_id': 'dummy-task'})
+            db.session.commit()
+
+        class AdminUser:
+            def has_role(self, role):
+                return role == 'admin'
+
+        monkeypatch.setattr('webapp.api.routes.get_current_user', lambda: AdminUser())
+
+        response = client.post(f'/api/sync/local-import/{session_id}/cancel')
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+        assert data['status'] == 'canceled'
+
+        with app.app_context():
+            session = PickerSession.query.filter_by(session_id=session_id).first()
+            assert session.status == 'canceled'
+
+    def test_local_import_task_respects_cancellation(self, app):
+        with app.app_context():
+            import_dir = Path(current_app.config['LOCAL_IMPORT_DIR'])
+            test_file = import_dir / 'cancel_me.jpg'
+            test_file.write_bytes(b'pending data')
+
+            now = datetime.now(timezone.utc)
+            session = PickerSession(
+                account_id=None,
+                session_id='local_import_manual_test',
+                status='processing',
+                created_at=now,
+                updated_at=now,
+                last_progress_at=now,
+            )
+            db.session.add(session)
+            db.session.commit()
+
+            session.status = 'canceled'
+            db.session.commit()
+
+            result = local_import_task(session_id=session.session_id)
+            assert result['processed'] == 0
+            refreshed = PickerSession.query.filter_by(id=session.id).first()
+            assert refreshed.status == 'canceled'
+            assert test_file.exists()
+
 
 class TestSessionDetailUI:
     """Session Detail UI のテスト"""
@@ -201,10 +286,11 @@ class TestSessionDetailUI:
         assert response.status_code == 200
         
         html = response.get_data(as_text=True)
-        
+
         # 必要なHTML要素が含まれていることを確認
         assert 'Session Details' in html
         assert 'btn-import-start' in html
+        assert 'btn-import-cancel' in html
         assert 'selection-body' in html
         assert 'selection-counts' in html
         assert session_id in html or 'data-picker-session-id' in html
@@ -227,11 +313,12 @@ class TestSessionDetailUI:
         assert response.status_code == 200
         
         html = response.get_data(as_text=True)
-        
+
         # セッション一覧テーブルが含まれていることを確認
         assert 'sessions-body' in html
         assert 'All Picker Sessions' in html
         assert 'local-import-btn' in html  # ローカルインポートボタン
+        assert 'photo-view-flags' in html
 
 
 class TestLocalImportIntegration:

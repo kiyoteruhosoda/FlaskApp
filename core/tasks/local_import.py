@@ -939,8 +939,37 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                 }
             )
         
+        cancel_requested = False
+
+        if session and getattr(session, "status", None) == "canceled":
+            cancel_requested = True
+
         # ファイルごとの処理
         for index, file_path in enumerate(files, 1):
+            if cancel_requested:
+                break
+            if session:
+                try:
+                    latest_status = (
+                        db.session.query(PickerSession.status)
+                        .filter(PickerSession.id == session.id)
+                        .scalar()
+                    )
+                except Exception:
+                    latest_status = None
+
+                if latest_status == "canceled":
+                    cancel_requested = True
+                    _log_warning(
+                        "local_import.task.cancel_requested",
+                        "キャンセル要求を検知したため処理を中断",
+                        session_id=active_session_id,
+                        celery_task_id=celery_task_id,
+                        current_index=index,
+                        total=total_files,
+                    )
+                    break
+
             result["processed"] += 1
             filename = os.path.basename(file_path)
             
@@ -1065,7 +1094,7 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                 "media_id": file_result.get("media_id")
             }
             result["details"].append(detail)
-            
+
             if file_result["success"]:
                 result["success"] += 1
                 _log_info(
@@ -1110,18 +1139,30 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                         celery_task_id=celery_task_id,
                     )
 
-        # 最終進行状況の更新
-        if task_instance:
-            task_instance.update_state(
-                state='PROGRESS',
-                meta={
-                    'status': '取り込み完了',
-                    'progress': 100,
-                    'current': total_files,
-                    'total': total_files,
-                    'message': f'完了: 成功{result["success"]}, スキップ{result["skipped"]}, 失敗{result["failed"]}'
-                }
+        if cancel_requested:
+            result["ok"] = False
+            result.setdefault("errors", []).append("ローカルインポートがキャンセルされました")
+            _log_warning(
+                "local_import.task.canceled",
+                "ローカルインポートがキャンセルされたため処理を終了",
+                session_id=active_session_id,
+                celery_task_id=celery_task_id,
+                processed=result["processed"],
+                total=total_files,
             )
+        else:
+            # 最終進行状況の更新
+            if task_instance:
+                task_instance.update_state(
+                    state='PROGRESS',
+                    meta={
+                        'status': '取り込み完了',
+                        'progress': 100,
+                        'current': total_files,
+                        'total': total_files,
+                        'message': f'完了: 成功{result["success"]}, スキップ{result["skipped"]}, 失敗{result["failed"]}'
+                    }
+                )
         
     except Exception as e:
         result["ok"] = False
@@ -1141,19 +1182,25 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
     # セッションステータスの更新
     if session:
         try:
-            session.status = "imported" if result["ok"] and result["success"] > 0 else ("error" if not result["ok"] else "ready")
+            stats = session.stats() or {}
+
+            if cancel_requested or session.status == "canceled":
+                session.status = "canceled"
+                stats["reason"] = "canceled"
+            else:
+                session.status = "imported" if result["ok"] and result["success"] > 0 else ("error" if not result["ok"] else "ready")
             session.selected_count = result["success"]
             session.updated_at = datetime.now(timezone.utc)
             session.last_progress_at = datetime.now(timezone.utc)
-            
+
             # 統計情報を設定
-            stats = {
+            stats.update({
                 "total": result["processed"],
                 "success": result["success"],
                 "skipped": result["skipped"],
                 "failed": result["failed"],
                 "celery_task_id": celery_task_id,
-            }
+            })
             session.set_stats(stats)
 
             db.session.commit()

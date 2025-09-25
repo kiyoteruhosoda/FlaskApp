@@ -1289,3 +1289,44 @@ msgstr ""
 msgid "No permissions match your search."
 msgstr ""
 
+#: webapp/photo_view/templates/photo_view/session_detail.html:17
+#: webapp/photo_view/templates/photo_view/home.html:305
+msgid "Stop Local Import"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:23
+#: webapp/photo_view/templates/photo_view/home.html:168
+msgid "Stop the local import session? This will skip any remaining files."
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:24
+#: webapp/photo_view/templates/photo_view/home.html:169
+msgid "Stopping local import..."
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:25
+#: webapp/photo_view/templates/photo_view/home.html:170
+msgid "Failed to stop the local import session."
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:26
+#: webapp/photo_view/templates/photo_view/home.html:171
+msgid "Local import session has been stopped."
+msgstr ""
+
+#: webapp/api/routes.py:239
+msgid "You do not have permission to stop a local import."
+msgstr ""
+
+#: webapp/api/routes.py:249
+msgid "Session not found."
+msgstr ""
+
+#: webapp/api/routes.py:258
+msgid "Session has already finished."
+msgstr ""
+
+#: webapp/api/routes.py:275
+msgid "Local import was canceled before processing."
+msgstr ""
+

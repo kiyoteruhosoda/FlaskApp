@@ -23,6 +23,8 @@
   </div>
 </div>
 
+<div id="photo-view-flags" data-is-admin="{{ '1' if is_admin else '0' }}" hidden></div>
+
 <div class="row g-3 align-items-stretch mb-4">
   <div class="col-xl-7">
     <div class="card shadow-sm h-100">
@@ -162,6 +164,8 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+  const flagsEl = document.getElementById('photo-view-flags');
+  const isAdmin = flagsEl?.dataset?.isAdmin === '1';
   const sessionsBody = document.getElementById('sessions-body');
   const loadingIndicator = document.getElementById('loading-indicator');
   const noMoreData = document.getElementById('no-more-data');
@@ -183,6 +187,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const localImportSuccessNotice = '{{ _("Local import has started. Track the progress in the session list.") }}';
   const localImportErrorNotice = '{{ _("Failed to start the local import.") }}';
   const startingImportNotice = '{{ _("Starting import...") }}';
+  const cancelConfirmMessage = '{{ _("Stop the local import session? This will skip any remaining files.") }}';
+  const cancelingNotice = '{{ _("Stopping local import...") }}';
+  const cancelFailedNotice = '{{ _("Failed to stop the local import session.") }}';
+  const cancelSuccessNotice = '{{ _("Local import session has been stopped.") }}';
 
   let totalLoaded = 0;
   const sessionsLoadedLabel = '{{ _("sessions loaded") }}';
@@ -297,6 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <td>
         <a href="/photo-view?session_id=${session.sessionId}" class="btn btn-sm btn-primary">{{ _("View Details") }}</a>
         ${(displayStatus === 'ready' && !session.isLocalImport) ? `<button class="btn btn-sm btn-success ms-1" onclick="startImport('${session.sessionId}')">{{ _("Start Import") }}</button>` : ''}
+        ${(isAdmin && session.isLocalImport && ['processing', 'importing'].includes(session.status)) ? `<button class="btn btn-sm btn-outline-danger ms-1" onclick="cancelLocalImport('${session.sessionId}')">{{ _("Stop Local Import") }}</button>` : ''}
       </td>
     `;
     return tr;
@@ -368,6 +377,34 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       console.error(err);
       showErrorToast('{{ _("Failed to start import.") }}');
+    }
+  };
+
+  window.cancelLocalImport = async function(sessionId) {
+    if (!isAdmin) {
+      return;
+    }
+
+    if (!confirm(cancelConfirmMessage)) {
+      return;
+    }
+
+    try {
+      showInfoToast(cancelingNotice, 3000);
+      const resp = await window.apiClient.post(`/api/sync/local-import/${sessionId}/cancel`);
+
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => '');
+        console.error('Cancel local import failed:', resp.status, text);
+        showErrorToast(cancelFailedNotice);
+        return;
+      }
+
+      showSuccessToast(cancelSuccessNotice, 5000);
+      refreshSessions();
+    } catch (err) {
+      console.error(err);
+      showErrorToast(cancelFailedNotice);
     }
   };
 

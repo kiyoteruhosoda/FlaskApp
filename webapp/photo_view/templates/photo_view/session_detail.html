@@ -182,6 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const localImportCancelingMessage = '{{ _("Canceling local import...") }}';
   const localImportCanceledMessage = '{{ _("Local import was canceled.") }}';
   const localImportStopFailedMessage = '{{ _("Failed to stop local import.") }}';
+  const localImportCancelConfirmMessage = '{{ _("Are you sure you want to cancel the local import?") }}';
 
   function getStatusBadgeClass(status) {
     switch (status) {
@@ -850,6 +851,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (stopLocalImportBtn) {
     stopLocalImportBtn.addEventListener('click', () => {
+      if (!window.confirm(localImportCancelConfirmMessage)) {
+        return;
+      }
+
       stopLocalImportSession();
     });
   }

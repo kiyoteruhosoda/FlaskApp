@@ -321,3 +321,6 @@ msgstr "Sub Pages"
 
 msgid "Parent Page"
 msgstr "Parent Page"
+
+msgid "Are you sure you want to cancel the local import?"
+msgstr "Are you sure you want to cancel the local import?"

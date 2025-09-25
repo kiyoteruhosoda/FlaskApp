@@ -1253,6 +1253,11 @@ msgstr ""
 msgid "Deleting..."
 msgstr ""
 
+#: webapp/photo_view/templates/photo_view/home.html:199
+#: webapp/photo_view/templates/photo_view/session_detail.html:184
+msgid "Are you sure you want to cancel the local import?"
+msgstr ""
+
 #: webapp/admin/templates/admin/role_edit.html:???
 msgid "Define role basics and choose the permissions it should include."
 msgstr ""

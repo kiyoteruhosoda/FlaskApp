@@ -1,13 +1,17 @@
 import base64
 import io
+from typing import Optional
 
 import pyotp
 import qrcode
+from flask_babel import gettext as _
 
 def new_totp_secret():
     return pyotp.random_base32()
 
-def provisioning_uri(email: str, secret: str, issuer: str = "MyFlaskApp"):
+def provisioning_uri(email: str, secret: str, issuer: Optional[str] = None):
+    if issuer is None:
+        issuer = _("AppName")
     return pyotp.totp.TOTP(secret).provisioning_uri(name=email, issuer_name=issuer)
 
 def verify_totp(secret: str, token: str, valid_window: int = 1):

@@ -32,7 +32,7 @@ msgstr ""
 
 #: webapp/templates/base.html:7 webapp/templates/base.html:20
 #: webapp/templates/base.html:134 webapp/templates/admin/version_view.html:3
-msgid "FlaskApp"
+msgid "AppName"
 msgstr ""
 
 #: webapp/admin/routes.py:21 webapp/admin/routes.py:36

@@ -12,7 +12,11 @@ class Log(db.Model):
     trace = db.Column(db.Text)
     path = db.Column(db.String(255))
     request_id = db.Column(db.String(36))
-    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
+    created_at = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
 
 
 __all__ = ["Log"]

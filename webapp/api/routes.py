@@ -58,6 +58,7 @@ import jwt
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func, select, case
 from werkzeug.utils import secure_filename
+from core import storage_paths as _storage_paths
 from core.storage_paths import (
     first_existing_storage_path,
     resolve_storage_file,
@@ -71,16 +72,35 @@ auth_service = AuthService(user_repo)
 
 VALID_TAG_ATTRS = {"person", "place", "thing"}
 
+_STORAGE_DEFAULTS = _storage_paths._STORAGE_DEFAULTS
+
+
+def _normalize_storage_defaults(config_key: str) -> None:
+    defaults_override = _STORAGE_DEFAULTS.get(config_key)
+    if defaults_override is None:
+        return
+    if isinstance(defaults_override, (list, tuple)):
+        normalized = tuple(defaults_override)
+    else:
+        normalized = (defaults_override,)
+    if _storage_paths._STORAGE_DEFAULTS.get(config_key) != normalized:
+        _storage_paths._STORAGE_DEFAULTS[config_key] = normalized
+    if _STORAGE_DEFAULTS.get(config_key) != normalized:
+        _STORAGE_DEFAULTS[config_key] = normalized
+
 
 def _storage_path_candidates(config_key: str) -> list[str]:
+    _normalize_storage_defaults(config_key)
     return storage_path_candidates(config_key)
 
 
 def _storage_path(config_key: str) -> str | None:
+    _normalize_storage_defaults(config_key)
     return first_existing_storage_path(config_key)
 
 
 def _resolve_storage_file(config_key: str, *path_parts: str) -> tuple[str | None, str | None, bool]:
+    _normalize_storage_defaults(config_key)
     return resolve_storage_file(config_key, *path_parts)
 
 

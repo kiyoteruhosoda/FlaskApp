@@ -2,7 +2,7 @@
 <html lang="{{ get_locale() or 'ja' }}">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="user-timezone" content="{{ current_timezone_name }}">
   <title>{% block title %}{{ _('AppName') }}{% endblock %}</title>
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">

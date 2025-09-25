@@ -12,7 +12,7 @@ import requests
 import json
 from datetime import datetime, timezone, timedelta
 from flask_login import login_user, logout_user, login_required, current_user
-from flask_babel import gettext as _
+from flask_babel import gettext as _, force_locale
 from . import bp
 from ..extensions import db
 from core.models.user import User
@@ -207,7 +207,12 @@ def select_role():
             )
             return redirect(_pop_role_selection_target())
 
-        flash(_("Invalid role selection."), "error")
+        message = _("Invalid role selection.")
+        with force_locale("en"):
+            english_message = _("Invalid role selection.")
+        if english_message and english_message != message:
+            message = f"{message} ({english_message})"
+        flash(message, "error")
 
     selected_role_id = session.get("active_role_id")
     return render_template(

@@ -1,4 +1,5 @@
 import os
+import base64
 from datetime import datetime, timezone
 from pathlib import Path
 import subprocess
@@ -6,7 +7,7 @@ import shutil
 
 import pytest
 
-from core.tasks import transcode_queue_scan, transcode_worker
+from core.tasks import backfill_playback_posters, transcode_queue_scan, transcode_worker
 
 
 ffmpeg_missing = shutil.which("ffmpeg") is None
@@ -18,9 +19,11 @@ def app(tmp_path):
     db_path = tmp_path / "test.db"
     orig = tmp_path / "orig"
     play = tmp_path / "play"
+    thumbs = tmp_path / "thumbs"
     tmpd = tmp_path / "tmp"
     orig.mkdir()
     play.mkdir()
+    thumbs.mkdir()
     tmpd.mkdir()
 
     env_keys = {
@@ -28,7 +31,9 @@ def app(tmp_path):
         "DATABASE_URI": f"sqlite:///{db_path}",
         "FPV_NAS_ORIGINALS_DIR": str(orig),
         "FPV_NAS_PLAY_DIR": str(play),
+        "FPV_NAS_THUMBS_DIR": str(thumbs),
         "FPV_TMP_DIR": str(tmpd),
+        "FPV_DL_SIGN_KEY": base64.urlsafe_b64encode(b"1" * 32).decode(),
     }
     prev_env = {k: os.environ.get(k) for k in env_keys}
     os.environ.update(env_keys)
@@ -234,10 +239,124 @@ def test_worker_transcode_basic(app):
         pb = MediaPlayback.query.get(pb_id)
         assert pb.status == "done"
         assert pb.width == 1280 and pb.height == 720
+        assert pb.poster_rel_path is not None
         m = Media.query.get(media_id)
         assert m.has_playback is True
+        assert m.thumbnail_rel_path is not None
         out = Path(os.environ["FPV_NAS_PLAY_DIR"]) / pb.rel_path
         assert out.exists()
+        poster = Path(os.environ["FPV_NAS_PLAY_DIR"]) / pb.poster_rel_path
+        assert poster.exists()
+        thumb_path = Path(os.environ["FPV_NAS_THUMBS_DIR"]) / "256" / m.thumbnail_rel_path
+        assert thumb_path.exists()
+
+
+@pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")
+def test_worker_transcode_normalizes_rel_path(app):
+    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
+    video_path = orig_dir / "2025/08/18/win.mov"
+    _make_video(video_path, "640x360", audio=True)
+    media_id = _make_media(app, rel_path="2025/08/18/win.mov", width=640, height=360)
+
+    with app.app_context():
+        from webapp.extensions import db
+        from core.models.photo_models import MediaPlayback
+
+        pb = MediaPlayback(
+            media_id=media_id,
+            preset="std1080p",
+            rel_path=r"2025\\08\\18\\win.MOV",
+            status="pending",
+        )
+        db.session.add(pb)
+        db.session.commit()
+
+        pb_id = pb.id
+        res = transcode_worker(media_playback_id=pb_id)
+        assert res["ok"] is True
+
+        db.session.refresh(pb)
+        assert pb.rel_path == "2025/08/18/win.mp4"
+        assert "\\" not in pb.rel_path
+        assert pb.poster_rel_path is not None
+        assert "\\" not in pb.poster_rel_path
+        play_path = Path(os.environ["FPV_NAS_PLAY_DIR"]) / pb.rel_path
+        assert play_path.exists()
+
+
+@pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")
+def test_worker_transcode_media_detail_playback(app):
+    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
+    video_path = orig_dir / "2025/08/18/detail.mov"
+    _make_video(video_path, "1280x720", audio=True)
+    media_id = _make_media(app, rel_path="2025/08/18/detail.mov", width=1280, height=720)
+    pb_id = _make_playback(app, media_id, "2025/08/18/detail.mov")
+
+    with app.app_context():
+        res = transcode_worker(media_playback_id=pb_id)
+        assert res["ok"] is True
+
+    app.config["LOGIN_DISABLED"] = True
+    client = app.test_client()
+
+    res = client.post(f"/api/media/{media_id}/playback-url")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data and "url" in data
+
+    playback_url = data["url"]
+    res2 = client.get(playback_url)
+    assert res2.status_code == 200
+    assert res2.headers.get("Content-Type") == "video/mp4"
+    content_length = int(res2.headers.get("Content-Length", "0"))
+    assert content_length > 0
+    assert len(res2.data) == content_length
+
+
+@pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")
+def test_backfill_playback_posters_existing_playback(app):
+    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
+    video_path = orig_dir / "2025/08/18/backfill.mp4"
+    _make_video(video_path, "640x480", audio=True)
+    media_id = _make_media(app, rel_path="2025/08/18/backfill.mp4", width=640, height=480)
+    pb_id = _make_playback(app, media_id, "2025/08/18/backfill.mp4")
+
+    with app.app_context():
+        transcode_worker(media_playback_id=pb_id)
+
+        from core.models.photo_models import MediaPlayback, Media
+        from webapp.extensions import db
+
+        pb = MediaPlayback.query.get(pb_id)
+        m = Media.query.get(media_id)
+        assert pb.poster_rel_path is not None
+        assert m.thumbnail_rel_path is not None
+
+        play_dir = Path(os.environ["FPV_NAS_PLAY_DIR"])
+        thumbs_dir = Path(os.environ["FPV_NAS_THUMBS_DIR"])
+        poster_path = play_dir / pb.poster_rel_path
+        poster_path.unlink()
+        old_thumb_rel = m.thumbnail_rel_path
+        for size in ("256", "512", "1024", "2048"):
+            thumb_path = thumbs_dir / size / old_thumb_rel
+            thumb_path.unlink(missing_ok=True)
+
+        pb.poster_rel_path = None
+        m.thumbnail_rel_path = None
+        db.session.commit()
+
+        res = backfill_playback_posters()
+        assert res["processed"] >= 1
+        assert res["updated"] >= 1
+
+        db.session.refresh(pb)
+        db.session.refresh(m)
+
+        assert pb.poster_rel_path is not None
+        assert (play_dir / pb.poster_rel_path).exists()
+        assert m.thumbnail_rel_path is not None
+        thumb_256 = thumbs_dir / "256" / m.thumbnail_rel_path
+        assert thumb_256.exists()
 
 
 @pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")

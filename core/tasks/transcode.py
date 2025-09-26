@@ -24,10 +24,11 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from core.db import db
 from core.models.photo_models import Media, MediaPlayback
+from .thumbs_generate import thumbs_generate
 
 # transcode専用ロガーを取得（両方のログハンドラーが設定済み）
 logger = logging.getLogger('celery.task.transcode')
@@ -54,6 +55,225 @@ def _tmp_dir() -> Path:
     tmp = Path(os.environ.get("FPV_TMP_DIR", "/tmp/fpv_tmp"))
     tmp.mkdir(parents=True, exist_ok=True)
     return tmp
+
+
+def _normalise_rel_path(rel_path: Optional[str], *, suffix: Optional[str] = None) -> Optional[str]:
+    """Return a sanitised POSIX-style relative path.
+
+    The helper normalises path separators, removes empty/``.`` segments, and
+    drops any ``..`` components.  When *suffix* is provided the returned path is
+    forced to use that suffix irrespective of the original extension.
+    """
+
+    if not rel_path:
+        return None
+
+    normalised = rel_path.replace("\\", "/")
+    candidate = Path(normalised)
+
+    parts: List[str] = []
+    parent_traversal = False
+    for part in candidate.parts:
+        if part in {"", "."}:
+            continue
+        if part == "..":
+            parent_traversal = True
+            continue
+        parts.append(part)
+
+    if not parts:
+        return None
+
+    cleaned = Path(*parts)
+    if suffix:
+        if cleaned.suffix:
+            cleaned = cleaned.with_suffix(suffix)
+        else:
+            cleaned = cleaned.with_name(cleaned.name + suffix)
+
+    result = cleaned.as_posix()
+
+    if parent_traversal:
+        logger.warning(
+            "Relative path contained parent traversal and was sanitised",  # pragma: no cover - defensive logging
+            extra={
+                "event": "transcode.relpath.sanitised",
+                "original": rel_path,
+                "sanitised": result,
+            },
+        )
+
+    return result
+
+
+def _poster_tmp_path(playback_id: int) -> Path:
+    """Return a temporary path for poster generation."""
+
+    return _tmp_dir() / f"pb_{playback_id}_poster.jpg"
+
+
+def _poster_rel_path(playback: MediaPlayback) -> str:
+    """Return poster relative path for a playback output."""
+
+    cleaned_rel = _normalise_rel_path(playback.rel_path)
+    base = Path(cleaned_rel) if cleaned_rel else Path(f"pb_{playback.id}")
+    if base.suffix:
+        poster = base.with_suffix(".jpg")
+    else:
+        poster = base.with_name(base.name + ".jpg")
+    return poster.as_posix()
+
+
+def _generate_poster(playback: MediaPlayback, video_path: Path) -> Optional[str]:
+    """Generate a JPEG poster frame for *playback* returning the relative path."""
+
+    poster_tmp = _poster_tmp_path(playback.id)
+    poster_rel = _poster_rel_path(playback)
+    poster_dest = _play_dir() / poster_rel
+    poster_dest.parent.mkdir(parents=True, exist_ok=True)
+
+    commands = [
+        [
+            "ffmpeg",
+            "-y",
+            "-ss",
+            "00:00:01.000",
+            "-i",
+            str(video_path),
+            "-frames:v",
+            "1",
+            str(poster_tmp),
+        ],
+        [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(video_path),
+            "-frames:v",
+            "1",
+            str(poster_tmp),
+        ],
+    ]
+
+    for cmd in commands:
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode == 0 and poster_tmp.exists():
+            break
+    else:  # pragma: no cover - extremely unlikely when ffmpeg succeeds above
+        logger.warning(
+            "Poster generation failed for playback %s",
+            playback.id,
+            extra={
+                "event": "transcode.poster.failed",
+                "playback_id": playback.id,
+                "media_id": playback.media_id,
+            },
+        )
+        poster_tmp.unlink(missing_ok=True)
+        return None
+
+    try:
+        shutil.move(str(poster_tmp), poster_dest)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning(
+            "Poster move failed for playback %s: %s",
+            playback.id,
+            exc,
+            extra={
+                "event": "transcode.poster.move_failed",
+                "playback_id": playback.id,
+                "media_id": playback.media_id,
+            },
+        )
+        poster_tmp.unlink(missing_ok=True)
+        return None
+
+    return poster_rel
+
+
+# ---------------------------------------------------------------------------
+# Poster backfill utilities
+# ---------------------------------------------------------------------------
+
+
+def backfill_playback_posters(*, limit: Optional[int] = None) -> Dict[str, object]:
+    """Generate posters for completed playbacks that pre-date poster support."""
+
+    processed = 0
+    updated = 0
+    skipped = 0
+    errors = 0
+
+    query = (
+        MediaPlayback.query.filter(
+            MediaPlayback.status == "done",
+            MediaPlayback.poster_rel_path.is_(None),
+            MediaPlayback.rel_path.isnot(None),
+        )
+        .order_by(MediaPlayback.id.asc())
+    )
+    playbacks: List[MediaPlayback]
+    if limit is not None:
+        playbacks = query.limit(limit).all()
+    else:
+        playbacks = query.all()
+
+    for pb in playbacks:
+        processed += 1
+        rel_path = _normalise_rel_path(pb.rel_path, suffix=".mp4")
+        if not rel_path:
+            skipped += 1
+            continue
+
+        if rel_path != pb.rel_path:
+            pb.rel_path = rel_path
+
+        video_path = _play_dir() / rel_path
+        if not video_path.exists():
+            skipped += 1
+            logger.warning(
+                "Playback file missing while backfilling poster",
+                extra={
+                    "event": "transcode.poster.backfill_missing",
+                    "playback_id": pb.id,
+                    "media_id": pb.media_id,
+                    "video_path": str(video_path),
+                },
+            )
+            continue
+
+        poster_rel = _generate_poster(pb, video_path)
+        if not poster_rel:
+            errors += 1
+            continue
+
+        pb.poster_rel_path = poster_rel
+        pb.updated_at = datetime.now(timezone.utc)
+        updated += 1
+        db.session.flush()
+
+        try:
+            thumbs_generate(media_id=pb.media_id, force=True)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning(
+                "Thumbnail generation failed during poster backfill: %s",
+                exc,
+                extra={
+                    "event": "transcode.poster.backfill_thumb_failed",
+                    "playback_id": pb.id,
+                    "media_id": pb.media_id,
+                },
+            )
+
+    db.session.commit()
+
+    return {
+        "processed": processed,
+        "updated": updated,
+        "skipped": skipped,
+        "errors": errors,
+        "notes": None,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -95,7 +315,9 @@ def transcode_queue_scan() -> Dict[str, object]:
             skipped += 1
             continue
 
-        rel_path = str(Path(m.local_rel_path).with_suffix(".mp4"))
+        rel_path = _normalise_rel_path(m.local_rel_path, suffix=".mp4")
+        if not rel_path:
+            rel_path = f"media_{m.id}.mp4"
         if pb:
             pb.status = "pending"
             pb.rel_path = rel_path
@@ -216,7 +438,11 @@ def transcode_worker(*, media_playback_id: int) -> Dict[str, object]:
     pb.updated_at = datetime.now(timezone.utc)
     db.session.commit()
 
-    out_rel = pb.rel_path or str(Path(m.local_rel_path).with_suffix(".mp4"))
+    out_rel = _normalise_rel_path(pb.rel_path, suffix=".mp4")
+    if not out_rel:
+        out_rel = _normalise_rel_path(m.local_rel_path, suffix=".mp4")
+    if not out_rel:
+        out_rel = f"pb_{pb.id}.mp4"
     pb.rel_path = out_rel
     tmp_dir = _tmp_dir()
     tmp_out = tmp_dir / f"pb_{pb.id}.mp4"
@@ -387,6 +613,8 @@ def transcode_worker(*, media_playback_id: int) -> Dict[str, object]:
             "note": "file_move_error",
         }
 
+    poster_rel = _generate_poster(pb, dest_path)
+
     pb.width = width
     pb.height = height
     pb.v_codec = "h264"
@@ -394,9 +622,25 @@ def transcode_worker(*, media_playback_id: int) -> Dict[str, object]:
     pb.v_bitrate_kbps = int(bitrate / 1000) if bitrate else None
     pb.duration_ms = int(duration * 1000)
     pb.status = "done"
+    pb.poster_rel_path = poster_rel
     pb.updated_at = datetime.now(timezone.utc)
     m.has_playback = True
     db.session.commit()
+
+    if poster_rel:
+        try:
+            thumbs_generate(media_id=m.id, force=True)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning(
+                "Thumbnail generation failed after playback %s: %s",
+                pb.id,
+                exc,
+                extra={
+                    "event": "transcode.poster.thumb_failed",
+                    "playback_id": pb.id,
+                    "media_id": pb.media_id,
+                },
+            )
 
     return {
         "ok": True,

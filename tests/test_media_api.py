@@ -168,6 +168,36 @@ def seed_media_bulk(app):
 
 
 @pytest.fixture
+def seed_media_without_shot_at(app):
+    from webapp.extensions import db
+    from core.models.photo_models import Media
+    from core.models.google_account import GoogleAccount
+
+    with app.app_context():
+        account_id = GoogleAccount.query.first().id
+        created_ids = []
+        for i in range(5):
+            media = Media(
+                google_media_id=f"missing-shot-{i}",
+                account_id=account_id,
+                local_rel_path=f"missing-{i}.jpg",
+                bytes=1,
+                mime_type="image/jpeg",
+                width=100,
+                height=100,
+                shot_at=None,
+                is_video=False,
+                is_deleted=False,
+                has_playback=False,
+            )
+            db.session.add(media)
+            db.session.flush()
+            created_ids.append(media.id)
+        db.session.commit()
+        return created_ids
+
+
+@pytest.fixture
 def seed_media_range(app):
     from webapp.extensions import db
     from core.models.photo_models import Media
@@ -509,6 +539,37 @@ def test_list_second_page(client, seed_media_bulk):
     data = res.get_json()
     assert len(data["items"]) <= 50
     assert data.get("nextCursor") is None
+
+
+def test_list_cursor_falls_back_to_id(client, seed_media_without_shot_at):
+    _ = seed_media_without_shot_at
+    login(client)
+
+    res1 = client.get("/api/media?pageSize=2&order=desc")
+    assert res1.status_code == 200
+    data1 = res1.get_json()
+    ids1 = [item["id"] for item in data1["items"]]
+    assert ids1 == sorted(ids1, reverse=True)
+    cursor1 = data1.get("nextCursor")
+    assert cursor1
+
+    res2 = client.get(f"/api/media?pageSize=2&order=desc&cursor={cursor1}")
+    assert res2.status_code == 200
+    data2 = res2.get_json()
+    ids2 = [item["id"] for item in data2["items"]]
+    assert ids2 == sorted(ids2, reverse=True)
+    assert not set(ids1) & set(ids2)
+    cursor2 = data2.get("nextCursor")
+    assert cursor2 and cursor2 != cursor1
+
+    res3 = client.get(f"/api/media?pageSize=2&order=desc&cursor={cursor2}")
+    assert res3.status_code == 200
+    data3 = res3.get_json()
+    ids3 = [item["id"] for item in data3["items"]]
+    assert ids3 == sorted(ids3, reverse=True)
+    assert not (set(ids1) & set(ids3))
+    assert not (set(ids2) & set(ids3))
+    assert data3.get("nextCursor") is None
 
 
 def test_list_deleted_excluded(client, seed_media_bulk):

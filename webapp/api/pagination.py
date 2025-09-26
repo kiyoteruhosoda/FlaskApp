@@ -249,19 +249,26 @@ class Paginator:
                 )
                 
             # カーソル条件の適用
-            if cursor_info and cursor_info.shot_at is not None:
-                if params.order == "asc":
-                    query = query.filter(
-                        (shot_at_column > cursor_info.shot_at) |
-                        ((shot_at_column == cursor_info.shot_at) & 
-                         (id_column > cursor_info.id_value)) if id_column else True
-                    )
-                else:
-                    query = query.filter(
-                        (shot_at_column < cursor_info.shot_at) |
-                        ((shot_at_column == cursor_info.shot_at) & 
-                         (id_column < cursor_info.id_value)) if id_column else True
-                    )
+            if cursor_info:
+                if cursor_info.shot_at is not None:
+                    if params.order == "asc":
+                        query = query.filter(
+                            (shot_at_column > cursor_info.shot_at) |
+                            ((shot_at_column == cursor_info.shot_at) &
+                             (id_column > cursor_info.id_value)) if id_column else True
+                        )
+                    else:
+                        query = query.filter(
+                            (shot_at_column < cursor_info.shot_at) |
+                            ((shot_at_column == cursor_info.shot_at) &
+                             (id_column < cursor_info.id_value)) if id_column else True
+                        )
+                elif id_column is not None and cursor_info.id_value is not None:
+                    # shot_at が欠落しているカーソルでは ID でフォールバックする
+                    if params.order == "asc":
+                        query = query.filter(id_column > cursor_info.id_value)
+                    else:
+                        query = query.filter(id_column < cursor_info.id_value)
                     
         elif created_at_column is not None:
             # created_at + id のソート

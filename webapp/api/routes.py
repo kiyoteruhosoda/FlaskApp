@@ -246,7 +246,7 @@ def jwt_required(f):
 def _normalize_rel_path(value: str | None) -> Path | None:
     if not value:
         return None
-    normalized = value.lstrip("/\\")
+    normalized = value.replace("\\", "/").lstrip("/")
     if not normalized:
         return None
     return Path(normalized)
@@ -1623,12 +1623,29 @@ def serialize_tag(tag: Tag) -> dict:
     }
 
 
+def _path_to_posix(rel_path: str | None) -> str | None:
+    """Convert a stored relative path into POSIX-style notation."""
+
+    if not rel_path:
+        return None
+
+    normalized = _normalize_rel_path(rel_path)
+    if not normalized:
+        return None
+    return normalized.as_posix()
+
+
 def build_playback_dict(playback: MediaPlayback | None) -> dict:
     """Return playback information dictionary."""
+
+    rel_path = _path_to_posix(playback.rel_path) if playback else None
+    poster_rel_path = _path_to_posix(playback.poster_rel_path) if playback else None
+
     return {
         "available": bool(playback and playback.status == "done"),
         "preset": playback.preset if playback else None,
-        "rel_path": playback.rel_path if playback else None,
+        "rel_path": rel_path,
+        "poster_rel_path": poster_rel_path,
         "status": playback.status if playback else None,
     }
 

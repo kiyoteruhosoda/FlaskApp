@@ -244,8 +244,10 @@ def test_worker_transcode_basic(app):
         assert m.has_playback is True
         assert m.thumbnail_rel_path is not None
         out = Path(os.environ["FPV_NAS_PLAY_DIR"]) / pb.rel_path
+        assert res["output_path"] == str(out)
         assert out.exists()
         poster = Path(os.environ["FPV_NAS_PLAY_DIR"]) / pb.poster_rel_path
+        assert res["poster_path"] == str(poster)
         assert poster.exists()
         thumb_path = Path(os.environ["FPV_NAS_THUMBS_DIR"]) / "256" / m.thumbnail_rel_path
         assert thumb_path.exists()
@@ -269,10 +271,42 @@ def test_worker_transcode_passthrough_mp4(app):
         assert pb is not None
         assert pb.status == "done"
         play_path = Path(os.environ["FPV_NAS_PLAY_DIR"]) / pb.rel_path
+        assert res["output_path"] == str(play_path)
         assert play_path.exists()
         assert play_path.read_bytes() == video_path.read_bytes()
         media = Media.query.get(media_id)
         assert media and media.has_playback is True
+
+
+@pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")
+def test_worker_transcode_detects_missing_output(app, monkeypatch):
+    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
+    video_path = orig_dir / "2025/08/18/missing_output.mp4"
+    _make_video(video_path, "640x360", audio=True)
+    media_id = _make_media(app, rel_path="2025/08/18/missing_output.mp4", width=640, height=360)
+    pb_id = _make_playback(app, media_id, "2025/08/18/missing_output.mp4")
+
+    original_move = shutil.move
+
+    def fake_move(src, dest):
+        original_move(src, dest)
+        Path(dest).unlink(missing_ok=True)
+
+    monkeypatch.setattr(shutil, "move", fake_move)
+
+    with app.app_context():
+        res = transcode_worker(media_playback_id=pb_id)
+        assert res["ok"] is False
+        assert res["note"] == "missing_output"
+
+        from core.models.photo_models import MediaPlayback, Media
+
+        pb = MediaPlayback.query.get(pb_id)
+        assert pb.status == "error"
+        assert pb.error_msg == "missing_output"
+
+        media = Media.query.get(media_id)
+        assert media.has_playback is False
 
 
 @pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")

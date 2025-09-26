@@ -436,9 +436,47 @@ def extract_exif_data(file_path: str) -> Dict:
     return exif_data
 
 
+def _parse_ffprobe_datetime(value: str) -> Optional[datetime]:
+    """ffprobeが返す日時文字列をUTCのdatetimeへ変換する。"""
+
+    if not value:
+        return None
+
+    raw = value.strip()
+    if not raw:
+        return None
+
+    normalized = raw
+
+    # 一部のQuickTimeタグでは "YYYY-MM-DD HH:MM:SS" の形式で返るため、ISO8601に寄せる。
+    if "T" not in normalized and " " in normalized:
+        normalized = normalized.replace(" ", "T", 1)
+
+    normalized = normalized.replace("Z", "+00:00")
+
+    # タイムゾーンが +0900 のようにコロン無しで返るケースに対応
+    if len(normalized) > 5 and normalized[-5] in {"+", "-"} and normalized[-3] != ":":
+        normalized = f"{normalized[:-2]}:{normalized[-2:]}"
+
+    try:
+        dt = datetime.fromisoformat(normalized)
+    except ValueError:
+        try:
+            dt = datetime.strptime(raw, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return None
+
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt = dt.astimezone(timezone.utc)
+
+    return dt
+
+
 def extract_video_metadata(file_path: str) -> Dict:
     """動画ファイルからメタデータを抽出（ffprobeを使用）"""
-    metadata = {}
+    metadata: Dict[str, Any] = {}
     try:
         cmd = [
             "ffprobe",
@@ -453,7 +491,8 @@ def extract_video_metadata(file_path: str) -> Dict:
             info = json.loads(proc.stdout)
             
             # ビデオストリーム情報を取得
-            video_streams = [s for s in info.get("streams", []) if s.get("codec_type") == "video"]
+            streams = info.get("streams", [])
+            video_streams = [s for s in streams if s.get("codec_type") == "video"]
             if video_streams:
                 v_stream = video_streams[0]
                 # FPSを取得
@@ -465,20 +504,41 @@ def extract_video_metadata(file_path: str) -> Dict:
                             metadata["fps"] = float(num) / float(den)
                     else:
                         metadata["fps"] = float(fps_str)
-                
+
                 # 幅・高さを取得
                 metadata["width"] = v_stream.get("width")
                 metadata["height"] = v_stream.get("height")
-            
+
+                # ストリームタグから作成日時を確認
+                stream_tags = v_stream.get("tags") or {}
+                for key in ("creation_time", "com.apple.quicktime.creationdate", "date"):
+                    shot_at_candidate = stream_tags.get(key)
+                    if shot_at_candidate:
+                        parsed = _parse_ffprobe_datetime(str(shot_at_candidate))
+                        if parsed:
+                            metadata["shot_at"] = parsed
+                            break
+
             # フォーマット情報から時間を取得
             format_info = info.get("format", {})
             if "duration" in format_info:
                 metadata["duration_ms"] = int(float(format_info["duration"]) * 1000)
-    
+
+            # フォーマットタグに作成日時が含まれていれば利用
+            format_tags = format_info.get("tags") or {}
+            if "shot_at" not in metadata:
+                for key in ("creation_time", "com.apple.quicktime.creationdate", "date"):
+                    shot_at_candidate = format_tags.get(key)
+                    if shot_at_candidate:
+                        parsed = _parse_ffprobe_datetime(str(shot_at_candidate))
+                        if parsed:
+                            metadata["shot_at"] = parsed
+                            break
+
     except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError, ValueError):
         # ffprobeが使えない場合やエラーの場合は空のメタデータを返す
         pass
-    
+
     return metadata
 
 
@@ -646,18 +706,29 @@ def import_single_file(
             )
             return result
         
-        # 撮影日時の取得
+        is_video = file_extension in SUPPORTED_VIDEO_EXTENSIONS
+
+        # 撮影日時とメタデータの取得
         shot_at = None
-        
-        # まずEXIFから取得を試行
-        if file_extension in SUPPORTED_IMAGE_EXTENSIONS:
+        exif_data: Optional[Dict[str, Any]] = None
+        video_meta: Optional[Dict[str, Any]] = None
+
+        if is_video:
+            video_meta = extract_video_metadata(file_path)
+            if video_meta:
+                candidate = video_meta.get("shot_at")
+                if isinstance(candidate, datetime):
+                    shot_at = candidate
+                elif isinstance(candidate, str):
+                    shot_at = _parse_ffprobe_datetime(candidate)
+        elif file_extension in SUPPORTED_IMAGE_EXTENSIONS:
             exif_data = extract_exif_data(file_path)
             shot_at = get_file_date_from_exif(exif_data)
-        
-        # EXIFから取得できない場合は、ファイル名から取得
+
+        # EXIF/動画メタデータから取得できない場合は、ファイル名から取得
         if not shot_at:
             shot_at = get_file_date_from_name(os.path.basename(file_path))
-        
+
         # それでも取得できない場合は、ファイルの更新日時を使用
         if not shot_at:
             mtime = os.path.getmtime(file_path)
@@ -672,16 +743,18 @@ def import_single_file(
         os.makedirs(os.path.dirname(dest_path), exist_ok=True)
         
         # メディア情報の取得
-        is_video = file_extension in SUPPORTED_VIDEO_EXTENSIONS
         width, height, orientation = None, None, None
         duration_ms = None
-        
+
         if not is_video:
             width, height, orientation = get_image_dimensions(file_path)
         else:
-            # 動画の場合はffprobeで取得（後でvideo_metaに保存）
-            pass
-        
+            # 動画の場合はffprobeで取得済みのメタデータから値を利用
+            if video_meta:
+                width = video_meta.get('width') or width
+                height = video_meta.get('height') or height
+                duration_ms = video_meta.get('duration_ms') or duration_ms
+
         # MIMEタイプの決定
         mime_type_map = {
             '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
@@ -703,19 +776,6 @@ def import_single_file(
             session_id=session_id,
             status="copied",
         )
-        
-        # EXIFデータと動画メタデータの事前取得（MediaItem作成で使用）
-        exif_data = None
-        video_meta = None
-        if not is_video and file_extension in SUPPORTED_IMAGE_EXTENSIONS:
-            exif_data = extract_exif_data(file_path)
-        elif is_video:
-            video_meta = extract_video_metadata(file_path)
-            # 動画メタデータから寸法・時間を取得
-            if video_meta:
-                width = video_meta.get('width') or width
-                height = video_meta.get('height') or height
-                duration_ms = video_meta.get('duration_ms') or duration_ms
         
         # MediaItemとメタデータの作成
         media_item = create_media_item_for_local(

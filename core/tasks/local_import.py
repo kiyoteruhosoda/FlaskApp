@@ -1101,6 +1101,30 @@ def import_single_file(
                     "動画の再生ファイル生成に失敗しました (理由: playback_file_missing)"
                 )
 
+        else:
+            db.session.refresh(media)
+            thumb_result = (post_process_result or {}).get("thumbnails") or {}
+            generated_sizes = thumb_result.get("generated") or []
+            skipped_sizes = thumb_result.get("skipped") or []
+            if generated_sizes and media.thumbnail_rel_path:
+                thumbs_base = Path(_resolve_directory("FPV_NAS_THUMBS_DIR"))
+                thumbnail_paths = [
+                    str(thumbs_base / str(size) / media.thumbnail_rel_path)
+                    for size in generated_sizes
+                ]
+
+                _log_info(
+                    "local_import.file.thumbnails_generated",
+                    "サムネイルを生成して配置しました",
+                    session_id=session_id,
+                    status="thumbnails_generated",
+                    media_id=media.id,
+                    generated_sizes=generated_sizes,
+                    skipped_sizes=skipped_sizes,
+                    thumbnail_rel_path=media.thumbnail_rel_path,
+                    thumbnail_paths=thumbnail_paths,
+                )
+
         # 元ファイルの削除
         os.remove(file_path)
         _log_info(

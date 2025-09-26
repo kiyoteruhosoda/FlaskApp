@@ -45,12 +45,27 @@
   .media-display.zoomed {
     overflow: auto;
   }
-  
+
   .media-video {
     max-width: 100%;
     max-height: 80vh;
   }
-  
+
+  .media-video-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .media-video-message {
+    text-align: center;
+    color: #ffffff;
+    max-width: 520px;
+  }
+
   .media-controls {
     position: absolute;
     top: 10px;
@@ -399,6 +414,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const downloadPlaybackPendingText = '動画の再生準備が完了していません。しばらくしてから再度お試しください。';
   const downloadPlaybackMissingText = '動画の再生ファイルが見つかりませんでした。';
   const downloadMissingUrlText = 'Missing download URL';
+  const playbackLoadingText = '動画を読み込んでいます...';
+  const playbackUnavailableText = '動画の再生用ファイルがまだ準備されていません。しばらくしてから再度お試しください。';
+  const playbackRequestErrorText = '動画の再生URLを取得できませんでした。';
+  const playbackStreamErrorText = '動画の再生中にエラーが発生しました。';
+  const playbackRetryText = '再読み込み';
 
   if (mediaTagsContainer && !mediaTagsContainer.dataset.emptyText) {
     mediaTagsContainer.dataset.emptyText = noTagsAssignedText;
@@ -579,17 +599,133 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   function displayVideo(media) {
-    // 動画表示の実装（後で追加）
-    const video = document.createElement('div');
-    video.className = 'text-center text-white p-5';
-    video.innerHTML = '<h4>Video Player</h4><p>Video playback will be implemented here</p>';
-    
+    if (zoomBtn) {
+      zoomBtn.style.display = 'none';
+      zoomBtn.removeEventListener('click', toggleZoom);
+    }
+    isZoomed = false;
+    mediaDisplay.classList.remove('zoomed');
+
     const controls = mediaDisplay.querySelector('.media-controls');
-    const navs = mediaDisplay.querySelectorAll('.media-nav');
+    const navs = Array.from(mediaDisplay.querySelectorAll('.media-nav'));
+
+    const videoContainer = document.createElement('div');
+    videoContainer.className = 'media-video-container';
+
+    const showMessage = (message, { title = null, allowRetry = false } = {}) => {
+      if (!mediaDisplay.contains(videoContainer)) {
+        return;
+      }
+      videoContainer.innerHTML = '';
+      const wrapper = document.createElement('div');
+      wrapper.className = 'media-video-message';
+      if (title) {
+        const heading = document.createElement('h4');
+        heading.className = 'mb-3';
+        heading.textContent = title;
+        wrapper.appendChild(heading);
+      }
+      const paragraph = document.createElement('p');
+      paragraph.className = 'mb-0';
+      paragraph.textContent = message;
+      wrapper.appendChild(paragraph);
+      if (allowRetry) {
+        const retryBtn = document.createElement('button');
+        retryBtn.type = 'button';
+        retryBtn.className = 'btn btn-outline-light btn-sm mt-3';
+        retryBtn.textContent = playbackRetryText;
+        retryBtn.addEventListener('click', () => {
+          loadPlayback();
+        });
+        wrapper.appendChild(retryBtn);
+      }
+      videoContainer.appendChild(wrapper);
+    };
+
+    const showLoading = () => {
+      if (!mediaDisplay.contains(videoContainer)) {
+        return;
+      }
+      videoContainer.innerHTML = '';
+      const wrapper = document.createElement('div');
+      wrapper.className = 'media-video-message';
+      wrapper.innerHTML = `
+        <div class="spinner-border text-light mb-3" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mb-0">${playbackLoadingText}</p>
+      `;
+      videoContainer.appendChild(wrapper);
+    };
+
+    const attachVideo = (src) => {
+      if (!mediaDisplay.contains(videoContainer)) {
+        return;
+      }
+      videoContainer.innerHTML = '';
+      const videoEl = document.createElement('video');
+      videoEl.className = 'media-video';
+      videoEl.controls = true;
+      videoEl.preload = 'metadata';
+      videoEl.setAttribute('playsinline', '');
+      videoEl.setAttribute('webkit-playsinline', '');
+      videoEl.poster = `/api/media/${media.id}/thumbnail?size=1024`;
+      videoEl.src = src;
+      videoEl.addEventListener('error', () => {
+        showMessage(playbackStreamErrorText, { allowRetry: true });
+      });
+      videoContainer.appendChild(videoEl);
+    };
+
+    const loadPlayback = async () => {
+      const playbackInfo = media.playback || {};
+      if (!media.has_playback) {
+        showMessage(playbackUnavailableText);
+        return;
+      }
+      if (!playbackInfo.available) {
+        if (playbackInfo.status === 'pending' || playbackInfo.status === 'processing') {
+          showMessage(downloadPlaybackPendingText, { allowRetry: true });
+        } else {
+          showMessage(downloadPlaybackMissingText);
+        }
+        return;
+      }
+
+      showLoading();
+
+      try {
+        const response = await window.apiClient.post(`/api/media/${media.id}/playback-url`);
+        if (!response.ok) {
+          if (response.status === 409) {
+            showMessage(downloadPlaybackPendingText, { allowRetry: true });
+            return;
+          }
+          if (response.status === 404) {
+            showMessage(downloadPlaybackMissingText);
+            return;
+          }
+          throw new Error(`Playback request failed: ${response.status}`);
+        }
+        const data = await response.json();
+        if (!data || !data.url) {
+          throw new Error('Playback URL missing');
+        }
+        attachVideo(data.url);
+      } catch (error) {
+        console.error('Failed to load playback URL', error);
+        showMessage(playbackRequestErrorText, { allowRetry: true });
+      }
+    };
+
     mediaDisplay.innerHTML = '';
-    mediaDisplay.appendChild(video);
-    mediaDisplay.appendChild(controls);
-    navs.forEach(nav => mediaDisplay.appendChild(nav));
+    mediaDisplay.appendChild(videoContainer);
+    if (controls) {
+      mediaDisplay.appendChild(controls);
+    }
+    navs.forEach((nav) => mediaDisplay.appendChild(nav));
+
+    loadPlayback();
   }
   
   function toggleZoom() {

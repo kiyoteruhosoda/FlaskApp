@@ -24,7 +24,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from core.db import db
 from core.models.photo_models import Media, MediaPlayback
@@ -122,6 +122,48 @@ def _poster_rel_path(playback: MediaPlayback) -> str:
     else:
         poster = base.with_name(base.name + ".jpg")
     return poster.as_posix()
+
+
+def _is_passthrough_candidate(media: Media, probe: Dict[str, Any]) -> bool:
+    """Return ``True`` when *media* can be copied directly for playback."""
+
+    suffix = Path(media.local_rel_path or "").suffix.lower()
+    if suffix != ".mp4":
+        return False
+
+    fmt = (probe.get("format", {}) or {})
+    format_name = str(fmt.get("format_name", "")).lower()
+    if "mp4" not in format_name:
+        return False
+
+    streams: List[Dict[str, Any]] = list(probe.get("streams", []) or [])
+    vstreams = [s for s in streams if (s.get("codec_type") or "").lower() == "video"]
+    astreams = [s for s in streams if (s.get("codec_type") or "").lower() == "audio"]
+    if not vstreams or not astreams:
+        return False
+
+    v = vstreams[0]
+    a = astreams[0]
+    vcodec = str(v.get("codec_name", "")).lower()
+    acodec = str(a.get("codec_name", "")).lower()
+    if vcodec != "h264":
+        return False
+    if acodec not in {"aac", "mp4a"}:
+        return False
+
+    try:
+        width = int(v.get("width") or 0)
+        height = int(v.get("height") or 0)
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        return False
+
+    if width <= 0 or height <= 0:
+        return False
+
+    if width > 1920 or height > 1080:
+        return False
+
+    return True
 
 
 def _generate_poster(playback: MediaPlayback, video_path: Path) -> Optional[str]:
@@ -447,90 +489,134 @@ def transcode_worker(*, media_playback_id: int) -> Dict[str, object]:
     tmp_dir = _tmp_dir()
     tmp_out = tmp_dir / f"pb_{pb.id}.mp4"
 
-    crf = int(os.environ.get("FPV_TRANSCODE_CRF", "20"))
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-i",
-        str(src_path),
-        "-vf",
-        "scale='min(1920,iw)':'min(1080,ih)':force_original_aspect_ratio=decrease",
-        "-c:v",
-        "libx264",
-        "-crf",
-        str(crf),
-        "-preset",
-        "veryfast",
-        "-c:a",
-        "aac",
-        "-b:a",
-        "128k",
-        "-ac",
-        "2",
-        "-movflags",
-        "+faststart",
-        str(tmp_out),
-    ]
-    proc = subprocess.run(cmd, capture_output=True, text=True)
-    if proc.returncode != 0:
-        error_details = {
-            "playback_id": pb.id,
-            "media_id": pb.media_id,
-            "input_path": str(src_path),
-            "output_path": str(tmp_out),
-            "ffmpeg_command": " ".join(cmd),
-            "return_code": proc.returncode,
-            "stderr": proc.stderr,
-            "stdout": proc.stdout
-        }
-        logger.error(
-            f"FFmpeg変換失敗: playback_id={pb.id}, media_id={pb.media_id} - return_code={proc.returncode}",
-            extra={
-                "event": "transcode.ffmpeg.failed",
-                "error_details": json.dumps(error_details)
-            }
-        )
-        pb.status = "error"
-        pb.error_msg = proc.stderr[-1000:]
-        pb.updated_at = datetime.now(timezone.utc)
-        db.session.commit()
-        return {
-            "ok": False,
-            "duration_ms": 0,
-            "width": 0,
-            "height": 0,
-            "note": "ffmpeg_error",
-        }
-
+    src_probe: Optional[Dict[str, Any]] = None
     try:
-        info = _probe(tmp_out)
-    except Exception as exc:  # pragma: no cover - defensive
-        error_details = {
-            "playback_id": pb.id,
-            "media_id": pb.media_id,
-            "output_path": str(tmp_out),
-            "error_type": type(exc).__name__,
-            "error_message": str(exc)
-        }
-        logger.error(
-            f"FFmpeg変換後のプローブ失敗: playback_id={pb.id}, media_id={pb.media_id} - {exc}",
-            extra={
-                "event": "transcode.probe.failed",
-                "error_details": json.dumps(error_details)
-            },
-            exc_info=True
-        )
-        pb.status = "error"
-        pb.error_msg = str(exc)[:1000]
-        pb.updated_at = datetime.now(timezone.utc)
-        db.session.commit()
-        return {
-            "ok": False,
-            "duration_ms": 0,
-            "width": 0,
-            "height": 0,
-            "note": "probe_error",
-        }
+        src_probe = _probe(src_path)
+    except Exception:  # pragma: no cover - best effort for passthrough detection
+        src_probe = None
+
+    passthrough = bool(src_probe and _is_passthrough_candidate(m, src_probe))
+
+    if passthrough:
+        try:
+            shutil.copy2(src_path, tmp_out)
+            logger.info(
+                "MP4 passthrough copy completed for playback %s",
+                pb.id,
+                extra={
+                    "event": "transcode.passthrough.copied",
+                    "playback_id": pb.id,
+                    "media_id": pb.media_id,
+                    "source_path": str(src_path),
+                    "temp_path": str(tmp_out),
+                },
+            )
+        except Exception as exc:
+            logger.warning(
+                "MP4 passthrough copy failed for playback %s: %s",
+                pb.id,
+                exc,
+                extra={
+                    "event": "transcode.passthrough.copy_failed",
+                    "playback_id": pb.id,
+                    "media_id": pb.media_id,
+                    "source_path": str(src_path),
+                    "temp_path": str(tmp_out),
+                },
+                exc_info=True,
+            )
+            tmp_out.unlink(missing_ok=True)
+            passthrough = False
+
+    if not passthrough:
+        crf = int(os.environ.get("FPV_TRANSCODE_CRF", "20"))
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(src_path),
+            "-vf",
+            "scale='min(1920,iw)':'min(1080,ih)':force_original_aspect_ratio=decrease",
+            "-c:v",
+            "libx264",
+            "-crf",
+            str(crf),
+            "-preset",
+            "veryfast",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "128k",
+            "-ac",
+            "2",
+            "-movflags",
+            "+faststart",
+            str(tmp_out),
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            error_details = {
+                "playback_id": pb.id,
+                "media_id": pb.media_id,
+                "input_path": str(src_path),
+                "output_path": str(tmp_out),
+                "ffmpeg_command": " ".join(cmd),
+                "return_code": proc.returncode,
+                "stderr": proc.stderr,
+                "stdout": proc.stdout,
+            }
+            logger.error(
+                f"FFmpeg変換失敗: playback_id={pb.id}, media_id={pb.media_id} - return_code={proc.returncode}",
+                extra={
+                    "event": "transcode.ffmpeg.failed",
+                    "error_details": json.dumps(error_details),
+                },
+            )
+            pb.status = "error"
+            pb.error_msg = proc.stderr[-1000:]
+            pb.updated_at = datetime.now(timezone.utc)
+            db.session.commit()
+            return {
+                "ok": False,
+                "duration_ms": 0,
+                "width": 0,
+                "height": 0,
+                "note": "ffmpeg_error",
+            }
+
+    info: Dict[str, Any]
+    if passthrough and src_probe:
+        info = src_probe
+    else:
+        try:
+            info = _probe(tmp_out)
+        except Exception as exc:  # pragma: no cover - defensive
+            error_details = {
+                "playback_id": pb.id,
+                "media_id": pb.media_id,
+                "output_path": str(tmp_out),
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+            }
+            logger.error(
+                f"FFmpeg変換後のプローブ失敗: playback_id={pb.id}, media_id={pb.media_id} - {exc}",
+                extra={
+                    "event": "transcode.probe.failed",
+                    "error_details": json.dumps(error_details),
+                },
+                exc_info=True,
+            )
+            pb.status = "error"
+            pb.error_msg = str(exc)[:1000]
+            pb.updated_at = datetime.now(timezone.utc)
+            db.session.commit()
+            return {
+                "ok": False,
+                "duration_ms": 0,
+                "width": 0,
+                "height": 0,
+                "note": "probe_error",
+            }
 
     vstreams = [s for s in info.get("streams", []) if s.get("codec_type") == "video"]
     astreams = [s for s in info.get("streams", []) if s.get("codec_type") == "audio"]
@@ -580,7 +666,8 @@ def transcode_worker(*, media_playback_id: int) -> Dict[str, object]:
                 "playback_id": pb.id,
                 "media_id": pb.media_id,
                 "source_path": str(tmp_out),
-                "dest_path": str(dest_path)
+                "dest_path": str(dest_path),
+                "passthrough": passthrough,
             }
         )
     except Exception as e:
@@ -617,8 +704,12 @@ def transcode_worker(*, media_playback_id: int) -> Dict[str, object]:
 
     pb.width = width
     pb.height = height
-    pb.v_codec = "h264"
-    pb.a_codec = "aac"
+    vcodec_name = str(v.get("codec_name") or "").lower()
+    acodec_name = str(astreams[0].get("codec_name") or "").lower()
+    if acodec_name == "mp4a":
+        acodec_name = "aac"
+    pb.v_codec = vcodec_name or "h264"
+    pb.a_codec = acodec_name or "aac"
     pb.v_bitrate_kbps = int(bitrate / 1000) if bitrate else None
     pb.duration_ms = int(duration * 1000)
     pb.status = "done"
@@ -642,10 +733,12 @@ def transcode_worker(*, media_playback_id: int) -> Dict[str, object]:
                 },
             )
 
+    note_value = "passthrough" if passthrough else None
+
     return {
         "ok": True,
         "duration_ms": pb.duration_ms,
         "width": width,
         "height": height,
-        "note": None,
+        "note": note_value,
     }

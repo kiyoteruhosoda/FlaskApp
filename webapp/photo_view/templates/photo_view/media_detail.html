@@ -467,11 +467,28 @@ document.addEventListener('DOMContentLoaded', () => {
   
   function displayMedia(media) {
     loadingOverlay.style.display = 'none';
-    
-    // タイトルとメタ情報を更新
-    const displayTitle = formatDateTime(media.shot_at) || media.filename || media.google_media_id || 'Media';
+
+    const formatForTitle = (value) => {
+      const formatted = formatDateTime(value);
+      return formatted && formatted !== 'Not available' ? formatted : '';
+    };
+
+    const shotAtText = formatForTitle(media.shot_at);
+    const importedAtText = formatForTitle(media.imported_at);
+    const displayDate = shotAtText || importedAtText;
+
+    const displayTitle = displayDate || media.filename || media.google_media_id || 'Media';
     mediaTitle.textContent = displayTitle;
-    mediaMeta.textContent = `${formatDateTime(media.shot_at)} • ${formatFileSize(media.bytes)} • ${media.width}×${media.height}`;
+
+    const metaParts = [];
+    metaParts.push(displayDate || 'Unknown Date');
+    if (media.bytes) {
+      metaParts.push(formatFileSize(media.bytes));
+    }
+    if (media.width && media.height) {
+      metaParts.push(`${media.width}×${media.height}`);
+    }
+    mediaMeta.textContent = metaParts.join(' • ');
     
     if (media.isVideo || media.is_video) {
       displayVideo(media);
@@ -545,6 +562,10 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="info-item">
         <span class="info-label">Type:</span>
         <span class="info-value">${media.isVideo || media.is_video ? 'Video' : 'Photo'}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Shot At:</span>
+        <span class="info-value">${formatDateTime(media.shot_at)}</span>
       </div>
       <div class="info-item">
         <span class="info-label">Source:</span>

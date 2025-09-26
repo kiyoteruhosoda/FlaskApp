@@ -22,6 +22,13 @@ def openapi_spec():
                     "responses": {"200": {"description": "OK"}},
                 }
             },
+            "/api/auth/check": {
+                "get": {
+                    "summary": "JWTまたはCookieでの認証状態チェック",
+                    "security": [{"cookieAuth": []}, {"bearerAuth": []}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
         },
         "components": {
             "securitySchemes": {

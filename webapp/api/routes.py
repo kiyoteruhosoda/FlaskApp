@@ -412,6 +412,21 @@ def get_current_user():
     return getattr(g, 'current_user', None)
 
 
+@bp.get("/auth/check")
+@login_or_jwt_required
+def api_auth_check():
+    """APIクライアントがJWT認証できているか確認するためのシンプルなエンドポイント"""
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "authentication_required"}), 401
+
+    return jsonify({
+        "id": user.id,
+        "email": user.email,
+        "active": bool(user.is_active),
+    })
+
+
 def require_api_perms(*perm_codes):
     """APIエンドポイント向けの権限チェックデコレータ"""
 

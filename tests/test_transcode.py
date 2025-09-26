@@ -18,9 +18,11 @@ def app(tmp_path):
     db_path = tmp_path / "test.db"
     orig = tmp_path / "orig"
     play = tmp_path / "play"
+    thumbs = tmp_path / "thumbs"
     tmpd = tmp_path / "tmp"
     orig.mkdir()
     play.mkdir()
+    thumbs.mkdir()
     tmpd.mkdir()
 
     env_keys = {
@@ -28,6 +30,7 @@ def app(tmp_path):
         "DATABASE_URI": f"sqlite:///{db_path}",
         "FPV_NAS_ORIGINALS_DIR": str(orig),
         "FPV_NAS_PLAY_DIR": str(play),
+        "FPV_NAS_THUMBS_DIR": str(thumbs),
         "FPV_TMP_DIR": str(tmpd),
     }
     prev_env = {k: os.environ.get(k) for k in env_keys}
@@ -234,10 +237,16 @@ def test_worker_transcode_basic(app):
         pb = MediaPlayback.query.get(pb_id)
         assert pb.status == "done"
         assert pb.width == 1280 and pb.height == 720
+        assert pb.poster_rel_path is not None
         m = Media.query.get(media_id)
         assert m.has_playback is True
+        assert m.thumbnail_rel_path is not None
         out = Path(os.environ["FPV_NAS_PLAY_DIR"]) / pb.rel_path
         assert out.exists()
+        poster = Path(os.environ["FPV_NAS_PLAY_DIR"]) / pb.poster_rel_path
+        assert poster.exists()
+        thumb_path = Path(os.environ["FPV_NAS_THUMBS_DIR"]) / "256" / m.thumbnail_rel_path
+        assert thumb_path.exists()
 
 
 @pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")

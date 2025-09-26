@@ -916,6 +916,77 @@ def test_media_thumbnail_route(client, app):
     assert res.headers["Cache-Control"].startswith("private")
 
 
+def test_media_thumbnail_route_handles_heic(client, app):
+    from webapp.extensions import db
+    from core.models.photo_models import Media
+
+    with app.app_context():
+        media = Media(
+            google_media_id="heic-thumb",
+            account_id=1,
+            local_rel_path="heic-thumb.heic",
+            bytes=3,
+            mime_type="image/heic",
+            width=1,
+            height=1,
+            shot_at=datetime(2025, 3, 1, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 3, 2, tzinfo=timezone.utc),
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        db.session.add(media)
+        db.session.commit()
+        media_id = media.id
+
+    thumb_dir = Path(os.environ["FPV_NAS_THUMBS_DIR"]) / "256"
+    thumb_dir.mkdir(parents=True, exist_ok=True)
+    thumb_path = thumb_dir / "heic-thumb.jpg"
+    payload = b"heic"
+    thumb_path.write_bytes(payload)
+
+    login(client)
+    res = client.get(f"/api/media/{media_id}/thumbnail?size=256")
+    assert res.status_code == 200
+    assert res.data == payload
+
+
+def test_media_thumbnail_route_uses_thumbnail_rel_path(client, app):
+    from webapp.extensions import db
+    from core.models.photo_models import Media
+
+    with app.app_context():
+        media = Media(
+            google_media_id="thumb-alt",
+            account_id=1,
+            local_rel_path="thumb-alt.heic",
+            thumbnail_rel_path="alt/thumb-alt.jpg",
+            bytes=3,
+            mime_type="image/jpeg",
+            width=1,
+            height=1,
+            shot_at=datetime(2025, 4, 1, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 4, 2, tzinfo=timezone.utc),
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        db.session.add(media)
+        db.session.commit()
+        media_id = media.id
+
+    thumb_dir = Path(os.environ["FPV_NAS_THUMBS_DIR"]) / "256" / "alt"
+    thumb_dir.mkdir(parents=True, exist_ok=True)
+    thumb_path = thumb_dir / "thumb-alt.jpg"
+    payload = b"alt-thumb"
+    thumb_path.write_bytes(payload)
+
+    login(client)
+    res = client.get(f"/api/media/{media_id}/thumbnail?size=256")
+    assert res.status_code == 200
+    assert res.data == payload
+
+
 def test_thumbnail_falls_back_to_default_path(client, app, monkeypatch, tmp_path):
     from webapp.extensions import db
     from core.models.photo_models import Media

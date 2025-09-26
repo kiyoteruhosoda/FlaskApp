@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Dict, List
 import os
 
+from core.db import db
 from core.utils import open_image_compat, register_heif_support
 
 register_heif_support()
@@ -93,6 +94,17 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
     # ------------------------------------------------------------------
     # Determine base image
     # ------------------------------------------------------------------
+    base_rel = m.thumbnail_rel_path or m.local_rel_path
+    if not base_rel:
+        return {"ok": False, "generated": [], "skipped": [], "notes": "source missing"}
+
+    rel_name = Path(base_rel)
+
+    def _replace_suffix(path: Path, suffix: str) -> Path:
+        if path.suffix:
+            return path.with_suffix(suffix)
+        return path.with_name(path.name + suffix)
+
     if m.is_video:
         pb = (
             MediaPlayback.query.filter_by(
@@ -143,7 +155,7 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
                 }
         img = img.convert("RGB")
         out_ext = ".jpg"
-        rel_name = Path(m.local_rel_path).with_suffix(out_ext)
+        rel_name = _replace_suffix(rel_name, out_ext)
     else:
         src_path = _orig_dir() / m.local_rel_path
         if not src_path.exists():
@@ -160,7 +172,7 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
             )
             img = opened.convert("RGBA" if has_alpha else "RGB")
         out_ext = ".png" if has_alpha else ".jpg"
-        rel_name = Path(m.local_rel_path).with_suffix(out_ext)
+        rel_name = _replace_suffix(rel_name, out_ext)
 
     # ------------------------------------------------------------------
     # Generate thumbnails for each size
@@ -187,5 +199,11 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
             resized.save(tmp, "PNG")
         tmp.replace(dest)
         generated.append(size)
+
+    new_rel = rel_name.as_posix()
+    if m.thumbnail_rel_path != new_rel:
+        m.thumbnail_rel_path = new_rel
+        db.session.add(m)
+        db.session.commit()
 
     return {"ok": True, "generated": generated, "skipped": skipped, "notes": notes}

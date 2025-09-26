@@ -6,7 +6,7 @@ import shutil
 
 import pytest
 
-from core.tasks import transcode_queue_scan, transcode_worker
+from core.tasks import backfill_playback_posters, transcode_queue_scan, transcode_worker
 
 
 ffmpeg_missing = shutil.which("ffmpeg") is None
@@ -247,6 +247,52 @@ def test_worker_transcode_basic(app):
         assert poster.exists()
         thumb_path = Path(os.environ["FPV_NAS_THUMBS_DIR"]) / "256" / m.thumbnail_rel_path
         assert thumb_path.exists()
+
+
+@pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")
+def test_backfill_playback_posters_existing_playback(app):
+    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
+    video_path = orig_dir / "2025/08/18/backfill.mp4"
+    _make_video(video_path, "640x480", audio=True)
+    media_id = _make_media(app, rel_path="2025/08/18/backfill.mp4", width=640, height=480)
+    pb_id = _make_playback(app, media_id, "2025/08/18/backfill.mp4")
+
+    with app.app_context():
+        transcode_worker(media_playback_id=pb_id)
+
+        from core.models.photo_models import MediaPlayback, Media
+        from webapp.extensions import db
+
+        pb = MediaPlayback.query.get(pb_id)
+        m = Media.query.get(media_id)
+        assert pb.poster_rel_path is not None
+        assert m.thumbnail_rel_path is not None
+
+        play_dir = Path(os.environ["FPV_NAS_PLAY_DIR"])
+        thumbs_dir = Path(os.environ["FPV_NAS_THUMBS_DIR"])
+        poster_path = play_dir / pb.poster_rel_path
+        poster_path.unlink()
+        old_thumb_rel = m.thumbnail_rel_path
+        for size in ("256", "512", "1024", "2048"):
+            thumb_path = thumbs_dir / size / old_thumb_rel
+            thumb_path.unlink(missing_ok=True)
+
+        pb.poster_rel_path = None
+        m.thumbnail_rel_path = None
+        db.session.commit()
+
+        res = backfill_playback_posters()
+        assert res["processed"] >= 1
+        assert res["updated"] >= 1
+
+        db.session.refresh(pb)
+        db.session.refresh(m)
+
+        assert pb.poster_rel_path is not None
+        assert (play_dir / pb.poster_rel_path).exists()
+        assert m.thumbnail_rel_path is not None
+        thumb_256 = thumbs_dir / "256" / m.thumbnail_rel_path
+        assert thumb_256.exists()
 
 
 @pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")

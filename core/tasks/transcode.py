@@ -142,6 +142,87 @@ def _generate_poster(playback: MediaPlayback, video_path: Path) -> Optional[str]
 
 
 # ---------------------------------------------------------------------------
+# Poster backfill utilities
+# ---------------------------------------------------------------------------
+
+
+def backfill_playback_posters(*, limit: Optional[int] = None) -> Dict[str, object]:
+    """Generate posters for completed playbacks that pre-date poster support."""
+
+    processed = 0
+    updated = 0
+    skipped = 0
+    errors = 0
+
+    query = (
+        MediaPlayback.query.filter(
+            MediaPlayback.status == "done",
+            MediaPlayback.poster_rel_path.is_(None),
+            MediaPlayback.rel_path.isnot(None),
+        )
+        .order_by(MediaPlayback.id.asc())
+    )
+    playbacks: List[MediaPlayback]
+    if limit is not None:
+        playbacks = query.limit(limit).all()
+    else:
+        playbacks = query.all()
+
+    for pb in playbacks:
+        processed += 1
+        if not pb.rel_path:
+            skipped += 1
+            continue
+
+        video_path = _play_dir() / pb.rel_path
+        if not video_path.exists():
+            skipped += 1
+            logger.warning(
+                "Playback file missing while backfilling poster",
+                extra={
+                    "event": "transcode.poster.backfill_missing",
+                    "playback_id": pb.id,
+                    "media_id": pb.media_id,
+                    "video_path": str(video_path),
+                },
+            )
+            continue
+
+        poster_rel = _generate_poster(pb, video_path)
+        if not poster_rel:
+            errors += 1
+            continue
+
+        pb.poster_rel_path = poster_rel
+        pb.updated_at = datetime.now(timezone.utc)
+        updated += 1
+        db.session.flush()
+
+        try:
+            thumbs_generate(media_id=pb.media_id, force=True)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning(
+                "Thumbnail generation failed during poster backfill: %s",
+                exc,
+                extra={
+                    "event": "transcode.poster.backfill_thumb_failed",
+                    "playback_id": pb.id,
+                    "media_id": pb.media_id,
+                },
+            )
+
+    db.session.commit()
+
+    return {
+        "processed": processed,
+        "updated": updated,
+        "skipped": skipped,
+        "errors": errors,
+        "notes": None,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Queue scan
 # ---------------------------------------------------------------------------
 

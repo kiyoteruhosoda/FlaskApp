@@ -840,14 +840,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ダウンロード
   downloadBtn.addEventListener('click', async () => {
+    if (!currentMedia) {
+      return;
+    }
+
+    const isVideo = Boolean(currentMedia.isVideo || currentMedia.is_video);
+    const endpoint = isVideo
+      ? `/api/media/${mediaId}/playback-url`
+      : `/api/media/${mediaId}/thumb-url`;
+    const requestBody = isVideo ? undefined : { size: 2048 };
+
     try {
-      const response = await window.apiClient.post(`/api/media/${mediaId}/thumb-url`, {
-        size: 2048
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
+      const response = await window.apiClient.post(endpoint, requestBody);
+
+      if (!response.ok) {
+        let payload = null;
+        try {
+          payload = await response.json();
+        } catch (parseError) {
+          payload = null;
+        }
+
+        let message = 'ダウンロードに失敗しました';
+        if (isVideo) {
+          const errorCode = payload && payload.error;
+          if (response.status === 409 || errorCode === 'not_ready') {
+            message = '動画の再生準備が完了していません。しばらくしてから再度お試しください。';
+          } else if (errorCode === 'not_found') {
+            message = '動画の再生ファイルが見つかりませんでした。';
+          }
+        }
+
+        if (typeof showErrorToast === 'function') {
+          showErrorToast(message);
+        }
+        return;
+      }
+
+      const data = await response.json();
+      if (data && data.url) {
         window.open(data.url, '_blank');
+      } else {
+        throw new Error('Missing download URL');
       }
     } catch (error) {
       console.error('Download error:', error);

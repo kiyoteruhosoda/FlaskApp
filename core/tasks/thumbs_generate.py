@@ -80,23 +80,42 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
 
     m = Media.query.get(media_id)
     if not m:
-        return {"ok": False, "generated": [], "skipped": [], "notes": "not_found"}
+        return {
+            "ok": False,
+            "generated": [],
+            "skipped": [],
+            "notes": "not_found",
+            "paths": {},
+        }
 
     if m.is_deleted:
         # Deleted media are a successful no-op
-        return {"ok": True, "generated": [], "skipped": SIZES.copy(), "notes": None}
+        return {
+            "ok": True,
+            "generated": [],
+            "skipped": SIZES.copy(),
+            "notes": None,
+            "paths": {},
+        }
 
     base_dir = _thumb_base_dir()
     generated: List[int] = []
     skipped: List[int] = []
     notes: str | None = None
+    paths: Dict[int, str] = {}
 
     # ------------------------------------------------------------------
     # Determine base image
     # ------------------------------------------------------------------
     base_rel = m.thumbnail_rel_path or m.local_rel_path
     if not base_rel:
-        return {"ok": False, "generated": [], "skipped": [], "notes": "source missing"}
+        return {
+            "ok": False,
+            "generated": [],
+            "skipped": [],
+            "notes": "source missing",
+            "paths": {},
+        }
 
     rel_name = Path(base_rel)
 
@@ -119,6 +138,7 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
                 "generated": [],
                 "skipped": SIZES.copy(),
                 "notes": "playback not ready",
+                "paths": {},
             }
 
         if pb.poster_rel_path:
@@ -129,6 +149,7 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
                     "generated": [],
                     "skipped": SIZES.copy(),
                     "notes": "playback not ready",
+                    "paths": {},
                 }
             img = Image.open(poster_path)
             img = ImageOps.exif_transpose(img)
@@ -152,6 +173,7 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
                     "generated": [],
                     "skipped": SIZES.copy(),
                     "notes": "playback not ready",
+                    "paths": {},
                 }
         img = img.convert("RGB")
         out_ext = ".jpg"
@@ -164,6 +186,7 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
                 "generated": [],
                 "skipped": [],
                 "notes": "source missing",
+                "paths": {},
             }
         with open_image_compat(src_path) as opened:
             opened = ImageOps.exif_transpose(opened)
@@ -181,6 +204,7 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
         dest = base_dir / str(size) / rel_name
         if dest.exists() and not force:
             skipped.append(size)
+            paths[size] = dest.as_posix()
             continue
 
         long_side = max(img.size)
@@ -199,6 +223,7 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
             resized.save(tmp, "PNG")
         tmp.replace(dest)
         generated.append(size)
+        paths[size] = dest.as_posix()
 
     new_rel = rel_name.as_posix()
     if m.thumbnail_rel_path != new_rel:
@@ -206,4 +231,10 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
         db.session.add(m)
         db.session.commit()
 
-    return {"ok": True, "generated": generated, "skipped": skipped, "notes": notes}
+    return {
+        "ok": True,
+        "generated": generated,
+        "skipped": skipped,
+        "notes": notes,
+        "paths": paths,
+    }

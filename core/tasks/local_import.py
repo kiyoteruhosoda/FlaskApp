@@ -763,6 +763,12 @@ def _regenerate_duplicate_video_thumbnails(
         return
 
     if result.get("ok"):
+        paths = result.get("paths") or {}
+        generated_paths = {
+            size: paths[size]
+            for size in result.get("generated", [])
+            if size in paths
+        }
         _log_info(
             "local_import.duplicate_video.thumbnail_regenerated",
             "重複動画のサムネイルを再生成",
@@ -771,6 +777,7 @@ def _regenerate_duplicate_video_thumbnails(
             generated=result.get("generated"),
             skipped=result.get("skipped"),
             notes=result.get("notes"),
+            generated_paths=generated_paths,
             status="thumbs_regenerated",
         )
     else:

@@ -107,11 +107,19 @@ def test_image_generation(app):
     media_id = _make_media(app, rel_path="2025/08/18/img.jpg", is_video=False, width=4032, height=3024)
     with app.app_context():
         res = thumbs_generate(media_id=media_id)
+    thumbs_dir = Path(os.environ["FPV_NAS_THUMBS_DIR"])
+    expected_paths = {
+        256: str(thumbs_dir / "256/2025/08/18/img.jpg"),
+        512: str(thumbs_dir / "512/2025/08/18/img.jpg"),
+        1024: str(thumbs_dir / "1024/2025/08/18/img.jpg"),
+        2048: str(thumbs_dir / "2048/2025/08/18/img.jpg"),
+    }
     assert res == {
         "ok": True,
         "generated": [256, 512, 1024, 2048],
         "skipped": [],
         "notes": None,
+        "paths": expected_paths,
     }
 
     out = Path(os.environ["FPV_NAS_THUMBS_DIR"])
@@ -136,6 +144,8 @@ def test_image_skip_existing(app):
         res = thumbs_generate(media_id=media_id)
     assert res["generated"] == [256, 512, 2048]
     assert res["skipped"] == [1024]
+    assert res["paths"][256].endswith("256/2025/08/18/img2.jpg")
+    assert res["paths"][1024].endswith("1024/2025/08/18/img2.jpg")
 
 
 def test_video_with_playback(app):
@@ -163,6 +173,7 @@ def test_video_with_playback(app):
     with app.app_context():
         res = thumbs_generate(media_id=media_id)
     assert res["generated"] == [256, 512, 1024, 2048]
+    assert set(res["paths"]) == {256, 512, 1024, 2048}
     out = Path(os.environ["FPV_NAS_THUMBS_DIR"])
     assert (out / "256/2025/08/18/video.jpg").exists()
 
@@ -176,4 +187,5 @@ def test_video_playback_not_ready(app):
         "generated": [],
         "skipped": [256, 512, 1024, 2048],
         "notes": "playback not ready",
+        "paths": {},
     }

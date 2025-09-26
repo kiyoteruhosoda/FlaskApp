@@ -160,7 +160,13 @@ class MediaItem(db.Model):
     camera_model = db.Column(db.String(255))
     photo_metadata_id = db.Column(BigInt, db.ForeignKey('photo_metadata.id'))
     video_metadata_id = db.Column(BigInt, db.ForeignKey('video_metadata.id'))
-    photo_metadata = db.relationship('PhotoMetadata', backref='media_item', uselist=False)
+    photo_metadata = db.relationship(
+        'PhotoMetadata',
+        backref='media_item',
+        uselist=False,
+        cascade='all, delete-orphan',
+        single_parent=True,
+    )
     video_metadata = db.relationship('VideoMetadata', backref='media_item', uselist=False)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)

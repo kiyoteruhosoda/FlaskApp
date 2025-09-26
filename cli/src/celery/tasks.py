@@ -13,12 +13,17 @@ DEFAULT_DOWNLOAD_TIMEOUT = 30
 from core.tasks.picker_import import picker_import_watchdog, picker_import_item
 from core.tasks.local_import import local_import_task
 from core.tasks.session_recovery import (
-    cleanup_stale_sessions, 
+    cleanup_stale_sessions,
     force_cleanup_all_processing_sessions,
     get_session_status_report
 )
 from core.tasks.backup_cleanup import cleanup_old_backups, get_backup_status
 from core.logging_config import log_task_info, log_task_error
+from core.tasks.thumbs_generate import (
+    PLAYBACK_NOT_READY_NOTES,
+    PlaybackNotReadyError,
+    thumbs_generate,
+)
 
 # Celery task logger
 logger = logging.getLogger('celery.task')
@@ -38,6 +43,9 @@ def _download_content(url: str, timeout: float = DEFAULT_DOWNLOAD_TIMEOUT) -> tu
     content = resp.content
     sha = hashlib.sha256(content).hexdigest()
     return content, sha
+
+
+THUMBNAIL_RETRY_COUNTDOWN = 300
 
 
 @celery.task(bind=True)
@@ -73,6 +81,57 @@ def download_file(self, url: str, dest_dir: str, timeout: float = DEFAULT_DOWNLO
     except Exception as e:
         self.log_error(f"Download file failed for {url}: {str(e)}", event="download_file", exc_info=True)
         return {"ok": False, "error": str(e)}
+
+
+@celery.task(bind=True, name="thumbs.generate")
+def thumbs_generate_task(self, media_id: int, force: bool = False, retry_countdown: int = THUMBNAIL_RETRY_COUNTDOWN) -> dict:
+    """Generate thumbnails via Celery with automatic retry for playback readiness."""
+
+    try:
+        result = thumbs_generate(media_id=media_id, force=force)
+    except Exception as exc:  # pragma: no cover - unexpected failure path
+        self.log_error(
+            f"Thumbnail generation raised an exception for media {media_id}: {exc}",
+            event="thumbs_generate.exception",
+            exc_info=True,
+            media_id=media_id,
+        )
+        return {"ok": False, "error": str(exc)}
+
+    if result.get("ok") and result.get("notes") == PLAYBACK_NOT_READY_NOTES:
+        log_task_info(
+            logger,
+            "Playback not ready for thumbnail generation; retry scheduled.",
+            event="thumbs_generate.retry_scheduled",
+            media_id=media_id,
+            countdown=retry_countdown,
+            force=force,
+        )
+        raise self.retry(
+            countdown=retry_countdown,
+            exc=PlaybackNotReadyError(PLAYBACK_NOT_READY_NOTES),
+            max_retries=None,
+        )
+
+    if result.get("ok"):
+        log_task_info(
+            logger,
+            "Thumbnail generation completed via Celery.",
+            event="thumbs_generate.success",
+            media_id=media_id,
+            generated=result.get("generated"),
+            skipped=result.get("skipped"),
+        )
+    else:
+        log_task_error(
+            logger,
+            "Thumbnail generation reported failure.",
+            event="thumbs_generate.failed",
+            media_id=media_id,
+            notes=result.get("notes"),
+        )
+
+    return result
 
 
 @celery.task(bind=True, name="picker_import.item")
@@ -198,6 +257,7 @@ def backup_status_task(self):
 __all__ = [
     "dummy_long_task",
     "download_file",
+    "thumbs_generate_task",
     "picker_import_item_task",
     "picker_import_watchdog_task",
     "local_import_task_celery",

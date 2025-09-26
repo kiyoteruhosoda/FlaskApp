@@ -57,6 +57,55 @@ def _tmp_dir() -> Path:
     return tmp
 
 
+def _normalise_rel_path(rel_path: Optional[str], *, suffix: Optional[str] = None) -> Optional[str]:
+    """Return a sanitised POSIX-style relative path.
+
+    The helper normalises path separators, removes empty/``.`` segments, and
+    drops any ``..`` components.  When *suffix* is provided the returned path is
+    forced to use that suffix irrespective of the original extension.
+    """
+
+    if not rel_path:
+        return None
+
+    normalised = rel_path.replace("\\", "/")
+    candidate = Path(normalised)
+
+    parts: List[str] = []
+    parent_traversal = False
+    for part in candidate.parts:
+        if part in {"", "."}:
+            continue
+        if part == "..":
+            parent_traversal = True
+            continue
+        parts.append(part)
+
+    if not parts:
+        return None
+
+    cleaned = Path(*parts)
+    if suffix:
+        if cleaned.suffix:
+            cleaned = cleaned.with_suffix(suffix)
+        else:
+            cleaned = cleaned.with_name(cleaned.name + suffix)
+
+    result = cleaned.as_posix()
+
+    if parent_traversal:
+        logger.warning(
+            "Relative path contained parent traversal and was sanitised",  # pragma: no cover - defensive logging
+            extra={
+                "event": "transcode.relpath.sanitised",
+                "original": rel_path,
+                "sanitised": result,
+            },
+        )
+
+    return result
+
+
 def _poster_tmp_path(playback_id: int) -> Path:
     """Return a temporary path for poster generation."""
 
@@ -66,7 +115,8 @@ def _poster_tmp_path(playback_id: int) -> Path:
 def _poster_rel_path(playback: MediaPlayback) -> str:
     """Return poster relative path for a playback output."""
 
-    base = Path(playback.rel_path) if playback.rel_path else Path(f"pb_{playback.id}")
+    cleaned_rel = _normalise_rel_path(playback.rel_path)
+    base = Path(cleaned_rel) if cleaned_rel else Path(f"pb_{playback.id}")
     if base.suffix:
         poster = base.with_suffix(".jpg")
     else:
@@ -170,11 +220,15 @@ def backfill_playback_posters(*, limit: Optional[int] = None) -> Dict[str, objec
 
     for pb in playbacks:
         processed += 1
-        if not pb.rel_path:
+        rel_path = _normalise_rel_path(pb.rel_path, suffix=".mp4")
+        if not rel_path:
             skipped += 1
             continue
 
-        video_path = _play_dir() / pb.rel_path
+        if rel_path != pb.rel_path:
+            pb.rel_path = rel_path
+
+        video_path = _play_dir() / rel_path
         if not video_path.exists():
             skipped += 1
             logger.warning(
@@ -261,7 +315,9 @@ def transcode_queue_scan() -> Dict[str, object]:
             skipped += 1
             continue
 
-        rel_path = str(Path(m.local_rel_path).with_suffix(".mp4"))
+        rel_path = _normalise_rel_path(m.local_rel_path, suffix=".mp4")
+        if not rel_path:
+            rel_path = f"media_{m.id}.mp4"
         if pb:
             pb.status = "pending"
             pb.rel_path = rel_path
@@ -382,7 +438,11 @@ def transcode_worker(*, media_playback_id: int) -> Dict[str, object]:
     pb.updated_at = datetime.now(timezone.utc)
     db.session.commit()
 
-    out_rel = pb.rel_path or str(Path(m.local_rel_path).with_suffix(".mp4"))
+    out_rel = _normalise_rel_path(pb.rel_path, suffix=".mp4")
+    if not out_rel:
+        out_rel = _normalise_rel_path(m.local_rel_path, suffix=".mp4")
+    if not out_rel:
+        out_rel = f"pb_{pb.id}.mp4"
     pb.rel_path = out_rel
     tmp_dir = _tmp_dir()
     tmp_out = tmp_dir / f"pb_{pb.id}.mp4"

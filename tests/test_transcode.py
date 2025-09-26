@@ -1,4 +1,5 @@
 import os
+import base64
 from datetime import datetime, timezone
 from pathlib import Path
 import subprocess
@@ -32,6 +33,7 @@ def app(tmp_path):
         "FPV_NAS_PLAY_DIR": str(play),
         "FPV_NAS_THUMBS_DIR": str(thumbs),
         "FPV_TMP_DIR": str(tmpd),
+        "FPV_DL_SIGN_KEY": base64.urlsafe_b64encode(b"1" * 32).decode(),
     }
     prev_env = {k: os.environ.get(k) for k in env_keys}
     os.environ.update(env_keys)
@@ -247,6 +249,68 @@ def test_worker_transcode_basic(app):
         assert poster.exists()
         thumb_path = Path(os.environ["FPV_NAS_THUMBS_DIR"]) / "256" / m.thumbnail_rel_path
         assert thumb_path.exists()
+
+
+@pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")
+def test_worker_transcode_normalizes_rel_path(app):
+    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
+    video_path = orig_dir / "2025/08/18/win.mov"
+    _make_video(video_path, "640x360", audio=True)
+    media_id = _make_media(app, rel_path="2025/08/18/win.mov", width=640, height=360)
+
+    with app.app_context():
+        from webapp.extensions import db
+        from core.models.photo_models import MediaPlayback
+
+        pb = MediaPlayback(
+            media_id=media_id,
+            preset="std1080p",
+            rel_path=r"2025\\08\\18\\win.MOV",
+            status="pending",
+        )
+        db.session.add(pb)
+        db.session.commit()
+
+        pb_id = pb.id
+        res = transcode_worker(media_playback_id=pb_id)
+        assert res["ok"] is True
+
+        db.session.refresh(pb)
+        assert pb.rel_path == "2025/08/18/win.mp4"
+        assert "\\" not in pb.rel_path
+        assert pb.poster_rel_path is not None
+        assert "\\" not in pb.poster_rel_path
+        play_path = Path(os.environ["FPV_NAS_PLAY_DIR"]) / pb.rel_path
+        assert play_path.exists()
+
+
+@pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")
+def test_worker_transcode_media_detail_playback(app):
+    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
+    video_path = orig_dir / "2025/08/18/detail.mov"
+    _make_video(video_path, "1280x720", audio=True)
+    media_id = _make_media(app, rel_path="2025/08/18/detail.mov", width=1280, height=720)
+    pb_id = _make_playback(app, media_id, "2025/08/18/detail.mov")
+
+    with app.app_context():
+        res = transcode_worker(media_playback_id=pb_id)
+        assert res["ok"] is True
+
+    app.config["LOGIN_DISABLED"] = True
+    client = app.test_client()
+
+    res = client.post(f"/api/media/{media_id}/playback-url")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data and "url" in data
+
+    playback_url = data["url"]
+    res2 = client.get(playback_url)
+    assert res2.status_code == 200
+    assert res2.headers.get("Content-Type") == "video/mp4"
+    content_length = int(res2.headers.get("Content-Length", "0"))
+    assert content_length > 0
+    assert len(res2.data) == content_length
 
 
 @pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")

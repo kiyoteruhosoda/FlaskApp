@@ -3,6 +3,7 @@
 import importlib
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,7 @@ from core.tasks.local_import import (
     import_single_file,
     scan_import_directory,
 )
+from core.utils import get_file_date_from_exif
 
 
 @pytest.fixture(autouse=True)
@@ -122,6 +124,26 @@ def test_heic_dimension_fallback_when_plugin_unavailable(monkeypatch, tmp_path: 
 
     exif = extract_exif_data(str(heic_path))
     assert isinstance(exif, dict)
+
+
+def test_extract_exif_date_from_heic(tmp_path: Path) -> None:
+    """HEICのEXIFに含まれる撮影日時を抽出できることを確認。"""
+
+    heic_path = tmp_path / "dated.heic"
+    image = Image.new("RGB", (16, 16), "white")
+
+    if hasattr(Image, "Exif"):
+        exif = Image.Exif()
+        exif[36867] = "2023:09:01 10:20:30"  # DateTimeOriginal
+        image.save(heic_path, exif=exif)
+    else:
+        pytest.skip("Pillow does not provide Image.Exif helper")
+
+    exif_data = extract_exif_data(str(heic_path))
+    assert exif_data.get("DateTimeOriginal")
+
+    shot_at = get_file_date_from_exif(exif_data)
+    assert shot_at == datetime(2023, 9, 1, 10, 20, 30, tzinfo=timezone.utc)
 
 
 def test_import_single_heic_file(local_import_app) -> None:

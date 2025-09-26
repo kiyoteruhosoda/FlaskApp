@@ -20,6 +20,7 @@ from core.utils import open_image_compat, register_heif_support
 
 register_heif_support()
 
+from PIL import Image
 from PIL.ExifTags import TAGS
 from flask import current_app
 
@@ -352,12 +353,39 @@ def get_image_dimensions(file_path: str) -> Tuple[Optional[int], Optional[int], 
 
             # EXIF orientationを取得
             orientation = None
-            if hasattr(img, '_getexif') and img._getexif() is not None:
-                exif_dict = img._getexif()
-                for tag, value in exif_dict.items():
-                    if TAGS.get(tag) == 'Orientation':
-                        orientation = value
-                        break
+            exif_dict = {}
+
+            getexif = getattr(img, "getexif", None)
+            if callable(getexif):
+                try:
+                    exif = getexif()
+                except Exception:
+                    exif = None
+                if exif:
+                    exif_dict = dict(exif.items())
+
+            if not exif_dict and hasattr(img, "_getexif"):
+                try:
+                    raw = img._getexif()
+                    if raw:
+                        exif_dict = raw
+                except Exception:
+                    exif_dict = {}
+
+            if not exif_dict:
+                exif_bytes = (getattr(img, "info", {}) or {}).get("exif")
+                if isinstance(exif_bytes, (bytes, bytearray)) and hasattr(Image, "Exif"):
+                    try:
+                        exif_reader = Image.Exif()
+                        exif_reader.load(exif_bytes)
+                        exif_dict = dict(exif_reader.items())
+                    except Exception:
+                        exif_dict = {}
+
+            for tag, value in exif_dict.items():
+                if TAGS.get(tag) == 'Orientation':
+                    orientation = value
+                    break
 
             return width, height, orientation
     except Exception:
@@ -369,16 +397,42 @@ def extract_exif_data(file_path: str) -> Dict:
     exif_data = {}
     try:
         with open_image_compat(file_path) as img:
-            if hasattr(img, '_getexif') and img._getexif() is not None:
-                exif_dict = img._getexif()
+            exif_dict = {}
 
-                for tag_id, value in exif_dict.items():
-                    tag = TAGS.get(tag_id, tag_id)
-                    exif_data[tag] = value
-                    
+            getexif = getattr(img, "getexif", None)
+            if callable(getexif):
+                try:
+                    exif = getexif()
+                except Exception:
+                    exif = None
+                if exif:
+                    exif_dict = dict(exif.items())
+
+            if not exif_dict and hasattr(img, '_getexif'):
+                try:
+                    raw = img._getexif()
+                    if raw:
+                        exif_dict = raw
+                except Exception:
+                    exif_dict = {}
+
+            if not exif_dict:
+                exif_bytes = (getattr(img, "info", {}) or {}).get("exif")
+                if isinstance(exif_bytes, (bytes, bytearray)) and hasattr(Image, "Exif"):
+                    try:
+                        exif_reader = Image.Exif()
+                        exif_reader.load(exif_bytes)
+                        exif_dict = dict(exif_reader.items())
+                    except Exception:
+                        exif_dict = {}
+
+            for tag_id, value in exif_dict.items():
+                tag = TAGS.get(tag_id, tag_id)
+                exif_data[tag] = value
+
     except Exception:
         pass
-    
+
     return exif_data
 
 

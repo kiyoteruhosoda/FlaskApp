@@ -86,8 +86,12 @@ def enqueue_thumbs_generate(
     logger_override: Optional[logging.Logger] = None,
     operation_id: Optional[str] = None,
     request_context: Optional[Dict[str, Any]] = None,
-) -> None:
-    """Synchronously generate thumbnails for *media_id* with structured logging."""
+) -> Dict[str, Any]:
+    """Synchronously generate thumbnails for *media_id* with structured logging.
+
+    Returns the raw result dictionary from :func:`thumbs_generate` (or a
+    synthesized error response when the worker raises an exception).
+    """
 
     logger = logger_override or _logger
     op_id = operation_id or str(uuid4())
@@ -105,7 +109,7 @@ def enqueue_thumbs_generate(
             request_context=request_context,
             exc_info=True,
         )
-        return
+        return {"ok": False, "note": "exception", "error": str(exc)}
 
     generated = result.get("generated", [])
     if result.get("ok"):
@@ -131,6 +135,8 @@ def enqueue_thumbs_generate(
             notes=result.get("notes"),
         )
 
+    return result
+
 
 def enqueue_media_playback(
     media_id: int,
@@ -138,8 +144,12 @@ def enqueue_media_playback(
     logger_override: Optional[logging.Logger] = None,
     operation_id: Optional[str] = None,
     request_context: Optional[Dict[str, Any]] = None,
-) -> None:
-    """Synchronously prepare video playback assets for *media_id*."""
+) -> Dict[str, Any]:
+    """Synchronously prepare video playback assets for *media_id*.
+
+    Returns the result dictionary from :func:`transcode_worker` (or a
+    synthesized error response when the preparation cannot even be attempted).
+    """
 
     logger = logger_override or _logger
     op_id = operation_id or str(uuid4())
@@ -154,7 +164,7 @@ def enqueue_media_playback(
             media_id=media_id,
             request_context=request_context,
         )
-        return
+        return {"ok": False, "note": "ffmpeg_missing"}
 
     try:
         pb = MediaPlayback.query.filter_by(media_id=media_id, preset="std1080p").first()
@@ -171,7 +181,7 @@ def enqueue_media_playback(
                     request_context=request_context,
                     exc_info=False,
                 )
-                return
+                return {"ok": False, "note": "media_missing"}
 
             rel_path = str(Path(media.local_rel_path).with_suffix(".mp4"))
             pb = MediaPlayback(
@@ -194,7 +204,11 @@ def enqueue_media_playback(
                 request_context=request_context,
                 playback_status=pb.status,
             )
-            return
+            return {
+                "ok": pb.status == "done",
+                "note": f"already_{pb.status}",
+                "playback_status": pb.status,
+            }
 
         result = transcode_worker(media_playback_id=pb.id)
         db.session.refresh(pb)
@@ -234,6 +248,8 @@ def enqueue_media_playback(
                 poster_rel_path=pb.poster_rel_path,
                 poster_output_path=result.get("poster_path"),
             )
+
+        return result
     except Exception as exc:  # pragma: no cover - unexpected failure path
         _structured_task_log(
             logger,
@@ -245,6 +261,7 @@ def enqueue_media_playback(
             request_context=request_context,
             exc_info=True,
         )
+        return {"ok": False, "note": "exception", "error": str(exc)}
 
 
 def process_media_post_import(
@@ -252,8 +269,11 @@ def process_media_post_import(
     *,
     logger_override: Optional[logging.Logger] = None,
     request_context: Optional[Dict[str, Any]] = None,
-) -> None:
-    """Execute the appropriate post-import processing pipeline for *media*."""
+) -> Dict[str, Any]:
+    """Execute the appropriate post-import processing pipeline for *media*.
+
+    Returns a dictionary summarising the outcome of the triggered tasks.
+    """
 
     logger = logger_override or _logger
     op_id = str(uuid4())
@@ -269,18 +289,21 @@ def process_media_post_import(
         media_type="video" if media.is_video else "photo",
     )
 
+    results: Dict[str, Any] = {}
     if media.is_video:
-        enqueue_media_playback(
+        results["playback"] = enqueue_media_playback(
             media.id,
             logger_override=logger,
             operation_id=op_id,
             request_context=request_context,
         )
     else:
-        enqueue_thumbs_generate(
+        results["thumbnails"] = enqueue_thumbs_generate(
             media.id,
             logger_override=logger,
             operation_id=op_id,
             request_context=request_context,
         )
+
+    return results
 

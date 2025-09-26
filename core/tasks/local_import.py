@@ -25,7 +25,15 @@ from PIL.ExifTags import TAGS
 from flask import current_app
 
 from core.db import db
-from core.models.photo_models import Media, Exif, PickerSelection, MediaItem, PhotoMetadata, VideoMetadata
+from core.models.photo_models import (
+    Media,
+    Exif,
+    PickerSelection,
+    MediaItem,
+    PhotoMetadata,
+    VideoMetadata,
+    MediaPlayback,
+)
 from core.models.job_sync import JobSync
 from core.models.picker_session import PickerSession
 from core.utils import get_file_date_from_name, get_file_date_from_exif
@@ -38,6 +46,10 @@ from webapp.config import Config
 logger = setup_task_logging(__name__)
 # Also get celery task logger for cross-compatibility
 celery_logger = logging.getLogger('celery.task.local_import')
+
+
+class LocalImportPlaybackError(RuntimeError):
+    """Raised when playback assets for a local video could not be prepared."""
 
 
 def _serialize_details(details: Dict[str, Any]) -> str:
@@ -1052,7 +1064,7 @@ def import_single_file(
         
         db.session.commit()
 
-        process_media_post_import(
+        post_process_result = process_media_post_import(
             media,
             logger_override=logger,
             request_context={
@@ -1060,6 +1072,34 @@ def import_single_file(
                 "source": "local_import",
             },
         )
+
+        if is_video:
+            playback_result = (post_process_result or {}).get("playback") or {}
+            if not playback_result.get("ok"):
+                note = playback_result.get("note") or "unknown"
+                raise LocalImportPlaybackError(
+                    f"動画の再生ファイル生成に失敗しました (理由: {note})"
+                )
+            db.session.refresh(media)
+            if not media.has_playback:
+                raise LocalImportPlaybackError(
+                    "動画の再生ファイル生成に失敗しました (理由: playback_not_marked)"
+                )
+
+            playback_entry = MediaPlayback.query.filter_by(
+                media_id=media.id, preset="std1080p"
+            ).first()
+            if not playback_entry or not playback_entry.rel_path:
+                raise LocalImportPlaybackError(
+                    "動画の再生ファイル生成に失敗しました (理由: playback_record_missing)"
+                )
+
+            play_dir = _resolve_directory("FPV_NAS_PLAY_DIR")
+            playback_path = os.path.join(play_dir, playback_entry.rel_path)
+            if not os.path.exists(playback_path):
+                raise LocalImportPlaybackError(
+                    "動画の再生ファイル生成に失敗しました (理由: playback_file_missing)"
+                )
 
         # 元ファイルの削除
         os.remove(file_path)

@@ -410,15 +410,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const deleteMissingText = '{{ _("Media was not found or is already deleted.")|escapejs }}';
   const deleteInProgressText = '{{ _("Deleting...")|escapejs }}';
   const redirectAfterDeleteUrl = '{{ url_for("photo_view.media_list")|escapejs }}';
-  const downloadErrorText = 'ダウンロードに失敗しました';
-  const downloadPlaybackPendingText = '動画の再生準備が完了していません。しばらくしてから再度お試しください。';
-  const downloadPlaybackMissingText = '動画の再生ファイルが見つかりませんでした。';
-  const downloadMissingUrlText = 'Missing download URL';
-  const playbackLoadingText = '動画を読み込んでいます...';
-  const playbackUnavailableText = '動画の再生用ファイルがまだ準備されていません。しばらくしてから再度お試しください。';
-  const playbackRequestErrorText = '動画の再生URLを取得できませんでした。';
-  const playbackStreamErrorText = '動画の再生中にエラーが発生しました。';
-  const playbackRetryText = '再読み込み';
+  const downloadErrorText = '{{ _("Failed to download media.")|escapejs }}';
+  const downloadPlaybackPendingText = '{{ _("Video playback is still being prepared. Please try again shortly.")|escapejs }}';
+  const downloadPlaybackMissingText = '{{ _("We could not find a playback file for this video.")|escapejs }}';
+  const downloadMissingUrlText = '{{ _("Missing download URL")|escapejs }}';
+  const playbackLoadingText = '{{ _("Loading video...")|escapejs }}';
+  const playbackUnavailableText = '{{ _("A playback rendition is not yet available for this video.")|escapejs }}';
+  const playbackRequestErrorText = '{{ _("We could not retrieve the video playback URL.")|escapejs }}';
+  const playbackStreamErrorText = '{{ _("An error occurred while playing this video.")|escapejs }}';
+  const playbackRetryText = '{{ _("Retry")|escapejs }}';
+  const loadingVisuallyHiddenText = '{{ _("Loading...")|escapejs }}';
 
   if (mediaTagsContainer && !mediaTagsContainer.dataset.emptyText) {
     mediaTagsContainer.dataset.emptyText = noTagsAssignedText;
@@ -651,7 +652,7 @@ document.addEventListener('DOMContentLoaded', () => {
       wrapper.className = 'media-video-message';
       wrapper.innerHTML = `
         <div class="spinner-border text-light mb-3" role="status">
-          <span class="visually-hidden">Loading...</span>
+          <span class="visually-hidden">${loadingVisuallyHiddenText}</span>
         </div>
         <p class="mb-0">${playbackLoadingText}</p>
       `;

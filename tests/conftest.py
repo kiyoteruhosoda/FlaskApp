@@ -80,6 +80,7 @@ SKIP_RULES = [
 # 外部依存のスキップ対象から除外するテストファイル（相対パス）
 ALWAYS_RUN = {
     "tests/test_picker_session_service_local_import.py",
+    "tests/test_local_import_duplicate_refresh.py",
 }
 
 

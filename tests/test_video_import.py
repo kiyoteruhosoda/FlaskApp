@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
 from core.models.photo_models import Media, MediaItem, VideoMetadata
+from core.tasks import local_import as local_import_module
 from core.tasks.local_import import import_single_file
 
 
@@ -83,3 +85,33 @@ def test_local_import_mov_video(tmp_path: Path) -> None:
     assert media.filename == "TestClip.MOV"
     assert media.local_rel_path.endswith(".mov")
     assert media_item.filename == "TestClip.MOV"
+
+
+@pytest.mark.usefixtures("app_context")
+def test_video_shot_at_from_metadata(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """動画メタデータから shot_at が設定されることを確認する。"""
+
+    import_dir = tmp_path / "import"
+    originals_dir = tmp_path / "originals"
+    import_dir.mkdir()
+    originals_dir.mkdir()
+
+    test_video = import_dir / "ShotAtSample.mp4"
+    create_test_video(test_video)
+
+    expected_shot_at = datetime(2024, 5, 1, 12, 34, 56, tzinfo=timezone.utc)
+
+    def fake_extract(path: str) -> dict:
+        assert path == str(test_video)
+        return {
+            "width": 1920,
+            "height": 1080,
+            "duration_ms": 1234,
+            "shot_at": expected_shot_at,
+        }
+
+    monkeypatch.setattr(local_import_module, "extract_video_metadata", fake_extract)
+
+    media, _, _ = _import_video(test_video, import_dir, originals_dir)
+
+    assert media.shot_at == expected_shot_at.replace(tzinfo=None)

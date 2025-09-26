@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 import json
 
+from sqlalchemy import event, select
+
 from core.db import db
 
 BigInt = db.BigInteger().with_variant(db.Integer, "sqlite")
@@ -65,3 +67,23 @@ class PickerSession(db.Model):
 
     def set_stats(self, data):
         self.stats_json = json.dumps(data)
+
+
+@event.listens_for(PickerSession, "before_insert")
+def _ensure_unique_session_id(mapper, connection, target):
+    if not target.session_id:
+        return
+
+    base_session_id = target.session_id.split("#", 1)[0]
+    candidate = target.session_id
+    counter = 1
+
+    while connection.scalar(
+        select(PickerSession.id)
+        .where(PickerSession.session_id == candidate)
+        .limit(1)
+    ) is not None:
+        candidate = f"{base_session_id}#{counter}"
+        counter += 1
+
+    target.session_id = candidate

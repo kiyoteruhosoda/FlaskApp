@@ -1,9 +1,11 @@
 # webapp/__init__.py
 import hashlib
 import logging
+import importlib
 import json
 import os
 import time
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -24,6 +26,7 @@ from flask import (
 from flask_babel import get_locale
 from flask_babel import gettext as _
 from sqlalchemy.engine import make_url
+from typing import Any, Dict, Tuple
 
 from .extensions import db, migrate, login_manager, babel
 from .timezone import resolve_timezone, convert_to_timezone
@@ -42,6 +45,9 @@ _SENSITIVE_KEYWORDS = {
 }
 
 
+_MAX_LOG_PAYLOAD_BYTES = 60_000
+
+
 def _is_sensitive_key(key):
     if not isinstance(key, str):
         return False
@@ -52,7 +58,7 @@ def _is_sensitive_key(key):
 def _mask_sensitive_data(data):
     """再帰的に辞書やリスト内の機密情報をマスクする。"""
 
-    if isinstance(data, dict):
+    if isinstance(data, Mapping):
         masked = {}
         for key, value in data.items():
             if _is_sensitive_key(key):
@@ -60,9 +66,150 @@ def _mask_sensitive_data(data):
             else:
                 masked[key] = _mask_sensitive_data(value)
         return masked
-    if isinstance(data, list):
+    if isinstance(data, Sequence) and not isinstance(data, (str, bytes, bytearray)):
         return [_mask_sensitive_data(item) for item in data]
     return data
+
+
+def _summarize_for_logging(
+    data,
+    *,
+    _depth=0,
+    _max_depth=2,
+    _max_string_length=120,
+    _max_list_items=1,
+    _max_dict_items=10,
+):
+    """ログ用にJSONレスポンスを必要最小限の情報へ要約する。"""
+
+    if data is None or isinstance(data, (bool, int, float)):
+        return data
+
+    if isinstance(data, str):
+        if len(data) <= _max_string_length:
+            return data
+        return f"{data[:_max_string_length]}… ({len(data)} chars)"
+
+    if isinstance(data, (bytes, bytearray)):
+        return f"<binary {len(data)} bytes>"
+
+    if _depth >= _max_depth:
+        if isinstance(data, Mapping):
+            keys = list(data.keys())
+            summary = {
+                "type": "dict",
+                "keys": keys[:_max_dict_items],
+                "length": len(keys),
+            }
+            if len(keys) > _max_dict_items:
+                summary["..."] = f"{len(keys) - _max_dict_items} more keys"
+            return summary
+        if isinstance(data, Sequence) and not isinstance(data, (str, bytes, bytearray)):
+            return {
+                "type": "list",
+                "length": len(data),
+            }
+        return str(data)
+
+    if isinstance(data, Mapping):
+        summary = {}
+        for index, (key, value) in enumerate(data.items()):
+            if index >= _max_dict_items:
+                summary["..."] = f"{len(data) - _max_dict_items} more keys"
+                break
+            summary[key] = _summarize_for_logging(
+                value,
+                _depth=_depth + 1,
+                _max_depth=_max_depth,
+                _max_string_length=_max_string_length,
+                _max_list_items=_max_list_items,
+                _max_dict_items=_max_dict_items,
+            )
+        return summary
+
+    if isinstance(data, Sequence) and not isinstance(data, (str, bytes, bytearray)):
+        length = len(data)
+        summary = {"length": length}
+        if length:
+            sample_count = min(length, _max_list_items)
+            summary["sample"] = [
+                _summarize_for_logging(
+                    data[i],
+                    _depth=_depth + 1,
+                    _max_depth=_max_depth,
+                    _max_string_length=_max_string_length,
+                    _max_list_items=_max_list_items,
+                    _max_dict_items=_max_dict_items,
+                )
+                for i in range(sample_count)
+            ]
+            if length > sample_count:
+                summary["..."] = f"{length - sample_count} more items"
+        return summary
+
+    return str(data)
+
+
+def _serialize_for_logging(payload: Any) -> Tuple[str, int]:
+    text = json.dumps(payload, ensure_ascii=False, default=str)
+    return text, len(text.encode("utf-8"))
+
+
+def _prepare_log_payload(
+    payload: Dict[str, Any],
+    *,
+    keys_to_summarize: Sequence[str],
+    max_bytes: int = _MAX_LOG_PAYLOAD_BYTES,
+) -> Tuple[Dict[str, Any], str]:
+    working = dict(payload)
+    text, size = _serialize_for_logging(working)
+    if size <= max_bytes:
+        return working, text
+
+    truncation: Dict[str, Dict[str, Any]] = {}
+    existing_truncation = working.get("_truncation")
+    if isinstance(existing_truncation, dict):
+        truncation.update(existing_truncation)
+
+    for key in keys_to_summarize:
+        if key not in working:
+            continue
+        value = working[key]
+        if value is None:
+            continue
+        summary = _summarize_for_logging(value)
+        if summary is value:
+            continue
+
+        _, value_size = _serialize_for_logging(value)
+        truncation[key] = {
+            "summary": True,
+            "originalBytes": value_size,
+        }
+        working[key] = summary
+        working["_truncation"] = {"limitBytes": max_bytes, **truncation}
+
+        text, size = _serialize_for_logging(working)
+        if size <= max_bytes:
+            return working, text
+
+    minimal: Dict[str, Any] = {
+        "status": working.get("status"),
+        "message": "payload omitted due to size limit",
+        "_truncation": {"limitBytes": max_bytes, **truncation, "omitted": True},
+    }
+
+    text, size = _serialize_for_logging(minimal)
+    if size <= max_bytes:
+        return minimal, text
+
+    fallback = {
+        "message": "payload omitted",
+        "_truncation": {"limitBytes": max_bytes, "omitted": True},
+    }
+    fallback_text, _ = _serialize_for_logging(fallback)
+    return fallback, fallback_text
+
 
 # エラーハンドラ
 from werkzeug.exceptions import HTTPException
@@ -80,7 +227,22 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     app.config.setdefault("LAST_BEAT_AT", None)
-    
+
+    database_uri = app.config.get("SQLALCHEMY_DATABASE_URI")
+    testing_mode = app.config.get("TESTING") or str(os.environ.get("TESTING", "")).lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    if testing_mode and database_uri and database_uri.startswith("sqlite:///"):
+        db_path = database_uri.replace("sqlite:///", "", 1)
+        if db_path and db_path != ":memory:":
+            try:
+                os.remove(db_path)
+            except FileNotFoundError:
+                pass
+
     # リバースプロキシ（nginx等）使用時のHTTPS検出
     # ProxyFixをカスタマイズしてデバッグ情報を追加
     from werkzeug.middleware.proxy_fix import ProxyFix
@@ -304,8 +466,12 @@ def create_app():
                 log_dict["form"] = _mask_sensitive_data(form_dict)
             if input_json is not None:
                 log_dict["json"] = _mask_sensitive_data(input_json)
+            _, serialized_payload = _prepare_log_payload(
+                log_dict,
+                keys_to_summarize=("json", "form", "args"),
+            )
             app.logger.info(
-                json.dumps(log_dict, ensure_ascii=False),
+                serialized_payload,
                 extra={
                     "event": "api.input",
                     "request_id": req_id,
@@ -324,11 +490,17 @@ def create_app():
                 except Exception as e:
                     print(f"Error parsing JSON response {request.path}:", e)
                     resp_json = None
-            # Outputログ
-            log_payload = json.dumps({
+            masked_json = (
+                _mask_sensitive_data(resp_json) if resp_json is not None else None
+            )
+            base_payload = {
                 "status": response.status_code,
-                "json": _mask_sensitive_data(resp_json) if resp_json is not None else None,
-            }, ensure_ascii=False)
+                "json": masked_json,
+            }
+            _, log_payload = _prepare_log_payload(
+                base_payload,
+                keys_to_summarize=("json",),
+            )
             log_extra = {
                 "event": "api.output",
                 "request_id": req_id,
@@ -615,4 +787,12 @@ def register_cli_commands(app):
             db.session.rollback()
             click.echo(f"\n=== Seeding failed: {e} ===", err=True)
             raise click.ClickException(str(e))
+
+
+def __getattr__(name: str):
+    if name == "api":
+        module = importlib.import_module("webapp.api")
+        globals()[name] = module
+        return module
+    raise AttributeError(f"module 'webapp' has no attribute {name!r}")
 

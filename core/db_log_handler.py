@@ -1,11 +1,14 @@
 import json
 import logging
 import os
+import sys
+import traceback
 from typing import TYPE_CHECKING, Any, Dict, Optional, Set
 
 from flask import current_app, has_app_context
 from sqlalchemy import insert, create_engine
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import DataError, OperationalError
 
 from .db import db
 
@@ -186,20 +189,40 @@ class DBLogHandler(logging.Handler):
         engine = self._resolve_engine()
         self._ensure_table(engine)
 
-        try:
-            log_model = _get_log_model()
-            with engine.begin() as conn:
-                stmt = insert(log_model).values(
-                    level=record.levelname,
-                    message=message_json,
-                    trace=trace,
-                    path=path_value,
-                    request_id=request_id,
-                    event=event,
-                )
+        log_model = _get_log_model()
+        stmt = insert(log_model).values(
+            level=record.levelname,
+            message=message_json,
+            trace=trace,
+            path=path_value,
+            request_id=request_id,
+            event=event,
+        )
+
+        def _persist(engine_to_use: Engine) -> None:
+            with engine_to_use.begin() as conn:
                 conn.execute(stmt)
+
+        try:
+            _persist(engine)
+            return
         except Exception as exc:  # pragma: no cover - escalate for visibility
+            handled = isinstance(exc, (DataError, OperationalError))
+            if handled:
+                fallback_engine = self._get_fallback_engine()
+                if fallback_engine is not engine:
+                    try:
+                        self._ensure_table(fallback_engine)
+                        _persist(fallback_engine)
+                        return
+                    except Exception:
+                        pass
+
+                traceback.print_exception(type(exc), exc, exc.__traceback__, file=sys.stderr)
+                return
+
             raise RuntimeError("Failed to persist log record to database") from exc
+
 def _get_log_model():
     from .models.log import Log  # Local import to avoid circular dependencies
 

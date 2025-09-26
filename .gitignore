@@ -1,4 +1,3 @@
-# Python
 __pycache__/
 *.pyc
 *.pyo
@@ -28,6 +27,7 @@ venv/
 # ログや一時ファイル
 *.log
 *.sqlite3
+application_logs.db
 instance/
 
 # 環境変数ファイル（パスワード含む）

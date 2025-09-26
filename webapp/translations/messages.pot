@@ -1172,6 +1172,26 @@ msgstr ""
 msgid "Failed files will be retried up to three times."
 msgstr ""
 
+#: webapp/photo_view/templates/photo_view/session_detail.html:45
+msgid "Filter by keyword"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:46
+msgid "Search filename or ID"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:49
+msgid "Status filter"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:51
+msgid "All statuses"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:63
+msgid "Reset filters"
+msgstr ""
+
 #: webapp/photo_view/templates/photo_view/session_detail.html:32
 msgid "File"
 msgstr ""

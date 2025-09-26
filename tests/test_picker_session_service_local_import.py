@@ -228,6 +228,67 @@ class TestPickerSessionServiceLocalImport:
             assert details['pagination']['hasNext'] is True
             assert details['pagination']['hasPrev'] is False
 
+    def test_selection_details_supports_filters(self, app):
+        """選択詳細APIでステータス・キーワード絞り込みができることを確認"""
+        with app.app_context():
+            session = PickerSession(session_id="filter-session", status="ready", account_id=None)
+            db.session.add(session)
+            db.session.commit()
+
+            selections = [
+                PickerSelection(
+                    session_id=session.id,
+                    status='failed',
+                    attempts=1,
+                    local_filename='failed_photo.jpg',
+                    google_media_id='gm_failed',
+                ),
+                PickerSelection(
+                    session_id=session.id,
+                    status='imported',
+                    attempts=0,
+                    local_filename='holiday_trip.png',
+                    google_media_id='gm_imported',
+                ),
+                PickerSelection(
+                    session_id=session.id,
+                    status='pending',
+                    attempts=0,
+                    local_filename='todo_image.mov',
+                    google_media_id='gm_pending',
+                ),
+            ]
+            for selection in selections:
+                db.session.add(selection)
+            db.session.commit()
+
+            failed_params = PaginationParams(page_size=10)
+            failed_only = PickerSessionService.selection_details(
+                session,
+                failed_params,
+                status_filters=['failed'],
+            )
+
+            assert len(failed_only['selections']) == 1
+            assert failed_only['selections'][0]['status'] == 'failed'
+            assert failed_only['selections'][0]['filename'] == 'failed_photo.jpg'
+            assert failed_only['counts']['failed'] == 1
+            assert failed_only['counts']['imported'] == 1
+
+            search_params = PaginationParams(page_size=10)
+            search_only = PickerSessionService.selection_details(
+                session,
+                search_params,
+                search_term='holiday',
+            )
+
+            assert len(search_only['selections']) == 1
+            assert search_only['selections'][0]['status'] == 'imported'
+            assert search_only['selections'][0]['filename'] == 'holiday_trip.png'
+            # countsは全体の集計を返すことを確認
+            assert search_only['counts']['failed'] == 1
+            assert search_only['counts']['pending'] == 1
+
     def test_selection_error_payload_includes_logs(self, app):
         """selection_error_payloadが関連ログを返すことを確認"""
 

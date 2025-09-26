@@ -4,7 +4,7 @@ from datetime import datetime, timezone, timedelta
 import json
 import time
 from threading import Lock
-from typing import Dict, Optional, Tuple, Iterable, List, Any
+from typing import Dict, Optional, Tuple, Iterable, List, Any, Set
 from uuid import uuid4
 
 from flask import current_app
@@ -361,7 +361,13 @@ class PickerSessionService:
         }
 
     @staticmethod
-    def selection_details(ps: PickerSession, params: Optional[PaginationParams] = None) -> dict:
+    def selection_details(
+        ps: PickerSession,
+        params: Optional[PaginationParams] = None,
+        *,
+        status_filters: Optional[Iterable[str]] = None,
+        search_query: Optional[str] = None,
+    ) -> dict:
         """Return detailed status of each picker selection for a session."""
         
         # デフォルトページングパラメータ
@@ -373,6 +379,39 @@ class PickerSessionService:
             db.session.query(PickerSelection)
             .filter(PickerSelection.session_id == ps.id)
         )
+
+        normalized_status_filters: List[str] = []
+        if status_filters:
+            seen: Set[str] = set()
+            for status in status_filters:
+                if not status:
+                    continue
+                normalized = str(status).strip().lower()
+                if not normalized or normalized in seen:
+                    continue
+                seen.add(normalized)
+                normalized_status_filters.append(normalized)
+        if normalized_status_filters:
+            base_query = base_query.filter(PickerSelection.status.in_(normalized_status_filters))
+
+        normalized_search = None
+        if search_query:
+            normalized_search = str(search_query).strip()
+        if normalized_search:
+            escaped = (
+                normalized_search
+                .replace('\\', '\\\\')
+                .replace('%', '\\%')
+                .replace('_', '\\_')
+            )
+            like_pattern = f"%{escaped}%"
+            base_query = base_query.filter(
+                or_(
+                    PickerSelection.local_filename.ilike(like_pattern, escape='\\'),
+                    PickerSelection.google_media_id.ilike(like_pattern, escape='\\'),
+                    PickerSelection.error_msg.ilike(like_pattern, escape='\\'),
+                )
+            )
         
         # ページング処理
         paginated_result = Paginator.paginate_query(

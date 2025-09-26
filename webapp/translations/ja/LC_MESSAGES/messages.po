@@ -1320,9 +1320,25 @@ msgstr "選択ファイル数"
 msgid "Failed files will be retried up to three times."
 msgstr "失敗したファイルは最大3回まで再試行されます。"
 
+#: webapp/photo_view/templates/photo_view/session_detail.html:46
+msgid "All statuses"
+msgstr "すべてのステータス"
+
 #: webapp/photo_view/templates/photo_view/session_detail.html:32
 msgid "File"
 msgstr "ファイル"
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:63
+msgid "Search selected files"
+msgstr "選択されたファイルを検索"
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:69
+msgid "Apply filters"
+msgstr "絞り込みを適用"
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:72
+msgid "Reset filters"
+msgstr "絞り込みをリセット"
 
 #: webapp/photo_view/templates/photo_view/session_detail.html:34
 msgid "Attempts"

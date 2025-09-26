@@ -324,3 +324,15 @@ msgstr "Parent Page"
 
 msgid "Are you sure you want to cancel the local import?"
 msgstr "Are you sure you want to cancel the local import?"
+
+msgid "All statuses"
+msgstr "All statuses"
+
+msgid "Search selected files"
+msgstr "Search selected files"
+
+msgid "Apply filters"
+msgstr "Apply filters"
+
+msgid "Reset filters"
+msgstr "Reset filters"

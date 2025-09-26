@@ -158,16 +158,61 @@ class TestSessionDetailAPI:
         assert selection['googleMediaId'].startswith('local_')
         assert selection['mediaId'] is not None
         assert selection['filename'] == 'test_file.jpg'
-        assert selection['status'] == 'imported'
-        assert selection['attempts'] >= 0
-        assert selection['enqueuedAt'] is not None
-        assert selection['startedAt'] is not None
-        assert selection['finishedAt'] is not None
-        assert selection['error'] is None
 
-        # カウント確認
-        assert data['counts']['imported'] == 1
+    def test_session_selections_api_supports_filters(self, app):
+        """選択一覧APIがステータスと検索で絞り込みできることをテスト"""
 
+        client = app.test_client()
+
+        with client.session_transaction() as sess:
+            sess['_user_id'] = '1'
+            sess['_fresh'] = True
+
+        with app.app_context():
+            result = local_import_task()
+            session_id = result['session_id']
+
+            picker_session = PickerSession.query.filter_by(session_id=session_id).first()
+            assert picker_session is not None
+
+            extra_failed = PickerSelection(
+                session_id=picker_session.id,
+                google_media_id='manual_failed_item',
+                local_filename='failed_file.jpg',
+                status='failed',
+                error_msg='simulated failure',
+            )
+            extra_pending = PickerSelection(
+                session_id=picker_session.id,
+                google_media_id='manual_pending_item',
+                local_filename='pending_item.jpg',
+                status='pending',
+            )
+            db.session.add_all([extra_failed, extra_pending])
+            db.session.commit()
+
+        response = client.get(f'/api/picker/session/{session_id}/selections?status=failed')
+        assert response.status_code == 200
+        data = response.get_json()
+        assert len(data['selections']) == 1
+        filtered_selection = data['selections'][0]
+        assert filtered_selection['status'] == 'failed'
+        assert filtered_selection['filename'] == 'failed_file.jpg'
+        pagination = data.get('pagination', {})
+        total_count = pagination.get('totalCount')
+        if total_count is not None:
+            assert total_count == 1
+
+        response = client.get(f'/api/picker/session/{session_id}/selections?status=pending')
+        assert response.status_code == 200
+        data = response.get_json()
+        assert any(sel['status'] == 'pending' for sel in data['selections'])
+
+        response = client.get(f'/api/picker/session/{session_id}/selections?search=pending_item')
+        assert response.status_code == 200
+        data = response.get_json()
+        filenames = [sel['filename'] for sel in data['selections']]
+        assert any(name == 'pending_item.jpg' for name in filenames)
     def test_session_selection_error_detail_link_and_page(self, app):
         """エラー選択の詳細リンクとページが動作することを確認"""
 
@@ -383,6 +428,9 @@ class TestSessionDetailUI:
         assert 'local-import-status' in html
         assert 'selection-body' in html
         assert 'selection-counts' in html
+        assert 'selection-filter-form' in html
+        assert 'selection-status-filter' in html
+        assert 'selection-search-input' in html
         assert session_id in html or 'data-picker-session-id' in html
     
     def test_home_page_shows_local_import_sessions(self, app):

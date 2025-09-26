@@ -39,6 +39,40 @@
     <i class="bi bi-info-circle"></i> {{ _("Failed files will be retried up to three times.") }}
   </p>
   <div id="selection-counts" class="mb-2 text-muted">{{ _("Loading...") }}</div>
+  <form id="selection-filter-form" class="row gy-2 gx-2 gx-md-3 align-items-end mb-3">
+    <div class="col-12 col-md-4 col-lg-3">
+      <label for="selection-status-filter" class="form-label small mb-1">{{ _("Status") }}</label>
+      <select id="selection-status-filter" class="form-select form-select-sm">
+        <option value="">{{ _("All statuses") }}</option>
+        <option value="pending">{{ _("Pending") }}</option>
+        <option value="enqueued">{{ _("Enqueued") }}</option>
+        <option value="running">{{ _("Running") }}</option>
+        <option value="imported">{{ _("Imported") }}</option>
+        <option value="failed">{{ _("Failed") }}</option>
+        <option value="dup">{{ _("Duplicate") }}</option>
+        <option value="skipped">{{ _("Skipped") }}</option>
+      </select>
+    </div>
+    <div class="col-12 col-md-5 col-lg-4">
+      <label for="selection-search-input" class="form-label small mb-1">{{ _("Search") }}</label>
+      <div class="input-group input-group-sm">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="search"
+               id="selection-search-input"
+               class="form-control"
+               placeholder="{{ _("Search selected files") }}"
+               autocomplete="off">
+      </div>
+    </div>
+    <div class="col-12 col-md-3 col-lg-auto d-flex gap-2">
+      <button id="selection-filter-apply" class="btn btn-primary btn-sm flex-grow-1 flex-lg-grow-0" type="submit">
+        <i class="bi bi-funnel me-1"></i>{{ _("Apply filters") }}
+      </button>
+      <button id="selection-filter-reset" class="btn btn-outline-secondary btn-sm flex-grow-1 flex-lg-grow-0" type="button">
+        {{ _("Reset filters") }}
+      </button>
+    </div>
+  </form>
   <div class="table-responsive">
     <table class="table table-sm">
       <thead>
@@ -140,6 +174,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const localImportStatusEl = document.getElementById('local-import-status');
   const logSection = document.getElementById('local-import-logs-section');
   const logBody = document.getElementById('local-import-log-body');
+  const selectionFilterForm = document.getElementById('selection-filter-form');
+  const selectionStatusFilter = document.getElementById('selection-status-filter');
+  const selectionSearchInput = document.getElementById('selection-search-input');
+  const selectionFilterApplyBtn = document.getElementById('selection-filter-apply');
+  const selectionFilterResetBtn = document.getElementById('selection-filter-reset');
   const selectionPaginationEl = document.getElementById('selection-pagination');
   const selectionPaginationStatusEl = document.getElementById('selection-pagination-status');
   const selectionPaginationButton = document.getElementById('selection-pagination-load');
@@ -324,7 +363,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ].join('');
 
       row.innerHTML = `
-        <td>${escapeHtml(formatDateTime(log.createdAt))}</td>
+        <td>${escapeHtml(formatPreciseDateTime(log.createdAt))}</td>
         <td>${log.event ? `<code>${escapeHtml(log.event)}</code>` : '-'}</td>
         <td>${statusText ? `<span class="badge bg-${statusBadgeClass}">${escapeHtml(statusText)}</span>` : '-'}</td>
         <td>${level ? `<span class="badge bg-${badgeClass}">${escapeHtml(level)}</span>` : '-'}</td>
@@ -341,6 +380,84 @@ document.addEventListener('DOMContentLoaded', () => {
   let isRefreshing = false;
   let currentCounts = {};
   let displayedSelectionCount = 0;
+  const selectionFilterState = {
+    status: '',
+    search: '',
+  };
+
+  function sleep(ms) {
+    return new Promise((resolve) => {
+      window.setTimeout(resolve, ms);
+    });
+  }
+
+  function buildSelectionRequestParams() {
+    const params = {};
+    if (selectionFilterState.status) {
+      params.status = selectionFilterState.status;
+    }
+    if (selectionFilterState.search) {
+      params.search = selectionFilterState.search;
+    }
+    return params;
+  }
+
+  function updateSelectionFilterStateFromInputs() {
+    const rawStatus = selectionStatusFilter ? selectionStatusFilter.value : '';
+    selectionFilterState.status = (rawStatus || '').trim().toLowerCase();
+
+    if (selectionSearchInput) {
+      selectionFilterState.search = selectionSearchInput.value.trim();
+    } else {
+      selectionFilterState.search = '';
+    }
+  }
+
+  function resetSelectionFilterInputs() {
+    if (selectionStatusFilter) {
+      selectionStatusFilter.value = '';
+    }
+    if (selectionSearchInput) {
+      selectionSearchInput.value = '';
+    }
+    selectionFilterState.status = '';
+    selectionFilterState.search = '';
+  }
+
+  async function reloadSelectionsWithFilters() {
+    updateSelectionFilterStateFromInputs();
+    if (paginationClient) {
+      paginationClient.defaultParams = buildSelectionRequestParams();
+    }
+
+    if (selectionFilterApplyBtn) {
+      selectionFilterApplyBtn.disabled = true;
+      selectionFilterApplyBtn.setAttribute('aria-busy', 'true');
+    }
+
+    try {
+      let attempts = 0;
+      while (isRefreshing && attempts < 40) {
+        // eslint-disable-next-line no-await-in-loop
+        await sleep(50);
+        attempts += 1;
+      }
+
+      if (isRefreshing) {
+        window.setTimeout(() => {
+          refreshSelections();
+        }, 0);
+        return;
+      }
+
+      await refreshSelections();
+    } finally {
+      if (selectionFilterApplyBtn) {
+        selectionFilterApplyBtn.disabled = false;
+        selectionFilterApplyBtn.removeAttribute('aria-busy');
+      }
+    }
+  }
 
   function formatDateTime(isoString) {
     if (!isoString) return '-';
@@ -355,6 +472,52 @@ document.addEventListener('DOMContentLoaded', () => {
       const date = new Date(isoString);
       return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString();
     } catch (e) {
+      return isoString;
+    }
+  }
+
+  function formatPreciseDateTime(isoString) {
+    if (!isoString) {
+      return '-';
+    }
+
+    const options = {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      fractionalSecondDigits: 3,
+      hour12: false,
+    };
+
+    const helper = window.appTime;
+    if (helper && typeof helper.formatDateTime === 'function') {
+      try {
+        const formatted = helper.formatDateTime(isoString, options);
+        if (formatted) {
+          return formatted;
+        }
+      } catch (error) {
+        console.warn('Failed to format precise datetime via appTime', error);
+      }
+    }
+
+    try {
+      const date = new Date(isoString);
+      if (Number.isNaN(date.getTime())) {
+        return '-';
+      }
+      if (typeof Intl !== 'undefined' && typeof Intl.DateTimeFormat === 'function') {
+        try {
+          return new Intl.DateTimeFormat(undefined, options).format(date);
+        } catch (error) {
+          console.warn('Intl precise formatting failed', error);
+        }
+      }
+      return date.toISOString();
+    } catch (error) {
       return isoString;
     }
   }
@@ -761,6 +924,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     isRefreshing = true;
+    const currentFilterParams = buildSelectionRequestParams();
     try {
       const sessionData = await fetchSessionStatus();
       latestStatus = sessionData?.status || latestStatus;
@@ -778,6 +942,7 @@ document.addEventListener('DOMContentLoaded', () => {
           baseUrl: `/api/picker/session/${encodeURIComponent(pickerSessionId)}/selections`,
           pageSize: 200,
           autoLoad: false,
+          parameters: currentFilterParams,
           onItemsLoaded: (items, meta) => {
             if (meta.currentPage === 1) {
               selectionBody.innerHTML = '';
@@ -814,6 +979,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setSelectionPaginationLoading(state);
           },
         });
+        paginationClient.defaultParams = currentFilterParams;
         if (selectionPaginationButton) {
           selectionPaginationButton.addEventListener('click', () => {
             if (paginationClient) {
@@ -821,6 +987,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           });
         }
+      } else {
+        paginationClient.defaultParams = currentFilterParams;
       }
 
       const loadedPagesBeforeRefresh = paginationClient
@@ -856,6 +1024,20 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       stopLocalImportSession();
+    });
+  }
+
+  if (selectionFilterForm) {
+    selectionFilterForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      await reloadSelectionsWithFilters();
+    });
+  }
+
+  if (selectionFilterResetBtn) {
+    selectionFilterResetBtn.addEventListener('click', async () => {
+      resetSelectionFilterInputs();
+      await reloadSelectionsWithFilters();
     });
   }
 

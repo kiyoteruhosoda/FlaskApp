@@ -239,8 +239,31 @@ def api_picker_session_selections_by_session_id(session_id: str):
     
     # ページングパラメータの取得
     params = PaginationParams.from_request(default_page_size=200)
-    
-    payload = PickerSessionService.selection_details(ps, params)
+
+    raw_status_filters = request.args.getlist("status")
+    normalized_status_filters = []
+    seen_status = set()
+    for raw_status in raw_status_filters:
+        if not raw_status:
+            continue
+        normalized = raw_status.strip().lower()
+        if not normalized or normalized in seen_status:
+            continue
+        seen_status.add(normalized)
+        normalized_status_filters.append(normalized)
+
+    search_query = request.args.get("search", type=str)
+    if search_query is not None:
+        search_query = search_query.strip()
+        if not search_query:
+            search_query = None
+
+    payload = PickerSessionService.selection_details(
+        ps,
+        params,
+        status_filters=normalized_status_filters,
+        search_query=search_query,
+    )
 
     selections = payload.get("selections", [])
     for item in selections:

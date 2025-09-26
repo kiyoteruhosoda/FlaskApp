@@ -2212,6 +2212,69 @@ def api_media_thumb_url(media_id):
     )
 
 
+@bp.post("/media/<int:media_id>/original-url")
+@login_or_jwt_required
+def api_media_original_url(media_id):
+    media = Media.query.get(media_id)
+    if not media:
+        return jsonify({"error": "not_found"}), 404
+    if media.is_deleted:
+        return jsonify({"error": "gone"}), 410
+
+    rel_path = _normalize_rel_path(media.local_rel_path)
+    if not rel_path:
+        return jsonify({"error": "not_found"}), 404
+
+    rel_str = rel_path.as_posix()
+    token_path = f"originals/{rel_str}"
+    _, abs_path, found = _resolve_storage_file("FPV_NAS_ORIGINALS_DIR", rel_str)
+    if not found or not abs_path:
+        return jsonify({"error": "not_found"}), 404
+
+    ct = (
+        mimetypes.guess_type(abs_path)[0]
+        or media.mime_type
+        or "application/octet-stream"
+    )
+    ttl = current_app.config.get("FPV_URL_TTL_ORIGINAL", 600)
+    exp = int(time.time()) + ttl
+    payload = {
+        "v": 1,
+        "typ": "original",
+        "mid": media_id,
+        "size": None,
+        "path": token_path,
+        "ct": ct,
+        "exp": exp,
+        "nonce": uuid4().hex,
+    }
+    token = _sign_payload(payload)
+    expires_at = (
+        datetime.fromtimestamp(exp, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+    )
+    current_app.logger.info(
+        json.dumps(
+            {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "mid": media_id,
+                "ttl": ttl,
+                "nonce": payload["nonce"],
+            }
+        ),
+        extra={"event": "url.original.issue"},
+    )
+    return (
+        jsonify(
+            {
+                "url": f"/api/dl/{token}",
+                "expiresAt": expires_at,
+                "cacheControl": f"private, max-age={ttl}",
+            }
+        ),
+        200,
+    )
+
+
 @bp.post("/media/<int:media_id>/playback-url")
 @login_or_jwt_required
 def api_media_playback_url(media_id):
@@ -2297,7 +2360,8 @@ def api_download(token):
         )
         return jsonify({"error": "forbidden"}), 403
 
-    if payload.get("typ") == "thumb":
+    typ = payload.get("typ")
+    if typ == "thumb":
         if not path.startswith("thumbs/"):
             return jsonify({"error": "forbidden"}), 403
         rel = path[len("thumbs/") :]
@@ -2306,7 +2370,7 @@ def api_download(token):
         )
         accel_prefix = current_app.config.get("FPV_ACCEL_THUMBS_LOCATION", "")
         ttl = current_app.config.get("FPV_URL_TTL_THUMB", 600)
-    else:
+    elif typ == "playback":
         if not path.startswith("playback/"):
             return jsonify({"error": "forbidden"}), 403
         rel = path[len("playback/") :]
@@ -2315,6 +2379,17 @@ def api_download(token):
         )
         accel_prefix = current_app.config.get("FPV_ACCEL_PLAYBACK_LOCATION", "")
         ttl = current_app.config.get("FPV_URL_TTL_PLAYBACK", 600)
+    elif typ == "original":
+        if not path.startswith("originals/"):
+            return jsonify({"error": "forbidden"}), 403
+        rel = path[len("originals/") :]
+        base, abs_path, found = _resolve_storage_file(
+            "FPV_NAS_ORIGINALS_DIR", *rel.split("/")
+        )
+        accel_prefix = current_app.config.get("FPV_ACCEL_ORIGINALS_LOCATION", "")
+        ttl = current_app.config.get("FPV_URL_TTL_ORIGINAL", 600)
+    else:
+        return jsonify({"error": "forbidden"}), 403
     if not found or not abs_path:
         current_app.logger.info(
             json.dumps(

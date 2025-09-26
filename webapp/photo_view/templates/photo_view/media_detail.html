@@ -256,9 +256,18 @@
         <button class="btn btn-outline-secondary" onclick="history.back()">
           <i class="fas fa-arrow-left"></i> {{ _("Back") }}
         </button>
-        <button class="btn btn-outline-primary" id="download-btn" disabled>
-          <i class="fas fa-download"></i> {{ _("Download") }}
-        </button>
+        <div class="btn-group" id="download-controls" role="group">
+          <button class="btn btn-outline-primary" id="download-btn" type="button" data-download-type="original" disabled>
+            <i class="fas fa-download"></i> {{ _("Download") }}
+          </button>
+          <button class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split" id="download-menu-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" disabled>
+            <span class="visually-hidden">{{ _("Toggle download options") }}</span>
+          </button>
+          <ul class="dropdown-menu" id="download-menu">
+            <li><a class="dropdown-item download-option" href="#" data-download-type="original">{{ _("Download original") }}</a></li>
+            <li><a class="dropdown-item download-option" href="#" data-download-type="thumbnail">{{ _("Download thumbnail (2048px)") }}</a></li>
+          </ul>
+        </div>
         {% if current_user.can('media:delete') %}
         <button class="btn btn-outline-danger" id="delete-btn">
           <i class="fas fa-trash-alt"></i> {{ _("Delete") }}
@@ -347,6 +356,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const mediaTitle = document.getElementById('media-title');
   const mediaMeta = document.getElementById('media-meta');
   const downloadBtn = document.getElementById('download-btn');
+  const downloadMenuBtn = document.getElementById('download-menu-btn');
+  const downloadMenu = document.getElementById('download-menu');
   const fullscreenBtn = document.getElementById('fullscreen-btn');
   const zoomBtn = document.getElementById('zoom-btn');
   const deleteBtn = document.getElementById('delete-btn');
@@ -384,9 +395,54 @@ document.addEventListener('DOMContentLoaded', () => {
   const deleteMissingText = '{{ _("Media was not found or is already deleted.")|escapejs }}';
   const deleteInProgressText = '{{ _("Deleting...")|escapejs }}';
   const redirectAfterDeleteUrl = '{{ url_for("photo_view.media_list")|escapejs }}';
+  const downloadErrorText = 'ダウンロードに失敗しました';
+  const downloadPlaybackPendingText = '動画の再生準備が完了していません。しばらくしてから再度お試しください。';
+  const downloadPlaybackMissingText = '動画の再生ファイルが見つかりませんでした。';
+  const downloadMissingUrlText = 'Missing download URL';
 
   if (mediaTagsContainer && !mediaTagsContainer.dataset.emptyText) {
     mediaTagsContainer.dataset.emptyText = noTagsAssignedText;
+  }
+
+  if (downloadBtn) {
+    downloadBtn.disabled = true;
+  }
+  if (downloadMenuBtn) {
+    downloadMenuBtn.disabled = true;
+  }
+
+  function hasVisibleDownloadOptions() {
+    if (!downloadMenu) {
+      return false;
+    }
+    return Array.from(downloadMenu.querySelectorAll('[data-download-type]')).some((item) => !item.classList.contains('d-none'));
+  }
+
+  function updateDownloadControls(media) {
+    if (!downloadBtn) {
+      return;
+    }
+
+    const isVideo = Boolean(media.isVideo || media.is_video);
+    downloadBtn.dataset.downloadType = isVideo ? 'playback' : 'original';
+    downloadBtn.disabled = false;
+
+    if (downloadMenu) {
+      const thumbOption = downloadMenu.querySelector('[data-download-type="thumbnail"]');
+      if (thumbOption) {
+        thumbOption.classList.toggle('d-none', isVideo);
+      }
+      const originalOption = downloadMenu.querySelector('[data-download-type="original"]');
+      if (originalOption) {
+        originalOption.classList.remove('d-none');
+      }
+    }
+
+    if (downloadMenuBtn) {
+      const hasOptions = hasVisibleDownloadOptions();
+      downloadMenuBtn.classList.toggle('d-none', !hasOptions);
+      downloadMenuBtn.disabled = !hasOptions;
+    }
   }
 
   // メディア詳細を読み込み
@@ -495,8 +551,8 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       displayImage(media);
     }
-    
-    downloadBtn.disabled = false;
+
+    updateDownloadControls(media);
   }
   
   function displayImage(media) {
@@ -838,17 +894,31 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ダウンロード
-  downloadBtn.addEventListener('click', async () => {
+  async function requestDownload(downloadType) {
     if (!currentMedia) {
       return;
     }
 
     const isVideo = Boolean(currentMedia.isVideo || currentMedia.is_video);
-    const endpoint = isVideo
-      ? `/api/media/${mediaId}/playback-url`
-      : `/api/media/${mediaId}/thumb-url`;
-    const requestBody = isVideo ? undefined : { size: 2048 };
+    let endpoint = '';
+    let requestBody;
+
+    if (downloadType === 'thumbnail') {
+      if (isVideo) {
+        if (typeof showErrorToast === 'function') {
+          showErrorToast(downloadErrorText);
+        }
+        return;
+      }
+      endpoint = `/api/media/${mediaId}/thumb-url`;
+      requestBody = { size: 2048 };
+    } else if (downloadType === 'playback') {
+      endpoint = `/api/media/${mediaId}/playback-url`;
+    } else if (downloadType === 'original') {
+      endpoint = `/api/media/${mediaId}/original-url`;
+    } else {
+      return;
+    }
 
     try {
       const response = await window.apiClient.post(endpoint, requestBody);
@@ -861,13 +931,13 @@ document.addEventListener('DOMContentLoaded', () => {
           payload = null;
         }
 
-        let message = 'ダウンロードに失敗しました';
-        if (isVideo) {
+        let message = downloadErrorText;
+        if (downloadType === 'playback') {
           const errorCode = payload && payload.error;
           if (response.status === 409 || errorCode === 'not_ready') {
-            message = '動画の再生準備が完了していません。しばらくしてから再度お試しください。';
+            message = downloadPlaybackPendingText;
           } else if (errorCode === 'not_found') {
-            message = '動画の再生ファイルが見つかりませんでした。';
+            message = downloadPlaybackMissingText;
           }
         }
 
@@ -881,15 +951,40 @@ document.addEventListener('DOMContentLoaded', () => {
       if (data && data.url) {
         window.open(data.url, '_blank');
       } else {
-        throw new Error('Missing download URL');
+        throw new Error(downloadMissingUrlText);
       }
     } catch (error) {
       console.error('Download error:', error);
       if (typeof showErrorToast === 'function') {
-        showErrorToast('ダウンロードに失敗しました');
+        showErrorToast(downloadErrorText);
       }
     }
-  });
+  }
+
+  if (downloadBtn) {
+    downloadBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      if (downloadBtn.disabled) {
+        return;
+      }
+      const downloadType = downloadBtn.dataset.downloadType || (Boolean(currentMedia && (currentMedia.isVideo || currentMedia.is_video)) ? 'playback' : 'original');
+      requestDownload(downloadType);
+    });
+  }
+
+  if (downloadMenu) {
+    downloadMenu.addEventListener('click', (event) => {
+      const target = event.target.closest('[data-download-type]');
+      if (!target) {
+        return;
+      }
+      event.preventDefault();
+      if (target.classList.contains('disabled')) {
+        return;
+      }
+      requestDownload(target.dataset.downloadType);
+    });
+  }
   
   // ユーティリティ関数
   function formatDateTime(isoString) {

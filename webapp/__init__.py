@@ -2,6 +2,7 @@
 import hashlib
 import logging
 import json
+import os
 import time
 from datetime import datetime, timezone
 from uuid import uuid4
@@ -183,29 +184,35 @@ def create_app():
         # removed because the template already provides them.
         return json.dumps(value, ensure_ascii=False)[1:-1]
 
+    testing_env = os.environ.get("TESTING", "").strip().lower()
+    disable_db_logging = app.config.get("TESTING") or testing_env in {"1", "true", "yes", "on"}
+
     # Logging configuration
-    if not any(isinstance(h, DBLogHandler) for h in app.logger.handlers):
-        db_handler = DBLogHandler(app=app)
-        db_handler.setLevel(logging.INFO)
-        app.logger.addHandler(db_handler)
+    if not disable_db_logging:
+        if not any(isinstance(h, DBLogHandler) for h in app.logger.handlers):
+            db_handler = DBLogHandler(app=app)
+            db_handler.setLevel(logging.INFO)
+            app.logger.addHandler(db_handler)
 
-    ensure_appdb_file_logging(app.logger)
+        ensure_appdb_file_logging(app.logger)
 
-    should_bind_db_handlers = True
-    database_uri = app.config.get("SQLALCHEMY_DATABASE_URI")
-    if database_uri:
-        try:
-            url = make_url(database_uri)
-        except Exception:  # pragma: no cover - invalid URI should not block logging
-            url = None
-        if url is not None and url.get_backend_name() == "sqlite":
-            if url.database in (None, "", ":memory:"):
-                should_bind_db_handlers = False
+        should_bind_db_handlers = True
+        database_uri = app.config.get("SQLALCHEMY_DATABASE_URI")
+        if database_uri:
+            try:
+                url = make_url(database_uri)
+            except Exception:  # pragma: no cover - invalid URI should not block logging
+                url = None
+            if url is not None and url.get_backend_name() == "sqlite":
+                if url.database in (None, "", ":memory:"):
+                    should_bind_db_handlers = False
 
-    if should_bind_db_handlers:
-        for handler in app.logger.handlers:
-            if isinstance(handler, DBLogHandler):
-                handler.bind_to_app(app)
+        if should_bind_db_handlers:
+            for handler in app.logger.handlers:
+                if isinstance(handler, DBLogHandler):
+                    handler.bind_to_app(app)
+    elif app.logger.level == logging.NOTSET:
+        app.logger.setLevel(logging.INFO)
     
     # デバッグモードでは詳細ログを有効化
     if app.debug:

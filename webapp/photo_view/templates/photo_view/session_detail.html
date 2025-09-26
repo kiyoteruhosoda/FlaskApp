@@ -39,6 +39,32 @@
     <i class="bi bi-info-circle"></i> {{ _("Failed files will be retried up to three times.") }}
   </p>
   <div id="selection-counts" class="mb-2 text-muted">{{ _("Loading...") }}</div>
+  <div class="card card-body bg-body-tertiary border-0 mb-3">
+    <form id="selection-filter-form" class="row g-2 align-items-end">
+      <div class="col-12 col-md-6 col-lg-4">
+        <label for="selection-filter-search" class="form-label small text-muted mb-1">{{ _("Filter by keyword") }}</label>
+        <input id="selection-filter-search" type="search" class="form-control form-control-sm" placeholder="{{ _("Search filename or ID") }}" autocomplete="off">
+      </div>
+      <div class="col-12 col-md-4 col-lg-3">
+        <label for="selection-filter-status" class="form-label small text-muted mb-1">{{ _("Status filter") }}</label>
+        <select id="selection-filter-status" class="form-select form-select-sm">
+          <option value="">{{ _("All statuses") }}</option>
+          <option value="pending">{{ _("Pending") }}</option>
+          <option value="enqueued">{{ _("Enqueued") }}</option>
+          <option value="running">{{ _("Running") }}</option>
+          <option value="imported">{{ _("Imported") }}</option>
+          <option value="failed">{{ _("Failed") }}</option>
+          <option value="dup">{{ _("Duplicate") }}</option>
+          <option value="skipped">{{ _("Skipped") }}</option>
+        </select>
+      </div>
+      <div class="col-12 col-md-2 col-lg-auto">
+        <button type="button" id="selection-filter-reset" class="btn btn-outline-secondary btn-sm w-100">
+          <i class="bi bi-x-circle"></i> {{ _("Reset filters") }}
+        </button>
+      </div>
+    </form>
+  </div>
   <div class="table-responsive">
     <table class="table table-sm">
       <thead>
@@ -144,6 +170,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const selectionPaginationStatusEl = document.getElementById('selection-pagination-status');
   const selectionPaginationButton = document.getElementById('selection-pagination-load');
   const selectionPaginationSpinner = document.getElementById('selection-pagination-spinner');
+  const selectionFilterForm = document.getElementById('selection-filter-form');
+  const selectionFilterSearchInput = document.getElementById('selection-filter-search');
+  const selectionFilterStatusSelect = document.getElementById('selection-filter-status');
+  const selectionFilterResetButton = document.getElementById('selection-filter-reset');
   const viewErrorDetailsLabel = '{{ _("View error details") }}';
 
   const selectionStatusLabels = {
@@ -183,6 +213,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const localImportCanceledMessage = '{{ _("Local import was canceled.") }}';
   const localImportStopFailedMessage = '{{ _("Failed to stop local import.") }}';
   const localImportCancelConfirmMessage = '{{ _("Are you sure you want to cancel the local import?") }}';
+
+  let selectionFilterSearchDebounce = null;
 
   function getStatusBadgeClass(status) {
     switch (status) {
@@ -593,6 +625,26 @@ document.addEventListener('DOMContentLoaded', () => {
     localImportStatusEl.textContent = '{{ _("Local import session runs automatically.") }}';
   }
 
+  function buildSelectionQueryParams() {
+    const params = {};
+
+    if (selectionFilterSearchInput) {
+      const value = selectionFilterSearchInput.value.trim();
+      if (value.length > 0) {
+        params.search = value;
+      }
+    }
+
+    if (selectionFilterStatusSelect) {
+      const statusValue = selectionFilterStatusSelect.value;
+      if (statusValue) {
+        params.status = statusValue;
+      }
+    }
+
+    return params;
+  }
+
   function updateSessionInfo(sessionData) {
     if (!sessionData) {
       return;
@@ -757,7 +809,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  async function refreshSelections() {
+  async function refreshSelections(options = {}) {
+    const { forceReset = false } = options || {};
     if (isRefreshing) {
       return;
     }
@@ -866,6 +919,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
+      if (forceReset && paginationClient) {
+        paginationClient.reset();
+        selectionRefreshStaging = null;
+        displayedSelectionCount = 0;
+      }
+
+      if (paginationClient) {
+        paginationClient.defaultParams = buildSelectionQueryParams();
+      }
+
       const loadedPagesBeforeRefresh = paginationClient
         ? Math.max(0, paginationClient.currentPage - 1)
         : 0;
@@ -929,6 +992,42 @@ document.addEventListener('DOMContentLoaded', () => {
     } finally {
       isRefreshing = false;
     }
+  }
+
+  if (selectionFilterForm) {
+    selectionFilterForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      refreshSelections({ forceReset: true });
+    });
+  }
+
+  if (selectionFilterStatusSelect) {
+    selectionFilterStatusSelect.addEventListener('change', () => {
+      refreshSelections({ forceReset: true });
+    });
+  }
+
+  if (selectionFilterSearchInput) {
+    selectionFilterSearchInput.addEventListener('input', () => {
+      if (selectionFilterSearchDebounce) {
+        clearTimeout(selectionFilterSearchDebounce);
+      }
+      selectionFilterSearchDebounce = setTimeout(() => {
+        refreshSelections({ forceReset: true });
+      }, 300);
+    });
+  }
+
+  if (selectionFilterResetButton) {
+    selectionFilterResetButton.addEventListener('click', () => {
+      if (selectionFilterSearchInput) {
+        selectionFilterSearchInput.value = '';
+      }
+      if (selectionFilterStatusSelect) {
+        selectionFilterStatusSelect.value = '';
+      }
+      refreshSelections({ forceReset: true });
+    });
   }
 
   if (stopLocalImportBtn) {

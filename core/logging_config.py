@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Optional
 
 from flask import current_app, has_app_context
@@ -25,6 +26,20 @@ def _create_appdb_db_handler() -> logging.Handler:
 
 def ensure_appdb_file_logging(logger: logging.Logger) -> None:
     """Attach the database-backed appdb log handler to *logger* if missing."""
+
+    testing_env = os.environ.get("TESTING", "").strip().lower()
+
+    if testing_env in {"1", "true", "yes", "on"}:
+        if logger.level == logging.NOTSET:
+            logger.setLevel(logging.INFO)
+        return
+
+    if has_app_context():
+        app = current_app._get_current_object()
+        if app.config.get("TESTING"):
+            if logger.level == logging.NOTSET:
+                logger.setLevel(logging.INFO)
+            return
 
     from core.db_log_handler import DBLogHandler
 

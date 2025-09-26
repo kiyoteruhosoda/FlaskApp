@@ -4,14 +4,14 @@ from datetime import datetime, timezone, timedelta
 import json
 import time
 from threading import Lock
-from typing import Dict, Optional, Tuple, Iterable, List, Any
+from typing import Dict, Optional, Tuple, Iterable, List, Any, Sequence
 from uuid import uuid4
 
 from flask import current_app
 
 from .pagination import PaginationParams, Paginator
 from ..extensions import db
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
 from core.models.job_sync import JobSync
@@ -361,19 +361,59 @@ class PickerSessionService:
         }
 
     @staticmethod
-    def selection_details(ps: PickerSession, params: Optional[PaginationParams] = None) -> dict:
+    def selection_details(
+        ps: PickerSession,
+        params: Optional[PaginationParams] = None,
+        *,
+        status_filters: Optional[Sequence[str]] = None,
+        search_term: Optional[str] = None,
+    ) -> dict:
         """Return detailed status of each picker selection for a session."""
-        
+
         # デフォルトページングパラメータ
         if params is None:
             params = PaginationParams(page_size=200)
-        
+
         # ベースクエリ（効率的なJOIN）
         base_query = (
             db.session.query(PickerSelection)
             .filter(PickerSelection.session_id == ps.id)
         )
-        
+
+        normalized_status_filters: List[str] = []
+        if status_filters:
+            seen = set()
+            for raw_value in status_filters:
+                if not raw_value:
+                    continue
+                value = raw_value.strip().lower()
+                if not value or value in seen:
+                    continue
+                seen.add(value)
+            normalized_status_filters = sorted(seen)
+
+        if normalized_status_filters:
+            base_query = base_query.filter(PickerSelection.status.in_(normalized_status_filters))
+
+        normalized_search: Optional[str] = None
+        if search_term:
+            normalized_search = search_term.strip()
+            if normalized_search:
+                normalized_search = normalized_search.lower()
+
+        if normalized_search:
+            like_pattern = f"%{normalized_search}%"
+            base_query = base_query.outerjoin(
+                MediaItem,
+                PickerSelection.google_media_id == MediaItem.id,
+            ).filter(
+                or_(
+                    func.lower(PickerSelection.local_filename).like(like_pattern),
+                    func.lower(PickerSelection.google_media_id).like(like_pattern),
+                    func.lower(MediaItem.filename).like(like_pattern),
+                )
+            )
+
         # ページング処理
         paginated_result = Paginator.paginate_query(
             query=base_query,

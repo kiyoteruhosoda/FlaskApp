@@ -1,6 +1,9 @@
+import os
 import sys
 from pathlib import Path
 import pytest
+
+os.environ.setdefault("TESTING", "true")
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -74,13 +77,28 @@ SKIP_RULES = [
     ("tests/wiki/", "Wikiサービスのシードデータと全文検索インデックスが必要なためスキップ"),
 ]
 
+# 外部依存のスキップ対象から除外するテストファイル（相対パス）
+ALWAYS_RUN = {
+    "tests/test_picker_session_service_local_import.py",
+}
+
 
 def pytest_collection_modifyitems(config, items):
     """外部サービス依存の大規模結合テストを環境に合わせてスキップ"""
 
     for item in items:
-        path = str(item.fspath)
+        path = Path(str(item.fspath))
+        try:
+            rel_path = path.relative_to(ROOT)
+        except ValueError:
+            rel_path = path
+
+        normalized = rel_path.as_posix()
+
+        if normalized in ALWAYS_RUN:
+            continue
+
         for pattern, reason in SKIP_RULES:
-            if pattern in path:
+            if pattern in normalized:
                 item.add_marker(pytest.mark.skip(reason=reason))
                 break

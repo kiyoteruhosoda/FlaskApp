@@ -112,16 +112,31 @@ def enqueue_thumbs_generate(
         return {"ok": False, "note": "exception", "error": str(exc)}
 
     generated = result.get("generated", [])
+    skipped = result.get("skipped", [])
+    notes = result.get("notes")
     if result.get("ok"):
+        if generated:
+            event = "thumbnail_generation.complete"
+            message = "Thumbnails generated successfully."
+        else:
+            event = "thumbnail_generation.skipped"
+            # Provide a clear reason in the log message when nothing was generated
+            if notes:
+                message = f"Thumbnail generation skipped: {notes}."
+            else:
+                message = "Thumbnail generation skipped with no thumbnails produced."
+
         _structured_task_log(
             logger,
             level="info",
-            event="thumbnail_generation.complete",
-            message="Thumbnails generated successfully.",
+            event=event,
+            message=message,
             operation_id=op_id,
             media_id=media_id,
             request_context=request_context,
             generated=generated,
+            skipped=skipped,
+            notes=notes,
         )
     else:
         _structured_task_log(

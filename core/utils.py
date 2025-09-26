@@ -160,14 +160,41 @@ def get_file_date_from_exif(exif_data: dict) -> datetime | None:
     date_tags = ['DateTimeOriginal', 'DateTime', 'DateTimeDigitized']
     
     for tag in date_tags:
-        if tag in exif_data:
-            date_str = exif_data[tag]
-            if isinstance(date_str, str):
-                try:
-                    # EXIF日時フォーマット: "YYYY:MM:DD HH:MM:SS"
-                    dt = datetime.strptime(date_str, "%Y:%m:%d %H:%M:%S")
-                    return dt.replace(tzinfo=timezone.utc)
-                except ValueError:
-                    continue
-    
+        if tag not in exif_data:
+            continue
+
+        raw_value = exif_data[tag]
+
+        if isinstance(raw_value, bytes):
+            # HEIC/HEIF などで EXIF がバイト列として提供される場合があるため、
+            # UTF-8（ASCII 互換）でデコードして処理する。
+            try:
+                date_str = raw_value.decode("utf-8", errors="ignore")
+            except Exception:
+                continue
+        else:
+            date_str = str(raw_value) if not isinstance(raw_value, str) else raw_value
+
+        date_str = date_str.strip().strip("\x00")
+        if not date_str:
+            continue
+
+        # EXIF日時フォーマット: "YYYY:MM:DD HH:MM:SS"
+        try:
+            dt = datetime.strptime(date_str, "%Y:%m:%d %H:%M:%S")
+            return dt.replace(tzinfo=timezone.utc)
+        except ValueError:
+            pass
+
+        # ISO8601 形式等にもフォールバックしておく。
+        normalized = date_str.replace("Z", "+00:00")
+        try:
+            dt = datetime.fromisoformat(normalized)
+        except ValueError:
+            continue
+
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+
     return None

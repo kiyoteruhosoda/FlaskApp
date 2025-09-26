@@ -6,6 +6,7 @@ import pytest
 from PIL import Image
 
 from core.tasks import thumbs_generate
+from core.tasks.thumbs_generate import PLAYBACK_NOT_READY_NOTES
 
 
 @pytest.fixture
@@ -186,6 +187,6 @@ def test_video_playback_not_ready(app):
         "ok": True,
         "generated": [],
         "skipped": [256, 512, 1024, 2048],
-        "notes": "playback not ready",
+        "notes": PLAYBACK_NOT_READY_NOTES,
         "paths": {},
     }

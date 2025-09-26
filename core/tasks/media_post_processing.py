@@ -22,11 +22,68 @@ from core.models.photo_models import Media, MediaPlayback
 
 # These imports are intentionally placed after SQLAlchemy models to avoid
 # circular import issues.
-from .thumbs_generate import thumbs_generate
+from .thumbs_generate import PLAYBACK_NOT_READY_NOTES, thumbs_generate
 from .transcode import transcode_worker
 
 
 _logger = setup_task_logging(__name__)
+
+_THUMBNAIL_RETRY_COUNTDOWN = 300
+
+
+def _schedule_thumbnail_retry(
+    *,
+    media_id: int,
+    force: bool,
+    countdown: int,
+    logger: logging.Logger,
+    operation_id: str,
+    request_context: Optional[Dict[str, Any]],
+) -> bool:
+    """Schedule a Celery retry for thumbnail generation.
+
+    Returns ``True`` when a retry job could be enqueued.  When Celery is not
+    available the function simply returns ``False`` without logging to avoid
+    noisy warnings in test environments.
+    """
+
+    try:
+        from cli.src.celery.tasks import thumbs_generate_task
+    except ImportError:
+        return False
+
+    try:
+        async_result = thumbs_generate_task.apply_async(
+            kwargs={"media_id": media_id, "force": force},
+            countdown=countdown,
+        )
+    except Exception as exc:  # pragma: no cover - network failure path
+        _structured_task_log(
+            logger,
+            level="warning",
+            event="thumbnail_generation.retry_failed",
+            message="Failed to schedule thumbnail retry.",
+            operation_id=operation_id,
+            media_id=media_id,
+            request_context=request_context,
+            countdown=countdown,
+            error=str(exc),
+        )
+        return False
+
+    _structured_task_log(
+        logger,
+        level="info",
+        event="thumbnail_generation.retry_scheduled",
+        message=f"Playback not ready; retry scheduled in {countdown} seconds.",
+        operation_id=operation_id,
+        media_id=media_id,
+        request_context=request_context,
+        countdown=countdown,
+        celery_task_id=getattr(async_result, "id", None),
+        force=force,
+    )
+    return True
 
 
 def _structured_task_log(
@@ -86,18 +143,24 @@ def enqueue_thumbs_generate(
     logger_override: Optional[logging.Logger] = None,
     operation_id: Optional[str] = None,
     request_context: Optional[Dict[str, Any]] = None,
+    force: bool = False,
 ) -> Dict[str, Any]:
     """Synchronously generate thumbnails for *media_id* with structured logging.
 
+    When the underlying worker reports that playback assets are not yet ready,
+    the helper schedules a Celery retry (if available) using a 5 minute delay.
+
     Returns the raw result dictionary from :func:`thumbs_generate` (or a
-    synthesized error response when the worker raises an exception).
+    synthesized error response when the worker raises an exception).  When a
+    retry is scheduled the returned dictionary includes ``retry_scheduled`` set
+    to ``True``.
     """
 
     logger = logger_override or _logger
     op_id = operation_id or str(uuid4())
 
     try:
-        result = thumbs_generate(media_id=media_id)
+        result = thumbs_generate(media_id=media_id, force=force)
     except Exception as exc:  # pragma: no cover - unexpected failure path
         _structured_task_log(
             logger,
@@ -114,6 +177,8 @@ def enqueue_thumbs_generate(
     generated = result.get("generated", [])
     skipped = result.get("skipped", [])
     notes = result.get("notes")
+    retry_scheduled = False
+
     if result.get("ok"):
         if generated:
             event = "thumbnail_generation.complete"
@@ -138,6 +203,16 @@ def enqueue_thumbs_generate(
             skipped=skipped,
             notes=notes,
         )
+
+        if notes == PLAYBACK_NOT_READY_NOTES:
+            retry_scheduled = _schedule_thumbnail_retry(
+                media_id=media_id,
+                force=force,
+                countdown=_THUMBNAIL_RETRY_COUNTDOWN,
+                logger=logger,
+                operation_id=op_id,
+                request_context=request_context,
+            )
     else:
         _structured_task_log(
             logger,
@@ -149,6 +224,10 @@ def enqueue_thumbs_generate(
             request_context=request_context,
             notes=result.get("notes"),
         )
+
+    if retry_scheduled:
+        result = dict(result)
+        result["retry_scheduled"] = True
 
     return result
 

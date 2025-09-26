@@ -86,6 +86,20 @@ def _stub_playback_failure(monkeypatch: pytest.MonkeyPatch, note: str = "stub_fa
     monkeypatch.setattr(media_post_processing, "enqueue_media_playback", fake_enqueue)
 
 
+def _stub_video_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    """動画メタデータ取得を安定化させるスタブを設定する。"""
+
+    def fake_extract(path: str) -> dict:
+        return {
+            "width": 1920,
+            "height": 1080,
+            "duration_ms": 1200,
+            "shot_at": datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc),
+        }
+
+    monkeypatch.setattr(local_import_module, "extract_video_metadata", fake_extract)
+
+
 def _import_video(
     import_path: Path,
     import_dir: Path,
@@ -230,3 +244,43 @@ def test_local_import_video_playback_failure(
     assert "ffmpeg_missing" in result["reason"]
     # 元ファイルは削除されず残っていることを確認
     assert test_video.exists()
+
+
+@pytest.mark.usefixtures("app_context")
+def test_duplicate_video_regenerates_thumbnails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, playback_dir: Path
+) -> None:
+    """重複動画の再取り込み時にサムネイルが再生成されることを検証する。"""
+
+    import_dir = tmp_path / "import"
+    originals_dir = tmp_path / "originals"
+    import_dir.mkdir()
+    originals_dir.mkdir()
+
+    test_video = import_dir / "DupThumb.mp4"
+    create_test_video(test_video)
+
+    _stub_playback_success(monkeypatch, playback_dir)
+    _stub_video_metadata(monkeypatch)
+
+    thumb_calls: list[tuple[int, bool]] = []
+
+    def fake_thumbs_generate(*, media_id: int, force: bool = False) -> dict:
+        thumb_calls.append((media_id, force))
+        return {"ok": True, "generated": [256], "skipped": [], "notes": None}
+
+    monkeypatch.setattr(local_import_module, "thumbs_generate", fake_thumbs_generate)
+
+    first = import_single_file(str(test_video), str(import_dir), str(originals_dir))
+    assert first["success"] is True
+    assert not thumb_calls
+
+    # 重複検出用に同じファイルを再生成
+    create_test_video(test_video)
+
+    second = import_single_file(str(test_video), str(import_dir), str(originals_dir))
+    assert second["success"] is False
+    assert "重複ファイル" in second["reason"]
+
+    assert len(thumb_calls) == 1
+    assert thumb_calls[0] == (first["media_id"], True)

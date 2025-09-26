@@ -341,6 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let isRefreshing = false;
   let currentCounts = {};
   let displayedSelectionCount = 0;
+  let selectionRefreshStaging = null;
 
   function formatDateTime(isoString) {
     if (!isoString) return '-';
@@ -779,9 +780,17 @@ document.addEventListener('DOMContentLoaded', () => {
           pageSize: 200,
           autoLoad: false,
           onItemsLoaded: (items, meta) => {
+            const isStaging = Boolean(selectionRefreshStaging);
+
             if (meta.currentPage === 1) {
-              selectionBody.innerHTML = '';
-              displayedSelectionCount = 0;
+              if (isStaging) {
+                selectionRefreshStaging.rows = [];
+                selectionRefreshStaging.displayedCount = 0;
+                selectionRefreshStaging.lastMeta = null;
+              } else {
+                selectionBody.innerHTML = '';
+                displayedSelectionCount = 0;
+              }
             }
 
             if (items.length === 0 && meta.currentPage === 1) {
@@ -791,21 +800,55 @@ document.addEventListener('DOMContentLoaded', () => {
                   ${buildEmptyMessage(latestStatus)}
                 </td>
               `;
+
+              if (isStaging) {
+                selectionRefreshStaging.rows.push(tr);
+                selectionRefreshStaging.displayedCount = 0;
+                selectionRefreshStaging.lastMeta = { hasNext: false, total: 0, totalCount: 0 };
+                return;
+              }
+
               selectionBody.appendChild(tr);
-              updateSelectionPagination({ hasNext: false, total: 0 });
-            } else {
-              items.forEach(selection => {
-                const row = createSelectionRow(selection);
-                selectionBody.appendChild(row);
-              });
-              displayedSelectionCount += items.length;
+              updateSelectionPagination({ hasNext: false, total: 0, totalCount: 0 });
+              return;
             }
 
-            updateSelectionPagination({
-              hasNext: meta.hasNext,
-              total: meta.total,
-              totalCount: meta.total,
-            });
+            if (items.length > 0) {
+              const newRows = items.map(selection => createSelectionRow(selection));
+
+              if (isStaging) {
+                newRows.forEach(row => selectionRefreshStaging.rows.push(row));
+                selectionRefreshStaging.displayedCount += items.length;
+                selectionRefreshStaging.lastMeta = {
+                  hasNext: meta.hasNext,
+                  total: meta.total,
+                  totalCount: meta.total,
+                };
+              } else {
+                newRows.forEach(row => selectionBody.appendChild(row));
+                displayedSelectionCount += items.length;
+                updateSelectionPagination({
+                  hasNext: meta.hasNext,
+                  total: meta.total,
+                  totalCount: meta.total,
+                });
+              }
+              return;
+            }
+
+            if (isStaging) {
+              selectionRefreshStaging.lastMeta = {
+                hasNext: meta.hasNext,
+                total: meta.total,
+                totalCount: meta.total,
+              };
+            } else {
+              updateSelectionPagination({
+                hasNext: meta.hasNext,
+                total: meta.total,
+                totalCount: meta.total,
+              });
+            }
           },
           onError: (error) => {
             console.error('Selection loading error:', error);
@@ -827,6 +870,17 @@ document.addEventListener('DOMContentLoaded', () => {
         ? Math.max(0, paginationClient.currentPage - 1)
         : 0;
 
+      const shouldStageRows = loadedPagesBeforeRefresh > 1;
+      if (shouldStageRows) {
+        selectionRefreshStaging = {
+          rows: [],
+          displayedCount: 0,
+          lastMeta: null,
+        };
+      } else {
+        selectionRefreshStaging = null;
+      }
+
       await paginationClient.loadFirst();
 
       if (paginationClient && loadedPagesBeforeRefresh > 1) {
@@ -841,6 +895,34 @@ document.addEventListener('DOMContentLoaded', () => {
           // eslint-disable-next-line no-await-in-loop
           await paginationClient.loadNext();
         }
+      }
+
+      if (selectionRefreshStaging) {
+        const { rows, displayedCount, lastMeta } = selectionRefreshStaging;
+        selectionBody.innerHTML = '';
+
+        if (rows.length === 0) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td colspan="4" class="text-center text-muted py-4">
+              ${buildEmptyMessage(latestStatus)}
+            </td>
+          `;
+          selectionBody.appendChild(tr);
+          displayedSelectionCount = 0;
+          updateSelectionPagination({ hasNext: false, total: 0, totalCount: 0 });
+        } else {
+          rows.forEach(row => selectionBody.appendChild(row));
+          displayedSelectionCount = displayedCount;
+          const fallbackTotal = paginationClient?.items?.length || displayedCount;
+          updateSelectionPagination(lastMeta || {
+            hasNext: paginationClient?.hasNext || false,
+            total: fallbackTotal,
+            totalCount: fallbackTotal,
+          });
+        }
+
+        selectionRefreshStaging = null;
       }
     } catch (err) {
       console.error(err);

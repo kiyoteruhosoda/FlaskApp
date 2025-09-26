@@ -27,7 +27,7 @@ import shutil
 import tempfile
 from pathlib import Path
 import threading
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import requests
 from sqlalchemy import update
@@ -50,6 +50,7 @@ from core.tasks.media_post_processing import (
     process_media_post_import,
 )
 from flask import current_app
+from core.utils import open_image_compat
 
 # picker_import専用ロガーを取得（両方のログハンドラーが設定済み）
 logger = logging.getLogger('picker_import')
@@ -491,6 +492,64 @@ def _download(url: str, dest_dir: Path, headers: Dict[str, str] | None = None) -
             exc_info=True
         )
         raise
+
+
+def _coerce_positive_int(value: object) -> Optional[int]:
+    """Return *value* coerced to ``int`` when possible and positive."""
+
+    try:
+        if value is None:
+            return None
+        number = int(value)
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
+def _detect_image_dimensions(file_path: Path) -> tuple[Optional[int], Optional[int]]:
+    """Read image dimensions from *file_path* when possible."""
+
+    try:
+        with open_image_compat(file_path) as img:
+            width, height = img.size
+            return int(width), int(height)
+    except Exception:
+        logger.debug("寸法情報の取得に失敗: %s", file_path, exc_info=True)
+        return None, None
+
+
+def _resolve_media_dimensions(
+    *,
+    meta: dict,
+    media_item: Optional[MediaItem],
+    file_path: Optional[Path],
+    is_video: bool,
+) -> tuple[Optional[int], Optional[int]]:
+    """Determine width and height for the imported media item.
+
+    Prefer API metadata but fall back to reading the downloaded file when the
+    API omits dimension information (notably for HEIC images).
+    """
+
+    width = _coerce_positive_int(meta.get("width"))
+    height = _coerce_positive_int(meta.get("height"))
+
+    if media_item is not None:
+        width = width or _coerce_positive_int(media_item.width)
+        height = height or _coerce_positive_int(media_item.height)
+
+    if not is_video and file_path is not None and (width is None or height is None):
+        detected_width, detected_height = _detect_image_dimensions(file_path)
+        width = width or detected_width
+        height = height or detected_height
+
+    if media_item is not None:
+        if width is not None:
+            media_item.width = width
+        if height is not None:
+            media_item.height = height
+
+    return width, height
 
 
 def _ensure_dirs() -> Tuple[Path, Path]:
@@ -1062,6 +1121,13 @@ def picker_import_item(
                 raise
 
             try:
+                width_value, height_value = _resolve_media_dimensions(
+                    meta=meta,
+                    media_item=mi,
+                    file_path=final_path,
+                    is_video=is_video,
+                )
+
                 media = Media(
                     source_type="google_photos",
                     google_media_id=mi.id,
@@ -1071,8 +1137,8 @@ def picker_import_item(
                     hash_sha256=dl.sha256,
                     bytes=dl.bytes,
                     mime_type=mi.mime_type,
-                    width=int(meta.get("width", mi.width or 0) or 0),
-                    height=int(meta.get("height", mi.height or 0) or 0),
+                    width=width_value,
+                    height=height_value,
                     duration_ms=int(meta.get("video", {}).get("durationMillis", 0) or 0)
                     if is_video
                     else None,
@@ -1377,6 +1443,13 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
             final_path.parent.mkdir(parents=True, exist_ok=True)
             os.replace(dl.path, final_path)
 
+            width_value, height_value = _resolve_media_dimensions(
+                meta=meta,
+                media_item=None,
+                file_path=final_path,
+                is_video=is_video,
+            )
+
             media = Media(
                 source_type="google_photos",
                 google_media_id=media_id,
@@ -1386,8 +1459,8 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
                 hash_sha256=dl.sha256,
                 bytes=dl.bytes,
                 mime_type=mime,
-                width=int(meta.get("width", 0) or 0),
-                height=int(meta.get("height", 0) or 0),
+                width=width_value,
+                height=height_value,
                 duration_ms=int(meta.get("video", {}).get("durationMillis", 0) or 0),
                 shot_at=shot_at,
                 imported_at=datetime.now(timezone.utc),

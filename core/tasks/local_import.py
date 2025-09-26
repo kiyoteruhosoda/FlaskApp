@@ -39,6 +39,7 @@ from core.models.picker_session import PickerSession
 from core.utils import get_file_date_from_name, get_file_date_from_exif
 from core.logging_config import setup_task_logging, log_task_error, log_task_info
 from core.tasks.media_post_processing import process_media_post_import
+from core.tasks.thumbs_generate import thumbs_generate
 from core.storage_paths import first_existing_storage_path, storage_path_candidates
 from webapp.config import Config
 
@@ -741,6 +742,48 @@ def _refresh_existing_media_metadata(
     return True
 
 
+def _regenerate_duplicate_video_thumbnails(
+    media: Media,
+    *,
+    session_id: Optional[str] = None,
+) -> None:
+    """重複動画のサムネイル生成を再実行する。"""
+
+    try:
+        result = thumbs_generate(media_id=media.id, force=True)
+    except Exception as exc:  # pragma: no cover - unexpected failure path
+        _log_error(
+            "local_import.duplicate_video.thumbnail_regen_failed",
+            "重複動画のサムネイル再生成中に例外が発生",
+            session_id=session_id,
+            media_id=media.id,
+            error_type=type(exc).__name__,
+            error_message=str(exc),
+        )
+        return
+
+    if result.get("ok"):
+        _log_info(
+            "local_import.duplicate_video.thumbnail_regenerated",
+            "重複動画のサムネイルを再生成",
+            session_id=session_id,
+            media_id=media.id,
+            generated=result.get("generated"),
+            skipped=result.get("skipped"),
+            notes=result.get("notes"),
+            status="thumbs_regenerated",
+        )
+    else:
+        _log_warning(
+            "local_import.duplicate_video.thumbnail_regen_skipped",
+            "重複動画のサムネイル再生成をスキップ",
+            session_id=session_id,
+            media_id=media.id,
+            notes=result.get("notes"),
+            status="thumbs_skipped",
+        )
+
+
 def create_media_item_for_local(filename: str, mime_type: str, width: Optional[int], height: Optional[int],
                                is_video: bool, exif_data: Optional[Dict] = None, video_metadata: Optional[Dict] = None) -> MediaItem:
     """ローカルファイル用のMediaItemを作成"""
@@ -937,8 +980,14 @@ def import_single_file(
                         status="duplicate",
                     )
 
+            if existing_media.is_video:
+                _regenerate_duplicate_video_thumbnails(
+                    existing_media,
+                    session_id=session_id,
+                )
+
             return result
-        
+
         is_video = file_extension in SUPPORTED_VIDEO_EXTENSIONS
 
         # 撮影日時とメタデータの取得

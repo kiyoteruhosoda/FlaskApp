@@ -252,10 +252,36 @@ def _normalize_rel_path(value: str | None) -> Path | None:
     return Path(normalized)
 
 
+def _thumbnail_rel_path_candidates(media: Media) -> list[Path]:
+    """Return candidate relative paths for thumbnail files."""
+
+    candidates: list[Path] = []
+
+    def _append(path: Path | None) -> None:
+        if path and path not in candidates:
+            candidates.append(path)
+
+    def _replace_suffix(path: Path, suffix: str) -> Path:
+        if path.suffix:
+            return path.with_suffix(suffix)
+        return path.with_name(path.name + suffix)
+
+    thumb_rel = _normalize_rel_path(getattr(media, "thumbnail_rel_path", None))
+    _append(thumb_rel)
+
+    local_rel = _normalize_rel_path(media.local_rel_path)
+    _append(local_rel)
+
+    if local_rel:
+        for suffix in (".jpg", ".png"):
+            alt = _replace_suffix(local_rel, suffix)
+            _append(alt)
+
+    return candidates
+
+
 def _remove_media_files(media: Media) -> None:
     rel_path = _normalize_rel_path(media.local_rel_path)
-    if rel_path is None:
-        return
 
     def _unlink(target: Path) -> None:
         try:
@@ -276,13 +302,15 @@ def _remove_media_files(media: Media) -> None:
             )
 
     orig_base = _storage_path("FPV_NAS_ORIGINALS_DIR")
-    if orig_base:
+    if orig_base and rel_path:
         _unlink(Path(orig_base) / rel_path)
 
     thumbs_base = _storage_path("FPV_NAS_THUMBS_DIR")
     if thumbs_base:
+        thumb_candidates = _thumbnail_rel_path_candidates(media)
         for size in (256, 1024, 2048):
-            _unlink(Path(thumbs_base) / str(size) / rel_path)
+            for candidate in thumb_candidates:
+                _unlink(Path(thumbs_base) / str(size) / candidate)
 
     play_base = _storage_path("FPV_NAS_PLAY_DIR")
     if play_base:
@@ -531,8 +559,8 @@ def serialize_album_summary(
 def _resolve_best_thumbnail_url(media: Media) -> str | None:
     """Return the largest available thumbnail URL for a media item."""
 
-    rel_path = _normalize_rel_path(media.local_rel_path)
-    if rel_path is None:
+    rel_candidates = _thumbnail_rel_path_candidates(media)
+    if not rel_candidates:
         return None
 
     thumbs_base = _storage_path("FPV_NAS_THUMBS_DIR")
@@ -540,9 +568,10 @@ def _resolve_best_thumbnail_url(media: Media) -> str | None:
         return None
 
     for size in (2048, 1024, 512):
-        candidate = Path(thumbs_base) / str(size) / rel_path
-        if candidate.exists():
-            return f"/api/media/{media.id}/thumbnail?size={size}"
+        for rel_path in rel_candidates:
+            candidate = Path(thumbs_base) / str(size) / rel_path
+            if candidate.exists():
+                return f"/api/media/{media.id}/thumbnail?size={size}"
 
     return None
 
@@ -2041,12 +2070,24 @@ def api_media_thumbnail(media_id):
     if media.is_deleted:
         return jsonify({"error": "gone"}), 410
 
-    rel_path = media.local_rel_path
-    thumbs_base, abs_path, found = _resolve_storage_file(
-        "FPV_NAS_THUMBS_DIR", str(size), rel_path
-    )
+    rel_candidates = _thumbnail_rel_path_candidates(media)
+    if not rel_candidates:
+        return jsonify({"error": "not_found"}), 404
+    resolved_rel: str | None = None
+    thumbs_base = None
+    abs_path = None
+    found = False
 
-    if not found or not abs_path:
+    for candidate in rel_candidates:
+        candidate_str = candidate.as_posix()
+        thumbs_base, abs_path, found = _resolve_storage_file(
+            "FPV_NAS_THUMBS_DIR", str(size), candidate_str
+        )
+        if found and abs_path:
+            resolved_rel = candidate_str
+            break
+
+    if not found or not abs_path or not resolved_rel:
         _emit_structured_api_log(
             "thumbnail file missing",
             level="warning",
@@ -2054,7 +2095,7 @@ def api_media_thumbnail(media_id):
             media_id=media_id,
             size=size,
             base_dir=thumbs_base,
-            rel_path=rel_path,
+            rel_path=rel_candidates[0].as_posix(),
             abs_path=abs_path,
             candidates=_storage_path_candidates("FPV_NAS_THUMBS_DIR"),
         )
@@ -2089,13 +2130,27 @@ def api_media_thumb_url(media_id):
     if media.is_deleted:
         return jsonify({"error": "gone"}), 410
 
-    rel_path = media.local_rel_path
-    token_path = f"thumbs/{size}/{rel_path}"
-    thumbs_base, abs_path, found = _resolve_storage_file(
-        "FPV_NAS_THUMBS_DIR", str(size), rel_path
-    )
-    if not found or not abs_path:
+    rel_candidates = _thumbnail_rel_path_candidates(media)
+    if not rel_candidates:
         return jsonify({"error": "not_found"}), 404
+    resolved_rel: str | None = None
+    thumbs_base = None
+    abs_path = None
+    found = False
+
+    for candidate in rel_candidates:
+        candidate_str = candidate.as_posix()
+        thumbs_base, abs_path, found = _resolve_storage_file(
+            "FPV_NAS_THUMBS_DIR", str(size), candidate_str
+        )
+        if found and abs_path:
+            resolved_rel = candidate_str
+            break
+
+    if not found or not abs_path or not resolved_rel:
+        return jsonify({"error": "not_found"}), 404
+
+    token_path = f"thumbs/{size}/{resolved_rel}"
 
     ct = (
         mimetypes.guess_type(abs_path)[0]

@@ -32,6 +32,7 @@ class Media(db.Model):
     
     # ファイル情報
     local_rel_path = db.Column(db.String(255), nullable=True)  # ローカルファイルパス
+    thumbnail_rel_path = db.Column(db.String(255), nullable=True)  # サムネイル用パス
     filename = db.Column(db.String(255), nullable=True)  # 元のファイル名
     hash_sha256 = db.Column(db.CHAR(64), nullable=True)
     bytes = db.Column(BigInt, nullable=True)
@@ -86,6 +87,12 @@ class Media(db.Model):
     @property
     def is_google_photos(self):
         return self.source_type == 'google_photos'
+
+    @property
+    def resolved_thumbnail_rel_path(self) -> str | None:
+        """サムネイル用の相対パスを返す。"""
+
+        return self.thumbnail_rel_path or self.local_rel_path
 
 class MediaSidecar(db.Model):
     id = db.Column(BigInt, primary_key=True, autoincrement=True)

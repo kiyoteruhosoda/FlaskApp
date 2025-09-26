@@ -209,6 +209,24 @@ def enqueue_media_playback(
             db.session.commit()
 
         if pb.status in {"done", "processing"}:
+            thumb_result: Dict[str, Any] | None = None
+            if pb.status == "done":
+                thumb_result = enqueue_thumbs_generate(
+                    media_id,
+                    logger_override=logger,
+                    operation_id=op_id,
+                    request_context=request_context,
+                )
+
+            log_details: Dict[str, Any] = {"playback_status": pb.status}
+            if thumb_result is not None:
+                log_details.update(
+                    thumbnail_ok=thumb_result.get("ok"),
+                    thumbnail_generated=thumb_result.get("generated"),
+                    thumbnail_skipped=thumb_result.get("skipped"),
+                    thumbnail_notes=thumb_result.get("notes"),
+                )
+
             _structured_task_log(
                 logger,
                 level="info",
@@ -217,13 +235,18 @@ def enqueue_media_playback(
                 operation_id=op_id,
                 media_id=media_id,
                 request_context=request_context,
-                playback_status=pb.status,
+                **log_details,
             )
-            return {
+
+            result: Dict[str, Any] = {
                 "ok": pb.status == "done",
                 "note": f"already_{pb.status}",
                 "playback_status": pb.status,
             }
+            if thumb_result is not None:
+                result["thumbnails"] = thumb_result
+
+            return result
 
         result = transcode_worker(media_playback_id=pb.id)
         db.session.refresh(pb)

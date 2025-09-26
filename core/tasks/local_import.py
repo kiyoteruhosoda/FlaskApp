@@ -509,7 +509,167 @@ def check_duplicate_media(file_hash: str, file_size: int) -> Optional[Media]:
     ).first()
 
 
-def create_media_item_for_local(filename: str, mime_type: str, width: Optional[int], height: Optional[int], 
+def _refresh_existing_media_metadata(
+    media: Media,
+    *,
+    originals_dir: str,
+    fallback_path: str,
+    file_extension: str,
+    session_id: Optional[str] = None,
+) -> bool:
+    """既存メディアのメタデータをローカルファイルから再適用する。"""
+
+    candidate_paths = []
+    if media.local_rel_path:
+        original_path = os.path.join(originals_dir, media.local_rel_path)
+        candidate_paths.append(original_path)
+    candidate_paths.append(fallback_path)
+
+    source_path = next((p for p in candidate_paths if p and os.path.exists(p)), None)
+    if not source_path:
+        _log_warning(
+            "local_import.file.duplicate_source_missing",
+            "メタデータ再適用用のソースファイルが見つかりません",
+            media_id=media.id,
+            originals_dir=originals_dir,
+            fallback_path=fallback_path,
+            session_id=session_id,
+            status="missing",
+        )
+        return False
+
+    file_size = os.path.getsize(source_path)
+    file_hash = calculate_file_hash(source_path)
+
+    is_video = file_extension in SUPPORTED_VIDEO_EXTENSIONS
+    width, height, orientation = None, None, None
+    duration_ms = None
+    exif_data: Dict[str, Any] = {}
+    video_metadata: Dict[str, Any] = {}
+
+    if not is_video and file_extension in SUPPORTED_IMAGE_EXTENSIONS:
+        width, height, orientation = get_image_dimensions(source_path)
+        exif_data = extract_exif_data(source_path)
+    elif is_video:
+        video_metadata = extract_video_metadata(source_path)
+        if video_metadata:
+            width = video_metadata.get("width") or width
+            height = video_metadata.get("height") or height
+            duration_ms = video_metadata.get("duration_ms") or duration_ms
+
+    shot_at = None
+    if exif_data:
+        shot_at = get_file_date_from_exif(exif_data)
+    if not shot_at:
+        shot_at = get_file_date_from_name(os.path.basename(source_path))
+    if not shot_at:
+        shot_at = datetime.fromtimestamp(os.path.getmtime(source_path), tz=timezone.utc)
+
+    mime_type_map = {
+        '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+        '.png': 'image/png', '.tiff': 'image/tiff', '.tif': 'image/tiff',
+        '.bmp': 'image/bmp', '.heic': 'image/heic', '.heif': 'image/heif',
+        '.mp4': 'video/mp4', '.mov': 'video/quicktime',
+        '.avi': 'video/x-msvideo', '.mkv': 'video/x-matroska',
+        '.m4v': 'video/mp4', '.3gp': 'video/3gpp', '.webm': 'video/webm'
+    }
+    mime_type = mime_type_map.get(file_extension, 'application/octet-stream')
+
+    media.mime_type = mime_type
+    media.hash_sha256 = file_hash
+    media.bytes = file_size
+    if width is not None:
+        media.width = width
+    if height is not None:
+        media.height = height
+    if duration_ms is not None:
+        media.duration_ms = duration_ms
+    if orientation is not None:
+        media.orientation = orientation
+    if shot_at:
+        media.shot_at = shot_at
+    media.is_video = is_video
+
+    if exif_data:
+        media.camera_make = exif_data.get('Make') or media.camera_make
+        media.camera_model = exif_data.get('Model') or media.camera_model
+
+    media_item = None
+    if media.google_media_id:
+        media_item = MediaItem.query.get(media.google_media_id)
+        if media_item:
+            media_item.mime_type = mime_type
+            media_item.filename = os.path.basename(media.filename or source_path)
+            if width is not None:
+                media_item.width = width
+            if height is not None:
+                media_item.height = height
+            if exif_data:
+                media_item.camera_make = exif_data.get('Make') or media_item.camera_make
+                media_item.camera_model = exif_data.get('Model') or media_item.camera_model
+            media_item.type = "VIDEO" if is_video else "PHOTO"
+
+            if not is_video and exif_data:
+                photo_meta = media_item.photo_metadata or PhotoMetadata()
+                if 'FocalLength' in exif_data:
+                    photo_meta.focal_length = exif_data.get('FocalLength')
+                if 'FNumber' in exif_data:
+                    photo_meta.aperture_f_number = exif_data.get('FNumber')
+                if 'ISOSpeedRatings' in exif_data:
+                    photo_meta.iso_equivalent = exif_data.get('ISOSpeedRatings')
+                exposure_value = exif_data.get('ExposureTime') if 'ExposureTime' in exif_data else None
+                photo_meta.exposure_time = str(exposure_value) if exposure_value not in (None, '') else None
+                media_item.photo_metadata = photo_meta
+                db.session.add(photo_meta)
+                db.session.flush()
+            elif is_video:
+                video_meta = media_item.video_metadata or VideoMetadata(processing_status='UNSPECIFIED')
+                if video_metadata:
+                    if 'fps' in video_metadata:
+                        video_meta.fps = video_metadata.get('fps')
+                    if 'processing_status' in video_metadata:
+                        video_meta.processing_status = video_metadata.get('processing_status')
+                if video_meta.processing_status is None:
+                    video_meta.processing_status = 'UNSPECIFIED'
+                media_item.video_metadata = video_meta
+                db.session.add(video_meta)
+                db.session.flush()
+    else:
+        _log_warning(
+            "local_import.file.duplicate_media_item_missing",
+            "既存メディアに対応するMediaItemが見つかりません",
+            media_id=media.id,
+            media_google_id=media.google_media_id,
+            session_id=session_id,
+            status="warning",
+        )
+
+    if exif_data:
+        exif = media.exif or Exif(media_id=media.id)
+        exif.camera_make = exif_data.get('Make')
+        exif.camera_model = exif_data.get('Model')
+        exif.lens = exif_data.get('LensModel')
+        exif.iso = exif_data.get('ISOSpeedRatings')
+        shutter_value = exif_data.get('ExposureTime') if 'ExposureTime' in exif_data else None
+        exif.shutter = str(shutter_value) if shutter_value not in (None, '') else None
+        exif.f_number = exif_data.get('FNumber')
+        exif.focal_len = exif_data.get('FocalLength')
+        exif.gps_lat = exif_data.get('GPSLatitude')
+        exif.gps_lng = exif_data.get('GPSLongitude')
+        exif.raw_json = json.dumps(exif_data, ensure_ascii=False, default=str)
+        db.session.add(exif)
+
+    _commit_with_error_logging(
+        "local_import.file.duplicate_refresh_commit",
+        "重複メディアのメタデータを更新",
+        session_id=session_id,
+        media_id=media.id,
+    )
+
+    return True
+
+
+def create_media_item_for_local(filename: str, mime_type: str, width: Optional[int], height: Optional[int],
                                is_video: bool, exif_data: Optional[Dict] = None, video_metadata: Optional[Dict] = None) -> MediaItem:
     """ローカルファイル用のMediaItemを作成"""
     import uuid
@@ -576,6 +736,7 @@ def import_single_file(
         "reason": "",
         "media_id": None,
         "media_google_id": None,
+        "metadata_refreshed": False,
     }
     
     _log_info(
@@ -636,14 +797,74 @@ def import_single_file(
             result["reason"] = f"重複ファイル (既存ID: {existing_media.id})"
             result["media_id"] = existing_media.id
             result["media_google_id"] = existing_media.google_media_id
-            _log_info(
-                "local_import.file.duplicate",
-                "重複ファイルを検出したためスキップ",
-                file_path=file_path,
-                media_id=existing_media.id,
-                session_id=session_id,
-                status="duplicate",
-            )
+
+            refreshed = False
+            try:
+                refreshed = _refresh_existing_media_metadata(
+                    existing_media,
+                    originals_dir=originals_dir,
+                    fallback_path=file_path,
+                    file_extension=file_extension,
+                    session_id=session_id,
+                )
+            except Exception as refresh_exc:
+                _log_error(
+                    "local_import.file.duplicate_refresh_failed",
+                    "重複ファイルのメタデータ更新中にエラーが発生",
+                    file_path=file_path,
+                    media_id=existing_media.id,
+                    error_type=type(refresh_exc).__name__,
+                    error_message=str(refresh_exc),
+                    exc_info=True,
+                    session_id=session_id,
+                )
+            else:
+                if refreshed:
+                    result["metadata_refreshed"] = True
+                    result["reason"] = (
+                        f"重複ファイル (既存ID: {existing_media.id}) - メタデータ更新"
+                    )
+                    _log_info(
+                        "local_import.file.duplicate_refreshed",
+                        "重複ファイルから既存メディアのメタデータを更新",
+                        file_path=file_path,
+                        media_id=existing_media.id,
+                        session_id=session_id,
+                        status="duplicate_refreshed",
+                    )
+                    try:
+                        os.remove(file_path)
+                        _log_info(
+                            "local_import.file.duplicate_source_removed",
+                            "重複ファイルのソースを削除",
+                            file_path=file_path,
+                            media_id=existing_media.id,
+                            session_id=session_id,
+                            status="cleaned",
+                        )
+                    except FileNotFoundError:
+                        pass
+                    except OSError as cleanup_exc:
+                        _log_warning(
+                            "local_import.file.duplicate_source_remove_failed",
+                            "重複ファイル削除に失敗",
+                            file_path=file_path,
+                            media_id=existing_media.id,
+                            error_type=type(cleanup_exc).__name__,
+                            error_message=str(cleanup_exc),
+                            session_id=session_id,
+                            status="warning",
+                        )
+                else:
+                    _log_info(
+                        "local_import.file.duplicate",
+                        "重複ファイルを検出したためスキップ",
+                        file_path=file_path,
+                        media_id=existing_media.id,
+                        session_id=session_id,
+                        status="duplicate",
+                    )
+
             return result
         
         # 撮影日時の取得

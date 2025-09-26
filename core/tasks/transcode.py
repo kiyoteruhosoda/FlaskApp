@@ -700,7 +700,80 @@ def transcode_worker(*, media_playback_id: int) -> Dict[str, object]:
             "note": "file_move_error",
         }
 
+    if not dest_path.exists():
+        error_details = {
+            "playback_id": pb.id,
+            "media_id": pb.media_id,
+            "expected_path": str(dest_path),
+            "passthrough": passthrough,
+        }
+        logger.error(
+            f"再生ファイル配置確認失敗: playback_id={pb.id} - {dest_path} が存在しません",
+            extra={
+                "event": "transcode.file.missing_after_move",
+                "error_details": json.dumps(error_details),
+            },
+        )
+        pb.status = "error"
+        pb.error_msg = "missing_output"
+        pb.updated_at = datetime.now(timezone.utc)
+        db.session.commit()
+        return {
+            "ok": False,
+            "duration_ms": 0,
+            "width": 0,
+            "height": 0,
+            "note": "missing_output",
+        }
+
+    playback_size = None
+    try:
+        playback_size = dest_path.stat().st_size
+    except OSError:
+        playback_size = None
+
+    logger.info(
+        f"再生ファイル配置確認済み: playback_id={pb.id} - path={dest_path} size={playback_size}",
+        extra={
+            "event": "transcode.file.verified",
+            "playback_id": pb.id,
+            "media_id": pb.media_id,
+            "dest_path": str(dest_path),
+            "size": playback_size,
+        },
+    )
+
     poster_rel = _generate_poster(pb, dest_path)
+
+    poster_path = (_play_dir() / poster_rel) if poster_rel else None
+    if poster_path and not poster_path.exists():
+        logger.error(
+            f"ポスター配置確認失敗: playback_id={pb.id} - {poster_path} が存在しません",
+            extra={
+                "event": "transcode.poster.missing_after_move",
+                "playback_id": pb.id,
+                "media_id": pb.media_id,
+                "poster_path": str(poster_path),
+            },
+        )
+        poster_rel = None
+        poster_path = None
+    elif poster_path:
+        poster_size = None
+        try:
+            poster_size = poster_path.stat().st_size
+        except OSError:
+            poster_size = None
+        logger.info(
+            f"ポスター生成完了: playback_id={pb.id} - path={poster_path} size={poster_size}",
+            extra={
+                "event": "transcode.poster.saved",
+                "playback_id": pb.id,
+                "media_id": pb.media_id,
+                "poster_path": str(poster_path),
+                "size": poster_size,
+            },
+        )
 
     pb.width = width
     pb.height = height
@@ -741,4 +814,6 @@ def transcode_worker(*, media_playback_id: int) -> Dict[str, object]:
         "width": width,
         "height": height,
         "note": note_value,
+        "output_path": str(dest_path),
+        "poster_path": str(poster_path) if poster_path else None,
     }

@@ -861,6 +861,51 @@ def test_playback_filename_for_mov(client, app):
     assert "filename*=UTF-8''Playback%20Clip.mp4" in cd
 
 
+def test_media_detail_playback_paths_normalized(client, app):
+    from webapp.extensions import db
+    from core.models.photo_models import Media, MediaPlayback
+
+    login(client)
+
+    with app.app_context():
+        media = Media(
+            google_media_id="mov2",
+            account_id=1,
+            local_rel_path="mov/test.mov",
+            filename="Playback Clip.mov",
+            bytes=20,
+            mime_type="video/quicktime",
+            width=100,
+            height=100,
+            duration_ms=2000,
+            is_video=True,
+            is_deleted=False,
+            has_playback=True,
+        )
+        db.session.add(media)
+        db.session.commit()
+
+        playback = MediaPlayback(
+            media_id=media.id,
+            preset="std1080p",
+            rel_path=r"2025\\08\\18\\clip.MP4",
+            poster_rel_path=r"2025\\08\\18\\clip poster.JPG",
+            status="done",
+        )
+        db.session.add(playback)
+        db.session.commit()
+
+        media_id = media.id
+
+    res = client.get(f"/api/media/{media_id}")
+    assert res.status_code == 200
+    data = res.get_json()
+    playback_info = data["playback"]
+
+    assert playback_info["rel_path"] == "2025/08/18/clip.MP4"
+    assert playback_info["poster_rel_path"] == "2025/08/18/clip poster.JPG"
+
+
 def test_download_with_accel_redirect(client, seed_thumb_media, app):
     media_id, rel = seed_thumb_media
     login(client)

@@ -197,6 +197,7 @@ def enqueue_media_playback(
             return
 
         result = transcode_worker(media_playback_id=pb.id)
+        db.session.refresh(pb)
         if result.get("ok"):
             _structured_task_log(
                 logger,
@@ -210,6 +211,10 @@ def enqueue_media_playback(
                 height=result.get("height"),
                 duration_ms=result.get("duration_ms"),
                 note=result.get("note"),
+                playback_rel_path=pb.rel_path,
+                playback_output_path=result.get("output_path"),
+                poster_rel_path=pb.poster_rel_path,
+                poster_output_path=result.get("poster_path"),
             )
         else:
             _structured_task_log(
@@ -224,6 +229,10 @@ def enqueue_media_playback(
                 height=result.get("height"),
                 duration_ms=result.get("duration_ms"),
                 note=result.get("note"),
+                playback_rel_path=pb.rel_path,
+                playback_output_path=result.get("output_path"),
+                poster_rel_path=pb.poster_rel_path,
+                poster_output_path=result.get("poster_path"),
             )
     except Exception as exc:  # pragma: no cover - unexpected failure path
         _structured_task_log(

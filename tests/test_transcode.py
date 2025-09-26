@@ -252,6 +252,30 @@ def test_worker_transcode_basic(app):
 
 
 @pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")
+def test_worker_transcode_passthrough_mp4(app):
+    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
+    video_path = orig_dir / "2025/08/18/passthrough.mp4"
+    _make_video(video_path, "1280x720", audio=True)
+    media_id = _make_media(app, rel_path="2025/08/18/passthrough.mp4", width=1280, height=720)
+    pb_id = _make_playback(app, media_id, "2025/08/18/passthrough.mp4")
+
+    with app.app_context():
+        res = transcode_worker(media_playback_id=pb_id)
+        assert res["ok"] is True
+        assert res["note"] == "passthrough"
+        from core.models.photo_models import MediaPlayback, Media
+
+        pb = MediaPlayback.query.get(pb_id)
+        assert pb is not None
+        assert pb.status == "done"
+        play_path = Path(os.environ["FPV_NAS_PLAY_DIR"]) / pb.rel_path
+        assert play_path.exists()
+        assert play_path.read_bytes() == video_path.read_bytes()
+        media = Media.query.get(media_id)
+        assert media and media.has_playback is True
+
+
+@pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")
 def test_worker_transcode_normalizes_rel_path(app):
     orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
     video_path = orig_dir / "2025/08/18/win.mov"

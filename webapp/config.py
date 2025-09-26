@@ -70,6 +70,7 @@ class Config:
     FPV_DL_SIGN_KEY = os.environ.get("FPV_DL_SIGN_KEY", "")
     FPV_URL_TTL_THUMB = int(os.environ.get("FPV_URL_TTL_THUMB", "600"))
     FPV_URL_TTL_PLAYBACK = int(os.environ.get("FPV_URL_TTL_PLAYBACK", "600"))
+    FPV_URL_TTL_ORIGINAL = int(os.environ.get("FPV_URL_TTL_ORIGINAL", "600"))
     FPV_NAS_THUMBS_DIR = os.environ.get("FPV_NAS_THUMBS_CONTAINER_DIR") or os.environ.get(
         "FPV_NAS_THUMBS_DIR", ""
     )
@@ -78,6 +79,7 @@ class Config:
     )
     FPV_ACCEL_THUMBS_LOCATION = os.environ.get("FPV_ACCEL_THUMBS_LOCATION", "")
     FPV_ACCEL_PLAYBACK_LOCATION = os.environ.get("FPV_ACCEL_PLAYBACK_LOCATION", "")
+    FPV_ACCEL_ORIGINALS_LOCATION = os.environ.get("FPV_ACCEL_ORIGINALS_LOCATION", "")
     FPV_ACCEL_REDIRECT_ENABLED = _env_as_bool("FPV_ACCEL_REDIRECT_ENABLED", True)
     
     # Local import settings

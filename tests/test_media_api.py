@@ -22,6 +22,7 @@ def app(tmp_path):
     os.environ["FPV_DL_SIGN_KEY"] = base64.urlsafe_b64encode(b"1" * 32).decode()
     os.environ["FPV_URL_TTL_THUMB"] = "600"
     os.environ["FPV_URL_TTL_PLAYBACK"] = "600"
+    os.environ["FPV_URL_TTL_ORIGINAL"] = "600"
     thumbs = tmp_path / "thumbs"
     play = tmp_path / "play"
     orig = tmp_path / "orig"
@@ -377,6 +378,11 @@ def seed_thumb_media(app):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "wb") as f:
         f.write(b"jpg")
+    orig_base = os.environ["FPV_NAS_ORIGINALS_DIR"]
+    orig_path = os.path.join(orig_base, rel)
+    os.makedirs(os.path.dirname(orig_path), exist_ok=True)
+    with open(orig_path, "wb") as f:
+        f.write(b"orig")
     return mid, rel
 
 
@@ -681,6 +687,42 @@ def test_thumb_url_not_found(client, seed_thumb_media):
     assert res.get_json()["error"] == "not_found"
 
 
+def test_original_url_ok(client, seed_thumb_media):
+    media_id, rel = seed_thumb_media
+    login(client)
+
+    orig_path = Path(os.environ["FPV_NAS_ORIGINALS_DIR"]) / rel
+    orig_path.parent.mkdir(parents=True, exist_ok=True)
+    orig_path.write_bytes(b"orig")
+
+    res = client.post(f"/api/media/{media_id}/original-url")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["url"].startswith("/api/dl/")
+
+    dl = client.get(data["url"])
+    assert dl.status_code == 200
+    assert dl.headers["Content-Type"] == "image/jpeg"
+    cd = dl.headers.get("Content-Disposition")
+    assert cd is not None and cd.startswith("attachment")
+    assert "filename=\"Original_Name.jpg\"" in cd
+    assert "filename*=UTF-8''Original%20Name.jpg" in cd
+    assert dl.data == b"orig"
+
+
+def test_original_url_not_found(client, seed_thumb_media):
+    media_id, rel = seed_thumb_media
+    login(client)
+
+    orig_path = Path(os.environ["FPV_NAS_ORIGINALS_DIR"]) / rel
+    if orig_path.exists():
+        orig_path.unlink()
+
+    res = client.post(f"/api/media/{media_id}/original-url")
+    assert res.status_code == 404
+    assert res.get_json()["error"] == "not_found"
+
+
 def test_download_requires_auth(client, seed_thumb_media):
     media_id, rel = seed_thumb_media
     payload = {
@@ -829,6 +871,21 @@ def test_download_with_accel_redirect(client, seed_thumb_media, app):
     res2 = client.get(token_url)
     assert res2.status_code == 200
     expected = "/protected/thumbs/" + "/".join(("1024", rel.replace(os.sep, "/")))
+    assert res2.headers["X-Accel-Redirect"] == expected
+    assert res2.headers["Cache-Control"].startswith("private")
+    assert res2.data == b""
+
+
+def test_download_original_with_accel_redirect(client, seed_thumb_media, app):
+    media_id, rel = seed_thumb_media
+    login(client)
+    app.config["FPV_ACCEL_ORIGINALS_LOCATION"] = "/protected/originals"
+    res = client.post(f"/api/media/{media_id}/original-url")
+    assert res.status_code == 200
+    token_url = res.get_json()["url"]
+    res2 = client.get(token_url)
+    assert res2.status_code == 200
+    expected = "/protected/originals/" + rel.replace(os.sep, "/")
     assert res2.headers["X-Accel-Redirect"] == expected
     assert res2.headers["Cache-Control"].startswith("private")
     assert res2.data == b""

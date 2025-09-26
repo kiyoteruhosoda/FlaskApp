@@ -24,7 +24,17 @@ class PaginationParams:
                  cursor: Optional[str] = None,
                  order: str = "desc",
                  use_cursor: Optional[bool] = None):
-        self.page = page or 1
+        # pageは1以上の整数に丸める
+        if page is None:
+            self.page = 1
+        else:
+            try:
+                self.page = int(page)
+            except (TypeError, ValueError):
+                self.page = 1
+            else:
+                if self.page < 1:
+                    self.page = 1
         if page_size is None:
             page_size = 200
         self.page_size = min(max(page_size, 1), 500)

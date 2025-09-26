@@ -541,6 +541,18 @@ def test_list_second_page(client, seed_media_bulk):
     assert data.get("nextCursor") is None
 
 
+def test_list_negative_page_falls_back_to_first(client, seed_media_bulk):
+    _ = seed_media_bulk
+    login(client)
+
+    res = client.get("/api/media?page=-5&pageSize=10")
+    assert res.status_code == 200
+    data = res.get_json()
+    # page=-5 は自動的に1ページ目扱いとなる
+    assert data.get("currentPage") == 1
+    assert len(data["items"]) == 10
+
+
 def test_list_cursor_falls_back_to_id(client, seed_media_without_shot_at):
     _ = seed_media_without_shot_at
     login(client)

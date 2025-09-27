@@ -39,18 +39,18 @@ def _schedule_thumbnail_retry(
     logger: logging.Logger,
     operation_id: str,
     request_context: Optional[Dict[str, Any]],
-) -> bool:
+) -> Optional[Dict[str, Any]]:
     """Schedule a Celery retry for thumbnail generation.
 
-    Returns ``True`` when a retry job could be enqueued.  When Celery is not
-    available the function simply returns ``False`` without logging to avoid
+    Returns metadata about the scheduled retry when successful.  When Celery is
+    not available the function simply returns ``None`` without logging to avoid
     noisy warnings in test environments.
     """
 
     try:
         from cli.src.celery.tasks import thumbs_generate_task
     except ImportError:
-        return False
+        return None
 
     try:
         async_result = thumbs_generate_task.apply_async(
@@ -69,7 +69,9 @@ def _schedule_thumbnail_retry(
             countdown=countdown,
             error=str(exc),
         )
-        return False
+        return None
+
+    celery_task_id = getattr(async_result, "id", None)
 
     _structured_task_log(
         logger,
@@ -80,10 +82,14 @@ def _schedule_thumbnail_retry(
         media_id=media_id,
         request_context=request_context,
         countdown=countdown,
-        celery_task_id=getattr(async_result, "id", None),
+        celery_task_id=celery_task_id,
         force=force,
     )
-    return True
+    return {
+        "countdown": countdown,
+        "celery_task_id": celery_task_id,
+        "force": force,
+    }
 
 
 def _structured_task_log(
@@ -178,6 +184,7 @@ def enqueue_thumbs_generate(
     skipped = result.get("skipped", [])
     notes = result.get("notes")
     retry_scheduled = False
+    retry_metadata: Optional[Dict[str, Any]] = None
 
     if result.get("ok"):
         if generated:
@@ -205,7 +212,7 @@ def enqueue_thumbs_generate(
         )
 
         if notes == PLAYBACK_NOT_READY_NOTES:
-            retry_scheduled = _schedule_thumbnail_retry(
+            retry_info = _schedule_thumbnail_retry(
                 media_id=media_id,
                 force=force,
                 countdown=_THUMBNAIL_RETRY_COUNTDOWN,
@@ -213,6 +220,10 @@ def enqueue_thumbs_generate(
                 operation_id=op_id,
                 request_context=request_context,
             )
+            if retry_info:
+                retry_scheduled = True
+                if isinstance(retry_info, dict):
+                    retry_metadata = retry_info
     else:
         _structured_task_log(
             logger,
@@ -228,6 +239,8 @@ def enqueue_thumbs_generate(
     if retry_scheduled:
         result = dict(result)
         result["retry_scheduled"] = True
+        if retry_metadata:
+            result["retry_details"] = retry_metadata
 
     return result
 

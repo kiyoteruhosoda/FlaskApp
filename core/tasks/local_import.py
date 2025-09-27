@@ -826,6 +826,18 @@ def _regenerate_duplicate_video_thumbnails(
             retry_scheduled=retry_scheduled,
             status=status,
         )
+        if retry_scheduled:
+            retry_details = result.get("retry_details") or {}
+            _log_info(
+                "local_import.duplicate_video.thumbnail_retry_scheduled",
+                "重複動画のサムネイル再生成を後で再試行",
+                session_id=session_id,
+                media_id=media.id,
+                retry_delay_seconds=retry_details.get("countdown"),
+                celery_task_id=retry_details.get("celery_task_id"),
+                notes=result.get("notes"),
+                status="retry_scheduled",
+            )
     else:
         _log_warning(
             "local_import.duplicate_video.thumbnail_regen_skipped",

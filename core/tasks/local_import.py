@@ -744,6 +744,30 @@ def _refresh_existing_media_metadata(
     return True
 
 
+def refresh_media_metadata_from_original(
+    media: Media,
+    *,
+    originals_dir: str,
+    fallback_path: str,
+    file_extension: str,
+    session_id: Optional[str] = None,
+) -> bool:
+    """Public wrapper for :func:`_refresh_existing_media_metadata`.
+
+    The helper is reused outside of the local import task (for example from UI
+    triggered recovery flows) while keeping the implementation centralised in a
+    single location.
+    """
+
+    return _refresh_existing_media_metadata(
+        media,
+        originals_dir=originals_dir,
+        fallback_path=fallback_path,
+        file_extension=file_extension,
+        session_id=session_id,
+    )
+
+
 def _regenerate_duplicate_video_thumbnails(
     media: Media,
     *,

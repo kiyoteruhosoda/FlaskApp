@@ -64,6 +64,11 @@ from core.storage_paths import (
     resolve_storage_file,
     storage_path_candidates,
 )
+from core.tasks.local_import import (
+    SUPPORTED_EXTENSIONS,
+    refresh_media_metadata_from_original,
+)
+from core.tasks.media_post_processing import enqueue_thumbs_generate
 
 
 user_repo = SqlAlchemyUserRepository(db.session)
@@ -102,6 +107,113 @@ def _storage_path(config_key: str) -> str | None:
 def _resolve_storage_file(config_key: str, *path_parts: str) -> tuple[str | None, str | None, bool]:
     _normalize_storage_defaults(config_key)
     return resolve_storage_file(config_key, *path_parts)
+
+
+def _trigger_thumbnail_regeneration(
+    media_id: int,
+    *,
+    reason: str,
+    force: bool = False,
+) -> tuple[bool, str | None]:
+    """Attempt to regenerate thumbnails asynchronously.
+
+    Returns a tuple of ``(triggered, celery_task_id)``.  When Celery is not
+    available the helper falls back to synchronous thumbnail generation and
+    returns ``(result_ok, None)``.
+    """
+
+    user_snapshot = _serialize_user_for_log(get_current_user())
+    celery_task_id: str | None = None
+
+    try:
+        from cli.src.celery.tasks import thumbs_generate_task
+    except Exception:  # pragma: no cover - celery not installed in environment
+        thumbs_task = None
+    else:
+        thumbs_task = thumbs_generate_task
+
+    is_testing = bool(current_app and current_app.config.get("TESTING"))
+
+    if thumbs_task is not None and not is_testing:
+        try:
+            async_result = thumbs_task.apply_async(
+                kwargs={"media_id": media_id, "force": force}
+            )
+        except Exception as exc:  # pragma: no cover - broker failure path
+            _emit_structured_api_log(
+                "Failed to enqueue thumbnail regeneration task.",
+                level="warning",
+                event="media.thumbnail.enqueue_failed",
+                media_id=media_id,
+                reason=reason,
+                error=str(exc),
+                force=force,
+                user=user_snapshot,
+            )
+        else:
+            celery_task_id = getattr(async_result, "id", None)
+            _emit_structured_api_log(
+                "Thumbnail regeneration task enqueued.",
+                level="info",
+                event="media.thumbnail.enqueue",
+                media_id=media_id,
+                reason=reason,
+                force=force,
+                celery_task_id=celery_task_id,
+                user=user_snapshot,
+            )
+            return True, celery_task_id
+
+    if thumbs_task is not None and is_testing:
+        _emit_structured_api_log(
+            "Skipping Celery thumbnail enqueue during testing; using synchronous fallback.",
+            level="info",
+            event="media.thumbnail.enqueue_skipped",
+            media_id=media_id,
+            reason=reason,
+            force=force,
+            user=user_snapshot,
+        )
+
+    request_context = {"reason": reason}
+    if user_snapshot:
+        request_context["user"] = user_snapshot
+
+    try:
+        result = enqueue_thumbs_generate(
+            media_id,
+            request_context=request_context,
+            force=force,
+        )
+    except Exception as exc:  # pragma: no cover - unexpected failure path
+        _emit_structured_api_log(
+            "Synchronous thumbnail regeneration failed.",
+            level="warning",
+            event="media.thumbnail.enqueue_fallback_error",
+            media_id=media_id,
+            reason=reason,
+            error=str(exc),
+            force=force,
+            user=user_snapshot,
+        )
+        return False, celery_task_id
+
+    ok = bool(result.get("ok"))
+    log_level = "info" if ok else "warning"
+    _emit_structured_api_log(
+        "Thumbnail regeneration processed synchronously." if ok else "Thumbnail regeneration could not be completed.",
+        level=log_level,
+        event="media.thumbnail.enqueue_fallback",
+        media_id=media_id,
+        reason=reason,
+        result_ok=ok,
+        notes=result.get("notes"),
+        generated=result.get("generated"),
+        skipped=result.get("skipped"),
+        force=force,
+        user=user_snapshot,
+    )
+    return ok, celery_task_id
 
 
 def _serialize_user_for_log(user):
@@ -2131,7 +2243,14 @@ def api_media_thumbnail(media_id):
             abs_path=abs_path,
             candidates=_storage_path_candidates("FPV_NAS_THUMBS_DIR"),
         )
-        return jsonify({"error": "not_found"}), 404
+        triggered, celery_task_id = _trigger_thumbnail_regeneration(
+            media_id,
+            reason="api_thumbnail_missing",
+        )
+        payload = {"error": "not_found", "thumbnailJobTriggered": triggered}
+        if celery_task_id:
+            payload["thumbnailJobId"] = celery_task_id
+        return jsonify(payload), 404
 
     ct = (
         mimetypes.guess_type(abs_path)[0]
@@ -2227,6 +2346,121 @@ def api_media_thumb_url(media_id):
         ),
         200,
     )
+
+
+@bp.post("/media/<int:media_id>/recover")
+@login_or_jwt_required
+def api_media_recover(media_id: int):
+    user = get_current_user()
+    if not user or not user.can("media:recover"):
+        return jsonify({"error": "forbidden"}), 403
+
+    media = Media.query.get(media_id)
+    if not media:
+        return jsonify({"error": "not_found"}), 404
+    if media.is_deleted:
+        return jsonify({"error": "gone"}), 410
+
+    rel_path = _normalize_rel_path(media.local_rel_path)
+    if not rel_path:
+        _emit_structured_api_log(
+            "Original path is missing; cannot recover metadata.",
+            level="warning",
+            event="media.recover",
+            media_id=media_id,
+            user=_serialize_user_for_log(get_current_user()),
+        )
+        return jsonify({"error": "source_missing"}), 400
+
+    base_dir, abs_path, found = _resolve_storage_file(
+        "FPV_NAS_ORIGINALS_DIR",
+        rel_path.as_posix(),
+    )
+    if not found or not abs_path:
+        _emit_structured_api_log(
+            "Original file for recovery was not found.",
+            level="warning",
+            event="media.recover",
+            media_id=media_id,
+            user=_serialize_user_for_log(get_current_user()),
+            rel_path=rel_path.as_posix(),
+            base_dir=base_dir,
+        )
+        return jsonify({"error": "source_missing"}), 404
+
+    file_extension = Path(abs_path).suffix.lower()
+    if file_extension not in SUPPORTED_EXTENSIONS:
+        return jsonify({"error": "unsupported_extension"}), 400
+
+    try:
+        refreshed = refresh_media_metadata_from_original(
+            media,
+            originals_dir=base_dir or os.path.dirname(abs_path),
+            fallback_path=abs_path,
+            file_extension=file_extension,
+            session_id="ui_recover",
+        )
+    except Exception as exc:  # pragma: no cover - unexpected failure path
+        _emit_structured_api_log(
+            "Metadata refresh failed with an exception during recovery.",
+            level="error",
+            event="media.recover",
+            media_id=media_id,
+            user=_serialize_user_for_log(get_current_user()),
+            error=str(exc),
+        )
+        return jsonify({"error": "refresh_failed"}), 500
+
+    if not refreshed:
+        _emit_structured_api_log(
+            "Metadata refresh did not report success during recovery.",
+            level="warning",
+            event="media.recover",
+            media_id=media_id,
+            user=_serialize_user_for_log(get_current_user()),
+            rel_path=rel_path.as_posix(),
+        )
+        return jsonify({"error": "refresh_failed"}), 500
+
+    db.session.refresh(media)
+
+    changed = False
+    if not media.thumbnail_rel_path and media.local_rel_path:
+        media.thumbnail_rel_path = media.local_rel_path
+        changed = True
+
+    if changed:
+        db.session.add(media)
+        db.session.commit()
+        db.session.refresh(media)
+
+    triggered, celery_task_id = _trigger_thumbnail_regeneration(
+        media.id,
+        reason="ui_recover",
+    )
+
+    response = {
+        "result": "ok",
+        "media": serialize_media_detail(media),
+        "metadataRefreshed": True,
+        "thumbnailJobTriggered": triggered,
+    }
+    if celery_task_id:
+        response["thumbnailJobId"] = celery_task_id
+
+    _emit_structured_api_log(
+        "Media recovery completed successfully.",
+        level="info",
+        event="media.recover",
+        media_id=media.id,
+        user=_serialize_user_for_log(get_current_user()),
+        rel_path=rel_path.as_posix(),
+        source_path=abs_path,
+        triggered=triggered,
+        thumbnail_job_id=celery_task_id,
+    )
+
+    return jsonify(response)
 
 
 @bp.post("/media/<int:media_id>/original-url")

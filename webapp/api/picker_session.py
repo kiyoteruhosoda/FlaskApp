@@ -10,7 +10,7 @@ from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
 from core.models.job_sync import JobSync
 from core.models.photo_models import PickerSelection
-from core.models.log import Log
+from core.models.worker_log import WorkerLog
 from .picker_session_service import (
     PickerSessionService,
     _get_lock as _get_media_items_lock,
@@ -328,8 +328,8 @@ def api_picker_session_logs(session_id: str):
     limit = max(1, min(limit, 500))
 
     rows = (
-        Log.query.filter(Log.event.like("local_import%"))
-        .order_by(Log.id.desc())
+        WorkerLog.query.filter(WorkerLog.event.like("local_import%"))
+        .order_by(WorkerLog.id.desc())
         .limit(limit * 5)
         .all()
     )
@@ -343,7 +343,14 @@ def api_picker_session_logs(session_id: str):
         except Exception:
             payload = {"message": row.message}
 
-        extras = payload.get("_extra") or {}
+        extras = {}
+        payload_extras = payload.get("_extra")
+        if isinstance(payload_extras, dict):
+            extras.update(payload_extras)
+
+        row_extras = row.extra_json if isinstance(row.extra_json, dict) else None
+        if row_extras:
+            extras.update(row_extras)
         session_matches = False
 
         if extras.get("session_id") == session_identifier:
@@ -372,9 +379,7 @@ def api_picker_session_logs(session_id: str):
             if key not in excluded_keys
         }
 
-        status_value = payload.get("status")
-        if status_value is None:
-            status_value = extras.get("status")
+        status_value = row.status or payload.get("status") or extras.get("status")
 
         if status_value is not None and not isinstance(status_value, str):
             try:

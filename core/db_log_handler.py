@@ -293,19 +293,40 @@ class WorkerDBLogHandler(DBLogHandler):
         payload: Dict[str, Any],
         extras: Dict[str, Any],
     ) -> Dict[str, Any]:
-        task_name = getattr(record, "task_name", None) or extras.get("task_name")
+        def _get_from_payload(*keys: str) -> Optional[Any]:
+            for key in keys:
+                if key in payload:
+                    return payload[key]
+            return None
+
+        payload_task_name = _get_from_payload("task_name", "task")
+        payload_task_uuid = _get_from_payload("task_uuid", "task_id", "uuid", "id")
+        payload_worker_hostname = _get_from_payload("worker_hostname", "hostname")
+        payload_queue_name = _get_from_payload("queue_name", "queue")
+
+        task_name = (
+            getattr(record, "task_name", None)
+            or extras.get("task_name")
+            or payload_task_name
+        )
         task_uuid = (
             getattr(record, "task_id", None)
             or getattr(record, "task_uuid", None)
             or extras.get("task_id")
             or extras.get("task_uuid")
+            or payload_task_uuid
         )
-        worker_hostname = getattr(record, "hostname", None) or extras.get("hostname")
+        worker_hostname = (
+            getattr(record, "hostname", None)
+            or extras.get("hostname")
+            or payload_worker_hostname
+        )
         queue_name = (
             getattr(record, "queue", None)
             or getattr(record, "queue_name", None)
             or extras.get("queue")
             or extras.get("queue_name")
+            or payload_queue_name
         )
         if isinstance(queue_name, dict):
             queue_name = queue_name.get("name") or queue_name.get("routing_key")

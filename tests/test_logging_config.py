@@ -5,7 +5,7 @@ import logging
 import pytest
 
 from core import logging_config
-from core.db_log_handler import DBLogHandler
+from core.db_log_handler import DBLogHandler, WorkerDBLogHandler
 from core.logging_config import ensure_appdb_file_logging, setup_task_logging
 
 
@@ -63,7 +63,7 @@ def test_ensure_appdb_logging_uses_database_handler(monkeypatch, cleanup_logger)
     assert records and records[0].getMessage() == "progress message"
 
 
-def test_setup_task_logging_includes_appdb_handler(monkeypatch, cleanup_logger):
+def test_setup_task_logging_uses_worker_handler(monkeypatch, cleanup_logger):
     records = []
 
     class DummyHandler(logging.Handler):
@@ -71,9 +71,9 @@ def test_setup_task_logging_includes_appdb_handler(monkeypatch, cleanup_logger):
             records.append(record)
 
     dummy_handler = DummyHandler()
-    setattr(dummy_handler, "_is_appdb_log_handler", True)
+    setattr(dummy_handler, "_is_worker_db_log_handler", True)
 
-    monkeypatch.setattr(logging_config, "_create_appdb_db_handler", lambda: dummy_handler)
+    monkeypatch.setattr(logging_config, "_create_worker_db_handler", lambda: dummy_handler)
 
     logger_name = "core.tasks.test_logger"
     logger = cleanup_logger(logger_name)
@@ -87,6 +87,26 @@ def test_setup_task_logging_includes_appdb_handler(monkeypatch, cleanup_logger):
 
     assert dummy_handler in logger.handlers
     assert records and records[0].getMessage() == "task finished"
+
+
+def test_setup_task_logging_removes_appdb_handler(monkeypatch, cleanup_logger):
+    worker_handler = WorkerDBLogHandler()
+    setattr(worker_handler, "_is_worker_db_log_handler", True)
+
+    monkeypatch.setattr(logging_config, "_create_worker_db_handler", lambda: worker_handler)
+
+    logger_name = "core.tasks.cleanup_logger"
+    logger = cleanup_logger(logger_name)
+    logger.propagate = False
+
+    legacy_handler = DBLogHandler()
+    setattr(legacy_handler, "_is_appdb_log_handler", True)
+    logger.addHandler(legacy_handler)
+
+    setup_task_logging(logger_name)
+
+    assert worker_handler in logger.handlers
+    assert legacy_handler not in logger.handlers
 
 
 def test_ensure_appdb_logging_marks_existing_handler(monkeypatch, cleanup_logger):

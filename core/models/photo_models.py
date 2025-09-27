@@ -154,27 +154,6 @@ class MediaPlayback(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
 
 
-class MediaThumbnailRetry(db.Model):
-    """Track scheduled thumbnail regeneration retries for media items."""
-
-    id = db.Column(BigInt, primary_key=True, autoincrement=True)
-    media_id = db.Column(BigInt, db.ForeignKey('media.id'), nullable=False, unique=True)
-    retry_after = db.Column(db.DateTime, nullable=False)
-    force = db.Column(db.Boolean, nullable=False, default=False)
-    celery_task_id = db.Column(db.String(255), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
-    updated_at = db.Column(
-        db.DateTime,
-        default=datetime.now(timezone.utc),
-        onupdate=datetime.now(timezone.utc),
-        nullable=False,
-    )
-
-    media = db.relationship('Media', backref=db.backref('thumbnail_retry', uselist=False))
-
-    def __repr__(self) -> str:  # pragma: no cover - debug helper
-        return f"<MediaThumbnailRetry media_id={self.media_id} retry_after={self.retry_after!r}>"
-
 class MediaItem(db.Model):
     id = db.Column(db.String(255), primary_key=True)
     type = db.Column(

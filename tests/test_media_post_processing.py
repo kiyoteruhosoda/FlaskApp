@@ -200,7 +200,8 @@ def test_enqueue_thumbs_generate_schedules_retry(monkeypatch):
 def test_enqueue_thumbs_generate_records_retry(app, monkeypatch):
     from core.tasks import media_post_processing
     from webapp.extensions import db
-    from core.models.photo_models import Media, MediaThumbnailRetry
+    from core.models.photo_models import Media
+    from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
     import cli.src.celery.tasks as celery_tasks
 
     monkeypatch.setattr(
@@ -242,10 +243,19 @@ def test_enqueue_thumbs_generate_records_retry(app, monkeypatch):
         result = media_post_processing.enqueue_thumbs_generate(media.id, force=True)
 
         assert result["retry_scheduled"] is True
-        retry = MediaThumbnailRetry.query.filter_by(media_id=media.id).one()
-        assert retry.force is True
+        retry = (
+            CeleryTaskRecord.query.filter_by(
+                task_name=media_post_processing._THUMBNAIL_RETRY_TASK_NAME,
+                object_type="media",
+                object_id=str(media.id),
+            )
+            .order_by(CeleryTaskRecord.id.desc())
+            .one()
+        )
+        assert retry.status == CeleryTaskStatus.SCHEDULED
+        assert retry.payload.get("force") is True
         assert retry.celery_task_id == "fake-task-id"
-        retry_at = retry.retry_after
+        retry_at = retry.scheduled_for
         if retry_at.tzinfo is None:
             retry_at = retry_at.replace(tzinfo=timezone.utc)
         remaining = retry_at - datetime.now(timezone.utc)
@@ -257,7 +267,8 @@ def test_enqueue_thumbs_generate_records_retry(app, monkeypatch):
 def test_process_due_thumbnail_retries_clears_success(app, monkeypatch):
     from core.tasks import media_post_processing
     from webapp.extensions import db
-    from core.models.photo_models import Media, MediaThumbnailRetry
+    from core.models.photo_models import Media
+    from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 
     monkeypatch.setattr(
         media_post_processing,
@@ -290,12 +301,15 @@ def test_process_due_thumbnail_retries_clears_success(app, monkeypatch):
         db.session.add(media)
         db.session.commit()
 
-        retry = MediaThumbnailRetry(
-            media_id=media.id,
-            retry_after=datetime.now(timezone.utc) - timedelta(minutes=1),
-            force=True,
+        retry = CeleryTaskRecord(
+            task_name=media_post_processing._THUMBNAIL_RETRY_TASK_NAME,
+            object_type="media",
+            object_id=str(media.id),
+            status=CeleryTaskStatus.SCHEDULED,
+            scheduled_for=datetime.now(timezone.utc) - timedelta(minutes=1),
             celery_task_id="existing",
         )
+        retry.update_payload({"force": True})
         db.session.add(retry)
         db.session.commit()
 
@@ -307,14 +321,21 @@ def test_process_due_thumbnail_retries_clears_success(app, monkeypatch):
             "cleared": 1,
             "pending_before": 1,
         }
-        assert MediaThumbnailRetry.query.count() == 0
+        remaining = CeleryTaskRecord.query.filter_by(
+            task_name=media_post_processing._THUMBNAIL_RETRY_TASK_NAME,
+            object_type="media",
+            object_id=str(media.id),
+        ).one()
+        assert remaining.status == CeleryTaskStatus.SUCCESS
+        assert remaining.scheduled_for is None
 
 
 @pytest.mark.usefixtures("app")
 def test_process_due_thumbnail_retries_reschedules_pending(app, monkeypatch):
     from core.tasks import media_post_processing
     from webapp.extensions import db
-    from core.models.photo_models import Media, MediaThumbnailRetry
+    from core.models.photo_models import Media
+    from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
     import cli.src.celery.tasks as celery_tasks
 
     monkeypatch.setattr(
@@ -353,15 +374,18 @@ def test_process_due_thumbnail_retries_reschedules_pending(app, monkeypatch):
         db.session.add(media)
         db.session.commit()
 
-        retry = MediaThumbnailRetry(
-            media_id=media.id,
-            retry_after=datetime.now(timezone.utc) - timedelta(minutes=1),
-            force=False,
+        retry = CeleryTaskRecord(
+            task_name=media_post_processing._THUMBNAIL_RETRY_TASK_NAME,
+            object_type="media",
+            object_id=str(media.id),
+            status=CeleryTaskStatus.SCHEDULED,
+            scheduled_for=datetime.now(timezone.utc) - timedelta(minutes=1),
         )
+        retry.update_payload({"force": False})
         db.session.add(retry)
         db.session.commit()
 
-        previous_retry_at = retry.retry_after
+        previous_retry_at = retry.scheduled_for
 
         summary = media_post_processing.process_due_thumbnail_retries(limit=5)
 
@@ -372,10 +396,18 @@ def test_process_due_thumbnail_retries_reschedules_pending(app, monkeypatch):
             "pending_before": 1,
         }
 
-        updated = MediaThumbnailRetry.query.filter_by(media_id=media.id).one()
-        assert updated.retry_after > previous_retry_at
+        updated = (
+            CeleryTaskRecord.query.filter_by(
+                task_name=media_post_processing._THUMBNAIL_RETRY_TASK_NAME,
+                object_type="media",
+                object_id=str(media.id),
+            )
+            .order_by(CeleryTaskRecord.id.desc())
+            .one()
+        )
+        assert updated.scheduled_for > previous_retry_at
         assert updated.celery_task_id == "retry-task"
-        assert updated.force is False
+        assert updated.payload.get("force") is False
 
 
 

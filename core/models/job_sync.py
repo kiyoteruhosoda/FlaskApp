@@ -16,6 +16,7 @@ class JobSync(db.Model):
     session_id = db.Column(
         BigInt, db.ForeignKey("picker_session.id"), nullable=False
     )
+    celery_task_id = db.Column(BigInt, db.ForeignKey("celery_task.id"), nullable=True)
     started_at = db.Column(
         db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
     )
@@ -35,6 +36,8 @@ class JobSync(db.Model):
         server_default="queued",
     )
     stats_json = db.Column(db.Text, nullable=False, default="{}", server_default="{}")
+
+    celery_task = db.relationship("CeleryTaskRecord", backref="job_syncs", lazy="joined")
 
 
 __all__ = ["JobSync"]

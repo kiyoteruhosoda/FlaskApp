@@ -15,6 +15,7 @@ from sqlalchemy import or_, func
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
 from core.models.job_sync import JobSync
+from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 from core.models.photo_models import (
     PickerSelection,
     MediaItem,
@@ -913,6 +914,10 @@ class PickerSessionService:
             job.status = "failed"
             job.finished_at = datetime.now(timezone.utc)
             job.stats_json = json.dumps({"celery_task_id": task_id, "error": str(e)})
+            if job.celery_task:
+                job.celery_task.status = CeleryTaskStatus.FAILED
+                job.celery_task.finished_at = job.finished_at
+                job.celery_task.error_message = str(e)
             ps.status = "error"
             ps.last_progress_at = datetime.now(timezone.utc)
             db.session.commit()
@@ -923,10 +928,19 @@ class PickerSessionService:
     @staticmethod
     def _create_job(ps: PickerSession, account_id: int) -> Tuple[JobSync, str]:
         task_id = uuid4().hex
+        task_record = CeleryTaskRecord(
+            task_name="job_sync.picker_import",
+            object_type="picker_session",
+            object_id=str(ps.id),
+            status=CeleryTaskStatus.QUEUED,
+        )
+        db.session.add(task_record)
+
         job = JobSync(
             target="picker_import",
             account_id=account_id,
             session_id=ps.id,
+            celery_task=task_record,
             started_at=None,
             finished_at=None,
             stats_json=json.dumps({"celery_task_id": task_id, "selected": getattr(ps, "selected_count", 0)}),
@@ -941,6 +955,7 @@ class PickerSessionService:
         db.session.flush()
         stats["job_id"] = job.id
         ps.set_stats(stats)
+        task_record.update_payload({"job_id": job.id, "celery_task_id": task_id})
         db.session.commit()
         return job, task_id
 
@@ -999,6 +1014,16 @@ class PickerSessionService:
             stats = json.loads(job.stats_json or "{}")
             stats["countsByStatus"] = counts
             job.stats_json = json.dumps(stats)
+            if job.celery_task:
+                if job.status == "success":
+                    job.celery_task.status = CeleryTaskStatus.SUCCESS
+                elif job.status in ("failed", "error"):
+                    job.celery_task.status = CeleryTaskStatus.FAILED
+                else:
+                    job.celery_task.status = CeleryTaskStatus.SUCCESS
+                job.celery_task.finished_at = now
+                job.celery_task.error_message = None
+                job.celery_task.set_result({"countsByStatus": counts, "status": job.status})
 
         db.session.commit()
         return {"status": status, "countsByStatus": counts}, 200

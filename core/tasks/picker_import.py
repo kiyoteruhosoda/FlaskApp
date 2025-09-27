@@ -43,6 +43,7 @@ from core.models.photo_models import (
     MediaPlayback,
     PickerSelection,
 )
+from core.models.celery_task import CeleryTaskStatus
 from core.logging_config import setup_task_logging, log_task_error, log_task_info
 from core.tasks.media_post_processing import (
     enqueue_media_playback as common_enqueue_media_playback,
@@ -331,12 +332,17 @@ def picker_import_watchdog(
             if job and job.status in ("queued", "running"):
                 job.finished_at = now
                 job.status = "success"
-                
+
                 # Update job stats
                 stats = json.loads(job.stats_json or "{}")
                 stats["countsByStatus"] = {}
                 stats["completed_at"] = now.isoformat()
                 job.stats_json = json.dumps(stats)
+                if job.celery_task:
+                    job.celery_task.status = CeleryTaskStatus.SUCCESS
+                    job.celery_task.finished_at = now
+                    job.celery_task.error_message = None
+                    job.celery_task.set_result({"countsByStatus": {}, "status": "success"})
             
             metrics["completed_sessions"] += 1
             logger.info(
@@ -381,12 +387,21 @@ def picker_import_watchdog(
                     job.status = "success"
                 else:
                     job.status = "failed"
-                
+
                 # Update job stats
                 stats = json.loads(job.stats_json or "{}")
                 stats["countsByStatus"] = status_counts
                 stats["completed_at"] = now.isoformat()
                 job.stats_json = json.dumps(stats)
+                if job.celery_task:
+                    if job.status == "success":
+                        job.celery_task.status = CeleryTaskStatus.SUCCESS
+                        job.celery_task.error_message = None
+                    else:
+                        job.celery_task.status = CeleryTaskStatus.FAILED
+                        job.celery_task.error_message = None
+                    job.celery_task.finished_at = now
+                    job.celery_task.set_result({"countsByStatus": status_counts, "status": job.status})
             
             metrics["completed_sessions"] += 1
             logger.info(

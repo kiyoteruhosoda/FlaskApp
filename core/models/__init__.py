@@ -5,6 +5,7 @@ from .user import User
 from .google_account import GoogleAccount
 from .photo_models import *
 from .job_sync import JobSync
+from .celery_task import CeleryTaskRecord, CeleryTaskStatus
 from .picker_session import PickerSession
 from .picker_import_task import PickerImportTask
 
@@ -17,7 +18,8 @@ __all__ = [
     'Album',
     'Tag',
     'MediaPlayback',
-    'MediaThumbnailRetry',
+    'CeleryTaskRecord',
+    'CeleryTaskStatus',
     'JobSync',
     'PickerSession',
     'PickerImportTask',

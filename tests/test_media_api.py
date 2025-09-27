@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
+from PIL import Image
 
 
 @pytest.fixture
@@ -1242,6 +1243,130 @@ def test_media_delete_requires_permission(client, app):
     assert response.status_code == 403
     data = response.get_json()
     assert data["error"] == "forbidden"
+
+
+def test_media_recover_requires_permission(client, app):
+    from webapp.extensions import db
+    from core.models.photo_models import Media
+
+    rel_path = "2024/01/01/recover.jpg"
+
+    with app.app_context():
+        media = Media(
+            google_media_id="recover-no-perm",
+            account_id=1,
+            local_rel_path=rel_path,
+            bytes=0,
+            mime_type="image/jpeg",
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        db.session.add(media)
+        db.session.commit()
+        media_id = media.id
+
+    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"]) / "2024" / "01" / "01"
+    orig_dir.mkdir(parents=True, exist_ok=True)
+    image_path = orig_dir / "recover.jpg"
+    Image.new("RGB", (16, 16), color=(200, 80, 80)).save(image_path, format="JPEG")
+
+    with app.app_context():
+        app.config["LOGIN_DISABLED"] = False
+
+    login(client)
+    res = client.post(f"/api/media/{media_id}/recover")
+    assert res.status_code == 403
+    payload = res.get_json()
+    assert payload["error"] == "forbidden"
+
+
+def test_media_recover_success(client, app):
+    from webapp.extensions import db
+    from core.models.photo_models import Media
+
+    rel_path = "2024/02/02/recover-success.jpg"
+
+    with app.app_context():
+        media = Media(
+            google_media_id="recover-success",
+            account_id=1,
+            local_rel_path=rel_path,
+            bytes=0,
+            mime_type="image/jpeg",
+            width=None,
+            height=None,
+            shot_at=None,
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        db.session.add(media)
+        db.session.commit()
+        media_id = media.id
+
+    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"]) / "2024" / "02" / "02"
+    orig_dir.mkdir(parents=True, exist_ok=True)
+    image_path = orig_dir / "recover-success.jpg"
+    Image.new("RGB", (48, 32), color=(120, 160, 200)).save(image_path, format="JPEG")
+
+    with app.app_context():
+        app.config["LOGIN_DISABLED"] = False
+
+    grant_permission(app, "media:recover")
+    login(client)
+
+    res = client.post(f"/api/media/{media_id}/recover")
+    assert res.status_code == 200
+    payload = res.get_json()
+    assert payload["metadataRefreshed"] is True
+    assert payload["media"]["id"] == media_id
+    assert isinstance(payload.get("thumbnailJobTriggered"), bool)
+
+    with app.app_context():
+        refreshed = Media.query.get(media_id)
+        assert refreshed is not None
+        assert refreshed.hash_sha256 is not None
+        assert refreshed.bytes == os.path.getsize(image_path)
+        assert refreshed.width == 48
+        assert refreshed.height == 32
+        assert refreshed.thumbnail_rel_path == refreshed.local_rel_path
+
+
+def test_thumbnail_missing_triggers_regeneration(client, app):
+    from webapp.extensions import db
+    from core.models.photo_models import Media
+
+    rel_path = "2024/03/03/thumb-missing.jpg"
+
+    with app.app_context():
+        media = Media(
+            google_media_id="thumb-missing",
+            account_id=1,
+            local_rel_path=rel_path,
+            bytes=0,
+            mime_type="image/jpeg",
+            width=None,
+            height=None,
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        db.session.add(media)
+        db.session.commit()
+        media_id = media.id
+
+    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"]) / "2024" / "03" / "03"
+    orig_dir.mkdir(parents=True, exist_ok=True)
+    image_path = orig_dir / "thumb-missing.jpg"
+    Image.new("RGB", (32, 24), color=(10, 200, 150)).save(image_path, format="JPEG")
+
+    login(client)
+    res = client.get(f"/api/media/{media_id}/thumbnail?size=256")
+    assert res.status_code == 404
+    payload = res.get_json()
+    assert payload["error"] == "not_found"
+    assert payload.get("thumbnailJobTriggered") is True
 
     with app.app_context():
         refreshed = Media.query.get(media_id)

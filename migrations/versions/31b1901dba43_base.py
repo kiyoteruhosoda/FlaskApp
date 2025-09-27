@@ -347,13 +347,15 @@ def upgrade():
     "INSERT INTO permission (id, code) VALUES " \
     "(1, 'admin:photo-settings'), (2, 'admin:job-settings'), (3, 'user:manage'), (4, 'album:create'), (5, 'album:edit'), " \
     "(6, 'album:view'), (7, 'media:view'), (8, 'permission:manage'), (9, 'role:manage'), (10, 'system:manage'), " \
-    "(11, 'wiki:admin'), (12, 'wiki:read'), (13, 'wiki:write'), (14, 'media:tag-manage'), (15, 'media:delete')")
+    "(11, 'wiki:admin'), (12, 'wiki:read'), (13, 'wiki:write'), (14, 'media:tag-manage'), (15, 'media:delete'), " \
+    "(16, 'media:recover')")
     op.execute(
     "INSERT INTO role_permissions (role_id, perm_id) VALUES " \
     "(1, 1), (1, 2), (1, 3), (1, 4), (1, 5)," \
     "(1, 6), (1, 7), (1, 8), (1, 9), (1, 10)," \
-    "(1, 11), (1, 12), (1, 13), (1, 14), (1, 15)," \
-    "(2, 1), (2, 4), (2, 5), (2, 6), (2, 7), (3, 6), (3, 7)")
+    "(1, 11), (1, 12), (1, 13), (1, 14), (1, 15), (1, 16)," \
+    "(2, 1), (2, 4), (2, 5), (2, 6), (2, 7), (2, 14), (2, 15), (2, 16)," \
+    "(3, 6), (3, 7)")
     from datetime import datetime, timezone
     op.get_bind().execute(
     sa.text(

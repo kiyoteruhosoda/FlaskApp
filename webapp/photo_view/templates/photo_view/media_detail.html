@@ -283,6 +283,11 @@
             <li><a class="dropdown-item download-option" href="#" data-download-type="thumbnail">{{ _("Download thumbnail (2048px)") }}</a></li>
           </ul>
         </div>
+        {% if current_user.can('media:recover') %}
+        <button class="btn btn-outline-warning" id="recover-btn">
+          <i class="fas fa-undo"></i> {{ _("Recover metadata") }}
+        </button>
+        {% endif %}
         {% if current_user.can('media:delete') %}
         <button class="btn btn-outline-danger" id="delete-btn">
           <i class="fas fa-trash-alt"></i> {{ _("Delete") }}
@@ -376,6 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const fullscreenBtn = document.getElementById('fullscreen-btn');
   const zoomBtn = document.getElementById('zoom-btn');
   const deleteBtn = document.getElementById('delete-btn');
+  const recoverBtn = document.getElementById('recover-btn');
   const basicInfo = document.getElementById('basic-info');
   const technicalInfo = document.getElementById('technical-info');
   const exifInfo = document.getElementById('exif-info');
@@ -409,6 +415,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const deleteForbiddenText = '{{ _("You do not have permission to delete media.")|escapejs }}';
   const deleteMissingText = '{{ _("Media was not found or is already deleted.")|escapejs }}';
   const deleteInProgressText = '{{ _("Deleting...")|escapejs }}';
+  const recoverConfirmText = '{{ _("Reapply metadata from the original file?")|escapejs }}';
+  const recoverSuccessText = '{{ _("Media metadata was refreshed.")|escapejs }}';
+  const recoverErrorText = '{{ _("Failed to refresh media metadata.")|escapejs }}';
+  const recoverForbiddenText = '{{ _("You do not have permission to recover metadata.")|escapejs }}';
+  const recoverSourceMissingText = '{{ _("Original file for recovery could not be found.")|escapejs }}';
+  const recoverUnsupportedText = '{{ _("The original file type is not supported for recovery.")|escapejs }}';
+  const recoverInProgressText = '{{ _("Recovering...")|escapejs }}';
+  const recoverThumbnailTriggeredText = '{{ _("Thumbnail regeneration has been requested.")|escapejs }}';
   const redirectAfterDeleteUrl = '{{ url_for("photo_view.media_list")|escapejs }}';
   const downloadErrorText = '{{ _("Failed to download media.")|escapejs }}';
   const downloadPlaybackPendingText = '{{ _("Video playback is still being prepared. Please try again shortly.")|escapejs }}';
@@ -493,6 +507,64 @@ document.addEventListener('DOMContentLoaded', () => {
         mediaDisplay.innerHTML = '<div class="text-center text-danger p-5"><h4>Error loading media</h4><p>The requested media could not be found or loaded.</p></div>';
       }
     }
+  }
+
+  if (recoverBtn) {
+    recoverBtn.addEventListener('click', async () => {
+      if (!confirm(recoverConfirmText)) {
+        return;
+      }
+
+      const originalHtml = recoverBtn.innerHTML;
+      recoverBtn.disabled = true;
+      recoverBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>${recoverInProgressText}`;
+
+      try {
+        const response = await window.apiClient.post(`/api/media/${mediaId}/recover`);
+        let payload = null;
+        try {
+          payload = await response.json();
+        } catch (error) {
+          payload = null;
+        }
+
+        if (response.ok && payload && payload.media) {
+          currentMedia = payload.media;
+          displayMedia(currentMedia);
+          displayMediaInfo(currentMedia);
+          if (Array.isArray(currentMedia.tags)) {
+            currentTags = currentMedia.tags;
+          }
+          renderMediaTags();
+          updateDownloadControls(currentMedia);
+          showSuccessToast(recoverSuccessText);
+          if (payload.thumbnailJobTriggered) {
+            if (typeof showInfoToast === 'function') {
+              showInfoToast(recoverThumbnailTriggeredText, 4000);
+            } else {
+              showSuccessToast(recoverThumbnailTriggeredText);
+            }
+          }
+        } else {
+          const errorCode = payload && payload.error;
+          if (response.status === 403) {
+            showErrorToast(recoverForbiddenText);
+          } else if (errorCode === 'source_missing') {
+            showErrorToast(recoverSourceMissingText);
+          } else if (errorCode === 'unsupported_extension') {
+            showErrorToast(recoverUnsupportedText);
+          } else {
+            showErrorToast(recoverErrorText);
+          }
+        }
+      } catch (error) {
+        console.error('Recover request failed', error);
+        showErrorToast(recoverErrorText);
+      } finally {
+        recoverBtn.disabled = false;
+        recoverBtn.innerHTML = originalHtml;
+      }
+    });
   }
 
   if (deleteBtn) {

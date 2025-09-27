@@ -1,10 +1,16 @@
 import os
 import logging
-from dotenv import load_dotenv
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, Optional, Tuple
+
 from celery import Celery
+from celery.exceptions import Retry as CeleryRetry
+from dotenv import load_dotenv
 from flask import Flask
+
+from core.db import db
+from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 from webapp.config import Config
-from datetime import timedelta
 
 # .envファイルを読み込み
 load_dotenv()
@@ -16,7 +22,6 @@ def create_app():
     app.config.from_object(Config)
     
     # Initialize database
-    from core.db import db
     db.init_app(app)
     
     # Initialize other extensions  
@@ -127,11 +132,140 @@ def setup_celery_logging():
 with flask_app.app_context():
     setup_celery_logging()
 
+
+def _to_str(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    try:
+        return str(value)
+    except Exception:
+        return None
+
+
+def _normalize_dt(value: Any) -> Optional[datetime]:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+    return None
+
+
+def _resolve_thumbnail_identity(args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+    media_id = kwargs.get("media_id")
+    if media_id is None and args:
+        media_id = args[0]
+    return "media", _to_str(media_id)
+
+
+def _resolve_local_import_identity(args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+    session_id = kwargs.get("session_id")
+    if session_id is None and args:
+        session_id = args[0]
+    return "local_import_session", _to_str(session_id)
+
+
+def _resolve_picker_item_identity(args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+    selection_id = kwargs.get("selection_id")
+    if selection_id is None and args:
+        selection_id = args[0]
+    return "picker_selection", _to_str(selection_id)
+
+
+_TASK_IDENTITY_RESOLVERS: Dict[str, Any] = {
+    "thumbs.generate": _resolve_thumbnail_identity,
+    "local_import.run": _resolve_local_import_identity,
+    "picker_import.item": _resolve_picker_item_identity,
+    "thumbnail_retry.process_due": lambda *_: ("system", "thumbnail-retry-monitor"),
+}
+
+
+def _resolve_task_object(name: str, args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+    resolver = _TASK_IDENTITY_RESOLVERS.get(name)
+    if resolver is None:
+        return (None, None)
+    try:
+        identity = resolver(args, kwargs)
+    except Exception:
+        return (None, None)
+    if not isinstance(identity, tuple) or len(identity) != 2:
+        return (None, None)
+    return identity
+
+
+def _safe_db_rollback() -> None:
+    try:
+        db.session.rollback()
+    except Exception:
+        pass
+
 class ContextTask(celery.Task):
     """Make celery tasks work with Flask app context."""
     def __call__(self, *args, **kwargs):
         with flask_app.app_context():
-            return self.run(*args, **kwargs)
+            record = None
+            started_at = datetime.now(timezone.utc)
+            try:
+                object_identity = _resolve_task_object(self.name, args, kwargs)
+                celery_task_id = getattr(getattr(self, "request", None), "id", None)
+                eta = _normalize_dt(getattr(getattr(self, "request", None), "eta", None))
+
+                record = CeleryTaskRecord.get_or_create(
+                    task_name=self.name,
+                    celery_task_id=celery_task_id,
+                    object_identity=object_identity,
+                )
+                if eta:
+                    record.scheduled_for = eta
+                record.status = CeleryTaskStatus.RUNNING
+                record.started_at = started_at
+                record.update_payload({
+                    "args": list(args),
+                    "kwargs": kwargs,
+                })
+                db.session.commit()
+            except Exception:
+                _safe_db_rollback()
+                record = None
+
+            try:
+                result = self.run(*args, **kwargs)
+            except CeleryRetry as retry_exc:
+                if record is not None:
+                    try:
+                        record.status = CeleryTaskStatus.SCHEDULED
+                        record.finished_at = None
+                        retry_eta = _normalize_dt(getattr(retry_exc, "when", None) or getattr(retry_exc, "eta", None))
+                        if retry_eta:
+                            record.scheduled_for = retry_eta
+                        record.error_message = None
+                        record.update_payload({"retry": True})
+                        db.session.commit()
+                    except Exception:
+                        _safe_db_rollback()
+                raise
+            except Exception as exc:
+                if record is not None:
+                    try:
+                        record.status = CeleryTaskStatus.FAILED
+                        record.finished_at = datetime.now(timezone.utc)
+                        record.error_message = str(exc)
+                        db.session.commit()
+                    except Exception:
+                        _safe_db_rollback()
+                raise
+            else:
+                if record is not None:
+                    try:
+                        record.status = CeleryTaskStatus.SUCCESS
+                        record.finished_at = datetime.now(timezone.utc)
+                        payload = result if isinstance(result, dict) else {"value": result}
+                        record.set_result(payload)
+                        db.session.commit()
+                    except Exception:
+                        _safe_db_rollback()
+                return result
     
     def log_error(self, message, event="celery_task", exc_info=None):
         """Log error to database with proper context."""
@@ -164,6 +298,10 @@ celery.conf.beat_schedule = {
     "session-recovery": {
         "task": "session_recovery.cleanup_stale_sessions",
         "schedule": timedelta(minutes=5),  # 5分毎に実行
+    },
+    "thumbnail-retry-monitor": {
+        "task": "thumbnail_retry.process_due",
+        "schedule": timedelta(minutes=1),
     },
     "backup-cleanup": {
         "task": "backup_cleanup.cleanup",

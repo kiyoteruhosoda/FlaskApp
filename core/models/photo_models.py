@@ -153,6 +153,7 @@ class MediaPlayback(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
 
+
 class MediaItem(db.Model):
     id = db.Column(db.String(255), primary_key=True)
     type = db.Column(

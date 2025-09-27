@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import shutil
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 from uuid import uuid4
@@ -19,6 +19,7 @@ from uuid import uuid4
 from core.db import db
 from core.logging_config import log_task_error, log_task_info, setup_task_logging
 from core.models.photo_models import Media, MediaPlayback
+from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 
 # These imports are intentionally placed after SQLAlchemy models to avoid
 # circular import issues.
@@ -29,6 +30,56 @@ from .transcode import transcode_worker
 _logger = setup_task_logging(__name__)
 
 _THUMBNAIL_RETRY_COUNTDOWN = 300
+_THUMBNAIL_RETRY_TASK_NAME = "thumbnail.retry"
+
+
+def _thumbnail_retry_identity(media_id: int) -> tuple[str, str]:
+    return ("media", str(media_id))
+
+
+def _upsert_thumbnail_retry_record(
+    media_id: int,
+    *,
+    countdown: int,
+    force: bool,
+    celery_task_id: Optional[str],
+) -> None:
+    """Persist or update retry tracking information for *media_id*."""
+
+    retry_at = datetime.now(timezone.utc) + timedelta(seconds=countdown)
+    record = CeleryTaskRecord.get_or_create(
+        task_name=_THUMBNAIL_RETRY_TASK_NAME,
+        celery_task_id=celery_task_id,
+        object_identity=_thumbnail_retry_identity(media_id),
+    )
+    record.status = CeleryTaskStatus.SCHEDULED
+    record.scheduled_for = retry_at
+    record.started_at = None
+    record.finished_at = None
+    record.update_payload({"force": force})
+    db.session.commit()
+
+
+def _clear_thumbnail_retry_record(media_id: int) -> None:
+    """Mark retry tracking information for *media_id* as completed."""
+
+    record = (
+        CeleryTaskRecord.query.filter_by(
+            task_name=_THUMBNAIL_RETRY_TASK_NAME,
+            object_type="media",
+            object_id=media_id,
+        )
+        .order_by(CeleryTaskRecord.id.desc())
+        .first()
+    )
+    if record is None:
+        return
+
+    record.status = CeleryTaskStatus.SUCCESS
+    record.scheduled_for = None
+    record.celery_task_id = None
+    record.finished_at = datetime.now(timezone.utc)
+    db.session.commit()
 
 
 def _schedule_thumbnail_retry(
@@ -84,6 +135,12 @@ def _schedule_thumbnail_retry(
         countdown=countdown,
         celery_task_id=celery_task_id,
         force=force,
+    )
+    _upsert_thumbnail_retry_record(
+        media_id,
+        countdown=countdown,
+        force=force,
+        celery_task_id=celery_task_id,
     )
     return {
         "countdown": countdown,
@@ -241,6 +298,8 @@ def enqueue_thumbs_generate(
         result["retry_scheduled"] = True
         if retry_metadata:
             result["retry_details"] = retry_metadata
+    else:
+        _clear_thumbnail_retry_record(media_id)
 
     return result
 
@@ -392,6 +451,84 @@ def enqueue_media_playback(
             exc_info=True,
         )
         return {"ok": False, "note": "exception", "error": str(exc)}
+
+
+def process_due_thumbnail_retries(
+    *,
+    limit: int = 50,
+    logger_override: Optional[logging.Logger] = None,
+) -> Dict[str, Any]:
+    """Process pending thumbnail retry records whose schedule has elapsed."""
+
+    logger = logger_override or _logger
+    now = datetime.now(timezone.utc)
+
+    pending = (
+        CeleryTaskRecord.query.filter(
+            CeleryTaskRecord.task_name == _THUMBNAIL_RETRY_TASK_NAME,
+            CeleryTaskRecord.object_type == "media",
+            CeleryTaskRecord.scheduled_for <= now,
+            CeleryTaskRecord.status == CeleryTaskStatus.SCHEDULED,
+        )
+        .order_by(CeleryTaskRecord.scheduled_for)
+        .limit(limit)
+        .all()
+    )
+
+    processed = 0
+    rescheduled = 0
+    cleared = 0
+
+    for entry in pending:
+        processed += 1
+        if entry.object_id is None:
+            entry.status = CeleryTaskStatus.CANCELED
+            entry.finished_at = now
+            db.session.commit()
+            continue
+        try:
+            media_id = int(entry.object_id)
+        except (TypeError, ValueError):
+            entry.status = CeleryTaskStatus.CANCELED
+            entry.finished_at = now
+            db.session.commit()
+            continue
+        entry.status = CeleryTaskStatus.RUNNING
+        entry.started_at = now
+        db.session.commit()
+        payload = entry.payload
+        force_flag = bool(payload.get("force", False))
+        result = enqueue_thumbs_generate(
+            media_id,
+            logger_override=logger,
+            operation_id=f"thumbnail-retry-{media_id}",
+            request_context={"source": "retry-monitor"},
+            force=force_flag,
+        )
+        if result.get("retry_scheduled"):
+            rescheduled += 1
+        else:
+            cleared += 1
+
+    _structured_task_log(
+        logger,
+        level="info",
+        event="thumbnail_generation.retry_monitor",
+        message="Processed pending thumbnail retries.",
+        operation_id="thumbnail-retry-monitor",
+        media_id=0,
+        processed=processed,
+        rescheduled=rescheduled,
+        cleared=cleared,
+        pending_before=len(pending),
+    )
+
+    return {
+        "processed": processed,
+        "rescheduled": rescheduled,
+        "cleared": cleared,
+        "pending_before": len(pending),
+    }
 
 
 def process_media_post_import(

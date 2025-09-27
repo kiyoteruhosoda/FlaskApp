@@ -27,6 +27,13 @@ from core.storage_paths import (
     first_existing_storage_path,
 )
 
+
+PLAYBACK_NOT_READY_NOTES = "playback not ready"
+
+
+class PlaybackNotReadyError(RuntimeError):
+    """Raised when video playback assets are not ready for thumbnail generation."""
+
 # Target thumbnail sizes (long side)
 SIZES = [256, 512, 1024, 2048]
 
@@ -36,6 +43,23 @@ class _ThumbResult:
     generated: List[int]
     skipped: List[int]
     notes: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Result helpers
+# ---------------------------------------------------------------------------
+
+
+def _playback_not_ready() -> Dict[str, object]:
+    """Return a standard response when playback assets are not yet available."""
+
+    return {
+        "ok": True,
+        "generated": [],
+        "skipped": SIZES.copy(),
+        "notes": PLAYBACK_NOT_READY_NOTES,
+        "paths": {},
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -133,24 +157,12 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
             .first()
         )
         if not pb:
-            return {
-                "ok": True,
-                "generated": [],
-                "skipped": SIZES.copy(),
-                "notes": "playback not ready",
-                "paths": {},
-            }
+            return _playback_not_ready()
 
         if pb.poster_rel_path:
             poster_path = _play_dir() / pb.poster_rel_path
             if not poster_path.exists():
-                return {
-                    "ok": True,
-                    "generated": [],
-                    "skipped": SIZES.copy(),
-                    "notes": "playback not ready",
-                    "paths": {},
-                }
+                return _playback_not_ready()
             img = Image.open(poster_path)
             img = ImageOps.exif_transpose(img)
         else:  # pragma: no cover - optional dependency path
@@ -168,13 +180,7 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
                     frame = reader.get_data(0)
                 img = Image.fromarray(frame)
             except Exception:
-                return {
-                    "ok": True,
-                    "generated": [],
-                    "skipped": SIZES.copy(),
-                    "notes": "playback not ready",
-                    "paths": {},
-                }
+                return _playback_not_ready()
         img = img.convert("RGB")
         out_ext = ".jpg"
         rel_name = _replace_suffix(rel_name, out_ext)

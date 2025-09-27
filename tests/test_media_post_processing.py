@@ -133,3 +133,58 @@ def test_enqueue_media_playback_generates_thumbnails_for_completed_playback(app,
     thumb_path = thumbs_dir / "256" / "2025/09/27/video.jpg"
     assert thumb_path.exists()
 
+
+def test_enqueue_thumbs_generate_schedules_retry(monkeypatch):
+    """サムネイル生成が保留の場合にCeleryリトライをスケジュールすることを確認。"""
+
+    from core.tasks import media_post_processing
+
+    monkeypatch.setattr(
+        media_post_processing,
+        "thumbs_generate",
+        lambda media_id, force=False: {
+            "ok": True,
+            "generated": [],
+            "skipped": [256, 512, 1024, 2048],
+            "notes": media_post_processing.PLAYBACK_NOT_READY_NOTES,
+            "paths": {},
+        },
+    )
+
+    scheduled: dict = {}
+
+    def fake_schedule(
+        *,
+        media_id: int,
+        force: bool,
+        countdown: int,
+        logger,
+        operation_id: str,
+        request_context,
+    ) -> dict:
+        scheduled.update(
+            media_id=media_id,
+            force=force,
+            countdown=countdown,
+            operation_id=operation_id,
+            request_context=request_context,
+        )
+        return {
+            "countdown": countdown,
+            "celery_task_id": "celery-123",
+            "eta": None,
+        }
+
+    monkeypatch.setattr(media_post_processing, "_schedule_thumbnail_retry", fake_schedule)
+
+    result = media_post_processing.enqueue_thumbs_generate(123, force=True)
+
+    assert result["retry_scheduled"] is True
+    assert result["retry_details"]["celery_task_id"] == "celery-123"
+    assert scheduled["media_id"] == 123
+    assert scheduled["force"] is True
+    assert (
+        scheduled["countdown"]
+        == media_post_processing._THUMBNAIL_RETRY_COUNTDOWN
+    )
+

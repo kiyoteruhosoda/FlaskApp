@@ -38,8 +38,10 @@ from core.models.job_sync import JobSync
 from core.models.picker_session import PickerSession
 from core.utils import get_file_date_from_name, get_file_date_from_exif
 from core.logging_config import setup_task_logging, log_task_error, log_task_info
-from core.tasks.media_post_processing import process_media_post_import
-from core.tasks.thumbs_generate import thumbs_generate
+from core.tasks.media_post_processing import (
+    enqueue_thumbs_generate,
+    process_media_post_import,
+)
 from core.storage_paths import first_existing_storage_path, storage_path_candidates
 from webapp.config import Config
 
@@ -749,8 +751,16 @@ def _regenerate_duplicate_video_thumbnails(
 ) -> None:
     """重複動画のサムネイル生成を再実行する。"""
 
+    request_context = {"sessionId": session_id} if session_id else None
+
     try:
-        result = thumbs_generate(media_id=media.id, force=True)
+        result = enqueue_thumbs_generate(
+            media.id,
+            force=True,
+            logger_override=logger,
+            operation_id=f"duplicate-video-{media.id}",
+            request_context=request_context,
+        )
     except Exception as exc:  # pragma: no cover - unexpected failure path
         _log_error(
             "local_import.duplicate_video.thumbnail_regen_failed",
@@ -766,6 +776,8 @@ def _regenerate_duplicate_video_thumbnails(
         paths = result.get("paths") or {}
         generated = result.get("generated", [])
         skipped = result.get("skipped", [])
+        retry_scheduled = result.get("retry_scheduled", False)
+        retry_details = result.get("retry_details") if retry_scheduled else None
         generated_paths = {
             size: paths[size]
             for size in generated
@@ -788,8 +800,22 @@ def _regenerate_duplicate_video_thumbnails(
             generated_paths=generated_paths,
             skipped_paths=skipped_paths,
             paths=paths,
+            retry_scheduled=retry_scheduled,
+            retry_details=retry_details,
             status=status,
         )
+
+        if retry_details:
+            _log_info(
+                "local_import.duplicate_video.thumbnail_retry_scheduled",
+                "サムネイル再生成をリトライ予約",
+                session_id=session_id,
+                media_id=media.id,
+                retry_countdown=retry_details.get("countdown"),
+                celery_task_id=retry_details.get("celery_task_id"),
+                eta=str(retry_details.get("eta")) if retry_details.get("eta") else None,
+                status="retry_scheduled",
+            )
     else:
         _log_warning(
             "local_import.duplicate_video.thumbnail_regen_skipped",
@@ -797,6 +823,7 @@ def _regenerate_duplicate_video_thumbnails(
             session_id=session_id,
             media_id=media.id,
             notes=result.get("notes"),
+            retry_scheduled=result.get("retry_scheduled"),
             status="thumbs_skipped",
         )
 

@@ -1,5 +1,6 @@
 """Tests for logging configuration helpers."""
 
+import json
 import logging
 
 import pytest
@@ -125,3 +126,55 @@ def test_ensure_appdb_logging_marks_existing_handler(monkeypatch, cleanup_logger
 
     assert getattr(existing_handler, "_is_appdb_log_handler", False)
     assert logger.level == logging.INFO
+
+
+def test_worker_handler_extracts_fields_from_payload():
+    handler = WorkerDBLogHandler()
+    record = logging.LogRecord(
+        name="celery.task",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=123,
+        msg="",
+        args=(),
+        exc_info=None,
+    )
+
+    payload = {
+        "message": "Task finished",
+        "task_name": "app.tasks.example",
+        "task_uuid": "123e4567-e89b-12d3-a456-426614174000",
+        "worker_hostname": "worker@example",
+        "queue_name": "celery",
+        "status": "SUCCESS",
+        "_meta": {"foo": "bar"},
+        "_extra": {"baz": "qux"},
+    }
+
+    result = handler._build_insert_values(
+        record=record,
+        message_json=json.dumps(payload, ensure_ascii=False),
+        trace=None,
+        event="celery_task",
+        path_value=None,
+        request_id=None,
+        payload=payload,
+        extras={},
+    )
+
+    assert result["task_name"] == "app.tasks.example"
+    assert result["task_uuid"] == "123e4567-e89b-12d3-a456-426614174000"
+    assert result["worker_hostname"] == "worker@example"
+    assert result["queue_name"] == "celery"
+    assert result["status"] == "SUCCESS"
+    assert result["meta_json"] == {"foo": "bar"}
+    assert result["extra_json"] == {"baz": "qux"}
+
+    message_payload = json.loads(result["message"])
+    assert message_payload["task_name"] == "app.tasks.example"
+    assert message_payload["task_uuid"] == "123e4567-e89b-12d3-a456-426614174000"
+    assert message_payload["worker_hostname"] == "worker@example"
+    assert message_payload["queue_name"] == "celery"
+    # Ensure other fields remain untouched.
+    assert message_payload["message"] == "Task finished"
+    assert message_payload["status"] == "SUCCESS"

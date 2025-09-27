@@ -178,6 +178,18 @@ def _generate_poster(playback: MediaPlayback, video_path: Path) -> Optional[str]
     poster_dest = _play_dir() / poster_rel
     poster_dest.parent.mkdir(parents=True, exist_ok=True)
 
+    if shutil.which("ffmpeg") is None:
+        logger.error(
+            "ffmpeg not found; skipping poster generation for playback %s",
+            playback.id,
+            extra={
+                "event": "transcode.poster.ffmpeg_missing",
+                "playback_id": playback.id,
+                "media_id": playback.media_id,
+            },
+        )
+        return None
+
     commands = [
         [
             "ffmpeg",

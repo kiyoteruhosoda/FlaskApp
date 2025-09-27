@@ -56,6 +56,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libmariadb3 \
     curl \
     procps \
+    ffmpeg \
   && rm -rf /var/lib/apt/lists/*
 
 ARG APP_UID=1000

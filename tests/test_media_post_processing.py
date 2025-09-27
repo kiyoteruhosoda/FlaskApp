@@ -5,6 +5,7 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Dict
 
 import pytest
 from PIL import Image
@@ -161,7 +162,7 @@ def test_enqueue_thumbs_generate_schedules_retry(monkeypatch):
         logger,
         operation_id: str,
         request_context,
-    ) -> bool:
+    ) -> Dict[str, Any]:
         scheduled.update(
             media_id=media_id,
             force=force,
@@ -169,13 +170,22 @@ def test_enqueue_thumbs_generate_schedules_retry(monkeypatch):
             operation_id=operation_id,
             request_context=request_context,
         )
-        return True
+        return {
+            "countdown": countdown,
+            "celery_task_id": "fake-task",
+            "force": force,
+        }
 
     monkeypatch.setattr(media_post_processing, "_schedule_thumbnail_retry", fake_schedule)
 
     result = media_post_processing.enqueue_thumbs_generate(123, force=True)
 
     assert result["retry_scheduled"] is True
+    assert result["retry_details"] == {
+        "countdown": media_post_processing._THUMBNAIL_RETRY_COUNTDOWN,
+        "celery_task_id": "fake-task",
+        "force": True,
+    }
     assert scheduled["media_id"] == 123
     assert scheduled["force"] is True
     assert (

@@ -29,6 +29,23 @@ def upgrade():
     sa.Column('created_at', sa.DateTime().with_variant(sa.DateTime(fsp=6), 'mysql'), nullable=False, server_default=sa.func.now()),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('worker_log',
+    sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
+    sa.Column('created_at', sa.DateTime().with_variant(sa.DateTime(fsp=6), 'mysql'), nullable=False, server_default=sa.func.now()),
+    sa.Column('level', sa.String(length=20), nullable=False),
+    sa.Column('event', sa.String(length=50), nullable=False),
+    sa.Column('logger_name', sa.String(length=120), nullable=True),
+    sa.Column('task_name', sa.String(length=255), nullable=True),
+    sa.Column('task_uuid', sa.String(length=36), nullable=True),
+    sa.Column('worker_hostname', sa.String(length=255), nullable=True),
+    sa.Column('queue_name', sa.String(length=120), nullable=True),
+    sa.Column('status', sa.String(length=40), nullable=True),
+    sa.Column('message', sa.Text(), nullable=False),
+    sa.Column('trace', sa.Text(), nullable=True),
+    sa.Column('meta_json', sa.JSON(), nullable=True),
+    sa.Column('extra_json', sa.JSON(), nullable=True),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('permission',
     sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
     sa.Column('code', sa.String(length=120), nullable=False),
@@ -412,5 +429,6 @@ def downgrade():
     op.drop_table('picker_import_task')
     op.drop_table('photo_metadata')
     op.drop_table('permission')
+    op.drop_table('worker_log')
     op.drop_table('log')
     # ### end Alembic commands ###

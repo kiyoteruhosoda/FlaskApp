@@ -133,7 +133,7 @@ class DBLogHandler(logging.Handler):
             return
         if not isinstance(engine, Engine):  # pragma: no cover - supports mocks in tests
             return
-        log_model = _get_log_model()
+        log_model = self._get_log_model()
         log_model.__table__.create(bind=engine, checkfirst=True)
         self._ensured_engines.add(marker)
 
@@ -189,14 +189,18 @@ class DBLogHandler(logging.Handler):
         engine = self._resolve_engine()
         self._ensure_table(engine)
 
-        log_model = _get_log_model()
+        log_model = self._get_log_model()
         stmt = insert(log_model).values(
-            level=record.levelname,
-            message=message_json,
-            trace=trace,
-            path=path_value,
-            request_id=request_id,
-            event=event,
+            **self._build_insert_values(
+                record=record,
+                message_json=message_json,
+                trace=trace,
+                event=event,
+                path_value=path_value,
+                request_id=request_id,
+                payload=payload,
+                extras=extras,
+            )
         )
 
         def _persist(engine_to_use: Engine) -> None:
@@ -223,8 +227,106 @@ class DBLogHandler(logging.Handler):
 
             raise RuntimeError("Failed to persist log record to database") from exc
 
-def _get_log_model():
-    from .models.log import Log  # Local import to avoid circular dependencies
+    def _get_log_model(self):
+        from .models.log import Log  # Local import to avoid circular dependencies
 
-    return Log
+        return Log
+
+    def _build_insert_values(
+        self,
+        *,
+        record: logging.LogRecord,
+        message_json: str,
+        trace: Optional[str],
+        event: str,
+        path_value: Optional[str],
+        request_id: Optional[str],
+        payload: Dict[str, Any],
+        extras: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        return {
+            "level": record.levelname,
+            "message": message_json,
+            "trace": trace,
+            "path": path_value,
+            "request_id": request_id,
+            "event": event,
+        }
+
+
+class WorkerDBLogHandler(DBLogHandler):
+    """Logging handler dedicated to persisting Celery worker logs."""
+
+    def _get_log_model(self):
+        from .models.worker_log import WorkerLog  # Local import to avoid circular dependencies
+
+        return WorkerLog
+
+    @staticmethod
+    def _truncate(value: Optional[Any], max_length: int) -> Optional[str]:
+        if value is None:
+            return None
+        value_str = str(value)
+        if max_length and len(value_str) > max_length:
+            return value_str[:max_length]
+        return value_str
+
+    @staticmethod
+    def _coerce_jsonable(value: Optional[Any]) -> Optional[Any]:
+        if value is None:
+            return None
+        try:
+            json.dumps(value, ensure_ascii=False)
+            return value
+        except TypeError:
+            return json.loads(json.dumps(value, ensure_ascii=False, default=str))
+
+    def _build_insert_values(
+        self,
+        *,
+        record: logging.LogRecord,
+        message_json: str,
+        trace: Optional[str],
+        event: str,
+        path_value: Optional[str],  # Unused but kept for signature compatibility
+        request_id: Optional[str],  # Unused but kept for signature compatibility
+        payload: Dict[str, Any],
+        extras: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        task_name = getattr(record, "task_name", None) or extras.get("task_name")
+        task_uuid = (
+            getattr(record, "task_id", None)
+            or getattr(record, "task_uuid", None)
+            or extras.get("task_id")
+            or extras.get("task_uuid")
+        )
+        worker_hostname = getattr(record, "hostname", None) or extras.get("hostname")
+        queue_name = (
+            getattr(record, "queue", None)
+            or getattr(record, "queue_name", None)
+            or extras.get("queue")
+            or extras.get("queue_name")
+        )
+        if isinstance(queue_name, dict):
+            queue_name = queue_name.get("name") or queue_name.get("routing_key")
+
+        status = payload.get("status")
+
+        meta_json = self._coerce_jsonable(payload.get("_meta"))
+        extra_json = self._coerce_jsonable(payload.get("_extra"))
+
+        return {
+            "level": self._truncate(record.levelname, 20),
+            "event": event,
+            "logger_name": self._truncate(record.name, 120),
+            "task_name": self._truncate(task_name, 255),
+            "task_uuid": self._truncate(task_uuid, 36),
+            "worker_hostname": self._truncate(worker_hostname, 255),
+            "queue_name": self._truncate(queue_name, 120),
+            "status": self._truncate(status, 40),
+            "message": message_json,
+            "trace": trace,
+            "meta_json": meta_json,
+            "extra_json": extra_json,
+        }
 

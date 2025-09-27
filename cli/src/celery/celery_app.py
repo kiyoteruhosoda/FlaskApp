@@ -5,7 +5,6 @@ from celery import Celery
 from flask import Flask
 from webapp.config import Config
 from datetime import timedelta
-from core.logging_config import ensure_appdb_file_logging
 
 # .envファイルを読み込み
 load_dotenv()
@@ -48,19 +47,38 @@ celery.conf.update(
 flask_app = create_app()
 
 def setup_celery_logging():
-    """Setup logging for Celery workers to use both DBLogHandler and Console output."""
-    from core.db_log_handler import DBLogHandler
+    """Setup logging for Celery workers to use worker_log and console output."""
+    from core.db_log_handler import DBLogHandler, WorkerDBLogHandler
     import sys
-    
+
     # ログフォーマッター
     formatter = logging.Formatter(
         '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
     )
-    
+
+    def _remove_legacy_db_handlers(logger: logging.Logger) -> None:
+        for handler in list(logger.handlers):
+            if isinstance(handler, DBLogHandler) and not isinstance(handler, WorkerDBLogHandler):
+                logger.removeHandler(handler)
+                try:
+                    handler.close()
+                except Exception:
+                    pass
+
+    def _ensure_worker_db_handler(logger: logging.Logger, level: int = logging.INFO) -> None:
+        for handler in logger.handlers:
+            if isinstance(handler, WorkerDBLogHandler):
+                handler.setLevel(level)
+                break
+        else:
+            worker_handler = WorkerDBLogHandler(app=flask_app)
+            worker_handler.setLevel(level)
+            logger.addHandler(worker_handler)
+
     # Get Celery logger
     celery_logger = logging.getLogger('celery')
     celery_logger.setLevel(logging.INFO)
-    
+
     # コンソール（Docker）ログハンドラー
     if not any(isinstance(h, logging.StreamHandler) for h in celery_logger.handlers):
         console_handler = logging.StreamHandler(sys.stdout)
@@ -68,18 +86,13 @@ def setup_celery_logging():
         console_handler.setFormatter(formatter)
         celery_logger.addHandler(console_handler)
 
-    ensure_appdb_file_logging(celery_logger)
-    
-    # DBログハンドラー
-    if not any(isinstance(h, DBLogHandler) for h in celery_logger.handlers):
-        db_handler = DBLogHandler(app=flask_app)
-        db_handler.setLevel(logging.INFO)
-        celery_logger.addHandler(db_handler)
-    
+    _remove_legacy_db_handlers(celery_logger)
+    _ensure_worker_db_handler(celery_logger, logging.INFO)
+
     # タスク用のロガー設定
     task_logger = logging.getLogger('celery.task')
     task_logger.setLevel(logging.INFO)
-    
+
     # タスクロガーにもコンソールハンドラーを追加
     if not any(isinstance(h, logging.StreamHandler) for h in task_logger.handlers):
         task_console_handler = logging.StreamHandler(sys.stdout)
@@ -87,18 +100,13 @@ def setup_celery_logging():
         task_console_handler.setFormatter(formatter)
         task_logger.addHandler(task_console_handler)
 
-    # タスクロガーにもDBハンドラーを追加
-    if not any(isinstance(h, DBLogHandler) for h in task_logger.handlers):
-        task_db_handler = DBLogHandler(app=flask_app)
-        task_db_handler.setLevel(logging.INFO)
-        task_logger.addHandler(task_db_handler)
+    _remove_legacy_db_handlers(task_logger)
+    _ensure_worker_db_handler(task_logger, logging.INFO)
 
-    ensure_appdb_file_logging(task_logger)
-    
     # picker_import 専用ロガーの設定
     picker_logger = logging.getLogger('picker_import')
     picker_logger.setLevel(logging.INFO)
-    
+
     # picker専用ロガーにもハンドラーを追加
     if not any(isinstance(h, logging.StreamHandler) for h in picker_logger.handlers):
         picker_console_handler = logging.StreamHandler(sys.stdout)
@@ -106,21 +114,14 @@ def setup_celery_logging():
         picker_console_handler.setFormatter(formatter)
         picker_logger.addHandler(picker_console_handler)
 
-    if not any(isinstance(h, DBLogHandler) for h in picker_logger.handlers):
-        picker_db_handler = DBLogHandler(app=flask_app)
-        picker_db_handler.setLevel(logging.INFO)
-        picker_logger.addHandler(picker_db_handler)
-
-    ensure_appdb_file_logging(picker_logger)
+    _remove_legacy_db_handlers(picker_logger)
+    _ensure_worker_db_handler(picker_logger, logging.INFO)
 
     # ルートロガーには重要なエラーのみ
     root_logger = logging.getLogger()
-    if not any(isinstance(h, DBLogHandler) for h in root_logger.handlers):
-        root_db_handler = DBLogHandler(app=flask_app)
-        root_db_handler.setLevel(logging.ERROR)  # Only capture errors in root logger
-        root_logger.addHandler(root_db_handler)
-
-    ensure_appdb_file_logging(root_logger)
+    root_logger.setLevel(logging.ERROR)
+    _remove_legacy_db_handlers(root_logger)
+    _ensure_worker_db_handler(root_logger, logging.ERROR)
 
 # Setup logging when app is created
 with flask_app.app_context():

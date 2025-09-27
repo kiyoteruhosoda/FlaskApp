@@ -17,6 +17,7 @@ __all__ = [
     'Album',
     'Tag',
     'MediaPlayback',
+    'MediaThumbnailRetry',
     'JobSync',
     'PickerSession',
     'PickerImportTask',

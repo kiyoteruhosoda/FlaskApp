@@ -9,6 +9,8 @@ from typing import Any, Dict
 
 import pytest
 from PIL import Image
+from datetime import datetime, timezone, timedelta
+from types import SimpleNamespace
 
 
 @pytest.fixture
@@ -192,4 +194,189 @@ def test_enqueue_thumbs_generate_schedules_retry(monkeypatch):
         scheduled["countdown"]
         == media_post_processing._THUMBNAIL_RETRY_COUNTDOWN
     )
+
+
+@pytest.mark.usefixtures("app")
+def test_enqueue_thumbs_generate_records_retry(app, monkeypatch):
+    from core.tasks import media_post_processing
+    from webapp.extensions import db
+    from core.models.photo_models import Media, MediaThumbnailRetry
+    import cli.src.celery.tasks as celery_tasks
+
+    monkeypatch.setattr(
+        media_post_processing,
+        "thumbs_generate",
+        lambda media_id, force=False: {
+            "ok": True,
+            "generated": [],
+            "skipped": [256, 512, 1024, 2048],
+            "notes": media_post_processing.PLAYBACK_NOT_READY_NOTES,
+            "paths": {},
+        },
+    )
+
+    def fake_apply_async(*args, **kwargs):
+        return SimpleNamespace(id="fake-task-id")
+
+    monkeypatch.setattr(celery_tasks.thumbs_generate_task, "apply_async", fake_apply_async)
+
+    with app.app_context():
+        media = Media(
+            source_type="local",
+            local_rel_path="2025/09/27/video.mp4",
+            filename="video.mp4",
+            hash_sha256="0" * 64,
+            bytes=1024,
+            mime_type="video/mp4",
+            width=1280,
+            height=720,
+            duration_ms=1000,
+            is_video=True,
+            has_playback=True,
+            shot_at=datetime(2025, 9, 27, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 9, 27, tzinfo=timezone.utc),
+        )
+        db.session.add(media)
+        db.session.commit()
+
+        result = media_post_processing.enqueue_thumbs_generate(media.id, force=True)
+
+        assert result["retry_scheduled"] is True
+        retry = MediaThumbnailRetry.query.filter_by(media_id=media.id).one()
+        assert retry.force is True
+        assert retry.celery_task_id == "fake-task-id"
+        retry_at = retry.retry_after
+        if retry_at.tzinfo is None:
+            retry_at = retry_at.replace(tzinfo=timezone.utc)
+        remaining = retry_at - datetime.now(timezone.utc)
+        assert remaining.total_seconds() > 0
+        assert remaining <= timedelta(seconds=media_post_processing._THUMBNAIL_RETRY_COUNTDOWN + 5)
+
+
+@pytest.mark.usefixtures("app")
+def test_process_due_thumbnail_retries_clears_success(app, monkeypatch):
+    from core.tasks import media_post_processing
+    from webapp.extensions import db
+    from core.models.photo_models import Media, MediaThumbnailRetry
+
+    monkeypatch.setattr(
+        media_post_processing,
+        "thumbs_generate",
+        lambda media_id, force=False: {
+            "ok": True,
+            "generated": [256],
+            "skipped": [],
+            "notes": None,
+            "paths": {256: "/tmp/thumb.jpg"},
+        },
+    )
+
+    with app.app_context():
+        media = Media(
+            source_type="local",
+            local_rel_path="2025/09/27/video.mp4",
+            filename="video.mp4",
+            hash_sha256="1" * 64,
+            bytes=2048,
+            mime_type="video/mp4",
+            width=1920,
+            height=1080,
+            duration_ms=2000,
+            is_video=True,
+            has_playback=True,
+            shot_at=datetime(2025, 9, 27, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 9, 27, tzinfo=timezone.utc),
+        )
+        db.session.add(media)
+        db.session.commit()
+
+        retry = MediaThumbnailRetry(
+            media_id=media.id,
+            retry_after=datetime.now(timezone.utc) - timedelta(minutes=1),
+            force=True,
+            celery_task_id="existing",
+        )
+        db.session.add(retry)
+        db.session.commit()
+
+        summary = media_post_processing.process_due_thumbnail_retries(limit=5)
+
+        assert summary == {
+            "processed": 1,
+            "rescheduled": 0,
+            "cleared": 1,
+            "pending_before": 1,
+        }
+        assert MediaThumbnailRetry.query.count() == 0
+
+
+@pytest.mark.usefixtures("app")
+def test_process_due_thumbnail_retries_reschedules_pending(app, monkeypatch):
+    from core.tasks import media_post_processing
+    from webapp.extensions import db
+    from core.models.photo_models import Media, MediaThumbnailRetry
+    import cli.src.celery.tasks as celery_tasks
+
+    monkeypatch.setattr(
+        media_post_processing,
+        "thumbs_generate",
+        lambda media_id, force=False: {
+            "ok": True,
+            "generated": [],
+            "skipped": [256, 512, 1024, 2048],
+            "notes": media_post_processing.PLAYBACK_NOT_READY_NOTES,
+            "paths": {},
+        },
+    )
+
+    def fake_apply_async(*args, **kwargs):
+        return SimpleNamespace(id="retry-task")
+
+    monkeypatch.setattr(celery_tasks.thumbs_generate_task, "apply_async", fake_apply_async)
+
+    with app.app_context():
+        media = Media(
+            source_type="local",
+            local_rel_path="2025/09/28/video.mp4",
+            filename="video.mp4",
+            hash_sha256="2" * 64,
+            bytes=4096,
+            mime_type="video/mp4",
+            width=1920,
+            height=1080,
+            duration_ms=3000,
+            is_video=True,
+            has_playback=True,
+            shot_at=datetime(2025, 9, 28, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 9, 28, tzinfo=timezone.utc),
+        )
+        db.session.add(media)
+        db.session.commit()
+
+        retry = MediaThumbnailRetry(
+            media_id=media.id,
+            retry_after=datetime.now(timezone.utc) - timedelta(minutes=1),
+            force=False,
+        )
+        db.session.add(retry)
+        db.session.commit()
+
+        previous_retry_at = retry.retry_after
+
+        summary = media_post_processing.process_due_thumbnail_retries(limit=5)
+
+        assert summary == {
+            "processed": 1,
+            "rescheduled": 1,
+            "cleared": 0,
+            "pending_before": 1,
+        }
+
+        updated = MediaThumbnailRetry.query.filter_by(media_id=media.id).one()
+        assert updated.retry_after > previous_retry_at
+        assert updated.celery_task_id == "retry-task"
+        assert updated.force is False
+
+
+
 

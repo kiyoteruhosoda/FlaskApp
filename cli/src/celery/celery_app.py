@@ -165,6 +165,10 @@ celery.conf.beat_schedule = {
         "task": "session_recovery.cleanup_stale_sessions",
         "schedule": timedelta(minutes=5),  # 5分毎に実行
     },
+    "thumbnail-retry-monitor": {
+        "task": "thumbnail_retry.process_due",
+        "schedule": timedelta(minutes=1),
+    },
     "backup-cleanup": {
         "task": "backup_cleanup.cleanup",
         "schedule": timedelta(days=1),  # 毎日実行

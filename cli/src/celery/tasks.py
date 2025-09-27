@@ -18,6 +18,7 @@ from core.tasks.session_recovery import (
     get_session_status_report
 )
 from core.tasks.backup_cleanup import cleanup_old_backups, get_backup_status
+from core.tasks.media_post_processing import process_due_thumbnail_retries
 from core.logging_config import log_task_info, log_task_error
 from core.tasks.thumbs_generate import (
     PLAYBACK_NOT_READY_NOTES,
@@ -194,8 +195,23 @@ def cleanup_stale_sessions_task(self):
     try:
         return cleanup_stale_sessions()
     except Exception as e:
-        self.log_error(f"Cleanup stale sessions failed: {str(e)}", 
+        self.log_error(f"Cleanup stale sessions failed: {str(e)}",
                       event="session_recovery_cleanup", exc_info=True)
+        return {"ok": False, "error": str(e)}
+
+
+@celery.task(bind=True, name="thumbnail_retry.process_due")
+def thumbnail_retry_process_task(self, limit: int = 50):
+    """Process thumbnail retry records whose scheduled time has elapsed."""
+
+    try:
+        return process_due_thumbnail_retries(limit=limit)
+    except Exception as e:
+        self.log_error(
+            f"Thumbnail retry monitor failed: {str(e)}",
+            event="thumbnail_retry_process",
+            exc_info=True,
+        )
         return {"ok": False, "error": str(e)}
 
 
@@ -262,6 +278,7 @@ __all__ = [
     "picker_import_watchdog_task",
     "local_import_task_celery",
     "cleanup_stale_sessions_task",
+    "thumbnail_retry_process_task",
     "force_cleanup_all_sessions_task",
     "session_status_report_task",
     "backup_cleanup_task",

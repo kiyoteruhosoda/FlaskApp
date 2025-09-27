@@ -11,14 +11,14 @@ from __future__ import annotations
 import json
 import logging
 import shutil
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 from uuid import uuid4
 
 from core.db import db
 from core.logging_config import log_task_error, log_task_info, setup_task_logging
-from core.models.photo_models import Media, MediaPlayback
+from core.models.photo_models import Media, MediaPlayback, MediaThumbnailRetry
 
 # These imports are intentionally placed after SQLAlchemy models to avoid
 # circular import issues.
@@ -29,6 +29,38 @@ from .transcode import transcode_worker
 _logger = setup_task_logging(__name__)
 
 _THUMBNAIL_RETRY_COUNTDOWN = 300
+
+
+def _upsert_thumbnail_retry_record(
+    media_id: int,
+    *,
+    countdown: int,
+    force: bool,
+    celery_task_id: Optional[str],
+) -> None:
+    """Persist or update retry tracking information for *media_id*."""
+
+    retry_at = datetime.now(timezone.utc) + timedelta(seconds=countdown)
+    record = MediaThumbnailRetry.query.filter_by(media_id=media_id).one_or_none()
+    if record is None:
+        record = MediaThumbnailRetry(media_id=media_id)
+        db.session.add(record)
+
+    record.retry_after = retry_at
+    record.force = force
+    record.celery_task_id = celery_task_id
+    db.session.commit()
+
+
+def _clear_thumbnail_retry_record(media_id: int) -> None:
+    """Remove retry tracking information for *media_id* if present."""
+
+    record = MediaThumbnailRetry.query.filter_by(media_id=media_id).one_or_none()
+    if record is None:
+        return
+
+    db.session.delete(record)
+    db.session.commit()
 
 
 def _schedule_thumbnail_retry(
@@ -84,6 +116,12 @@ def _schedule_thumbnail_retry(
         countdown=countdown,
         celery_task_id=celery_task_id,
         force=force,
+    )
+    _upsert_thumbnail_retry_record(
+        media_id,
+        countdown=countdown,
+        force=force,
+        celery_task_id=celery_task_id,
     )
     return {
         "countdown": countdown,
@@ -241,6 +279,8 @@ def enqueue_thumbs_generate(
         result["retry_scheduled"] = True
         if retry_metadata:
             result["retry_details"] = retry_metadata
+    else:
+        _clear_thumbnail_retry_record(media_id)
 
     return result
 
@@ -392,6 +432,62 @@ def enqueue_media_playback(
             exc_info=True,
         )
         return {"ok": False, "note": "exception", "error": str(exc)}
+
+
+def process_due_thumbnail_retries(
+    *,
+    limit: int = 50,
+    logger_override: Optional[logging.Logger] = None,
+) -> Dict[str, Any]:
+    """Process pending thumbnail retry records whose schedule has elapsed."""
+
+    logger = logger_override or _logger
+    now = datetime.now(timezone.utc)
+
+    pending = (
+        MediaThumbnailRetry.query.filter(MediaThumbnailRetry.retry_after <= now)
+        .order_by(MediaThumbnailRetry.retry_after)
+        .limit(limit)
+        .all()
+    )
+
+    processed = 0
+    rescheduled = 0
+    cleared = 0
+
+    for entry in pending:
+        processed += 1
+        result = enqueue_thumbs_generate(
+            entry.media_id,
+            logger_override=logger,
+            operation_id=f"thumbnail-retry-{entry.media_id}",
+            request_context={"source": "retry-monitor"},
+            force=entry.force,
+        )
+        if result.get("retry_scheduled"):
+            rescheduled += 1
+        else:
+            cleared += 1
+
+    _structured_task_log(
+        logger,
+        level="info",
+        event="thumbnail_generation.retry_monitor",
+        message="Processed pending thumbnail retries.",
+        operation_id="thumbnail-retry-monitor",
+        media_id=0,
+        processed=processed,
+        rescheduled=rescheduled,
+        cleared=cleared,
+        pending_before=len(pending),
+    )
+
+    return {
+        "processed": processed,
+        "rescheduled": rescheduled,
+        "cleared": cleared,
+        "pending_before": len(pending),
+    }
 
 
 def process_media_post_import(

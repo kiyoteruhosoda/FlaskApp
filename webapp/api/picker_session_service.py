@@ -938,6 +938,8 @@ class PickerSessionService:
 
         job = JobSync(
             target="picker_import",
+            task_name="picker_import.watchdog",
+            trigger="worker",
             account_id=account_id,
             session_id=ps.id,
             celery_task=task_record,

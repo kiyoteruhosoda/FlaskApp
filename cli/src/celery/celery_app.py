@@ -1,3 +1,4 @@
+import json
 import os
 import logging
 from datetime import datetime, timedelta, timezone
@@ -10,6 +11,8 @@ from flask import Flask
 
 from core.db import db
 from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
+from core.models.job_sync import JobSync
+from core.logging_config import log_task_info
 from webapp.config import Config
 
 # .envファイルを読み込み
@@ -159,6 +162,93 @@ def _resolve_thumbnail_identity(args: Tuple[Any, ...], kwargs: Dict[str, Any]) -
     return "media", _to_str(media_id)
 
 
+def _safe_dump_json(data: Any) -> str:
+    try:
+        return json.dumps(data, ensure_ascii=False, default=str)
+    except TypeError:
+        return json.dumps(str(data), ensure_ascii=False)
+
+
+def _extract_queue_name(request: Any) -> Optional[str]:
+    delivery = getattr(request, "delivery_info", None) or {}
+    candidate = (
+        delivery.get("routing_key")
+        or delivery.get("queue")
+        or delivery.get("exchange")
+    )
+    if isinstance(candidate, dict):
+        candidate = candidate.get("name") or candidate.get("routing_key")
+    if isinstance(candidate, str):
+        candidate = candidate.strip() or None
+    return candidate
+
+
+def _detect_trigger_source(request: Any) -> str:
+    headers = getattr(request, "headers", None) or {}
+    if isinstance(headers, dict) and headers.get("periodic_task_name"):
+        return "beat"
+    return "worker"
+
+
+def _serialize_call_signature(args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> str:
+    payload = {
+        "args": list(args),
+        "kwargs": kwargs,
+    }
+    return _safe_dump_json(payload)
+
+
+def _ensure_job_sync_record(
+    *,
+    record: CeleryTaskRecord,
+    task_name: str,
+    started_at: datetime,
+    args: Tuple[Any, ...],
+    kwargs: Dict[str, Any],
+    request: Any,
+) -> Tuple[Optional[JobSync], bool]:
+    """Ensure there is a JobSync row for the running Celery task."""
+
+    existing_job = record.job_syncs[-1] if record.job_syncs else None
+    queue_name = _extract_queue_name(request)
+    trigger = _detect_trigger_source(request)
+    args_payload = _serialize_call_signature(args, kwargs)
+    truncated_target = (task_name or "celery_task")[:50]
+
+    created = False
+    if existing_job is None:
+        job = JobSync(
+            target=truncated_target,
+            task_name=task_name,
+            queue_name=queue_name,
+            trigger=trigger,
+            celery_task=record,
+            started_at=started_at,
+            status="running",
+            args_json=args_payload,
+        )
+        created = True
+        db.session.add(job)
+    else:
+        job = existing_job
+        if not job.task_name:
+            job.task_name = task_name
+        if queue_name and not job.queue_name:
+            job.queue_name = queue_name
+        if not job.trigger:
+            job.trigger = trigger
+        if job.started_at is None:
+            job.started_at = started_at
+        if job.status in {"queued", "running"}:
+            job.status = "running"
+        if not job.args_json or job.args_json == "{}":
+            job.args_json = args_payload
+        if not job.target:
+            job.target = truncated_target
+
+    return job, created
+
+
 def _resolve_local_import_identity(args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
     session_id = kwargs.get("session_id")
     if session_id is None and args:
@@ -202,14 +292,20 @@ def _safe_db_rollback() -> None:
 
 class ContextTask(celery.Task):
     """Make celery tasks work with Flask app context."""
+
     def __call__(self, *args, **kwargs):
         with flask_app.app_context():
-            record = None
+            record: Optional[CeleryTaskRecord] = None
+            job: Optional[JobSync] = None
+            job_created = False
             started_at = datetime.now(timezone.utc)
+            lifecycle_logger = logging.getLogger("celery.task.lifecycle")
+            request_obj = getattr(self, "request", None)
+
             try:
                 object_identity = _resolve_task_object(self.name, args, kwargs)
-                celery_task_id = getattr(getattr(self, "request", None), "id", None)
-                eta = _normalize_dt(getattr(getattr(self, "request", None), "eta", None))
+                celery_task_id = getattr(request_obj, "id", None)
+                eta = _normalize_dt(getattr(request_obj, "eta", None))
 
                 record = CeleryTaskRecord.get_or_create(
                     task_name=self.name,
@@ -224,19 +320,52 @@ class ContextTask(celery.Task):
                     "args": list(args),
                     "kwargs": kwargs,
                 })
+
+                job, job_created = _ensure_job_sync_record(
+                    record=record,
+                    task_name=self.name,
+                    started_at=started_at,
+                    args=args,
+                    kwargs=kwargs,
+                    request=request_obj,
+                )
+
                 db.session.commit()
+
+                log_task_info(
+                    lifecycle_logger,
+                    _safe_dump_json(
+                        {
+                            "message": "Celery task started",
+                            "task": self.name,
+                            "celeryTaskId": celery_task_id,
+                            "jobId": getattr(job, "id", None),
+                            "queue": getattr(job, "queue_name", None),
+                            "trigger": getattr(job, "trigger", None),
+                        }
+                    ),
+                    event="celery.task.started",
+                    task_name=self.name,
+                    task_uuid=celery_task_id,
+                    job_id=getattr(job, "id", None),
+                    queue=getattr(job, "queue_name", None),
+                    trigger=getattr(job, "trigger", None),
+                )
             except Exception:
                 _safe_db_rollback()
                 record = None
+                job = None
 
             try:
                 result = self.run(*args, **kwargs)
             except CeleryRetry as retry_exc:
+                retry_eta = _normalize_dt(
+                    getattr(retry_exc, "when", None) or getattr(retry_exc, "eta", None)
+                )
                 if record is not None:
                     try:
                         record.status = CeleryTaskStatus.SCHEDULED
                         record.finished_at = None
-                        retry_eta = _normalize_dt(getattr(retry_exc, "when", None) or getattr(retry_exc, "eta", None))
                         if retry_eta:
                             record.scheduled_for = retry_eta
                         record.error_message = None
@@ -244,6 +373,35 @@ class ContextTask(celery.Task):
                         db.session.commit()
                     except Exception:
                         _safe_db_rollback()
+                if job is not None:
+                    try:
+                        job.status = "queued"
+                        job.finished_at = None
+                        if job_created:
+                            job.stats_json = _safe_dump_json(
+                                {
+                                    "retry": True,
+                                    "retry_at": retry_eta.isoformat() if retry_eta else None,
+                                }
+                            )
+                        db.session.commit()
+                    except Exception:
+                        _safe_db_rollback()
+                    log_task_info(
+                        lifecycle_logger,
+                        _safe_dump_json(
+                            {
+                                "message": "Celery task retry scheduled",
+                                "task": self.name,
+                                "jobId": getattr(job, "id", None),
+                                "retryEta": retry_eta.isoformat() if retry_eta else None,
+                            }
+                        ),
+                        event="celery.task.retry",
+                        task_name=self.name,
+                        job_id=getattr(job, "id", None),
+                        retry_eta=retry_eta.isoformat() if retry_eta else None,
+                    )
                 raise
             except Exception as exc:
                 if record is not None:
@@ -254,6 +412,30 @@ class ContextTask(celery.Task):
                         db.session.commit()
                     except Exception:
                         _safe_db_rollback()
+                if job is not None and job.status in {"queued", "running"}:
+                    try:
+                        job.status = "failed"
+                        job.finished_at = datetime.now(timezone.utc)
+                        if job_created:
+                            job.stats_json = _safe_dump_json({"error": str(exc)})
+                        db.session.commit()
+                    except Exception:
+                        _safe_db_rollback()
+                    log_task_info(
+                        lifecycle_logger,
+                        _safe_dump_json(
+                            {
+                                "message": "Celery task failed",
+                                "task": self.name,
+                                "jobId": getattr(job, "id", None),
+                                "error": str(exc),
+                            }
+                        ),
+                        event="celery.task.failed",
+                        task_name=self.name,
+                        job_id=getattr(job, "id", None),
+                        error=str(exc),
+                    )
                 raise
             else:
                 if record is not None:
@@ -265,6 +447,28 @@ class ContextTask(celery.Task):
                         db.session.commit()
                     except Exception:
                         _safe_db_rollback()
+                if job is not None and job.status in {"queued", "running"}:
+                    try:
+                        job.status = "success"
+                        job.finished_at = datetime.now(timezone.utc)
+                        if job_created:
+                            job.stats_json = _safe_dump_json(result)
+                        db.session.commit()
+                    except Exception:
+                        _safe_db_rollback()
+                    log_task_info(
+                        lifecycle_logger,
+                        _safe_dump_json(
+                            {
+                                "message": "Celery task finished",
+                                "task": self.name,
+                                "jobId": getattr(job, "id", None),
+                            }
+                        ),
+                        event="celery.task.succeeded",
+                        task_name=self.name,
+                        job_id=getattr(job, "id", None),
+                    )
                 return result
     
     def log_error(self, message, event="celery_task", exc_info=None):

@@ -772,8 +772,12 @@ def _regenerate_duplicate_video_thumbnails(
     media: Media,
     *,
     session_id: Optional[str] = None,
-) -> None:
-    """重複動画のサムネイル生成を再実行する。"""
+) -> tuple[bool, Optional[str]]:
+    """重複動画のサムネイル生成を再実行する。
+
+    Returns (success, error_message). ``success`` が False の場合は呼び出し側で
+    重複取り込みをエラーとして扱い、セッションステータスに反映させる。
+    """
 
     request_context = {"sessionId": session_id} if session_id else None
 
@@ -794,7 +798,7 @@ def _regenerate_duplicate_video_thumbnails(
             error_type=type(exc).__name__,
             error_message=str(exc),
         )
-        return
+        return False, str(exc)
 
     if result.get("ok"):
         paths = result.get("paths") or {}
@@ -825,7 +829,7 @@ def _regenerate_duplicate_video_thumbnails(
             paths=paths,
             retry_scheduled=retry_scheduled,
             status=status,
-        )
+            )
         if retry_scheduled:
             retry_details = result.get("retry_details") or {}
             _log_info(
@@ -838,6 +842,8 @@ def _regenerate_duplicate_video_thumbnails(
                 notes=result.get("notes"),
                 status="retry_scheduled",
             )
+        return True, None
+
     else:
         _log_warning(
             "local_import.duplicate_video.thumbnail_regen_skipped",
@@ -848,6 +854,7 @@ def _regenerate_duplicate_video_thumbnails(
             retry_scheduled=result.get("retry_scheduled"),
             status="thumbs_skipped",
         )
+        return False, result.get("notes")
 
 
 def create_media_item_for_local(filename: str, mime_type: str, width: Optional[int], height: Optional[int],
@@ -1047,10 +1054,15 @@ def import_single_file(
                     )
 
             if existing_media.is_video:
-                _regenerate_duplicate_video_thumbnails(
+                regen_success, regen_error = _regenerate_duplicate_video_thumbnails(
                     existing_media,
                     session_id=session_id,
                 )
+                if not regen_success:
+                    result["thumbnail_regen_error"] = (
+                        regen_error
+                        or "重複動画のサムネイル再生成に失敗しました"
+                    )
 
             return result
 
@@ -1648,6 +1660,13 @@ def _process_local_import_queue(
                     selection.finished_at = datetime.now(timezone.utc)
                     result["skipped"] += 1
                     detail["status"] = "skipped"
+                    if file_result.get("thumbnail_regen_error"):
+                        regen_message = file_result["thumbnail_regen_error"]
+                        result["ok"] = False
+                        result["errors"].append(
+                            f"{file_path}: {regen_message}"
+                        )
+                        detail["notes"] = regen_message
                     try:
                         if file_path and os.path.exists(file_path):
                             os.remove(file_path)

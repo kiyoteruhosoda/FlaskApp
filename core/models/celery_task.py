@@ -35,7 +35,11 @@ class CeleryTaskRecord(db.Model):
     object_id = db.Column(db.String(255), nullable=True)
     celery_task_id = db.Column(db.String(255), nullable=True, unique=True)
     status = db.Column(
-        db.Enum(CeleryTaskStatus, name="celery_task_status"),
+        db.Enum(
+            CeleryTaskStatus,
+            name="celery_task_status",
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
         nullable=False,
         default=CeleryTaskStatus.QUEUED,
         server_default=CeleryTaskStatus.QUEUED.value,
@@ -153,4 +157,3 @@ class CeleryTaskRecord(db.Model):
 
 
 __all__ = ["CeleryTaskRecord", "CeleryTaskStatus"]
-

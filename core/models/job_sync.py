@@ -6,15 +6,28 @@ BigInt = db.BigInteger().with_variant(db.Integer, "sqlite")
 
 
 class JobSync(db.Model):
-    """Synchronization job record."""
+    """Synchronization job record for Celery executions."""
 
     __tablename__ = "job_sync"
 
     id = db.Column(BigInt, primary_key=True, autoincrement=True)
     target = db.Column(db.String(50), nullable=False)
-    account_id = db.Column(BigInt, nullable=False)
+    task_name = db.Column(
+        db.String(255),
+        nullable=False,
+        default="",
+        server_default="",
+    )
+    queue_name = db.Column(db.String(120), nullable=True)
+    trigger = db.Column(
+        db.String(32),
+        nullable=False,
+        default="worker",
+        server_default="worker",
+    )
+    account_id = db.Column(BigInt, nullable=True)
     session_id = db.Column(
-        BigInt, db.ForeignKey("picker_session.id"), nullable=False
+        BigInt, db.ForeignKey("picker_session.id"), nullable=True
     )
     celery_task_id = db.Column(BigInt, db.ForeignKey("celery_task.id"), nullable=True)
     started_at = db.Column(
@@ -29,11 +42,17 @@ class JobSync(db.Model):
             "partial",
             "failed",
             "canceled",
-            name="job_sync_status",
+        name="job_sync_status",
         ),
         nullable=False,
         default="queued",
         server_default="queued",
+    )
+    args_json = db.Column(
+        db.Text,
+        nullable=False,
+        default="{}",
+        server_default="{}",
     )
     stats_json = db.Column(db.Text, nullable=False, default="{}", server_default="{}")
 
@@ -41,4 +60,3 @@ class JobSync(db.Model):
 
 
 __all__ = ["JobSync"]
-

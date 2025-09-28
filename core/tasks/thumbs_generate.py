@@ -11,7 +11,7 @@ sources.
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 import os
 
 from core.db import db
@@ -50,8 +50,14 @@ class _ThumbResult:
 # ---------------------------------------------------------------------------
 
 
-def _playback_not_ready() -> Dict[str, object]:
+def _playback_not_ready(
+    *, reason: str, extra: Optional[Dict[str, object]] = None
+) -> Dict[str, object]:
     """Return a standard response when playback assets are not yet available."""
+
+    blockers = {"reason": reason}
+    if extra:
+        blockers.update(extra)
 
     return {
         "ok": True,
@@ -59,6 +65,7 @@ def _playback_not_ready() -> Dict[str, object]:
         "skipped": SIZES.copy(),
         "notes": PLAYBACK_NOT_READY_NOTES,
         "paths": {},
+        "retry_blockers": blockers,
     }
 
 
@@ -157,16 +164,26 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
             .first()
         )
         if not pb:
-            return _playback_not_ready()
+            return _playback_not_ready(
+                reason="std1080p playback record missing or incomplete"
+            )
 
         if pb.poster_rel_path:
             poster_path = _play_dir() / pb.poster_rel_path
             if not poster_path.exists():
-                return _playback_not_ready()
+                return _playback_not_ready(
+                    reason="poster file missing",
+                    extra={"poster_rel_path": pb.poster_rel_path},
+                )
             img = Image.open(poster_path)
             img = ImageOps.exif_transpose(img)
         else:  # pragma: no cover - optional dependency path
             video_path = _play_dir() / pb.rel_path
+            if not video_path.exists():
+                return _playback_not_ready(
+                    reason="playback video missing",
+                    extra={"playback_rel_path": pb.rel_path},
+                )
             try:  # Use imageio if available
                 import imageio.v2 as imageio  # type: ignore
 
@@ -180,7 +197,10 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
                     frame = reader.get_data(0)
                 img = Image.fromarray(frame)
             except Exception:
-                return _playback_not_ready()
+                return _playback_not_ready(
+                    reason="failed to extract poster frame",
+                    extra={"playback_rel_path": pb.rel_path},
+                )
         img = img.convert("RGB")
         out_ext = ".jpg"
         rel_name = _replace_suffix(rel_name, out_ext)

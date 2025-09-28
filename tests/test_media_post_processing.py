@@ -13,6 +13,9 @@ from datetime import datetime, timezone, timedelta
 from types import SimpleNamespace
 
 
+TEST_RETRY_BLOCKERS = {"reason": "playback assets pending"}
+
+
 @pytest.fixture
 def app(tmp_path):
     """Create an application with isolated storage directories for testing."""
@@ -151,6 +154,7 @@ def test_enqueue_thumbs_generate_schedules_retry(monkeypatch):
             "skipped": [256, 512, 1024, 2048],
             "notes": media_post_processing.PLAYBACK_NOT_READY_NOTES,
             "paths": {},
+            "retry_blockers": dict(TEST_RETRY_BLOCKERS),
         },
     )
 
@@ -164,6 +168,7 @@ def test_enqueue_thumbs_generate_schedules_retry(monkeypatch):
         logger,
         operation_id: str,
         request_context,
+        blockers=None,
     ) -> Dict[str, Any]:
         scheduled.update(
             media_id=media_id,
@@ -171,11 +176,16 @@ def test_enqueue_thumbs_generate_schedules_retry(monkeypatch):
             countdown=countdown,
             operation_id=operation_id,
             request_context=request_context,
+            blockers=blockers,
         )
         return {
+            "scheduled": True,
             "countdown": countdown,
             "celery_task_id": "fake-task",
             "force": force,
+            "attempts": 1,
+            "max_attempts": media_post_processing._THUMBNAIL_RETRY_MAX_ATTEMPTS,
+            "blockers": blockers,
         }
 
     monkeypatch.setattr(media_post_processing, "_schedule_thumbnail_retry", fake_schedule)
@@ -184,9 +194,13 @@ def test_enqueue_thumbs_generate_schedules_retry(monkeypatch):
 
     assert result["retry_scheduled"] is True
     assert result["retry_details"] == {
+        "scheduled": True,
         "countdown": media_post_processing._THUMBNAIL_RETRY_COUNTDOWN,
         "celery_task_id": "fake-task",
         "force": True,
+        "attempts": 1,
+        "max_attempts": media_post_processing._THUMBNAIL_RETRY_MAX_ATTEMPTS,
+        "blockers": dict(TEST_RETRY_BLOCKERS),
     }
     assert scheduled["media_id"] == 123
     assert scheduled["force"] is True
@@ -194,6 +208,7 @@ def test_enqueue_thumbs_generate_schedules_retry(monkeypatch):
         scheduled["countdown"]
         == media_post_processing._THUMBNAIL_RETRY_COUNTDOWN
     )
+    assert scheduled["blockers"] == dict(TEST_RETRY_BLOCKERS)
 
 
 @pytest.mark.usefixtures("app")
@@ -213,6 +228,7 @@ def test_enqueue_thumbs_generate_records_retry(app, monkeypatch):
             "skipped": [256, 512, 1024, 2048],
             "notes": media_post_processing.PLAYBACK_NOT_READY_NOTES,
             "paths": {},
+            "retry_blockers": dict(TEST_RETRY_BLOCKERS),
         },
     )
 
@@ -243,6 +259,12 @@ def test_enqueue_thumbs_generate_records_retry(app, monkeypatch):
         result = media_post_processing.enqueue_thumbs_generate(media.id, force=True)
 
         assert result["retry_scheduled"] is True
+        assert result["retry_details"]["attempts"] == 1
+        assert (
+            result["retry_details"]["max_attempts"]
+            == media_post_processing._THUMBNAIL_RETRY_MAX_ATTEMPTS
+        )
+        assert result["retry_details"]["blockers"] == dict(TEST_RETRY_BLOCKERS)
         retry = (
             CeleryTaskRecord.query.filter_by(
                 task_name=media_post_processing._THUMBNAIL_RETRY_TASK_NAME,
@@ -254,6 +276,8 @@ def test_enqueue_thumbs_generate_records_retry(app, monkeypatch):
         )
         assert retry.status == CeleryTaskStatus.SCHEDULED
         assert retry.payload.get("force") is True
+        assert retry.payload.get("attempts") == 1
+        assert retry.payload.get("blockers") == dict(TEST_RETRY_BLOCKERS)
         assert retry.celery_task_id == "fake-task-id"
         retry_at = retry.scheduled_for
         if retry_at.tzinfo is None:
@@ -328,6 +352,7 @@ def test_process_due_thumbnail_retries_clears_success(app, monkeypatch):
         ).one()
         assert remaining.status == CeleryTaskStatus.SUCCESS
         assert remaining.scheduled_for is None
+        assert remaining.payload == {}
 
 
 @pytest.mark.usefixtures("app")
@@ -347,6 +372,7 @@ def test_process_due_thumbnail_retries_reschedules_pending(app, monkeypatch):
             "skipped": [256, 512, 1024, 2048],
             "notes": media_post_processing.PLAYBACK_NOT_READY_NOTES,
             "paths": {},
+            "retry_blockers": dict(TEST_RETRY_BLOCKERS),
         },
     )
 
@@ -408,7 +434,88 @@ def test_process_due_thumbnail_retries_reschedules_pending(app, monkeypatch):
         assert updated.scheduled_for > previous_retry_at
         assert updated.celery_task_id == "retry-task"
         assert updated.payload.get("force") is False
+        assert updated.payload.get("attempts") == 1
+        assert updated.payload.get("blockers") == dict(TEST_RETRY_BLOCKERS)
 
 
+@pytest.mark.usefixtures("app")
+def test_enqueue_thumbs_generate_stops_after_max_attempts(app, monkeypatch):
+    from core.tasks import media_post_processing
+    from webapp.extensions import db
+    from core.models.photo_models import Media
+    from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 
+    monkeypatch.setattr(
+        media_post_processing,
+        "thumbs_generate",
+        lambda media_id, force=False: {
+            "ok": True,
+            "generated": [],
+            "skipped": [256, 512, 1024, 2048],
+            "notes": media_post_processing.PLAYBACK_NOT_READY_NOTES,
+            "paths": {},
+            "retry_blockers": dict(TEST_RETRY_BLOCKERS),
+        },
+    )
+
+    with app.app_context():
+        media = Media(
+            source_type="local",
+            local_rel_path="2025/09/29/video.mp4",
+            filename="video.mp4",
+            hash_sha256="3" * 64,
+            bytes=1024,
+            mime_type="video/mp4",
+            width=1280,
+            height=720,
+            duration_ms=1500,
+            is_video=True,
+            has_playback=True,
+            shot_at=datetime(2025, 9, 29, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 9, 29, tzinfo=timezone.utc),
+        )
+        db.session.add(media)
+        db.session.commit()
+
+        retry = CeleryTaskRecord(
+            task_name=media_post_processing._THUMBNAIL_RETRY_TASK_NAME,
+            object_type="media",
+            object_id=str(media.id),
+            status=CeleryTaskStatus.SCHEDULED,
+            scheduled_for=datetime.now(timezone.utc) - timedelta(minutes=5),
+        )
+        retry.update_payload(
+            {
+                "force": False,
+                "attempts": media_post_processing._THUMBNAIL_RETRY_MAX_ATTEMPTS,
+            }
+        )
+        db.session.add(retry)
+        db.session.commit()
+
+        result = media_post_processing.enqueue_thumbs_generate(media.id)
+
+        assert "retry_scheduled" not in result
+        assert result["retry_details"]["reason"] == "max_attempts"
+        assert result["retry_details"]["blockers"] == dict(TEST_RETRY_BLOCKERS)
+        assert (
+            result["retry_details"]["attempts"]
+            == media_post_processing._THUMBNAIL_RETRY_MAX_ATTEMPTS
+        )
+        assert result["retry_details"]["scheduled"] is False
+
+        stored = (
+            CeleryTaskRecord.query.filter_by(
+                task_name=media_post_processing._THUMBNAIL_RETRY_TASK_NAME,
+                object_type="media",
+                object_id=str(media.id),
+            )
+            .order_by(CeleryTaskRecord.id.desc())
+            .one()
+        )
+        assert stored.status == CeleryTaskStatus.FAILED
+        assert stored.scheduled_for is None
+        assert stored.payload.get("attempts") == media_post_processing._THUMBNAIL_RETRY_MAX_ATTEMPTS
+        assert stored.payload.get("retry_disabled") is True
+        assert stored.payload.get("blockers") == dict(TEST_RETRY_BLOCKERS)
 

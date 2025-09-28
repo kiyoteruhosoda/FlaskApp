@@ -30,6 +30,7 @@ from .transcode import transcode_worker
 _logger = setup_task_logging(__name__)
 
 _THUMBNAIL_RETRY_COUNTDOWN = 300
+_THUMBNAIL_RETRY_MAX_ATTEMPTS = 5
 _THUMBNAIL_RETRY_TASK_NAME = "thumbnail.retry"
 
 
@@ -43,6 +44,8 @@ def _upsert_thumbnail_retry_record(
     countdown: int,
     force: bool,
     celery_task_id: Optional[str],
+    attempt: int,
+    blockers: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Persist or update retry tracking information for *media_id*."""
 
@@ -56,7 +59,10 @@ def _upsert_thumbnail_retry_record(
     record.scheduled_for = retry_at
     record.started_at = None
     record.finished_at = None
-    record.update_payload({"force": force})
+    payload: Dict[str, Any] = {"force": force, "attempts": attempt}
+    if blockers is not None:
+        payload["blockers"] = blockers
+    record.set_payload(payload)
     db.session.commit()
 
 
@@ -79,6 +85,7 @@ def _clear_thumbnail_retry_record(media_id: int) -> None:
     record.scheduled_for = None
     record.celery_task_id = None
     record.finished_at = datetime.now(timezone.utc)
+    record.set_payload({})
     db.session.commit()
 
 
@@ -90,6 +97,7 @@ def _schedule_thumbnail_retry(
     logger: logging.Logger,
     operation_id: str,
     request_context: Optional[Dict[str, Any]],
+    blockers: Optional[Dict[str, Any]] = None,
 ) -> Optional[Dict[str, Any]]:
     """Schedule a Celery retry for thumbnail generation.
 
@@ -102,6 +110,53 @@ def _schedule_thumbnail_retry(
         from cli.src.celery.tasks import thumbs_generate_task
     except ImportError:
         return None
+
+    record = CeleryTaskRecord.get_or_create(
+        task_name=_THUMBNAIL_RETRY_TASK_NAME,
+        object_identity=_thumbnail_retry_identity(media_id),
+    )
+
+    attempts_raw = record.payload.get("attempts", 0)
+    try:
+        attempts = int(attempts_raw)
+    except (TypeError, ValueError):
+        attempts = 0
+
+    if attempts >= _THUMBNAIL_RETRY_MAX_ATTEMPTS:
+        _structured_task_log(
+            logger,
+            level="warning",
+            event="thumbnail_generation.retry_exhausted",
+            message="Retry limit reached; no further thumbnail retries will be scheduled.",
+            operation_id=operation_id,
+            media_id=media_id,
+            request_context=request_context,
+            attempts=attempts,
+            max_attempts=_THUMBNAIL_RETRY_MAX_ATTEMPTS,
+            blockers=blockers,
+        )
+        record.status = CeleryTaskStatus.FAILED
+        record.scheduled_for = None
+        record.started_at = None
+        record.finished_at = datetime.now(timezone.utc)
+        record.celery_task_id = None
+        exhausted_payload: Dict[str, Any] = {
+            "force": force,
+            "attempts": attempts,
+            "retry_disabled": True,
+        }
+        if blockers is not None:
+            exhausted_payload["blockers"] = blockers
+        record.set_payload(exhausted_payload)
+        db.session.commit()
+        return {
+            "scheduled": False,
+            "reason": "max_attempts",
+            "attempts": attempts,
+            "max_attempts": _THUMBNAIL_RETRY_MAX_ATTEMPTS,
+            "blockers": blockers,
+            "keep_record": True,
+        }
 
     try:
         async_result = thumbs_generate_task.apply_async(
@@ -123,6 +178,7 @@ def _schedule_thumbnail_retry(
         return None
 
     celery_task_id = getattr(async_result, "id", None)
+    attempt = attempts + 1
 
     _structured_task_log(
         logger,
@@ -135,17 +191,26 @@ def _schedule_thumbnail_retry(
         countdown=countdown,
         celery_task_id=celery_task_id,
         force=force,
+        attempts=attempt,
+        max_attempts=_THUMBNAIL_RETRY_MAX_ATTEMPTS,
+        blockers=blockers,
     )
     _upsert_thumbnail_retry_record(
         media_id,
         countdown=countdown,
         force=force,
         celery_task_id=celery_task_id,
+        attempt=attempt,
+        blockers=blockers,
     )
     return {
+        "scheduled": True,
         "countdown": countdown,
         "celery_task_id": celery_task_id,
         "force": force,
+        "attempts": attempt,
+        "max_attempts": _THUMBNAIL_RETRY_MAX_ATTEMPTS,
+        "blockers": blockers,
     }
 
 
@@ -242,6 +307,8 @@ def enqueue_thumbs_generate(
     notes = result.get("notes")
     retry_scheduled = False
     retry_metadata: Optional[Dict[str, Any]] = None
+    retry_blockers: Optional[Dict[str, Any]] = None
+    keep_retry_record = False
 
     if result.get("ok"):
         if generated:
@@ -250,8 +317,21 @@ def enqueue_thumbs_generate(
         else:
             event = "thumbnail_generation.skipped"
             # Provide a clear reason in the log message when nothing was generated
+            raw_blockers = result.get("retry_blockers")
+            retry_blockers = raw_blockers if isinstance(raw_blockers, dict) else None
+            blocker_reason: Optional[str] = None
+            if isinstance(retry_blockers, dict):
+                raw_reason = retry_blockers.get("reason")
+                if raw_reason is not None:
+                    blocker_reason = str(raw_reason)
             if notes:
-                message = f"Thumbnail generation skipped: {notes}."
+                if blocker_reason:
+                    message = (
+                        f"Thumbnail generation skipped: {notes}. "
+                        f"Root cause: {blocker_reason}."
+                    )
+                else:
+                    message = f"Thumbnail generation skipped: {notes}."
             else:
                 message = "Thumbnail generation skipped with no thumbnails produced."
 
@@ -266,6 +346,7 @@ def enqueue_thumbs_generate(
             generated=generated,
             skipped=skipped,
             notes=notes,
+            blockers=retry_blockers,
         )
 
         if notes == PLAYBACK_NOT_READY_NOTES:
@@ -276,11 +357,23 @@ def enqueue_thumbs_generate(
                 logger=logger,
                 operation_id=op_id,
                 request_context=request_context,
+                blockers=retry_blockers if isinstance(retry_blockers, dict) else None,
             )
             if retry_info:
-                retry_scheduled = True
                 if isinstance(retry_info, dict):
                     retry_metadata = retry_info
+                    if retry_blockers is None and isinstance(
+                        retry_info.get("blockers"), dict
+                    ):
+                        retry_blockers = retry_info["blockers"]
+                    keep_retry_record = retry_info.get("keep_record", False)
+                    scheduled_flag = retry_info.get("scheduled")
+                    if scheduled_flag is None:
+                        retry_scheduled = "countdown" in retry_info
+                    else:
+                        retry_scheduled = bool(scheduled_flag)
+                else:
+                    retry_scheduled = True
     else:
         _structured_task_log(
             logger,
@@ -298,8 +391,19 @@ def enqueue_thumbs_generate(
         result["retry_scheduled"] = True
         if retry_metadata:
             result["retry_details"] = retry_metadata
+        if retry_blockers:
+            details = result.setdefault("retry_details", {})
+            details.setdefault("blockers", dict(retry_blockers))
     else:
-        _clear_thumbnail_retry_record(media_id)
+        if retry_metadata:
+            result = dict(result)
+            result["retry_details"] = retry_metadata
+        if retry_blockers:
+            result = dict(result)
+            details = result.setdefault("retry_details", {})
+            details.setdefault("blockers", dict(retry_blockers))
+        if not keep_retry_record:
+            _clear_thumbnail_retry_record(media_id)
 
     return result
 

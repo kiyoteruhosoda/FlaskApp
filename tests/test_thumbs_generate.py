@@ -189,4 +189,54 @@ def test_video_playback_not_ready(app):
         "skipped": [256, 512, 1024, 2048],
         "notes": PLAYBACK_NOT_READY_NOTES,
         "paths": {},
+        "retry_blockers": {"reason": "completed playback missing"},
     }
+
+
+def test_video_poster_low_quality_uses_frame(app, monkeypatch):
+    play_dir = Path(os.environ["FPV_NAS_PLAY_DIR"])
+    poster_rel = "2025/08/18/poster-low.jpg"
+    poster_path = play_dir / poster_rel
+    poster_path.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (640, 360), color=(10, 20, 30)).save(poster_path)
+
+    playback_rel = "2025/08/18/video-low.mp4"
+    playback_path = play_dir / playback_rel
+    playback_path.parent.mkdir(parents=True, exist_ok=True)
+    playback_path.write_bytes(b"video")
+
+    media_id = _make_media(
+        app,
+        rel_path="2025/08/18/video-low.mp4",
+        is_video=True,
+        width=3000,
+        height=2000,
+    )
+
+    from importlib import import_module
+    from webapp.extensions import db
+    from core.models.photo_models import MediaPlayback
+    thumbs_mod = import_module("core.tasks.thumbs_generate")
+
+    with app.app_context():
+        pb = MediaPlayback(
+            media_id=media_id,
+            preset="std1080p",
+            rel_path=playback_rel,
+            poster_rel_path=poster_rel,
+            status="done",
+        )
+        db.session.add(pb)
+        db.session.commit()
+
+    def _fake_extract_frame(_path, *, offset_seconds=1.0):
+        return Image.new("RGB", (1920, 1080), color=(30, 40, 50))
+
+    monkeypatch.setattr(thumbs_mod, "_extract_frame_from_video", _fake_extract_frame)
+
+    with app.app_context():
+        res = thumbs_generate(media_id=media_id)
+
+    assert res["generated"] == [256, 512, 1024]
+    assert res["skipped"] == [2048]
+    assert res["notes"].startswith("frame extracted from playback")

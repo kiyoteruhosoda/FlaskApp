@@ -439,6 +439,78 @@ def test_process_due_thumbnail_retries_reschedules_pending(app, monkeypatch):
 
 
 @pytest.mark.usefixtures("app")
+def test_process_due_thumbnail_retries_reports_blocked_retries(app, monkeypatch):
+    from core.tasks import media_post_processing
+    from webapp.extensions import db
+    from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
+
+    captured_logs = []
+
+    def fake_structured_log(
+        logger,
+        *,
+        level: str,
+        event: str,
+        message: str,
+        operation_id: str,
+        media_id: int,
+        request_context=None,
+        exc_info: bool = False,
+        **details,
+    ) -> None:
+        captured_logs.append(
+            {
+                "level": level,
+                "event": event,
+                "message": message,
+                "operation_id": operation_id,
+                "media_id": media_id,
+                "details": details,
+            }
+        )
+
+    monkeypatch.setattr(media_post_processing, "_structured_task_log", fake_structured_log)
+
+    with app.app_context():
+        retry = CeleryTaskRecord(
+            task_name=media_post_processing._THUMBNAIL_RETRY_TASK_NAME,
+            object_type="media",
+            object_id="123",
+            status=CeleryTaskStatus.FAILED,
+        )
+        retry.update_payload(
+            {
+                "attempts": media_post_processing._THUMBNAIL_RETRY_MAX_ATTEMPTS,
+                "retry_disabled": True,
+                "blockers": {"reason": "completed playback missing"},
+            }
+        )
+        db.session.add(retry)
+        db.session.commit()
+
+        summary = media_post_processing.process_due_thumbnail_retries(limit=5)
+
+        assert summary == {
+            "processed": 0,
+            "rescheduled": 0,
+            "cleared": 0,
+            "pending_before": 0,
+        }
+
+        assert captured_logs
+        last_log = captured_logs[-1]
+        assert last_log["event"] == "thumbnail_generation.retry_monitor_blocked"
+        assert last_log["details"]["disabled"] == 1
+        assert last_log["details"]["samples"][0]["media_id"] == 123
+        assert last_log["details"]["samples"][0]["blockers"] == {
+            "reason": "completed playback missing"
+        }
+
+        refreshed = db.session.get(CeleryTaskRecord, retry.id)
+        assert refreshed.payload.get("monitor_reported") is True
+
+
+@pytest.mark.usefixtures("app")
 def test_enqueue_thumbs_generate_stops_after_max_attempts(app, monkeypatch):
     from core.tasks import media_post_processing
     from webapp.extensions import db

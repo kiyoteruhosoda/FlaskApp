@@ -13,7 +13,7 @@ import logging
 import shutil
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 from core.db import db
@@ -579,6 +579,15 @@ def process_due_thumbnail_retries(
         .all()
     )
 
+    if not pending:
+        _log_idle_retry_monitor_state(logger)
+        return {
+            "processed": 0,
+            "rescheduled": 0,
+            "cleared": 0,
+            "pending_before": 0,
+        }
+
     processed = 0
     rescheduled = 0
     cleared = 0
@@ -633,6 +642,70 @@ def process_due_thumbnail_retries(
         "cleared": cleared,
         "pending_before": len(pending),
     }
+
+
+def _log_idle_retry_monitor_state(logger: logging.Logger) -> None:
+    """Emit additional context when no thumbnail retries are ready to process."""
+
+    disabled_records: List[CeleryTaskRecord] = (
+        CeleryTaskRecord.query.filter(
+            CeleryTaskRecord.task_name == _THUMBNAIL_RETRY_TASK_NAME,
+            CeleryTaskRecord.object_type == "media",
+            CeleryTaskRecord.status == CeleryTaskStatus.FAILED,
+        )
+        .order_by(CeleryTaskRecord.updated_at.desc())
+        .limit(5)
+        .all()
+    )
+
+    pending_alerts: List[Dict[str, Any]] = []
+    records_to_mark: List[CeleryTaskRecord] = []
+
+    for record in disabled_records:
+        payload = record.payload
+        if not payload.get("retry_disabled"):
+            continue
+        if payload.get("monitor_reported"):
+            continue
+
+        blocker_info = payload.get("blockers")
+        media_identifier: Any = record.object_id
+        try:
+            if media_identifier is not None:
+                media_identifier = int(media_identifier)
+        except (TypeError, ValueError):
+            pass
+
+        pending_alerts.append(
+            {
+                "media_id": media_identifier,
+                "attempts": payload.get("attempts"),
+                "blockers": blocker_info,
+            }
+        )
+        records_to_mark.append(record)
+
+    if not pending_alerts:
+        return
+
+    for record in records_to_mark:
+        record.update_payload({"monitor_reported": True})
+    if records_to_mark:
+        db.session.commit()
+
+    _structured_task_log(
+        logger,
+        level="warning",
+        event="thumbnail_generation.retry_monitor_blocked",
+        message=(
+            "No pending thumbnail retries; some media exhausted their retry "
+            "budget and require manual attention."
+        ),
+        operation_id="thumbnail-retry-monitor",
+        media_id=0,
+        disabled=len(pending_alerts),
+        samples=pending_alerts,
+    )
 
 
 def process_media_post_import(

@@ -16,7 +16,7 @@ import pytest
 # プロジェクトルートを追加
 sys.path.insert(0, '/home/kyon/myproject')
 
-from core.tasks.local_import import local_import_task, scan_import_directory
+from core.tasks.local_import import import_single_file, local_import_task, scan_import_directory
 
 
 ffmpeg_missing = shutil.which("ffmpeg") is None
@@ -252,7 +252,35 @@ def test_local_import_task_with_session(app, db_session, temp_dir):
     for selection in selections:
         assert selection.local_filename is not None
         assert selection.local_file_path is not None
-        assert selection.google_media_id is None  # ローカルインポートの場合はNone
+        assert selection.google_media_id is not None
+
+
+def test_import_single_file_video_recoverable_failure(app, monkeypatch):
+    """セッション経由の取り込みでは ffmpeg 不足を警告として扱う。"""
+
+    import_dir = Path(app.config["LOCAL_IMPORT_DIR"])
+    originals_dir = Path(app.config["FPV_NAS_ORIGINALS_DIR"])
+
+    test_video = import_dir / "recoverable.mp4"
+    test_video.write_text("dummy video content")
+
+    from core.tasks import media_post_processing
+
+    def fake_enqueue(*args, **kwargs):
+        return {"ok": False, "note": "ffmpeg_missing"}
+
+    monkeypatch.setattr(media_post_processing, "enqueue_media_playback", fake_enqueue)
+
+    with app.app_context():
+        result = import_single_file(
+            str(test_video), str(import_dir), str(originals_dir), session_id="local_import_test"
+        )
+
+    assert result["success"] is True
+    assert any(
+        "ffmpeg_missing" in warning for warning in result.get("warnings", [])
+    )
+    assert not test_video.exists()
 
 
 def test_local_import_video_generates_playback_from_originals(app, monkeypatch):

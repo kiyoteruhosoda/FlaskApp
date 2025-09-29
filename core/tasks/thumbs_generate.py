@@ -249,10 +249,20 @@ def _resolve_video_source(
             playback_status=getattr(pb, "status", None),
         )
     if not pb:
+        playback_root = _play_dir().as_posix()
+        original_path = None
+        if media.local_rel_path:
+            original_path = (_orig_dir() / media.local_rel_path).as_posix()
         if log:
             log.warning(
                 "thumbnail_generation.retry_pending",
                 reason="completed playback missing",
+                playback_search_root=playback_root,
+                playback_expected_path=None,
+                original_rel_path=media.local_rel_path,
+                original_path=original_path,
+                original_path_usage="ignored",
+                action_hint="再度トランスコードを実行して再生用アセットを生成してください。",
             )
         return None, _playback_not_ready(
             reason="completed playback missing"
@@ -269,6 +279,7 @@ def _resolve_video_source(
             "playback.asset_state",
             playback_rel_path=pb.rel_path,
             playback_path=playback_path,
+            playback_expected_path=playback_path,
             playback_exists=playback_exists,
         )
 
@@ -339,6 +350,9 @@ def _resolve_video_source(
             "thumbnail_generation.retry_pending",
             reason="unable to extract video frame",
             sources_checked=[label for _path, label in candidate_paths],
+            playback_expected_path=playback_path,
+            original_rel_path=media.local_rel_path,
+            action_hint="再度トランスコードを実行して再生用アセットとポスターを更新してください。",
         )
     return None, _playback_not_ready(
         reason="unable to extract video frame",

@@ -3,9 +3,11 @@
 ローカルインポート機能のテスト用スクリプト
 """
 
+import base64
 import os
 import sys
 import shutil
+import subprocess
 from pathlib import Path
 import tempfile
 import zipfile
@@ -14,7 +16,10 @@ import pytest
 # プロジェクトルートを追加
 sys.path.insert(0, '/home/kyon/myproject')
 
-from core.tasks.local_import import local_import_task, scan_import_directory
+from core.tasks.local_import import import_single_file, local_import_task, scan_import_directory
+
+
+ffmpeg_missing = shutil.which("ffmpeg") is None
 
 
 @pytest.fixture
@@ -23,9 +28,13 @@ def app(tmp_path):
     db_path = tmp_path / "test.db"
     tmp_dir = tmp_path / "tmp"
     orig_dir = tmp_path / "orig"
+    play_dir = tmp_path / "play"
+    thumbs_dir = tmp_path / "thumbs"
     import_dir = tmp_path / "import"
     tmp_dir.mkdir()
     orig_dir.mkdir()
+    play_dir.mkdir()
+    thumbs_dir.mkdir()
     import_dir.mkdir()
 
     env = {
@@ -33,7 +42,10 @@ def app(tmp_path):
         "DATABASE_URI": f"sqlite:///{db_path}",
         "FPV_TMP_DIR": str(tmp_dir),
         "FPV_NAS_ORIGINALS_DIR": str(orig_dir),
+        "FPV_NAS_PLAY_DIR": str(play_dir),
+        "FPV_NAS_THUMBS_DIR": str(thumbs_dir),
         "LOCAL_IMPORT_DIR": str(import_dir),
+        "FPV_DL_SIGN_KEY": base64.urlsafe_b64encode(b"1" * 32).decode(),
     }
     prev = {k: os.environ.get(k) for k in env}
     os.environ.update(env)
@@ -75,7 +87,50 @@ def db_session(app):
 def temp_dir(tmp_path):
     """Temporary directory fixture."""
     return tmp_path
-from core.tasks.local_import import local_import_task, scan_import_directory
+
+
+def _make_video(path: Path, size: str = "640x360", *, duration: str = "1") -> None:
+    """Generate a small MP4 video file for testing.
+
+    ffmpegが利用できない環境でもテストが実行できるように、
+    フォールバックとしてダミーの動画ファイルを生成する。
+    """
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    if ffmpeg_missing:
+        # シンプルなヘッダー付きMP4っぽいデータを書き込む
+        path.write_bytes(
+            b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42mp41"
+            + os.urandom(128)
+        )
+        return
+
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        f"testsrc=size={size}:rate=24",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=1000:sample_rate=48000",
+        "-t",
+        duration,
+        "-shortest",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "128k",
+        str(path),
+    ]
+    subprocess.run(cmd, check=True, capture_output=True)
 
 def create_test_files(import_dir: str) -> list:
     """テスト用のファイルを作成"""
@@ -197,7 +252,127 @@ def test_local_import_task_with_session(app, db_session, temp_dir):
     for selection in selections:
         assert selection.local_filename is not None
         assert selection.local_file_path is not None
-        assert selection.google_media_id is None  # ローカルインポートの場合はNone
+        assert selection.google_media_id is not None
+
+
+def test_import_single_file_video_recoverable_failure(app, monkeypatch):
+    """セッション経由の取り込みでは ffmpeg 不足を警告として扱う。"""
+
+    import_dir = Path(app.config["LOCAL_IMPORT_DIR"])
+    originals_dir = Path(app.config["FPV_NAS_ORIGINALS_DIR"])
+
+    test_video = import_dir / "recoverable.mp4"
+    test_video.write_text("dummy video content")
+
+    from core.tasks import media_post_processing
+
+    def fake_enqueue(*args, **kwargs):
+        return {"ok": False, "note": "ffmpeg_missing"}
+
+    monkeypatch.setattr(media_post_processing, "enqueue_media_playback", fake_enqueue)
+
+    with app.app_context():
+        result = import_single_file(
+            str(test_video), str(import_dir), str(originals_dir), session_id="local_import_test"
+        )
+
+    assert result["success"] is True
+    assert any(
+        "ffmpeg_missing" in warning for warning in result.get("warnings", [])
+    )
+    assert not test_video.exists()
+
+
+def test_local_import_video_generates_playback_from_originals(app, monkeypatch):
+    """動画取り込み時にオリジナル格納先からPlaybackが生成されることを検証。"""
+
+    from core.models.photo_models import Media, MediaPlayback
+    from core.tasks import media_post_processing, transcode as transcode_module
+
+    import_dir = Path(app.config["LOCAL_IMPORT_DIR"])
+    originals_dir = Path(app.config["FPV_NAS_ORIGINALS_DIR"])
+    play_dir = Path(app.config["FPV_NAS_PLAY_DIR"])
+    tmp_dir = Path(os.environ["FPV_TMP_DIR"])
+
+    for child in import_dir.iterdir():
+        if child.is_file():
+            child.unlink()
+
+    src_video = import_dir / "import_test.mp4"
+    _make_video(src_video)
+    assert src_video.exists()
+
+    originals_root = originals_dir.resolve()
+    tmp_root = tmp_dir.resolve()
+    probe_called_paths: list[Path] = []
+
+    def wrapped_probe(path: Path):
+        resolved = path.resolve()
+        try:
+            resolved.relative_to(originals_root)
+        except ValueError:
+            try:
+                resolved.relative_to(tmp_root)
+            except ValueError:
+                pytest.fail(f"unexpected probe path: {resolved}")
+        else:
+            probe_called_paths.append(resolved)
+
+        return {
+            "format": {
+                "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+                "duration": "1.5",
+                "bit_rate": "900000",
+            },
+            "streams": [
+                {"codec_type": "video", "codec_name": "h264", "width": 640, "height": 360},
+                {"codec_type": "audio", "codec_name": "aac", "codec_long_name": "AAC"},
+            ],
+        }
+
+    monkeypatch.setattr(transcode_module, "_probe", wrapped_probe)
+
+    def fake_enqueue_media_playback(media_id: int, **kwargs):
+        from webapp.extensions import db
+
+        pb = MediaPlayback.query.filter_by(media_id=media_id, preset="std1080p").first()
+        if not pb:
+            media = Media.query.get(media_id)
+            assert media is not None
+            rel_path = str(Path(media.local_rel_path).with_suffix(".mp4"))
+            pb = MediaPlayback(media_id=media_id, preset="std1080p", rel_path=rel_path, status="pending")
+            db.session.add(pb)
+            db.session.commit()
+
+        if pb.status in {"done", "processing"}:
+            return {"ok": pb.status == "done", "note": f"already_{pb.status}", "playback_status": pb.status}
+
+        result = transcode_module.transcode_worker(media_playback_id=pb.id)
+        db.session.refresh(pb)
+        return result
+
+    monkeypatch.setattr(media_post_processing, "enqueue_media_playback", fake_enqueue_media_playback)
+
+    with app.app_context():
+        result = local_import_task()
+        assert result["success"] >= 1
+
+        media_records = Media.query.all()
+        assert len(media_records) == 1
+        media = media_records[0]
+        playback_records = MediaPlayback.query.filter_by(media_id=media.id).all()
+        assert len(playback_records) == 1
+        playback = playback_records[0]
+
+        original_path = originals_dir / media.local_rel_path
+        playback_path = play_dir / playback.rel_path
+
+        assert original_path.exists()
+        assert playback_path.exists()
+        assert playback.status == "done"
+
+    assert not src_video.exists()
+    assert any(p.is_relative_to(originals_root) for p in probe_called_paths)
 
 if __name__ == "__main__":
     print("ローカルインポート機能のテスト")

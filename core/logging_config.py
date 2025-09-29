@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import logging
-from typing import Optional
+from datetime import datetime, timezone
+from typing import Any, Dict, Mapping, Optional
 
 from flask import current_app, has_app_context
 
@@ -93,6 +95,53 @@ def setup_task_logging(logger_name: Optional[str] = None) -> logging.Logger:
     ensure_worker_db_logging(logger)
 
     return logger
+
+
+class StructuredTaskLogger:
+    """Helper for emitting structured JSON logs for worker tasks."""
+
+    def __init__(self, logger: logging.Logger, defaults: Optional[Mapping[str, Any]] = None):
+        self._logger = logger
+        self._defaults: Dict[str, Any] = dict(defaults or {})
+
+    def bind(self, **extra: Any) -> "StructuredTaskLogger":
+        """Return a new logger with additional default fields."""
+
+        merged = dict(self._defaults)
+        merged.update(extra)
+        return StructuredTaskLogger(self._logger, merged)
+
+    def _emit(self, level: int, event: str, **fields: Any) -> None:
+        payload: Dict[str, Any] = {
+            "ts": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "event": event,
+            "level": logging.getLevelName(level),
+        }
+        payload.update(self._defaults)
+        payload.update(fields)
+        message = json.dumps(payload, ensure_ascii=False, default=str)
+        self._logger.log(level, message)
+
+    def log(self, level: int, event: str, **fields: Any) -> None:
+        """Emit a log entry at *level* with structured payload."""
+
+        self._emit(level, event, **fields)
+
+    def info(self, event: str, **fields: Any) -> None:
+        self._emit(logging.INFO, event, **fields)
+
+    def warning(self, event: str, **fields: Any) -> None:
+        self._emit(logging.WARNING, event, **fields)
+
+    def error(self, event: str, **fields: Any) -> None:
+        self._emit(logging.ERROR, event, **fields)
+
+
+def structured_task_logger(logger_name: str, **defaults: Any) -> StructuredTaskLogger:
+    """Return a :class:`StructuredTaskLogger` with worker DB logging enabled."""
+
+    logger = setup_task_logging(logger_name)
+    return StructuredTaskLogger(logger, defaults)
 
 
 def log_task_error(logger: logging.Logger, message: str, event: str, exc_info: bool = True, **extra_attrs):

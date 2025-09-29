@@ -11,7 +11,7 @@ sources.
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple, TYPE_CHECKING
 import contextlib
 
 from core.db import db
@@ -26,6 +26,14 @@ from core.storage_paths import (
     ensure_directory,
     first_existing_storage_path,
 )
+
+from core.logging_config import structured_task_logger
+
+if TYPE_CHECKING:  # pragma: no cover
+    from core.logging_config import StructuredTaskLogger
+
+
+_task_logger = structured_task_logger(__name__, task="thumbnail_generation")
 
 
 PLAYBACK_NOT_READY_NOTES = "playback not ready"
@@ -124,21 +132,50 @@ def _select_playback(media_id: int) -> MediaPlayback | None:
     )
 
 
-def _load_poster_image(pb: MediaPlayback) -> tuple[Image.Image, str] | None:
+def _load_poster_image(pb: MediaPlayback, *, log: "StructuredTaskLogger" | None = None) -> tuple[Image.Image, str] | None:
     """Return poster image and rel path if it can be loaded from disk."""
 
     if not pb.poster_rel_path:
+        if log:
+            log.info(
+                "thumbnail_generation.poster_missing",
+                playback_id=pb.id,
+            )
         return None
 
     poster_path = _play_dir() / pb.poster_rel_path
     if not poster_path.exists():
+        if log:
+            log.warning(
+                "thumbnail_generation.poster_missing",
+                playback_id=pb.id,
+                poster_rel_path=pb.poster_rel_path,
+                poster_path=poster_path.as_posix(),
+                poster_exists=False,
+            )
         return None
 
     try:
         with Image.open(poster_path) as poster:
             poster = ImageOps.exif_transpose(poster)
-            return poster.convert("RGB"), pb.poster_rel_path
-    except OSError:
+            converted = poster.convert("RGB")
+            if log:
+                log.info(
+                    "thumbnail_generation.poster_loaded",
+                    playback_id=pb.id,
+                    poster_rel_path=pb.poster_rel_path,
+                    poster_path=poster_path.as_posix(),
+                )
+            return converted, pb.poster_rel_path
+    except OSError as exc:
+        if log:
+            log.warning(
+                "thumbnail_generation.poster_load_failed",
+                playback_id=pb.id,
+                poster_rel_path=pb.poster_rel_path,
+                poster_path=poster_path.as_posix(),
+                error=str(exc),
+            )
         return None
 
 
@@ -194,16 +231,48 @@ def _attempt_frame_extraction(paths: Iterable[Tuple[Path, str]]) -> tuple[Image.
     return None
 
 
-def _resolve_video_source(media: Media, rel_name: Path) -> tuple[_SourceResolution | None, Dict[str, object] | None]:
+def _resolve_video_source(
+    media: Media,
+    rel_name: Path,
+    *,
+    log: "StructuredTaskLogger" | None = None,
+) -> tuple[_SourceResolution | None, Dict[str, object] | None]:
     """Resolve a base image for video thumbnails with graceful fallbacks."""
 
     pb = _select_playback(media.id)
+    if log:
+        log.info(
+            "playback.check",
+            playback_exists=pb is not None,
+            playback_id=getattr(pb, "id", None),
+            playback_preset=getattr(pb, "preset", None),
+            playback_status=getattr(pb, "status", None),
+        )
     if not pb:
+        if log:
+            log.warning(
+                "thumbnail_generation.retry_pending",
+                reason="completed playback missing",
+            )
         return None, _playback_not_ready(
             reason="completed playback missing"
         )
 
-    poster_result = _load_poster_image(pb)
+    playback_path = None
+    playback_exists = False
+    if pb.rel_path:
+        playback_path_obj = _play_dir() / pb.rel_path
+        playback_path = playback_path_obj.as_posix()
+        playback_exists = playback_path_obj.exists()
+    if log:
+        log.info(
+            "playback.asset_state",
+            playback_rel_path=pb.rel_path,
+            playback_path=playback_path,
+            playback_exists=playback_exists,
+        )
+
+    poster_result = _load_poster_image(pb, log=log)
     poster_img = poster_result[0] if poster_result else None
     candidate_paths: list[tuple[Path, str]] = []
     if pb.rel_path:
@@ -213,6 +282,12 @@ def _resolve_video_source(media: Media, rel_name: Path) -> tuple[_SourceResoluti
 
     poster_quality = _poster_long_side(poster_img)
     if poster_img and poster_quality >= MIN_VIDEO_POSTER_LONG_SIDE:
+        if log:
+            log.info(
+                "thumbnail_generation.poster_selected",
+                poster_rel_path=poster_result[1],
+                poster_long_side=poster_quality,
+            )
         return _SourceResolution(
             image=poster_img,
             rel_name=_replace_suffix(rel_name, ".jpg"),
@@ -227,6 +302,12 @@ def _resolve_video_source(media: Media, rel_name: Path) -> tuple[_SourceResoluti
             note = f"frame extracted from {source_label}"
             if poster_img and poster_quality:
                 note += f" (poster long side {poster_quality}px)"
+            if log:
+                log.info(
+                    "thumbnail_generation.frame_extracted",
+                    source_label=source_label,
+                    note=note,
+                )
             return _SourceResolution(
                 image=frame_img,
                 rel_name=_replace_suffix(rel_name, ".jpg"),
@@ -240,22 +321,45 @@ def _resolve_video_source(media: Media, rel_name: Path) -> tuple[_SourceResoluti
                 f"poster long side {poster_quality}px below threshold "
                 f"{MIN_VIDEO_POSTER_LONG_SIDE}px"
             )
+        if log:
+            log.info(
+                "thumbnail_generation.poster_fallback",
+                poster_rel_path=poster_result[1],
+                poster_long_side=poster_quality,
+                note=note,
+            )
         return _SourceResolution(
             image=poster_img,
             rel_name=_replace_suffix(rel_name, ".jpg"),
             notes=note,
         ), None
 
+    if log:
+        log.warning(
+            "thumbnail_generation.retry_pending",
+            reason="unable to extract video frame",
+            sources_checked=[label for _path, label in candidate_paths],
+        )
     return None, _playback_not_ready(
         reason="unable to extract video frame",
         extra={"sources_checked": [label for _path, label in candidate_paths]},
     )
 
 
-def _resolve_photo_source(media: Media, rel_name: Path) -> tuple[_SourceResolution | None, Dict[str, object] | None]:
+def _resolve_photo_source(
+    media: Media,
+    rel_name: Path,
+    *,
+    log: "StructuredTaskLogger" | None = None,
+) -> tuple[_SourceResolution | None, Dict[str, object] | None]:
     """Resolve a base image for photo thumbnails."""
 
     if not media.local_rel_path:
+        if log:
+            log.error(
+                "thumbnail_generation.source_missing",
+                reason="local_rel_path missing",
+            )
         return None, {
             "ok": False,
             "generated": [],
@@ -266,6 +370,12 @@ def _resolve_photo_source(media: Media, rel_name: Path) -> tuple[_SourceResoluti
 
     src_path = _orig_dir() / media.local_rel_path
     if not src_path.exists():
+        if log:
+            log.error(
+                "thumbnail_generation.source_missing",
+                reason="source file not found",
+                source_path=src_path.as_posix(),
+            )
         return None, {
             "ok": False,
             "generated": [],
@@ -282,6 +392,13 @@ def _resolve_photo_source(media: Media, rel_name: Path) -> tuple[_SourceResoluti
         img = opened.convert("RGBA" if has_alpha else "RGB")
 
     out_ext = ".png" if has_alpha else ".jpg"
+    if log:
+        log.info(
+            "thumbnail_generation.source_ready",
+            source_path=src_path.as_posix(),
+            has_alpha=has_alpha,
+            output_suffix=out_ext,
+        )
     return _SourceResolution(
         image=img,
         rel_name=_replace_suffix(rel_name, out_ext),
@@ -289,10 +406,15 @@ def _resolve_photo_source(media: Media, rel_name: Path) -> tuple[_SourceResoluti
     ), None
 
 
-def _resolve_source(media: Media, rel_name: Path) -> tuple[_SourceResolution | None, Dict[str, object] | None]:
+def _resolve_source(
+    media: Media,
+    rel_name: Path,
+    *,
+    log: "StructuredTaskLogger" | None = None,
+) -> tuple[_SourceResolution | None, Dict[str, object] | None]:
     if media.is_video:
-        return _resolve_video_source(media, rel_name)
-    return _resolve_photo_source(media, rel_name)
+        return _resolve_video_source(media, rel_name, log=log)
+    return _resolve_photo_source(media, rel_name, log=log)
 
 
 # ---------------------------------------------------------------------------
@@ -307,8 +429,18 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
     ``skipped`` size lists as described in the specification.
     """
 
+    log = _task_logger.bind(media_id=media_id, force=force)
+    log.info(
+        "thumbnail_generation.start",
+        requested_resolutions=SIZES,
+    )
+
     m = Media.query.get(media_id)
     if not m:
+        log.error(
+            "thumbnail_generation.not_found",
+            reason="media missing",
+        )
         return {
             "ok": False,
             "generated": [],
@@ -319,6 +451,10 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
 
     if m.is_deleted:
         # Deleted media are a successful no-op
+        log.info(
+            "thumbnail_generation.skipped",
+            reason="media deleted",
+        )
         return {
             "ok": True,
             "generated": [],
@@ -327,6 +463,7 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
             "paths": {},
         }
 
+    log = log.bind(media_type="video" if m.is_video else "photo")
     base_dir = _thumb_base_dir()
     generated: List[int] = []
     skipped: List[int] = []
@@ -338,6 +475,10 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
     # ------------------------------------------------------------------
     base_rel = m.thumbnail_rel_path or m.local_rel_path
     if not base_rel:
+        log.error(
+            "thumbnail_generation.source_missing",
+            reason="no thumbnail or local path",
+        )
         return {
             "ok": False,
             "generated": [],
@@ -348,14 +489,22 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
 
     rel_name = Path(base_rel)
 
-    source, error_response = _resolve_source(m, rel_name)
+    source, error_response = _resolve_source(m, rel_name, log=log)
     if error_response:
+        event = "thumbnail_generation.retry_pending" if error_response.get("notes") == PLAYBACK_NOT_READY_NOTES else "thumbnail_generation.failed"
+        log.warning(event, response=error_response)
         return error_response
     assert source is not None
 
     img = source.image
     rel_name = source.rel_name
     notes = source.notes or notes
+
+    log.info(
+        "thumbnail_generation.base_ready",
+        base_rel_path=rel_name.as_posix(),
+        notes=notes,
+    )
 
     # ------------------------------------------------------------------
     # Generate thumbnails for each size
@@ -391,10 +540,25 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
         db.session.add(m)
         db.session.commit()
 
-    return {
+    result = {
         "ok": True,
         "generated": generated,
         "skipped": skipped,
         "notes": notes,
         "paths": paths,
     }
+
+    log.info(
+        "thumbnail_generation.result",
+        generated=generated,
+        skipped=skipped,
+        notes=notes,
+        paths=paths,
+    )
+    log.info(
+        "thumbnail_generation.completed",
+        total_generated=len(generated),
+        total_skipped=len(skipped),
+    )
+
+    return result

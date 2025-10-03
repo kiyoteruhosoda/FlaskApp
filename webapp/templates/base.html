@@ -57,12 +57,14 @@
       </ul>
       <ul class="navbar-nav">
         {% if current_user.is_authenticated %}
+          {% set show_system_manage = current_user.can('system:manage') %}
+          {% set show_admin_only = current_user.has_role('admin') %}
           <li class="nav-item">
             <a class="nav-link" href="{{ url_for('auth.profile') }}">
               <i class="fas fa-user-circle me-1"></i>{{ current_user.display_name }}
             </a>
           </li>
-          {% if current_user.can('user:manage') or current_user.can('role:manage') or current_user.can('permission:manage') or current_user.has_role('admin') %}
+          {% if current_user.can('user:manage') or current_user.can('role:manage') or current_user.can('permission:manage') or show_system_manage or show_admin_only %}
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" id="managementNavDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
               {{ _('Management') }}
@@ -81,8 +83,18 @@
               {% if current_user.can('permission:manage') %}
               <li><a class="dropdown-item" href="{{ url_for('admin.permissions') }}">{{ _('Permissions') }}</a></li>
               {% endif %}
-              {% if current_user.has_role('admin') %}
+              {% if show_system_manage %}
               <li><hr class="dropdown-divider"></li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('admin.show_data_files') }}">
+                  <i class="bi bi-hdd-stack me-2"></i>{{ _('Data Files') }}
+                </a>
+              </li>
+              {% endif %}
+              {% if show_admin_only %}
+              {% if not show_system_manage %}
+              <li><hr class="dropdown-divider"></li>
+              {% endif %}
               <li><a class="dropdown-item" href="{{ url_for('photo_view.settings') }}">{{ _('Photo View Settings') }}</a></li>
               <li><a class="dropdown-item" href="{{ url_for('photo_view.admin_exports') }}">{{ _('Photo Exports') }}</a></li>
               {% endif %}

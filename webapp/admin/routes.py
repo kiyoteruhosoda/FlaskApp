@@ -1,10 +1,14 @@
 
+import os
+from pathlib import Path
+
 from flask import Blueprint, render_template, flash, redirect, url_for, request, jsonify, session
 from ..extensions import db
 from flask_login import login_required, current_user
 from flask_babel import gettext as _
 
 from core.models.user import User, Role, Permission
+from core.storage_paths import first_existing_storage_path, storage_path_candidates
 
 
 bp = Blueprint("admin", __name__, template_folder="templates")
@@ -37,6 +41,84 @@ def show_version():
     from core.version import get_version_info
     version_info = get_version_info()
     return render_template("admin/version_view.html", version_info=version_info)
+
+
+@bp.route("/data-files")
+@login_required
+def show_data_files():
+    if not current_user.can("system:manage"):
+        return _(u"You do not have permission to access this page."), 403
+
+    directory_definitions = [
+        ("FPV_NAS_ORIGINALS_DIR", _("Original Media Directory")),
+        ("FPV_NAS_THUMBS_DIR", _("Thumbnail Directory")),
+        ("FPV_NAS_PLAY_DIR", _("Playback Directory")),
+        ("LOCAL_IMPORT_DIR", _("Local Import Directory")),
+    ]
+    max_entries = 500
+    directories: list[dict] = []
+
+    for config_key, label in directory_definitions:
+        candidates = storage_path_candidates(config_key)
+        base_path = first_existing_storage_path(config_key)
+        effective_base = base_path or (candidates[0] if candidates else None)
+        exists = bool(effective_base and Path(effective_base).exists())
+
+        files: list[dict] = []
+        total_files = 0
+        total_size = 0
+        truncated = False
+
+        if effective_base and exists:
+            base_dir = Path(effective_base)
+            for root, dirs, filenames in os.walk(base_dir):
+                dirs.sort()
+                filenames.sort()
+                for filename in filenames:
+                    total_files += 1
+                    file_path = Path(root) / filename
+                    size = 0
+                    try:
+                        size = file_path.stat().st_size
+                    except OSError:
+                        size = 0
+                    total_size += size
+
+                    if len(files) >= max_entries:
+                        truncated = True
+                        continue
+
+                    try:
+                        rel_path = file_path.relative_to(base_dir).as_posix()
+                    except ValueError:
+                        rel_path = file_path.as_posix()
+
+                    files.append(
+                        {
+                            "name": rel_path,
+                            "size_bytes": size,
+                            "size_display": _format_bytes(size),
+                        }
+                    )
+
+        directories.append(
+            {
+                "config_key": config_key,
+                "label": label,
+                "base_path": effective_base,
+                "candidates": candidates,
+                "exists": exists,
+                "files": files,
+                "total_files": total_files,
+                "total_size_bytes": total_size,
+                "total_size_display": _format_bytes(total_size),
+                "truncated": truncated,
+                "remaining_count": max(total_files - len(files), 0),
+                "limit": max_entries,
+            }
+        )
+
+    return render_template("admin/data_files.html", directories=directories)
 
 # TOTPリセット
 @bp.route("/user/<int:user_id>/reset-totp", methods=["POST"])
@@ -336,3 +418,18 @@ def google_accounts():
         accounts = GoogleAccount.query.filter_by(user_id=current_user.id).all()
     
     return render_template("admin/google_accounts.html", accounts=accounts)
+
+
+def _format_bytes(num: int) -> str:
+    """人間が読みやすい形式にバイト数を整形."""
+
+    step = 1024.0
+    units = ["B", "KB", "MB", "GB", "TB", "PB"]
+    value = float(num)
+    for unit in units:
+        if value < step or unit == units[-1]:
+            if unit == "B":
+                return f"{int(value)} {unit}"
+            return f"{value:.1f} {unit}"
+        value /= step
+    return f"{value:.1f} PB"

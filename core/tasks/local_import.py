@@ -1159,6 +1159,7 @@ def import_single_file(
         new_filename = generate_filename(shot_at, file_extension, file_hash)
         rel_path = get_relative_path(shot_at, new_filename)
         dest_path = os.path.join(originals_dir, rel_path)
+        imported_filename = new_filename
         
         # ディレクトリ作成
         os.makedirs(os.path.dirname(dest_path), exist_ok=True)
@@ -1194,6 +1195,8 @@ def import_single_file(
             "ファイルを保存先にコピーしました",
             **file_context,
             destination=dest_path,
+            imported_path=dest_path,
+            imported_filename=imported_filename,
             session_id=session_id,
             status="copied",
         )
@@ -1318,6 +1321,8 @@ def import_single_file(
         result["media_id"] = media.id
         result["media_google_id"] = media.google_media_id
         result["reason"] = "取り込み成功"
+        result["imported_filename"] = imported_filename
+        result["imported_path"] = dest_path
 
         _log_info(
             "local_import.file.success",
@@ -1325,6 +1330,8 @@ def import_single_file(
             **file_context,
             media_id=media.id,
             relative_path=rel_path,
+            imported_path=dest_path,
+            imported_filename=imported_filename,
             session_id=session_id,
             status="success",
         )

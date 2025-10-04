@@ -103,6 +103,9 @@ def test_duplicate_import_refreshes_metadata(monkeypatch, tmp_path, app_context)
     assert media.height == 720
     assert media.orientation == 6
     stored_original = originals_dir / media.local_rel_path
+    assert second["imported_path"] == str(stored_original)
+    assert second["relative_path"] == media.local_rel_path
+    assert second["imported_filename"] == media.filename
     assert stored_original.exists()
     assert media.hash_sha256 == local_import.calculate_file_hash(str(stored_original))
     assert media.bytes == stored_original.stat().st_size

@@ -152,6 +152,36 @@ def _file_log_context(file_path: Optional[str], filename: Optional[str] = None) 
     return context
 
 
+def _existing_media_destination_context(
+    media: Media, originals_dir: Optional[str]
+) -> Dict[str, Any]:
+    """既存メディアの保存先情報をログ用に組み立てる。"""
+
+    details: Dict[str, Any] = {}
+
+    if media is None:
+        return details
+
+    relative_path = getattr(media, "local_rel_path", None)
+    if relative_path:
+        details["relative_path"] = relative_path
+
+        base_dir = os.fspath(originals_dir) if originals_dir else None
+        if base_dir:
+            absolute_path = os.path.normpath(os.path.join(base_dir, relative_path))
+        else:
+            absolute_path = relative_path
+
+        details["imported_path"] = absolute_path
+        details["destination"] = absolute_path
+
+    filename = getattr(media, "filename", None)
+    if filename:
+        details["imported_filename"] = filename
+
+    return details
+
+
 def _log_info(
     event: str,
     message: str,
@@ -1052,6 +1082,14 @@ def import_single_file(
             result["media_id"] = existing_media.id
             result["media_google_id"] = existing_media.google_media_id
 
+            destination_details = _existing_media_destination_context(
+                existing_media, originals_dir
+            )
+            for key in ("imported_path", "imported_filename", "relative_path"):
+                value = destination_details.get(key)
+                if value:
+                    result[key] = value
+
             refreshed = False
             try:
                 refreshed = _refresh_existing_media_metadata(
@@ -1067,6 +1105,7 @@ def import_single_file(
                     "重複ファイルのメタデータ更新中にエラーが発生",
                     **file_context,
                     media_id=existing_media.id,
+                    **destination_details,
                     error_type=type(refresh_exc).__name__,
                     error_message=str(refresh_exc),
                     exc_info=True,
@@ -1083,6 +1122,7 @@ def import_single_file(
                         "重複ファイルから既存メディアのメタデータを更新",
                         **file_context,
                         media_id=existing_media.id,
+                        **destination_details,
                         session_id=session_id,
                         status="duplicate_refreshed",
                     )
@@ -1093,6 +1133,7 @@ def import_single_file(
                             "重複ファイルのソースを削除",
                             **file_context,
                             media_id=existing_media.id,
+                            **destination_details,
                             session_id=session_id,
                             status="cleaned",
                         )
@@ -1104,6 +1145,7 @@ def import_single_file(
                             "重複ファイル削除に失敗",
                             **file_context,
                             media_id=existing_media.id,
+                            **destination_details,
                             error_type=type(cleanup_exc).__name__,
                             error_message=str(cleanup_exc),
                             session_id=session_id,
@@ -1115,6 +1157,7 @@ def import_single_file(
                         "重複ファイルを検出したためスキップ",
                         **file_context,
                         media_id=existing_media.id,
+                        **destination_details,
                         session_id=session_id,
                         status="duplicate",
                     )

@@ -15,7 +15,7 @@ def _login(client, user):
         session["_fresh"] = True
 
 
-def test_data_files_page_lists_current_files(client, tmp_path):
+def _setup_admin_with_directories(client, tmp_path):
     app = client.application
 
     originals_dir = tmp_path / "media"
@@ -27,20 +27,20 @@ def test_data_files_page_lists_current_files(client, tmp_path):
         directory.mkdir(parents=True, exist_ok=True)
 
     (originals_dir / "2024" / "holiday").mkdir(parents=True)
-    original_file = originals_dir / "2024" / "holiday" / "photo1.jpg"
-    original_file.write_bytes(b"a" * 2048)
+    (originals_dir / "2024" / "holiday" / "photo1.jpg").write_bytes(b"a" * 2048)
+    (originals_dir / "2024" / "holiday" / "photo2.jpg").write_bytes(b"b" * 1024)
 
     thumb_file = thumbs_dir / "256" / "2024" / "holiday" / "photo1.jpg"
     thumb_file.parent.mkdir(parents=True, exist_ok=True)
-    thumb_file.write_bytes(b"b" * 512)
+    thumb_file.write_bytes(b"c" * 512)
 
     playback_file = playback_dir / "2024" / "holiday" / "photo1.mp4"
     playback_file.parent.mkdir(parents=True, exist_ok=True)
-    playback_file.write_bytes(b"c" * 4096)
+    playback_file.write_bytes(b"d" * 4096)
 
     import_file = import_dir / "incoming" / "photo2.jpg"
     import_file.parent.mkdir(parents=True, exist_ok=True)
-    import_file.write_bytes(b"d" * 256)
+    import_file.write_bytes(b"e" * 256)
 
     app.config["FPV_NAS_ORIGINALS_DIR"] = str(originals_dir)
     app.config["FPV_NAS_THUMBS_DIR"] = str(thumbs_dir)
@@ -59,16 +59,57 @@ def test_data_files_page_lists_current_files(client, tmp_path):
 
     _login(client, admin_user)
 
+    return {
+        "originals": originals_dir,
+        "thumbs": thumbs_dir,
+        "playback": playback_dir,
+        "import": import_dir,
+    }
+
+
+def test_data_files_page_shows_selected_directory_only(client, tmp_path):
+    paths = _setup_admin_with_directories(client, tmp_path)
+
     response = client.get("/admin/data-files")
     assert response.status_code == 200
 
     html = response.data.decode("utf-8")
     assert "photo1.jpg" in html
+    assert "photo2.jpg" in html
+    assert "photo1.mp4" not in html
+    assert "incoming/photo2.jpg" not in html
+    assert str(paths["originals"]) in html
+    assert "Matching files" in html
+
+
+def test_data_files_allows_switching_filtering_and_pagination(client, tmp_path):
+    _setup_admin_with_directories(client, tmp_path)
+
+    response = client.get("/admin/data-files?directory=FPV_NAS_PLAY_DIR")
+    assert response.status_code == 200
+    html = response.data.decode("utf-8")
     assert "photo1.mp4" in html
-    assert "incoming/photo2.jpg" in html
-    assert str(originals_dir) in html
-    assert "2.0 KB" in html
-    assert "Data Files" in html
+    assert "photo1.jpg" not in html
+
+    response = client.get("/admin/data-files?directory=FPV_NAS_ORIGINALS_DIR&per_page=1")
+    html = response.data.decode("utf-8")
+    assert html.count("photo1.jpg") == 1
+    assert "photo2.jpg" not in html
+    assert "page-link" in html
+
+    response = client.get("/admin/data-files?directory=FPV_NAS_ORIGINALS_DIR&per_page=1&page=2")
+    html = response.data.decode("utf-8")
+    assert "photo2.jpg" in html
+    assert "photo1.jpg" not in html
+
+    response = client.get("/admin/data-files?directory=FPV_NAS_ORIGINALS_DIR&q=photo2")
+    html = response.data.decode("utf-8")
+    assert "photo2.jpg" in html
+    assert "photo1.jpg" not in html
+
+    response = client.get("/admin/data-files?directory=FPV_NAS_ORIGINALS_DIR&q=nope")
+    html = response.data.decode("utf-8")
+    assert "No files matched" in html
 
 
 def test_data_files_requires_system_manage_permission(client):

@@ -14,7 +14,7 @@ import uuid
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from core.utils import open_image_compat, register_heif_support
 
@@ -35,6 +35,7 @@ from core.models.photo_models import (
     MediaPlayback,
 )
 from core.models.job_sync import JobSync
+from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 from core.models.picker_session import PickerSession
 from core.utils import get_file_date_from_name, get_file_date_from_exif
 from core.logging_config import setup_task_logging, log_task_error, log_task_info
@@ -57,6 +58,9 @@ thumbs_generate = _thumbs_generate
 logger = setup_task_logging(__name__)
 # Also get celery task logger for cross-compatibility
 celery_logger = logging.getLogger('celery.task.local_import')
+
+
+_THUMBNAIL_RETRY_TASK_NAME = "thumbnail.retry"
 
 
 class LocalImportPlaybackError(RuntimeError):
@@ -1319,6 +1323,9 @@ def import_single_file(
             },
         )
 
+        if post_process_result is not None:
+            result["post_process"] = post_process_result
+
         if is_video:
             playback_result = (post_process_result or {}).get("playback") or {}
             if not playback_result.get("ok"):
@@ -1573,6 +1580,210 @@ def _session_cancel_requested(
     return session.status == "canceled"
 
 
+def _record_thumbnail_result(
+    aggregate: Dict[str, Any],
+    *,
+    media_id: Optional[int],
+    thumb_result: Dict[str, Any],
+) -> None:
+    """Collect thumbnail generation metadata for later aggregation."""
+
+    if media_id is None or not isinstance(thumb_result, dict):
+        return
+
+    records = aggregate.setdefault("thumbnail_records", [])
+    entry: Dict[str, Any] = {
+        "mediaId": media_id,
+        "media_id": media_id,
+        "ok": thumb_result.get("ok"),
+        "notes": thumb_result.get("notes"),
+        "generated": thumb_result.get("generated"),
+        "skipped": thumb_result.get("skipped"),
+        "retry_scheduled": bool(thumb_result.get("retry_scheduled")),
+    }
+
+    retry_details = thumb_result.get("retry_details")
+    if isinstance(retry_details, dict):
+        entry["retry_details"] = retry_details
+
+    ok_flag = thumb_result.get("ok")
+    if ok_flag is False:
+        entry["status"] = "error"
+    elif entry["retry_scheduled"]:
+        entry["status"] = "progress"
+    else:
+        entry["status"] = "completed"
+
+    records.append(entry)
+
+
+def build_thumbnail_task_snapshot(
+    session: Optional[PickerSession],
+    recorded_entries: Optional[Iterable[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """Summarise thumbnail generation state for *session*."""
+
+    summary: Dict[str, Any] = {
+        "total": 0,
+        "completed": 0,
+        "pending": 0,
+        "failed": 0,
+        "entries": [],
+        "status": "idle",
+    }
+
+    if session is None or session.id is None:
+        return summary
+
+    initial: Dict[int, Dict[str, Any]] = {}
+    if recorded_entries:
+        for entry in recorded_entries:
+            if not isinstance(entry, dict):
+                continue
+            media_id = entry.get("mediaId") or entry.get("media_id")
+            if media_id is None:
+                continue
+            try:
+                media_key = int(media_id)
+            except (TypeError, ValueError):
+                continue
+            initial[media_key] = {
+                "status": (entry.get("status") or "").lower() or None,
+                "ok": entry.get("ok"),
+                "notes": entry.get("notes"),
+                "retry_scheduled": bool(
+                    entry.get("retryScheduled") or entry.get("retry_scheduled")
+                ),
+                "retry_details": entry.get("retryDetails") or entry.get("retry_details"),
+            }
+
+    selection_rows = (
+        db.session.query(
+            PickerSelection.id,
+            PickerSelection.status,
+            Media.id.label("media_id"),
+            Media.thumbnail_rel_path,
+            Media.is_video,
+        )
+        .outerjoin(MediaItem, PickerSelection.google_media_id == MediaItem.id)
+        .outerjoin(Media, Media.google_media_id == MediaItem.id)
+        .filter(
+            PickerSelection.session_id == session.id,
+            PickerSelection.status == "imported",
+        )
+        .all()
+    )
+
+    if not selection_rows:
+        return summary
+
+    media_ids = [row.media_id for row in selection_rows if row.media_id is not None]
+    celery_records: Dict[int, CeleryTaskRecord] = {}
+
+    if media_ids:
+        str_ids = [str(mid) for mid in media_ids]
+        records = (
+            CeleryTaskRecord.query.filter(
+                CeleryTaskRecord.task_name == _THUMBNAIL_RETRY_TASK_NAME,
+                CeleryTaskRecord.object_type == "media",
+                CeleryTaskRecord.object_id.in_(str_ids),
+            )
+            .order_by(CeleryTaskRecord.id.desc())
+            .all()
+        )
+        for record in records:
+            try:
+                mid = int(record.object_id) if record.object_id is not None else None
+            except (TypeError, ValueError):
+                continue
+            if mid is None or mid in celery_records:
+                continue
+            celery_records[mid] = record
+
+    summary["status"] = "progress"
+
+    for row in selection_rows:
+        media_id = row.media_id
+        if media_id is None:
+            continue
+
+        summary["total"] += 1
+
+        recorded = initial.get(media_id, {})
+        base_status = (recorded.get("status") or "").lower() or None
+        if recorded.get("ok") is False:
+            base_status = "error"
+        retry_flag = bool(recorded.get("retry_scheduled"))
+        note = recorded.get("notes")
+        retry_details = recorded.get("retry_details") if recorded else None
+
+        record = celery_records.get(media_id)
+
+        if row.thumbnail_rel_path:
+            final_status = "completed"
+            retry_flag = False
+        else:
+            if record is not None:
+                if record.status in {
+                    CeleryTaskStatus.SCHEDULED,
+                    CeleryTaskStatus.QUEUED,
+                    CeleryTaskStatus.RUNNING,
+                }:
+                    final_status = "progress"
+                    retry_flag = True
+                elif record.status == CeleryTaskStatus.SUCCESS:
+                    final_status = "completed"
+                    retry_flag = False
+                elif record.status in {
+                    CeleryTaskStatus.FAILED,
+                    CeleryTaskStatus.CANCELED,
+                }:
+                    final_status = "error"
+                else:
+                    final_status = base_status or "progress"
+            else:
+                if base_status == "error":
+                    final_status = "error"
+                elif retry_flag or base_status in {"progress", "pending", "processing"}:
+                    final_status = "progress"
+                elif base_status == "completed":
+                    final_status = "completed"
+                else:
+                    final_status = "progress"
+
+        if final_status == "error":
+            summary["failed"] += 1
+        elif final_status == "completed":
+            summary["completed"] += 1
+        else:
+            summary["pending"] += 1
+
+        entry_payload: Dict[str, Any] = {
+            "mediaId": media_id,
+            "selectionId": row.id,
+            "status": final_status,
+            "retryScheduled": retry_flag,
+            "thumbnailPath": row.thumbnail_rel_path,
+            "notes": note,
+            "isVideo": bool(row.is_video),
+        }
+        if isinstance(retry_details, dict):
+            entry_payload["retryDetails"] = retry_details
+        if record is not None:
+            entry_payload["celeryTaskStatus"] = record.status.value
+
+        summary["entries"].append(entry_payload)
+
+    if summary["failed"] > 0:
+        summary["status"] = "error"
+    elif summary["pending"] > 0:
+        summary["status"] = "progress"
+    else:
+        summary["status"] = "completed" if summary["total"] > 0 else "idle"
+
+    return summary
+
+
 def _enqueue_local_import_selections(
     session: Optional[PickerSession],
     file_paths: List[str],
@@ -1780,6 +1991,34 @@ def _process_local_import_queue(
         if basename and basename != detail["file"]:
             detail["basename"] = basename
         result["details"].append(detail)
+
+        post_process_result = file_result.get("post_process")
+        if isinstance(post_process_result, dict):
+            thumb_result = post_process_result.get("thumbnails")
+            if isinstance(thumb_result, dict):
+                thumb_detail: Dict[str, Any] = {
+                    "ok": thumb_result.get("ok"),
+                    "status": "error"
+                    if thumb_result.get("ok") is False
+                    else (
+                        "progress"
+                        if thumb_result.get("retry_scheduled")
+                        else "completed"
+                    ),
+                    "generated": thumb_result.get("generated"),
+                    "skipped": thumb_result.get("skipped"),
+                    "retryScheduled": bool(thumb_result.get("retry_scheduled")),
+                    "notes": thumb_result.get("notes"),
+                }
+                retry_details = thumb_result.get("retry_details")
+                if isinstance(retry_details, dict):
+                    thumb_detail["retryDetails"] = retry_details
+                detail["thumbnail"] = thumb_detail
+                _record_thumbnail_result(
+                    result,
+                    media_id=file_result.get("media_id"),
+                    thumb_result=thumb_result,
+                )
 
         try:
             media_google_id = file_result.get("media_google_id")
@@ -2147,7 +2386,7 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
         _set_session_progress(
             session,
             status="processing",
-            stage="processing",
+            stage="progress",
             celery_task_id=celery_task_id,
             stats_updates={
                 "total": pending_total,
@@ -2221,12 +2460,20 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
 
             cancel_requested = bool(result.get("canceled")) or _session_cancel_requested(session)
 
+            recorded_thumbnails = result.get("thumbnail_records")
+            thumbnail_snapshot = build_thumbnail_task_snapshot(session, recorded_thumbnails)
+            result["thumbnail_snapshot"] = thumbnail_snapshot
+            thumbnail_status = thumbnail_snapshot.get("status") if isinstance(thumbnail_snapshot, dict) else None
+
+            thumbnails_pending = thumbnail_status == "progress"
+            thumbnails_failed = thumbnail_status == "error"
+
             if cancel_requested:
                 final_status = "canceled"
-            elif pending_remaining > 0:
+            elif pending_remaining > 0 or thumbnails_pending:
                 final_status = "processing"
             else:
-                if (not result["ok"]) or result["failed"] > 0:
+                if (not result["ok"]) or result["failed"] > 0 or thumbnails_failed:
                     final_status = "error"
                 elif result["success"] > 0 or result["skipped"] > 0 or result["processed"] > 0:
                     final_status = "imported"
@@ -2244,7 +2491,61 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
                 "celery_task_id": celery_task_id,
             }
 
-            stage_value = "canceled" if cancel_requested else ("completed" if pending_remaining == 0 else "processing")
+            import_task_status = "canceled" if cancel_requested else None
+            if import_task_status is None:
+                if pending_remaining > 0:
+                    import_task_status = "progress"
+                elif result["failed"] > 0 or not result["ok"]:
+                    import_task_status = "error"
+                elif result["processed"] > 0:
+                    import_task_status = "completed"
+                else:
+                    import_task_status = "idle"
+
+            tasks_payload: List[Dict[str, Any]] = [
+                {
+                    "key": "import",
+                    "label": "File Import",
+                    "status": import_task_status,
+                    "counts": {
+                        "total": result["processed"],
+                        "success": result["success"],
+                        "skipped": result["skipped"],
+                        "failed": result["failed"],
+                        "pending": pending_remaining,
+                    },
+                }
+            ]
+
+            if isinstance(thumbnail_snapshot, dict):
+                stats["thumbnails"] = thumbnail_snapshot
+                if thumbnail_snapshot.get("total") or thumbnail_snapshot.get("status") not in {None, "idle"}:
+                    tasks_payload.append(
+                        {
+                            "key": "thumbnails",
+                            "label": "Thumbnail Generation",
+                            "status": thumbnail_snapshot.get("status"),
+                            "counts": {
+                                "total": thumbnail_snapshot.get("total"),
+                                "completed": thumbnail_snapshot.get("completed"),
+                                "pending": thumbnail_snapshot.get("pending"),
+                                "failed": thumbnail_snapshot.get("failed"),
+                            },
+                            "entries": thumbnail_snapshot.get("entries"),
+                        }
+                    )
+
+            if tasks_payload:
+                stats["tasks"] = tasks_payload
+
+            stage_value = "canceled" if cancel_requested else None
+            if stage_value != "canceled":
+                if thumbnails_failed:
+                    stage_value = "error"
+                elif pending_remaining > 0 or thumbnails_pending:
+                    stage_value = "progress"
+                else:
+                    stage_value = "completed"
             if cancel_requested:
                 stats.update(
                     {

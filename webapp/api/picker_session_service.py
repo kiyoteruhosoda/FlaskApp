@@ -25,6 +25,7 @@ from core.models.photo_models import (
 )
 from core.models.log import Log
 from ..auth.utils import refresh_google_token, RefreshTokenError, log_requests_and_send
+from core.tasks.local_import import build_thumbnail_task_snapshot
 
 
 _locks: Dict[str, Lock] = {}
@@ -289,39 +290,174 @@ class PickerSessionService:
         pending_statuses = ("pending", "enqueued", "running")
         has_pending = any(counts.get(status, 0) > 0 for status in pending_statuses)
 
-        if has_pending:
-            if ps.status != "processing":
+        stats = ps.stats() if hasattr(ps, "stats") else {}
+        if not isinstance(stats, dict):
+            stats = {}
+
+        is_local_import = ps.account_id is None
+
+        thumbnail_snapshot: Dict[str, Any] | None = None
+        thumbnails_pending = False
+        thumbnails_failed = False
+
+        if is_local_import:
+            recorded_entries = None
+            raw_thumb_stats = stats.get("thumbnails")
+            if isinstance(raw_thumb_stats, dict):
+                recorded_entries = raw_thumb_stats.get("entries")
+            thumbnail_snapshot = build_thumbnail_task_snapshot(ps, recorded_entries)
+            if not isinstance(thumbnail_snapshot, dict):
+                thumbnail_snapshot = None
+            if thumbnail_snapshot:
+                thumbnails_pending = thumbnail_snapshot.get("status") == "progress"
+                thumbnails_failed = thumbnail_snapshot.get("status") == "error"
+
+        status_changed = False
+        if ps.status not in {"canceled", "failed"}:
+            if thumbnails_failed and ps.status != "error":
                 current_app.logger.info(
                     json.dumps(
                         {
                             **status_log_context,
-                            "status_after": "processing",
-                            "reason": "pending_selections_present",
+                            "status_after": "error",
+                            "reason": "thumbnail_generation_failed",
                         },
                         default=str,
                     ),
-                    extra={"event": "pickerSession.status.forceProcessing"},
+                    extra={"event": "pickerSession.status.thumbnailError"},
                 )
-                ps.status = "processing"
+                ps.status = "error"
                 ps.last_progress_at = now
                 ps.updated_at = now
-        elif ps.status in ("processing", "importing", "error", "failed"):
-            new_status = PickerSessionService._determine_completion_status(counts)
-            if new_status and ps.status != new_status:
-                current_app.logger.info(
-                    json.dumps(
-                        {
-                            **status_log_context,
-                            "status_after": new_status,
-                            "reason": "no_pending_and_completion_status_resolved",
+                status_changed = True
+            elif has_pending or thumbnails_pending:
+                if ps.status != "processing":
+                    current_app.logger.info(
+                        json.dumps(
+                            {
+                                **status_log_context,
+                                "status_after": "processing",
+                                "reason": "pending_items_present",
+                            },
+                            default=str,
+                        ),
+                        extra={"event": "pickerSession.status.forceProcessing"},
+                    )
+                    ps.status = "processing"
+                    ps.last_progress_at = now
+                    ps.updated_at = now
+                    status_changed = True
+            elif ps.status in ("processing", "importing", "error", "failed"):
+                new_status = PickerSessionService._determine_completion_status(counts)
+                if new_status and ps.status != new_status:
+                    current_app.logger.info(
+                        json.dumps(
+                            {
+                                **status_log_context,
+                                "status_after": new_status,
+                                "reason": "no_pending_and_completion_status_resolved",
+                            },
+                            default=str,
+                        ),
+                        extra={"event": "pickerSession.status.transition"},
+                    )
+                    ps.status = new_status
+                    ps.last_progress_at = now
+                    ps.updated_at = now
+                    status_changed = True
+
+        stats_changed = False
+        if is_local_import:
+            if not thumbnail_snapshot:
+                thumbnail_snapshot = {
+                    "status": "idle",
+                    "total": 0,
+                    "completed": 0,
+                    "pending": 0,
+                    "failed": 0,
+                    "entries": [],
+                }
+            else:
+                thumbnail_snapshot.setdefault("total", 0)
+                thumbnail_snapshot.setdefault("completed", 0)
+                thumbnail_snapshot.setdefault("pending", 0)
+                thumbnail_snapshot.setdefault("failed", 0)
+                thumbnail_snapshot.setdefault("entries", [])
+
+            pending_remaining = sum(counts.get(status, 0) for status in pending_statuses)
+            import_total = sum(counts.values()) if counts else 0
+            import_success = counts.get("imported", 0)
+            import_skipped = counts.get("dup", 0) + counts.get("skipped", 0)
+            import_failed = counts.get("failed", 0)
+
+            import_task_status = "canceled" if stats.get("cancel_requested") else None
+            if import_task_status is None:
+                if pending_remaining > 0 or thumbnails_pending:
+                    import_task_status = "progress"
+                elif import_failed > 0:
+                    import_task_status = "error"
+                elif import_total > 0:
+                    import_task_status = "completed"
+                else:
+                    import_task_status = "idle"
+
+            tasks_payload: List[Dict[str, Any]] = [
+                {
+                    "key": "import",
+                    "label": "File Import",
+                    "status": import_task_status,
+                    "counts": {
+                        "total": import_total,
+                        "success": import_success,
+                        "skipped": import_skipped,
+                        "failed": import_failed,
+                        "pending": pending_remaining,
+                    },
+                }
+            ]
+
+            if thumbnail_snapshot.get("total") or thumbnail_snapshot.get("status") not in {None, "idle"}:
+                tasks_payload.append(
+                    {
+                        "key": "thumbnails",
+                        "label": "Thumbnail Generation",
+                        "status": thumbnail_snapshot.get("status"),
+                        "counts": {
+                            "total": thumbnail_snapshot.get("total"),
+                            "completed": thumbnail_snapshot.get("completed"),
+                            "pending": thumbnail_snapshot.get("pending"),
+                            "failed": thumbnail_snapshot.get("failed"),
                         },
-                        default=str,
-                    ),
-                    extra={"event": "pickerSession.status.transition"},
+                        "entries": thumbnail_snapshot.get("entries"),
+                    }
                 )
-                ps.status = new_status
-                ps.last_progress_at = now
-                ps.updated_at = now
+
+            if stats.get("tasks") != tasks_payload:
+                stats["tasks"] = tasks_payload
+                stats_changed = True
+
+            if stats.get("thumbnails") != thumbnail_snapshot:
+                stats["thumbnails"] = thumbnail_snapshot
+                stats_changed = True
+
+            stage_before = stats.get("stage")
+            stage_after = stage_before
+            if stage_before == "expanding":
+                if pending_remaining > 0 or thumbnails_pending:
+                    stage_after = "progress"
+            elif stage_before not in {"canceled"}:
+                if thumbnails_failed:
+                    stage_after = "error"
+                elif pending_remaining > 0 or thumbnails_pending:
+                    stage_after = "progress"
+                else:
+                    stage_after = "completed"
+            if stage_after and stage_after != stage_before:
+                stats["stage"] = stage_after
+                stats_changed = True
+
+        if stats_changed:
+            ps.set_stats(stats)
 
         db.session.commit()
 
@@ -329,11 +465,6 @@ class PickerSessionService:
             selected_count_response = sum(counts.values())
         else:
             selected_count_response = ps.selected_count or 0
-        is_local_import = ps.account_id is None
-
-        stats = ps.stats() if hasattr(ps, "stats") else {}
-        if not isinstance(stats, dict):
-            stats = {}
 
         response_status = ps.status
         if is_local_import and isinstance(stats, dict):

@@ -29,6 +29,7 @@
   <div id="session-info" class="text-muted mt-2">
     {{ _("Loading session info...") }}
   </div>
+  <div id="local-import-tasks" class="mt-3 d-none"></div>
 </div>
 
 <div id="import-status" class="mt-3" aria-live="polite"></div>
@@ -164,6 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const sessionTitleEl = document.getElementById('session-title');
   const sessionSubtitleEl = document.getElementById('session-subtitle');
   const localImportStatusEl = document.getElementById('local-import-status');
+  const localImportTasksEl = document.getElementById('local-import-tasks');
   const logSection = document.getElementById('local-import-logs-section');
   const logBody = document.getElementById('local-import-log-body');
   const selectionPaginationEl = document.getElementById('selection-pagination');
@@ -197,14 +199,33 @@ document.addEventListener('DOMContentLoaded', () => {
     canceled: '{{ _("Canceled") }}',
     expired: '{{ _("Expired") }}',
     error: '{{ _("Error") }}',
-    failed: '{{ _("Failed") }}'
+    failed: '{{ _("Failed") }}',
+    progress: '{{ _("In progress") }}',
+    completed: '{{ _("Completed") }}',
+    idle: '{{ _("Idle") }}'
   };
 
   const sessionStageLabels = {
     expanding: '{{ _("Expanding") }}',
     processing: '{{ _("Processing") }}',
-    importing: '{{ _("Importing") }}'
+    importing: '{{ _("Importing") }}',
+    progress: '{{ _("In progress") }}',
+    completed: '{{ _("Completed") }}',
+    error: '{{ _("Error") }}',
+    canceled: '{{ _("Canceled") }}'
   };
+
+  const taskLabelDefault = '{{ _("Task") }}';
+  const taskCountLabels = {
+    total: '{{ _("Total") }}',
+    success: '{{ _("Success") }}',
+    skipped: '{{ _("Skipped") }}',
+    failed: '{{ _("Failed") }}',
+    pending: '{{ _("Pending") }}'
+  };
+  const taskAttentionLabel = '{{ _("Attention") }}';
+  const taskRetryScheduledLabel = '{{ _("Retry scheduled") }}';
+  const taskHiddenEntriesLabel = '{{ _("Additional items hidden") }}';
 
   const noLogsMessage = '{{ _("No logs yet.") }}';
 
@@ -293,6 +314,94 @@ document.addEventListener('DOMContentLoaded', () => {
       default:
         return 'secondary';
     }
+  }
+
+  function resolveStatusLabel(status) {
+    const normalized = (status || '').toString().toLowerCase();
+    return sessionStageLabels[normalized] || sessionStatusLabels[normalized] || status || '-';
+  }
+
+  function renderLocalImportTasks(stats = {}) {
+    if (!localImportTasksEl) {
+      return;
+    }
+
+    const tasks = Array.isArray(stats.tasks) ? stats.tasks : [];
+    if (!isLocalImport || tasks.length === 0) {
+      localImportTasksEl.classList.add('d-none');
+      localImportTasksEl.innerHTML = '';
+      return;
+    }
+
+    localImportTasksEl.classList.remove('d-none');
+
+    const sections = tasks.map((task) => {
+      const statusValue = (task.status || '').toString();
+      const statusLabel = resolveStatusLabel(statusValue);
+      const badgeClass = getStatusBadgeClass(statusValue);
+      const counts = task.counts || {};
+      const countEntries = [];
+
+      ['total', 'success', 'skipped', 'failed', 'pending'].forEach((key) => {
+        const label = taskCountLabels[key];
+        const rawValue = counts[key];
+        if (label && typeof rawValue === 'number') {
+          countEntries.push(`<li>${escapeHtml(label)}: ${rawValue}</li>`);
+        }
+      });
+
+      const countsHtml = countEntries.length
+        ? `<ul class="small mb-0 ps-3">${countEntries.join('')}</ul>`
+        : '';
+
+      const entries = Array.isArray(task.entries) ? task.entries : [];
+      const highlighted = entries.filter((entry) => {
+        const entryStatus = (entry.status || '').toString().toLowerCase();
+        return ['progress', 'error', 'failed'].includes(entryStatus);
+      });
+
+      let entriesHtml = '';
+      if (highlighted.length > 0) {
+        const limited = highlighted.slice(0, 5);
+        const rendered = limited.map((entry) => {
+          const entryStatusLabel = resolveStatusLabel(entry.status);
+          const mediaId = entry.mediaId ? `#${escapeHtml(entry.mediaId)}` : '';
+          const badges = [];
+          if (entry.retryScheduled) {
+            badges.push(taskRetryScheduledLabel);
+          }
+          if (entry.notes) {
+            badges.push(escapeHtml(entry.notes));
+          }
+          const badgeText = badges.length ? ` <span class="text-muted">(${badges.join(', ')})</span>` : '';
+          return `<li>${mediaId ? `<code>${mediaId}</code> ` : ''}${escapeHtml(entryStatusLabel)}${badgeText}</li>`;
+        });
+        if (highlighted.length > limited.length) {
+          rendered.push(`<li class="text-muted">${escapeHtml(taskHiddenEntriesLabel)}</li>`);
+        }
+        entriesHtml = `
+          <div class="mt-2">
+            <strong>${escapeHtml(taskAttentionLabel)}:</strong>
+            <ul class="small mb-0 ps-3">${rendered.join('')}</ul>
+          </div>
+        `;
+      }
+
+      const headerLabel = escapeHtml(task.label || task.key || taskLabelDefault);
+
+      return `
+        <div class="border rounded-3 bg-body-tertiary p-3">
+          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+            <div class="fw-semibold">${headerLabel}</div>
+            <span class="badge bg-${badgeClass}">${escapeHtml(statusLabel)}</span>
+          </div>
+          ${countsHtml}
+          ${entriesHtml}
+        </div>
+      `;
+    });
+
+    localImportTasksEl.innerHTML = `<div class="d-flex flex-column gap-2">${sections.join('')}</div>`;
   }
 
   function formatLogDetails(details) {
@@ -710,6 +819,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     sessionInfoEl.innerHTML = infoParts.join('');
+    renderLocalImportTasks(stats);
     updateLocalImportControls(sessionData);
   }
 

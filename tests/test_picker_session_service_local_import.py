@@ -4,7 +4,7 @@ PickerSessionServiceのローカルインポート対応追加テスト
 
 import json
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import os
 
@@ -16,7 +16,8 @@ from webapp.api.picker_session_service import PickerSessionService
 from webapp.api.pagination import PaginationParams
 from core.models.picker_session import PickerSession
 from core.models.google_account import GoogleAccount
-from core.models.photo_models import PickerSelection
+from core.models.photo_models import PickerSelection, Media, MediaItem
+from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 from core.models.log import Log
 from core.tasks.local_import import local_import_task
 
@@ -520,6 +521,165 @@ class TestPickerSessionServiceLocalImport:
                 .group_by(PickerSelection.status)
             }
             assert counts.get('skipped', 0) >= 1
+
+
+    def test_status_stage_waits_for_thumbnails(self, app):
+        """サムネイル生成が未完了の場合はstageがprogressのままになる"""
+
+        with app.app_context():
+            ps = PickerSession(
+                session_id='thumb-wait-session',
+                status='processing',
+                account_id=None,
+            )
+            db.session.add(ps)
+            db.session.commit()
+
+            media_item = MediaItem(
+                id='local_thumb_media',
+                type='PHOTO',
+                mime_type='image/jpeg',
+                filename='thumb.jpg',
+            )
+            media = Media(
+                google_media_id=media_item.id,
+                account_id=None,
+                local_rel_path='thumb.jpg',
+                filename='thumb.jpg',
+                hash_sha256='a' * 64,
+                bytes=1024,
+                mime_type='image/jpeg',
+                width=800,
+                height=600,
+                is_video=False,
+                imported_at=datetime.now(timezone.utc),
+            )
+            db.session.add_all([media_item, media])
+            db.session.commit()
+
+            selection = PickerSelection(
+                session_id=ps.id,
+                google_media_id=media_item.id,
+                status='imported',
+                finished_at=datetime.now(timezone.utc),
+            )
+            db.session.add(selection)
+            db.session.commit()
+
+            record = CeleryTaskRecord(
+                task_name='thumbnail.retry',
+                object_type='media',
+                object_id=str(media.id),
+                status=CeleryTaskStatus.SCHEDULED,
+                scheduled_for=datetime.now(timezone.utc) + timedelta(minutes=5),
+            )
+            record.set_payload({'attempts': 1})
+            db.session.add(record)
+            db.session.commit()
+
+            payload = PickerSessionService.status(ps)
+
+            refreshed = PickerSession.query.get(ps.id)
+            stats = refreshed.stats()
+
+            assert refreshed.status == 'processing'
+            assert stats.get('stage') == 'progress'
+
+            thumbnail_task = next(
+                (task for task in stats.get('tasks', []) if task.get('key') == 'thumbnails'),
+                None,
+            )
+            assert thumbnail_task is not None
+            assert thumbnail_task.get('status') == 'progress'
+            assert payload['stats']['thumbnails']['status'] == 'progress'
+
+            media.thumbnail_rel_path = 'thumbs/thumb.jpg'
+            db.session.commit()
+
+            payload_after = PickerSessionService.status(refreshed)
+            refreshed_after = PickerSession.query.get(ps.id)
+            stats_after = refreshed_after.stats()
+
+            assert refreshed_after.status == 'imported'
+            assert stats_after.get('stage') == 'completed'
+            thumb_task_after = next(
+                (task for task in stats_after.get('tasks', []) if task.get('key') == 'thumbnails'),
+                None,
+            )
+            assert thumb_task_after is not None
+            assert thumb_task_after.get('status') == 'completed'
+            assert payload_after['stats']['thumbnails']['status'] == 'completed'
+
+    def test_status_stage_marks_error_for_failed_thumbnails(self, app):
+        """サムネイル生成が失敗した場合はstageがerrorになりステータスもerrorになる"""
+
+        with app.app_context():
+            ps = PickerSession(
+                session_id='thumb-error-session',
+                status='processing',
+                account_id=None,
+            )
+            db.session.add(ps)
+            db.session.commit()
+
+            media_item = MediaItem(
+                id='local_thumb_error_media',
+                type='PHOTO',
+                mime_type='image/jpeg',
+                filename='thumb-error.jpg',
+            )
+            media = Media(
+                google_media_id=media_item.id,
+                account_id=None,
+                local_rel_path='thumb-error.jpg',
+                filename='thumb-error.jpg',
+                hash_sha256='b' * 64,
+                bytes=2048,
+                mime_type='image/jpeg',
+                width=1200,
+                height=900,
+                is_video=False,
+                imported_at=datetime.now(timezone.utc),
+            )
+            db.session.add_all([media_item, media])
+            db.session.commit()
+
+            selection = PickerSelection(
+                session_id=ps.id,
+                google_media_id=media_item.id,
+                status='imported',
+                finished_at=datetime.now(timezone.utc),
+            )
+            db.session.add(selection)
+            db.session.commit()
+
+            failed_record = CeleryTaskRecord(
+                task_name='thumbnail.retry',
+                object_type='media',
+                object_id=str(media.id),
+                status=CeleryTaskStatus.FAILED,
+                finished_at=datetime.now(timezone.utc),
+            )
+            failed_record.set_payload({'attempts': 3})
+            failed_record.error_message = 'thumbnail generation failed'
+            db.session.add(failed_record)
+            db.session.commit()
+
+            payload = PickerSessionService.status(ps)
+
+            refreshed = PickerSession.query.get(ps.id)
+            stats = refreshed.stats()
+
+            assert refreshed.status == 'error'
+            assert stats.get('stage') == 'error'
+
+            thumbnail_task = next(
+                (task for task in stats.get('tasks', []) if task.get('key') == 'thumbnails'),
+                None,
+            )
+            assert thumbnail_task is not None
+            assert thumbnail_task.get('status') == 'error'
+            assert payload['stats']['thumbnails']['status'] == 'error'
 
 
 class TestPickerSessionServiceMixedSessions:

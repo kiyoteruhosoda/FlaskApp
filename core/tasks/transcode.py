@@ -28,7 +28,7 @@ from typing import Any, Dict, List, Optional
 
 from core.db import db
 from core.models.photo_models import Media, MediaPlayback
-from core.storage_paths import ensure_directory, first_existing_storage_path
+from core.storage_paths import ensure_preferred_storage_path, first_existing_storage_path
 from .thumbs_generate import thumbs_generate
 
 # transcode専用ロガーを取得（両方のログハンドラーが設定済み）
@@ -49,10 +49,7 @@ def _orig_dir() -> Path:
 
 
 def _play_dir() -> Path:
-    base = first_existing_storage_path("FPV_NAS_PLAY_DIR")
-    if not base:
-        base = "/tmp/fpv_play"
-    return ensure_directory(base)
+    return ensure_preferred_storage_path("FPV_NAS_PLAY_DIR")
 
 
 def _tmp_dir() -> Path:

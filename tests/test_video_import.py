@@ -113,6 +113,8 @@ def _import_video(
     media = Media.query.get(result["media_id"])
     assert media is not None
     assert media.google_media_id == result["media_google_id"]
+    assert result["imported_filename"] == Path(media.local_rel_path).name
+    assert Path(result["imported_path"]) == originals_dir / media.local_rel_path
 
     media_item = MediaItem.query.get(media.google_media_id)
     assert media_item is not None

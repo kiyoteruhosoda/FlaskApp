@@ -82,6 +82,7 @@ ALWAYS_RUN = {
     "tests/test_picker_session_service_local_import.py",
     "tests/test_local_import_duplicate_refresh.py",
     "tests/test_local_import.py",
+    "tests/test_local_import_ui.py",
 }
 
 

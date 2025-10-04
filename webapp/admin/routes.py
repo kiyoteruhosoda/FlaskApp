@@ -55,8 +55,30 @@ def show_data_files():
         ("FPV_NAS_PLAY_DIR", _("Playback Directory")),
         ("LOCAL_IMPORT_DIR", _("Local Import Directory")),
     ]
-    max_entries = 500
+    directory_keys = [config_key for config_key, _ in directory_definitions]
+    selected_key = request.args.get("directory") or directory_keys[0]
+    if selected_key not in directory_keys:
+        selected_key = directory_keys[0]
+
+    default_per_page = 50
+    per_page = request.args.get("per_page", type=int) or default_per_page
+    if per_page <= 0:
+        per_page = default_per_page
+    per_page = min(per_page, 500)
+
+    per_page_options = [25, 50, 100, 200]
+    if per_page not in per_page_options:
+        per_page_select_options = sorted({*per_page_options, per_page})
+    else:
+        per_page_select_options = per_page_options
+
+    filter_query = request.args.get("q", "").strip()
+    page = request.args.get("page", type=int) or 1
+    if page <= 0:
+        page = 1
+
     directories: list[dict] = []
+    selected_directory: dict | None = None
 
     for config_key, label in directory_definitions:
         candidates = storage_path_candidates(config_key)
@@ -64,61 +86,171 @@ def show_data_files():
         effective_base = base_path or (candidates[0] if candidates else None)
         exists = bool(effective_base and Path(effective_base).exists())
 
-        files: list[dict] = []
+        summary = {
+            "config_key": config_key,
+            "label": label,
+            "base_path": effective_base,
+            "candidates": candidates,
+            "exists": exists,
+            "is_selected": config_key == selected_key,
+        }
+        directories.append(summary)
+
+        if not summary["is_selected"]:
+            continue
+
+        selected_directory = dict(summary)
+        selected_directory.update(
+            {
+                "files": [],
+                "total_files": 0,
+                "total_size_bytes": 0,
+                "total_size_display": _format_bytes(0),
+                "matching_size_bytes": 0,
+                "matching_size_display": _format_bytes(0),
+                "filter_active": bool(filter_query),
+                "pagination": {
+                    "page": page,
+                    "per_page": per_page,
+                    "total_pages": 1,
+                    "total_matching": 0,
+                    "start_index": 0,
+                    "end_index": 0,
+                    "has_prev": False,
+                    "has_next": False,
+                    "prev_url": None,
+                    "next_url": None,
+                    "first_url": None,
+                    "last_url": None,
+                    "pages": [],
+                },
+            }
+        )
+
+        if not (effective_base and exists):
+            continue
+
+        base_dir = Path(effective_base)
         total_files = 0
         total_size = 0
-        truncated = False
+        matching_count = 0
+        matching_size = 0
+        page_files: list[dict] = []
+        start_index = (page - 1) * per_page
+        end_index = start_index + per_page
+        lower_query = filter_query.lower()
 
-        if effective_base and exists:
-            base_dir = Path(effective_base)
-            for root, dirs, filenames in os.walk(base_dir):
-                dirs.sort()
-                filenames.sort()
-                for filename in filenames:
-                    total_files += 1
-                    file_path = Path(root) / filename
-                    size = 0
-                    try:
-                        size = file_path.stat().st_size
-                    except OSError:
-                        size = 0
-                    total_size += size
+        for rel_path, size in _iter_directory_entries(base_dir):
+            total_files += 1
+            total_size += size
 
-                    if len(files) >= max_entries:
-                        truncated = True
-                        continue
+            if lower_query and lower_query not in rel_path.lower():
+                continue
 
-                    try:
-                        rel_path = file_path.relative_to(base_dir).as_posix()
-                    except ValueError:
-                        rel_path = file_path.as_posix()
+            if start_index <= matching_count < end_index:
+                page_files.append(
+                    {
+                        "name": rel_path,
+                        "size_bytes": size,
+                        "size_display": _format_bytes(size),
+                    }
+                )
 
-                    files.append(
+            matching_count += 1
+            matching_size += size
+
+        if matching_count:
+            total_pages = (matching_count + per_page - 1) // per_page
+        else:
+            total_pages = 1
+
+        final_page = page
+        if matching_count and page > total_pages:
+            final_page = total_pages
+            start_index = (final_page - 1) * per_page
+            end_index = start_index + per_page
+            page_files = []
+            current_index = 0
+            for rel_path, size in _iter_directory_entries(base_dir):
+                if lower_query and lower_query not in rel_path.lower():
+                    continue
+                if start_index <= current_index < end_index:
+                    page_files.append(
                         {
                             "name": rel_path,
                             "size_bytes": size,
                             "size_display": _format_bytes(size),
                         }
                     )
+                current_index += 1
 
-        directories.append(
+        if not matching_count:
+            final_page = 1
+            start_index = 0
+            end_index = 0
+        else:
+            end_index = min(start_index + per_page, matching_count)
+
+        base_query = {
+            "directory": selected_key,
+            "per_page": per_page,
+        }
+        if filter_query:
+            base_query["q"] = filter_query
+
+        pagination_pages = _build_pagination_pages(final_page, total_pages)
+        pagination_page_links = [
             {
-                "config_key": config_key,
-                "label": label,
-                "base_path": effective_base,
-                "candidates": candidates,
-                "exists": exists,
-                "files": files,
+                "number": number,
+                "url": url_for("admin.show_data_files", **base_query, page=number),
+            }
+            for number in pagination_pages
+        ]
+
+        pagination = {
+            "page": final_page,
+            "per_page": per_page,
+            "total_pages": total_pages,
+            "total_matching": matching_count,
+            "start_index": start_index,
+            "end_index": end_index,
+            "has_prev": final_page > 1,
+            "has_next": final_page < total_pages,
+            "prev_url": url_for("admin.show_data_files", **base_query, page=final_page - 1)
+            if final_page > 1
+            else None,
+            "next_url": url_for("admin.show_data_files", **base_query, page=final_page + 1)
+            if final_page < total_pages
+            else None,
+            "first_url": url_for("admin.show_data_files", **base_query, page=1)
+            if final_page > 1
+            else None,
+            "last_url": url_for("admin.show_data_files", **base_query, page=total_pages)
+            if final_page < total_pages
+            else None,
+            "pages": pagination_page_links,
+        }
+
+        selected_directory.update(
+            {
+                "files": page_files,
                 "total_files": total_files,
                 "total_size_bytes": total_size,
                 "total_size_display": _format_bytes(total_size),
-                "truncated": truncated,
-                "remaining_count": max(total_files - len(files), 0),
-                "limit": max_entries,
+                "matching_size_bytes": matching_size,
+                "matching_size_display": _format_bytes(matching_size),
+                "pagination": pagination,
             }
         )
 
-    return render_template("admin/data_files.html", directories=directories)
+    return render_template(
+        "admin/data_files.html",
+        directories=directories,
+        selected_directory=selected_directory,
+        filter_query=filter_query,
+        per_page=per_page,
+        per_page_options=per_page_select_options,
+    )
 
 # TOTPリセット
 @bp.route("/user/<int:user_id>/reset-totp", methods=["POST"])
@@ -433,3 +565,32 @@ def _format_bytes(num: int) -> str:
             return f"{value:.1f} {unit}"
         value /= step
     return f"{value:.1f} PB"
+
+
+def _iter_directory_entries(base_dir: Path):
+    """指定ディレクトリ内のファイルをソートして列挙."""
+
+    for root, dirs, filenames in os.walk(base_dir):
+        dirs.sort()
+        filenames.sort()
+        for filename in filenames:
+            file_path = Path(root) / filename
+            try:
+                size = file_path.stat().st_size
+            except OSError:
+                size = 0
+            try:
+                rel_path = file_path.relative_to(base_dir).as_posix()
+            except ValueError:
+                rel_path = file_path.as_posix()
+            yield rel_path, size
+
+
+def _build_pagination_pages(page: int, total_pages: int, window: int = 2) -> list[int]:
+    """ページ番号の表示用リストを生成."""
+
+    if total_pages <= 0:
+        return [1]
+    start = max(page - window, 1)
+    end = min(page + window, total_pages)
+    return list(range(start, end + 1))

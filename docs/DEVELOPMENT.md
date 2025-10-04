@@ -389,6 +389,22 @@ redis-cli ping
 redis-cli llen celery
 ```
 
+#### 5.4.3 データベースに保存されたタスク一覧
+Celeryタスクの永続化テーブルに記録された内容を確認するには、次のスクリプトを使用します。
+
+```bash
+# 直近のタスク一覧を表形式で確認
+python -m cli.src.celery.inspect_tasks
+
+# 実行中・待機中タスクのみを抽出
+python -m cli.src.celery.inspect_tasks --pending
+
+# JSON形式で全件取得（監視ツール連携など）
+python -m cli.src.celery.inspect_tasks --json --limit 0
+```
+
+`--include-payload` や `--include-result` を付けると、レコードに保存された詳細JSONも出力されます。
+
 ### 5.5 Redis の起動確認（開発環境）
 
 CeleryのブローカーとしてRedisが必要です。

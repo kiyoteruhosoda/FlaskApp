@@ -1240,6 +1240,7 @@ def import_single_file(
             destination=dest_path,
             imported_path=dest_path,
             imported_filename=imported_filename,
+            relative_path=rel_path,
             session_id=session_id,
             status="copied",
         )
@@ -1366,6 +1367,7 @@ def import_single_file(
         result["reason"] = "取り込み成功"
         result["imported_filename"] = imported_filename
         result["imported_path"] = dest_path
+        result["relative_path"] = rel_path
 
         _log_info(
             "local_import.file.success",

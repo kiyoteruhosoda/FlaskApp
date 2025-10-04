@@ -98,6 +98,22 @@ celery -A cli.src.celery.tasks worker --loglevel=info
 celery -A cli.src.celery.tasks beat --loglevel=info
 ```
 
+### 📊 Celeryタスクの状況確認
+アプリケーションのデータベースに保存されたCeleryタスクの状態は、次のヘルパースクリプトで一覧できます。
+
+```bash
+# 直近50件（デフォルト）のタスクをテーブル表示
+python -m cli.src.celery.inspect_tasks
+
+# 実行中・待機中タスクだけを確認
+python -m cli.src.celery.inspect_tasks --pending
+
+# JSON形式で全タスクを取得
+python -m cli.src.celery.inspect_tasks --json --limit 0
+```
+
+`--include-payload` や `--include-result` を付与すると、各レコードに保存されている詳細情報も確認できます。
+
 ### 初期ユーザー
 マスタデータ投入後、以下でログイン可能：
 - **Email**: `admin@example.com`

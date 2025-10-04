@@ -128,6 +128,30 @@ def _with_session(details: Dict[str, Any], session_id: Optional[str]) -> Dict[st
     return merged
 
 
+def _file_log_context(file_path: Optional[str], filename: Optional[str] = None) -> Dict[str, Any]:
+    """ファイル関連ログに共通のコンテキストを生成する。"""
+
+    context: Dict[str, Any] = {}
+    base_name = filename
+
+    if not base_name and file_path:
+        base_name = os.path.basename(file_path)
+
+    display_value = file_path or base_name
+
+    if display_value:
+        context["file"] = display_value
+
+    if file_path:
+        context["file_path"] = file_path
+        if base_name and base_name != file_path:
+            context["basename"] = base_name
+    elif base_name:
+        context["basename"] = base_name
+
+    return context
+
+
 def _log_info(
     event: str,
     message: str,
@@ -973,11 +997,13 @@ def import_single_file(
         "media_google_id": None,
         "metadata_refreshed": False,
     }
-    
+
+    file_context = _file_log_context(file_path)
+
     _log_info(
         "local_import.file.begin",
         "ローカルファイルの取り込みを開始",
-        file_path=file_path,
+        **file_context,
         import_dir=import_dir,
         originals_dir=originals_dir,
         session_id=session_id,
@@ -991,7 +1017,7 @@ def import_single_file(
             _log_warning(
                 "local_import.file.missing",
                 "取り込み対象ファイルが見つかりません",
-                file_path=file_path,
+                **file_context,
                 session_id=session_id,
                 status="missing",
             )
@@ -1004,7 +1030,7 @@ def import_single_file(
             _log_warning(
                 "local_import.file.unsupported",
                 "サポート対象外拡張子のためスキップ",
-                file_path=file_path,
+                **file_context,
                 extension=file_extension,
                 session_id=session_id,
                 status="unsupported",
@@ -1018,7 +1044,7 @@ def import_single_file(
             _log_warning(
                 "local_import.file.empty",
                 "ファイルサイズが0のためスキップ",
-                file_path=file_path,
+                **file_context,
                 session_id=session_id,
                 status="skipped",
             )
@@ -1046,7 +1072,7 @@ def import_single_file(
                 _log_error(
                     "local_import.file.duplicate_refresh_failed",
                     "重複ファイルのメタデータ更新中にエラーが発生",
-                    file_path=file_path,
+                    **file_context,
                     media_id=existing_media.id,
                     error_type=type(refresh_exc).__name__,
                     error_message=str(refresh_exc),
@@ -1062,7 +1088,7 @@ def import_single_file(
                     _log_info(
                         "local_import.file.duplicate_refreshed",
                         "重複ファイルから既存メディアのメタデータを更新",
-                        file_path=file_path,
+                        **file_context,
                         media_id=existing_media.id,
                         session_id=session_id,
                         status="duplicate_refreshed",
@@ -1072,7 +1098,7 @@ def import_single_file(
                         _log_info(
                             "local_import.file.duplicate_source_removed",
                             "重複ファイルのソースを削除",
-                            file_path=file_path,
+                            **file_context,
                             media_id=existing_media.id,
                             session_id=session_id,
                             status="cleaned",
@@ -1083,7 +1109,7 @@ def import_single_file(
                         _log_warning(
                             "local_import.file.duplicate_source_remove_failed",
                             "重複ファイル削除に失敗",
-                            file_path=file_path,
+                            **file_context,
                             media_id=existing_media.id,
                             error_type=type(cleanup_exc).__name__,
                             error_message=str(cleanup_exc),
@@ -1094,7 +1120,7 @@ def import_single_file(
                     _log_info(
                         "local_import.file.duplicate",
                         "重複ファイルを検出したためスキップ",
-                        file_path=file_path,
+                        **file_context,
                         media_id=existing_media.id,
                         session_id=session_id,
                         status="duplicate",
@@ -1178,7 +1204,7 @@ def import_single_file(
         _log_info(
             "local_import.file.copied",
             "ファイルを保存先にコピーしました",
-            file_path=file_path,
+            **file_context,
             destination=dest_path,
             session_id=session_id,
             status="copied",
@@ -1255,7 +1281,7 @@ def import_single_file(
                     _log_warning(
                         "local_import.file.playback_skipped",
                         "動画の再生ファイル生成をスキップ",
-                        file_path=file_path,
+                        **file_context,
                         media_id=media.id,
                         note=note,
                         session_id=session_id,
@@ -1295,7 +1321,7 @@ def import_single_file(
         _log_info(
             "local_import.file.source_removed",
             "取り込み完了後に元ファイルを削除",
-            file_path=file_path,
+            **file_context,
             session_id=session_id,
             status="cleaned",
         )
@@ -1308,7 +1334,7 @@ def import_single_file(
         _log_info(
             "local_import.file.success",
             "ローカルファイルの取り込みが完了",
-            file_path=file_path,
+            **file_context,
             media_id=media.id,
             relative_path=rel_path,
             session_id=session_id,
@@ -1320,7 +1346,7 @@ def import_single_file(
         _log_error(
             "local_import.file.failed",
             "ローカルファイル取り込み中にエラーが発生",
-            file_path=file_path,
+            **file_context,
             error_type=type(e).__name__,
             error_message=str(e),
             exc_info=True,
@@ -1365,6 +1391,7 @@ def scan_import_directory(import_dir: str, *, session_id: Optional[str] = None) 
         for filename in filenames:
             file_path = os.path.join(root, filename)
             file_extension = Path(filename).suffix.lower()
+            file_context = _file_log_context(file_path, filename)
 
             if file_extension in SUPPORTED_EXTENSIONS:
                 files.append(file_path)
@@ -1373,7 +1400,7 @@ def scan_import_directory(import_dir: str, *, session_id: Optional[str] = None) 
                     "取り込み対象ファイルを検出",
                     session_id=session_id,
                     status="scanning",
-                    file_path=file_path,
+                    **file_context,
                     extension=file_extension,
                 )
             elif file_extension == ".zip":
@@ -1392,7 +1419,7 @@ def scan_import_directory(import_dir: str, *, session_id: Optional[str] = None) 
                     "サポート対象外のファイルをスキップ",
                     session_id=session_id,
                     status="skipped",
-                    file_path=file_path,
+                    **file_context,
                     extension=file_extension,
                 )
 
@@ -1523,6 +1550,7 @@ def _enqueue_local_import_selections(
     enqueued = 0
     for file_path in file_paths:
         filename = os.path.basename(file_path)
+        file_context = _file_log_context(file_path, filename)
         selection = existing.get(file_path)
         if selection is None:
             selection = PickerSelection(
@@ -1541,7 +1569,7 @@ def _enqueue_local_import_selections(
                 "local_import.selection.created",
                 "取り込み対象ファイルのSelectionを作成",
                 session_db_id=session.id,
-                file_path=file_path,
+                **file_context,
                 selection_id=selection.id,
                 session_id=active_session_id,
                 celery_task_id=celery_task_id,
@@ -1558,7 +1586,7 @@ def _enqueue_local_import_selections(
                 "local_import.selection.requeued",
                 "既存Selectionを再キュー",
                 session_db_id=session.id,
-                file_path=file_path,
+                **file_context,
                 selection_id=selection.id,
                 session_id=active_session_id,
                 celery_task_id=celery_task_id,
@@ -1631,6 +1659,8 @@ def _process_local_import_queue(
     for index, selection in enumerate(selections, 1):
         file_path = selection.local_file_path
         filename = selection.local_filename or (os.path.basename(file_path) if file_path else f"selection_{selection.id}")
+        file_context = _file_log_context(file_path, filename)
+        display_file = file_context.get("file") or filename
 
         if _session_cancel_requested(session, task_instance=task_instance):
             _log_info(
@@ -1666,7 +1696,7 @@ def _process_local_import_queue(
                 "local_import.selection.running",
                 "Selectionを処理中に更新",
                 selection_id=selection.id,
-                file_path=file_path,
+                **file_context,
                 session_id=active_session_id,
                 celery_task_id=celery_task_id,
             )
@@ -1676,7 +1706,7 @@ def _process_local_import_queue(
                 "local_import.selection.running_update_failed",
                 "Selectionを処理中に更新できませんでした",
                 selection_id=getattr(selection, "id", None),
-                file_path=file_path,
+                **file_context,
                 error_type=type(exc).__name__,
                 error_message=str(exc),
                 session_id=active_session_id,
@@ -1691,11 +1721,14 @@ def _process_local_import_queue(
         )
 
         detail = {
-            "file": filename,
+            "file": display_file,
             "status": "success" if file_result["success"] else "failed",
             "reason": file_result["reason"],
             "media_id": file_result.get("media_id"),
         }
+        basename = file_context.get("basename")
+        if basename and basename != detail["file"]:
+            detail["basename"] = basename
         result["details"].append(detail)
 
         try:
@@ -1710,7 +1743,7 @@ def _process_local_import_queue(
                 _log_info(
                     "local_import.file.processed_success",
                     "ファイルの取り込みに成功",
-                    file_path=file_path,
+                    **file_context,
                     media_id=file_result.get("media_id"),
                     session_id=active_session_id,
                     celery_task_id=celery_task_id,
@@ -1735,7 +1768,7 @@ def _process_local_import_queue(
                             _log_info(
                                 "local_import.file.duplicate_cleanup",
                                 "重複ファイルの元ファイルを削除",
-                                file_path=file_path,
+                                **file_context,
                                 session_id=active_session_id,
                                 celery_task_id=celery_task_id,
                             )
@@ -1743,7 +1776,7 @@ def _process_local_import_queue(
                         _log_warning(
                             "local_import.file.duplicate_cleanup_failed",
                             "重複ファイルの削除に失敗",
-                            file_path=file_path,
+                            **file_context,
                             session_id=active_session_id,
                             celery_task_id=celery_task_id,
                         )
@@ -1753,11 +1786,11 @@ def _process_local_import_queue(
                     selection.finished_at = datetime.now(timezone.utc)
                     selection.attempts = (selection.attempts or 0) + 1
                     result["failed"] += 1
-                    result["errors"].append(f"{file_path}: {reason}")
+                    result["errors"].append(f"{display_file}: {reason}")
                     _log_warning(
                         "local_import.file.processed_failed",
                         "ファイルの取り込みに失敗",
-                        file_path=file_path,
+                        **file_context,
                         reason=reason,
                         session_id=active_session_id,
                         celery_task_id=celery_task_id,
@@ -1768,7 +1801,7 @@ def _process_local_import_queue(
                 "local_import.selection.updated",
                 "Selectionの状態を更新",
                 selection_id=selection.id,
-                file_path=file_path,
+                **file_context,
                 status=selection.status,
                 session_id=active_session_id,
                 celery_task_id=celery_task_id,
@@ -1778,7 +1811,7 @@ def _process_local_import_queue(
             _log_error(
                 "local_import.selection.update_failed",
                 "Selectionの状態更新に失敗",
-                file_path=file_path,
+                **file_context,
                 selection_id=getattr(selection, "id", None),
                 error_type=type(e).__name__,
                 error_message=str(e),
@@ -1791,7 +1824,7 @@ def _process_local_import_queue(
             task_instance.update_state(
                 state="PROGRESS",
                 meta={
-                    "status": f"ファイル処理中: {filename}",
+                    "status": f"ファイル処理中: {display_file}",
                     "progress": progress,
                     "current": index,
                     "total": total_files,

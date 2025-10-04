@@ -2,8 +2,10 @@
 ローカルインポートのSession Detail UI テスト
 """
 
+import importlib
 import json
 import os
+import shutil
 import tempfile
 import zipfile
 from datetime import datetime, timezone
@@ -12,12 +14,13 @@ from unittest.mock import patch
 
 import pytest
 
+import webapp.config as config_module
 from webapp import create_app
 from webapp.extensions import db
 from core.models.picker_session import PickerSession
 from core.models.photo_models import PickerSelection
 from core.models.log import Log
-from core.tasks.local_import import local_import_task
+from core.tasks import local_import as local_import_module
 
 
 @pytest.fixture
@@ -50,15 +53,23 @@ def app():
         for key, value in test_config.items():
             old_env[key] = os.environ.get(key)
             os.environ[key] = str(value)
-        
+
         try:
+            importlib.reload(config_module)
+            importlib.reload(local_import_module)
             app = create_app()
             app.config.update(test_config)
-            
+
             with app.app_context():
+                logger_obj = getattr(local_import_module, "logger", None)
+                if logger_obj is not None:
+                    for handler in getattr(logger_obj, "handlers", []):
+                        bind = getattr(handler, "bind_to_app", None)
+                        if callable(bind):
+                            bind(app)
                 db.create_all()
                 yield app
-                
+
         finally:
             # 環境変数を復元
             for key, old_value in old_env.items():
@@ -81,7 +92,7 @@ class TestSessionDetailAPI:
         
         with app.app_context():
             # ローカルインポート実行
-            result = local_import_task()
+            result = local_import_module.local_import_task()
             session_id = result['session_id']
         
         # セッション一覧API呼び出し
@@ -113,7 +124,7 @@ class TestSessionDetailAPI:
         
         with app.app_context():
             # ローカルインポート実行
-            result = local_import_task()
+            result = local_import_module.local_import_task()
             session_id = result['session_id']
         
         # セッション状態API呼び出し
@@ -140,7 +151,7 @@ class TestSessionDetailAPI:
 
         with app.app_context():
             # ローカルインポート実行
-            result = local_import_task()
+            result = local_import_module.local_import_task()
             session_id = result['session_id']
 
         # セッション選択一覧API呼び出し
@@ -178,7 +189,7 @@ class TestSessionDetailAPI:
             sess['_fresh'] = True
 
         with app.app_context():
-            result = local_import_task()
+            result = local_import_module.local_import_task()
             session_id = result['session_id']
             picker_session = PickerSession.query.filter_by(session_id=session_id).first()
             selection = PickerSelection.query.filter_by(session_id=picker_session.id).first()
@@ -231,7 +242,7 @@ class TestSessionDetailAPI:
             sess['_fresh'] = True
 
         with app.app_context():
-            result = local_import_task()
+            result = local_import_module.local_import_task()
             session_id = result['session_id']
 
         response = client.get(f'/api/picker/session/{session_id}/logs?limit=50')
@@ -243,6 +254,72 @@ class TestSessionDetailAPI:
         assert logs, '少なくとも1件のログが返されること'
         assert all('status' in entry for entry in logs)
         assert any(entry.get('status') for entry in logs)
+
+    def test_session_logs_include_full_file_path(self, app):
+        """ログにフルパスのファイル情報が含まれることを確認"""
+
+        client = app.test_client()
+
+        with client.session_transaction() as sess:
+            sess['_user_id'] = '1'
+            sess['_fresh'] = True
+
+        import_dir = Path(app.config['LOCAL_IMPORT_DIR'])
+
+        # 既存ファイルをクリーンアップ
+        for child in list(import_dir.iterdir()):
+            if child.is_file():
+                child.unlink()
+            elif child.is_dir():
+                shutil.rmtree(child)
+
+        nested_dir = import_dir / 'nested'
+        nested_dir.mkdir(parents=True, exist_ok=True)
+        target_file = nested_dir / 'full_path_test.jpg'
+        target_file.write_bytes(b'log-path-test')
+
+        with app.app_context():
+            result = local_import_module.local_import_task()
+            session_id = result['session_id']
+
+        target_path_str = str(target_file)
+
+        detail_entry = next(
+            (detail for detail in result['details'] if detail.get('file') == target_path_str),
+            None,
+        )
+        assert detail_entry is not None, '結果詳細に対象ファイルが含まれていること'
+
+        originals_dir = Path(app.config['FPV_NAS_ORIGINALS_DIR'])
+        stored_files = [p for p in originals_dir.rglob('*') if p.is_file()]
+        assert len(stored_files) == 1, '保存先に1件のファイルが存在すること'
+        stored_path = stored_files[0]
+
+        assert detail_entry.get('stored_file_path') == str(stored_path)
+        assert detail_entry.get('stored_filename') == stored_path.name
+        assert detail_entry.get('stored_relative_path') == str(stored_path.relative_to(originals_dir))
+
+        response = client.get(f'/api/picker/session/{session_id}/logs?limit=50')
+        assert response.status_code == 200
+
+        payload = response.get_json()
+        logs = payload.get('logs', [])
+
+        success_entries = [
+            entry for entry in logs if entry.get('event') == 'local_import.file.processed_success'
+        ]
+        assert success_entries, '成功ログが少なくとも1件含まれていること'
+
+        matched_entry = next(
+            (entry for entry in success_entries if entry.get('details', {}).get('file') == target_path_str),
+            None,
+        )
+        assert matched_entry is not None, 'ログにフルパスが含まれていること'
+        log_details = matched_entry.get('details', {})
+        assert log_details.get('file_path') == target_path_str
+        assert log_details.get('stored_file_path') == str(stored_path)
+        assert log_details.get('stored_filename') == stored_path.name
+        assert log_details.get('stored_relative_path') == str(stored_path.relative_to(originals_dir))
     
     def test_session_import_api_blocked_for_local_import(self, app):
         """ローカルインポートセッションでインポートAPIがブロックされることをテスト"""
@@ -254,7 +331,7 @@ class TestSessionDetailAPI:
         
         with app.app_context():
             # ローカルインポート実行
-            result = local_import_task()
+            result = local_import_module.local_import_task()
             session_id = result['session_id']
         
         # インポートAPI呼び出し（ローカルインポートセッションでは無効）
@@ -335,7 +412,7 @@ class TestSessionDetailAPI:
             archive.writestr("images/inside.jpg", b"fake image data")
 
         with app.app_context():
-            result = local_import_task()
+            result = local_import_module.local_import_task()
             session_id = result['session_id']
 
         response = client.get(f'/api/picker/session/{session_id}/logs?limit=20')
@@ -367,7 +444,7 @@ class TestSessionDetailUI:
         
         with app.app_context():
             # ローカルインポート実行
-            result = local_import_task()
+            result = local_import_module.local_import_task()
             session_id = result['session_id']
         
         # セッション詳細ページ呼び出し
@@ -395,7 +472,7 @@ class TestSessionDetailUI:
         
         with app.app_context():
             # ローカルインポート実行
-            result = local_import_task()
+            result = local_import_module.local_import_task()
             session_id = result['session_id']
         
         # ホームページ呼び出し
@@ -430,7 +507,7 @@ class TestLocalImportIntegration:
         
         # 2. ローカルインポート実行
         with app.app_context():
-            result = local_import_task()
+            result = local_import_module.local_import_task()
             session_id = result['session_id']
             assert result['ok'] is True
             assert result['success'] == 1

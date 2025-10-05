@@ -357,7 +357,7 @@ class PickerSessionService:
                     ps.last_progress_at = now
                     ps.updated_at = now
                     status_changed = True
-            elif ps.status in ("processing", "importing", "error", "failed"):
+            elif ps.status in ("processing", "importing", "error", "failed", "pending"):
                 new_status = PickerSessionService._determine_completion_status(counts)
                 if new_status and ps.status != new_status:
                     current_app.logger.info(

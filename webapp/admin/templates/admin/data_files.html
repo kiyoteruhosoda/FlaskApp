@@ -13,18 +13,57 @@
         </h1>
       </div>
 
-      {% if directories %}
-      <p class="text-muted">{{ _('Up to %(limit)d files are shown for each directory.', limit=directories[0].limit) }}</p>
-      {% endif %}
+      {% if not directories %}
+      <div class="alert alert-info">{{ _('No directory information is available.') }}</div>
+      {% else %}
+      <form method="get" class="card mb-4">
+        <div class="card-body">
+          <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+              <label for="directory" class="form-label">{{ _('Directory') }}</label>
+              <select class="form-select" id="directory" name="directory">
+                {% for directory in directories %}
+                <option value="{{ directory.config_key }}" {% if directory.is_selected %}selected{% endif %}>
+                  {{ directory.label }}
+                  {% if directory.exists %}
+                    ({{ _('Found') }})
+                  {% else %}
+                    ({{ _('Missing') }})
+                  {% endif %}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label for="q" class="form-label">{{ _('Filter files') }}</label>
+              <input type="text" class="form-control" id="q" name="q" value="{{ filter_query }}" placeholder="{{ _('Enter part of the path...') }}">
+            </div>
+            <div class="col-md-2">
+              <label for="per_page" class="form-label">{{ _('Per page') }}</label>
+              <select class="form-select" id="per_page" name="per_page">
+                {% for option in per_page_options %}
+                <option value="{{ option }}" {% if option == per_page %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-2 text-md-end">
+              <button type="submit" class="btn btn-primary w-100">
+                <i class="bi bi-funnel me-1"></i>
+                {{ _('Apply') }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </form>
 
-      {% for directory in directories %}
+      {% if selected_directory %}
       <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
           <div>
-            <h2 class="h5 mb-0">{{ directory.label }}</h2>
-            <div class="small text-muted">{{ _('Config key: %(key)s', key=directory.config_key) }}</div>
+            <h2 class="h5 mb-0">{{ selected_directory.label }}</h2>
+            <div class="small text-muted">{{ _('Config key: %(key)s', key=selected_directory.config_key) }}</div>
           </div>
-          {% if directory.exists %}
+          {% if selected_directory.exists %}
           <span class="badge bg-success">{{ _('Found') }}</span>
           {% else %}
           <span class="badge bg-danger">{{ _('Missing') }}</span>
@@ -33,40 +72,52 @@
         <div class="card-body">
           <p class="mb-2">
             <strong>{{ _('Base path') }}:</strong>
-            {% if directory.base_path %}
-              <code>{{ directory.base_path }}</code>
+            {% if selected_directory.base_path %}
+              <code>{{ selected_directory.base_path }}</code>
             {% else %}
               <span class="text-muted">{{ _('Not configured') }}</span>
             {% endif %}
           </p>
 
-          {% if directory.candidates %}
+          {% if selected_directory.candidates %}
           <p class="mb-2">
             <strong>{{ _('Candidate paths') }}:</strong>
-            {% for candidate in directory.candidates %}
+            {% for candidate in selected_directory.candidates %}
               <code class="me-2">{{ candidate }}</code>
             {% endfor %}
           </p>
           {% endif %}
 
-          <p class="mb-3">
+          <div class="mb-3">
             <span class="me-3">
-              <strong>{{ _('File count') }}:</strong>
-              {{ directory.total_files }}
+              <strong>{{ _('Total files (all)') }}:</strong>
+              {{ selected_directory.total_files }}
+            </span>
+            <span class="me-3">
+              <strong>{{ _('Total size (all)') }}:</strong>
+              {{ selected_directory.total_size_display }}
             </span>
             <span>
-              <strong>{{ _('Total size') }}:</strong>
-              {{ directory.total_size_display }}
+              <strong>{{ _('Matching files') }}:</strong>
+              {{ selected_directory.pagination.total_matching }}
             </span>
-          </p>
+            <span class="ms-3">
+              <strong>{{ _('Matching size') }}:</strong>
+              {{ selected_directory.matching_size_display }}
+            </span>
+          </div>
 
-          {% if not directory.exists %}
+          {% if not selected_directory.exists %}
           <div class="alert alert-warning mb-0">
             {{ _('The directory does not exist. Please check the NAS mount or configuration.') }}
           </div>
-          {% elif directory.total_files == 0 %}
+          {% elif selected_directory.pagination.total_matching == 0 %}
           <div class="alert alert-info mb-0">
-            {{ _('No files found in this directory.') }}
+            {% if selected_directory.filter_active %}
+              {{ _('No files matched the current filter.') }}
+            {% else %}
+              {{ _('No files found in this directory.') }}
+            {% endif %}
           </div>
           {% else %}
           <div class="table-responsive">
@@ -78,7 +129,7 @@
                 </tr>
               </thead>
               <tbody>
-                {% for file in directory.files %}
+                {% for file in selected_directory.files %}
                 <tr>
                   <td><code>{{ file.name }}</code></td>
                   <td class="text-end"><span class="badge bg-secondary">{{ file.size_display }}</span></td>
@@ -87,18 +138,37 @@
               </tbody>
             </table>
           </div>
-          {% if directory.truncated %}
-          <div class="alert alert-secondary mt-3 mb-0">
-            {{ _('Showing the first %(limit)d files. %(remaining)d additional files are not displayed.', limit=directory.limit, remaining=directory.remaining_count) }}
+
+          <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mt-3">
+            <div class="text-muted small mb-2 mb-md-0">
+              {{ _('Showing %(start)d-%(end)d of %(total)d files.', start=selected_directory.pagination.start_index + 1 if selected_directory.pagination.start_index < selected_directory.pagination.end_index else 0, end=selected_directory.pagination.end_index, total=selected_directory.pagination.total_matching) }}
+            </div>
+            <nav aria-label="{{ _('File pagination') }}">
+              <ul class="pagination pagination-sm mb-0">
+                <li class="page-item {% if not selected_directory.pagination.first_url %}disabled{% endif %}">
+                  <a class="page-link" href="{% if selected_directory.pagination.first_url %}{{ selected_directory.pagination.first_url }}{% else %}#{% endif %}" aria-label="{{ _('First') }}">&laquo;</a>
+                </li>
+                <li class="page-item {% if not selected_directory.pagination.prev_url %}disabled{% endif %}">
+                  <a class="page-link" href="{% if selected_directory.pagination.prev_url %}{{ selected_directory.pagination.prev_url }}{% else %}#{% endif %}" aria-label="{{ _('Previous') }}">{{ _('Previous') }}</a>
+                </li>
+                {% for page_link in selected_directory.pagination.pages %}
+                <li class="page-item {% if page_link.number == selected_directory.pagination.page %}active{% endif %}">
+                  <a class="page-link" href="{{ page_link.url }}">{{ page_link.number }}</a>
+                </li>
+                {% endfor %}
+                <li class="page-item {% if not selected_directory.pagination.next_url %}disabled{% endif %}">
+                  <a class="page-link" href="{% if selected_directory.pagination.next_url %}{{ selected_directory.pagination.next_url }}{% else %}#{% endif %}" aria-label="{{ _('Next') }}">{{ _('Next') }}</a>
+                </li>
+                <li class="page-item {% if not selected_directory.pagination.last_url %}disabled{% endif %}">
+                  <a class="page-link" href="{% if selected_directory.pagination.last_url %}{{ selected_directory.pagination.last_url }}{% else %}#{% endif %}" aria-label="{{ _('Last') }}">&raquo;</a>
+                </li>
+              </ul>
+            </nav>
           </div>
-          {% endif %}
           {% endif %}
         </div>
       </div>
-      {% endfor %}
-
-      {% if not directories %}
-      <div class="alert alert-info">{{ _('No directory information is available.') }}</div>
+      {% endif %}
       {% endif %}
     </div>
   </div>

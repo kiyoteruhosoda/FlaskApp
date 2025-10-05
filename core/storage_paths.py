@@ -122,3 +122,20 @@ def ensure_directory(path: str | Path) -> Path:
     directory = Path(path)
     directory.mkdir(parents=True, exist_ok=True)
     return directory
+
+
+def ensure_preferred_storage_path(config_key: str) -> Path:
+    """Ensure and return the highest priority storage path for *config_key*."""
+
+    last_error: OSError | None = None
+    for candidate in storage_path_candidates(config_key):
+        try:
+            return ensure_directory(candidate)
+        except OSError as exc:  # pragma: no cover - defensive
+            last_error = exc
+            continue
+
+    if last_error:
+        raise last_error
+
+    raise RuntimeError(f"No storage directory candidates available for {config_key}")

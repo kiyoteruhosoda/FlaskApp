@@ -1,27 +1,13 @@
-"""
-ローカルファイル取り込みタスク
-固定ディレクトリからファイルを走査し、メディアとして取り込む
-"""
+"""ローカルファイル取り込みタスク."""
 
-import os
-import hashlib
-import shutil
 import json
 import logging
-import subprocess
-import tempfile
-import uuid
-import zipfile
+import os
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-from core.utils import open_image_compat, register_heif_support
-
-register_heif_support()
-
-from PIL import Image
-from PIL.ExifTags import TAGS
 from flask import current_app
 
 from core.db import db
@@ -37,15 +23,35 @@ from core.models.photo_models import (
 from core.models.job_sync import JobSync
 from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 from core.models.picker_session import PickerSession
-from core.utils import get_file_date_from_name, get_file_date_from_exif
-from core.logging_config import setup_task_logging, log_task_error, log_task_info
+from core.logging_config import log_task_error, log_task_info, setup_task_logging
+from core.storage_paths import first_existing_storage_path, storage_path_candidates
 from core.tasks.media_post_processing import (
     enqueue_thumbs_generate,
     process_media_post_import,
 )
 from core.tasks.thumbs_generate import thumbs_generate as _thumbs_generate
-from core.storage_paths import first_existing_storage_path, storage_path_candidates
+from core.utils import get_file_date_from_exif, get_file_date_from_name
 from webapp.config import Config
+
+from domain.local_import.logging import (
+    compose_message as _compose_message,
+    existing_media_destination_context as _existing_media_destination_context,
+    file_log_context as _file_log_context,
+    serialize_details as _serialize_details,
+    with_session as _with_session,
+)
+from domain.local_import.entities import ImportFile, ImportOutcome
+from domain.local_import.media_metadata import (
+    calculate_file_hash,
+    extract_exif_data,
+    extract_video_metadata,
+    generate_filename,
+    get_image_dimensions,
+    get_relative_path,
+    parse_ffprobe_datetime,
+)
+from domain.local_import.zip_archive import ZipArchiveService
+from domain.local_import.session import LocalImportSessionService
 
 # Re-export ``thumbs_generate`` so tests can monkeypatch the function without
 # reaching into the deeper module.  The helper is still invoked via
@@ -92,100 +98,6 @@ def _is_recoverable_playback_failure(note: str) -> bool:
         return True
 
     return False
-
-
-def _serialize_details(details: Dict[str, Any]) -> str:
-    """詳細情報をJSON文字列へ変換。失敗時は文字列表現を返す。"""
-    if not details:
-        return ""
-
-    try:
-        return json.dumps(details, ensure_ascii=False, default=str)
-    except TypeError:
-        return str(details)
-
-
-def _compose_message(
-    message: str,
-    details: Dict[str, Any],
-    status: Optional[str] = None,
-) -> str:
-    """メッセージと詳細を結合してログに出力する文字列を生成。"""
-
-    payload = details
-    if status is not None:
-        payload = dict(details)
-        payload.setdefault("status", status)
-
-    serialized = _serialize_details(payload)
-    if not serialized:
-        return message
-    return f"{message} | details={serialized}"
-
-
-def _with_session(details: Dict[str, Any], session_id: Optional[str]) -> Dict[str, Any]:
-    """ログ詳細に session_id を追加した辞書を返す。"""
-
-    merged = dict(details)
-    if session_id is not None and "session_id" not in merged:
-        merged["session_id"] = session_id
-    return merged
-
-
-def _file_log_context(file_path: Optional[str], filename: Optional[str] = None) -> Dict[str, Any]:
-    """ファイル関連ログに共通のコンテキストを生成する。"""
-
-    context: Dict[str, Any] = {}
-    base_name = filename
-
-    if not base_name and file_path:
-        base_name = os.path.basename(file_path)
-
-    display_value = file_path or base_name
-
-    if display_value:
-        context["file"] = display_value
-
-    if file_path:
-        context["file_path"] = file_path
-        if base_name and base_name != file_path:
-            context["basename"] = base_name
-    elif base_name:
-        context["basename"] = base_name
-
-    return context
-
-
-def _existing_media_destination_context(
-    media: Media, originals_dir: Optional[str]
-) -> Dict[str, Any]:
-    """既存メディアの保存先情報をログ用に組み立てる。"""
-
-    details: Dict[str, Any] = {}
-
-    if media is None:
-        return details
-
-    relative_path = getattr(media, "local_rel_path", None)
-    if relative_path:
-        details["relative_path"] = relative_path
-
-        base_dir = os.fspath(originals_dir) if originals_dir else None
-        if base_dir:
-            absolute_path = os.path.normpath(os.path.join(base_dir, relative_path))
-        else:
-            absolute_path = relative_path
-
-        details["imported_path"] = absolute_path
-        details["destination"] = absolute_path
-
-    filename = getattr(media, "filename", None)
-    if filename:
-        details["imported_filename"] = filename
-
-    return details
-
-
 def _log_info(
     event: str,
     message: str,
@@ -300,372 +212,27 @@ SUPPORTED_VIDEO_EXTENSIONS = {'.mp4', '.mov', '.avi', '.mkv', '.m4v', '.3gp', '.
 SUPPORTED_EXTENSIONS = SUPPORTED_IMAGE_EXTENSIONS | SUPPORTED_VIDEO_EXTENSIONS
 
 
-_EXTRACTED_DIRECTORIES: List[Path] = []
+_session_service = LocalImportSessionService(db, _log_error)
 
 
-def _zip_extraction_base_dir() -> Path:
-    """ZIP展開用のベースディレクトリを返す。"""
-    base_dir = Path(tempfile.gettempdir()) / "local_import_zip"
-    base_dir.mkdir(parents=True, exist_ok=True)
-    return base_dir
-
-
-def _register_extracted_directory(path: Path) -> None:
-    """後でクリーンアップするため展開先ディレクトリを登録。"""
-    _EXTRACTED_DIRECTORIES.append(path)
+_zip_service = ZipArchiveService(
+    _log_info,
+    _log_warning,
+    _log_error,
+    SUPPORTED_EXTENSIONS,
+)
 
 
 def _cleanup_extracted_directories() -> None:
     """ZIP展開で生成されたディレクトリを削除。"""
-    while _EXTRACTED_DIRECTORIES:
-        dir_path = _EXTRACTED_DIRECTORIES.pop()
-        try:
-            shutil.rmtree(dir_path)
-        except FileNotFoundError:
-            continue
-        except Exception as e:
-            _log_warning(
-                "local_import.zip.cleanup_failed",
-                "ZIP展開ディレクトリの削除に失敗",
-                directory=str(dir_path),
-                error_type=type(e).__name__,
-                error_message=str(e),
-            )
+
+    _zip_service.cleanup()
 
 
 def _extract_zip_archive(zip_path: str, *, session_id: Optional[str] = None) -> List[str]:
     """ZIPファイルを展開し、サポート対象ファイルのパスを返す。"""
-    extracted_files: List[str] = []
-    archive_path = Path(zip_path)
-    extraction_dir = _zip_extraction_base_dir() / f"{archive_path.stem}_{uuid.uuid4().hex}"
-    extraction_dir.mkdir(parents=True, exist_ok=True)
-    _register_extracted_directory(extraction_dir)
 
-    should_remove_archive = False
-
-    try:
-        with zipfile.ZipFile(zip_path) as archive:
-            should_remove_archive = True
-            for member in archive.infolist():
-                if member.is_dir():
-                    continue
-
-                member_path = Path(member.filename)
-                if member_path.is_absolute() or any(part == ".." for part in member_path.parts):
-                    _log_warning(
-                        "local_import.zip.unsafe_member",
-                        "ZIP内の危険なパスをスキップ",
-                        zip_path=zip_path,
-                        member=member.filename,
-                        session_id=session_id,
-                    )
-                    continue
-
-                if member_path.suffix.lower() not in SUPPORTED_EXTENSIONS:
-                    continue
-
-                target_path = extraction_dir / member_path
-                target_path.parent.mkdir(parents=True, exist_ok=True)
-
-                with archive.open(member) as src, open(target_path, "wb") as dst:
-                    shutil.copyfileobj(src, dst)
-
-                extracted_files.append(str(target_path))
-                _log_info(
-                    "local_import.zip.member_extracted",
-                    "ZIP内のファイルを抽出",
-                    session_id=session_id,
-                    status="extracted",
-                    zip_path=zip_path,
-                    member=member.filename,
-                    extracted_path=str(target_path),
-                )
-
-    except zipfile.BadZipFile as e:
-        _log_error(
-            "local_import.zip.invalid",
-            "ZIPファイルの展開に失敗",
-            zip_path=zip_path,
-            error_type=type(e).__name__,
-            error_message=str(e),
-            session_id=session_id,
-        )
-    except Exception as e:
-        _log_error(
-            "local_import.zip.extract_failed",
-            "ZIPファイル展開中にエラーが発生",
-            zip_path=zip_path,
-            error_type=type(e).__name__,
-            error_message=str(e),
-            exc_info=True,
-            session_id=session_id,
-        )
-    else:
-        if extracted_files:
-            _log_info(
-                "local_import.zip.extracted",
-                "ZIPファイルを展開",
-                zip_path=zip_path,
-                extracted_count=len(extracted_files),
-                extraction_dir=str(extraction_dir),
-                session_id=session_id,
-                status="extracted",
-            )
-        else:
-            _log_warning(
-                "local_import.zip.no_supported_files",
-                "ZIPファイルに取り込み対象ファイルがありません",
-                zip_path=zip_path,
-                session_id=session_id,
-                status="skipped",
-            )
-
-    if should_remove_archive:
-        try:
-            os.remove(zip_path)
-            _log_info(
-                "local_import.zip.removed",
-                "ZIPファイルを削除",
-                zip_path=zip_path,
-                session_id=session_id,
-                status="cleaned",
-            )
-        except OSError as e:
-            _log_warning(
-                "local_import.zip.remove_failed",
-                "ZIPファイルの削除に失敗",
-                zip_path=zip_path,
-                error_type=type(e).__name__,
-                error_message=str(e),
-                session_id=session_id,
-                status="warning",
-            )
-
-    return extracted_files
-
-
-def calculate_file_hash(file_path: str) -> str:
-    """ファイルのSHA-256ハッシュを計算"""
-    sha256_hash = hashlib.sha256()
-    with open(file_path, "rb") as f:
-        for byte_block in iter(lambda: f.read(4096), b""):
-            sha256_hash.update(byte_block)
-    return sha256_hash.hexdigest()
-
-
-def get_image_dimensions(file_path: str) -> Tuple[Optional[int], Optional[int], Optional[int]]:
-    """画像の幅、高さ、向きを取得"""
-    try:
-        with open_image_compat(file_path) as img:
-            width, height = img.size
-
-            # EXIF orientationを取得
-            orientation = None
-            exif_dict = {}
-
-            getexif = getattr(img, "getexif", None)
-            if callable(getexif):
-                try:
-                    exif = getexif()
-                except Exception:
-                    exif = None
-                if exif:
-                    exif_dict = dict(exif.items())
-
-            if not exif_dict and hasattr(img, "_getexif"):
-                try:
-                    raw = img._getexif()
-                    if raw:
-                        exif_dict = raw
-                except Exception:
-                    exif_dict = {}
-
-            if not exif_dict:
-                exif_bytes = (getattr(img, "info", {}) or {}).get("exif")
-                if isinstance(exif_bytes, (bytes, bytearray)) and hasattr(Image, "Exif"):
-                    try:
-                        exif_reader = Image.Exif()
-                        exif_reader.load(exif_bytes)
-                        exif_dict = dict(exif_reader.items())
-                    except Exception:
-                        exif_dict = {}
-
-            for tag, value in exif_dict.items():
-                if TAGS.get(tag) == 'Orientation':
-                    orientation = value
-                    break
-
-            return width, height, orientation
-    except Exception:
-        return None, None, None
-
-
-def extract_exif_data(file_path: str) -> Dict:
-    """EXIFデータを抽出"""
-    exif_data = {}
-    try:
-        with open_image_compat(file_path) as img:
-            exif_dict = {}
-
-            getexif = getattr(img, "getexif", None)
-            if callable(getexif):
-                try:
-                    exif = getexif()
-                except Exception:
-                    exif = None
-                if exif:
-                    exif_dict = dict(exif.items())
-
-            if not exif_dict and hasattr(img, '_getexif'):
-                try:
-                    raw = img._getexif()
-                    if raw:
-                        exif_dict = raw
-                except Exception:
-                    exif_dict = {}
-
-            if not exif_dict:
-                exif_bytes = (getattr(img, "info", {}) or {}).get("exif")
-                if isinstance(exif_bytes, (bytes, bytearray)) and hasattr(Image, "Exif"):
-                    try:
-                        exif_reader = Image.Exif()
-                        exif_reader.load(exif_bytes)
-                        exif_dict = dict(exif_reader.items())
-                    except Exception:
-                        exif_dict = {}
-
-            for tag_id, value in exif_dict.items():
-                tag = TAGS.get(tag_id, tag_id)
-                exif_data[tag] = value
-
-    except Exception:
-        pass
-
-    return exif_data
-
-
-def _parse_ffprobe_datetime(value: str) -> Optional[datetime]:
-    """ffprobeが返す日時文字列をUTCのdatetimeへ変換する。"""
-
-    if not value:
-        return None
-
-    raw = value.strip()
-    if not raw:
-        return None
-
-    normalized = raw
-
-    # 一部のQuickTimeタグでは "YYYY-MM-DD HH:MM:SS" の形式で返るため、ISO8601に寄せる。
-    if "T" not in normalized and " " in normalized:
-        normalized = normalized.replace(" ", "T", 1)
-
-    normalized = normalized.replace("Z", "+00:00")
-
-    # タイムゾーンが +0900 のようにコロン無しで返るケースに対応
-    if len(normalized) > 5 and normalized[-5] in {"+", "-"} and normalized[-3] != ":":
-        normalized = f"{normalized[:-2]}:{normalized[-2:]}"
-
-    try:
-        dt = datetime.fromisoformat(normalized)
-    except ValueError:
-        try:
-            dt = datetime.strptime(raw, "%Y-%m-%d %H:%M:%S")
-        except ValueError:
-            return None
-
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    else:
-        dt = dt.astimezone(timezone.utc)
-
-    return dt
-
-
-def extract_video_metadata(file_path: str) -> Dict:
-    """動画ファイルからメタデータを抽出（ffprobeを使用）"""
-    metadata: Dict[str, Any] = {}
-    try:
-        cmd = [
-            "ffprobe",
-            "-v", "error",
-            "-show_streams",
-            "-show_format",
-            "-of", "json",
-            str(file_path)
-        ]
-        proc = subprocess.run(cmd, capture_output=True, text=True)
-        if proc.returncode == 0:
-            info = json.loads(proc.stdout)
-            
-            # ビデオストリーム情報を取得
-            streams = info.get("streams", [])
-            video_streams = [s for s in streams if s.get("codec_type") == "video"]
-            if video_streams:
-                v_stream = video_streams[0]
-                # FPSを取得
-                if "r_frame_rate" in v_stream:
-                    fps_str = v_stream["r_frame_rate"]
-                    if "/" in fps_str:
-                        num, den = fps_str.split("/")
-                        if den != "0":
-                            metadata["fps"] = float(num) / float(den)
-                    else:
-                        metadata["fps"] = float(fps_str)
-
-                # 幅・高さを取得
-                metadata["width"] = v_stream.get("width")
-                metadata["height"] = v_stream.get("height")
-
-                # ストリームタグから作成日時を確認
-                stream_tags = v_stream.get("tags") or {}
-                for key in ("creation_time", "com.apple.quicktime.creationdate", "date"):
-                    shot_at_candidate = stream_tags.get(key)
-                    if shot_at_candidate:
-                        parsed = _parse_ffprobe_datetime(str(shot_at_candidate))
-                        if parsed:
-                            metadata["shot_at"] = parsed
-                            break
-
-            # フォーマット情報から時間を取得
-            format_info = info.get("format", {})
-            if "duration" in format_info:
-                metadata["duration_ms"] = int(float(format_info["duration"]) * 1000)
-
-            # フォーマットタグに作成日時が含まれていれば利用
-            format_tags = format_info.get("tags") or {}
-            if "shot_at" not in metadata:
-                for key in ("creation_time", "com.apple.quicktime.creationdate", "date"):
-                    shot_at_candidate = format_tags.get(key)
-                    if shot_at_candidate:
-                        parsed = _parse_ffprobe_datetime(str(shot_at_candidate))
-                        if parsed:
-                            metadata["shot_at"] = parsed
-                            break
-
-    except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError, ValueError):
-        # ffprobeが使えない場合やエラーの場合は空のメタデータを返す
-        pass
-
-    return metadata
-
-
-def generate_filename(shot_at: datetime, file_extension: str, file_hash: str) -> str:
-    """
-    ファイル名を生成
-    フォーマット: YYYYMMDD_HHMMSS_local_hash8.ext
-    """
-    date_str = shot_at.strftime("%Y%m%d_%H%M%S")
-    hash8 = file_hash[:8]
-    return f"{date_str}_local_{hash8}{file_extension}"
-
-
-def get_relative_path(shot_at: datetime, filename: str) -> str:
-    """相対パスを生成 (YYYY/MM/DD/filename)"""
-    year = shot_at.strftime("%Y")
-    month = shot_at.strftime("%m")
-    day = shot_at.strftime("%d")
-    return f"{year}/{month}/{day}/{filename}"
+    return _zip_service.extract(zip_path, session_id=session_id)
 
 
 def check_duplicate_media(file_hash: str, file_size: int) -> Optional[Media]:
@@ -1023,14 +590,18 @@ def import_single_file(
     Returns:
         処理結果辞書
     """
-    result = {
-        "success": False,
-        "file_path": file_path,
-        "reason": "",
-        "media_id": None,
-        "media_google_id": None,
-        "metadata_refreshed": False,
-    }
+    source = ImportFile(file_path)
+    outcome = ImportOutcome(
+        source,
+        details={
+            "success": False,
+            "file_path": file_path,
+            "reason": "",
+            "media_id": None,
+            "media_google_id": None,
+            "metadata_refreshed": False,
+        },
+    )
 
     file_context = _file_log_context(file_path)
 
@@ -1047,7 +618,7 @@ def import_single_file(
     try:
         # ファイル存在チェック
         if not os.path.exists(file_path):
-            result["reason"] = "ファイルが存在しません"
+            outcome.mark("missing", reason="ファイルが存在しません")
             _log_warning(
                 "local_import.file.missing",
                 "取り込み対象ファイルが見つかりません",
@@ -1055,12 +626,15 @@ def import_single_file(
                 session_id=session_id,
                 status="missing",
             )
-            return result
+            return outcome.as_dict()
 
         # 拡張子チェック
         file_extension = Path(file_path).suffix.lower()
         if file_extension not in SUPPORTED_EXTENSIONS:
-            result["reason"] = f"サポートされていない拡張子: {file_extension}"
+            outcome.mark(
+                "unsupported",
+                reason=f"サポートされていない拡張子: {file_extension}",
+            )
             _log_warning(
                 "local_import.file.unsupported",
                 "サポート対象外拡張子のためスキップ",
@@ -1069,12 +643,12 @@ def import_single_file(
                 session_id=session_id,
                 status="unsupported",
             )
-            return result
+            return outcome.as_dict()
 
         # ファイルサイズとハッシュ計算
         file_size = os.path.getsize(file_path)
         if file_size == 0:
-            result["reason"] = "ファイルサイズが0です"
+            outcome.mark("skipped", reason="ファイルサイズが0です")
             _log_warning(
                 "local_import.file.empty",
                 "ファイルサイズが0のためスキップ",
@@ -1082,16 +656,21 @@ def import_single_file(
                 session_id=session_id,
                 status="skipped",
             )
-            return result
+            return outcome.as_dict()
 
         file_hash = calculate_file_hash(file_path)
 
         # 重複チェック
         existing_media = check_duplicate_media(file_hash, file_size)
         if existing_media:
-            result["reason"] = f"重複ファイル (既存ID: {existing_media.id})"
-            result["media_id"] = existing_media.id
-            result["media_google_id"] = existing_media.google_media_id
+            outcome.details.update(
+                {
+                    "reason": f"重複ファイル (既存ID: {existing_media.id})",
+                    "media_id": existing_media.id,
+                    "media_google_id": existing_media.google_media_id,
+                }
+            )
+            outcome.mark("duplicate")
 
             destination_details = _existing_media_destination_context(
                 existing_media, originals_dir
@@ -1099,7 +678,7 @@ def import_single_file(
             for key in ("imported_path", "imported_filename", "relative_path"):
                 value = destination_details.get(key)
                 if value:
-                    result[key] = value
+                    outcome.details[key] = value
 
             refreshed = False
             try:
@@ -1124,10 +703,11 @@ def import_single_file(
                 )
             else:
                 if refreshed:
-                    result["metadata_refreshed"] = True
-                    result["reason"] = (
+                    outcome.details["metadata_refreshed"] = True
+                    outcome.details["reason"] = (
                         f"重複ファイル (既存ID: {existing_media.id}) - メタデータ更新"
                     )
+                    outcome.mark("duplicate_refreshed")
                     _log_info(
                         "local_import.file.duplicate_refreshed",
                         "重複ファイルから既存メディアのメタデータを更新",
@@ -1179,12 +759,12 @@ def import_single_file(
                     session_id=session_id,
                 )
                 if not regen_success:
-                    result["thumbnail_regen_error"] = (
+                    outcome.details["thumbnail_regen_error"] = (
                         regen_error
                         or "重複動画のサムネイル再生成に失敗しました"
                     )
 
-            return result
+            return outcome.as_dict()
 
         is_video = file_extension in SUPPORTED_VIDEO_EXTENSIONS
 
@@ -1200,7 +780,7 @@ def import_single_file(
                 if isinstance(candidate, datetime):
                     shot_at = candidate
                 elif isinstance(candidate, str):
-                    shot_at = _parse_ffprobe_datetime(candidate)
+                    shot_at = parse_ffprobe_datetime(candidate)
         elif file_extension in SUPPORTED_IMAGE_EXTENSIONS:
             exif_data = extract_exif_data(file_path)
             shot_at = get_file_date_from_exif(exif_data)
@@ -1324,7 +904,7 @@ def import_single_file(
         )
 
         if post_process_result is not None:
-            result["post_process"] = post_process_result
+            outcome.details["post_process"] = post_process_result
 
         if is_video:
             playback_result = (post_process_result or {}).get("playback") or {}
@@ -1340,9 +920,8 @@ def import_single_file(
                         session_id=session_id,
                         status="warning",
                     )
-                    result.setdefault("warnings", []).append(
-                        f"playback_skipped:{note}"
-                    )
+                    warnings = outcome.details.setdefault("warnings", [])
+                    warnings.append(f"playback_skipped:{note}")
                 else:
                     raise LocalImportPlaybackError(
                         f"動画の再生ファイル生成に失敗しました (理由: {note})"
@@ -1379,12 +958,17 @@ def import_single_file(
             status="cleaned",
         )
 
-        result["success"] = True
-        result["media_id"] = media.id
-        result["media_google_id"] = media.google_media_id
-        result["reason"] = "取り込み成功"
-        result["imported_filename"] = imported_filename
-        result["imported_path"] = dest_path
+        outcome.details.update(
+            {
+                "success": True,
+                "media_id": media.id,
+                "media_google_id": media.google_media_id,
+                "reason": "取り込み成功",
+                "imported_filename": imported_filename,
+                "imported_path": dest_path,
+            }
+        )
+        outcome.mark("success")
 
         _log_info(
             "local_import.file.success",
@@ -1410,7 +994,7 @@ def import_single_file(
             session_id=session_id,
             status="failed",
         )
-        result["reason"] = f"エラー: {str(e)}"
+        outcome.mark("failed", reason=f"エラー: {str(e)}")
 
         # コピー先ファイルが作成されていた場合は削除
         try:
@@ -1434,7 +1018,7 @@ def import_single_file(
                 status="warning",
             )
 
-    return result
+    return outcome.as_dict()
 
 
 def scan_import_directory(import_dir: str, *, session_id: Optional[str] = None) -> List[str]:
@@ -1507,40 +1091,13 @@ def _set_session_progress(
 ) -> None:
     """Update session status/stats during local import processing."""
 
-    if not session:
-        return
-
-    now = datetime.now(timezone.utc)
-    if status:
-        session.status = status
-    session.last_progress_at = now
-    session.updated_at = now
-
-    stats = session.stats() if hasattr(session, "stats") else {}
-    if not isinstance(stats, dict):
-        stats = {}
-    if stage is not None:
-        stats["stage"] = stage
-    if celery_task_id is not None:
-        stats["celery_task_id"] = celery_task_id
-    if stats_updates:
-        stats.update(stats_updates)
-    session.set_stats(stats)
-
-    try:
-        db.session.commit()
-    except Exception as exc:  # pragma: no cover - exercised via integration tests
-        db.session.rollback()
-        _log_error(
-            "local_import.session.progress_update_failed",
-            "セッション状態の更新中にエラーが発生",
-            session_id=session.session_id if hasattr(session, "session_id") else None,
-            session_db_id=getattr(session, "id", None),
-            error_type=type(exc).__name__,
-            error_message=str(exc),
-            exc_info=True,
-        )
-        raise
+    _session_service.set_progress(
+        session,
+        status=status,
+        stage=stage,
+        celery_task_id=celery_task_id,
+        stats_updates=stats_updates,
+    )
 
 
 def _session_cancel_requested(
@@ -1550,34 +1107,7 @@ def _session_cancel_requested(
 ) -> bool:
     """Return True when cancellation has been requested for *session*."""
 
-    if not session:
-        return False
-
-    if task_instance and hasattr(task_instance, "is_aborted"):
-        try:
-            if task_instance.is_aborted():
-                return True
-        except Exception:
-            pass
-
-    try:
-        db.session.refresh(session)
-    except Exception:
-        try:
-            db.session.rollback()
-        except Exception:
-            pass
-        fresh = PickerSession.query.get(session.id)
-        if not fresh:
-            return True
-        session.status = fresh.status
-        session.stats_json = fresh.stats_json
-
-    stats = session.stats() if hasattr(session, "stats") else {}
-    if isinstance(stats, dict) and stats.get("cancel_requested"):
-        return True
-
-    return session.status == "canceled"
+    return _session_service.cancel_requested(session, task_instance=task_instance)
 
 
 def _record_thumbnail_result(

@@ -29,12 +29,11 @@ from typing import Any, Dict, List, Optional
 from core.db import db
 from core.models.photo_models import Media, MediaPlayback
 from core.storage_paths import ensure_directory, first_existing_storage_path
+from core.logging_config import setup_task_logging
 from .thumbs_generate import thumbs_generate
 
 # transcode専用ロガーを取得（両方のログハンドラーが設定済み）
-logger = logging.getLogger('celery.task.transcode')
-
-logger = logging.getLogger(__name__)
+logger = setup_task_logging("celery.task.transcode")
 
 
 # ---------------------------------------------------------------------------

@@ -224,9 +224,11 @@ class LocalImportQueueProcessor:
                 session_id=active_session_id,
             )
 
+            result_status = file_result.get("status")
+            detail_status = "success" if file_result["success"] else result_status or "failed"
             detail = {
                 "file": display_file,
-                "status": "success" if file_result["success"] else "failed",
+                "status": detail_status,
                 "reason": file_result["reason"],
                 "media_id": file_result.get("media_id"),
             }
@@ -269,7 +271,7 @@ class LocalImportQueueProcessor:
                     selection.completed_at = datetime.now(timezone.utc)
                     selection.google_media_id = file_result.get("media_google_id")
                     selection.media_id = file_result.get("media_id")
-                elif file_result.get("status") == "duplicate":
+                elif result_status in {"duplicate", "duplicate_refreshed"}:
                     selection.status = "dup"
                 else:
                     selection.status = "failed"
@@ -291,10 +293,16 @@ class LocalImportQueueProcessor:
             if file_result["success"]:
                 result["success"] += 1
             else:
-                if file_result.get("status") == "skipped":
+                if result_status in {"skipped", "duplicate", "duplicate_refreshed"}:
                     result["skipped"] += 1
                 else:
                     result["failed"] += 1
+                    reason = detail.get("reason") or file_result.get("reason")
+                    if reason:
+                        if detail.get("file"):
+                            result["errors"].append(f"{detail['file']}: {reason}")
+                        else:
+                            result["errors"].append(str(reason))
 
             if task_instance and total_files:
                 task_instance.update_state(

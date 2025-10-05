@@ -210,6 +210,7 @@ class LocalImportUseCase:
             skipped=result["skipped"],
             failed=result["failed"],
             canceled=result.get("canceled", False),
+            errors=result.get("failure_reasons") or result.get("errors"),
             session_id=result.get("session_id"),
             celery_task_id=celery_task_id,
             status="completed" if result.get("ok") else "error",
@@ -218,6 +219,30 @@ class LocalImportUseCase:
         return result
 
     # internal helpers
+
+    def _collect_failure_reasons(self, result: Dict[str, Any]) -> list[str]:
+        reasons: list[str] = []
+        seen = set()
+
+        for entry in result.get("errors", []):
+            if not entry:
+                continue
+            reason_text = str(entry)
+            if reason_text not in seen:
+                reasons.append(reason_text)
+                seen.add(reason_text)
+
+        for detail in result.get("details", []):
+            if detail.get("status") != "failed":
+                continue
+            detail_reason = detail.get("reason") or "理由不明"
+            if detail.get("file"):
+                detail_reason = f"{detail['file']}: {detail_reason}"
+            if detail_reason not in seen:
+                reasons.append(detail_reason)
+                seen.add(detail_reason)
+
+        return reasons
     def _load_or_create_session(
         self,
         session_id: Optional[str],
@@ -448,6 +473,8 @@ class LocalImportUseCase:
 
             session.selected_count = imported_count
 
+            failure_reasons = self._collect_failure_reasons(result)
+
             stats = {
                 "total": result["processed"],
                 "success": result["success"],
@@ -456,6 +483,10 @@ class LocalImportUseCase:
                 "pending": pending_remaining,
                 "celery_task_id": celery_task_id,
             }
+
+            if failure_reasons:
+                stats["failure_reasons"] = failure_reasons
+                result["failure_reasons"] = failure_reasons
 
             import_task_status = "canceled" if cancel_requested else None
             if import_task_status is None:
@@ -537,6 +568,7 @@ class LocalImportUseCase:
                 status=final_status,
                 stats=stats,
                 celery_task_id=celery_task_id,
+                errors=failure_reasons or None,
             )
         except Exception as exc:
             result["errors"].append(f"セッション更新エラー: {exc}")

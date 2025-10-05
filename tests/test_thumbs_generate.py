@@ -237,6 +237,11 @@ def test_video_poster_low_quality_uses_frame(app, monkeypatch):
     with app.app_context():
         res = thumbs_generate(media_id=media_id)
 
-    assert res["generated"] == [256, 512, 1024]
-    assert res["skipped"] == [2048]
+    assert res["generated"] == [256, 512, 1024, 2048]
+    assert res["skipped"] == []
     assert res["notes"].startswith("frame extracted from playback")
+    thumbs_dir = Path(os.environ["FPV_NAS_THUMBS_DIR"])
+    copied = thumbs_dir / "2048/2025/08/18/video-low.jpg"
+    original = thumbs_dir / "1024/2025/08/18/video-low.jpg"
+    assert copied.exists()
+    assert copied.read_bytes() == original.read_bytes()

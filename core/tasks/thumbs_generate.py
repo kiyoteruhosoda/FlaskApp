@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple, TYPE_CHECKING
 import contextlib
+import shutil
 
 from core.db import db
 from core.utils import open_image_compat, register_heif_support
@@ -483,6 +484,8 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
     skipped: List[int] = []
     notes: str | None = None
     paths: Dict[int, str] = {}
+    last_output_size: int | None = None
+    last_output_path: Path | None = None
 
     # ------------------------------------------------------------------
     # Determine base image
@@ -528,11 +531,43 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
         if dest.exists() and not force:
             skipped.append(size)
             paths[size] = dest.as_posix()
+            last_output_size = size
+            last_output_path = dest
             continue
 
         long_side = max(img.size)
         if long_side < size:
-            skipped.append(size)
+            if last_output_path and last_output_path.exists():
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    shutil.copy2(last_output_path, dest)
+                except Exception as exc:  # pragma: no cover - defensive
+                    if log:
+                        log.warning(
+                            "thumbnail_generation.fallback_copy_failed",
+                            requested_size=size,
+                            source_size=last_output_size,
+                            source_path=last_output_path.as_posix(),
+                            dest_path=dest.as_posix(),
+                            error=str(exc),
+                        )
+                    skipped.append(size)
+                    continue
+
+                generated.append(size)
+                paths[size] = dest.as_posix()
+                if log:
+                    log.info(
+                        "thumbnail_generation.fallback_copy",  # pragma: no cover - logging
+                        requested_size=size,
+                        source_size=last_output_size,
+                        source_path=last_output_path.as_posix(),
+                        dest_path=dest.as_posix(),
+                    )
+                last_output_size = size
+                last_output_path = dest
+            else:
+                skipped.append(size)
             continue
 
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -547,6 +582,8 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
         tmp.replace(dest)
         generated.append(size)
         paths[size] = dest.as_posix()
+        last_output_size = size
+        last_output_path = dest
 
     new_rel = rel_name.as_posix()
     if m.thumbnail_rel_path != new_rel:

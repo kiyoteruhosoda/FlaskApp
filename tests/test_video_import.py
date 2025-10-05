@@ -115,6 +115,7 @@ def _import_video(
     assert media.google_media_id == result["media_google_id"]
     assert result["imported_filename"] == Path(media.local_rel_path).name
     assert Path(result["imported_path"]) == originals_dir / media.local_rel_path
+    assert result["relative_path"] == media.local_rel_path
 
     media_item = MediaItem.query.get(media.google_media_id)
     assert media_item is not None

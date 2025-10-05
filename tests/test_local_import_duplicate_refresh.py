@@ -73,6 +73,7 @@ def test_duplicate_import_refreshes_metadata(monkeypatch, tmp_path, app_context)
     assert media.width == 640
     assert media.height == 480
     assert media.orientation == 1
+    assert first["relative_path"] == media.local_rel_path
 
     exif = Exif.query.get(media.id)
     assert exif.camera_make == "BugCam"

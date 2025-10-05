@@ -14,10 +14,14 @@ from core.models.picker_session import PickerSession
 from core.logging_config import setup_task_logging
 from core.storage_paths import first_existing_storage_path, storage_path_candidates
 from core.tasks.media_post_processing import (
+    enqueue_media_playback,
     enqueue_thumbs_generate,
     process_media_post_import,
 )
-from core.tasks.thumbs_generate import thumbs_generate as _thumbs_generate
+from core.tasks.thumbs_generate import (
+    PLAYBACK_NOT_READY_NOTES,
+    thumbs_generate as _thumbs_generate,
+)
 from webapp.config import Config
 
 from application.local_import.file_importer import (
@@ -321,41 +325,44 @@ def _regenerate_duplicate_video_thumbnails(
     request_context = {"sessionId": session_id} if session_id else None
 
     thumb_func = thumbs_generate
+    operation_id = f"duplicate-video-{media.id}"
 
-    try:
+    def _execute_thumb_attempt(attempt: int) -> Dict[str, Any]:
         if thumb_func is None:
-            result = enqueue_thumbs_generate(
+            _log_info(
+                "local_import.duplicate_video.thumbnail_enqueue",
+                "重複動画のサムネイル再生成ジョブを投入",
+                session_id=session_id,
+                media_id=media.id,
+                status="thumbs_regen_enqueued",
+                attempt=attempt,
+            )
+            return enqueue_thumbs_generate(
                 media.id,
                 force=True,
                 logger_override=logger,
-                operation_id=f"duplicate-video-{media.id}",
+                operation_id=operation_id,
                 request_context=request_context,
             )
-        else:
-            result = thumb_func(media_id=media.id, force=True)
-            _log_info(
-                "local_import.duplicate_video.thumbnail_generate",
-                "重複動画のサムネイル再生成を実行",
-                session_id=session_id,
-                media_id=media.id,
-                status="thumbs_regen_started",
-            )
-    except Exception as exc:  # pragma: no cover - unexpected failure path
-        _log_error(
-            "local_import.duplicate_video.thumbnail_regen_failed",
-            "重複動画のサムネイル再生成中に例外が発生",
+
+        _log_info(
+            "local_import.duplicate_video.thumbnail_generate",
+            "重複動画のサムネイル再生成を実行",
             session_id=session_id,
             media_id=media.id,
-            error_type=type(exc).__name__,
-            error_message=str(exc),
+            status="thumbs_regen_started",
+            attempt=attempt,
         )
-        return False, str(exc)
+        return thumb_func(media_id=media.id, force=True)
 
-    if result.get("ok"):
+    def _finalise(result: Dict[str, Any], *, attempts: int) -> tuple[bool, Optional[str]]:
         paths = result.get("paths") or {}
         generated = result.get("generated", [])
         skipped = result.get("skipped", [])
-        retry_scheduled = result.get("retry_scheduled", False)
+        retry_details = result.get("retry_details")
+        retry_blockers = result.get("retry_blockers")
+        notes = result.get("notes")
+
         generated_paths = {
             size: paths[size]
             for size in generated
@@ -366,46 +373,129 @@ def _regenerate_duplicate_video_thumbnails(
             for size in skipped
             if size in paths
         }
-        status = "thumbs_regenerated" if generated else "thumbs_skipped"
-        _log_info(
-            "local_import.duplicate_video.thumbnail_regenerated",
-            "重複動画のサムネイルを再生成",
-            session_id=session_id,
-            media_id=media.id,
-            generated=generated,
-            skipped=skipped,
-            notes=result.get("notes"),
-            generated_paths=generated_paths,
-            skipped_paths=skipped_paths,
-            paths=paths,
-            retry_scheduled=retry_scheduled,
-            status=status,
-            )
-        if retry_scheduled:
-            retry_details = result.get("retry_details") or {}
+
+        if retry_blockers is None and isinstance(retry_details, dict):
+            maybe_blockers = retry_details.get("blockers")
+            if isinstance(maybe_blockers, dict):
+                retry_blockers = maybe_blockers
+
+        if result.get("ok"):
+            status = "thumbs_regenerated" if generated else "thumbs_skipped"
             _log_info(
-                "local_import.duplicate_video.thumbnail_retry_scheduled",
-                "重複動画のサムネイル再生成を後で再試行",
+                "local_import.duplicate_video.thumbnail_regenerated",
+                "重複動画のサムネイルを再生成",
                 session_id=session_id,
                 media_id=media.id,
-                retry_delay_seconds=retry_details.get("countdown"),
-                celery_task_id=retry_details.get("celery_task_id"),
-                notes=result.get("notes"),
-                status="retry_scheduled",
+                generated=generated,
+                skipped=skipped,
+                notes=notes,
+                generated_paths=generated_paths,
+                skipped_paths=skipped_paths,
+                paths=paths,
+                retry_details=retry_details,
+                retry_blockers=retry_blockers,
+                attempts=attempts,
+                status=status,
             )
-        return True, None
+            return True, None
 
-    else:
         _log_warning(
             "local_import.duplicate_video.thumbnail_regen_skipped",
             "重複動画のサムネイル再生成をスキップ",
             session_id=session_id,
             media_id=media.id,
-            notes=result.get("notes"),
-            retry_scheduled=result.get("retry_scheduled"),
+            generated=generated,
+            skipped=skipped,
+            notes=notes,
+            retry_details=retry_details,
+            retry_blockers=retry_blockers,
+            attempts=attempts,
             status="thumbs_skipped",
         )
-        return False, result.get("notes")
+        return False, notes
+
+    attempts = 1
+
+    try:
+        result = _execute_thumb_attempt(attempts)
+    except Exception as exc:  # pragma: no cover - unexpected failure path
+        _log_error(
+            "local_import.duplicate_video.thumbnail_regen_failed",
+            "重複動画のサムネイル再生成中に例外が発生",
+            session_id=session_id,
+            media_id=media.id,
+            error_type=type(exc).__name__,
+            error_message=str(exc),
+            attempt=attempts,
+        )
+        return False, str(exc)
+
+    if (
+        thumb_func is not None
+        and result.get("ok")
+        and result.get("notes") == PLAYBACK_NOT_READY_NOTES
+    ):
+        _log_info(
+            "local_import.duplicate_video.playback_refresh_requested",
+            "再生アセットを再生成してサムネイル再試行を準備",
+            session_id=session_id,
+            media_id=media.id,
+            status="playback_refresh_requested",
+            attempts=attempts,
+        )
+        playback_result = enqueue_media_playback(
+            media.id,
+            logger_override=logger,
+            operation_id=operation_id,
+            request_context=request_context,
+        )
+        if not playback_result.get("ok"):
+            failure_note = playback_result.get("note") or PLAYBACK_NOT_READY_NOTES
+            _log_warning(
+                "local_import.duplicate_video.playback_refresh_failed",
+                "重複動画の再生アセット再生成に失敗",
+                session_id=session_id,
+                media_id=media.id,
+                note=failure_note,
+                status="playback_refresh_failed",
+                attempts=attempts,
+            )
+            failure_result: Dict[str, Any] = {
+                "ok": False,
+                "notes": failure_note,
+                "generated": result.get("generated", []),
+                "skipped": result.get("skipped", []),
+                "paths": result.get("paths") or {},
+            }
+            return _finalise(failure_result, attempts=attempts)
+
+        _log_info(
+            "local_import.duplicate_video.playback_refreshed",
+            "重複動画の再生アセット再生成が完了",
+            session_id=session_id,
+            media_id=media.id,
+            note=playback_result.get("note"),
+            playback_status=playback_result.get("playback_status"),
+            status="playback_refreshed",
+            attempts=attempts,
+        )
+
+        attempts += 1
+        try:
+            result = _execute_thumb_attempt(attempts)
+        except Exception as exc:  # pragma: no cover - unexpected failure path
+            _log_error(
+                "local_import.duplicate_video.thumbnail_regen_failed",
+                "重複動画のサムネイル再生成中に例外が発生",
+                session_id=session_id,
+                media_id=media.id,
+                error_type=type(exc).__name__,
+                error_message=str(exc),
+                attempt=attempts,
+            )
+            return False, str(exc)
+
+    return _finalise(result, attempts=attempts)
 
 def import_single_file(
     file_path: str,

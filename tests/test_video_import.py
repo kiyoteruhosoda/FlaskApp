@@ -12,6 +12,7 @@ from core.models.photo_models import Media, MediaItem, MediaPlayback, VideoMetad
 from core.tasks import local_import as local_import_module
 from core.tasks import media_post_processing
 from core.tasks.local_import import import_single_file
+from core.tasks.thumbs_generate import PLAYBACK_NOT_READY_NOTES
 
 
 def create_test_video(path: Path) -> None:
@@ -286,3 +287,98 @@ def test_duplicate_video_regenerates_thumbnails(
 
     assert len(thumb_calls) == 1
     assert thumb_calls[0] == (first["media_id"], True)
+
+
+@pytest.mark.usefixtures("app_context")
+def test_duplicate_video_thumbnail_retries_inline_when_playback_pending(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, playback_dir: Path
+) -> None:
+    """再生準備中でも同じセッション内でサムネイルを再生成する。"""
+
+    import_dir = tmp_path / "import"
+    originals_dir = tmp_path / "originals"
+    import_dir.mkdir()
+    originals_dir.mkdir()
+
+    test_video = import_dir / "DupThumbPending.mp4"
+    create_test_video(test_video)
+
+    _stub_playback_success(monkeypatch, playback_dir)
+    _stub_video_metadata(monkeypatch)
+
+    thumb_calls: list[tuple[int, bool]] = []
+    playback_calls: list[tuple[int, str | None]] = []
+    enqueue_calls: list[tuple[int, bool, str | None]] = []
+    playback_ready = {"done": False}
+
+    def fake_thumbs_generate(*, media_id: int, force: bool = False) -> dict:
+        thumb_calls.append((media_id, force))
+        if not playback_ready["done"]:
+            return {
+                "ok": True,
+                "generated": [],
+                "skipped": [256, 512, 1024, 2048],
+                "notes": PLAYBACK_NOT_READY_NOTES,
+                "paths": {},
+                "retry_blockers": {"reason": "playback assets missing"},
+            }
+        return {
+            "ok": True,
+            "generated": [256, 512],
+            "skipped": [1024, 2048],
+            "notes": None,
+            "paths": {256: "thumb_256.jpg", 512: "thumb_512.jpg"},
+        }
+
+    def fake_enqueue_media_playback(
+        media_id: int,
+        *,
+        logger_override=None,
+        operation_id=None,
+        request_context=None,
+    ) -> dict:
+        playback_calls.append((media_id, operation_id))
+        playback_ready["done"] = True
+        return {"ok": True, "note": "transcoded", "playback_status": "done"}
+
+    def fake_enqueue_thumbs_generate(
+        media_id: int,
+        *,
+        logger_override=None,
+        operation_id=None,
+        request_context=None,
+        force: bool = False,
+    ) -> dict:
+        enqueue_calls.append((media_id, force, operation_id))
+        return {"ok": True, "generated": [], "skipped": [], "notes": None, "paths": {}}
+
+    monkeypatch.setattr(local_import_module, "thumbs_generate", fake_thumbs_generate)
+    monkeypatch.setattr(
+        local_import_module, "enqueue_media_playback", fake_enqueue_media_playback
+    )
+    monkeypatch.setattr(
+        local_import_module, "enqueue_thumbs_generate", fake_enqueue_thumbs_generate
+    )
+
+    first = import_single_file(str(test_video), str(import_dir), str(originals_dir))
+    assert first["success"] is True
+
+    create_test_video(test_video)
+
+    second = import_single_file(str(test_video), str(import_dir), str(originals_dir))
+
+    assert second["success"] is False
+    assert "重複ファイル" in second["reason"]
+    assert "thumbnail_regen_error" not in second
+
+    assert len(thumb_calls) == 2
+    assert thumb_calls[0] == (first["media_id"], True)
+    assert thumb_calls[1] == (first["media_id"], True)
+
+    assert len(playback_calls) == 1
+    playback_media_id, playback_operation_id = playback_calls[0]
+    assert playback_media_id == first["media_id"]
+    assert playback_operation_id == f"duplicate-video-{first['media_id']}"
+
+    # Celery経由のリトライは発生しない
+    assert not enqueue_calls

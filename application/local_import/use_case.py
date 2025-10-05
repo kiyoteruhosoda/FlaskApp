@@ -437,6 +437,12 @@ class LocalImportUseCase:
                 imported_count + dup_count + skipped_count + failed_count
             )
 
+            only_skipped = (
+                result["success"] == 0
+                and result["failed"] == 0
+                and result["skipped"] > 0
+            )
+
             cancel_requested = bool(result.get("canceled")) or self._session_service.cancel_requested(session)
 
             recorded_thumbnails = result.get("thumbnail_records")
@@ -462,12 +468,12 @@ class LocalImportUseCase:
                     final_status = "error"
                 elif thumbnails_failed:
                     final_status = "imported"
-                elif (
-                    result["success"] > 0
-                    or result["skipped"] > 0
-                    or result["processed"] > 0
-                ):
+                elif only_skipped:
+                    final_status = "pending"
+                elif result["success"] > 0:
                     final_status = "imported"
+                elif result["processed"] > 0:
+                    final_status = "pending"
                 else:
                     final_status = "ready"
 
@@ -490,12 +496,14 @@ class LocalImportUseCase:
 
             import_task_status = "canceled" if cancel_requested else None
             if import_task_status is None:
-                if pending_remaining > 0:
+                if pending_remaining > 0 or thumbnails_pending:
                     import_task_status = "progress"
                 elif result["failed"] > 0 or not result["ok"]:
                     import_task_status = "error"
-                elif result["processed"] > 0:
+                elif result["success"] > 0:
                     import_task_status = "completed"
+                elif only_skipped or result["processed"] > 0:
+                    import_task_status = "pending"
                 else:
                     import_task_status = "idle"
 
@@ -539,7 +547,7 @@ class LocalImportUseCase:
             if stage_value != "canceled":
                 if thumbnails_failed:
                     stage_value = "error"
-                elif pending_remaining > 0 or thumbnails_pending:
+                elif pending_remaining > 0 or thumbnails_pending or only_skipped:
                     stage_value = "progress"
                 else:
                     stage_value = "completed"

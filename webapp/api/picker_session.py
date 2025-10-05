@@ -54,14 +54,17 @@ def api_picker_sessions_list():
         else:
             selected_count = sum(counts.values())
 
+        is_local_import = ps.account_id is None
+
         display_status = ps.status
         if ps.status in ("processing", "importing", "error", "failed"):
-            normalized = PickerSessionService._determine_completion_status(counts)
+            normalized = PickerSessionService._determine_completion_status(
+                counts, allow_pending_for_duplicates=is_local_import
+            )
             if normalized:
                 display_status = normalized
 
         account = getattr(ps, "account", None)
-        is_local_import = ps.account_id is None
 
         return {
             "id": ps.id,

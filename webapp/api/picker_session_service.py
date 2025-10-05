@@ -149,7 +149,9 @@ class PickerSessionService:
         return normalized
 
     @staticmethod
-    def _determine_completion_status(counts: Dict[str, int]) -> Optional[str]:
+    def _determine_completion_status(
+        counts: Dict[str, int], *, allow_pending_for_duplicates: bool = False
+    ) -> Optional[str]:
         if not counts:
             return None
 
@@ -162,16 +164,26 @@ class PickerSessionService:
         failed_count = normalized.get("failed", 0)
         imported_count = normalized.get("imported", 0)
         dup_count = normalized.get("dup", 0)
+        skipped_count = normalized.get("skipped", 0)
+
+        only_skipped = (
+            imported_count == 0
+            and failed_count == 0
+            and (dup_count + skipped_count) > 0
+        )
 
         if failed_count > 0:
             return "error"
 
-        if imported_count > 0 or dup_count > 0:
+        if imported_count > 0:
             return "imported"
+
+        if only_skipped:
+            return "pending" if allow_pending_for_duplicates else "imported"
 
         total = sum(normalized.values())
         if total > 0:
-            return "imported"
+            return "pending"
 
         return None
 
@@ -347,8 +359,10 @@ class PickerSessionService:
                     ps.last_progress_at = now
                     ps.updated_at = now
                     status_changed = True
-            elif ps.status in ("processing", "importing", "error", "failed"):
-                new_status = PickerSessionService._determine_completion_status(counts)
+            elif ps.status in ("processing", "importing", "error", "failed", "pending"):
+                new_status = PickerSessionService._determine_completion_status(
+                    counts, allow_pending_for_duplicates=is_local_import
+                )
                 if new_status and ps.status != new_status:
                     current_app.logger.info(
                         json.dumps(
@@ -389,6 +403,9 @@ class PickerSessionService:
             import_success = counts.get("imported", 0)
             import_skipped = counts.get("dup", 0) + counts.get("skipped", 0)
             import_failed = counts.get("failed", 0)
+            only_skipped = (
+                import_success == 0 and import_failed == 0 and import_skipped > 0
+            )
 
             import_task_status = "canceled" if stats.get("cancel_requested") else None
             if import_task_status is None:
@@ -396,8 +413,12 @@ class PickerSessionService:
                     import_task_status = "progress"
                 elif import_failed > 0:
                     import_task_status = "error"
-                elif import_total > 0:
+                elif import_success > 0:
                     import_task_status = "completed"
+                elif import_skipped > 0:
+                    import_task_status = "pending"
+                elif import_total > 0:
+                    import_task_status = "pending"
                 else:
                     import_task_status = "idle"
 
@@ -443,12 +464,12 @@ class PickerSessionService:
             stage_before = stats.get("stage")
             stage_after = stage_before
             if stage_before == "expanding":
-                if pending_remaining > 0 or thumbnails_pending:
+                if pending_remaining > 0 or thumbnails_pending or only_skipped:
                     stage_after = "progress"
             elif stage_before not in {"canceled"}:
                 if thumbnails_failed:
                     stage_after = "error"
-                elif pending_remaining > 0 or thumbnails_pending:
+                elif pending_remaining > 0 or thumbnails_pending or only_skipped:
                     stage_after = "progress"
                 else:
                     stage_after = "completed"
@@ -505,6 +526,8 @@ class PickerSessionService:
         # デフォルトページングパラメータ
         if params is None:
             params = PaginationParams(page_size=200)
+
+        is_local_import = ps.account_id is None
 
         # ベースクエリ（効率的なJOIN）
         base_query = (
@@ -613,7 +636,9 @@ class PickerSessionService:
         
         # PickerSessionのステータス自動更新ロジック
         if ps.status in ("processing", "importing", "error", "failed") and counts:
-            new_status = PickerSessionService._determine_completion_status(counts)
+            new_status = PickerSessionService._determine_completion_status(
+                counts, allow_pending_for_duplicates=is_local_import
+            )
             if new_status and ps.status != new_status:
                 ps.status = new_status
                 now = datetime.now(timezone.utc)

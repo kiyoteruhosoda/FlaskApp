@@ -43,6 +43,7 @@ from domain.local_import.media_file import (
 from domain.local_import.media_metadata import (
     calculate_file_hash,
     extract_exif_data,
+    extract_video_metadata as _extract_video_metadata,
     get_image_dimensions,
 )
 from domain.local_import.policies import SUPPORTED_EXTENSIONS
@@ -55,6 +56,7 @@ from domain.local_import.session import LocalImportSessionService
 # environments where the heavy thumbnail pipeline is not available (for
 # example in SQLite based test runs).
 thumbs_generate = _thumbs_generate
+extract_video_metadata = _extract_video_metadata
 
 # Setup logger for this module - use Celery task logger for consistency
 logger = setup_task_logging(__name__)
@@ -175,6 +177,9 @@ class _LocalImportMetadataProvider(DefaultMediaMetadataProvider):
 
     def extract_exif_data(self, file_path: str):
         return extract_exif_data(file_path)
+
+    def extract_video_metadata(self, file_path: str) -> Dict[str, Any]:
+        return extract_video_metadata(file_path)
 
     def get_image_dimensions(self, file_path: str):
         return get_image_dimensions(file_path)

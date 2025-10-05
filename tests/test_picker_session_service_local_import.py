@@ -400,8 +400,8 @@ class TestPickerSessionServiceLocalImport:
             assert len(selections) == 1
             assert selections[0].status == 'imported'
 
-    def test_error_status_with_only_duplicates_becomes_imported(self, app):
-        """重複のみのセッションはエラーではなく imported として扱われる"""
+    def test_error_status_with_only_duplicates_becomes_pending(self, app):
+        """重複のみのセッションはエラーではなく pending として扱われる"""
         with app.app_context():
             ps = PickerSession(
                 account_id=1,
@@ -419,8 +419,34 @@ class TestPickerSessionServiceLocalImport:
             details = PickerSessionService.selection_details(ps, params)
 
             db.session.refresh(ps)
-            assert ps.status == 'imported'
+            assert ps.status == 'pending'
             assert details['counts'].get('dup') == 1
+
+    def test_local_import_duplicate_only_session_reports_pending(self, app):
+        """ローカルインポートで重複のみの場合はpendingとして継続表示される"""
+        with app.app_context():
+            ps = PickerSession(
+                account_id=None,
+                session_id="local-import-dup-only",
+                status="processing",
+            )
+            db.session.add(ps)
+            db.session.commit()
+
+            db.session.add(PickerSelection(session_id=ps.id, status='dup'))
+            db.session.commit()
+
+            result = PickerSessionService.status(ps)
+
+            db.session.refresh(ps)
+            assert ps.status == 'pending'
+            assert result['status'] == 'pending'
+            stats = result.get('stats') or {}
+            tasks = stats.get('tasks') or []
+            assert tasks, "tasks payload should be present for local import"
+            assert tasks[0]['status'] == 'pending'
+            assert tasks[0]['counts']['skipped'] == 1
+            assert stats.get('stage') == 'progress'
 
     def test_status_prefers_counts_over_remote_poll(self, app, monkeypatch):
         """PickerSessionService.status should not call remote API when local counts exist."""
@@ -452,8 +478,8 @@ class TestPickerSessionServiceLocalImport:
             result = PickerSessionService.status(ps)
 
             db.session.refresh(ps)
-            assert ps.status == 'imported'
-            assert result['status'] == 'imported'
+            assert ps.status == 'pending'
+            assert result['status'] == 'pending'
             assert result['selectedCount'] == 1
             assert result['counts'].get('dup') == 1
 

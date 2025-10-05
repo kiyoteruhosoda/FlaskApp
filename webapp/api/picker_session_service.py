@@ -162,16 +162,26 @@ class PickerSessionService:
         failed_count = normalized.get("failed", 0)
         imported_count = normalized.get("imported", 0)
         dup_count = normalized.get("dup", 0)
+        skipped_count = normalized.get("skipped", 0)
+
+        only_skipped = (
+            imported_count == 0
+            and failed_count == 0
+            and (dup_count + skipped_count) > 0
+        )
 
         if failed_count > 0:
             return "error"
 
-        if imported_count > 0 or dup_count > 0:
+        if imported_count > 0:
             return "imported"
+
+        if only_skipped:
+            return "pending"
 
         total = sum(normalized.values())
         if total > 0:
-            return "imported"
+            return "pending"
 
         return None
 
@@ -389,6 +399,9 @@ class PickerSessionService:
             import_success = counts.get("imported", 0)
             import_skipped = counts.get("dup", 0) + counts.get("skipped", 0)
             import_failed = counts.get("failed", 0)
+            only_skipped = (
+                import_success == 0 and import_failed == 0 and import_skipped > 0
+            )
 
             import_task_status = "canceled" if stats.get("cancel_requested") else None
             if import_task_status is None:
@@ -396,8 +409,12 @@ class PickerSessionService:
                     import_task_status = "progress"
                 elif import_failed > 0:
                     import_task_status = "error"
-                elif import_total > 0:
+                elif import_success > 0:
                     import_task_status = "completed"
+                elif import_skipped > 0:
+                    import_task_status = "pending"
+                elif import_total > 0:
+                    import_task_status = "pending"
                 else:
                     import_task_status = "idle"
 
@@ -443,12 +460,12 @@ class PickerSessionService:
             stage_before = stats.get("stage")
             stage_after = stage_before
             if stage_before == "expanding":
-                if pending_remaining > 0 or thumbnails_pending:
+                if pending_remaining > 0 or thumbnails_pending or only_skipped:
                     stage_after = "progress"
             elif stage_before not in {"canceled"}:
                 if thumbnails_failed:
                     stage_after = "error"
-                elif pending_remaining > 0 or thumbnails_pending:
+                elif pending_remaining > 0 or thumbnails_pending or only_skipped:
                     stage_after = "progress"
                 else:
                     stage_after = "completed"

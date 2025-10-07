@@ -457,6 +457,8 @@ def _regenerate_duplicate_video_thumbnails(
                 session_id=session_id,
                 media_id=media.id,
                 note=failure_note,
+                playback_output_path=playback_result.get("output_path"),
+                playback_poster_path=playback_result.get("poster_path"),
                 status="playback_refresh_failed",
                 attempts=attempts,
             )
@@ -491,6 +493,8 @@ def _regenerate_duplicate_video_thumbnails(
                 "重複動画のサムネイル再生成中に例外が発生",
                 session_id=session_id,
                 media_id=media.id,
+                playback_output_path=playback_result.get("output_path"),
+                playback_poster_path=playback_result.get("poster_path"),
                 error_type=type(exc).__name__,
                 error_message=str(exc),
                 attempt=attempts,

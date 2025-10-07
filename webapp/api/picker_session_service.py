@@ -31,6 +31,50 @@ from core.tasks.local_import import build_thumbnail_task_snapshot
 _locks: Dict[str, Lock] = {}
 _locks_guard = Lock()
 
+_media_items_active = 0
+_media_items_active_guard = Lock()
+
+
+def _media_items_limit() -> int:
+    """Return configured maximum concurrent media item fetches."""
+
+    raw_limit = current_app.config.get("PICKER_MEDIA_ITEMS_MAX_CONCURRENCY", 3)
+    try:
+        limit = int(raw_limit)
+    except (TypeError, ValueError):
+        limit = 3
+    if limit <= 0:
+        limit = 1
+    return limit
+
+
+def _retry_delay_seconds() -> float:
+    raw_delay = current_app.config.get("PICKER_MEDIA_ITEMS_RETRY_DELAY_SECONDS", 1.0)
+    try:
+        delay = float(raw_delay)
+    except (TypeError, ValueError):
+        delay = 1.0
+    if delay < 0:
+        delay = 0.0
+    return delay
+
+
+def _acquire_media_items_slot() -> bool:
+    global _media_items_active
+    limit = _media_items_limit()
+    with _media_items_active_guard:
+        if _media_items_active >= limit:
+            return False
+        _media_items_active += 1
+        return True
+
+
+def _release_media_items_slot() -> None:
+    global _media_items_active
+    with _media_items_active_guard:
+        if _media_items_active > 0:
+            _media_items_active -= 1
+
 
 def _coerce_selected_count(raw: object) -> Optional[int]:
     """Convert picker API selected count payloads into an integer count."""
@@ -800,14 +844,22 @@ class PickerSessionService:
     # --- Media Items ------------------------------------------------------
     @staticmethod
     def media_items(session_id: str, cursor: Optional[str] = None) -> Tuple[dict, int]:
+        if not _acquire_media_items_slot():
+            retry_after = _retry_delay_seconds()
+            return {
+                "error": "rate_limited",
+                "retryAfter": retry_after,
+            }, 429
         lock = _get_lock(session_id)
         if not lock.acquire(blocking=False):
+            _release_media_items_slot()
             return {"error": "busy"}, 409
         try:
             return PickerSessionService._media_items_locked(session_id, cursor)
         finally:
             lock.release()
             _release_lock(session_id, lock)
+            _release_media_items_slot()
 
     @staticmethod
     def _media_items_locked(session_id: str, cursor: Optional[str]) -> Tuple[dict, int]:

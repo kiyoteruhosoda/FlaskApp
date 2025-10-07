@@ -140,6 +140,7 @@
   }
 
   async function fetchMediaItems() {
+    const defaultRetryDelayMs = 1000;
     try {
       let cursor = null;
       do {
@@ -153,6 +154,24 @@
             cursor: cursor,
           }),
         });
+        if (resp.status === 429) {
+          let delayMs = defaultRetryDelayMs;
+          const retryAfterHeader = resp.headers.get('Retry-After');
+          const headerValue = Number(retryAfterHeader);
+          if (!Number.isNaN(headerValue) && headerValue >= 0) {
+            delayMs = Math.max(delayMs, headerValue * 1000);
+          }
+          try {
+            const rateData = await resp.json();
+            if (typeof rateData.retryAfter === 'number' && rateData.retryAfter >= 0) {
+              delayMs = Math.max(delayMs, rateData.retryAfter * 1000);
+            }
+          } catch (rateErr) {
+            console.warn('Failed to parse rate limit payload', rateErr);
+          }
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          continue;
+        }
         if (!resp.ok) {
           console.warn('mediaItems fetch failed:', resp.status);
           break;

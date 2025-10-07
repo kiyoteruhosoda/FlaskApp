@@ -82,180 +82,182 @@
 {% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
-  <div>
-    <h1 class="h2 mb-1">{{ _("Photo View Home") }}</h1>
-    <p class="text-muted mb-0">{{ _("Create new picker sessions and keep track of imports at a glance.") }}</p>
-  </div>
-  <div class="d-flex flex-wrap align-items-center gap-2">
-    {% if is_admin %}
-      <span class="badge bg-warning text-dark d-flex align-items-center px-3 py-2">
-        <i class="bi bi-tools me-1"></i>{{ _("Admin tools available") }}
-      </span>
-    {% endif %}
-    <a href="{{ url_for('photo_view.settings') }}" class="btn btn-outline-secondary">
-      <i class="bi bi-gear me-1"></i>{{ _("Settings") }}
-    </a>
-  </div>
-</div>
-
-<div class="row g-3 align-items-stretch mb-4">
-  <div class="col-xl-7">
-    <div class="card shadow-sm h-100">
-      <div class="card-header bg-white">
-        <h2 class="h5 mb-0">{{ _("Start a new picker session") }}</h2>
-      </div>
-      <div class="card-body session-starter">
-        <label for="session-account" class="form-label">{{ _("Google account for the new session") }}</label>
-        <div class="input-group">
-          {% set has_multiple_accounts = google_accounts|length > 1 %}
-          <select id="session-account" class="form-select" {% if not google_accounts %}disabled{% endif %}>
-            {% if not google_accounts %}
-              <option value="" selected disabled>{{ _("No Google accounts are linked yet") }}</option>
-            {% else %}
-              <option value="" disabled {% if has_multiple_accounts %}selected{% endif %}>{{ _("Select an account") }}</option>
-              {% for account in google_accounts %}
-                <option value="{{ account.id }}" {% if not has_multiple_accounts and loop.first %}selected{% endif %}>{{ account.email }}</option>
-              {% endfor %}
-            {% endif %}
-          </select>
-          <button id="create-session-btn" class="btn btn-success" {% if not google_accounts %}disabled{% endif %}>
-            <i class="bi bi-plus-circle me-1"></i>{{ _("Create new session") }}
-          </button>
-        </div>
-        {% if not google_accounts %}
-          <div class="form-text text-muted mt-2">
-            {{ _("Link a Google account from the admin console before creating a new session.") }}
-          </div>
-        {% endif %}
-      </div>
+<div class="photo-view-home container-xxl px-3 px-md-4 px-xxl-5 mx-auto">
+  <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+      <h1 class="h2 mb-1">{{ _("Photo View Home") }}</h1>
+      <p class="text-muted mb-0">{{ _("Create new picker sessions and keep track of imports at a glance.") }}</p>
+    </div>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      {% if is_admin %}
+        <span class="badge bg-warning text-dark d-flex align-items-center px-3 py-2">
+          <i class="bi bi-tools me-1"></i>{{ _("Admin tools available") }}
+        </span>
+      {% endif %}
+      <a href="{{ url_for('photo_view.settings') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-gear me-1"></i>{{ _("Settings") }}
+      </a>
     </div>
   </div>
 
-  <div class="col-xl-5">
-    <div class="card shadow-sm h-100">
-      <div class="card-header bg-white d-flex justify-content-between align-items-center">
-        <h2 class="h6 mb-0">{{ _("Quick actions") }}</h2>
-        <span class="text-muted small">{{ _("Everything you need for day-to-day work") }}</span>
-      </div>
-      <div class="card-body quick-actions-card">
-        <div class="quick-actions-grid">
-          <button id="refresh-sessions" class="btn btn-outline-primary quick-action-compact quick-actions-full">
-            <i id="refresh-icon" class="fas fa-arrows-rotate me-2"></i>{{ _("Refresh sessions") }}
-          </button>
-          {% if is_admin %}
-            <div class="quick-actions-panel quick-actions-full">
-              <div class="fw-semibold small mb-1">{{ _("Duplicate handling") }}</div>
-              <p class="text-muted small mb-2">{{ _("Choose how duplicate videos should refresh their thumbnails and playback assets during import.") }}</p>
-              <div class="form-check">
-                <input class="form-check-input" type="radio" name="duplicate-regeneration" id="duplicate-regenerate" value="regenerate" checked>
-                <label class="form-check-label" for="duplicate-regenerate">
-                  {{ _("Regenerate thumbnails and playback assets") }}
-                </label>
-                <div class="form-text">{{ _("Always recreate thumbnails and playback MP4 files even when they already exist.") }}</div>
-              </div>
-              <div class="form-check mt-2">
-                <input class="form-check-input" type="radio" name="duplicate-regeneration" id="duplicate-skip" value="skip">
-                <label class="form-check-label" for="duplicate-skip">
-                  {{ _("Keep existing assets for duplicates") }}
-                </label>
-                <div class="form-text">{{ _("Skip regeneration when the duplicate already has thumbnails and playback assets.") }}</div>
-              </div>
+  <div class="row g-3 align-items-stretch mb-4">
+    <div class="col-xl-7">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-white">
+          <h2 class="h5 mb-0">{{ _("Start a new picker session") }}</h2>
+        </div>
+        <div class="card-body session-starter">
+          <label for="session-account" class="form-label">{{ _("Google account for the new session") }}</label>
+          <div class="input-group">
+            {% set has_multiple_accounts = google_accounts|length > 1 %}
+            <select id="session-account" class="form-select" {% if not google_accounts %}disabled{% endif %}>
+              {% if not google_accounts %}
+                <option value="" selected disabled>{{ _("No Google accounts are linked yet") }}</option>
+              {% else %}
+                <option value="" disabled {% if has_multiple_accounts %}selected{% endif %}>{{ _("Select an account") }}</option>
+                {% for account in google_accounts %}
+                  <option value="{{ account.id }}" {% if not has_multiple_accounts and loop.first %}selected{% endif %}>{{ account.email }}</option>
+                {% endfor %}
+              {% endif %}
+            </select>
+            <button id="create-session-btn" class="btn btn-success" {% if not google_accounts %}disabled{% endif %}>
+              <i class="bi bi-plus-circle me-1"></i>{{ _("Create new session") }}
+            </button>
+          </div>
+          {% if not google_accounts %}
+            <div class="form-text text-muted mt-2">
+              {{ _("Link a Google account from the admin console before creating a new session.") }}
             </div>
           {% endif %}
-          <button type="button" id="local-import-btn" class="btn btn-outline-info quick-action-compact"
-                  data-import-display="{{ local_import_info.import.display or '' }}"
-                  data-import-absolute="{{ local_import_info.import.absolute or '' }}"
-                  data-import-realpath="{{ local_import_info.import.realpath or '' }}"
-                  data-import-exists="{{ '1' if local_import_info.import.exists else '0' }}"
-                  data-destination-display="{{ local_import_info.originals.display or '' }}"
-                  data-destination-absolute="{{ local_import_info.originals.absolute or '' }}"
-                  data-destination-realpath="{{ local_import_info.originals.realpath or '' }}"
-                  data-destination-exists="{{ '1' if local_import_info.originals.exists else '0' }}">
-            <i class="bi bi-folder-plus me-2"></i>{{ _("Start local import") }}
-          </button>
-          <a href="{{ url_for('photo_view.media_list') }}" class="btn btn-primary quick-action-compact">
-            <i class="fas fa-images me-2"></i>{{ _("Open media gallery") }}
-          </a>
-          <a href="{{ url_for('photo_view.albums') }}" class="btn btn-outline-success quick-action-compact">
-            <i class="fas fa-folder me-2"></i>{{ _("Browse albums") }}
-          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-5">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+          <h2 class="h6 mb-0">{{ _("Quick actions") }}</h2>
+          <span class="text-muted small">{{ _("Everything you need for day-to-day work") }}</span>
+        </div>
+        <div class="card-body quick-actions-card">
+          <div class="quick-actions-grid">
+            <button id="refresh-sessions" class="btn btn-outline-primary quick-action-compact quick-actions-full">
+              <i id="refresh-icon" class="fas fa-arrows-rotate me-2"></i>{{ _("Refresh sessions") }}
+            </button>
+            {% if is_admin %}
+              <div class="quick-actions-panel quick-actions-full">
+                <div class="fw-semibold small mb-1">{{ _("Duplicate handling") }}</div>
+                <p class="text-muted small mb-2">{{ _("Choose how duplicate videos should refresh their thumbnails and playback assets during import.") }}</p>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="duplicate-regeneration" id="duplicate-regenerate" value="regenerate" checked>
+                  <label class="form-check-label" for="duplicate-regenerate">
+                    {{ _("Regenerate thumbnails and playback assets") }}
+                  </label>
+                  <div class="form-text">{{ _("Always recreate thumbnails and playback MP4 files even when they already exist.") }}</div>
+                </div>
+                <div class="form-check mt-2">
+                  <input class="form-check-input" type="radio" name="duplicate-regeneration" id="duplicate-skip" value="skip">
+                  <label class="form-check-label" for="duplicate-skip">
+                    {{ _("Keep existing assets for duplicates") }}
+                  </label>
+                  <div class="form-text">{{ _("Skip regeneration when the duplicate already has thumbnails and playback assets.") }}</div>
+                </div>
+              </div>
+            {% endif %}
+            <button type="button" id="local-import-btn" class="btn btn-outline-info quick-action-compact"
+                    data-import-display="{{ local_import_info.import.display or '' }}"
+                    data-import-absolute="{{ local_import_info.import.absolute or '' }}"
+                    data-import-realpath="{{ local_import_info.import.realpath or '' }}"
+                    data-import-exists="{{ '1' if local_import_info.import.exists else '0' }}"
+                    data-destination-display="{{ local_import_info.originals.display or '' }}"
+                    data-destination-absolute="{{ local_import_info.originals.absolute or '' }}"
+                    data-destination-realpath="{{ local_import_info.originals.realpath or '' }}"
+                    data-destination-exists="{{ '1' if local_import_info.originals.exists else '0' }}">
+              <i class="bi bi-folder-plus me-2"></i>{{ _("Start local import") }}
+            </button>
+            <a href="{{ url_for('photo_view.media_list') }}" class="btn btn-primary quick-action-compact">
+              <i class="fas fa-images me-2"></i>{{ _("Open media gallery") }}
+            </a>
+            <a href="{{ url_for('photo_view.albums') }}" class="btn btn-outline-success quick-action-compact">
+              <i class="fas fa-folder me-2"></i>{{ _("Browse albums") }}
+            </a>
+          </div>
         </div>
       </div>
     </div>
   </div>
-</div>
 
-{% if local_import_info.import.display %}
-  <div class="alert alert-light border small" role="status">
-    <div class="fw-semibold mb-1">{{ _("Local import paths") }}</div>
-    <div>
-      {{ _("Local import source") }}:
-      <code>{{ local_import_info.import.display }}</code>
-      {% if local_import_info.import.absolute and local_import_info.import.absolute != local_import_info.import.display %}
-        <span class="ms-1">({{ _("Configured value") }}: <code>{{ local_import_info.import.absolute }}</code>)</span>
-      {% elif local_import_info.import.raw and local_import_info.import.raw != local_import_info.import.display %}
-        <span class="ms-1">({{ _("Configured value") }}: <code>{{ local_import_info.import.raw }}</code>)</span>
-      {% endif %}
-      {% if not local_import_info.import.exists %}
-        <span class="ms-1 text-danger">{{ _("Not found") }}</span>
-      {% endif %}
-    </div>
-    <div class="mt-1">
-      {{ _("Destination") }}:
-      {% if local_import_info.originals.display %}
-        <code>{{ local_import_info.originals.display }}</code>
-        {% if local_import_info.originals.absolute and local_import_info.originals.absolute != local_import_info.originals.display %}
-          <span class="ms-1">({{ _("Configured value") }}: <code>{{ local_import_info.originals.absolute }}</code>)</span>
-        {% elif local_import_info.originals.raw and local_import_info.originals.raw != local_import_info.originals.display %}
-          <span class="ms-1">({{ _("Configured value") }}: <code>{{ local_import_info.originals.raw }}</code>)</span>
+  {% if local_import_info.import.display %}
+    <div class="alert alert-light border small" role="status">
+      <div class="fw-semibold mb-1">{{ _("Local import paths") }}</div>
+      <div>
+        {{ _("Local import source") }}:
+        <code>{{ local_import_info.import.display }}</code>
+        {% if local_import_info.import.absolute and local_import_info.import.absolute != local_import_info.import.display %}
+          <span class="ms-1">({{ _("Configured value") }}: <code>{{ local_import_info.import.absolute }}</code>)</span>
+        {% elif local_import_info.import.raw and local_import_info.import.raw != local_import_info.import.display %}
+          <span class="ms-1">({{ _("Configured value") }}: <code>{{ local_import_info.import.raw }}</code>)</span>
         {% endif %}
-        {% if not local_import_info.originals.exists %}
+        {% if not local_import_info.import.exists %}
           <span class="ms-1 text-danger">{{ _("Not found") }}</span>
         {% endif %}
-      {% else %}
-        <span class="text-warning">{{ _("No destination directory configured.") }}</span>
-      {% endif %}
+      </div>
+      <div class="mt-1">
+        {{ _("Destination") }}:
+        {% if local_import_info.originals.display %}
+          <code>{{ local_import_info.originals.display }}</code>
+          {% if local_import_info.originals.absolute and local_import_info.originals.absolute != local_import_info.originals.display %}
+            <span class="ms-1">({{ _("Configured value") }}: <code>{{ local_import_info.originals.absolute }}</code>)</span>
+          {% elif local_import_info.originals.raw and local_import_info.originals.raw != local_import_info.originals.display %}
+            <span class="ms-1">({{ _("Configured value") }}: <code>{{ local_import_info.originals.raw }}</code>)</span>
+          {% endif %}
+          {% if not local_import_info.originals.exists %}
+            <span class="ms-1 text-danger">{{ _("Not found") }}</span>
+          {% endif %}
+        {% else %}
+          <span class="text-warning">{{ _("No destination directory configured.") }}</span>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="mt-4">
+    <h2>{{ _("All Picker Sessions") }}</h2>
+    <div id="session-stats" class="mb-3">
+      <span id="session-count" class="badge bg-info">{{ _("Loading...") }}</span>
+    </div>
+    <div id="sessions-list">
+      <div class="table-responsive">
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th>{{ _("Session ID") }}</th>
+              <th>{{ _("Status") }}</th>
+              <th>{{ _("Target Account") }}</th>
+              <th>{{ _("File Status") }}</th>
+              <th>{{ _("Created At") }}</th>
+              <th>{{ _("Last Progress") }}</th>
+              <th>{{ _("Actions") }}</th>
+            </tr>
+          </thead>
+          <tbody id="sessions-body">
+            <!-- Sessions will be added dynamically -->
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
-{% endif %}
 
-<div class="mt-4">
-  <h2>{{ _("All Picker Sessions") }}</h2>
-  <div id="session-stats" class="mb-3">
-    <span id="session-count" class="badge bg-info">{{ _("Loading...") }}</span>
-  </div>
-  <div id="sessions-list">
-    <div class="table-responsive">
-      <table class="table table-striped">
-        <thead>
-          <tr>
-            <th>{{ _("Session ID") }}</th>
-            <th>{{ _("Status") }}</th>
-            <th>{{ _("Target Account") }}</th>
-            <th>{{ _("File Status") }}</th>
-            <th>{{ _("Created At") }}</th>
-            <th>{{ _("Last Progress") }}</th>
-            <th>{{ _("Actions") }}</th>
-          </tr>
-        </thead>
-        <tbody id="sessions-body">
-          <!-- Sessions will be added dynamically -->
-        </tbody>
-      </table>
+  <div id="loading-indicator" class="text-center" style="display: none;">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">{{ _("Loading...") }}</span>
     </div>
+    <p class="mt-2">{{ _("Loading more sessions...") }}</p>
   </div>
-</div>
 
-<div id="loading-indicator" class="text-center" style="display: none;">
-  <div class="spinner-border text-primary" role="status">
-    <span class="visually-hidden">{{ _("Loading...") }}</span>
+  <div id="no-more-data" class="text-center text-muted" style="display: none;">
+    <p>{{ _("All sessions loaded") }}</p>
   </div>
-  <p class="mt-2">{{ _("Loading more sessions...") }}</p>
-</div>
-
-<div id="no-more-data" class="text-center text-muted" style="display: none;">
-  <p>{{ _("All sessions loaded") }}</p>
 </div>
 
 <script>

@@ -327,7 +327,21 @@ def _regenerate_duplicate_video_thumbnails(
 
     thumb_func = thumbs_generate
     operation_id = f"duplicate-video-{media.id}"
-    regen_mode = (regeneration_mode or "regenerate").lower()
+    regen_mode_raw = regeneration_mode or "regenerate"
+    if not isinstance(regen_mode_raw, str):
+        regen_mode_raw = "regenerate"
+
+    regen_mode = regen_mode_raw.strip().lower()
+    if regen_mode not in {"regenerate", "skip"}:
+        _log_warning(
+            "local_import.duplicate_video.invalid_regeneration_mode",
+            "未知の再生成モードが指定されたため既定値にフォールバックします",
+            session_id=session_id,
+            media_id=media.id,
+            requested_mode=regen_mode_raw,
+            status="invalid_regen_mode",
+        )
+        regen_mode = "regenerate"
 
     if regen_mode == "skip":
         _log_info(

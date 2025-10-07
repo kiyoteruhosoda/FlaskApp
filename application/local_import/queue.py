@@ -275,6 +275,9 @@ class LocalImportQueueProcessor:
                     selection.media_id = file_result.get("media_id")
                 elif result_status in {"duplicate", "duplicate_refreshed"}:
                     selection.status = "dup"
+                    existing_google_id = file_result.get("media_google_id")
+                    if existing_google_id:
+                        selection.google_media_id = existing_google_id
                 else:
                     selection.status = "failed"
                     selection.error = file_result.get("reason")

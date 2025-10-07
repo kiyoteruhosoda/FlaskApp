@@ -2786,10 +2786,20 @@ def trigger_local_import():
     import random
     import string
 
+    payload = request.get_json(silent=True) or {}
+    duplicate_regeneration = payload.get("duplicateRegeneration")
+    if isinstance(duplicate_regeneration, str):
+        duplicate_regeneration = duplicate_regeneration.lower()
+    else:
+        duplicate_regeneration = "regenerate"
+    if duplicate_regeneration not in {"regenerate", "skip"}:
+        duplicate_regeneration = "regenerate"
+
     _local_import_log(
         "Local import trigger requested",
         event="local_import.api.trigger",
         stage="start",
+        duplicate_regeneration=duplicate_regeneration,
     )
 
     try:
@@ -2807,6 +2817,15 @@ def trigger_local_import():
             updated_at=now,
             last_progress_at=now
         )
+        stats = session.stats() if hasattr(session, "stats") else {}
+        if not isinstance(stats, dict):
+            stats = {}
+        options = stats.get("options")
+        if not isinstance(options, dict):
+            options = {}
+        options["duplicateRegeneration"] = duplicate_regeneration
+        stats["options"] = options
+        session.set_stats(stats)
         db.session.add(session)
         db.session.commit()
 
@@ -2820,6 +2839,7 @@ def trigger_local_import():
             session_id=session_id,
             celery_task_id=task.id,
             picker_session_db_id=session.id,
+            duplicate_regeneration=duplicate_regeneration,
         )
 
         return jsonify({
@@ -2827,7 +2847,8 @@ def trigger_local_import():
             "task_id": task.id,
             "session_id": session_id,
             "message": "ローカルインポートタスクを開始しました",
-            "server_time": now.isoformat()
+            "server_time": now.isoformat(),
+            "duplicateRegeneration": duplicate_regeneration,
         })
 
     except Exception as e:
@@ -3117,6 +3138,9 @@ def local_import_status():
         "status": {
             "pending_files": file_count,
             "ready": import_dir_info["exists"] and originals_dir_info["exists"],
+        },
+        "defaults": {
+            "duplicateRegeneration": "regenerate",
         },
         "server_time": datetime.now(timezone.utc).isoformat(),
     })

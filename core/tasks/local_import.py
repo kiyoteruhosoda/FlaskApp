@@ -315,6 +315,7 @@ def _regenerate_duplicate_video_thumbnails(
     media: Media,
     *,
     session_id: Optional[str] = None,
+    regeneration_mode: str = "regenerate",
 ) -> tuple[bool, Optional[str]]:
     """重複動画のサムネイル生成を再実行する。
 
@@ -326,6 +327,19 @@ def _regenerate_duplicate_video_thumbnails(
 
     thumb_func = thumbs_generate
     operation_id = f"duplicate-video-{media.id}"
+    regen_mode = (regeneration_mode or "regenerate").lower()
+
+    if regen_mode == "skip":
+        _log_info(
+            "local_import.duplicate_video.regeneration_skipped",
+            "重複動画のサムネイル/再生アセット再生成がスキップされました",
+            session_id=session_id,
+            media_id=media.id,
+            status="duplicate_regen_skipped",
+        )
+        return True, None
+
+    force_playback = regen_mode == "regenerate"
 
     def _execute_thumb_attempt(attempt: int) -> Dict[str, Any]:
         if thumb_func is None:
@@ -414,7 +428,58 @@ def _regenerate_duplicate_video_thumbnails(
         )
         return False, notes
 
-    attempts = 1
+    attempts = 0
+
+    if force_playback:
+        _log_info(
+            "local_import.duplicate_video.playback_force_requested",
+            "重複動画の再生アセット再生成を強制実行",
+            session_id=session_id,
+            media_id=media.id,
+            status="playback_force_requested",
+            attempts=attempts,
+        )
+        playback_result = enqueue_media_playback(
+            media.id,
+            logger_override=logger,
+            operation_id=operation_id,
+            request_context=request_context,
+            force_regenerate=True,
+        )
+        if not playback_result.get("ok"):
+            failure_note = playback_result.get("note") or PLAYBACK_NOT_READY_NOTES
+            _log_warning(
+                "local_import.duplicate_video.playback_force_failed",
+                "重複動画の再生アセット強制再生成に失敗",
+                session_id=session_id,
+                media_id=media.id,
+                note=failure_note,
+                status="playback_force_failed",
+                attempts=attempts,
+            )
+            failure_result: Dict[str, Any] = {
+                "ok": False,
+                "notes": failure_note,
+                "generated": [],
+                "skipped": [],
+                "paths": {},
+            }
+            return _finalise(failure_result, attempts=attempts)
+
+        _log_info(
+            "local_import.duplicate_video.playback_force_completed",
+            "重複動画の再生アセット再生成が完了",
+            session_id=session_id,
+            media_id=media.id,
+            note=playback_result.get("note"),
+            playback_status=playback_result.get("playback_status"),
+            playback_output_path=playback_result.get("output_path"),
+            playback_poster_path=playback_result.get("poster_path"),
+            status="playback_force_completed",
+            attempts=attempts,
+        )
+
+    attempts += 1
 
     try:
         result = _execute_thumb_attempt(attempts)
@@ -509,6 +574,7 @@ def import_single_file(
     originals_dir: str,
     *,
     session_id: Optional[str] = None,
+    duplicate_regeneration: Optional[str] = None,
 ) -> Dict:
     """単一ファイル取り込みのアプリケーションサービスへの委譲."""
 
@@ -517,6 +583,7 @@ def import_single_file(
         import_dir,
         originals_dir,
         session_id=session_id,
+        duplicate_regeneration=duplicate_regeneration,
     )
 
 
@@ -549,8 +616,10 @@ _file_importer = LocalImportFileImporter(
     post_process_logger=logger,
     directory_resolver=_resolve_directory,
     analysis_service=_media_analyzer.analyze,
-    thumbnail_regenerator=lambda media, session_id=None: _regenerate_duplicate_video_thumbnails(
-        media, session_id=session_id
+    thumbnail_regenerator=lambda media, session_id=None, regeneration_mode="regenerate": _regenerate_duplicate_video_thumbnails(
+        media,
+        session_id=session_id,
+        regeneration_mode=regeneration_mode,
     ),
     supported_extensions=SUPPORTED_EXTENSIONS,
 )

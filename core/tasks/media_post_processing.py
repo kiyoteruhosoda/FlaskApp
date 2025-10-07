@@ -414,6 +414,7 @@ def enqueue_media_playback(
     logger_override: Optional[logging.Logger] = None,
     operation_id: Optional[str] = None,
     request_context: Optional[Dict[str, Any]] = None,
+    force_regenerate: bool = False,
 ) -> Dict[str, Any]:
     """Synchronously prepare video playback assets for *media_id*.
 
@@ -464,44 +465,60 @@ def enqueue_media_playback(
             db.session.commit()
 
         if pb.status in {"done", "processing"}:
-            thumb_result: Dict[str, Any] | None = None
-            if pb.status == "done":
-                thumb_result = enqueue_thumbs_generate(
-                    media_id,
-                    logger_override=logger,
+            if force_regenerate and pb.status == "done":
+                _structured_task_log(
+                    logger,
+                    level="info",
+                    event="video_transcoding.force_restart",
+                    message="Playback regeneration forced; restarting transcoding.",
                     operation_id=op_id,
+                    media_id=media_id,
                     request_context=request_context,
+                    previous_status=pb.status,
+                )
+                pb.status = "pending"
+                pb.error_msg = None
+                pb.updated_at = datetime.now(timezone.utc)
+                db.session.commit()
+            else:
+                thumb_result: Dict[str, Any] | None = None
+                if pb.status == "done":
+                    thumb_result = enqueue_thumbs_generate(
+                        media_id,
+                        logger_override=logger,
+                        operation_id=op_id,
+                        request_context=request_context,
+                    )
+
+                log_details: Dict[str, Any] = {"playback_status": pb.status}
+                if thumb_result is not None:
+                    log_details.update(
+                        thumbnail_ok=thumb_result.get("ok"),
+                        thumbnail_generated=thumb_result.get("generated"),
+                        thumbnail_skipped=thumb_result.get("skipped"),
+                        thumbnail_notes=thumb_result.get("notes"),
+                    )
+
+                _structured_task_log(
+                    logger,
+                    level="info",
+                    event="video_transcoding.skipped",
+                    message=f"Video playback already {pb.status}.",
+                    operation_id=op_id,
+                    media_id=media_id,
+                    request_context=request_context,
+                    **log_details,
                 )
 
-            log_details: Dict[str, Any] = {"playback_status": pb.status}
-            if thumb_result is not None:
-                log_details.update(
-                    thumbnail_ok=thumb_result.get("ok"),
-                    thumbnail_generated=thumb_result.get("generated"),
-                    thumbnail_skipped=thumb_result.get("skipped"),
-                    thumbnail_notes=thumb_result.get("notes"),
-                )
+                result: Dict[str, Any] = {
+                    "ok": pb.status == "done",
+                    "note": f"already_{pb.status}",
+                    "playback_status": pb.status,
+                }
+                if thumb_result is not None:
+                    result["thumbnails"] = thumb_result
 
-            _structured_task_log(
-                logger,
-                level="info",
-                event="video_transcoding.skipped",
-                message=f"Video playback already {pb.status}.",
-                operation_id=op_id,
-                media_id=media_id,
-                request_context=request_context,
-                **log_details,
-            )
-
-            result: Dict[str, Any] = {
-                "ok": pb.status == "done",
-                "note": f"already_{pb.status}",
-                "playback_status": pb.status,
-            }
-            if thumb_result is not None:
-                result["thumbnails"] = thumb_result
-
-            return result
+                return result
 
         result = transcode_worker(media_playback_id=pb.id)
         db.session.refresh(pb)

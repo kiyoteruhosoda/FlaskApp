@@ -125,6 +125,7 @@ class LocalImportQueueProcessor:
         active_session_id: Optional[str],
         celery_task_id: Optional[str],
         task_instance=None,
+        duplicate_regeneration: str = "regenerate",
     ) -> int:
         if not session:
             return 0
@@ -222,6 +223,7 @@ class LocalImportQueueProcessor:
                 import_dir,
                 originals_dir,
                 session_id=active_session_id,
+                duplicate_regeneration=duplicate_regeneration,
             )
 
             result_status = file_result.get("status")

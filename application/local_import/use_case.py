@@ -167,6 +167,20 @@ class LocalImportUseCase:
                 status="queued",
             )
 
+            duplicate_regeneration = "regenerate"
+            if session:
+                stats = session.stats() if hasattr(session, "stats") else {}
+                if isinstance(stats, dict):
+                    options = stats.get("options")
+                    if isinstance(options, dict):
+                        requested = options.get("duplicateRegeneration") or options.get(
+                            "duplicate_regeneration"
+                        )
+                        if isinstance(requested, str):
+                            requested_normalized = requested.lower()
+                            if requested_normalized in {"regenerate", "skip"}:
+                                duplicate_regeneration = requested_normalized
+
             self._queue_processor.process(
                 session,
                 import_dir=import_dir,
@@ -175,6 +189,7 @@ class LocalImportUseCase:
                 active_session_id=active_session_id,
                 celery_task_id=celery_task_id,
                 task_instance=task_instance,
+                duplicate_regeneration=duplicate_regeneration,
             )
         except Exception as exc:
             result["ok"] = False

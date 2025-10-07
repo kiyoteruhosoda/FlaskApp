@@ -32,6 +32,7 @@ def _stub_playback_success(monkeypatch: pytest.MonkeyPatch, playback_dir: Path) 
         logger_override=None,
         operation_id=None,
         request_context=None,
+        force_regenerate: bool = False,
     ) -> dict:
         media = Media.query.get(media_id)
         if media:
@@ -70,6 +71,7 @@ def _stub_playback_success(monkeypatch: pytest.MonkeyPatch, playback_dir: Path) 
         }
 
     monkeypatch.setattr(media_post_processing, "enqueue_media_playback", fake_enqueue)
+    monkeypatch.setattr(local_import_module, "enqueue_media_playback", fake_enqueue)
 
 
 def _stub_playback_failure(monkeypatch: pytest.MonkeyPatch, note: str = "stub_failure") -> None:
@@ -81,10 +83,12 @@ def _stub_playback_failure(monkeypatch: pytest.MonkeyPatch, note: str = "stub_fa
         logger_override=None,
         operation_id=None,
         request_context=None,
+        force_regenerate: bool = False,
     ) -> dict:
         return {"ok": False, "note": note}
 
     monkeypatch.setattr(media_post_processing, "enqueue_media_playback", fake_enqueue)
+    monkeypatch.setattr(local_import_module, "enqueue_media_playback", fake_enqueue)
 
 
 def _stub_video_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -290,6 +294,49 @@ def test_duplicate_video_regenerates_thumbnails(
 
 
 @pytest.mark.usefixtures("app_context")
+def test_duplicate_video_respects_skip_regeneration_option(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, playback_dir: Path
+) -> None:
+    """重複動画再取り込み時にスキップ指定で再生成しないことを検証。"""
+
+    import_dir = tmp_path / "import"
+    originals_dir = tmp_path / "originals"
+    import_dir.mkdir()
+    originals_dir.mkdir()
+
+    test_video = import_dir / "DupThumbSkip.mp4"
+    create_test_video(test_video)
+
+    _stub_playback_success(monkeypatch, playback_dir)
+    _stub_video_metadata(monkeypatch)
+
+    thumb_calls: list[tuple[int, bool]] = []
+
+    def fake_thumbs_generate(*, media_id: int, force: bool = False) -> dict:
+        thumb_calls.append((media_id, force))
+        return {"ok": True, "generated": [256], "skipped": [], "notes": None}
+
+    monkeypatch.setattr(local_import_module, "thumbs_generate", fake_thumbs_generate)
+
+    first = import_single_file(str(test_video), str(import_dir), str(originals_dir))
+    assert first["success"] is True
+    assert not thumb_calls
+
+    create_test_video(test_video)
+
+    second = import_single_file(
+        str(test_video),
+        str(import_dir),
+        str(originals_dir),
+        duplicate_regeneration="skip",
+    )
+
+    assert second["success"] is False
+    assert "重複ファイル" in second["reason"]
+    assert not thumb_calls
+
+
+@pytest.mark.usefixtures("app_context")
 def test_duplicate_video_thumbnail_retries_inline_when_playback_pending(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, playback_dir: Path
 ) -> None:
@@ -336,6 +383,7 @@ def test_duplicate_video_thumbnail_retries_inline_when_playback_pending(
         logger_override=None,
         operation_id=None,
         request_context=None,
+        force_regenerate: bool = False,
     ) -> dict:
         playback_calls.append((media_id, operation_id))
         playback_ready["done"] = True
@@ -371,9 +419,8 @@ def test_duplicate_video_thumbnail_retries_inline_when_playback_pending(
     assert "重複ファイル" in second["reason"]
     assert "thumbnail_regen_error" not in second
 
-    assert len(thumb_calls) == 2
+    assert len(thumb_calls) == 1
     assert thumb_calls[0] == (first["media_id"], True)
-    assert thumb_calls[1] == (first["media_id"], True)
 
     assert len(playback_calls) == 1
     playback_media_id, playback_operation_id = playback_calls[0]

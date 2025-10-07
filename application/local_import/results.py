@@ -3,8 +3,15 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, Optional
 
+from sqlalchemy import and_
+
 from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
-from core.models.photo_models import Media, MediaItem, PickerSelection
+from core.models.photo_models import (
+    Media,
+    MediaItem,
+    MediaPlayback,
+    PickerSelection,
+)
 
 
 def build_thumbnail_task_snapshot(
@@ -53,9 +60,18 @@ def build_thumbnail_task_snapshot(
             Media.id.label("media_id"),
             Media.thumbnail_rel_path,
             Media.is_video,
+            Media.has_playback,
+            MediaPlayback.status.label("playback_status"),
         )
         .outerjoin(MediaItem, PickerSelection.google_media_id == MediaItem.id)
         .outerjoin(Media, Media.google_media_id == MediaItem.id)
+        .outerjoin(
+            MediaPlayback,
+            and_(
+                MediaPlayback.media_id == Media.id,
+                MediaPlayback.preset == "std1080p",
+            ),
+        )
         .filter(
             PickerSelection.session_id == session.id,
             PickerSelection.status == "imported",
@@ -107,6 +123,13 @@ def build_thumbnail_task_snapshot(
         retry_details = recorded.get("retry_details") if recorded else None
 
         record = celery_records.get(media_id)
+        playback_status_raw = getattr(row, "playback_status", None)
+        playback_status = (
+            playback_status_raw.lower()
+            if isinstance(playback_status_raw, str)
+            else None
+        )
+        has_playback = bool(getattr(row, "has_playback", False))
 
         if row.thumbnail_rel_path:
             final_status = "completed"
@@ -140,6 +163,22 @@ def build_thumbnail_task_snapshot(
                 else:
                     final_status = "progress"
 
+        if row.is_video:
+            if playback_status in {"pending", "processing"}:
+                final_status = "progress"
+                retry_flag = True
+            elif playback_status == "error":
+                final_status = "error"
+            elif playback_status == "done":
+                if not row.thumbnail_rel_path and final_status != "error":
+                    final_status = base_status or "progress"
+                else:
+                    final_status = "completed"
+            elif not has_playback:
+                final_status = "completed"
+                if not note:
+                    note = "playback_unavailable"
+
         if final_status == "error":
             summary["failed"] += 1
         elif final_status == "completed":
@@ -156,6 +195,9 @@ def build_thumbnail_task_snapshot(
             "notes": note,
             "isVideo": bool(row.is_video),
         }
+        if playback_status:
+            entry_payload["playbackStatus"] = playback_status
+        entry_payload["hasPlayback"] = has_playback
         if isinstance(retry_details, dict):
             entry_payload["retryDetails"] = retry_details
         if record is not None:

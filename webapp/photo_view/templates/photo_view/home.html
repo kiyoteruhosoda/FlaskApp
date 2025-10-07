@@ -11,6 +11,73 @@
     align-items: flex-start;
   }
 
+  .quick-actions-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .quick-actions-grid {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .quick-actions-grid > * {
+    width: 100%;
+  }
+
+  .quick-actions-grid .quick-actions-full {
+    grid-column: 1 / -1;
+  }
+
+  .quick-actions-panel {
+    border: 1px solid var(--bs-border-color-translucent);
+    border-radius: var(--bs-border-radius);
+    padding: 1rem;
+    background-color: var(--bs-tertiary-bg);
+  }
+
+  @media (min-width: 992px) {
+    .quick-actions-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: stretch;
+    }
+
+    .quick-actions-grid .quick-action-compact {
+      min-height: 3rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+
+  .session-starter {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .session-starter .input-group {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .session-starter .input-group > * {
+    flex: 1 1 auto;
+  }
+
+  .session-starter .input-group > .btn {
+    flex: 0 1 auto;
+    white-space: nowrap;
+  }
+
+  @media (min-width: 768px) {
+    .session-starter .input-group {
+      flex-wrap: nowrap;
+      gap: 0;
+    }
+  }
+
 </style>
 {% endblock %}
 
@@ -38,7 +105,7 @@
       <div class="card-header bg-white">
         <h2 class="h5 mb-0">{{ _("Start a new picker session") }}</h2>
       </div>
-      <div class="card-body">
+      <div class="card-body session-starter">
         <label for="session-account" class="form-label">{{ _("Google account for the new session") }}</label>
         <div class="input-group">
           {% set has_multiple_accounts = google_accounts|length > 1 %}
@@ -71,47 +138,49 @@
         <h2 class="h6 mb-0">{{ _("Quick actions") }}</h2>
         <span class="text-muted small">{{ _("Everything you need for day-to-day work") }}</span>
       </div>
-      <div class="card-body d-flex flex-column gap-2">
-        <button id="refresh-sessions" class="btn btn-outline-primary d-flex align-items-center justify-content-center">
-          <i id="refresh-icon" class="fas fa-arrows-rotate me-2"></i>{{ _("Refresh sessions") }}
-        </button>
-        {% if is_admin %}
-          <div class="border rounded p-3 bg-body-tertiary">
-            <div class="fw-semibold small mb-1">{{ _("Duplicate handling") }}</div>
-            <p class="text-muted small mb-2">{{ _("Choose how duplicate videos should refresh their thumbnails and playback assets during import.") }}</p>
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="duplicate-regeneration" id="duplicate-regenerate" value="regenerate" checked>
-              <label class="form-check-label" for="duplicate-regenerate">
-                {{ _("Regenerate thumbnails and playback assets") }}
-              </label>
-              <div class="form-text">{{ _("Always recreate thumbnails and playback MP4 files even when they already exist.") }}</div>
+      <div class="card-body quick-actions-card">
+        <div class="quick-actions-grid">
+          <button id="refresh-sessions" class="btn btn-outline-primary quick-action-compact quick-actions-full">
+            <i id="refresh-icon" class="fas fa-arrows-rotate me-2"></i>{{ _("Refresh sessions") }}
+          </button>
+          {% if is_admin %}
+            <div class="quick-actions-panel quick-actions-full">
+              <div class="fw-semibold small mb-1">{{ _("Duplicate handling") }}</div>
+              <p class="text-muted small mb-2">{{ _("Choose how duplicate videos should refresh their thumbnails and playback assets during import.") }}</p>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="duplicate-regeneration" id="duplicate-regenerate" value="regenerate" checked>
+                <label class="form-check-label" for="duplicate-regenerate">
+                  {{ _("Regenerate thumbnails and playback assets") }}
+                </label>
+                <div class="form-text">{{ _("Always recreate thumbnails and playback MP4 files even when they already exist.") }}</div>
+              </div>
+              <div class="form-check mt-2">
+                <input class="form-check-input" type="radio" name="duplicate-regeneration" id="duplicate-skip" value="skip">
+                <label class="form-check-label" for="duplicate-skip">
+                  {{ _("Keep existing assets for duplicates") }}
+                </label>
+                <div class="form-text">{{ _("Skip regeneration when the duplicate already has thumbnails and playback assets.") }}</div>
+              </div>
             </div>
-            <div class="form-check mt-2">
-              <input class="form-check-input" type="radio" name="duplicate-regeneration" id="duplicate-skip" value="skip">
-              <label class="form-check-label" for="duplicate-skip">
-                {{ _("Keep existing assets for duplicates") }}
-              </label>
-              <div class="form-text">{{ _("Skip regeneration when the duplicate already has thumbnails and playback assets.") }}</div>
-            </div>
-          </div>
-        {% endif %}
-        <button type="button" id="local-import-btn" class="btn btn-outline-info d-flex align-items-center justify-content-center"
-                data-import-display="{{ local_import_info.import.display or '' }}"
-                data-import-absolute="{{ local_import_info.import.absolute or '' }}"
-                data-import-realpath="{{ local_import_info.import.realpath or '' }}"
-                data-import-exists="{{ '1' if local_import_info.import.exists else '0' }}"
-                data-destination-display="{{ local_import_info.originals.display or '' }}"
-                data-destination-absolute="{{ local_import_info.originals.absolute or '' }}"
-                data-destination-realpath="{{ local_import_info.originals.realpath or '' }}"
-                data-destination-exists="{{ '1' if local_import_info.originals.exists else '0' }}">
-          <i class="bi bi-folder-plus me-2"></i>{{ _("Start local import") }}
-        </button>
-        <a href="{{ url_for('photo_view.media_list') }}" class="btn btn-primary d-flex align-items-center justify-content-center">
-          <i class="fas fa-images me-2"></i>{{ _("Open media gallery") }}
-        </a>
-        <a href="{{ url_for('photo_view.albums') }}" class="btn btn-outline-success d-flex align-items-center justify-content-center">
-          <i class="fas fa-folder me-2"></i>{{ _("Browse albums") }}
-        </a>
+          {% endif %}
+          <button type="button" id="local-import-btn" class="btn btn-outline-info quick-action-compact"
+                  data-import-display="{{ local_import_info.import.display or '' }}"
+                  data-import-absolute="{{ local_import_info.import.absolute or '' }}"
+                  data-import-realpath="{{ local_import_info.import.realpath or '' }}"
+                  data-import-exists="{{ '1' if local_import_info.import.exists else '0' }}"
+                  data-destination-display="{{ local_import_info.originals.display or '' }}"
+                  data-destination-absolute="{{ local_import_info.originals.absolute or '' }}"
+                  data-destination-realpath="{{ local_import_info.originals.realpath or '' }}"
+                  data-destination-exists="{{ '1' if local_import_info.originals.exists else '0' }}">
+            <i class="bi bi-folder-plus me-2"></i>{{ _("Start local import") }}
+          </button>
+          <a href="{{ url_for('photo_view.media_list') }}" class="btn btn-primary quick-action-compact">
+            <i class="fas fa-images me-2"></i>{{ _("Open media gallery") }}
+          </a>
+          <a href="{{ url_for('photo_view.albums') }}" class="btn btn-outline-success quick-action-compact">
+            <i class="fas fa-folder me-2"></i>{{ _("Browse albums") }}
+          </a>
+        </div>
       </div>
     </div>
   </div>

@@ -103,7 +103,7 @@ def test_picker_import_item_imports(monkeypatch, app, tmp_path):
     called_thumbs: list[int] = []
     called_play: list[int] = []
     monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: called_thumbs.append(mid))
-    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid: called_play.append(mid))
+    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid, **kwargs: called_play.append(mid))
 
     with app.app_context():
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
@@ -152,7 +152,7 @@ def test_picker_import_item_dup(monkeypatch, app, tmp_path):
     called_thumbs: list[int] = []
     called_play: list[int] = []
     monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: called_thumbs.append(mid))
-    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid: called_play.append(mid))
+    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid, **kwargs: called_play.append(mid))
 
     # pre-create media with same hash
     from core.models.photo_models import Media
@@ -219,7 +219,7 @@ def test_picker_import_item_reimports_deleted_media(monkeypatch, app, tmp_path):
     called_thumbs: list[int] = []
     called_play: list[int] = []
     monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: called_thumbs.append(mid))
-    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid: called_play.append(mid))
+    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid, **kwargs: called_play.append(mid))
 
     from core.models.photo_models import Media
     from webapp.extensions import db
@@ -293,7 +293,7 @@ def test_picker_import_item_video_queues_playback(monkeypatch, app, tmp_path):
     called_thumbs: list[int] = []
     called_play: list[int] = []
     monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: called_thumbs.append(mid))
-    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid: called_play.append(mid))
+    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid, **kwargs: called_play.append(mid))
 
     with app.app_context():
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
@@ -382,7 +382,7 @@ def test_picker_import_item_heartbeat(monkeypatch, app, tmp_path):
 
     monkeypatch.setattr(mod.requests, "get", lambda url, headers=None: FakeResp())
     monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: None)
-    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid: None)
+    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid, **kwargs: None)
 
     with app.app_context():
         res = picker_import_item(
@@ -446,7 +446,7 @@ def test_picker_import_item_reresolves_expired_base_url(monkeypatch, app, tmp_pa
 
     monkeypatch.setattr(mod, "_download", fake_download)
     monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: None)
-    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid: None)
+    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid, **kwargs: None)
 
     with app.app_context():
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
@@ -486,7 +486,7 @@ def test_picker_import_item_reresolve_failure_marks_expired(monkeypatch, app, tm
     monkeypatch.setattr(mod.requests, "get", lambda url, headers=None: Resp())
     monkeypatch.setattr(mod, "_download", lambda url, dest_dir, headers=None: None)
     monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: None)
-    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid: None)
+    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid, **kwargs: None)
 
     with app.app_context():
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
@@ -519,7 +519,7 @@ def test_picker_import_item_network_error_requeues(monkeypatch, app, tmp_path):
 
     monkeypatch.setattr(mod, "_download", fail_download)
     monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: None)
-    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid: None)
+    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid, **kwargs: None)
 
     with app.app_context():
         from core.models.picker_session import PickerSession

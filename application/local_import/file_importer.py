@@ -55,7 +55,13 @@ class DirectoryResolver(Protocol):
 
 
 class ThumbnailRegenerator(Protocol):
-    def __call__(self, media: Media, *, session_id: Optional[str] = None) -> tuple[bool, Optional[str]]:
+    def __call__(
+        self,
+        media: Media,
+        *,
+        session_id: Optional[str] = None,
+        regeneration_mode: str = "regenerate",
+    ) -> tuple[bool, Optional[str]]:
         ...
 
 
@@ -121,6 +127,7 @@ class LocalImportFileImporter:
         originals_dir: str,
         *,
         session_id: Optional[str] = None,
+        duplicate_regeneration: Optional[str] = None,
     ) -> Dict[str, Any]:
         source = ImportFile(file_path)
         outcome = ImportOutcome(
@@ -200,6 +207,7 @@ class LocalImportFileImporter:
                     originals_dir,
                     file_extension,
                     session_id,
+                    duplicate_regeneration,
                 )
 
             return self._store_new_media(
@@ -235,7 +243,11 @@ class LocalImportFileImporter:
         originals_dir: str,
         file_extension: str,
         session_id: Optional[str],
+        duplicate_regeneration: Optional[str],
     ) -> Dict[str, Any]:
+        regen_mode = (duplicate_regeneration or "regenerate").lower()
+        if regen_mode not in {"regenerate", "skip"}:
+            regen_mode = "regenerate"
         outcome.details.update(
             {
                 "reason": f"重複ファイル (既存ID: {existing_media.id})",
@@ -303,14 +315,29 @@ class LocalImportFileImporter:
                 )
 
         if existing_media.is_video:
-            regen_success, regen_error = self._thumbnail_regenerator(
-                existing_media,
-                session_id=session_id,
-            )
-            if not regen_success:
-                outcome.details["thumbnail_regen_error"] = (
-                    regen_error or "重複動画のサムネイル再生成に失敗しました"
+            if regen_mode == "skip":
+                self._logger.info(
+                    "local_import.file.duplicate_video_regen_skipped",
+                    "重複動画のサムネイル/再生アセット再生成をスキップ",
+                    **file_context,
+                    media_id=existing_media.id,
+                    session_id=session_id,
+                    status="duplicate_regen_skipped",
                 )
+            else:
+                regen_success, regen_error = self._thumbnail_regenerator(
+                    existing_media,
+                    session_id=session_id,
+                    regeneration_mode=regen_mode,
+                )
+                if not regen_success:
+                    outcome.details["thumbnail_regen_error"] = (
+                        regen_error or "重複動画のサムネイル再生成に失敗しました"
+                    )
+                else:
+                    outcome.details["thumbnail_regenerated"] = True
+
+        outcome.details["duplicate_regeneration_mode"] = regen_mode
 
         return outcome.as_dict()
 

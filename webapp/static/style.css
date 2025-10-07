@@ -504,7 +504,7 @@ body.login-page .login-card .language-selector {
     width: 2.5rem;
     height: 2.5rem;
     padding: 0.5rem;
-    border-radius: 50%;
+    border-radius: 0.75rem;
     justify-content: center;
     gap: 0;
   }

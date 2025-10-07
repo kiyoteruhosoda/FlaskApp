@@ -460,3 +460,58 @@ def test_duplicate_video_thumbnail_retries_inline_when_playback_pending(
 
     # Celery経由のリトライは発生しない
     assert not enqueue_calls
+
+
+@pytest.mark.usefixtures("app_context")
+def test_duplicate_video_invalid_regen_mode_forces_playback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, playback_dir: Path
+) -> None:
+    """未知の再生成モード指定でも再生アセットを強制再生成する。"""
+
+    import_dir = tmp_path / "import"
+    originals_dir = tmp_path / "originals"
+    import_dir.mkdir()
+    originals_dir.mkdir()
+
+    test_video = import_dir / "DupThumbInvalid.mp4"
+    create_test_video(test_video)
+
+    _stub_playback_success(monkeypatch, playback_dir)
+    _stub_video_metadata(monkeypatch)
+
+    first = import_single_file(str(test_video), str(import_dir), str(originals_dir))
+    assert first["success"] is True
+
+    media = Media.query.get(first["media_id"])
+    assert media is not None
+
+    playback_calls: list[tuple[int, bool]] = []
+    thumb_calls: list[tuple[int, bool]] = []
+
+    def fake_enqueue_media_playback(
+        media_id: int,
+        *,
+        logger_override=None,
+        operation_id=None,
+        request_context=None,
+        force_regenerate: bool = False,
+    ) -> dict:
+        playback_calls.append((media_id, force_regenerate))
+        return {"ok": True}
+
+    def fake_thumbs_generate(*, media_id: int, force: bool = False) -> dict:
+        thumb_calls.append((media_id, force))
+        return {"ok": True, "generated": [256], "skipped": [], "notes": None, "paths": {}}
+
+    monkeypatch.setattr(local_import_module, "enqueue_media_playback", fake_enqueue_media_playback)
+    monkeypatch.setattr(local_import_module, "thumbs_generate", fake_thumbs_generate)
+
+    success, error = local_import_module._regenerate_duplicate_video_thumbnails(
+        media,
+        regeneration_mode="refresh",
+    )
+
+    assert success is True
+    assert error is None
+    assert playback_calls == [(media.id, True)]
+    assert thumb_calls == [(media.id, True)]

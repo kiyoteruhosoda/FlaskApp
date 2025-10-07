@@ -374,6 +374,90 @@ def test_local_import_video_generates_playback_from_originals(app, monkeypatch):
     assert not src_video.exists()
     assert any(p.is_relative_to(originals_root) for p in probe_called_paths)
 
+
+def test_local_import_duplicate_sets_google_media_id(app):
+    """重複検出時でも Selection に media リンク情報が保存されることを確認"""
+
+    from application.local_import.queue import LocalImportQueueProcessor
+    from core.models.picker_session import PickerSession
+    from core.models.photo_models import Media, MediaItem, PickerSelection
+    from webapp.extensions import db
+
+    class DummyLogger:
+        def info(self, *args, **kwargs):
+            pass
+
+        def warning(self, *args, **kwargs):
+            pass
+
+        def error(self, *args, **kwargs):
+            pass
+
+        def commit_with_error_logging(self, *args, **kwargs):
+            pass
+
+    class DummyImporter:
+        def __init__(self, media):
+            self._media = media
+
+        def import_file(self, *args, **kwargs):
+            return {
+                "success": False,
+                "status": "duplicate",
+                "reason": "Duplicate file detected",
+                "media_id": self._media.id,
+                "media_google_id": self._media.google_media_id,
+            }
+
+    with app.app_context():
+        session = PickerSession(session_id="local-dup-test", status="processing")
+        db.session.add(session)
+        db.session.commit()
+
+        media_item = MediaItem(id="existing-media", type="PHOTO", filename="dup.jpg")
+        media = Media(google_media_id="existing-media", filename="dup.jpg", source_type="local")
+        db.session.add_all([media_item, media])
+        db.session.commit()
+
+        import_dir = Path(app.config["LOCAL_IMPORT_DIR"])
+        originals_dir = app.config["FPV_NAS_ORIGINALS_DIR"]
+        file_path = import_dir / "dup.jpg"
+        file_path.write_bytes(b"dummy")
+
+        selection = PickerSelection(
+            session_id=session.id,
+            status="enqueued",
+            local_file_path=str(file_path),
+            local_filename="dup.jpg",
+            attempts=0,
+        )
+        db.session.add(selection)
+        db.session.commit()
+
+        processor = LocalImportQueueProcessor(
+            db=db,
+            logger=DummyLogger(),
+            importer=DummyImporter(media),
+            cancel_requested=lambda _session, task_instance=None: False,
+        )
+
+        result = {"details": [], "success": 0, "failed": 0, "skipped": 0, "errors": [], "processed": 0}
+        processed = processor.process(
+            session,
+            import_dir=str(import_dir),
+            originals_dir=originals_dir,
+            result=result,
+            active_session_id=session.session_id,
+            celery_task_id=None,
+            duplicate_regeneration="regenerate",
+        )
+
+        assert processed == 1
+        updated = db.session.get(PickerSelection, selection.id)
+        assert updated.status == "dup"
+        assert updated.google_media_id == media.google_media_id
+
+
 if __name__ == "__main__":
     print("ローカルインポート機能のテスト")
     print("=" * 50)

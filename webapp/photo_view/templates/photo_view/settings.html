@@ -78,27 +78,6 @@
 
                 <div id="status-message" class="alert alert-warning mt-3 d-none" role="alert"></div>
 
-                {% if is_admin %}
-                <div id="duplicate-regeneration-options" class="mt-4">
-                    <h3 class="h6 mb-2">{{ _("Duplicate handling") }}</h3>
-                    <p class="text-muted small mb-3">{{ _("Choose how duplicate videos should refresh their thumbnails and playback assets during import.") }}</p>
-                    <div class="form-check">
-                        <input class="form-check-input" type="radio" name="duplicate-regeneration" id="duplicate-regenerate" value="regenerate" checked>
-                        <label class="form-check-label" for="duplicate-regenerate">
-                            {{ _("Regenerate thumbnails and playback assets") }}
-                        </label>
-                        <div class="form-text">{{ _("Always recreate thumbnails and playback MP4 files even when they already exist.") }}</div>
-                    </div>
-                    <div class="form-check mt-2">
-                        <input class="form-check-input" type="radio" name="duplicate-regeneration" id="duplicate-skip" value="skip">
-                        <label class="form-check-label" for="duplicate-skip">
-                            {{ _("Keep existing assets for duplicates") }}
-                        </label>
-                        <div class="form-text">{{ _("Skip regeneration when the duplicate already has thumbnails and playback assets.") }}</div>
-                    </div>
-                </div>
-                {% endif %}
-
                 {% if not is_admin %}
                 <p class="text-muted small mt-3 mb-0">
                     <i class="bi bi-info-circle"></i>
@@ -159,11 +138,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const progressTotal = document.getElementById('progress-total');
   const progressMessage = document.getElementById('progress-message');
   const resultDiv = document.getElementById('import-result');
-  const duplicateOptionsSection = document.getElementById('duplicate-regeneration-options');
-  const duplicateModeRadios = document.querySelectorAll('input[name="duplicate-regeneration"]');
 
   const isAdmin = JSON.parse("{{ is_admin | tojson }}");
-  const duplicateModeStorageKey = 'localImportDuplicateRegeneration';
 
   let currentTaskId = null;
   let progressInterval = null;
@@ -183,54 +159,6 @@ document.addEventListener('DOMContentLoaded', () => {
     statusMessageEl.classList.add('d-none');
     statusMessageEl.classList.remove('alert-warning', 'alert-danger', 'alert-success', 'alert-info');
     statusMessageEl.innerHTML = '';
-  }
-
-  function normalizeDuplicateMode(value) {
-    if (typeof value !== 'string') {
-      return 'regenerate';
-    }
-    const normalized = value.toLowerCase();
-    return normalized === 'skip' ? 'skip' : 'regenerate';
-  }
-
-  function loadStoredDuplicateMode(defaultValue = 'regenerate') {
-    let stored = defaultValue;
-    try {
-      const raw = window.localStorage?.getItem(duplicateModeStorageKey);
-      if (raw) {
-        stored = normalizeDuplicateMode(raw);
-      }
-    } catch (error) {
-      stored = defaultValue;
-    }
-    return stored;
-  }
-
-  function persistDuplicateMode(mode) {
-    const normalized = normalizeDuplicateMode(mode);
-    try {
-      window.localStorage?.setItem(duplicateModeStorageKey, normalized);
-    } catch (error) {
-      // ignore
-    }
-    return normalized;
-  }
-
-  function setDuplicateMode(mode) {
-    const normalized = normalizeDuplicateMode(mode);
-    duplicateModeRadios.forEach((radio) => {
-      radio.checked = radio.value === normalized;
-    });
-  }
-
-  function getDuplicateMode() {
-    let mode = 'regenerate';
-    duplicateModeRadios.forEach((radio) => {
-      if (radio.checked) {
-        mode = normalizeDuplicateMode(radio.value);
-      }
-    });
-    return mode;
   }
 
   function showStatusMessage(message, level = 'warning') {
@@ -361,11 +289,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     updateSystemStatus(data.status, data.config);
 
-    if (isAdmin && duplicateModeRadios.length) {
-      const defaultMode = normalizeDuplicateMode(data?.defaults?.duplicateRegeneration || 'regenerate');
-      const storedMode = loadStoredDuplicateMode(defaultMode);
-      setDuplicateMode(storedMode);
-    }
   }
 
   async function loadStatus() {
@@ -526,11 +449,10 @@ document.addEventListener('DOMContentLoaded', () => {
     showProgressSection();
 
     try {
-      const duplicateMode = persistDuplicateMode(getDuplicateMode());
       const response = await fetch('/api/sync/local-import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ duplicateRegeneration: duplicateMode }),
+        body: JSON.stringify({ duplicateRegeneration: 'regenerate' }),
       });
       const data = await response.json();
       if (!response.ok || !data.success) {
@@ -582,17 +504,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!startImportBtn.disabled) {
         handleStartImport();
       }
-    });
-  }
-
-  if (duplicateOptionsSection && duplicateModeRadios.length) {
-    setDuplicateMode(loadStoredDuplicateMode());
-    duplicateModeRadios.forEach((radio) => {
-      radio.addEventListener('change', () => {
-        if (radio.checked) {
-          persistDuplicateMode(radio.value);
-        }
-      });
     });
   }
 

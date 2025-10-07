@@ -1,5 +1,6 @@
 """ローカルインポートの重複処理でメタデータが再適用されることのテスト"""
 
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,8 @@ from core.tasks import local_import
 from core.tasks.local_import import import_single_file
 from core.models.photo_models import Media, MediaItem, PhotoMetadata, Exif
 from webapp.extensions import db
+from domain.local_import.entities import ImportFile
+from domain.local_import.media_file import MediaFileAnalysis
 
 
 @pytest.fixture
@@ -124,4 +127,93 @@ def test_duplicate_import_refreshes_metadata(monkeypatch, tmp_path, app_context)
     assert photo_meta.iso_equivalent == 200
     assert photo_meta.aperture_f_number == 4.0
     assert photo_meta.exposure_time == "1/125"
+
+
+def test_duplicate_import_updates_relative_path(monkeypatch, tmp_path, app_context):
+    """重複取り込み時に撮影日時の更新へ追従して保存先ディレクトリを調整する。"""
+
+    import_dir = tmp_path / "import"
+    originals_dir = tmp_path / "originals"
+    import_dir.mkdir()
+    originals_dir.mkdir()
+
+    payload = b"dummy-video-payload"
+    file_path = import_dir / "sample.mov"
+
+    class DummyAnalyzer:
+        def __init__(self) -> None:
+            self.mode = "old"
+            self.old_relative_path = "2024/01/02/20240102_local_dummy.mov"
+            self.new_relative_path = "2018/01/28/20180128_local_dummy.mov"
+
+        def analyze(self, path: str) -> MediaFileAnalysis:
+            file_hash = local_import.calculate_file_hash(path)
+            size = Path(path).stat().st_size
+            if self.mode == "old":
+                shot = datetime(2024, 1, 2, 12, 30, tzinfo=timezone.utc)
+                rel_path = self.old_relative_path
+            else:
+                shot = datetime(2018, 1, 28, 1, 39, 22, tzinfo=timezone.utc)
+                rel_path = self.new_relative_path
+
+            return MediaFileAnalysis(
+                source=ImportFile(path),
+                extension=".mov",
+                file_size=size,
+                file_hash=file_hash,
+                mime_type="video/quicktime",
+                is_video=True,
+                width=1920,
+                height=1080,
+                duration_ms=1234,
+                orientation=None,
+                shot_at=shot,
+                exif_data={},
+                video_metadata={"fps": 30.0},
+                destination_filename=Path(rel_path).name,
+                relative_path=rel_path,
+            )
+
+    analyzer = DummyAnalyzer()
+    monkeypatch.setattr(local_import, "_media_analyzer", analyzer)
+    monkeypatch.setattr(local_import._file_importer, "_analysis_service", analyzer.analyze)
+    monkeypatch.setattr(
+        local_import._file_importer,
+        "_post_process_service",
+        lambda media, *, logger_override, request_context: {"playback": {"ok": True}},
+    )
+    monkeypatch.setattr(
+        local_import._file_importer,
+        "_validate_playback",
+        lambda *args, **kwargs: None,
+    )
+
+    file_path.write_bytes(payload)
+    first = import_single_file(str(file_path), str(import_dir), str(originals_dir))
+    assert first["success"] is True
+
+    media = Media.query.get(first["media_id"])
+    old_relative = analyzer.old_relative_path
+    assert media.local_rel_path == old_relative
+    old_original = originals_dir / old_relative
+    assert old_original.exists()
+
+    # 再取り込みで creation_time が正しく解析され、新しいディレクトリに移動されることを確認
+    analyzer.mode = "new"
+    file_path.write_bytes(payload)
+
+    second = import_single_file(str(file_path), str(import_dir), str(originals_dir))
+    assert second["success"] is False
+    assert second["metadata_refreshed"] is True
+    assert second["relative_path"] == analyzer.new_relative_path
+    assert second["imported_path"] == str(originals_dir / analyzer.new_relative_path)
+
+    db.session.expire_all()
+    refreshed = Media.query.get(first["media_id"])
+    assert refreshed.local_rel_path == analyzer.new_relative_path
+    assert refreshed.shot_at == datetime(2018, 1, 28, 1, 39, 22)
+
+    assert not old_original.exists()
+    new_original = originals_dir / analyzer.new_relative_path
+    assert new_original.exists()
 

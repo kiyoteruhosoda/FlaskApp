@@ -2,6 +2,7 @@
 
 import logging
 import os
+import shutil
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from core.db import db
@@ -243,6 +244,66 @@ def _refresh_existing_media_metadata(
         return False
 
     analysis = _media_analyzer.analyze(source_path)
+
+    old_relative_path = media.local_rel_path or None
+    new_relative_path = analysis.relative_path
+    destination_path: Optional[str] = None
+
+    if new_relative_path:
+        destination_path = os.path.normpath(
+            os.path.join(originals_dir, new_relative_path)
+        )
+        source_absolute = os.path.normpath(source_path)
+        old_absolute = (
+            os.path.normpath(os.path.join(originals_dir, old_relative_path))
+            if old_relative_path
+            else None
+        )
+
+        if old_absolute == destination_path:
+            media.local_rel_path = new_relative_path
+        else:
+            os.makedirs(os.path.dirname(destination_path), exist_ok=True)
+            relocation_source = None
+            if old_absolute and os.path.exists(old_absolute):
+                relocation_source = old_absolute
+            elif os.path.exists(source_absolute):
+                relocation_source = source_absolute
+
+            if relocation_source and relocation_source != destination_path:
+                moved = False
+                try:
+                    shutil.move(relocation_source, destination_path)
+                    moved = True
+                except OSError:
+                    shutil.copy2(relocation_source, destination_path)
+                if not moved and relocation_source != destination_path:
+                    if relocation_source == old_absolute and os.path.exists(relocation_source):
+                        try:
+                            os.remove(relocation_source)
+                        except OSError:
+                            pass
+                if (
+                    old_absolute
+                    and old_absolute != destination_path
+                    and os.path.exists(old_absolute)
+                ):
+                    try:
+                        os.remove(old_absolute)
+                    except OSError:
+                        pass
+
+            media.local_rel_path = new_relative_path
+            if old_relative_path != new_relative_path:
+                _log_info(
+                    "local_import.file.duplicate_path_updated",
+                    "重複メディアの保存先パスを更新",
+                    media_id=media.id,
+                    old_relative_path=old_relative_path,
+                    new_relative_path=new_relative_path,
+                    session_id=session_id,
+                    status="path_updated",
+                )
 
     apply_analysis_to_media_entity(media, analysis)
 

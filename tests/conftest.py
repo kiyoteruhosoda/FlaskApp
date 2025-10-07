@@ -84,6 +84,7 @@ ALWAYS_RUN = {
     "tests/test_local_import.py",
     "tests/test_local_import_ui.py",
     "tests/test_local_import_services.py",
+    "tests/test_local_import_results.py",
 }
 
 

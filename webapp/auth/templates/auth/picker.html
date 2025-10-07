@@ -143,7 +143,7 @@
     const defaultRetryDelayMs = 1000;
     try {
       let cursor = null;
-      do {
+      while (true) {
         const resp = await fetch('/api/picker/session/mediaItems', {
           method: 'POST',
           headers: {
@@ -178,7 +178,10 @@
         }
         const data = await resp.json();
         cursor = data.nextCursor;
-      } while (cursor);
+        if (!cursor) {
+          break;
+        }
+      }
     } catch (e) {
       console.error(e);
     }

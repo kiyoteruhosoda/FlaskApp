@@ -397,6 +397,33 @@ body.login-page .flash-messages .alert {
   pointer-events: auto;
 }
 
+.login-card-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1.5rem;
+}
+
+body.login-page .login-card .language-selector {
+  align-self: flex-end;
+}
+
+.login-card .language-selector .dropdown-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  padding: 0.5rem 0.9rem;
+  line-height: 1.2;
+}
+
+.login-card .language-selector .dropdown-toggle .bi-translate {
+  font-size: 1.05rem;
+}
+
+.login-card .language-selector .dropdown-menu {
+  min-width: 11rem;
+}
+
 .login-card {
   animation: fadeInUp 0.6s ease-out;
 }
@@ -467,6 +494,27 @@ body.login-page .flash-messages .alert {
     min-width: 0;
     max-width: none;
     width: 100%;
+  }
+
+  .login-card-toolbar {
+    justify-content: flex-end;
+  }
+
+  .login-card .language-selector .dropdown-toggle {
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0.5rem;
+    border-radius: 50%;
+    justify-content: center;
+    gap: 0;
+  }
+
+  .login-card .language-selector .dropdown-toggle .language-label {
+    display: none;
+  }
+
+  .login-card .language-selector .dropdown-toggle .bi-translate {
+    margin: 0;
   }
 
   .language-selector {

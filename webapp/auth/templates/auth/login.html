@@ -3,28 +3,29 @@
 {% block body_attributes %} class="login-page"{% endblock %}
 
 {% block content %}
-{% if not current_user.is_authenticated and language_selector_languages %}
-<div class="language-selector d-flex justify-content-end mb-3 w-100">
-  <div class="dropdown">
-    <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="languageDropdown"
-            data-bs-toggle="dropdown" aria-expanded="false">
-      <i class="bi bi-translate me-1"></i>
-      {{ language_labels.get(current_language) or (current_language|upper) }}
-    </button>
-    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="languageDropdown">
-      {% for lang_code in language_selector_languages %}
-      <li>
-        <a class="dropdown-item{% if lang_code == current_language %} active{% endif %}" href="{{ url_for('set_lang', lang_code=lang_code) }}">
-          {{ language_labels.get(lang_code) or (lang_code|upper) }}
-        </a>
-      </li>
-      {% endfor %}
-    </ul>
-  </div>
-</div>
-{% endif %}
 <div class="login-container">
   <div class="login-card">
+    {% if not current_user.is_authenticated and language_selector_languages %}
+    <div class="login-card-toolbar">
+      <div class="language-selector dropdown">
+        <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="languageDropdown"
+                data-bs-toggle="dropdown" aria-expanded="false"
+                aria-label="{{ _('Select language') }}">
+          <i class="bi bi-translate"></i>
+          <span class="language-label">{{ language_labels.get(current_language) or (current_language|upper) }}</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="languageDropdown">
+          {% for lang_code in language_selector_languages %}
+          <li>
+            <a class="dropdown-item{% if lang_code == current_language %} active{% endif %}" href="{{ url_for('set_lang', lang_code=lang_code) }}">
+              {{ language_labels.get(lang_code) or (lang_code|upper) }}
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    {% endif %}
     <div class="login-header">
       <h1 class="login-title">{{ _('Welcome Back') }}</h1>
       <p class="login-subtitle">{{ _('Sign in to your PhotoNest account') }}</p>

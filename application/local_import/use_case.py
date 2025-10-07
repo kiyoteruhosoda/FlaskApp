@@ -448,6 +448,8 @@ class LocalImportUseCase:
             result["success"] = imported_count
             result["skipped"] = dup_count + skipped_count
             result["failed"] = failed_count
+            result["duplicates"] = dup_count
+            result["manually_skipped"] = skipped_count
             result["processed"] = (
                 imported_count + dup_count + skipped_count + failed_count
             )
@@ -455,7 +457,15 @@ class LocalImportUseCase:
             only_skipped = (
                 result["success"] == 0
                 and result["failed"] == 0
-                and result["skipped"] > 0
+                and skipped_count > 0
+                and dup_count == 0
+            )
+
+            only_duplicates = (
+                result["success"] == 0
+                and result["failed"] == 0
+                and dup_count > 0
+                and skipped_count == 0
             )
 
             cancel_requested = bool(result.get("canceled")) or self._session_service.cancel_requested(session)
@@ -482,6 +492,8 @@ class LocalImportUseCase:
                 if (not result["ok"]) or result["failed"] > 0:
                     final_status = "error"
                 elif thumbnails_failed:
+                    final_status = "imported"
+                elif only_duplicates:
                     final_status = "imported"
                 elif only_skipped:
                     final_status = "pending"
@@ -515,7 +527,7 @@ class LocalImportUseCase:
                     import_task_status = "progress"
                 elif result["failed"] > 0 or not result["ok"]:
                     import_task_status = "error"
-                elif result["success"] > 0:
+                elif result["success"] > 0 or only_duplicates:
                     import_task_status = "completed"
                 elif only_skipped or result["processed"] > 0:
                     import_task_status = "pending"

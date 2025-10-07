@@ -580,6 +580,36 @@ def test_media_items_busy(monkeypatch, client, app):
         ps_module._release_media_items_lock(session_id, lock)
 
 
+def test_media_items_rate_limited(client, app):
+    login(client, app)
+
+    from webapp.api import picker_session_service as service_module
+
+    with app.app_context():
+        previous_limit = app.config.get("PICKER_MEDIA_ITEMS_MAX_CONCURRENCY")
+        app.config["PICKER_MEDIA_ITEMS_MAX_CONCURRENCY"] = 1
+        assert service_module._acquire_media_items_slot()
+
+    try:
+        res = client.post(
+            "/api/picker/session/mediaItems", json={"sessionId": "any"}
+        )
+        assert res.status_code == 429
+        data = res.get_json()
+        assert data["error"] == "rate_limited"
+        assert "retryAfter" in data
+        retry_after_header = res.headers.get("Retry-After")
+        if retry_after_header is not None:
+            assert retry_after_header.isdigit()
+    finally:
+        service_module._release_media_items_slot()
+        with app.app_context():
+            if previous_limit is None:
+                app.config.pop("PICKER_MEDIA_ITEMS_MAX_CONCURRENCY", None)
+            else:
+                app.config["PICKER_MEDIA_ITEMS_MAX_CONCURRENCY"] = previous_limit
+
+
 def test_media_items_enqueue_and_skip_duplicate(monkeypatch, client, app):
     login(client, app)
 

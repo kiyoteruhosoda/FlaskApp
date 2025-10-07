@@ -464,7 +464,13 @@ def api_picker_session_media_items():
             ),
             extra={"event": "picker.mediaItems.success"},
         )
-        return jsonify(payload), status
+        response = jsonify(payload)
+        if status == 429 and isinstance(payload, dict):
+            retry_after = payload.get("retryAfter")
+            if isinstance(retry_after, (int, float)):
+                seconds = max(0, int(round(retry_after)))
+                response.headers["Retry-After"] = str(seconds)
+        return response, status
     except Exception as e:
         current_app.logger.error(
             json.dumps(

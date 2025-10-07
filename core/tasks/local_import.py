@@ -253,6 +253,7 @@ def _update_media_playback_paths(
     old_relative_path: Optional[str],
     new_relative_path: str,
     session_id: Optional[str] = None,
+    playback_entries: Optional[List[MediaPlayback]] = None,
 ) -> None:
     """Update playback asset paths so they mirror *new_relative_path*."""
 
@@ -269,7 +270,8 @@ def _update_media_playback_paths(
         )
         return
 
-    playback_entries = MediaPlayback.query.filter_by(media_id=media.id).all()
+    if playback_entries is None:
+        playback_entries = MediaPlayback.query.filter_by(media_id=media.id).all()
     if not playback_entries:
         return
 
@@ -326,6 +328,47 @@ def _update_media_playback_paths(
             status="playback_path_updated",
             relocated_assets=relocated,
         )
+
+
+def _playback_paths_need_alignment(
+    playback_entries: Iterable[MediaPlayback],
+    new_relative_path: str,
+) -> bool:
+    """Return ``True`` if any playback asset path conflicts with the new layout."""
+
+    if not new_relative_path:
+        return False
+
+    target_path = _clean_relative_path(new_relative_path)
+    if not target_path.parts:
+        return False
+
+    target_parent = target_path.parent
+    target_parent_str = "" if str(target_parent) == "." else target_parent.as_posix()
+    target_base = target_path.stem
+
+    for pb in playback_entries:
+        for rel in (pb.rel_path, pb.poster_rel_path):
+            if not rel:
+                continue
+            cleaned = _clean_relative_path(rel)
+            if not cleaned.parts:
+                continue
+            current_parent = cleaned.parent
+            current_parent_str = (
+                "" if str(current_parent) == "." else current_parent.as_posix()
+            )
+            if current_parent_str != target_parent_str:
+                return True
+            current_base = cleaned.stem
+            if (
+                target_base
+                and current_base
+                and not current_base.startswith(target_base)
+            ):
+                return True
+
+    return False
 
 
 def _commit_with_error_logging(
@@ -454,9 +497,7 @@ def _refresh_existing_media_metadata(
             else None
         )
 
-        if old_absolute == destination_path:
-            media.local_rel_path = new_relative_path
-        else:
+        if old_absolute != destination_path:
             os.makedirs(os.path.dirname(destination_path), exist_ok=True)
             relocation_source = None
             if old_absolute and os.path.exists(old_absolute):
@@ -487,23 +528,45 @@ def _refresh_existing_media_metadata(
                     except OSError:
                         pass
 
-            media.local_rel_path = new_relative_path
-            if old_relative_path != new_relative_path:
-                _log_info(
-                    "local_import.file.duplicate_path_updated",
-                    "重複メディアの保存先パスを更新",
-                    media_id=media.id,
-                    old_relative_path=old_relative_path,
-                    new_relative_path=new_relative_path,
-                    session_id=session_id,
-                    status="path_updated",
-                )
-                _update_media_playback_paths(
-                    media,
-                    old_relative_path=old_relative_path,
-                    new_relative_path=new_relative_path,
-                    session_id=session_id,
-                )
+        media.local_rel_path = new_relative_path
+
+        playback_entries: List[MediaPlayback] = []
+        if media.id:
+            playback_entries = MediaPlayback.query.filter_by(media_id=media.id).all()
+
+        relative_path_changed = old_relative_path != new_relative_path
+        playback_alignment_needed = bool(
+            playback_entries
+            and _playback_paths_need_alignment(playback_entries, new_relative_path)
+        )
+
+        if relative_path_changed:
+            _log_info(
+                "local_import.file.duplicate_path_updated",
+                "重複メディアの保存先パスを更新",
+                media_id=media.id,
+                old_relative_path=old_relative_path,
+                new_relative_path=new_relative_path,
+                session_id=session_id,
+                status="path_updated",
+            )
+        elif playback_alignment_needed:
+            _log_info(
+                "local_import.file.duplicate_playback_path_realigned",
+                "重複メディアの再生アセットの保存先パスを撮影日時に合わせて補正",
+                media_id=media.id,
+                relative_path=new_relative_path,
+                session_id=session_id,
+                status="playback_path_realigned",
+            )
+
+        _update_media_playback_paths(
+            media,
+            old_relative_path=old_relative_path,
+            new_relative_path=new_relative_path,
+            session_id=session_id,
+            playback_entries=playback_entries or None,
+        )
 
     apply_analysis_to_media_entity(media, analysis)
 

@@ -31,10 +31,8 @@ from core.models.photo_models import Media, MediaPlayback
 from core.storage_paths import ensure_directory, first_existing_storage_path
 from .thumbs_generate import thumbs_generate
 
-# transcode専用ロガーを取得（両方のログハンドラーが設定済み）
-logger = logging.getLogger('celery.task.transcode')
-
-logger = logging.getLogger(__name__)
+# transcode専用ロガーを取得
+logger = logging.getLogger("celery.task.transcode")
 
 
 # ---------------------------------------------------------------------------

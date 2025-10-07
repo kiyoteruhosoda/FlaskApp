@@ -8,7 +8,7 @@ import pytest
 from webapp import create_app
 from core.tasks import local_import
 from core.tasks.local_import import import_single_file
-from core.models.photo_models import Media, MediaItem, PhotoMetadata, Exif
+from core.models.photo_models import Media, MediaItem, MediaPlayback, PhotoMetadata, Exif
 from webapp.extensions import db
 from domain.local_import.entities import ImportFile
 from domain.local_import.media_file import MediaFileAnalysis
@@ -134,8 +134,10 @@ def test_duplicate_import_updates_relative_path(monkeypatch, tmp_path, app_conte
 
     import_dir = tmp_path / "import"
     originals_dir = tmp_path / "originals"
+    playback_dir = tmp_path / "playback"
     import_dir.mkdir()
     originals_dir.mkdir()
+    monkeypatch.setenv("FPV_NAS_PLAY_DIR", str(playback_dir))
 
     payload = b"dummy-video-payload"
     file_path = import_dir / "sample.mov"
@@ -198,6 +200,29 @@ def test_duplicate_import_updates_relative_path(monkeypatch, tmp_path, app_conte
     old_original = originals_dir / old_relative
     assert old_original.exists()
 
+    # 既存の再生アセットを用意し、パスの更新が行われることを検証
+    media.has_playback = True
+    db.session.add(media)
+    old_playback_rel = Path(old_relative).with_suffix(".mp4").as_posix()
+    old_poster_rel = Path(old_playback_rel).with_suffix(".jpg").as_posix()
+    playback_path = playback_dir / old_playback_rel
+    playback_path.parent.mkdir(parents=True, exist_ok=True)
+    playback_path.write_bytes(b"playback-data")
+    poster_path = playback_dir / old_poster_rel
+    poster_path.parent.mkdir(parents=True, exist_ok=True)
+    poster_path.write_bytes(b"poster-data")
+    playback_record = MediaPlayback(
+        media_id=media.id,
+        preset="std1080p",
+        rel_path=old_playback_rel,
+        poster_rel_path=old_poster_rel,
+        status="done",
+    )
+    db.session.add(playback_record)
+    db.session.commit()
+    assert playback_path.exists()
+    assert poster_path.exists()
+
     # 再取り込みで creation_time が正しく解析され、新しいディレクトリに移動されることを確認
     analyzer.mode = "new"
     file_path.write_bytes(payload)
@@ -216,4 +241,36 @@ def test_duplicate_import_updates_relative_path(monkeypatch, tmp_path, app_conte
     assert not old_original.exists()
     new_original = originals_dir / analyzer.new_relative_path
     assert new_original.exists()
+
+    playback_entry = MediaPlayback.query.filter_by(media_id=refreshed.id).one()
+    new_parent = Path(analyzer.new_relative_path).parent
+    old_base = Path(old_relative).stem
+    new_base = Path(analyzer.new_relative_path).stem
+
+    def _expected_name(old_name: str) -> str:
+        if old_base and old_name.startswith(old_base):
+            return new_base + old_name[len(old_base) :]
+        suffix = Path(old_name).suffix
+        if suffix:
+            return Path(new_base).with_suffix(suffix).name
+        return new_base
+
+    expected_playback_name = _expected_name(Path(old_playback_rel).name)
+    expected_poster_name = _expected_name(Path(old_poster_rel).name)
+    expected_playback_rel = (
+        (new_parent / expected_playback_name)
+        if str(new_parent) not in {".", ""}
+        else Path(expected_playback_name)
+    ).as_posix()
+    expected_poster_rel = (
+        (new_parent / expected_poster_name)
+        if str(new_parent) not in {".", ""}
+        else Path(expected_poster_name)
+    ).as_posix()
+    assert playback_entry.rel_path == expected_playback_rel
+    assert playback_entry.poster_rel_path == expected_poster_rel
+    assert not (playback_dir / old_playback_rel).exists()
+    assert not (playback_dir / old_poster_rel).exists()
+    assert (playback_dir / expected_playback_rel).exists()
+    assert (playback_dir / expected_poster_rel).exists()
 

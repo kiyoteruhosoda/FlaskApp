@@ -3,13 +3,16 @@
 import logging
 import os
 import shutil
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from core.db import db
 from core.models.photo_models import (
     Media,
-    PickerSelection,
     MediaItem,
+    MediaPlayback,
+    PickerSelection,
 )
 from core.models.picker_session import PickerSession
 from core.logging_config import setup_task_logging
@@ -132,6 +135,197 @@ def _log_error(
         exc_info=exc_info,
         **details,
     )
+
+
+def _playback_storage_root() -> Optional[Path]:
+    """Resolve the playback storage root directory."""
+
+    base = first_existing_storage_path("FPV_NAS_PLAY_DIR")
+    if not base:
+        candidates = storage_path_candidates("FPV_NAS_PLAY_DIR")
+        base = candidates[0] if candidates else None
+    if not base:
+        return None
+    return Path(base)
+
+
+def _clean_relative_path(rel_path: str) -> Path:
+    """Return a sanitised ``Path`` for the stored relative path."""
+
+    candidate = Path(rel_path.replace("\\", "/"))
+    parts: List[str] = []
+    for part in candidate.parts:
+        if part in {"", "."}:
+            continue
+        if part == "..":
+            continue
+        parts.append(part)
+    return Path(*parts)
+
+
+def _rebase_relative_path(
+    new_relative_path: str,
+    current_rel: str,
+    *,
+    old_relative_path: Optional[str],
+) -> str:
+    """Rebase *current_rel* so that it lives alongside *new_relative_path*."""
+
+    current = _clean_relative_path(current_rel)
+    if not current.parts:
+        return current_rel
+
+    current_name = current.name
+    remainder = ""
+    if old_relative_path:
+        old_base = _clean_relative_path(old_relative_path).stem
+        if old_base and current_name.startswith(old_base):
+            remainder = current_name[len(old_base) :]
+
+    destination_base = _clean_relative_path(new_relative_path)
+    new_base_name = destination_base.stem
+    if remainder:
+        new_name = new_base_name + remainder
+    else:
+        suffix = Path(current_name).suffix
+        if suffix:
+            new_name = Path(new_base_name).with_suffix(suffix).name
+        else:
+            new_name = new_base_name
+
+    destination = _clean_relative_path(new_relative_path)
+    parent = destination.parent
+    if not destination.parts or str(parent) == ".":
+        rebased = Path(new_name)
+    else:
+        rebased = parent / new_name
+    return rebased.as_posix()
+
+
+def _relocate_playback_asset(
+    base_dir: Path,
+    *,
+    old_rel: str,
+    new_rel: str,
+    media_id: int,
+    session_id: Optional[str],
+    asset_type: str,
+) -> bool:
+    """Move a playback asset from *old_rel* to *new_rel* under *base_dir*."""
+
+    old_path = base_dir / _clean_relative_path(old_rel)
+    new_path = base_dir / _clean_relative_path(new_rel)
+
+    if old_path == new_path:
+        return False
+
+    if not old_path.exists():
+        _log_warning(
+            "local_import.file.duplicate_playback_asset_missing",
+            "再生アセットの移動元が見つかりません",
+            media_id=media_id,
+            asset_type=asset_type,
+            old_rel_path=old_rel,
+            new_rel_path=new_rel,
+            session_id=session_id,
+            status="missing",
+        )
+        return False
+
+    new_path.parent.mkdir(parents=True, exist_ok=True)
+    moved = False
+    try:
+        shutil.move(str(old_path), str(new_path))
+        moved = True
+    except OSError:
+        shutil.copy2(str(old_path), str(new_path))
+    if not moved:
+        try:
+            os.remove(str(old_path))
+        except OSError:
+            pass
+    return True
+
+
+def _update_media_playback_paths(
+    media: Media,
+    *,
+    old_relative_path: Optional[str],
+    new_relative_path: str,
+    session_id: Optional[str] = None,
+) -> None:
+    """Update playback asset paths so they mirror *new_relative_path*."""
+
+    playback_root = _playback_storage_root()
+    if not playback_root:
+        _log_warning(
+            "local_import.file.duplicate_playback_base_missing",
+            "再生アセットの保存先を特定できません",
+            media_id=media.id,
+            old_relative_path=old_relative_path,
+            new_relative_path=new_relative_path,
+            session_id=session_id,
+            status="playback_base_missing",
+        )
+        return
+
+    playback_entries = MediaPlayback.query.filter_by(media_id=media.id).all()
+    if not playback_entries:
+        return
+
+    playback_root.mkdir(parents=True, exist_ok=True)
+    relocated = 0
+
+    for pb in playback_entries:
+        current_rel = pb.rel_path or ""
+        if current_rel:
+            rebased_rel = _rebase_relative_path(
+                new_relative_path,
+                current_rel,
+                old_relative_path=old_relative_path,
+            )
+            if rebased_rel != current_rel:
+                if _relocate_playback_asset(
+                    playback_root,
+                    old_rel=current_rel,
+                    new_rel=rebased_rel,
+                    media_id=media.id,
+                    session_id=session_id,
+                    asset_type="playback",
+                ):
+                    relocated += 1
+            pb.rel_path = rebased_rel
+        poster_rel = pb.poster_rel_path or ""
+        if poster_rel:
+            rebased_poster = _rebase_relative_path(
+                new_relative_path,
+                poster_rel,
+                old_relative_path=old_relative_path,
+            )
+            if rebased_poster != poster_rel:
+                if _relocate_playback_asset(
+                    playback_root,
+                    old_rel=poster_rel,
+                    new_rel=rebased_poster,
+                    media_id=media.id,
+                    session_id=session_id,
+                    asset_type="poster",
+                ):
+                    relocated += 1
+            pb.poster_rel_path = rebased_poster
+        pb.updated_at = datetime.now(timezone.utc)
+
+    if relocated:
+        _log_info(
+            "local_import.file.duplicate_playback_path_updated",
+            "重複メディアの再生アセットの保存先パスを更新",
+            media_id=media.id,
+            old_relative_path=old_relative_path,
+            new_relative_path=new_relative_path,
+            session_id=session_id,
+            status="playback_path_updated",
+            relocated_assets=relocated,
+        )
 
 
 def _commit_with_error_logging(
@@ -303,6 +497,12 @@ def _refresh_existing_media_metadata(
                     new_relative_path=new_relative_path,
                     session_id=session_id,
                     status="path_updated",
+                )
+                _update_media_playback_paths(
+                    media,
+                    old_relative_path=old_relative_path,
+                    new_relative_path=new_relative_path,
+                    session_id=session_id,
                 )
 
     apply_analysis_to_media_entity(media, analysis)

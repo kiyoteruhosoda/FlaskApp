@@ -292,6 +292,13 @@ class LocalImportFileImporter:
                 outcome.details["reason"] = (
                     f"重複ファイル (既存ID: {existing_media.id}) - メタデータ更新"
                 )
+                destination_details = existing_media_destination_context(
+                    existing_media, originals_dir
+                )
+                for key in ("imported_path", "imported_filename", "relative_path"):
+                    value = destination_details.get(key)
+                    if value:
+                        outcome.details[key] = value
                 outcome.mark("duplicate_refreshed")
                 self._logger.info(
                     "local_import.file.duplicate_refreshed",

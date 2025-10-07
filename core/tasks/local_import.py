@@ -476,6 +476,8 @@ def _regenerate_duplicate_video_thumbnails(
             media_id=media.id,
             note=playback_result.get("note"),
             playback_status=playback_result.get("playback_status"),
+            playback_output_path=playback_result.get("output_path"),
+            playback_poster_path=playback_result.get("poster_path"),
             status="playback_refreshed",
             attempts=attempts,
         )

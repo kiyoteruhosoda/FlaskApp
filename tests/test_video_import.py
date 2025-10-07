@@ -230,6 +230,37 @@ def test_video_shot_at_from_metadata(
 
 
 @pytest.mark.usefixtures("app_context")
+def test_local_import_mov_creation_time(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, playback_dir: Path) -> None:
+    """MOV の creation_time メタデータを撮影日時として利用する。"""
+
+    import_dir = tmp_path / "import"
+    originals_dir = tmp_path / "originals"
+    import_dir.mkdir()
+    originals_dir.mkdir()
+
+    test_video = import_dir / "CreationSample.MOV"
+    create_test_video(test_video)
+
+    def fake_extract(path: str) -> dict:
+        assert path == str(test_video)
+        return {
+            "width": 1920,
+            "height": 1080,
+            "duration_ms": 4321,
+            "creation_time": "2024-08-18T12:34:56+09:00",
+        }
+
+    monkeypatch.setattr(local_import_module, "extract_video_metadata", fake_extract)
+    _stub_playback_success(monkeypatch, playback_dir)
+
+    media, _, _ = _import_video(test_video, import_dir, originals_dir)
+
+    expected = datetime(2024, 8, 18, 3, 34, 56, tzinfo=timezone.utc)
+    assert media.shot_at == expected.replace(tzinfo=None)
+    assert media.local_rel_path.startswith("2024/08/18/20240818")
+
+
+@pytest.mark.usefixtures("app_context")
 def test_local_import_video_playback_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, playback_dir: Path
 ) -> None:

@@ -17,6 +17,7 @@ from .media_metadata import (
     generate_filename,
     get_image_dimensions,
     get_relative_path,
+    parse_ffprobe_datetime,
 )
 from .policies import (
     DEFAULT_MIME_TYPE,
@@ -164,11 +165,26 @@ def _resolve_shot_at(
 ) -> datetime:
     """撮影日時を解析する。"""
 
+    def _normalize_video_datetime(value: Any) -> datetime | None:
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, str):
+            return parse_ffprobe_datetime(value)
+        return None
+
     shot_at = get_file_date_from_exif(exif_data)
-    if not shot_at:
-        metadata_shot_at = video_metadata.get("shot_at") if video_metadata else None
-        if isinstance(metadata_shot_at, datetime):
-            shot_at = metadata_shot_at
+
+    if not shot_at and video_metadata:
+        normalized = _normalize_video_datetime(video_metadata.get("shot_at"))
+        if normalized:
+            shot_at = normalized
+        else:
+            for key in ("creation_time", "shot_at_raw"):
+                normalized = _normalize_video_datetime(video_metadata.get(key))
+                if normalized:
+                    shot_at = normalized
+                    break
+
     if not shot_at:
         shot_at = get_file_date_from_name(source.name)
     if not shot_at:

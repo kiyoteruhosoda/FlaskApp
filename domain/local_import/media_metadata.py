@@ -158,6 +158,25 @@ def extract_video_metadata(file_path: str) -> Dict:
     """動画ファイルからメタデータを抽出（ffprobeを使用）"""
 
     metadata: Dict[str, Any] = {}
+
+    def _assign_shot_at(candidate: Any, source_key: str) -> bool:
+        if not candidate:
+            return False
+
+        parsed = _parse_ffprobe_datetime(str(candidate))
+        if not parsed:
+            return False
+
+        metadata["shot_at"] = parsed
+        metadata["shot_at_raw"] = str(candidate)
+        metadata.setdefault("shot_at_source", source_key)
+
+        if source_key in {"creation_time", "com.apple.quicktime.creationdate"}:
+            metadata.setdefault("creation_time_source", source_key)
+            metadata.setdefault("creation_time", str(candidate))
+
+        return True
+
     try:
         cmd = [
             "ffprobe",
@@ -195,12 +214,8 @@ def extract_video_metadata(file_path: str) -> Dict:
                 # ストリームタグから作成日時を確認
                 stream_tags = v_stream.get("tags") or {}
                 for key in ("creation_time", "com.apple.quicktime.creationdate", "date"):
-                    shot_at_candidate = stream_tags.get(key)
-                    if shot_at_candidate:
-                        parsed = _parse_ffprobe_datetime(str(shot_at_candidate))
-                        if parsed:
-                            metadata["shot_at"] = parsed
-                            break
+                    if _assign_shot_at(stream_tags.get(key), key):
+                        break
 
             # フォーマット情報から時間を取得
             format_info = info.get("format", {})
@@ -211,12 +226,8 @@ def extract_video_metadata(file_path: str) -> Dict:
             format_tags = format_info.get("tags") or {}
             if "shot_at" not in metadata:
                 for key in ("creation_time", "com.apple.quicktime.creationdate", "date"):
-                    shot_at_candidate = format_tags.get(key)
-                    if shot_at_candidate:
-                        parsed = _parse_ffprobe_datetime(str(shot_at_candidate))
-                        if parsed:
-                            metadata["shot_at"] = parsed
-                            break
+                    if _assign_shot_at(format_tags.get(key), key):
+                        break
 
     except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError, ValueError):
         # ffprobeが使えない場合やエラーの場合は空のメタデータを返す

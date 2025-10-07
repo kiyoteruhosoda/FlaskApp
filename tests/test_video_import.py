@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from pathlib import Path
+import json
 
 import pytest
 
@@ -12,6 +14,7 @@ from core.models.photo_models import Media, MediaItem, MediaPlayback, VideoMetad
 from core.tasks import local_import as local_import_module
 from core.tasks import media_post_processing
 from core.tasks.local_import import import_single_file
+from domain.local_import.media_metadata import extract_video_metadata
 from core.tasks.thumbs_generate import PLAYBACK_NOT_READY_NOTES
 
 
@@ -21,6 +24,69 @@ def create_test_video(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     mp4_header = b"\x00\x00\x00\x20ftypisom\x00\x00\x02\x00isomiso2mp41"
     path.write_bytes(mp4_header + (b"\x00" * 2000))
+
+
+def _fake_ffprobe_output(
+    *,
+    stream_creation_time: str | None = None,
+    stream_quicktime_creationdate: str | None = None,
+) -> str:
+    tags = {}
+    if stream_creation_time is not None:
+        tags["creation_time"] = stream_creation_time
+    if stream_quicktime_creationdate is not None:
+        tags["com.apple.quicktime.creationdate"] = stream_quicktime_creationdate
+
+    payload = {
+        "streams": [
+            {
+                "codec_type": "video",
+                "r_frame_rate": "30/1",
+                "width": 1920,
+                "height": 1080,
+                "tags": tags,
+            }
+        ],
+        "format": {
+            "duration": "1.0",
+            "tags": {},
+        },
+    }
+
+    return json.dumps(payload)
+
+
+@pytest.mark.usefixtures("app_context")
+def test_extract_video_metadata_prefers_quicktime_creationdate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """QuickTime固有のcreationdateタグから撮影日時を取得できる。"""
+
+    video_path = tmp_path / "quicktime.mov"
+    video_path.write_bytes(b"dummy")
+
+    captured_args: list[list[str]] = []
+
+    def fake_run(cmd: list[str], *, capture_output: bool, text: bool) -> SimpleNamespace:
+        captured_args.append(cmd)
+        return SimpleNamespace(
+            returncode=0,
+            stdout=_fake_ffprobe_output(
+                stream_creation_time=None,
+                stream_quicktime_creationdate="2024-01-02T12:34:56+09:00",
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr("domain.local_import.media_metadata.subprocess.run", fake_run)
+
+    metadata = extract_video_metadata(str(video_path))
+
+    assert captured_args and captured_args[0][0] == "ffprobe"
+    assert metadata["shot_at_source"] == "com.apple.quicktime.creationdate"
+    assert metadata["creation_time_source"] == "com.apple.quicktime.creationdate"
+    assert metadata["creation_time"] == "2024-01-02T12:34:56+09:00"
+    assert metadata["shot_at"] == datetime(2024, 1, 2, 3, 34, 56, tzinfo=timezone.utc)
 
 
 def _stub_playback_success(monkeypatch: pytest.MonkeyPatch, playback_dir: Path) -> None:
@@ -227,6 +293,37 @@ def test_video_shot_at_from_metadata(
     media, _, _ = _import_video(test_video, import_dir, originals_dir)
 
     assert media.shot_at == expected_shot_at.replace(tzinfo=None)
+
+
+@pytest.mark.usefixtures("app_context")
+def test_local_import_mov_creation_time(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, playback_dir: Path) -> None:
+    """MOV の creation_time メタデータを撮影日時として利用する。"""
+
+    import_dir = tmp_path / "import"
+    originals_dir = tmp_path / "originals"
+    import_dir.mkdir()
+    originals_dir.mkdir()
+
+    test_video = import_dir / "CreationSample.MOV"
+    create_test_video(test_video)
+
+    def fake_extract(path: str) -> dict:
+        assert path == str(test_video)
+        return {
+            "width": 1920,
+            "height": 1080,
+            "duration_ms": 4321,
+            "creation_time": "2024-08-18T12:34:56+09:00",
+        }
+
+    monkeypatch.setattr(local_import_module, "extract_video_metadata", fake_extract)
+    _stub_playback_success(monkeypatch, playback_dir)
+
+    media, _, _ = _import_video(test_video, import_dir, originals_dir)
+
+    expected = datetime(2024, 8, 18, 3, 34, 56, tzinfo=timezone.utc)
+    assert media.shot_at == expected.replace(tzinfo=None)
+    assert media.local_rel_path.startswith("2024/08/18/20240818")
 
 
 @pytest.mark.usefixtures("app_context")

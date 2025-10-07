@@ -75,6 +75,26 @@
         <button id="refresh-sessions" class="btn btn-outline-primary d-flex align-items-center justify-content-center">
           <i id="refresh-icon" class="fas fa-arrows-rotate me-2"></i>{{ _("Refresh sessions") }}
         </button>
+        {% if is_admin %}
+          <div class="border rounded p-3 bg-body-tertiary">
+            <div class="fw-semibold small mb-1">{{ _("Duplicate handling") }}</div>
+            <p class="text-muted small mb-2">{{ _("Choose how duplicate videos should refresh their thumbnails and playback assets during import.") }}</p>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="duplicate-regeneration" id="duplicate-regenerate" value="regenerate" checked>
+              <label class="form-check-label" for="duplicate-regenerate">
+                {{ _("Regenerate thumbnails and playback assets") }}
+              </label>
+              <div class="form-text">{{ _("Always recreate thumbnails and playback MP4 files even when they already exist.") }}</div>
+            </div>
+            <div class="form-check mt-2">
+              <input class="form-check-input" type="radio" name="duplicate-regeneration" id="duplicate-skip" value="skip">
+              <label class="form-check-label" for="duplicate-skip">
+                {{ _("Keep existing assets for duplicates") }}
+              </label>
+              <div class="form-text">{{ _("Skip regeneration when the duplicate already has thumbnails and playback assets.") }}</div>
+            </div>
+          </div>
+        {% endif %}
         <button type="button" id="local-import-btn" class="btn btn-outline-info d-flex align-items-center justify-content-center"
                 data-import-display="{{ local_import_info.import.display or '' }}"
                 data-import-absolute="{{ local_import_info.import.absolute or '' }}"
@@ -179,6 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const createSessionBtn = document.getElementById('create-session-btn');
   const accountSelect = document.getElementById('session-account');
   const localImportBtn = document.getElementById('local-import-btn');
+  const duplicateModeRadios = document.querySelectorAll('input[name="duplicate-regeneration"]');
   const isAdmin = {{ 'true' if is_admin else 'false' }};
 
   const selectAccountMessage = '{{ _("Please choose a Google account first.") }}';
@@ -199,6 +220,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const localImportCancelConfirmMessage = '{{ _("Are you sure you want to cancel the local import?") }}';
   const stopLocalImportLabel = '{{ _("Stop Local Import") }}';
   const localImportRunningMessage = '{{ _("Local import is running. You can stop it if needed.") }}';
+  const duplicateModeSummaryLabel = '{{ _("Duplicate handling") }}';
+  const duplicateModeRegenerateLabel = '{{ _("Regenerate thumbnails and playback assets") }}';
+  const duplicateModeSkipLabel = '{{ _("Keep existing assets for duplicates") }}';
+  const duplicateModeRegenerateDescription = '{{ _("Always recreate thumbnails and playback MP4 files even when they already exist.") }}';
+  const duplicateModeSkipDescription = '{{ _("Skip regeneration when the duplicate already has thumbnails and playback assets.") }}';
 
   let totalLoaded = 0;
   const sessionsLoadedLabel = '{{ _("sessions loaded") }}';
@@ -254,6 +280,37 @@ document.addEventListener('DOMContentLoaded', () => {
       return session.accountEmail;
     }
     return '-';
+  }
+
+  function normalizeDuplicateMode(value) {
+    if (typeof value !== 'string') {
+      return 'regenerate';
+    }
+    return value.toLowerCase() === 'skip' ? 'skip' : 'regenerate';
+  }
+
+  function getSelectedDuplicateMode() {
+    let selected = 'regenerate';
+    duplicateModeRadios.forEach((radio) => {
+      if (radio.checked) {
+        selected = normalizeDuplicateMode(radio.value);
+      }
+    });
+    return selected;
+  }
+
+  function describeDuplicateMode(mode) {
+    const normalized = normalizeDuplicateMode(mode);
+    if (normalized === 'skip') {
+      return {
+        label: duplicateModeSkipLabel,
+        description: duplicateModeSkipDescription,
+      };
+    }
+    return {
+      label: duplicateModeRegenerateLabel,
+      description: duplicateModeRegenerateDescription,
+    };
   }
 
   function getStatusBadgeClass(status) {
@@ -494,6 +551,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const destinationDisplay = localImportBtn.dataset.destinationDisplay || localImportBtn.dataset.destinationAbsolute || '';
       const destinationReal = localImportBtn.dataset.destinationRealpath || '';
       const destinationExists = localImportBtn.dataset.destinationExists === '1';
+      const duplicateMode = getSelectedDuplicateMode();
+      const duplicateModeInfo = describeDuplicateMode(duplicateMode);
 
       const confirmLines = [localImportPromptHeader];
       if (importDisplay) {
@@ -518,6 +577,10 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         confirmLines.push(localImportDestinationUnset);
       }
+      confirmLines.push(`${duplicateModeSummaryLabel}: ${duplicateModeInfo.label}`);
+      if (duplicateModeInfo.description) {
+        confirmLines.push(duplicateModeInfo.description);
+      }
       confirmLines.push(localImportRemovalNotice);
 
       if (!confirm(confirmLines.join('\n'))) {
@@ -528,7 +591,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Notify that the import is starting
         showInfoToast(localImportStartingNotice, 3000);
 
-        const resp = await window.apiClient.post('/api/sync/local-import');
+        const resp = await window.apiClient.post('/api/sync/local-import', {
+          duplicateRegeneration: duplicateMode,
+        });
 
         if (!resp.ok) {
           const text = await resp.text().catch(() => '');

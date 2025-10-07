@@ -173,6 +173,11 @@ def extract_video_metadata(file_path: str) -> Dict:
 
         if source_key == "creation_time":
             metadata["creation_time"] = str(candidate)
+        elif (
+            source_key == "com.apple.quicktime.creationdate"
+            and "creation_time" not in metadata
+        ):
+            metadata["creation_time"] = str(candidate)
 
         return True
 
@@ -212,9 +217,19 @@ def extract_video_metadata(file_path: str) -> Dict:
 
                 # ストリームタグから作成日時を確認
                 stream_tags = v_stream.get("tags") or {}
+                stream_creation_time = stream_tags.get("creation_time")
+                if stream_creation_time:
+                    metadata["stream_creation_time"] = stream_creation_time
+
                 for key in ("creation_time", "com.apple.quicktime.creationdate", "date"):
                     if _assign_shot_at(stream_tags.get(key), key):
                         break
+
+                if (
+                    stream_creation_time
+                    and "creation_time" not in metadata
+                ):
+                    metadata["creation_time"] = stream_creation_time
 
             # フォーマット情報から時間を取得
             format_info = info.get("format", {})

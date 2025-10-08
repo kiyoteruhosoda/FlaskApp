@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import shutil
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Optional
+from pathlib import PurePosixPath
+from typing import Any, Callable, Dict, Optional, Tuple
 from uuid import uuid4
 
 from core.db import db
-from core.models.photo_models import MediaPlayback
+from core.models.photo_models import Media, MediaPlayback
 
 from .logger import StructuredMediaTaskLogger
 
@@ -28,6 +29,80 @@ class MediaPlaybackService:
         self._thumbnail_generator = thumbnail_generator
         self._thumbnail_regenerator = thumbnail_regenerator
         self._logger = logger
+
+    def _create_playback_record(
+        self,
+        *,
+        media_id: int,
+        operation_id: str,
+        request_context: Optional[Dict[str, Any]],
+    ) -> Tuple[Optional[MediaPlayback], Optional[Dict[str, Any]]]:
+        media = Media.query.get(media_id)
+        if media is None:
+            self._logger.error(
+                event="video_transcoding.media_missing",
+                message="Media not found while creating playback record.",
+                operation_id=operation_id,
+                media_id=media_id,
+                request_context=request_context,
+            )
+            return None, {"ok": False, "note": "media_missing"}
+
+        if not media.is_video:
+            self._logger.warning(
+                event="video_transcoding.media_not_video",
+                message="Playback requested for non-video media.",
+                operation_id=operation_id,
+                media_id=media_id,
+                request_context=request_context,
+            )
+            return None, {"ok": False, "note": "media_not_video"}
+
+        rel_path = self._derive_playback_rel_path(media)
+        now = datetime.now(timezone.utc)
+        playback = MediaPlayback(
+            media_id=media.id,
+            preset="std1080p",
+            rel_path=rel_path,
+            status="pending",
+            created_at=now,
+            updated_at=now,
+        )
+        db.session.add(playback)
+        db.session.flush()
+
+        self._logger.info(
+            event="video_transcoding.playback_created",
+            message="Created playback record for media.",
+            operation_id=operation_id,
+            media_id=media_id,
+            request_context=request_context,
+            playback_id=playback.id,
+            playback_rel_path=rel_path,
+        )
+
+        return playback, None
+
+    @staticmethod
+    def _derive_playback_rel_path(media: Media) -> str:
+        raw_path = (media.local_rel_path or "").replace("\\", "/")
+        parts = []
+        for part in raw_path.split("/"):
+            if not part or part == ".":
+                continue
+            if part == "..":
+                continue
+            parts.append(part)
+
+        if parts:
+            cleaned = PurePosixPath(*parts)
+        else:
+            cleaned = PurePosixPath(f"media_{media.id}")
+
+        if cleaned.suffix.lower() != ".mp4":
+            cleaned = cleaned.with_suffix(".mp4")
+
+        return cleaned.as_posix()
 
     def prepare(
         self,
@@ -52,7 +127,13 @@ class MediaPlaybackService:
         try:
             playback = MediaPlayback.query.filter_by(media_id=media_id, preset="std1080p").first()
             if not playback:
-                return {"ok": False, "note": "playback_missing"}
+                playback, error = self._create_playback_record(
+                    media_id=media_id,
+                    operation_id=op_id,
+                    request_context=request_context,
+                )
+                if error is not None:
+                    return error
 
             if force_regenerate:
                 playback.update_paths(None, None)

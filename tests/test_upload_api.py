@@ -93,6 +93,9 @@ def test_commit_upload_moves_files(client, auth_headers):
 
     assert not tmp_dir.exists()
 
+    with client.session_transaction() as sess:
+        assert 'upload_session_id' not in sess
+
     app = client.application
     with app.app_context():
         user = User.query.filter_by(email='upload@example.com').first()
@@ -113,3 +116,49 @@ def test_prepare_rejects_unsupported_extension(client, auth_headers):
     assert response.status_code == 400
     payload = response.get_json()
     assert payload['error'] == 'unsupported_format'
+
+
+def test_commit_partial_keeps_session_and_files(client, auth_headers):
+    first_file = b'a,b\n1,2\n'
+    second_file = b'x,y\n3,4\n'
+
+    first_resp = client.post(
+        '/api/upload/prepare',
+        data={'file': (io.BytesIO(first_file), 'first.csv')},
+        headers=auth_headers,
+        content_type='multipart/form-data',
+    )
+    second_resp = client.post(
+        '/api/upload/prepare',
+        data={'file': (io.BytesIO(second_file), 'second.csv')},
+        headers=auth_headers,
+        content_type='multipart/form-data',
+    )
+
+    first_payload = first_resp.get_json()
+    second_payload = second_resp.get_json()
+
+    with client.session_transaction() as sess:
+        session_id = sess.get('upload_session_id')
+
+    assert session_id
+
+    partial_commit = client.post(
+        '/api/upload/commit',
+        json={'files': [{'tempFileId': first_payload['tempFileId']}]},
+        headers=auth_headers,
+    )
+
+    assert partial_commit.status_code == 200
+    partial_data = partial_commit.get_json()
+    assert partial_data['uploaded'][0]['status'] == 'success'
+
+    with client.session_transaction() as sess:
+        assert sess.get('upload_session_id') == session_id
+
+    tmp_dir = Path(client.application.config['UPLOAD_TMP_DIR']) / session_id
+    remaining_file = tmp_dir / second_payload['tempFileId']
+    remaining_metadata = tmp_dir / f"{second_payload['tempFileId']}.json"
+
+    assert remaining_file.exists()
+    assert remaining_metadata.exists()

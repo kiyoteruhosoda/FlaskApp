@@ -10,6 +10,7 @@ from ..services.upload_service import (
     UnsupportedFormatError,
     prepare_upload,
     commit_uploads,
+    has_pending_uploads,
 )
 
 
@@ -87,7 +88,7 @@ def api_upload_commit():
 
     success_count = sum(1 for item in results if item.get("status") == "success")
 
-    if success_count:
+    if success_count and not has_pending_uploads(upload_session_id):
         session.pop("upload_session_id", None)
 
     return jsonify({"uploaded": results})

@@ -277,6 +277,23 @@ def commit_uploads(session_id: str, user_id: Optional[int], temp_file_ids: Itera
             "storedPath": str(destination_path),
         })
 
+    _cleanup_session_dir_if_empty(session_dir)
+
+    return results
+
+
+def has_pending_uploads(session_id: str) -> bool:
+    session_dir = _tmp_base_dir() / session_id
+    try:
+        next(session_dir.iterdir())
+    except StopIteration:
+        return False
+    except FileNotFoundError:
+        return False
+    return True
+
+
+def _cleanup_session_dir_if_empty(session_dir: Path) -> None:
     try:
         next(session_dir.iterdir())
     except StopIteration:
@@ -287,8 +304,6 @@ def commit_uploads(session_id: str, user_id: Optional[int], temp_file_ids: Itera
     except FileNotFoundError:
         pass
 
-    return results
-
 
 __all__ = [
     "PreparedUpload",
@@ -298,4 +313,5 @@ __all__ = [
     "PreparedFileNotFoundError",
     "prepare_upload",
     "commit_uploads",
+    "has_pending_uploads",
 ]

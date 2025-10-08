@@ -129,3 +129,9 @@ class StructuredMediaTaskLogger:
                 exc_info=exc_info,
                 **details,
             )
+
+    @property
+    def base_logger(self) -> logging.Logger:
+        """内部で利用する生の :class:`logging.Logger` を公開する。"""
+
+        return self._logger

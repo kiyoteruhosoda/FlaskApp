@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Callable, Dict, Optional
 from uuid import uuid4
 
 from core.models.photo_models import Media
 
 from .logger import StructuredMediaTaskLogger
-from .playback_service import MediaPlaybackService
 from .thumbnail_service import ThumbnailGenerationService
 
 
@@ -19,11 +18,11 @@ class MediaPostProcessingService:
         self,
         *,
         thumbnail_service: ThumbnailGenerationService,
-        playback_service: MediaPlaybackService,
+        playback_invoker: Callable[..., Dict[str, object]],
         logger: StructuredMediaTaskLogger,
     ) -> None:
         self._thumbnail_service = thumbnail_service
-        self._playback_service = playback_service
+        self._playback_invoker = playback_invoker
         self._logger = logger
 
     def process(
@@ -44,8 +43,9 @@ class MediaPostProcessingService:
         )
 
         if media.is_video:
-            playback = self._playback_service.prepare(
+            playback = self._playback_invoker(
                 media_id=media.id,
+                logger_override=self._logger.base_logger,
                 operation_id=operation_id,
                 request_context=request_context,
             )

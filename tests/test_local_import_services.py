@@ -10,6 +10,7 @@ from application.local_import.use_case import LocalImportUseCase
 from application.local_import.logger import LocalImportTaskLogger
 from application.local_import.queue import LocalImportQueueProcessor
 from application.local_import import logger as logger_module
+from domain.local_import.import_result import ImportTaskResult
 
 
 class DummyAnalysis:
@@ -228,7 +229,7 @@ def test_queue_processor_handles_cancel_request(monkeypatch):
 
     monkeypatch.setattr(processor, "pending_query", lambda _session: DummyQuery())
 
-    result = {"processed": 0, "success": 0, "skipped": 0, "failed": 0, "details": []}
+    result = ImportTaskResult()
 
     processor.process(
         session,
@@ -240,8 +241,8 @@ def test_queue_processor_handles_cancel_request(monkeypatch):
     )
 
     importer.import_file.assert_not_called()
-    assert result["processed"] == 0
-    assert result["canceled"] is True
+    assert result.processed == 0
+    assert result.canceled is True
 
 
 def test_queue_processor_logs_commit_error(monkeypatch):
@@ -289,7 +290,7 @@ def test_queue_processor_logs_commit_error(monkeypatch):
     )
     monkeypatch.setattr(processor, "pending_query", lambda _session: DummyQuery())
 
-    result = {"processed": 0, "success": 0, "skipped": 0, "failed": 0, "details": []}
+    result = ImportTaskResult()
 
     processor.process(
         session,
@@ -300,8 +301,8 @@ def test_queue_processor_logs_commit_error(monkeypatch):
         celery_task_id="C1",
     )
 
-    assert result["success"] == 1
-    assert result["processed"] == 1
+    assert result.success == 1
+    assert result.processed == 1
     db_session.rollback.assert_called_once()
     logger.error.assert_any_call(
         "local_import.selection.finalize_failed",

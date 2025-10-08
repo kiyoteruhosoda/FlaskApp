@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional
 from core.models.picker_session import PickerSession
 from core.models.photo_models import PickerSelection
 
+from domain.local_import.import_result import ImportTaskResult
 from .results import build_thumbnail_task_snapshot
 
 
@@ -39,22 +40,14 @@ class LocalImportUseCase:
         celery_task_id: Optional[str] = None,
         task_instance=None,
     ) -> Dict[str, Any]:
-        result: Dict[str, Any] = {
-            "ok": True,
-            "errors": [],
-            "processed": 0,
-            "success": 0,
-            "skipped": 0,
-            "failed": 0,
-            "details": [],
-            "session_id": session_id,
-            "celery_task_id": celery_task_id,
-            "canceled": False,
-        }
+        result = ImportTaskResult(
+            session_id=session_id,
+            celery_task_id=celery_task_id,
+        )
 
         session = self._load_or_create_session(session_id, result, celery_task_id)
-        if session is None and not result["ok"]:
-            return result
+        if session is None and not result.ok:
+            return result.to_dict()
 
         active_session_id = session.session_id if session else session_id
 
@@ -94,7 +87,7 @@ class LocalImportUseCase:
                 error_message=lambda path: f"取り込みディレクトリが存在しません: {path}",
                 log_details={"import_dir": import_dir},
             ):
-                return result
+                return result.to_dict()
 
             if not self._ensure_directory_exists(
                 originals_dir,
@@ -108,7 +101,7 @@ class LocalImportUseCase:
                 error_message=lambda path: f"保存先ディレクトリが存在しません: {path}",
                 log_details={"originals_dir": originals_dir},
             ):
-                return result
+                return result.to_dict()
 
             files = self._scanner.scan(import_dir, session_id=active_session_id)
             self._logger.info(
@@ -131,7 +124,7 @@ class LocalImportUseCase:
                     celery_task_id,
                     import_dir,
                 )
-                return result
+                return result.to_dict()
 
             enqueued_count = self._queue_processor.enqueue(
                 session,
@@ -192,8 +185,9 @@ class LocalImportUseCase:
                 duplicate_regeneration=duplicate_regeneration,
             )
         except Exception as exc:
-            result["ok"] = False
-            result["errors"].append(f"取り込み処理でエラーが発生しました: {exc}")
+            result.add_error(
+                f"取り込み処理でエラーが発生しました: {exc}",
+            )
             self._logger.error(
                 "local_import.task.failed",
                 "ローカルインポート処理中に予期しないエラーが発生",
@@ -216,52 +210,30 @@ class LocalImportUseCase:
                 celery_task_id,
             )
 
+        summary_payload = result.to_dict()
+
         self._logger.info(
             "local_import.task.summary",
             "ローカルインポートタスクが完了",
-            ok=result["ok"],
-            processed=result["processed"],
-            success=result["success"],
-            skipped=result["skipped"],
-            failed=result["failed"],
-            canceled=result.get("canceled", False),
-            errors=result.get("failure_reasons") or result.get("errors"),
-            session_id=result.get("session_id"),
+            ok=result.ok,
+            processed=result.processed,
+            success=result.success,
+            skipped=result.skipped,
+            failed=result.failed,
+            canceled=result.canceled,
+            errors=result.failure_reasons or result.errors,
+            session_id=result.session_id,
             celery_task_id=celery_task_id,
-            status="completed" if result.get("ok") else "error",
+            status="completed" if result.ok else "error",
         )
 
-        return result
+        return summary_payload
 
     # internal helpers
-
-    def _collect_failure_reasons(self, result: Dict[str, Any]) -> list[str]:
-        reasons: list[str] = []
-        seen = set()
-
-        for entry in result.get("errors", []):
-            if not entry:
-                continue
-            reason_text = str(entry)
-            if reason_text not in seen:
-                reasons.append(reason_text)
-                seen.add(reason_text)
-
-        for detail in result.get("details", []):
-            if detail.get("status") != "failed":
-                continue
-            detail_reason = detail.get("reason") or "理由不明"
-            if detail.get("file"):
-                detail_reason = f"{detail['file']}: {detail_reason}"
-            if detail_reason not in seen:
-                reasons.append(detail_reason)
-                seen.add(detail_reason)
-
-        return reasons
     def _load_or_create_session(
         self,
         session_id: Optional[str],
-        result: Dict[str, Any],
+        result: ImportTaskResult,
         celery_task_id: Optional[str],
     ):
         if session_id:
@@ -275,8 +247,7 @@ class LocalImportUseCase:
                     error_type=type(exc).__name__,
                     error_message=str(exc),
                 )
-                result["ok"] = False
-                result["errors"].append(f"セッション取得エラー: {exc}")
+                result.add_error(f"セッション取得エラー: {exc}")
                 return None
 
             if not session:
@@ -285,8 +256,7 @@ class LocalImportUseCase:
                     "指定されたセッションIDのレコードが見つかりません",
                     session_id=session_id,
                 )
-                result["ok"] = False
-                result["errors"].append(f"セッションが見つかりません: {session_id}")
+                result.add_error(f"セッションが見つかりません: {session_id}")
                 return None
 
             self._logger.info(
@@ -309,8 +279,7 @@ class LocalImportUseCase:
             self._db.session.commit()
         except Exception as exc:
             self._db.session.rollback()
-            result["ok"] = False
-            result["errors"].append(f"セッション作成エラー: {exc}")
+            result.add_error(f"セッション作成エラー: {exc}")
             self._logger.error(
                 "local_import.session.create_failed",
                 "ローカルインポート用セッションの作成に失敗",
@@ -321,7 +290,7 @@ class LocalImportUseCase:
             )
             return None
 
-        result["session_id"] = session.session_id
+        result.set_session_id(session.session_id)
         self._logger.info(
             "local_import.session.created",
             "ローカルインポート用セッションを新規作成",
@@ -337,7 +306,7 @@ class LocalImportUseCase:
     def _ensure_directory_exists(
         self,
         directory: str,
-        result: Dict[str, Any],
+        result: ImportTaskResult,
         session,
         active_session_id: Optional[str],
         celery_task_id: Optional[str],
@@ -367,7 +336,7 @@ class LocalImportUseCase:
             },
         )
 
-        result["ok"] = False
+        result.mark_failed()
         details = log_details or {}
         self._logger.error(
             log_event,
@@ -376,12 +345,12 @@ class LocalImportUseCase:
             celery_task_id=celery_task_id,
             **details,
         )
-        result["errors"].append(error_message(directory))
+        result.add_error(error_message(directory), mark_failed=False)
         return False
 
     def _handle_no_files(
         self,
-        result: Dict[str, Any],
+        result: ImportTaskResult,
         session,
         active_session_id: Optional[str],
         celery_task_id: Optional[str],
@@ -411,13 +380,12 @@ class LocalImportUseCase:
             celery_task_id=celery_task_id,
             status="empty",
         )
-        result["ok"] = False
-        result["errors"].append(f"取り込み対象ファイルが見つかりません: {import_dir}")
+        result.add_error(f"取り込み対象ファイルが見つかりません: {import_dir}")
 
     def _finalize_session(
         self,
         session,
-        result: Dict[str, Any],
+        result: ImportTaskResult,
         active_session_id: Optional[str],
         celery_task_id: Optional[str],
     ) -> None:
@@ -445,36 +413,35 @@ class LocalImportUseCase:
             skipped_count = counts_map.get("skipped", 0)
             failed_count = counts_map.get("failed", 0)
 
-            result["success"] = imported_count
-            result["skipped"] = dup_count + skipped_count
-            result["failed"] = failed_count
-            result["duplicates"] = dup_count
-            result["manually_skipped"] = skipped_count
-            result["processed"] = (
+            result.success = imported_count
+            result.skipped = dup_count + skipped_count
+            result.failed = failed_count
+            result.set_duplicates(duplicates=dup_count, manually_skipped=skipped_count)
+            result.processed = (
                 imported_count + dup_count + skipped_count + failed_count
             )
 
             only_skipped = (
-                result["success"] == 0
-                and result["failed"] == 0
+                result.success == 0
+                and result.failed == 0
                 and skipped_count > 0
                 and dup_count == 0
             )
 
             only_duplicates = (
-                result["success"] == 0
-                and result["failed"] == 0
+                result.success == 0
+                and result.failed == 0
                 and dup_count > 0
                 and skipped_count == 0
             )
 
-            cancel_requested = bool(result.get("canceled")) or self._session_service.cancel_requested(session)
+            cancel_requested = bool(result.canceled) or self._session_service.cancel_requested(session)
 
-            recorded_thumbnails = result.get("thumbnail_records")
+            recorded_thumbnails = result.thumbnail_records
             thumbnail_snapshot = build_thumbnail_task_snapshot(
                 self._db, session, recorded_thumbnails
             )
-            result["thumbnail_snapshot"] = thumbnail_snapshot
+            result.set_thumbnail_snapshot(thumbnail_snapshot)
             thumbnail_status = (
                 thumbnail_snapshot.get("status")
                 if isinstance(thumbnail_snapshot, dict)
@@ -486,10 +453,11 @@ class LocalImportUseCase:
 
             if cancel_requested:
                 final_status = "canceled"
+                result.mark_canceled()
             elif pending_remaining > 0 or thumbnails_pending:
                 final_status = "processing"
             else:
-                if (not result["ok"]) or result["failed"] > 0:
+                if (not result.ok) or result.failed > 0:
                     final_status = "error"
                 elif thumbnails_failed:
                     final_status = "imported"
@@ -497,39 +465,39 @@ class LocalImportUseCase:
                     final_status = "imported"
                 elif only_skipped:
                     final_status = "pending"
-                elif result["success"] > 0:
+                elif result.success > 0:
                     final_status = "imported"
-                elif result["processed"] > 0:
+                elif result.processed > 0:
                     final_status = "pending"
                 else:
                     final_status = "ready"
 
             session.selected_count = imported_count
 
-            failure_reasons = self._collect_failure_reasons(result)
+            failure_reasons = result.collect_failure_reasons()
+            result.set_failure_reasons(failure_reasons)
 
             stats = {
-                "total": result["processed"],
-                "success": result["success"],
-                "skipped": result["skipped"],
-                "failed": result["failed"],
+                "total": result.processed,
+                "success": result.success,
+                "skipped": result.skipped,
+                "failed": result.failed,
                 "pending": pending_remaining,
                 "celery_task_id": celery_task_id,
             }
 
             if failure_reasons:
                 stats["failure_reasons"] = failure_reasons
-                result["failure_reasons"] = failure_reasons
 
             import_task_status = "canceled" if cancel_requested else None
             if import_task_status is None:
                 if pending_remaining > 0 or thumbnails_pending:
                     import_task_status = "progress"
-                elif result["failed"] > 0 or not result["ok"]:
+                elif result.failed > 0 or not result.ok:
                     import_task_status = "error"
-                elif result["success"] > 0 or only_duplicates:
+                elif result.success > 0 or only_duplicates:
                     import_task_status = "completed"
-                elif only_skipped or result["processed"] > 0:
+                elif only_skipped or result.processed > 0:
                     import_task_status = "pending"
                 else:
                     import_task_status = "idle"
@@ -540,10 +508,10 @@ class LocalImportUseCase:
                     "label": "File Import",
                     "status": import_task_status,
                     "counts": {
-                        "total": result["processed"],
-                        "success": result["success"],
-                        "skipped": result["skipped"],
-                        "failed": result["failed"],
+                        "total": result.processed,
+                        "success": result.success,
+                        "skipped": result.skipped,
+                        "failed": result.failed,
                         "pending": pending_remaining,
                     },
                 }
@@ -606,7 +574,7 @@ class LocalImportUseCase:
                 errors=failure_reasons or None,
             )
         except Exception as exc:
-            result["errors"].append(f"セッション更新エラー: {exc}")
+            result.add_error(f"セッション更新エラー: {exc}")
             self._logger.error(
                 "local_import.session.update_failed",
                 "セッション更新時にエラーが発生",

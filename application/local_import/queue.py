@@ -7,6 +7,7 @@ from typing import Any, Dict, Iterable, Optional
 
 from core.models.photo_models import PickerSelection
 from domain.local_import.logging import file_log_context
+from domain.local_import.import_result import ImportTaskResult
 
 
 class LocalImportQueueProcessor:
@@ -121,7 +122,7 @@ class LocalImportQueueProcessor:
         *,
         import_dir: str,
         originals_dir: str,
-        result: Dict[str, Any],
+        result: ImportTaskResult,
         active_session_id: Optional[str],
         celery_task_id: Optional[str],
         task_instance=None,
@@ -140,7 +141,7 @@ class LocalImportQueueProcessor:
                 session_id=active_session_id,
                 celery_task_id=celery_task_id,
             )
-            result["canceled"] = True
+            result.mark_canceled()
             return 0
 
         if task_instance and total_files:
@@ -190,7 +191,7 @@ class LocalImportQueueProcessor:
                     )
                 break
 
-            result["processed"] += 1
+            result.increment_processed()
 
             try:
                 selection.status = "running"
@@ -237,7 +238,7 @@ class LocalImportQueueProcessor:
             basename = file_context.get("basename")
             if basename and basename != detail["file"]:
                 detail["basename"] = basename
-            result["details"].append(detail)
+            result.append_detail(detail)
 
             post_process_result = file_result.get("post_process")
             if isinstance(post_process_result, dict):
@@ -296,18 +297,18 @@ class LocalImportQueueProcessor:
                 )
 
             if file_result["success"]:
-                result["success"] += 1
+                result.increment_success()
             else:
                 if result_status in {"skipped", "duplicate", "duplicate_refreshed"}:
-                    result["skipped"] += 1
+                    result.increment_skipped()
                 else:
-                    result["failed"] += 1
+                    result.increment_failed()
                     reason = detail.get("reason") or file_result.get("reason")
                     if reason:
                         if detail.get("file"):
-                            result["errors"].append(f"{detail['file']}: {reason}")
+                            result.add_error(f"{detail['file']}: {reason}")
                         else:
-                            result["errors"].append(str(reason))
+                            result.add_error(str(reason))
 
             if task_instance and total_files:
                 task_instance.update_state(
@@ -322,13 +323,13 @@ class LocalImportQueueProcessor:
                 )
 
         if canceled:
-            result["canceled"] = True
+            result.mark_canceled()
 
         return total_files
 
     def _record_thumbnail_result(
         self,
-        aggregate: Dict[str, Any],
+        aggregate: ImportTaskResult,
         *,
         media_id: Optional[int],
         thumb_result: Dict[str, Any],
@@ -336,7 +337,6 @@ class LocalImportQueueProcessor:
         if media_id is None or not isinstance(thumb_result, dict):
             return
 
-        records = aggregate.setdefault("thumbnail_records", [])
         entry: Dict[str, Any] = {
             "mediaId": media_id,
             "media_id": media_id,
@@ -359,4 +359,4 @@ class LocalImportQueueProcessor:
         else:
             entry["status"] = "completed"
 
-        records.append(entry)
+        aggregate.add_thumbnail_record(entry)

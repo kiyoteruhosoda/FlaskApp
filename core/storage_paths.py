@@ -98,6 +98,21 @@ def first_existing_storage_path(config_key: str) -> str | None:
     return candidates[0] if candidates else None
 
 
+def _normalize_path_parts(path_parts: Tuple[str | os.PathLike | None, ...]) -> Tuple[str, ...] | None:
+    """Return a tuple of normalized path components.
+
+    ``None`` is returned when any component is missing (``None``) to signal that
+    resolution cannot proceed safely.
+    """
+
+    normalized: list[str] = []
+    for part in path_parts:
+        if part is None:
+            return None
+        normalized.append(os.fspath(part))
+    return tuple(normalized)
+
+
 def resolve_storage_file(config_key: str, *path_parts: str) -> Tuple[str | None, str | None, bool]:
     """Resolve a file path relative to *config_key* storage directories.
 
@@ -105,14 +120,20 @@ def resolve_storage_file(config_key: str, *path_parts: str) -> Tuple[str | None,
     indicates whether the resolved path is present on disk.
     """
 
+    normalized_parts = _normalize_path_parts(path_parts)
+    if normalized_parts is None:
+        return None, None, False
+
     candidates = storage_path_candidates(config_key)
     for base in candidates:
-        candidate_path = os.path.join(base, *path_parts)
+        candidate_path = os.path.join(base, *normalized_parts)
         if os.path.exists(candidate_path):
             return base, candidate_path, True
 
     fallback_base = candidates[0] if candidates else None
-    fallback_path = os.path.join(fallback_base, *path_parts) if fallback_base else None
+    fallback_path = (
+        os.path.join(fallback_base, *normalized_parts) if fallback_base else None
+    )
     return fallback_base, fallback_path, False
 
 

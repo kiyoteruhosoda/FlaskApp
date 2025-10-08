@@ -140,3 +140,55 @@ def test_prepare_forces_regeneration_when_rel_path_missing(
     refreshed = MediaPlayback.query.get(playback.id)
     assert refreshed.rel_path == "2025/08/18/sample.mp4"
     assert refreshed.poster_rel_path == "2025/08/18/sample_regen.jpg"
+
+
+@pytest.mark.usefixtures("app_context")
+def test_prepare_does_not_restart_processing_playback_without_rel_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """進行中の再生アセットは rel_path 欄が無くても再生成されない。"""
+
+    monkeypatch.setattr("shutil.which", lambda _: "/usr/bin/ffmpeg")
+
+    media = Media(
+        source_type="local",
+        local_rel_path="2025/11/01/sample.mov",
+        filename="sample.mov",
+        mime_type="video/quicktime",
+        is_video=True,
+        has_playback=False,
+    )
+    db.session.add(media)
+    db.session.commit()
+
+    playback = MediaPlayback(
+        media_id=media.id,
+        preset="std1080p",
+        rel_path=None,
+        poster_rel_path=None,
+        status="processing",
+    )
+    db.session.add(playback)
+    db.session.commit()
+
+    invoked: list[Dict[str, Any]] = []
+
+    def _fake_worker(*, media_playback_id: int, force: bool = False) -> Dict[str, Any]:
+        invoked.append({"media_playback_id": media_playback_id, "force": force})
+        return {"ok": True}
+
+    logger = StructuredMediaTaskLogger(logging.getLogger("test.playback"))
+    service = MediaPlaybackService(
+        worker=_fake_worker,
+        thumbnail_generator=None,
+        logger=logger,
+    )
+
+    result = service.prepare(media_id=media.id, operation_id="processing-no-rel-path")
+
+    assert result == {
+        "ok": False,
+        "note": "already_processing",
+        "playback_status": "processing",
+    }
+    assert invoked == []

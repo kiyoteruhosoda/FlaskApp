@@ -164,18 +164,17 @@ class MediaPlaybackService:
                 if error is not None:
                     return error
             else:
-                needs_rel_path_recovery = playback.rel_path is None
-                if needs_rel_path_recovery and not force_regenerate:
-                    self._logger.warning(
-                        event="video_transcoding.playback_rel_path_missing",
-                        message="Playback rel_path missing; forcing regeneration.",
-                        operation_id=op_id,
-                        media_id=media_id,
-                        request_context=request_context,
-                        playback_id=playback.id,
-                    )
-                else:
-                    needs_rel_path_recovery = False
+                if playback.rel_path is None and playback.status == "done":
+                    needs_rel_path_recovery = True
+                    if not force_regenerate:
+                        self._logger.warning(
+                            event="video_transcoding.playback_rel_path_missing",
+                            message="Playback rel_path missing; forcing regeneration.",
+                            operation_id=op_id,
+                            media_id=media_id,
+                            request_context=request_context,
+                            playback_id=playback.id,
+                        )
 
             if force_regenerate or needs_rel_path_recovery:
                 now = datetime.now(timezone.utc)

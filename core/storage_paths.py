@@ -98,7 +98,33 @@ def first_existing_storage_path(config_key: str) -> str | None:
     return candidates[0] if candidates else None
 
 
-def resolve_storage_file(config_key: str, *path_parts: str) -> Tuple[str | None, str | None, bool]:
+PathPart = str | os.PathLike[str] | bytes
+
+
+def _normalise_path_parts(path_parts: Tuple[PathPart, ...]) -> Tuple[str, ...] | None:
+    """Return a tuple of normalised path parts or ``None`` if invalid."""
+
+    if not path_parts:
+        return ()
+
+    normalised: List[str] = []
+    for part in path_parts:
+        if part is None:  # type: ignore[comparison-overlap]
+            return None
+        try:
+            part_str = os.fsdecode(part)
+        except TypeError:
+            return None
+        if not part_str:
+            return None
+        normalised.append(part_str)
+
+    return tuple(normalised)
+
+
+def resolve_storage_file(
+    config_key: str, *path_parts: PathPart
+) -> Tuple[str | None, str | None, bool]:
     """Resolve a file path relative to *config_key* storage directories.
 
     Returns a tuple of ``(base_path, resolved_path, exists)`` where ``exists``
@@ -106,13 +132,27 @@ def resolve_storage_file(config_key: str, *path_parts: str) -> Tuple[str | None,
     """
 
     candidates = storage_path_candidates(config_key)
+
+    normalised_parts = _normalise_path_parts(path_parts)
+    if normalised_parts is None:
+        return None, None, False
+
+    if not normalised_parts:
+        for base in candidates:
+            if os.path.exists(base):
+                return base, base, True
+        fallback_base = candidates[0] if candidates else None
+        return fallback_base, fallback_base, False
+
     for base in candidates:
-        candidate_path = os.path.join(base, *path_parts)
+        candidate_path = os.path.join(base, *normalised_parts)
         if os.path.exists(candidate_path):
             return base, candidate_path, True
 
     fallback_base = candidates[0] if candidates else None
-    fallback_path = os.path.join(fallback_base, *path_parts) if fallback_base else None
+    fallback_path = (
+        os.path.join(fallback_base, *normalised_parts) if fallback_base else None
+    )
     return fallback_base, fallback_path, False
 
 

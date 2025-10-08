@@ -399,3 +399,41 @@ def test_duplicate_refresh_realigns_playback_paths(
     assert not (playback_dir / misaligned_poster).exists()
     assert (playback_dir / expected_playback_rel).exists()
     assert (playback_dir / expected_poster_rel).exists()
+
+
+def test_update_media_playback_paths_sets_missing_rel_path(
+    monkeypatch, tmp_path, app_context
+):
+    """既存の再生レコードに rel_path が無い場合でも補完する。"""
+
+    playback_dir = tmp_path / "playback"
+    playback_dir.mkdir()
+    monkeypatch.setenv("FPV_NAS_PLAY_DIR", str(playback_dir))
+    monkeypatch.setattr(local_import, "_playback_storage_root", lambda: playback_dir)
+
+    media = Media(
+        source_type="local",
+        filename="sample.mov",
+        local_rel_path="2025/02/03/sample.mov",
+        is_video=True,
+    )
+    db.session.add(media)
+    db.session.commit()
+
+    playback = MediaPlayback(
+        media_id=media.id,
+        preset="std1080p",
+        status="pending",
+    )
+    db.session.add(playback)
+    db.session.commit()
+
+    local_import._update_media_playback_paths(
+        media,
+        old_relative_path=None,
+        new_relative_path="2025/02/03/sample.mov",
+    )
+
+    db.session.commit()
+    db.session.refresh(playback)
+    assert playback.rel_path == "2025/02/03/sample.mp4"

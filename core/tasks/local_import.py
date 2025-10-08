@@ -202,6 +202,23 @@ def _rebase_relative_path(
     return rebased.as_posix()
 
 
+def _default_playback_rel_path(media: Media, new_relative_path: str) -> str:
+    """Return a reasonable playback path for *media* based on *new_relative_path*."""
+
+    cleaned = _clean_relative_path(new_relative_path)
+
+    if cleaned.parts:
+        parent = cleaned.parent
+        base_name = cleaned.stem or f"media_{media.id or 0}"
+        new_name = Path(base_name).with_suffix(".mp4").name
+        if str(parent) in {"", "."}:
+            return new_name
+        return (parent / new_name).as_posix()
+
+    fallback_id = media.id or 0
+    return f"media_{fallback_id}.mp4"
+
+
 def _relocate_playback_asset(
     base_dir: Path,
     *,
@@ -297,6 +314,8 @@ def _update_media_playback_paths(
                 ):
                     relocated += 1
             pb.rel_path = rebased_rel
+        else:
+            pb.rel_path = _default_playback_rel_path(media, new_relative_path)
         poster_rel = pb.poster_rel_path or ""
         if poster_rel:
             rebased_poster = _rebase_relative_path(

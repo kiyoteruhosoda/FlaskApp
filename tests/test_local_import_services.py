@@ -101,6 +101,48 @@ def test_file_importer_duplicate_refreshes_metadata(tmp_path):
     assert not source.exists()
 
 
+def test_validate_playback_recoverable_without_session(tmp_path):
+    class DummySession:
+        def refresh(self, obj):
+            return None
+
+    db = SimpleNamespace(session=DummySession())
+    importer = LocalImportFileImporter(
+        db=db,
+        logger=MagicMock(),
+        duplicate_checker=MagicMock(),
+        metadata_refresher=MagicMock(),
+        post_process_service=MagicMock(),
+        post_process_logger=MagicMock(),
+        directory_resolver=MagicMock(return_value=str(tmp_path)),
+        analysis_service=MagicMock(),
+        thumbnail_regenerator=MagicMock(return_value=(True, None)),
+        supported_extensions={".mp4"},
+    )
+
+    importer._logger = MagicMock()
+
+    media = SimpleNamespace(id=99, has_playback=False)
+    post_process_result = {
+        "playback": {
+            "ok": False,
+            "note": "ffmpeg_error",
+            "error": "width not divisible by 2 (809x1080)",
+        }
+    }
+    outcome = SimpleNamespace(details={})
+    file_context = {"basename": "video.mp4"}
+
+    importer._validate_playback(media, post_process_result, outcome, file_context, None)
+
+    importer._logger.warning.assert_called_once()
+    warnings = outcome.details.get("warnings", [])
+    assert "playback_skipped:ffmpeg_error" in warnings
+    assert any(w.startswith("playback_error:") for w in warnings)
+    assert outcome.details["playback_error"].startswith("width not divisible")
+    assert outcome.details["playback_note"] == "ffmpeg_error"
+
+
 def test_directory_scanner_collects_supported_files_and_zip(tmp_path):
     logger = MagicMock()
     zip_service = MagicMock()

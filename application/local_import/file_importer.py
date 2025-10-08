@@ -492,18 +492,35 @@ class LocalImportFileImporter:
         playback_result = post_process_result.get("playback") or {}
         if not playback_result.get("ok"):
             note = playback_result.get("note") or "unknown"
-            if session_id and self._playback_policy.is_recoverable(note):
+            error_detail = playback_result.get("error")
+            if self._playback_policy.is_recoverable(note):
+                log_details = {
+                    **file_context,
+                    "media_id": media.id,
+                    "note": note,
+                    "status": "warning",
+                }
+                if session_id:
+                    log_details["session_id"] = session_id
+                if error_detail:
+                    log_details["error"] = error_detail
+
                 self._logger.warning(
                     "local_import.file.playback_skipped",
                     "動画の再生ファイル生成をスキップ",
-                    **file_context,
-                    media_id=media.id,
-                    note=note,
-                    session_id=session_id,
-                    status="warning",
+                    **log_details,
                 )
+
                 warnings = outcome.details.setdefault("warnings", [])
-                warnings.append(f"playback_skipped:{note}")
+                warning_token = f"playback_skipped:{note}"
+                if warning_token not in warnings:
+                    warnings.append(warning_token)
+                if error_detail:
+                    error_token = f"playback_error:{error_detail}"
+                    if error_token not in warnings:
+                        warnings.append(error_token)
+                    outcome.details.setdefault("playback_error", error_detail)
+                outcome.details.setdefault("playback_note", note)
                 return
             raise PlaybackError(
                 f"動画の再生ファイル生成に失敗しました (理由: {note})"

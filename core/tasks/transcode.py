@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 import json
 import logging
 import os
+import math
 from pathlib import Path
 import shutil
 import subprocess
@@ -125,6 +126,56 @@ def _normalise_rel_path(rel_path: Optional[str], *, suffix: Optional[str] = None
         )
 
     return result
+
+
+def _coerce_int(value: object) -> Optional[int]:
+    """Best-effort conversion of *value* to ``int``."""
+
+    if value is None:
+        return None
+    if isinstance(value, bool):  # pragma: no cover - defensive guard
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if math.isnan(value):  # pragma: no cover - defensive guard
+            return None
+        return int(value)
+    if isinstance(value, str):
+        cleaned = value.strip()
+        if not cleaned:
+            return None
+        lowered = cleaned.lower()
+        if lowered in {"n/a", "na", "nan", "none", "null"}:
+            return None
+        try:
+            if "." in cleaned:
+                return int(float(cleaned))
+            return int(cleaned)
+        except ValueError:
+            return None
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        return None
+
+
+def _coerce_duration_ms(value: object) -> Optional[int]:
+    """Convert ffprobe duration field to milliseconds."""
+
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return int(float(value) * 1000)
+    if isinstance(value, str):
+        cleaned = value.strip()
+        if not cleaned or cleaned.lower() in {"n/a", "na", "nan"}:
+            return None
+        try:
+            return int(float(cleaned) * 1000)
+        except ValueError:
+            return None
+    return None
 
 
 def _poster_tmp_path(playback_id: int) -> Path:
@@ -699,10 +750,12 @@ def transcode_worker(*, media_playback_id: int, force: bool = False) -> Dict[str
         }
 
     v = vstreams[0]
-    width = int(v.get("width", 0))
-    height = int(v.get("height", 0))
-    duration = float(info.get("format", {}).get("duration", 0.0))
-    bitrate = int(info.get("format", {}).get("bit_rate", 0))
+    width = _coerce_int(v.get("width")) or (m.width or 0)
+    height = _coerce_int(v.get("height")) or (m.height or 0)
+    duration_ms_value = _coerce_duration_ms(info.get("format", {}).get("duration"))
+    if duration_ms_value is None:
+        duration_ms_value = m.duration_ms
+    bitrate_bps = _coerce_int(info.get("format", {}).get("bit_rate"))
 
     dest_path = _play_dir() / out_rel
     dest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -832,8 +885,8 @@ def transcode_worker(*, media_playback_id: int, force: bool = False) -> Dict[str
         acodec_name = "aac"
     pb.v_codec = vcodec_name or "h264"
     pb.a_codec = acodec_name or "aac"
-    pb.v_bitrate_kbps = int(bitrate / 1000) if bitrate else None
-    pb.duration_ms = int(duration * 1000)
+    pb.v_bitrate_kbps = int(bitrate_bps / 1000) if bitrate_bps else None
+    pb.duration_ms = int(duration_ms_value) if duration_ms_value is not None else None
     pb.status = "done"
     pb.poster_rel_path = poster_rel
     pb.updated_at = datetime.now(timezone.utc)

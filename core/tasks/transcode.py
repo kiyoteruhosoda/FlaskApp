@@ -25,7 +25,7 @@ import math
 from pathlib import Path
 import shutil
 import subprocess
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from core.db import db
 from core.models.photo_models import Media, MediaPlayback
@@ -684,22 +684,39 @@ def transcode_worker(*, media_playback_id: int, force: bool = False) -> Dict[str
                 "error_details": error_details,
             }
 
-    info: Dict[str, Any]
-    if passthrough and src_probe:
-        info = src_probe
-    else:
-        try:
-            info = _probe(tmp_out)
-        except Exception as exc:  # pragma: no cover - defensive
+    info: Optional[Dict[str, Any]] = None
+    probe_exc: Optional[Exception] = None
+    try:
+        info = _probe(tmp_out)
+    except Exception as exc:  # pragma: no cover - defensive
+        probe_exc = exc
+
+    if info is None:
+        if passthrough and src_probe:
+            info = src_probe
+            logger.info(
+                "Fallback to source probe metadata for playback %s",
+                pb.id,
+                extra={
+                    "event": "transcode.probe.fallback_source",
+                    "playback_id": pb.id,
+                    "media_id": pb.media_id,
+                    "output_path": str(tmp_out),
+                },
+            )
+        else:
             error_details = {
                 "playback_id": pb.id,
                 "media_id": pb.media_id,
                 "output_path": str(tmp_out),
-                "error_type": type(exc).__name__,
-                "error_message": str(exc),
             }
+            if probe_exc is not None:
+                error_details.update(
+                    error_type=type(probe_exc).__name__,
+                    error_message=str(probe_exc),
+                )
             logger.error(
-                f"FFmpeg変換後のプローブ失敗: playback_id={pb.id}, media_id={pb.media_id} - {exc}",
+                f"FFmpeg変換後のプローブ失敗: playback_id={pb.id}, media_id={pb.media_id} - {probe_exc}",
                 extra={
                     "event": "transcode.probe.failed",
                     "error_details": json.dumps(error_details),
@@ -707,7 +724,7 @@ def transcode_worker(*, media_playback_id: int, force: bool = False) -> Dict[str
                 exc_info=True,
             )
             pb.status = "error"
-            pb.error_msg = str(exc)[:1000]
+            pb.error_msg = (str(probe_exc) if probe_exc else "probe_failed")[:1000]
             pb.updated_at = datetime.now(timezone.utc)
             db.session.commit()
             return {
@@ -717,6 +734,8 @@ def transcode_worker(*, media_playback_id: int, force: bool = False) -> Dict[str
                 "height": 0,
                 "note": "probe_error",
             }
+
+    info = cast(Dict[str, Any], info)
 
     vstreams = [s for s in info.get("streams", []) if s.get("codec_type") == "video"]
     astreams = [s for s in info.get("streams", []) if s.get("codec_type") == "audio"]

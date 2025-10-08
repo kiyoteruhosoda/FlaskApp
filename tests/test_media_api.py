@@ -980,6 +980,57 @@ def test_media_detail_playback_paths_normalized(client, app):
     assert playback_info["poster_rel_path"] == "2025/08/18/clip poster.JPG"
 
 
+def test_media_detail_prefers_completed_playback(client, app):
+    from webapp.extensions import db
+    from core.models.photo_models import Media, MediaPlayback
+
+    login(client)
+
+    with app.app_context():
+        media = Media(
+            google_media_id="prefers", 
+            account_id=1,
+            local_rel_path="prefers/source.mp4",
+            filename="Preferred Playback.mp4",
+            bytes=20,
+            mime_type="video/mp4",
+            width=100,
+            height=100,
+            duration_ms=1500,
+            is_video=True,
+            is_deleted=False,
+            has_playback=True,
+        )
+        db.session.add(media)
+        db.session.commit()
+
+        error_playback = MediaPlayback(
+            media_id=media.id,
+            preset="std1080p",
+            rel_path="2025/08/18/error.mp4",
+            status="error",
+        )
+        completed_playback = MediaPlayback(
+            media_id=media.id,
+            preset="std1080p",
+            rel_path="2025/08/18/completed.mp4",
+            status="done",
+        )
+        db.session.add_all([error_playback, completed_playback])
+        db.session.commit()
+
+        media_id = media.id
+
+    res = client.get(f"/api/media/{media_id}")
+    assert res.status_code == 200
+    data = res.get_json()
+    playback_info = data["playback"]
+
+    assert playback_info["status"] == "done"
+    assert playback_info["available"] is True
+    assert playback_info["rel_path"] == "2025/08/18/completed.mp4"
+
+
 def test_download_with_accel_redirect(client, seed_thumb_media, app):
     media_id, rel = seed_thumb_media
     login(client)

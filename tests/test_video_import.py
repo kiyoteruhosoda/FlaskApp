@@ -502,7 +502,10 @@ def test_duplicate_video_force_regeneration_logs_error_detail(
     success, reason = local_import_module._regenerate_duplicate_video_thumbnails(media)
 
     assert not success
-    assert reason == "exception"
+    assert (
+        reason
+        == "transcode_worker() got an unexpected keyword argument 'force'"
+    )
     assert captured, "_log_warning が呼び出されていません"
 
     event, message, details = captured[0]

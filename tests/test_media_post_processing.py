@@ -141,8 +141,9 @@ def test_enqueue_media_playback_generates_thumbnails_for_completed_playback(app,
 
 
 def test_enqueue_thumbs_generate_schedules_retry(monkeypatch):
-    """サムネイル生成が保留の場合にCeleryリトライをスケジュールすることを確認。"""
+    """サムネイル生成が保留の場合に再試行がスケジュールされることを確認。"""
 
+    from application.media_processing.retry_service import RetryScheduleResult
     from core.tasks import media_post_processing
 
     monkeypatch.setattr(
@@ -160,35 +161,22 @@ def test_enqueue_thumbs_generate_schedules_retry(monkeypatch):
 
     scheduled: dict = {}
 
-    def fake_schedule(
-        *,
-        media_id: int,
-        force: bool,
-        countdown: int,
-        logger,
-        operation_id: str,
-        request_context,
-        blockers=None,
-    ) -> Dict[str, Any]:
-        scheduled.update(
-            media_id=media_id,
-            force=force,
-            countdown=countdown,
-            operation_id=operation_id,
-            request_context=request_context,
-            blockers=blockers,
-        )
-        return {
-            "scheduled": True,
-            "countdown": countdown,
-            "celery_task_id": "fake-task",
-            "force": force,
-            "attempts": 1,
-            "max_attempts": media_post_processing._THUMBNAIL_RETRY_MAX_ATTEMPTS,
-            "blockers": blockers,
-        }
+    class StubRetryService:
+        def schedule_if_allowed(self, **kwargs):
+            scheduled.update(kwargs)
+            return RetryScheduleResult(
+                scheduled=True,
+                countdown=media_post_processing._THUMBNAIL_RETRY_COUNTDOWN,
+                celery_task_id="fake-task",
+                attempts=1,
+                max_attempts=media_post_processing._THUMBNAIL_RETRY_MAX_ATTEMPTS,
+                blockers=kwargs.get("blockers"),
+            )
 
-    monkeypatch.setattr(media_post_processing, "_schedule_thumbnail_retry", fake_schedule)
+        def clear_success(self, media_id: int) -> None:  # pragma: no cover - 呼ばれない
+            pass
+
+    monkeypatch.setattr(media_post_processing, "_build_retry_service", lambda logger: StubRetryService())
 
     result = media_post_processing.enqueue_thumbs_generate(123, force=True)
 
@@ -197,17 +185,12 @@ def test_enqueue_thumbs_generate_schedules_retry(monkeypatch):
         "scheduled": True,
         "countdown": media_post_processing._THUMBNAIL_RETRY_COUNTDOWN,
         "celery_task_id": "fake-task",
-        "force": True,
         "attempts": 1,
         "max_attempts": media_post_processing._THUMBNAIL_RETRY_MAX_ATTEMPTS,
         "blockers": dict(TEST_RETRY_BLOCKERS),
     }
     assert scheduled["media_id"] == 123
     assert scheduled["force"] is True
-    assert (
-        scheduled["countdown"]
-        == media_post_processing._THUMBNAIL_RETRY_COUNTDOWN
-    )
     assert scheduled["blockers"] == dict(TEST_RETRY_BLOCKERS)
 
 
@@ -444,32 +427,21 @@ def test_process_due_thumbnail_retries_reports_blocked_retries(app, monkeypatch)
     from webapp.extensions import db
     from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 
-    captured_logs = []
+    class StubLogger:
+        def __init__(self):
+            self.warnings = []
 
-    def fake_structured_log(
-        logger,
-        *,
-        level: str,
-        event: str,
-        message: str,
-        operation_id: str,
-        media_id: int,
-        request_context=None,
-        exc_info: bool = False,
-        **details,
-    ) -> None:
-        captured_logs.append(
-            {
-                "level": level,
-                "event": event,
-                "message": message,
-                "operation_id": operation_id,
-                "media_id": media_id,
-                "details": details,
-            }
-        )
+        def info(self, **kwargs):  # pragma: no cover - not relevant here
+            pass
 
-    monkeypatch.setattr(media_post_processing, "_structured_task_log", fake_structured_log)
+        def warning(self, **kwargs):
+            self.warnings.append(kwargs)
+
+        def error(self, **kwargs):  # pragma: no cover - not used
+            pass
+
+    stub_logger = StubLogger()
+    monkeypatch.setattr(media_post_processing, "_build_structured_logger", lambda logger_override=None: stub_logger)
 
     with app.app_context():
         retry = CeleryTaskRecord(
@@ -497,12 +469,12 @@ def test_process_due_thumbnail_retries_reports_blocked_retries(app, monkeypatch)
             "pending_before": 0,
         }
 
-        assert captured_logs
-        last_log = captured_logs[-1]
+        assert stub_logger.warnings
+        last_log = stub_logger.warnings[-1]
         assert last_log["event"] == "thumbnail_generation.retry_monitor_blocked"
-        assert last_log["details"]["disabled"] == 1
-        assert last_log["details"]["samples"][0]["media_id"] == 123
-        assert last_log["details"]["samples"][0]["blockers"] == {
+        assert last_log["disabled"] == 1
+        assert str(last_log["samples"][0]["media_id"]) == "123"
+        assert last_log["samples"][0]["blockers"] == {
             "reason": "completed playback missing"
         }
 

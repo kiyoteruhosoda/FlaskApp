@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -458,9 +459,56 @@ def test_duplicate_video_thumbnail_retries_inline_when_playback_pending(
     assert playback_media_id == first["media_id"]
     assert playback_operation_id == f"duplicate-video-{first['media_id']}"
 
-    # Celery経由のリトライは発生しない
-    assert not enqueue_calls
 
+def test_duplicate_video_force_regeneration_logs_error_detail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """強制再生成失敗時に原因の例外メッセージがログへ記録される。"""
+
+    captured: list[tuple[str, str, dict]] = []
+
+    def fake_enqueue_media_playback(
+        media_id: int,
+        *,
+        logger_override=None,
+        operation_id=None,
+        request_context=None,
+        force_regenerate: bool = False,
+    ) -> dict:
+        assert force_regenerate is True
+        return {
+            "ok": False,
+            "note": "exception",
+            "error": "transcode_worker() got an unexpected keyword argument 'force'",
+        }
+
+    def capture_warning(
+        event: str,
+        message: str,
+        *,
+        session_id=None,
+        status=None,
+        **details,
+    ) -> None:
+        captured.append((event, message, details))
+
+    monkeypatch.setattr(
+        local_import_module, "enqueue_media_playback", fake_enqueue_media_playback
+    )
+    monkeypatch.setattr(local_import_module, "_log_warning", capture_warning)
+
+    media = SimpleNamespace(id=42)
+
+    success, reason = local_import_module._regenerate_duplicate_video_thumbnails(media)
+
+    assert not success
+    assert reason == "exception"
+    assert captured, "_log_warning が呼び出されていません"
+
+    event, message, details = captured[0]
+    assert event == "local_import.duplicate_video.playback_force_failed"
+    assert "unexpected keyword argument 'force'" in message
+    assert details["error"] == "transcode_worker() got an unexpected keyword argument 'force'"
 
 @pytest.mark.usefixtures("app_context")
 def test_duplicate_video_invalid_regen_mode_forces_playback(

@@ -46,6 +46,7 @@ def test_force_regenerate_resets_mp4_paths(monkeypatch: pytest.MonkeyPatch) -> N
             {
                 "rel_path": pb.rel_path,
                 "poster_rel_path": pb.poster_rel_path,
+                "status": pb.status,
                 "force": force,
             }
         )
@@ -69,8 +70,73 @@ def test_force_regenerate_resets_mp4_paths(monkeypatch: pytest.MonkeyPatch) -> N
     assert observed
     assert observed[0]["rel_path"] is None
     assert observed[0]["poster_rel_path"] is None
+    assert observed[0]["status"] == "pending"
     assert observed[0]["force"] is True
 
     refreshed = MediaPlayback.query.get(playback.id)
     assert refreshed.rel_path == "2025/10/08/sample_regen.mp4"
     assert refreshed.poster_rel_path == "2025/10/08/sample_regen.jpg"
+
+
+@pytest.mark.usefixtures("app_context")
+def test_prepare_forces_regeneration_when_rel_path_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """rel_path 欄が欠落した完了済み再生アセットは自動的に再生成される。"""
+
+    monkeypatch.setattr("shutil.which", lambda _: "/usr/bin/ffmpeg")
+
+    media = Media(
+        source_type="local",
+        local_rel_path="2025/08/18/sample.mov",
+        filename="sample.mov",
+        mime_type="video/quicktime",
+        is_video=True,
+        has_playback=False,
+    )
+    db.session.add(media)
+    db.session.commit()
+
+    playback = MediaPlayback(
+        media_id=media.id,
+        preset="std1080p",
+        rel_path=None,
+        poster_rel_path="2025/08/18/sample.jpg",
+        status="done",
+    )
+    db.session.add(playback)
+    db.session.commit()
+
+    observed: Dict[str, Any] = {}
+
+    def _fake_worker(*, media_playback_id: int, force: bool = False) -> Dict[str, Any]:
+        pb = MediaPlayback.query.get(media_playback_id)
+        observed["status"] = pb.status
+        observed["force"] = force
+        observed["rel_path"] = pb.rel_path
+        observed["poster_rel_path"] = pb.poster_rel_path
+        pb.rel_path = "2025/08/18/sample.mp4"
+        pb.poster_rel_path = "2025/08/18/sample_regen.jpg"
+        pb.status = "done"
+        pb.updated_at = datetime.now(timezone.utc)
+        db.session.commit()
+        return {"ok": True, "note": "transcoded", "width": 0, "height": 0, "duration_ms": 0}
+
+    logger = StructuredMediaTaskLogger(logging.getLogger("test.playback"))
+    service = MediaPlaybackService(
+        worker=_fake_worker,
+        thumbnail_generator=None,
+        logger=logger,
+    )
+
+    result = service.prepare(media_id=media.id, operation_id="recover-test")
+
+    assert result["ok"] is True
+    assert observed["force"] is True
+    assert observed["status"] == "pending"
+    assert observed["rel_path"] is None
+    assert observed["poster_rel_path"] is None
+
+    refreshed = MediaPlayback.query.get(playback.id)
+    assert refreshed.rel_path == "2025/08/18/sample.mp4"
+    assert refreshed.poster_rel_path == "2025/08/18/sample_regen.jpg"

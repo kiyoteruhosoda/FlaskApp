@@ -136,7 +136,12 @@ class MediaPlaybackService:
                     return error
 
             if force_regenerate:
-                playback.update_paths(None, None)
+                if hasattr(playback, "update_paths"):
+                    playback.update_paths(None, None)
+                else:
+                    playback.rel_path = None
+                    playback.poster_rel_path = None
+                    playback.updated_at = datetime.now(timezone.utc)
                 db.session.commit()
                 result = self._worker(media_playback_id=playback.id, force=True)
                 db.session.refresh(playback)

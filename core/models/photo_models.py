@@ -153,6 +153,13 @@ class MediaPlayback(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), nullable=False)
 
+    def update_paths(self, rel_path: str | None, poster_rel_path: str | None) -> None:
+        """再生用およびポスター用のパスを更新する."""
+
+        self.rel_path = rel_path
+        self.poster_rel_path = poster_rel_path
+        self.updated_at = datetime.now(timezone.utc)
+
 
 class MediaItem(db.Model):
     id = db.Column(db.String(255), primary_key=True)

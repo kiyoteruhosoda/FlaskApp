@@ -1,6 +1,82 @@
 (function (global) {
   const win = global || window;
 
+  function toBase64Url(value) {
+    if (!value) {
+      return '';
+    }
+
+    let bytes;
+    if (typeof win.TextEncoder === 'function') {
+      bytes = new win.TextEncoder().encode(value);
+    } else {
+      bytes = Array.from(unescape(encodeURIComponent(value))).map((char) => char.charCodeAt(0));
+    }
+
+    let binary = '';
+    bytes.forEach((codePoint) => {
+      binary += String.fromCharCode(codePoint);
+    });
+
+    const base64 = win.btoa(binary);
+    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/u, '');
+  }
+
+  function fromBase64Url(value) {
+    if (typeof value !== 'string' || value.length === 0) {
+      return '';
+    }
+
+    const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '==='.slice((base64.length + 3) % 4);
+
+    let binary;
+    try {
+      binary = win.atob(padded);
+    } catch (error) {
+      throw new Error('Invalid base64 value');
+    }
+
+    if (typeof win.TextDecoder === 'function') {
+      const buffer = new Uint8Array(binary.split('').map((char) => char.charCodeAt(0)));
+      return new win.TextDecoder().decode(buffer);
+    }
+
+    let result = '';
+    for (let i = 0; i < binary.length; i += 1) {
+      result += `%${(`00${binary.charCodeAt(i).toString(16)}`).slice(-2)}`;
+    }
+    return decodeURIComponent(result);
+  }
+
+  function serializeValue(value) {
+    let serialized;
+    try {
+      serialized = JSON.stringify(value);
+    } catch (error) {
+      return null;
+    }
+
+    return toBase64Url(serialized);
+  }
+
+  function deserializeValue(value) {
+    if (typeof value !== 'string') {
+      return value;
+    }
+
+    try {
+      const json = fromBase64Url(value);
+      return JSON.parse(json);
+    } catch (error) {
+      try {
+        return JSON.parse(value);
+      } catch (parseError) {
+        return value;
+      }
+    }
+  }
+
   function getLocationComponents() {
     const { pathname, search, hash } = win.location;
     const normalizedHash = typeof hash === 'string' && hash.startsWith('#') ? hash.slice(1) : hash || '';
@@ -57,11 +133,7 @@
     if (raw === null) {
       return null;
     }
-    try {
-      return JSON.parse(raw);
-    } catch (error) {
-      return raw;
-    }
+    return deserializeValue(raw);
   }
 
   function writeSection(key, value) {
@@ -77,19 +149,16 @@
       return;
     }
 
-    let serialized;
-    try {
-      serialized = JSON.stringify(value);
-    } catch (error) {
-      // If the value cannot be serialized, skip updating the hash.
+    const encoded = serializeValue(value);
+    if (encoded === null) {
       return;
     }
 
-    if (params.get(key) === serialized) {
+    if (params.get(key) === encoded) {
       return;
     }
 
-    params.set(key, serialized);
+    params.set(key, encoded);
     applyParams(params);
   }
 
@@ -134,11 +203,7 @@
     const params = getParams();
     const result = {};
     params.forEach((value, key) => {
-      try {
-        result[key] = JSON.parse(value);
-      } catch (error) {
-        result[key] = value;
-      }
+      result[key] = deserializeValue(value);
     });
     return result;
   }

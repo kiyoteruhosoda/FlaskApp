@@ -374,8 +374,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const tagFilterSuggestions = document.getElementById('tag-filter-suggestions');
   const selectedTagFiltersContainer = document.getElementById('selected-tag-filters');
   const tagFilterBox = document.getElementById('tag-filter-box');
-  const filterStateApi = window.filterState || null;
-  const FILTER_HASH_SECTION = 'mediaGallery';
+  const SEARCH_PARAM_TYPE = 'type';
+  const SEARCH_PARAM_ORDER = 'order';
+  const SEARCH_PARAM_TAG = 'tag';
   const FILTER_DEFAULTS = { type: 'all', sort: 'desc' };
   const VALID_TYPE_FILTERS = new Set(['all', 'photo', 'video']);
   const VALID_SORT_ORDERS = new Set(['asc', 'desc']);
@@ -535,16 +536,211 @@ document.addEventListener('DOMContentLoaded', () => {
     return snapshot;
   }
 
-  function syncFiltersToHash() {
-    if (!filterStateApi || typeof filterStateApi.writeSection !== 'function') {
-      return;
+  function toBase64Url(value) {
+    if (typeof value !== 'string' || value.length === 0) {
+      return '';
     }
 
-    const snapshot = buildFilterStateSnapshot();
-    if (Object.keys(snapshot).length === 0) {
-      filterStateApi.writeSection(FILTER_HASH_SECTION, null);
+    const encoder = window.TextEncoder ? new window.TextEncoder() : null;
+    let binary = '';
+    if (encoder) {
+      const bytes = encoder.encode(value);
+      bytes.forEach((codePoint) => {
+        binary += String.fromCharCode(codePoint);
+      });
     } else {
-      filterStateApi.writeSection(FILTER_HASH_SECTION, snapshot);
+      binary = unescape(encodeURIComponent(value));
+    }
+
+    const base64 = window.btoa(binary);
+    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/u, '');
+  }
+
+  function fromBase64Url(value) {
+    if (typeof value !== 'string' || value.length === 0) {
+      return '';
+    }
+
+    const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '==='.slice((base64.length + 3) % 4);
+
+    let binary;
+    try {
+      binary = window.atob(padded);
+    } catch (error) {
+      return '';
+    }
+
+    if (window.TextDecoder) {
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      try {
+        return new window.TextDecoder().decode(bytes);
+      } catch (error) {
+        return '';
+      }
+    }
+
+    try {
+      return decodeURIComponent(binary.split('').map((char) => `%${(`00${char.charCodeAt(0).toString(16)}`).slice(-2)}`).join(''));
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function encodeTagParam(tag) {
+    const sanitized = sanitizeTagForState(tag);
+    if (!sanitized) {
+      return null;
+    }
+
+    const parts = [String(sanitized.id)];
+    const encodedName = toBase64Url(sanitized.name || '');
+    parts.push(encodedName);
+    if (sanitized.attr) {
+      parts.push(sanitized.attr);
+    }
+    return parts.join('.');
+  }
+
+  function decodeTagParam(value) {
+    if (typeof value !== 'string' || value.length === 0) {
+      return null;
+    }
+
+    const parts = value.split('.');
+    const id = Number(parts[0]);
+    if (!Number.isInteger(id) || id <= 0) {
+      return null;
+    }
+
+    const tag = { id };
+    const encodedName = parts[1] || '';
+    const decodedName = fromBase64Url(encodedName) || '';
+    if (decodedName) {
+      tag.name = decodedName;
+    }
+    const attr = parts[2] || '';
+    if (attr) {
+      tag.attr = attr;
+    }
+    return sanitizeTagForState(tag);
+  }
+
+  function readLegacyHashFilters() {
+    const rawHash = window.location.hash || '';
+    if (!rawHash) {
+      return null;
+    }
+
+    const normalized = rawHash.charAt(0) === '#' ? rawHash.slice(1) : rawHash;
+    if (!normalized) {
+      return null;
+    }
+
+    const params = new URLSearchParams(normalized);
+    const rawValue = params.get('mediaGallery');
+    if (!rawValue) {
+      return null;
+    }
+
+    let parsed = null;
+    const decoded = fromBase64Url(rawValue);
+    if (decoded) {
+      try {
+        parsed = JSON.parse(decoded);
+      } catch (error) {
+        parsed = null;
+      }
+    }
+
+    if (!parsed) {
+      try {
+        parsed = JSON.parse(rawValue);
+      } catch (error) {
+        parsed = null;
+      }
+    }
+
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  }
+
+  function readFiltersFromQuery() {
+    const params = new URLSearchParams(window.location.search || '');
+    const state = {};
+
+    const typeCandidate = params.get(SEARCH_PARAM_TYPE) || '';
+    if (VALID_TYPE_FILTERS.has(typeCandidate)) {
+      state.type = typeCandidate;
+    }
+
+    const orderCandidate = params.get(SEARCH_PARAM_ORDER) || '';
+    if (VALID_SORT_ORDERS.has(orderCandidate)) {
+      state.sort = orderCandidate;
+    }
+
+    const tags = params.getAll(SEARCH_PARAM_TAG).map((value) => decodeTagParam(value)).filter(Boolean);
+    if (tags.length > 0) {
+      state.tags = tags;
+    }
+
+    const legacyState = readLegacyHashFilters();
+    if (legacyState) {
+      if (!state.type && typeof legacyState.type === 'string' && VALID_TYPE_FILTERS.has(legacyState.type)) {
+        state.type = legacyState.type;
+      }
+      if (!state.sort && typeof legacyState.sort === 'string' && VALID_SORT_ORDERS.has(legacyState.sort)) {
+        state.sort = legacyState.sort;
+      }
+      if ((!state.tags || state.tags.length === 0) && Array.isArray(legacyState.tags)) {
+        const legacyTags = legacyState.tags
+          .map((tag) => sanitizeTagForState(tag))
+          .filter(Boolean);
+        if (legacyTags.length > 0) {
+          state.tags = legacyTags;
+        }
+      }
+    }
+
+    return state;
+  }
+
+  function syncFiltersToQuery() {
+    const snapshot = buildFilterStateSnapshot();
+    const params = new URLSearchParams(window.location.search || '');
+
+    params.delete(SEARCH_PARAM_TYPE);
+    params.delete(SEARCH_PARAM_ORDER);
+    params.delete(SEARCH_PARAM_TAG);
+
+    if (snapshot.type) {
+      params.set(SEARCH_PARAM_TYPE, snapshot.type);
+    }
+    if (snapshot.sort) {
+      params.set(SEARCH_PARAM_ORDER, snapshot.sort);
+    }
+    if (Array.isArray(snapshot.tags)) {
+      snapshot.tags.forEach((tag) => {
+        const encoded = encodeTagParam(tag);
+        if (encoded) {
+          params.append(SEARCH_PARAM_TAG, encoded);
+        }
+      });
+    }
+
+    const queryString = params.toString();
+    const pathname = window.location.pathname || '';
+    const hash = window.location.hash || '';
+    const shouldDropLegacyHash = hash && hash.slice(1).startsWith('mediaGallery=');
+    const suffix = shouldDropLegacyHash ? '' : hash;
+    const nextUrl = queryString ? `${pathname}?${queryString}${suffix}` : `${pathname}${suffix}`;
+
+    try {
+      window.history.replaceState(null, '', nextUrl);
+    } catch (error) {
+      window.location.replace(nextUrl);
     }
   }
 
@@ -701,8 +897,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function restartMediaQuery(options = {}) {
-    if (!options.skipHashUpdate) {
-      syncFiltersToHash();
+    if (!options.skipQueryUpdate) {
+      syncFiltersToQuery();
     }
 
     if (infiniteScroll) {
@@ -861,22 +1057,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  const initialFilters =
-    filterStateApi && typeof filterStateApi.readSection === 'function'
-      ? filterStateApi.readSection(FILTER_HASH_SECTION)
-      : null;
-
+  const initialFilters = readFiltersFromQuery();
   restoreFiltersFromState(initialFilters);
-  syncFiltersToHash();
+  syncFiltersToQuery();
   initializeInfiniteScroll();
-
-  if (filterStateApi && typeof filterStateApi.subscribeToSection === 'function') {
-    filterStateApi.subscribeToSection(FILTER_HASH_SECTION, (state) => {
-      const nextState = state && typeof state === 'object' ? state : {};
-      restoreFiltersFromState(nextState);
-      restartMediaQuery({ skipHashUpdate: true });
-    });
-  }
 });
 </script>
 {% endblock %}

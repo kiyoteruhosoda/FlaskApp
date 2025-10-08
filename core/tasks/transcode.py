@@ -621,8 +621,8 @@ def transcode_worker(*, media_playback_id: int, force: bool = False) -> Dict[str
     if not passthrough:
         crf = settings.transcode_crf
         video_filter = (
-            "scale='min(1920,iw)':'min(1080,ih)':force_original_aspect_ratio=decrease,"
-            "pad='ceil(iw/2)*2':'ceil(ih/2)*2'"
+            "scale=min(1920,iw):min(1080,ih):force_original_aspect_ratio=decrease,"
+            "pad=ceil(iw/2)*2:ceil(ih/2)*2"
         )
 
         cmd = [

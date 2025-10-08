@@ -122,7 +122,15 @@ class WikiPageService:
     def get_recent_pages(self, limit: int = 10) -> List[WikiPage]:
         """最近更新されたページを取得"""
         return self.page_repo.find_published_pages(limit=limit, offset=0)
-    
+
+    def get_pages_by_category(self, category_id: int) -> List[WikiPage]:
+        """カテゴリに紐づく公開済みページを取得"""
+        return self.page_repo.find_by_category_id(category_id)
+
+    def count_published_pages(self) -> int:
+        """公開中のページ数を取得"""
+        return self.page_repo.count_published_pages()
+
     def get_page_revisions(self, page_id: int, limit: int = 20) -> List[WikiRevision]:
         """ページの履歴を取得"""
         return self.revision_repo.find_by_page_id(page_id, limit)

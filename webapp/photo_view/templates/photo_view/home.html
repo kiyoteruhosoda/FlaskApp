@@ -353,18 +353,39 @@ document.addEventListener('DOMContentLoaded', () => {
   const uploadClearBtn = document.getElementById('upload-clear-btn');
   const uploadDropzone = document.getElementById('upload-dropzone');
 
-  let uploadModal = null;
-  if (uploadModalElement) {
-    const bootstrapNamespace = window.bootstrap || (typeof bootstrap !== 'undefined' ? bootstrap : null);
-    if (bootstrapNamespace && bootstrapNamespace.Modal) {
-      const modalCtor = bootstrapNamespace.Modal;
-      if (typeof modalCtor.getOrCreateInstance === 'function') {
-        uploadModal = modalCtor.getOrCreateInstance(uploadModalElement);
-      } else if (typeof modalCtor === 'function') {
-        uploadModal = new modalCtor(uploadModalElement);
-      }
+  function resolveBootstrapModal(element) {
+    if (!element) {
+      return null;
     }
+
+    const bootstrapNamespace = window.bootstrap || (typeof bootstrap !== 'undefined' ? bootstrap : null);
+    if (!bootstrapNamespace) {
+      console.warn('Bootstrap modal namespace not found. Upload dialog will not be interactive.');
+      return null;
+    }
+
+    const modalCtor = bootstrapNamespace.Modal
+      || (bootstrapNamespace.default && bootstrapNamespace.default.Modal)
+      || null;
+
+    if (!modalCtor) {
+      console.warn('Bootstrap modal constructor not available. Upload dialog will not be interactive.');
+      return null;
+    }
+
+    if (typeof modalCtor.getOrCreateInstance === 'function') {
+      return modalCtor.getOrCreateInstance(element);
+    }
+
+    if (typeof modalCtor === 'function') {
+      return new modalCtor(element);
+    }
+
+    console.warn('Bootstrap modal constructor is not invocable. Upload dialog will not be interactive.');
+    return null;
   }
+
+  const uploadModal = resolveBootstrapModal(uploadModalElement);
 
   const selectAccountMessage = '{{ _("Please choose a Google account first.") }}';
   const localImportPromptHeader = '{{ _("Start a local import from the following directories?") }}';
@@ -815,7 +836,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderUploadRows();
         updateUploadControls();
         setUploadStatus('success', uploadCommitSuccessMessage);
-        if (uploadModal) {
+        if (uploadModal && typeof uploadModal.hide === 'function') {
           setTimeout(() => uploadModal.hide(), 1200);
         }
         return;
@@ -848,7 +869,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setUploadStatus('info', uploadClearedMessage);
   }
 
-  if (uploadModalTrigger && uploadModal) {
+  if (uploadModalTrigger && uploadModal && typeof uploadModal.show === 'function') {
     uploadModalTrigger.addEventListener('click', () => {
       resetUploadStatus();
       renderUploadRows();
@@ -860,7 +881,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (uploadClearBtn) {
     uploadClearBtn.addEventListener('click', () => {
       clearUploads();
-      if (uploadModal) {
+      if (uploadModal && typeof uploadModal.hide === 'function') {
         uploadModal.hide();
       }
     });

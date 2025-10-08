@@ -51,6 +51,7 @@ from ..auth.routes import _sync_active_role
 from .pagination import PaginationParams, paginate_and_respond
 from flask_login import current_user
 from application.auth_service import AuthService
+from domain.user import UserRegistrationService
 from infrastructure.user_repository import SqlAlchemyUserRepository
 from ..services.token_service import TokenService
 from ..auth.totp import verify_totp
@@ -72,7 +73,8 @@ from core.tasks.media_post_processing import enqueue_thumbs_generate
 
 
 user_repo = SqlAlchemyUserRepository(db.session)
-auth_service = AuthService(user_repo)
+user_registration_service = UserRegistrationService(user_repo)
+auth_service = AuthService(user_repo, user_registration_service)
 
 
 VALID_TAG_ATTRS = {"person", "place", "thing"}

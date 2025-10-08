@@ -26,6 +26,8 @@ services:
       - TZ=${TZ:-Asia/Tokyo}
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
+      - UPLOAD_TMP_DIR=/app/data/tmp/upload
+      - UPLOAD_DESTINATION_DIR=/app/data/uploads
     env_file:
       - .env
     depends_on:
@@ -36,6 +38,8 @@ services:
       - /volume1/docker/photonest/data/thumbs:/app/data/thumbs
       - /volume1/docker/photonest/data/playback:/app/data/playback
       - /volume1/docker/photonest/data/local_import:/tmp/local_import
+      - /volume1/docker/photonest/data/tmp:/app/data/tmp
+      - /volume1/docker/photonest/data/uploads:/app/data/uploads
     user: "${PUID:-1000}:${PGID:-1000}"
     restart: unless-stopped
     healthcheck:
@@ -58,6 +62,8 @@ services:
       - TZ=${TZ:-Asia/Tokyo}
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
+      - UPLOAD_TMP_DIR=/app/data/tmp/upload
+      - UPLOAD_DESTINATION_DIR=/app/data/uploads
     env_file:
       - .env
     depends_on:
@@ -68,6 +74,8 @@ services:
       - /volume1/docker/photonest/data/thumbs:/app/data/thumbs
       - /volume1/docker/photonest/data/playback:/app/data/playback
       - /volume1/docker/photonest/data/local_import:/tmp/local_import
+      - /volume1/docker/photonest/data/tmp:/app/data/tmp
+      - /volume1/docker/photonest/data/uploads:/app/data/uploads
     user: "${PUID:-1000}:${PGID:-1000}"
     restart: unless-stopped
     healthcheck:

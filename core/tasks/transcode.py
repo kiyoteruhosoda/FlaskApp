@@ -60,6 +60,24 @@ def _tmp_dir() -> Path:
     return tmp
 
 
+def _summarise_ffmpeg_error(stderr: str) -> Optional[str]:
+    """Extract a human readable summary line from *stderr* output."""
+
+    if not stderr:
+        return None
+
+    candidates = [line.strip() for line in stderr.splitlines() if line.strip()]
+    priority = ("not divisible", "error", "failed", "invalid")
+    for keyword in priority:
+        for line in reversed(candidates):
+            if keyword in line.lower():
+                return line
+
+    if candidates:
+        return candidates[-1]
+    return None
+
+
 def _normalise_rel_path(rel_path: Optional[str], *, suffix: Optional[str] = None) -> Optional[str]:
     """Return a sanitised POSIX-style relative path.
 
@@ -551,13 +569,18 @@ def transcode_worker(*, media_playback_id: int, force: bool = False) -> Dict[str
 
     if not passthrough:
         crf = int(os.environ.get("FPV_TRANSCODE_CRF", "20"))
+        video_filter = (
+            "scale='min(1920,iw)':'min(1080,ih)':force_original_aspect_ratio=decrease,"
+            "pad='ceil(iw/2)*2':'ceil(ih/2)*2'"
+        )
+
         cmd = [
             "ffmpeg",
             "-y",
             "-i",
             str(src_path),
             "-vf",
-            "scale='min(1920,iw)':'min(1080,ih)':force_original_aspect_ratio=decrease",
+            video_filter,
             "-c:v",
             "libx264",
             "-crf",
@@ -586,6 +609,9 @@ def transcode_worker(*, media_playback_id: int, force: bool = False) -> Dict[str
                 "stderr": proc.stderr,
                 "stdout": proc.stdout,
             }
+            error_summary = _summarise_ffmpeg_error(proc.stderr)
+            if not error_summary:
+                error_summary = f"ffmpeg exited with code {proc.returncode}"
             logger.error(
                 f"FFmpeg変換失敗: playback_id={pb.id}, media_id={pb.media_id} - return_code={proc.returncode}",
                 extra={
@@ -603,6 +629,8 @@ def transcode_worker(*, media_playback_id: int, force: bool = False) -> Dict[str
                 "width": 0,
                 "height": 0,
                 "note": "ffmpeg_error",
+                "error": error_summary,
+                "error_details": error_details,
             }
 
     info: Dict[str, Any]

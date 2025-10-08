@@ -40,8 +40,28 @@ class PreparedUpload:
     analysis_result: dict
 
 
-_ALLOWED_EXTENSIONS = {".csv", ".tsv", ".json", ".txt", ".mp4"}
-_ALLOWED_MIME_PREFIXES = ("text/", "application/json", "video/")
+_IMAGE_EXTENSIONS = {
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".bmp",
+    ".tif",
+    ".tiff",
+    ".webp",
+    ".heic",
+    ".heif",
+}
+_VIDEO_EXTENSIONS = {
+    ".mp4",
+    ".mov",
+    ".m4v",
+    ".avi",
+    ".mkv",
+    ".webm",
+}
+_ALLOWED_EXTENSIONS = _IMAGE_EXTENSIONS | _VIDEO_EXTENSIONS
+_ALLOWED_MIME_PREFIXES = ("image/", "video/")
 
 
 def _ensure_directory(path: Path) -> None:
@@ -100,6 +120,10 @@ def _save_stream(file: FileStorage, destination: Path) -> int:
 
 def _detect_format(filename: str) -> str:
     suffix = (Path(filename).suffix or "").lower()
+    if suffix in _IMAGE_EXTENSIONS:
+        return "IMAGE"
+    if suffix in _VIDEO_EXTENSIONS:
+        return "VIDEO"
     if suffix == ".csv":
         return "CSV"
     if suffix == ".tsv":

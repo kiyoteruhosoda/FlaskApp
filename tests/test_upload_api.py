@@ -36,22 +36,21 @@ def auth_headers(client):
     return {'Authorization': f'Bearer {token}'}
 
 
-def test_prepare_upload_analyzes_file(client, auth_headers):
-    file_content = b'col1,col2\n1,2\n3,4\n'
+def test_prepare_upload_accepts_png_image(client, auth_headers):
+    file_content = b'\x89PNG\r\n\x1a\n' + (b'\x00' * 32)
     response = client.post(
         '/api/upload/prepare',
-        data={'file': (io.BytesIO(file_content), 'sample.csv')},
+        data={'file': (io.BytesIO(file_content), 'sample.png')},
         headers=auth_headers,
         content_type='multipart/form-data',
     )
 
     assert response.status_code == 200
     payload = response.get_json()
-    assert payload['fileName'] == 'sample.csv'
+    assert payload['fileName'] == 'sample.png'
     assert payload['status'] == 'analyzed'
     assert payload['fileSize'] == len(file_content)
-    assert payload['analysisResult']['format'] == 'CSV'
-    assert payload['analysisResult']['recordCount'] == 3
+    assert payload['analysisResult']['format'] == 'IMAGE'
 
     with client.session_transaction() as sess:
         session_id = sess.get('upload_session_id')
@@ -79,7 +78,34 @@ def test_prepare_upload_allows_mp4(client, auth_headers):
     payload = response.get_json()
     assert payload['fileName'] == 'clip.mp4'
     assert payload['fileSize'] == len(file_content)
-    assert payload['analysisResult']['format'] == 'UNKNOWN'
+    assert payload['analysisResult']['format'] == 'VIDEO'
+
+    with client.session_transaction() as sess:
+        session_id = sess.get('upload_session_id')
+
+    assert session_id
+    tmp_dir = Path(client.application.config['UPLOAD_TMP_DIR']) / session_id
+    stored_path = tmp_dir / payload['tempFileId']
+    assert stored_path.exists()
+    assert stored_path.read_bytes() == file_content
+
+
+def test_prepare_upload_allows_mov(client, auth_headers):
+    mov_header = b"\x00\x00\x00\x14ftypqt  \x00\x00\x02\x00qt  "
+    file_content = mov_header + (b"\x11" * 256)
+
+    response = client.post(
+        '/api/upload/prepare',
+        data={'file': (io.BytesIO(file_content), 'scene.mov')},
+        headers=auth_headers,
+        content_type='multipart/form-data',
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload['fileName'] == 'scene.mov'
+    assert payload['fileSize'] == len(file_content)
+    assert payload['analysisResult']['format'] == 'VIDEO'
 
     with client.session_transaction() as sess:
         session_id = sess.get('upload_session_id')
@@ -92,10 +118,10 @@ def test_prepare_upload_allows_mp4(client, auth_headers):
 
 
 def test_commit_upload_moves_files(client, auth_headers):
-    file_content = b'col1\nvalue\n'
+    file_content = b'PNGDATA'
     prepare_resp = client.post(
         '/api/upload/prepare',
-        data={'file': (io.BytesIO(file_content), 'commit.csv')},
+        data={'file': (io.BytesIO(file_content), 'commit.png')},
         headers=auth_headers,
         content_type='multipart/form-data',
     )
@@ -127,15 +153,16 @@ def test_commit_upload_moves_files(client, auth_headers):
     with app.app_context():
         user = User.query.filter_by(email='upload@example.com').first()
         dest_dir = Path(app.config['UPLOAD_DESTINATION_DIR']) / str(user.id)
-        stored_file = dest_dir / 'commit.csv'
+        stored_file = dest_dir / 'commit.png'
         assert stored_file.exists()
         assert stored_file.read_bytes() == file_content
 
 
-def test_prepare_rejects_unsupported_extension(client, auth_headers):
+@pytest.mark.parametrize('filename', ['payload.csv', 'payload.tsv', 'payload.json', 'payload.txt', 'payload.exe'])
+def test_prepare_rejects_unsupported_extension(client, auth_headers, filename):
     response = client.post(
         '/api/upload/prepare',
-        data={'file': (io.BytesIO(b'not allowed'), 'payload.exe')},
+        data={'file': (io.BytesIO(b'not allowed'), filename)},
         headers=auth_headers,
         content_type='multipart/form-data',
     )
@@ -146,18 +173,18 @@ def test_prepare_rejects_unsupported_extension(client, auth_headers):
 
 
 def test_commit_partial_keeps_session_and_files(client, auth_headers):
-    first_file = b'a,b\n1,2\n'
-    second_file = b'x,y\n3,4\n'
+    first_file = b'PNG1'
+    second_file = b'JPEG2'
 
     first_resp = client.post(
         '/api/upload/prepare',
-        data={'file': (io.BytesIO(first_file), 'first.csv')},
+        data={'file': (io.BytesIO(first_file), 'first.png')},
         headers=auth_headers,
         content_type='multipart/form-data',
     )
     second_resp = client.post(
         '/api/upload/prepare',
-        data={'file': (io.BytesIO(second_file), 'second.csv')},
+        data={'file': (io.BytesIO(second_file), 'second.jpg')},
         headers=auth_headers,
         content_type='multipart/form-data',
     )

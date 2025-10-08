@@ -786,12 +786,19 @@ def _regenerate_duplicate_video_thumbnails(
         )
         if not playback_result.get("ok"):
             failure_note = playback_result.get("note") or PLAYBACK_NOT_READY_NOTES
+            failure_error = playback_result.get("error")
+            failure_message = "重複動画の再生アセット強制再生成に失敗"
+            if failure_error:
+                failure_message = f"{failure_message} ({failure_error})"
+            elif failure_note and failure_note != PLAYBACK_NOT_READY_NOTES:
+                failure_message = f"{failure_message} ({failure_note})"
             _log_warning(
                 "local_import.duplicate_video.playback_force_failed",
-                "重複動画の再生アセット強制再生成に失敗",
+                failure_message,
                 session_id=session_id,
                 media_id=media.id,
                 note=failure_note,
+                error=failure_error,
                 status="playback_force_failed",
                 attempts=attempts,
             )
@@ -802,6 +809,8 @@ def _regenerate_duplicate_video_thumbnails(
                 "skipped": [],
                 "paths": {},
             }
+            if failure_error:
+                failure_result["error"] = failure_error
             return _finalise(failure_result, attempts=attempts)
 
         _log_info(
@@ -854,12 +863,19 @@ def _regenerate_duplicate_video_thumbnails(
         )
         if not playback_result.get("ok"):
             failure_note = playback_result.get("note") or PLAYBACK_NOT_READY_NOTES
+            failure_error = playback_result.get("error")
+            failure_message = "重複動画の再生アセット再生成に失敗"
+            if failure_error:
+                failure_message = f"{failure_message} ({failure_error})"
+            elif failure_note and failure_note != PLAYBACK_NOT_READY_NOTES:
+                failure_message = f"{failure_message} ({failure_note})"
             _log_warning(
                 "local_import.duplicate_video.playback_refresh_failed",
-                "重複動画の再生アセット再生成に失敗",
+                failure_message,
                 session_id=session_id,
                 media_id=media.id,
                 note=failure_note,
+                error=failure_error,
                 playback_output_path=playback_result.get("output_path"),
                 playback_poster_path=playback_result.get("poster_path"),
                 status="playback_refresh_failed",
@@ -872,6 +888,8 @@ def _regenerate_duplicate_video_thumbnails(
                 "skipped": result.get("skipped", []),
                 "paths": result.get("paths") or {},
             }
+            if failure_error:
+                failure_result["error"] = failure_error
             return _finalise(failure_result, attempts=attempts)
 
         _log_info(

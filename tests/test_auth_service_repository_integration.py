@@ -3,6 +3,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 from application.auth_service import AuthService
+from domain.user import UserRegistrationService
 from core.db import db
 from core.models.user import Role, User as UserModel
 from infrastructure.user_repository import SqlAlchemyUserRepository
@@ -24,7 +25,8 @@ def session():
 @pytest.fixture
 def auth_service(session):
     repo = SqlAlchemyUserRepository(session)
-    return AuthService(repo)
+    registrar = UserRegistrationService(repo)
+    return AuthService(repo, registrar)
 
 
 def _create_role(session, name: str = "guest") -> Role:

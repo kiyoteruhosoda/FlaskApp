@@ -344,6 +344,49 @@ document.addEventListener('DOMContentLoaded', () => {
   const duplicateModeRadios = document.querySelectorAll('input[name="duplicate-regeneration"]');
   const isAdmin = {{ 'true' if is_admin else 'false' }};
 
+  const uploadModalTrigger = document.getElementById('open-upload-modal');
+  const uploadModalElement = document.getElementById('upload-modal');
+  const uploadStatusMessage = document.getElementById('upload-status-message');
+  const uploadFileList = document.getElementById('upload-file-list');
+  const uploadFileInput = document.getElementById('upload-file-input');
+  const uploadCommitBtn = document.getElementById('upload-commit-btn');
+  const uploadClearBtn = document.getElementById('upload-clear-btn');
+  const uploadDropzone = document.getElementById('upload-dropzone');
+
+  function resolveBootstrapModal(element) {
+    if (!element) {
+      return null;
+    }
+
+    const bootstrapNamespace = window.bootstrap || (typeof bootstrap !== 'undefined' ? bootstrap : null);
+    if (!bootstrapNamespace) {
+      console.warn('Bootstrap modal namespace not found. Upload dialog will not be interactive.');
+      return null;
+    }
+
+    const modalCtor = bootstrapNamespace.Modal
+      || (bootstrapNamespace.default && bootstrapNamespace.default.Modal)
+      || null;
+
+    if (!modalCtor) {
+      console.warn('Bootstrap modal constructor not available. Upload dialog will not be interactive.');
+      return null;
+    }
+
+    if (typeof modalCtor.getOrCreateInstance === 'function') {
+      return modalCtor.getOrCreateInstance(element);
+    }
+
+    if (typeof modalCtor === 'function') {
+      return new modalCtor(element);
+    }
+
+    console.warn('Bootstrap modal constructor is not invocable. Upload dialog will not be interactive.');
+    return null;
+  }
+
+  const uploadModal = resolveBootstrapModal(uploadModalElement);
+
   const selectAccountMessage = '{{ _("Please choose a Google account first.") }}';
   const localImportPromptHeader = '{{ _("Start a local import from the following directories?") }}';
   const localImportSourceLabel = '{{ _("Source") }}';
@@ -793,7 +836,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderUploadRows();
         updateUploadControls();
         setUploadStatus('success', uploadCommitSuccessMessage);
-        if (uploadModal) {
+        if (uploadModal && typeof uploadModal.hide === 'function') {
           setTimeout(() => uploadModal.hide(), 1200);
         }
         return;
@@ -826,7 +869,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setUploadStatus('info', uploadClearedMessage);
   }
 
-  if (uploadModalTrigger && uploadModal) {
+  if (uploadModalTrigger && uploadModal && typeof uploadModal.show === 'function') {
     uploadModalTrigger.addEventListener('click', () => {
       resetUploadStatus();
       renderUploadRows();
@@ -838,7 +881,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (uploadClearBtn) {
     uploadClearBtn.addEventListener('click', () => {
       clearUploads();
-      if (uploadModal) {
+      if (uploadModal && typeof uploadModal.hide === 'function') {
         uploadModal.hide();
       }
     });

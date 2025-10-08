@@ -274,11 +274,51 @@
   }
 
   .album-media-thumb {
+    position: relative;
     width: 100%;
     padding-bottom: 70%;
+    overflow: hidden;
     background-size: cover;
     background-position: center;
     background-color: #1e293b;
+  }
+
+  .album-media-thumb.is-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 28px;
+    height: 28px;
+    margin: -14px 0 0 -14px;
+    border-radius: 50%;
+    border: 3px solid rgba(148, 163, 184, 0.35);
+    border-top-color: rgba(148, 163, 184, 0.85);
+    animation: album-thumb-spin 0.8s linear infinite;
+  }
+
+  .album-media-thumb.is-error {
+    background-color: rgba(220, 38, 38, 0.65);
+  }
+
+  .album-media-thumb.is-error::after {
+    content: '!';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-weight: 600;
+    font-size: 1rem;
+    color: #fee2e2;
+  }
+
+  @keyframes album-thumb-spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .album-media-overlay {
@@ -677,6 +717,150 @@ document.addEventListener('DOMContentLoaded', () => {
     reorderSaving: "{{ _('Saving album order...')|escapejs }}",
     reorderHandle: "{{ _('Drag to reorder')|escapejs }}",
   };
+
+  const DEFAULT_MAX_CONCURRENT_MEDIA_LOADS = 4;
+
+  function createLimitedConcurrencyQueue(options = {}) {
+    const normalized = Math.max(1, Number(options.concurrency) || DEFAULT_MAX_CONCURRENT_MEDIA_LOADS);
+    const pending = [];
+    let activeCount = 0;
+
+    const runNext = () => {
+      if (activeCount >= normalized) {
+        return;
+      }
+      const next = pending.shift();
+      if (!next) {
+        return;
+      }
+      activeCount += 1;
+      const { task, resolve, reject } = next;
+      Promise.resolve()
+        .then(task)
+        .then(resolve)
+        .catch((error) => {
+          console.error('Media load task failed', error);
+          reject?.(error);
+        })
+        .finally(() => {
+          activeCount = Math.max(0, activeCount - 1);
+          runNext();
+        });
+    };
+
+    return {
+      enqueue(task) {
+        let resolveFn;
+        let rejectFn;
+        const promise = new Promise((resolve, reject) => {
+          resolveFn = resolve;
+          rejectFn = reject;
+        });
+        pending.push({ task, resolve: resolveFn, reject: rejectFn });
+        runNext();
+        return promise;
+      },
+      clear(filterFn) {
+        if (typeof filterFn === 'function') {
+          for (let i = pending.length - 1; i >= 0; i -= 1) {
+            if (filterFn(pending[i])) {
+              pending.splice(i, 1);
+            }
+          }
+        } else {
+          pending.length = 0;
+        }
+      },
+    };
+  }
+
+  function createThumbnailLoader(options = {}) {
+    const queue = createLimitedConcurrencyQueue({ concurrency: options.concurrency });
+
+    return {
+      load(element, url) {
+        if (!element || !url) {
+          return Promise.resolve();
+        }
+
+        if (
+          element.dataset.thumbnailRequestedUrl === url &&
+          element.dataset.thumbnailLoaded === 'true'
+        ) {
+          element.classList.remove('is-loading');
+          element.classList.remove('is-error');
+          element.style.backgroundImage = `url("${url}")`;
+          return Promise.resolve();
+        }
+
+        element.dataset.thumbnailRequestedUrl = url;
+        element.dataset.thumbnailLoaded = 'false';
+        element.classList.remove('is-error');
+        element.classList.add('is-loading');
+        element.style.backgroundImage = '';
+
+        return queue
+          .enqueue(
+            () =>
+              new Promise((resolve) => {
+                const image = new Image();
+                image.decoding = 'async';
+                image.onload = () => {
+                  if (element.isConnected && element.dataset.thumbnailRequestedUrl === url) {
+                    element.style.backgroundImage = `url("${url}")`;
+                    element.dataset.thumbnailLoaded = 'true';
+                  }
+                  element.classList.remove('is-loading');
+                  element.classList.remove('is-error');
+                  resolve();
+                };
+                image.onerror = () => {
+                  if (element.isConnected && element.dataset.thumbnailRequestedUrl === url) {
+                    element.classList.add('is-error');
+                    element.style.backgroundImage = '';
+                  }
+                  element.classList.remove('is-loading');
+                  resolve();
+                };
+                image.src = url;
+              })
+          )
+          .catch((error) => {
+            console.error('Thumbnail load failed', error);
+          });
+      },
+      reset() {
+        queue.clear();
+      },
+    };
+  }
+
+  function resolveMediaThumbnailUrl(media) {
+    if (!media) {
+      return null;
+    }
+    if (typeof media.thumbnailUrl === 'string' && media.thumbnailUrl) {
+      return media.thumbnailUrl;
+    }
+    if (typeof media.thumbnail_url === 'string' && media.thumbnail_url) {
+      return media.thumbnail_url;
+    }
+    if (media.id !== null && media.id !== undefined) {
+      return `/api/media/${media.id}/thumbnail?size=256`;
+    }
+    return null;
+  }
+
+  const maxConcurrentMediaLoads = (() => {
+    const raw = albumMediaGrid?.dataset?.maxConcurrentLoads;
+    const parsed = Number.parseInt(raw || '', 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+    return DEFAULT_MAX_CONCURRENT_MEDIA_LOADS;
+  })();
+
+  const mediaThumbnailLoader = createThumbnailLoader({ concurrency: maxConcurrentMediaLoads });
 
   const albumState = {
     mode: 'create',
@@ -1146,6 +1330,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     albumState.mediaInfiniteScroll?.stop();
     albumState.mediaPagination?.reset?.();
+    mediaThumbnailLoader.reset();
     albumMediaGrid.innerHTML = '';
     albumState.mediaCache.clear();
     albumMediaLoading?.classList.add('d-none');
@@ -1194,6 +1379,7 @@ document.addEventListener('DOMContentLoaded', () => {
       itemsToRender = allItems.filter((item) => !albumState.selectedMedia.has(Number(item.id)));
     }
 
+    mediaThumbnailLoader.reset();
     albumMediaGrid.innerHTML = '';
 
     itemsToRender.forEach((item) => {
@@ -1261,14 +1447,26 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function buildMediaTile(media) {
+    const id = Number(media?.id);
+    const hasValidId = Number.isFinite(id);
     const tile = document.createElement('button');
     tile.type = 'button';
     tile.className = 'album-media-tile';
-    tile.dataset.mediaId = media.id;
+    if (hasValidId) {
+      tile.dataset.mediaId = id.toString();
+    } else {
+      tile.disabled = true;
+    }
 
     const thumb = document.createElement('div');
     thumb.className = 'album-media-thumb';
-    thumb.style.backgroundImage = `url('/api/media/${media.id}/thumbnail?size=256')`;
+    const thumbnailUrl = resolveMediaThumbnailUrl(media);
+    if (thumbnailUrl) {
+      thumb.dataset.thumbnailUrl = thumbnailUrl;
+      mediaThumbnailLoader.load(thumb, thumbnailUrl);
+    } else {
+      thumb.classList.add('is-error');
+    }
 
     const overlay = document.createElement('div');
     overlay.className = 'album-media-overlay';
@@ -1279,7 +1477,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const nameSpan = document.createElement('span');
     nameSpan.textContent = formatMediaDateTime(
       media.shot_at || media.shotAt,
-      `${strings.untitledMedia} #${media.id}`
+      `${strings.untitledMedia} #${hasValidId ? id : (media?.id ?? '?')}`
     );
     meta.appendChild(nameSpan);
 
@@ -1287,10 +1485,12 @@ document.addEventListener('DOMContentLoaded', () => {
     tile.appendChild(overlay);
     tile.appendChild(meta);
 
-    tile.addEventListener('click', (event) => {
-      event.preventDefault();
-      toggleMediaSelection(media);
-    });
+    if (hasValidId) {
+      tile.addEventListener('click', (event) => {
+        event.preventDefault();
+        toggleMediaSelection(media);
+      });
+    }
 
     return tile;
   }
@@ -1494,6 +1694,7 @@ document.addEventListener('DOMContentLoaded', () => {
     albumState.selectionFilter = 'all';
     albumState.tagFilters = [];
     albumState.mediaCache.clear();
+    mediaThumbnailLoader.reset();
     albumMediaGrid.innerHTML = '';
     albumMediaEmpty.classList.add('d-none');
     albumMediaEnd.classList.add('d-none');

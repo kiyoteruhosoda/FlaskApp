@@ -3,6 +3,7 @@
 {% block title %}{{ _('Albums') }}{% endblock %}
 
 {% block extra_head %}
+<script src="{{ url_for('static', filename='js/filter-state.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pagination.js') }}"></script>
 <style>
   .album-grid {
@@ -678,6 +679,47 @@ document.addEventListener('DOMContentLoaded', () => {
   const albumMediaEmpty = document.getElementById('album-media-empty');
   const albumMediaEnd = document.getElementById('album-media-end');
   const defaultMediaEmptyMessage = albumMediaEmpty ? albumMediaEmpty.textContent : '';
+  const filterStateApi = window.filterState || null;
+  const ALBUM_FILTER_SECTION = 'albums';
+  const ALBUM_SORT_VALUES = new Set(['desc', 'asc', 'custom']);
+  const DEFAULT_ALBUM_SORT = 'desc';
+
+  function applyAlbumFiltersFromState(state) {
+    if (!sortOrder || editorView) {
+      return;
+    }
+
+    const filters = state && typeof state === 'object' ? state : {};
+    const candidate = typeof filters.order === 'string' ? filters.order : '';
+    const normalized = ALBUM_SORT_VALUES.has(candidate) ? candidate : DEFAULT_ALBUM_SORT;
+    sortOrder.value = normalized;
+  }
+
+  function buildAlbumFilterSnapshot() {
+    if (!sortOrder || editorView) {
+      return null;
+    }
+
+    const value = sortOrder.value || DEFAULT_ALBUM_SORT;
+    if (!ALBUM_SORT_VALUES.has(value) || value === DEFAULT_ALBUM_SORT) {
+      return null;
+    }
+
+    return { order: value };
+  }
+
+  function syncAlbumFiltersToHash() {
+    if (!filterStateApi || typeof filterStateApi.writeSection !== 'function') {
+      return;
+    }
+
+    const snapshot = buildAlbumFilterSnapshot();
+    if (snapshot) {
+      filterStateApi.writeSection(ALBUM_FILTER_SECTION, snapshot);
+    } else {
+      filterStateApi.writeSection(ALBUM_FILTER_SECTION, null);
+    }
+  }
 
   const strings = {
     albumCreated: "{{ _('Album created successfully.')|escapejs }}",
@@ -2165,6 +2207,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (sortOrder && sortOrder.value !== 'custom') {
       sortOrder.value = 'custom';
+      syncAlbumFiltersToHash();
     }
 
     showReorderHint(strings.reorderLoading, 'warning');
@@ -2406,6 +2449,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (editorView) {
       return;
     }
+    syncAlbumFiltersToHash();
     if (reorderMode) {
       exitReorderMode();
     } else {
@@ -2420,11 +2464,17 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (sortOrder) {
-    sortOrder.addEventListener('change', reloadAlbums);
+    sortOrder.addEventListener('change', () => {
+      syncAlbumFiltersToHash();
+      reloadAlbums();
+    });
   }
 
   if (refreshBtn) {
-    refreshBtn.addEventListener('click', reloadAlbums);
+    refreshBtn.addEventListener('click', () => {
+      syncAlbumFiltersToHash();
+      reloadAlbums();
+    });
   }
 
   if (reorderToggleBtn) {
@@ -2575,6 +2625,22 @@ document.addEventListener('DOMContentLoaded', () => {
       openAlbumModal('create');
     }
   } else {
+    const initialAlbumFilters =
+      filterStateApi && typeof filterStateApi.readSection === 'function'
+        ? filterStateApi.readSection(ALBUM_FILTER_SECTION)
+        : null;
+
+    applyAlbumFiltersFromState(initialAlbumFilters);
+    syncAlbumFiltersToHash();
+
+    if (filterStateApi && typeof filterStateApi.subscribeToSection === 'function') {
+      filterStateApi.subscribeToSection(ALBUM_FILTER_SECTION, (state) => {
+        const nextState = state && typeof state === 'object' ? state : {};
+        applyAlbumFiltersFromState(nextState);
+        reloadAlbums();
+      });
+    }
+
     initializeAlbumsScroll();
   }
 });

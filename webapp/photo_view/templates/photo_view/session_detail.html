@@ -2,6 +2,7 @@
 {% block title %}Session Details{% endblock %}
 
 {% block extra_head %}
+<script src="{{ url_for('static', filename='js/filter-state.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pagination.js') }}"></script>
 {% endblock %}
 
@@ -182,6 +183,63 @@ document.addEventListener('DOMContentLoaded', () => {
   const selectionFilterSearchInput = document.getElementById('selection-filter-search');
   const selectionFilterStatusSelect = document.getElementById('selection-filter-status');
   const selectionFilterResetButton = document.getElementById('selection-filter-reset');
+  const filterStateApi = window.filterState || null;
+  const SESSION_FILTER_SECTION = 'sessionDetail';
+
+  function applySessionFiltersFromState(state) {
+    const filters = state && typeof state === 'object' ? state : {};
+    const matchesSession = filters.sessionId === pickerSessionId;
+
+    if (selectionFilterSearchInput) {
+      const value = matchesSession && typeof filters.search === 'string' ? filters.search : '';
+      selectionFilterSearchInput.value = value;
+    }
+
+    if (selectionFilterStatusSelect) {
+      const statusValue = matchesSession && typeof filters.status === 'string' ? filters.status : '';
+      selectionFilterStatusSelect.value = statusValue;
+    }
+  }
+
+  function buildSessionFilterSnapshot() {
+    if (!pickerSessionId) {
+      return null;
+    }
+
+    const snapshot = { sessionId: pickerSessionId };
+    let hasFilter = false;
+
+    if (selectionFilterSearchInput) {
+      const searchValue = selectionFilterSearchInput.value.trim();
+      if (searchValue.length > 0) {
+        snapshot.search = searchValue;
+        hasFilter = true;
+      }
+    }
+
+    if (selectionFilterStatusSelect) {
+      const statusValue = selectionFilterStatusSelect.value;
+      if (statusValue) {
+        snapshot.status = statusValue;
+        hasFilter = true;
+      }
+    }
+
+    return hasFilter ? snapshot : null;
+  }
+
+  function syncSessionFiltersToHash() {
+    if (!filterStateApi || typeof filterStateApi.writeSection !== 'function') {
+      return;
+    }
+
+    const snapshot = buildSessionFilterSnapshot();
+    if (snapshot) {
+      filterStateApi.writeSection(SESSION_FILTER_SECTION, snapshot);
+    } else {
+      filterStateApi.writeSection(SESSION_FILTER_SECTION, null);
+    }
+  }
   const viewErrorDetailsLabel = '{{ _("View error details") }}';
   const logDownloadDefaultHtml = logDownloadButton ? logDownloadButton.innerHTML : '';
   const logDownloadPreparingLabel = '{{ _("Preparing download...") }}';
@@ -1136,12 +1194,14 @@ document.addEventListener('DOMContentLoaded', () => {
   if (selectionFilterForm) {
     selectionFilterForm.addEventListener('submit', (event) => {
       event.preventDefault();
+      syncSessionFiltersToHash();
       refreshSelections({ forceReset: true });
     });
   }
 
   if (selectionFilterStatusSelect) {
     selectionFilterStatusSelect.addEventListener('change', () => {
+      syncSessionFiltersToHash();
       refreshSelections({ forceReset: true });
     });
   }
@@ -1152,6 +1212,7 @@ document.addEventListener('DOMContentLoaded', () => {
         clearTimeout(selectionFilterSearchDebounce);
       }
       selectionFilterSearchDebounce = setTimeout(() => {
+        syncSessionFiltersToHash();
         refreshSelections({ forceReset: true });
       }, 300);
     });
@@ -1165,6 +1226,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (selectionFilterStatusSelect) {
         selectionFilterStatusSelect.value = '';
       }
+      syncSessionFiltersToHash();
       refreshSelections({ forceReset: true });
     });
   }
@@ -1266,6 +1328,22 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   });
+
+  const initialSessionFilters =
+    filterStateApi && typeof filterStateApi.readSection === 'function'
+      ? filterStateApi.readSection(SESSION_FILTER_SECTION)
+      : null;
+
+  applySessionFiltersFromState(initialSessionFilters);
+  syncSessionFiltersToHash();
+
+  if (filterStateApi && typeof filterStateApi.subscribeToSection === 'function') {
+    filterStateApi.subscribeToSection(SESSION_FILTER_SECTION, (state) => {
+      const nextState = state && typeof state === 'object' ? state : {};
+      applySessionFiltersFromState(nextState);
+      refreshSelections({ forceReset: true });
+    });
+  }
 
   setInterval(refreshSelections, 3000);
   refreshSelections();

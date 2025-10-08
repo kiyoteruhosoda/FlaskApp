@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 import sys
 import traceback
 from typing import TYPE_CHECKING, Any, Dict, Optional, Set
@@ -11,6 +10,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import DataError, OperationalError
 
 from .db import db
+from .settings import settings
 
 if TYPE_CHECKING:  # pragma: no cover
     from flask import Flask
@@ -113,8 +113,7 @@ class DBLogHandler(logging.Handler):
 
     def _get_fallback_engine(self) -> Engine:
         if self._fallback_engine is None:
-            uri = os.environ.get("DATABASE_URI") or "sqlite:///application_logs.db"
-            self._fallback_engine = create_engine(uri, future=True)
+            self._fallback_engine = create_engine(settings.logs_database_uri, future=True)
         return self._fallback_engine
 
     def _maybe_use_fallback(self, engine: Engine) -> Engine:

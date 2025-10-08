@@ -5,10 +5,7 @@ from typing import Optional, Tuple
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-
-_KEY_ENV = "OAUTH_TOKEN_KEY"
-_KEY_FILE_ENV = "OAUTH_TOKEN_KEY_FILE"
-_FPV_KEY_FILE_ENV = "FPV_OAUTH_TOKEN_KEY_FILE"
+from core.settings import ApplicationSettings, settings
 
 
 def _decode_key(raw: str) -> bytes:
@@ -41,17 +38,17 @@ def validate_oauth_key(raw: str) -> Tuple[bool, str]:
     except Exception as exc:  # pragma: no cover - defensive
         return False, str(exc)
 
-def _load_key(raw: Optional[str] = None) -> bytes:
+def _load_key(raw: Optional[str] = None, *, config: ApplicationSettings = settings) -> bytes:
     """Load 32-byte encryption key from a string, env var, or file."""
 
     if raw is not None:
         return _decode_key(raw)
 
-    key_str = os.environ.get(_KEY_ENV)
+    key_str = config.oauth_token_key
     if key_str:
         return _decode_key(key_str)
 
-    path = os.environ.get(_KEY_FILE_ENV) or os.environ.get(_FPV_KEY_FILE_ENV)
+    path = config.oauth_token_key_file
     if path:
         with open(path, "r") as f:
             return _decode_key(f.read().strip())

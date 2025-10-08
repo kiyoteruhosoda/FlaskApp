@@ -497,6 +497,8 @@ def _refresh_existing_media_metadata(
             else None
         )
 
+        destination_exists = os.path.exists(destination_path)
+
         if old_absolute != destination_path:
             os.makedirs(os.path.dirname(destination_path), exist_ok=True)
             relocation_source = None
@@ -527,6 +529,44 @@ def _refresh_existing_media_metadata(
                         os.remove(old_absolute)
                     except OSError:
                         pass
+        elif not destination_exists:
+            restoration_source = source_absolute if os.path.exists(source_absolute) else None
+            if restoration_source and restoration_source != destination_path:
+                os.makedirs(os.path.dirname(destination_path), exist_ok=True)
+                try:
+                    shutil.copy2(restoration_source, destination_path)
+                except OSError as restore_exc:
+                    _log_warning(
+                        "local_import.file.duplicate_source_restore_failed",
+                        "重複メディアの欠損した原本の復元に失敗",
+                        media_id=media.id,
+                        source_path=restoration_source,
+                        destination_path=destination_path,
+                        error_type=type(restore_exc).__name__,
+                        error_message=str(restore_exc),
+                        session_id=session_id,
+                        status="source_restore_failed",
+                    )
+                else:
+                    _log_info(
+                        "local_import.file.duplicate_source_restored",
+                        "重複メディアの欠損した原本を復元",
+                        media_id=media.id,
+                        source_path=restoration_source,
+                        destination_path=destination_path,
+                        session_id=session_id,
+                        status="source_restored",
+                    )
+            else:
+                _log_warning(
+                    "local_import.file.duplicate_source_unavailable",
+                    "欠損した原本の復元元が見つからないため復元をスキップ",
+                    media_id=media.id,
+                    source_path=source_absolute,
+                    destination_path=destination_path,
+                    session_id=session_id,
+                    status="source_missing",
+                )
 
         media.local_rel_path = new_relative_path
 

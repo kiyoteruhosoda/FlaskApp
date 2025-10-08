@@ -1,7 +1,15 @@
 from datetime import datetime, timezone
+import io
 import json
+import zipfile
 from flask import (
-    Blueprint, current_app, jsonify, request, session, url_for
+    Blueprint,
+    current_app,
+    jsonify,
+    request,
+    send_file,
+    session,
+    url_for,
 )
 from flask_login import login_required
 from sqlalchemy import func
@@ -315,33 +323,42 @@ def api_picker_session_status(session_id):
     return jsonify(payload)
 
 
-@bp.get("/picker/session/<string:session_id>/logs")
-@login_or_jwt_required
-def api_picker_session_logs(session_id: str):
-    """Return recent local import logs for a picker session."""
+def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
+    """Collect local import logs for a picker session.
 
-    ps = PickerSessionService.resolve_session_identifier(session_id)
+    Args:
+        ps: Picker session model instance.
+        limit: Optional number of log entries to return. ``None`` returns all
+            matching entries.
+        include_raw: When ``True`` the original log payloads and metadata are
+            included in the response dictionaries.
+
+    Returns:
+        List of log dictionaries sorted by ID ascending.
+    """
+
     if not ps:
-        return jsonify({"error": "not_found"}), 404
+        return []
 
-    limit = request.args.get("limit", type=int) or 100
-    limit = max(1, min(limit, 500))
-
-    rows = (
-        WorkerLog.query.filter(WorkerLog.event.like("local_import%"))
-        .order_by(WorkerLog.id.desc())
-        .limit(limit * 5)
-        .all()
-    )
-
-    logs = []
     session_identifier = ps.session_id
 
-    for row in rows:
+    query = WorkerLog.query.filter(WorkerLog.event.like("local_import%"))
+
+    if limit is None:
+        query = query.order_by(WorkerLog.id.asc())
+    else:
+        query = query.order_by(WorkerLog.id.desc()).limit(limit * 5)
+
+    logs = []
+
+    for row in query:
         try:
             payload = json.loads(row.message)
         except Exception:
             payload = {"message": row.message}
+
+        if not isinstance(payload, dict):
+            payload = {"message": payload}
 
         extras = {}
         payload_extras = payload.get("_extra")
@@ -351,6 +368,7 @@ def api_picker_session_logs(session_id: str):
         row_extras = row.extra_json if isinstance(row.extra_json, dict) else None
         if row_extras:
             extras.update(row_extras)
+
         session_matches = False
 
         if extras.get("session_id") == session_identifier:
@@ -394,26 +412,112 @@ def api_picker_session_logs(session_id: str):
             except Exception:
                 message = str(message)
 
-        logs.append(
-            {
+        log_entry = {
+            "id": row.id,
+            "createdAt": row.created_at.isoformat().replace("+00:00", "Z")
+            if row.created_at
+            else None,
+            "level": row.level,
+            "event": row.event,
+            "status": status_value,
+            "message": message,
+            "details": details,
+        }
+
+        if include_raw:
+            log_entry["raw"] = {
                 "id": row.id,
-                "createdAt": row.created_at.isoformat().replace("+00:00", "Z")
+                "created_at": row.created_at.isoformat().replace("+00:00", "Z")
                 if row.created_at
                 else None,
                 "level": row.level,
                 "event": row.event,
-                "status": status_value,
-                "message": message,
-                "details": details,
+                "status": row.status,
+                "logger_name": row.logger_name,
+                "task_name": row.task_name,
+                "task_uuid": row.task_uuid,
+                "worker_hostname": row.worker_hostname,
+                "queue_name": row.queue_name,
+                "raw_message": row.message,
+                "parsed_message": payload,
+                "extra_json": row.extra_json,
+                "meta_json": row.meta_json,
+                "trace": row.trace,
             }
-        )
 
-        if len(logs) >= limit:
+        logs.append(log_entry)
+
+        if limit is not None and len(logs) >= limit:
             break
 
-    logs.sort(key=lambda item: item.get("id", 0))
+    if limit is not None:
+        logs.sort(key=lambda item: item.get("id", 0))
+
+    return logs
+
+
+@bp.get("/picker/session/<string:session_id>/logs")
+@login_or_jwt_required
+def api_picker_session_logs(session_id: str):
+    """Return recent local import logs for a picker session."""
+
+    ps = PickerSessionService.resolve_session_identifier(session_id)
+    if not ps:
+        return jsonify({"error": "not_found"}), 404
+
+    limit = request.args.get("limit", type=int) or 100
+    limit = max(1, min(limit, 500))
+
+    logs = _collect_local_import_logs(ps, limit=limit)
 
     return jsonify({"logs": logs})
+
+
+@bp.get("/picker/session/<string:session_id>/logs/download")
+@login_or_jwt_required
+def api_picker_session_logs_download(session_id: str):
+    """Download the complete local import logs for a picker session as a ZIP."""
+
+    ps = PickerSessionService.resolve_session_identifier(session_id)
+    if not ps:
+        return jsonify({"error": "not_found"}), 404
+
+    logs = _collect_local_import_logs(ps, limit=None, include_raw=True)
+
+    log_lines = []
+    for entry in logs:
+        log_lines.append(json.dumps(entry, ensure_ascii=False, sort_keys=True))
+
+    metadata = {
+        "session_id": ps.session_id,
+        "session_db_id": ps.id,
+        "downloaded_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "log_count": len(logs),
+    }
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("logs.jsonl", "\n".join(log_lines) + ("\n" if log_lines else ""))
+        archive.writestr(
+            "metadata.json",
+            json.dumps(metadata, ensure_ascii=False, indent=2, sort_keys=True),
+        )
+
+    buffer.seek(0)
+
+    session_identifier = ps.session_id or "session"
+    safe_name = [
+        char if char.isalnum() or char in {"-", "_", "."} else "_"
+        for char in session_identifier
+    ]
+    filename = "{}{}".format("".join(safe_name).strip("._") or "session", "_logs.zip")
+
+    return send_file(
+        buffer,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=filename,
+    )
 
 
 @bp.get("/picker/session/picker_sessions/<string:uuid>/logs")

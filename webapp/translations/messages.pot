@@ -1314,3 +1314,15 @@ msgstr ""
 msgid "No permissions match your search."
 msgstr ""
 
+#: webapp/photo_view/templates/photo_view/session_detail.html:??
+msgid "Download full logs (ZIP)"
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:??
+msgid "Preparing download..."
+msgstr ""
+
+#: webapp/photo_view/templates/photo_view/session_detail.html:??
+msgid "Failed to download logs."
+msgstr ""
+

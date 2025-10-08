@@ -94,9 +94,14 @@
 
 <div id="local-import-logs-section" class="mt-4 d-none">
   <h2>{{ _("Import Logs") }}</h2>
-  <p class="text-muted small mb-2">
-    <i class="bi bi-info-circle"></i> {{ _("ZIP extraction and file processing logs appear here while local import runs.") }}
-  </p>
+  <div class="d-flex flex-column flex-lg-row gap-2 align-items-lg-center justify-content-lg-between mb-2">
+    <p class="text-muted small mb-0">
+      <i class="bi bi-info-circle"></i> {{ _("ZIP extraction and file processing logs appear here while local import runs.") }}
+    </p>
+    <button type="button" id="local-import-log-download" class="btn btn-outline-secondary btn-sm d-none">
+      <i class="bi bi-download"></i> {{ _("Download full logs (ZIP)") }}
+    </button>
+  </div>
   <div class="table-responsive">
     <table class="table table-sm mb-0">
       <thead>
@@ -168,6 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const localImportTasksEl = document.getElementById('local-import-tasks');
   const logSection = document.getElementById('local-import-logs-section');
   const logBody = document.getElementById('local-import-log-body');
+  const logDownloadButton = document.getElementById('local-import-log-download');
   const selectionPaginationEl = document.getElementById('selection-pagination');
   const selectionPaginationStatusEl = document.getElementById('selection-pagination-status');
   const selectionPaginationButton = document.getElementById('selection-pagination-load');
@@ -177,6 +183,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const selectionFilterStatusSelect = document.getElementById('selection-filter-status');
   const selectionFilterResetButton = document.getElementById('selection-filter-reset');
   const viewErrorDetailsLabel = '{{ _("View error details") }}';
+  const logDownloadDefaultHtml = logDownloadButton ? logDownloadButton.innerHTML : '';
+  const logDownloadPreparingLabel = '{{ _("Preparing download...") }}';
+  const logDownloadFailedMessage = '{{ _("Failed to download logs.") }}';
+  const logDownloadLoadingHtml = `<span class="spinner-border spinner-border-sm align-text-bottom me-2" role="status" aria-hidden="true"></span>${escapeHtml(logDownloadPreparingLabel)}`;
 
   const selectionStatusLabels = {
     pending: '{{ _("Pending") }}',
@@ -429,6 +439,21 @@ document.addEventListener('DOMContentLoaded', () => {
     return entries.join(', ');
   }
 
+  function toggleLogDownloadButton(show = false) {
+    if (!logDownloadButton) {
+      return;
+    }
+
+    if (show) {
+      logDownloadButton.classList.remove('d-none');
+      if (!logDownloadButton.disabled) {
+        logDownloadButton.innerHTML = logDownloadDefaultHtml;
+      }
+    } else {
+      logDownloadButton.classList.add('d-none');
+    }
+  }
+
   function renderLocalImportLogs(logs = [], showSection = isLocalImport) {
     if (!logSection || !logBody) {
       return;
@@ -437,11 +462,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!showSection) {
       logSection.classList.add('d-none');
       logBody.innerHTML = '';
+      toggleLogDownloadButton(false);
       return;
     }
 
     logSection.classList.remove('d-none');
     logBody.innerHTML = '';
+    toggleLogDownloadButton(true);
 
     if (!logs || logs.length === 0) {
       const emptyRow = document.createElement('tr');
@@ -483,6 +510,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentCounts = {};
   let displayedSelectionCount = 0;
   let selectionRefreshStaging = null;
+
+  toggleLogDownloadButton(false);
 
   function formatDateTime(isoString) {
     if (!isoString) return '-';
@@ -1137,6 +1166,59 @@ document.addEventListener('DOMContentLoaded', () => {
         selectionFilterStatusSelect.value = '';
       }
       refreshSelections({ forceReset: true });
+    });
+  }
+
+  if (logDownloadButton) {
+    logDownloadButton.addEventListener('click', async () => {
+      if (!pickerSessionId) {
+        return;
+      }
+
+      logDownloadButton.disabled = true;
+      logDownloadButton.innerHTML = logDownloadLoadingHtml;
+
+      try {
+        const resp = await window.apiClient.get(`/api/picker/session/${encodeURIComponent(pickerSessionId)}/logs/download`);
+        if (!resp.ok) {
+          throw new Error(`HTTP ${resp.status}`);
+        }
+
+        const blob = await resp.blob();
+        let filename = 'session-logs.zip';
+        const disposition = resp.headers.get('Content-Disposition') || '';
+        const encodedMatch = disposition.match(/filename\*=UTF-8''([^;]+)/);
+        const simpleMatch = disposition.match(/filename="?([^";]+)"?/);
+
+        if (encodedMatch && encodedMatch[1]) {
+          try {
+            filename = decodeURIComponent(encodedMatch[1]);
+          } catch (err) {
+            filename = encodedMatch[1];
+          }
+        } else if (simpleMatch && simpleMatch[1]) {
+          filename = simpleMatch[1];
+        }
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }, 0);
+      } catch (error) {
+        console.error('Failed to download logs:', error);
+        if (typeof showErrorToast === 'function') {
+          showErrorToast(logDownloadFailedMessage);
+        }
+      } finally {
+        logDownloadButton.innerHTML = logDownloadDefaultHtml;
+        logDownloadButton.disabled = false;
+      }
     });
   }
 

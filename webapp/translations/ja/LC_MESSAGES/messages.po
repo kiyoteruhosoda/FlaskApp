@@ -1621,3 +1621,12 @@ msgstr "ローカルインポートセッションは実行中ではありませ
 msgid "Local import session was canceled."
 msgstr "ローカルインポートセッションを停止しました。"
 
+msgid "Download full logs (ZIP)"
+msgstr "ログ全量をZIPでダウンロード"
+
+msgid "Preparing download..."
+msgstr "ダウンロード準備中..."
+
+msgid "Failed to download logs."
+msgstr "ログのダウンロードに失敗しました。"
+

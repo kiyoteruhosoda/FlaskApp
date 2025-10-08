@@ -378,6 +378,37 @@ def test_worker_transcode_media_detail_playback(app):
 
 
 @pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")
+def test_worker_transcode_populates_playback_metadata(app):
+    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
+    video_path = orig_dir / "2025/08/18/meta.mov"
+    _make_video(video_path, "640x360", audio=True)
+    media_id = _make_media(
+        app,
+        rel_path="2025/08/18/meta.mov",
+        width=640,
+        height=360,
+        duration_ms=1500,
+    )
+    pb_id = _make_playback(app, media_id, "2025/08/18/meta.mov")
+
+    with app.app_context():
+        res = transcode_worker(media_playback_id=pb_id)
+        assert res["ok"] is True
+
+        from core.models.photo_models import MediaPlayback
+
+        pb = MediaPlayback.query.get(pb_id)
+        assert pb is not None
+        assert pb.rel_path.endswith(".mp4")
+        assert pb.width == 640
+        assert pb.height == 360
+        assert pb.duration_ms is not None and pb.duration_ms > 0
+        assert pb.v_codec
+        assert pb.a_codec
+        assert pb.v_bitrate_kbps is None or pb.v_bitrate_kbps > 0
+
+
+@pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")
 def test_backfill_playback_posters_existing_playback(app):
     orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
     video_path = orig_dir / "2025/08/18/backfill.mp4"

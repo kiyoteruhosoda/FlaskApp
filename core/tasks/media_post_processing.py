@@ -83,10 +83,9 @@ def _build_post_processing_service(
 ) -> MediaPostProcessingService:
     retry_service = _build_retry_service(logger)
     thumbnail_service = _build_thumbnail_service(logger=logger, retry_service=retry_service)
-    playback_service = _build_playback_service(logger, thumbnail_service)
     return MediaPostProcessingService(
         thumbnail_service=thumbnail_service,
-        playback_service=playback_service,
+        playback_invoker=enqueue_media_playback,
         logger=logger,
     )
 

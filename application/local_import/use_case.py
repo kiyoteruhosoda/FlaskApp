@@ -46,36 +46,36 @@ class LocalImportUseCase:
         )
 
         session = self._load_or_create_session(session_id, result, celery_task_id)
-        if session is None and not result.ok:
-            return result.to_dict()
-
         active_session_id = session.session_id if session else session_id
 
-        self._set_progress(
-            session,
-            status="expanding",
-            stage="expanding",
-            celery_task_id=celery_task_id,
-            stats_updates={
-                "total": 0,
-                "success": 0,
-                "skipped": 0,
-                "failed": 0,
-            },
-        )
+        early_exit = session is None and not result.ok
 
-        self._logger.info(
-            "local_import.task.start",
-            "ローカルインポートタスクを開始",
-            session_id=active_session_id,
-            import_dir=import_dir,
-            originals_dir=originals_dir,
-            celery_task_id=celery_task_id,
-            status="running",
-        )
+        if not early_exit:
+            self._set_progress(
+                session,
+                status="expanding",
+                stage="expanding",
+                celery_task_id=celery_task_id,
+                stats_updates={
+                    "total": 0,
+                    "success": 0,
+                    "skipped": 0,
+                    "failed": 0,
+                },
+            )
+
+            self._logger.info(
+                "local_import.task.start",
+                "ローカルインポートタスクを開始",
+                session_id=active_session_id,
+                import_dir=import_dir,
+                originals_dir=originals_dir,
+                celery_task_id=celery_task_id,
+                status="running",
+            )
 
         try:
-            if not self._ensure_directory_exists(
+            if not early_exit and not self._ensure_directory_exists(
                 import_dir,
                 result,
                 session,
@@ -87,9 +87,9 @@ class LocalImportUseCase:
                 error_message=lambda path: f"取り込みディレクトリが存在しません: {path}",
                 log_details={"import_dir": import_dir},
             ):
-                return result.to_dict()
+                early_exit = True
 
-            if not self._ensure_directory_exists(
+            if not early_exit and not self._ensure_directory_exists(
                 originals_dir,
                 result,
                 session,
@@ -101,89 +101,90 @@ class LocalImportUseCase:
                 error_message=lambda path: f"保存先ディレクトリが存在しません: {path}",
                 log_details={"originals_dir": originals_dir},
             ):
-                return result.to_dict()
+                early_exit = True
 
-            files = self._scanner.scan(import_dir, session_id=active_session_id)
-            self._logger.info(
-                "local_import.scan.complete",
-                "取り込み対象ファイルのスキャンが完了",
-                import_dir=import_dir,
-                total=len(files),
-                samples=files[:5],
-                session_id=active_session_id,
-                celery_task_id=celery_task_id,
-                status="scanned",
-            )
-
-            total_files = len(files)
-            if total_files == 0:
-                self._handle_no_files(
-                    result,
-                    session,
-                    active_session_id,
-                    celery_task_id,
-                    import_dir,
+            if not early_exit:
+                files = self._scanner.scan(import_dir, session_id=active_session_id)
+                self._logger.info(
+                    "local_import.scan.complete",
+                    "取り込み対象ファイルのスキャンが完了",
+                    import_dir=import_dir,
+                    total=len(files),
+                    samples=files[:5],
+                    session_id=active_session_id,
+                    celery_task_id=celery_task_id,
+                    status="scanned",
                 )
-                return result.to_dict()
 
-            enqueued_count = self._queue_processor.enqueue(
-                session,
-                files,
-                active_session_id=active_session_id,
-                celery_task_id=celery_task_id,
-            )
+                total_files = len(files)
+                if total_files == 0:
+                    self._handle_no_files(
+                        result,
+                        session,
+                        active_session_id,
+                        celery_task_id,
+                        import_dir,
+                    )
+                    early_exit = True
+                else:
+                    enqueued_count = self._queue_processor.enqueue(
+                        session,
+                        files,
+                        active_session_id=active_session_id,
+                        celery_task_id=celery_task_id,
+                    )
 
-            pending_total = 0
-            if session:
-                pending_total = self._queue_processor.pending_query(session).count()
+                    pending_total = 0
+                    if session:
+                        pending_total = self._queue_processor.pending_query(session).count()
 
-            self._set_progress(
-                session,
-                status="processing",
-                stage="progress",
-                celery_task_id=celery_task_id,
-                stats_updates={
-                    "total": pending_total,
-                    "success": 0,
-                    "skipped": 0,
-                    "failed": 0,
-                },
-            )
+                    self._set_progress(
+                        session,
+                        status="processing",
+                        stage="progress",
+                        celery_task_id=celery_task_id,
+                        stats_updates={
+                            "total": pending_total,
+                            "success": 0,
+                            "skipped": 0,
+                            "failed": 0,
+                        },
+                    )
 
-            self._logger.info(
-                "local_import.queue.prepared",
-                "取り込み処理キューを準備",
-                enqueued=enqueued_count,
-                pending=pending_total,
-                session_id=active_session_id,
-                celery_task_id=celery_task_id,
-                status="queued",
-            )
+                    self._logger.info(
+                        "local_import.queue.prepared",
+                        "取り込み処理キューを準備",
+                        enqueued=enqueued_count,
+                        pending=pending_total,
+                        session_id=active_session_id,
+                        celery_task_id=celery_task_id,
+                        status="queued",
+                    )
 
-            duplicate_regeneration = "regenerate"
-            if session:
-                stats = session.stats() if hasattr(session, "stats") else {}
-                if isinstance(stats, dict):
-                    options = stats.get("options")
-                    if isinstance(options, dict):
-                        requested = options.get("duplicateRegeneration") or options.get(
-                            "duplicate_regeneration"
-                        )
-                        if isinstance(requested, str):
-                            requested_normalized = requested.lower()
-                            if requested_normalized in {"regenerate", "skip"}:
-                                duplicate_regeneration = requested_normalized
+                    duplicate_regeneration = "regenerate"
+                    if session:
+                        stats = session.stats() if hasattr(session, "stats") else {}
+                        if isinstance(stats, dict):
+                            options = stats.get("options")
+                            if isinstance(options, dict):
+                                requested = options.get("duplicateRegeneration") or options.get(
+                                    "duplicate_regeneration"
+                                )
+                                if isinstance(requested, str):
+                                    requested_normalized = requested.lower()
+                                    if requested_normalized in {"regenerate", "skip"}:
+                                        duplicate_regeneration = requested_normalized
 
-            self._queue_processor.process(
-                session,
-                import_dir=import_dir,
-                originals_dir=originals_dir,
-                result=result,
-                active_session_id=active_session_id,
-                celery_task_id=celery_task_id,
-                task_instance=task_instance,
-                duplicate_regeneration=duplicate_regeneration,
-            )
+                    self._queue_processor.process(
+                        session,
+                        import_dir=import_dir,
+                        originals_dir=originals_dir,
+                        result=result,
+                        active_session_id=active_session_id,
+                        celery_task_id=celery_task_id,
+                        task_instance=task_instance,
+                        duplicate_regeneration=duplicate_regeneration,
+                    )
         except Exception as exc:
             result.add_error(
                 f"取り込み処理でエラーが発生しました: {exc}",

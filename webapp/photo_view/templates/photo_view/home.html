@@ -344,6 +344,28 @@ document.addEventListener('DOMContentLoaded', () => {
   const duplicateModeRadios = document.querySelectorAll('input[name="duplicate-regeneration"]');
   const isAdmin = {{ 'true' if is_admin else 'false' }};
 
+  const uploadModalTrigger = document.getElementById('open-upload-modal');
+  const uploadModalElement = document.getElementById('upload-modal');
+  const uploadStatusMessage = document.getElementById('upload-status-message');
+  const uploadFileList = document.getElementById('upload-file-list');
+  const uploadFileInput = document.getElementById('upload-file-input');
+  const uploadCommitBtn = document.getElementById('upload-commit-btn');
+  const uploadClearBtn = document.getElementById('upload-clear-btn');
+  const uploadDropzone = document.getElementById('upload-dropzone');
+
+  let uploadModal = null;
+  if (uploadModalElement) {
+    const bootstrapNamespace = window.bootstrap || (typeof bootstrap !== 'undefined' ? bootstrap : null);
+    if (bootstrapNamespace && bootstrapNamespace.Modal) {
+      const modalCtor = bootstrapNamespace.Modal;
+      if (typeof modalCtor.getOrCreateInstance === 'function') {
+        uploadModal = modalCtor.getOrCreateInstance(uploadModalElement);
+      } else if (typeof modalCtor === 'function') {
+        uploadModal = new modalCtor(uploadModalElement);
+      }
+    }
+  }
+
   const selectAccountMessage = '{{ _("Please choose a Google account first.") }}';
   const localImportPromptHeader = '{{ _("Start a local import from the following directories?") }}';
   const localImportSourceLabel = '{{ _("Source") }}';

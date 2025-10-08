@@ -45,6 +45,7 @@ from core.models.photo_models import (
 )
 from core.models.celery_task import CeleryTaskStatus
 from core.logging_config import setup_task_logging, log_task_error, log_task_info
+from core.settings import ApplicationSettings, settings
 from core.tasks.media_post_processing import (
     enqueue_media_playback as common_enqueue_media_playback,
     enqueue_thumbs_generate as common_enqueue_thumbs_generate,
@@ -567,10 +568,10 @@ def _resolve_media_dimensions(
     return width, height
 
 
-def _ensure_dirs() -> Tuple[Path, Path]:
+def _ensure_dirs(*, config: ApplicationSettings = settings) -> Tuple[Path, Path]:
     """Return (tmp_dir, originals_dir) creating them if necessary."""
-    tmp_dir = Path(os.environ.get("FPV_TMP_DIR", "/tmp/fpv_tmp"))
-    orig_dir = Path(os.environ.get("FPV_NAS_ORIGINALS_DIR", "/tmp/fpv_orig"))
+    tmp_dir = config.tmp_directory
+    orig_dir = config.nas_originals_directory
     tmp_dir.mkdir(parents=True, exist_ok=True)
     orig_dir.mkdir(parents=True, exist_ok=True)
     return tmp_dir, orig_dir
@@ -634,7 +635,12 @@ def _lookup_session_and_account(picker_session_id: int, account_id: int) -> tupl
     return ps, gacc, None
 
 
-def _exchange_refresh_token(gacc: GoogleAccount, ps: PickerSession) -> tuple[str | None, str | None]:
+def _exchange_refresh_token(
+    gacc: GoogleAccount,
+    ps: PickerSession,
+    *,
+    config: ApplicationSettings = settings,
+) -> tuple[str | None, str | None]:
     try:
         token_data = json.loads(decrypt(gacc.oauth_token_json))
         refresh_token = token_data.get("refresh_token")
@@ -647,8 +653,8 @@ def _exchange_refresh_token(gacc: GoogleAccount, ps: PickerSession) -> tuple[str
         resp = requests.post(
             "https://oauth2.googleapis.com/token",
             data={
-                "client_id": os.environ.get("GOOGLE_CLIENT_ID", ""),
-                "client_secret": os.environ.get("GOOGLE_CLIENT_SECRET", ""),
+                "client_id": config.google_client_id,
+                "client_secret": config.google_client_secret,
                 "refresh_token": refresh_token,
                 "grant_type": "refresh_token",
             },

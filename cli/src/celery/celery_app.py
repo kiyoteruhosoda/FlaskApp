@@ -1,5 +1,4 @@
 import json
-import os
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional, Tuple
@@ -13,6 +12,7 @@ from core.db import db
 from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 from core.models.job_sync import JobSync
 from core.logging_config import log_task_info
+from core.settings import settings
 from webapp.config import Config
 
 # .envファイルを読み込み
@@ -38,8 +38,8 @@ def create_app():
 # Create Celery instance
 celery = Celery(
     'cli.src.celery.celery_app',
-    broker=os.environ.get("CELERY_BROKER_URL", os.environ.get("REDIS_URL", "redis://localhost:6379/0")),
-    backend=os.environ.get("CELERY_RESULT_BACKEND", os.environ.get("REDIS_URL", "redis://localhost:6379/0"))
+    broker=settings.celery_broker_url,
+    backend=settings.celery_result_backend,
 )
 
 # Configure Celery

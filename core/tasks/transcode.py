@@ -20,7 +20,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
 import logging
-import os
 import math
 from pathlib import Path
 import shutil
@@ -31,6 +30,7 @@ from core.db import db
 from core.models.photo_models import Media, MediaPlayback
 from core.storage_paths import ensure_directory, first_existing_storage_path
 from core.logging_config import setup_task_logging
+from core.settings import ApplicationSettings, settings
 from .thumbs_generate import thumbs_generate
 
 # transcode専用ロガーを取得（両方のログハンドラーが設定済み）
@@ -55,8 +55,8 @@ def _play_dir() -> Path:
     return ensure_directory(base)
 
 
-def _tmp_dir() -> Path:
-    tmp = Path(os.environ.get("FPV_TMP_DIR", "/tmp/fpv_tmp"))
+def _tmp_dir(*, config: ApplicationSettings = settings) -> Path:
+    tmp = config.tmp_directory
     tmp.mkdir(parents=True, exist_ok=True)
     return tmp
 
@@ -619,7 +619,7 @@ def transcode_worker(*, media_playback_id: int, force: bool = False) -> Dict[str
             passthrough = False
 
     if not passthrough:
-        crf = int(os.environ.get("FPV_TRANSCODE_CRF", "20"))
+        crf = settings.transcode_crf
         video_filter = (
             "scale='min(1920,iw)':'min(1080,ih)':force_original_aspect_ratio=decrease,"
             "pad='ceil(iw/2)*2':'ceil(ih/2)*2'"

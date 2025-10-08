@@ -1,14 +1,21 @@
 """バックアップファイルの自動クリーンアップタスク"""
 
-import os
 from datetime import datetime, timedelta
 from pathlib import Path
-from core.logging_config import setup_task_logging, log_task_error, log_task_info
+from typing import Optional
+
+from core.logging_config import setup_task_logging
+from core.settings import ApplicationSettings, settings
 
 logger = setup_task_logging(__name__)
 
 
-def cleanup_old_backups(backup_dir: str = None, retention_days: int = 30) -> dict:
+def cleanup_old_backups(
+    backup_dir: Optional[str] = None,
+    retention_days: int = 30,
+    *,
+    config: ApplicationSettings = settings,
+) -> dict:
     """
     指定されたディレクトリ内の古いバックアップファイルを削除する
     
@@ -21,11 +28,7 @@ def cleanup_old_backups(backup_dir: str = None, retention_days: int = 30) -> dic
     """
     try:
         # バックアップディレクトリの決定
-        if backup_dir is None:
-            # 環境変数から取得、またはデフォルトパス
-            backup_dir = os.environ.get('BACKUP_DIR', '/app/data/backups')
-        
-        backup_path = Path(backup_dir)
+        backup_path = Path(backup_dir) if backup_dir is not None else config.backup_directory
         
         # ディレクトリが存在しない場合は作成
         if not backup_path.exists():
@@ -111,7 +114,11 @@ def cleanup_old_backups(backup_dir: str = None, retention_days: int = 30) -> dic
         }
 
 
-def get_backup_status(backup_dir: str = None) -> dict:
+def get_backup_status(
+    backup_dir: Optional[str] = None,
+    *,
+    config: ApplicationSettings = settings,
+) -> dict:
     """
     バックアップディレクトリの状況を取得する
     
@@ -122,10 +129,7 @@ def get_backup_status(backup_dir: str = None) -> dict:
         dict: バックアップ状況の詳細
     """
     try:
-        if backup_dir is None:
-            backup_dir = os.environ.get('BACKUP_DIR', '/app/data/backups')
-        
-        backup_path = Path(backup_dir)
+        backup_path = Path(backup_dir) if backup_dir is not None else config.backup_directory
         
         if not backup_path.exists():
             return {

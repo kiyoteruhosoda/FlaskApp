@@ -472,19 +472,28 @@ def test_summarise_ffmpeg_error_prefers_width_issue() -> None:
     assert summary == "[libx264 @ 0xabc] width not divisible by 2 (809x1080)"
 
 
-@pytest.mark.skipif(ffmpeg_missing, reason="ffmpeg not installed")
 def test_worker_returns_error_summary_on_ffmpeg_failure(app, monkeypatch):
     orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
     video_path = orig_dir / "2025/08/18/badwidth.mov"
-    _make_video(video_path, "640x480", audio=True)
+    video_path.parent.mkdir(parents=True, exist_ok=True)
+    video_path.write_bytes(b"fake")
+
     media_id = _make_media(app, rel_path="2025/08/18/badwidth.mov", width=640, height=480)
     pb_id = _make_playback(app, media_id, "2025/08/18/badwidth.mov")
+
+    fake_probe_result = {
+        "streams": [
+            {"codec_type": "video", "codec_name": "hevc", "width": 640, "height": 480},
+            {"codec_type": "audio", "codec_name": "aac"},
+        ],
+        "format": {"duration": "1.0", "bit_rate": "1000"},
+    }
+
+    monkeypatch.setattr(transcode_module, "_probe", lambda path: fake_probe_result)
 
     real_run = subprocess.run
 
     def fake_run(cmd, *args, **kwargs):
-        if cmd and cmd[0] == "ffprobe":
-            return real_run(cmd, *args, **kwargs)
         if cmd and cmd[0] == "ffmpeg" and "-vf" in cmd:
             stderr = "\n".join(
                 [

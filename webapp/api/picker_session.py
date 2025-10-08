@@ -28,11 +28,52 @@ from .picker_session_service import (
 from core.tasks.picker_import import enqueue_picker_import_item  # re-export for tests
 from .pagination import PaginationParams, paginate_and_respond
 from .routes import login_or_jwt_required  # JWT認証対応のデコレータをインポート
+from .concurrency import create_limiter, limit_concurrency
 
 bp = Blueprint('picker_session_api', __name__)
 
+
+def _json_response(payload, status: int = 200):
+    response = jsonify(payload)
+    if status == 429 and isinstance(payload, dict):
+        retry_after = payload.get("retryAfter")
+        if isinstance(retry_after, (int, float)):
+            seconds = max(0, int(round(retry_after)))
+            response.headers["Retry-After"] = str(seconds)
+    return response, status
+
+
+_picker_sessions_list_limiter = create_limiter("PICKER_SESSIONS_LIST")
+_picker_session_create_limiter = create_limiter("PICKER_SESSION_CREATE")
+_picker_session_callback_limiter = create_limiter("PICKER_SESSION_CALLBACK")
+_picker_session_summary_limiter = create_limiter("PICKER_SESSION_SUMMARY")
+_picker_session_selections_limiter = create_limiter("PICKER_SESSION_SELECTIONS")
+_picker_session_selections_external_limiter = create_limiter(
+    "PICKER_SESSION_SELECTIONS_BY_SESSION"
+)
+_picker_session_selection_error_limiter = create_limiter(
+    "PICKER_SESSION_SELECTION_ERROR"
+)
+_picker_session_status_limiter = create_limiter("PICKER_SESSION_STATUS")
+_picker_session_logs_limiter = create_limiter("PICKER_SESSION_LOGS")
+_picker_session_logs_download_limiter = create_limiter(
+    "PICKER_SESSION_LOGS_DOWNLOAD"
+)
+_picker_session_logs_prefixed_limiter = create_limiter(
+    "PICKER_SESSION_LOGS_PREFIX"
+)
+_picker_session_status_prefixed_limiter = create_limiter(
+    "PICKER_SESSION_STATUS_PREFIX"
+)
+_picker_session_import_numeric_limiter = create_limiter(
+    "PICKER_SESSION_IMPORT_NUMERIC"
+)
+_picker_session_import_limiter = create_limiter("PICKER_SESSION_IMPORT")
+_picker_session_finish_limiter = create_limiter("PICKER_SESSION_FINISH")
+
 @bp.get("/picker/sessions")
 @login_or_jwt_required
+@limit_concurrency(_picker_sessions_list_limiter)
 def api_picker_sessions_list():
     """Return paginated list of all picker sessions."""
     
@@ -96,7 +137,7 @@ def api_picker_sessions_list():
     )
     
     # レスポンス形式を既存のAPIと合わせるため、sessionsキーで包む
-    return jsonify({
+    return _json_response({
         "sessions": result["items"],
         "pagination": {
             "hasNext": result["hasNext"],
@@ -112,6 +153,7 @@ def api_picker_sessions_list():
 
 @bp.post("/picker/session")
 @login_or_jwt_required
+@limit_concurrency(_picker_session_create_limiter)
 def api_picker_session_create():
     """Create a Google Photos Picker session."""
     data = request.get_json(silent=True) or {}
@@ -121,14 +163,14 @@ def api_picker_session_create():
     if account_id is None:
         account = GoogleAccount.query.filter_by(status="active").first()
         if not account:
-            return jsonify({"error": "invalid_account"}), 400
+            return _json_response({"error": "invalid_account"}, 400)
         account_id = account.id
     else:
         if not isinstance(account_id, int):
-            return jsonify({"error": "invalid_account"}), 400
+            return _json_response({"error": "invalid_account"}, 400)
         account = GoogleAccount.query.filter_by(id=account_id, status="active").first()
         if not account:
-            return jsonify({"error": "not_found"}), 404
+            return _json_response({"error": "not_found"}, 404)
 
     current_app.logger.info(
         json.dumps(
@@ -153,7 +195,7 @@ def api_picker_session_create():
             ),
             extra={"event": "picker.create.fail"}
         )
-        return jsonify(payload), status
+        return _json_response(payload, status)
 
     session["picker_session_id"] = payload.get("pickerSessionId")
     current_app.logger.info(
@@ -166,15 +208,16 @@ def api_picker_session_create():
         ),
         extra={"event": "picker.create.success"}
     )
-    return jsonify(payload)
+    return _json_response(payload)
 
 
 @bp.post("/picker/session/<path:session_id>/callback")
+@limit_concurrency(_picker_session_callback_limiter)
 def api_picker_session_callback(session_id):
     """Receive selected media item IDs from Google Photos Picker."""
     ps = PickerSession.query.filter_by(session_id=session_id).first()
     if not ps:
-        return jsonify({"error": "not_found"}), 404
+        return _json_response({"error": "not_found"}, 404)
     data = request.get_json(silent=True) or {}
     ids = data.get("mediaItemIds") or []
     if isinstance(ids, str):
@@ -186,16 +229,17 @@ def api_picker_session_callback(session_id):
     if count > 0:
         ps.media_items_set = True
     db.session.commit()
-    return jsonify({"result": "ok", "count": count})
+    return _json_response({"result": "ok", "count": count})
 
 
 @bp.get("/picker/session/<int:picker_session_id>")
 @login_or_jwt_required
+@limit_concurrency(_picker_session_summary_limiter)
 def api_picker_session_summary(picker_session_id):
     """Return selection counts and job summary for picker session."""
     ps = PickerSession.query.get(picker_session_id)
     if not ps:
-        return jsonify({"error": "not_found"}), 404
+        return _json_response({"error": "not_found"}, 404)
 
     counts = dict(
         db.session.query(
@@ -220,19 +264,21 @@ def api_picker_session_summary(picker_session_id):
             "finishedAt": job.finished_at.isoformat().replace("+00:00", "Z") if job.finished_at else None,
         }
 
-    return jsonify({"countsByStatus": counts, "jobSync": job_summary})
+    return _json_response({"countsByStatus": counts, "jobSync": job_summary})
 
 
 @bp.get("/picker/session/<int:picker_session_id>/selections")
 @login_or_jwt_required
+@limit_concurrency(_picker_session_selections_limiter)
 def api_picker_session_selections(picker_session_id: int):
     """Return detailed picker selection list for a session (DEPRECATED: Use session_id instead)."""
     # セキュリティ改善：数値IDの使用を拒否
-    return jsonify({"error": "numeric_ids_not_supported", "message": "Use session_id hash instead"}), 400
+    return _json_response({"error": "numeric_ids_not_supported", "message": "Use session_id hash instead"}, 400)
 
 
 @bp.get("/picker/session/<path:session_id>/selections")
 @login_or_jwt_required
+@limit_concurrency(_picker_session_selections_external_limiter)
 def api_picker_session_selections_by_session_id(session_id: str):
     """Return paginated selection list using external ``session_id`` string.
 
@@ -243,7 +289,7 @@ def api_picker_session_selections_by_session_id(session_id: str):
     """
     ps = PickerSessionService.resolve_session_identifier(session_id)
     if not ps:
-        return jsonify({"error": "not_found"}), 404
+        return _json_response({"error": "not_found"}, 404)
     
     # ページングパラメータの取得
     params = PaginationParams.from_request(default_page_size=200)
@@ -283,32 +329,34 @@ def api_picker_session_selections_by_session_id(session_id: str):
             selection_id=item_id,
         )
 
-    return jsonify(payload)
+    return _json_response(payload)
 
 
 @bp.get("/picker/session/<path:session_id>/selections/<int:selection_id>/error")
 @login_or_jwt_required
+@limit_concurrency(_picker_session_selection_error_limiter)
 def api_picker_session_selection_error(session_id: str, selection_id: int):
     """Return error detail payload for a single picker selection."""
 
     ps = PickerSessionService.resolve_session_identifier(session_id)
     if not ps:
-        return jsonify({"error": "not_found"}), 404
+        return _json_response({"error": "not_found"}, 404)
 
     payload = PickerSessionService.selection_error_payload(ps, selection_id)
     if not payload:
-        return jsonify({"error": "not_found"}), 404
+        return _json_response({"error": "not_found"}, 404)
 
-    return jsonify(payload)
+    return _json_response(payload)
 
 
 @bp.get("/picker/session/<string:session_id>")
 @login_or_jwt_required
+@limit_concurrency(_picker_session_status_limiter)
 def api_picker_session_status(session_id):
     """Return status of a picker session."""
     ps = PickerSessionService.resolve_session_identifier(session_id)
     if not ps:
-        return jsonify({"error": "not_found"}), 404
+        return _json_response({"error": "not_found"}, 404)
     payload = PickerSessionService.status(ps)
     current_app.logger.info(
         json.dumps(
@@ -320,7 +368,7 @@ def api_picker_session_status(session_id):
         ),
         extra={"event": "picker.status.get"}
     )
-    return jsonify(payload)
+    return _json_response(payload)
 
 
 def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
@@ -458,29 +506,31 @@ def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
 
 @bp.get("/picker/session/<string:session_id>/logs")
 @login_or_jwt_required
+@limit_concurrency(_picker_session_logs_limiter)
 def api_picker_session_logs(session_id: str):
     """Return recent local import logs for a picker session."""
 
     ps = PickerSessionService.resolve_session_identifier(session_id)
     if not ps:
-        return jsonify({"error": "not_found"}), 404
+        return _json_response({"error": "not_found"}, 404)
 
     limit = request.args.get("limit", type=int) or 100
     limit = max(1, min(limit, 500))
 
     logs = _collect_local_import_logs(ps, limit=limit)
 
-    return jsonify({"logs": logs})
+    return _json_response({"logs": logs})
 
 
 @bp.get("/picker/session/<string:session_id>/logs/download")
 @login_or_jwt_required
+@limit_concurrency(_picker_session_logs_download_limiter)
 def api_picker_session_logs_download(session_id: str):
     """Download the complete local import logs for a picker session as a ZIP."""
 
     ps = PickerSessionService.resolve_session_identifier(session_id)
     if not ps:
-        return jsonify({"error": "not_found"}), 404
+        return _json_response({"error": "not_found"}, 404)
 
     logs = _collect_local_import_logs(ps, limit=None, include_raw=True)
 
@@ -522,6 +572,7 @@ def api_picker_session_logs_download(session_id: str):
 
 @bp.get("/picker/session/picker_sessions/<string:uuid>/logs")
 @login_or_jwt_required
+@limit_concurrency(_picker_session_logs_prefixed_limiter)
 def api_picker_session_logs_prefixed(uuid: str):
     """Alias for logs endpoint that accepts picker_sessions prefix."""
 
@@ -530,6 +581,7 @@ def api_picker_session_logs_prefixed(uuid: str):
 
 @bp.get("/picker/session/picker_sessions/<string:uuid>")
 @login_or_jwt_required
+@limit_concurrency(_picker_session_status_prefixed_limiter)
 def api_picker_session_status_prefixed(uuid: str):
     """Alias for status that accepts the picker_sessions prefix as a segment."""
     return api_picker_session_status(f"picker_sessions/{uuid}")
@@ -542,7 +594,7 @@ def api_picker_session_media_items():
     data = request.get_json(silent=True) or {}
     session_id = data.get("sessionId")
     if not session_id or not isinstance(session_id, str):
-        return jsonify({"error": "invalid_session"}), 400
+        return _json_response({"error": "invalid_session"}, 400)
     cursor = data.get("cursor")
     current_app.logger.info(
         json.dumps(
@@ -568,13 +620,7 @@ def api_picker_session_media_items():
             ),
             extra={"event": "picker.mediaItems.success"},
         )
-        response = jsonify(payload)
-        if status == 429 and isinstance(payload, dict):
-            retry_after = payload.get("retryAfter")
-            if isinstance(retry_after, (int, float)):
-                seconds = max(0, int(round(retry_after)))
-                response.headers["Retry-After"] = str(seconds)
-        return response, status
+        return _json_response(payload, status)
     except Exception as e:
         current_app.logger.error(
             json.dumps(
@@ -586,19 +632,21 @@ def api_picker_session_media_items():
             ),
             extra={"event": "picker.mediaItems.fail"}
         )
-        return jsonify({"error": "picker_error", "message": str(e)}), 502
+        return _json_response({"error": "picker_error", "message": str(e)}, 502)
 
 
 @bp.post("/picker/session/<int:picker_session_id>/import")
 @login_or_jwt_required
+@limit_concurrency(_picker_session_import_numeric_limiter)
 def api_picker_session_import(picker_session_id: int):
     """Enqueue import task for picker session (DEPRECATED: Use session_id instead)."""
     # セキュリティ改善：数値IDの使用を拒否
-    return jsonify({"error": "numeric_ids_not_supported", "message": "Use session_id hash instead"}), 400
+    return _json_response({"error": "numeric_ids_not_supported", "message": "Use session_id hash instead"}, 400)
 
 
 @bp.post("/picker/session/<path:session_id>/import")
 @login_or_jwt_required
+@limit_concurrency(_picker_session_import_limiter)
 def api_picker_session_import_by_session_id(session_id: str):
     """Enqueue import task using external ``session_id``.
 
@@ -608,11 +656,11 @@ def api_picker_session_import_by_session_id(session_id: str):
     """
     # 数値のみの場合は拒否（セキュリティ改善）
     if session_id.isdigit():
-        return jsonify({"error": "numeric_ids_not_supported", "message": "Use session_id hash instead"}), 400
+        return _json_response({"error": "numeric_ids_not_supported", "message": "Use session_id hash instead"}, 400)
     
     ps = PickerSessionService.resolve_session_identifier(session_id)
     if not ps:
-        return jsonify({"error": "not_found"}), 404
+        return _json_response({"error": "not_found"}, 404)
     
     # 直接インポート処理を実行
     data = request.get_json(silent=True) or {}
@@ -642,20 +690,21 @@ def api_picker_session_import_by_session_id(session_id: str):
             }),
             extra={"event": "picker.import.enqueue"},
         )
-    return jsonify(payload), status
+    return _json_response(payload, status)
 
 
 @bp.post("/picker/session/<int:picker_session_id>/finish")
 @login_or_jwt_required
+@limit_concurrency(_picker_session_finish_limiter)
 def api_picker_session_finish(picker_session_id):
     data = request.get_json(silent=True) or {}
     status = data.get("status")
     if status not in {"imported", "expired", "error"}:
-        return jsonify({"error": "invalid_status"}), 400
+        return _json_response({"error": "invalid_status"}, 400)
 
     ps = PickerSession.query.get(picker_session_id)
     if not ps:
-        return jsonify({"error": "not_found"}), 404
+        return _json_response({"error": "not_found"}, 404)
 
     payload, status_code = PickerSessionService.finish(ps, status)
-    return jsonify(payload), status_code
+    return _json_response(payload, status_code)

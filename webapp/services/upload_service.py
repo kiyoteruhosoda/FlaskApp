@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import shutil
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Optional
@@ -66,62 +65,15 @@ _ALLOWED_MIME_PREFIXES = ("image/", "video/")
 
 
 def _ensure_directory(path: Path) -> None:
-    try:
-        path.mkdir(parents=True, exist_ok=True)
-    except OSError as exc:
-        raise UploadError(f"Unable to create directory: {path}") from exc
-
-
-def _resolve_upload_dir(config_key: str, default_suffix: Path) -> Path:
-    if not isinstance(default_suffix, Path):
-        default_suffix = Path(default_suffix)
-
-    configured = current_app.config.get(config_key)
-    candidates: list[Path] = []
-
-    if configured:
-        candidates.append(Path(configured))
-
-    instance_path = getattr(current_app, "instance_path", None)
-    if instance_path:
-        candidates.append(Path(instance_path) / default_suffix)
-
-    candidates.append(Path(tempfile.gettempdir()) / "flaskapp" / default_suffix)
-
-    last_error: Optional[Exception] = None
-
-    for candidate in candidates:
-        try:
-            _ensure_directory(candidate)
-        except UploadError as exc:
-            last_error = exc
-            current_app.logger.warning(
-                "Failed to prepare upload directory %s: %s", candidate, exc
-            )
-            continue
-        except Exception as exc:  # pragma: no cover - unexpected errors
-            last_error = exc
-            current_app.logger.warning(
-                "Unexpected error while preparing upload directory %s: %s",
-                candidate,
-                exc,
-            )
-            continue
-
-        return candidate
-
-    message = "No writable upload directory is available."
-    if last_error is not None:
-        raise UploadError(message) from last_error
-    raise UploadError(message)
+    path.mkdir(parents=True, exist_ok=True)
 
 
 def _tmp_base_dir() -> Path:
-    return _resolve_upload_dir("UPLOAD_TMP_DIR", Path("uploads") / "tmp")
+    return Path(current_app.config.get("UPLOAD_TMP_DIR", "/data/tmp/upload"))
 
 
 def _destination_base_dir() -> Path:
-    return _resolve_upload_dir("UPLOAD_DESTINATION_DIR", Path("uploads"))
+    return Path(current_app.config.get("UPLOAD_DESTINATION_DIR", "/data/uploads"))
 
 
 def _max_upload_size() -> int:

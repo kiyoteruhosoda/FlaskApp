@@ -130,6 +130,10 @@ def test_enqueue_media_playback_generates_thumbnails_for_completed_playback(app,
         assert result["ok"] is True
         assert result["note"] == "already_done"
         assert result["playback_status"] == "done"
+        expected_output = (play_dir / playback.rel_path).as_posix()
+        expected_poster = (play_dir / poster_rel).as_posix()
+        assert result["output_path"] == expected_output
+        assert result["poster_path"] == expected_poster
         assert "thumbnails" in result
         assert result["thumbnails"].get("ok") is True
 

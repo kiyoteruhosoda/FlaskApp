@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import shutil
 from datetime import datetime, timezone
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Dict, Optional, Tuple
 from uuid import uuid4
 
 from core.db import db
 from core.models.photo_models import Media, MediaPlayback
+from core.storage_paths import first_existing_storage_path, storage_path_candidates
 
 from .logger import StructuredMediaTaskLogger
 
@@ -29,6 +30,33 @@ class MediaPlaybackService:
         self._thumbnail_generator = thumbnail_generator
         self._thumbnail_regenerator = thumbnail_regenerator
         self._logger = logger
+        self._playback_base_cache: Path | None | bool = False
+
+    def _playback_base_dir(self) -> Path | None:
+        """Return the base directory for playback assets if resolvable."""
+
+        if self._playback_base_cache is False:
+            base = first_existing_storage_path("FPV_NAS_PLAY_DIR")
+            if not base:
+                candidates = storage_path_candidates("FPV_NAS_PLAY_DIR")
+                base = candidates[0] if candidates else None
+            self._playback_base_cache = Path(base) if base else None
+        return self._playback_base_cache or None
+
+    def _asset_paths(self, playback: MediaPlayback) -> tuple[str | None, str | None]:
+        """Resolve absolute playback and poster paths for *playback*."""
+
+        base = self._playback_base_dir()
+        if not base:
+            return None, None
+
+        output_path = (base / playback.rel_path).as_posix() if playback.rel_path else None
+        poster_path = (
+            (base / playback.poster_rel_path).as_posix()
+            if playback.poster_rel_path
+            else None
+        )
+        return output_path, poster_path
 
     def _create_playback_record(
         self,
@@ -145,6 +173,11 @@ class MediaPlaybackService:
                 db.session.commit()
                 result = self._worker(media_playback_id=playback.id, force=True)
                 db.session.refresh(playback)
+                output_path, poster_path = self._asset_paths(playback)
+                if output_path and "output_path" not in result:
+                    result["output_path"] = output_path
+                if poster_path and "poster_path" not in result:
+                    result["poster_path"] = poster_path
                 if result.get("ok"):
                     self._logger.info(
                         event="video_transcoding.regenerated",
@@ -153,7 +186,9 @@ class MediaPlaybackService:
                         media_id=media_id,
                         request_context=request_context,
                         playback_rel_path=playback.rel_path,
+                        playback_output_path=output_path,
                         poster_rel_path=playback.poster_rel_path,
+                        poster_output_path=poster_path,
                     )
                 else:
                     self._logger.warning(
@@ -163,7 +198,9 @@ class MediaPlaybackService:
                         media_id=media_id,
                         request_context=request_context,
                         playback_rel_path=playback.rel_path,
+                        playback_output_path=output_path,
                         poster_rel_path=playback.poster_rel_path,
+                        poster_output_path=poster_path,
                         error=result.get("error"),
                     )
                     return result
@@ -202,6 +239,10 @@ class MediaPlaybackService:
                             thumb_result = self._thumbnail_generator(media_id=media_id, force=False)
 
                     log_details: Dict[str, Any] = {"playback_status": playback.status}
+                    if playback.rel_path:
+                        log_details.setdefault("playback_rel_path", playback.rel_path)
+                    if playback.poster_rel_path:
+                        log_details.setdefault("poster_rel_path", playback.poster_rel_path)
                     if thumb_result is not None:
                         log_details.update(
                             thumbnail_ok=thumb_result.get("ok"),
@@ -209,6 +250,21 @@ class MediaPlaybackService:
                             thumbnail_skipped=thumb_result.get("skipped"),
                             thumbnail_notes=thumb_result.get("notes"),
                         )
+
+                    response: Dict[str, Any] = {
+                        "ok": playback.status == "done",
+                        "note": f"already_{playback.status}",
+                        "playback_status": playback.status,
+                    }
+                    output_path, poster_path = self._asset_paths(playback)
+                    if output_path:
+                        log_details.setdefault("playback_output_path", output_path)
+                        response["output_path"] = output_path
+                    if poster_path:
+                        log_details.setdefault("poster_output_path", poster_path)
+                        response["poster_path"] = poster_path
+                    if thumb_result is not None:
+                        response["thumbnails"] = thumb_result
 
                     self._logger.info(
                         event="video_transcoding.skipped",
@@ -218,18 +274,15 @@ class MediaPlaybackService:
                         request_context=request_context,
                         **log_details,
                     )
-
-                    response: Dict[str, Any] = {
-                        "ok": playback.status == "done",
-                        "note": f"already_{playback.status}",
-                        "playback_status": playback.status,
-                    }
-                    if thumb_result is not None:
-                        response["thumbnails"] = thumb_result
                     return response
 
             result = self._worker(media_playback_id=playback.id)
             db.session.refresh(playback)
+            output_path, poster_path = self._asset_paths(playback)
+            if output_path and "output_path" not in result:
+                result["output_path"] = output_path
+            if poster_path and "poster_path" not in result:
+                result["poster_path"] = poster_path
             log_kwargs = dict(
                 operation_id=op_id,
                 media_id=media_id,

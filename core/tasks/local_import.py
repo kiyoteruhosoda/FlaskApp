@@ -802,13 +802,16 @@ def _regenerate_duplicate_video_thumbnails(
                 status="playback_force_failed",
                 attempts=attempts,
             )
+            display_note = failure_error or failure_note
             failure_result: Dict[str, Any] = {
                 "ok": False,
-                "notes": failure_note,
+                "notes": display_note,
                 "generated": [],
                 "skipped": [],
                 "paths": {},
             }
+            if failure_error and failure_note:
+                failure_result["note"] = failure_note
             if failure_error:
                 failure_result["error"] = failure_error
             return _finalise(failure_result, attempts=attempts)

@@ -2,6 +2,7 @@
 {% block title %}Media List{% endblock %}
 
 {% block extra_head %}
+<script src="{{ url_for('static', filename='js/filter-state.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pagination.js') }}"></script>
 <style>
   .controls-bar {
@@ -373,6 +374,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const tagFilterSuggestions = document.getElementById('tag-filter-suggestions');
   const selectedTagFiltersContainer = document.getElementById('selected-tag-filters');
   const tagFilterBox = document.getElementById('tag-filter-box');
+  const filterStateApi = window.filterState || null;
+  const FILTER_HASH_SECTION = 'mediaGallery';
+  const FILTER_DEFAULTS = { type: 'all', sort: 'desc' };
+  const VALID_TYPE_FILTERS = new Set(['all', 'photo', 'video']);
+  const VALID_SORT_ORDERS = new Set(['asc', 'desc']);
 
   let infiniteScroll;
   let totalLoaded = 0;
@@ -452,6 +458,94 @@ document.addEventListener('DOMContentLoaded', () => {
 
       selectedTagFiltersContainer.appendChild(chip);
     });
+  }
+
+  function sanitizeTagForState(tag) {
+    if (!tag) {
+      return null;
+    }
+    const tagId = Number(tag.id);
+    if (!Number.isInteger(tagId) || tagId <= 0) {
+      return null;
+    }
+    const rawName = typeof tag.name === 'string' ? tag.name.trim() : '';
+    const fallbackName = `Tag #${tagId}`;
+    const sanitized = {
+      id: tagId,
+      name: rawName.length > 0 ? rawName : fallbackName,
+    };
+    if (typeof tag.attr === 'string' && tag.attr.trim().length > 0) {
+      sanitized.attr = tag.attr.trim();
+    }
+    return sanitized;
+  }
+
+  function restoreFiltersFromState(state) {
+    const filters = state && typeof state === 'object' ? state : {};
+    if (typeof typeFilter !== 'undefined' && typeFilter) {
+      const candidate = typeof filters.type === 'string' ? filters.type : '';
+      typeFilter.value = VALID_TYPE_FILTERS.has(candidate) ? candidate : FILTER_DEFAULTS.type;
+    }
+    if (sortOrder) {
+      const candidate = typeof filters.sort === 'string' ? filters.sort : '';
+      sortOrder.value = VALID_SORT_ORDERS.has(candidate) ? candidate : FILTER_DEFAULTS.sort;
+    }
+
+    if (Array.isArray(filters.tags)) {
+      selectedTagFilters = filters.tags
+        .map((tag) => sanitizeTagForState(tag))
+        .filter(Boolean);
+    } else {
+      selectedTagFilters = [];
+    }
+
+    renderSelectedTagFilters();
+  }
+
+  function buildFilterStateSnapshot() {
+    const snapshot = {};
+
+    if (typeof typeFilter !== 'undefined' && typeFilter) {
+      const value = typeFilter.value || '';
+      if (VALID_TYPE_FILTERS.has(value) && value !== FILTER_DEFAULTS.type) {
+        snapshot.type = value;
+      }
+    }
+
+    if (sortOrder) {
+      const sortValue = sortOrder.value || '';
+      if (VALID_SORT_ORDERS.has(sortValue) && sortValue !== FILTER_DEFAULTS.sort) {
+        snapshot.sort = sortValue;
+      }
+    }
+
+    if (Array.isArray(selectedTagFilters) && selectedTagFilters.length > 0) {
+      snapshot.tags = selectedTagFilters.map((tag) => {
+        const entry = { id: tag.id };
+        if (typeof tag.name === 'string' && tag.name.length > 0) {
+          entry.name = tag.name;
+        }
+        if (typeof tag.attr === 'string' && tag.attr.length > 0) {
+          entry.attr = tag.attr;
+        }
+        return entry;
+      });
+    }
+
+    return snapshot;
+  }
+
+  function syncFiltersToHash() {
+    if (!filterStateApi || typeof filterStateApi.writeSection !== 'function') {
+      return;
+    }
+
+    const snapshot = buildFilterStateSnapshot();
+    if (Object.keys(snapshot).length === 0) {
+      filterStateApi.writeSection(FILTER_HASH_SECTION, null);
+    } else {
+      filterStateApi.writeSection(FILTER_HASH_SECTION, snapshot);
+    }
   }
 
   function hideTagSuggestions() {
@@ -606,7 +700,11 @@ document.addEventListener('DOMContentLoaded', () => {
     return card;
   }
 
-  function restartMediaQuery() {
+  function restartMediaQuery(options = {}) {
+    if (!options.skipHashUpdate) {
+      syncFiltersToHash();
+    }
+
     if (infiniteScroll) {
       infiniteScroll.destroy();
     }
@@ -615,13 +713,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function initializeInfiniteScroll() {
     // Read the current filter settings
-    const typeFilter = document.getElementById('type-filter').value;
-    const sortOrder = document.getElementById('sort-order').value;
+    const typeValue =
+      typeof typeFilter !== 'undefined' && typeFilter && VALID_TYPE_FILTERS.has(typeFilter.value)
+        ? typeFilter.value
+        : FILTER_DEFAULTS.type;
+    const sortValue =
+      sortOrder && VALID_SORT_ORDERS.has(sortOrder.value)
+        ? sortOrder.value
+        : FILTER_DEFAULTS.sort;
 
     // Build the request parameters
-    const parameters = { order: sortOrder };
-    if (typeFilter !== 'all') {
-      parameters.type = typeFilter;
+    const parameters = { order: sortValue };
+    if (typeValue !== FILTER_DEFAULTS.type) {
+      parameters.type = typeValue;
     }
     if (selectedTagFilters.length > 0) {
       parameters.tags = selectedTagFilters.map((tag) => tag.id).join(',');
@@ -694,27 +798,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  sizeSlider.addEventListener('input', (event) => {
-    applyGridSize(event.target.value);
-  });
+  if (sizeSlider) {
+    sizeSlider.addEventListener('input', (event) => {
+      applyGridSize(event.target.value);
+    });
+    applyGridSize(sizeSlider.value);
+  }
 
-  applyGridSize(sizeSlider.value);
-  
   // Filter change
   const typeFilter = document.getElementById('type-filter');
-  typeFilter.addEventListener('change', () => {
-    restartMediaQuery();
-  });
+  if (typeFilter) {
+    typeFilter.addEventListener('change', () => {
+      restartMediaQuery();
+    });
+  }
 
   // Sort order change handler
-  sortOrder.addEventListener('change', () => {
-    restartMediaQuery();
-  });
+  if (sortOrder) {
+    sortOrder.addEventListener('change', () => {
+      restartMediaQuery();
+    });
+  }
 
   // Refresh button handler
-  refreshBtn.addEventListener('click', () => {
-    restartMediaQuery();
-  });
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      restartMediaQuery();
+    });
+  }
 
   if (tagFilterInput) {
     tagFilterInput.addEventListener('input', (event) => {
@@ -750,9 +861,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Initialise infinite scrolling
-  renderSelectedTagFilters();
+  const initialFilters =
+    filterStateApi && typeof filterStateApi.readSection === 'function'
+      ? filterStateApi.readSection(FILTER_HASH_SECTION)
+      : null;
+
+  restoreFiltersFromState(initialFilters);
+  syncFiltersToHash();
   initializeInfiniteScroll();
+
+  if (filterStateApi && typeof filterStateApi.subscribeToSection === 'function') {
+    filterStateApi.subscribeToSection(FILTER_HASH_SECTION, (state) => {
+      const nextState = state && typeof state === 'object' ? state : {};
+      restoreFiltersFromState(nextState);
+      restartMediaQuery({ skipHashUpdate: true });
+    });
+  }
 });
 </script>
 {% endblock %}

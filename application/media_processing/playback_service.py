@@ -154,6 +154,7 @@ class MediaPlaybackService:
 
         try:
             playback = MediaPlayback.query.filter_by(media_id=media_id, preset="std1080p").first()
+            needs_rel_path_recovery = False
             if not playback:
                 playback, error = self._create_playback_record(
                     media_id=media_id,
@@ -162,16 +163,38 @@ class MediaPlaybackService:
                 )
                 if error is not None:
                     return error
+            else:
+                needs_rel_path_recovery = playback.rel_path is None
+                if needs_rel_path_recovery and not force_regenerate:
+                    self._logger.warning(
+                        event="video_transcoding.playback_rel_path_missing",
+                        message="Playback rel_path missing; forcing regeneration.",
+                        operation_id=op_id,
+                        media_id=media_id,
+                        request_context=request_context,
+                        playback_id=playback.id,
+                    )
+                else:
+                    needs_rel_path_recovery = False
 
-            if force_regenerate:
+            if force_regenerate or needs_rel_path_recovery:
+                now = datetime.now(timezone.utc)
                 if hasattr(playback, "update_paths"):
                     playback.update_paths(None, None)
                 else:
                     playback.rel_path = None
                     playback.poster_rel_path = None
-                    playback.updated_at = datetime.now(timezone.utc)
+                    playback.updated_at = now
+                # 取り込み時に再生成を強制した場合でもワーカーが "already_done"
+                # で打ち切られないよう、状態を pending に戻しておく。
+                playback.status = "pending"
+                playback.error_msg = None
+                playback.updated_at = now
                 db.session.commit()
-                result = self._worker(media_playback_id=playback.id, force=True)
+                result = self._worker(
+                    media_playback_id=playback.id,
+                    force=True,
+                )
                 db.session.refresh(playback)
                 output_path, poster_path = self._asset_paths(playback)
                 if output_path and "output_path" not in result:

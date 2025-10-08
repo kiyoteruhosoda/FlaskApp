@@ -37,6 +37,33 @@
     background-color: var(--bs-tertiary-bg);
   }
 
+  .upload-dropzone {
+    border: 2px dashed var(--bs-border-color-translucent);
+    border-radius: var(--bs-border-radius);
+    padding: 2rem 1rem;
+    text-align: center;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+    cursor: pointer;
+  }
+
+  .upload-dropzone.drag-over {
+    background-color: rgba(var(--bs-primary-rgb), 0.05);
+    border-color: rgba(var(--bs-primary-rgb), 0.4);
+  }
+
+  .upload-file-list {
+    max-height: 240px;
+    overflow-y: auto;
+  }
+
+  .upload-summary-text {
+    font-size: 0.875rem;
+  }
+
+  .upload-status-badge {
+    font-size: 0.75rem;
+  }
+
   @media (min-width: 992px) {
     .quick-actions-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -143,6 +170,9 @@
           <div class="quick-actions-grid">
             <button id="refresh-sessions" class="btn btn-outline-primary quick-action-compact quick-actions-full">
               <i id="refresh-icon" class="fas fa-arrows-rotate me-2"></i>{{ _("Refresh sessions") }}
+            </button>
+            <button type="button" id="open-upload-modal" class="btn btn-outline-secondary quick-action-compact">
+              <i class="bi bi-upload me-2"></i>{{ _("Upload files") }}
             </button>
             {% if is_admin %}
               <div class="quick-actions-panel quick-actions-full">
@@ -260,6 +290,47 @@
   </div>
 </div>
 
+<div class="modal fade" id="upload-modal" tabindex="-1" aria-labelledby="upload-modal-title" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="upload-modal-title">{{ _("Upload files") }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ _("Close") }}"></button>
+      </div>
+      <div class="modal-body">
+        <div id="upload-status-message" class="alert alert-info d-none" role="status"></div>
+        <div id="upload-dropzone" class="upload-dropzone mb-3">
+          <div class="fw-semibold mb-1">{{ _("Drag & drop files here") }}</div>
+          <div class="text-muted small mb-0">{{ _("You can also click to choose files manually.") }}</div>
+        </div>
+        <label for="upload-file-input" class="form-label">{{ _("Select files") }}</label>
+        <input type="file" id="upload-file-input" class="form-control" multiple>
+        <div class="table-responsive mt-3 border rounded">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>{{ _("File") }}</th>
+                <th class="text-end">{{ _("Size") }}</th>
+                <th>{{ _("Status") }}</th>
+                <th class="text-end">{{ _("Actions") }}</th>
+              </tr>
+            </thead>
+            <tbody id="upload-file-list" class="upload-file-list">
+              <tr class="text-muted text-center">
+                <td colspan="4">{{ _("Drop files above to start analysis.") }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" id="upload-clear-btn">{{ _("Cancel") }}</button>
+        <button type="button" class="btn btn-primary" id="upload-commit-btn" disabled>{{ _("Upload") }}</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const sessionsBody = document.getElementById('sessions-body');
@@ -296,6 +367,36 @@ document.addEventListener('DOMContentLoaded', () => {
   const duplicateModeSkipLabel = '{{ _("Keep existing assets for duplicates") }}';
   const duplicateModeRegenerateDescription = '{{ _("Always recreate thumbnails and playback MP4 files even when they already exist.") }}';
   const duplicateModeSkipDescription = '{{ _("Skip regeneration when the duplicate already has thumbnails and playback assets.") }}';
+
+  const uploadStatusLabels = {
+    pending: '{{ _("Waiting") }}',
+    analyzing: '{{ _("Analyzing") }}',
+    analyzed: '{{ _("Analysis complete") }}',
+    uploaded: '{{ _("Uploaded") }}',
+    error: '{{ _("Error") }}',
+  };
+  const uploadStatusBadgeClasses = {
+    pending: 'bg-secondary',
+    analyzing: 'bg-warning text-dark',
+    analyzed: 'bg-info',
+    uploaded: 'bg-success',
+    error: 'bg-danger',
+  };
+  const uploadAnalysisPendingLabel = '{{ _("Waiting for analysis to start.") }}';
+  const uploadAnalyzingLabel = '{{ _("Analyzing file...") }}';
+  const uploadFormatLabel = '{{ _("Format") }}';
+  const uploadRecordsLabel = '{{ _("Records") }}';
+  const uploadLinesLabel = '{{ _("Lines") }}';
+  const uploadInvalidJsonLabel = '{{ _("Invalid JSON data") }}';
+  const uploadErrorGeneric = '{{ _("Failed to prepare the file.") }}';
+  const uploadNetworkError = '{{ _("Network error occurred while preparing the file.") }}';
+  const uploadCommitSuccessMessage = '{{ _("Upload completed successfully.") }}';
+  const uploadCommitPartialMessage = '{{ _("Some files could not be uploaded.") }}';
+  const uploadNoReadyFilesMessage = '{{ _("No analyzed files are ready for upload.") }}';
+  const uploadClearedMessage = '{{ _("Upload list cleared.") }}';
+  const uploadUploadingMessage = '{{ _("Uploading files...") }}';
+  const uploadRemoveLabel = '{{ _("Remove") }}';
+  const uploadDropPlaceholder = '{{ _("Drop files above to start analysis.") }}';
 
   let totalLoaded = 0;
   const sessionsLoadedLabel = '{{ _("sessions loaded") }}';
@@ -397,6 +498,424 @@ document.addEventListener('DOMContentLoaded', () => {
       default: return 'secondary';
     }
   }
+
+  const uploadItems = new Map();
+  let uploadSequence = 0;
+
+  function escapeHtml(str) {
+    if (str == null) {
+      return '';
+    }
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function formatBytes(bytes) {
+    const numeric = Number(bytes);
+    if (!Number.isFinite(numeric) || numeric < 0) {
+      return '-';
+    }
+    if (numeric === 0) {
+      return '0 B';
+    }
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const exponent = Math.min(Math.floor(Math.log(numeric) / Math.log(1024)), units.length - 1);
+    const value = numeric / (1024 ** exponent);
+    const decimals = exponent === 0 ? 0 : 1;
+    return `${value.toFixed(decimals)} ${units[exponent]}`;
+  }
+
+  function setUploadStatus(level, message) {
+    if (!uploadStatusMessage) {
+      return;
+    }
+    uploadStatusMessage.className = 'alert';
+    uploadStatusMessage.classList.add('d-none');
+    if (!message) {
+      uploadStatusMessage.textContent = '';
+      return;
+    }
+
+    const levelClass = {
+      success: 'alert-success',
+      error: 'alert-danger',
+      warning: 'alert-warning',
+      info: 'alert-info',
+    }[level || 'info'] || 'alert-info';
+
+    uploadStatusMessage.classList.add(levelClass);
+    uploadStatusMessage.textContent = message;
+    uploadStatusMessage.classList.remove('d-none');
+  }
+
+  function resetUploadStatus() {
+    setUploadStatus(null, '');
+  }
+
+  function buildAnalysisSummary(item) {
+    if (item.status === 'analyzing') {
+      return escapeHtml(uploadAnalyzingLabel);
+    }
+    if (!item.analysisResult) {
+      if (item.status === 'pending') {
+        return escapeHtml(uploadAnalysisPendingLabel);
+      }
+      if (item.status === 'error' && item.message) {
+        return escapeHtml(item.message);
+      }
+      return '';
+    }
+    const summaryParts = [];
+    const analysis = item.analysisResult;
+    if (analysis.format) {
+      summaryParts.push(`${uploadFormatLabel}: ${analysis.format}`);
+    }
+    if (typeof analysis.recordCount === 'number') {
+      summaryParts.push(`${uploadRecordsLabel}: ${analysis.recordCount}`);
+    }
+    if (
+      typeof analysis.lineCount === 'number'
+      && analysis.lineCount !== analysis.recordCount
+      && analysis.lineCount > 0
+    ) {
+      summaryParts.push(`${uploadLinesLabel}: ${analysis.lineCount}`);
+    }
+    if (analysis.valid === false) {
+      summaryParts.push(uploadInvalidJsonLabel);
+    }
+    return summaryParts.map((part) => escapeHtml(part)).join(' · ');
+  }
+
+  function renderUploadRows() {
+    if (!uploadFileList) {
+      return;
+    }
+
+    uploadFileList.innerHTML = '';
+
+    if (uploadItems.size === 0) {
+      const emptyRow = document.createElement('tr');
+      emptyRow.className = 'text-muted text-center';
+      emptyRow.innerHTML = `<td colspan="4">${escapeHtml(uploadDropPlaceholder)}</td>`;
+      uploadFileList.appendChild(emptyRow);
+      return;
+    }
+
+    uploadItems.forEach((item) => {
+      const row = document.createElement('tr');
+      row.dataset.uploadId = item.id;
+      const statusKey = item.status || 'pending';
+      const badgeClass = uploadStatusBadgeClasses[statusKey] || 'bg-secondary';
+      const statusLabel = uploadStatusLabels[statusKey] || statusKey;
+      const summary = buildAnalysisSummary(item);
+      const messageHtml = item.message
+        ? `<div class="small mt-1 ${item.status === 'error' ? 'text-danger' : 'text-success'}">${escapeHtml(item.message)}</div>`
+        : '';
+
+      row.innerHTML = `
+        <td>
+          <div class="fw-semibold">${escapeHtml(item.file?.name || item.serverFileName || '-')}</div>
+          ${summary ? `<div class="text-muted upload-summary-text mt-1">${summary}</div>` : ''}
+        </td>
+        <td class="text-end">${formatBytes(item.file?.size ?? item.serverFileSize ?? 0)}</td>
+        <td>
+          <span class="badge ${badgeClass} upload-status-badge">${escapeHtml(statusLabel)}</span>
+          ${messageHtml}
+        </td>
+        <td class="text-end">
+          <button type="button" class="btn btn-sm btn-link text-danger p-0" data-remove-upload="${escapeHtml(item.id)}">
+            <i class="bi bi-x-circle me-1"></i>${escapeHtml(uploadRemoveLabel)}
+          </button>
+        </td>
+      `;
+      uploadFileList.appendChild(row);
+    });
+  }
+
+  function updateUploadControls() {
+    if (!uploadCommitBtn || !uploadClearBtn) {
+      return;
+    }
+    const hasReady = Array.from(uploadItems.values()).some((item) => item.status === 'analyzed' && item.tempFileId);
+    uploadCommitBtn.disabled = !hasReady;
+    uploadClearBtn.disabled = uploadItems.size === 0;
+  }
+
+  function findUploadEntryByTempId(tempFileId) {
+    for (const [key, value] of uploadItems.entries()) {
+      if (value.tempFileId === tempFileId) {
+        return [key, value];
+      }
+    }
+    return [null, null];
+  }
+
+  function handleFiles(fileList) {
+    if (!fileList || fileList.length === 0) {
+      return;
+    }
+    resetUploadStatus();
+    Array.from(fileList).forEach((file) => {
+      const id = `local-${Date.now()}-${uploadSequence += 1}`;
+      const item = {
+        id,
+        file,
+        status: 'pending',
+        message: '',
+        tempFileId: null,
+        analysisResult: null,
+        serverFileName: null,
+        serverFileSize: file?.size ?? 0,
+      };
+      uploadItems.set(id, item);
+      renderUploadRows();
+      updateUploadControls();
+      prepareUpload(item).catch((error) => {
+        console.error('Failed to prepare upload', error);
+      });
+    });
+  }
+
+  async function prepareUpload(item) {
+    item.status = 'analyzing';
+    item.message = uploadAnalyzingLabel;
+    renderUploadRows();
+    updateUploadControls();
+
+    const formData = new FormData();
+    formData.append('file', item.file, item.file?.name || 'upload');
+
+    const headers = {};
+    if (window.apiClient && typeof window.apiClient.getCsrfTokenFromCookie === 'function') {
+      const token = window.apiClient.getCsrfTokenFromCookie();
+      if (token) {
+        headers['X-CSRFToken'] = token;
+      }
+    }
+
+    try {
+      const response = await fetch('/api/upload/prepare', {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+
+      if (!response.ok) {
+        let payload = {};
+        try {
+          payload = await response.json();
+        } catch (err) {
+          payload = {};
+        }
+        item.status = 'error';
+        item.message = payload.message || payload.error || uploadErrorGeneric;
+        renderUploadRows();
+        updateUploadControls();
+        return;
+      }
+
+      const data = await response.json();
+      item.status = data.status || 'analyzed';
+      item.tempFileId = data.tempFileId;
+      item.serverFileName = data.fileName || item.file?.name;
+      item.serverFileSize = data.fileSize ?? item.serverFileSize;
+      item.analysisResult = data.analysisResult || null;
+      item.message = '';
+    } catch (error) {
+      console.error('Upload preparation failed', error);
+      item.status = 'error';
+      item.message = uploadNetworkError;
+    }
+
+    renderUploadRows();
+    updateUploadControls();
+  }
+
+  async function commitUploads() {
+    if (!uploadCommitBtn) {
+      return;
+    }
+
+    const readyItems = Array.from(uploadItems.values()).filter((item) => item.status === 'analyzed' && item.tempFileId);
+    if (!readyItems.length) {
+      setUploadStatus('warning', uploadNoReadyFilesMessage);
+      return;
+    }
+
+    uploadCommitBtn.disabled = true;
+    setUploadStatus('info', uploadUploadingMessage);
+
+    try {
+      const payload = {
+        files: readyItems.map((item) => ({ tempFileId: item.tempFileId })),
+      };
+      const response = await window.apiClient.post('/api/upload/commit', payload);
+      let data = {};
+      try {
+        data = await response.json();
+      } catch (err) {
+        data = {};
+      }
+
+      if (!response.ok) {
+        const message = data.message || data.error || uploadErrorGeneric;
+        readyItems.forEach((item) => {
+          item.status = 'error';
+          item.message = message;
+        });
+        setUploadStatus('error', message);
+        return;
+      }
+
+      const results = Array.isArray(data.uploaded) ? data.uploaded : [];
+      let successCount = 0;
+      let errorCount = 0;
+      results.forEach((result) => {
+        const [key, item] = findUploadEntryByTempId(result.tempFileId);
+        if (!item) {
+          return;
+        }
+        if (result.status === 'success') {
+          successCount += 1;
+          uploadItems.delete(key);
+        } else {
+          errorCount += 1;
+          item.status = 'error';
+          item.message = result.message || uploadErrorGeneric;
+        }
+      });
+
+      if (successCount && !errorCount) {
+        renderUploadRows();
+        updateUploadControls();
+        setUploadStatus('success', uploadCommitSuccessMessage);
+        if (uploadModal) {
+          setTimeout(() => uploadModal.hide(), 1200);
+        }
+        return;
+      }
+
+      if (successCount && errorCount) {
+        setUploadStatus('warning', uploadCommitPartialMessage);
+      } else if (!successCount && errorCount) {
+        setUploadStatus('error', uploadCommitPartialMessage);
+      } else {
+        setUploadStatus('error', uploadErrorGeneric);
+      }
+    } catch (error) {
+      console.error('Upload commit failed', error);
+      setUploadStatus('error', uploadNetworkError);
+    } finally {
+      uploadCommitBtn.disabled = false;
+      renderUploadRows();
+      updateUploadControls();
+    }
+  }
+
+  function clearUploads() {
+    if (uploadItems.size === 0) {
+      return;
+    }
+    uploadItems.clear();
+    renderUploadRows();
+    updateUploadControls();
+    setUploadStatus('info', uploadClearedMessage);
+  }
+
+  if (uploadModalTrigger && uploadModal) {
+    uploadModalTrigger.addEventListener('click', () => {
+      resetUploadStatus();
+      renderUploadRows();
+      updateUploadControls();
+      uploadModal.show();
+    });
+  }
+
+  if (uploadClearBtn) {
+    uploadClearBtn.addEventListener('click', () => {
+      clearUploads();
+      if (uploadModal) {
+        uploadModal.hide();
+      }
+    });
+  }
+
+  if (uploadCommitBtn) {
+    uploadCommitBtn.addEventListener('click', () => {
+      commitUploads();
+    });
+  }
+
+  if (uploadFileInput) {
+    uploadFileInput.addEventListener('change', (event) => {
+      handleFiles(event.target.files);
+      event.target.value = '';
+    });
+  }
+
+  if (uploadFileList) {
+    uploadFileList.addEventListener('click', (event) => {
+      const trigger = event.target.closest('[data-remove-upload]');
+      if (!trigger) {
+        return;
+      }
+      event.preventDefault();
+      const identifier = trigger.getAttribute('data-remove-upload');
+      if (!identifier) {
+        return;
+      }
+      uploadItems.delete(identifier);
+      renderUploadRows();
+      updateUploadControls();
+    });
+  }
+
+  if (uploadDropzone) {
+    const preventDefaults = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    ['dragenter', 'dragover'].forEach((eventName) => {
+      uploadDropzone.addEventListener(eventName, (event) => {
+        preventDefaults(event);
+        uploadDropzone.classList.add('drag-over');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach((eventName) => {
+      uploadDropzone.addEventListener(eventName, (event) => {
+        preventDefaults(event);
+        if (eventName === 'drop') {
+          const files = event.dataTransfer?.files;
+          if (files && files.length) {
+            handleFiles(files);
+          }
+        }
+        uploadDropzone.classList.remove('drag-over');
+      });
+    });
+
+    uploadDropzone.addEventListener('click', (event) => {
+      event.preventDefault();
+      if (uploadFileInput) {
+        uploadFileInput.click();
+      }
+    });
+  }
+
+  if (uploadModalElement) {
+    uploadModalElement.addEventListener('hidden.bs.modal', () => {
+      resetUploadStatus();
+    });
+  }
+
+  renderUploadRows();
+  updateUploadControls();
 
   function hasOnlyDuplicates(counts = {}) {
     let duplicateTotal = 0;

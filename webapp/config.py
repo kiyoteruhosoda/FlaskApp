@@ -71,6 +71,9 @@ class Config:
     FPV_URL_TTL_THUMB = int(os.environ.get("FPV_URL_TTL_THUMB", "600"))
     FPV_URL_TTL_PLAYBACK = int(os.environ.get("FPV_URL_TTL_PLAYBACK", "600"))
     FPV_URL_TTL_ORIGINAL = int(os.environ.get("FPV_URL_TTL_ORIGINAL", "600"))
+    UPLOAD_TMP_DIR = os.environ.get("UPLOAD_TMP_DIR", "/data/tmp/upload")
+    UPLOAD_DESTINATION_DIR = os.environ.get("UPLOAD_DESTINATION_DIR", "/data/uploads")
+    UPLOAD_MAX_SIZE = int(os.environ.get("UPLOAD_MAX_SIZE", str(100 * 1024 * 1024)))
     FPV_NAS_THUMBS_DIR = os.environ.get("FPV_NAS_THUMBS_CONTAINER_DIR") or os.environ.get(
         "FPV_NAS_THUMBS_DIR", ""
     )
@@ -113,6 +116,8 @@ class TestConfig(Config):
     
     # Session設定
     SESSION_COOKIE_SECURE = False
-    
+
     # Feature X DB binding（テスト時は無効）
     SQLALCHEMY_BINDS = {}
+    UPLOAD_TMP_DIR = "/tmp/test_upload/tmp"
+    UPLOAD_DESTINATION_DIR = "/tmp/test_upload/dest"

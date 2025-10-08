@@ -80,15 +80,29 @@ class APIClient {
       headers['X-CSRFToken'] = csrfToken;
     }
 
-    // Content-Typeが指定されていない場合はJSONを設定
-    if (body && typeof body === 'object' && !headers['Content-Type']) {
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+    const isURLSearchParams = typeof URLSearchParams !== 'undefined' && body instanceof URLSearchParams;
+    const isBlob = typeof Blob !== 'undefined' && body instanceof Blob;
+    const isArrayBuffer = typeof ArrayBuffer !== 'undefined' && body instanceof ArrayBuffer;
+    const isDataView = typeof DataView !== 'undefined' && body instanceof DataView;
+    const shouldSerializeJson = (
+      body &&
+      typeof body === 'object' &&
+      !isFormData &&
+      !isURLSearchParams &&
+      !isBlob &&
+      !isArrayBuffer &&
+      !isDataView
+    );
+
+    if (shouldSerializeJson && !headers['Content-Type']) {
       headers['Content-Type'] = 'application/json';
     }
 
     const requestConfig = {
       method,
       headers,
-      body: typeof body === 'object' ? JSON.stringify(body) : body,
+      body: shouldSerializeJson ? JSON.stringify(body) : body,
       ...options
     };
 

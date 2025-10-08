@@ -164,6 +164,7 @@ class MediaPlaybackService:
                         request_context=request_context,
                         playback_rel_path=playback.rel_path,
                         poster_rel_path=playback.poster_rel_path,
+                        error=result.get("error"),
                     )
                     return result
 
@@ -237,6 +238,7 @@ class MediaPlaybackService:
                 height=result.get("height"),
                 duration_ms=result.get("duration_ms"),
                 note=result.get("note"),
+                error=result.get("error"),
                 playback_rel_path=playback.rel_path,
                 playback_output_path=result.get("output_path"),
                 poster_rel_path=playback.poster_rel_path,

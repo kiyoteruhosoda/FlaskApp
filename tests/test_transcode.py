@@ -2,12 +2,18 @@ import os
 import base64
 from datetime import datetime, timezone
 from pathlib import Path
-import subprocess
 import shutil
+import subprocess
+from types import SimpleNamespace
 
 import pytest
 
-from core.tasks import backfill_playback_posters, transcode_queue_scan, transcode_worker
+from core.tasks import (
+    backfill_playback_posters,
+    transcode_queue_scan,
+    transcode_worker,
+)
+from core.tasks import transcode as transcode_module
 
 
 ffmpeg_missing = shutil.which("ffmpeg") is None
@@ -450,6 +456,63 @@ def test_worker_missing_audio(app):
         pb = MediaPlayback.query.get(pb_id)
         assert pb.status == "error"
         assert pb.error_msg == "missing_stream"
+
+
+def test_summarise_ffmpeg_error_prefers_width_issue() -> None:
+    sample = "\n".join(
+        [
+            "Some banner",
+            "[libx264 @ 0xabc] width not divisible by 2 (809x1080)",
+            "[vost#0:0/libx264 @ 0xdef] Error while opening encoder - maybe incorrect parameters such as bit_rate, rate, width or height.",
+            "Conversion failed!",
+        ]
+    )
+
+    summary = transcode_module._summarise_ffmpeg_error(sample)
+    assert summary == "[libx264 @ 0xabc] width not divisible by 2 (809x1080)"
+
+
+def test_worker_returns_error_summary_on_ffmpeg_failure(app, monkeypatch):
+    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
+    video_path = orig_dir / "2025/08/18/badwidth.mov"
+    video_path.parent.mkdir(parents=True, exist_ok=True)
+    video_path.write_bytes(b"fake")
+
+    media_id = _make_media(app, rel_path="2025/08/18/badwidth.mov", width=640, height=480)
+    pb_id = _make_playback(app, media_id, "2025/08/18/badwidth.mov")
+
+    fake_probe_result = {
+        "streams": [
+            {"codec_type": "video", "codec_name": "hevc", "width": 640, "height": 480},
+            {"codec_type": "audio", "codec_name": "aac"},
+        ],
+        "format": {"duration": "1.0", "bit_rate": "1000"},
+    }
+
+    monkeypatch.setattr(transcode_module, "_probe", lambda path: fake_probe_result)
+
+    real_run = subprocess.run
+
+    def fake_run(cmd, *args, **kwargs):
+        if cmd and cmd[0] == "ffmpeg" and "-vf" in cmd:
+            stderr = "\n".join(
+                [
+                    "[libx264 @ 0xabc] width not divisible by 2 (809x1080)",
+                    "[vost#0:0/libx264 @ 0xdef] Error while opening encoder - maybe incorrect parameters such as bit_rate, rate, width or height.",
+                    "Conversion failed!",
+                ]
+            )
+            return SimpleNamespace(returncode=187, stderr=stderr, stdout="")
+        return real_run(cmd, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    with app.app_context():
+        res = transcode_worker(media_playback_id=pb_id)
+
+    assert res["ok"] is False
+    assert res["note"] == "ffmpeg_error"
+    assert "width not divisible" in res["error"]
 
 
 def test_worker_missing_input(app):

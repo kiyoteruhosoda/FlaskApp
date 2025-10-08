@@ -3,6 +3,7 @@
 """
 
 import importlib
+import io
 import json
 import os
 import shutil
@@ -419,6 +420,35 @@ class TestSessionDetailAPI:
 
         details = extracted_entries[-1].get('details', {})
         assert 'zip_path' in details
+
+    def test_session_logs_download_returns_zip_archive(self, app):
+        """ログダウンロードAPIでZIPファイルが取得できることを確認"""
+
+        client = app.test_client()
+
+        with client.session_transaction() as sess:
+            sess['_user_id'] = '1'
+            sess['_fresh'] = True
+
+        with app.app_context():
+            result = local_import_module.local_import_task()
+            session_id = result['session_id']
+
+        response = client.get(f'/api/picker/session/{session_id}/logs/download')
+        assert response.status_code == 200
+        assert response.headers['Content-Type'].startswith('application/zip')
+
+        archive_data = io.BytesIO(response.data)
+        with zipfile.ZipFile(archive_data, 'r') as archive:
+            namelist = archive.namelist()
+            assert 'logs.jsonl' in namelist
+            assert 'metadata.json' in namelist
+
+            logs_content = archive.read('logs.jsonl').decode('utf-8').strip()
+            assert logs_content, 'logs.jsonl should not be empty'
+
+            metadata = json.loads(archive.read('metadata.json').decode('utf-8'))
+            assert metadata.get('session_id') == session_id
 
 
 class TestSessionDetailUI:

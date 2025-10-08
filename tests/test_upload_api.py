@@ -64,6 +64,33 @@ def test_prepare_upload_analyzes_file(client, auth_headers):
     assert metadata_path.exists()
 
 
+def test_prepare_upload_allows_mp4(client, auth_headers):
+    mp4_header = b"\x00\x00\x00\x20ftypisom\x00\x00\x02\x00isomiso2mp41"
+    file_content = mp4_header + (b"\x00" * 1024)
+
+    response = client.post(
+        '/api/upload/prepare',
+        data={'file': (io.BytesIO(file_content), 'clip.mp4')},
+        headers=auth_headers,
+        content_type='multipart/form-data',
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload['fileName'] == 'clip.mp4'
+    assert payload['fileSize'] == len(file_content)
+    assert payload['analysisResult']['format'] == 'UNKNOWN'
+
+    with client.session_transaction() as sess:
+        session_id = sess.get('upload_session_id')
+
+    assert session_id
+    tmp_dir = Path(client.application.config['UPLOAD_TMP_DIR']) / session_id
+    stored_path = tmp_dir / payload['tempFileId']
+    assert stored_path.exists()
+    assert stored_path.read_bytes() == file_content
+
+
 def test_commit_upload_moves_files(client, auth_headers):
     file_content = b'col1\nvalue\n'
     prepare_resp = client.post(

@@ -40,8 +40,8 @@ class PreparedUpload:
     analysis_result: dict
 
 
-_ALLOWED_EXTENSIONS = {".csv", ".tsv", ".json", ".txt"}
-_ALLOWED_MIME_PREFIXES = ("text/", "application/json")
+_ALLOWED_EXTENSIONS = {".csv", ".tsv", ".json", ".txt", ".mp4"}
+_ALLOWED_MIME_PREFIXES = ("text/", "application/json", "video/")
 
 
 def _ensure_directory(path: Path) -> None:

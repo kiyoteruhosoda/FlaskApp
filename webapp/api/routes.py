@@ -1749,6 +1749,33 @@ def _path_to_posix(rel_path: str | None) -> str | None:
     return normalized.as_posix()
 
 
+_PLAYBACK_STATUS_PRIORITY = {
+    "done": 3,
+    "processing": 2,
+    "pending": 1,
+    "error": 0,
+}
+
+
+def _select_preferred_playback(playbacks: list[MediaPlayback]) -> MediaPlayback | None:
+    """Return the most relevant playback entry from *playbacks*."""
+
+    if not playbacks:
+        return None
+
+    base_timestamp = datetime.min.replace(tzinfo=timezone.utc)
+
+    def _priority(pb: MediaPlayback) -> tuple[int, int, datetime, int]:
+        status = (pb.status or "").lower()
+        status_rank = _PLAYBACK_STATUS_PRIORITY.get(status, -1)
+        preset_rank = 1 if (pb.preset or "").lower() == "std1080p" else 0
+        timestamp = pb.updated_at or pb.created_at or base_timestamp
+        identifier = pb.id or 0
+        return (status_rank, preset_rank, timestamp, identifier)
+
+    return max(playbacks, key=_priority)
+
+
 def build_playback_dict(playback: MediaPlayback | None) -> dict:
     """Return playback information dictionary."""
 
@@ -1789,7 +1816,7 @@ def serialize_media_detail(media: Media) -> dict:
         {"type": s.type, "rel_path": s.rel_path, "bytes": s.bytes}
         for s in media.sidecars
     ]
-    playback_record = media.playbacks[0] if media.playbacks else None
+    playback_record = _select_preferred_playback(list(media.playbacks))
     return {
         "id": media.id,
         "google_media_id": media.google_media_id,

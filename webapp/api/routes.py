@@ -1771,7 +1771,7 @@ def _select_preferred_playback(playbacks: list[MediaPlayback]) -> MediaPlayback 
         preset_rank = 1 if (pb.preset or "").lower() == "std1080p" else 0
         timestamp = pb.updated_at or pb.created_at or base_timestamp
         identifier = pb.id or 0
-        return (preset_rank, status_rank, timestamp, identifier)
+        return (status_rank, preset_rank, timestamp, identifier)
 
     return max(playbacks, key=_priority)
 

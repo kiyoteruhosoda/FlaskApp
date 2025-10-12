@@ -40,7 +40,7 @@
                 <span>{{ _("Loading status...") }}</span>
             </div>
             <div id="local-import-content" class="d-none">
-                <div class="row g-3">
+                <div class="row g-3" id="directory-status-row">
                     <div class="col-md-4">
                         <div class="border rounded h-100 p-3 bg-light">
                             <div class="fw-semibold mb-2">{{ _("System Status") }}</div>
@@ -54,27 +54,20 @@
                             </p>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="border rounded h-100 p-3">
-                            <div class="fw-semibold">{{ _("Import directory") }}</div>
-                            <div class="d-flex justify-content-between align-items-start gap-2 mt-2">
-                                <code id="import-dir" class="d-block text-break flex-grow-1">-</code>
-                                <span id="import-dir-status" class="badge bg-secondary">-</span>
-                            </div>
-                            <div id="import-dir-extra" class="form-text text-muted mt-2"></div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="border rounded h-100 p-3">
-                            <div class="fw-semibold">{{ _("Originals directory") }}</div>
-                            <div class="d-flex justify-content-between align-items-start gap-2 mt-2">
-                                <code id="originals-dir" class="d-block text-break flex-grow-1">-</code>
-                                <span id="originals-dir-status" class="badge bg-secondary">-</span>
-                            </div>
-                            <div id="originals-dir-extra" class="form-text text-muted mt-2"></div>
-                        </div>
-                    </div>
                 </div>
+
+                <template id="directory-card-template">
+                    <div class="col-md-4 directory-card">
+                        <div class="border rounded h-100 p-3">
+                            <div class="fw-semibold directory-label"></div>
+                            <div class="d-flex justify-content-between align-items-start gap-2 mt-2">
+                                <code class="d-block text-break flex-grow-1 directory-path">-</code>
+                                <span class="badge bg-secondary directory-badge">-</span>
+                            </div>
+                            <div class="form-text text-muted mt-2 directory-extra d-none"></div>
+                        </div>
+                    </div>
+                </template>
 
                 <div id="status-message" class="alert alert-warning mt-3 d-none" role="alert"></div>
 
@@ -122,12 +115,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const systemStatusEl = document.getElementById('system-status');
   const pendingFilesEl = document.getElementById('pending-files');
   const statusMessageEl = document.getElementById('status-message');
-  const importDirEl = document.getElementById('import-dir');
-  const importDirStatusEl = document.getElementById('import-dir-status');
-  const importDirExtraEl = document.getElementById('import-dir-extra');
-  const originalsDirEl = document.getElementById('originals-dir');
-  const originalsDirStatusEl = document.getElementById('originals-dir-status');
-  const originalsDirExtraEl = document.getElementById('originals-dir-extra');
+  const directoryStatusRow = document.getElementById('directory-status-row');
+  const directoryCardTemplate = document.getElementById('directory-card-template');
   const ensureDirsBtn = document.getElementById('ensure-dirs-btn');
   const startImportBtn = document.getElementById('start-import-btn');
   const progressSection = document.getElementById('import-progress');
@@ -138,6 +127,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const progressTotal = document.getElementById('progress-total');
   const progressMessage = document.getElementById('progress-message');
   const resultDiv = document.getElementById('import-result');
+
+  const directoryCards = new Map();
+  const ensureManagedKeys = new Set(['LOCAL_IMPORT_DIR', 'FPV_NAS_ORIGINALS_DIR']);
+  const directoryLabelMap = {
+    import: '{{ _("Import directory") }}',
+    originals: '{{ _("Originals directory") }}',
+    thumbs: '{{ _("Thumbnails directory") }}',
+    playback: '{{ _("Playback directory") }}',
+  };
 
   const isAdmin = JSON.parse("{{ is_admin | tojson }}");
 
@@ -187,7 +185,16 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/'/g, '&#39;');
   }
 
-  function updatePathDisplay(raw, absolute, realpath, exists, codeEl, badgeEl, extraEl) {
+  function updatePathDisplay(
+    raw,
+    absolute,
+    realpath,
+    exists,
+    codeEl,
+    badgeEl,
+    extraEl,
+    options = {}
+  ) {
     if (!codeEl) return;
 
     const display = realpath || absolute || raw || '{{ _("Not configured") }}';
@@ -202,7 +209,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const extraLines = [];
-    if (raw && raw !== display) {
+    const configured = options?.configured ?? null;
+    const source = options?.source ?? null;
+
+    if (configured && configured !== display) {
+      extraLines.push(`{{ _("Configured value") }}: <code>${escapeHtml(configured)}</code>`);
+    } else if (!configured && raw && raw !== display) {
       extraLines.push(`{{ _("Configured value") }}: <code>${escapeHtml(raw)}</code>`);
     }
     if (absolute && absolute !== display) {
@@ -210,6 +222,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (realpath && realpath !== display) {
       extraLines.push(`{{ _("Resolved path") }}: <code>${escapeHtml(realpath)}</code>`);
+    }
+    if (source === 'fallback') {
+      extraLines.push('{{ _("Using fallback path") }}');
     }
 
     if (extraLines.length) {
@@ -221,7 +236,106 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function updateSystemStatus(status, config) {
+  function getDirectoryLabel(directory) {
+    if (!directory) {
+      return '-';
+    }
+    if (directory.label) {
+      return directory.label;
+    }
+    if (directory.key && directoryLabelMap[directory.key]) {
+      return directoryLabelMap[directory.key];
+    }
+    if (directory.config_key) {
+      return directory.config_key;
+    }
+    return directory.key || '-';
+  }
+
+  function ensureDirectoryCard(directory) {
+    if (!directory) return null;
+    if (!directoryStatusRow || !directoryCardTemplate) return null;
+
+    const key = directory.key || directory.config_key;
+    if (!key) return null;
+
+    if (directoryCards.has(key)) {
+      const existing = directoryCards.get(key);
+      if (existing?.labelEl) {
+        existing.labelEl.textContent = getDirectoryLabel(directory);
+      }
+      return existing;
+    }
+
+    const templateContent = directoryCardTemplate.content;
+    if (!templateContent) return null;
+
+    const templateElement = templateContent.firstElementChild;
+    if (!templateElement) return null;
+
+    const element = templateElement.cloneNode(true);
+    if (!element) return null;
+
+    const labelEl = element.querySelector('.directory-label');
+    const pathEl = element.querySelector('.directory-path');
+    const badgeEl = element.querySelector('.directory-badge');
+    const extraEl = element.querySelector('.directory-extra');
+
+    if (labelEl) {
+      labelEl.textContent = getDirectoryLabel(directory);
+    }
+
+    directoryStatusRow.appendChild(element);
+
+    const entry = { element, labelEl, pathEl, badgeEl, extraEl };
+    directoryCards.set(key, entry);
+    return entry;
+  }
+
+  function updateDirectoryCards(directories) {
+    if (!Array.isArray(directories)) {
+      return;
+    }
+
+    const activeKeys = new Set();
+
+    directories.forEach((directory) => {
+      if (!directory) return;
+      const key = directory.key || directory.config_key;
+      if (!key) return;
+
+      const card = ensureDirectoryCard(directory);
+      if (!card) return;
+
+      if (card.labelEl) {
+        card.labelEl.textContent = getDirectoryLabel(directory);
+      }
+
+      updatePathDisplay(
+        directory.path,
+        directory.absolute,
+        directory.realpath,
+        Boolean(directory.exists),
+        card.pathEl,
+        card.badgeEl,
+        card.extraEl,
+        { configured: directory.configured, source: directory.source }
+      );
+
+      activeKeys.add(key);
+    });
+
+    const keysToRemove = [];
+    directoryCards.forEach((card, key) => {
+      if (!activeKeys.has(key)) {
+        card?.element?.remove?.();
+        keysToRemove.push(key);
+      }
+    });
+    keysToRemove.forEach((key) => directoryCards.delete(key));
+  }
+
+  function updateSystemStatus(status, config, directories = []) {
     const ready = Boolean(status?.ready);
     const pending = Number(status?.pending_files || 0);
 
@@ -236,11 +350,20 @@ document.addEventListener('DOMContentLoaded', () => {
       systemStatusEl.className = 'badge bg-warning text-dark';
 
       const issues = [];
-      if (!config.import_dir_exists) {
-        issues.push('{{ _("Import directory is missing.") }}');
-      }
-      if (!config.originals_dir_exists) {
-        issues.push('{{ _("Originals directory is missing.") }}');
+      if (Array.isArray(directories)) {
+        directories
+          .filter((dir) => !dir.exists)
+          .forEach((dir) => {
+            const label = escapeHtml(getDirectoryLabel(dir));
+            issues.push(`${label}: {{ _("Missing") }}`);
+          });
+      } else {
+        if (!config.import_dir_exists) {
+          issues.push('{{ _("Import directory is missing.") }}');
+        }
+        if (!config.originals_dir_exists) {
+          issues.push('{{ _("Originals directory is missing.") }}');
+        }
       }
       if (!issues.length) {
         issues.push('{{ _("Please review the configuration.") }}');
@@ -255,7 +378,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (isAdmin && ensureDirsBtn) {
-      const needsDirectories = !config.import_dir_exists || !config.originals_dir_exists;
+      const needsDirectories = Array.isArray(directories)
+        ? directories.some(
+            (dir) => ensureManagedKeys.has(String(dir.config_key)) && !dir.exists
+          )
+        : (!config.import_dir_exists || !config.originals_dir_exists);
       ensureDirsBtn.classList.toggle('d-none', !needsDirectories);
       ensureDirsBtn.disabled = false;
     }
@@ -267,27 +394,8 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    updatePathDisplay(
-      data.config.import_dir,
-      data.config.import_dir_absolute,
-      data.config.import_dir_realpath,
-      data.config.import_dir_exists,
-      importDirEl,
-      importDirStatusEl,
-      importDirExtraEl
-    );
-
-    updatePathDisplay(
-      data.config.originals_dir,
-      data.config.originals_dir_absolute,
-      data.config.originals_dir_realpath,
-      data.config.originals_dir_exists,
-      originalsDirEl,
-      originalsDirStatusEl,
-      originalsDirExtraEl
-    );
-
-    updateSystemStatus(data.status, data.config);
+    updateDirectoryCards(data.directories);
+    updateSystemStatus(data.status, data.config, data.directories);
 
   }
 

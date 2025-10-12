@@ -14,10 +14,12 @@ def client(app_context, tmp_path):
     app = app_context
     app.config['UPLOAD_TMP_DIR'] = str(tmp_path / 'tmp')
     app.config['UPLOAD_DESTINATION_DIR'] = str(tmp_path / 'dest')
+    app.config['LOCAL_IMPORT_DIR'] = str(tmp_path / 'local_import')
     app.config['UPLOAD_MAX_SIZE'] = 1024 * 1024
 
     (tmp_path / 'tmp').mkdir(parents=True, exist_ok=True)
     (tmp_path / 'dest').mkdir(parents=True, exist_ok=True)
+    (tmp_path / 'local_import').mkdir(parents=True, exist_ok=True)
 
     with app.app_context():
         user = User(email='upload@example.com')
@@ -153,8 +155,8 @@ def test_commit_upload_moves_files(client, auth_headers):
     app = client.application
     with app.app_context():
         user = User.query.filter_by(email='upload@example.com').first()
-        dest_dir = Path(app.config['UPLOAD_DESTINATION_DIR']) / str(user.id)
-        stored_file = dest_dir / 'commit.png'
+        import_dir = Path(app.config['LOCAL_IMPORT_DIR']) / str(user.id)
+        stored_file = import_dir / 'commit.png'
         assert stored_file.exists()
         assert stored_file.read_bytes() == file_content
 
@@ -268,8 +270,8 @@ def test_commit_upload_uses_actual_move_destination(client, auth_headers, monkey
     app = client.application
     with app.app_context():
         user = User.query.filter_by(email='upload@example.com').first()
-        dest_dir = Path(app.config['UPLOAD_DESTINATION_DIR']) / str(user.id)
-        stored_file = dest_dir / 'movie_stored.mov'
+        import_dir = Path(app.config['LOCAL_IMPORT_DIR']) / str(user.id)
+        stored_file = import_dir / 'movie_stored.mov'
         assert stored_file.exists()
         assert stored_file.read_bytes() == file_content
         assert result['storedPath'] == str(stored_file)

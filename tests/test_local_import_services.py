@@ -358,3 +358,83 @@ def test_queue_processor_logs_commit_error(monkeypatch):
         error_type="RuntimeError",
         error_message="boom",
     )
+
+
+def test_queue_processor_marks_failure_on_thumbnail_regen_error(monkeypatch):
+    db_session = MagicMock()
+    db_session.commit.return_value = None
+    db = SimpleNamespace(session=db_session)
+    logger = MagicMock()
+
+    importer_result = {
+        "success": False,
+        "status": "duplicate",
+        "reason": "重複ファイル (既存ID: 101)",
+        "media_id": 101,
+        "media_google_id": "google-media",
+        "thumbnail_regen_error": "Error opening output files: Invalid argument",
+        "post_process": {
+            "thumbnails": {
+                "ok": False,
+                "generated": [],
+                "skipped": [],
+                "retry_scheduled": False,
+                "notes": "Error opening output files: Invalid argument",
+            }
+        },
+    }
+
+    importer = MagicMock(import_file=MagicMock(return_value=importer_result))
+    cancel_requested = MagicMock(return_value=False)
+
+    session = SimpleNamespace(id=1)
+    selection = SimpleNamespace(
+        id=99,
+        local_file_path="/tmp/video.mp4",
+        local_filename="video.mp4",
+        status="enqueued",
+        attempts=0,
+        started_at=None,
+        error=None,
+        google_media_id=None,
+        media_id=None,
+        completed_at=None,
+    )
+
+    class DummyQuery:
+        def all(self):
+            return [selection]
+
+    processor = LocalImportQueueProcessor(
+        db=db,
+        logger=logger,
+        importer=importer,
+        cancel_requested=cancel_requested,
+    )
+
+    monkeypatch.setattr(processor, "pending_query", lambda _session: DummyQuery())
+
+    result = ImportTaskResult()
+
+    processor.process(
+        session,
+        import_dir="/import",
+        originals_dir="/orig",
+        result=result,
+        active_session_id="session-1",
+        celery_task_id="celery-1",
+    )
+
+    assert selection.status == "failed"
+    assert selection.error and "サムネイル再生成失敗" in selection.error
+    assert selection.google_media_id == "google-media"
+    assert selection.media_id == 101
+
+    assert result.failed == 1
+    assert result.skipped == 0
+    assert result.ok is False
+    assert result.details, "詳細結果が記録されていません"
+    detail = result.details[0]
+    assert detail["status"] == "failed"
+    assert "サムネイル再生成失敗" in detail["reason"]
+    assert detail.get("thumbnail", {}).get("status") == "error"

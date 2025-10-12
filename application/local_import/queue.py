@@ -228,6 +228,16 @@ class LocalImportQueueProcessor:
             )
 
             result_status = file_result.get("status")
+
+            post_process_result = file_result.get("post_process")
+            thumbnail_failed = False
+            thumbnail_error_message = file_result.get("thumbnail_regen_error")
+
+            if isinstance(post_process_result, dict):
+                thumb_result = post_process_result.get("thumbnails")
+            else:
+                thumb_result = None
+
             detail_status = "success" if file_result["success"] else result_status or "failed"
             detail = {
                 "file": display_file,
@@ -238,35 +248,48 @@ class LocalImportQueueProcessor:
             basename = file_context.get("basename")
             if basename and basename != detail["file"]:
                 detail["basename"] = basename
-            result.append_detail(detail)
 
-            post_process_result = file_result.get("post_process")
-            if isinstance(post_process_result, dict):
-                thumb_result = post_process_result.get("thumbnails")
-                if isinstance(thumb_result, dict):
-                    thumb_detail = {
-                        "ok": thumb_result.get("ok"),
-                        "status": "error"
-                        if thumb_result.get("ok") is False
-                        else (
-                            "progress"
-                            if thumb_result.get("retry_scheduled")
-                            else "completed"
-                        ),
-                        "generated": thumb_result.get("generated"),
-                        "skipped": thumb_result.get("skipped"),
-                        "retryScheduled": bool(thumb_result.get("retry_scheduled")),
-                        "notes": thumb_result.get("notes"),
-                    }
-                    retry_details = thumb_result.get("retry_details")
-                    if isinstance(retry_details, dict):
-                        thumb_detail["retryDetails"] = retry_details
-                    detail["thumbnail"] = thumb_detail
-                    self._record_thumbnail_result(
-                        result,
-                        media_id=file_result.get("media_id"),
-                        thumb_result=thumb_result,
-                    )
+            thumb_detail = None
+
+            if isinstance(thumb_result, dict):
+                thumb_detail = {
+                    "ok": thumb_result.get("ok"),
+                    "status": "error"
+                    if thumb_result.get("ok") is False
+                    else (
+                        "progress"
+                        if thumb_result.get("retry_scheduled")
+                        else "completed"
+                    ),
+                    "generated": thumb_result.get("generated"),
+                    "skipped": thumb_result.get("skipped"),
+                    "retryScheduled": bool(thumb_result.get("retry_scheduled")),
+                    "notes": thumb_result.get("notes"),
+                }
+                retry_details = thumb_result.get("retry_details")
+                if isinstance(retry_details, dict):
+                    thumb_detail["retryDetails"] = retry_details
+
+                detail["thumbnail"] = thumb_detail
+                self._record_thumbnail_result(
+                    result,
+                    media_id=file_result.get("media_id"),
+                    thumb_result=thumb_result,
+                )
+
+                if thumb_detail["ok"] is False:
+                    thumbnail_failed = True
+                    if not thumbnail_error_message:
+                        thumbnail_error_message = thumb_detail.get("notes")
+
+            if thumbnail_failed:
+                detail["status"] = "failed"
+                if thumbnail_error_message:
+                    regen_message = str(thumbnail_error_message)
+                    if regen_message not in str(detail["reason"]):
+                        detail["reason"] = f"{detail['reason']} (サムネイル再生成失敗: {regen_message})"
+
+            result.append_detail(detail)
 
             try:
                 if file_result["success"]:
@@ -274,14 +297,24 @@ class LocalImportQueueProcessor:
                     selection.completed_at = datetime.now(timezone.utc)
                     selection.google_media_id = file_result.get("media_google_id")
                     selection.media_id = file_result.get("media_id")
-                elif result_status in {"duplicate", "duplicate_refreshed"}:
+                elif (
+                    result_status in {"duplicate", "duplicate_refreshed"}
+                    and not thumbnail_failed
+                ):
                     selection.status = "dup"
                     existing_google_id = file_result.get("media_google_id")
                     if existing_google_id:
                         selection.google_media_id = existing_google_id
                 else:
                     selection.status = "failed"
-                    selection.error = file_result.get("reason")
+                    selection.error = detail["reason"]
+                    selection.completed_at = datetime.now(timezone.utc)
+                    existing_google_id = file_result.get("media_google_id")
+                    if existing_google_id:
+                        selection.google_media_id = existing_google_id
+                    media_identifier = file_result.get("media_id")
+                    if media_identifier is not None:
+                        selection.media_id = media_identifier
                 self._db.session.commit()
             except Exception as exc:
                 self._db.session.rollback()
@@ -299,7 +332,10 @@ class LocalImportQueueProcessor:
             if file_result["success"]:
                 result.increment_success()
             else:
-                if result_status in {"skipped", "duplicate", "duplicate_refreshed"}:
+                if (
+                    result_status in {"skipped", "duplicate", "duplicate_refreshed"}
+                    and not thumbnail_failed
+                ):
                     result.increment_skipped()
                 else:
                     result.increment_failed()

@@ -26,7 +26,9 @@ from flask import (
 from flask_babel import get_locale
 from flask_babel import gettext as _
 from sqlalchemy.engine import make_url
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
+
+from werkzeug.datastructures import FileStorage
 
 from .extensions import db, migrate, login_manager, babel
 from .timezone import resolve_timezone, convert_to_timezone
@@ -46,6 +48,9 @@ _SENSITIVE_KEYWORDS = {
 
 
 _MAX_LOG_PAYLOAD_BYTES = 60_000
+
+
+_MAX_POST_PARAM_STRING_LENGTH = 120
 
 
 def _is_sensitive_key(key):
@@ -209,6 +214,68 @@ def _prepare_log_payload(
     }
     fallback_text, _ = _serialize_for_logging(fallback)
     return fallback, fallback_text
+
+
+def _truncate_long_parameter_values(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {k: _truncate_long_parameter_values(v) for k, v in value.items()}
+
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return [_truncate_long_parameter_values(item) for item in value]
+
+    if isinstance(value, str):
+        if len(value) <= _MAX_POST_PARAM_STRING_LENGTH:
+            return value
+        return f"{value[:_MAX_POST_PARAM_STRING_LENGTH]}… ({len(value)} chars)"
+
+    if isinstance(value, (bytes, bytearray)):
+        return f"<binary {len(value)} bytes>"
+
+    return value
+
+
+def _format_form_parameters_for_logging(form) -> Dict[str, Any]:
+    if not form:
+        return {}
+
+    result: Dict[str, Any] = {}
+    for key in form.keys():
+        values = form.getlist(key)
+        summarized_values = [_truncate_long_parameter_values(value) for value in values]
+        if len(summarized_values) == 1:
+            result[key] = summarized_values[0]
+        else:
+            result[key] = summarized_values
+    return result
+
+
+def _summarize_file_storage(storage: FileStorage) -> Dict[str, Any]:
+    summary: Dict[str, Any] = {"omitted": True}
+    filename = getattr(storage, "filename", None)
+    if filename:
+        summary["filename"] = filename
+    content_type = getattr(storage, "content_type", None)
+    if content_type:
+        summary["contentType"] = content_type
+    content_length = getattr(storage, "content_length", None)
+    if isinstance(content_length, int):
+        summary["contentLength"] = content_length
+    return summary
+
+
+def _format_file_parameters_for_logging(files) -> Dict[str, Any]:
+    if not files:
+        return {}
+
+    result: Dict[str, Any] = {}
+    for key in files.keys():
+        storages: List[FileStorage] = files.getlist(key)
+        summarized = [_summarize_file_storage(storage) for storage in storages]
+        if len(summarized) == 1:
+            result[key] = summarized[0]
+        else:
+            result[key] = summarized
+    return result
 
 
 # エラーハンドラ
@@ -461,14 +528,22 @@ def create_app():
             args_dict = request.args.to_dict()
             if args_dict:
                 log_dict["args"] = _mask_sensitive_data(args_dict)
-            form_dict = request.form.to_dict()
+            form_dict = _format_form_parameters_for_logging(request.form)
             if form_dict:
                 log_dict["form"] = _mask_sensitive_data(form_dict)
+            files_dict = _format_file_parameters_for_logging(request.files)
+            if files_dict:
+                log_dict["files"] = _mask_sensitive_data(files_dict)
             if input_json is not None:
-                log_dict["json"] = _mask_sensitive_data(input_json)
+                processed_json = (
+                    _truncate_long_parameter_values(input_json)
+                    if request.method.upper() == "POST"
+                    else input_json
+                )
+                log_dict["json"] = _mask_sensitive_data(processed_json)
             _, serialized_payload = _prepare_log_payload(
                 log_dict,
-                keys_to_summarize=("json", "form", "args"),
+                keys_to_summarize=("json", "form", "args", "files"),
             )
             app.logger.info(
                 serialized_payload,

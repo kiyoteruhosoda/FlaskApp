@@ -1079,6 +1079,7 @@ class PickerSessionService:
         try:
             db.session.execute(statement)
         except IntegrityError:
+            db.session.rollback()
             # 他のトランザクションが先に同一キーで登録した場合は既存行をdup扱いに更新
             existing = PickerSelection.query.filter_by(
                 session_id=ps.id, google_media_id=item_id

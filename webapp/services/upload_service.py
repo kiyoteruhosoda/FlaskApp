@@ -12,6 +12,9 @@ from flask import current_app
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
 
+from core.storage_paths import first_existing_storage_path
+from webapp.config import Config
+
 
 class UploadError(Exception):
     """アップロード関連の基本例外"""
@@ -72,8 +75,29 @@ def _tmp_base_dir() -> Path:
     return Path(current_app.config.get("UPLOAD_TMP_DIR", "/app/data/tmp/upload"))
 
 
-def _destination_base_dir() -> Path:
-    return Path(current_app.config.get("UPLOAD_DESTINATION_DIR", "/app/data/uploads"))
+def _resolve_local_import_directory() -> Optional[Path]:
+    """Resolve and ensure the local import base directory."""
+
+    candidate = first_existing_storage_path("LOCAL_IMPORT_DIR")
+    if candidate is None:
+        candidate = current_app.config.get("LOCAL_IMPORT_DIR") or Config.LOCAL_IMPORT_DIR
+    if not candidate:
+        return None
+
+    directory = Path(candidate)
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        current_app.logger.exception(
+            "upload.commit.local_import.ensure_failed",
+            extra={
+                "directory": str(directory),
+                "error": str(exc),
+            },
+        )
+        return None
+
+    return directory
 
 
 def _max_upload_size() -> int:
@@ -254,12 +278,29 @@ def commit_uploads(session_id: str, user_id: Optional[int], temp_file_ids: Itera
         raise UploadError("User information is required to commit uploads")
 
     session_dir = _determine_session_dir(session_id)
-    destination_dir = _destination_base_dir() / str(user_id)
-    _ensure_directory(destination_dir)
-    try:
-        destination_dir_resolved = destination_dir.resolve()
-    except OSError:
-        destination_dir_resolved = destination_dir
+    local_import_root = _resolve_local_import_directory()
+    user_import_dir: Optional[Path] = None
+    user_import_dir_resolved: Optional[Path] = None
+
+    if local_import_root is not None:
+        user_import_dir = local_import_root / str(user_id)
+        try:
+            _ensure_directory(user_import_dir)
+        except OSError as exc:
+            current_app.logger.exception(
+                "upload.commit.local_import.user_dir_failed",
+                extra={
+                    "user_id": user_id,
+                    "directory": str(user_import_dir),
+                    "error": str(exc),
+                },
+            )
+            user_import_dir = None
+        else:
+            try:
+                user_import_dir_resolved = user_import_dir.resolve()
+            except OSError:
+                user_import_dir_resolved = user_import_dir
 
     results = []
 
@@ -284,7 +325,24 @@ def commit_uploads(session_id: str, user_id: Optional[int], temp_file_ids: Itera
             })
             continue
 
-        destination_path = _generate_destination_path(destination_dir, metadata.get("file_name", "uploaded"))
+        if user_import_dir is None:
+            current_app.logger.error(
+                "upload.commit.local_import.unavailable",
+                extra={
+                    "temp_file_id": temp_file_id,
+                    "user_id": user_id,
+                },
+            )
+            results.append({
+                "tempFileId": temp_file_id,
+                "status": "error",
+                "message": "Failed to store file",
+            })
+            continue
+
+        destination_path = _generate_destination_path(
+            user_import_dir, metadata.get("file_name", "uploaded")
+        )
 
         try:
             moved_target = shutil.move(str(temp_path), str(destination_path))
@@ -319,7 +377,9 @@ def commit_uploads(session_id: str, user_id: Optional[int], temp_file_ids: Itera
         else:
             moved_to = destination_path
 
-        actual_destination = moved_to if moved_to.is_absolute() else destination_dir / moved_to
+        actual_destination = (
+            moved_to if moved_to.is_absolute() else user_import_dir / moved_to
+        )
 
         if not actual_destination.exists():
             current_app.logger.error(
@@ -338,27 +398,28 @@ def commit_uploads(session_id: str, user_id: Optional[int], temp_file_ids: Itera
 
         resolved_destination = actual_destination.resolve()
 
-        try:
-            resolved_destination.relative_to(destination_dir_resolved)
-        except ValueError:
-            current_app.logger.error(
-                "upload.commit.unexpected_destination",
-                extra={
-                    "temp_file_id": temp_file_id,
-                    "expected_dir": str(destination_dir_resolved),
-                    "actual_path": str(resolved_destination),
-                },
-            )
+        if user_import_dir_resolved is not None:
             try:
-                shutil.move(str(resolved_destination), str(temp_path))
-            except OSError:
-                pass
-            results.append({
-                "tempFileId": temp_file_id,
-                "status": "error",
-                "message": "Failed to store file",
-            })
-            continue
+                resolved_destination.relative_to(user_import_dir_resolved)
+            except ValueError:
+                current_app.logger.error(
+                    "upload.commit.unexpected_destination",
+                    extra={
+                        "temp_file_id": temp_file_id,
+                        "expected_dir": str(user_import_dir_resolved),
+                        "actual_path": str(resolved_destination),
+                    },
+                )
+                try:
+                    shutil.move(str(resolved_destination), str(temp_path))
+                except OSError:
+                    pass
+                results.append({
+                    "tempFileId": temp_file_id,
+                    "status": "error",
+                    "message": "Failed to store file",
+                })
+                continue
 
         destination_path = resolved_destination
 

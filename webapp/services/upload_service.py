@@ -256,6 +256,10 @@ def commit_uploads(session_id: str, user_id: Optional[int], temp_file_ids: Itera
     session_dir = _determine_session_dir(session_id)
     destination_dir = _destination_base_dir() / str(user_id)
     _ensure_directory(destination_dir)
+    try:
+        destination_dir_resolved = destination_dir.resolve()
+    except OSError:
+        destination_dir_resolved = destination_dir
 
     results = []
 
@@ -283,7 +287,7 @@ def commit_uploads(session_id: str, user_id: Optional[int], temp_file_ids: Itera
         destination_path = _generate_destination_path(destination_dir, metadata.get("file_name", "uploaded"))
 
         try:
-            shutil.move(str(temp_path), str(destination_path))
+            moved_target = shutil.move(str(temp_path), str(destination_path))
         except FileNotFoundError:
             results.append({
                 "tempFileId": temp_file_id,
@@ -307,12 +311,22 @@ def commit_uploads(session_id: str, user_id: Optional[int], temp_file_ids: Itera
             })
             continue
 
-        if not destination_path.exists():
+        if moved_target:
+            try:
+                moved_to = Path(moved_target)
+            except TypeError:
+                moved_to = destination_path
+        else:
+            moved_to = destination_path
+
+        actual_destination = moved_to if moved_to.is_absolute() else destination_dir / moved_to
+
+        if not actual_destination.exists():
             current_app.logger.error(
                 "upload.commit.destination_missing",
                 extra={
                     "temp_file_id": temp_file_id,
-                    "destination": str(destination_path),
+                    "destination": str(actual_destination),
                 },
             )
             results.append({
@@ -321,6 +335,32 @@ def commit_uploads(session_id: str, user_id: Optional[int], temp_file_ids: Itera
                 "message": "Failed to store file",
             })
             continue
+
+        resolved_destination = actual_destination.resolve()
+
+        try:
+            resolved_destination.relative_to(destination_dir_resolved)
+        except ValueError:
+            current_app.logger.error(
+                "upload.commit.unexpected_destination",
+                extra={
+                    "temp_file_id": temp_file_id,
+                    "expected_dir": str(destination_dir_resolved),
+                    "actual_path": str(resolved_destination),
+                },
+            )
+            try:
+                shutil.move(str(resolved_destination), str(temp_path))
+            except OSError:
+                pass
+            results.append({
+                "tempFileId": temp_file_id,
+                "status": "error",
+                "message": "Failed to store file",
+            })
+            continue
+
+        destination_path = resolved_destination
 
         _delete_metadata(session_dir, temp_file_id)
 

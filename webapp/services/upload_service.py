@@ -319,7 +319,10 @@ def commit_uploads(session_id: str, user_id: Optional[int], temp_file_ids: Itera
         else:
             moved_to = destination_path
 
-        actual_destination = moved_to if moved_to.is_absolute() else destination_dir / moved_to
+        if moved_to.is_absolute():
+            actual_destination = moved_to
+        else:
+            actual_destination = Path.cwd() / moved_to
 
         if not actual_destination.exists():
             current_app.logger.error(

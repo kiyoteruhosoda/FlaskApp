@@ -1,4 +1,5 @@
 import io
+import shutil
 from pathlib import Path
 
 import pytest
@@ -273,6 +274,49 @@ def test_commit_upload_uses_actual_move_destination(client, auth_headers, monkey
         assert stored_file.exists()
         assert stored_file.read_bytes() == file_content
         assert result['storedPath'] == str(stored_file)
+
+
+def test_commit_upload_supports_relative_destination_dir(client, auth_headers):
+    relative_dir = Path('relative_uploads_test')
+    shutil.rmtree(relative_dir, ignore_errors=True)
+
+    app = client.application
+    original_destination = app.config['UPLOAD_DESTINATION_DIR']
+    app.config['UPLOAD_DESTINATION_DIR'] = relative_dir.as_posix()
+    relative_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        file_content = b'PNGREL'
+        prepare_resp = client.post(
+            '/api/upload/prepare',
+            data={'file': (io.BytesIO(file_content), 'relative.png')},
+            headers=auth_headers,
+            content_type='multipart/form-data',
+        )
+        temp_payload = prepare_resp.get_json()
+        assert prepare_resp.status_code == 200
+
+        commit_resp = client.post(
+            '/api/upload/commit',
+            json={'files': [{'tempFileId': temp_payload['tempFileId']}]},
+            headers=auth_headers,
+        )
+
+        assert commit_resp.status_code == 200
+        payload = commit_resp.get_json()
+        result = payload['uploaded'][0]
+        assert result['status'] == 'success'
+
+        with app.app_context():
+            user = User.query.filter_by(email='upload@example.com').first()
+            expected_dir = (Path.cwd() / relative_dir / str(user.id))
+            stored_file = expected_dir / 'relative.png'
+            assert stored_file.exists()
+            assert stored_file.read_bytes() == file_content
+            assert Path(result['storedPath']) == stored_file.resolve()
+    finally:
+        app.config['UPLOAD_DESTINATION_DIR'] = original_destination
+        shutil.rmtree(relative_dir, ignore_errors=True)
 
 
 @pytest.mark.parametrize('filename', ['payload.csv', 'payload.tsv', 'payload.json', 'payload.txt', 'payload.exe'])

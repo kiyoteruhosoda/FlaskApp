@@ -5,6 +5,7 @@ import pytest
 
 from core.models.user import User
 from webapp.extensions import db
+from webapp.services import upload_service
 from webapp.services.token_service import TokenService
 
 
@@ -156,6 +157,80 @@ def test_commit_upload_moves_files(client, auth_headers):
         stored_file = dest_dir / 'commit.png'
         assert stored_file.exists()
         assert stored_file.read_bytes() == file_content
+
+
+def test_commit_upload_handles_move_oserror(client, auth_headers, monkeypatch):
+    file_content = b'PNGDATA'
+    prepare_resp = client.post(
+        '/api/upload/prepare',
+        data={'file': (io.BytesIO(file_content), 'commit.png')},
+        headers=auth_headers,
+        content_type='multipart/form-data',
+    )
+    temp_payload = prepare_resp.get_json()
+    assert prepare_resp.status_code == 200
+
+    def fake_move(_src, _dst):
+        raise PermissionError('denied')
+
+    monkeypatch.setattr(upload_service.shutil, 'move', fake_move)
+
+    commit_resp = client.post(
+        '/api/upload/commit',
+        json={'files': [{'tempFileId': temp_payload['tempFileId']}]},
+        headers=auth_headers,
+    )
+
+    assert commit_resp.status_code == 200
+    payload = commit_resp.get_json()
+    result = payload['uploaded'][0]
+    assert result['status'] == 'error'
+    assert result['message'] == 'Failed to store file'
+
+    with client.session_transaction() as sess:
+        session_id = sess.get('upload_session_id')
+
+    assert session_id
+    tmp_dir = Path(client.application.config['UPLOAD_TMP_DIR']) / session_id
+    assert (tmp_dir / temp_payload['tempFileId']).exists()
+    assert (tmp_dir / f"{temp_payload['tempFileId']}.json").exists()
+
+
+def test_commit_upload_detects_missing_destination(client, auth_headers, monkeypatch):
+    file_content = b'PNGDATA'
+    prepare_resp = client.post(
+        '/api/upload/prepare',
+        data={'file': (io.BytesIO(file_content), 'commit.png')},
+        headers=auth_headers,
+        content_type='multipart/form-data',
+    )
+    temp_payload = prepare_resp.get_json()
+    assert prepare_resp.status_code == 200
+
+    def fake_move(_src, _dst):
+        return None
+
+    monkeypatch.setattr(upload_service.shutil, 'move', fake_move)
+
+    commit_resp = client.post(
+        '/api/upload/commit',
+        json={'files': [{'tempFileId': temp_payload['tempFileId']}]},
+        headers=auth_headers,
+    )
+
+    assert commit_resp.status_code == 200
+    payload = commit_resp.get_json()
+    result = payload['uploaded'][0]
+    assert result['status'] == 'error'
+    assert result['message'] == 'Failed to store file'
+
+    with client.session_transaction() as sess:
+        session_id = sess.get('upload_session_id')
+
+    assert session_id
+    tmp_dir = Path(client.application.config['UPLOAD_TMP_DIR']) / session_id
+    assert (tmp_dir / temp_payload['tempFileId']).exists()
+    assert (tmp_dir / f"{temp_payload['tempFileId']}.json").exists()
 
 
 @pytest.mark.parametrize('filename', ['payload.csv', 'payload.tsv', 'payload.json', 'payload.txt', 'payload.exe'])

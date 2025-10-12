@@ -291,6 +291,36 @@ def commit_uploads(session_id: str, user_id: Optional[int], temp_file_ids: Itera
                 "message": "File not found or already committed",
             })
             continue
+        except OSError as exc:
+            current_app.logger.exception(
+                "upload.commit.move_failed",
+                extra={
+                    "temp_file_id": temp_file_id,
+                    "destination": str(destination_path),
+                    "error": str(exc),
+                },
+            )
+            results.append({
+                "tempFileId": temp_file_id,
+                "status": "error",
+                "message": "Failed to store file",
+            })
+            continue
+
+        if not destination_path.exists():
+            current_app.logger.error(
+                "upload.commit.destination_missing",
+                extra={
+                    "temp_file_id": temp_file_id,
+                    "destination": str(destination_path),
+                },
+            )
+            results.append({
+                "tempFileId": temp_file_id,
+                "status": "error",
+                "message": "Failed to store file",
+            })
+            continue
 
         _delete_metadata(session_dir, temp_file_id)
 

@@ -233,6 +233,48 @@ def test_commit_upload_detects_missing_destination(client, auth_headers, monkeyp
     assert (tmp_dir / f"{temp_payload['tempFileId']}.json").exists()
 
 
+def test_commit_upload_uses_actual_move_destination(client, auth_headers, monkeypatch):
+    file_content = b'VIDDATA'
+    prepare_resp = client.post(
+        '/api/upload/prepare',
+        data={'file': (io.BytesIO(file_content), 'movie.mov')},
+        headers=auth_headers,
+        content_type='multipart/form-data',
+    )
+    temp_payload = prepare_resp.get_json()
+    assert prepare_resp.status_code == 200
+
+    def fake_move(src, dst):
+        src_path = Path(src)
+        dst_path = Path(dst)
+        renamed = dst_path.with_name(f"{dst_path.stem}_stored{dst_path.suffix}")
+        src_path.rename(renamed)
+        return str(renamed)
+
+    monkeypatch.setattr(upload_service.shutil, 'move', fake_move)
+
+    commit_resp = client.post(
+        '/api/upload/commit',
+        json={'files': [{'tempFileId': temp_payload['tempFileId']}]},
+        headers=auth_headers,
+    )
+
+    assert commit_resp.status_code == 200
+    payload = commit_resp.get_json()
+    result = payload['uploaded'][0]
+    assert result['status'] == 'success'
+    assert result['fileName'] == 'movie.mov'
+
+    app = client.application
+    with app.app_context():
+        user = User.query.filter_by(email='upload@example.com').first()
+        dest_dir = Path(app.config['UPLOAD_DESTINATION_DIR']) / str(user.id)
+        stored_file = dest_dir / 'movie_stored.mov'
+        assert stored_file.exists()
+        assert stored_file.read_bytes() == file_content
+        assert result['storedPath'] == str(stored_file)
+
+
 @pytest.mark.parametrize('filename', ['payload.csv', 'payload.tsv', 'payload.json', 'payload.txt', 'payload.exe'])
 def test_prepare_rejects_unsupported_extension(client, auth_headers, filename):
     response = client.post(

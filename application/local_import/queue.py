@@ -157,7 +157,6 @@ class LocalImportQueueProcessor:
             )
 
         canceled = False
-        duplicate_skip_forced = False
 
         for index, selection in enumerate(selections, 1):
             file_path = selection.local_file_path
@@ -220,17 +219,13 @@ class LocalImportQueueProcessor:
                     celery_task_id=celery_task_id,
                 )
 
-            effective_duplicate_regen = (
-                "skip" if duplicate_skip_forced else duplicate_regeneration
-            )
-
             import_callable = getattr(self._importer, "import_file", self._importer)
             file_result = import_callable(
                 file_path or "",
                 import_dir,
                 originals_dir,
                 session_id=active_session_id,
-                duplicate_regeneration=effective_duplicate_regen,
+                duplicate_regeneration=duplicate_regeneration,
             )
 
             result_status = file_result.get("status")
@@ -351,9 +346,6 @@ class LocalImportQueueProcessor:
                             result.add_error(f"{detail['file']}: {reason}")
                         else:
                             result.add_error(str(reason))
-
-            if result_status in {"duplicate", "duplicate_refreshed"}:
-                duplicate_skip_forced = True
 
             if task_instance and total_files:
                 task_instance.update_state(

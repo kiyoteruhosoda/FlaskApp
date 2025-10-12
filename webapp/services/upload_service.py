@@ -69,11 +69,11 @@ def _ensure_directory(path: Path) -> None:
 
 
 def _tmp_base_dir() -> Path:
-    return Path(current_app.config.get("UPLOAD_TMP_DIR", "/data/tmp/upload"))
+    return Path(current_app.config.get("UPLOAD_TMP_DIR", "/app/data/tmp/upload"))
 
 
 def _destination_base_dir() -> Path:
-    return Path(current_app.config.get("UPLOAD_DESTINATION_DIR", "/data/uploads"))
+    return Path(current_app.config.get("UPLOAD_DESTINATION_DIR", "/app/data/uploads"))
 
 
 def _max_upload_size() -> int:

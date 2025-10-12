@@ -80,7 +80,7 @@ COPY --from=builder --chown=appuser:appuser /app/core/version.json /app/core/ver
 
 RUN python -m compileall webapp/translations/ || true
 
-RUN mkdir -p data/media data/thumbs data/playback data/local_import data/tmp data/uploads \
+RUN mkdir -p data/media data/thumbs data/playback data/local_import data/tmp data/tmp/upload data/uploads \
  && chown -R appuser:appuser data/
 
 USER appuser

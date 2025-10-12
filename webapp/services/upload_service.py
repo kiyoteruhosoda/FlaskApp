@@ -76,30 +76,6 @@ def _destination_base_dir() -> Path:
     return Path(current_app.config.get("UPLOAD_DESTINATION_DIR", "/app/data/uploads"))
 
 
-def _destination_import_subdir_parts() -> tuple[str, ...]:
-    """Return sanitized path parts for the import subdirectory configuration."""
-
-    raw_value = current_app.config.get("UPLOAD_IMPORT_SUBDIR", "Import")
-    if raw_value is None:
-        return ()
-
-    # Normalize the configured value into safe relative path parts.
-    text = str(raw_value).strip()
-    if not text:
-        return ()
-
-    parts: list[str] = []
-    for part in Path(text).parts:
-        if part in {"", ".", "/"}:
-            continue
-        if part == "..":
-            # Prevent directory traversal outside of the destination base.
-            continue
-        parts.append(part)
-
-    return tuple(parts)
-
-
 def _max_upload_size() -> int:
     return int(current_app.config.get("UPLOAD_MAX_SIZE", 100 * 1024 * 1024))
 
@@ -279,9 +255,6 @@ def commit_uploads(session_id: str, user_id: Optional[int], temp_file_ids: Itera
 
     session_dir = _determine_session_dir(session_id)
     destination_dir = _destination_base_dir() / str(user_id)
-    import_subdir_parts = _destination_import_subdir_parts()
-    if import_subdir_parts:
-        destination_dir = destination_dir.joinpath(*import_subdir_parts)
     _ensure_directory(destination_dir)
     try:
         destination_dir_resolved = destination_dir.resolve()

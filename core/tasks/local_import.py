@@ -1042,10 +1042,43 @@ _file_importer = LocalImportFileImporter(
     supported_extensions=SUPPORTED_EXTENSIONS,
 )
 
+def _invoke_current_import_single_file(
+    file_path: str,
+    import_dir: str,
+    originals_dir: str,
+    *,
+    session_id: Optional[str] = None,
+    duplicate_regeneration: Optional[str] = None,
+) -> Dict:
+    from core.tasks import local_import as local_import_module
+
+    importer = local_import_module.import_single_file
+    kwargs = {
+        "session_id": session_id,
+        "duplicate_regeneration": duplicate_regeneration,
+    }
+    try:
+        return importer(
+            file_path,
+            import_dir,
+            originals_dir,
+            **kwargs,
+        )
+    except TypeError as exc:
+        if "duplicate_regeneration" in str(exc):
+            kwargs.pop("duplicate_regeneration", None)
+            return importer(
+                file_path,
+                import_dir,
+                originals_dir,
+                **kwargs,
+            )
+        raise
+
 _queue_processor = LocalImportQueueProcessor(
     db=db,
     logger=_task_logger,
-    importer=_file_importer,
+    importer=_invoke_current_import_single_file,
     cancel_requested=_session_service.cancel_requested,
 )
 

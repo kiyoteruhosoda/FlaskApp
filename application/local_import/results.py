@@ -106,6 +106,7 @@ def build_thumbnail_task_snapshot(
             celery_records[mid] = record
 
     summary["status"] = "progress"
+    fatal_errors = 0
 
     for row in selection_rows:
         media_id = row.media_id
@@ -131,6 +132,9 @@ def build_thumbnail_task_snapshot(
         )
         has_playback = bool(getattr(row, "has_playback", False))
 
+        fatal_error = False
+        error_source = None
+
         if row.thumbnail_rel_path:
             final_status = "completed"
             retry_flag = False
@@ -151,11 +155,14 @@ def build_thumbnail_task_snapshot(
                     CeleryTaskStatus.CANCELED,
                 }:
                     final_status = "error"
+                    fatal_error = True
+                    error_source = "celery"
                 else:
                     final_status = base_status or "progress"
             else:
                 if base_status == "error":
                     final_status = "error"
+                    error_source = "recorded"
                 elif retry_flag or base_status in {"progress", "pending", "processing"}:
                     final_status = "progress"
                 elif base_status == "completed":
@@ -169,6 +176,8 @@ def build_thumbnail_task_snapshot(
                 retry_flag = True
             elif playback_status == "error":
                 final_status = "error"
+                fatal_error = True
+                error_source = "playback"
             elif playback_status == "done":
                 if not row.thumbnail_rel_path and final_status != "error":
                     final_status = base_status or "progress"
@@ -181,6 +190,8 @@ def build_thumbnail_task_snapshot(
 
         if final_status == "error":
             summary["failed"] += 1
+            if fatal_error:
+                fatal_errors += 1
         elif final_status == "completed":
             summary["completed"] += 1
         else:
@@ -202,11 +213,19 @@ def build_thumbnail_task_snapshot(
             entry_payload["retryDetails"] = retry_details
         if record is not None:
             entry_payload["celeryTaskStatus"] = record.status.value
+        if final_status == "error":
+            entry_payload["errorSource"] = error_source or "unknown"
+            if fatal_error:
+                entry_payload["fatal"] = True
 
         summary["entries"].append(entry_payload)
 
-    if summary["failed"] > 0:
+    summary["fatal"] = fatal_errors
+
+    if fatal_errors > 0:
         summary["status"] = "error"
+    elif summary["failed"] > 0:
+        summary["status"] = "warning"
     elif summary["pending"] > 0:
         summary["status"] = "progress"
     else:

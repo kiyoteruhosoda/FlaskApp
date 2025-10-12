@@ -157,6 +157,7 @@ class LocalImportQueueProcessor:
             )
 
         canceled = False
+        duplicate_skip_forced = False
 
         for index, selection in enumerate(selections, 1):
             file_path = selection.local_file_path
@@ -219,12 +220,17 @@ class LocalImportQueueProcessor:
                     celery_task_id=celery_task_id,
                 )
 
-            file_result = self._importer.import_file(
+            effective_duplicate_regen = (
+                "skip" if duplicate_skip_forced else duplicate_regeneration
+            )
+
+            import_callable = getattr(self._importer, "import_file", self._importer)
+            file_result = import_callable(
                 file_path or "",
                 import_dir,
                 originals_dir,
                 session_id=active_session_id,
-                duplicate_regeneration=duplicate_regeneration,
+                duplicate_regeneration=effective_duplicate_regen,
             )
 
             result_status = file_result.get("status")
@@ -294,7 +300,7 @@ class LocalImportQueueProcessor:
             try:
                 if file_result["success"]:
                     selection.status = "imported"
-                    selection.completed_at = datetime.now(timezone.utc)
+                    selection.finished_at = datetime.now(timezone.utc)
                     selection.google_media_id = file_result.get("media_google_id")
                     selection.media_id = file_result.get("media_id")
                 elif (
@@ -308,7 +314,7 @@ class LocalImportQueueProcessor:
                 else:
                     selection.status = "failed"
                     selection.error = detail["reason"]
-                    selection.completed_at = datetime.now(timezone.utc)
+                    selection.finished_at = datetime.now(timezone.utc)
                     existing_google_id = file_result.get("media_google_id")
                     if existing_google_id:
                         selection.google_media_id = existing_google_id
@@ -345,6 +351,9 @@ class LocalImportQueueProcessor:
                             result.add_error(f"{detail['file']}: {reason}")
                         else:
                             result.add_error(str(reason))
+
+            if result_status in {"duplicate", "duplicate_refreshed"}:
+                duplicate_skip_forced = True
 
             if task_instance and total_files:
                 task_instance.update_state(

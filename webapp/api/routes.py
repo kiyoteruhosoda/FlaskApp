@@ -13,6 +13,7 @@ from pathlib import Path
 from urllib.parse import urlencode, quote
 from email.utils import formatdate
 from uuid import uuid4
+from typing import Any
 
 from flask import (
     current_app,
@@ -3102,17 +3103,79 @@ def _prepare_local_import_path(path_value):
 def _resolve_local_import_config():
     from webapp.config import Config
 
-    import_dir_raw = current_app.config.get("LOCAL_IMPORT_DIR") or Config.LOCAL_IMPORT_DIR
-    originals_dir_raw = current_app.config.get("FPV_NAS_ORIGINALS_DIR") or Config.FPV_NAS_ORIGINALS_DIR
+    directory_specs = [
+        ("LOCAL_IMPORT_DIR", "import"),
+        ("FPV_NAS_ORIGINALS_DIR", "originals"),
+        ("FPV_NAS_THUMBS_DIR", "thumbs"),
+        ("FPV_NAS_PLAY_DIR", "playback"),
+    ]
 
-    import_dir_info = _prepare_local_import_path(import_dir_raw)
-    originals_dir_info = _prepare_local_import_path(originals_dir_raw)
+    directories: list[dict[str, Any]] = []
+
+    for config_key, key in directory_specs:
+        configured_value = (
+            current_app.config.get(config_key)
+            or getattr(Config, config_key, None)
+            or None
+        )
+
+        candidates = storage_path_candidates(config_key)
+        resolved_path = first_existing_storage_path(config_key)
+        if not resolved_path and candidates:
+            resolved_path = candidates[0]
+        if not resolved_path:
+            resolved_path = configured_value
+
+        path_info = _prepare_local_import_path(resolved_path)
+        path_info["configured"] = configured_value
+        path_info["candidates"] = candidates
+
+        normalized_configured = (
+            os.path.abspath(configured_value)
+            if configured_value and isinstance(configured_value, str)
+            else None
+        )
+        normalized_effective = (
+            os.path.abspath(path_info["absolute"])
+            if path_info.get("absolute")
+            else None
+        )
+        if normalized_configured and normalized_effective:
+            source = (
+                "configured"
+                if normalized_configured == normalized_effective
+                else "fallback"
+            )
+        elif configured_value and path_info.get("raw"):
+            source = "configured"
+        elif path_info.get("raw"):
+            source = "fallback"
+        else:
+            source = "unknown"
+        path_info["source"] = source
+
+        directories.append(
+            {
+                "key": key,
+                "config_key": config_key,
+                "info": path_info,
+            }
+        )
+
+    lookup = {entry["config_key"]: entry for entry in directories}
+
+    def _info_or_empty(config_key: str) -> dict[str, Any]:
+        entry = lookup.get(config_key)
+        if entry:
+            return entry["info"]
+        return _prepare_local_import_path(None)
 
     return {
-        "import_dir": import_dir_raw,
-        "originals_dir": originals_dir_raw,
-        "import_dir_info": import_dir_info,
-        "originals_dir_info": originals_dir_info,
+        "import_dir": lookup.get("LOCAL_IMPORT_DIR", {}).get("info", {}).get("raw"),
+        "originals_dir": lookup.get("FPV_NAS_ORIGINALS_DIR", {}).get("info", {}).get("raw"),
+        "import_dir_info": _info_or_empty("LOCAL_IMPORT_DIR"),
+        "originals_dir_info": _info_or_empty("FPV_NAS_ORIGINALS_DIR"),
+        "directories": directories,
     }
 
 
@@ -3124,6 +3187,30 @@ def local_import_status():
 
     import_dir_info = config_info["import_dir_info"]
     originals_dir_info = config_info["originals_dir_info"]
+
+    directory_labels = {
+        "LOCAL_IMPORT_DIR": _("Import directory"),
+        "FPV_NAS_ORIGINALS_DIR": _("Originals directory"),
+        "FPV_NAS_THUMBS_DIR": _("Thumbnails directory"),
+        "FPV_NAS_PLAY_DIR": _("Playback directory"),
+    }
+
+    directories_payload: list[dict[str, Any]] = []
+    for entry in config_info.get("directories", []):
+        info = entry.get("info", {})
+        directories_payload.append(
+            {
+                "key": entry.get("key"),
+                "config_key": entry.get("config_key"),
+                "label": directory_labels.get(entry.get("config_key"), entry.get("config_key")),
+                "path": info.get("raw"),
+                "absolute": info.get("absolute"),
+                "realpath": info.get("realpath"),
+                "exists": bool(info.get("exists")),
+                "configured": info.get("configured"),
+                "source": info.get("source"),
+            }
+        )
 
     # 取り込み対象ファイル数の計算
     file_count = 0
@@ -3151,7 +3238,13 @@ def local_import_status():
         originals_dir=config_info["originals_dir"],
         originals_dir_exists=originals_dir_info["exists"],
         pending_files=file_count,
+        directory_status={
+            str(entry.get("config_key")): entry.get("exists")
+            for entry in directories_payload
+        },
     )
+
+    all_directories_ready = all(entry.get("exists") for entry in directories_payload)
 
     return jsonify({
         "config": {
@@ -3166,8 +3259,9 @@ def local_import_status():
         },
         "status": {
             "pending_files": file_count,
-            "ready": import_dir_info["exists"] and originals_dir_info["exists"],
+            "ready": all_directories_ready,
         },
+        "directories": directories_payload,
         "defaults": {
             "duplicateRegeneration": "regenerate",
         },

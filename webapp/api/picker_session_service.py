@@ -11,7 +11,10 @@ from flask import current_app
 
 from .pagination import PaginationParams, Paginator
 from ..extensions import db
-from sqlalchemy import or_, func
+from sqlalchemy import or_, func, insert as sa_insert
+from sqlalchemy.dialects.mysql import insert as mysql_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.exc import IntegrityError
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
 from core.models.job_sync import JobSync
@@ -436,8 +439,10 @@ class PickerSessionService:
                     import_task_status = "progress"
                 elif import_failed > 0:
                     import_task_status = "error"
-                elif import_success > 0 or only_duplicates:
+                elif import_success > 0:
                     import_task_status = "completed"
+                elif only_duplicates:
+                    import_task_status = "pending"
                 elif only_manual_skipped or import_total > 0:
                     import_task_status = "pending"
                 else:
@@ -490,7 +495,12 @@ class PickerSessionService:
             elif stage_before not in {"canceled"}:
                 if thumbnails_failed:
                     stage_after = "error"
-                elif pending_remaining > 0 or thumbnails_pending or only_manual_skipped:
+                elif (
+                    pending_remaining > 0
+                    or thumbnails_pending
+                    or only_manual_skipped
+                    or only_duplicates
+                ):
                     stage_after = "progress"
                 else:
                     stage_after = "completed"
@@ -1010,11 +1020,86 @@ class PickerSessionService:
 
         PickerSessionService._apply_meta(mi, pmi, meta)
 
-        pmi.updated_at = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)
+        pmi.created_at = pmi.created_at or now
+        pmi.updated_at = now
+
         db.session.add(mi)
-        db.session.add(pmi)
+
+        selection_table = PickerSelection.__table__
+        selection_values = {
+            "session_id": pmi.session_id,
+            "google_media_id": pmi.google_media_id,
+            "status": pmi.status,
+            "create_time": pmi.create_time,
+            "base_url": pmi.base_url,
+            "base_url_fetched_at": pmi.base_url_fetched_at,
+            "base_url_valid_until": pmi.base_url_valid_until,
+            "created_at": pmi.created_at,
+            "updated_at": pmi.updated_at,
+        }
+
+        bind = db.session.bind
+        dialect_name = bind.dialect.name if bind is not None else ""
+        statement = None
+
+        if dialect_name == "mysql":
+            insert_stmt = mysql_insert(selection_table).values(**selection_values)
+            update_values = {
+                "updated_at": insert_stmt.inserted.updated_at,
+                "base_url": insert_stmt.inserted.base_url,
+                "base_url_fetched_at": insert_stmt.inserted.base_url_fetched_at,
+                "base_url_valid_until": insert_stmt.inserted.base_url_valid_until,
+            }
+            if is_duplicate:
+                update_values["status"] = "dup"
+            else:
+                update_values["status"] = insert_stmt.inserted.status
+            statement = insert_stmt.on_duplicate_key_update(**update_values)
+        elif dialect_name == "sqlite":
+            insert_stmt = sqlite_insert(selection_table).values(**selection_values)
+            excluded = insert_stmt.excluded
+            update_values = {
+                "updated_at": excluded.updated_at,
+                "base_url": excluded.base_url,
+                "base_url_fetched_at": excluded.base_url_fetched_at,
+                "base_url_valid_until": excluded.base_url_valid_until,
+            }
+            if is_duplicate:
+                update_values["status"] = "dup"
+            else:
+                update_values["status"] = excluded.status
+            statement = insert_stmt.on_conflict_do_update(
+                index_elements=[selection_table.c.session_id, selection_table.c.google_media_id],
+                set_=update_values,
+            )
+        else:
+            statement = sa_insert(selection_table).values(**selection_values)
+
+        try:
+            db.session.execute(statement)
+        except IntegrityError:
+            # 他のトランザクションが先に同一キーで登録した場合は既存行をdup扱いに更新
+            existing = PickerSelection.query.filter_by(
+                session_id=ps.id, google_media_id=item_id
+            ).with_for_update(nowait=False).first()
+            if existing:
+                if is_duplicate and existing.status != "dup":
+                    existing.status = "dup"
+                    existing.updated_at = now
+                db.session.flush([existing])
+                return existing
+            raise
+
         db.session.flush()
-        return pmi
+        selection = PickerSelection.query.filter_by(
+            session_id=ps.id, google_media_id=item_id
+        ).first()
+        if selection and is_duplicate and selection.status != "dup":
+            selection.status = "dup"
+            selection.updated_at = now
+            db.session.flush([selection])
+        return selection
 
     @staticmethod
     def _apply_meta(mi: MediaItem, pmi: PickerSelection, meta: dict) -> None:

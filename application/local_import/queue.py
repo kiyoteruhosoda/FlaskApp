@@ -311,6 +311,11 @@ class LocalImportQueueProcessor:
                     existing_google_id = file_result.get("media_google_id")
                     if existing_google_id:
                         selection.google_media_id = existing_google_id
+                    existing_media_id = file_result.get("media_id")
+                    if existing_media_id is not None:
+                        selection.media_id = existing_media_id
+                    if selection.finished_at is None:
+                        selection.finished_at = datetime.now(timezone.utc)
                 else:
                     selection.status = "failed"
                     selection.error = detail["reason"]

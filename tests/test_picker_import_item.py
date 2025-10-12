@@ -182,6 +182,7 @@ def test_picker_import_item_dup(monkeypatch, app, tmp_path):
         pmi = PickerSelection.query.get(pmi_id)
         assert res["ok"] is True
         assert pmi.status == "dup"
+        assert pmi.finished_at is not None
         assert pmi.locked_by is None
         assert pmi.lock_heartbeat_at is None
         assert Media.query.count() == 1

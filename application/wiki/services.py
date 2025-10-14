@@ -1,41 +1,64 @@
-"""
-Wiki機能のアプリケーションサービス - ユースケースの実装
-"""
+"""Wiki機能のアプリケーションサービス - ユースケースの実装"""
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Callable
 from datetime import datetime, timezone
-import re
 from core.models.wiki.models import WikiPage, WikiCategory, WikiRevision
-from infrastructure.wiki.repositories import WikiPageRepository, WikiCategoryRepository, WikiRevisionRepository
-from core.models.user import User
+from infrastructure.wiki.repositories import (
+    WikiPageRepository,
+    WikiCategoryRepository,
+    WikiRevisionRepository,
+)
+from domain.wiki.slug import SlugService
 
 
 class WikiPageService:
     """Wikiページ関連のビジネスロジック"""
     
-    def __init__(self):
-        self.page_repo = WikiPageRepository()
-        self.revision_repo = WikiRevisionRepository()
-        self.category_repo = WikiCategoryRepository()
+    def __init__(
+        self,
+        page_repo: WikiPageRepository | None = None,
+        revision_repo: WikiRevisionRepository | None = None,
+        category_repo: WikiCategoryRepository | None = None,
+        slug_service: SlugService | None = None,
+    ) -> None:
+        self.page_repo = page_repo or WikiPageRepository()
+        self.revision_repo = revision_repo or WikiRevisionRepository()
+        self.category_repo = category_repo or WikiCategoryRepository()
+        self.slug_service = slug_service or SlugService()
     
     def create_page(self, title: str, content: str, user_id: int, 
                    slug: Optional[str] = None, parent_id: Optional[int] = None, 
                    category_ids: Optional[List[int]] = None) -> WikiPage:
         """新しいWikiページを作成"""
         
-        # スラッグの自動生成
-        if not slug:
-            slug = self._generate_slug(title)
-        
-        # スラッグの重複チェック
-        if self.page_repo.find_by_slug(slug):
-            slug = self._generate_unique_slug(slug)
-        
+        exists: Callable[[str], bool] = lambda candidate: self.page_repo.find_by_slug(candidate) is not None
+
+        if slug:
+            try:
+                slug_candidate = self.slug_service.from_user_input(slug)
+            except ValueError:
+                try:
+                    slug_candidate = self.slug_service.generate_from_text(slug)
+                except ValueError:
+                    slug_candidate = self.slug_service.generate_from_text(title)
+            slug_value = self.slug_service.ensure_unique(
+                slug_candidate,
+                exists,
+            ).value
+        else:
+            try:
+                slug_value = self.slug_service.generate_unique_from_text(title, exists).value
+            except ValueError:
+                slug_value = self.slug_service.ensure_unique(
+                    self.slug_service.from_user_input("page"),
+                    exists,
+                ).value
+
         # ページ作成
         page = WikiPage(
             title=title,
             content=content,
-            slug=slug,
+            slug=slug_value,
             parent_id=parent_id,
             created_by_id=user_id,
             updated_by_id=user_id
@@ -135,26 +158,10 @@ class WikiPageService:
         """ページの履歴を取得"""
         return self.revision_repo.find_by_page_id(page_id, limit)
     
-    def _generate_slug(self, title: str) -> str:
-        """タイトルからスラッグを生成"""
-        # 日本語対応の簡易スラッグ生成
-        slug = re.sub(r'[^\w\s-]', '', title.lower())
-        slug = re.sub(r'[-\s]+', '-', slug)
-        return slug.strip('-')
-    
-    def _generate_unique_slug(self, base_slug: str) -> str:
-        """重複しないスラッグを生成"""
-        counter = 1
-        while True:
-            new_slug = f"{base_slug}-{counter}"
-            if not self.page_repo.find_by_slug(new_slug):
-                return new_slug
-            counter += 1
-    
     def _create_revision(self, page: WikiPage, user_id: int, summary: Optional[str]) -> WikiRevision:
         """リビジョンを作成"""
         revision_number = self.revision_repo.find_latest_revision_number(page.id) + 1
-        
+
         revision = WikiRevision(
             page_id=page.id,
             title=page.title,
@@ -170,26 +177,47 @@ class WikiPageService:
 class WikiCategoryService:
     """Wikiカテゴリ関連のビジネスロジック"""
     
-    def __init__(self):
-        self.category_repo = WikiCategoryRepository()
+    def __init__(
+        self,
+        category_repo: WikiCategoryRepository | None = None,
+        slug_service: SlugService | None = None,
+    ) -> None:
+        self.category_repo = category_repo or WikiCategoryRepository()
+        self.slug_service = slug_service or SlugService()
     
     def create_category(self, name: str, description: Optional[str] = None, 
                        slug: Optional[str] = None) -> WikiCategory:
         """新しいカテゴリを作成"""
         
-        if not slug:
-            slug = self._generate_slug(name)
-        
-        # スラッグの重複チェック
-        if self.category_repo.find_by_slug(slug):
-            slug = self._generate_unique_slug(slug)
-        
+        exists: Callable[[str], bool] = lambda candidate: self.category_repo.find_by_slug(candidate) is not None
+
+        if slug:
+            try:
+                slug_candidate = self.slug_service.from_user_input(slug)
+            except ValueError:
+                try:
+                    slug_candidate = self.slug_service.generate_from_text(slug)
+                except ValueError:
+                    slug_candidate = self.slug_service.generate_from_text(name)
+            slug_value = self.slug_service.ensure_unique(
+                slug_candidate,
+                exists,
+            ).value
+        else:
+            try:
+                slug_value = self.slug_service.generate_unique_from_text(name, exists).value
+            except ValueError:
+                slug_value = self.slug_service.ensure_unique(
+                    self.slug_service.from_user_input("category"),
+                    exists,
+                ).value
+
         category = WikiCategory(
             name=name,
             description=description,
-            slug=slug
+            slug=slug_value
         )
-        
+
         return self.category_repo.save(category)
     
     def get_all_categories(self) -> List[WikiCategory]:
@@ -200,17 +228,3 @@ class WikiCategoryService:
         """スラッグでカテゴリを取得"""
         return self.category_repo.find_by_slug(slug)
     
-    def _generate_slug(self, name: str) -> str:
-        """名前からスラッグを生成"""
-        slug = re.sub(r'[^\w\s-]', '', name.lower())
-        slug = re.sub(r'[-\s]+', '-', slug)
-        return slug.strip('-')
-    
-    def _generate_unique_slug(self, base_slug: str) -> str:
-        """重複しないスラッグを生成"""
-        counter = 1
-        while True:
-            new_slug = f"{base_slug}-{counter}"
-            if not self.category_repo.find_by_slug(new_slug):
-                return new_slug
-            counter += 1

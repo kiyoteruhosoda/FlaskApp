@@ -19,6 +19,7 @@ from domain.wiki.markdown import (
     SingleNewlineProcessor,
     UrlAutoLinker,
 )
+from domain.wiki.slug import SlugService
 
 from ..timezone import convert_to_timezone
 
@@ -32,6 +33,7 @@ _newline_processor = SingleNewlineProcessor()
 _sanitizer = HtmlSanitizer()
 _diagram_processor = MermaidDiagramProcessor()
 _html_escaper = HtmlEscaper()
+_slug_service = SlugService()
 _renderer = MarkdownRenderer(
     auto_linker=_auto_linker,
     preprocessor=_newline_processor,
@@ -106,26 +108,11 @@ def generate_slug(title):
     """タイトルからスラッグを生成"""
     if not title:
         return ""
-    
-    # 日本語やその他の文字を適切に処理
-    import unicodedata
-    
-    # Unicode正規化
-    title = unicodedata.normalize('NFKC', title)
-    
-    # 小文字に変換
-    slug = title.lower()
-    
-    # 英数字とハイフン、アンダースコア以外を除去
-    slug = re.sub(r'[^\w\s-]', '', slug)
-    
-    # スペースをハイフンに変換
-    slug = re.sub(r'[-\s]+', '-', slug)
-    
-    # 先頭末尾のハイフンを除去
-    slug = slug.strip('-')
-    
-    return slug
+
+    try:
+        return _slug_service.generate_from_text(title).value
+    except ValueError:
+        return ""
 
 
 def format_datetime(dt):
@@ -213,12 +200,7 @@ def reading_time(text, wpm=200):
 
 def validate_slug(slug):
     """スラッグの妥当性をチェック"""
-    if not slug:
-        return False
-    
-    # 英数字、ハイフン、アンダースコアのみ許可
-    pattern = r'^[a-zA-Z0-9_-]+$'
-    return bool(re.match(pattern, slug))
+    return _slug_service.is_valid(slug)
 
 
 def sanitize_filename(filename):

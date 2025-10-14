@@ -9,6 +9,7 @@ from .markdown import (
     SingleNewlineProcessor,
     UrlAutoLinker,
 )
+from .slug import Slug, SlugNormalizer, SlugService
 
 __all__ = [
     "HtmlEscaper",
@@ -18,4 +19,7 @@ __all__ = [
     "MermaidDiagramProcessor",
     "SingleNewlineProcessor",
     "UrlAutoLinker",
+    "Slug",
+    "SlugNormalizer",
+    "SlugService",
 ]

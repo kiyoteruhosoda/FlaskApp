@@ -25,6 +25,10 @@ from application.wiki.dto import (
     WikiPageUpdateResult,
 )
 from application.wiki.services import WikiCategoryService, WikiPageService
+from domain.wiki.commands import (
+    WikiPageCommandFactory,
+)
+from domain.wiki.permissions import EditorContext, WikiPagePermissionService
 from domain.wiki.exceptions import (
     WikiAccessDeniedError,
     WikiOperationError,
@@ -103,34 +107,31 @@ class WikiPageFormPreparationUseCase:
 class WikiPageCreationUseCase:
     """Wikiページ作成ユースケース"""
 
-    def __init__(self, page_service: Optional[WikiPageService] = None) -> None:
+    def __init__(
+        self,
+        page_service: Optional[WikiPageService] = None,
+        command_factory: Optional[WikiPageCommandFactory] = None,
+    ) -> None:
         self.page_service = page_service or WikiPageService()
+        self.command_factory = command_factory or WikiPageCommandFactory()
 
     def execute(self, data: WikiPageCreateInput) -> WikiPageCreationResult:
-        title = (data.title or "").strip()
-        content = (data.content or "").strip()
-        slug = (data.slug or "").strip() or None
-
-        if not title or not content:
-            raise WikiValidationError("タイトルと内容は必須です")
-
-        try:
-            parent_id = int(data.parent_id) if data.parent_id else None
-        except (TypeError, ValueError) as exc:
-            raise WikiValidationError("親ページの指定が不正です") from exc
-
-        try:
-            category_ids = [int(cid) for cid in data.category_ids if cid]
-        except ValueError as exc:
-            raise WikiValidationError("カテゴリの指定が不正です") from exc
+        command = self.command_factory.build_creation_command(
+            title=data.title,
+            content=data.content,
+            slug=data.slug,
+            parent_id=data.parent_id,
+            category_ids=data.category_ids,
+            author_id=data.author_id,
+        )
 
         page = self.page_service.create_page(
-            title=title,
-            content=content,
-            user_id=data.author_id,
-            slug=slug,
-            parent_id=parent_id,
-            category_ids=category_ids,
+            title=command.title,
+            content=command.content,
+            user_id=command.author_id,
+            slug=command.slug,
+            parent_id=command.parent_id,
+            category_ids=list(command.category_ids),
         )
 
         return WikiPageCreationResult(page=page)
@@ -143,9 +144,11 @@ class WikiPageEditPreparationUseCase:
         self,
         page_service: Optional[WikiPageService] = None,
         category_service: Optional[WikiCategoryService] = None,
+        permission_service: Optional[WikiPagePermissionService] = None,
     ) -> None:
         self.page_service = page_service or WikiPageService()
         self.category_service = category_service or WikiCategoryService()
+        self.permission_service = permission_service or WikiPagePermissionService()
 
     def execute(
         self,
@@ -157,60 +160,59 @@ class WikiPageEditPreparationUseCase:
         if not page:
             raise WikiPageNotFoundError(f"slug={slug}")
 
-        if not self._can_edit(page.created_by_id, user_id, has_admin_rights):
+        editor = EditorContext(user_id=user_id, is_admin=has_admin_rights)
+        if not self.permission_service.can_edit(page, editor):
             raise WikiAccessDeniedError("編集権限がありません")
 
         categories = self.category_service.get_all_categories()
         return WikiPageEditContext(page=page, categories=categories)
 
-    @staticmethod
-    def _can_edit(page_owner_id: int, user_id: int, has_admin_rights: bool) -> bool:
-        return page_owner_id == user_id or has_admin_rights
-
 
 class WikiPageUpdateUseCase:
     """ページ更新ユースケース"""
 
-    def __init__(self, page_service: Optional[WikiPageService] = None) -> None:
+    def __init__(
+        self,
+        page_service: Optional[WikiPageService] = None,
+        command_factory: Optional[WikiPageCommandFactory] = None,
+        permission_service: Optional[WikiPagePermissionService] = None,
+    ) -> None:
         self.page_service = page_service or WikiPageService()
+        self.command_factory = command_factory or WikiPageCommandFactory()
+        self.permission_service = permission_service or WikiPagePermissionService()
 
     def execute(self, data: WikiPageUpdateInput) -> WikiPageUpdateResult:
-        page = self.page_service.get_page_by_slug(data.slug)
+        command = self.command_factory.build_update_command(
+            slug=data.slug,
+            title=data.title,
+            content=data.content,
+            change_summary=data.change_summary,
+            category_ids=data.category_ids,
+            editor_id=data.editor_id,
+            has_admin_rights=data.has_admin_rights,
+        )
+
+        page = self.page_service.get_page_by_slug(command.slug)
         if not page:
-            raise WikiPageNotFoundError(f"slug={data.slug}")
+            raise WikiPageNotFoundError(f"slug={command.slug}")
 
-        if not self._can_edit(page.created_by_id, data.editor_id, data.has_admin_rights):
+        editor = EditorContext(user_id=command.editor_id, is_admin=command.has_admin_rights)
+        if not self.permission_service.can_edit(page, editor):
             raise WikiAccessDeniedError("編集権限がありません")
-
-        title = (data.title or "").strip()
-        content = (data.content or "").strip()
-        if not title or not content:
-            raise WikiValidationError("タイトルと内容は必須です")
-
-        change_summary = (data.change_summary or "").strip() or None
-
-        try:
-            category_ids = [int(cid) for cid in data.category_ids if cid]
-        except ValueError as exc:
-            raise WikiValidationError("カテゴリの指定が不正です") from exc
 
         updated_page = self.page_service.update_page(
             page_id=page.id,
-            title=title,
-            content=content,
-            user_id=data.editor_id,
-            change_summary=change_summary,
-            category_ids=category_ids,
+            title=command.title,
+            content=command.content,
+            user_id=command.editor_id,
+            change_summary=command.change_summary,
+            category_ids=list(command.category_ids),
         )
 
         if not updated_page:
             raise WikiOperationError("ページの更新に失敗しました")
 
         return WikiPageUpdateResult(page=updated_page)
-
-    @staticmethod
-    def _can_edit(page_owner_id: int, user_id: int, has_admin_rights: bool) -> bool:
-        return page_owner_id == user_id or has_admin_rights
 
 
 class WikiPageSearchUseCase:

@@ -183,16 +183,27 @@ class PickerSessionService:
         dup_count = normalized.get("dup", 0)
         skipped_count = normalized.get("skipped", 0)
 
+        only_duplicates = (
+            imported_count == 0
+            and failed_count == 0
+            and dup_count > 0
+            and skipped_count == 0
+        )
+
         only_skipped = (
             imported_count == 0
             and failed_count == 0
-            and (dup_count + skipped_count) > 0
+            and skipped_count > 0
+            and dup_count == 0
         )
 
         if failed_count > 0:
             return "error"
 
         if imported_count > 0:
+            return "imported"
+
+        if only_duplicates:
             return "imported"
 
         if only_skipped:
@@ -376,7 +387,7 @@ class PickerSessionService:
                     ps.last_progress_at = now
                     ps.updated_at = now
                     status_changed = True
-            elif ps.status in ("processing", "importing", "error", "failed", "pending"):
+            elif ps.status in ("processing", "importing", "error", "failed", "pending", "imported"):
                 new_status = PickerSessionService._determine_completion_status(counts)
                 if new_status and ps.status != new_status:
                     current_app.logger.info(
@@ -439,10 +450,8 @@ class PickerSessionService:
                     import_task_status = "progress"
                 elif import_failed > 0:
                     import_task_status = "error"
-                elif import_success > 0:
+                elif import_success > 0 or only_duplicates:
                     import_task_status = "completed"
-                elif only_duplicates:
-                    import_task_status = "pending"
                 elif only_manual_skipped or import_total > 0:
                     import_task_status = "pending"
                 else:
@@ -492,6 +501,8 @@ class PickerSessionService:
             if stage_before == "expanding":
                 if pending_remaining > 0 or thumbnails_pending or only_manual_skipped:
                     stage_after = "progress"
+                elif thumbnails_failed:
+                    stage_after = "error"
             elif stage_before not in {"canceled"}:
                 if thumbnails_failed:
                     stage_after = "error"
@@ -499,7 +510,6 @@ class PickerSessionService:
                     pending_remaining > 0
                     or thumbnails_pending
                     or only_manual_skipped
-                    or only_duplicates
                 ):
                     stage_after = "progress"
                 else:

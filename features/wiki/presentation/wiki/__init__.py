@@ -8,7 +8,7 @@ bp = Blueprint(
     "wiki",
     __name__,
     url_prefix="/wiki",
-    template_folder="../templates/wiki",
+    template_folder="templates",
 )
 
 # Jinja2テンプレートフィルタを登録

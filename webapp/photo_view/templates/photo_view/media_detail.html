@@ -432,6 +432,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const playbackUnavailableText = '{{ _("A playback rendition is not yet available for this video.")|escapejs }}';
   const playbackRequestErrorText = '{{ _("We could not retrieve the video playback URL.")|escapejs }}';
   const playbackStreamErrorText = '{{ _("An error occurred while playing this video.")|escapejs }}';
+  const playbackOriginalRequestErrorText = '{{ _("We could not retrieve the original video.")|escapejs }}';
+  const playbackOriginalUnavailableText = '{{ _("The original video file could not be played.")|escapejs }}';
   const playbackRetryText = '{{ _("Retry")|escapejs }}';
   const loadingVisuallyHiddenText = '{{ _("Loading...")|escapejs }}';
 
@@ -685,7 +687,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const videoContainer = document.createElement('div');
     videoContainer.className = 'media-video-container';
 
-    const showMessage = (message, { title = null, allowRetry = false } = {}) => {
+    const showMessage = (message, { title = null, allowRetry = false, onRetry = null } = {}) => {
       if (!mediaDisplay.contains(videoContainer)) {
         return;
       }
@@ -708,7 +710,11 @@ document.addEventListener('DOMContentLoaded', () => {
         retryBtn.className = 'btn btn-outline-light btn-sm mt-3';
         retryBtn.textContent = playbackRetryText;
         retryBtn.addEventListener('click', () => {
-          loadPlayback();
+          if (typeof onRetry === 'function') {
+            onRetry();
+          } else {
+            loadPlayback();
+          }
         });
         wrapper.appendChild(retryBtn);
       }
@@ -731,7 +737,28 @@ document.addEventListener('DOMContentLoaded', () => {
       videoContainer.appendChild(wrapper);
     };
 
-    const attachVideo = (src) => {
+    const canStreamOriginalVideo = (mediaItem) => {
+      if (!mediaItem) {
+        return false;
+      }
+      const mime = String(mediaItem.mime_type || '').toLowerCase();
+      const filename = String(mediaItem.filename || '').toLowerCase();
+      if (mime.startsWith('video/')) {
+        if (mime === 'video/quicktime') {
+          return filename.endsWith('.mp4') || filename.endsWith('.m4v');
+        }
+        return true;
+      }
+      return (
+        filename.endsWith('.mp4') ||
+        filename.endsWith('.m4v') ||
+        filename.endsWith('.webm') ||
+        filename.endsWith('.mpg') ||
+        filename.endsWith('.mpeg')
+      );
+    };
+
+    const attachVideo = (src, { onErrorRetry = null } = {}) => {
       if (!mediaDisplay.contains(videoContainer)) {
         return;
       }
@@ -745,18 +772,66 @@ document.addEventListener('DOMContentLoaded', () => {
       videoEl.poster = `/api/media/${media.id}/thumbnail?size=1024`;
       videoEl.src = src;
       videoEl.addEventListener('error', () => {
-        showMessage(playbackStreamErrorText, { allowRetry: true });
+        const retryHandler = typeof onErrorRetry === 'function' ? onErrorRetry : null;
+        showMessage(playbackStreamErrorText, {
+          allowRetry: true,
+          onRetry: retryHandler || loadPlayback,
+        });
       });
       videoContainer.appendChild(videoEl);
     };
 
-    const loadPlayback = async () => {
-      const playbackInfo = media.playback || {};
-      if (!media.has_playback) {
+    const loadOriginalVideo = async () => {
+      if (!canStreamOriginalVideo(media)) {
         showMessage(playbackUnavailableText);
         return;
       }
+
+      showLoading();
+
+      try {
+        const response = await window.apiClient.post(`/api/media/${media.id}/original-url`);
+        if (!response.ok) {
+          if (response.status === 404) {
+            showMessage(playbackOriginalUnavailableText);
+            return;
+          }
+          throw new Error(`Original request failed: ${response.status}`);
+        }
+        const data = await response.json();
+        if (!data || !data.url) {
+          throw new Error('Original URL missing');
+        }
+        attachVideo(data.url, { onErrorRetry: loadOriginalVideo });
+      } catch (error) {
+        console.error('Failed to load original video URL', error);
+        showMessage(playbackOriginalRequestErrorText, {
+          allowRetry: true,
+          onRetry: loadOriginalVideo,
+        });
+      }
+    };
+
+    const loadPlayback = async () => {
+      const fallbackToOriginal = () => {
+        if (canStreamOriginalVideo(media)) {
+          loadOriginalVideo();
+          return true;
+        }
+        return false;
+      };
+
+      const playbackInfo = media.playback || {};
+      if (!media.has_playback) {
+        if (!fallbackToOriginal()) {
+          showMessage(playbackUnavailableText);
+        }
+        return;
+      }
       if (!playbackInfo.available) {
+        if (fallbackToOriginal()) {
+          return;
+        }
         if (playbackInfo.status === 'pending' || playbackInfo.status === 'processing') {
           showMessage(downloadPlaybackPendingText, { allowRetry: true });
         } else {
@@ -770,6 +845,9 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const response = await window.apiClient.post(`/api/media/${media.id}/playback-url`);
         if (!response.ok) {
+          if ((response.status === 409 || response.status === 404) && fallbackToOriginal()) {
+            return;
+          }
           if (response.status === 409) {
             showMessage(downloadPlaybackPendingText, { allowRetry: true });
             return;
@@ -787,7 +865,9 @@ document.addEventListener('DOMContentLoaded', () => {
         attachVideo(data.url);
       } catch (error) {
         console.error('Failed to load playback URL', error);
-        showMessage(playbackRequestErrorText, { allowRetry: true });
+        if (!fallbackToOriginal()) {
+          showMessage(playbackRequestErrorText, { allowRetry: true });
+        }
       }
     };
 

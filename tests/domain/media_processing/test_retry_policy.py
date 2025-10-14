@@ -1,6 +1,6 @@
 import pytest
 
-from domain.media_processing import ThumbnailRetryPolicy
+from features.photonest.domain.media_processing import ThumbnailRetryPolicy
 
 
 def test_decide_allows_retry_before_limit():

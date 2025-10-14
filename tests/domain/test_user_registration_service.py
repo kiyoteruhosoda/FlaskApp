@@ -1,13 +1,13 @@
 import pytest
 from unittest.mock import create_autospec
 
-from domain.user import (
+from shared.domain.user import (
     EmailAlreadyRegisteredError,
     RegistrationIntent,
     User,
     UserRegistrationService,
 )
-from domain.user.repository import UserRepository
+from shared.domain.user.repository import UserRepository
 
 
 def _build_service(repo=None) -> UserRegistrationService:

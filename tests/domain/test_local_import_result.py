@@ -1,4 +1,4 @@
-from domain.local_import.import_result import ImportTaskResult
+from features.photonest.domain.local_import.import_result import ImportTaskResult
 
 
 def test_import_task_result_add_error_marks_failed():

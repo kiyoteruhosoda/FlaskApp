@@ -5,9 +5,9 @@ from typing import Dict, Iterable, Optional
 
 import pytest
 
-from application.media_processing.interfaces import ThumbnailRetryEntry, ThumbnailRetryRepository, ThumbnailRetryScheduler
-from application.media_processing.retry_service import RetryScheduleResult, ThumbnailRetryService
-from domain.media_processing import ThumbnailRetryPolicy
+from features.photonest.application.media_processing.interfaces import ThumbnailRetryEntry, ThumbnailRetryRepository, ThumbnailRetryScheduler
+from features.photonest.application.media_processing.retry_service import RetryScheduleResult, ThumbnailRetryService
+from features.photonest.domain.media_processing import ThumbnailRetryPolicy
 
 
 @dataclass

@@ -7,7 +7,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from webapp.wiki.utils import markdown_to_html
+from features.wiki.presentation.wiki.utils import markdown_to_html
 
 def test_single_newline():
     """単一改行のテスト"""

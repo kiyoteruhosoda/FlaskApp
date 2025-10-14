@@ -147,7 +147,7 @@ def test_enqueue_media_playback_generates_thumbnails_for_completed_playback(app,
 def test_enqueue_thumbs_generate_schedules_retry(monkeypatch):
     """サムネイル生成が保留の場合に再試行がスケジュールされることを確認。"""
 
-    from application.media_processing.retry_service import RetryScheduleResult
+    from features.photonest.application.media_processing.retry_service import RetryScheduleResult
     from core.tasks import media_post_processing
 
     monkeypatch.setattr(

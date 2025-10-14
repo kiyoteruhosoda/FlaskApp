@@ -51,9 +51,9 @@ from ..auth.utils import refresh_google_token, RefreshTokenError, log_requests_a
 from ..auth.routes import _sync_active_role
 from .pagination import PaginationParams, paginate_and_respond
 from flask_login import current_user
-from application.auth_service import AuthService
-from domain.user import UserRegistrationService
-from infrastructure.user_repository import SqlAlchemyUserRepository
+from shared.application.auth_service import AuthService
+from shared.domain.user import UserRegistrationService
+from shared.infrastructure.user_repository import SqlAlchemyUserRepository
 from ..services.token_service import TokenService
 from ..auth.totp import verify_totp
 import jwt

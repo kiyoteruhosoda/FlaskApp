@@ -4,13 +4,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from application.local_import.file_importer import LocalImportFileImporter, PlaybackFailurePolicy
-from application.local_import.scanner import ImportDirectoryScanner
-from application.local_import.use_case import LocalImportUseCase
-from application.local_import.logger import LocalImportTaskLogger
-from application.local_import.queue import LocalImportQueueProcessor
-from application.local_import import logger as logger_module
-from domain.local_import.import_result import ImportTaskResult
+from features.photonest.application.local_import.file_importer import LocalImportFileImporter, PlaybackFailurePolicy
+from features.photonest.application.local_import.scanner import ImportDirectoryScanner
+from features.photonest.application.local_import.use_case import LocalImportUseCase
+from features.photonest.application.local_import.logger import LocalImportTaskLogger
+from features.photonest.application.local_import.queue import LocalImportQueueProcessor
+from features.photonest.application.local_import import logger as logger_module
+from features.photonest.domain.local_import.import_result import ImportTaskResult
 
 
 class DummyAnalysis:

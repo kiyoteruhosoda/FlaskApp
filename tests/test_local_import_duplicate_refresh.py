@@ -10,8 +10,8 @@ from core.tasks import local_import
 from core.tasks.local_import import import_single_file
 from core.models.photo_models import Media, MediaItem, MediaPlayback, PhotoMetadata, Exif
 from webapp.extensions import db
-from domain.local_import.entities import ImportFile
-from domain.local_import.media_file import MediaFileAnalysis
+from features.photonest.domain.local_import.entities import ImportFile
+from features.photonest.domain.local_import.media_file import MediaFileAnalysis
 
 
 @pytest.fixture

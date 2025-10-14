@@ -28,35 +28,35 @@ from core.tasks.thumbs_generate import (
 )
 from webapp.config import Config
 
-from application.local_import.file_importer import (
+from features.photonest.application.local_import.file_importer import (
     LocalImportFileImporter,
     PlaybackError as _PlaybackError,
 )
-from application.local_import.logger import LocalImportTaskLogger
-from application.local_import.queue import LocalImportQueueProcessor
-from application.local_import.scanner import ImportDirectoryScanner
-from application.local_import.use_case import LocalImportUseCase
-from application.local_import.results import build_thumbnail_task_snapshot as _build_thumbnail_task_snapshot
-from domain.local_import.media_entities import (
+from features.photonest.application.local_import.logger import LocalImportTaskLogger
+from features.photonest.application.local_import.queue import LocalImportQueueProcessor
+from features.photonest.application.local_import.scanner import ImportDirectoryScanner
+from features.photonest.application.local_import.use_case import LocalImportUseCase
+from features.photonest.application.local_import.results import build_thumbnail_task_snapshot as _build_thumbnail_task_snapshot
+from features.photonest.domain.local_import.media_entities import (
     apply_analysis_to_media_entity,
     build_media_from_analysis,
     build_media_item_from_analysis,
     ensure_exif_for_media,
     update_media_item_from_analysis,
 )
-from domain.local_import.media_file import (
+from features.photonest.domain.local_import.media_file import (
     DefaultMediaMetadataProvider,
     MediaFileAnalyzer,
 )
-from domain.local_import.media_metadata import (
+from features.photonest.domain.local_import.media_metadata import (
     calculate_file_hash,
     extract_exif_data,
     extract_video_metadata as _extract_video_metadata,
     get_image_dimensions,
 )
-from domain.local_import.policies import SUPPORTED_EXTENSIONS
-from domain.local_import.zip_archive import ZipArchiveService
-from domain.local_import.session import LocalImportSessionService
+from features.photonest.domain.local_import.policies import SUPPORTED_EXTENSIONS
+from features.photonest.domain.local_import.zip_archive import ZipArchiveService
+from features.photonest.domain.local_import.session import LocalImportSessionService
 
 # Re-export ``thumbs_generate`` so tests can monkeypatch the function without
 # reaching into the deeper module.  The helper is still invoked via

@@ -2,11 +2,11 @@ import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
-from application.auth_service import AuthService
-from domain.user import UserRegistrationService
+from shared.application.auth_service import AuthService
+from shared.domain.user import UserRegistrationService
 from core.db import db
 from core.models.user import Role, User as UserModel
-from infrastructure.user_repository import SqlAlchemyUserRepository
+from shared.infrastructure.user_repository import SqlAlchemyUserRepository
 
 
 @pytest.fixture

@@ -5,8 +5,8 @@ from typing import Dict, Any
 
 import pytest
 
-from application.media_processing.logger import StructuredMediaTaskLogger
-from application.media_processing.playback_service import MediaPlaybackService
+from features.photonest.application.media_processing.logger import StructuredMediaTaskLogger
+from features.photonest.application.media_processing.playback_service import MediaPlaybackService
 from core.models.photo_models import Media, MediaPlayback
 from webapp.extensions import db
 

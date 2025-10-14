@@ -5,8 +5,8 @@ from typing import Any, Dict, Optional
 
 import pytest
 
-from application.media_processing.retry_service import RetryScheduleResult
-from application.media_processing.thumbnail_service import ThumbnailGenerationService
+from features.photonest.application.media_processing.retry_service import RetryScheduleResult
+from features.photonest.application.media_processing.thumbnail_service import ThumbnailGenerationService
 
 
 @dataclass

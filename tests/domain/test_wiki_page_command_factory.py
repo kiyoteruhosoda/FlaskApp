@@ -1,9 +1,9 @@
-from domain.wiki.commands import (
+from features.wiki.domain.commands import (
     WikiPageCommandFactory,
     WikiPageCreationCommand,
     WikiPageUpdateCommand,
 )
-from domain.wiki.exceptions import WikiValidationError
+from features.wiki.domain.exceptions import WikiValidationError
 
 
 def test_build_creation_command_normalizes_values() -> None:

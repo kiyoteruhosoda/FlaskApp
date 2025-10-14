@@ -51,9 +51,9 @@ from ..auth.utils import refresh_google_token, RefreshTokenError, log_requests_a
 from ..auth.routes import _sync_active_role
 from .pagination import PaginationParams, paginate_and_respond
 from flask_login import current_user
-from application.auth_service import AuthService
-from domain.user import UserRegistrationService
-from infrastructure.user_repository import SqlAlchemyUserRepository
+from shared.application.auth_service import AuthService
+from shared.domain.user import UserRegistrationService
+from shared.infrastructure.user_repository import SqlAlchemyUserRepository
 from ..services.token_service import TokenService
 from ..auth.totp import verify_totp
 import jwt
@@ -2429,6 +2429,7 @@ def api_media_recover(media_id: int):
             fallback_path=abs_path,
             file_extension=file_extension,
             session_id="ui_recover",
+            preserve_original_path=True,
         )
     except Exception as exc:  # pragma: no cover - unexpected failure path
         _emit_structured_api_log(

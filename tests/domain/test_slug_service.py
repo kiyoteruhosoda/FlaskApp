@@ -1,6 +1,6 @@
 import pytest
 
-from domain.wiki.slug import Slug, SlugService
+from features.wiki.domain.slug import Slug, SlugService
 
 
 class TestSlugService:

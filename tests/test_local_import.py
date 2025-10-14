@@ -378,7 +378,7 @@ def test_local_import_video_generates_playback_from_originals(app, monkeypatch):
 def test_local_import_duplicate_sets_google_media_id(app):
     """重複検出時でも Selection に media リンク情報が保存されることを確認"""
 
-    from application.local_import.queue import LocalImportQueueProcessor
+    from features.photonest.application.local_import.queue import LocalImportQueueProcessor
     from core.models.picker_session import PickerSession
     from core.models.photo_models import Media, MediaItem, PickerSelection
     from webapp.extensions import db

@@ -21,9 +21,9 @@ from core.crypto import encrypt, decrypt
 from .totp import new_totp_secret, verify_totp, provisioning_uri, qr_code_data_uri
 from core.models.picker_session import PickerSession
 from .utils import refresh_google_token, log_requests_and_send, RefreshTokenError
-from application.auth_service import AuthService
-from domain.user import UserRegistrationService
-from infrastructure.user_repository import SqlAlchemyUserRepository
+from shared.application.auth_service import AuthService
+from shared.domain.user import UserRegistrationService
+from shared.infrastructure.user_repository import SqlAlchemyUserRepository
 from ..timezone import resolve_timezone, convert_to_timezone
 from ..services.token_service import TokenService
 

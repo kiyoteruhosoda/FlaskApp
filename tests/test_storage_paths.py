@@ -40,6 +40,9 @@ def test_resolve_storage_file_without_parts_returns_base(tmp_path, monkeypatch):
     base_dir = tmp_path / "thumbs"
     base_dir.mkdir()
 
+    monkeypatch.delenv("FPV_NAS_THUMBS_DIR", raising=False)
+    monkeypatch.delenv("FPV_NAS_THUMBS_CONTAINER_DIR", raising=False)
+
     monkeypatch.setitem(
         storage_paths._STORAGE_DEFAULTS, "FPV_NAS_THUMBS_DIR", (str(base_dir),)
     )

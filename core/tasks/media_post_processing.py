@@ -5,7 +5,7 @@ from __future__ import annotations
 import shutil as _shutil
 from typing import Any, Dict, Optional
 
-from application.media_processing import (
+from features.photonest.application.media_processing import (
     MediaPlaybackService,
     MediaPostProcessingService,
     StructuredMediaTaskLogger,
@@ -13,8 +13,8 @@ from application.media_processing import (
     ThumbnailRetryMonitorService,
     ThumbnailRetryService,
 )
-from domain.media_processing import ThumbnailRetryPolicy
-from infrastructure.media_processing import (
+from features.photonest.domain.media_processing import ThumbnailRetryPolicy
+from features.photonest.infrastructure.media_processing import (
     CeleryThumbnailRetryScheduler,
     SqlAlchemyThumbnailRetryRepository,
 )
@@ -85,6 +85,7 @@ def _build_post_processing_service(
     thumbnail_service = _build_thumbnail_service(logger=logger, retry_service=retry_service)
     return MediaPostProcessingService(
         thumbnail_service=thumbnail_service,
+        thumbnail_enqueuer=enqueue_thumbs_generate,
         playback_invoker=enqueue_media_playback,
         logger=logger,
     )

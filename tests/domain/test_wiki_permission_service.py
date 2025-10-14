@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from domain.wiki.entities import WikiPage as DomainWikiPage
-from domain.wiki.permissions import EditorContext, WikiPagePermissionService
+from features.wiki.domain.entities import WikiPage as DomainWikiPage
+from features.wiki.domain.permissions import EditorContext, WikiPagePermissionService
 
 
 @dataclass

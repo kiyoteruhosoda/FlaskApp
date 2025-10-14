@@ -11,7 +11,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
-from webapp.wiki.utils import markdown_to_html
+from features.wiki.presentation.wiki.utils import markdown_to_html
 
 FIXTURE_PATH = Path(__file__).resolve().parent / "fixtures" / "test_diagrams_wiki.md"
 

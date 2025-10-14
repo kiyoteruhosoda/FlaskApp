@@ -1,4 +1,4 @@
-"""application.local_import.logger のテスト."""
+"""features.photonest.application.local_import.logger のテスト."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from application.local_import.logger import LocalImportTaskLogger
-from domain.local_import.logging import compose_message, with_session
+from features.photonest.application.local_import.logger import LocalImportTaskLogger
+from features.photonest.domain.local_import.logging import compose_message, with_session
 
 
 @pytest.fixture
@@ -33,7 +33,7 @@ def _expected_message(message: str, status: str, **details: Any) -> str:
 
 def test_info_logs_to_task_and_celery(monkeypatch, task_logger, celery_logger) -> None:
     log_task_info = MagicMock()
-    monkeypatch.setattr("application.local_import.logger.log_task_info", log_task_info)
+    monkeypatch.setattr("features.photonest.application.local_import.logger.log_task_info", log_task_info)
     logger = LocalImportTaskLogger(task_logger, celery_logger)
 
     logger.info(
@@ -85,7 +85,7 @@ def test_warning_logs_with_custom_status(task_logger, celery_logger) -> None:
 
 def test_error_logs_and_propagates_exception(monkeypatch, task_logger, celery_logger) -> None:
     log_task_error = MagicMock()
-    monkeypatch.setattr("application.local_import.logger.log_task_error", log_task_error)
+    monkeypatch.setattr("features.photonest.application.local_import.logger.log_task_error", log_task_error)
     logger = LocalImportTaskLogger(task_logger, celery_logger)
 
     logger.error(
@@ -116,7 +116,7 @@ def test_error_logs_and_propagates_exception(monkeypatch, task_logger, celery_lo
 
 def test_commit_with_error_logging_reports_and_reraises(monkeypatch, task_logger, celery_logger) -> None:
     log_task_error = MagicMock()
-    monkeypatch.setattr("application.local_import.logger.log_task_error", log_task_error)
+    monkeypatch.setattr("features.photonest.application.local_import.logger.log_task_error", log_task_error)
     logger = LocalImportTaskLogger(task_logger, celery_logger)
 
     class FailingSession:

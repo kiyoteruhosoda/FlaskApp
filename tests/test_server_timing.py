@@ -1,6 +1,6 @@
 import base64
-import os
 import importlib
+import os
 import sys
 
 import pytest
@@ -13,16 +13,20 @@ def app(tmp_path):
     play = tmp_path / "play"
     thumbs.mkdir()
     play.mkdir()
-    os.environ["SECRET_KEY"] = "test"
-    os.environ["DATABASE_URI"] = f"sqlite:///{db_path}"
-    os.environ["GOOGLE_CLIENT_ID"] = ""
-    os.environ["GOOGLE_CLIENT_SECRET"] = ""
-    os.environ["OAUTH_TOKEN_KEY"] = base64.urlsafe_b64encode(b"0" * 32).decode()
-    os.environ["FPV_DL_SIGN_KEY"] = base64.urlsafe_b64encode(b"1" * 32).decode()
-    os.environ["FPV_URL_TTL_THUMB"] = "600"
-    os.environ["FPV_URL_TTL_PLAYBACK"] = "600"
-    os.environ["FPV_NAS_THUMBS_DIR"] = str(thumbs)
-    os.environ["FPV_NAS_PLAY_DIR"] = str(play)
+    temp_env = {
+        "SECRET_KEY": "test",
+        "DATABASE_URI": f"sqlite:///{db_path}",
+        "GOOGLE_CLIENT_ID": "",
+        "GOOGLE_CLIENT_SECRET": "",
+        "OAUTH_TOKEN_KEY": base64.urlsafe_b64encode(b"0" * 32).decode(),
+        "FPV_DL_SIGN_KEY": base64.urlsafe_b64encode(b"1" * 32).decode(),
+        "FPV_URL_TTL_THUMB": "600",
+        "FPV_URL_TTL_PLAYBACK": "600",
+        "FPV_NAS_THUMBS_DIR": str(thumbs),
+        "FPV_NAS_PLAY_DIR": str(play),
+    }
+    original_env = {key: os.environ.get(key) for key in temp_env}
+    os.environ.update(temp_env)
 
     import webapp.config as config_module
     importlib.reload(config_module)
@@ -39,10 +43,17 @@ def app(tmp_path):
     with app.app_context():
         db.create_all()
 
-    yield app
+    try:
+        yield app
+    finally:
+        for key, value in original_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
-    del sys.modules["webapp.config"]
-    del sys.modules["webapp"]
+        del sys.modules["webapp.config"]
+        del sys.modules["webapp"]
 
 
 @pytest.fixture

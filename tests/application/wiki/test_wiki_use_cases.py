@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from application.wiki.dto import WikiCategoryCreateInput, WikiPageCreateInput, WikiPageUpdateInput
-from application.wiki.services import WikiCategoryService, WikiPageService
-from application.wiki.use_cases import (
+from features.wiki.application.dto import WikiCategoryCreateInput, WikiPageCreateInput, WikiPageUpdateInput
+from features.wiki.application.services import WikiCategoryService, WikiPageService
+from features.wiki.application.use_cases import (
     WikiCategoryCreationUseCase,
     WikiCategoryListUseCase,
     WikiIndexUseCase,
@@ -15,7 +15,7 @@ from application.wiki.use_cases import (
     WikiPageUpdateUseCase,
 )
 from core.models.user import User
-from domain.wiki.exceptions import WikiAccessDeniedError, WikiValidationError
+from features.wiki.domain.exceptions import WikiAccessDeniedError, WikiValidationError
 
 
 @pytest.fixture

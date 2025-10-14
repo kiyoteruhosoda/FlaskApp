@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Iterable, List
 
-from application.media_processing.interfaces import ThumbnailRetryEntry, ThumbnailRetryRepository
-from application.media_processing.retry_monitor import ThumbnailRetryMonitorService
+from features.photonest.application.media_processing.interfaces import ThumbnailRetryEntry, ThumbnailRetryRepository
+from features.photonest.application.media_processing.retry_monitor import ThumbnailRetryMonitorService
 
 
 @dataclass

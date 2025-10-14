@@ -11,7 +11,7 @@ def dashboard():
     
     try:
         # Wikiページ数を取得
-        from infrastructure.wiki.repositories import WikiPageRepository
+        from features.wiki.infrastructure.repositories import WikiPageRepository
         wiki_repo = WikiPageRepository()
         stats['wiki_pages'] = wiki_repo.count_published_pages()
     except Exception:

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, Optional
+import os
+from dataclasses import dataclass, field
+from typing import Any, Dict, Mapping, Optional, Tuple
 
 
 def serialize_details(details: Dict[str, Any]) -> str:
@@ -97,13 +99,29 @@ def existing_media_destination_context(media, originals_dir: Optional[str]) -> D
     return details
 
 
-import os
+@dataclass(frozen=True)
+class LogEntry:
+    """ローカルインポートで扱うログ情報を表現する値オブジェクト。"""
+
+    message: str
+    details: Mapping[str, Any] = field(default_factory=dict)
+    session_id: Optional[str] = None
+    status: Optional[str] = None
+
+    def compose(self, default_status: str) -> Tuple[str, Dict[str, Any], str]:
+        """ログ出力に必要な情報を組み立てる。"""
+
+        payload = with_session(dict(self.details), self.session_id)
+        resolved_status = self.status if self.status is not None else default_status
+        composed_message = compose_message(self.message, payload, resolved_status)
+        return composed_message, payload, resolved_status
 
 
 __all__ = [
     "compose_message",
     "existing_media_destination_context",
     "file_log_context",
+    "LogEntry",
     "serialize_details",
     "with_session",
 ]

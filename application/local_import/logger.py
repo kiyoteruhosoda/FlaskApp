@@ -1,10 +1,66 @@
 """ローカルインポートタスク用のロギングユーティリティ."""
 from __future__ import annotations
 
-from typing import Any, Optional
+from enum import Enum
+from typing import Any, Dict, Optional, Tuple
 
 from core.logging_config import log_task_error, log_task_info
-from domain.local_import.logging import compose_message, with_session
+from domain.local_import.logging import LogEntry
+
+
+class _LogSeverity(Enum):
+    """Celery タスクで利用するログレベル。"""
+
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+
+    @property
+    def default_status(self) -> str:
+        return self.value
+
+    def log_to_task(
+        self,
+        task_logger,
+        message: str,
+        *,
+        event: str,
+        status: str,
+        payload: Dict[str, Any],
+        exc_info: bool,
+    ) -> None:
+        extra = {"event": event, "status": status, **payload}
+        if self is _LogSeverity.INFO:
+            log_task_info(task_logger, message, event=event, status=status, **payload)
+        elif self is _LogSeverity.WARNING:
+            task_logger.warning(message, extra=extra)
+        else:
+            log_task_error(
+                task_logger,
+                message,
+                event=event,
+                status=status,
+                exc_info=exc_info,
+                **payload,
+            )
+
+    def log_to_celery(
+        self,
+        celery_logger,
+        message: str,
+        *,
+        event: str,
+        status: str,
+        payload: Dict[str, Any],
+        exc_info: bool,
+    ) -> None:
+        extra = {"event": event, "status": status, **payload}
+        if self is _LogSeverity.INFO:
+            celery_logger.info(message, extra=extra)
+        elif self is _LogSeverity.WARNING:
+            celery_logger.warning(message, extra=extra)
+        else:
+            celery_logger.error(message, extra=extra, exc_info=exc_info)
 
 
 class LocalImportTaskLogger:
@@ -23,20 +79,14 @@ class LocalImportTaskLogger:
         status: Optional[str] = None,
         **details: Any,
     ) -> None:
-        payload = with_session(details, session_id)
-        resolved_status = status if status is not None else "info"
-        composed = compose_message(message, payload, resolved_status)
-
-        log_task_info(
-            self._task_logger,
-            composed,
-            event=event,
-            status=resolved_status,
-            **payload,
-        )
-        self._celery_logger.info(
-            composed,
-            extra={"event": event, "status": resolved_status, **payload},
+        self._log(
+            _LogSeverity.INFO,
+            event,
+            message,
+            session_id=session_id,
+            status=status,
+            exc_info=False,
+            details=details,
         )
 
     def warning(
@@ -48,17 +98,14 @@ class LocalImportTaskLogger:
         status: Optional[str] = None,
         **details: Any,
     ) -> None:
-        payload = with_session(details, session_id)
-        resolved_status = status if status is not None else "warning"
-        composed = compose_message(message, payload, resolved_status)
-
-        self._task_logger.warning(
-            composed,
-            extra={"event": event, "status": resolved_status, **payload},
-        )
-        self._celery_logger.warning(
-            composed,
-            extra={"event": event, "status": resolved_status, **payload},
+        self._log(
+            _LogSeverity.WARNING,
+            event,
+            message,
+            session_id=session_id,
+            status=status,
+            exc_info=False,
+            details=details,
         )
 
     def error(
@@ -71,22 +118,14 @@ class LocalImportTaskLogger:
         exc_info: bool = False,
         **details: Any,
     ) -> None:
-        payload = with_session(details, session_id)
-        resolved_status = status if status is not None else "error"
-        composed = compose_message(message, payload, resolved_status)
-
-        log_task_error(
-            self._task_logger,
-            composed,
-            event=event,
-            status=resolved_status,
+        self._log(
+            _LogSeverity.ERROR,
+            event,
+            message,
+            session_id=session_id,
+            status=status,
             exc_info=exc_info,
-            **payload,
-        )
-        self._celery_logger.error(
-            composed,
-            extra={"event": event, "status": resolved_status, **payload},
-            exc_info=exc_info,
+            details=details,
         )
 
     def commit_with_error_logging(
@@ -121,3 +160,34 @@ class LocalImportTaskLogger:
                 **details,
             )
             raise
+
+    def _log(
+        self,
+        severity: _LogSeverity,
+        event: str,
+        message: str,
+        *,
+        session_id: Optional[str],
+        status: Optional[str],
+        exc_info: bool,
+        details: Dict[str, Any],
+    ) -> None:
+        entry = LogEntry(message=message, details=details, session_id=session_id, status=status)
+        composed_message, payload, resolved_status = entry.compose(severity.default_status)
+
+        severity.log_to_task(
+            self._task_logger,
+            composed_message,
+            event=event,
+            status=resolved_status,
+            payload=payload,
+            exc_info=exc_info,
+        )
+        severity.log_to_celery(
+            self._celery_logger,
+            composed_message,
+            event=event,
+            status=resolved_status,
+            payload=payload,
+            exc_info=exc_info,
+        )

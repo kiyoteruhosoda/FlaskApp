@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Mapping
 
 
 @dataclass
@@ -150,6 +150,58 @@ class ImportTaskResult:
             payload.update(self._metadata)
 
         return payload
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "ImportTaskResult":
+        """Create an :class:`ImportTaskResult` from a legacy dictionary payload."""
+
+        result = cls(
+            ok=bool(data.get("ok", True)),
+            processed=int(data.get("processed", 0)),
+            success=int(data.get("success", 0)),
+            skipped=int(data.get("skipped", 0)),
+            failed=int(data.get("failed", 0)),
+            canceled=bool(data.get("canceled", False)),
+            session_id=data.get("session_id"),
+            celery_task_id=data.get("celery_task_id"),
+        )
+
+        result.errors.extend(str(entry) for entry in data.get("errors", []))
+        result.details.extend(list(data.get("details", [])))
+        result.thumbnail_records.extend(list(data.get("thumbnail_records", [])))
+
+        snapshot = data.get("thumbnail_snapshot")
+        if snapshot is not None:
+            result.thumbnail_snapshot = snapshot
+
+        result.duplicates = int(data.get("duplicates", 0))
+        result.manually_skipped = int(data.get("manually_skipped", 0))
+
+        failure_reasons = data.get("failure_reasons")
+        if failure_reasons:
+            result.failure_reasons = [str(reason) for reason in failure_reasons]
+
+        metadata_keys = set(data.keys()) - {
+            "ok",
+            "processed",
+            "success",
+            "skipped",
+            "failed",
+            "canceled",
+            "session_id",
+            "celery_task_id",
+            "errors",
+            "details",
+            "thumbnail_records",
+            "thumbnail_snapshot",
+            "failure_reasons",
+            "duplicates",
+            "manually_skipped",
+        }
+        for key in metadata_keys:
+            result.set_metadata(key, data[key])
+
+        return result
 
 
 __all__ = ["ImportTaskResult"]

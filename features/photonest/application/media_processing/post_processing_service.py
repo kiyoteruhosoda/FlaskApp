@@ -18,10 +18,12 @@ class MediaPostProcessingService:
         self,
         *,
         thumbnail_service: ThumbnailGenerationService,
+        thumbnail_enqueuer: Callable[..., Dict[str, object]],
         playback_invoker: Callable[..., Dict[str, object]],
         logger: StructuredMediaTaskLogger,
     ) -> None:
         self._thumbnail_service = thumbnail_service
+        self._thumbnail_enqueuer = thumbnail_enqueuer
         self._playback_invoker = playback_invoker
         self._logger = logger
 
@@ -51,8 +53,9 @@ class MediaPostProcessingService:
             )
             return {"playback": playback}
 
-        thumbnails = self._thumbnail_service.generate(
+        thumbnails = self._thumbnail_enqueuer(
             media_id=media.id,
+            logger_override=self._logger.base_logger,
             operation_id=operation_id,
             request_context=request_context,
         )

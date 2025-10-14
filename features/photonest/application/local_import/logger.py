@@ -2,10 +2,31 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 
 from core.logging_config import log_task_error, log_task_info
 from features.photonest.domain.local_import.logging import LogEntry
+
+
+def compose_message(
+    message: str,
+    payload: Dict[str, Any],
+    status: Optional[str],
+) -> Tuple[str, Dict[str, Any], str]:
+    """Build structured log information for task logging compatibility."""
+
+    details = dict(payload)
+    session_id = details.pop("session_id", None)
+    entry_status = details.pop("status", None)
+
+    entry = LogEntry(
+        message=message,
+        details=details,
+        session_id=session_id,
+        status=entry_status,
+    )
+    default_status = status or entry_status or "info"
+    return entry.compose(default_status)
 
 
 class _LogSeverity(Enum):
@@ -172,15 +193,31 @@ class LocalImportTaskLogger:
         exc_info: bool,
         details: Dict[str, Any],
     ) -> None:
-        entry = LogEntry(message=message, details=details, session_id=session_id, status=status)
-        composed_message, payload, resolved_status = entry.compose(severity.default_status)
+        payload: Dict[str, Any] = dict(details)
+        if session_id is not None:
+            payload.setdefault("session_id", session_id)
+        composed: Union[str, Tuple[str, Dict[str, Any], str]] = compose_message(
+            message,
+            payload,
+            status or severity.default_status,
+        )
+
+        if isinstance(composed, tuple):
+            composed_message, payload, resolved_status = composed
+        else:
+            composed_message = composed
+            resolved_status = status or severity.default_status
+            payload = dict(payload)
+
+        payload_for_log = dict(payload)
+        payload_for_log.pop("status", None)
 
         severity.log_to_task(
             self._task_logger,
             composed_message,
             event=event,
             status=resolved_status,
-            payload=payload,
+            payload=payload_for_log,
             exc_info=exc_info,
         )
         severity.log_to_celery(
@@ -188,6 +225,6 @@ class LocalImportTaskLogger:
             composed_message,
             event=event,
             status=resolved_status,
-            payload=payload,
+            payload=payload_for_log,
             exc_info=exc_info,
         )

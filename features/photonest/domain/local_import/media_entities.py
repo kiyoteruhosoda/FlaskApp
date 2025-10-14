@@ -158,7 +158,10 @@ def ensure_exif_for_media(media: Media, analysis: MediaFileAnalysis) -> Optional
     if not analysis.exif_data:
         return None
 
-    exif = media.exif or Exif(media_id=media.id)
+    exif = media.exif
+    if exif is None:
+        exif = Exif.query.get(media.id)  # type: ignore[arg-type]
+    exif = exif or Exif(media_id=media.id)
     exif.camera_make = analysis.exif_data.get("Make")
     exif.camera_model = analysis.exif_data.get("Model")
     exif.lens = analysis.exif_data.get("LensModel")

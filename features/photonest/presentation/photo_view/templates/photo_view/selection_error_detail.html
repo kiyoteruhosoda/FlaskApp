@@ -119,7 +119,7 @@
               {% if log.get('errorDetails') %}
               <details class="mb-2">
                 <summary>{{ _("Error details") }}</summary>
-                <pre class="small bg-body-secondary border rounded p-2 mb-0">{{ log.get('errorDetails')|tojson(indent=2, sort_keys=True) }}</pre>
+                <pre class="small bg-body-secondary border rounded p-2 mb-0">{{ log.get('errorDetails')|tojson(indent=2) }}</pre>
               </details>
               {% endif %}
               {% set extra = log.get('extra') or {} %}

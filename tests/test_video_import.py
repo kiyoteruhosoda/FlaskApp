@@ -143,6 +143,8 @@ def playback_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
     play_dir = tmp_path / "playback"
     play_dir.mkdir()
+    monkeypatch.delenv("FPV_NAS_PLAY_DIR", raising=False)
+    monkeypatch.delenv("FPV_NAS_PLAY_CONTAINER_DIR", raising=False)
     monkeypatch.setenv("FPV_NAS_PLAY_DIR", str(play_dir))
     return play_dir
 

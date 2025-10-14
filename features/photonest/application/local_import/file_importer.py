@@ -78,7 +78,12 @@ class Logger(Protocol):
 
 @dataclass(frozen=True)
 class PlaybackFailurePolicy:
-    recoverable_notes: Iterable[str] = ("ffmpeg_missing", "playback_skipped")
+    recoverable_notes: Iterable[str] = (
+        "ffmpeg_missing",
+        "playback_skipped",
+        "playback_file_missing",
+    )
+    session_only_notes: Iterable[str] = ("ffmpeg_missing",)
 
     def is_recoverable(self, note: str) -> bool:
         if not note:
@@ -88,6 +93,10 @@ class PlaybackFailurePolicy:
         if normalized in {n.lower() for n in self.recoverable_notes}:
             return True
         return normalized.startswith("ffmpeg_")
+
+    def requires_session(self, note: str) -> bool:
+        normalized = (note or "").lower()
+        return normalized in {n.lower() for n in self.session_only_notes}
 
 
 class LocalImportFileImporter:
@@ -479,6 +488,17 @@ class LocalImportFileImporter:
             session_id=session_id,
             status="success",
         )
+        self._logger.info(
+            "local_import.file.processed_success",
+            "ローカルファイルの処理が完了",
+            **file_context,
+            media_id=media.id,
+            relative_path=rel_path,
+            imported_path=dest_path,
+            imported_filename=imported_filename,
+            session_id=session_id,
+            status="success",
+        )
         return outcome.as_dict()
 
     def _validate_playback(
@@ -494,6 +514,10 @@ class LocalImportFileImporter:
             note = playback_result.get("note") or "unknown"
             error_detail = playback_result.get("error")
             if self._playback_policy.is_recoverable(note):
+                if self._playback_policy.requires_session(note) and not session_id:
+                    raise PlaybackError(
+                        f"動画の再生ファイル生成に失敗しました (理由: {note})"
+                    )
                 log_details = {
                     **file_context,
                     "media_id": media.id,
@@ -543,9 +567,35 @@ class LocalImportFileImporter:
         play_dir = self._directory_resolver("FPV_NAS_PLAY_DIR")
         playback_path = os.path.join(play_dir, playback_entry.rel_path)
         if not os.path.exists(playback_path):
-            raise PlaybackError(
-                "動画の再生ファイル生成に失敗しました (理由: playback_file_missing)"
+            note = "playback_file_missing"
+            if self._playback_policy.requires_session(note) and not session_id:
+                raise PlaybackError(
+                    f"動画の再生ファイル生成に失敗しました (理由: {note})"
+                )
+
+            log_details = {
+                **file_context,
+                "media_id": media.id,
+                "note": note,
+                "status": "warning",
+                "expected_path": playback_path,
+            }
+            if session_id:
+                log_details["session_id"] = session_id
+
+            self._logger.warning(
+                "local_import.file.playback_missing",
+                "再生ファイルが見つからなかったため遅延完了として処理",
+                **log_details,
             )
+
+            warnings = outcome.details.setdefault("warnings", [])
+            warning_token = f"playback_skipped:{note}"
+            if warning_token not in warnings:
+                warnings.append(warning_token)
+            outcome.details.setdefault("playback_note", note)
+            outcome.details.setdefault("playback_error", note)
+            return
 
     def _cleanup_destination(
         self,

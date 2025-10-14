@@ -1,4 +1,6 @@
 import os
+import sys
+from types import ModuleType
 from dotenv import load_dotenv
 
 
@@ -121,3 +123,21 @@ class TestConfig(Config):
     SQLALCHEMY_BINDS = {}
     UPLOAD_TMP_DIR = "/tmp/test_upload/tmp"
     UPLOAD_DESTINATION_DIR = "/tmp/test_upload/dest"
+
+
+class _ReloadSafeModule(ModuleType):
+    """Module wrapper that repopulates ``sys.modules`` on attribute access."""
+
+    def __getattribute__(self, name):  # type: ignore[override]
+        module_name = super().__getattribute__("__name__")
+        current = sys.modules.get(module_name)
+        if current is not self:
+            sys.modules[module_name] = self
+        return super().__getattribute__(name)
+
+
+_self = sys.modules.get(__name__)
+if _self is not None and not isinstance(_self, _ReloadSafeModule):
+    _proxy = _ReloadSafeModule(__name__)
+    _proxy.__dict__.update(_self.__dict__)
+    sys.modules[__name__] = _proxy

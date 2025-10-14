@@ -131,6 +131,9 @@ class LocalImportQueueProcessor:
         if not session:
             return 0
 
+        if isinstance(result, dict):
+            result = ImportTaskResult.from_dict(result)
+
         selections = list(self.pending_query(session).all())
         total_files = len(selections)
 

@@ -2429,6 +2429,7 @@ def api_media_recover(media_id: int):
             fallback_path=abs_path,
             file_extension=file_extension,
             session_id="ui_recover",
+            preserve_original_path=True,
         )
     except Exception as exc:  # pragma: no cover - unexpected failure path
         _emit_structured_api_log(

@@ -17,11 +17,8 @@ from core.models.photo_models import (
 from core.models.picker_session import PickerSession
 from core.logging_config import setup_task_logging
 from core.storage_paths import first_existing_storage_path, storage_path_candidates
-from core.tasks.media_post_processing import (
-    enqueue_media_playback,
-    enqueue_thumbs_generate,
-    process_media_post_import,
-)
+from core.tasks import media_post_processing
+from core.tasks.media_post_processing import process_media_post_import
 from core.tasks.thumbs_generate import (
     PLAYBACK_NOT_READY_NOTES,
     thumbs_generate as _thumbs_generate,
@@ -65,6 +62,19 @@ from features.photonest.domain.local_import.session import LocalImportSessionSer
 # example in SQLite based test runs).
 thumbs_generate = _thumbs_generate
 extract_video_metadata = _extract_video_metadata
+
+
+def enqueue_thumbs_generate(*args, **kwargs):
+    """Proxy to :func:`core.tasks.media_post_processing.enqueue_thumbs_generate`."""
+
+    return media_post_processing.enqueue_thumbs_generate(*args, **kwargs)
+
+
+def enqueue_media_playback(*args, **kwargs):
+    """Proxy to :func:`core.tasks.media_post_processing.enqueue_media_playback`."""
+
+    return media_post_processing.enqueue_media_playback(*args, **kwargs)
+
 
 # Setup logger for this module - use Celery task logger for consistency
 logger = setup_task_logging(__name__)
@@ -477,6 +487,7 @@ def _refresh_existing_media_metadata(
     fallback_path: str,
     file_extension: str,
     session_id: Optional[str] = None,
+    preserve_original_path: bool = False,
 ) -> bool:
     """既存メディアのメタデータをローカルファイルから再適用する。"""
 
@@ -503,6 +514,8 @@ def _refresh_existing_media_metadata(
 
     old_relative_path = media.local_rel_path or None
     new_relative_path = analysis.relative_path
+    if preserve_original_path and old_relative_path:
+        new_relative_path = old_relative_path
     destination_path: Optional[str] = None
 
     if new_relative_path:
@@ -518,7 +531,7 @@ def _refresh_existing_media_metadata(
 
         destination_exists = os.path.exists(destination_path)
 
-        if old_absolute != destination_path:
+        if not preserve_original_path and old_absolute != destination_path:
             os.makedirs(os.path.dirname(destination_path), exist_ok=True)
             relocation_source = None
             if old_absolute and os.path.exists(old_absolute):
@@ -548,7 +561,7 @@ def _refresh_existing_media_metadata(
                         os.remove(old_absolute)
                     except OSError:
                         pass
-        elif not destination_exists:
+        elif not destination_exists and not preserve_original_path:
             restoration_source = source_absolute if os.path.exists(source_absolute) else None
             if restoration_source and restoration_source != destination_path:
                 os.makedirs(os.path.dirname(destination_path), exist_ok=True)
@@ -587,7 +600,8 @@ def _refresh_existing_media_metadata(
                     status="source_missing",
                 )
 
-        media.local_rel_path = new_relative_path
+        if not preserve_original_path:
+            media.local_rel_path = new_relative_path
 
         playback_entries: List[MediaPlayback] = []
         if media.id:
@@ -599,7 +613,7 @@ def _refresh_existing_media_metadata(
             and _playback_paths_need_alignment(playback_entries, new_relative_path)
         )
 
-        if relative_path_changed:
+        if relative_path_changed and not preserve_original_path:
             _log_info(
                 "local_import.file.duplicate_path_updated",
                 "重複メディアの保存先パスを更新",
@@ -619,13 +633,14 @@ def _refresh_existing_media_metadata(
                 status="playback_path_realigned",
             )
 
-        _update_media_playback_paths(
-            media,
-            old_relative_path=old_relative_path,
-            new_relative_path=new_relative_path,
-            session_id=session_id,
-            playback_entries=playback_entries or None,
-        )
+        if not preserve_original_path:
+            _update_media_playback_paths(
+                media,
+                old_relative_path=old_relative_path,
+                new_relative_path=new_relative_path,
+                session_id=session_id,
+                playback_entries=playback_entries or None,
+            )
 
     apply_analysis_to_media_entity(media, analysis)
 
@@ -677,6 +692,7 @@ def refresh_media_metadata_from_original(
     fallback_path: str,
     file_extension: str,
     session_id: Optional[str] = None,
+    preserve_original_path: bool = False,
 ) -> bool:
     """Public wrapper for :func:`_refresh_existing_media_metadata`.
 
@@ -691,6 +707,7 @@ def refresh_media_metadata_from_original(
         fallback_path=fallback_path,
         file_extension=file_extension,
         session_id=session_id,
+        preserve_original_path=preserve_original_path,
     )
 
 

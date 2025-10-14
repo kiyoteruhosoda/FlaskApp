@@ -46,11 +46,8 @@ from core.models.photo_models import (
 from core.models.celery_task import CeleryTaskStatus
 from core.logging_config import setup_task_logging, log_task_error, log_task_info
 from core.settings import ApplicationSettings, settings
-from core.tasks.media_post_processing import (
-    enqueue_media_playback as common_enqueue_media_playback,
-    enqueue_thumbs_generate as common_enqueue_thumbs_generate,
-    process_media_post_import,
-)
+from core.tasks import media_post_processing
+from core.tasks.media_post_processing import process_media_post_import
 from flask import current_app
 from core.utils import open_image_compat
 
@@ -126,13 +123,17 @@ def enqueue_picker_import_item(selection_id: int, session_id: int) -> None:
 def enqueue_thumbs_generate(media_id: int) -> None:
     """Backward compatible wrapper around the shared thumbnail helper."""
 
-    common_enqueue_thumbs_generate(media_id, logger_override=logger)
+    media_post_processing.enqueue_thumbs_generate(
+        media_id, logger_override=logger
+    )
 
 
 def enqueue_media_playback(media_id: int) -> None:
     """Backward compatible wrapper around the shared video helper."""
 
-    common_enqueue_media_playback(media_id, logger_override=logger)
+    media_post_processing.enqueue_media_playback(
+        media_id, logger_override=logger
+    )
 
 
 def picker_import_queue_scan() -> Dict[str, int]:

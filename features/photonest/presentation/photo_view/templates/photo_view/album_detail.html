@@ -675,7 +675,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function navigateToSlideshow(startIndex = 0, options = {}) {
-    const url = new URL(`/photo-view/albums/${albumId}/slideshow`, window.location.origin);
+    const url = new URL(`/photo_view/albums/${albumId}/slideshow`, window.location.origin);
     const params = new URLSearchParams();
 
     const normalizedIndex = Number(startIndex);

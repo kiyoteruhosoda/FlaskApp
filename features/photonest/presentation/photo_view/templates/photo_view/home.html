@@ -1018,7 +1018,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <td><small>${formatDateTime(session.createdAt)}</small></td>
       <td><small>${formatDateTime(session.lastProgressAt)}</small></td>
       <td class="session-actions">
-        <a href="/photo-view?session_id=${session.sessionId}" class="btn btn-sm btn-primary btn-size-sm">{{ _("View Details") }}</a>
+        <a href="/photo_view?session_id=${session.sessionId}" class="btn btn-sm btn-primary btn-size-sm">{{ _("View Details") }}</a>
         ${(displayStatus === 'ready' && !session.isLocalImport) ? `<button class="btn btn-sm btn-success btn-size-sm" onclick="startImport('${session.sessionId}')">{{ _("Start Import") }}</button>` : ''}
         ${stopButtonHtml}
         ${localStatusMessage}
@@ -1241,7 +1241,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sessionId = payload && payload.session_id;
         if (sessionId) {
           setTimeout(() => {
-            window.location.href = `/photo-view?session_id=${encodeURIComponent(sessionId)}`;
+            window.location.href = `/photo_view?session_id=${encodeURIComponent(sessionId)}`;
           }, 1500);
           return;
         }

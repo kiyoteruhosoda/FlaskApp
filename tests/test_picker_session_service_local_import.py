@@ -400,8 +400,8 @@ class TestPickerSessionServiceLocalImport:
             assert len(selections) == 1
             assert selections[0].status == 'imported'
 
-    def test_error_status_with_only_duplicates_becomes_pending(self, app):
-        """重複のみのセッションはエラーではなく pending として扱われる"""
+    def test_error_status_with_only_duplicates_becomes_imported(self, app):
+        """重複のみのセッションは imported として扱われる"""
         with app.app_context():
             ps = PickerSession(
                 account_id=1,
@@ -419,11 +419,11 @@ class TestPickerSessionServiceLocalImport:
             details = PickerSessionService.selection_details(ps, params)
 
             db.session.refresh(ps)
-            assert ps.status == 'pending'
+            assert ps.status == 'imported'
             assert details['counts'].get('dup') == 1
 
-    def test_local_import_duplicate_only_session_reports_pending(self, app):
-        """ローカルインポートで重複のみの場合はpendingとして継続表示される"""
+    def test_local_import_duplicate_only_session_reports_imported(self, app):
+        """ローカルインポートで重複のみの場合はimportedとして完了表示される"""
         with app.app_context():
             ps = PickerSession(
                 account_id=None,
@@ -439,22 +439,22 @@ class TestPickerSessionServiceLocalImport:
             result = PickerSessionService.status(ps)
 
             db.session.refresh(ps)
-            assert ps.status == 'pending'
-            assert result['status'] == 'pending'
+            assert ps.status == 'imported'
+            assert result['status'] == 'imported'
             stats = result.get('stats') or {}
             tasks = stats.get('tasks') or []
             assert tasks, "tasks payload should be present for local import"
-            assert tasks[0]['status'] == 'pending'
+            assert tasks[0]['status'] == 'completed'
             assert tasks[0]['counts']['skipped'] == 1
-            assert stats.get('stage') == 'progress'
+            assert stats.get('stage') == 'completed'
 
-    def test_local_import_pending_session_transitions_to_imported(self, app):
-        """重複のみで一時的にpendingとなったセッションでも成功があればimportedになる"""
+    def test_local_import_duplicate_only_session_remains_imported_after_success(self, app):
+        """重複のみのセッションでも成功があればimportedのまま維持される"""
         with app.app_context():
             ps = PickerSession(
                 account_id=None,
                 session_id="local-import-pending-to-imported",
-                status="pending",
+                status="processing",
             )
             db.session.add(ps)
             db.session.commit()
@@ -463,11 +463,11 @@ class TestPickerSessionServiceLocalImport:
             db.session.add(selection)
             db.session.commit()
 
-            # 初回ステータス判定で pending のままであることを確認
+            # 初回ステータス判定で imported に遷移することを確認
             first_result = PickerSessionService.status(ps)
             db.session.refresh(ps)
-            assert ps.status == 'pending'
-            assert first_result['status'] == 'pending'
+            assert ps.status == 'imported'
+            assert first_result['status'] == 'imported'
 
             # 重複扱いだったアイテムが成功したケースを模擬
             selection.status = 'imported'
@@ -481,13 +481,13 @@ class TestPickerSessionServiceLocalImport:
             assert tasks, "tasks payload should exist"
             assert tasks[0]['status'] == 'completed'
 
-    def test_local_import_pending_session_transitions_to_error(self, app):
-        """pendingだったセッションでも失敗が判明すればerrorへ遷移する"""
+    def test_local_import_imported_session_transitions_to_error(self, app):
+        """重複のみでimportedとなったセッションでも失敗が判明すればerrorへ遷移する"""
         with app.app_context():
             ps = PickerSession(
                 account_id=None,
                 session_id="local-import-pending-to-error",
-                status="pending",
+                status="processing",
             )
             db.session.add(ps)
             db.session.commit()
@@ -496,10 +496,10 @@ class TestPickerSessionServiceLocalImport:
             db.session.add(selection)
             db.session.commit()
 
-            # 初回は pending のまま
+            # 初回は imported へ遷移
             PickerSessionService.status(ps)
             db.session.refresh(ps)
-            assert ps.status == 'pending'
+            assert ps.status == 'imported'
 
             # 真の失敗が判明したケースを模擬
             selection.status = 'failed'
@@ -544,8 +544,8 @@ class TestPickerSessionServiceLocalImport:
             result = PickerSessionService.status(ps)
 
             db.session.refresh(ps)
-            assert ps.status == 'pending'
-            assert result['status'] == 'pending'
+            assert ps.status == 'imported'
+            assert result['status'] == 'imported'
             assert result['selectedCount'] == 1
             assert result['counts'].get('dup') == 1
 

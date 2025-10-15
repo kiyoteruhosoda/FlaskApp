@@ -113,11 +113,11 @@
       class="btn btn-outline-primary btn-sm"
       type="button"
       id="totp-create-toggle"
-      aria-expanded="true"
-      aria-label="{{ _('Hide registration form') }}"
+      aria-expanded="false"
+      aria-label="{{ _('Show registration form') }}"
     >
-      <i class="bi bi-layout-sidebar-inset" aria-hidden="true"></i>
-      <span data-role="label">{{ _('Hide registration form') }}</span>
+      <i class="bi bi-layout-sidebar" aria-hidden="true"></i>
+      <span data-role="label">{{ _('Show registration form') }}</span>
     </button>
     <button type="button" class="btn btn-outline-secondary" id="totp-export-btn">
       <i class="bi bi-download" aria-hidden="true"></i>
@@ -130,7 +130,7 @@
   </div>
 </div>
 
-<div class="totp-layout" id="totp-layout">
+<div class="totp-layout totp-layout-collapsed" id="totp-layout">
   <div class="totp-list-panel">
     <div class="card shadow-sm h-100">
       <div class="card-header d-flex align-items-center justify-content-between">
@@ -171,7 +171,7 @@
       </div>
     </div>
   </div>
-  <div class="totp-create-panel" id="totp-create-panel" aria-hidden="false">
+  <div class="totp-create-panel collapsed" id="totp-create-panel" aria-hidden="true">
     <div class="card shadow-sm h-100">
       <div class="card-header totp-card-header">
         <div>
@@ -449,7 +449,7 @@
       mediaQuery.addListener(handleMediaChange);
     }
 
-    updateState(true);
+    updateState(false);
   });
 </script>
 {% endblock %}

@@ -84,7 +84,7 @@
               <li><a class="dropdown-item" href="{{ url_for('admin.permissions') }}">{{ _('Permissions') }}</a></li>
               {% endif %}
               {% if current_user.can('totp:view') %}
-              <li><a class="dropdown-item" href="{{ url_for('totp.index') }}">{{ _('TOTP 管理') }}</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('totp.index') }}">{{ _('TOTP Management') }}</a></li>
               {% endif %}
               {% if show_system_manage %}
               <li><hr class="dropdown-divider"></li>

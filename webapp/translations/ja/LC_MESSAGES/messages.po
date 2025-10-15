@@ -2180,3 +2180,185 @@ msgstr "Wikiページを検索"
 #: features/wiki/presentation/wiki/templates/wiki/search.html:95
 msgid "Enter a keyword in the search box above to find pages."
 msgstr "ページを探すには上の検索欄にキーワードを入力してください。"
+
+#: features/totp/presentation/templates/totp/index.html
+#: webapp/templates/base.html
+#: webapp/templates/index.html
+msgid "TOTP Management"
+msgstr "TOTP 管理"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Register New TOTP"
+msgstr "新規 TOTP 登録"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Register by scanning a QR code or entering the details manually."
+msgstr "QR を読み取るか手入力で登録できます。"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Account"
+msgstr "アカウント"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Issuer"
+msgstr "発行元"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Secret"
+msgstr "シークレット"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Spaces and hyphens are removed automatically (Base32)."
+msgstr "空白やハイフンは自動で除去されます (Base32)"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Digits"
+msgstr "桁数"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Period (seconds)"
+msgstr "有効期間 (秒)"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Description (optional)"
+msgstr "説明 (任意)"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Read from QR code"
+msgstr "QR コードから読み込む"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Paste from clipboard"
+msgstr "クリップボードから貼り付け"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Reads a QR code from an image in your clipboard."
+msgstr "クリップボードの画像から QR を読み取ります。"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "otpauth URI (optional)"
+msgstr "otpauth URI (任意)"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Paste the URI and press \"Parse URI\" to populate the form."
+msgstr "URI を貼り付けて「URI を展開」を押すとフォームへ展開します。"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Parse URI"
+msgstr "URI を展開"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Current preview"
+msgstr "現在のプレビュー"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Registered TOTP entries"
+msgstr "登録済み TOTP 一覧"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "The list refreshes every second."
+msgstr "一覧は 1 秒ごとに自動更新されます。"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Sort by issuer"
+msgstr "発行元順"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Sort by account"
+msgstr "アカウント順"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Sort by updated time"
+msgstr "更新日時順"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "One-time code"
+msgstr "ワンタイムコード"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Time remaining"
+msgstr "残り時間"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Updated at"
+msgstr "更新日時"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Loading data..."
+msgstr "データ取得中..."
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Edit TOTP"
+msgstr "TOTP を編集"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Update secret (optional)"
+msgstr "シークレットを更新 (任意)"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Leave blank to keep the current secret."
+msgstr "空欄のままにすると変更しません"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Import TOTPs"
+msgstr "TOTP をインポート"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Paste or choose a JSON file. Duplicates will be reviewed before continuing."
+msgstr "JSON ファイルを貼り付けるか選択してください。重複がある場合は確認後に続行します。"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "JSON file"
+msgstr "JSON ファイル"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Paste JSON directly"
+msgstr "JSON を直接貼り付け"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Overwrite even if duplicates exist"
+msgstr "重複があっても上書きする"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Close"
+msgstr "閉じる"
+
+
+#: features/totp/presentation/templates/totp/index.html
+msgid "Run import"
+msgstr "インポート実行"
+

@@ -26,6 +26,13 @@
       <i class="fas fa-cogs"></i> {{ _('Config Settings') }}
     </a>
   </li>
+  {% if current_user.can('service_account:manage') %}
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.service_accounts') }}">
+      <i class="fas fa-robot"></i> {{ _('Service Accounts') }}
+    </a>
+  </li>
+  {% endif %}
   {% endif %}
   {% if current_user.can('role:manage') %}
   <li class="nav-item">

@@ -8,6 +8,7 @@ from . import picker_session  # noqa
 from . import openapi  # noqa
 from . import version  # noqa
 from . import upload  # noqa
+from . import maintenance  # noqa
 
 # picker_session Blueprintをapi Blueprintに登録
 from .picker_session import bp as picker_session_bp

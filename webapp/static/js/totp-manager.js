@@ -19,6 +19,7 @@
     otpauthInput: document.getElementById('totp-otpauth'),
     parseUriButton: document.getElementById('totp-parse-uri-btn'),
     qrUpload: document.getElementById('totp-qr-upload'),
+    qrPasteButton: document.getElementById('totp-qr-paste-btn'),
     qrCanvas: document.getElementById('totp-qr-canvas'),
     qrPreview: document.getElementById('totp-qr-preview'),
     exportButton: document.getElementById('totp-export-btn'),
@@ -386,6 +387,10 @@
       elements.qrUpload.addEventListener('change', handleQrUpload);
     }
 
+    if (elements.qrPasteButton) {
+      elements.qrPasteButton.addEventListener('click', handleQrPasteFromClipboard);
+    }
+
     if (elements.tableBody) {
       elements.tableBody.addEventListener('click', (event) => {
         const actionButton = event.target.closest('button[data-action]');
@@ -579,48 +584,23 @@
     editModal.show();
   }
 
-  function handleQrUpload(event) {
+  async function handleQrUpload(event) {
     const file = event.target.files && event.target.files[0];
     if (!file) {
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => {
-      const image = new Image();
-      image.onload = () => {
-        const canvas = elements.qrCanvas;
-        const context = canvas.getContext('2d');
-        canvas.width = image.width;
-        canvas.height = image.height;
-        context.drawImage(image, 0, 0);
-        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, canvas.width, canvas.height);
-        if (code && code.data) {
-          elements.otpauthInput.value = code.data;
-          elements.qrPreview.src = image.src;
-          elements.qrPreview.classList.remove('d-none');
-          try {
-            const parsed = parseOtpauthUri(code.data);
-            populateCreateForm(parsed);
-            if (window.showSuccessToast) {
-              window.showSuccessToast(t('QR から情報を読み取りました'));
-            }
-          } catch (error) {
-            console.error('Failed to parse otpauth from QR', error);
-            if (window.showErrorToast) {
-              window.showErrorToast(error.message || t('QR の解析に失敗しました'));
-            }
-          }
-        } else if (window.showErrorToast) {
-          window.showErrorToast(t('QR コードを検出できませんでした'));
-        }
-      };
-      image.onerror = () => {
+    reader.onload = async () => {
+      const imageSrc = reader.result;
+      try {
+        const otpauth = await decodeQrFromImageSource(imageSrc);
+        applyOtpauthFromQr(otpauth, imageSrc);
+      } catch (error) {
+        console.error('Failed to decode QR from file', error);
         if (window.showErrorToast) {
-          window.showErrorToast(t('画像の読み込みに失敗しました'));
+          window.showErrorToast(error.message || t('QR の解析に失敗しました'));
         }
-      };
-      image.src = reader.result;
+      }
     };
     reader.onerror = () => {
       if (window.showErrorToast) {
@@ -628,6 +608,101 @@
       }
     };
     reader.readAsDataURL(file);
+  }
+
+  async function handleQrPasteFromClipboard() {
+    if (!navigator.clipboard || typeof navigator.clipboard.read !== 'function') {
+      if (window.showErrorToast) {
+        window.showErrorToast(t('このブラウザはクリップボードの画像読み取りに対応していません'));
+      }
+      return;
+    }
+    try {
+      const items = await navigator.clipboard.read();
+      const imageItem = items.find((item) => item.types.some((type) => type.startsWith('image/')));
+      if (!imageItem) {
+        throw new Error(t('クリップボードに画像が見つかりませんでした'));
+      }
+      const imageType = imageItem.types.find((type) => type.startsWith('image/'));
+      const blob = await imageItem.getType(imageType);
+      const imageSrc = await blobToDataUrl(blob);
+      const otpauth = await decodeQrFromImageSource(imageSrc);
+      applyOtpauthFromQr(otpauth, imageSrc);
+    } catch (error) {
+      console.error('Failed to read QR from clipboard', error);
+      if (window.showErrorToast) {
+        window.showErrorToast(error.message || t('QR の解析に失敗しました'));
+      }
+    }
+  }
+
+  function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => {
+        reject(new Error(t('画像の読み込みに失敗しました')));
+      };
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  function decodeQrFromImageSource(imageSrc) {
+    return new Promise((resolve, reject) => {
+      if (!elements.qrCanvas) {
+        reject(new Error(t('QR の解析に失敗しました')));
+        return;
+      }
+      const image = new Image();
+      image.onload = () => {
+        try {
+          const canvas = elements.qrCanvas;
+          const context = canvas.getContext('2d');
+          if (!context) {
+            reject(new Error(t('QR の解析に失敗しました')));
+            return;
+          }
+          canvas.width = image.width;
+          canvas.height = image.height;
+          context.drawImage(image, 0, 0);
+          const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, canvas.width, canvas.height);
+          if (code && code.data) {
+            resolve(code.data);
+          } else {
+            reject(new Error(t('QR コードを検出できませんでした')));
+          }
+        } catch (error) {
+          reject(error);
+        }
+      };
+      image.onerror = () => {
+        reject(new Error(t('画像の読み込みに失敗しました')));
+      };
+      image.src = imageSrc;
+    });
+  }
+
+  function applyOtpauthFromQr(otpauth, previewSrc) {
+    if (elements.otpauthInput) {
+      elements.otpauthInput.value = otpauth;
+    }
+    if (previewSrc && elements.qrPreview) {
+      elements.qrPreview.src = previewSrc;
+      elements.qrPreview.classList.remove('d-none');
+    }
+    try {
+      const parsed = parseOtpauthUri(otpauth);
+      populateCreateForm(parsed);
+      if (window.showSuccessToast) {
+        window.showSuccessToast(t('QR から情報を読み取りました'));
+      }
+    } catch (error) {
+      console.error('Failed to parse otpauth from QR', error);
+      if (window.showErrorToast) {
+        window.showErrorToast(error.message || t('QR の解析に失敗しました'));
+      }
+    }
   }
 
   document.addEventListener('DOMContentLoaded', async () => {

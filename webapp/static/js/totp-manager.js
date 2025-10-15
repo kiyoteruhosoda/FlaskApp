@@ -120,7 +120,7 @@
       elements.tableBody.innerHTML = `
         <tr>
           <td colspan="7" class="text-center py-4 text-muted">
-            <i class="bi bi-inbox me-2"></i>${t('まだ登録がありません')}
+            <i class="bi bi-inbox me-2"></i>${t('No entries yet')}
           </td>
         </tr>`;
       return;
@@ -146,8 +146,8 @@
           <td>${description}</td>
           <td class="text-nowrap">${escapeHtml(updatedText)}</td>
           <td class="text-end totp-list-actions">
-            <button class="btn btn-sm btn-outline-primary" data-action="edit">${t('編集')}</button>
-            <button class="btn btn-sm btn-outline-danger" data-action="delete">${t('削除')}</button>
+            <button class="btn btn-sm btn-outline-primary" data-action="edit">${t('Edit')}</button>
+            <button class="btn btn-sm btn-outline-danger" data-action="delete">${t('Delete')}</button>
           </td>
         </tr>`;
     });
@@ -179,7 +179,7 @@
       const remainingEl = row.querySelector('[data-role="remaining"]');
       if (otpEl) otpEl.textContent = code;
       if (remainingEl) {
-        remainingEl.textContent = t('残り %(seconds)s 秒', { seconds: remaining });
+        remainingEl.textContent = t('%(seconds)s seconds remaining', { seconds: remaining });
       }
       if (progressEl) {
         const ratio = period ? ((period - remaining) / period) * 100 : 0;
@@ -216,14 +216,14 @@
       if (remaining <= 0) remaining = period;
       if (elements.previewCode) elements.previewCode.textContent = code;
       if (elements.previewRemaining) {
-        elements.previewRemaining.textContent = t('残り %(seconds)s 秒', { seconds: remaining });
+        elements.previewRemaining.textContent = t('%(seconds)s seconds remaining', { seconds: remaining });
       }
       if (elements.previewProgress) {
         const ratio = ((period - remaining) / period) * 100;
         elements.previewProgress.style.width = `${Math.max(0, Math.min(100, ratio))}%`;
       }
       if (elements.previewBadge) {
-        elements.previewBadge.textContent = t('プレビュー中');
+        elements.previewBadge.textContent = t('Previewing');
         elements.previewBadge.classList.remove('bg-secondary', 'bg-danger');
         elements.previewBadge.classList.add('bg-success');
       }
@@ -240,13 +240,13 @@
         elements.previewProgress.style.width = '0%';
       }
       if (elements.previewRemaining) {
-        elements.previewRemaining.textContent = t('残り -- 秒');
+        elements.previewRemaining.textContent = t('-- seconds remaining');
       }
-      elements.previewBadge.textContent = t('プレビュー待ち');
+      elements.previewBadge.textContent = t('Waiting for preview');
       elements.previewBadge.className = 'badge bg-secondary';
     } else if (stateName === 'error') {
       elements.previewCode.textContent = '------';
-      elements.previewBadge.textContent = t('プレビュー不可');
+      elements.previewBadge.textContent = t('Preview unavailable');
       elements.previewBadge.className = 'badge bg-danger';
     }
   }
@@ -264,7 +264,7 @@
     } catch (error) {
       console.error('Failed to fetch TOTP list', error);
       if (window.showErrorToast) {
-        window.showErrorToast(t('TOTP 一覧の取得に失敗しました'));
+        window.showErrorToast(t('Failed to load TOTP list'));
       }
     }
   }
@@ -285,10 +285,10 @@
     try {
       parsed = new URL(uri);
     } catch (error) {
-      throw new Error(t('otpauth URI の形式が不正です'));
+      throw new Error(t('Invalid otpauth URI format'));
     }
     if (parsed.protocol !== 'otpauth:' || parsed.hostname.toLowerCase() !== 'totp') {
-      throw new Error(t('TOTP 用の otpauth URI ではありません'));
+      throw new Error(t('Not an otpauth URI for TOTP'));
     }
     const label = decodeURIComponent(parsed.pathname.replace(/^\//, ''));
     let issuerFromLabel = '';
@@ -302,7 +302,7 @@
     const secret = params.get('secret');
     const issuer = params.get('issuer') || issuerFromLabel;
     if (!secret || !issuer || !account) {
-      throw new Error(t('otpauth URI に必要な情報が不足しています'));
+      throw new Error(t('Missing required information in otpauth URI'));
     }
     const digits = Number(params.get('digits') || '6');
     const period = Number(params.get('period') || '30');
@@ -350,7 +350,7 @@
             throw new Error(`Failed: ${response.status}`);
           }
           if (window.showSuccessToast) {
-            window.showSuccessToast(t('TOTP を登録しました'));
+            window.showSuccessToast(t('Registered TOTP'));
           }
           elements.createForm.reset();
           setPreviewState('waiting');
@@ -358,7 +358,7 @@
         } catch (error) {
           console.error('Failed to create TOTP', error);
           if (window.showErrorToast) {
-            window.showErrorToast(error.message || t('TOTP 登録に失敗しました'));
+            window.showErrorToast(error.message || t('Failed to register TOTP'));
           }
         }
       });
@@ -371,12 +371,12 @@
           const data = parseOtpauthUri(uri);
           populateCreateForm(data);
           if (window.showSuccessToast) {
-            window.showSuccessToast(t('URI から情報を展開しました'));
+            window.showSuccessToast(t('Extracted information from URI'));
           }
         } catch (error) {
           console.error('Failed to parse otpauth URI', error);
           if (window.showErrorToast) {
-            window.showErrorToast(error.message || t('otpauth URI の解析に失敗しました'));
+            window.showErrorToast(error.message || t('Failed to parse otpauth URI'));
           }
         }
       });
@@ -426,14 +426,14 @@
             throw new Error(data.error || `Failed: ${response.status}`);
           }
           if (window.showSuccessToast) {
-            window.showSuccessToast(t('TOTP を更新しました'));
+            window.showSuccessToast(t('Updated TOTP'));
           }
           if (editModal) editModal.hide();
           await fetchTotpList();
         } catch (error) {
           console.error('Failed to update TOTP', error);
           if (window.showErrorToast) {
-            window.showErrorToast(error.message || t('TOTP 更新に失敗しました'));
+            window.showErrorToast(error.message || t('Failed to update TOTP'));
           }
         }
       });
@@ -472,14 +472,14 @@
             throw new Error(data.error || `Failed: ${response.status}`);
           }
           if (window.showSuccessToast) {
-            window.showSuccessToast(t('TOTP をインポートしました'));
+            window.showSuccessToast(t('Imported TOTP entries'));
           }
           if (importModal) importModal.hide();
           await fetchTotpList();
         } catch (error) {
           console.error('Failed to import TOTP', error);
           if (window.showErrorToast) {
-            window.showErrorToast(error.message || t('TOTP インポートに失敗しました'));
+            window.showErrorToast(error.message || t('Failed to import TOTP entries'));
           }
         }
       });
@@ -492,9 +492,9 @@
       .map((item) => `<li>${escapeHtml(item.issuer)} / ${escapeHtml(item.account)}</li>`)
       .join('');
     elements.importConflicts.innerHTML = `
-      <strong>${t('既存のエントリと重複しています')}:</strong>
+      <strong>${t('Conflicts with existing entries')}:</strong>
       <ul class="mb-0">${list}</ul>
-      <p class="mb-0 mt-2">${t('「重複があっても上書きする」にチェックを入れて再実行してください。')}</p>`;
+      <p class="mb-0 mt-2">${t('Check "Overwrite even if duplicates exist" and try again.')}</p>`;
     elements.importConflicts.classList.remove('d-none');
   }
 
@@ -507,12 +507,12 @@
       }
       const file = elements.importFile.files && elements.importFile.files[0];
       if (!file) {
-        reject(new Error(t('JSON を入力またはファイルを選択してください')));
+        reject(new Error(t('Enter JSON or select a file')));
         return;
       }
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(new Error(t('ファイルの読み込みに失敗しました')));
+      reader.onerror = () => reject(new Error(t('Failed to read the file')));
       reader.readAsText(file, 'utf-8');
     });
   }
@@ -535,18 +535,18 @@
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       if (window.showSuccessToast) {
-        window.showSuccessToast(t('JSON をダウンロードしました'));
+        window.showSuccessToast(t('Downloaded JSON'));
       }
     } catch (error) {
       console.error('Failed to export TOTP', error);
       if (window.showErrorToast) {
-        window.showErrorToast(error.message || t('TOTP エクスポートに失敗しました'));
+        window.showErrorToast(error.message || t('Failed to export TOTP entries'));
       }
     }
   }
 
   async function confirmDelete(item) {
-    const message = t('%(issuer)s / %(account)s を削除しますか？', { issuer: item.issuer, account: item.account });
+    const message = t('Delete %(issuer)s / %(account)s?', { issuer: item.issuer, account: item.account });
     if (!window.confirm(message)) {
       return;
     }
@@ -556,13 +556,13 @@
         throw new Error(`Failed: ${response.status}`);
       }
       if (window.showSuccessToast) {
-        window.showSuccessToast(t('TOTP を削除しました'));
+        window.showSuccessToast(t('Deleted TOTP entry'));
       }
       await fetchTotpList();
     } catch (error) {
       console.error('Failed to delete TOTP', error);
       if (window.showErrorToast) {
-        window.showErrorToast(error.message || t('TOTP 削除に失敗しました'));
+        window.showErrorToast(error.message || t('Failed to delete TOTP entry'));
       }
     }
   }
@@ -603,28 +603,28 @@
             const parsed = parseOtpauthUri(code.data);
             populateCreateForm(parsed);
             if (window.showSuccessToast) {
-              window.showSuccessToast(t('QR から情報を読み取りました'));
+              window.showSuccessToast(t('Read information from QR code'));
             }
           } catch (error) {
             console.error('Failed to parse otpauth from QR', error);
             if (window.showErrorToast) {
-              window.showErrorToast(error.message || t('QR の解析に失敗しました'));
+              window.showErrorToast(error.message || t('Failed to parse QR code'));
             }
           }
         } else if (window.showErrorToast) {
-          window.showErrorToast(t('QR コードを検出できませんでした'));
+          window.showErrorToast(t('Could not detect QR code'));
         }
       };
       image.onerror = () => {
         if (window.showErrorToast) {
-          window.showErrorToast(t('画像の読み込みに失敗しました'));
+          window.showErrorToast(t('Failed to load image'));
         }
       };
       image.src = reader.result;
     };
     reader.onerror = () => {
       if (window.showErrorToast) {
-        window.showErrorToast(t('ファイルの読み込みに失敗しました'));
+        window.showErrorToast(t('Failed to read the file'));
       }
     };
     reader.readAsDataURL(file);

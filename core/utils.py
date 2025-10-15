@@ -4,10 +4,12 @@ import json
 import logging
 import importlib
 import importlib.util
+import os
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Final, Iterator
+from zoneinfo import ZoneInfo
 
 from flask import current_app
 from PIL import Image, UnidentifiedImageError
@@ -149,6 +151,33 @@ def get_file_date_from_name(filename: str) -> datetime | None:
     return None
 
 
+def _default_app_timezone() -> timezone:
+    """Return the application's default timezone.
+
+    The function prefers the Flask ``BABEL_DEFAULT_TIMEZONE`` configuration
+    value when available and falls back to the corresponding environment
+    variable.  If neither yields a valid zoneinfo identifier ``UTC`` is used.
+    """
+
+    tz_name: str | None = None
+    try:
+        if current_app:
+            tz_name = current_app.config.get("BABEL_DEFAULT_TIMEZONE")
+    except RuntimeError:
+        tz_name = None
+
+    if not tz_name:
+        tz_name = os.environ.get("BABEL_DEFAULT_TIMEZONE")
+
+    if tz_name:
+        try:
+            return ZoneInfo(tz_name)
+        except Exception:
+            pass
+
+    return timezone.utc
+
+
 def get_file_date_from_exif(exif_data: dict) -> datetime | None:
     """
     EXIFデータから撮影日時を抽出
@@ -157,7 +186,9 @@ def get_file_date_from_exif(exif_data: dict) -> datetime | None:
         return None
     
     # 撮影日時のタグを確認（優先順位順）
-    date_tags = ['DateTimeOriginal', 'DateTime', 'DateTimeDigitized']
+    date_tags = ['DateTimeOriginal', 'CreateDate', 'DateTime', 'DateTimeDigitized']
+
+    default_tz = _default_app_timezone()
     
     for tag in date_tags:
         if tag not in exif_data:
@@ -182,7 +213,8 @@ def get_file_date_from_exif(exif_data: dict) -> datetime | None:
         # EXIF日時フォーマット: "YYYY:MM:DD HH:MM:SS"
         try:
             dt = datetime.strptime(date_str, "%Y:%m:%d %H:%M:%S")
-            return dt.replace(tzinfo=timezone.utc)
+            localized = dt.replace(tzinfo=default_tz)
+            return localized.astimezone(timezone.utc)
         except ValueError:
             pass
 
@@ -194,7 +226,7 @@ def get_file_date_from_exif(exif_data: dict) -> datetime | None:
             continue
 
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt
+            dt = dt.replace(tzinfo=default_tz)
+        return dt.astimezone(timezone.utc)
 
     return None

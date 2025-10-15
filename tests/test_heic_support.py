@@ -126,11 +126,13 @@ def test_heic_dimension_fallback_when_plugin_unavailable(monkeypatch, tmp_path: 
     assert isinstance(exif, dict)
 
 
-def test_extract_exif_date_from_heic(tmp_path: Path) -> None:
+def test_extract_exif_date_from_heic(monkeypatch, tmp_path: Path) -> None:
     """HEICのEXIFに含まれる撮影日時を抽出できることを確認。"""
 
     heic_path = tmp_path / "dated.heic"
     image = Image.new("RGB", (16, 16), "white")
+
+    monkeypatch.setenv("BABEL_DEFAULT_TIMEZONE", "Asia/Tokyo")
 
     if hasattr(Image, "Exif"):
         exif = Image.Exif()
@@ -143,7 +145,7 @@ def test_extract_exif_date_from_heic(tmp_path: Path) -> None:
     assert exif_data.get("DateTimeOriginal")
 
     shot_at = get_file_date_from_exif(exif_data)
-    assert shot_at == datetime(2023, 9, 1, 10, 20, 30, tzinfo=timezone.utc)
+    assert shot_at == datetime(2023, 9, 1, 1, 20, 30, tzinfo=timezone.utc)
 
 
 def test_import_single_heic_file(local_import_app) -> None:

@@ -63,9 +63,32 @@
     return (secret || '').replace(/\s+/g, '').replace(/-/g, '').toUpperCase();
   }
 
+  function createSecret(secretValue) {
+    const normalized = normalizeSecret(secretValue);
+    if (!normalized) {
+      throw new Error('Secret is empty');
+    }
+
+    if (typeof OTPAuth.Secret.fromB32 === 'function') {
+      return OTPAuth.Secret.fromB32(normalized);
+    }
+
+    if (typeof OTPAuth.Secret.fromBase32 === 'function') {
+      return OTPAuth.Secret.fromBase32(normalized);
+    }
+
+    const secret = new OTPAuth.Secret();
+    if ('base32' in secret) {
+      secret.base32 = normalized;
+      return secret;
+    }
+
+    throw new Error('No supported method to create OTP secret');
+  }
+
   function getTotpGenerator(item) {
     try {
-      const secret = OTPAuth.Secret.fromB32(normalizeSecret(item.secret));
+      const secret = createSecret(item.secret);
       return new OTPAuth.TOTP({
         issuer: item.issuer,
         label: item.account,

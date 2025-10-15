@@ -58,8 +58,8 @@
     overflow: hidden;
   }
   .totp-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
     gap: 1.5rem;
   }
   .totp-create-panel {
@@ -70,17 +70,18 @@
   }
   .totp-list-panel {
     min-width: 0;
+    flex: 1 1 auto;
   }
   @media (min-width: 992px) {
     .totp-layout {
-      grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+      flex-direction: row;
       align-items: stretch;
     }
     .totp-layout.totp-layout-collapsed {
-      grid-template-columns: minmax(0, 1fr);
       gap: 0;
     }
     .totp-layout .totp-create-panel {
+      flex: 0 0 360px;
       display: block;
     }
     .totp-layout .totp-create-panel.collapsed {

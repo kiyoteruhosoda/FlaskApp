@@ -599,6 +599,30 @@ msgstr "登録が完了しました。ログインしてください。"
 msgid "Email and password are required"
 msgstr "メールアドレスとパスワードは必須です"
 
+#: webapp/services/service_account_service.py:34
+msgid "Please provide a public key."
+msgstr "公開鍵を入力してください。"
+
+#: webapp/services/service_account_service.py:45
+msgid "The public key is not a valid PEM-formatted value."
+msgstr "公開鍵のPEM形式が正しくありません。"
+
+#: webapp/services/service_account_service.py:51
+msgid "The provided public key type is not supported."
+msgstr "サポートされていない公開鍵の種類です。"
+
+#: webapp/services/service_account_service.py:72
+msgid "You are not allowed to assign the specified scopes."
+msgstr "指定されたスコープを付与する権限がありません。"
+
+#: webapp/services/service_account_service.py:90
+msgid "Please provide a service account name."
+msgstr "アカウント名を入力してください。"
+
+#: webapp/services/service_account_service.py:107
+msgid "A service account with the same name already exists."
+msgstr "同じアカウント名が既に存在します。"
+
 #: webapp/auth/routes.py:70 webapp/auth/routes.py:115 webapp/auth/routes.py:226
 msgid "Email already exists"
 msgstr "このメールアドレスは既に登録されています"

@@ -9,6 +9,7 @@ from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicKey
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from flask import current_app
+from flask_babel import gettext as _
 from sqlalchemy.exc import IntegrityError
 
 from core.db import db
@@ -34,7 +35,9 @@ class ServiceAccountService:
     @staticmethod
     def _normalize_public_key(pem_text: str) -> str:
         if not pem_text or not pem_text.strip():
-            raise ServiceAccountValidationError("公開鍵を入力してください。", field="public_key")
+            raise ServiceAccountValidationError(
+                _("Please provide a public key."), field="public_key"
+            )
 
         text = pem_text.strip().encode("utf-8")
         if b"BEGIN PUBLIC KEY" not in text:
@@ -48,12 +51,14 @@ class ServiceAccountService:
             key = load_pem_public_key(text)
         except Exception as exc:  # pragma: no cover - cryptography provides detailed error
             raise ServiceAccountValidationError(
-                "公開鍵のPEM形式が正しくありません。", field="public_key"
+                _("The public key is not a valid PEM-formatted value."),
+                field="public_key",
             ) from exc
 
         if not isinstance(key, (EllipticCurvePublicKey, RSAPublicKey)):
             raise ServiceAccountValidationError(
-                "サポートされていない公開鍵の種類です。", field="public_key"
+                _("The provided public key type is not supported."),
+                field="public_key",
             )
 
         normalized = key.public_bytes(
@@ -90,7 +95,8 @@ class ServiceAccountService:
             disallowed = [scope for scope in normalized if scope not in allowed_set]
             if disallowed:
                 raise ServiceAccountValidationError(
-                    "指定されたスコープを付与する権限がありません。", field="scope_names"
+                    _("You are not allowed to assign the specified scopes."),
+                    field="scope_names",
                 )
 
         return normalized
@@ -107,7 +113,9 @@ class ServiceAccountService:
         allowed_scopes: Iterable[str] | None,
     ) -> ServiceAccount:
         if not name or not name.strip():
-            raise ServiceAccountValidationError("アカウント名を入力してください。", field="name")
+            raise ServiceAccountValidationError(
+                _("Please provide a service account name."), field="name"
+            )
 
         normalized_key = cls._normalize_public_key(public_key)
         normalized_scopes = cls._normalize_scopes(scope_names, allowed_scopes=allowed_scopes)
@@ -126,7 +134,8 @@ class ServiceAccountService:
         except IntegrityError as exc:
             db.session.rollback()
             raise ServiceAccountValidationError(
-                "同じアカウント名が既に存在します。", field="name"
+                _("A service account with the same name already exists."),
+                field="name",
             ) from exc
 
         current_app.logger.info(
@@ -157,7 +166,9 @@ class ServiceAccountService:
             raise ServiceAccountNotFoundError()
 
         if not name or not name.strip():
-            raise ServiceAccountValidationError("アカウント名を入力してください。", field="name")
+            raise ServiceAccountValidationError(
+                _("Please provide a service account name."), field="name"
+            )
 
         normalized_key = cls._normalize_public_key(public_key)
         normalized_scopes = cls._normalize_scopes(scope_names, allowed_scopes=allowed_scopes)
@@ -173,7 +184,8 @@ class ServiceAccountService:
         except IntegrityError as exc:
             db.session.rollback()
             raise ServiceAccountValidationError(
-                "同じアカウント名が既に存在します。", field="name"
+                _("A service account with the same name already exists."),
+                field="name",
             ) from exc
 
         current_app.logger.info(

@@ -1,4 +1,4 @@
-"""JWT検証を行うサービスアカウント専用の認証ユーティリティ。"""
+"""Authentication helpers for validating service account JWTs."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,6 +7,7 @@ from typing import Callable, Iterable, Sequence
 
 import jwt
 from flask import current_app, g, request
+from flask_babel import gettext as _
 
 from core.models.service_account import ServiceAccount
 from webapp.services.service_account_service import ServiceAccountService
@@ -31,13 +32,22 @@ class ServiceAccountTokenValidator:
     def _select_account(claims: dict) -> ServiceAccount:
         account_name = claims.get("iss") or claims.get("sub")
         if not account_name:
-            raise ServiceAccountJWTError("UnknownAccount", "サービスアカウント情報が見つかりません。")
+            raise ServiceAccountJWTError(
+                "UnknownAccount",
+                _("The service account identifier is missing from the token."),
+            )
 
         account = ServiceAccountService.get_by_name(account_name)
         if not account:
-            raise ServiceAccountJWTError("UnknownAccount", "サービスアカウントが登録されていません。")
+            raise ServiceAccountJWTError(
+                "UnknownAccount",
+                _("The service account is not registered."),
+            )
         if not account.active_flg:
-            raise ServiceAccountJWTError("DisabledAccount", "サービスアカウントが無効化されています。")
+            raise ServiceAccountJWTError(
+                "DisabledAccount",
+                _("The service account is disabled."),
+            )
         return account
 
     @classmethod
@@ -49,16 +59,25 @@ class ServiceAccountTokenValidator:
         required_scopes: Iterable[str] | None = None,
     ) -> tuple[ServiceAccount, dict]:
         if not token:
-            raise ServiceAccountJWTError("UnknownAccount", "トークンが指定されていません。")
+            raise ServiceAccountJWTError(
+                "UnknownAccount",
+                _("The token is not provided."),
+            )
 
         try:
             header = jwt.get_unverified_header(token)
         except jwt.InvalidTokenError as exc:
-            raise ServiceAccountJWTError("InvalidSignature", "JWTヘッダが不正です。") from exc
+            raise ServiceAccountJWTError(
+                "InvalidSignature",
+                _("The JWT header is invalid."),
+            ) from exc
 
         algorithm = header.get("alg")
         if algorithm not in _ALLOWED_ALGORITHMS:
-            raise ServiceAccountJWTError("InvalidSignature", "サポートされていない署名方式です。")
+            raise ServiceAccountJWTError(
+                "InvalidSignature",
+                _("The signature algorithm is not supported."),
+            )
 
         try:
             unsigned_claims = jwt.decode(
@@ -67,7 +86,10 @@ class ServiceAccountTokenValidator:
                 algorithms=[algorithm],
             )
         except jwt.InvalidTokenError as exc:
-            raise ServiceAccountJWTError("InvalidSignature", "JWTの解析に失敗しました。") from exc
+            raise ServiceAccountJWTError(
+                "InvalidSignature",
+                _("Failed to parse the JWT."),
+            ) from exc
 
         account = cls._select_account(unsigned_claims)
 
@@ -80,30 +102,54 @@ class ServiceAccountTokenValidator:
                 options={"require": ["iat", "exp"]},
             )
         except jwt.ExpiredSignatureError as exc:
-            raise ServiceAccountJWTError("ExpiredToken", "トークンの有効期限が切れています。") from exc
+            raise ServiceAccountJWTError(
+                "ExpiredToken",
+                _("The token has expired."),
+            ) from exc
         except jwt.InvalidAudienceError as exc:
-            raise ServiceAccountJWTError("InvalidAudience", "audienceが一致しません。") from exc
+            raise ServiceAccountJWTError(
+                "InvalidAudience",
+                _("The audience does not match."),
+            ) from exc
         except jwt.InvalidSignatureError as exc:
-            raise ServiceAccountJWTError("InvalidSignature", "署名の検証に失敗しました。") from exc
+            raise ServiceAccountJWTError(
+                "InvalidSignature",
+                _("Failed to verify the signature."),
+            ) from exc
         except jwt.InvalidTokenError as exc:
-            raise ServiceAccountJWTError("InvalidSignature", "JWTが不正です。") from exc
+            raise ServiceAccountJWTError(
+                "InvalidSignature",
+                _("The JWT is invalid."),
+            ) from exc
 
         issued_at = datetime.fromtimestamp(claims["iat"], timezone.utc)
         expires_at = datetime.fromtimestamp(claims["exp"], timezone.utc)
         if expires_at <= issued_at:
-            raise ServiceAccountJWTError("ExpiredToken", "有効期限が不正です。")
+            raise ServiceAccountJWTError(
+                "ExpiredToken",
+                _("The token lifetime is invalid."),
+            )
         if expires_at - issued_at > _MAX_TOKEN_LIFETIME:
-            raise ServiceAccountJWTError("ExpiredToken", "トークンの有効期限が長すぎます。")
+            raise ServiceAccountJWTError(
+                "ExpiredToken",
+                _("The token lifetime exceeds the maximum allowed."),
+            )
 
         now = datetime.now(timezone.utc)
         if issued_at - now > timedelta(minutes=1):  # clock skew guard
-            raise ServiceAccountJWTError("InvalidSignature", "トークンの発行時刻が未来です。")
+            raise ServiceAccountJWTError(
+                "InvalidSignature",
+                _("The token issue time is in the future."),
+            )
 
         account_scopes = set(account.scopes)
         if required_scopes:
             missing = [scope for scope in required_scopes if scope not in account_scopes]
             if missing:
-                raise ServiceAccountJWTError("InvalidScope", "必要なスコープが付与されていません。")
+                raise ServiceAccountJWTError(
+                    "InvalidScope",
+                    _("The required scope is not granted."),
+                )
 
         return account, claims
 

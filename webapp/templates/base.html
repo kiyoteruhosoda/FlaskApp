@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="{{ get_locale() or 'ja' }}">
+<html lang="{{ get_locale() or 'en' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -84,7 +84,7 @@
               <li><a class="dropdown-item" href="{{ url_for('admin.permissions') }}">{{ _('Permissions') }}</a></li>
               {% endif %}
               {% if current_user.can('totp:view') %}
-              <li><a class="dropdown-item" href="{{ url_for('totp.index') }}">{{ _('TOTP 管理') }}</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('totp.index') }}">{{ _('TOTP Management') }}</a></li>
               {% endif %}
               {% if show_system_manage %}
               <li><hr class="dropdown-divider"></li>

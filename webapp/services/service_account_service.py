@@ -3,11 +3,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Iterable, List, Sequence
+from urllib.parse import urlparse
 
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicKey
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
-from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from flask import current_app
 from flask_babel import gettext as _
 from sqlalchemy.exc import IntegrityError
@@ -30,44 +27,22 @@ class ServiceAccountNotFoundError(Exception):
 
 
 class ServiceAccountService:
-    allowed_algorithms = {"ES256", "RS256"}
-
     @staticmethod
-    def _normalize_public_key(pem_text: str) -> str:
-        if not pem_text or not pem_text.strip():
+    def _normalize_jtk_endpoint(endpoint: str) -> str:
+        if not endpoint or not endpoint.strip():
             raise ServiceAccountValidationError(
-                _("Please provide a public key."), field="public_key"
+                _("Please provide a JTK endpoint."), field="jtk_endpoint"
             )
 
-        text = pem_text.strip().encode("utf-8")
-        if b"BEGIN PUBLIC KEY" not in text:
-            header = b"-----BEGIN PUBLIC KEY-----\n"
-            footer = b"\n-----END PUBLIC KEY-----"
-            text = header + text.replace(b"\r", b"") + footer
-        else:
-            text = text.replace(b"\r", b"")
-
-        try:
-            key = load_pem_public_key(text)
-        except Exception as exc:  # pragma: no cover - cryptography provides detailed error
+        value = endpoint.strip()
+        parsed = urlparse(value)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             raise ServiceAccountValidationError(
-                _("The public key is not a valid PEM-formatted value."),
-                field="public_key",
-            ) from exc
-
-        if not isinstance(key, (EllipticCurvePublicKey, RSAPublicKey)):
-            raise ServiceAccountValidationError(
-                _("The provided public key type is not supported."),
-                field="public_key",
+                _("The JTK endpoint must be a valid HTTP(S) URL."),
+                field="jtk_endpoint",
             )
 
-        normalized = key.public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo,
-        )
-        # 末尾の改行や余分な空白を除去し、統一した形式で保存
-        lines = [line.strip() for line in normalized.decode("utf-8").strip().splitlines()]
-        return "\n".join(lines)
+        return value
 
     @staticmethod
     def _normalize_scopes(
@@ -107,7 +82,7 @@ class ServiceAccountService:
         *,
         name: str,
         description: str | None,
-        public_key: str,
+        jtk_endpoint: str,
         scope_names: str | Sequence[str],
         active: bool,
         allowed_scopes: Iterable[str] | None,
@@ -117,13 +92,13 @@ class ServiceAccountService:
                 _("Please provide a service account name."), field="name"
             )
 
-        normalized_key = cls._normalize_public_key(public_key)
+        normalized_endpoint = cls._normalize_jtk_endpoint(jtk_endpoint)
         normalized_scopes = cls._normalize_scopes(scope_names, allowed_scopes=allowed_scopes)
 
         account = ServiceAccount(
             name=name.strip(),
             description=description.strip() if description else None,
-            public_key=normalized_key,
+            jtk_endpoint=normalized_endpoint,
             active_flg=bool(active),
         )
         account.set_scopes(normalized_scopes)
@@ -156,7 +131,7 @@ class ServiceAccountService:
         *,
         name: str,
         description: str | None,
-        public_key: str,
+        jtk_endpoint: str,
         scope_names: str | Sequence[str],
         active: bool,
         allowed_scopes: Iterable[str] | None,
@@ -170,12 +145,12 @@ class ServiceAccountService:
                 _("Please provide a service account name."), field="name"
             )
 
-        normalized_key = cls._normalize_public_key(public_key)
+        normalized_endpoint = cls._normalize_jtk_endpoint(jtk_endpoint)
         normalized_scopes = cls._normalize_scopes(scope_names, allowed_scopes=allowed_scopes)
 
         account.name = name.strip()
         account.description = description.strip() if description else None
-        account.public_key = normalized_key
+        account.jtk_endpoint = normalized_endpoint
         account.active_flg = bool(active)
         account.set_scopes(normalized_scopes)
 

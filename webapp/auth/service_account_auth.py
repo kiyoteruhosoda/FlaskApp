@@ -5,9 +5,12 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Iterable, Sequence
 
+import json
 import jwt
+import requests
 from flask import current_app, g, request
 from flask_babel import gettext as _
+from jwt import algorithms as jwt_algorithms
 
 from core.models.service_account import ServiceAccount
 from webapp.services.service_account_service import ServiceAccountService
@@ -27,6 +30,65 @@ class ServiceAccountJWTError(Exception):
 
 class ServiceAccountTokenValidator:
     """Verify JWT signed tokens issued by registered service accounts."""
+
+    @staticmethod
+    def _load_signing_key(account: ServiceAccount, kid: str, algorithm: str):
+        if not kid:
+            raise ServiceAccountJWTError(
+                "InvalidSignature",
+                _("The token does not specify a key identifier."),
+            )
+
+        if not account.jtk_endpoint:
+            raise ServiceAccountJWTError(
+                "InvalidSignature",
+                _("The service account is missing a JTK endpoint."),
+            )
+
+        timeout = current_app.config.get("SERVICE_ACCOUNT_JWKS_TIMEOUT", 5)
+        try:
+            response = requests.get(account.jtk_endpoint, timeout=timeout)
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            raise ServiceAccountJWTError(
+                "InvalidSignature",
+                _("Failed to retrieve the signing keys."),
+            ) from exc
+
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise ServiceAccountJWTError(
+                "InvalidSignature",
+                _("The JTK endpoint returned invalid JSON."),
+            ) from exc
+
+        keys = payload.get("keys")
+        if not isinstance(keys, list):
+            raise ServiceAccountJWTError(
+                "InvalidSignature",
+                _("The JTK endpoint response did not include signing keys."),
+            )
+
+        for jwk in keys:
+            if jwk.get("kid") != kid:
+                continue
+            try:
+                jwk_payload = json.dumps(jwk)
+                if algorithm.startswith("RS"):
+                    return jwt_algorithms.RSAAlgorithm.from_jwk(jwk_payload)
+                if algorithm.startswith("ES"):
+                    return jwt_algorithms.ECAlgorithm.from_jwk(jwk_payload)
+            except (ValueError, TypeError) as exc:
+                raise ServiceAccountJWTError(
+                    "InvalidSignature",
+                    _("Failed to construct a signing key from the JTK response."),
+                ) from exc
+
+        raise ServiceAccountJWTError(
+            "InvalidSignature",
+            _("Failed to find a matching signing key."),
+        )
 
     @staticmethod
     def _select_account(claims: dict) -> ServiceAccount:
@@ -92,11 +154,13 @@ class ServiceAccountTokenValidator:
             ) from exc
 
         account = cls._select_account(unsigned_claims)
+        kid = header.get("kid")
+        signing_key = cls._load_signing_key(account, kid, algorithm)
 
         try:
             claims = jwt.decode(
                 token,
-                key=account.public_key,
+                key=signing_key,
                 algorithms=[algorithm],
                 audience=audience,
                 options={"require": ["iat", "exp"]},

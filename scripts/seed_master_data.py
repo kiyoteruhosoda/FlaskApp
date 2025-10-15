@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.db import db
 from core.models.user import User, Role, Permission
+from flask_babel import gettext as _
 from webapp import create_app
 
 
@@ -121,7 +122,7 @@ def main():
     app = create_app()
     
     with app.app_context():
-        print("=== Familink Master Data Seeding ===")
+        print(_("=== %(app_name)s Master Data Seeding ===", app_name=_("AppName")))
         
         try:
             # ロールデータ投入

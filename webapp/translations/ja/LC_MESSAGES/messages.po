@@ -783,8 +783,8 @@ msgid "Welcome Back"
 msgstr "おかえりなさい"
 
 #: webapp/auth/templates/auth/login.html:9
-msgid "Sign in to your Familink account"
-msgstr "Familinkアカウントにサインイン"
+msgid "Sign in to your %(app_name)s account"
+msgstr "%(app_name)sアカウントにサインイン"
 
 #: webapp/auth/templates/auth/login.html:34
 msgid "Enter your password"
@@ -864,8 +864,8 @@ msgid "Create Account"
 msgstr "アカウント作成"
 
 #: webapp/auth/templates/auth/register.html:9
-msgid "Join Familink and start organizing your memories"
-msgstr "Familinkに参加して思い出を整理しましょう"
+msgid "Join %(app_name)s and start organizing your memories"
+msgstr "%(app_name)sに参加して思い出を整理しましょう"
 
 #: webapp/auth/templates/auth/register.html:34
 #: webapp/auth/templates/auth/register_no_totp.html:34
@@ -893,8 +893,17 @@ msgid "Creating Account..."
 msgstr "アカウント作成中..."
 
 #: webapp/auth/templates/auth/register_no_totp.html:9
-msgid "Join Familink without two-factor authentication"
-msgstr "二要素認証なしでFamilinkに参加"
+msgid "Join %(app_name)s without two-factor authentication"
+msgstr "二要素認証なしで%(app_name)sに参加"
+
+msgid "=== %(app_name)s Version Information ==="
+msgstr "=== %(app_name)s バージョン情報 ==="
+
+msgid "%(app_name)s Version Information"
+msgstr "%(app_name)s バージョン情報"
+
+msgid "=== %(app_name)s Master Data Seeding ==="
+msgstr "=== %(app_name)s マスターデータ投入 ==="
 
 #: webapp/auth/templates/auth/register_no_totp.html:39
 msgid "Note: This account will not have two-factor authentication enabled"

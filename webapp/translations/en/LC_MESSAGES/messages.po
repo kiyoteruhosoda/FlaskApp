@@ -61,8 +61,8 @@ msgstr "If you cannot scan the QR code, add this secret manually in your app:"
 msgid "Welcome Back"
 msgstr "Welcome Back"
 
-msgid "Sign in to your Familink account"
-msgstr "Sign in to your Familink account"
+msgid "Sign in to your %(app_name)s account"
+msgstr "Sign in to your %(app_name)s account"
 
 msgid "Email Address"
 msgstr "Email Address"
@@ -88,8 +88,8 @@ msgstr "Don't have an account? Sign up"
 msgid "Create Account"
 msgstr "Create Account"
 
-msgid "Join Familink and start organizing your memories"
-msgstr "Join Familink and start organizing your memories"
+msgid "Join %(app_name)s and start organizing your memories"
+msgstr "Join %(app_name)s and start organizing your memories"
 
 msgid "Create a strong password"
 msgstr "Create a strong password"
@@ -100,8 +100,17 @@ msgstr "Two-factor authentication will be set up in the next step for enhanced s
 msgid "Already have an account? Sign in"
 msgstr "Already have an account? Sign in"
 
-msgid "Join Familink without two-factor authentication"
-msgstr "Join Familink without two-factor authentication"
+msgid "Join %(app_name)s without two-factor authentication"
+msgstr "Join %(app_name)s without two-factor authentication"
+
+msgid "=== %(app_name)s Version Information ==="
+msgstr "=== %(app_name)s Version Information ==="
+
+msgid "%(app_name)s Version Information"
+msgstr "%(app_name)s Version Information"
+
+msgid "=== %(app_name)s Master Data Seeding ==="
+msgstr "=== %(app_name)s Master Data Seeding ==="
 
 msgid "Note: This account will not have two-factor authentication enabled"
 msgstr "Note: This account will not have two-factor authentication enabled"

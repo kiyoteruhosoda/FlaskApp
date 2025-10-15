@@ -82,6 +82,12 @@
           <div class="mb-3">
             <label class="form-label">{{ _('QR コードから読み込む') }}</label>
             <input type="file" accept="image/*" id="totp-qr-upload" class="form-control">
+            <div class="d-flex gap-2 mt-2">
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="totp-qr-paste-btn">
+                <i class="bi bi-clipboard-plus me-1"></i>{{ _('クリップボードから貼り付け') }}
+              </button>
+            </div>
+            <div class="form-text">{{ _('クリップボードの画像から QR を読み取ります') }}</div>
             <canvas id="totp-qr-canvas" class="d-none"></canvas>
             <img id="totp-qr-preview" class="mt-2 rounded shadow-sm d-none qr-preview" alt="QR preview">
           </div>

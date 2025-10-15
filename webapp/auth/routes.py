@@ -75,6 +75,14 @@ def _resolve_post_login_target() -> str:
     return url_for("feature_x.dashboard")
 
 
+def _resolve_next_target(default_endpoint: str) -> str:
+    """resolve a safe relative redirect target, falling back to the given endpoint"""
+    candidate = request.values.get("next")
+    if candidate and candidate.startswith("/") and not candidate.startswith("//"):
+        return candidate
+    return url_for(default_endpoint)
+
+
 def _pop_role_selection_target() -> str:
     """ロール選択後の遷移先を取得する。"""
     candidate = session.pop("role_selection_next", None) or request.args.get("next")
@@ -496,10 +504,12 @@ def edit():
 @bp.route("/setup_totp", methods=["GET", "POST"])
 @login_required
 def setup_totp():
+    next_url = _resolve_next_target("auth.edit")
+
     if current_user.totp_secret:
         flash(_("Two-factor authentication already configured"), "error")
-        return redirect(url_for("auth.edit"))
-    
+        return redirect(next_url)
+
     secret = session.get("setup_totp_secret")
     
     # セッション有効性をチェック
@@ -524,17 +534,19 @@ def setup_totp():
                 qr_data=qr_data,
                 secret=secret,
                 otpauth_uri=uri,
+                next_url=next_url,
             )
         current_user.totp_secret = secret
         db.session.commit()
         _clear_setup_totp_session()
         flash(_("Two-factor authentication enabled"), "success")
-        return redirect(url_for("auth.edit"))
+        return redirect(next_url)
     return render_template(
         "auth/setup_totp.html",
         qr_data=qr_data,
         secret=secret,
         otpauth_uri=uri,
+        next_url=next_url,
     )
 
 @bp.route("/setup_totp/cancel", methods=["POST"])
@@ -543,7 +555,8 @@ def setup_totp_cancel():
     """2FA設定をキャンセル"""
     _clear_setup_totp_session()
     flash(_("Two-factor authentication setup cancelled."), "info")
-    return redirect(url_for("auth.edit"))
+    next_url = _resolve_next_target("auth.edit")
+    return redirect(next_url)
 
 @bp.route("/logout")
 @login_required

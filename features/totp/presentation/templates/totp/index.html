@@ -47,6 +47,16 @@
     max-width: 200px;
     max-height: 200px;
   }
+  .qr-canvas-offscreen {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    border: 0;
+    padding: 0;
+    clip: rect(0 0 0 0);
+    overflow: hidden;
+  }
   .totp-layout {
     display: flex;
     flex-direction: column;
@@ -100,10 +110,10 @@
     </button>
   </div>
   <div class="d-flex gap-2">
-    <button class="btn btn-outline-secondary" id="totp-export-btn">
+    <button type="button" class="btn btn-outline-secondary" id="totp-export-btn">
       <i class="bi bi-download me-1"></i>{{ _('Export JSON') }}
     </button>
-    <button class="btn btn-outline-primary" id="totp-import-btn">
+    <button type="button" class="btn btn-outline-primary" id="totp-import-btn">
       <i class="bi bi-upload me-1"></i>{{ _('Import JSON') }}
     </button>
   </div>
@@ -157,7 +167,7 @@
               </button>
             </div>
             <div class="form-text">{{ _('クリップボードの画像から QR を読み取ります') }}</div>
-            <canvas id="totp-qr-canvas" class="d-none"></canvas>
+            <canvas id="totp-qr-canvas" class="qr-canvas-offscreen" aria-hidden="true"></canvas>
             <img id="totp-qr-preview" class="mt-2 rounded shadow-sm d-none qr-preview" alt="QR preview">
           </div>
           <div class="mb-3">
@@ -341,7 +351,7 @@
     'totp.actions.delete': _('Delete'),
     'totp.copy.success': _('Copied the one-time code.'),
     'totp.copy.error': _('Failed to copy the one-time code.'),
-    'totp.remainingSeconds': _('Remaining %(seconds)s seconds'),
+    'totp.remainingSeconds': _('Remaining {seconds} seconds'),
     'totp.preview.active': _('Previewing'),
     'totp.preview.placeholderSeconds': _('-- seconds remaining'),
     'totp.preview.waiting': _('Waiting for preview'),
@@ -364,7 +374,7 @@
     'totp.file.readError': _('Failed to read the file.'),
     'totp.export.success': _('Downloaded the JSON file.'),
     'totp.export.error': _('Failed to export TOTP entries.'),
-    'totp.delete.confirm': _('Delete %(issuer)s / %(account)s?'),
+    'totp.delete.confirm': _('Delete {issuer} / {account}?'),
     'totp.delete.success': _('Deleted the TOTP entry.'),
     'totp.delete.error': _('Failed to delete the TOTP entry.'),
     'totp.qr.decodeError': _('Failed to decode the QR code.'),

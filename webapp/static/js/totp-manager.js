@@ -49,12 +49,22 @@
     if (!params) {
       return template;
     }
-    return template.replace(/%\(([^)]+)\)s/g, (match, token) => {
+
+    let rendered = template.replace(/\{([^{}]+)\}/g, (match, token) => {
       if (Object.prototype.hasOwnProperty.call(params, token)) {
         return params[token];
       }
       return '';
     });
+
+    rendered = rendered.replace(/%\(([^)]+)\)s/g, (match, token) => {
+      if (Object.prototype.hasOwnProperty.call(params, token)) {
+        return params[token];
+      }
+      return '';
+    });
+
+    return rendered;
   }
 
   function normalizeSecret(secret) {
@@ -284,7 +294,7 @@
       const remainingEl = row.querySelector('[data-role="remaining"]');
       if (otpEl) otpEl.textContent = code;
       if (remainingEl) {
-        remainingEl.textContent = t('totp.remainingSeconds', 'Remaining %(seconds)s seconds', { seconds: remaining });
+        remainingEl.textContent = t('totp.remainingSeconds', 'Remaining {seconds} seconds', { seconds: remaining });
       }
       if (progressEl) {
         const ratio = period ? ((period - remaining) / period) * 100 : 0;
@@ -321,7 +331,7 @@
       if (remaining <= 0) remaining = period;
       if (elements.previewCode) elements.previewCode.textContent = code;
       if (elements.previewRemaining) {
-        elements.previewRemaining.textContent = t('totp.remainingSeconds', 'Remaining %(seconds)s seconds', { seconds: remaining });
+        elements.previewRemaining.textContent = t('totp.remainingSeconds', 'Remaining {seconds} seconds', { seconds: remaining });
       }
       if (elements.previewProgress) {
         const ratio = ((period - remaining) / period) * 100;
@@ -686,7 +696,10 @@
   }
 
   async function confirmDelete(item) {
-    const message = t('totp.delete.confirm', 'Delete %(issuer)s / %(account)s?', { issuer: item.issuer, account: item.account });
+    const message = t('totp.delete.confirm', 'Delete {issuer} / {account}?', {
+      issuer: item.issuer,
+      account: item.account,
+    });
     if (!window.confirm(message)) {
       return;
     }

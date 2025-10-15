@@ -291,6 +291,49 @@
 {% block extra_scripts %}
 <script src="https://cdn.jsdelivr.net/npm/otpauth@9.0.1/dist/otpauth.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script>
+  window.i18nStrings = Object.assign(window.i18nStrings || {}, {{ {
+    'totp.noEntries': _('No TOTP registrations yet.'),
+    'totp.copyHint': _('Click to copy'),
+    'totp.copyAriaLabel': _('Copy one-time code'),
+    'totp.actions.edit': _('Edit'),
+    'totp.actions.delete': _('Delete'),
+    'totp.copy.success': _('Copied the one-time code.'),
+    'totp.copy.error': _('Failed to copy the one-time code.'),
+    'totp.remainingSeconds': _('Remaining %(seconds)s seconds'),
+    'totp.preview.active': _('Previewing'),
+    'totp.preview.placeholderSeconds': _('-- seconds remaining'),
+    'totp.preview.waiting': _('Waiting for preview'),
+    'totp.preview.unavailable': _('Preview unavailable'),
+    'totp.load.error': _('Failed to load the TOTP list.'),
+    'totp.otpauth.invalidFormat': _('The otpauth URI is not valid.'),
+    'totp.otpauth.invalidType': _('The otpauth URI is not for TOTP.'),
+    'totp.otpauth.missingData': _('The otpauth URI is missing required information.'),
+    'totp.create.success': _('Registered the TOTP entry.'),
+    'totp.create.error': _('Failed to register the TOTP entry.'),
+    'totp.parse.success': _('Extracted information from the URI.'),
+    'totp.parse.error': _('Failed to parse the otpauth URI.'),
+    'totp.update.success': _('Updated the TOTP entry.'),
+    'totp.update.error': _('Failed to update the TOTP entry.'),
+    'totp.import.success': _('Imported TOTP entries.'),
+    'totp.import.error': _('Failed to import TOTP entries.'),
+    'totp.import.duplicatesTitle': _('Duplicate entries detected'),
+    'totp.import.duplicatesHint': _('Select "Overwrite even if duplicates exist" and try again.'),
+    'totp.import.requireInput': _('Provide JSON text or choose a file.'),
+    'totp.file.readError': _('Failed to read the file.'),
+    'totp.export.success': _('Downloaded the JSON file.'),
+    'totp.export.error': _('Failed to export TOTP entries.'),
+    'totp.delete.confirm': _('Delete %(issuer)s / %(account)s?'),
+    'totp.delete.success': _('Deleted the TOTP entry.'),
+    'totp.delete.error': _('Failed to delete the TOTP entry.'),
+    'totp.qr.decodeError': _('Failed to decode the QR code.'),
+    'totp.qr.unsupportedClipboard': _('This browser does not support reading images from the clipboard.'),
+    'totp.qr.noClipboardImage': _('No image found in the clipboard.'),
+    'totp.qr.imageLoadError': _('Failed to load the image.'),
+    'totp.qr.noCodeDetected': _('Could not detect a QR code.'),
+    'totp.qr.readSuccess': _('Read information from the QR code.'),
+  } | tojson | safe }});
+</script>
 <script src="{{ url_for('static', filename='js/totp-manager.js') }}"></script>
 <script>
   document.addEventListener('DOMContentLoaded', () => {

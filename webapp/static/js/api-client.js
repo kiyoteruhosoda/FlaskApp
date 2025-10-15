@@ -1,5 +1,5 @@
 /**
- * APIクライアント - セッション切れ時の自動リフレッシュ機能付き
+ * API client with automatic token refresh when the session expires
  */
 
 class APIClient {
@@ -10,7 +10,7 @@ class APIClient {
   }
 
   /**
-   * トークンリフレッシュを実行
+   * Perform a token refresh
    */
   async refreshToken() {
     const refreshToken = localStorage.getItem('refresh_token');
@@ -43,19 +43,19 @@ class APIClient {
       localStorage.setItem('refresh_token', data.refresh_token);
     }
     
-    // アクセストークンがCookieに自動設定されるので、追加の処理は不要
+    // Access tokens are automatically managed via cookies, so no extra handling is required
     return data;
   }
 
   /**
-   * 失敗したリクエストをキューに追加
+   * Queue failed requests
    */
   addToFailedQueue(resolve, reject, config) {
     this.failedQueue.push({ resolve, reject, config });
   }
 
   /**
-   * 失敗したリクエストキューを処理
+   * Process queued failed requests
    */
   processQueue(error = null) {
     this.failedQueue.forEach(({ resolve, reject, config }) => {
@@ -69,12 +69,12 @@ class APIClient {
   }
 
   /**
-   * APIリクエストを実行（リトライ機能付き）
+   * Perform an API request with retry support
    */
   async request(config, retryCount = 0) {
     const { url, method = 'GET', headers = {}, body, ...options } = config;
 
-    // CSRFトークンを自動で追加
+    // Automatically attach the CSRF token
     const csrfToken = this.getCsrfTokenFromCookie();
     if (csrfToken && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase())) {
       headers['X-CSRFToken'] = csrfToken;
@@ -109,12 +109,12 @@ class APIClient {
     try {
       const response = await fetch(url, requestConfig);
 
-      // 401エラーでリフレッシュトークンが利用可能な場合
+      // Handle 401 responses when a refresh token is available
       if (response.status === 401 && retryCount < this.maxRetries) {
         console.log('APIClient: Received 401, attempting token refresh...');
         
         if (this.isRefreshing) {
-          // 既にリフレッシュ中の場合はキューに追加
+          // Queue the request if a refresh is already in progress
           console.log('APIClient: Already refreshing, adding to queue...');
           return new Promise((resolve, reject) => {
             this.addToFailedQueue(resolve, reject, config);
@@ -129,14 +129,14 @@ class APIClient {
           this.processQueue();
           
           console.log('APIClient: Token refresh successful, retrying original request...');
-          // リフレッシュ成功後にリクエストを再実行
+          // Retry the original request after a successful refresh
           return this.request(config, retryCount + 1);
         } catch (refreshError) {
           console.error('APIClient: Token refresh failed:', refreshError);
           this.isRefreshing = false;
           this.processQueue(refreshError);
           
-          // リフレッシュに失敗した場合はログインページにリダイレクト
+          // Redirect to the login page if refreshing fails
           this.redirectToLogin();
           throw refreshError;
         }
@@ -152,7 +152,7 @@ class APIClient {
   }
 
   /**
-   * CSRFトークンをCookieから取得
+   * Retrieve the CSRF token from cookies
    */
   getCsrfTokenFromCookie() {
     const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
@@ -160,63 +160,63 @@ class APIClient {
   }
 
   /**
-   * ログインページにリダイレクト
+   * Redirect to the login page
    */
   redirectToLogin() {
-    // 現在のページをリダイレクト先として保存
+    // Remember the current page for redirect after login
     const currentPath = window.location.pathname + window.location.search;
     if (currentPath !== '/auth/login') {
       localStorage.setItem('redirect_after_login', currentPath);
     }
     
-    // トーストメッセージを表示
+    // Show toast message when the session expires
     if (typeof showErrorToast === 'function') {
-      showErrorToast('セッションが期限切れです。再度ログインしてください。');
+      showErrorToast(_('app.sessionExpired', 'Session expired. Please log in again.'));
     }
     
-    // 少し遅延を入れてリダイレクト
+    // Redirect after a short delay
     setTimeout(() => {
       window.location.href = '/auth/login';
     }, 1000);
   }
 
   /**
-   * GET リクエスト
+   * Perform a GET request
    */
   async get(url, config = {}) {
     return this.request({ url, method: 'GET', ...config });
   }
 
   /**
-   * POST リクエスト
+   * Perform a POST request
    */
   async post(url, body, config = {}) {
     return this.request({ url, method: 'POST', body, ...config });
   }
 
   /**
-   * PUT リクエスト
+   * Perform a PUT request
    */
   async put(url, body, config = {}) {
     return this.request({ url, method: 'PUT', body, ...config });
   }
 
   /**
-   * PATCH リクエスト
+   * Perform a PATCH request
    */
   async patch(url, body, config = {}) {
     return this.request({ url, method: 'PATCH', body, ...config });
   }
 
   /**
-   * DELETE リクエスト
+   * Perform a DELETE request
    */
   async delete(url, config = {}) {
     return this.request({ url, method: 'DELETE', ...config });
   }
 
   /**
-   * JSONレスポンスを取得するヘルパー
+   * Helper to retrieve a JSON response
    */
   async getJSON(url, config = {}) {
     const response = await this.get(url, config);
@@ -227,7 +227,7 @@ class APIClient {
   }
 
   /**
-   * POST JSONレスポンスを取得するヘルパー
+   * Helper to perform a POST request and parse JSON
    */
   async postJSON(url, body, config = {}) {
     const response = await this.post(url, body, config);
@@ -238,11 +238,11 @@ class APIClient {
   }
 }
 
-// グローバルインスタンスを作成
+// Create a global instance
 window.apiClient = new APIClient();
 
 /**
- * ログイン後のリダイレクト処理
+ * Handle redirect logic after login
  */
 function handleLoginRedirect() {
   const redirectPath = localStorage.getItem('redirect_after_login');
@@ -252,14 +252,14 @@ function handleLoginRedirect() {
   }
 }
 
-// ログインページでリダイレクト処理を実行
+// Run redirect handling on the login page
 if (window.location.pathname === '/auth/login') {
   document.addEventListener('DOMContentLoaded', () => {
-    // ログイン成功後のフォーム送信を検知
+    // Detect form submission after a successful login
     const loginForm = document.querySelector('form[action*="login"]');
     if (loginForm) {
       loginForm.addEventListener('submit', () => {
-        // ログイン成功後にリダイレクト処理を実行するためのフラグを設定
+        // Set a flag so redirect handling runs after login
         setTimeout(handleLoginRedirect, 1000);
       });
     }

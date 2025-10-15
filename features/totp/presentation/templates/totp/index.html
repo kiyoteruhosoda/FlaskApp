@@ -62,10 +62,24 @@
           <h2 class="h5 mb-0">{{ _('新規 TOTP 登録') }}</h2>
           <small class="text-muted">{{ _('QR を読み取るか手入力で登録できます') }}</small>
         </div>
-        <span class="badge bg-secondary" id="totp-preview-badge">{{ _('プレビュー待ち') }}</span>
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge bg-secondary" id="totp-preview-badge">{{ _('プレビュー待ち') }}</span>
+          <button
+            class="btn btn-outline-primary btn-sm collapsed"
+            type="button"
+            id="totp-create-toggle"
+            data-bs-toggle="collapse"
+            data-bs-target="#totp-create-collapse"
+            aria-expanded="false"
+            aria-controls="totp-create-collapse"
+          >
+            {{ _('Show registration form') }}
+          </button>
+        </div>
       </div>
-      <div class="card-body">
-        <form id="totp-create-form" novalidate>
+      <div class="collapse" id="totp-create-collapse">
+        <div class="card-body">
+          <form id="totp-create-form" novalidate>
           <div class="mb-3">
             <label for="totp-account" class="form-label">{{ _('アカウント') }}</label>
             <input type="text" id="totp-account" name="account" class="form-control" required>
@@ -120,24 +134,25 @@
           </div>
         </form>
       </div>
-      <div class="card-footer">
-        <div class="d-flex align-items-center justify-content-between">
-          <div>
-            <small class="text-muted d-block">{{ _('現在のプレビュー') }}</small>
-            <div
-              class="otp-code otp-copyable"
-              id="totp-preview-code"
-              role="button"
-              tabindex="0"
-              aria-label="{{ _('ワンタイムコードをコピー') }}"
-              title="{{ _('クリックでコピー') }}"
-            >------</div>
-          </div>
-          <div class="w-50">
-            <div class="progress otp-progress">
-              <div class="progress-bar" id="totp-preview-progress" role="progressbar" style="width: 0%"></div>
+        <div class="card-footer">
+          <div class="d-flex align-items-center justify-content-between">
+            <div>
+              <small class="text-muted d-block">{{ _('現在のプレビュー') }}</small>
+              <div
+                class="otp-code otp-copyable"
+                id="totp-preview-code"
+                role="button"
+                tabindex="0"
+                aria-label="{{ _('ワンタイムコードをコピー') }}"
+                title="{{ _('クリックでコピー') }}"
+              >------</div>
             </div>
-            <small class="text-muted" id="totp-preview-remaining">{{ _('残り -- 秒') }}</small>
+            <div class="w-50">
+              <div class="progress otp-progress">
+                <div class="progress-bar" id="totp-preview-progress" role="progressbar" style="width: 0%"></div>
+              </div>
+              <small class="text-muted" id="totp-preview-remaining">{{ _('残り -- 秒') }}</small>
+            </div>
           </div>
         </div>
       </div>
@@ -277,4 +292,28 @@
 <script src="https://cdn.jsdelivr.net/npm/otpauth@9.0.1/dist/otpauth.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <script src="{{ url_for('static', filename='js/totp-manager.js') }}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const collapseElement = document.getElementById('totp-create-collapse');
+    const toggleButton = document.getElementById('totp-create-toggle');
+
+    if (!collapseElement || !toggleButton) {
+      return;
+    }
+
+    bootstrap.Collapse.getOrCreateInstance(collapseElement, { toggle: false });
+
+    const updateToggleState = (expanded) => {
+      toggleButton.setAttribute('aria-expanded', String(expanded));
+      toggleButton.textContent = expanded
+        ? '{{ _('Hide registration form') }}'
+        : '{{ _('Show registration form') }}';
+    };
+
+    collapseElement.addEventListener('shown.bs.collapse', () => updateToggleState(true));
+    collapseElement.addEventListener('hidden.bs.collapse', () => updateToggleState(false));
+
+    updateToggleState(collapseElement.classList.contains('show'));
+  });
+</script>
 {% endblock %}

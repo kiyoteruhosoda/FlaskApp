@@ -1639,3 +1639,12 @@ msgstr "ダウンロード準備中..."
 msgid "Failed to download logs."
 msgstr "ログのダウンロードに失敗しました。"
 
+#: features/totp/presentation/templates/totp/index.html:76
+#: features/totp/presentation/templates/totp/index.html:310
+msgid "Show registration form"
+msgstr "Show registration form"
+
+#: features/totp/presentation/templates/totp/index.html:309
+msgid "Hide registration form"
+msgstr "Hide registration form"
+

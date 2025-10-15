@@ -17,6 +17,17 @@ from PIL import Image, UnidentifiedImageError
 _HEIF_PLUGIN_NAME: Final[str] = "pillow_heif"
 _HEIF_REGISTERED: bool = False
 
+_EXIF_OFFSET_TAGS: dict[str, tuple[str, ...]] = {
+    "DateTimeOriginal": ("OffsetTimeOriginal", "OffsetTime"),
+    "CreateDate": (
+        "OffsetTimeDigitized",
+        "OffsetTimeOriginal",
+        "OffsetTime",
+    ),
+    "DateTimeDigitized": ("OffsetTimeDigitized", "OffsetTime"),
+    "DateTime": ("OffsetTime",),
+}
+
 
 def register_heif_support() -> bool:
     """Register HEIF/HEIC format support if the Pillow plugin is available."""
@@ -178,6 +189,48 @@ def _default_app_timezone() -> timezone:
     return timezone.utc
 
 
+def _extract_offset_timezone(tag: str, exif_data: dict) -> timezone | None:
+    """Return a timezone derived from EXIF offset tags if available.
+
+    EXIF 2.31 introduces dedicated offset tags that accompany the primary
+    timestamp fields.  When those are present we should respect their value
+    instead of falling back to the application default timezone.
+    """
+
+    for offset_tag in _EXIF_OFFSET_TAGS.get(tag, ()):  # pragma: no branch
+        if offset_tag not in exif_data:
+            continue
+
+        raw_value = exif_data[offset_tag]
+
+        if isinstance(raw_value, bytes):
+            try:
+                offset_str = raw_value.decode("utf-8", errors="ignore")
+            except Exception:
+                continue
+        else:
+            offset_str = str(raw_value) if not isinstance(raw_value, str) else raw_value
+
+        offset_str = offset_str.strip().strip("\x00")
+        if not offset_str:
+            continue
+
+        if len(offset_str) == 6 and offset_str[3] == ":":
+            normalized = offset_str[:3] + offset_str[4:]
+        else:
+            normalized = offset_str
+
+        try:
+            tz_info = datetime.strptime(normalized, "%z").tzinfo
+        except ValueError:
+            continue
+
+        if tz_info is not None:
+            return tz_info
+
+    return None
+
+
 def get_file_date_from_exif(exif_data: dict) -> datetime | None:
     """
     EXIFデータから撮影日時を抽出
@@ -213,7 +266,8 @@ def get_file_date_from_exif(exif_data: dict) -> datetime | None:
         # EXIF日時フォーマット: "YYYY:MM:DD HH:MM:SS"
         try:
             dt = datetime.strptime(date_str, "%Y:%m:%d %H:%M:%S")
-            localized = dt.replace(tzinfo=default_tz)
+            tz_info = _extract_offset_timezone(tag, exif_data) or default_tz
+            localized = dt.replace(tzinfo=tz_info)
             return localized.astimezone(timezone.utc)
         except ValueError:
             pass
@@ -226,7 +280,8 @@ def get_file_date_from_exif(exif_data: dict) -> datetime | None:
             continue
 
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=default_tz)
+            tz_info = _extract_offset_timezone(tag, exif_data) or default_tz
+            dt = dt.replace(tzinfo=tz_info)
         return dt.astimezone(timezone.utc)
 
     return None

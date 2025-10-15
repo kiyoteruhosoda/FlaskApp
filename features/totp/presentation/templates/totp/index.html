@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+{% block title %}{{ _('TOTP 管理') }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  .totp-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .otp-code {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 1.75rem;
+    letter-spacing: 0.3rem;
+  }
+  .otp-progress {
+    height: 8px;
+  }
+  .totp-list-actions button + button {
+    margin-left: 0.25rem;
+  }
+  .qr-preview {
+    max-width: 200px;
+    max-height: 200px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 mb-0">{{ _('TOTP 管理') }}</h1>
+  <div class="d-flex gap-2">
+    <button class="btn btn-outline-secondary" id="totp-export-btn">
+      <i class="bi bi-download me-1"></i>{{ _('Export JSON') }}
+    </button>
+    <button class="btn btn-outline-primary" id="totp-import-btn">
+      <i class="bi bi-upload me-1"></i>{{ _('Import JSON') }}
+    </button>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-4">
+    <div class="card shadow-sm">
+      <div class="card-header totp-card-header">
+        <div>
+          <h2 class="h5 mb-0">{{ _('新規 TOTP 登録') }}</h2>
+          <small class="text-muted">{{ _('QR を読み取るか手入力で登録できます') }}</small>
+        </div>
+        <span class="badge bg-secondary" id="totp-preview-badge">{{ _('プレビュー待ち') }}</span>
+      </div>
+      <div class="card-body">
+        <form id="totp-create-form" novalidate>
+          <div class="mb-3">
+            <label for="totp-account" class="form-label">{{ _('アカウント') }}</label>
+            <input type="text" id="totp-account" name="account" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label for="totp-issuer" class="form-label">{{ _('発行元 (Issuer)') }}</label>
+            <input type="text" id="totp-issuer" name="issuer" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label for="totp-secret" class="form-label">{{ _('シークレット') }}</label>
+            <input type="text" id="totp-secret" name="secret" class="form-control" required placeholder="JBSWY3DPEHPK3PXP">
+            <div class="form-text">{{ _('空白やハイフンは自動で除去されます (Base32)') }}</div>
+          </div>
+          <div class="row">
+            <div class="col-6 mb-3">
+              <label for="totp-digits" class="form-label">{{ _('桁数') }}</label>
+              <input type="number" id="totp-digits" name="digits" class="form-control" min="4" max="10" value="6">
+            </div>
+            <div class="col-6 mb-3">
+              <label for="totp-period" class="form-label">{{ _('有効期間 (秒)') }}</label>
+              <input type="number" id="totp-period" name="period" class="form-control" min="15" max="120" value="30">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label for="totp-description" class="form-label">{{ _('説明 (任意)') }}</label>
+            <textarea id="totp-description" name="description" class="form-control" rows="2"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">{{ _('QR コードから読み込む') }}</label>
+            <input type="file" accept="image/*" id="totp-qr-upload" class="form-control">
+            <canvas id="totp-qr-canvas" class="d-none"></canvas>
+            <img id="totp-qr-preview" class="mt-2 rounded shadow-sm d-none qr-preview" alt="QR preview">
+          </div>
+          <div class="mb-3">
+            <label for="totp-otpauth" class="form-label">{{ _('otpauth URI (任意)') }}</label>
+            <input type="text" id="totp-otpauth" class="form-control" placeholder="otpauth://totp/Example:alice@example.com?...">
+            <div class="form-text">{{ _('URI を貼り付けて「URI を展開」を押すとフォームへ展開します') }}</div>
+          </div>
+          <div class="d-flex justify-content-between">
+            <button type="button" class="btn btn-outline-secondary" id="totp-parse-uri-btn">
+              <i class="bi bi-link-45deg me-1"></i>{{ _('URI を展開') }}
+            </button>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-plus-circle me-1"></i>{{ _('登録') }}
+            </button>
+          </div>
+        </form>
+      </div>
+      <div class="card-footer">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <small class="text-muted d-block">{{ _('現在のプレビュー') }}</small>
+            <div class="otp-code" id="totp-preview-code">------</div>
+          </div>
+          <div class="w-50">
+            <div class="progress otp-progress">
+              <div class="progress-bar" id="totp-preview-progress" role="progressbar" style="width: 0%"></div>
+            </div>
+            <small class="text-muted" id="totp-preview-remaining">{{ _('残り -- 秒') }}</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card shadow-sm">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <div>
+          <h2 class="h5 mb-0">{{ _('登録済み TOTP 一覧') }}</h2>
+          <small class="text-muted">{{ _('一覧は 1 秒ごとに自動更新されます') }}</small>
+        </div>
+        <div class="input-group" style="max-width: 320px;">
+          <span class="input-group-text"><i class="bi bi-funnel"></i></span>
+          <select class="form-select" id="totp-sort-select">
+            <option value="issuer">{{ _('発行元順') }}</option>
+            <option value="account">{{ _('アカウント順') }}</option>
+            <option value="updated">{{ _('更新日時順') }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table align-middle mb-0" id="totp-table">
+          <thead class="table-light">
+            <tr>
+              <th scope="col">{{ _('発行元') }}</th>
+              <th scope="col">{{ _('アカウント') }}</th>
+              <th scope="col" style="width: 180px;">{{ _('ワンタイムコード') }}</th>
+              <th scope="col">{{ _('残り時間') }}</th>
+              <th scope="col">{{ _('説明') }}</th>
+              <th scope="col" class="text-nowrap">{{ _('更新日時') }}</th>
+              <th scope="col" class="text-end">{{ _('操作') }}</th>
+            </tr>
+          </thead>
+          <tbody id="totp-table-body">
+            <tr>
+              <td colspan="7" class="text-center py-4 text-muted">
+                <i class="bi bi-arrow-repeat me-2"></i>{{ _('データ取得中...') }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 編集モーダル -->
+<div class="modal fade" id="totp-edit-modal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <form id="totp-edit-form">
+        <div class="modal-header">
+          <h5 class="modal-title">{{ _('TOTP を編集') }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="totp-edit-id">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" for="totp-edit-account">{{ _('アカウント') }}</label>
+              <input type="text" class="form-control" id="totp-edit-account" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="totp-edit-issuer">{{ _('発行元 (Issuer)') }}</label>
+              <input type="text" class="form-control" id="totp-edit-issuer" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="totp-edit-digits">{{ _('桁数') }}</label>
+              <input type="number" class="form-control" id="totp-edit-digits" min="4" max="10">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="totp-edit-period">{{ _('有効期間 (秒)') }}</label>
+              <input type="number" class="form-control" id="totp-edit-period" min="15" max="120">
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="totp-edit-description">{{ _('説明 (任意)') }}</label>
+              <textarea class="form-control" id="totp-edit-description" rows="2"></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="totp-edit-secret">{{ _('シークレットを更新 (任意)') }}</label>
+              <input type="text" class="form-control" id="totp-edit-secret" placeholder="{{ _('空欄のままにすると変更しません') }}">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ _('キャンセル') }}</button>
+          <button type="submit" class="btn btn-primary">{{ _('保存') }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- インポートモーダル -->
+<div class="modal fade" id="totp-import-modal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <form id="totp-import-form">
+        <div class="modal-header">
+          <h5 class="modal-title">{{ _('TOTP をインポート') }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted small">{{ _('JSON ファイルを貼り付けるか選択してください。重複がある場合は確認後に続行します。') }}</p>
+          <div class="mb-3">
+            <label class="form-label" for="totp-import-file">{{ _('JSON ファイル') }}</label>
+            <input type="file" accept="application/json" class="form-control" id="totp-import-file">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="totp-import-text">{{ _('JSON を直接貼り付け') }}</label>
+            <textarea class="form-control" id="totp-import-text" rows="10" placeholder='[
+  {
+    "account": "alice@example.com",
+    "issuer": "Example",
+    "secret": "JBSWY3DPEHPK3PXP"
+  }
+]'></textarea>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="totp-import-force">
+            <label class="form-check-label" for="totp-import-force">{{ _('重複があっても上書きする') }}</label>
+          </div>
+          <div class="alert alert-warning d-none mt-3" id="totp-import-conflicts"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ _('閉じる') }}</button>
+          <button type="submit" class="btn btn-primary">{{ _('インポート実行') }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/otpauth@9.0.1/dist/otpauth.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script src="{{ url_for('static', filename='js/totp-manager.js') }}"></script>
+{% endblock %}

@@ -467,6 +467,7 @@ def create_app():
     from core.models import picker_import_task as _picker_import_task  # noqa: F401
     from core.models import log as _log  # noqa: F401
     from core.models.wiki import models as _wiki_models  # noqa: F401
+    from core.models import totp as _totp_models  # noqa: F401
 
 
     # Blueprint 登録
@@ -498,6 +499,9 @@ def create_app():
 
     from features.wiki.presentation.wiki import bp as wiki_bp
     app.register_blueprint(wiki_bp, url_prefix="/wiki")
+
+    from features.totp.presentation import bp as totp_bp
+    app.register_blueprint(totp_bp, url_prefix="/totp")
 
     # CLI コマンド登録
     register_cli_commands(app)

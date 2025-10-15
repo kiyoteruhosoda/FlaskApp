@@ -9,6 +9,15 @@
     justify-content: space-between;
     gap: 1rem;
   }
+  .btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    border-radius: 50%;
+  }
   .otp-code {
     font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
     font-size: 1.75rem;
@@ -38,12 +47,58 @@
     max-width: 200px;
     max-height: 200px;
   }
+  .totp-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  .totp-create-panel {
+    transition: max-width 0.3s ease, flex-basis 0.3s ease, opacity 0.3s ease;
+  }
+  .totp-create-panel.collapsed {
+    display: none;
+  }
+  @media (min-width: 992px) {
+    .totp-layout {
+      flex-direction: row;
+      align-items: stretch;
+    }
+    .totp-layout.totp-layout-collapsed {
+      gap: 0;
+    }
+    .totp-create-panel {
+      display: block;
+      flex: 0 0 360px;
+      max-width: 360px;
+    }
+    .totp-create-panel.collapsed {
+      display: block;
+      flex-basis: 0 !important;
+      max-width: 0 !important;
+      opacity: 0;
+      visibility: hidden;
+    }
+    .totp-list-panel {
+      flex: 1 1 auto;
+    }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h1 class="h3 mb-0">{{ _('TOTP 管理') }}</h1>
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+  <div class="d-flex align-items-center gap-2">
+    <h1 class="h3 mb-0">{{ _('TOTP 管理') }}</h1>
+    <button
+      class="btn btn-outline-primary btn-sm btn-icon"
+      type="button"
+      id="totp-create-toggle"
+      aria-expanded="true"
+      aria-label="{{ _('新規 TOTP 登録フォームを閉じる') }}"
+    >
+      <i class="bi bi-chevron-double-left" aria-hidden="true"></i>
+    </button>
+  </div>
   <div class="d-flex gap-2">
     <button class="btn btn-outline-secondary" id="totp-export-btn">
       <i class="bi bi-download me-1"></i>{{ _('Export JSON') }}
@@ -54,32 +109,18 @@
   </div>
 </div>
 
-<div class="row g-4">
-  <div class="col-lg-4">
-    <div class="card shadow-sm">
+<div class="totp-layout" id="totp-layout">
+  <div class="totp-create-panel" id="totp-create-panel" aria-hidden="false">
+    <div class="card shadow-sm h-100">
       <div class="card-header totp-card-header">
         <div>
           <h2 class="h5 mb-0">{{ _('新規 TOTP 登録') }}</h2>
           <small class="text-muted">{{ _('QR を読み取るか手入力で登録できます') }}</small>
         </div>
-        <div class="d-flex align-items-center gap-2">
-          <span class="badge bg-secondary" id="totp-preview-badge">{{ _('プレビュー待ち') }}</span>
-          <button
-            class="btn btn-outline-primary btn-sm collapsed"
-            type="button"
-            id="totp-create-toggle"
-            data-bs-toggle="collapse"
-            data-bs-target="#totp-create-collapse"
-            aria-expanded="false"
-            aria-controls="totp-create-collapse"
-          >
-            {{ _('Show registration form') }}
-          </button>
-        </div>
+        <span class="badge bg-secondary" id="totp-preview-badge">{{ _('プレビュー待ち') }}</span>
       </div>
-      <div class="collapse" id="totp-create-collapse">
-        <div class="card-body">
-          <form id="totp-create-form" novalidate>
+      <div class="card-body">
+        <form id="totp-create-form" novalidate>
           <div class="mb-3">
             <label for="totp-account" class="form-label">{{ _('アカウント') }}</label>
             <input type="text" id="totp-account" name="account" class="form-control" required>
@@ -134,32 +175,32 @@
           </div>
         </form>
       </div>
-        <div class="card-footer">
-          <div class="d-flex align-items-center justify-content-between">
-            <div>
-              <small class="text-muted d-block">{{ _('現在のプレビュー') }}</small>
-              <div
-                class="otp-code otp-copyable"
-                id="totp-preview-code"
-                role="button"
-                tabindex="0"
-                aria-label="{{ _('ワンタイムコードをコピー') }}"
-                title="{{ _('クリックでコピー') }}"
-              >------</div>
+      <div class="card-footer">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <small class="text-muted d-block">{{ _('現在のプレビュー') }}</small>
+            <div
+              class="otp-code otp-copyable"
+              id="totp-preview-code"
+              role="button"
+              tabindex="0"
+              aria-label="{{ _('ワンタイムコードをコピー') }}"
+              title="{{ _('クリックでコピー') }}"
+            >------</div>
+          </div>
+          <div class="w-50">
+            <div class="progress otp-progress">
+              <div class="progress-bar" id="totp-preview-progress" role="progressbar" style="width: 0%"></div>
             </div>
-            <div class="w-50">
-              <div class="progress otp-progress">
-                <div class="progress-bar" id="totp-preview-progress" role="progressbar" style="width: 0%"></div>
-              </div>
-              <small class="text-muted" id="totp-preview-remaining">{{ _('残り -- 秒') }}</small>
-            </div>
+            <small class="text-muted" id="totp-preview-remaining">{{ _('残り -- 秒') }}</small>
           </div>
         </div>
       </div>
+      </div>
     </div>
   </div>
-  <div class="col-lg-8">
-    <div class="card shadow-sm">
+  <div class="totp-list-panel">
+    <div class="card shadow-sm h-100">
       <div class="card-header d-flex align-items-center justify-content-between">
         <div>
           <h2 class="h5 mb-0">{{ _('登録済み TOTP 一覧') }}</h2>
@@ -294,26 +335,51 @@
 <script src="{{ url_for('static', filename='js/totp-manager.js') }}"></script>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
-    const collapseElement = document.getElementById('totp-create-collapse');
     const toggleButton = document.getElementById('totp-create-toggle');
+    const createPanel = document.getElementById('totp-create-panel');
+    const layout = document.getElementById('totp-layout');
 
-    if (!collapseElement || !toggleButton) {
+    if (!toggleButton || !createPanel || !layout) {
       return;
     }
 
-    bootstrap.Collapse.getOrCreateInstance(collapseElement, { toggle: false });
+    const icon = toggleButton.querySelector('i');
+    const mediaQuery = window.matchMedia('(max-width: 991.98px)');
 
-    const updateToggleState = (expanded) => {
+    const updateState = (expanded) => {
+      createPanel.classList.toggle('collapsed', !expanded);
+      layout.classList.toggle('totp-layout-collapsed', !expanded);
+      createPanel.setAttribute('aria-hidden', expanded ? 'false' : 'true');
       toggleButton.setAttribute('aria-expanded', String(expanded));
-      toggleButton.textContent = expanded
-        ? '{{ _('Hide registration form') }}'
-        : '{{ _('Show registration form') }}';
+      toggleButton.setAttribute(
+        'aria-label',
+        expanded
+          ? '{{ _('新規 TOTP 登録フォームを閉じる') }}'
+          : '{{ _('新規 TOTP 登録フォームを開く') }}'
+      );
+      if (icon) {
+        icon.className = expanded ? 'bi bi-chevron-double-left' : 'bi bi-chevron-double-right';
+      }
     };
 
-    collapseElement.addEventListener('shown.bs.collapse', () => updateToggleState(true));
-    collapseElement.addEventListener('hidden.bs.collapse', () => updateToggleState(false));
+    toggleButton.addEventListener('click', () => {
+      const willExpand = createPanel.classList.contains('collapsed');
+      updateState(willExpand);
+    });
 
-    updateToggleState(collapseElement.classList.contains('show'));
+    const handleMediaChange = (event) => {
+      if (event.matches) {
+        updateState(true);
+      }
+    };
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleMediaChange);
+    } else if (typeof mediaQuery.addListener === 'function') {
+      mediaQuery.addListener(handleMediaChange);
+    }
+
+    updateState(true);
   });
 </script>
 {% endblock %}

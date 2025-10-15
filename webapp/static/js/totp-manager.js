@@ -11,6 +11,11 @@
   const elements = {
     tableBody: document.getElementById('totp-table-body'),
     sortSelect: document.getElementById('totp-sort-select'),
+    toggleButton: document.getElementById('totp-create-toggle'),
+    toggleIcon: document.querySelector('#totp-create-toggle [data-role="icon"]'),
+    toggleLabel: document.querySelector('#totp-create-toggle [data-role="label"]'),
+    layout: document.getElementById('totp-layout'),
+    createPanel: document.getElementById('totp-create-panel'),
     previewCode: document.getElementById('totp-preview-code'),
     previewProgress: document.getElementById('totp-preview-progress'),
     previewRemaining: document.getElementById('totp-preview-remaining'),
@@ -176,9 +181,11 @@
           </td>
           <td>${description}</td>
           <td class="text-nowrap">${escapeHtml(updatedText)}</td>
-          <td class="text-end totp-list-actions">
-            <button class="btn btn-sm btn-outline-primary" data-action="edit">${t('totp.actions.edit', 'Edit')}</button>
-            <button class="btn btn-sm btn-outline-danger" data-action="delete">${t('totp.actions.delete', 'Delete')}</button>
+          <td class="text-end">
+            <div class="totp-list-actions">
+              <button class="btn btn-sm btn-outline-primary" data-action="edit">${t('totp.actions.edit', 'Edit')}</button>
+              <button class="btn btn-sm btn-outline-danger" data-action="delete">${t('totp.actions.delete', 'Delete')}</button>
+            </div>
           </td>
         </tr>`;
     });
@@ -195,6 +202,52 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
+  }
+
+  function setCreatePanelVisibility(visible) {
+    if (!elements.createPanel || !elements.toggleButton) {
+      return;
+    }
+
+    const showLabel =
+      elements.toggleButton.getAttribute('data-label-show') ||
+      elements.toggleButton.getAttribute('aria-label') ||
+      'Show registration form';
+    const hideLabel = elements.toggleButton.getAttribute('data-label-hide') || 'Hide registration form';
+    const showIcon = elements.toggleButton.getAttribute('data-icon-show') || 'bi bi-layout-sidebar';
+    const hideIcon = elements.toggleButton.getAttribute('data-icon-hide') || 'bi bi-layout-sidebar-inset';
+
+    elements.toggleButton.setAttribute('aria-expanded', visible ? 'true' : 'false');
+    elements.toggleButton.setAttribute('aria-label', visible ? hideLabel : showLabel);
+
+    if (elements.toggleLabel) {
+      elements.toggleLabel.textContent = visible ? hideLabel : showLabel;
+    }
+
+    if (elements.toggleIcon) {
+      elements.toggleIcon.className = visible ? hideIcon : showIcon;
+      elements.toggleIcon.setAttribute('aria-hidden', 'true');
+    }
+
+    if (visible) {
+      elements.createPanel.classList.remove('collapsed');
+      elements.createPanel.setAttribute('aria-hidden', 'false');
+      if (elements.layout) {
+        elements.layout.classList.remove('totp-layout-collapsed');
+      }
+    } else {
+      elements.createPanel.classList.add('collapsed');
+      elements.createPanel.setAttribute('aria-hidden', 'true');
+      if (elements.layout) {
+        elements.layout.classList.add('totp-layout-collapsed');
+      }
+    }
+  }
+
+  function toggleCreatePanel() {
+    if (!elements.toggleButton) return;
+    const currentState = elements.toggleButton.getAttribute('aria-expanded') === 'true';
+    setCreatePanelVisibility(!currentState);
   }
 
   function sanitizeOtpText(value) {
@@ -442,6 +495,12 @@
         state.sort = event.target.value;
         renderTable();
         refreshOtpDisplay();
+      });
+    }
+
+    if (elements.toggleButton) {
+      elements.toggleButton.addEventListener('click', () => {
+        toggleCreatePanel();
       });
     }
 
@@ -855,6 +914,7 @@
 
   document.addEventListener('DOMContentLoaded', async () => {
     bindEvents();
+    setCreatePanelVisibility(false);
     updatePreviewFromForm();
     await fetchTotpList();
     startTimer();

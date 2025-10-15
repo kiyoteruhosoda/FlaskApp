@@ -189,20 +189,20 @@ msgid "Search users..."
 msgstr ""
 
 #: webapp/admin/templates/admin/admin_users.html:56
-#: webapp/photo_view/templates/photo_view/albums.html:107
-#: webapp/photo_view/templates/photo_view/home.html:16
-#: webapp/photo_view/templates/photo_view/media_list.html:177
+#: webapp/photo-view/templates/photo-view/albums.html:107
+#: webapp/photo-view/templates/photo-view/home.html:16
+#: webapp/photo-view/templates/photo-view/media_list.html:177
 msgid "Refresh"
 msgstr "再読み込み"
 
 #: webapp/admin/templates/admin/admin_users.html:62
 #: webapp/admin/templates/admin/admin_users.html:85
-#: webapp/photo_view/templates/photo_view/albums.html:113
-#: webapp/photo_view/templates/photo_view/albums.html:122
-#: webapp/photo_view/templates/photo_view/home.html:48
-#: webapp/photo_view/templates/photo_view/home.html:74
-#: webapp/photo_view/templates/photo_view/media_list.html:152
-#: webapp/photo_view/templates/photo_view/media_list.html:188
+#: webapp/photo-view/templates/photo-view/albums.html:113
+#: webapp/photo-view/templates/photo-view/albums.html:122
+#: webapp/photo-view/templates/photo-view/home.html:48
+#: webapp/photo-view/templates/photo-view/home.html:74
+#: webapp/photo-view/templates/photo-view/media_list.html:152
+#: webapp/photo-view/templates/photo-view/media_list.html:188
 msgid "Loading..."
 msgstr "有効化中..."
 
@@ -215,13 +215,13 @@ msgstr "メール"
 #: webapp/admin/templates/admin/admin_users.html:71
 #: webapp/admin/templates/admin/google_accounts.html:45
 #: webapp/auth/templates/auth/google_accounts.html:16
-#: webapp/photo_view/templates/photo_view/home.html:56
-#: webapp/photo_view/templates/photo_view/session_detail.html:33
+#: webapp/photo-view/templates/photo-view/home.html:56
+#: webapp/photo-view/templates/photo-view/session_detail.html:33
 msgid "Status"
 msgstr "ステータス"
 
 #: webapp/admin/templates/admin/admin_users.html:73
-#: webapp/photo_view/templates/photo_view/home.html:59
+#: webapp/photo-view/templates/photo-view/home.html:59
 msgid "Created At"
 msgstr "作成日時"
 
@@ -230,7 +230,7 @@ msgstr "作成日時"
 #: webapp/admin/templates/admin/permissions.html:52
 #: webapp/admin/templates/admin/roles.html:47
 #: webapp/auth/templates/auth/google_accounts.html:21
-#: webapp/photo_view/templates/photo_view/home.html:61
+#: webapp/photo-view/templates/photo-view/home.html:61
 msgid "Actions"
 msgstr "操作"
 
@@ -1004,356 +1004,356 @@ msgstr ""
 msgid "Manage Google Accounts"
 msgstr "Googleアカウント管理"
 
-#: webapp/photo_view/templates/photo_view/albums.html:100
-#: webapp/photo_view/templates/photo_view/home.html:31
+#: webapp/photo-view/templates/photo-view/albums.html:100
+#: webapp/photo-view/templates/photo-view/home.html:31
 #: webapp/templates/base.html:40
 msgid "Albums"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/albums.html:103
-#: webapp/photo_view/templates/photo_view/media_list.html:171
+#: webapp/photo-view/templates/photo-view/albums.html:103
+#: webapp/photo-view/templates/photo-view/media_list.html:171
 msgid "Newest First"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/albums.html:104
-#: webapp/photo_view/templates/photo_view/media_list.html:172
+#: webapp/photo-view/templates/photo-view/albums.html:104
+#: webapp/photo-view/templates/photo-view/media_list.html:172
 msgid "Oldest First"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/albums.html:124
+#: webapp/photo-view/templates/photo-view/albums.html:124
 msgid "Loading more albums..."
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/albums.html:128
+#: webapp/photo-view/templates/photo-view/albums.html:128
 msgid "All albums loaded"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/albums.html:133
+#: webapp/photo-view/templates/photo-view/albums.html:133
 msgid "No Albums Found"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/albums.html:134
+#: webapp/photo-view/templates/photo-view/albums.html:134
 msgid "Albums will appear here when they are created from your media collection."
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/albums.html:173
+#: webapp/photo-view/templates/photo-view/albums.html:173
 msgid "photos"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/albums.html:228
+#: webapp/photo-view/templates/photo-view/albums.html:228
 msgid "Failed to load albums. Please try again."
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/home.html:13
+#: webapp/photo-view/templates/photo-view/home.html:13
 msgid "Create New Session"
 msgstr "新しいセッションを作成"
 
-#: webapp/photo_view/templates/photo_view/home.html:26
+#: webapp/photo-view/templates/photo-view/home.html:26
 msgid "View Media Gallery"
 msgstr "メディアギャラリーを見る"
 
-#: webapp/photo_view/templates/photo_view/home.html:46
+#: webapp/photo-view/templates/photo-view/home.html:46
 msgid "All Picker Sessions"
 msgstr "ピッカーセッション一覧"
 
-#: webapp/photo_view/templates/photo_view/home.html:55
+#: webapp/photo-view/templates/photo-view/home.html:55
 msgid "Session ID"
 msgstr "セッションID"
 
-#: webapp/photo_view/templates/photo_view/home.html:57
+#: webapp/photo-view/templates/photo-view/home.html:57
 msgid "Selected Count"
 msgstr "選択数"
 
-#: webapp/photo_view/templates/photo_view/home.html:57
-#: webapp/photo_view/templates/photo_view/session_detail.html:72
+#: webapp/photo-view/templates/photo-view/home.html:57
+#: webapp/photo-view/templates/photo-view/session_detail.html:72
 msgid "Target Account"
 msgstr "対象アカウント"
 
-#: webapp/photo_view/templates/photo_view/home.html:58
+#: webapp/photo-view/templates/photo-view/home.html:58
 msgid "File Status"
 msgstr "ファイル状況"
 
-#: webapp/photo_view/templates/photo_view/home.html:60
+#: webapp/photo-view/templates/photo-view/home.html:60
 msgid "Last Progress"
 msgstr "最終更新"
 
-#: webapp/photo_view/templates/photo_view/home.html:76
+#: webapp/photo-view/templates/photo-view/home.html:76
 msgid "Loading more sessions..."
 msgstr "セッションを読み込み中..."
 
-#: webapp/photo_view/templates/photo_view/home.html:80
+#: webapp/photo-view/templates/photo-view/home.html:80
 msgid "All sessions loaded"
 msgstr "すべてのセッションを読み込み済みです"
 
-#: webapp/photo_view/templates/photo_view/home.html:83
+#: webapp/photo-view/templates/photo-view/home.html:83
 msgid "sessions loaded"
 msgstr "件のセッションを読み込み済み"
 
-#: webapp/photo_view/templates/photo_view/home.html:84
+#: webapp/photo-view/templates/photo-view/home.html:84
 msgid "No sessions loaded yet"
 msgstr "まだセッションが読み込まれていません"
 
-#: webapp/photo_view/templates/photo_view/home.html:118
+#: webapp/photo-view/templates/photo-view/home.html:118
 msgid "Failed to load sessions."
 msgstr "セッションの読み込みに失敗しました。"
 
-#: webapp/photo_view/templates/photo_view/home.html:119
+#: webapp/photo-view/templates/photo-view/home.html:119
 msgid "Error loading sessions"
 msgstr "セッションの読み込みでエラーが発生しました"
 
-#: webapp/photo_view/templates/photo_view/home.html:48
-#: webapp/photo_view/templates/photo_view/session_detail.html:69
+#: webapp/photo-view/templates/photo-view/home.html:48
+#: webapp/photo-view/templates/photo-view/session_detail.html:69
 msgid "Pending"
 msgstr "保留"
 
-#: webapp/photo_view/templates/photo_view/home.html:49
-#: webapp/photo_view/templates/photo_view/session_detail.html:70
+#: webapp/photo-view/templates/photo-view/home.html:49
+#: webapp/photo-view/templates/photo-view/session_detail.html:70
 msgid "Expanding"
 msgstr "展開中"
 
-#: webapp/photo_view/templates/photo_view/home.html:85
-#: webapp/photo_view/templates/photo_view/session_detail.html:101
+#: webapp/photo-view/templates/photo-view/home.html:85
+#: webapp/photo-view/templates/photo-view/session_detail.html:101
 msgid "Ready"
 msgstr "準備完了"
 
-#: webapp/photo_view/templates/photo_view/home.html:50
-#: webapp/photo_view/templates/photo_view/session_detail.html:71
+#: webapp/photo-view/templates/photo-view/home.html:50
+#: webapp/photo-view/templates/photo-view/session_detail.html:71
 msgid "Enqueued"
 msgstr "キュー投入"
 
-#: webapp/photo_view/templates/photo_view/home.html:87
-#: webapp/photo_view/templates/photo_view/session_detail.html:102
+#: webapp/photo-view/templates/photo-view/home.html:87
+#: webapp/photo-view/templates/photo-view/session_detail.html:102
 msgid "Processing"
 msgstr "処理中"
 
-#: webapp/photo_view/templates/photo_view/home.html:51
-#: webapp/photo_view/templates/photo_view/session_detail.html:72
+#: webapp/photo-view/templates/photo-view/home.html:51
+#: webapp/photo-view/templates/photo-view/session_detail.html:72
 msgid "Running"
 msgstr "処理中"
 
-#: webapp/photo_view/templates/photo_view/home.html:89
-#: webapp/photo_view/templates/photo_view/session_detail.html:103
+#: webapp/photo-view/templates/photo-view/home.html:89
+#: webapp/photo-view/templates/photo-view/session_detail.html:103
 msgid "Importing"
 msgstr "インポート中"
 
-#: webapp/photo_view/templates/photo_view/home.html:47
-#: webapp/photo_view/templates/photo_view/home.html:88
-#: webapp/photo_view/templates/photo_view/session_detail.html:73
+#: webapp/photo-view/templates/photo-view/home.html:47
+#: webapp/photo-view/templates/photo-view/home.html:88
+#: webapp/photo-view/templates/photo-view/session_detail.html:73
 msgid "Imported"
 msgstr "取り込み完了"
 
-#: webapp/photo_view/templates/photo_view/home.html:90
-#: webapp/photo_view/templates/photo_view/session_detail.html:104
+#: webapp/photo-view/templates/photo-view/home.html:90
+#: webapp/photo-view/templates/photo-view/session_detail.html:104
 msgid "Canceled"
 msgstr "キャンセル済み"
 
-#: webapp/photo_view/templates/photo_view/home.html:90
-#: webapp/photo_view/templates/photo_view/session_detail.html:104
+#: webapp/photo-view/templates/photo-view/home.html:90
+#: webapp/photo-view/templates/photo-view/session_detail.html:104
 msgid "Expired"
 msgstr "期限切れ"
 
-#: webapp/photo_view/templates/photo_view/home.html:91
-#: webapp/photo_view/templates/photo_view/session_detail.html:105
+#: webapp/photo-view/templates/photo-view/home.html:91
+#: webapp/photo-view/templates/photo-view/session_detail.html:105
 msgid "Error"
 msgstr "エラー"
 
-#: webapp/photo_view/templates/photo_view/home.html:52
-#: webapp/photo_view/templates/photo_view/session_detail.html:73
+#: webapp/photo-view/templates/photo-view/home.html:52
+#: webapp/photo-view/templates/photo-view/session_detail.html:73
 msgid "Failed"
 msgstr "失敗"
 
-#: webapp/photo_view/templates/photo_view/home.html:53
-#: webapp/photo_view/templates/photo_view/session_detail.html:74
+#: webapp/photo-view/templates/photo-view/home.html:53
+#: webapp/photo-view/templates/photo-view/session_detail.html:74
 msgid "Duplicate"
 msgstr "重複"
 
-#: webapp/photo_view/templates/photo_view/home.html:54
-#: webapp/photo_view/templates/photo_view/session_detail.html:75
+#: webapp/photo-view/templates/photo-view/home.html:54
+#: webapp/photo-view/templates/photo-view/session_detail.html:75
 msgid "Skipped"
 msgstr "スキップ"
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:96
+#: webapp/photo-view/templates/photo-view/session_detail.html:96
 msgid "Local Import"
 msgstr "ローカルインポート"
 
-#: webapp/photo_view/templates/photo_view/home.html:131
-#: webapp/photo_view/templates/photo_view/session_detail.html:24
+#: webapp/photo-view/templates/photo-view/home.html:131
+#: webapp/photo-view/templates/photo-view/session_detail.html:24
 msgid "Stop Local Import"
 msgstr "ローカルインポートを停止"
 
-#: webapp/photo_view/templates/photo_view/home.html:73
-#: webapp/photo_view/templates/photo_view/session_detail.html:90
+#: webapp/photo-view/templates/photo-view/home.html:73
+#: webapp/photo-view/templates/photo-view/session_detail.html:90
 msgid "Local import is running. You can stop it if needed."
 msgstr "ローカルインポートを実行中です。必要に応じてここから停止できます。"
 
-#: webapp/photo_view/templates/photo_view/home.html:70
-#: webapp/photo_view/templates/photo_view/session_detail.html:91
+#: webapp/photo-view/templates/photo-view/home.html:70
+#: webapp/photo-view/templates/photo-view/session_detail.html:91
 msgid "Canceling local import..."
 msgstr "ローカルインポートを停止しています..."
 
-#: webapp/photo_view/templates/photo_view/home.html:71
-#: webapp/photo_view/templates/photo_view/session_detail.html:92
+#: webapp/photo-view/templates/photo-view/home.html:71
+#: webapp/photo-view/templates/photo-view/session_detail.html:92
 msgid "Local import was canceled."
 msgstr "ローカルインポートを停止しました。"
 
-#: webapp/photo_view/templates/photo_view/home.html:72
-#: webapp/photo_view/templates/photo_view/session_detail.html:93
+#: webapp/photo-view/templates/photo-view/home.html:72
+#: webapp/photo-view/templates/photo-view/session_detail.html:93
 msgid "Failed to stop local import."
 msgstr "ローカルインポートの停止に失敗しました。"
 
-#: webapp/photo_view/templates/photo_view/home.html:199
-#: webapp/photo_view/templates/photo_view/session_detail.html:184
+#: webapp/photo-view/templates/photo-view/home.html:199
+#: webapp/photo-view/templates/photo-view/session_detail.html:184
 msgid "Are you sure you want to cancel the local import?"
 msgstr "ローカルインポートをキャンセルしますか？"
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:94
+#: webapp/photo-view/templates/photo-view/session_detail.html:94
 msgid "Local import session runs automatically."
 msgstr "ローカルインポートセッションは自動で実行されます。"
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:117
+#: webapp/photo-view/templates/photo-view/session_detail.html:117
 msgid "Local Import Session. Import runs automatically."
 msgstr "ローカルインポートセッションです。インポートは自動的に実行されました。"
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:119
+#: webapp/photo-view/templates/photo-view/session_detail.html:119
 msgid "Import can only be started when the session status is ready."
 msgstr "ステータスがreadyのときのみインポートを開始できます。"
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:197
+#: webapp/photo-view/templates/photo-view/session_detail.html:197
 msgid "Import is not available for the current status."
 msgstr "現在のステータスではインポートを実行できません。"
 
-#: webapp/photo_view/templates/photo_view/home.html:129
+#: webapp/photo-view/templates/photo-view/home.html:129
 msgid "View Details"
 msgstr "詳細を見る"
 
-#: webapp/photo_view/templates/photo_view/home.html:130
-#: webapp/photo_view/templates/photo_view/session_detail.html:16
+#: webapp/photo-view/templates/photo-view/home.html:130
+#: webapp/photo-view/templates/photo-view/session_detail.html:16
 msgid "Start Import"
 msgstr "インポート開始"
 
-#: webapp/photo_view/templates/photo_view/home.html:188
-#: webapp/photo_view/templates/photo_view/home.html:197
-#: webapp/photo_view/templates/photo_view/session_detail.html:136
-#: webapp/photo_view/templates/photo_view/session_detail.html:137
-#: webapp/photo_view/templates/photo_view/session_detail.html:145
-#: webapp/photo_view/templates/photo_view/session_detail.html:146
+#: webapp/photo-view/templates/photo-view/home.html:188
+#: webapp/photo-view/templates/photo-view/home.html:197
+#: webapp/photo-view/templates/photo-view/session_detail.html:136
+#: webapp/photo-view/templates/photo-view/session_detail.html:137
+#: webapp/photo-view/templates/photo-view/session_detail.html:145
+#: webapp/photo-view/templates/photo-view/session_detail.html:146
 msgid "Failed to start import."
 msgstr "インポートの開始に失敗しました。"
 
-#: webapp/photo_view/templates/photo_view/home.html:192
-#: webapp/photo_view/templates/photo_view/session_detail.html:141
-#: webapp/photo_view/templates/photo_view/session_detail.html:142
+#: webapp/photo-view/templates/photo-view/home.html:192
+#: webapp/photo-view/templates/photo-view/session_detail.html:141
+#: webapp/photo-view/templates/photo-view/session_detail.html:142
 msgid "Import started."
 msgstr "インポートを開始しました。"
 
-#: webapp/photo_view/templates/photo_view/media_detail.html:147
+#: webapp/photo-view/templates/photo-view/media_detail.html:147
 msgid "Back"
 msgstr "戻る"
 
-#: webapp/photo_view/templates/photo_view/media_detail.html:150
+#: webapp/photo-view/templates/photo-view/media_detail.html:150
 msgid "Download"
 msgstr "ダウンロード"
 
-#: webapp/photo_view/templates/photo_view/media_detail.html:185
+#: webapp/photo-view/templates/photo-view/media_detail.html:185
 msgid "Basic Information"
 msgstr "基本情報"
 
-#: webapp/photo_view/templates/photo_view/media_detail.html:192
+#: webapp/photo-view/templates/photo-view/media_detail.html:192
 msgid "Technical Details"
 msgstr "技術情報"
 
-#: webapp/photo_view/templates/photo_view/media_detail.html:199
+#: webapp/photo-view/templates/photo-view/media_detail.html:199
 msgid "EXIF Data"
 msgstr "EXIFデータ"
 
-#: webapp/photo_view/templates/photo_view/media_list.html:151
+#: webapp/photo-view/templates/photo-view/media_list.html:151
 #: webapp/templates/base.html:38
 msgid "Media Gallery"
 msgstr "メディアギャラリー"
 
-#: webapp/photo_view/templates/photo_view/media_list.html:158
+#: webapp/photo-view/templates/photo-view/media_list.html:158
 msgid "All Media"
 msgstr "すべてのメディア"
 
-#: webapp/photo_view/templates/photo_view/media_list.html:159
+#: webapp/photo-view/templates/photo-view/media_list.html:159
 msgid "Photos Only"
 msgstr "写真のみ"
 
-#: webapp/photo_view/templates/photo_view/media_list.html:160
+#: webapp/photo-view/templates/photo-view/media_list.html:160
 msgid "Videos Only"
 msgstr "動画のみ"
 
-#: webapp/photo_view/templates/photo_view/media_list.html:165
+#: webapp/photo-view/templates/photo-view/media_list.html:165
 msgid "Size"
 msgstr "サイズ"
 
-#: webapp/photo_view/templates/photo_view/media_list.html:190
+#: webapp/photo-view/templates/photo-view/media_list.html:190
 msgid "Loading more media..."
 msgstr "メディアを読み込み中..."
 
-#: webapp/photo_view/templates/photo_view/media_list.html:194
+#: webapp/photo-view/templates/photo-view/media_list.html:194
 msgid "All media loaded"
 msgstr "すべてのメディアを読み込み済みです"
 
-#: webapp/photo_view/templates/photo_view/media_list.html:303
+#: webapp/photo-view/templates/photo-view/media_list.html:303
 msgid "Failed to load media. Please try again."
 msgstr "メディアの読み込みに失敗しました。再度お試しください。"
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:10
+#: webapp/photo-view/templates/photo-view/session_detail.html:10
 msgid "Session Details"
 msgstr "セッション詳細"
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:11
+#: webapp/photo-view/templates/photo-view/session_detail.html:11
 msgid "Back to Sessions"
 msgstr "セッション一覧に戻る"
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:15
+#: webapp/photo-view/templates/photo-view/session_detail.html:15
 msgid "Loading session info..."
 msgstr "セッション情報を読み込み中..."
 
-#: webapp/photo_view/templates/photo_view/home.html:93
-#: webapp/photo_view/templates/photo_view/session_detail.html:26
+#: webapp/photo-view/templates/photo-view/home.html:93
+#: webapp/photo-view/templates/photo-view/session_detail.html:26
 msgid "Selected Files"
 msgstr "選択ファイル数"
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:33
+#: webapp/photo-view/templates/photo-view/session_detail.html:33
 msgid "Failed files will be retried up to three times."
 msgstr "失敗したファイルは最大3回まで再試行されます。"
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:45
+#: webapp/photo-view/templates/photo-view/session_detail.html:45
 msgid "Filter by keyword"
 msgstr "キーワードで絞り込み"
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:46
+#: webapp/photo-view/templates/photo-view/session_detail.html:46
 msgid "Search filename or ID"
 msgstr "ファイル名またはIDを検索"
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:49
+#: webapp/photo-view/templates/photo-view/session_detail.html:49
 msgid "Status filter"
 msgstr "ステータスで絞り込み"
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:51
+#: webapp/photo-view/templates/photo-view/session_detail.html:51
 msgid "All statuses"
 msgstr "すべてのステータス"
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:63
+#: webapp/photo-view/templates/photo-view/session_detail.html:63
 msgid "Reset filters"
 msgstr "絞り込みをリセット"
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:32
+#: webapp/photo-view/templates/photo-view/session_detail.html:32
 msgid "File"
 msgstr "ファイル"
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:34
+#: webapp/photo-view/templates/photo-view/session_detail.html:34
 msgid "Attempts"
 msgstr "試行回数"
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:35
+#: webapp/photo-view/templates/photo-view/session_detail.html:35
 #: webapp/templates/error.html:2 webapp/templates/error.html:4
 msgid "Error"
 msgstr "エラー"
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:108
+#: webapp/photo-view/templates/photo-view/session_detail.html:108
 msgid "Working..."
 msgstr "処理中..."
 

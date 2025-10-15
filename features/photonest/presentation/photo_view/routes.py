@@ -62,7 +62,7 @@ def home():
     # クエリパラメータでsession_idが指定されている場合は詳細ページを表示
     session_id = request.args.get('session_id')
     if session_id:
-        return render_template("photo_view/session_detail.html", picker_session_id=session_id)
+        return render_template("photo-view/session_detail.html", picker_session_id=session_id)
 
     # session_idがない場合は、すべてのセッション一覧を表示
     google_accounts = []
@@ -74,7 +74,7 @@ def home():
         )
 
     return render_template(
-        "photo_view/home.html",
+        "photo-view/home.html",
         google_accounts=google_accounts,
         local_import_info=_build_local_import_info(),
         is_admin=hasattr(current_user, "has_role") and current_user.has_role("admin"),
@@ -99,7 +99,7 @@ def selection_error_detail(session_id: str, selection_id: int):
     )
 
     return render_template(
-        "photo_view/selection_error_detail.html",
+        "photo-view/selection_error_detail.html",
         payload=payload,
         session_detail_url=session_detail_url,
     )
@@ -109,28 +109,28 @@ def selection_error_detail(session_id: str, selection_id: int):
 @require_perms("media:view")
 def media_list():
     """List of media items with infinite scroll (placeholder)."""
-    return render_template("photo_view/media_list.html")
+    return render_template("photo-view/media_list.html")
 
 
 @bp.route("/media/<int:media_id>")
 @require_perms("media:view")
 def media_detail(media_id: int):
     """Detail view for a single media item."""
-    return render_template("photo_view/media_detail.html", media_id=media_id)
+    return render_template("photo-view/media_detail.html", media_id=media_id)
 
 
 @bp.route("/albums")
 @require_perms("media:view", "album:view")
 def albums():
     """List of albums."""
-    return render_template("photo_view/albums.html", editor_view=False)
+    return render_template("photo-view/albums.html", editor_view=False)
 
 
 @bp.route("/albums/<int:album_id>")
 @require_perms("media:view", "album:view")
 def album_detail(album_id: int):
     """Detail view for a single album."""
-    return render_template("photo_view/album_detail.html", album_id=album_id)
+    return render_template("photo-view/album_detail.html", album_id=album_id)
 
 
 @bp.route("/albums/create")
@@ -138,7 +138,7 @@ def album_detail(album_id: int):
 def album_create():
     """Standalone page for creating a new album."""
     return render_template(
-        "photo_view/albums.html",
+        "photo-view/albums.html",
         editor_view=True,
         editor_album_id=None,
         editor_success_url=url_for("photo_view.albums"),
@@ -152,7 +152,7 @@ def album_edit(album_id: int):
     """Standalone page for editing an existing album."""
 
     return render_template(
-        "photo_view/albums.html",
+        "photo-view/albums.html",
         editor_view=True,
         editor_album_id=album_id,
         editor_success_url=url_for("photo_view.album_detail", album_id=album_id),
@@ -170,7 +170,7 @@ def album_slideshow(album_id: int):
     autoplay_enabled = str(autoplay).lower() not in {"0", "false", "no"}
 
     return render_template(
-        "photo_view/album_slideshow.html",
+        "photo-view/album_slideshow.html",
         album_id=album_id,
         start_index=start_index if isinstance(start_index, int) else None,
         autoplay_enabled=autoplay_enabled,
@@ -181,7 +181,7 @@ def album_slideshow(album_id: int):
 @require_perms("media:view")
 def tags():
     """List of tags."""
-    return render_template("photo_view/tags.html")
+    return render_template("photo-view/tags.html")
 
 
 @bp.route("/settings")
@@ -189,7 +189,7 @@ def tags():
 def settings():
     """Photo view settings page."""
     return render_template(
-        "photo_view/settings.html",
+        "photo-view/settings.html",
         local_import_info=_build_local_import_info(),
         is_admin=hasattr(current_user, "has_role") and current_user.has_role("admin"),
     )
@@ -203,7 +203,7 @@ def settings():
 def admin_exports():
     """Placeholder admin exports listing page."""
 
-    return render_template("photo_view/admin/exports.html")
+    return render_template("photo-view/admin/exports.html")
 
 
 @bp.route("/admin/exports/<int:export_id>")
@@ -212,5 +212,5 @@ def admin_export_detail(export_id: int):
     """Placeholder admin export detail page."""
 
     return render_template(
-        "photo_view/admin/export_detail.html", export_id=export_id
+        "photo-view/admin/export_detail.html", export_id=export_id
     )

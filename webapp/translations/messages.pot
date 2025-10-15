@@ -188,20 +188,20 @@ msgid "Search users..."
 msgstr ""
 
 #: webapp/admin/templates/admin/admin_users.html:56
-#: webapp/photo_view/templates/photo_view/albums.html:107
-#: webapp/photo_view/templates/photo_view/home.html:16
-#: webapp/photo_view/templates/photo_view/media_list.html:177
+#: webapp/photo-view/templates/photo-view/albums.html:107
+#: webapp/photo-view/templates/photo-view/home.html:16
+#: webapp/photo-view/templates/photo-view/media_list.html:177
 msgid "Refresh"
 msgstr ""
 
 #: webapp/admin/templates/admin/admin_users.html:62
 #: webapp/admin/templates/admin/admin_users.html:85
-#: webapp/photo_view/templates/photo_view/albums.html:113
-#: webapp/photo_view/templates/photo_view/albums.html:122
-#: webapp/photo_view/templates/photo_view/home.html:48
-#: webapp/photo_view/templates/photo_view/home.html:74
-#: webapp/photo_view/templates/photo_view/media_list.html:152
-#: webapp/photo_view/templates/photo_view/media_list.html:188
+#: webapp/photo-view/templates/photo-view/albums.html:113
+#: webapp/photo-view/templates/photo-view/albums.html:122
+#: webapp/photo-view/templates/photo-view/home.html:48
+#: webapp/photo-view/templates/photo-view/home.html:74
+#: webapp/photo-view/templates/photo-view/media_list.html:152
+#: webapp/photo-view/templates/photo-view/media_list.html:188
 msgid "Loading..."
 msgstr ""
 
@@ -214,13 +214,13 @@ msgstr ""
 #: webapp/admin/templates/admin/admin_users.html:71
 #: webapp/admin/templates/admin/google_accounts.html:45
 #: webapp/auth/templates/auth/google_accounts.html:16
-#: webapp/photo_view/templates/photo_view/home.html:56
-#: webapp/photo_view/templates/photo_view/session_detail.html:33
+#: webapp/photo-view/templates/photo-view/home.html:56
+#: webapp/photo-view/templates/photo-view/session_detail.html:33
 msgid "Status"
 msgstr ""
 
 #: webapp/admin/templates/admin/admin_users.html:73
-#: webapp/photo_view/templates/photo_view/home.html:59
+#: webapp/photo-view/templates/photo-view/home.html:59
 msgid "Created At"
 msgstr ""
 
@@ -229,7 +229,7 @@ msgstr ""
 #: webapp/admin/templates/admin/permissions.html:52
 #: webapp/admin/templates/admin/roles.html:47
 #: webapp/auth/templates/auth/google_accounts.html:21
-#: webapp/photo_view/templates/photo_view/home.html:61
+#: webapp/photo-view/templates/photo-view/home.html:61
 msgid "Actions"
 msgstr ""
 
@@ -1003,209 +1003,209 @@ msgstr ""
 msgid "Manage Google Accounts"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/albums.html:100
-#: webapp/photo_view/templates/photo_view/home.html:31
+#: webapp/photo-view/templates/photo-view/albums.html:100
+#: webapp/photo-view/templates/photo-view/home.html:31
 #: webapp/templates/base.html:40
 msgid "Albums"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/albums.html:103
-#: webapp/photo_view/templates/photo_view/media_list.html:171
+#: webapp/photo-view/templates/photo-view/albums.html:103
+#: webapp/photo-view/templates/photo-view/media_list.html:171
 msgid "Newest First"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/albums.html:104
-#: webapp/photo_view/templates/photo_view/media_list.html:172
+#: webapp/photo-view/templates/photo-view/albums.html:104
+#: webapp/photo-view/templates/photo-view/media_list.html:172
 msgid "Oldest First"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/albums.html:124
+#: webapp/photo-view/templates/photo-view/albums.html:124
 msgid "Loading more albums..."
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/albums.html:128
+#: webapp/photo-view/templates/photo-view/albums.html:128
 msgid "All albums loaded"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/albums.html:133
+#: webapp/photo-view/templates/photo-view/albums.html:133
 msgid "No Albums Found"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/albums.html:134
+#: webapp/photo-view/templates/photo-view/albums.html:134
 msgid "Albums will appear here when they are created from your media collection."
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/albums.html:173
+#: webapp/photo-view/templates/photo-view/albums.html:173
 msgid "photos"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/albums.html:228
+#: webapp/photo-view/templates/photo-view/albums.html:228
 msgid "Failed to load albums. Please try again."
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/home.html:13
+#: webapp/photo-view/templates/photo-view/home.html:13
 msgid "Create New Session"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/home.html:26
+#: webapp/photo-view/templates/photo-view/home.html:26
 msgid "View Media Gallery"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/home.html:46
+#: webapp/photo-view/templates/photo-view/home.html:46
 msgid "All Picker Sessions"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/home.html:55
+#: webapp/photo-view/templates/photo-view/home.html:55
 msgid "Session ID"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/home.html:57
+#: webapp/photo-view/templates/photo-view/home.html:57
 msgid "Selected Count"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/home.html:58
+#: webapp/photo-view/templates/photo-view/home.html:58
 msgid "File Status"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/home.html:60
+#: webapp/photo-view/templates/photo-view/home.html:60
 msgid "Last Progress"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/home.html:76
+#: webapp/photo-view/templates/photo-view/home.html:76
 msgid "Loading more sessions..."
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/home.html:80
+#: webapp/photo-view/templates/photo-view/home.html:80
 msgid "All sessions loaded"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/home.html:129
+#: webapp/photo-view/templates/photo-view/home.html:129
 msgid "View Details"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/home.html:130
-#: webapp/photo_view/templates/photo_view/session_detail.html:16
+#: webapp/photo-view/templates/photo-view/home.html:130
+#: webapp/photo-view/templates/photo-view/session_detail.html:16
 msgid "Start Import"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/home.html:188
-#: webapp/photo_view/templates/photo_view/home.html:197
-#: webapp/photo_view/templates/photo_view/session_detail.html:136
-#: webapp/photo_view/templates/photo_view/session_detail.html:137
-#: webapp/photo_view/templates/photo_view/session_detail.html:145
-#: webapp/photo_view/templates/photo_view/session_detail.html:146
+#: webapp/photo-view/templates/photo-view/home.html:188
+#: webapp/photo-view/templates/photo-view/home.html:197
+#: webapp/photo-view/templates/photo-view/session_detail.html:136
+#: webapp/photo-view/templates/photo-view/session_detail.html:137
+#: webapp/photo-view/templates/photo-view/session_detail.html:145
+#: webapp/photo-view/templates/photo-view/session_detail.html:146
 msgid "Failed to start import."
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/home.html:192
-#: webapp/photo_view/templates/photo_view/session_detail.html:141
-#: webapp/photo_view/templates/photo_view/session_detail.html:142
+#: webapp/photo-view/templates/photo-view/home.html:192
+#: webapp/photo-view/templates/photo-view/session_detail.html:141
+#: webapp/photo-view/templates/photo-view/session_detail.html:142
 msgid "Import started."
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/media_detail.html:147
+#: webapp/photo-view/templates/photo-view/media_detail.html:147
 msgid "Back"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/media_detail.html:150
+#: webapp/photo-view/templates/photo-view/media_detail.html:150
 msgid "Download"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/media_detail.html:185
+#: webapp/photo-view/templates/photo-view/media_detail.html:185
 msgid "Basic Information"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/media_detail.html:192
+#: webapp/photo-view/templates/photo-view/media_detail.html:192
 msgid "Technical Details"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/media_detail.html:199
+#: webapp/photo-view/templates/photo-view/media_detail.html:199
 msgid "EXIF Data"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/media_list.html:151
+#: webapp/photo-view/templates/photo-view/media_list.html:151
 #: webapp/templates/base.html:38
 msgid "Media Gallery"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/media_list.html:158
+#: webapp/photo-view/templates/photo-view/media_list.html:158
 msgid "All Media"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/media_list.html:159
+#: webapp/photo-view/templates/photo-view/media_list.html:159
 msgid "Photos Only"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/media_list.html:160
+#: webapp/photo-view/templates/photo-view/media_list.html:160
 msgid "Videos Only"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/media_list.html:165
+#: webapp/photo-view/templates/photo-view/media_list.html:165
 msgid "Size"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/media_list.html:190
+#: webapp/photo-view/templates/photo-view/media_list.html:190
 msgid "Loading more media..."
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/media_list.html:194
+#: webapp/photo-view/templates/photo-view/media_list.html:194
 msgid "All media loaded"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/media_list.html:303
+#: webapp/photo-view/templates/photo-view/media_list.html:303
 msgid "Failed to load media. Please try again."
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:10
+#: webapp/photo-view/templates/photo-view/session_detail.html:10
 msgid "Session Details"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:11
+#: webapp/photo-view/templates/photo-view/session_detail.html:11
 msgid "Back to Sessions"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:26
+#: webapp/photo-view/templates/photo-view/session_detail.html:26
 msgid "Selected Files"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:33
+#: webapp/photo-view/templates/photo-view/session_detail.html:33
 msgid "Failed files will be retried up to three times."
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:45
+#: webapp/photo-view/templates/photo-view/session_detail.html:45
 msgid "Filter by keyword"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:46
+#: webapp/photo-view/templates/photo-view/session_detail.html:46
 msgid "Search filename or ID"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:49
+#: webapp/photo-view/templates/photo-view/session_detail.html:49
 msgid "Status filter"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:51
+#: webapp/photo-view/templates/photo-view/session_detail.html:51
 msgid "All statuses"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:63
+#: webapp/photo-view/templates/photo-view/session_detail.html:63
 msgid "Reset filters"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:32
+#: webapp/photo-view/templates/photo-view/session_detail.html:32
 msgid "File"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:34
+#: webapp/photo-view/templates/photo-view/session_detail.html:34
 msgid "Attempts"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:35
+#: webapp/photo-view/templates/photo-view/session_detail.html:35
 #: webapp/templates/error.html:2 webapp/templates/error.html:4
 msgid "Error"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:108
+#: webapp/photo-view/templates/photo-view/session_detail.html:108
 msgid "Working..."
 msgstr ""
 
@@ -1249,32 +1249,32 @@ msgstr ""
 msgid "Please login to continue."
 msgstr ""
 
-#: webapp/api/routes.py:??? webapp/photo_view/templates/photo_view/media_detail.html:???
+#: webapp/api/routes.py:??? webapp/photo-view/templates/photo-view/media_detail.html:???
 msgid "You do not have permission to delete media."
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/media_detail.html:???
+#: webapp/photo-view/templates/photo-view/media_detail.html:???
 msgid "Are you sure you want to delete this media? This action cannot be undone."
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/media_detail.html:???
+#: webapp/photo-view/templates/photo-view/media_detail.html:???
 msgid "Media was deleted successfully."
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/media_detail.html:???
+#: webapp/photo-view/templates/photo-view/media_detail.html:???
 msgid "Failed to delete media."
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/media_detail.html:???
+#: webapp/photo-view/templates/photo-view/media_detail.html:???
 msgid "Media was not found or is already deleted."
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/media_detail.html:???
+#: webapp/photo-view/templates/photo-view/media_detail.html:???
 msgid "Deleting..."
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/home.html:199
-#: webapp/photo_view/templates/photo_view/session_detail.html:184
+#: webapp/photo-view/templates/photo-view/home.html:199
+#: webapp/photo-view/templates/photo-view/session_detail.html:184
 msgid "Are you sure you want to cancel the local import?"
 msgstr ""
 
@@ -1314,15 +1314,15 @@ msgstr ""
 msgid "No permissions match your search."
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:??
+#: webapp/photo-view/templates/photo-view/session_detail.html:??
 msgid "Download full logs (ZIP)"
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:??
+#: webapp/photo-view/templates/photo-view/session_detail.html:??
 msgid "Preparing download..."
 msgstr ""
 
-#: webapp/photo_view/templates/photo_view/session_detail.html:??
+#: webapp/photo-view/templates/photo-view/session_detail.html:??
 msgid "Failed to download logs."
 msgstr ""
 

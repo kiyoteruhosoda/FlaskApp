@@ -522,7 +522,7 @@ PhotoNest/
 │   ├── api/         # REST API エンドポイント
 │   ├── auth/        # 認証機能
 │   ├── admin/       # 管理機能
-│   ├── photo_view/  # 写真表示機能
+│   ├── photo-view/  # 写真表示機能
 │   └── templates/   # HTMLテンプレート
 ├── domain/          # ドメイン層（DDD）
 ├── application/     # アプリケーションサービス層（DDD）

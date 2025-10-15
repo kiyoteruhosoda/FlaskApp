@@ -12,7 +12,7 @@
     <h1 id="session-title" class="mb-1">{{ _("Session Details") }}</h1>
     <p id="session-subtitle" class="text-muted small mb-0 d-none"></p>
   </div>
-  <a href="/photo_view" class="btn btn-outline-secondary btn-sm">
+  <a href="/photo-view" class="btn btn-outline-secondary btn-sm">
     <i class="bi bi-arrow-left"></i> {{ _("Back to Sessions") }}
   </a>
 </div>
@@ -152,13 +152,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const pickerSessionId = resolveSessionId();
   if (!pickerSessionId) {
-    window.location.href = '/photo_view';
+    window.location.href = '/photo-view';
     return;
   }
 
   if (/^\d+$/.test(pickerSessionId)) {
     console.warn('Numeric session ID detected, redirecting to sessions list');
-    window.location.href = '/photo_view';
+    window.location.href = '/photo-view';
     return;
   }
 
@@ -647,7 +647,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const safeDisplayName = escapeHtml(displayName);
     const canDisplayLink = selection.mediaId && ['imported', 'dup'].includes(selection.status);
     const fileCellContent = canDisplayLink
-      ? `<a href="/photo_view/media/${selection.mediaId}" class="text-decoration-none">${safeDisplayName}</a>`
+      ? `<a href="/photo-view/media/${selection.mediaId}" class="text-decoration-none">${safeDisplayName}</a>`
       : safeDisplayName;
     const errorMessageHtml = selection.error
       ? `<div class="text-danger small">${escapeHtml(selection.error)}</div>`
@@ -928,7 +928,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const resp = await window.apiClient.get(`/api/picker/session/${encodeURIComponent(pickerSessionId)}`);
       if (resp.status === 404) {
-        window.location.href = '/photo_view';
+        window.location.href = '/photo-view';
         return null;
       }
       if (resp.status === 401 || resp.status === 302) {

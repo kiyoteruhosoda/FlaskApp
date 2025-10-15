@@ -9,6 +9,7 @@ from .celery_task import CeleryTaskRecord, CeleryTaskStatus
 from .picker_session import PickerSession
 from .picker_import_task import PickerImportTask
 from .totp import TOTPCredential
+from .service_account import ServiceAccount
 
 __all__ = [
     'User',
@@ -25,4 +26,5 @@ __all__ = [
     'PickerSession',
     'PickerImportTask',
     'TOTPCredential',
+    'ServiceAccount',
 ]

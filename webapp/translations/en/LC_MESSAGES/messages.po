@@ -40,6 +40,69 @@ msgstr "Invalid email or password"
 msgid "Email and password are required"
 msgstr "Email and password are required"
 
+msgid "Please provide a public key."
+msgstr "Please provide a public key."
+
+msgid "The public key is not a valid PEM-formatted value."
+msgstr "The public key is not a valid PEM-formatted value."
+
+msgid "The provided public key type is not supported."
+msgstr "The provided public key type is not supported."
+
+msgid "You are not allowed to assign the specified scopes."
+msgstr "You are not allowed to assign the specified scopes."
+
+msgid "Please provide a service account name."
+msgstr "Please provide a service account name."
+
+msgid "A service account with the same name already exists."
+msgstr "A service account with the same name already exists."
+
+msgid "The service account identifier is missing from the token."
+msgstr "The service account identifier is missing from the token."
+
+msgid "The service account is not registered."
+msgstr "The service account is not registered."
+
+msgid "The service account is disabled."
+msgstr "The service account is disabled."
+
+msgid "The token is not provided."
+msgstr "The token is not provided."
+
+msgid "The JWT header is invalid."
+msgstr "The JWT header is invalid."
+
+msgid "The signature algorithm is not supported."
+msgstr "The signature algorithm is not supported."
+
+msgid "Failed to parse the JWT."
+msgstr "Failed to parse the JWT."
+
+msgid "The token has expired."
+msgstr "The token has expired."
+
+msgid "The audience does not match."
+msgstr "The audience does not match."
+
+msgid "Failed to verify the signature."
+msgstr "Failed to verify the signature."
+
+msgid "The JWT is invalid."
+msgstr "The JWT is invalid."
+
+msgid "The token lifetime is invalid."
+msgstr "The token lifetime is invalid."
+
+msgid "The token lifetime exceeds the maximum allowed."
+msgstr "The token lifetime exceeds the maximum allowed."
+
+msgid "The token issue time is in the future."
+msgstr "The token issue time is in the future."
+
+msgid "The required scope is not granted."
+msgstr "The required scope is not granted."
+
 msgid "Email already exists"
 msgstr "Email already exists"
 

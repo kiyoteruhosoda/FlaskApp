@@ -8,13 +8,124 @@ from flask_login import login_required, current_user
 from flask_babel import gettext as _
 
 from core.models.user import User, Role, Permission
+from core.models.service_account import ServiceAccount
 from core.storage_paths import first_existing_storage_path, storage_path_candidates
+from webapp.services.service_account_service import (
+    ServiceAccountNotFoundError,
+    ServiceAccountService,
+    ServiceAccountValidationError,
+)
 
 
 bp = Blueprint("admin", __name__, template_folder="templates")
 
 
 # --- ここから各ルート定義 ---
+
+
+# サービスアカウント管理
+@bp.route("/service-accounts")
+@login_required
+def service_accounts():
+    if not current_user.can("service_account:manage"):
+        return _(u"You do not have permission to access this page."), 403
+
+    accounts = [account.as_dict() for account in ServiceAccountService.list_accounts()]
+    available_scopes = sorted(current_user.permissions)
+    return render_template(
+        "admin/service_accounts.html",
+        accounts=accounts,
+        available_scopes=available_scopes,
+    )
+
+
+@bp.route("/service-accounts.json", methods=["GET"])
+@login_required
+def service_accounts_json():
+    if not current_user.can("service_account:manage"):
+        return jsonify({"error": "forbidden"}), 403
+
+    accounts = [account.as_dict() for account in ServiceAccountService.list_accounts()]
+    return jsonify({"items": accounts})
+
+
+@bp.route("/service-accounts.json", methods=["POST"])
+@login_required
+def service_accounts_create():
+    if not current_user.can("service_account:manage"):
+        return jsonify({"error": "forbidden"}), 403
+
+    payload = _extract_service_account_payload()
+    try:
+        account = ServiceAccountService.create_account(
+            name=payload.get("name", ""),
+            description=payload.get("description"),
+            public_key=payload.get("public_key", ""),
+            scope_names=payload.get("scope_names", ""),
+            active=payload.get("active_flg", True),
+            allowed_scopes=current_user.permissions,
+        )
+    except ServiceAccountValidationError as exc:
+        response = {"error": exc.message}
+        if exc.field:
+            response["field"] = exc.field
+        return jsonify(response), 400
+
+    return jsonify({"item": account.as_dict()}), 201
+
+
+@bp.route("/service-accounts/<int:account_id>.json", methods=["GET"])
+@login_required
+def service_accounts_detail(account_id: int):
+    if not current_user.can("service_account:manage"):
+        return jsonify({"error": "forbidden"}), 403
+
+    account = ServiceAccount.query.get(account_id)
+    if not account:
+        return jsonify({"error": "not_found"}), 404
+    return jsonify({"item": account.as_dict()})
+
+
+@bp.route("/service-accounts/<int:account_id>.json", methods=["PUT", "PATCH"])
+@login_required
+def service_accounts_update(account_id: int):
+    if not current_user.can("service_account:manage"):
+        return jsonify({"error": "forbidden"}), 403
+
+    payload = _extract_service_account_payload()
+    try:
+        account = ServiceAccountService.update_account(
+            account_id,
+            name=payload.get("name", ""),
+            description=payload.get("description"),
+            public_key=payload.get("public_key", ""),
+            scope_names=payload.get("scope_names", ""),
+            active=payload.get("active_flg", True),
+            allowed_scopes=current_user.permissions,
+        )
+    except ServiceAccountNotFoundError:
+        return jsonify({"error": "not_found"}), 404
+    except ServiceAccountValidationError as exc:
+        response = {"error": exc.message}
+        if exc.field:
+            response["field"] = exc.field
+        return jsonify(response), 400
+
+    return jsonify({"item": account.as_dict()})
+
+
+@bp.route("/service-accounts/<int:account_id>.json", methods=["DELETE"])
+@login_required
+def service_accounts_delete(account_id: int):
+    if not current_user.can("service_account:manage"):
+        return jsonify({"error": "forbidden"}), 403
+
+    try:
+        ServiceAccountService.delete_account(account_id)
+    except ServiceAccountNotFoundError:
+        return jsonify({"error": "not_found"}), 404
+
+    return jsonify({"status": "deleted"}), 200
 
 
 # Config表示ページ（管理者のみ）
@@ -542,14 +653,35 @@ def role_delete(role_id):
 @login_required
 def google_accounts():
     from core.models.google_account import GoogleAccount
-    
+
     # 管理者は全てのアカウントを表示、一般ユーザーは自分のアカウントのみ表示
     if current_user.can('user:manage'):
         accounts = GoogleAccount.query.all()
     else:
         accounts = GoogleAccount.query.filter_by(user_id=current_user.id).all()
-    
+
     return render_template("admin/google_accounts.html", accounts=accounts)
+
+
+def _extract_service_account_payload() -> dict:
+    if request.is_json:
+        data = request.get_json(silent=True) or {}
+    else:
+        data = request.form.to_dict()
+
+    active_raw = data.get("active_flg", True)
+    if isinstance(active_raw, str):
+        active_value = active_raw.strip().lower() in {"1", "true", "on", "yes"}
+    else:
+        active_value = bool(active_raw)
+
+    return {
+        "name": data.get("name", ""),
+        "description": data.get("description"),
+        "public_key": data.get("public_key", ""),
+        "scope_names": data.get("scope_names", ""),
+        "active_flg": active_value,
+    }
 
 
 def _format_bytes(num: int) -> str:

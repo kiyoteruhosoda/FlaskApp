@@ -1,6 +1,8 @@
 """ファイルアップロード関連のユーティリティ"""
 from __future__ import annotations
 
+import filecmp
+import hashlib
 import json
 import shutil
 from dataclasses import dataclass
@@ -10,7 +12,6 @@ from uuid import uuid4
 
 from flask import current_app
 from werkzeug.datastructures import FileStorage
-from werkzeug.utils import secure_filename
 
 from core.storage_paths import first_existing_storage_path
 from webapp.config import Config
@@ -109,11 +110,6 @@ def _determine_session_dir(session_id: str) -> Path:
     target = base / session_id
     _ensure_directory(target)
     return target
-
-
-def _sanitize_filename(filename: str) -> str:
-    sanitized = secure_filename(filename or "uploaded")
-    return sanitized or "uploaded"
 
 
 def _save_stream(file: FileStorage, destination: Path) -> int:
@@ -257,20 +253,63 @@ def _delete_metadata(session_dir: Path, temp_file_id: str) -> None:
     metadata_path.unlink(missing_ok=True)
 
 
-def _generate_destination_path(dest_dir: Path, filename: str) -> Path:
-    sanitized = _sanitize_filename(filename)
-    candidate = dest_dir / sanitized
-    if not candidate.exists():
-        return candidate
+def _calculate_sha256(path: Path) -> str:
+    sha256 = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            sha256.update(chunk)
+    return sha256.hexdigest()
 
-    stem = candidate.stem
-    suffix = candidate.suffix
-    counter = 1
-    while True:
-        numbered = dest_dir / f"{stem}_{counter}{suffix}"
-        if not numbered.exists():
-            return numbered
-        counter += 1
+
+def _files_identical(path_a: Path, path_b: Path) -> bool:
+    try:
+        return filecmp.cmp(path_a, path_b, shallow=False)
+    except OSError:
+        return False
+
+
+def _generate_hashed_destination(dest_dir: Path, temp_path: Path, filename: str) -> tuple[Path, str, bool]:
+    suffix = (Path(filename).suffix or "").lower()
+    file_hash = _calculate_sha256(temp_path)
+    candidate = dest_dir / f"{file_hash}{suffix}"
+
+    if candidate.exists():
+        if _files_identical(candidate, temp_path):
+            return candidate, file_hash, True
+
+        counter = 1
+        while True:
+            alternate = dest_dir / f"{file_hash}_{counter}{suffix}"
+            if alternate.exists():
+                if _files_identical(alternate, temp_path):
+                    return alternate, file_hash, True
+                counter += 1
+                continue
+            candidate = alternate
+            break
+
+    return candidate, file_hash, False
+
+
+def _build_success_result(
+    temp_file_id: str,
+    metadata: dict,
+    destination: Path,
+    relative_path: Optional[Path],
+    file_hash: str,
+) -> dict:
+    result = {
+        "tempFileId": temp_file_id,
+        "status": "success",
+        "fileName": metadata.get("file_name"),
+        "fileSize": metadata.get("file_size"),
+        "storedPath": str(destination),
+        "hashSha256": file_hash,
+        "analysis": metadata.get("analysis_result"),
+    }
+    if relative_path is not None:
+        result["relativePath"] = str(relative_path).replace("\\", "/")
+    return result
 
 
 def commit_uploads(session_id: str, user_id: Optional[int], temp_file_ids: Iterable[str]) -> list[dict]:
@@ -304,6 +343,86 @@ def commit_uploads(session_id: str, user_id: Optional[int], temp_file_ids: Itera
 
     results = []
 
+    if user_import_dir is None:
+        for temp_file_id in temp_file_ids:
+            current_app.logger.error(
+                "upload.commit.local_import.unavailable",
+                extra={
+                    "temp_file_id": temp_file_id,
+                    "user_id": user_id,
+                },
+            )
+            results.append({
+                "tempFileId": temp_file_id,
+                "status": "error",
+                "message": "Failed to store file",
+            })
+        return results
+
+    commit_results = _commit_prepared_files(
+        session_dir=session_dir,
+        temp_file_ids=temp_file_ids,
+        destination_dir=user_import_dir,
+        expected_root=user_import_dir_resolved,
+        error_extra={"user_id": user_id},
+    )
+
+    results.extend(commit_results)
+
+    _cleanup_session_dir_if_empty(session_dir)
+
+    return results
+
+
+def commit_uploads_to_directory(
+    session_id: str,
+    temp_file_ids: Iterable[str],
+    destination_dir: Path | str,
+) -> list[dict]:
+    session_dir = _determine_session_dir(session_id)
+    destination = Path(destination_dir)
+    try:
+        _ensure_directory(destination)
+    except OSError as exc:
+        current_app.logger.exception(
+            "upload.commit.ensure_destination_failed",
+            extra={"destination": str(destination), "error": str(exc)},
+        )
+        error_results = []
+        for temp_file_id in temp_file_ids:
+            error_results.append({
+                "tempFileId": temp_file_id,
+                "status": "error",
+                "message": "Failed to store file",
+            })
+        return error_results
+
+    try:
+        destination_root = destination.resolve()
+    except OSError:
+        destination_root = destination
+
+    results = _commit_prepared_files(
+        session_dir=session_dir,
+        temp_file_ids=temp_file_ids,
+        destination_dir=destination,
+        expected_root=destination_root,
+    )
+
+    _cleanup_session_dir_if_empty(session_dir)
+
+    return results
+
+
+def _commit_prepared_files(
+    session_dir: Path,
+    temp_file_ids: Iterable[str],
+    destination_dir: Path,
+    expected_root: Optional[Path],
+    error_extra: Optional[dict] = None,
+) -> list[dict]:
+    results: list[dict] = []
+
     for temp_file_id in temp_file_ids:
         try:
             metadata = _load_metadata(session_dir, temp_file_id)
@@ -325,95 +444,30 @@ def commit_uploads(session_id: str, user_id: Optional[int], temp_file_ids: Itera
             })
             continue
 
-        if user_import_dir is None:
-            current_app.logger.error(
-                "upload.commit.local_import.unavailable",
-                extra={
-                    "temp_file_id": temp_file_id,
-                    "user_id": user_id,
-                },
-            )
-            results.append({
-                "tempFileId": temp_file_id,
-                "status": "error",
-                "message": "Failed to store file",
-            })
-            continue
-
-        destination_path = _generate_destination_path(
-            user_import_dir, metadata.get("file_name", "uploaded")
+        destination_path, file_hash, already_exists = _generate_hashed_destination(
+            destination_dir, temp_path, metadata.get("file_name", "uploaded")
         )
 
-        try:
-            moved_target = shutil.move(str(temp_path), str(destination_path))
-        except FileNotFoundError:
-            results.append({
-                "tempFileId": temp_file_id,
-                "status": "error",
-                "message": "File not found or already committed",
-            })
-            continue
-        except OSError as exc:
-            current_app.logger.exception(
-                "upload.commit.move_failed",
-                extra={
-                    "temp_file_id": temp_file_id,
-                    "destination": str(destination_path),
-                    "error": str(exc),
-                },
-            )
-            results.append({
-                "tempFileId": temp_file_id,
-                "status": "error",
-                "message": "Failed to store file",
-            })
-            continue
-
-        if moved_target:
-            try:
-                moved_to = Path(moved_target)
-            except TypeError:
-                moved_to = destination_path
+        if already_exists:
+            temp_path.unlink(missing_ok=True)
         else:
-            moved_to = destination_path
-
-        actual_destination = (
-            moved_to if moved_to.is_absolute() else user_import_dir / moved_to
-        )
-
-        if not actual_destination.exists():
-            current_app.logger.error(
-                "upload.commit.destination_missing",
-                extra={
-                    "temp_file_id": temp_file_id,
-                    "destination": str(actual_destination),
-                },
-            )
-            results.append({
-                "tempFileId": temp_file_id,
-                "status": "error",
-                "message": "Failed to store file",
-            })
-            continue
-
-        resolved_destination = actual_destination.resolve()
-
-        if user_import_dir_resolved is not None:
             try:
-                resolved_destination.relative_to(user_import_dir_resolved)
-            except ValueError:
-                current_app.logger.error(
-                    "upload.commit.unexpected_destination",
-                    extra={
-                        "temp_file_id": temp_file_id,
-                        "expected_dir": str(user_import_dir_resolved),
-                        "actual_path": str(resolved_destination),
-                    },
+                moved_target = shutil.move(str(temp_path), str(destination_path))
+            except FileNotFoundError:
+                results.append({
+                    "tempFileId": temp_file_id,
+                    "status": "error",
+                    "message": "File not found or already committed",
+                })
+                continue
+            except OSError as exc:
+                extra = {"temp_file_id": temp_file_id, "destination": str(destination_path), "error": str(exc)}
+                if error_extra:
+                    extra.update(error_extra)
+                current_app.logger.exception(
+                    "upload.commit.move_failed",
+                    extra=extra,
                 )
-                try:
-                    shutil.move(str(resolved_destination), str(temp_path))
-                except OSError:
-                    pass
                 results.append({
                     "tempFileId": temp_file_id,
                     "status": "error",
@@ -421,18 +475,81 @@ def commit_uploads(session_id: str, user_id: Optional[int], temp_file_ids: Itera
                 })
                 continue
 
-        destination_path = resolved_destination
+            if moved_target:
+                try:
+                    moved_to = Path(moved_target)
+                except TypeError:
+                    moved_to = destination_path
+            else:
+                moved_to = destination_path
+
+            actual_destination = (
+                moved_to if moved_to.is_absolute() else destination_dir / moved_to
+            )
+        
+        resolved_destination: Path
+        if already_exists:
+            resolved_destination = destination_path.resolve() if destination_path.exists() else destination_path
+        else:
+            if not actual_destination.exists():
+                extra = {
+                    "temp_file_id": temp_file_id,
+                    "destination": str(actual_destination),
+                }
+                if error_extra:
+                    extra.update(error_extra)
+                current_app.logger.error(
+                    "upload.commit.destination_missing",
+                    extra=extra,
+                )
+                results.append({
+                    "tempFileId": temp_file_id,
+                    "status": "error",
+                    "message": "Failed to store file",
+                })
+                continue
+
+            resolved_destination = actual_destination.resolve()
+
+        relative_path: Optional[Path] = None
+        if expected_root is not None:
+            try:
+                relative_path = resolved_destination.relative_to(expected_root)
+            except ValueError:
+                extra = {
+                    "temp_file_id": temp_file_id,
+                    "expected_dir": str(expected_root),
+                    "actual_path": str(resolved_destination),
+                }
+                if error_extra:
+                    extra.update(error_extra)
+                current_app.logger.error(
+                    "upload.commit.unexpected_destination",
+                    extra=extra,
+                )
+                if not already_exists:
+                    try:
+                        shutil.move(str(resolved_destination), str(temp_path))
+                    except OSError:
+                        pass
+                results.append({
+                    "tempFileId": temp_file_id,
+                    "status": "error",
+                    "message": "Failed to store file",
+                })
+                continue
 
         _delete_metadata(session_dir, temp_file_id)
 
-        results.append({
-            "tempFileId": temp_file_id,
-            "status": "success",
-            "fileName": metadata.get("file_name"),
-            "storedPath": str(destination_path),
-        })
-
-    _cleanup_session_dir_if_empty(session_dir)
+        results.append(
+            _build_success_result(
+                temp_file_id=temp_file_id,
+                metadata=metadata,
+                destination=resolved_destination,
+                relative_path=relative_path,
+                file_hash=file_hash,
+            )
+        )
 
     return results
 
@@ -468,5 +585,6 @@ __all__ = [
     "PreparedFileNotFoundError",
     "prepare_upload",
     "commit_uploads",
+    "commit_uploads_to_directory",
     "has_pending_uploads",
 ]

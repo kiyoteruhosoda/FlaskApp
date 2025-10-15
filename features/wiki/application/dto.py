@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence
 
+from core.models.photo_models import Media
 from core.models.wiki.models import WikiCategory, WikiPage, WikiRevision
 
 
@@ -126,3 +127,9 @@ class WikiCategoryCreateInput:
 @dataclass(frozen=True)
 class WikiCategoryCreationResult:
     category: WikiCategory
+
+
+@dataclass(frozen=True)
+class WikiMediaUploadResult:
+    results: List[Dict[str, Any]]
+    media: List[Media]

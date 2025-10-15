@@ -76,6 +76,7 @@ class Config:
     UPLOAD_TMP_DIR = os.environ.get("UPLOAD_TMP_DIR", "/app/data/tmp/upload")
     UPLOAD_DESTINATION_DIR = os.environ.get("UPLOAD_DESTINATION_DIR", "/app/data/uploads")
     UPLOAD_MAX_SIZE = int(os.environ.get("UPLOAD_MAX_SIZE", str(100 * 1024 * 1024)))
+    WIKI_UPLOAD_DIR = os.environ.get("WIKI_UPLOAD_DIR", "/app/data/wiki")
     FPV_NAS_THUMBS_DIR = os.environ.get("FPV_NAS_THUMBS_CONTAINER_DIR") or os.environ.get(
         "FPV_NAS_THUMBS_DIR", ""
     )
@@ -123,6 +124,7 @@ class TestConfig(Config):
     SQLALCHEMY_BINDS = {}
     UPLOAD_TMP_DIR = "/tmp/test_upload/tmp"
     UPLOAD_DESTINATION_DIR = "/tmp/test_upload/dest"
+    WIKI_UPLOAD_DIR = "/tmp/test_upload/wiki"
 
 
 class _ReloadSafeModule(ModuleType):

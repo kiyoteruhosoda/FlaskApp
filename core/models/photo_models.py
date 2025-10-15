@@ -25,7 +25,11 @@ class Media(db.Model):
     id = db.Column(BigInt, primary_key=True, autoincrement=True)
     
     # ソース情報
-    source_type = db.Column(db.Enum('local', 'google_photos', name='media_source_type'), nullable=False, default='local')
+    source_type = db.Column(
+        db.Enum('local', 'google_photos', 'wiki-media', name='media_source_type'),
+        nullable=False,
+        default='local',
+    )
     google_media_id = db.Column(db.String(255), nullable=True)  # Google Photos ID
     account_id = db.Column(BigInt, db.ForeignKey('google_account.id'), nullable=True)
     account = db.relationship('GoogleAccount', backref='media_items')

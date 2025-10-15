@@ -18,7 +18,7 @@
   {% if current_user.can('service_account:manage') %}
   <li class="nav-item">
     <a class="nav-link" href="{{ url_for('admin.service_accounts') }}">
-      <i class="fas fa-robot"></i> {{ _('Service Accounts') }}
+      <i class="fas fa-key"></i> {{ _('Service Accounts') }}
     </a>
   </li>
   {% endif %}

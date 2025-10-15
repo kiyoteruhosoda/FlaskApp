@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ page.title }} の履歴 - Wiki{% endblock %}
+{% block title %}{{ _('History for %(title)s', title=page.title) }} - Wiki{% endblock %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='wiki/wiki.css') }}">
@@ -11,22 +11,22 @@
     <div class="row">
         <div class="col-md-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1>{{ page.title }} の履歴</h1>
+                <h1>{{ _('History for %(title)s', title=page.title) }}</h1>
                 <div>
                     <a href="{{ url_for('wiki.view_page', slug=page.slug) }}" 
                        class="btn btn-outline-primary me-2">
-                        <i class="fas fa-eye"></i> ページを表示
+                        <i class="fas fa-eye"></i> {{ _('View Page') }}
                     </a>
                     {% if current_user.is_authenticated and page.created_by_id == current_user.id %}
                     <a href="{{ url_for('wiki.edit_page', slug=page.slug) }}" 
                        class="btn btn-outline-secondary">
-                        <i class="fas fa-edit"></i> 編集
+                        <i class="fas fa-edit"></i> {{ _('Edit') }}
                     </a>
                     {% endif %}
                 </div>
             </div>
 
-            <!-- ページ情報 -->
+            <!-- Page information -->
             <div class="card mb-4">
                 <div class="card-body">
                     <div class="row">
@@ -51,7 +51,7 @@
                 </div>
             </div>
 
-            <!-- 履歴一覧 -->
+            <!-- Revision list -->
             {% if revisions %}
             <div class="card">
                 <div class="card-header">
@@ -106,7 +106,7 @@
                                 </div>
                             </div>
                             
-                            <!-- リビジョン内容（初期は非表示） -->
+                            <!-- Revision content (hidden by default) -->
                             <div id="revision-content-{{ revision.id }}" class="revision-content mt-3" style="display: none;">
                                 <div class="border-top pt-3">
                                     <h6>{{ _('Page content at this point') }}:</h6>
@@ -132,7 +132,7 @@
             </div>
             {% endif %}
 
-            <!-- ナビゲーション -->
+            <!-- Navigation -->
             <div class="mt-4">
                 <a href="{{ url_for('wiki.view_page', slug=page.slug) }}" class="btn btn-primary">
                     <i class="fas fa-arrow-left"></i> {{ _('Back to Page') }}

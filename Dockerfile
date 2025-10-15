@@ -74,6 +74,7 @@ COPY --chown=appuser:appuser application/ ./application/
 COPY --chown=appuser:appuser domain/ ./domain/
 COPY --chown=appuser:appuser infrastructure/ ./infrastructure/
 COPY --chown=appuser:appuser cli/ ./cli/
+COPY --chown=appuser:appuser shared/ ./shared/
 
 # version.json はビルダーで生成したものを上書きコピーする
 COPY --from=builder --chown=appuser:appuser /app/core/version.json /app/core/version.json

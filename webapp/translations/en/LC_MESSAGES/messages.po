@@ -118,6 +118,169 @@ msgstr "000000"
 msgid "Signing In..."
 msgstr "Signing In..."
 
+# TOTP interface
+msgid "TOTP Management"
+msgstr "TOTP Management"
+
+msgid "Register New TOTP"
+msgstr "Register New TOTP"
+
+msgid "Scan a QR code or enter the details manually."
+msgstr "Scan a QR code or enter the details manually."
+
+msgid "Waiting for preview"
+msgstr "Waiting for preview"
+
+msgid "Account"
+msgstr "Account"
+
+msgid "Issuer (Provider)"
+msgstr "Issuer (Provider)"
+
+msgid "Secret"
+msgstr "Secret"
+
+msgid "Spaces and hyphens are removed automatically (Base32)."
+msgstr "Spaces and hyphens are removed automatically (Base32)."
+
+msgid "Digits"
+msgstr "Digits"
+
+msgid "Period (seconds)"
+msgstr "Period (seconds)"
+
+msgid "Description (optional)"
+msgstr "Description (optional)"
+
+msgid "Scan from QR code"
+msgstr "Scan from QR code"
+
+msgid "otpauth URI (optional)"
+msgstr "otpauth URI (optional)"
+
+msgid "Paste the URI and select \"Expand URI\" to fill the form."
+msgstr "Paste the URI and select \"Expand URI\" to fill the form."
+
+msgid "Expand URI"
+msgstr "Expand URI"
+
+msgid "Add TOTP"
+msgstr "Add TOTP"
+
+msgid "Current preview"
+msgstr "Current preview"
+
+msgid "-- seconds remaining"
+msgstr "-- seconds remaining"
+
+msgid "Registered TOTP entries"
+msgstr "Registered TOTP entries"
+
+msgid "The list refreshes automatically every second."
+msgstr "The list refreshes automatically every second."
+
+msgid "Sort by issuer"
+msgstr "Sort by issuer"
+
+msgid "Sort by account"
+msgstr "Sort by account"
+
+msgid "Sort by updated time"
+msgstr "Sort by updated time"
+
+msgid "Issuer"
+msgstr "Issuer"
+
+msgid "One-time code"
+msgstr "One-time code"
+
+msgid "Time remaining"
+msgstr "Time remaining"
+
+msgid "Description"
+msgstr "Description"
+
+msgid "Updated at"
+msgstr "Updated at"
+
+msgid "Actions"
+msgstr "Actions"
+
+msgid "Loading data…"
+msgstr "Loading data…"
+
+msgid "Edit TOTP"
+msgstr "Edit TOTP"
+
+msgid "Update secret (optional)"
+msgstr "Update secret (optional)"
+
+msgid "Leave blank to keep the current value."
+msgstr "Leave blank to keep the current value."
+
+msgid "Cancel"
+msgstr "Cancel"
+
+msgid "Save"
+msgstr "Save"
+
+msgid "Import TOTP entries"
+msgstr "Import TOTP entries"
+
+msgid "Paste or select a JSON file. Duplicates will be reviewed before continuing."
+msgstr "Paste or select a JSON file. Duplicates will be reviewed before continuing."
+
+msgid "JSON file"
+msgstr "JSON file"
+
+msgid "Paste JSON directly"
+msgstr "Paste JSON directly"
+
+msgid "Overwrite duplicates"
+msgstr "Overwrite duplicates"
+
+msgid "Close"
+msgstr "Close"
+
+msgid "Run import"
+msgstr "Run import"
+
+msgid "No entries yet"
+msgstr "No entries yet"
+
+msgid "Edit"
+msgstr "Edit"
+
+msgid "Delete"
+msgstr "Delete"
+
+msgid "%(seconds)s seconds remaining"
+msgstr "%(seconds)s seconds remaining"
+
+msgid "Previewing"
+msgstr "Previewing"
+
+msgid "Preview unavailable"
+msgstr "Preview unavailable"
+
+msgid "Failed to load TOTP list"
+msgstr "Failed to load TOTP list"
+
+msgid "Registered TOTP"
+msgstr "Registered TOTP"
+
+msgid "Failed to register TOTP"
+msgstr "Failed to register TOTP"
+
+msgid "Extracted information from URI"
+msgstr "Extracted information from URI"
+
+msgid "Failed to parse otpauth URI"
+msgstr "Failed to parse otpauth URI"
+
+msgid "URI is empty"
+msgstr "URI is empty"
+
 msgid "Creating Account..."
 msgstr "Creating Account..."
 

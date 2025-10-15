@@ -373,7 +373,7 @@ msgstr ""
 #: webapp/admin/templates/admin/roles.html:63
 #: webapp/auth/templates/auth/google_accounts.html:56
 msgid "Delete"
-msgstr ""
+msgstr "削除"
 
 #: webapp/admin/templates/admin/google_accounts.html:93
 #: webapp/auth/templates/auth/google_accounts.html:58
@@ -423,14 +423,14 @@ msgstr ""
 #: webapp/admin/templates/admin/permission_edit.html:10
 #: webapp/admin/templates/admin/role_edit.html:19
 msgid "Save"
-msgstr ""
+msgstr "保存"
 
 #: webapp/admin/templates/admin/permission_edit.html:11
 #: webapp/admin/templates/admin/role_edit.html:20
 #: webapp/admin/templates/admin/user_add.html:23
 #: webapp/admin/templates/admin/user_role_edit.html:45
 msgid "Cancel"
-msgstr "設定をキャンセル"
+msgstr "キャンセル"
 
 #: webapp/admin/templates/admin/permissions.html:2
 #: webapp/admin/templates/admin/permissions.html:35
@@ -448,7 +448,7 @@ msgstr ""
 #: webapp/admin/templates/admin/permissions.html:61
 #: webapp/admin/templates/admin/roles.html:61
 msgid "Edit"
-msgstr ""
+msgstr "編集"
 
 #: webapp/admin/templates/admin/permissions.html:64
 msgid "Are you sure you want to delete this permission?"
@@ -820,6 +820,157 @@ msgstr "アカウントをお持ちでない方はこちら"
 #: webapp/auth/templates/auth/login.html:133
 msgid "Signing In..."
 msgstr "サインイン中..."
+
+# TOTP interface
+msgid "TOTP Management"
+msgstr "TOTP 管理"
+
+msgid "Register New TOTP"
+msgstr "新規 TOTP 登録"
+
+msgid "Add TOTP"
+msgstr "TOTP を追加"
+
+msgid "Scan a QR code or enter the details manually."
+msgstr "QR を読み取るか手入力で登録できます"
+
+msgid "Waiting for preview"
+msgstr "プレビュー待ち"
+
+msgid "Account"
+msgstr "アカウント"
+
+msgid "Issuer (Provider)"
+msgstr "発行元 (Issuer)"
+
+msgid "Secret"
+msgstr "シークレット"
+
+msgid "Spaces and hyphens are removed automatically (Base32)."
+msgstr "空白やハイフンは自動で除去されます (Base32)"
+
+msgid "Digits"
+msgstr "桁数"
+
+msgid "Period (seconds)"
+msgstr "有効期間 (秒)"
+
+msgid "Description (optional)"
+msgstr "説明 (任意)"
+
+msgid "Scan from QR code"
+msgstr "QR コードから読み込む"
+
+msgid "otpauth URI (optional)"
+msgstr "otpauth URI (任意)"
+
+msgid "Paste the URI and select \"Expand URI\" to fill the form."
+msgstr "URI を貼り付けて「URI を展開」を押すとフォームへ展開します"
+
+msgid "Expand URI"
+msgstr "URI を展開"
+
+msgid "Current preview"
+msgstr "現在のプレビュー"
+
+msgid "-- seconds remaining"
+msgstr "残り -- 秒"
+
+msgid "Registered TOTP entries"
+msgstr "登録済み TOTP 一覧"
+
+msgid "The list refreshes automatically every second."
+msgstr "一覧は 1 秒ごとに自動更新されます"
+
+msgid "Sort by issuer"
+msgstr "発行元順"
+
+msgid "Sort by account"
+msgstr "アカウント順"
+
+msgid "Sort by updated time"
+msgstr "更新日時順"
+
+msgid "Issuer"
+msgstr "発行元"
+
+msgid "One-time code"
+msgstr "ワンタイムコード"
+
+msgid "Time remaining"
+msgstr "残り時間"
+
+msgid "Description"
+msgstr "説明"
+
+msgid "Updated at"
+msgstr "更新日時"
+
+msgid "Actions"
+msgstr "操作"
+
+msgid "Loading data…"
+msgstr "データ取得中..."
+
+msgid "Edit TOTP"
+msgstr "TOTP を編集"
+
+msgid "Update secret (optional)"
+msgstr "シークレットを更新 (任意)"
+
+msgid "Leave blank to keep the current value."
+msgstr "空欄のままにすると変更しません"
+
+msgid "Import TOTP entries"
+msgstr "TOTP をインポート"
+
+msgid "Paste or select a JSON file. Duplicates will be reviewed before continuing."
+msgstr "JSON ファイルを貼り付けるか選択してください。重複がある場合は確認後に続行します。"
+
+msgid "JSON file"
+msgstr "JSON ファイル"
+
+msgid "Paste JSON directly"
+msgstr "JSON を直接貼り付け"
+
+msgid "Overwrite duplicates"
+msgstr "重複があっても上書きする"
+
+msgid "Close"
+msgstr "閉じる"
+
+msgid "Run import"
+msgstr "インポート実行"
+
+msgid "No entries yet"
+msgstr "まだエントリがありません"
+
+msgid "%(seconds)s seconds remaining"
+msgstr "残り %(seconds)s 秒"
+
+msgid "Previewing"
+msgstr "プレビュー中"
+
+msgid "Preview unavailable"
+msgstr "プレビューできません"
+
+msgid "Failed to load TOTP list"
+msgstr "TOTP リストの読み込みに失敗しました"
+
+msgid "Registered TOTP"
+msgstr "TOTP を登録しました"
+
+msgid "Failed to register TOTP"
+msgstr "TOTP の登録に失敗しました"
+
+msgid "Extracted information from URI"
+msgstr "URI から情報を展開しました"
+
+msgid "Failed to parse otpauth URI"
+msgstr "otpauth URI の解析に失敗しました"
+
+msgid "URI is empty"
+msgstr "URI が空です"
 
 #: webapp/auth/templates/auth/login.html:161
 msgid "Login successful"

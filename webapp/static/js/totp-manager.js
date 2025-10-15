@@ -279,7 +279,7 @@
 
   function parseOtpauthUri(uri) {
     if (!uri) {
-      throw new Error('URI is empty');
+      throw new Error(t('URI is empty'));
     }
     let parsed;
     try {

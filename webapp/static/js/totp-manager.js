@@ -159,7 +159,7 @@
           <td class="fw-semibold">${escapeHtml(item.issuer)}</td>
           <td>${escapeHtml(item.account)}</td>
           <td>
-            <div class="otp-code mb-1" data-role="otp">------</div>
+            <div class="otp-code mb-1 otp-copyable" data-role="otp" data-action="copy-otp" role="button" tabindex="0" title="${t('クリックでコピー')}" aria-label="${t('ワンタイムコードをコピー')}">------</div>
           </td>
           <td>
             <div class="progress otp-progress mb-1">
@@ -188,6 +188,90 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
+  }
+
+  function sanitizeOtpText(value) {
+    return (value || '').replace(/\s+/g, '');
+  }
+
+  async function copyTextToClipboard(text) {
+    if (!text) {
+      return false;
+    }
+
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (error) {
+      console.warn('Failed to copy via navigator.clipboard', error);
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'absolute';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    const selection = document.getSelection();
+    const selectedRange = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+    textarea.select();
+
+    let succeeded = false;
+    try {
+      succeeded = document.execCommand('copy');
+    } catch (error) {
+      console.error('Fallback copy command failed', error);
+      succeeded = false;
+    }
+
+    document.body.removeChild(textarea);
+    if (selectedRange && selection) {
+      selection.removeAllRanges();
+      selection.addRange(selectedRange);
+    }
+
+    return succeeded;
+  }
+
+  function showCopySuccessToast() {
+    if (window.showSuccessToast) {
+      window.showSuccessToast(t('ワンタイムコードをコピーしました'));
+    }
+  }
+
+  function showCopyErrorToast() {
+    if (window.showErrorToast) {
+      window.showErrorToast(t('ワンタイムコードのコピーに失敗しました'));
+    }
+  }
+
+  async function copyOtpCode(code) {
+    const sanitized = sanitizeOtpText(code);
+    if (!sanitized || sanitized.includes('-')) {
+      return false;
+    }
+    const success = await copyTextToClipboard(sanitized);
+    if (success) {
+      showCopySuccessToast();
+      return true;
+    }
+    showCopyErrorToast();
+    return false;
+  }
+
+  async function handleOtpCopyFromRow(element) {
+    const row = element.closest('tr[data-id]');
+    if (!row) return;
+    const otpEl = row.querySelector('[data-role="otp"]');
+    if (!otpEl) return;
+    await copyOtpCode(otpEl.textContent || '');
+  }
+
+  async function handlePreviewCopy() {
+    if (!elements.previewCode) return;
+    await copyOtpCode(elements.previewCode.textContent || '');
   }
 
   function refreshOtpDisplay() {
@@ -414,8 +498,27 @@
       elements.qrPasteButton.addEventListener('click', handleQrPasteFromClipboard);
     }
 
+    if (elements.previewCode) {
+      elements.previewCode.addEventListener('click', () => {
+        handlePreviewCopy();
+      });
+      elements.previewCode.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar' || event.key === 'Space') {
+          event.preventDefault();
+          handlePreviewCopy();
+        }
+      });
+    }
+
     if (elements.tableBody) {
       elements.tableBody.addEventListener('click', (event) => {
+        const copyTarget = event.target.closest('[data-action="copy-otp"]');
+        if (copyTarget) {
+          event.preventDefault();
+          handleOtpCopyFromRow(copyTarget);
+          return;
+        }
+
         const actionButton = event.target.closest('button[data-action]');
         if (!actionButton) return;
         const row = actionButton.closest('tr[data-id]');
@@ -429,6 +532,18 @@
         } else if (action === 'delete') {
           confirmDelete(item);
         }
+      });
+
+      elements.tableBody.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar' && event.key !== 'Space') {
+          return;
+        }
+        const copyTarget = event.target.closest('[data-action="copy-otp"]');
+        if (!copyTarget) {
+          return;
+        }
+        event.preventDefault();
+        handleOtpCopyFromRow(copyTarget);
       });
     }
 

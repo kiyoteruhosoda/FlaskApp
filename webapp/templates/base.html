@@ -59,20 +59,27 @@
         {% if current_user.is_authenticated %}
           {% set show_system_manage = current_user.can('system:manage') %}
           {% set show_admin_only = current_user.has_role('admin') %}
+          {% set show_user_manage = current_user.can('user:manage') %}
+          {% set show_service_accounts = current_user.can('service_account:manage') %}
           <li class="nav-item">
             <a class="nav-link" href="{{ url_for('auth.profile') }}">
               <i class="fas fa-user-circle me-1"></i>{{ current_user.display_name }}
             </a>
           </li>
-          {% if current_user.can('user:manage') or current_user.can('role:manage') or current_user.can('permission:manage') or show_system_manage or show_admin_only %}
+          {% if current_user.can('user:manage') or current_user.can('role:manage') or current_user.can('permission:manage') or show_service_accounts or show_system_manage or show_admin_only %}
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" id="managementNavDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
               {{ _('Management') }}
             </a>
             <ul class="dropdown-menu" aria-labelledby="managementNavDropdown">
-              {% if current_user.can('user:manage') %}
+              {% if show_user_manage %}
               <li><a class="dropdown-item" href="{{ url_for('admin.user') }}">{{ _('User Management') }}</a></li>
               <li><a class="dropdown-item" href="{{ url_for('admin.google_accounts') }}">{{ _('Google Accounts') }}</a></li>
+              {% endif %}
+              {% if show_service_accounts %}
+              <li><a class="dropdown-item" href="{{ url_for('admin.service_accounts') }}">{{ _('Service Accounts') }}</a></li>
+              {% endif %}
+              {% if show_user_manage %}
               <li><hr class="dropdown-divider"></li>
               <li><a class="dropdown-item" href="{{ url_for('admin.show_config') }}">{{ _('Config Settings') }}</a></li>
               <li><a class="dropdown-item" href="{{ url_for('admin.show_version') }}">{{ _('Version Info') }}</a></li>

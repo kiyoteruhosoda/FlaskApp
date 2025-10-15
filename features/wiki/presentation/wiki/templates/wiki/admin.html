@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Wiki管理 - {{ _('AppName') }}{% endblock %}
+{% block title %}{{ _('Wiki Administration') }} - {{ _('AppName') }}{% endblock %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='wiki/wiki.css') }}">
@@ -11,20 +11,20 @@
     <div class="row">
         <div class="col-md-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1><i class="fas fa-cogs"></i> Wiki管理</h1>
+                <h1><i class="fas fa-cogs"></i> {{ _('Wiki Administration') }}</h1>
                 <a href="{{ url_for('wiki.index') }}" class="btn btn-outline-secondary">
-                    <i class="fas fa-arrow-left"></i> Wiki トップに戻る
+                    <i class="fas fa-arrow-left"></i> {{ _('Back to Wiki Home') }}
                 </a>
             </div>
 
-            <!-- 統計情報 -->
+            <!-- Statistics -->
             <div class="row mb-4">
                 <div class="col-md-4">
                     <div class="card">
                         <div class="card-body text-center">
                             <i class="fas fa-file-alt fa-2x text-primary mb-2"></i>
                             <h3 class="mb-0">{{ stats.total_pages }}</h3>
-                            <p class="text-muted mb-0">総ページ数</p>
+                            <p class="text-muted mb-0">{{ _('Total Pages') }}</p>
                         </div>
                     </div>
                 </div>
@@ -33,7 +33,7 @@
                         <div class="card-body text-center">
                             <i class="fas fa-tags fa-2x text-success mb-2"></i>
                             <h3 class="mb-0">{{ stats.total_categories }}</h3>
-                            <p class="text-muted mb-0">カテゴリ数</p>
+                            <p class="text-muted mb-0">{{ _('Total Categories') }}</p>
                         </div>
                     </div>
                 </div>
@@ -42,26 +42,26 @@
                         <div class="card-body text-center">
                             <i class="fas fa-clock fa-2x text-info mb-2"></i>
                             <h3 class="mb-0">{{ stats.recent_pages|length }}</h3>
-                            <p class="text-muted mb-0">最近のページ</p>
+                            <p class="text-muted mb-0">{{ _('Recent Pages') }}</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 管理メニュー -->
+            <!-- Administration menu -->
             <div class="row mb-4">
                 <div class="col-md-6">
                     <div class="card">
                         <div class="card-header">
-                            <h5><i class="fas fa-plus"></i> 新規作成</h5>
+                            <h5><i class="fas fa-plus"></i> {{ _('Create New') }}</h5>
                         </div>
                         <div class="card-body">
                             <div class="d-grid gap-2">
                                 <a href="{{ url_for('wiki.create_page') }}" class="btn btn-primary">
-                                    <i class="fas fa-file-alt"></i> 新しいページを作成
+                                    <i class="fas fa-file-alt"></i> {{ _('Create New Page') }}
                                 </a>
                                 <a href="{{ url_for('wiki.create_category') }}" class="btn btn-success">
-                                    <i class="fas fa-tag"></i> 新しいカテゴリを作成
+                                    <i class="fas fa-tag"></i> {{ _('Create New Category') }}
                                 </a>
                             </div>
                         </div>
@@ -70,15 +70,15 @@
                 <div class="col-md-6">
                     <div class="card">
                         <div class="card-header">
-                            <h5><i class="fas fa-list"></i> 管理機能</h5>
+                            <h5><i class="fas fa-list"></i> {{ _('Administration Tools') }}</h5>
                         </div>
                         <div class="card-body">
                             <div class="d-grid gap-2">
                                 <a href="{{ url_for('wiki.categories') }}" class="btn btn-outline-primary">
-                                    <i class="fas fa-tags"></i> カテゴリ管理
+                                    <i class="fas fa-tags"></i> {{ _('Manage Categories') }}
                                 </a>
                                 <a href="{{ url_for('wiki.search') }}" class="btn btn-outline-secondary">
-                                    <i class="fas fa-search"></i> ページ検索
+                                    <i class="fas fa-search"></i> {{ _('Search Pages') }}
                                 </a>
                             </div>
                         </div>
@@ -86,11 +86,11 @@
                 </div>
             </div>
 
-            <!-- 最近のページ -->
+            <!-- Recent pages -->
             {% if stats.recent_pages %}
             <div class="card">
                 <div class="card-header">
-                    <h5><i class="fas fa-clock"></i> 最近更新されたページ</h5>
+                    <h5><i class="fas fa-clock"></i> {{ _('Recently Updated Pages') }}</h5>
                 </div>
                 <div class="card-body">
                     <div class="list-group list-group-flush">
@@ -132,7 +132,7 @@
                 </div>
                 <div class="card-footer">
                     <a href="{{ url_for('wiki.index') }}" class="btn btn-sm btn-outline-primary">
-                        すべてのページを表示
+                        {{ _('View All Pages') }}
                     </a>
                 </div>
             </div>

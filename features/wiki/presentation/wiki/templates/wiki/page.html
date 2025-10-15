@@ -199,7 +199,7 @@
     overflow-x: auto;
 }
 
-/* 図表関連のスタイル */
+/* Diagram-related styles */
 .mermaid-diagram {
     margin: 1rem 0;
     border: 1px solid #dee2e6;
@@ -224,11 +224,11 @@
 .diagram-source {
     background-color: #f8f9fa;
     border-top: 1px solid #dee2e6;
-    display: none !important; /* 確実に非表示にする */
+    display: none !important; /* Ensure the section stays hidden */
 }
 
 .diagram-source.show {
-    display: block !important; /* 表示時のクラス */
+    display: block !important; /* Shown when toggled */
 }
 
 .diagram-source pre {
@@ -243,7 +243,7 @@
 </style>
 
 <script>
-// Mermaid初期化
+// Initialize Mermaid
 document.addEventListener('DOMContentLoaded', function() {
     if (typeof mermaid !== 'undefined') {
         mermaid.initialize({
@@ -256,7 +256,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
-// Mermaidソース表示/非表示
+// Toggle Mermaid source visibility
 function toggleMermaidSource(hash) {
     const sourceDiv = document.getElementById('mermaid-source-' + hash);
     const button = event.target.closest('button');
@@ -264,11 +264,11 @@ function toggleMermaidSource(hash) {
     if (sourceDiv.classList.contains('show')) {
         sourceDiv.classList.remove('show');
         button.innerHTML = '<i class="fas fa-code"></i>';
-        button.title = 'ソースコードを表示';
+        button.title = '{{ _('Show source code') }}';
     } else {
         sourceDiv.classList.add('show');
         button.innerHTML = '<i class="fas fa-eye-slash"></i>';
-        button.title = 'ソースコードを非表示';
+        button.title = '{{ _('Hide source code') }}';
     }
 }
 </script>

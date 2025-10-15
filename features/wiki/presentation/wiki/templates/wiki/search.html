@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}検索結果{% if query %}: {{ query }}{% endif %} - Wiki{% endblock %}
+{% block title %}{{ _('Search Results') }}{% if query %}: {{ query }}{% endif %} - Wiki{% endblock %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='wiki/wiki.css') }}">
@@ -11,34 +11,34 @@
     <div class="row">
         <div class="col-md-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1>Wiki検索</h1>
+                <h1>{{ _('Wiki Search') }}</h1>
                 <a href="{{ url_for('wiki.index') }}" class="btn btn-outline-secondary">
-                    <i class="fas fa-arrow-left"></i> Wiki トップに戻る
+                    <i class="fas fa-arrow-left"></i> {{ _('Back to Wiki Home') }}
                 </a>
             </div>
 
-            <!-- 検索フォーム -->
+            <!-- Search form -->
             <div class="card mb-4">
                 <div class="card-body">
                     <form method="GET">
                         <div class="input-group">
-                            <input type="text" name="q" class="form-control form-control-lg" 
-                                   placeholder="ページタイトルで検索..." value="{{ query }}" autofocus>
+                            <input type="text" name="q" class="form-control form-control-lg"
+                                   placeholder="{{ _('Search by page title...') }}" value="{{ query }}" autofocus>
                             <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-search"></i> 検索
+                                <i class="fas fa-search"></i> {{ _('Search') }}
                             </button>
                         </div>
                     </form>
                 </div>
             </div>
 
-            <!-- 検索結果 -->
+            <!-- Search results -->
             {% if query %}
             <div class="card">
                 <div class="card-header">
                     <h5>
-                        検索結果: "{{ query }}" 
-                        <span class="badge bg-secondary">{{ pages|length }}件</span>
+                        {{ _('Search Results: "%(query)s"', query=query) }}
+                        <span class="badge bg-secondary">{{ _('%(count)s results', count=pages|length) }}</span>
                     </h5>
                 </div>
                 <div class="card-body">
@@ -77,22 +77,22 @@
                     {% else %}
                     <div class="text-center py-5">
                         <i class="fas fa-search fa-3x text-muted mb-3"></i>
-                        <h5 class="text-muted">検索結果が見つかりませんでした</h5>
+                        <h5 class="text-muted">{{ _('No search results found') }}</h5>
                         <p class="text-muted">
-                            "{{ query }}" に一致するページはありません。<br>
-                            異なるキーワードで検索してみてください。
+                            {{ _('No pages matched "%(query)s".', query=query) }}<br>
+                            {{ _('Try searching with different keywords.') }}
                         </p>
                     </div>
                     {% endif %}
                 </div>
             </div>
             {% else %}
-            <!-- 検索前の状態 -->
+            <!-- Before search -->
             <div class="text-center py-5">
                 <i class="fas fa-search fa-3x text-muted mb-3"></i>
-                <h5 class="text-muted">Wikiページを検索</h5>
+                <h5 class="text-muted">{{ _('Search Wiki Pages') }}</h5>
                 <p class="text-muted">
-                    上の検索ボックスにキーワードを入力してページを検索できます。
+                    {{ _('Enter a keyword in the search box above to find pages.') }}
                 </p>
             </div>
             {% endif %}
@@ -101,7 +101,7 @@
 </div>
 
 <script>
-// 検索ボックスにフォーカス
+// Focus the search box when appropriate
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.querySelector('input[name="q"]');
     if (searchInput && !searchInput.value) {

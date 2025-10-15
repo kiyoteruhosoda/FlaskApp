@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}ページ編集: {{ page.title }} - Wiki{% endblock %}
+{% block title %}{{ _('Edit Page: %(title)s', title=page.title) }} - Wiki{% endblock %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='wiki/wiki.css') }}">
@@ -11,9 +11,9 @@
     <div class="row">
         <div class="col-md-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1>ページ編集: {{ page.title }}</h1>
+                <h1>{{ _('Edit Page: %(title)s', title=page.title) }}</h1>
                 <a href="{{ url_for('wiki.view_page', slug=page.slug) }}" class="btn btn-outline-secondary">
-                    <i class="fas fa-arrow-left"></i> ページに戻る
+                    <i class="fas fa-arrow-left"></i> {{ _('Back to Page') }}
                 </a>
             </div>
 
@@ -21,64 +21,64 @@
                 <div class="row">
                     <div class="col-md-8">
                         <div class="mb-3">
-                            <label for="title" class="form-label">タイトル <span class="text-danger">*</span></label>
+                            <label for="title" class="form-label">{{ _('Title') }} <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="title" name="title" 
                                    value="{{ page.title }}" required>
                         </div>
 
                         <div class="mb-3">
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <label for="content" class="form-label">内容 <span class="text-danger">*</span></label>
+                                <label for="content" class="form-label">{{ _('Content') }} <span class="text-danger">*</span></label>
                                 <div class="btn-group btn-group-sm" role="group">
                                     <input type="radio" class="btn-check" name="editor-mode" id="edit-mode" checked>
                                     <label class="btn btn-outline-secondary" for="edit-mode">
-                                        <i class="fas fa-edit"></i> 編集
+                                        <i class="fas fa-edit"></i> {{ _('Edit') }}
                                     </label>
                                     <input type="radio" class="btn-check" name="editor-mode" id="preview-mode">
                                     <label class="btn btn-outline-secondary" for="preview-mode">
-                                        <i class="fas fa-eye"></i> プレビュー
+                                        <i class="fas fa-eye"></i> {{ _('Preview') }}
                                     </label>
                                 </div>
                             </div>
                             
-                            <!-- 編集モード -->
+                            <!-- Edit mode -->
                             <div id="editor-container">
                                 <textarea class="form-control" id="content" name="content" rows="15" required>{{ page.content }}</textarea>
                             </div>
                             
-                            <!-- プレビューモード -->
+                            <!-- Preview mode -->
                             <div id="preview-container" style="display: none;">
                                 <div class="card">
                                     <div class="card-body">
                                         <div id="preview-content" class="wiki-content">
-                                            <p class="text-muted">プレビューを読み込み中...</p>
+                                            <p class="text-muted">{{ _('Loading preview...') }}</p>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                             
                             <div class="form-text">
-                                Markdownをサポートしています。http:やhttps:で始まるURLは自動的にリンクになります。<br>
-                                <strong>図表サポート:</strong> Mermaidは <code>```mermaid</code> でコードブロックを作成できます。
+                                {{ _('Markdown is supported. URLs starting with http: or https: are automatically linked.') }}<br>
+                                <strong>{{ _('Diagram Support:') }}</strong> {{ _('Use <code>```mermaid</code> to create Mermaid diagrams.') }}
                             </div>
                         </div>
 
                         <div class="mb-3">
-                            <label for="change_summary" class="form-label">変更概要</label>
-                            <input type="text" class="form-control" id="change_summary" name="change_summary" 
-                                   placeholder="どのような変更を行ったかを簡潔に説明してください">
-                            <div class="form-text">履歴で表示される変更の説明です（省略可）</div>
+                            <label for="change_summary" class="form-label">{{ _('Change Summary') }}</label>
+                            <input type="text" class="form-control" id="change_summary" name="change_summary"
+                                   placeholder="{{ _('Briefly describe the changes you made.') }}">
+                            <div class="form-text">{{ _('This description appears in history (optional).') }}</div>
                         </div>
                     </div>
 
                     <div class="col-md-4">
                         <div class="card">
                             <div class="card-header">
-                                <h6>設定</h6>
+                                <h6>{{ _('Settings') }}</h6>
                             </div>
                             <div class="card-body">
                                 <div class="mb-3">
-                                    <label class="form-label">カテゴリ</label>
+                                    <label class="form-label">{{ _('Categories') }}</label>
                                     {% for category in categories %}
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" 
@@ -92,7 +92,7 @@
                                     {% endfor %}
                                     
                                     {% if not categories %}
-                                    <p class="text-muted small">カテゴリがありません</p>
+                                    <p class="text-muted small">{{ _('No categories available.') }}</p>
                                     {% endif %}
                                 </div>
 
@@ -107,11 +107,11 @@
 
                                 <div class="d-grid gap-2">
                                     <button type="submit" class="btn btn-primary">
-                                        <i class="fas fa-save"></i> 保存
+                                        <i class="fas fa-save"></i> {{ _('Save') }}
                                     </button>
-                                    <a href="{{ url_for('wiki.view_page', slug=page.slug) }}" 
+                                    <a href="{{ url_for('wiki.view_page', slug=page.slug) }}"
                                        class="btn btn-outline-secondary">
-                                        キャンセル
+                                        {{ _('Cancel') }}
                                     </a>
                                 </div>
                             </div>
@@ -131,7 +131,7 @@ contentTextarea.addEventListener('input', function() {
     this.style.height = this.scrollHeight + 'px';
 });
 
-// プレビュー機能
+// Preview functionality
 const editModeRadio = document.getElementById('edit-mode');
 const previewModeRadio = document.getElementById('preview-mode');
 const editorContainer = document.getElementById('editor-container');
@@ -140,7 +140,7 @@ const previewContent = document.getElementById('preview-content');
 
 let previewTimeout;
 
-// モード切り替え
+// Switch editor/preview mode
 function switchMode() {
     if (editModeRadio.checked) {
         editorContainer.style.display = 'block';
@@ -155,16 +155,16 @@ function switchMode() {
 editModeRadio.addEventListener('change', switchMode);
 previewModeRadio.addEventListener('change', switchMode);
 
-// プレビュー更新
+// Update preview content
 function updatePreview() {
     const content = contentTextarea.value;
     
     if (!content.trim()) {
-        previewContent.innerHTML = '<p class="text-muted">プレビューするコンテンツがありません</p>';
+        previewContent.innerHTML = '<p class="text-muted">{{ _('There is no content to preview') }}</p>';
         return;
     }
-    
-    previewContent.innerHTML = '<p class="text-muted">プレビューを読み込み中...</p>';
+
+    previewContent.innerHTML = '<p class="text-muted">{{ _('Loading preview...') }}</p>';
     
     fetch('{{ url_for("wiki.api_preview") }}', {
         method: 'POST',
@@ -178,24 +178,24 @@ function updatePreview() {
     .then(response => response.json())
     .then(data => {
         previewContent.innerHTML = data.html;
-        // Mermaidを再レンダリング
+        // Re-render Mermaid diagrams
         reRenderMermaid();
     })
     .catch(error => {
-        console.error('プレビューエラー:', error);
-        previewContent.innerHTML = '<p class="text-danger">プレビューの読み込みに失敗しました</p>';
+        console.error('{{ _('Preview error:') }}', error);
+        previewContent.innerHTML = '<p class="text-danger">{{ _('Failed to load preview') }}</p>';
     });
 }
 
-// プレビューモードの時は定期的に更新
+// Refresh regularly while preview mode is active
 contentTextarea.addEventListener('input', function() {
     if (previewModeRadio.checked) {
         clearTimeout(previewTimeout);
-        previewTimeout = setTimeout(updatePreview, 1000); // 1秒後に更新
+        previewTimeout = setTimeout(updatePreview, 1000); // Update after 1 second
     }
 });
 
-// Mermaid初期化
+// Initialize Mermaid
 document.addEventListener('DOMContentLoaded', function() {
     if (typeof mermaid !== 'undefined') {
         mermaid.initialize({
@@ -206,7 +206,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Mermaidソース表示/非表示
+// Toggle Mermaid source visibility
 function toggleMermaidSource(hash) {
     const sourceDiv = document.getElementById('mermaid-source-' + hash);
     const button = event.target.closest('button');
@@ -214,18 +214,18 @@ function toggleMermaidSource(hash) {
     if (sourceDiv.classList.contains('show')) {
         sourceDiv.classList.remove('show');
         button.innerHTML = '<i class="fas fa-code"></i>';
-        button.title = 'ソースコードを表示';
+        button.title = '{{ _('Show source code') }}';
     } else {
         sourceDiv.classList.add('show');
         button.innerHTML = '<i class="fas fa-eye-slash"></i>';
-        button.title = 'ソースコードを非表示';
+        button.title = '{{ _('Hide source code') }}';
     }
 }
 
-// プレビューでMermaidを再レンダリング
+// Re-render Mermaid diagrams within the preview
 function reRenderMermaid() {
     if (typeof mermaid !== 'undefined') {
-        // プレビューエリア内のMermaidを再レンダリング
+        // Re-render Mermaid in the preview area
         const previewContent = document.getElementById('preview-content');
         if (previewContent) {
             const mermaidElements = previewContent.querySelectorAll('.mermaid');
@@ -238,7 +238,7 @@ function reRenderMermaid() {
 </script>
 
 <style>
-/* プレビュー用の図表スタイル */
+/* Preview diagram styles */
 .mermaid-diagram {
     margin: 1rem 0;
     border: 1px solid #dee2e6;
@@ -263,11 +263,11 @@ function reRenderMermaid() {
 .diagram-source {
     background-color: #f8f9fa;
     border-top: 1px solid #dee2e6;
-    display: none !important; /* 確実に非表示にする */
+    display: none !important; /* Ensure the section stays hidden */
 }
 
 .diagram-source.show {
-    display: block !important; /* 表示時のクラス */
+    display: block !important; /* Shown when toggled */
 }
 
 .diagram-source pre {

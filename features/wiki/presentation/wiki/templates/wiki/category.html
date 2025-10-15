@@ -14,22 +14,22 @@
                 <div>
                     <h1>
                         <i class="fas fa-tag"></i> {{ category.name }}
-                        <span class="badge bg-secondary">{{ pages|length }}ページ</span>
+                        <span class="badge bg-secondary">{{ _('%(count)s pages', count=pages|length) }}</span>
                     </h1>
                     {% if category.description %}
                     <p class="text-muted">{{ category.description }}</p>
                     {% endif %}
                 </div>
                 <a href="{{ url_for('wiki.index') }}" class="btn btn-outline-secondary">
-                    <i class="fas fa-arrow-left"></i> Wiki トップに戻る
+                    <i class="fas fa-arrow-left"></i> {{ _('Back to Wiki Home') }}
                 </a>
             </div>
 
-            <!-- カテゴリ内ページ一覧 -->
+            <!-- Category pages -->
             {% if pages %}
             <div class="card">
                 <div class="card-header">
-                    <h5>このカテゴリのページ</h5>
+                    <h5>{{ _('Pages in this Category') }}</h5>
                 </div>
                 <div class="card-body p-0">
                     <div class="list-group list-group-flush">
@@ -44,7 +44,7 @@
                                         </a>
                                         {% if page.parent %}
                                         <small class="text-muted">
-                                            ({{ page.parent.title }} の子ページ)
+                                            ({{ _('%(title)s child page', title=page.parent.title) }})
                                         </small>
                                         {% endif %}
                                     </h6>
@@ -54,7 +54,7 @@
                                     <small class="text-muted">
                                         <i class="fas fa-user"></i> {{ page.created_by.display_name if page.created_by else _('Unknown') }}
                                         <span class="mx-2">|</span>
-                                        <i class="fas fa-calendar"></i> 更新: {{ page.updated_at|localtime('%Y/%m/%d %H:%M') }}
+                                        <i class="fas fa-calendar"></i> {{ _('Updated: %(datetime)s', datetime=page.updated_at|localtime('%Y/%m/%d %H:%M')) }}
                                         {% if page.categories|length > 1 %}
                                         <span class="mx-2">|</span>
                                         <i class="fas fa-tags"></i>
@@ -84,29 +84,29 @@
             <div class="card">
                 <div class="card-body text-center py-5">
                     <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
-                    <h5 class="text-muted">このカテゴリにはまだページがありません</h5>
+                    <h5 class="text-muted">{{ _('There are no pages in this category yet') }}</h5>
                     <p class="text-muted">
-                        最初のページを作成してみましょう。
+                        {{ _('Create the first page to get started.') }}
                     </p>
                     <a href="{{ url_for('wiki.create_page') }}" class="btn btn-primary">
-                        <i class="fas fa-plus"></i> ページを作成
+                        <i class="fas fa-plus"></i> {{ _('Create Page') }}
                     </a>
                 </div>
             </div>
             {% endif %}
 
-            <!-- 関連アクション -->
+            <!-- Related actions -->
             <div class="mt-4">
                 <div class="row">
                     <div class="col-md-6">
                         <div class="card">
                             <div class="card-header">
-                                <h6>このカテゴリで</h6>
+                                <h6>{{ _('Within this Category') }}</h6>
                             </div>
                             <div class="card-body">
-                                <a href="{{ url_for('wiki.create_page') }}?category={{ category.id }}" 
+                                <a href="{{ url_for('wiki.create_page') }}?category={{ category.id }}"
                                    class="btn btn-primary btn-sm me-2">
-                                    <i class="fas fa-plus"></i> 新しいページを作成
+                                    <i class="fas fa-plus"></i> {{ _('Create New Page') }}
                                 </a>
                             </div>
                         </div>
@@ -114,13 +114,13 @@
                     <div class="col-md-6">
                         <div class="card">
                             <div class="card-header">
-                                <h6>カテゴリ情報</h6>
+                                <h6>{{ _('Category Information') }}</h6>
                             </div>
                             <div class="card-body">
                                 <small class="text-muted">
-                                    <div>スラッグ: {{ category.slug }}</div>
-                                    <div>作成日: {{ category.created_at|localtime('%Y/%m/%d') }}</div>
-                                    <div>ページ数: {{ pages|length }}</div>
+                                    <div>{{ _('Slug: %(slug)s', slug=category.slug) }}</div>
+                                    <div>{{ _('Created: %(date)s', date=category.created_at|localtime('%Y/%m/%d')) }}</div>
+                                    <div>{{ _('Number of Pages: %(count)s', count=pages|length) }}</div>
                                 </small>
                             </div>
                         </div>

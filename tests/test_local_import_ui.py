@@ -468,7 +468,7 @@ class TestSessionDetailUI:
             session_id = result['session_id']
         
         # セッション詳細ページ呼び出し
-        response = client.get(f'/photo_view?session_id={session_id}')
+        response = client.get(f'/photo-view?session_id={session_id}')
         assert response.status_code == 200
         
         html = response.get_data(as_text=True)
@@ -496,7 +496,7 @@ class TestSessionDetailUI:
             session_id = result['session_id']
         
         # ホームページ呼び出し
-        response = client.get('/photo_view')
+        response = client.get('/photo-view')
         assert response.status_code == 200
         
         html = response.get_data(as_text=True)

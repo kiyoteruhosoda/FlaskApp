@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% from 'photo_view/_album_form.html' import render_album_form %}
+{% from 'photo-view/_album_form.html' import render_album_form %}
 {% block title %}{{ _('Albums') }}{% endblock %}
 
 {% block extra_head %}
@@ -632,7 +632,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const albumModalElement = document.getElementById('albumModal');
   const editorView = albumModalElement?.dataset.editorMode === 'page';
-  const successRedirectUrl = albumModalElement?.dataset.successUrl || '/photo_view/albums';
+  const successRedirectUrl = albumModalElement?.dataset.successUrl || '/photo-view/albums';
   const editorAlbumIdRaw = albumModalElement?.dataset.albumId || '';
   const editorAlbumId = Number.parseInt(editorAlbumIdRaw, 10);
   const albumModal = albumModalElement
@@ -1877,7 +1877,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const url = new URL(`/photo_view/albums/${albumId}/slideshow`, window.location.origin);
+    const url = new URL(`/photo-view/albums/${albumId}/slideshow`, window.location.origin);
     const params = new URLSearchParams();
 
     const startIndex = Number(options.startIndex);
@@ -2345,7 +2345,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return;
       }
-      window.location.href = `/photo_view/albums/${album.id}`;
+      window.location.href = `/photo-view/albums/${album.id}`;
     });
 
     const slideshowButton = card.querySelector('button[data-album-action="slideshow"]');

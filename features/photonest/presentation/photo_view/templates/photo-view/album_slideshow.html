@@ -113,8 +113,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const startIndex = Number.parseInt(container.dataset.startIndex || '', 10);
   const autoplay = container.dataset.autoplay !== 'false';
-  const backUrl = container.dataset.backUrl || `/photo_view/albums/${albumId}`;
-  const albumsUrl = container.dataset.albumsUrl || '/photo_view/albums';
+  const backUrl = container.dataset.backUrl || `/photo-view/albums/${albumId}`;
+  const albumsUrl = container.dataset.albumsUrl || '/photo-view/albums';
 
   const strings = {
     untitledAlbum: "{{ _('Untitled Album')|escapejs }}",

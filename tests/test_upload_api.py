@@ -1,3 +1,4 @@
+import hashlib
 import io
 from pathlib import Path
 
@@ -145,7 +146,10 @@ def test_commit_upload_moves_files(client, auth_headers):
     )
     assert commit_resp.status_code == 200
     commit_data = commit_resp.get_json()
-    assert commit_data['uploaded'][0]['status'] == 'success'
+    result = commit_data['uploaded'][0]
+    assert result['status'] == 'success'
+    assert result['hashSha256'] == hashlib.sha256(file_content).hexdigest()
+    assert result['relativePath']
 
     assert not tmp_dir.exists()
 
@@ -156,7 +160,7 @@ def test_commit_upload_moves_files(client, auth_headers):
     with app.app_context():
         user = User.query.filter_by(email='upload@example.com').first()
         import_dir = Path(app.config['LOCAL_IMPORT_DIR']) / str(user.id)
-        stored_file = import_dir / 'commit.png'
+        stored_file = import_dir / Path(result['relativePath'])
         assert stored_file.exists()
         assert stored_file.read_bytes() == file_content
 
@@ -266,12 +270,14 @@ def test_commit_upload_uses_actual_move_destination(client, auth_headers, monkey
     result = payload['uploaded'][0]
     assert result['status'] == 'success'
     assert result['fileName'] == 'movie.mov'
+    assert result['hashSha256'] == hashlib.sha256(file_content).hexdigest()
+    assert result['relativePath']
 
     app = client.application
     with app.app_context():
         user = User.query.filter_by(email='upload@example.com').first()
         import_dir = Path(app.config['LOCAL_IMPORT_DIR']) / str(user.id)
-        stored_file = import_dir / 'movie_stored.mov'
+        stored_file = import_dir / Path(result['relativePath'])
         assert stored_file.exists()
         assert stored_file.read_bytes() == file_content
         assert result['storedPath'] == str(stored_file)

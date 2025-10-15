@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Optional
+import mimetypes
+from pathlib import Path
+from typing import Optional, Sequence
+
+from flask import current_app
+
+from core.db import db
+from core.models.photo_models import Media
 
 from features.wiki.application.dto import (
     WikiAdminDashboardView,
@@ -23,6 +30,7 @@ from features.wiki.application.dto import (
     WikiPageSearchResult,
     WikiPageUpdateInput,
     WikiPageUpdateResult,
+    WikiMediaUploadResult,
 )
 from features.wiki.application.services import WikiCategoryService, WikiPageService
 from features.wiki.domain.commands import (
@@ -35,6 +43,8 @@ from features.wiki.domain.exceptions import (
     WikiPageNotFoundError,
     WikiValidationError,
 )
+from webapp.config import Config
+from webapp.services.upload_service import commit_uploads_to_directory
 
 
 class WikiIndexUseCase:
@@ -366,6 +376,93 @@ class WikiCategoryCreationUseCase:
         return WikiCategoryCreationResult(category=category)
 
 
+class WikiMediaUploadUseCase:
+    """Wiki用メディアアップロードユースケース"""
+
+    def __init__(self, destination_dir: Optional[Path | str] = None) -> None:
+        self._destination_dir = Path(destination_dir) if destination_dir else None
+
+    def execute(
+        self,
+        session_id: str,
+        temp_file_ids: Sequence[str],
+    ) -> WikiMediaUploadResult:
+        file_ids = [str(item) for item in temp_file_ids]
+        if not file_ids:
+            return WikiMediaUploadResult(results=[], media=[])
+
+        if self._destination_dir is not None:
+            base_dir = self._destination_dir
+        else:
+            configured = current_app.config.get("WIKI_UPLOAD_DIR") or Config.WIKI_UPLOAD_DIR
+            base_dir = Path(configured)
+
+        try:
+            base_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise WikiOperationError("Wiki media directory is not available") from exc
+
+        try:
+            resolved_base = base_dir.resolve()
+        except OSError:
+            resolved_base = base_dir
+
+        results = commit_uploads_to_directory(session_id, file_ids, base_dir)
+
+        media_entries: list[Media] = []
+        for entry in results:
+            if entry.get("status") != "success":
+                continue
+
+            stored_path_str = entry.get("storedPath")
+            if not stored_path_str:
+                continue
+
+            stored_path = Path(stored_path_str)
+            try:
+                resolved_path = stored_path.resolve()
+            except OSError:
+                resolved_path = stored_path
+
+            relative_path_str = entry.get("relativePath")
+            if relative_path_str:
+                relative_path = Path(relative_path_str)
+            else:
+                try:
+                    relative_path = resolved_path.relative_to(resolved_base)
+                except ValueError as exc:
+                    raise WikiOperationError("Uploaded file stored outside wiki directory") from exc
+
+            analysis = entry.get("analysis") or {}
+            format_label = str(analysis.get("format") or "").upper()
+            is_video = format_label == "VIDEO"
+            guessed_mime, _ = mimetypes.guess_type(entry.get("fileName") or "")
+
+            media = Media(
+                source_type="wiki-media",
+                filename=entry.get("fileName"),
+                local_rel_path=relative_path.as_posix(),
+                bytes=entry.get("fileSize"),
+                hash_sha256=entry.get("hashSha256"),
+                mime_type=guessed_mime,
+                is_video=is_video,
+            )
+
+            db.session.add(media)
+            media_entries.append(media)
+
+        if not media_entries:
+            return WikiMediaUploadResult(results=results, media=[])
+
+        try:
+            db.session.commit()
+        except Exception as exc:  # noqa: BLE001 - 予期しないDBエラーのため
+            db.session.rollback()
+            raise WikiOperationError("Failed to record wiki media") from exc
+
+        return WikiMediaUploadResult(results=results, media=media_entries)
+
+
 __all__ = [
     "WikiAdminDashboardUseCase",
     "WikiApiPagesUseCase",
@@ -382,4 +479,5 @@ __all__ = [
     "WikiPageHistoryUseCase",
     "WikiPageSearchUseCase",
     "WikiPageUpdateUseCase",
+    "WikiMediaUploadUseCase",
 ]

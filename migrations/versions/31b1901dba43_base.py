@@ -179,7 +179,7 @@ def upgrade():
 
     op.create_table('media',
     sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
-    sa.Column('source_type', sa.Enum('local', 'google_photos', name='media_source_type'), nullable=False),
+    sa.Column('source_type', sa.Enum('local', 'google_photos', 'wiki-media', name='media_source_type'), nullable=False),
     sa.Column('google_media_id', sa.String(length=255), nullable=True),
     sa.Column('account_id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), nullable=True),
     sa.Column('local_rel_path', sa.String(length=255), nullable=True),

@@ -4,6 +4,9 @@ from flask import jsonify, request, session
 
 from . import bp
 from .routes import get_current_user, login_or_jwt_required
+from features.wiki.application.use_cases import WikiMediaUploadUseCase
+from features.wiki.domain.exceptions import WikiOperationError
+
 from ..services.upload_service import (
     UploadError,
     UploadTooLargeError,
@@ -81,9 +84,36 @@ def api_upload_commit():
     if not temp_ids:
         return jsonify({"error": "invalid_payload", "message": "No files specified"}), 400
 
+    destination = payload.get("destination")
+    media_payload: list[dict] = []
+
     try:
-        results = commit_uploads(upload_session_id, getattr(user, "id", None), temp_ids)
+        if destination == "wiki":
+            if not hasattr(user, "can") or not user.can("wiki:write"):
+                return (
+                    jsonify({"error": "forbidden", "message": "Permission denied"}),
+                    403,
+                )
+            wiki_result = WikiMediaUploadUseCase().execute(
+                session_id=upload_session_id,
+                temp_file_ids=temp_ids,
+            )
+            results = wiki_result.results
+            media_payload = [
+                {
+                    "id": media.id,
+                    "sourceType": media.source_type,
+                    "filename": media.filename,
+                    "localRelPath": media.local_rel_path,
+                    "hashSha256": media.hash_sha256,
+                }
+                for media in wiki_result.media
+            ]
+        else:
+            results = commit_uploads(upload_session_id, getattr(user, "id", None), temp_ids)
     except UploadError as exc:
+        return jsonify({"error": "upload_failed", "message": str(exc)}), 400
+    except WikiOperationError as exc:
         return jsonify({"error": "upload_failed", "message": str(exc)}), 400
 
     success_count = sum(1 for item in results if item.get("status") == "success")
@@ -91,4 +121,7 @@ def api_upload_commit():
     if success_count and not has_pending_uploads(upload_session_id):
         session.pop("upload_session_id", None)
 
-    return jsonify({"uploaded": results})
+    response_body = {"uploaded": results}
+    if destination == "wiki":
+        response_body["media"] = media_payload
+    return jsonify(response_body)

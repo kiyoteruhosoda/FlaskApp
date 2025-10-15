@@ -47,6 +47,7 @@ docker-compose exec web flask seed-master
 
 - **[開発ガイド](DEVELOPMENT.md)** - 詳細なセットアップ、Celery、テスト実行
 - **[Synologyデプロイ](synology-deployment.md)** - Synology NAS専用デプロイガイド
+- **[TOTP 管理ガイド](docs/totp_management.md)** - TOTP資格情報の登録・インポート/エクスポート手順
 - **[API仕様](requirements.md)** - 技術仕様書・API設計
 
 ## 🏗️ アーキテクチャ
@@ -70,6 +71,7 @@ PhotoNest/
 - 🎬 **動画変換**: FFmpegによるH.264/AAC変換
 - 🖼️ **サムネイル生成**: 多段階サムネイル（256/1024/2048px）
 - ⚡ **バックグラウンド処理**: Celery + Redisによる非同期処理
+- 🔢 **TOTP 管理**: otpauth URI や QR コードからの登録、OTP プレビュー、JSON インポート/エクスポート
 
 ## 🔧 必要環境
 

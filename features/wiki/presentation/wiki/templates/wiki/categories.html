@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}カテゴリ一覧 - Wiki{% endblock %}
+{% block title %}{{ _('Category List') }} - Wiki{% endblock %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='wiki/wiki.css') }}">
@@ -11,13 +11,13 @@
     <div class="row">
         <div class="col-md-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1>カテゴリ一覧</h1>
+                <h1>{{ _('Category List') }}</h1>
                 <div>
                     <a href="{{ url_for('wiki.create_category') }}" class="btn btn-primary me-2">
-                        <i class="fas fa-plus"></i> 新規カテゴリ
+                        <i class="fas fa-plus"></i> {{ _('New Category') }}
                     </a>
                     <a href="{{ url_for('wiki.index') }}" class="btn btn-outline-secondary">
-                        <i class="fas fa-arrow-left"></i> Wiki トップ
+                        <i class="fas fa-arrow-left"></i> {{ _('Wiki Home') }}
                     </a>
                 </div>
             </div>
@@ -35,7 +35,7 @@
                                 </a>
                             </h6>
                             <span class="badge bg-secondary">
-                                {{ category.page_count }}ページ
+                                {{ _('%(count)s pages', count=category.page_count) }}
                             </span>
                         </div>
                         <div class="card-body">
@@ -45,24 +45,24 @@
                             </p>
                             {% else %}
                             <p class="card-text text-muted fst-italic">
-                                説明なし
+                                {{ _('No description') }}
                             </p>
                             {% endif %}
-                            
+
                             <div class="small text-muted">
-                                <div>スラッグ: {{ category.slug }}</div>
-                                <div>作成日: {{ category.created_at|localtime('%Y/%m/%d') }}</div>
+                                <div>{{ _('Slug: %(slug)s', slug=category.slug) }}</div>
+                                <div>{{ _('Created: %(date)s', date=category.created_at|localtime('%Y/%m/%d')) }}</div>
                             </div>
                         </div>
                         <div class="card-footer">
                             <div class="d-flex justify-content-between">
                                 <a href="{{ url_for('wiki.view_category', slug=category.slug) }}" 
                                    class="btn btn-sm btn-outline-primary">
-                                    <i class="fas fa-eye"></i> 表示
+                                    <i class="fas fa-eye"></i> {{ _('View') }}
                                 </a>
-                                <a href="{{ url_for('wiki.create_page') }}?category={{ category.id }}" 
+                                <a href="{{ url_for('wiki.create_page') }}?category={{ category.id }}"
                                    class="btn btn-sm btn-outline-success">
-                                    <i class="fas fa-plus"></i> ページ作成
+                                    <i class="fas fa-plus"></i> {{ _('Create Page') }}
                                 </a>
                             </div>
                         </div>
@@ -74,12 +74,12 @@
             <div class="card">
                 <div class="card-body text-center py-5">
                     <i class="fas fa-tags fa-3x text-muted mb-3"></i>
-                    <h5 class="text-muted">カテゴリがまだありません</h5>
+                    <h5 class="text-muted">{{ _('There are no categories yet') }}</h5>
                     <p class="text-muted">
-                        最初のカテゴリを作成してページを整理しましょう。
+                        {{ _('Create the first category to organize your pages.') }}
                     </p>
                     <a href="{{ url_for('wiki.create_category') }}" class="btn btn-primary">
-                        <i class="fas fa-plus"></i> カテゴリを作成
+                        <i class="fas fa-plus"></i> {{ _('Create Category') }}
                     </a>
                 </div>
             </div>

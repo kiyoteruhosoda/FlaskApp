@@ -5,7 +5,7 @@
 {% block content %}
 <div class="container-fluid">
     <div class="row">
-        <!-- サイドバー -->
+        <!-- Sidebar -->
         <div class="col-md-3">
             <div class="card">
                 <div class="card-header">
@@ -54,7 +54,7 @@
             </div>
         </div>
         
-        <!-- メインコンテンツ -->
+        <!-- Main content -->
         <div class="col-md-9">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h1>Wiki</h1>
@@ -75,7 +75,7 @@
                 </div>
             </div>
             
-            <!-- 検索フォーム -->
+            <!-- Search form -->
             <div class="card mb-4">
                 <div class="card-body">
                     <form method="GET" action="{{ url_for('wiki.search') }}">
@@ -90,7 +90,7 @@
                 </div>
             </div>
             
-            <!-- 最近更新されたページ -->
+            <!-- Recently updated pages -->
             <div class="card">
                 <div class="card-header">
                     <h5>{{ _('Recently Updated Pages') }}</h5>

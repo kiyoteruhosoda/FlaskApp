@@ -1,14 +1,11 @@
 /**
- * 国際化支援ユーティリティ
- * 
- * HTMLテンプレート内でJavaScriptから翻訳文字列を使用するためのヘルパー関数
- * Flask-Babelの翻訳文字列をJavaScriptで利用可能にします。
- */
-
-/**
- * HTMLテンプレート内で使用する翻訳文字列の例：
- * 
- * HTMLテンプレート内で以下のように定義：
+ * Internationalization helper utilities
+ *
+ * These helpers allow JavaScript running inside HTML templates to reference
+ * Flask-Babel translation strings that are exposed through the global
+ * `window.i18nStrings` object.
+ *
+ * Example usage in a template:
  * <script>
  *   window.i18nStrings = {
  *     'loading': '{{ _("Loading...") }}',
@@ -26,33 +23,35 @@
  *     'users': '{{ _("users") }}'
  *   };
  * </script>
- * 
- * JavaScriptで使用：
+ *
+ * In JavaScript code:
  * const message = window.i18nStrings?.loading || 'Loading...';
  */
 
+window.i18nStrings = window.i18nStrings || {};
+
 /**
- * 翻訳文字列を取得する関数
- * @param {string} key - 翻訳キー
- * @param {string} fallback - フォールバック文字列
- * @returns {string} 翻訳された文字列またはフォールバック
+ * Resolve a translated string from the provided key.
+ * @param {string} key - Translation key.
+ * @param {string} fallback - Fallback string when the key is missing.
+ * @returns {string} Resolved translation or the fallback.
  */
 function _(key, fallback = key) {
   return window.i18nStrings?.[key] || fallback;
 }
 
 /**
- * 数値の複数形対応翻訳
- * @param {number} count - 数値
- * @param {string} singular - 単数形のキー
- * @param {string} plural - 複数形のキー
- * @returns {string} 翻訳された文字列
+ * Retrieve pluralized translations based on the provided count.
+ * @param {number} count - Quantity value.
+ * @param {string} singular - Key for the singular form.
+ * @param {string} plural - Key for the plural form.
+ * @returns {string} Resolved translation for the correct plurality.
  */
 function ngettext(count, singular, plural) {
   const key = count === 1 ? singular : plural;
   return window.i18nStrings?.[key] || (count === 1 ? singular : plural);
 }
 
-// グローバルに公開
+// Expose helpers globally
 window._ = _;
 window.ngettext = ngettext;

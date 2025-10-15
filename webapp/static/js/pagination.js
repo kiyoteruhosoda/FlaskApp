@@ -1,8 +1,20 @@
 /**
- * 共通ページング機能 - 無限スクロール対応
- * 
- * Familinkアプリケーション用の統一されたページング処理クライアント
+ * Shared pagination utilities with optional infinite scroll support.
+ *
+ * Provides a unified pagination client for the Familink application.
  */
+
+function formatMessage(template, params = {}) {
+    if (typeof template !== 'string' || !template) {
+        return '';
+    }
+    return template.replace(/%\(([^)]+)\)s/g, (match, key) => {
+        if (Object.prototype.hasOwnProperty.call(params, key)) {
+            return params[key];
+        }
+        return '';
+    });
+}
 
 class PaginationClient {
     constructor(options = {}) {
@@ -10,22 +22,22 @@ class PaginationClient {
         this.pageSize = options.pageSize || 200;
         this.autoLoad = options.autoLoad !== false;
         this.loadThreshold = options.loadThreshold || 0.8;
-        // 追加のデフォルトパラメータ（初回・以降の読み込み時に常に付与）
+        // Additional default parameters appended to every request
         this.defaultParams = options.parameters || {};
         
-        // コールバック関数
+        // Callback hooks
         this.onItemsLoaded = options.onItemsLoaded || (() => {});
         this.onError = options.onError || ((error) => console.error('Pagination error:', error));
         this.onLoadingStateChange = options.onLoadingStateChange || (() => {});
         
-        // 状態管理
+        // Internal state management
         this.isLoading = false;
         this.hasNext = true;
         this.currentCursor = null;
         this.currentPage = 1;
         this.items = [];
         
-        // スクロール監視
+        // Scroll watcher
         this.scrollContainer = options.scrollContainer || window;
         this.scrollListener = null;
         
@@ -35,7 +47,7 @@ class PaginationClient {
     }
     
     /**
-     * スクロール監視の設定
+     * Configure scroll listener
      */
     setupScrollListener() {
         this.scrollListener = this.throttle(() => {
@@ -48,7 +60,7 @@ class PaginationClient {
     }
     
     /**
-     * スクロール監視の停止
+     * Remove scroll listener
      */
     destroyScrollListener() {
         if (this.scrollListener) {
@@ -58,7 +70,7 @@ class PaginationClient {
     }
     
     /**
-     * 追加読み込みが必要かチェック
+     * Determine whether additional data should be loaded
      */
     shouldLoadMore() {
         if (this.isLoading || !this.hasNext) {
@@ -75,7 +87,7 @@ class PaginationClient {
     }
     
     /**
-     * 最初のページを読み込み
+     * Load the first page
      */
     async loadFirst(params = {}) {
         this.reset();
@@ -83,7 +95,7 @@ class PaginationClient {
     }
     
     /**
-     * 次のページを読み込み
+     * Load the next page
      */
     async loadNext(params = {}) {
         if (this.isLoading || !this.hasNext) {
@@ -99,11 +111,11 @@ class PaginationClient {
                 ...params
             };
             
-            // カーソーベースページング
+            // Cursor-based pagination
             if (this.currentCursor) {
                 queryParams.cursor = this.currentCursor;
             } else if (!this.currentCursor && this.currentPage > 1) {
-                // オフセットベースページング
+                // Offset-based pagination
                 queryParams.page = this.currentPage;
             }
             
@@ -125,22 +137,22 @@ class PaginationClient {
             
             const data = await response.json();
             
-            // レスポンス形式の正規化
+            // Normalize response format
             const normalizedData = this.normalizeResponse(data);
             
-            // 状態更新
+            // Update state
             this.items.push(...normalizedData.items);
             this.hasNext = normalizedData.hasNext;
             this.currentCursor = normalizedData.nextCursor;
             this.currentPage++;
             
-            // コールバック実行
+            // Invoke callbacks
             this.onItemsLoaded(normalizedData.items, {
                 hasNext: this.hasNext,
                 total: normalizedData.totalCount,
                 currentPage: this.currentPage - 1,
-                // currentPage は次回読み込むページを指しているため、
-                // 読み込み直後に 2 であればそれは 1 ページ目の読み込み完了を意味する
+                // currentPage references the next page that will be loaded, so
+                // when it becomes 2 immediately after loading it means the first page finished loading
                 isFirstPage: this.currentPage === 2
             });
             
@@ -152,7 +164,7 @@ class PaginationClient {
     }
     
     /**
-     * 状態をリセット
+     * Reset state
      */
     reset() {
         this.items = [];
@@ -163,7 +175,7 @@ class PaginationClient {
     }
     
     /**
-     * URLを構築
+     * Build request URL
      */
     buildUrl(params) {
         const url = new URL(this.baseUrl, window.location.origin);
@@ -176,12 +188,12 @@ class PaginationClient {
     }
     
     /**
-     * 認証ヘッダーを取得
+     * Retrieve authentication headers
      */
     getAuthHeaders() {
         const headers = {};
         
-        // CSRF トークン
+        // CSRF token
         const csrfToken = this.getCsrfToken();
         if (csrfToken) {
             headers['X-CSRFToken'] = csrfToken;
@@ -191,7 +203,7 @@ class PaginationClient {
     }
     
     /**
-     * CSRFトークンを取得
+     * Read CSRF token
      */
     getCsrfToken() {
         const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
@@ -199,10 +211,10 @@ class PaginationClient {
     }
     
     /**
-     * レスポンス形式を正規化
+     * Normalize response structure
      */
     normalizeResponse(data) {
-        // 直接アイテムが返される場合
+        // When items are returned directly
         if (data.items) {
             return {
                 items: data.items,
@@ -212,7 +224,7 @@ class PaginationClient {
             };
         }
         
-        // sessionsList形式の場合
+        // When the API returns a sessionsList payload
         if (data.sessions) {
             return {
                 items: data.sessions,
@@ -222,7 +234,7 @@ class PaginationClient {
             };
         }
         
-        // selections形式の場合
+        // When the API returns a selections payload
         if (data.selections) {
             return {
                 items: data.selections,
@@ -232,7 +244,7 @@ class PaginationClient {
             };
         }
         
-        // フォールバック
+        // Fallback for unknown shapes
         return {
             items: [],
             hasNext: false,
@@ -242,7 +254,7 @@ class PaginationClient {
     }
     
     /**
-     * ローディング状態を設定
+     * Update loading state
      */
     setLoading(loading) {
         this.isLoading = loading;
@@ -250,7 +262,7 @@ class PaginationClient {
     }
     
     /**
-     * スロットル関数
+     * Throttle helper
      */
     throttle(func, wait) {
         let timeout;
@@ -265,7 +277,7 @@ class PaginationClient {
     }
     
     /**
-     * 破棄処理
+     * Teardown
      */
     destroy() {
         this.destroyScrollListener();
@@ -274,19 +286,19 @@ class PaginationClient {
 }
 
 /**
- * 無限スクロール用のヘルパー関数
+ * Helper class for infinite scrolling
  */
 class InfiniteScrollHelper {
     constructor(arg1, itemRenderer, options = {}) {
-        // 2系コンストラクタ互換: new InfiniteScrollHelper(selectorOrElem, itemRenderer, options)
-        // 新API互換: new InfiniteScrollHelper({ paginationClient, container, loadingIndicator, noMoreDataIndicator, threshold })
+        // Backward-compatible constructor: new InfiniteScrollHelper(selectorOrElem, itemRenderer, options)
+        // Compatible constructor for the new API signature
         this._scrollHandler = null;
 
         if (typeof arg1 === 'object' && (arg1 !== null) && !('nodeType' in arg1) && !Array.isArray(arg1)) {
-            // 新API: optionsオブジェクト受け取り
+            // New API: accept an options object
             const cfg = arg1 || {};
 
-            // container は要素またはセレクタ文字列のどちらでも許可
+            // container may be a DOM element or a selector string
             if (typeof cfg.container === 'string') {
                 this.container = document.querySelector(cfg.container);
             } else if (cfg.container && cfg.container.nodeType === 1) {
@@ -298,29 +310,29 @@ class InfiniteScrollHelper {
                 throw new Error('Container not found for InfiniteScrollHelper');
             }
 
-            // 既存の PaginationClient を利用、なければ作成（最低限の互換）
+            // Use a provided PaginationClient or create a compatible instance
             if (cfg.paginationClient instanceof PaginationClient) {
-                this.pagination = cfg.paginationClient;
-            } else {
-                this.pagination = new PaginationClient({
-                    baseUrl: cfg.baseUrl || '',
+            this.pagination = cfg.paginationClient;
+        } else {
+            this.pagination = new PaginationClient({
+                baseUrl: cfg.baseUrl || '',
                     pageSize: cfg.pageSize || 200,
                     autoLoad: false,
                     parameters: cfg.parameters || {},
                 });
             }
 
-            // ローディング/終端インジケータ設定
+            // Configure loading and end-of-list indicators
             this.loadingIndicator = cfg.loadingIndicator || this.createLoadingIndicator();
             this.noMoreDataIndicator = cfg.noMoreDataIndicator || null;
-            this.threshold = typeof cfg.threshold === 'number' ? cfg.threshold : 200; // px 単位
+            this.threshold = typeof cfg.threshold === 'number' ? cfg.threshold : 200; // measured in px
 
-            // 既存コールバックをラップしてUI連動
+            // Wrap existing callbacks to keep UI elements in sync
             const prevOnItemsLoaded = this.pagination.onItemsLoaded;
             const prevOnError = this.pagination.onError;
 
             this.pagination.onItemsLoaded = (items, meta) => {
-                // UI: 終端表示制御
+                // Toggle end-of-list indicator in the UI
                 if (this.noMoreDataIndicator) {
                     if (!meta.hasNext) {
                         this.noMoreDataIndicator.style.display = '';
@@ -347,11 +359,11 @@ class InfiniteScrollHelper {
                 }
             };
 
-            // 既存の自動スクロール監視は使わず、こちらで制御
+            // Replace any existing auto-scroll listener with this implementation
             this.pagination.destroyScrollListener?.();
 
         } else {
-            // 旧API互換: selector + itemRenderer + options
+            // Legacy API compatibility: selector + itemRenderer + options
             const containerSelector = arg1;
             this.container = typeof containerSelector === 'string'
                 ? document.querySelector(containerSelector)
@@ -370,11 +382,11 @@ class InfiniteScrollHelper {
             });
         }
 
-        // 必要ならローディングインジケータをDOMに配置
+        // Append the loading indicator to the DOM when needed
         if (this.loadingIndicator && !this.loadingIndicator.parentNode) {
             this.container.appendChild(this.loadingIndicator);
         }
-        // 初期状態では非表示
+        // Hide indicators by default
         if (this.loadingIndicator) {
             this.loadingIndicator.style.display = 'none';
         }
@@ -384,22 +396,24 @@ class InfiniteScrollHelper {
     }
     
     /**
-     * ローディングインジケーターを作成
+     * Create a loading indicator element
      */
     createLoadingIndicator() {
         const indicator = document.createElement('div');
         indicator.className = 'pagination-loading d-none text-center py-3';
+        const ariaLabel = _('pagination.loading.label', 'Loading...');
+        const loadingMessage = _('pagination.loading.message', 'Loading more items...');
         indicator.innerHTML = `
             <div class="spinner-border spinner-border-sm" role="status">
-                <span class="visually-hidden">Loading...</span>
+                <span class="visually-hidden">${ariaLabel}</span>
             </div>
-            <span class="ms-2">読み込み中...</span>
+            <span class="ms-2">${loadingMessage}</span>
         `;
         return indicator;
     }
     
     /**
-     * アイテム読み込み時の処理
+     * Handle newly loaded items
      */
     onItemsLoaded(items, meta) {
         const fragment = document.createDocumentFragment();
@@ -411,10 +425,10 @@ class InfiniteScrollHelper {
             }
         });
         
-        // ローディングインジケーターの前に挿入
+        // Insert new items before the loading indicator
         this.container.insertBefore(fragment, this.loadingIndicator);
         
-        // 次のページがない場合はローディングインジケーターを隠す
+        // Hide the loading indicator when there are no more pages
         if (!meta.hasNext) {
             this.loadingIndicator.classList.add('d-none');
             this.showEndMessage();
@@ -422,7 +436,7 @@ class InfiniteScrollHelper {
     }
     
     /**
-     * エラー時の処理
+     * Handle errors
      */
     onError(error) {
         console.error('InfiniteScroll error:', error);
@@ -430,7 +444,7 @@ class InfiniteScrollHelper {
     }
     
     /**
-     * ローディング状態変更時の処理
+     * Handle loading state changes
      */
     onLoadingStateChange(loading) {
         if (!this.loadingIndicator) return;
@@ -444,27 +458,28 @@ class InfiniteScrollHelper {
     }
     
     /**
-     * 終了メッセージを表示
+     * Display an end-of-list message
      */
     showEndMessage() {
         const endMessage = document.createElement('div');
         endMessage.className = 'pagination-end text-center text-muted py-3';
-        endMessage.textContent = '以上です';
+        endMessage.textContent = _('pagination.end.message', 'No more items to display.');
         this.container.appendChild(endMessage);
     }
     
     /**
-     * エラーメッセージを表示
+     * Display an error message
      */
     showErrorMessage(message) {
         const errorMessage = document.createElement('div');
         errorMessage.className = 'pagination-error alert alert-danger mx-3';
-        errorMessage.textContent = `読み込みエラー: ${message}`;
+        const template = _('pagination.error.template', 'Load error: %(message)s');
+        errorMessage.textContent = formatMessage(template, { message });
         this.container.insertBefore(errorMessage, this.loadingIndicator);
     }
     
     /**
-     * 初回読み込み
+     * Initial load
      */
     async load(params = {}) {
         this.clear();
@@ -472,10 +487,10 @@ class InfiniteScrollHelper {
     }
 
     /**
-     * 新API向け: 監視開始 + 初回ロード
+     * Start observing for the new API and trigger the first load
      */
     start(params = {}) {
-        // スクロールイベント設定
+        // Register the scroll handler
         this.stop();
         const container = this.container === document.body ? document.documentElement : this.container;
         const handler = () => {
@@ -491,13 +506,13 @@ class InfiniteScrollHelper {
         const target = this.container === document.body ? window : this.container;
         target.addEventListener('scroll', this._scrollHandler);
 
-        // 初回ロード
+        // Trigger the initial load
         if (this.noMoreDataIndicator) this.noMoreDataIndicator.style.display = 'none';
         return this.pagination.loadFirst(params);
     }
 
     /**
-     * スクロール監視停止
+     * Stop observing scroll events
      */
     stop() {
         const target = this.container === document.body ? window : this.container;
@@ -508,10 +523,10 @@ class InfiniteScrollHelper {
     }
     
     /**
-     * コンテンツをクリア
+     * Clear rendered content
      */
     clear() {
-        // アイテム要素のみを削除（ローディングインジケーターは残す）
+        // Remove item elements but keep indicators
         Array.from(this.container.children).forEach(child => {
             if (!child.classList.contains('pagination-loading') && 
                 !child.classList.contains('pagination-end') &&
@@ -520,23 +535,23 @@ class InfiniteScrollHelper {
             }
         });
         
-        // エラー・終了メッセージを削除
+        // Remove error and end-of-list messages
         this.container.querySelectorAll('.pagination-end, .pagination-error').forEach(el => el.remove());
     }
     
     /**
-     * 破棄処理
+     * Teardown
      */
     destroy() {
         this.stop();
         this.pagination.destroy();
-        // 旧API互換: すべてクリア
+        // Legacy API compatibility: clear everything
         if (!this.noMoreDataIndicator && !this.loadingIndicator) {
             this.container.innerHTML = '';
         }
     }
 }
 
-// グローバルに公開
+// Expose constructors globally
 window.PaginationClient = PaginationClient;
 window.InfiniteScrollHelper = InfiniteScrollHelper;

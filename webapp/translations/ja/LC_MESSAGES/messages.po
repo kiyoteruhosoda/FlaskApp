@@ -204,7 +204,7 @@ msgstr "再読み込み"
 #: webapp/photo-view/templates/photo-view/media_list.html:152
 #: webapp/photo-view/templates/photo-view/media_list.html:188
 msgid "Loading..."
-msgstr "有効化中..."
+msgstr "読み込み中..."
 
 #: webapp/admin/templates/admin/admin_users.html:70
 #: webapp/admin/templates/admin/google_accounts.html:44
@@ -373,7 +373,7 @@ msgstr ""
 #: webapp/admin/templates/admin/roles.html:63
 #: webapp/auth/templates/auth/google_accounts.html:56
 msgid "Delete"
-msgstr ""
+msgstr "削除"
 
 #: webapp/admin/templates/admin/google_accounts.html:93
 #: webapp/auth/templates/auth/google_accounts.html:58
@@ -448,7 +448,7 @@ msgstr ""
 #: webapp/admin/templates/admin/permissions.html:61
 #: webapp/admin/templates/admin/roles.html:61
 msgid "Edit"
-msgstr ""
+msgstr "編集"
 
 #: webapp/admin/templates/admin/permissions.html:64
 msgid "Are you sure you want to delete this permission?"
@@ -1642,9 +1642,173 @@ msgstr "ログのダウンロードに失敗しました。"
 #: features/totp/presentation/templates/totp/index.html:76
 #: features/totp/presentation/templates/totp/index.html:310
 msgid "Show registration form"
-msgstr "Show registration form"
+msgstr "登録フォームを表示"
 
 #: features/totp/presentation/templates/totp/index.html:309
 msgid "Hide registration form"
-msgstr "Hide registration form"
+msgstr "登録フォームを閉じる"
+
+#: webapp/templates/base.html:139
+msgid "Session expired. Please log in again."
+msgstr "セッションの有効期限が切れました。再度ログインしてください。"
+
+#: webapp/templates/base.html:141
+msgid "Loading more items..."
+msgstr "さらに項目を読み込み中..."
+
+#: webapp/templates/base.html:142
+msgid "No more items to display."
+msgstr "表示できる項目はこれ以上ありません。"
+
+#: webapp/templates/base.html:143
+msgid "Load error: %(message)s"
+msgstr "読み込みエラー: %(message)s"
+
+#: features/totp/presentation/templates/totp/index.html:323
+msgid "No TOTP registrations yet."
+msgstr "TOTP の登録はまだありません。"
+
+#: features/totp/presentation/templates/totp/index.html:324
+msgid "Click to copy"
+msgstr "クリックしてコピー"
+
+#: features/totp/presentation/templates/totp/index.html:325
+msgid "Copy one-time code"
+msgstr "ワンタイムコードをコピー"
+
+#: features/totp/presentation/templates/totp/index.html:328
+msgid "Copied the one-time code."
+msgstr "ワンタイムコードをコピーしました。"
+
+#: features/totp/presentation/templates/totp/index.html:329
+msgid "Failed to copy the one-time code."
+msgstr "ワンタイムコードをコピーできませんでした。"
+
+#: features/totp/presentation/templates/totp/index.html:330
+msgid "Remaining %(seconds)s seconds"
+msgstr "残り %(seconds)s 秒"
+
+#: features/totp/presentation/templates/totp/index.html:331
+msgid "Previewing"
+msgstr "プレビュー中"
+
+#: features/totp/presentation/templates/totp/index.html:332
+msgid "-- seconds remaining"
+msgstr "残り -- 秒"
+
+#: features/totp/presentation/templates/totp/index.html:333
+msgid "Waiting for preview"
+msgstr "プレビュー待ち"
+
+#: features/totp/presentation/templates/totp/index.html:334
+msgid "Preview unavailable"
+msgstr "プレビューを利用できません"
+
+#: features/totp/presentation/templates/totp/index.html:335
+msgid "Failed to load the TOTP list."
+msgstr "TOTP 一覧の読み込みに失敗しました。"
+
+#: features/totp/presentation/templates/totp/index.html:336
+msgid "The otpauth URI is not valid."
+msgstr "otpauth URI が無効です。"
+
+#: features/totp/presentation/templates/totp/index.html:337
+msgid "The otpauth URI is not for TOTP."
+msgstr "この otpauth URI は TOTP 用ではありません。"
+
+#: features/totp/presentation/templates/totp/index.html:338
+msgid "The otpauth URI is missing required information."
+msgstr "otpauth URI に必要な情報が不足しています。"
+
+#: features/totp/presentation/templates/totp/index.html:339
+msgid "Registered the TOTP entry."
+msgstr "TOTP を登録しました。"
+
+#: features/totp/presentation/templates/totp/index.html:340
+msgid "Failed to register the TOTP entry."
+msgstr "TOTP の登録に失敗しました。"
+
+#: features/totp/presentation/templates/totp/index.html:341
+msgid "Extracted information from the URI."
+msgstr "URI から情報を取得しました。"
+
+#: features/totp/presentation/templates/totp/index.html:342
+msgid "Failed to parse the otpauth URI."
+msgstr "otpauth URI を解析できませんでした。"
+
+#: features/totp/presentation/templates/totp/index.html:343
+msgid "Updated the TOTP entry."
+msgstr "TOTP を更新しました。"
+
+#: features/totp/presentation/templates/totp/index.html:344
+msgid "Failed to update the TOTP entry."
+msgstr "TOTP の更新に失敗しました。"
+
+#: features/totp/presentation/templates/totp/index.html:345
+msgid "Imported TOTP entries."
+msgstr "TOTP をインポートしました。"
+
+#: features/totp/presentation/templates/totp/index.html:346
+msgid "Failed to import TOTP entries."
+msgstr "TOTP のインポートに失敗しました。"
+
+#: features/totp/presentation/templates/totp/index.html:347
+msgid "Duplicate entries detected"
+msgstr "重複しているエントリが見つかりました"
+
+#: features/totp/presentation/templates/totp/index.html:348
+msgid "Select \"Overwrite even if duplicates exist\" and try again."
+msgstr "「重複していても上書きする」を選択して再試行してください。"
+
+#: features/totp/presentation/templates/totp/index.html:349
+msgid "Provide JSON text or choose a file."
+msgstr "JSON テキストを入力するかファイルを選択してください。"
+
+#: features/totp/presentation/templates/totp/index.html:350
+msgid "Failed to read the file."
+msgstr "ファイルを読み込めませんでした。"
+
+#: features/totp/presentation/templates/totp/index.html:351
+msgid "Downloaded the JSON file."
+msgstr "JSON ファイルをダウンロードしました。"
+
+#: features/totp/presentation/templates/totp/index.html:352
+msgid "Failed to export TOTP entries."
+msgstr "TOTP のエクスポートに失敗しました。"
+
+#: features/totp/presentation/templates/totp/index.html:353
+msgid "Delete %(issuer)s / %(account)s?"
+msgstr "%(issuer)s / %(account)s を削除しますか？"
+
+#: features/totp/presentation/templates/totp/index.html:354
+msgid "Deleted the TOTP entry."
+msgstr "TOTP を削除しました。"
+
+#: features/totp/presentation/templates/totp/index.html:355
+msgid "Failed to delete the TOTP entry."
+msgstr "TOTP の削除に失敗しました。"
+
+#: features/totp/presentation/templates/totp/index.html:356
+msgid "Failed to decode the QR code."
+msgstr "QR コードのデコードに失敗しました。"
+
+#: features/totp/presentation/templates/totp/index.html:357
+msgid "This browser does not support reading images from the clipboard."
+msgstr "このブラウザはクリップボードからの画像読み取りに対応していません。"
+
+#: features/totp/presentation/templates/totp/index.html:358
+msgid "No image found in the clipboard."
+msgstr "クリップボードに画像が見つかりません。"
+
+#: features/totp/presentation/templates/totp/index.html:359
+msgid "Failed to load the image."
+msgstr "画像を読み込めませんでした。"
+
+#: features/totp/presentation/templates/totp/index.html:360
+msgid "Could not detect a QR code."
+msgstr "QR コードを検出できませんでした。"
+
+#: features/totp/presentation/templates/totp/index.html:361
+msgid "Read information from the QR code."
+msgstr "QR コードから情報を読み取りました。"
 

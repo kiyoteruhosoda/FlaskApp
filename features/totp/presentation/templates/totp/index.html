@@ -9,14 +9,16 @@
     justify-content: space-between;
     gap: 1rem;
   }
-  .btn-icon {
+  .totp-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .totp-toolbar .btn {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    width: 2.25rem;
-    height: 2.25rem;
-    padding: 0;
-    border-radius: 50%;
+    gap: 0.35rem;
   }
   .otp-code {
     font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
@@ -40,8 +42,14 @@
   .otp-progress {
     height: 8px;
   }
-  .totp-list-actions button + button {
-    margin-left: 0.25rem;
+  .totp-list-actions {
+    display: inline-flex;
+    justify-content: flex-end;
+    gap: 0.25rem;
+  }
+  .totp-list-actions .btn {
+    min-width: 4.5rem;
+    justify-content: center;
   }
   .qr-preview {
     max-width: 200px;
@@ -98,25 +106,26 @@
 {% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-  <div class="d-flex align-items-center gap-2">
-    <h1 class="h3 mb-0">{{ _('TOTP Management') }}</h1>
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+  <h1 class="h3 mb-0">{{ _('TOTP Management') }}</h1>
+  <div class="totp-toolbar">
     <button
-      class="btn btn-outline-primary btn-sm btn-icon"
+      class="btn btn-outline-primary btn-sm"
       type="button"
       id="totp-create-toggle"
       aria-expanded="true"
       aria-label="{{ _('Hide registration form') }}"
     >
-      <i class="bi bi-chevron-double-right" aria-hidden="true"></i>
+      <i class="bi bi-layout-sidebar-inset" aria-hidden="true"></i>
+      <span data-role="label">{{ _('Hide registration form') }}</span>
     </button>
-  </div>
-  <div class="d-flex gap-2">
     <button type="button" class="btn btn-outline-secondary" id="totp-export-btn">
-      <i class="bi bi-download me-1"></i>{{ _('Export JSON') }}
+      <i class="bi bi-download" aria-hidden="true"></i>
+      <span>{{ _('Export JSON') }}</span>
     </button>
     <button type="button" class="btn btn-outline-primary" id="totp-import-btn">
-      <i class="bi bi-upload me-1"></i>{{ _('Import JSON') }}
+      <i class="bi bi-upload" aria-hidden="true"></i>
+      <span>{{ _('Import JSON') }}</span>
     </button>
   </div>
 </div>
@@ -399,6 +408,7 @@
     }
 
     const icon = toggleButton.querySelector('i');
+    const label = toggleButton.querySelector('[data-role="label"]');
     const mediaQuery = window.matchMedia('(max-width: 991.98px)');
 
     const updateState = (expanded) => {
@@ -413,7 +423,12 @@
           : '{{ _('Show registration form') }}'
       );
       if (icon) {
-        icon.className = expanded ? 'bi bi-chevron-double-right' : 'bi bi-chevron-double-left';
+        icon.className = expanded ? 'bi bi-layout-sidebar-inset' : 'bi bi-layout-sidebar';
+      }
+      if (label) {
+        label.textContent = expanded
+          ? '{{ _('Hide registration form') }}'
+          : '{{ _('Show registration form') }}';
       }
     };
 

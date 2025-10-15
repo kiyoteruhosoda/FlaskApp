@@ -176,9 +176,11 @@
           </td>
           <td>${description}</td>
           <td class="text-nowrap">${escapeHtml(updatedText)}</td>
-          <td class="text-end totp-list-actions">
-            <button class="btn btn-sm btn-outline-primary" data-action="edit">${t('totp.actions.edit', 'Edit')}</button>
-            <button class="btn btn-sm btn-outline-danger" data-action="delete">${t('totp.actions.delete', 'Delete')}</button>
+          <td class="text-end">
+            <div class="totp-list-actions">
+              <button class="btn btn-sm btn-outline-primary" data-action="edit">${t('totp.actions.edit', 'Edit')}</button>
+              <button class="btn btn-sm btn-outline-danger" data-action="delete">${t('totp.actions.delete', 'Delete')}</button>
+            </div>
           </td>
         </tr>`;
     });

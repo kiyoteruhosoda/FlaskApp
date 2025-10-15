@@ -1,4 +1,6 @@
 from flask import jsonify
+from flask_babel import gettext as _
+
 from . import bp
 
 
@@ -7,7 +9,7 @@ def openapi_spec():
     """簡易OpenAPI仕様を返す"""
     spec = {
         "openapi": "3.0.3",
-        "info": {"title": "PhotoNest API", "version": "1.0.0"},
+        "info": {"title": f"{_('AppName')} API", "version": "1.0.0"},
         "paths": {
             "/api/login": {
                 "post": {

@@ -14,6 +14,7 @@ from flask import (
     app,
     flash,
     g,
+    has_request_context,
     jsonify,
     make_response,
     redirect,
@@ -802,6 +803,9 @@ def _select_locale():
     """1) cookie lang 2) Accept-Language 3) default"""
     from flask import current_app
 
+    if not has_request_context():
+        return current_app.config.get("BABEL_DEFAULT_LOCALE", "en")
+
     cookie_lang = request.cookies.get("lang")
     if cookie_lang in current_app.config["LANGUAGES"]:
         return cookie_lang
@@ -819,7 +823,7 @@ def register_cli_commands(app):
         """アプリケーションのバージョン情報を表示"""
         from core.version import get_version_info, get_version_string
         
-        click.echo("=== PhotoNest Version Information ===")
+        click.echo(_("=== %(app_name)s Version Information ===", app_name=_("AppName")))
         version_info = get_version_info()
         
         click.echo(f"Version: {get_version_string()}")
@@ -836,7 +840,7 @@ def register_cli_commands(app):
             seed_roles, seed_permissions, seed_role_permissions, seed_admin_user
         )
         
-        click.echo("=== PhotoNest Master Data Seeding ===")
+        click.echo(_("=== %(app_name)s Master Data Seeding ===", app_name=_("AppName")))
         
         # 既存データチェック
         if not force:

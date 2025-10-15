@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ _('Register') }} - PhotoNest{% endblock %}
+{% block title %}{{ _('Register') }} - {{ _('AppName') }}{% endblock %}
 {% block body_attributes %} class="login-page"{% endblock %}
 
 {% block content %}
@@ -7,7 +7,7 @@
   <div class="login-card">
     <div class="login-header">
       <h1 class="login-title">{{ _('Create Account') }}</h1>
-      <p class="login-subtitle">{{ _('Join PhotoNest and start organizing your memories') }}</p>
+      <p class="login-subtitle">{{ _('Join %(app_name)s and start organizing your memories', app_name=_('AppName')) }}</p>
     </div>
     
     <form method="post" class="login-form">

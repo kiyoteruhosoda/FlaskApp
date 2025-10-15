@@ -5,6 +5,7 @@ import pytest
 from unittest.mock import patch
 from click.testing import CliRunner
 
+from flask_babel import gettext as _
 from webapp import create_app
 
 
@@ -33,10 +34,11 @@ class TestVersionCLI:
         with patch("core.version.get_version_info", return_value=mock_version_info):
             with patch("core.version.get_version_string", return_value="vtest123"):
                 with app.app_context():
+                    header_text = _("%(app_name)s Version Information", app_name=_("AppName"))
                     result = runner.invoke(app.cli, ['version'])
-        
+
         assert result.exit_code == 0
-        assert "PhotoNest Version Information" in result.output
+        assert header_text in result.output
         assert "Version: vtest123" in result.output
         assert "Commit Hash: test123" in result.output
         assert "Branch: main" in result.output
@@ -93,12 +95,13 @@ class TestVersionCLI:
         with patch("core.version.get_version_info", return_value=mock_version_info):
             with patch("core.version.get_version_string", return_value="v1a2b3c4"):
                 with app.app_context():
+                    header_line = _("=== %(app_name)s Version Information ===", app_name=_("AppName"))
                     result = runner.invoke(app.cli, ['version'])
-        
+
         lines = result.output.strip().split('\n')
-        
+
         # ヘッダー行の確認
-        assert "=== PhotoNest Version Information ===" in lines[0]
+        assert header_line in lines[0]
         
         # 各情報行の確認
         expected_lines = [
@@ -128,11 +131,12 @@ class TestVersionCLIIntegration:
         runner = CliRunner()
         
         with app.app_context():
+            header_text = _("%(app_name)s Version Information", app_name=_("AppName"))
             result = runner.invoke(app.cli, ['version'])
-        
+
         # コマンドが正常に実行されることを確認
         assert result.exit_code == 0
-        assert "PhotoNest Version Information" in result.output
+        assert header_text in result.output
         assert "Version:" in result.output
         assert "Commit Hash:" in result.output
         assert "Branch:" in result.output

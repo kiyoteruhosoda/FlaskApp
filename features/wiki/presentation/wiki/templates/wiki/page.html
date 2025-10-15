@@ -93,15 +93,12 @@
                         {% endif %}
                     </p>
                 </div>
-                <div>
+                <div class="d-flex align-items-center gap-2">
                     {% if current_user.can('wiki:write') and (page.created_by_id == current_user.id or current_user.can('wiki:admin')) %}
-                    <a href="{{ url_for('wiki.edit_page', slug=page.slug) }}" class="btn btn-secondary">
+                    <a href="{{ url_for('wiki.edit_page', slug=page.slug) }}" class="btn btn-secondary btn-sm">
                         <i class="fas fa-edit"></i> {{ _('Edit') }}
                     </a>
                     {% endif %}
-                    <a href="{{ url_for('wiki.page_history', slug=page.slug) }}" class="btn btn-outline-secondary">
-                        <i class="fas fa-history"></i> {{ _('History') }}
-                    </a>
                 </div>
             </div>
             
@@ -171,6 +168,11 @@
                     <i class="fas fa-arrow-up"></i> {{ _('Parent Page') }}: {{ page.parent.title }}
                 </a>
                 {% endif %}
+            </div>
+            <div class="d-flex justify-content-end mt-4">
+                <a href="{{ url_for('wiki.page_history', slug=page.slug) }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-history"></i> {{ _('History') }}
+                </a>
             </div>
         </div>
     </div>

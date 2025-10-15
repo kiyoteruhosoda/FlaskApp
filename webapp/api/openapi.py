@@ -7,7 +7,7 @@ def openapi_spec():
     """簡易OpenAPI仕様を返す"""
     spec = {
         "openapi": "3.0.3",
-        "info": {"title": "PhotoNest API", "version": "1.0.0"},
+        "info": {"title": "Familink API", "version": "1.0.0"},
         "paths": {
             "/api/login": {
                 "post": {

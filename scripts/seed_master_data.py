@@ -121,7 +121,7 @@ def main():
     app = create_app()
     
     with app.app_context():
-        print("=== PhotoNest Master Data Seeding ===")
+        print("=== Familink Master Data Seeding ===")
         
         try:
             # ロールデータ投入

@@ -782,7 +782,7 @@ msgid "Welcome Back"
 msgstr ""
 
 #: webapp/auth/templates/auth/login.html:9
-msgid "Sign in to your PhotoNest account"
+msgid "Sign in to your Familink account"
 msgstr ""
 
 #: webapp/auth/templates/auth/login.html:34
@@ -863,7 +863,7 @@ msgid "Create Account"
 msgstr ""
 
 #: webapp/auth/templates/auth/register.html:9
-msgid "Join PhotoNest and start organizing your memories"
+msgid "Join Familink and start organizing your memories"
 msgstr ""
 
 #: webapp/auth/templates/auth/register.html:34
@@ -892,7 +892,7 @@ msgid "Creating Account..."
 msgstr ""
 
 #: webapp/auth/templates/auth/register_no_totp.html:9
-msgid "Join PhotoNest without two-factor authentication"
+msgid "Join Familink without two-factor authentication"
 msgstr ""
 
 #: webapp/auth/templates/auth/register_no_totp.html:39

@@ -52,7 +52,7 @@ flask version
 
 出力例：
 ```
-=== PhotoNest Version Information ===
+=== Familink Version Information ===
 Version: va0b7e23
 Commit Hash: a0b7e23
 Branch: main

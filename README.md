@@ -1,6 +1,6 @@
-# PhotoNest
+# Familink
 
-PhotoNestは、DDD（ドメイン駆動設計）アーキテクチャを採用したFlaskベースの家族写真管理・同期プラットフォームです。Google Photos同期、ローカルファイルインポート、動画変換、サムネイル生成などの処理をCeleryによるバックグラウンドジョブで実行します。
+Familinkは、DDD（ドメイン駆動設計）アーキテクチャを採用したFlaskベースの家族写真管理・同期プラットフォームです。Google Photos同期、ローカルファイルインポート、動画変換、サムネイル生成などの処理をCeleryによるバックグラウンドジョブで実行します。
 
 ## 🚀 クイックスタート
 
@@ -54,7 +54,7 @@ docker-compose exec web flask seed-master
 
 ### DDD構成
 ```
-PhotoNest/
+Familink/
 ├── webapp/           # Webアプリケーション層（Flask）
 ├── domain/          # ドメイン層（ビジネスロジック）
 ├── application/     # アプリケーションサービス層
@@ -90,7 +90,7 @@ PhotoNest/
 ## 🚨 重要な注意事項
 
 ### Celeryワーカー（必須）
-PhotoNestのバックグラウンド処理には**Celeryワーカーが必須**です：
+Familinkのバックグラウンド処理には**Celeryワーカーが必須**です：
 
 ```bash
 # 正しいワーカー起動コマンド

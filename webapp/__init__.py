@@ -819,7 +819,7 @@ def register_cli_commands(app):
         """アプリケーションのバージョン情報を表示"""
         from core.version import get_version_info, get_version_string
         
-        click.echo("=== PhotoNest Version Information ===")
+        click.echo("=== Familink Version Information ===")
         version_info = get_version_info()
         
         click.echo(f"Version: {get_version_string()}")
@@ -836,7 +836,7 @@ def register_cli_commands(app):
             seed_roles, seed_permissions, seed_role_permissions, seed_admin_user
         )
         
-        click.echo("=== PhotoNest Master Data Seeding ===")
+        click.echo("=== Familink Master Data Seeding ===")
         
         # 既存データチェック
         if not force:

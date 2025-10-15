@@ -36,7 +36,7 @@ class TestVersionCLI:
                     result = runner.invoke(app.cli, ['version'])
         
         assert result.exit_code == 0
-        assert "PhotoNest Version Information" in result.output
+        assert "Familink Version Information" in result.output
         assert "Version: vtest123" in result.output
         assert "Commit Hash: test123" in result.output
         assert "Branch: main" in result.output
@@ -98,7 +98,7 @@ class TestVersionCLI:
         lines = result.output.strip().split('\n')
         
         # ヘッダー行の確認
-        assert "=== PhotoNest Version Information ===" in lines[0]
+        assert "=== Familink Version Information ===" in lines[0]
         
         # 各情報行の確認
         expected_lines = [
@@ -132,7 +132,7 @@ class TestVersionCLIIntegration:
         
         # コマンドが正常に実行されることを確認
         assert result.exit_code == 0
-        assert "PhotoNest Version Information" in result.output
+        assert "Familink Version Information" in result.output
         assert "Version:" in result.output
         assert "Commit Hash:" in result.output
         assert "Branch:" in result.output

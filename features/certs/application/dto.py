@@ -75,7 +75,7 @@ class IssueCertificateForGroupOutput:
 class SignGroupPayloadInput:
     group_code: str
     payload: bytes
-    kid: str | None = None
+    kid: str
     hash_algorithm: str = "SHA256"
 
 

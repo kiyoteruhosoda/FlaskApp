@@ -66,6 +66,14 @@ def _require_admin():
     return None
 
 
+def _require_sign_permission():
+    if not current_user.is_authenticated:
+        return _json_error("Authentication required", HTTPStatus.UNAUTHORIZED)
+    if not current_user.can("certificate:sign", "certificate:manage"):
+        return _json_error("Forbidden", HTTPStatus.FORBIDDEN)
+    return None
+
+
 def _resolve_actor() -> str:
     if current_user.is_authenticated:
         return current_user.email or current_user.display_name or "unknown"
@@ -455,15 +463,36 @@ def issue_certificate_for_group(group_code: str):
     )
 
 
-@certs_api_bp.route("/certs/groups/<string:group_code>/sign", methods=["POST"])
-def sign_group_payload(group_code: str):
-    guard = _require_admin()
+@certs_api_bp.route("/keys/<string:group_code>", methods=["GET"])
+def get_latest_group_key(group_code: str):
+    guard = _require_sign_permission()
     if guard:
         return guard
 
     group_code, error = _normalize_group_code(group_code, required=True)
     if error:
         return error
+
+    try:
+        result = ListJwksUseCase().execute(group_code)
+    except CertificateGroupNotFoundError as exc:
+        return _json_error(str(exc), HTTPStatus.NOT_FOUND)
+    return jsonify(result)
+
+
+@certs_api_bp.route("/keys/<string:group_code>/<string:kid>/sign", methods=["POST"])
+def sign_group_key(group_code: str, kid: str):
+    guard = _require_sign_permission()
+    if guard:
+        return guard
+
+    group_code, error = _normalize_group_code(group_code, required=True)
+    if error:
+        return error
+
+    kid_value = kid.strip()
+    if not kid_value:
+        return _json_error(_("kid must be a non-empty string."), HTTPStatus.BAD_REQUEST)
 
     payload = request.get_json(silent=True) or {}
     raw_payload = payload.get("payload")
@@ -472,25 +501,26 @@ def sign_group_payload(group_code: str):
     if not isinstance(raw_payload, str):
         return _json_error(_("Payload must be provided as a base64-encoded string."), HTTPStatus.BAD_REQUEST)
 
-    payload_encoding = (payload.get("payloadEncoding") or "base64").strip().lower()
-    if payload_encoding != "base64":
-        return _json_error(_("Only base64 payloadEncoding is supported."), HTTPStatus.BAD_REQUEST)
-
     raw_payload_stripped = raw_payload.strip()
     if not raw_payload_stripped:
         return _json_error(_("Payload must be provided as a base64-encoded string."), HTTPStatus.BAD_REQUEST)
-    try:
-        payload_bytes = base64.b64decode(raw_payload_stripped, validate=True)
-    except (binascii.Error, ValueError):
-        return _json_error(_("Payload must be valid base64 data."), HTTPStatus.BAD_REQUEST)
 
-    kid_value = payload.get("kid")
-    if kid_value is not None:
-        if not isinstance(kid_value, str) or not kid_value.strip():
-            return _json_error(_("kid must be a non-empty string."), HTTPStatus.BAD_REQUEST)
-        kid = kid_value.strip()
-    else:
-        kid = None
+    encoding_value = payload.get("payloadEncoding", "base64")
+    if not isinstance(encoding_value, str):
+        return _json_error(_("payloadEncoding must be \"base64\" or \"base64url\"."), HTTPStatus.BAD_REQUEST)
+    encoding_normalized = encoding_value.strip().lower() or "base64"
+    if encoding_normalized not in {"base64", "base64url"}:
+        return _json_error(_("payloadEncoding must be \"base64\" or \"base64url\"."), HTTPStatus.BAD_REQUEST)
+
+    try:
+        if encoding_normalized == "base64":
+            payload_bytes = base64.b64decode(raw_payload_stripped, validate=True)
+        else:
+            padding_length = (-len(raw_payload_stripped)) % 4
+            padded_payload = raw_payload_stripped + ("=" * padding_length)
+            payload_bytes = base64.urlsafe_b64decode(padded_payload)
+    except (binascii.Error, ValueError):
+        return _json_error(_("Payload must be valid base64 or base64url data."), HTTPStatus.BAD_REQUEST)
 
     hash_algorithm_value = payload.get("hashAlgorithm")
     if hash_algorithm_value is not None and not isinstance(hash_algorithm_value, str):
@@ -499,13 +529,15 @@ def sign_group_payload(group_code: str):
     dto = SignGroupPayloadInput(
         group_code=group_code,
         payload=payload_bytes,
-        kid=kid,
+        kid=kid_value,
         hash_algorithm=(hash_algorithm_value.strip() if isinstance(hash_algorithm_value, str) else "SHA256"),
     )
 
     try:
         result = SignGroupPayloadUseCase().execute(dto, actor=_resolve_actor())
     except CertificateGroupNotFoundError as exc:
+        return _json_error(str(exc), HTTPStatus.NOT_FOUND)
+    except CertificateNotFoundError as exc:
         return _json_error(str(exc), HTTPStatus.NOT_FOUND)
     except CertificateValidationError as exc:
         return _json_error(str(exc), HTTPStatus.BAD_REQUEST)

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 from http import HTTPStatus
 
@@ -23,6 +24,8 @@ from features.certs.presentation.ui.api_client import CertsApiClientError
 from features.certs.presentation.ui.services import CertificateUiService
 
 from . import certs_ui_bp
+
+_GROUP_CODE_PATTERN = re.compile(r"^[a-z0-9_-]+$")
 
 _KEY_USAGE_CHOICES: list[tuple[str, str]] = [
     ("digitalSignature", _("digitalSignature - digital signature")),
@@ -291,6 +294,14 @@ def create_group():
     if not group_code:
         _remember_form_state()
         flash(_("Group code is required."), "error")
+        return redirect(url_for("certs_ui.index"))
+
+    if not _GROUP_CODE_PATTERN.fullmatch(group_code):
+        _remember_form_state()
+        flash(
+            _("Group code must contain only lowercase letters, numbers, hyphen, or underscore."),
+            "error",
+        )
         return redirect(url_for("certs_ui.index"))
 
     display_name = (form.get("display_name") or "").strip() or None

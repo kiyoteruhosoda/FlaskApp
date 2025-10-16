@@ -3,7 +3,7 @@ from flask_migrate import Migrate
 from flask_login import LoginManager
 from flask_babel import Babel
 from flask_babel import lazy_gettext as _l
-from flask import current_app
+from flask import current_app, g
 
 
 migrate = Migrate()
@@ -27,13 +27,16 @@ def load_user_from_request(request):
         return None
     from webapp.services.token_service import TokenService
 
-    user = TokenService.verify_access_token(token)
-    if not user:
+    verification = TokenService.verify_access_token(token)
+    if not verification:
         current_app.logger.debug(
             "JWT token verification failed in request_loader",
             extra={"event": "auth.jwt.invalid"},
         )
         return None
+
+    user, scope = verification
+    g.current_token_scope = scope
 
     return user
 

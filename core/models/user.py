@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Iterable, Optional
 
-from flask import has_request_context, session
+from flask import has_request_context, session, g
 from flask_login import UserMixin
 
 from core.db import db
@@ -96,10 +96,23 @@ class User(db.Model, UserMixin):
 
     @property
     def permissions(self) -> set[str]:
+        if has_request_context():
+            token_scope = getattr(g, "current_token_scope", None)
+            if token_scope is not None:
+                return set(token_scope)
+
         codes = set()
         for r in self._iter_effective_roles():
             for p in r.permissions:
                 codes.add(p.code)
+        return codes
+
+    @property
+    def all_permissions(self) -> set[str]:
+        codes = set()
+        for role in self.roles or []:
+            for permission in role.permissions:
+                codes.add(permission.code)
         return codes
 
     def has_role(self, *names: str) -> bool:

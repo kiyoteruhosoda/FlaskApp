@@ -403,6 +403,9 @@ msgstr "Are you sure you want to cancel the local import?"
 msgid "Certificate List"
 msgstr "Certificate List"
 
+msgid "Common Name"
+msgstr "Common Name"
+
 msgid "Generate New"
 msgstr "Generate New"
 

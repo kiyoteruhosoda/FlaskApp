@@ -29,6 +29,7 @@ class _DummyClient:
                 issued_at=None,
                 revoked_at=None,
                 revocation_reason=None,
+                subject="CN=example",
             )
         ]
 
@@ -40,9 +41,9 @@ class _DummyClient:
             issued_at=None,
             revoked_at=None,
             revocation_reason=None,
+            subject="CN=sub",
             certificate_pem="pem",
             jwk={},
-            subject="sub",
             issuer="issuer",
             not_before=None,
             not_after=None,

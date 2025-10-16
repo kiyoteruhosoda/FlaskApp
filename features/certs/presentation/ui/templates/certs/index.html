@@ -30,6 +30,7 @@
     <thead>
       <tr>
         <th scope="col">KID</th>
+        <th scope="col">{{ _('Common Name') }}</th>
         <th scope="col">{{ _('Usage') }}</th>
         <th scope="col">{{ _('Issued At') }}</th>
         <th scope="col">{{ _('Status') }}</th>
@@ -42,6 +43,7 @@
         {% for cert in certificates %}
         <tr>
           <td class="font-monospace">{{ cert.kid }}</td>
+          <td>{{ cert.common_name or '-' }}</td>
           <td>{{ cert.usage_type.value }}</td>
           <td>{{ cert.issued_at.strftime('%Y-%m-%d %H:%M:%S') if cert.issued_at else '-' }}</td>
           <td>

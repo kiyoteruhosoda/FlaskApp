@@ -2588,3 +2588,36 @@ msgstr "URLをコピー"
 msgid "JWKS JSON"
 msgstr "JWKS JSON"
 
+msgid "Unsupported subject attribute: %(attribute)s"
+msgstr "未対応のsubject属性です: %(attribute)s"
+
+msgid "Invalid value for subject attribute %(attribute)s: %(error)s"
+msgstr "subject属性%(attribute)sの値が不正です: %(error)s"
+
+msgid "Subject must not be empty"
+msgstr "subjectを空にすることはできません"
+
+msgid "Country code (C) must be a two-letter ISO 3166-1 value (e.g., JP)"
+msgstr "国コード(C)はISO 3166-1の2文字コードで指定してください（例: JP）"
+
+msgid "RSA key length must be at least 2048 bits"
+msgstr "RSA鍵長は2048ビット以上である必要があります"
+
+msgid "Unsupported key type: %(key_type)s"
+msgstr "未対応の鍵タイプです: %(key_type)s"
+
+msgid "Failed to load CSR"
+msgstr "CSRの読み込みに失敗しました"
+
+msgid "Only RSA keys are currently supported"
+msgstr "現在RSA鍵のみサポートしています"
+
+msgid "Unsupported keyUsage value: %(usage)s"
+msgstr "未対応のkeyUsageが指定されました: %(usage)s"
+
+msgid "Validity period must be at least one day"
+msgstr "有効期限は1日以上で指定してください"
+
+msgid "Unsupported elliptic curve"
+msgstr "サポートされていないEC曲線です"
+

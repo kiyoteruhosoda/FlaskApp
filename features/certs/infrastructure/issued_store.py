@@ -3,8 +3,11 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from typing import TYPE_CHECKING
+
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
+from sqlalchemy import func
 
 from core.db import db
 from features.certs.domain.exceptions import CertificateNotFoundError
@@ -12,6 +15,9 @@ from features.certs.domain.models import CertificateGroup, IssuedCertificate, Ro
 from features.certs.domain.usage import UsageType
 
 from .models import CertificateGroupEntity, IssuedCertificateEntity
+
+if TYPE_CHECKING:  # pragma: no cover - 型チェック専用
+    from features.certs.application.dto import CertificateSearchFilters
 
 
 class IssuedCertificateStore:
@@ -85,6 +91,16 @@ class IssuedCertificateStore:
             .count()
         )
 
+    def count_all_in_group(self, group_id: int) -> int:
+        return (
+            IssuedCertificateEntity.query.filter(
+                IssuedCertificateEntity.group_id == group_id,
+            )
+            .with_entities(func.count(IssuedCertificateEntity.kid))
+            .scalar()
+            or 0
+        )
+
     def get(self, kid: str) -> IssuedCertificate:
         """証明書詳細を取得する"""
 
@@ -122,6 +138,52 @@ class IssuedCertificateStore:
                 continue
             jwks.append(entity.jwk)
         return jwks
+
+    def search(self, filters: "CertificateSearchFilters") -> tuple[list[IssuedCertificate], int]:
+        query = IssuedCertificateEntity.query.outerjoin(IssuedCertificateEntity.group)
+        if filters.kid:
+            like_pattern = f"%{filters.kid.strip()}%"
+            query = query.filter(IssuedCertificateEntity.kid.ilike(like_pattern))
+        if filters.group_code:
+            query = query.filter(CertificateGroupEntity.group_code == filters.group_code)
+        if filters.usage_type:
+            query = query.filter(IssuedCertificateEntity.usage_type == filters.usage_type.value)
+        if filters.revoked is True:
+            query = query.filter(IssuedCertificateEntity.revoked_at.is_not(None))
+        elif filters.revoked is False:
+            query = query.filter(IssuedCertificateEntity.revoked_at.is_(None))
+        if filters.issued_from:
+            query = query.filter(IssuedCertificateEntity.issued_at >= filters.issued_from)
+        if filters.issued_to:
+            query = query.filter(IssuedCertificateEntity.issued_at <= filters.issued_to)
+        if filters.expires_from:
+            query = query.filter(IssuedCertificateEntity.expires_at.is_not(None))
+            query = query.filter(IssuedCertificateEntity.expires_at >= filters.expires_from)
+        if filters.expires_to:
+            query = query.filter(IssuedCertificateEntity.expires_at.is_not(None))
+            query = query.filter(IssuedCertificateEntity.expires_at <= filters.expires_to)
+
+        query = query.order_by(IssuedCertificateEntity.issued_at.desc())
+        entities = query.all()
+        domain_items = [self._entity_to_domain(entity) for entity in entities]
+
+        if filters.subject_contains:
+            keyword = filters.subject_contains.strip().lower()
+            filtered_items: list[IssuedCertificate] = []
+            for item in domain_items:
+                subject_str = item.certificate.subject.rfc4514_string()
+                if keyword in subject_str.lower():
+                    filtered_items.append(item)
+            domain_items = filtered_items
+
+        total = len(domain_items)
+        limit = max(filters.limit or 0, 0)
+        offset = max(filters.offset or 0, 0)
+        if limit:
+            paginated = domain_items[offset : offset + limit]
+        else:
+            paginated = domain_items[offset:]
+        return paginated, total
 
     def _entity_to_domain(self, entity: IssuedCertificateEntity | None) -> IssuedCertificate | None:
         if entity is None:

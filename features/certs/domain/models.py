@@ -79,3 +79,17 @@ class CertificateGroup:
         """テンプレートsubjectを辞書で返す"""
 
         return dict(self.subject)
+
+
+@dataclass(slots=True)
+class CertificateEvent:
+    """証明書操作の監査ログ"""
+
+    id: int | None
+    actor: str
+    action: str
+    target_kid: str | None
+    target_group_code: str | None
+    reason: str | None
+    details: dict[str, Any] | None
+    occurred_at: datetime

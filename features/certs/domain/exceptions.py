@@ -26,5 +26,9 @@ class CertificateGroupNotFoundError(CertificateError):
     """証明書グループが存在しない場合の例外"""
 
 
+class CertificateGroupConflictError(CertificateError):
+    """証明書グループの操作で競合が発生した場合の例外"""
+
+
 class CertificateRotationError(CertificateError):
     """自動ローテーション処理に関する例外"""

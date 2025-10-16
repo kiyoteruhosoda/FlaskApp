@@ -7,13 +7,21 @@ from datetime import datetime
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 
+from dataclasses import replace
+
 from features.certs.domain.exceptions import (
+    CertificateGroupConflictError,
     CertificateGroupNotFoundError,
     CertificateSigningError,
     CertificateValidationError,
     KeyGenerationError,
 )
-from features.certs.domain.models import GeneratedKeyMaterial, IssuedCertificate
+from features.certs.domain.models import (
+    CertificateGroup,
+    GeneratedKeyMaterial,
+    IssuedCertificate,
+    RotationPolicy,
+)
 from features.certs.domain.usage import UsageType
 from features.certs.application.services import (
     CertificateServices,
@@ -33,8 +41,12 @@ from features.certs.infrastructure.key_utils import (
 )
 
 from .dto import (
+    CertificateGroupInput,
+    CertificateSearchFilters,
+    CertificateSearchResult,
     GenerateCertificateMaterialInput,
     GenerateCertificateMaterialOutput,
+    IssueCertificateForGroupOutput,
     SignCertificateInput,
     SignCertificateOutput,
 )
@@ -77,7 +89,12 @@ class SignCertificateUseCase:
     def __init__(self, services: CertificateServices | None = None) -> None:
         self._services = services or default_certificate_services
 
-    def execute(self, payload: SignCertificateInput) -> SignCertificateOutput:
+    def execute(
+        self,
+        payload: SignCertificateInput,
+        *,
+        actor: str | None = None,
+    ) -> SignCertificateOutput:
         if not payload.csr_pem:
             raise CertificateValidationError("csrPemは必須です")
 
@@ -146,7 +163,19 @@ class SignCertificateUseCase:
             group=group,
             group_id=group.id if group else None,
         )
-        self._services.issued_store.save(issued)
+        saved = self._services.issued_store.save(issued)
+
+        if saved.group:
+            # 証明書変更時にJWKSを再構築
+            ListJwksUseCase(self._services).execute(saved.group.group_code)
+
+        if actor:
+            self._services.event_store.record(
+                actor=actor,
+                action="issue_certificate",
+                target_kid=saved.kid,
+                target_group_code=saved.group.group_code if saved.group else None,
+            )
 
         return SignCertificateOutput(
             certificate_pem=certificate.public_bytes(serialization.Encoding.PEM).decode("utf-8"),
@@ -200,5 +229,202 @@ class RevokeCertificateUseCase:
     def __init__(self, services: CertificateServices | None = None) -> None:
         self._services = services or default_certificate_services
 
-    def execute(self, kid: str, reason: str | None = None) -> IssuedCertificate:
-        return self._services.issued_store.revoke(kid, reason)
+    def execute(
+        self,
+        kid: str,
+        reason: str | None = None,
+        *,
+        actor: str | None = None,
+    ) -> IssuedCertificate:
+        revoked = self._services.issued_store.revoke(kid, reason)
+        if revoked.group:
+            ListJwksUseCase(self._services).execute(revoked.group.group_code)
+        if actor:
+            self._services.event_store.record(
+                actor=actor,
+                action="revoke_certificate",
+                target_kid=revoked.kid,
+                target_group_code=revoked.group.group_code if revoked.group else None,
+                reason=reason,
+            )
+        return revoked
+
+
+class ListCertificateGroupsUseCase:
+    """証明書グループ一覧取得ユースケース"""
+
+    def __init__(self, services: CertificateServices | None = None) -> None:
+        self._services = services or default_certificate_services
+
+    def execute(self) -> list[CertificateGroup]:
+        return self._services.group_store.list_all()
+
+
+class GetCertificateGroupUseCase:
+    """証明書グループ詳細取得ユースケース"""
+
+    def __init__(self, services: CertificateServices | None = None) -> None:
+        self._services = services or default_certificate_services
+
+    def execute(self, group_code: str) -> CertificateGroup:
+        return self._services.group_store.get_by_code(group_code)
+
+
+class CreateCertificateGroupUseCase:
+    """証明書グループ登録ユースケース"""
+
+    def __init__(self, services: CertificateServices | None = None) -> None:
+        self._services = services or default_certificate_services
+
+    def execute(
+        self,
+        payload: CertificateGroupInput,
+        *,
+        actor: str | None = None,
+    ) -> CertificateGroup:
+        rotation_policy = RotationPolicy(
+            auto_rotate=payload.auto_rotate,
+            rotation_threshold_days=payload.rotation_threshold_days,
+        )
+        group = CertificateGroup(
+            id=0,
+            group_code=payload.group_code,
+            display_name=payload.display_name,
+            rotation_policy=rotation_policy,
+            usage_type=payload.usage_type,
+            key_type=payload.key_type,
+            key_curve=payload.key_curve,
+            key_size=payload.key_size,
+            subject=payload.subject,
+        )
+        created = self._services.group_store.create(group)
+        if actor:
+            self._services.event_store.record(
+                actor=actor,
+                action="create_group",
+                target_group_code=created.group_code,
+            )
+        return created
+
+
+class UpdateCertificateGroupUseCase:
+    """証明書グループ更新ユースケース"""
+
+    def __init__(self, services: CertificateServices | None = None) -> None:
+        self._services = services or default_certificate_services
+
+    def execute(
+        self,
+        payload: CertificateGroupInput,
+        *,
+        actor: str | None = None,
+    ) -> CertificateGroup:
+        existing = self._services.group_store.get_by_code(payload.group_code)
+        rotation_policy = RotationPolicy(
+            auto_rotate=payload.auto_rotate,
+            rotation_threshold_days=payload.rotation_threshold_days,
+        )
+        updated_group = replace(
+            existing,
+            display_name=payload.display_name,
+            rotation_policy=rotation_policy,
+            usage_type=payload.usage_type,
+            key_type=payload.key_type,
+            key_curve=payload.key_curve,
+            key_size=payload.key_size,
+            subject=payload.subject,
+        )
+        saved = self._services.group_store.update(updated_group)
+        if actor:
+            self._services.event_store.record(
+                actor=actor,
+                action="update_group",
+                target_group_code=saved.group_code,
+            )
+        return saved
+
+
+class DeleteCertificateGroupUseCase:
+    """証明書グループ削除ユースケース"""
+
+    def __init__(self, services: CertificateServices | None = None) -> None:
+        self._services = services or default_certificate_services
+
+    def execute(self, group_code: str, *, actor: str | None = None) -> None:
+        group = self._services.group_store.get_by_code(group_code)
+        try:
+            self._services.group_store.delete(group_code)
+        except CertificateGroupConflictError:
+            raise
+        if actor:
+            self._services.event_store.record(
+                actor=actor,
+                action="delete_group",
+                target_group_code=group.group_code,
+            )
+
+
+class IssueCertificateForGroupUseCase:
+    """管理グループに基づき証明書を発行するユースケース"""
+
+    def __init__(self, services: CertificateServices | None = None) -> None:
+        self._services = services or default_certificate_services
+
+    def execute(
+        self,
+        group_code: str,
+        *,
+        actor: str | None = None,
+        subject_overrides: dict[str, str] | None = None,
+        valid_days: int | None = None,
+        key_usage: list[str] | None = None,
+    ) -> IssueCertificateForGroupOutput:
+        group = self._services.group_store.get_by_code(group_code)
+        try:
+            private_key = generate_private_key(group.key_type, group.key_size or 2048)
+        except KeyGenerationError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - cryptography由来の例外をラップ
+            raise KeyGenerationError(str(exc)) from exc
+
+        subject_dict = group.subject_dict()
+        if subject_overrides:
+            subject_dict.update(subject_overrides)
+        subject = SubjectBuilder(subject_dict).build()
+        csr = build_csr(private_key, subject, group.usage_type, key_usage or [])
+        csr_pem = csr.public_bytes(serialization.Encoding.PEM).decode("utf-8")
+
+        default_days = max(group.rotation_policy.rotation_threshold_days * 2, 1)
+        days = valid_days if valid_days and valid_days > 0 else default_days
+        sign_input = SignCertificateInput(
+            csr_pem=csr_pem,
+            usage_type=group.usage_type,
+            days=days,
+            is_ca=False,
+            key_usage=key_usage or [],
+            group_code=group.group_code,
+        )
+        sign_result = SignCertificateUseCase(self._services).execute(
+            sign_input,
+            actor=actor,
+        )
+
+        return IssueCertificateForGroupOutput(
+            kid=sign_result.kid,
+            certificate_pem=sign_result.certificate_pem,
+            private_key_pem=serialize_private_key(private_key),
+            jwk=sign_result.jwk,
+            usage_type=group.usage_type,
+            group_code=group.group_code,
+        )
+
+
+class SearchCertificatesUseCase:
+    """証明書検索ユースケース"""
+
+    def __init__(self, services: CertificateServices | None = None) -> None:
+        self._services = services or default_certificate_services
+
+    def execute(self, filters: CertificateSearchFilters) -> CertificateSearchResult:
+        certificates, total = self._services.issued_store.search(filters)
+        return CertificateSearchResult(total=total, certificates=certificates)

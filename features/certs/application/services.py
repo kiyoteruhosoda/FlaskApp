@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from features.certs.infrastructure.ca_store import CAKeyStore
+from features.certs.infrastructure.event_store import CertificateEventStore
 from features.certs.infrastructure.group_store import CertificateGroupStore
 from features.certs.infrastructure.issued_store import IssuedCertificateStore
 
@@ -13,12 +14,14 @@ class CertificateServices:
     ca_store: CAKeyStore
     issued_store: IssuedCertificateStore
     group_store: CertificateGroupStore
+    event_store: CertificateEventStore
 
 
 default_certificate_services = CertificateServices(
     ca_store=CAKeyStore(),
     issued_store=IssuedCertificateStore(),
     group_store=CertificateGroupStore(),
+    event_store=CertificateEventStore(),
 )
 
 

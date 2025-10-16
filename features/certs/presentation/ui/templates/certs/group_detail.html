@@ -80,7 +80,7 @@
       {% for oid, field_name, label in subject_fields %}
       <div class="col-md-6">
         <label class="form-label" for="issue_{{ field_name }}">{{ label }}</label>
-        <input class="form-control" type="text" id="issue_{{ field_name }}" name="{{ field_name }}" value="{{ subject_form_values[field_name] }}">
+        <input class="form-control" type="text" id="issue_{{ field_name }}" name="{{ field_name }}" value="{{ subject_form_values[field_name] }}" pattern="{{ subject_value_pattern }}" title="{{ subject_value_hint }}">
       </div>
       {% endfor %}
       <div class="col-12 text-end">
@@ -123,7 +123,7 @@
             <th scope="col">{{ _('Expires At') }}</th>
             <th scope="col">{{ _('Status') }}</th>
             <th scope="col">{{ _('Revoked At') }}</th>
-            <th scope="col">{{ _('Actions') }}</th>
+            <th scope="col" class="text-end">{{ _('Actions') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -145,13 +145,15 @@
                 {{ cert.revoked_at.strftime('%Y-%m-%d %H:%M:%S') }}
                 {% else %}-{% endif %}
               </td>
-              <td>
-                <a class="btn btn-sm btn-outline-primary me-2" href="{{ url_for('certs_ui.detail', kid=cert.kid) }}">{{ _('View Details') }}</a>
-                {% if not cert.is_revoked %}
-                <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#revokeModal" data-kid="{{ cert.kid }}">
-                  {{ _('Revoke') }}
-                </button>
-                {% endif %}
+              <td class="text-end">
+                <div class="d-flex justify-content-end flex-wrap gap-2">
+                  <a class="btn btn-outline-primary btn-sm" href="{{ url_for('certs_ui.detail', kid=cert.kid) }}">{{ _('View Details') }}</a>
+                  {% if not cert.is_revoked %}
+                  <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#revokeModal" data-kid="{{ cert.kid }}">
+                    {{ _('Revoke') }}
+                  </button>
+                  {% endif %}
+                </div>
               </td>
             </tr>
             {% endfor %}

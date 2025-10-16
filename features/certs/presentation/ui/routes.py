@@ -15,8 +15,9 @@ from flask import (
     url_for,
     session,
 )
-from flask_babel import gettext as _
+from flask_babel import gettext as _, lazy_gettext as _l
 from flask_login import current_user, login_required
+import re
 
 from features.certs.domain.usage import UsageType
 from features.certs.presentation.ui.api_client import CertsApiClientError
@@ -48,6 +49,14 @@ _SUBJECT_FIELD_DEFINITIONS: list[tuple[str, str, str]] = [
 
 _KEY_TYPE_OPTIONS = ["RSA", "EC"]
 
+_SUBJECT_VALUE_PATTERN = r"[A-Za-z0-9\s,.\-@_/+=:()']+"
+_SUBJECT_VALUE_REGEX = re.compile(rf"^{_SUBJECT_VALUE_PATTERN}$")
+_SUBJECT_ALLOWED_CHARS = _l("Allowed characters: letters, numbers, spaces, and - , . @ _ / + = : ( ) '.")
+
+
+def _subject_invalid_message() -> str:
+    return _("Enter a valid subject value. %(allowed)s", allowed=_SUBJECT_ALLOWED_CHARS)
+
 
 def _ensure_permission() -> None:
     if not current_user.can("certificate:manage"):
@@ -58,8 +67,11 @@ def _build_subject_from_form(form_data: dict[str, str]) -> dict[str, str]:
     subject: dict[str, str] = {}
     for oid, field_name, _label in _SUBJECT_FIELD_DEFINITIONS:
         value = (form_data.get(field_name) or "").strip()
-        if value:
-            subject[oid] = value
+        if not value:
+            continue
+        if not _SUBJECT_VALUE_REGEX.match(value):
+            raise ValueError(_subject_invalid_message())
+        subject[oid] = value
     return subject
 
 
@@ -111,6 +123,8 @@ def index():
         groups=groups,
         usage_options=_usage_options(),
         subject_fields=_SUBJECT_FIELD_DEFINITIONS,
+        subject_value_pattern=_SUBJECT_VALUE_PATTERN,
+        subject_value_hint=_SUBJECT_ALLOWED_CHARS,
         key_type_options=_KEY_TYPE_OPTIONS,
     )
 
@@ -152,7 +166,11 @@ def create_group():
         flash(_("Rotation threshold must be greater than zero."), "error")
         return redirect(url_for("certs_ui.index"))
 
-    subject = _build_subject_from_form(form)
+    try:
+        subject = _build_subject_from_form(form)
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("certs_ui.index"))
     if not subject:
         flash(_("Enter at least one subject attribute."), "error")
         return redirect(url_for("certs_ui.index"))
@@ -211,7 +229,11 @@ def update_group(group_code: str):
         flash(_("Rotation threshold must be greater than zero."), "error")
         return redirect(url_for("certs_ui.index"))
 
-    subject = _build_subject_from_form(form)
+    try:
+        subject = _build_subject_from_form(form)
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("certs_ui.index"))
     if not subject:
         flash(_("Enter at least one subject attribute."), "error")
         return redirect(url_for("certs_ui.index"))
@@ -290,6 +312,8 @@ def group_detail(group_code: str):
         key_usage_choices=_KEY_USAGE_CHOICES,
         issued_certificate=issued_certificate,
         subject_fields=_SUBJECT_FIELD_DEFINITIONS,
+        subject_value_pattern=_SUBJECT_VALUE_PATTERN,
+        subject_value_hint=_SUBJECT_ALLOWED_CHARS,
         subject_form_values=subject_form_values,
     )
 

@@ -805,6 +805,12 @@ msgstr "Rotation threshold must be greater than zero."
 msgid "Enter at least one subject attribute."
 msgstr "Enter at least one subject attribute."
 
+msgid "Allowed characters: letters, numbers, spaces, and - , . @ _ / + = : ( ) '."
+msgstr "Allowed characters: letters, numbers, spaces, and - , . @ _ / + = : ( ) '."
+
+msgid "Enter a valid subject value. %(allowed)s"
+msgstr "Enter a valid subject value. %(allowed)s"
+
 msgid "Failed to create certificate group: %(message)s"
 msgstr "Failed to create certificate group: %(message)s"
 

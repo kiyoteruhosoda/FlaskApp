@@ -2828,6 +2828,12 @@ msgstr "ローテーション閾値は1以上で指定してください。"
 msgid "Enter at least one subject attribute."
 msgstr "少なくとも1つのサブジェクト属性を入力してください。"
 
+msgid "Allowed characters: letters, numbers, spaces, and - , . @ _ / + = : ( ) '."
+msgstr "使用可能な文字: 英数字、スペース、および - , . @ _ / + = : ( ) '。"
+
+msgid "Enter a valid subject value. %(allowed)s"
+msgstr "有効なSubjectの値を入力してください。%(allowed)s"
+
 msgid "Failed to create certificate group: %(message)s"
 msgstr "証明書グループの作成に失敗しました: %(message)s"
 

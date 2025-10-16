@@ -8,6 +8,8 @@ from typing import Any
 from urllib.parse import urljoin
 
 import requests
+from cryptography import x509
+from cryptography.x509.oid import NameOID
 from flask import Flask, current_app, has_request_context, request, url_for
 
 from features.certs.domain.usage import UsageType
@@ -47,17 +49,30 @@ class CertificateSummary:
     issued_at: datetime | None
     revoked_at: datetime | None
     revocation_reason: str | None
+    subject: str
 
     @property
     def is_revoked(self) -> bool:
         return self.revoked_at is not None
+
+    @property
+    def common_name(self) -> str | None:
+        if not self.subject:
+            return None
+        try:
+            name = x509.Name.from_rfc4514_string(self.subject)
+        except ValueError:
+            return None
+        for attribute in name:
+            if attribute.oid == NameOID.COMMON_NAME:
+                return attribute.value
+        return None
 
 
 @dataclass(slots=True)
 class CertificateDetail(CertificateSummary):
     certificate_pem: str
     jwk: dict[str, Any]
-    subject: str
     issuer: str
     not_before: datetime | None
     not_after: datetime | None
@@ -228,6 +243,7 @@ class CertsApiClient:
             issued_at=_parse_datetime(payload.get("issuedAt")),
             revoked_at=_parse_datetime(payload.get("revokedAt")),
             revocation_reason=payload.get("revocationReason"),
+            subject=str(payload.get("subject", "")),
         )
 
     def _parse_detail(self, payload: dict[str, Any]) -> CertificateDetail:
@@ -238,9 +254,9 @@ class CertsApiClient:
             issued_at=summary.issued_at,
             revoked_at=summary.revoked_at,
             revocation_reason=summary.revocation_reason,
+            subject=summary.subject,
             certificate_pem=str(payload.get("certificatePem", "")),
             jwk=payload.get("jwk", {}),
-            subject=str(payload.get("subject", "")),
             issuer=str(payload.get("issuer", "")),
             not_before=_parse_datetime(payload.get("notBefore")),
             not_after=_parse_datetime(payload.get("notAfter")),

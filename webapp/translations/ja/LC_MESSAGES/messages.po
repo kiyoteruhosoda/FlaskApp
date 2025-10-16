@@ -2438,6 +2438,9 @@ msgstr "インポート実行"
 msgid "Certificate List"
 msgstr "証明書一覧"
 
+msgid "Common Name"
+msgstr "コモンネーム"
+
 msgid "Generate New"
 msgstr "新規生成"
 

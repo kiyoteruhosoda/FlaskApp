@@ -150,6 +150,7 @@
             </div>
             {% endfor %}
           </div>
+          <p class="text-danger small mt-2 d-none" data-subject-error>{{ _('At least one subject attribute is required.') }}</p>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
@@ -224,6 +225,7 @@
             </div>
             {% endfor %}
           </div>
+          <p class="text-danger small mt-2 d-none" data-subject-error>{{ _('At least one subject attribute is required.') }}</p>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
@@ -523,6 +525,103 @@
 
   const editFormActionTemplate = `{{ url_for('certs_ui.update_group', group_code='__PLACEHOLDER__') }}`;
 
+  const subjectFieldNames = {{ subject_fields | map(attribute=1) | list | tojson }};
+  const subjectValidationMessage = {{ _('At least one subject attribute is required.') | tojson }};
+
+  function setupSubjectValidation(form) {
+    if (!form) {
+      return null;
+    }
+
+    const inputs = subjectFieldNames
+      .map((name) => form.querySelector(`[name="${name}"]`))
+      .filter((input) => Boolean(input));
+
+    if (!inputs.length) {
+      return null;
+    }
+
+    const validatorTarget = inputs[0];
+    const errorMessage = form.querySelector('[data-subject-error]');
+    let attempted = false;
+
+    function hasSubjectValue() {
+      return inputs.some((input) => input.value.trim() !== '');
+    }
+
+    function updateState() {
+      const valid = hasSubjectValue();
+
+      if (validatorTarget) {
+        if (valid || !attempted) {
+          validatorTarget.setCustomValidity('');
+        } else {
+          validatorTarget.setCustomValidity(subjectValidationMessage);
+        }
+      }
+
+      inputs.forEach((input) => {
+        if (!attempted || valid) {
+          input.classList.remove('is-invalid');
+        } else {
+          input.classList.add('is-invalid');
+        }
+      });
+
+      if (errorMessage) {
+        if (valid || !attempted) {
+          errorMessage.classList.add('d-none');
+        } else {
+          errorMessage.classList.remove('d-none');
+        }
+      }
+
+      return valid;
+    }
+
+    function handleInput() {
+      updateState();
+    }
+
+    inputs.forEach((input) => {
+      input.addEventListener('input', handleInput);
+      input.addEventListener('change', handleInput);
+    });
+
+    function handleSubmit(event) {
+      attempted = true;
+      if (updateState()) {
+        return;
+      }
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (validatorTarget) {
+        validatorTarget.reportValidity();
+        validatorTarget.focus({ preventScroll: true });
+      }
+    }
+
+    form.addEventListener('submit', handleSubmit, true);
+
+    function reset() {
+      attempted = false;
+      updateState();
+    }
+
+    reset();
+
+    return {
+      reset,
+      update: updateState,
+    };
+  }
+
+  const createForm = document.querySelector('#createGroupModal form');
+  const editForm = document.getElementById('editGroupForm');
+
+  const createSubjectValidation = setupSubjectValidation(createForm);
+  const editSubjectValidation = setupSubjectValidation(editForm);
+
   function fillEditForm(data) {
     if (!data) {
       return;
@@ -564,6 +663,7 @@
     const {{ field_name }}Field = form.querySelector('#edit_{{ field_name }}');
     if ({{ field_name }}Field) {
       {{ field_name }}Field.value = subject['{{ oid }}'] || '';
+      {{ field_name }}Field.dispatchEvent(new Event('input', { bubbles: true }));
     }
     {% endfor %}
 
@@ -596,6 +696,10 @@
       if (keySizeSelect) {
         keySizeSelect.value = keySizeValue;
       }
+    }
+
+    if (editSubjectValidation) {
+      editSubjectValidation.reset();
     }
   }
 

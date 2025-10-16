@@ -4,6 +4,8 @@ from __future__ import annotations
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 
+from features.certs.application.use_cases import GetIssuedCertificateUseCase
+
 
 def test_generate_sign_and_jwks_flow(app_context):
     client = app_context.test_client()
@@ -57,6 +59,10 @@ def test_generate_sign_and_jwks_flow(app_context):
     jwks = jwks_resp.get_json()
     assert jwks["keys"]
     assert jwks["keys"][0]["kid"] == signed["kid"]
+
+    with app_context.app_context():
+        stored = GetIssuedCertificateUseCase().execute(signed["kid"])
+        assert stored.kid == signed["kid"]
 
 
 def test_generate_rejects_unknown_usage(app_context):

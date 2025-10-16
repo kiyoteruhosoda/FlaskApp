@@ -12,8 +12,8 @@ from flask import (
     redirect,
     render_template,
     request,
-    url_for,
     session,
+    url_for,
 )
 from flask_babel import gettext as _
 from flask_login import current_user, login_required
@@ -46,12 +46,86 @@ _SUBJECT_FIELD_DEFINITIONS: list[tuple[str, str, str]] = [
     ("emailAddress", "subject_email", _("Email Address")),
 ]
 
-_KEY_TYPE_OPTIONS = ["RSA", "EC"]
 
+class SubjectValidationError(ValueError):
+    def __init__(self, errors: list[str]):
+        super().__init__("; ".join(errors))
+        self.errors = errors
 
 def _ensure_permission() -> None:
     if not current_user.can("certificate:manage"):
         abort(403)
+
+
+def _usage_key_presets() -> dict[str, list[dict[str, str | int | None]]]:
+    return {
+        UsageType.SERVER_SIGNING.value: [
+            {
+                "label": _("RSA 2048 (recommended)"),
+                "keyType": "RSA",
+                "keyCurve": None,
+                "keySize": 2048,
+            },
+            {
+                "label": _("RSA 4096"),
+                "keyType": "RSA",
+                "keyCurve": None,
+                "keySize": 4096,
+            },
+            {
+                "label": _("EC P-256"),
+                "keyType": "EC",
+                "keyCurve": "P-256",
+                "keySize": None,
+            },
+            {
+                "label": _("EC P-384"),
+                "keyType": "EC",
+                "keyCurve": "P-384",
+                "keySize": None,
+            },
+        ],
+        UsageType.CLIENT_SIGNING.value: [
+            {
+                "label": _("EC P-256 (recommended)"),
+                "keyType": "EC",
+                "keyCurve": "P-256",
+                "keySize": None,
+            },
+            {
+                "label": _("EC P-384"),
+                "keyType": "EC",
+                "keyCurve": "P-384",
+                "keySize": None,
+            },
+            {
+                "label": _("RSA 2048"),
+                "keyType": "RSA",
+                "keyCurve": None,
+                "keySize": 2048,
+            },
+        ],
+        UsageType.ENCRYPTION.value: [
+            {
+                "label": _("RSA 2048 (recommended)"),
+                "keyType": "RSA",
+                "keyCurve": None,
+                "keySize": 2048,
+            },
+            {
+                "label": _("RSA 3072"),
+                "keyType": "RSA",
+                "keyCurve": None,
+                "keySize": 3072,
+            },
+            {
+                "label": _("RSA 4096"),
+                "keyType": "RSA",
+                "keyCurve": None,
+                "keySize": 4096,
+            },
+        ],
+    }
 
 
 def _build_subject_from_form(form_data: dict[str, str]) -> dict[str, str]:
@@ -60,6 +134,38 @@ def _build_subject_from_form(form_data: dict[str, str]) -> dict[str, str]:
         value = (form_data.get(field_name) or "").strip()
         if value:
             subject[oid] = value
+    return subject
+
+
+def _validate_subject_template(form_data: dict[str, str]) -> dict[str, str]:
+    errors: list[str] = []
+    subject: dict[str, str] = {}
+
+    for oid, field_name, label in _SUBJECT_FIELD_DEFINITIONS:
+        raw_value = (form_data.get(field_name) or "").strip()
+        if not raw_value:
+            continue
+
+        if not raw_value.isascii():
+            errors.append(_("%(label)s must use ASCII characters.", label=label))
+            continue
+
+        value = raw_value
+        if oid == "C":
+            normalized = value.upper()
+            if len(normalized) != 2 or not normalized.isalpha():
+                errors.append(_("Country (C) must be a two-letter ISO 3166-1 alpha-2 code (e.g., JP)."))
+                continue
+            value = normalized
+
+        subject[oid] = value
+
+    if not subject:
+        errors.append(_("At least one subject attribute is required."))
+
+    if errors:
+        raise SubjectValidationError(errors)
+
     return subject
 
 
@@ -106,12 +212,53 @@ def index():
         flash(_("Failed to load certificate groups: %(message)s", message=str(exc)), "error")
         groups = []
 
+    stored_form_state = session.pop("certs_create_group_form", None)
+    create_form_values: dict[str, str] = {}
+    show_create_modal = False
+    if stored_form_state:
+        create_form_values = stored_form_state.get("values", {})
+        show_create_modal = bool(stored_form_state.get("show_modal"))
+
+    stored_edit_form = session.pop("certs_edit_group_form", None)
+    edit_form_initial: dict[str, object] | None = None
+    show_edit_modal = False
+    if stored_edit_form:
+        values = stored_edit_form.get("values", {}) if isinstance(stored_edit_form, dict) else {}
+        group_code_value = (
+            stored_edit_form.get("group_code") if isinstance(stored_edit_form, dict) else None
+        ) or values.get("group_code")
+        subject_values = {
+            oid: values.get(field_name, "")
+            for oid, field_name, _label in _SUBJECT_FIELD_DEFINITIONS
+        }
+        edit_form_initial = {
+            "groupCode": group_code_value or "",
+            "displayName": values.get("display_name", ""),
+            "usageType": values.get("usage_type", ""),
+            "keyType": values.get("key_type", ""),
+            "keyCurve": values.get("key_curve", ""),
+            "keySize": values.get("key_size", ""),
+            "autoRotate": values.get("auto_rotate") == "on",
+            "rotationThresholdDays": values.get("rotation_threshold_days", ""),
+            "subject": subject_values,
+        }
+        show_edit_modal = bool(stored_edit_form.get("show_modal"))
+
+    if "auto_rotate" not in create_form_values:
+        create_form_values["auto_rotate"] = "on"
+    if "rotation_threshold_days" not in create_form_values:
+        create_form_values["rotation_threshold_days"] = "30"
+
     return render_template(
         "certs/groups.html",
         groups=groups,
         usage_options=_usage_options(),
         subject_fields=_SUBJECT_FIELD_DEFINITIONS,
-        key_type_options=_KEY_TYPE_OPTIONS,
+        key_presets=_usage_key_presets(),
+        create_form_values=create_form_values,
+        show_create_modal=show_create_modal,
+        edit_form_initial=edit_form_initial,
+        show_edit_modal=show_edit_modal,
     )
 
 
@@ -121,8 +268,17 @@ def create_group():
     _ensure_permission()
 
     form = request.form
+
+    def _remember_form_state() -> None:
+        values = form.to_dict(flat=True)
+        values["auto_rotate"] = "on" if form.get("auto_rotate") == "on" else "off"
+        session["certs_create_group_form"] = {
+            "values": values,
+            "show_modal": True,
+        }
     group_code = (form.get("group_code") or "").strip()
     if not group_code:
+        _remember_form_state()
         flash(_("Group code is required."), "error")
         return redirect(url_for("certs_ui.index"))
 
@@ -130,6 +286,7 @@ def create_group():
     try:
         usage_type = _parse_usage(form.get("usage_type"))
     except ValueError:
+        _remember_form_state()
         flash(_("Invalid usage type specified."), "error")
         return redirect(url_for("certs_ui.index"))
 
@@ -139,6 +296,7 @@ def create_group():
     try:
         key_size = _parse_int(form.get("key_size"))
     except ValueError:
+        _remember_form_state()
         flash(_("Key size must be a number."), "error")
         return redirect(url_for("certs_ui.index"))
 
@@ -146,15 +304,20 @@ def create_group():
     try:
         rotation_threshold_days = _parse_int(form.get("rotation_threshold_days"), default=30)
     except ValueError:
+        _remember_form_state()
         flash(_("Rotation threshold must be a number."), "error")
         return redirect(url_for("certs_ui.index"))
     if rotation_threshold_days is None or rotation_threshold_days <= 0:
+        _remember_form_state()
         flash(_("Rotation threshold must be greater than zero."), "error")
         return redirect(url_for("certs_ui.index"))
 
-    subject = _build_subject_from_form(form)
-    if not subject:
-        flash(_("Enter at least one subject attribute."), "error")
+    try:
+        subject = _validate_subject_template(form)
+    except SubjectValidationError as exc:
+        _remember_form_state()
+        for message in exc.errors:
+            flash(message, "error")
         return redirect(url_for("certs_ui.index"))
 
     service = _service()
@@ -172,8 +335,10 @@ def create_group():
         )
     except CertsApiClientError as exc:
         current_app.logger.exception("Failed to create certificate group")
+        _remember_form_state()
         flash(_("Failed to create certificate group: %(message)s", message=str(exc)), "error")
     else:
+        session.pop("certs_create_group_form", None)
         flash(_("Certificate group created."), "success")
 
     return redirect(url_for("certs_ui.index"))
@@ -185,10 +350,21 @@ def update_group(group_code: str):
     _ensure_permission()
 
     form = request.form
+
+    def _remember_edit_form_state() -> None:
+        values = form.to_dict(flat=True)
+        values["auto_rotate"] = "on" if form.get("auto_rotate") == "on" else "off"
+        session["certs_edit_group_form"] = {
+            "group_code": group_code,
+            "values": values,
+            "show_modal": True,
+        }
+
     display_name = (form.get("display_name") or "").strip() or None
     try:
         usage_type = _parse_usage(form.get("usage_type"))
     except ValueError:
+        _remember_edit_form_state()
         flash(_("Invalid usage type specified."), "error")
         return redirect(url_for("certs_ui.index"))
 
@@ -198,6 +374,7 @@ def update_group(group_code: str):
     try:
         key_size = _parse_int(form.get("key_size"))
     except ValueError:
+        _remember_edit_form_state()
         flash(_("Key size must be a number."), "error")
         return redirect(url_for("certs_ui.index"))
 
@@ -205,15 +382,20 @@ def update_group(group_code: str):
     try:
         rotation_threshold_days = _parse_int(form.get("rotation_threshold_days"), default=30)
     except ValueError:
+        _remember_edit_form_state()
         flash(_("Rotation threshold must be a number."), "error")
         return redirect(url_for("certs_ui.index"))
     if rotation_threshold_days is None or rotation_threshold_days <= 0:
+        _remember_edit_form_state()
         flash(_("Rotation threshold must be greater than zero."), "error")
         return redirect(url_for("certs_ui.index"))
 
-    subject = _build_subject_from_form(form)
-    if not subject:
-        flash(_("Enter at least one subject attribute."), "error")
+    try:
+        subject = _validate_subject_template(form)
+    except SubjectValidationError as exc:
+        _remember_edit_form_state()
+        for message in exc.errors:
+            flash(message, "error")
         return redirect(url_for("certs_ui.index"))
 
     service = _service()
@@ -231,8 +413,10 @@ def update_group(group_code: str):
         )
     except CertsApiClientError as exc:
         current_app.logger.exception("Failed to update certificate group")
+        _remember_edit_form_state()
         flash(_("Failed to update certificate group: %(message)s", message=str(exc)), "error")
     else:
+        session.pop("certs_edit_group_form", None)
         flash(_("Certificate group updated."), "success")
 
     return redirect(url_for("certs_ui.index"))

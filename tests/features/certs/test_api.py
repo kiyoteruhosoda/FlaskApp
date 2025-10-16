@@ -4,9 +4,6 @@ from __future__ import annotations
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 
-from features.certs.application.use_cases import GetIssuedCertificateUseCase
-
-
 def test_generate_sign_and_jwks_flow(app_context):
     client = app_context.test_client()
 
@@ -60,9 +57,30 @@ def test_generate_sign_and_jwks_flow(app_context):
     assert jwks["keys"]
     assert jwks["keys"][0]["kid"] == signed["kid"]
 
-    with app_context.app_context():
-        stored = GetIssuedCertificateUseCase().execute(signed["kid"])
-        assert stored.kid == signed["kid"]
+    list_resp = client.get("/api/certs")
+    assert list_resp.status_code == 200
+    listed = list_resp.get_json()
+    assert any(item["kid"] == signed["kid"] for item in listed["certificates"])
+
+    detail_resp = client.get(f"/api/certs/{signed['kid']}")
+    assert detail_resp.status_code == 200
+    detail = detail_resp.get_json()["certificate"]
+    assert detail["kid"] == signed["kid"]
+    assert detail["certificatePem"].startswith("-----BEGIN CERTIFICATE-----")
+
+    revoke_resp = client.post(
+        f"/api/certs/{signed['kid']}/revoke",
+        json={"reason": "compromised"},
+    )
+    assert revoke_resp.status_code == 200
+    revoked = revoke_resp.get_json()["certificate"]
+    assert revoked["revokedAt"] is not None
+    assert revoked["revocationReason"] == "compromised"
+
+    detail_after_resp = client.get(f"/api/certs/{signed['kid']}")
+    assert detail_after_resp.status_code == 200
+    detail_after = detail_after_resp.get_json()["certificate"]
+    assert detail_after["revokedAt"] is not None
 
 
 def test_generate_rejects_unknown_usage(app_context):
@@ -75,6 +93,15 @@ def test_generate_rejects_unknown_usage(app_context):
             "usageType": "unknown_usage",
         },
     )
+    assert resp.status_code == 400
+    error = resp.get_json()
+    assert "error" in error
+
+
+def test_list_certificates_rejects_invalid_usage(app_context):
+    client = app_context.test_client()
+
+    resp = client.get("/api/certs", query_string={"usage": "unknown"})
     assert resp.status_code == 400
     error = resp.get_json()
     assert "error" in error

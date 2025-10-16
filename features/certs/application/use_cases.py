@@ -9,7 +9,6 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 
 from features.certs.domain.exceptions import (
-    CertificateNotFoundError,
     CertificateSigningError,
     CertificateValidationError,
     KeyGenerationError,
@@ -45,7 +44,10 @@ class CertificateServices:
     issued_store: IssuedCertificateStore
 
 
-_default_services = CertificateServices(ca_store=CAKeyStore(), issued_store=IssuedCertificateStore())
+_default_services = CertificateServices(
+    ca_store=CAKeyStore(),
+    issued_store=IssuedCertificateStore(),
+)
 
 
 class GenerateCertificateMaterialUseCase:
@@ -138,7 +140,7 @@ class SignCertificateUseCase:
             jwk=jwk,
             issued_at=datetime.utcnow(),
         )
-        self._services.issued_store.add(issued)
+        self._services.issued_store.save(issued)
 
         return SignCertificateOutput(
             certificate_pem=certificate.public_bytes(serialization.Encoding.PEM).decode("utf-8"),
@@ -155,8 +157,7 @@ class ListJwksUseCase:
         self._services = services or _default_services
 
     def execute(self, usage_type: UsageType) -> dict:
-        certificates = self._services.issued_store.list_by_usage(usage_type)
-        keys = [cert.jwk for cert in sorted(certificates, key=lambda cert: cert.issued_at, reverse=True)]
+        keys = self._services.issued_store.list_jwks(usage_type)
         return {"keys": keys}
 
 
@@ -167,10 +168,7 @@ class ListIssuedCertificatesUseCase:
         self._services = services or _default_services
 
     def execute(self, usage_type: UsageType | None = None) -> list[IssuedCertificate]:
-        store = self._services.issued_store
-        if usage_type is None:
-            return store.list_all()
-        return store.list_by_usage(usage_type)
+        return self._services.issued_store.list(usage_type)
 
 
 class GetIssuedCertificateUseCase:
@@ -180,10 +178,7 @@ class GetIssuedCertificateUseCase:
         self._services = services or _default_services
 
     def execute(self, kid: str) -> IssuedCertificate:
-        cert = self._services.issued_store.get(kid)
-        if cert is None:
-            raise CertificateNotFoundError("指定された証明書が見つかりません")
-        return cert
+        return self._services.issued_store.get(kid)
 
 
 class RevokeCertificateUseCase:
@@ -193,7 +188,4 @@ class RevokeCertificateUseCase:
         self._services = services or _default_services
 
     def execute(self, kid: str, reason: str | None = None) -> IssuedCertificate:
-        cert = self._services.issued_store.revoke(kid, reason)
-        if cert is None:
-            raise CertificateNotFoundError("指定された証明書が見つかりません")
-        return cert
+        return self._services.issued_store.revoke(kid, reason)

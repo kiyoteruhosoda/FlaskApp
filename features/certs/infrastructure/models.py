@@ -1,4 +1,4 @@
-"""SQLAlchemy models for certificate infrastructure."""
+"""証明書機能のSQLAlchemyモデル"""
 from __future__ import annotations
 
 from datetime import datetime
@@ -9,7 +9,7 @@ from core.db import db
 
 
 class IssuedCertificateEntity(db.Model):
-    """Persistent storage for issued certificates."""
+    """発行済み証明書を保持するテーブル"""
 
     __tablename__ = "issued_certificates"
 

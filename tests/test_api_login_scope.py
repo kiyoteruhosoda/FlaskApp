@@ -3,6 +3,9 @@ import uuid
 
 import jwt
 import pytest
+from flask import g
+
+from webapp.services.token_service import TokenService
 
 
 @pytest.fixture()
@@ -26,7 +29,14 @@ def app(tmp_path):
     from webapp import create_app
 
     app = create_app()
-    app.config.update(TESTING=True)
+    app.config.update(TESTING=True, LOGIN_DISABLED=False)
+
+    funcs = app.before_request_funcs.get(None, [])
+    app.before_request_funcs[None] = [
+        func
+        for func in funcs
+        if getattr(func, "__name__", "") != "_apply_login_disabled_for_testing"
+    ]
 
     from webapp.extensions import db
 
@@ -82,12 +92,36 @@ def scoped_user(app):
         return user
 
 
+@pytest.fixture()
+def album_user(app):
+    from webapp.extensions import db
+    from core.models.user import Permission, Role, User
+
+    with app.app_context():
+        create_perm = Permission(code="album:create")
+        edit_perm = Permission(code="album:edit")
+        db.session.add_all([create_perm, edit_perm])
+        db.session.flush()
+
+        role = Role(name=f"album-{uuid.uuid4().hex[:8]}")
+        role.permissions.extend([create_perm, edit_perm])
+
+        user = User(email=f"album-{uuid.uuid4().hex[:8]}@example.com")
+        user.set_password("pass")
+        user.roles.append(role)
+
+        db.session.add_all([role, user])
+        db.session.commit()
+
+        return user
+
+
 def _decode_scope(token: str) -> str:
     payload = jwt.decode(token, "jwt-secret", algorithms=["HS256"])
     return payload.get("scope", "")
 
 
-def test_login_applies_requested_scope_subset(client, scoped_user):
+def test_login_applies_requested_scope_subset(app, client, scoped_user):
     payload = {
         "email": scoped_user.email,
         "password": "pass",
@@ -103,6 +137,18 @@ def test_login_applies_requested_scope_subset(client, scoped_user):
 
     decoded_scope = _decode_scope(data["access_token"])
     assert decoded_scope == "read:cert write:cert"
+
+    with app.app_context():
+        verification = TokenService.verify_access_token(data["access_token"])
+        assert verification is not None
+        user, scope = verification
+        assert user.id == scoped_user.id
+        assert scope == {"read:cert", "write:cert"}
+
+        with app.test_request_context():
+            g.current_token_scope = scope
+            assert user.can("read:cert")
+            assert not user.can("read:user")
 
 
 def test_login_with_missing_scope_grants_no_permissions(client, scoped_user):
@@ -130,3 +176,33 @@ def test_login_rejects_scope_not_in_roles(client, scoped_user):
     # maintenance:edit は保有ロールに含まれないため除外される
     assert data["scope"] == "write:cert"
     assert _decode_scope(data["access_token"]) == "write:cert"
+
+
+def test_scoped_token_enforces_permissions(client, album_user):
+    payload = {
+        "email": album_user.email,
+        "password": "pass",
+        "scope": "album:create",
+    }
+
+    login_response = client.post("/api/login", json=payload)
+    assert login_response.status_code == 200
+    tokens = login_response.get_json()
+
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+    create_response = client.post(
+        "/api/albums",
+        json={"name": "Scoped Album"},
+        headers=headers,
+    )
+    assert create_response.status_code == 201
+    album_id = create_response.get_json()["album"]["id"]
+
+    update_response = client.put(
+        f"/api/albums/{album_id}",
+        json={"name": "Updated"},
+        headers=headers,
+    )
+    assert update_response.status_code == 403
+    assert update_response.get_json()["error"] == "forbidden"

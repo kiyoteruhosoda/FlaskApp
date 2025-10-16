@@ -351,6 +351,11 @@ def _local_import_log(message: str, *, level: str = 'info', event: str = 'local_
     _emit_structured_api_log(message, level=level, event=event, **extra_context)
 
 
+def _set_jwt_context(user: User, scope: set[str]) -> None:
+    g.current_user = user
+    g.current_token_scope = scope
+
+
 def jwt_required(f):
     """JWT認証が必要なエンドポイント用のデコレータ"""
     @wraps(f)
@@ -368,14 +373,14 @@ def jwt_required(f):
         if not token:
             return jsonify({'error': 'token_missing'}), 401
         
-        user = TokenService.verify_access_token(token)
-        if not user:
+        verification = TokenService.verify_access_token(token)
+        if not verification:
             return jsonify({'error': 'invalid_token'}), 401
-        
+
         # Flask-Loginのcurrent_userと同じように使えるよう設定
-        from flask import g
-        g.current_user = user
-        
+        user, scope = verification
+        _set_jwt_context(user, scope)
+
         return f(*args, **kwargs)
     return decorated_function
 
@@ -515,8 +520,8 @@ def login_or_jwt_required(f):
             )
             return jsonify({'error': 'authentication_required'}), 401
 
-        user = TokenService.verify_access_token(token)
-        if not user:
+        verification = TokenService.verify_access_token(token)
+        if not verification:
             _auth_log(
                 'JWT token verification failed',
                 level='warning',
@@ -527,7 +532,8 @@ def login_or_jwt_required(f):
             return jsonify({'error': 'invalid_token'}), 401
 
         # Flask-Loginのcurrent_userと同じように使えるよう設定
-        g.current_user = user
+        user, scope = verification
+        _set_jwt_context(user, scope)
         _auth_log(
             'Authentication successful via JWT',
             stage='success',

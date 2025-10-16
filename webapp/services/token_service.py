@@ -115,8 +115,8 @@ class TokenService:
         return access_token, refresh_token
 
     @classmethod
-    def verify_access_token(cls, token: str) -> Optional[User]:
-        """アクセストークンを検証してユーザーを取得する"""
+    def verify_access_token(cls, token: str) -> Optional[tuple[User, set[str]]]:
+        """アクセストークンを検証してユーザーと許可スコープを取得する"""
 
         try:
             payload = jwt.decode(
@@ -131,7 +131,13 @@ class TokenService:
             if not user or not user.is_active:
                 return None
 
-            return user
+            scope_claim = payload.get("scope", "")
+            if isinstance(scope_claim, str):
+                scope_items = {item for item in scope_claim.split() if item}
+            else:
+                scope_items = set()
+
+            return user, scope_items
 
         except jwt.ExpiredSignatureError:
             current_app.logger.debug("JWT token expired")

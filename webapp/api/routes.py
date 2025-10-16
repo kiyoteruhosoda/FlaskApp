@@ -1344,6 +1344,7 @@ def api_login():
     email = data.get("email")
     password = data.get("password")
     token = data.get("token")
+    scope_request_raw = data.get("scope")
     user_model = auth_service.authenticate(email, password)
     if not user_model:
         return jsonify({"error": "invalid_credentials"}), 401
@@ -1354,8 +1355,17 @@ def api_login():
         if not verify_totp(user_model.totp_secret, token):
             return jsonify({"error": "invalid_totp"}), 401
 
+    if isinstance(scope_request_raw, str):
+        requested_scope = {item for item in scope_request_raw.split() if item}
+    else:
+        requested_scope = set()
+
+    user_permissions = user_model.all_permissions
+    granted_scope = sorted(requested_scope & user_permissions)
+    scope_str = " ".join(granted_scope)
+
     # TokenServiceを使用してトークンペアを生成
-    access_token, refresh_token = TokenService.generate_token_pair(user_model)
+    access_token, refresh_token = TokenService.generate_token_pair(user_model, granted_scope)
 
     session.pop("active_role_id", None)
     roles = list(getattr(user_model, "roles", []) or [])
@@ -1373,6 +1383,8 @@ def api_login():
             "refresh_token": refresh_token,
             "requires_role_selection": True,
             "redirect_url": url_for("auth.select_role"),
+            "scope": scope_str,
+            "available_scopes": sorted(user_permissions),
         }
     else:
         _sync_active_role(user_model)
@@ -1381,6 +1393,8 @@ def api_login():
             "refresh_token": refresh_token,
             "requires_role_selection": False,
             "redirect_url": redirect_target,
+            "scope": scope_str,
+            "available_scopes": sorted(user_permissions),
         }
 
     resp = jsonify(response_payload)
@@ -1422,13 +1436,17 @@ def api_refresh():
         return jsonify({"error": "missing_refresh_token"}), 400
     
     # TokenServiceを使用してトークンをリフレッシュ
-    token_pair = TokenService.refresh_tokens(refresh_token)
-    if not token_pair:
+    token_bundle = TokenService.refresh_tokens(refresh_token)
+    if not token_bundle:
         return jsonify({"error": "invalid_token"}), 401
-    
-    access_token, new_refresh_token = token_pair
-    
-    resp = jsonify({"access_token": access_token, "refresh_token": new_refresh_token})
+
+    access_token, new_refresh_token, scope_str = token_bundle
+
+    resp = jsonify({
+        "access_token": access_token,
+        "refresh_token": new_refresh_token,
+        "scope": scope_str,
+    })
     resp.set_cookie(
         "access_token",
         access_token,

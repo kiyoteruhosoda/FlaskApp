@@ -102,6 +102,14 @@ class User(db.Model, UserMixin):
                 codes.add(p.code)
         return codes
 
+    @property
+    def all_permissions(self) -> set[str]:
+        codes = set()
+        for role in self.roles or []:
+            for permission in role.permissions:
+                codes.add(permission.code)
+        return codes
+
     def has_role(self, *names: str) -> bool:
         have = {r.name for r in self._iter_effective_roles()}
         return any(n in have for n in names)

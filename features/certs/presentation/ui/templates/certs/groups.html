@@ -83,7 +83,7 @@
   </table>
 </div>
 
-<div class="modal fade" id="createGroupModal" tabindex="-1" aria-labelledby="createGroupModalLabel" aria-hidden="true">
+<div class="modal fade" id="createGroupModal" tabindex="-1" aria-labelledby="createGroupModalLabel" aria-hidden="true" data-show-on-load="{{ 'true' if show_create_modal else 'false' }}">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <form method="post" action="{{ url_for('certs_ui.create_group') }}">
@@ -94,56 +94,57 @@
         <div class="modal-body">
           <div class="row g-3">
             <div class="col-md-6">
-              <label class="form-label" for="group_code">{{ _('Group Code') }}</label>
-              <input class="form-control" type="text" id="group_code" name="group_code" required>
+              <label class="form-label" for="group_code">{{ _('Group Code') }} <span class="text-danger">*</span></label>
+              <input class="form-control" type="text" id="group_code" name="group_code" required value="{{ create_form_values.get('group_code', '') }}">
             </div>
             <div class="col-md-6">
               <label class="form-label" for="display_name">{{ _('Display Name') }}</label>
-              <input class="form-control" type="text" id="display_name" name="display_name">
+              <input class="form-control" type="text" id="display_name" name="display_name" value="{{ create_form_values.get('display_name', '') }}">
             </div>
             <div class="col-md-6">
-              <label class="form-label" for="usage_type">{{ _('Usage Type') }}</label>
-              <select class="form-select" id="usage_type" name="usage_type" required>
+              <label class="form-label" for="usage_type">{{ _('Usage Type') }} <span class="text-danger">*</span></label>
+              <select class="form-select" id="usage_type" name="usage_type" required data-initial="{{ create_form_values.get('usage_type', '') }}">
                 <option value="">{{ _('Select usage type') }}</option>
                 {% for value, label in usage_options %}
-                <option value="{{ value }}">{{ label }}</option>
+                <option value="{{ value }}" {% if create_form_values.get('usage_type') == value %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
               </select>
             </div>
             <div class="col-md-3">
               <label class="form-label" for="key_type">{{ _('Key Type') }}</label>
-              <select class="form-select" id="key_type" name="key_type">
-                {% for key_type in key_type_options %}
-                <option value="{{ key_type }}">{{ key_type }}</option>
-                {% endfor %}
-              </select>
+              <select class="form-select" id="key_type" name="key_type" data-initial="{{ create_form_values.get('key_type', '') }}" data-placeholder="{{ _('Select key type') }}" data-unspecified="{{ _('Not specified') }}"></select>
             </div>
             <div class="col-md-3">
               <label class="form-label" for="key_size">{{ _('Key Size') }}</label>
-              <input class="form-control" type="number" id="key_size" name="key_size" min="0" step="1">
+              <select class="form-select" id="key_size" name="key_size" data-initial="{{ create_form_values.get('key_size', '') }}" data-placeholder="{{ _('Select key size') }}" data-unspecified="{{ _('Not specified') }}"></select>
             </div>
             <div class="col-md-6">
               <label class="form-label" for="key_curve">{{ _('Key Curve') }}</label>
-              <input class="form-control" type="text" id="key_curve" name="key_curve">
+              <select class="form-select" id="key_curve" name="key_curve" data-initial="{{ create_form_values.get('key_curve', '') }}" data-placeholder="{{ _('Select key curve') }}" data-unspecified="{{ _('Not specified') }}"></select>
             </div>
             <div class="col-md-3">
-              <label class="form-label" for="rotation_threshold_days">{{ _('Rotation Threshold (days)') }}</label>
-              <input class="form-control" type="number" id="rotation_threshold_days" name="rotation_threshold_days" value="30" min="1">
+              <label class="form-label" for="rotation_threshold_days">{{ _('Rotation Threshold (days)') }} <span class="text-danger">*</span></label>
+              <input class="form-control" type="number" id="rotation_threshold_days" name="rotation_threshold_days" value="{{ create_form_values.get('rotation_threshold_days', 30) }}" min="1" required>
             </div>
             <div class="col-md-3 d-flex align-items-end">
               <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="auto_rotate" name="auto_rotate" checked>
+                <input class="form-check-input" type="checkbox" id="auto_rotate" name="auto_rotate" {% if create_form_values.get('auto_rotate', 'on') == 'on' %}checked{% endif %}>
                 <label class="form-check-label" for="auto_rotate">{{ _('Auto Rotate') }}</label>
               </div>
             </div>
           </div>
           <hr>
-          <h3 class="h6 mb-3">{{ _('Subject Template') }}</h3>
+          <h3 class="h6 mb-1">{{ _('Subject Template') }} <span class="text-danger">*</span></h3>
+          <p class="text-muted small mb-3">{{ _('Enter at least one subject attribute using ASCII characters. Country code must be a two-letter ISO 3166-1 alpha-2 value (e.g., JP).') }}</p>
           <div class="row g-3">
             {% for oid, field_name, label in subject_fields %}
             <div class="col-md-6">
               <label class="form-label" for="{{ field_name }}">{{ label }}</label>
-              <input class="form-control" type="text" id="{{ field_name }}" name="{{ field_name }}">
+              {% if oid == 'C' %}
+              <input class="form-control" type="text" id="{{ field_name }}" name="{{ field_name }}" value="{{ create_form_values.get(field_name, '') }}" maxlength="2" pattern="[A-Za-z]{2}" title="{{ _('Enter a two-letter ISO 3166-1 alpha-2 code (e.g., JP).') }}">
+              {% else %}
+              <input class="form-control" type="text" id="{{ field_name }}" name="{{ field_name }}" value="{{ create_form_values.get(field_name, '') }}">
+              {% endif %}
             </div>
             {% endfor %}
           </div>
@@ -168,7 +169,7 @@
         <div class="modal-body">
           <div class="row g-3">
             <div class="col-md-6">
-              <label class="form-label" for="edit_group_code">{{ _('Group Code') }}</label>
+              <label class="form-label" for="edit_group_code">{{ _('Group Code') }} <span class="text-danger">*</span></label>
               <input class="form-control" type="text" id="edit_group_code" name="group_code" readonly>
             </div>
             <div class="col-md-6">
@@ -176,7 +177,7 @@
               <input class="form-control" type="text" id="edit_display_name" name="display_name">
             </div>
             <div class="col-md-6">
-              <label class="form-label" for="edit_usage_type">{{ _('Usage Type') }}</label>
+              <label class="form-label" for="edit_usage_type">{{ _('Usage Type') }} <span class="text-danger">*</span></label>
               <select class="form-select" id="edit_usage_type" name="usage_type" required>
                 {% for value, label in usage_options %}
                 <option value="{{ value }}">{{ label }}</option>
@@ -185,23 +186,19 @@
             </div>
             <div class="col-md-3">
               <label class="form-label" for="edit_key_type">{{ _('Key Type') }}</label>
-              <select class="form-select" id="edit_key_type" name="key_type">
-                {% for key_type in key_type_options %}
-                <option value="{{ key_type }}">{{ key_type }}</option>
-                {% endfor %}
-              </select>
+              <select class="form-select" id="edit_key_type" name="key_type" data-placeholder="{{ _('Select key type') }}" data-unspecified="{{ _('Not specified') }}"></select>
             </div>
             <div class="col-md-3">
               <label class="form-label" for="edit_key_size">{{ _('Key Size') }}</label>
-              <input class="form-control" type="number" id="edit_key_size" name="key_size" min="0" step="1">
+              <select class="form-select" id="edit_key_size" name="key_size" data-placeholder="{{ _('Select key size') }}" data-unspecified="{{ _('Not specified') }}"></select>
             </div>
             <div class="col-md-6">
               <label class="form-label" for="edit_key_curve">{{ _('Key Curve') }}</label>
-              <input class="form-control" type="text" id="edit_key_curve" name="key_curve">
+              <select class="form-select" id="edit_key_curve" name="key_curve" data-placeholder="{{ _('Select key curve') }}" data-unspecified="{{ _('Not specified') }}"></select>
             </div>
             <div class="col-md-3">
-              <label class="form-label" for="edit_rotation_threshold_days">{{ _('Rotation Threshold (days)') }}</label>
-              <input class="form-control" type="number" id="edit_rotation_threshold_days" name="rotation_threshold_days" min="1">
+              <label class="form-label" for="edit_rotation_threshold_days">{{ _('Rotation Threshold (days)') }} <span class="text-danger">*</span></label>
+              <input class="form-control" type="number" id="edit_rotation_threshold_days" name="rotation_threshold_days" min="1" required>
             </div>
             <div class="col-md-3 d-flex align-items-end">
               <div class="form-check">
@@ -211,12 +208,17 @@
             </div>
           </div>
           <hr>
-          <h3 class="h6 mb-3">{{ _('Subject Template') }}</h3>
+          <h3 class="h6 mb-1">{{ _('Subject Template') }} <span class="text-danger">*</span></h3>
+          <p class="text-muted small mb-3">{{ _('Enter at least one subject attribute using ASCII characters. Country code must be a two-letter ISO 3166-1 alpha-2 value (e.g., JP).') }}</p>
           <div class="row g-3">
             {% for oid, field_name, label in subject_fields %}
             <div class="col-md-6">
               <label class="form-label" for="edit_{{ field_name }}">{{ label }}</label>
+              {% if oid == 'C' %}
+              <input class="form-control" type="text" id="edit_{{ field_name }}" name="{{ field_name }}" maxlength="2" pattern="[A-Za-z]{2}" title="{{ _('Enter a two-letter ISO 3166-1 alpha-2 code (e.g., JP).') }}">
+              {% else %}
               <input class="form-control" type="text" id="edit_{{ field_name }}" name="{{ field_name }}">
+              {% endif %}
             </div>
             {% endfor %}
           </div>
@@ -235,44 +237,387 @@
 {{ super() }}
 <script>
 (function() {
-  const editGroupModal = document.getElementById('editGroupModal');
-  if (!editGroupModal) {
-    return;
+  const KEY_PRESETS = {{ key_presets | tojson }};
+
+  function createKeyFieldController(ids) {
+    const usageSelect = document.getElementById(ids.usageId);
+    const keyTypeSelect = document.getElementById(ids.keyTypeId);
+    const keyCurveSelect = document.getElementById(ids.keyCurveId);
+    const keySizeSelect = document.getElementById(ids.keySizeId);
+
+    if (!usageSelect || !keyTypeSelect || !keyCurveSelect || !keySizeSelect) {
+      return null;
+    }
+
+    const state = {
+      usageType: usageSelect.dataset.initial || usageSelect.value || '',
+      keyType: keyTypeSelect.dataset.initial || keyTypeSelect.value || '',
+      keyCurve: keyCurveSelect.dataset.initial || keyCurveSelect.value || '',
+      keySize: keySizeSelect.dataset.initial || keySizeSelect.value || '',
+    };
+
+    const placeholders = {
+      keyType: keyTypeSelect.dataset.placeholder || '',
+      keyCurve: keyCurveSelect.dataset.placeholder || '',
+      keySize: keySizeSelect.dataset.placeholder || '',
+    };
+
+    const unspecifiedLabels = {
+      keyType: keyTypeSelect.dataset.unspecified || '',
+      keyCurve: keyCurveSelect.dataset.unspecified || '',
+      keySize: keySizeSelect.dataset.unspecified || '',
+    };
+
+    function setOptions(select, options, selectedValue, config) {
+      const fragment = document.createDocumentFragment();
+      const placeholderLabel = (config && config.placeholderLabel) || '';
+      const disableIfEmpty = Boolean(config && config.disableIfEmpty);
+      if (placeholderLabel) {
+        const placeholderOption = document.createElement('option');
+        placeholderOption.value = '';
+        placeholderOption.textContent = placeholderLabel;
+        fragment.appendChild(placeholderOption);
+      }
+      options.forEach((option) => {
+        const opt = document.createElement('option');
+        opt.value = option.value;
+        opt.textContent = option.label;
+        fragment.appendChild(opt);
+      });
+      select.innerHTML = '';
+      select.appendChild(fragment);
+      const values = options.map((option) => option.value);
+      let finalValue = selectedValue;
+      if (!values.includes(finalValue)) {
+        finalValue = options.length > 0 ? options[0].value : '';
+        if (placeholderLabel && !finalValue) {
+          finalValue = '';
+        }
+      }
+      select.value = finalValue || '';
+      if (disableIfEmpty) {
+        select.disabled = options.length === 0;
+      } else {
+        select.disabled = false;
+      }
+      return select.value;
+    }
+
+    function buildKeyTypeOptions(presets) {
+      const seen = new Set();
+      const options = [];
+      presets.forEach((preset) => {
+        if (!preset || !preset.keyType || seen.has(preset.keyType)) {
+          return;
+        }
+        seen.add(preset.keyType);
+        options.push({ value: preset.keyType, label: preset.keyType });
+      });
+      return options;
+    }
+
+    function buildKeyCurveOptions(presets) {
+      const options = new Map();
+      presets.forEach((preset) => {
+        const value = preset.keyCurve ? preset.keyCurve : '';
+        if (!options.has(value)) {
+          const parts = [];
+          if (value) {
+            parts.push(value);
+            if (preset.label) {
+              parts.push(preset.label);
+            }
+          } else if (unspecifiedLabels.keyCurve) {
+            parts.push(unspecifiedLabels.keyCurve);
+          }
+          options.set(value, {
+            value,
+            label: parts.join(' — ') || value || unspecifiedLabels.keyCurve || '',
+          });
+        }
+      });
+      if (!options.size) {
+        options.set('', {
+          value: '',
+          label: unspecifiedLabels.keyCurve || '',
+        });
+      }
+      return Array.from(options.values());
+    }
+
+    function buildKeySizeOptions(presets) {
+      const options = new Map();
+      presets.forEach((preset) => {
+        const value = preset.keySize != null ? String(preset.keySize) : '';
+        if (!options.has(value)) {
+          const parts = [];
+          if (value) {
+            parts.push(value);
+          } else if (unspecifiedLabels.keySize) {
+            parts.push(unspecifiedLabels.keySize);
+          }
+          if (preset.label) {
+            parts.push(preset.label);
+          }
+          options.set(value, {
+            value,
+            label: parts.join(' — ') || value || unspecifiedLabels.keySize || '',
+          });
+        }
+      });
+      if (!options.size) {
+        options.set('', {
+          value: '',
+          label: unspecifiedLabels.keySize || '',
+        });
+      }
+      return Array.from(options.values());
+    }
+
+    function refresh() {
+      usageSelect.value = state.usageType;
+      const presets = KEY_PRESETS[state.usageType] || [];
+      const keyTypeOptions = buildKeyTypeOptions(presets);
+      if (!state.usageType || keyTypeOptions.length === 0) {
+        state.keyType = '';
+        state.keyCurve = '';
+        state.keySize = '';
+        setOptions(keyTypeSelect, [], state.keyType, {
+          placeholderLabel: placeholders.keyType,
+          disableIfEmpty: true,
+        });
+        setOptions(keyCurveSelect, [], state.keyCurve, {
+          placeholderLabel: placeholders.keyCurve,
+          disableIfEmpty: true,
+        });
+        setOptions(keySizeSelect, [], state.keySize, {
+          placeholderLabel: placeholders.keySize,
+          disableIfEmpty: true,
+        });
+        return;
+      }
+
+      if (!keyTypeOptions.some((option) => option.value === state.keyType)) {
+        state.keyType = keyTypeOptions[0].value;
+      }
+
+      state.keyType = setOptions(keyTypeSelect, keyTypeOptions, state.keyType, {
+        placeholderLabel: '',
+        disableIfEmpty: false,
+      });
+
+      const combos = presets.filter((preset) => preset.keyType === state.keyType);
+      if (combos.length === 0) {
+        state.keyCurve = '';
+        state.keySize = '';
+        setOptions(keyCurveSelect, [{ value: '', label: unspecifiedLabels.keyCurve || '' }], state.keyCurve, {
+          placeholderLabel: '',
+          disableIfEmpty: false,
+        });
+        setOptions(keySizeSelect, [{ value: '', label: unspecifiedLabels.keySize || '' }], state.keySize, {
+          placeholderLabel: '',
+          disableIfEmpty: false,
+        });
+        return;
+      }
+
+      const normalizedCurve = state.keyCurve || '';
+      const normalizedSize = state.keySize || '';
+      const hasExactCombo = combos.some(
+        (preset) => (preset.keyCurve || '') === normalizedCurve && String(preset.keySize ?? '') === normalizedSize,
+      );
+      if (!hasExactCombo) {
+        const fallback = combos[0];
+        state.keyCurve = fallback.keyCurve ? fallback.keyCurve : '';
+        state.keySize = fallback.keySize != null ? String(fallback.keySize) : '';
+      }
+
+      state.keyCurve = setOptions(keyCurveSelect, buildKeyCurveOptions(combos), state.keyCurve, {
+        placeholderLabel: '',
+        disableIfEmpty: false,
+      });
+      state.keySize = setOptions(keySizeSelect, buildKeySizeOptions(combos), state.keySize, {
+        placeholderLabel: '',
+        disableIfEmpty: false,
+      });
+    }
+
+    usageSelect.addEventListener('change', () => {
+      state.usageType = usageSelect.value;
+      state.keyType = '';
+      state.keyCurve = '';
+      state.keySize = '';
+      refresh();
+    });
+
+    keyTypeSelect.addEventListener('change', () => {
+      state.keyType = keyTypeSelect.value;
+      state.keyCurve = '';
+      state.keySize = '';
+      refresh();
+    });
+
+    keyCurveSelect.addEventListener('change', () => {
+      state.keyCurve = keyCurveSelect.value;
+      refresh();
+    });
+
+    keySizeSelect.addEventListener('change', () => {
+      state.keySize = keySizeSelect.value;
+      refresh();
+    });
+
+    refresh();
+
+    return {
+      refresh,
+      setState(newState) {
+        if (!newState) {
+          return;
+        }
+        if (Object.prototype.hasOwnProperty.call(newState, 'usageType')) {
+          state.usageType = newState.usageType || '';
+        }
+        if (Object.prototype.hasOwnProperty.call(newState, 'keyType')) {
+          state.keyType = newState.keyType || '';
+        }
+        if (Object.prototype.hasOwnProperty.call(newState, 'keyCurve')) {
+          state.keyCurve = newState.keyCurve || '';
+        }
+        if (Object.prototype.hasOwnProperty.call(newState, 'keySize')) {
+          state.keySize = newState.keySize || '';
+        }
+        refresh();
+      },
+    };
   }
-  editGroupModal.addEventListener('show.bs.modal', function(event) {
-    const button = event.relatedTarget;
-    if (!button) {
-      return;
-    }
-    const groupData = button.getAttribute('data-group');
-    if (!groupData) {
-      return;
-    }
-    let parsed;
-    try {
-      parsed = JSON.parse(groupData);
-    } catch (err) {
-      console.error('Failed to parse group data', err);
+
+  const editFormInitial = {{ edit_form_initial | tojson }};
+  const shouldShowEditModal = {{ show_edit_modal | tojson }};
+
+  const createController = createKeyFieldController({
+    usageId: 'usage_type',
+    keyTypeId: 'key_type',
+    keyCurveId: 'key_curve',
+    keySizeId: 'key_size',
+  });
+
+  const editController = createKeyFieldController({
+    usageId: 'edit_usage_type',
+    keyTypeId: 'edit_key_type',
+    keyCurveId: 'edit_key_curve',
+    keySizeId: 'edit_key_size',
+  });
+
+  const editFormActionTemplate = `{{ url_for('certs_ui.update_group', group_code='__PLACEHOLDER__') }}`;
+
+  function fillEditForm(data) {
+    if (!data) {
       return;
     }
     const form = document.getElementById('editGroupForm');
     if (!form) {
       return;
     }
-    form.action = `{{ url_for('certs_ui.update_group', group_code='__PLACEHOLDER__') }}`.replace('__PLACEHOLDER__', encodeURIComponent(parsed.groupCode));
-    form.querySelector('#edit_group_code').value = parsed.groupCode || '';
-    form.querySelector('#edit_display_name').value = parsed.displayName || '';
-    form.querySelector('#edit_usage_type').value = parsed.usageType || '';
-    form.querySelector('#edit_key_type').value = parsed.keyType || 'RSA';
-    form.querySelector('#edit_key_curve').value = parsed.keyCurve || '';
-    form.querySelector('#edit_key_size').value = parsed.keySize || '';
-    form.querySelector('#edit_rotation_threshold_days').value = parsed.rotationThresholdDays || 30;
-    form.querySelector('#edit_auto_rotate').checked = Boolean(parsed.autoRotate);
-    const subject = parsed.subject || {};
+    const groupCode = data.groupCode || '';
+    form.action = editFormActionTemplate.replace('__PLACEHOLDER__', encodeURIComponent(groupCode));
+
+    const codeField = form.querySelector('#edit_group_code');
+    if (codeField) {
+      codeField.value = groupCode;
+    }
+
+    const displayNameField = form.querySelector('#edit_display_name');
+    if (displayNameField) {
+      displayNameField.value = data.displayName || '';
+    }
+
+    const rotationField = form.querySelector('#edit_rotation_threshold_days');
+    if (rotationField) {
+      const rotationValue = data.rotationThresholdDays;
+      if (rotationValue === undefined || rotationValue === null || rotationValue === '') {
+        rotationField.value = '';
+      } else {
+        rotationField.value = String(rotationValue);
+      }
+    }
+
+    const autoRotateInput = form.querySelector('#edit_auto_rotate');
+    if (autoRotateInput) {
+      autoRotateInput.checked = Boolean(data.autoRotate);
+    }
+
+    const subject = data.subject || {};
     {% for oid, field_name, label in subject_fields %}
-    form.querySelector('#edit_{{ field_name }}').value = subject['{{ oid }}'] || '';
+    const {{ field_name }}Field = form.querySelector('#edit_{{ field_name }}');
+    if ({{ field_name }}Field) {
+      {{ field_name }}Field.value = subject['{{ oid }}'] || '';
+    }
     {% endfor %}
-  });
+
+    const usageTypeValue = data.usageType || '';
+    const keyTypeValue = data.keyType || '';
+    const keyCurveValue = data.keyCurve || '';
+    const keySizeValue = data.keySize != null && data.keySize !== '' ? String(data.keySize) : '';
+
+    if (editController) {
+      editController.setState({
+        usageType: usageTypeValue,
+        keyType: keyTypeValue,
+        keyCurve: keyCurveValue,
+        keySize: keySizeValue,
+      });
+    } else {
+      const usageSelect = form.querySelector('#edit_usage_type');
+      if (usageSelect) {
+        usageSelect.value = usageTypeValue;
+      }
+      const keyTypeSelect = form.querySelector('#edit_key_type');
+      if (keyTypeSelect) {
+        keyTypeSelect.value = keyTypeValue;
+      }
+      const keyCurveSelect = form.querySelector('#edit_key_curve');
+      if (keyCurveSelect) {
+        keyCurveSelect.value = keyCurveValue;
+      }
+      const keySizeSelect = form.querySelector('#edit_key_size');
+      if (keySizeSelect) {
+        keySizeSelect.value = keySizeValue;
+      }
+    }
+  }
+
+  const createModalElement = document.getElementById('createGroupModal');
+  if (createModalElement && createModalElement.dataset.showOnLoad === 'true' && window.bootstrap) {
+    bootstrap.Modal.getOrCreateInstance(createModalElement).show();
+  }
+
+  const editGroupModal = document.getElementById('editGroupModal');
+  if (editGroupModal) {
+    editGroupModal.addEventListener('show.bs.modal', function(event) {
+      const button = event.relatedTarget;
+      if (!button) {
+        return;
+      }
+      const groupData = button.getAttribute('data-group');
+      if (!groupData) {
+        return;
+      }
+      let parsed;
+      try {
+        parsed = JSON.parse(groupData);
+      } catch (err) {
+        console.error('Failed to parse group data', err);
+        return;
+      }
+      fillEditForm(parsed);
+    });
+
+    if (shouldShowEditModal && editFormInitial && window.bootstrap) {
+      fillEditForm(editFormInitial);
+      bootstrap.Modal.getOrCreateInstance(editGroupModal).show();
+    }
+  }
 })();
 </script>
 {% endblock %}

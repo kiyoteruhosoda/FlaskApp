@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from http import HTTPStatus
 
+from cryptography.hazmat.primitives import serialization
 from flask import jsonify, request
 
 from features.certs.application.dto import (
@@ -11,14 +12,19 @@ from features.certs.application.dto import (
 )
 from features.certs.application.use_cases import (
     GenerateCertificateMaterialUseCase,
+    GetIssuedCertificateUseCase,
+    ListIssuedCertificatesUseCase,
     ListJwksUseCase,
+    RevokeCertificateUseCase,
     SignCertificateUseCase,
 )
 from features.certs.domain.exceptions import (
     CertificateError,
+    CertificateNotFoundError,
     CertificateValidationError,
     KeyGenerationError,
 )
+from features.certs.domain.models import IssuedCertificate
 from features.certs.domain.usage import UsageType
 
 from . import certs_api_bp
@@ -26,6 +32,41 @@ from . import certs_api_bp
 
 def _json_error(message: str, status: HTTPStatus):
     return jsonify({"error": message}), status
+
+
+def _serialize_certificate(
+    cert: IssuedCertificate,
+    *,
+    include_pem: bool = False,
+    include_jwk: bool = False,
+) -> dict:
+    certificate = cert.certificate
+    if hasattr(certificate, "not_valid_before_utc"):
+        not_before = certificate.not_valid_before_utc
+    else:  # pragma: no cover - 古いcryptographyバージョンへのフォールバック
+        not_before = certificate.not_valid_before
+    if hasattr(certificate, "not_valid_after_utc"):
+        not_after = certificate.not_valid_after_utc
+    else:  # pragma: no cover - 古いcryptographyバージョンへのフォールバック
+        not_after = certificate.not_valid_after
+    payload: dict[str, object] = {
+        "kid": cert.kid,
+        "usageType": cert.usage_type.value,
+        "issuedAt": cert.issued_at.isoformat() if cert.issued_at else None,
+        "revokedAt": cert.revoked_at.isoformat() if cert.revoked_at else None,
+        "revocationReason": cert.revocation_reason,
+        "subject": certificate.subject.rfc4514_string(),
+        "issuer": certificate.issuer.rfc4514_string(),
+        "notBefore": not_before.isoformat(),
+        "notAfter": not_after.isoformat(),
+    }
+    if include_pem:
+        payload["certificatePem"] = certificate.public_bytes(
+            serialization.Encoding.PEM
+        ).decode("utf-8")
+    if include_jwk:
+        payload["jwk"] = cert.jwk
+    return payload
 
 
 @certs_api_bp.route("/certs/generate", methods=["POST"])
@@ -130,6 +171,51 @@ def jwks(usage: str):
 
     result = ListJwksUseCase().execute(usage_type)
     return jsonify(result)
+
+
+@certs_api_bp.route("/certs", methods=["GET"])
+def list_certificates():
+    usage_param = request.args.get("usage")
+    usage_type: UsageType | None = None
+    if usage_param:
+        try:
+            usage_type = UsageType.from_str(usage_param)
+        except ValueError as exc:
+            return _json_error(str(exc), HTTPStatus.BAD_REQUEST)
+
+    certificates = ListIssuedCertificatesUseCase().execute(usage_type)
+    return jsonify(
+        {"certificates": [_serialize_certificate(cert) for cert in certificates]}
+    )
+
+
+@certs_api_bp.route("/certs/<string:kid>", methods=["GET"])
+def get_certificate(kid: str):
+    try:
+        certificate = GetIssuedCertificateUseCase().execute(kid)
+    except CertificateNotFoundError as exc:
+        return _json_error(str(exc), HTTPStatus.NOT_FOUND)
+
+    return jsonify(
+        {"certificate": _serialize_certificate(certificate, include_pem=True, include_jwk=True)}
+    )
+
+
+@certs_api_bp.route("/certs/<string:kid>/revoke", methods=["POST"])
+def revoke_certificate(kid: str):
+    payload = request.get_json(silent=True) or {}
+    reason = payload.get("reason")
+    if reason is not None and not isinstance(reason, str):
+        return _json_error("reasonは文字列で指定してください", HTTPStatus.BAD_REQUEST)
+
+    try:
+        certificate = RevokeCertificateUseCase().execute(kid, reason or None)
+    except CertificateNotFoundError as exc:
+        return _json_error(str(exc), HTTPStatus.NOT_FOUND)
+
+    return jsonify(
+        {"certificate": _serialize_certificate(certificate, include_pem=True, include_jwk=True)}
+    )
 
 
 def _resolve_usage_type(value: str | None) -> UsageType:

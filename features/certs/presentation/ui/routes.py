@@ -3,8 +3,11 @@ from __future__ import annotations
 
 import json
 
+from http import HTTPStatus
+
 from flask import (
     abort,
+    current_app,
     flash,
     redirect,
     render_template,
@@ -13,27 +16,10 @@ from flask import (
 )
 from flask_babel import gettext as _
 from flask_login import current_user, login_required
-from cryptography.hazmat.primitives import serialization
 
-from features.certs.application.dto import (
-    GenerateCertificateMaterialInput,
-    SignCertificateInput,
-)
-from features.certs.application.use_cases import (
-    GenerateCertificateMaterialUseCase,
-    GetIssuedCertificateUseCase,
-    ListIssuedCertificatesUseCase,
-    ListJwksUseCase,
-    RevokeCertificateUseCase,
-    SignCertificateUseCase,
-)
-from features.certs.domain.exceptions import (
-    CertificateError,
-    CertificateNotFoundError,
-    CertificateValidationError,
-    KeyGenerationError,
-)
 from features.certs.domain.usage import UsageType
+from features.certs.presentation.ui.api_client import CertsApiClientError
+from features.certs.presentation.ui.services import CertificateUiService
 
 from . import certs_ui_bp
 
@@ -84,6 +70,10 @@ def _usage_options() -> list[tuple[str, str]]:
     return [(usage.value, usage.name.replace("_", " ")) for usage in UsageType]
 
 
+def _service() -> CertificateUiService:
+    return CertificateUiService(current_app)
+
+
 @certs_ui_bp.route("/")
 @login_required
 def index():
@@ -98,7 +88,13 @@ def index():
             flash(_("不正な用途種別が指定されました。"), "error")
             return redirect(url_for("certs_ui.index"))
 
-    certificates = ListIssuedCertificatesUseCase().execute(usage_type)
+    service = _service()
+    try:
+        certificates = service.list_certificates(usage_type)
+    except CertsApiClientError as exc:
+        current_app.logger.exception("Failed to load certificates via API")
+        flash(_("証明書一覧の取得に失敗しました: %(message)s", message=str(exc)), "error")
+        certificates = []
 
     return render_template(
         "certs/index.html",
@@ -149,34 +145,30 @@ def generate():
         key_usage = form.getlist("key_usage")
         is_ca = form.get("is_ca") == "on"
 
-        material_input = GenerateCertificateMaterialInput(
-            subject=subject,
-            key_type=key_type,
-            key_bits=key_bits,
-            make_csr=True,
-            usage_type=usage_type,
-            key_usage=key_usage,
-        )
+        service = _service()
 
         try:
-            material_result = GenerateCertificateMaterialUseCase().execute(material_input)
-            if not material_result.material.csr_pem:
-                raise CertificateError("CSRの生成に失敗しました。")
-            sign_input = SignCertificateInput(
-                csr_pem=material_result.material.csr_pem,
+            material_result = service.generate_material(
+                subject=subject,
+                key_type=key_type,
+                key_bits=key_bits,
+                make_csr=True,
+                usage_type=usage_type,
+                key_usage=key_usage,
+            )
+            if not material_result.csr_pem:
+                raise CertsApiClientError(
+                    _("CSRの生成に失敗しました。"), HTTPStatus.INTERNAL_SERVER_ERROR
+                )
+            sign_result = service.sign_certificate(
+                csr_pem=material_result.csr_pem,
                 usage_type=usage_type,
                 days=days,
                 is_ca=is_ca,
                 key_usage=key_usage,
             )
-            sign_result = SignCertificateUseCase().execute(sign_input)
-        except KeyGenerationError as exc:
-            flash(str(exc), "error")
-            return render_template("certs/generate.html", **context, form_data=form)
-        except CertificateValidationError as exc:
-            flash(str(exc), "error")
-            return render_template("certs/generate.html", **context, form_data=form)
-        except CertificateError as exc:
+        except CertsApiClientError as exc:
+            current_app.logger.exception("Failed to generate certificate via API")
             flash(str(exc), "error")
             return render_template("certs/generate.html", **context, form_data=form)
 
@@ -184,8 +176,8 @@ def generate():
         context.update(
             {
                 "form_data": form,
-                "generated_material": material_result.material,
-                "certificate_pem": sign_result.certificate_pem,
+                "generated_material": material_result,
+                "certificate_pem": _format_pem_lines(sign_result.certificate_pem),
                 "kid": sign_result.kid,
                 "jwk_json": json.dumps(sign_result.jwk, indent=2, ensure_ascii=False),
             }
@@ -201,10 +193,15 @@ def public_keys():
     _ensure_permission()
 
     usage_infos = []
-    jwks_use_case = ListJwksUseCase()
+    service = _service()
     for usage in UsageType:
         api_url = url_for("certs_api.jwks", usage=f"{usage.value}")
-        jwks_result = jwks_use_case.execute(usage)
+        try:
+            jwks_result = service.list_jwks(usage)
+        except CertsApiClientError as exc:
+            current_app.logger.exception("Failed to fetch JWKS via API", extra={"usage": usage.value})
+            flash(_("公開鍵一覧の取得に失敗しました: %(message)s", message=str(exc)), "error")
+            jwks_result = {"keys": []}
         usage_infos.append(
             {
                 "usage": usage,
@@ -223,20 +220,21 @@ def detail(kid: str):
     _ensure_permission()
 
     try:
-        certificate = GetIssuedCertificateUseCase().execute(kid)
-    except CertificateNotFoundError:
-        abort(404)
+        certificate = _service().get_certificate(kid)
+    except CertsApiClientError as exc:
+        if exc.status_code == HTTPStatus.NOT_FOUND:
+            abort(404)
+        current_app.logger.exception("Failed to load certificate detail via API")
+        flash(str(exc), "error")
+        return redirect(url_for("certs_ui.index"))
 
-    x509_cert = certificate.certificate
     detail_context = {
         "certificate": certificate,
-        "certificate_pem": _format_pem_lines(
-            x509_cert.public_bytes(encoding=serialization.Encoding.PEM).decode("utf-8")
-        ),
-        "not_before": x509_cert.not_valid_before,
-        "not_after": x509_cert.not_valid_after,
-        "subject": x509_cert.subject.rfc4514_string(),
-        "issuer": x509_cert.issuer.rfc4514_string(),
+        "certificate_pem": _format_pem_lines(certificate.certificate_pem),
+        "not_before": certificate.not_before,
+        "not_after": certificate.not_after,
+        "subject": certificate.subject,
+        "issuer": certificate.issuer,
         "jwk_json": json.dumps(certificate.jwk, indent=2, ensure_ascii=False),
     }
     return render_template("certs/detail.html", **detail_context)
@@ -247,18 +245,25 @@ def detail(kid: str):
 def revoke(kid: str):
     _ensure_permission()
 
-    use_case = GetIssuedCertificateUseCase()
     try:
-        certificate = use_case.execute(kid)
-    except CertificateNotFoundError:
-        abort(404)
+        certificate = _service().get_certificate(kid)
+    except CertsApiClientError as exc:
+        if exc.status_code == HTTPStatus.NOT_FOUND:
+            abort(404)
+        current_app.logger.exception("Failed to load certificate for revoke via API")
+        flash(str(exc), "error")
+        return redirect(url_for("certs_ui.index"))
 
     if request.method == "POST":
         reason = request.form.get("reason", "").strip() or None
         try:
-            revoked = RevokeCertificateUseCase().execute(kid, reason)
-        except CertificateNotFoundError:
-            abort(404)
+            revoked = _service().revoke_certificate(kid, reason)
+        except CertsApiClientError as exc:
+            if exc.status_code == HTTPStatus.NOT_FOUND:
+                abort(404)
+            current_app.logger.exception("Failed to revoke certificate via API")
+            flash(str(exc), "error")
+            return redirect(url_for("certs_ui.revoke", kid=kid))
         flash(_("証明書を失効しました。"), "success")
         return redirect(url_for("certs_ui.detail", kid=revoked.kid))
 

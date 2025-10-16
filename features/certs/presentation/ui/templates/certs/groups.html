@@ -52,25 +52,27 @@
           </td>
           <td>{{ group.updated_at.strftime('%Y-%m-%d %H:%M:%S') if group.updated_at else '-' }}</td>
           <td class="text-end">
-            <a class="btn btn-sm btn-outline-primary me-2" href="{{ url_for('certs_ui.group_detail', group_code=group.group_code) }}">
-              {{ _('View Certificates') }}
-            </a>
-            <button class="btn btn-sm btn-outline-secondary me-2" data-bs-toggle="modal" data-bs-target="#editGroupModal" data-group='{{ {
-                "groupCode": group.group_code,
-                "displayName": group.display_name,
-                "usageType": group.usage_type.value,
-                "keyType": group.key_type,
-                "keyCurve": group.key_curve,
-                "keySize": group.key_size,
-                "autoRotate": group.auto_rotate,
-                "rotationThresholdDays": group.rotation_threshold_days,
-                "subject": group.subject
-              } | tojson }}'>
-              {{ _('Edit') }}
-            </button>
-            <form class="d-inline" method="post" action="{{ url_for('certs_ui.delete_group', group_code=group.group_code) }}" onsubmit="return confirm('{{ _('Are you sure you want to delete this group?') }}');">
-              <button type="submit" class="btn btn-sm btn-outline-danger">{{ _('Delete') }}</button>
-            </form>
+            <div class="d-flex justify-content-end flex-wrap gap-2 certificate-group-actions">
+              <a class="btn btn-outline-primary btn-sm" href="{{ url_for('certs_ui.group_detail', group_code=group.group_code) }}">
+                {{ _('View Certificates') }}
+              </a>
+              <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#editGroupModal" data-group='{{ {
+                  "groupCode": group.group_code,
+                  "displayName": group.display_name,
+                  "usageType": group.usage_type.value,
+                  "keyType": group.key_type,
+                  "keyCurve": group.key_curve,
+                  "keySize": group.key_size,
+                  "autoRotate": group.auto_rotate,
+                  "rotationThresholdDays": group.rotation_threshold_days,
+                  "subject": group.subject
+                } | tojson }}'>
+                {{ _('Edit') }}
+              </button>
+              <form class="certificate-group-actions__form" method="post" action="{{ url_for('certs_ui.delete_group', group_code=group.group_code) }}" onsubmit="return confirm('{{ _('Are you sure you want to delete this group?') }}');">
+                <button type="submit" class="btn btn-outline-danger btn-sm">{{ _('Delete') }}</button>
+              </form>
+            </div>
           </td>
         </tr>
         {% endfor %}
@@ -269,16 +271,32 @@
     };
 
     function setOptions(select, options, selectedValue, config) {
-      const fragment = document.createDocumentFragment();
       const placeholderLabel = (config && config.placeholderLabel) || '';
       const disableIfEmpty = Boolean(config && config.disableIfEmpty);
+      const ensureSelectedValue = config && config.ensureSelectedValue;
+      const normalizedSelectedValue =
+        selectedValue === undefined || selectedValue === null ? '' : String(selectedValue);
+      const hasSelectedValue = normalizedSelectedValue !== '';
+
+      const computedOptions = Array.isArray(options) ? [...options] : [];
+      if (ensureSelectedValue && hasSelectedValue) {
+        const exists = computedOptions.some((option) => option.value === normalizedSelectedValue);
+        if (!exists) {
+          computedOptions.push({
+            value: normalizedSelectedValue,
+            label: ensureSelectedValue(normalizedSelectedValue),
+          });
+        }
+      }
+
+      const fragment = document.createDocumentFragment();
       if (placeholderLabel) {
         const placeholderOption = document.createElement('option');
         placeholderOption.value = '';
         placeholderOption.textContent = placeholderLabel;
         fragment.appendChild(placeholderOption);
       }
-      options.forEach((option) => {
+      computedOptions.forEach((option) => {
         const opt = document.createElement('option');
         opt.value = option.value;
         opt.textContent = option.label;
@@ -286,17 +304,23 @@
       });
       select.innerHTML = '';
       select.appendChild(fragment);
-      const values = options.map((option) => option.value);
-      let finalValue = selectedValue;
+      const values = computedOptions.map((option) => option.value);
+      if (placeholderLabel) {
+        values.push('');
+      }
+      let finalValue = normalizedSelectedValue;
       if (!values.includes(finalValue)) {
-        finalValue = options.length > 0 ? options[0].value : '';
-        if (placeholderLabel && !finalValue) {
+        if (placeholderLabel) {
+          finalValue = '';
+        } else if (computedOptions.length > 0) {
+          finalValue = computedOptions[0].value;
+        } else {
           finalValue = '';
         }
       }
-      select.value = finalValue || '';
-      if (disableIfEmpty) {
-        select.disabled = options.length === 0;
+      select.value = finalValue;
+      if (disableIfEmpty && computedOptions.length === 0 && !hasSelectedValue) {
+        select.disabled = true;
       } else {
         select.disabled = false;
       }
@@ -379,66 +403,54 @@
       const presets = KEY_PRESETS[state.usageType] || [];
       const keyTypeOptions = buildKeyTypeOptions(presets);
       if (!state.usageType || keyTypeOptions.length === 0) {
-        state.keyType = '';
-        state.keyCurve = '';
-        state.keySize = '';
-        setOptions(keyTypeSelect, [], state.keyType, {
+        state.keyType = setOptions(keyTypeSelect, [], state.keyType, {
           placeholderLabel: placeholders.keyType,
           disableIfEmpty: true,
+          ensureSelectedValue: (value) => value,
         });
-        setOptions(keyCurveSelect, [], state.keyCurve, {
+        state.keyCurve = setOptions(keyCurveSelect, [], state.keyCurve, {
           placeholderLabel: placeholders.keyCurve,
           disableIfEmpty: true,
+          ensureSelectedValue: (value) => value,
         });
-        setOptions(keySizeSelect, [], state.keySize, {
+        state.keySize = setOptions(keySizeSelect, [], state.keySize, {
           placeholderLabel: placeholders.keySize,
           disableIfEmpty: true,
+          ensureSelectedValue: (value) => value,
         });
         return;
-      }
-
-      if (!keyTypeOptions.some((option) => option.value === state.keyType)) {
-        state.keyType = keyTypeOptions[0].value;
       }
 
       state.keyType = setOptions(keyTypeSelect, keyTypeOptions, state.keyType, {
         placeholderLabel: '',
         disableIfEmpty: false,
+        ensureSelectedValue: (value) => value,
       });
 
       const combos = presets.filter((preset) => preset.keyType === state.keyType);
       if (combos.length === 0) {
-        state.keyCurve = '';
-        state.keySize = '';
-        setOptions(keyCurveSelect, [{ value: '', label: unspecifiedLabels.keyCurve || '' }], state.keyCurve, {
-          placeholderLabel: '',
+        state.keyCurve = setOptions(keyCurveSelect, [], state.keyCurve, {
+          placeholderLabel: unspecifiedLabels.keyCurve || '',
           disableIfEmpty: false,
+          ensureSelectedValue: (value) => value,
         });
-        setOptions(keySizeSelect, [{ value: '', label: unspecifiedLabels.keySize || '' }], state.keySize, {
-          placeholderLabel: '',
+        state.keySize = setOptions(keySizeSelect, [], state.keySize, {
+          placeholderLabel: unspecifiedLabels.keySize || '',
           disableIfEmpty: false,
+          ensureSelectedValue: (value) => value,
         });
         return;
-      }
-
-      const normalizedCurve = state.keyCurve || '';
-      const normalizedSize = state.keySize || '';
-      const hasExactCombo = combos.some(
-        (preset) => (preset.keyCurve || '') === normalizedCurve && String(preset.keySize ?? '') === normalizedSize,
-      );
-      if (!hasExactCombo) {
-        const fallback = combos[0];
-        state.keyCurve = fallback.keyCurve ? fallback.keyCurve : '';
-        state.keySize = fallback.keySize != null ? String(fallback.keySize) : '';
       }
 
       state.keyCurve = setOptions(keyCurveSelect, buildKeyCurveOptions(combos), state.keyCurve, {
         placeholderLabel: '',
         disableIfEmpty: false,
+        ensureSelectedValue: (value) => value,
       });
       state.keySize = setOptions(keySizeSelect, buildKeySizeOptions(combos), state.keySize, {
         placeholderLabel: '',
         disableIfEmpty: false,
+        ensureSelectedValue: (value) => value,
       });
     }
 
@@ -556,7 +568,7 @@
     {% endfor %}
 
     const usageTypeValue = data.usageType || '';
-    const keyTypeValue = data.keyType || '';
+    const keyTypeValue = data.keyType ? String(data.keyType).toUpperCase() : '';
     const keyCurveValue = data.keyCurve || '';
     const keySizeValue = data.keySize != null && data.keySize !== '' ? String(data.keySize) : '';
 

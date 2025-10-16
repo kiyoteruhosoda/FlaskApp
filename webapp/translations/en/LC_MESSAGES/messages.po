@@ -552,3 +552,36 @@ msgstr "Copy URL"
 
 msgid "JWKS JSON"
 msgstr "JWKS JSON"
+
+msgid "Unsupported subject attribute: %(attribute)s"
+msgstr "Unsupported subject attribute: %(attribute)s"
+
+msgid "Invalid value for subject attribute %(attribute)s: %(error)s"
+msgstr "Invalid value for subject attribute %(attribute)s: %(error)s"
+
+msgid "Subject must not be empty"
+msgstr "Subject must not be empty"
+
+msgid "Country code (C) must be a two-letter ISO 3166-1 value (e.g., JP)"
+msgstr "Country code (C) must be a two-letter ISO 3166-1 value (e.g., JP)"
+
+msgid "RSA key length must be at least 2048 bits"
+msgstr "RSA key length must be at least 2048 bits"
+
+msgid "Unsupported key type: %(key_type)s"
+msgstr "Unsupported key type: %(key_type)s"
+
+msgid "Failed to load CSR"
+msgstr "Failed to load CSR"
+
+msgid "Only RSA keys are currently supported"
+msgstr "Only RSA keys are currently supported"
+
+msgid "Unsupported keyUsage value: %(usage)s"
+msgstr "Unsupported keyUsage value: %(usage)s"
+
+msgid "Validity period must be at least one day"
+msgstr "Validity period must be at least one day"
+
+msgid "Unsupported elliptic curve"
+msgstr "Unsupported elliptic curve"

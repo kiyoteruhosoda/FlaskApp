@@ -11,6 +11,8 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from cryptography.x509.oid import NameOID
 
+from flask_babel import gettext as _
+
 from features.certs.domain.exceptions import CertificateValidationError, KeyGenerationError
 from features.certs.domain.usage import UsageType
 
@@ -41,17 +43,23 @@ class SubjectBuilder:
                 continue
             oid = _OID_MAP.get(key)
             if oid is None:
-                raise CertificateValidationError(f"サポートされていないsubject属性です: {key}")
+                raise CertificateValidationError(
+                    _("Unsupported subject attribute: %(attribute)s", attribute=key)
+                )
             normalized_value = self._normalize_value(oid, value)
             try:
                 attributes.append(x509.NameAttribute(oid, normalized_value))
             except ValueError as exc:  # cryptographyの制約をドメイン例外として返す
                 raise CertificateValidationError(
-                    f"subject属性 {key} の値が不正です: {exc}"
+                    _(
+                        "Invalid value for subject attribute %(attribute)s: %(error)s",
+                        attribute=key,
+                        error=exc,
+                    )
                 ) from exc
 
         if not attributes:
-            raise CertificateValidationError("subjectが空です")
+            raise CertificateValidationError(_("Subject must not be empty"))
         return x509.Name(attributes)
 
     @staticmethod
@@ -60,7 +68,9 @@ class SubjectBuilder:
         if oid is NameOID.COUNTRY_NAME:
             if len(value) != 2:
                 raise CertificateValidationError(
-                    "国コード(C)はISO 3166-1の2文字コードで指定してください (例: JP)"
+                    _(
+                        "Country code (C) must be a two-letter ISO 3166-1 value (e.g., JP)"
+                    )
                 )
             return value.upper()
         return value
@@ -72,11 +82,11 @@ def generate_private_key(key_type: str, key_bits: int) -> rsa.RSAPrivateKey | ec
     key_type_upper = (key_type or "RSA").upper()
     if key_type_upper == "RSA":
         if key_bits < 2048:
-            raise KeyGenerationError("RSA鍵長は2048以上である必要があります")
+            raise KeyGenerationError(_("RSA key length must be at least 2048 bits"))
         return rsa.generate_private_key(public_exponent=65537, key_size=key_bits)
     if key_type_upper == "EC":
         return ec.generate_private_key(ec.SECP256R1())
-    raise KeyGenerationError(f"未対応の鍵タイプです: {key_type}")
+    raise KeyGenerationError(_("Unsupported key type: %(key_type)s", key_type=key_type))
 
 
 def serialize_private_key(key: rsa.RSAPrivateKey | ec.EllipticCurvePrivateKey) -> str:
@@ -130,7 +140,7 @@ def csr_from_pem(csr_pem: str) -> x509.CertificateSigningRequest:
     try:
         return x509.load_pem_x509_csr(csr_pem.encode("utf-8"))
     except ValueError as exc:  # noqa: B904
-        raise CertificateValidationError("CSRの読み込みに失敗しました") from exc
+        raise CertificateValidationError(_("Failed to load CSR")) from exc
 
 
 def certificate_to_jwk(cert: x509.Certificate, kid: str, usage: UsageType) -> dict:
@@ -172,7 +182,7 @@ def certificate_to_jwk(cert: x509.Certificate, kid: str, usage: UsageType) -> di
                 base64.b64encode(cert.public_bytes(serialization.Encoding.DER)).decode("ascii")
             ],
         }
-    raise CertificateValidationError("現在RSA鍵のみサポートしています")
+    raise CertificateValidationError(_("Only RSA keys are currently supported"))
 
 
 def _extended_key_usage_for_usage(usage: UsageType) -> list[x509.ObjectIdentifier] | None:
@@ -220,7 +230,9 @@ def _create_key_usage_extension(usages: Iterable[str] | None) -> x509.KeyUsage |
     for usage in usage_set:
         attr = mapping.get(usage)
         if attr is None:
-            raise CertificateValidationError(f"未対応のkeyUsageが指定されました: {usage}")
+            raise CertificateValidationError(
+                _("Unsupported keyUsage value: %(usage)s", usage=usage)
+            )
         params[attr] = True
 
     if params["encipher_only"] or params["decipher_only"]:
@@ -231,7 +243,7 @@ def _create_key_usage_extension(usages: Iterable[str] | None) -> x509.KeyUsage |
 
 def validity_range(days: int) -> tuple[datetime, datetime]:
     if days <= 0:
-        raise CertificateValidationError("有効期限は1日以上で指定してください")
+        raise CertificateValidationError(_("Validity period must be at least one day"))
     now = datetime.utcnow()
     return now - timedelta(minutes=1), now + timedelta(days=days)
 
@@ -249,4 +261,4 @@ def _curve_to_jwk_name(curve: ec.EllipticCurve) -> str:
         return "P-384"
     if isinstance(curve, ec.SECP521R1):
         return "P-521"
-    raise CertificateValidationError("サポートされていないEC曲線です")
+    raise CertificateValidationError(_("Unsupported elliptic curve"))

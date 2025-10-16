@@ -3,6 +3,8 @@
 import requests
 import json
 
+from shared.application.api_urls import build_api_url
+
 # テスト用のMarkdownコンテンツ
 test_content = """# 図表テストページ
 
@@ -27,7 +29,7 @@ https://example.com
 """
 
 # プレビューAPIをテスト
-url = "http://127.0.0.1:5000/wiki/api/preview"
+url = build_api_url("wiki/api/preview")
 headers = {"Content-Type": "application/json"}
 data = {"content": test_content}
 

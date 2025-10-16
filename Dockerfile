@@ -48,7 +48,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     FLASK_APP=wsgi.py \
     FLASK_ENV=production \
-    PYTHONPATH=/app
+    PYTHONPATH=/app \
+    API_BASE_URL=http://localhost:5000
 
 WORKDIR /app
 
@@ -90,7 +91,7 @@ RUN mkdir -p data/media data/thumbs data/playback data/local_import data/tmp dat
 USER appuser
 
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-  CMD curl -fsS http://localhost:5000/health/live || exit 1
+  CMD sh -c 'BASE="${API_BASE_URL:-http://localhost:5000}"; BASE="${BASE%/}"; curl -fsS "$BASE/health/live" || exit 1'
 
 EXPOSE 5000
 CMD ["gunicorn","--bind","0.0.0.0:5000","--workers","4","--timeout","120","--keep-alive","5","wsgi:app"]

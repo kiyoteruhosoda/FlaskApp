@@ -10,6 +10,8 @@ import urllib.request
 import urllib.error
 from urllib.parse import urljoin
 
+from shared.application.api_urls import get_api_base_url, build_api_url
+
 
 def test_endpoint(base_url, endpoint, expected_status=200):
     """Test a single health endpoint"""
@@ -68,9 +70,9 @@ def test_endpoint(base_url, endpoint, expected_status=200):
 def main():
     """Main testing function"""
     if len(sys.argv) > 1:
-        base_url = sys.argv[1]
+        base_url = sys.argv[1].rstrip("/")
     else:
-        base_url = "http://localhost:5000"
+        base_url = get_api_base_url()
     
     print(f"Testing health endpoints at {base_url}")
     print("=" * 50)
@@ -114,7 +116,7 @@ def test_docker_healthcheck():
     try:
         # Docker healthcheck と同じコマンドを実行
         import urllib.request
-        url = 'http://localhost:5000/health/live'
+        url = build_api_url("health/live")
         print(f"Running: urllib.request.urlopen('{url}')")
         
         start_time = time.time()

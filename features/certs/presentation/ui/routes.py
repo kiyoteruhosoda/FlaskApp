@@ -248,6 +248,8 @@ def index():
         create_form_values["auto_rotate"] = "on"
     if "rotation_threshold_days" not in create_form_values:
         create_form_values["rotation_threshold_days"] = "30"
+    if not create_form_values.get("usage_type"):
+        create_form_values["usage_type"] = UsageType.SERVER_SIGNING.value
 
     return render_template(
         "certs/groups.html",

@@ -97,7 +97,9 @@ python scripts/seed_master_data.py
 - `wiki:read` - Wiki読み取り
 - `wiki:write` - Wiki書き込み
 - `service_account:manage` - サービスアカウント管理
+- `service_account_api:manage` - サービスアカウントAPIキー管理
 - `certificate:manage` - 証明書管理
+- `certificate:sign` - 証明書署名
 
 #### デフォルトユーザー
 - Email: `admin@example.com`

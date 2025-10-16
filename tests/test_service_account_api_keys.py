@@ -1,8 +1,11 @@
 import pytest
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 from flask import jsonify, g
 
+from core.db import db
 from core.models.service_account_api_key import ServiceAccountApiKeyLog
+from core.models.user import Permission, Role, User
 from webapp.auth.api_key_auth import require_api_key_scopes
 from webapp.services.service_account_api_key_service import (
     ServiceAccountApiKeyService,
@@ -22,6 +25,29 @@ def _create_service_account(scopes: str) -> int:
         allowed_scopes=normalized,
     )
     return account.service_account_id
+
+
+def _login(client, user: User) -> None:
+    with client.session_transaction() as session:
+        session["_user_id"] = str(user.id)
+        session["_fresh"] = True
+
+
+def _create_user_with_permissions(*permission_codes: str) -> User:
+    role = Role(name=f"role-{uuid4().hex}")
+    db.session.add(role)
+
+    for code in permission_codes:
+        permission = Permission(code=code)
+        db.session.add(permission)
+        role.permissions.append(permission)
+
+    user = User(email=f"user-{uuid4().hex}@example.com")
+    user.set_password("secret")
+    user.roles.append(role)
+    db.session.add(user)
+    db.session.commit()
+    return user
 
 
 @pytest.mark.usefixtures("app_context")
@@ -115,3 +141,27 @@ def test_api_key_authentication_and_logging(app_context):
 
     logs = ServiceAccountApiKeyLog.query.all()
     assert len(logs) == 1
+
+
+@pytest.mark.usefixtures("app_context")
+def test_service_account_api_requires_dedicated_permission(app_context):
+    account_id = _create_service_account("maintenance:read")
+    client = app_context.test_client()
+    user = _create_user_with_permissions("service_account:manage")
+    _login(client, user)
+
+    response = client.get(f"/api/service_accounts/{account_id}/keys")
+    assert response.status_code == 403
+
+
+@pytest.mark.usefixtures("app_context")
+def test_service_account_api_allows_with_dedicated_permission(app_context):
+    account_id = _create_service_account("maintenance:read")
+    client = app_context.test_client()
+    user = _create_user_with_permissions("service_account_api:manage")
+    _login(client, user)
+
+    response = client.get(f"/api/service_accounts/{account_id}/keys")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["items"] == []

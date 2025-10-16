@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}証明書詳細 | {{ super() }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h3 mb-0">証明書詳細</h1>
+    <p class="text-muted mb-0">KID: <span class="font-monospace">{{ certificate.kid }}</span></p>
+  </div>
+  <div>
+    <a class="btn btn-outline-secondary me-2" href="{{ url_for('certs_ui.index') }}">一覧に戻る</a>
+    {% if not certificate.is_revoked %}
+    <a class="btn btn-danger" href="{{ url_for('certs_ui.revoke', kid=certificate.kid) }}">失効する</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header">メタ情報</div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">用途</dt>
+          <dd class="col-sm-8">{{ certificate.usage_type.value }}</dd>
+          <dt class="col-sm-4">発行日時</dt>
+          <dd class="col-sm-8">{{ certificate.issued_at.strftime('%Y-%m-%d %H:%M:%S') if certificate.issued_at else '-' }}</dd>
+          <dt class="col-sm-4">状態</dt>
+          <dd class="col-sm-8">
+            {% if certificate.is_revoked %}
+            <span class="badge bg-secondary">失効</span>
+            {% else %}
+            <span class="badge bg-success">有効</span>
+            {% endif %}
+          </dd>
+          <dt class="col-sm-4">失効日時</dt>
+          <dd class="col-sm-8">
+            {% if certificate.revoked_at %}
+            {{ certificate.revoked_at.strftime('%Y-%m-%d %H:%M:%S') }}
+            {% else %}-{% endif %}
+          </dd>
+          <dt class="col-sm-4">失効理由</dt>
+          <dd class="col-sm-8">{{ certificate.revocation_reason or '-' }}</dd>
+          <dt class="col-sm-4">サブジェクト</dt>
+          <dd class="col-sm-8">{{ subject }}</dd>
+          <dt class="col-sm-4">発行者</dt>
+          <dd class="col-sm-8">{{ issuer }}</dd>
+          <dt class="col-sm-4">有効期間</dt>
+          <dd class="col-sm-8">{{ not_before }} 〜 {{ not_after }}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card shadow-sm mb-4">
+      <div class="card-header">証明書 (PEM)</div>
+      <div class="card-body">
+        <pre class="bg-light p-2 rounded small">{{ certificate_pem }}</pre>
+      </div>
+    </div>
+    <div class="card shadow-sm">
+      <div class="card-header">JWK情報</div>
+      <div class="card-body">
+        <pre class="bg-light p-2 rounded small">{{ jwk_json }}</pre>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

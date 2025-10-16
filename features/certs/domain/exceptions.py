@@ -16,3 +16,7 @@ class CertificateSigningError(CertificateError):
 
 class KeyGenerationError(CertificateError):
     """鍵生成時の例外"""
+
+
+class CertificateNotFoundError(CertificateError):
+    """証明書が存在しない場合の例外"""

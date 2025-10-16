@@ -149,9 +149,13 @@ msgstr ""
 msgid "Google Accounts"
 msgstr "Googleアカウント"
 
-#: webapp/templates/base.html:84
+#: webapp/templates/base.html:91 webapp/templates/index.html:52
 msgid "Certificate Management"
 msgstr "証明書管理"
+
+#: webapp/templates/base.html:68
+msgid "Certificates"
+msgstr "証明書"
 
 #: webapp/admin/templates/admin/admin_users.html:26
 #: webapp/admin/templates/admin/config_view.html:2

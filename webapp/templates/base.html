@@ -81,7 +81,7 @@
               <li><a class="dropdown-item" href="{{ url_for('admin.service_accounts') }}">{{ _('Service Accounts') }}</a></li>
               {% endif %}
               {% if show_certificate_manage %}
-              <li><a class="dropdown-item" href="{{ url_for('certs_ui.index') }}">証明書管理</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('certs_ui.index') }}">{{ _('Certificate Management') }}</a></li>
               {% endif %}
               {% if show_user_manage %}
               <li><hr class="dropdown-divider"></li>

@@ -106,6 +106,12 @@ class AutoRotateCertificatesUseCase:
 
             issued.auto_rotated_from_kid = auto_rotated_from
             saved = self._services.issued_store.save(issued)
+            self._services.private_key_store.save(
+                kid=saved.kid,
+                private_key_pem=private_key_pem,
+                group_id=group.id,
+                expires_at=saved.expires_at,
+            )
             results.append(
                 RotationResult(
                     group=group,

@@ -81,3 +81,18 @@ class CertificateEventEntity(db.Model):
     reason = db.Column(db.Text, nullable=True)
     details = db.Column(db.JSON().with_variant(JSONB, "postgresql"), nullable=True)
     occurred_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+
+class CertificatePrivateKeyEntity(db.Model):
+    """発行済み証明書に紐づく秘密鍵を保持するテーブル"""
+
+    __tablename__ = "certificate_private_keys"
+
+    kid = db.Column(db.String(64), db.ForeignKey("issued_certificates.kid", ondelete="CASCADE"), primary_key=True)
+    group_id = db.Column(db.BigInteger, db.ForeignKey("certificate_groups.id", ondelete="SET NULL"), nullable=True)
+    private_key_pem = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    expires_at = db.Column(db.DateTime, nullable=True, index=True)
+
+    certificate = db.relationship("IssuedCertificateEntity", lazy="joined")
+    group = db.relationship("CertificateGroupEntity", lazy="joined")

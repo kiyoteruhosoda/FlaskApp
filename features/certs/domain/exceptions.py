@@ -32,3 +32,7 @@ class CertificateGroupConflictError(CertificateError):
 
 class CertificateRotationError(CertificateError):
     """自動ローテーション処理に関する例外"""
+
+
+class CertificatePrivateKeyNotFoundError(CertificateError):
+    """証明書に対応する秘密鍵が存在しない場合の例外"""

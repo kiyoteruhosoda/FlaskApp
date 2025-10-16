@@ -16,6 +16,7 @@ from .api_client import (
     GeneratedMaterial,
     IssuedCertificateWithPrivateKey,
     SignedCertificate,
+    SignedPayload,
 )
 
 
@@ -161,6 +162,21 @@ class CertificateUiService:
             subject_overrides=subject_overrides,
             valid_days=valid_days,
             key_usage=key_usage,
+        )
+
+    def sign_group_payload(
+        self,
+        group_code: str,
+        *,
+        payload: bytes,
+        kid: str | None = None,
+        hash_algorithm: str = "SHA256",
+    ) -> SignedPayload:
+        return self._client.sign_group_payload(
+            group_code,
+            payload=payload,
+            kid=kid,
+            hash_algorithm=hash_algorithm,
         )
 
     def revoke_certificate_in_group(

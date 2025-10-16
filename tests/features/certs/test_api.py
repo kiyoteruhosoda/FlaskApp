@@ -49,6 +49,21 @@ def _create_group() -> CertificateGroupEntity:
     return group
 
 
+def _login_user_without_permission(client):
+    password = "password123"
+    user = User(email="member@example.com", username="member")
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+
+    response = client.post(
+        "/auth/login",
+        data={"email": user.email, "password": password},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+
+
 def test_group_management_endpoints(app_context):
     client = app_context.test_client()
     _login_admin(client)
@@ -197,6 +212,78 @@ def test_generate_rejects_unknown_usage(app_context):
     assert resp.status_code == 400
     error = resp.get_json()
     assert "error" in error
+
+
+def test_group_certificate_issue_and_listing(app_context):
+    client = app_context.test_client()
+    _login_admin(client)
+
+    group = _create_group()
+
+    issue_resp = client.post(
+        f"/api/certs/groups/{group.group_code}/certificates",
+        json={
+            "validDays": 90,
+            "subject": {"CN": "api-service"},
+            "keyUsage": ["digitalSignature"],
+        },
+    )
+    assert issue_resp.status_code == 201
+    issued_payload = issue_resp.get_json()["certificate"]
+    assert issued_payload["groupCode"] == group.group_code
+    assert issued_payload["usageType"] == "server_signing"
+    assert issued_payload["certificatePem"].startswith("-----BEGIN CERTIFICATE-----")
+
+    list_resp = client.get(f"/api/certs/groups/{group.group_code}/certificates")
+    assert list_resp.status_code == 200
+    body = list_resp.get_json()
+    assert body["group"]["groupCode"] == group.group_code
+    kids = [item["kid"] for item in body["certificates"]]
+    assert issued_payload["kid"] in kids
+
+
+def test_search_filters_cover_group_usage_and_revocation(app_context):
+    client = app_context.test_client()
+    _login_admin(client)
+
+    group = _create_group()
+
+    issue_resp = client.post(
+        f"/api/certs/groups/{group.group_code}/certificates",
+        json={"validDays": 30},
+    )
+    assert issue_resp.status_code == 201
+    issued = issue_resp.get_json()["certificate"]
+
+    revoke_resp = client.post(
+        f"/api/certs/{issued['kid']}/revoke",
+        json={"reason": "test"},
+    )
+    assert revoke_resp.status_code == 200
+
+    search_resp = client.get(
+        "/api/certs/search",
+        query_string={
+            "group_code": group.group_code,
+            "usage_type": "server_signing",
+            "revoked": "true",
+        },
+    )
+    assert search_resp.status_code == 200
+    payload = search_resp.get_json()
+    assert payload["total"] == 1
+    assert payload["certificates"][0]["kid"] == issued["kid"]
+    assert payload["certificates"][0]["revokedAt"] is not None
+
+
+def test_requires_certificate_manage_permission(app_context):
+    client = app_context.test_client()
+    _login_user_without_permission(client)
+
+    response = client.get("/api/certs/groups")
+    assert response.status_code == 403
+    error = response.get_json()
+    assert error["error"] == "Forbidden"
 
 
 def test_list_certificates_rejects_invalid_usage(app_context):

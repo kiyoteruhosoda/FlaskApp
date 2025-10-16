@@ -7,6 +7,9 @@ msgstr "Familink"
 msgid "Dashboard"
 msgstr "Dashboard"
 
+msgid "Certificate Management"
+msgstr "Certificate Management"
+
 msgid "Login"
 msgstr "Login"
 

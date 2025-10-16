@@ -478,8 +478,8 @@ def create_app():
     from .auth.routes import picker as picker_view
     app.add_url_rule("/picker/<int:account_id>", view_func=picker_view, endpoint="picker")
 
-    from .feature_x import bp as feature_x_bp
-    app.register_blueprint(feature_x_bp, url_prefix="/feature-x")
+    from .dashboard import bp as dashboard_bp
+    app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
 
     from .admin.routes import bp as admin_bp
     app.register_blueprint(admin_bp, url_prefix="/admin")

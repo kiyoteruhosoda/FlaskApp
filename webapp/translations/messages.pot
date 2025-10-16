@@ -990,26 +990,154 @@ msgstr ""
 msgid "Enabling..."
 msgstr ""
 
-#: webapp/feature_x/templates/feature_x/dashboard.html:2
-#: webapp/feature_x/templates/feature_x/dashboard.html:4
+#: webapp/dashboard/templates/dashboard/index.html:3
+#: webapp/dashboard/templates/dashboard/index.html:5
 #: webapp/templates/base.html:29 webapp/templates/index.html:21
 msgid "Dashboard"
 msgstr ""
 
-#: webapp/feature_x/templates/feature_x/dashboard.html:5
-msgid "This page requires login."
+#: webapp/dashboard/templates/dashboard/index.html:6
+msgid "Workspace dashboard"
 msgstr ""
 
-#: webapp/feature_x/templates/feature_x/dashboard.html:58
-msgid "Manage Users"
+#: webapp/dashboard/templates/dashboard/index.html:8
+msgid "Stay on top of shared knowledge, media operations, and administration from one place."
 msgstr ""
 
-#: webapp/feature_x/templates/feature_x/dashboard.html:63
-msgid "View Config Settings"
+#: webapp/dashboard/templates/dashboard/index.html:13
+msgid "Signed in"
 msgstr ""
 
-#: webapp/feature_x/templates/feature_x/dashboard.html:68
-msgid "Manage Google Accounts"
+#: webapp/dashboard/templates/dashboard/index.html:16
+msgid "Welcome back, %(name)s"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:25
+msgid "Key workspaces"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:34
+msgid "Team wiki"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:36
+msgid "Browse policies, guides, and notes maintained by your team."
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:39
+msgid "Open wiki"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:50
+msgid "Media library"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:52
+msgid "Review uploaded photos and manage shared media assets."
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:55
+msgid "Open media view"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:65
+msgid "No workspace tools are available for your current role."
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:75
+msgid "Operations shortcuts"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:83
+msgid "Account settings"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:86
+msgid "Update your profile, preferred language, and sign-in credentials."
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:90
+msgid "Profile"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:93
+msgid "Sign-in details"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:103
+msgid "Administration"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:106
+msgid "Review user access, configuration, and connected integrations."
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:110
+msgid "Users"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:113
+msgid "Settings"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:116
+msgid "Google accounts"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:130
+msgid "Your status"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:138
+msgid "Display name"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:139
+msgid "Not provided"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:147
+msgid "Active role"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:152
+msgid "No active role selected"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:156
+msgid "Roles assigned: %(count)s"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:165
+msgid "Content overview"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:167
+msgid "Wiki pages: %(count)s"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:168
+msgid "Media items: %(count)s"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:179
+msgid "Quick links"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:186
+msgid "Create wiki page"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:193
+msgid "Search knowledge base"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:200
+msgid "Open media gallery"
+msgstr ""
+
+#: webapp/dashboard/templates/dashboard/index.html:206
+msgid "Manage profile preferences"
 msgstr ""
 
 #: webapp/photo-view/templates/photo-view/albums.html:100

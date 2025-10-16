@@ -102,7 +102,7 @@ def test_role_selection_sets_active_role(client, app):
         follow_redirects=False,
     )
     assert response.status_code == 302
-    assert response.headers["Location"].endswith("/feature-x/dashboard")
+    assert response.headers["Location"].endswith("/dashboard/")
 
     with client.session_transaction() as sess:
         assert sess["active_role_id"] == role_ids[0]
@@ -128,7 +128,7 @@ def test_api_login_requires_role_selection(client, app):
 
     res = client.post(
         "/api/login",
-        json={"email": email, "password": "pass", "next": "/feature-x/library"},
+        json={"email": email, "password": "pass", "next": "/dashboard/library"},
     )
     assert res.status_code == 200
     data = res.get_json()
@@ -137,5 +137,5 @@ def test_api_login_requires_role_selection(client, app):
     assert "access_token" in data and "refresh_token" in data
 
     with client.session_transaction() as sess:
-        assert sess.get("role_selection_next") == "/feature-x/library"
+        assert sess.get("role_selection_next") == "/dashboard/library"
         assert "active_role_id" not in sess

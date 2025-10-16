@@ -115,6 +115,150 @@ msgstr "Registration successful. Please log in."
 msgid "Logged out"
 msgstr "Logged out"
 
+#: webapp/dashboard/templates/dashboard/index.html:6
+msgid "Workspace dashboard"
+msgstr "Workspace dashboard"
+
+#: webapp/dashboard/templates/dashboard/index.html:8
+msgid "Stay on top of shared knowledge, media operations, and administration from one place."
+msgstr "Stay on top of shared knowledge, media operations, and administration from one place."
+
+#: webapp/dashboard/templates/dashboard/index.html:13
+msgid "Signed in"
+msgstr "Signed in"
+
+#: webapp/dashboard/templates/dashboard/index.html:16
+msgid "Welcome back, %(name)s"
+msgstr "Welcome back, %(name)s"
+
+#: webapp/dashboard/templates/dashboard/index.html:25
+msgid "Key workspaces"
+msgstr "Key workspaces"
+
+#: webapp/dashboard/templates/dashboard/index.html:34
+msgid "Team wiki"
+msgstr "Team wiki"
+
+#: webapp/dashboard/templates/dashboard/index.html:36
+msgid "Browse policies, guides, and notes maintained by your team."
+msgstr "Browse policies, guides, and notes maintained by your team."
+
+#: webapp/dashboard/templates/dashboard/index.html:39
+msgid "Open wiki"
+msgstr "Open wiki"
+
+#: webapp/dashboard/templates/dashboard/index.html:50
+msgid "Media library"
+msgstr "Media library"
+
+#: webapp/dashboard/templates/dashboard/index.html:52
+msgid "Review uploaded photos and manage shared media assets."
+msgstr "Review uploaded photos and manage shared media assets."
+
+#: webapp/dashboard/templates/dashboard/index.html:55
+msgid "Open media view"
+msgstr "Open media view"
+
+#: webapp/dashboard/templates/dashboard/index.html:65
+msgid "No workspace tools are available for your current role."
+msgstr "No workspace tools are available for your current role."
+
+#: webapp/dashboard/templates/dashboard/index.html:75
+msgid "Operations shortcuts"
+msgstr "Operations shortcuts"
+
+#: webapp/dashboard/templates/dashboard/index.html:83
+msgid "Account settings"
+msgstr "Account settings"
+
+#: webapp/dashboard/templates/dashboard/index.html:86
+msgid "Update your profile, preferred language, and sign-in credentials."
+msgstr "Update your profile, preferred language, and sign-in credentials."
+
+#: webapp/dashboard/templates/dashboard/index.html:90
+msgid "Profile"
+msgstr "Profile"
+
+#: webapp/dashboard/templates/dashboard/index.html:93
+msgid "Sign-in details"
+msgstr "Sign-in details"
+
+#: webapp/dashboard/templates/dashboard/index.html:103
+msgid "Administration"
+msgstr "Administration"
+
+#: webapp/dashboard/templates/dashboard/index.html:106
+msgid "Review user access, configuration, and connected integrations."
+msgstr "Review user access, configuration, and connected integrations."
+
+#: webapp/dashboard/templates/dashboard/index.html:110
+msgid "Users"
+msgstr "Users"
+
+#: webapp/dashboard/templates/dashboard/index.html:113
+msgid "Settings"
+msgstr "Settings"
+
+#: webapp/dashboard/templates/dashboard/index.html:116
+msgid "Google accounts"
+msgstr "Google accounts"
+
+#: webapp/dashboard/templates/dashboard/index.html:130
+msgid "Your status"
+msgstr "Your status"
+
+#: webapp/dashboard/templates/dashboard/index.html:138
+msgid "Display name"
+msgstr "Display name"
+
+#: webapp/dashboard/templates/dashboard/index.html:139
+msgid "Not provided"
+msgstr "Not provided"
+
+#: webapp/dashboard/templates/dashboard/index.html:147
+msgid "Active role"
+msgstr "Active role"
+
+#: webapp/dashboard/templates/dashboard/index.html:152
+msgid "No active role selected"
+msgstr "No active role selected"
+
+#: webapp/dashboard/templates/dashboard/index.html:156
+msgid "Roles assigned: %(count)s"
+msgstr "Roles assigned: %(count)s"
+
+#: webapp/dashboard/templates/dashboard/index.html:165
+msgid "Content overview"
+msgstr "Content overview"
+
+#: webapp/dashboard/templates/dashboard/index.html:167
+msgid "Wiki pages: %(count)s"
+msgstr "Wiki pages: %(count)s"
+
+#: webapp/dashboard/templates/dashboard/index.html:168
+msgid "Media items: %(count)s"
+msgstr "Media items: %(count)s"
+
+#: webapp/dashboard/templates/dashboard/index.html:179
+msgid "Quick links"
+msgstr "Quick links"
+
+#: webapp/dashboard/templates/dashboard/index.html:186
+msgid "Create wiki page"
+msgstr "Create wiki page"
+
+#: webapp/dashboard/templates/dashboard/index.html:193
+msgid "Search knowledge base"
+msgstr "Search knowledge base"
+
+#: webapp/dashboard/templates/dashboard/index.html:200
+msgid "Open media gallery"
+msgstr "Open media gallery"
+
+#: webapp/dashboard/templates/dashboard/index.html:206
+msgid "Manage profile preferences"
+msgstr "Manage profile preferences"
+
 msgid "This page requires login."
 msgstr "This page requires login."
 

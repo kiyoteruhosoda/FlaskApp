@@ -72,7 +72,7 @@ def _resolve_post_login_target() -> str:
     candidate = request.form.get("next") or request.args.get("next")
     if candidate and candidate.startswith("/") and not candidate.startswith("//"):
         return candidate
-    return url_for("feature_x.dashboard")
+    return url_for("dashboard.dashboard")
 
 
 def _resolve_next_target(default_endpoint: str) -> str:
@@ -88,7 +88,7 @@ def _pop_role_selection_target() -> str:
     candidate = session.pop("role_selection_next", None) or request.args.get("next")
     if candidate and candidate.startswith("/") and not candidate.startswith("//"):
         return candidate
-    return url_for("feature_x.dashboard")
+    return url_for("dashboard.dashboard")
 
 
 def _login_with_domain_user(user, redirect_target=None):
@@ -100,7 +100,7 @@ def _login_with_domain_user(user, redirect_target=None):
     session.pop("active_role_id", None)
     roles = list(getattr(model, "roles", []) or [])
     if len(roles) > 1:
-        session["role_selection_next"] = redirect_target or url_for("feature_x.dashboard")
+        session["role_selection_next"] = redirect_target or url_for("dashboard.dashboard")
         return redirect(url_for("auth.select_role"))
     _sync_active_role(model)
     return None
@@ -141,7 +141,7 @@ def _clear_setup_totp_session():
 def _complete_registration(user):
     """ユーザー登録完了後の共通処理"""
     flash(_("Registration successful"), "success")
-    dashboard_url = url_for("feature_x.dashboard")
+    dashboard_url = url_for("dashboard.dashboard")
     redirect_response = _login_with_domain_user(user, dashboard_url)
     if redirect_response:
         return redirect_response
@@ -170,7 +170,7 @@ def _handle_registration_error(template_name, **template_kwargs):
 @bp.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for("feature_x.dashboard"))
+        return redirect(url_for("dashboard.dashboard"))
     if request.method == "POST":
         email = request.form.get("email")
         password = request.form.get("password")
@@ -303,7 +303,7 @@ def register_totp():
 
             _clear_registration_session()
             flash(_("Registration successful"), "success")
-            dashboard_url = url_for("feature_x.dashboard")
+            dashboard_url = url_for("dashboard.dashboard")
             redirect_response = _login_with_domain_user(u, dashboard_url)
             if redirect_response:
                 return redirect_response

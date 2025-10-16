@@ -32,9 +32,9 @@ class Config:
     CERTS_API_TIMEOUT = float(os.environ.get("CERTS_API_TIMEOUT", "10"))
 
     SQLALCHEMY_BINDS = {}
-    fx = os.environ.get("FEATURE_X_DB_URI")
-    if fx:
-        SQLALCHEMY_BINDS["feature_x"] = fx
+    dashboard_db = os.environ.get("DASHBOARD_DB_URI")
+    if dashboard_db:
+        SQLALCHEMY_BINDS["dashboard"] = dashboard_db
 
     # i18n
     LANGUAGES = ["ja", "en"]
@@ -121,7 +121,7 @@ class TestConfig(Config):
     # Session設定
     SESSION_COOKIE_SECURE = False
 
-    # Feature X DB binding（テスト時は無効）
+    # Dashboard DB binding（テスト時は無効）
     SQLALCHEMY_BINDS = {}
     UPLOAD_TMP_DIR = "/tmp/test_upload/tmp"
     UPLOAD_DESTINATION_DIR = "/tmp/test_upload/dest"

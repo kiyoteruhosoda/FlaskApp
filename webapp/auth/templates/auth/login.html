@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else if (result.redirect_url) {
           window.location.href = result.redirect_url;
         } else {
-          window.location.href = '{{ url_for("feature_x.dashboard") }}';
+          window.location.href = '{{ url_for("dashboard.dashboard") }}';
         }
       } else {
         const errorData = await response.json();

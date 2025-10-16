@@ -396,3 +396,156 @@ msgstr "Parent Page"
 
 msgid "Are you sure you want to cancel the local import?"
 msgstr "Are you sure you want to cancel the local import?"
+
+msgid "Certificate List"
+msgstr "Certificate List"
+
+msgid "Generate New"
+msgstr "Generate New"
+
+msgid "Public Key Distribution"
+msgstr "Public Key Distribution"
+
+msgid "Usage"
+msgstr "Usage"
+
+msgid "All"
+msgstr "All"
+
+msgid "Issued At"
+msgstr "Issued At"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Revoked At"
+msgstr "Revoked At"
+
+msgid "Actions"
+msgstr "Actions"
+
+msgid "Revoked"
+msgstr "Revoked"
+
+msgid "Active"
+msgstr "Active"
+
+msgid "View Details"
+msgstr "View Details"
+
+msgid "Revoke"
+msgstr "Revoke"
+
+msgid "No certificates available to display."
+msgstr "No certificates available to display."
+
+msgid "Certificate Details"
+msgstr "Certificate Details"
+
+msgid "KID"
+msgstr "KID"
+
+msgid "Back to List"
+msgstr "Back to List"
+
+msgid "Revoke Certificate"
+msgstr "Revoke Certificate"
+
+msgid "Metadata"
+msgstr "Metadata"
+
+msgid "Revocation Reason"
+msgstr "Revocation Reason"
+
+msgid "Subject"
+msgstr "Subject"
+
+msgid "Issuer"
+msgstr "Issuer"
+
+msgid "Validity Period"
+msgstr "Validity Period"
+
+msgid "to"
+msgstr "to"
+
+msgid "Certificate (PEM)"
+msgstr "Certificate (PEM)"
+
+msgid "JWK Information"
+msgstr "JWK Information"
+
+msgid "Generate Certificate"
+msgstr "Generate Certificate"
+
+msgid "Input Form"
+msgstr "Input Form"
+
+msgid "Email Address"
+msgstr "Email Address"
+
+msgid "Validity (days)"
+msgstr "Validity (days)"
+
+msgid "Key Type"
+msgstr "Key Type"
+
+msgid "RSA Key Size"
+msgstr "RSA Key Size"
+
+msgid "Key Usage"
+msgstr "Key Usage"
+
+msgid "Mark as CA certificate"
+msgstr "Mark as CA certificate"
+
+msgid "Generate"
+msgstr "Generate"
+
+msgid "Private Key / Public Key"
+msgstr "Private Key / Public Key"
+
+msgid "Private Key"
+msgstr "Private Key"
+
+msgid "Public Key"
+msgstr "Public Key"
+
+msgid "Generation results will appear here."
+msgstr "Generation results will appear here."
+
+msgid "Certificate / JWKS"
+msgstr "Certificate / JWKS"
+
+msgid "JWK"
+msgstr "JWK"
+
+msgid "Certificate details will be shown after generation."
+msgstr "Certificate details will be shown after generation."
+
+msgid "Revoke the certificate below and provide a reason for the revocation."
+msgstr "Revoke the certificate below and provide a reason for the revocation."
+
+msgid "Example: Key was compromised"
+msgstr "Example: Key was compromised"
+
+msgid "Back"
+msgstr "Back"
+
+msgid "Are you sure you want to revoke this certificate? This action cannot be undone."
+msgstr "Are you sure you want to revoke this certificate? This action cannot be undone."
+
+msgid "Links to the JWKS endpoints and information about currently published keys."
+msgstr "Links to the JWKS endpoints and information about currently published keys."
+
+msgid "Endpoint"
+msgstr "Endpoint"
+
+msgid "Open in Browser"
+msgstr "Open in Browser"
+
+msgid "Copy URL"
+msgstr "Copy URL"
+
+msgid "JWKS JSON"
+msgstr "JWKS JSON"

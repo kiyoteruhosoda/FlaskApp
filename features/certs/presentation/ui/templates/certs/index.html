@@ -1,23 +1,23 @@
 {% extends "base.html" %}
-{% block title %}証明書一覧 | {{ super() }}{% endblock %}
+{% block title %}{{ _('Certificate List') }} | {{ super() }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h1 class="h3">証明書一覧</h1>
+  <h1 class="h3">{{ _('Certificate List') }}</h1>
   <div>
     <a class="btn btn-primary me-2" href="{{ url_for('certs_ui.generate') }}">
-      <i class="bi bi-plus-circle me-1"></i>新規生成
+      <i class="bi bi-plus-circle me-1"></i>{{ _('Generate New') }}
     </a>
     <a class="btn btn-outline-secondary" href="{{ url_for('certs_ui.public_keys') }}">
-      <i class="bi bi-link-45deg me-1"></i>公開鍵配布
+      <i class="bi bi-link-45deg me-1"></i>{{ _('Public Key Distribution') }}
     </a>
   </div>
 </div>
 
 <form class="row gy-2 gx-3 align-items-center mb-4" method="get">
   <div class="col-auto">
-    <label class="form-label" for="usage">用途</label>
+    <label class="form-label" for="usage">{{ _('Usage') }}</label>
     <select class="form-select" id="usage" name="usage" onchange="this.form.submit()">
-      <option value="">すべて</option>
+      <option value="">{{ _('All') }}</option>
       {% for value, label in usage_options %}
       <option value="{{ value }}" {% if selected_usage == value %}selected{% endif %}>{{ label }}</option>
       {% endfor %}
@@ -30,11 +30,11 @@
     <thead>
       <tr>
         <th scope="col">KID</th>
-        <th scope="col">用途</th>
-        <th scope="col">発行日時</th>
-        <th scope="col">状態</th>
-        <th scope="col">失効日時</th>
-        <th scope="col">操作</th>
+        <th scope="col">{{ _('Usage') }}</th>
+        <th scope="col">{{ _('Issued At') }}</th>
+        <th scope="col">{{ _('Status') }}</th>
+        <th scope="col">{{ _('Revoked At') }}</th>
+        <th scope="col">{{ _('Actions') }}</th>
       </tr>
     </thead>
     <tbody>
@@ -46,9 +46,9 @@
           <td>{{ cert.issued_at.strftime('%Y-%m-%d %H:%M:%S') if cert.issued_at else '-' }}</td>
           <td>
             {% if cert.is_revoked %}
-            <span class="badge bg-secondary">失効</span>
+            <span class="badge bg-secondary">{{ _('Revoked') }}</span>
             {% else %}
-            <span class="badge bg-success">有効</span>
+            <span class="badge bg-success">{{ _('Active') }}</span>
             {% endif %}
           </td>
           <td>
@@ -58,11 +58,11 @@
           </td>
           <td>
             <a class="btn btn-sm btn-outline-primary me-1" href="{{ url_for('certs_ui.detail', kid=cert.kid) }}">
-              詳細
+              {{ _('View Details') }}
             </a>
             {% if not cert.is_revoked %}
             <a class="btn btn-sm btn-outline-danger" href="{{ url_for('certs_ui.revoke', kid=cert.kid) }}">
-              失効
+              {{ _('Revoke') }}
             </a>
             {% endif %}
           </td>
@@ -70,7 +70,7 @@
         {% endfor %}
       {% else %}
       <tr>
-        <td colspan="6" class="text-center text-muted py-4">表示できる証明書がありません。</td>
+        <td colspan="6" class="text-center text-muted py-4">{{ _('No certificates available to display.') }}</td>
       </tr>
       {% endif %}
     </tbody>

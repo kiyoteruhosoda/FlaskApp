@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}証明書生成 | {{ super() }}{% endblock %}
+{% block title %}{{ _('Generate Certificate') }} | {{ super() }}{% endblock %}
 {% block content %}
-<h1 class="h3 mb-4">証明書生成</h1>
+<h1 class="h3 mb-4">{{ _('Generate Certificate') }}</h1>
 <div class="row g-4">
   <div class="col-lg-6">
     <div class="card shadow-sm">
-      <div class="card-header">入力フォーム</div>
+      <div class="card-header">{{ _('Input Form') }}</div>
       <div class="card-body">
         <form method="post">
           <div class="mb-3">
@@ -37,12 +37,12 @@
             </div>
           </div>
           <div class="mb-3 mt-3">
-            <label class="form-label">メールアドレス</label>
+            <label class="form-label">{{ _('Email Address') }}</label>
             <input type="email" class="form-control" name="subject_email" value="{{ (form_data or {}).get('subject_email', '') }}">
           </div>
           <div class="row g-3">
             <div class="col-md-6">
-              <label class="form-label">用途</label>
+              <label class="form-label">{{ _('Usage') }}</label>
               <select class="form-select" name="usage_type">
                 {% for value, label in usage_options %}
                 <option value="{{ value }}" {% if (form_data or {}).get('usage_type', 'server_signing') == value %}selected{% endif %}>{{ label }}</option>
@@ -50,25 +50,25 @@
               </select>
             </div>
             <div class="col-md-6">
-              <label class="form-label">有効日数</label>
+              <label class="form-label">{{ _('Validity (days)') }}</label>
               <input type="number" class="form-control" name="days" min="1" value="{{ (form_data or {}).get('days', '365') }}">
             </div>
           </div>
           <div class="row g-3 mt-1">
             <div class="col-md-6">
-              <label class="form-label">鍵タイプ</label>
+              <label class="form-label">{{ _('Key Type') }}</label>
               <select class="form-select" name="key_type">
                 <option value="RSA" {% if (form_data or {}).get('key_type', 'RSA') == 'RSA' %}selected{% endif %}>RSA</option>
                 <option value="EC" {% if (form_data or {}).get('key_type') == 'EC' %}selected{% endif %}>EC (P-256)</option>
               </select>
             </div>
             <div class="col-md-6">
-              <label class="form-label">RSA鍵長</label>
+              <label class="form-label">{{ _('RSA Key Size') }}</label>
               <input type="number" class="form-control" name="key_bits" min="2048" step="1024" value="{{ (form_data or {}).get('key_bits', '2048') }}">
             </div>
           </div>
           <div class="mb-3 mt-3">
-            <label class="form-label">Key Usage</label>
+            <label class="form-label">{{ _('Key Usage') }}</label>
             <div class="row row-cols-1 row-cols-sm-2 g-2">
               {% set selected_key_usage = (form_data or {}).getlist('key_usage') if form_data else [] %}
               {% for value, label in key_usage_choices %}
@@ -83,10 +83,10 @@
           </div>
           <div class="form-check form-switch mb-3">
             <input class="form-check-input" type="checkbox" id="is_ca" name="is_ca" {% if (form_data or {}).get('is_ca') %}checked{% endif %}>
-            <label class="form-check-label" for="is_ca">CA証明書としてマークする</label>
+            <label class="form-check-label" for="is_ca">{{ _('Mark as CA certificate') }}</label>
           </div>
           <div class="d-grid">
-            <button type="submit" class="btn btn-primary">生成する</button>
+            <button type="submit" class="btn btn-primary">{{ _('Generate') }}</button>
           </div>
         </form>
       </div>
@@ -94,31 +94,31 @@
   </div>
   <div class="col-lg-6">
     <div class="card shadow-sm mb-4">
-      <div class="card-header">秘密鍵 / 公開鍵</div>
+      <div class="card-header">{{ _('Private Key / Public Key') }}</div>
       <div class="card-body">
         {% if generated_material %}
-        <h6>秘密鍵</h6>
+        <h6>{{ _('Private Key') }}</h6>
         <pre class="bg-light p-2 rounded small">{{ generated_material.private_key_pem }}</pre>
-        <h6>公開鍵</h6>
+        <h6>{{ _('Public Key') }}</h6>
         <pre class="bg-light p-2 rounded small">{{ generated_material.public_key_pem }}</pre>
         {% else %}
-        <p class="text-muted mb-0">生成結果がここに表示されます。</p>
+        <p class="text-muted mb-0">{{ _('Generation results will appear here.') }}</p>
         {% endif %}
       </div>
     </div>
     <div class="card shadow-sm">
-      <div class="card-header">証明書 / JWKS</div>
+      <div class="card-header">{{ _('Certificate / JWKS') }}</div>
       <div class="card-body">
         {% if certificate_pem %}
-        <h6>証明書 (PEM)</h6>
+        <h6>{{ _('Certificate (PEM)') }}</h6>
         <pre class="bg-light p-2 rounded small">{{ certificate_pem }}</pre>
-        <h6>JWK</h6>
+        <h6>{{ _('JWK') }}</h6>
         <pre class="bg-light p-2 rounded small">{{ jwk_json }}</pre>
         <div class="mt-3">
-          <a class="btn btn-outline-primary" href="{{ url_for('certs_ui.detail', kid=kid) }}">詳細を表示</a>
+          <a class="btn btn-outline-primary" href="{{ url_for('certs_ui.detail', kid=kid) }}">{{ _('View Details') }}</a>
         </div>
         {% else %}
-        <p class="text-muted mb-0">証明書生成後に詳細が表示されます。</p>
+        <p class="text-muted mb-0">{{ _('Certificate details will be shown after generation.') }}</p>
         {% endif %}
       </div>
     </div>

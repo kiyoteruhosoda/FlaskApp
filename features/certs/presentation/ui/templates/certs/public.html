@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}公開鍵配布 | {{ super() }}{% endblock %}
+{% block title %}{{ _('Public Key Distribution') }} | {{ super() }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h1 class="h3 mb-0">公開鍵配布</h1>
-  <a class="btn btn-outline-secondary" href="{{ url_for('certs_ui.index') }}">一覧に戻る</a>
+  <h1 class="h3 mb-0">{{ _('Public Key Distribution') }}</h1>
+  <a class="btn btn-outline-secondary" href="{{ url_for('certs_ui.index') }}">{{ _('Back to List') }}</a>
 </div>
-<p class="text-muted">JWKSエンドポイントへのリンクと現在公開中の鍵情報です。</p>
+<p class="text-muted">{{ _('Links to the JWKS endpoints and information about currently published keys.') }}</p>
 
 <div class="accordion" id="jwksAccordion">
   {% for info in usage_infos %}
@@ -17,12 +17,12 @@
     </h2>
     <div id="collapse-{{ loop.index }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" aria-labelledby="heading-{{ loop.index }}" data-bs-parent="#jwksAccordion">
       <div class="accordion-body">
-        <p class="mb-2">エンドポイント: <code>{{ info.api_url }}</code></p>
+        <p class="mb-2">{{ _('Endpoint') }}: <code>{{ info.api_url }}</code></p>
         <div class="d-flex gap-2 mb-3">
-          <a class="btn btn-sm btn-outline-primary" href="{{ info.api_url }}" target="_blank" rel="noopener">ブラウザで開く</a>
-          <button type="button" class="btn btn-sm btn-outline-secondary" onclick="navigator.clipboard.writeText({{ info.api_url|tojson }})">URLをコピー</button>
+          <a class="btn btn-sm btn-outline-primary" href="{{ info.api_url }}" target="_blank" rel="noopener">{{ _('Open in Browser') }}</a>
+          <button type="button" class="btn btn-sm btn-outline-secondary" onclick="navigator.clipboard.writeText({{ info.api_url|tojson }})">{{ _('Copy URL') }}</button>
         </div>
-        <h6>JWKS JSON</h6>
+        <h6>{{ _('JWKS JSON') }}</h6>
         <pre class="bg-light p-2 rounded small">{{ info.jwks_json }}</pre>
       </div>
     </div>

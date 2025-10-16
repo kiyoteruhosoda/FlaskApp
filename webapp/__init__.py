@@ -469,6 +469,7 @@ def create_app():
     from core.models import log as _log  # noqa: F401
     from core.models.wiki import models as _wiki_models  # noqa: F401
     from core.models import totp as _totp_models  # noqa: F401
+    from features.certs.infrastructure import models as _cert_models  # noqa: F401
 
 
     # Blueprint 登録

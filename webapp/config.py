@@ -29,7 +29,6 @@ class Config:
     
     # URL生成設定
     PREFERRED_URL_SCHEME = os.environ.get("PREFERRED_URL_SCHEME", "http")
-    CERTS_API_BASE_URL = os.environ.get("CERTS_API_BASE_URL")
     CERTS_API_TIMEOUT = float(os.environ.get("CERTS_API_TIMEOUT", "10"))
 
     SQLALCHEMY_BINDS = {}
@@ -121,7 +120,6 @@ class TestConfig(Config):
     
     # Session設定
     SESSION_COOKIE_SECURE = False
-    CERTS_API_BASE_URL = None
 
     # Feature X DB binding（テスト時は無効）
     SQLALCHEMY_BINDS = {}

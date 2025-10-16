@@ -12,6 +12,7 @@ from flask import Flask, current_app, has_request_context, request, url_for
 
 from features.certs.domain.usage import UsageType
 from webapp.auth.utils import log_requests_and_send
+from shared.application.api_urls import get_api_base_url
 
 
 class CertsApiClientError(RuntimeError):
@@ -191,13 +192,14 @@ class CertsApiClient:
         return urljoin(base_url.rstrip("/") + "/", path)
 
     def _resolve_base_url(self) -> str:
-        base_url = self._app.config.get("CERTS_API_BASE_URL")
-        if base_url:
-            return base_url
+        env_base_url = get_api_base_url()
+        if env_base_url:
+            return env_base_url
+
         if has_request_context():
             return request.url_root
         raise CertsApiClientError(
-            "CERTS_API_BASE_URL is not configured", HTTPStatus.INTERNAL_SERVER_ERROR
+            "API_BASE_URL is not configured", HTTPStatus.INTERNAL_SERVER_ERROR
         )
 
     def _build_headers(self) -> dict[str, str]:

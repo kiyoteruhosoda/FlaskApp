@@ -886,6 +886,30 @@ msgstr "No certificate groups available."
 msgid "Create Certificate Group"
 msgstr "Create Certificate Group"
 
+msgid "Key Parameters"
+msgstr "Key Parameters"
+
+msgid "Select key parameters"
+msgstr "Select key parameters"
+
+msgid "Custom configuration (%(details)s)"
+msgstr "Custom configuration (%(details)s)"
+
+msgid "Fill in all required subject attributes using ASCII characters. Country code must be a two-letter ISO 3166-1 alpha-2 value (e.g., JP)."
+msgstr "Fill in all required subject attributes using ASCII characters. Country code must be a two-letter ISO 3166-1 alpha-2 value (e.g., JP)."
+
+msgid "Required"
+msgstr "Required"
+
+msgid "Optional"
+msgstr "Optional"
+
+msgid "Please fill in all required subject attributes."
+msgstr "Please fill in all required subject attributes."
+
+msgid "%(label)s is required."
+msgstr "%(label)s is required."
+
 msgid "Usage Type"
 msgstr "Usage Type"
 

@@ -36,14 +36,14 @@ _KEY_USAGE_CHOICES: list[tuple[str, str]] = [
     ("decipherOnly", _("decipherOnly - decipher only")),
 ]
 
-_SUBJECT_FIELD_DEFINITIONS: list[tuple[str, str, str]] = [
-    ("C", "subject_c", _("Country (C)")),
-    ("ST", "subject_st", _("State or Province (ST)")),
-    ("L", "subject_l", _("Locality (L)")),
-    ("O", "subject_o", _("Organization (O)")),
-    ("OU", "subject_ou", _("Organizational Unit (OU)")),
-    ("CN", "subject_cn", _("Common Name (CN)")),
-    ("emailAddress", "subject_email", _("Email Address")),
+_SUBJECT_FIELD_DEFINITIONS: list[tuple[str, str, str, bool]] = [
+    ("C", "subject_c", _("Country (C)"), True),
+    ("ST", "subject_st", _("State or Province (ST)"), False),
+    ("L", "subject_l", _("Locality (L)"), False),
+    ("O", "subject_o", _("Organization (O)"), True),
+    ("OU", "subject_ou", _("Organizational Unit (OU)"), False),
+    ("CN", "subject_cn", _("Common Name (CN)"), True),
+    ("emailAddress", "subject_email", _("Email Address"), False),
 ]
 
 
@@ -130,7 +130,7 @@ def _usage_key_presets() -> dict[str, list[dict[str, str | int | None]]]:
 
 def _build_subject_from_form(form_data: dict[str, str]) -> dict[str, str]:
     subject: dict[str, str] = {}
-    for oid, field_name, _label in _SUBJECT_FIELD_DEFINITIONS:
+    for oid, field_name, _label, _required in _SUBJECT_FIELD_DEFINITIONS:
         value = (form_data.get(field_name) or "").strip()
         if value:
             subject[oid] = value
@@ -141,9 +141,11 @@ def _validate_subject_template(form_data: dict[str, str]) -> dict[str, str]:
     errors: list[str] = []
     subject: dict[str, str] = {}
 
-    for oid, field_name, label in _SUBJECT_FIELD_DEFINITIONS:
+    for oid, field_name, label, required in _SUBJECT_FIELD_DEFINITIONS:
         raw_value = (form_data.get(field_name) or "").strip()
         if not raw_value:
+            if required:
+                errors.append(_("%(label)s is required.", label=label))
             continue
 
         if not raw_value.isascii():
@@ -160,7 +162,7 @@ def _validate_subject_template(form_data: dict[str, str]) -> dict[str, str]:
 
         subject[oid] = value
 
-    if not subject:
+    if not subject and not errors:
         errors.append(_("At least one subject attribute is required."))
 
     if errors:
@@ -171,7 +173,7 @@ def _validate_subject_template(form_data: dict[str, str]) -> dict[str, str]:
 
 def _subject_to_form_values(subject: dict[str, str]) -> dict[str, str]:
     values: dict[str, str] = {}
-    for oid, field_name, _label in _SUBJECT_FIELD_DEFINITIONS:
+    for oid, field_name, _label, _required in _SUBJECT_FIELD_DEFINITIONS:
         values[field_name] = subject.get(oid, "")
     return values
 
@@ -229,7 +231,7 @@ def index():
         ) or values.get("group_code")
         subject_values = {
             oid: values.get(field_name, "")
-            for oid, field_name, _label in _SUBJECT_FIELD_DEFINITIONS
+            for oid, field_name, _label, _required in _SUBJECT_FIELD_DEFINITIONS
         }
         edit_form_initial = {
             "groupCode": group_code_value or "",
@@ -251,11 +253,18 @@ def index():
     if not create_form_values.get("usage_type"):
         create_form_values["usage_type"] = UsageType.SERVER_SIGNING.value
 
+    required_subject_field_names = [
+        field_name
+        for _oid, field_name, _label, required in _SUBJECT_FIELD_DEFINITIONS
+        if required
+    ]
+
     return render_template(
         "certs/groups.html",
         groups=groups,
         usage_options=_usage_options(),
         subject_fields=_SUBJECT_FIELD_DEFINITIONS,
+        required_subject_field_names=required_subject_field_names,
         key_presets=_usage_key_presets(),
         create_form_values=create_form_values,
         show_create_modal=show_create_modal,
@@ -468,6 +477,12 @@ def group_detail(group_code: str):
     jwks_url = url_for("certs_api.jwks", group_code=group_code, _external=True)
     subject_form_values = _subject_to_form_values(group.subject)
 
+    required_subject_field_names = [
+        field_name
+        for _oid, field_name, _label, required in _SUBJECT_FIELD_DEFINITIONS
+        if required
+    ]
+
     return render_template(
         "certs/group_detail.html",
         group=group,
@@ -476,6 +491,7 @@ def group_detail(group_code: str):
         key_usage_choices=_KEY_USAGE_CHOICES,
         issued_certificate=issued_certificate,
         subject_fields=_SUBJECT_FIELD_DEFINITIONS,
+        required_subject_field_names=required_subject_field_names,
         subject_form_values=subject_form_values,
     )
 

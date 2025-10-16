@@ -156,7 +156,7 @@ class ListJwksUseCase:
 
     def execute(self, usage_type: UsageType) -> dict:
         certificates = self._services.issued_store.list_by_usage(usage_type)
-        keys = [cert.jwk for cert in sorted(certificates, key=lambda cert: cert.issued_at, reverse=True)]
+        keys = [cert.jwk for cert in certificates if not cert.is_revoked]
         return {"keys": keys}
 
 

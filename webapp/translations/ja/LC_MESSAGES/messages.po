@@ -3071,3 +3071,72 @@ msgstr "少なくとも1つ検索条件を入力してから実行してくだ�
 msgid "Back to Group"
 msgstr "グループに戻る"
 
+
+msgid "Display name must be a string."
+msgstr "displayNameは文字列で指定してください"
+
+msgid "Key type is required."
+msgstr "keyTypeは必須です"
+
+msgid "Key curve must be a string."
+msgstr "keyCurveは文字列で指定してください"
+
+msgid "Key size must be an integer."
+msgstr "keySizeは整数で指定してください"
+
+msgid "Rotation threshold days must be an integer."
+msgstr "rotationThresholdDaysは整数で指定してください"
+
+msgid "Rotation threshold days must be at least 1."
+msgstr "rotationThresholdDaysは1以上で指定してください"
+
+msgid "Subject must be provided as an object."
+msgstr "subjectはオブジェクトで指定してください"
+
+msgid "Limit must be an integer."
+msgstr "limitは整数で指定してください"
+
+msgid "Offset must be an integer."
+msgstr "offsetは整数で指定してください"
+
+msgid "Issued-from must be in ISO 8601 format."
+msgstr "issuedFromはISO8601形式で指定してください"
+
+msgid "Issued-to must be in ISO 8601 format."
+msgstr "issuedToはISO8601形式で指定してください"
+
+msgid "Expires-from must be in ISO 8601 format."
+msgstr "expiresFromはISO8601形式で指定してください"
+
+msgid "Expires-to must be in ISO 8601 format."
+msgstr "expiresToはISO8601形式で指定してください"
+
+msgid "Valid days must be an integer."
+msgstr "validDaysは整数で指定してください"
+
+msgid "Valid days must be at least 1."
+msgstr "validDaysは1以上で指定してください"
+
+msgid "Key usage must be provided as an array."
+msgstr "keyUsageは配列で指定してください"
+
+msgid "Key bits must be an integer."
+msgstr "keyBitsは整数で指定してください"
+
+msgid "Key usage must be provided as an array of strings."
+msgstr "keyUsageは文字列配列で指定してください"
+
+msgid "Days must be an integer."
+msgstr "daysは整数で指定してください"
+
+msgid "Group code must be a string."
+msgstr "groupCodeは文字列で指定してください"
+
+msgid "The group parameter is invalid."
+msgstr "groupパラメータが不正です"
+
+msgid "Reason must be a string."
+msgstr "reasonは文字列で指定してください"
+
+msgid "The certificate does not exist in the specified group."
+msgstr "指定したグループに証明書が存在しません"

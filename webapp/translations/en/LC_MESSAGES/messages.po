@@ -820,6 +820,75 @@ msgstr "Certificate group updated."
 msgid "Cannot delete the group because certificates exist: %(message)s"
 msgstr "Cannot delete the group because certificates exist: %(message)s"
 
+msgid "Display name must be a string."
+msgstr "Display name must be a string."
+
+msgid "Key type is required."
+msgstr "Key type is required."
+
+msgid "Key curve must be a string."
+msgstr "Key curve must be a string."
+
+msgid "Key size must be an integer."
+msgstr "Key size must be an integer."
+
+msgid "Rotation threshold days must be an integer."
+msgstr "Rotation threshold days must be an integer."
+
+msgid "Rotation threshold days must be at least 1."
+msgstr "Rotation threshold days must be at least 1."
+
+msgid "Subject must be provided as an object."
+msgstr "Subject must be provided as an object."
+
+msgid "Limit must be an integer."
+msgstr "Limit must be an integer."
+
+msgid "Offset must be an integer."
+msgstr "Offset must be an integer."
+
+msgid "Issued-from must be in ISO 8601 format."
+msgstr "Issued-from must be in ISO 8601 format."
+
+msgid "Issued-to must be in ISO 8601 format."
+msgstr "Issued-to must be in ISO 8601 format."
+
+msgid "Expires-from must be in ISO 8601 format."
+msgstr "Expires-from must be in ISO 8601 format."
+
+msgid "Expires-to must be in ISO 8601 format."
+msgstr "Expires-to must be in ISO 8601 format."
+
+msgid "Valid days must be an integer."
+msgstr "Valid days must be an integer."
+
+msgid "Valid days must be at least 1."
+msgstr "Valid days must be at least 1."
+
+msgid "Key usage must be provided as an array."
+msgstr "Key usage must be provided as an array."
+
+msgid "Key bits must be an integer."
+msgstr "Key bits must be an integer."
+
+msgid "Key usage must be provided as an array of strings."
+msgstr "Key usage must be provided as an array of strings."
+
+msgid "Days must be an integer."
+msgstr "Days must be an integer."
+
+msgid "Group code must be a string."
+msgstr "Group code must be a string."
+
+msgid "The group parameter is invalid."
+msgstr "The group parameter is invalid."
+
+msgid "Reason must be a string."
+msgstr "Reason must be a string."
+
+msgid "The certificate does not exist in the specified group."
+msgstr "The certificate does not exist in the specified group."
+
 msgid "Failed to delete certificate group: %(message)s"
 msgstr "Failed to delete certificate group: %(message)s"
 

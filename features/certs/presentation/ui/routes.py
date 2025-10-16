@@ -280,7 +280,7 @@ def group_detail(group_code: str):
     issued_certificate = session.pop("certs_last_issued", None)
 
     jwks_url = url_for("certs_api.jwks", group_code=group_code, _external=True)
-    subject_form_values = _subject_to_form_values(group.subject_dict())
+    subject_form_values = _subject_to_form_values(group.subject)
 
     return render_template(
         "certs/group_detail.html",

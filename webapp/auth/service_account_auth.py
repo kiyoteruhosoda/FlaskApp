@@ -39,15 +39,15 @@ class ServiceAccountTokenValidator:
                 _("The token does not specify a key identifier."),
             )
 
-        if not account.jtk_endpoint:
+        if not account.jwt_endpoint:
             raise ServiceAccountJWTError(
                 "InvalidSignature",
-                _("The service account is missing a JTK endpoint."),
+                _("The service account is missing a JWT endpoint."),
             )
 
         timeout = current_app.config.get("SERVICE_ACCOUNT_JWKS_TIMEOUT", 5)
         try:
-            response = requests.get(account.jtk_endpoint, timeout=timeout)
+            response = requests.get(account.jwt_endpoint, timeout=timeout)
             response.raise_for_status()
         except requests.RequestException as exc:
             raise ServiceAccountJWTError(
@@ -60,14 +60,14 @@ class ServiceAccountTokenValidator:
         except ValueError as exc:
             raise ServiceAccountJWTError(
                 "InvalidSignature",
-                _("The JTK endpoint returned invalid JSON."),
+                _("The JWT endpoint returned invalid JSON."),
             ) from exc
 
         keys = payload.get("keys")
         if not isinstance(keys, list):
             raise ServiceAccountJWTError(
                 "InvalidSignature",
-                _("The JTK endpoint response did not include signing keys."),
+                _("The JWT endpoint response did not include signing keys."),
             )
 
         for jwk in keys:
@@ -82,7 +82,7 @@ class ServiceAccountTokenValidator:
             except (ValueError, TypeError) as exc:
                 raise ServiceAccountJWTError(
                     "InvalidSignature",
-                    _("Failed to construct a signing key from the JTK response."),
+                    _("Failed to construct a signing key from the JWT response."),
                 ) from exc
 
         raise ServiceAccountJWTError(

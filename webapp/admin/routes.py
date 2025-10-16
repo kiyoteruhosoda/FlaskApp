@@ -60,7 +60,7 @@ def service_accounts_create():
         account = ServiceAccountService.create_account(
             name=payload.get("name", ""),
             description=payload.get("description"),
-            jtk_endpoint=payload.get("jtk_endpoint", ""),
+            jwt_endpoint=payload.get("jwt_endpoint", ""),
             scope_names=payload.get("scope_names", ""),
             active=payload.get("active_flg", True),
             allowed_scopes=current_user.permissions,
@@ -98,7 +98,7 @@ def service_accounts_update(account_id: int):
             account_id,
             name=payload.get("name", ""),
             description=payload.get("description"),
-            jtk_endpoint=payload.get("jtk_endpoint", ""),
+            jwt_endpoint=payload.get("jwt_endpoint", ""),
             scope_names=payload.get("scope_names", ""),
             active=payload.get("active_flg", True),
             allowed_scopes=current_user.permissions,
@@ -678,7 +678,7 @@ def _extract_service_account_payload() -> dict:
     return {
         "name": data.get("name", ""),
         "description": data.get("description"),
-        "jtk_endpoint": data.get("jtk_endpoint", ""),
+        "jwt_endpoint": data.get("jwt_endpoint", ""),
         "scope_names": data.get("scope_names", ""),
         "active_flg": active_value,
     }

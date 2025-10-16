@@ -16,15 +16,19 @@ def _login_admin(client):
     user = User(email="admin@example.com", username="admin")
     user.set_password(password)
 
-    perm = Permission.query.filter_by(code="certificate:manage").first()
-    if perm is None:
-        perm = Permission(code="certificate:manage")
+    manage_perm = Permission.query.filter_by(code="certificate:manage").first()
+    if manage_perm is None:
+        manage_perm = Permission(code="certificate:manage")
+
+    sign_perm = Permission.query.filter_by(code="certificate:sign").first()
+    if sign_perm is None:
+        sign_perm = Permission(code="certificate:sign")
 
     role = Role(name="admin-test")
-    role.permissions.append(perm)
+    role.permissions.extend([manage_perm, sign_perm])
     user.roles.append(role)
 
-    db.session.add_all([perm, role, user])
+    db.session.add_all([manage_perm, sign_perm, role, user])
     db.session.commit()
 
     response = client.post(
@@ -178,6 +182,12 @@ def test_generate_sign_and_jwks_flow(app_context):
         == generated["publicKeyPem"]
     )
 
+    keys_resp = client.get(f"/api/keys/{group.group_code}")
+    assert keys_resp.status_code == 200
+    keys_payload = keys_resp.get_json()
+    assert keys_payload["keys"]
+    assert keys_payload["keys"][0]["kid"] == signed["kid"]
+
     jwks_resp = client.get(f"/api/.well-known/jwks/{group.group_code}.json")
     assert jwks_resp.status_code == 200
     jwks = jwks_resp.get_json()
@@ -213,6 +223,55 @@ def test_generate_sign_and_jwks_flow(app_context):
     assert search_resp.status_code == 200
     search_payload = search_resp.get_json()
     assert search_payload["total"] >= 1
+
+
+def test_latest_key_endpoint_returns_only_newest_key(app_context):
+    client = app_context.test_client()
+    _login_admin(client)
+
+    group = _create_group()
+
+    def _sign_certificate(common_name: str) -> dict:
+        generate_resp = client.post(
+            "/api/certs/generate",
+            json={
+                "subject": {"C": "JP", "O": "Example", "CN": common_name},
+                "usageType": "server_signing",
+                "keyType": "RSA",
+                "keyBits": 2048,
+                "makeCsr": True,
+                "keyUsage": ["digitalSignature", "keyEncipherment"],
+            },
+        )
+        assert generate_resp.status_code == 200
+        generated = generate_resp.get_json()
+
+        sign_resp = client.post(
+            "/api/certs/sign",
+            json={
+                "csrPem": generated["csrPem"],
+                "usageType": "server_signing",
+                "days": 30,
+                "keyUsage": ["digitalSignature", "keyEncipherment"],
+                "groupCode": group.group_code,
+            },
+        )
+        assert sign_resp.status_code == 200
+        return sign_resp.get_json()
+
+    first_signed = _sign_certificate("service-1")
+    second_signed = _sign_certificate("service-2")
+
+    latest_resp = client.get(f"/api/keys/{group.group_code}")
+    assert latest_resp.status_code == 200
+    latest_payload = latest_resp.get_json()
+    assert latest_payload["keys"] == [second_signed["jwk"]]
+
+    jwks_resp = client.get(f"/api/.well-known/jwks/{group.group_code}.json")
+    assert jwks_resp.status_code == 200
+    jwks_payload = jwks_resp.get_json()["keys"]
+    assert jwks_payload[0]["kid"] == second_signed["kid"]
+    assert any(key["kid"] == first_signed["kid"] for key in jwks_payload)
 
 
 def test_generate_rejects_unknown_usage(app_context):
@@ -325,7 +384,7 @@ def test_sign_group_payload_api(app_context):
     payload = b"hello-cert"
     payload_b64 = base64.b64encode(payload).decode("ascii")
     sign_resp = client.post(
-        f"/api/certs/groups/{group.group_code}/sign",
+        f"/api/keys/{group.group_code}/{certificate_payload['kid']}/sign",
         json={"payload": payload_b64},
     )
     assert sign_resp.status_code == 200
@@ -333,7 +392,7 @@ def test_sign_group_payload_api(app_context):
     assert sign_body["groupCode"] == group.group_code
     assert sign_body["kid"] == certificate_payload["kid"]
     assert sign_body["hashAlgorithm"] == "SHA256"
-    assert sign_body["algorithm"]
+    assert sign_body["algorithm"] == "RS256"
 
     signature = base64.b64decode(sign_body["signature"])
     certificate = x509.load_pem_x509_certificate(
@@ -344,6 +403,13 @@ def test_sign_group_payload_api(app_context):
         public_key.verify(signature, payload, padding.PKCS1v15(), hashes.SHA256())
     else:
         public_key.verify(signature, payload, ec.ECDSA(hashes.SHA256()))
+
+    payload_urlsafe = base64.urlsafe_b64encode(payload).decode("ascii").rstrip("=")
+    sign_resp_urlsafe = client.post(
+        f"/api/keys/{group.group_code}/{certificate_payload['kid']}/sign",
+        json={"payload": payload_urlsafe, "payloadEncoding": "base64url"},
+    )
+    assert sign_resp_urlsafe.status_code == 200
 
 
 def test_search_filters_cover_group_usage_and_revocation(app_context):
@@ -388,6 +454,20 @@ def test_requires_certificate_manage_permission(app_context):
     assert response.status_code == 403
     error = response.get_json()
     assert error["error"] == "Forbidden"
+
+
+def test_keys_endpoints_require_sign_permission(app_context):
+    client = app_context.test_client()
+    _login_user_without_permission(client)
+
+    list_resp = client.get("/api/keys/example-group")
+    assert list_resp.status_code == 403
+
+    sign_resp = client.post(
+        "/api/keys/example-group/example-kid/sign",
+        json={"payload": base64.b64encode(b"data").decode("ascii")},
+    )
+    assert sign_resp.status_code == 403
 
 
 def test_list_certificates_rejects_invalid_usage(app_context):

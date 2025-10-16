@@ -196,9 +196,11 @@ class ListJwksUseCase:
     def __init__(self, services: CertificateServices | None = None) -> None:
         self._services = services or default_certificate_services
 
-    def execute(self, group_code: str) -> dict:
+    def execute(self, group_code: str, *, latest_only: bool = False) -> dict:
         self._services.group_store.get_by_code(group_code)
         keys = self._services.issued_store.list_jwks_for_group(group_code)
+        if latest_only:
+            keys = keys[:1]
         return {"keys": keys}
 
 
@@ -464,7 +466,12 @@ class SignGroupPayloadUseCase:
         )
 
         hash_algorithm, hash_name = self._resolve_hash_algorithm(payload.hash_algorithm)
-        signature, algorithm = self._sign(private_key, payload.payload, hash_algorithm)
+        signature, algorithm = self._sign(
+            private_key,
+            payload.payload,
+            hash_algorithm,
+            hash_name,
+        )
 
         if actor:
             self._services.event_store.record(
@@ -472,6 +479,10 @@ class SignGroupPayloadUseCase:
                 action="sign_payload",
                 target_kid=certificate.kid,
                 target_group_code=group.group_code,
+                details={
+                    "hashAlgorithm": hash_name,
+                    "payloadLength": len(payload.payload),
+                },
             )
 
         return SignGroupPayloadOutput(
@@ -486,29 +497,12 @@ class SignGroupPayloadUseCase:
         group: CertificateGroup,
         payload: SignGroupPayloadInput,
     ) -> IssuedCertificate:
-        if payload.kid:
-            certificate = self._services.issued_store.get(payload.kid)
-            if certificate.group is None or certificate.group.group_code != group.group_code:
-                raise CertificateValidationError("指定された証明書はグループに属していません")
-            if certificate.revoked_at is not None:
-                raise CertificateValidationError("指定された証明書は失効済みです")
-            return certificate
-
-        certificates = self._services.issued_store.list(None, group_code=group.group_code)
-        now = datetime.utcnow()
-        active_candidates: list[IssuedCertificate] = []
-        for cert in certificates:
-            if cert.revoked_at is not None and cert.revoked_at <= now:
-                continue
-            if cert.expires_at is not None and cert.expires_at <= now:
-                continue
-            active_candidates.append(cert)
-
-        if not active_candidates:
-            raise CertificateValidationError("有効な証明書が存在しません")
-
-        active_candidates.sort(key=lambda item: item.issued_at or datetime.min, reverse=True)
-        return active_candidates[0]
+        certificate = self._services.issued_store.get(payload.kid)
+        if certificate.group is None or certificate.group.group_code != group.group_code:
+            raise CertificateValidationError("指定された証明書はグループに属していません")
+        if certificate.revoked_at is not None:
+            raise CertificateValidationError("指定された証明書は失効済みです")
+        return certificate
 
     def _resolve_hash_algorithm(
         self,
@@ -530,14 +524,23 @@ class SignGroupPayloadUseCase:
         private_key,
         payload: bytes,
         hash_algorithm: hashes.HashAlgorithm,
+        hash_name: str,
     ) -> tuple[bytes, str]:
         if isinstance(private_key, rsa.RSAPrivateKey):
             signature = private_key.sign(payload, asym_padding.PKCS1v15(), hash_algorithm)
-            return signature, "RSASSA-PKCS1-v1_5"
+            return signature, self._jws_algorithm_name("RS", hash_name)
         if isinstance(private_key, ec.EllipticCurvePrivateKey):
             signature = private_key.sign(payload, ec.ECDSA(hash_algorithm))
-            return signature, "ECDSA"
+            return signature, self._jws_algorithm_name("ES", hash_name)
         raise CertificateValidationError("サポートされていない鍵種別です")
+
+    def _jws_algorithm_name(self, prefix: str, hash_name: str) -> str:
+        if not hash_name.startswith("SHA"):
+            raise CertificateValidationError("サポートされていないハッシュアルゴリズムです")
+        suffix = hash_name[3:]
+        if suffix not in {"256", "384", "512"}:
+            raise CertificateValidationError("サポートされていないハッシュアルゴリズムです")
+        return f"{prefix}{suffix}"
 
 
 class SearchCertificatesUseCase:

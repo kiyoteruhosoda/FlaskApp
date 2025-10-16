@@ -324,7 +324,11 @@ def issue_certificate(group_code: str):
     _ensure_permission()
 
     form = request.form
-    subject_overrides = _build_subject_from_form(form)
+    try:
+        subject_overrides = _build_subject_from_form(form)
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("certs_ui.group_detail", group_code=group_code))
 
     try:
         valid_days = _parse_int(form.get("valid_days"))

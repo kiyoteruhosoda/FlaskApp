@@ -504,6 +504,9 @@ def create_app():
     from features.totp.presentation import bp as totp_bp
     app.register_blueprint(totp_bp, url_prefix="/totp")
 
+    from features.certs.presentation.api import certs_api_bp
+    app.register_blueprint(certs_api_bp, url_prefix="/api")
+
     # CLI コマンド登録
     register_cli_commands(app)
 

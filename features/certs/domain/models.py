@@ -38,3 +38,9 @@ class IssuedCertificate:
     usage_type: UsageType
     jwk: dict
     issued_at: datetime
+    revoked_at: datetime | None = None
+    revocation_reason: str | None = None
+
+    @property
+    def is_revoked(self) -> bool:
+        return self.revoked_at is not None

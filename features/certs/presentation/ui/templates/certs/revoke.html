@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}証明書失効 | {{ super() }}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header">証明書失効</div>
+      <div class="card-body">
+        <p>以下の証明書を失効させます。理由を入力してください。</p>
+        <dl class="row">
+          <dt class="col-sm-4">KID</dt>
+          <dd class="col-sm-8 font-monospace">{{ certificate.kid }}</dd>
+          <dt class="col-sm-4">用途</dt>
+          <dd class="col-sm-8">{{ certificate.usage_type.value }}</dd>
+          <dt class="col-sm-4">発行日時</dt>
+          <dd class="col-sm-8">{{ certificate.issued_at.strftime('%Y-%m-%d %H:%M:%S') if certificate.issued_at else '-' }}</dd>
+        </dl>
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label" for="reason">失効理由</label>
+            <textarea class="form-control" id="reason" name="reason" rows="3" placeholder="例: 鍵漏洩が判明したため"></textarea>
+          </div>
+          <div class="d-flex justify-content-between">
+            <a class="btn btn-outline-secondary" href="{{ url_for('certs_ui.detail', kid=certificate.kid) }}">戻る</a>
+            <button type="submit" class="btn btn-danger" onclick="return confirm('本当に失効しますか？この操作は元に戻せません。');">失効する</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

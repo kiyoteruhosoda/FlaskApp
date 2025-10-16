@@ -192,18 +192,37 @@ def generate():
 def public_keys():
     _ensure_permission()
 
-    usage_infos = []
     service = _service()
-    for usage in UsageType:
-        api_url = url_for("certs_api.jwks", usage=f"{usage.value}")
+
+    try:
+        certificates = service.list_certificates()
+    except CertsApiClientError as exc:
+        current_app.logger.exception("Failed to load certificates via API for JWKS list")
+        flash(_("証明書一覧の取得に失敗しました: %(message)s", message=str(exc)), "error")
+        certificates = []
+
+    group_infos: list[dict[str, object]] = []
+    seen_groups: dict[str, UsageType] = {}
+    for certificate in certificates:
+        if not certificate.group_code:
+            continue
+        if certificate.group_code not in seen_groups:
+            seen_groups[certificate.group_code] = certificate.usage_type
+
+    for group_code, usage in sorted(seen_groups.items(), key=lambda item: (item[1].value, item[0])):
+        api_url = url_for("certs_api.jwks", group_code=group_code)
         try:
-            jwks_result = service.list_jwks(usage)
+            jwks_result = service.list_jwks(group_code)
         except CertsApiClientError as exc:
-            current_app.logger.exception("Failed to fetch JWKS via API", extra={"usage": usage.value})
+            current_app.logger.exception(
+                "Failed to fetch JWKS via API",
+                extra={"group_code": group_code},
+            )
             flash(_("公開鍵一覧の取得に失敗しました: %(message)s", message=str(exc)), "error")
             jwks_result = {"keys": []}
-        usage_infos.append(
+        group_infos.append(
             {
+                "group_code": group_code,
                 "usage": usage,
                 "api_url": api_url,
                 "key_count": len(jwks_result.get("keys", [])),
@@ -211,7 +230,7 @@ def public_keys():
             }
         )
 
-    return render_template("certs/public.html", usage_infos=usage_infos)
+    return render_template("certs/public.html", group_infos=group_infos)
 
 
 @certs_ui_bp.route("/<string:kid>")

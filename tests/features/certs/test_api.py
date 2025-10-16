@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 
 from core.db import db
 from core.models.user import Permission, Role, User
@@ -212,6 +213,56 @@ def test_generate_rejects_unknown_usage(app_context):
     assert resp.status_code == 400
     error = resp.get_json()
     assert "error" in error
+
+
+def test_generate_and_sign_ec_certificate(app_context):
+    client = app_context.test_client()
+    _login_admin(client)
+
+    group = _create_group()
+
+    generate_resp = client.post(
+        "/api/certs/generate",
+        json={
+            "subject": {"C": "JP", "O": "Example", "CN": "ec-service"},
+            "usageType": "server_signing",
+            "keyType": "EC",
+            "makeCsr": True,
+        },
+    )
+    assert generate_resp.status_code == 200
+    generated = generate_resp.get_json()
+
+    private_key = serialization.load_pem_private_key(
+        generated["privateKeyPem"].encode("utf-8"), password=None
+    )
+    assert isinstance(private_key, ec.EllipticCurvePrivateKey)
+
+    csr = x509.load_pem_x509_csr(generated["csrPem"].encode("utf-8"))
+    public_key = csr.public_key()
+    assert isinstance(public_key, ec.EllipticCurvePublicKey)
+    assert public_key.curve.name == "secp256r1"
+
+    sign_resp = client.post(
+        "/api/certs/sign",
+        json={
+            "csrPem": generated["csrPem"],
+            "usageType": "server_signing",
+            "days": 30,
+            "groupCode": group.group_code,
+        },
+    )
+    assert sign_resp.status_code == 200
+    signed = sign_resp.get_json()
+
+    certificate = x509.load_pem_x509_certificate(signed["certificatePem"].encode("utf-8"))
+    cert_public_key = certificate.public_key()
+    assert isinstance(cert_public_key, ec.EllipticCurvePublicKey)
+    assert cert_public_key.curve.name == "secp256r1"
+
+    jwk = signed["jwk"]
+    assert jwk["kty"] == "EC"
+    assert jwk["crv"] == "P-256"
 
 
 def test_group_certificate_issue_and_listing(app_context):

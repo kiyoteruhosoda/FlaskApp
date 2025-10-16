@@ -36,7 +36,7 @@ def _parse_iso_datetime(raw: Any) -> datetime | None:
 def _ensure_permission():
     if not current_user.is_authenticated:
         return False
-    return current_user.can("service_account:manage")
+    return current_user.can("service_account_api:manage")
 
 
 @bp.route("/service_accounts/<int:account_id>/keys", methods=["GET"])

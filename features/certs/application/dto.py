@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 from features.certs.domain.models import GeneratedKeyMaterial
@@ -40,3 +41,52 @@ class SignCertificateOutput:
     jwk: dict[str, Any]
     usage_type: UsageType
     group_code: str | None = None
+
+
+@dataclass(slots=True)
+class CertificateGroupInput:
+    group_code: str
+    display_name: str | None
+    usage_type: UsageType
+    key_type: str
+    key_curve: str | None
+    key_size: int | None
+    auto_rotate: bool
+    rotation_threshold_days: int
+    subject: dict[str, str]
+
+
+@dataclass(slots=True)
+class CertificateGroupUpdateInput(CertificateGroupInput):
+    id: int
+
+
+@dataclass(slots=True)
+class IssueCertificateForGroupOutput:
+    kid: str
+    certificate_pem: str
+    private_key_pem: str
+    jwk: dict[str, Any]
+    usage_type: UsageType
+    group_code: str
+
+
+@dataclass(slots=True)
+class CertificateSearchFilters:
+    limit: int = 50
+    offset: int = 0
+    kid: str | None = None
+    group_code: str | None = None
+    usage_type: UsageType | None = None
+    subject_contains: str | None = None
+    issued_from: datetime | None = None
+    issued_to: datetime | None = None
+    expires_from: datetime | None = None
+    expires_to: datetime | None = None
+    revoked: bool | None = None
+
+
+@dataclass(slots=True)
+class CertificateSearchResult:
+    total: int
+    certificates: list[Any]

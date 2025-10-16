@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Group Certificates') }} | {{ super() }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h3 mb-1">{{ _('Certificates for %(group)s', group=group.group_code) }}</h1>
+    <p class="text-muted mb-0">{{ _('Usage') }}: <span class="badge bg-info text-dark">{{ group.usage_type.value }}</span></p>
+  </div>
+  <a class="btn btn-outline-secondary" href="{{ url_for('certs_ui.index') }}">
+    <i class="bi bi-arrow-left me-1"></i>{{ _('Back to Groups') }}
+  </a>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">{{ _('Group Settings') }}</div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-5">{{ _('Display Name') }}</dt>
+          <dd class="col-sm-7">{{ group.display_name or '-' }}</dd>
+          <dt class="col-sm-5">{{ _('Auto Rotate') }}</dt>
+          <dd class="col-sm-7">{{ _('Enabled') if group.auto_rotate else _('Disabled') }}</dd>
+          <dt class="col-sm-5">{{ _('Rotation Threshold (days)') }}</dt>
+          <dd class="col-sm-7">{{ group.rotation_threshold_days }}</dd>
+          <dt class="col-sm-5">{{ _('Key Profile') }}</dt>
+          <dd class="col-sm-7">{{ group.key_type }}{% if group.key_size %} {{ group.key_size }}{% endif %}{% if group.key_curve %} / {{ group.key_curve }}{% endif %}</dd>
+          <dt class="col-sm-5">{{ _('Subject Template') }}</dt>
+          <dd class="col-sm-7">
+            {% if group.subject %}
+              {% for key, value in group.subject.items() %}
+              <span class="badge text-bg-light me-1 mb-1">{{ key }}={{ value }}</span>
+              {% endfor %}
+            {% else %}
+            <span class="text-muted">-</span>
+            {% endif %}
+          </dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">{{ _('JWKS Endpoint') }}</div>
+      <div class="card-body">
+        <label class="form-label" for="jwks_url">{{ _('Public JWKS URL') }}</label>
+        <div class="input-group mb-3">
+          <input type="text" class="form-control" id="jwks_url" value="{{ jwks_url }}" readonly>
+          <button class="btn btn-outline-secondary" type="button" id="copyJwks">{{ _('Copy') }}</button>
+        </div>
+        <a class="btn btn-sm btn-outline-primary" href="{{ jwks_url }}" target="_blank" rel="noopener">{{ _('Open JWKS') }}</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header">{{ _('Issue New Certificate') }}</div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('certs_ui.issue_certificate', group_code=group.group_code) }}" class="row g-3">
+      <div class="col-md-3">
+        <label class="form-label" for="valid_days">{{ _('Validity (days)') }}</label>
+        <input type="number" class="form-control" id="valid_days" name="valid_days" min="1" placeholder="{{ group.rotation_threshold_days * 2 }}">
+      </div>
+      <div class="col-md-9">
+        <label class="form-label">{{ _('Key Usage') }}</label>
+        <div class="d-flex flex-wrap gap-2">
+          {% for key, label in key_usage_choices %}
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="usage_{{ loop.index }}" name="key_usage" value="{{ key }}">
+            <label class="form-check-label" for="usage_{{ loop.index }}">{{ label }}</label>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="col-12">
+        <hr>
+        <h2 class="h6">{{ _('Subject Overrides') }}</h2>
+      </div>
+      {% for oid, field_name, label in subject_fields %}
+      <div class="col-md-6">
+        <label class="form-label" for="issue_{{ field_name }}">{{ label }}</label>
+        <input class="form-control" type="text" id="issue_{{ field_name }}" name="{{ field_name }}" value="{{ subject_form_values[field_name] }}">
+      </div>
+      {% endfor %}
+      <div class="col-12 text-end">
+        <button type="submit" class="btn btn-primary">{{ _('Issue Certificate') }}</button>
+      </div>
+    </form>
+    {% if issued_certificate %}
+    <hr>
+    <div class="alert alert-success" role="alert">
+      <h2 class="h5">{{ _('New certificate issued.') }}</h2>
+      <p class="mb-2">{{ _('Copy the materials below. The private key is shown only once.') }}</p>
+      <dl class="row">
+        <dt class="col-sm-3">KID</dt>
+        <dd class="col-sm-9 font-monospace">{{ issued_certificate['kid'] }}</dd>
+      </dl>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">{{ _('Private Key (PEM)') }}</label>
+          <textarea class="form-control font-monospace" rows="10" readonly>{{ issued_certificate['privateKeyPem'] }}</textarea>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">{{ _('Certificate (PEM)') }}</label>
+          <textarea class="form-control font-monospace" rows="10" readonly>{{ issued_certificate['certificatePem'] }}</textarea>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">{{ _('Issued Certificates') }}</div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-striped align-middle">
+        <thead>
+          <tr>
+            <th scope="col">KID</th>
+            <th scope="col">{{ _('Issued At') }}</th>
+            <th scope="col">{{ _('Expires At') }}</th>
+            <th scope="col">{{ _('Status') }}</th>
+            <th scope="col">{{ _('Revoked At') }}</th>
+            <th scope="col">{{ _('Actions') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if certificates %}
+            {% for cert in certificates %}
+            <tr>
+              <td class="font-monospace">{{ cert.kid }}</td>
+              <td>{{ cert.issued_at.strftime('%Y-%m-%d %H:%M:%S') if cert.issued_at else '-' }}</td>
+              <td>{{ cert.expires_at.strftime('%Y-%m-%d %H:%M:%S') if cert.expires_at else '-' }}</td>
+              <td>
+                {% if cert.is_revoked %}
+                <span class="badge bg-secondary">{{ _('Revoked') }}</span>
+                {% else %}
+                <span class="badge bg-success">{{ _('Active') }}</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if cert.revoked_at %}
+                {{ cert.revoked_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                {% else %}-{% endif %}
+              </td>
+              <td>
+                <a class="btn btn-sm btn-outline-primary me-2" href="{{ url_for('certs_ui.detail', kid=cert.kid) }}">{{ _('View Details') }}</a>
+                {% if not cert.is_revoked %}
+                <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#revokeModal" data-kid="{{ cert.kid }}">
+                  {{ _('Revoke') }}
+                </button>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+          <tr>
+            <td colspan="6" class="text-center text-muted py-4">{{ _('No certificates available to display.') }}</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="revokeModal" tabindex="-1" aria-labelledby="revokeModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" id="revokeForm">
+        <div class="modal-header">
+          <h2 class="modal-title h5" id="revokeModalLabel">{{ _('Revoke Certificate') }}</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ _('Close') }}"></button>
+        </div>
+        <div class="modal-body">
+          <p>{{ _('Provide an optional reason for revocation.') }}</p>
+          <div class="mb-3">
+            <label class="form-label" for="revoke_reason">{{ _('Reason') }}</label>
+            <textarea class="form-control" id="revoke_reason" name="reason" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+          <button type="submit" class="btn btn-danger">{{ _('Revoke') }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+(function() {
+  const copyButton = document.getElementById('copyJwks');
+  if (copyButton) {
+    copyButton.addEventListener('click', function() {
+      const input = document.getElementById('jwks_url');
+      if (input) {
+        navigator.clipboard.writeText(input.value).then(function() {
+          copyButton.textContent = '{{ _('Copied!') }}';
+          setTimeout(function() {
+            copyButton.textContent = '{{ _('Copy') }}';
+          }, 2000);
+        });
+      }
+    });
+  }
+  const revokeModal = document.getElementById('revokeModal');
+  if (!revokeModal) {
+    return;
+  }
+  revokeModal.addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    if (!button) {
+      return;
+    }
+    const kid = button.getAttribute('data-kid');
+    const form = document.getElementById('revokeForm');
+    if (!form) {
+      return;
+    }
+    form.action = `{{ url_for('certs_ui.revoke_certificate_in_group', group_code=group.group_code, kid='__KID__') }}`.replace('__KID__', encodeURIComponent(kid));
+    form.querySelector('#revoke_reason').value = '';
+  });
+})();
+</script>
+{% endblock %}

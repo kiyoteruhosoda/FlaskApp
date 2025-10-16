@@ -2756,3 +2756,318 @@ msgstr "有効期限は1日以上で指定してください"
 msgid "Unsupported elliptic curve"
 msgstr "サポートされていないEC曲線です"
 
+msgid "digitalSignature - digital signature"
+msgstr "digitalSignature - 電子署名"
+
+msgid "contentCommitment - content commitment"
+msgstr "contentCommitment - コンテンツコミット"
+
+msgid "keyEncipherment - key encipherment"
+msgstr "keyEncipherment - 鍵暗号化"
+
+msgid "dataEncipherment - data encipherment"
+msgstr "dataEncipherment - データ暗号化"
+
+msgid "keyAgreement - key agreement"
+msgstr "keyAgreement - 鍵共有"
+
+msgid "keyCertSign - certificate signing"
+msgstr "keyCertSign - 証明書署名"
+
+msgid "crlSign - CRL signing"
+msgstr "crlSign - CRL署名"
+
+msgid "encipherOnly - encipher only"
+msgstr "encipherOnly - 暗号化専用"
+
+msgid "decipherOnly - decipher only"
+msgstr "decipherOnly - 復号専用"
+
+msgid "Country (C)"
+msgstr "国名 (C)"
+
+msgid "State or Province (ST)"
+msgstr "都道府県 (ST)"
+
+msgid "Locality (L)"
+msgstr "市区町村 (L)"
+
+msgid "Organization (O)"
+msgstr "組織名 (O)"
+
+msgid "Organizational Unit (OU)"
+msgstr "部署名 (OU)"
+
+msgid "Common Name (CN)"
+msgstr "コモンネーム (CN)"
+
+msgid "Email Address"
+msgstr "メールアドレス"
+
+msgid "Certificate Groups"
+msgstr "証明書グループ"
+
+msgid "Failed to load certificate groups: %(message)s"
+msgstr "証明書グループの取得に失敗しました: %(message)s"
+
+msgid "Group code is required."
+msgstr "グループコードは必須です。"
+
+msgid "Invalid usage type specified."
+msgstr "用途の指定が不正です。"
+
+msgid "Key size must be a number."
+msgstr "鍵長は数値で指定してください。"
+
+msgid "Rotation threshold must be a number."
+msgstr "ローテーション閾値は数値で指定してください。"
+
+msgid "Rotation threshold must be greater than zero."
+msgstr "ローテーション閾値は1以上で指定してください。"
+
+msgid "Enter at least one subject attribute."
+msgstr "少なくとも1つのサブジェクト属性を入力してください。"
+
+msgid "Failed to create certificate group: %(message)s"
+msgstr "証明書グループの作成に失敗しました: %(message)s"
+
+msgid "Certificate group created."
+msgstr "証明書グループを作成しました。"
+
+msgid "Failed to update certificate group: %(message)s"
+msgstr "証明書グループの更新に失敗しました: %(message)s"
+
+msgid "Certificate group updated."
+msgstr "証明書グループを更新しました。"
+
+msgid "Cannot delete the group because certificates exist: %(message)s"
+msgstr "証明書が存在するためグループを削除できません: %(message)s"
+
+msgid "Failed to delete certificate group: %(message)s"
+msgstr "証明書グループの削除に失敗しました: %(message)s"
+
+msgid "Certificate group deleted."
+msgstr "証明書グループを削除しました。"
+
+msgid "Certificates for %(group)s"
+msgstr "%(group)s の証明書"
+
+msgid "Back to Groups"
+msgstr "グループ一覧に戻る"
+
+msgid "Group Settings"
+msgstr "グループ設定"
+
+msgid "Group Code"
+msgstr "グループコード"
+
+msgid "Display Name"
+msgstr "表示名"
+
+msgid "Usage"
+msgstr "用途"
+
+msgid "Auto Rotate"
+msgstr "自動ローテーション"
+
+msgid "Rotation Threshold (days)"
+msgstr "ローテーション閾値（日）"
+
+msgid "Key Type"
+msgstr "鍵タイプ"
+
+msgid "Subject"
+msgstr "サブジェクト"
+
+msgid "Updated At"
+msgstr "更新日時"
+
+msgid "Actions"
+msgstr "操作"
+
+msgid "Enabled"
+msgstr "有効"
+
+msgid "Disabled"
+msgstr "無効"
+
+msgid "View Certificates"
+msgstr "証明書を表示"
+
+msgid "Edit"
+msgstr "編集"
+
+msgid "Delete"
+msgstr "削除"
+
+msgid "Are you sure you want to delete this group?"
+msgstr "このグループを削除してもよろしいですか？"
+
+msgid "No certificate groups available."
+msgstr "表示可能な証明書グループがありません。"
+
+msgid "Create Certificate Group"
+msgstr "証明書グループを作成"
+
+msgid "Usage Type"
+msgstr "用途タイプ"
+
+msgid "Select usage type"
+msgstr "用途タイプを選択"
+
+msgid "Key Size"
+msgstr "鍵長"
+
+msgid "Key Curve"
+msgstr "曲線名"
+
+msgid "Subject Template"
+msgstr "サブジェクトテンプレート"
+
+msgid "Save Group"
+msgstr "グループを保存"
+
+msgid "Edit Certificate Group"
+msgstr "証明書グループを編集"
+
+msgid "Update Group"
+msgstr "グループを更新"
+
+msgid "Close"
+msgstr "閉じる"
+
+msgid "Cancel"
+msgstr "キャンセル"
+
+msgid "Key Profile"
+msgstr "鍵プロファイル"
+
+msgid "JWKS Endpoint"
+msgstr "JWKSエンドポイント"
+
+msgid "Public JWKS URL"
+msgstr "公開JWKS URL"
+
+msgid "Copy"
+msgstr "コピー"
+
+msgid "Open JWKS"
+msgstr "JWKSを開く"
+
+msgid "Issue New Certificate"
+msgstr "新しい証明書を発行"
+
+msgid "Validity (days)"
+msgstr "有効日数"
+
+msgid "Key Usage"
+msgstr "Key Usage"
+
+msgid "Subject Overrides"
+msgstr "サブジェクト上書き"
+
+msgid "Issue Certificate"
+msgstr "証明書を発行"
+
+msgid "New certificate issued."
+msgstr "証明書を発行しました。"
+
+msgid "Copy the materials below. The private key is shown only once."
+msgstr "以下の情報をコピーしてください。秘密鍵は今回のみ表示されます。"
+
+msgid "Private Key (PEM)"
+msgstr "秘密鍵 (PEM)"
+
+msgid "Certificate (PEM)"
+msgstr "証明書 (PEM)"
+
+msgid "Issued Certificates"
+msgstr "発行済み証明書"
+
+msgid "Provide an optional reason for revocation."
+msgstr "任意で失効理由を入力してください。"
+
+msgid "Reason"
+msgstr "理由"
+
+msgid "Copied!"
+msgstr "コピーしました！"
+
+msgid "Failed to load certificates: %(message)s"
+msgstr "証明書の取得に失敗しました: %(message)s"
+
+msgid "Validity days must be a number."
+msgstr "有効日数は数値で指定してください。"
+
+msgid "Failed to issue certificate: %(message)s"
+msgstr "証明書の発行に失敗しました: %(message)s"
+
+msgid "Certificate issued successfully."
+msgstr "証明書を発行しました。"
+
+msgid "Failed to revoke certificate: %(message)s"
+msgstr "証明書の失効に失敗しました: %(message)s"
+
+msgid "Failed to load groups: %(message)s"
+msgstr "グループの取得に失敗しました: %(message)s"
+
+msgid "Invalid revoked flag."
+msgstr "失効ステータスの指定が不正です。"
+
+msgid "Use ISO 8601 format for date filters."
+msgstr "日付フィルターはISO 8601形式で指定してください。"
+
+msgid "Failed to search certificates: %(message)s"
+msgstr "証明書の検索に失敗しました: %(message)s"
+
+msgid "Certificate Search"
+msgstr "証明書検索"
+
+msgid "All Groups"
+msgstr "すべてのグループ"
+
+msgid "Subject Contains"
+msgstr "サブジェクトに含む文字列"
+
+msgid "Issued From"
+msgstr "発行日（開始）"
+
+msgid "Issued To"
+msgstr "発行日（終了）"
+
+msgid "Expires From"
+msgstr "有効期限（開始）"
+
+msgid "Expires To"
+msgstr "有効期限（終了）"
+
+msgid "Revoked Status"
+msgstr "失効状態"
+
+msgid "All"
+msgstr "すべて"
+
+msgid "Active"
+msgstr "有効"
+
+msgid "Revoked"
+msgstr "失効"
+
+msgid "Search"
+msgstr "検索"
+
+msgid "Search Results"
+msgstr "検索結果"
+
+msgid "%(count)d certificates found"
+msgstr "%(count)d 件の証明書が見つかりました"
+
+msgid "Group"
+msgstr "グループ"
+
+msgid "Specify at least one search condition and submit the form to view results."
+msgstr "少なくとも1つ検索条件を入力してから実行してください。"
+
+msgid "Back to Group"
+msgstr "グループに戻る"
+

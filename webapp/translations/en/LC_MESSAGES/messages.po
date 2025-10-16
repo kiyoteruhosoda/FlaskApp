@@ -732,3 +732,321 @@ msgstr "Validity period must be at least one day"
 
 msgid "Unsupported elliptic curve"
 msgstr "Unsupported elliptic curve"
+
+msgid "digitalSignature - digital signature"
+msgstr "digitalSignature - digital signature"
+
+msgid "contentCommitment - content commitment"
+msgstr "contentCommitment - content commitment"
+
+msgid "keyEncipherment - key encipherment"
+msgstr "keyEncipherment - key encipherment"
+
+msgid "dataEncipherment - data encipherment"
+msgstr "dataEncipherment - data encipherment"
+
+msgid "keyAgreement - key agreement"
+msgstr "keyAgreement - key agreement"
+
+msgid "keyCertSign - certificate signing"
+msgstr "keyCertSign - certificate signing"
+
+msgid "crlSign - CRL signing"
+msgstr "crlSign - CRL signing"
+
+msgid "encipherOnly - encipher only"
+msgstr "encipherOnly - encipher only"
+
+msgid "decipherOnly - decipher only"
+msgstr "decipherOnly - decipher only"
+
+msgid "Country (C)"
+msgstr "Country (C)"
+
+msgid "State or Province (ST)"
+msgstr "State or Province (ST)"
+
+msgid "Locality (L)"
+msgstr "Locality (L)"
+
+msgid "Organization (O)"
+msgstr "Organization (O)"
+
+msgid "Organizational Unit (OU)"
+msgstr "Organizational Unit (OU)"
+
+msgid "Common Name (CN)"
+msgstr "Common Name (CN)"
+
+msgid "Email Address"
+msgstr "Email Address"
+
+msgid "Certificate Groups"
+msgstr "Certificate Groups"
+
+msgid "Failed to load certificate groups: %(message)s"
+msgstr "Failed to load certificate groups: %(message)s"
+
+msgid "Group code is required."
+msgstr "Group code is required."
+
+msgid "Invalid usage type specified."
+msgstr "Invalid usage type specified."
+
+msgid "Key size must be a number."
+msgstr "Key size must be a number."
+
+msgid "Rotation threshold must be a number."
+msgstr "Rotation threshold must be a number."
+
+msgid "Rotation threshold must be greater than zero."
+msgstr "Rotation threshold must be greater than zero."
+
+msgid "Enter at least one subject attribute."
+msgstr "Enter at least one subject attribute."
+
+msgid "Failed to create certificate group: %(message)s"
+msgstr "Failed to create certificate group: %(message)s"
+
+msgid "Certificate group created."
+msgstr "Certificate group created."
+
+msgid "Failed to update certificate group: %(message)s"
+msgstr "Failed to update certificate group: %(message)s"
+
+msgid "Certificate group updated."
+msgstr "Certificate group updated."
+
+msgid "Cannot delete the group because certificates exist: %(message)s"
+msgstr "Cannot delete the group because certificates exist: %(message)s"
+
+msgid "Failed to delete certificate group: %(message)s"
+msgstr "Failed to delete certificate group: %(message)s"
+
+msgid "Certificate group deleted."
+msgstr "Certificate group deleted."
+
+msgid "Certificates for %(group)s"
+msgstr "Certificates for %(group)s"
+
+msgid "Back to Groups"
+msgstr "Back to Groups"
+
+msgid "Group Settings"
+msgstr "Group Settings"
+
+msgid "Group Code"
+msgstr "Group Code"
+
+msgid "Display Name"
+msgstr "Display Name"
+
+msgid "Usage"
+msgstr "Usage"
+
+msgid "Auto Rotate"
+msgstr "Auto Rotate"
+
+msgid "Rotation Threshold (days)"
+msgstr "Rotation Threshold (days)"
+
+msgid "Key Type"
+msgstr "Key Type"
+
+msgid "Subject"
+msgstr "Subject"
+
+msgid "Updated At"
+msgstr "Updated At"
+
+msgid "Actions"
+msgstr "Actions"
+
+msgid "Enabled"
+msgstr "Enabled"
+
+msgid "Disabled"
+msgstr "Disabled"
+
+msgid "View Certificates"
+msgstr "View Certificates"
+
+msgid "Edit"
+msgstr "Edit"
+
+msgid "Delete"
+msgstr "Delete"
+
+msgid "Are you sure you want to delete this group?"
+msgstr "Are you sure you want to delete this group?"
+
+msgid "No certificate groups available."
+msgstr "No certificate groups available."
+
+msgid "Create Certificate Group"
+msgstr "Create Certificate Group"
+
+msgid "Usage Type"
+msgstr "Usage Type"
+
+msgid "Select usage type"
+msgstr "Select usage type"
+
+msgid "Key Size"
+msgstr "Key Size"
+
+msgid "Key Curve"
+msgstr "Key Curve"
+
+msgid "Subject Template"
+msgstr "Subject Template"
+
+msgid "Save Group"
+msgstr "Save Group"
+
+msgid "Edit Certificate Group"
+msgstr "Edit Certificate Group"
+
+msgid "Update Group"
+msgstr "Update Group"
+
+msgid "Close"
+msgstr "Close"
+
+msgid "Cancel"
+msgstr "Cancel"
+
+msgid "Key Profile"
+msgstr "Key Profile"
+
+msgid "JWKS Endpoint"
+msgstr "JWKS Endpoint"
+
+msgid "Public JWKS URL"
+msgstr "Public JWKS URL"
+
+msgid "Copy"
+msgstr "Copy"
+
+msgid "Open JWKS"
+msgstr "Open JWKS"
+
+msgid "Issue New Certificate"
+msgstr "Issue New Certificate"
+
+msgid "Validity (days)"
+msgstr "Validity (days)"
+
+msgid "Key Usage"
+msgstr "Key Usage"
+
+msgid "Subject Overrides"
+msgstr "Subject Overrides"
+
+msgid "Issue Certificate"
+msgstr "Issue Certificate"
+
+msgid "New certificate issued."
+msgstr "New certificate issued."
+
+msgid "Copy the materials below. The private key is shown only once."
+msgstr "Copy the materials below. The private key is shown only once."
+
+msgid "Private Key (PEM)"
+msgstr "Private Key (PEM)"
+
+msgid "Certificate (PEM)"
+msgstr "Certificate (PEM)"
+
+msgid "Issued Certificates"
+msgstr "Issued Certificates"
+
+msgid "Provide an optional reason for revocation."
+msgstr "Provide an optional reason for revocation."
+
+msgid "Reason"
+msgstr "Reason"
+
+msgid "Copied!"
+msgstr "Copied!"
+
+msgid "Failed to load certificates: %(message)s"
+msgstr "Failed to load certificates: %(message)s"
+
+msgid "Validity days must be a number."
+msgstr "Validity days must be a number."
+
+msgid "Failed to issue certificate: %(message)s"
+msgstr "Failed to issue certificate: %(message)s"
+
+msgid "Certificate issued successfully."
+msgstr "Certificate issued successfully."
+
+msgid "Failed to revoke certificate: %(message)s"
+msgstr "Failed to revoke certificate: %(message)s"
+
+msgid "Certificate revoked."
+msgstr "Certificate revoked."
+
+msgid "Failed to load groups: %(message)s"
+msgstr "Failed to load groups: %(message)s"
+
+msgid "Invalid revoked flag."
+msgstr "Invalid revoked flag."
+
+msgid "Use ISO 8601 format for date filters."
+msgstr "Use ISO 8601 format for date filters."
+
+msgid "Failed to search certificates: %(message)s"
+msgstr "Failed to search certificates: %(message)s"
+
+msgid "Certificate Search"
+msgstr "Certificate Search"
+
+msgid "All Groups"
+msgstr "All Groups"
+
+msgid "Subject Contains"
+msgstr "Subject Contains"
+
+msgid "Issued From"
+msgstr "Issued From"
+
+msgid "Issued To"
+msgstr "Issued To"
+
+msgid "Expires From"
+msgstr "Expires From"
+
+msgid "Expires To"
+msgstr "Expires To"
+
+msgid "Revoked Status"
+msgstr "Revoked Status"
+
+msgid "All"
+msgstr "All"
+
+msgid "Active"
+msgstr "Active"
+
+msgid "Revoked"
+msgstr "Revoked"
+
+msgid "Search"
+msgstr "Search"
+
+msgid "Search Results"
+msgstr "Search Results"
+
+msgid "%(count)d certificates found"
+msgstr "%(count)d certificates found"
+
+msgid "Group"
+msgstr "Group"
+
+msgid "Specify at least one search condition and submit the form to view results."
+msgstr "Specify at least one search condition and submit the form to view results."
+
+msgid "Back to Group"
+msgstr "Back to Group"

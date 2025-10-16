@@ -62,3 +62,22 @@ class IssuedCertificateEntity(db.Model):
         back_populates="certificates",
         lazy="joined",
     )
+
+
+class CertificateEventEntity(db.Model):
+    """証明書操作の監査ログを保持するテーブル"""
+
+    __tablename__ = "certificate_events"
+
+    id = db.Column(
+        db.BigInteger().with_variant(db.Integer, "sqlite"),
+        primary_key=True,
+        autoincrement=True,
+    )
+    actor = db.Column(db.String(255), nullable=False)
+    action = db.Column(db.String(64), nullable=False)
+    target_kid = db.Column(db.String(64), nullable=True, index=True)
+    target_group_code = db.Column(db.String(64), nullable=True, index=True)
+    reason = db.Column(db.Text, nullable=True)
+    details = db.Column(db.JSON().with_variant(JSONB, "postgresql"), nullable=True)
+    occurred_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)

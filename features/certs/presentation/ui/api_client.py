@@ -82,6 +82,39 @@ class CertificateDetail(CertificateSummary):
     not_after: datetime | None
 
 
+@dataclass(slots=True)
+class CertificateGroupData:
+    group_code: str
+    display_name: str | None
+    usage_type: UsageType
+    key_type: str
+    key_curve: str | None
+    key_size: int | None
+    auto_rotate: bool
+    rotation_threshold_days: int
+    subject: dict[str, str]
+    created_at: datetime | None
+    updated_at: datetime | None
+
+
+@dataclass(slots=True)
+class IssuedCertificateWithPrivateKey:
+    kid: str
+    certificate_pem: str
+    private_key_pem: str
+    jwk: dict[str, Any]
+    usage_type: UsageType
+    group_code: str
+
+
+@dataclass(slots=True)
+class CertificateSearchResult:
+    total: int
+    certificates: list[CertificateSummary]
+    limit: int
+    offset: int
+
+
 class CertsApiClient:
     """UIから証明書APIを利用するための簡易クライアント"""
 
@@ -183,6 +216,183 @@ class CertsApiClient:
 
     def list_jwks(self, group_code: str) -> dict[str, Any]:
         return self._dispatch("GET", "certs_api.jwks", group_code=group_code)
+
+    def list_groups(self) -> list[CertificateGroupData]:
+        payload = self._dispatch("GET", "certs_api.list_certificate_groups")
+        groups = payload.get("groups", [])
+        return [self._parse_group(item) for item in groups]
+
+    def create_group(
+        self,
+        *,
+        group_code: str,
+        display_name: str | None,
+        usage_type: UsageType,
+        key_type: str,
+        key_curve: str | None,
+        key_size: int | None,
+        auto_rotate: bool,
+        rotation_threshold_days: int,
+        subject: dict[str, str],
+    ) -> CertificateGroupData:
+        payload = self._dispatch(
+            "POST",
+            "certs_api.create_certificate_group",
+            json={
+                "groupCode": group_code,
+                "displayName": display_name,
+                "usageType": usage_type.value,
+                "keyType": key_type,
+                "keyCurve": key_curve,
+                "keySize": key_size,
+                "autoRotate": auto_rotate,
+                "rotationThresholdDays": rotation_threshold_days,
+                "subject": subject,
+            },
+        )
+        return self._parse_group(payload.get("group") or {})
+
+    def update_group(
+        self,
+        group_code: str,
+        *,
+        display_name: str | None,
+        usage_type: UsageType,
+        key_type: str,
+        key_curve: str | None,
+        key_size: int | None,
+        auto_rotate: bool,
+        rotation_threshold_days: int,
+        subject: dict[str, str],
+    ) -> CertificateGroupData:
+        payload = self._dispatch(
+            "PUT",
+            "certs_api.update_certificate_group",
+            json={
+                "displayName": display_name,
+                "usageType": usage_type.value,
+                "keyType": key_type,
+                "keyCurve": key_curve,
+                "keySize": key_size,
+                "autoRotate": auto_rotate,
+                "rotationThresholdDays": rotation_threshold_days,
+                "subject": subject,
+            },
+            group_code=group_code,
+        )
+        return self._parse_group(payload.get("group") or {})
+
+    def delete_group(self, group_code: str) -> None:
+        self._dispatch("DELETE", "certs_api.delete_certificate_group", group_code=group_code)
+
+    def list_group_certificates(
+        self,
+        group_code: str,
+    ) -> tuple[CertificateGroupData, list[CertificateSummary]]:
+        payload = self._dispatch(
+            "GET",
+            "certs_api.list_group_certificates",
+            group_code=group_code,
+        )
+        group = self._parse_group(payload.get("group") or {})
+        certificates_payload = payload.get("certificates", [])
+        certificates = [self._parse_summary(item) for item in certificates_payload]
+        return group, certificates
+
+    def issue_certificate_for_group(
+        self,
+        group_code: str,
+        *,
+        subject_overrides: dict[str, str] | None = None,
+        valid_days: int | None = None,
+        key_usage: list[str] | None = None,
+    ) -> IssuedCertificateWithPrivateKey:
+        body: dict[str, Any] = {}
+        if subject_overrides:
+            body["subject"] = subject_overrides
+        if valid_days:
+            body["validDays"] = valid_days
+        if key_usage is not None:
+            body["keyUsage"] = key_usage
+        payload = self._dispatch(
+            "POST",
+            "certs_api.issue_certificate_for_group",
+            json=body or None,
+            group_code=group_code,
+        )
+        data = payload.get("certificate") or {}
+        return IssuedCertificateWithPrivateKey(
+            kid=str(data.get("kid", "")),
+            certificate_pem=str(data.get("certificatePem", "")),
+            private_key_pem=str(data.get("privateKeyPem", "")),
+            jwk=data.get("jwk", {}),
+            usage_type=_parse_usage(data.get("usageType")),
+            group_code=str(data.get("groupCode", group_code)),
+        )
+
+    def revoke_certificate_in_group(
+        self,
+        group_code: str,
+        kid: str,
+        *,
+        reason: str | None = None,
+    ) -> CertificateDetail:
+        payload = self._dispatch(
+            "POST",
+            "certs_api.revoke_certificate_in_group",
+            json={"reason": reason} if reason else None,
+            group_code=group_code,
+            kid=kid,
+        )
+        certificate = payload.get("certificate") or {}
+        return self._parse_detail(certificate)
+
+    def search_certificates(
+        self,
+        *,
+        kid: str | None = None,
+        group_code: str | None = None,
+        usage_type: UsageType | None = None,
+        subject: str | None = None,
+        issued_from: datetime | None = None,
+        issued_to: datetime | None = None,
+        expires_from: datetime | None = None,
+        expires_to: datetime | None = None,
+        revoked: bool | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> CertificateSearchResult:
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if kid:
+            params["kid"] = kid
+        if group_code:
+            params["groupCode"] = group_code
+        if usage_type:
+            params["usageType"] = usage_type.value
+        if subject:
+            params["subject"] = subject
+        if issued_from:
+            params["issuedFrom"] = issued_from.isoformat()
+        if issued_to:
+            params["issuedTo"] = issued_to.isoformat()
+        if expires_from:
+            params["expiresFrom"] = expires_from.isoformat()
+        if expires_to:
+            params["expiresTo"] = expires_to.isoformat()
+        if revoked is True:
+            params["revoked"] = "true"
+        elif revoked is False:
+            params["revoked"] = "false"
+
+        payload = self._dispatch("GET", "certs_api.search_certificates", params=params)
+        certificates_payload = payload.get("certificates", [])
+        certificates = [self._parse_summary(item) for item in certificates_payload]
+        return CertificateSearchResult(
+            total=int(payload.get("total", len(certificates))),
+            certificates=certificates,
+            limit=int(payload.get("limit", limit)),
+            offset=int(payload.get("offset", offset)),
+        )
 
     def _dispatch(
         self,
@@ -286,6 +496,24 @@ class CertsApiClient:
             not_after=_parse_datetime(payload.get("notAfter")),
         )
 
+    def _parse_group(self, payload: dict[str, Any]) -> CertificateGroupData:
+        subject = payload.get("subject") or {}
+        if not isinstance(subject, dict):
+            subject = {}
+        return CertificateGroupData(
+            group_code=str(payload.get("groupCode", "")),
+            display_name=payload.get("displayName"),
+            usage_type=_parse_usage(payload.get("usageType")),
+            key_type=str(payload.get("keyType", "RSA")),
+            key_curve=payload.get("keyCurve"),
+            key_size=_parse_optional_int(payload.get("keySize")),
+            auto_rotate=bool(payload.get("autoRotate", True)),
+            rotation_threshold_days=_parse_optional_int(payload.get("rotationThresholdDays")) or 0,
+            subject={str(k): str(v) for k, v in subject.items()},
+            created_at=_parse_datetime(payload.get("createdAt")),
+            updated_at=_parse_datetime(payload.get("updatedAt")),
+        )
+
 
 def _parse_usage(value: str | None) -> UsageType:
     if value is None:
@@ -308,6 +536,15 @@ def _parse_datetime(value: str | None) -> datetime | None:
     return dt
 
 
+def _parse_optional_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):  # pragma: no cover - 不正値は想定外
+        return None
+
+
 def _extract_error_message(response) -> str:
     try:
         payload = response.json()
@@ -328,4 +565,7 @@ __all__ = [
     "SignedCertificate",
     "CertificateSummary",
     "CertificateDetail",
+    "CertificateGroupData",
+    "IssuedCertificateWithPrivateKey",
+    "CertificateSearchResult",
 ]

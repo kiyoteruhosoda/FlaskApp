@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Certificate Search') }} | {{ super() }}{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">{{ _('Certificate Search') }}</h1>
+<form class="card mb-4" method="get">
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label" for="kid">KID</label>
+        <input class="form-control" type="text" id="kid" name="kid" value="{{ filters.kid }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="group">{{ _('Group Code') }}</label>
+        <select class="form-select" id="group" name="group">
+          <option value="">{{ _('All Groups') }}</option>
+          {% for group in groups %}
+          <option value="{{ group.group_code }}" {% if filters.group == group.group_code %}selected{% endif %}>{{ group.group_code }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="usage">{{ _('Usage Type') }}</label>
+        <select class="form-select" id="usage" name="usage">
+          <option value="">{{ _('All') }}</option>
+          {% for value, label in usage_options %}
+          <option value="{{ value }}" {% if filters.usage == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="subject">{{ _('Subject Contains') }}</label>
+        <input class="form-control" type="text" id="subject" name="subject" value="{{ filters.subject }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="issued_from">{{ _('Issued From') }}</label>
+        <input class="form-control" type="text" id="issued_from" name="issued_from" placeholder="2024-01-01T00:00:00" value="{{ filters.issued_from }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="issued_to">{{ _('Issued To') }}</label>
+        <input class="form-control" type="text" id="issued_to" name="issued_to" placeholder="2024-12-31T23:59:59" value="{{ filters.issued_to }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="expires_from">{{ _('Expires From') }}</label>
+        <input class="form-control" type="text" id="expires_from" name="expires_from" placeholder="2024-01-01T00:00:00" value="{{ filters.expires_from }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="expires_to">{{ _('Expires To') }}</label>
+        <input class="form-control" type="text" id="expires_to" name="expires_to" placeholder="2024-12-31T23:59:59" value="{{ filters.expires_to }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="revoked">{{ _('Revoked Status') }}</label>
+        <select class="form-select" id="revoked" name="revoked">
+          {% set revoked_value = filters.revoked.lower() %}
+          <option value="" {% if revoked_value in ['', 'any'] %}selected{% endif %}>{{ _('All') }}</option>
+          <option value="false" {% if revoked_value in ['false', 'active'] %}selected{% endif %}>{{ _('Active') }}</option>
+          <option value="true" {% if revoked_value in ['true', 'revoked'] %}selected{% endif %}>{{ _('Revoked') }}</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="card-footer text-end">
+    <button type="submit" class="btn btn-primary">{{ _('Search') }}</button>
+  </div>
+</form>
+
+{% if results %}
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <h2 class="h5 mb-0">{{ _('Search Results') }}</h2>
+  <span class="text-muted">{{ _('%(count)d certificates found', count=results.total) }}</span>
+</div>
+<div class="table-responsive">
+  <table class="table table-striped align-middle">
+    <thead>
+      <tr>
+        <th scope="col">KID</th>
+        <th scope="col">{{ _('Group') }}</th>
+        <th scope="col">{{ _('Usage') }}</th>
+        <th scope="col">{{ _('Issued At') }}</th>
+        <th scope="col">{{ _('Status') }}</th>
+        <th scope="col">{{ _('Actions') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if results.certificates %}
+        {% for cert in results.certificates %}
+        <tr>
+          <td class="font-monospace">{{ cert.kid }}</td>
+          <td>{{ cert.group_code or '-' }}</td>
+          <td>{{ cert.usage_type.value }}</td>
+          <td>{{ cert.issued_at.strftime('%Y-%m-%d %H:%M:%S') if cert.issued_at else '-' }}</td>
+          <td>
+            {% if cert.is_revoked %}
+            <span class="badge bg-secondary">{{ _('Revoked') }}</span>
+            {% else %}
+            <span class="badge bg-success">{{ _('Active') }}</span>
+            {% endif %}
+          </td>
+          <td>
+            <a class="btn btn-sm btn-outline-primary me-2" href="{{ url_for('certs_ui.detail', kid=cert.kid) }}">{{ _('View Details') }}</a>
+            {% if not cert.is_revoked %}
+            <a class="btn btn-sm btn-outline-danger" href="{{ url_for('certs_ui.revoke', kid=cert.kid, next=current_url) }}">{{ _('Revoke') }}</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      {% else %}
+      <tr>
+        <td colspan="6" class="text-center text-muted py-4">{{ _('No certificates available to display.') }}</td>
+      </tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="text-muted">{{ _('Specify at least one search condition and submit the form to view results.') }}</p>
+{% endif %}
+{% endblock %}

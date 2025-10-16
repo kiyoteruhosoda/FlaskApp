@@ -28,18 +28,18 @@ class ServiceAccountNotFoundError(Exception):
 
 class ServiceAccountService:
     @staticmethod
-    def _normalize_jtk_endpoint(endpoint: str) -> str:
+    def _normalize_jwt_endpoint(endpoint: str) -> str:
         if not endpoint or not endpoint.strip():
             raise ServiceAccountValidationError(
-                _("Please provide a JTK endpoint."), field="jtk_endpoint"
+                _("Please provide a JWT endpoint."), field="jwt_endpoint"
             )
 
         value = endpoint.strip()
         parsed = urlparse(value)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             raise ServiceAccountValidationError(
-                _("The JTK endpoint must be a valid HTTP(S) URL."),
-                field="jtk_endpoint",
+                _("The JWT endpoint must be a valid HTTP(S) URL."),
+                field="jwt_endpoint",
             )
 
         return value
@@ -82,7 +82,7 @@ class ServiceAccountService:
         *,
         name: str,
         description: str | None,
-        jtk_endpoint: str,
+        jwt_endpoint: str,
         scope_names: str | Sequence[str],
         active: bool,
         allowed_scopes: Iterable[str] | None,
@@ -92,13 +92,13 @@ class ServiceAccountService:
                 _("Please provide a service account name."), field="name"
             )
 
-        normalized_endpoint = cls._normalize_jtk_endpoint(jtk_endpoint)
+        normalized_endpoint = cls._normalize_jwt_endpoint(jwt_endpoint)
         normalized_scopes = cls._normalize_scopes(scope_names, allowed_scopes=allowed_scopes)
 
         account = ServiceAccount(
             name=name.strip(),
             description=description.strip() if description else None,
-            jtk_endpoint=normalized_endpoint,
+            jwt_endpoint=normalized_endpoint,
             active_flg=bool(active),
         )
         account.set_scopes(normalized_scopes)
@@ -131,7 +131,7 @@ class ServiceAccountService:
         *,
         name: str,
         description: str | None,
-        jtk_endpoint: str,
+        jwt_endpoint: str,
         scope_names: str | Sequence[str],
         active: bool,
         allowed_scopes: Iterable[str] | None,
@@ -145,12 +145,12 @@ class ServiceAccountService:
                 _("Please provide a service account name."), field="name"
             )
 
-        normalized_endpoint = cls._normalize_jtk_endpoint(jtk_endpoint)
+        normalized_endpoint = cls._normalize_jwt_endpoint(jwt_endpoint)
         normalized_scopes = cls._normalize_scopes(scope_names, allowed_scopes=allowed_scopes)
 
         account.name = name.strip()
         account.description = description.strip() if description else None
-        account.jtk_endpoint = normalized_endpoint
+        account.jwt_endpoint = normalized_endpoint
         account.active_flg = bool(active)
         account.set_scopes(normalized_scopes)
 

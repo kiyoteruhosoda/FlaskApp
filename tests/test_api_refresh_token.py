@@ -43,6 +43,7 @@ def login(client, app, *, token: str | None = None):
     assert res.status_code == 200
     data = res.get_json()
     assert data["requires_role_selection"] is False
+    assert data["scope"] == ""
     return data["access_token"], data["refresh_token"]
 
 
@@ -59,6 +60,7 @@ def test_refresh_works(client, app):
     data = res.get_json()
     assert data["access_token"] != old_access
     assert data["refresh_token"] != refresh
+    assert data["scope"] == ""
 
 
 def test_refresh_invalid_token(client, app):

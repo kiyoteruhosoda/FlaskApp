@@ -83,12 +83,12 @@ def _mock_jwks(monkeypatch, mapping: dict[str, list[dict]]):
     monkeypatch.setattr("requests.get", fake_get)
 
 
-def _create_account(app, name: str, jtk_endpoint: str, scopes: str):
+def _create_account(app, name: str, jwt_endpoint: str, scopes: str):
     allowed = [scope.strip() for scope in scopes.split(",") if scope.strip()]
     return ServiceAccountService.create_account(
         name=name,
         description="",
-        jtk_endpoint=jtk_endpoint,
+        jwt_endpoint=jwt_endpoint,
         scope_names=scopes,
         active=True,
         allowed_scopes=allowed,
@@ -297,26 +297,26 @@ def test_service_account_jwt_success_rs256(app_context, monkeypatch):
 
 
 @pytest.mark.usefixtures("app_context")
-def test_service_account_jtk_endpoint_validation(app_context):
+def test_service_account_jwt_endpoint_validation(app_context):
     account = ServiceAccountService.create_account(
         name="normalize-bot",
         description=None,
-        jtk_endpoint=" https://keys.example.com/jwks ",
+        jwt_endpoint=" https://keys.example.com/jwks ",
         scope_names="maintenance:read",
         active=True,
         allowed_scopes=["maintenance:read"],
     )
 
-    assert account.jtk_endpoint == "https://keys.example.com/jwks"
+    assert account.jwt_endpoint == "https://keys.example.com/jwks"
 
     with pytest.raises(ServiceAccountValidationError) as exc:
         ServiceAccountService.create_account(
             name="invalid-bot",
             description=None,
-            jtk_endpoint="ftp://keys.example.com/jwks",
+            jwt_endpoint="ftp://keys.example.com/jwks",
             scope_names="maintenance:read",
             active=True,
             allowed_scopes=["maintenance:read"],
         )
 
-    assert exc.value.field == "jtk_endpoint"
+    assert exc.value.field == "jwt_endpoint"

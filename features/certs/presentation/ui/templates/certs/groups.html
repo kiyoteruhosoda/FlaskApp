@@ -258,6 +258,13 @@
       keySize: keySizeSelect.dataset.initial || keySizeSelect.value || '',
     };
 
+    if (!state.usageType) {
+      const firstUsageOption = Array.from(usageSelect.options || []).find((option) => option.value);
+      if (firstUsageOption) {
+        state.usageType = firstUsageOption.value;
+      }
+    }
+
     const placeholders = {
       keyType: keyTypeSelect.dataset.placeholder || '',
       keyCurve: keyCurveSelect.dataset.placeholder || '',

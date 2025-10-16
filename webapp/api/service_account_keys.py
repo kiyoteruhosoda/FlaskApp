@@ -116,7 +116,10 @@ def list_service_account_key_logs(account_id: int):
         return jsonify({"error": "forbidden"}), 403
 
     key_id = request.args.get("key_id", type=int)
-    limit = request.args.get("limit", type=int)
+    if "limit" in request.args:
+        limit = request.args.get("limit", type=int)
+    else:
+        limit = 100
 
     try:
         logs = ServiceAccountApiKeyService.list_logs(

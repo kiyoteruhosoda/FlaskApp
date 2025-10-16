@@ -2431,3 +2431,156 @@ msgstr "閉じる"
 msgid "Run import"
 msgstr "インポート実行"
 
+msgid "Certificate List"
+msgstr "証明書一覧"
+
+msgid "Generate New"
+msgstr "新規生成"
+
+msgid "Public Key Distribution"
+msgstr "公開鍵配布"
+
+msgid "Usage"
+msgstr "用途"
+
+msgid "All"
+msgstr "すべて"
+
+msgid "Issued At"
+msgstr "発行日時"
+
+msgid "Status"
+msgstr "状態"
+
+msgid "Revoked At"
+msgstr "失効日時"
+
+msgid "Actions"
+msgstr "操作"
+
+msgid "Revoked"
+msgstr "失効"
+
+msgid "Active"
+msgstr "有効"
+
+msgid "View Details"
+msgstr "詳細を表示"
+
+msgid "Revoke"
+msgstr "失効"
+
+msgid "No certificates available to display."
+msgstr "表示できる証明書がありません。"
+
+msgid "Certificate Details"
+msgstr "証明書詳細"
+
+msgid "KID"
+msgstr "KID"
+
+msgid "Back to List"
+msgstr "一覧に戻る"
+
+msgid "Revoke Certificate"
+msgstr "証明書を失効"
+
+msgid "Metadata"
+msgstr "メタ情報"
+
+msgid "Revocation Reason"
+msgstr "失効理由"
+
+msgid "Subject"
+msgstr "サブジェクト"
+
+msgid "Issuer"
+msgstr "発行者"
+
+msgid "Validity Period"
+msgstr "有効期間"
+
+msgid "to"
+msgstr "〜"
+
+msgid "Certificate (PEM)"
+msgstr "証明書 (PEM)"
+
+msgid "JWK Information"
+msgstr "JWK情報"
+
+msgid "Generate Certificate"
+msgstr "証明書生成"
+
+msgid "Input Form"
+msgstr "入力フォーム"
+
+msgid "Email Address"
+msgstr "メールアドレス"
+
+msgid "Validity (days)"
+msgstr "有効日数"
+
+msgid "Key Type"
+msgstr "鍵タイプ"
+
+msgid "RSA Key Size"
+msgstr "RSA鍵長"
+
+msgid "Key Usage"
+msgstr "Key Usage"
+
+msgid "Mark as CA certificate"
+msgstr "CA証明書としてマークする"
+
+msgid "Generate"
+msgstr "生成する"
+
+msgid "Private Key / Public Key"
+msgstr "秘密鍵 / 公開鍵"
+
+msgid "Private Key"
+msgstr "秘密鍵"
+
+msgid "Public Key"
+msgstr "公開鍵"
+
+msgid "Generation results will appear here."
+msgstr "生成結果がここに表示されます。"
+
+msgid "Certificate / JWKS"
+msgstr "証明書 / JWKS"
+
+msgid "JWK"
+msgstr "JWK"
+
+msgid "Certificate details will be shown after generation."
+msgstr "証明書生成後に詳細が表示されます。"
+
+msgid "Revoke the certificate below and provide a reason for the revocation."
+msgstr "以下の証明書を失効させます。理由を入力してください。"
+
+msgid "Example: Key was compromised"
+msgstr "例: 鍵漏洩が判明したため"
+
+msgid "Back"
+msgstr "戻る"
+
+msgid "Are you sure you want to revoke this certificate? This action cannot be undone."
+msgstr "本当に失効しますか？この操作は元に戻せません。"
+
+msgid "Links to the JWKS endpoints and information about currently published keys."
+msgstr "JWKSエンドポイントへのリンクと現在公開中の鍵情報です。"
+
+msgid "Endpoint"
+msgstr "エンドポイント"
+
+msgid "Open in Browser"
+msgstr "ブラウザで開く"
+
+msgid "Copy URL"
+msgstr "URLをコピー"
+
+msgid "JWKS JSON"
+msgstr "JWKS JSON"
+

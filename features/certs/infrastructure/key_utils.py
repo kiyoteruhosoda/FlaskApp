@@ -42,11 +42,28 @@ class SubjectBuilder:
             oid = _OID_MAP.get(key)
             if oid is None:
                 raise CertificateValidationError(f"サポートされていないsubject属性です: {key}")
-            attributes.append(x509.NameAttribute(oid, value))
+            normalized_value = self._normalize_value(oid, value)
+            try:
+                attributes.append(x509.NameAttribute(oid, normalized_value))
+            except ValueError as exc:  # cryptographyの制約をドメイン例外として返す
+                raise CertificateValidationError(
+                    f"subject属性 {key} の値が不正です: {exc}"
+                ) from exc
 
         if not attributes:
             raise CertificateValidationError("subjectが空です")
         return x509.Name(attributes)
+
+    @staticmethod
+    def _normalize_value(oid: NameOID, raw_value: str) -> str:
+        value = raw_value.strip()
+        if oid is NameOID.COUNTRY_NAME:
+            if len(value) != 2:
+                raise CertificateValidationError(
+                    "国コード(C)はISO 3166-1の2文字コードで指定してください (例: JP)"
+                )
+            return value.upper()
+        return value
 
 
 def generate_private_key(key_type: str, key_bits: int) -> rsa.RSAPrivateKey | ec.EllipticCurvePrivateKey:

@@ -20,6 +20,7 @@ from features.certs.application.use_cases import (
 )
 from features.certs.domain.exceptions import (
     CertificateError,
+    CertificateGroupNotFoundError,
     CertificateNotFoundError,
     CertificateValidationError,
     KeyGenerationError,
@@ -53,12 +54,16 @@ def _serialize_certificate(
         "kid": cert.kid,
         "usageType": cert.usage_type.value,
         "issuedAt": cert.issued_at.isoformat() if cert.issued_at else None,
+        "expiresAt": cert.expires_at.isoformat() if cert.expires_at else not_after.isoformat(),
         "revokedAt": cert.revoked_at.isoformat() if cert.revoked_at else None,
         "revocationReason": cert.revocation_reason,
         "subject": certificate.subject.rfc4514_string(),
         "issuer": certificate.issuer.rfc4514_string(),
         "notBefore": not_before.isoformat(),
         "notAfter": not_after.isoformat(),
+        "groupId": cert.group_id,
+        "groupCode": cert.group.group_code if cert.group else None,
+        "autoRotatedFromKid": cert.auto_rotated_from_kid,
     }
     if include_pem:
         payload["certificatePem"] = certificate.public_bytes(
@@ -134,12 +139,17 @@ def sign_certificate() -> tuple[dict, int]:
     if not isinstance(key_usage_values, (list, tuple)):
         return _json_error("keyUsageは文字列配列で指定してください", HTTPStatus.BAD_REQUEST)
 
+    group_code = payload.get("groupCode")
+    if group_code is not None and not isinstance(group_code, str):
+        return _json_error("groupCodeは文字列で指定してください", HTTPStatus.BAD_REQUEST)
+
     dto = SignCertificateInput(
         csr_pem=payload.get("csrPem", ""),
         usage_type=usage_type,
         days=days,
         is_ca=_to_bool(payload.get("isCa", False), default=False),
         key_usage=list(key_usage_values),
+        group_code=group_code,
     )
 
     try:
@@ -162,14 +172,15 @@ def sign_certificate() -> tuple[dict, int]:
     )
 
 
-@certs_api_bp.route("/.well-known/jwks/<usage>.json", methods=["GET"])
-def jwks(usage: str):
-    try:
-        usage_type = UsageType.from_str(_normalize_usage_path(usage))
-    except ValueError as exc:
-        return _json_error(str(exc), HTTPStatus.NOT_FOUND)
+@certs_api_bp.route("/.well-known/jwks/<group_code>.json", methods=["GET"])
+def jwks(group_code: str):
+    if not group_code:
+        return _json_error("groupCodeは必須です", HTTPStatus.BAD_REQUEST)
 
-    result = ListJwksUseCase().execute(usage_type)
+    try:
+        result = ListJwksUseCase().execute(group_code)
+    except CertificateGroupNotFoundError as exc:
+        return _json_error(str(exc), HTTPStatus.NOT_FOUND)
     return jsonify(result)
 
 
@@ -183,7 +194,11 @@ def list_certificates():
         except ValueError as exc:
             return _json_error(str(exc), HTTPStatus.BAD_REQUEST)
 
-    certificates = ListIssuedCertificatesUseCase().execute(usage_type)
+    group_code = request.args.get("group")
+    if group_code is not None and not group_code:
+        return _json_error("groupパラメータが不正です", HTTPStatus.BAD_REQUEST)
+
+    certificates = ListIssuedCertificatesUseCase().execute(usage_type, group_code=group_code or None)
     return jsonify(
         {"certificates": [_serialize_certificate(cert) for cert in certificates]}
     )
@@ -223,18 +238,6 @@ def _resolve_usage_type(value: str | None) -> UsageType:
         return UsageType.from_str(value)
     except ValueError as exc:
         raise CertificateValidationError(str(exc)) from exc
-
-
-def _normalize_usage_path(value: str) -> str:
-    mapping = {
-        "server": UsageType.SERVER_SIGNING.value,
-        "server.json": UsageType.SERVER_SIGNING.value,
-        "client": UsageType.CLIENT_SIGNING.value,
-        "client.json": UsageType.CLIENT_SIGNING.value,
-        "encryption": UsageType.ENCRYPTION.value,
-        "encryption.json": UsageType.ENCRYPTION.value,
-    }
-    return mapping.get(value, value)
 
 
 def _to_bool(value, default: bool) -> bool:

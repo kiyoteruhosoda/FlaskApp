@@ -27,9 +27,12 @@ class _DummyClient:
                 kid="kid",
                 usage_type=UsageType.SERVER_SIGNING,
                 issued_at=None,
+                expires_at=None,
                 revoked_at=None,
                 revocation_reason=None,
                 subject="CN=example",
+                group_code="server",
+                auto_rotated_from_kid=None,
             )
         ]
 
@@ -39,9 +42,12 @@ class _DummyClient:
             kid=kid,
             usage_type=UsageType.SERVER_SIGNING,
             issued_at=None,
+            expires_at=None,
             revoked_at=None,
             revocation_reason=None,
             subject="CN=sub",
+            group_code="server",
+            auto_rotated_from_kid=None,
             certificate_pem="pem",
             jwk={},
             issuer="issuer",
@@ -70,10 +76,11 @@ class _DummyClient:
             kid="kid",
             jwk={},
             usage_type=UsageType.SERVER_SIGNING,
+            group_code="server",
         )
 
-    def list_jwks(self, usage):
-        self.calls.append(("list_jwks", (usage,), {}))
+    def list_jwks(self, group_code):
+        self.calls.append(("list_jwks", (group_code,), {}))
         return {"keys": []}
 
 
@@ -81,7 +88,7 @@ def test_service_delegates_to_client(app_context):
     client = _DummyClient()
     service = CertificateUiService(app_context, client=client)
 
-    service.list_certificates(UsageType.SERVER_SIGNING)
+    service.list_certificates(UsageType.SERVER_SIGNING, group_code="server")
     service.get_certificate("kid")
     service.revoke_certificate("kid", "reason")
     service.generate_material(
@@ -98,8 +105,9 @@ def test_service_delegates_to_client(app_context):
         days=365,
         is_ca=False,
         key_usage=["digitalSignature"],
+        group_code="server",
     )
-    service.list_jwks(UsageType.SERVER_SIGNING)
+    service.list_jwks("server")
 
     call_names = [name for name, *_ in client.calls]
     assert call_names == [

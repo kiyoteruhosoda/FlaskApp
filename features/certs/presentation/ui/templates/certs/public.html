@@ -8,11 +8,11 @@
 <p class="text-muted">{{ _('Links to the JWKS endpoints and information about currently published keys.') }}</p>
 
 <div class="accordion" id="jwksAccordion">
-  {% for info in usage_infos %}
+  {% for info in group_infos %}
   <div class="accordion-item">
     <h2 class="accordion-header" id="heading-{{ loop.index }}">
       <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ loop.index }}" aria-expanded="{{ 'true' if loop.first else 'false' }}" aria-controls="collapse-{{ loop.index }}">
-        {{ info.usage.value }} ({{ info.key_count }} keys)
+        {{ info.group_code }} – {{ info.usage.value }} ({{ info.key_count }} keys)
       </button>
     </h2>
     <div id="collapse-{{ loop.index }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" aria-labelledby="heading-{{ loop.index }}" data-bs-parent="#jwksAccordion">

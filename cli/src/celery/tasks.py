@@ -1,7 +1,6 @@
 """Celery background tasks."""
 
 import logging
-from .celery_app import celery
 from pathlib import Path
 import hashlib
 import time
@@ -25,6 +24,11 @@ from core.tasks.thumbs_generate import (
     PlaybackNotReadyError,
     thumbs_generate,
 )
+from features.certs.tasks.rotate_certificates import (  # noqa: F401 - タスク登録目的
+    auto_rotate_certificates_task,
+)
+
+from .celery_app import celery
 
 # Celery task logger
 logger = logging.getLogger('celery.task')

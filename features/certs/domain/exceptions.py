@@ -20,3 +20,11 @@ class KeyGenerationError(CertificateError):
 
 class CertificateNotFoundError(CertificateError):
     """証明書が存在しない場合の例外"""
+
+
+class CertificateGroupNotFoundError(CertificateError):
+    """証明書グループが存在しない場合の例外"""
+
+
+class CertificateRotationError(CertificateError):
+    """自動ローテーション処理に関する例外"""

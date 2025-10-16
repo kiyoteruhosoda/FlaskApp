@@ -40,6 +40,7 @@ class SignedCertificate:
     kid: str
     jwk: dict[str, Any]
     usage_type: UsageType
+    group_code: str | None
 
 
 @dataclass(slots=True)
@@ -47,9 +48,12 @@ class CertificateSummary:
     kid: str
     usage_type: UsageType
     issued_at: datetime | None
+    expires_at: datetime | None
     revoked_at: datetime | None
     revocation_reason: str | None
     subject: str
+    group_code: str | None
+    auto_rotated_from_kid: str | None
 
     @property
     def is_revoked(self) -> bool:
@@ -85,8 +89,19 @@ class CertsApiClient:
         self._app = app or current_app._get_current_object()
         self._timeout = self._app.config.get("CERTS_API_TIMEOUT", 10)
 
-    def list_certificates(self, usage: UsageType | None = None) -> list[CertificateSummary]:
-        params = {"usage": usage.value} if usage else None
+    def list_certificates(
+        self,
+        usage: UsageType | None = None,
+        *,
+        group_code: str | None = None,
+    ) -> list[CertificateSummary]:
+        params: dict[str, Any] | None = {}
+        if usage:
+            params["usage"] = usage.value
+        if group_code:
+            params["group"] = group_code
+        if not params:
+            params = None
         payload = self._dispatch("GET", "certs_api.list_certificates", params=params)
         certificates = payload.get("certificates", [])
         return [self._parse_summary(item) for item in certificates]
@@ -144,6 +159,7 @@ class CertsApiClient:
         days: int,
         is_ca: bool,
         key_usage: list[str],
+        group_code: str | None = None,
     ) -> SignedCertificate:
         payload = self._dispatch(
             "POST",
@@ -154,6 +170,7 @@ class CertsApiClient:
                 "days": days,
                 "isCa": is_ca,
                 "keyUsage": key_usage,
+                "groupCode": group_code,
             },
         )
         return SignedCertificate(
@@ -161,10 +178,11 @@ class CertsApiClient:
             kid=payload.get("kid", ""),
             jwk=payload.get("jwk", {}),
             usage_type=usage_type,
+            group_code=payload.get("groupCode"),
         )
 
-    def list_jwks(self, usage: UsageType) -> dict[str, Any]:
-        return self._dispatch("GET", "certs_api.jwks", usage=usage.value)
+    def list_jwks(self, group_code: str) -> dict[str, Any]:
+        return self._dispatch("GET", "certs_api.jwks", group_code=group_code)
 
     def _dispatch(
         self,
@@ -241,9 +259,12 @@ class CertsApiClient:
             kid=str(payload.get("kid", "")),
             usage_type=_parse_usage(payload.get("usageType")),
             issued_at=_parse_datetime(payload.get("issuedAt")),
+            expires_at=_parse_datetime(payload.get("expiresAt")),
             revoked_at=_parse_datetime(payload.get("revokedAt")),
             revocation_reason=payload.get("revocationReason"),
             subject=str(payload.get("subject", "")),
+            group_code=payload.get("groupCode"),
+            auto_rotated_from_kid=payload.get("autoRotatedFromKid"),
         )
 
     def _parse_detail(self, payload: dict[str, Any]) -> CertificateDetail:
@@ -252,9 +273,12 @@ class CertsApiClient:
             kid=summary.kid,
             usage_type=summary.usage_type,
             issued_at=summary.issued_at,
+            expires_at=summary.expires_at,
             revoked_at=summary.revoked_at,
             revocation_reason=summary.revocation_reason,
             subject=summary.subject,
+            group_code=summary.group_code,
+            auto_rotated_from_kid=summary.auto_rotated_from_kid,
             certificate_pem=str(payload.get("certificatePem", "")),
             jwk=payload.get("jwk", {}),
             issuer=str(payload.get("issuer", "")),

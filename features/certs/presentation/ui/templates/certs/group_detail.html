@@ -77,9 +77,16 @@
         <hr>
         <h2 class="h6">{{ _('Subject Overrides') }}</h2>
       </div>
-      {% for oid, field_name, label in subject_fields %}
+      {% for oid, field_name, label, required in subject_fields %}
       <div class="col-md-6">
-        <label class="form-label" for="issue_{{ field_name }}">{{ label }}</label>
+        <label class="form-label" for="issue_{{ field_name }}">
+          {{ label }}
+          {% if required %}
+          <span class="badge text-bg-danger align-middle ms-1">{{ _('Required') }}</span>
+          {% else %}
+          <span class="badge text-bg-secondary align-middle ms-1">{{ _('Optional') }}</span>
+          {% endif %}
+        </label>
         <input class="form-control" type="text" id="issue_{{ field_name }}" name="{{ field_name }}" value="{{ subject_form_values[field_name] }}">
       </div>
       {% endfor %}

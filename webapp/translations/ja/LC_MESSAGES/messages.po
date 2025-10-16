@@ -2909,6 +2909,30 @@ msgstr "表示可能な証明書グループがありません。"
 msgid "Create Certificate Group"
 msgstr "証明書グループを作成"
 
+msgid "Key Parameters"
+msgstr "鍵パラメータ"
+
+msgid "Select key parameters"
+msgstr "鍵パラメータを選択"
+
+msgid "Custom configuration (%(details)s)"
+msgstr "カスタム設定（%(details)s）"
+
+msgid "Fill in all required subject attributes using ASCII characters. Country code must be a two-letter ISO 3166-1 alpha-2 value (e.g., JP)."
+msgstr "必須のサブジェクト属性をすべてASCII文字で入力してください。国コードはISO 3166-1の2文字（例: JP）である必要があります。"
+
+msgid "Required"
+msgstr "必須"
+
+msgid "Optional"
+msgstr "任意"
+
+msgid "Please fill in all required subject attributes."
+msgstr "必須のサブジェクト属性を入力してください。"
+
+msgid "%(label)s is required."
+msgstr "%(label)s は必須です。"
+
 msgid "Usage Type"
 msgstr "用途タイプ"
 

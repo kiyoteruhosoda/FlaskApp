@@ -112,17 +112,20 @@
                 {% endfor %}
               </select>
             </div>
-            <div class="col-md-3">
-              <label class="form-label" for="key_type">{{ _('Key Type') }}</label>
-              <select class="form-select" id="key_type" name="key_type" data-initial="{{ create_form_values.get('key_type', '') }}" data-placeholder="{{ _('Select key type') }}" data-unspecified="{{ _('Not specified') }}"></select>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label" for="key_size">{{ _('Key Size') }}</label>
-              <select class="form-select" id="key_size" name="key_size" data-initial="{{ create_form_values.get('key_size', '') }}" data-placeholder="{{ _('Select key size') }}" data-unspecified="{{ _('Not specified') }}"></select>
-            </div>
             <div class="col-md-6">
-              <label class="form-label" for="key_curve">{{ _('Key Curve') }}</label>
-              <select class="form-select" id="key_curve" name="key_curve" data-initial="{{ create_form_values.get('key_curve', '') }}" data-placeholder="{{ _('Select key curve') }}" data-unspecified="{{ _('Not specified') }}"></select>
+              <label class="form-label" for="key_preset">{{ _('Key Parameters') }} <span class="text-danger">*</span></label>
+              <select
+                class="form-select"
+                id="key_preset"
+                name="key_preset"
+                required
+                data-initial="{{ create_form_values.get('key_preset', '') }}"
+                data-placeholder="{{ _('Select key parameters') }}"
+                data-custom-label="{{ _('Custom configuration (%(details)s)') }}"
+              ></select>
+              <input type="hidden" id="key_type" name="key_type" value="{{ create_form_values.get('key_type', '') }}">
+              <input type="hidden" id="key_curve" name="key_curve" value="{{ create_form_values.get('key_curve', '') }}">
+              <input type="hidden" id="key_size" name="key_size" value="{{ create_form_values.get('key_size', '') }}">
             </div>
             <div class="col-md-3">
               <label class="form-label" for="rotation_threshold_days">{{ _('Rotation Threshold (days)') }} <span class="text-danger">*</span></label>
@@ -136,21 +139,47 @@
             </div>
           </div>
           <hr>
-          <h3 class="h6 mb-1">{{ _('Subject Template') }} <span class="text-danger">*</span></h3>
-          <p class="text-muted small mb-3">{{ _('Enter at least one subject attribute using ASCII characters. Country code must be a two-letter ISO 3166-1 alpha-2 value (e.g., JP).') }}</p>
+          <h3 class="h6 mb-1">{{ _('Subject Template') }}</h3>
+          <p class="text-muted small mb-3">{{ _('Fill in all required subject attributes using ASCII characters. Country code must be a two-letter ISO 3166-1 alpha-2 value (e.g., JP).') }}</p>
           <div class="row g-3">
-            {% for oid, field_name, label in subject_fields %}
+            {% for oid, field_name, label, required in subject_fields %}
             <div class="col-md-6">
-              <label class="form-label" for="{{ field_name }}">{{ label }}</label>
+              <label class="form-label" for="{{ field_name }}">
+                {{ label }}
+                {% if required %}
+                <span class="badge text-bg-danger align-middle ms-1">{{ _('Required') }}</span>
+                {% else %}
+                <span class="badge text-bg-secondary align-middle ms-1">{{ _('Optional') }}</span>
+                {% endif %}
+              </label>
               {% if oid == 'C' %}
-              <input class="form-control" type="text" id="{{ field_name }}" name="{{ field_name }}" value="{{ create_form_values.get(field_name, '') }}" maxlength="2" pattern="[A-Za-z]{2}" title="{{ _('Enter a two-letter ISO 3166-1 alpha-2 code (e.g., JP).') }}">
+              <input
+                class="form-control"
+                type="text"
+                id="{{ field_name }}"
+                name="{{ field_name }}"
+                value="{{ create_form_values.get(field_name, '') }}"
+                maxlength="2"
+                pattern="[A-Za-z]{2}"
+                title="{{ _('Enter a two-letter ISO 3166-1 alpha-2 code (e.g., JP).') }}"
+                {% if required %}required{% endif %}
+                data-required-message="{{ _('%(label)s is required.', label=label) }}"
+              >
               {% else %}
-              <input class="form-control" type="text" id="{{ field_name }}" name="{{ field_name }}" value="{{ create_form_values.get(field_name, '') }}">
+              <input
+                class="form-control"
+                type="text"
+                id="{{ field_name }}"
+                name="{{ field_name }}"
+                value="{{ create_form_values.get(field_name, '') }}"
+                {% if required %}required{% endif %}
+                data-required-message="{{ _('%(label)s is required.', label=label) }}"
+              >
               {% endif %}
             </div>
             {% endfor %}
           </div>
-          <p class="text-danger small mt-2 d-none" data-subject-error>{{ _('At least one subject attribute is required.') }}</p>
+          <p class="text-danger small mt-2 d-none" data-subject-error>{{ _('Please fill in all required subject attributes.') }}</p>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
@@ -187,17 +216,19 @@
                 {% endfor %}
               </select>
             </div>
-            <div class="col-md-3">
-              <label class="form-label" for="edit_key_type">{{ _('Key Type') }}</label>
-              <select class="form-select" id="edit_key_type" name="key_type" data-placeholder="{{ _('Select key type') }}" data-unspecified="{{ _('Not specified') }}"></select>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label" for="edit_key_size">{{ _('Key Size') }}</label>
-              <select class="form-select" id="edit_key_size" name="key_size" data-placeholder="{{ _('Select key size') }}" data-unspecified="{{ _('Not specified') }}"></select>
-            </div>
             <div class="col-md-6">
-              <label class="form-label" for="edit_key_curve">{{ _('Key Curve') }}</label>
-              <select class="form-select" id="edit_key_curve" name="key_curve" data-placeholder="{{ _('Select key curve') }}" data-unspecified="{{ _('Not specified') }}"></select>
+              <label class="form-label" for="edit_key_preset">{{ _('Key Parameters') }} <span class="text-danger">*</span></label>
+              <select
+                class="form-select"
+                id="edit_key_preset"
+                name="key_preset"
+                required
+                data-placeholder="{{ _('Select key parameters') }}"
+                data-custom-label="{{ _('Custom configuration (%(details)s)') }}"
+              ></select>
+              <input type="hidden" id="edit_key_type" name="key_type">
+              <input type="hidden" id="edit_key_curve" name="key_curve">
+              <input type="hidden" id="edit_key_size" name="key_size">
             </div>
             <div class="col-md-3">
               <label class="form-label" for="edit_rotation_threshold_days">{{ _('Rotation Threshold (days)') }} <span class="text-danger">*</span></label>
@@ -211,21 +242,45 @@
             </div>
           </div>
           <hr>
-          <h3 class="h6 mb-1">{{ _('Subject Template') }} <span class="text-danger">*</span></h3>
-          <p class="text-muted small mb-3">{{ _('Enter at least one subject attribute using ASCII characters. Country code must be a two-letter ISO 3166-1 alpha-2 value (e.g., JP).') }}</p>
+          <h3 class="h6 mb-1">{{ _('Subject Template') }}</h3>
+          <p class="text-muted small mb-3">{{ _('Fill in all required subject attributes using ASCII characters. Country code must be a two-letter ISO 3166-1 alpha-2 value (e.g., JP).') }}</p>
           <div class="row g-3">
-            {% for oid, field_name, label in subject_fields %}
+            {% for oid, field_name, label, required in subject_fields %}
             <div class="col-md-6">
-              <label class="form-label" for="edit_{{ field_name }}">{{ label }}</label>
+              <label class="form-label" for="edit_{{ field_name }}">
+                {{ label }}
+                {% if required %}
+                <span class="badge text-bg-danger align-middle ms-1">{{ _('Required') }}</span>
+                {% else %}
+                <span class="badge text-bg-secondary align-middle ms-1">{{ _('Optional') }}</span>
+                {% endif %}
+              </label>
               {% if oid == 'C' %}
-              <input class="form-control" type="text" id="edit_{{ field_name }}" name="{{ field_name }}" maxlength="2" pattern="[A-Za-z]{2}" title="{{ _('Enter a two-letter ISO 3166-1 alpha-2 code (e.g., JP).') }}">
+              <input
+                class="form-control"
+                type="text"
+                id="edit_{{ field_name }}"
+                name="{{ field_name }}"
+                maxlength="2"
+                pattern="[A-Za-z]{2}"
+                title="{{ _('Enter a two-letter ISO 3166-1 alpha-2 code (e.g., JP).') }}"
+                {% if required %}required{% endif %}
+                data-required-message="{{ _('%(label)s is required.', label=label) }}"
+              >
               {% else %}
-              <input class="form-control" type="text" id="edit_{{ field_name }}" name="{{ field_name }}">
+              <input
+                class="form-control"
+                type="text"
+                id="edit_{{ field_name }}"
+                name="{{ field_name }}"
+                {% if required %}required{% endif %}
+                data-required-message="{{ _('%(label)s is required.', label=label) }}"
+              >
               {% endif %}
             </div>
             {% endfor %}
           </div>
-          <p class="text-danger small mt-2 d-none" data-subject-error>{{ _('At least one subject attribute is required.') }}</p>
+          <p class="text-danger small mt-2 d-none" data-subject-error>{{ _('Please fill in all required subject attributes.') }}</p>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
@@ -243,249 +298,183 @@
 (function() {
   const KEY_PRESETS = {{ key_presets | tojson }};
 
-  function createKeyFieldController(ids) {
-    const usageSelect = document.getElementById(ids.usageId);
-    const keyTypeSelect = document.getElementById(ids.keyTypeId);
-    const keyCurveSelect = document.getElementById(ids.keyCurveId);
-    const keySizeSelect = document.getElementById(ids.keySizeId);
+  function describePreset(keyType, keySize, keyCurve) {
+    const parts = [];
+    if (keyType) {
+      parts.push(keyType);
+    }
+    if (keySize) {
+      parts.push(keySize);
+    }
+    if (keyCurve) {
+      parts.push(keyCurve);
+    }
+    return parts.join(' / ');
+  }
 
-    if (!usageSelect || !keyTypeSelect || !keyCurveSelect || !keySizeSelect) {
+  function serializeCombination(keyType, keySize, keyCurve) {
+    const normalizedType = keyType || '';
+    const normalizedSize = keySize != null && keySize !== '' ? String(keySize) : '';
+    const normalizedCurve = keyCurve || '';
+    return [normalizedType, normalizedSize, normalizedCurve].join('|');
+  }
+
+  function createKeyPresetController(ids) {
+    const usageSelect = document.getElementById(ids.usageId);
+    const presetSelect = document.getElementById(ids.presetId);
+    const keyTypeInput = document.getElementById(ids.keyTypeId);
+    const keyCurveInput = document.getElementById(ids.keyCurveId);
+    const keySizeInput = document.getElementById(ids.keySizeId);
+
+    if (!usageSelect || !presetSelect || !keyTypeInput || !keyCurveInput || !keySizeInput) {
       return null;
     }
 
     const state = {
       usageType: usageSelect.dataset.initial || usageSelect.value || '',
-      keyType: keyTypeSelect.dataset.initial || keyTypeSelect.value || '',
-      keyCurve: keyCurveSelect.dataset.initial || keyCurveSelect.value || '',
-      keySize: keySizeSelect.dataset.initial || keySizeSelect.value || '',
+      presetValue: presetSelect.dataset.initial || presetSelect.value || '',
+      keyType: keyTypeInput.value || '',
+      keyCurve: keyCurveInput.value || '',
+      keySize: keySizeInput.value || '',
     };
 
-    if (!state.usageType) {
-      const firstUsageOption = Array.from(usageSelect.options || []).find((option) => option.value);
-      if (firstUsageOption) {
-        state.usageType = firstUsageOption.value;
-      }
+    const placeholderLabel = presetSelect.dataset.placeholder || '';
+    const customLabelTemplate = presetSelect.dataset.customLabel || '';
+
+    function createOption(value, label, data) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      option.dataset.keyType = data.keyType || '';
+      option.dataset.keyCurve = data.keyCurve || '';
+      option.dataset.keySize = data.keySize || '';
+      return option;
     }
 
-    const placeholders = {
-      keyType: keyTypeSelect.dataset.placeholder || '',
-      keyCurve: keyCurveSelect.dataset.placeholder || '',
-      keySize: keySizeSelect.dataset.placeholder || '',
-    };
-
-    const unspecifiedLabels = {
-      keyType: keyTypeSelect.dataset.unspecified || '',
-      keyCurve: keyCurveSelect.dataset.unspecified || '',
-      keySize: keySizeSelect.dataset.unspecified || '',
-    };
-
-    function setOptions(select, options, selectedValue, config) {
-      const placeholderLabel = (config && config.placeholderLabel) || '';
-      const disableIfEmpty = Boolean(config && config.disableIfEmpty);
-      const ensureSelectedValue = config && config.ensureSelectedValue;
-      const normalizedSelectedValue =
-        selectedValue === undefined || selectedValue === null ? '' : String(selectedValue);
-      const hasSelectedValue = normalizedSelectedValue !== '';
-
-      const computedOptions = Array.isArray(options) ? [...options] : [];
-      if (ensureSelectedValue && hasSelectedValue) {
-        const exists = computedOptions.some((option) => option.value === normalizedSelectedValue);
-        if (!exists) {
-          computedOptions.push({
-            value: normalizedSelectedValue,
-            label: ensureSelectedValue(normalizedSelectedValue),
-          });
-        }
+    function applyOption(option) {
+      if (!option) {
+        keyTypeInput.value = '';
+        keyCurveInput.value = '';
+        keySizeInput.value = '';
+        state.keyType = '';
+        state.keyCurve = '';
+        state.keySize = '';
+        state.presetValue = '';
+        return;
       }
 
+      const selectedKeyType = option.dataset.keyType || '';
+      const selectedKeyCurve = option.dataset.keyCurve || '';
+      const selectedKeySize = option.dataset.keySize || '';
+
+      keyTypeInput.value = selectedKeyType;
+      keyCurveInput.value = selectedKeyCurve;
+      keySizeInput.value = selectedKeySize;
+
+      state.keyType = selectedKeyType;
+      state.keyCurve = selectedKeyCurve;
+      state.keySize = selectedKeySize;
+      state.presetValue = option.value || '';
+    }
+
+    function buildCustomLabel(details) {
+      if (!customLabelTemplate) {
+        return details || '';
+      }
+      if (customLabelTemplate.includes('%(details)s')) {
+        return customLabelTemplate.replace('%(details)s', details || '-');
+      }
+      return customLabelTemplate;
+    }
+
+    function refresh() {
+      usageSelect.value = state.usageType;
+      const presets = Array.isArray(KEY_PRESETS[state.usageType]) ? KEY_PRESETS[state.usageType] : [];
+
       const fragment = document.createDocumentFragment();
+      const optionValues = [];
+
       if (placeholderLabel) {
         const placeholderOption = document.createElement('option');
         placeholderOption.value = '';
         placeholderOption.textContent = placeholderLabel;
         fragment.appendChild(placeholderOption);
       }
-      computedOptions.forEach((option) => {
-        const opt = document.createElement('option');
-        opt.value = option.value;
-        opt.textContent = option.label;
-        fragment.appendChild(opt);
-      });
-      select.innerHTML = '';
-      select.appendChild(fragment);
-      const values = computedOptions.map((option) => option.value);
-      if (placeholderLabel) {
-        values.push('');
-      }
-      let finalValue = normalizedSelectedValue;
-      if (!values.includes(finalValue)) {
-        if (placeholderLabel) {
-          finalValue = '';
-        } else if (computedOptions.length > 0) {
-          finalValue = computedOptions[0].value;
-        } else {
-          finalValue = '';
-        }
-      }
-      select.value = finalValue;
-      if (disableIfEmpty && computedOptions.length === 0 && !hasSelectedValue) {
-        select.disabled = true;
-      } else {
-        select.disabled = false;
-      }
-      return select.value;
-    }
 
-    function buildKeyTypeOptions(presets) {
-      const seen = new Set();
-      const options = [];
       presets.forEach((preset) => {
-        if (!preset || !preset.keyType || seen.has(preset.keyType)) {
+        if (!preset) {
           return;
         }
-        seen.add(preset.keyType);
-        options.push({ value: preset.keyType, label: preset.keyType });
+        const keyType = preset.keyType || '';
+        const keyCurve = preset.keyCurve || '';
+        const keySize = preset.keySize != null && preset.keySize !== '' ? String(preset.keySize) : '';
+        const value = serializeCombination(keyType, keySize, keyCurve);
+        optionValues.push(value);
+        const label = preset.label || describePreset(keyType, keySize, keyCurve) || value;
+        fragment.appendChild(
+          createOption(value, label, {
+            keyType,
+            keyCurve,
+            keySize,
+          })
+        );
       });
-      return options;
-    }
 
-    function buildKeyCurveOptions(presets) {
-      const options = new Map();
-      presets.forEach((preset) => {
-        const value = preset.keyCurve ? preset.keyCurve : '';
-        if (!options.has(value)) {
-          const parts = [];
-          if (value) {
-            parts.push(value);
-            if (preset.label) {
-              parts.push(preset.label);
+      const stateValue = serializeCombination(state.keyType, state.keySize, state.keyCurve);
+      const hasStateCombination = Boolean(state.keyType || state.keyCurve || state.keySize);
+      if (hasStateCombination && !optionValues.includes(stateValue)) {
+        optionValues.push(stateValue);
+        const details = describePreset(state.keyType, state.keySize, state.keyCurve) || stateValue;
+        fragment.appendChild(
+          createOption(
+            stateValue,
+            buildCustomLabel(details),
+            {
+              keyType: state.keyType || '',
+              keyCurve: state.keyCurve || '',
+              keySize: state.keySize || '',
             }
-          } else if (unspecifiedLabels.keyCurve) {
-            parts.push(unspecifiedLabels.keyCurve);
-          }
-          options.set(value, {
-            value,
-            label: parts.join(' — ') || value || unspecifiedLabels.keyCurve || '',
-          });
-        }
-      });
-      if (!options.size) {
-        options.set('', {
-          value: '',
-          label: unspecifiedLabels.keyCurve || '',
-        });
-      }
-      return Array.from(options.values());
-    }
-
-    function buildKeySizeOptions(presets) {
-      const options = new Map();
-      presets.forEach((preset) => {
-        const value = preset.keySize != null ? String(preset.keySize) : '';
-        if (!options.has(value)) {
-          const parts = [];
-          if (value) {
-            parts.push(value);
-          } else if (unspecifiedLabels.keySize) {
-            parts.push(unspecifiedLabels.keySize);
-          }
-          if (preset.label) {
-            parts.push(preset.label);
-          }
-          options.set(value, {
-            value,
-            label: parts.join(' — ') || value || unspecifiedLabels.keySize || '',
-          });
-        }
-      });
-      if (!options.size) {
-        options.set('', {
-          value: '',
-          label: unspecifiedLabels.keySize || '',
-        });
-      }
-      return Array.from(options.values());
-    }
-
-    function refresh() {
-      usageSelect.value = state.usageType;
-      const presets = KEY_PRESETS[state.usageType] || [];
-      const keyTypeOptions = buildKeyTypeOptions(presets);
-      if (!state.usageType || keyTypeOptions.length === 0) {
-        state.keyType = setOptions(keyTypeSelect, [], state.keyType, {
-          placeholderLabel: placeholders.keyType,
-          disableIfEmpty: true,
-          ensureSelectedValue: (value) => value,
-        });
-        state.keyCurve = setOptions(keyCurveSelect, [], state.keyCurve, {
-          placeholderLabel: placeholders.keyCurve,
-          disableIfEmpty: true,
-          ensureSelectedValue: (value) => value,
-        });
-        state.keySize = setOptions(keySizeSelect, [], state.keySize, {
-          placeholderLabel: placeholders.keySize,
-          disableIfEmpty: true,
-          ensureSelectedValue: (value) => value,
-        });
-        return;
+          )
+        );
       }
 
-      state.keyType = setOptions(keyTypeSelect, keyTypeOptions, state.keyType, {
-        placeholderLabel: '',
-        disableIfEmpty: false,
-        ensureSelectedValue: (value) => value,
-      });
+      presetSelect.innerHTML = '';
+      presetSelect.appendChild(fragment);
 
-      const combos = presets.filter((preset) => preset.keyType === state.keyType);
-      if (combos.length === 0) {
-        state.keyCurve = setOptions(keyCurveSelect, [], state.keyCurve, {
-          placeholderLabel: unspecifiedLabels.keyCurve || '',
-          disableIfEmpty: false,
-          ensureSelectedValue: (value) => value,
-        });
-        state.keySize = setOptions(keySizeSelect, [], state.keySize, {
-          placeholderLabel: unspecifiedLabels.keySize || '',
-          disableIfEmpty: false,
-          ensureSelectedValue: (value) => value,
-        });
-        return;
+      let finalValue = '';
+      if (state.presetValue && optionValues.includes(state.presetValue)) {
+        finalValue = state.presetValue;
+      } else if (stateValue && optionValues.includes(stateValue)) {
+        finalValue = stateValue;
+      } else if (optionValues.length > 0) {
+        finalValue = optionValues[0];
       }
 
-      state.keyCurve = setOptions(keyCurveSelect, buildKeyCurveOptions(combos), state.keyCurve, {
-        placeholderLabel: '',
-        disableIfEmpty: false,
-        ensureSelectedValue: (value) => value,
-      });
-      state.keySize = setOptions(keySizeSelect, buildKeySizeOptions(combos), state.keySize, {
-        placeholderLabel: '',
-        disableIfEmpty: false,
-        ensureSelectedValue: (value) => value,
-      });
+      if (placeholderLabel && !finalValue) {
+        presetSelect.value = '';
+        applyOption(null);
+      } else {
+        presetSelect.value = finalValue;
+        const selectedOption = Array.from(presetSelect.options).find((option) => option.value === finalValue);
+        applyOption(selectedOption || null);
+      }
+
+      presetSelect.disabled = optionValues.length === 0;
     }
 
     usageSelect.addEventListener('change', () => {
-      state.usageType = usageSelect.value;
+      state.usageType = usageSelect.value || '';
+      state.presetValue = '';
       state.keyType = '';
       state.keyCurve = '';
       state.keySize = '';
       refresh();
     });
 
-    keyTypeSelect.addEventListener('change', () => {
-      state.keyType = keyTypeSelect.value;
-      state.keyCurve = '';
-      state.keySize = '';
-      refresh();
-    });
-
-    keyCurveSelect.addEventListener('change', () => {
-      state.keyCurve = keyCurveSelect.value;
-      refresh();
-    });
-
-    keySizeSelect.addEventListener('change', () => {
-      state.keySize = keySizeSelect.value;
-      refresh();
+    presetSelect.addEventListener('change', () => {
+      state.presetValue = presetSelect.value || '';
+      const selectedOption = presetSelect.options[presetSelect.selectedIndex] || null;
+      applyOption(selectedOption);
     });
 
     refresh();
@@ -498,6 +487,9 @@
         }
         if (Object.prototype.hasOwnProperty.call(newState, 'usageType')) {
           state.usageType = newState.usageType || '';
+        }
+        if (Object.prototype.hasOwnProperty.call(newState, 'presetValue')) {
+          state.presetValue = newState.presetValue || '';
         }
         if (Object.prototype.hasOwnProperty.call(newState, 'keyType')) {
           state.keyType = newState.keyType || '';
@@ -516,15 +508,17 @@
   const editFormInitial = {{ edit_form_initial | tojson }};
   const shouldShowEditModal = {{ show_edit_modal | tojson }};
 
-  const createController = createKeyFieldController({
+  const createController = createKeyPresetController({
     usageId: 'usage_type',
+    presetId: 'key_preset',
     keyTypeId: 'key_type',
     keyCurveId: 'key_curve',
     keySizeId: 'key_size',
   });
 
-  const editController = createKeyFieldController({
+  const editController = createKeyPresetController({
     usageId: 'edit_usage_type',
+    presetId: 'edit_key_preset',
     keyTypeId: 'edit_key_type',
     keyCurveId: 'edit_key_curve',
     keySizeId: 'edit_key_size',
@@ -533,7 +527,8 @@
   const editFormActionTemplate = `{{ url_for('certs_ui.update_group', group_code='__PLACEHOLDER__') }}`;
 
   const subjectFieldNames = {{ subject_fields | map(attribute=1) | list | tojson }};
-  const subjectValidationMessage = {{ _('At least one subject attribute is required.') | tojson }};
+  const requiredSubjectFieldNames = {{ required_subject_field_names | tojson }};
+  const subjectRequiredMessage = {{ _('Please fill in all required subject attributes.') | tojson }};
 
   function setupSubjectValidation(form) {
     if (!form) {
@@ -548,45 +543,46 @@
       return null;
     }
 
-    const validatorTarget = inputs[0];
+    const requiredInputs = inputs.filter((input) => requiredSubjectFieldNames.includes(input.name));
     const errorMessage = form.querySelector('[data-subject-error]');
     let attempted = false;
 
-    function hasSubjectValue() {
-      return inputs.some((input) => input.value.trim() !== '');
-    }
-
     function updateState() {
-      const valid = hasSubjectValue();
+      let valid = true;
 
-      if (validatorTarget) {
-        if (valid || !attempted) {
-          validatorTarget.setCustomValidity('');
+      requiredInputs.forEach((input) => {
+        const hasValue = input.value.trim() !== '';
+        if (!hasValue) {
+          valid = false;
+          const message = input.dataset.requiredMessage || subjectRequiredMessage;
+          input.setCustomValidity(message);
+          if (attempted) {
+            input.classList.add('is-invalid');
+          } else {
+            input.classList.remove('is-invalid');
+          }
         } else {
-          validatorTarget.setCustomValidity(subjectValidationMessage);
-        }
-      }
-
-      inputs.forEach((input) => {
-        if (!attempted || valid) {
+          input.setCustomValidity('');
           input.classList.remove('is-invalid');
-        } else {
-          input.classList.add('is-invalid');
         }
       });
 
       if (errorMessage) {
-        if (valid || !attempted) {
-          errorMessage.classList.add('d-none');
-        } else {
+        if (!valid && attempted) {
           errorMessage.classList.remove('d-none');
+        } else {
+          errorMessage.classList.add('d-none');
         }
       }
 
       return valid;
     }
 
-    function handleInput() {
+    function handleInput(event) {
+      if (!attempted) {
+        event.target.classList.remove('is-invalid');
+        event.target.setCustomValidity('');
+      }
       updateState();
     }
 
@@ -602,9 +598,10 @@
       }
       event.preventDefault();
       event.stopImmediatePropagation();
-      if (validatorTarget) {
-        validatorTarget.reportValidity();
-        validatorTarget.focus({ preventScroll: true });
+      const firstInvalid = requiredInputs.find((input) => input.value.trim() === '');
+      if (firstInvalid) {
+        firstInvalid.reportValidity();
+        firstInvalid.focus({ preventScroll: true });
       }
     }
 
@@ -612,6 +609,15 @@
 
     function reset() {
       attempted = false;
+      inputs.forEach((input) => {
+        input.classList.remove('is-invalid');
+        if (requiredSubjectFieldNames.includes(input.name) && input.value.trim() === '') {
+          const message = input.dataset.requiredMessage || subjectRequiredMessage;
+          input.setCustomValidity(message);
+        } else {
+          input.setCustomValidity('');
+        }
+      });
       updateState();
     }
 
@@ -666,7 +672,7 @@
     }
 
     const subject = data.subject || {};
-    {% for oid, field_name, label in subject_fields %}
+    {% for oid, field_name, _label, _required in subject_fields %}
     const {{ field_name }}Field = form.querySelector('#edit_{{ field_name }}');
     if ({{ field_name }}Field) {
       {{ field_name }}Field.value = subject['{{ oid }}'] || '';
@@ -691,17 +697,27 @@
       if (usageSelect) {
         usageSelect.value = usageTypeValue;
       }
-      const keyTypeSelect = form.querySelector('#edit_key_type');
-      if (keyTypeSelect) {
-        keyTypeSelect.value = keyTypeValue;
+      const presetSelect = form.querySelector('#edit_key_preset');
+      const keyTypeInput = form.querySelector('#edit_key_type');
+      const keyCurveInput = form.querySelector('#edit_key_curve');
+      const keySizeInput = form.querySelector('#edit_key_size');
+      if (keyTypeInput) {
+        keyTypeInput.value = keyTypeValue;
       }
-      const keyCurveSelect = form.querySelector('#edit_key_curve');
-      if (keyCurveSelect) {
-        keyCurveSelect.value = keyCurveValue;
+      if (keyCurveInput) {
+        keyCurveInput.value = keyCurveValue;
       }
-      const keySizeSelect = form.querySelector('#edit_key_size');
-      if (keySizeSelect) {
-        keySizeSelect.value = keySizeValue;
+      if (keySizeInput) {
+        keySizeInput.value = keySizeValue;
+      }
+      if (presetSelect) {
+        const combinationValue = serializeCombination(keyTypeValue, keySizeValue, keyCurveValue);
+        const matchingOption = Array.from(presetSelect.options).find((option) => option.value === combinationValue);
+        if (matchingOption) {
+          presetSelect.value = matchingOption.value;
+        } else if (presetSelect.dataset && presetSelect.dataset.placeholder) {
+          presetSelect.value = '';
+        }
       }
     }
 

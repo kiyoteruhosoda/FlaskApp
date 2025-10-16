@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}証明書一覧 | {{ super() }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3">証明書一覧</h1>
+  <div>
+    <a class="btn btn-primary me-2" href="{{ url_for('certs_ui.generate') }}">
+      <i class="bi bi-plus-circle me-1"></i>新規生成
+    </a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('certs_ui.public_keys') }}">
+      <i class="bi bi-link-45deg me-1"></i>公開鍵配布
+    </a>
+  </div>
+</div>
+
+<form class="row gy-2 gx-3 align-items-center mb-4" method="get">
+  <div class="col-auto">
+    <label class="form-label" for="usage">用途</label>
+    <select class="form-select" id="usage" name="usage" onchange="this.form.submit()">
+      <option value="">すべて</option>
+      {% for value, label in usage_options %}
+      <option value="{{ value }}" {% if selected_usage == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</form>
+
+<div class="table-responsive">
+  <table class="table table-striped align-middle">
+    <thead>
+      <tr>
+        <th scope="col">KID</th>
+        <th scope="col">用途</th>
+        <th scope="col">発行日時</th>
+        <th scope="col">状態</th>
+        <th scope="col">失効日時</th>
+        <th scope="col">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if certificates %}
+        {% for cert in certificates %}
+        <tr>
+          <td class="font-monospace">{{ cert.kid }}</td>
+          <td>{{ cert.usage_type.value }}</td>
+          <td>{{ cert.issued_at.strftime('%Y-%m-%d %H:%M:%S') if cert.issued_at else '-' }}</td>
+          <td>
+            {% if cert.is_revoked %}
+            <span class="badge bg-secondary">失効</span>
+            {% else %}
+            <span class="badge bg-success">有効</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if cert.revoked_at %}
+            {{ cert.revoked_at.strftime('%Y-%m-%d %H:%M:%S') }}
+            {% else %}-{% endif %}
+          </td>
+          <td>
+            <a class="btn btn-sm btn-outline-primary me-1" href="{{ url_for('certs_ui.detail', kid=cert.kid) }}">
+              詳細
+            </a>
+            {% if not cert.is_revoked %}
+            <a class="btn btn-sm btn-outline-danger" href="{{ url_for('certs_ui.revoke', kid=cert.kid) }}">
+              失効
+            </a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      {% else %}
+      <tr>
+        <td colspan="6" class="text-center text-muted py-4">表示できる証明書がありません。</td>
+      </tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

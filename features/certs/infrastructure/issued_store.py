@@ -19,17 +19,30 @@ class IssuedCertificateStore:
         with self._lock:
             self._store[cert.kid] = cert
 
+    def list_all(self) -> list[IssuedCertificate]:
+        with self._lock:
+            return sorted(self._store.values(), key=lambda cert: cert.issued_at, reverse=True)
+
     def list_by_usage(self, usage: UsageType) -> list[IssuedCertificate]:
         with self._lock:
-            return [cert for cert in self._store.values() if cert.usage_type == usage]
+            return sorted(
+                (cert for cert in self._store.values() if cert.usage_type == usage),
+                key=lambda cert: cert.issued_at,
+                reverse=True,
+            )
 
     def get(self, kid: str) -> IssuedCertificate | None:
         with self._lock:
             return self._store.get(kid)
 
-    def revoke(self, kid: str) -> None:
+    def revoke(self, kid: str, reason: str | None = None) -> IssuedCertificate | None:
         with self._lock:
-            self._store.pop(kid, None)
+            cert = self._store.get(kid)
+            if not cert:
+                return None
+            cert.revoked_at = datetime.utcnow()
+            cert.revocation_reason = reason
+            return cert
 
     def clear(self) -> None:
         with self._lock:

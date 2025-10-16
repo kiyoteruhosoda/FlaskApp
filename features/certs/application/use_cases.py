@@ -9,6 +9,7 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 
 from features.certs.domain.exceptions import (
+    CertificateNotFoundError,
     CertificateSigningError,
     CertificateValidationError,
     KeyGenerationError,
@@ -157,3 +158,42 @@ class ListJwksUseCase:
         certificates = self._services.issued_store.list_by_usage(usage_type)
         keys = [cert.jwk for cert in sorted(certificates, key=lambda cert: cert.issued_at, reverse=True)]
         return {"keys": keys}
+
+
+class ListIssuedCertificatesUseCase:
+    """発行済み証明書一覧取得ユースケース"""
+
+    def __init__(self, services: CertificateServices | None = None) -> None:
+        self._services = services or _default_services
+
+    def execute(self, usage_type: UsageType | None = None) -> list[IssuedCertificate]:
+        store = self._services.issued_store
+        if usage_type is None:
+            return store.list_all()
+        return store.list_by_usage(usage_type)
+
+
+class GetIssuedCertificateUseCase:
+    """証明書詳細取得ユースケース"""
+
+    def __init__(self, services: CertificateServices | None = None) -> None:
+        self._services = services or _default_services
+
+    def execute(self, kid: str) -> IssuedCertificate:
+        cert = self._services.issued_store.get(kid)
+        if cert is None:
+            raise CertificateNotFoundError("指定された証明書が見つかりません")
+        return cert
+
+
+class RevokeCertificateUseCase:
+    """証明書失効ユースケース"""
+
+    def __init__(self, services: CertificateServices | None = None) -> None:
+        self._services = services or _default_services
+
+    def execute(self, kid: str, reason: str | None = None) -> IssuedCertificate:
+        cert = self._services.issued_store.revoke(kid, reason)
+        if cert is None:
+            raise CertificateNotFoundError("指定された証明書が見つかりません")
+        return cert

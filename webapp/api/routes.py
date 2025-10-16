@@ -1364,7 +1364,7 @@ def api_login():
     if isinstance(raw_next, str) and raw_next.startswith("/") and not raw_next.startswith("//"):
         redirect_target = raw_next
     else:
-        redirect_target = url_for("feature_x.dashboard")
+        redirect_target = url_for("dashboard.dashboard")
 
     if len(roles) > 1:
         session["role_selection_next"] = redirect_target

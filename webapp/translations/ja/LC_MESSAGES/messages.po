@@ -1068,27 +1068,155 @@ msgstr "設定をキャンセル"
 msgid "Enabling..."
 msgstr "有効化中..."
 
-#: webapp/feature_x/templates/feature_x/dashboard.html:2
-#: webapp/feature_x/templates/feature_x/dashboard.html:4
+#: webapp/dashboard/templates/dashboard/index.html:3
+#: webapp/dashboard/templates/dashboard/index.html:5
 #: webapp/templates/base.html:29 webapp/templates/index.html:21
 msgid "Dashboard"
 msgstr "ダッシュボード"
 
-#: webapp/feature_x/templates/feature_x/dashboard.html:5
-msgid "This page requires login."
-msgstr "このページはログインが必要です。"
+#: webapp/dashboard/templates/dashboard/index.html:6
+msgid "Workspace dashboard"
+msgstr "ワークスペースダッシュボード"
 
-#: webapp/feature_x/templates/feature_x/dashboard.html:58
-msgid "Manage Users"
-msgstr ""
+#: webapp/dashboard/templates/dashboard/index.html:8
+msgid "Stay on top of shared knowledge, media operations, and administration from one place."
+msgstr "共有ナレッジやメディア運用、管理業務をこのページからまとめて確認できます。"
 
-#: webapp/feature_x/templates/feature_x/dashboard.html:63
-msgid "View Config Settings"
-msgstr ""
+#: webapp/dashboard/templates/dashboard/index.html:13
+msgid "Signed in"
+msgstr "サインイン中"
 
-#: webapp/feature_x/templates/feature_x/dashboard.html:68
-msgid "Manage Google Accounts"
-msgstr "Googleアカウント管理"
+#: webapp/dashboard/templates/dashboard/index.html:16
+msgid "Welcome back, %(name)s"
+msgstr "おかえりなさい、%(name)s さん"
+
+#: webapp/dashboard/templates/dashboard/index.html:25
+msgid "Key workspaces"
+msgstr "主要ワークスペース"
+
+#: webapp/dashboard/templates/dashboard/index.html:34
+msgid "Team wiki"
+msgstr "チームWiki"
+
+#: webapp/dashboard/templates/dashboard/index.html:36
+msgid "Browse policies, guides, and notes maintained by your team."
+msgstr "チームで管理しているポリシーやガイド、ノートを確認できます。"
+
+#: webapp/dashboard/templates/dashboard/index.html:39
+msgid "Open wiki"
+msgstr "Wikiを開く"
+
+#: webapp/dashboard/templates/dashboard/index.html:50
+msgid "Media library"
+msgstr "メディアライブラリ"
+
+#: webapp/dashboard/templates/dashboard/index.html:52
+msgid "Review uploaded photos and manage shared media assets."
+msgstr "アップロード済みの写真や共有メディアを確認・管理できます。"
+
+#: webapp/dashboard/templates/dashboard/index.html:55
+msgid "Open media view"
+msgstr "メディアビューを開く"
+
+#: webapp/dashboard/templates/dashboard/index.html:65
+msgid "No workspace tools are available for your current role."
+msgstr "現在のロールでは利用できるワークスペースツールがありません。"
+
+#: webapp/dashboard/templates/dashboard/index.html:75
+msgid "Operations shortcuts"
+msgstr "運用ショートカット"
+
+#: webapp/dashboard/templates/dashboard/index.html:83
+msgid "Account settings"
+msgstr "アカウント設定"
+
+#: webapp/dashboard/templates/dashboard/index.html:86
+msgid "Update your profile, preferred language, and sign-in credentials."
+msgstr "プロフィールや使用言語、サインイン情報を更新します。"
+
+#: webapp/dashboard/templates/dashboard/index.html:90
+msgid "Profile"
+msgstr "プロフィール"
+
+#: webapp/dashboard/templates/dashboard/index.html:93
+msgid "Sign-in details"
+msgstr "サインイン情報"
+
+#: webapp/dashboard/templates/dashboard/index.html:103
+msgid "Administration"
+msgstr "管理メニュー"
+
+#: webapp/dashboard/templates/dashboard/index.html:106
+msgid "Review user access, configuration, and connected integrations."
+msgstr "ユーザー権限、設定、連携サービスを確認します。"
+
+#: webapp/dashboard/templates/dashboard/index.html:110
+msgid "Users"
+msgstr "ユーザー"
+
+#: webapp/dashboard/templates/dashboard/index.html:113
+msgid "Settings"
+msgstr "設定"
+
+#: webapp/dashboard/templates/dashboard/index.html:116
+msgid "Google accounts"
+msgstr "Googleアカウント"
+
+#: webapp/dashboard/templates/dashboard/index.html:130
+msgid "Your status"
+msgstr "あなたのステータス"
+
+#: webapp/dashboard/templates/dashboard/index.html:138
+msgid "Display name"
+msgstr "表示名"
+
+#: webapp/dashboard/templates/dashboard/index.html:139
+msgid "Not provided"
+msgstr "未設定"
+
+#: webapp/dashboard/templates/dashboard/index.html:147
+msgid "Active role"
+msgstr "選択中のロール"
+
+#: webapp/dashboard/templates/dashboard/index.html:152
+msgid "No active role selected"
+msgstr "選択中のロールはありません"
+
+#: webapp/dashboard/templates/dashboard/index.html:156
+msgid "Roles assigned: %(count)s"
+msgstr "付与ロール数: %(count)s"
+
+#: webapp/dashboard/templates/dashboard/index.html:165
+msgid "Content overview"
+msgstr "コンテンツ概要"
+
+#: webapp/dashboard/templates/dashboard/index.html:167
+msgid "Wiki pages: %(count)s"
+msgstr "Wikiページ数: %(count)s"
+
+#: webapp/dashboard/templates/dashboard/index.html:168
+msgid "Media items: %(count)s"
+msgstr "メディア項目数: %(count)s"
+
+#: webapp/dashboard/templates/dashboard/index.html:179
+msgid "Quick links"
+msgstr "クイックリンク"
+
+#: webapp/dashboard/templates/dashboard/index.html:186
+msgid "Create wiki page"
+msgstr "Wikiページを作成"
+
+#: webapp/dashboard/templates/dashboard/index.html:193
+msgid "Search knowledge base"
+msgstr "ナレッジを検索"
+
+#: webapp/dashboard/templates/dashboard/index.html:200
+msgid "Open media gallery"
+msgstr "メディアギャラリーを開く"
+
+#: webapp/dashboard/templates/dashboard/index.html:206
+msgid "Manage profile preferences"
+msgstr "プロフィール設定を管理"
 
 #: webapp/photo-view/templates/photo-view/albums.html:100
 #: webapp/photo-view/templates/photo-view/home.html:31

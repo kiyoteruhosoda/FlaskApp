@@ -48,7 +48,7 @@ Python実行時は `source /home/kyon/myproject/.venv/bin/activate && python mai
 - **Pagination**: `page`, `pageSize`, `cursor` (Base64URL), `order` params; responses include `next_cursor`/`prev_cursor`
 - **Error Handling**: API errors return toast messages; retry logic and error pages for fatal errors
 - **Testing**: Use `pytest` in `tests/`; CLI and API both have test coverage
-- **Component Structure**: Blueprint pattern with url_prefix: `/api`, `/auth`, `/admin`, `/photo-view`, `/feature-x`
+- **Component Structure**: Blueprint pattern with url_prefix: `/api`, `/auth`, `/admin`, `/photo-view`, `/dashboard`
 - **Naming**: DB, files, and endpoints follow conventions in `requirements.md`
 - **Media Processing**: Videos transcoded to H.264/AAC MP4 (1080p, CRF20), thumbnails in 256/1024/2048px
 - **Token Security**: Download URLs use HMAC-signed tokens with expiration (`_sign_payload()` in API routes)

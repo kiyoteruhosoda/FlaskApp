@@ -474,7 +474,7 @@ def get_latest_group_key(group_code: str):
         return error
 
     try:
-        result = ListJwksUseCase().execute(group_code)
+        result = ListJwksUseCase().execute(group_code, latest_only=True)
     except CertificateGroupNotFoundError as exc:
         return _json_error(str(exc), HTTPStatus.NOT_FOUND)
     return jsonify(result)

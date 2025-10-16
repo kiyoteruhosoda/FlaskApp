@@ -196,11 +196,12 @@ class ListJwksUseCase:
     def __init__(self, services: CertificateServices | None = None) -> None:
         self._services = services or default_certificate_services
 
-    def execute(self, group_code: str) -> dict:
+    def execute(self, group_code: str, *, latest_only: bool = False) -> dict:
         self._services.group_store.get_by_code(group_code)
         keys = self._services.issued_store.list_jwks_for_group(group_code)
-        latest_key = keys[:1] if keys else []
-        return {"keys": latest_key}
+        if latest_only:
+            keys = keys[:1]
+        return {"keys": keys}
 
 
 class ListIssuedCertificatesUseCase:

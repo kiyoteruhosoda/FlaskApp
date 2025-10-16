@@ -225,6 +225,55 @@ def test_generate_sign_and_jwks_flow(app_context):
     assert search_payload["total"] >= 1
 
 
+def test_latest_key_endpoint_returns_only_newest_key(app_context):
+    client = app_context.test_client()
+    _login_admin(client)
+
+    group = _create_group()
+
+    def _sign_certificate(common_name: str) -> dict:
+        generate_resp = client.post(
+            "/api/certs/generate",
+            json={
+                "subject": {"C": "JP", "O": "Example", "CN": common_name},
+                "usageType": "server_signing",
+                "keyType": "RSA",
+                "keyBits": 2048,
+                "makeCsr": True,
+                "keyUsage": ["digitalSignature", "keyEncipherment"],
+            },
+        )
+        assert generate_resp.status_code == 200
+        generated = generate_resp.get_json()
+
+        sign_resp = client.post(
+            "/api/certs/sign",
+            json={
+                "csrPem": generated["csrPem"],
+                "usageType": "server_signing",
+                "days": 30,
+                "keyUsage": ["digitalSignature", "keyEncipherment"],
+                "groupCode": group.group_code,
+            },
+        )
+        assert sign_resp.status_code == 200
+        return sign_resp.get_json()
+
+    first_signed = _sign_certificate("service-1")
+    second_signed = _sign_certificate("service-2")
+
+    latest_resp = client.get(f"/api/keys/{group.group_code}")
+    assert latest_resp.status_code == 200
+    latest_payload = latest_resp.get_json()
+    assert latest_payload["keys"] == [second_signed["jwk"]]
+
+    jwks_resp = client.get(f"/api/.well-known/jwks/{group.group_code}.json")
+    assert jwks_resp.status_code == 200
+    jwks_payload = jwks_resp.get_json()["keys"]
+    assert jwks_payload[0]["kid"] == second_signed["kid"]
+    assert any(key["kid"] == first_signed["kid"] for key in jwks_payload)
+
+
 def test_generate_rejects_unknown_usage(app_context):
     client = app_context.test_client()
     _login_admin(client)

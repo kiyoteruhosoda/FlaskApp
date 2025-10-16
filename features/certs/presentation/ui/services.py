@@ -26,8 +26,13 @@ class CertificateUiService:
         self._app = app or current_app._get_current_object()
         self._client = client or CertsApiClient(self._app)
 
-    def list_certificates(self, usage: UsageType | None = None) -> list[CertificateSummary]:
-        return self._client.list_certificates(usage)
+    def list_certificates(
+        self,
+        usage: UsageType | None = None,
+        *,
+        group_code: str | None = None,
+    ) -> list[CertificateSummary]:
+        return self._client.list_certificates(usage, group_code=group_code)
 
     def get_certificate(self, kid: str) -> CertificateDetail:
         return self._client.get_certificate(kid)
@@ -62,6 +67,7 @@ class CertificateUiService:
         days: int,
         is_ca: bool,
         key_usage: list[str],
+        group_code: str | None = None,
     ) -> SignedCertificate:
         return self._client.sign_certificate(
             csr_pem=csr_pem,
@@ -69,10 +75,11 @@ class CertificateUiService:
             days=days,
             is_ca=is_ca,
             key_usage=key_usage,
+            group_code=group_code,
         )
 
-    def list_jwks(self, usage: UsageType) -> dict:
-        return self._client.list_jwks(usage)
+    def list_jwks(self, group_code: str) -> dict:
+        return self._client.list_jwks(group_code)
 
 
 __all__ = ["CertificateUiService"]

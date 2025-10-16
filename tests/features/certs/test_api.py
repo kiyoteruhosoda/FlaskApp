@@ -4,8 +4,29 @@ from __future__ import annotations
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 
+from core.db import db
+from features.certs.infrastructure.models import CertificateGroupEntity
+
+
+def _create_group() -> CertificateGroupEntity:
+    group = CertificateGroupEntity(
+        group_code="server_signing_default",
+        display_name="Server Signing",
+        auto_rotate=True,
+        rotation_threshold_days=30,
+        key_type="RSA",
+        key_size=2048,
+        subject={"C": "JP", "O": "Example", "CN": "AuthServer"},
+        usage_type="server_signing",
+    )
+    db.session.add(group)
+    db.session.commit()
+    return group
+
 def test_generate_sign_and_jwks_flow(app_context):
     client = app_context.test_client()
+
+    group = _create_group()
 
     generate_resp = client.post(
         "/api/certs/generate",
@@ -37,6 +58,7 @@ def test_generate_sign_and_jwks_flow(app_context):
             "usageType": "server_signing",
             "days": 30,
             "keyUsage": ["digitalSignature", "keyEncipherment"],
+            "groupCode": group.group_code,
         },
     )
     assert sign_resp.status_code == 200
@@ -51,7 +73,7 @@ def test_generate_sign_and_jwks_flow(app_context):
         == generated["publicKeyPem"]
     )
 
-    jwks_resp = client.get("/api/.well-known/jwks/server.json")
+    jwks_resp = client.get(f"/api/.well-known/jwks/{group.group_code}.json")
     assert jwks_resp.status_code == 200
     jwks = jwks_resp.get_json()
     assert jwks["keys"]

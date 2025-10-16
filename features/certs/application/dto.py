@@ -30,6 +30,7 @@ class SignCertificateInput:
     days: int = 365
     is_ca: bool = False
     key_usage: list[str] = field(default_factory=list)
+    group_code: str | None = None
 
 
 @dataclass(slots=True)
@@ -38,3 +39,4 @@ class SignCertificateOutput:
     kid: str
     jwk: dict[str, Any]
     usage_type: UsageType
+    group_code: str | None = None

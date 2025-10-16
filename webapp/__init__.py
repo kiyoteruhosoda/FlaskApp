@@ -26,6 +26,7 @@ from flask import (
 
 from flask_babel import get_locale
 from flask_babel import gettext as _
+from flask_login import current_user
 from sqlalchemy.engine import make_url
 from typing import Any, Dict, List, Tuple
 
@@ -518,6 +519,21 @@ def create_app():
     def _apply_login_disabled_for_testing():
         if app.config.get("TESTING"):
             app.config['LOGIN_DISABLED'] = True
+
+    @app.before_request
+    def _ensure_current_user_scope():
+        user_obj = getattr(current_user, "_get_current_object", lambda: current_user)()
+        scope: set[str] = set()
+
+        token_scope = getattr(g, "current_token_scope", None)
+        if token_scope is not None:
+            scope = set(token_scope)
+        elif getattr(user_obj, "is_authenticated", False) and hasattr(
+            user_obj, "_collect_role_permissions"
+        ):
+            scope = user_obj._collect_role_permissions()
+
+        setattr(user_obj, "scope", scope)
 
     @app.before_request
     def start_timer():

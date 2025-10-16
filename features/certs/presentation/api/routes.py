@@ -6,6 +6,7 @@ from typing import Any
 
 from cryptography.hazmat.primitives import serialization
 from flask import jsonify, request
+from flask_babel import gettext as _
 
 from datetime import datetime
 
@@ -83,11 +84,11 @@ def _serialize_group(group: CertificateGroup) -> dict[str, Any]:
 def _parse_group_payload(payload: dict[str, Any], *, group_code: str | None = None) -> CertificateGroupInput | tuple[dict, int]:
     code = (group_code or payload.get("groupCode") or "").strip()
     if not code:
-        return _json_error("groupCodeは必須です", HTTPStatus.BAD_REQUEST)
+        return _json_error(_("Group code is required."), HTTPStatus.BAD_REQUEST)
 
     display_name = payload.get("displayName")
     if display_name is not None and not isinstance(display_name, str):
-        return _json_error("displayNameは文字列で指定してください", HTTPStatus.BAD_REQUEST)
+        return _json_error(_("Display name must be a string."), HTTPStatus.BAD_REQUEST)
 
     try:
         usage_type = _resolve_usage_type(payload.get("usageType"))
@@ -96,10 +97,10 @@ def _parse_group_payload(payload: dict[str, Any], *, group_code: str | None = No
 
     key_type = (payload.get("keyType") or "RSA").strip()
     if not key_type:
-        return _json_error("keyTypeは必須です", HTTPStatus.BAD_REQUEST)
+        return _json_error(_("Key type is required."), HTTPStatus.BAD_REQUEST)
     key_curve = payload.get("keyCurve")
     if key_curve is not None and not isinstance(key_curve, str):
-        return _json_error("keyCurveは文字列で指定してください", HTTPStatus.BAD_REQUEST)
+        return _json_error(_("Key curve must be a string."), HTTPStatus.BAD_REQUEST)
     key_curve = key_curve.strip() if isinstance(key_curve, str) and key_curve.strip() else None
 
     key_size = payload.get("keySize")
@@ -107,7 +108,7 @@ def _parse_group_payload(payload: dict[str, Any], *, group_code: str | None = No
         try:
             key_size = int(key_size)
         except (TypeError, ValueError):
-            return _json_error("keySizeは整数で指定してください", HTTPStatus.BAD_REQUEST)
+            return _json_error(_("Key size must be an integer."), HTTPStatus.BAD_REQUEST)
 
     auto_rotate = _to_bool(payload.get("autoRotate"), default=True)
 
@@ -115,13 +116,13 @@ def _parse_group_payload(payload: dict[str, Any], *, group_code: str | None = No
     try:
         rotation_threshold_days = int(rotation_threshold_raw)
     except (TypeError, ValueError):
-        return _json_error("rotationThresholdDaysは整数で指定してください", HTTPStatus.BAD_REQUEST)
+        return _json_error(_("Rotation threshold days must be an integer."), HTTPStatus.BAD_REQUEST)
     if rotation_threshold_days <= 0:
-        return _json_error("rotationThresholdDaysは1以上で指定してください", HTTPStatus.BAD_REQUEST)
+        return _json_error(_("Rotation threshold days must be at least 1."), HTTPStatus.BAD_REQUEST)
 
     subject = payload.get("subject") or {}
     if not isinstance(subject, dict):
-        return _json_error("subjectはオブジェクトで指定してください", HTTPStatus.BAD_REQUEST)
+        return _json_error(_("Subject must be provided as an object."), HTTPStatus.BAD_REQUEST)
 
     normalized_subject: dict[str, str] = {}
     for key, value in subject.items():
@@ -162,12 +163,12 @@ def _build_search_filters(args) -> CertificateSearchFilters | tuple[dict, int]:
         try:
             filters.limit = max(int(args.get("limit")), 0)
         except (TypeError, ValueError):
-            return _json_error("limitは整数で指定してください", HTTPStatus.BAD_REQUEST)
+            return _json_error(_("Limit must be an integer."), HTTPStatus.BAD_REQUEST)
     if "offset" in args:
         try:
             filters.offset = max(int(args.get("offset")), 0)
         except (TypeError, ValueError):
-            return _json_error("offsetは整数で指定してください", HTTPStatus.BAD_REQUEST)
+            return _json_error(_("Offset must be an integer."), HTTPStatus.BAD_REQUEST)
 
     kid = (args.get("kid") or "").strip()
     filters.kid = kid or None
@@ -188,23 +189,23 @@ def _build_search_filters(args) -> CertificateSearchFilters | tuple[dict, int]:
     issued_from = _parse_iso_datetime(args.get("issued_from") or args.get("issuedFrom"))
     if args.get("issued_from") or args.get("issuedFrom"):
         if issued_from is None:
-            return _json_error("issuedFromはISO8601形式で指定してください", HTTPStatus.BAD_REQUEST)
+            return _json_error(_("Issued-from must be in ISO 8601 format."), HTTPStatus.BAD_REQUEST)
         filters.issued_from = issued_from
     issued_to = _parse_iso_datetime(args.get("issued_to") or args.get("issuedTo"))
     if args.get("issued_to") or args.get("issuedTo"):
         if issued_to is None:
-            return _json_error("issuedToはISO8601形式で指定してください", HTTPStatus.BAD_REQUEST)
+            return _json_error(_("Issued-to must be in ISO 8601 format."), HTTPStatus.BAD_REQUEST)
         filters.issued_to = issued_to
 
     expires_from = _parse_iso_datetime(args.get("expires_from") or args.get("expiresFrom"))
     if args.get("expires_from") or args.get("expiresFrom"):
         if expires_from is None:
-            return _json_error("expiresFromはISO8601形式で指定してください", HTTPStatus.BAD_REQUEST)
+            return _json_error(_("Expires-from must be in ISO 8601 format."), HTTPStatus.BAD_REQUEST)
         filters.expires_from = expires_from
     expires_to = _parse_iso_datetime(args.get("expires_to") or args.get("expiresTo"))
     if args.get("expires_to") or args.get("expiresTo"):
         if expires_to is None:
-            return _json_error("expiresToはISO8601形式で指定してください", HTTPStatus.BAD_REQUEST)
+            return _json_error(_("Expires-to must be in ISO 8601 format."), HTTPStatus.BAD_REQUEST)
         filters.expires_to = expires_to
 
     revoked_param = args.get("revoked")
@@ -351,7 +352,7 @@ def issue_certificate_for_group(group_code: str):
     subject_overrides = None
     if "subject" in payload:
         if not isinstance(payload.get("subject"), dict):
-            return _json_error("subjectはオブジェクトで指定してください", HTTPStatus.BAD_REQUEST)
+            return _json_error(_("Subject must be provided as an object."), HTTPStatus.BAD_REQUEST)
         subject_overrides = {
             str(key): str(value).strip()
             for key, value in payload["subject"].items()
@@ -363,15 +364,15 @@ def issue_certificate_for_group(group_code: str):
         try:
             valid_days = int(payload.get("validDays"))
         except (TypeError, ValueError):
-            return _json_error("validDaysは整数で指定してください", HTTPStatus.BAD_REQUEST)
+            return _json_error(_("Valid days must be an integer."), HTTPStatus.BAD_REQUEST)
         if valid_days <= 0:
-            return _json_error("validDaysは1以上で指定してください", HTTPStatus.BAD_REQUEST)
+            return _json_error(_("Valid days must be at least 1."), HTTPStatus.BAD_REQUEST)
 
     key_usage = None
     if "keyUsage" in payload:
         key_usage_value = payload.get("keyUsage")
         if not isinstance(key_usage_value, (list, tuple)):
-            return _json_error("keyUsageは配列で指定してください", HTTPStatus.BAD_REQUEST)
+            return _json_error(_("Key usage must be provided as an array."), HTTPStatus.BAD_REQUEST)
         key_usage = [str(item) for item in key_usage_value]
 
     try:
@@ -420,7 +421,7 @@ def revoke_certificate_in_group(group_code: str, kid: str):
     payload = request.get_json(silent=True) or {}
     reason = payload.get("reason")
     if reason is not None and not isinstance(reason, str):
-        return _json_error("reasonは文字列で指定してください", HTTPStatus.BAD_REQUEST)
+        return _json_error(_("Reason must be a string."), HTTPStatus.BAD_REQUEST)
 
     try:
         certificate = GetIssuedCertificateUseCase().execute(kid)
@@ -428,7 +429,7 @@ def revoke_certificate_in_group(group_code: str, kid: str):
         return _json_error(str(exc), HTTPStatus.NOT_FOUND)
 
     if certificate.group is None or certificate.group.group_code != group_code:
-        return _json_error("指定したグループに証明書が存在しません", HTTPStatus.NOT_FOUND)
+        return _json_error(_("The certificate does not exist in the specified group."), HTTPStatus.NOT_FOUND)
 
     certificate = RevokeCertificateUseCase().execute(
         kid,
@@ -456,11 +457,11 @@ def generate_certificate_material() -> tuple[dict, int]:
     try:
         key_bits = int(payload.get("keyBits", 2048))
     except (TypeError, ValueError):
-        return _json_error("keyBitsは整数で指定してください", HTTPStatus.BAD_REQUEST)
+        return _json_error(_("Key bits must be an integer."), HTTPStatus.BAD_REQUEST)
 
     key_usage_values = payload.get("keyUsage", [])
     if not isinstance(key_usage_values, (list, tuple)):
-        return _json_error("keyUsageは文字列配列で指定してください", HTTPStatus.BAD_REQUEST)
+        return _json_error(_("Key usage must be provided as an array of strings."), HTTPStatus.BAD_REQUEST)
 
     dto = GenerateCertificateMaterialInput(
         subject=payload.get("subject"),
@@ -508,15 +509,15 @@ def sign_certificate() -> tuple[dict, int]:
     try:
         days = int(payload.get("days", 365))
     except (TypeError, ValueError):
-        return _json_error("daysは整数で指定してください", HTTPStatus.BAD_REQUEST)
+        return _json_error(_("Days must be an integer."), HTTPStatus.BAD_REQUEST)
 
     key_usage_values = payload.get("keyUsage", [])
     if not isinstance(key_usage_values, (list, tuple)):
-        return _json_error("keyUsageは文字列配列で指定してください", HTTPStatus.BAD_REQUEST)
+        return _json_error(_("Key usage must be provided as an array of strings."), HTTPStatus.BAD_REQUEST)
 
     group_code = payload.get("groupCode")
     if group_code is not None and not isinstance(group_code, str):
-        return _json_error("groupCodeは文字列で指定してください", HTTPStatus.BAD_REQUEST)
+        return _json_error(_("Group code must be a string."), HTTPStatus.BAD_REQUEST)
 
     dto = SignCertificateInput(
         csr_pem=payload.get("csrPem", ""),
@@ -551,7 +552,7 @@ def sign_certificate() -> tuple[dict, int]:
 @certs_api_bp.route("/.well-known/jwks/<group_code>.json", methods=["GET"])
 def jwks(group_code: str):
     if not group_code:
-        return _json_error("groupCodeは必須です", HTTPStatus.BAD_REQUEST)
+        return _json_error(_("Group code is required."), HTTPStatus.BAD_REQUEST)
 
     try:
         result = ListJwksUseCase().execute(group_code)
@@ -576,7 +577,7 @@ def list_certificates():
 
     group_code = request.args.get("group")
     if group_code is not None and not group_code:
-        return _json_error("groupパラメータが不正です", HTTPStatus.BAD_REQUEST)
+        return _json_error(_("The group parameter is invalid."), HTTPStatus.BAD_REQUEST)
 
     certificates = ListIssuedCertificatesUseCase().execute(usage_type, group_code=group_code or None)
     return jsonify(
@@ -609,7 +610,7 @@ def revoke_certificate(kid: str):
     payload = request.get_json(silent=True) or {}
     reason = payload.get("reason")
     if reason is not None and not isinstance(reason, str):
-        return _json_error("reasonは文字列で指定してください", HTTPStatus.BAD_REQUEST)
+        return _json_error(_("Reason must be a string."), HTTPStatus.BAD_REQUEST)
 
     try:
         certificate = RevokeCertificateUseCase().execute(

@@ -1,9 +1,10 @@
 """証明書APIの結合テスト"""
 from __future__ import annotations
 
+import base64
 from cryptography import x509
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 
 from core.db import db
 from core.models.user import Permission, Role, User
@@ -68,6 +69,21 @@ def _login_user_without_permission(client):
 def test_group_management_endpoints(app_context):
     client = app_context.test_client()
     _login_admin(client)
+
+    invalid_resp = client.post(
+        "/api/certs/groups",
+        json={
+            "groupCode": "Invalid-Group",
+            "displayName": "Invalid Group",
+            "usageType": "server_signing",
+            "keyType": "RSA",
+            "keySize": 2048,
+            "autoRotate": True,
+            "rotationThresholdDays": 30,
+            "subject": {"CN": "example.invalid"},
+        },
+    )
+    assert invalid_resp.status_code == 400
 
     create_resp = client.post(
         "/api/certs/groups",
@@ -291,6 +307,43 @@ def test_group_certificate_issue_and_listing(app_context):
     assert body["group"]["groupCode"] == group.group_code
     kids = [item["kid"] for item in body["certificates"]]
     assert issued_payload["kid"] in kids
+
+
+def test_sign_group_payload_api(app_context):
+    client = app_context.test_client()
+    _login_admin(client)
+
+    group = _create_group()
+
+    issue_resp = client.post(
+        f"/api/certs/groups/{group.group_code}/certificates",
+        json={},
+    )
+    assert issue_resp.status_code == 201
+    certificate_payload = issue_resp.get_json()["certificate"]
+
+    payload = b"hello-cert"
+    payload_b64 = base64.b64encode(payload).decode("ascii")
+    sign_resp = client.post(
+        f"/api/certs/groups/{group.group_code}/sign",
+        json={"payload": payload_b64},
+    )
+    assert sign_resp.status_code == 200
+    sign_body = sign_resp.get_json()
+    assert sign_body["groupCode"] == group.group_code
+    assert sign_body["kid"] == certificate_payload["kid"]
+    assert sign_body["hashAlgorithm"] == "SHA256"
+    assert sign_body["algorithm"]
+
+    signature = base64.b64decode(sign_body["signature"])
+    certificate = x509.load_pem_x509_certificate(
+        certificate_payload["certificatePem"].encode("utf-8")
+    )
+    public_key = certificate.public_key()
+    if isinstance(public_key, rsa.RSAPublicKey):
+        public_key.verify(signature, payload, padding.PKCS1v15(), hashes.SHA256())
+    else:
+        public_key.verify(signature, payload, ec.ECDSA(hashes.SHA256()))
 
 
 def test_search_filters_cover_group_usage_and_revocation(app_context):

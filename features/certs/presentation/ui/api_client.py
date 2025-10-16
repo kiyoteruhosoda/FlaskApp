@@ -7,6 +7,7 @@ from http import HTTPStatus
 from typing import Any
 from urllib.parse import urljoin
 
+import base64
 import requests
 from cryptography import x509
 from cryptography.x509.oid import NameOID
@@ -41,6 +42,15 @@ class SignedCertificate:
     jwk: dict[str, Any]
     usage_type: UsageType
     group_code: str | None
+
+
+@dataclass(slots=True)
+class SignedPayload:
+    group_code: str
+    kid: str
+    signature: str
+    hash_algorithm: str
+    algorithm: str
 
 
 @dataclass(slots=True)
@@ -328,6 +338,34 @@ class CertsApiClient:
             jwk=data.get("jwk", {}),
             usage_type=_parse_usage(data.get("usageType")),
             group_code=str(data.get("groupCode", group_code)),
+        )
+
+    def sign_group_payload(
+        self,
+        group_code: str,
+        *,
+        payload: bytes,
+        kid: str | None = None,
+        hash_algorithm: str = "SHA256",
+    ) -> SignedPayload:
+        body: dict[str, Any] = {
+            "payload": base64.b64encode(payload).decode("ascii"),
+            "hashAlgorithm": hash_algorithm,
+        }
+        if kid:
+            body["kid"] = kid
+        response = self._dispatch(
+            "POST",
+            "certs_api.sign_group_payload",
+            group_code=group_code,
+            json=body,
+        )
+        return SignedPayload(
+            group_code=str(response.get("groupCode", group_code)),
+            kid=str(response.get("kid", "")),
+            signature=str(response.get("signature", "")),
+            hash_algorithm=str(response.get("hashAlgorithm", hash_algorithm)),
+            algorithm=str(response.get("algorithm", "")),
         )
 
     def revoke_certificate_in_group(

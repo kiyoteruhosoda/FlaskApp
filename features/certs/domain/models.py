@@ -82,6 +82,17 @@ class CertificateGroup:
 
 
 @dataclass(slots=True)
+class CertificatePrivateKey:
+    """発行済み証明書に紐づく秘密鍵を保持するモデル"""
+
+    kid: str
+    private_key_pem: str
+    group_id: int | None
+    created_at: datetime
+    expires_at: datetime | None
+
+
+@dataclass(slots=True)
 class CertificateEvent:
     """証明書操作の監査ログ"""
 

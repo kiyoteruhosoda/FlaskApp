@@ -1,14 +1,16 @@
 """証明書APIのルーティング"""
 from __future__ import annotations
 
+import base64
+import binascii
+import re
+from datetime import datetime
 from http import HTTPStatus
 from typing import Any
 
 from cryptography.hazmat.primitives import serialization
 from flask import jsonify, request
 from flask_babel import gettext as _
-
-from datetime import datetime
 
 from flask_login import current_user
 
@@ -17,6 +19,7 @@ from features.certs.application.dto import (
     CertificateSearchFilters,
     GenerateCertificateMaterialInput,
     SignCertificateInput,
+    SignGroupPayloadInput,
 )
 from features.certs.application.use_cases import (
     CreateCertificateGroupUseCase,
@@ -30,6 +33,7 @@ from features.certs.application.use_cases import (
     RevokeCertificateUseCase,
     SearchCertificatesUseCase,
     SignCertificateUseCase,
+    SignGroupPayloadUseCase,
     UpdateCertificateGroupUseCase,
     DeleteCertificateGroupUseCase,
 )
@@ -45,6 +49,9 @@ from features.certs.domain.models import CertificateGroup, IssuedCertificate
 from features.certs.domain.usage import UsageType
 
 from . import certs_api_bp
+
+
+_GROUP_CODE_PATTERN = re.compile(r"^[a-z0-9_-]+$")
 
 
 def _json_error(message: str, status: HTTPStatus):
@@ -65,6 +72,27 @@ def _resolve_actor() -> str:
     return "system"
 
 
+def _normalize_group_code(
+    value: str | None,
+    *,
+    required: bool = True,
+):
+    code = (value or "").strip()
+    if not code:
+        if required:
+            return None, _json_error(_("Group code is required."), HTTPStatus.BAD_REQUEST)
+        return None, None
+    if not _GROUP_CODE_PATTERN.fullmatch(code):
+        return (
+            None,
+            _json_error(
+                _("Group code must contain only lowercase letters, numbers, hyphen, or underscore."),
+                HTTPStatus.BAD_REQUEST,
+            ),
+        )
+    return code, None
+
+
 def _serialize_group(group: CertificateGroup) -> dict[str, Any]:
     return {
         "groupCode": group.group_code,
@@ -82,9 +110,12 @@ def _serialize_group(group: CertificateGroup) -> dict[str, Any]:
 
 
 def _parse_group_payload(payload: dict[str, Any], *, group_code: str | None = None) -> CertificateGroupInput | tuple[dict, int]:
-    code = (group_code or payload.get("groupCode") or "").strip()
-    if not code:
-        return _json_error(_("Group code is required."), HTTPStatus.BAD_REQUEST)
+    raw_code = group_code if group_code is not None else payload.get("groupCode")
+    if raw_code is not None and not isinstance(raw_code, str):
+        return _json_error(_("Group code must be a string."), HTTPStatus.BAD_REQUEST)
+    code, error = _normalize_group_code(raw_code, required=True)
+    if error:
+        return error
 
     display_name = payload.get("displayName")
     if display_name is not None and not isinstance(display_name, str):
@@ -173,8 +204,11 @@ def _build_search_filters(args) -> CertificateSearchFilters | tuple[dict, int]:
     kid = (args.get("kid") or "").strip()
     filters.kid = kid or None
 
-    group_code = (args.get("group_code") or args.get("groupCode") or "").strip()
-    filters.group_code = group_code or None
+    raw_group_code = args.get("group_code") or args.get("groupCode")
+    group_code, error = _normalize_group_code(raw_group_code, required=False)
+    if error:
+        return error
+    filters.group_code = group_code
 
     usage = args.get("usage_type") or args.get("usageType")
     if usage:
@@ -312,6 +346,10 @@ def delete_certificate_group(group_code: str):
     if guard:
         return guard
 
+    group_code, error = _normalize_group_code(group_code, required=True)
+    if error:
+        return error
+
     try:
         DeleteCertificateGroupUseCase().execute(group_code, actor=_resolve_actor())
     except CertificateGroupNotFoundError as exc:
@@ -327,6 +365,10 @@ def list_group_certificates(group_code: str):
     guard = _require_admin()
     if guard:
         return guard
+
+    group_code, error = _normalize_group_code(group_code, required=True)
+    if error:
+        return error
 
     try:
         group = GetCertificateGroupUseCase().execute(group_code)
@@ -347,6 +389,10 @@ def issue_certificate_for_group(group_code: str):
     guard = _require_admin()
     if guard:
         return guard
+
+    group_code, error = _normalize_group_code(group_code, required=True)
+    if error:
+        return error
 
     payload = request.get_json(silent=True) or {}
     subject_overrides = None
@@ -409,6 +455,76 @@ def issue_certificate_for_group(group_code: str):
     )
 
 
+@certs_api_bp.route("/certs/groups/<string:group_code>/sign", methods=["POST"])
+def sign_group_payload(group_code: str):
+    guard = _require_admin()
+    if guard:
+        return guard
+
+    group_code, error = _normalize_group_code(group_code, required=True)
+    if error:
+        return error
+
+    payload = request.get_json(silent=True) or {}
+    raw_payload = payload.get("payload")
+    if raw_payload is None:
+        return _json_error(_("Payload is required."), HTTPStatus.BAD_REQUEST)
+    if not isinstance(raw_payload, str):
+        return _json_error(_("Payload must be provided as a base64-encoded string."), HTTPStatus.BAD_REQUEST)
+
+    payload_encoding = (payload.get("payloadEncoding") or "base64").strip().lower()
+    if payload_encoding != "base64":
+        return _json_error(_("Only base64 payloadEncoding is supported."), HTTPStatus.BAD_REQUEST)
+
+    raw_payload_stripped = raw_payload.strip()
+    if not raw_payload_stripped:
+        return _json_error(_("Payload must be provided as a base64-encoded string."), HTTPStatus.BAD_REQUEST)
+    try:
+        payload_bytes = base64.b64decode(raw_payload_stripped, validate=True)
+    except (binascii.Error, ValueError):
+        return _json_error(_("Payload must be valid base64 data."), HTTPStatus.BAD_REQUEST)
+
+    kid_value = payload.get("kid")
+    if kid_value is not None:
+        if not isinstance(kid_value, str) or not kid_value.strip():
+            return _json_error(_("kid must be a non-empty string."), HTTPStatus.BAD_REQUEST)
+        kid = kid_value.strip()
+    else:
+        kid = None
+
+    hash_algorithm_value = payload.get("hashAlgorithm")
+    if hash_algorithm_value is not None and not isinstance(hash_algorithm_value, str):
+        return _json_error(_("hashAlgorithm must be a string."), HTTPStatus.BAD_REQUEST)
+
+    dto = SignGroupPayloadInput(
+        group_code=group_code,
+        payload=payload_bytes,
+        kid=kid,
+        hash_algorithm=(hash_algorithm_value.strip() if isinstance(hash_algorithm_value, str) else "SHA256"),
+    )
+
+    try:
+        result = SignGroupPayloadUseCase().execute(dto, actor=_resolve_actor())
+    except CertificateGroupNotFoundError as exc:
+        return _json_error(str(exc), HTTPStatus.NOT_FOUND)
+    except CertificateValidationError as exc:
+        return _json_error(str(exc), HTTPStatus.BAD_REQUEST)
+    except CertificateError as exc:
+        return _json_error(str(exc), HTTPStatus.INTERNAL_SERVER_ERROR)
+
+    signature_b64 = base64.b64encode(result.signature).decode("ascii")
+
+    return jsonify(
+        {
+            "groupCode": group_code,
+            "kid": result.kid,
+            "signature": signature_b64,
+            "hashAlgorithm": result.hash_algorithm,
+            "algorithm": result.algorithm,
+        }
+    )
+
+
 @certs_api_bp.route(
     "/certs/groups/<string:group_code>/certificates/<string:kid>/revoke",
     methods=["POST"],
@@ -417,6 +533,10 @@ def revoke_certificate_in_group(group_code: str, kid: str):
     guard = _require_admin()
     if guard:
         return guard
+
+    group_code, error = _normalize_group_code(group_code, required=True)
+    if error:
+        return error
 
     payload = request.get_json(silent=True) or {}
     reason = payload.get("reason")
@@ -515,9 +635,14 @@ def sign_certificate() -> tuple[dict, int]:
     if not isinstance(key_usage_values, (list, tuple)):
         return _json_error(_("Key usage must be provided as an array of strings."), HTTPStatus.BAD_REQUEST)
 
-    group_code = payload.get("groupCode")
-    if group_code is not None and not isinstance(group_code, str):
+    group_code_value = payload.get("groupCode")
+    if group_code_value is not None and not isinstance(group_code_value, str):
         return _json_error(_("Group code must be a string."), HTTPStatus.BAD_REQUEST)
+    group_code = None
+    if group_code_value is not None:
+        group_code, error = _normalize_group_code(group_code_value, required=True)
+        if error:
+            return error
 
     dto = SignCertificateInput(
         csr_pem=payload.get("csrPem", ""),
@@ -551,8 +676,9 @@ def sign_certificate() -> tuple[dict, int]:
 
 @certs_api_bp.route("/.well-known/jwks/<group_code>.json", methods=["GET"])
 def jwks(group_code: str):
-    if not group_code:
-        return _json_error(_("Group code is required."), HTTPStatus.BAD_REQUEST)
+    group_code, error = _normalize_group_code(group_code, required=True)
+    if error:
+        return error
 
     try:
         result = ListJwksUseCase().execute(group_code)
@@ -575,11 +701,12 @@ def list_certificates():
         except ValueError as exc:
             return _json_error(str(exc), HTTPStatus.BAD_REQUEST)
 
-    group_code = request.args.get("group")
-    if group_code is not None and not group_code:
-        return _json_error(_("The group parameter is invalid."), HTTPStatus.BAD_REQUEST)
+    group_code_value = request.args.get("group")
+    group_code, error = _normalize_group_code(group_code_value, required=False)
+    if error:
+        return error
 
-    certificates = ListIssuedCertificatesUseCase().execute(usage_type, group_code=group_code or None)
+    certificates = ListIssuedCertificatesUseCase().execute(usage_type, group_code=group_code)
     return jsonify(
         {"certificates": [_serialize_certificate(cert) for cert in certificates]}
     )

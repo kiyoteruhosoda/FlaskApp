@@ -72,6 +72,22 @@ class IssueCertificateForGroupOutput:
 
 
 @dataclass(slots=True)
+class SignGroupPayloadInput:
+    group_code: str
+    payload: bytes
+    kid: str | None = None
+    hash_algorithm: str = "SHA256"
+
+
+@dataclass(slots=True)
+class SignGroupPayloadOutput:
+    kid: str
+    signature: bytes
+    hash_algorithm: str
+    algorithm: str
+
+
+@dataclass(slots=True)
 class CertificateSearchFilters:
     limit: int = 50
     offset: int = 0

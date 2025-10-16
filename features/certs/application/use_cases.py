@@ -6,12 +6,14 @@ from datetime import datetime
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec, padding as asym_padding, rsa
 
 from dataclasses import replace
 
 from features.certs.domain.exceptions import (
     CertificateGroupConflictError,
     CertificateGroupNotFoundError,
+    CertificatePrivateKeyNotFoundError,
     CertificateSigningError,
     CertificateValidationError,
     KeyGenerationError,
@@ -49,6 +51,8 @@ from .dto import (
     IssueCertificateForGroupOutput,
     SignCertificateInput,
     SignCertificateOutput,
+    SignGroupPayloadInput,
+    SignGroupPayloadOutput,
 )
 
 
@@ -409,14 +413,131 @@ class IssueCertificateForGroupUseCase:
             actor=actor,
         )
 
+        private_key_pem = serialize_private_key(private_key)
+        issued_certificate = self._services.issued_store.get(sign_result.kid)
+        self._services.private_key_store.save(
+            kid=sign_result.kid,
+            private_key_pem=private_key_pem,
+            group_id=group.id,
+            expires_at=issued_certificate.expires_at,
+        )
+
         return IssueCertificateForGroupOutput(
             kid=sign_result.kid,
             certificate_pem=sign_result.certificate_pem,
-            private_key_pem=serialize_private_key(private_key),
+            private_key_pem=private_key_pem,
             jwk=sign_result.jwk,
             usage_type=group.usage_type,
             group_code=group.group_code,
         )
+
+
+class SignGroupPayloadUseCase:
+    """証明書グループに紐づく秘密鍵で任意ペイロードへ署名するユースケース"""
+
+    def __init__(self, services: CertificateServices | None = None) -> None:
+        self._services = services or default_certificate_services
+
+    def execute(
+        self,
+        payload: SignGroupPayloadInput,
+        *,
+        actor: str | None = None,
+    ) -> SignGroupPayloadOutput:
+        group = self._services.group_store.get_by_code(payload.group_code)
+        certificate = self._resolve_certificate(group, payload)
+
+        now = datetime.utcnow()
+        if certificate.revoked_at is not None and certificate.revoked_at <= now:
+            raise CertificateValidationError("証明書が失効しています")
+        if certificate.expires_at is not None and certificate.expires_at <= now:
+            raise CertificateValidationError("証明書の有効期限が切れています")
+
+        try:
+            key_record = self._services.private_key_store.get(certificate.kid)
+        except CertificatePrivateKeyNotFoundError as exc:
+            raise CertificateValidationError("証明書に対応する秘密鍵が見つかりません") from exc
+
+        private_key = serialization.load_pem_private_key(
+            key_record.private_key_pem.encode("utf-8"),
+            password=None,
+        )
+
+        hash_algorithm, hash_name = self._resolve_hash_algorithm(payload.hash_algorithm)
+        signature, algorithm = self._sign(private_key, payload.payload, hash_algorithm)
+
+        if actor:
+            self._services.event_store.record(
+                actor=actor,
+                action="sign_payload",
+                target_kid=certificate.kid,
+                target_group_code=group.group_code,
+            )
+
+        return SignGroupPayloadOutput(
+            kid=certificate.kid,
+            signature=signature,
+            hash_algorithm=hash_name,
+            algorithm=algorithm,
+        )
+
+    def _resolve_certificate(
+        self,
+        group: CertificateGroup,
+        payload: SignGroupPayloadInput,
+    ) -> IssuedCertificate:
+        if payload.kid:
+            certificate = self._services.issued_store.get(payload.kid)
+            if certificate.group is None or certificate.group.group_code != group.group_code:
+                raise CertificateValidationError("指定された証明書はグループに属していません")
+            if certificate.revoked_at is not None:
+                raise CertificateValidationError("指定された証明書は失効済みです")
+            return certificate
+
+        certificates = self._services.issued_store.list(None, group_code=group.group_code)
+        now = datetime.utcnow()
+        active_candidates: list[IssuedCertificate] = []
+        for cert in certificates:
+            if cert.revoked_at is not None and cert.revoked_at <= now:
+                continue
+            if cert.expires_at is not None and cert.expires_at <= now:
+                continue
+            active_candidates.append(cert)
+
+        if not active_candidates:
+            raise CertificateValidationError("有効な証明書が存在しません")
+
+        active_candidates.sort(key=lambda item: item.issued_at or datetime.min, reverse=True)
+        return active_candidates[0]
+
+    def _resolve_hash_algorithm(
+        self,
+        name: str | None,
+    ) -> tuple[hashes.HashAlgorithm, str]:
+        normalized = (name or "SHA256").upper()
+        mapping: dict[str, type[hashes.HashAlgorithm]] = {
+            "SHA256": hashes.SHA256,
+            "SHA384": hashes.SHA384,
+            "SHA512": hashes.SHA512,
+        }
+        factory = mapping.get(normalized)
+        if factory is None:
+            raise CertificateValidationError("サポートされていないハッシュアルゴリズムです")
+        return factory(), normalized
+
+    def _sign(
+        self,
+        private_key,
+        payload: bytes,
+        hash_algorithm: hashes.HashAlgorithm,
+    ) -> tuple[bytes, str]:
+        if isinstance(private_key, rsa.RSAPrivateKey):
+            signature = private_key.sign(payload, asym_padding.PKCS1v15(), hash_algorithm)
+            return signature, "RSASSA-PKCS1-v1_5"
+        if isinstance(private_key, ec.EllipticCurvePrivateKey):
+            signature = private_key.sign(payload, ec.ECDSA(hash_algorithm))
+            return signature, "ECDSA"
+        raise CertificateValidationError("サポートされていない鍵種別です")
 
 
 class SearchCertificatesUseCase:

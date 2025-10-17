@@ -454,10 +454,6 @@ body.login-page .login-card .language-selector {
 
 /* Responsive Design */
 @media (max-width: 480px) {
-  body.login-page main.container-fluid {
-    padding: 80px 16px 30px;
-  }
-
   body.login-page .flash-messages {
     top: 16px;
     width: calc(100% - 32px);

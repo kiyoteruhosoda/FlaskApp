@@ -51,9 +51,7 @@ def _can_read_api_keys() -> bool:
         return False
     if _can_manage_api_keys():
         return True
-    return current_user.can("api_key:read") or current_user.can(
-        "service_account_api:read"
-    )
+    return current_user.can("api_key:read")
 
 
 # サービスアカウント管理

@@ -354,6 +354,7 @@ def _local_import_log(message: str, *, level: str = 'info', event: str = 'local_
 def _set_jwt_context(user: User, scope: set[str]) -> None:
     g.current_user = user
     g.current_token_scope = scope
+    setattr(user, "scope", set(scope))
 
 
 def jwt_required(f):

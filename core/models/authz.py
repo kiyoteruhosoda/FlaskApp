@@ -23,7 +23,10 @@ def require_perms(*perm_codes):
         def wrapper(*a, **kw):
             if current_app.config.get('LOGIN_DISABLED'):
                 return fn(*a, **kw)
-            if not current_user.can(*perm_codes):
+            scope = getattr(current_user, "scope", set())
+            if not isinstance(scope, set):
+                scope = set(scope)
+            if not any(code in scope for code in perm_codes):
                 abort(403)
             return fn(*a, **kw)
         return wrapper

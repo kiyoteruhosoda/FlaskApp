@@ -817,8 +817,8 @@ msgstr "Failed to update certificate group: %(message)s"
 msgid "Certificate group updated."
 msgstr "Certificate group updated."
 
-msgid "Cannot delete the group because certificates exist: %(message)s"
-msgstr "Cannot delete the group because certificates exist: %(message)s"
+msgid "Cannot delete the group because active certificates exist: %(message)s"
+msgstr "Cannot delete the group because active certificates exist: %(message)s"
 
 msgid "Display name must be a string."
 msgstr "Display name must be a string."
@@ -894,6 +894,12 @@ msgstr "Failed to delete certificate group: %(message)s"
 
 msgid "Certificate group deleted."
 msgstr "Certificate group deleted."
+
+msgid "Failed to update rotation setting: %(message)s"
+msgstr "Failed to update rotation setting: %(message)s"
+
+msgid "Rotation setting updated."
+msgstr "Rotation setting updated."
 
 msgid "Certificates for %(group)s"
 msgstr "Certificates for %(group)s"
@@ -994,6 +1000,15 @@ msgstr "Key Curve"
 msgid "Subject Template"
 msgstr "Subject Template"
 
+msgid "Enable automatic rotation"
+msgstr "Enable automatic rotation"
+
+msgid "Non-expiring keys should disable automatic rotation to avoid immediate re-issuance."
+msgstr "Non-expiring keys should disable automatic rotation to avoid immediate re-issuance."
+
+msgid "Update rotation setting"
+msgstr "Update rotation setting"
+
 msgid "Save Group"
 msgstr "Save Group"
 
@@ -1029,6 +1044,12 @@ msgstr "Issue New Certificate"
 
 msgid "Validity (days)"
 msgstr "Validity (days)"
+
+msgid "Issue without expiration"
+msgstr "Issue without expiration"
+
+msgid "When enabled, the issued key will not include an expiry date."
+msgstr "When enabled, the issued key will not include an expiry date."
 
 msgid "Key Usage"
 msgstr "Key Usage"

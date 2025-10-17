@@ -54,7 +54,7 @@
           <td class="text-end">
             <div class="d-flex justify-content-end flex-wrap gap-2 certificate-group-actions">
               <a class="btn btn-outline-primary btn-sm" href="{{ url_for('certs_ui.group_detail', group_code=group.group_code) }}">
-                {{ _('View Certificates') }}
+                {{ _('View') }}
               </a>
               <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#editGroupModal" data-group='{{ {
                   "groupCode": group.group_code,

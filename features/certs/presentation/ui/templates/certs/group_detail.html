@@ -11,6 +11,8 @@
   </a>
 </div>
 
+{% set is_signing_usage = group.usage_type.value in ['server_signing', 'client_signing'] %}
+
 <div class="row g-4 mb-4">
   <div class="col-lg-6">
     <div class="card">
@@ -38,6 +40,17 @@
             {% endif %}
           </dd>
         </dl>
+        {% if is_signing_usage %}
+        <hr>
+        <form method="post" action="{{ url_for('certs_ui.update_group_rotation', group_code=group.group_code) }}" class="mt-3">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" role="switch" id="auto_rotate_toggle" name="auto_rotate" value="on" {% if group.auto_rotate %}checked{% endif %}>
+            <label class="form-check-label" for="auto_rotate_toggle">{{ _('Enable automatic rotation') }}</label>
+          </div>
+          <div class="form-text text-muted">{{ _('Non-expiring keys should disable automatic rotation to avoid immediate re-issuance.') }}</div>
+          <button type="submit" class="btn btn-outline-primary btn-sm mt-3">{{ _('Update rotation setting') }}</button>
+        </form>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -62,8 +75,19 @@
     <form method="post" action="{{ url_for('certs_ui.issue_certificate', group_code=group.group_code) }}" class="row g-3" id="issueCertificateForm">
       <div class="col-md-3">
         <label class="form-label" for="valid_days">{{ _('Validity (days)') }}</label>
-        <input type="number" class="form-control" id="valid_days" name="valid_days" min="0" placeholder="{{ group.rotation_threshold_days * 2 }}">
+        <input type="number" class="form-control" id="valid_days" name="valid_days" min="{{ 0 if is_signing_usage else 1 }}" placeholder="{{ group.rotation_threshold_days * 2 }}">
       </div>
+      {% if is_signing_usage %}
+      <div class="col-md-9 d-flex align-items-end">
+        <div>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="unlimited_validity" name="unlimited_validity">
+            <label class="form-check-label" for="unlimited_validity">{{ _('Issue without expiration') }}</label>
+          </div>
+          <div class="form-text text-muted">{{ _('When enabled, the issued key will not include an expiry date.') }}</div>
+        </div>
+      </div>
+      {% else %}
       <div class="col-md-9">
         <label class="form-label">{{ _('Key Usage') }}</label>
         <div class="d-flex flex-wrap gap-2">
@@ -75,6 +99,7 @@
           {% endfor %}
         </div>
       </div>
+      {% endif %}
       {% if group.usage_type.value not in ['server_signing', 'client_signing'] %}
       <div class="col-12">
         <hr>
@@ -243,9 +268,34 @@
   const issueForm = document.getElementById('issueCertificateForm');
   if (issueForm) {
     const confirmMessage = {{ _("Are you sure you want to issue a new certificate for this group?") | tojson }};
+    const validDaysInput = issueForm.querySelector('#valid_days');
+    const unlimitedToggle = issueForm.querySelector('#unlimited_validity');
+
+    const updateValidityState = () => {
+      if (!validDaysInput || !unlimitedToggle) {
+        return;
+      }
+      if (unlimitedToggle.checked) {
+        validDaysInput.value = '';
+        validDaysInput.setAttribute('disabled', 'disabled');
+      } else {
+        validDaysInput.removeAttribute('disabled');
+      }
+    };
+
+    if (validDaysInput && unlimitedToggle) {
+      updateValidityState();
+      unlimitedToggle.addEventListener('change', updateValidityState);
+    }
+
     issueForm.addEventListener('submit', function(event) {
       if (!window.confirm(confirmMessage)) {
         event.preventDefault();
+        return;
+      }
+      if (validDaysInput && unlimitedToggle && unlimitedToggle.checked) {
+        validDaysInput.removeAttribute('disabled');
+        validDaysInput.value = '0';
       }
     });
   }

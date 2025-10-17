@@ -504,7 +504,10 @@ def delete_group(group_code: str):
         message = str(exc)
         if exc.status_code == HTTPStatus.CONFLICT:
             flash(
-                _("Cannot delete the group because certificates exist: %(message)s", message=message),
+                _(
+                    "Cannot delete the group because active certificates exist: %(message)s",
+                    message=message,
+                ),
                 "error",
             )
         else:
@@ -554,6 +557,50 @@ def group_detail(group_code: str):
     )
 
 
+@certs_ui_bp.route("/groups/<string:group_code>/rotation", methods=["POST"])
+@login_required
+def update_group_rotation(group_code: str):
+    _ensure_permission()
+
+    service = _service()
+    try:
+        group, _ = service.list_group_certificates(group_code)
+    except CertsApiClientError as exc:
+        if exc.status_code == HTTPStatus.NOT_FOUND:
+            abort(404)
+        current_app.logger.exception(
+            "Failed to load group before updating rotation",
+            extra={"group_code": group_code},
+        )
+        flash(_("Failed to update rotation setting: %(message)s", message=str(exc)), "error")
+        return redirect(url_for("certs_ui.group_detail", group_code=group_code))
+
+    auto_rotate = request.form.get("auto_rotate") == "on"
+
+    try:
+        service.update_group(
+            group_code,
+            display_name=group.display_name,
+            usage_type=group.usage_type,
+            key_type=group.key_type,
+            key_curve=group.key_curve,
+            key_size=group.key_size,
+            auto_rotate=auto_rotate,
+            rotation_threshold_days=group.rotation_threshold_days,
+            subject=group.subject,
+        )
+    except CertsApiClientError as exc:
+        current_app.logger.exception(
+            "Failed to update rotation setting",
+            extra={"group_code": group_code},
+        )
+        flash(_("Failed to update rotation setting: %(message)s", message=str(exc)), "error")
+    else:
+        flash(_("Rotation setting updated."), "success")
+
+    return redirect(url_for("certs_ui.group_detail", group_code=group_code))
+
+
 @certs_ui_bp.route("/groups/<string:group_code>/issue", methods=["POST"])
 @login_required
 def issue_certificate(group_code: str):
@@ -567,6 +614,9 @@ def issue_certificate(group_code: str):
     except ValueError:
         flash(_("Validity days must be a number."), "error")
         return redirect(url_for("certs_ui.group_detail", group_code=group_code))
+
+    if form.get("unlimited_validity") == "on":
+        valid_days = 0
 
     key_usage = form.getlist("key_usage")
 

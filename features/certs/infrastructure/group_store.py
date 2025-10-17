@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from datetime import datetime
 
 from core.db import db
 from sqlalchemy import func
@@ -13,7 +14,7 @@ from features.certs.domain.exceptions import (
 from features.certs.domain.models import CertificateGroup, RotationPolicy
 from features.certs.domain.usage import UsageType
 
-from .models import CertificateGroupEntity
+from .models import CertificateGroupEntity, IssuedCertificateEntity
 
 
 class CertificateGroupStore:
@@ -93,16 +94,22 @@ class CertificateGroupStore:
         entity = CertificateGroupEntity.query.filter_by(group_code=group_code).first()
         if entity is None:
             raise CertificateGroupNotFoundError(f"グループが見つかりません: {group_code}")
-        has_certificates = (
+        active_certificates = (
             db.session.query(func.count())
-            .select_from(CertificateGroupEntity)
-            .join(CertificateGroupEntity.certificates)
-            .filter(CertificateGroupEntity.id == entity.id)
+            .select_from(IssuedCertificateEntity)
+            .filter(
+                IssuedCertificateEntity.group_id == entity.id,
+                IssuedCertificateEntity.revoked_at.is_(None),
+                (
+                    IssuedCertificateEntity.expires_at.is_(None)
+                    | (IssuedCertificateEntity.expires_at > datetime.utcnow())
+                ),
+            )
             .scalar()
         )
-        if has_certificates:
+        if active_certificates:
             raise CertificateGroupConflictError(
-                "証明書が存在するためグループを削除できません"
+                "有効な証明書が存在するためグループを削除できません"
             )
         db.session.delete(entity)
         db.session.commit()

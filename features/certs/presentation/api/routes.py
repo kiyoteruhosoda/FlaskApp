@@ -555,7 +555,8 @@ def get_latest_group_key(group_code: str):
         result = ListJwksUseCase().execute(group_code, latest_only=True)
     except CertificateGroupNotFoundError as exc:
         return _json_error(str(exc), HTTPStatus.NOT_FOUND)
-    return jsonify(result)
+    latest_keys = [entry["key"] for entry in result.get("keys", [])]
+    return jsonify({"keys": latest_keys})
 
 
 @certs_api_bp.route("/keys/<string:group_code>/<string:kid>/sign", methods=["POST"])

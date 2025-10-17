@@ -262,7 +262,8 @@ def test_generate_sign_and_jwks_flow(app_context):
     jwks = jwks_resp.get_json()
     assert jwks["keys"]
     first_entry = jwks["keys"][0]
-    assert first_entry["key"]["kid"] == signed["kid"]
+    assert first_entry["kid"] == signed["kid"]
+    assert first_entry["attributes"]["enabled"] is True
     assert first_entry["attributes"]["usage"] == "server_signing"
     assert first_entry["attributes"]["enabled"] is True
     assert first_entry["attributes"]["created"].endswith("Z")
@@ -350,8 +351,8 @@ def test_latest_key_endpoint_returns_only_newest_key(app_context):
     jwks_resp = client.get(f"/api/.well-known/jwks/{group.group_code}.json")
     assert jwks_resp.status_code == 200
     jwks_payload = jwks_resp.get_json()["keys"]
-    assert jwks_payload[0]["key"]["kid"] == second_signed["kid"]
-    assert any(entry["key"]["kid"] == first_signed["kid"] for entry in jwks_payload)
+    assert jwks_payload[0]["kid"] == second_signed["kid"]
+    assert any(entry["kid"] == first_signed["kid"] for entry in jwks_payload)
 
 
 def test_generate_rejects_unknown_usage(app_context):

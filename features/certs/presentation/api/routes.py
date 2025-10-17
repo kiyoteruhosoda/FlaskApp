@@ -555,7 +555,15 @@ def get_latest_group_key(group_code: str):
         result = ListJwksUseCase().execute(group_code, latest_only=True)
     except CertificateGroupNotFoundError as exc:
         return _json_error(str(exc), HTTPStatus.NOT_FOUND)
-    latest_keys = [entry["key"] for entry in result.get("keys", [])]
+    latest_keys: list[dict] = []
+    for entry in result.get("keys", []):
+        if not isinstance(entry, dict):
+            continue
+        if "key" in entry and isinstance(entry["key"], dict):
+            jwk = dict(entry["key"])
+        else:
+            jwk = {k: v for k, v in entry.items() if k != "attributes"}
+        latest_keys.append(jwk)
     return jsonify({"keys": latest_keys})
 
 

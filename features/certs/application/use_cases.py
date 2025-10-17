@@ -433,8 +433,9 @@ class IssueCertificateForGroupUseCase:
         if signing_usage:
             kid = uuid.uuid4().hex
             jwk = public_key_to_jwk(private_key.public_key(), kid, group.usage_type)
+            unlimited_validity = requested_days is None
             expires_at = None
-            if requested_days is not None:
+            if not unlimited_validity:
                 _, not_after = validity_range(requested_days)
                 expires_at = not_after
 

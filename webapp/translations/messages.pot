@@ -1463,3 +1463,35 @@ msgstr ""
 msgid "Failed to download logs."
 msgstr ""
 
+#: features/certs/presentation/ui/routes.py:???
+msgid "Cannot delete the group because active certificates exist: %(message)s"
+msgstr ""
+
+#: features/certs/presentation/ui/routes.py:???
+msgid "Failed to update rotation setting: %(message)s"
+msgstr ""
+
+#: features/certs/presentation/ui/routes.py:???
+msgid "Rotation setting updated."
+msgstr ""
+
+#: features/certs/presentation/ui/templates/certs/group_detail.html:???
+msgid "Enable automatic rotation"
+msgstr ""
+
+#: features/certs/presentation/ui/templates/certs/group_detail.html:???
+msgid "Non-expiring keys should disable automatic rotation to avoid immediate re-issuance."
+msgstr ""
+
+#: features/certs/presentation/ui/templates/certs/group_detail.html:???
+msgid "Update rotation setting"
+msgstr ""
+
+#: features/certs/presentation/ui/templates/certs/group_detail.html:???
+msgid "Issue without expiration"
+msgstr ""
+
+#: features/certs/presentation/ui/templates/certs/group_detail.html:???
+msgid "When enabled, the issued key will not include an expiry date."
+msgstr ""
+

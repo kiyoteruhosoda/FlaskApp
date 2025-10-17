@@ -161,6 +161,47 @@ def test_group_management_endpoints(app_context):
     delete_resp = client.delete("/api/certs/groups/test-group")
     assert delete_resp.status_code == 200
 
+
+def test_delete_group_allowed_after_revoking_all_certificates(app_context):
+    client = app_context.test_client()
+    _login_admin(client)
+
+    group_code = "delete-test"
+    create_resp = client.post(
+        "/api/certs/groups",
+        json={
+            "groupCode": group_code,
+            "displayName": "Delete Test",
+            "usageType": "server_signing",
+            "keyType": "RSA",
+            "keySize": 2048,
+            "autoRotate": True,
+            "rotationThresholdDays": 30,
+            "subject": {"CN": "delete.test"},
+        },
+    )
+    assert create_resp.status_code == 201
+
+    issue_resp = client.post(
+        f"/api/certs/groups/{group_code}/certificates",
+        json={"validDays": 30},
+    )
+    assert issue_resp.status_code == 201
+    issued = issue_resp.get_json()["certificate"]
+
+    conflict_resp = client.delete(f"/api/certs/groups/{group_code}")
+    assert conflict_resp.status_code == 409
+
+    revoke_resp = client.post(
+        f"/api/certs/groups/{group_code}/certificates/{issued['kid']}/revoke",
+        json={"reason": "cleanup"},
+    )
+    assert revoke_resp.status_code == 200
+
+    delete_resp = client.delete(f"/api/certs/groups/{group_code}")
+    assert delete_resp.status_code == 200
+
+
 def test_generate_sign_and_jwks_flow(app_context):
     client = app_context.test_client()
     _login_admin(client)
@@ -220,7 +261,12 @@ def test_generate_sign_and_jwks_flow(app_context):
     assert jwks_resp.status_code == 200
     jwks = jwks_resp.get_json()
     assert jwks["keys"]
-    assert jwks["keys"][0]["kid"] == signed["kid"]
+    first_entry = jwks["keys"][0]
+    assert first_entry["key"]["kid"] == signed["kid"]
+    assert first_entry["attributes"]["usage"] == "server_signing"
+    assert first_entry["attributes"]["enabled"] is True
+    assert first_entry["attributes"]["created"].endswith("Z")
+    assert first_entry["attributes"]["updated"].endswith("Z")
 
     list_resp = client.get("/api/certs")
     assert list_resp.status_code == 200
@@ -304,8 +350,8 @@ def test_latest_key_endpoint_returns_only_newest_key(app_context):
     jwks_resp = client.get(f"/api/.well-known/jwks/{group.group_code}.json")
     assert jwks_resp.status_code == 200
     jwks_payload = jwks_resp.get_json()["keys"]
-    assert jwks_payload[0]["kid"] == second_signed["kid"]
-    assert any(key["kid"] == first_signed["kid"] for key in jwks_payload)
+    assert jwks_payload[0]["key"]["kid"] == second_signed["kid"]
+    assert any(entry["key"]["kid"] == first_signed["kid"] for entry in jwks_payload)
 
 
 def test_generate_rejects_unknown_usage(app_context):

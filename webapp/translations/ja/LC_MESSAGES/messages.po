@@ -2840,14 +2840,20 @@ msgstr "証明書グループの更新に失敗しました: %(message)s"
 msgid "Certificate group updated."
 msgstr "証明書グループを更新しました。"
 
-msgid "Cannot delete the group because certificates exist: %(message)s"
-msgstr "証明書が存在するためグループを削除できません: %(message)s"
+msgid "Cannot delete the group because active certificates exist: %(message)s"
+msgstr "有効な証明書が存在するためグループを削除できません: %(message)s"
 
 msgid "Failed to delete certificate group: %(message)s"
 msgstr "証明書グループの削除に失敗しました: %(message)s"
 
 msgid "Certificate group deleted."
 msgstr "証明書グループを削除しました。"
+
+msgid "Failed to update rotation setting: %(message)s"
+msgstr "ローテーション設定の更新に失敗しました: %(message)s"
+
+msgid "Rotation setting updated."
+msgstr "ローテーション設定を更新しました。"
 
 msgid "Certificates for %(group)s"
 msgstr "%(group)s の証明書"
@@ -2948,6 +2954,15 @@ msgstr "曲線名"
 msgid "Subject Template"
 msgstr "サブジェクトテンプレート"
 
+msgid "Enable automatic rotation"
+msgstr "自動ローテーションを有効にする"
+
+msgid "Non-expiring keys should disable automatic rotation to avoid immediate re-issuance."
+msgstr "無期限のキーでは即時再発行を防ぐため自動ローテーションを無効にしてください。"
+
+msgid "Update rotation setting"
+msgstr "ローテーション設定を更新"
+
 msgid "Save Group"
 msgstr "グループを保存"
 
@@ -2983,6 +2998,12 @@ msgstr "新しい証明書を発行"
 
 msgid "Validity (days)"
 msgstr "有効日数"
+
+msgid "Issue without expiration"
+msgstr "有効期限を設定しない"
+
+msgid "When enabled, the issued key will not include an expiry date."
+msgstr "有効にすると発行されるキーに有効期限が設定されません。"
 
 msgid "Key Usage"
 msgstr "Key Usage"

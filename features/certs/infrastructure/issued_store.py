@@ -1,7 +1,7 @@
 """発行済み証明書の永続化ストア"""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from typing import TYPE_CHECKING
 
@@ -140,7 +140,17 @@ class IssuedCertificateStore:
         for entity in query.all():
             if entity.expires_at and entity.expires_at <= now:
                 continue
-            jwks.append(entity.jwk)
+            jwks.append(
+                {
+                    "key": entity.jwk,
+                    "attributes": {
+                        "enabled": True,
+                        "created": _format_timestamp(entity.issued_at),
+                        "updated": _format_timestamp(entity.issued_at),
+                        "usage": entity.usage_type,
+                    },
+                }
+            )
         return jwks
 
     def search(self, filters: "CertificateSearchFilters") -> tuple[list[IssuedCertificate], int]:
@@ -237,3 +247,13 @@ class IssuedCertificateStore:
 
 
 __all__ = ["IssuedCertificateStore"]
+
+
+def _format_timestamp(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    else:
+        value = value.astimezone(timezone.utc)
+    return value.isoformat().replace("+00:00", "Z")

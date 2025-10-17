@@ -44,9 +44,7 @@ def _has_read_permission() -> bool:
         return False
     if _has_manage_permission():
         return True
-    return current_user.can("api_key:read") or current_user.can(
-        "service_account_api:read"
-    )
+    return current_user.can("api_key:read")
 
 
 @bp.route("/service_accounts/<int:account_id>/keys", methods=["GET"])

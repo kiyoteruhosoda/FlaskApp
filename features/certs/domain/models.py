@@ -35,10 +35,11 @@ class IssuedCertificate:
     """署名済み証明書の保持モデル"""
 
     kid: str
-    certificate: x509.Certificate
     usage_type: UsageType
     jwk: dict
     issued_at: datetime
+    certificate: x509.Certificate | None = None
+    certificate_pem: str = ""
     expires_at: datetime | None = None
     revoked_at: datetime | None = None
     revocation_reason: str | None = None

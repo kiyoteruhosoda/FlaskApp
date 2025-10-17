@@ -26,16 +26,20 @@ class IssuedCertificateStore:
     def save(self, certificate: IssuedCertificate) -> IssuedCertificate:
         """証明書情報を保存する"""
 
-        expires_at = None
-        try:
-            if hasattr(certificate.certificate, "not_valid_after_utc"):
-                expires_at = certificate.certificate.not_valid_after_utc
-            else:  # pragma: no cover - cryptography古いバージョン向けフォールバック
-                expires_at = certificate.certificate.not_valid_after
-        except Exception:  # pragma: no cover - 異常系
-            expires_at = None
-
-        pem = certificate.certificate.public_bytes(serialization.Encoding.PEM).decode("utf-8")
+        pem = certificate.certificate_pem or ""
+        expires_at = certificate.expires_at
+        cert_obj = certificate.certificate
+        if cert_obj is not None:
+            if expires_at is None:
+                try:
+                    if hasattr(cert_obj, "not_valid_after_utc"):
+                        expires_at = cert_obj.not_valid_after_utc
+                    else:  # pragma: no cover - cryptography古いバージョン向けフォールバック
+                        expires_at = cert_obj.not_valid_after
+                except Exception:  # pragma: no cover - 異常系
+                    expires_at = None
+            if not pem:
+                pem = cert_obj.public_bytes(serialization.Encoding.PEM).decode("utf-8")
         entity = IssuedCertificateEntity(
             kid=certificate.kid,
             usage_type=certificate.usage_type.value,
@@ -171,6 +175,8 @@ class IssuedCertificateStore:
             keyword = filters.subject_contains.strip().lower()
             filtered_items: list[IssuedCertificate] = []
             for item in domain_items:
+                if item.certificate is None:
+                    continue
                 subject_str = item.certificate.subject.rfc4514_string()
                 if keyword in subject_str.lower():
                     filtered_items.append(item)
@@ -188,14 +194,18 @@ class IssuedCertificateStore:
     def _entity_to_domain(self, entity: IssuedCertificateEntity | None) -> IssuedCertificate | None:
         if entity is None:
             return None
-        certificate = x509.load_pem_x509_certificate(entity.certificate_pem.encode("utf-8"))
+        pem = entity.certificate_pem or ""
+        certificate = None
+        if pem.strip():
+            certificate = x509.load_pem_x509_certificate(pem.encode("utf-8"))
         group = self._convert_group(entity.group)
         return IssuedCertificate(
             kid=entity.kid,
-            certificate=certificate,
             usage_type=UsageType(entity.usage_type),
             jwk=entity.jwk,
             issued_at=entity.issued_at,
+            certificate=certificate,
+            certificate_pem=pem,
             expires_at=entity.expires_at,
             revoked_at=entity.revoked_at,
             revocation_reason=entity.revocation_reason,

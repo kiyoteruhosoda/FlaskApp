@@ -6,6 +6,36 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 
+
+def _decode_base64url_int(value: str) -> int:
+    padding_needed = (-len(value)) % 4
+    padded = value + ("=" * padding_needed)
+    return int.from_bytes(base64.urlsafe_b64decode(padded.encode("ascii")), "big")
+
+
+def _public_key_from_jwk(jwk: dict) -> rsa.RSAPublicKey | ec.EllipticCurvePublicKey:
+    kty = jwk.get("kty")
+    if kty == "RSA":
+        n = _decode_base64url_int(jwk["n"])
+        e = _decode_base64url_int(jwk["e"])
+        numbers = rsa.RSAPublicNumbers(e, n)
+        return numbers.public_key()
+    if kty == "EC":
+        curve_name = jwk.get("crv")
+        curve_map = {
+            "P-256": ec.SECP256R1(),
+            "P-384": ec.SECP384R1(),
+            "P-521": ec.SECP521R1(),
+        }
+        curve = curve_map.get(curve_name)
+        if curve is None:  # pragma: no cover - unexpected curve
+            raise AssertionError(f"Unsupported curve: {curve_name}")
+        x = _decode_base64url_int(jwk["x"])
+        y = _decode_base64url_int(jwk["y"])
+        numbers = ec.EllipticCurvePublicNumbers(x, y, curve)
+        return numbers.public_key()
+    raise AssertionError(f"Unsupported kty: {kty}")
+
 from core.db import db
 from core.models.user import Permission, Role, User
 from features.certs.infrastructure.models import CertificateGroupEntity
@@ -172,12 +202,10 @@ def test_generate_sign_and_jwks_flow(app_context):
     )
     assert sign_resp.status_code == 200
     signed = sign_resp.get_json()
-    certificate_pem = signed["certificatePem"]
-    certificate = x509.load_pem_x509_certificate(certificate_pem.encode("utf-8"))
-
+    assert signed["certificatePem"] == ""
+    public_key = _public_key_from_jwk(signed["jwk"])
     assert (
-        certificate.public_key()
-        .public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
+        public_key.public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
         .decode("utf-8")
         == generated["publicKeyPem"]
     )
@@ -203,9 +231,9 @@ def test_generate_sign_and_jwks_flow(app_context):
     assert detail_resp.status_code == 200
     detail = detail_resp.get_json()["certificate"]
     assert detail["kid"] == signed["kid"]
-    assert detail["certificatePem"].startswith("-----BEGIN CERTIFICATE-----")
-    assert detail["keyUsage"] == ["digitalSignature", "keyEncipherment"]
-    assert detail["extendedKeyUsage"] == ["serverAuth"]
+    assert detail["certificatePem"] == ""
+    assert detail["keyUsage"] == []
+    assert detail["extendedKeyUsage"] == []
 
     revoke_resp = client.post(
         f"/api/certs/{signed['kid']}/revoke",
@@ -215,15 +243,15 @@ def test_generate_sign_and_jwks_flow(app_context):
     revoked = revoke_resp.get_json()["certificate"]
     assert revoked["revokedAt"] is not None
     assert revoked["revocationReason"] == "compromised"
-    assert revoked["keyUsage"] == ["digitalSignature", "keyEncipherment"]
-    assert revoked["extendedKeyUsage"] == ["serverAuth"]
+    assert revoked["keyUsage"] == []
+    assert revoked["extendedKeyUsage"] == []
 
     detail_after_resp = client.get(f"/api/certs/{signed['kid']}")
     assert detail_after_resp.status_code == 200
     detail_after = detail_after_resp.get_json()["certificate"]
     assert detail_after["revokedAt"] is not None
-    assert detail_after["keyUsage"] == ["digitalSignature", "keyEncipherment"]
-    assert detail_after["extendedKeyUsage"] == ["serverAuth"]
+    assert detail_after["keyUsage"] == []
+    assert detail_after["extendedKeyUsage"] == []
 
     search_resp = client.get("/api/certs/search", query_string={"kid": signed["kid"]})
     assert search_resp.status_code == 200
@@ -336,8 +364,8 @@ def test_generate_and_sign_ec_certificate(app_context):
     assert sign_resp.status_code == 200
     signed = sign_resp.get_json()
 
-    certificate = x509.load_pem_x509_certificate(signed["certificatePem"].encode("utf-8"))
-    cert_public_key = certificate.public_key()
+    assert signed["certificatePem"] == ""
+    cert_public_key = _public_key_from_jwk(signed["jwk"])
     assert isinstance(cert_public_key, ec.EllipticCurvePublicKey)
     assert cert_public_key.curve.name == "secp256r1"
 
@@ -355,7 +383,7 @@ def test_group_certificate_issue_and_listing(app_context):
     issue_resp = client.post(
         f"/api/certs/groups/{group.group_code}/certificates",
         json={
-            "validDays": 90,
+            "validDays": 0,
             "subject": {"CN": "api-service"},
             "keyUsage": ["digitalSignature"],
         },
@@ -364,7 +392,9 @@ def test_group_certificate_issue_and_listing(app_context):
     issued_payload = issue_resp.get_json()["certificate"]
     assert issued_payload["groupCode"] == group.group_code
     assert issued_payload["usageType"] == "server_signing"
-    assert issued_payload["certificatePem"].startswith("-----BEGIN CERTIFICATE-----")
+    assert issued_payload["certificatePem"] == ""
+    issued_public_key = _public_key_from_jwk(issued_payload["jwk"])
+    assert issued_public_key is not None
 
     list_resp = client.get(f"/api/certs/groups/{group.group_code}/certificates")
     assert list_resp.status_code == 200
@@ -386,6 +416,7 @@ def test_sign_group_payload_api(app_context):
     )
     assert issue_resp.status_code == 201
     certificate_payload = issue_resp.get_json()["certificate"]
+    assert certificate_payload["certificatePem"] == ""
 
     payload = b"hello-cert"
     payload_b64 = base64.b64encode(payload).decode("ascii")
@@ -401,10 +432,7 @@ def test_sign_group_payload_api(app_context):
     assert sign_body["algorithm"] == "RS256"
 
     signature = base64.b64decode(sign_body["signature"])
-    certificate = x509.load_pem_x509_certificate(
-        certificate_payload["certificatePem"].encode("utf-8")
-    )
-    public_key = certificate.public_key()
+    public_key = _public_key_from_jwk(certificate_payload["jwk"])
     if isinstance(public_key, rsa.RSAPublicKey):
         public_key.verify(signature, payload, padding.PKCS1v15(), hashes.SHA256())
     else:

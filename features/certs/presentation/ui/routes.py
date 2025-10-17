@@ -153,7 +153,10 @@ def _build_subject_from_form(form_data: dict[str, str]) -> dict[str, str]:
     return subject
 
 
-def _validate_subject_template(form_data: dict[str, str]) -> dict[str, str]:
+def _validate_subject_template(form_data: dict[str, str], *, usage_type: UsageType) -> dict[str, str]:
+    if usage_type in {UsageType.SERVER_SIGNING, UsageType.CLIENT_SIGNING}:
+        return _build_subject_from_form(form_data)
+
     errors: list[str] = []
     subject: dict[str, str] = {}
 
@@ -370,7 +373,7 @@ def create_group():
         return redirect(url_for("certs_ui.index"))
 
     try:
-        subject = _validate_subject_template(form)
+        subject = _validate_subject_template(form, usage_type=usage_type)
     except SubjectValidationError as exc:
         _remember_form_state(errors=list(exc.errors))
         for message in exc.errors:
@@ -456,7 +459,7 @@ def update_group(group_code: str):
         return redirect(url_for("certs_ui.index"))
 
     try:
-        subject = _validate_subject_template(form)
+        subject = _validate_subject_template(form, usage_type=usage_type)
     except SubjectValidationError as exc:
         _remember_edit_form_state(errors=list(exc.errors))
         for message in exc.errors:

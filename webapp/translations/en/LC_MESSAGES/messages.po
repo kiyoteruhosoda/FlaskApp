@@ -1087,6 +1087,18 @@ msgstr "Failed to load groups: %(message)s"
 msgid "Invalid revoked flag."
 msgstr "Invalid revoked flag."
 
+msgid "Unlimited"
+msgstr "Unlimited"
+
+msgid "No certificate is stored for this key."
+msgstr "No certificate is stored for this key."
+
+msgid "Not used for signing keys."
+msgstr "Not used for signing keys."
+
+msgid "No certificate was generated for this key."
+msgstr "No certificate was generated for this key."
+
 msgid "Use ISO 8601 format for date filters."
 msgstr "Use ISO 8601 format for date filters."
 

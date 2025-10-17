@@ -20,6 +20,7 @@ from features.certs.infrastructure.key_utils import (
     SubjectBuilder,
     build_key_usage_extension,
     certificate_to_jwk,
+    public_key_to_jwk,
     serialize_private_key,
     serialize_public_key,
     validity_range,
@@ -149,6 +150,30 @@ class AutoRotateCertificatesUseCase:
         except ValueError as exc:  # noqa: B904
             raise CertificateRotationError(str(exc)) from exc
 
+        signing_usage = group.usage_type in {UsageType.SERVER_SIGNING, UsageType.CLIENT_SIGNING}
+        if signing_usage:
+            kid = x509.random_serial_number().to_bytes(20, "big").hex()
+            jwk = public_key_to_jwk(private_key.public_key(), kid, group.usage_type)
+            expires_at = None
+            validity_days = self._determine_validity_days(group, latest)
+            if validity_days:
+                _, not_after = validity_range(validity_days)
+                expires_at = not_after
+            issued = IssuedCertificate(
+                kid=kid,
+                usage_type=group.usage_type,
+                jwk=jwk,
+                issued_at=datetime.utcnow(),
+                certificate=None,
+                certificate_pem="",
+                expires_at=expires_at,
+                group=group,
+                group_id=group.id,
+            )
+            private_key_pem = serialize_private_key(private_key)
+            public_key_pem = serialize_public_key(private_key.public_key())
+            return issued, private_key_pem, public_key_pem
+
         subject = SubjectBuilder(group.subject_dict()).build()
         ca_material = self._services.ca_store.get_or_create(group.usage_type)
         validity_days = self._determine_validity_days(group, latest)
@@ -184,10 +209,11 @@ class AutoRotateCertificatesUseCase:
 
         issued = IssuedCertificate(
             kid=kid,
-            certificate=certificate,
             usage_type=group.usage_type,
             jwk=jwk,
             issued_at=datetime.utcnow(),
+            certificate=certificate,
+            certificate_pem=certificate.public_bytes(serialization.Encoding.PEM).decode("utf-8"),
             expires_at=not_after,
             group=group,
             group_id=group.id,
@@ -201,12 +227,18 @@ class AutoRotateCertificatesUseCase:
         self, group: CertificateGroup, latest: IssuedCertificate | None
     ) -> int:
         if latest and latest.expires_at:
-            try:
-                not_before = latest.certificate.not_valid_before
-                delta = latest.expires_at - not_before
-                return max(int(delta.days) or 1, group.rotation_policy.rotation_threshold_days + 1)
-            except Exception:  # pragma: no cover - 変換失敗時は既定値
-                pass
+            if latest.certificate is not None:
+                try:
+                    not_before = latest.certificate.not_valid_before
+                    delta = latest.expires_at - not_before
+                    return max(int(delta.days) or 1, group.rotation_policy.rotation_threshold_days + 1)
+                except Exception:  # pragma: no cover - 変換失敗時は既定値
+                    pass
+            if latest.issued_at is not None:
+                delta = latest.expires_at - latest.issued_at
+                days = int(delta.days) or 0
+                if days > 0:
+                    return max(days, group.rotation_policy.rotation_threshold_days + 1)
         return max(group.rotation_policy.rotation_threshold_days * 2, 30)
 
     def _generate_private_key(

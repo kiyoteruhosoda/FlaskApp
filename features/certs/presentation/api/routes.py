@@ -331,35 +331,50 @@ def _serialize_certificate(
     include_jwk: bool = False,
 ) -> dict:
     certificate = cert.certificate
-    if hasattr(certificate, "not_valid_before_utc"):
-        not_before = certificate.not_valid_before_utc
-    else:  # pragma: no cover - 古いcryptographyバージョンへのフォールバック
-        not_before = certificate.not_valid_before
-    if hasattr(certificate, "not_valid_after_utc"):
-        not_after = certificate.not_valid_after_utc
-    else:  # pragma: no cover - 古いcryptographyバージョンへのフォールバック
-        not_after = certificate.not_valid_after
+    subject = ""
+    issuer = ""
+    not_before: datetime | None = None
+    not_after: datetime | None = None
+    key_usage_values: list[str] = []
+    extended_key_usage_values: list[str] = []
+    if certificate is not None:
+        if hasattr(certificate, "not_valid_before_utc"):
+            not_before = certificate.not_valid_before_utc
+        else:  # pragma: no cover - 古いcryptographyバージョンへのフォールバック
+            not_before = certificate.not_valid_before
+        if hasattr(certificate, "not_valid_after_utc"):
+            not_after = certificate.not_valid_after_utc
+        else:  # pragma: no cover - 古いcryptographyバージョンへのフォールバック
+            not_after = certificate.not_valid_after
+        subject = certificate.subject.rfc4514_string()
+        issuer = certificate.issuer.rfc4514_string()
+        key_usage_values = _extract_key_usage_values(certificate)
+        extended_key_usage_values = _extract_extended_key_usage_values(certificate)
+    else:
+        not_before = cert.issued_at
+        not_after = cert.expires_at
+
     payload: dict[str, object] = {
         "kid": cert.kid,
         "usageType": cert.usage_type.value,
         "issuedAt": cert.issued_at.isoformat() if cert.issued_at else None,
-        "expiresAt": cert.expires_at.isoformat() if cert.expires_at else not_after.isoformat(),
+        "expiresAt": cert.expires_at.isoformat()
+        if cert.expires_at
+        else (not_after.isoformat() if not_after else None),
         "revokedAt": cert.revoked_at.isoformat() if cert.revoked_at else None,
         "revocationReason": cert.revocation_reason,
-        "subject": certificate.subject.rfc4514_string(),
-        "issuer": certificate.issuer.rfc4514_string(),
-        "notBefore": not_before.isoformat(),
-        "notAfter": not_after.isoformat(),
+        "subject": subject,
+        "issuer": issuer,
+        "notBefore": not_before.isoformat() if not_before else None,
+        "notAfter": not_after.isoformat() if not_after else None,
         "groupId": cert.group_id,
         "groupCode": cert.group.group_code if cert.group else None,
         "autoRotatedFromKid": cert.auto_rotated_from_kid,
     }
-    payload["keyUsage"] = _extract_key_usage_values(certificate)
-    payload["extendedKeyUsage"] = _extract_extended_key_usage_values(certificate)
+    payload["keyUsage"] = key_usage_values
+    payload["extendedKeyUsage"] = extended_key_usage_values
     if include_pem:
-        payload["certificatePem"] = certificate.public_bytes(
-            serialization.Encoding.PEM
-        ).decode("utf-8")
+        payload["certificatePem"] = cert.certificate_pem or ""
     if include_jwk:
         payload["jwk"] = cert.jwk
     return payload
@@ -484,8 +499,6 @@ def issue_certificate_for_group(group_code: str):
             valid_days = int(payload.get("validDays"))
         except (TypeError, ValueError):
             return _json_error(_("Valid days must be an integer."), HTTPStatus.BAD_REQUEST)
-        if valid_days <= 0:
-            return _json_error(_("Valid days must be at least 1."), HTTPStatus.BAD_REQUEST)
 
     key_usage = None
     if "keyUsage" in payload:

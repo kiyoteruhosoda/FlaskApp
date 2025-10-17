@@ -3038,6 +3038,18 @@ msgstr "グループの取得に失敗しました: %(message)s"
 msgid "Invalid revoked flag."
 msgstr "失効ステータスの指定が不正です。"
 
+msgid "Unlimited"
+msgstr "無期限"
+
+msgid "No certificate is stored for this key."
+msgstr "この鍵には証明書が保存されていません。"
+
+msgid "Not used for signing keys."
+msgstr "署名用途の鍵では使用しません。"
+
+msgid "No certificate was generated for this key."
+msgstr "この鍵については証明書が生成されませんでした。"
+
 msgid "Use ISO 8601 format for date filters."
 msgstr "日付フィルターはISO 8601形式で指定してください。"
 

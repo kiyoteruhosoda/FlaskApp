@@ -57,7 +57,7 @@
 <div class="card mb-4">
   <div class="card-header">{{ _('Issue New Certificate') }}</div>
   <div class="card-body">
-    <form method="post" action="{{ url_for('certs_ui.issue_certificate', group_code=group.group_code) }}" class="row g-3">
+    <form method="post" action="{{ url_for('certs_ui.issue_certificate', group_code=group.group_code) }}" class="row g-3" id="issueCertificateForm">
       <div class="col-md-3">
         <label class="form-label" for="valid_days">{{ _('Validity (days)') }}</label>
         <input type="number" class="form-control" id="valid_days" name="valid_days" min="1" placeholder="{{ group.rotation_threshold_days * 2 }}">
@@ -232,6 +232,16 @@
     form.action = `{{ url_for('certs_ui.revoke_certificate_in_group', group_code=group.group_code, kid='__KID__') }}`.replace('__KID__', encodeURIComponent(kid));
     form.querySelector('#revoke_reason').value = '';
   });
+
+  const issueForm = document.getElementById('issueCertificateForm');
+  if (issueForm) {
+    const confirmMessage = {{ _("Are you sure you want to issue a new certificate for this group?") | tojson }};
+    issueForm.addEventListener('submit', function(event) {
+      if (!window.confirm(confirmMessage)) {
+        event.preventDefault();
+      }
+    });
+  }
 })();
 </script>
 {% endblock %}

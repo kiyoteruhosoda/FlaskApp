@@ -1179,3 +1179,39 @@ msgstr "Back to Group"
 
 msgid "Are you sure you want to issue a new certificate for this group?"
 msgstr "Are you sure you want to issue a new certificate for this group?"
+
+msgid "Access token signing will use the built-in secret."
+msgstr "Access token signing will use the built-in secret."
+
+msgid "Access token signing certificate updated."
+msgstr "Access token signing certificate updated."
+
+msgid "Failed to update the access token signing configuration."
+msgstr "Failed to update the access token signing configuration."
+
+msgid "Access Token Signing"
+msgstr "Access Token Signing"
+
+msgid "Built-in secret (HS256)"
+msgstr "Built-in secret (HS256)"
+
+msgid "Use the built-in JWT secret key configured in the application settings."
+msgstr "Use the built-in JWT secret key configured in the application settings."
+
+msgid "Server signing certificates"
+msgstr "Server signing certificates"
+
+msgid "Unnamed group"
+msgstr "Unnamed group"
+
+msgid "Algorithm: %(algorithm)s"
+msgstr "Algorithm: %(algorithm)s"
+
+msgid "Expires at: %(timestamp)s"
+msgstr "Expires at: %(timestamp)s"
+
+msgid "No server signing certificates are available. Issue a certificate in the certificate management section first."
+msgstr "No server signing certificates are available. Issue a certificate in the certificate management section first."
+
+msgid "Save signing settings"
+msgstr "Save signing settings"

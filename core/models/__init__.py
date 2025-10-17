@@ -11,6 +11,7 @@ from .picker_import_task import PickerImportTask
 from .totp import TOTPCredential
 from .service_account import ServiceAccount
 from .service_account_api_key import ServiceAccountApiKey, ServiceAccountApiKeyLog
+from .system_setting import SystemSetting
 
 __all__ = [
     'User',
@@ -30,4 +31,5 @@ __all__ = [
     'ServiceAccount',
     'ServiceAccountApiKey',
     'ServiceAccountApiKeyLog',
+    'SystemSetting',
 ]

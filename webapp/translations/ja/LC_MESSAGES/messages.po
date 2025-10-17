@@ -3200,3 +3200,39 @@ msgstr "指定したグループに証明書が存在しません"
 
 msgid "Are you sure you want to issue a new certificate for this group?"
 msgstr "このグループに新しい証明書を発行します。よろしいですか？"
+
+msgid "Access token signing will use the built-in secret."
+msgstr "アクセストークンの署名に組み込みシークレットを利用します。"
+
+msgid "Access token signing certificate updated."
+msgstr "アクセストークン署名証明書を更新しました。"
+
+msgid "Failed to update the access token signing configuration."
+msgstr "アクセストークン署名の設定を更新できませんでした。"
+
+msgid "Access Token Signing"
+msgstr "アクセストークン署名"
+
+msgid "Built-in secret (HS256)"
+msgstr "組み込みシークレット（HS256）"
+
+msgid "Use the built-in JWT secret key configured in the application settings."
+msgstr "アプリケーション設定の組み込みJWTシークレットキーを使用します。"
+
+msgid "Server signing certificates"
+msgstr "サーバー署名証明書"
+
+msgid "Unnamed group"
+msgstr "名称未設定のグループ"
+
+msgid "Algorithm: %(algorithm)s"
+msgstr "アルゴリズム: %(algorithm)s"
+
+msgid "Expires at: %(timestamp)s"
+msgstr "有効期限: %(timestamp)s"
+
+msgid "No server signing certificates are available. Issue a certificate in the certificate management section first."
+msgstr "サーバー署名証明書がありません。先に証明書管理セクションで証明書を発行してください。"
+
+msgid "Save signing settings"
+msgstr "署名設定を保存"

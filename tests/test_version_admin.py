@@ -32,7 +32,6 @@ class TestVersionAdminPage:
         # 管理者権限のないユーザーをモック
         mock_user = type('MockUser', (), {
             'is_authenticated': True,
-            'has_role': lambda self, role: False,  # 管理者権限なし
             'can': lambda self, perm: False
         })()
         mock_current_user.return_value = mock_user
@@ -48,8 +47,7 @@ class TestVersionAdminPage:
         # 管理者権限のあるユーザーをモック
         mock_user = type('MockUser', (), {
             'is_authenticated': True,
-            'has_role': lambda self, role: role == 'admin',  # 管理者権限あり
-            'can': lambda self, perm: True
+            'can': lambda self, perm: perm == 'system:manage'
         })()
         mock_current_user.return_value = mock_user
         
@@ -77,8 +75,7 @@ class TestVersionAdminPage:
         # 管理者権限のあるユーザーをモック
         mock_user = type('MockUser', (), {
             'is_authenticated': True,
-            'has_role': lambda self, role: role == 'admin',
-            'can': lambda self, perm: True
+            'can': lambda self, perm: perm == 'system:manage'
         })()
         mock_current_user.return_value = mock_user
         
@@ -119,8 +116,7 @@ class TestVersionAdminPage:
         # 管理者権限のあるユーザーをモック
         mock_user = type('MockUser', (), {
             'is_authenticated': True,
-            'has_role': lambda self, role: role == 'admin',
-            'can': lambda self, perm: True
+            'can': lambda self, perm: perm == 'system:manage'
         })()
         mock_current_user.return_value = mock_user
         

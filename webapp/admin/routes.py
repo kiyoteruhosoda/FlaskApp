@@ -242,7 +242,7 @@ def service_account_api_keys(account_id: int):
 @bp.route("/config", methods=["GET", "POST"])
 @login_required
 def show_config():
-    if not (hasattr(current_user, 'has_role') and current_user.has_role("admin")):
+    if not current_user.can("system:manage"):
         return _(u"You do not have permission to access this page."), 403
     if request.method == "POST":
         selected = (request.form.get("access_token_signing") or "builtin").strip()
@@ -287,7 +287,7 @@ def show_config():
 @bp.route("/version")
 @login_required
 def show_version():
-    if not (hasattr(current_user, 'has_role') and current_user.has_role("admin")):
+    if not current_user.can("system:manage"):
         return _(u"You do not have permission to access this page."), 403
     from core.version import get_version_info
     version_info = get_version_info()

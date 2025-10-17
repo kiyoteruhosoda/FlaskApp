@@ -65,7 +65,6 @@
       <ul class="navbar-nav">
         {% if current_user.is_authenticated %}
           {% set show_system_manage = current_user.can('system:manage') %}
-          {% set show_admin_only = current_user.has_role('admin') %}
           {% set show_user_manage = current_user.can('user:manage') %}
           {% set show_service_accounts = current_user.can('service_account:manage') %}
           {% set show_api_key_management = current_user.can('api_key:manage') or current_user.can('api_key:read') %}
@@ -74,7 +73,7 @@
               <i class="fas fa-user-circle me-1"></i>{{ current_user.display_name }}
             </a>
           </li>
-          {% if current_user.can('user:manage') or current_user.can('role:manage') or current_user.can('permission:manage') or show_service_accounts or show_system_manage or show_admin_only %}
+          {% if current_user.can('user:manage') or current_user.can('role:manage') or current_user.can('permission:manage') or show_service_accounts or show_system_manage %}
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" id="managementNavDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
               {{ _('Management') }}
@@ -111,7 +110,7 @@
                 </a>
               </li>
               {% endif %}
-              {% if show_admin_only %}
+              {% if show_system_manage %}
               {% if not show_system_manage %}
               <li><hr class="dropdown-divider"></li>
               {% endif %}

@@ -397,9 +397,7 @@ def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
     else:
         query = query.order_by(WorkerLog.id.desc()).limit(limit * 5)
 
-    logs = []
-
-    for row in query:
+    def _transform_row(row):
         try:
             payload = json.loads(row.message)
         except Exception:
@@ -429,7 +427,7 @@ def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
             session_matches = True
 
         if not session_matches:
-            continue
+            return None
 
         excluded_keys = {
             "session_id",
@@ -493,13 +491,57 @@ def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
                 "trace": row.trace,
             }
 
+        return log_entry
+
+    logs = []
+    extracted_present = False
+
+    for row in query:
+        log_entry = _transform_row(row)
+        if log_entry is None:
+            continue
+
         logs.append(log_entry)
+        if log_entry.get("event") == "local_import.zip.extracted":
+            extracted_present = True
 
         if limit is not None and len(logs) >= limit:
             break
 
     if limit is not None:
         logs.sort(key=lambda item: item.get("id", 0))
+
+        if not extracted_present:
+            fallback_query = (
+                WorkerLog.query.filter(WorkerLog.event == "local_import.zip.extracted")
+                .order_by(WorkerLog.id.asc())
+            )
+
+            fallback_entry = None
+            for row in fallback_query:
+                entry = _transform_row(row)
+                if entry is None:
+                    continue
+                fallback_entry = entry
+
+            if fallback_entry and fallback_entry.get("id") not in {
+                item.get("id") for item in logs
+            }:
+                logs.append(fallback_entry)
+                logs.sort(key=lambda item: item.get("id", 0))
+                if len(logs) > limit:
+                    if limit == 1:
+                        logs = [fallback_entry]
+                    else:
+                        trimmed = [
+                            item
+                            for item in logs
+                            if item.get("id") != fallback_entry.get("id")
+                        ]
+                        trimmed = trimmed[-(limit - 1) :]
+                        trimmed.append(fallback_entry)
+                        trimmed.sort(key=lambda item: item.get("id", 0))
+                        logs = trimmed
 
     return logs
 

@@ -83,6 +83,18 @@ def _resolve_next_target(default_endpoint: str) -> str:
     return url_for(default_endpoint)
 
 
+def _resolve_safe_next_value():
+    """ログインフォームで利用する安全な next パラメータを取得する。"""
+    candidate = request.values.get("next")
+    if candidate and candidate.startswith("/") and not candidate.startswith("//"):
+        return candidate
+    return None
+
+
+def _render_login_template():
+    return render_template("auth/login.html", next_value=_resolve_safe_next_value())
+
+
 def _pop_role_selection_target() -> str:
     """ロール選択後の遷移先を取得する。"""
     candidate = session.pop("role_selection_next", None) or request.args.get("next")
@@ -178,11 +190,11 @@ def login():
         user_model = auth_service.authenticate(email, password)
         if not user_model:
             flash(_("Invalid email or password"), "error")
-            return render_template("auth/login.html")
+            return _render_login_template()
         if user_model.totp_secret:
             if not token or not verify_totp(user_model.totp_secret, token):
                 flash(_("Invalid authentication code"), "error")
-                return render_template("auth/login.html")
+                return _render_login_template()
         login_user(user_model)
         session.pop("active_role_id", None)
         redirect_target = _resolve_post_login_target()
@@ -192,7 +204,7 @@ def login():
             return redirect(url_for("auth.select_role"))
         _sync_active_role(user_model)
         return redirect(redirect_target)
-    return render_template("auth/login.html")
+    return _render_login_template()
 
 
 @bp.route("/select-role", methods=["GET", "POST"])

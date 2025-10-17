@@ -319,6 +319,70 @@ msgstr "=== %(app_name)s Version Information ==="
 msgid "%(app_name)s Version Information"
 msgstr "%(app_name)s Version Information"
 
+#: webapp/templates/admin/version_view.html:20
+msgid "Version String"
+msgstr "Version String"
+
+#: webapp/templates/admin/version_view.html:33
+msgid "Full Commit Hash"
+msgstr "Full Commit Hash"
+
+#: webapp/templates/admin/version_view.html:57
+msgid "Runtime Environment"
+msgstr "Runtime Environment"
+
+#: webapp/templates/admin/version_view.html:63
+msgid "Python Version"
+msgstr "Python Version"
+
+#: webapp/templates/admin/version_view.html:68
+msgid "Platform"
+msgstr "Platform"
+
+#: webapp/templates/admin/version_view.html:70
+msgid "Hostname"
+msgstr "Hostname"
+
+#: webapp/templates/admin/version_view.html:72
+msgid "Environment"
+msgstr "Environment"
+
+#: webapp/templates/admin/version_view.html:74
+msgid "Debug Mode"
+msgstr "Debug Mode"
+
+#: webapp/templates/admin/version_view.html:80
+msgid "Flask Version"
+msgstr "Flask Version"
+
+#: webapp/templates/admin/version_view.html:82
+msgid "Werkzeug Version"
+msgstr "Werkzeug Version"
+
+#: webapp/templates/admin/version_view.html:90
+msgid "API Access"
+msgstr "API Access"
+
+#: webapp/templates/admin/version_view.html:95
+msgid "You can retrieve the same information through the API."
+msgstr "You can retrieve the same information through the API."
+
+#: webapp/templates/admin/version_view.html:104
+msgid "Test Endpoint"
+msgstr "Test Endpoint"
+
+#: webapp/templates/admin/version_view.html:107
+msgid "API Response"
+msgstr "API Response"
+
+#: webapp/templates/admin/version_view.html:126
+msgid "Server time is fetched from the health API once per minute."
+msgstr "Server time is fetched from the health API once per minute."
+
+#: webapp/templates/admin/version_view.html:197
+msgid "An error occurred while requesting version information."
+msgstr "An error occurred while requesting version information."
+
 msgid "=== %(app_name)s Master Data Seeding ==="
 msgstr "=== %(app_name)s Master Data Seeding ==="
 
@@ -1180,6 +1244,24 @@ msgstr "Back to Group"
 msgid "Are you sure you want to issue a new certificate for this group?"
 msgstr "Are you sure you want to issue a new certificate for this group?"
 
+msgid "Current Time"
+msgstr "Current Time"
+
+msgid "Local Time"
+msgstr "Local Time"
+
+msgid "UTC Time"
+msgstr "UTC Time"
+
+msgid "Server Time"
+msgstr "Server Time"
+
+msgid "Back to Home"
+msgstr "Back to Home"
+
+msgid "Unavailable"
+msgstr "Unavailable"
+
 msgid "Access token signing will use the built-in secret."
 msgstr "Access token signing will use the built-in secret."
 
@@ -1236,3 +1318,4 @@ msgstr "No server signing certificate groups are available. Create a certificate
 
 msgid "Save signing settings"
 msgstr "Save signing settings"
+

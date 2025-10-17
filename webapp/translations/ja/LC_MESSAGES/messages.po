@@ -979,6 +979,70 @@ msgstr "=== %(app_name)s バージョン情報 ==="
 msgid "%(app_name)s Version Information"
 msgstr "%(app_name)s バージョン情報"
 
+#: webapp/templates/admin/version_view.html:20
+msgid "Version String"
+msgstr "バージョン文字列"
+
+#: webapp/templates/admin/version_view.html:33
+msgid "Full Commit Hash"
+msgstr "コミットハッシュ（フル）"
+
+#: webapp/templates/admin/version_view.html:57
+msgid "Runtime Environment"
+msgstr "実行環境"
+
+#: webapp/templates/admin/version_view.html:63
+msgid "Python Version"
+msgstr "Pythonバージョン"
+
+#: webapp/templates/admin/version_view.html:68
+msgid "Platform"
+msgstr "プラットフォーム"
+
+#: webapp/templates/admin/version_view.html:70
+msgid "Hostname"
+msgstr "ホスト名"
+
+#: webapp/templates/admin/version_view.html:72
+msgid "Environment"
+msgstr "環境"
+
+#: webapp/templates/admin/version_view.html:74
+msgid "Debug Mode"
+msgstr "デバッグモード"
+
+#: webapp/templates/admin/version_view.html:80
+msgid "Flask Version"
+msgstr "Flaskバージョン"
+
+#: webapp/templates/admin/version_view.html:82
+msgid "Werkzeug Version"
+msgstr "Werkzeugバージョン"
+
+#: webapp/templates/admin/version_view.html:90
+msgid "API Access"
+msgstr "APIアクセス"
+
+#: webapp/templates/admin/version_view.html:95
+msgid "You can retrieve the same information through the API."
+msgstr "同じ情報をAPI経由でも取得できます。"
+
+#: webapp/templates/admin/version_view.html:104
+msgid "Test Endpoint"
+msgstr "エンドポイントをテスト"
+
+#: webapp/templates/admin/version_view.html:107
+msgid "API Response"
+msgstr "APIレスポンス"
+
+#: webapp/templates/admin/version_view.html:126
+msgid "Server time is fetched from the health API once per minute."
+msgstr "サーバー時刻はヘルスAPIから1分ごとに取得されます。"
+
+#: webapp/templates/admin/version_view.html:197
+msgid "An error occurred while requesting version information."
+msgstr "バージョン情報の取得中にエラーが発生しました。"
+
 msgid "=== %(app_name)s Master Data Seeding ==="
 msgstr "=== %(app_name)s マスターデータ投入 ==="
 
@@ -3200,6 +3264,24 @@ msgstr "指定したグループに証明書が存在しません"
 
 msgid "Are you sure you want to issue a new certificate for this group?"
 msgstr "このグループに新しい証明書を発行します。よろしいですか？"
+
+msgid "Current Time"
+msgstr "現在時刻"
+
+msgid "Local Time"
+msgstr "ローカル時刻"
+
+msgid "UTC Time"
+msgstr "UTC時刻"
+
+msgid "Server Time"
+msgstr "サーバー時刻"
+
+msgid "Back to Home"
+msgstr "ホームに戻る"
+
+msgid "Unavailable"
+msgstr "取得できません"
 
 msgid "Access token signing will use the built-in secret."
 msgstr "アクセストークンの署名に組み込みシークレットを利用します。"

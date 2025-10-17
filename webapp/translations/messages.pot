@@ -901,6 +901,70 @@ msgstr ""
 msgid "%(app_name)s Version Information"
 msgstr ""
 
+#: webapp/templates/admin/version_view.html:20
+msgid "Version String"
+msgstr ""
+
+#: webapp/templates/admin/version_view.html:33
+msgid "Full Commit Hash"
+msgstr ""
+
+#: webapp/templates/admin/version_view.html:57
+msgid "Runtime Environment"
+msgstr ""
+
+#: webapp/templates/admin/version_view.html:63
+msgid "Python Version"
+msgstr ""
+
+#: webapp/templates/admin/version_view.html:68
+msgid "Platform"
+msgstr ""
+
+#: webapp/templates/admin/version_view.html:70
+msgid "Hostname"
+msgstr ""
+
+#: webapp/templates/admin/version_view.html:72
+msgid "Environment"
+msgstr ""
+
+#: webapp/templates/admin/version_view.html:74
+msgid "Debug Mode"
+msgstr ""
+
+#: webapp/templates/admin/version_view.html:80
+msgid "Flask Version"
+msgstr ""
+
+#: webapp/templates/admin/version_view.html:82
+msgid "Werkzeug Version"
+msgstr ""
+
+#: webapp/templates/admin/version_view.html:90
+msgid "API Access"
+msgstr ""
+
+#: webapp/templates/admin/version_view.html:95
+msgid "You can retrieve the same information through the API."
+msgstr ""
+
+#: webapp/templates/admin/version_view.html:104
+msgid "Test Endpoint"
+msgstr ""
+
+#: webapp/templates/admin/version_view.html:107
+msgid "API Response"
+msgstr ""
+
+#: webapp/templates/admin/version_view.html:126
+msgid "Server time is fetched from the health API once per minute."
+msgstr ""
+
+#: webapp/templates/admin/version_view.html:197
+msgid "An error occurred while requesting version information."
+msgstr ""
+
 msgid "=== %(app_name)s Master Data Seeding ==="
 msgstr ""
 
@@ -1493,5 +1557,29 @@ msgstr ""
 
 #: features/certs/presentation/ui/templates/certs/group_detail.html:???
 msgid "When enabled, the issued key will not include an expiry date."
+msgstr ""
+
+#: webapp/templates/admin/version_view.html:??
+msgid "Current Time"
+msgstr ""
+
+#: webapp/templates/admin/version_view.html:??
+msgid "Local Time"
+msgstr ""
+
+#: webapp/templates/admin/version_view.html:??
+msgid "UTC Time"
+msgstr ""
+
+#: webapp/templates/admin/version_view.html:??
+msgid "Server Time"
+msgstr ""
+
+#: webapp/templates/admin/version_view.html:??
+msgid "Back to Home"
+msgstr ""
+
+#: webapp/templates/admin/version_view.html:??
+msgid "Unavailable"
 msgstr ""
 

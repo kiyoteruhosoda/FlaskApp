@@ -5,8 +5,8 @@
 {% block content %}
 <div class="container mt-4">
     <div class="row">
-        <div class="col-md-8 offset-md-2">
-            <div class="card">
+        <div class="col-xl-8 offset-xl-2 col-lg-10 offset-lg-1">
+            <div class="card mb-4">
                 <div class="card-header">
                     <h3 class="card-title mb-0">
                         <i class="bi bi-info-circle me-2"></i>
@@ -14,55 +14,155 @@
                     </h3>
                 </div>
                 <div class="card-body">
-                    <table class="table table-striped">
-                        <tbody>
-                            <tr>
-                                <th scope="row" width="200">{{ _('Version') }}</th>
-                                <td>
-                                    <code>{{ version_info.version }}</code>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">{{ _('Branch') }}</th>
-                                <td>
-                                    <span class="badge bg-primary">{{ version_info.branch }}</span>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">{{ _('Commit Hash') }}</th>
-                                <td>
-                                    <code>{{ version_info.commit_hash_full or version_info.commit_hash }}</code>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">{{ _('Commit Date') }}</th>
-                                <td>{{ version_info.commit_date }}</td>
-                            </tr>
-                            <tr>
-                                <th scope="row">{{ _('Build Date') }}</th>
-                                <td>{{ version_info.build_date }}</td>
-                            </tr>
-                            {% if version_info.app_start_date %}
-                            <tr>
-                                <th scope="row">{{ _('App Start Date') }}</th>
-                                <td>{{ version_info.app_start_date }}</td>
-                            </tr>
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+                        <div>
+                            <div class="text-uppercase text-muted small fw-semibold">{{ _('Version String') }}</div>
+                            <div class="fs-5 fw-semibold text-break"><code>{{ app_version }}</code></div>
+                        </div>
+                        <button
+                            type="button"
+                            class="btn btn-outline-secondary btn-sm"
+                            data-copy-text="{{ app_version }}"
+                            data-copy-label="{{ _('Copy') }}"
+                            data-copied-label="{{ _('Copied!') }}"
+                        >
+                            <i class="bi bi-clipboard me-1"></i>{{ _('Copy') }}
+                        </button>
+                    </div>
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">{{ _('Version') }}</dt>
+                        <dd class="col-sm-8 text-break"><code>{{ version_info.version }}</code></dd>
+                        <dt class="col-sm-4">{{ _('Branch') }}</dt>
+                        <dd class="col-sm-8"><span class="badge bg-primary">{{ version_info.branch }}</span></dd>
+                        <dt class="col-sm-4">{{ _('Commit Hash') }}</dt>
+                        <dd class="col-sm-8 text-break"><code>{{ version_info.commit_hash }}</code></dd>
+                        <dt class="col-sm-4">{{ _('Full Commit Hash') }}</dt>
+                        <dd class="col-sm-8 text-break">
+                            {% if version_info.commit_hash_full and version_info.commit_hash_full != 'unknown' %}
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                <code class="mb-0">{{ version_info.commit_hash_full }}</code>
+                                <button
+                                    type="button"
+                                    class="btn btn-outline-secondary btn-sm"
+                                    data-copy-text="{{ version_info.commit_hash_full }}"
+                                    data-copy-label="{{ _('Copy') }}"
+                                    data-copied-label="{{ _('Copied!') }}"
+                                >
+                                    <i class="bi bi-clipboard me-1"></i>{{ _('Copy') }}
+                                </button>
+                                <a
+                                    href="https://github.com/kiyoteruhosoda/FlaskApp/commit/{{ version_info.commit_hash_full }}"
+                                    class="btn btn-outline-primary btn-sm"
+                                    target="_blank"
+                                    rel="noopener"
+                                >
+                                    <i class="bi bi-github me-1"></i>GitHub
+                                </a>
+                            </div>
+                            {% else %}
+                            <span class="text-muted">{{ _('Unavailable') }}</span>
                             {% endif %}
-                        </tbody>
-                    </table>
-                </div>
-                <div class="card-footer text-muted">
-                    <small id="last-updated">
-                        <i class="bi bi-clock me-1"></i>
-                        {{ _('Last updated') }}: <span id="current-time"></span>
-                    </small>
+                        </dd>
+                        <dt class="col-sm-4">{{ _('Commit Date') }}</dt>
+                        <dd class="col-sm-8">{{ version_info.commit_date or _('Unavailable') }}</dd>
+                        <dt class="col-sm-4">{{ _('Build Date') }}</dt>
+                        <dd class="col-sm-8">{{ version_info.build_date or _('Unavailable') }}</dd>
+                        {% if version_info.app_start_date %}
+                        <dt class="col-sm-4">{{ _('App Start Date') }}</dt>
+                        <dd class="col-sm-8 text-break">{{ version_info.app_start_date }}</dd>
+                        {% endif %}
+                    </dl>
                 </div>
             </div>
-            
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">
+                        <i class="bi bi-cpu me-2"></i>
+                        {{ _('Runtime Environment') }}
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">{{ _('Python Version') }}</dt>
+                        <dd class="col-sm-8">
+                            {{ system_info.python_version }}
+                            {% if system_info.python_implementation %}
+                            <span class="text-muted ms-2">{{ system_info.python_implementation }}</span>
+                            {% endif %}
+                        </dd>
+                        <dt class="col-sm-4">{{ _('Platform') }}</dt>
+                        <dd class="col-sm-8 text-break">{{ system_info.platform }}</dd>
+                        <dt class="col-sm-4">{{ _('Hostname') }}</dt>
+                        <dd class="col-sm-8 text-break">{{ system_info.hostname }}</dd>
+                        <dt class="col-sm-4">{{ _('Environment') }}</dt>
+                        <dd class="col-sm-8">{{ system_info.environment or _('Unavailable') }}</dd>
+                        <dt class="col-sm-4">{{ _('Debug Mode') }}</dt>
+                        <dd class="col-sm-8">
+                            {% if system_info.debug %}
+                            <span class="badge bg-warning text-dark">{{ _('Enabled') }}</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ _('Disabled') }}</span>
+                            {% endif %}
+                        </dd>
+                        <dt class="col-sm-4">{{ _('Flask Version') }}</dt>
+                        <dd class="col-sm-8">{{ system_info.flask_version }}</dd>
+                        <dt class="col-sm-4">{{ _('Werkzeug Version') }}</dt>
+                        <dd class="col-sm-8">{{ system_info.werkzeug_version }}</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">
+                        <i class="bi bi-cloud-arrow-down me-2"></i>
+                        {{ _('API Access') }}
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">{{ _('You can retrieve the same information through the API.') }}</p>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <code class="bg-body-secondary px-2 py-1 rounded text-break">{{ url_for('api.version', _external=True) }}</code>
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary btn-sm"
+                            id="version-api-test"
+                        >
+                            <i class="bi bi-play-fill me-1"></i>{{ _('Test Endpoint') }}
+                        </button>
+                    </div>
+                    <div id="version-api-result" class="mt-3 d-none">
+                        <h6 class="fw-semibold">{{ _('API Response') }}</h6>
+                        <pre id="version-api-response" class="bg-body-tertiary rounded p-3 mb-0 text-break"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">
+                        <i class="bi bi-clock me-2"></i>
+                        {{ _('Current Time') }}
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">{{ _('Local Time') }}</dt>
+                        <dd class="col-sm-8"><span id="current-time-local">--</span></dd>
+                        <dt class="col-sm-4">{{ _('UTC Time') }}</dt>
+                        <dd class="col-sm-8"><span id="current-time-utc">--</span></dd>
+                        <dt class="col-sm-4">{{ _('Server Time') }}</dt>
+                        <dd class="col-sm-8"><span id="current-time-server">--</span></dd>
+                    </dl>
+                    <p class="text-muted small mb-0 mt-3">{{ _('Server time is fetched from the health API once per minute.') }}</p>
+                </div>
+            </div>
+
             <div class="mt-3">
-                <a href="{{ url_for('admin.show_config') }}" class="btn btn-secondary">
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">
                     <i class="bi bi-arrow-left me-1"></i>
-                    {{ _('Back to Admin') }}
+                    {{ _('Back to Home') }}
                 </a>
             </div>
         </div>
@@ -71,31 +171,158 @@
 {% endblock %}
 
 {% block extra_scripts %}
+{{ super() }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // 現在時刻を表示（moment.jsを使わずに標準のDateオブジェクトを使用）
-    function updateCurrentTime() {
+    const localElement = document.getElementById('current-time-local');
+    const utcElement = document.getElementById('current-time-utc');
+    const serverElement = document.getElementById('current-time-server');
+    const apiTestButton = document.getElementById('version-api-test');
+    const apiResultContainer = document.getElementById('version-api-result');
+    const apiResponseElement = document.getElementById('version-api-response');
+
+    const baseFormatOptions = {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    };
+
+    const localFormatter = new Intl.DateTimeFormat(undefined, baseFormatOptions);
+    const utcFormatter = new Intl.DateTimeFormat(undefined, {
+        ...baseFormatOptions,
+        timeZone: 'UTC'
+    });
+
+    let serverOffset = 0;
+    let hasServerTime = false;
+
+    function updateTimes() {
         const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-        
-        const formattedTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-        
-        const timeElement = document.getElementById('current-time');
-        if (timeElement) {
-            timeElement.textContent = formattedTime;
+        if (localElement) {
+            localElement.textContent = localFormatter.format(now);
+        }
+        if (utcElement) {
+            utcElement.textContent = utcFormatter.format(now);
+        }
+        if (serverElement) {
+            if (hasServerTime) {
+                const serverNow = new Date(now.getTime() + serverOffset);
+                serverElement.textContent = localFormatter.format(serverNow);
+            } else {
+                serverElement.textContent = '{{ _('Unavailable') }}';
+            }
         }
     }
-    
-    // 初回実行
-    updateCurrentTime();
-    
-    // 1秒ごとに更新
-    setInterval(updateCurrentTime, 1000);
+
+    async function fetchServerTime() {
+        if (!serverElement) {
+            return;
+        }
+
+        try {
+            const response = await fetch('{{ url_for('api.health_beat') }}', {
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Request failed');
+            }
+
+            const data = await response.json();
+            if (data && data.serverTime) {
+                const serverDate = new Date(data.serverTime);
+                if (!Number.isNaN(serverDate.getTime())) {
+                    serverOffset = serverDate.getTime() - Date.now();
+                    hasServerTime = true;
+                    updateTimes();
+                    return;
+                }
+            }
+
+            hasServerTime = false;
+            updateTimes();
+        } catch (error) {
+            console.error('Failed to fetch server time', error);
+            hasServerTime = false;
+            updateTimes();
+        }
+    }
+
+    function setupCopyButtons() {
+        const copyButtons = document.querySelectorAll('[data-copy-text]');
+        copyButtons.forEach((button) => {
+            const defaultLabel = button.getAttribute('data-copy-label');
+            const copiedLabel = button.getAttribute('data-copied-label');
+            button.addEventListener('click', async () => {
+                const text = button.getAttribute('data-copy-text');
+                if (!text) {
+                    return;
+                }
+                try {
+                    await navigator.clipboard.writeText(text);
+                    if (copiedLabel) {
+                        button.innerHTML = '<i class="bi bi-clipboard-check me-1"></i>' + copiedLabel;
+                        setTimeout(() => {
+                            button.innerHTML = '<i class="bi bi-clipboard me-1"></i>' + (defaultLabel || '');
+                        }, 2000);
+                    }
+                } catch (err) {
+                    console.error('Clipboard copy failed', err);
+                }
+            });
+        });
+    }
+
+    async function testVersionAPI() {
+        if (!apiTestButton || !apiResponseElement || !apiResultContainer) {
+            return;
+        }
+
+        apiTestButton.disabled = true;
+        apiTestButton.setAttribute('aria-busy', 'true');
+        try {
+            const response = await fetch('{{ url_for('api.version') }}', {
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            if (!response.ok) {
+                throw new Error(response.status.toString());
+            }
+            const data = await response.json();
+            apiResponseElement.textContent = JSON.stringify(data, null, 2);
+        } catch (error) {
+            apiResponseElement.textContent = '{{ _('An error occurred while requesting version information.') }}\n' + error;
+        } finally {
+            apiResultContainer.classList.remove('d-none');
+            apiTestButton.disabled = false;
+            apiTestButton.removeAttribute('aria-busy');
+        }
+    }
+
+    function setupApiTestButton() {
+        if (!apiTestButton || !apiResponseElement || !apiResultContainer) {
+            return;
+        }
+
+        apiTestButton.addEventListener('click', async (event) => {
+            event.preventDefault();
+            await testVersionAPI();
+        });
+    }
+
+    setupCopyButtons();
+    setupApiTestButton();
+    updateTimes();
+    setInterval(updateTimes, 1000);
+    fetchServerTime();
+    setInterval(fetchServerTime, 60000);
 });
 </script>
 {% endblock %}

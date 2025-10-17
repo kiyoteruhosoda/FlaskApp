@@ -68,6 +68,7 @@
           {% set show_admin_only = current_user.has_role('admin') %}
           {% set show_user_manage = current_user.can('user:manage') %}
           {% set show_service_accounts = current_user.can('service_account:manage') %}
+          {% set show_api_key_management = current_user.can('api_key:manage') or current_user.can('api_key:read') or current_user.can('service_account_api:read') %}
           <li class="nav-item">
             <a class="nav-link" href="{{ url_for('auth.profile') }}">
               <i class="fas fa-user-circle me-1"></i>{{ current_user.display_name }}
@@ -85,6 +86,8 @@
               {% endif %}
               {% if show_service_accounts %}
               <li><a class="dropdown-item" href="{{ url_for('admin.service_accounts') }}">{{ _('Service Accounts') }}</a></li>
+              {% elif show_api_key_management %}
+              <li><a class="dropdown-item" href="{{ url_for('admin.service_accounts') }}">{{ _('API Key Management') }}</a></li>
               {% endif %}
               {% if show_user_manage %}
               <li><hr class="dropdown-divider"></li>

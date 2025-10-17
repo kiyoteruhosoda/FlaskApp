@@ -1,7 +1,11 @@
 
 import os
+import platform
+import socket
 from pathlib import Path
 
+import flask
+import werkzeug
 from flask import (
     Blueprint,
     render_template,
@@ -11,6 +15,7 @@ from flask import (
     request,
     jsonify,
     session,
+    current_app,
 )
 from ..extensions import db
 from flask_login import login_required, current_user
@@ -246,7 +251,21 @@ def show_version():
         return _(u"You do not have permission to access this page."), 403
     from core.version import get_version_info
     version_info = get_version_info()
-    return render_template("admin/version_view.html", version_info=version_info)
+    system_info = {
+        "python_version": platform.python_version(),
+        "python_implementation": platform.python_implementation(),
+        "platform": platform.platform(),
+        "flask_version": flask.__version__,
+        "werkzeug_version": werkzeug.__version__,
+        "environment": getattr(current_app, "env", None),
+        "debug": current_app.debug,
+        "hostname": socket.gethostname(),
+    }
+    return render_template(
+        "admin/version_view.html",
+        version_info=version_info,
+        system_info=system_info,
+    )
 
 
 @bp.route("/data-files")

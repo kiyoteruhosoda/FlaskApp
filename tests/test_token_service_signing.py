@@ -2,10 +2,13 @@ import jwt
 import pytest
 
 from core.models.user import User
+from datetime import datetime, timedelta, timezone
+
 from features.certs.application.use_cases import IssueCertificateForGroupUseCase
 from features.certs.domain.usage import UsageType
-from features.certs.infrastructure.models import CertificateGroupEntity
+from features.certs.infrastructure.models import CertificateGroupEntity, IssuedCertificateEntity
 from webapp.extensions import db
+from webapp.services.access_token_signing import AccessTokenSigningError
 from webapp.services.system_setting_service import SystemSettingService
 from webapp.services.token_service import TokenService
 
@@ -116,3 +119,39 @@ def test_latest_certificate_is_used_for_group():
 
     assert TokenService.verify_access_token(first_token) is not None
     assert TokenService.verify_access_token(second_token) is not None
+
+
+@pytest.mark.usefixtures("app_context")
+def test_revoked_certificate_configuration_surfaces_error():
+    user = User(email="revoked@example.com")
+    user.set_password("secret")
+    db.session.add(user)
+    db.session.commit()
+
+    group = CertificateGroupEntity(
+        group_code="server-signing-revoked",
+        display_name="Server Signing Revoked",
+        auto_rotate=False,
+        rotation_threshold_days=30,
+        key_type="RSA",
+        key_curve=None,
+        key_size=2048,
+        subject={"CN": "Server Signing Revoked"},
+        usage_type=UsageType.SERVER_SIGNING.value,
+    )
+    db.session.add(group)
+    db.session.commit()
+
+    issued = IssueCertificateForGroupUseCase().execute(group.group_code)
+    SystemSettingService.update_access_token_signing_setting("server_signing", group_code=group.group_code)
+
+    certificate_entity = IssuedCertificateEntity.query.get(issued.kid)
+    certificate_entity.revoked_at = datetime.now(timezone.utc) - timedelta(days=1)
+    db.session.add(certificate_entity)
+    db.session.commit()
+
+    signing_setting = SystemSettingService.get_access_token_signing_setting()
+    assert signing_setting.is_server_signing
+
+    with pytest.raises(AccessTokenSigningError):
+        TokenService.generate_access_token(user)

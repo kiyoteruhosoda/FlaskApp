@@ -43,6 +43,7 @@ from features.certs.domain.exceptions import (
 )
 from features.certs.domain.usage import UsageType
 from webapp.services.system_setting_service import (
+    AccessTokenSigningSetting,
     AccessTokenSigningValidationError,
     SystemSettingService,
 )
@@ -266,7 +267,11 @@ def show_config():
         if not k.startswith("_") and k.isupper() and k not in ("SECRET_KEY")
     ]
     config_dict = {k: getattr(Config, k) for k in public_keys}
-    signing_setting = SystemSettingService.get_access_token_signing_setting()
+    try:
+        signing_setting = SystemSettingService.get_access_token_signing_setting()
+    except AccessTokenSigningValidationError as exc:
+        flash(str(exc), "danger")
+        signing_setting = AccessTokenSigningSetting(mode="server_signing")
     certificate_groups = _list_server_signing_certificate_groups()
     return render_template(
         "admin/config_view.html",

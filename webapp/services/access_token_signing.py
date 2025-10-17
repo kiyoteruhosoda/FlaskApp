@@ -49,7 +49,10 @@ class SigningMaterial:
 def resolve_signing_material() -> SigningMaterial:
     """Return the key, algorithm, and headers for issuing an access token."""
 
-    setting = SystemSettingService.get_access_token_signing_setting()
+    try:
+        setting = SystemSettingService.get_access_token_signing_setting()
+    except AccessTokenSigningValidationError as exc:
+        raise AccessTokenSigningError(str(exc)) from exc
     if setting.is_builtin:
         secret = current_app.config["JWT_SECRET_KEY"]
         return SigningMaterial(

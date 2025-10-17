@@ -81,16 +81,13 @@ class SystemSettingService:
         )
 
         if normalized_group_code is None and normalized_kid is not None:
-            try:
-                certificate = cls._load_server_signing_certificate(normalized_kid)
-            except AccessTokenSigningValidationError:
-                return cls._DEFAULT_ACCESS_TOKEN_SIGNING
-            if certificate.group is None:
-                return cls._DEFAULT_ACCESS_TOKEN_SIGNING
+            certificate = cls._load_server_signing_certificate(normalized_kid)
             normalized_group_code = certificate.group.group_code
 
-        if normalized_group_code is None and normalized_kid is None:
-            return cls._DEFAULT_ACCESS_TOKEN_SIGNING
+        if normalized_group_code is None:
+            raise AccessTokenSigningValidationError(
+                _("The access token signing configuration is missing a certificate group."),
+            )
 
         return AccessTokenSigningSetting(
             mode="server_signing",

@@ -19,7 +19,7 @@
         <th scope="col">{{ _('Rotation Threshold (days)') }}</th>
         <th scope="col">{{ _('Key Type') }}</th>
         <th scope="col">{{ _('Subject') }}</th>
-        <th scope="col">{{ _('Updated At') }}</th>
+        <th scope="col">{{ _('Updated At') }} <small class="text-muted">UTC</small></th>
         <th scope="col" class="text-end">{{ _('Actions') }}</th>
       </tr>
     </thead>
@@ -94,6 +94,16 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ _('Close') }}"></button>
         </div>
         <div class="modal-body">
+          {% set errors = create_form_errors | default([]) %}
+          {% if errors %}
+          <div class="alert alert-danger" role="alert">
+            <ul class="mb-0">
+              {% for message in errors %}
+              <li>{{ message }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+          {% endif %}
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label" for="group_code">{{ _('Group Code') }} <span class="text-danger">*</span></label>
@@ -109,6 +119,7 @@
                 autocomplete="off"
                 value="{{ create_form_values.get('group_code', '') }}"
               >
+              <p class="form-text text-muted small mb-0">{{ _('Group code must contain only lowercase letters, numbers, hyphen, or underscore.') }}</p>
             </div>
             <div class="col-md-6">
               <label class="form-label" for="display_name">{{ _('Display Name') }}</label>
@@ -153,7 +164,6 @@
           </div>
           <hr>
           <h3 class="h6 mb-1">{{ _('Subject Template') }}</h3>
-          <p class="text-muted small mb-3">{{ _('Fill in all required subject attributes using ASCII characters. Country code must be a two-letter ISO 3166-1 alpha-2 value (e.g., JP).') }}</p>
           <div class="row g-3">
             {% for oid, field_name, label, required in subject_fields %}
             <div class="col-md-6">
@@ -178,6 +188,7 @@
                 {% if required %}required{% endif %}
                 data-required-message="{{ _('%(label)s is required.', label=label) }}"
               >
+              <div class="form-text text-muted small">{{ _('Fill in all required subject attributes using ASCII characters. Country code must be a two-letter ISO 3166-1 alpha-2 value (e.g., JP).') }}</div>
               {% else %}
               <input
                 class="form-control"
@@ -212,6 +223,16 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ _('Close') }}"></button>
         </div>
         <div class="modal-body">
+          {% set edit_errors = edit_form_errors | default([]) %}
+          {% if edit_errors %}
+          <div class="alert alert-danger" role="alert">
+            <ul class="mb-0">
+              {% for message in edit_errors %}
+              <li>{{ message }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+          {% endif %}
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label" for="edit_group_code">{{ _('Group Code') }} <span class="text-danger">*</span></label>
@@ -259,7 +280,6 @@
           </div>
           <hr>
           <h3 class="h6 mb-1">{{ _('Subject Template') }}</h3>
-          <p class="text-muted small mb-3">{{ _('Fill in all required subject attributes using ASCII characters. Country code must be a two-letter ISO 3166-1 alpha-2 value (e.g., JP).') }}</p>
           <div class="row g-3">
             {% for oid, field_name, label, required in subject_fields %}
             <div class="col-md-6">
@@ -283,6 +303,7 @@
                 {% if required %}required{% endif %}
                 data-required-message="{{ _('%(label)s is required.', label=label) }}"
               >
+              <div class="form-text text-muted small">{{ _('Fill in all required subject attributes using ASCII characters. Country code must be a two-letter ISO 3166-1 alpha-2 value (e.g., JP).') }}</div>
               {% else %}
               <input
                 class="form-control"

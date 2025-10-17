@@ -1,7 +1,10 @@
 // Disable submit buttons to prevent multiple submissions and show spinner
 window.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('form').forEach(form => {
-    form.addEventListener('submit', () => {
+    form.addEventListener('submit', (event) => {
+      if (event.defaultPrevented) {
+        return;
+      }
       const btn = form.querySelector('button[type="submit"]');
       if (btn && !btn.disabled) {
         btn.disabled = true;
@@ -10,6 +13,15 @@ window.addEventListener('DOMContentLoaded', () => {
         spinner.setAttribute('role', 'status');
         spinner.setAttribute('aria-hidden', 'true');
         btn.appendChild(spinner);
+
+        setTimeout(() => {
+          if (event.defaultPrevented) {
+            btn.disabled = false;
+            if (spinner.parentNode === btn) {
+              spinner.remove();
+            }
+          }
+        });
       }
     });
   });

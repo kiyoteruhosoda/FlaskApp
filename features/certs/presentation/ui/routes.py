@@ -219,14 +219,22 @@ def index():
 
     stored_form_state = session.pop("certs_create_group_form", None)
     create_form_values: dict[str, str] = {}
+    create_form_errors: list[str] = []
     show_create_modal = False
     if stored_form_state:
         create_form_values = stored_form_state.get("values", {})
         show_create_modal = bool(stored_form_state.get("show_modal"))
+        raw_errors = stored_form_state.get("errors")
+        if raw_errors:
+            if isinstance(raw_errors, (list, tuple)):
+                create_form_errors = [str(message) for message in raw_errors if message]
+            else:
+                create_form_errors = [str(raw_errors)]
 
     stored_edit_form = session.pop("certs_edit_group_form", None)
     edit_form_initial: dict[str, object] | None = None
     show_edit_modal = False
+    edit_form_errors: list[str] = []
     if stored_edit_form:
         values = stored_edit_form.get("values", {}) if isinstance(stored_edit_form, dict) else {}
         group_code_value = (
@@ -248,6 +256,12 @@ def index():
             "subject": subject_values,
         }
         show_edit_modal = bool(stored_edit_form.get("show_modal"))
+        raw_edit_errors = stored_edit_form.get("errors") if isinstance(stored_edit_form, dict) else None
+        if raw_edit_errors:
+            if isinstance(raw_edit_errors, (list, tuple)):
+                edit_form_errors = [str(message) for message in raw_edit_errors if message]
+            else:
+                edit_form_errors = [str(raw_edit_errors)]
 
     if "auto_rotate" not in create_form_values:
         create_form_values["auto_rotate"] = "on"
@@ -270,8 +284,10 @@ def index():
         required_subject_field_names=required_subject_field_names,
         key_presets=_usage_key_presets(),
         create_form_values=create_form_values,
+        create_form_errors=create_form_errors,
         show_create_modal=show_create_modal,
         edit_form_initial=edit_form_initial,
+        edit_form_errors=edit_form_errors,
         show_edit_modal=show_edit_modal,
     )
 
@@ -283,33 +299,36 @@ def create_group():
 
     form = request.form
 
-    def _remember_form_state() -> None:
+    def _remember_form_state(*, errors: list[str] | None = None) -> None:
         values = form.to_dict(flat=True)
         values["auto_rotate"] = "on" if form.get("auto_rotate") == "on" else "off"
-        session["certs_create_group_form"] = {
+        state: dict[str, object] = {
             "values": values,
             "show_modal": True,
         }
+        if errors:
+            state["errors"] = [str(message) for message in errors if message]
+        session["certs_create_group_form"] = state
     group_code = (form.get("group_code") or "").strip()
     if not group_code:
-        _remember_form_state()
-        flash(_("Group code is required."), "error")
+        message = _("Group code is required.")
+        _remember_form_state(errors=[message])
+        flash(message, "error")
         return redirect(url_for("certs_ui.index"))
 
     if not _GROUP_CODE_PATTERN.fullmatch(group_code):
-        _remember_form_state()
-        flash(
-            _("Group code must contain only lowercase letters, numbers, hyphen, or underscore."),
-            "error",
-        )
+        message = _("Group code must contain only lowercase letters, numbers, hyphen, or underscore.")
+        _remember_form_state(errors=[message])
+        flash(message, "error")
         return redirect(url_for("certs_ui.index"))
 
     display_name = (form.get("display_name") or "").strip() or None
     try:
         usage_type = _parse_usage(form.get("usage_type"))
     except ValueError:
-        _remember_form_state()
-        flash(_("Invalid usage type specified."), "error")
+        message = _("Invalid usage type specified.")
+        _remember_form_state(errors=[message])
+        flash(message, "error")
         return redirect(url_for("certs_ui.index"))
 
     key_type = (form.get("key_type") or "RSA").strip().upper()
@@ -318,26 +337,29 @@ def create_group():
     try:
         key_size = _parse_int(form.get("key_size"))
     except ValueError:
-        _remember_form_state()
-        flash(_("Key size must be a number."), "error")
+        message = _("Key size must be a number.")
+        _remember_form_state(errors=[message])
+        flash(message, "error")
         return redirect(url_for("certs_ui.index"))
 
     auto_rotate = form.get("auto_rotate") == "on"
     try:
         rotation_threshold_days = _parse_int(form.get("rotation_threshold_days"), default=30)
     except ValueError:
-        _remember_form_state()
-        flash(_("Rotation threshold must be a number."), "error")
+        message = _("Rotation threshold must be a number.")
+        _remember_form_state(errors=[message])
+        flash(message, "error")
         return redirect(url_for("certs_ui.index"))
     if rotation_threshold_days is None or rotation_threshold_days <= 0:
-        _remember_form_state()
-        flash(_("Rotation threshold must be greater than zero."), "error")
+        message = _("Rotation threshold must be greater than zero.")
+        _remember_form_state(errors=[message])
+        flash(message, "error")
         return redirect(url_for("certs_ui.index"))
 
     try:
         subject = _validate_subject_template(form)
     except SubjectValidationError as exc:
-        _remember_form_state()
+        _remember_form_state(errors=list(exc.errors))
         for message in exc.errors:
             flash(message, "error")
         return redirect(url_for("certs_ui.index"))
@@ -357,8 +379,9 @@ def create_group():
         )
     except CertsApiClientError as exc:
         current_app.logger.exception("Failed to create certificate group")
-        _remember_form_state()
-        flash(_("Failed to create certificate group: %(message)s", message=str(exc)), "error")
+        message = _("Failed to create certificate group: %(message)s", message=str(exc))
+        _remember_form_state(errors=[message])
+        flash(message, "error")
     else:
         session.pop("certs_create_group_form", None)
         flash(_("Certificate group created."), "success")
@@ -373,21 +396,25 @@ def update_group(group_code: str):
 
     form = request.form
 
-    def _remember_edit_form_state() -> None:
+    def _remember_edit_form_state(*, errors: list[str] | None = None) -> None:
         values = form.to_dict(flat=True)
         values["auto_rotate"] = "on" if form.get("auto_rotate") == "on" else "off"
-        session["certs_edit_group_form"] = {
+        state: dict[str, object] = {
             "group_code": group_code,
             "values": values,
             "show_modal": True,
         }
+        if errors:
+            state["errors"] = [str(message) for message in errors if message]
+        session["certs_edit_group_form"] = state
 
     display_name = (form.get("display_name") or "").strip() or None
     try:
         usage_type = _parse_usage(form.get("usage_type"))
     except ValueError:
-        _remember_edit_form_state()
-        flash(_("Invalid usage type specified."), "error")
+        message = _("Invalid usage type specified.")
+        _remember_edit_form_state(errors=[message])
+        flash(message, "error")
         return redirect(url_for("certs_ui.index"))
 
     key_type = (form.get("key_type") or "RSA").strip().upper()
@@ -396,26 +423,29 @@ def update_group(group_code: str):
     try:
         key_size = _parse_int(form.get("key_size"))
     except ValueError:
-        _remember_edit_form_state()
-        flash(_("Key size must be a number."), "error")
+        message = _("Key size must be a number.")
+        _remember_edit_form_state(errors=[message])
+        flash(message, "error")
         return redirect(url_for("certs_ui.index"))
 
     auto_rotate = form.get("auto_rotate") == "on"
     try:
         rotation_threshold_days = _parse_int(form.get("rotation_threshold_days"), default=30)
     except ValueError:
-        _remember_edit_form_state()
-        flash(_("Rotation threshold must be a number."), "error")
+        message = _("Rotation threshold must be a number.")
+        _remember_edit_form_state(errors=[message])
+        flash(message, "error")
         return redirect(url_for("certs_ui.index"))
     if rotation_threshold_days is None or rotation_threshold_days <= 0:
-        _remember_edit_form_state()
-        flash(_("Rotation threshold must be greater than zero."), "error")
+        message = _("Rotation threshold must be greater than zero.")
+        _remember_edit_form_state(errors=[message])
+        flash(message, "error")
         return redirect(url_for("certs_ui.index"))
 
     try:
         subject = _validate_subject_template(form)
     except SubjectValidationError as exc:
-        _remember_edit_form_state()
+        _remember_edit_form_state(errors=list(exc.errors))
         for message in exc.errors:
             flash(message, "error")
         return redirect(url_for("certs_ui.index"))
@@ -435,8 +465,9 @@ def update_group(group_code: str):
         )
     except CertsApiClientError as exc:
         current_app.logger.exception("Failed to update certificate group")
-        _remember_edit_form_state()
-        flash(_("Failed to update certificate group: %(message)s", message=str(exc)), "error")
+        message = _("Failed to update certificate group: %(message)s", message=str(exc))
+        _remember_edit_form_state(errors=[message])
+        flash(message, "error")
     else:
         session.pop("certs_edit_group_form", None)
         flash(_("Certificate group updated."), "success")

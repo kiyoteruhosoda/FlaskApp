@@ -8,6 +8,7 @@ from datetime import datetime
 from http import HTTPStatus
 from typing import Any
 
+from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from flask import jsonify, request
 from flask_babel import gettext as _
@@ -261,6 +262,37 @@ def _build_search_filters(args) -> CertificateSearchFilters | tuple[dict, int]:
     return filters
 
 
+_KEY_USAGE_SERIALIZATION_ORDER: list[tuple[str, str]] = [
+    ("digitalSignature", "digital_signature"),
+    ("contentCommitment", "content_commitment"),
+    ("keyEncipherment", "key_encipherment"),
+    ("dataEncipherment", "data_encipherment"),
+    ("keyAgreement", "key_agreement"),
+    ("keyCertSign", "key_cert_sign"),
+    ("crlSign", "crl_sign"),
+    ("encipherOnly", "encipher_only"),
+    ("decipherOnly", "decipher_only"),
+]
+
+
+def _extract_key_usage_values(certificate: x509.Certificate) -> list[str]:
+    try:
+        extension = certificate.extensions.get_extension_for_class(x509.KeyUsage)
+    except x509.ExtensionNotFound:
+        return []
+
+    key_usage = extension.value
+    values: list[str] = []
+    for api_name, attr in _KEY_USAGE_SERIALIZATION_ORDER:
+        try:
+            enabled = getattr(key_usage, attr)
+        except ValueError:
+            enabled = False
+        if enabled:
+            values.append(api_name)
+    return values
+
+
 def _serialize_certificate(
     cert: IssuedCertificate,
     *,
@@ -291,6 +323,7 @@ def _serialize_certificate(
         "groupCode": cert.group.group_code if cert.group else None,
         "autoRotatedFromKid": cert.auto_rotated_from_kid,
     }
+    payload["keyUsage"] = _extract_key_usage_values(certificate)
     if include_pem:
         payload["certificatePem"] = certificate.public_bytes(
             serialization.Encoding.PEM

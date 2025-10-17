@@ -712,6 +712,7 @@ def detail(kid: str):
         "subject": certificate.subject,
         "issuer": certificate.issuer,
         "jwk_json": json.dumps(certificate.jwk, indent=2, ensure_ascii=False),
+        "key_usage_labels": dict(_KEY_USAGE_CHOICES),
     }
     return render_template("certs/detail.html", **detail_context)
 

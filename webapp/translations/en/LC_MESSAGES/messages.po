@@ -1143,3 +1143,6 @@ msgstr "Specify at least one search condition and submit the form to view result
 
 msgid "Back to Group"
 msgstr "Back to Group"
+
+msgid "Are you sure you want to issue a new certificate for this group?"
+msgstr "Are you sure you want to issue a new certificate for this group?"

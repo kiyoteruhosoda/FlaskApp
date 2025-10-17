@@ -3164,3 +3164,6 @@ msgstr "reasonは文字列で指定してください"
 
 msgid "The certificate does not exist in the specified group."
 msgstr "指定したグループに証明書が存在しません"
+
+msgid "Are you sure you want to issue a new certificate for this group?"
+msgstr "このグループに新しい証明書を発行します。よろしいですか？"

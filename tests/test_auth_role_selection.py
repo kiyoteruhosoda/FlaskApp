@@ -89,6 +89,43 @@ def test_login_redirects_to_role_selection(client, app):
         assert name.encode() in selection_page.data
 
 
+def test_role_selection_preserves_next_parameter(client, app):
+    email, role_ids, _ = _create_user_with_roles(
+        app, "preserve-next@example.com", "pass", ["admin", "editor"]
+    )
+
+    login_page = client.get(
+        "/auth/login", query_string={"next": "/certs/groups/create"}
+    )
+    assert login_page.status_code == 200
+    assert b'name="next"' in login_page.data
+    assert b'value="/certs/groups/create"' in login_page.data
+
+    response = client.post(
+        "/auth/login",
+        data={
+            "email": email,
+            "password": "pass",
+            "next": "/certs/groups/create",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/auth/select-role")
+
+    selection_response = client.post(
+        "/auth/select-role",
+        data={"active_role": str(role_ids[0])},
+        follow_redirects=False,
+    )
+
+    assert selection_response.status_code == 302
+    assert selection_response.headers["Location"].endswith(
+        "/certs/groups/create"
+    )
+
+
 def test_role_selection_sets_active_role(client, app):
     email, role_ids, role_names = _create_user_with_roles(
         app, "choose@example.com", "pass", ["admin", "editor"]

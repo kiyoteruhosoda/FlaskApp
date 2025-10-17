@@ -32,6 +32,9 @@
     </div>
     
     <form method="post" class="login-form" id="loginForm">
+      {% if next_value %}
+      <input type="hidden" name="next" value="{{ next_value }}">
+      {% endif %}
       <div class="form-group">
         <label for="email" class="form-label">
           <i class="fas fa-envelope"></i>

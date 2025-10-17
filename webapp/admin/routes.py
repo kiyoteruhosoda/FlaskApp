@@ -2,7 +2,16 @@
 import os
 from pathlib import Path
 
-from flask import Blueprint, render_template, flash, redirect, url_for, request, jsonify, session
+from flask import (
+    Blueprint,
+    render_template,
+    flash,
+    redirect,
+    url_for,
+    request,
+    jsonify,
+    session,
+)
 from ..extensions import db
 from flask_login import login_required, current_user
 from flask_babel import gettext as _
@@ -15,12 +24,38 @@ from webapp.services.service_account_service import (
     ServiceAccountService,
     ServiceAccountValidationError,
 )
+from webapp.services.service_account_api_key_service import (
+    ServiceAccountApiKeyNotFoundError,
+    ServiceAccountApiKeyService,
+    ServiceAccountApiKeyValidationError,
+)
 
 
 bp = Blueprint("admin", __name__, template_folder="templates")
 
 
 # --- ここから各ルート定義 ---
+
+
+# Permission helpers -----------------------------------------------------
+
+
+def _can_manage_api_keys() -> bool:
+    if not hasattr(current_user, "can"):
+        return False
+    return current_user.can("api_key:manage") or current_user.can(
+        "service_account_api:manage"
+    )
+
+
+def _can_read_api_keys() -> bool:
+    if not hasattr(current_user, "can"):
+        return False
+    if _can_manage_api_keys():
+        return True
+    return current_user.can("api_key:read") or current_user.can(
+        "service_account_api:read"
+    )
 
 
 # サービスアカウント管理
@@ -126,6 +161,38 @@ def service_accounts_delete(account_id: int):
         return jsonify({"error": "not_found"}), 404
 
     return jsonify({"status": "deleted"}), 200
+
+
+@bp.route("/service-accounts/<int:account_id>/api-keys")
+@login_required
+def service_account_api_keys(account_id: int):
+    if not _can_read_api_keys():
+        return _(u"You do not have permission to access this page."), 403
+
+    account = ServiceAccount.query.get(account_id)
+    if not account:
+        flash(_(u"The requested service account could not be found."), "warning")
+        return redirect(url_for("admin.service_accounts"))
+
+    try:
+        key_records = ServiceAccountApiKeyService.list_keys(account_id)
+    except ServiceAccountApiKeyNotFoundError:
+        flash(_(u"The requested service account could not be found."), "warning")
+        return redirect(url_for("admin.service_accounts"))
+    except ServiceAccountApiKeyValidationError as exc:
+        flash(exc.message, "danger")
+        key_records = []
+
+    account_dict = account.as_dict()
+    account_dict["scopes"] = account.scopes
+    account_dict["active"] = account.is_active()
+
+    return render_template(
+        "admin/service_account_api_keys.html",
+        account=account_dict,
+        initial_keys=[record.as_dict() for record in key_records],
+        can_manage_api_keys=_can_manage_api_keys(),
+    )
 
 
 # Config表示ページ（管理者のみ）

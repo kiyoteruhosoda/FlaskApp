@@ -33,16 +33,28 @@ def _parse_iso_datetime(raw: Any) -> datetime | None:
     return dt.astimezone(timezone.utc)
 
 
-def _ensure_permission():
+def _has_manage_permission() -> bool:
     if not current_user.is_authenticated:
         return False
-    return current_user.can("service_account_api:manage")
+    return current_user.can("api_key:manage") or current_user.can(
+        "service_account_api:manage"
+    )
+
+
+def _has_read_permission() -> bool:
+    if not current_user.is_authenticated:
+        return False
+    if _has_manage_permission():
+        return True
+    return current_user.can("api_key:read") or current_user.can(
+        "service_account_api:read"
+    )
 
 
 @bp.route("/service_accounts/<int:account_id>/keys", methods=["GET"])
 @login_required
 def list_service_account_keys(account_id: int):
-    if not _ensure_permission():
+    if not _has_read_permission():
         return jsonify({"error": "forbidden"}), 403
 
     try:
@@ -58,7 +70,7 @@ def list_service_account_keys(account_id: int):
 @bp.route("/service_accounts/<int:account_id>/keys", methods=["POST"])
 @login_required
 def create_service_account_key(account_id: int):
-    if not _ensure_permission():
+    if not _has_manage_permission():
         return jsonify({"error": "forbidden"}), 403
 
     payload = request.get_json(silent=True) or {}
@@ -94,7 +106,7 @@ def create_service_account_key(account_id: int):
 )
 @login_required
 def revoke_service_account_key(account_id: int, key_id: int):
-    if not _ensure_permission():
+    if not _has_manage_permission():
         return jsonify({"error": "forbidden"}), 403
 
     try:
@@ -112,7 +124,7 @@ def revoke_service_account_key(account_id: int, key_id: int):
 @bp.route("/service_accounts/<int:account_id>/keys/logs", methods=["GET"])
 @login_required
 def list_service_account_key_logs(account_id: int):
-    if not _ensure_permission():
+    if not _has_read_permission():
         return jsonify({"error": "forbidden"}), 403
 
     key_id = request.args.get("key_id", type=int)

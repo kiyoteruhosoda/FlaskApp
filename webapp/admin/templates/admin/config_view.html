@@ -40,6 +40,71 @@
 </ul>
 
 <h3>{{ _('Config Settings') }}</h3>
+
+<h4 class="mt-4">{{ _('Access Token Signing') }}</h4>
+<form method="post" class="mb-4">
+  <div class="form-check mb-2">
+    <input
+      class="form-check-input"
+      type="radio"
+      name="access_token_signing"
+      id="access-token-signing-builtin"
+      value="builtin"
+      {% if signing_setting.is_builtin %}checked{% endif %}
+    >
+    <label class="form-check-label" for="access-token-signing-builtin">
+      {{ _('Built-in secret (HS256)') }}
+    </label>
+    <div class="form-text">
+      {{ _('Use the built-in JWT secret key configured in the application settings.') }}
+    </div>
+  </div>
+
+  <div class="mt-3">
+    <label class="form-label" for="access-token-signing-server">
+      {{ _('Server signing certificates') }}
+    </label>
+    {% if server_signing_certificates %}
+      <div class="list-group">
+        {% for cert in server_signing_certificates %}
+        <label class="list-group-item">
+          <input
+            class="form-check-input me-2"
+            type="radio"
+            name="access_token_signing"
+            value="server_signing:{{ cert.kid }}"
+            {% if signing_setting.is_server_signing and signing_setting.kid == cert.kid %}checked{% endif %}
+          >
+          <span class="fw-bold">{{ cert.group_label or cert.group_code or _('Unnamed group') }}</span>
+          <span class="text-muted ms-2">{{ cert.kid }}</span>
+          <div class="small text-muted mt-1">
+            {% if cert.algorithm %}
+              {{ _('Algorithm: %(algorithm)s', algorithm=cert.algorithm) }}
+            {% endif %}
+            {% if cert.expires_at %}
+              <span class="ms-2">
+                {{ _('Expires at: %(timestamp)s', timestamp=cert.expires_at|localtime('%Y-%m-%d %H:%M')) }}
+              </span>
+            {% endif %}
+          </div>
+          {% if cert.subject %}
+            <div class="small text-muted">{{ cert.subject }}</div>
+          {% endif %}
+        </label>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-muted mb-0">
+        {{ _('No server signing certificates are available. Issue a certificate in the certificate management section first.') }}
+      </p>
+    {% endif %}
+  </div>
+
+  <button type="submit" class="btn btn-primary mt-3">
+    {{ _('Save signing settings') }}
+  </button>
+</form>
+
 <table class="table table-bordered">
   <thead>
     <tr>

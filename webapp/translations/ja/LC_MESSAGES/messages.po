@@ -2987,6 +2987,9 @@ msgstr "有効日数"
 msgid "Key Usage"
 msgstr "Key Usage"
 
+msgid "Leave empty to use the default key usage for the selected usage type."
+msgstr "選択した用途タイプの既定のKey Usageを使用する場合は空欄のままにしてください。"
+
 msgid "Subject Overrides"
 msgstr "サブジェクト上書き"
 

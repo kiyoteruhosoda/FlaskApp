@@ -72,6 +72,7 @@ class CertificateGroupStore:
                 key_curve=group.key_curve,
                 key_size=group.key_size,
                 subject=group.subject_dict(),
+                key_usage=group.key_usage_values(),
                 created_at=stored.created_at,
                 updated_at=stored.updated_at,
             )
@@ -122,6 +123,12 @@ class CertificateGroupStore:
         entity.key_curve = group.key_curve
         entity.key_size = group.key_size
         entity.subject = group.subject_dict()
+        if group.key_usage is not None:
+            entity.key_usage = [
+                value for value in (item.strip() for item in group.key_usage) if value
+            ]
+        else:
+            entity.key_usage = None
         entity.usage_type = group.usage_type.value
         return entity
 
@@ -130,6 +137,13 @@ class CertificateGroupStore:
             auto_rotate=entity.auto_rotate,
             rotation_threshold_days=entity.rotation_threshold_days,
         )
+        key_usage: tuple[str, ...] | None = None
+        if entity.key_usage is not None:
+            key_usage = tuple(
+                value
+                for value in (str(item).strip() for item in entity.key_usage)
+                if value
+            )
         return CertificateGroup(
             id=entity.id,
             group_code=entity.group_code,
@@ -140,6 +154,7 @@ class CertificateGroupStore:
             key_curve=entity.key_curve,
             key_size=entity.key_size,
             subject=entity.subject or {},
+            key_usage=key_usage,
             created_at=entity.created_at,
             updated_at=entity.updated_at,
         )

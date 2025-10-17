@@ -169,7 +169,7 @@ class AutoRotateCertificatesUseCase:
         if eku:
             builder = builder.add_extension(x509.ExtendedKeyUsage(eku), critical=False)
 
-        key_usage_values = self._default_key_usage(group.usage_type)
+        key_usage_values = self._resolve_key_usage(group)
         key_usage_extension = build_key_usage_extension(key_usage_values)
         if key_usage_extension is not None:
             builder = builder.add_extension(key_usage_extension, critical=True)
@@ -244,8 +244,10 @@ class AutoRotateCertificatesUseCase:
             return [x509.oid.ExtendedKeyUsageOID.EMAIL_PROTECTION]
         return None
 
-    def _default_key_usage(self, usage: UsageType) -> list[str]:
-        if usage == UsageType.ENCRYPTION:
+    def _resolve_key_usage(self, group: CertificateGroup) -> list[str]:
+        if group.key_usage is not None:
+            return list(group.key_usage)
+        if group.usage_type == UsageType.ENCRYPTION:
             return ["digitalSignature", "keyEncipherment"]
         return ["digitalSignature"]
 

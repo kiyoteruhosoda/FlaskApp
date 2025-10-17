@@ -25,6 +25,16 @@
           <dd class="col-sm-7">{{ group.rotation_threshold_days }}</dd>
           <dt class="col-sm-5">{{ _('Key Profile') }}</dt>
           <dd class="col-sm-7">{{ group.key_type }}{% if group.key_size %} {{ group.key_size }}{% endif %}{% if group.key_curve %} / {{ group.key_curve }}{% endif %}</dd>
+          <dt class="col-sm-5">{{ _('Key Usage') }}</dt>
+          <dd class="col-sm-7">
+            {% if group.key_usage %}
+              {% for usage in group.key_usage %}
+              <span class="badge text-bg-light me-1 mb-1">{{ usage }}</span>
+              {% endfor %}
+            {% else %}
+              <span class="text-muted">-</span>
+            {% endif %}
+          </dd>
           <dt class="col-sm-5">{{ _('Subject Template') }}</dt>
           <dd class="col-sm-7">
             {% if group.subject %}
@@ -67,11 +77,12 @@
         <div class="d-flex flex-wrap gap-2">
           {% for key, label in key_usage_choices %}
           <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="usage_{{ loop.index }}" name="key_usage" value="{{ key }}">
+            <input class="form-check-input" type="checkbox" id="usage_{{ loop.index }}" name="key_usage" value="{{ key }}" {% if group.key_usage and key in group.key_usage %}checked{% endif %}>
             <label class="form-check-label" for="usage_{{ loop.index }}">{{ label }}</label>
           </div>
           {% endfor %}
         </div>
+        <div class="form-text text-muted small">{{ _('Leave empty to use the default key usage for the selected usage type.') }}</div>
       </div>
       <div class="col-12">
         <hr>

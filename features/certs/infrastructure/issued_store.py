@@ -140,17 +140,14 @@ class IssuedCertificateStore:
         for entity in query.all():
             if entity.expires_at and entity.expires_at <= now:
                 continue
-            jwks.append(
-                {
-                    "key": entity.jwk,
-                    "attributes": {
-                        "enabled": True,
-                        "created": _format_timestamp(entity.issued_at),
-                        "updated": _format_timestamp(entity.issued_at),
-                        "usage": entity.usage_type,
-                    },
-                }
-            )
+            jwk_with_attributes = dict(entity.jwk)
+            jwk_with_attributes["attributes"] = {
+                "enabled": True,
+                "created": _format_timestamp(entity.issued_at),
+                "updated": _format_timestamp(entity.issued_at),
+                "usage": entity.usage_type,
+            }
+            jwks.append(jwk_with_attributes)
         return jwks
 
     def search(self, filters: "CertificateSearchFilters") -> tuple[list[IssuedCertificate], int]:

@@ -62,6 +62,20 @@
             <span class="text-muted">-</span>
             {% endif %}
           </dd>
+          <dt class="col-sm-4">{{ _('Extended Key Usage') }}</dt>
+          <dd class="col-sm-8">
+            {% if certificate.extended_key_usage %}
+            <ul class="list-inline mb-0">
+              {% for usage in certificate.extended_key_usage %}
+              <li class="list-inline-item">
+                <span class="badge text-bg-light">{{ extended_key_usage_labels.get(usage, usage) }}</span>
+              </li>
+              {% endfor %}
+            </ul>
+            {% else %}
+            <span class="text-muted">-</span>
+            {% endif %}
+          </dd>
           <dt class="col-sm-4">{{ _('Validity Period') }}</dt>
           <dd class="col-sm-8">{{ not_before }} {{ _('to') }} {{ not_after }}</dd>
         </dl>

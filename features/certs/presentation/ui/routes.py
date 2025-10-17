@@ -39,6 +39,19 @@ _KEY_USAGE_CHOICES: list[tuple[str, str]] = [
     ("decipherOnly", _("decipherOnly - decipher only")),
 ]
 
+_EXTENDED_KEY_USAGE_CHOICES: list[tuple[str, str]] = [
+    ("serverAuth", _("serverAuth - TLS WWW server authentication")),
+    ("clientAuth", _("clientAuth - TLS WWW client authentication")),
+    ("codeSigning", _("codeSigning - Code signing")),
+    ("emailProtection", _("emailProtection - E-mail protection")),
+    ("timeStamping", _("timeStamping - Time stamping")),
+    ("ocspSigning", _("ocspSigning - OCSP signing")),
+    ("ipsecEndSystem", _("ipsecEndSystem - IPsec end system")),
+    ("ipsecTunnel", _("ipsecTunnel - IPsec tunnel")),
+    ("ipsecUser", _("ipsecUser - IPsec user")),
+    ("anyExtendedKeyUsage", _("anyExtendedKeyUsage - Any extended key usage")),
+]
+
 _SUBJECT_FIELD_DEFINITIONS: list[tuple[str, str, str, bool]] = [
     ("C", "subject_c", _("Country (C)"), True),
     ("ST", "subject_st", _("State or Province (ST)"), False),
@@ -713,6 +726,7 @@ def detail(kid: str):
         "issuer": certificate.issuer,
         "jwk_json": json.dumps(certificate.jwk, indent=2, ensure_ascii=False),
         "key_usage_labels": dict(_KEY_USAGE_CHOICES),
+        "extended_key_usage_labels": dict(_EXTENDED_KEY_USAGE_CHOICES),
     }
     return render_template("certs/detail.html", **detail_context)
 

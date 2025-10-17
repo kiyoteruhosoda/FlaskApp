@@ -65,6 +65,7 @@ class CertificateSummary:
     group_code: str | None
     auto_rotated_from_kid: str | None
     key_usage: list[str] = field(default_factory=list, init=False)
+    extended_key_usage: list[str] = field(default_factory=list, init=False)
 
     @property
     def is_revoked(self) -> bool:
@@ -509,6 +510,11 @@ class CertsApiClient:
             key_usage = [str(item) for item in raw_key_usage if item]
         else:
             key_usage = []
+        raw_extended_key_usage = payload.get("extendedKeyUsage")
+        if isinstance(raw_extended_key_usage, (list, tuple)):
+            extended_key_usage = [str(item) for item in raw_extended_key_usage if item]
+        else:
+            extended_key_usage = []
         summary = CertificateSummary(
             kid=str(payload.get("kid", "")),
             usage_type=_parse_usage(payload.get("usageType")),
@@ -521,6 +527,7 @@ class CertsApiClient:
             auto_rotated_from_kid=payload.get("autoRotatedFromKid"),
         )
         summary.key_usage = key_usage
+        summary.extended_key_usage = extended_key_usage
         return summary
 
     def _parse_detail(self, payload: dict[str, Any]) -> CertificateDetail:
@@ -542,6 +549,7 @@ class CertsApiClient:
             not_after=_parse_datetime(payload.get("notAfter")),
         )
         detail.key_usage = list(summary.key_usage)
+        detail.extended_key_usage = list(summary.extended_key_usage)
         return detail
 
     def _parse_group(self, payload: dict[str, Any]) -> CertificateGroupData:

@@ -9,6 +9,7 @@ from http import HTTPStatus
 from typing import Any
 
 from cryptography import x509
+from cryptography.x509.oid import ExtendedKeyUsageOID
 from cryptography.hazmat.primitives import serialization
 from flask import jsonify, request
 from flask_babel import gettext as _
@@ -293,6 +294,36 @@ def _extract_key_usage_values(certificate: x509.Certificate) -> list[str]:
     return values
 
 
+_EXTENDED_KEY_USAGE_NAME_MAP: dict[x509.ObjectIdentifier, str] = {}
+for attr_name, api_name in [
+    ("SERVER_AUTH", "serverAuth"),
+    ("CLIENT_AUTH", "clientAuth"),
+    ("CODE_SIGNING", "codeSigning"),
+    ("EMAIL_PROTECTION", "emailProtection"),
+    ("TIME_STAMPING", "timeStamping"),
+    ("OCSP_SIGNING", "ocspSigning"),
+    ("IPSEC_END_SYSTEM", "ipsecEndSystem"),
+    ("IPSEC_TUNNEL", "ipsecTunnel"),
+    ("IPSEC_USER", "ipsecUser"),
+    ("ANY_EXTENDED_KEY_USAGE", "anyExtendedKeyUsage"),
+]:
+    oid = getattr(ExtendedKeyUsageOID, attr_name, None)
+    if oid is not None:
+        _EXTENDED_KEY_USAGE_NAME_MAP[oid] = api_name
+
+
+def _extract_extended_key_usage_values(certificate: x509.Certificate) -> list[str]:
+    try:
+        extension = certificate.extensions.get_extension_for_class(x509.ExtendedKeyUsage)
+    except x509.ExtensionNotFound:
+        return []
+
+    names: list[str] = []
+    for oid in extension.value:
+        names.append(_EXTENDED_KEY_USAGE_NAME_MAP.get(oid, oid.dotted_string))
+    return names
+
+
 def _serialize_certificate(
     cert: IssuedCertificate,
     *,
@@ -324,6 +355,7 @@ def _serialize_certificate(
         "autoRotatedFromKid": cert.auto_rotated_from_kid,
     }
     payload["keyUsage"] = _extract_key_usage_values(certificate)
+    payload["extendedKeyUsage"] = _extract_extended_key_usage_values(certificate)
     if include_pem:
         payload["certificatePem"] = certificate.public_bytes(
             serialization.Encoding.PEM

@@ -205,6 +205,7 @@ def test_generate_sign_and_jwks_flow(app_context):
     assert detail["kid"] == signed["kid"]
     assert detail["certificatePem"].startswith("-----BEGIN CERTIFICATE-----")
     assert detail["keyUsage"] == ["digitalSignature", "keyEncipherment"]
+    assert detail["extendedKeyUsage"] == ["serverAuth"]
 
     revoke_resp = client.post(
         f"/api/certs/{signed['kid']}/revoke",
@@ -215,12 +216,14 @@ def test_generate_sign_and_jwks_flow(app_context):
     assert revoked["revokedAt"] is not None
     assert revoked["revocationReason"] == "compromised"
     assert revoked["keyUsage"] == ["digitalSignature", "keyEncipherment"]
+    assert revoked["extendedKeyUsage"] == ["serverAuth"]
 
     detail_after_resp = client.get(f"/api/certs/{signed['kid']}")
     assert detail_after_resp.status_code == 200
     detail_after = detail_after_resp.get_json()["certificate"]
     assert detail_after["revokedAt"] is not None
     assert detail_after["keyUsage"] == ["digitalSignature", "keyEncipherment"]
+    assert detail_after["extendedKeyUsage"] == ["serverAuth"]
 
     search_resp = client.get("/api/certs/search", query_string={"kid": signed["kid"]})
     assert search_resp.status_code == 200

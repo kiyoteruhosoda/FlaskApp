@@ -43,7 +43,7 @@ _SUBJECT_FIELD_DEFINITIONS: list[tuple[str, str, str, bool]] = [
     ("C", "subject_c", _("Country (C)"), True),
     ("ST", "subject_st", _("State or Province (ST)"), False),
     ("L", "subject_l", _("Locality (L)"), False),
-    ("O", "subject_o", _("Organization (O)"), True),
+    ("O", "subject_o", _("Organization (O)"), False),
     ("OU", "subject_ou", _("Organizational Unit (OU)"), False),
     ("CN", "subject_cn", _("Common Name (CN)"), True),
     ("emailAddress", "subject_email", _("Email Address"), False),

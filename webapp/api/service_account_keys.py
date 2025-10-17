@@ -36,9 +36,7 @@ def _parse_iso_datetime(raw: Any) -> datetime | None:
 def _has_manage_permission() -> bool:
     if not current_user.is_authenticated:
         return False
-    return current_user.can("api_key:manage") or current_user.can(
-        "service_account_api:manage"
-    )
+    return current_user.can("api_key:manage")
 
 
 def _has_read_permission() -> bool:

@@ -34,7 +34,7 @@ msgstr "ホーム"
 #: webapp/templates/base.html:7 webapp/templates/base.html:20
 #: webapp/templates/base.html:134 webapp/templates/admin/version_view.html:3
 msgid "AppName"
-msgstr "ファミリンク"
+msgstr "nolumia"
 
 #: webapp/admin/routes.py:21 webapp/admin/routes.py:36
 #: webapp/admin/routes.py:50 webapp/admin/routes.py:66

@@ -2,7 +2,7 @@ msgid "Home"
 msgstr "Home"
 
 msgid "AppName"
-msgstr "Familink"
+msgstr "nolumia"
 
 msgid "Dashboard"
 msgstr "Dashboard"

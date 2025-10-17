@@ -404,13 +404,6 @@
       const fragment = document.createDocumentFragment();
       const optionValues = [];
 
-      if (placeholderLabel) {
-        const placeholderOption = document.createElement('option');
-        placeholderOption.value = '';
-        placeholderOption.textContent = placeholderLabel;
-        fragment.appendChild(placeholderOption);
-      }
-
       presets.forEach((preset) => {
         if (!preset) {
           return;

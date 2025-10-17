@@ -3,9 +3,9 @@ import os
 import platform
 import socket
 from datetime import datetime, timezone
+from importlib import metadata as importlib_metadata
 from pathlib import Path
 import flask
-import werkzeug
 from flask import (
     Blueprint,
     render_template,
@@ -291,12 +291,22 @@ def show_version():
         return _(u"You do not have permission to access this page."), 403
     from core.version import get_version_info
     version_info = get_version_info()
+    try:
+        flask_version = importlib_metadata.version("flask")
+    except importlib_metadata.PackageNotFoundError:  # pragma: no cover - environment dependent
+        flask_version = getattr(flask, "__version__", None)
+
+    try:
+        werkzeug_version = importlib_metadata.version("werkzeug")
+    except importlib_metadata.PackageNotFoundError:  # pragma: no cover - environment dependent
+        werkzeug_version = None
+
     system_info = {
         "python_version": platform.python_version(),
         "python_implementation": platform.python_implementation(),
         "platform": platform.platform(),
-        "flask_version": flask.__version__,
-        "werkzeug_version": werkzeug.__version__,
+        "flask_version": flask_version,
+        "werkzeug_version": werkzeug_version,
         "environment": getattr(current_app, "env", None),
         "debug": current_app.debug,
         "hostname": socket.gethostname(),

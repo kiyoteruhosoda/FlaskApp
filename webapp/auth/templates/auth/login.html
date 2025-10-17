@@ -102,24 +102,157 @@ document.addEventListener('DOMContentLoaded', function() {
   // Add loading state to form submission
   const form = document.getElementById('loginForm');
   const submitBtn = document.querySelector('.btn-login');
+
+  if (!form || !submitBtn) {
+    return;
+  }
+
   const originalFormAction = form.action;
-  
+
+  const normalizeScopes = (rawScopes) => {
+    if (!Array.isArray(rawScopes)) {
+      return [];
+    }
+    return Array.from(
+      new Set(
+        rawScopes
+          .map((item) => (typeof item === 'string' ? item.trim() : ''))
+          .filter((item) => item.length > 0)
+      )
+    );
+  };
+
+  const readStoredScopeRecord = (storageKey) => {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return {
+          permissions: normalizeScopes(parsed),
+          source: 'legacy',
+          roleSelection: null,
+        };
+      }
+
+      if (
+        parsed &&
+        Array.isArray(parsed.permissions)
+      ) {
+        const normalizedRoleSelection = (() => {
+          const rawRoleSelection = parsed.roleSelection;
+          if (!rawRoleSelection || typeof rawRoleSelection !== 'object') {
+            return null;
+          }
+
+          const rawRoleId = rawRoleSelection.roleId;
+          if (typeof rawRoleId === 'string') {
+            const trimmed = rawRoleId.trim();
+            return trimmed.length > 0 ? { roleId: trimmed } : null;
+          }
+
+          if (typeof rawRoleId === 'number' && Number.isFinite(rawRoleId)) {
+            return { roleId: String(rawRoleId) };
+          }
+
+          return null;
+        })();
+
+        return {
+          permissions: normalizeScopes(parsed.permissions),
+          source: typeof parsed.source === 'string' ? parsed.source : 'unknown',
+          roleSelection: normalizedRoleSelection,
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to parse stored login scope', error);
+    }
+
+    return null;
+  };
+
+  const writeStoredScopeRecord = (storageKey, permissions, source, extra = {}) => {
+    if (!storageKey) {
+      return;
+    }
+
+    const normalized = normalizeScopes(permissions);
+    if (normalized.length === 0) {
+      localStorage.removeItem(storageKey);
+      return;
+    }
+
+    const payload = {
+      permissions: normalized,
+      source,
+      updatedAt: new Date().toISOString(),
+      ...extra,
+    };
+
+    localStorage.setItem(storageKey, JSON.stringify(payload));
+  };
+
+  const canReuseStoredScope = (record) => {
+    if (!record || record.permissions.length === 0) {
+      return false;
+    }
+
+    if (record.source === 'single-role') {
+      return true;
+    }
+
+    if (record.source === 'role-selection' || record.source === 'profile-switch') {
+      const roleId = record.roleSelection?.roleId;
+      return typeof roleId === 'string' && roleId.length > 0;
+    }
+
+    return false;
+  };
+
+  const getStoredRoleId = (record) => {
+    if (!record) {
+      return null;
+    }
+    const roleId = record.roleSelection?.roleId;
+    if (typeof roleId === 'string' && roleId.length > 0) {
+      return roleId;
+    }
+    return null;
+  };
+
   // APIベースの認証処理
   form.addEventListener('submit', async function(e) {
     e.preventDefault();
-    
+
     submitBtn.classList.add('loading');
     submitBtn.innerHTML = '<span style="opacity: 0;">{{ _("Signing In...") }}</span>';
     
     try {
       const formData = new FormData(form);
       const storedRedirectPath = localStorage.getItem('redirect_after_login');
+      const emailValue = (formData.get('email') || '').trim().toLowerCase();
       const loginData = {
         email: formData.get('email'),
         password: formData.get('password'),
         token: formData.get('token') || null,
         next: storedRedirectPath || null
       };
+
+      let scopeStorageKey = null;
+      if (emailValue) {
+        scopeStorageKey = `login_scope:${emailValue}`;
+        const storedScopeRecord = readStoredScopeRecord(scopeStorageKey);
+        if (canReuseStoredScope(storedScopeRecord)) {
+          loginData.scope = storedScopeRecord.permissions.join(' ');
+          const storedRoleId = getStoredRoleId(storedScopeRecord);
+          if (storedRoleId) {
+            loginData.active_role_id = storedRoleId;
+          }
+        }
+      }
 
       const response = await fetch('/api/login', {
         method: 'POST',
@@ -135,6 +268,21 @@ document.addEventListener('DOMContentLoaded', function() {
         // リフレッシュトークンをlocalStorageに保存
         if (result.refresh_token) {
           localStorage.setItem('refresh_token', result.refresh_token);
+        }
+
+        if (emailValue && scopeStorageKey) {
+          if (!result.requires_role_selection) {
+            const availableScopes = Array.isArray(result.available_scopes)
+              ? result.available_scopes
+              : [];
+            writeStoredScopeRecord(
+              scopeStorageKey,
+              availableScopes,
+              'single-role'
+            );
+          } else {
+            localStorage.removeItem(scopeStorageKey);
+          }
         }
 
         if (result.requires_role_selection) {

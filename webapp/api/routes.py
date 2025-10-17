@@ -26,7 +26,7 @@ from flask import (
     flash,
     g,
 )
-from flask_login import login_required, logout_user
+from flask_login import login_required, logout_user, login_user
 from flask_babel import gettext as _
 from functools import wraps
 
@@ -1366,15 +1366,29 @@ def api_login():
     else:
         requested_scope = set()
 
+    login_user(user_model)
+
+    session.pop("active_role_id", None)
+    roles = list(getattr(user_model, "roles", []) or [])
+
+    active_role_raw = data.get("active_role_id")
+    if active_role_raw is not None:
+        try:
+            requested_role_id = int(active_role_raw)
+        except (TypeError, ValueError):
+            requested_role_id = None
+        else:
+            for role in roles:
+                if role.id == requested_role_id:
+                    session["active_role_id"] = role.id
+                    break
+
     user_permissions = user_model.all_permissions
     granted_scope = sorted(requested_scope & user_permissions)
     scope_str = " ".join(granted_scope)
 
     # TokenServiceを使用してトークンペアを生成
     access_token, refresh_token = TokenService.generate_token_pair(user_model, granted_scope)
-
-    session.pop("active_role_id", None)
-    roles = list(getattr(user_model, "roles", []) or [])
 
     raw_next = data.get("next") or request.args.get("next")
     if isinstance(raw_next, str) and raw_next.startswith("/") and not raw_next.startswith("//"):

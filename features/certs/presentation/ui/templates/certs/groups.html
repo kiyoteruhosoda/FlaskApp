@@ -117,7 +117,6 @@
             <div class="col-md-6">
               <label class="form-label" for="usage_type">{{ _('Usage Type') }} <span class="text-danger">*</span></label>
               <select class="form-select" id="usage_type" name="usage_type" required data-initial="{{ create_form_values.get('usage_type', '') }}">
-                <option value="">{{ _('Select usage type') }}</option>
                 {% for value, label in usage_options %}
                 <option value="{{ value }}" {% if create_form_values.get('usage_type') == value %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}

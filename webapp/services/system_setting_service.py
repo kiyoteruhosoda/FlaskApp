@@ -10,8 +10,13 @@ from flask_babel import gettext as _
 from core.db import db
 from core.models.system_setting import SystemSetting
 from features.certs.application.services import default_certificate_services
-from features.certs.application.use_cases import GetIssuedCertificateUseCase
+from features.certs.application.use_cases import (
+    GetCertificateGroupUseCase,
+    GetIssuedCertificateUseCase,
+    ListIssuedCertificatesUseCase,
+)
 from features.certs.domain.exceptions import (
+    CertificateGroupNotFoundError,
     CertificateNotFoundError,
     CertificatePrivateKeyNotFoundError,
 )
@@ -42,6 +47,10 @@ class AccessTokenSigningSetting:
     def is_server_signing(self) -> bool:
         return self.mode == "server_signing"
 
+    @property
+    def has_group(self) -> bool:
+        return bool(self.group_code and self.group_code.strip())
+
 
 class SystemSettingService:
     """Read and update persistent system settings."""
@@ -66,17 +75,35 @@ class SystemSettingService:
 
         kid = payload.get("kid")
         group_code = payload.get("groupCode")
-        if not isinstance(kid, str) or not kid.strip():
+        normalized_kid = kid.strip() if isinstance(kid, str) and kid.strip() else None
+        normalized_group_code = (
+            group_code.strip() if isinstance(group_code, str) and group_code.strip() else None
+        )
+
+        if normalized_group_code is None and normalized_kid is not None:
+            try:
+                certificate = cls._load_server_signing_certificate(normalized_kid)
+            except AccessTokenSigningValidationError:
+                return cls._DEFAULT_ACCESS_TOKEN_SIGNING
+            if certificate.group is None:
+                return cls._DEFAULT_ACCESS_TOKEN_SIGNING
+            normalized_group_code = certificate.group.group_code
+
+        if normalized_group_code is None and normalized_kid is None:
             return cls._DEFAULT_ACCESS_TOKEN_SIGNING
 
-        return AccessTokenSigningSetting(mode="server_signing", kid=kid.strip(), group_code=group_code)
+        return AccessTokenSigningSetting(
+            mode="server_signing",
+            kid=normalized_kid,
+            group_code=normalized_group_code,
+        )
 
     @classmethod
     def update_access_token_signing_setting(
         cls,
         mode: str,
         *,
-        kid: str | None = None,
+        group_code: str | None = None,
     ) -> AccessTokenSigningSetting:
         normalized_mode = (mode or "").strip()
         if normalized_mode == "builtin":
@@ -86,23 +113,38 @@ class SystemSettingService:
         if normalized_mode != "server_signing":
             raise AccessTokenSigningValidationError(_("Unsupported signing mode was specified."))
 
-        if not kid or not kid.strip():
-            raise AccessTokenSigningValidationError(_("Please select a certificate for signing."))
+        if not group_code or not group_code.strip():
+            raise AccessTokenSigningValidationError(_("Please select a certificate group for signing."))
 
-        certificate = cls._load_server_signing_certificate(kid.strip())
+        certificate = cls._select_latest_server_signing_certificate(group_code.strip())
 
-        group_code = certificate.group.group_code if certificate.group else None
         value = {
             "mode": "server_signing",
             "kid": certificate.kid,
-            "groupCode": group_code,
+            "groupCode": certificate.group.group_code if certificate.group else None,
         }
         setting = AccessTokenSigningSetting(
             mode="server_signing",
             kid=certificate.kid,
-            group_code=group_code,
+            group_code=certificate.group.group_code if certificate.group else None,
         )
         return cls._persist_access_token_signing(value, setting)
+
+    @classmethod
+    def resolve_active_server_signing_certificate(
+        cls, setting: AccessTokenSigningSetting
+    ):
+        """Locate the active certificate referenced by the current signing configuration."""
+
+        if setting.group_code:
+            return cls._select_latest_server_signing_certificate(setting.group_code)
+
+        if setting.kid:
+            return cls._load_server_signing_certificate(setting.kid)
+
+        raise AccessTokenSigningValidationError(
+            _("No certificate group has been configured for server signing."),
+        )
 
     @classmethod
     def _load_server_signing_certificate(cls, kid: str):
@@ -134,6 +176,45 @@ class SystemSettingService:
             ) from exc
 
         return certificate
+
+    @classmethod
+    def _select_latest_server_signing_certificate(cls, group_code: str):
+        try:
+            group = GetCertificateGroupUseCase().execute(group_code)
+        except CertificateGroupNotFoundError as exc:
+            raise AccessTokenSigningValidationError(
+                _("The selected certificate group could not be found."),
+            ) from exc
+
+        if group.usage_type != UsageType.SERVER_SIGNING:
+            raise AccessTokenSigningValidationError(
+                _("The certificate group is not configured for server signing usage."),
+            )
+
+        certificates = ListIssuedCertificatesUseCase().execute(
+            UsageType.SERVER_SIGNING,
+            group_code=group.group_code,
+        )
+        now = datetime.now(timezone.utc)
+
+        for certificate in certificates:
+            revoked_at = cls._to_utc(certificate.revoked_at)
+            if revoked_at is not None and revoked_at <= now:
+                continue
+            expires_at = cls._to_utc(certificate.expires_at)
+            if expires_at is not None and expires_at <= now:
+                continue
+            if certificate.group is None:
+                continue
+            try:
+                default_certificate_services.private_key_store.get(certificate.kid)
+            except CertificatePrivateKeyNotFoundError:
+                continue
+            return certificate
+
+        raise AccessTokenSigningValidationError(
+            _("No active certificates are available in the selected group."),
+        )
 
     @classmethod
     def _persist_access_token_signing(

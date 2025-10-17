@@ -248,11 +248,11 @@ def show_config():
                 flash(_(u"Access token signing will use the built-in secret."), "success")
             else:
                 prefix = "server_signing:"
-                kid = selected[len(prefix):] if selected.startswith(prefix) else selected
+                group_code = selected[len(prefix):] if selected.startswith(prefix) else selected
                 SystemSettingService.update_access_token_signing_setting(
-                    "server_signing", kid=kid
+                    "server_signing", group_code=group_code
                 )
-                flash(_(u"Access token signing certificate updated."), "success")
+                flash(_(u"Access token signing certificate group updated."), "success")
         except AccessTokenSigningValidationError as exc:
             flash(str(exc), "danger")
         except Exception:  # pragma: no cover - unexpected failure logged for debugging
@@ -267,12 +267,12 @@ def show_config():
     ]
     config_dict = {k: getattr(Config, k) for k in public_keys}
     signing_setting = SystemSettingService.get_access_token_signing_setting()
-    certificates = _list_server_signing_certificates()
+    certificate_groups = _list_server_signing_certificate_groups()
     return render_template(
         "admin/config_view.html",
         config=config_dict,
         signing_setting=signing_setting,
-        server_signing_certificates=certificates,
+        server_signing_groups=certificate_groups,
     )
 
 # バージョン情報表示ページ（管理者のみ）
@@ -816,48 +816,59 @@ def _extract_service_account_payload() -> dict:
     }
 
 
-def _list_server_signing_certificates() -> list[dict]:
+def _list_server_signing_certificate_groups() -> list[dict]:
     now = datetime.now(timezone.utc)
     results: list[dict] = []
-    certificates = ListIssuedCertificatesUseCase().execute(UsageType.SERVER_SIGNING)
-    for certificate in certificates:
-        revoked_at = _to_utc(certificate.revoked_at)
-        if revoked_at is not None and revoked_at <= now:
-            continue
-        expires_at = _to_utc(certificate.expires_at)
-        if expires_at is not None and expires_at <= now:
-            continue
-        try:
-            default_certificate_services.private_key_store.get(certificate.kid)
-        except CertificatePrivateKeyNotFoundError:
-            continue
+    groups = [
+        group
+        for group in ListCertificateGroupsUseCase().execute()
+        if group.usage_type == UsageType.SERVER_SIGNING
+    ]
 
-        group_label = None
-        group_code = None
-        if certificate.group is not None:
-            group_code = certificate.group.group_code
-            group_label = certificate.group.display_name or certificate.group.group_code
+    for group in groups:
+        certificates = ListIssuedCertificatesUseCase().execute(
+            UsageType.SERVER_SIGNING,
+            group_code=group.group_code,
+        )
 
-        subject = ""
-        if certificate.certificate is not None:
+        latest_entry: dict | None = None
+        for certificate in certificates:
+            revoked_at = _to_utc(certificate.revoked_at)
+            if revoked_at is not None and revoked_at <= now:
+                continue
+            expires_at = _to_utc(certificate.expires_at)
+            if expires_at is not None and expires_at <= now:
+                continue
             try:
-                subject = certificate.certificate.subject.rfc4514_string()
-            except Exception:  # pragma: no cover - fallback for unexpected parsing issues
-                subject = ""
+                default_certificate_services.private_key_store.get(certificate.kid)
+            except CertificatePrivateKeyNotFoundError:
+                continue
 
-        results.append(
-            {
+            subject = ""
+            if certificate.certificate is not None:
+                try:
+                    subject = certificate.certificate.subject.rfc4514_string()
+                except Exception:  # pragma: no cover - unexpected parsing issues
+                    subject = ""
+
+            latest_entry = {
                 "kid": certificate.kid,
-                "group_code": group_code,
-                "group_label": group_label,
                 "issued_at": _to_utc(certificate.issued_at),
                 "expires_at": expires_at,
                 "algorithm": certificate.jwk.get("alg"),
                 "subject": subject,
             }
+            break
+
+        results.append(
+            {
+                "group_code": group.group_code,
+                "group_label": group.display_name or group.group_code,
+                "latest_certificate": latest_entry,
+            }
         )
 
-    results.sort(key=lambda item: ((item["group_label"] or "").lower(), item["kid"]))
+    results.sort(key=lambda item: ((item["group_label"] or "").lower(), item["group_code"]))
     return results
 
 

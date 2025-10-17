@@ -17,6 +17,7 @@ from features.certs.domain.exceptions import (
 from features.certs.domain.usage import UsageType
 from webapp.services.system_setting_service import (
     AccessTokenSigningSetting,
+    AccessTokenSigningValidationError,
     SystemSettingService,
 )
 
@@ -59,10 +60,10 @@ def resolve_signing_material() -> SigningMaterial:
             setting=setting,
         )
 
-    if not setting.kid:
-        raise AccessTokenSigningError("Server signing configuration is missing a certificate identifier.")
-
-    certificate = _load_active_server_signing_certificate(setting.kid)
+    try:
+        certificate = SystemSettingService.resolve_active_server_signing_certificate(setting)
+    except AccessTokenSigningValidationError as exc:
+        raise AccessTokenSigningError(str(exc)) from exc
     try:
         key_record = default_certificate_services.private_key_store.get(certificate.kid)
     except CertificatePrivateKeyNotFoundError as exc:

@@ -32,7 +32,7 @@ def test_generate_access_token_with_server_signing():
     db.session.commit()
 
     issued = IssueCertificateForGroupUseCase().execute(group.group_code)
-    SystemSettingService.update_access_token_signing_setting("server_signing", kid=issued.kid)
+    SystemSettingService.update_access_token_signing_setting("server_signing", group_code=group.group_code)
 
     token = TokenService.generate_access_token(user)
     header = jwt.get_unverified_header(token)
@@ -70,10 +70,49 @@ def test_verify_builtin_token_after_switch_to_server_signing():
     db.session.commit()
 
     issued = IssueCertificateForGroupUseCase().execute(group.group_code)
-    SystemSettingService.update_access_token_signing_setting("server_signing", kid=issued.kid)
+    SystemSettingService.update_access_token_signing_setting("server_signing", group_code=group.group_code)
 
     verification = TokenService.verify_access_token(legacy_token)
     assert verification is not None
     verified_user, scopes = verification
     assert verified_user.id == user.id
     assert scopes == set()
+
+
+@pytest.mark.usefixtures("app_context")
+def test_latest_certificate_is_used_for_group():
+    user = User(email="rotate@example.com")
+    user.set_password("secret")
+    db.session.add(user)
+    db.session.commit()
+
+    group = CertificateGroupEntity(
+        group_code="server-signing-rotate",
+        display_name="Server Signing Rotate",
+        auto_rotate=False,
+        rotation_threshold_days=30,
+        key_type="RSA",
+        key_curve=None,
+        key_size=2048,
+        subject={"CN": "Server Signing Rotate"},
+        usage_type=UsageType.SERVER_SIGNING.value,
+    )
+    db.session.add(group)
+    db.session.commit()
+
+    first = IssueCertificateForGroupUseCase().execute(group.group_code)
+    SystemSettingService.update_access_token_signing_setting("server_signing", group_code=group.group_code)
+
+    first_token = TokenService.generate_access_token(user)
+    first_header = jwt.get_unverified_header(first_token)
+    assert first_header.get("kid") == first.kid
+
+    second = IssueCertificateForGroupUseCase().execute(group.group_code)
+
+    second_token = TokenService.generate_access_token(user)
+    second_header = jwt.get_unverified_header(second_token)
+    assert second_header.get("kid") == second.kid
+    assert second_header.get("kid") != first_header.get("kid")
+
+    assert TokenService.verify_access_token(first_token) is not None
+    assert TokenService.verify_access_token(second_token) is not None

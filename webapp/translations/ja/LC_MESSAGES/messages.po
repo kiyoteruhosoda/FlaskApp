@@ -3282,3 +3282,60 @@ msgstr "ホームに戻る"
 
 msgid "Unavailable"
 msgstr "取得できません"
+
+msgid "Access token signing will use the built-in secret."
+msgstr "アクセストークンの署名に組み込みシークレットを利用します。"
+
+msgid "Access token signing certificate group updated."
+msgstr "アクセストークン署名の証明書グループを更新しました。"
+
+msgid "Please select a certificate group for signing."
+msgstr "署名に使用する証明書グループを選択してください。"
+
+msgid "Failed to update the access token signing configuration."
+msgstr "アクセストークン署名の設定を更新できませんでした。"
+
+msgid "No certificate group has been configured for server signing."
+msgstr "サーバー署名用の証明書グループが設定されていません。"
+
+msgid "The selected certificate group could not be found."
+msgstr "選択した証明書グループが見つかりません。"
+
+msgid "The certificate group is not configured for server signing usage."
+msgstr "この証明書グループはサーバー署名用に設定されていません。"
+
+msgid "No active certificates are available in the selected group."
+msgstr "選択されたグループには利用可能な証明書がありません。"
+
+msgid "Access Token Signing"
+msgstr "アクセストークン署名"
+
+msgid "Built-in secret (HS256)"
+msgstr "組み込みシークレット（HS256）"
+
+msgid "Use the built-in JWT secret key configured in the application settings."
+msgstr "アプリケーション設定の組み込みJWTシークレットキーを使用します。"
+
+msgid "Server signing certificate groups"
+msgstr "サーバー署名証明書グループ"
+
+msgid "Unnamed group"
+msgstr "名称未設定のグループ"
+
+msgid "Latest active certificate: %(kid)s"
+msgstr "最新の有効な証明書: %(kid)s"
+
+msgid "Algorithm: %(algorithm)s"
+msgstr "アルゴリズム: %(algorithm)s"
+
+msgid "Expires at: %(timestamp)s"
+msgstr "有効期限: %(timestamp)s"
+
+msgid "No active certificates are available in this group."
+msgstr "このグループには有効な証明書がありません。"
+
+msgid "No server signing certificate groups are available. Create a certificate group first."
+msgstr "サーバー署名用の証明書グループがありません。先に証明書グループを作成してください。"
+
+msgid "Save signing settings"
+msgstr "署名設定を保存"

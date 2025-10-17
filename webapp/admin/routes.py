@@ -2,8 +2,8 @@
 import os
 import platform
 import socket
+from datetime import datetime, timezone
 from pathlib import Path
-
 import flask
 import werkzeug
 from flask import (
@@ -34,12 +34,22 @@ from webapp.services.service_account_api_key_service import (
     ServiceAccountApiKeyService,
     ServiceAccountApiKeyValidationError,
 )
+from features.certs.application.services import default_certificate_services
 from features.certs.application.use_cases import (
     GetCertificateGroupUseCase,
     ListCertificateGroupsUseCase,
+    ListIssuedCertificatesUseCase,
 )
-from features.certs.domain.exceptions import CertificateGroupNotFoundError
+from features.certs.domain.exceptions import (
+    CertificateGroupNotFoundError,
+    CertificatePrivateKeyNotFoundError,
+)
 from features.certs.domain.usage import UsageType
+from webapp.services.system_setting_service import (
+    AccessTokenSigningSetting,
+    AccessTokenSigningValidationError,
+    SystemSettingService,
+)
 
 
 bp = Blueprint("admin", __name__, template_folder="templates")
@@ -229,11 +239,30 @@ def service_account_api_keys(account_id: int):
 
 
 # Config表示ページ（管理者のみ）
-@bp.route("/config")
+@bp.route("/config", methods=["GET", "POST"])
 @login_required
 def show_config():
     if not (hasattr(current_user, 'has_role') and current_user.has_role("admin")):
         return _(u"You do not have permission to access this page."), 403
+    if request.method == "POST":
+        selected = (request.form.get("access_token_signing") or "builtin").strip()
+        try:
+            if selected == "builtin":
+                SystemSettingService.update_access_token_signing_setting("builtin")
+                flash(_(u"Access token signing will use the built-in secret."), "success")
+            else:
+                prefix = "server_signing:"
+                group_code = selected[len(prefix):] if selected.startswith(prefix) else selected
+                SystemSettingService.update_access_token_signing_setting(
+                    "server_signing", group_code=group_code
+                )
+                flash(_(u"Access token signing certificate group updated."), "success")
+        except AccessTokenSigningValidationError as exc:
+            flash(str(exc), "danger")
+        except Exception:  # pragma: no cover - unexpected failure logged for debugging
+            current_app.logger.exception("Failed to update access token signing configuration")
+            flash(_(u"Failed to update the access token signing configuration."), "danger")
+        return redirect(url_for("admin.show_config"))
     # Only show public config values, not secrets
     from webapp.config import Config
     public_keys = [
@@ -241,7 +270,18 @@ def show_config():
         if not k.startswith("_") and k.isupper() and k not in ("SECRET_KEY")
     ]
     config_dict = {k: getattr(Config, k) for k in public_keys}
-    return render_template("admin/config_view.html", config=config_dict)
+    try:
+        signing_setting = SystemSettingService.get_access_token_signing_setting()
+    except AccessTokenSigningValidationError as exc:
+        flash(str(exc), "danger")
+        signing_setting = AccessTokenSigningSetting(mode="server_signing")
+    certificate_groups = _list_server_signing_certificate_groups()
+    return render_template(
+        "admin/config_view.html",
+        config=config_dict,
+        signing_setting=signing_setting,
+        server_signing_groups=certificate_groups,
+    )
 
 # バージョン情報表示ページ（管理者のみ）
 @bp.route("/version")
@@ -796,6 +836,70 @@ def _extract_service_account_payload() -> dict:
         "scope_names": data.get("scope_names", ""),
         "active_flg": active_value,
     }
+
+
+def _list_server_signing_certificate_groups() -> list[dict]:
+    now = datetime.now(timezone.utc)
+    results: list[dict] = []
+    groups = [
+        group
+        for group in ListCertificateGroupsUseCase().execute()
+        if group.usage_type == UsageType.SERVER_SIGNING
+    ]
+
+    for group in groups:
+        certificates = ListIssuedCertificatesUseCase().execute(
+            UsageType.SERVER_SIGNING,
+            group_code=group.group_code,
+        )
+
+        latest_entry: dict | None = None
+        for certificate in certificates:
+            revoked_at = _to_utc(certificate.revoked_at)
+            if revoked_at is not None and revoked_at <= now:
+                continue
+            expires_at = _to_utc(certificate.expires_at)
+            if expires_at is not None and expires_at <= now:
+                continue
+            try:
+                default_certificate_services.private_key_store.get(certificate.kid)
+            except CertificatePrivateKeyNotFoundError:
+                continue
+
+            subject = ""
+            if certificate.certificate is not None:
+                try:
+                    subject = certificate.certificate.subject.rfc4514_string()
+                except Exception:  # pragma: no cover - unexpected parsing issues
+                    subject = ""
+
+            latest_entry = {
+                "kid": certificate.kid,
+                "issued_at": _to_utc(certificate.issued_at),
+                "expires_at": expires_at,
+                "algorithm": certificate.jwk.get("alg"),
+                "subject": subject,
+            }
+            break
+
+        results.append(
+            {
+                "group_code": group.group_code,
+                "group_label": group.display_name or group.group_code,
+                "latest_certificate": latest_entry,
+            }
+        )
+
+    results.sort(key=lambda item: ((item["group_label"] or "").lower(), item["group_code"]))
+    return results
+
+
+def _to_utc(value):
+    if value is None:
+        return None
+    if getattr(value, "tzinfo", None) is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 def _format_bytes(num: int) -> str:

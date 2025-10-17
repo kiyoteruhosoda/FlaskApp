@@ -13,6 +13,12 @@ from flask import current_app
 
 from core.models.user import User
 from webapp.extensions import db
+from webapp.services.access_token_signing import (
+    AccessTokenSigningError,
+    AccessTokenVerificationError,
+    resolve_signing_material,
+    resolve_verification_key,
+)
 
 
 class TokenService:
@@ -76,10 +82,21 @@ class TokenService:
             "scope": scope_str,
         }
 
+        try:
+            material = resolve_signing_material()
+        except AccessTokenSigningError as exc:
+            current_app.logger.error(
+                "Failed to resolve signing material for access token: %s",
+                exc,
+            )
+            raise
+
+        headers = material.headers if material.headers else None
         return jwt.encode(
             payload,
-            current_app.config["JWT_SECRET_KEY"],
-            algorithm="HS256",
+            material.key,
+            algorithm=material.algorithm,
+            headers=headers,
         )
 
     @classmethod
@@ -119,26 +136,29 @@ class TokenService:
         """アクセストークンを検証してユーザーと許可スコープを取得する"""
 
         try:
+            header = jwt.get_unverified_header(token)
+        except jwt.InvalidTokenError:
+            current_app.logger.debug("JWT token header invalid")
+            return None
+
+        algorithm = header.get("alg") if isinstance(header, dict) else None
+        kid = header.get("kid") if isinstance(header, dict) else None
+        if not isinstance(algorithm, str) or not algorithm:
+            current_app.logger.debug("JWT token missing algorithm header")
+            return None
+
+        try:
+            key = resolve_verification_key(algorithm, kid if isinstance(kid, str) else None)
+        except (AccessTokenVerificationError, AccessTokenSigningError) as exc:
+            current_app.logger.debug("JWT token verification key resolution failed: %s", exc)
+            return None
+
+        try:
             payload = jwt.decode(
                 token,
-                current_app.config["JWT_SECRET_KEY"],
-                algorithms=["HS256"],
+                key,
+                algorithms=[algorithm],
             )
-
-            user_id = int(payload["sub"])
-            user = User.query.get(user_id)
-
-            if not user or not user.is_active:
-                return None
-
-            scope_claim = payload.get("scope", "")
-            if isinstance(scope_claim, str):
-                scope_items = {item for item in scope_claim.split() if item}
-            else:
-                scope_items = set()
-
-            return user, scope_items
-
         except jwt.ExpiredSignatureError:
             current_app.logger.debug("JWT token expired")
             return None
@@ -148,6 +168,24 @@ class TokenService:
         except (ValueError, TypeError):
             current_app.logger.debug("JWT token format error")
             return None
+
+        try:
+            user_id = int(payload["sub"])
+        except (KeyError, TypeError, ValueError):
+            current_app.logger.debug("JWT token missing subject claim")
+            return None
+
+        user = User.query.get(user_id)
+        if not user or not user.is_active:
+            return None
+
+        scope_claim = payload.get("scope", "")
+        if isinstance(scope_claim, str):
+            scope_items = {item for item in scope_claim.split() if item}
+        else:
+            scope_items = set()
+
+        return user, scope_items
 
     @classmethod
     def verify_refresh_token(cls, refresh_token: str) -> Optional[tuple[User, str]]:

@@ -1261,3 +1261,61 @@ msgstr "Back to Home"
 
 msgid "Unavailable"
 msgstr "Unavailable"
+
+msgid "Access token signing will use the built-in secret."
+msgstr "Access token signing will use the built-in secret."
+
+msgid "Access token signing certificate group updated."
+msgstr "Access token signing certificate group updated."
+
+msgid "Please select a certificate group for signing."
+msgstr "Please select a certificate group for signing."
+
+msgid "Failed to update the access token signing configuration."
+msgstr "Failed to update the access token signing configuration."
+
+msgid "No certificate group has been configured for server signing."
+msgstr "No certificate group has been configured for server signing."
+
+msgid "The selected certificate group could not be found."
+msgstr "The selected certificate group could not be found."
+
+msgid "The certificate group is not configured for server signing usage."
+msgstr "The certificate group is not configured for server signing usage."
+
+msgid "No active certificates are available in the selected group."
+msgstr "No active certificates are available in the selected group."
+
+msgid "Access Token Signing"
+msgstr "Access Token Signing"
+
+msgid "Built-in secret (HS256)"
+msgstr "Built-in secret (HS256)"
+
+msgid "Use the built-in JWT secret key configured in the application settings."
+msgstr "Use the built-in JWT secret key configured in the application settings."
+
+msgid "Server signing certificate groups"
+msgstr "Server signing certificate groups"
+
+msgid "Unnamed group"
+msgstr "Unnamed group"
+
+msgid "Latest active certificate: %(kid)s"
+msgstr "Latest active certificate: %(kid)s"
+
+msgid "Algorithm: %(algorithm)s"
+msgstr "Algorithm: %(algorithm)s"
+
+msgid "Expires at: %(timestamp)s"
+msgstr "Expires at: %(timestamp)s"
+
+msgid "No active certificates are available in this group."
+msgstr "No active certificates are available in this group."
+
+msgid "No server signing certificate groups are available. Create a certificate group first."
+msgstr "No server signing certificate groups are available. Create a certificate group first."
+
+msgid "Save signing settings"
+msgstr "Save signing settings"
+

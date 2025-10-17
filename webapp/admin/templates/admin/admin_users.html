@@ -21,11 +21,6 @@
       <i class="fab fa-google"></i> {{ _('Google Accounts') }}
     </a>
   </li>
-  <li class="nav-item">
-    <a class="nav-link" href="{{ url_for('admin.show_config') }}">
-      <i class="fas fa-cogs"></i> {{ _('Config Settings') }}
-    </a>
-  </li>
   {% if current_user.can('service_account:manage') %}
   <li class="nav-item">
     <a class="nav-link" href="{{ url_for('admin.service_accounts') }}">
@@ -33,6 +28,11 @@
     </a>
   </li>
   {% endif %}
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.show_config') }}">
+      <i class="fas fa-cogs"></i> {{ _('Config Settings') }}
+    </a>
+  </li>
   {% endif %}
   {% if current_user.can('role:manage') %}
   <li class="nav-item">

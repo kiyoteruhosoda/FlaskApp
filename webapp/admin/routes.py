@@ -60,15 +60,22 @@ def _can_read_api_keys() -> bool:
 @bp.route("/service-accounts")
 @login_required
 def service_accounts():
-    if not current_user.can("service_account:manage"):
+    can_manage_accounts = current_user.can("service_account:manage")
+    can_access_api_keys = _can_read_api_keys()
+
+    if not (can_manage_accounts or can_access_api_keys):
         return _(u"You do not have permission to access this page."), 403
 
     accounts = [account.as_dict() for account in ServiceAccountService.list_accounts()]
-    available_scopes = sorted(current_user.permissions)
+    available_scopes = (
+        sorted(current_user.permissions) if can_manage_accounts else []
+    )
     return render_template(
         "admin/service_accounts.html",
         accounts=accounts,
         available_scopes=available_scopes,
+        can_manage_accounts=can_manage_accounts,
+        can_access_api_keys=can_access_api_keys,
     )
 
 

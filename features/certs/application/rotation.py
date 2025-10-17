@@ -136,6 +136,12 @@ class AutoRotateCertificatesUseCase:
         if latest.revoked_at is not None and latest.revoked_at <= now:
             return True
         if latest.expires_at is None:
+            # JWK-only signing keys may be issued without an expiry when
+            # unlimited validity is requested. Treat those as non-rotating so
+            # the auto-rotation scheduler does not immediately re-issue keys on
+            # every run.
+            if latest.certificate is None:
+                return False
             return True
         threshold_at = latest.expires_at - timedelta(days=group.rotation_policy.rotation_threshold_days)
         return now >= threshold_at

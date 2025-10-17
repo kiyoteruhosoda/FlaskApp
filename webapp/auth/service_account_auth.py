@@ -7,13 +7,14 @@ from typing import Callable, Iterable, Sequence
 
 import json
 import jwt
-import requests
 from flask import current_app, g, request
 from flask_babel import gettext as _
 from jwt import algorithms as jwt_algorithms
 
 from core.models.service_account import ServiceAccount
 from webapp.services.service_account_service import ServiceAccountService
+from features.certs.application.use_cases import ListJwksUseCase
+from features.certs.domain.exceptions import CertificateGroupNotFoundError
 
 _ALLOWED_ALGORITHMS = {"ES256", "RS256"}
 _MAX_TOKEN_LIFETIME = timedelta(minutes=10)
@@ -39,35 +40,25 @@ class ServiceAccountTokenValidator:
                 _("The token does not specify a key identifier."),
             )
 
-        if not account.jwt_endpoint:
+        if not account.certificate_group_code:
             raise ServiceAccountJWTError(
                 "InvalidSignature",
-                _("The service account is missing a JWT endpoint."),
+                _("The service account is missing a certificate group."),
             )
 
-        timeout = current_app.config.get("SERVICE_ACCOUNT_JWKS_TIMEOUT", 5)
         try:
-            response = requests.get(account.jwt_endpoint, timeout=timeout)
-            response.raise_for_status()
-        except requests.RequestException as exc:
+            payload = ListJwksUseCase().execute(account.certificate_group_code)
+        except CertificateGroupNotFoundError as exc:
             raise ServiceAccountJWTError(
                 "InvalidSignature",
-                _("Failed to retrieve the signing keys."),
-            ) from exc
-
-        try:
-            payload = response.json()
-        except ValueError as exc:
-            raise ServiceAccountJWTError(
-                "InvalidSignature",
-                _("The JWT endpoint returned invalid JSON."),
+                _("The configured certificate group could not be found."),
             ) from exc
 
         keys = payload.get("keys")
         if not isinstance(keys, list):
             raise ServiceAccountJWTError(
                 "InvalidSignature",
-                _("The JWT endpoint response did not include signing keys."),
+                _("No signing keys are registered for the certificate group."),
             )
 
         for jwk in keys:
@@ -82,7 +73,7 @@ class ServiceAccountTokenValidator:
             except (ValueError, TypeError) as exc:
                 raise ServiceAccountJWTError(
                     "InvalidSignature",
-                    _("Failed to construct a signing key from the JWT response."),
+                    _("Failed to construct a signing key from the certificate group keys."),
                 ) from exc
 
         raise ServiceAccountJWTError(

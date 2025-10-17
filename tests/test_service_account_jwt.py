@@ -9,6 +9,8 @@ from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from jwt.algorithms import ECAlgorithm, RSAAlgorithm
 
 from core.db import db
+from features.certs.domain.usage import UsageType
+from features.certs.infrastructure.models import CertificateGroupEntity
 from webapp.auth.service_account_auth import (
     ServiceAccountJWTError,
     ServiceAccountTokenValidator,
@@ -64,31 +66,44 @@ def _build_jwk(public_pem: str, algorithm: str, kid: str) -> dict:
 
 
 def _mock_jwks(monkeypatch, mapping: dict[str, list[dict]]):
-    class FakeResponse:
-        def __init__(self, payload):
-            self._payload = payload
-            self.status_code = 200
+    def fake_execute(self, group_code: str, *, latest_only: bool = False):
+        if group_code not in mapping:
+            raise AssertionError(f"unexpected group {group_code}")
+        keys = mapping[group_code]
+        if latest_only:
+            keys = keys[:1]
+        return {"keys": keys}
 
-        def raise_for_status(self):
-            return None
-
-        def json(self):
-            return self._payload
-
-    def fake_get(url, *args, **kwargs):
-        if url not in mapping:
-            raise AssertionError(f"unexpected url {url}")
-        return FakeResponse({"keys": mapping[url]})
-
-    monkeypatch.setattr("requests.get", fake_get)
+    monkeypatch.setattr(
+        "webapp.auth.service_account_auth.ListJwksUseCase.execute", fake_execute
+    )
 
 
-def _create_account(app, name: str, jwt_endpoint: str, scopes: str):
+def _create_certificate_group(
+    group_code: str, *, usage: UsageType = UsageType.CLIENT_SIGNING
+) -> str:
+    entity = CertificateGroupEntity(
+        group_code=group_code,
+        display_name=group_code,
+        auto_rotate=False,
+        rotation_threshold_days=30,
+        key_type="EC",
+        key_curve="P-256",
+        key_size=None,
+        subject={"CN": group_code},
+        usage_type=usage.value,
+    )
+    db.session.add(entity)
+    db.session.commit()
+    return entity.group_code
+
+
+def _create_account(app, name: str, group_code: str, scopes: str):
     allowed = [scope.strip() for scope in scopes.split(",") if scope.strip()]
     return ServiceAccountService.create_account(
         name=name,
         description="",
-        jwt_endpoint=jwt_endpoint,
+        certificate_group_code=group_code,
         scope_names=scopes,
         active=True,
         allowed_scopes=allowed,
@@ -121,10 +136,15 @@ def _issue_token(
 @pytest.mark.usefixtures("app_context")
 def test_service_account_jwt_success_es256(app_context, monkeypatch):
     private_pem, public_pem = _generate_es256_key_pair()
-    endpoint = "https://example.com/jwks/maintenance"
+    group_code = _create_certificate_group("maintenance-group")
     kid = "maintenance-key"
-    _mock_jwks(monkeypatch, {endpoint: [_build_jwk(public_pem, "ES256", kid)]})
-    _create_account(app_context, "maintenance-bot", endpoint, "maintenance:read,maintenance:write")
+    _mock_jwks(monkeypatch, {group_code: [_build_jwk(public_pem, "ES256", kid)]})
+    _create_account(
+        app_context,
+        "maintenance-bot",
+        group_code,
+        "maintenance:read,maintenance:write",
+    )
 
     token = _issue_token(
         private_pem,
@@ -147,10 +167,10 @@ def test_service_account_jwt_success_es256(app_context, monkeypatch):
 @pytest.mark.usefixtures("app_context")
 def test_service_account_jwt_invalid_scope(app_context, monkeypatch):
     private_pem, public_pem = _generate_es256_key_pair()
-    endpoint = "https://example.com/jwks/scope"
+    group_code = _create_certificate_group("scope-group")
     kid = "scope-key"
-    _mock_jwks(monkeypatch, {endpoint: [_build_jwk(public_pem, "ES256", kid)]})
-    _create_account(app_context, "scope-bot", endpoint, "maintenance:read")
+    _mock_jwks(monkeypatch, {group_code: [_build_jwk(public_pem, "ES256", kid)]})
+    _create_account(app_context, "scope-bot", group_code, "maintenance:read")
     token = _issue_token(
         private_pem,
         name="scope-bot",
@@ -168,9 +188,12 @@ def test_service_account_jwt_invalid_scope(app_context, monkeypatch):
 @pytest.mark.usefixtures("app_context")
 def test_service_account_jwt_unknown_kid(app_context, monkeypatch):
     private_pem, public_pem = _generate_es256_key_pair()
-    endpoint = "https://example.com/jwks/unknown"
-    _mock_jwks(monkeypatch, {endpoint: [_build_jwk(public_pem, "ES256", "other-key")]})
-    _create_account(app_context, "unknown-kid", endpoint, "maintenance:read")
+    group_code = _create_certificate_group("unknown-group")
+    _mock_jwks(
+        monkeypatch,
+        {group_code: [_build_jwk(public_pem, "ES256", "other-key")]},
+    )
+    _create_account(app_context, "unknown-kid", group_code, "maintenance:read")
     token = _issue_token(
         private_pem,
         name="unknown-kid",
@@ -192,10 +215,10 @@ def test_service_account_jwt_unknown_kid(app_context, monkeypatch):
 @pytest.mark.usefixtures("app_context")
 def test_service_account_jwt_expired(app_context, monkeypatch):
     private_pem, public_pem = _generate_es256_key_pair()
-    endpoint = "https://example.com/jwks/expired"
+    group_code = _create_certificate_group("expired-group")
     kid = "expired-key"
-    _mock_jwks(monkeypatch, {endpoint: [_build_jwk(public_pem, "ES256", kid)]})
-    _create_account(app_context, "expired-bot", endpoint, "maintenance:read")
+    _mock_jwks(monkeypatch, {group_code: [_build_jwk(public_pem, "ES256", kid)]})
+    _create_account(app_context, "expired-bot", group_code, "maintenance:read")
     now = datetime.now(timezone.utc)
     payload = {
         "iss": "expired-bot",
@@ -228,10 +251,10 @@ def test_service_account_jwt_unknown_account(app_context):
 @pytest.mark.usefixtures("app_context")
 def test_service_account_jwt_disabled_account(app_context, monkeypatch):
     private_pem, public_pem = _generate_es256_key_pair()
-    endpoint = "https://example.com/jwks/disabled"
+    group_code = _create_certificate_group("disabled-group")
     kid = "disabled-key"
-    _mock_jwks(monkeypatch, {endpoint: [_build_jwk(public_pem, "ES256", kid)]})
-    account = _create_account(app_context, "disabled-bot", endpoint, "maintenance:read")
+    _mock_jwks(monkeypatch, {group_code: [_build_jwk(public_pem, "ES256", kid)]})
+    account = _create_account(app_context, "disabled-bot", group_code, "maintenance:read")
     account.active_flg = False
     db.session.commit()
 
@@ -252,10 +275,10 @@ def test_service_account_jwt_disabled_account(app_context, monkeypatch):
 @pytest.mark.usefixtures("app_context")
 def test_service_account_jwt_lifetime_limit(app_context, monkeypatch):
     private_pem, public_pem = _generate_es256_key_pair()
-    endpoint = "https://example.com/jwks/long"
+    group_code = _create_certificate_group("long-group")
     kid = "long-key"
-    _mock_jwks(monkeypatch, {endpoint: [_build_jwk(public_pem, "ES256", kid)]})
-    _create_account(app_context, "long-bot", endpoint, "maintenance:read")
+    _mock_jwks(monkeypatch, {group_code: [_build_jwk(public_pem, "ES256", kid)]})
+    _create_account(app_context, "long-bot", group_code, "maintenance:read")
     token = _issue_token(
         private_pem,
         name="long-bot",
@@ -274,10 +297,10 @@ def test_service_account_jwt_lifetime_limit(app_context, monkeypatch):
 @pytest.mark.usefixtures("app_context")
 def test_service_account_jwt_success_rs256(app_context, monkeypatch):
     private_pem, public_pem = _generate_rs256_key_pair()
-    endpoint = "https://example.com/jwks/rsa"
+    group_code = _create_certificate_group("rsa-group")
     kid = "rsa-key"
-    _mock_jwks(monkeypatch, {endpoint: [_build_jwk(public_pem, "RS256", kid)]})
-    _create_account(app_context, "rsa-bot", endpoint, "maintenance:read")
+    _mock_jwks(monkeypatch, {group_code: [_build_jwk(public_pem, "RS256", kid)]})
+    _create_account(app_context, "rsa-bot", group_code, "maintenance:read")
     token = _issue_token(
         private_pem,
         name="rsa-bot",
@@ -297,26 +320,44 @@ def test_service_account_jwt_success_rs256(app_context, monkeypatch):
 
 
 @pytest.mark.usefixtures("app_context")
-def test_service_account_jwt_endpoint_validation(app_context):
+def test_service_account_certificate_group_validation(app_context):
+    group_code = _create_certificate_group("normalize-group")
+
     account = ServiceAccountService.create_account(
         name="normalize-bot",
         description=None,
-        jwt_endpoint=" https://keys.example.com/jwks ",
+        certificate_group_code=f"  {group_code}  ",
         scope_names="maintenance:read",
         active=True,
         allowed_scopes=["maintenance:read"],
     )
 
-    assert account.jwt_endpoint == "https://keys.example.com/jwks"
+    assert account.certificate_group_code == group_code
 
     with pytest.raises(ServiceAccountValidationError) as exc:
         ServiceAccountService.create_account(
             name="invalid-bot",
             description=None,
-            jwt_endpoint="ftp://keys.example.com/jwks",
+            certificate_group_code="missing-group",
             scope_names="maintenance:read",
             active=True,
             allowed_scopes=["maintenance:read"],
         )
 
-    assert exc.value.field == "jwt_endpoint"
+    assert exc.value.field == "certificate_group_code"
+
+    wrong_usage_group = _create_certificate_group(
+        "server-group", usage=UsageType.SERVER_SIGNING
+    )
+
+    with pytest.raises(ServiceAccountValidationError) as exc_wrong_usage:
+        ServiceAccountService.create_account(
+            name="wrong-usage",
+            description=None,
+            certificate_group_code=wrong_usage_group,
+            scope_names="maintenance:read",
+            active=True,
+            allowed_scopes=["maintenance:read"],
+        )
+
+    assert exc_wrong_usage.value.field == "certificate_group_code"

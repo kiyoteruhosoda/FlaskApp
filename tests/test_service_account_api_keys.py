@@ -6,6 +6,8 @@ from flask import jsonify, g
 from core.db import db
 from core.models.service_account_api_key import ServiceAccountApiKeyLog
 from core.models.user import Permission, Role, User
+from features.certs.domain.usage import UsageType
+from features.certs.infrastructure.models import CertificateGroupEntity
 from webapp.auth.api_key_auth import require_api_key_scopes
 from webapp.services.service_account_api_key_service import (
     ServiceAccountApiKeyService,
@@ -14,12 +16,34 @@ from webapp.services.service_account_api_key_service import (
 from webapp.services.service_account_service import ServiceAccountService
 
 
+def _ensure_certificate_group() -> str:
+    group = CertificateGroupEntity.query.filter_by(group_code="client-media").first()
+    if group:
+        return group.group_code
+
+    group = CertificateGroupEntity(
+        group_code="client-media",
+        display_name="Client Media",
+        auto_rotate=False,
+        rotation_threshold_days=30,
+        key_type="EC",
+        key_curve="P-256",
+        key_size=None,
+        subject={"CN": "Client Media"},
+        usage_type=UsageType.CLIENT_SIGNING.value,
+    )
+    db.session.add(group)
+    db.session.commit()
+    return group.group_code
+
+
 def _create_service_account(scopes: str) -> int:
     normalized = [scope.strip() for scope in scopes.replace(",", " ").split(" ") if scope.strip()]
+    group_code = _ensure_certificate_group()
     account = ServiceAccountService.create_account(
         name="media-bot",
         description="Media automation",
-        jwt_endpoint="https://example.com/jwks/media",
+        certificate_group_code=group_code,
         scope_names=",".join(normalized),
         active=True,
         allowed_scopes=normalized,

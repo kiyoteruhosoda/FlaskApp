@@ -20,7 +20,9 @@ class ServiceAccount(db.Model):
     service_account_id = db.Column(BigInt, primary_key=True, autoincrement=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
     description = db.Column(db.String(255), nullable=True)
-    jwt_endpoint = db.Column(db.String(500), nullable=True)
+    certificate_group_code = db.Column(
+        db.String(64), db.ForeignKey("certificate_groups.group_code"), nullable=True
+    )
     scope_names = db.Column(db.String(1000), nullable=False, default="")
     active_flg = db.Column(db.Boolean, nullable=False, default=True)
     reg_dttm = db.Column(
@@ -63,7 +65,7 @@ class ServiceAccount(db.Model):
             "service_account_id": self.service_account_id,
             "name": self.name,
             "description": self.description,
-            "jwt_endpoint": self.jwt_endpoint,
+            "certificate_group_code": self.certificate_group_code,
             "scope_names": self.scope_names,
             "active_flg": self.active_flg,
             "reg_dttm": self.reg_dttm.isoformat() if self.reg_dttm else None,

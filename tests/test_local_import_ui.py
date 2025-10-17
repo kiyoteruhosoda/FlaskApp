@@ -339,7 +339,6 @@ class TestSessionDetailAPI:
 
         admin_user = type('AdminUser', (), {
             'is_authenticated': True,
-            'has_role': lambda self, role: role == 'admin',
             'can': lambda self, perm: True
         })()
 

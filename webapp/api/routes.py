@@ -2858,7 +2858,7 @@ def api_download(token):
 def trigger_local_import():
     """ローカルファイル取り込みを手動実行"""
     user = get_current_user()
-    if not user or not getattr(user, "has_role", None) or not user.has_role("admin"):
+    if not user or not getattr(user, "can", None) or not user.can("system:manage"):
         _local_import_log(
             "Local import trigger rejected: insufficient permissions",
             level="warning",
@@ -2963,7 +2963,7 @@ def stop_local_import(session_id):
     """キャンセル要求を受けてローカルインポートを停止（管理者専用）。"""
 
     user = get_current_user()
-    if not user or not getattr(user, "has_role", None) or not user.has_role("admin"):
+    if not user or not getattr(user, "can", None) or not user.can("system:manage"):
         _local_import_log(
             "Local import stop rejected: insufficient permissions",
             level="warning",
@@ -3336,7 +3336,7 @@ def ensure_local_import_directories():
     """Ensure that local import directories exist (admin only)."""
 
     user = get_current_user()
-    if not user or not getattr(user, "has_role", None) or not user.has_role("admin"):
+    if not user or not getattr(user, "can", None) or not user.can("system:manage"):
         _local_import_log(
             "Local import directory ensure rejected: insufficient permissions",
             level="warning",
@@ -3425,7 +3425,7 @@ def get_local_import_task_result(task_id):
     """ローカルインポートタスクの結果を取得"""
 
     user = get_current_user()
-    if not user or not getattr(user, "has_role", None) or not user.has_role("admin"):
+    if not user or not getattr(user, "can", None) or not user.can("system:manage"):
         _local_import_log(
             "Local import task result rejected: insufficient permissions",
             level="warning",

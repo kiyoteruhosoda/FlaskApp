@@ -11,7 +11,7 @@ import os
 from flask import abort, current_app, render_template, request, url_for
 from flask_login import current_user
 
-from core.models.authz import require_roles, require_perms
+from core.models.authz import require_perms
 from core.models.google_account import GoogleAccount
 
 from . import bp
@@ -77,7 +77,7 @@ def home():
         "photo-view/home.html",
         google_accounts=google_accounts,
         local_import_info=_build_local_import_info(),
-        is_admin=hasattr(current_user, "has_role") and current_user.has_role("admin"),
+        is_admin=current_user.can("system:manage") if current_user.is_authenticated else False,
     )
 
 
@@ -191,7 +191,7 @@ def settings():
     return render_template(
         "photo-view/settings.html",
         local_import_info=_build_local_import_info(),
-        is_admin=hasattr(current_user, "has_role") and current_user.has_role("admin"),
+        is_admin=current_user.can("system:manage") if current_user.is_authenticated else False,
     )
 
 
@@ -199,7 +199,7 @@ def settings():
 
 
 @bp.route("/admin/exports")
-@require_roles("admin")
+@require_perms("system:manage")
 def admin_exports():
     """Placeholder admin exports listing page."""
 
@@ -207,7 +207,7 @@ def admin_exports():
 
 
 @bp.route("/admin/exports/<int:export_id>")
-@require_roles("admin")
+@require_perms("system:manage")
 def admin_export_detail(export_id: int):
     """Placeholder admin export detail page."""
 

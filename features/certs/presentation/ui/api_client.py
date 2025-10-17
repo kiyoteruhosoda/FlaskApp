@@ -1,7 +1,7 @@
 """APIクライアント: 証明書機能"""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from http import HTTPStatus
 from typing import Any
@@ -64,6 +64,7 @@ class CertificateSummary:
     subject: str
     group_code: str | None
     auto_rotated_from_kid: str | None
+    key_usage: list[str] = field(default_factory=list, init=False)
 
     @property
     def is_revoked(self) -> bool:
@@ -503,7 +504,12 @@ class CertsApiClient:
         return "; ".join(cookies)
 
     def _parse_summary(self, payload: dict[str, Any]) -> CertificateSummary:
-        return CertificateSummary(
+        raw_key_usage = payload.get("keyUsage")
+        if isinstance(raw_key_usage, (list, tuple)):
+            key_usage = [str(item) for item in raw_key_usage if item]
+        else:
+            key_usage = []
+        summary = CertificateSummary(
             kid=str(payload.get("kid", "")),
             usage_type=_parse_usage(payload.get("usageType")),
             issued_at=_parse_datetime(payload.get("issuedAt")),
@@ -514,10 +520,12 @@ class CertsApiClient:
             group_code=payload.get("groupCode"),
             auto_rotated_from_kid=payload.get("autoRotatedFromKid"),
         )
+        summary.key_usage = key_usage
+        return summary
 
     def _parse_detail(self, payload: dict[str, Any]) -> CertificateDetail:
         summary = self._parse_summary(payload)
-        return CertificateDetail(
+        detail = CertificateDetail(
             kid=summary.kid,
             usage_type=summary.usage_type,
             issued_at=summary.issued_at,
@@ -533,6 +541,8 @@ class CertsApiClient:
             not_before=_parse_datetime(payload.get("notBefore")),
             not_after=_parse_datetime(payload.get("notAfter")),
         )
+        detail.key_usage = list(summary.key_usage)
+        return detail
 
     def _parse_group(self, payload: dict[str, Any]) -> CertificateGroupData:
         subject = payload.get("subject") or {}

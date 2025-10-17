@@ -48,6 +48,20 @@
           <dd class="col-sm-8">{{ subject }}</dd>
           <dt class="col-sm-4">{{ _('Issuer') }}</dt>
           <dd class="col-sm-8">{{ issuer }}</dd>
+          <dt class="col-sm-4">{{ _('Key Usage') }}</dt>
+          <dd class="col-sm-8">
+            {% if certificate.key_usage %}
+            <ul class="list-inline mb-0">
+              {% for usage in certificate.key_usage %}
+              <li class="list-inline-item">
+                <span class="badge text-bg-light">{{ key_usage_labels.get(usage, usage) }}</span>
+              </li>
+              {% endfor %}
+            </ul>
+            {% else %}
+            <span class="text-muted">-</span>
+            {% endif %}
+          </dd>
           <dt class="col-sm-4">{{ _('Validity Period') }}</dt>
           <dd class="col-sm-8">{{ not_before }} {{ _('to') }} {{ not_after }}</dd>
         </dl>

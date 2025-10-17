@@ -412,12 +412,6 @@ body.login-page .flash-messages .alert {
   pointer-events: auto;
 }
 
-.login-card-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 1.5rem;
-}
-
 body.login-page .login-card .language-selector {
   align-self: flex-end;
 }
@@ -505,10 +499,6 @@ body.login-page .login-card .language-selector {
     min-width: 0;
     max-width: none;
     width: 100%;
-  }
-
-  .login-card-toolbar {
-    justify-content: flex-end;
   }
 
   .login-card .language-selector .dropdown-toggle {

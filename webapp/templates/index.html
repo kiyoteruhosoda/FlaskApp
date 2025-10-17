@@ -54,22 +54,23 @@
     </div>
   </div>
   {% endif %}
-  <div class="dropdown">
-    <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="languageDropdown"
-      data-bs-toggle="dropdown" aria-expanded="false">
-      <i class="bi bi-translate me-1"></i>
-      {{ language_labels.get(current_language) or (current_language|upper) }}
-    </button>
-    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="languageDropdown">
-      {% for lang_code in language_selector_languages %}
-      <li>
-        <a class="dropdown-item{% if lang_code == current_language %} active{% endif %}"
-          href="{{ url_for('set_lang', lang_code=lang_code) }}">
-          {{ language_labels.get(lang_code) or (lang_code|upper) }}
-        </a>
-      </li>
-      {% endfor %}
-    </ul>
-  </div>
+  {% if not current_user.is_authenticated and language_selector_languages %}
+    <div class="dropdown">
+      <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="languageDropdown"
+              data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="bi bi-translate me-1"></i>
+        {{ language_labels.get(current_language) or (current_language|upper) }}
+      </button>
+      <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="languageDropdown">
+        {% for lang_code in language_selector_languages %}
+        <li>
+          <a class="dropdown-item{% if lang_code == current_language %} active{% endif %}" href="{{ url_for('set_lang', lang_code=lang_code) }}">
+            {{ language_labels.get(lang_code) or (lang_code|upper) }}
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
 </div>
 {% endblock %}

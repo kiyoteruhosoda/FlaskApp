@@ -29,6 +29,12 @@ from webapp.services.service_account_api_key_service import (
     ServiceAccountApiKeyService,
     ServiceAccountApiKeyValidationError,
 )
+from features.certs.application.use_cases import (
+    GetCertificateGroupUseCase,
+    ListCertificateGroupsUseCase,
+)
+from features.certs.domain.exceptions import CertificateGroupNotFoundError
+from features.certs.domain.usage import UsageType
 
 
 bp = Blueprint("admin", __name__, template_folder="templates")
@@ -65,6 +71,16 @@ def service_accounts():
         return _(u"You do not have permission to access this page."), 403
 
     accounts = [account.as_dict() for account in ServiceAccountService.list_accounts()]
+    certificate_groups = [
+        {
+            "group_code": group.group_code,
+            "display_name": group.display_name,
+            "usage_type": group.usage_type.value,
+        }
+        for group in ListCertificateGroupsUseCase().execute()
+        if group.usage_type == UsageType.CLIENT_SIGNING
+    ]
+    certificate_groups.sort(key=lambda item: item["display_name"] or item["group_code"])
     available_scopes = (
         sorted(current_user.permissions) if can_manage_accounts else []
     )
@@ -74,6 +90,7 @@ def service_accounts():
         available_scopes=available_scopes,
         can_manage_accounts=can_manage_accounts,
         can_access_api_keys=can_access_api_keys,
+        certificate_groups=certificate_groups,
     )
 
 
@@ -98,7 +115,7 @@ def service_accounts_create():
         account = ServiceAccountService.create_account(
             name=payload.get("name", ""),
             description=payload.get("description"),
-            jwt_endpoint=payload.get("jwt_endpoint", ""),
+            certificate_group_code=payload.get("certificate_group_code", ""),
             scope_names=payload.get("scope_names", ""),
             active=payload.get("active_flg", True),
             allowed_scopes=current_user.permissions,
@@ -136,7 +153,7 @@ def service_accounts_update(account_id: int):
             account_id,
             name=payload.get("name", ""),
             description=payload.get("description"),
-            jwt_endpoint=payload.get("jwt_endpoint", ""),
+            certificate_group_code=payload.get("certificate_group_code", ""),
             scope_names=payload.get("scope_names", ""),
             active=payload.get("active_flg", True),
             allowed_scopes=current_user.permissions,
@@ -189,6 +206,14 @@ def service_account_api_keys(account_id: int):
     account_dict = account.as_dict()
     account_dict["scopes"] = account.scopes
     account_dict["active"] = account.is_active()
+    if account.certificate_group_code:
+        try:
+            group = GetCertificateGroupUseCase().execute(account.certificate_group_code)
+            account_dict["certificate_group_display_name"] = group.display_name
+        except CertificateGroupNotFoundError:
+            account_dict["certificate_group_display_name"] = None
+    else:
+        account_dict["certificate_group_display_name"] = None
 
     return render_template(
         "admin/service_account_api_keys.html",
@@ -748,7 +773,7 @@ def _extract_service_account_payload() -> dict:
     return {
         "name": data.get("name", ""),
         "description": data.get("description"),
-        "jwt_endpoint": data.get("jwt_endpoint", ""),
+        "certificate_group_code": data.get("certificate_group_code", ""),
         "scope_names": data.get("scope_names", ""),
         "active_flg": active_value,
     }

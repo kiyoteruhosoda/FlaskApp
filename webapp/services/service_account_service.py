@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Iterable, List, Sequence
-from urllib.parse import urlparse
 
 from flask import current_app
 from flask_babel import gettext as _
@@ -11,6 +10,10 @@ from sqlalchemy.exc import IntegrityError
 
 from core.db import db
 from core.models.service_account import ServiceAccount
+from features.certs.application.use_cases import GetCertificateGroupUseCase
+from features.certs.domain.exceptions import CertificateGroupNotFoundError
+from features.certs.domain.models import CertificateGroup
+from features.certs.domain.usage import UsageType
 
 
 @dataclass
@@ -28,21 +31,30 @@ class ServiceAccountNotFoundError(Exception):
 
 class ServiceAccountService:
     @staticmethod
-    def _normalize_jwt_endpoint(endpoint: str) -> str:
-        if not endpoint or not endpoint.strip():
+    def _resolve_certificate_group(group_code: str) -> CertificateGroup:
+        if not group_code or not group_code.strip():
             raise ServiceAccountValidationError(
-                _("Please provide a JWT endpoint."), field="jwt_endpoint"
+                _("Please select a certificate group."),
+                field="certificate_group_code",
             )
 
-        value = endpoint.strip()
-        parsed = urlparse(value)
-        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        code = group_code.strip()
+
+        try:
+            group = GetCertificateGroupUseCase().execute(code)
+        except CertificateGroupNotFoundError as exc:
             raise ServiceAccountValidationError(
-                _("The JWT endpoint must be a valid HTTP(S) URL."),
-                field="jwt_endpoint",
+                _("The specified certificate group could not be found."),
+                field="certificate_group_code",
+            ) from exc
+
+        if group.usage_type != UsageType.CLIENT_SIGNING:
+            raise ServiceAccountValidationError(
+                _("The certificate group must be configured for client signing."),
+                field="certificate_group_code",
             )
 
-        return value
+        return group
 
     @staticmethod
     def _normalize_scopes(
@@ -82,7 +94,7 @@ class ServiceAccountService:
         *,
         name: str,
         description: str | None,
-        jwt_endpoint: str,
+        certificate_group_code: str,
         scope_names: str | Sequence[str],
         active: bool,
         allowed_scopes: Iterable[str] | None,
@@ -92,13 +104,13 @@ class ServiceAccountService:
                 _("Please provide a service account name."), field="name"
             )
 
-        normalized_endpoint = cls._normalize_jwt_endpoint(jwt_endpoint)
+        group = cls._resolve_certificate_group(certificate_group_code)
         normalized_scopes = cls._normalize_scopes(scope_names, allowed_scopes=allowed_scopes)
 
         account = ServiceAccount(
             name=name.strip(),
             description=description.strip() if description else None,
-            jwt_endpoint=normalized_endpoint,
+            certificate_group_code=group.group_code,
             active_flg=bool(active),
         )
         account.set_scopes(normalized_scopes)
@@ -118,6 +130,7 @@ class ServiceAccountService:
             extra={
                 "event": "service_account.created",
                 "service_account": account.name,
+                "certificate_group": group.group_code,
                 "active": account.active_flg,
                 "scopes": normalized_scopes,
             },
@@ -131,7 +144,7 @@ class ServiceAccountService:
         *,
         name: str,
         description: str | None,
-        jwt_endpoint: str,
+        certificate_group_code: str,
         scope_names: str | Sequence[str],
         active: bool,
         allowed_scopes: Iterable[str] | None,
@@ -145,12 +158,12 @@ class ServiceAccountService:
                 _("Please provide a service account name."), field="name"
             )
 
-        normalized_endpoint = cls._normalize_jwt_endpoint(jwt_endpoint)
+        group = cls._resolve_certificate_group(certificate_group_code)
         normalized_scopes = cls._normalize_scopes(scope_names, allowed_scopes=allowed_scopes)
 
         account.name = name.strip()
         account.description = description.strip() if description else None
-        account.jwt_endpoint = normalized_endpoint
+        account.certificate_group_code = group.group_code
         account.active_flg = bool(active)
         account.set_scopes(normalized_scopes)
 
@@ -168,6 +181,7 @@ class ServiceAccountService:
             extra={
                 "event": "service_account.updated",
                 "service_account": account.name,
+                "certificate_group": group.group_code,
                 "active": account.active_flg,
                 "scopes": normalized_scopes,
             },

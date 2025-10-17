@@ -124,6 +124,8 @@
             </div>
             <div class="col-md-6">
               <label class="form-label" for="key_preset">{{ _('Key Parameters') }} <span class="text-danger">*</span></label>
+              {% set custom_label_template = _('Custom configuration (%(details)s)') %}
+              {% set custom_label_fallback = custom_label_template | replace('%(details)s', '-') %}
               <select
                 class="form-select"
                 id="key_preset"
@@ -131,7 +133,8 @@
                 required
                 data-initial="{{ create_form_values.get('key_preset', '') }}"
                 data-placeholder="{{ _('Select key parameters') }}"
-                data-custom-label="{{ _('Custom configuration (%(details)s)', details='%(details)s') }}"
+                data-custom-label="{{ custom_label_fallback }}"
+                data-custom-label-template="{{ custom_label_template }}"
               ></select>
               <input type="hidden" id="key_type" name="key_type" value="{{ create_form_values.get('key_type', '') }}">
               <input type="hidden" id="key_curve" name="key_curve" value="{{ create_form_values.get('key_curve', '') }}">
@@ -228,13 +231,16 @@
             </div>
             <div class="col-md-6">
               <label class="form-label" for="edit_key_preset">{{ _('Key Parameters') }} <span class="text-danger">*</span></label>
+              {% set edit_custom_label_template = _('Custom configuration (%(details)s)') %}
+              {% set edit_custom_label_fallback = edit_custom_label_template | replace('%(details)s', '-') %}
               <select
                 class="form-select"
                 id="edit_key_preset"
                 name="key_preset"
                 required
                 data-placeholder="{{ _('Select key parameters') }}"
-                data-custom-label="{{ _('Custom configuration (%(details)s)', details='%(details)s') }}"
+                data-custom-label="{{ edit_custom_label_fallback }}"
+                data-custom-label-template="{{ edit_custom_label_template }}"
               ></select>
               <input type="hidden" id="edit_key_type" name="key_type">
               <input type="hidden" id="edit_key_curve" name="key_curve">
@@ -349,7 +355,8 @@
     };
 
     const placeholderLabel = presetSelect.dataset.placeholder || '';
-    const customLabelTemplate = presetSelect.dataset.customLabel || '';
+    const customLabelTemplate = presetSelect.dataset.customLabelTemplate || '';
+    const customLabelFallback = presetSelect.dataset.customLabel || '';
 
     function createOption(value, label, data) {
       const option = document.createElement('option');
@@ -388,13 +395,19 @@
     }
 
     function buildCustomLabel(details) {
-      if (!customLabelTemplate) {
-        return details || '';
+      if (customLabelTemplate) {
+        if (customLabelTemplate.includes('%(details)s')) {
+          return customLabelTemplate.replace('%(details)s', details || '-');
+        }
+        return customLabelTemplate;
       }
-      if (customLabelTemplate.includes('%(details)s')) {
-        return customLabelTemplate.replace('%(details)s', details || '-');
+      if (customLabelFallback) {
+        if (customLabelFallback.includes('%(details)s')) {
+          return customLabelFallback.replace('%(details)s', details || '-');
+        }
+        return customLabelFallback;
       }
-      return customLabelTemplate;
+      return details || '';
     }
 
     function refresh() {

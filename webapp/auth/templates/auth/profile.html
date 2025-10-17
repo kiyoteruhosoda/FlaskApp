@@ -51,14 +51,15 @@
         <div class="profile-section mb-4">
           <h2 class="h5 mb-3">{{ _('Role settings') }}</h2>
           {% if role_count > 1 %}
-          <form method="post" class="role-switcher-form">
+          <form method="post" class="role-switcher-form" data-role-switcher-form data-user-email="{{ current_user.email|e }}">
             <input type="hidden" name="action" value="switch-role">
             <div class="mb-3">
               <label for="active-role" class="form-label">{{ _('Active role') }}</label>
-              <select class="form-select" id="active-role" name="active_role" required>
+              <select class="form-select" id="active-role" name="active_role" required data-role-switcher-select>
                 {% for role in current_user.roles %}
                   {% set is_selected = (active_role and role.id == active_role.id) or (not active_role and loop.first) %}
-                  <option value="{{ role.id }}" {% if is_selected %}selected{% endif %}>{{ role.name }}</option>
+                  <option value="{{ role.id }}" data-role-permissions='{{ role.permissions|map(attribute="code")|list|tojson }}'
+                          {% if is_selected %}selected{% endif %}>{{ role.name }}</option>
                 {% endfor %}
               </select>
               <div class="form-text">{{ _('Selecting a specific role limits your permissions to that role.') }}</div>
@@ -119,4 +120,74 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+{{ super() }}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const form = document.querySelector('[data-role-switcher-form]');
+    const select = form?.querySelector('[data-role-switcher-select]');
+    const userEmail = (form?.dataset.userEmail || '').trim().toLowerCase();
+    const storageKey = userEmail ? `login_scope:${userEmail}` : null;
+
+    if (!form || !select || !storageKey) {
+      return;
+    }
+
+    const persistSelectedScope = () => {
+      const option = select.selectedOptions && select.selectedOptions.length > 0
+        ? select.selectedOptions[0]
+        : null;
+
+      if (!option) {
+        localStorage.removeItem(storageKey);
+        return;
+      }
+
+      const rawPermissions = option.dataset.rolePermissions || '';
+      if (!rawPermissions) {
+        localStorage.removeItem(storageKey);
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(rawPermissions);
+        if (!Array.isArray(parsed)) {
+          localStorage.removeItem(storageKey);
+          return;
+        }
+
+        const normalized = Array.from(
+          new Set(
+            parsed
+              .map((item) => (typeof item === 'string' ? item.trim() : ''))
+              .filter((item) => item.length > 0)
+          )
+        );
+
+        if (normalized.length > 0) {
+          const payload = {
+            permissions: normalized,
+            source: 'profile-switch',
+            roleSelection: {
+              roleId: option.value || null,
+            },
+            updatedAt: new Date().toISOString(),
+          };
+          localStorage.setItem(storageKey, JSON.stringify(payload));
+        } else {
+          localStorage.removeItem(storageKey);
+        }
+      } catch (error) {
+        console.warn('Failed to persist selected role scope', error);
+        localStorage.removeItem(storageKey);
+      }
+    };
+
+    select.addEventListener('change', persistSelectedScope);
+    form.addEventListener('submit', persistSelectedScope);
+    persistSelectedScope();
+  });
+</script>
 {% endblock %}

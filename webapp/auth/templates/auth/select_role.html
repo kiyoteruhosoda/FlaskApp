@@ -9,12 +9,13 @@
         <div class="card-body p-4">
           <h1 class="h4 mb-3">{{ _('Select the role to use') }}</h1>
           <p class="text-muted mb-4">{{ _('Choose which role should be active for this session.') }}</p>
-          <form method="post" class="d-flex flex-column gap-3">
+          <form method="post" class="d-flex flex-column gap-3" data-role-selection-form data-user-email="{{ current_user.email|e }}">
             <div class="list-group role-selection-list">
               {% for role in roles %}
               <label class="role-option list-group-item d-flex align-items-center gap-3">
                 <input class="form-check-input me-2" type="radio" name="active_role" value="{{ role.id }}"
                        data-role-option-radio
+                       data-role-permissions='{{ role.permissions|map(attribute="code")|list|tojson }}'
                        {% if selected_role_id and role.id == selected_role_id %}checked{% endif %}
                        {% if not selected_role_id and loop.first %}checked{% endif %} required>
                 <div class="role-option-body">
@@ -50,6 +51,59 @@
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     const radios = Array.from(document.querySelectorAll('[data-role-option-radio]'));
+    const form = document.querySelector('[data-role-selection-form]');
+    const userEmail = (form?.dataset.userEmail || '').trim().toLowerCase();
+    const storageKey = userEmail ? `login_scope:${userEmail}` : null;
+
+    const persistScopeSelection = (radio) => {
+      if (!storageKey) {
+        return;
+      }
+
+      if (!radio) {
+        localStorage.removeItem(storageKey);
+        return;
+      }
+
+      const rawPermissions = radio.dataset.rolePermissions || '';
+      if (!rawPermissions) {
+        localStorage.removeItem(storageKey);
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(rawPermissions);
+        if (!Array.isArray(parsed)) {
+          localStorage.removeItem(storageKey);
+          return;
+        }
+
+        const normalized = Array.from(
+          new Set(
+            parsed
+              .map((item) => (typeof item === 'string' ? item.trim() : ''))
+              .filter((item) => item.length > 0)
+          )
+        );
+
+        if (normalized.length > 0) {
+          const payload = {
+            permissions: normalized,
+            source: 'role-selection',
+            roleSelection: {
+              roleId: radio.value || null,
+            },
+            updatedAt: new Date().toISOString(),
+          };
+          localStorage.setItem(storageKey, JSON.stringify(payload));
+        } else {
+          localStorage.removeItem(storageKey);
+        }
+      } catch (error) {
+        console.warn('Failed to persist selected role scope', error);
+        localStorage.removeItem(storageKey);
+      }
+    };
 
     const updateSelectionState = () => {
       radios.forEach((radio) => {
@@ -67,10 +121,27 @@
     };
 
     radios.forEach((radio) => {
-      radio.addEventListener('change', updateSelectionState);
+      radio.addEventListener('change', () => {
+        updateSelectionState();
+        if (radio.checked) {
+          persistScopeSelection(radio);
+        }
+      });
     });
 
     updateSelectionState();
+
+    const initiallyChecked = radios.find((radio) => radio.checked);
+    if (initiallyChecked) {
+      persistScopeSelection(initiallyChecked);
+    }
+
+    if (form) {
+      form.addEventListener('submit', () => {
+        const selected = form.querySelector('[data-role-option-radio]:checked');
+        persistScopeSelection(selected);
+      });
+    }
   });
 </script>
 {% endblock %}

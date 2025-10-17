@@ -45,9 +45,9 @@
           <dt class="col-sm-4">{{ _('Revocation Reason') }}</dt>
           <dd class="col-sm-8">{{ certificate.revocation_reason or '-' }}</dd>
           <dt class="col-sm-4">{{ _('Subject') }}</dt>
-          <dd class="col-sm-8">{{ subject }}</dd>
+          <dd class="col-sm-8">{{ subject or '-' }}</dd>
           <dt class="col-sm-4">{{ _('Issuer') }}</dt>
-          <dd class="col-sm-8">{{ issuer }}</dd>
+          <dd class="col-sm-8">{{ issuer or '-' }}</dd>
           <dt class="col-sm-4">{{ _('Key Usage') }}</dt>
           <dd class="col-sm-8">
             {% if certificate.key_usage %}
@@ -77,7 +77,13 @@
             {% endif %}
           </dd>
           <dt class="col-sm-4">{{ _('Validity Period') }}</dt>
-          <dd class="col-sm-8">{{ not_before }} {{ _('to') }} {{ not_after }}</dd>
+          <dd class="col-sm-8">
+            {% if not_before or not_after %}
+            {{ not_before.strftime('%Y-%m-%d %H:%M:%S') if not_before else '-' }} {{ _('to') }} {{ not_after.strftime('%Y-%m-%d %H:%M:%S') if not_after else _('Unlimited') }}
+            {% else %}
+            <span class="text-muted">{{ _('Unlimited') }}</span>
+            {% endif %}
+          </dd>
         </dl>
       </div>
     </div>
@@ -86,7 +92,11 @@
     <div class="card shadow-sm mb-4">
       <div class="card-header">{{ _('Certificate (PEM)') }}</div>
       <div class="card-body">
+        {% if certificate_pem %}
         <pre class="bg-light p-2 rounded small">{{ certificate_pem }}</pre>
+        {% else %}
+        <p class="text-muted mb-0">{{ _('No certificate is stored for this key.') }}</p>
+        {% endif %}
       </div>
     </div>
     <div class="card shadow-sm">

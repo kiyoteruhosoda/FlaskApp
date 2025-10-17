@@ -162,48 +162,50 @@
               </div>
             </div>
           </div>
-          <hr>
-          <h3 class="h6 mb-1">{{ _('Subject Template') }}</h3>
-          <div class="row g-3">
-            {% for oid, field_name, label, required in subject_fields %}
-            <div class="col-md-6">
-              <label class="form-label" for="{{ field_name }}">
-                {{ label }}
-                {% if required %}
-                <span class="badge text-bg-danger align-middle ms-1">{{ _('Required') }}</span>
+          <div class="subject-template-section" data-subject-section="create">
+            <hr>
+            <h3 class="h6 mb-1">{{ _('Subject Template') }}</h3>
+            <div class="row g-3">
+              {% for oid, field_name, label, required in subject_fields %}
+              <div class="col-md-6">
+                <label class="form-label" for="{{ field_name }}">
+                  {{ label }}
+                  {% if required %}
+                  <span class="badge text-bg-danger align-middle ms-1">{{ _('Required') }}</span>
+                  {% else %}
+                  <span class="badge text-bg-secondary align-middle ms-1">{{ _('Optional') }}</span>
+                  {% endif %}
+                </label>
+                {% if oid == 'C' %}
+                <input
+                  class="form-control"
+                  type="text"
+                  id="{{ field_name }}"
+                  name="{{ field_name }}"
+                  value="{{ create_form_values.get(field_name, '') }}"
+                  maxlength="2"
+                  pattern="[A-Za-z]{2}"
+                  title="{{ _('Enter a two-letter ISO 3166-1 alpha-2 code (e.g., JP).') }}"
+                  {% if required %}required{% endif %}
+                  data-required-message="{{ _('%(label)s is required.', label=label) }}"
+                >
+                <div class="form-text text-muted small">{{ _('Fill in all required subject attributes using ASCII characters. Country code must be a two-letter ISO 3166-1 alpha-2 value (e.g., JP).') }}</div>
                 {% else %}
-                <span class="badge text-bg-secondary align-middle ms-1">{{ _('Optional') }}</span>
+                <input
+                  class="form-control"
+                  type="text"
+                  id="{{ field_name }}"
+                  name="{{ field_name }}"
+                  value="{{ create_form_values.get(field_name, '') }}"
+                  {% if required %}required{% endif %}
+                  data-required-message="{{ _('%(label)s is required.', label=label) }}"
+                >
                 {% endif %}
-              </label>
-              {% if oid == 'C' %}
-              <input
-                class="form-control"
-                type="text"
-                id="{{ field_name }}"
-                name="{{ field_name }}"
-                value="{{ create_form_values.get(field_name, '') }}"
-                maxlength="2"
-                pattern="[A-Za-z]{2}"
-                title="{{ _('Enter a two-letter ISO 3166-1 alpha-2 code (e.g., JP).') }}"
-                {% if required %}required{% endif %}
-                data-required-message="{{ _('%(label)s is required.', label=label) }}"
-              >
-              <div class="form-text text-muted small">{{ _('Fill in all required subject attributes using ASCII characters. Country code must be a two-letter ISO 3166-1 alpha-2 value (e.g., JP).') }}</div>
-              {% else %}
-              <input
-                class="form-control"
-                type="text"
-                id="{{ field_name }}"
-                name="{{ field_name }}"
-                value="{{ create_form_values.get(field_name, '') }}"
-                {% if required %}required{% endif %}
-                data-required-message="{{ _('%(label)s is required.', label=label) }}"
-              >
-              {% endif %}
+              </div>
+              {% endfor %}
             </div>
-            {% endfor %}
+            <p class="text-danger small mt-2 d-none" data-subject-error>{{ _('Please fill in all required subject attributes.') }}</p>
           </div>
-          <p class="text-danger small mt-2 d-none" data-subject-error>{{ _('Please fill in all required subject attributes.') }}</p>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
@@ -278,46 +280,48 @@
               </div>
             </div>
           </div>
-          <hr>
-          <h3 class="h6 mb-1">{{ _('Subject Template') }}</h3>
-          <div class="row g-3">
-            {% for oid, field_name, label, required in subject_fields %}
-            <div class="col-md-6">
-              <label class="form-label" for="edit_{{ field_name }}">
-                {{ label }}
-                {% if required %}
-                <span class="badge text-bg-danger align-middle ms-1">{{ _('Required') }}</span>
+          <div class="subject-template-section" data-subject-section="edit">
+            <hr>
+            <h3 class="h6 mb-1">{{ _('Subject Template') }}</h3>
+            <div class="row g-3">
+              {% for oid, field_name, label, required in subject_fields %}
+              <div class="col-md-6">
+                <label class="form-label" for="edit_{{ field_name }}">
+                  {{ label }}
+                  {% if required %}
+                  <span class="badge text-bg-danger align-middle ms-1">{{ _('Required') }}</span>
+                  {% else %}
+                  <span class="badge text-bg-secondary align-middle ms-1">{{ _('Optional') }}</span>
+                  {% endif %}
+                </label>
+                {% if oid == 'C' %}
+                <input
+                  class="form-control"
+                  type="text"
+                  id="edit_{{ field_name }}"
+                  name="{{ field_name }}"
+                  maxlength="2"
+                  pattern="[A-Za-z]{2}"
+                  title="{{ _('Enter a two-letter ISO 3166-1 alpha-2 code (e.g., JP).') }}"
+                  {% if required %}required{% endif %}
+                  data-required-message="{{ _('%(label)s is required.', label=label) }}"
+                >
+                <div class="form-text text-muted small">{{ _('Fill in all required subject attributes using ASCII characters. Country code must be a two-letter ISO 3166-1 alpha-2 value (e.g., JP).') }}</div>
                 {% else %}
-                <span class="badge text-bg-secondary align-middle ms-1">{{ _('Optional') }}</span>
+                <input
+                  class="form-control"
+                  type="text"
+                  id="edit_{{ field_name }}"
+                  name="{{ field_name }}"
+                  {% if required %}required{% endif %}
+                  data-required-message="{{ _('%(label)s is required.', label=label) }}"
+                >
                 {% endif %}
-              </label>
-              {% if oid == 'C' %}
-              <input
-                class="form-control"
-                type="text"
-                id="edit_{{ field_name }}"
-                name="{{ field_name }}"
-                maxlength="2"
-                pattern="[A-Za-z]{2}"
-                title="{{ _('Enter a two-letter ISO 3166-1 alpha-2 code (e.g., JP).') }}"
-                {% if required %}required{% endif %}
-                data-required-message="{{ _('%(label)s is required.', label=label) }}"
-              >
-              <div class="form-text text-muted small">{{ _('Fill in all required subject attributes using ASCII characters. Country code must be a two-letter ISO 3166-1 alpha-2 value (e.g., JP).') }}</div>
-              {% else %}
-              <input
-                class="form-control"
-                type="text"
-                id="edit_{{ field_name }}"
-                name="{{ field_name }}"
-                {% if required %}required{% endif %}
-                data-required-message="{{ _('%(label)s is required.', label=label) }}"
-              >
-              {% endif %}
+              </div>
+              {% endfor %}
             </div>
-            {% endfor %}
+            <p class="text-danger small mt-2 d-none" data-subject-error>{{ _('Please fill in all required subject attributes.') }}</p>
           </div>
-          <p class="text-danger small mt-2 d-none" data-subject-error>{{ _('Please fill in all required subject attributes.') }}</p>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
@@ -334,6 +338,9 @@
 <script>
 (function() {
   const KEY_PRESETS = {{ key_presets | tojson }};
+  const SIGNING_USAGE_VALUES = new Set(['server_signing', 'client_signing']);
+  const SUBJECT_FIELD_NAMES = {{ subject_fields | map(attribute=1) | list | tojson }};
+  const REQUIRED_SUBJECT_FIELD_NAMES = {{ required_subject_field_names | tojson }};
 
   function describePreset(keyType, keySize, keyCurve) {
     const parts = [];
@@ -362,6 +369,12 @@
     const keyTypeInput = document.getElementById(ids.keyTypeId);
     const keyCurveInput = document.getElementById(ids.keyCurveId);
     const keySizeInput = document.getElementById(ids.keySizeId);
+    const subjectSection = ids.subjectSectionSelector
+      ? document.querySelector(ids.subjectSectionSelector)
+      : null;
+    const subjectInputs = subjectSection
+      ? SUBJECT_FIELD_NAMES.map((name) => subjectSection.querySelector(`[name="${name}"]`)).filter((input) => Boolean(input))
+      : [];
 
     if (!usageSelect || !presetSelect || !keyTypeInput || !keyCurveInput || !keySizeInput) {
       return null;
@@ -431,8 +444,29 @@
       return details || '';
     }
 
+    function updateSubjectVisibility() {
+      if (!subjectSection) {
+        return;
+      }
+      const hidden = SIGNING_USAGE_VALUES.has(state.usageType);
+      subjectSection.classList.toggle('d-none', hidden);
+      const errorMessage = subjectSection.querySelector('[data-subject-error]');
+      if (errorMessage) {
+        errorMessage.classList.toggle('d-none', hidden);
+      }
+      subjectInputs.forEach((input) => {
+        const isRequiredField = REQUIRED_SUBJECT_FIELD_NAMES.includes(input.name);
+        input.required = !hidden && isRequiredField;
+        if (hidden) {
+          input.classList.remove('is-invalid');
+          input.setCustomValidity('');
+        }
+      });
+    }
+
     function refresh() {
       usageSelect.value = state.usageType;
+      updateSubjectVisibility();
       const presets = Array.isArray(KEY_PRESETS[state.usageType]) ? KEY_PRESETS[state.usageType] : [];
 
       const fragment = document.createDocumentFragment();
@@ -551,6 +585,7 @@
     keyTypeId: 'key_type',
     keyCurveId: 'key_curve',
     keySizeId: 'key_size',
+    subjectSectionSelector: '[data-subject-section="create"]',
   });
 
   const editController = createKeyPresetController({
@@ -559,12 +594,11 @@
     keyTypeId: 'edit_key_type',
     keyCurveId: 'edit_key_curve',
     keySizeId: 'edit_key_size',
+    subjectSectionSelector: '[data-subject-section="edit"]',
   });
 
   const editFormActionTemplate = `{{ url_for('certs_ui.update_group', group_code='__PLACEHOLDER__') }}`;
 
-  const subjectFieldNames = {{ subject_fields | map(attribute=1) | list | tojson }};
-  const requiredSubjectFieldNames = {{ required_subject_field_names | tojson }};
   const subjectRequiredMessage = {{ _('Please fill in all required subject attributes.') | tojson }};
 
   function setupSubjectValidation(form) {
@@ -572,7 +606,7 @@
       return null;
     }
 
-    const inputs = subjectFieldNames
+    const inputs = SUBJECT_FIELD_NAMES
       .map((name) => form.querySelector(`[name="${name}"]`))
       .filter((input) => Boolean(input));
 
@@ -580,7 +614,7 @@
       return null;
     }
 
-    const requiredInputs = inputs.filter((input) => requiredSubjectFieldNames.includes(input.name));
+    const requiredInputs = inputs.filter((input) => REQUIRED_SUBJECT_FIELD_NAMES.includes(input.name));
     const errorMessage = form.querySelector('[data-subject-error]');
     let attempted = false;
 
@@ -588,6 +622,11 @@
       let valid = true;
 
       requiredInputs.forEach((input) => {
+        if (!input.required) {
+          input.setCustomValidity('');
+          input.classList.remove('is-invalid');
+          return;
+        }
         const hasValue = input.value.trim() !== '';
         if (!hasValue) {
           valid = false;
@@ -635,7 +674,7 @@
       }
       event.preventDefault();
       event.stopImmediatePropagation();
-      const firstInvalid = requiredInputs.find((input) => input.value.trim() === '');
+      const firstInvalid = requiredInputs.find((input) => input.required && input.value.trim() === '');
       if (firstInvalid) {
         firstInvalid.reportValidity();
         firstInvalid.focus({ preventScroll: true });
@@ -648,7 +687,7 @@
       attempted = false;
       inputs.forEach((input) => {
         input.classList.remove('is-invalid');
-        if (requiredSubjectFieldNames.includes(input.name) && input.value.trim() === '') {
+        if (input.required && input.value.trim() === '') {
           const message = input.dataset.requiredMessage || subjectRequiredMessage;
           input.setCustomValidity(message);
         } else {

@@ -37,6 +37,7 @@ from features.certs.infrastructure.key_utils import (
     compute_thumbprint,
     csr_from_pem,
     generate_private_key,
+    public_key_to_jwk,
     serialize_private_key,
     serialize_public_key,
     validity_range,
@@ -117,52 +118,66 @@ class SignCertificateUseCase:
             if group.usage_type != payload.usage_type:
                 raise CertificateValidationError("グループの用途とusageTypeが一致しません")
 
-        ca_material = self._services.ca_store.get_or_create(payload.usage_type)
-        not_before, not_after = validity_range(payload.days)
-
-        builder = (
-            x509.CertificateBuilder()
-            .subject_name(csr.subject)
-            .issuer_name(ca_material.certificate.subject)
-            .public_key(csr.public_key())
-            .serial_number(x509.random_serial_number())
-            .not_valid_before(not_before)
-            .not_valid_after(not_after)
-        )
-
-        is_ca = payload.is_ca
-        builder = builder.add_extension(x509.BasicConstraints(ca=is_ca, path_length=None), critical=True)
-
-        key_usage_extension = build_key_usage_extension(payload.key_usage)
-        if key_usage_extension is not None:
-            builder = builder.add_extension(key_usage_extension, critical=True)
-
-        eku = None
-        if payload.usage_type == UsageType.SERVER_SIGNING:
-            eku = x509.ExtendedKeyUsage([x509.oid.ExtendedKeyUsageOID.SERVER_AUTH])
-        elif payload.usage_type == UsageType.CLIENT_SIGNING:
-            eku = x509.ExtendedKeyUsage([x509.oid.ExtendedKeyUsageOID.CLIENT_AUTH])
-        elif payload.usage_type == UsageType.ENCRYPTION:
-            eku = x509.ExtendedKeyUsage([x509.oid.ExtendedKeyUsageOID.EMAIL_PROTECTION])
-        if eku:
-            builder = builder.add_extension(eku, critical=False)
-
-        try:
-            certificate = builder.sign(private_key=ca_material.private_key, algorithm=hashes.SHA256())
-        except Exception as exc:  # noqa: BLE001
-            raise CertificateSigningError(str(exc)) from exc
-
         kid = uuid.uuid4().hex
-        jwk = certificate_to_jwk(certificate, kid, payload.usage_type)
+        signing_usage = payload.usage_type in {
+            UsageType.SERVER_SIGNING,
+            UsageType.CLIENT_SIGNING,
+        }
+        certificate = None
+        certificate_pem = ""
+        expires_at = None
 
-        expires_at = not_after
+        if signing_usage:
+            _, not_after = validity_range(payload.days)
+            expires_at = not_after
+            jwk = public_key_to_jwk(csr.public_key(), kid, payload.usage_type)
+        else:
+            ca_material = self._services.ca_store.get_or_create(payload.usage_type)
+            not_before, not_after = validity_range(payload.days)
+
+            builder = (
+                x509.CertificateBuilder()
+                .subject_name(csr.subject)
+                .issuer_name(ca_material.certificate.subject)
+                .public_key(csr.public_key())
+                .serial_number(x509.random_serial_number())
+                .not_valid_before(not_before)
+                .not_valid_after(not_after)
+            )
+
+            is_ca = payload.is_ca
+            builder = builder.add_extension(x509.BasicConstraints(ca=is_ca, path_length=None), critical=True)
+
+            key_usage_extension = build_key_usage_extension(payload.key_usage)
+            if key_usage_extension is not None:
+                builder = builder.add_extension(key_usage_extension, critical=True)
+
+            eku = None
+            if payload.usage_type == UsageType.SERVER_SIGNING:
+                eku = x509.ExtendedKeyUsage([x509.oid.ExtendedKeyUsageOID.SERVER_AUTH])
+            elif payload.usage_type == UsageType.CLIENT_SIGNING:
+                eku = x509.ExtendedKeyUsage([x509.oid.ExtendedKeyUsageOID.CLIENT_AUTH])
+            elif payload.usage_type == UsageType.ENCRYPTION:
+                eku = x509.ExtendedKeyUsage([x509.oid.ExtendedKeyUsageOID.EMAIL_PROTECTION])
+            if eku:
+                builder = builder.add_extension(eku, critical=False)
+
+            try:
+                certificate = builder.sign(private_key=ca_material.private_key, algorithm=hashes.SHA256())
+            except Exception as exc:  # noqa: BLE001
+                raise CertificateSigningError(str(exc)) from exc
+
+            jwk = certificate_to_jwk(certificate, kid, payload.usage_type)
+            certificate_pem = certificate.public_bytes(serialization.Encoding.PEM).decode("utf-8")
+            expires_at = not_after
 
         issued = IssuedCertificate(
             kid=kid,
-            certificate=certificate,
             usage_type=payload.usage_type,
             jwk=jwk,
             issued_at=datetime.utcnow(),
+            certificate=certificate,
+            certificate_pem=certificate_pem,
             expires_at=expires_at,
             group=group,
             group_id=group.id if group else None,
@@ -182,7 +197,7 @@ class SignCertificateUseCase:
             )
 
         return SignCertificateOutput(
-            certificate_pem=certificate.public_bytes(serialization.Encoding.PEM).decode("utf-8"),
+            certificate_pem=certificate_pem,
             kid=kid,
             jwk=jwk,
             usage_type=payload.usage_type,
@@ -396,12 +411,73 @@ class IssueCertificateForGroupUseCase:
         subject_dict = group.subject_dict()
         if subject_overrides:
             subject_dict.update(subject_overrides)
+
+        signing_usage = group.usage_type in {
+            UsageType.SERVER_SIGNING,
+            UsageType.CLIENT_SIGNING,
+        }
+
+        default_days = max(group.rotation_policy.rotation_threshold_days * 2, 1)
+        requested_days: int | None
+        if valid_days is None:
+            requested_days = default_days
+        elif valid_days > 0:
+            requested_days = valid_days
+        elif signing_usage:
+            requested_days = None
+        else:
+            raise CertificateValidationError("validDaysは1以上で指定してください")
+
+        private_key_pem = serialize_private_key(private_key)
+
+        if signing_usage:
+            kid = uuid.uuid4().hex
+            jwk = public_key_to_jwk(private_key.public_key(), kid, group.usage_type)
+            expires_at = None
+            if requested_days is not None:
+                _, not_after = validity_range(requested_days)
+                expires_at = not_after
+
+            issued = IssuedCertificate(
+                kid=kid,
+                usage_type=group.usage_type,
+                jwk=jwk,
+                issued_at=datetime.utcnow(),
+                certificate=None,
+                certificate_pem="",
+                expires_at=expires_at,
+                group=group,
+                group_id=group.id,
+            )
+            saved = self._services.issued_store.save(issued)
+            self._services.private_key_store.save(
+                kid=saved.kid,
+                private_key_pem=private_key_pem,
+                group_id=group.id,
+                expires_at=saved.expires_at,
+            )
+            ListJwksUseCase(self._services).execute(group.group_code)
+            if actor:
+                self._services.event_store.record(
+                    actor=actor,
+                    action="issue_certificate",
+                    target_kid=saved.kid,
+                    target_group_code=group.group_code,
+                )
+            return IssueCertificateForGroupOutput(
+                kid=saved.kid,
+                certificate_pem="",
+                private_key_pem=private_key_pem,
+                jwk=jwk,
+                usage_type=group.usage_type,
+                group_code=group.group_code,
+            )
+
         subject = SubjectBuilder(subject_dict).build()
         csr = build_csr(private_key, subject, group.usage_type, key_usage or [])
         csr_pem = csr.public_bytes(serialization.Encoding.PEM).decode("utf-8")
 
-        default_days = max(group.rotation_policy.rotation_threshold_days * 2, 1)
-        days = valid_days if valid_days and valid_days > 0 else default_days
+        days = requested_days or default_days
         sign_input = SignCertificateInput(
             csr_pem=csr_pem,
             usage_type=group.usage_type,
@@ -415,7 +491,6 @@ class IssueCertificateForGroupUseCase:
             actor=actor,
         )
 
-        private_key_pem = serialize_private_key(private_key)
         issued_certificate = self._services.issued_store.get(sign_result.kid)
         self._services.private_key_store.save(
             kid=sign_result.kid,

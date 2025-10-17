@@ -27,7 +27,9 @@
           <dd class="col-sm-7">{{ group.key_type }}{% if group.key_size %} {{ group.key_size }}{% endif %}{% if group.key_curve %} / {{ group.key_curve }}{% endif %}</dd>
           <dt class="col-sm-5">{{ _('Subject Template') }}</dt>
           <dd class="col-sm-7">
-            {% if group.subject %}
+            {% if group.usage_type.value in ['server_signing', 'client_signing'] %}
+            <span class="text-muted">{{ _('Not used for signing keys.') }}</span>
+            {% elif group.subject %}
               {% for key, value in group.subject.items() %}
               <span class="badge text-bg-light me-1 mb-1">{{ key }}={{ value }}</span>
               {% endfor %}
@@ -60,7 +62,7 @@
     <form method="post" action="{{ url_for('certs_ui.issue_certificate', group_code=group.group_code) }}" class="row g-3" id="issueCertificateForm">
       <div class="col-md-3">
         <label class="form-label" for="valid_days">{{ _('Validity (days)') }}</label>
-        <input type="number" class="form-control" id="valid_days" name="valid_days" min="1" placeholder="{{ group.rotation_threshold_days * 2 }}">
+        <input type="number" class="form-control" id="valid_days" name="valid_days" min="0" placeholder="{{ group.rotation_threshold_days * 2 }}">
       </div>
       <div class="col-md-9">
         <label class="form-label">{{ _('Key Usage') }}</label>
@@ -73,6 +75,7 @@
           {% endfor %}
         </div>
       </div>
+      {% if group.usage_type.value not in ['server_signing', 'client_signing'] %}
       <div class="col-12">
         <hr>
         <h2 class="h6">{{ _('Subject Overrides') }}</h2>
@@ -90,6 +93,7 @@
         <input class="form-control" type="text" id="issue_{{ field_name }}" name="{{ field_name }}" value="{{ subject_form_values[field_name] }}">
       </div>
       {% endfor %}
+      {% endif %}
       <div class="col-12 text-end">
         <button type="submit" class="btn btn-primary">{{ _('Issue Certificate') }}</button>
       </div>
@@ -111,6 +115,9 @@
         <div class="col-md-6">
           <label class="form-label">{{ _('Certificate (PEM)') }}</label>
           <textarea class="form-control font-monospace" rows="10" readonly>{{ issued_certificate['certificatePem'] }}</textarea>
+          {% if not issued_certificate['certificatePem'] %}
+          <div class="form-text text-muted">{{ _('No certificate was generated for this key.') }}</div>
+          {% endif %}
         </div>
       </div>
     </div>

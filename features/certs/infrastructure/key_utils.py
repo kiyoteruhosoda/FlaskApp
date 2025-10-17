@@ -185,6 +185,39 @@ def certificate_to_jwk(cert: x509.Certificate, kid: str, usage: UsageType) -> di
     raise CertificateValidationError(_("Only RSA keys are currently supported"))
 
 
+def public_key_to_jwk(public_key, kid: str, usage: UsageType) -> dict:
+    if isinstance(public_key, rsa.RSAPublicKey):
+        numbers = public_key.public_numbers()
+        modulus = numbers.n.to_bytes((numbers.n.bit_length() + 7) // 8, "big")
+        exponent = numbers.e.to_bytes((numbers.e.bit_length() + 7) // 8, "big")
+        return {
+            "kty": "RSA",
+            "use": "sig" if usage != UsageType.ENCRYPTION else "enc",
+            "alg": "RS256",
+            "kid": kid,
+            "n": to_base64url(modulus),
+            "e": to_base64url(exponent),
+        }
+    if isinstance(public_key, ec.EllipticCurvePublicKey):
+        numbers = public_key.public_numbers()
+        curve_name = _curve_to_jwk_name(public_key.curve)
+        algorithm = {
+            "P-256": "ES256",
+            "P-384": "ES384",
+            "P-521": "ES512",
+        }[curve_name]
+        return {
+            "kty": "EC",
+            "use": "sig" if usage != UsageType.ENCRYPTION else "enc",
+            "alg": algorithm,
+            "kid": kid,
+            "crv": curve_name,
+            "x": to_base64url(numbers.x.to_bytes((numbers.x.bit_length() + 7) // 8, "big")),
+            "y": to_base64url(numbers.y.to_bytes((numbers.y.bit_length() + 7) // 8, "big")),
+        }
+    raise CertificateValidationError(_("Only RSA keys are currently supported"))
+
+
 def _extended_key_usage_for_usage(usage: UsageType) -> list[x509.ObjectIdentifier] | None:
     if usage == UsageType.SERVER_SIGNING:
         return [x509.oid.ExtendedKeyUsageOID.SERVER_AUTH]

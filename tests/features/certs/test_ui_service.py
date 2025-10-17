@@ -51,7 +51,7 @@ class _DummyClient:
             subject="CN=sub",
             group_code="server",
             auto_rotated_from_kid=None,
-            certificate_pem="pem",
+            certificate_pem="",
             jwk={},
             issuer="issuer",
             not_before=None,
@@ -75,7 +75,7 @@ class _DummyClient:
     def sign_certificate(self, **kwargs):
         self.calls.append(("sign_certificate", tuple(), kwargs))
         return SignedCertificate(
-            certificate_pem="pem",
+            certificate_pem="",
             kid="kid",
             jwk={},
             usage_type=UsageType.SERVER_SIGNING,
@@ -173,7 +173,7 @@ class _DummyClient:
         self.calls.append(("issue_certificate_for_group", (group_code,), kwargs))
         return IssuedCertificateWithPrivateKey(
             kid="kid",
-            certificate_pem="pem",
+            certificate_pem="",
             private_key_pem="priv",
             jwk={},
             usage_type=UsageType.SERVER_SIGNING,
@@ -192,7 +192,7 @@ class _DummyClient:
             subject="CN=sub",
             group_code=group_code,
             auto_rotated_from_kid=None,
-            certificate_pem="pem",
+            certificate_pem="",
             jwk={},
             issuer="issuer",
             not_before=None,

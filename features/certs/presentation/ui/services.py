@@ -102,6 +102,7 @@ class CertificateUiService:
         auto_rotate: bool,
         rotation_threshold_days: int,
         subject: dict[str, str],
+        key_usage: list[str] | None,
     ) -> CertificateGroupData:
         return self._client.create_group(
             group_code=group_code,
@@ -113,6 +114,7 @@ class CertificateUiService:
             auto_rotate=auto_rotate,
             rotation_threshold_days=rotation_threshold_days,
             subject=subject,
+            key_usage=key_usage,
         )
 
     def update_group(
@@ -127,6 +129,7 @@ class CertificateUiService:
         auto_rotate: bool,
         rotation_threshold_days: int,
         subject: dict[str, str],
+        key_usage: list[str] | None,
     ) -> CertificateGroupData:
         return self._client.update_group(
             group_code,
@@ -138,6 +141,7 @@ class CertificateUiService:
             auto_rotate=auto_rotate,
             rotation_threshold_days=rotation_threshold_days,
             subject=subject,
+            key_usage=key_usage,
         )
 
     def delete_group(self, group_code: str) -> None:

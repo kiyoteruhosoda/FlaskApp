@@ -1033,6 +1033,9 @@ msgstr "Validity (days)"
 msgid "Key Usage"
 msgstr "Key Usage"
 
+msgid "Leave empty to use the default key usage for the selected usage type."
+msgstr "Leave empty to use the default key usage for the selected usage type."
+
 msgid "Subject Overrides"
 msgstr "Subject Overrides"
 

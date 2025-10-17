@@ -25,6 +25,7 @@ class CertificateGroupEntity(db.Model):
     key_type = db.Column(db.String(16), nullable=False)
     key_curve = db.Column(db.String(32), nullable=True)
     key_size = db.Column(db.Integer, nullable=True)
+    key_usage = db.Column(db.JSON().with_variant(JSONB, "postgresql"), nullable=True)
     subject = db.Column(db.JSON().with_variant(JSONB, "postgresql"), nullable=False)
     usage_type = db.Column(db.String(32), nullable=False, index=True)
     created_at = db.Column(

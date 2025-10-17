@@ -47,6 +47,7 @@ from features.certs.domain.exceptions import (
 )
 from features.certs.domain.models import CertificateGroup, IssuedCertificate
 from features.certs.domain.usage import UsageType
+from features.certs.infrastructure.key_utils import build_key_usage_extension
 
 from . import certs_api_bp
 
@@ -112,9 +113,44 @@ def _serialize_group(group: CertificateGroup) -> dict[str, Any]:
         "autoRotate": group.rotation_policy.auto_rotate,
         "rotationThresholdDays": group.rotation_policy.rotation_threshold_days,
         "subject": group.subject_dict(),
+        "keyUsage": list(group.key_usage) if group.key_usage is not None else None,
         "createdAt": group.created_at.isoformat() if group.created_at else None,
         "updatedAt": group.updated_at.isoformat() if group.updated_at else None,
     }
+
+
+def _parse_key_usage_values(
+    raw_value: Any,
+) -> tuple[tuple[str, ...] | None, tuple[dict, int] | None]:
+    if raw_value is None:
+        return None, None
+    if not isinstance(raw_value, (list, tuple)):
+        return None, _json_error(
+            _("Key usage must be provided as an array of strings."),
+            HTTPStatus.BAD_REQUEST,
+        )
+
+    normalized: list[str] = []
+    for item in raw_value:
+        if not isinstance(item, str):
+            return None, _json_error(
+                _("Key usage must be provided as an array of strings."),
+                HTTPStatus.BAD_REQUEST,
+            )
+        trimmed = item.strip()
+        if trimmed:
+            normalized.append(trimmed)
+
+    try:
+        build_key_usage_extension(normalized)
+    except CertificateValidationError as exc:
+        return None, _json_error(str(exc), HTTPStatus.BAD_REQUEST)
+
+    if not normalized:
+        return tuple(), None
+
+    deduped = tuple(dict.fromkeys(normalized))
+    return deduped, None
 
 
 def _parse_group_payload(payload: dict[str, Any], *, group_code: str | None = None) -> CertificateGroupInput | tuple[dict, int]:
@@ -173,6 +209,11 @@ def _parse_group_payload(payload: dict[str, Any], *, group_code: str | None = No
         if trimmed:
             normalized_subject[str(key)] = trimmed
 
+    key_usage_value = payload.get("keyUsage")
+    key_usage, error = _parse_key_usage_values(key_usage_value)
+    if error:
+        return error
+
     return CertificateGroupInput(
         group_code=code,
         display_name=display_name.strip() if isinstance(display_name, str) else None,
@@ -183,6 +224,7 @@ def _parse_group_payload(payload: dict[str, Any], *, group_code: str | None = No
         auto_rotate=auto_rotate,
         rotation_threshold_days=rotation_threshold_days,
         subject=normalized_subject,
+        key_usage=key_usage,
     )
 
 
@@ -422,12 +464,10 @@ def issue_certificate_for_group(group_code: str):
         if valid_days <= 0:
             return _json_error(_("Valid days must be at least 1."), HTTPStatus.BAD_REQUEST)
 
-    key_usage = None
-    if "keyUsage" in payload:
-        key_usage_value = payload.get("keyUsage")
-        if not isinstance(key_usage_value, (list, tuple)):
-            return _json_error(_("Key usage must be provided as an array."), HTTPStatus.BAD_REQUEST)
-        key_usage = [str(item) for item in key_usage_value]
+    key_usage_raw, error = _parse_key_usage_values(payload.get("keyUsage"))
+    if error:
+        return error
+    key_usage = list(key_usage_raw) if key_usage_raw is not None else None
 
     try:
         result = IssueCertificateForGroupUseCase().execute(
@@ -611,9 +651,9 @@ def generate_certificate_material() -> tuple[dict, int]:
     except (TypeError, ValueError):
         return _json_error(_("Key bits must be an integer."), HTTPStatus.BAD_REQUEST)
 
-    key_usage_values = payload.get("keyUsage", [])
-    if not isinstance(key_usage_values, (list, tuple)):
-        return _json_error(_("Key usage must be provided as an array of strings."), HTTPStatus.BAD_REQUEST)
+    key_usage_raw, error = _parse_key_usage_values(payload.get("keyUsage"))
+    if error:
+        return error
 
     dto = GenerateCertificateMaterialInput(
         subject=payload.get("subject"),
@@ -621,7 +661,7 @@ def generate_certificate_material() -> tuple[dict, int]:
         key_bits=key_bits,
         make_csr=_to_bool(payload.get("makeCsr", True), default=True),
         usage_type=usage_type,
-        key_usage=list(key_usage_values),
+        key_usage=list(key_usage_raw or []),
     )
 
     try:
@@ -663,9 +703,9 @@ def sign_certificate() -> tuple[dict, int]:
     except (TypeError, ValueError):
         return _json_error(_("Days must be an integer."), HTTPStatus.BAD_REQUEST)
 
-    key_usage_values = payload.get("keyUsage", [])
-    if not isinstance(key_usage_values, (list, tuple)):
-        return _json_error(_("Key usage must be provided as an array of strings."), HTTPStatus.BAD_REQUEST)
+    key_usage_raw, error = _parse_key_usage_values(payload.get("keyUsage"))
+    if error:
+        return error
 
     group_code_value = payload.get("groupCode")
     if group_code_value is not None and not isinstance(group_code_value, str):
@@ -681,7 +721,7 @@ def sign_certificate() -> tuple[dict, int]:
         usage_type=usage_type,
         days=days,
         is_ca=_to_bool(payload.get("isCa", False), default=False),
-        key_usage=list(key_usage_values),
+        key_usage=list(key_usage_raw or []),
         group_code=group_code,
     )
 

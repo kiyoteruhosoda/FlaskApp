@@ -99,6 +99,7 @@ class _DummyClient:
                 auto_rotate=True,
                 rotation_threshold_days=30,
                 subject={"CN": "example"},
+                key_usage=("digitalSignature",),
                 created_at=None,
                 updated_at=None,
             )
@@ -116,6 +117,7 @@ class _DummyClient:
             auto_rotate=kwargs.get("auto_rotate", True),
             rotation_threshold_days=kwargs.get("rotation_threshold_days", 30),
             subject=kwargs["subject"],
+            key_usage=tuple(kwargs.get("key_usage") or []),
             created_at=None,
             updated_at=None,
         )
@@ -132,6 +134,7 @@ class _DummyClient:
             auto_rotate=kwargs.get("auto_rotate", True),
             rotation_threshold_days=kwargs.get("rotation_threshold_days", 30),
             subject=kwargs["subject"],
+            key_usage=tuple(kwargs.get("key_usage") or []),
             created_at=None,
             updated_at=None,
         )
@@ -151,6 +154,7 @@ class _DummyClient:
             auto_rotate=True,
             rotation_threshold_days=30,
             subject={"CN": "example"},
+            key_usage=("digitalSignature",),
             created_at=None,
             updated_at=None,
         )
@@ -256,6 +260,7 @@ def test_service_delegates_to_client(app_context):
         auto_rotate=True,
         rotation_threshold_days=30,
         subject={"CN": "new"},
+        key_usage=["digitalSignature"],
     )
     service.update_group(
         "group-a",
@@ -267,6 +272,7 @@ def test_service_delegates_to_client(app_context):
         auto_rotate=False,
         rotation_threshold_days=45,
         subject={"CN": "changed"},
+        key_usage=["digitalSignature"],
     )
     service.delete_group("group-a")
     service.list_group_certificates("group-a")

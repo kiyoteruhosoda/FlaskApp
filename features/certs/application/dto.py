@@ -43,7 +43,7 @@ class SignCertificateOutput:
     group_code: str | None = None
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, kw_only=True)
 class CertificateGroupInput:
     group_code: str
     display_name: str | None
@@ -54,9 +54,10 @@ class CertificateGroupInput:
     auto_rotate: bool
     rotation_threshold_days: int
     subject: dict[str, str]
+    key_usage: tuple[str, ...] | None = None
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, kw_only=True)
 class CertificateGroupUpdateInput(CertificateGroupInput):
     id: int
 

@@ -218,7 +218,7 @@ def index():
         groups = []
 
     stored_form_state = session.pop("certs_create_group_form", None)
-    create_form_values: dict[str, str] = {}
+    create_form_values: dict[str, object] = {}
     create_form_errors: list[str] = []
     show_create_modal = False
     if stored_form_state:
@@ -244,6 +244,11 @@ def index():
             oid: values.get(field_name, "")
             for oid, field_name, _label, _required in _SUBJECT_FIELD_DEFINITIONS
         }
+        edit_key_usage_values = values.get("key_usage", [])
+        if isinstance(edit_key_usage_values, str):
+            edit_key_usage_values = [edit_key_usage_values]
+        elif not isinstance(edit_key_usage_values, (list, tuple)):
+            edit_key_usage_values = []
         edit_form_initial = {
             "groupCode": group_code_value or "",
             "displayName": values.get("display_name", ""),
@@ -254,6 +259,7 @@ def index():
             "autoRotate": values.get("auto_rotate") == "on",
             "rotationThresholdDays": values.get("rotation_threshold_days", ""),
             "subject": subject_values,
+            "keyUsage": edit_key_usage_values,
         }
         show_edit_modal = bool(stored_edit_form.get("show_modal"))
         raw_edit_errors = stored_edit_form.get("errors") if isinstance(stored_edit_form, dict) else None
@@ -269,6 +275,11 @@ def index():
         create_form_values["rotation_threshold_days"] = "30"
     if not create_form_values.get("usage_type"):
         create_form_values["usage_type"] = UsageType.SERVER_SIGNING.value
+    key_usage_values = create_form_values.get("key_usage")
+    if isinstance(key_usage_values, str):
+        create_form_values["key_usage"] = [key_usage_values]
+    elif not isinstance(key_usage_values, (list, tuple)):
+        create_form_values["key_usage"] = []
 
     required_subject_field_names = [
         field_name
@@ -283,6 +294,7 @@ def index():
         subject_fields=_SUBJECT_FIELD_DEFINITIONS,
         required_subject_field_names=required_subject_field_names,
         key_presets=_usage_key_presets(),
+        key_usage_choices=_KEY_USAGE_CHOICES,
         create_form_values=create_form_values,
         create_form_errors=create_form_errors,
         show_create_modal=show_create_modal,
@@ -302,6 +314,11 @@ def create_group():
     def _remember_form_state(*, errors: list[str] | None = None) -> None:
         values = form.to_dict(flat=True)
         values["auto_rotate"] = "on" if form.get("auto_rotate") == "on" else "off"
+        values["key_usage"] = [
+            value
+            for value in form.getlist("key_usage")
+            if isinstance(value, str) and value.strip()
+        ]
         state: dict[str, object] = {
             "values": values,
             "show_modal": True,
@@ -356,6 +373,13 @@ def create_group():
         flash(message, "error")
         return redirect(url_for("certs_ui.index"))
 
+    key_usage = [
+        value.strip()
+        for value in form.getlist("key_usage")
+        if isinstance(value, str) and value.strip()
+    ]
+    key_usage = list(dict.fromkeys(key_usage))
+
     try:
         subject = _validate_subject_template(form)
     except SubjectValidationError as exc:
@@ -376,6 +400,7 @@ def create_group():
             auto_rotate=auto_rotate,
             rotation_threshold_days=rotation_threshold_days,
             subject=subject,
+            key_usage=key_usage or None,
         )
     except CertsApiClientError as exc:
         current_app.logger.exception("Failed to create certificate group")
@@ -399,6 +424,11 @@ def update_group(group_code: str):
     def _remember_edit_form_state(*, errors: list[str] | None = None) -> None:
         values = form.to_dict(flat=True)
         values["auto_rotate"] = "on" if form.get("auto_rotate") == "on" else "off"
+        values["key_usage"] = [
+            value
+            for value in form.getlist("key_usage")
+            if isinstance(value, str) and value.strip()
+        ]
         state: dict[str, object] = {
             "group_code": group_code,
             "values": values,
@@ -442,6 +472,13 @@ def update_group(group_code: str):
         flash(message, "error")
         return redirect(url_for("certs_ui.index"))
 
+    key_usage = [
+        value.strip()
+        for value in form.getlist("key_usage")
+        if isinstance(value, str) and value.strip()
+    ]
+    key_usage = list(dict.fromkeys(key_usage))
+
     try:
         subject = _validate_subject_template(form)
     except SubjectValidationError as exc:
@@ -462,6 +499,7 @@ def update_group(group_code: str):
             auto_rotate=auto_rotate,
             rotation_threshold_days=rotation_threshold_days,
             subject=subject,
+            key_usage=key_usage or None,
         )
     except CertsApiClientError as exc:
         current_app.logger.exception("Failed to update certificate group")

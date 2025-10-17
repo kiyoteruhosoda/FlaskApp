@@ -18,6 +18,7 @@
         <th scope="col">{{ _('Auto Rotate') }}</th>
         <th scope="col">{{ _('Rotation Threshold (days)') }}</th>
         <th scope="col">{{ _('Key Type') }}</th>
+        <th scope="col">{{ _('Key Usage') }}</th>
         <th scope="col">{{ _('Subject') }}</th>
         <th scope="col">{{ _('Updated At') }} <small class="text-muted">UTC</small></th>
         <th scope="col">{{ _('Actions') }}</th>
@@ -40,6 +41,15 @@
           <td>{{ group.rotation_threshold_days }}</td>
           <td>
             {{ group.key_type }}{% if group.key_size %} {{ group.key_size }}{% endif %}{% if group.key_curve %} / {{ group.key_curve }}{% endif %}
+          </td>
+          <td>
+            {% if group.key_usage %}
+              {% for usage in group.key_usage %}
+              <span class="badge text-bg-light me-1 mb-1">{{ usage }}</span>
+              {% endfor %}
+            {% else %}
+              <span class="text-muted">-</span>
+            {% endif %}
           </td>
           <td>
             {% if group.subject %}
@@ -65,7 +75,8 @@
                   "keySize": group.key_size,
                   "autoRotate": group.auto_rotate,
                   "rotationThresholdDays": group.rotation_threshold_days,
-                  "subject": group.subject
+                  "subject": group.subject,
+                  "keyUsage": group.key_usage if group.key_usage is not none else None
                 } | tojson }}'>
                 {{ _('Edit') }}
               </button>
@@ -78,7 +89,7 @@
         {% endfor %}
       {% else %}
       <tr>
-        <td colspan="9" class="text-center text-muted py-4">{{ _('No certificate groups available.') }}</td>
+        <td colspan="10" class="text-center text-muted py-4">{{ _('No certificate groups available.') }}</td>
       </tr>
       {% endif %}
     </tbody>
@@ -161,6 +172,19 @@
                 <label class="form-check-label" for="auto_rotate">{{ _('Auto Rotate') }}</label>
               </div>
             </div>
+          </div>
+          <div class="mt-3">
+            <label class="form-label">{{ _('Key Usage') }}</label>
+            {% set selected_key_usage = create_form_values.get('key_usage', []) %}
+            <div class="d-flex flex-wrap gap-2">
+              {% for value, label in key_usage_choices %}
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="create_key_usage_{{ loop.index }}" name="key_usage" value="{{ value }}" {% if value in selected_key_usage %}checked{% endif %}>
+                <label class="form-check-label" for="create_key_usage_{{ loop.index }}">{{ label }}</label>
+              </div>
+              {% endfor %}
+            </div>
+            <div class="form-text text-muted small">{{ _('Leave empty to use the default key usage for the selected usage type.') }}</div>
           </div>
           <hr>
           <h3 class="h6 mb-1">{{ _('Subject Template') }}</h3>
@@ -277,6 +301,18 @@
                 <label class="form-check-label" for="edit_auto_rotate">{{ _('Auto Rotate') }}</label>
               </div>
             </div>
+          </div>
+          <div class="mt-3">
+            <label class="form-label">{{ _('Key Usage') }}</label>
+            <div class="d-flex flex-wrap gap-2">
+              {% for value, label in key_usage_choices %}
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="edit_key_usage_{{ loop.index }}" name="key_usage" value="{{ value }}">
+                <label class="form-check-label" for="edit_key_usage_{{ loop.index }}">{{ label }}</label>
+              </div>
+              {% endfor %}
+            </div>
+            <div class="form-text text-muted small">{{ _('Leave empty to use the default key usage for the selected usage type.') }}</div>
           </div>
           <hr>
           <h3 class="h6 mb-1">{{ _('Subject Template') }}</h3>
@@ -672,6 +708,17 @@
   const createSubjectValidation = setupSubjectValidation(createForm);
   const editSubjectValidation = setupSubjectValidation(editForm);
 
+  function setKeyUsage(form, values) {
+    if (!form) {
+      return;
+    }
+    const selected = new Set(Array.isArray(values) ? values : []);
+    const checkboxes = form.querySelectorAll('input[name="key_usage"]');
+    checkboxes.forEach((checkbox) => {
+      checkbox.checked = selected.has(checkbox.value);
+    });
+  }
+
   function fillEditForm(data) {
     if (!data) {
       return;
@@ -757,6 +804,8 @@
         }
       }
     }
+
+    setKeyUsage(form, Array.isArray(data.keyUsage) ? data.keyUsage : []);
 
     if (editSubjectValidation) {
       editSubjectValidation.reset();

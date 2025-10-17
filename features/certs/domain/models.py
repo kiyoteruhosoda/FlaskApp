@@ -72,6 +72,7 @@ class CertificateGroup:
     display_name: str | None = None
     key_curve: str | None = None
     key_size: int | None = None
+    key_usage: tuple[str, ...] | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -79,6 +80,13 @@ class CertificateGroup:
         """テンプレートsubjectを辞書で返す"""
 
         return dict(self.subject)
+
+    def key_usage_values(self) -> tuple[str, ...] | None:
+        """keyUsageをタプルで返す"""
+
+        if self.key_usage is None:
+            return None
+        return tuple(self.key_usage)
 
 
 @dataclass(slots=True)

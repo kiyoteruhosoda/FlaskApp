@@ -302,6 +302,7 @@ class CreateCertificateGroupUseCase:
             key_curve=payload.key_curve,
             key_size=payload.key_size,
             subject=payload.subject,
+            key_usage=payload.key_usage,
         )
         created = self._services.group_store.create(group)
         if actor:
@@ -339,6 +340,7 @@ class UpdateCertificateGroupUseCase:
             key_curve=payload.key_curve,
             key_size=payload.key_size,
             subject=payload.subject,
+            key_usage=payload.key_usage,
         )
         saved = self._services.group_store.update(updated_group)
         if actor:
@@ -397,7 +399,12 @@ class IssueCertificateForGroupUseCase:
         if subject_overrides:
             subject_dict.update(subject_overrides)
         subject = SubjectBuilder(subject_dict).build()
-        csr = build_csr(private_key, subject, group.usage_type, key_usage or [])
+        resolved_key_usage = (
+            list(key_usage)
+            if key_usage is not None
+            else (list(group.key_usage) if group.key_usage is not None else None)
+        )
+        csr = build_csr(private_key, subject, group.usage_type, resolved_key_usage or [])
         csr_pem = csr.public_bytes(serialization.Encoding.PEM).decode("utf-8")
 
         default_days = max(group.rotation_policy.rotation_threshold_days * 2, 1)
@@ -407,7 +414,7 @@ class IssueCertificateForGroupUseCase:
             usage_type=group.usage_type,
             days=days,
             is_ca=False,
-            key_usage=key_usage or [],
+            key_usage=resolved_key_usage or [],
             group_code=group.group_code,
         )
         sign_result = SignCertificateUseCase(self._services).execute(

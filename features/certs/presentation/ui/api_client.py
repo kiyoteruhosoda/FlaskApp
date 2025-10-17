@@ -103,6 +103,7 @@ class CertificateGroupData:
     auto_rotate: bool
     rotation_threshold_days: int
     subject: dict[str, str]
+    key_usage: tuple[str, ...] | None
     created_at: datetime | None
     updated_at: datetime | None
 
@@ -244,6 +245,7 @@ class CertsApiClient:
         auto_rotate: bool,
         rotation_threshold_days: int,
         subject: dict[str, str],
+        key_usage: list[str] | None,
     ) -> CertificateGroupData:
         payload = self._dispatch(
             "POST",
@@ -258,6 +260,7 @@ class CertsApiClient:
                 "autoRotate": auto_rotate,
                 "rotationThresholdDays": rotation_threshold_days,
                 "subject": subject,
+                "keyUsage": key_usage,
             },
         )
         return self._parse_group(payload.get("group") or {})
@@ -274,6 +277,7 @@ class CertsApiClient:
         auto_rotate: bool,
         rotation_threshold_days: int,
         subject: dict[str, str],
+        key_usage: list[str] | None,
     ) -> CertificateGroupData:
         payload = self._dispatch(
             "PUT",
@@ -287,6 +291,7 @@ class CertsApiClient:
                 "autoRotate": auto_rotate,
                 "rotationThresholdDays": rotation_threshold_days,
                 "subject": subject,
+                "keyUsage": key_usage,
             },
             group_code=group_code,
         )
@@ -538,6 +543,14 @@ class CertsApiClient:
         subject = payload.get("subject") or {}
         if not isinstance(subject, dict):
             subject = {}
+        raw_key_usage = payload.get("keyUsage")
+        key_usage: tuple[str, ...] | None = None
+        if isinstance(raw_key_usage, (list, tuple)):
+            key_usage = tuple(
+                value
+                for value in (str(item).strip() for item in raw_key_usage)
+                if value
+            )
         return CertificateGroupData(
             group_code=str(payload.get("groupCode", "")),
             display_name=payload.get("displayName"),
@@ -548,6 +561,7 @@ class CertsApiClient:
             auto_rotate=bool(payload.get("autoRotate", True)),
             rotation_threshold_days=_parse_optional_int(payload.get("rotationThresholdDays")) or 0,
             subject={str(k): str(v) for k, v in subject.items()},
+            key_usage=key_usage,
             created_at=_parse_datetime(payload.get("createdAt")),
             updated_at=_parse_datetime(payload.get("updatedAt")),
         )

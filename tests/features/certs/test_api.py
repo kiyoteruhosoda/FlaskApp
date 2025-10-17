@@ -39,7 +39,7 @@ def _login_admin(client):
     assert response.status_code == 200
 
 
-def _create_group() -> CertificateGroupEntity:
+def _create_group(key_usage: list[str] | None = None) -> CertificateGroupEntity:
     group = CertificateGroupEntity(
         group_code="server_signing_default",
         display_name="Server Signing",
@@ -49,6 +49,7 @@ def _create_group() -> CertificateGroupEntity:
         key_size=2048,
         subject={"C": "JP", "O": "Example", "CN": "AuthServer"},
         usage_type="server_signing",
+        key_usage=key_usage,
     )
     db.session.add(group)
     db.session.commit()
@@ -100,16 +101,21 @@ def test_group_management_endpoints(app_context):
             "autoRotate": True,
             "rotationThresholdDays": 30,
             "subject": {"CN": "example.test"},
+            "keyUsage": ["digitalSignature", "keyEncipherment"],
         },
     )
     assert create_resp.status_code == 201
     created = create_resp.get_json()["group"]
     assert created["groupCode"] == "test-group"
+    assert created["keyUsage"] == ["digitalSignature", "keyEncipherment"]
 
     list_resp = client.get("/api/certs/groups")
     assert list_resp.status_code == 200
     groups = list_resp.get_json()["groups"]
-    assert any(item["groupCode"] == "test-group" for item in groups)
+    assert any(item["groupCode"] == "test-group" and item.get("keyUsage") == [
+        "digitalSignature",
+        "keyEncipherment",
+    ] for item in groups)
 
     update_resp = client.put(
         "/api/certs/groups/test-group",
@@ -121,12 +127,14 @@ def test_group_management_endpoints(app_context):
             "autoRotate": False,
             "rotationThresholdDays": 60,
             "subject": {"CN": "updated.example"},
+            "keyUsage": ["digitalSignature"],
         },
     )
     assert update_resp.status_code == 200
     updated = update_resp.get_json()["group"]
     assert updated["displayName"] == "Updated Group"
     assert updated["autoRotate"] is False
+    assert updated["keyUsage"] == ["digitalSignature"]
 
     delete_resp = client.delete("/api/certs/groups/test-group")
     assert delete_resp.status_code == 200
@@ -364,6 +372,7 @@ def test_group_certificate_issue_and_listing(app_context):
     assert list_resp.status_code == 200
     body = list_resp.get_json()
     assert body["group"]["groupCode"] == group.group_code
+    assert body["group"].get("keyUsage") is None
     kids = [item["kid"] for item in body["certificates"]]
     assert issued_payload["kid"] in kids
 
@@ -445,6 +454,30 @@ def test_search_filters_cover_group_usage_and_revocation(app_context):
     assert payload["certificates"][0]["kid"] == issued["kid"]
     assert payload["certificates"][0]["revokedAt"] is not None
 
+
+def test_issue_uses_group_key_usage_when_not_specified(app_context):
+    client = app_context.test_client()
+    _login_admin(client)
+
+    group = _create_group(key_usage=["digitalSignature", "keyEncipherment"])
+
+    issue_resp = client.post(
+        f"/api/certs/groups/{group.group_code}/certificates",
+        json={},
+    )
+    assert issue_resp.status_code == 201
+    issued_payload = issue_resp.get_json()["certificate"]
+
+    certificate = x509.load_pem_x509_certificate(
+        issued_payload["certificatePem"].encode("utf-8")
+    )
+    key_usage_ext = certificate.extensions.get_extension_for_class(x509.KeyUsage).value
+    assert key_usage_ext.digital_signature is True
+    assert key_usage_ext.key_encipherment is True
+    assert key_usage_ext.content_commitment is False
+    assert key_usage_ext.data_encipherment is False
+    assert key_usage_ext.key_agreement is False
+    assert key_usage_ext.crl_sign is False
 
 def test_requires_certificate_manage_permission(app_context):
     client = app_context.test_client()

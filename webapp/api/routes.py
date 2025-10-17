@@ -481,7 +481,48 @@ def login_or_jwt_required(f):
             )
             return f(*args, **kwargs)
 
-        # まずFlask-Loginでの認証をチェック
+        auth_header = request.headers.get('Authorization')
+        token = None
+        token_source = None
+
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+            token_source = 'authorization_header'
+        elif request.cookies.get('access_token'):
+            token = request.cookies.get('access_token')
+            token_source = 'cookie'
+
+        if token:
+            _auth_log(
+                'Evaluating JWT credentials',
+                stage='jwt_check',
+                token_source=token_source or 'unknown',
+                has_authorization_header=bool(auth_header),
+                authenticated_via_flask_login=current_user.is_authenticated,
+            )
+
+            verification = TokenService.verify_access_token(token)
+            if not verification:
+                _auth_log(
+                    'JWT token verification failed',
+                    level='warning',
+                    stage='failure',
+                    reason='invalid_token',
+                    token_source=token_source or 'unknown',
+                )
+                return jsonify({'error': 'invalid_token'}), 401
+
+            user, scope = verification
+            _set_jwt_context(user, scope)
+            _auth_log(
+                'Authentication successful via JWT',
+                stage='success',
+                auth_method='jwt',
+                token_source=token_source or 'unknown',
+                authenticated_user=_serialize_user_for_log(user),
+            )
+            return f(*args, **kwargs)
+
         if current_user.is_authenticated:
             _auth_log(
                 'Authentication successful via Flask-Login',
@@ -491,58 +532,20 @@ def login_or_jwt_required(f):
             )
             return f(*args, **kwargs)
 
-        # Flask-Loginで認証されていない場合、JWTをチェック
-        auth_header = request.headers.get('Authorization')
-        token_source = None
-        token = None
-
-        if auth_header and auth_header.startswith('Bearer '):
-            token = auth_header.split(' ')[1]
-            token_source = 'authorization_header'
-        elif request.cookies.get('access_token'):
-            token = request.cookies.get('access_token')
-            token_source = 'cookie'
-
         _auth_log(
             'Flask-Login authentication unavailable; evaluating JWT credentials',
             stage='jwt_check',
-            token_source=token_source or 'none',
+            token_source='none',
             has_authorization_header=bool(auth_header),
         )
-
-        if not token:
-            _auth_log(
-                'JWT token missing',
-                level='warning',
-                stage='failure',
-                reason='token_missing',
-                token_source=token_source or 'none',
-            )
-            return jsonify({'error': 'authentication_required'}), 401
-
-        verification = TokenService.verify_access_token(token)
-        if not verification:
-            _auth_log(
-                'JWT token verification failed',
-                level='warning',
-                stage='failure',
-                reason='invalid_token',
-                token_source=token_source or 'unknown',
-            )
-            return jsonify({'error': 'invalid_token'}), 401
-
-        # Flask-Loginのcurrent_userと同じように使えるよう設定
-        user, scope = verification
-        _set_jwt_context(user, scope)
         _auth_log(
-            'Authentication successful via JWT',
-            stage='success',
-            auth_method='jwt',
-            token_source=token_source or 'unknown',
-            authenticated_user=_serialize_user_for_log(user),
+            'JWT token missing',
+            level='warning',
+            stage='failure',
+            reason='token_missing',
+            token_source='none',
         )
-
-        return f(*args, **kwargs)
+        return jsonify({'error': 'authentication_required'}), 401
     return decorated_function
 
 

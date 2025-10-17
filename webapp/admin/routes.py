@@ -43,9 +43,7 @@ bp = Blueprint("admin", __name__, template_folder="templates")
 def _can_manage_api_keys() -> bool:
     if not hasattr(current_user, "can"):
         return False
-    return current_user.can("api_key:manage") or current_user.can(
-        "service_account_api:manage"
-    )
+    return current_user.can("api_key:manage")
 
 
 def _can_read_api_keys() -> bool:

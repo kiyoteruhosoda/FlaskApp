@@ -59,7 +59,6 @@ def seed_permissions():
         {'id': 19, 'code': 'service_account:manage'},
         {'id': 20, 'code': 'certificate:manage'},
         {'id': 21, 'code': 'certificate:sign'},
-        {'id': 22, 'code': 'service_account_api:manage'},
         {'id': 23, 'code': 'api_key:read'},
         {'id': 24, 'code': 'api_key:manage'},
     ]
@@ -80,7 +79,7 @@ def seed_role_permissions():
         # admin (role_id=1) - all permissions
         (1, 1), (1, 2), (1, 3), (1, 4), (1, 5),
         (1, 6), (1, 7), (1, 8), (1, 9), (1, 10),
-        (1, 11), (1, 12), (1, 13), (1, 14), (1, 15), (1, 16), (1, 17), (1, 18), (1, 19), (1, 20), (1, 21), (1, 22), (1, 23), (1, 24),
+        (1, 11), (1, 12), (1, 13), (1, 14), (1, 15), (1, 16), (1, 17), (1, 18), (1, 19), (1, 20), (1, 21), (1, 23), (1, 24),
         # manager (role_id=2) - limited permissions
         (2, 1), (2, 4), (2, 5), (2, 6), (2, 7), (2, 14), (2, 15), (2, 16),
         # member (role_id=3) - view only

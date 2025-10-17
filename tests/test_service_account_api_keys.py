@@ -194,11 +194,17 @@ def test_service_account_api_allows_with_read_permission(app_context):
 
 
 @pytest.mark.usefixtures("app_context")
-def test_service_account_api_allows_with_legacy_permission(app_context):
+def test_service_account_api_rejects_removed_legacy_permission(app_context):
     account_id = _create_service_account("maintenance:read")
     client = app_context.test_client()
     user = _create_user_with_permissions("service_account_api:manage")
     _login(client, user)
 
     response = client.get(f"/api/service_accounts/{account_id}/keys")
-    assert response.status_code == 200
+    assert response.status_code == 403
+
+    response = client.post(
+        f"/api/service_accounts/{account_id}/keys",
+        json={"scopes": ["maintenance:read"]},
+    )
+    assert response.status_code == 403

@@ -132,7 +132,7 @@
                 required
                 data-initial="{{ create_form_values.get('key_preset', '') }}"
                 data-placeholder="{{ _('Select key parameters') }}"
-                data-custom-label="{{ _('Custom configuration (%(details)s)') }}"
+                data-custom-label="{{ _('Custom configuration (%(details)s)', details='%(details)s') }}"
               ></select>
               <input type="hidden" id="key_type" name="key_type" value="{{ create_form_values.get('key_type', '') }}">
               <input type="hidden" id="key_curve" name="key_curve" value="{{ create_form_values.get('key_curve', '') }}">
@@ -235,7 +235,7 @@
                 name="key_preset"
                 required
                 data-placeholder="{{ _('Select key parameters') }}"
-                data-custom-label="{{ _('Custom configuration (%(details)s)') }}"
+                data-custom-label="{{ _('Custom configuration (%(details)s)', details='%(details)s') }}"
               ></select>
               <input type="hidden" id="edit_key_type" name="key_type">
               <input type="hidden" id="edit_key_curve" name="key_curve">

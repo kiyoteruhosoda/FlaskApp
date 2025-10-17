@@ -135,7 +135,7 @@
             </div>
             <div class="col-md-6">
               <label class="form-label" for="key_preset">{{ _('Key Parameters') }} <span class="text-danger">*</span></label>
-              {% set custom_label_template = _('Custom configuration (%(details)s)') %}
+              {% set custom_label_template = _('Custom configuration (%(details)s)', details='%(details)s') %}
               {% set custom_label_fallback = custom_label_template | replace('%(details)s', '-') %}
               <select
                 class="form-select"
@@ -252,7 +252,7 @@
             </div>
             <div class="col-md-6">
               <label class="form-label" for="edit_key_preset">{{ _('Key Parameters') }} <span class="text-danger">*</span></label>
-              {% set edit_custom_label_template = _('Custom configuration (%(details)s)') %}
+              {% set edit_custom_label_template = _('Custom configuration (%(details)s)', details='%(details)s') %}
               {% set edit_custom_label_fallback = edit_custom_label_template | replace('%(details)s', '-') %}
               <select
                 class="form-select"

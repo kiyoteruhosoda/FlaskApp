@@ -53,6 +53,15 @@ class TestOpenAPIDocs:
         assert servers[0] == 'https://nolumia.com/api'
         assert 'http://nolumia.com/api' in servers
 
+    def test_openapi_spec_handles_escaped_semicolon_in_forwarded_header(self, app_context):
+        with app_context.test_request_context(
+            '/api/openapi.json',
+            headers={'Forwarded': 'proto=https\\;host="nolumia.com"'},
+        ):
+            payload = openapi_spec().get_json()
+        servers = [server['url'] for server in payload['servers']]
+        assert servers[0] == 'https://nolumia.com/api'
+
     def test_openapi_spec_avoids_duplicate_script_root_in_forwarded_prefix(self, app_context):
         with app_context.test_request_context(
             '/api/openapi.json',
@@ -90,4 +99,4 @@ class TestOpenAPIDocs:
         assert response.status_code == 200
         html = response.get_data(as_text=True)
         assert 'SwaggerUIBundle' in html
-        assert '/api/openapi.json' in html
+        assert 'http://localhost/api/openapi.json' in html

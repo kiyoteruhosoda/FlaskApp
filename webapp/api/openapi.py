@@ -162,11 +162,25 @@ def _resolve_server_url() -> str:
 
     prefix_header = request.headers.get("X-Forwarded-Prefix")
     if prefix_header:
-        prefix = "/" + prefix_header.strip("/")
+        normalized_prefix = "/" + prefix_header.strip("/")
+        prefix = "" if normalized_prefix == "/" else normalized_prefix
     else:
         prefix = ""
 
-    return f"{scheme}://{host}{prefix}".rstrip("/")
+    script_root = request.script_root or ""
+    if script_root in {"", "/"}:
+        script_root = ""
+    else:
+        script_root = script_root.rstrip("/")
+
+    base_path = script_root
+    if prefix:
+        if not base_path:
+            base_path = prefix
+        elif not base_path.startswith(prefix):
+            base_path = f"{prefix}{base_path}"
+
+    return f"{scheme}://{host}{base_path}".rstrip("/")
 
 
 @bp.get("/openapi.json")

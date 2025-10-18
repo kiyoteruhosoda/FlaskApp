@@ -1,5 +1,7 @@
 import pytest
 
+from webapp.api.openapi import openapi_spec
+
 
 @pytest.mark.usefixtures('app_context')
 class TestOpenAPIDocs:
@@ -39,3 +41,22 @@ class TestOpenAPIDocs:
         html = response.get_data(as_text=True)
         assert 'SwaggerUIBundle' in html
         assert '/api/openapi.json' in html
+
+    def test_openapi_spec_respects_script_root(self, app_context):
+        with app_context.test_request_context(
+            '/api/openapi.json',
+            environ_overrides={'SCRIPT_NAME': '/app'},
+        ):
+            response = openapi_spec()
+        payload = response.get_json()
+        assert payload['servers'][0]['url'] == 'http://localhost/app'
+
+    def test_openapi_spec_combines_forwarded_prefix_and_script_root(self, app_context):
+        with app_context.test_request_context(
+            '/api/openapi.json',
+            headers={'X-Forwarded-Prefix': '/proxy'},
+            environ_overrides={'SCRIPT_NAME': '/app'},
+        ):
+            response = openapi_spec()
+        payload = response.get_json()
+        assert payload['servers'][0]['url'] == 'http://localhost/proxy/app'

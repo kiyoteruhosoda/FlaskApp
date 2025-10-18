@@ -28,7 +28,14 @@ _CONVERTER_SCHEMA_OVERRIDES = {
 def _convert_rule_to_openapi_path(rule) -> str:
     """FlaskのURLルールをOpenAPI互換のパス形式へ変換する。"""
 
-    return _PATH_PARAMETER_PATTERN.sub(r"{\1}", rule.rule)
+    converted = _PATH_PARAMETER_PATTERN.sub(r"{\1}", rule.rule)
+    if converted.startswith("/api"):
+        # Blueprintのベースパス(/api)は OpenAPI の servers.url で表現されるため、
+        # paths セクションからは取り除いてクライアントが二重に付与しないようにする。
+        if converted == "/api":
+            return "/"
+        return converted[4:] if converted.startswith("/api/") else converted
+    return converted
 
 
 def _operation_docs(view_func) -> tuple[str | None, str | None]:

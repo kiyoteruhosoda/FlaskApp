@@ -13,7 +13,7 @@ class TestOpenAPIDocs:
         payload = response.get_json()
         assert payload['openapi'] == '3.0.3'
 
-        login_path = payload['paths']['/api/login']
+        login_path = payload['paths']['/login']
         login_post = login_path['post']
         assert login_post['summary'] == 'ユーザー認証してJWTを発行'
         assert login_post['operationId'].endswith('_post')

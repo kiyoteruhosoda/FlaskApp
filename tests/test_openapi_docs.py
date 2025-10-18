@@ -19,7 +19,7 @@ class TestOpenAPIDocs:
         assert login_post['operationId'].endswith('_post')
         assert login_post['responses']['200']['description']
         servers = [server['url'] for server in payload['servers']]
-        assert servers[0] == 'http://localhost'
+        assert servers[0] == 'http://localhost/api'
 
     def test_openapi_spec_respects_forwarded_proto(self, app_context):
         client = app_context.test_client()
@@ -34,7 +34,7 @@ class TestOpenAPIDocs:
 
         payload = response.get_json()
         servers = [server['url'] for server in payload['servers']]
-        assert servers[0] == 'https://nolumia.com'
+        assert servers[0] == 'https://nolumia.com/api'
 
     def test_openapi_spec_uses_forwarded_header_for_external_https(self, app_context):
         client = app_context.test_client()
@@ -50,8 +50,8 @@ class TestOpenAPIDocs:
 
         payload = response.get_json()
         servers = [server['url'] for server in payload['servers']]
-        assert servers[0] == 'https://nolumia.com'
-        assert 'http://nolumia.com' in servers
+        assert servers[0] == 'https://nolumia.com/api'
+        assert 'http://nolumia.com/api' in servers
 
     def test_openapi_spec_avoids_duplicate_script_root_in_forwarded_prefix(self, app_context):
         with app_context.test_request_context(
@@ -60,7 +60,7 @@ class TestOpenAPIDocs:
             base_url='http://localhost/app',
         ):
             payload = openapi_spec().get_json()
-        assert payload['servers'][0]['url'] == 'http://localhost/proxy/app'
+        assert payload['servers'][0]['url'] == 'http://localhost/proxy/app/api'
 
     def test_openapi_spec_appends_missing_script_root(self, app_context):
         with app_context.test_request_context(
@@ -69,7 +69,7 @@ class TestOpenAPIDocs:
             base_url='http://localhost/app',
         ):
             payload = openapi_spec().get_json()
-        assert payload['servers'][0]['url'] == 'http://localhost/proxy/app'
+        assert payload['servers'][0]['url'] == 'http://localhost/proxy/app/api'
 
     def test_openapi_spec_handles_absolute_forwarded_prefix(self, app_context):
         with app_context.test_request_context(

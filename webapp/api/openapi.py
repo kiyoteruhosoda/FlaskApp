@@ -161,12 +161,31 @@ def _resolve_server_url() -> str:
             host = f"{host}:{port}"
 
     prefix_header = request.headers.get("X-Forwarded-Prefix")
-    if prefix_header:
-        prefix = "/" + prefix_header.strip("/")
-    else:
-        prefix = ""
 
-    return f"{scheme}://{host}{prefix}".rstrip("/")
+    def _normalize_path(value: str | None) -> str:
+        if not value:
+            return ""
+        return value.strip("/")
+
+    forwarded_prefix = _normalize_path(prefix_header)
+    script_root = _normalize_path(request.script_root)
+
+    if forwarded_prefix and script_root:
+        if script_root.startswith(forwarded_prefix):
+            combined_path = script_root
+        elif forwarded_prefix.startswith(script_root):
+            combined_path = forwarded_prefix
+        else:
+            combined_path = "/".join(filter(None, [forwarded_prefix, script_root]))
+    else:
+        combined_path = forwarded_prefix or script_root
+
+    if combined_path:
+        path = "/" + combined_path
+    else:
+        path = ""
+
+    return f"{scheme}://{host}{path}".rstrip("/")
 
 
 @bp.get("/openapi.json")

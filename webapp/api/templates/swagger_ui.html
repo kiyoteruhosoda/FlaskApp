@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ _('AppName') }} API Docs</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css"
+      integrity="sha256-B3K9yk1qUzlfauD2hYVW3b3uag6X9Fsw3a+XJsiXu1w="
+      crossorigin="anonymous"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+
+      #swagger-ui {
+        margin: 0 auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script
+      src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"
+      integrity="sha256-fbd0J6MnIm4iEBiZAUA0YFmAyTd3H+nYG+zqyivhPXg="
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-standalone-preset.js"
+      integrity="sha256-mLT0ZptDCbmH7zqveVKNJF4lHqtA/7/k3RvJO8rww8M="
+      crossorigin="anonymous"
+    ></script>
+    <script>
+      window.addEventListener('load', () => {
+        SwaggerUIBundle({
+          url: '{{ spec_url }}',
+          dom_id: '#swagger-ui',
+          presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+          layout: 'BaseLayout',
+        });
+      });
+    </script>
+  </body>
+</html>

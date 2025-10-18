@@ -9,6 +9,7 @@ from typing import Iterable
 
 from flask import current_app, jsonify, render_template, request, url_for
 from flask_babel import gettext as _
+from urllib.parse import urlsplit
 
 from . import bp
 
@@ -180,6 +181,9 @@ def _resolve_server_urls() -> list[str]:
         prefix_header = request.headers.get("X-Forwarded-Prefix")
         if prefix_header:
             raw_prefix = prefix_header.split(",")[0].strip()
+            if "://" in raw_prefix:
+                parsed_prefix = urlsplit(raw_prefix)
+                raw_prefix = parsed_prefix.path or ""
         else:
             raw_prefix = ""
         prefix_segments = _split_path_segments(raw_prefix)

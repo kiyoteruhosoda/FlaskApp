@@ -71,6 +71,19 @@ class TestOpenAPIDocs:
             payload = openapi_spec().get_json()
         assert payload['servers'][0]['url'] == 'http://localhost/proxy/app'
 
+    def test_openapi_spec_handles_absolute_forwarded_prefix(self, app_context):
+        with app_context.test_request_context(
+            '/api/openapi.json',
+            headers={
+                'X-Forwarded-Proto': 'https',
+                'X-Forwarded-Host': 'nolumia.com',
+                'X-Forwarded-Prefix': 'https://nolumia.com/api',
+            },
+        ):
+            payload = openapi_spec().get_json()
+        servers = [server['url'] for server in payload['servers']]
+        assert servers[0] == 'https://nolumia.com/api'
+
     def test_swagger_ui_served(self, app_context):
         client = app_context.test_client()
         response = client.get('/api/docs')

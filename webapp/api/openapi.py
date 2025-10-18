@@ -9,7 +9,7 @@ from typing import Iterable
 
 from flask import current_app, jsonify, render_template, request, url_for
 from flask_babel import gettext as _
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 from . import bp
 
@@ -187,8 +187,11 @@ def _resolve_server_urls() -> list[str]:
         header_value = request.headers.get("Forwarded")
         if not header_value:
             return []
+        # Chrome 141 などでは "proto=https\;host=..." のようにセミコロンがエスケープされるため、
+        # 事前に元の形式へ復元してからパースする。
+        normalized_value = header_value.replace("\\;", ";")
         candidates: list[tuple[str | None, str | None]] = []
-        for part in header_value.split(","):
+        for part in normalized_value.split(","):
             part = part.strip()
             if not part:
                 continue
@@ -312,4 +315,22 @@ def openapi_spec():
 def swagger_ui():
     """Swagger UIを提供する。"""
 
-    return render_template("swagger_ui.html", spec_url=url_for("api.openapi_spec"))
+    server_urls = _resolve_server_urls()
+    if server_urls:
+        base_url = server_urls[0]
+    else:
+        base_url = request.url_root.rstrip("/")
+
+    spec_path = url_for("api.openapi_spec", _external=False)
+    script_root = request.script_root or ""
+    if script_root and spec_path.startswith(script_root):
+        spec_path = spec_path[len(script_root) :]
+    blueprint_prefix = _API_BLUEPRINT_PREFIX or ""
+    if blueprint_prefix and spec_path.startswith(blueprint_prefix):
+        spec_path = spec_path[len(blueprint_prefix) :]
+    spec_path = spec_path.lstrip("/")
+    if spec_path:
+        spec_url = urljoin(base_url + "/", spec_path)
+    else:
+        spec_url = base_url
+    return render_template("swagger_ui.html", spec_url=spec_url)

@@ -56,7 +56,28 @@ class TestEchoAPI:
         assert response_body["json"] == payload
         assert json.loads(response_body["body"]) == payload
 
-    def test_echo_does_not_allow_get_method(self, client):
-        response = client.get("/api/echo")
+    def test_echo_accepts_head_method(self, client):
+        response = client.head("/api/echo")
 
-        assert response.status_code == 405
+        assert response.status_code == 200
+        assert response.data == b""
+
+    @pytest.mark.parametrize(
+        "method",
+        ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    )
+    def test_echo_accepts_multiple_http_methods(self, client, method):
+        payload = {"method": method}
+
+        response = client.open(
+            "/api/echo",
+            method=method,
+            json=payload,
+        )
+
+        assert response.status_code == 200
+        assert response.content_type == "application/json"
+
+        response_body = response.get_json()
+        assert response_body["json"] == payload
+        assert json.loads(response_body["body"]) == payload

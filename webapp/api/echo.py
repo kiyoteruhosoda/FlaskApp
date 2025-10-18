@@ -6,7 +6,10 @@ from flask import Response, jsonify, request
 from . import bp
 
 
-@bp.route("/echo", methods=["POST"])
+@bp.route(
+    "/echo",
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+)
 def echo() -> Response:
     """受信したリクエストのヘッダとボディをまとめて返す。"""
     json_payload = request.get_json(silent=True)

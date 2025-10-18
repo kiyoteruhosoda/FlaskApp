@@ -139,64 +139,109 @@ def _build_paths() -> OrderedDict:
     return ordered_paths
 
 
-def _resolve_server_url() -> str:
-    """リバースプロキシ環境を考慮して外部公開URLを推測する。"""
-
-    forwarded_proto = request.headers.get("X-Forwarded-Proto")
-    if forwarded_proto:
-        scheme = forwarded_proto.split(",")[0].strip()
-    else:
-        scheme = request.scheme
-
-    forwarded_host = request.headers.get("X-Forwarded-Host")
-    if forwarded_host:
-        host = forwarded_host.split(",")[0].strip()
-    else:
-        host = request.host
-
-    forwarded_port = request.headers.get("X-Forwarded-Port")
-    if forwarded_port and ":" not in host:
-        port = forwarded_port.split(",")[0].strip()
-        if port and not ((scheme == "http" and port == "80") or (scheme == "https" and port == "443")):
-            host = f"{host}:{port}"
+def _resolve_server_urls() -> list[str]:
+    """リバースプロキシ環境を考慮して外部公開URL候補を推測する。"""
 
     def _split_path_segments(value: str | None) -> list[str]:
         if not value:
             return []
         return [segment for segment in value.split("/") if segment]
 
-    prefix_header = request.headers.get("X-Forwarded-Prefix")
-    if prefix_header:
-        raw_prefix = prefix_header.split(",")[0].strip()
-    else:
-        raw_prefix = ""
-    prefix_segments = _split_path_segments(raw_prefix)
+    def _sanitize(value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        if cleaned.startswith('"') and cleaned.endswith('"') and len(cleaned) >= 2:
+            cleaned = cleaned[1:-1]
+        return cleaned
 
-    script_root_segments = _split_path_segments(request.script_root)
+    def _iter_forwarded_header_candidates() -> list[tuple[str | None, str | None]]:
+        header_value = request.headers.get("Forwarded")
+        if not header_value:
+            return []
+        candidates: list[tuple[str | None, str | None]] = []
+        for part in header_value.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            params: dict[str, str] = {}
+            for pair in part.split(";"):
+                pair = pair.strip()
+                if not pair or "=" not in pair:
+                    continue
+                key, raw_value = pair.split("=", 1)
+                params[key.lower()] = _sanitize(raw_value) or ""
+            proto = params.get("proto") or None
+            host = params.get("host") or None
+            candidates.append((proto, host))
+        return candidates
 
-    if prefix_segments:
-        combined_segments = prefix_segments.copy()
-        if script_root_segments:
+    def _determine_path_prefix() -> str:
+        prefix_header = request.headers.get("X-Forwarded-Prefix")
+        if prefix_header:
+            raw_prefix = prefix_header.split(",")[0].strip()
+        else:
+            raw_prefix = ""
+        prefix_segments = _split_path_segments(raw_prefix)
+
+        script_root_segments = _split_path_segments(request.script_root)
+
+        if prefix_segments:
+            combined_segments = prefix_segments.copy()
+            if script_root_segments:
+                if not (
+                    len(prefix_segments) >= len(script_root_segments)
+                    and prefix_segments[-len(script_root_segments) :] == script_root_segments
+                ):
+                    overlap = 0
+                    max_overlap = min(len(prefix_segments), len(script_root_segments))
+                    for size in range(max_overlap, 0, -1):
+                        if prefix_segments[-size:] == script_root_segments[:size]:
+                            overlap = size
+                            break
+                    combined_segments.extend(script_root_segments[overlap:])
+        else:
+            combined_segments = script_root_segments
+
+        if combined_segments:
+            return "/" + "/".join(combined_segments)
+        return ""
+
+    path_prefix = _determine_path_prefix()
+
+    forwarded_proto = request.headers.get("X-Forwarded-Proto")
+    forwarded_host = request.headers.get("X-Forwarded-Host")
+    forwarded_port = request.headers.get("X-Forwarded-Port")
+
+    candidates: list[tuple[str | None, str | None, str | None]] = []
+    for proto, host in _iter_forwarded_header_candidates():
+        candidates.append((proto, host, None))
+
+    if forwarded_proto or forwarded_host or forwarded_port:
+        proto_candidate = forwarded_proto.split(",")[0].strip() if forwarded_proto else None
+        host_candidate = forwarded_host.split(",")[0].strip() if forwarded_host else None
+        port_candidate = forwarded_port.split(",")[0].strip() if forwarded_port else None
+        candidates.append((proto_candidate, host_candidate, port_candidate))
+
+    candidates.append((request.scheme, request.host, None))
+
+    seen: set[str] = set()
+    urls: list[str] = []
+    for proto, host, port in candidates:
+        scheme = (proto or request.scheme).lower()
+        normalized_host = _sanitize(host) or request.host
+        if port and ":" not in normalized_host:
             if not (
-                len(prefix_segments) >= len(script_root_segments)
-                and prefix_segments[-len(script_root_segments) :] == script_root_segments
+                (scheme == "http" and port == "80")
+                or (scheme == "https" and port == "443")
             ):
-                overlap = 0
-                max_overlap = min(len(prefix_segments), len(script_root_segments))
-                for size in range(max_overlap, 0, -1):
-                    if prefix_segments[-size:] == script_root_segments[:size]:
-                        overlap = size
-                        break
-                combined_segments.extend(script_root_segments[overlap:])
-    else:
-        combined_segments = script_root_segments
+                normalized_host = f"{normalized_host}:{port}"
+        url = f"{scheme}://{normalized_host}{path_prefix}".rstrip("/")
+        if url not in seen:
+            urls.append(url)
+            seen.add(url)
 
-    if combined_segments:
-        path = "/" + "/".join(combined_segments)
-    else:
-        path = ""
-
-    return f"{scheme}://{host}{path}".rstrip("/")
+    return urls
 
 
 @bp.get("/openapi.json")
@@ -206,7 +251,7 @@ def openapi_spec():
     spec = {
         "openapi": "3.0.3",
         "info": {"title": f"{_('AppName')} API", "version": "1.0.0"},
-        "servers": [{"url": _resolve_server_url()}],
+        "servers": [{"url": url} for url in _resolve_server_urls()],
         "paths": _build_paths(),
         "components": {
             "securitySchemes": {

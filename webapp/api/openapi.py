@@ -14,6 +14,24 @@ from urllib.parse import urlsplit
 from . import bp
 
 
+_API_BLUEPRINT_PREFIX: str = ""
+
+
+@bp.record_once
+def _capture_blueprint_prefix(setup_state) -> None:
+    """api Blueprint のURLプレフィックスを保持する。"""
+
+    global _API_BLUEPRINT_PREFIX
+    prefix = setup_state.url_prefix or ""
+    if prefix and not prefix.startswith("/"):
+        prefix = f"/{prefix}"
+    if prefix not in {"", "/"}:
+        prefix = prefix.rstrip("/")
+    else:
+        prefix = ""
+    _API_BLUEPRINT_PREFIX = prefix
+
+
 _HTTP_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE"}
 _PATH_PARAMETER_PATTERN = re.compile(r"<(?:[^:<>]+:)?([^<>]+)>")
 _EXCLUDED_ENDPOINTS = {"api.openapi_spec", "api.swagger_ui"}
@@ -28,7 +46,16 @@ _CONVERTER_SCHEMA_OVERRIDES = {
 def _convert_rule_to_openapi_path(rule) -> str:
     """FlaskのURLルールをOpenAPI互換のパス形式へ変換する。"""
 
-    return _PATH_PARAMETER_PATTERN.sub(r"{\1}", rule.rule)
+    converted = _PATH_PARAMETER_PATTERN.sub(r"{\1}", rule.rule)
+    prefix = _API_BLUEPRINT_PREFIX
+    if prefix and converted.startswith(prefix):
+        # Blueprintのベースパスは OpenAPI の servers.url で表現されるため、
+        # paths セクションからは取り除いてクライアントが二重に付与しないようにする。
+        trimmed = converted[len(prefix) :]
+        if not trimmed:
+            return "/"
+        return trimmed if trimmed.startswith("/") else f"/{trimmed}"
+    return converted
 
 
 def _operation_docs(view_func) -> tuple[str | None, str | None]:
@@ -189,23 +216,29 @@ def _resolve_server_urls() -> list[str]:
         prefix_segments = _split_path_segments(raw_prefix)
 
         script_root_segments = _split_path_segments(request.script_root)
+        blueprint_segments = _split_path_segments(_API_BLUEPRINT_PREFIX)
 
+        def _extend_with_overlap(base: list[str], extra: list[str]) -> None:
+            if not extra:
+                return
+            if not base:
+                base.extend(extra)
+                return
+            overlap = 0
+            max_overlap = min(len(base), len(extra))
+            for size in range(max_overlap, 0, -1):
+                if base[-size:] == extra[:size]:
+                    overlap = size
+                    break
+            base.extend(extra[overlap:])
+
+        combined_segments: list[str] = []
         if prefix_segments:
-            combined_segments = prefix_segments.copy()
-            if script_root_segments:
-                if not (
-                    len(prefix_segments) >= len(script_root_segments)
-                    and prefix_segments[-len(script_root_segments) :] == script_root_segments
-                ):
-                    overlap = 0
-                    max_overlap = min(len(prefix_segments), len(script_root_segments))
-                    for size in range(max_overlap, 0, -1):
-                        if prefix_segments[-size:] == script_root_segments[:size]:
-                            overlap = size
-                            break
-                    combined_segments.extend(script_root_segments[overlap:])
-        else:
-            combined_segments = script_root_segments
+            combined_segments.extend(prefix_segments)
+        if script_root_segments:
+            _extend_with_overlap(combined_segments, script_root_segments)
+        if blueprint_segments:
+            _extend_with_overlap(combined_segments, blueprint_segments)
 
         if combined_segments:
             return "/" + "/".join(combined_segments)

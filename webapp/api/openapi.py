@@ -139,6 +139,36 @@ def _build_paths() -> OrderedDict:
     return ordered_paths
 
 
+def _resolve_server_url() -> str:
+    """リバースプロキシ環境を考慮して外部公開URLを推測する。"""
+
+    forwarded_proto = request.headers.get("X-Forwarded-Proto")
+    if forwarded_proto:
+        scheme = forwarded_proto.split(",")[0].strip()
+    else:
+        scheme = request.scheme
+
+    forwarded_host = request.headers.get("X-Forwarded-Host")
+    if forwarded_host:
+        host = forwarded_host.split(",")[0].strip()
+    else:
+        host = request.host
+
+    forwarded_port = request.headers.get("X-Forwarded-Port")
+    if forwarded_port and ":" not in host:
+        port = forwarded_port.split(",")[0].strip()
+        if port and not ((scheme == "http" and port == "80") or (scheme == "https" and port == "443")):
+            host = f"{host}:{port}"
+
+    prefix_header = request.headers.get("X-Forwarded-Prefix")
+    if prefix_header:
+        prefix = "/" + prefix_header.strip("/")
+    else:
+        prefix = ""
+
+    return f"{scheme}://{host}{prefix}".rstrip("/")
+
+
 @bp.get("/openapi.json")
 def openapi_spec():
     """OpenAPI仕様ドキュメントを生成して返す。"""
@@ -146,7 +176,7 @@ def openapi_spec():
     spec = {
         "openapi": "3.0.3",
         "info": {"title": f"{_('AppName')} API", "version": "1.0.0"},
-        "servers": [{"url": request.url_root.rstrip("/")}],
+        "servers": [{"url": _resolve_server_url()}],
         "paths": _build_paths(),
         "components": {
             "securitySchemes": {

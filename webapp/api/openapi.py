@@ -321,5 +321,11 @@ def swagger_ui():
     else:
         base_url = request.url_root.rstrip("/")
     spec_path = url_for("api.openapi_spec", _external=False)
-    spec_url = urljoin(base_url + "/", spec_path)
+    script_root = request.script_root.rstrip("/")
+    if script_root and spec_path.startswith(script_root):
+        spec_path = spec_path[len(script_root) :]
+    if _API_BLUEPRINT_PREFIX and spec_path.startswith(_API_BLUEPRINT_PREFIX):
+        spec_path = spec_path[len(_API_BLUEPRINT_PREFIX) :]
+    spec_path = spec_path.lstrip("/")
+    spec_url = urljoin(base_url.rstrip("/") + "/", spec_path)
     return render_template("swagger_ui.html", spec_url=spec_url)

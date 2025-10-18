@@ -178,7 +178,16 @@ def _resolve_server_url() -> str:
         if not base_path:
             base_path = prefix
         elif not base_path.startswith(prefix):
-            base_path = f"{prefix}{base_path}"
+            script_segments = [segment for segment in base_path.split("/") if segment]
+            prefix_segments = [segment for segment in prefix.split("/") if segment]
+            if (
+                script_segments
+                and len(prefix_segments) >= len(script_segments)
+                and prefix_segments[-len(script_segments) :] == script_segments
+            ):
+                base_path = prefix
+            else:
+                base_path = f"{prefix}{base_path}"
 
     return f"{scheme}://{host}{base_path}".rstrip("/")
 

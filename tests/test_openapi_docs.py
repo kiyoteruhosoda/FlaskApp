@@ -60,3 +60,15 @@ class TestOpenAPIDocs:
             response = openapi_spec()
         payload = response.get_json()
         assert payload['servers'][0]['url'] == 'http://localhost/proxy/app'
+
+    def test_openapi_spec_avoids_duplicate_script_root_when_forwarded_prefix_contains_it(
+        self, app_context
+    ):
+        with app_context.test_request_context(
+            '/api/openapi.json',
+            headers={'X-Forwarded-Prefix': '/proxy/app'},
+            environ_overrides={'SCRIPT_NAME': '/app'},
+        ):
+            response = openapi_spec()
+        payload = response.get_json()
+        assert payload['servers'][0]['url'] == 'http://localhost/proxy/app'

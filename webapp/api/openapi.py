@@ -160,13 +160,43 @@ def _resolve_server_url() -> str:
         if port and not ((scheme == "http" and port == "80") or (scheme == "https" and port == "443")):
             host = f"{host}:{port}"
 
+    def _split_path_segments(value: str | None) -> list[str]:
+        if not value:
+            return []
+        return [segment for segment in value.split("/") if segment]
+
     prefix_header = request.headers.get("X-Forwarded-Prefix")
     if prefix_header:
-        prefix = "/" + prefix_header.strip("/")
+        raw_prefix = prefix_header.split(",")[0].strip()
     else:
-        prefix = ""
+        raw_prefix = ""
+    prefix_segments = _split_path_segments(raw_prefix)
 
-    return f"{scheme}://{host}{prefix}".rstrip("/")
+    script_root_segments = _split_path_segments(request.script_root)
+
+    if prefix_segments:
+        combined_segments = prefix_segments.copy()
+        if script_root_segments:
+            if not (
+                len(prefix_segments) >= len(script_root_segments)
+                and prefix_segments[-len(script_root_segments) :] == script_root_segments
+            ):
+                overlap = 0
+                max_overlap = min(len(prefix_segments), len(script_root_segments))
+                for size in range(max_overlap, 0, -1):
+                    if prefix_segments[-size:] == script_root_segments[:size]:
+                        overlap = size
+                        break
+                combined_segments.extend(script_root_segments[overlap:])
+    else:
+        combined_segments = script_root_segments
+
+    if combined_segments:
+        path = "/" + "/".join(combined_segments)
+    else:
+        path = ""
+
+    return f"{scheme}://{host}{path}".rstrip("/")
 
 
 @bp.get("/openapi.json")

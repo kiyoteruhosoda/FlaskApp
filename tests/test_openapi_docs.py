@@ -1,5 +1,7 @@
 import pytest
 
+from webapp.api.openapi import openapi_spec
+
 
 @pytest.mark.usefixtures('app_context')
 class TestOpenAPIDocs:
@@ -31,6 +33,24 @@ class TestOpenAPIDocs:
 
         payload = response.get_json()
         assert payload['servers'][0]['url'] == 'https://nolumia.com'
+
+    def test_openapi_spec_avoids_duplicate_script_root_in_forwarded_prefix(self, app_context):
+        with app_context.test_request_context(
+            '/api/openapi.json',
+            headers={'X-Forwarded-Prefix': '/proxy/app'},
+            base_url='http://localhost/app',
+        ):
+            payload = openapi_spec().get_json()
+        assert payload['servers'][0]['url'] == 'http://localhost/proxy/app'
+
+    def test_openapi_spec_appends_missing_script_root(self, app_context):
+        with app_context.test_request_context(
+            '/api/openapi.json',
+            headers={'X-Forwarded-Prefix': '/proxy'},
+            base_url='http://localhost/app',
+        ):
+            payload = openapi_spec().get_json()
+        assert payload['servers'][0]['url'] == 'http://localhost/proxy/app'
 
     def test_swagger_ui_served(self, app_context):
         client = app_context.test_client()

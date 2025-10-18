@@ -1,6 +1,6 @@
 import pytest
 
-from webapp.api.openapi import openapi_spec
+from webapp.api.openapi import openapi_spec, swagger_ui
 
 
 @pytest.mark.usefixtures('app_context')
@@ -100,3 +100,14 @@ class TestOpenAPIDocs:
         html = response.get_data(as_text=True)
         assert 'SwaggerUIBundle' in html
         assert 'http://localhost/api/openapi.json' in html
+
+    def test_swagger_ui_respects_forwarded_prefix(self, app_context):
+        with app_context.test_request_context(
+            '/api/docs',
+            base_url='http://localhost/app',
+            headers={'X-Forwarded-Prefix': '/proxy'},
+        ):
+            html = swagger_ui()
+        if not isinstance(html, str):
+            html = html.get_data(as_text=True)
+        assert 'http://localhost/proxy/app/api/openapi.json' in html

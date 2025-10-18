@@ -100,3 +100,21 @@ class TestOpenAPIDocs:
         html = response.get_data(as_text=True)
         assert 'SwaggerUIBundle' in html
         assert 'http://localhost/api/openapi.json' in html
+
+    def test_swagger_ui_respects_forwarded_prefix(self, app_context):
+        with app_context.test_request_context(
+            '/api/docs',
+            headers={'X-Forwarded-Prefix': '/proxy/app'},
+            base_url='http://localhost/app',
+        ):
+            from webapp.api.openapi import swagger_ui
+
+            html = swagger_ui()
+            if hasattr(html, 'get_data'):
+                html = html.get_data(as_text=True)
+
+        import re
+
+        match = re.search(r"url:\s*['\"]([^'\"]+)['\"]", html)
+        assert match
+        assert match.group(1) == 'http://localhost/proxy/app/api/openapi.json'

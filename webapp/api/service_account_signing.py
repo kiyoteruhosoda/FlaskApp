@@ -28,6 +28,9 @@ def _json_error(message: str, status: HTTPStatus):
 
 def _decode_signing_input(value: str, encoding: str) -> bytes:
     normalized = encoding.strip().lower() if isinstance(encoding, str) else ""
+    if normalized == "plain":
+        return value.encode("utf-8")
+
     if normalized not in {"base64", "base64url"}:
         raise CertificateValidationError(_("signingInputEncoding must be \"base64\" or \"base64url\"."))
 

@@ -94,18 +94,25 @@ class User(db.Model, UserMixin):
                 return role
         return None
 
+    def _collect_role_permissions(self) -> set[str]:
+        codes: set[str] = set()
+        for r in self._iter_effective_roles():
+            for p in r.permissions:
+                codes.add(p.code)
+        return codes
+
     @property
     def permissions(self) -> set[str]:
+        scope = getattr(self, "scope", None)
+        if scope is not None:
+            return set(scope)
+
         if has_request_context():
             token_scope = getattr(g, "current_token_scope", None)
             if token_scope is not None:
                 return set(token_scope)
 
-        codes = set()
-        for r in self._iter_effective_roles():
-            for p in r.permissions:
-                codes.add(p.code)
-        return codes
+        return self._collect_role_permissions()
 
     @property
     def all_permissions(self) -> set[str]:

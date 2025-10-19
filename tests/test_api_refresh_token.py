@@ -44,6 +44,7 @@ def login(client, app, *, token: str | None = None):
     data = res.get_json()
     assert data["requires_role_selection"] is False
     assert data["scope"] == ""
+    assert data["token_type"] == "Bearer"
     return data["access_token"], data["refresh_token"]
 
 
@@ -61,6 +62,7 @@ def test_refresh_works(client, app):
     assert data["access_token"] != old_access
     assert data["refresh_token"] != refresh
     assert data["scope"] == ""
+    assert data["token_type"] == "Bearer"
 
 
 def test_refresh_invalid_token(client, app):

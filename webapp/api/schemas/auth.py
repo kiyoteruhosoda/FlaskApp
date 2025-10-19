@@ -74,6 +74,7 @@ class LoginRequestSchema(Schema):
 class LoginResponseSchema(Schema):
     access_token = fields.String(required=True)
     refresh_token = fields.String(required=True)
+    token_type = fields.String(required=True, metadata={"description": "アクセストークンの種別"})
     requires_role_selection = fields.Boolean(required=True)
     redirect_url = fields.String(required=True)
     scope = fields.String(required=True)
@@ -92,6 +93,7 @@ class RefreshRequestSchema(Schema):
 class RefreshResponseSchema(Schema):
     access_token = fields.String(required=True)
     refresh_token = fields.String(required=True)
+    token_type = fields.String(required=True, metadata={"description": "アクセストークンの種別"})
     scope = fields.String(required=True)
 
 

@@ -1526,6 +1526,7 @@ def api_login(data):
         response_payload = {
             "access_token": access_token,
             "refresh_token": refresh_token,
+            "token_type": "Bearer",
             "requires_role_selection": True,
             "redirect_url": url_for("auth.select_role"),
             "scope": scope_str,
@@ -1536,6 +1537,7 @@ def api_login(data):
         response_payload = {
             "access_token": access_token,
             "refresh_token": refresh_token,
+            "token_type": "Bearer",
             "requires_role_selection": False,
             "redirect_url": redirect_target,
             "scope": scope_str,
@@ -1589,6 +1591,7 @@ def api_refresh(data):
     resp = jsonify({
         "access_token": access_token,
         "refresh_token": new_refresh_token,
+        "token_type": "Bearer",
         "scope": scope_str,
     })
     resp.set_cookie(

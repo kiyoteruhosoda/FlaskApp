@@ -18,6 +18,7 @@ def test_defaults_are_applied_when_env_missing():
     assert settings.oauth_token_key is None
     assert settings.oauth_token_key_file is None
     assert settings.transcode_crf == 20
+    assert settings.service_account_signing_audiences == ()
 
 
 def test_environment_overrides_are_reflected():
@@ -32,6 +33,7 @@ def test_environment_overrides_are_reflected():
         "OAUTH_TOKEN_KEY": "base64:QUJDREVGR0hJSktMTU5PUA==",
         "FPV_TRANSCODE_CRF": "24",
         "FPV_OAUTH_TOKEN_KEY_FILE": "/secrets/token.key",
+        "SERVICE_ACCOUNT_SIGNING_AUDIENCE": "aud-a, aud-b, aud-c",
     }
 
     settings = ApplicationSettings(env=env)
@@ -46,6 +48,7 @@ def test_environment_overrides_are_reflected():
     assert settings.oauth_token_key == "base64:QUJDREVGR0hJSktMTU5PUA=="
     assert settings.oauth_token_key_file == "/secrets/token.key"
     assert settings.transcode_crf == 24
+    assert settings.service_account_signing_audiences == ("aud-a", "aud-b", "aud-c")
 
 
 def test_transcode_crf_invalid_value_falls_back_to_default():

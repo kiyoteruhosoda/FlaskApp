@@ -1,14 +1,14 @@
 {% macro render_album_form(is_editor_view=False, cancel_url='') %}
-  <form id="album-form">
-    <div class="modal-header">
-      <h5 class="modal-title" id="albumModalLabel">{{ _('Create Album') }}</h5>
-      {% if is_editor_view %}
-        <a href="{{ cancel_url }}" class="btn-close" aria-label="{{ _('Close') }}"></a>
-      {% else %}
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ _('Close') }}"></button>
-      {% endif %}
-    </div>
-    <div class="modal-body">
+  <div class="modal-header">
+    <h5 class="modal-title" id="albumModalLabel">{{ _('Create Album') }}</h5>
+    {% if is_editor_view %}
+      <a href="{{ cancel_url }}" class="btn-close" aria-label="{{ _('Close') }}"></a>
+    {% else %}
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ _('Close') }}"></button>
+    {% endif %}
+  </div>
+  <div class="modal-body">
+    <form id="album-form">
       <div class="row g-4">
         <div class="col-lg-4">
           <div class="card album-form-panel">
@@ -121,20 +121,20 @@
           </div>
         </div>
       </div>
+    </form>
+  </div>
+  <div class="modal-footer justify-content-between">
+    <div class="text-muted small" id="album-form-status"></div>
+    <div>
+      {% if is_editor_view %}
+        <a href="{{ cancel_url }}" class="btn btn-outline-secondary">{{ _('Cancel') }}</a>
+      {% else %}
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+      {% endif %}
+      <button type="submit" class="btn btn-primary" id="save-album-btn" form="album-form">
+        <span class="save-label-create">{{ _('Create Album') }}</span>
+        <span class="save-label-update d-none">{{ _('Save Changes') }}</span>
+      </button>
     </div>
-    <div class="modal-footer justify-content-between">
-      <div class="text-muted small" id="album-form-status"></div>
-      <div>
-        {% if is_editor_view %}
-          <a href="{{ cancel_url }}" class="btn btn-outline-secondary">{{ _('Cancel') }}</a>
-        {% else %}
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
-        {% endif %}
-        <button type="submit" class="btn btn-primary" id="save-album-btn">
-          <span class="save-label-create">{{ _('Create Album') }}</span>
-          <span class="save-label-update d-none">{{ _('Save Changes') }}</span>
-        </button>
-      </div>
-    </div>
-  </form>
+  </div>
 {% endmacro %}

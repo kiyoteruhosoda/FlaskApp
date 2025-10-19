@@ -62,3 +62,33 @@ class TestOpenAPIDocs:
             {'url': 'https://nolumia.com/api'},
             {'url': 'http://nolumia.com/api'},
         ]
+
+    def test_openapi_spec_ignores_untrusted_forwarded_entries(self, app_context):
+        client = app_context.test_client()
+        headers = {
+            'Forwarded': (
+                'proto=https;host="evil.example", '
+                'proto=https;host="trusted.example"'
+            )
+        }
+        response = client.get('/api/openapi.json', headers=headers)
+        assert response.status_code == 200
+        payload = response.get_json()
+        assert payload['servers'] == [
+            {'url': 'https://trusted.example/api'},
+            {'url': 'http://localhost/api'},
+        ]
+
+    def test_openapi_spec_limits_x_forwarded_host_to_trusted_entries(self, app_context):
+        client = app_context.test_client()
+        headers = {
+            'X-Forwarded-Host': 'evil.example, trusted.example',
+            'X-Forwarded-Proto': 'https',
+        }
+        response = client.get('/api/openapi.json', headers=headers)
+        assert response.status_code == 200
+        payload = response.get_json()
+        assert payload['servers'] == [
+            {'url': 'https://trusted.example/api'},
+            {'url': 'http://localhost/api'},
+        ]

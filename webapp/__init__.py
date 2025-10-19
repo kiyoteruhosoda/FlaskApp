@@ -12,6 +12,7 @@ from uuid import uuid4
 from flask import (
     Flask,
     app,
+    current_app,
     flash,
     g,
     has_request_context,
@@ -30,6 +31,7 @@ from sqlalchemy.engine import make_url
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from werkzeug.datastructures import FileStorage
+from werkzeug.http import parse_list_header
 
 from .extensions import db, migrate, login_manager, babel, api as smorest_api
 from .timezone import resolve_timezone, convert_to_timezone
@@ -347,6 +349,32 @@ def _combine_base_and_prefix(base: str, api_prefix: str) -> str:
     return f"{normalized_base}{api_prefix}"
 
 
+def _get_proxy_fix_trust_count(attribute: str) -> int:
+    app_obj = current_app._get_current_object() if has_request_context() else None
+    if app_obj is None:
+        return 0
+    wsgi_app = getattr(app_obj, "wsgi_app", None)
+    seen_ids: set[int] = set()
+    while wsgi_app is not None and id(wsgi_app) not in seen_ids:
+        seen_ids.add(id(wsgi_app))
+        value = getattr(wsgi_app, attribute, None)
+        if isinstance(value, int) and value > 0:
+            return value
+        wsgi_app = getattr(wsgi_app, "app", None)
+    return 0
+
+
+def _get_trusted_header_values(header_value: str, trusted: int) -> List[str]:
+    if not (trusted and header_value):
+        return []
+    try:
+        values = parse_list_header(header_value)
+    except ValueError:
+        values = [item.strip() for item in header_value.split(",")]
+    trusted_values = values[-trusted:]
+    return [value.strip() for value in trusted_values if value and value.strip()]
+
+
 def _iter_non_empty(values: Iterable[Optional[str]]) -> Iterable[str]:
     for value in values:
         if value:
@@ -357,6 +385,8 @@ def _iter_non_empty(values: Iterable[Optional[str]]) -> Iterable[str]:
 
 def _calculate_openapi_server_urls(prefix: str) -> List[str]:
     script_root = _normalize_script_root(request.script_root)
+    trusted_host_entries = _get_proxy_fix_trust_count("x_host")
+    trusted_proto_entries = _get_proxy_fix_trust_count("x_proto")
 
     def add_url(urls: List[str], seen: set[str], base: str) -> None:
         if not base:
@@ -370,19 +400,28 @@ def _calculate_openapi_server_urls(prefix: str) -> List[str]:
     urls: List[str] = []
     seen: set[str] = set()
 
-    for params in _parse_forwarded_header(request.headers.get("Forwarded")):
-        host = params.get("host")
-        proto = params.get("proto") or params.get("scheme") or request.scheme
-        if host:
-            base = _build_base_url(proto, host, script_root)
-            add_url(urls, seen, base)
-        elif proto:
-            base = _build_base_url(proto, request.host, script_root)
-            add_url(urls, seen, base)
+    forwarded_params = _parse_forwarded_header(request.headers.get("Forwarded"))
+    if forwarded_params:
+        max_trusted = max(trusted_host_entries, trusted_proto_entries)
+        for index, params in enumerate(reversed(forwarded_params)):
+            if max_trusted and index >= max_trusted:
+                break
+            host = params.get("host") if index < trusted_host_entries else None
+            raw_proto = params.get("proto") or params.get("scheme")
+            proto = raw_proto if index < trusted_proto_entries and raw_proto else None
+            if host:
+                base = _build_base_url(proto or request.scheme, host, script_root)
+                add_url(urls, seen, base)
+            elif proto:
+                base = _build_base_url(proto, request.host, script_root)
+                add_url(urls, seen, base)
 
-    forwarded_hosts_header = request.headers.get("X-Forwarded-Host", "")
-    forwarded_hosts = list(_iter_non_empty(forwarded_hosts_header.split(",")))
-    forwarded_protos = list(_iter_non_empty(request.headers.get("X-Forwarded-Proto", "").split(",")))
+    forwarded_hosts = _get_trusted_header_values(
+        request.headers.get("X-Forwarded-Host", ""), trusted_host_entries
+    )
+    forwarded_protos = _get_trusted_header_values(
+        request.headers.get("X-Forwarded-Proto", ""), trusted_proto_entries
+    )
     if forwarded_hosts:
         protos = forwarded_protos or [request.scheme]
         for proto in protos:

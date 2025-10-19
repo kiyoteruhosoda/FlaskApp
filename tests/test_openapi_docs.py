@@ -16,8 +16,8 @@ class TestOpenAPIDocs:
         servers = payload.get('servers', [])
         assert servers == [{'url': 'http://localhost/api'}]
 
-        assert '/api/login' in payload['paths']
-        login_post = payload['paths']['/api/login']['post']
+        assert '/login' in payload['paths']
+        login_post = payload['paths']['/login']['post']
         request_schema = login_post['requestBody']['content']['application/json']['schema']
         assert request_schema == {'$ref': '#/components/schemas/LoginRequest'}
         response_schema = login_post['responses']['200']['content']['application/json']['schema']
@@ -80,13 +80,28 @@ class TestOpenAPIDocs:
             {'url': 'http://nolumia.com/api'},
         ]
 
+    def test_swagger_ui_embeds_clean_server_urls(self, app_context):
+        client = app_context.test_client()
+        headers = {
+            'Forwarded': 'proto=https;host="nolumia.com"',
+            'X-Forwarded-Proto': 'http',
+        }
+
+        response = client.get('/api/docs', base_url='http://nolumia.com', headers=headers)
+        assert response.status_code == 200
+
+        html = response.get_data(as_text=True)
+        assert 'window.__INITIAL_OPENAPI_SERVERS__' in html
+        assert 'https://nolumia.com/api' in html
+        assert 'https\\://nolumia.com/api' not in html
+
     def test_echo_endpoint_exposes_json_request_body(self, app_context):
         client = app_context.test_client()
         response = client.get('/api/openapi.json')
         assert response.status_code == 200
 
         payload = response.get_json()
-        echo_post = payload['paths']['/api/echo']['post']
+        echo_post = payload['paths']['/echo']['post']
         request_body = echo_post.get('requestBody')
         assert request_body is not None
 
@@ -106,28 +121,28 @@ class TestOpenAPIDocs:
         paths = payload['paths']
 
         expected_operations = {
-            '/api/albums': {'post'},
-            '/api/albums/{album_id}': {'put'},
-            '/api/albums/{album_id}/media/order': {'put'},
-            '/api/albums/order': {'put'},
-            '/api/google/oauth/start': {'post'},
-            '/api/google/accounts/{account_id}': {'patch'},
-            '/api/service_accounts/{account_id}/keys': {'post'},
-            '/api/upload/commit': {'post'},
-            '/api/service_accounts/signatures': {'post'},
-            '/api/picker/session': {'post'},
-            '/api/picker/session/{session_id}/callback': {'post'},
-            '/api/picker/session/mediaItems': {'post'},
-            '/api/picker/session/{session_id}/import': {'post'},
-            '/api/picker/session/{picker_session_id}/finish': {'post'},
-            '/api/sync/local-import': {'post'},
-            '/api/totp': {'post'},
-            '/api/totp/{credential_id}': {'put'},
-            '/api/totp/import': {'post'},
-            '/api/tags': {'post'},
-            '/api/tags/{tag_id}': {'put'},
-            '/api/media/{media_id}/tags': {'put'},
-            '/api/media/{media_id}/thumb-url': {'post'},
+            '/albums': {'post'},
+            '/albums/{album_id}': {'put'},
+            '/albums/{album_id}/media/order': {'put'},
+            '/albums/order': {'put'},
+            '/google/oauth/start': {'post'},
+            '/google/accounts/{account_id}': {'patch'},
+            '/service_accounts/{account_id}/keys': {'post'},
+            '/upload/commit': {'post'},
+            '/service_accounts/signatures': {'post'},
+            '/picker/session': {'post'},
+            '/picker/session/{session_id}/callback': {'post'},
+            '/picker/session/mediaItems': {'post'},
+            '/picker/session/{session_id}/import': {'post'},
+            '/picker/session/{picker_session_id}/finish': {'post'},
+            '/sync/local-import': {'post'},
+            '/totp': {'post'},
+            '/totp/{credential_id}': {'put'},
+            '/totp/import': {'post'},
+            '/tags': {'post'},
+            '/tags/{tag_id}': {'put'},
+            '/media/{media_id}/tags': {'put'},
+            '/media/{media_id}/thumb-url': {'post'},
         }
 
         for path, methods in expected_operations.items():

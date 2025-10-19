@@ -1055,6 +1055,9 @@ msgstr "Usage Type"
 msgid "Select usage type"
 msgstr "Select usage type"
 
+msgid "Select all shown permissions"
+msgstr "Select all shown permissions"
+
 msgid "Key Size"
 msgstr "Key Size"
 

@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from email.utils import formatdate
 import os
+from datetime import datetime
 from functools import wraps
 
 from flask import current_app, jsonify, request
@@ -8,6 +9,7 @@ from sqlalchemy import text
 
 from . import bp
 from ..extensions import db
+from core.time import utc_now_isoformat
 
 
 def skip_auth(f):
@@ -75,7 +77,7 @@ def health_beat():
         jsonify(
             {
                 "lastBeatAt": last.isoformat() if isinstance(last, datetime) else None,
-                "serverTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                "server_time": utc_now_isoformat(),
             }
         ),
         200,

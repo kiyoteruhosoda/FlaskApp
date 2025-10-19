@@ -153,7 +153,7 @@ class TestPaginatedResult:
         assert data["items"] == [{"id": 1}, {"id": 2}]
         assert data["hasNext"] is True
         assert data["hasPrev"] is False
-        assert "serverTime" in data
+        assert "server_time" in data
     
     def test_to_dict_with_cursors(self):
         """カーソー情報を含む辞書変換テスト"""
@@ -192,7 +192,7 @@ class TestPaginatedResult:
         result = PaginatedResult(items=[], has_next=False, has_prev=False)
         data = result.to_dict(include_server_time=False)
         
-        assert "serverTime" not in data
+        assert "server_time" not in data
 
 
 def test_pagination_integration(app):

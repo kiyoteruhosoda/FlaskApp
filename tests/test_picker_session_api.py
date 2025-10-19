@@ -185,7 +185,7 @@ def test_status_ok(monkeypatch, client, app):
     assert res.status_code == 200
     data = res.get_json()
     assert data["status"] == "pending"
-    assert data["serverTime"].endswith("Z") and "T" in data["serverTime"]
+    assert data["server_time"].endswith("Z") and "T" in data["server_time"]
 
 
 def test_status_not_found(monkeypatch, client, app):

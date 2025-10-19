@@ -149,7 +149,7 @@ def api_picker_sessions_list():
             "totalPages": result.get("totalPages"),
             "totalCount": result.get("totalCount")
         },
-        "serverTime": result.get("serverTime")
+        "server_time": result.get("server_time")
     })
 
 @bp.post("/picker/session")

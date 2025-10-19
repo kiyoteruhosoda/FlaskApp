@@ -127,9 +127,9 @@ class TestHealthEndpoints:
         
         data = response.get_json()
         assert data["lastBeatAt"] is None
-        assert "serverTime" in data
+        assert "server_time" in data
         # ISO8601形式のタイムスタンプであることを確認
-        server_time = data["serverTime"]
+        server_time = data["server_time"]
         assert server_time.endswith("Z")
         # パースできることを確認
         datetime.fromisoformat(server_time.replace("Z", "+00:00"))
@@ -145,7 +145,7 @@ class TestHealthEndpoints:
         data = response.get_json()
         assert data["lastBeatAt"] is not None
         assert data["lastBeatAt"] == test_time.isoformat()
-        assert "serverTime" in data
+        assert "server_time" in data
 
     def test_health_beat_invalid_last_beat(self, app_context, client):
         """Test /health/beat when last beat is not a datetime object"""
@@ -156,7 +156,7 @@ class TestHealthEndpoints:
         
         data = response.get_json()
         assert data["lastBeatAt"] is None
-        assert "serverTime" in data
+        assert "server_time" in data
 
     def test_health_endpoints_json_response(self, app_context, client):
         """Test that all health endpoints return JSON"""

@@ -72,6 +72,7 @@ from core.tasks.local_import import (
     refresh_media_metadata_from_original,
 )
 from core.tasks.media_post_processing import enqueue_thumbs_generate
+from core.time import utc_now_isoformat
 from features.totp.application.dto import (
     TOTPCreateInput,
     TOTPImportItem,
@@ -1956,7 +1957,7 @@ def api_media_list():
                 "count": len(result["items"]),
                 "cursor": params.cursor,
                 "nextCursor": result.get("nextCursor"),
-                "serverTime": result.get("serverTime"),
+                "server_time": result.get("server_time"),
             }
         ),
         extra={"event": "media.list.success"},
@@ -2126,15 +2127,15 @@ def api_media_detail(media_id):
 
     media_data = serialize_media_detail(media)
 
-    server_time = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    media_data["serverTime"] = server_time
+    server_time = utc_now_isoformat()
+    media_data["server_time"] = server_time
     current_app.logger.info(
         json.dumps(
             {
                 "ts": datetime.now(timezone.utc).isoformat(),
                 "media_id": media_id,
                 "trace": trace,
-                "serverTime": server_time,
+                "server_time": server_time,
             }
         ),
         extra={"event": "media.detail.success"},

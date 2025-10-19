@@ -34,13 +34,33 @@ class _InMemoryRedis:
         for key in expired:
             del self._store[key]
 
-    def exists(self, key: str) -> int:
+    def set(
+        self,
+        key: str,
+        value: str,
+        *,
+        ex: int | None = None,
+        px: int | None = None,
+        nx: bool = False,
+        xx: bool = False,
+    ) -> bool:
         self._purge()
-        return int(key in self._store)
+        exists = key in self._store
+        if nx and exists:
+            return False
+        if xx and not exists:
+            return False
 
-    def setex(self, key: str, ttl: int, value: str) -> bool:
-        self._purge()
-        self._store[key] = (value, time.monotonic() + ttl)
+        ttl_seconds: float | None = None
+        if ex is not None:
+            ttl_seconds = float(ex)
+        elif px is not None:
+            ttl_seconds = float(px) / 1000.0
+
+        expiry = (
+            time.monotonic() + ttl_seconds if ttl_seconds is not None else float("inf")
+        )
+        self._store[key] = (value, expiry)
         return True
 
 

@@ -86,12 +86,12 @@ class _ServiceAccountJTIStore:
         client = cls._get_client()
 
         try:
-            if client.exists(key):
+            stored = client.set(key, "used", ex=ttl_seconds, nx=True)
+            if not stored:
                 raise ServiceAccountJWTError(
                     "ReplayDetected",
                     _("The token has already been used."),
                 )
-            client.setex(key, ttl_seconds, "used")
         except RedisError as exc:
             raise ServiceAccountJWTError(
                 "JTICheckFailed",

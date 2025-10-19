@@ -23,11 +23,13 @@
      var override_config = {{ swagger_ui_config | tojson }};
      for (var attrname in override_config) { config[attrname] = override_config[attrname]; }
 
-     const initialServers = {{ servers | tojson }};
-     window.__INITIAL_OPENAPI_SERVERS__ = initialServers;
+    const initialServers = {{ servers | tojson }};
+    window.__INITIAL_OPENAPI_SERVERS__ = initialServers;
 
-     function sanitizeServerOptions() {
-       var selectElements = document.querySelectorAll('select[aria-label="Servers"]');
+    const SERVER_DROPDOWN_SELECTORS = 'select[aria-label="Servers"], select#servers';
+
+    function sanitizeServerOptions() {
+      var selectElements = document.querySelectorAll(SERVER_DROPDOWN_SELECTORS);
        if (!selectElements || selectElements.length === 0) {
          return;
        }
@@ -75,7 +77,7 @@
        });
      }
 
-     function observeServerDropdown() {
+    function observeServerDropdown() {
        if (typeof MutationObserver === 'undefined') {
          return;
        }
@@ -84,8 +86,8 @@
          sanitizeServerOptions();
        });
 
-       function connectObserver() {
-         var select = document.querySelector('select[aria-label="Servers"]');
+      function connectObserver() {
+        var select = document.querySelector(SERVER_DROPDOWN_SELECTORS);
          if (!select) {
            setTimeout(connectObserver, 100);
            return;

@@ -3,7 +3,6 @@ import io
 import json
 import zipfile
 from flask import (
-    Blueprint,
     current_app,
     jsonify,
     request,
@@ -29,6 +28,7 @@ from core.tasks.picker_import import enqueue_picker_import_item  # re-export for
 from .pagination import PaginationParams, paginate_and_respond
 from .routes import login_or_jwt_required  # JWT認証対応のデコレータをインポート
 from .concurrency import create_limiter, limit_concurrency
+from flask_smorest import Blueprint
 
 bp = Blueprint('picker_session_api', __name__)
 

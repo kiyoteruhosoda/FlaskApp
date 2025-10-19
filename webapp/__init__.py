@@ -27,11 +27,11 @@ from flask import (
 from flask_babel import get_locale
 from flask_babel import gettext as _
 from sqlalchemy.engine import make_url
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from werkzeug.datastructures import FileStorage
 
-from .extensions import db, migrate, login_manager, babel
+from .extensions import db, migrate, login_manager, babel, api as smorest_api
 from .timezone import resolve_timezone, convert_to_timezone
 from core.db_log_handler import DBLogHandler
 from core.logging_config import ensure_appdb_file_logging
@@ -279,6 +279,27 @@ def _format_file_parameters_for_logging(files) -> Dict[str, Any]:
     return result
 
 
+def _normalize_openapi_prefix(prefix: Optional[str]) -> str:
+    if not prefix:
+        return ""
+    normalized = prefix.strip()
+    if not normalized:
+        return ""
+    if not normalized.startswith("/"):
+        normalized = f"/{normalized}"
+    # The OpenAPI server URL should not end with a trailing slash unless the prefix is root
+    return normalized.rstrip("/")
+
+
+def _build_openapi_server_url(url_root: str, api_prefix: str) -> str:
+    base = url_root.rstrip("/")
+    if not base:
+        base = "/"
+    if api_prefix:
+        return f"{base}{api_prefix}"
+    return base
+
+
 # エラーハンドラ
 from werkzeug.exceptions import HTTPException
 
@@ -295,6 +316,17 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     app.config.setdefault("LAST_BEAT_AT", None)
+    app.config.setdefault("API_TITLE", "Familink API")
+    app.config.setdefault("API_VERSION", "1.0.0")
+    app.config.setdefault("OPENAPI_VERSION", "3.0.3")
+    app.config.setdefault("OPENAPI_URL_PREFIX", "/api")
+    app.config.setdefault("OPENAPI_JSON_PATH", "openapi.json")
+    app.config.setdefault("OPENAPI_SWAGGER_UI_PATH", "docs")
+    app.config.setdefault(
+        "OPENAPI_SWAGGER_UI_URL",
+        "https://cdn.jsdelivr.net/npm/swagger-ui-dist/",
+    )
+    app.config.setdefault("API_SPEC_OPTIONS", {})
 
     database_uri = app.config.get("SQLALCHEMY_DATABASE_URI")
     testing_mode = app.config.get("TESTING") or str(os.environ.get("TESTING", "")).lower() in {
@@ -331,6 +363,20 @@ def create_app():
     migrate.init_app(app, db)
     login_manager.init_app(app)
     babel.init_app(app, locale_selector=_select_locale)
+    smorest_api.init_app(app)
+
+    configured_servers = app.config.get("API_SPEC_OPTIONS", {}).get("servers")
+
+    @app.before_request
+    def _refresh_openapi_server_urls():
+        if configured_servers:
+            return
+        spec = getattr(smorest_api, "spec", None)
+        if spec is None:
+            return
+        prefix = _normalize_openapi_prefix(app.config.get("OPENAPI_URL_PREFIX", "/api"))
+        server_url = _build_openapi_server_url(request.url_root, prefix)
+        spec.options["servers"] = [{"url": server_url}]
 
     # ★ Jinja から get_locale() を使えるようにする
     app.jinja_env.globals["get_locale"] = get_locale
@@ -488,7 +534,7 @@ def create_app():
     app.register_blueprint(photo_view_bp)
 
     from .api import bp as api_bp
-    app.register_blueprint(api_bp, url_prefix="/api")
+    smorest_api.register_blueprint(api_bp, url_prefix="/api")
 
     # 認証なしの健康チェック用Blueprint
     from .health import health_bp

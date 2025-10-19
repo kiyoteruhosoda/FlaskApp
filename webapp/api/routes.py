@@ -94,6 +94,14 @@ from features.totp.domain.parser import parse_otpauth_uri
 from features.totp.infrastructure.repositories import TOTPCredentialRepository
 import pyotp
 
+from .schemas.auth import (
+    LoginRequestSchema,
+    LoginResponseSchema,
+    LogoutResponseSchema,
+    RefreshRequestSchema,
+    RefreshResponseSchema,
+)
+
 
 user_repo = SqlAlchemyUserRepository(db.session)
 user_registration_service = UserRegistrationService(user_repo)
@@ -1347,13 +1355,15 @@ def api_album_delete(album_id: int):
 
 
 @bp.post("/login")
-def api_login():
+@bp.arguments(LoginRequestSchema)
+@bp.response(200, LoginResponseSchema, description="ユーザー認証してJWTを発行")
+def api_login(data):
     """ユーザー認証してJWTを発行"""
-    data = request.get_json(silent=True) or {}
     email = data.get("email")
     password = data.get("password")
     token = data.get("token")
-    scope_request_raw = data.get("scope")
+    requested_scope = set(data.get("scope", []))
+
     user_model = auth_service.authenticate(email, password)
     if not user_model:
         return jsonify({"error": "invalid_credentials"}), 401
@@ -1364,27 +1374,17 @@ def api_login():
         if not verify_totp(user_model.totp_secret, token):
             return jsonify({"error": "invalid_totp"}), 401
 
-    if isinstance(scope_request_raw, str):
-        requested_scope = {item for item in scope_request_raw.split() if item}
-    else:
-        requested_scope = set()
-
     login_user(user_model)
 
     session.pop("active_role_id", None)
     roles = list(getattr(user_model, "roles", []) or [])
 
-    active_role_raw = data.get("active_role_id")
-    if active_role_raw is not None:
-        try:
-            requested_role_id = int(active_role_raw)
-        except (TypeError, ValueError):
-            requested_role_id = None
-        else:
-            for role in roles:
-                if role.id == requested_role_id:
-                    session["active_role_id"] = role.id
-                    break
+    requested_role_id = data.get("active_role_id")
+    if requested_role_id is not None:
+        for role in roles:
+            if role.id == requested_role_id:
+                session["active_role_id"] = role.id
+                break
 
     user_permissions = user_model.all_permissions
     granted_scope = sorted(requested_scope & user_permissions)
@@ -1393,7 +1393,7 @@ def api_login():
     # TokenServiceを使用してトークンペアを生成
     access_token, refresh_token = TokenService.generate_token_pair(user_model, granted_scope)
 
-    raw_next = data.get("next") or request.args.get("next")
+    raw_next = data.get("next_url") or request.args.get("next")
     if isinstance(raw_next, str) and raw_next.startswith("/") and not raw_next.startswith("//"):
         redirect_target = raw_next
     else:
@@ -1433,6 +1433,7 @@ def api_login():
 
 @bp.post("/logout")
 @login_or_jwt_required
+@bp.response(200, LogoutResponseSchema)
 def api_logout():
     """JWT Cookieを削除し、リフレッシュトークンを無効化"""
     user = get_current_user()
@@ -1450,14 +1451,12 @@ def api_logout():
 
 
 @bp.post("/refresh")
-def api_refresh():
+@bp.arguments(RefreshRequestSchema)
+@bp.response(200, RefreshResponseSchema)
+def api_refresh(data):
     """リフレッシュトークンから新しいアクセス・リフレッシュトークンを発行"""
-    data = request.get_json(silent=True) or {}
     refresh_token = data.get("refresh_token")
-    
-    if not refresh_token:
-        return jsonify({"error": "missing_refresh_token"}), 400
-    
+
     # TokenServiceを使用してトークンをリフレッシュ
     token_bundle = TokenService.refresh_tokens(refresh_token)
     if not token_bundle:

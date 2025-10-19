@@ -1,8 +1,10 @@
 # 本番環境で必要な依存関係
 Flask
+flask-smorest
 flask-babel
 Flask-Login
 Flask-SQLAlchemy
+marshmallow
 pillow
 pillow-heif
 PyMySQL
@@ -19,6 +21,7 @@ Markdown
 python-dateutil
 MarkupSafe
 gunicorn
+apispec
 
 # 開発環境でのみ必要な依存関係
 Flask-Migrate

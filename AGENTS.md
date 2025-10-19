@@ -359,6 +359,76 @@ user.id_hash のみを保持（PII禁止）
 
 ---
 
+以下のように **「17. API設計と実装（Flask-Smorest＋Marshmallow）」** セクションを追加するのが最も自然です。
+既存の DDD／テスト／セキュリティ原則と整合する形で、「どこまでをPresentation層に置くか」「Schemaの責務」「ドキュメント生成との統合」などを明示しています。
+
+---
+
+## 17. API設計と実装（Flask-Smorest + Marshmallow）
+
+* **APIフレームワーク**は Flask-Smorest を使用し、
+  各エンドポイントは Flask-Smorest の `Blueprint` として Presentation 層に実装する。
+
+* **リクエスト／レスポンス構造**はすべて Marshmallow の `Schema` クラスで定義し、
+  Application 層・Domain 層へは **バリデーション済みの純粋データ（dict）** のみを渡す。
+
+* **Swagger UI**（/api/docs）は Flask-Smorest の OpenAPI 自動生成機能により構築し、
+  `@bp.arguments()` および `@bp.response()` デコレータから仕様を抽出する。
+
+### 設計方針
+
+| 項目                 | 指針                                                                                      |
+| ------------------ | --------------------------------------------------------------------------------------- |
+| **責務分離**           | Presentation 層にのみ Flask-Smorest / Marshmallow を配置し、Domain 層へは依存させない。                    |
+| **Schema命名規則**     | `〇〇RequestSchema`（入力用）、`〇〇ResponseSchema`（出力用）を基本とする。                                   |
+| **Validation**     | Marshmallow により型・必須項目・値範囲を明示。`required=True` と `validate` パラメータを積極利用。                   |
+| **Error Handling** | Marshmallow のバリデーション例外は自動的に HTTP 400 として処理される。独自メッセージが必要な場合は Flask-Smorest のエラーハンドラを拡張。 |
+| **ドキュメント**         | `description` や `metadata` を Schema フィールドに付与し、Swagger UI の説明欄に反映させる。                    |
+| **型安全性**           | Schema から直接 Domain モデルを生成せず、Application 層で明示的に変換（Mapper／Assembler パターン推奨）。              |
+| **ユニットテスト**        | Schema 単体でのバリデーションテストを必ず実施し、想定外入力での失敗を確認。                                               |
+
+### 実装例（最小構成）
+
+```python
+from flask_smorest import Blueprint
+from marshmallow import Schema, fields
+
+bp = Blueprint("auth", __name__, url_prefix="/api")
+
+class LoginRequestSchema(Schema):
+    username = fields.String(required=True, description="ユーザー名")
+    password = fields.String(required=True, description="パスワード")
+
+class LoginResponseSchema(Schema):
+    access_token = fields.String(required=True)
+    refresh_token = fields.String(required=True)
+
+@bp.post("/login")
+@bp.arguments(LoginRequestSchema)
+@bp.response(200, LoginResponseSchema)
+def login(data):
+    """ユーザーログインAPI"""
+    # Application層のユースケースを呼び出す
+    result = login_usecase.execute(data)
+    return result
+```
+
+### 運用上の考慮事項
+
+* **Blueprint単位でAPIグループを整理**し、`features/<domain>/presentation/routes.py` に配置。
+* **SchemaはDomain単位でまとめる**（例：`features/<domain>/domain/schemas.py`）。
+* Schema 定義が長大化する場合、`Nested` フィールドで構造を分割し再利用性を高める。
+* 国際化が必要なレスポンスメッセージは Presentation 層で `_()` により翻訳する。
+
+---
+
+この章を追加すると、既存の「2. DDD」「4. コーディング規約」「11. ドキュメント」と整合しつつ、
+Flask-Smorest＋Marshmallowによる **API設計の標準的ルール** が体系的に定義されます。
+
+
+
+
+
 ## 付録：安定テストの作法（クイックリスト）
 
 * 時刻は `Clock`/`TimeProvider` で注入し固定化

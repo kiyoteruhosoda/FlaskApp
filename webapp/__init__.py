@@ -355,8 +355,59 @@ def _iter_non_empty(values: Iterable[Optional[str]]) -> Iterable[str]:
                 yield stripped
 
 
+def _split_host_and_port(host: str) -> Tuple[str, Optional[int]]:
+    if not host:
+        return "", None
+    stripped = host.strip()
+    if not stripped:
+        return "", None
+    if stripped.startswith("["):
+        closing_index = stripped.find("]")
+        if closing_index != -1:
+            core = stripped[: closing_index + 1].lower()
+            remainder = stripped[closing_index + 1 :]
+            if remainder.startswith(":") and remainder[1:].isdigit():
+                return core, int(remainder[1:])
+            return core, None
+        return stripped.lower(), None
+    if ":" in stripped:
+        host_part, port_part = stripped.rsplit(":", 1)
+        if port_part.isdigit():
+            return host_part.lower(), int(port_part)
+    return stripped.lower(), None
+
+
+def _default_port_for_scheme(scheme: str) -> Optional[int]:
+    scheme_lower = scheme.lower()
+    if scheme_lower == "https":
+        return 443
+    if scheme_lower == "http":
+        return 80
+    return None
+
+
 def _calculate_openapi_server_urls(prefix: str) -> List[str]:
     script_root = _normalize_script_root(request.script_root)
+    trusted_scheme = request.scheme or ""
+    trusted_scheme_lower = trusted_scheme.lower()
+    trusted_host = request.host or ""
+    normalized_trusted_host, trusted_port = _split_host_and_port(trusted_host)
+    default_trusted_port = _default_port_for_scheme(trusted_scheme_lower)
+
+    def is_trusted_host(candidate: Optional[str]) -> bool:
+        if not candidate:
+            return False
+        host_value = _strip_quotes(candidate)
+        host, port = _split_host_and_port(host_value)
+        if not host or host != normalized_trusted_host:
+            return False
+        if trusted_port is None:
+            if port is None:
+                return True
+            if default_trusted_port is None:
+                return False
+            return port == default_trusted_port
+        return port == trusted_port
 
     def add_url(urls: List[str], seen: set[str], base: str) -> None:
         if not base:
@@ -372,27 +423,30 @@ def _calculate_openapi_server_urls(prefix: str) -> List[str]:
 
     for params in _parse_forwarded_header(request.headers.get("Forwarded")):
         host = params.get("host")
-        proto = params.get("proto") or params.get("scheme") or request.scheme
-        if host:
-            base = _build_base_url(proto, host, script_root)
-            add_url(urls, seen, base)
-        elif proto:
-            base = _build_base_url(proto, request.host, script_root)
+        proto = params.get("proto") or params.get("scheme")
+        if host and not is_trusted_host(host):
+            continue
+        if proto and proto.lower() != trusted_scheme_lower:
+            continue
+        if host or proto:
+            base = _build_base_url(trusted_scheme, trusted_host, script_root)
             add_url(urls, seen, base)
 
     forwarded_hosts_header = request.headers.get("X-Forwarded-Host", "")
     forwarded_hosts = list(_iter_non_empty(forwarded_hosts_header.split(",")))
-    forwarded_protos = list(_iter_non_empty(request.headers.get("X-Forwarded-Proto", "").split(",")))
-    if forwarded_hosts:
-        protos = forwarded_protos or [request.scheme]
-        for proto in protos:
-            for host in forwarded_hosts:
-                base = _build_base_url(proto, host, script_root)
-                add_url(urls, seen, base)
-    else:
-        for proto in forwarded_protos:
-            base = _build_base_url(proto, request.host, script_root)
-            add_url(urls, seen, base)
+    forwarded_protos_raw = list(
+        _iter_non_empty(request.headers.get("X-Forwarded-Proto", "").split(","))
+    )
+
+    if any(is_trusted_host(host) for host in forwarded_hosts):
+        base = _build_base_url(trusted_scheme, trusted_host, script_root)
+        add_url(urls, seen, base)
+
+    if any(
+        _strip_quotes(proto).lower() == trusted_scheme_lower for proto in forwarded_protos_raw
+    ):
+        base = _build_base_url(trusted_scheme, trusted_host, script_root)
+        add_url(urls, seen, base)
 
     url_root_base = request.url_root.rstrip("/")
     if url_root_base:

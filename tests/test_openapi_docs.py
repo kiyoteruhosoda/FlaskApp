@@ -62,3 +62,20 @@ class TestOpenAPIDocs:
             {'url': 'https://nolumia.com/api'},
             {'url': 'http://nolumia.com/api'},
         ]
+
+    def test_echo_endpoint_exposes_json_request_body(self, app_context):
+        client = app_context.test_client()
+        response = client.get('/api/openapi.json')
+        assert response.status_code == 200
+
+        payload = response.get_json()
+        echo_post = payload['paths']['/api/echo']['post']
+        request_body = echo_post.get('requestBody')
+        assert request_body is not None
+
+        content = request_body.get('content', {})
+        assert 'application/json' in content
+        json_schema = content['application/json']['schema']
+        assert json_schema['type'] == 'object'
+        assert json_schema.get('additionalProperties') is True
+        assert 'example' in content['application/json']

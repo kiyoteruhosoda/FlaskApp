@@ -1,5 +1,7 @@
 import pytest
 
+from webapp.extensions import api as smorest_api
+
 
 @pytest.mark.usefixtures('app_context')
 class TestOpenAPIDocs:
@@ -59,6 +61,21 @@ class TestOpenAPIDocs:
         assert response.status_code == 200
         payload = response.get_json()
         assert payload['servers'] == [
+            {'url': 'https://nolumia.com/api'},
+            {'url': 'http://nolumia.com/api'},
+        ]
+
+    def test_swagger_ui_server_dropdown_includes_forwarded_protocols(self, app_context):
+        client = app_context.test_client()
+        headers = {
+            'Forwarded': 'proto=https;host="nolumia.com"',
+            'X-Forwarded-Proto': 'http',
+        }
+
+        response = client.get('/api/docs', base_url='http://nolumia.com', headers=headers)
+        assert response.status_code == 200
+
+        assert smorest_api.spec.options.get('servers') == [
             {'url': 'https://nolumia.com/api'},
             {'url': 'http://nolumia.com/api'},
         ]

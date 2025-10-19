@@ -27,22 +27,81 @@
      window.__INITIAL_OPENAPI_SERVERS__ = initialServers;
 
      function sanitizeServerOptions() {
-       var elements = document.querySelectorAll('select[aria-label="Servers"] option');
-       if (!elements) {
+       var selectElements = document.querySelectorAll('select[aria-label="Servers"]');
+       if (!selectElements || selectElements.length === 0) {
          return;
        }
-       Array.prototype.forEach.call(elements, function(option) {
-         if (!option) {
+
+       Array.prototype.forEach.call(selectElements, function(select) {
+         if (!select) {
            return;
          }
-         if (typeof option.value === 'string') {
-           option.value = option.value.replace(/\\:/g, ':');
+
+         var options = select.querySelectorAll('option');
+         if (!options || options.length === 0) {
+           return;
          }
-         var text = option.textContent;
-         if (typeof text === 'string') {
-           option.textContent = text.replace(/\\:/g, ':');
-         }
+
+         Array.prototype.forEach.call(options, function(option) {
+           if (!option) {
+             return;
+           }
+
+           var rawValue = null;
+           if (typeof option.value === 'string') {
+             rawValue = option.value;
+           } else if (typeof option.getAttribute === 'function') {
+             rawValue = option.getAttribute('value');
+           }
+
+           if (typeof rawValue === 'string') {
+             var sanitizedValue = rawValue.replace(/\\:/g, ':').replace(/\\\//g, '/');
+             if (sanitizedValue !== rawValue) {
+               option.value = sanitizedValue;
+               if (typeof option.setAttribute === 'function') {
+                 option.setAttribute('value', sanitizedValue);
+               }
+             }
+           }
+
+           var text = option.textContent;
+           if (typeof text === 'string') {
+             var sanitizedText = text.replace(/\\:/g, ':').replace(/\\\//g, '/');
+             if (sanitizedText !== text) {
+               option.textContent = sanitizedText;
+             }
+           }
+         });
        });
+     }
+
+     function observeServerDropdown() {
+       if (typeof MutationObserver === 'undefined') {
+         return;
+       }
+
+       var observer = new MutationObserver(function() {
+         sanitizeServerOptions();
+       });
+
+       function connectObserver() {
+         var select = document.querySelector('select[aria-label="Servers"]');
+         if (!select) {
+           setTimeout(connectObserver, 100);
+           return;
+         }
+
+         observer.observe(select, {
+           childList: true,
+           subtree: true,
+           attributes: true,
+           characterData: true,
+         });
+
+         sanitizeServerOptions();
+       }
+
+       connectObserver();
      }
 
      var existingOnComplete = config.onComplete;
@@ -63,8 +122,11 @@
            store.subscribe(sanitizeServerOptions);
          }
        }
+       observeServerDropdown();
        sanitizeServerOptions();
        setTimeout(sanitizeServerOptions, 0);
+       setTimeout(sanitizeServerOptions, 100);
+       setTimeout(sanitizeServerOptions, 250);
      };
 
      window.onload = function() {

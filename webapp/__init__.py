@@ -355,6 +355,13 @@ def _iter_non_empty(values: Iterable[Optional[str]]) -> Iterable[str]:
                 yield stripped
 
 
+def _normalize_scheme(scheme: Optional[str]) -> Optional[str]:
+    if not scheme:
+        return None
+    normalized = scheme.strip().lower()
+    return normalized or None
+
+
 def _split_host_and_port(host: str) -> Tuple[str, Optional[int]]:
     if not host:
         return "", None
@@ -426,10 +433,10 @@ def _calculate_openapi_server_urls(prefix: str) -> List[str]:
         proto = params.get("proto") or params.get("scheme")
         if host and not is_trusted_host(host):
             continue
-        if proto and proto.lower() != trusted_scheme_lower:
-            continue
-        if host or proto:
-            base = _build_base_url(trusted_scheme, trusted_host, script_root)
+        candidate_host = _strip_quotes(host) if host else trusted_host
+        candidate_scheme = _normalize_scheme(proto) or trusted_scheme
+        if candidate_host and candidate_scheme:
+            base = _build_base_url(candidate_scheme, candidate_host, script_root)
             add_url(urls, seen, base)
 
     forwarded_hosts_header = request.headers.get("X-Forwarded-Host", "")
@@ -438,14 +445,19 @@ def _calculate_openapi_server_urls(prefix: str) -> List[str]:
         _iter_non_empty(request.headers.get("X-Forwarded-Proto", "").split(","))
     )
 
-    if any(is_trusted_host(host) for host in forwarded_hosts):
-        base = _build_base_url(trusted_scheme, trusted_host, script_root)
-        add_url(urls, seen, base)
+    for forwarded_host in forwarded_hosts:
+        if not is_trusted_host(forwarded_host):
+            continue
+        candidate_host = _strip_quotes(forwarded_host)
+        if candidate_host:
+            base = _build_base_url(trusted_scheme, candidate_host, script_root)
+            add_url(urls, seen, base)
 
-    if any(
-        _strip_quotes(proto).lower() == trusted_scheme_lower for proto in forwarded_protos_raw
-    ):
-        base = _build_base_url(trusted_scheme, trusted_host, script_root)
+    for proto in forwarded_protos_raw:
+        normalized_proto = _normalize_scheme(_strip_quotes(proto))
+        if not normalized_proto:
+            continue
+        base = _build_base_url(normalized_proto, trusted_host, script_root)
         add_url(urls, seen, base)
 
     url_root_base = request.url_root.rstrip("/")

@@ -3,6 +3,7 @@ from __future__ import annotations
 from flask import jsonify, request, session
 
 from . import bp
+from .openapi import json_request_body
 from .routes import get_current_user, login_or_jwt_required
 from features.wiki.application.use_cases import WikiMediaUploadUseCase
 from features.wiki.domain.exceptions import WikiOperationError
@@ -58,6 +59,45 @@ def api_upload_prepare():
 
 @bp.post("/upload/commit")
 @login_or_jwt_required
+@bp.doc(
+    methods=["POST"],
+    requestBody=json_request_body(
+        "Finalize prepared uploads and persist the temporary files.",
+        schema={
+            "type": "object",
+            "properties": {
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "tempFileId": {
+                                "type": "string",
+                                "description": "Identifier returned by /upload/prepare.",
+                            },
+                            "temp_file_id": {
+                                "type": "string",
+                                "description": "Alternative snake_case key for the temporary file id.",
+                            },
+                        },
+                        "additionalProperties": True,
+                    },
+                    "description": "List of prepared file descriptors to commit.",
+                },
+                "destination": {
+                    "type": "string",
+                    "description": "Optional destination hint such as 'wiki'.",
+                },
+            },
+            "required": ["files"],
+            "additionalProperties": False,
+        },
+        example={
+            "files": [{"tempFileId": "abc123"}, {"temp_file_id": "def456"}],
+            "destination": "wiki",
+        },
+    ),
+)
 def api_upload_commit():
     payload = request.get_json(silent=True) or {}
     files = payload.get("files")

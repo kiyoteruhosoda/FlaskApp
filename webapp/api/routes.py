@@ -31,6 +31,7 @@ from flask_babel import gettext as _
 from functools import wraps
 
 from . import bp
+from .openapi import json_request_body
 from ..extensions import db
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
@@ -939,6 +940,48 @@ def api_album_detail(album_id: int):
 
 @bp.post("/albums")
 @require_api_perms("album:create")
+@bp.doc(
+    methods=["POST"],
+    requestBody=json_request_body(
+        "Create a new album and optionally attach media items.",
+        schema={
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Album title shown to end users.",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Optional rich description of the album.",
+                },
+                "visibility": {
+                    "type": "string",
+                    "enum": sorted(ALBUM_VISIBILITY_VALUES),
+                    "description": "Visibility of the album (public/private/unlisted).",
+                },
+                "mediaIds": {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "description": "Media identifiers to include in the album in order.",
+                },
+                "coverMediaId": {
+                    "type": "integer",
+                    "description": "Optional media id that should be used as the cover image.",
+                },
+            },
+            "required": ["name"],
+            "additionalProperties": False,
+        },
+        example={
+            "name": "Trip to Kyoto",
+            "description": "Photos from spring break.",
+            "visibility": "private",
+            "mediaIds": [101, 102, 103],
+            "coverMediaId": 101,
+        },
+    ),
+)
 def api_album_create():
     """アルバムを新規作成する。"""
 
@@ -1036,6 +1079,47 @@ def api_album_create():
 
 @bp.put("/albums/<int:album_id>")
 @require_api_perms("album:edit")
+@bp.doc(
+    methods=["PUT"],
+    requestBody=json_request_body(
+        "Update mutable properties of an album.",
+        required=False,
+        schema={
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "New album title.",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Updated description text.",
+                },
+                "visibility": {
+                    "type": "string",
+                    "enum": sorted(ALBUM_VISIBILITY_VALUES),
+                    "description": "Album visibility mode.",
+                },
+                "mediaIds": {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "description": "Reordered list of media identifiers belonging to the album.",
+                },
+                "coverMediaId": {
+                    "type": "integer",
+                    "description": "Media id that should become the album cover.",
+                },
+            },
+            "additionalProperties": False,
+        },
+        example={
+            "name": "Family gathering 2023",
+            "visibility": "unlisted",
+            "mediaIds": [201, 202, 203],
+            "coverMediaId": 203,
+        },
+    ),
+)
 def api_album_update(album_id: int):
     """アルバム情報を更新する。"""
 
@@ -1165,6 +1249,25 @@ def api_album_update(album_id: int):
 
 @bp.put("/albums/<int:album_id>/media/order")
 @require_api_perms("album:edit")
+@bp.doc(
+    methods=["PUT"],
+    requestBody=json_request_body(
+        "Reorder the media items contained in the album.",
+        schema={
+            "type": "object",
+            "properties": {
+                "mediaIds": {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "description": "Media identifiers in the desired order.",
+                }
+            },
+            "required": ["mediaIds"],
+            "additionalProperties": False,
+        },
+        example={"mediaIds": [501, 502, 503]},
+    ),
+)
 def api_album_media_reorder(album_id: int):
     """アルバム内のメディア表示順を更新する。"""
 
@@ -1253,6 +1356,25 @@ def api_album_media_reorder(album_id: int):
 
 @bp.put("/albums/order")
 @require_api_perms("album:edit")
+@bp.doc(
+    methods=["PUT"],
+    requestBody=json_request_body(
+        "Reorder albums in the sidebar.",
+        schema={
+            "type": "object",
+            "properties": {
+                "albumIds": {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "description": "Album identifiers sorted in the desired order.",
+                }
+            },
+            "required": ["albumIds"],
+            "additionalProperties": False,
+        },
+        example={"albumIds": [10, 5, 2, 7]},
+    ),
+)
 def api_albums_reorder():
     """アルバムの表示順序を更新する。"""
 
@@ -1494,6 +1616,38 @@ GOOGLE_OAUTH_SCOPE_SETS = {
 
 @bp.post("/google/oauth/start")
 @login_or_jwt_required
+@bp.doc(
+    methods=["POST"],
+    requestBody=json_request_body(
+        "Request an OAuth authorization URL for Google APIs.",
+        required=False,
+        schema={
+            "type": "object",
+            "properties": {
+                "scopes": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Additional OAuth scopes to request.",
+                },
+                "scope_profile": {
+                    "type": "string",
+                    "description": "Named scope profile such as 'photo_picker'.",
+                },
+                "redirect": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "Optional redirect URL to continue after authorization.",
+                },
+            },
+            "additionalProperties": False,
+        },
+        example={
+            "scopes": ["https://www.googleapis.com/auth/photoslibrary.readonly"],
+            "scope_profile": "photo_picker",
+            "redirect": "https://example.com/oauth/callback",
+        },
+    ),
+)
 def google_oauth_start():
     """Start Google OAuth flow by returning an authorization URL."""
     data = request.get_json(silent=True) or {}
@@ -1605,6 +1759,25 @@ def api_google_accounts():
 
 @bp.patch("/google/accounts/<int:account_id>")
 @login_or_jwt_required
+@bp.doc(
+    methods=["PATCH"],
+    requestBody=json_request_body(
+        "Update the status of a linked Google account.",
+        schema={
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "enum": ["active", "disabled"],
+                    "description": "New status flag for the account.",
+                }
+            },
+            "required": ["status"],
+            "additionalProperties": False,
+        },
+        example={"status": "disabled"},
+    ),
+)
 def api_google_account_update(account_id):
     """Update status of a Google account."""
     account = GoogleAccount.query.get_or_404(account_id)
@@ -2075,6 +2248,29 @@ def api_tags_list():
 
 @bp.post("/tags")
 @login_or_jwt_required
+@bp.doc(
+    methods=["POST"],
+    requestBody=json_request_body(
+        "Create a new media tag.",
+        schema={
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Display name of the tag.",
+                },
+                "attr": {
+                    "type": "string",
+                    "enum": sorted(VALID_TAG_ATTRS),
+                    "description": "Tag attribute used for grouping (person/place/thing).",
+                },
+            },
+            "required": ["name", "attr"],
+            "additionalProperties": False,
+        },
+        example={"name": "Family", "attr": "person"},
+    ),
+)
 def api_tags_create():
     """Create a new tag (requires tag management permission)."""
     if not current_user.can("media:tag-manage"):
@@ -2102,6 +2298,29 @@ def api_tags_create():
 
 @bp.put("/tags/<int:tag_id>")
 @login_or_jwt_required
+@bp.doc(
+    methods=["PUT"],
+    requestBody=json_request_body(
+        "Update name or attribute of an existing tag.",
+        required=False,
+        schema={
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "New display name for the tag.",
+                },
+                "attr": {
+                    "type": "string",
+                    "enum": sorted(VALID_TAG_ATTRS),
+                    "description": "Updated tag attribute value.",
+                },
+            },
+            "additionalProperties": False,
+        },
+        example={"name": "Vacation", "attr": "place"},
+    ),
+)
 def api_tags_update(tag_id: int):
     """Update an existing tag."""
     if not current_user.can("media:tag-manage"):
@@ -2147,6 +2366,25 @@ def api_tags_update(tag_id: int):
 
 @bp.put("/media/<int:media_id>/tags")
 @login_or_jwt_required
+@bp.doc(
+    methods=["PUT"],
+    requestBody=json_request_body(
+        "Replace tags assigned to the media item.",
+        schema={
+            "type": "object",
+            "properties": {
+                "tag_ids": {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "description": "Set of tag identifiers that should remain attached.",
+                }
+            },
+            "required": ["tag_ids"],
+            "additionalProperties": False,
+        },
+        example={"tag_ids": [1, 5, 8]},
+    ),
+)
 def api_media_update_tags(media_id: int):
     """Replace tag assignments for a media item."""
     if not current_user.can("media:tag-manage"):
@@ -2361,6 +2599,25 @@ def api_media_thumbnail(media_id):
 
 @bp.post("/media/<int:media_id>/thumb-url")
 @login_or_jwt_required
+@bp.doc(
+    methods=["POST"],
+    requestBody=json_request_body(
+        "Request a temporary signed thumbnail URL for the media item.",
+        schema={
+            "type": "object",
+            "properties": {
+                "size": {
+                    "type": "integer",
+                    "enum": [256, 512, 1024, 2048],
+                    "description": "Pixel width of the thumbnail to generate.",
+                }
+            },
+            "required": ["size"],
+            "additionalProperties": False,
+        },
+        example={"size": 512},
+    ),
+)
 def api_media_thumb_url(media_id):
     data = request.get_json(silent=True) or {}
     size = data.get("size")
@@ -2857,6 +3114,25 @@ def api_download(token):
 
 @bp.post("/sync/local-import")
 @login_or_jwt_required
+@bp.doc(
+    methods=["POST"],
+    requestBody=json_request_body(
+        "Trigger the local import worker.",
+        required=False,
+        schema={
+            "type": "object",
+            "properties": {
+                "duplicateRegeneration": {
+                    "type": "string",
+                    "enum": ["regenerate", "skip"],
+                    "description": "Controls how duplicate media should be handled.",
+                }
+            },
+            "additionalProperties": False,
+        },
+        example={"duplicateRegeneration": "regenerate"},
+    ),
+)
 def trigger_local_import():
     """ローカルファイル取り込みを手動実行"""
     user = get_current_user()
@@ -3640,6 +3916,50 @@ def api_totp_list():
 
 @bp.post("/totp")
 @login_or_jwt_required
+@bp.doc(
+    methods=["POST"],
+    requestBody=json_request_body(
+        "Create a new TOTP credential for the current tenant.",
+        schema={
+            "type": "object",
+            "properties": {
+                "account": {
+                    "type": "string",
+                    "description": "Label identifying the account for the OTP secret.",
+                },
+                "issuer": {
+                    "type": "string",
+                    "description": "Issuer or service name shown in authenticator apps.",
+                },
+                "secret": {
+                    "type": "string",
+                    "description": "Base32 encoded shared secret.",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Optional operator-facing description.",
+                },
+                "algorithm": {
+                    "type": "string",
+                    "description": "Hash algorithm such as SHA1 or SHA256.",
+                },
+                "digits": {
+                    "type": "integer",
+                    "description": "Number of digits in generated OTP codes.",
+                },
+                "period": {
+                    "type": "integer",
+                    "description": "Validity period of each OTP in seconds.",
+                },
+            },
+            "required": ["secret"],
+            "additionalProperties": False,
+        },
+        example={
+            "account": "deploy@familink", "issuer": "Familink", "secret": "JBSWY3DPEHPK3PXP", "digits": 6, "period": 30
+        },
+    ),
+)
 def api_totp_create():
     user = get_current_user()
     if not _ensure_totp_permission(user, "totp:write"):
@@ -3671,6 +3991,27 @@ def api_totp_create():
 
 @bp.put("/totp/<int:credential_id>")
 @login_or_jwt_required
+@bp.doc(
+    methods=["PUT"],
+    requestBody=json_request_body(
+        "Modify attributes of an existing TOTP credential.",
+        required=False,
+        schema={
+            "type": "object",
+            "properties": {
+                "account": {"type": "string"},
+                "issuer": {"type": "string"},
+                "secret": {"type": "string"},
+                "description": {"type": "string"},
+                "algorithm": {"type": "string"},
+                "digits": {"type": "integer"},
+                "period": {"type": "integer"},
+            },
+            "additionalProperties": False,
+        },
+        example={"description": "Shared with on-call", "digits": 6},
+    ),
+)
 def api_totp_update(credential_id: int):
     user = get_current_user()
     if not _ensure_totp_permission(user, "totp:write"):
@@ -3744,6 +4085,57 @@ def api_totp_export():
 
 @bp.post("/totp/import")
 @login_or_jwt_required
+@bp.doc(
+    methods=["POST"],
+    requestBody=json_request_body(
+        "Bulk import TOTP credentials from exported metadata.",
+        schema={
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "account": {"type": "string"},
+                            "issuer": {"type": "string"},
+                            "secret": {"type": "string"},
+                            "description": {"type": "string"},
+                            "algorithm": {"type": "string"},
+                            "digits": {"type": "integer"},
+                            "period": {"type": "integer"},
+                            "created_at": {
+                                "type": "string",
+                                "format": "date-time",
+                            },
+                        },
+                        "required": ["account", "issuer", "secret"],
+                        "additionalProperties": False,
+                    },
+                    "description": "List of secrets to import.",
+                },
+                "force": {
+                    "type": "boolean",
+                    "description": "Overwrite existing entries when true.",
+                },
+            },
+            "required": ["items"],
+            "additionalProperties": False,
+        },
+        example={
+            "items": [
+                {
+                    "account": "svc@example.com",
+                    "issuer": "Familink",
+                    "secret": "JBSWY3DPEHPK3PXP",
+                    "digits": 6,
+                    "period": 30,
+                }
+            ],
+            "force": False,
+        },
+    ),
+)
 def api_totp_import():
     user = get_current_user()
     if not _ensure_totp_permission(user, "totp:write"):

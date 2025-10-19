@@ -28,6 +28,7 @@ from core.tasks.picker_import import enqueue_picker_import_item  # re-export for
 from .pagination import PaginationParams, paginate_and_respond
 from .routes import login_or_jwt_required  # JWT認証対応のデコレータをインポート
 from .concurrency import create_limiter, limit_concurrency
+from .openapi import json_request_body
 from flask_smorest import Blueprint
 
 bp = Blueprint('picker_session_api', __name__)
@@ -154,6 +155,28 @@ def api_picker_sessions_list():
 @bp.post("/picker/session")
 @login_or_jwt_required
 @limit_concurrency(_picker_session_create_limiter)
+@bp.doc(
+    methods=["POST"],
+    requestBody=json_request_body(
+        "Create a picker session for selecting Google Photos items.",
+        required=False,
+        schema={
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "integer",
+                    "description": "Specific Google account id to use for the picker.",
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Optional dialog title shown to the user.",
+                },
+            },
+            "additionalProperties": False,
+        },
+        example={"account_id": 1, "title": "Select media"},
+    ),
+)
 def api_picker_session_create():
     """Create a Google Photos Picker session."""
     data = request.get_json(silent=True) or {}
@@ -213,6 +236,29 @@ def api_picker_session_create():
 
 @bp.post("/picker/session/<path:session_id>/callback")
 @limit_concurrency(_picker_session_callback_limiter)
+@bp.doc(
+    methods=["POST"],
+    requestBody=json_request_body(
+        "Receive selected media identifiers from the Google Photos Picker.",
+        schema={
+            "type": "object",
+            "properties": {
+                "mediaItemIds": {
+                    "description": "List of Google Photos media item ids that were selected.",
+                    "oneOf": [
+                        {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                        {"type": "string"},
+                    ],
+                }
+            },
+            "additionalProperties": False,
+        },
+        example={"mediaItemIds": ["ABCD123", "EFGH456"]},
+    ),
+)
 def api_picker_session_callback(session_id):
     """Receive selected media item IDs from Google Photos Picker."""
     ps = PickerSession.query.filter_by(session_id=session_id).first()
@@ -631,6 +677,28 @@ def api_picker_session_status_prefixed(uuid: str):
 
 @bp.post("/picker/session/mediaItems")
 @login_or_jwt_required
+@bp.doc(
+    methods=["POST"],
+    requestBody=json_request_body(
+        "Fetch the next page of media items for a picker session.",
+        schema={
+            "type": "object",
+            "properties": {
+                "sessionId": {
+                    "type": "string",
+                    "description": "Picker session identifier returned from /picker/session.",
+                },
+                "cursor": {
+                    "type": "string",
+                    "description": "Opaque pagination cursor from a previous response.",
+                },
+            },
+            "required": ["sessionId"],
+            "additionalProperties": False,
+        },
+        example={"sessionId": "picker_sessions/abc123", "cursor": "page-token"},
+    ),
+)
 def api_picker_session_media_items():
     """Fetch selected media items from Google Photos Picker and store them."""
     data = request.get_json(silent=True) or {}
@@ -689,6 +757,24 @@ def api_picker_session_import(picker_session_id: int):
 @bp.post("/picker/session/<path:session_id>/import")
 @login_or_jwt_required
 @limit_concurrency(_picker_session_import_limiter)
+@bp.doc(
+    methods=["POST"],
+    requestBody=json_request_body(
+        "Enqueue the import job for the given picker session.",
+        required=False,
+        schema={
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "integer",
+                    "description": "Optional override for the Google account that will perform the import.",
+                }
+            },
+            "additionalProperties": False,
+        },
+        example={"account_id": 42},
+    ),
+)
 def api_picker_session_import_by_session_id(session_id: str):
     """Enqueue import task using external ``session_id``.
 
@@ -738,6 +824,25 @@ def api_picker_session_import_by_session_id(session_id: str):
 @bp.post("/picker/session/<int:picker_session_id>/finish")
 @login_or_jwt_required
 @limit_concurrency(_picker_session_finish_limiter)
+@bp.doc(
+    methods=["POST"],
+    requestBody=json_request_body(
+        "Mark the picker session as finished with the specified status.",
+        schema={
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "enum": ["imported", "expired", "error"],
+                    "description": "Final state of the picker session.",
+                }
+            },
+            "required": ["status"],
+            "additionalProperties": False,
+        },
+        example={"status": "imported"},
+    ),
+)
 def api_picker_session_finish(picker_session_id):
     data = request.get_json(silent=True) or {}
     status = data.get("status")

@@ -10,6 +10,30 @@ from . import bp
     "/echo",
     methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 )
+@bp.doc(
+    methods=["POST", "PUT", "PATCH"],
+    requestBody={
+        "required": False,
+        "description": "Echoes the submitted payload and headers. Useful for testing proxy behaviour.",
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "additionalProperties": True,
+                    "description": "任意のJSONオブジェクト。フィールド名や型に制限はありません。",
+                },
+                "example": {"message": "Hello", "count": 1},
+            },
+            "text/plain": {
+                "schema": {
+                    "type": "string",
+                    "description": "生のテキストボディ。JSON以外を確認したい場合に利用します。",
+                },
+                "example": "raw body",
+            },
+        },
+    },
+)
 def echo() -> Response:
     """受信したリクエストのヘッダとボディをまとめて返す。"""
     json_payload = request.get_json(silent=True)

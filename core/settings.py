@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import os
 from pathlib import Path
-from typing import Mapping, Optional
+from typing import Mapping, Optional, Tuple
 
 @dataclass(frozen=True)
 class _EnvironmentFacade:
@@ -117,6 +117,17 @@ class ApplicationSettings:
         if path:
             return path
         return self._get("FPV_OAUTH_TOKEN_KEY_FILE")
+
+    # ------------------------------------------------------------------
+    # Service account configuration
+    # ------------------------------------------------------------------
+    @property
+    def service_account_signing_audiences(self) -> Tuple[str, ...]:
+        raw = self._get("SERVICE_ACCOUNT_SIGNING_AUDIENCE", "") or ""
+        if not raw:
+            return ()
+        values = [segment.strip() for segment in raw.split(",")]
+        return tuple(value for value in values if value)
 
     # ------------------------------------------------------------------
     # Media processing configuration

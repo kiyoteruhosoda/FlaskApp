@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import json
 from http import HTTPStatus
 
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
@@ -16,6 +17,7 @@ from features.certs.domain.exceptions import (
     CertificateNotFoundError,
     CertificateValidationError,
 )
+from core.settings import settings
 from webapp.auth.api_key_auth import require_api_key_scopes
 
 from . import bp
@@ -42,6 +44,40 @@ def _decode_signing_input(value: str, encoding: str) -> bytes:
         return base64.b64decode(value, validate=True)
     except (binascii.Error, ValueError) as exc:
         raise CertificateValidationError(_("signingInput must be valid base64 data.")) from exc
+
+
+def _extract_jwt_payload(signing_input: bytes) -> dict:
+    try:
+        signing_input_text = signing_input.decode("ascii")
+    except UnicodeDecodeError as exc:
+        raise CertificateValidationError(_("signingInput must contain ASCII characters only.")) from exc
+
+    if "." not in signing_input_text:
+        raise CertificateValidationError(
+            _("signingInput must contain a header and payload separated by a '.' character.")
+        )
+
+    _header_segment, payload_segment = signing_input_text.split(".", 1)
+    if not _header_segment or not payload_segment:
+        raise CertificateValidationError(
+            _("signingInput must contain a header and payload separated by a '.' character.")
+        )
+
+    padding_length = (-len(payload_segment)) % 4
+    try:
+        payload_bytes = base64.urlsafe_b64decode(payload_segment + ("=" * padding_length))
+    except (binascii.Error, ValueError) as exc:
+        raise CertificateValidationError(_("signingInput payload must be valid base64url data.")) from exc
+
+    try:
+        payload_json = json.loads(payload_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise CertificateValidationError(_("signingInput payload must be a valid JSON object.")) from exc
+
+    if not isinstance(payload_json, dict):
+        raise CertificateValidationError(_("signingInput payload must be a valid JSON object."))
+
+    return payload_json
 
 
 @bp.route("/service_accounts/signatures", methods=["POST"])
@@ -112,6 +148,24 @@ def create_service_account_signature():
         signing_input_bytes = _decode_signing_input(signing_input, encoding_value or "base64")
     except CertificateValidationError as exc:
         return _json_error(str(exc), HTTPStatus.BAD_REQUEST)
+
+    try:
+        payload_claims = _extract_jwt_payload(signing_input_bytes)
+    except CertificateValidationError as exc:
+        return _json_error(str(exc), HTTPStatus.BAD_REQUEST)
+
+    expected_audiences = settings.service_account_signing_audiences
+    if expected_audiences:
+        aud_claim = payload_claims.get("aud")
+        if isinstance(aud_claim, str):
+            provided_audiences = [aud_claim]
+        elif isinstance(aud_claim, list):
+            provided_audiences = [value for value in aud_claim if isinstance(value, str)]
+        else:
+            provided_audiences = []
+
+        if not provided_audiences or not any(aud in expected_audiences for aud in provided_audiences):
+            return _json_error(_("The signing request audience is not allowed."), HTTPStatus.BAD_REQUEST)
 
     dto = SignGroupPayloadInput(
         group_code=account.certificate_group_code,

@@ -235,8 +235,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             const data = await response.json();
-            if (data && data.serverTime) {
-                const serverDate = new Date(data.serverTime);
+            if (data && data.server_time) {
+                const serverDate = new Date(data.server_time);
                 if (!Number.isNaN(serverDate.getTime())) {
                     serverOffset = serverDate.getTime() - Date.now();
                     hasServerTime = true;

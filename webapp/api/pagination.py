@@ -11,6 +11,8 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 from flask import request, current_app
+
+from core.time import utc_now_isoformat
 from sqlalchemy import asc, desc
 from sqlalchemy.orm import Query
 
@@ -184,8 +186,7 @@ class PaginatedResult:
             
         # サーバー時刻
         if include_server_time:
-            server_time = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-            result["serverTime"] = server_time
+            result["server_time"] = utc_now_isoformat()
             
         return result
 

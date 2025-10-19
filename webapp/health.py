@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
-from email.utils import formatdate
 import os
+from datetime import datetime
 
 from flask import Blueprint, current_app, jsonify
 from sqlalchemy import text
 
 from .extensions import db
+from core.time import utc_now_isoformat
 
 # 認証なしのhealth用Blueprint
 health_bp = Blueprint("health", __name__, url_prefix="/health")
@@ -64,7 +65,7 @@ def health_beat():
         jsonify(
             {
                 "lastBeatAt": last.isoformat() if isinstance(last, datetime) else None,
-                "serverTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                "server_time": utc_now_isoformat(),
             }
         ),
         200,

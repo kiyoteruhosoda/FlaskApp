@@ -33,6 +33,7 @@ from .concurrency import (
     ConcurrencyLimitExceeded,
     create_limiter,
 )
+from core.time import utc_now_isoformat
 
 
 _locks: Dict[str, Lock] = {}
@@ -538,7 +539,7 @@ class PickerSessionService:
             "status": response_status,
             "selectedCount": selected_count_response,
             "lastPolledAt": ps.last_polled_at.isoformat().replace("+00:00", "Z"),
-            "serverTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "server_time": utc_now_isoformat(),
             "sessionId": ps.session_id,
             "pickerUri": ps.picker_uri,
             "expireTime": ps.expire_time.isoformat().replace("+00:00", "Z") if ps.expire_time else None,

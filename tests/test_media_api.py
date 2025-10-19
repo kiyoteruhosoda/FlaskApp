@@ -527,7 +527,7 @@ def test_list_first_page(client, seed_media_bulk):
     assert decoded["id"] == data["items"][-1]["id"]
     ids = [item["id"] for item in data["items"]]
     assert ids == sorted(ids, reverse=True)
-    assert data["serverTime"].endswith("Z") and "T" in data["serverTime"]
+    assert data["server_time"].endswith("Z") and "T" in data["server_time"]
 
 
 def test_list_second_page(client, seed_media_bulk):
@@ -619,7 +619,7 @@ def test_detail_ok(client, seed_media_detail):
     assert data["exif"]["camera_make"] == "Apple"
     assert data["sidecars"]
     assert data["playback"]["available"] is True
-    assert data["serverTime"].endswith("Z") and "T" in data["serverTime"]
+    assert data["server_time"].endswith("Z") and "T" in data["server_time"]
     assert "tags" in data
 
 

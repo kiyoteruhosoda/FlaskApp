@@ -35,6 +35,7 @@ from .extensions import db, migrate, login_manager, babel, api as smorest_api
 from .timezone import resolve_timezone, convert_to_timezone
 from core.db_log_handler import DBLogHandler
 from core.logging_config import ensure_appdb_file_logging
+from core.time import utc_now_isoformat
 
 
 _SENSITIVE_KEYWORDS = {
@@ -951,8 +952,21 @@ def create_app():
         return response
 
     @app.after_request
-    def add_time_header(response):
-        response.headers["X-Server-Time"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    def inject_server_time(response):
+        server_time_value = utc_now_isoformat()
+        response.headers["X-Server-Time"] = server_time_value
+
+        if response.mimetype == "application/json":
+            try:
+                payload = response.get_json()
+            except Exception:
+                payload = None
+
+            if isinstance(payload, dict):
+                payload["server_time"] = server_time_value
+                response.set_data(app.json.dumps(payload))
+                response.mimetype = "application/json"
+
         return response
 
     # ルート

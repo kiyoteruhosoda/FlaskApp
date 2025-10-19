@@ -94,8 +94,9 @@
                       aria-label="{{ _('Search permissions') }}"
                     >
                   </div>
-                  <button type="button" id="select-visible-permissions" class="btn btn-outline-primary">
-                    <i class="fas fa-check-double me-1"></i>{{ _('Select all shown permissions') }}
+                  <button type="button" id="toggle-visible-permissions" class="btn btn-outline-primary" data-action="select">
+                    <i class="fas fa-check-double me-1" id="toggle-visible-permissions-icon"></i>
+                    <span id="toggle-visible-permissions-label">{{ _('Select all shown permissions') }}</span>
                   </button>
                 </div>
               </div>
@@ -159,7 +160,15 @@
     const permissionItems = Array.from(document.querySelectorAll('.permission-item-wrapper'));
     const countElement = document.getElementById('selected-permission-count');
     const noResults = document.getElementById('no-permission-results');
-    const selectVisibleButton = document.getElementById('select-visible-permissions');
+    const toggleVisibleButton = document.getElementById('toggle-visible-permissions');
+    const toggleButtonLabel = document.getElementById('toggle-visible-permissions-label');
+    const toggleButtonIcon = document.getElementById('toggle-visible-permissions-icon');
+    const selectText = {{ _('Select all shown permissions')|tojson }};
+    const deselectText = {{ _('Deselect all shown permissions')|tojson }};
+
+    function visiblePermissionItems() {
+      return permissionItems.filter((wrapper) => wrapper.style.display !== 'none');
+    }
 
     function updateCount() {
       const selectedCount = permissionItems.filter((item) => {
@@ -172,13 +181,65 @@
       }
     }
 
-    function selectVisiblePermissions() {
-      let changed = false;
-      permissionItems.forEach((wrapper) => {
+    function updateToggleButtonState() {
+      if (!toggleVisibleButton) {
+        return;
+      }
+
+      const visibleItems = visiblePermissionItems();
+      const hasVisibleItems = visibleItems.length > 0;
+
+      toggleVisibleButton.disabled = !hasVisibleItems;
+
+      if (!hasVisibleItems) {
+        toggleVisibleButton.dataset.action = 'select';
+        if (toggleButtonLabel) {
+          toggleButtonLabel.textContent = selectText;
+        }
+        if (toggleButtonIcon) {
+          toggleButtonIcon.className = 'fas fa-check-double me-1';
+        }
+        return;
+      }
+
+      const allVisibleSelected = visibleItems.every((wrapper) => {
         const checkbox = wrapper.querySelector('input[type="checkbox"]');
-        const isVisible = wrapper.style.display !== 'none';
-        if (checkbox && isVisible && !checkbox.checked) {
-          checkbox.checked = true;
+        return checkbox && checkbox.checked;
+      });
+
+      if (allVisibleSelected) {
+        toggleVisibleButton.dataset.action = 'deselect';
+        if (toggleButtonLabel) {
+          toggleButtonLabel.textContent = deselectText;
+        }
+        if (toggleButtonIcon) {
+          toggleButtonIcon.className = 'fas fa-times-circle me-1';
+        }
+      } else {
+        toggleVisibleButton.dataset.action = 'select';
+        if (toggleButtonLabel) {
+          toggleButtonLabel.textContent = selectText;
+        }
+        if (toggleButtonIcon) {
+          toggleButtonIcon.className = 'fas fa-check-double me-1';
+        }
+      }
+    }
+
+    function toggleVisiblePermissions() {
+      if (!toggleVisibleButton) {
+        return;
+      }
+
+      const action = toggleVisibleButton.dataset.action || 'select';
+      const shouldSelect = action === 'select';
+      const visibleItems = visiblePermissionItems();
+      let changed = false;
+
+      visibleItems.forEach((wrapper) => {
+        const checkbox = wrapper.querySelector('input[type="checkbox"]');
+        if (checkbox && checkbox.checked !== shouldSelect) {
+          checkbox.checked = shouldSelect;
           changed = true;
         }
       });
@@ -186,6 +247,8 @@
       if (changed) {
         updateCount();
       }
+
+      updateToggleButtonState();
     }
 
     function filterPermissions(value) {
@@ -206,15 +269,16 @@
         noResults.style.display = visible === 0 ? 'block' : 'none';
       }
 
-      if (selectVisibleButton) {
-        selectVisibleButton.disabled = visible === 0;
-      }
+      updateToggleButtonState();
     }
 
     permissionItems.forEach((wrapper) => {
       const checkbox = wrapper.querySelector('input[type="checkbox"]');
       if (checkbox) {
-        checkbox.addEventListener('change', updateCount);
+        checkbox.addEventListener('change', () => {
+          updateCount();
+          updateToggleButtonState();
+        });
       }
     });
 
@@ -224,12 +288,13 @@
       });
     }
 
-    if (selectVisibleButton) {
-      selectVisibleButton.addEventListener('click', selectVisiblePermissions);
+    if (toggleVisibleButton) {
+      toggleVisibleButton.addEventListener('click', toggleVisiblePermissions);
     }
 
     filterPermissions(permissionFilter ? permissionFilter.value : '');
     updateCount();
+    updateToggleButtonState();
   });
 </script>
 {% endblock %}

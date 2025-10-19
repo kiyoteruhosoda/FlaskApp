@@ -172,6 +172,7 @@ def test_api_login_requires_role_selection(client, app):
     assert data["requires_role_selection"] is True
     assert data["redirect_url"].endswith("/auth/select-role")
     assert "access_token" in data and "refresh_token" in data
+    assert data["token_type"] == "Bearer"
 
     with client.session_transaction() as sess:
         assert sess.get("role_selection_next") == "/dashboard/library"

@@ -32,6 +32,7 @@ class TestOpenAPIDocs:
         login_response = payload['components']['schemas']['LoginResponse']
         assert 'requires_role_selection' in login_response['properties']
         assert 'available_scopes' in login_response['properties']
+        assert login_response['properties']['token_type']['type'] == 'string'
 
     def test_swagger_ui_served(self, app_context):
         client = app_context.test_client()

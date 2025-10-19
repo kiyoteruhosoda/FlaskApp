@@ -23,6 +23,50 @@
      var override_config = {{ swagger_ui_config | tojson }};
      for (var attrname in override_config) { config[attrname] = override_config[attrname]; }
 
+     const initialServers = {{ servers | tojson }};
+     window.__INITIAL_OPENAPI_SERVERS__ = initialServers;
+
+     function sanitizeServerOptions() {
+       var elements = document.querySelectorAll('select[aria-label="Servers"] option');
+       if (!elements) {
+         return;
+       }
+       Array.prototype.forEach.call(elements, function(option) {
+         if (!option) {
+           return;
+         }
+         if (typeof option.value === 'string') {
+           option.value = option.value.replace(/\\:/g, ':');
+         }
+         var text = option.textContent;
+         if (typeof text === 'string') {
+           option.textContent = text.replace(/\\:/g, ':');
+         }
+       });
+     }
+
+     var existingOnComplete = config.onComplete;
+
+     config.onComplete = function() {
+       if (typeof existingOnComplete === 'function') {
+         existingOnComplete.apply(this, arguments);
+       }
+       var system = null;
+       if (window.ui && typeof window.ui.getSystem === 'function') {
+         system = window.ui.getSystem();
+       } else if (this && typeof this.getSystem === 'function') {
+         system = this.getSystem();
+       }
+       if (system && typeof system.getStore === 'function') {
+         var store = system.getStore();
+         if (store && typeof store.subscribe === 'function') {
+           store.subscribe(sanitizeServerOptions);
+         }
+       }
+       sanitizeServerOptions();
+       setTimeout(sanitizeServerOptions, 0);
+     };
+
      window.onload = function() {
        window.ui = SwaggerUIBundle(config)
      }

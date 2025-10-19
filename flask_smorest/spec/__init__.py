@@ -148,6 +148,7 @@ class DocBlueprintMixin:
             spec_url=flask.url_for(f"{self._make_doc_blueprint_name()}.openapi_json"),
             swagger_ui_url=self._swagger_ui_url,
             swagger_ui_config=self.config.get("OPENAPI_SWAGGER_UI_CONFIG", {}),
+            servers=list(self.spec.options.get("servers") or []),
         )
 
     def _openapi_rapidoc(self):

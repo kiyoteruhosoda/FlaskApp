@@ -5,7 +5,7 @@ import importlib
 import json
 import os
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping, MutableMapping, Sequence
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -289,6 +289,32 @@ def _normalize_openapi_prefix(prefix: Optional[str]) -> str:
         normalized = f"/{normalized}"
     # The OpenAPI server URL should not end with a trailing slash unless the prefix is root
     return normalized.rstrip("/")
+
+
+def _strip_openapi_path_prefix(spec, prefix: Optional[str]) -> None:
+    normalized_prefix = _normalize_openapi_prefix(prefix)
+    if not normalized_prefix:
+        return
+    paths = getattr(spec, "_paths", None)
+    if not isinstance(paths, MutableMapping):
+        return
+    items = list(paths.items())
+    if not items:
+        return
+    if not any(path.startswith(normalized_prefix) for path, _ in items):
+        return
+    new_paths = type(paths)()
+    for path, operations in items:
+        if path.startswith(normalized_prefix):
+            trimmed = path[len(normalized_prefix) :]
+            if not trimmed:
+                trimmed = "/"
+            elif not trimmed.startswith("/"):
+                trimmed = f"/{trimmed}"
+            new_paths[trimmed] = operations
+        else:
+            new_paths[path] = operations
+    spec._paths = new_paths
 
 
 def _strip_quotes(value: str) -> str:
@@ -711,7 +737,9 @@ def create_app():
     app.register_blueprint(photo_view_bp)
 
     from .api import bp as api_bp
-    smorest_api.register_blueprint(api_bp, url_prefix="/api")
+    api_url_prefix = "/api"
+    smorest_api.register_blueprint(api_bp, url_prefix=api_url_prefix)
+    _strip_openapi_path_prefix(smorest_api.spec, api_url_prefix)
 
     # 認証なしの健康チェック用Blueprint
     from .health import health_bp

@@ -1,3 +1,7 @@
+import json
+import re
+import textwrap
+
 import pytest
 
 from webapp.extensions import api as smorest_api
@@ -94,6 +98,104 @@ class TestOpenAPIDocs:
         assert 'window.__INITIAL_OPENAPI_SERVERS__' in html
         assert 'https://nolumia.com/api' in html
         assert 'https\\://nolumia.com/api' not in html
+
+    def test_swagger_ui_server_dropdown_renders_clean_values(self, app_context):
+        js2py = pytest.importorskip('js2py')
+
+        client = app_context.test_client()
+        headers = {
+            'Forwarded': 'proto=https;host="nolumia.com"',
+            'X-Forwarded-Proto': 'http',
+        }
+
+        response = client.get('/api/docs', base_url='http://nolumia.com', headers=headers)
+        assert response.status_code == 200
+
+        html = response.get_data(as_text=True)
+        marker = "function sanitizeServerOptions()"
+        start = html.find(marker)
+        assert start != -1, 'sanitizeServerOptions function missing from Swagger UI template'
+
+        brace_start = html.find('{', start)
+        assert brace_start != -1, 'sanitizeServerOptions function body not found'
+
+        depth = 0
+        end = brace_start
+        while end < len(html):
+            char = html[end]
+            if char == '{':
+                depth += 1
+            elif char == '}':
+                depth -= 1
+                if depth == 0:
+                    end += 1
+                    break
+            end += 1
+
+        assert depth == 0, 'sanitizeServerOptions function braces not balanced'
+        sanitize_fn = html[start:end]
+
+        js_template = textwrap.dedent("""
+            (function() {
+                function createOption(initialValue) {
+                    return {
+                        value: initialValue,
+                        textContent: initialValue,
+                        attributes: {},
+                        setAttribute: function(name, val) { this.attributes[name] = val; },
+                        getAttribute: function(name) {
+                            if (Object.prototype.hasOwnProperty.call(this.attributes, name)) {
+                                return this.attributes[name];
+                            }
+                            return this[name];
+                        }
+                    };
+                }
+
+                var selectElement = {
+                    options: [
+                        createOption('https\\\\://nolumia.com/api'),
+                        createOption('http\\\\://nolumia.com/api')
+                    ],
+                    querySelectorAll: function() { return this.options; }
+                };
+
+                var document = {
+                    selectElements: [selectElement],
+                    querySelectorAll: function(selector) {
+                        if (selector === 'select[aria-label="Servers"]') {
+                            return this.selectElements;
+                        }
+                        return [];
+                    }
+                };
+
+                __SANITIZE_FUNCTION__
+
+                sanitizeServerOptions();
+
+                var normalized = selectElement.options.map(function(option) {
+                    return {
+                        value: option.value,
+                        text: option.textContent,
+                        attrValue: option.attributes.value
+                    };
+                });
+
+                return JSON.stringify(normalized);
+            }());
+        """)
+
+        js_script = js_template.replace("__SANITIZE_FUNCTION__", sanitize_fn)
+
+        normalized_json = js2py.eval_js(js_script)
+        normalized = json.loads(normalized_json)
+
+        assert normalized
+        for option in normalized:
+            assert '\\' not in option['value']
+            assert '\\' not in option['text']
+            assert option['attrValue'] == option['value']
 
     def test_echo_endpoint_exposes_json_request_body(self, app_context):
         client = app_context.test_client()

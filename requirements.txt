@@ -27,3 +27,4 @@ apispec
 Flask-Migrate
 alembic
 pytest
+js2py

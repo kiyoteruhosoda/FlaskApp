@@ -49,7 +49,7 @@ class TestOpenAPIDocs:
             {'url': 'https://example.com/proxy/app/api'}
         ]
 
-    def test_openapi_spec_uses_forwarded_and_x_forwarded_proto(self, app_context):
+    def test_openapi_spec_ignores_untrusted_forwarded_headers(self, app_context):
         client = app_context.test_client()
         headers = {
             'Forwarded': 'proto=https;host="nolumia.com"',
@@ -59,7 +59,6 @@ class TestOpenAPIDocs:
         assert response.status_code == 200
         payload = response.get_json()
         assert payload['servers'] == [
-            {'url': 'https://nolumia.com/api'},
             {'url': 'http://nolumia.com/api'},
         ]
 

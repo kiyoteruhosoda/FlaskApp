@@ -19,6 +19,9 @@ authors = [
     dependencies = [                       # インストール時の依存関係
         "flask",
         "click",
-        "PyJWT"
+        "PyJWT",
+        "flask-smorest",
+        "marshmallow",
+        "apispec"
     ]
 requires-python = ">=3.10"

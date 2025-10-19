@@ -1,7 +1,8 @@
 """Maintenance API endpoints protected by service account JWTs."""
 from __future__ import annotations
 
-from flask import Blueprint, jsonify
+from flask import jsonify
+from flask_smorest import Blueprint
 
 from . import bp
 from ..auth.service_account_auth import require_service_account_scopes

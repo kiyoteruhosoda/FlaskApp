@@ -1,3 +1,4 @@
+import importlib
 import os
 import uuid
 
@@ -20,7 +21,10 @@ def app(tmp_path):
         original_env[key] = os.environ.get(key)
         os.environ[key] = value
 
-    from webapp.config import Config
+    import webapp.config as config_module
+
+    config_module = importlib.reload(config_module)
+    Config = config_module.Config
 
     Config.SQLALCHEMY_ENGINE_OPTIONS = {}
     from webapp import create_app

@@ -47,6 +47,7 @@ def app():
             'FPV_NAS_ORIGINALS_DIR': str(originals_dir),
             'FPV_TMP_DIR': str(temp_dir),
             'SQLALCHEMY_ENGINE_OPTIONS': {},
+            'BABEL_DEFAULT_LOCALE': 'en',
         }
         
         # 環境変数を一時的に設定

@@ -1135,5 +1135,9 @@ def __getattr__(name: str):
         module = importlib.import_module("webapp.api")
         globals()[name] = module
         return module
+    if name == "auth":
+        module = importlib.import_module("webapp.auth")
+        globals()[name] = module
+        return module
     raise AttributeError(f"module 'webapp' has no attribute {name!r}")
 

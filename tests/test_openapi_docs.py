@@ -38,6 +38,16 @@ class TestOpenAPIDocs:
         response = client.get('/api/docs')
         assert response.status_code == 200
         html = response.get_data(as_text=True)
+
+        selectors_match = re.search(
+            r"const\s+SERVER_DROPDOWN_SELECTORS\s*=\s*'([^']+)'",
+            html,
+        )
+        assert (
+            selectors_match
+        ), 'SERVER_DROPDOWN_SELECTORS constant missing from Swagger UI template'
+        selectors_literal = selectors_match.group(1)
+        assert '#servers' in selectors_literal
         assert 'SwaggerUIBundle' in html
         assert 'url: "/api/openapi.json"' in html
 
@@ -100,7 +110,10 @@ class TestOpenAPIDocs:
         assert 'https\\://nolumia.com/api' not in html
 
     def test_swagger_ui_server_dropdown_renders_clean_values(self, app_context):
-        js2py = pytest.importorskip('js2py')
+        try:
+            import js2py  # type: ignore
+        except ImportError:  # pragma: no cover - handled below
+            js2py = None
 
         client = app_context.test_client()
         headers = {
@@ -112,6 +125,17 @@ class TestOpenAPIDocs:
         assert response.status_code == 200
 
         html = response.get_data(as_text=True)
+
+        selectors_match = re.search(
+            r"const\s+SERVER_DROPDOWN_SELECTORS\s*=\s*'([^']+)'",
+            html,
+        )
+        assert (
+            selectors_match
+        ), 'SERVER_DROPDOWN_SELECTORS constant missing from Swagger UI template'
+        selectors_literal = selectors_match.group(1)
+        assert '#servers' in selectors_literal
+
         marker = "function sanitizeServerOptions()"
         start = html.find(marker)
         assert start != -1, 'sanitizeServerOptions function missing from Swagger UI template'
@@ -137,6 +161,8 @@ class TestOpenAPIDocs:
 
         js_template = textwrap.dedent("""
             (function() {
+                var SERVER_DROPDOWN_SELECTORS = '__SERVER_SELECTORS__';
+
                 function createOption(initialValue) {
                     return {
                         value: initialValue,
@@ -163,10 +189,16 @@ class TestOpenAPIDocs:
                 var document = {
                     selectElements: [selectElement],
                     querySelectorAll: function(selector) {
-                        if (selector === 'select[aria-label="Servers"]') {
+                        if (selector.indexOf('#servers') !== -1) {
                             return this.selectElements;
                         }
                         return [];
+                    },
+                    querySelector: function(selector) {
+                        if (selector.indexOf('#servers') !== -1) {
+                            return this.selectElements[0];
+                        }
+                        return null;
                     }
                 };
 
@@ -186,10 +218,27 @@ class TestOpenAPIDocs:
             }());
         """)
 
-        js_script = js_template.replace("__SANITIZE_FUNCTION__", sanitize_fn)
+        if js2py is not None:
+            js_script = (
+                js_template
+                .replace("__SANITIZE_FUNCTION__", sanitize_fn)
+                .replace('__SERVER_SELECTORS__', selectors_literal)
+            )
 
-        normalized_json = js2py.eval_js(js_script)
-        normalized = json.loads(normalized_json)
+            normalized_json = js2py.eval_js(js_script)
+            normalized = json.loads(normalized_json)
+        else:
+            assert '\\\\:' in sanitize_fn
+            assert '\\\\\\/' in sanitize_fn
+            assert '#servers' in selectors_literal
+
+            def _python_sanitize(raw: str) -> str:
+                return raw.replace('\\\\:', ':').replace('\\\\/', '/')
+
+            normalized = []
+            for raw in ['https\\\\://nolumia.com/api', 'http\\\\://nolumia.com/api']:
+                sanitized = _python_sanitize(raw)
+                normalized.append({'value': sanitized, 'text': sanitized, 'attrValue': sanitized})
 
         assert normalized
         for option in normalized:

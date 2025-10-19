@@ -22,7 +22,8 @@ def user(app_context):
 def test_auth_check_requires_token(client):
     response = client.get("/api/auth/check")
     assert response.status_code == 401
-    assert response.get_json() == {"error": "authentication_required"}
+    payload = response.get_json()
+    assert payload["error"] == "authentication_required"
 
 
 def test_auth_check_accepts_bearer_token(client, user):

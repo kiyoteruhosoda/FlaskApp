@@ -1,9 +1,11 @@
 import jwt
 import pytest
 
+from datetime import datetime, timedelta, timezone
+from flask import current_app
+
 from core.models.user import User
 from core.settings import settings
-from datetime import datetime, timedelta, timezone
 
 from features.certs.application.use_cases import IssueCertificateForGroupUseCase
 from features.certs.domain.usage import UsageType
@@ -136,7 +138,7 @@ def test_latest_certificate_is_used_for_group():
 
 
 @pytest.mark.usefixtures("app_context")
-def test_verify_access_token_rejects_invalid_audience(monkeypatch):
+def test_verify_access_token_rejects_invalid_audience():
     user = User(email="aud-check@example.com")
     user.set_password("secret")
     db.session.add(user)
@@ -144,7 +146,8 @@ def test_verify_access_token_rejects_invalid_audience(monkeypatch):
 
     token = TokenService.generate_access_token(user)
 
-    monkeypatch.setenv("ACCESS_TOKEN_AUDIENCE", "unexpected")
+    SystemSettingService.upsert_application_config({"ACCESS_TOKEN_AUDIENCE": "unexpected"})
+    current_app.config["ACCESS_TOKEN_AUDIENCE"] = "unexpected"
 
     assert TokenService.verify_access_token(token) is None
 

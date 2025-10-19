@@ -37,6 +37,11 @@ from core.db_log_handler import DBLogHandler
 from core.logging_config import ensure_appdb_file_logging
 from core.settings import settings
 from core.time import utc_now_isoformat
+from core.system_settings_defaults import (
+    DEFAULT_APPLICATION_SETTINGS,
+    DEFAULT_CORS_SETTINGS,
+)
+from webapp.services.system_setting_service import SystemSettingService
 
 
 _SENSITIVE_KEYWORDS = {
@@ -333,24 +338,30 @@ def _strip_quotes(value: str) -> str:
 def _configure_cors(app: Flask) -> None:
     """Configure Cross-Origin Resource Sharing based on application settings."""
 
-    allowed_origins = tuple(settings.cors_allowed_origins)
-    app.config["CORS_ALLOWED_ORIGINS"] = allowed_origins
-
-    if not allowed_origins:
-        return
-
-    allow_all = "*" in allowed_origins
-    allowed_origin_set = set(allowed_origins)
+    def _current_allowed_origins() -> tuple[str, ...]:
+        config_value = app.config.get("CORS_ALLOWED_ORIGINS", ())
+        if isinstance(config_value, str):
+            origins = tuple(segment.strip() for segment in config_value.split(",") if segment.strip())
+        elif isinstance(config_value, (list, tuple, set)):
+            origins = tuple(str(value).strip() for value in config_value if str(value).strip())
+        else:
+            origins = ()
+        app.config["CORS_ALLOWED_ORIGINS"] = origins
+        return origins
 
     def _is_origin_allowed(origin: Optional[str]) -> bool:
         if not origin:
             return False
-        if allow_all:
+        allowed_origins = _current_allowed_origins()
+        if not allowed_origins:
+            return False
+        if "*" in allowed_origins:
             return True
-        return origin in allowed_origin_set
+        return origin in allowed_origins
 
     def _apply_base_headers(response, origin: str) -> None:
-        if allow_all:
+        allowed_origins = _current_allowed_origins()
+        if "*" in allowed_origins:
             response.headers["Access-Control-Allow-Origin"] = "*"
         else:
             response.headers["Access-Control-Allow-Origin"] = origin
@@ -586,6 +597,39 @@ def _calculate_openapi_server_urls(prefix: str) -> List[str]:
 from werkzeug.exceptions import HTTPException
 
 
+def _apply_persisted_settings(app: Flask) -> None:
+    """Load persisted configuration values into ``app.config``."""
+
+    try:
+        config_payload = SystemSettingService.load_application_config()
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        app.logger.warning("Failed to load application settings from DB: %s", exc)
+        config_payload = dict(DEFAULT_APPLICATION_SETTINGS)
+    for key, value in config_payload.items():
+        if key == "DATABASE_URI":
+            continue
+        if isinstance(value, dict):
+            app.config[key] = dict(value)
+        elif isinstance(value, list):
+            app.config[key] = list(value)
+        else:
+            app.config[key] = value
+
+    try:
+        cors_payload = SystemSettingService.load_cors_config()
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        app.logger.warning("Failed to load CORS settings from DB: %s", exc)
+        cors_payload = dict(DEFAULT_CORS_SETTINGS)
+    allowed = cors_payload.get("allowedOrigins", [])
+    if isinstance(allowed, str):
+        allowed_origins = [segment.strip() for segment in allowed.split(",") if segment.strip()]
+    elif isinstance(allowed, (list, tuple, set)):
+        allowed_origins = [str(origin).strip() for origin in allowed if str(origin).strip()]
+    else:
+        allowed_origins = []
+    app.config["CORS_ALLOWED_ORIGINS"] = tuple(allowed_origins)
+
+
 def create_app():
     """アプリケーションファクトリ"""
     from dotenv import load_dotenv
@@ -609,8 +653,6 @@ def create_app():
         "https://cdn.jsdelivr.net/npm/swagger-ui-dist/",
     )
     app.config.setdefault("API_SPEC_OPTIONS", {})
-
-    _configure_cors(app)
 
     database_uri = app.config.get("SQLALCHEMY_DATABASE_URI")
     testing_mode = app.config.get("TESTING") or str(os.environ.get("TESTING", "")).lower() in {
@@ -646,8 +688,14 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)
     login_manager.init_app(app)
+
+    with app.app_context():
+        _apply_persisted_settings(app)
+
     babel.init_app(app, locale_selector=_select_locale)
     smorest_api.init_app(app)
+
+    _configure_cors(app)
 
     configured_servers = app.config.get("API_SPEC_OPTIONS", {}).get("servers")
 

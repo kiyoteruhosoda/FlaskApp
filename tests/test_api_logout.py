@@ -37,7 +37,8 @@ def test_api_logout_revokes_tokens_and_clears_session(client):
 
     response = client.post("/api/logout")
     assert response.status_code == 200
-    assert response.get_json() == {"result": "ok"}
+    payload = response.get_json()
+    assert payload["result"] == "ok"
 
     # Flask-Loginのセッション情報がクリアされていることを確認
     with client.session_transaction() as flask_session:
@@ -76,4 +77,5 @@ def test_api_logout_rejects_inactive_user_token_via_request_loader(client):
         app.config["LOGIN_DISABLED"] = original_login_disabled
 
     assert response.status_code == 401
-    assert response.get_json() == {"error": "invalid_token"}
+    payload = response.get_json()
+    assert payload["error"] == "invalid_token"

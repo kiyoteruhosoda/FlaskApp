@@ -1,7 +1,13 @@
 import os
 import sys
 from pathlib import Path
+
 import pytest
+
+from core.system_settings_defaults import (
+    DEFAULT_APPLICATION_SETTINGS,
+    DEFAULT_CORS_SETTINGS,
+)
 
 os.environ.setdefault("TESTING", "true")
 
@@ -12,6 +18,30 @@ if str(ROOT) not in sys.path:
 CLI_SRC = ROOT / "cli" / "src"
 if str(CLI_SRC) not in sys.path:
     sys.path.insert(0, str(CLI_SRC))
+
+
+_BOOL_TRUE = {"1", "true", "yes", "on"}
+
+
+def _coerce_env_value(key: str, default):
+    raw = os.environ.get(key)
+    if raw is None:
+        return default
+    if isinstance(default, bool):
+        return raw.strip().lower() in _BOOL_TRUE
+    if isinstance(default, int) and not isinstance(default, bool):
+        try:
+            return int(raw)
+        except ValueError:
+            return default
+    if isinstance(default, float):
+        try:
+            return float(raw)
+        except ValueError:
+            return default
+    if isinstance(default, (list, tuple)):
+        return [segment.strip() for segment in raw.split(",") if segment.strip()]
+    return raw
 
 
 @pytest.fixture
@@ -40,16 +70,35 @@ def app_context():
         # configモジュールをリロード
         import webapp.config as config_module
         importlib.reload(config_module)
-        
+
         from webapp import create_app
         from webapp.config import TestConfig
         from webapp.extensions import db
-        
+        from webapp.services.system_setting_service import SystemSettingService
+        from webapp import _apply_persisted_settings
+
         app = create_app()
         app.config.from_object(TestConfig)
-        
+
         with app.app_context():
             db.create_all()
+            payload = dict(DEFAULT_APPLICATION_SETTINGS)
+            for key in payload.keys():
+                if key in app.config:
+                    payload[key] = app.config[key]
+                payload[key] = _coerce_env_value(key, payload[key])
+            SystemSettingService.upsert_application_config(payload)
+
+            cors_raw = os.environ.get("CORS_ALLOWED_ORIGINS")
+            if cors_raw:
+                allowed_origins = [segment.strip() for segment in cors_raw.split(",") if segment.strip()]
+            else:
+                allowed_origins = list(
+                    app.config.get("CORS_ALLOWED_ORIGINS", DEFAULT_CORS_SETTINGS.get("allowedOrigins", []))
+                )
+            SystemSettingService.upsert_cors_config(allowed_origins)
+
+            _apply_persisted_settings(app)
             yield app
             db.session.remove()
             db.drop_all()

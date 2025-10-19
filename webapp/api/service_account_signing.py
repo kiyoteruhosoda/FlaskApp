@@ -172,8 +172,6 @@ def create_service_account_signature():
         return _json_error(_("The signing request must include a scope claim."), HTTPStatus.BAD_REQUEST)
 
     requested_scopes = [scope for scope in scope_claim.split() if scope]
-    if not requested_scopes:
-        return _json_error(_("The signing request must specify at least one scope."), HTTPStatus.BAD_REQUEST)
 
     account_scopes = set(account.scopes)
     if not set(requested_scopes).issubset(account_scopes):

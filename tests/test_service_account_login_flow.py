@@ -200,6 +200,47 @@ def test_service_account_signature_requires_scope_claim(app_context):
 
 
 @pytest.mark.usefixtures("app_context")
+def test_service_account_signature_allows_empty_scope(app_context):
+    client, account, issued, api_key_value = _prepare_service_account_signing_context(
+        app_context, group_code="client-signing-empty-scope"
+    )
+
+    now = datetime.now(timezone.utc)
+    header_segment = _b64url(
+        json.dumps({"alg": "ES256", "kid": issued.kid, "typ": "JWT"}, separators=(",", ":")).encode("utf-8")
+    )
+    payload_segment = _b64url(
+        json.dumps(
+            {
+                "iss": account.name,
+                "sub": account.name,
+                "aud": "https://example.com",
+                "iat": int(now.timestamp()),
+                "exp": int((now + timedelta(minutes=5)).timestamp()),
+                "scope": "",
+            },
+            separators=(",", ":"),
+        ).encode("utf-8")
+    )
+    signing_input = f"{header_segment}.{payload_segment}".encode("ascii")
+    signing_input_encoded = base64.b64encode(signing_input).decode("ascii")
+
+    response = client.post(
+        "/api/service_accounts/signatures",
+        json={
+            "signingInput": signing_input_encoded,
+            "signingInputEncoding": "base64",
+            "kid": issued.kid,
+        },
+        headers={"Authorization": f"ApiKey {api_key_value}"},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["kid"] == issued.kid
+
+
+@pytest.mark.usefixtures("app_context")
 def test_service_account_signature_rejects_unassigned_scope(app_context):
     client, account, issued, api_key_value = _prepare_service_account_signing_context(
         app_context, group_code="client-signing-4"

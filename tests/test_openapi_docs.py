@@ -12,7 +12,7 @@ class TestOpenAPIDocs:
         assert payload['openapi'] == '3.0.3'
 
         servers = payload.get('servers', [])
-        assert servers == [{'url': '/api'}]
+        assert servers == [{'url': 'http://localhost/api'}]
 
         assert '/api/login' in payload['paths']
         login_post = payload['paths']['/api/login']['post']
@@ -34,3 +34,17 @@ class TestOpenAPIDocs:
         html = response.get_data(as_text=True)
         assert 'SwaggerUIBundle' in html
         assert 'url: "/api/openapi.json"' in html
+
+    def test_openapi_spec_respects_forwarded_headers(self, app_context):
+        client = app_context.test_client()
+        headers = {
+            'X-Forwarded-Proto': 'https',
+            'X-Forwarded-Host': 'example.com',
+            'X-Forwarded-Prefix': '/proxy/app',
+        }
+        response = client.get('/api/openapi.json', headers=headers)
+        assert response.status_code == 200
+        payload = response.get_json()
+        assert payload['servers'] == [
+            {'url': 'https://example.com/proxy/app/api'}
+        ]

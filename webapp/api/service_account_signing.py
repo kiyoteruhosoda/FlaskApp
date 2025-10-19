@@ -55,11 +55,11 @@ def _decode_signing_input(value: str, encoding: str) -> bytes:
             "properties": {
                 "signingInput": {
                     "type": "string",
-                    "description": "Payload to sign encoded in base64 or base64url.",
+                    "description": "Payload to sign encoded in plain or base64 or base64url.",
                 },
                 "signingInputEncoding": {
                     "type": "string",
-                    "enum": ["base64", "base64url"],
+                    "enum": ["plain", "base64", "base64url"],
                     "description": "Encoding used for the signingInput value.",
                 },
                 "kid": {

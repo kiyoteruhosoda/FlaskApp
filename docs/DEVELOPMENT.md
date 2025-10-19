@@ -1,7 +1,7 @@
-# Familink 使い方手順書
+# nolumia 使い方手順書
 
 ## 1. 概要
-Familink はDDD（ドメイン駆動設計）アーキテクチャを採用したFlaskベースの家族写真管理・同期プラットフォームです。Google Photos同期、ローカルファイルインポート、動画変換、サムネイル生成などの処理をCeleryによるバックグラウンドジョブで実行します。
+nolumia はDDD（ドメイン駆動設計）アーキテクチャを採用したFlaskベースの家族写真管理・同期プラットフォームです。Google Photos同期、ローカルファイルインポート、動画変換、サムネイル生成などの処理をCeleryによるバックグラウンドジョブで実行します。
 
 本番環境ではDockerコンテナでのデプロイを推奨しており、Web、Celery Worker、Celery Beat、MariaDB、Redisが個別のコンテナで動作します。開発環境では従来通りローカル環境でのセットアップも可能です。
 
@@ -44,7 +44,7 @@ flask seed-master
 
 ## 3.1 マスタデータ管理
 
-Familinkでは、ロール・権限・初期ユーザーなどのマスタデータをmigrationファイルとは分離して管理しています。これにより、migrationファイルの再作成時にマスタデータを手動で追加する手間を省けます。
+nolumiaでは、ロール・権限・初期ユーザーなどのマスタデータをmigrationファイルとは分離して管理しています。これにより、migrationファイルの再作成時にマスタデータを手動で追加する手間を省けます。
 
 ### 3.1.1 Flaskコマンドでの投入（推奨）
 ```bash
@@ -122,7 +122,7 @@ python scripts/seed_from_yaml.py data/production_master.yml
 
 ### 4.1 Dockerを使った簡単デプロイ
 
-Familinkは本番環境向けにDockerコンテナでのデプロイをサポートしています。
+nolumiaは本番環境向けにDockerコンテナでのデプロイをサポートしています。
 
 #### 4.1.1 前提条件
 - Docker 20.10以上
@@ -303,7 +303,7 @@ python main.py
 
 ### 5.2 Celeryワーカーの起動（重要）
 
-Familinkのバックグラウンド処理（メディア変換、サムネイル生成、Google Photos同期など）にはCeleryワーカーが必須です。
+nolumiaのバックグラウンド処理（メディア変換、サムネイル生成、Google Photos同期など）にはCeleryワーカーが必須です。
 
 #### 5.2.1 基本的な起動方法
 ```bash
@@ -321,7 +321,7 @@ nohup celery -A cli.src.celery.tasks worker --loglevel=info --concurrency=2 &
 ```
 
 #### 5.2.2 利用可能なCeleryタスク
-Familinkで使用可能な主要なタスク：
+nolumiaで使用可能な主要なタスク：
 
 - **メディア処理**
   - `transcode_worker()` - 動画のH.264/AAC変換
@@ -520,7 +520,7 @@ with app.app_context():
 
 ### 5.1 ディレクトリ構成
 ```
-Familink/
+nolumia/
 ├── webapp/           # Webアプリケーション層
 │   ├── api/         # REST API エンドポイント
 │   ├── auth/        # 認証機能

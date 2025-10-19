@@ -10,7 +10,7 @@ build-backend = "setuptools.build_meta"
 where = ["."]
 
 [project]
-name = "Familink"                    # パッケージ名
+name = "nolumia"                    # パッケージ名
 version = "0.1.0"                      # バージョン
 description = "Flask + CLI + Library project"
 authors = [

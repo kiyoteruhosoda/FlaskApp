@@ -493,7 +493,7 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     app.config.setdefault("LAST_BEAT_AT", None)
-    app.config.setdefault("API_TITLE", "Familink API")
+    app.config.setdefault("API_TITLE", "nolumia API")
     app.config.setdefault("API_VERSION", "1.0.0")
     app.config.setdefault("OPENAPI_VERSION", "3.0.3")
     app.config.setdefault("OPENAPI_URL_PREFIX", "/api")

@@ -1,7 +1,7 @@
-# Familink Synology NAS デプロイガイド
+# nolumia Synology NAS デプロイガイド
 
 ## 概要
-このガイドでは、SynologyのContainer Manager（旧Docker）を使用してFamilinkを本番環境にデプロイし、外部からアクセス可能にする手順を説明します。
+このガイドでは、SynologyのContainer Manager（旧Docker）を使用してnolumiaを本番環境にデプロイし、外部からアクセス可能にする手順を説明します。
 
 ## 前提条件
 
@@ -15,7 +15,7 @@
 - **Container Manager**: インストール済み
 
 ### 外部データベース要件
-Familinkは外部のMariaDB/MySQLデータベースを利用します：
+nolumiaは外部のMariaDB/MySQLデータベースを利用します：
 
 #### オプション1: Synology MariaDB パッケージ
 - **パッケージセンター** > **MariaDB 10** をインストール
@@ -93,7 +93,7 @@ DSMのFile Stationで以下のフォルダを作成：
 ```
 
 ### 1.3 docker-compose.ymlとDockerイメージの準備
-Familinkのdocker-compose.ymlは外部データベース対応済みです。開発環境でDockerイメージをビルドしてSynologyにインポートします。
+nolumiaのdocker-compose.ymlは外部データベース対応済みです。開発環境でDockerイメージをビルドしてSynologyにインポートします。
 
 ## 2. 環境設定ファイルの準備
 
@@ -140,7 +140,7 @@ X-Accel-Redirectを使用しない構成の場合は、`FPV_ACCEL_REDIRECT_ENABL
 この設定により、Flaskアプリが直接ファイルを配信します。
 
 ### 2.2 docker-compose.ymlの設定確認
-Familinkのdocker-compose.ymlは外部データベース対応済みです：
+nolumiaのdocker-compose.ymlは外部データベース対応済みです：
 
 - **外部データベース接続**: `.env`ファイルで設定
 - **Redis認証**: パスワード保護されたRedis
@@ -211,7 +211,7 @@ Container Managerで各コンテナのポートを確認：
 2. 「リバースプロキシ」タブを選択
 3. 「作成」をクリック
 4. 設定：
-   - **説明**: Familink
+   - **説明**: nolumia
    - **ソースプロトコル**: HTTPS
    - **ソースホスト名**: <your-nas-domain.synology.me>
    - **ソースポート**: 443
@@ -266,7 +266,7 @@ flask create-admin
 
 ### 5.2 初回アクセスと動作確認
 1. ブラウザで `https://<your-nas-domain.synology.me>` にアクセス
-2. Familinkのログイン画面が表示されることを確認
+2. nolumiaのログイン画面が表示されることを確認
 3. 管理者アカウントでログイン
 4. 基本機能の動作確認
 
@@ -316,7 +316,7 @@ find ${BACKUP_DIR} -name "*.tar.gz" -mtime +30 -delete
 ```
 
 #### 6.3.2 アップデート手順
-1. 新しいFamilinkリリースをダウンロード
+1. 新しいnolumiaリリースをダウンロード
 2. イメージを再ビルド
 3. Container Managerでプロジェクトを停止
 4. 新しいイメージでプロジェクトを再起動
@@ -332,7 +332,7 @@ find ${BACKUP_DIR} -name "*.tar.gz" -mtime +30 -delete
 ### 7.2 定期的なセキュリティ更新
 1. DSMの定期更新
 2. Container Managerの更新
-3. Familinkイメージの更新
+3. nolumiaイメージの更新
 4. 依存関係の脆弱性チェック
 
 ## 8. トラブルシューティング
@@ -376,7 +376,7 @@ chown -R 1026:100 /volume1/docker/photonest/data/
 #!/bin/bash
 cd /volume1/docker/photonest/
 docker-compose up -d
-echo "Familink started successfully!"
+echo "nolumia started successfully!"
 echo "Access URL: https://<your-nas-domain.synology.me>"
 ```
 
@@ -385,7 +385,7 @@ echo "Access URL: https://<your-nas-domain.synology.me>"
 #!/bin/bash
 cd /volume1/docker/photonest/
 docker-compose down
-echo "Familink stopped successfully!"
+echo "nolumia stopped successfully!"
 ```
 
 #### backup-photonest.sh
@@ -419,7 +419,7 @@ echo "Config: env_${DATE}.backup"
 #### check-status.sh
 ```bash
 #!/bin/bash
-echo "=== Familink Status Check ==="
+echo "=== nolumia Status Check ==="
 echo "Date: $(date)"
 echo ""
 
@@ -474,4 +474,4 @@ server {
 }
 ```
 
-このガイドに従って、SynologyでFamilinkを安全かつ効率的にデプロイしてください。
+このガイドに従って、Synologyでnolumiaを安全かつ効率的にデプロイしてください。

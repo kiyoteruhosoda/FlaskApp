@@ -3956,7 +3956,7 @@ def api_totp_list():
             "additionalProperties": False,
         },
         example={
-            "account": "deploy@familink", "issuer": "Familink", "secret": "JBSWY3DPEHPK3PXP", "digits": 6, "period": 30
+            "account": "deploy@nolumia", "issuer": "nolumia", "secret": "JBSWY3DPEHPK3PXP", "digits": 6, "period": 30
         },
     ),
 )
@@ -4126,7 +4126,7 @@ def api_totp_export():
             "items": [
                 {
                     "account": "svc@example.com",
-                    "issuer": "Familink",
+                    "issuer": "nolumia",
                     "secret": "JBSWY3DPEHPK3PXP",
                     "digits": 6,
                     "period": 30,

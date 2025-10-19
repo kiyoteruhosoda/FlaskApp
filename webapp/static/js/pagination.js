@@ -1,7 +1,7 @@
 /**
  * Shared pagination utilities with optional infinite scroll support.
  *
- * Provides a unified pagination client for the Familink application.
+ * Provides a unified pagination client for the nolumia application.
  */
 
 function formatMessage(template, params = {}) {

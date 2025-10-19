@@ -1,6 +1,6 @@
 # TOTP 管理ガイド
 
-Familink に組み込まれている TOTP (Time-based One-Time Password) 管理機能の概要と使い方をまとめています。管理者ロールを対象とした運用を前提としており、otpauth URI や QR コードからの登録、OTP プレビュー表示、JSON による一括インポート/エクスポートをサポートします。
+nolumia に組み込まれている TOTP (Time-based One-Time Password) 管理機能の概要と使い方をまとめています。管理者ロールを対象とした運用を前提としており、otpauth URI や QR コードからの登録、OTP プレビュー表示、JSON による一括インポート/エクスポートをサポートします。
 
 ## 前提条件
 

@@ -1,6 +1,6 @@
 from flask_smorest import Blueprint
 
-bp = Blueprint("api", __name__, description="Familink API")
+bp = Blueprint("api", __name__, description="nolumia API")
 
 from . import routes  # noqa: E402,F401
 from . import health  # noqa: E402,F401

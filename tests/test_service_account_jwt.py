@@ -149,19 +149,19 @@ def test_service_account_jwt_success_es256(app_context, monkeypatch):
     token = _issue_token(
         private_pem,
         name="maintenance-bot",
-        audience="familink:maintenance",
+        audience="nolumia:maintenance",
         scopes="maintenance:read maintenance:write",
         kid=kid,
     )
 
     account, claims = ServiceAccountTokenValidator.verify(
         token,
-        audience="familink:maintenance",
+        audience="nolumia:maintenance",
         required_scopes=["maintenance:read"],
     )
 
     assert account.name == "maintenance-bot"
-    assert claims["aud"] == "familink:maintenance"
+    assert claims["aud"] == "nolumia:maintenance"
 
 
 @pytest.mark.usefixtures("app_context")
@@ -174,13 +174,13 @@ def test_service_account_jwt_invalid_scope(app_context, monkeypatch):
     token = _issue_token(
         private_pem,
         name="scope-bot",
-        audience="familink:maintenance",
+        audience="nolumia:maintenance",
         scopes="maintenance:read",
         kid=kid,
     )
 
     with pytest.raises(ServiceAccountJWTError) as exc:
-        ServiceAccountTokenValidator.verify(token, audience="familink:maintenance", required_scopes=["maintenance:write"])
+        ServiceAccountTokenValidator.verify(token, audience="nolumia:maintenance", required_scopes=["maintenance:write"])
 
     assert exc.value.code == "InvalidScope"
 
@@ -197,7 +197,7 @@ def test_service_account_jwt_unknown_kid(app_context, monkeypatch):
     token = _issue_token(
         private_pem,
         name="unknown-kid",
-        audience="familink:maintenance",
+        audience="nolumia:maintenance",
         scopes="maintenance:read",
         kid="missing-key",
     )
@@ -205,7 +205,7 @@ def test_service_account_jwt_unknown_kid(app_context, monkeypatch):
     with pytest.raises(ServiceAccountJWTError) as exc:
         ServiceAccountTokenValidator.verify(
             token,
-            audience="familink:maintenance",
+            audience="nolumia:maintenance",
             required_scopes=["maintenance:read"],
         )
 
@@ -223,7 +223,7 @@ def test_service_account_jwt_expired(app_context, monkeypatch):
     payload = {
         "iss": "expired-bot",
         "sub": "expired-bot",
-        "aud": "familink:maintenance",
+        "aud": "nolumia:maintenance",
         "iat": int((now - timedelta(minutes=20)).timestamp()),
         "exp": int((now - timedelta(minutes=10)).timestamp()),
         "scope": "maintenance:read",
@@ -231,7 +231,7 @@ def test_service_account_jwt_expired(app_context, monkeypatch):
     token = jwt.encode(payload, private_pem, algorithm="ES256", headers={"kid": kid})
 
     with pytest.raises(ServiceAccountJWTError) as exc:
-        ServiceAccountTokenValidator.verify(token, audience="familink:maintenance", required_scopes=["maintenance:read"])
+        ServiceAccountTokenValidator.verify(token, audience="nolumia:maintenance", required_scopes=["maintenance:read"])
 
     assert exc.value.code == "ExpiredToken"
 
@@ -240,10 +240,10 @@ def test_service_account_jwt_expired(app_context, monkeypatch):
 def test_service_account_jwt_unknown_account(app_context):
     private_pem, public_pem = _generate_es256_key_pair()
     # アカウント未登録
-    token = _issue_token(private_pem, name="ghost-bot", audience="familink:maintenance", scopes="maintenance:read")
+    token = _issue_token(private_pem, name="ghost-bot", audience="nolumia:maintenance", scopes="maintenance:read")
 
     with pytest.raises(ServiceAccountJWTError) as exc:
-        ServiceAccountTokenValidator.verify(token, audience="familink:maintenance", required_scopes=["maintenance:read"])
+        ServiceAccountTokenValidator.verify(token, audience="nolumia:maintenance", required_scopes=["maintenance:read"])
 
     assert exc.value.code == "UnknownAccount"
 
@@ -261,13 +261,13 @@ def test_service_account_jwt_disabled_account(app_context, monkeypatch):
     token = _issue_token(
         private_pem,
         name="disabled-bot",
-        audience="familink:maintenance",
+        audience="nolumia:maintenance",
         scopes="maintenance:read",
         kid=kid,
     )
 
     with pytest.raises(ServiceAccountJWTError) as exc:
-        ServiceAccountTokenValidator.verify(token, audience="familink:maintenance", required_scopes=["maintenance:read"])
+        ServiceAccountTokenValidator.verify(token, audience="nolumia:maintenance", required_scopes=["maintenance:read"])
 
     assert exc.value.code == "DisabledAccount"
 
@@ -282,14 +282,14 @@ def test_service_account_jwt_lifetime_limit(app_context, monkeypatch):
     token = _issue_token(
         private_pem,
         name="long-bot",
-        audience="familink:maintenance",
+        audience="nolumia:maintenance",
         scopes="maintenance:read",
         lifetime_minutes=15,
         kid=kid,
     )
 
     with pytest.raises(ServiceAccountJWTError) as exc:
-        ServiceAccountTokenValidator.verify(token, audience="familink:maintenance", required_scopes=["maintenance:read"])
+        ServiceAccountTokenValidator.verify(token, audience="nolumia:maintenance", required_scopes=["maintenance:read"])
 
     assert exc.value.code == "ExpiredToken"
 
@@ -304,7 +304,7 @@ def test_service_account_jwt_success_rs256(app_context, monkeypatch):
     token = _issue_token(
         private_pem,
         name="rsa-bot",
-        audience="familink:maintenance",
+        audience="nolumia:maintenance",
         scopes="maintenance:read",
         algorithm="RS256",
         kid=kid,
@@ -312,7 +312,7 @@ def test_service_account_jwt_success_rs256(app_context, monkeypatch):
 
     account, _ = ServiceAccountTokenValidator.verify(
         token,
-        audience="familink:maintenance",
+        audience="nolumia:maintenance",
         required_scopes=["maintenance:read"],
     )
 

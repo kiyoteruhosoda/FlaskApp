@@ -291,33 +291,6 @@ def _normalize_openapi_prefix(prefix: Optional[str]) -> str:
     return normalized.rstrip("/")
 
 
-def _strip_quotes(value: str) -> str:
-    if len(value) >= 2 and value[0] == value[-1] == '"':
-        return value[1:-1]
-    return value
-
-
-def _parse_forwarded_header(header_value: Optional[str]) -> List[Dict[str, str]]:
-    if not header_value:
-        return []
-    parsed: List[Dict[str, str]] = []
-    for part in header_value.split(","):
-        params: Dict[str, str] = {}
-        for token in part.split(";"):
-            token = token.strip()
-            if not token or "=" not in token:
-                continue
-            key, raw_value = token.split("=", 1)
-            key = key.strip().lower()
-            value = _strip_quotes(raw_value.strip())
-            if not key:
-                continue
-            params[key] = value
-        if params:
-            parsed.append(params)
-    return parsed
-
-
 def _normalize_script_root(script_root: Optional[str]) -> str:
     if not script_root:
         return ""
@@ -347,15 +320,15 @@ def _combine_base_and_prefix(base: str, api_prefix: str) -> str:
     return f"{normalized_base}{api_prefix}"
 
 
-def _iter_non_empty(values: Iterable[Optional[str]]) -> Iterable[str]:
-    for value in values:
-        if value:
-            stripped = value.strip()
-            if stripped:
-                yield stripped
-
-
 def _calculate_openapi_server_urls(prefix: str) -> List[str]:
+    """Derive OpenAPI server URLs using trusted request attributes.
+
+    The request object already reflects the ``ProxyFix`` trust
+    configuration, so we avoid reading ``Forwarded`` headers directly.
+    This prevents leaking attacker controlled values from untrusted
+    proxies into the generated OpenAPI specification.
+    """
+
     script_root = _normalize_script_root(request.script_root)
 
     def add_url(urls: List[str], seen: set[str], base: str) -> None:
@@ -370,36 +343,9 @@ def _calculate_openapi_server_urls(prefix: str) -> List[str]:
     urls: List[str] = []
     seen: set[str] = set()
 
-    for params in _parse_forwarded_header(request.headers.get("Forwarded")):
-        host = params.get("host")
-        proto = params.get("proto") or params.get("scheme") or request.scheme
-        if host:
-            base = _build_base_url(proto, host, script_root)
-            add_url(urls, seen, base)
-        elif proto:
-            base = _build_base_url(proto, request.host, script_root)
-            add_url(urls, seen, base)
-
-    forwarded_hosts_header = request.headers.get("X-Forwarded-Host", "")
-    forwarded_hosts = list(_iter_non_empty(forwarded_hosts_header.split(",")))
-    forwarded_protos = list(_iter_non_empty(request.headers.get("X-Forwarded-Proto", "").split(",")))
-    if forwarded_hosts:
-        protos = forwarded_protos or [request.scheme]
-        for proto in protos:
-            for host in forwarded_hosts:
-                base = _build_base_url(proto, host, script_root)
-                add_url(urls, seen, base)
-    else:
-        for proto in forwarded_protos:
-            base = _build_base_url(proto, request.host, script_root)
-            add_url(urls, seen, base)
-
     url_root_base = request.url_root.rstrip("/")
     if url_root_base:
         add_url(urls, seen, url_root_base)
-    else:
-        host_base = _build_base_url(request.scheme, request.host, script_root)
-        add_url(urls, seen, host_base)
 
     host_url_base = request.host_url.rstrip("/")
     if host_url_base:
@@ -407,6 +353,9 @@ def _calculate_openapi_server_urls(prefix: str) -> List[str]:
         if script_root and script_root != "/":
             base = f"{base}{script_root}"
         add_url(urls, seen, base)
+
+    trusted_host_base = _build_base_url(request.scheme, request.host, script_root)
+    add_url(urls, seen, trusted_host_base)
 
     return urls or ["/" if not prefix else prefix]
 

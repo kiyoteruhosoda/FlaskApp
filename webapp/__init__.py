@@ -27,7 +27,7 @@ from flask import (
 from flask_babel import get_locale
 from flask_babel import gettext as _
 from sqlalchemy.engine import make_url
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from werkzeug.datastructures import FileStorage
 
@@ -291,13 +291,124 @@ def _normalize_openapi_prefix(prefix: Optional[str]) -> str:
     return normalized.rstrip("/")
 
 
-def _build_openapi_server_url(url_root: str, api_prefix: str) -> str:
-    base = url_root.rstrip("/")
-    if not base:
-        base = "/"
-    if api_prefix:
-        return f"{base}{api_prefix}"
+def _strip_quotes(value: str) -> str:
+    if len(value) >= 2 and value[0] == value[-1] == '"':
+        return value[1:-1]
+    return value
+
+
+def _parse_forwarded_header(header_value: Optional[str]) -> List[Dict[str, str]]:
+    if not header_value:
+        return []
+    parsed: List[Dict[str, str]] = []
+    for part in header_value.split(","):
+        params: Dict[str, str] = {}
+        for token in part.split(";"):
+            token = token.strip()
+            if not token or "=" not in token:
+                continue
+            key, raw_value = token.split("=", 1)
+            key = key.strip().lower()
+            value = _strip_quotes(raw_value.strip())
+            if not key:
+                continue
+            params[key] = value
+        if params:
+            parsed.append(params)
+    return parsed
+
+
+def _normalize_script_root(script_root: Optional[str]) -> str:
+    if not script_root:
+        return ""
+    normalized = script_root.strip()
+    if not normalized:
+        return ""
+    if not normalized.startswith("/"):
+        normalized = f"/{normalized}"
+    return normalized.rstrip("/")
+
+
+def _build_base_url(scheme: str, host: str, script_root: str) -> str:
+    base = f"{scheme}://{host.strip()}"
+    if script_root and script_root != "/":
+        base = f"{base}{script_root}"
     return base
+
+
+def _combine_base_and_prefix(base: str, api_prefix: str) -> str:
+    normalized_base = base.rstrip("/") or ("/" if base.startswith("/") else base or "/")
+    if not api_prefix:
+        return normalized_base
+    if normalized_base == "/":
+        return api_prefix or "/"
+    if normalized_base.endswith(api_prefix):
+        return normalized_base
+    return f"{normalized_base}{api_prefix}"
+
+
+def _iter_non_empty(values: Iterable[Optional[str]]) -> Iterable[str]:
+    for value in values:
+        if value:
+            stripped = value.strip()
+            if stripped:
+                yield stripped
+
+
+def _calculate_openapi_server_urls(prefix: str) -> List[str]:
+    script_root = _normalize_script_root(request.script_root)
+
+    def add_url(urls: List[str], seen: set[str], base: str) -> None:
+        if not base:
+            return
+        combined = _combine_base_and_prefix(base, prefix)
+        if combined in seen:
+            return
+        seen.add(combined)
+        urls.append(combined)
+
+    urls: List[str] = []
+    seen: set[str] = set()
+
+    for params in _parse_forwarded_header(request.headers.get("Forwarded")):
+        host = params.get("host")
+        proto = params.get("proto") or params.get("scheme") or request.scheme
+        if host:
+            base = _build_base_url(proto, host, script_root)
+            add_url(urls, seen, base)
+        elif proto:
+            base = _build_base_url(proto, request.host, script_root)
+            add_url(urls, seen, base)
+
+    forwarded_hosts_header = request.headers.get("X-Forwarded-Host", "")
+    forwarded_hosts = list(_iter_non_empty(forwarded_hosts_header.split(",")))
+    forwarded_protos = list(_iter_non_empty(request.headers.get("X-Forwarded-Proto", "").split(",")))
+    if forwarded_hosts:
+        protos = forwarded_protos or [request.scheme]
+        for proto in protos:
+            for host in forwarded_hosts:
+                base = _build_base_url(proto, host, script_root)
+                add_url(urls, seen, base)
+    else:
+        for proto in forwarded_protos:
+            base = _build_base_url(proto, request.host, script_root)
+            add_url(urls, seen, base)
+
+    url_root_base = request.url_root.rstrip("/")
+    if url_root_base:
+        add_url(urls, seen, url_root_base)
+    else:
+        host_base = _build_base_url(request.scheme, request.host, script_root)
+        add_url(urls, seen, host_base)
+
+    host_url_base = request.host_url.rstrip("/")
+    if host_url_base:
+        base = host_url_base
+        if script_root and script_root != "/":
+            base = f"{base}{script_root}"
+        add_url(urls, seen, base)
+
+    return urls or ["/" if not prefix else prefix]
 
 
 # エラーハンドラ
@@ -375,8 +486,8 @@ def create_app():
         if spec is None:
             return
         prefix = _normalize_openapi_prefix(app.config.get("OPENAPI_URL_PREFIX", "/api"))
-        server_url = _build_openapi_server_url(request.url_root, prefix)
-        spec.options["servers"] = [{"url": server_url}]
+        server_urls = _calculate_openapi_server_urls(prefix)
+        spec.options["servers"] = [{"url": url} for url in server_urls]
 
     # ★ Jinja から get_locale() を使えるようにする
     app.jinja_env.globals["get_locale"] = get_locale

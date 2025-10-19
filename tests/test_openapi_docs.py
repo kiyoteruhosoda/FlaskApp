@@ -50,6 +50,8 @@ class TestOpenAPIDocs:
         assert '#servers' in selectors_literal
         assert 'SwaggerUIBundle' in html
         assert 'url: "/api/openapi.json"' in html
+        assert '<link rel="icon" type="image/x-icon" href="/static/favicon.ico">' in html
+        assert 'Version:' in html
 
     def test_openapi_spec_respects_forwarded_headers(self, app_context):
         client = app_context.test_client()

@@ -3009,6 +3009,9 @@ msgstr "用途タイプ"
 msgid "Select usage type"
 msgstr "用途タイプを選択"
 
+msgid "Select all shown permissions"
+msgstr "表示されている権限をすべて選択"
+
 msgid "Key Size"
 msgstr "鍵長"
 

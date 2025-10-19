@@ -35,6 +35,7 @@ from .extensions import db, migrate, login_manager, babel, api as smorest_api
 from .timezone import resolve_timezone, convert_to_timezone
 from core.db_log_handler import DBLogHandler
 from core.logging_config import ensure_appdb_file_logging
+from core.settings import settings
 from core.time import utc_now_isoformat
 
 
@@ -53,6 +54,11 @@ _MAX_LOG_PAYLOAD_BYTES = 60_000
 
 
 _MAX_POST_PARAM_STRING_LENGTH = 120
+
+
+_DEFAULT_CORS_ALLOW_HEADERS = "Authorization,Content-Type"
+_DEFAULT_CORS_ALLOW_METHODS = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+_DEFAULT_CORS_MAX_AGE = "86400"
 
 
 def _is_sensitive_key(key):
@@ -324,6 +330,78 @@ def _strip_quotes(value: str) -> str:
     return value
 
 
+def _configure_cors(app: Flask) -> None:
+    """Configure Cross-Origin Resource Sharing based on application settings."""
+
+    allowed_origins = tuple(settings.cors_allowed_origins)
+    app.config["CORS_ALLOWED_ORIGINS"] = allowed_origins
+
+    if not allowed_origins:
+        return
+
+    allow_all = "*" in allowed_origins
+    allowed_origin_set = set(allowed_origins)
+
+    def _is_origin_allowed(origin: Optional[str]) -> bool:
+        if not origin:
+            return False
+        if allow_all:
+            return True
+        return origin in allowed_origin_set
+
+    def _apply_base_headers(response, origin: str) -> None:
+        if allow_all:
+            response.headers["Access-Control-Allow-Origin"] = "*"
+        else:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers.add("Vary", "Origin")
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers.setdefault("Access-Control-Max-Age", _DEFAULT_CORS_MAX_AGE)
+
+    @app.before_request
+    def _handle_cors_preflight():
+        if request.method != "OPTIONS":
+            return None
+        origin = request.headers.get("Origin")
+        if not _is_origin_allowed(origin):
+            return None
+
+        response = make_response("", 204)
+        _apply_base_headers(response, origin or "")
+
+        requested_method = request.headers.get("Access-Control-Request-Method")
+        response.headers["Access-Control-Allow-Methods"] = (
+            requested_method or _DEFAULT_CORS_ALLOW_METHODS
+        )
+
+        requested_headers = request.headers.get("Access-Control-Request-Headers")
+        if requested_headers:
+            response.headers["Access-Control-Allow-Headers"] = requested_headers
+        else:
+            response.headers["Access-Control-Allow-Headers"] = _DEFAULT_CORS_ALLOW_HEADERS
+
+        return response
+
+    @app.after_request
+    def _apply_cors_headers(response):
+        origin = request.headers.get("Origin")
+        if not _is_origin_allowed(origin):
+            return response
+
+        _apply_base_headers(response, origin or "")
+
+        if "Access-Control-Allow-Methods" not in response.headers:
+            response.headers["Access-Control-Allow-Methods"] = _DEFAULT_CORS_ALLOW_METHODS
+
+        request_headers = request.headers.get("Access-Control-Request-Headers")
+        if request_headers:
+            response.headers["Access-Control-Allow-Headers"] = request_headers
+        elif "Access-Control-Allow-Headers" not in response.headers:
+            response.headers["Access-Control-Allow-Headers"] = _DEFAULT_CORS_ALLOW_HEADERS
+
+        return response
+
+
 def _parse_forwarded_header(header_value: Optional[str]) -> List[Dict[str, str]]:
     if not header_value:
         return []
@@ -531,6 +609,8 @@ def create_app():
         "https://cdn.jsdelivr.net/npm/swagger-ui-dist/",
     )
     app.config.setdefault("API_SPEC_OPTIONS", {})
+
+    _configure_cors(app)
 
     database_uri = app.config.get("SQLALCHEMY_DATABASE_URI")
     testing_mode = app.config.get("TESTING") or str(os.environ.get("TESTING", "")).lower() in {

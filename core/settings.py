@@ -14,9 +14,10 @@ mapping to validate behaviour in isolation.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 import os
 from pathlib import Path
-from typing import Mapping, Optional, Tuple
+from typing import Iterable, Mapping, Optional, Tuple
 
 _DEFAULT_ACCESS_TOKEN_ISSUER = "fpv-webapp"
 _DEFAULT_ACCESS_TOKEN_AUDIENCE = "fpv-webapp"
@@ -133,6 +134,40 @@ class ApplicationSettings:
         return tuple(value for value in values if value)
 
     @property
+    def cors_allowed_origins(self) -> Tuple[str, ...]:
+        """Return the list of origins allowed for cross-origin requests."""
+
+        candidate_paths = []
+        path_value = self._get("CORS_ALLOWED_ORIGINS_FILE")
+        if path_value:
+            candidate_paths.append(Path(path_value).expanduser())
+
+        candidate_paths.extend(
+            [
+                Path("/app/config/cors_allowed_origins.txt"),
+                Path("/app/config/cors_allowed_origins.json"),
+                Path.cwd() / "config" / "cors_allowed_origins.txt",
+                Path.cwd() / "config" / "cors_allowed_origins.json",
+            ]
+        )
+
+        seen: set[Path] = set()
+        for candidate in candidate_paths:
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            origins = _load_cors_origins_from_file(candidate)
+            if origins:
+                return origins
+
+        env_value = self._get("CORS_ALLOWED_ORIGINS")
+        if env_value:
+            values = [segment.strip() for segment in env_value.split(",")]
+            return _normalize_origin_values(values)
+
+        return ()
+
+    @property
     def access_token_issuer(self) -> str:
         value = self._get("ACCESS_TOKEN_ISSUER", _DEFAULT_ACCESS_TOKEN_ISSUER)
         if not value:
@@ -159,6 +194,52 @@ class ApplicationSettings:
 
 
 # Default settings instance used by the application.
+def _normalize_origin_values(values: Iterable[object]) -> Tuple[str, ...]:
+    normalized: list[str] = []
+    for value in values:
+        if value is None:
+            continue
+        if isinstance(value, bytes):
+            candidate = value.decode("utf-8", errors="ignore").strip()
+        else:
+            candidate = str(value).strip()
+        if not candidate or candidate in normalized:
+            continue
+        normalized.append(candidate)
+    return tuple(normalized)
+
+
+def _load_cors_origins_from_file(path: Path) -> Tuple[str, ...]:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return ()
+    except OSError:
+        return ()
+
+    content = text.strip()
+    if not content:
+        return ()
+
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError:
+        pass
+    else:
+        if isinstance(data, (list, tuple)):
+            return _normalize_origin_values(data)
+        if isinstance(data, str):
+            return _normalize_origin_values([data])
+
+    lines = []
+    for raw_line in content.splitlines():
+        line = raw_line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        lines.append(line)
+    return _normalize_origin_values(lines)
+
+
 settings = ApplicationSettings()
 
 __all__ = ["ApplicationSettings", "settings"]

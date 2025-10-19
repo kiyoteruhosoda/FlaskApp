@@ -10,6 +10,7 @@ from flask import g, jsonify, request
 from flask_babel import gettext as _
 
 from features.certs.application.dto import SignGroupPayloadInput
+from features.certs.application.services import default_certificate_services
 from features.certs.application.use_cases import SignGroupPayloadUseCase
 from features.certs.domain.exceptions import (
     CertificateError,
@@ -17,6 +18,7 @@ from features.certs.domain.exceptions import (
     CertificateNotFoundError,
     CertificateValidationError,
 )
+from features.certs.domain.usage import UsageType
 from core.settings import settings
 from webapp.auth.api_key_auth import require_api_key_scopes
 
@@ -140,6 +142,26 @@ def create_service_account_signature():
     if not isinstance(kid_value, str) or not kid_value.strip():
         return _json_error(_("kid must be provided."), HTTPStatus.BAD_REQUEST)
 
+    normalized_kid = kid_value.strip()
+
+    try:
+        certificate = default_certificate_services.issued_store.get(normalized_kid)
+    except CertificateNotFoundError:
+        return _json_error(
+            _("The signing request key is not permitted for this service account."),
+            HTTPStatus.BAD_REQUEST,
+        )
+
+    if (
+        certificate.group is None
+        or certificate.group.group_code != account.certificate_group_code
+        or certificate.usage_type != UsageType.CLIENT_SIGNING
+    ):
+        return _json_error(
+            _("The signing request key is not permitted for this service account."),
+            HTTPStatus.BAD_REQUEST,
+        )
+
     hash_algorithm_value = payload.get("hashAlgorithm")
     if hash_algorithm_value is not None and not isinstance(hash_algorithm_value, str):
         return _json_error(_("hashAlgorithm must be a string."), HTTPStatus.BAD_REQUEST)
@@ -180,7 +202,7 @@ def create_service_account_signature():
     dto = SignGroupPayloadInput(
         group_code=account.certificate_group_code,
         payload=signing_input_bytes,
-        kid=kid_value.strip(),
+        kid=normalized_kid,
         hash_algorithm=(hash_algorithm_value.strip() if isinstance(hash_algorithm_value, str) else "SHA256"),
     )
 

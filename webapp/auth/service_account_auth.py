@@ -4,12 +4,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Iterable, Sequence
+import uuid
 
 import json
 import jwt
 from flask import current_app, g, request
 from flask_babel import gettext as _
 from jwt import algorithms as jwt_algorithms
+import redis
+from redis import RedisError
 
 from core.models.service_account import ServiceAccount
 from webapp.services.service_account_service import ServiceAccountService
@@ -18,6 +21,7 @@ from features.certs.domain.exceptions import CertificateGroupNotFoundError
 
 _ALLOWED_ALGORITHMS = {"ES256", "RS256"}
 _MAX_TOKEN_LIFETIME = timedelta(minutes=10)
+_MAX_JTI_TTL_SECONDS = 600
 
 
 @dataclass
@@ -27,6 +31,72 @@ class ServiceAccountJWTError(Exception):
 
     def __str__(self) -> str:  # pragma: no cover - dataclass repr is enough
         return self.message
+
+
+class _ServiceAccountJTIStore:
+    """Replay protection for service account JWT IDs using Redis."""
+
+    _KEY_PREFIX = "jti:"
+
+    @staticmethod
+    def _get_client():
+        redis_url = current_app.config.get("REDIS_URL")
+        if not redis_url:
+            raise ServiceAccountJWTError(
+                "JTICheckFailed",
+                _("Replay protection storage is not configured."),
+            )
+
+        try:
+            return redis.from_url(redis_url)
+        except RedisError as exc:
+            raise ServiceAccountJWTError(
+                "JTICheckFailed",
+                _("Failed to connect to the replay protection storage."),
+            ) from exc
+
+    @classmethod
+    def mark_as_used(
+        cls,
+        jti_value: object,
+        issued_at: datetime,
+        expires_at: datetime,
+    ) -> None:
+        if not isinstance(jti_value, str) or not jti_value.strip():
+            raise ServiceAccountJWTError(
+                "MissingJTI",
+                _("The token must include a \"jti\" claim."),
+            )
+
+        try:
+            parsed_jti = uuid.UUID(jti_value)
+        except (ValueError, AttributeError, TypeError) as exc:
+            raise ServiceAccountJWTError(
+                "InvalidJTI",
+                _("The token \"jti\" claim must be a valid UUID."),
+            ) from exc
+
+        key = f"{cls._KEY_PREFIX}{parsed_jti}"  # store normalized UUID string
+
+        ttl_seconds = int((expires_at - issued_at).total_seconds())
+        if ttl_seconds <= 0:
+            ttl_seconds = 1
+        ttl_seconds = min(ttl_seconds, _MAX_JTI_TTL_SECONDS)
+
+        client = cls._get_client()
+
+        try:
+            if client.exists(key):
+                raise ServiceAccountJWTError(
+                    "ReplayDetected",
+                    _("The token has already been used."),
+                )
+            client.setex(key, ttl_seconds, "used")
+        except RedisError as exc:
+            raise ServiceAccountJWTError(
+                "JTICheckFailed",
+                _("Failed to store the token identifier."),
+            ) from exc
 
 
 class ServiceAccountTokenValidator:
@@ -197,6 +267,8 @@ class ServiceAccountTokenValidator:
                 _("The token issue time is in the future."),
             )
 
+        _ServiceAccountJTIStore.mark_as_used(claims.get("jti"), issued_at, expires_at)
+
         account_scopes = set(account.scopes)
         if required_scopes:
             missing = [scope for scope in required_scopes if scope not in account_scopes]
@@ -250,7 +322,14 @@ def require_service_account_scopes(
                         "endpoint": request.path,
                     },
                 )
-                status = 401 if exc.code in {"InvalidSignature", "ExpiredToken"} else 403
+                if exc.code in {"InvalidSignature", "ExpiredToken"}:
+                    status = 401
+                elif exc.code in {"MissingJTI", "InvalidJTI", "ReplayDetected"}:
+                    status = 400
+                elif exc.code == "JTICheckFailed":
+                    status = 500
+                else:
+                    status = 403
                 response = {
                     "error": exc.code,
                     "message": exc.message,

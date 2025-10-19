@@ -18,6 +18,9 @@ import os
 from pathlib import Path
 from typing import Mapping, Optional, Tuple
 
+_DEFAULT_ACCESS_TOKEN_ISSUER = "fpv-webapp"
+_DEFAULT_ACCESS_TOKEN_AUDIENCE = "fpv-webapp"
+
 @dataclass(frozen=True)
 class _EnvironmentFacade:
     """Thin wrapper that provides ``Mapping`` compatible access to env vars."""
@@ -128,6 +131,20 @@ class ApplicationSettings:
             return ()
         values = [segment.strip() for segment in raw.split(",")]
         return tuple(value for value in values if value)
+
+    @property
+    def access_token_issuer(self) -> str:
+        value = self._get("ACCESS_TOKEN_ISSUER", _DEFAULT_ACCESS_TOKEN_ISSUER)
+        if not value:
+            return _DEFAULT_ACCESS_TOKEN_ISSUER
+        return value.strip() or _DEFAULT_ACCESS_TOKEN_ISSUER
+
+    @property
+    def access_token_audience(self) -> str:
+        value = self._get("ACCESS_TOKEN_AUDIENCE", _DEFAULT_ACCESS_TOKEN_AUDIENCE)
+        if not value:
+            return _DEFAULT_ACCESS_TOKEN_AUDIENCE
+        return value.strip() or _DEFAULT_ACCESS_TOKEN_AUDIENCE
 
     # ------------------------------------------------------------------
     # Media processing configuration

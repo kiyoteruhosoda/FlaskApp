@@ -2,6 +2,7 @@ import jwt
 import pytest
 
 from core.models.user import User
+from core.settings import settings
 from datetime import datetime, timedelta, timezone
 
 from features.certs.application.use_cases import IssueCertificateForGroupUseCase
@@ -41,6 +42,19 @@ def test_generate_access_token_with_server_signing():
     header = jwt.get_unverified_header(token)
     assert header.get("alg") == issued.jwk.get("alg")
     assert header.get("kid") == issued.kid
+
+    claims = jwt.decode(
+        token,
+        options={
+            "verify_signature": False,
+            "verify_exp": False,
+            "verify_aud": False,
+            "verify_iss": False,
+        },
+        algorithms=[header.get("alg")],
+    )
+    assert claims["iss"] == settings.access_token_issuer
+    assert claims["aud"] == settings.access_token_audience
 
     verification = TokenService.verify_access_token(token)
     assert verification is not None
@@ -119,6 +133,20 @@ def test_latest_certificate_is_used_for_group():
 
     assert TokenService.verify_access_token(first_token) is not None
     assert TokenService.verify_access_token(second_token) is not None
+
+
+@pytest.mark.usefixtures("app_context")
+def test_verify_access_token_rejects_invalid_audience(monkeypatch):
+    user = User(email="aud-check@example.com")
+    user.set_password("secret")
+    db.session.add(user)
+    db.session.commit()
+
+    token = TokenService.generate_access_token(user)
+
+    monkeypatch.setenv("ACCESS_TOKEN_AUDIENCE", "unexpected")
+
+    assert TokenService.verify_access_token(token) is None
 
 
 @pytest.mark.usefixtures("app_context")

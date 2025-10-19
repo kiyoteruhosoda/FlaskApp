@@ -32,7 +32,9 @@ def main():
             payload = {
                 'sub': str(user.id),  # 文字列に変換
                 'email': user.email,
-                'exp': datetime.utcnow() + timedelta(hours=1)
+                'exp': datetime.utcnow() + timedelta(hours=1),
+                'iss': app.config.get('ACCESS_TOKEN_ISSUER', 'fpv-webapp'),
+                'aud': app.config.get('ACCESS_TOKEN_AUDIENCE', 'fpv-webapp'),
             }
             
             token = jwt.encode(
@@ -48,7 +50,9 @@ def main():
                 decoded = jwt.decode(
                     token,
                     app.config['JWT_SECRET_KEY'],
-                    algorithms=['HS256']
+                    algorithms=['HS256'],
+                    audience=app.config.get('ACCESS_TOKEN_AUDIENCE'),
+                    issuer=app.config.get('ACCESS_TOKEN_ISSUER'),
                 )
                 print(f"デコード成功: {decoded}")
             except Exception as e:

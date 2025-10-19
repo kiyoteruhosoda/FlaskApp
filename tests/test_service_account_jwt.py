@@ -1,6 +1,9 @@
 from datetime import datetime, timedelta, timezone
 
 import json
+import time
+import uuid
+
 import jwt
 import pytest
 from cryptography.hazmat.primitives import serialization
@@ -19,6 +22,57 @@ from webapp.services.service_account_service import (
     ServiceAccountService,
     ServiceAccountValidationError,
 )
+
+
+class _InMemoryRedis:
+    def __init__(self):
+        self._store: dict[str, tuple[str, float]] = {}
+
+    def _purge(self) -> None:
+        now = time.monotonic()
+        expired = [key for key, (_, exp) in self._store.items() if exp <= now]
+        for key in expired:
+            del self._store[key]
+
+    def set(
+        self,
+        key: str,
+        value: str,
+        *,
+        ex: int | None = None,
+        px: int | None = None,
+        nx: bool = False,
+        xx: bool = False,
+    ) -> bool:
+        self._purge()
+        exists = key in self._store
+        if nx and exists:
+            return False
+        if xx and not exists:
+            return False
+
+        ttl_seconds: float | None = None
+        if ex is not None:
+            ttl_seconds = float(ex)
+        elif px is not None:
+            ttl_seconds = float(px) / 1000.0
+
+        expiry = (
+            time.monotonic() + ttl_seconds if ttl_seconds is not None else float("inf")
+        )
+        self._store[key] = (value, expiry)
+        return True
+
+
+@pytest.fixture(autouse=True)
+def redis_store(app_context, monkeypatch):
+    store = _InMemoryRedis()
+    app_context.config["REDIS_URL"] = "redis://localhost:6379/0"
+    monkeypatch.setattr(
+        "webapp.auth.service_account_auth.redis.from_url",
+        lambda url: store,
+    )
+    return store
 
 
 def _generate_es256_key_pair():
@@ -119,8 +173,10 @@ def _issue_token(
     lifetime_minutes: int = 5,
     algorithm: str = "ES256",
     kid: str = "test-key",
+    jti: str | None = None,
 ):
     now = datetime.now(timezone.utc)
+    token_jti = jti or str(uuid.uuid4())
     payload = {
         "iss": name,
         "sub": name,
@@ -128,6 +184,7 @@ def _issue_token(
         "iat": int(now.timestamp()),
         "exp": int((now + timedelta(minutes=lifetime_minutes)).timestamp()),
         "scope": scopes,
+        "jti": token_jti,
     }
     headers = {"kid": kid}
     return jwt.encode(payload, private_pem, algorithm=algorithm, headers=headers)
@@ -227,6 +284,7 @@ def test_service_account_jwt_expired(app_context, monkeypatch):
         "iat": int((now - timedelta(minutes=20)).timestamp()),
         "exp": int((now - timedelta(minutes=10)).timestamp()),
         "scope": "maintenance:read",
+        "jti": str(uuid.uuid4()),
     }
     token = jwt.encode(payload, private_pem, algorithm="ES256", headers={"kid": kid})
 
@@ -317,6 +375,98 @@ def test_service_account_jwt_success_rs256(app_context, monkeypatch):
     )
 
     assert account.name == "rsa-bot"
+
+
+@pytest.mark.usefixtures("app_context")
+def test_service_account_jwt_missing_jti(app_context, monkeypatch):
+    private_pem, public_pem = _generate_es256_key_pair()
+    group_code = _create_certificate_group("missing-jti-group")
+    kid = "missing-jti"
+    _mock_jwks(monkeypatch, {group_code: [_build_jwk(public_pem, "ES256", kid)]})
+    _create_account(app_context, "missing-jti", group_code, "maintenance:read")
+
+    now = datetime.now(timezone.utc)
+    payload = {
+        "iss": "missing-jti",
+        "sub": "missing-jti",
+        "aud": "nolumia:maintenance",
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(minutes=5)).timestamp()),
+        "scope": "maintenance:read",
+    }
+    token = jwt.encode(payload, private_pem, algorithm="ES256", headers={"kid": kid})
+
+    with pytest.raises(ServiceAccountJWTError) as exc:
+        ServiceAccountTokenValidator.verify(
+            token,
+            audience="nolumia:maintenance",
+            required_scopes=["maintenance:read"],
+        )
+
+    assert exc.value.code == "MissingJTI"
+
+
+@pytest.mark.usefixtures("app_context")
+def test_service_account_jwt_invalid_jti(app_context, monkeypatch):
+    private_pem, public_pem = _generate_es256_key_pair()
+    group_code = _create_certificate_group("invalid-jti-group")
+    kid = "invalid-jti"
+    _mock_jwks(monkeypatch, {group_code: [_build_jwk(public_pem, "ES256", kid)]})
+    _create_account(app_context, "invalid-jti", group_code, "maintenance:read")
+
+    now = datetime.now(timezone.utc)
+    payload = {
+        "iss": "invalid-jti",
+        "sub": "invalid-jti",
+        "aud": "nolumia:maintenance",
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(minutes=5)).timestamp()),
+        "scope": "maintenance:read",
+        "jti": "not-a-uuid",
+    }
+    token = jwt.encode(payload, private_pem, algorithm="ES256", headers={"kid": kid})
+
+    with pytest.raises(ServiceAccountJWTError) as exc:
+        ServiceAccountTokenValidator.verify(
+            token,
+            audience="nolumia:maintenance",
+            required_scopes=["maintenance:read"],
+        )
+
+    assert exc.value.code == "InvalidJTI"
+
+
+@pytest.mark.usefixtures("app_context")
+def test_service_account_jwt_replay_detected(app_context, monkeypatch):
+    private_pem, public_pem = _generate_es256_key_pair()
+    group_code = _create_certificate_group("replay-group")
+    kid = "replay-key"
+    _mock_jwks(monkeypatch, {group_code: [_build_jwk(public_pem, "ES256", kid)]})
+    _create_account(app_context, "replay-bot", group_code, "maintenance:read")
+
+    token = _issue_token(
+        private_pem,
+        name="replay-bot",
+        audience="nolumia:maintenance",
+        scopes="maintenance:read",
+        kid=kid,
+        jti=str(uuid.uuid4()),
+    )
+
+    ServiceAccountTokenValidator.verify(
+        token,
+        audience="nolumia:maintenance",
+        required_scopes=["maintenance:read"],
+    )
+
+    with pytest.raises(ServiceAccountJWTError) as exc:
+        ServiceAccountTokenValidator.verify(
+            token,
+            audience="nolumia:maintenance",
+            required_scopes=["maintenance:read"],
+        )
+
+    assert exc.value.code == "ReplayDetected"
 
 
 @pytest.mark.usefixtures("app_context")

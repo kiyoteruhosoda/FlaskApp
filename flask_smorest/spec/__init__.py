@@ -142,14 +142,44 @@ class DocBlueprintMixin:
 
     def _openapi_swagger_ui(self):
         """Expose OpenAPI spec with Swagger UI"""
-        return flask.render_template(
-            "swagger_ui.html",
-            title=self.spec.title,
-            spec_url=flask.url_for(f"{self._make_doc_blueprint_name()}.openapi_json"),
-            swagger_ui_url=self._swagger_ui_url,
-            swagger_ui_config=self.config.get("OPENAPI_SWAGGER_UI_CONFIG", {}),
-            servers=list(self.spec.options.get("servers") or []),
+        template_context = {}
+        app = flask.current_app._get_current_object()
+
+        # Collect values from the application's context processors so that
+        # variables such as ``app_version`` that are injected globally remain
+        # available when rendering the Swagger UI template.  This mirrors what
+        # :func:`flask.render_template` does internally, but performing it here
+        # allows us to forward the values explicitly to avoid relying on the
+        # implicit context injection order.
+        processors = []
+        processors.extend(app.template_context_processors.get(None, ()))
+        processors.extend(
+            app.template_context_processors.get(
+                self._make_doc_blueprint_name(), (),
+            )
         )
+
+        for processor in processors:
+            try:
+                template_context.update(processor())
+            except Exception:  # pragma: no cover - defensive, matches Flask behaviour
+                app.logger.exception("Swagger UI context processor failed", exc_info=True)
+
+        template_context.update(
+            dict(
+                title=self.spec.title,
+                spec_url=flask.url_for(
+                    f"{self._make_doc_blueprint_name()}.openapi_json"
+                ),
+                swagger_ui_url=self._swagger_ui_url,
+                swagger_ui_config=self.config.get(
+                    "OPENAPI_SWAGGER_UI_CONFIG", {}
+                ),
+                servers=list(self.spec.options.get("servers") or []),
+            )
+        )
+
+        return flask.render_template("swagger_ui.html", **template_context)
 
     def _openapi_rapidoc(self):
         """Expose OpenAPI spec with RapiDoc"""

@@ -8,6 +8,7 @@ from flask import jsonify, request
 from flask_login import current_user, login_required
 
 from . import bp
+from .openapi import json_request_body
 from webapp.services.service_account_api_key_service import (
     ServiceAccountApiKeyNotFoundError,
     ServiceAccountApiKeyService,
@@ -65,6 +66,29 @@ def list_service_account_keys(account_id: int):
 
 @bp.route("/service_accounts/<int:account_id>/keys", methods=["POST"])
 @login_required
+@bp.doc(
+    methods=["POST"],
+    requestBody=json_request_body(
+        "Create a new API key for the specified service account.",
+        required=False,
+        schema={
+            "type": "object",
+            "properties": {
+                "expires_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "ISO 8601 timestamp for when the key should expire.",
+                },
+                "scopes": {
+                    "type": "string",
+                    "description": "Space separated list of permission scopes to assign to the key.",
+                },
+            },
+            "additionalProperties": False,
+        },
+        example={"scopes": "media:view media:tag-manage", "expires_at": "2024-12-31T15:00:00Z"},
+    ),
+)
 def create_service_account_key(account_id: int):
     if not _has_manage_permission():
         return jsonify({"error": "forbidden"}), 403

@@ -19,6 +19,7 @@ from features.certs.domain.exceptions import (
 from webapp.auth.api_key_auth import require_api_key_scopes
 
 from . import bp
+from .openapi import json_request_body
 
 
 def _json_error(message: str, status: HTTPStatus):
@@ -42,6 +43,39 @@ def _decode_signing_input(value: str, encoding: str) -> bytes:
 
 @bp.route("/service_accounts/signatures", methods=["POST"])
 @require_api_key_scopes(["certificate:sign"])
+@bp.doc(
+    methods=["POST"],
+    requestBody=json_request_body(
+        "Submit a payload for signing with the service account certificate.",
+        schema={
+            "type": "object",
+            "properties": {
+                "signingInput": {
+                    "type": "string",
+                    "description": "Payload to sign encoded in base64 or base64url.",
+                },
+                "signingInputEncoding": {
+                    "type": "string",
+                    "enum": ["base64", "base64url"],
+                    "description": "Encoding used for the signingInput value.",
+                },
+                "kid": {
+                    "type": "string",
+                    "description": "Key identifier specifying which certificate to use.",
+                },
+                "hashAlgorithm": {
+                    "type": "string",
+                    "description": "Hash algorithm hint such as SHA256.",
+                },
+            },
+            "required": ["signingInput", "kid"],
+            "additionalProperties": False,
+        },
+        example={
+            "signingInput": "ZXhhbXBsZV9kYXRh", "signingInputEncoding": "base64", "kid": "primary", "hashAlgorithm": "SHA256"
+        },
+    ),
+)
 def create_service_account_signature():
     account = getattr(g, "service_account", None)
     if account is None:

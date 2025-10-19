@@ -20,6 +20,8 @@ def app(tmp_path):
         "SECRET_KEY": "test",
         "JWT_SECRET_KEY": "jwt-secret",
         "DATABASE_URI": f"sqlite:///{db_path}",
+        "ACCESS_TOKEN_ISSUER": "test-issuer",
+        "ACCESS_TOKEN_AUDIENCE": "test-audience",
     }.items():
         original_env[key] = os.environ.get(key)
         os.environ[key] = value
@@ -121,7 +123,13 @@ def album_user(app):
 
 
 def _decode_scope(token: str) -> str:
-    payload = jwt.decode(token, "jwt-secret", algorithms=["HS256"])
+    payload = jwt.decode(
+        token,
+        "jwt-secret",
+        algorithms=["HS256"],
+        audience=os.environ.get("ACCESS_TOKEN_AUDIENCE", "test-audience"),
+        issuer=os.environ.get("ACCESS_TOKEN_ISSUER", "test-issuer"),
+    )
     return payload.get("scope", "")
 
 

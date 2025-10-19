@@ -28,6 +28,8 @@ def app_context():
         "GOOGLE_CLIENT_ID": "",
         "GOOGLE_CLIENT_SECRET": "",
         "FEATURE_X_DB_URI": "",
+        "ACCESS_TOKEN_ISSUER": "test-issuer",
+        "ACCESS_TOKEN_AUDIENCE": "test-audience",
     }
     
     for key, value in test_env.items():

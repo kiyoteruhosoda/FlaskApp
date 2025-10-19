@@ -12,6 +12,7 @@ import jwt
 from flask import current_app
 
 from core.models.user import User
+from core.settings import settings
 from webapp.extensions import db
 from webapp.services.access_token_signing import (
     AccessTokenSigningError,
@@ -80,6 +81,8 @@ class TokenService:
             "jti": secrets.token_urlsafe(8),  # JWT ID
             "type": "access",
             "scope": scope_str,
+            "iss": settings.access_token_issuer,
+            "aud": settings.access_token_audience,
         }
 
         try:
@@ -153,14 +156,32 @@ class TokenService:
             current_app.logger.debug("JWT token verification key resolution failed: %s", exc)
             return None
 
+        expected_audience = settings.access_token_audience
+        expected_issuer = settings.access_token_issuer
+        required_claims = ["aud"]
+        if expected_issuer:
+            required_claims.append("iss")
+
         try:
             payload = jwt.decode(
                 token,
                 key,
                 algorithms=[algorithm],
+                audience=expected_audience,
+                issuer=expected_issuer if expected_issuer else None,
+                options={"require": required_claims},
             )
         except jwt.ExpiredSignatureError:
             current_app.logger.debug("JWT token expired")
+            return None
+        except jwt.InvalidAudienceError:
+            current_app.logger.debug("JWT token audience mismatch")
+            return None
+        except jwt.InvalidIssuerError:
+            current_app.logger.debug("JWT token issuer mismatch")
+            return None
+        except jwt.MissingRequiredClaimError as exc:
+            current_app.logger.debug("JWT token missing required claim: %s", exc.claim)
             return None
         except jwt.InvalidTokenError as exc:
             current_app.logger.debug(f"JWT token invalid: {exc}")

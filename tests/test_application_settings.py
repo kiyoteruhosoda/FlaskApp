@@ -19,6 +19,8 @@ def test_defaults_are_applied_when_env_missing():
     assert settings.oauth_token_key_file is None
     assert settings.transcode_crf == 20
     assert settings.service_account_signing_audiences == ()
+    assert settings.access_token_issuer == "fpv-webapp"
+    assert settings.access_token_audience == "fpv-webapp"
 
 
 def test_environment_overrides_are_reflected():
@@ -34,6 +36,8 @@ def test_environment_overrides_are_reflected():
         "FPV_TRANSCODE_CRF": "24",
         "FPV_OAUTH_TOKEN_KEY_FILE": "/secrets/token.key",
         "SERVICE_ACCOUNT_SIGNING_AUDIENCE": "aud-a, aud-b, aud-c",
+        "ACCESS_TOKEN_ISSUER": "issuer-x",
+        "ACCESS_TOKEN_AUDIENCE": "aud-x",
     }
 
     settings = ApplicationSettings(env=env)
@@ -49,6 +53,8 @@ def test_environment_overrides_are_reflected():
     assert settings.oauth_token_key_file == "/secrets/token.key"
     assert settings.transcode_crf == 24
     assert settings.service_account_signing_audiences == ("aud-a", "aud-b", "aud-c")
+    assert settings.access_token_issuer == "issuer-x"
+    assert settings.access_token_audience == "aud-x"
 
 
 def test_transcode_crf_invalid_value_falls_back_to_default():

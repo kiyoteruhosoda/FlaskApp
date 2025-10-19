@@ -17,6 +17,8 @@ class Config:
     # 環境変数にSECRET_KEYが無い場合はデフォルト値を使用
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key")
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "dev-jwt-secret")
+    ACCESS_TOKEN_ISSUER = os.environ.get("ACCESS_TOKEN_ISSUER", "fpv-webapp")
+    ACCESS_TOKEN_AUDIENCE = os.environ.get("ACCESS_TOKEN_AUDIENCE", "fpv-webapp")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     db_uri = os.environ.get("DATABASE_URI", "sqlite://")
     SQLALCHEMY_DATABASE_URI = db_uri

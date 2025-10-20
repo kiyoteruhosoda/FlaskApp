@@ -154,7 +154,6 @@ nano .env
 
 **必須変更項目:**
 - `SECRET_KEY`: 強力なランダム文字列
-- `AES_KEY`: 32バイトのランダムキー
 - `DB_ROOT_PASSWORD`: MariaDBのrootパスワード
 - `DB_PASSWORD`: アプリケーション用DBパスワード
 - `GOOGLE_CLIENT_ID`: Google OAuth設定

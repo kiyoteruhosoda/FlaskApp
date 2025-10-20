@@ -142,7 +142,6 @@ print(f'OAUTH_TOKEN_KEY=base64:{key}')
 ```env
 # セキュリティキー（必ず変更）
 SECRET_KEY=<your-strong-secret-key>
-AES_KEY=<your-32-byte-encryption-key>
 
 # データベース接続
 DATABASE_URI=mysql+pymysql://<user>:<pass>@<host>/<db>

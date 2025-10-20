@@ -104,7 +104,6 @@ Synology上で`/volume1/docker/photonest/.env`ファイルを作成します。
 ```env
 # 必ず変更が必要な項目
 SECRET_KEY=<your-very-strong-secret-key-here-change-this-immediately>
-AES_KEY=<your-32-byte-aes-encryption-key-change-this-now>
 JWT_SECRET_KEY=<your-jwt-secret-key-here>
 
 # 外部データベース設定（Synology MariaDB または別サーバー）

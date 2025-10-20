@@ -350,6 +350,7 @@ def require_service_account_scopes(
             )
             return func(*args, **kwargs)
 
+        wrapper._auth_enforced = True
         return wrapper
 
     return decorator

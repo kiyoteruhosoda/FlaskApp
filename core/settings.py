@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import os
 from pathlib import Path
-from typing import Iterable, Mapping, Optional, Tuple
+from typing import Mapping, Optional, Tuple
 
 from flask import current_app
 
@@ -141,26 +141,6 @@ class ApplicationSettings:
         return tuple(value for value in values if value)
 
     @property
-    def cors_allowed_origins(self) -> Tuple[str, ...]:
-        """Return the list of origins allowed for cross-origin requests."""
-
-        try:
-            app = current_app._get_current_object()
-        except RuntimeError:
-            app = None
-
-        if app is None:
-            return ()
-
-        config_value = app.config.get("CORS_ALLOWED_ORIGINS")
-        if isinstance(config_value, (list, tuple, set)):
-            return _normalize_origin_values(config_value)
-        if isinstance(config_value, str) and config_value.strip():
-            return _normalize_origin_values(config_value.split(","))
-
-        return ()
-
-    @property
     def access_token_issuer(self) -> str:
         value = self._get("ACCESS_TOKEN_ISSUER", _DEFAULT_ACCESS_TOKEN_ISSUER)
         if not value:
@@ -186,24 +166,6 @@ class ApplicationSettings:
             return int(raw) if raw is not None else 20
         except (TypeError, ValueError):
             return 20
-
-
-# Default settings instance used by the application.
-def _normalize_origin_values(values: Iterable[object]) -> Tuple[str, ...]:
-    normalized: list[str] = []
-    for value in values:
-        if value is None:
-            continue
-        if isinstance(value, bytes):
-            candidate = value.decode("utf-8", errors="ignore").strip()
-        else:
-            candidate = str(value).strip()
-        if not candidate or candidate in normalized:
-            continue
-        normalized.append(candidate)
-    return tuple(normalized)
-
-
 settings = ApplicationSettings()
 
 __all__ = ["ApplicationSettings", "settings"]

@@ -1,3 +1,0 @@
-# List trusted origins for cross-origin requests.
-# One origin per line. Lines starting with '#' are treated as comments.
-https://n.nolumia.com

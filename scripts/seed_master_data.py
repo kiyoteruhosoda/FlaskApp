@@ -12,8 +12,50 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.db import db
 from core.models.user import User, Role, Permission
+from core.models.system_setting import SystemSetting
+from core.system_settings_defaults import (
+    DEFAULT_APPLICATION_SETTINGS,
+    DEFAULT_CORS_SETTINGS,
+)
 from flask_babel import gettext as _
 from webapp import create_app
+from webapp.services.system_setting_service import SystemSettingService
+
+
+def seed_system_settings():
+    """システム設定マスタデータの投入"""
+
+    def _ensure_setting(key: str, payload: dict, description: str) -> None:
+        existing = SystemSetting.query.filter_by(setting_key=key).first()
+        if existing:
+            print(f"System setting already exists: {key}")
+            return
+        payload_copy = {}
+        for setting_name, value in dict(payload).items():
+            if isinstance(value, list):
+                payload_copy[setting_name] = list(value)
+            elif isinstance(value, dict):
+                payload_copy[setting_name] = dict(value)
+            else:
+                payload_copy[setting_name] = value
+        record = SystemSetting(
+            setting_key=key,
+            setting_json=payload_copy,
+            description=description,
+        )
+        db.session.add(record)
+        print(f"Added system setting: {key}")
+
+    _ensure_setting(
+        SystemSettingService._APPLICATION_CONFIG_KEY,
+        DEFAULT_APPLICATION_SETTINGS,
+        "Application configuration values.",
+    )
+    _ensure_setting(
+        SystemSettingService._CORS_CONFIG_KEY,
+        DEFAULT_CORS_SETTINGS,
+        "CORS configuration.",
+    )
 
 
 def seed_roles():
@@ -130,23 +172,27 @@ def main():
         print(_("=== %(app_name)s Master Data Seeding ===", app_name=_("AppName")))
         
         try:
+            # システム設定投入
+            print("\n1. Seeding system settings...")
+            seed_system_settings()
+
             # ロールデータ投入
-            print("\n1. Seeding roles...")
+            print("\n2. Seeding roles...")
             seed_roles()
-            
+
             # 権限データ投入
-            print("\n2. Seeding permissions...")
+            print("\n3. Seeding permissions...")
             seed_permissions()
-            
+
             # 一度コミットして関係テーブルの前提データを確定
             db.session.commit()
-            
+
             # ロール権限関係投入
-            print("\n3. Seeding role-permission relationships...")
+            print("\n4. Seeding role-permission relationships...")
             seed_role_permissions()
-            
+
             # 管理者ユーザー投入
-            print("\n4. Seeding admin user...")
+            print("\n5. Seeding admin user...")
             seed_admin_user()
             
             # 最終コミット

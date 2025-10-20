@@ -1,4 +1,0 @@
-# List trusted origins for cross-origin requests.
-# One origin per line. Lines starting with '#' are treated as comments.
-https://frontend.example.com
-https://admin.example.com

@@ -36,7 +36,9 @@ def _decode_signing_input(value: str, encoding: str) -> bytes:
         return value.encode("utf-8")
 
     if normalized not in {"base64", "base64url"}:
-        raise CertificateValidationError(_("signingInputEncoding must be \"base64\" or \"base64url\"."))
+        raise CertificateValidationError(
+            _("signingInputEncoding must be \"plain\", \"base64\" or \"base64url\".")
+        )
 
     value = value.strip()
     try:
@@ -132,11 +134,14 @@ def create_service_account_signature():
 
     signing_input = payload.get("signingInput")
     if not isinstance(signing_input, str) or not signing_input.strip():
-        return _json_error(_("signingInput must be a base64-encoded string."), HTTPStatus.BAD_REQUEST)
+        return _json_error(_("signingInput must be a non-empty string."), HTTPStatus.BAD_REQUEST)
 
     encoding_value = payload.get("signingInputEncoding", "base64")
     if encoding_value is not None and not isinstance(encoding_value, str):
-        return _json_error(_("signingInputEncoding must be \"base64\" or \"base64url\"."), HTTPStatus.BAD_REQUEST)
+        return _json_error(
+            _("signingInputEncoding must be \"plain\", \"base64\" or \"base64url\"."),
+            HTTPStatus.BAD_REQUEST,
+        )
 
     kid_value = payload.get("kid")
     if not isinstance(kid_value, str) or not kid_value.strip():

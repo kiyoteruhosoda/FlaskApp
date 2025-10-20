@@ -286,6 +286,109 @@ def _build_cors_field_rows(
     return rows
 
 
+def _build_config_context(
+    *,
+    app_overrides: Dict[str, str] | None = None,
+    app_selected: set[str] | None = None,
+    app_use_defaults: set[str] | None = None,
+    cors_overrides: Dict[str, str] | None = None,
+    cors_use_defaults: set[str] | None = None,
+) -> Dict[str, Any]:
+    application_payload = SystemSettingService.load_application_config_payload()
+    application_config = {**DEFAULT_APPLICATION_SETTINGS, **application_payload}
+    cors_payload = SystemSettingService.load_cors_config_payload()
+    cors_config = {**DEFAULT_CORS_SETTINGS, **cors_payload}
+
+    application_definitions = _collect_application_definitions(application_config, application_payload)
+    cors_definitions = _collect_cors_definitions()
+
+    application_fields = _build_application_field_rows(
+        application_definitions,
+        application_config,
+        application_payload,
+        overrides=app_overrides,
+        selected_keys=app_selected,
+        default_flags=app_use_defaults,
+    )
+    cors_fields = _build_cors_field_rows(
+        cors_definitions,
+        cors_config,
+        cors_payload,
+        overrides=cors_overrides,
+        default_flags=cors_use_defaults,
+    )
+
+    from webapp.config import Config
+
+    public_keys = [
+        k
+        for k in dir(Config)
+        if not k.startswith("_") and k.isupper() and k not in ("SECRET_KEY")
+    ]
+    config_dict = {k: getattr(Config, k) for k in public_keys}
+
+    try:
+        signing_setting = SystemSettingService.get_access_token_signing_setting()
+    except AccessTokenSigningValidationError as exc:
+        flash(str(exc), "danger")
+        signing_setting = AccessTokenSigningSetting(mode="server_signing")
+
+    certificate_groups = _list_server_signing_certificate_groups()
+
+    app_setting_record = SystemSetting.query.filter_by(setting_key="app.config").one_or_none()
+    cors_setting_record = SystemSetting.query.filter_by(setting_key="app.cors").one_or_none()
+    signing_record = SystemSetting.query.filter_by(setting_key="access_token_signing").one_or_none()
+
+    return {
+        "application_payload": application_payload,
+        "application_config": application_config,
+        "cors_payload": cors_payload,
+        "cors_config": cors_config,
+        "application_definitions": application_definitions,
+        "cors_definitions": cors_definitions,
+        "application_fields": application_fields,
+        "cors_fields": cors_fields,
+        "config": config_dict,
+        "signing_setting": signing_setting,
+        "server_signing_groups": certificate_groups,
+        "application_config_updated_at": getattr(app_setting_record, "updated_at", None),
+        "application_config_description": getattr(app_setting_record, "description", None),
+        "cors_config_updated_at": getattr(cors_setting_record, "updated_at", None),
+        "cors_config_description": getattr(cors_setting_record, "description", None),
+        "signing_config_updated_at": getattr(signing_record, "updated_at", None),
+    }
+
+
+def _serialize_config_context(context: Dict[str, Any]) -> Dict[str, Any]:
+    from dataclasses import asdict
+
+    def _isoformat(value: Any) -> str | None:
+        if value is None:
+            return None
+        try:
+            return value.isoformat()
+        except AttributeError:
+            return str(value)
+
+    serialized = {
+        "application_fields": context.get("application_fields", []),
+        "cors_fields": context.get("cors_fields", []),
+        "signing_setting": asdict(context["signing_setting"]) if context.get("signing_setting") else None,
+        "config": context.get("config", {}),
+        "timestamps": {
+            "application_config_updated_at": _isoformat(context.get("application_config_updated_at")),
+            "cors_config_updated_at": _isoformat(context.get("cors_config_updated_at")),
+            "signing_config_updated_at": _isoformat(context.get("signing_config_updated_at")),
+        },
+        "descriptions": {
+            "application_config_description": context.get("application_config_description"),
+            "cors_config_description": context.get("cors_config_description"),
+        },
+    }
+
+    return serialized
+
+
 def _parse_setting_value(key: str, definition: SettingFieldDefinition, raw_value: str | None):
     label = definition.label or key
     if definition.data_type == "boolean":
@@ -504,42 +607,44 @@ def service_account_api_keys(account_id: int):
 def show_config():
     if not current_user.can("system:manage"):
         return _(u"You do not have permission to access this page."), 403
-    application_payload = SystemSettingService.load_application_config_payload()
-    application_config = {**DEFAULT_APPLICATION_SETTINGS, **application_payload}
-    cors_payload = SystemSettingService.load_cors_config_payload()
-    cors_config = {**DEFAULT_CORS_SETTINGS, **cors_payload}
-
-    application_definitions = _collect_application_definitions(application_config, application_payload)
-    cors_definitions = _collect_cors_definitions()
+    wants_json = request.accept_mimetypes["application/json"] > request.accept_mimetypes["text/html"]
+    is_ajax = wants_json or request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
     app_overrides: Dict[str, str] = {}
     app_selected: set[str] = set()
     app_use_defaults: set[str] = set()
     cors_overrides: Dict[str, str] = {}
-    cors_selected: set[str] = set()
     cors_use_defaults: set[str] = set()
+    relogin_previous_config: Dict[str, Any] | None = None
+
+    context = _build_config_context()
+    application_definitions = context["application_definitions"]
+    cors_definitions = context["cors_definitions"]
 
     if request.method == "POST":
         action = (request.form.get("action") or "update-signing").strip()
+        errors: list[str] = []
+        warnings: list[str] = []
+        success_message: str | None = None
+
         if action == "update-signing":
             selected = (request.form.get("access_token_signing") or "builtin").strip()
             try:
                 if selected == "builtin":
                     SystemSettingService.update_access_token_signing_setting("builtin")
-                    flash(_(u"Access token signing will use the built-in secret."), "success")
+                    success_message = _(u"Access token signing will use the built-in secret.")
                 else:
                     prefix = "server_signing:"
                     group_code = selected[len(prefix):] if selected.startswith(prefix) else selected
                     SystemSettingService.update_access_token_signing_setting(
                         "server_signing", group_code=group_code
                     )
-                    flash(_(u"Access token signing certificate group updated."), "success")
-                return redirect(url_for("admin.show_config"))
+                    success_message = _(u"Access token signing certificate group updated.")
             except AccessTokenSigningValidationError as exc:
-                flash(str(exc), "danger")
+                errors.append(str(exc))
             except Exception:  # pragma: no cover - unexpected failure logged for debugging
                 current_app.logger.exception("Failed to update access token signing configuration")
-                flash(_(u"Failed to update the access token signing configuration."), "danger")
+                errors.append(_(u"Failed to update the access token signing configuration."))
         elif action == "update-app-config-fields":
             app_selected = set(request.form.getlist("app_config_selected"))
             app_overrides = {
@@ -553,12 +658,11 @@ def show_config():
                 if request.form.get(f"app_config_use_default[{key}]") == "1"
             }
             if not app_selected:
-                flash(_(u"Select at least one setting to update."), "warning")
+                errors.append(_(u"Select at least one setting to update."))
             else:
-                errors: list[str] = []
                 updates: Dict[str, Any] = {}
                 remove_keys: list[str] = []
-                previous_config = dict(application_config)
+                previous_config = dict(context["application_config"])
                 for key in app_selected:
                     definition = application_definitions.get(key)
                     if definition is None:
@@ -573,35 +677,17 @@ def show_config():
                     except ValueError as exc:
                         errors.append(str(exc))
                         continue
-                    if definition.required and (
-                        (definition.data_type == "list" and not parsed_value)
-                        or parsed_value in {"", None}
-                    ):
-                        errors.append(_(u"Value for %(key)s is required.", key=definition.label or key))
-                        continue
                     updates[key] = parsed_value
-                if errors:
-                    for message in errors:
-                        flash(message, "danger")
-                else:
-                    persisted_payload = SystemSettingService.update_application_settings(
+                if not errors:
+                    SystemSettingService.update_application_settings(
                         updates, remove_keys=remove_keys
                     )
                     from webapp import _apply_persisted_settings
 
                     _apply_persisted_settings(current_app)
-                    merged_config = {**DEFAULT_APPLICATION_SETTINGS, **persisted_payload}
-                    changed_for_relogin = _detect_relogin_changes(
-                        previous_config,
-                        merged_config,
-                        application_definitions,
-                    )
-                    for message in changed_for_relogin:
-                        flash(message, "warning")
-                    flash(_(u"Application configuration updated."), "success")
-                    return redirect(url_for("admin.show_config"))
+                    relogin_previous_config = previous_config
+                    success_message = _(u"Application configuration updated.")
         elif action == "update-cors":
-            cors_selected = set(request.form.getlist("cors_selected"))
             cors_overrides = {
                 key: request.form.get(f"cors_new[{key}]")
                 for key in cors_definitions
@@ -612,27 +698,22 @@ def show_config():
                 for key in cors_definitions
                 if request.form.get(f"cors_use_default[{key}]") == "1"
             }
-            if not cors_selected:
-                flash(_(u"Select at least one CORS property to update."), "warning")
+
+            definition = cors_definitions.get("allowedOrigins")
+            if definition is None:
+                errors.append(_(u"Unknown CORS setting: %(key)s", key="allowedOrigins"))
             else:
-                errors: list[str] = []
                 updates: Dict[str, Any] = {}
                 remove_keys: list[str] = []
-                for key in cors_selected:
-                    definition = cors_definitions.get(key)
-                    if definition is None:
-                        errors.append(_(u"Unknown CORS setting: %(key)s", key=key))
-                        continue
-                    if key in cors_use_defaults:
-                        remove_keys.append(key)
-                        continue
-                    raw_value = request.form.get(f"cors_new[{key}]")
+                if "allowedOrigins" in cors_use_defaults:
+                    remove_keys.append("allowedOrigins")
+                else:
+                    raw_value = request.form.get("cors_new[allowedOrigins]")
                     try:
-                        parsed_value = _parse_setting_value(key, definition, raw_value)
+                        parsed_value = _parse_setting_value("allowedOrigins", definition, raw_value)
                     except ValueError as exc:
                         errors.append(str(exc))
-                        continue
-                    if key == "allowedOrigins":
+                    else:
                         invalid_origins = [
                             origin
                             for origin in parsed_value
@@ -643,63 +724,90 @@ def show_config():
                                 _(u"Each origin must be a full URL (e.g., https://example.com) or '*'. Invalid values: %(origins)s",
                                   origins=", ".join(invalid_origins))
                             )
-                            continue
-                    updates[key] = parsed_value
-                if errors:
-                    for message in errors:
-                        flash(message, "danger")
-                else:
-                    SystemSettingService.update_cors_settings(updates, remove_keys=remove_keys)
+                        else:
+                            updates["allowedOrigins"] = parsed_value
+                if not errors:
+                    SystemSettingService.update_cors_settings(
+                        updates, remove_keys=remove_keys
+                    )
                     from webapp import _apply_persisted_settings
 
                     _apply_persisted_settings(current_app)
-                    flash(_(u"CORS allowed origins updated."), "success")
-                    return redirect(url_for("admin.show_config"))
+                    success_message = _(u"CORS allowed origins updated.")
+        else:
+            errors.append(_(u"Unknown action."))
 
-    # Only show public config values, not secrets
-    from webapp.config import Config
-    public_keys = [
-        k for k in dir(Config)
-        if not k.startswith("_") and k.isupper() and k not in ("SECRET_KEY")
-    ]
-    config_dict = {k: getattr(Config, k) for k in public_keys}
-    try:
-        signing_setting = SystemSettingService.get_access_token_signing_setting()
-    except AccessTokenSigningValidationError as exc:
-        flash(str(exc), "danger")
-        signing_setting = AccessTokenSigningSetting(mode="server_signing")
-    certificate_groups = _list_server_signing_certificate_groups()
-    application_fields = _build_application_field_rows(
-        application_definitions,
-        application_config,
-        application_payload,
-        overrides=app_overrides,
-        selected_keys=app_selected,
-        default_flags=app_use_defaults,
-    )
-    cors_fields = _build_cors_field_rows(
-        cors_definitions,
-        cors_config,
-        cors_payload,
-        overrides=cors_overrides,
-        selected_keys=cors_selected,
-        default_flags=cors_use_defaults,
-    )
-    app_setting_record = SystemSetting.query.filter_by(setting_key="app.config").one_or_none()
-    cors_setting_record = SystemSetting.query.filter_by(setting_key="app.cors").one_or_none()
-    signing_record = SystemSetting.query.filter_by(setting_key="access_token_signing").one_or_none()
+        if success_message and not errors:
+            context = _build_config_context()
+            if action == "update-app-config-fields" and relogin_previous_config is not None:
+                warnings.extend(
+                    _detect_relogin_changes(
+                        relogin_previous_config,
+                        context["application_config"],
+                        context["application_definitions"],
+                    )
+                )
+            if is_ajax:
+                payload = _serialize_config_context(context)
+                payload.update(
+                    {
+                        "status": "success",
+                        "message": success_message,
+                        "action": action,
+                    }
+                )
+                if warnings:
+                    payload["warnings"] = warnings
+                return jsonify(payload)
+
+            for message in warnings:
+                flash(message, "warning")
+            flash(success_message, "success")
+            return redirect(url_for("admin.show_config"))
+
+        if errors:
+            if is_ajax:
+                return (
+                    jsonify(
+                        {
+                            "status": "error",
+                            "message": errors[0],
+                            "errors": errors,
+                            "action": action,
+                        }
+                    ),
+                    400,
+                )
+
+            for message in errors:
+                flash(message, "danger")
+            for message in warnings:
+                flash(message, "warning")
+            context = _build_config_context(
+                app_overrides=app_overrides,
+                app_selected=app_selected,
+                app_use_defaults=app_use_defaults,
+                cors_overrides=cors_overrides,
+                cors_use_defaults=cors_use_defaults,
+            )
+
+    if request.method == "GET" and is_ajax:
+        payload = _serialize_config_context(context)
+        payload.update({"status": "success", "action": "fetch"})
+        return jsonify(payload)
+
     return render_template(
         "admin/config_view.html",
-        config=config_dict,
-        signing_setting=signing_setting,
-        server_signing_groups=certificate_groups,
-        application_fields=application_fields,
-        cors_fields=cors_fields,
-        application_config_updated_at=getattr(app_setting_record, "updated_at", None),
-        application_config_description=getattr(app_setting_record, "description", None),
-        cors_config_updated_at=getattr(cors_setting_record, "updated_at", None),
-        cors_config_description=getattr(cors_setting_record, "description", None),
-        signing_config_updated_at=getattr(signing_record, "updated_at", None),
+        config=context["config"],
+        signing_setting=context["signing_setting"],
+        server_signing_groups=context["server_signing_groups"],
+        application_fields=context["application_fields"],
+        cors_fields=context["cors_fields"],
+        application_config_updated_at=context["application_config_updated_at"],
+        application_config_description=context["application_config_description"],
+        cors_config_updated_at=context["cors_config_updated_at"],
+        cors_config_description=context["cors_config_description"],
+        signing_config_updated_at=context["signing_config_updated_at"],
     )
 
 # バージョン情報表示ページ（管理者のみ）

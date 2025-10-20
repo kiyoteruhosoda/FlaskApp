@@ -70,12 +70,14 @@ def test_update_application_config_field_success(client):
             "app_config_selected": ["UPLOAD_MAX_SIZE"],
             "app_config_new[UPLOAD_MAX_SIZE]": "2048",
         },
-        follow_redirects=True,
+        headers={"X-Requested-With": "XMLHttpRequest", "Accept": "application/json"},
     )
 
     assert response.status_code == 200
-    html = response.data.decode("utf-8")
-    assert "Application configuration updated." in html
+    payload = response.get_json()
+    assert payload["status"] == "success"
+    assert "Application configuration updated." in payload["message"]
+    assert payload["action"] == "update-app-config-fields"
     assert client.application.config["UPLOAD_MAX_SIZE"] == 2048
 
     config = SystemSettingService.load_application_config()
@@ -95,11 +97,13 @@ def test_update_application_config_rejects_empty_required(client):
             "app_config_selected": ["JWT_SECRET_KEY"],
             "app_config_new[JWT_SECRET_KEY]": "",
         },
+        headers={"X-Requested-With": "XMLHttpRequest", "Accept": "application/json"},
     )
 
-    assert response.status_code == 200
-    html = response.data.decode("utf-8")
-    assert "Value for JWT secret key is required." in html
+    assert response.status_code == 400
+    payload = response.get_json()
+    assert payload["status"] == "error"
+    assert "Value for JWT secret key is required." in payload["message"]
 
     config = SystemSettingService.load_application_config()
     assert config["JWT_SECRET_KEY"] == original_value
@@ -119,12 +123,13 @@ def test_update_application_config_revert_to_default(client):
             "app_config_use_default[TRANSCODE_CRF]": "1",
             "app_config_new[TRANSCODE_CRF]": "12",
         },
-        follow_redirects=True,
+        headers={"X-Requested-With": "XMLHttpRequest", "Accept": "application/json"},
     )
 
     assert response.status_code == 200
-    html = response.data.decode("utf-8")
-    assert "Application configuration updated." in html
+    payload = response.get_json()
+    assert payload["status"] == "success"
+    assert "Application configuration updated." in payload["message"]
 
     config = SystemSettingService.load_application_config()
     assert config["TRANSCODE_CRF"] == DEFAULT_APPLICATION_SETTINGS["TRANSCODE_CRF"]
@@ -141,13 +146,14 @@ def test_update_application_config_triggers_relogin_warning(client):
             "app_config_selected": ["SECRET_KEY"],
             "app_config_new[SECRET_KEY]": "new-secret-key",
         },
-        follow_redirects=True,
+        headers={"X-Requested-With": "XMLHttpRequest", "Accept": "application/json"},
     )
 
     assert response.status_code == 200
-    html = response.data.decode("utf-8")
-    assert "Application configuration updated." in html
-    assert "Changes to Flask secret key require all users to sign in again." in html
+    payload = response.get_json()
+    assert payload["status"] == "success"
+    assert "Application configuration updated." in payload["message"]
+    assert "Changes to Flask secret key require all users to sign in again." in payload["warnings"][0]
     assert client.application.config["SECRET_KEY"] == "new-secret-key"
 
     config = SystemSettingService.load_application_config()
@@ -162,15 +168,15 @@ def test_update_cors_config_success(client):
         "/admin/config",
         data={
             "action": "update-cors",
-            "cors_selected": ["allowedOrigins"],
             "cors_new[allowedOrigins]": "https://admin.example.com\nhttps://app.example.com",
         },
-        follow_redirects=True,
+        headers={"X-Requested-With": "XMLHttpRequest", "Accept": "application/json"},
     )
 
     assert response.status_code == 200
-    html = response.data.decode("utf-8")
-    assert "CORS allowed origins updated." in html
+    payload = response.get_json()
+    assert payload["status"] == "success"
+    assert "CORS allowed origins updated." in payload["message"]
 
     assert client.application.config["CORS_ALLOWED_ORIGINS"] == (
         "https://admin.example.com",
@@ -193,14 +199,15 @@ def test_update_cors_config_rejects_invalid_origin(client):
         "/admin/config",
         data={
             "action": "update-cors",
-            "cors_selected": ["allowedOrigins"],
             "cors_new[allowedOrigins]": "example.com\nhttps://valid.example.com",
         },
+        headers={"X-Requested-With": "XMLHttpRequest", "Accept": "application/json"},
     )
 
-    assert response.status_code == 200
-    html = response.data.decode("utf-8")
-    assert "Invalid values" in html
+    assert response.status_code == 400
+    payload = response.get_json()
+    assert payload["status"] == "error"
+    assert "Invalid values" in payload["message"]
 
     config = SystemSettingService.load_cors_config()
     assert config["allowedOrigins"] == ["https://existing.example.com"]

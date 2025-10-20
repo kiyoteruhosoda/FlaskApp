@@ -6,6 +6,7 @@ import json
 import os
 import time
 from collections.abc import Mapping, MutableMapping, Sequence
+from copy import deepcopy
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -484,6 +485,54 @@ def _strip_openapi_path_prefix(spec, prefix: Optional[str]) -> None:
     spec._paths = new_paths
 
 
+def _ensure_openapi_success_responses(spec) -> None:
+    if spec is None:
+        return
+    paths = getattr(spec, "_paths", None)
+    if not isinstance(paths, MutableMapping):
+        return
+    default_response = {
+        "description": "Successful response",
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "required": ["result"],
+                    "properties": {
+                        "result": {
+                            "type": "string",
+                            "description": "Generic success indicator.",
+                            "example": "OK",
+                        }
+                    },
+                    "additionalProperties": False,
+                }
+            }
+        },
+    }
+    for operations in paths.values():
+        if not isinstance(operations, MutableMapping):
+            continue
+        for operation in operations.values():
+            if not isinstance(operation, MutableMapping):
+                continue
+            responses = operation.setdefault("responses", {})
+            if not isinstance(responses, MutableMapping):
+                continue
+            has_success = False
+            for status_code in responses.keys():
+                try:
+                    code_int = int(status_code)
+                except (TypeError, ValueError):
+                    continue
+                if 200 <= code_int < 300:
+                    has_success = True
+                    break
+            if has_success:
+                continue
+            responses["200"] = deepcopy(default_response)
+
+
 def _strip_quotes(value: str) -> str:
     if len(value) >= 2 and value[0] == value[-1] == '"':
         return value[1:-1]
@@ -807,7 +856,12 @@ def create_app():
         "OPENAPI_SWAGGER_UI_URL",
         "https://cdn.jsdelivr.net/npm/swagger-ui-dist/",
     )
-    app.config.setdefault("API_SPEC_OPTIONS", {})
+    api_spec_options = app.config.setdefault("API_SPEC_OPTIONS", {})
+    info_options = api_spec_options.setdefault("info", {})
+    info_options.setdefault(
+        "description",
+        "Nolumia API provides authentication, media management, and Google Photos integration endpoints.",
+    )
     swagger_ui_config = app.config.setdefault("OPENAPI_SWAGGER_UI_CONFIG", {})
     swagger_ui_config.setdefault("persistAuthorization", True)
 
@@ -854,6 +908,15 @@ def create_app():
 
     with app.app_context():
         smorest_api.spec.components.security_scheme(
+            "JWTBearerAuth",
+            {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "Standard JWT bearer authentication. Send `Authorization: Bearer <token>`.",
+            },
+        )
+        smorest_api.spec.components.security_scheme(
             API_KEY_SECURITY_SCHEME_NAME,
             {
                 "type": "apiKey",
@@ -865,6 +928,7 @@ def create_app():
                 ),
             },
         )
+        smorest_api.spec.options.setdefault("security", [{"JWTBearerAuth": []}])
 
     _configure_cors(app)
 
@@ -1040,6 +1104,7 @@ def create_app():
     api_url_prefix = "/api"
     smorest_api.register_blueprint(api_bp, url_prefix=api_url_prefix)
     _strip_openapi_path_prefix(smorest_api.spec, api_url_prefix)
+    _ensure_openapi_success_responses(smorest_api.spec)
 
     # 認証なしの健康チェック用Blueprint
     from .health import health_bp

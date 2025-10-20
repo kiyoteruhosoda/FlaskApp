@@ -10,6 +10,17 @@ from marshmallow import Schema, ValidationError, fields, validate
 class ScopeField(fields.Field):
     """Scope field that accepts either a string or a list of strings."""
 
+    def __init__(self, *args, **kwargs):
+        metadata = kwargs.setdefault("metadata", {})
+        metadata.setdefault(
+            "oneOf",
+            [
+                {"type": "string"},
+                {"type": "array", "items": {"type": "string"}},
+            ],
+        )
+        super().__init__(*args, **kwargs)
+
     def _deserialize(self, value: Any, attr: str | None, data: Any, **kwargs) -> list[str]:  # type: ignore[override]
         if value in (None, ""):
             return []
@@ -29,7 +40,12 @@ class ScopeField(fields.Field):
 
     @property
     def _jsonschema_type_mapping(self) -> dict[str, Any]:  # pragma: no cover - schema metadata
-        return {"type": "array", "items": {"type": "string"}}
+        return {
+            "oneOf": [
+                {"type": "string"},
+                {"type": "array", "items": {"type": "string"}},
+            ]
+        }
 
 
 class FlexibleIntegerField(fields.Field):

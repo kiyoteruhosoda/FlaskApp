@@ -329,3 +329,79 @@ class TestOpenAPIDocs:
         assert scheme['in'] == 'header'
         assert scheme['name'] == 'Authorization'
         assert 'ApiKey' in scheme['description']
+
+    def test_openapi_metadata_and_default_security(self, app_context):
+        client = app_context.test_client()
+        response = client.get('/api/openapi.json')
+        assert response.status_code == 200
+        payload = response.get_json()
+
+        assert payload['info']['description'] == (
+            'Nolumia API provides authentication, media management, and Google Photos integration endpoints.'
+        )
+        assert payload['security'] == [{'JWTBearerAuth': []}]
+
+        security_schemes = payload['components']['securitySchemes']
+        assert security_schemes['JWTBearerAuth']['type'] == 'http'
+        assert security_schemes['JWTBearerAuth']['scheme'] == 'bearer'
+        assert security_schemes['JWTBearerAuth']['bearerFormat'] == 'JWT'
+
+    def test_authentication_endpoints_are_anonymous(self, app_context):
+        client = app_context.test_client()
+        response = client.get('/api/openapi.json')
+        assert response.status_code == 200
+        payload = response.get_json()
+
+        login_security = payload['paths']['/login']['post']['security']
+        refresh_security = payload['paths']['/refresh']['post']['security']
+        token_security = payload['paths']['/token']['post']['security']
+
+        assert login_security == []
+        assert refresh_security == []
+        assert token_security == []
+
+    def test_scope_schema_accepts_string_or_array(self, app_context):
+        client = app_context.test_client()
+        response = client.get('/api/openapi.json')
+        assert response.status_code == 200
+        payload = response.get_json()
+
+        scope_schema = payload['components']['schemas']['LoginRequest']['properties']['scope']
+        assert 'oneOf' in scope_schema
+        assert {'type': 'string'} in scope_schema['oneOf']
+        array_schema = next(item for item in scope_schema['oneOf'] if item.get('type') == 'array')
+        assert array_schema['items']['type'] == 'string'
+
+    def test_error_schema_exposes_array_error_messages(self, app_context):
+        client = app_context.test_client()
+        response = client.get('/api/openapi.json')
+        assert response.status_code == 200
+        payload = response.get_json()
+
+        error_schema = payload['components']['schemas']['Error']
+        errors_prop = error_schema['properties']['errors']
+        assert errors_prop['type'] == 'object'
+        additional = errors_prop['additionalProperties']
+        assert additional['type'] == 'array'
+        assert additional['items']['type'] == 'string'
+
+    def test_manual_doc_does_not_emit_methods_field(self, app_context):
+        client = app_context.test_client()
+        response = client.get('/api/openapi.json')
+        assert response.status_code == 200
+        payload = response.get_json()
+
+        google_post = payload['paths']['/google/oauth/start']['post']
+        assert 'methods' not in google_post
+
+    def test_success_responses_are_added_where_missing(self, app_context):
+        client = app_context.test_client()
+        response = client.get('/api/openapi.json')
+        assert response.status_code == 200
+        payload = response.get_json()
+
+        echo_post = payload['paths']['/echo']['post']
+        responses = echo_post['responses']
+        assert '200' in responses
+        example = responses['200']['content']['application/json']['schema']['properties']['result']['example']
+        assert example == 'OK'

@@ -14,7 +14,16 @@ class ErrorSchema(ma.Schema):
     code = ma.fields.Integer(metadata={"description": "Error code"})
     status = ma.fields.String(metadata={"description": "Error name"})
     message = ma.fields.String(metadata={"description": "Error message"})
-    errors = ma.fields.Dict(metadata={"description": "Errors"})
+    errors = ma.fields.Dict(
+        keys=ma.fields.String(),
+        values=ma.fields.List(
+            ma.fields.String(),
+            metadata={"description": "Validation messages associated with the field."},
+        ),
+        metadata={
+            "description": "Field-level validation errors keyed by attribute name.",
+        },
+    )
 
 
 class ErrorHandlerMixin:

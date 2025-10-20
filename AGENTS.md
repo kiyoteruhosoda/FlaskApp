@@ -32,8 +32,8 @@
 * 翻訳ファイル配置構成：
 
   ```
-  /resources
-    /locale
+  /webapp
+    /translations
       /en/LC_MESSAGES/messages.po
       /ja/LC_MESSAGES/messages.po
   ```
@@ -426,6 +426,21 @@ def login(data):
 Flask-Smorest＋Marshmallowによる **API設計の標準的ルール** が体系的に定義されます。
 
 
+## 18. 設定データ追加時
+初回起動時に必要なデータは seed_master_data.py に記載する。
+
+
+
+各ファイルの役割と変更要否
+
+| ファイル                                          | 主な役割                | 変更の要否                                                                  |
+| --------------------------------------------- | ------------------- | ---------------------------------------------------------------------- |
+| `core/system_settings_defaults.py`            | アプリ/管理画面が参照する既定値の集合 | **新しい設定キーを追加する場合は必ず更新**。:codex-file-citation                           |
+| `webapp/admin/system_settings_definitions.py` | 管理 UI のフィールド定義      | **新しい設定キーを追加する場合は必ず更新**。表示順や型・説明をここで調整。:codex-file-citation               |
+| `core/settings.py`                            | コードからの設定アクセスラッパー    | **新しい設定キーを追加する場合は必ず更新**。:codex-file-citation              |
+| `webapp/services/system_setting_service.py`   | 設定値の読み書きとデフォルトのマージ  | 通常は追記不要。辞書を更新すれば自動反映されるが、特殊な前処理をしたい場合はここを拡張。:codex-file-citation       |
+| `scripts/bootstrap_system_settings.py`        | 初回投入（環境変数→DB）       | 型変換が既存ロジックに載るなら変更不要。特殊形式なら `_coerce_value` の拡張を検討。:codex-file-citation |
+| `scripts/seed_master_data.py`                 | ロール・権限・管理者ユーザーの初期投入 | **設定値追加とは無関係**。このスクリプトはユーザー/権限系マスタのみ扱うため変更不要です。:codex-file-citation    |
 
 
 

@@ -99,3 +99,22 @@ class RefreshResponseSchema(Schema):
 
 class LogoutResponseSchema(Schema):
     result = fields.String(required=True)
+
+
+class ServiceAccountTokenRequestSchema(Schema):
+    grant_type = fields.String(
+        required=True,
+        data_key="grant_type",
+        metadata={"description": "OAuth 2.0 grant type. Only JWT bearer is supported."},
+    )
+    assertion = fields.String(
+        required=True,
+        metadata={"description": "Base64URL encoded client assertion (JWS compact)."},
+    )
+
+
+class ServiceAccountTokenResponseSchema(Schema):
+    access_token = fields.String(required=True)
+    token_type = fields.String(required=True)
+    expires_in = fields.Integer(required=True)
+    scope = fields.String(required=True)

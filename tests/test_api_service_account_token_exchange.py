@@ -214,6 +214,33 @@ def test_service_account_token_exchange_rejects_disallowed_scope(app_context):
     assert body["error"] == "invalid_grant"
 
 
+def test_service_account_token_exchange_error_defaults_to_english(app_context):
+    client = app_context.test_client()
+
+    response = client.post(
+        "/api/token",
+        json={"grant_type": "invalid", "assertion": "dummy"},
+    )
+
+    assert response.status_code == 400
+    payload = response.get_json()
+    assert payload["error_description"] == "Only the JWT bearer grant type is supported."
+
+
+def test_service_account_token_exchange_error_respects_accept_language(app_context):
+    client = app_context.test_client()
+
+    response = client.post(
+        "/api/token",
+        json={"grant_type": "invalid", "assertion": "dummy"},
+        headers={"Accept-Language": "ja"},
+    )
+
+    assert response.status_code == 400
+    payload = response.get_json()
+    assert payload["error_description"] == "JWTベアラーグラントタイプのみサポートされています。"
+
+
 def test_service_account_token_exchange_rejects_replay(app_context):
     audience = "https://example.com/api/token"
     app_context.config["SERVICE_ACCOUNT_SIGNING_AUDIENCE"] = audience

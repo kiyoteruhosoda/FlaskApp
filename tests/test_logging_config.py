@@ -2,8 +2,11 @@
 
 import json
 import logging
+from typing import Any
 
 import pytest
+
+import core.db_log_handler as db_log_handler_module
 
 from core import logging_config
 from core.db_log_handler import DBLogHandler, WorkerDBLogHandler
@@ -178,3 +181,70 @@ def test_worker_handler_extracts_fields_from_payload():
     # Ensure other fields remain untouched.
     assert message_payload["message"] == "Task finished"
     assert message_payload["status"] == "SUCCESS"
+
+
+def test_db_log_handler_uses_custom_trace(monkeypatch):
+    captured: dict[str, Any] = {}
+
+    class DummyInsert:
+        def __init__(self, model):  # pragma: no cover - simple carrier
+            self.model = model
+            self.values_data = None
+
+        def values(self, **kwargs):
+            self.values_data = kwargs
+            return self
+
+    def fake_insert(model):  # pragma: no cover - deterministic stub
+        dummy = DummyInsert(model)
+        captured["insert"] = dummy
+        return dummy
+
+    class FakeConnection:
+        def execute(self, stmt):  # pragma: no cover - capture execution
+            captured["executed_stmt"] = stmt
+
+    class FakeContext:
+        def __enter__(self):  # pragma: no cover - simple context
+            return FakeConnection()
+
+        def __exit__(self, exc_type, exc, tb):  # pragma: no cover - no suppression
+            return False
+
+    class FakeEngine:
+        def begin(self):  # pragma: no cover - emulate engine
+            return FakeContext()
+
+    class DummyTable:
+        def create(self, bind, checkfirst):  # pragma: no cover - no-op for tests
+            captured["table_checked"] = True
+
+    class DummyModel:
+        __table__ = DummyTable()
+
+    handler = DBLogHandler()
+
+    monkeypatch.setattr(handler, "_resolve_engine", lambda: FakeEngine())
+    monkeypatch.setattr(handler, "_ensure_table", lambda engine: None)
+    monkeypatch.setattr(handler, "_get_log_model", lambda: DummyModel)
+    monkeypatch.setattr(db_log_handler_module, "insert", fake_insert)
+
+    record = logging.LogRecord(
+        name="test.logger",
+        level=logging.WARNING,
+        pathname=__file__,
+        lineno=321,
+        msg=json.dumps({"message": "problem"}),
+        args=(),
+        exc_info=None,
+    )
+    record.trace = "decoded jwt payload"
+
+    handler.emit(record)
+
+    dummy_insert = captured.get("insert")
+    assert dummy_insert is not None
+    assert dummy_insert.values_data["trace"] == "decoded jwt payload"
+
+    persisted_payload = json.loads(dummy_insert.values_data["message"])
+    assert "_extra" not in persisted_payload or "trace" not in persisted_payload.get("_extra", {})

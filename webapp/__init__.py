@@ -33,6 +33,7 @@ from werkzeug.datastructures import FileStorage
 
 from .extensions import db, migrate, login_manager, babel, api as smorest_api
 from .timezone import resolve_timezone, convert_to_timezone
+from .logging_utils import JWT_TRACE_CACHE_ATTR, build_jwt_trace
 from core.db_log_handler import DBLogHandler
 from core.logging_config import ensure_appdb_file_logging
 from core.settings import settings
@@ -64,6 +65,66 @@ _MAX_POST_PARAM_STRING_LENGTH = 120
 _DEFAULT_CORS_ALLOW_HEADERS = "Authorization,Content-Type"
 _DEFAULT_CORS_ALLOW_METHODS = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
 _DEFAULT_CORS_MAX_AGE = "86400"
+
+
+_REQUEST_JSON_CACHE_ATTR = "_cached_request_json_for_logging"
+_JSON_BODY_UNSET = object()
+
+
+def _enable_po_translation_loading() -> None:
+    """Ensure Flask-Babel loads translations from ``.po`` files."""
+
+    from babel import support
+    from babel.messages import mofile, pofile
+    from io import BytesIO
+    from pathlib import Path
+
+    load_func = support.Translations.load
+    if getattr(load_func, "_supports_po_files", False):
+        return
+
+    original = load_func.__func__
+
+    @classmethod
+    def _load_with_po(
+        cls,
+        dirname=None,
+        locales=None,
+        domain=None,
+    ):
+        domain_name = domain or cls.DEFAULT_DOMAIN
+
+        if dirname:
+            locale_names = support._locales_to_names(locales)  # type: ignore[attr-defined]
+            search_locales = locale_names or [None]
+            for locale_name in search_locales:
+                candidate_dirs = []
+                if locale_name:
+                    candidate_dirs.append(
+                        Path(dirname) / str(locale_name) / "LC_MESSAGES"
+                    )
+                candidate_dirs.append(Path(dirname))
+
+                for base_dir in candidate_dirs:
+                    po_path = base_dir / f"{domain_name}.po"
+                    if not po_path.is_file():
+                        continue
+                    with po_path.open("r", encoding="utf-8") as po_file:
+                        catalog = pofile.read_po(po_file)
+                    buffer = BytesIO()
+                    mofile.write_mo(buffer, catalog)
+                    buffer.seek(0)
+                    return cls(fp=buffer, domain=domain_name)
+
+        return original(
+            cls,
+            dirname=dirname,
+            locales=locales,
+            domain=domain_name,
+        )
+
+    _load_with_po._supports_po_files = True  # type: ignore[attr-defined]
+    support.Translations.load = _load_with_po
 
 
 def _is_sensitive_key(key):
@@ -301,6 +362,85 @@ def _normalize_openapi_prefix(prefix: Optional[str]) -> str:
         normalized = f"/{normalized}"
     # The OpenAPI server URL should not end with a trailing slash unless the prefix is root
     return normalized.rstrip("/")
+
+
+def _get_request_json_for_logging():
+    if not has_request_context():
+        return None
+    if hasattr(g, _REQUEST_JSON_CACHE_ATTR):
+        return getattr(g, _REQUEST_JSON_CACHE_ATTR)
+    try:
+        data = request.get_json(silent=True)
+    except Exception:
+        data = None
+    setattr(g, _REQUEST_JSON_CACHE_ATTR, data)
+    if hasattr(g, JWT_TRACE_CACHE_ATTR):
+        delattr(g, JWT_TRACE_CACHE_ATTR)
+    return data
+
+
+def _collect_request_jwt_tokens(input_json) -> list[str]:
+    if not has_request_context():
+        return []
+
+    tokens: list[str] = []
+    seen: set[str] = set()
+
+    def _add_token(value: Optional[str]) -> None:
+        if not value or not isinstance(value, str):
+            return
+        token_value = value.strip()
+        if not token_value or token_value in seen:
+            return
+        tokens.append(token_value)
+        seen.add(token_value)
+
+    auth_header = request.headers.get("Authorization")
+    if isinstance(auth_header, str):
+        scheme, _, token_value = auth_header.partition(" ")
+        if scheme.lower() == "bearer":
+            _add_token(token_value)
+
+    header_assertion = request.headers.get("X-Service-Account-Assertion")
+    _add_token(header_assertion)
+
+    if isinstance(input_json, Mapping):
+        _add_token(input_json.get("assertion"))
+
+    form_assertion = request.form.get("assertion")
+    _add_token(form_assertion)
+
+    args_assertion = request.args.get("assertion")
+    _add_token(args_assertion)
+
+    return tokens
+
+
+def _build_jwt_trace(input_json=_JSON_BODY_UNSET):
+    if not has_request_context():
+        return None
+    if hasattr(g, JWT_TRACE_CACHE_ATTR):
+        return getattr(g, JWT_TRACE_CACHE_ATTR)
+
+    if input_json is _JSON_BODY_UNSET:
+        input_json = _get_request_json_for_logging()
+
+    tokens = _collect_request_jwt_tokens(input_json)
+    trace_text = build_jwt_trace(tokens)
+    setattr(g, JWT_TRACE_CACHE_ATTR, trace_text)
+    return trace_text
+
+
+def _summarize_sensitive_headers_for_logging() -> Dict[str, str]:
+    if not has_request_context():
+        return {}
+
+    summary: Dict[str, str] = {}
+    for header_name in ("Authorization", "X-Service-Account-Assertion"):
+        if header_name in request.headers:
+            value = request.headers.get(header_name)
+            summary[header_name] = "<provided>" if value else "<empty>"
+    return summary
 
 
 def _strip_openapi_path_prefix(spec, prefix: Optional[str]) -> None:
@@ -639,6 +779,8 @@ def create_app():
     # .env を読み込む（環境変数が未設定の場合のみ）
     load_dotenv()
 
+    _enable_po_translation_loading()
+
     app = Flask(__name__)
     app.config.from_object(Config)
     app.config.setdefault("LAST_BEAT_AT", None)
@@ -726,7 +868,11 @@ def create_app():
 
     @app.context_processor
     def inject_version():
-        languages = [str(lang).strip() for lang in app.config.get("LANGUAGES", ["ja", "en"]) if lang]
+        languages = [
+            str(lang).strip()
+            for lang in app.config.get("LANGUAGES", ["en", "ja"])
+            if lang
+        ]
         if not languages:
             default_language = app.config.get("BABEL_DEFAULT_LOCALE", "en")
             if default_language:
@@ -909,10 +1055,7 @@ def create_app():
             req_id = str(uuid4())
             g.request_id = req_id
             # Inputログ
-            try:
-                input_json = request.get_json(silent=True)
-            except Exception:
-                input_json = None
+            input_json = _get_request_json_for_logging()
 
             log_dict = {
                 "method": request.method,
@@ -964,6 +1107,38 @@ def create_app():
                 "status": response.status_code,
                 "json": masked_json,
             }
+            jwt_trace = None
+            if response.status_code >= 400:
+                error_payload = dict(base_payload)
+                error_payload["method"] = request.method
+                error_payload["path"] = request.path
+
+                args_dict = request.args.to_dict()
+                if args_dict:
+                    error_payload["query"] = _mask_sensitive_data(args_dict)
+
+                form_dict = _format_form_parameters_for_logging(request.form)
+                if form_dict:
+                    error_payload["form"] = _mask_sensitive_data(form_dict)
+
+                request_json = _get_request_json_for_logging()
+                if request_json is not None:
+                    processed_request_json = (
+                        _truncate_long_parameter_values(request_json)
+                        if request.method.upper() in {"POST", "PUT", "PATCH"}
+                        else request_json
+                    )
+                    error_payload["requestJson"] = _mask_sensitive_data(
+                        processed_request_json
+                    )
+
+                header_summary = _summarize_sensitive_headers_for_logging()
+                if header_summary:
+                    error_payload["headers"] = header_summary
+
+                base_payload = error_payload
+                jwt_trace = _build_jwt_trace(request_json)
+
             _, log_payload = _prepare_log_payload(
                 base_payload,
                 keys_to_summarize=("json",),
@@ -973,6 +1148,8 @@ def create_app():
                 "request_id": req_id,
                 "path": request.path,
             }
+            if jwt_trace:
+                log_extra["trace"] = jwt_trace
             if response.status_code >= 400:
                 app.logger.warning(log_payload, extra=log_extra)
             else:
@@ -999,10 +1176,7 @@ def create_app():
         public_message = e.description if (is_http and code < 500) else "Internal Server Error"
 
         # ログ用の詳細（必要に応じてマスキング）
-        try:
-            input_json = request.get_json(silent=True)
-        except Exception:
-            input_json = None
+        input_json = _get_request_json_for_logging()
 
         log_dict = {
             "method": request.method,
@@ -1022,14 +1196,26 @@ def create_app():
         if input_json is not None:
             log_dict["json"] = _mask_sensitive_data(input_json)
 
+        header_summary = _summarize_sensitive_headers_for_logging()
+        if header_summary:
+            log_dict["headers"] = header_summary
+
+        jwt_trace = _build_jwt_trace(input_json)
+
+        base_extra: Dict[str, Any] = {
+            "request_id": getattr(g, "request_id", None),
+        }
+        if jwt_trace:
+            base_extra["trace"] = jwt_trace
+
         # ★ ログ出力方針：4xxはstackなし、5xxはstack付き
         if is_http and 400 <= code < 500:
-            app.logger.warning(json.dumps(log_dict, ensure_ascii=False),
-                            extra={"event": "api.http_4xx", "request_id": getattr(g, "request_id", None)})
+            extra = {"event": "api.http_4xx", **base_extra}
+            app.logger.warning(json.dumps(log_dict, ensure_ascii=False), extra=extra)
         else:
             # 5xxのみ stacktrace
-            app.logger.exception(json.dumps(log_dict, ensure_ascii=False),
-                                extra={"event": "api.http_5xx", "request_id": getattr(g, "request_id", None)})
+            extra = {"event": "api.http_5xx", **base_extra}
+            app.logger.exception(json.dumps(log_dict, ensure_ascii=False), extra=extra)
 
         g.exception_logged = True
 
@@ -1203,13 +1389,20 @@ def _select_locale():
     """1) cookie lang 2) Accept-Language 3) default"""
     from flask import current_app
 
+    default_locale = current_app.config.get("BABEL_DEFAULT_LOCALE", "en")
+
     if not has_request_context():
-        return current_app.config.get("BABEL_DEFAULT_LOCALE", "en")
+        return default_locale
 
     cookie_lang = request.cookies.get("lang")
-    if cookie_lang in current_app.config["LANGUAGES"]:
+    supported_languages = current_app.config.get("LANGUAGES", ())
+    if cookie_lang in supported_languages:
         return cookie_lang
-    return request.accept_languages.best_match(current_app.config["LANGUAGES"])
+
+    matched = request.accept_languages.best_match(supported_languages)
+    if matched:
+        return matched
+    return default_locale or "en"
 
 
 def register_cli_commands(app):

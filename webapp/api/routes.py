@@ -33,6 +33,7 @@ from functools import wraps
 from . import bp
 from .openapi import json_request_body
 from ..extensions import db
+from ..logging_utils import JWT_TRACE_CACHE_ATTR, build_jwt_trace
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
 from core.models.photo_models import (
@@ -183,14 +184,21 @@ def api_service_account_token_exchange(data: dict) -> dict:
             400,
         )
 
+    assertion_trace_text = build_jwt_trace([assertion])
+    if assertion_trace_text:
+        setattr(g, JWT_TRACE_CACHE_ATTR, assertion_trace_text)
+
     audiences = settings.service_account_signing_audiences
     if not audiences:
+        log_extra = {
+            "event": "service_account.token.failed",
+            "reason": "audience_not_configured",
+        }
+        if assertion_trace_text:
+            log_extra["trace"] = assertion_trace_text
         current_app.logger.error(
             "Service account signing audience is not configured.",
-            extra={
-                "event": "service_account.token.failed",
-                "reason": "audience_not_configured",
-            },
+            extra=log_extra,
         )
         return (
             jsonify(
@@ -214,27 +222,33 @@ def api_service_account_token_exchange(data: dict) -> dict:
             required_scopes=None,
         )
     except ServiceAccountJWTError as exc:
+        log_extra = {
+            "event": "service_account.token.failed",
+            "code": exc.code,
+            "error_description": exc.message,
+        }
+        if assertion_trace_text:
+            log_extra["trace"] = assertion_trace_text
         current_app.logger.info(
             "Service account assertion validation failed.",
-            extra={
-                "event": "service_account.token.failed",
-                "code": exc.code,
-                "error_description": exc.message,
-            },
+            extra=log_extra,
         )
         response, status = _service_account_assertion_error(exc)
         return jsonify(response), status
 
     if claims.get("iss") != account.name or claims.get("sub") != account.name:
+        log_extra = {
+            "event": "service_account.token.failed",
+            "code": "IssuerMismatch",
+            "service_account": account.name,
+            "issuer": claims.get("iss"),
+            "subject": claims.get("sub"),
+        }
+        if assertion_trace_text:
+            log_extra["trace"] = assertion_trace_text
         current_app.logger.info(
             "Service account assertion issuer mismatch.",
-            extra={
-                "event": "service_account.token.failed",
-                "code": "IssuerMismatch",
-                "service_account": account.name,
-                "issuer": claims.get("iss"),
-                "subject": claims.get("sub"),
-            },
+            extra=log_extra,
         )
         return (
             jsonify(
@@ -274,14 +288,17 @@ def api_service_account_token_exchange(data: dict) -> dict:
     allowed_scopes = set(account.scopes)
     disallowed = [scope for scope in normalized_scope if scope not in allowed_scopes]
     if disallowed:
+        log_extra = {
+            "event": "service_account.token.failed",
+            "service_account": account.name,
+            "requested_scopes": normalized_scope,
+            "allowed_scopes": sorted(allowed_scopes),
+        }
+        if assertion_trace_text:
+            log_extra["trace"] = assertion_trace_text
         current_app.logger.info(
             "Service account assertion requested disallowed scope.",
-            extra={
-                "event": "service_account.token.failed",
-                "service_account": account.name,
-                "requested_scopes": normalized_scope,
-                "allowed_scopes": sorted(allowed_scopes),
-            },
+            extra=log_extra,
         )
         return (
             jsonify(

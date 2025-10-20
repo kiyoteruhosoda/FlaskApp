@@ -611,6 +611,14 @@ msgstr "メールアドレスとパスワードは必須です"
 msgid "Please provide a public key."
 msgstr "公開鍵を入力してください。"
 
+#: webapp/api/routes.py:169
+msgid "Only the JWT bearer grant type is supported."
+msgstr "JWTベアラーグラントタイプのみサポートされています。"
+
+#: webapp/api/routes.py:181
+msgid "The \"assertion\" field is required."
+msgstr "\"assertion\" フィールドは必須です。"
+
 #: webapp/services/service_account_service.py:45
 msgid "The public key is not a valid PEM-formatted value."
 msgstr "公開鍵のPEM形式が正しくありません。"

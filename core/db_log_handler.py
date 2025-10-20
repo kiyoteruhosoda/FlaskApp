@@ -47,7 +47,7 @@ def _extract_extras(record: logging.LogRecord) -> Dict[str, Any]:
 
     extras: Dict[str, Any] = {}
     for key, value in record.__dict__.items():
-        if key in _RESERVED_ATTRS or key in {"event", "path", "request_id"}:
+        if key in _RESERVED_ATTRS or key in {"event", "path", "request_id", "trace"}:
             continue
         if key.startswith("_"):
             continue
@@ -141,6 +141,14 @@ class DBLogHandler(logging.Handler):
         if record.exc_info:
             formatter = logging.Formatter()
             trace = formatter.formatException(record.exc_info)
+
+        custom_trace = getattr(record, "trace", None)
+        if custom_trace:
+            custom_trace_text = str(custom_trace)
+            if trace:
+                trace = f"{trace}\n\n--- additional trace ---\n{custom_trace_text}"
+            else:
+                trace = custom_trace_text
 
         raw_message = record.getMessage()
         try:

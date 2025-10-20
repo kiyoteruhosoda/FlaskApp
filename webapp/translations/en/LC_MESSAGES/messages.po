@@ -46,6 +46,12 @@ msgstr "Email and password are required"
 msgid "Please provide a public key."
 msgstr "Please provide a public key."
 
+msgid "Only the JWT bearer grant type is supported."
+msgstr "Only the JWT bearer grant type is supported."
+
+msgid "The \"assertion\" field is required."
+msgstr "The \"assertion\" field is required."
+
 msgid "The public key is not a valid PEM-formatted value."
 msgstr "The public key is not a valid PEM-formatted value."
 

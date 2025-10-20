@@ -53,7 +53,7 @@ class DocBlueprintMixin:
 
         Doc Blueprint contains routes to
         - json spec file
-        - spec UI (ReDoc, Swagger UI).
+        - spec UI (Swagger UI).
         """
         api_url = self.config.get("OPENAPI_URL_PREFIX")
         if api_url is not None:
@@ -70,26 +70,8 @@ class DocBlueprintMixin:
                 endpoint="openapi_json",
                 view_func=self._openapi_json,
             )
-            self._register_redoc_rule(blueprint)
             self._register_swagger_ui_rule(blueprint)
-            self._register_rapidoc_rule(blueprint)
             self._app.register_blueprint(blueprint)
-
-    def _register_redoc_rule(self, blueprint):
-        """Register ReDoc rule
-
-        The ReDoc script URL should be specified as OPENAPI_REDOC_URL.
-        """
-        redoc_path = self.config.get("OPENAPI_REDOC_PATH")
-        if redoc_path is not None:
-            redoc_url = self.config.get("OPENAPI_REDOC_URL")
-            if redoc_url is not None:
-                self._redoc_url = redoc_url
-                blueprint.add_url_rule(
-                    _add_leading_slash(redoc_path),
-                    endpoint="openapi_redoc",
-                    view_func=self._openapi_redoc,
-                )
 
     def _register_swagger_ui_rule(self, blueprint):
         """Register Swagger UI rule
@@ -108,36 +90,12 @@ class DocBlueprintMixin:
                     view_func=self._openapi_swagger_ui,
                 )
 
-    def _register_rapidoc_rule(self, blueprint):
-        """Register RapiDoc rule
-
-        The RapiDoc script URL should be specified as OPENAPI_RAPIDOC_URL.
-        """
-        rapidoc_path = self.config.get("OPENAPI_RAPIDOC_PATH")
-        if rapidoc_path is not None:
-            rapidoc_url = self.config.get("OPENAPI_RAPIDOC_URL")
-            if rapidoc_url is not None:
-                self._rapidoc_url = rapidoc_url
-                blueprint.add_url_rule(
-                    _add_leading_slash(rapidoc_path),
-                    endpoint="openapi_rapidoc",
-                    view_func=self._openapi_rapidoc,
-                )
 
     def _openapi_json(self):
         """Serve JSON spec file"""
         return flask.current_app.response_class(
             flask.json.dumps(self.spec.to_dict(), indent=2, sort_keys=False),
             mimetype="application/json",
-        )
-
-    def _openapi_redoc(self):
-        """Expose OpenAPI spec with ReDoc"""
-        return flask.render_template(
-            "redoc.html",
-            spec_url=flask.url_for(f"{self._make_doc_blueprint_name()}.openapi_json"),
-            title=self.spec.title,
-            redoc_url=self._redoc_url,
         )
 
     def _openapi_swagger_ui(self):
@@ -180,16 +138,6 @@ class DocBlueprintMixin:
         )
 
         return flask.render_template("swagger_ui.html", **template_context)
-
-    def _openapi_rapidoc(self):
-        """Expose OpenAPI spec with RapiDoc"""
-        return flask.render_template(
-            "rapidoc.html",
-            title=self.spec.title,
-            spec_url=flask.url_for(f"{self._make_doc_blueprint_name()}.openapi_json"),
-            rapidoc_url=self._rapidoc_url,
-            rapidoc_config=self.config.get("OPENAPI_RAPIDOC_CONFIG", {}),
-        )
 
 
 class APISpecMixin(DocBlueprintMixin):

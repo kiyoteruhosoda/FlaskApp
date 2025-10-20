@@ -57,7 +57,6 @@ def app_context():
         "SECRET_KEY": "test-secret-key",
         "GOOGLE_CLIENT_ID": "",
         "GOOGLE_CLIENT_SECRET": "",
-        "FEATURE_X_DB_URI": "",
         "ACCESS_TOKEN_ISSUER": "test-issuer",
         "ACCESS_TOKEN_AUDIENCE": "test-audience",
     }

@@ -403,5 +403,8 @@ class TestOpenAPIDocs:
         echo_post = payload['paths']['/echo']['post']
         responses = echo_post['responses']
         assert '200' in responses
-        example = responses['200']['content']['application/json']['schema']['properties']['result']['example']
-        assert example == 'OK'
+        content = responses['200']['content']
+        assert 'text/plain' in content
+        schema = content['text/plain']['schema']
+        assert schema['type'] == 'string'
+        assert 'HTTP' in schema['example']

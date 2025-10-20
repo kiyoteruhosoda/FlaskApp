@@ -12,7 +12,7 @@ DEFAULT_APPLICATION_SETTINGS: dict[str, object] = {
     "PERMANENT_SESSION_LIFETIME": 1800,
     "PREFERRED_URL_SCHEME": "http",
     "CERTS_API_TIMEOUT": 10.0,
-    "LANGUAGES": ["en", "ja"],
+    "LANGUAGES": ["ja", "en"],
     "BABEL_DEFAULT_LOCALE": "en",
     "BABEL_DEFAULT_TIMEZONE": "Asia/Tokyo",
     "GOOGLE_CLIENT_ID": "",

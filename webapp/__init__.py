@@ -784,6 +784,18 @@ def create_app():
     with app.app_context():
         _apply_persisted_settings(app)
 
+    env_overrides = {
+        "FPV_TMP_DIR": os.environ.get("FPV_TMP_DIR"),
+        "FPV_NAS_ORIGINALS_DIR": os.environ.get("FPV_NAS_ORIGINALS_DIR"),
+        "FPV_NAS_PLAY_DIR": os.environ.get("FPV_NAS_PLAY_DIR"),
+        "FPV_NAS_THUMBS_DIR": os.environ.get("FPV_NAS_THUMBS_DIR"),
+        "LOCAL_IMPORT_DIR": os.environ.get("LOCAL_IMPORT_DIR"),
+        "FPV_DL_SIGN_KEY": os.environ.get("FPV_DL_SIGN_KEY"),
+    }
+    for key, value in env_overrides.items():
+        if value:
+            app.config[key] = value
+
     babel.init_app(app, locale_selector=_select_locale)
     smorest_api.init_app(app)
 
@@ -968,6 +980,7 @@ def create_app():
 
     # Blueprint 登録
     from .auth import bp as auth_bp
+    importlib.import_module("webapp.auth.routes")
     app.register_blueprint(auth_bp, url_prefix="/auth")
     from .auth.routes import picker as picker_view
     app.add_url_rule("/picker/<int:account_id>", view_func=picker_view, endpoint="picker")

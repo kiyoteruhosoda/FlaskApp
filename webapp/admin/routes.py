@@ -68,6 +68,18 @@ from webapp.services.system_setting_service import (
 bp = Blueprint("admin", __name__, template_folder="templates")
 
 
+_RELOGIN_REQUIRED_KEYS: frozenset[str] = frozenset(
+    {
+        "SECRET_KEY",
+        "SESSION_COOKIE_SECURE",
+        "SESSION_COOKIE_HTTPONLY",
+        "SESSION_COOKIE_SAMESITE",
+        "PERMANENT_SESSION_LIFETIME",
+    }
+)
+
+
+
 # --- ここから各ルート定義 ---
 
 
@@ -125,6 +137,23 @@ def _collect_application_definitions(
             sample = stored_payload.get(key, effective_config.get(key))
             definitions[key] = _build_custom_definition(key, sample)
     return definitions
+
+
+def _detect_relogin_changes(
+    previous_config: Dict[str, Any],
+    current_config: Dict[str, Any],
+    definitions: Dict[str, SettingFieldDefinition],
+) -> list[str]:
+    messages: list[str] = []
+    for key in sorted(_RELOGIN_REQUIRED_KEYS):
+        if previous_config.get(key) == current_config.get(key):
+            continue
+        definition = definitions.get(key)
+        label = definition.label if definition and definition.label else key
+        messages.append(
+            _(u"Changes to %(setting)s require all users to sign in again.", setting=label)
+        )
+    return messages
 
 
 def _format_value_for_display(value: Any) -> str:
@@ -529,6 +558,7 @@ def show_config():
                 errors: list[str] = []
                 updates: Dict[str, Any] = {}
                 remove_keys: list[str] = []
+                previous_config = dict(application_config)
                 for key in app_selected:
                     definition = application_definitions.get(key)
                     if definition is None:
@@ -554,7 +584,20 @@ def show_config():
                     for message in errors:
                         flash(message, "danger")
                 else:
-                    SystemSettingService.update_application_settings(updates, remove_keys=remove_keys)
+                    persisted_payload = SystemSettingService.update_application_settings(
+                        updates, remove_keys=remove_keys
+                    )
+                    from webapp import _apply_persisted_settings
+
+                    _apply_persisted_settings(current_app)
+                    merged_config = {**DEFAULT_APPLICATION_SETTINGS, **persisted_payload}
+                    changed_for_relogin = _detect_relogin_changes(
+                        previous_config,
+                        merged_config,
+                        application_definitions,
+                    )
+                    for message in changed_for_relogin:
+                        flash(message, "warning")
                     flash(_(u"Application configuration updated."), "success")
                     return redirect(url_for("admin.show_config"))
         elif action == "update-cors":

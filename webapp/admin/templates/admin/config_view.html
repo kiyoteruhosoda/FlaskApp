@@ -124,22 +124,119 @@
 
 <h4 class="mt-4">{{ _('Application Configuration (system settings)') }}</h4>
 <form method="post" class="mb-4">
-  <input type="hidden" name="action" value="update-app-config">
-  <div class="mb-3">
-    <label for="app-config-json" class="form-label">
-      {{ _('JSON payload for app.config') }}
-    </label>
-    <textarea
-      class="form-control font-monospace"
-      id="app-config-json"
-      name="app_config_json"
-      rows="16"
-    >{{ application_config_json|trim }}</textarea>
-    <div class="form-text">
-      {{ _('Provide a JSON object. Unspecified keys fall back to defaults defined in core.system_settings_defaults.') }}
-    </div>
+  <input type="hidden" name="action" value="update-app-config-fields">
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead>
+        <tr>
+          <th scope="col">{{ _('Key') }}</th>
+          <th scope="col">{{ _('Current value') }}</th>
+          <th scope="col">{{ _('Default') }}</th>
+          <th scope="col">{{ _('New value') }}</th>
+          <th scope="col">{{ _('Required') }}</th>
+          <th scope="col">{{ _('Description') }}</th>
+          <th scope="col">{{ _('Apply') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for field in application_fields %}
+        <tr>
+          <td>
+            <div><code>{{ field.key }}</code></div>
+            <div class="text-muted small">{{ field.label }}</div>
+            {% if field.using_default %}
+            <span class="badge bg-secondary mt-1">{{ _('Using default') }}</span>
+            {% else %}
+            <span class="badge bg-info mt-1">{{ _('Overridden') }}</span>
+            {% endif %}
+          </td>
+          <td class="font-monospace small">{{ field.current_json }}</td>
+          <td class="font-monospace small">
+            {% if field.default_json %}
+              {{ field.default_json }}
+            {% else %}
+              <span class="text-muted">{{ _('None') }}</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if field.data_type == 'boolean' %}
+            <select class="form-select form-select-sm" name="app_config_new[{{ field.key }}]">
+              {% for value, label in field.choices %}
+              <option value="{{ value }}" {% if field.form_value == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            {% elif field.data_type == 'list' %}
+            <textarea
+              class="form-control form-control-sm font-monospace"
+              name="app_config_new[{{ field.key }}]"
+              rows="3"
+            >{{ field.form_value }}</textarea>
+            <div class="form-text">{{ _('One value per line.') }}</div>
+            {% elif field.data_type == 'integer' %}
+            <input
+              type="number"
+              class="form-control form-control-sm"
+              name="app_config_new[{{ field.key }}]"
+              value="{{ field.form_value }}"
+            >
+            {% elif field.data_type == 'float' %}
+            <input
+              type="number"
+              step="any"
+              class="form-control form-control-sm"
+              name="app_config_new[{{ field.key }}]"
+              value="{{ field.form_value }}"
+            >
+            {% else %}
+            <input
+              type="text"
+              class="form-control form-control-sm"
+              name="app_config_new[{{ field.key }}]"
+              value="{{ field.form_value }}"
+            >
+            {% endif %}
+            <div class="form-check mt-2">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="app-config-use-default-{{ field.key }}"
+                name="app_config_use_default[{{ field.key }}]"
+                value="1"
+                {% if field.use_default %}checked{% endif %}
+              >
+              <label class="form-check-label" for="app-config-use-default-{{ field.key }}">
+                {{ _('Revert to default value') }}
+              </label>
+            </div>
+          </td>
+          <td>{% if field.required %}{{ _('Yes') }}{% else %}{{ _('No') }}{% endif %}</td>
+          <td class="small">{{ field.description }}</td>
+          <td>
+            <div class="form-check">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="app-config-selected-{{ field.key }}"
+                name="app_config_selected"
+                value="{{ field.key }}"
+                {% if field.selected %}checked{% endif %}
+              >
+              <label class="form-check-label" for="app-config-selected-{{ field.key }}">
+                {{ _('Update') }}
+              </label>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="d-flex justify-content-between align-items-center">
+    <button type="submit" class="btn btn-primary">
+      {{ _('Save application configuration') }}
+    </button>
     {% if application_config_updated_at %}
-    <div class="form-text text-muted">
+    <div class="form-text text-muted text-end">
       {{ _('Last updated at: %(timestamp)s', timestamp=application_config_updated_at|localtime('%Y-%m-%d %H:%M')) }}
       {% if application_config_description %}
       <br>{{ _('Description: %(description)s', description=application_config_description) }}
@@ -147,29 +244,102 @@
     </div>
     {% endif %}
   </div>
-  <button type="submit" class="btn btn-primary">
-    {{ _('Save application configuration') }}
-  </button>
 </form>
 
 <h4 class="mt-4">{{ _('CORS Allowed Origins') }}</h4>
 <form method="post" class="mb-4">
   <input type="hidden" name="action" value="update-cors">
-  <div class="mb-3">
-    <label for="allowed-origins" class="form-label">
-      {{ _('Allowed origins (one per line)') }}
-    </label>
-    <textarea
-      class="form-control font-monospace"
-      id="allowed-origins"
-      name="allowed_origins"
-      rows="8"
-    >{{ allowed_origins_text|trim }}</textarea>
-    <div class="form-text">
-      {{ _('Enter full URLs such as https://example.com. Use "*" to allow any origin.') }}
-    </div>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead>
+        <tr>
+          <th scope="col">{{ _('Key') }}</th>
+          <th scope="col">{{ _('Current value') }}</th>
+          <th scope="col">{{ _('Default') }}</th>
+          <th scope="col">{{ _('New value') }}</th>
+          <th scope="col">{{ _('Required') }}</th>
+          <th scope="col">{{ _('Description') }}</th>
+          <th scope="col">{{ _('Apply') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for field in cors_fields %}
+        <tr>
+          <td>
+            <div><code>{{ field.key }}</code></div>
+            <div class="text-muted small">{{ field.label }}</div>
+            {% if field.using_default %}
+            <span class="badge bg-secondary mt-1">{{ _('Using default') }}</span>
+            {% else %}
+            <span class="badge bg-info mt-1">{{ _('Overridden') }}</span>
+            {% endif %}
+          </td>
+          <td class="font-monospace small">{{ field.current_json }}</td>
+          <td class="font-monospace small">
+            {% if field.default_json %}
+              {{ field.default_json }}
+            {% else %}
+              <span class="text-muted">{{ _('None') }}</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if field.data_type == 'list' %}
+            <textarea
+              class="form-control form-control-sm font-monospace"
+              name="cors_new[{{ field.key }}]"
+              rows="3"
+            >{{ field.form_value }}</textarea>
+            <div class="form-text">{{ _('One value per line. Use "*" to allow any origin.') }}</div>
+            {% else %}
+            <input
+              type="text"
+              class="form-control form-control-sm"
+              name="cors_new[{{ field.key }}]"
+              value="{{ field.form_value }}"
+            >
+            {% endif %}
+            <div class="form-check mt-2">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="cors-use-default-{{ field.key }}"
+                name="cors_use_default[{{ field.key }}]"
+                value="1"
+                {% if field.use_default %}checked{% endif %}
+              >
+              <label class="form-check-label" for="cors-use-default-{{ field.key }}">
+                {{ _('Revert to default value') }}
+              </label>
+            </div>
+          </td>
+          <td>{% if field.required %}{{ _('Yes') }}{% else %}{{ _('No') }}{% endif %}</td>
+          <td class="small">{{ field.description }}</td>
+          <td>
+            <div class="form-check">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="cors-selected-{{ field.key }}"
+                name="cors_selected"
+                value="{{ field.key }}"
+                {% if field.selected %}checked{% endif %}
+              >
+              <label class="form-check-label" for="cors-selected-{{ field.key }}">
+                {{ _('Update') }}
+              </label>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="d-flex justify-content-between align-items-center">
+    <button type="submit" class="btn btn-primary">
+      {{ _('Save CORS settings') }}
+    </button>
     {% if cors_config_updated_at %}
-    <div class="form-text text-muted">
+    <div class="form-text text-muted text-end">
       {{ _('Last updated at: %(timestamp)s', timestamp=cors_config_updated_at|localtime('%Y-%m-%d %H:%M')) }}
       {% if cors_config_description %}
       <br>{{ _('Description: %(description)s', description=cors_config_description) }}
@@ -177,9 +347,6 @@
     </div>
     {% endif %}
   </div>
-  <button type="submit" class="btn btn-primary">
-    {{ _('Save CORS settings') }}
-  </button>
 </form>
 
 <table class="table table-bordered">

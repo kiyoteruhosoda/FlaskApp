@@ -3,6 +3,7 @@ import json
 import pytest
 
 from core.models.user import User, Role, Permission
+from core.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
 from webapp.extensions import db
 from webapp.services.system_setting_service import SystemSettingService
 
@@ -43,8 +44,8 @@ def test_config_page_requires_permission(client):
 
 
 def test_config_page_displays_current_settings(client):
-    SystemSettingService.upsert_application_config({"FEATURE_FLAG": True})
-    SystemSettingService.upsert_cors_config(["https://example.com"])
+    SystemSettingService.update_application_settings({"FEATURE_FLAG": True})
+    SystemSettingService.update_cors_settings({"allowedOrigins": ["https://example.com"]})
 
     user = _create_system_manager()
     _login(client, user)
@@ -53,20 +54,21 @@ def test_config_page_displays_current_settings(client):
     assert response.status_code == 200
 
     html = response.data.decode("utf-8")
-    assert "FEATURE_FLAG" in html
+    assert 'name="app_config_new[FEATURE_FLAG]"' in html
+    assert 'name="cors_new[allowedOrigins]"' in html
     assert "https://example.com" in html
 
 
-def test_update_application_config_valid_json(client):
+def test_update_application_config_field_success(client):
     user = _create_system_manager()
     _login(client, user)
 
-    payload = {"CUSTOM_VALUE": 123, "FEATURE_FLAG": False}
     response = client.post(
         "/admin/config",
         data={
-            "action": "update-app-config",
-            "app_config_json": json.dumps(payload),
+            "action": "update-app-config-fields",
+            "app_config_selected": ["UPLOAD_MAX_SIZE"],
+            "app_config_new[UPLOAD_MAX_SIZE]": "2048",
         },
         follow_redirects=True,
     )
@@ -76,29 +78,55 @@ def test_update_application_config_valid_json(client):
     assert "Application configuration updated." in html
 
     config = SystemSettingService.load_application_config()
-    assert config["CUSTOM_VALUE"] == 123
-    assert config["FEATURE_FLAG"] is False
+    assert config["UPLOAD_MAX_SIZE"] == 2048
 
 
-def test_update_application_config_invalid_json_shows_error(client):
-    SystemSettingService.upsert_application_config({"KEEP_ME": "original"})
+def test_update_application_config_rejects_empty_required(client):
+    user = _create_system_manager()
+    _login(client, user)
+
+    original_value = SystemSettingService.load_application_config()["JWT_SECRET_KEY"]
+
+    response = client.post(
+        "/admin/config",
+        data={
+            "action": "update-app-config-fields",
+            "app_config_selected": ["JWT_SECRET_KEY"],
+            "app_config_new[JWT_SECRET_KEY]": "",
+        },
+    )
+
+    assert response.status_code == 200
+    html = response.data.decode("utf-8")
+    assert "Value for JWT secret key is required." in html
+
+    config = SystemSettingService.load_application_config()
+    assert config["JWT_SECRET_KEY"] == original_value
+
+
+def test_update_application_config_revert_to_default(client):
+    SystemSettingService.update_application_settings({"TRANSCODE_CRF": 18})
+
     user = _create_system_manager()
     _login(client, user)
 
     response = client.post(
         "/admin/config",
         data={
-            "action": "update-app-config",
-            "app_config_json": "{invalid}",
+            "action": "update-app-config-fields",
+            "app_config_selected": ["TRANSCODE_CRF"],
+            "app_config_use_default[TRANSCODE_CRF]": "1",
+            "app_config_new[TRANSCODE_CRF]": "12",
         },
+        follow_redirects=True,
     )
 
     assert response.status_code == 200
     html = response.data.decode("utf-8")
-    assert "Failed to parse application configuration JSON" in html
+    assert "Application configuration updated." in html
 
     config = SystemSettingService.load_application_config()
-    assert config["KEEP_ME"] == "original"
+    assert config["TRANSCODE_CRF"] == DEFAULT_APPLICATION_SETTINGS["TRANSCODE_CRF"]
 
 
 def test_update_cors_config_success(client):
@@ -109,7 +137,8 @@ def test_update_cors_config_success(client):
         "/admin/config",
         data={
             "action": "update-cors",
-            "allowed_origins": "https://admin.example.com\nhttps://app.example.com",
+            "cors_selected": ["allowedOrigins"],
+            "cors_new[allowedOrigins]": "https://admin.example.com\nhttps://app.example.com",
         },
         follow_redirects=True,
     )
@@ -126,7 +155,7 @@ def test_update_cors_config_success(client):
 
 
 def test_update_cors_config_rejects_invalid_origin(client):
-    SystemSettingService.upsert_cors_config(["https://existing.example.com"])
+    SystemSettingService.update_cors_settings({"allowedOrigins": ["https://existing.example.com"]})
     user = _create_system_manager()
     _login(client, user)
 
@@ -134,7 +163,8 @@ def test_update_cors_config_rejects_invalid_origin(client):
         "/admin/config",
         data={
             "action": "update-cors",
-            "allowed_origins": "example.com\nhttps://valid.example.com",
+            "cors_selected": ["allowedOrigins"],
+            "cors_new[allowedOrigins]": "example.com\nhttps://valid.example.com",
         },
     )
 

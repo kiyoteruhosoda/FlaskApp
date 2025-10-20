@@ -237,19 +237,29 @@ class SystemSettingService:
 
     @classmethod
     def load_application_config(cls) -> Dict[str, Any]:
+        record_values = cls.load_application_config_payload()
+        return {**DEFAULT_APPLICATION_SETTINGS, **record_values}
+
+    @classmethod
+    def load_application_config_payload(cls) -> Dict[str, Any]:
         record = cls._get_setting_record(cls._APPLICATION_CONFIG_KEY)
         if record is None or not isinstance(record.setting_json, dict):
-            return dict(DEFAULT_APPLICATION_SETTINGS)
-        return {**DEFAULT_APPLICATION_SETTINGS, **record.setting_json}
+            return {}
+        return dict(record.setting_json)
 
     @classmethod
     def load_cors_config(cls) -> Dict[str, Any]:
+        record_values = cls.load_cors_config_payload()
+        merged = dict(DEFAULT_CORS_SETTINGS)
+        merged.update(record_values)
+        return merged
+
+    @classmethod
+    def load_cors_config_payload(cls) -> Dict[str, Any]:
         record = cls._get_setting_record(cls._CORS_CONFIG_KEY)
         if record is None or not isinstance(record.setting_json, dict):
-            return dict(DEFAULT_CORS_SETTINGS)
-        merged = dict(DEFAULT_CORS_SETTINGS)
-        merged.update(record.setting_json)
-        return merged
+            return {}
+        return dict(record.setting_json)
 
     @classmethod
     def upsert_application_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
@@ -262,11 +272,71 @@ class SystemSettingService:
         )
 
     @classmethod
+    def update_application_settings(
+        cls,
+        values: Dict[str, Any],
+        *,
+        remove_keys: Iterable[str] | None = None,
+    ) -> Dict[str, Any]:
+        current_payload = cls.load_application_config_payload()
+        changed = False
+
+        for key, value in values.items():
+            if current_payload.get(key) != value:
+                current_payload[key] = value
+                changed = True
+
+        if remove_keys:
+            for key in remove_keys:
+                if key in current_payload:
+                    current_payload.pop(key)
+                    changed = True
+
+        if not changed:
+            return current_payload
+
+        return cls._upsert_setting(
+            cls._APPLICATION_CONFIG_KEY,
+            current_payload,
+            description="Application configuration values.",
+        )
+
+    @classmethod
     def upsert_cors_config(cls, allowed_origins: Iterable[str]) -> Dict[str, Any]:
         payload = {"allowedOrigins": list(allowed_origins)}
         return cls._upsert_setting(
             cls._CORS_CONFIG_KEY,
             payload,
+            description="CORS configuration.",
+        )
+
+    @classmethod
+    def update_cors_settings(
+        cls,
+        values: Dict[str, Any],
+        *,
+        remove_keys: Iterable[str] | None = None,
+    ) -> Dict[str, Any]:
+        current_payload = cls.load_cors_config_payload()
+        changed = False
+
+        for key, value in values.items():
+            if current_payload.get(key) != value:
+                current_payload[key] = value
+                changed = True
+
+        if remove_keys:
+            for key in remove_keys:
+                if key in current_payload:
+                    current_payload.pop(key)
+                    changed = True
+
+        if not changed:
+            return current_payload
+
+        return cls._upsert_setting(
+            cls._CORS_CONFIG_KEY,
+            current_payload,
             description="CORS configuration.",
         )
 

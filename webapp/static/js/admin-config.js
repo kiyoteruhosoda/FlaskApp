@@ -244,7 +244,11 @@
 
       try {
         const formData = new FormData(form);
-        const response = await fetch(form.action || window.location.href, {
+        const actionAttribute = form.getAttribute('action');
+        const requestUrl = actionAttribute
+          ? new URL(actionAttribute, window.location.href).toString()
+          : window.location.href;
+        const response = await fetch(requestUrl, {
           method: form.method || 'POST',
           headers: {
             'X-Requested-With': 'XMLHttpRequest',

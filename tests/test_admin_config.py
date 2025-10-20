@@ -147,6 +147,11 @@ def test_update_cors_config_success(client):
     html = response.data.decode("utf-8")
     assert "CORS allowed origins updated." in html
 
+    assert client.application.config["CORS_ALLOWED_ORIGINS"] == (
+        "https://admin.example.com",
+        "https://app.example.com",
+    )
+
     config = SystemSettingService.load_cors_config()
     assert config["allowedOrigins"] == [
         "https://admin.example.com",

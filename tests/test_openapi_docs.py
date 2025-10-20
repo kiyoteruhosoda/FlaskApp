@@ -53,6 +53,8 @@ class TestOpenAPIDocs:
         assert 'url: "/api/openapi.json"' in html
         assert '<link rel="icon" type="image/x-icon" href="/static/favicon.ico">' in html
         assert 'Version:' in html
+        assert 'renderRequiredScopes' in html
+        assert 'required-scopes-container' in html
 
     def test_openapi_spec_respects_forwarded_headers(self, app_context):
         client = app_context.test_client()
@@ -308,3 +310,22 @@ class TestOpenAPIDocs:
                 assert request_body, f"{path} {method} missing requestBody"
                 content = request_body.get('content', {})
                 assert 'application/json' in content, f"{path} {method} missing JSON content"
+
+    def test_service_account_signature_endpoint_requires_api_key_scopes(self, app_context):
+        client = app_context.test_client()
+        response = client.get('/api/openapi.json')
+        assert response.status_code == 200
+        payload = response.get_json()
+
+        operation = payload['paths']['/service_accounts/signatures']['post']
+        assert operation['security'] == [{'ServiceAccountApiKey': []}]
+        assert operation['x-required-scopes'] == ['certificate:sign']
+        assert operation['x-requires-authentication'] is True
+
+        security_schemes = payload['components']['securitySchemes']
+        assert 'ServiceAccountApiKey' in security_schemes
+        scheme = security_schemes['ServiceAccountApiKey']
+        assert scheme['type'] == 'apiKey'
+        assert scheme['in'] == 'header'
+        assert scheme['name'] == 'Authorization'
+        assert 'ApiKey' in scheme['description']

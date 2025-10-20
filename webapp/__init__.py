@@ -39,6 +39,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 from werkzeug.datastructures import FileStorage
 
 from .extensions import db, migrate, login_manager, babel, api as smorest_api
+from webapp.auth.api_key_auth import API_KEY_SECURITY_SCHEME_NAME
 from .timezone import resolve_timezone, convert_to_timezone
 from core.db_log_handler import DBLogHandler
 from core.logging_config import ensure_appdb_file_logging
@@ -807,6 +808,8 @@ def create_app():
         "https://cdn.jsdelivr.net/npm/swagger-ui-dist/",
     )
     app.config.setdefault("API_SPEC_OPTIONS", {})
+    swagger_ui_config = app.config.setdefault("OPENAPI_SWAGGER_UI_CONFIG", {})
+    swagger_ui_config.setdefault("persistAuthorization", True)
 
     database_uri = app.config.get("SQLALCHEMY_DATABASE_URI")
     testing_mode = app.config.get("TESTING") or str(os.environ.get("TESTING", "")).lower() in {
@@ -848,6 +851,20 @@ def create_app():
 
     babel.init_app(app, locale_selector=_select_locale)
     smorest_api.init_app(app)
+
+    with app.app_context():
+        smorest_api.spec.components.security_scheme(
+            API_KEY_SECURITY_SCHEME_NAME,
+            {
+                "type": "apiKey",
+                "in": "header",
+                "name": "Authorization",
+                "description": (
+                    "Send the service account API key using the Authorization "
+                    "header with the `ApiKey <token>` format."
+                ),
+            },
+        )
 
     _configure_cors(app)
 

@@ -4,6 +4,22 @@
     <title>{{title}}</title>
     <link href="{{swagger_ui_url}}swagger-ui.css" rel="stylesheet" type="text/css"/>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <style>
+      .required-scopes-container {
+        margin: 8px 0 0;
+        padding: 6px 10px;
+        border-left: 4px solid #4f46e5;
+        background-color: #eef2ff;
+        border-radius: 4px;
+        font-size: 12px;
+        color: #1f2937;
+        display: inline-block;
+      }
+
+      .required-scopes-container strong {
+        margin-right: 6px;
+      }
+    </style>
   </head>
  <body>
 
@@ -85,31 +101,95 @@
          sanitizeServerOptions();
        });
 
-      function connectObserver() {
-        var select = document.querySelector(SERVER_DROPDOWN_SELECTORS);
-         if (!select) {
-           setTimeout(connectObserver, 100);
-           return;
-         }
+     function connectObserver() {
+       var select = document.querySelector(SERVER_DROPDOWN_SELECTORS);
+        if (!select) {
+          setTimeout(connectObserver, 100);
+          return;
+        }
 
-         observer.observe(select, {
-           childList: true,
-           subtree: true,
-           attributes: true,
-           characterData: true,
-         });
+        observer.observe(select, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          characterData: true,
+        });
 
-         sanitizeServerOptions();
-       }
+        sanitizeServerOptions();
+      }
 
        connectObserver();
      }
 
-     var existingOnComplete = config.onComplete;
+    function escapeSelectorValue(value) {
+      if (window.CSS && typeof window.CSS.escape === 'function') {
+        return window.CSS.escape(value);
+      }
+      return String(value).replace(/"/g, '\\"');
+    }
 
-     config.onComplete = function() {
-       if (typeof existingOnComplete === 'function') {
-         existingOnComplete.apply(this, arguments);
+    function renderRequiredScopes() {
+      if (!window.ui || typeof window.ui.getSystem !== 'function') {
+        return;
+      }
+      var system = window.ui.getSystem();
+      if (!system || !system.specSelectors || typeof system.specSelectors.specJson !== 'function') {
+        return;
+      }
+      var spec = system.specSelectors.specJson();
+      if (!spec || typeof spec.toJS !== 'function') {
+        return;
+      }
+      var data = spec.toJS();
+      if (!data || !data.paths) {
+        return;
+      }
+
+      Object.keys(data.paths).forEach(function(pathKey) {
+        var methods = data.paths[pathKey];
+        if (!methods) {
+          return;
+        }
+        Object.keys(methods).forEach(function(methodKey) {
+          var operation = methods[methodKey];
+          if (!operation || typeof operation !== 'object') {
+            return;
+          }
+          var requiresAuth = Boolean(operation['x-requires-authentication']);
+          var scopes = Array.isArray(operation['x-required-scopes']) ? operation['x-required-scopes'] : [];
+          var selector = '[data-path="' + escapeSelectorValue(pathKey) + '"][data-method="' + methodKey.toLowerCase() + '"]';
+          var opblock = document.querySelector(selector);
+          if (!opblock) {
+            return;
+          }
+          var summary = opblock.querySelector('.opblock-summary');
+          if (!summary) {
+            return;
+          }
+          var container = opblock.querySelector('.required-scopes-container');
+          if (requiresAuth) {
+            if (!container) {
+              container = document.createElement('div');
+              container.className = 'required-scopes-container';
+              summary.insertAdjacentElement('afterend', container);
+            }
+            if (scopes.length > 0) {
+              container.innerHTML = '<strong>🔐 Required scopes:</strong>' + scopes.join(', ');
+            } else {
+              container.innerHTML = '<strong>🔐 Authentication required</strong>';
+            }
+          } else if (container) {
+            container.remove();
+          }
+        });
+      });
+    }
+
+    var existingOnComplete = config.onComplete;
+
+    config.onComplete = function() {
+      if (typeof existingOnComplete === 'function') {
+        existingOnComplete.apply(this, arguments);
        }
        var system = null;
        if (window.ui && typeof window.ui.getSystem === 'function') {
@@ -117,22 +197,35 @@
        } else if (this && typeof this.getSystem === 'function') {
          system = this.getSystem();
        }
-       if (system && typeof system.getStore === 'function') {
-         var store = system.getStore();
-         if (store && typeof store.subscribe === 'function') {
-           store.subscribe(sanitizeServerOptions);
-         }
-       }
-       observeServerDropdown();
-       sanitizeServerOptions();
-       setTimeout(sanitizeServerOptions, 0);
-       setTimeout(sanitizeServerOptions, 100);
-       setTimeout(sanitizeServerOptions, 250);
-     };
+      if (system && typeof system.getStore === 'function') {
+        var store = system.getStore();
+        if (store && typeof store.subscribe === 'function') {
+          store.subscribe(function() {
+            sanitizeServerOptions();
+            renderRequiredScopes();
+          });
+        }
+      }
+      observeServerDropdown();
+      sanitizeServerOptions();
+      renderRequiredScopes();
+      setTimeout(function() {
+        sanitizeServerOptions();
+        renderRequiredScopes();
+      }, 0);
+      setTimeout(function() {
+        sanitizeServerOptions();
+        renderRequiredScopes();
+      }, 100);
+      setTimeout(function() {
+        sanitizeServerOptions();
+        renderRequiredScopes();
+      }, 250);
+    };
 
-     window.onload = function() {
-       window.ui = SwaggerUIBundle(config)
-     }
+    window.onload = function() {
+      window.ui = SwaggerUIBundle(config)
+    }
    </script>
 
  </body>

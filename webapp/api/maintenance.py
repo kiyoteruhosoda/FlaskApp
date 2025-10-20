@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 from flask import jsonify
-from flask_smorest import Blueprint
+from .blueprint import AuthEnforcedBlueprint
 
 from . import bp
 from ..auth.service_account_auth import require_service_account_scopes
 
-maintenance_bp = Blueprint("maintenance_api", __name__, url_prefix="/maintenance")
+maintenance_bp = AuthEnforcedBlueprint(
+    "maintenance_api", __name__, url_prefix="/maintenance"
+)
 
 
 def _default_audience(req) -> str:

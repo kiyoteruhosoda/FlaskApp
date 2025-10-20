@@ -161,6 +161,7 @@ def require_api_key_scopes(scopes: Sequence[str] | None):
         wrapper._apidoc["manual_doc"] = manual_doc
         wrapper._required_api_key_scopes = required_scopes
         wrapper._requires_api_key_authentication = True
+        wrapper._auth_enforced = True
 
         return wrapper
 

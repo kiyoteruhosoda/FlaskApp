@@ -4,6 +4,7 @@ from __future__ import annotations
 from flask import Response, request
 
 from . import bp
+from .routes import login_or_jwt_required
 
 
 def _build_request_target() -> str:
@@ -35,6 +36,7 @@ def _format_request_as_plain_text() -> str:
     "/echo",
     methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 )
+@login_or_jwt_required
 @bp.doc(
     methods=["POST", "PUT", "PATCH"],
     requestBody={

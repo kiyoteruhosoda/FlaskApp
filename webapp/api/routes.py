@@ -31,6 +31,7 @@ from flask_babel import gettext as _
 from functools import wraps
 
 from . import bp
+from .health import skip_auth
 from .openapi import json_request_body
 from ..extensions import db
 from core.models.google_account import GoogleAccount
@@ -159,6 +160,7 @@ def _service_account_assertion_error(
     ServiceAccountTokenResponseSchema,
     description="Issue access tokens for service accounts using JWT bearer assertions.",
 )
+@skip_auth
 def api_service_account_token_exchange(data: dict) -> dict:
     grant_type = data.get("grant_type")
     if grant_type != JWT_BEARER_GRANT_TYPE:
@@ -760,6 +762,7 @@ def login_or_jwt_required(f):
             token_source='none',
         )
         return jsonify({'error': 'authentication_required'}), 401
+    decorated_function._auth_enforced = True
     return decorated_function
 
 
@@ -803,6 +806,7 @@ def require_api_perms(*perm_codes):
 
             return func(*args, **kwargs)
 
+        wrapper._auth_enforced = True
         return wrapper
 
     return decorator
@@ -1685,6 +1689,7 @@ def api_album_delete(album_id: int):
 @bp.doc(security=[])
 @bp.arguments(LoginRequestSchema)
 @bp.response(200, LoginResponseSchema, description="ユーザー認証してJWTを発行")
+@skip_auth
 def api_login(data):
     """ユーザー認証してJWTを発行"""
     email = data.get("email")
@@ -1784,6 +1789,7 @@ def api_logout():
 @bp.doc(security=[])
 @bp.arguments(RefreshRequestSchema)
 @bp.response(200, RefreshResponseSchema)
+@skip_auth
 def api_refresh(data):
     """リフレッシュトークンから新しいアクセス・リフレッシュトークンを発行"""
     refresh_token = data.get("refresh_token")
@@ -1907,6 +1913,7 @@ def google_oauth_start():
 
 
 @bp.get("/debug/request-info")
+@login_or_jwt_required
 def debug_request_info():
     """デバッグ用: リクエスト情報と生成されるURLを確認"""
     info = {

@@ -5,10 +5,11 @@ from datetime import datetime, timezone
 from typing import Any
 
 from flask import jsonify, request
-from flask_login import current_user, login_required
+from flask_login import current_user
 
 from . import bp
 from .openapi import json_request_body
+from .routes import login_or_jwt_required
 from webapp.services.service_account_api_key_service import (
     ServiceAccountApiKeyNotFoundError,
     ServiceAccountApiKeyService,
@@ -49,7 +50,7 @@ def _has_read_permission() -> bool:
 
 
 @bp.route("/service_accounts/<int:account_id>/keys", methods=["GET"])
-@login_required
+@login_or_jwt_required
 def list_service_account_keys(account_id: int):
     if not _has_read_permission():
         return jsonify({"error": "forbidden"}), 403
@@ -65,7 +66,7 @@ def list_service_account_keys(account_id: int):
 
 
 @bp.route("/service_accounts/<int:account_id>/keys", methods=["POST"])
-@login_required
+@login_or_jwt_required
 @bp.doc(
     methods=["POST"],
     requestBody=json_request_body(
@@ -124,7 +125,7 @@ def create_service_account_key(account_id: int):
     "/service_accounts/<int:account_id>/keys/<int:key_id>/revoke",
     methods=["POST"],
 )
-@login_required
+@login_or_jwt_required
 def revoke_service_account_key(account_id: int, key_id: int):
     if not _has_manage_permission():
         return jsonify({"error": "forbidden"}), 403
@@ -142,7 +143,7 @@ def revoke_service_account_key(account_id: int, key_id: int):
 
 
 @bp.route("/service_accounts/<int:account_id>/keys/logs", methods=["GET"])
-@login_required
+@login_or_jwt_required
 def list_service_account_key_logs(account_id: int):
     if not _has_read_permission():
         return jsonify({"error": "forbidden"}), 403

@@ -29,9 +29,9 @@ from .pagination import PaginationParams, paginate_and_respond
 from .routes import login_or_jwt_required  # JWT認証対応のデコレータをインポート
 from .concurrency import create_limiter, limit_concurrency
 from .openapi import json_request_body
-from flask_smorest import Blueprint
+from .blueprint import AuthEnforcedBlueprint
 
-bp = Blueprint('picker_session_api', __name__)
+bp = AuthEnforcedBlueprint('picker_session_api', __name__)
 
 
 def _json_response(payload, status: int = 200):
@@ -235,6 +235,7 @@ def api_picker_session_create():
 
 
 @bp.post("/picker/session/<path:session_id>/callback")
+@login_or_jwt_required
 @limit_concurrency(_picker_session_callback_limiter)
 @bp.doc(
     methods=["POST"],

@@ -152,6 +152,7 @@ def _service_account_assertion_error(
 
 
 @bp.post("/token")
+@bp.doc(security=[])
 @bp.arguments(ServiceAccountTokenRequestSchema)
 @bp.response(
     200,
@@ -1681,6 +1682,7 @@ def api_album_delete(album_id: int):
 
 
 @bp.post("/login")
+@bp.doc(security=[])
 @bp.arguments(LoginRequestSchema)
 @bp.response(200, LoginResponseSchema, description="ユーザー認証してJWTを発行")
 def api_login(data):
@@ -1779,6 +1781,7 @@ def api_logout():
 
 
 @bp.post("/refresh")
+@bp.doc(security=[])
 @bp.arguments(RefreshRequestSchema)
 @bp.response(200, RefreshResponseSchema)
 def api_refresh(data):

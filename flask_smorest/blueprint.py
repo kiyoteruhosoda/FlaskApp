@@ -40,6 +40,7 @@ Documentation process works in several steps:
 """
 
 from copy import deepcopy
+from collections.abc import MutableMapping
 from functools import wraps
 
 from flask import Blueprint as FlaskBlueprint
@@ -201,12 +202,22 @@ class Blueprint(
             # Deepcopy doc info as it may be used for several methods and it
             # may be mutated in apispec
             doc = deepcopy(getattr(function, "_apidoc", {}))
+            allowed_methods = tuple(
+                method_name.lower()
+                for method_name in doc.pop("doc_methods", ())
+                if isinstance(method_name, str)
+            )
+            if allowed_methods and method.lower() not in allowed_methods:
+                return
             # Get summary/description from docstring
             doc["docstring"] = load_info_from_docstring(
                 function.__doc__, delimiter=self.DOCSTRING_INFO_DELIMITER
             )
             # Tags for this resource
             doc["tags"] = tags
+            manual_doc = doc.get("manual_doc")
+            if isinstance(manual_doc, MutableMapping):
+                manual_doc.pop("methods", None)
             # Store function doc infos for later processing/registration
             endpoint_doc_info[method.lower()] = doc
 
@@ -299,6 +310,17 @@ class Blueprint(
 
             # The deepcopy avoids modifying the wrapped function doc
             wrapper._apidoc = deepcopy(getattr(wrapper, "_apidoc", {}))
+            methods = kwargs.pop("methods", None)
+            if methods:
+                allowed_methods = tuple(
+                    method.lower()
+                    for method in methods
+                    if isinstance(method, str) and method
+                )
+                if allowed_methods:
+                    existing = tuple(wrapper._apidoc.get("doc_methods", ()))
+                    combined = dict.fromkeys(existing + allowed_methods)
+                    wrapper._apidoc["doc_methods"] = tuple(combined.keys())
             wrapper._apidoc["manual_doc"] = deepupdate(
                 deepcopy(wrapper._apidoc.get("manual_doc", {})), kwargs
             )

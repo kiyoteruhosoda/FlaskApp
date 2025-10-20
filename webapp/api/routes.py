@@ -57,6 +57,11 @@ from shared.domain.user import UserRegistrationService
 from shared.infrastructure.user_repository import SqlAlchemyUserRepository
 from ..services.token_service import TokenService
 from ..auth.totp import verify_totp
+from ..auth.service_account_auth import (
+    ServiceAccountJWTError,
+    ServiceAccountTokenValidator,
+)
+from core.settings import settings
 import jwt
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func, select, case
@@ -102,6 +107,8 @@ from .schemas.auth import (
     LogoutResponseSchema,
     RefreshRequestSchema,
     RefreshResponseSchema,
+    ServiceAccountTokenRequestSchema,
+    ServiceAccountTokenResponseSchema,
 )
 
 
@@ -113,6 +120,202 @@ auth_service = AuthService(user_repo, user_registration_service)
 VALID_TAG_ATTRS = {"person", "place", "thing"}
 
 _STORAGE_DEFAULTS = _storage_paths._STORAGE_DEFAULTS
+
+JWT_BEARER_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:jwt-bearer"
+
+
+def _service_account_assertion_error(
+    exc: ServiceAccountJWTError,
+) -> tuple[dict[str, str], int]:
+    status_map = {
+        "InvalidSignature": 401,
+        "ExpiredToken": 401,
+        "MissingJTI": 400,
+        "InvalidJTI": 400,
+        "ReplayDetected": 403,
+        "InvalidAudience": 403,
+        "UnknownAccount": 403,
+        "DisabledAccount": 403,
+        "InvalidScope": 403,
+        "JTICheckFailed": 500,
+    }
+    status = status_map.get(exc.code, 403)
+    if status >= 500:
+        return {
+            "error": "server_error",
+            "error_description": exc.message,
+        }, status
+    return {
+        "error": "invalid_grant",
+        "error_description": exc.message,
+    }, status
+
+
+@bp.post("/token")
+@bp.arguments(ServiceAccountTokenRequestSchema)
+@bp.response(
+    200,
+    ServiceAccountTokenResponseSchema,
+    description="Issue access tokens for service accounts using JWT bearer assertions.",
+)
+def api_service_account_token_exchange(data: dict) -> dict:
+    grant_type = data.get("grant_type")
+    if grant_type != JWT_BEARER_GRANT_TYPE:
+        return (
+            jsonify(
+                {
+                    "error": "unsupported_grant_type",
+                    "error_description": _("Only the JWT bearer grant type is supported."),
+                }
+            ),
+            400,
+        )
+
+    assertion = data.get("assertion")
+    if not assertion:
+        return (
+            jsonify(
+                {
+                    "error": "invalid_request",
+                    "error_description": _("The \"assertion\" field is required."),
+                }
+            ),
+            400,
+        )
+
+    audiences = settings.service_account_signing_audiences
+    if not audiences:
+        current_app.logger.error(
+            "Service account signing audience is not configured.",
+            extra={
+                "event": "service_account.token.failed",
+                "reason": "audience_not_configured",
+            },
+        )
+        return (
+            jsonify(
+                {
+                    "error": "server_error",
+                    "error_description": _("Service account signing audience is not configured."),
+                }
+            ),
+            500,
+        )
+
+    if len(audiences) == 1:
+        audience_param: str | tuple[str, ...] = audiences[0]
+    else:
+        audience_param = audiences
+
+    try:
+        account, claims = ServiceAccountTokenValidator.verify(
+            assertion,
+            audience=audience_param,
+            required_scopes=None,
+        )
+    except ServiceAccountJWTError as exc:
+        current_app.logger.info(
+            "Service account assertion validation failed.",
+            extra={
+                "event": "service_account.token.failed",
+                "code": exc.code,
+                "error_description": exc.message,
+            },
+        )
+        response, status = _service_account_assertion_error(exc)
+        return jsonify(response), status
+
+    if claims.get("iss") != account.name or claims.get("sub") != account.name:
+        current_app.logger.info(
+            "Service account assertion issuer mismatch.",
+            extra={
+                "event": "service_account.token.failed",
+                "code": "IssuerMismatch",
+                "service_account": account.name,
+                "issuer": claims.get("iss"),
+                "subject": claims.get("sub"),
+            },
+        )
+        return (
+            jsonify(
+                {
+                    "error": "invalid_grant",
+                    "error_description": _("The assertion issuer must match the service account name."),
+                }
+            ),
+            403,
+        )
+
+    if "scope" not in claims:
+        return (
+            jsonify(
+                {
+                    "error": "invalid_grant",
+                    "error_description": _("The assertion must include a \"scope\" claim."),
+                }
+            ),
+            400,
+        )
+
+    scope_claim = claims.get("scope")
+    if not isinstance(scope_claim, str):
+        return (
+            jsonify(
+                {
+                    "error": "invalid_grant",
+                    "error_description": _("The assertion scope claim must be a string."),
+                }
+            ),
+            400,
+        )
+
+    requested_scope = [item for item in scope_claim.split() if item]
+    normalized_scope, scope_str = TokenService._normalize_scope(requested_scope)
+    allowed_scopes = set(account.scopes)
+    disallowed = [scope for scope in normalized_scope if scope not in allowed_scopes]
+    if disallowed:
+        current_app.logger.info(
+            "Service account assertion requested disallowed scope.",
+            extra={
+                "event": "service_account.token.failed",
+                "service_account": account.name,
+                "requested_scopes": normalized_scope,
+                "allowed_scopes": sorted(allowed_scopes),
+            },
+        )
+        return (
+            jsonify(
+                {
+                    "error": "invalid_grant",
+                    "error_description": _("The requested scope is not allowed for this service account."),
+                }
+            ),
+            403,
+        )
+
+    access_token = TokenService.generate_service_account_access_token(
+        account,
+        normalized_scope,
+    )
+    expires_in = TokenService.ACCESS_TOKEN_EXPIRE_SECONDS
+
+    current_app.logger.info(
+        "Service account access token issued.",
+        extra={
+            "event": "service_account.token.issued",
+            "service_account": account.name,
+            "scopes": normalized_scope,
+            "assertion_jti": claims.get("jti"),
+        },
+    )
+
+    response_payload = {
+        "access_token": access_token,
+        "token_type": "Bearer",
+        "expires_in": expires_in,
+        "scope": scope_str,
+    }
+    return jsonify(response_payload)
 
 
 def _normalize_storage_defaults(config_key: str) -> None:

@@ -6,12 +6,13 @@ import base64
 import binascii
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Iterable, Optional, Tuple
+from typing import Iterable, Optional, Tuple, Any
 
 import jwt
 from flask import current_app
 
 from core.models.user import User
+from core.models.service_account import ServiceAccount
 from core.settings import settings
 from webapp.extensions import db
 from webapp.services.access_token_signing import (
@@ -27,6 +28,7 @@ class TokenService:
 
     # トークンの有効期限設定
     ACCESS_TOKEN_EXPIRE_HOURS = 1
+    ACCESS_TOKEN_EXPIRE_SECONDS = int(timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS).total_seconds())
     REFRESH_TOKEN_EXPIRE_DAYS = 30
 
     @staticmethod
@@ -63,28 +65,30 @@ class TokenService:
             return ""
 
     @classmethod
-    def generate_access_token(
+    def _build_access_token_payload(
         cls,
-        user: User,
-        scope: Iterable[str] | None = None,
-    ) -> str:
-        """アクセストークンを生成する"""
-
+        *,
+        subject: str,
+        scope_str: str,
+        extra_claims: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         now = datetime.now(timezone.utc)
-        _, scope_str = cls._normalize_scope(scope)
-
         payload = {
-            "sub": str(user.id),  # ユーザーID（文字列）
-            "email": user.email,  # デバッグ用
+            "sub": subject,
             "exp": now + timedelta(hours=cls.ACCESS_TOKEN_EXPIRE_HOURS),
             "iat": now,
-            "jti": secrets.token_urlsafe(8),  # JWT ID
+            "jti": secrets.token_urlsafe(8),
             "type": "access",
             "scope": scope_str,
             "iss": settings.access_token_issuer,
             "aud": settings.access_token_audience,
         }
+        if extra_claims:
+            payload.update(extra_claims)
+        return payload
 
+    @classmethod
+    def _encode_access_token(cls, payload: dict) -> str:
         try:
             material = resolve_signing_material()
         except AccessTokenSigningError as exc:
@@ -101,6 +105,45 @@ class TokenService:
             algorithm=material.algorithm,
             headers=headers,
         )
+
+    @classmethod
+    def generate_access_token(
+        cls,
+        user: User,
+        scope: Iterable[str] | None = None,
+    ) -> str:
+        """アクセストークンを生成する"""
+
+        _, scope_str = cls._normalize_scope(scope)
+        payload = cls._build_access_token_payload(
+            subject=str(user.id),
+            scope_str=scope_str,
+            extra_claims={
+                "email": user.email,
+                "subject_type": "individual",
+            },
+        )
+        return cls._encode_access_token(payload)
+
+    @classmethod
+    def generate_service_account_access_token(
+        cls,
+        account: ServiceAccount,
+        scope: Iterable[str] | None = None,
+    ) -> str:
+        """サービスアカウント向けのアクセストークンを生成する"""
+
+        _, scope_str = cls._normalize_scope(scope)
+        payload = cls._build_access_token_payload(
+            subject=str(account.service_account_id),
+            scope_str=scope_str,
+            extra_claims={
+                "subject_type": "system",
+                "service_account": account.name,
+                "service_account_id": account.service_account_id,
+            },
+        )
+        return cls._encode_access_token(payload)
 
     @classmethod
     def generate_refresh_token(

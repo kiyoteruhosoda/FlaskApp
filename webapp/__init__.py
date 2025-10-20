@@ -81,7 +81,7 @@ _SANITIZE_SERVER_URL_PATTERN = re.compile(r"\\([:/])")
 def _sanitize_openapi_server_url(url: Optional[str]) -> str:
     if not url:
         return ""
-    return _SANITIZE_SERVER_URL_PATTERN.sub(r"\\1", url)
+    return _SANITIZE_SERVER_URL_PATTERN.sub(r"\1", url)
 
 
 def _is_sensitive_key(key):

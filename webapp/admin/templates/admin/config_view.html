@@ -42,7 +42,7 @@
 <h3>{{ _('Config Settings') }}</h3>
 
 <h4 class="mt-4">{{ _('Access Token Signing') }}</h4>
-<form method="post" class="mb-4">
+<form method="post" class="mb-4" data-ajax-config-form data-config-form="signing">
   <input type="hidden" name="action" value="update-signing">
   <div class="form-check mb-2">
     <input
@@ -116,14 +116,19 @@
     {{ _('Save signing settings') }}
   </button>
   {% if signing_config_updated_at %}
-  <div class="form-text text-muted mt-2">
+  <div
+    class="form-text text-muted mt-2"
+    data-timestamp-target="signing"
+    data-label-updated="{{ _('Last updated at: %(timestamp)s', timestamp='__TIME__') }}"
+    data-description-label="{{ _('Description: %(description)s', description='__DESC__') }}"
+  >
     {{ _('Last updated at: %(timestamp)s', timestamp=signing_config_updated_at|localtime('%Y-%m-%d %H:%M')) }}
   </div>
   {% endif %}
 </form>
 
 <h4 class="mt-4">{{ _('Application Configuration (system settings)') }}</h4>
-<form method="post" class="mb-4">
+<form method="post" class="mb-4" data-ajax-config-form data-config-form="application">
   <input type="hidden" name="action" value="update-app-config-fields">
   <div class="table-responsive">
     <table class="table table-sm align-middle">
@@ -140,27 +145,42 @@
       </thead>
       <tbody>
         {% for field in application_fields %}
-        <tr>
+        <tr data-app-key="{{ field.key }}">
           <td>
             <div><code>{{ field.key }}</code></div>
             <div class="text-muted small">{{ field.label }}</div>
-            {% if field.using_default %}
-            <span class="badge bg-secondary mt-1">{{ _('Using default') }}</span>
-            {% else %}
-            <span class="badge bg-info mt-1">{{ _('Overridden') }}</span>
-            {% endif %}
+            <span
+              class="badge mt-1 {% if field.using_default %}bg-secondary{% else %}bg-info{% endif %}"
+              data-field="status-badge"
+              data-label-using-default="{{ _('Using default') }}"
+              data-label-overridden="{{ _('Overridden') }}"
+            >
+              {% if field.using_default %}
+              {{ _('Using default') }}
+              {% else %}
+              {{ _('Overridden') }}
+              {% endif %}
+            </span>
           </td>
-          <td class="font-monospace small">{{ field.current_json }}</td>
-          <td class="font-monospace small">
+          <td class="font-monospace small" data-field="current">{{ field.current_json }}</td>
+          <td
+            class="font-monospace small{% if not field.default_json %} text-muted{% endif %}"
+            data-field="default"
+            data-none-label="{{ _('None') }}"
+          >
             {% if field.default_json %}
               {{ field.default_json }}
             {% else %}
-              <span class="text-muted">{{ _('None') }}</span>
+              {{ _('None') }}
             {% endif %}
           </td>
           <td>
             {% if field.data_type == 'boolean' %}
-            <select class="form-select form-select-sm" name="app_config_new[{{ field.key }}]">
+            <select
+              class="form-select form-select-sm"
+              name="app_config_new[{{ field.key }}]"
+              data-field-input
+            >
               {% for value, label in field.choices %}
               <option value="{{ value }}" {% if field.form_value == value %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
@@ -170,6 +190,7 @@
               class="form-control form-control-sm font-monospace"
               name="app_config_new[{{ field.key }}]"
               rows="3"
+              data-field-input
             >{{ field.form_value }}</textarea>
             <div class="form-text">{{ _('One value per line.') }}</div>
             {% elif field.data_type == 'integer' %}
@@ -178,6 +199,7 @@
               class="form-control form-control-sm"
               name="app_config_new[{{ field.key }}]"
               value="{{ field.form_value }}"
+              data-field-input
             >
             {% elif field.data_type == 'float' %}
             <input
@@ -186,6 +208,7 @@
               class="form-control form-control-sm"
               name="app_config_new[{{ field.key }}]"
               value="{{ field.form_value }}"
+              data-field-input
             >
             {% else %}
             <input
@@ -193,6 +216,7 @@
               class="form-control form-control-sm"
               name="app_config_new[{{ field.key }}]"
               value="{{ field.form_value }}"
+              data-field-input
             >
             {% endif %}
             <div class="form-check mt-2">
@@ -203,6 +227,7 @@
                 name="app_config_use_default[{{ field.key }}]"
                 value="1"
                 {% if field.use_default %}checked{% endif %}
+                data-field-use-default
               >
               <label class="form-check-label" for="app-config-use-default-{{ field.key }}">
                 {{ _('Revert to default value') }}
@@ -220,6 +245,7 @@
                 name="app_config_selected"
                 value="{{ field.key }}"
                 {% if field.selected %}checked{% endif %}
+                data-field-select
               >
               <label class="form-check-label" for="app-config-selected-{{ field.key }}">
                 {{ _('Update') }}
@@ -236,7 +262,13 @@
       {{ _('Save application configuration') }}
     </button>
     {% if application_config_updated_at %}
-    <div class="form-text text-muted text-end">
+    <div
+      class="form-text text-muted text-end"
+      data-timestamp-target="application"
+      data-description-target="application"
+      data-label-updated="{{ _('Last updated at: %(timestamp)s', timestamp='__TIME__') }}"
+      data-description-label="{{ _('Description: %(description)s', description='__DESC__') }}"
+    >
       {{ _('Last updated at: %(timestamp)s', timestamp=application_config_updated_at|localtime('%Y-%m-%d %H:%M')) }}
       {% if application_config_description %}
       <br>{{ _('Description: %(description)s', description=application_config_description) }}
@@ -247,7 +279,7 @@
 </form>
 
 <h4 class="mt-4">{{ _('CORS Allowed Origins') }}</h4>
-<form method="post" class="mb-4">
+<form method="post" class="mb-4" data-ajax-config-form data-config-form="cors">
   <input type="hidden" name="action" value="update-cors">
   <div class="table-responsive">
     <table class="table table-sm align-middle">
@@ -259,27 +291,37 @@
           <th scope="col">{{ _('New value') }}</th>
           <th scope="col">{{ _('Required') }}</th>
           <th scope="col">{{ _('Description') }}</th>
-          <th scope="col">{{ _('Apply') }}</th>
         </tr>
       </thead>
       <tbody>
         {% for field in cors_fields %}
-        <tr>
+        <tr data-cors-key="{{ field.key }}">
           <td>
             <div><code>{{ field.key }}</code></div>
             <div class="text-muted small">{{ field.label }}</div>
-            {% if field.using_default %}
-            <span class="badge bg-secondary mt-1">{{ _('Using default') }}</span>
-            {% else %}
-            <span class="badge bg-info mt-1">{{ _('Overridden') }}</span>
-            {% endif %}
+            <span
+              class="badge mt-1 {% if field.using_default %}bg-secondary{% else %}bg-info{% endif %}"
+              data-field="status-badge"
+              data-label-using-default="{{ _('Using default') }}"
+              data-label-overridden="{{ _('Overridden') }}"
+            >
+              {% if field.using_default %}
+              {{ _('Using default') }}
+              {% else %}
+              {{ _('Overridden') }}
+              {% endif %}
+            </span>
           </td>
-          <td class="font-monospace small">{{ field.current_json }}</td>
-          <td class="font-monospace small">
+          <td class="font-monospace small" data-field="current">{{ field.current_json }}</td>
+          <td
+            class="font-monospace small{% if not field.default_json %} text-muted{% endif %}"
+            data-field="default"
+            data-none-label="{{ _('None') }}"
+          >
             {% if field.default_json %}
               {{ field.default_json }}
             {% else %}
-              <span class="text-muted">{{ _('None') }}</span>
+              {{ _('None') }}
             {% endif %}
           </td>
           <td>
@@ -288,6 +330,7 @@
               class="form-control form-control-sm font-monospace"
               name="cors_new[{{ field.key }}]"
               rows="3"
+              data-cors-input
             >{{ field.form_value }}</textarea>
             <div class="form-text">{{ _('One value per line. Use "*" to allow any origin.') }}</div>
             {% else %}
@@ -296,6 +339,7 @@
               class="form-control form-control-sm"
               name="cors_new[{{ field.key }}]"
               value="{{ field.form_value }}"
+              data-cors-input
             >
             {% endif %}
             <div class="form-check mt-2">
@@ -306,6 +350,7 @@
                 name="cors_use_default[{{ field.key }}]"
                 value="1"
                 {% if field.use_default %}checked{% endif %}
+                data-cors-use-default
               >
               <label class="form-check-label" for="cors-use-default-{{ field.key }}">
                 {{ _('Revert to default value') }}
@@ -314,21 +359,6 @@
           </td>
           <td>{% if field.required %}{{ _('Yes') }}{% else %}{{ _('No') }}{% endif %}</td>
           <td class="small">{{ field.description }}</td>
-          <td>
-            <div class="form-check">
-              <input
-                class="form-check-input"
-                type="checkbox"
-                id="cors-selected-{{ field.key }}"
-                name="cors_selected"
-                value="{{ field.key }}"
-                {% if field.selected %}checked{% endif %}
-              >
-              <label class="form-check-label" for="cors-selected-{{ field.key }}">
-                {{ _('Update') }}
-              </label>
-            </div>
-          </td>
         </tr>
         {% endfor %}
       </tbody>
@@ -339,7 +369,13 @@
       {{ _('Save CORS settings') }}
     </button>
     {% if cors_config_updated_at %}
-    <div class="form-text text-muted text-end">
+    <div
+      class="form-text text-muted text-end"
+      data-timestamp-target="cors"
+      data-description-target="cors"
+      data-label-updated="{{ _('Last updated at: %(timestamp)s', timestamp='__TIME__') }}"
+      data-description-label="{{ _('Description: %(description)s', description='__DESC__') }}"
+    >
       {{ _('Last updated at: %(timestamp)s', timestamp=cors_config_updated_at|localtime('%Y-%m-%d %H:%M')) }}
       {% if cors_config_description %}
       <br>{{ _('Description: %(description)s', description=cors_config_description) }}
@@ -349,14 +385,14 @@
   </div>
 </form>
 
-<table class="table table-bordered">
+<table class="table table-bordered" data-config-table>
   <thead>
     <tr>
       <th>Key</th>
       <th>Value</th>
     </tr>
   </thead>
-  <tbody>
+  <tbody data-config-table-body>
     {% for key, value in config.items() %}
     <tr>
       <td>{{ key }}</td>
@@ -365,4 +401,9 @@
     {% endfor %}
   </tbody>
 </table>
+{% endblock %}
+
+{% block extra_scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/admin-config.js') }}"></script>
 {% endblock %}

@@ -4,6 +4,7 @@ import pytest
 from datetime import datetime, timedelta, timezone
 from flask import current_app
 
+from core.models.service_account import ServiceAccount
 from core.models.user import User
 from core.settings import settings
 
@@ -150,6 +151,25 @@ def test_verify_access_token_rejects_invalid_audience():
     current_app.config["ACCESS_TOKEN_AUDIENCE"] = "unexpected"
 
     assert TokenService.verify_access_token(token) is None
+
+
+@pytest.mark.usefixtures("app_context")
+def test_verify_access_token_accepts_service_account_tokens():
+    account = ServiceAccount(name="svc-access-token")
+    account.set_scopes(["maintenance:read"])
+    db.session.add(account)
+    db.session.commit()
+
+    token = TokenService.generate_service_account_access_token(
+        account, scope=["maintenance:read"]
+    )
+
+    verification = TokenService.verify_access_token(token)
+    assert verification is not None
+    principal, scopes = verification
+    assert isinstance(principal, ServiceAccount)
+    assert principal.service_account_id == account.service_account_id
+    assert scopes == {"maintenance:read"}
 
 
 @pytest.mark.usefixtures("app_context")

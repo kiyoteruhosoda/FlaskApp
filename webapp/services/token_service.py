@@ -6,7 +6,7 @@ import base64
 import binascii
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Iterable, Optional, Tuple, Any
+from typing import Any, Iterable, Optional, Tuple
 
 import jwt
 from flask import current_app
@@ -178,8 +178,10 @@ class TokenService:
         return access_token, refresh_token
 
     @classmethod
-    def verify_access_token(cls, token: str) -> Optional[tuple[User, set[str]]]:
-        """アクセストークンを検証してユーザーと許可スコープを取得する"""
+    def verify_access_token(
+        cls, token: str
+    ) -> Optional[tuple[User | ServiceAccount, set[str]]]:
+        """アクセストークンを検証して主体と許可スコープを取得する"""
 
         try:
             header = jwt.get_unverified_header(token)
@@ -233,15 +235,29 @@ class TokenService:
             current_app.logger.debug("JWT token format error")
             return None
 
+        subject_type = payload.get("subject_type") or "individual"
+
         try:
-            user_id = int(payload["sub"])
+            subject_id = int(payload["sub"])
         except (KeyError, TypeError, ValueError):
             current_app.logger.debug("JWT token missing subject claim")
             return None
 
-        user = User.query.get(user_id)
-        if not user or not user.is_active:
-            return None
+        principal: User | ServiceAccount | None = None
+
+        if subject_type == "system":
+            account = ServiceAccount.query.get(subject_id)
+            if not account or not account.is_active():
+                current_app.logger.debug(
+                    "JWT token verification failed: service account not found or inactive"
+                )
+                return None
+            principal = account
+        else:
+            user = User.query.get(subject_id)
+            if not user or not user.is_active:
+                return None
+            principal = user
 
         scope_claim = payload.get("scope", "")
         if isinstance(scope_claim, str):
@@ -249,7 +265,7 @@ class TokenService:
         else:
             scope_items = set()
 
-        return user, scope_items
+        return principal, scope_items
 
     @classmethod
     def verify_refresh_token(cls, refresh_token: str) -> Optional[tuple[User, str]]:

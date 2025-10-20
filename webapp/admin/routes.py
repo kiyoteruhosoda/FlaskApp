@@ -607,6 +607,9 @@ def show_config():
                         flash(message, "danger")
                 else:
                     SystemSettingService.update_cors_settings(updates, remove_keys=remove_keys)
+                    from webapp import _apply_persisted_settings
+
+                    _apply_persisted_settings(current_app)
                     flash(_(u"CORS allowed origins updated."), "success")
                     return redirect(url_for("admin.show_config"))
 

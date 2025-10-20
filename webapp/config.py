@@ -34,11 +34,6 @@ class Config:
     PREFERRED_URL_SCHEME = _default("PREFERRED_URL_SCHEME")
     CERTS_API_TIMEOUT = _default("CERTS_API_TIMEOUT")
 
-    SQLALCHEMY_BINDS = {}
-    dashboard_db = _default("DASHBOARD_DB_URI")
-    if dashboard_db:
-        SQLALCHEMY_BINDS["dashboard"] = dashboard_db
-
     # Internationalisation
     LANGUAGES = list(_default("LANGUAGES") or ["ja", "en"])
     BABEL_TRANSLATION_DIRECTORIES = os.path.join(
@@ -113,7 +108,6 @@ class TestConfig(Config):
     GOOGLE_CLIENT_ID = ""
     GOOGLE_CLIENT_SECRET = ""
     SESSION_COOKIE_SECURE = False
-    SQLALCHEMY_BINDS = {}
     UPLOAD_TMP_DIR = "/tmp/test_upload/tmp"
     UPLOAD_DESTINATION_DIR = "/tmp/test_upload/dest"
     WIKI_UPLOAD_DIR = "/tmp/test_upload/wiki"

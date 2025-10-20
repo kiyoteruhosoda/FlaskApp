@@ -189,15 +189,6 @@ APPLICATION_SETTING_DEFINITIONS: Mapping[str, SettingFieldDefinition] = {
         allow_empty=True,
         allow_null=True,
     ),
-    "DASHBOARD_DB_URI": SettingFieldDefinition(
-        key="DASHBOARD_DB_URI",
-        label=_(u"Dashboard database URI"),
-        data_type="string",
-        required=False,
-        description=_(u"SQLAlchemy database URI for dashboard integrations."),
-        allow_empty=True,
-        allow_null=True,
-    ),
     "FPV_DL_SIGN_KEY": SettingFieldDefinition(
         key="FPV_DL_SIGN_KEY",
         label=_(u"Download signing key"),

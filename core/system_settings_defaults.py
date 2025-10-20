@@ -19,7 +19,6 @@ DEFAULT_APPLICATION_SETTINGS: dict[str, object] = {
     "GOOGLE_CLIENT_SECRET": "",
     "OAUTH_TOKEN_KEY": None,
     "OAUTH_TOKEN_KEY_FILE": None,
-    "DASHBOARD_DB_URI": None,
     "FPV_DL_SIGN_KEY": "",
     "FPV_URL_TTL_THUMB": 600,
     "FPV_URL_TTL_PLAYBACK": 600,

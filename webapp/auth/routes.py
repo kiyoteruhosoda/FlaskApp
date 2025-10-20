@@ -388,9 +388,11 @@ def profile():
     default_language = current_app.config.get("BABEL_DEFAULT_LOCALE", languages[0])
     if default_language not in language_labels:
         language_labels[default_language] = default_language
-    selected_language = request.cookies.get("lang") or default_language
+
+    fallback_language = languages[0] if languages else default_language
+    selected_language = request.cookies.get("lang") or fallback_language or default_language
     if selected_language not in languages:
-        selected_language = default_language
+        selected_language = fallback_language or default_language
 
     default_timezone = current_app.config.get("BABEL_DEFAULT_TIMEZONE", "UTC")
     timezone_codes = list(PROFILE_TIMEZONES)

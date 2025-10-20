@@ -13,6 +13,7 @@ from uuid import uuid4
 from babel.messages.pofile import read_po
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import jwt
 
@@ -533,12 +534,6 @@ def _ensure_openapi_success_responses(spec) -> None:
             responses["200"] = deepcopy(default_response)
 
 
-def _strip_quotes(value: str) -> str:
-    if len(value) >= 2 and value[0] == value[-1] == '"':
-        return value[1:-1]
-    return value
-
-
 def _configure_cors(app: Flask) -> None:
     """Configure Cross-Origin Resource Sharing based on application settings."""
 
@@ -616,28 +611,6 @@ def _configure_cors(app: Flask) -> None:
 
         return response
 
-
-def _parse_forwarded_header(header_value: Optional[str]) -> List[Dict[str, str]]:
-    if not header_value:
-        return []
-    parsed: List[Dict[str, str]] = []
-    for part in header_value.split(","):
-        params: Dict[str, str] = {}
-        for token in part.split(";"):
-            token = token.strip()
-            if not token or "=" not in token:
-                continue
-            key, raw_value = token.split("=", 1)
-            key = key.strip().lower()
-            value = _strip_quotes(raw_value.strip())
-            if not key:
-                continue
-            params[key] = value
-        if params:
-            parsed.append(params)
-    return parsed
-
-
 def _normalize_script_root(script_root: Optional[str]) -> str:
     if not script_root:
         return ""
@@ -667,74 +640,19 @@ def _combine_base_and_prefix(base: str, api_prefix: str) -> str:
     return f"{normalized_base}{api_prefix}"
 
 
-def _iter_non_empty(values: Iterable[Optional[str]]) -> Iterable[str]:
-    for value in values:
-        if value:
-            stripped = value.strip()
-            if stripped:
-                yield stripped
-
-
-def _normalize_scheme(scheme: Optional[str]) -> Optional[str]:
-    if not scheme:
-        return None
-    normalized = scheme.strip().lower()
-    return normalized or None
-
-
-def _split_host_and_port(host: str) -> Tuple[str, Optional[int]]:
-    if not host:
-        return "", None
-    stripped = host.strip()
-    if not stripped:
-        return "", None
-    if stripped.startswith("["):
-        closing_index = stripped.find("]")
-        if closing_index != -1:
-            core = stripped[: closing_index + 1].lower()
-            remainder = stripped[closing_index + 1 :]
-            if remainder.startswith(":") and remainder[1:].isdigit():
-                return core, int(remainder[1:])
-            return core, None
-        return stripped.lower(), None
-    if ":" in stripped:
-        host_part, port_part = stripped.rsplit(":", 1)
-        if port_part.isdigit():
-            return host_part.lower(), int(port_part)
-    return stripped.lower(), None
-
-
-def _default_port_for_scheme(scheme: str) -> Optional[int]:
-    scheme_lower = scheme.lower()
-    if scheme_lower == "https":
-        return 443
-    if scheme_lower == "http":
-        return 80
-    return None
-
-
 def _calculate_openapi_server_urls(prefix: str) -> List[str]:
     script_root = _normalize_script_root(request.script_root)
-    trusted_scheme = request.scheme or ""
-    trusted_scheme_lower = trusted_scheme.lower()
-    trusted_host = request.host or ""
-    normalized_trusted_host, trusted_port = _split_host_and_port(trusted_host)
-    default_trusted_port = _default_port_for_scheme(trusted_scheme_lower)
 
-    def is_trusted_host(candidate: Optional[str]) -> bool:
-        if not candidate:
-            return False
-        host_value = _strip_quotes(candidate)
-        host, port = _split_host_and_port(host_value)
-        if not host or host != normalized_trusted_host:
-            return False
-        if trusted_port is None:
-            if port is None:
-                return True
-            if default_trusted_port is None:
-                return False
-            return port == default_trusted_port
-        return port == trusted_port
+    host = (request.host or "").strip()
+    if not host:
+        host_url = request.host_url or ""
+        if host_url:
+            host = urlsplit(host_url).netloc
+    if not host:
+        url_root = request.url_root or ""
+        if url_root:
+            host = urlsplit(url_root).netloc
+    host = host.strip()
 
     def add_url(urls: List[str], seen: set[str], base: str) -> None:
         if not base:
@@ -748,53 +666,16 @@ def _calculate_openapi_server_urls(prefix: str) -> List[str]:
     urls: List[str] = []
     seen: set[str] = set()
 
-    for params in _parse_forwarded_header(request.headers.get("Forwarded")):
-        host = params.get("host")
-        proto = params.get("proto") or params.get("scheme")
-        if host and not is_trusted_host(host):
-            continue
-        candidate_host = _strip_quotes(host) if host else trusted_host
-        candidate_scheme = _normalize_scheme(proto) or trusted_scheme
-        if candidate_host and candidate_scheme:
-            base = _build_base_url(candidate_scheme, candidate_host, script_root)
+    if host:
+        for scheme in ("http", "https"):
+            base = _build_base_url(scheme, host, script_root)
             add_url(urls, seen, base)
 
-    forwarded_hosts_header = request.headers.get("X-Forwarded-Host", "")
-    forwarded_hosts = list(_iter_non_empty(forwarded_hosts_header.split(",")))
-    forwarded_protos_raw = list(
-        _iter_non_empty(request.headers.get("X-Forwarded-Proto", "").split(","))
-    )
+    if not urls:
+        fallback = "/" if not prefix else prefix
+        return [fallback]
 
-    for forwarded_host in forwarded_hosts:
-        if not is_trusted_host(forwarded_host):
-            continue
-        candidate_host = _strip_quotes(forwarded_host)
-        if candidate_host:
-            base = _build_base_url(trusted_scheme, candidate_host, script_root)
-            add_url(urls, seen, base)
-
-    for proto in forwarded_protos_raw:
-        normalized_proto = _normalize_scheme(_strip_quotes(proto))
-        if not normalized_proto:
-            continue
-        base = _build_base_url(normalized_proto, trusted_host, script_root)
-        add_url(urls, seen, base)
-
-    url_root_base = request.url_root.rstrip("/")
-    if url_root_base:
-        add_url(urls, seen, url_root_base)
-    else:
-        host_base = _build_base_url(request.scheme, request.host, script_root)
-        add_url(urls, seen, host_base)
-
-    host_url_base = request.host_url.rstrip("/")
-    if host_url_base:
-        base = host_url_base
-        if script_root and script_root != "/":
-            base = f"{base}{script_root}"
-        add_url(urls, seen, base)
-
-    return urls or ["/" if not prefix else prefix]
+    return urls
 
 
 # エラーハンドラ
@@ -902,6 +783,18 @@ def create_app():
 
     with app.app_context():
         _apply_persisted_settings(app)
+
+    env_overrides = {
+        "FPV_TMP_DIR": os.environ.get("FPV_TMP_DIR"),
+        "FPV_NAS_ORIGINALS_DIR": os.environ.get("FPV_NAS_ORIGINALS_DIR"),
+        "FPV_NAS_PLAY_DIR": os.environ.get("FPV_NAS_PLAY_DIR"),
+        "FPV_NAS_THUMBS_DIR": os.environ.get("FPV_NAS_THUMBS_DIR"),
+        "LOCAL_IMPORT_DIR": os.environ.get("LOCAL_IMPORT_DIR"),
+        "FPV_DL_SIGN_KEY": os.environ.get("FPV_DL_SIGN_KEY"),
+    }
+    for key, value in env_overrides.items():
+        if value:
+            app.config[key] = value
 
     babel.init_app(app, locale_selector=_select_locale)
     smorest_api.init_app(app)
@@ -1087,6 +980,7 @@ def create_app():
 
     # Blueprint 登録
     from .auth import bp as auth_bp
+    importlib.import_module("webapp.auth.routes")
     app.register_blueprint(auth_bp, url_prefix="/auth")
     from .auth.routes import picker as picker_view
     app.add_url_rule("/picker/<int:account_id>", view_func=picker_view, endpoint="picker")

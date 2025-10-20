@@ -4,6 +4,7 @@ import logging
 import importlib
 import json
 import os
+import re
 import time
 from collections.abc import Mapping, MutableMapping, Sequence
 from datetime import datetime, timezone
@@ -72,6 +73,15 @@ _MAX_POST_PARAM_STRING_LENGTH = 120
 _DEFAULT_CORS_ALLOW_HEADERS = "Authorization,Content-Type"
 _DEFAULT_CORS_ALLOW_METHODS = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
 _DEFAULT_CORS_MAX_AGE = "86400"
+
+
+_SANITIZE_SERVER_URL_PATTERN = re.compile(r"\\([:/])")
+
+
+def _sanitize_openapi_server_url(url: Optional[str]) -> str:
+    if not url:
+        return ""
+    return _SANITIZE_SERVER_URL_PATTERN.sub(r"\\1", url)
 
 
 def _is_sensitive_key(key):
@@ -688,13 +698,15 @@ def _calculate_openapi_server_urls(prefix: str) -> List[str]:
         return port == trusted_port
 
     def add_url(urls: List[str], seen: set[str], base: str) -> None:
-        if not base:
+        sanitized_base = _sanitize_openapi_server_url(base)
+        if not sanitized_base:
             return
-        combined = _combine_base_and_prefix(base, prefix)
-        if combined in seen:
+        combined = _combine_base_and_prefix(sanitized_base, prefix)
+        sanitized_combined = _sanitize_openapi_server_url(combined)
+        if sanitized_combined in seen:
             return
-        seen.add(combined)
-        urls.append(combined)
+        seen.add(sanitized_combined)
+        urls.append(sanitized_combined)
 
     urls: List[str] = []
     seen: set[str] = set()

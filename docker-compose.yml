@@ -21,7 +21,6 @@ services:
       - "127.0.0.1:8050:5000"
     environment:
       - FLASK_ENV=production
-      - SECRET_KEY=${SECRET_KEY}
       - TZ=${TZ:-Asia/Tokyo}
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
@@ -57,7 +56,6 @@ services:
     command: celery -A cli.src.celery.tasks worker --loglevel=info --concurrency=2
     environment:
       - FLASK_ENV=production
-      - SECRET_KEY=${SECRET_KEY}
       - TZ=${TZ:-Asia/Tokyo}
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
@@ -99,7 +97,6 @@ services:
       - /volume1/docker/photonest/data/celery:/app/data
     environment:
       - FLASK_ENV=production
-      - SECRET_KEY=${SECRET_KEY}
       - TZ=${TZ:-Asia/Tokyo}
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}

@@ -1322,3 +1322,12 @@ msgstr "No server signing certificate groups are available. Create a certificate
 msgid "Save signing settings"
 msgstr "Save signing settings"
 
+msgid "Not Found"
+msgstr "Not Found"
+
+msgid "Internal Server Error"
+msgstr "Internal Server Error"
+
+msgid "Error"
+msgstr "Error"
+

@@ -80,7 +80,7 @@ Flask の挙動や外部サービス連携など、多用途な設定をまと�
 {
   "SECRET_KEY": "dev-secret-key",
   "SESSION_COOKIE_SECURE": false,
-  "LANGUAGES": ["ja", "en"],
+  "LANGUAGES": ["en", "ja"],
   "UPLOAD_MAX_SIZE": 104857600
 }
 ```

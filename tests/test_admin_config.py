@@ -76,6 +76,7 @@ def test_update_application_config_field_success(client):
     assert response.status_code == 200
     html = response.data.decode("utf-8")
     assert "Application configuration updated." in html
+    assert client.application.config["UPLOAD_MAX_SIZE"] == 2048
 
     config = SystemSettingService.load_application_config()
     assert config["UPLOAD_MAX_SIZE"] == 2048
@@ -127,6 +128,30 @@ def test_update_application_config_revert_to_default(client):
 
     config = SystemSettingService.load_application_config()
     assert config["TRANSCODE_CRF"] == DEFAULT_APPLICATION_SETTINGS["TRANSCODE_CRF"]
+
+
+def test_update_application_config_triggers_relogin_warning(client):
+    user = _create_system_manager()
+    _login(client, user)
+
+    response = client.post(
+        "/admin/config",
+        data={
+            "action": "update-app-config-fields",
+            "app_config_selected": ["SECRET_KEY"],
+            "app_config_new[SECRET_KEY]": "new-secret-key",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    html = response.data.decode("utf-8")
+    assert "Application configuration updated." in html
+    assert "Changes to Flask secret key require all users to sign in again." in html
+    assert client.application.config["SECRET_KEY"] == "new-secret-key"
+
+    config = SystemSettingService.load_application_config()
+    assert config["SECRET_KEY"] == "new-secret-key"
 
 
 def test_update_cors_config_success(client):

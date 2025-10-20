@@ -14,10 +14,11 @@ mapping to validate behaviour in isolation.
 from __future__ import annotations
 
 from dataclasses import dataclass
-import json
 import os
 from pathlib import Path
 from typing import Iterable, Mapping, Optional, Tuple
+
+from flask import current_app
 
 _DEFAULT_ACCESS_TOKEN_ISSUER = "fpv-webapp"
 _DEFAULT_ACCESS_TOKEN_AUDIENCE = "fpv-webapp"
@@ -51,7 +52,13 @@ class ApplicationSettings:
     # ------------------------------------------------------------------
     # Generic helpers
     # ------------------------------------------------------------------
-    def _get(self, key: str, default: Optional[str] = None) -> Optional[str]:
+    def _get(self, key: str, default: Optional[str] = None):
+        try:
+            app = current_app._get_current_object()
+        except RuntimeError:
+            app = None
+        if app is not None and key in app.config:
+            return app.config.get(key)
         return self._env.get(key, default)
 
     # ------------------------------------------------------------------
@@ -137,33 +144,19 @@ class ApplicationSettings:
     def cors_allowed_origins(self) -> Tuple[str, ...]:
         """Return the list of origins allowed for cross-origin requests."""
 
-        candidate_paths = []
-        path_value = self._get("CORS_ALLOWED_ORIGINS_FILE")
-        if path_value:
-            candidate_paths.append(Path(path_value).expanduser())
+        try:
+            app = current_app._get_current_object()
+        except RuntimeError:
+            app = None
 
-        candidate_paths.extend(
-            [
-                Path("/app/config/cors_allowed_origins.txt"),
-                Path("/app/config/cors_allowed_origins.json"),
-                Path.cwd() / "config" / "cors_allowed_origins.txt",
-                Path.cwd() / "config" / "cors_allowed_origins.json",
-            ]
-        )
+        if app is None:
+            return ()
 
-        seen: set[Path] = set()
-        for candidate in candidate_paths:
-            if candidate in seen:
-                continue
-            seen.add(candidate)
-            origins = _load_cors_origins_from_file(candidate)
-            if origins:
-                return origins
-
-        env_value = self._get("CORS_ALLOWED_ORIGINS")
-        if env_value:
-            values = [segment.strip() for segment in env_value.split(",")]
-            return _normalize_origin_values(values)
+        config_value = app.config.get("CORS_ALLOWED_ORIGINS")
+        if isinstance(config_value, (list, tuple, set)):
+            return _normalize_origin_values(config_value)
+        if isinstance(config_value, str) and config_value.strip():
+            return _normalize_origin_values(config_value.split(","))
 
         return ()
 
@@ -186,7 +179,9 @@ class ApplicationSettings:
     # ------------------------------------------------------------------
     @property
     def transcode_crf(self) -> int:
-        raw = self._get("FPV_TRANSCODE_CRF")
+        raw = self._get("TRANSCODE_CRF")
+        if raw is None:
+            raw = self._get("FPV_TRANSCODE_CRF")
         try:
             return int(raw) if raw is not None else 20
         except (TypeError, ValueError):
@@ -207,37 +202,6 @@ def _normalize_origin_values(values: Iterable[object]) -> Tuple[str, ...]:
             continue
         normalized.append(candidate)
     return tuple(normalized)
-
-
-def _load_cors_origins_from_file(path: Path) -> Tuple[str, ...]:
-    try:
-        text = path.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        return ()
-    except OSError:
-        return ()
-
-    content = text.strip()
-    if not content:
-        return ()
-
-    try:
-        data = json.loads(content)
-    except json.JSONDecodeError:
-        pass
-    else:
-        if isinstance(data, (list, tuple)):
-            return _normalize_origin_values(data)
-        if isinstance(data, str):
-            return _normalize_origin_values([data])
-
-    lines = []
-    for raw_line in content.splitlines():
-        line = raw_line.split("#", 1)[0].strip()
-        if not line:
-            continue
-        lines.append(line)
-    return _normalize_origin_values(lines)
 
 
 settings = ApplicationSettings()

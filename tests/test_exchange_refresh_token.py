@@ -4,6 +4,10 @@ import base64
 import pytest
 
 from core.crypto import encrypt
+from core.system_settings_defaults import (
+    DEFAULT_APPLICATION_SETTINGS,
+    DEFAULT_CORS_SETTINGS,
+)
 
 
 @pytest.fixture
@@ -33,8 +37,28 @@ def app(tmp_path):
     from webapp.extensions import db
     from core.models.google_account import GoogleAccount
     from core.models.picker_session import PickerSession
+    from webapp.services.system_setting_service import SystemSettingService
+    from webapp import _apply_persisted_settings
+
     with app.app_context():
         db.create_all()
+        payload = {
+            key: app.config.get(key, DEFAULT_APPLICATION_SETTINGS.get(key))
+            for key in DEFAULT_APPLICATION_SETTINGS
+        }
+        payload.update(
+            {
+                "SECRET_KEY": env["SECRET_KEY"],
+                "GOOGLE_CLIENT_ID": env["GOOGLE_CLIENT_ID"],
+                "GOOGLE_CLIENT_SECRET": env["GOOGLE_CLIENT_SECRET"],
+                "OAUTH_TOKEN_KEY": env["OAUTH_TOKEN_KEY"],
+            }
+        )
+        SystemSettingService.upsert_application_config(payload)
+        SystemSettingService.upsert_cors_config(
+            app.config.get("CORS_ALLOWED_ORIGINS", DEFAULT_CORS_SETTINGS.get("allowedOrigins", []))
+        )
+        _apply_persisted_settings(app)
         acc = GoogleAccount(
             email="g@example.com",
             scopes="",

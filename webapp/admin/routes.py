@@ -1,10 +1,13 @@
 
+import json
 import os
 import platform
 import socket
 from datetime import datetime, timezone
 from importlib import metadata as importlib_metadata
 from pathlib import Path
+from typing import Any, Dict
+
 import flask
 from flask import (
     Blueprint,
@@ -21,6 +24,11 @@ from ..extensions import db
 from flask_login import login_required, current_user
 from flask_babel import gettext as _
 
+from core.models.system_setting import SystemSetting
+from core.system_settings_defaults import (
+    DEFAULT_APPLICATION_SETTINGS,
+    DEFAULT_CORS_SETTINGS,
+)
 from core.models.user import User, Role, Permission
 from core.models.service_account import ServiceAccount
 from core.storage_paths import first_existing_storage_path, storage_path_candidates
@@ -45,6 +53,11 @@ from features.certs.domain.exceptions import (
     CertificatePrivateKeyNotFoundError,
 )
 from features.certs.domain.usage import UsageType
+from webapp.admin.system_settings_definitions import (
+    APPLICATION_SETTING_DEFINITIONS,
+    CORS_SETTING_DEFINITIONS,
+    SettingFieldDefinition,
+)
 from webapp.services.system_setting_service import (
     AccessTokenSigningSetting,
     AccessTokenSigningValidationError,
@@ -73,6 +86,224 @@ def _can_read_api_keys() -> bool:
     if _can_manage_api_keys():
         return True
     return current_user.can("api_key:read")
+
+
+def _infer_data_type(value: Any) -> str:
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int) and not isinstance(value, bool):
+        return "integer"
+    if isinstance(value, float):
+        return "float"
+    if isinstance(value, (list, tuple)):
+        return "list"
+    return "string"
+
+
+def _build_custom_definition(key: str, sample: Any | None) -> SettingFieldDefinition:
+    data_type = _infer_data_type(sample)
+    return SettingFieldDefinition(
+        key=key,
+        label=key,
+        data_type=data_type,
+        required=False,
+        description=_(u"Custom application setting."),
+        allow_empty=True,
+        allow_null=True,
+        multiline=data_type == "list",
+    )
+
+
+def _collect_application_definitions(
+    effective_config: Dict[str, Any],
+    stored_payload: Dict[str, Any],
+) -> Dict[str, SettingFieldDefinition]:
+    definitions: Dict[str, SettingFieldDefinition] = dict(APPLICATION_SETTING_DEFINITIONS)
+    keys = set(DEFAULT_APPLICATION_SETTINGS) | set(effective_config) | set(stored_payload)
+    for key in keys:
+        if key not in definitions:
+            sample = stored_payload.get(key, effective_config.get(key))
+            definitions[key] = _build_custom_definition(key, sample)
+    return definitions
+
+
+def _format_value_for_display(value: Any) -> str:
+    try:
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
+    except TypeError:
+        return str(value)
+
+
+def _value_to_form_string(definition: SettingFieldDefinition, value: Any) -> str:
+    if value is None:
+        return ""
+    if definition.data_type == "boolean":
+        return "true" if bool(value) else "false"
+    if definition.data_type in {"integer", "float"}:
+        return str(value)
+    if definition.data_type == "list":
+        if isinstance(value, (list, tuple)):
+            return "\n".join(str(item) for item in value)
+        return str(value)
+    return str(value)
+
+
+def _build_application_field_rows(
+    definitions: Dict[str, SettingFieldDefinition],
+    effective_config: Dict[str, Any],
+    stored_payload: Dict[str, Any],
+    *,
+    overrides: Dict[str, str] | None = None,
+    selected_keys: set[str] | None = None,
+    default_flags: set[str] | None = None,
+) -> list[Dict[str, Any]]:
+    override_values = overrides or {}
+    selected = selected_keys or set()
+    defaults = default_flags or set()
+    rows: list[Dict[str, Any]] = []
+
+    for key in sorted(definitions):
+        definition = definitions[key]
+        current_value = effective_config.get(key)
+        stored_has_value = key in stored_payload
+        stored_value = stored_payload.get(key)
+        default_value = DEFAULT_APPLICATION_SETTINGS.get(key)
+        if key in override_values:
+            form_value = override_values[key]
+        elif stored_has_value:
+            form_value = _value_to_form_string(definition, stored_value)
+        else:
+            form_value = _value_to_form_string(definition, current_value)
+
+        rows.append(
+            {
+                "key": key,
+                "label": definition.label,
+                "data_type": definition.data_type,
+                "required": definition.required,
+                "description": definition.description,
+                "current_json": _format_value_for_display(current_value),
+                "default_json": _format_value_for_display(default_value)
+                if key in DEFAULT_APPLICATION_SETTINGS
+                else "",
+                "form_value": form_value,
+                "choices": definition.choice_labels(),
+                "multiline": definition.multiline,
+                "selected": key in selected,
+                "use_default": key in defaults,
+                "using_default": not stored_has_value,
+                "allow_empty": definition.allow_empty,
+                "allow_null": definition.allow_null,
+            }
+        )
+
+    return rows
+
+
+def _collect_cors_definitions() -> Dict[str, SettingFieldDefinition]:
+    return dict(CORS_SETTING_DEFINITIONS)
+
+
+def _build_cors_field_rows(
+    definitions: Dict[str, SettingFieldDefinition],
+    effective_config: Dict[str, Any],
+    stored_payload: Dict[str, Any],
+    *,
+    overrides: Dict[str, str] | None = None,
+    selected_keys: set[str] | None = None,
+    default_flags: set[str] | None = None,
+) -> list[Dict[str, Any]]:
+    override_values = overrides or {}
+    selected = selected_keys or set()
+    defaults = default_flags or set()
+    rows: list[Dict[str, Any]] = []
+
+    for key in sorted(definitions):
+        definition = definitions[key]
+        current_value = effective_config.get(key)
+        stored_has_value = key in stored_payload
+        stored_value = stored_payload.get(key)
+        default_value = DEFAULT_CORS_SETTINGS.get(key)
+
+        if key in override_values:
+            form_value = override_values[key]
+        elif stored_has_value:
+            form_value = _value_to_form_string(definition, stored_value)
+        else:
+            form_value = _value_to_form_string(definition, current_value)
+
+        rows.append(
+            {
+                "key": key,
+                "label": definition.label,
+                "data_type": definition.data_type,
+                "required": definition.required,
+                "description": definition.description,
+                "current_json": _format_value_for_display(current_value),
+                "default_json": _format_value_for_display(default_value)
+                if key in DEFAULT_CORS_SETTINGS
+                else "",
+                "form_value": form_value,
+                "choices": definition.choice_labels(),
+                "multiline": definition.multiline,
+                "selected": key in selected,
+                "use_default": key in defaults,
+                "using_default": not stored_has_value,
+                "allow_empty": definition.allow_empty,
+                "allow_null": definition.allow_null,
+            }
+        )
+
+    return rows
+
+
+def _parse_setting_value(key: str, definition: SettingFieldDefinition, raw_value: str | None):
+    label = definition.label or key
+    if definition.data_type == "boolean":
+        if raw_value not in {"true", "false"}:
+            raise ValueError(
+                _(u"Please choose a value for %(key)s.", key=label)
+            )
+        return raw_value == "true"
+
+    if definition.data_type == "integer":
+        if raw_value is None or not raw_value.strip():
+            raise ValueError(_(u"Value for %(key)s is required.", key=label))
+        try:
+            return int(raw_value.strip())
+        except ValueError:
+            raise ValueError(_(u"Value for %(key)s must be an integer.", key=label)) from None
+
+    if definition.data_type == "float":
+        if raw_value is None or not raw_value.strip():
+            raise ValueError(_(u"Value for %(key)s is required.", key=label))
+        try:
+            return float(raw_value.strip())
+        except ValueError:
+            raise ValueError(_(u"Value for %(key)s must be a number.", key=label)) from None
+
+    if definition.data_type == "list":
+        normalized = []
+        if raw_value:
+            for line in raw_value.splitlines():
+                item = line.strip()
+                if item:
+                    normalized.append(item)
+        if not normalized and definition.required and not definition.allow_empty:
+            raise ValueError(_(u"Value for %(key)s cannot be empty.", key=label))
+        return normalized
+
+    # String-like fields
+    if raw_value is None:
+        raw_value = ""
+    value = raw_value.strip()
+    if not value:
+        if definition.allow_empty:
+            return ""
+        if definition.allow_null:
+            return None
+        raise ValueError(_(u"Value for %(key)s is required.", key=label))
+    return value
 
 
 # サービスアカウント管理
@@ -244,25 +475,141 @@ def service_account_api_keys(account_id: int):
 def show_config():
     if not current_user.can("system:manage"):
         return _(u"You do not have permission to access this page."), 403
+    application_payload = SystemSettingService.load_application_config_payload()
+    application_config = {**DEFAULT_APPLICATION_SETTINGS, **application_payload}
+    cors_payload = SystemSettingService.load_cors_config_payload()
+    cors_config = {**DEFAULT_CORS_SETTINGS, **cors_payload}
+
+    application_definitions = _collect_application_definitions(application_config, application_payload)
+    cors_definitions = _collect_cors_definitions()
+
+    app_overrides: Dict[str, str] = {}
+    app_selected: set[str] = set()
+    app_use_defaults: set[str] = set()
+    cors_overrides: Dict[str, str] = {}
+    cors_selected: set[str] = set()
+    cors_use_defaults: set[str] = set()
+
     if request.method == "POST":
-        selected = (request.form.get("access_token_signing") or "builtin").strip()
-        try:
-            if selected == "builtin":
-                SystemSettingService.update_access_token_signing_setting("builtin")
-                flash(_(u"Access token signing will use the built-in secret."), "success")
+        action = (request.form.get("action") or "update-signing").strip()
+        if action == "update-signing":
+            selected = (request.form.get("access_token_signing") or "builtin").strip()
+            try:
+                if selected == "builtin":
+                    SystemSettingService.update_access_token_signing_setting("builtin")
+                    flash(_(u"Access token signing will use the built-in secret."), "success")
+                else:
+                    prefix = "server_signing:"
+                    group_code = selected[len(prefix):] if selected.startswith(prefix) else selected
+                    SystemSettingService.update_access_token_signing_setting(
+                        "server_signing", group_code=group_code
+                    )
+                    flash(_(u"Access token signing certificate group updated."), "success")
+                return redirect(url_for("admin.show_config"))
+            except AccessTokenSigningValidationError as exc:
+                flash(str(exc), "danger")
+            except Exception:  # pragma: no cover - unexpected failure logged for debugging
+                current_app.logger.exception("Failed to update access token signing configuration")
+                flash(_(u"Failed to update the access token signing configuration."), "danger")
+        elif action == "update-app-config-fields":
+            app_selected = set(request.form.getlist("app_config_selected"))
+            app_overrides = {
+                key: request.form.get(f"app_config_new[{key}]")
+                for key in application_definitions
+                if f"app_config_new[{key}]" in request.form
+            }
+            app_use_defaults = {
+                key
+                for key in application_definitions
+                if request.form.get(f"app_config_use_default[{key}]") == "1"
+            }
+            if not app_selected:
+                flash(_(u"Select at least one setting to update."), "warning")
             else:
-                prefix = "server_signing:"
-                group_code = selected[len(prefix):] if selected.startswith(prefix) else selected
-                SystemSettingService.update_access_token_signing_setting(
-                    "server_signing", group_code=group_code
-                )
-                flash(_(u"Access token signing certificate group updated."), "success")
-        except AccessTokenSigningValidationError as exc:
-            flash(str(exc), "danger")
-        except Exception:  # pragma: no cover - unexpected failure logged for debugging
-            current_app.logger.exception("Failed to update access token signing configuration")
-            flash(_(u"Failed to update the access token signing configuration."), "danger")
-        return redirect(url_for("admin.show_config"))
+                errors: list[str] = []
+                updates: Dict[str, Any] = {}
+                remove_keys: list[str] = []
+                for key in app_selected:
+                    definition = application_definitions.get(key)
+                    if definition is None:
+                        errors.append(_(u"Unknown application setting: %(key)s", key=key))
+                        continue
+                    if key in app_use_defaults:
+                        remove_keys.append(key)
+                        continue
+                    raw_value = request.form.get(f"app_config_new[{key}]")
+                    try:
+                        parsed_value = _parse_setting_value(key, definition, raw_value)
+                    except ValueError as exc:
+                        errors.append(str(exc))
+                        continue
+                    if definition.required and (
+                        (definition.data_type == "list" and not parsed_value)
+                        or parsed_value in {"", None}
+                    ):
+                        errors.append(_(u"Value for %(key)s is required.", key=definition.label or key))
+                        continue
+                    updates[key] = parsed_value
+                if errors:
+                    for message in errors:
+                        flash(message, "danger")
+                else:
+                    SystemSettingService.update_application_settings(updates, remove_keys=remove_keys)
+                    flash(_(u"Application configuration updated."), "success")
+                    return redirect(url_for("admin.show_config"))
+        elif action == "update-cors":
+            cors_selected = set(request.form.getlist("cors_selected"))
+            cors_overrides = {
+                key: request.form.get(f"cors_new[{key}]")
+                for key in cors_definitions
+                if f"cors_new[{key}]" in request.form
+            }
+            cors_use_defaults = {
+                key
+                for key in cors_definitions
+                if request.form.get(f"cors_use_default[{key}]") == "1"
+            }
+            if not cors_selected:
+                flash(_(u"Select at least one CORS property to update."), "warning")
+            else:
+                errors: list[str] = []
+                updates: Dict[str, Any] = {}
+                remove_keys: list[str] = []
+                for key in cors_selected:
+                    definition = cors_definitions.get(key)
+                    if definition is None:
+                        errors.append(_(u"Unknown CORS setting: %(key)s", key=key))
+                        continue
+                    if key in cors_use_defaults:
+                        remove_keys.append(key)
+                        continue
+                    raw_value = request.form.get(f"cors_new[{key}]")
+                    try:
+                        parsed_value = _parse_setting_value(key, definition, raw_value)
+                    except ValueError as exc:
+                        errors.append(str(exc))
+                        continue
+                    if key == "allowedOrigins":
+                        invalid_origins = [
+                            origin
+                            for origin in parsed_value
+                            if origin != "*" and "://" not in origin
+                        ]
+                        if invalid_origins:
+                            errors.append(
+                                _(u"Each origin must be a full URL (e.g., https://example.com) or '*'. Invalid values: %(origins)s",
+                                  origins=", ".join(invalid_origins))
+                            )
+                            continue
+                    updates[key] = parsed_value
+                if errors:
+                    for message in errors:
+                        flash(message, "danger")
+                else:
+                    SystemSettingService.update_cors_settings(updates, remove_keys=remove_keys)
+                    flash(_(u"CORS allowed origins updated."), "success")
+                    return redirect(url_for("admin.show_config"))
+
     # Only show public config values, not secrets
     from webapp.config import Config
     public_keys = [
@@ -276,11 +623,37 @@ def show_config():
         flash(str(exc), "danger")
         signing_setting = AccessTokenSigningSetting(mode="server_signing")
     certificate_groups = _list_server_signing_certificate_groups()
+    application_fields = _build_application_field_rows(
+        application_definitions,
+        application_config,
+        application_payload,
+        overrides=app_overrides,
+        selected_keys=app_selected,
+        default_flags=app_use_defaults,
+    )
+    cors_fields = _build_cors_field_rows(
+        cors_definitions,
+        cors_config,
+        cors_payload,
+        overrides=cors_overrides,
+        selected_keys=cors_selected,
+        default_flags=cors_use_defaults,
+    )
+    app_setting_record = SystemSetting.query.filter_by(setting_key="app.config").one_or_none()
+    cors_setting_record = SystemSetting.query.filter_by(setting_key="app.cors").one_or_none()
+    signing_record = SystemSetting.query.filter_by(setting_key="access_token_signing").one_or_none()
     return render_template(
         "admin/config_view.html",
         config=config_dict,
         signing_setting=signing_setting,
         server_signing_groups=certificate_groups,
+        application_fields=application_fields,
+        cors_fields=cors_fields,
+        application_config_updated_at=getattr(app_setting_record, "updated_at", None),
+        application_config_description=getattr(app_setting_record, "description", None),
+        cors_config_updated_at=getattr(cors_setting_record, "updated_at", None),
+        cors_config_description=getattr(cors_setting_record, "description", None),
+        signing_config_updated_at=getattr(signing_record, "updated_at", None),
     )
 
 # バージョン情報表示ページ（管理者のみ）

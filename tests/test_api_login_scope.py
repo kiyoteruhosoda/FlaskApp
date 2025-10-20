@@ -2,9 +2,18 @@ import importlib
 import os
 import uuid
 
+import importlib
+import os
+import uuid
+
 import jwt
 import pytest
 from flask import g
+
+from core.system_settings_defaults import (
+    DEFAULT_APPLICATION_SETTINGS,
+    DEFAULT_CORS_SETTINGS,
+)
 
 from webapp.services.token_service import TokenService
 
@@ -45,9 +54,28 @@ def app(tmp_path):
     ]
 
     from webapp.extensions import db
+    from webapp.services.system_setting_service import SystemSettingService
+    from webapp import _apply_persisted_settings
 
     with app.app_context():
         db.create_all()
+        payload = {
+            key: app.config.get(key, DEFAULT_APPLICATION_SETTINGS.get(key))
+            for key in DEFAULT_APPLICATION_SETTINGS
+        }
+        payload.update(
+            {
+                "SECRET_KEY": os.environ["SECRET_KEY"],
+                "JWT_SECRET_KEY": os.environ["JWT_SECRET_KEY"],
+                "ACCESS_TOKEN_ISSUER": os.environ["ACCESS_TOKEN_ISSUER"],
+                "ACCESS_TOKEN_AUDIENCE": os.environ["ACCESS_TOKEN_AUDIENCE"],
+            }
+        )
+        SystemSettingService.upsert_application_config(payload)
+        SystemSettingService.upsert_cors_config(
+            app.config.get("CORS_ALLOWED_ORIGINS", DEFAULT_CORS_SETTINGS.get("allowedOrigins", []))
+        )
+        _apply_persisted_settings(app)
 
     yield app
 

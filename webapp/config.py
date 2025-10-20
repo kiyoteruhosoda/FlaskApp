@@ -1,59 +1,59 @@
 import os
 import sys
 from types import ModuleType
+
 from dotenv import load_dotenv
 
+from core.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
 
-def _env_as_bool(name: str, default: bool = False) -> bool:
-    value = os.environ.get(name)
-    if value is None:
-        return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
-
-# .envファイルを読み込み
 load_dotenv()
 
+
+def _default(name: str):
+    return DEFAULT_APPLICATION_SETTINGS.get(name)
+
+
 class Config:
-    # 環境変数にSECRET_KEYが無い場合はデフォルト値を使用
-    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key")
-    JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "dev-jwt-secret")
-    ACCESS_TOKEN_ISSUER = os.environ.get("ACCESS_TOKEN_ISSUER", "fpv-webapp")
-    ACCESS_TOKEN_AUDIENCE = os.environ.get("ACCESS_TOKEN_AUDIENCE", "fpv-webapp")
+    """Base configuration populated from persisted system settings."""
+
+    SECRET_KEY = _default("SECRET_KEY")
+    JWT_SECRET_KEY = _default("JWT_SECRET_KEY")
+    ACCESS_TOKEN_ISSUER = _default("ACCESS_TOKEN_ISSUER")
+    ACCESS_TOKEN_AUDIENCE = _default("ACCESS_TOKEN_AUDIENCE")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     db_uri = os.environ.get("DATABASE_URI", "sqlite://")
     SQLALCHEMY_DATABASE_URI = db_uri
-    
-    # セッション設定
-    PERMANENT_SESSION_LIFETIME = 1800  # 30分（秒）
-    SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "False").lower() == "true"
-    SESSION_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_SAMESITE = "Lax"
-    
-    # URL生成設定
-    PREFERRED_URL_SCHEME = os.environ.get("PREFERRED_URL_SCHEME", "http")
-    CERTS_API_TIMEOUT = float(os.environ.get("CERTS_API_TIMEOUT", "10"))
+
+    # Session settings
+    PERMANENT_SESSION_LIFETIME = _default("PERMANENT_SESSION_LIFETIME")
+    SESSION_COOKIE_SECURE = _default("SESSION_COOKIE_SECURE")
+    SESSION_COOKIE_HTTPONLY = _default("SESSION_COOKIE_HTTPONLY")
+    SESSION_COOKIE_SAMESITE = _default("SESSION_COOKIE_SAMESITE")
+
+    # URL generation and external services
+    PREFERRED_URL_SCHEME = _default("PREFERRED_URL_SCHEME")
+    CERTS_API_TIMEOUT = _default("CERTS_API_TIMEOUT")
 
     SQLALCHEMY_BINDS = {}
-    dashboard_db = os.environ.get("DASHBOARD_DB_URI")
+    dashboard_db = _default("DASHBOARD_DB_URI")
     if dashboard_db:
         SQLALCHEMY_BINDS["dashboard"] = dashboard_db
 
-    # i18n
-    LANGUAGES = ["ja", "en"]
-    BABEL_TRANSLATION_DIRECTORIES = os.path.join(os.path.dirname(__file__), "translations")
-    BABEL_DEFAULT_LOCALE = os.environ.get("BABEL_DEFAULT_LOCALE", "ja")
-    BABEL_DEFAULT_TIMEZONE = os.environ.get("BABEL_DEFAULT_TIMEZONE", "Asia/Tokyo")
+    # Internationalisation
+    LANGUAGES = list(_default("LANGUAGES") or ["ja", "en"])
+    BABEL_TRANSLATION_DIRECTORIES = os.path.join(
+        os.path.dirname(__file__), "translations"
+    )
+    BABEL_DEFAULT_LOCALE = _default("BABEL_DEFAULT_LOCALE")
+    BABEL_DEFAULT_TIMEZONE = _default("BABEL_DEFAULT_TIMEZONE")
 
-    # DB安定化
+    # Database stability
     SQLALCHEMY_ENGINE_OPTIONS = {
         "pool_recycle": 1800,
         "pool_pre_ping": True,
     }
 
-    if db_uri.startswith("sqlite"):
-        # SQLiteでは接続プール関連の設定は無効
-        pass
-    else:
+    if not db_uri.startswith("sqlite"):
         SQLALCHEMY_ENGINE_OPTIONS.update({
             "pool_size": 10,
             "max_overflow": 20,
@@ -62,68 +62,57 @@ class Config:
             SQLALCHEMY_ENGINE_OPTIONS["connect_args"] = {"connect_timeout": 10}
 
     # Google OAuth
-    GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
-    GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+    GOOGLE_CLIENT_ID = _default("GOOGLE_CLIENT_ID")
+    GOOGLE_CLIENT_SECRET = _default("GOOGLE_CLIENT_SECRET")
 
     # Encryption for OAuth tokens
-    OAUTH_TOKEN_KEY = os.environ.get("OAUTH_TOKEN_KEY")
-    OAUTH_TOKEN_KEY_FILE = os.environ.get("OAUTH_TOKEN_KEY_FILE") or os.environ.get(
-        "FPV_OAUTH_TOKEN_KEY_FILE"
-    )
+    OAUTH_TOKEN_KEY = _default("OAUTH_TOKEN_KEY")
+    OAUTH_TOKEN_KEY_FILE = _default("OAUTH_TOKEN_KEY_FILE")
 
     # Download URL signing
-    FPV_DL_SIGN_KEY = os.environ.get("FPV_DL_SIGN_KEY", "")
-    FPV_URL_TTL_THUMB = int(os.environ.get("FPV_URL_TTL_THUMB", "600"))
-    FPV_URL_TTL_PLAYBACK = int(os.environ.get("FPV_URL_TTL_PLAYBACK", "600"))
-    FPV_URL_TTL_ORIGINAL = int(os.environ.get("FPV_URL_TTL_ORIGINAL", "600"))
-    UPLOAD_TMP_DIR = os.environ.get("UPLOAD_TMP_DIR", "/app/data/tmp/upload")
-    UPLOAD_DESTINATION_DIR = os.environ.get("UPLOAD_DESTINATION_DIR", "/app/data/uploads")
-    UPLOAD_MAX_SIZE = int(os.environ.get("UPLOAD_MAX_SIZE", str(100 * 1024 * 1024)))
-    WIKI_UPLOAD_DIR = os.environ.get("WIKI_UPLOAD_DIR", "/app/data/wiki")
-    FPV_NAS_THUMBS_DIR = os.environ.get("FPV_NAS_THUMBS_CONTAINER_DIR") or os.environ.get(
-        "FPV_NAS_THUMBS_DIR", ""
-    )
-    FPV_NAS_PLAY_DIR = os.environ.get("FPV_NAS_PLAY_CONTAINER_DIR") or os.environ.get(
-        "FPV_NAS_PLAY_DIR", ""
-    )
-    FPV_ACCEL_THUMBS_LOCATION = os.environ.get("FPV_ACCEL_THUMBS_LOCATION", "")
-    FPV_ACCEL_PLAYBACK_LOCATION = os.environ.get("FPV_ACCEL_PLAYBACK_LOCATION", "")
-    FPV_ACCEL_ORIGINALS_LOCATION = os.environ.get("FPV_ACCEL_ORIGINALS_LOCATION", "")
-    FPV_ACCEL_REDIRECT_ENABLED = _env_as_bool("FPV_ACCEL_REDIRECT_ENABLED", True)
-    
+    FPV_DL_SIGN_KEY = _default("FPV_DL_SIGN_KEY")
+    FPV_URL_TTL_THUMB = _default("FPV_URL_TTL_THUMB")
+    FPV_URL_TTL_PLAYBACK = _default("FPV_URL_TTL_PLAYBACK")
+    FPV_URL_TTL_ORIGINAL = _default("FPV_URL_TTL_ORIGINAL")
+    UPLOAD_TMP_DIR = _default("UPLOAD_TMP_DIR")
+    UPLOAD_DESTINATION_DIR = _default("UPLOAD_DESTINATION_DIR")
+    UPLOAD_MAX_SIZE = _default("UPLOAD_MAX_SIZE")
+    WIKI_UPLOAD_DIR = _default("WIKI_UPLOAD_DIR")
+    FPV_NAS_THUMBS_DIR = _default("FPV_NAS_THUMBS_DIR")
+    FPV_NAS_PLAY_DIR = _default("FPV_NAS_PLAY_DIR")
+    FPV_ACCEL_THUMBS_LOCATION = _default("FPV_ACCEL_THUMBS_LOCATION")
+    FPV_ACCEL_PLAYBACK_LOCATION = _default("FPV_ACCEL_PLAYBACK_LOCATION")
+    FPV_ACCEL_ORIGINALS_LOCATION = _default("FPV_ACCEL_ORIGINALS_LOCATION")
+    FPV_ACCEL_REDIRECT_ENABLED = _default("FPV_ACCEL_REDIRECT_ENABLED")
+
     # Local import settings
-    LOCAL_IMPORT_DIR = os.environ.get("LOCAL_IMPORT_DIR", "/mnt/nas/import")
-    FPV_NAS_ORIGINALS_DIR = os.environ.get("FPV_NAS_ORIGINALS_DIR", "/mnt/nas/photos/originals")
+    LOCAL_IMPORT_DIR = _default("LOCAL_IMPORT_DIR")
+    FPV_NAS_ORIGINALS_DIR = _default("FPV_NAS_ORIGINALS_DIR")
 
     # Celery settings
-    broker_url = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
-    result_backend = os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
+    broker_url = _default("CELERY_BROKER_URL")
+    result_backend = _default("CELERY_RESULT_BACKEND")
     task_serializer = "json"
     result_serializer = "json"
     accept_content = ["json"]
     timezone = "UTC"
     enable_utc = True
 
+    CORS_ALLOWED_ORIGINS: tuple[str, ...] = ()
+
 
 class TestConfig(Config):
     """テスト用の設定クラス"""
+
     TESTING = True
-    # SQLiteを強制的に使用（インメモリDBでも可）
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     SQLALCHEMY_ENGINE_OPTIONS = {}
-    
-    # 必要な最小限の設定
+
     SECRET_KEY = "test-secret-key"
     JWT_SECRET_KEY = "test-jwt-secret"
-    
-    # OAuth設定
     GOOGLE_CLIENT_ID = ""
     GOOGLE_CLIENT_SECRET = ""
-    
-    # Session設定
     SESSION_COOKIE_SECURE = False
-
-    # Dashboard DB binding（テスト時は無効）
     SQLALCHEMY_BINDS = {}
     UPLOAD_TMP_DIR = "/tmp/test_upload/tmp"
     UPLOAD_DESTINATION_DIR = "/tmp/test_upload/dest"

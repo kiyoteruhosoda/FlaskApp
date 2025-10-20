@@ -5,25 +5,36 @@ from __future__ import annotations
 import pytest
 
 from webapp import create_app
+from webapp.extensions import db
+from webapp.services.system_setting_service import SystemSettingService
+from core.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
+from webapp import _apply_persisted_settings
 
 
 @pytest.fixture
-def cors_client(monkeypatch, tmp_path):
-    """Provide a Flask test client with CORS origins configured via file."""
+def cors_client(monkeypatch):
+    """Provide a Flask test client with CORS origins stored in the database."""
 
     allowed = [
         "https://frontend.example.com",
         "https://admin.example.com",
     ]
 
-    config_file = tmp_path / "cors_allowed_origins.txt"
-    config_file.write_text("# Allowed origins\n" + "\n".join(allowed) + "\n", encoding="utf-8")
-
-    monkeypatch.setenv("CORS_ALLOWED_ORIGINS_FILE", str(config_file))
+    monkeypatch.delenv("CORS_ALLOWED_ORIGINS_FILE", raising=False)
     monkeypatch.setenv("DATABASE_URI", "sqlite:///:memory:")
 
     app = create_app()
     app.config["TESTING"] = True
+
+    with app.app_context():
+        db.create_all()
+        payload = {
+            key: app.config.get(key, DEFAULT_APPLICATION_SETTINGS.get(key))
+            for key in DEFAULT_APPLICATION_SETTINGS
+        }
+        SystemSettingService.upsert_application_config(payload)
+        SystemSettingService.upsert_cors_config(allowed)
+        _apply_persisted_settings(app)
 
     with app.test_client() as client:
         yield client, allowed

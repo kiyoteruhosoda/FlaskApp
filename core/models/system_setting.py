@@ -3,18 +3,27 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from sqlalchemy import BigInteger, DateTime, Integer, JSON, String, Text
+
 from core.db import db
 
 
 class SystemSetting(db.Model):
-    """Simple key-value store for system configuration."""
+    """Keyed JSON payload describing application configuration."""
 
     __tablename__ = "system_settings"
+    __table_args__ = {"sqlite_autoincrement": True}
 
-    key = db.Column(db.String(120), primary_key=True)
-    value = db.Column(db.Text, nullable=True)
+    id = db.Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        primary_key=True,
+        autoincrement=True,
+    )
+    setting_key = db.Column(String(100), nullable=False, unique=True)
+    setting_json = db.Column(JSON, nullable=False)
+    description = db.Column(Text, nullable=True)
     updated_at = db.Column(
-        db.DateTime(timezone=True),
+        DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),

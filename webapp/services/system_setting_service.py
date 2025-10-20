@@ -1,14 +1,18 @@
 """Services for managing persisted system settings."""
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Any, Dict, Iterable
 
 from flask_babel import gettext as _
 
 from core.db import db
 from core.models.system_setting import SystemSetting
+from core.system_settings_defaults import (
+    DEFAULT_APPLICATION_SETTINGS,
+    DEFAULT_CORS_SETTINGS,
+)
 from features.certs.application.services import default_certificate_services
 from features.certs.application.use_cases import (
     GetCertificateGroupUseCase,
@@ -56,18 +60,17 @@ class SystemSettingService:
     """Read and update persistent system settings."""
 
     _ACCESS_TOKEN_SIGNING_KEY = "access_token_signing"
+    _APPLICATION_CONFIG_KEY = "app.config"
+    _CORS_CONFIG_KEY = "app.cors"
     _DEFAULT_ACCESS_TOKEN_SIGNING = AccessTokenSigningSetting(mode="builtin")
 
     @classmethod
     def get_access_token_signing_setting(cls) -> AccessTokenSigningSetting:
-        record = SystemSetting.query.get(cls._ACCESS_TOKEN_SIGNING_KEY)
-        if record is None or not record.value:
+        record = cls._get_setting_record(cls._ACCESS_TOKEN_SIGNING_KEY)
+        if record is None:
             return cls._DEFAULT_ACCESS_TOKEN_SIGNING
 
-        try:
-            payload = json.loads(record.value)
-        except (TypeError, json.JSONDecodeError):
-            return cls._DEFAULT_ACCESS_TOKEN_SIGNING
+        payload = record.setting_json or {}
 
         mode = str(payload.get("mode") or "builtin").strip()
         if mode != "server_signing":
@@ -219,13 +222,146 @@ class SystemSettingService:
         value: dict,
         setting: AccessTokenSigningSetting,
     ) -> AccessTokenSigningSetting:
-        record = SystemSetting.query.get(cls._ACCESS_TOKEN_SIGNING_KEY)
+        record = cls._get_setting_record(cls._ACCESS_TOKEN_SIGNING_KEY)
         if record is None:
-            record = SystemSetting(key=cls._ACCESS_TOKEN_SIGNING_KEY)
-        record.value = json.dumps(value, ensure_ascii=False)
+            record = SystemSetting(
+                setting_key=cls._ACCESS_TOKEN_SIGNING_KEY,
+                setting_json=value,
+                description="Access token signing configuration.",
+            )
+        else:
+            record.setting_json = value
         db.session.add(record)
         db.session.commit()
         return setting
+
+    @classmethod
+    def load_application_config(cls) -> Dict[str, Any]:
+        record_values = cls.load_application_config_payload()
+        return {**DEFAULT_APPLICATION_SETTINGS, **record_values}
+
+    @classmethod
+    def load_application_config_payload(cls) -> Dict[str, Any]:
+        record = cls._get_setting_record(cls._APPLICATION_CONFIG_KEY)
+        if record is None or not isinstance(record.setting_json, dict):
+            return {}
+        return dict(record.setting_json)
+
+    @classmethod
+    def load_cors_config(cls) -> Dict[str, Any]:
+        record_values = cls.load_cors_config_payload()
+        merged = dict(DEFAULT_CORS_SETTINGS)
+        merged.update(record_values)
+        return merged
+
+    @classmethod
+    def load_cors_config_payload(cls) -> Dict[str, Any]:
+        record = cls._get_setting_record(cls._CORS_CONFIG_KEY)
+        if record is None or not isinstance(record.setting_json, dict):
+            return {}
+        return dict(record.setting_json)
+
+    @classmethod
+    def upsert_application_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        payload = dict(DEFAULT_APPLICATION_SETTINGS)
+        payload.update(values)
+        return cls._upsert_setting(
+            cls._APPLICATION_CONFIG_KEY,
+            payload,
+            description="Application configuration values.",
+        )
+
+    @classmethod
+    def update_application_settings(
+        cls,
+        values: Dict[str, Any],
+        *,
+        remove_keys: Iterable[str] | None = None,
+    ) -> Dict[str, Any]:
+        current_payload = cls.load_application_config_payload()
+        changed = False
+
+        for key, value in values.items():
+            if current_payload.get(key) != value:
+                current_payload[key] = value
+                changed = True
+
+        if remove_keys:
+            for key in remove_keys:
+                if key in current_payload:
+                    current_payload.pop(key)
+                    changed = True
+
+        if not changed:
+            return current_payload
+
+        return cls._upsert_setting(
+            cls._APPLICATION_CONFIG_KEY,
+            current_payload,
+            description="Application configuration values.",
+        )
+
+    @classmethod
+    def upsert_cors_config(cls, allowed_origins: Iterable[str]) -> Dict[str, Any]:
+        payload = {"allowedOrigins": list(allowed_origins)}
+        return cls._upsert_setting(
+            cls._CORS_CONFIG_KEY,
+            payload,
+            description="CORS configuration.",
+        )
+
+    @classmethod
+    def update_cors_settings(
+        cls,
+        values: Dict[str, Any],
+        *,
+        remove_keys: Iterable[str] | None = None,
+    ) -> Dict[str, Any]:
+        current_payload = cls.load_cors_config_payload()
+        changed = False
+
+        for key, value in values.items():
+            if current_payload.get(key) != value:
+                current_payload[key] = value
+                changed = True
+
+        if remove_keys:
+            for key in remove_keys:
+                if key in current_payload:
+                    current_payload.pop(key)
+                    changed = True
+
+        if not changed:
+            return current_payload
+
+        return cls._upsert_setting(
+            cls._CORS_CONFIG_KEY,
+            current_payload,
+            description="CORS configuration.",
+        )
+
+    @classmethod
+    def _upsert_setting(
+        cls, key: str, payload: Dict[str, Any], *, description: str | None = None
+    ) -> Dict[str, Any]:
+        record = cls._get_setting_record(key)
+        if record is None:
+            record = SystemSetting(
+                setting_key=key,
+                setting_json=payload,
+                description=description,
+            )
+        else:
+            record.setting_json = payload
+            if description and not record.description:
+                record.description = description
+        db.session.add(record)
+        db.session.commit()
+        return payload
+
+    @staticmethod
+    def _get_setting_record(key: str) -> SystemSetting | None:
+        return SystemSetting.query.filter_by(setting_key=key).one_or_none()
 
     @staticmethod
     def _to_utc(value):

@@ -142,6 +142,22 @@ class DBLogHandler(logging.Handler):
             formatter = logging.Formatter()
             trace = formatter.formatException(record.exc_info)
 
+        trace_payload = getattr(record, "_trace_payload", None)
+        if trace_payload is not None:
+            if not isinstance(trace_payload, str):
+                try:
+                    trace_payload = json.dumps(
+                        trace_payload, ensure_ascii=False, default=str, indent=2
+                    )
+                except TypeError:
+                    trace_payload = str(trace_payload)
+            if trace:
+                trace = (
+                    f"{trace}\n\n--- Captured JWT payload ---\n{trace_payload}"
+                )
+            else:
+                trace = f"Captured JWT payload:\n{trace_payload}"
+
         raw_message = record.getMessage()
         try:
             payload = json.loads(raw_message)

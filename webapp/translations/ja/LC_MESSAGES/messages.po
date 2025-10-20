@@ -3342,3 +3342,12 @@ msgstr "サーバー署名用の証明書グループがありません。先に
 
 msgid "Save signing settings"
 msgstr "署名設定を保存"
+
+msgid "Not Found"
+msgstr "見つかりません"
+
+msgid "Internal Server Error"
+msgstr "サーバー内部エラー"
+
+msgid "Error"
+msgstr "エラー"

@@ -9,11 +9,18 @@ from collections.abc import Mapping, MutableMapping, Sequence
 from datetime import datetime, timezone
 from uuid import uuid4
 
+from babel.messages.pofile import read_po
+from functools import lru_cache
+from pathlib import Path
+
+import jwt
+
 from flask import (
     Flask,
     app,
     flash,
     g,
+    current_app,
     has_request_context,
     jsonify,
     make_response,
@@ -289,6 +296,153 @@ def _format_file_parameters_for_logging(files) -> Dict[str, Any]:
         else:
             result[key] = summarized
     return result
+
+
+def _extract_request_jwt_details() -> Optional[Dict[str, Any]]:
+    token: Optional[str] = None
+    source: Optional[str] = None
+
+    authorization = request.headers.get("Authorization")
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization.split(" ", 1)[1].strip()
+        source = "authorization_header"
+
+    if not token:
+        cookie_token = request.cookies.get("access_token")
+        if cookie_token:
+            token = cookie_token
+            source = "access_token_cookie"
+
+    if not token:
+        return None
+
+    details: Dict[str, Any] = {"source": source or "unknown", "token": token}
+
+    try:
+        header = jwt.get_unverified_header(token)
+    except jwt.InvalidTokenError as exc:
+        details["header_error"] = str(exc)
+        header = None
+    else:
+        details["header"] = header
+
+    algorithms: Optional[list[str]] = None
+    if isinstance(header, dict):
+        algorithm = header.get("alg")
+        if isinstance(algorithm, str) and algorithm:
+            algorithms = [algorithm]
+
+    decode_options = {
+        "verify_signature": False,
+        "verify_aud": False,
+        "verify_exp": False,
+        "verify_iss": False,
+    }
+
+    try:
+        payload = jwt.decode(
+            token,
+            options=decode_options,
+            algorithms=algorithms
+            or [
+                "HS256",
+                "HS384",
+                "HS512",
+                "RS256",
+                "RS384",
+                "RS512",
+                "ES256",
+                "ES384",
+                "ES512",
+                "PS256",
+                "PS384",
+                "PS512",
+            ],
+        )
+    except Exception as exc:  # pragma: no cover - defensive logging aid
+        details["payload_error"] = str(exc)
+    else:
+        details["payload"] = payload
+
+    return details
+
+
+def _build_error_log_extra(event_name: str, jwt_details: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    extra = {
+        "event": event_name,
+        "request_id": getattr(g, "request_id", None),
+        "path": request.path,
+    }
+    if jwt_details:
+        extra["_trace_payload"] = {"jwt": jwt_details}
+    return extra
+
+
+def _resolve_translation_directories() -> list[str]:
+    directories_config = current_app.config.get("BABEL_TRANSLATION_DIRECTORIES", "")
+    if isinstance(directories_config, str):
+        candidates = [segment.strip() for segment in directories_config.split(";")]
+    elif isinstance(directories_config, (list, tuple, set)):
+        candidates = [str(segment).strip() for segment in directories_config]
+    else:
+        candidates = []
+    return [str(Path(candidate)) for candidate in candidates if candidate]
+
+
+@lru_cache(maxsize=32)
+def _load_po_catalog(locale: str, directories: tuple[str, ...]) -> Dict[str, str]:
+    catalog: Dict[str, str] = {}
+    for directory in directories:
+        po_path = Path(directory) / locale / "LC_MESSAGES" / "messages.po"
+        if not po_path.exists():
+            continue
+        try:
+            with po_path.open("rb") as buffer:
+                parsed_catalog = read_po(buffer)
+        except (OSError, ValueError):  # pragma: no cover - corrupted file handling
+            continue
+        for message in parsed_catalog:
+            message_id = getattr(message, "id", None)
+            message_str = getattr(message, "string", None)
+            if message_id and message_str:
+                catalog.setdefault(message_id, message_str)
+    return catalog
+
+
+def _translate_message(message: str) -> str:
+    translated = _(message)
+    if translated != message:
+        return translated
+
+    locale_obj = get_locale()
+    locale_candidates: list[str] = []
+    if locale_obj is not None:
+        locale_str = str(locale_obj)
+        if locale_str:
+            locale_candidates.append(locale_str)
+            if "_" in locale_str:
+                base = locale_str.split("_", 1)[0]
+                if base and base not in locale_candidates:
+                    locale_candidates.append(base)
+
+    default_locale = current_app.config.get("BABEL_DEFAULT_LOCALE")
+    if isinstance(default_locale, str) and default_locale:
+        if default_locale not in locale_candidates:
+            locale_candidates.append(default_locale)
+
+    directories = tuple(_resolve_translation_directories())
+    if not directories:
+        return message
+
+    for candidate in locale_candidates:
+        candidate = candidate.strip()
+        if not candidate:
+            continue
+        catalog = _load_po_catalog(candidate, directories)
+        if message in catalog:
+            return catalog[message]
+
+    return message
 
 
 def _normalize_openapi_prefix(prefix: Optional[str]) -> str:
@@ -982,21 +1136,38 @@ def create_app():
     # 404だけ個別に（テンプレでもJSONでも可）
     @app.errorhandler(404)
     def handle_404(e):
-        app.logger.warning(
-            "404 path=%s full=%s ua=%s",
-            request.path,
-            request.full_path,
-            request.user_agent,
-        )
-        # return render_template("404.html"), 404
-        return jsonify(error="Not Found"), 404
+        log_payload = {
+            "method": request.method,
+            "path": request.path,
+            "full_path": request.full_path,
+            "ua": request.user_agent.string,
+            "status": 404,
+        }
+        is_api_request = request.path.startswith("/api")
+        jwt_details = _extract_request_jwt_details() if is_api_request else None
+        event_name = "api.http_404" if is_api_request else "http.404"
+        log_extra = _build_error_log_extra(event_name, jwt_details if is_api_request else None)
+        app.logger.warning(json.dumps(log_payload, ensure_ascii=False), extra=log_extra)
+
+        response = jsonify(error=_translate_message("Not Found"))
+        locale = get_locale()
+        if locale:
+            response.headers["Content-Language"] = str(locale)
+        return response, 404
 
     @app.errorhandler(Exception)
     def handle_exception(e):
         is_http = isinstance(e, HTTPException)
         code = e.code if is_http else 500
         # 外部公開メッセージ：5xxは伏せる（内部情報漏えい対策）
-        public_message = e.description if (is_http and code < 500) else "Internal Server Error"
+        if is_http and code < 500:
+            description = getattr(e, "description", None)
+            if description:
+                public_message = _translate_message(str(description))
+            else:
+                public_message = _translate_message(getattr(e, "name", "Error"))
+        else:
+            public_message = _translate_message("Internal Server Error")
 
         # ログ用の詳細（必要に応じてマスキング）
         try:
@@ -1023,20 +1194,31 @@ def create_app():
             log_dict["json"] = _mask_sensitive_data(input_json)
 
         # ★ ログ出力方針：4xxはstackなし、5xxはstack付き
+        log_message = json.dumps(log_dict, ensure_ascii=False)
+        is_api_request = request.path.startswith("/api")
+        jwt_details = _extract_request_jwt_details() if is_api_request else None
         if is_http and 400 <= code < 500:
-            app.logger.warning(json.dumps(log_dict, ensure_ascii=False),
-                            extra={"event": "api.http_4xx", "request_id": getattr(g, "request_id", None)})
+            event_name = "api.http_4xx" if is_api_request else "http.4xx"
+        else:
+            event_name = "api.http_5xx" if is_api_request else "http.5xx"
+        log_extra = _build_error_log_extra(event_name, jwt_details if is_api_request else None)
+
+        if is_http and 400 <= code < 500:
+            app.logger.warning(log_message, extra=log_extra)
         else:
             # 5xxのみ stacktrace
-            app.logger.exception(json.dumps(log_dict, ensure_ascii=False),
-                                extra={"event": "api.http_5xx", "request_id": getattr(g, "request_id", None)})
+            app.logger.exception(log_message, extra=log_extra)
 
         g.exception_logged = True
 
         # レスポンス
-        if request.path.startswith("/api"):
+        if is_api_request:
             # 5xxの詳細messageは返さない（public_messageに統一）
-            return jsonify({"error": "error", "message": public_message}), code
+            response = jsonify({"error": "error", "message": public_message})
+            locale = get_locale()
+            if locale:
+                response.headers["Content-Language"] = str(locale)
+            return response, code
 
         # HTML（5xxはgenericに）
         return render_template("error.html", message=public_message), code
@@ -1207,9 +1389,15 @@ def _select_locale():
         return current_app.config.get("BABEL_DEFAULT_LOCALE", "en")
 
     cookie_lang = request.cookies.get("lang")
-    if cookie_lang in current_app.config["LANGUAGES"]:
+    languages = [lang for lang in current_app.config.get("LANGUAGES", []) if lang]
+    if cookie_lang in languages:
         return cookie_lang
-    return request.accept_languages.best_match(current_app.config["LANGUAGES"])
+
+    best_match = request.accept_languages.best_match(languages) if languages else None
+    if best_match:
+        return best_match
+
+    return current_app.config.get("BABEL_DEFAULT_LOCALE", "en")
 
 
 def register_cli_commands(app):

@@ -5,6 +5,7 @@ import logging
 
 import pytest
 
+import core.db_log_handler
 from core import logging_config
 from core.db_log_handler import DBLogHandler, WorkerDBLogHandler
 from core.logging_config import ensure_appdb_file_logging, setup_task_logging
@@ -126,6 +127,86 @@ def test_ensure_appdb_logging_marks_existing_handler(monkeypatch, cleanup_logger
 
     assert getattr(existing_handler, "_is_appdb_log_handler", False)
     assert logger.level == logging.INFO
+
+
+def test_db_handler_appends_trace_payload(monkeypatch):
+    handler = DBLogHandler()
+
+    class DummyTable:
+        def create(self, bind=None, checkfirst=True):  # pragma: no cover - no-op in tests
+            return None
+
+    class DummyModel:
+        __table__ = DummyTable()
+
+    monkeypatch.setattr(DBLogHandler, "_get_log_model", lambda self: DummyModel)
+
+    class DummyInsert:
+        def __init__(self, model):
+            self.model = model
+            self.values_kwargs = None
+
+        def values(self, **kwargs):
+            self.values_kwargs = kwargs
+            return self
+
+    statements: dict[str, DummyInsert] = {}
+
+    def fake_insert(model):
+        stmt = DummyInsert(model)
+        statements["stmt"] = stmt
+        return stmt
+
+    monkeypatch.setattr(core.db_log_handler, "insert", fake_insert)
+
+    class DummyConnection:
+        def execute(self, stmt):  # pragma: no cover - simple capture
+            statements["executed"] = stmt.values_kwargs
+
+    class DummyContext:
+        def __enter__(self):
+            return DummyConnection()
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    class DummyEngine:
+        def begin(self):
+            return DummyContext()
+
+    monkeypatch.setattr(DBLogHandler, "_resolve_engine", lambda self: DummyEngine())
+    monkeypatch.setattr(DBLogHandler, "_ensure_table", lambda self, engine: None)
+
+    captured: dict[str, str] = {}
+
+    def fake_build_insert_values(self, **kwargs):
+        captured["trace"] = kwargs["trace"]
+        return {
+            "level": kwargs["record"].levelname,
+            "message": kwargs["message_json"],
+            "trace": kwargs["trace"],
+            "path": kwargs["path_value"],
+            "request_id": kwargs["request_id"],
+            "event": kwargs["event"],
+        }
+
+    monkeypatch.setattr(DBLogHandler, "_build_insert_values", fake_build_insert_values)
+
+    record = logging.LogRecord(
+        name="test.logger",
+        level=logging.ERROR,
+        pathname=__file__,
+        lineno=123,
+        msg="{\"message\": \"failure\"}",
+        args=(),
+        exc_info=None,
+    )
+    record._trace_payload = {"jwt": {"sub": "42"}}
+
+    handler.emit(record)
+
+    assert "Captured JWT payload" in captured["trace"]
+    assert '"sub": "42"' in captured["trace"]
 
 
 def test_worker_handler_extracts_fields_from_payload():

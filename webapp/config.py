@@ -35,7 +35,7 @@ class Config:
     CERTS_API_TIMEOUT = _default("CERTS_API_TIMEOUT")
 
     # Internationalisation
-    LANGUAGES = list(_default("LANGUAGES") or ["ja", "en"])
+    LANGUAGES = list(_default("LANGUAGES") or ["en", "ja"])
     BABEL_TRANSLATION_DIRECTORIES = os.path.join(
         os.path.dirname(__file__), "translations"
     )

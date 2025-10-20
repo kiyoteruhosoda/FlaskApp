@@ -207,15 +207,16 @@ class Blueprint(
                 for method_name in doc.pop("doc_methods", ())
                 if isinstance(method_name, str)
             )
+            manual_doc = doc.get("manual_doc")
             if allowed_methods and method.lower() not in allowed_methods:
-                return
+                doc.pop("manual_doc", None)
+                manual_doc = None
             # Get summary/description from docstring
             doc["docstring"] = load_info_from_docstring(
                 function.__doc__, delimiter=self.DOCSTRING_INFO_DELIMITER
             )
             # Tags for this resource
             doc["tags"] = tags
-            manual_doc = doc.get("manual_doc")
             if isinstance(manual_doc, MutableMapping):
                 manual_doc.pop("methods", None)
             # Store function doc infos for later processing/registration

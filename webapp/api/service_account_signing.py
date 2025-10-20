@@ -130,7 +130,12 @@ def create_service_account_signature():
             HTTPStatus.BAD_REQUEST,
         )
 
-    payload = request.get_json(silent=True) or {}
+    payload = request.get_json(silent=True)
+    if payload is None:
+        return _json_error(_("Request body must be a valid JSON object."), HTTPStatus.BAD_REQUEST)
+
+    if not isinstance(payload, dict):
+        return _json_error(_("Request body must be a JSON object."), HTTPStatus.BAD_REQUEST)
 
     signing_input = payload.get("signingInput")
     if not isinstance(signing_input, str) or not signing_input.strip():

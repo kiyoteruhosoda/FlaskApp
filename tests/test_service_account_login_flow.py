@@ -159,6 +159,55 @@ def test_service_account_signature_accepts_plain_encoding(app_context, monkeypat
 
 
 @pytest.mark.usefixtures("app_context")
+def test_service_account_signature_accepts_plain_encoding_with_hash_hint(app_context, monkeypatch):
+    client, account, issued, api_key_value = _prepare_service_account_signing_context(
+        app_context, group_code="client-signing-plain-hash"
+    )
+
+    now = datetime.now(timezone.utc)
+    audience = "https://nolumia.com/api/login/token"
+    monkeypatch.setenv("SERVICE_ACCOUNT_SIGNING_AUDIENCE", audience)
+
+    header_segment = _b64url(
+        json.dumps({"alg": "ES256", "kid": issued.kid, "typ": "JWT"}, separators=(",", ":")).encode("utf-8")
+    )
+    payload_segment = _b64url(
+        json.dumps(
+            {
+                "iss": account.name,
+                "sub": account.name,
+                "aud": audience,
+                "iat": int(now.timestamp()),
+                "exp": int((now + timedelta(minutes=5)).timestamp()),
+                "jti": "8ae8ecf4604afcdf6cc10de12cdeec7c",
+                "scope": "",
+            },
+            separators=(",", ":"),
+        ).encode("utf-8")
+    )
+    signing_input_plain = f"{header_segment}.{payload_segment}"
+
+    response = client.post(
+        "/api/service_accounts/signatures",
+        data=json.dumps(
+            {
+                "signingInput": signing_input_plain,
+                "signingInputEncoding": "plain",
+                "kid": issued.kid,
+                "hashAlgorithm": "SHA256",
+            }
+        ),
+        content_type="application/json",
+        headers={"Authorization": f"ApiKey {api_key_value}"},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["kid"] == issued.kid
+    assert payload["signature"]
+
+
+@pytest.mark.usefixtures("app_context")
 def test_service_account_signature_rejects_unexpected_audience(app_context, monkeypatch):
     client, account, issued, api_key_value = _prepare_service_account_signing_context(
         app_context, group_code="client-signing-2"
@@ -200,6 +249,42 @@ def test_service_account_signature_rejects_unexpected_audience(app_context, monk
     assert response.status_code == 400
     payload = response.get_json()
     assert payload["error"] == "The signing request audience is not allowed."
+
+
+@pytest.mark.usefixtures("app_context")
+def test_service_account_signature_rejects_invalid_json_body(app_context):
+    client, _account, _issued, api_key_value = _prepare_service_account_signing_context(
+        app_context, group_code="client-signing-invalid-json"
+    )
+
+    response = client.post(
+        "/api/service_accounts/signatures",
+        data="not-json",
+        content_type="application/json",
+        headers={"Authorization": f"ApiKey {api_key_value}"},
+    )
+
+    assert response.status_code == 400
+    payload = response.get_json()
+    assert payload["error"] == "Request body must be a valid JSON object."
+
+
+@pytest.mark.usefixtures("app_context")
+def test_service_account_signature_rejects_non_object_json_body(app_context):
+    client, _account, _issued, api_key_value = _prepare_service_account_signing_context(
+        app_context, group_code="client-signing-json-array"
+    )
+
+    response = client.post(
+        "/api/service_accounts/signatures",
+        data=json.dumps(["signingInput", "kid"]),
+        content_type="application/json",
+        headers={"Authorization": f"ApiKey {api_key_value}"},
+    )
+
+    assert response.status_code == 400
+    payload = response.get_json()
+    assert payload["error"] == "Request body must be a JSON object."
 
 
 @pytest.mark.usefixtures("app_context")

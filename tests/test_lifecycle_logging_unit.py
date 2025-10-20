@@ -21,7 +21,6 @@ def lifecycle_app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         "DATABASE_URI": f"sqlite:///{db_path}",
         "SECRET_KEY": "test-secret-key",
         "JWT_SECRET_KEY": "test-jwt-secret",
-        "FEATURE_X_DB_URI": "",
     }
 
     for key, value in env_vars.items():

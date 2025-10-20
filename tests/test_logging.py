@@ -30,7 +30,6 @@ def app(tmp_path):
         "FPV_URL_TTL_PLAYBACK": "600",
         "FPV_NAS_THUMBS_DIR": str(thumbs),
         "FPV_NAS_PLAY_DIR": str(play),
-        "FEATURE_X_DB_URI": "",  # Feature X DBを無効化
     }
     
     # 既存の環境変数を保存

@@ -116,6 +116,49 @@ def test_service_account_end_to_end_login_flow(app_context, monkeypatch):
 
 
 @pytest.mark.usefixtures("app_context")
+def test_service_account_signature_accepts_plain_encoding(app_context, monkeypatch):
+    client, account, issued, api_key_value = _prepare_service_account_signing_context(
+        app_context, group_code="client-signing-plain"
+    )
+
+    now = datetime.now(timezone.utc)
+    audience = "http://localhost/api/maintenance"
+    monkeypatch.setenv("SERVICE_ACCOUNT_SIGNING_AUDIENCE", audience)
+    header_segment = _b64url(
+        json.dumps({"alg": "ES256", "kid": issued.kid, "typ": "JWT"}, separators=(",", ":")).encode("utf-8")
+    )
+    payload_segment = _b64url(
+        json.dumps(
+            {
+                "iss": account.name,
+                "sub": account.name,
+                "aud": audience,
+                "iat": int(now.timestamp()),
+                "exp": int((now + timedelta(minutes=5)).timestamp()),
+                "scope": "maintenance:read certificate:sign",
+            },
+            separators=(",", ":"),
+        ).encode("utf-8")
+    )
+    signing_input_plain = f"{header_segment}.{payload_segment}"
+
+    response = client.post(
+        "/api/service_accounts/signatures",
+        json={
+            "signingInput": signing_input_plain,
+            "signingInputEncoding": "plain",
+            "kid": issued.kid,
+        },
+        headers={"Authorization": f"ApiKey {api_key_value}"},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["kid"] == issued.kid
+    assert payload["signature"]
+
+
+@pytest.mark.usefixtures("app_context")
 def test_service_account_signature_rejects_unexpected_audience(app_context, monkeypatch):
     client, account, issued, api_key_value = _prepare_service_account_signing_context(
         app_context, group_code="client-signing-2"

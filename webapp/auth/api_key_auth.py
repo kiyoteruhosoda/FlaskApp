@@ -1,6 +1,7 @@
 """Authentication helpers for API key based service account access."""
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Iterable, Sequence
@@ -12,6 +13,9 @@ from core.models.service_account_api_key import ServiceAccountApiKey
 from webapp.services.service_account_api_key_service import (
     ServiceAccountApiKeyService,
 )
+
+
+API_KEY_SECURITY_SCHEME_NAME = "ServiceAccountApiKey"
 
 
 @dataclass
@@ -141,6 +145,23 @@ def require_api_key_scopes(scopes: Sequence[str] | None):
 
             return func(*args, **kwargs)
 
+        required_scopes = tuple(scope for scope in (scopes or []) if scope)
+
+        wrapper._apidoc = deepcopy(getattr(wrapper, "_apidoc", {}))
+        manual_doc = deepcopy(wrapper._apidoc.get("manual_doc", {}))
+
+        security_requirement = {API_KEY_SECURITY_SCHEME_NAME: []}
+        security = list(manual_doc.get("security", []))
+        if security_requirement not in security:
+            security.append(security_requirement)
+        manual_doc["security"] = security
+        manual_doc["x-required-scopes"] = list(required_scopes)
+        manual_doc["x-requires-authentication"] = True
+
+        wrapper._apidoc["manual_doc"] = manual_doc
+        wrapper._required_api_key_scopes = required_scopes
+        wrapper._requires_api_key_authentication = True
+
         return wrapper
 
     return decorator
@@ -150,4 +171,5 @@ __all__ = [
     "ServiceAccountApiKeyAuthenticator",
     "ApiKeyAuthError",
     "require_api_key_scopes",
+    "API_KEY_SECURITY_SCHEME_NAME",
 ]

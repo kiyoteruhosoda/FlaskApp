@@ -2,9 +2,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping, Sequence
+from typing import Literal, Mapping, Sequence
 
 from flask_babel import gettext as _
+
+
+SettingFieldType = Literal["string", "integer", "float", "boolean", "list"]
+
+_ALLOWED_FIELD_TYPES: tuple[SettingFieldType, ...] = (
+    "string",
+    "integer",
+    "float",
+    "boolean",
+    "list",
+)
 
 
 @dataclass(frozen=True)
@@ -13,7 +24,7 @@ class SettingFieldDefinition:
 
     key: str
     label: str
-    data_type: str
+    data_type: SettingFieldType
     required: bool
     description: str
     allow_empty: bool = False
@@ -21,6 +32,12 @@ class SettingFieldDefinition:
     multiline: bool = False
     choices: Sequence[tuple[str, str]] | None = None
     default_hint: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.data_type not in _ALLOWED_FIELD_TYPES:
+            raise ValueError(f"Unsupported data type '{self.data_type}' for {self.key}")
+        if not isinstance(self.required, bool):
+            raise TypeError("'required' must be a boolean value")
 
     def choice_labels(self) -> Sequence[tuple[str, str]]:
         return self.choices or ()
@@ -347,6 +364,7 @@ CORS_SETTING_DEFINITIONS: Mapping[str, SettingFieldDefinition] = {
 
 __all__ = [
     "SettingFieldDefinition",
+    "SettingFieldType",
     "APPLICATION_SETTING_DEFINITIONS",
     "CORS_SETTING_DEFINITIONS",
 ]

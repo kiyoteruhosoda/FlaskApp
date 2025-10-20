@@ -75,6 +75,7 @@ COPY --chown=appuser:appuser cli/ ./cli/
 COPY --chown=appuser:appuser core/ ./core/
 COPY --chown=appuser:appuser domain/ ./domain/
 COPY --chown=appuser:appuser features/ ./features/
+COPY --chown=appuser:appuser flask_smorest/ ./flask_smorest/
 COPY --chown=appuser:appuser infrastructure/ ./infrastructure/
 COPY --chown=appuser:appuser shared/ ./shared/
 COPY --chown=appuser:appuser webapp/ ./webapp/

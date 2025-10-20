@@ -43,6 +43,7 @@
 
 <h4 class="mt-4">{{ _('Access Token Signing') }}</h4>
 <form method="post" class="mb-4">
+  <input type="hidden" name="action" value="update-signing">
   <div class="form-check mb-2">
     <input
       class="form-check-input"
@@ -113,6 +114,71 @@
 
   <button type="submit" class="btn btn-primary mt-3">
     {{ _('Save signing settings') }}
+  </button>
+  {% if signing_config_updated_at %}
+  <div class="form-text text-muted mt-2">
+    {{ _('Last updated at: %(timestamp)s', timestamp=signing_config_updated_at|localtime('%Y-%m-%d %H:%M')) }}
+  </div>
+  {% endif %}
+</form>
+
+<h4 class="mt-4">{{ _('Application Configuration (system settings)') }}</h4>
+<form method="post" class="mb-4">
+  <input type="hidden" name="action" value="update-app-config">
+  <div class="mb-3">
+    <label for="app-config-json" class="form-label">
+      {{ _('JSON payload for app.config') }}
+    </label>
+    <textarea
+      class="form-control font-monospace"
+      id="app-config-json"
+      name="app_config_json"
+      rows="16"
+    >{{ application_config_json|trim }}</textarea>
+    <div class="form-text">
+      {{ _('Provide a JSON object. Unspecified keys fall back to defaults defined in core.system_settings_defaults.') }}
+    </div>
+    {% if application_config_updated_at %}
+    <div class="form-text text-muted">
+      {{ _('Last updated at: %(timestamp)s', timestamp=application_config_updated_at|localtime('%Y-%m-%d %H:%M')) }}
+      {% if application_config_description %}
+      <br>{{ _('Description: %(description)s', description=application_config_description) }}
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+  <button type="submit" class="btn btn-primary">
+    {{ _('Save application configuration') }}
+  </button>
+</form>
+
+<h4 class="mt-4">{{ _('CORS Allowed Origins') }}</h4>
+<form method="post" class="mb-4">
+  <input type="hidden" name="action" value="update-cors">
+  <div class="mb-3">
+    <label for="allowed-origins" class="form-label">
+      {{ _('Allowed origins (one per line)') }}
+    </label>
+    <textarea
+      class="form-control font-monospace"
+      id="allowed-origins"
+      name="allowed_origins"
+      rows="8"
+    >{{ allowed_origins_text|trim }}</textarea>
+    <div class="form-text">
+      {{ _('Enter full URLs such as https://example.com. Use "*" to allow any origin.') }}
+    </div>
+    {% if cors_config_updated_at %}
+    <div class="form-text text-muted">
+      {{ _('Last updated at: %(timestamp)s', timestamp=cors_config_updated_at|localtime('%Y-%m-%d %H:%M')) }}
+      {% if cors_config_description %}
+      <br>{{ _('Description: %(description)s', description=cors_config_description) }}
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+  <button type="submit" class="btn btn-primary">
+    {{ _('Save CORS settings') }}
   </button>
 </form>
 

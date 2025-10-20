@@ -1,4 +1,5 @@
 
+import json
 import os
 import platform
 import socket
@@ -21,6 +22,7 @@ from ..extensions import db
 from flask_login import login_required, current_user
 from flask_babel import gettext as _
 
+from core.models.system_setting import SystemSetting
 from core.models.user import User, Role, Permission
 from core.models.service_account import ServiceAccount
 from core.storage_paths import first_existing_storage_path, storage_path_candidates
@@ -244,25 +246,77 @@ def service_account_api_keys(account_id: int):
 def show_config():
     if not current_user.can("system:manage"):
         return _(u"You do not have permission to access this page."), 403
+    app_config_text_override: str | None = None
+    cors_origins_text_override: str | None = None
+
     if request.method == "POST":
-        selected = (request.form.get("access_token_signing") or "builtin").strip()
-        try:
-            if selected == "builtin":
-                SystemSettingService.update_access_token_signing_setting("builtin")
-                flash(_(u"Access token signing will use the built-in secret."), "success")
+        action = (request.form.get("action") or "update-signing").strip()
+        if action == "update-signing":
+            selected = (request.form.get("access_token_signing") or "builtin").strip()
+            try:
+                if selected == "builtin":
+                    SystemSettingService.update_access_token_signing_setting("builtin")
+                    flash(_(u"Access token signing will use the built-in secret."), "success")
+                else:
+                    prefix = "server_signing:"
+                    group_code = selected[len(prefix):] if selected.startswith(prefix) else selected
+                    SystemSettingService.update_access_token_signing_setting(
+                        "server_signing", group_code=group_code
+                    )
+                    flash(_(u"Access token signing certificate group updated."), "success")
+                return redirect(url_for("admin.show_config"))
+            except AccessTokenSigningValidationError as exc:
+                flash(str(exc), "danger")
+            except Exception:  # pragma: no cover - unexpected failure logged for debugging
+                current_app.logger.exception("Failed to update access token signing configuration")
+                flash(_(u"Failed to update the access token signing configuration."), "danger")
+        elif action == "update-app-config":
+            raw_json = (request.form.get("app_config_json") or "").strip()
+            app_config_text_override = raw_json
+            if raw_json:
+                try:
+                    payload = json.loads(raw_json)
+                except json.JSONDecodeError as exc:
+                    flash(
+                        _(u"Failed to parse application configuration JSON: %(error)s", error=str(exc)),
+                        "danger",
+                    )
+                else:
+                    if not isinstance(payload, dict):
+                        flash(_(u"The application configuration must be a JSON object."), "danger")
+                    else:
+                        SystemSettingService.upsert_application_config(payload)
+                        flash(_(u"Application configuration updated."), "success")
+                        return redirect(url_for("admin.show_config"))
             else:
-                prefix = "server_signing:"
-                group_code = selected[len(prefix):] if selected.startswith(prefix) else selected
-                SystemSettingService.update_access_token_signing_setting(
-                    "server_signing", group_code=group_code
+                SystemSettingService.upsert_application_config({})
+                flash(_(u"Application configuration updated."), "success")
+                return redirect(url_for("admin.show_config"))
+        elif action == "update-cors":
+            raw_origins = request.form.get("allowed_origins") or ""
+            cors_origins_text_override = raw_origins
+            allowed_origins = []
+            invalid_origins: list[str] = []
+            for line in raw_origins.splitlines():
+                origin = line.strip()
+                if not origin:
+                    continue
+                if origin != "*" and "://" not in origin:
+                    invalid_origins.append(origin)
+                    continue
+                if origin not in allowed_origins:
+                    allowed_origins.append(origin)
+            if invalid_origins:
+                flash(
+                    _(u"Each origin must be a full URL (e.g., https://example.com) or '*'. Invalid values: %(origins)s",
+                      origins=", ".join(invalid_origins)),
+                    "danger",
                 )
-                flash(_(u"Access token signing certificate group updated."), "success")
-        except AccessTokenSigningValidationError as exc:
-            flash(str(exc), "danger")
-        except Exception:  # pragma: no cover - unexpected failure logged for debugging
-            current_app.logger.exception("Failed to update access token signing configuration")
-            flash(_(u"Failed to update the access token signing configuration."), "danger")
-        return redirect(url_for("admin.show_config"))
+            else:
+                SystemSettingService.upsert_cors_config(allowed_origins)
+                flash(_(u"CORS allowed origins updated."), "success")
+                return redirect(url_for("admin.show_config"))
+
     # Only show public config values, not secrets
     from webapp.config import Config
     public_keys = [
@@ -276,11 +330,33 @@ def show_config():
         flash(str(exc), "danger")
         signing_setting = AccessTokenSigningSetting(mode="server_signing")
     certificate_groups = _list_server_signing_certificate_groups()
+    application_config = SystemSettingService.load_application_config()
+    cors_config = SystemSettingService.load_cors_config()
+    app_config_json = (
+        app_config_text_override
+        if app_config_text_override is not None
+        else json.dumps(application_config, ensure_ascii=False, indent=2, sort_keys=True)
+    )
+    allowed_origins_text = (
+        cors_origins_text_override
+        if cors_origins_text_override is not None
+        else "\n".join(cors_config.get("allowedOrigins", []))
+    )
+    app_setting_record = SystemSetting.query.filter_by(setting_key="app.config").one_or_none()
+    cors_setting_record = SystemSetting.query.filter_by(setting_key="app.cors").one_or_none()
+    signing_record = SystemSetting.query.filter_by(setting_key="access_token_signing").one_or_none()
     return render_template(
         "admin/config_view.html",
         config=config_dict,
         signing_setting=signing_setting,
         server_signing_groups=certificate_groups,
+        application_config_json=app_config_json,
+        allowed_origins_text=allowed_origins_text,
+        application_config_updated_at=getattr(app_setting_record, "updated_at", None),
+        application_config_description=getattr(app_setting_record, "description", None),
+        cors_config_updated_at=getattr(cors_setting_record, "updated_at", None),
+        cors_config_description=getattr(cors_setting_record, "description", None),
+        signing_config_updated_at=getattr(signing_record, "updated_at", None),
     )
 
 # バージョン情報表示ページ（管理者のみ）

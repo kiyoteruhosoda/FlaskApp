@@ -114,6 +114,28 @@ class TestOpenAPIDocs:
         assert 'https://nolumia.com/api' in html
         assert 'https\\://nolumia.com/api' not in html
 
+    def test_openapi_overview_table_renders_endpoints(self, app_context):
+        client = app_context.test_client()
+        response = client.get('/api/overview')
+        assert response.status_code == 200
+
+        html = response.get_data(as_text=True)
+        assert '<table id="apiTable"' in html
+        assert 'https://cdn.datatables.net/2.0.5/js/dataTables.min.js' in html
+        assert 'Scopeで絞り込み' in html
+
+        match = re.search(r'const\s+apiData\s*=\s*(\[.*?\]);', html, re.S)
+        assert match, 'apiData JavaScript assignment missing'
+        api_data = json.loads(match.group(1))
+
+        login_entry = next(
+            (item for item in api_data if item.get('path') == '/login' and item.get('method') == 'POST'),
+            None,
+        )
+        assert login_entry is not None, 'Login endpoint not found in overview data'
+        assert isinstance(login_entry.get('auth'), list)
+        assert login_entry.get('link'), 'Swagger UI link missing for login endpoint'
+
     def test_swagger_ui_server_dropdown_renders_clean_values(self, app_context):
         try:
             import js2py  # type: ignore

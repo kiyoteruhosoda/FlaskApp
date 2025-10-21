@@ -12,6 +12,81 @@
 
   let reapplySearchFilter = null;
 
+  const layoutContainer = document.querySelector('[data-config-layout]');
+  if (layoutContainer) {
+    const collapseButton = layoutContainer.querySelector('[data-config-tree-collapse]');
+    const expandButton = layoutContainer.querySelector('[data-config-tree-expand]');
+    const expandContainer = layoutContainer.querySelector('[data-config-tree-expand-container]');
+    const storageKey = 'admin-config-sidebar-collapsed';
+
+    const getStoredCollapsed = () => {
+      try {
+        if (!window.localStorage) {
+          return null;
+        }
+        const value = window.localStorage.getItem(storageKey);
+        if (value === 'true') {
+          return true;
+        }
+        if (value === 'false') {
+          return false;
+        }
+      } catch (error) {
+        console.warn('Failed to read sidebar state from storage', error);
+      }
+      return null;
+    };
+
+    const setStoredCollapsed = (collapsed) => {
+      try {
+        if (!window.localStorage) {
+          return;
+        }
+        window.localStorage.setItem(storageKey, collapsed ? 'true' : 'false');
+      } catch (error) {
+        console.warn('Failed to persist sidebar state', error);
+      }
+    };
+
+    const applyCollapsedState = (collapsed) => {
+      layoutContainer.classList.toggle('config-layout--tree-collapsed', collapsed);
+      if (collapseButton) {
+        collapseButton.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      }
+      if (expandButton) {
+        expandButton.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      }
+      if (expandContainer) {
+        expandContainer.setAttribute('aria-hidden', collapsed ? 'false' : 'true');
+      }
+    };
+
+    const setCollapsed = (collapsed, { focusTarget } = {}) => {
+      applyCollapsedState(collapsed);
+      setStoredCollapsed(collapsed);
+      if (focusTarget === 'expand' && expandButton) {
+        expandButton.focus();
+      } else if (focusTarget === 'collapse' && collapseButton) {
+        collapseButton.focus();
+      }
+    };
+
+    const storedCollapsed = getStoredCollapsed();
+    applyCollapsedState(storedCollapsed === true);
+
+    if (collapseButton) {
+      collapseButton.addEventListener('click', () => {
+        setCollapsed(true, { focusTarget: 'expand' });
+      });
+    }
+
+    if (expandButton) {
+      expandButton.addEventListener('click', () => {
+        setCollapsed(false, { focusTarget: 'collapse' });
+      });
+    }
+  }
+
   const cssEscape = (value) => {
     if (window.CSS && typeof window.CSS.escape === 'function') {
       return window.CSS.escape(value);

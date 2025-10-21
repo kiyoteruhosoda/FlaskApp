@@ -1439,6 +1439,9 @@ msgstr "期限切れ"
 msgid "Error"
 msgstr "エラー"
 
+msgid "Role switching is not available for this account."
+msgstr "このアカウントではロール切り替えを利用できません。"
+
 #: webapp/photo-view/templates/photo-view/home.html:52
 #: webapp/photo-view/templates/photo-view/session_detail.html:73
 msgid "Failed"

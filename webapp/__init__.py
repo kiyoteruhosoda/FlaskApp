@@ -32,6 +32,7 @@ from flask import (
     session,
     url_for,
 )
+from flask_login import current_user, logout_user
 
 from flask_babel import get_locale
 from flask_babel import gettext as _
@@ -43,6 +44,7 @@ from core.settings import settings
 from werkzeug.datastructures import FileStorage
 
 from .extensions import db, migrate, login_manager, babel, api as smorest_api
+from webapp.auth import SERVICE_LOGIN_SESSION_KEY
 from webapp.auth.api_key_auth import API_KEY_SECURITY_SCHEME_NAME
 from .timezone import resolve_timezone, convert_to_timezone
 from core.db_log_handler import DBLogHandler
@@ -54,6 +56,7 @@ from core.system_settings_defaults import (
     DEFAULT_CORS_SETTINGS,
 )
 from webapp.services.system_setting_service import SystemSettingService
+from webapp.services.token_service import TokenService
 
 
 _SENSITIVE_KEYWORDS = {
@@ -871,6 +874,47 @@ def create_app():
         tz_name, tzinfo = resolve_timezone(tz_cookie, fallback)
         g.user_timezone_name = tz_name
         g.user_timezone = tzinfo
+
+    @app.before_request
+    def _apply_service_login_scope():
+        if not session.get(SERVICE_LOGIN_SESSION_KEY):
+            return
+        if getattr(g, "current_token_scope", None) is not None:
+            return
+
+        token = request.cookies.get("access_token")
+        if not token:
+            g.current_token_scope = set()
+            session.pop(SERVICE_LOGIN_SESSION_KEY, None)
+            g.service_login_clear_cookie = True
+            return
+
+        verification = TokenService.verify_access_token(token)
+        if not verification:
+            g.current_token_scope = set()
+            session.pop(SERVICE_LOGIN_SESSION_KEY, None)
+            g.service_login_clear_cookie = True
+            return
+
+        user, scope = verification
+        if current_user.is_authenticated and str(current_user.id) != str(user.id):
+            current_app.logger.warning(
+                "Service login token user mismatch; ignoring token scope",
+                extra={"event": "auth.service_login", "path": request.path},
+            )
+            logout_user()
+            session.pop(SERVICE_LOGIN_SESSION_KEY, None)
+            g.current_token_scope = set()
+            g.service_login_clear_cookie = True
+            return
+
+        g.current_token_scope = set(scope)
+
+    @app.after_request
+    def _clear_service_login_cookie(response):
+        if getattr(g, "service_login_clear_cookie", False):
+            response.delete_cookie("access_token")
+        return response
 
     @app.context_processor
     def inject_version():

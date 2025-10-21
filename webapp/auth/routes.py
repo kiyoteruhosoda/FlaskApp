@@ -7,13 +7,14 @@ from flask import (
     session,
     current_app,
     make_response,
+    g,
 )
 import requests
 import json
 from datetime import datetime, timezone, timedelta
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_babel import gettext as _, force_locale
-from . import bp
+from . import bp, SERVICE_LOGIN_SESSION_KEY
 from ..extensions import db
 from core.models.user import User
 from core.models.google_account import GoogleAccount
@@ -112,18 +113,74 @@ def _peek_role_selection_target() -> str | None:
     return None
 
 
-def _login_with_domain_user(user, redirect_target=None):
+def _login_with_domain_user(user, redirect_target=None, *, token=None, token_scope=None):
     """ドメインユーザーが保持するORMモデルでログイン処理を行う。"""
     model = getattr(user, "_model", None)
     if model is None:
         raise ValueError("Domain user is missing attached ORM model for login")
-    login_user(model)
+    return _finalize_login_session(
+        model,
+        redirect_target or url_for("dashboard.dashboard"),
+        token=token,
+        token_scope=token_scope,
+    )
+
+
+def _finalize_login_session(user_model, redirect_target, *, token=None, token_scope=None):
+    login_user(user_model)
     session.pop("active_role_id", None)
-    roles = list(getattr(model, "roles", []) or [])
+
+    if token_scope is None:
+        session.pop(SERVICE_LOGIN_SESSION_KEY, None)
+        g.current_token_scope = None
+    else:
+        if isinstance(token_scope, set):
+            token_scope = list(token_scope)
+
+        if not isinstance(token_scope, (list, tuple)) or not all(
+            isinstance(item, str) and item.strip() for item in token_scope
+        ):
+            raise ValueError("token_scope must be a list of non-empty strings")
+
+        normalized_scope = sorted(item.strip() for item in token_scope)
+        session[SERVICE_LOGIN_SESSION_KEY] = True
+        g.current_token_scope = set(normalized_scope)
+
+    roles = list(getattr(user_model, "roles", []) or [])
     if len(roles) > 1:
-        session["role_selection_next"] = redirect_target or url_for("dashboard.dashboard")
-        return redirect(url_for("auth.select_role"))
-    _sync_active_role(model)
+        session["role_selection_next"] = redirect_target
+        response = redirect(url_for("auth.select_role"))
+    else:
+        _sync_active_role(user_model)
+        response = redirect(redirect_target)
+
+    if token_scope is None:
+        response.delete_cookie("access_token")
+    elif token:
+        response.set_cookie(
+            "access_token",
+            token,
+            httponly=True,
+            secure=settings.session_cookie_secure,
+            samesite="Lax",
+        )
+
+    return response
+
+
+def _extract_bearer_token() -> str | None:
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.lower().startswith("bearer "):
+        candidate = auth_header.split(" ", 1)[1].strip()
+        if candidate:
+            return candidate
+
+    cookie_token = request.cookies.get("access_token")
+    if isinstance(cookie_token, str):
+        candidate = cookie_token.strip()
+        if candidate:
+            return candidate
+
     return None
 
 
@@ -204,16 +261,58 @@ def login():
             if not token or not verify_totp(user_model.totp_secret, token):
                 flash(_("Invalid authentication code"), "error")
                 return _render_login_template()
-        login_user(user_model)
-        session.pop("active_role_id", None)
         redirect_target = _resolve_post_login_target()
-        roles = list(getattr(user_model, "roles", []) or [])
-        if len(roles) > 1:
-            session["role_selection_next"] = redirect_target
-            return redirect(url_for("auth.select_role"))
-        _sync_active_role(user_model)
-        return redirect(redirect_target)
+        return _finalize_login_session(user_model, redirect_target)
     return _render_login_template()
+
+
+@bp.route("/servicelogin", methods=["GET", "POST"])
+def service_login():
+    redirect_target = _resolve_next_target("dashboard.dashboard")
+    token = _extract_bearer_token()
+
+    if not token:
+        if current_user.is_authenticated:
+            return redirect(redirect_target)
+        current_app.logger.warning(
+            "Service login request rejected: missing access token",
+            extra={"event": "auth.service_login", "path": request.path},
+        )
+        return make_response(_("Access token is required"), 400)
+
+    verification = TokenService.verify_access_token(token)
+    if not verification:
+        current_app.logger.warning(
+            "Service login token verification failed",
+            extra={"event": "auth.service_login", "path": request.path},
+        )
+        return make_response(_("Invalid access token"), 401)
+
+    user_model, scope = verification
+    current_app.logger.info(
+        "Service login successful",
+        extra={
+            "event": "auth.service_login",
+            "path": request.path,
+            "user_id": user_model.id,
+            "email": user_model.email,
+            "redirect": redirect_target,
+        },
+    )
+    try:
+        return _finalize_login_session(
+            user_model,
+            redirect_target,
+            token=token,
+            token_scope=scope,
+        )
+    except ValueError as exc:
+        current_app.logger.warning(
+            "Service login token rejected due to invalid scope: %s",
+            exc,
+            extra={"event": "auth.service_login", "path": request.path},
+        )
+        return make_response(_("Invalid access token"), 401)
 
 
 @bp.route("/select-role", methods=["GET", "POST"])
@@ -597,6 +696,7 @@ def logout():
     logout_user()
     session.pop("picker_session_id", None)
     session.pop("active_role_id", None)
+    session.pop(SERVICE_LOGIN_SESSION_KEY, None)
 
     response = make_response(redirect(url_for("index")))
     response.delete_cookie("access_token")

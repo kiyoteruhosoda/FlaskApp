@@ -38,6 +38,7 @@ from flask_babel import gettext as _
 from sqlalchemy.engine import make_url
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+from core.models.user import SESSION_TOKEN_SCOPE_KEY
 from core.settings import settings
 
 from werkzeug.datastructures import FileStorage
@@ -869,6 +870,23 @@ def create_app():
         tz_name, tzinfo = resolve_timezone(tz_cookie, fallback)
         g.user_timezone_name = tz_name
         g.user_timezone = tzinfo
+
+    @app.before_request
+    def _restore_service_login_scope():
+        if getattr(g, "current_token_scope", None) is not None:
+            return
+        scope_data = session.get(SESSION_TOKEN_SCOPE_KEY)
+        if scope_data is None:
+            return
+        if isinstance(scope_data, str):
+            items = [segment.strip() for segment in scope_data.split() if segment.strip()]
+        else:
+            try:
+                iterator = list(scope_data)
+            except TypeError:
+                iterator = []
+            items = [str(item).strip() for item in iterator if str(item).strip()]
+        g.current_token_scope = set(items)
 
     @app.context_processor
     def inject_version():

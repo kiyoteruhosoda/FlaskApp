@@ -493,6 +493,27 @@ def _serialize_user_for_log(user):
     if user is None:
         return None
 
+    if isinstance(user, AuthenticatedPrincipal):
+        identifier_parts = [
+            f"type:{user.subject_type}",
+            f"id:{user.id}",
+        ]
+        if user.display_name:
+            identifier_parts.append(f"display_name:{user.display_name}")
+        raw_identifier = "|".join(identifier_parts)
+        digest = hashlib.sha256(raw_identifier.encode('utf-8')).hexdigest()
+        snapshot = {
+            'id_hash': digest,
+            'subject_type': user.subject_type,
+        }
+        if user.display_name:
+            snapshot['display_name'] = user.display_name
+        if user.roles:
+            snapshot['roles'] = list(user.roles)
+        if user.scope:
+            snapshot['scope'] = sorted(user.scope)
+        return snapshot
+
     identifier_parts = []
     if getattr(user, 'id', None) is not None:
         identifier_parts.append(f"id:{user.id}")
@@ -620,8 +641,8 @@ def jwt_required(f):
         if not token:
             return jsonify({'error': 'token_missing'}), 401
         
-        verification = TokenService.verify_access_token(token)
-        if not verification:
+        principal = TokenService.verify_access_token(token)
+        if not principal:
             return jsonify({'error': 'invalid_token'}), 401
 
         # Flask-Loginのcurrent_userと同じように使えるよう設定
@@ -748,8 +769,8 @@ def login_or_jwt_required(f):
                 authenticated_via_flask_login=current_user.is_authenticated,
             )
 
-            verification = TokenService.verify_access_token(token)
-            if not verification:
+            principal = TokenService.verify_access_token(token)
+            if not principal:
                 _auth_log(
                     'JWT token verification failed',
                     level='warning',
@@ -799,11 +820,48 @@ def login_or_jwt_required(f):
 
 def get_current_user():
     """現在のユーザーを取得（Flask-LoginまたはJWT認証から）"""
+    from flask import g
+
+    def _resolve_user(principal: AuthenticatedPrincipal):
+        if not isinstance(principal, AuthenticatedPrincipal):
+            return None
+        if not principal.is_individual:
+            return None
+
+        cached = getattr(g, "current_user_model", None)
+        if getattr(cached, "id", None) == principal.id:
+            return cached
+
+        user = User.query.get(principal.id)
+        if user and user.is_active:
+            g.current_user_model = user
+            g.current_user = user
+            return user
+        return None
+
     if current_user.is_authenticated:
+        if isinstance(current_user, AuthenticatedPrincipal):
+            resolved = _resolve_user(current_user)
+            if resolved:
+                return resolved
         return current_user
 
-    from flask import g
-    return getattr(g, 'current_user', None)
+    cached_user = getattr(g, "current_user_model", None)
+    if cached_user is not None:
+        return cached_user
+
+    principal = getattr(g, 'current_principal', None)
+    resolved = _resolve_user(principal)
+    if resolved:
+        return resolved
+    if principal is not None:
+        return principal
+
+    fallback = getattr(g, 'current_user', None)
+    resolved = _resolve_user(fallback)
+    if resolved:
+        return resolved
+    return fallback
 
 
 @bp.get("/auth/check")

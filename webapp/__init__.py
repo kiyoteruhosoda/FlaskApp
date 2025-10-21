@@ -889,8 +889,8 @@ def create_app():
             g.service_login_clear_cookie = True
             return
 
-        verification = TokenService.verify_access_token(token)
-        if not verification:
+        principal = TokenService.verify_access_token(token)
+        if not principal or not principal.is_individual:
             g.current_token_scope = set()
             session.pop(SERVICE_LOGIN_SESSION_KEY, None)
             g.service_login_clear_cookie = True
@@ -908,7 +908,7 @@ def create_app():
             g.service_login_clear_cookie = True
             return
 
-        g.current_token_scope = set(scope)
+        g.current_token_scope = set(principal.scope)
 
     @app.after_request
     def _clear_service_login_cookie(response):

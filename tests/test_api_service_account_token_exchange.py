@@ -13,6 +13,7 @@ from features.certs.domain.usage import UsageType
 from features.certs.infrastructure.models import CertificateGroupEntity
 from webapp.services.service_account_service import ServiceAccountService
 from webapp.services.token_service import TokenService
+from shared.application.authenticated_principal import AuthenticatedPrincipal
 
 
 JWT_BEARER_GRANT = "urn:ietf:params:oauth:grant-type:jwt-bearer"
@@ -157,6 +158,14 @@ def test_service_account_token_exchange_success(app_context):
     assert "service_account" not in decoded
     assert "service_account_id" not in decoded
     assert decoded["scope"] == expected_scope
+
+    with app_context.app_context():
+        principal = TokenService.verify_access_token(payload["access_token"])
+        assert isinstance(principal, AuthenticatedPrincipal)
+        assert principal.subject_type == "system"
+        assert principal.id == account.service_account_id
+        assert principal.scope == frozenset(expected_scope.split())
+        assert principal.display_name == f"{account.name} (sa)"
 
 
 def test_service_account_token_exchange_missing_scope(app_context):

@@ -23,6 +23,7 @@ from .totp import new_totp_secret, verify_totp, provisioning_uri, qr_code_data_u
 from core.models.picker_session import PickerSession
 from .utils import refresh_google_token, log_requests_and_send, RefreshTokenError
 from shared.application.auth_service import AuthService
+from shared.application.authenticated_principal import AuthenticatedPrincipal
 from shared.domain.user import UserRegistrationService
 from shared.infrastructure.user_repository import SqlAlchemyUserRepository
 from ..timezone import resolve_timezone, convert_to_timezone
@@ -281,8 +282,8 @@ def service_login():
         )
         return make_response(_("Access token is required"), 400)
 
-    verification = TokenService.verify_access_token(token)
-    if not verification:
+    principal = TokenService.verify_access_token(token)
+    if not principal or not principal.is_individual:
         current_app.logger.warning(
             "Service login token verification failed",
             extra={"event": "auth.service_login", "path": request.path},

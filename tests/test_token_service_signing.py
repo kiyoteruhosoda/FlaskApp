@@ -57,6 +57,9 @@ def test_generate_access_token_with_server_signing():
     )
     assert claims["iss"] == settings.access_token_issuer
     assert claims["aud"] == settings.access_token_audience
+    assert claims["sub"] == f"i+{user.id}"
+    assert claims["subject_type"] == "individual"
+    assert "email" not in claims
 
     verification = TokenService.verify_access_token(token)
     assert verification is not None

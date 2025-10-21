@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block feature_header %}
+  {% set feature_header_html %}{% block feature_header_content %}{% include "layouts/feature_header.html" %}{% endblock %}{% endset %}
+  {% if feature_header_html.strip() %}
+    <div class="feature-header__inner container-fluid">
+      {{ feature_header_html | safe }}
+    </div>
+  {% endif %}
+{% endblock %}

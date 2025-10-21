@@ -1,0 +1,120 @@
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="{{ url_for('index') }}">{{ _('AppName') }}</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav me-auto">
+        {% if current_user.is_authenticated %}
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('index') }}">{{ _('Home') }}</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('dashboard.dashboard') }}">{{ _('Dashboard') }}</a>
+        </li>
+        {% if current_user.can('media:view') %}
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" id="photoNavDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            {{ _('Photo View') }}
+          </a>
+          <ul class="dropdown-menu" aria-labelledby="photoNavDropdown">
+            <li><a class="dropdown-item" href="{{ url_for('photo_view.home') }}">{{ _('Sessions') }}</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('photo_view.media_list') }}">{{ _('Media Gallery') }}</a></li>
+            {% if current_user.can('album:view') %}
+            <li><a class="dropdown-item" href="{{ url_for('photo_view.albums') }}">{{ _('Albums') }}</a></li>
+            {% endif %}
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{{ url_for('photo_view.settings') }}">{{ _('Settings') }}</a></li>
+          </ul>
+        </li>
+        {% endif %}
+        {% if current_user.can('wiki:read') %}
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('wiki.index') }}">
+            <i class="fas fa-book"></i> Wiki
+          </a>
+        </li>
+        {% endif %}
+        {% if current_user.can('certificate:manage') %}
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('certs_ui.index') }}">
+            <i class="bi bi-award me-1"></i>{{ _('Certificates') }}
+          </a>
+        </li>
+        {% endif %}
+        {% endif %}
+      </ul>
+      <ul class="navbar-nav">
+        {% if current_user.is_authenticated %}
+          {% set show_system_manage = current_user.can('system:manage') %}
+          {% set show_user_manage = current_user.can('user:manage') %}
+          {% set show_service_accounts = current_user.can('service_account:manage') %}
+          {% set show_api_key_management = current_user.can('api_key:manage') or current_user.can('api_key:read') %}
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('auth.profile') }}">
+              <i class="fas fa-user-circle me-1"></i>{{ current_user.display_name }}
+            </a>
+          </li>
+          {% if current_user.can('user:manage') or current_user.can('role:manage') or current_user.can('permission:manage') or show_service_accounts or show_system_manage %}
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="managementNavDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              {{ _('Management') }}
+            </a>
+            <ul class="dropdown-menu" aria-labelledby="managementNavDropdown">
+              {% if show_user_manage %}
+              <li><a class="dropdown-item" href="{{ url_for('admin.user') }}">{{ _('User Management') }}</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('admin.google_accounts') }}">{{ _('Google Accounts') }}</a></li>
+              {% endif %}
+              {% if show_service_accounts %}
+              <li><a class="dropdown-item" href="{{ url_for('admin.service_accounts') }}">{{ _('Service Accounts') }}</a></li>
+              {% elif show_api_key_management %}
+              <li><a class="dropdown-item" href="{{ url_for('admin.service_accounts') }}">{{ _('API Key Management') }}</a></li>
+              {% endif %}
+              {% if show_user_manage %}
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="{{ url_for('admin.show_config') }}">{{ _('Config Settings') }}</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('admin.show_version') }}">{{ _('Version Info') }}</a></li>
+              {% endif %}
+              {% if current_user.can('role:manage') %}
+              <li><a class="dropdown-item" href="{{ url_for('admin.roles') }}">{{ _('Roles') }}</a></li>
+              {% endif %}
+              {% if current_user.can('permission:manage') %}
+              <li><a class="dropdown-item" href="{{ url_for('admin.permissions') }}">{{ _('Permissions') }}</a></li>
+              {% endif %}
+              {% if current_user.can('totp:view') %}
+              <li><a class="dropdown-item" href="{{ url_for('totp.index') }}">{{ _('TOTP Management') }}</a></li>
+              {% endif %}
+              {% if show_system_manage %}
+              <li><hr class="dropdown-divider"></li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('admin.show_data_files') }}">
+                  <i class="bi bi-hdd-stack me-2"></i>{{ _('Data Files') }}
+                </a>
+              </li>
+              {% endif %}
+              {% if show_system_manage %}
+              {% if not show_system_manage %}
+              <li><hr class="dropdown-divider"></li>
+              {% endif %}
+              <li><a class="dropdown-item" href="{{ url_for('photo_view.settings') }}">{{ _('Photo View Settings') }}</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('photo_view.admin_exports') }}">{{ _('Photo Exports') }}</a></li>
+              {% endif %}
+            </ul>
+          </li>
+          {% endif %}
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('auth.logout') }}">{{ _('Logout') }}</a>
+          </li>
+        {% else %}
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('auth.login') }}">{{ _('Login') }}</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('auth.register') }}">{{ _('Register') }}</a>
+          </li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+</nav>

@@ -78,14 +78,17 @@ def _require_sign_permission():
 
 def _resolve_actor() -> str:
     if current_user.is_authenticated:
+        subject_id = getattr(current_user, "subject_id", None)
+        if isinstance(subject_id, str) and subject_id.strip():
+            return subject_id.strip()
+        if hasattr(current_user, "get_id"):
+            identifier = current_user.get_id()
+            if isinstance(identifier, str) and identifier.strip():
+                return identifier.strip()
         display_name = getattr(current_user, "display_name", None)
         if isinstance(display_name, str) and display_name.strip():
             return display_name.strip()
-        if hasattr(current_user, "get_id"):
-            identifier = current_user.get_id()
-        else:
-            identifier = None
-        return str(identifier or "unknown")
+        return "unknown"
     return "system"
 
 

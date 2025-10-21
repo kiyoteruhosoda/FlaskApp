@@ -36,16 +36,16 @@ def load_user_from_request(request):
         return None
     from webapp.services.token_service import TokenService
 
-    verification = TokenService.verify_access_token(token)
-    if not verification:
+    principal = TokenService.verify_access_token(token)
+    if not principal:
         current_app.logger.debug(
             "JWT token verification failed in request_loader",
             extra={"event": "auth.jwt.invalid"},
         )
         return None
 
-    user, scope = verification
-    g.current_token_scope = scope
+    g.current_token_scope = set(principal.scope)
+    g.current_principal = principal
 
-    return user
+    return principal
 

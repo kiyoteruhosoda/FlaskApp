@@ -21,6 +21,7 @@ from webapp.services.access_token_signing import (
     resolve_signing_material,
     resolve_verification_key,
 )
+from shared.application.authenticated_principal import AuthenticatedPrincipal
 
 
 class TokenService:
@@ -175,8 +176,8 @@ class TokenService:
         return access_token, refresh_token
 
     @classmethod
-    def verify_access_token(cls, token: str) -> Optional[tuple[User, set[str]]]:
-        """アクセストークンを検証してユーザーと許可スコープを取得する"""
+    def verify_access_token(cls, token: str) -> Optional[AuthenticatedPrincipal]:
+        """アクセストークンを検証してアプリケーション用プリンシパルを取得する"""
 
         try:
             header = jwt.get_unverified_header(token)
@@ -231,44 +232,76 @@ class TokenService:
             return None
 
         try:
-            user_id = cls._extract_user_id(payload)
+            subject_type, subject_id, identifier = cls._extract_subject(payload)
         except ValueError:
             current_app.logger.debug("JWT token subject claim invalid")
             return None
 
-        user = User.query.get(user_id)
+        scope_items = cls._extract_scope_items(payload)
+
+        if subject_type == "system":
+            account = ServiceAccount.query.get(subject_id)
+            if not account or not account.is_active():
+                current_app.logger.debug("JWT token service account inactive or missing")
+                return None
+
+            return AuthenticatedPrincipal(
+                subject_type="system",
+                subject_id=account.service_account_id,
+                identifier=identifier,
+                scope=frozenset(scope_items),
+                display_name=account.name,
+            )
+
+        user = User.query.get(subject_id)
         if not user or not user.is_active:
             return None
 
-        scope_claim = payload.get("scope", "")
-        if isinstance(scope_claim, str):
-            scope_items = {item for item in scope_claim.split() if item}
-        else:
-            scope_items = set()
+        role_names = tuple(
+            sorted(role.name for role in (user.roles or []) if getattr(role, "name", None))
+        )
 
-        return user, scope_items
+        return AuthenticatedPrincipal(
+            subject_type="individual",
+            subject_id=user.id,
+            identifier=identifier,
+            scope=frozenset(scope_items),
+            display_name=user.display_name,
+            roles=role_names,
+        )
 
     @staticmethod
-    def _extract_user_id(payload: dict[str, Any]) -> int:
-        subject = payload.get("sub")
-        subject_type = payload.get("subject_type")
-
-        if subject_type not in (None, "", "individual"):
+    @staticmethod
+    def _extract_subject(payload: dict[str, Any]) -> tuple[str, int, str]:
+        subject_type = payload.get("subject_type") or "individual"
+        if subject_type not in {"individual", "system"}:
             raise ValueError("unsupported_subject_type")
 
+        subject = payload.get("sub")
         if isinstance(subject, int):
-            return subject
-
-        if not isinstance(subject, str) or not subject:
+            subject_id = subject
+        elif isinstance(subject, str) and subject:
+            prefix = "i+" if subject_type == "individual" else "s+"
+            if subject.startswith(prefix):
+                subject = subject[len(prefix) :]
+            try:
+                subject_id = int(subject)
+            except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
+                raise ValueError("invalid_subject") from exc
+        else:
             raise ValueError("invalid_subject")
 
-        if subject_type == "individual" and subject.startswith("i+"):
-            subject = subject[2:]
+        identifier = f"{'i' if subject_type == 'individual' else 's'}+{subject_id}"
+        return subject_type, subject_id, identifier
 
-        try:
-            return int(subject)
-        except (TypeError, ValueError):
-            raise ValueError("invalid_subject")
+    @staticmethod
+    def _extract_scope_items(payload: dict[str, Any]) -> set[str]:
+        scope_claim = payload.get("scope", "")
+        if isinstance(scope_claim, str):
+            return {item for item in scope_claim.split() if item}
+        if isinstance(scope_claim, (list, tuple, set, frozenset)):
+            return {str(item) for item in scope_claim if str(item).strip()}
+        return set()
 
     @classmethod
     def verify_refresh_token(cls, refresh_token: str) -> Optional[tuple[User, str]]:

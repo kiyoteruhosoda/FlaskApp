@@ -23,6 +23,7 @@ from .totp import new_totp_secret, verify_totp, provisioning_uri, qr_code_data_u
 from core.models.picker_session import PickerSession
 from .utils import refresh_google_token, log_requests_and_send, RefreshTokenError
 from shared.application.auth_service import AuthService
+from shared.application.authenticated_principal import AuthenticatedPrincipal
 from shared.domain.user import UserRegistrationService
 from shared.infrastructure.user_repository import SqlAlchemyUserRepository
 from ..timezone import resolve_timezone, convert_to_timezone
@@ -175,6 +176,12 @@ def _extract_access_token() -> str | None:
         if candidate:
             return candidate
 
+    auth_header = request.headers.get("Authorization")
+    if isinstance(auth_header, str) and auth_header.lower().startswith("bearer "):
+        candidate = auth_header.split(" ", 1)[1].strip()
+        if candidate:
+            return candidate
+
     return None
 
 
@@ -260,12 +267,14 @@ def login():
     return _render_login_template()
 
 
-@bp.route("/servicelogin", methods=["POST"])
+@bp.route("/servicelogin", methods=["GET", "POST"])
 def service_login():
     redirect_target = _resolve_next_target("dashboard.dashboard")
 
     if current_user.is_authenticated:
-        return redirect(redirect_target)
+        real_user = current_user._get_current_object()
+        if not isinstance(real_user, AuthenticatedPrincipal):
+            return redirect(redirect_target)
 
     token = _extract_access_token()
     if not token:
@@ -275,22 +284,29 @@ def service_login():
         )
         return make_response(_("Access token is required"), 400)
 
-    verification = TokenService.verify_access_token(token)
-    if not verification:
+    principal = TokenService.verify_access_token(token)
+    if not principal or not principal.is_individual:
         current_app.logger.warning(
             "Service login token verification failed",
             extra={"event": "auth.service_login", "path": request.path},
         )
         return make_response(_("Invalid access token"), 401)
 
-    user_model, scope = verification
+    user_model = User.query.get(principal.id)
+    if not user_model:
+        current_app.logger.warning(
+            "Service login principal could not be resolved to user",
+            extra={"event": "auth.service_login", "path": request.path},
+        )
+        return make_response(_("Invalid access token"), 401)
+
     current_app.logger.info(
         "Service login successful",
         extra={
             "event": "auth.service_login",
             "path": request.path,
-            "user_id": user_model.id,
-            "email": user_model.email,
+            "user_id": principal.id,
+            "display_name": principal.display_name,
             "redirect": redirect_target,
         },
     )
@@ -299,7 +315,7 @@ def service_login():
             user_model,
             redirect_target,
             token=token,
-            token_scope=scope,
+            token_scope=set(principal.scope),
         )
     except ValueError as exc:
         current_app.logger.warning(

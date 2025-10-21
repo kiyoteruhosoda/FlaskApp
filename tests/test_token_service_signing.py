@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from flask import current_app
 
 from core.models.user import User
+from shared.application.authenticated_principal import AuthenticatedPrincipal
 from core.settings import settings
 
 from features.certs.application.use_cases import IssueCertificateForGroupUseCase
@@ -62,10 +63,10 @@ def test_generate_access_token_with_server_signing():
     assert "email" not in claims
 
     verification = TokenService.verify_access_token(token)
-    assert verification is not None
-    verified_user, scopes = verification
-    assert verified_user.id == user.id
-    assert scopes == set()
+    assert isinstance(verification, AuthenticatedPrincipal)
+    assert verification.subject_type == "individual"
+    assert verification.id == user.id
+    assert verification.scope == frozenset()
 
 
 @pytest.mark.usefixtures("app_context")
@@ -95,10 +96,10 @@ def test_verify_builtin_token_after_switch_to_server_signing():
     SystemSettingService.update_access_token_signing_setting("server_signing", group_code=group.group_code)
 
     verification = TokenService.verify_access_token(legacy_token)
-    assert verification is not None
-    verified_user, scopes = verification
-    assert verified_user.id == user.id
-    assert scopes == set()
+    assert isinstance(verification, AuthenticatedPrincipal)
+    assert verification.subject_type == "individual"
+    assert verification.id == user.id
+    assert verification.scope == frozenset()
 
 
 @pytest.mark.usefixtures("app_context")
@@ -136,8 +137,8 @@ def test_latest_certificate_is_used_for_group():
     assert second_header.get("kid") == second.kid
     assert second_header.get("kid") != first_header.get("kid")
 
-    assert TokenService.verify_access_token(first_token) is not None
-    assert TokenService.verify_access_token(second_token) is not None
+    assert isinstance(TokenService.verify_access_token(first_token), AuthenticatedPrincipal)
+    assert isinstance(TokenService.verify_access_token(second_token), AuthenticatedPrincipal)
 
 
 @pytest.mark.usefixtures("app_context")

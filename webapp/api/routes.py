@@ -54,6 +54,7 @@ from ..auth.routes import _sync_active_role
 from .pagination import PaginationParams, paginate_and_respond
 from flask_login import current_user
 from shared.application.auth_service import AuthService
+from shared.application.authenticated_principal import AuthenticatedPrincipal
 from shared.domain.user import UserRegistrationService
 from shared.infrastructure.user_repository import SqlAlchemyUserRepository
 from ..services.token_service import TokenService
@@ -492,6 +493,27 @@ def _serialize_user_for_log(user):
     if user is None:
         return None
 
+    if isinstance(user, AuthenticatedPrincipal):
+        identifier_parts = [
+            f"type:{user.subject_type}",
+            f"id:{user.id}",
+        ]
+        if user.display_name:
+            identifier_parts.append(f"display_name:{user.display_name}")
+        raw_identifier = "|".join(identifier_parts)
+        digest = hashlib.sha256(raw_identifier.encode('utf-8')).hexdigest()
+        snapshot = {
+            'id_hash': digest,
+            'subject_type': user.subject_type,
+        }
+        if user.display_name:
+            snapshot['display_name'] = user.display_name
+        if user.roles:
+            snapshot['roles'] = list(user.roles)
+        if user.scope:
+            snapshot['scope'] = sorted(user.scope)
+        return snapshot
+
     identifier_parts = []
     if getattr(user, 'id', None) is not None:
         identifier_parts.append(f"id:{user.id}")
@@ -597,9 +619,10 @@ def _local_import_log(message: str, *, level: str = 'info', event: str = 'local_
     _emit_structured_api_log(message, level=level, event=event, **extra_context)
 
 
-def _set_jwt_context(user: User, scope: set[str]) -> None:
-    g.current_user = user
-    g.current_token_scope = scope
+def _set_jwt_context(principal: AuthenticatedPrincipal) -> None:
+    g.current_principal = principal
+    g.current_user = principal
+    g.current_token_scope = set(principal.scope)
 
 
 def jwt_required(f):
@@ -619,13 +642,12 @@ def jwt_required(f):
         if not token:
             return jsonify({'error': 'token_missing'}), 401
         
-        verification = TokenService.verify_access_token(token)
-        if not verification:
+        principal = TokenService.verify_access_token(token)
+        if not principal:
             return jsonify({'error': 'invalid_token'}), 401
 
         # Flask-Loginのcurrent_userと同じように使えるよう設定
-        user, scope = verification
-        _set_jwt_context(user, scope)
+        _set_jwt_context(principal)
 
         return f(*args, **kwargs)
     return decorated_function
@@ -747,8 +769,8 @@ def login_or_jwt_required(f):
                 authenticated_via_flask_login=current_user.is_authenticated,
             )
 
-            verification = TokenService.verify_access_token(token)
-            if not verification:
+            principal = TokenService.verify_access_token(token)
+            if not principal:
                 _auth_log(
                     'JWT token verification failed',
                     level='warning',
@@ -758,14 +780,13 @@ def login_or_jwt_required(f):
                 )
                 return jsonify({'error': 'invalid_token'}), 401
 
-            user, scope = verification
-            _set_jwt_context(user, scope)
+            _set_jwt_context(principal)
             _auth_log(
                 'Authentication successful via JWT',
                 stage='success',
                 auth_method='jwt',
                 token_source=token_source or 'unknown',
-                authenticated_user=_serialize_user_for_log(user),
+                authenticated_user=_serialize_user_for_log(principal),
             )
             return f(*args, **kwargs)
 
@@ -802,6 +823,9 @@ def get_current_user():
         return current_user
 
     from flask import g
+    principal = getattr(g, 'current_principal', None)
+    if principal is not None:
+        return principal
     return getattr(g, 'current_user', None)
 
 

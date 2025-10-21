@@ -32,7 +32,7 @@ from flask import (
     session,
     url_for,
 )
-from flask_login import current_user
+from flask_login import current_user, logout_user
 
 from flask_babel import get_locale
 from flask_babel import gettext as _
@@ -883,11 +883,13 @@ def create_app():
         token = request.cookies.get("access_token")
         if not token:
             g.current_token_scope = set()
+            g.clear_service_login_cookie = True
             return
 
         verification = TokenService.verify_access_token(token)
         if not verification:
             g.current_token_scope = set()
+            g.clear_service_login_cookie = True
             return
 
         user, scope = verification
@@ -896,10 +898,19 @@ def create_app():
                 "Service login token user mismatch; ignoring token scope",
                 extra={"event": "auth.service_login", "path": request.path},
             )
+            logout_user()
+            session.pop(SERVICE_LOGIN_SESSION_KEY, None)
             g.current_token_scope = set()
+            g.clear_service_login_cookie = True
             return
 
         g.current_token_scope = set(scope)
+
+    @app.after_request
+    def _clear_service_login_cookie(response):
+        if getattr(g, "clear_service_login_cookie", False):
+            response.delete_cookie("access_token")
+        return response
 
     @app.context_processor
     def inject_version():

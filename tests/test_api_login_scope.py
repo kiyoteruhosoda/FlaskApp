@@ -319,9 +319,11 @@ def test_service_login_sets_scope_and_redirects(app, client, service_login_user)
     with app.test_request_context():
         dashboard_path = url_for("dashboard.dashboard")
 
-    response = client.get(
+    response = client.post(
         "/auth/servicelogin",
         headers={"Authorization": f"Bearer {token}"},
+        data={"next": dashboard_path},
+        content_type="application/x-www-form-urlencoded",
         follow_redirects=False,
     )
 
@@ -340,16 +342,15 @@ def test_service_login_sets_scope_and_redirects(app, client, service_login_user)
 
 
 def test_service_login_honors_next_parameter(app, client, service_login_user):
-    from core.models.user import User
-
     with app.app_context():
         user = User.query.get(service_login_user["user_id"])
         token = TokenService.generate_access_token(user, scope={"totp:view"})
 
-    response = client.get(
+    response = client.post(
         "/auth/servicelogin",
-        query_string={"next": "/totp/"},
         headers={"Authorization": f"Bearer {token}"},
+        data={"next": "/totp/"},
+        content_type="application/x-www-form-urlencoded",
         follow_redirects=False,
     )
 
@@ -358,17 +359,16 @@ def test_service_login_honors_next_parameter(app, client, service_login_user):
 
 
 def test_service_login_requires_role_selection(app, client, multi_role_service_user):
-    from core.models.user import User
-
     with app.app_context():
         user = User.query.get(multi_role_service_user["user_id"])
         token = TokenService.generate_access_token(user, scope={"totp:view"})
         role_ids = [role.id for role in user.roles]
 
-    response = client.get(
+    response = client.post(
         "/auth/servicelogin",
-        query_string={"next": "/totp/"},
         headers={"Authorization": f"Bearer {token}"},
+        data={"next": "/totp/"},
+        content_type="application/x-www-form-urlencoded",
         follow_redirects=False,
     )
 
@@ -398,9 +398,11 @@ def test_service_login_denies_scope_when_token_missing(app, client, service_logi
         user = User.query.get(service_login_user["user_id"])
         token = TokenService.generate_access_token(user, scope={"totp:view"})
 
-    response = client.get(
+    response = client.post(
         "/auth/servicelogin",
         headers={"Authorization": f"Bearer {token}"},
+        data={},
+        content_type="application/x-www-form-urlencoded",
         follow_redirects=False,
     )
 
@@ -414,9 +416,11 @@ def test_service_login_denies_scope_when_token_missing(app, client, service_logi
 
 
 def test_service_login_rejects_invalid_token(client):
-    response = client.get(
+    response = client.post(
         "/auth/servicelogin",
         headers={"Authorization": "Bearer invalid-token"},
+        data={},
+        content_type="application/x-www-form-urlencoded",
         follow_redirects=False,
     )
 
@@ -424,6 +428,20 @@ def test_service_login_rejects_invalid_token(client):
 
 
 def test_service_login_requires_token_for_anonymous(client):
-    response = client.get("/auth/servicelogin")
+    response = client.post(
+        "/auth/servicelogin",
+        data={},
+        content_type="application/x-www-form-urlencoded",
+    )
 
     assert response.status_code == 400
+
+
+def test_service_login_rejects_wrong_content_type(client):
+    response = client.post(
+        "/auth/servicelogin",
+        headers={"Content-Type": "application/json"},
+        data="{}",
+    )
+
+    assert response.status_code == 415

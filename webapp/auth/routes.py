@@ -134,11 +134,20 @@ def _finalize_login_session(user_model, redirect_target, *, token=None, token_sc
         session.pop(SERVICE_LOGIN_SESSION_KEY, None)
         g.current_token_scope = None
     else:
-        normalized_scope = sorted(
-            item.strip()
-            for item in token_scope
-            if isinstance(item, str) and item.strip()
-        )
+        if isinstance(token_scope, (str, bytes)):
+            raise ValueError("token_scope must be a list of non-empty strings")
+        try:
+            iterator = iter(token_scope)
+        except TypeError as exc:
+            raise ValueError("token_scope must be a list of non-empty strings") from exc
+
+        normalized_scope = []
+        for item in iterator:
+            if not isinstance(item, str) or not item.strip():
+                raise ValueError("token_scope must be a list of non-empty strings")
+            normalized_scope.append(item.strip())
+
+        normalized_scope = sorted(normalized_scope)
         session[SERVICE_LOGIN_SESSION_KEY] = True
         g.current_token_scope = set(normalized_scope)
 
@@ -171,13 +180,9 @@ def _extract_bearer_token() -> str | None:
         if candidate:
             return candidate
 
-    token_param = request.values.get("token") or request.values.get("access_token")
-    if not token_param and request.is_json:
-        payload = request.get_json(silent=True) or {}
-        token_param = payload.get("token") or payload.get("access_token")
-
-    if isinstance(token_param, str):
-        candidate = token_param.strip()
+    token_cookie = request.cookies.get("access_token")
+    if isinstance(token_cookie, str):
+        candidate = token_cookie.strip()
         if candidate:
             return candidate
     return None
@@ -265,9 +270,17 @@ def login():
     return _render_login_template()
 
 
-@bp.route("/servicelogin", methods=["GET", "POST"])
+@bp.route("/servicelogin", methods=["POST"])
 def service_login():
     redirect_target = _resolve_next_target("dashboard.dashboard")
+
+    if request.mimetype != "application/x-www-form-urlencoded":
+        current_app.logger.info(
+            "Service login request rejected: unsupported media type",
+            extra={"event": "auth.service_login", "path": request.path},
+        )
+        return make_response(_("Requests must be form encoded"), 415)
+
     token = _extract_bearer_token()
 
     if not token:

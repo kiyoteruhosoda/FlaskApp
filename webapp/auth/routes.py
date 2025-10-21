@@ -710,6 +710,7 @@ def logout():
         "message": "User logged out",
         "subject_type": getattr(user, "subject_type", None),
         "subject_id": getattr(user, "subject_id", None),
+        "id": getattr(user, "id", None),
         "user_id": getattr(user, "user_id", None),
         "service_account_id": getattr(user, "service_account_id", None),
         "name": getattr(user, "name", None),

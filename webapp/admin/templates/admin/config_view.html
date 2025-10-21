@@ -41,11 +41,29 @@
 
 <h3>{{ _('Config Settings') }}</h3>
 
-<div class="row g-4 align-items-start">
-  <div class="col-xl-3">
+<div class="row g-4 align-items-start" data-config-layout>
+  <div class="col-xl-3" data-config-tree-sidebar>
     <div class="card shadow-sm config-sidebar sticky-top">
       <div class="card-body">
-        <nav class="config-tree" data-config-tree aria-label="{{ _('Configuration navigation') }}">
+        <div class="config-sidebar__actions">
+          <span class="config-sidebar__title">{{ _('Configuration navigation') }}</span>
+          <button
+            type="button"
+            class="btn btn-outline-secondary btn-sm"
+            data-config-tree-collapse
+            aria-expanded="true"
+            aria-controls="config-navigation"
+          >
+            <i class="fas fa-angle-left" aria-hidden="true"></i>
+            <span class="ms-2">{{ _('Hide navigation') }}</span>
+          </button>
+        </div>
+        <nav
+          class="config-tree"
+          id="config-navigation"
+          data-config-tree
+          aria-label="{{ _('Configuration navigation') }}"
+        >
           <ul class="list-unstyled mb-0">
             <li
               class="config-tree__item"
@@ -132,7 +150,19 @@
       </div>
     </div>
   </div>
-  <div class="col-xl-9">
+  <div class="col-xl-9" data-config-tree-content>
+    <div class="config-sidebar__show" data-config-tree-expand-container>
+      <button
+        type="button"
+        class="btn btn-outline-secondary btn-sm"
+        data-config-tree-expand
+        aria-expanded="false"
+        aria-controls="config-navigation"
+      >
+        <i class="fas fa-angle-right" aria-hidden="true"></i>
+        <span class="ms-2">{{ _('Show navigation') }}</span>
+      </button>
+    </div>
     <div class="config-search mb-4 d-flex justify-content-lg-end">
       <div class="config-search__field">
         <label class="form-label" for="config-search">{{ _('Search settings') }}</label>

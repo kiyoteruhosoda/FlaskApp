@@ -266,7 +266,7 @@ def login():
     return _render_login_template()
 
 
-@bp.route("/servicelogin", methods=["GET", "POST"])
+@bp.route("/servicelogin", methods=["POST"])
 def service_login():
     redirect_target = _resolve_next_target("dashboard.dashboard")
     token = _extract_bearer_token()

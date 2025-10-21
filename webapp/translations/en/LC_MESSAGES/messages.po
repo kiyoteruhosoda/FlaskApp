@@ -1331,3 +1331,6 @@ msgstr "Internal Server Error"
 msgid "Error"
 msgstr "Error"
 
+msgid "Role switching is not available for this account."
+msgstr "Role switching is not available for this account."
+

@@ -45,17 +45,6 @@
   <div class="col-xl-3">
     <div class="card shadow-sm config-sidebar sticky-top">
       <div class="card-body">
-        <div class="mb-3">
-          <label class="form-label" for="config-search">{{ _('Search settings') }}</label>
-          <input
-            type="search"
-            class="form-control form-control-sm"
-            id="config-search"
-            placeholder="{{ _('Filter by label, key, or description...') }}"
-            data-config-search
-          >
-          <div class="form-text">{{ _('Type keywords to filter settings across all categories.') }}</div>
-        </div>
         <nav class="config-tree" data-config-tree aria-label="{{ _('Configuration navigation') }}">
           <ul class="list-unstyled mb-0">
             <li
@@ -84,9 +73,26 @@
               data-section="{{ section.identifier }}"
               data-search-text="{{ section.search_text|e }}"
             >
-              <a class="config-tree__link" href="#{{ section.anchor_id }}">{{ section.label }}</a>
+              <div class="config-tree__section-header">
+                {% if section.fields %}
+                <button
+                  class="config-tree__toggle"
+                  type="button"
+                  data-config-tree-toggle
+                  aria-expanded="true"
+                  aria-controls="{{ section.anchor_id }}-tree"
+                >
+                  <span class="visually-hidden">{{ _('Toggle section visibility') }}</span>
+                </button>
+                {% endif %}
+                <a class="config-tree__link" href="#{{ section.anchor_id }}">{{ section.label }}</a>
+              </div>
               {% if section.fields %}
-              <ul class="list-unstyled config-tree__children">
+              <ul
+                class="list-unstyled config-tree__children"
+                id="{{ section.anchor_id }}-tree"
+                data-config-tree-children
+              >
                 {% for field in section.fields %}
                 <li
                   class="config-tree__item"
@@ -127,6 +133,19 @@
     </div>
   </div>
   <div class="col-xl-9">
+    <div class="config-search mb-4 d-flex justify-content-lg-end">
+      <div class="config-search__field">
+        <label class="form-label" for="config-search">{{ _('Search settings') }}</label>
+        <input
+          type="search"
+          class="form-control"
+          id="config-search"
+          placeholder="{{ _('Filter by label, key, or description...') }}"
+          data-config-search
+        >
+        <div class="form-text">{{ _('Type keywords to filter settings across all categories.') }}</div>
+      </div>
+    </div>
     <div class="alert alert-info d-none" data-config-empty-state>
       {{ _('No settings match your search. Try a different keyword.') }}
     </div>

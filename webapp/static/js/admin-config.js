@@ -263,6 +263,9 @@
     const treeSectionItems = Array.from(
       document.querySelectorAll('[data-config-tree-section]')
     );
+    const treeToggleButtons = Array.from(
+      document.querySelectorAll('[data-config-tree-toggle]')
+    );
     const treeNodeItems = Array.from(document.querySelectorAll('[data-config-tree-node]'));
     const emptyState = document.querySelector('[data-config-empty-state]');
 
@@ -272,6 +275,47 @@
       }
       return (element.dataset.searchText || '').toLowerCase();
     };
+
+    const setTreeSectionExpanded = (item, expanded) => {
+      if (!item) {
+        return;
+      }
+      const children = item.querySelector('[data-config-tree-children]');
+      if (!children) {
+        return;
+      }
+      const isExpanded = !!expanded;
+      item.classList.toggle('config-tree__item--collapsed', !isExpanded);
+      const toggle = item.querySelector('[data-config-tree-toggle]');
+      if (toggle) {
+        toggle.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+      }
+    };
+
+    treeSectionItems.forEach((item) => {
+      const children = item.querySelector('[data-config-tree-children]');
+      if (!children) {
+        return;
+      }
+      if (!item.dataset.treeExpanded) {
+        item.dataset.treeExpanded = 'true';
+      }
+      setTreeSectionExpanded(item, item.dataset.treeExpanded !== 'false');
+    });
+
+    treeToggleButtons.forEach((button) => {
+      const parentItem = button.closest('[data-config-tree-section]');
+      if (!parentItem) {
+        return;
+      }
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        const currentExpanded = parentItem.dataset.treeExpanded !== 'false';
+        const nextExpanded = !currentExpanded;
+        parentItem.dataset.treeExpanded = nextExpanded ? 'true' : 'false';
+        setTreeSectionExpanded(parentItem, nextExpanded);
+      });
+    });
 
     const findRowByKey = (key) =>
       document.querySelector(`[data-app-key="${cssEscape(key)}"]`);
@@ -364,6 +408,16 @@
         const matches = !hasQuery || targetVisible || getSearchText(item).includes(query);
         item.classList.toggle('d-none', !matches);
       });
+
+      if (hasQuery) {
+        treeSectionItems.forEach((item) => {
+          setTreeSectionExpanded(item, true);
+        });
+      } else {
+        treeSectionItems.forEach((item) => {
+          setTreeSectionExpanded(item, item.dataset.treeExpanded !== 'false');
+        });
+      }
     };
 
     searchInput.addEventListener('input', () => {

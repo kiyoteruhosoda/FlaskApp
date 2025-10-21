@@ -8,7 +8,7 @@ import uuid
 
 import jwt
 import pytest
-from flask import g, url_for
+from flask import url_for
 
 from core.system_settings_defaults import (
     DEFAULT_APPLICATION_SETTINGS,
@@ -16,6 +16,7 @@ from core.system_settings_defaults import (
 )
 
 from webapp.services.token_service import TokenService
+from shared.application.authenticated_principal import AuthenticatedPrincipal
 from core.models.user import Permission, Role, User
 from webapp.auth import SERVICE_LOGIN_SESSION_KEY
 
@@ -239,16 +240,13 @@ def test_login_applies_requested_scope_subset(app, client, scoped_user):
     assert decoded_scope == "read:cert write:cert"
 
     with app.app_context():
-        verification = TokenService.verify_access_token(data["access_token"])
-        assert verification is not None
-        user, scope = verification
-        assert user.id == scoped_user.id
-        assert scope == {"read:cert", "write:cert"}
+        principal = TokenService.verify_access_token(data["access_token"])
+        assert isinstance(principal, AuthenticatedPrincipal)
+        assert principal.id == scoped_user.id
+        assert principal.scope == frozenset({"read:cert", "write:cert"})
 
-        with app.test_request_context():
-            g.current_token_scope = scope
-            assert user.can("read:cert")
-            assert not user.can("read:user")
+        assert principal.can("read:cert")
+        assert not principal.can("read:user")
 
 
 def test_login_with_missing_scope_grants_no_permissions(client, scoped_user):

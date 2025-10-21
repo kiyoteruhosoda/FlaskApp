@@ -14,9 +14,9 @@ import json
 from datetime import datetime, timezone, timedelta
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_babel import gettext as _, force_locale
-from . import bp
+from . import bp, SERVICE_LOGIN_SESSION_KEY
 from ..extensions import db
-from core.models.user import User, SESSION_TOKEN_SCOPE_KEY
+from core.models.user import User
 from core.models.google_account import GoogleAccount
 from core.crypto import encrypt, decrypt
 from .totp import new_totp_secret, verify_totp, provisioning_uri, qr_code_data_uri
@@ -113,19 +113,25 @@ def _peek_role_selection_target() -> str | None:
     return None
 
 
-def _login_with_domain_user(user, redirect_target=None):
+def _login_with_domain_user(user, redirect_target=None, *, token=None, token_scope=None):
     """ドメインユーザーが保持するORMモデルでログイン処理を行う。"""
     model = getattr(user, "_model", None)
     if model is None:
         raise ValueError("Domain user is missing attached ORM model for login")
-    return _finalize_login_session(model, redirect_target or url_for("dashboard.dashboard"))
+    return _finalize_login_session(
+        model,
+        redirect_target or url_for("dashboard.dashboard"),
+        token=token,
+        token_scope=token_scope,
+    )
 
 
-def _finalize_login_session(user_model, redirect_target, *, token_scope=None):
+def _finalize_login_session(user_model, redirect_target, *, token=None, token_scope=None):
     login_user(user_model)
     session.pop("active_role_id", None)
+
     if token_scope is None:
-        session.pop(SESSION_TOKEN_SCOPE_KEY, None)
+        session.pop(SERVICE_LOGIN_SESSION_KEY, None)
         g.current_token_scope = None
     else:
         normalized_scope = sorted(
@@ -133,15 +139,29 @@ def _finalize_login_session(user_model, redirect_target, *, token_scope=None):
             for item in token_scope
             if isinstance(item, str) and item.strip()
         )
-        session[SESSION_TOKEN_SCOPE_KEY] = normalized_scope
+        session[SERVICE_LOGIN_SESSION_KEY] = True
         g.current_token_scope = set(normalized_scope)
 
     roles = list(getattr(user_model, "roles", []) or [])
     if len(roles) > 1:
         session["role_selection_next"] = redirect_target
-        return redirect(url_for("auth.select_role"))
-    _sync_active_role(user_model)
-    return redirect(redirect_target)
+        response = redirect(url_for("auth.select_role"))
+    else:
+        _sync_active_role(user_model)
+        response = redirect(redirect_target)
+
+    if token_scope is None:
+        response.delete_cookie("access_token")
+    elif token:
+        response.set_cookie(
+            "access_token",
+            token,
+            httponly=True,
+            secure=settings.session_cookie_secure,
+            samesite="Lax",
+        )
+
+    return response
 
 
 def _extract_bearer_token() -> str | None:
@@ -278,7 +298,12 @@ def service_login():
             "redirect": redirect_target,
         },
     )
-    return _finalize_login_session(user_model, redirect_target, token_scope=scope)
+    return _finalize_login_session(
+        user_model,
+        redirect_target,
+        token=token,
+        token_scope=scope,
+    )
 
 
 @bp.route("/select-role", methods=["GET", "POST"])
@@ -662,7 +687,7 @@ def logout():
     logout_user()
     session.pop("picker_session_id", None)
     session.pop("active_role_id", None)
-    session.pop(SESSION_TOKEN_SCOPE_KEY, None)
+    session.pop(SERVICE_LOGIN_SESSION_KEY, None)
 
     response = make_response(redirect(url_for("index")))
     response.delete_cookie("access_token")

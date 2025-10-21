@@ -32,18 +32,19 @@ from flask import (
     session,
     url_for,
 )
+from flask_login import current_user
 
 from flask_babel import get_locale
 from flask_babel import gettext as _
 from sqlalchemy.engine import make_url
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-from core.models.user import SESSION_TOKEN_SCOPE_KEY
 from core.settings import settings
 
 from werkzeug.datastructures import FileStorage
 
 from .extensions import db, migrate, login_manager, babel, api as smorest_api
+from webapp.auth import SERVICE_LOGIN_SESSION_KEY
 from webapp.auth.api_key_auth import API_KEY_SECURITY_SCHEME_NAME
 from .timezone import resolve_timezone, convert_to_timezone
 from core.db_log_handler import DBLogHandler
@@ -55,6 +56,7 @@ from core.system_settings_defaults import (
     DEFAULT_CORS_SETTINGS,
 )
 from webapp.services.system_setting_service import SystemSettingService
+from webapp.services.token_service import TokenService
 
 
 _SENSITIVE_KEYWORDS = {
@@ -872,21 +874,32 @@ def create_app():
         g.user_timezone = tzinfo
 
     @app.before_request
-    def _restore_service_login_scope():
+    def _apply_service_login_scope():
+        if not session.get(SERVICE_LOGIN_SESSION_KEY):
+            return
         if getattr(g, "current_token_scope", None) is not None:
             return
-        scope_data = session.get(SESSION_TOKEN_SCOPE_KEY)
-        if scope_data is None:
+
+        token = request.cookies.get("access_token")
+        if not token:
+            g.current_token_scope = set()
             return
-        if isinstance(scope_data, str):
-            items = [segment.strip() for segment in scope_data.split() if segment.strip()]
-        else:
-            try:
-                iterator = list(scope_data)
-            except TypeError:
-                iterator = []
-            items = [str(item).strip() for item in iterator if str(item).strip()]
-        g.current_token_scope = set(items)
+
+        verification = TokenService.verify_access_token(token)
+        if not verification:
+            g.current_token_scope = set()
+            return
+
+        user, scope = verification
+        if current_user.is_authenticated and str(current_user.id) != str(user.id):
+            current_app.logger.warning(
+                "Service login token user mismatch; ignoring token scope",
+                extra={"event": "auth.service_login", "path": request.path},
+            )
+            g.current_token_scope = set()
+            return
+
+        g.current_token_scope = set(scope)
 
     @app.context_processor
     def inject_version():

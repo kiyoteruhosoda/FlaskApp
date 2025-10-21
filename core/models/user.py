@@ -34,9 +34,6 @@ class Permission(db.Model):
     id = db.Column(BigInt, primary_key=True, autoincrement=True)
     code = db.Column(db.String(120), unique=True, nullable=False)  # 'reservation:create' 等
 
-SESSION_TOKEN_SCOPE_KEY = "current_token_scope"
-
-
 class User(db.Model, UserMixin):
     id = db.Column(BigInt, primary_key=True, autoincrement=True)
     email = db.Column(db.String(255), unique=True, index=True, nullable=False)
@@ -103,17 +100,6 @@ class User(db.Model, UserMixin):
             token_scope = getattr(g, "current_token_scope", None)
             if token_scope is not None:
                 return set(token_scope)
-            session_scope = session.get(SESSION_TOKEN_SCOPE_KEY)
-            if session_scope is not None:
-                if isinstance(session_scope, str):
-                    items = [segment.strip() for segment in session_scope.split() if segment.strip()]
-                else:
-                    try:
-                        iterator = list(session_scope)
-                    except TypeError:
-                        iterator = []
-                    items = [str(item).strip() for item in iterator if str(item).strip()]
-                return set(items)
 
         codes = set()
         for r in self._iter_effective_roles():

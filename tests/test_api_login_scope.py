@@ -16,6 +16,8 @@ from core.system_settings_defaults import (
 )
 
 from webapp.services.token_service import TokenService
+from core.models.user import User
+from webapp.auth import SERVICE_LOGIN_SESSION_KEY
 
 
 @pytest.fixture()
@@ -309,8 +311,6 @@ def test_scoped_token_enforces_permissions(client, album_user):
 
 
 def test_service_login_sets_scope_and_redirects(app, client, service_login_user):
-    from core.models.user import User
-
     with app.app_context():
         user = User.query.get(service_login_user["user_id"])
         token = TokenService.generate_access_token(user, scope={"totp:view"})
@@ -330,10 +330,13 @@ def test_service_login_sets_scope_and_redirects(app, client, service_login_user)
 
     with client.session_transaction() as sess:
         assert sess.get("active_role_id") == role_id
-        assert sess.get("current_token_scope") == ["totp:view"]
+        assert sess.get(SERVICE_LOGIN_SESSION_KEY) is True
 
     totp_response = client.get("/totp/")
     assert totp_response.status_code == 200
+
+    cookie_headers = response.headers.getlist("Set-Cookie")
+    assert any(header.startswith("access_token=") for header in cookie_headers)
 
 
 def test_service_login_honors_next_parameter(app, client, service_login_user):
@@ -374,7 +377,7 @@ def test_service_login_requires_role_selection(app, client, multi_role_service_u
 
     with client.session_transaction() as sess:
         assert sess.get("role_selection_next") == "/totp/"
-        assert sess.get("current_token_scope") == ["totp:view"]
+        assert sess.get(SERVICE_LOGIN_SESSION_KEY) is True
         assert sess.get("active_role_id") is None
 
     select_response = client.post(
@@ -388,6 +391,26 @@ def test_service_login_requires_role_selection(app, client, multi_role_service_u
 
     totp_response = client.get("/totp/")
     assert totp_response.status_code == 200
+
+
+def test_service_login_denies_scope_when_token_missing(app, client, service_login_user):
+    with app.app_context():
+        user = User.query.get(service_login_user["user_id"])
+        token = TokenService.generate_access_token(user, scope={"totp:view"})
+
+    response = client.get(
+        "/auth/servicelogin",
+        headers={"Authorization": f"Bearer {token}"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 302
+
+    # remove the access token cookie to simulate external deletion
+    client.delete_cookie("access_token")
+
+    restricted_response = client.get("/totp/")
+    assert restricted_response.status_code == 403
 
 
 def test_service_login_rejects_invalid_token(client):

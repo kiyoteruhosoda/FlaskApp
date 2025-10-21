@@ -44,7 +44,7 @@ from core.settings import settings
 from werkzeug.datastructures import FileStorage
 
 from .extensions import db, migrate, login_manager, babel, api as smorest_api
-from webapp.auth import SERVICE_LOGIN_SESSION_KEY
+from webapp.auth import SERVICE_LOGIN_SESSION_KEY, SERVICE_LOGIN_TOKEN_SESSION_KEY
 from webapp.auth.api_key_auth import API_KEY_SECURITY_SCHEME_NAME
 from .timezone import resolve_timezone, convert_to_timezone
 from core.db_log_handler import DBLogHandler
@@ -886,14 +886,16 @@ def create_app():
         if not token:
             g.current_token_scope = set()
             session.pop(SERVICE_LOGIN_SESSION_KEY, None)
+            session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
             logout_user()
             g.service_login_clear_cookie = True
             return
 
-        principal = TokenService.verify_access_token(token)
+        principal = TokenService.create_principal_from_token(token)
         if not principal:
             g.current_token_scope = set()
             session.pop(SERVICE_LOGIN_SESSION_KEY, None)
+            session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
             logout_user()
             g.service_login_clear_cookie = True
             return
@@ -908,10 +910,13 @@ def create_app():
                 )
                 logout_user()
                 session.pop(SERVICE_LOGIN_SESSION_KEY, None)
+                session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
                 g.current_token_scope = set()
                 g.service_login_clear_cookie = True
                 return
 
+        if principal.is_service_account:
+            session[SERVICE_LOGIN_TOKEN_SESSION_KEY] = token
         g.current_token_scope = set(principal_scope)
 
     @app.after_request

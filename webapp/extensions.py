@@ -3,10 +3,10 @@ from flask_migrate import Migrate
 from flask_login import LoginManager
 from flask_babel import Babel
 from flask_babel import lazy_gettext as _l
-from flask import current_app, g
-from flask_smorest import Api
+from flask import current_app, g, session
 
-from shared.application.authenticated_principal import AuthenticatedPrincipal
+from webapp.auth import SERVICE_LOGIN_TOKEN_SESSION_KEY
+from flask_smorest import Api
 
 migrate = Migrate()
 login_manager = LoginManager()
@@ -20,7 +20,6 @@ login_manager.login_message = None
 @login_manager.user_loader
 def load_user(user_id):
     from core.models.user import User
-    from core.models.service_account import ServiceAccount
 
     if isinstance(user_id, str) and user_id.startswith("system:"):
         try:
@@ -28,22 +27,29 @@ def load_user(user_id):
             account_id = int(raw_id)
         except (ValueError, AttributeError):
             return None
-        account = ServiceAccount.query.get(account_id)
-        if not account or not account.is_active():
+
+        token = session.get(SERVICE_LOGIN_TOKEN_SESSION_KEY)
+        if not token:
             return None
-        return AuthenticatedPrincipal(
-            subject_type="system",
-            subject_id=account.service_account_id,
-            identifier=f"s+{account.service_account_id}",
-            scope=frozenset(account.scopes),
-            display_name=account.name,
-        )
+
+        from webapp.services.token_service import TokenService
+
+        principal = TokenService.create_principal_from_token(token)
+        if not principal or not principal.is_service_account:
+            session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
+            return None
+        if principal.subject_id != account_id:
+            session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
+            return None
+
+        return principal
 
     try:
         numeric_id = int(user_id)
     except (TypeError, ValueError):
         return None
 
+    session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
     return User.query.get(numeric_id)
 
 
@@ -60,13 +66,18 @@ def load_user_from_request(request):
         return None
     from webapp.services.token_service import TokenService
 
-    principal = TokenService.verify_access_token(token)
+    principal = TokenService.create_principal_from_token(token)
     if not principal:
         current_app.logger.debug(
             "JWT token verification failed in request_loader",
             extra={"event": "auth.jwt.invalid"},
         )
         return None
+
+    if principal.is_service_account:
+        session[SERVICE_LOGIN_TOKEN_SESSION_KEY] = token
+    else:
+        session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
 
     g.current_token_scope = set(principal.scope)
     g.current_user = principal

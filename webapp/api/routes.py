@@ -54,7 +54,7 @@ from ..auth.routes import _sync_active_role
 from .pagination import PaginationParams, paginate_and_respond
 from flask_login import current_user
 from shared.application.auth_service import AuthService
-from shared.domain.auth.principal import AuthenticatedPrincipal
+from shared.application.authenticated_principal import AuthenticatedPrincipal
 from shared.domain.user import UserRegistrationService
 from shared.infrastructure.user_repository import SqlAlchemyUserRepository
 from ..services.token_service import TokenService

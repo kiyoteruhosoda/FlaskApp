@@ -300,7 +300,7 @@ class TokenService:
         if isinstance(scope_claim, str):
             return {item for item in scope_claim.split() if item}
         if isinstance(scope_claim, (list, tuple, set, frozenset)):
-            return {str(item) for item in scope_claim if str(item).strip()}
+            return {str(item).strip() for item in scope_claim if str(item).strip()}
         return set()
 
     @classmethod

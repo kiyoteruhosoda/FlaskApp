@@ -1785,15 +1785,7 @@ def api_login(data):
             "available_scopes": sorted(user_permissions),
         }
 
-    resp = jsonify(response_payload)
-    resp.set_cookie(
-        "access_token",
-        access_token,
-        httponly=True,
-        secure=settings.session_cookie_secure,
-        samesite="Lax",
-    )
-    return resp
+    return jsonify(response_payload)
 
 
 @bp.post("/logout")

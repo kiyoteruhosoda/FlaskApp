@@ -32,12 +32,15 @@ class SettingFieldDefinition:
     multiline: bool = False
     choices: Sequence[tuple[str, str]] | None = None
     default_hint: str | None = None
+    editable: bool = True
 
     def __post_init__(self) -> None:
         if self.data_type not in _ALLOWED_FIELD_TYPES:
             raise ValueError(f"Unsupported data type '{self.data_type}' for {self.key}")
         if not isinstance(self.required, bool):
             raise TypeError("'required' must be a boolean value")
+        if not isinstance(self.editable, bool):
+            raise TypeError("'editable' must be a boolean value")
 
     def choice_labels(self) -> Sequence[tuple[str, str]]:
         return self.choices or ()
@@ -218,6 +221,13 @@ APPLICATION_SETTING_DEFINITIONS: Mapping[str, SettingFieldDefinition] = {
         required=True,
         description=_(u"Validity in seconds for original asset download URLs."),
     ),
+    "FPV_TMP_DIR": SettingFieldDefinition(
+        key="FPV_TMP_DIR",
+        label=_(u"Temporary working directory"),
+        data_type="string",
+        required=True,
+        description=_(u"Directory used for intermediate processing files."),
+    ),
     "UPLOAD_TMP_DIR": SettingFieldDefinition(
         key="UPLOAD_TMP_DIR",
         label=_(u"Upload temporary directory"),
@@ -300,6 +310,13 @@ APPLICATION_SETTING_DEFINITIONS: Mapping[str, SettingFieldDefinition] = {
         data_type="string",
         required=True,
         description=_(u"Local path watched for media imports."),
+    ),
+    "BACKUP_DIR": SettingFieldDefinition(
+        key="BACKUP_DIR",
+        label=_(u"Backup directory"),
+        data_type="string",
+        required=True,
+        description=_(u"Destination directory for scheduled backups."),
     ),
     "FPV_NAS_ORIGINALS_DIR": SettingFieldDefinition(
         key="FPV_NAS_ORIGINALS_DIR",

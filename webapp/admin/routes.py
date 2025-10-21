@@ -223,6 +223,7 @@ def _build_application_field_rows(
                 "using_default": not stored_has_value,
                 "allow_empty": definition.allow_empty,
                 "allow_null": definition.allow_null,
+                "editable": definition.editable,
             }
         )
 

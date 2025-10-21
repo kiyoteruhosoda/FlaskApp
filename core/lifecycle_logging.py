@@ -19,6 +19,7 @@ from sqlalchemy.engine import make_url
 
 from core.db_log_handler import DBLogHandler
 from core.logging_config import ensure_appdb_file_logging
+from core.settings import settings
 
 
 LifecycleHandler = Callable[[int, Optional[FrameType]], None]
@@ -74,7 +75,7 @@ def register_lifecycle_logging(app: Flask) -> None:
         return
 
     # Flask のリロード親プロセスではログを出力しない
-    if app.debug and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
+    if app.debug and str(settings.werkzeug_run_main or "").lower() != "true":
         return
 
     lifecycle_id = str(uuid4())

@@ -46,8 +46,8 @@
           </div>
         </div>
 
-        {% if current_user.roles %}
-        {% set role_count = current_user.roles|length %}
+        {% if role_options %}
+        {% set role_count = role_options|length %}
         <div class="profile-section mb-4">
           <h2 class="h5 mb-3">{{ _('Role settings') }}</h2>
           {% if role_count > 1 %}
@@ -56,7 +56,7 @@
             <div class="mb-3">
               <label for="active-role" class="form-label">{{ _('Active role') }}</label>
               <select class="form-select" id="active-role" name="active_role" required data-role-switcher-select>
-                {% for role in current_user.roles %}
+                {% for role in role_options %}
                   {% set is_selected = (active_role and role.id == active_role.id) or (not active_role and loop.first) %}
                   <option value="{{ role.id }}" data-role-permissions='{{ role.permissions|map(attribute="code")|list|tojson }}'
                           {% if is_selected %}selected{% endif %}>{{ role.name }}</option>
@@ -72,7 +72,7 @@
           <div class="profile-summary">
             <span class="text-muted small text-uppercase">{{ _('Current Roles') }}</span>
             <div class="d-flex flex-wrap gap-2 mt-1">
-              {% for role in current_user.roles %}
+              {% for role in role_options %}
                 <span class="badge bg-secondary">{{ role.name }}</span>
               {% endfor %}
             </div>

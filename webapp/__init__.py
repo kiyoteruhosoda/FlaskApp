@@ -667,6 +667,8 @@ def _calculate_openapi_server_urls(prefix: str) -> List[str]:
 
     schemes: List[str] = []
 
+    add_scheme(settings.preferred_url_scheme)
+
     forwarded_header = request.headers.get("Forwarded", "")
     if forwarded_header:
         for part in forwarded_header.split(","):

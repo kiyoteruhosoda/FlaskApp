@@ -235,12 +235,15 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
       const formData = new FormData(form);
       const storedRedirectPath = localStorage.getItem('redirect_after_login');
+      const rawNextValue = formData.get('next');
+      const normalizedNextValue = typeof rawNextValue === 'string' ? rawNextValue.trim() : '';
+      const nextValue = normalizedNextValue || storedRedirectPath || null;
       const emailValue = (formData.get('email') || '').trim().toLowerCase();
       const loginData = {
         email: formData.get('email'),
         password: formData.get('password'),
         token: formData.get('token') || null,
-        next: storedRedirectPath || null
+        next: nextValue
       };
 
       let scopeStorageKey = null;

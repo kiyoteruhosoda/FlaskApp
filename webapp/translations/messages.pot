@@ -177,6 +177,10 @@ msgstr ""
 msgid "Permissions"
 msgstr ""
 
+#: webapp/admin/templates/admin/config_view.html:88
+msgid "Toggle section visibility"
+msgstr ""
+
 #: webapp/admin/templates/admin/admin_users.html:50
 #: webapp/admin/templates/admin/user_add.html:2
 #: webapp/admin/templates/admin/user_add.html:4

@@ -171,15 +171,15 @@ def _extract_bearer_token() -> str | None:
         if candidate:
             return candidate
 
-    token_param = request.values.get("token") or request.values.get("access_token")
-    if not token_param and request.is_json:
-        payload = request.get_json(silent=True) or {}
-        token_param = payload.get("token") or payload.get("access_token")
-
-    if isinstance(token_param, str):
-        candidate = token_param.strip()
-        if candidate:
-            return candidate
+    if (
+        request.method == "POST"
+        and request.mimetype == "application/x-www-form-urlencoded"
+    ):
+        token_param = request.form.get("token") or request.form.get("access_token")
+        if isinstance(token_param, str):
+            candidate = token_param.strip()
+            if candidate:
+                return candidate
     return None
 
 

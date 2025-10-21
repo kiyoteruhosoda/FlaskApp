@@ -427,3 +427,41 @@ def test_service_login_requires_token_for_anonymous(client):
     response = client.get("/auth/servicelogin")
 
     assert response.status_code == 400
+
+
+def test_service_login_rejects_query_token(app, client, service_login_user):
+    with app.app_context():
+        user = User.query.get(service_login_user["user_id"])
+        token = TokenService.generate_access_token(user, scope={"totp:view"})
+
+    response = client.get(
+        "/auth/servicelogin",
+        query_string={"token": token},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 400
+
+
+def test_service_login_accepts_form_token(app, client, service_login_user):
+    with app.app_context():
+        user = User.query.get(service_login_user["user_id"])
+        token = TokenService.generate_access_token(user, scope={"totp:view"})
+        role_id = user.roles[0].id
+
+    with app.test_request_context():
+        dashboard_path = url_for("dashboard.dashboard")
+
+    response = client.post(
+        "/auth/servicelogin",
+        data={"token": token},
+        content_type="application/x-www-form-urlencoded",
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith(dashboard_path)
+
+    with client.session_transaction() as sess:
+        assert sess.get("active_role_id") == role_id
+        assert sess.get(SERVICE_LOGIN_SESSION_KEY) is True

@@ -392,11 +392,12 @@ class TokenService:
                 )
                 return
 
-            target_user = User.query.get(subject.id)
+            user_id = subject.subject_id
+            target_user = User.query.get(user_id)
             if target_user is None:
                 current_app.logger.debug(
                     "Refresh token revoke skipped: user not found (id=%s)",
-                    subject.id,
+                    user_id,
                 )
                 return
         elif isinstance(subject, User):

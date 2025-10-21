@@ -30,7 +30,6 @@ def load_user(user_id):
 
         token = session.get(SERVICE_LOGIN_TOKEN_SESSION_KEY)
         if not token:
-            session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
             return None
 
         from webapp.services.token_service import TokenService

@@ -48,15 +48,11 @@ from flask import current_app
 from flask.views import MethodView
 
 from .arguments import ArgumentsMixin
-from .etag import EtagMixin
-from .pagination import PaginationMixin
 from .response import ResponseMixin
 from .utils import deepupdate, load_info_from_docstring
 
 
-class Blueprint(
-    FlaskBlueprint, ArgumentsMixin, ResponseMixin, PaginationMixin, EtagMixin
-):
+class Blueprint(FlaskBlueprint, ArgumentsMixin, ResponseMixin):
     """Blueprint that registers info in API documentation"""
 
     # Order in which the methods are presented in the spec
@@ -96,8 +92,6 @@ class Blueprint(
         self._prepare_doc_cbks = [
             self._prepare_arguments_doc,
             self._prepare_response_doc,
-            self._prepare_pagination_doc,
-            self._prepare_etag_doc,
         ]
 
     def add_url_rule(

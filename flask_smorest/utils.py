@@ -2,7 +2,6 @@
 
 from collections import abc
 
-from flask import g
 from werkzeug.datastructures import Headers
 
 from apispec.utils import dedent, trim_docstring
@@ -36,11 +35,6 @@ def resolve_schema_instance(schema):
     :return: schema instance of given schema
     """
     return schema() if isinstance(schema, type) else schema
-
-
-def get_appcontext():
-    """Get extension section in flask g"""
-    return g.setdefault("_flask_smorest", {})
 
 
 def load_info_from_docstring(docstring, *, delimiter="---"):

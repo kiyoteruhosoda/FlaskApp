@@ -14,7 +14,6 @@ from flask import current_app
 from core.models.user import User
 from core.models.service_account import ServiceAccount
 from core.settings import settings
-from shared.domain.auth.principal import AuthenticatedPrincipal
 from webapp.extensions import db
 from webapp.services.access_token_signing import (
     AccessTokenSigningError,
@@ -179,8 +178,8 @@ class TokenService:
     @classmethod
     def verify_access_token(
         cls, token: str
-    ) -> Optional[tuple[AuthenticatedPrincipal, set[str]]]:
-        """アクセストークンを検証してユーザーと許可スコープを取得する"""
+    ) -> Optional[AuthenticatedPrincipal]:
+        """アクセストークンを検証して主体情報を取得する"""
 
         try:
             header = jwt.get_unverified_header(token)
@@ -248,24 +247,33 @@ class TokenService:
                 current_app.logger.debug("JWT token service account inactive or missing")
                 return None
 
-            return AuthenticatedPrincipal(
+            principal = AuthenticatedPrincipal(
                 subject_type="system",
                 subject_id=account.service_account_id,
                 identifier=identifier,
                 scope=frozenset(scope_items),
                 display_name=account.name,
             )
+            return principal
 
         user = User.query.get(subject_id)
         if not user or not user.is_active:
             return None
 
+        display_name = getattr(user, "username", None) or getattr(user, "email", None)
         role_names = tuple(
             sorted(role.name for role in (user.roles or []) if getattr(role, "name", None))
         )
 
-        principal = AuthenticatedPrincipal.from_user_model(user, scope=scope_items)
-        return principal, scope_items
+        principal = AuthenticatedPrincipal(
+            subject_type="individual",
+            subject_id=user.id,
+            identifier=identifier,
+            scope=frozenset(scope_items),
+            display_name=display_name,
+            roles=role_names,
+        )
+        return principal
 
     @staticmethod
     @staticmethod

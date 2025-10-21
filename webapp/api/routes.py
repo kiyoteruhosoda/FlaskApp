@@ -646,8 +646,7 @@ def jwt_required(f):
             return jsonify({'error': 'invalid_token'}), 401
 
         # Flask-Loginのcurrent_userと同じように使えるよう設定
-        principal, scope = verification
-        _set_jwt_context(principal, scope)
+        _set_jwt_context(principal, set(principal.scope))
 
         return f(*args, **kwargs)
     return decorated_function
@@ -780,8 +779,7 @@ def login_or_jwt_required(f):
                 )
                 return jsonify({'error': 'invalid_token'}), 401
 
-            principal, scope = verification
-            _set_jwt_context(principal, scope)
+            _set_jwt_context(principal, set(principal.scope))
             _auth_log(
                 'Authentication successful via JWT',
                 stage='success',

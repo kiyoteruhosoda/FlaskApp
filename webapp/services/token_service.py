@@ -382,29 +382,29 @@ class TokenService:
         return access_token, new_refresh_token, scope_str
 
     @classmethod
-    def revoke_refresh_token(cls, user_or_principal: User | AuthenticatedPrincipal) -> None:
+    def revoke_refresh_token(cls, subject: User | AuthenticatedPrincipal) -> None:
         """ユーザーのリフレッシュトークンを無効化する"""
 
-        if isinstance(user_or_principal, User):
-            target_user: User | None = user_or_principal
-        elif isinstance(user_or_principal, AuthenticatedPrincipal):
-            user_id = getattr(user_or_principal, "user_id", None)
-            if user_id is None:
+        if isinstance(subject, AuthenticatedPrincipal):
+            if not subject.is_individual:
                 current_app.logger.debug(
-                    "Refresh token revoke skipped: principal missing user_id",
+                    "Refresh token revoke skipped: subject is not an individual",
                 )
                 return
-            target_user = User.query.get(user_id)
+
+            target_user = User.query.get(subject.id)
             if target_user is None:
                 current_app.logger.debug(
                     "Refresh token revoke skipped: user not found (id=%s)",
-                    user_id,
+                    subject.id,
                 )
                 return
+        elif isinstance(subject, User):
+            target_user = subject
         else:  # pragma: no cover - defensive branch
             current_app.logger.debug(
                 "Refresh token revoke skipped: unsupported type %s",
-                type(user_or_principal).__name__,
+                type(subject).__name__,
             )
             return
 

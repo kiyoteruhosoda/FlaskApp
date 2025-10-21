@@ -1,9 +1,52 @@
-body { 
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+:root {
+  --global-header-height: 4rem;
+  --feature-header-height: 3rem;
+  --global-header-background: #ffffff;
+  --feature-header-background: #f8f9fa;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
   min-height: 100vh;
   margin: 0;
   padding: 0;
+}
+
+.global-header {
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+  background: var(--global-header-background);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(6px);
+}
+
+.global-header .navbar {
+  margin-bottom: 0;
+  min-height: var(--global-header-height);
+}
+
+.feature-header {
+  position: sticky;
+  top: var(--global-header-height);
+  z-index: 1020;
+  background: var(--feature-header-background);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.feature-header:empty {
+  display: none;
+}
+
+.feature-header__inner {
+  min-height: var(--feature-header-height);
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+.layout-content {
+  padding-bottom: 3rem;
 }
 
 .form-narrow {
@@ -13,9 +56,12 @@ body {
 /* Modern Login Page Styles */
 body.login-page {
   overflow-x: hidden;
+  padding-top: 0;
 }
 
-body.login-page footer {
+body.login-page #global-header,
+body.login-page #feature-header,
+body.login-page #global-footer {
   display: none;
 }
 

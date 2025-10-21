@@ -54,7 +54,7 @@ from ..auth.routes import _sync_active_role
 from .pagination import PaginationParams, paginate_and_respond
 from flask_login import current_user
 from shared.application.auth_service import AuthService
-from shared.application.authenticated_principal import AuthenticatedPrincipal
+from shared.domain.auth.principal import AuthenticatedPrincipal
 from shared.domain.user import UserRegistrationService
 from shared.infrastructure.user_repository import SqlAlchemyUserRepository
 from ..services.token_service import TokenService
@@ -619,24 +619,9 @@ def _local_import_log(message: str, *, level: str = 'info', event: str = 'local_
     _emit_structured_api_log(message, level=level, event=event, **extra_context)
 
 
-def _set_jwt_context(principal: AuthenticatedPrincipal) -> None:
-    g.current_principal = principal
-    g.current_token_scope = set(principal.scope)
-
-    if principal.is_individual:
-        cached_user = getattr(g, "current_user_model", None)
-        if getattr(cached_user, "id", None) == principal.id:
-            g.current_user = cached_user
-            return
-
-        user = User.query.get(principal.id)
-        if user and user.is_active:
-            g.current_user_model = user
-            g.current_user = user
-            return
-
-    g.current_user_model = None
+def _set_jwt_context(principal: AuthenticatedPrincipal, scope: set[str]) -> None:
     g.current_user = principal
+    g.current_token_scope = scope
 
 
 def jwt_required(f):
@@ -661,7 +646,8 @@ def jwt_required(f):
             return jsonify({'error': 'invalid_token'}), 401
 
         # Flask-Loginのcurrent_userと同じように使えるよう設定
-        _set_jwt_context(principal)
+        principal, scope = verification
+        _set_jwt_context(principal, scope)
 
         return f(*args, **kwargs)
     return decorated_function
@@ -794,7 +780,8 @@ def login_or_jwt_required(f):
                 )
                 return jsonify({'error': 'invalid_token'}), 401
 
-            _set_jwt_context(principal)
+            principal, scope = verification
+            _set_jwt_context(principal, scope)
             _auth_log(
                 'Authentication successful via JWT',
                 stage='success',

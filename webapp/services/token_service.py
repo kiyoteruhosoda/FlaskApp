@@ -14,6 +14,7 @@ from flask import current_app
 from core.models.user import User
 from core.models.service_account import ServiceAccount
 from core.settings import settings
+from shared.domain.auth.principal import AuthenticatedPrincipal
 from webapp.extensions import db
 from webapp.services.access_token_signing import (
     AccessTokenSigningError,
@@ -176,8 +177,10 @@ class TokenService:
         return access_token, refresh_token
 
     @classmethod
-    def verify_access_token(cls, token: str) -> Optional[AuthenticatedPrincipal]:
-        """アクセストークンを検証してアプリケーション用プリンシパルを取得する"""
+    def verify_access_token(
+        cls, token: str
+    ) -> Optional[tuple[AuthenticatedPrincipal, set[str]]]:
+        """アクセストークンを検証してユーザーと許可スコープを取得する"""
 
         try:
             header = jwt.get_unverified_header(token)
@@ -261,14 +264,8 @@ class TokenService:
             sorted(role.name for role in (user.roles or []) if getattr(role, "name", None))
         )
 
-        return AuthenticatedPrincipal(
-            subject_type="individual",
-            subject_id=user.id,
-            identifier=identifier,
-            scope=frozenset(scope_items),
-            display_name=user.display_name,
-            roles=role_names,
-        )
+        principal = AuthenticatedPrincipal.from_user_model(user, scope=scope_items)
+        return principal, scope_items
 
     @staticmethod
     @staticmethod

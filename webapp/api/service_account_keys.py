@@ -35,6 +35,20 @@ def _parse_iso_datetime(raw: Any) -> datetime | None:
     return dt.astimezone(timezone.utc)
 
 
+def _resolve_actor_identifier() -> str:
+    """現在の主体を表す文字列表現を取得する。"""
+
+    display_name = getattr(current_user, "display_name", None)
+    if isinstance(display_name, str) and display_name.strip():
+        return display_name.strip()
+
+    if hasattr(current_user, "get_id"):
+        identifier = current_user.get_id()
+    else:
+        identifier = None
+    return str(identifier or "unknown")
+
+
 def _has_manage_permission() -> bool:
     if not current_user.is_authenticated:
         return False
@@ -106,7 +120,7 @@ def create_service_account_key(account_id: int):
             account_id,
             scopes=payload.get("scopes", ""),
             expires_at=expires_at,
-            created_by=current_user.email,
+            created_by=_resolve_actor_identifier(),
         )
     except ServiceAccountApiKeyValidationError as exc:
         response = {"error": exc.message}
@@ -132,7 +146,7 @@ def revoke_service_account_key(account_id: int, key_id: int):
 
     try:
         key = ServiceAccountApiKeyService.revoke_key(
-            account_id, key_id, actor=current_user.email
+            account_id, key_id, actor=_resolve_actor_identifier()
         )
     except ServiceAccountApiKeyNotFoundError:
         return jsonify({"error": "not_found"}), 404

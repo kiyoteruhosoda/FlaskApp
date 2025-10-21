@@ -44,22 +44,8 @@ def load_user_from_request(request):
         )
         return None
 
-    g.current_token_scope = set(principal.scope)
-    g.current_principal = principal
-
-    if principal.is_individual:
-        from core.models.user import User
-
-        user = User.query.get(principal.id)
-        if user and user.is_active:
-            g.current_user_model = user
-            g.current_user = user
-        else:
-            g.current_user_model = None
-            g.current_user = principal
-    else:
-        g.current_user_model = None
-        g.current_user = principal
+    principal, scope = verification
+    g.current_token_scope = scope
 
     return principal
 

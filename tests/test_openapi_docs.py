@@ -9,14 +9,17 @@ from webapp.extensions import api as smorest_api
 class TestOpenAPIDocs:
     def test_openapi_spec_includes_login_endpoint(self, app_context):
         client = app_context.test_client()
-        response = client.get('/api/openapi.json')
+        response = client.get('/api/openapi.json', base_url='http://localhost')
         assert response.status_code == 200
 
         payload = response.get_json()
         assert payload['openapi'] == '3.0.3'
 
         servers = payload.get('servers', [])
-        assert servers == [{'url': 'http://localhost/api'}]
+        assert servers == [
+            {'url': 'https://localhost/api'},
+            {'url': 'http://localhost/api'},
+        ]
 
         assert '/login' in payload['paths']
         login_post = payload['paths']['/login']['post']

@@ -44,6 +44,7 @@ from core.settings import settings
 from werkzeug.datastructures import FileStorage
 
 from .extensions import db, migrate, login_manager, babel, api as smorest_api
+from .error_handlers import register_error_handlers
 from webapp.auth import SERVICE_LOGIN_SESSION_KEY, SERVICE_LOGIN_TOKEN_SESSION_KEY
 from webapp.auth.api_key_auth import API_KEY_SECURITY_SCHEME_NAME
 from .timezone import resolve_timezone, convert_to_timezone
@@ -703,10 +704,6 @@ def _calculate_openapi_server_urls(prefix: str) -> List[str]:
     return urls
 
 
-# エラーハンドラ
-from werkzeug.exceptions import HTTPException
-
-
 def _apply_persisted_settings(app: Flask) -> None:
     """Load persisted configuration values into ``app.config``."""
 
@@ -820,6 +817,8 @@ def create_app():
 
     babel.init_app(app, locale_selector=_select_locale)
     smorest_api.init_app(app)
+
+    register_error_handlers(app)
 
     with app.app_context():
         smorest_api.spec.components.security_scheme(
@@ -1182,96 +1181,6 @@ def create_app():
             else:
                 app.logger.info(log_payload, extra=log_extra)
         return response
-
-    # 404だけ個別に（テンプレでもJSONでも可）
-    @app.errorhandler(404)
-    def handle_404(e):
-        log_payload = {
-            "method": request.method,
-            "path": request.path,
-            "full_path": request.full_path,
-            "ua": request.user_agent.string,
-            "status": 404,
-        }
-        is_api_request = request.path.startswith("/api")
-        jwt_details = _extract_request_jwt_details() if is_api_request else None
-        event_name = "api.http_404" if is_api_request else "http.404"
-        log_extra = _build_error_log_extra(event_name, jwt_details if is_api_request else None)
-        app.logger.warning(json.dumps(log_payload, ensure_ascii=False), extra=log_extra)
-
-        response = jsonify(error=_translate_message("Not Found"))
-        locale = get_locale()
-        if locale:
-            response.headers["Content-Language"] = str(locale)
-        return response, 404
-
-    @app.errorhandler(Exception)
-    def handle_exception(e):
-        is_http = isinstance(e, HTTPException)
-        code = e.code if is_http else 500
-        # 外部公開メッセージ：5xxは伏せる（内部情報漏えい対策）
-        if is_http and code < 500:
-            description = getattr(e, "description", None)
-            if description:
-                public_message = _translate_message(str(description))
-            else:
-                public_message = _translate_message(getattr(e, "name", "Error"))
-        else:
-            public_message = _translate_message("Internal Server Error")
-
-        # ログ用の詳細（必要に応じてマスキング）
-        try:
-            input_json = request.get_json(silent=True)
-        except Exception:
-            input_json = None
-
-        log_dict = {
-            "method": request.method,
-            "path": request.path,
-            "full_path": request.full_path,
-            "ua": request.user_agent.string,
-            "status": code,
-        }
-        qs = request.query_string.decode()
-        if qs:
-            log_dict["query_string"] = qs
-
-        form_dict = request.form.to_dict()
-        if form_dict:
-            log_dict["form"] = _mask_sensitive_data(form_dict)
-
-        if input_json is not None:
-            log_dict["json"] = _mask_sensitive_data(input_json)
-
-        # ★ ログ出力方針：4xxはstackなし、5xxはstack付き
-        log_message = json.dumps(log_dict, ensure_ascii=False)
-        is_api_request = request.path.startswith("/api")
-        jwt_details = _extract_request_jwt_details() if is_api_request else None
-        if is_http and 400 <= code < 500:
-            event_name = "api.http_4xx" if is_api_request else "http.4xx"
-        else:
-            event_name = "api.http_5xx" if is_api_request else "http.5xx"
-        log_extra = _build_error_log_extra(event_name, jwt_details if is_api_request else None)
-
-        if is_http and 400 <= code < 500:
-            app.logger.warning(log_message, extra=log_extra)
-        else:
-            # 5xxのみ stacktrace
-            app.logger.exception(log_message, extra=log_extra)
-
-        g.exception_logged = True
-
-        # レスポンス
-        if is_api_request:
-            # 5xxの詳細messageは返さない（public_messageに統一）
-            response = jsonify({"error": "error", "message": public_message})
-            locale = get_locale()
-            if locale:
-                response.headers["Content-Language"] = str(locale)
-            return response, code
-
-        # HTML（5xxはgenericに）
-        return render_template("error.html", message=public_message), code
 
     @app.after_request
     def log_server_error(response):

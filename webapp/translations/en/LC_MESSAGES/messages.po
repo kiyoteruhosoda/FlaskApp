@@ -265,6 +265,10 @@ msgstr "This page requires login."
 msgid "Please log in to access this page."
 msgstr "Please log in to access this page."
 
+#: webapp/error_handlers.py:45
+msgid "An unexpected error occurred. Please try again later."
+msgstr "An unexpected error occurred. Please try again later."
+
 msgid "If you cannot scan the QR code, add this secret manually in your app:"
 msgstr "If you cannot scan the QR code, add this secret manually in your app:"
 

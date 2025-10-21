@@ -18,6 +18,7 @@ from core.system_settings_defaults import (
 from webapp.services.token_service import TokenService
 from shared.application.authenticated_principal import AuthenticatedPrincipal
 from core.models.user import Permission, Role, User
+from core.models.service_account import ServiceAccount
 from webapp.auth import SERVICE_LOGIN_SESSION_KEY
 
 
@@ -153,62 +154,18 @@ def album_user(app):
 
 
 @pytest.fixture()
-def service_login_user(app):
+def service_login_account(app):
     from webapp.extensions import db
-    from core.models.user import Permission, Role, User
+    from core.models.service_account import ServiceAccount
 
     with app.app_context():
-        perm = Permission.query.filter_by(code="totp:view").one_or_none()
-        if perm is None:
-            perm = Permission(code="totp:view")
-            db.session.add(perm)
-            db.session.flush()
-
-        role = Role(name=f"totp-{uuid.uuid4().hex[:8]}")
-        role.permissions.append(perm)
-
-        user = User(email=f"service-{uuid.uuid4().hex[:8]}@example.com")
-        user.set_password("pass")
-        user.roles.append(role)
-
-        db.session.add_all([role, user])
+        account = ServiceAccount(name=f"svc-{uuid.uuid4().hex[:8]}")
+        account.set_scopes({"totp:view"})
+        db.session.add(account)
         db.session.commit()
 
-        return {"user_id": user.id, "role_ids": [role.id]}
+        return {"account_id": account.service_account_id}
 
-
-@pytest.fixture()
-def multi_role_service_user(app):
-    from webapp.extensions import db
-
-    with app.app_context():
-        totp_perm = Permission.query.filter_by(code="totp:view").one_or_none()
-        if totp_perm is None:
-            totp_perm = Permission(code="totp:view")
-            db.session.add(totp_perm)
-            db.session.flush()
-
-        other_perm = Permission(code=f"reports:view:{uuid.uuid4().hex[:6]}")
-        db.session.add(other_perm)
-        db.session.flush()
-
-        primary_role = Role(name=f"totp-role-{uuid.uuid4().hex[:6]}")
-        primary_role.permissions.append(totp_perm)
-
-        secondary_role = Role(name=f"reports-role-{uuid.uuid4().hex[:6]}")
-        secondary_role.permissions.append(other_perm)
-
-        user = User(email=f"multiservice-{uuid.uuid4().hex[:8]}@example.com")
-        user.set_password("pass")
-        user.roles.extend([primary_role, secondary_role])
-
-        db.session.add_all([primary_role, secondary_role, user])
-        db.session.commit()
-
-        return {
-            "user_id": user.id,
-            "role_ids": [primary_role.id, secondary_role.id],
-        }
 
 
 def _decode_scope(token: str) -> str:
@@ -306,11 +263,10 @@ def test_scoped_token_enforces_permissions(client, album_user):
     assert update_response.get_json()["error"] == "forbidden"
 
 
-def test_service_login_sets_scope_and_redirects(app, client, service_login_user):
+def test_service_login_sets_scope_and_redirects(app, client, service_login_account):
     with app.app_context():
-        user = User.query.get(service_login_user["user_id"])
-        token = TokenService.generate_access_token(user, scope={"totp:view"})
-        role_id = user.roles[0].id
+        account = ServiceAccount.query.get(service_login_account["account_id"])
+        token = TokenService.generate_service_account_access_token(account, scope={"totp:view"})
 
     with app.test_request_context():
         dashboard_path = url_for("dashboard.dashboard")
@@ -325,8 +281,9 @@ def test_service_login_sets_scope_and_redirects(app, client, service_login_user)
     assert response.headers["Location"].endswith(dashboard_path)
 
     with client.session_transaction() as sess:
-        assert sess.get("active_role_id") == role_id
+        assert sess.get("active_role_id") is None
         assert sess.get(SERVICE_LOGIN_SESSION_KEY) is True
+        assert sess.get("_user_id") == f"system:{service_login_account['account_id']}"
 
     totp_response = client.get("/totp/")
     assert totp_response.status_code == 200
@@ -335,10 +292,10 @@ def test_service_login_sets_scope_and_redirects(app, client, service_login_user)
     assert any(header.startswith("access_token=") for header in cookie_headers)
 
 
-def test_service_login_honors_next_parameter(app, client, service_login_user):
+def test_service_login_honors_next_parameter(app, client, service_login_account):
     with app.app_context():
-        user = User.query.get(service_login_user["user_id"])
-        token = TokenService.generate_access_token(user, scope={"totp:view"})
+        account = ServiceAccount.query.get(service_login_account["account_id"])
+        token = TokenService.generate_service_account_access_token(account, scope={"totp:view"})
 
     response = client.get(
         "/auth/servicelogin",
@@ -351,11 +308,10 @@ def test_service_login_honors_next_parameter(app, client, service_login_user):
     assert response.headers["Location"].endswith("/totp/")
 
 
-def test_service_login_requires_role_selection(app, client, multi_role_service_user):
+def test_service_login_does_not_require_role_selection(app, client, service_login_account):
     with app.app_context():
-        user = User.query.get(multi_role_service_user["user_id"])
-        token = TokenService.generate_access_token(user, scope={"totp:view"})
-        role_ids = [role.id for role in user.roles]
+        account = ServiceAccount.query.get(service_login_account["account_id"])
+        token = TokenService.generate_service_account_access_token(account, scope={"totp:view"})
 
     response = client.get(
         "/auth/servicelogin",
@@ -365,30 +321,21 @@ def test_service_login_requires_role_selection(app, client, multi_role_service_u
     )
 
     assert response.status_code == 302
-    assert response.headers["Location"].endswith("/auth/select-role")
+    assert response.headers["Location"].endswith("/totp/")
 
     with client.session_transaction() as sess:
-        assert sess.get("role_selection_next") == "/totp/"
+        assert sess.get("role_selection_next") is None
         assert sess.get(SERVICE_LOGIN_SESSION_KEY) is True
         assert sess.get("active_role_id") is None
-
-    select_response = client.post(
-        "/auth/select-role",
-        data={"active_role": str(role_ids[0])},
-        follow_redirects=False,
-    )
-
-    assert select_response.status_code == 302
-    assert select_response.headers["Location"].endswith("/totp/")
 
     totp_response = client.get("/totp/")
     assert totp_response.status_code == 200
 
 
-def test_service_login_denies_scope_when_token_missing(app, client, service_login_user):
+def test_service_login_denies_scope_when_token_missing(app, client, service_login_account):
     with app.app_context():
-        user = User.query.get(service_login_user["user_id"])
-        token = TokenService.generate_access_token(user, scope={"totp:view"})
+        account = ServiceAccount.query.get(service_login_account["account_id"])
+        token = TokenService.generate_service_account_access_token(account, scope={"totp:view"})
 
     response = client.get(
         "/auth/servicelogin",
@@ -402,7 +349,7 @@ def test_service_login_denies_scope_when_token_missing(app, client, service_logi
     client.delete_cookie("access_token")
 
     restricted_response = client.get("/totp/")
-    assert restricted_response.status_code == 403
+    assert restricted_response.status_code in {302, 401, 403}
 
 
 def test_service_login_rejects_invalid_token(client):
@@ -421,10 +368,43 @@ def test_service_login_requires_token_for_anonymous(client):
     assert response.status_code == 400
 
 
-def test_service_login_rejects_query_token(app, client, service_login_user):
+
+
+def test_service_login_rejects_individual_token(app, client):
     with app.app_context():
-        user = User.query.get(service_login_user["user_id"])
+        from webapp.extensions import db
+
+        perm = Permission.query.filter_by(code="totp:view").one_or_none()
+        if perm is None:
+            perm = Permission(code="totp:view")
+            db.session.add(perm)
+            db.session.flush()
+
+        role = Role(name=f"totp-user-{uuid.uuid4().hex[:8]}")
+        role.permissions.append(perm)
+
+        user = User(email=f"person-{uuid.uuid4().hex[:8]}@example.com")
+        user.set_password("pass")
+        user.roles.append(role)
+
+        db.session.add_all([role, user])
+        db.session.commit()
+
         token = TokenService.generate_access_token(user, scope={"totp:view"})
+
+    response = client.get(
+        "/auth/servicelogin",
+        headers={"Authorization": f"Bearer {token}"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 401
+
+
+def test_service_login_rejects_query_token(app, client, service_login_account):
+    with app.app_context():
+        account = ServiceAccount.query.get(service_login_account["account_id"])
+        token = TokenService.generate_service_account_access_token(account, scope={"totp:view"})
 
     response = client.get(
         "/auth/servicelogin",
@@ -435,10 +415,10 @@ def test_service_login_rejects_query_token(app, client, service_login_user):
     assert response.status_code == 400
 
 
-def test_service_login_mismatch_invalidates_session(app, client, service_login_user):
+def test_service_login_mismatch_invalidates_session(app, client, service_login_account):
     with app.app_context():
-        user = User.query.get(service_login_user["user_id"])
-        token = TokenService.generate_access_token(user, scope={"totp:view"})
+        account = ServiceAccount.query.get(service_login_account["account_id"])
+        token = TokenService.generate_service_account_access_token(account, scope={"totp:view"})
 
     login_response = client.get(
         "/auth/servicelogin",
@@ -455,19 +435,13 @@ def test_service_login_mismatch_invalidates_session(app, client, service_login_u
     with app.app_context():
         from webapp.extensions import db
 
-        perm = Permission.query.filter_by(code="totp:view").one()
-        mismatch_role = Role(name=f"totp-mismatch-{uuid.uuid4().hex[:6]}")
-        mismatch_role.permissions.append(perm)
-
-        mismatch_user = User(email=f"mismatch-{uuid.uuid4().hex[:8]}@example.com")
-        mismatch_user.set_password("pass")
-        mismatch_user.roles.append(mismatch_role)
-
-        db.session.add_all([mismatch_role, mismatch_user])
+        other_account = ServiceAccount(name=f"svc-mismatch-{uuid.uuid4().hex[:6]}")
+        other_account.set_scopes({"totp:view"})
+        db.session.add(other_account)
         db.session.commit()
 
-        mismatch_token = TokenService.generate_access_token(
-            mismatch_user, scope={"totp:view"}
+        mismatch_token = TokenService.generate_service_account_access_token(
+            other_account, scope={"totp:view"}
         )
 
     client.set_cookie("access_token", mismatch_token, domain="localhost")

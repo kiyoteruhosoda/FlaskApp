@@ -283,23 +283,18 @@ def service_login():
         return make_response(_("Access token is required"), 400)
 
     principal = TokenService.verify_access_token(token)
-    if not principal or not principal.is_individual:
+    if not principal:
         current_app.logger.warning(
             "Service login token verification failed",
             extra={"event": "auth.service_login", "path": request.path},
         )
         return make_response(_("Invalid access token"), 401)
 
-    principal, scope = verification
-    user_model = None
-    if principal.user_id is not None:
-        user_model = User.query.get(principal.user_id)
-        if user_model is not None:
-            # 関連ロールを事前評価して遅延ロードの影響を避ける
-            list(getattr(user_model, "roles", []) or [])
-    if user_model is None:
+
+    if not principal.is_service_account:
         current_app.logger.warning(
-            "Service login token resolved to missing user", extra={"event": "auth.service_login"}
+            "Service login token rejected: subject type is not a service account",
+            extra={"event": "auth.service_login", "path": request.path},
         )
         return make_response(_("Invalid access token"), 401)
     current_app.logger.info(
@@ -307,35 +302,23 @@ def service_login():
         extra={
             "event": "auth.service_login",
             "path": request.path,
-            "user_id": principal.user_id,
+            "service_account_id": principal.id,
             "actor": principal.display_name,
             "redirect": redirect_target,
-            "roles": [role.id for role in principal.roles],
+            "roles": [],
         },
     )
-    try:
-        login_user(user_model)
-    except ValueError as exc:
-        current_app.logger.warning(
-            "Service login token rejected due to invalid scope: %s",
-            exc,
-            extra={"event": "auth.service_login", "path": request.path},
-        )
-        return make_response(_("Invalid access token"), 401)
 
     session.pop("active_role_id", None)
 
-    normalized_scope = sorted(item.strip() for item in (scope or set()) if item)
+    normalized_scope = sorted(item.strip() for item in principal.scope if item)
     session[SERVICE_LOGIN_SESSION_KEY] = True
-    g.current_token_scope = set(normalized_scope)
+    g.current_token_scope = set(principal.scope)
 
-    roles_snapshot = list(getattr(user_model, "roles", []) or [])
-    if len(roles_snapshot) > 1:
-        session["role_selection_next"] = redirect_target
-        response = redirect(url_for("auth.select_role"))
-    else:
-        _sync_active_role(user_model)
-        response = redirect(redirect_target)
+    g.current_user = principal
+    login_user(principal)
+
+    response = redirect(redirect_target)
 
     if token:
         response.set_cookie(

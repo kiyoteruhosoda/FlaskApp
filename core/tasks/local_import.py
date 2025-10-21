@@ -23,7 +23,7 @@ from core.tasks.thumbs_generate import (
     PLAYBACK_NOT_READY_NOTES,
     thumbs_generate as _thumbs_generate,
 )
-from webapp.config import Config
+from webapp.config import BaseApplicationSettings
 
 from features.photonest.application.local_import.file_importer import (
     LocalImportFileImporter,
@@ -1123,12 +1123,12 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
     try:
         import_dir = _resolve_directory('LOCAL_IMPORT_DIR')
     except RuntimeError:
-        import_dir = Config.LOCAL_IMPORT_DIR
+        import_dir = BaseApplicationSettings.LOCAL_IMPORT_DIR
 
     try:
         originals_dir = _resolve_directory('FPV_NAS_ORIGINALS_DIR')
     except RuntimeError:
-        originals_dir = Config.FPV_NAS_ORIGINALS_DIR
+        originals_dir = BaseApplicationSettings.FPV_NAS_ORIGINALS_DIR
 
     celery_task_id = None
     if task_instance is not None:

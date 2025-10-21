@@ -23,9 +23,9 @@ def app(tmp_path):
     import webapp.config as config_module
 
     config_module = importlib.reload(config_module)
-    Config = config_module.Config
+    BaseApplicationSettings = config_module.BaseApplicationSettings
 
-    Config.SQLALCHEMY_ENGINE_OPTIONS = {}
+    BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
     from webapp import create_app
 
     app = create_app()

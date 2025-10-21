@@ -35,8 +35,8 @@ def picker_app(tmp_path):
     import webapp as webapp_module
     importlib.reload(webapp_module)
 
-    from webapp.config import Config
-    Config.SQLALCHEMY_ENGINE_OPTIONS = {}
+    from webapp.config import BaseApplicationSettings
+    BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
     from webapp import create_app
 
     app = create_app()

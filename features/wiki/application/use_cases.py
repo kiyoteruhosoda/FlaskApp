@@ -42,7 +42,7 @@ from features.wiki.domain.exceptions import (
     WikiPageNotFoundError,
     WikiValidationError,
 )
-from webapp.config import Config
+from webapp.config import BaseApplicationSettings
 from webapp.services.upload_service import commit_uploads_to_directory
 
 
@@ -393,7 +393,7 @@ class WikiMediaUploadUseCase:
         if self._destination_dir is not None:
             base_dir = self._destination_dir
         else:
-            configured = settings.wiki_upload_directory or Config.WIKI_UPLOAD_DIR
+            configured = settings.wiki_upload_directory or BaseApplicationSettings.WIKI_UPLOAD_DIR
             base_dir = Path(configured)
 
         try:

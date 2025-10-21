@@ -18,8 +18,8 @@ def app(tmp_path):
     os.environ["GOOGLE_CLIENT_SECRET"] = "sec"
     key = base64.urlsafe_b64encode(b"0" * 32).decode()
     os.environ["OAUTH_TOKEN_KEY"] = key
-    from webapp.config import Config
-    Config.SQLALCHEMY_ENGINE_OPTIONS = {}
+    from webapp.config import BaseApplicationSettings
+    BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
     from webapp import create_app
     app = create_app()
     app.config.update(TESTING=True)

@@ -10,8 +10,8 @@ def app(tmp_path_factory):
     os.environ["SECRET_KEY"] = "test"
     os.environ["JWT_SECRET_KEY"] = "jwt-secret"
     os.environ["DATABASE_URI"] = f"sqlite:///{db_path}"
-    from webapp.config import Config
-    Config.SQLALCHEMY_ENGINE_OPTIONS = {}
+    from webapp.config import BaseApplicationSettings
+    BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
     from webapp import create_app
     app = create_app()
     app.config.update(TESTING=True)

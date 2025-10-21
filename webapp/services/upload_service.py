@@ -14,7 +14,7 @@ from flask import current_app
 from werkzeug.datastructures import FileStorage
 
 from core.storage_paths import first_existing_storage_path
-from webapp.config import Config
+from webapp.config import BaseApplicationSettings
 from core.settings import settings
 
 
@@ -83,7 +83,7 @@ def _resolve_local_import_directory() -> Optional[Path]:
     candidate = first_existing_storage_path("LOCAL_IMPORT_DIR")
     if candidate is None:
         candidate = (
-            settings.local_import_directory_configured or Config.LOCAL_IMPORT_DIR
+            settings.local_import_directory_configured or BaseApplicationSettings.LOCAL_IMPORT_DIR
         )
     if not candidate:
         return None

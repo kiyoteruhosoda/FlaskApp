@@ -319,14 +319,14 @@ def _build_config_context(
         default_flags=cors_use_defaults,
     )
 
-    from webapp.config import Config
+    from webapp.config import BaseApplicationSettings
 
     public_keys = [
         k
-        for k in dir(Config)
+        for k in dir(BaseApplicationSettings)
         if not k.startswith("_") and k.isupper() and k not in ("SECRET_KEY")
     ]
-    config_dict = {k: getattr(Config, k) for k in public_keys}
+    config_dict = {k: getattr(BaseApplicationSettings, k) for k in public_keys}
 
     try:
         signing_setting = SystemSettingService.get_access_token_signing_setting()

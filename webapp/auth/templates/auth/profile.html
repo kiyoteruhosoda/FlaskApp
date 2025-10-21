@@ -109,7 +109,7 @@
             <a href="{{ url_for('auth.edit') }}" class="btn btn-outline-secondary">
               <i class="fas fa-user-edit me-2"></i>{{ _('Edit profile details') }}
             </a>
-            {% if not current_user.totp_secret %}
+            {% if not is_service_account and not current_user.totp_secret %}
               <a href="{{ url_for('auth.setup_totp', next=url_for('auth.profile')) }}" class="btn btn-outline-warning">
                 <i class="fas fa-mobile-alt me-2"></i>{{ _('Enable two-factor authentication') }}
               </a>

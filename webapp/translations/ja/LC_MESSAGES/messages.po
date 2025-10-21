@@ -733,6 +733,11 @@ msgstr "二要素認証の設定がキャンセルされました。"
 msgid "Two-factor authentication setup cancelled."
 msgstr "二要素認証の設定がキャンセルされました。"
 
+#: webapp/auth/routes.py:236 webapp/auth/templates/auth/edit.html:33 \
+#: webapp/auth/templates/auth/profile.html:100
+msgid "Two-factor authentication is not available for service accounts."
+msgstr "サービスアカウントでは二要素認証を利用できません。"
+
 #: webapp/auth/routes.py:283
 msgid "Logged out"
 msgstr "ログアウトしました"

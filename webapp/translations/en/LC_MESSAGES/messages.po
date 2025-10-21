@@ -479,6 +479,9 @@ msgstr "Registration cancelled. You can start over."
 msgid "Two-factor authentication setup cancelled."
 msgstr "Two-factor authentication setup cancelled."
 
+msgid "Two-factor authentication is not available for service accounts."
+msgstr "Two-factor authentication is not available for service accounts."
+
 msgid "Registration session invalid. Please register again."
 msgstr "Registration session invalid. Please register again."
 

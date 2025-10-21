@@ -140,7 +140,7 @@ def _finalize_login_session(user_model, redirect_target, *, token=None, token_sc
         if not isinstance(token_scope, (list, tuple)) or not all(
             isinstance(item, str) and item.strip() for item in token_scope
         ):
-            raise ValueError(f"token_scope must be a list of non-empty strings, got: {token_scope!r}")
+            raise ValueError("token_scope must be a list of non-empty strings")
 
         normalized_scope = sorted(item.strip() for item in token_scope)
         session[SERVICE_LOGIN_SESSION_KEY] = True

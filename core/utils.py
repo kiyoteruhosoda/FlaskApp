@@ -172,7 +172,7 @@ def _default_app_timezone() -> timezone:
     variable.  If neither yields a valid zoneinfo identifier ``UTC`` is used.
     """
 
-    tz_name = settings.get("BABEL_DEFAULT_TIMEZONE")
+    tz_name = settings.babel_default_timezone
 
     if tz_name:
         try:

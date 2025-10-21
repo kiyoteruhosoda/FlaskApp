@@ -75,7 +75,7 @@ def register_lifecycle_logging(app: Flask) -> None:
         return
 
     # Flask のリロード親プロセスではログを出力しない
-    if app.debug and str(settings.get("WERKZEUG_RUN_MAIN", "")).lower() != "true":
+    if app.debug and str(settings.werkzeug_run_main or "").lower() != "true":
         return
 
     lifecycle_id = str(uuid4())

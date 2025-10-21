@@ -44,29 +44,16 @@ class ConcurrencyLimiter(AbstractContextManager["ConcurrencyLimiter"]):
 
     # --- Internal helpers -------------------------------------------------
     def _configured_limit(self) -> int:
-        raw_limit = settings.get(self._config.limit_key, self._config.default_limit)
-        try:
-            limit = int(raw_limit)
-        except (TypeError, ValueError):  # pragma: no cover - defensive
-            limit = self._config.default_limit
-        if limit <= 0:
-            limit = 1
-        return limit
+        limit = settings.concurrency.limit(
+            self._config.limit_key, self._config.default_limit
+        )
+        return max(1, limit)
 
     def _configured_retry(self) -> float:
-        retry_key = self._config.retry_key
-        raw_retry = (
-            settings.get(retry_key)
-            if retry_key
-            else self._config.default_retry
+        retry = settings.concurrency.retry(
+            self._config.retry_key, self._config.default_retry
         )
-        try:
-            retry = float(raw_retry)
-        except (TypeError, ValueError):  # pragma: no cover - defensive
-            retry = self._config.default_retry
-        if retry < 0:
-            retry = 0.0
-        return retry
+        return max(0.0, retry)
 
     # --- Public API -------------------------------------------------------
     def acquire(self) -> bool:

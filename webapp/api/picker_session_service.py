@@ -1255,7 +1255,7 @@ class PickerSessionService:
             print(f"Celery not available, would start watchdog for session {ps.id}")
         except Exception as e:
             current_app.logger.error(f"Failed to publish Celery task: {e}")
-            if settings.get_bool("TESTING"):
+            if settings.testing:
                 current_app.logger.warning(
                     "Celery publish failed in test mode; continuing without enqueue."
                 )

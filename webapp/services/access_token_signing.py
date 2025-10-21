@@ -55,7 +55,7 @@ def resolve_signing_material() -> SigningMaterial:
     except AccessTokenSigningValidationError as exc:
         raise AccessTokenSigningError(str(exc)) from exc
     if setting.is_builtin:
-        secret = settings.get("JWT_SECRET_KEY")
+        secret = settings.jwt_secret_key
         if not secret:
             raise AccessTokenSigningError("JWT secret key is not configured.")
         return SigningMaterial(
@@ -93,7 +93,7 @@ def resolve_verification_key(algorithm: str, kid: str | None):
     """Resolve the key required to verify an access token."""
 
     if algorithm == "HS256":
-        secret = settings.get("JWT_SECRET_KEY")
+        secret = settings.jwt_secret_key
         if not secret:
             raise AccessTokenVerificationError("JWT secret key is not configured.")
         return secret

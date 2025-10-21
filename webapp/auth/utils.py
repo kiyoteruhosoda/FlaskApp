@@ -104,8 +104,8 @@ def refresh_google_token(account):
         raise RefreshTokenError("no_refresh_token", 400)
 
     data = {
-        "client_id": settings.get("GOOGLE_CLIENT_ID"),
-        "client_secret": settings.get("GOOGLE_CLIENT_SECRET"),
+        "client_id": settings.google_client_id,
+        "client_secret": settings.google_client_secret,
         "grant_type": "refresh_token",
         "refresh_token": refresh_token,
     }

@@ -55,9 +55,10 @@ def _active_settings() -> "ApplicationSettings":
 def _config_value(config_key: str) -> str | None:
     """Return the configured value for *config_key* if available."""
 
-    value = _active_settings().get(config_key)
+    settings = _active_settings()
+    value = settings.storage.configured(config_key)
     if value:
-        return str(value)
+        return value
     return None
 
 
@@ -74,7 +75,7 @@ def storage_path_candidates(config_key: str) -> List[str]:
 
     settings = _active_settings()
     for env_name in _STORAGE_ENV_FALLBACKS.get(config_key, (config_key,)):
-        env_value = settings.get(env_name)
+        env_value = settings.storage.environment(env_name)
         if env_value and env_value not in seen:
             candidates.append(env_value)
             seen.add(env_value)

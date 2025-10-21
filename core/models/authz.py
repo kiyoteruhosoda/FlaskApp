@@ -10,7 +10,7 @@ def require_perms(*perm_codes):
         @wraps(fn)
         @login_required
         def wrapper(*a, **kw):
-            if settings.get_bool("LOGIN_DISABLED"):
+            if settings.login_disabled:
                 return fn(*a, **kw)
             if not current_user.can(*perm_codes):
                 abort(403)

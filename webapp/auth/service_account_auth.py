@@ -41,7 +41,7 @@ class _ServiceAccountJTIStore:
 
     @staticmethod
     def _get_client():
-        redis_url = settings.get("REDIS_URL")
+        redis_url = settings.redis_url
         if not redis_url:
             raise ServiceAccountJWTError(
                 "JTICheckFailed",

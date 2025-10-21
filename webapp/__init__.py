@@ -384,13 +384,8 @@ def _build_error_log_extra(event_name: str, jwt_details: Optional[Dict[str, Any]
 
 
 def _resolve_translation_directories() -> list[str]:
-    directories_config = settings.get("BABEL_TRANSLATION_DIRECTORIES", "")
-    if isinstance(directories_config, str):
-        candidates = [segment.strip() for segment in directories_config.split(";")]
-    elif isinstance(directories_config, (list, tuple, set)):
-        candidates = [str(segment).strip() for segment in directories_config]
-    else:
-        candidates = []
+    directories_config = settings.babel_translation_directories
+    candidates = [directory for directory in directories_config if directory]
     return [str(Path(candidate)) for candidate in candidates if candidate]
 
 
@@ -430,7 +425,7 @@ def _translate_message(message: str) -> str:
                 if base and base not in locale_candidates:
                     locale_candidates.append(base)
 
-    default_locale = settings.get("BABEL_DEFAULT_LOCALE")
+    default_locale = settings.babel_default_locale
     if isinstance(default_locale, str) and default_locale:
         if default_locale not in locale_candidates:
             locale_candidates.append(default_locale)
@@ -540,13 +535,8 @@ def _configure_cors(app: Flask) -> None:
     """Configure Cross-Origin Resource Sharing based on application settings."""
 
     def _current_allowed_origins() -> tuple[str, ...]:
-        config_value = settings.get("CORS_ALLOWED_ORIGINS", ())
-        if isinstance(config_value, str):
-            origins = tuple(segment.strip() for segment in config_value.split(",") if segment.strip())
-        elif isinstance(config_value, (list, tuple, set)):
-            origins = tuple(str(value).strip() for value in config_value if str(value).strip())
-        else:
-            origins = ()
+        config_value = settings.cors_allowed_origins
+        origins = tuple(value for value in config_value if value)
         app.config["CORS_ALLOWED_ORIGINS"] = origins
         return origins
 
@@ -800,8 +790,8 @@ def create_app():
 
     with app.app_context():
         _apply_persisted_settings(app)
-        database_uri = settings.get("SQLALCHEMY_DATABASE_URI")
-        testing_mode = settings.get_bool("TESTING")
+        database_uri = settings.sqlalchemy_database_uri
+        testing_mode = settings.testing
 
     if testing_mode and isinstance(database_uri, str) and database_uri.startswith("sqlite:///"):
         db_path = database_uri.replace("sqlite:///", "", 1)
@@ -812,12 +802,12 @@ def create_app():
                 pass
 
     env_overrides = {
-        "FPV_TMP_DIR": settings.get("FPV_TMP_DIR"),
-        "FPV_NAS_ORIGINALS_DIR": settings.get("FPV_NAS_ORIGINALS_DIR"),
-        "FPV_NAS_PLAY_DIR": settings.get("FPV_NAS_PLAY_DIR"),
-        "FPV_NAS_THUMBS_DIR": settings.get("FPV_NAS_THUMBS_DIR"),
-        "LOCAL_IMPORT_DIR": settings.get("LOCAL_IMPORT_DIR"),
-        "FPV_DL_SIGN_KEY": settings.get("FPV_DL_SIGN_KEY"),
+        "FPV_TMP_DIR": settings.tmp_directory_configured,
+        "FPV_NAS_ORIGINALS_DIR": settings.nas_originals_directory_configured,
+        "FPV_NAS_PLAY_DIR": settings.nas_play_directory_configured,
+        "FPV_NAS_THUMBS_DIR": settings.nas_thumbs_directory_configured,
+        "LOCAL_IMPORT_DIR": settings.local_import_directory_configured,
+        "FPV_DL_SIGN_KEY": settings.fpv_download_signing_key,
     }
     for key, value in env_overrides.items():
         if value:
@@ -853,9 +843,7 @@ def create_app():
     _configure_cors(app)
 
     with app.app_context():
-        configured_servers = (
-            (settings.get("API_SPEC_OPTIONS", {}) or {}).get("servers")
-        )
+        configured_servers = (settings.api_spec_options or {}).get("servers")
 
     @app.before_request
     def _refresh_openapi_server_urls():
@@ -864,7 +852,7 @@ def create_app():
         spec = getattr(smorest_api, "spec", None)
         if spec is None:
             return
-        prefix = _normalize_openapi_prefix(settings.get("OPENAPI_URL_PREFIX", "/api"))
+        prefix = _normalize_openapi_prefix(settings.openapi_url_prefix)
         server_urls = _calculate_openapi_server_urls(prefix)
         spec.options["servers"] = [{"url": url} for url in server_urls]
 
@@ -877,21 +865,21 @@ def create_app():
     @app.before_request
     def _set_request_timezone():
         tz_cookie = request.cookies.get("tz")
-        fallback = settings.get("BABEL_DEFAULT_TIMEZONE", "UTC")
+        fallback = settings.babel_default_timezone
         tz_name, tzinfo = resolve_timezone(tz_cookie, fallback)
         g.user_timezone_name = tz_name
         g.user_timezone = tzinfo
 
     @app.context_processor
     def inject_version():
-        languages = [str(lang).strip() for lang in settings.get("LANGUAGES", ["ja", "en"]) if lang]
+        languages = [str(lang).strip() for lang in settings.languages if str(lang).strip()]
         if not languages:
-            default_language = settings.get("BABEL_DEFAULT_LOCALE", "en")
+            default_language = settings.babel_default_locale or "en"
             if default_language:
                 languages = [default_language]
 
-        default_language = settings.get(
-            "BABEL_DEFAULT_LOCALE", languages[0] if languages else "en"
+        default_language = settings.babel_default_locale or (
+            languages[0] if languages else "en"
         )
 
         locale_obj = get_locale()
@@ -952,8 +940,7 @@ def create_app():
         # removed because the template already provides them.
         return json.dumps(value, ensure_ascii=False)[1:-1]
 
-    testing_env = str(settings.get("TESTING", "")).strip().lower()
-    disable_db_logging = testing_mode or testing_env in {"1", "true", "yes", "on"}
+    disable_db_logging = testing_mode or settings.testing
 
     # Logging configuration
     if not disable_db_logging:
@@ -1058,7 +1045,7 @@ def create_app():
 
     @app.before_request
     def _apply_login_disabled_for_testing():
-        if settings.get_bool("TESTING"):
+        if settings.testing:
             app.config['LOGIN_DISABLED'] = True
 
     @app.before_request
@@ -1382,7 +1369,7 @@ def create_app():
         return {}, 204  # 空レスポンスを返す
 
     with app.app_context():
-        db_uri = settings.get("SQLALCHEMY_DATABASE_URI", "")
+        db_uri = settings.sqlalchemy_database_uri or ""
         if isinstance(db_uri, str) and db_uri.startswith("sqlite://"):
             db.create_all()
 
@@ -1394,10 +1381,10 @@ def _select_locale():
     from flask import current_app
 
     if not has_request_context():
-        return settings.get("BABEL_DEFAULT_LOCALE", "en")
+        return settings.babel_default_locale or "en"
 
     cookie_lang = request.cookies.get("lang")
-    languages = [lang for lang in settings.get("LANGUAGES", []) if lang]
+    languages = [lang for lang in settings.languages if lang]
     if cookie_lang in languages:
         return cookie_lang
 
@@ -1405,7 +1392,7 @@ def _select_locale():
     if best_match:
         return best_match
 
-    return settings.get("BABEL_DEFAULT_LOCALE", "en")
+    return settings.babel_default_locale or "en"
 
 
 def register_cli_commands(app):

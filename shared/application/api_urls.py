@@ -17,7 +17,7 @@ def get_api_base_url() -> str:
     trailing slash, if present, is removed to keep the base consistent.
     """
 
-    base_url = settings.get("API_BASE_URL", DEFAULT_API_BASE_URL)
+    base_url = settings.api_base_url or DEFAULT_API_BASE_URL
     return base_url.rstrip("/")
 
 

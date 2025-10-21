@@ -74,7 +74,7 @@ def _ensure_directory(path: Path) -> None:
 
 
 def _tmp_base_dir() -> Path:
-    return Path(settings.get("UPLOAD_TMP_DIR", "/app/data/tmp/upload"))
+    return settings.upload_tmp_directory
 
 
 def _resolve_local_import_directory() -> Optional[Path]:
@@ -82,7 +82,9 @@ def _resolve_local_import_directory() -> Optional[Path]:
 
     candidate = first_existing_storage_path("LOCAL_IMPORT_DIR")
     if candidate is None:
-        candidate = settings.get("LOCAL_IMPORT_DIR") or Config.LOCAL_IMPORT_DIR
+        candidate = (
+            settings.local_import_directory_configured or Config.LOCAL_IMPORT_DIR
+        )
     if not candidate:
         return None
 
@@ -103,7 +105,7 @@ def _resolve_local_import_directory() -> Optional[Path]:
 
 
 def _max_upload_size() -> int:
-    return settings.get_int("UPLOAD_MAX_SIZE", 100 * 1024 * 1024)
+    return settings.upload_max_size
 
 
 def _determine_session_dir(session_id: str) -> Path:

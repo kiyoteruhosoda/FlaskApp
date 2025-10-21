@@ -379,19 +379,15 @@ def register_no_totp():
 @bp.route("/profile", methods=["GET", "POST"])
 @login_required
 def profile():
-    languages_raw = settings.get("LANGUAGES", ["ja", "en"])
-    if isinstance(languages_raw, str):
-        languages_iterable = [segment.strip() for segment in languages_raw.split(",")]
-    else:
-        languages_iterable = list(languages_raw or [])
+    languages_iterable = list(settings.languages)
     languages = [lang for lang in languages_iterable if lang]
     if not languages:
-        languages = [settings.get("BABEL_DEFAULT_LOCALE", "en")]
+        languages = [settings.babel_default_locale or "en"]
     language_labels = {
         "ja": _("Japanese"),
         "en": _("English"),
     }
-    default_language = settings.get("BABEL_DEFAULT_LOCALE", languages[0])
+    default_language = settings.babel_default_locale or languages[0]
     if default_language not in language_labels:
         language_labels[default_language] = default_language
 
@@ -400,7 +396,7 @@ def profile():
     if selected_language not in languages:
         selected_language = fallback_language or default_language
 
-    default_timezone = settings.get("BABEL_DEFAULT_TIMEZONE", "UTC")
+    default_timezone = settings.babel_default_timezone
     timezone_codes = list(PROFILE_TIMEZONES)
     if default_timezone not in timezone_codes:
         timezone_codes.insert(0, default_timezone)
@@ -622,8 +618,8 @@ def google_oauth_callback():
 
     token_data = {
         "code": code,
-        "client_id": settings.get("GOOGLE_CLIENT_ID"),
-        "client_secret": settings.get("GOOGLE_CLIENT_SECRET"),
+        "client_id": settings.google_client_id,
+        "client_secret": settings.google_client_secret,
         "redirect_uri": url_for("auth.google_oauth_callback", _external=True),
         "grant_type": "authorization_code",
     }

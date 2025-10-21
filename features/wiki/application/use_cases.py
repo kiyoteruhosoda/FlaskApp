@@ -393,7 +393,7 @@ class WikiMediaUploadUseCase:
         if self._destination_dir is not None:
             base_dir = self._destination_dir
         else:
-            configured = settings.get("WIKI_UPLOAD_DIR") or Config.WIKI_UPLOAD_DIR
+            configured = settings.wiki_upload_directory or Config.WIKI_UPLOAD_DIR
             base_dir = Path(configured)
 
         try:

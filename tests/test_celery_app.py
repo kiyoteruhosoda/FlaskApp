@@ -93,13 +93,13 @@ class TestFlaskAppCreation:
             assert db.app == app
     
     def test_flask_app_config_inheritance(self):
-        """Test that Flask app inherits from Config class."""
+        """Test that Flask app inherits from BaseApplicationSettings class."""
         from cli.src.celery.celery_app import flask_app
-        from webapp.config import Config
+        from webapp.config import BaseApplicationSettings
         
         # Test some basic config values that should be inherited
         assert hasattr(flask_app.config, 'SQLALCHEMY_TRACK_MODIFICATIONS')
-        assert flask_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] == Config.SQLALCHEMY_TRACK_MODIFICATIONS
+        assert flask_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] == BaseApplicationSettings.SQLALCHEMY_TRACK_MODIFICATIONS
 
 
 class TestContextTask:
@@ -303,7 +303,7 @@ class TestCeleryModuleImports:
     def test_webapp_modules_import(self):
         """Test that webapp modules can be imported in Celery context."""
         try:
-            from webapp.config import Config
+            from webapp.config import BaseApplicationSettings
             from webapp.extensions import migrate, login_manager, babel
             assert True  # If we get here, imports succeeded
         except ImportError as e:

@@ -13,8 +13,8 @@ def _default(name: str):
     return DEFAULT_APPLICATION_SETTINGS.get(name)
 
 
-class Config:
-    """Base configuration populated from persisted system settings."""
+class BaseApplicationSettings:
+    """Base Flask application configuration populated from persisted system settings."""
 
     SECRET_KEY = _default("SECRET_KEY")
     JWT_SECRET_KEY = _default("JWT_SECRET_KEY")
@@ -96,7 +96,7 @@ class Config:
     CORS_ALLOWED_ORIGINS: tuple[str, ...] = ()
 
 
-class TestConfig(Config):
+class TestConfig(BaseApplicationSettings):
     """テスト用の設定クラス"""
 
     TESTING = True

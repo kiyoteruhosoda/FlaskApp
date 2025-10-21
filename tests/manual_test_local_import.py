@@ -16,7 +16,7 @@ from webapp import create_app
 from core.tasks.local_import import local_import_task, scan_import_directory
 from core.models.picker_session import PickerSession
 from core.models.photo_models import PickerSelection
-from webapp.config import Config
+from webapp.config import BaseApplicationSettings
 from core.tasks.local_import import local_import_task, scan_import_directory
 
 def create_test_files(import_dir: str) -> list:

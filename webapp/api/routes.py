@@ -3694,7 +3694,7 @@ def _prepare_local_import_path(path_value):
 
 
 def _resolve_local_import_config():
-    from webapp.config import Config
+    from webapp.config import BaseApplicationSettings
 
     directory_specs = [
         ("LOCAL_IMPORT_DIR", "import", settings.local_import_directory_configured),
@@ -3714,7 +3714,7 @@ def _resolve_local_import_config():
     directories: list[dict[str, Any]] = []
 
     for config_key, key, configured_value in directory_specs:
-        configured_value = configured_value or getattr(Config, config_key, None) or None
+        configured_value = configured_value or getattr(BaseApplicationSettings, config_key, None) or None
 
         candidates = storage_path_candidates(config_key)
         resolved_path = first_existing_storage_path(config_key)

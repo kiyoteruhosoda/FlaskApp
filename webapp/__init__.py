@@ -738,14 +738,14 @@ def _apply_persisted_settings(app: Flask) -> None:
 def create_app():
     """アプリケーションファクトリ"""
     from dotenv import load_dotenv
-    from .config import Config
+    from .config import BaseApplicationSettings
     from werkzeug.middleware.proxy_fix import ProxyFix
 
     # .env を読み込む（環境変数が未設定の場合のみ）
     load_dotenv()
 
     app = Flask(__name__)
-    app.config.from_object(Config)
+    app.config.from_object(BaseApplicationSettings)
     app.config.setdefault("LAST_BEAT_AT", None)
     app.config.setdefault("API_TITLE", "nolumia API")
     app.config.setdefault("API_VERSION", "1.0.0")

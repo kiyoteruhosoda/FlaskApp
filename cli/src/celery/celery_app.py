@@ -13,7 +13,7 @@ from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 from core.models.job_sync import JobSync
 from core.logging_config import log_task_info
 from core.settings import settings
-from webapp.config import Config
+from webapp.config import BaseApplicationSettings
 
 # .envファイルを読み込み
 load_dotenv()
@@ -22,7 +22,7 @@ load_dotenv()
 def create_app():
     """Create and configure Flask app for Celery."""
     app = Flask(__name__)
-    app.config.from_object(Config)
+    app.config.from_object(BaseApplicationSettings)
     
     # Initialize database
     db.init_app(app)

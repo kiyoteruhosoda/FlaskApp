@@ -127,5 +127,3 @@ class User(db.Model, UserMixin):
             return self.email.split('@')[0]
         return 'Unknown User'
 
-def load_user(user_id):
-    return User.query.get(int(user_id))

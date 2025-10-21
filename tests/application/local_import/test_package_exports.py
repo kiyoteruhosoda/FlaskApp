@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import importlib
+import pytest
 
 
-def test_local_import_package_exposes_public_api(monkeypatch) -> None:
+def test_local_import_package_exposes_public_api(monkeypatch: pytest.MonkeyPatch) -> None:
     package = importlib.reload(importlib.import_module("features.photonest.application.local_import"))
     direct_logger = importlib.import_module(
         "features.photonest.application.local_import.logger"

@@ -548,16 +548,26 @@ def profile():
     server_time_utc = datetime.now(timezone.utc)
     localized_time = convert_to_timezone(server_time_utc, tzinfo)
 
+    raw_roles = list(getattr(current_user, "roles", []))
+    role_options = [
+        role
+        for role in raw_roles
+        if hasattr(role, "id") and getattr(role, "id", None) is not None
+    ]
     if request.method == "POST":
         action = request.form.get("action", "update-preferences")
         if action == "switch-role":
             response = make_response(redirect(url_for("auth.profile")))
             role_choice = request.form.get("active_role")
-            available_roles = {str(role.id): role for role in current_user.roles}
+            available_roles = {str(role.id): role for role in role_options}
 
             if role_choice and role_choice in available_roles:
                 session["active_role_id"] = available_roles[role_choice].id
                 flash(_("Active role switched to %(role)s.", role=available_roles[role_choice].name), "success")
+                return response
+
+            if not role_options:
+                flash(_("Role switching is not available for this account."), "error")
                 return response
 
             flash(_("Invalid role selection."), "error")
@@ -629,7 +639,8 @@ def profile():
         selected_timezone=selected_timezone,
         server_time_utc=server_time_utc,
         localized_time=localized_time,
-        active_role=current_user.active_role,
+        active_role=getattr(current_user, "active_role", None),
+        role_options=role_options,
     )
 
 

@@ -98,10 +98,18 @@ def _render_login_template():
 
 def _pop_role_selection_target() -> str:
     """ロール選択後の遷移先を取得する。"""
-    candidate = session.pop("role_selection_next", None) or request.args.get("next")
+    candidate = session.pop("role_selection_next", None) or request.values.get("next")
     if candidate and candidate.startswith("/") and not candidate.startswith("//"):
         return candidate
     return url_for("dashboard.dashboard")
+
+
+def _peek_role_selection_target() -> str | None:
+    """ロール選択ページで使用する予定の遷移先を取得する。"""
+    candidate = session.get("role_selection_next") or request.args.get("next")
+    if candidate and candidate.startswith("/") and not candidate.startswith("//"):
+        return candidate
+    return None
 
 
 def _login_with_domain_user(user, redirect_target=None):
@@ -242,6 +250,7 @@ def select_role():
         "auth/select_role.html",
         roles=roles,
         selected_role_id=selected_role_id,
+        next_target=_peek_role_selection_target(),
     )
 
 @bp.route("/register", methods=["GET", "POST"])

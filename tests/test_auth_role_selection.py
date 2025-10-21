@@ -1,5 +1,6 @@
 import os
 import uuid
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 
@@ -170,7 +171,10 @@ def test_api_login_requires_role_selection(client, app):
     assert res.status_code == 200
     data = res.get_json()
     assert data["requires_role_selection"] is True
-    assert data["redirect_url"].endswith("/auth/select-role")
+    redirect_url = data["redirect_url"]
+    parsed_redirect = urlparse(redirect_url)
+    assert parsed_redirect.path == "/auth/select-role"
+    assert parse_qs(parsed_redirect.query).get("next") == ["/dashboard/library"]
     assert "access_token" in data and "refresh_token" in data
     assert data["token_type"] == "Bearer"
 

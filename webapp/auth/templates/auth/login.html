@@ -236,11 +236,12 @@ document.addEventListener('DOMContentLoaded', function() {
       const formData = new FormData(form);
       const storedRedirectPath = localStorage.getItem('redirect_after_login');
       const emailValue = (formData.get('email') || '').trim().toLowerCase();
+      const formNextValue = (formData.get('next') || '').trim();
       const loginData = {
         email: formData.get('email'),
         password: formData.get('password'),
         token: formData.get('token') || null,
-        next: storedRedirectPath || null
+        next: storedRedirectPath || (formNextValue.length > 0 ? formNextValue : null)
       };
 
       let scopeStorageKey = null;

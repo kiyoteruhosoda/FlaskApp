@@ -43,7 +43,7 @@ def __getattr__(name: str) -> Any:
     return getattr(module, attribute)
 
 
-def __dir__() -> Tuple[str, ...]:
+def __dir__() -> tuple[str, ...]:
     """Provide module attributes for ``dir()`` introspection."""
 
     return tuple(sorted(__all__))

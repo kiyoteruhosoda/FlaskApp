@@ -1769,7 +1769,7 @@ def api_login(data):
             "refresh_token": refresh_token,
             "token_type": "Bearer",
             "requires_role_selection": True,
-            "redirect_url": url_for("auth.select_role"),
+            "redirect_url": url_for("auth.select_role", next=redirect_target),
             "scope": scope_str,
             "available_scopes": sorted(user_permissions),
         }

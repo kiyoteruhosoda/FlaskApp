@@ -8,11 +8,11 @@ from celery.exceptions import Retry as CeleryRetry
 from dotenv import load_dotenv
 from flask import Flask
 
+from core.celery_settings import CelerySettings
 from core.db import db
 from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 from core.models.job_sync import JobSync
 from core.logging_config import log_task_info
-from core.settings import settings
 from webapp.config import BaseApplicationSettings
 
 # .envファイルを読み込み
@@ -36,20 +36,16 @@ def create_app():
     return app
 
 # Create Celery instance
+celery_runtime_settings = CelerySettings.from_application_settings()
+
 celery = Celery(
     'cli.src.celery.celery_app',
-    broker=settings.celery_broker_url,
-    backend=settings.celery_result_backend,
+    broker=celery_runtime_settings.broker_url,
+    backend=celery_runtime_settings.result_backend,
 )
 
 # Configure Celery
-celery.conf.update(
-    task_serializer='json',
-    accept_content=['json'],
-    result_serializer='json',
-    timezone='Asia/Tokyo',
-    enable_utc=True,
-)
+celery.conf.update(celery_runtime_settings.as_mapping())
 
 # Create Flask app context for Celery tasks
 flask_app = create_app()

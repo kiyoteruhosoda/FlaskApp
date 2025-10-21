@@ -84,15 +84,6 @@ class BaseApplicationSettings:
     LOCAL_IMPORT_DIR = _default("LOCAL_IMPORT_DIR")
     FPV_NAS_ORIGINALS_DIR = _default("FPV_NAS_ORIGINALS_DIR")
 
-    # Celery settings
-    broker_url = _default("CELERY_BROKER_URL")
-    result_backend = _default("CELERY_RESULT_BACKEND")
-    task_serializer = "json"
-    result_serializer = "json"
-    accept_content = ["json"]
-    timezone = "UTC"
-    enable_utc = True
-
     CORS_ALLOWED_ORIGINS: tuple[str, ...] = ()
 
 

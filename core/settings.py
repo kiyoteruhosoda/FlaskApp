@@ -61,6 +61,16 @@ class ApplicationSettings:
             return app.config.get(key)
         return self._env.get(key, default)
 
+    @property
+    def preferred_url_scheme(self) -> Optional[str]:
+        """Return the preferred external URL scheme if configured."""
+
+        value = self._get("PREFERRED_URL_SCHEME")
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
+
     # ------------------------------------------------------------------
     # Storage paths
     # ------------------------------------------------------------------

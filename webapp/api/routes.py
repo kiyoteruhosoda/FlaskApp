@@ -144,9 +144,9 @@ def _determine_external_scheme() -> str:
         if proto:
             return proto.lower()
 
-    preferred_scheme = current_app.config.get("PREFERRED_URL_SCHEME")
+    preferred_scheme = settings.preferred_url_scheme
     if preferred_scheme:
-        return str(preferred_scheme).strip().lower()
+        return preferred_scheme.lower()
 
     env_scheme = request.scheme or request.environ.get("wsgi.url_scheme")
     if env_scheme:
@@ -1921,7 +1921,9 @@ def google_oauth_start():
     
     # デバッグ情報を追加
     current_app.logger.info(f"OAuth start - Headers: {dict(request.headers)}")
-    current_app.logger.info(f"OAuth start - PREFERRED_URL_SCHEME: {current_app.config.get('PREFERRED_URL_SCHEME')}")
+    current_app.logger.info(
+        f"OAuth start - PREFERRED_URL_SCHEME: {settings.preferred_url_scheme}"
+    )
     
     callback_scheme = _determine_external_scheme()
     callback_url = url_for(
@@ -1932,7 +1934,7 @@ def google_oauth_start():
     current_app.logger.info(f"OAuth start - Generated callback URL: {callback_url}")
     
     params = {
-        "client_id": current_app.config.get("GOOGLE_CLIENT_ID"),
+        "client_id": settings.google_client_id,
         "redirect_uri": callback_url,
         "response_type": "code",
         "scope": " ".join(sorted_scopes),
@@ -1958,7 +1960,7 @@ def debug_request_info():
         "host": request.host,
         "scheme": request.scheme,
         "config": {
-            "PREFERRED_URL_SCHEME": current_app.config.get("PREFERRED_URL_SCHEME"),
+            "PREFERRED_URL_SCHEME": settings.preferred_url_scheme,
         }
     }
     

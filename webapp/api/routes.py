@@ -125,6 +125,36 @@ _STORAGE_DEFAULTS = _storage_paths._STORAGE_DEFAULTS
 JWT_BEARER_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:jwt-bearer"
 
 
+def _determine_external_scheme() -> str:
+    """Return the preferred scheme for externally visible URLs."""
+
+    forwarded_header = request.headers.get("Forwarded", "")
+    if forwarded_header:
+        for part in forwarded_header.split(","):
+            for attribute in part.split(";"):
+                attribute = attribute.strip()
+                if attribute.lower().startswith("proto="):
+                    value = attribute.split("=", 1)[1].strip().strip('"')
+                    if value:
+                        return value.strip().lower()
+
+    x_forwarded_proto = request.headers.get("X-Forwarded-Proto", "")
+    if x_forwarded_proto:
+        proto = x_forwarded_proto.split(",")[0].strip()
+        if proto:
+            return proto.lower()
+
+    preferred_scheme = settings.preferred_url_scheme
+    if preferred_scheme:
+        return preferred_scheme.lower()
+
+    env_scheme = request.scheme or request.environ.get("wsgi.url_scheme")
+    if env_scheme:
+        return str(env_scheme).strip().lower()
+
+    return "https"
+
+
 def _service_account_assertion_error(
     exc: ServiceAccountJWTError,
 ) -> tuple[dict[str, str], int]:
@@ -1895,7 +1925,12 @@ def google_oauth_start():
         f"OAuth start - PREFERRED_URL_SCHEME: {settings.preferred_url_scheme}"
     )
     
-    callback_url = url_for("auth.google_oauth_callback", _external=True)
+    callback_scheme = _determine_external_scheme()
+    callback_url = url_for(
+        "auth.google_oauth_callback",
+        _external=True,
+        _scheme=callback_scheme,
+    )
     current_app.logger.info(f"OAuth start - Generated callback URL: {callback_url}")
     
     params = {

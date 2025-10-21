@@ -548,7 +548,7 @@ def profile():
     server_time_utc = datetime.now(timezone.utc)
     localized_time = convert_to_timezone(server_time_utc, tzinfo)
 
-    raw_roles = list(getattr(current_user, "roles", []) or [])
+    raw_roles = list(getattr(current_user, "roles", []))
     role_options = [
         role
         for role in raw_roles

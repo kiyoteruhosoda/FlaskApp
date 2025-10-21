@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>{{ overview_title }}</title>
+  <link rel="stylesheet" href="https://cdn.datatables.net/2.0.5/css/dataTables.dataTables.min.css">
+  <script src="https://cdn.datatables.net/2.0.5/js/dataTables.min.js"></script>
+  <style>
+    body { font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif; margin: 2em; color: #222; }
+    h1 { margin-bottom: 0.5em; }
+    .scope-filter { margin-bottom: 1.5em; padding: 0.4em 0.6em; font-size: 1rem; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 0.6em; text-align: left; vertical-align: top; }
+    th { background-color: #f5f7fa; }
+    tbody tr:nth-child(even) { background-color: #fafafa; }
+    .method-path { font-weight: 600; }
+    .icon { font-size: 1.2em; }
+    .method-badge { display: inline-block; min-width: 3.4em; padding: 0.2em 0.5em; border-radius: 0.4em; text-align: center; color: #fff; margin-right: 0.4em; font-size: 0.85em; }
+    .method-GET { background-color: #2d9cdb; }
+    .method-POST { background-color: #27ae60; }
+    .method-PUT { background-color: #f2994a; }
+    .method-DELETE { background-color: #eb5757; }
+    .method-PATCH { background-color: #bb6bd9; }
+    .method-OPTIONS { background-color: #828282; }
+    .method-HEAD { background-color: #56ccf2; }
+    .method-TRACE { background-color: #4f4f4f; }
+    .description-cell { white-space: pre-wrap; }
+    .table-container { overflow-x: auto; }
+    .controls { display: flex; flex-wrap: wrap; gap: 1em; align-items: center; margin-bottom: 1em; }
+    .controls label { font-weight: 600; }
+  </style>
+</head>
+<body>
+  <h1>{{ overview_title }}</h1>
+
+  <div class="controls">
+    <label for="scopeFilter">Scopeで絞り込み：</label>
+    <select id="scopeFilter" class="scope-filter">
+      <option value="">すべて</option>
+    </select>
+    {% if swagger_ui_url %}
+    <a href="{{ swagger_ui_url }}" target="_blank" rel="noopener" style="margin-left:auto;">Swagger UIを開く</a>
+    {% endif %}
+  </div>
+
+  <div class="table-container">
+    <table id="apiTable" class="display">
+      <thead>
+        <tr>
+          <th>APIパス</th>
+          <th>引数</th>
+          <th>必要なscope</th>
+          <th>説明</th>
+          <th>認証方式</th>
+        </tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    const apiData = {{ api_entries | tojson }};
+    const authIcons = {{ auth_icons | tojson }};
+    const scopeOptions = {{ scope_options | tojson }};
+
+    function authIconsFor(entry) {
+      if (!entry.auth || entry.auth.length === 0) {
+        return authIcons.unknown || '❓';
+      }
+      return entry.auth.map(key => authIcons[key] || authIcons.unknown || '❓').join(' ');
+    }
+
+    function populateScopeFilter() {
+      const select = document.getElementById('scopeFilter');
+      const uniqueScopes = Array.from(new Set((scopeOptions || []).filter(Boolean))).sort();
+      uniqueScopes.forEach(scope => {
+        const option = document.createElement('option');
+        option.value = scope;
+        option.textContent = scope;
+        select.appendChild(option);
+      });
+    }
+
+    function escapeRegExp(value) {
+      return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const tbody = document.querySelector('#apiTable tbody');
+      apiData.forEach(entry => {
+        const row = document.createElement('tr');
+
+        const methodCell = document.createElement('td');
+        const container = document.createElement(entry.link ? 'a' : 'span');
+        if (entry.link) {
+          container.href = entry.link;
+          container.target = '_blank';
+          container.rel = 'noopener';
+        }
+
+        const badge = document.createElement('span');
+        badge.className = `method-badge method-${entry.method}`;
+        badge.textContent = entry.method;
+        container.appendChild(badge);
+
+        const pathLabel = document.createElement('span');
+        pathLabel.className = 'method-path';
+        pathLabel.textContent = entry.path;
+        container.appendChild(pathLabel);
+
+        methodCell.appendChild(container);
+        row.appendChild(methodCell);
+
+        const argsCell = document.createElement('td');
+        argsCell.textContent = entry.args || '';
+        row.appendChild(argsCell);
+
+        const scopeCell = document.createElement('td');
+        scopeCell.textContent = entry.scopes || '';
+        row.appendChild(scopeCell);
+
+        const descriptionCell = document.createElement('td');
+        descriptionCell.className = 'description-cell';
+        descriptionCell.textContent = entry.description || '';
+        row.appendChild(descriptionCell);
+
+        const authCell = document.createElement('td');
+        authCell.className = 'icon';
+        authCell.textContent = authIconsFor(entry);
+        row.appendChild(authCell);
+
+        tbody.appendChild(row);
+      });
+
+      populateScopeFilter();
+
+      const table = new DataTable('#apiTable', {
+        paging: true,
+        order: [[0, 'asc']],
+        language: {
+          url: 'https://cdn.datatables.net/plug-ins/2.0.5/i18n/ja.json'
+        }
+      });
+
+      const scopeSelect = document.getElementById('scopeFilter');
+      scopeSelect.addEventListener('change', (event) => {
+        const value = event.target.value;
+        if (!value) {
+          table.column(2).search('').draw();
+        } else {
+          const regex = `(?:^|\\s)${escapeRegExp(value)}(?:$|\\s)`;
+          table.column(2).search(regex, true, false).draw();
+        }
+      });
+    });
+  </script>
+</body>
+</html>

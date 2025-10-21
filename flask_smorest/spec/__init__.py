@@ -5,6 +5,8 @@ import http
 import click
 import flask
 
+from markupsafe import escape
+
 import apispec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from webargs.fields import DelimitedList
@@ -71,6 +73,7 @@ class DocBlueprintMixin:
                 view_func=self._openapi_json,
             )
             self._register_swagger_ui_rule(blueprint)
+            self._register_openapi_overview_rule(blueprint)
             self._app.register_blueprint(blueprint)
 
     def _register_swagger_ui_rule(self, blueprint):
@@ -98,6 +101,17 @@ class DocBlueprintMixin:
             mimetype="application/json",
         )
 
+    def _register_openapi_overview_rule(self, blueprint):
+        """Register interactive OpenAPI overview table."""
+
+        overview_path = self.config.get("OPENAPI_OVERVIEW_PATH")
+        if overview_path:
+            blueprint.add_url_rule(
+                _add_leading_slash(overview_path),
+                endpoint="openapi_overview",
+                view_func=self._openapi_overview,
+            )
+
     def _openapi_swagger_ui(self):
         """Expose OpenAPI spec with Swagger UI"""
         template_context = {}
@@ -123,21 +137,281 @@ class DocBlueprintMixin:
             except Exception:  # pragma: no cover - defensive, matches Flask behaviour
                 app.logger.exception("Swagger UI context processor failed", exc_info=True)
 
+        spec_url = flask.url_for(f"{self._make_doc_blueprint_name()}.openapi_json")
+        swagger_ui_config = self.config.get("OPENAPI_SWAGGER_UI_CONFIG", {})
+        swagger_ui_url = self._swagger_ui_url
+
         template_context.update(
             dict(
                 title=self.spec.title,
-                spec_url=flask.url_for(
-                    f"{self._make_doc_blueprint_name()}.openapi_json"
-                ),
-                swagger_ui_url=self._swagger_ui_url,
-                swagger_ui_config=self.config.get(
-                    "OPENAPI_SWAGGER_UI_CONFIG", {}
-                ),
+                spec_url=spec_url,
+                swagger_ui_url=swagger_ui_url,
+                swagger_ui_config=swagger_ui_config,
                 servers=list(self.spec.options.get("servers") or []),
             )
         )
 
-        return flask.render_template("swagger_ui.html", **template_context)
+        rendered = flask.render_template("swagger_ui.html", **template_context)
+
+        replacements = {
+            'url: "/api/openapi.json"': f"url: {flask.json.dumps(spec_url)}",
+            'var override_config = {"persistAuthorization": true};': (
+                "var override_config = "
+                f"{flask.json.dumps(swagger_ui_config or {})};"
+            ),
+            "<title>nolumia API</title>": (
+                f"<title>{escape(self.spec.title)}</title>"
+                if self.spec.title
+                else "<title>nolumia API</title>"
+            ),
+        }
+
+        if swagger_ui_url:
+            normalized_base = swagger_ui_url
+            if not normalized_base.endswith("/"):
+                normalized_base = f"{normalized_base}/"
+            replacements[
+                "https://cdn.jsdelivr.net/npm/swagger-ui-dist/"
+            ] = normalized_base
+
+        for needle, replacement in replacements.items():
+            if needle in rendered:
+                rendered = rendered.replace(needle, replacement)
+
+        response = flask.make_response(rendered)
+        response.headers.setdefault("Content-Type", "text/html; charset=utf-8")
+        return response
+
+    def _openapi_overview(self):
+        """Render an interactive HTML table summarising the OpenAPI operations."""
+
+        spec_dict = self.spec.to_dict()
+        components = spec_dict.get("components", {})
+        security_schemes = components.get("securitySchemes", {})
+        global_security = spec_dict.get("security")
+
+        http_methods = {
+            "get",
+            "put",
+            "post",
+            "delete",
+            "options",
+            "head",
+            "patch",
+            "trace",
+        }
+
+        try:
+            swagger_ui_url = flask.url_for(
+                f"{self._make_doc_blueprint_name()}.openapi_swagger_ui"
+            )
+        except RuntimeError:
+            swagger_ui_url = None
+
+        overview_title = (
+            flask.current_app.config.get("OPENAPI_OVERVIEW_TITLE")
+            or flask.current_app.config.get("API_TITLE", "API Overview")
+        )
+
+        def extend_unique(values, new_items):
+            for item in new_items:
+                if item and item not in values:
+                    values.append(item)
+
+        def resolve_ref(ref):
+            target = spec_dict
+            if not isinstance(ref, str) or not ref.startswith("#/"):
+                return {}
+            for segment in ref[2:].split("/"):
+                if not isinstance(target, dict):
+                    return {}
+                target = target.get(segment)
+                if target is None:
+                    return {}
+            if isinstance(target, dict):
+                return target
+            return {}
+
+        def collect_property_names(schema, visited_refs=None):
+            if visited_refs is None:
+                visited_refs = set()
+
+            if not isinstance(schema, dict):
+                return []
+
+            if "$ref" in schema:
+                ref = schema["$ref"]
+                if ref in visited_refs:
+                    return []
+                visited_refs.add(ref)
+                resolved = resolve_ref(ref)
+                names = collect_property_names(resolved, visited_refs)
+                visited_refs.remove(ref)
+                return names
+
+            names = []
+            for combinator in ("allOf", "oneOf", "anyOf"):
+                for sub_schema in schema.get(combinator, []) or []:
+                    extend_unique(names, collect_property_names(sub_schema, visited_refs))
+
+            properties = schema.get("properties", {})
+            if isinstance(properties, dict):
+                for prop_name, prop_schema in properties.items():
+                    extend_unique(names, [prop_name])
+                    extend_unique(names, collect_property_names(prop_schema, visited_refs))
+
+            if schema.get("type") == "array":
+                extend_unique(
+                    names, collect_property_names(schema.get("items", {}), visited_refs)
+                )
+
+            return names
+
+        def parameter_label(parameter):
+            name = parameter.get("name")
+            location = parameter.get("in")
+            if name and location:
+                return f"{name} ({location})"
+            return name or ""
+
+        def classify_security_scheme(scheme_name):
+            scheme = security_schemes.get(scheme_name, {})
+            scheme_type = (scheme.get("type") or "").lower()
+            if scheme_type == "http":
+                http_scheme = (scheme.get("scheme") or "").lower()
+                if http_scheme == "bearer":
+                    return "bearer"
+                if http_scheme == "basic":
+                    return "basic"
+                return http_scheme or "http"
+            if scheme_type == "apikey":
+                return "apikey"
+            if scheme_type == "oauth2":
+                return "oauth2"
+            if scheme_type == "openidconnect":
+                return "openid"
+            if scheme_name:
+                return scheme_name
+            return "unknown"
+
+        entries = []
+        scope_options = []
+
+        for path, path_item in (spec_dict.get("paths", {}) or {}).items():
+            if not isinstance(path_item, dict):
+                continue
+
+            path_parameters = [
+                param
+                for param in path_item.get("parameters", [])
+                if isinstance(param, dict)
+            ]
+
+            for method, operation in path_item.items():
+                method_lower = method.lower() if isinstance(method, str) else ""
+                if method_lower not in http_methods:
+                    continue
+                if not isinstance(operation, dict):
+                    continue
+
+                parameters = []
+                seen_params = set()
+
+                for param in path_parameters + list(operation.get("parameters", [])):
+                    if not isinstance(param, dict):
+                        continue
+                    key = (param.get("name"), param.get("in"))
+                    if key in seen_params:
+                        continue
+                    seen_params.add(key)
+                    label = parameter_label(param)
+                    if label:
+                        parameters.append(label)
+
+                request_body = operation.get("requestBody", {})
+                body_fields = []
+                if isinstance(request_body, dict):
+                    for media in (request_body.get("content") or {}).values():
+                        if not isinstance(media, dict):
+                            continue
+                        schema = media.get("schema", {})
+                        extend_unique(body_fields, collect_property_names(schema))
+                if body_fields and parameters:
+                    extend_unique(parameters, body_fields)
+                elif body_fields:
+                    parameters = body_fields
+
+                summary = operation.get("summary")
+                description = operation.get("description")
+                if summary and description:
+                    description_text = f"{summary} — {description}"
+                else:
+                    description_text = summary or description or ""
+
+                operation_security = operation.get("security")
+                if operation_security is None:
+                    operation_security = global_security
+
+                auth_categories = []
+                scopes_for_entry = []
+
+                if not operation_security:
+                    auth_categories = ["none"]
+                else:
+                    for requirement in operation_security:
+                        if not requirement:
+                            extend_unique(auth_categories, ["none"])
+                            continue
+                        for scheme_name, scheme_scopes in requirement.items():
+                            extend_unique(auth_categories, [classify_security_scheme(scheme_name)])
+                            if isinstance(scheme_scopes, list):
+                                extend_unique(scopes_for_entry, scheme_scopes)
+
+                extend_unique(scope_options, scopes_for_entry)
+
+                tags = operation.get("tags") or []
+                operation_id = operation.get("operationId")
+                swagger_link = None
+                if swagger_ui_url:
+                    if operation_id and tags:
+                        swagger_link = f"{swagger_ui_url}#/{tags[0]}/{operation_id}"
+                    else:
+                        swagger_link = swagger_ui_url
+
+                entries.append(
+                    {
+                        "path": path,
+                        "method": method_lower.upper(),
+                        "args": ", ".join(parameters),
+                        "scopes": " ".join(scopes_for_entry),
+                        "description": description_text,
+                        "auth": auth_categories or ["unknown"],
+                        "link": swagger_link,
+                    }
+                )
+
+        entries.sort(key=lambda item: (item["path"], item["method"]))
+
+        auth_icons = {
+            "bearer": "🔑",
+            "basic": "🧾",
+            "apikey": "🔏",
+            "oauth2": "🔐",
+            "openid": "🆔",
+            "http": "🌐",
+            "none": "🚫",
+            "unknown": "❓",
+        }
+
+        template_context = {
+            "api_entries": entries,
+            "auth_icons": auth_icons,
+            "overview_title": overview_title,
+            "scope_options": sorted(scope_options),
+            "swagger_ui_url": swagger_ui_url,
+        }
+
+        return flask.render_template("openapi_overview.html", **template_context)
 
 
 class APISpecMixin(DocBlueprintMixin):

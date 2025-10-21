@@ -666,8 +666,36 @@ def _calculate_openapi_server_urls(prefix: str) -> List[str]:
     urls: List[str] = []
     seen: set[str] = set()
 
+    def add_scheme(scheme: Optional[str]) -> None:
+        if not scheme:
+            return
+        normalized = scheme.strip().lower()
+        if normalized and normalized not in schemes:
+            schemes.append(normalized)
+
+    schemes: List[str] = []
+
+    forwarded_header = request.headers.get("Forwarded", "")
+    if forwarded_header:
+        for part in forwarded_header.split(","):
+            for attribute in part.split(";"):
+                attribute = attribute.strip()
+                if attribute.lower().startswith("proto="):
+                    value = attribute.split("=", 1)[1].strip().strip('"')
+                    add_scheme(value)
+
+    x_forwarded_proto = request.headers.get("X-Forwarded-Proto", "")
+    if x_forwarded_proto:
+        for proto in x_forwarded_proto.split(","):
+            add_scheme(proto)
+
+    add_scheme(request.scheme or request.environ.get("wsgi.url_scheme"))
+
+    if not schemes:
+        schemes = ["http"]
+
     if host:
-        for scheme in ("http", "https"):
+        for scheme in schemes:
             base = _build_base_url(scheme, host, script_root)
             add_url(urls, seen, base)
 
@@ -733,6 +761,8 @@ def create_app():
     app.config.setdefault("OPENAPI_URL_PREFIX", "/api")
     app.config.setdefault("OPENAPI_JSON_PATH", "openapi.json")
     app.config.setdefault("OPENAPI_SWAGGER_UI_PATH", "docs")
+    app.config.setdefault("OPENAPI_OVERVIEW_PATH", "overview")
+    app.config.setdefault("OPENAPI_OVERVIEW_TITLE", "API一覧")
     app.config.setdefault(
         "OPENAPI_SWAGGER_UI_URL",
         "https://cdn.jsdelivr.net/npm/swagger-ui-dist/",

@@ -1,7 +1,5 @@
 import json
 import re
-import textwrap
-
 import pytest
 
 from webapp.extensions import api as smorest_api
@@ -40,21 +38,10 @@ class TestOpenAPIDocs:
         assert response.status_code == 200
         html = response.get_data(as_text=True)
 
-        selectors_match = re.search(
-            r"const\s+SERVER_DROPDOWN_SELECTORS\s*=\s*'([^']+)'",
-            html,
-        )
-        assert (
-            selectors_match
-        ), 'SERVER_DROPDOWN_SELECTORS constant missing from Swagger UI template'
-        selectors_literal = selectors_match.group(1)
-        assert '#servers' in selectors_literal
         assert 'SwaggerUIBundle' in html
         assert 'url: "/api/openapi.json"' in html
         assert '<link rel="icon" type="image/x-icon" href="/static/favicon.ico">' in html
-        assert 'Version:' in html
-        assert 'renderRequiredScopes' in html
-        assert 'required-scopes-container' in html
+        assert 'persistAuthorization' in html
 
     def test_openapi_spec_respects_forwarded_headers(self, app_context):
         client = app_context.test_client()
@@ -99,157 +86,27 @@ class TestOpenAPIDocs:
             {'url': 'http://nolumia.com/api'},
         ]
 
-    def test_swagger_ui_embeds_clean_server_urls(self, app_context):
+    def test_openapi_overview_table_renders_endpoints(self, app_context):
         client = app_context.test_client()
-        headers = {
-            'Forwarded': 'proto=https;host="nolumia.com"',
-            'X-Forwarded-Proto': 'http',
-        }
-
-        response = client.get('/api/docs', base_url='http://nolumia.com', headers=headers)
+        response = client.get('/api/overview')
         assert response.status_code == 200
 
         html = response.get_data(as_text=True)
-        assert 'window.__INITIAL_OPENAPI_SERVERS__' in html
-        assert 'https://nolumia.com/api' in html
-        assert 'https\\://nolumia.com/api' not in html
+        assert '<table id="apiTable"' in html
+        assert 'https://cdn.datatables.net/2.0.5/js/dataTables.min.js' in html
+        assert 'Scopeで絞り込み' in html
 
-    def test_swagger_ui_server_dropdown_renders_clean_values(self, app_context):
-        try:
-            import js2py  # type: ignore
-        except ImportError:  # pragma: no cover - handled below
-            js2py = None
+        match = re.search(r'const\s+apiData\s*=\s*(\[.*?\]);', html, re.S)
+        assert match, 'apiData JavaScript assignment missing'
+        api_data = json.loads(match.group(1))
 
-        client = app_context.test_client()
-        headers = {
-            'Forwarded': 'proto=https;host="nolumia.com"',
-            'X-Forwarded-Proto': 'http',
-        }
-
-        response = client.get('/api/docs', base_url='http://nolumia.com', headers=headers)
-        assert response.status_code == 200
-
-        html = response.get_data(as_text=True)
-
-        selectors_match = re.search(
-            r"const\s+SERVER_DROPDOWN_SELECTORS\s*=\s*'([^']+)'",
-            html,
+        login_entry = next(
+            (item for item in api_data if item.get('path') == '/login' and item.get('method') == 'POST'),
+            None,
         )
-        assert (
-            selectors_match
-        ), 'SERVER_DROPDOWN_SELECTORS constant missing from Swagger UI template'
-        selectors_literal = selectors_match.group(1)
-        assert '#servers' in selectors_literal
-
-        marker = "function sanitizeServerOptions()"
-        start = html.find(marker)
-        assert start != -1, 'sanitizeServerOptions function missing from Swagger UI template'
-
-        brace_start = html.find('{', start)
-        assert brace_start != -1, 'sanitizeServerOptions function body not found'
-
-        depth = 0
-        end = brace_start
-        while end < len(html):
-            char = html[end]
-            if char == '{':
-                depth += 1
-            elif char == '}':
-                depth -= 1
-                if depth == 0:
-                    end += 1
-                    break
-            end += 1
-
-        assert depth == 0, 'sanitizeServerOptions function braces not balanced'
-        sanitize_fn = html[start:end]
-
-        js_template = textwrap.dedent("""
-            (function() {
-                var SERVER_DROPDOWN_SELECTORS = '__SERVER_SELECTORS__';
-
-                function createOption(initialValue) {
-                    return {
-                        value: initialValue,
-                        textContent: initialValue,
-                        attributes: {},
-                        setAttribute: function(name, val) { this.attributes[name] = val; },
-                        getAttribute: function(name) {
-                            if (Object.prototype.hasOwnProperty.call(this.attributes, name)) {
-                                return this.attributes[name];
-                            }
-                            return this[name];
-                        }
-                    };
-                }
-
-                var selectElement = {
-                    options: [
-                        createOption('https\\\\://nolumia.com/api'),
-                        createOption('http\\\\://nolumia.com/api')
-                    ],
-                    querySelectorAll: function() { return this.options; }
-                };
-
-                var document = {
-                    selectElements: [selectElement],
-                    querySelectorAll: function(selector) {
-                        if (selector.indexOf('#servers') !== -1) {
-                            return this.selectElements;
-                        }
-                        return [];
-                    },
-                    querySelector: function(selector) {
-                        if (selector.indexOf('#servers') !== -1) {
-                            return this.selectElements[0];
-                        }
-                        return null;
-                    }
-                };
-
-                __SANITIZE_FUNCTION__
-
-                sanitizeServerOptions();
-
-                var normalized = selectElement.options.map(function(option) {
-                    return {
-                        value: option.value,
-                        text: option.textContent,
-                        attrValue: option.attributes.value
-                    };
-                });
-
-                return JSON.stringify(normalized);
-            }());
-        """)
-
-        if js2py is not None:
-            js_script = (
-                js_template
-                .replace("__SANITIZE_FUNCTION__", sanitize_fn)
-                .replace('__SERVER_SELECTORS__', selectors_literal)
-            )
-
-            normalized_json = js2py.eval_js(js_script)
-            normalized = json.loads(normalized_json)
-        else:
-            assert '\\\\:' in sanitize_fn
-            assert '\\\\\\/' in sanitize_fn
-            assert '#servers' in selectors_literal
-
-            def _python_sanitize(raw: str) -> str:
-                return raw.replace('\\\\:', ':').replace('\\\\/', '/')
-
-            normalized = []
-            for raw in ['https\\\\://nolumia.com/api', 'http\\\\://nolumia.com/api']:
-                sanitized = _python_sanitize(raw)
-                normalized.append({'value': sanitized, 'text': sanitized, 'attrValue': sanitized})
-
-        assert normalized
-        for option in normalized:
-            assert '\\' not in option['value']
-            assert '\\' not in option['text']
-            assert option['attrValue'] == option['value']
+        assert login_entry is not None, 'Login endpoint not found in overview data'
+        assert isinstance(login_entry.get('auth'), list)
+        assert login_entry.get('link'), 'Swagger UI link missing for login endpoint'
 
     def test_echo_endpoint_exposes_json_request_body(self, app_context):
         client = app_context.test_client()

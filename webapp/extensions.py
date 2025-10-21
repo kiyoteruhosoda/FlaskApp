@@ -16,6 +16,13 @@ api = Api()
 login_manager.login_message = None
 
 
+@login_manager.user_loader
+def load_user(user_id):
+    from core.models.user import User
+
+    return User.query.get(int(user_id))
+
+
 @login_manager.request_loader
 def load_user_from_request(request):
     """JWTまたはCookieからユーザーをロード"""

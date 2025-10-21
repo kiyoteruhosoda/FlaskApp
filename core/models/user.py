@@ -5,7 +5,6 @@ from flask import has_request_context, session, g
 from flask_login import UserMixin
 
 from core.db import db
-from webapp.extensions import login_manager
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
@@ -128,6 +127,3 @@ class User(db.Model, UserMixin):
             return self.email.split('@')[0]
         return 'Unknown User'
 
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))

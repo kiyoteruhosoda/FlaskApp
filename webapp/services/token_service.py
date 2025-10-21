@@ -14,6 +14,7 @@ from flask import current_app
 from core.models.user import User
 from core.models.service_account import ServiceAccount
 from core.settings import settings
+from shared.application.authenticated_principal import AuthenticatedPrincipal
 from webapp.extensions import db
 from webapp.services.access_token_signing import (
     AccessTokenSigningError,
@@ -21,7 +22,6 @@ from webapp.services.access_token_signing import (
     resolve_signing_material,
     resolve_verification_key,
 )
-from shared.application.authenticated_principal import AuthenticatedPrincipal
 
 
 class TokenService:

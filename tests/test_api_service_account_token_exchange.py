@@ -153,8 +153,9 @@ def test_service_account_token_exchange_success(app_context):
         options={"verify_signature": False, "verify_aud": False},
     )
     assert decoded["subject_type"] == "system"
-    assert decoded["service_account"] == account.name
-    assert decoded["service_account_id"] == account.service_account_id
+    assert decoded["sub"] == f"s+{account.service_account_id}"
+    assert "service_account" not in decoded
+    assert "service_account_id" not in decoded
     assert decoded["scope"] == expected_scope
 
 

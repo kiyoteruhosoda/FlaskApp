@@ -116,10 +116,9 @@ class TokenService:
 
         _, scope_str = cls._normalize_scope(scope)
         payload = cls._build_access_token_payload(
-            subject=str(user.id),
+            subject=f"i+{user.id}",
             scope_str=scope_str,
             extra_claims={
-                "email": user.email,
                 "subject_type": "individual",
             },
         )
@@ -135,12 +134,10 @@ class TokenService:
 
         _, scope_str = cls._normalize_scope(scope)
         payload = cls._build_access_token_payload(
-            subject=str(account.service_account_id),
+            subject=f"s+{account.service_account_id}",
             scope_str=scope_str,
             extra_claims={
                 "subject_type": "system",
-                "service_account": account.name,
-                "service_account_id": account.service_account_id,
             },
         )
         return cls._encode_access_token(payload)
@@ -234,9 +231,9 @@ class TokenService:
             return None
 
         try:
-            user_id = int(payload["sub"])
-        except (KeyError, TypeError, ValueError):
-            current_app.logger.debug("JWT token missing subject claim")
+            user_id = cls._extract_user_id(payload)
+        except ValueError:
+            current_app.logger.debug("JWT token subject claim invalid")
             return None
 
         user = User.query.get(user_id)
@@ -250,6 +247,28 @@ class TokenService:
             scope_items = set()
 
         return user, scope_items
+
+    @staticmethod
+    def _extract_user_id(payload: dict[str, Any]) -> int:
+        subject = payload.get("sub")
+        subject_type = payload.get("subject_type")
+
+        if subject_type not in (None, "", "individual"):
+            raise ValueError("unsupported_subject_type")
+
+        if isinstance(subject, int):
+            return subject
+
+        if not isinstance(subject, str) or not subject:
+            raise ValueError("invalid_subject")
+
+        if subject_type == "individual" and subject.startswith("i+"):
+            subject = subject[2:]
+
+        try:
+            return int(subject)
+        except (TypeError, ValueError):
+            raise ValueError("invalid_subject")
 
     @classmethod
     def verify_refresh_token(cls, refresh_token: str) -> Optional[tuple[User, str]]:

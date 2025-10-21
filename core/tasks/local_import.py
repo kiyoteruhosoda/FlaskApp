@@ -633,14 +633,13 @@ def _refresh_existing_media_metadata(
                 status="playback_path_realigned",
             )
 
-        if not preserve_original_path:
-            _update_media_playback_paths(
-                media,
-                old_relative_path=old_relative_path,
-                new_relative_path=new_relative_path,
-                session_id=session_id,
-                playback_entries=playback_entries or None,
-            )
+        _update_media_playback_paths(
+            media,
+            old_relative_path=old_relative_path,
+            new_relative_path=new_relative_path,
+            session_id=session_id,
+            playback_entries=playback_entries or None,
+        )
 
     apply_analysis_to_media_entity(media, analysis)
 

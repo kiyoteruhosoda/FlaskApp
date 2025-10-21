@@ -53,7 +53,7 @@
     </form>
     
     <div class="auth-actions">
-      {% if not current_user.totp_secret %}
+      {% if not is_service_account and not current_user.totp_secret %}
         <div class="auth-section">
           <div class="auth-code-info">
             <i class="fas fa-shield-alt"></i>

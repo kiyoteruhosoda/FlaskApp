@@ -516,6 +516,7 @@ def register_no_totp():
 @bp.route("/profile", methods=["GET", "POST"])
 @login_required
 def profile():
+    is_service_account = bool(getattr(current_user, "is_service_account", False))
     languages_iterable = list(settings.languages)
     languages = [lang for lang in languages_iterable if lang]
     if not languages:
@@ -641,36 +642,44 @@ def profile():
         localized_time=localized_time,
         active_role=getattr(current_user, "active_role", None),
         role_options=role_options,
+        is_service_account=is_service_account,
     )
 
 
 @bp.route("/edit", methods=["GET", "POST"])
 @login_required
 def edit():
+    is_service_account = bool(getattr(current_user, "is_service_account", False))
     if request.method == "POST":
         email = request.form.get("email")
         password = request.form.get("password")
         if not email:
             flash(_("Email is required"), "error")
-            return render_template("auth/edit.html")
+            return render_template("auth/edit.html", is_service_account=is_service_account)
         if email != current_user.email and User.query.filter_by(email=email).first():
             flash(_("Email already exists"), "error")
-            return render_template("auth/edit.html")
+            return render_template("auth/edit.html", is_service_account=is_service_account)
         current_user.email = email
         if password:
             current_user.set_password(password)
         db.session.commit()
         flash(_("Profile updated"), "success")
         return redirect(url_for("auth.profile"))
-    return render_template("auth/edit.html")
+    return render_template("auth/edit.html", is_service_account=is_service_account)
 
 
 @bp.route("/setup_totp", methods=["GET", "POST"])
 @login_required
 def setup_totp():
     next_url = _resolve_next_target("auth.edit")
+    service_redirect = _resolve_next_target("dashboard.dashboard")
+    is_service_account = bool(getattr(current_user, "is_service_account", False))
 
-    if current_user.totp_secret:
+    if is_service_account:
+        flash(_("Two-factor authentication is not available for service accounts."), "warning")
+        return redirect(service_redirect)
+
+    if getattr(current_user, "totp_secret", None):
         flash(_("Two-factor authentication already configured"), "error")
         return redirect(next_url)
 

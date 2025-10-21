@@ -181,6 +181,10 @@ class TokenService:
     ) -> Optional[AuthenticatedPrincipal]:
         """アクセストークンを検証して主体情報を取得する"""
 
+        return cls.create_principal_from_token(token)
+
+    @classmethod
+    def _decode_access_token_payload(cls, token: str) -> Optional[dict[str, Any]]:
         try:
             header = jwt.get_unverified_header(token)
         except jwt.InvalidTokenError:
@@ -233,6 +237,12 @@ class TokenService:
             current_app.logger.debug("JWT token format error")
             return None
 
+        return payload
+
+    @classmethod
+    def _build_principal_from_payload(
+        cls, payload: dict[str, Any]
+    ) -> Optional[AuthenticatedPrincipal]:
         try:
             subject_type, subject_id, identifier = cls._extract_subject(payload)
         except ValueError:
@@ -247,14 +257,13 @@ class TokenService:
                 current_app.logger.debug("JWT token service account inactive or missing")
                 return None
 
-            principal = AuthenticatedPrincipal(
+            return AuthenticatedPrincipal(
                 subject_type="system",
                 subject_id=account.service_account_id,
                 identifier=identifier,
                 scope=frozenset(scope_items),
                 display_name=account.name,
             )
-            return principal
 
         user = User.query.get(subject_id)
         if not user or not user.is_active:
@@ -265,7 +274,7 @@ class TokenService:
             sorted(role.name for role in (user.roles or []) if getattr(role, "name", None))
         )
 
-        principal = AuthenticatedPrincipal(
+        return AuthenticatedPrincipal(
             subject_type="individual",
             subject_id=user.id,
             identifier=identifier,
@@ -273,9 +282,19 @@ class TokenService:
             display_name=display_name,
             roles=role_names,
         )
-        return principal
 
-    @staticmethod
+    @classmethod
+    def create_principal_from_token(
+        cls, token: str
+    ) -> Optional[AuthenticatedPrincipal]:
+        """アクセストークンから Principal を再構築する共通エントリポイント"""
+
+        payload = cls._decode_access_token_payload(token)
+        if payload is None:
+            return None
+
+        return cls._build_principal_from_payload(payload)
+
     @staticmethod
     def _extract_subject(payload: dict[str, Any]) -> tuple[str, int, str]:
         subject_type = payload.get("subject_type") or "individual"

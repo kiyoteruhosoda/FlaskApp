@@ -14,7 +14,11 @@ import json
 from datetime import datetime, timezone, timedelta
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_babel import gettext as _, force_locale
-from . import bp, SERVICE_LOGIN_SESSION_KEY
+from . import (
+    SERVICE_LOGIN_SESSION_KEY,
+    SERVICE_LOGIN_TOKEN_SESSION_KEY,
+    bp,
+)
 from ..extensions import db
 from core.models.user import User
 from core.models.google_account import GoogleAccount
@@ -133,6 +137,7 @@ def _finalize_login_session(user_model, redirect_target, *, token=None, token_sc
 
     if token_scope is None:
         session.pop(SERVICE_LOGIN_SESSION_KEY, None)
+        session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
         g.current_token_scope = None
     else:
         if isinstance(token_scope, set):
@@ -280,14 +285,16 @@ def service_login():
             "Service login request rejected: missing access token",
             extra={"event": "auth.service_login", "path": request.path},
         )
+        session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
         return make_response(_("Access token is required"), 400)
 
-    principal = TokenService.verify_access_token(token)
+    principal = TokenService.create_principal_from_token(token)
     if not principal:
         current_app.logger.warning(
             "Service login token verification failed",
             extra={"event": "auth.service_login", "path": request.path},
         )
+        session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
         return make_response(_("Invalid access token"), 401)
 
 
@@ -296,6 +303,7 @@ def service_login():
             "Service login token rejected: subject type is not a service account",
             extra={"event": "auth.service_login", "path": request.path},
         )
+        session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
         return make_response(_("Invalid access token"), 401)
     current_app.logger.info(
         "Service login successful",
@@ -313,6 +321,7 @@ def service_login():
 
     normalized_scope = sorted(item.strip() for item in principal.scope if item)
     session[SERVICE_LOGIN_SESSION_KEY] = True
+    session[SERVICE_LOGIN_TOKEN_SESSION_KEY] = token
     g.current_token_scope = set(principal.scope)
 
     g.current_user = principal
@@ -717,6 +726,7 @@ def logout():
     session.pop("picker_session_id", None)
     session.pop("active_role_id", None)
     session.pop(SERVICE_LOGIN_SESSION_KEY, None)
+    session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
 
     response = make_response(redirect(url_for("index")))
     response.delete_cookie("access_token")

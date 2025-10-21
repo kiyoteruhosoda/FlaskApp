@@ -621,8 +621,22 @@ def _local_import_log(message: str, *, level: str = 'info', event: str = 'local_
 
 def _set_jwt_context(principal: AuthenticatedPrincipal) -> None:
     g.current_principal = principal
-    g.current_user = principal
     g.current_token_scope = set(principal.scope)
+
+    if principal.is_individual:
+        cached_user = getattr(g, "current_user_model", None)
+        if getattr(cached_user, "id", None) == principal.id:
+            g.current_user = cached_user
+            return
+
+        user = User.query.get(principal.id)
+        if user and user.is_active:
+            g.current_user_model = user
+            g.current_user = user
+            return
+
+    g.current_user_model = None
+    g.current_user = principal
 
 
 def jwt_required(f):
@@ -819,14 +833,48 @@ def login_or_jwt_required(f):
 
 def get_current_user():
     """現在のユーザーを取得（Flask-LoginまたはJWT認証から）"""
+    from flask import g
+
+    def _resolve_user(principal: AuthenticatedPrincipal):
+        if not isinstance(principal, AuthenticatedPrincipal):
+            return None
+        if not principal.is_individual:
+            return None
+
+        cached = getattr(g, "current_user_model", None)
+        if getattr(cached, "id", None) == principal.id:
+            return cached
+
+        user = User.query.get(principal.id)
+        if user and user.is_active:
+            g.current_user_model = user
+            g.current_user = user
+            return user
+        return None
+
     if current_user.is_authenticated:
+        if isinstance(current_user, AuthenticatedPrincipal):
+            resolved = _resolve_user(current_user)
+            if resolved:
+                return resolved
         return current_user
 
-    from flask import g
+    cached_user = getattr(g, "current_user_model", None)
+    if cached_user is not None:
+        return cached_user
+
     principal = getattr(g, 'current_principal', None)
+    resolved = _resolve_user(principal)
+    if resolved:
+        return resolved
     if principal is not None:
         return principal
-    return getattr(g, 'current_user', None)
+
+    fallback = getattr(g, 'current_user', None)
+    resolved = _resolve_user(fallback)
+    if resolved:
+        return resolved
+    return fallback
 
 
 @bp.get("/auth/check")

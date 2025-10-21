@@ -273,7 +273,7 @@ def service_login():
 
     if current_user.is_authenticated:
         real_user = current_user._get_current_object()
-        if not isinstance(real_user, AuthenticatedPrincipal):
+        if isinstance(real_user, AuthenticatedPrincipal):
             return redirect(redirect_target)
 
     token = _extract_access_token()

@@ -103,7 +103,7 @@ def enqueue_picker_import_item(selection_id: int, session_id: int) -> None:
         try:
             from flask import current_app
 
-            if current_app and current_app.config.get("TESTING"):
+            if settings.get_bool("TESTING"):
                 current_app.logger.warning(
                     "Celery worker unavailable for picker import item; skipping in test mode.",
                     extra={

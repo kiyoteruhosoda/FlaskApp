@@ -61,6 +61,52 @@ class ApplicationSettings:
             return app.config.get(key)
         return self._env.get(key, default)
 
+    def get(self, key: str, default=None):
+        """Return the configured value for *key* or *default* if missing."""
+
+        value = self._get(key)
+        return default if value is None else value
+
+    def get_bool(self, key: str, default: bool = False) -> bool:
+        """Return a boolean configuration value."""
+
+        value = self._get(key)
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return bool(value)
+        if isinstance(value, str):
+            normalised = value.strip().lower()
+            if normalised in {"1", "true", "yes", "on"}:
+                return True
+            if normalised in {"0", "false", "no", "off"}:
+                return False
+        return default
+
+    def get_int(self, key: str, default: int = 0) -> int:
+        """Return an integer configuration value."""
+
+        value = self._get(key)
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    def get_path(self, key: str, default: Optional[Path | str] = None) -> Optional[Path]:
+        """Return a :class:`Path` for the configured value."""
+
+        value = self._get(key)
+        if value:
+            try:
+                return Path(value)
+            except TypeError:
+                return None
+        if default is None:
+            return None
+        return Path(default)
+
     # ------------------------------------------------------------------
     # Storage paths
     # ------------------------------------------------------------------

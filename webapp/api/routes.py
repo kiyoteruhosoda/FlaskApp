@@ -373,7 +373,7 @@ def _trigger_thumbnail_regeneration(
     else:
         thumbs_task = thumbs_generate_task
 
-    is_testing = bool(current_app and current_app.config.get("TESTING"))
+    is_testing = settings.get_bool("TESTING")
 
     if thumbs_task is not None and not is_testing:
         try:
@@ -690,7 +690,7 @@ def login_or_jwt_required(f):
             stage='start',
         )
 
-        if current_app.config.get('LOGIN_DISABLED'):
+        if settings.get_bool("LOGIN_DISABLED"):
             _auth_log(
                 'Authentication bypassed because LOGIN_DISABLED is active',
                 stage='bypass',
@@ -797,7 +797,7 @@ def require_api_perms(*perm_codes):
         @wraps(func)
         @login_or_jwt_required
         def wrapper(*args, **kwargs):
-            if current_app.config.get('LOGIN_DISABLED'):
+            if settings.get_bool("LOGIN_DISABLED"):
                 return func(*args, **kwargs)
 
             user = get_current_user()
@@ -1760,7 +1760,7 @@ def api_login(data):
         "access_token",
         access_token,
         httponly=True,
-        secure=current_app.config.get("SESSION_COOKIE_SECURE", False),
+        secure=settings.get_bool("SESSION_COOKIE_SECURE", False),
         samesite="Lax",
     )
     return resp
@@ -1811,7 +1811,7 @@ def api_refresh(data):
         "access_token",
         access_token,
         httponly=True,
-        secure=current_app.config.get("SESSION_COOKIE_SECURE", False),
+        secure=settings.get_bool("SESSION_COOKIE_SECURE", False),
         samesite="Lax",
     )
     return resp
@@ -1891,13 +1891,15 @@ def google_oauth_start():
     
     # デバッグ情報を追加
     current_app.logger.info(f"OAuth start - Headers: {dict(request.headers)}")
-    current_app.logger.info(f"OAuth start - PREFERRED_URL_SCHEME: {current_app.config.get('PREFERRED_URL_SCHEME')}")
+    current_app.logger.info(
+        f"OAuth start - PREFERRED_URL_SCHEME: {settings.get('PREFERRED_URL_SCHEME')}"
+    )
     
     callback_url = url_for("auth.google_oauth_callback", _external=True)
     current_app.logger.info(f"OAuth start - Generated callback URL: {callback_url}")
     
     params = {
-        "client_id": current_app.config.get("GOOGLE_CLIENT_ID"),
+        "client_id": settings.get("GOOGLE_CLIENT_ID"),
         "redirect_uri": callback_url,
         "response_type": "code",
         "scope": " ".join(sorted_scopes),
@@ -1923,7 +1925,7 @@ def debug_request_info():
         "host": request.host,
         "scheme": request.scheme,
         "config": {
-            "PREFERRED_URL_SCHEME": current_app.config.get("PREFERRED_URL_SCHEME"),
+            "PREFERRED_URL_SCHEME": settings.get("PREFERRED_URL_SCHEME"),
         }
     }
     
@@ -2681,7 +2683,7 @@ def _b64url_decode(data: str) -> bytes:
 
 def _sign_payload(payload: dict) -> str:
     canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
-    key_b64 = current_app.config.get("FPV_DL_SIGN_KEY")
+    key_b64 = settings.get("FPV_DL_SIGN_KEY")
     key = _b64url_decode(key_b64) if key_b64 else b""
     sig = hmac.new(key, canonical, hashlib.sha256).digest()
     return f"{_b64url_encode(canonical)}.{_b64url_encode(sig)}"
@@ -2697,7 +2699,7 @@ def _verify_token(token: str):
     except Exception:
         return None, "invalid_token"
 
-    key_b64 = current_app.config.get("FPV_DL_SIGN_KEY")
+    key_b64 = settings.get("FPV_DL_SIGN_KEY")
     key = _b64url_decode(key_b64) if key_b64 else b""
     canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
     expected_sig = hmac.new(key, canonical, hashlib.sha256).digest()
@@ -2804,7 +2806,7 @@ def api_media_thumbnail(media_id):
         or media.mime_type
         or "application/octet-stream"
     )
-    ttl = current_app.config.get("FPV_URL_TTL_THUMB", 600)
+    ttl = settings.get_int("FPV_URL_TTL_THUMB", 600)
     with open(abs_path, "rb") as f:
         data = f.read()
     resp = current_app.response_class(data, mimetype=ct, direct_passthrough=True)
@@ -2874,7 +2876,7 @@ def api_media_thumb_url(media_id):
         or media.mime_type
         or "application/octet-stream"
     )
-    ttl = current_app.config.get("FPV_URL_TTL_THUMB", 600)
+    ttl = settings.get_int("FPV_URL_TTL_THUMB", 600)
     exp = int(time.time()) + ttl
     payload = {
         "v": 1,
@@ -3054,7 +3056,7 @@ def api_media_original_url(media_id):
         or media.mime_type
         or "application/octet-stream"
     )
-    ttl = current_app.config.get("FPV_URL_TTL_ORIGINAL", 600)
+    ttl = settings.get_int("FPV_URL_TTL_ORIGINAL", 600)
     exp = int(time.time()) + ttl
     payload = {
         "v": 1,
@@ -3117,7 +3119,7 @@ def api_media_playback_url(media_id):
     if not found or not abs_path:
         return jsonify({"error": "not_found"}), 404
     ct = mimetypes.guess_type(abs_path)[0] or "video/mp4"
-    ttl = current_app.config.get("FPV_URL_TTL_PLAYBACK", 600)
+    ttl = settings.get_int("FPV_URL_TTL_PLAYBACK", 600)
     exp = int(time.time()) + ttl
     payload = {
         "v": 1,
@@ -3186,8 +3188,8 @@ def api_download(token):
         base, abs_path, found = _resolve_storage_file(
             "FPV_NAS_THUMBS_DIR", *rel.split("/")
         )
-        accel_prefix = current_app.config.get("FPV_ACCEL_THUMBS_LOCATION", "")
-        ttl = current_app.config.get("FPV_URL_TTL_THUMB", 600)
+        accel_prefix = settings.get("FPV_ACCEL_THUMBS_LOCATION", "")
+        ttl = settings.get_int("FPV_URL_TTL_THUMB", 600)
     elif typ == "playback":
         if not path.startswith("playback/"):
             return jsonify({"error": "forbidden"}), 403
@@ -3195,8 +3197,8 @@ def api_download(token):
         base, abs_path, found = _resolve_storage_file(
             "FPV_NAS_PLAY_DIR", *rel.split("/")
         )
-        accel_prefix = current_app.config.get("FPV_ACCEL_PLAYBACK_LOCATION", "")
-        ttl = current_app.config.get("FPV_URL_TTL_PLAYBACK", 600)
+        accel_prefix = settings.get("FPV_ACCEL_PLAYBACK_LOCATION", "")
+        ttl = settings.get_int("FPV_URL_TTL_PLAYBACK", 600)
     elif typ == "original":
         if not path.startswith("originals/"):
             return jsonify({"error": "forbidden"}), 403
@@ -3204,8 +3206,8 @@ def api_download(token):
         base, abs_path, found = _resolve_storage_file(
             "FPV_NAS_ORIGINALS_DIR", *rel.split("/")
         )
-        accel_prefix = current_app.config.get("FPV_ACCEL_ORIGINALS_LOCATION", "")
-        ttl = current_app.config.get("FPV_URL_TTL_ORIGINAL", 600)
+        accel_prefix = settings.get("FPV_ACCEL_ORIGINALS_LOCATION", "")
+        ttl = settings.get_int("FPV_URL_TTL_ORIGINAL", 600)
     else:
         return jsonify({"error": "forbidden"}), 403
     if not found or not abs_path:
@@ -3231,7 +3233,7 @@ def api_download(token):
     cache_control = f"private, max-age={ttl}"
     range_header = request.headers.get("Range")
 
-    accel_enabled = current_app.config.get("FPV_ACCEL_REDIRECT_ENABLED", True)
+    accel_enabled = settings.get_bool("FPV_ACCEL_REDIRECT_ENABLED", True)
     accel_prefix = (accel_prefix or "").strip() if accel_enabled else ""
     accel_target = None
     if accel_prefix:
@@ -3670,7 +3672,7 @@ def _resolve_local_import_config():
 
     for config_key, key in directory_specs:
         configured_value = (
-            current_app.config.get(config_key)
+            settings.get(config_key)
             or getattr(Config, config_key, None)
             or None
         )

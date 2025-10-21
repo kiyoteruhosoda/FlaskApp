@@ -10,7 +10,10 @@ import os
 from pathlib import Path
 from typing import List, Tuple
 
-from webapp.config import Config
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # pragma: no cover
+    from core.settings import ApplicationSettings
 
 # Mapping of config keys to environment variable fallbacks (in priority order).
 _STORAGE_ENV_FALLBACKS: dict[str, Tuple[str, ...]] = {
@@ -43,16 +46,16 @@ _STORAGE_DEFAULTS: dict[str, Tuple[str, ...]] = {
 }
 
 
+def _active_settings() -> "ApplicationSettings":
+    from core.settings import settings as app_settings
+
+    return app_settings
+
+
 def _config_value(config_key: str) -> str | None:
     """Return the configured value for *config_key* if available."""
 
-    try:
-        from flask import current_app  # Imported lazily to avoid hard dependency
-
-        value = current_app.config.get(config_key)  # type: ignore[attr-defined]
-    except Exception:
-        value = getattr(Config, config_key, None)
-
+    value = _active_settings().get(config_key)
     if value:
         return str(value)
     return None
@@ -69,8 +72,9 @@ def storage_path_candidates(config_key: str) -> List[str]:
         candidates.append(config_value)
         seen.add(config_value)
 
+    settings = _active_settings()
     for env_name in _STORAGE_ENV_FALLBACKS.get(config_key, (config_key,)):
-        env_value = os.environ.get(env_name)
+        env_value = settings.get(env_name)
         if env_value and env_value not in seen:
             candidates.append(env_value)
             seen.add(env_value)

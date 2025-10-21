@@ -38,6 +38,8 @@ from flask_babel import gettext as _
 from sqlalchemy.engine import make_url
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+from core.settings import settings
+
 from werkzeug.datastructures import FileStorage
 
 from .extensions import db, migrate, login_manager, babel, api as smorest_api
@@ -382,7 +384,7 @@ def _build_error_log_extra(event_name: str, jwt_details: Optional[Dict[str, Any]
 
 
 def _resolve_translation_directories() -> list[str]:
-    directories_config = current_app.config.get("BABEL_TRANSLATION_DIRECTORIES", "")
+    directories_config = settings.get("BABEL_TRANSLATION_DIRECTORIES", "")
     if isinstance(directories_config, str):
         candidates = [segment.strip() for segment in directories_config.split(";")]
     elif isinstance(directories_config, (list, tuple, set)):
@@ -428,7 +430,7 @@ def _translate_message(message: str) -> str:
                 if base and base not in locale_candidates:
                     locale_candidates.append(base)
 
-    default_locale = current_app.config.get("BABEL_DEFAULT_LOCALE")
+    default_locale = settings.get("BABEL_DEFAULT_LOCALE")
     if isinstance(default_locale, str) and default_locale:
         if default_locale not in locale_candidates:
             locale_candidates.append(default_locale)
@@ -538,7 +540,7 @@ def _configure_cors(app: Flask) -> None:
     """Configure Cross-Origin Resource Sharing based on application settings."""
 
     def _current_allowed_origins() -> tuple[str, ...]:
-        config_value = app.config.get("CORS_ALLOWED_ORIGINS", ())
+        config_value = settings.get("CORS_ALLOWED_ORIGINS", ())
         if isinstance(config_value, str):
             origins = tuple(segment.strip() for segment in config_value.split(",") if segment.strip())
         elif isinstance(config_value, (list, tuple, set)):
@@ -776,21 +778,6 @@ def create_app():
     swagger_ui_config = app.config.setdefault("OPENAPI_SWAGGER_UI_CONFIG", {})
     swagger_ui_config.setdefault("persistAuthorization", True)
 
-    database_uri = app.config.get("SQLALCHEMY_DATABASE_URI")
-    testing_mode = app.config.get("TESTING") or str(os.environ.get("TESTING", "")).lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
-    if testing_mode and database_uri and database_uri.startswith("sqlite:///"):
-        db_path = database_uri.replace("sqlite:///", "", 1)
-        if db_path and db_path != ":memory:":
-            try:
-                os.remove(db_path)
-            except FileNotFoundError:
-                pass
-
     # リバースプロキシ（nginx等）使用時のHTTPS検出
     # ProxyFixをカスタマイズしてデバッグ情報を追加
     from werkzeug.middleware.proxy_fix import ProxyFix
@@ -813,14 +800,24 @@ def create_app():
 
     with app.app_context():
         _apply_persisted_settings(app)
+        database_uri = settings.get("SQLALCHEMY_DATABASE_URI")
+        testing_mode = settings.get_bool("TESTING")
+
+    if testing_mode and isinstance(database_uri, str) and database_uri.startswith("sqlite:///"):
+        db_path = database_uri.replace("sqlite:///", "", 1)
+        if db_path and db_path != ":memory:":
+            try:
+                os.remove(db_path)
+            except FileNotFoundError:
+                pass
 
     env_overrides = {
-        "FPV_TMP_DIR": os.environ.get("FPV_TMP_DIR"),
-        "FPV_NAS_ORIGINALS_DIR": os.environ.get("FPV_NAS_ORIGINALS_DIR"),
-        "FPV_NAS_PLAY_DIR": os.environ.get("FPV_NAS_PLAY_DIR"),
-        "FPV_NAS_THUMBS_DIR": os.environ.get("FPV_NAS_THUMBS_DIR"),
-        "LOCAL_IMPORT_DIR": os.environ.get("LOCAL_IMPORT_DIR"),
-        "FPV_DL_SIGN_KEY": os.environ.get("FPV_DL_SIGN_KEY"),
+        "FPV_TMP_DIR": settings.get("FPV_TMP_DIR"),
+        "FPV_NAS_ORIGINALS_DIR": settings.get("FPV_NAS_ORIGINALS_DIR"),
+        "FPV_NAS_PLAY_DIR": settings.get("FPV_NAS_PLAY_DIR"),
+        "FPV_NAS_THUMBS_DIR": settings.get("FPV_NAS_THUMBS_DIR"),
+        "LOCAL_IMPORT_DIR": settings.get("LOCAL_IMPORT_DIR"),
+        "FPV_DL_SIGN_KEY": settings.get("FPV_DL_SIGN_KEY"),
     }
     for key, value in env_overrides.items():
         if value:
@@ -855,7 +852,10 @@ def create_app():
 
     _configure_cors(app)
 
-    configured_servers = app.config.get("API_SPEC_OPTIONS", {}).get("servers")
+    with app.app_context():
+        configured_servers = (
+            (settings.get("API_SPEC_OPTIONS", {}) or {}).get("servers")
+        )
 
     @app.before_request
     def _refresh_openapi_server_urls():
@@ -864,7 +864,7 @@ def create_app():
         spec = getattr(smorest_api, "spec", None)
         if spec is None:
             return
-        prefix = _normalize_openapi_prefix(app.config.get("OPENAPI_URL_PREFIX", "/api"))
+        prefix = _normalize_openapi_prefix(settings.get("OPENAPI_URL_PREFIX", "/api"))
         server_urls = _calculate_openapi_server_urls(prefix)
         spec.options["servers"] = [{"url": url} for url in server_urls]
 
@@ -877,20 +877,22 @@ def create_app():
     @app.before_request
     def _set_request_timezone():
         tz_cookie = request.cookies.get("tz")
-        fallback = app.config.get("BABEL_DEFAULT_TIMEZONE", "UTC")
+        fallback = settings.get("BABEL_DEFAULT_TIMEZONE", "UTC")
         tz_name, tzinfo = resolve_timezone(tz_cookie, fallback)
         g.user_timezone_name = tz_name
         g.user_timezone = tzinfo
 
     @app.context_processor
     def inject_version():
-        languages = [str(lang).strip() for lang in app.config.get("LANGUAGES", ["ja", "en"]) if lang]
+        languages = [str(lang).strip() for lang in settings.get("LANGUAGES", ["ja", "en"]) if lang]
         if not languages:
-            default_language = app.config.get("BABEL_DEFAULT_LOCALE", "en")
+            default_language = settings.get("BABEL_DEFAULT_LOCALE", "en")
             if default_language:
                 languages = [default_language]
 
-        default_language = app.config.get("BABEL_DEFAULT_LOCALE", languages[0] if languages else "en")
+        default_language = settings.get(
+            "BABEL_DEFAULT_LOCALE", languages[0] if languages else "en"
+        )
 
         locale_obj = get_locale()
         current_language = str(locale_obj) if locale_obj else default_language
@@ -950,8 +952,8 @@ def create_app():
         # removed because the template already provides them.
         return json.dumps(value, ensure_ascii=False)[1:-1]
 
-    testing_env = os.environ.get("TESTING", "").strip().lower()
-    disable_db_logging = app.config.get("TESTING") or testing_env in {"1", "true", "yes", "on"}
+    testing_env = str(settings.get("TESTING", "")).strip().lower()
+    disable_db_logging = testing_mode or testing_env in {"1", "true", "yes", "on"}
 
     # Logging configuration
     if not disable_db_logging:
@@ -963,10 +965,10 @@ def create_app():
         ensure_appdb_file_logging(app.logger)
 
         should_bind_db_handlers = True
-        database_uri = app.config.get("SQLALCHEMY_DATABASE_URI")
-        if database_uri:
+        logging_database_uri = database_uri
+        if logging_database_uri:
             try:
-                url = make_url(database_uri)
+                url = make_url(logging_database_uri)
             except Exception:  # pragma: no cover - invalid URI should not block logging
                 url = None
             if url is not None and url.get_backend_name() == "sqlite":
@@ -1035,7 +1037,7 @@ def create_app():
     app.register_blueprint(health_bp, url_prefix="/health")
 
     # デバッグ用Blueprint（開発環境のみ）
-    if app.debug or app.config.get('TESTING'):
+    if app.debug or testing_mode:
         from .debug_routes import debug_bp
         app.register_blueprint(debug_bp, url_prefix="/debug")
 
@@ -1056,7 +1058,7 @@ def create_app():
 
     @app.before_request
     def _apply_login_disabled_for_testing():
-        if app.config.get("TESTING"):
+        if settings.get_bool("TESTING"):
             app.config['LOGIN_DISABLED'] = True
 
     @app.before_request
@@ -1379,9 +1381,9 @@ def create_app():
     def chrome_devtools_json():
         return {}, 204  # 空レスポンスを返す
 
-    db_uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
-    if db_uri.startswith("sqlite://"):
-        with app.app_context():
+    with app.app_context():
+        db_uri = settings.get("SQLALCHEMY_DATABASE_URI", "")
+        if isinstance(db_uri, str) and db_uri.startswith("sqlite://"):
             db.create_all()
 
     return app
@@ -1392,10 +1394,10 @@ def _select_locale():
     from flask import current_app
 
     if not has_request_context():
-        return current_app.config.get("BABEL_DEFAULT_LOCALE", "en")
+        return settings.get("BABEL_DEFAULT_LOCALE", "en")
 
     cookie_lang = request.cookies.get("lang")
-    languages = [lang for lang in current_app.config.get("LANGUAGES", []) if lang]
+    languages = [lang for lang in settings.get("LANGUAGES", []) if lang]
     if cookie_lang in languages:
         return cookie_lang
 
@@ -1403,7 +1405,7 @@ def _select_locale():
     if best_match:
         return best_match
 
-    return current_app.config.get("BABEL_DEFAULT_LOCALE", "en")
+    return settings.get("BABEL_DEFAULT_LOCALE", "en")
 
 
 def register_cli_commands(app):

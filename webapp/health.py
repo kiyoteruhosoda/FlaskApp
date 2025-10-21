@@ -2,11 +2,12 @@ from datetime import datetime, timezone
 import os
 from datetime import datetime
 
-from flask import Blueprint, current_app, jsonify
+from flask import Blueprint, jsonify
 from sqlalchemy import text
 
 from .extensions import db
 from core.time import utc_now_isoformat
+from core.settings import settings
 
 # 認証なしのhealth用Blueprint
 health_bp = Blueprint("health", __name__, url_prefix="/health")
@@ -32,7 +33,7 @@ def health_ready():
         details["db"] = "error"
 
     for key in ("FPV_NAS_THUMBS_DIR", "FPV_NAS_PLAY_DIR"):
-        path = current_app.config.get(key)
+        path = settings.get(key)
         field = key.lower()
         if path and os.path.exists(path):
             details[field] = "ok"
@@ -40,7 +41,7 @@ def health_ready():
             ok = False
             details[field] = "missing"
 
-    redis_url = current_app.config.get("REDIS_URL")
+    redis_url = settings.get("REDIS_URL")
     if redis_url:
         try:  # pragma: no cover - optional dependency
             import redis
@@ -60,7 +61,7 @@ def health_ready():
 @health_bp.get("/beat")
 def health_beat():
     """Return last beat timestamp and current server time."""
-    last = current_app.config.get("LAST_BEAT_AT")
+    last = settings.get("LAST_BEAT_AT")
     return (
         jsonify(
             {

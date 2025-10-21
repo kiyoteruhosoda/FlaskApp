@@ -9,6 +9,8 @@ from uuid import uuid4
 
 from flask import current_app
 
+from core.settings import settings
+
 from .pagination import PaginationParams, Paginator
 from ..extensions import db
 from sqlalchemy import or_, func, insert as sa_insert
@@ -1253,7 +1255,7 @@ class PickerSessionService:
             print(f"Celery not available, would start watchdog for session {ps.id}")
         except Exception as e:
             current_app.logger.error(f"Failed to publish Celery task: {e}")
-            if current_app.config.get("TESTING"):
+            if settings.get_bool("TESTING"):
                 current_app.logger.warning(
                     "Celery publish failed in test mode; continuing without enqueue."
                 )

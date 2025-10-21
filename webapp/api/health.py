@@ -4,12 +4,13 @@ import os
 from datetime import datetime
 from functools import wraps
 
-from flask import current_app, jsonify, request
+from flask import jsonify, request
 from sqlalchemy import text
 
 from . import bp
 from ..extensions import db
 from core.time import utc_now_isoformat
+from core.settings import settings
 
 
 def skip_auth(f):
@@ -43,7 +44,7 @@ def health_ready():
         details["db"] = "error"
 
     for key in ("FPV_NAS_THUMBS_DIR", "FPV_NAS_PLAY_DIR"):
-        path = current_app.config.get(key)
+        path = settings.get(key)
         field = key.lower()
         if path and os.path.exists(path):
             details[field] = "ok"
@@ -51,7 +52,7 @@ def health_ready():
             ok = False
             details[field] = "missing"
 
-    redis_url = current_app.config.get("REDIS_URL")
+    redis_url = settings.get("REDIS_URL")
     if redis_url:
         try:  # pragma: no cover - optional dependency
             import redis
@@ -72,7 +73,7 @@ def health_ready():
 @skip_auth
 def health_beat():
     """Return last beat timestamp and current server time."""
-    last = current_app.config.get("LAST_BEAT_AT")
+    last = settings.get("LAST_BEAT_AT")
     return (
         jsonify(
             {

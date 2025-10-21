@@ -11,7 +11,9 @@ from functools import wraps
 from threading import Lock
 from typing import Callable, Optional, TypeVar, Any, cast
 
-from flask import current_app, jsonify
+from flask import jsonify
+
+from core.settings import settings
 
 
 class ConcurrencyLimitExceeded(RuntimeError):
@@ -42,9 +44,7 @@ class ConcurrencyLimiter(AbstractContextManager["ConcurrencyLimiter"]):
 
     # --- Internal helpers -------------------------------------------------
     def _configured_limit(self) -> int:
-        raw_limit = current_app.config.get(
-            self._config.limit_key, self._config.default_limit
-        )
+        raw_limit = settings.get(self._config.limit_key, self._config.default_limit)
         try:
             limit = int(raw_limit)
         except (TypeError, ValueError):  # pragma: no cover - defensive
@@ -56,7 +56,7 @@ class ConcurrencyLimiter(AbstractContextManager["ConcurrencyLimiter"]):
     def _configured_retry(self) -> float:
         retry_key = self._config.retry_key
         raw_retry = (
-            current_app.config.get(retry_key)
+            settings.get(retry_key)
             if retry_key
             else self._config.default_retry
         )

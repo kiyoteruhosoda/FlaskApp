@@ -179,6 +179,72 @@ body.login-page footer {
   color: #4338ca;
 }
 
+/* Admin configuration layout */
+.config-sidebar.sticky-top {
+  top: 1.5rem;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+
+.config-tree__heading {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--bs-secondary-color, #6c757d);
+  margin-top: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.config-tree__item {
+  margin-bottom: 0.25rem;
+}
+
+.config-tree__children {
+  margin-top: 0.35rem;
+  padding-left: 0.75rem;
+  border-left: 1px solid var(--bs-border-color, rgba(0, 0, 0, 0.1));
+}
+
+.config-tree__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.config-tree__link:hover {
+  color: var(--bs-primary, #0d6efd);
+  text-decoration: underline;
+}
+
+.config-tree__link--field {
+  font-size: 0.85rem;
+}
+
+.config-tree__hint {
+  font-size: 0.75rem;
+  color: var(--bs-secondary-color, #6c757d);
+}
+
+.config-section-card {
+  border-radius: 0.75rem;
+  border: 1px solid var(--bs-border-color, rgba(0, 0, 0, 0.1));
+}
+
+.config-section-card .card-header {
+  background-color: transparent;
+}
+
+.config-block + .config-block {
+  margin-top: 2rem;
+}
+
+.config-block .form-text {
+  font-size: 0.8rem;
+}
+
 .btn-size-lg,
 .btn-size-md,
 .btn-size-sm {

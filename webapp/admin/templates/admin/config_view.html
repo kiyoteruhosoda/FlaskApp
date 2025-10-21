@@ -41,385 +41,586 @@
 
 <h3>{{ _('Config Settings') }}</h3>
 
-<h4 class="mt-4">{{ _('Access Token Signing') }}</h4>
-<form method="post" class="mb-4" data-ajax-config-form data-config-form="signing">
-  <input type="hidden" name="action" value="update-signing">
-  <div class="form-check mb-2">
-    <input
-      class="form-check-input"
-      type="radio"
-      name="access_token_signing"
-      id="access-token-signing-builtin"
-      value="builtin"
-      {% if signing_setting.is_builtin %}checked{% endif %}
-    >
-    <label class="form-check-label" for="access-token-signing-builtin">
-      {{ _('Built-in secret (HS256)') }}
-    </label>
-    <div class="form-text">
-      {{ _('Use the built-in JWT secret key configured in the application settings.') }}
-    </div>
-  </div>
-
-  <div class="mt-3">
-    <label class="form-label" for="access-token-signing-server">
-      {{ _('Server signing certificate groups') }}
-    </label>
-    {% if server_signing_groups %}
-      <div class="list-group">
-        {% for group in server_signing_groups %}
-        {% set latest = group.latest_certificate %}
-        <label class="list-group-item{% if not latest %} disabled{% endif %}">
+<div class="row g-4 align-items-start">
+  <div class="col-xl-3">
+    <div class="card shadow-sm config-sidebar sticky-top">
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label" for="config-search">{{ _('Search settings') }}</label>
           <input
-            class="form-check-input me-2"
-            type="radio"
-            name="access_token_signing"
-            value="server_signing:{{ group.group_code }}"
-            {% if not latest %}disabled{% endif %}
-            {% if signing_setting.is_server_signing and signing_setting.group_code == group.group_code %}checked{% endif %}
+            type="search"
+            class="form-control form-control-sm"
+            id="config-search"
+            placeholder="{{ _('Filter by label, key, or description...') }}"
+            data-config-search
           >
-          <span class="fw-bold">{{ group.group_label or group.group_code or _('Unnamed group') }}</span>
-          <span class="text-muted ms-2">{{ group.group_code }}</span>
-          {% if latest %}
-          <div class="small text-muted mt-1">
-            {{ _('Latest active certificate: %(kid)s', kid=latest.kid) }}
-            {% if latest.algorithm %}
-              <span class="ms-2">
-                {{ _('Algorithm: %(algorithm)s', algorithm=latest.algorithm) }}
-              </span>
-            {% endif %}
-            {% if latest.expires_at %}
-              <span class="ms-2">
-                {{ _('Expires at: %(timestamp)s', timestamp=latest.expires_at|localtime('%Y-%m-%d %H:%M')) }}
-              </span>
-            {% endif %}
-          </div>
-          {% if latest.subject %}
-            <div class="small text-muted">{{ latest.subject }}</div>
-          {% endif %}
-          {% else %}
-          <div class="small text-muted mt-1">
-            {{ _('No active certificates are available in this group.') }}
-          </div>
-          {% endif %}
-        </label>
-        {% endfor %}
-      </div>
-    {% else %}
-      <p class="text-muted mb-0">
-        {{ _('No server signing certificate groups are available. Create a certificate group first.') }}
-      </p>
-    {% endif %}
-  </div>
-
-  <button type="submit" class="btn btn-primary mt-3">
-    {{ _('Save signing settings') }}
-  </button>
-  {% if signing_config_updated_at %}
-  <div
-    class="form-text text-muted mt-2"
-    data-timestamp-target="signing"
-    data-label-updated="{{ _('Last updated at: %(timestamp)s', timestamp='__TIME__') }}"
-    data-description-label="{{ _('Description: %(description)s', description='__DESC__') }}"
-  >
-    {{ _('Last updated at: %(timestamp)s', timestamp=signing_config_updated_at|localtime('%Y-%m-%d %H:%M')) }}
-  </div>
-  {% endif %}
-</form>
-
-<h4 class="mt-4">{{ _('Application Configuration (system settings)') }}</h4>
-<form method="post" class="mb-4" data-ajax-config-form data-config-form="application">
-  <input type="hidden" name="action" value="update-app-config-fields">
-  <div class="table-responsive">
-    <table class="table table-sm align-middle">
-      <thead>
-        <tr>
-          <th scope="col">{{ _('Key') }}</th>
-          <th scope="col">{{ _('Current value') }}</th>
-          <th scope="col">{{ _('Default') }}</th>
-          <th scope="col">{{ _('New value') }}</th>
-          <th scope="col">{{ _('Required') }}</th>
-          <th scope="col">{{ _('Description') }}</th>
-          <th scope="col">{{ _('Apply') }}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for field in application_fields %}
-        <tr data-app-key="{{ field.key }}">
-          <td>
-            <div><code>{{ field.key }}</code></div>
-            <div class="text-muted small">{{ field.label }}</div>
-            <span
-              class="badge mt-1 {% if field.using_default %}bg-secondary{% else %}bg-info{% endif %}"
-              data-field="status-badge"
-              data-label-using-default="{{ _('Using default') }}"
-              data-label-overridden="{{ _('Overridden') }}"
+          <div class="form-text">{{ _('Type keywords to filter settings across all categories.') }}</div>
+        </div>
+        <nav class="config-tree" data-config-tree aria-label="{{ _('Configuration navigation') }}">
+          <ul class="list-unstyled mb-0">
+            <li
+              class="config-tree__item"
+              data-config-tree-node
+              data-target="#section-signing"
+              data-search-text="{{ _('Access Token Signing')|e }}"
             >
-              {% if field.using_default %}
-              {{ _('Using default') }}
-              {% else %}
-              {{ _('Overridden') }}
-              {% endif %}
-            </span>
-          </td>
-          <td class="font-monospace small" data-field="current">{{ field.current_json }}</td>
-          <td
-            class="font-monospace small{% if not field.default_json %} text-muted{% endif %}"
-            data-field="default"
-            data-none-label="{{ _('None') }}"
-          >
-            {% if field.default_json %}
-              {{ field.default_json }}
-            {% else %}
-              {{ _('None') }}
-            {% endif %}
-          </td>
-          <td>
-            {% if field.editable %}
-              {% if field.data_type == 'boolean' %}
-              <select
-                class="form-select form-select-sm"
-                name="app_config_new[{{ field.key }}]"
-                data-field-input
-              >
-                {% for value, label in field.choices %}
-                <option value="{{ value }}" {% if field.form_value == value %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-              </select>
-              {% elif field.data_type == 'list' %}
-              <textarea
-                class="form-control form-control-sm font-monospace"
-                name="app_config_new[{{ field.key }}]"
-                rows="3"
-                data-field-input
-              >{{ field.form_value }}</textarea>
-              <div class="form-text">{{ _('One value per line.') }}</div>
-              {% elif field.data_type == 'integer' %}
-              <input
-                type="number"
-                class="form-control form-control-sm"
-                name="app_config_new[{{ field.key }}]"
-                value="{{ field.form_value }}"
-                data-field-input
-              >
-              {% elif field.data_type == 'float' %}
-              <input
-                type="number"
-                step="any"
-                class="form-control form-control-sm"
-                name="app_config_new[{{ field.key }}]"
-                value="{{ field.form_value }}"
-                data-field-input
-              >
-              {% else %}
-              <input
-                type="text"
-                class="form-control form-control-sm"
-                name="app_config_new[{{ field.key }}]"
-                value="{{ field.form_value }}"
-                data-field-input
-              >
-              {% endif %}
-              <div class="form-check mt-2">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  id="app-config-use-default-{{ field.key }}"
-                  name="app_config_use_default[{{ field.key }}]"
-                  value="1"
-                  {% if field.use_default %}checked{% endif %}
-                  data-field-use-default
+              <a class="config-tree__link" href="#section-signing">{{ _('Access Token Signing') }}</a>
+            </li>
+            <li class="config-tree__heading">{{ _('Application configuration') }}</li>
+            <li
+              class="config-tree__item"
+              data-config-tree-node
+              data-target="#section-application"
+              data-search-text="{{ _('Application Configuration (system settings)')|e }}"
+            >
+              <a class="config-tree__link" href="#section-application">
+                {{ _('Application Configuration (system settings)') }}
+              </a>
+            </li>
+            {% for section in application_sections %}
+            <li
+              class="config-tree__item config-tree__item--section"
+              data-config-tree-section
+              data-section="{{ section.identifier }}"
+              data-search-text="{{ section.search_text|e }}"
+            >
+              <a class="config-tree__link" href="#{{ section.anchor_id }}">{{ section.label }}</a>
+              {% if section.fields %}
+              <ul class="list-unstyled config-tree__children">
+                {% for field in section.fields %}
+                <li
+                  class="config-tree__item"
+                  data-config-tree-field
+                  data-section="{{ section.identifier }}"
+                  data-field-key="{{ field.key }}"
+                  data-search-text="{{ field.search_text|e }}"
                 >
-                <label class="form-check-label" for="app-config-use-default-{{ field.key }}">
-                  {{ _('Revert to default value') }}
-                </label>
-              </div>
-            {% else %}
-              {% if field.multiline %}
-              <textarea class="form-control form-control-sm font-monospace" rows="3" readonly disabled>{{ field.form_value }}</textarea>
-              {% else %}
-              <input
-                type="text"
-                class="form-control form-control-sm"
-                value="{{ field.form_value }}"
-                readonly
-                disabled
-              >
+                  <a class="config-tree__link config-tree__link--field" href="#{{ field.anchor_id }}">
+                    {{ field.label }}
+                    <span class="config-tree__hint">{{ field.key }}</span>
+                  </a>
+                </li>
+                {% endfor %}
+              </ul>
               {% endif %}
-              <div class="form-text text-muted">{{ _('This setting is read-only and cannot be changed from the admin UI.') }}</div>
-            {% endif %}
-          </td>
-          <td>{% if field.required %}{{ _('Yes') }}{% else %}{{ _('No') }}{% endif %}</td>
-          <td class="small">{{ field.description }}</td>
-          <td>
-            {% if field.editable %}
-            <div class="form-check">
-              <input
-                class="form-check-input"
-                type="checkbox"
-                id="app-config-selected-{{ field.key }}"
-                name="app_config_selected"
-                value="{{ field.key }}"
-                {% if field.selected %}checked{% endif %}
-                data-field-select
-              >
-              <label class="form-check-label" for="app-config-selected-{{ field.key }}">
-                {{ _('Update') }}
-              </label>
-            </div>
-            {% else %}
-            <span class="badge bg-secondary">{{ _('Read only') }}</span>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  <div class="d-flex justify-content-between align-items-center">
-    <button type="submit" class="btn btn-primary">
-      {{ _('Save application configuration') }}
-    </button>
-    {% if application_config_updated_at %}
-    <div
-      class="form-text text-muted text-end"
-      data-timestamp-target="application"
-      data-description-target="application"
-      data-label-updated="{{ _('Last updated at: %(timestamp)s', timestamp='__TIME__') }}"
-      data-description-label="{{ _('Description: %(description)s', description='__DESC__') }}"
-    >
-      {{ _('Last updated at: %(timestamp)s', timestamp=application_config_updated_at|localtime('%Y-%m-%d %H:%M')) }}
-      {% if application_config_description %}
-      <br>{{ _('Description: %(description)s', description=application_config_description) }}
-      {% endif %}
-    </div>
-    {% endif %}
-  </div>
-</form>
-
-<h4 class="mt-4">{{ _('CORS Allowed Origins') }}</h4>
-<form method="post" class="mb-4" data-ajax-config-form data-config-form="cors">
-  <input type="hidden" name="action" value="update-cors">
-  <div class="table-responsive">
-    <table class="table table-sm align-middle">
-      <thead>
-        <tr>
-          <th scope="col">{{ _('Key') }}</th>
-          <th scope="col">{{ _('Current value') }}</th>
-          <th scope="col">{{ _('Default') }}</th>
-          <th scope="col">{{ _('New value') }}</th>
-          <th scope="col">{{ _('Required') }}</th>
-          <th scope="col">{{ _('Description') }}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for field in cors_fields %}
-        <tr data-cors-key="{{ field.key }}">
-          <td>
-            <div><code>{{ field.key }}</code></div>
-            <div class="text-muted small">{{ field.label }}</div>
-            <span
-              class="badge mt-1 {% if field.using_default %}bg-secondary{% else %}bg-info{% endif %}"
-              data-field="status-badge"
-              data-label-using-default="{{ _('Using default') }}"
-              data-label-overridden="{{ _('Overridden') }}"
+            </li>
+            {% endfor %}
+            <li
+              class="config-tree__item mt-3"
+              data-config-tree-node
+              data-target="#section-cors"
+              data-search-text="{{ _('CORS Allowed Origins')|e }}"
             >
-              {% if field.using_default %}
-              {{ _('Using default') }}
-              {% else %}
-              {{ _('Overridden') }}
-              {% endif %}
-            </span>
-          </td>
-          <td class="font-monospace small" data-field="current">{{ field.current_json }}</td>
-          <td
-            class="font-monospace small{% if not field.default_json %} text-muted{% endif %}"
-            data-field="default"
-            data-none-label="{{ _('None') }}"
-          >
-            {% if field.default_json %}
-              {{ field.default_json }}
-            {% else %}
-              {{ _('None') }}
-            {% endif %}
-          </td>
-          <td>
-            {% if field.data_type == 'list' %}
-            <textarea
-              class="form-control form-control-sm font-monospace"
-              name="cors_new[{{ field.key }}]"
-              rows="3"
-              data-cors-input
-            >{{ field.form_value }}</textarea>
-            <div class="form-text">{{ _('One value per line. Use "*" to allow any origin.') }}</div>
-            {% else %}
-            <input
-              type="text"
-              class="form-control form-control-sm"
-              name="cors_new[{{ field.key }}]"
-              value="{{ field.form_value }}"
-              data-cors-input
+              <a class="config-tree__link" href="#section-cors">{{ _('CORS Allowed Origins') }}</a>
+            </li>
+            <li
+              class="config-tree__item"
+              data-config-tree-node
+              data-target="#section-snapshot"
+              data-search-text="{{ _('Configuration snapshot')|e }}"
             >
-            {% endif %}
-            <div class="form-check mt-2">
-              <input
-                class="form-check-input"
-                type="checkbox"
-                id="cors-use-default-{{ field.key }}"
-                name="cors_use_default[{{ field.key }}]"
-                value="1"
-                {% if field.use_default %}checked{% endif %}
-                data-cors-use-default
-              >
-              <label class="form-check-label" for="cors-use-default-{{ field.key }}">
-                {{ _('Revert to default value') }}
-              </label>
-            </div>
-          </td>
-          <td>{% if field.required %}{{ _('Yes') }}{% else %}{{ _('No') }}{% endif %}</td>
-          <td class="small">{{ field.description }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  <div class="d-flex justify-content-between align-items-center">
-    <button type="submit" class="btn btn-primary">
-      {{ _('Save CORS settings') }}
-    </button>
-    {% if cors_config_updated_at %}
-    <div
-      class="form-text text-muted text-end"
-      data-timestamp-target="cors"
-      data-description-target="cors"
-      data-label-updated="{{ _('Last updated at: %(timestamp)s', timestamp='__TIME__') }}"
-      data-description-label="{{ _('Description: %(description)s', description='__DESC__') }}"
-    >
-      {{ _('Last updated at: %(timestamp)s', timestamp=cors_config_updated_at|localtime('%Y-%m-%d %H:%M')) }}
-      {% if cors_config_description %}
-      <br>{{ _('Description: %(description)s', description=cors_config_description) }}
-      {% endif %}
+              <a class="config-tree__link" href="#section-snapshot">{{ _('Configuration snapshot') }}</a>
+            </li>
+          </ul>
+        </nav>
+      </div>
     </div>
-    {% endif %}
   </div>
-</form>
+  <div class="col-xl-9">
+    <div class="alert alert-info d-none" data-config-empty-state>
+      {{ _('No settings match your search. Try a different keyword.') }}
+    </div>
 
-<table class="table table-bordered" data-config-table>
-  <thead>
-    <tr>
-      <th>Key</th>
-      <th>Value</th>
-    </tr>
-  </thead>
-  <tbody data-config-table-body>
-    {% for key, value in config.items() %}
-    <tr>
-      <td>{{ key }}</td>
-      <td>{{ value }}</td>
-    </tr>
+    {% set signing_search_terms = [_('Access Token Signing')] %}
+    {% for group in server_signing_groups or [] %}
+      {% set _ = signing_search_terms.append(group.group_label or group.group_code or '') %}
+      {% if group.group_code %}
+        {% set _ = signing_search_terms.append(group.group_code) %}
+      {% endif %}
     {% endfor %}
-  </tbody>
-</table>
+    {% set signing_search_text = signing_search_terms | select | join(' ') %}
+
+    <section
+      id="section-signing"
+      class="config-block"
+      data-config-block="signing"
+      data-search-text="{{ signing_search_text|e }}"
+    >
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-white border-0 pb-0">
+          <h4 class="card-title mb-1">{{ _('Access Token Signing') }}</h4>
+          <p class="text-muted small mb-0">
+            {{ _('Choose how access tokens are signed and distributed to clients.') }}
+          </p>
+        </div>
+        <div class="card-body">
+          <form method="post" class="config-form" data-ajax-config-form data-config-form="signing">
+            <input type="hidden" name="action" value="update-signing">
+            <div class="form-check mb-3">
+              <input
+                class="form-check-input"
+                type="radio"
+                name="access_token_signing"
+                id="access-token-signing-builtin"
+                value="builtin"
+                {% if signing_setting.is_builtin %}checked{% endif %}
+              >
+              <label class="form-check-label" for="access-token-signing-builtin">
+                {{ _('Built-in secret (HS256)') }}
+              </label>
+              <div class="form-text">
+                {{ _('Use the built-in JWT secret key configured in the application settings.') }}
+              </div>
+            </div>
+
+            <div>
+              <label class="form-label" for="access-token-signing-server">
+                {{ _('Server signing certificate groups') }}
+              </label>
+              {% if server_signing_groups %}
+              <div class="list-group">
+                {% for group in server_signing_groups %}
+                {% set latest = group.latest_certificate %}
+                <label class="list-group-item{% if not latest %} disabled{% endif %}">
+                  <input
+                    class="form-check-input me-2"
+                    type="radio"
+                    name="access_token_signing"
+                    value="server_signing:{{ group.group_code }}"
+                    {% if not latest %}disabled{% endif %}
+                    {% if signing_setting.is_server_signing and signing_setting.group_code == group.group_code %}checked{% endif %}
+                  >
+                  <span class="fw-semibold">{{ group.group_label or group.group_code or _('Unnamed group') }}</span>
+                  <span class="text-muted ms-2">{{ group.group_code }}</span>
+                  {% if latest %}
+                  <div class="small text-muted mt-1">
+                    {{ _('Latest active certificate: %(kid)s', kid=latest.kid) }}
+                    {% if latest.algorithm %}
+                    <span class="ms-2">
+                      {{ _('Algorithm: %(algorithm)s', algorithm=latest.algorithm) }}
+                    </span>
+                    {% endif %}
+                    {% if latest.expires_at %}
+                    <span class="ms-2">
+                      {{ _('Expires at: %(timestamp)s', timestamp=latest.expires_at|localtime('%Y-%m-%d %H:%M')) }}
+                    </span>
+                    {% endif %}
+                  </div>
+                  {% if latest.subject %}
+                  <div class="small text-muted">{{ latest.subject }}</div>
+                  {% endif %}
+                  {% else %}
+                  <div class="small text-muted mt-1">
+                    {{ _('No active certificates are available in this group.') }}
+                  </div>
+                  {% endif %}
+                </label>
+                {% endfor %}
+              </div>
+              {% else %}
+              <p class="text-muted mb-0">
+                {{ _('No server signing certificate groups are available. Create a certificate group first.') }}
+              </p>
+              {% endif %}
+            </div>
+
+            <button type="submit" class="btn btn-primary mt-3">
+              {{ _('Save signing settings') }}
+            </button>
+            {% if signing_config_updated_at %}
+            <div
+              class="form-text text-muted mt-2"
+              data-timestamp-target="signing"
+              data-label-updated="{{ _('Last updated at: %(timestamp)s', timestamp='__TIME__') }}"
+              data-description-label="{{ _('Description: %(description)s', description='__DESC__') }}"
+            >
+              {{ _('Last updated at: %(timestamp)s', timestamp=signing_config_updated_at|localtime('%Y-%m-%d %H:%M')) }}
+            </div>
+            {% endif %}
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section
+      id="section-application"
+      class="config-block mt-4"
+      data-config-block="application"
+      data-search-text="{{ _('Application Configuration (system settings)')|e }}"
+    >
+      <header class="mb-3">
+        <h4 class="mb-1">{{ _('Application Configuration (system settings)') }}</h4>
+        <p class="text-muted small mb-0">
+          {{ _('Update persisted configuration grouped by category.') }}
+        </p>
+      </header>
+      <form method="post" class="config-form" data-ajax-config-form data-config-form="application">
+        <input type="hidden" name="action" value="update-app-config-fields">
+        <div class="d-grid gap-4">
+          {% for section in application_sections %}
+          <div
+            id="{{ section.anchor_id }}"
+            class="card config-section-card shadow-sm"
+            data-config-section
+            data-section="{{ section.identifier }}"
+            data-search-text="{{ section.search_text|e }}"
+          >
+            <div class="card-header bg-white border-0 pb-0">
+              <h5 class="card-title mb-1">{{ section.label }}</h5>
+              {% if section.description %}
+              <p class="text-muted small mb-0">{{ section.description }}</p>
+              {% endif %}
+            </div>
+            <div class="card-body pt-0">
+              <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th scope="col">{{ _('Key') }}</th>
+                      <th scope="col">{{ _('Current value') }}</th>
+                      <th scope="col">{{ _('Default') }}</th>
+                      <th scope="col">{{ _('New value') }}</th>
+                      <th scope="col">{{ _('Required') }}</th>
+                      <th scope="col">{{ _('Description') }}</th>
+                      <th scope="col">{{ _('Apply') }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for field in section.fields %}
+                    <tr
+                      id="{{ field.anchor_id }}"
+                      data-config-row
+                      data-section="{{ field.section }}"
+                      data-search-text="{{ field.search_text|e }}"
+                      data-app-key="{{ field.key }}"
+                    >
+                      <td>
+                        <div><code>{{ field.key }}</code></div>
+                        <div class="text-muted small">{{ field.label }}</div>
+                        <span
+                          class="badge mt-1 {% if field.using_default %}bg-secondary{% else %}bg-info{% endif %}"
+                          data-field="status-badge"
+                          data-label-using-default="{{ _('Using default') }}"
+                          data-label-overridden="{{ _('Overridden') }}"
+                        >
+                          {% if field.using_default %}
+                          {{ _('Using default') }}
+                          {% else %}
+                          {{ _('Overridden') }}
+                          {% endif %}
+                        </span>
+                      </td>
+                      <td class="font-monospace small" data-field="current">{{ field.current_json }}</td>
+                      <td
+                        class="font-monospace small{% if not field.default_json %} text-muted{% endif %}"
+                        data-field="default"
+                        data-none-label="{{ _('None') }}"
+                      >
+                        {% if field.default_json %}
+                          {{ field.default_json }}
+                        {% else %}
+                          {{ _('None') }}
+                        {% endif %}
+                      </td>
+                      <td>
+                        {% if field.editable %}
+                          {% if field.data_type == 'boolean' %}
+                          <select
+                            class="form-select form-select-sm"
+                            name="app_config_new[{{ field.key }}]"
+                            data-field-input
+                          >
+                            {% for value, label in field.choices %}
+                            <option value="{{ value }}" {% if field.form_value == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                          </select>
+                          {% elif field.data_type == 'list' %}
+                          <textarea
+                            class="form-control form-control-sm font-monospace"
+                            name="app_config_new[{{ field.key }}]"
+                            rows="3"
+                            data-field-input
+                          >{{ field.form_value }}</textarea>
+                          <div class="form-text">{{ _('One value per line.') }}</div>
+                          {% elif field.data_type == 'integer' %}
+                          <input
+                            type="number"
+                            class="form-control form-control-sm"
+                            name="app_config_new[{{ field.key }}]"
+                            value="{{ field.form_value }}"
+                            data-field-input
+                          >
+                          {% elif field.data_type == 'float' %}
+                          <input
+                            type="number"
+                            step="any"
+                            class="form-control form-control-sm"
+                            name="app_config_new[{{ field.key }}]"
+                            value="{{ field.form_value }}"
+                            data-field-input
+                          >
+                          {% else %}
+                          <input
+                            type="text"
+                            class="form-control form-control-sm"
+                            name="app_config_new[{{ field.key }}]"
+                            value="{{ field.form_value }}"
+                            data-field-input
+                          >
+                          {% endif %}
+                          <div class="form-check mt-2">
+                            <input
+                              class="form-check-input"
+                              type="checkbox"
+                              id="app-config-use-default-{{ field.key }}"
+                              name="app_config_use_default[{{ field.key }}]"
+                              value="1"
+                              {% if field.use_default %}checked{% endif %}
+                              data-field-use-default
+                            >
+                            <label class="form-check-label" for="app-config-use-default-{{ field.key }}">
+                              {{ _('Revert to default value') }}
+                            </label>
+                          </div>
+                        {% else %}
+                          {% if field.multiline %}
+                          <textarea class="form-control form-control-sm font-monospace" rows="3" readonly disabled>{{ field.form_value }}</textarea>
+                          {% else %}
+                          <input
+                            type="text"
+                            class="form-control form-control-sm"
+                            value="{{ field.form_value }}"
+                            readonly
+                            disabled
+                          >
+                          {% endif %}
+                          <div class="form-text text-muted">{{ _('This setting is read-only and cannot be changed from the admin UI.') }}</div>
+                        {% endif %}
+                      </td>
+                      <td>{% if field.required %}{{ _('Yes') }}{% else %}{{ _('No') }}{% endif %}</td>
+                      <td class="small">
+                        {{ field.description }}
+                        {% if field.default_hint %}
+                        <div class="text-muted">{{ field.default_hint }}</div>
+                        {% endif %}
+                      </td>
+                      <td>
+                        {% if field.editable %}
+                        <div class="form-check">
+                          <input
+                            class="form-check-input"
+                            type="checkbox"
+                            id="app-config-selected-{{ field.key }}"
+                            name="app_config_selected"
+                            value="{{ field.key }}"
+                            {% if field.selected %}checked{% endif %}
+                            data-field-select
+                          >
+                          <label class="form-check-label" for="app-config-selected-{{ field.key }}">
+                            {{ _('Update') }}
+                          </label>
+                        </div>
+                        {% else %}
+                        <span class="badge bg-secondary">{{ _('Read only') }}</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mt-4">
+          <button type="submit" class="btn btn-primary">
+            {{ _('Save application configuration') }}
+          </button>
+          {% if application_config_updated_at %}
+          <div
+            class="form-text text-muted text-lg-end"
+            data-timestamp-target="application"
+            data-description-target="application"
+            data-label-updated="{{ _('Last updated at: %(timestamp)s', timestamp='__TIME__') }}"
+            data-description-label="{{ _('Description: %(description)s', description='__DESC__') }}"
+          >
+            {{ _('Last updated at: %(timestamp)s', timestamp=application_config_updated_at|localtime('%Y-%m-%d %H:%M')) }}
+            {% if application_config_description %}
+            <br>{{ _('Description: %(description)s', description=application_config_description) }}
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </form>
+    </section>
+
+    <section
+      id="section-cors"
+      class="config-block mt-4"
+      data-config-block="cors"
+      data-search-text="{{ _('CORS Allowed Origins')|e }}"
+    >
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-white border-0 pb-0">
+          <h4 class="card-title mb-1">{{ _('CORS Allowed Origins') }}</h4>
+          <p class="text-muted small mb-0">
+            {{ _('Manage origins permitted by the CORS policy.') }}
+          </p>
+        </div>
+        <div class="card-body">
+          <form method="post" class="config-form" data-ajax-config-form data-config-form="cors">
+            <input type="hidden" name="action" value="update-cors">
+            <div class="table-responsive">
+              <table class="table table-sm align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th scope="col">{{ _('Key') }}</th>
+                    <th scope="col">{{ _('Current value') }}</th>
+                    <th scope="col">{{ _('Default') }}</th>
+                    <th scope="col">{{ _('New value') }}</th>
+                    <th scope="col">{{ _('Required') }}</th>
+                    <th scope="col">{{ _('Description') }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for field in cors_fields %}
+                  <tr
+                    id="cors-{{ field.key }}"
+                    data-config-row
+                    data-section="cors"
+                    data-search-text="{{ field.search_text|e }}"
+                    data-cors-key="{{ field.key }}"
+                  >
+                    <td>
+                      <div><code>{{ field.key }}</code></div>
+                      <div class="text-muted small">{{ field.label }}</div>
+                      <span
+                        class="badge mt-1 {% if field.using_default %}bg-secondary{% else %}bg-info{% endif %}"
+                        data-field="status-badge"
+                        data-label-using-default="{{ _('Using default') }}"
+                        data-label-overridden="{{ _('Overridden') }}"
+                      >
+                        {% if field.using_default %}
+                        {{ _('Using default') }}
+                        {% else %}
+                        {{ _('Overridden') }}
+                        {% endif %}
+                      </span>
+                    </td>
+                    <td class="font-monospace small" data-field="current">{{ field.current_json }}</td>
+                    <td
+                      class="font-monospace small{% if not field.default_json %} text-muted{% endif %}"
+                      data-field="default"
+                      data-none-label="{{ _('None') }}"
+                    >
+                      {% if field.default_json %}
+                        {{ field.default_json }}
+                      {% else %}
+                        {{ _('None') }}
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if field.data_type == 'list' %}
+                      <textarea
+                        class="form-control form-control-sm font-monospace"
+                        name="cors_new[{{ field.key }}]"
+                        rows="3"
+                        data-cors-input
+                      >{{ field.form_value }}</textarea>
+                      <div class="form-text">{{ _('One value per line. Use "*" to allow any origin.') }}</div>
+                      {% else %}
+                      <input
+                        type="text"
+                        class="form-control form-control-sm"
+                        name="cors_new[{{ field.key }}]"
+                        value="{{ field.form_value }}"
+                        data-cors-input
+                      >
+                      {% endif %}
+                      <div class="form-check mt-2">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          id="cors-use-default-{{ field.key }}"
+                          name="cors_use_default[{{ field.key }}]"
+                          value="1"
+                          {% if field.use_default %}checked{% endif %}
+                          data-cors-use-default
+                        >
+                        <label class="form-check-label" for="cors-use-default-{{ field.key }}">
+                          {{ _('Revert to default value') }}
+                        </label>
+                      </div>
+                    </td>
+                    <td>{% if field.required %}{{ _('Yes') }}{% else %}{{ _('No') }}{% endif %}</td>
+                    <td class="small">{{ field.description }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mt-4">
+              <button type="submit" class="btn btn-primary">
+                {{ _('Save CORS settings') }}
+              </button>
+              {% if cors_config_updated_at %}
+              <div
+                class="form-text text-muted text-lg-end"
+                data-timestamp-target="cors"
+                data-description-target="cors"
+                data-label-updated="{{ _('Last updated at: %(timestamp)s', timestamp='__TIME__') }}"
+                data-description-label="{{ _('Description: %(description)s', description='__DESC__') }}"
+              >
+                {{ _('Last updated at: %(timestamp)s', timestamp=cors_config_updated_at|localtime('%Y-%m-%d %H:%M')) }}
+                {% if cors_config_description %}
+                <br>{{ _('Description: %(description)s', description=cors_config_description) }}
+                {% endif %}
+              </div>
+              {% endif %}
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section
+      id="section-snapshot"
+      class="config-block mt-4"
+      data-config-block="snapshot"
+      data-search-text="{{ _('Configuration snapshot')|e }}"
+    >
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-white border-0 pb-0">
+          <h5 class="card-title mb-1">{{ _('Configuration snapshot') }}</h5>
+          <p class="text-muted small mb-0">
+            {{ _('Current effective values exposed by BaseApplicationSettings.') }}
+          </p>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0" data-config-table>
+              <thead>
+                <tr>
+                  <th scope="col">{{ _('Key') }}</th>
+                  <th scope="col">{{ _('Value') }}</th>
+                </tr>
+              </thead>
+              <tbody data-config-table-body>
+                {% for key, value in config.items() %}
+                <tr>
+                  <td>{{ key }}</td>
+                  <td>{{ value }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}

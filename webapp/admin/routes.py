@@ -6,7 +6,7 @@ import socket
 from datetime import datetime, timezone
 from importlib import metadata as importlib_metadata
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Mapping
 
 import flask
 from flask import (
@@ -55,6 +55,7 @@ from features.certs.domain.exceptions import (
 from features.certs.domain.usage import UsageType
 from webapp.admin.system_settings_definitions import (
     APPLICATION_SETTING_DEFINITIONS,
+    APPLICATION_SETTING_SECTIONS,
     CORS_SETTING_DEFINITIONS,
     SettingFieldDefinition,
 )
@@ -163,6 +164,18 @@ def _format_value_for_display(value: Any) -> str:
         return str(value)
 
 
+def _compose_search_text(*parts: Any) -> str:
+    tokens: list[str] = []
+    for part in parts:
+        if not part:
+            continue
+        if isinstance(part, (list, tuple, set)):
+            tokens.append(_compose_search_text(*part))
+        else:
+            tokens.append(str(part))
+    return " ".join(token.strip() for token in tokens if token).lower()
+
+
 def _value_to_form_string(definition: SettingFieldDefinition, value: Any) -> str:
     if value is None:
         return ""
@@ -177,7 +190,70 @@ def _value_to_form_string(definition: SettingFieldDefinition, value: Any) -> str
     return str(value)
 
 
-def _build_application_field_rows(
+def _build_setting_row(
+    *,
+    key: str,
+    definition: SettingFieldDefinition,
+    defaults: Mapping[str, Any],
+    effective_config: Dict[str, Any],
+    stored_payload: Dict[str, Any],
+    override_values: Mapping[str, str],
+    selected: set[str],
+    default_flags: set[str],
+) -> Dict[str, Any]:
+    current_value = effective_config.get(key)
+    stored_has_value = key in stored_payload
+    stored_value = stored_payload.get(key)
+    default_value = defaults.get(key)
+
+    if key in override_values:
+        form_value = override_values[key]
+    elif stored_has_value:
+        form_value = _value_to_form_string(definition, stored_value)
+    else:
+        form_value = _value_to_form_string(definition, current_value)
+
+    current_json = _format_value_for_display(current_value)
+    default_json = _format_value_for_display(default_value) if key in defaults else ""
+    choices = definition.choice_labels()
+    choices_text = " ".join(
+        f"{value} {label}" for value, label in choices
+    )
+
+    search_text = _compose_search_text(
+        key,
+        definition.label,
+        definition.description,
+        current_json,
+        default_json,
+        form_value,
+        definition.default_hint or "",
+        choices_text,
+    )
+
+    return {
+        "key": key,
+        "label": definition.label,
+        "data_type": definition.data_type,
+        "required": definition.required,
+        "description": definition.description,
+        "current_json": current_json,
+        "default_json": default_json,
+        "form_value": form_value,
+        "choices": choices,
+        "multiline": definition.multiline,
+        "selected": key in selected,
+        "use_default": key in default_flags,
+        "using_default": not stored_has_value,
+        "allow_empty": definition.allow_empty,
+        "allow_null": definition.allow_null,
+        "editable": definition.editable,
+        "default_hint": definition.default_hint,
+        "search_text": search_text,
+    }
+
+
+def _prepare_application_field_models(
     definitions: Dict[str, SettingFieldDefinition],
     effective_config: Dict[str, Any],
     stored_payload: Dict[str, Any],
@@ -185,49 +261,95 @@ def _build_application_field_rows(
     overrides: Dict[str, str] | None = None,
     selected_keys: set[str] | None = None,
     default_flags: set[str] | None = None,
-) -> list[Dict[str, Any]]:
+) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]]]:
     override_values = overrides or {}
     selected = selected_keys or set()
     defaults = default_flags or set()
-    rows: list[Dict[str, Any]] = []
 
+    rows_by_key: dict[str, Dict[str, Any]] = {}
     for key in sorted(definitions):
         definition = definitions[key]
-        current_value = effective_config.get(key)
-        stored_has_value = key in stored_payload
-        stored_value = stored_payload.get(key)
-        default_value = DEFAULT_APPLICATION_SETTINGS.get(key)
-        if key in override_values:
-            form_value = override_values[key]
-        elif stored_has_value:
-            form_value = _value_to_form_string(definition, stored_value)
-        else:
-            form_value = _value_to_form_string(definition, current_value)
+        rows_by_key[key] = _build_setting_row(
+            key=key,
+            definition=definition,
+            defaults=DEFAULT_APPLICATION_SETTINGS,
+            effective_config=effective_config,
+            stored_payload=stored_payload,
+            override_values=override_values,
+            selected=selected,
+            default_flags=defaults,
+        )
 
-        rows.append(
+    sections: list[Dict[str, Any]] = []
+    flat_rows: list[Dict[str, Any]] = []
+    used_keys: set[str] = set()
+
+    for section in APPLICATION_SETTING_SECTIONS:
+        section_rows: list[Dict[str, Any]] = []
+        for definition in section.fields:
+            row = rows_by_key.get(definition.key)
+            if not row:
+                continue
+            enriched = {**row}
+            enriched.update(
+                {
+                    "section": section.identifier,
+                    "section_label": section.label,
+                    "anchor_id": f"setting-{definition.key}",
+                }
+            )
+            section_rows.append(enriched)
+            flat_rows.append(enriched)
+            used_keys.add(definition.key)
+        if section_rows:
+            sections.append(
+                {
+                    "identifier": section.identifier,
+                    "label": section.label,
+                    "description": section.description,
+                    "fields": section_rows,
+                    "anchor_id": f"section-{section.identifier}",
+                    "search_text": _compose_search_text(
+                        section.label,
+                        section.description or "",
+                        *(row["search_text"] for row in section_rows),
+                    ),
+                }
+            )
+
+    custom_keys = sorted(key for key in rows_by_key if key not in used_keys)
+    if custom_keys:
+        custom_label = _(u"Custom keys")
+        custom_description = _(u"Settings without predefined metadata.")
+        custom_rows: list[Dict[str, Any]] = []
+        for key in custom_keys:
+            row = rows_by_key[key]
+            enriched = {**row}
+            enriched.update(
+                {
+                    "section": "custom",
+                    "section_label": custom_label,
+                    "anchor_id": f"setting-{key}",
+                }
+            )
+            custom_rows.append(enriched)
+            flat_rows.append(enriched)
+        sections.append(
             {
-                "key": key,
-                "label": definition.label,
-                "data_type": definition.data_type,
-                "required": definition.required,
-                "description": definition.description,
-                "current_json": _format_value_for_display(current_value),
-                "default_json": _format_value_for_display(default_value)
-                if key in DEFAULT_APPLICATION_SETTINGS
-                else "",
-                "form_value": form_value,
-                "choices": definition.choice_labels(),
-                "multiline": definition.multiline,
-                "selected": key in selected,
-                "use_default": key in defaults,
-                "using_default": not stored_has_value,
-                "allow_empty": definition.allow_empty,
-                "allow_null": definition.allow_null,
-                "editable": definition.editable,
+                "identifier": "custom",
+                "label": custom_label,
+                "description": custom_description,
+                "fields": custom_rows,
+                "anchor_id": "section-custom",
+                "search_text": _compose_search_text(
+                    custom_label,
+                    custom_description,
+                    *(row["search_text"] for row in custom_rows),
+                ),
             }
         )
 
-    return rows
+    return sections, flat_rows
 
 
 def _collect_cors_definitions() -> Dict[str, SettingFieldDefinition]:
@@ -250,38 +372,17 @@ def _build_cors_field_rows(
 
     for key in sorted(definitions):
         definition = definitions[key]
-        current_value = effective_config.get(key)
-        stored_has_value = key in stored_payload
-        stored_value = stored_payload.get(key)
-        default_value = DEFAULT_CORS_SETTINGS.get(key)
-
-        if key in override_values:
-            form_value = override_values[key]
-        elif stored_has_value:
-            form_value = _value_to_form_string(definition, stored_value)
-        else:
-            form_value = _value_to_form_string(definition, current_value)
-
         rows.append(
-            {
-                "key": key,
-                "label": definition.label,
-                "data_type": definition.data_type,
-                "required": definition.required,
-                "description": definition.description,
-                "current_json": _format_value_for_display(current_value),
-                "default_json": _format_value_for_display(default_value)
-                if key in DEFAULT_CORS_SETTINGS
-                else "",
-                "form_value": form_value,
-                "choices": definition.choice_labels(),
-                "multiline": definition.multiline,
-                "selected": key in selected,
-                "use_default": key in defaults,
-                "using_default": not stored_has_value,
-                "allow_empty": definition.allow_empty,
-                "allow_null": definition.allow_null,
-            }
+            _build_setting_row(
+                key=key,
+                definition=definition,
+                defaults=DEFAULT_CORS_SETTINGS,
+                effective_config=effective_config,
+                stored_payload=stored_payload,
+                override_values=override_values,
+                selected=selected,
+                default_flags=defaults,
+            )
         )
 
     return rows
@@ -303,7 +404,7 @@ def _build_config_context(
     application_definitions = _collect_application_definitions(application_config, application_payload)
     cors_definitions = _collect_cors_definitions()
 
-    application_fields = _build_application_field_rows(
+    application_sections, application_fields = _prepare_application_field_models(
         application_definitions,
         application_config,
         application_payload,
@@ -347,6 +448,7 @@ def _build_config_context(
         "cors_config": cors_config,
         "application_definitions": application_definitions,
         "cors_definitions": cors_definitions,
+        "application_sections": application_sections,
         "application_fields": application_fields,
         "cors_fields": cors_fields,
         "config": config_dict,
@@ -372,6 +474,7 @@ def _serialize_config_context(context: Dict[str, Any]) -> Dict[str, Any]:
             return str(value)
 
     serialized = {
+        "application_sections": context.get("application_sections", []),
         "application_fields": context.get("application_fields", []),
         "cors_fields": context.get("cors_fields", []),
         "signing_setting": asdict(context["signing_setting"]) if context.get("signing_setting") else None,
@@ -802,6 +905,7 @@ def show_config():
         config=context["config"],
         signing_setting=context["signing_setting"],
         server_signing_groups=context["server_signing_groups"],
+        application_sections=context["application_sections"],
         application_fields=context["application_fields"],
         cors_fields=context["cors_fields"],
         application_config_updated_at=context["application_config_updated_at"],

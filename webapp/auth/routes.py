@@ -708,9 +708,16 @@ def logout():
     user = current_user._get_current_object()
     user_payload = {
         "message": "User logged out",
-        "user_id": user.id,
-        "email": user.email,
+        "subject_type": getattr(user, "subject_type", None),
+        "subject_id": getattr(user, "subject_id", None),
+        "user_id": getattr(user, "user_id", None),
+        "service_account_id": getattr(user, "service_account_id", None),
+        "name": getattr(user, "name", None),
+        "display_name": getattr(user, "display_name", None),
+        "email": getattr(user, "email", None),
     }
+
+    user_payload = {key: value for key, value in user_payload.items() if value is not None}
 
     TokenService.revoke_refresh_token(user)
     logout_user()

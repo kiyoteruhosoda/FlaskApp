@@ -10,6 +10,7 @@ from flask import current_app, g, request
 
 from core.models.service_account import ServiceAccount
 from core.models.service_account_api_key import ServiceAccountApiKey
+from shared.domain.auth.principal import AuthenticatedPrincipal
 from webapp.services.service_account_api_key_service import (
     ServiceAccountApiKeyService,
 )
@@ -124,12 +125,18 @@ def require_api_key_scopes(scopes: Sequence[str] | None):
 
             g.service_account = account
             g.service_account_api_key = key
+            scope_items = set(key.scopes)
+            g.current_token_scope = scope_items
+            principal = AuthenticatedPrincipal.from_service_account(
+                account, scope=scope_items
+            )
+            g.current_user = principal
 
             current_app.logger.debug(
                 "API key authentication success.",
                 extra={
                     "event": "service_account_api_key.auth_success",
-                    "service_account": account.name,
+                    "service_account": principal.display_name,
                     "api_key_id": key.api_key_id,
                     "endpoint": request.path,
                     "scopes": list(scopes or []),

@@ -896,8 +896,8 @@ def create_app():
             g.service_login_clear_cookie = True
             return
 
-        user, scope = verification
-        if current_user.is_authenticated and str(current_user.id) != str(user.id):
+        principal, scope = verification
+        if current_user.is_authenticated and str(current_user.id) != str(principal.id):
             current_app.logger.warning(
                 "Service login token user mismatch; ignoring token scope",
                 extra={"event": "auth.service_login", "path": request.path},

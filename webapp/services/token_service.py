@@ -14,6 +14,7 @@ from flask import current_app
 from core.models.user import User
 from core.models.service_account import ServiceAccount
 from core.settings import settings
+from shared.domain.auth.principal import AuthenticatedPrincipal
 from webapp.extensions import db
 from webapp.services.access_token_signing import (
     AccessTokenSigningError,
@@ -175,7 +176,9 @@ class TokenService:
         return access_token, refresh_token
 
     @classmethod
-    def verify_access_token(cls, token: str) -> Optional[tuple[User, set[str]]]:
+    def verify_access_token(
+        cls, token: str
+    ) -> Optional[tuple[AuthenticatedPrincipal, set[str]]]:
         """アクセストークンを検証してユーザーと許可スコープを取得する"""
 
         try:
@@ -246,7 +249,8 @@ class TokenService:
         else:
             scope_items = set()
 
-        return user, scope_items
+        principal = AuthenticatedPrincipal.from_user_model(user, scope=scope_items)
+        return principal, scope_items
 
     @staticmethod
     def _extract_user_id(payload: dict[str, Any]) -> int:

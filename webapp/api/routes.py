@@ -54,6 +54,7 @@ from ..auth.routes import _sync_active_role
 from .pagination import PaginationParams, paginate_and_respond
 from flask_login import current_user
 from shared.application.auth_service import AuthService
+from shared.domain.auth.principal import AuthenticatedPrincipal
 from shared.domain.user import UserRegistrationService
 from shared.infrastructure.user_repository import SqlAlchemyUserRepository
 from ..services.token_service import TokenService
@@ -597,8 +598,8 @@ def _local_import_log(message: str, *, level: str = 'info', event: str = 'local_
     _emit_structured_api_log(message, level=level, event=event, **extra_context)
 
 
-def _set_jwt_context(user: User, scope: set[str]) -> None:
-    g.current_user = user
+def _set_jwt_context(principal: AuthenticatedPrincipal, scope: set[str]) -> None:
+    g.current_user = principal
     g.current_token_scope = scope
 
 
@@ -624,8 +625,8 @@ def jwt_required(f):
             return jsonify({'error': 'invalid_token'}), 401
 
         # Flask-Loginのcurrent_userと同じように使えるよう設定
-        user, scope = verification
-        _set_jwt_context(user, scope)
+        principal, scope = verification
+        _set_jwt_context(principal, scope)
 
         return f(*args, **kwargs)
     return decorated_function
@@ -758,14 +759,14 @@ def login_or_jwt_required(f):
                 )
                 return jsonify({'error': 'invalid_token'}), 401
 
-            user, scope = verification
-            _set_jwt_context(user, scope)
+            principal, scope = verification
+            _set_jwt_context(principal, scope)
             _auth_log(
                 'Authentication successful via JWT',
                 stage='success',
                 auth_method='jwt',
                 token_source=token_source or 'unknown',
-                authenticated_user=_serialize_user_for_log(user),
+                authenticated_user=_serialize_user_for_log(principal),
             )
             return f(*args, **kwargs)
 

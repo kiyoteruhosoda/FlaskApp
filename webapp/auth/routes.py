@@ -175,6 +175,12 @@ def _extract_access_token() -> str | None:
         if candidate:
             return candidate
 
+    auth_header = request.headers.get("Authorization", "")
+    if isinstance(auth_header, str) and auth_header.lower().startswith("bearer "):
+        candidate = auth_header.split(" ", 1)[1].strip()
+        if candidate:
+            return candidate
+
     return None
 
 
@@ -260,11 +266,11 @@ def login():
     return _render_login_template()
 
 
-@bp.route("/servicelogin", methods=["POST"])
+@bp.route("/servicelogin", methods=["GET", "POST"])
 def service_login():
     redirect_target = _resolve_next_target("dashboard.dashboard")
 
-    if current_user.is_authenticated:
+    if current_user.is_authenticated and isinstance(current_user._get_current_object(), User):
         return redirect(redirect_target)
 
     token = _extract_access_token()
@@ -283,24 +289,31 @@ def service_login():
         )
         return make_response(_("Invalid access token"), 401)
 
-    user_model, scope = verification
+    principal, scope = verification
+    user_model = None
+    if principal.user_id is not None:
+        user_model = User.query.get(principal.user_id)
+        if user_model is not None:
+            # 関連ロールを事前評価して遅延ロードの影響を避ける
+            list(getattr(user_model, "roles", []) or [])
+    if user_model is None:
+        current_app.logger.warning(
+            "Service login token resolved to missing user", extra={"event": "auth.service_login"}
+        )
+        return make_response(_("Invalid access token"), 401)
     current_app.logger.info(
         "Service login successful",
         extra={
             "event": "auth.service_login",
             "path": request.path,
-            "user_id": user_model.id,
-            "email": user_model.email,
+            "user_id": principal.user_id,
+            "actor": principal.display_name,
             "redirect": redirect_target,
+            "roles": [role.id for role in principal.roles],
         },
     )
     try:
-        return _finalize_login_session(
-            user_model,
-            redirect_target,
-            token=token,
-            token_scope=scope,
-        )
+        login_user(user_model)
     except ValueError as exc:
         current_app.logger.warning(
             "Service login token rejected due to invalid scope: %s",
@@ -308,6 +321,34 @@ def service_login():
             extra={"event": "auth.service_login", "path": request.path},
         )
         return make_response(_("Invalid access token"), 401)
+
+    session.pop("active_role_id", None)
+
+    normalized_scope = sorted(item.strip() for item in (scope or set()) if item)
+    session[SERVICE_LOGIN_SESSION_KEY] = True
+    g.current_token_scope = set(normalized_scope)
+
+    roles_snapshot = list(getattr(user_model, "roles", []) or [])
+    if len(roles_snapshot) > 1:
+        session["role_selection_next"] = redirect_target
+        response = redirect(url_for("auth.select_role"))
+    else:
+        _sync_active_role(user_model)
+        response = redirect(redirect_target)
+
+    if token:
+        response.set_cookie(
+            "access_token",
+            token,
+            httponly=True,
+            secure=settings.session_cookie_secure,
+            samesite="Lax",
+        )
+    else:
+        response.delete_cookie("access_token")
+
+    session.modified = True
+    return response
 
 
 @bp.route("/select-role", methods=["GET", "POST"])

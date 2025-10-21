@@ -44,8 +44,8 @@ def load_user_from_request(request):
         )
         return None
 
-    user, scope = verification
+    principal, scope = verification
     g.current_token_scope = scope
 
-    return user
+    return principal
 

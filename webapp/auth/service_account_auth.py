@@ -16,6 +16,7 @@ import redis
 from redis import RedisError
 
 from core.models.service_account import ServiceAccount
+from shared.domain.auth.principal import AuthenticatedPrincipal
 from webapp.services.service_account_service import ServiceAccountService
 from features.certs.application.use_cases import ListJwksUseCase
 from features.certs.domain.exceptions import CertificateGroupNotFoundError
@@ -340,11 +341,25 @@ def require_service_account_scopes(
             g.service_account = account
             g.service_account_claims = claims
 
+            scope_value = claims.get("scope", "") if isinstance(claims, dict) else ""
+            if isinstance(scope_value, str):
+                scope_items = {item for item in scope_value.split() if item}
+            elif isinstance(scope_value, (list, tuple, set)):
+                scope_items = {str(item) for item in scope_value if item}
+            else:
+                scope_items = set()
+
+            g.current_token_scope = scope_items
+            principal = AuthenticatedPrincipal.from_service_account(
+                account, scope=scope_items
+            )
+            g.current_user = principal
+
             current_app.logger.debug(
                 "Service account authentication success.",
                 extra={
                     "event": "service_account.auth_success",
-                    "service_account": account.name,
+                    "service_account": principal.display_name,
                     "endpoint": request.path,
                     "scopes": list(scopes or []),
                 },

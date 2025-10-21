@@ -287,8 +287,13 @@ class TokenService:
     def create_principal_from_token(
         cls, token: str
     ) -> Optional[AuthenticatedPrincipal]:
-        """アクセストークンから Principal を再構築する共通エントリポイント"""
+        """
+        Validates the access token and reconstructs an AuthenticatedPrincipal from it.
 
+        Returns:
+            AuthenticatedPrincipal: If the token is valid and not expired.
+            None: If the token is invalid or expired.
+        """
         payload = cls._decode_access_token_payload(token)
         if payload is None:
             return None

@@ -168,16 +168,10 @@ def _finalize_login_session(user_model, redirect_target, *, token=None, token_sc
     return response
 
 
-def _extract_bearer_token() -> str | None:
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.lower().startswith("bearer "):
-        candidate = auth_header.split(" ", 1)[1].strip()
-        if candidate:
-            return candidate
-
-    cookie_token = request.cookies.get("access_token")
-    if isinstance(cookie_token, str):
-        candidate = cookie_token.strip()
+def _extract_access_token() -> str | None:
+    token_param = request.values.get("access_token")
+    if isinstance(token_param, str):
+        candidate = token_param.strip()
         if candidate:
             return candidate
 
@@ -269,11 +263,12 @@ def login():
 @bp.route("/servicelogin", methods=["POST"])
 def service_login():
     redirect_target = _resolve_next_target("dashboard.dashboard")
-    token = _extract_bearer_token()
 
+    if current_user.is_authenticated:
+        return redirect(redirect_target)
+
+    token = _extract_access_token()
     if not token:
-        if current_user.is_authenticated:
-            return redirect(redirect_target)
         current_app.logger.warning(
             "Service login request rejected: missing access token",
             extra={"event": "auth.service_login", "path": request.path},

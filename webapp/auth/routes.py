@@ -274,7 +274,7 @@ def service_login():
     if not token:
         if current_user.is_authenticated:
             return redirect(redirect_target)
-        current_app.logger.info(
+        current_app.logger.warning(
             "Service login request rejected: missing access token",
             extra={"event": "auth.service_login", "path": request.path},
         )

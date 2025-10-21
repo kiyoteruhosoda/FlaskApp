@@ -679,7 +679,7 @@ def setup_totp():
         flash(_("Two-factor authentication is not available for service accounts."), "warning")
         return redirect(service_redirect)
 
-    if getattr(current_user, "totp_secret", None):
+    if current_user.totp_secret:
         flash(_("Two-factor authentication already configured"), "error")
         return redirect(next_url)
 

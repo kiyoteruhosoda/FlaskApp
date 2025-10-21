@@ -7,6 +7,8 @@ from typing import Any
 from flask import jsonify, request
 from flask_login import current_user
 
+from shared.application.auth import resolve_actor_identifier
+
 from . import bp
 from .openapi import json_request_body
 from .routes import login_or_jwt_required
@@ -38,20 +40,7 @@ def _parse_iso_datetime(raw: Any) -> datetime | None:
 def _resolve_actor_identifier() -> str:
     """現在の主体を表す文字列表現を取得する。"""
 
-    subject_id = getattr(current_user, "subject_id", None)
-    if isinstance(subject_id, str) and subject_id.strip():
-        return subject_id.strip()
-
-    if hasattr(current_user, "get_id"):
-        identifier = current_user.get_id()
-        if isinstance(identifier, str) and identifier.strip():
-            return identifier.strip()
-
-    display_name = getattr(current_user, "display_name", None)
-    if isinstance(display_name, str) and display_name.strip():
-        return display_name.strip()
-
-    return "unknown"
+    return resolve_actor_identifier()
 
 
 def _has_manage_permission() -> bool:

@@ -134,11 +134,15 @@ def _finalize_login_session(user_model, redirect_target, *, token=None, token_sc
         session.pop(SERVICE_LOGIN_SESSION_KEY, None)
         g.current_token_scope = None
     else:
-        normalized_scope = sorted(
-            item.strip()
-            for item in token_scope
-            if isinstance(item, str) and item.strip()
-        )
+        if isinstance(token_scope, set):
+            token_scope = list(token_scope)
+
+        if not isinstance(token_scope, (list, tuple)) or not all(
+            isinstance(item, str) and item.strip() for item in token_scope
+        ):
+            raise ValueError("token_scope must be a list of non-empty strings")
+
+        normalized_scope = sorted(item.strip() for item in token_scope)
         session[SERVICE_LOGIN_SESSION_KEY] = True
         g.current_token_scope = set(normalized_scope)
 
@@ -171,15 +175,12 @@ def _extract_bearer_token() -> str | None:
         if candidate:
             return candidate
 
-    token_param = request.values.get("token") or request.values.get("access_token")
-    if not token_param and request.is_json:
-        payload = request.get_json(silent=True) or {}
-        token_param = payload.get("token") or payload.get("access_token")
-
-    if isinstance(token_param, str):
-        candidate = token_param.strip()
+    cookie_token = request.cookies.get("access_token")
+    if isinstance(cookie_token, str):
+        candidate = cookie_token.strip()
         if candidate:
             return candidate
+
     return None
 
 
@@ -298,12 +299,20 @@ def service_login():
             "redirect": redirect_target,
         },
     )
-    return _finalize_login_session(
-        user_model,
-        redirect_target,
-        token=token,
-        token_scope=scope,
-    )
+    try:
+        return _finalize_login_session(
+            user_model,
+            redirect_target,
+            token=token,
+            token_scope=scope,
+        )
+    except ValueError as exc:
+        current_app.logger.warning(
+            "Service login token rejected due to invalid scope: %s",
+            exc,
+            extra={"event": "auth.service_login", "path": request.path},
+        )
+        return make_response(_("Invalid access token"), 401)
 
 
 @bp.route("/select-role", methods=["GET", "POST"])

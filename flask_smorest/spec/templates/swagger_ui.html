@@ -1,231 +1,31 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>{{title}}</title>
-    <link href="{{swagger_ui_url}}swagger-ui.css" rel="stylesheet" type="text/css"/>
-    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
-    <style>
-      .required-scopes-container {
-        margin: 8px 0 0;
-        padding: 6px 10px;
-        border-left: 4px solid #4f46e5;
-        background-color: #eef2ff;
-        border-radius: 4px;
-        font-size: 12px;
-        color: #1f2937;
-        display: inline-block;
-      }
 
-      .required-scopes-container strong {
-        margin-right: 6px;
-      }
-    </style>
+  <head>
+    <title>nolumia API</title>
+    <link href="https://cdn.jsdelivr.net/npm/swagger-ui-dist/swagger-ui.css" rel="stylesheet" type="text/css"/>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
   </head>
+
  <body>
 
    <div id="swagger-ui-container"></div>
-   <p class="text-muted small">Version: {{ app_version }}</p>
 
-   <script src="{{swagger_ui_url}}swagger-ui-standalone-preset.js"></script>
-   <script src="{{swagger_ui_url}}swagger-ui-bundle.js"></script>
+   <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist/swagger-ui-standalone-preset.js"></script>
+   <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist/swagger-ui-bundle.js"></script>
    <script>
 
      config = {
-       url: "{{ spec_url }}",
+       url: "/api/openapi.json",
        dom_id: '#swagger-ui-container'
      }
 
-     var override_config = {{ swagger_ui_config | tojson }};
+     var override_config = {"persistAuthorization": true};
      for (var attrname in override_config) { config[attrname] = override_config[attrname]; }
 
-    const initialServers = {{ servers | tojson }};
-    window.__INITIAL_OPENAPI_SERVERS__ = initialServers;
-
-    const SERVER_DROPDOWN_SELECTORS = 'select[aria-label="Servers"], select#servers';
-
-    function sanitizeServerOptions() {
-      var selectElements = document.querySelectorAll(SERVER_DROPDOWN_SELECTORS);
-       if (!selectElements || selectElements.length === 0) {
-         return;
-       }
-
-       Array.prototype.forEach.call(selectElements, function(select) {
-         if (!select) {
-           return;
-         }
-
-         var options = select.querySelectorAll('option');
-         if (!options || options.length === 0) {
-           return;
-         }
-
-         Array.prototype.forEach.call(options, function(option) {
-           if (!option) {
-             return;
-           }
-
-           var rawValue = null;
-           if (typeof option.value === 'string') {
-             rawValue = option.value;
-           } else if (typeof option.getAttribute === 'function') {
-             rawValue = option.getAttribute('value');
-           }
-
-           if (typeof rawValue === 'string') {
-             var sanitizedValue = rawValue.replace(/\\:/g, ':').replace(/\\\//g, '/');
-             if (sanitizedValue !== rawValue) {
-               option.value = sanitizedValue;
-               if (typeof option.setAttribute === 'function') {
-                 option.setAttribute('value', sanitizedValue);
-               }
-             }
-           }
-
-           var text = option.textContent;
-           if (typeof text === 'string') {
-             var sanitizedText = text.replace(/\\:/g, ':').replace(/\\\//g, '/');
-             if (sanitizedText !== text) {
-               option.textContent = sanitizedText;
-             }
-           }
-         });
-       });
+     window.onload = function() {
+       window.ui = SwaggerUIBundle(config)
      }
-
-    function observeServerDropdown() {
-       if (typeof MutationObserver === 'undefined') {
-         return;
-       }
-
-       var observer = new MutationObserver(function() {
-         sanitizeServerOptions();
-       });
-
-     function connectObserver() {
-       var select = document.querySelector(SERVER_DROPDOWN_SELECTORS);
-        if (!select) {
-          setTimeout(connectObserver, 100);
-          return;
-        }
-
-        observer.observe(select, {
-          childList: true,
-          subtree: true,
-          attributes: true,
-          characterData: true,
-        });
-
-        sanitizeServerOptions();
-      }
-
-       connectObserver();
-     }
-
-    function escapeSelectorValue(value) {
-      if (window.CSS && typeof window.CSS.escape === 'function') {
-        return window.CSS.escape(value);
-      }
-      return String(value).replace(/"/g, '\\"');
-    }
-
-    function renderRequiredScopes() {
-      if (!window.ui || typeof window.ui.getSystem !== 'function') {
-        return;
-      }
-      var system = window.ui.getSystem();
-      if (!system || !system.specSelectors || typeof system.specSelectors.specJson !== 'function') {
-        return;
-      }
-      var spec = system.specSelectors.specJson();
-      if (!spec || typeof spec.toJS !== 'function') {
-        return;
-      }
-      var data = spec.toJS();
-      if (!data || !data.paths) {
-        return;
-      }
-
-      Object.keys(data.paths).forEach(function(pathKey) {
-        var methods = data.paths[pathKey];
-        if (!methods) {
-          return;
-        }
-        Object.keys(methods).forEach(function(methodKey) {
-          var operation = methods[methodKey];
-          if (!operation || typeof operation !== 'object') {
-            return;
-          }
-          var requiresAuth = Boolean(operation['x-requires-authentication']);
-          var scopes = Array.isArray(operation['x-required-scopes']) ? operation['x-required-scopes'] : [];
-          var selector = '[data-path="' + escapeSelectorValue(pathKey) + '"][data-method="' + methodKey.toLowerCase() + '"]';
-          var opblock = document.querySelector(selector);
-          if (!opblock) {
-            return;
-          }
-          var summary = opblock.querySelector('.opblock-summary');
-          if (!summary) {
-            return;
-          }
-          var container = opblock.querySelector('.required-scopes-container');
-          if (requiresAuth) {
-            if (!container) {
-              container = document.createElement('div');
-              container.className = 'required-scopes-container';
-              summary.insertAdjacentElement('afterend', container);
-            }
-            if (scopes.length > 0) {
-              container.innerHTML = '<strong>🔐 Required scopes:</strong>' + scopes.join(', ');
-            } else {
-              container.innerHTML = '<strong>🔐 Authentication required</strong>';
-            }
-          } else if (container) {
-            container.remove();
-          }
-        });
-      });
-    }
-
-    var existingOnComplete = config.onComplete;
-
-    config.onComplete = function() {
-      if (typeof existingOnComplete === 'function') {
-        existingOnComplete.apply(this, arguments);
-       }
-       var system = null;
-       if (window.ui && typeof window.ui.getSystem === 'function') {
-         system = window.ui.getSystem();
-       } else if (this && typeof this.getSystem === 'function') {
-         system = this.getSystem();
-       }
-      if (system && typeof system.getStore === 'function') {
-        var store = system.getStore();
-        if (store && typeof store.subscribe === 'function') {
-          store.subscribe(function() {
-            sanitizeServerOptions();
-            renderRequiredScopes();
-          });
-        }
-      }
-      observeServerDropdown();
-      sanitizeServerOptions();
-      renderRequiredScopes();
-      setTimeout(function() {
-        sanitizeServerOptions();
-        renderRequiredScopes();
-      }, 0);
-      setTimeout(function() {
-        sanitizeServerOptions();
-        renderRequiredScopes();
-      }, 100);
-      setTimeout(function() {
-        sanitizeServerOptions();
-        renderRequiredScopes();
-      }, 250);
-    };
-
-    window.onload = function() {
-      window.ui = SwaggerUIBundle(config)
-    }
    </script>
 
  </body>

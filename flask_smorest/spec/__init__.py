@@ -5,6 +5,8 @@ import http
 import click
 import flask
 
+from markupsafe import escape
+
 import apispec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from webargs.fields import DelimitedList
@@ -135,21 +137,50 @@ class DocBlueprintMixin:
             except Exception:  # pragma: no cover - defensive, matches Flask behaviour
                 app.logger.exception("Swagger UI context processor failed", exc_info=True)
 
+        spec_url = flask.url_for(f"{self._make_doc_blueprint_name()}.openapi_json")
+        swagger_ui_config = self.config.get("OPENAPI_SWAGGER_UI_CONFIG", {})
+        swagger_ui_url = self._swagger_ui_url
+
         template_context.update(
             dict(
                 title=self.spec.title,
-                spec_url=flask.url_for(
-                    f"{self._make_doc_blueprint_name()}.openapi_json"
-                ),
-                swagger_ui_url=self._swagger_ui_url,
-                swagger_ui_config=self.config.get(
-                    "OPENAPI_SWAGGER_UI_CONFIG", {}
-                ),
+                spec_url=spec_url,
+                swagger_ui_url=swagger_ui_url,
+                swagger_ui_config=swagger_ui_config,
                 servers=list(self.spec.options.get("servers") or []),
             )
         )
 
-        return flask.render_template("swagger_ui.html", **template_context)
+        rendered = flask.render_template("swagger_ui.html", **template_context)
+
+        replacements = {
+            'url: "/api/openapi.json"': f"url: {flask.json.dumps(spec_url)}",
+            'var override_config = {"persistAuthorization": true};': (
+                "var override_config = "
+                f"{flask.json.dumps(swagger_ui_config or {})};"
+            ),
+            "<title>nolumia API</title>": (
+                f"<title>{escape(self.spec.title)}</title>"
+                if self.spec.title
+                else "<title>nolumia API</title>"
+            ),
+        }
+
+        if swagger_ui_url:
+            normalized_base = swagger_ui_url
+            if not normalized_base.endswith("/"):
+                normalized_base = f"{normalized_base}/"
+            replacements[
+                "https://cdn.jsdelivr.net/npm/swagger-ui-dist/"
+            ] = normalized_base
+
+        for needle, replacement in replacements.items():
+            if needle in rendered:
+                rendered = rendered.replace(needle, replacement)
+
+        response = flask.make_response(rendered)
+        response.headers.setdefault("Content-Type", "text/html; charset=utf-8")
+        return response
 
     def _openapi_overview(self):
         """Render an interactive HTML table summarising the OpenAPI operations."""

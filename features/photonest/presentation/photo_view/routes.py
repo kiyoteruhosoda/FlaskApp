@@ -8,11 +8,12 @@ implementation work.
 
 import os
 
-from flask import abort, current_app, render_template, request, url_for
+from flask import abort, render_template, request, url_for
 from flask_login import current_user
 
 from core.models.authz import require_perms
 from core.models.google_account import GoogleAccount
+from core.settings import settings as app_settings
 
 from . import bp
 from webapp.api.picker_session_service import PickerSessionService
@@ -45,9 +46,8 @@ def _build_local_import_info():
             "exists": exists,
         }
 
-    config = current_app.config
-    import_info = _resolve(config.get("LOCAL_IMPORT_DIR"))
-    originals_info = _resolve(config.get("FPV_NAS_ORIGINALS_DIR"))
+    import_info = _resolve(app_settings.local_import_directory_configured)
+    originals_info = _resolve(app_settings.nas_originals_directory_configured)
 
     return {
         "import": import_info,

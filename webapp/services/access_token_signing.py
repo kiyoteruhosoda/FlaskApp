@@ -20,6 +20,7 @@ from webapp.services.system_setting_service import (
     AccessTokenSigningValidationError,
     SystemSettingService,
 )
+from core.settings import settings
 
 
 _ALLOWED_RSA_ALGORITHMS = {"RS256", "RS384", "RS512"}
@@ -54,7 +55,9 @@ def resolve_signing_material() -> SigningMaterial:
     except AccessTokenSigningValidationError as exc:
         raise AccessTokenSigningError(str(exc)) from exc
     if setting.is_builtin:
-        secret = current_app.config["JWT_SECRET_KEY"]
+        secret = settings.jwt_secret_key
+        if not secret:
+            raise AccessTokenSigningError("JWT secret key is not configured.")
         return SigningMaterial(
             algorithm="HS256",
             key=secret,
@@ -90,7 +93,10 @@ def resolve_verification_key(algorithm: str, kid: str | None):
     """Resolve the key required to verify an access token."""
 
     if algorithm == "HS256":
-        return current_app.config["JWT_SECRET_KEY"]
+        secret = settings.jwt_secret_key
+        if not secret:
+            raise AccessTokenVerificationError("JWT secret key is not configured.")
+        return secret
 
     normalized_alg = (algorithm or "").strip()
     if normalized_alg not in _ALLOWED_SERVER_ALGORITHMS:

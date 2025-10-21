@@ -9,6 +9,7 @@ import uuid
 import json
 import jwt
 from flask import current_app, g, request
+from core.settings import settings
 from flask_babel import gettext as _
 from jwt import algorithms as jwt_algorithms
 import redis
@@ -40,7 +41,7 @@ class _ServiceAccountJTIStore:
 
     @staticmethod
     def _get_client():
-        redis_url = current_app.config.get("REDIS_URL")
+        redis_url = settings.redis_url
         if not redis_url:
             raise ServiceAccountJWTError(
                 "JTICheckFailed",

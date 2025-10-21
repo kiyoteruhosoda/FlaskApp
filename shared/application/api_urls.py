@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import os
 from urllib.parse import urljoin
+
+from core.settings import settings
 
 DEFAULT_API_BASE_URL = "http://localhost:5000"
 
@@ -16,7 +17,7 @@ def get_api_base_url() -> str:
     trailing slash, if present, is removed to keep the base consistent.
     """
 
-    base_url = os.environ.get("API_BASE_URL", DEFAULT_API_BASE_URL)
+    base_url = settings.api_base_url or DEFAULT_API_BASE_URL
     return base_url.rstrip("/")
 
 

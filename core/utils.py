@@ -12,6 +12,8 @@ from typing import Any, Final, Iterator
 from zoneinfo import ZoneInfo
 
 from flask import current_app
+
+from core.settings import settings
 from PIL import Image, UnidentifiedImageError
 
 _HEIF_PLUGIN_NAME: Final[str] = "pillow_heif"
@@ -170,15 +172,7 @@ def _default_app_timezone() -> timezone:
     variable.  If neither yields a valid zoneinfo identifier ``UTC`` is used.
     """
 
-    tz_name: str | None = None
-    try:
-        if current_app:
-            tz_name = current_app.config.get("BABEL_DEFAULT_TIMEZONE")
-    except RuntimeError:
-        tz_name = None
-
-    if not tz_name:
-        tz_name = os.environ.get("BABEL_DEFAULT_TIMEZONE")
+    tz_name = settings.babel_default_timezone
 
     if tz_name:
         try:

@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import json
-import os
 from typing import Any, Iterable
 
 from webapp import create_app
 from webapp.extensions import db
 from webapp.services.system_setting_service import SystemSettingService
 from core.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
+from core.settings import ApplicationSettings
 
 _BOOL_TRUE = {"1", "true", "yes", "on"}
 
@@ -43,10 +43,13 @@ def _coerce_value(key: str, value: str, template: Any) -> Any:
     return value
 
 
+_ENV_SETTINGS = ApplicationSettings()
+
+
 def _load_application_settings_from_env() -> dict[str, Any]:
     values = dict(DEFAULT_APPLICATION_SETTINGS)
     for key, default in DEFAULT_APPLICATION_SETTINGS.items():
-        raw = os.environ.get(key)
+        raw = _ENV_SETTINGS.get(key)
         if raw is None:
             continue
         values[key] = _coerce_value(key, raw, default)
@@ -54,7 +57,7 @@ def _load_application_settings_from_env() -> dict[str, Any]:
 
 
 def _load_cors_origins() -> Iterable[str]:
-    raw = os.environ.get("CORS_ALLOWED_ORIGINS")
+    raw = _ENV_SETTINGS.get("CORS_ALLOWED_ORIGINS")
     if raw:
         return [segment.strip() for segment in raw.split(",") if segment.strip()]
     return []

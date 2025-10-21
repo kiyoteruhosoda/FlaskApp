@@ -3,8 +3,9 @@ OAuth URL生成のデバッグ用Blueprint
 実際のリクエストでどのようなURLが生成されるかを確認
 """
 
-from flask import Blueprint, request, jsonify, url_for, current_app
-import os
+from flask import Blueprint, request, jsonify, url_for
+
+from core.settings import settings
 
 debug_bp = Blueprint('debug', __name__)
 
@@ -30,9 +31,9 @@ def debug_headers():
         callback_url = f"Error: {str(e)}"
     
     config_info = {
-        'PREFERRED_URL_SCHEME': current_app.config.get('PREFERRED_URL_SCHEME'),
-        'SERVER_NAME': current_app.config.get('SERVER_NAME'),
-        'APPLICATION_ROOT': current_app.config.get('APPLICATION_ROOT'),
+        'PREFERRED_URL_SCHEME': settings.preferred_url_scheme,
+        'SERVER_NAME': settings.server_name,
+        'APPLICATION_ROOT': settings.application_root,
     }
     
     return jsonify({
@@ -58,7 +59,7 @@ def debug_oauth_url():
         # OAuth URLパラメータ作成
         from urllib.parse import urlencode
         params = {
-            "client_id": current_app.config.get('GOOGLE_CLIENT_ID', 'test-client-id'),
+            "client_id": settings.google_client_id or 'test-client-id',
             "redirect_uri": callback_url,
             "response_type": "code",
             "scope": "email",
@@ -76,7 +77,7 @@ def debug_oauth_url():
             'is_https': callback_url.startswith('https://'),
             'request_scheme': request.scheme,
             'x_forwarded_proto': request.headers.get('X-Forwarded-Proto'),
-            'preferred_url_scheme': current_app.config.get('PREFERRED_URL_SCHEME'),
+            'preferred_url_scheme': settings.preferred_url_scheme,
         })
     except Exception as e:
         return jsonify({

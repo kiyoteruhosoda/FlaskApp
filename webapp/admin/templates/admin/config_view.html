@@ -175,68 +175,84 @@
             {% endif %}
           </td>
           <td>
-            {% if field.data_type == 'boolean' %}
-            <select
-              class="form-select form-select-sm"
-              name="app_config_new[{{ field.key }}]"
-              data-field-input
-            >
-              {% for value, label in field.choices %}
-              <option value="{{ value }}" {% if field.form_value == value %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-            {% elif field.data_type == 'list' %}
-            <textarea
-              class="form-control form-control-sm font-monospace"
-              name="app_config_new[{{ field.key }}]"
-              rows="3"
-              data-field-input
-            >{{ field.form_value }}</textarea>
-            <div class="form-text">{{ _('One value per line.') }}</div>
-            {% elif field.data_type == 'integer' %}
-            <input
-              type="number"
-              class="form-control form-control-sm"
-              name="app_config_new[{{ field.key }}]"
-              value="{{ field.form_value }}"
-              data-field-input
-            >
-            {% elif field.data_type == 'float' %}
-            <input
-              type="number"
-              step="any"
-              class="form-control form-control-sm"
-              name="app_config_new[{{ field.key }}]"
-              value="{{ field.form_value }}"
-              data-field-input
-            >
-            {% else %}
-            <input
-              type="text"
-              class="form-control form-control-sm"
-              name="app_config_new[{{ field.key }}]"
-              value="{{ field.form_value }}"
-              data-field-input
-            >
-            {% endif %}
-            <div class="form-check mt-2">
-              <input
-                class="form-check-input"
-                type="checkbox"
-                id="app-config-use-default-{{ field.key }}"
-                name="app_config_use_default[{{ field.key }}]"
-                value="1"
-                {% if field.use_default %}checked{% endif %}
-                data-field-use-default
+            {% if field.editable %}
+              {% if field.data_type == 'boolean' %}
+              <select
+                class="form-select form-select-sm"
+                name="app_config_new[{{ field.key }}]"
+                data-field-input
               >
-              <label class="form-check-label" for="app-config-use-default-{{ field.key }}">
-                {{ _('Revert to default value') }}
-              </label>
-            </div>
+                {% for value, label in field.choices %}
+                <option value="{{ value }}" {% if field.form_value == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              {% elif field.data_type == 'list' %}
+              <textarea
+                class="form-control form-control-sm font-monospace"
+                name="app_config_new[{{ field.key }}]"
+                rows="3"
+                data-field-input
+              >{{ field.form_value }}</textarea>
+              <div class="form-text">{{ _('One value per line.') }}</div>
+              {% elif field.data_type == 'integer' %}
+              <input
+                type="number"
+                class="form-control form-control-sm"
+                name="app_config_new[{{ field.key }}]"
+                value="{{ field.form_value }}"
+                data-field-input
+              >
+              {% elif field.data_type == 'float' %}
+              <input
+                type="number"
+                step="any"
+                class="form-control form-control-sm"
+                name="app_config_new[{{ field.key }}]"
+                value="{{ field.form_value }}"
+                data-field-input
+              >
+              {% else %}
+              <input
+                type="text"
+                class="form-control form-control-sm"
+                name="app_config_new[{{ field.key }}]"
+                value="{{ field.form_value }}"
+                data-field-input
+              >
+              {% endif %}
+              <div class="form-check mt-2">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="app-config-use-default-{{ field.key }}"
+                  name="app_config_use_default[{{ field.key }}]"
+                  value="1"
+                  {% if field.use_default %}checked{% endif %}
+                  data-field-use-default
+                >
+                <label class="form-check-label" for="app-config-use-default-{{ field.key }}">
+                  {{ _('Revert to default value') }}
+                </label>
+              </div>
+            {% else %}
+              {% if field.multiline %}
+              <textarea class="form-control form-control-sm font-monospace" rows="3" readonly disabled>{{ field.form_value }}</textarea>
+              {% else %}
+              <input
+                type="text"
+                class="form-control form-control-sm"
+                value="{{ field.form_value }}"
+                readonly
+                disabled
+              >
+              {% endif %}
+              <div class="form-text text-muted">{{ _('This setting is read-only and cannot be changed from the admin UI.') }}</div>
+            {% endif %}
           </td>
           <td>{% if field.required %}{{ _('Yes') }}{% else %}{{ _('No') }}{% endif %}</td>
           <td class="small">{{ field.description }}</td>
           <td>
+            {% if field.editable %}
             <div class="form-check">
               <input
                 class="form-check-input"
@@ -251,6 +267,9 @@
                 {{ _('Update') }}
               </label>
             </div>
+            {% else %}
+            <span class="badge bg-secondary">{{ _('Read only') }}</span>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}

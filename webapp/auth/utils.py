@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from flask import current_app
+
+from core.settings import settings
 import requests
 
 from ..extensions import db
@@ -102,8 +104,8 @@ def refresh_google_token(account):
         raise RefreshTokenError("no_refresh_token", 400)
 
     data = {
-        "client_id": current_app.config.get("GOOGLE_CLIENT_ID"),
-        "client_secret": current_app.config.get("GOOGLE_CLIENT_SECRET"),
+        "client_id": settings.google_client_id,
+        "client_secret": settings.google_client_secret,
         "grant_type": "refresh_token",
         "refresh_token": refresh_token,
     }

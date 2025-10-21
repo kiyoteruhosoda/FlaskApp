@@ -15,6 +15,7 @@ from werkzeug.datastructures import FileStorage
 
 from core.storage_paths import first_existing_storage_path
 from webapp.config import Config
+from core.settings import settings
 
 
 class UploadError(Exception):
@@ -73,7 +74,7 @@ def _ensure_directory(path: Path) -> None:
 
 
 def _tmp_base_dir() -> Path:
-    return Path(current_app.config.get("UPLOAD_TMP_DIR", "/app/data/tmp/upload"))
+    return settings.upload_tmp_directory
 
 
 def _resolve_local_import_directory() -> Optional[Path]:
@@ -81,7 +82,9 @@ def _resolve_local_import_directory() -> Optional[Path]:
 
     candidate = first_existing_storage_path("LOCAL_IMPORT_DIR")
     if candidate is None:
-        candidate = current_app.config.get("LOCAL_IMPORT_DIR") or Config.LOCAL_IMPORT_DIR
+        candidate = (
+            settings.local_import_directory_configured or Config.LOCAL_IMPORT_DIR
+        )
     if not candidate:
         return None
 
@@ -102,7 +105,7 @@ def _resolve_local_import_directory() -> Optional[Path]:
 
 
 def _max_upload_size() -> int:
-    return int(current_app.config.get("UPLOAD_MAX_SIZE", 100 * 1024 * 1024))
+    return settings.upload_max_size
 
 
 def _determine_session_dir(session_id: str) -> Path:

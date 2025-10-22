@@ -47,7 +47,7 @@ def _handle_html_error(error, *, is_server_error: bool):
             logger = current_app.logger.error
             log_kwargs = {"exc_info": error}
         else:
-            message_key = getattr(error, "name", "Error") or "Error"
+            message_key = getattr(error, "name", "Error")
             payload = {
                 "status": "error",
                 "code": code,

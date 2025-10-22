@@ -1,7 +1,26 @@
 """Centralized HTTP error handling for HTML requests."""
+from importlib import import_module
+
 from flask import current_app, flash, jsonify, redirect, request, url_for
-from flask_babel import gettext as _
+from flask_babel import gettext as _, get_locale
 from werkzeug.exceptions import InternalServerError, default_exceptions
+
+
+def _localize_message(message: str) -> str:
+    translated = _(message)
+    if translated != message:
+        return translated
+
+    try:
+        webapp_module = import_module("webapp")
+    except ModuleNotFoundError:  # pragma: no cover - defensive fallback
+        return message
+
+    translate_fn = getattr(webapp_module, "_translate_message", None)
+    if callable(translate_fn):
+        return translate_fn(message)
+
+    return message
 
 
 def _is_api_request() -> bool:
@@ -16,16 +35,33 @@ def _handle_html_error(error, *, is_server_error: bool):
     code = getattr(error, "code", 500 if is_server_error else 400)
 
     if _is_api_request():
-        return (
-            jsonify(
-                {
-                    "status": "error",
-                    "code": code,
-                    "message": getattr(error, "description", "Unexpected error"),
-                }
-            ),
-            code,
-        )
+        locale = str(get_locale() or current_app.config.get("BABEL_DEFAULT_LOCALE", "en"))
+
+        if is_server_error:
+            message_key = getattr(error, "name", "Internal Server Error")
+            payload = {
+                "status": "error",
+                "code": code,
+                "message": _localize_message(message_key),
+            }
+            logger = current_app.logger.error
+            log_kwargs = {"exc_info": error}
+        else:
+            message_key = getattr(error, "name", "Error")
+            payload = {
+                "status": "error",
+                "code": code,
+                "message": _localize_message(message_key),
+            }
+            logger = current_app.logger.warning
+            log_kwargs = {}
+
+        logger("%s %s (%s)", code, request.path, request.remote_addr, **log_kwargs)
+
+        response = jsonify(payload)
+        response.status_code = code
+        response.headers["Content-Language"] = locale
+        return response
 
     logger = current_app.logger.error if is_server_error else current_app.logger.warning
     log_kwargs = {"exc_info": error} if is_server_error else {}

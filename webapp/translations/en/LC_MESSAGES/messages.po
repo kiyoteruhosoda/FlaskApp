@@ -1347,3 +1347,13 @@ msgstr "Error"
 msgid "Role switching is not available for this account."
 msgstr "Role switching is not available for this account."
 
+
+msgid "Settings navigation"
+msgstr "Settings navigation"
+
+msgid "Hide navigation"
+msgstr "Hide navigation"
+
+msgid "Show navigation"
+msgstr "Show navigation"
+

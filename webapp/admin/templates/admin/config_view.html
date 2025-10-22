@@ -42,10 +42,27 @@
 <h3>{{ _('Config Settings') }}</h3>
 
 <div class="row g-4 align-items-start">
-  <div class="col-xl-3">
+  <div class="col-12 col-xl-3" data-config-sidebar>
     <div class="card shadow-sm config-sidebar sticky-top">
       <div class="card-body">
-        <nav class="config-tree" data-config-tree aria-label="{{ _('Configuration navigation') }}">
+        <div class="config-sidebar__header">
+          <span class="config-sidebar__title">{{ _('Settings navigation') }}</span>
+          <button
+            type="button"
+            class="btn-close config-sidebar__close"
+            data-config-sidebar-close
+            aria-label="{{ _('Hide navigation') }}"
+            aria-controls="config-navigation"
+            aria-expanded="true"
+          ></button>
+        </div>
+        <nav
+          id="config-navigation"
+          class="config-tree"
+          data-config-tree
+          aria-label="{{ _('Configuration navigation') }}"
+          tabindex="-1"
+        >
           <ul class="list-unstyled mb-0">
             <li
               class="config-tree__item"
@@ -132,8 +149,19 @@
       </div>
     </div>
   </div>
-  <div class="col-xl-9">
-    <div class="config-search mb-4 d-flex justify-content-lg-end">
+  <div class="col-12 col-xl-9" data-config-content>
+    <button
+      type="button"
+      class="btn btn-outline-secondary btn-sm config-sidebar__open d-none mb-3"
+      data-config-sidebar-open
+      aria-controls="config-navigation"
+      aria-expanded="false"
+      aria-hidden="true"
+    >
+      <i class="fas fa-bars me-1" aria-hidden="true"></i>
+      {{ _('Show navigation') }}
+    </button>
+    <div class="config-search mb-4">
       <div class="config-search__field">
         <label class="form-label" for="config-search">{{ _('Search settings') }}</label>
         <input

@@ -140,6 +140,15 @@ def test_totp_api_permission_flow(client, app):
     assert items[0]["otp"]
     assert items[0]["remaining_seconds"] > 0
 
+    # 別ユーザーは他人のTOTPを閲覧できない
+    _login(client, viewer_id)
+    res = client.get("/api/totp")
+    assert res.status_code == 200
+    assert res.get_json()["items"] == []
+
+    # 以降の操作のため編集権限ユーザーに戻す
+    _login(client, editor_id)
+
     # 更新（説明を変更）
     res = client.put(
         f"/api/totp/{credential_id}",
@@ -198,7 +207,9 @@ def test_totp_api_permission_flow(client, app):
     assert result["imported"]
 
     with app.app_context():
-        assert db.session.query(TOTPCredential).count() == 2
+        credentials = db.session.query(TOTPCredential).all()
+        assert len(credentials) == 2
+        assert all(credential.user_id == editor_id for credential in credentials)
 
     # 削除
     res = client.delete(f"/api/totp/{credential_id}")

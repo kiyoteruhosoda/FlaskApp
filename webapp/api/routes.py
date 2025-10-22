@@ -4213,7 +4213,7 @@ def api_totp_list():
         return jsonify({"error": "forbidden"}), 403
 
     use_case = TOTPListUseCase()
-    pairs = use_case.execute()
+    pairs = use_case.execute(user_id=user.id)
     items = [
         _serialize_totp_entity(entity, (preview.otp, preview.remaining_seconds))
         for entity, preview in pairs
@@ -4276,6 +4276,7 @@ def api_totp_create():
     try:
         resolved = _resolve_totp_payload(payload)
         input_data = TOTPCreateInput(
+            user_id=user.id,
             account=resolved.get("account", ""),
             issuer=resolved.get("issuer", ""),
             secret=resolved.get("secret", ""),
@@ -4325,7 +4326,7 @@ def api_totp_update(credential_id: int):
         return jsonify({"error": "forbidden"}), 403
 
     repo = TOTPCredentialRepository()
-    existing = repo.find_by_id(credential_id)
+    existing = repo.find_by_id(credential_id, user_id=user.id)
     if not existing:
         return jsonify({"error": "not_found"}), 404
 
@@ -4343,6 +4344,7 @@ def api_totp_update(credential_id: int):
 
         input_data = TOTPUpdateInput(
             id=credential_id,
+            user_id=user.id,
             account=account,
             issuer=issuer,
             description=description,
@@ -4373,7 +4375,7 @@ def api_totp_delete(credential_id: int):
         return jsonify({"error": "forbidden"}), 403
 
     try:
-        TOTPDeleteUseCase().execute(credential_id)
+        TOTPDeleteUseCase().execute(credential_id, user_id=user.id)
         return jsonify({"result": "deleted"})
     except TOTPNotFoundError:
         return jsonify({"error": "not_found"}), 404
@@ -4386,7 +4388,7 @@ def api_totp_export():
     if not _ensure_totp_permission(user, "totp:view"):
         return jsonify({"error": "forbidden"}), 403
 
-    exported = TOTPExportUseCase().execute()
+    exported = TOTPExportUseCase().execute(user_id=user.id)
     return jsonify(exported)
 
 
@@ -4471,8 +4473,9 @@ def api_totp_import():
                     period=period,
                 )
             )
+        force_flag = _coerce_bool(payload.get("force"))
         result = TOTPImportUseCase().execute(
-            TOTPImportPayload(items=items, force=_coerce_bool(payload.get("force")))
+            TOTPImportPayload(items=items, user_id=user.id, force=force_flag)
         )
     except TOTPValidationError as exc:
         response = {"error": "validation_error", "message": str(exc)}
@@ -4480,7 +4483,7 @@ def api_totp_import():
             response["field"] = exc.field
         return jsonify(response), 400
 
-    if result["conflicts"] and not _coerce_bool(payload.get("force")):
+    if result["conflicts"] and not force_flag:
         return jsonify(result), 409
 
     return jsonify(result)

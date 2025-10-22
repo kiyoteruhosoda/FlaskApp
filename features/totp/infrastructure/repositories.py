@@ -126,7 +126,6 @@ class TOTPCredentialRepository:
             issuer = item["issuer"]
             existing = (
                 TOTPCredentialModel.query.filter_by(account=account, issuer=issuer, user_id=user_id)
-                .order_by(TOTPCredentialModel.id.asc())
                 .first()
             )
             if existing:

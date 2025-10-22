@@ -2,9 +2,7 @@
   'use strict';
 
   const api = new APIClient();
-  const permissions = window.totpPermissions || {};
-  const canWrite = Boolean(permissions.canWrite);
-
+  const canWrite = Boolean(window.totpPermissions?.canWrite);
   const state = {
     items: [],
     sort: 'issuer',

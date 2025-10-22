@@ -44,10 +44,8 @@ class TOTPCredentialRepository:
     def find_model_by_id(self, credential_id: int, *, user_id: int) -> Optional[TOTPCredentialModel]:
         return (
             TOTPCredentialModel.query.filter_by(id=credential_id, user_id=user_id)
-            .order_by(TOTPCredentialModel.id.asc())
             .first()
         )
-
     def find_by_account_and_issuer(
         self, account: str, issuer: str, *, user_id: int
     ) -> Optional[TOTPCredentialEntity]:

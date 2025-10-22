@@ -51,7 +51,7 @@ def _handle_html_error(error, *, is_server_error: bool):
             payload = {
                 "status": "error",
                 "code": code,
-                "error": _localize_message(message_key),
+                "message": _localize_message(message_key),
             }
             logger = current_app.logger.warning
             log_kwargs = {}

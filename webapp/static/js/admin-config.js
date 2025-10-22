@@ -12,6 +12,70 @@
 
   let reapplySearchFilter = null;
 
+  const sidebarColumn = document.querySelector('[data-config-sidebar]');
+  const contentColumn = document.querySelector('[data-config-content]');
+  const closeSidebarButton = document.querySelector('[data-config-sidebar-close]');
+  const openSidebarButton = document.querySelector('[data-config-sidebar-open]');
+  const configNavigation = document.querySelector('[data-config-tree]');
+
+  if (configNavigation && !configNavigation.id) {
+    configNavigation.id = 'config-navigation';
+  }
+  if (configNavigation) {
+    configNavigation.setAttribute('tabindex', '-1');
+  }
+  if (closeSidebarButton && configNavigation) {
+    closeSidebarButton.setAttribute('aria-controls', configNavigation.id);
+  }
+  if (openSidebarButton && configNavigation) {
+    openSidebarButton.setAttribute('aria-controls', configNavigation.id);
+  }
+
+  const applySidebarState = (hidden, { manageFocus = true } = {}) => {
+    if (sidebarColumn) {
+      sidebarColumn.classList.toggle('d-none', hidden);
+      sidebarColumn.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+    }
+    if (contentColumn) {
+      contentColumn.classList.toggle('col-xl-9', !hidden);
+      contentColumn.classList.toggle('col-xl-12', hidden);
+    }
+    if (openSidebarButton) {
+      openSidebarButton.classList.toggle('d-none', !hidden);
+      openSidebarButton.setAttribute('aria-hidden', hidden ? 'false' : 'true');
+      openSidebarButton.setAttribute('aria-expanded', hidden ? 'false' : 'true');
+    }
+    if (closeSidebarButton) {
+      closeSidebarButton.setAttribute('aria-expanded', hidden ? 'false' : 'true');
+    }
+    if (!manageFocus) {
+      return;
+    }
+    if (hidden) {
+      if (openSidebarButton) {
+        openSidebarButton.focus({ preventScroll: true });
+      }
+    } else if (configNavigation) {
+      configNavigation.focus({ preventScroll: true });
+    }
+  };
+
+  if (closeSidebarButton) {
+    closeSidebarButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      applySidebarState(true);
+    });
+  }
+
+  if (openSidebarButton) {
+    openSidebarButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      applySidebarState(false);
+    });
+  }
+
+  applySidebarState(false, { manageFocus: false });
+
   const cssEscape = (value) => {
     if (window.CSS && typeof window.CSS.escape === 'function') {
       return window.CSS.escape(value);

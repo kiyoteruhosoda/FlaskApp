@@ -3373,3 +3373,13 @@ msgstr "サーバー内部エラー"
 
 msgid "Error"
 msgstr "エラー"
+
+msgid "Settings navigation"
+msgstr "設定ナビゲーション"
+
+msgid "Hide navigation"
+msgstr "ナビゲーションを隠す"
+
+msgid "Show navigation"
+msgstr "ナビゲーションを表示"
+

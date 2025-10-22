@@ -1,6 +1,7 @@
 """Centralized HTTP error handling for HTML requests."""
 from flask import current_app, flash, jsonify, redirect, request, url_for
 from flask_babel import gettext as _
+from werkzeug.exceptions import default_exceptions
 
 
 def _is_api_request() -> bool:
@@ -15,12 +16,17 @@ def _handle_html_error(error, *, is_server_error: bool):
     code = getattr(error, "code", 500 if is_server_error else 400)
 
     if _is_api_request():
+        message = (
+            _("Internal Server Error")
+            if is_server_error
+            else getattr(error, "description", "Unexpected error")
+        )
         return (
             jsonify(
                 {
                     "status": "error",
                     "code": code,
-                    "message": getattr(error, "description", "Unexpected error"),
+                    "message": message,
                 }
             ),
             code,
@@ -33,7 +39,9 @@ def _handle_html_error(error, *, is_server_error: bool):
     if is_server_error:
         flash(_("An unexpected error occurred. Please try again later."), "error")
 
-    return redirect(url_for("index"))
+    response = redirect(url_for("index"))
+    response.status_code = code
+    return response
 
 
 def register_error_handlers(app):
@@ -55,8 +63,9 @@ def register_error_handlers(app):
 
         return _handle_html_error(error, is_server_error=True)
 
-    for status_code in range(500, 600):
-        app.register_error_handler(status_code, handle_server_errors)
+    for status_code in default_exceptions:
+        if 500 <= status_code < 600:
+            app.register_error_handler(status_code, handle_server_errors)
 
     @app.errorhandler(401)
     def handle_unauthorized(error):

@@ -11,6 +11,7 @@ class TOTPCredentialEntity:
     """TOTP シークレットを表すドメインエンティティ"""
 
     id: int
+    user_id: int
     account: str
     issuer: str
     secret: str

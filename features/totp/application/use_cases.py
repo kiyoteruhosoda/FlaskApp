@@ -48,8 +48,8 @@ class TOTPListUseCase:
     def __init__(self, repository: TOTPCredentialRepository | None = None):
         self.repository = repository or TOTPCredentialRepository()
 
-    def execute(self) -> List[tuple[TOTPCredentialEntity, TOTPPreview]]:
-        entities = self.repository.list_all()
+    def execute(self, *, user_id: int) -> List[tuple[TOTPCredentialEntity, TOTPPreview]]:
+        entities = self.repository.list_all(user_id=user_id)
         previews: List[tuple[TOTPCredentialEntity, TOTPPreview]] = []
         now = time.time()
         for entity in entities:
@@ -79,7 +79,7 @@ class TOTPCreateUseCase:
         algorithm = validate_algorithm(payload.algorithm)
         digits, period = validate_digits_and_period(payload.digits, payload.period)
 
-        if self.repository.find_by_account_and_issuer(account, issuer):
+        if self.repository.find_by_account_and_issuer(account, issuer, user_id=payload.user_id):
             raise TOTPConflictError(account, issuer)
 
         description = payload.description.strip() if payload.description else None
@@ -92,6 +92,7 @@ class TOTPCreateUseCase:
             algorithm=algorithm,
             digits=digits,
             period=period,
+            user_id=payload.user_id,
         )
 
 
@@ -100,7 +101,7 @@ class TOTPUpdateUseCase:
         self.repository = repository or TOTPCredentialRepository()
 
     def execute(self, payload: TOTPUpdateInput) -> TOTPCredentialEntity:
-        model = self.repository.find_model_by_id(payload.id)
+        model = self.repository.find_model_by_id(payload.id, user_id=payload.user_id)
         if not model:
             raise TOTPNotFoundError(f"TOTP #{payload.id} not found")
 
@@ -111,7 +112,7 @@ class TOTPUpdateUseCase:
 
         existing = None
         if (account != model.account) or (issuer != model.issuer):
-            existing = self.repository.find_by_account_and_issuer(account, issuer)
+            existing = self.repository.find_by_account_and_issuer(account, issuer, user_id=payload.user_id)
         if existing:
             raise TOTPConflictError(account, issuer)
 
@@ -134,8 +135,8 @@ class TOTPDeleteUseCase:
     def __init__(self, repository: TOTPCredentialRepository | None = None):
         self.repository = repository or TOTPCredentialRepository()
 
-    def execute(self, credential_id: int) -> None:
-        model = self.repository.find_model_by_id(credential_id)
+    def execute(self, credential_id: int, *, user_id: int) -> None:
+        model = self.repository.find_model_by_id(credential_id, user_id=user_id)
         if not model:
             raise TOTPNotFoundError(f"TOTP #{credential_id} not found")
         self.repository.delete(model)
@@ -145,8 +146,8 @@ class TOTPExportUseCase:
     def __init__(self, repository: TOTPCredentialRepository | None = None):
         self.repository = repository or TOTPCredentialRepository()
 
-    def execute(self) -> List[dict]:
-        entities = self.repository.list_all()
+    def execute(self, *, user_id: int) -> List[dict]:
+        entities = self.repository.list_all(user_id=user_id)
         exported: List[dict] = []
         for entity in entities:
             exported.append(
@@ -220,7 +221,9 @@ class TOTPImportUseCase:
 
         conflicts: List[dict] = []
         for item in normalized:
-            existing = self.repository.find_by_account_and_issuer(item["account"], item["issuer"])
+            existing = self.repository.find_by_account_and_issuer(
+                item["account"], item["issuer"], user_id=payload.user_id
+            )
             if existing:
                 conflicts.append(
                     {
@@ -233,7 +236,7 @@ class TOTPImportUseCase:
         if conflicts and not payload.force:
             return {"conflicts": conflicts, "imported": []}
 
-        imported_entities = self.repository.bulk_upsert(normalized)
+        imported_entities = self.repository.bulk_upsert(normalized, user_id=payload.user_id)
         return {
             "conflicts": conflicts,
             "imported": [entity.id for entity in imported_entities],

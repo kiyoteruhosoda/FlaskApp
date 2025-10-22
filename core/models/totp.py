@@ -14,10 +14,11 @@ class TOTPCredential(db.Model):
 
     __tablename__ = "totp_credential"
     __table_args__ = (
-        db.UniqueConstraint("account", "issuer", name="uq_totp_account_issuer"),
+        db.UniqueConstraint("user_id", "account", "issuer", name="uq_totp_user_account_issuer"),
     )
 
     id = db.Column(BigInt, primary_key=True, autoincrement=True)
+    user_id = db.Column(BigInt, db.ForeignKey("user.id", ondelete="CASCADE"), nullable=False, index=True)
     account = db.Column(db.String(255), nullable=False)
     issuer = db.Column(db.String(255), nullable=False)
     secret = db.Column(db.String(160), nullable=False)
@@ -36,6 +37,8 @@ class TOTPCredential(db.Model):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+
+    user = db.relationship("User", backref=db.backref("totp_credentials", cascade="all, delete-orphan"))
 
     def touch(self) -> None:
         """updated_at を現在時刻で更新"""

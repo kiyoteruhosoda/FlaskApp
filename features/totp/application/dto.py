@@ -8,6 +8,7 @@ from typing import Iterable, Optional
 
 @dataclass(slots=True)
 class TOTPCreateInput:
+    user_id: int
     account: str
     issuer: str
     secret: str
@@ -20,6 +21,7 @@ class TOTPCreateInput:
 @dataclass(slots=True)
 class TOTPUpdateInput:
     id: int
+    user_id: int
     account: str
     issuer: str
     description: Optional[str]
@@ -44,4 +46,5 @@ class TOTPImportItem:
 @dataclass(slots=True)
 class TOTPImportPayload:
     items: Iterable[TOTPImportItem]
+    user_id: int
     force: bool = False

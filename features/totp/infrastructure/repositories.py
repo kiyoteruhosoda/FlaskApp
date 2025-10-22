@@ -15,6 +15,7 @@ class TOTPCredentialRepository:
     def _to_entity(self, model: TOTPCredentialModel) -> TOTPCredentialEntity:
         return TOTPCredentialEntity(
             id=model.id,
+            user_id=model.user_id,
             account=model.account,
             issuer=model.issuer,
             secret=model.secret,
@@ -26,23 +27,35 @@ class TOTPCredentialRepository:
             updated_at=model.updated_at,
         )
 
-    def list_all(self) -> List[TOTPCredentialEntity]:
+    def list_all(self, *, user_id: int) -> List[TOTPCredentialEntity]:
         models = (
-            TOTPCredentialModel.query.order_by(TOTPCredentialModel.issuer.asc(), TOTPCredentialModel.account.asc()).all()
+            TOTPCredentialModel.query.filter_by(user_id=user_id)
+            .order_by(TOTPCredentialModel.issuer.asc(), TOTPCredentialModel.account.asc())
+            .all()
         )
         return [self._to_entity(m) for m in models]
 
-    def find_by_id(self, credential_id: int) -> Optional[TOTPCredentialEntity]:
-        model = TOTPCredentialModel.query.get(credential_id)
+    def find_by_id(self, credential_id: int, *, user_id: int) -> Optional[TOTPCredentialEntity]:
+        model = self.find_model_by_id(credential_id, user_id=user_id)
         if not model:
             return None
         return self._to_entity(model)
 
-    def find_model_by_id(self, credential_id: int) -> Optional[TOTPCredentialModel]:
-        return TOTPCredentialModel.query.get(credential_id)
+    def find_model_by_id(self, credential_id: int, *, user_id: int) -> Optional[TOTPCredentialModel]:
+        return (
+            TOTPCredentialModel.query.filter_by(id=credential_id, user_id=user_id)
+            .order_by(TOTPCredentialModel.id.asc())
+            .first()
+        )
 
-    def find_by_account_and_issuer(self, account: str, issuer: str) -> Optional[TOTPCredentialEntity]:
-        model = TOTPCredentialModel.query.filter_by(account=account, issuer=issuer).first()
+    def find_by_account_and_issuer(
+        self, account: str, issuer: str, *, user_id: int
+    ) -> Optional[TOTPCredentialEntity]:
+        model = (
+            TOTPCredentialModel.query.filter_by(account=account, issuer=issuer, user_id=user_id)
+            .order_by(TOTPCredentialModel.id.asc())
+            .first()
+        )
         if not model:
             return None
         return self._to_entity(model)
@@ -50,6 +63,7 @@ class TOTPCredentialRepository:
     def create(
         self,
         *,
+        user_id: int,
         account: str,
         issuer: str,
         secret: str,
@@ -60,6 +74,7 @@ class TOTPCredentialRepository:
     ) -> TOTPCredentialEntity:
         now = datetime.now(timezone.utc)
         model = TOTPCredentialModel(
+            user_id=user_id,
             account=account,
             issuer=issuer,
             secret=secret,
@@ -103,7 +118,7 @@ class TOTPCredentialRepository:
         db.session.delete(model)
         db.session.commit()
 
-    def bulk_upsert(self, items: Iterable[dict]) -> List[TOTPCredentialEntity]:
+    def bulk_upsert(self, items: Iterable[dict], *, user_id: int) -> List[TOTPCredentialEntity]:
         """インポート用の一括アップサート"""
 
         now = datetime.now(timezone.utc)
@@ -111,7 +126,11 @@ class TOTPCredentialRepository:
         for item in items:
             account = item["account"]
             issuer = item["issuer"]
-            existing = TOTPCredentialModel.query.filter_by(account=account, issuer=issuer).first()
+            existing = (
+                TOTPCredentialModel.query.filter_by(account=account, issuer=issuer, user_id=user_id)
+                .order_by(TOTPCredentialModel.id.asc())
+                .first()
+            )
             if existing:
                 existing.secret = item["secret"]
                 existing.description = item.get("description")
@@ -125,6 +144,7 @@ class TOTPCredentialRepository:
                 model = existing
             else:
                 model = TOTPCredentialModel(
+                    user_id=user_id,
                     account=account,
                     issuer=issuer,
                     secret=item["secret"],

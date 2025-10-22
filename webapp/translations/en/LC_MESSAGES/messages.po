@@ -486,6 +486,12 @@ msgstr "Two-factor authentication setup cancelled."
 msgid "Two-factor authentication is not available for service accounts."
 msgstr "Two-factor authentication is not available for service accounts."
 
+msgid "Service accounts cannot edit profile details."
+msgstr "Service accounts cannot edit profile details."
+
+msgid "Profile details are managed by administrators for service accounts."
+msgstr "Profile details are managed by administrators for service accounts."
+
 msgid "Registration session invalid. Please register again."
 msgstr "Registration session invalid. Please register again."
 

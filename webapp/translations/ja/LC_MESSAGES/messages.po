@@ -742,6 +742,12 @@ msgstr "二要素認証の設定がキャンセルされました。"
 msgid "Two-factor authentication is not available for service accounts."
 msgstr "サービスアカウントでは二要素認証を利用できません。"
 
+msgid "Service accounts cannot edit profile details."
+msgstr "サービスアカウントではプロフィール詳細を編集できません。"
+
+msgid "Profile details are managed by administrators for service accounts."
+msgstr "サービスアカウントのプロフィール詳細は管理者が管理します。"
+
 #: webapp/auth/routes.py:283
 msgid "Logged out"
 msgstr "ログアウトしました"

@@ -650,6 +650,9 @@ def profile():
 @login_required
 def edit():
     is_service_account = bool(getattr(current_user, "is_service_account", False))
+    if is_service_account:
+        flash(_("Service accounts cannot edit profile details."), "warning")
+        return redirect(url_for("auth.profile"))
     if request.method == "POST":
         email = request.form.get("email")
         password = request.form.get("password")

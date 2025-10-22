@@ -106,9 +106,18 @@
             <button type="submit" class="btn btn-primary">
               <i class="fas fa-save me-2"></i>{{ _('Save preferences') }}
             </button>
-            <a href="{{ url_for('auth.edit') }}" class="btn btn-outline-secondary">
-              <i class="fas fa-user-edit me-2"></i>{{ _('Edit profile details') }}
-            </a>
+            {% if is_service_account %}
+              <button type="button" class="btn btn-outline-secondary" disabled>
+                <i class="fas fa-user-edit me-2"></i>{{ _('Edit profile details') }}
+              </button>
+              <div class="form-text text-muted small">
+                {{ _('Profile details are managed by administrators for service accounts.') }}
+              </div>
+            {% else %}
+              <a href="{{ url_for('auth.edit') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-user-edit me-2"></i>{{ _('Edit profile details') }}
+              </a>
+            {% endif %}
             {% if not is_service_account and not current_user.totp_secret %}
               <a href="{{ url_for('auth.setup_totp', next=url_for('auth.profile')) }}" class="btn btn-outline-warning">
                 <i class="fas fa-mobile-alt me-2"></i>{{ _('Enable two-factor authentication') }}

@@ -299,23 +299,6 @@
     });
   }
 
-  function updateConfigTable(configData) {
-    const tableBody = document.querySelector('[data-config-table-body]');
-    if (!tableBody || !configData) {
-      return;
-    }
-    tableBody.innerHTML = '';
-    Object.entries(configData).forEach(([key, value]) => {
-      const row = document.createElement('tr');
-      const keyCell = document.createElement('td');
-      keyCell.textContent = key;
-      const valueCell = document.createElement('td');
-      valueCell.textContent = value;
-      row.append(keyCell, valueCell);
-      tableBody.append(row);
-    });
-  }
-
   const searchInput = document.querySelector('[data-config-search]');
   if (searchInput) {
     const rowElements = Array.from(document.querySelectorAll('[data-config-row]'));
@@ -508,7 +491,6 @@
     updateCorsRows(data.cors_fields);
     updateSigningSetting(data.signing_setting);
     updateTimestamps(data.timestamps, data.descriptions);
-    updateConfigTable(data.config);
     if (typeof reapplySearchFilter === 'function') {
       reapplySearchFilter();
     }
@@ -539,7 +521,7 @@
       event.preventDefault();
       event.stopPropagation();
 
-      const submitButton = form.querySelector('button[type="submit"]');
+      const submitButton = event.submitter || form.querySelector('button[type="submit"]');
       if (submitButton) {
         submitButton.disabled = true;
       }

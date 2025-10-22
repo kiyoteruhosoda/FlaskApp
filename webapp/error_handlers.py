@@ -38,7 +38,7 @@ def _handle_html_error(error, *, is_server_error: bool):
         locale = str(get_locale() or current_app.config.get("BABEL_DEFAULT_LOCALE", "en"))
 
         if is_server_error:
-            message_key = getattr(error, "name", "Internal Server Error") or "Internal Server Error"
+            message_key = getattr(error, "name", "Internal Server Error")
             payload = {
                 "status": "error",
                 "code": code,

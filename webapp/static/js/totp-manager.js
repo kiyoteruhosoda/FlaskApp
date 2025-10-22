@@ -2,6 +2,7 @@
   'use strict';
 
   const api = new APIClient();
+  const canWrite = Boolean(window.totpPermissions?.canWrite);
   const state = {
     items: [],
     sort: 'issuer',
@@ -147,10 +148,12 @@
         break;
     }
 
+    const columnCount = canWrite ? 7 : 6;
+
     if (!items.length) {
       elements.tableBody.innerHTML = `
         <tr>
-          <td colspan="7" class="text-center py-4 text-muted">
+          <td colspan="${columnCount}" class="text-center py-4 text-muted">
             <i class="bi bi-inbox me-2"></i>${t('totp.noEntries', 'No TOTP registrations yet.')}
           </td>
         </tr>`;
@@ -161,6 +164,15 @@
       const updated = item.updated_at ? new Date(item.updated_at) : null;
       const updatedText = updated ? updated.toLocaleString() : '';
       const description = item.description ? escapeHtml(item.description) : '<span class="text-muted">-</span>';
+      const actionsCell = canWrite
+        ? `
+          <td class="text-start">
+            <div class="totp-list-actions">
+              <button class="btn btn-sm btn-outline-primary" data-action="edit">${t('totp.actions.edit', 'Edit')}</button>
+              <button class="btn btn-sm btn-outline-danger" data-action="delete">${t('totp.actions.delete', 'Delete')}</button>
+            </div>
+          </td>`
+        : '';
       return `
         <tr data-id="${item.id}">
           <td class="fw-semibold">${escapeHtml(item.issuer)}</td>
@@ -176,12 +188,7 @@
           </td>
           <td>${description}</td>
           <td class="text-nowrap">${escapeHtml(updatedText)}</td>
-          <td class="text-start">
-            <div class="totp-list-actions">
-              <button class="btn btn-sm btn-outline-primary" data-action="edit">${t('totp.actions.edit', 'Edit')}</button>
-              <button class="btn btn-sm btn-outline-danger" data-action="delete">${t('totp.actions.delete', 'Delete')}</button>
-            </div>
-          </td>
+          ${actionsCell}
         </tr>`;
     });
 

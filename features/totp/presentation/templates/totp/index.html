@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% set can_write = can_write | default(false) %}
 {% block title %}{{ _('TOTP Management') }}{% endblock %}
 
 {% block extra_head %}
@@ -109,6 +110,7 @@
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
   <h1 class="h3 mb-0">{{ _('TOTP Management') }}</h1>
   <div class="totp-toolbar">
+    {% if can_write %}
     <button
       class="btn btn-outline-primary btn-sm"
       type="button"
@@ -119,14 +121,17 @@
       <i class="bi bi-layout-sidebar" aria-hidden="true"></i>
       <span data-role="label">{{ _('Show registration form') }}</span>
     </button>
+    {% endif %}
     <button type="button" class="btn btn-outline-secondary" id="totp-export-btn">
       <i class="bi bi-download" aria-hidden="true"></i>
       <span>{{ _('Export JSON') }}</span>
     </button>
+    {% if can_write %}
     <button type="button" class="btn btn-outline-primary" id="totp-import-btn">
       <i class="bi bi-upload" aria-hidden="true"></i>
       <span>{{ _('Import JSON') }}</span>
     </button>
+    {% endif %}
   </div>
 </div>
 
@@ -157,12 +162,14 @@
               <th scope="col">{{ _('Time remaining') }}</th>
               <th scope="col">{{ _('Description') }}</th>
               <th scope="col" class="text-nowrap">{{ _('Updated at') }}</th>
+              {% if can_write %}
               <th scope="col" class="text-start">{{ _('Actions') }}</th>
+              {% endif %}
             </tr>
           </thead>
           <tbody id="totp-table-body">
             <tr>
-              <td colspan="7" class="text-center py-4 text-muted">
+              <td colspan="{{ 7 if can_write else 6 }}" class="text-center py-4 text-muted">
                 <i class="bi bi-arrow-repeat me-2"></i>{{ _('Loading data...') }}
               </td>
             </tr>
@@ -171,6 +178,7 @@
       </div>
     </div>
   </div>
+  {% if can_write %}
   <div class="totp-create-panel collapsed" id="totp-create-panel" aria-hidden="true">
     <div class="card shadow-sm h-100">
       <div class="card-header totp-card-header">
@@ -260,8 +268,10 @@
       </div>
     </div>
   </div>
+  {% endif %}
 </div>
 
+{% if can_write %}
 <!-- 編集モーダル -->
 <div class="modal fade" id="totp-edit-modal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -348,11 +358,15 @@
     </div>
   </div>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block extra_scripts %}
 <script src="https://cdn.jsdelivr.net/npm/otpauth@9.0.1/dist/otpauth.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script>
+  window.totpPermissions = Object.assign({}, window.totpPermissions || {}, {{ {'canWrite': can_write} | tojson | safe }});
+</script>
 <script>
   window.i18nStrings = Object.assign(window.i18nStrings || {}, {{ {
     'totp.noEntries': _('No TOTP registrations yet.'),

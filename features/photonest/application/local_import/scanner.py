@@ -1,10 +1,10 @@
 """ローカルインポートの入力ディレクトリを走査するサービス."""
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Iterable, List, Optional
 
+from core.storage_service import StorageService
 from features.photonest.domain.local_import.logging import file_log_context
 
 
@@ -17,19 +17,21 @@ class ImportDirectoryScanner:
         logger,
         zip_service,
         supported_extensions: Iterable[str],
+        storage_service: StorageService,
     ) -> None:
         self._logger = logger
         self._zip_service = zip_service
         self._supported_extensions = {ext.lower() for ext in supported_extensions}
+        self._storage = storage_service
 
     def scan(self, import_dir: str, *, session_id: Optional[str] = None) -> List[str]:
         files: List[str] = []
-        if not os.path.exists(import_dir):
+        if not self._storage.exists(import_dir):
             return files
 
-        for root, _, filenames in os.walk(import_dir):
+        for root, _, filenames in self._storage.walk(import_dir):
             for filename in filenames:
-                file_path = os.path.join(root, filename)
+                file_path = self._storage.join(root, filename)
                 file_extension = Path(filename).suffix.lower()
                 file_context = file_log_context(file_path, filename)
 

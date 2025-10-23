@@ -431,11 +431,15 @@ def _commit_with_error_logging(
 _session_service = LocalImportSessionService(db, _log_error)
 
 
+_storage_service = LocalFilesystemStorageService()
+
+
 _zip_service = ZipArchiveService(
     _log_info,
     _log_warning,
     _log_error,
     SUPPORTED_EXTENSIONS,
+    storage_service=_storage_service,
 )
 
 
@@ -443,6 +447,7 @@ _scanner = ImportDirectoryScanner(
     logger=_task_logger,
     zip_service=_zip_service,
     supported_extensions=SUPPORTED_EXTENSIONS,
+    storage_service=_storage_service,
 )
 
 
@@ -462,7 +467,10 @@ class _LocalImportMetadataProvider(DefaultMediaMetadataProvider):
         return get_image_dimensions(file_path)
 
 
-_media_analyzer = MediaFileAnalyzer(metadata_provider=_LocalImportMetadataProvider())
+_media_analyzer = MediaFileAnalyzer(
+    metadata_provider=_LocalImportMetadataProvider(),
+    storage_service=_storage_service,
+)
 
 
 def _cleanup_extracted_directories() -> None:
@@ -1050,8 +1058,6 @@ def _resolve_directory(config_key: str) -> str:
 
     raise RuntimeError(f"No storage directory candidates available for {config_key}")
 
-
-_storage_service = LocalFilesystemStorageService()
 
 _file_importer = LocalImportFileImporter(
     db=db,

@@ -16,7 +16,7 @@ from core.models.photo_models import (
 )
 from core.models.picker_session import PickerSession
 from core.logging_config import setup_task_logging
-from core.storage_service import LocalFilesystemStorageService
+from core.storage_service import LocalFilesystemStorageService, StorageService
 from core.tasks import media_post_processing
 from core.tasks.media_post_processing import process_media_post_import
 from core.tasks.thumbs_generate import (
@@ -431,7 +431,27 @@ def _commit_with_error_logging(
 _session_service = LocalImportSessionService(db, _log_error)
 
 
-_storage_service = LocalFilesystemStorageService()
+def _spawn_storage_service() -> StorageService:
+    base_service = settings.storage.service()
+    spawner = getattr(base_service, "spawn", None)
+    if callable(spawner):
+        spawned = spawner()
+        if spawned is not None:
+            return spawned
+    return LocalFilesystemStorageService(
+        config_resolver=settings.storage.configured,
+        env_resolver=settings.storage.environment,
+    )
+
+
+_import_source_storage: StorageService = _spawn_storage_service()
+_import_destination_storage: StorageService = _spawn_storage_service()
+
+
+def _storage_for_config_key(config_key: str) -> StorageService:
+    if config_key == "LOCAL_IMPORT_DIR":
+        return _import_source_storage
+    return _import_destination_storage
 
 
 _zip_service = ZipArchiveService(
@@ -439,7 +459,7 @@ _zip_service = ZipArchiveService(
     _log_warning,
     _log_error,
     SUPPORTED_EXTENSIONS,
-    storage_service=_storage_service,
+    storage_service=_import_source_storage,
 )
 
 
@@ -447,7 +467,7 @@ _scanner = ImportDirectoryScanner(
     logger=_task_logger,
     zip_service=_zip_service,
     supported_extensions=SUPPORTED_EXTENSIONS,
-    storage_service=_storage_service,
+    storage_service=_import_source_storage,
 )
 
 
@@ -469,7 +489,7 @@ class _LocalImportMetadataProvider(DefaultMediaMetadataProvider):
 
 _media_analyzer = MediaFileAnalyzer(
     metadata_provider=_LocalImportMetadataProvider(),
-    storage_service=_storage_service,
+    storage_service=_import_source_storage,
 )
 
 
@@ -1044,7 +1064,7 @@ def scan_import_directory(import_dir: str, *, session_id: Optional[str] = None) 
 def _resolve_directory(config_key: str) -> str:
     """Return a usable directory path for the given storage *config_key*."""
 
-    storage_service = settings.storage.service()
+    storage_service = _storage_for_config_key(config_key)
     area = storage_service.for_key(config_key)
     path = area.first_existing()
     if path:
@@ -1074,7 +1094,8 @@ _file_importer = LocalImportFileImporter(
         regeneration_mode=regeneration_mode,
     ),
     supported_extensions=SUPPORTED_EXTENSIONS,
-    storage_service=_storage_service,
+    source_storage=_import_source_storage,
+    destination_storage=_import_destination_storage,
 )
 
 def _invoke_current_import_single_file(

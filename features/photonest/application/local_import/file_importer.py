@@ -1,6 +1,7 @@
 """ローカルファイル取り込みのアプリケーションサービス."""
 from __future__ import annotations
 
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, Protocol
@@ -114,7 +115,8 @@ class LocalImportFileImporter:
         analysis_service: AnalysisService,
         thumbnail_regenerator: ThumbnailRegenerator,
         supported_extensions: Iterable[str],
-        storage_service: StorageService,
+        source_storage: StorageService,
+        destination_storage: StorageService,
         playback_policy: Optional[PlaybackFailurePolicy] = None,
     ) -> None:
         self._db = db
@@ -128,7 +130,18 @@ class LocalImportFileImporter:
         self._thumbnail_regenerator = thumbnail_regenerator
         self._supported_extensions = {ext.lower() for ext in supported_extensions}
         self._playback_policy = playback_policy or PlaybackFailurePolicy()
-        self._storage = storage_service
+        self._source_storage = source_storage
+        self._destination_storage = destination_storage
+
+    def _copy_to_destination(self, source_path: str, destination_path: str) -> None:
+        if self._source_storage is self._destination_storage:
+            self._destination_storage.copy(source_path, destination_path)
+            return
+
+        with self._source_storage.open(source_path, "rb") as src, self._destination_storage.open(
+            destination_path, "wb"
+        ) as dst:
+            shutil.copyfileobj(src, dst)
 
     def import_file(
         self,
@@ -165,7 +178,7 @@ class LocalImportFileImporter:
         )
 
         try:
-            if not self._storage.exists(file_path):
+            if not self._source_storage.exists(file_path):
                 outcome.mark("missing", reason="ファイルが存在しません")
                 self._logger.warning(
                     "local_import.file.missing",
@@ -192,7 +205,7 @@ class LocalImportFileImporter:
                 )
                 return outcome.as_dict()
 
-            file_size = self._storage.size(file_path)
+            file_size = self._source_storage.size(file_path)
             if file_size == 0:
                 outcome.mark("skipped", reason="ファイルサイズが0です")
                 self._logger.warning(
@@ -367,7 +380,7 @@ class LocalImportFileImporter:
         session_id: Optional[str],
     ) -> None:
         try:
-            self._storage.remove(file_path)
+            self._source_storage.remove(file_path)
             self._logger.info(
                 "local_import.file.duplicate_source_removed",
                 "重複ファイルのソースを削除",
@@ -404,10 +417,10 @@ class LocalImportFileImporter:
         is_video = analysis.is_video
         imported_filename = analysis.destination_filename
         rel_path = analysis.relative_path
-        dest_path = self._storage.join(originals_dir, rel_path)
+        dest_path = self._destination_storage.join(originals_dir, rel_path)
 
-        self._storage.ensure_parent(dest_path)
-        self._storage.copy(file_path, dest_path)
+        self._destination_storage.ensure_parent(dest_path)
+        self._copy_to_destination(file_path, dest_path)
         self._logger.info(
             "local_import.file.copied",
             "ファイルを保存先にコピーしました",
@@ -457,7 +470,7 @@ class LocalImportFileImporter:
                 media, post_process_result or {}, outcome, file_context, session_id
             )
 
-        self._storage.remove(file_path)
+        self._source_storage.remove(file_path)
         self._logger.info(
             "local_import.file.source_removed",
             "取り込み完了後に元ファイルを削除",
@@ -566,8 +579,8 @@ class LocalImportFileImporter:
             )
 
         play_dir = self._directory_resolver("FPV_NAS_PLAY_DIR")
-        playback_path = self._storage.join(play_dir, playback_entry.rel_path)
-        if not self._storage.exists(playback_path):
+        playback_path = self._destination_storage.join(play_dir, playback_entry.rel_path)
+        if not self._destination_storage.exists(playback_path):
             note = "playback_file_missing"
             if self._playback_policy.requires_session(note) and not session_id:
                 raise PlaybackError(
@@ -608,8 +621,8 @@ class LocalImportFileImporter:
         if not dest_path:
             return
         try:
-            if self._storage.exists(dest_path):
-                self._storage.remove(dest_path)
+            if self._destination_storage.exists(dest_path):
+                self._destination_storage.remove(dest_path)
                 self._logger.info(
                     "local_import.file.cleanup",
                     "エラー発生時にコピー済みファイルを削除",

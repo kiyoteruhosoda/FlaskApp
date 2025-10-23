@@ -219,6 +219,14 @@ class LocalFilesystemStorageService:
             spec.config_key: spec.defaults for spec in _KNOWN_SPECS
         }
 
+    def spawn(self) -> "LocalFilesystemStorageService":
+        clone = LocalFilesystemStorageService(
+            config_resolver=self._config_resolver,
+            env_resolver=self._env_resolver,
+        )
+        clone._defaults = dict(self._defaults)
+        return clone
+
     # ------------------------------------------------------------------
     # StorageService interface - low level operations
     # ------------------------------------------------------------------

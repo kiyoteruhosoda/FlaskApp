@@ -22,16 +22,16 @@ class ImportDirectoryScanner:
         self._logger = logger
         self._zip_service = zip_service
         self._supported_extensions = {ext.lower() for ext in supported_extensions}
-        self._storage = storage_service
+        self._source_storage = storage_service
 
     def scan(self, import_dir: str, *, session_id: Optional[str] = None) -> List[str]:
         files: List[str] = []
-        if not self._storage.exists(import_dir):
+        if not self._source_storage.exists(import_dir):
             return files
 
-        for root, _, filenames in self._storage.walk(import_dir):
+        for root, _, filenames in self._source_storage.walk(import_dir):
             for filename in filenames:
-                file_path = self._storage.join(root, filename)
+                file_path = self._source_storage.join(root, filename)
                 file_extension = Path(filename).suffix.lower()
                 file_context = file_log_context(file_path, filename)
 

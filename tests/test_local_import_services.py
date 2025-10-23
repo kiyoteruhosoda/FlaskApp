@@ -44,7 +44,8 @@ def _build_importer(tmp_path, logger=None):
     thumbnail_regenerator = MagicMock(return_value=(True, None))
     logger = logger or MagicMock()
 
-    storage_service = LocalFilesystemStorageService()
+    source_storage = LocalFilesystemStorageService()
+    destination_storage = LocalFilesystemStorageService()
 
     importer = LocalImportFileImporter(
         db=db,
@@ -57,7 +58,8 @@ def _build_importer(tmp_path, logger=None):
         analysis_service=analysis_service,
         thumbnail_regenerator=thumbnail_regenerator,
         supported_extensions={".jpg"},
-        storage_service=storage_service,
+        source_storage=source_storage,
+        destination_storage=destination_storage,
         playback_policy=PlaybackFailurePolicy(()),
     )
     return (
@@ -124,7 +126,8 @@ def test_validate_playback_recoverable_without_session(tmp_path):
         analysis_service=MagicMock(),
         thumbnail_regenerator=MagicMock(return_value=(True, None)),
         supported_extensions={".mp4"},
-        storage_service=LocalFilesystemStorageService(),
+        source_storage=LocalFilesystemStorageService(),
+        destination_storage=LocalFilesystemStorageService(),
     )
 
     importer._logger = MagicMock()

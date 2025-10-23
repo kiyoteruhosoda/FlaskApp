@@ -28,9 +28,9 @@ from typing import Any, Dict, List, Optional, cast
 
 from core.db import db
 from core.models.photo_models import Media, MediaPlayback
-from core.storage_paths import ensure_directory, first_existing_storage_path
 from core.logging_config import setup_task_logging
 from core.settings import ApplicationSettings, settings
+from domain.storage import StorageDomain
 from .thumbs_generate import thumbs_generate
 
 # transcode専用ロガーを取得（両方のログハンドラーが設定済み）
@@ -42,17 +42,25 @@ logger = setup_task_logging("celery.task.transcode")
 # ---------------------------------------------------------------------------
 
 def _orig_dir() -> Path:
-    base = first_existing_storage_path("FPV_NAS_ORIGINALS_DIR")
+    storage_area = settings.storage.service().for_domain(
+        StorageDomain.MEDIA_ORIGINALS
+    )
+    base = storage_area.first_existing()
     if not base:
-        base = "/tmp/fpv_orig"
+        candidates = storage_area.candidates()
+        base = candidates[0] if candidates else "/tmp/fpv_orig"
     return Path(base)
 
 
 def _play_dir() -> Path:
-    base = first_existing_storage_path("FPV_NAS_PLAY_DIR")
+    storage_service = settings.storage.service()
+    storage_area = storage_service.for_domain(StorageDomain.MEDIA_PLAYBACK)
+    base = storage_area.first_existing()
+    if not base:
+        base = storage_area.ensure_base()
     if not base:
         base = "/tmp/fpv_play"
-    return ensure_directory(base)
+    return storage_service.ensure_directory(base)
 
 
 def _tmp_dir(*, config: ApplicationSettings = settings) -> Path:

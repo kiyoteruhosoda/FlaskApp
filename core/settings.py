@@ -20,6 +20,8 @@ from typing import Any, Iterable, Mapping, Optional, Sequence, Tuple, TYPE_CHECK
 
 from flask import current_app
 
+from domain.storage import StorageDomain
+
 _DEFAULT_ACCESS_TOKEN_ISSUER = "fpv-webapp"
 _DEFAULT_ACCESS_TOKEN_AUDIENCE = "fpv-webapp"
 
@@ -82,7 +84,10 @@ class _StorageAccessor:
         if self._service is None:
             from core.storage_service import LocalFilesystemStorageService
 
-            self._service = LocalFilesystemStorageService()
+            self._service = LocalFilesystemStorageService(
+                config_resolver=self.configured,
+                env_resolver=self.environment,
+            )
         return self._service
 
 
@@ -180,12 +185,15 @@ class ApplicationSettings:
     # ------------------------------------------------------------------
     # Storage paths
     # ------------------------------------------------------------------
-    def _storage_directory(self, key: str, fallback: str) -> Path:
-        from core.storage_paths import first_existing_storage_path
-
-        base = first_existing_storage_path(key)
+    def _storage_directory(self, domain: StorageDomain, fallback: str) -> Path:
+        storage = self.storage.service()
+        area = storage.for_domain(domain)
+        base = area.first_existing()
         if base:
             return Path(base)
+        candidates = area.candidates()
+        if candidates:
+            return Path(candidates[0])
         return Path(fallback)
 
     @property
@@ -203,19 +211,19 @@ class ApplicationSettings:
 
     @property
     def nas_originals_directory(self) -> Path:
-        return self._storage_directory("FPV_NAS_ORIGINALS_DIR", "/tmp/fpv_orig")
+        return self._storage_directory(StorageDomain.MEDIA_ORIGINALS, "/tmp/fpv_orig")
 
     @property
     def nas_play_directory(self) -> Path:
-        return self._storage_directory("FPV_NAS_PLAY_DIR", "/tmp/fpv_play")
+        return self._storage_directory(StorageDomain.MEDIA_PLAYBACK, "/tmp/fpv_play")
 
     @property
     def nas_thumbs_directory(self) -> Path:
-        return self._storage_directory("FPV_NAS_THUMBS_DIR", "/tmp/fpv_thumbs")
+        return self._storage_directory(StorageDomain.MEDIA_THUMBNAILS, "/tmp/fpv_thumbs")
 
     @property
     def local_import_directory(self) -> Path:
-        return self._storage_directory("LOCAL_IMPORT_DIR", "/tmp/local_import")
+        return self._storage_directory(StorageDomain.MEDIA_IMPORT, "/tmp/local_import")
 
     @property
     def nas_originals_directory_configured(self) -> Optional[str]:

@@ -68,18 +68,13 @@ import jwt
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func, select, case
 from werkzeug.utils import secure_filename
-from core import storage_paths as _storage_paths
-from core.storage_paths import (
-    first_existing_storage_path,
-    resolve_storage_file,
-    storage_path_candidates,
-)
 from core.tasks.local_import import (
     SUPPORTED_EXTENSIONS,
     refresh_media_metadata_from_original,
 )
 from core.tasks.media_post_processing import enqueue_thumbs_generate
 from core.time import utc_now_isoformat
+from core.storage_service import StorageService
 from features.totp.application.dto import (
     TOTPCreateInput,
     TOTPImportItem,
@@ -121,7 +116,7 @@ auth_service = AuthService(user_repo, user_registration_service)
 
 VALID_TAG_ATTRS = {"person", "place", "thing"}
 
-_STORAGE_DEFAULTS = _storage_paths._STORAGE_DEFAULTS
+_STORAGE_DEFAULTS: dict[str, tuple[str, ...]] = {}
 
 JWT_BEARER_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:jwt-bearer"
 
@@ -352,33 +347,42 @@ def api_service_account_token_exchange(data: dict) -> dict:
     return jsonify(response_payload)
 
 
+def _storage_service() -> StorageService:
+    return settings.storage.service()
+
+
 def _normalize_storage_defaults(config_key: str) -> None:
     defaults_override = _STORAGE_DEFAULTS.get(config_key)
     if defaults_override is None:
         return
+
     if isinstance(defaults_override, (list, tuple)):
         normalized = tuple(defaults_override)
     else:
         normalized = (defaults_override,)
-    if _storage_paths._STORAGE_DEFAULTS.get(config_key) != normalized:
-        _storage_paths._STORAGE_DEFAULTS[config_key] = normalized
+
     if _STORAGE_DEFAULTS.get(config_key) != normalized:
         _STORAGE_DEFAULTS[config_key] = normalized
+
+    service = _storage_service()
+    if service.defaults(config_key) != normalized:
+        service.set_defaults(config_key, normalized)
 
 
 def _storage_path_candidates(config_key: str) -> list[str]:
     _normalize_storage_defaults(config_key)
-    return storage_path_candidates(config_key)
+    return _storage_service().candidates(config_key)
 
 
 def _storage_path(config_key: str) -> str | None:
     _normalize_storage_defaults(config_key)
-    return first_existing_storage_path(config_key)
+    return _storage_service().first_existing(config_key)
 
 
 def _resolve_storage_file(config_key: str, *path_parts: str) -> tuple[str | None, str | None, bool]:
     _normalize_storage_defaults(config_key)
-    return resolve_storage_file(config_key, *path_parts)
+    resolution = _storage_service().resolve_path(config_key, *path_parts)
+    return resolution.base_path, resolution.absolute_path, resolution.exists
 
 
 def _trigger_thumbnail_regeneration(
@@ -3765,8 +3769,8 @@ def _resolve_local_import_config():
     for config_key, key, configured_value in directory_specs:
         configured_value = configured_value or getattr(BaseApplicationSettings, config_key, None) or None
 
-        candidates = storage_path_candidates(config_key)
-        resolved_path = first_existing_storage_path(config_key)
+        candidates = _storage_path_candidates(config_key)
+        resolved_path = _storage_path(config_key)
         if not resolved_path and candidates:
             resolved_path = candidates[0]
         if not resolved_path:

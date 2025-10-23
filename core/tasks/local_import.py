@@ -16,7 +16,6 @@ from core.models.photo_models import (
 )
 from core.models.picker_session import PickerSession
 from core.logging_config import setup_task_logging
-from core.storage_paths import first_existing_storage_path, storage_path_candidates
 from core.storage_service import LocalFilesystemStorageService
 from core.tasks import media_post_processing
 from core.tasks.media_post_processing import process_media_post_import
@@ -25,6 +24,9 @@ from core.tasks.thumbs_generate import (
     thumbs_generate as _thumbs_generate,
 )
 from webapp.config import BaseApplicationSettings
+
+from core.settings import settings
+from domain.storage import StorageDomain
 
 from features.photonest.application.local_import.file_importer import (
     LocalImportFileImporter,
@@ -151,9 +153,12 @@ def _log_error(
 def _playback_storage_root() -> Optional[Path]:
     """Resolve the playback storage root directory."""
 
-    base = first_existing_storage_path("FPV_NAS_PLAY_DIR")
+    storage_area = settings.storage.service().for_domain(
+        StorageDomain.MEDIA_PLAYBACK
+    )
+    base = storage_area.first_existing()
     if not base:
-        candidates = storage_path_candidates("FPV_NAS_PLAY_DIR")
+        candidates = storage_area.candidates()
         base = candidates[0] if candidates else None
     if not base:
         return None
@@ -1031,13 +1036,17 @@ def scan_import_directory(import_dir: str, *, session_id: Optional[str] = None) 
 def _resolve_directory(config_key: str) -> str:
     """Return a usable directory path for the given storage *config_key*."""
 
-    path = first_existing_storage_path(config_key)
+    storage_service = settings.storage.service()
+    area = storage_service.for_key(config_key)
+    path = area.first_existing()
     if path:
         return path
 
-    candidates = storage_path_candidates(config_key)
+    candidates = area.candidates()
     if candidates:
-        return candidates[0]
+        candidate = candidates[0]
+        storage_service.ensure_directory(candidate)
+        return candidate
 
     raise RuntimeError(f"No storage directory candidates available for {config_key}")
 

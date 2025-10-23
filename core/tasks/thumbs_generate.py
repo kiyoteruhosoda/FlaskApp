@@ -23,12 +23,9 @@ register_heif_support()
 from PIL import Image, ImageOps
 
 from core.models.photo_models import Media, MediaPlayback
-from core.storage_paths import (
-    ensure_directory,
-    first_existing_storage_path,
-)
-
 from core.logging_config import structured_task_logger
+from core.settings import settings
+from domain.storage import StorageDomain
 
 if TYPE_CHECKING:  # pragma: no cover
     from core.logging_config import StructuredTaskLogger
@@ -87,23 +84,31 @@ def _playback_not_ready(
 def _thumb_base_dir() -> Path:
     """Return thumbnail base directory creating it if necessary."""
 
-    base = first_existing_storage_path("FPV_NAS_THUMBS_DIR")
+    storage_service = settings.storage.service()
+    area = storage_service.for_domain(StorageDomain.MEDIA_THUMBNAILS)
+    base = area.first_existing()
+    if not base:
+        base = area.ensure_base()
     if not base:
         base = "/tmp/fpv_thumbs"
-    return ensure_directory(base)
+    return storage_service.ensure_directory(base)
 
 
 def _orig_dir() -> Path:
-    base = first_existing_storage_path("FPV_NAS_ORIGINALS_DIR")
+    area = settings.storage.service().for_domain(StorageDomain.MEDIA_ORIGINALS)
+    base = area.first_existing()
     if not base:
-        base = "/tmp/fpv_orig"
+        candidates = area.candidates()
+        base = candidates[0] if candidates else "/tmp/fpv_orig"
     return Path(base)
 
 
 def _play_dir() -> Path:
-    base = first_existing_storage_path("FPV_NAS_PLAY_DIR")
+    area = settings.storage.service().for_domain(StorageDomain.MEDIA_PLAYBACK)
+    base = area.first_existing()
     if not base:
-        base = "/tmp/fpv_play"
+        candidates = area.candidates()
+        base = candidates[0] if candidates else "/tmp/fpv_play"
     return Path(base)
 
 

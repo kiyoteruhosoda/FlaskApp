@@ -10,7 +10,8 @@ from uuid import uuid4
 
 from core.db import db
 from core.models.photo_models import Media, MediaPlayback
-from core.storage_paths import first_existing_storage_path, storage_path_candidates
+from core.settings import settings
+from domain.storage import StorageDomain
 
 from .logger import StructuredMediaTaskLogger
 
@@ -36,9 +37,12 @@ class MediaPlaybackService:
         """Return the base directory for playback assets if resolvable."""
 
         if self._playback_base_cache is False:
-            base = first_existing_storage_path("FPV_NAS_PLAY_DIR")
+            storage = settings.storage.service().for_domain(
+                StorageDomain.MEDIA_PLAYBACK
+            )
+            base = storage.first_existing()
             if not base:
-                candidates = storage_path_candidates("FPV_NAS_PLAY_DIR")
+                candidates = storage.candidates()
                 base = candidates[0] if candidates else None
             self._playback_base_cache = Path(base) if base else None
         return self._playback_base_cache or None

@@ -162,10 +162,10 @@ class _LocalStorageArea(StorageArea):
         return self._service._candidates(self._spec)
 
     def first_existing(self, *, intent: StorageIntent = StorageIntent.READ) -> str | None:  # noqa: ARG002
-        for candidate in self.candidates(intent=intent):
+        candidates = self.candidates(intent=intent)
+        for candidate in candidates:
             if self._service.exists(candidate):
                 return candidate
-        candidates = self.candidates(intent=intent)
         return candidates[0] if candidates else None
 
     def resolve(

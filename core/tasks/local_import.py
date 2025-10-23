@@ -16,7 +16,7 @@ from core.models.photo_models import (
 )
 from core.models.picker_session import PickerSession
 from core.logging_config import setup_task_logging
-from core.storage_paths import first_existing_storage_path, storage_path_candidates
+from core.storage_service import LocalFilesystemStorageService, StorageService
 from core.tasks import media_post_processing
 from core.tasks.media_post_processing import process_media_post_import
 from core.tasks.thumbs_generate import (
@@ -24,6 +24,9 @@ from core.tasks.thumbs_generate import (
     thumbs_generate as _thumbs_generate,
 )
 from webapp.config import BaseApplicationSettings
+
+from core.settings import settings
+from domain.storage import StorageDomain
 
 from features.photonest.application.local_import.file_importer import (
     LocalImportFileImporter,
@@ -150,9 +153,12 @@ def _log_error(
 def _playback_storage_root() -> Optional[Path]:
     """Resolve the playback storage root directory."""
 
-    base = first_existing_storage_path("FPV_NAS_PLAY_DIR")
+    storage_area = settings.storage.service().for_domain(
+        StorageDomain.MEDIA_PLAYBACK
+    )
+    base = storage_area.first_existing()
     if not base:
-        candidates = storage_path_candidates("FPV_NAS_PLAY_DIR")
+        candidates = storage_area.candidates()
         base = candidates[0] if candidates else None
     if not base:
         return None
@@ -425,11 +431,41 @@ def _commit_with_error_logging(
 _session_service = LocalImportSessionService(db, _log_error)
 
 
+def _spawn_storage_service() -> StorageService:
+    base_service = settings.storage.service()
+    spawner = getattr(base_service, "spawn", None)
+    if callable(spawner):
+        spawned = spawner()
+        if spawned is not None:
+            return spawned
+    return LocalFilesystemStorageService(
+        config_resolver=settings.storage.configured,
+        env_resolver=settings.storage.environment,
+    )
+
+
+_import_source_storage: StorageService = _spawn_storage_service()
+_import_destination_storage: StorageService = _spawn_storage_service()
+
+# Explicit mapping of config keys to storage services
+_STORAGE_SERVICE_MAP = {
+    "LOCAL_IMPORT_DIR": _import_source_storage,
+    # Add more config keys and their corresponding storage services here as needed
+}
+
+def _storage_for_config_key(config_key: str) -> StorageService:
+    try:
+        return _STORAGE_SERVICE_MAP[config_key]
+    except KeyError:
+        # Default to destination storage for unknown keys, or raise an error for clarity
+        # return _import_destination_storage
+        raise ValueError(f"Unknown storage config key: {config_key!r}")
 _zip_service = ZipArchiveService(
     _log_info,
     _log_warning,
     _log_error,
     SUPPORTED_EXTENSIONS,
+    storage_service=_import_source_storage,
 )
 
 
@@ -437,6 +473,7 @@ _scanner = ImportDirectoryScanner(
     logger=_task_logger,
     zip_service=_zip_service,
     supported_extensions=SUPPORTED_EXTENSIONS,
+    storage_service=_import_source_storage,
 )
 
 
@@ -456,7 +493,10 @@ class _LocalImportMetadataProvider(DefaultMediaMetadataProvider):
         return get_image_dimensions(file_path)
 
 
-_media_analyzer = MediaFileAnalyzer(metadata_provider=_LocalImportMetadataProvider())
+_media_analyzer = MediaFileAnalyzer(
+    metadata_provider=_LocalImportMetadataProvider(),
+    storage_service=_import_source_storage,
+)
 
 
 def _cleanup_extracted_directories() -> None:
@@ -1030,13 +1070,17 @@ def scan_import_directory(import_dir: str, *, session_id: Optional[str] = None) 
 def _resolve_directory(config_key: str) -> str:
     """Return a usable directory path for the given storage *config_key*."""
 
-    path = first_existing_storage_path(config_key)
+    storage_service = _storage_for_config_key(config_key)
+    area = storage_service.for_key(config_key)
+    path = area.first_existing()
     if path:
         return path
 
-    candidates = storage_path_candidates(config_key)
+    candidates = area.candidates()
     if candidates:
-        return candidates[0]
+        candidate = candidates[0]
+        storage_service.ensure_directory(candidate)
+        return candidate
 
     raise RuntimeError(f"No storage directory candidates available for {config_key}")
 
@@ -1056,6 +1100,8 @@ _file_importer = LocalImportFileImporter(
         regeneration_mode=regeneration_mode,
     ),
     supported_extensions=SUPPORTED_EXTENSIONS,
+    source_storage=_import_source_storage,
+    destination_storage=_import_destination_storage,
 )
 
 def _invoke_current_import_single_file(

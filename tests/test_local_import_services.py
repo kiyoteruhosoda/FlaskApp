@@ -1,9 +1,11 @@
-import os
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
+import zipfile
 
 import pytest
 
+from core.storage_service import LocalFilesystemStorageService
 from features.photonest.application.local_import.file_importer import LocalImportFileImporter, PlaybackFailurePolicy
 from features.photonest.application.local_import.scanner import ImportDirectoryScanner
 from features.photonest.application.local_import.use_case import LocalImportUseCase
@@ -11,6 +13,7 @@ from features.photonest.application.local_import.logger import LocalImportTaskLo
 from features.photonest.application.local_import.queue import LocalImportQueueProcessor
 from features.photonest.application.local_import import logger as logger_module
 from features.photonest.domain.local_import.import_result import ImportTaskResult
+from features.photonest.domain.local_import.zip_archive import ZipArchiveService
 
 
 class DummyAnalysis:
@@ -41,6 +44,9 @@ def _build_importer(tmp_path, logger=None):
     thumbnail_regenerator = MagicMock(return_value=(True, None))
     logger = logger or MagicMock()
 
+    source_storage = LocalFilesystemStorageService()
+    destination_storage = LocalFilesystemStorageService()
+
     importer = LocalImportFileImporter(
         db=db,
         logger=logger,
@@ -52,6 +58,8 @@ def _build_importer(tmp_path, logger=None):
         analysis_service=analysis_service,
         thumbnail_regenerator=thumbnail_regenerator,
         supported_extensions={".jpg"},
+        source_storage=source_storage,
+        destination_storage=destination_storage,
         playback_policy=PlaybackFailurePolicy(()),
     )
     return (
@@ -118,6 +126,8 @@ def test_validate_playback_recoverable_without_session(tmp_path):
         analysis_service=MagicMock(),
         thumbnail_regenerator=MagicMock(return_value=(True, None)),
         supported_extensions={".mp4"},
+        source_storage=LocalFilesystemStorageService(),
+        destination_storage=LocalFilesystemStorageService(),
     )
 
     importer._logger = MagicMock()
@@ -151,6 +161,7 @@ def test_directory_scanner_collects_supported_files_and_zip(tmp_path):
         logger=logger,
         zip_service=zip_service,
         supported_extensions={".jpg"},
+        storage_service=LocalFilesystemStorageService(),
     )
 
     supported = tmp_path / "image.jpg"
@@ -163,6 +174,46 @@ def test_directory_scanner_collects_supported_files_and_zip(tmp_path):
     assert str(supported) in result
     assert str(tmp_path / "from_zip.jpg") in result
     zip_service.extract.assert_called_once_with(str(zip_file), session_id="S1")
+
+
+def test_zip_archive_service_extracts_and_cleans(tmp_path):
+    storage = LocalFilesystemStorageService()
+    storage.set_defaults("LOCAL_IMPORT_DIR", (str(tmp_path / "import_base"),))
+
+    def _info(*args, **kwargs):
+        return None
+
+    def _warning(*args, **kwargs):
+        return None
+
+    def _error(*args, **kwargs):
+        return None
+
+    service = ZipArchiveService(
+        _info,
+        _warning,
+        _error,
+        supported_extensions={".jpg"},
+        storage_service=storage,
+    )
+
+    zip_file = tmp_path / "source.zip"
+    with zipfile.ZipFile(zip_file, "w") as archive:
+        archive.writestr("nested/photo.jpg", b"data")
+
+    extracted = service.extract(str(zip_file))
+
+    assert extracted
+    extracted_path = Path(extracted[0])
+    assert extracted_path.exists()
+    assert extracted_path.suffix == ".jpg"
+    assert str(extracted_path).startswith(
+        str(tmp_path / "import_base" / "_zip")
+    )
+    assert not zip_file.exists()
+
+    service.cleanup()
+    assert not extracted_path.parent.exists()
 
 
 def test_local_import_use_case_handles_missing_directory(tmp_path):

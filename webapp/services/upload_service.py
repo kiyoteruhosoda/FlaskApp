@@ -13,9 +13,9 @@ from uuid import uuid4
 from flask import current_app
 from werkzeug.datastructures import FileStorage
 
-from core.storage_paths import first_existing_storage_path
 from webapp.config import BaseApplicationSettings
 from core.settings import settings
+from domain.storage import StorageDomain
 
 
 class UploadError(Exception):
@@ -80,17 +80,22 @@ def _tmp_base_dir() -> Path:
 def _resolve_local_import_directory() -> Optional[Path]:
     """Resolve and ensure the local import base directory."""
 
-    candidate = first_existing_storage_path("LOCAL_IMPORT_DIR")
+    storage_service = settings.storage.service()
+    area = storage_service.for_domain(StorageDomain.MEDIA_IMPORT)
+    candidate = area.first_existing()
+    if candidate is None:
+        candidate = area.ensure_base()
     if candidate is None:
         candidate = (
-            settings.local_import_directory_configured or BaseApplicationSettings.LOCAL_IMPORT_DIR
+            settings.local_import_directory_configured
+            or BaseApplicationSettings.LOCAL_IMPORT_DIR
         )
     if not candidate:
         return None
 
     directory = Path(candidate)
     try:
-        directory.mkdir(parents=True, exist_ok=True)
+        storage_service.ensure_directory(directory)
     except OSError as exc:
         current_app.logger.exception(
             "upload.commit.local_import.ensure_failed",

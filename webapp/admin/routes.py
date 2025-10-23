@@ -31,7 +31,9 @@ from core.system_settings_defaults import (
 )
 from core.models.user import User, Role, Permission
 from core.models.service_account import ServiceAccount
-from core.storage_paths import first_existing_storage_path, storage_path_candidates
+from core.settings import settings
+from core.storage_service import StorageService
+from domain.storage import StorageDomain
 from webapp.services.service_account_service import (
     ServiceAccountNotFoundError,
     ServiceAccountService,
@@ -989,12 +991,14 @@ def show_data_files():
 
     directories: list[dict] = []
     selected_directory: dict | None = None
+    service = settings.storage.service()
 
     for config_key, label in directory_definitions:
-        candidates = storage_path_candidates(config_key)
-        base_path = first_existing_storage_path(config_key)
+        area = service.for_key(config_key)
+        candidates = area.candidates()
+        base_path = area.first_existing()
         effective_base = base_path or (candidates[0] if candidates else None)
-        exists = bool(effective_base and Path(effective_base).exists())
+        exists = bool(effective_base and service.exists(effective_base))
 
         summary = {
             "config_key": config_key,
@@ -1040,7 +1044,6 @@ def show_data_files():
         if not (effective_base and exists):
             continue
 
-        base_dir = Path(effective_base)
         total_files = 0
         total_size = 0
         matching_count = 0
@@ -1050,7 +1053,7 @@ def show_data_files():
         end_index = start_index + per_page
         lower_query = filter_query.lower()
 
-        for rel_path, size in _iter_directory_entries(base_dir):
+        for rel_path, size in _iter_directory_entries(service, effective_base):
             total_files += 1
             total_size += size
 
@@ -1081,7 +1084,7 @@ def show_data_files():
             end_index = start_index + per_page
             page_files = []
             current_index = 0
-            for rel_path, size in _iter_directory_entries(base_dir):
+            for rel_path, size in _iter_directory_entries(service, effective_base):
                 if lower_query and lower_query not in rel_path.lower():
                     continue
                 if start_index <= current_index < end_index:
@@ -1562,23 +1565,20 @@ def _format_bytes(num: int) -> str:
     return f"{value:.1f} PB"
 
 
-def _iter_directory_entries(base_dir: Path):
+def _iter_directory_entries(service: StorageService, base_dir: str):
     """指定ディレクトリ内のファイルをソートして列挙."""
 
-    for root, dirs, filenames in os.walk(base_dir):
+    for root, dirs, filenames in service.walk(base_dir):
         dirs.sort()
         filenames.sort()
         for filename in filenames:
-            file_path = Path(root) / filename
+            file_path = service.join(root, filename)
             try:
-                size = file_path.stat().st_size
+                size = service.size(file_path)
             except OSError:
                 size = 0
-            try:
-                rel_path = file_path.relative_to(base_dir).as_posix()
-            except ValueError:
-                rel_path = file_path.as_posix()
-            yield rel_path, size
+            rel_path = os.path.relpath(file_path, base_dir)
+            yield service.normalize_path(rel_path), size
 
 
 def _build_pagination_pages(page: int, total_pages: int, window: int = 2) -> list[int]:

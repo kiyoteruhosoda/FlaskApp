@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
 
 from core.utils import get_file_date_from_exif, get_file_date_from_name
 
@@ -24,6 +24,9 @@ from .policies import (
     MIME_TYPE_BY_EXTENSION,
     SUPPORTED_VIDEO_EXTENSIONS,
 )
+
+if TYPE_CHECKING:
+    from core.storage_service import StorageService
 
 
 @dataclass(frozen=True)
@@ -99,11 +102,15 @@ class MediaFileAnalyzer:
     metadata_provider: MediaMetadataProvider = field(
         default_factory=DefaultMediaMetadataProvider
     )
+    storage_service: "StorageService" | None = None
 
     def analyze(self, file_path: str) -> MediaFileAnalysis:
         source = ImportFile(file_path)
         extension = source.extension
-        file_size = os.path.getsize(file_path)
+        if self.storage_service is not None:
+            file_size = self.storage_service.size(file_path)
+        else:
+            file_size = os.path.getsize(file_path)
         file_hash = self.metadata_provider.calculate_file_hash(file_path)
         is_video = extension in SUPPORTED_VIDEO_EXTENSIONS
         mime_type = MIME_TYPE_BY_EXTENSION.get(extension, DEFAULT_MIME_TYPE)

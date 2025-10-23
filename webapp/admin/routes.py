@@ -750,13 +750,14 @@ def show_config():
             app_selected = set(request.form.getlist("app_config_selected"))
             app_overrides = {
                 key: request.form.get(f"app_config_new[{key}]")
-                for key in application_definitions
-                if f"app_config_new[{key}]" in request.form
+                for key, definition in application_definitions.items()
+                if definition.editable and f"app_config_new[{key}]" in request.form
             }
             app_use_defaults = {
                 key
-                for key in application_definitions
-                if request.form.get(f"app_config_use_default[{key}]") == "1"
+                for key, definition in application_definitions.items()
+                if definition.editable
+                and request.form.get(f"app_config_use_default[{key}]") == "1"
             }
             if not app_selected:
                 errors.append(_(u"Select at least one setting to update."))
@@ -768,6 +769,12 @@ def show_config():
                     definition = application_definitions.get(key)
                     if definition is None:
                         errors.append(_(u"Unknown application setting: %(key)s", key=key))
+                        continue
+                    if not definition.editable:
+                        label = definition.label or key
+                        errors.append(
+                            _(u"%(setting)s is read-only and cannot be modified.", setting=label)
+                        )
                         continue
                     if key in app_use_defaults:
                         remove_keys.append(key)

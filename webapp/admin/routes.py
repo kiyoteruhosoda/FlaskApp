@@ -1575,7 +1575,7 @@ def _iter_directory_entries(service: StorageService, base_dir: str):
             except OSError:
                 size = 0
             rel_path = os.path.relpath(file_path, base_dir)
-            yield rel_path.replace("\\", "/"), size
+            yield service.normalize_path(rel_path), size
 
 
 def _build_pagination_pages(page: int, total_pages: int, window: int = 2) -> list[int]:

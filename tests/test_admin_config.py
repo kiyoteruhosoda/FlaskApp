@@ -109,6 +109,33 @@ def test_update_application_config_rejects_empty_required(client):
     assert config["JWT_SECRET_KEY"] == original_value
 
 
+def test_update_application_config_rejects_readonly_field(client):
+    user = _create_system_manager()
+    _login(client, user)
+
+    original_value = client.application.config.get("SQLALCHEMY_DATABASE_URI")
+    assert original_value is not None
+
+    response = client.post(
+        "/admin/config",
+        data={
+            "action": "update-app-config-fields",
+            "app_config_selected": ["SQLALCHEMY_DATABASE_URI"],
+            "app_config_new[SQLALCHEMY_DATABASE_URI]": "sqlite:///mutated.db",
+        },
+        headers={"X-Requested-With": "XMLHttpRequest", "Accept": "application/json"},
+    )
+
+    assert response.status_code == 400
+    payload = response.get_json()
+    assert payload["status"] == "error"
+    assert "SQLAlchemy database URI is read-only" in payload["message"]
+
+    config = SystemSettingService.load_application_config()
+    assert "SQLALCHEMY_DATABASE_URI" not in config
+    assert client.application.config["SQLALCHEMY_DATABASE_URI"] == original_value
+
+
 def test_update_application_config_revert_to_default(client):
     SystemSettingService.update_application_settings({"TRANSCODE_CRF": 18})
 

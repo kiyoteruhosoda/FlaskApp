@@ -57,6 +57,7 @@ from webapp.admin.system_settings_definitions import (
     APPLICATION_SETTING_DEFINITIONS,
     APPLICATION_SETTING_SECTIONS,
     CORS_SETTING_DEFINITIONS,
+    READONLY_APPLICATION_SETTING_KEYS,
     SettingFieldDefinition,
 )
 from webapp.services.system_setting_service import (
@@ -398,6 +399,13 @@ def _build_config_context(
 ) -> Dict[str, Any]:
     application_payload = SystemSettingService.load_application_config_payload()
     application_config = {**DEFAULT_APPLICATION_SETTINGS, **application_payload}
+
+    readonly_application_values: dict[str, Any] = {}
+    for key in READONLY_APPLICATION_SETTING_KEYS:
+        if key in readonly_application_values:
+            continue
+        readonly_application_values[key] = current_app.config.get(key)
+    application_config = {**readonly_application_values, **application_config}
     cors_payload = SystemSettingService.load_cors_config_payload()
     cors_config = {**DEFAULT_CORS_SETTINGS, **cors_payload}
 
@@ -419,15 +427,6 @@ def _build_config_context(
         overrides=cors_overrides,
         default_flags=cors_use_defaults,
     )
-
-    from webapp.config import BaseApplicationSettings
-
-    public_keys = [
-        k
-        for k in dir(BaseApplicationSettings)
-        if not k.startswith("_") and k.isupper() and k not in ("SECRET_KEY")
-    ]
-    config_dict = {k: getattr(BaseApplicationSettings, k) for k in public_keys}
 
     try:
         signing_setting = SystemSettingService.get_access_token_signing_setting()
@@ -451,7 +450,6 @@ def _build_config_context(
         "application_sections": application_sections,
         "application_fields": application_fields,
         "cors_fields": cors_fields,
-        "config": config_dict,
         "signing_setting": signing_setting,
         "server_signing_groups": certificate_groups,
         "application_config_updated_at": getattr(app_setting_record, "updated_at", None),
@@ -478,7 +476,6 @@ def _serialize_config_context(context: Dict[str, Any]) -> Dict[str, Any]:
         "application_fields": context.get("application_fields", []),
         "cors_fields": context.get("cors_fields", []),
         "signing_setting": asdict(context["signing_setting"]) if context.get("signing_setting") else None,
-        "config": context.get("config", {}),
         "timestamps": {
             "application_config_updated_at": _isoformat(context.get("application_config_updated_at")),
             "cors_config_updated_at": _isoformat(context.get("cors_config_updated_at")),
@@ -753,13 +750,14 @@ def show_config():
             app_selected = set(request.form.getlist("app_config_selected"))
             app_overrides = {
                 key: request.form.get(f"app_config_new[{key}]")
-                for key in application_definitions
-                if f"app_config_new[{key}]" in request.form
+                for key, definition in application_definitions.items()
+                if definition.editable and f"app_config_new[{key}]" in request.form
             }
             app_use_defaults = {
                 key
-                for key in application_definitions
-                if request.form.get(f"app_config_use_default[{key}]") == "1"
+                for key, definition in application_definitions.items()
+                if definition.editable
+                and request.form.get(f"app_config_use_default[{key}]") == "1"
             }
             if not app_selected:
                 errors.append(_(u"Select at least one setting to update."))
@@ -771,6 +769,12 @@ def show_config():
                     definition = application_definitions.get(key)
                     if definition is None:
                         errors.append(_(u"Unknown application setting: %(key)s", key=key))
+                        continue
+                    if not definition.editable:
+                        label = definition.label or key
+                        errors.append(
+                            _(u"%(setting)s is read-only and cannot be modified.", setting=label)
+                        )
                         continue
                     if key in app_use_defaults:
                         remove_keys.append(key)
@@ -902,7 +906,6 @@ def show_config():
 
     return render_template(
         "admin/config_view.html",
-        config=context["config"],
         signing_setting=context["signing_setting"],
         server_signing_groups=context["server_signing_groups"],
         application_sections=context["application_sections"],

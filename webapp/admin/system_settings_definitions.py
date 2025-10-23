@@ -380,6 +380,53 @@ _SERVICE_ACCOUNT_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
     ),
 )
 
+_PLATFORM_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
+    SettingFieldDefinition(
+        key="SQLALCHEMY_DATABASE_URI",
+        label=_(u"SQLAlchemy database URI"),
+        data_type="string",
+        required=True,
+        description=_(u"Effective database connection string loaded by the application."),
+        editable=False,
+    ),
+    SettingFieldDefinition(
+        key="SQLALCHEMY_ENGINE_OPTIONS",
+        label=_(u"SQLAlchemy engine options"),
+        data_type="string",
+        required=True,
+        description=_(u"Connection pool parameters applied to the SQLAlchemy engine."),
+        editable=False,
+        multiline=True,
+    ),
+    SettingFieldDefinition(
+        key="SQLALCHEMY_TRACK_MODIFICATIONS",
+        label=_(u"SQLAlchemy track modifications flag"),
+        data_type="boolean",
+        required=True,
+        description=_(u"Whether SQLAlchemy event system tracking is enabled."),
+        editable=False,
+        choices=BOOLEAN_CHOICES,
+    ),
+    SettingFieldDefinition(
+        key="BABEL_TRANSLATION_DIRECTORIES",
+        label=_(u"Babel translation directories"),
+        data_type="string",
+        required=True,
+        description=_(u"Filesystem path searched for translation catalogues."),
+        editable=False,
+        multiline=True,
+    ),
+    SettingFieldDefinition(
+        key="CORS_ALLOWED_ORIGINS",
+        label=_(u"Resolved CORS allowed origins"),
+        data_type="list",
+        required=True,
+        description=_(u"Effective origins after applying persisted configuration."),
+        editable=False,
+        multiline=True,
+    ),
+)
+
 _MEDIA_PROCESSING_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
     SettingFieldDefinition(
         key="TRANSCODE_CRF",
@@ -402,6 +449,12 @@ APPLICATION_SETTING_SECTIONS: tuple[SettingDefinitionSection, ...] = (
         label=_(u"Session Management"),
         description=_(u"Cookie policies and request lifetime controls."),
         fields=_SESSION_DEFINITIONS,
+    ),
+    SettingDefinitionSection(
+        identifier="platform",
+        label=_(u"Application Platform"),
+        description=_(u"Runtime environment values exposed for reference."),
+        fields=_PLATFORM_DEFINITIONS,
     ),
     SettingDefinitionSection(
         identifier="internationalization",
@@ -469,6 +522,13 @@ APPLICATION_SETTING_DEFINITIONS, APPLICATION_SETTING_SECTION_INDEX = _build_sect
 )
 
 
+READONLY_APPLICATION_SETTING_KEYS: frozenset[str] = frozenset(
+    key
+    for key, definition in APPLICATION_SETTING_DEFINITIONS.items()
+    if not definition.editable
+)
+
+
 CORS_SETTING_DEFINITIONS: Mapping[str, SettingFieldDefinition] = MappingProxyType(
     {
         "allowedOrigins": SettingFieldDefinition(
@@ -491,5 +551,6 @@ __all__ = [
     "APPLICATION_SETTING_SECTIONS",
     "APPLICATION_SETTING_SECTION_INDEX",
     "APPLICATION_SETTING_DEFINITIONS",
+    "READONLY_APPLICATION_SETTING_KEYS",
     "CORS_SETTING_DEFINITIONS",
 ]

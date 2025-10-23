@@ -311,10 +311,40 @@ body.login-page footer {
 .config-section-card {
   border-radius: 0.75rem;
   border: 1px solid var(--bs-border-color, rgba(0, 0, 0, 0.1));
+  position: relative;
 }
 
 .config-section-card .card-header {
   background-color: transparent;
+  border-bottom: 1px solid var(--bs-border-color, rgba(0, 0, 0, 0.08));
+  border-radius: 0.75rem 0.75rem 0 0;
+}
+
+.config-section-card .card-body {
+  border-radius: 0 0 0.75rem 0.75rem;
+}
+
+.config-section-actions {
+  position: sticky;
+  bottom: 0.5rem;
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.75rem 0.25rem 0.25rem;
+  margin-top: 1rem;
+  background: linear-gradient(
+    180deg,
+    rgba(var(--bs-body-bg-rgb, 255, 255, 255), 0) 0%,
+    rgba(var(--bs-body-bg-rgb, 255, 255, 255), 0.85) 45%,
+    var(--bs-body-bg, #ffffff) 100%
+  );
+  backdrop-filter: blur(4px);
+  border-top: 1px solid var(--bs-border-color, rgba(0, 0, 0, 0.08));
+  border-bottom-right-radius: inherit;
+  border-bottom-left-radius: inherit;
+}
+
+.config-section-actions .btn {
+  min-width: 14rem;
 }
 
 .config-block + .config-block {

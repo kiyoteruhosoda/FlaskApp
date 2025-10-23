@@ -136,14 +136,6 @@
             >
               <a class="config-tree__link" href="#section-cors">{{ _('CORS Allowed Origins') }}</a>
             </li>
-            <li
-              class="config-tree__item"
-              data-config-tree-node
-              data-target="#section-snapshot"
-              data-search-text="{{ _('Configuration snapshot')|e }}"
-            >
-              <a class="config-tree__link" href="#section-snapshot">{{ _('Configuration snapshot') }}</a>
-            </li>
           </ul>
         </nav>
       </div>
@@ -300,6 +292,20 @@
         <p class="text-muted small mb-0">
           {{ _('Update persisted configuration grouped by category.') }}
         </p>
+        {% if application_config_updated_at %}
+        <div
+          class="form-text text-muted mt-2"
+          data-timestamp-target="application"
+          data-description-target="application"
+          data-label-updated="{{ _('Last updated at: %(timestamp)s', timestamp='__TIME__') }}"
+          data-description-label="{{ _('Description: %(description)s', description='__DESC__') }}"
+        >
+          {{ _('Last updated at: %(timestamp)s', timestamp=application_config_updated_at|localtime('%Y-%m-%d %H:%M')) }}
+          {% if application_config_description %}
+          <br>{{ _('Description: %(description)s', description=application_config_description) }}
+          {% endif %}
+        </div>
+        {% endif %}
       </header>
       <form method="post" class="config-form" data-ajax-config-form data-config-form="application">
         <input type="hidden" name="action" value="update-app-config-fields">
@@ -476,28 +482,19 @@
                   </tbody>
                 </table>
               </div>
+              <div class="config-section-actions" data-config-section-actions>
+                <button
+                  type="submit"
+                  class="btn btn-primary"
+                  name="save_section"
+                  value="{{ section.identifier }}"
+                >
+                  {{ _('Save changes for this category') }}
+                </button>
+              </div>
             </div>
           </div>
           {% endfor %}
-        </div>
-        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mt-4">
-          <button type="submit" class="btn btn-primary">
-            {{ _('Save application configuration') }}
-          </button>
-          {% if application_config_updated_at %}
-          <div
-            class="form-text text-muted text-lg-end"
-            data-timestamp-target="application"
-            data-description-target="application"
-            data-label-updated="{{ _('Last updated at: %(timestamp)s', timestamp='__TIME__') }}"
-            data-description-label="{{ _('Description: %(description)s', description='__DESC__') }}"
-          >
-            {{ _('Last updated at: %(timestamp)s', timestamp=application_config_updated_at|localtime('%Y-%m-%d %H:%M')) }}
-            {% if application_config_description %}
-            <br>{{ _('Description: %(description)s', description=application_config_description) }}
-            {% endif %}
-          </div>
-          {% endif %}
         </div>
       </form>
     </section>
@@ -631,41 +628,6 @@
       </div>
     </section>
 
-    <section
-      id="section-snapshot"
-      class="config-block mt-4"
-      data-config-block="snapshot"
-      data-search-text="{{ _('Configuration snapshot')|e }}"
-    >
-      <div class="card shadow-sm border-0">
-        <div class="card-header bg-white border-0 pb-0">
-          <h5 class="card-title mb-1">{{ _('Configuration snapshot') }}</h5>
-          <p class="text-muted small mb-0">
-            {{ _('Current effective values exposed by BaseApplicationSettings.') }}
-          </p>
-        </div>
-        <div class="card-body">
-          <div class="table-responsive">
-            <table class="table table-sm align-middle mb-0" data-config-table>
-              <thead>
-                <tr>
-                  <th scope="col">{{ _('Key') }}</th>
-                  <th scope="col">{{ _('Value') }}</th>
-                </tr>
-              </thead>
-              <tbody data-config-table-body>
-                {% for key, value in config.items() %}
-                <tr>
-                  <td>{{ key }}</td>
-                  <td>{{ value }}</td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </section>
   </div>
 </div>
 {% endblock %}

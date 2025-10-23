@@ -9,11 +9,12 @@ import posixpath
 import re
 import secrets
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlencode, quote
 from email.utils import formatdate
 from uuid import uuid4
-from typing import Any
+from typing import Any, Iterable, Iterator
 
 from flask import (
     current_app,
@@ -74,7 +75,8 @@ from core.tasks.local_import import (
 )
 from core.tasks.media_post_processing import enqueue_thumbs_generate
 from core.time import utc_now_isoformat
-from core.storage_service import StorageService
+from core.storage_service import StorageArea, StorageSelector, StorageService
+from domain.storage import StorageDomain, StorageIntent, StorageResolution
 from features.totp.application.dto import (
     TOTPCreateInput,
     TOTPImportItem,
@@ -117,6 +119,25 @@ auth_service = AuthService(user_repo, user_registration_service)
 VALID_TAG_ATTRS = {"person", "place", "thing"}
 
 _STORAGE_DEFAULTS: dict[str, tuple[str, ...]] = {}
+
+
+@dataclass(frozen=True)
+class ResolvedStorageFile:
+    selector: StorageSelector
+    area: StorageArea
+    resolution: StorageResolution
+
+    @property
+    def base_path(self) -> str | None:
+        return self.resolution.base_path
+
+    @property
+    def absolute_path(self) -> str | None:
+        return self.resolution.absolute_path
+
+    @property
+    def exists(self) -> bool:
+        return self.resolution.exists
 
 JWT_BEARER_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:jwt-bearer"
 
@@ -351,6 +372,13 @@ def _storage_service() -> StorageService:
     return settings.storage.service()
 
 
+def _storage_area(selector: StorageSelector) -> StorageArea:
+    service = _storage_service()
+    if isinstance(selector, StorageDomain):
+        return service.for_domain(selector)
+    return service.for_key(selector)
+
+
 def _normalize_storage_defaults(config_key: str) -> None:
     defaults_override = _STORAGE_DEFAULTS.get(config_key)
     if defaults_override is None:
@@ -369,20 +397,30 @@ def _normalize_storage_defaults(config_key: str) -> None:
         service.set_defaults(config_key, normalized)
 
 
-def _storage_path_candidates(config_key: str) -> list[str]:
-    _normalize_storage_defaults(config_key)
-    return _storage_service().candidates(config_key)
+def _storage_path_candidates(selector: StorageSelector) -> list[str]:
+    if isinstance(selector, str):
+        _normalize_storage_defaults(selector)
+    area = _storage_area(selector)
+    return area.candidates()
 
 
-def _storage_path(config_key: str) -> str | None:
-    _normalize_storage_defaults(config_key)
-    return _storage_service().first_existing(config_key)
+def _storage_path(selector: StorageSelector) -> str | None:
+    if isinstance(selector, str):
+        _normalize_storage_defaults(selector)
+    area = _storage_area(selector)
+    return area.first_existing()
 
 
-def _resolve_storage_file(config_key: str, *path_parts: str) -> tuple[str | None, str | None, bool]:
-    _normalize_storage_defaults(config_key)
-    resolution = _storage_service().resolve_path(config_key, *path_parts)
-    return resolution.base_path, resolution.absolute_path, resolution.exists
+def _resolve_storage_file(
+    selector: StorageSelector,
+    *path_parts: str,
+    intent: StorageIntent = StorageIntent.READ,
+) -> ResolvedStorageFile:
+    if isinstance(selector, str):
+        _normalize_storage_defaults(selector)
+    area = _storage_area(selector)
+    resolution = area.resolve(*path_parts, intent=intent)
+    return ResolvedStorageFile(selector=selector, area=area, resolution=resolution)
 
 
 def _trigger_thumbnail_regeneration(
@@ -696,9 +734,19 @@ def _thumbnail_rel_path_candidates(media: Media) -> list[Path]:
 def _remove_media_files(media: Media) -> None:
     rel_path = _normalize_rel_path(media.local_rel_path)
 
-    def _unlink(target: Path) -> None:
+    service = _storage_service()
+
+    def _remove(selector: StorageSelector, *parts: str) -> None:
+        resolved = _resolve_storage_file(
+            selector,
+            *parts,
+            intent=StorageIntent.DELETE,
+        )
+        abs_path = resolved.absolute_path
+        if not abs_path:
+            return
         try:
-            target.unlink()
+            service.remove(abs_path)
         except FileNotFoundError:
             return
         except OSError as exc:
@@ -707,33 +755,29 @@ def _remove_media_files(media: Media) -> None:
                     {
                         "ts": datetime.now(timezone.utc).isoformat(),
                         "media_id": media.id,
-                        "path": str(target),
+                        "path": abs_path,
                         "error": str(exc),
                     }
                 ),
                 extra={"event": "media.delete.cleanup_failed"},
             )
 
-    orig_base = _storage_path("FPV_NAS_ORIGINALS_DIR")
-    if orig_base and rel_path:
-        _unlink(Path(orig_base) / rel_path)
+    if rel_path:
+        _remove(StorageDomain.MEDIA_ORIGINALS, rel_path.as_posix())
 
-    thumbs_base = _storage_path("FPV_NAS_THUMBS_DIR")
-    if thumbs_base:
-        thumb_candidates = _thumbnail_rel_path_candidates(media)
+    thumb_candidates = _thumbnail_rel_path_candidates(media)
+    if thumb_candidates:
         for size in (256, 1024, 2048):
             for candidate in thumb_candidates:
-                _unlink(Path(thumbs_base) / str(size) / candidate)
+                _remove(StorageDomain.MEDIA_THUMBNAILS, str(size), candidate.as_posix())
 
-    play_base = _storage_path("FPV_NAS_PLAY_DIR")
-    if play_base:
-        for playback in media.playbacks:
-            rel = _normalize_rel_path(playback.rel_path)
-            if rel:
-                _unlink(Path(play_base) / rel)
-            poster_rel = _normalize_rel_path(playback.poster_rel_path)
-            if poster_rel:
-                _unlink(Path(play_base) / poster_rel)
+    for playback in media.playbacks:
+        rel = _normalize_rel_path(playback.rel_path)
+        if rel:
+            _remove(StorageDomain.MEDIA_PLAYBACK, rel.as_posix())
+        poster_rel = _normalize_rel_path(playback.poster_rel_path)
+        if poster_rel:
+            _remove(StorageDomain.MEDIA_PLAYBACK, poster_rel.as_posix())
 
 
 def login_or_jwt_required(f):
@@ -1033,14 +1077,14 @@ def _resolve_best_thumbnail_url(media: Media) -> str | None:
     if not rel_candidates:
         return None
 
-    thumbs_base = _storage_path("FPV_NAS_THUMBS_DIR")
-    if not thumbs_base:
-        return None
-
     for size in (2048, 1024, 512):
         for rel_path in rel_candidates:
-            candidate = Path(thumbs_base) / str(size) / rel_path
-            if candidate.exists():
+            resolved = _resolve_storage_file(
+                StorageDomain.MEDIA_THUMBNAILS,
+                str(size),
+                rel_path.as_posix(),
+            )
+            if resolved.exists:
                 return f"/api/media/{media.id}/thumbnail?size={size}"
 
     return None
@@ -2855,20 +2899,24 @@ def api_media_thumbnail(media_id):
     if not rel_candidates:
         return jsonify({"error": "not_found"}), 404
     resolved_rel: str | None = None
-    thumbs_base = None
-    abs_path = None
-    found = False
+    resolved_file: ResolvedStorageFile | None = None
+    thumbs_base: str | None = None
 
     for candidate in rel_candidates:
         candidate_str = candidate.as_posix()
-        thumbs_base, abs_path, found = _resolve_storage_file(
-            "FPV_NAS_THUMBS_DIR", str(size), candidate_str
+        current = _resolve_storage_file(
+            StorageDomain.MEDIA_THUMBNAILS,
+            str(size),
+            candidate_str,
         )
-        if found and abs_path:
+        if thumbs_base is None:
+            thumbs_base = current.base_path
+        if current.exists and current.absolute_path:
             resolved_rel = candidate_str
+            resolved_file = current
             break
 
-    if not found or not abs_path or not resolved_rel:
+    if not resolved_file or not resolved_file.absolute_path or not resolved_rel:
         _emit_structured_api_log(
             "thumbnail file missing",
             level="warning",
@@ -2877,8 +2925,8 @@ def api_media_thumbnail(media_id):
             size=size,
             base_dir=thumbs_base,
             rel_path=rel_candidates[0].as_posix(),
-            abs_path=abs_path,
-            candidates=_storage_path_candidates("FPV_NAS_THUMBS_DIR"),
+            abs_path=resolved_file.absolute_path if resolved_file else None,
+            candidates=_storage_path_candidates(StorageDomain.MEDIA_THUMBNAILS),
         )
         triggered, celery_task_id = _trigger_thumbnail_regeneration(
             media_id,
@@ -2889,16 +2937,18 @@ def api_media_thumbnail(media_id):
             payload["thumbnailJobId"] = celery_task_id
         return jsonify(payload), 404
 
+    abs_path = resolved_file.absolute_path
     ct = (
         mimetypes.guess_type(abs_path)[0]
         or media.mime_type
         or "application/octet-stream"
     )
     ttl = settings.fpv_url_ttl_thumb
-    with open(abs_path, "rb") as f:
+    service = _storage_service()
+    with service.open(abs_path, "rb") as f:
         data = f.read()
     resp = current_app.response_class(data, mimetype=ct, direct_passthrough=True)
-    resp.headers["Content-Length"] = str(os.path.getsize(abs_path))
+    resp.headers["Content-Length"] = str(service.size(abs_path))
     resp.headers["Cache-Control"] = f"private, max-age={ttl}"
     return resp
 
@@ -2941,26 +2991,27 @@ def api_media_thumb_url(media_id):
     if not rel_candidates:
         return jsonify({"error": "not_found"}), 404
     resolved_rel: str | None = None
-    thumbs_base = None
-    abs_path = None
-    found = False
+    resolved_file: ResolvedStorageFile | None = None
 
     for candidate in rel_candidates:
         candidate_str = candidate.as_posix()
-        thumbs_base, abs_path, found = _resolve_storage_file(
-            "FPV_NAS_THUMBS_DIR", str(size), candidate_str
+        current = _resolve_storage_file(
+            StorageDomain.MEDIA_THUMBNAILS,
+            str(size),
+            candidate_str,
         )
-        if found and abs_path:
+        if current.exists and current.absolute_path:
             resolved_rel = candidate_str
+            resolved_file = current
             break
 
-    if not found or not abs_path or not resolved_rel:
+    if not resolved_file or not resolved_file.absolute_path or not resolved_rel:
         return jsonify({"error": "not_found"}), 404
 
     token_path = f"thumbs/{size}/{resolved_rel}"
 
     ct = (
-        mimetypes.guess_type(abs_path)[0]
+        mimetypes.guess_type(resolved_file.absolute_path)[0]
         or media.mime_type
         or "application/octet-stream"
     )
@@ -3028,11 +3079,11 @@ def api_media_recover(media_id: int):
         )
         return jsonify({"error": "source_missing"}), 400
 
-    base_dir, abs_path, found = _resolve_storage_file(
-        "FPV_NAS_ORIGINALS_DIR",
+    resolved = _resolve_storage_file(
+        StorageDomain.MEDIA_ORIGINALS,
         rel_path.as_posix(),
     )
-    if not found or not abs_path:
+    if not resolved.exists or not resolved.absolute_path:
         _emit_structured_api_log(
             "Original file for recovery was not found.",
             level="warning",
@@ -3040,10 +3091,12 @@ def api_media_recover(media_id: int):
             media_id=media_id,
             user=_serialize_user_for_log(get_current_user()),
             rel_path=rel_path.as_posix(),
-            base_dir=base_dir,
+            base_dir=resolved.base_path,
         )
         return jsonify({"error": "source_missing"}), 404
 
+    abs_path = resolved.absolute_path
+    base_dir = resolved.base_path
     file_extension = Path(abs_path).suffix.lower()
     if file_extension not in SUPPORTED_EXTENSIONS:
         return jsonify({"error": "unsupported_extension"}), 400
@@ -3135,12 +3188,12 @@ def api_media_original_url(media_id):
 
     rel_str = rel_path.as_posix()
     token_path = f"originals/{rel_str}"
-    _, abs_path, found = _resolve_storage_file("FPV_NAS_ORIGINALS_DIR", rel_str)
-    if not found or not abs_path:
+    resolved = _resolve_storage_file(StorageDomain.MEDIA_ORIGINALS, rel_str)
+    if not resolved.exists or not resolved.absolute_path:
         return jsonify({"error": "not_found"}), 404
 
     ct = (
-        mimetypes.guess_type(abs_path)[0]
+        mimetypes.guess_type(resolved.absolute_path)[0]
         or media.mime_type
         or "application/octet-stream"
     )
@@ -3201,12 +3254,13 @@ def api_media_playback_url(media_id):
         return jsonify({"error": "not_found"}), 404
 
     token_path = f"playback/{pb.rel_path}"
-    play_base, abs_path, found = _resolve_storage_file(
-        "FPV_NAS_PLAY_DIR", pb.rel_path
+    resolved = _resolve_storage_file(
+        StorageDomain.MEDIA_PLAYBACK,
+        pb.rel_path,
     )
-    if not found or not abs_path:
+    if not resolved.exists or not resolved.absolute_path:
         return jsonify({"error": "not_found"}), 404
-    ct = mimetypes.guess_type(abs_path)[0] or "video/mp4"
+    ct = mimetypes.guess_type(resolved.absolute_path)[0] or "video/mp4"
     ttl = settings.fpv_url_ttl_playback
     exp = int(time.time()) + ttl
     payload = {
@@ -3269,12 +3323,14 @@ def api_download(token):
         return jsonify({"error": "forbidden"}), 403
 
     typ = payload.get("typ")
+    service = _storage_service()
     if typ == "thumb":
         if not path.startswith("thumbs/"):
             return jsonify({"error": "forbidden"}), 403
         rel = path[len("thumbs/") :]
-        base, abs_path, found = _resolve_storage_file(
-            "FPV_NAS_THUMBS_DIR", *rel.split("/")
+        resolved = _resolve_storage_file(
+            StorageDomain.MEDIA_THUMBNAILS,
+            *rel.split("/"),
         )
         accel_prefix = settings.fpv_accel_thumbs_location
         ttl = settings.fpv_url_ttl_thumb
@@ -3282,8 +3338,9 @@ def api_download(token):
         if not path.startswith("playback/"):
             return jsonify({"error": "forbidden"}), 403
         rel = path[len("playback/") :]
-        base, abs_path, found = _resolve_storage_file(
-            "FPV_NAS_PLAY_DIR", *rel.split("/")
+        resolved = _resolve_storage_file(
+            StorageDomain.MEDIA_PLAYBACK,
+            *rel.split("/"),
         )
         accel_prefix = settings.fpv_accel_playback_location
         ttl = settings.fpv_url_ttl_playback
@@ -3291,14 +3348,15 @@ def api_download(token):
         if not path.startswith("originals/"):
             return jsonify({"error": "forbidden"}), 403
         rel = path[len("originals/") :]
-        base, abs_path, found = _resolve_storage_file(
-            "FPV_NAS_ORIGINALS_DIR", *rel.split("/")
+        resolved = _resolve_storage_file(
+            StorageDomain.MEDIA_ORIGINALS,
+            *rel.split("/"),
         )
         accel_prefix = settings.fpv_accel_originals_location
         ttl = settings.fpv_url_ttl_original
     else:
         return jsonify({"error": "forbidden"}), 403
-    if not found or not abs_path:
+    if not resolved.exists or not resolved.absolute_path:
         current_app.logger.info(
             json.dumps(
                 {
@@ -3311,13 +3369,14 @@ def api_download(token):
         )
         return jsonify({"error": "not_found"}), 404
 
+    abs_path = resolved.absolute_path
     download_filename = _resolve_download_filename(payload, rel, abs_path)
 
     guessed = mimetypes.guess_type(abs_path)[0]
     if guessed != ct:
         return jsonify({"error": "forbidden"}), 403
 
-    size = os.path.getsize(abs_path)
+    size = service.size(abs_path)
     cache_control = f"private, max-age={ttl}"
     range_header = request.headers.get("Range")
 
@@ -3357,7 +3416,7 @@ def api_download(token):
             end = int(m.group(2) or size - 1)
             end = min(end, size - 1)
             length = end - start + 1
-            with open(abs_path, "rb") as f:
+            with service.open(abs_path, "rb") as f:
                 f.seek(start)
                 data = f.read(length)
             resp = current_app.response_class(
@@ -3396,7 +3455,7 @@ def api_download(token):
             )
         return resp
 
-    with open(abs_path, "rb") as f:
+    with service.open(abs_path, "rb") as f:
         data = f.read()
     resp = current_app.response_class(data, mimetype=ct, direct_passthrough=True)
     resp.headers["Content-Length"] = str(size)
@@ -3735,9 +3794,18 @@ def _prepare_local_import_path(path_value):
             "exists": False,
         }
 
-    absolute = os.path.abspath(path_value)
-    realpath = os.path.realpath(absolute)
-    exists = os.path.isdir(realpath)
+    service = _storage_service()
+    raw_path = os.fspath(path_value)
+    if "://" in raw_path:
+        absolute = raw_path
+        realpath = raw_path
+    else:
+        absolute = os.path.abspath(raw_path)
+        try:
+            realpath = os.path.realpath(absolute)
+        except OSError:
+            realpath = absolute
+    exists = service.exists(realpath)
     return {
         "raw": path_value,
         "absolute": absolute,
@@ -3782,13 +3850,16 @@ def _resolve_local_import_config():
 
         normalized_configured = (
             os.path.abspath(configured_value)
-            if configured_value and isinstance(configured_value, str)
-            else None
+            if configured_value
+            and isinstance(configured_value, str)
+            and "://" not in configured_value
+            else configured_value
         )
         normalized_effective = (
             os.path.abspath(path_info["absolute"])
             if path_info.get("absolute")
-            else None
+            and "://" not in path_info["absolute"]
+            else path_info.get("absolute")
         )
         if normalized_configured and normalized_effective:
             source = (

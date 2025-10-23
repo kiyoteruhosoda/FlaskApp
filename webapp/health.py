@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-import os
 from datetime import datetime
 
 from flask import Blueprint, jsonify
@@ -8,6 +6,7 @@ from sqlalchemy import text
 from .extensions import db
 from core.time import utc_now_isoformat
 from core.settings import settings
+from domain.storage import StorageDomain
 
 # 認証なしのhealth用Blueprint
 health_bp = Blueprint("health", __name__, url_prefix="/health")
@@ -32,13 +31,16 @@ def health_ready():
         ok = False
         details["db"] = "error"
 
+    service = settings.storage.service()
     directory_checks = {
-        "fpv_nas_thumbs_dir": settings.nas_thumbs_directory,
-        "fpv_nas_play_dir": settings.nas_play_directory,
+        "fpv_nas_thumbs_dir": StorageDomain.MEDIA_THUMBNAILS,
+        "fpv_nas_play_dir": StorageDomain.MEDIA_PLAYBACK,
     }
-    for field, directory in directory_checks.items():
-        path = os.fspath(directory)
-        if path and os.path.exists(path):
+    for field, domain in directory_checks.items():
+        area = service.for_domain(domain)
+        base = area.first_existing()
+        exists = bool(base and service.exists(base))
+        if exists:
             details[field] = "ok"
         else:
             ok = False

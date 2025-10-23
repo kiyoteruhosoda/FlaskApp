@@ -17,6 +17,7 @@ from core.models.photo_models import (
 from core.models.picker_session import PickerSession
 from core.logging_config import setup_task_logging
 from core.storage_paths import first_existing_storage_path, storage_path_candidates
+from core.storage_service import LocalFilesystemStorageService
 from core.tasks import media_post_processing
 from core.tasks.media_post_processing import process_media_post_import
 from core.tasks.thumbs_generate import (
@@ -1041,6 +1042,8 @@ def _resolve_directory(config_key: str) -> str:
     raise RuntimeError(f"No storage directory candidates available for {config_key}")
 
 
+_storage_service = LocalFilesystemStorageService()
+
 _file_importer = LocalImportFileImporter(
     db=db,
     logger=_task_logger,
@@ -1056,6 +1059,7 @@ _file_importer = LocalImportFileImporter(
         regeneration_mode=regeneration_mode,
     ),
     supported_extensions=SUPPORTED_EXTENSIONS,
+    storage_service=_storage_service,
 )
 
 def _invoke_current_import_single_file(

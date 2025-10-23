@@ -1,9 +1,9 @@
-import os
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
+from core.storage_service import LocalFilesystemStorageService
 from features.photonest.application.local_import.file_importer import LocalImportFileImporter, PlaybackFailurePolicy
 from features.photonest.application.local_import.scanner import ImportDirectoryScanner
 from features.photonest.application.local_import.use_case import LocalImportUseCase
@@ -41,6 +41,8 @@ def _build_importer(tmp_path, logger=None):
     thumbnail_regenerator = MagicMock(return_value=(True, None))
     logger = logger or MagicMock()
 
+    storage_service = LocalFilesystemStorageService()
+
     importer = LocalImportFileImporter(
         db=db,
         logger=logger,
@@ -52,6 +54,7 @@ def _build_importer(tmp_path, logger=None):
         analysis_service=analysis_service,
         thumbnail_regenerator=thumbnail_regenerator,
         supported_extensions={".jpg"},
+        storage_service=storage_service,
         playback_policy=PlaybackFailurePolicy(()),
     )
     return (
@@ -118,6 +121,7 @@ def test_validate_playback_recoverable_without_session(tmp_path):
         analysis_service=MagicMock(),
         thumbnail_regenerator=MagicMock(return_value=(True, None)),
         supported_extensions={".mp4"},
+        storage_service=LocalFilesystemStorageService(),
     )
 
     importer._logger = MagicMock()

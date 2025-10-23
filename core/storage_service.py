@@ -6,7 +6,7 @@ import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable, Iterator, Protocol, Sequence, runtime_checkable
+from typing import Any, Callable, Iterable, Iterator, Optional, Protocol, Sequence, runtime_checkable
 
 from domain.storage import StorageDomain, StorageIntent, StorageResolution
 
@@ -375,14 +375,14 @@ class LocalFilesystemStorageService:
         return str(value) if value else None
 
     @staticmethod
-    def _normalise_parts(path_parts: Iterable[PathPart]) -> tuple[str, ...] | None:
+    def _normalise_parts(path_parts: Iterable[PathPart]) -> Optional[tuple[str, ...]]:
         parts = tuple(path_parts)
         if not parts:
             return ()
 
         normalised: list[str] = []
         for part in parts:
-            if part is None:  # type: ignore[comparison-overlap]
+            if part is None:
                 return None
             try:
                 part_str = os.fspath(part)

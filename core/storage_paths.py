@@ -6,7 +6,7 @@ container-friendly storage paths without duplicating code."""
 
 from __future__ import annotations
 
-import os
+from os import PathLike, fsdecode
 from pathlib import Path
 from typing import List, Tuple
 
@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from core.settings import ApplicationSettings
+    from core.storage_service import StorageService
 
 # Mapping of config keys to environment variable fallbacks (in priority order).
 _STORAGE_ENV_FALLBACKS: dict[str, Tuple[str, ...]] = {
@@ -88,6 +89,10 @@ def storage_path_candidates(config_key: str) -> List[str]:
     return [candidate for candidate in candidates if candidate]
 
 
+def _storage_service() -> "StorageService":
+    return _active_settings().storage.service()
+
+
 def first_existing_storage_path(config_key: str) -> str | None:
     """Return the first candidate path that exists for *config_key*.
 
@@ -95,15 +100,16 @@ def first_existing_storage_path(config_key: str) -> str | None:
     returned so that callers can create the directory proactively.
     """
 
+    storage = _storage_service()
     candidates = storage_path_candidates(config_key)
     for candidate in candidates:
-        if os.path.exists(candidate):
+        if storage.exists(candidate):
             return candidate
 
     return candidates[0] if candidates else None
 
 
-PathPart = str | os.PathLike[str] | bytes
+PathPart = str | PathLike[str] | bytes
 
 
 def _normalise_path_parts(path_parts: Tuple[PathPart, ...]) -> Tuple[str, ...] | None:
@@ -117,7 +123,7 @@ def _normalise_path_parts(path_parts: Tuple[PathPart, ...]) -> Tuple[str, ...] |
         if part is None:  # type: ignore[comparison-overlap]
             return None
         try:
-            part_str = os.fsdecode(part)
+            part_str = fsdecode(part)
         except TypeError:
             return None
         if not part_str:
@@ -136,6 +142,7 @@ def resolve_storage_file(
     indicates whether the resolved path is present on disk.
     """
 
+    storage = _storage_service()
     candidates = storage_path_candidates(config_key)
 
     normalised_parts = _normalise_path_parts(path_parts)
@@ -144,19 +151,19 @@ def resolve_storage_file(
 
     if not normalised_parts:
         for base in candidates:
-            if os.path.exists(base):
+            if storage.exists(base):
                 return base, base, True
         fallback_base = candidates[0] if candidates else None
         return fallback_base, fallback_base, False
 
     for base in candidates:
-        candidate_path = os.path.join(base, *normalised_parts)
-        if os.path.exists(candidate_path):
+        candidate_path = storage.join(base, *normalised_parts)
+        if storage.exists(candidate_path):
             return base, candidate_path, True
 
     fallback_base = candidates[0] if candidates else None
     fallback_path = (
-        os.path.join(fallback_base, *normalised_parts) if fallback_base else None
+        storage.join(fallback_base, *normalised_parts) if fallback_base else None
     )
     return fallback_base, fallback_path, False
 

@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import os
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Optional, Sequence, Tuple
+from typing import Any, Iterable, Mapping, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from flask import current_app
 
@@ -61,6 +61,7 @@ class _StorageAccessor:
 
     def __init__(self, settings: "ApplicationSettings") -> None:
         self._settings = settings
+        self._service: Optional["StorageService"] = None
 
     def configured(self, key: str) -> Optional[str]:
         value = self._settings._get(key)
@@ -69,6 +70,24 @@ class _StorageAccessor:
     def environment(self, key: str) -> Optional[str]:
         value = self._settings._env.get(key)
         return str(value) if value else None
+
+    def set_service(self, service: "StorageService") -> None:
+        """Inject a custom storage service implementation."""
+
+        self._service = service
+
+    def service(self) -> "StorageService":
+        """Return the active :class:`StorageService` implementation."""
+
+        if self._service is None:
+            from core.storage_service import LocalFilesystemStorageService
+
+            self._service = LocalFilesystemStorageService()
+        return self._service
+
+
+if TYPE_CHECKING:  # pragma: no cover
+    from core.storage_service import StorageService
 
 
 class ApplicationSettings:

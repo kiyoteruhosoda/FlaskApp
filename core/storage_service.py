@@ -332,7 +332,7 @@ class LocalFilesystemStorageService:
                 return spec
         # 未知のキーはデフォルトを持たない汎用ストレージとして扱う
         return _StorageSpec(
-            domain=StorageDomain.DOCUMENT,
+            domain=StorageDomain.DEFAULT,
             config_key=config_key,
             env_fallbacks=(config_key,),
             defaults=self._defaults.get(config_key, tuple()),

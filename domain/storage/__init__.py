@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from unittest.mock import DEFAULT
 
 
 class StorageDomain(Enum):
@@ -14,7 +15,7 @@ class StorageDomain(Enum):
     MEDIA_THUMBNAILS = "media.thumbnails"
     MEDIA_IMPORT = "media.import"
     WIKI = "wiki"
-    DOCUMENT = "document"
+    DEFAULT = "default"
 
 
 class StorageIntent(Enum):

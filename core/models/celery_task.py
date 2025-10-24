@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from __future__ import annotations
+
 import enum
 import json
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
+
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.db import db
 
@@ -29,12 +33,12 @@ class CeleryTaskRecord(db.Model):
 
     __tablename__ = "celery_task"
 
-    id = db.Column(BigInt, primary_key=True, autoincrement=True)
-    task_name = db.Column(db.String(255), nullable=False)
-    object_type = db.Column(db.String(64), nullable=True)
-    object_id = db.Column(db.String(255), nullable=True)
-    celery_task_id = db.Column(db.String(255), nullable=True, unique=True)
-    status = db.Column(
+    id: Mapped[int] = mapped_column(BigInt, primary_key=True, autoincrement=True)
+    task_name: Mapped[str] = mapped_column(db.String(255), nullable=False)
+    object_type: Mapped[str | None] = mapped_column(db.String(64), nullable=True)
+    object_id: Mapped[str | None] = mapped_column(db.String(255), nullable=True)
+    celery_task_id: Mapped[str | None] = mapped_column(db.String(255), nullable=True, unique=True)
+    status: Mapped[CeleryTaskStatus] = mapped_column(
         db.Enum(
             CeleryTaskStatus,
             name="celery_task_status",
@@ -44,18 +48,23 @@ class CeleryTaskRecord(db.Model):
         default=CeleryTaskStatus.QUEUED,
         server_default=CeleryTaskStatus.QUEUED.value,
     )
-    scheduled_for = db.Column(db.DateTime, nullable=True)
-    started_at = db.Column(db.DateTime, nullable=True)
-    finished_at = db.Column(db.DateTime, nullable=True)
-    payload_json = db.Column(db.Text, nullable=False, default="{}", server_default="{}")
-    result_json = db.Column(db.Text, nullable=True)
-    error_message = db.Column(db.Text, nullable=True)
-    created_at = db.Column(
+    scheduled_for: Mapped[datetime | None] = mapped_column(db.DateTime, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(db.DateTime, nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(db.DateTime, nullable=True)
+    payload_json: Mapped[str] = mapped_column(
+        db.Text,
+        nullable=False,
+        default="{}",
+        server_default="{}",
+    )
+    result_json: Mapped[str | None] = mapped_column(db.Text, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(db.Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
         db.DateTime,
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
-    updated_at = db.Column(
+    updated_at: Mapped[datetime] = mapped_column(
         db.DateTime,
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
@@ -65,6 +74,11 @@ class CeleryTaskRecord(db.Model):
     __table_args__ = (
         db.Index("ix_celery_task_task_name_status", "task_name", "status"),
         db.Index("ix_celery_task_object", "object_type", "object_id"),
+    )
+
+    job_syncs: Mapped[list["JobSync"]] = relationship(
+        "JobSync",
+        back_populates="celery_task",
     )
 
     # ------------------------------------------------------------------

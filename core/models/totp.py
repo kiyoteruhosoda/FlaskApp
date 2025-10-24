@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from core.db import db
 
 # SQLite 互換の BigInt 定義
@@ -17,28 +19,36 @@ class TOTPCredential(db.Model):
         db.UniqueConstraint("user_id", "account", "issuer", name="uq_totp_user_account_issuer"),
     )
 
-    id = db.Column(BigInt, primary_key=True, autoincrement=True)
-    user_id = db.Column(BigInt, db.ForeignKey("user.id", ondelete="CASCADE"), nullable=False, index=True)
-    account = db.Column(db.String(255), nullable=False)
-    issuer = db.Column(db.String(255), nullable=False)
-    secret = db.Column(db.String(160), nullable=False)
-    description = db.Column(db.Text, nullable=True)
-    algorithm = db.Column(db.String(16), nullable=False, default="SHA1")
-    digits = db.Column(db.SmallInteger, nullable=False, default=6)
-    period = db.Column(db.SmallInteger, nullable=False, default=30)
-    created_at = db.Column(
+    id: Mapped[int] = mapped_column(BigInt, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        BigInt,
+        db.ForeignKey("user.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    account: Mapped[str] = mapped_column(db.String(255), nullable=False)
+    issuer: Mapped[str] = mapped_column(db.String(255), nullable=False)
+    secret: Mapped[str] = mapped_column(db.String(160), nullable=False)
+    description: Mapped[str | None] = mapped_column(db.Text, nullable=True)
+    algorithm: Mapped[str] = mapped_column(db.String(16), nullable=False, default="SHA1")
+    digits: Mapped[int] = mapped_column(db.SmallInteger, nullable=False, default=6)
+    period: Mapped[int] = mapped_column(db.SmallInteger, nullable=False, default=30)
+    created_at: Mapped[datetime] = mapped_column(
         db.DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
-    updated_at = db.Column(
+    updated_at: Mapped[datetime] = mapped_column(
         db.DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
-    user = db.relationship("User", backref=db.backref("totp_credentials", cascade="all, delete-orphan"))
+    user: Mapped["User"] = relationship(
+        "User",
+        back_populates="totp_credentials",
+    )
 
     def touch(self) -> None:
         """updated_at を現在時刻で更新"""

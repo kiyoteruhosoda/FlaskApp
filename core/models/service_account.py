@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Iterable, List
+from typing import Any, Iterable, List
+
+from sqlalchemy.orm import DynamicMapped, Mapped, mapped_column, relationship
 
 from core.db import db
 
@@ -17,21 +19,28 @@ def _utc_now() -> datetime:
 class ServiceAccount(db.Model):
     __tablename__ = "service_account"
 
-    service_account_id = db.Column(BigInt, primary_key=True, autoincrement=True)
-    name = db.Column(db.String(100), unique=True, nullable=False)
-    description = db.Column(db.String(255), nullable=True)
-    certificate_group_code = db.Column(
-        db.String(64), db.ForeignKey("certificate_groups.group_code"), nullable=True
+    service_account_id: Mapped[int] = mapped_column(BigInt, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(db.String(100), unique=True, nullable=False)
+    description: Mapped[str | None] = mapped_column(db.String(255), nullable=True)
+    certificate_group_code: Mapped[str | None] = mapped_column(
+        db.String(64),
+        db.ForeignKey("certificate_groups.group_code"),
+        nullable=True,
     )
-    scope_names = db.Column(db.String(1000), nullable=False, default="")
-    active_flg = db.Column(db.Boolean, nullable=False, default=True)
-    reg_dttm = db.Column(
+    scope_names: Mapped[str] = mapped_column(db.String(1000), nullable=False, default="")
+    active_flg: Mapped[bool] = mapped_column(db.Boolean, nullable=False, default=True)
+    reg_dttm: Mapped[datetime] = mapped_column(
         db.DateTime(timezone=True),
         nullable=False,
         default=_utc_now,
         server_default=db.func.now(),
     )
-    mod_dttm = db.Column(
+    api_keys: DynamicMapped["ServiceAccountApiKey"] = relationship(
+        "ServiceAccountApiKey",
+        back_populates="service_account",
+        cascade="all, delete-orphan",
+    )
+    mod_dttm: Mapped[datetime] = mapped_column(
         db.DateTime(timezone=True),
         nullable=False,
         default=_utc_now,
@@ -60,7 +69,7 @@ class ServiceAccount(db.Model):
     def is_active(self) -> bool:
         return bool(self.active_flg)
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "service_account_id": self.service_account_id,
             "name": self.name,

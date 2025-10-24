@@ -3,6 +3,8 @@ from .blueprint import AuthEnforcedBlueprint
 bp = AuthEnforcedBlueprint("api", __name__, description="nolumia API")
 
 from . import routes  # noqa: E402,F401
+from . import routes_local_import  # noqa: E402,F401
+from . import routes_totp  # noqa: E402,F401
 from . import health  # noqa: E402,F401
 from . import picker_session  # noqa: E402,F401
 from . import version  # noqa: E402,F401

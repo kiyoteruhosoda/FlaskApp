@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.db import db
 from core.crypto import decrypt
+
+if TYPE_CHECKING:  # pragma: no cover
+    from core.models.user import User
+    from core.models.picker_session import PickerSession
+    from core.models.photo_models import Media
 
 BigInt = db.BigInteger().with_variant(db.Integer, "sqlite")
 

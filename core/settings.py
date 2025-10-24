@@ -13,12 +13,12 @@ mapping to validate behaviour in isolation.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Optional, Sequence, Tuple, TYPE_CHECKING
+from typing import Any, Iterable, Mapping, Optional, Sequence, Tuple, TYPE_CHECKING, cast
 
-from flask import current_app
+from flask import current_app, has_app_context
 
 from domain.storage import StorageDomain
 
@@ -92,6 +92,7 @@ class _StorageAccessor:
 
 
 if TYPE_CHECKING:  # pragma: no cover
+    from flask import Flask
     from core.storage_service import StorageService
 
 
@@ -113,12 +114,10 @@ class ApplicationSettings:
     # Generic helpers
     # ------------------------------------------------------------------
     def _get(self, key: str, default: Optional[str] = None):
-        try:
-            app = current_app._get_current_object()
-        except RuntimeError:
-            app = None
-        if app is not None and key in app.config:
-            return app.config.get(key)
+        if has_app_context():
+            app = cast("Flask", current_app)
+            if key in app.config:
+                return app.config.get(key)
         return self._env.get(key, default)
 
     def get(self, key: str, default=None):
@@ -158,14 +157,23 @@ class ApplicationSettings:
         """Return a :class:`Path` for the configured value."""
 
         value = self._get(key)
-        if value:
+        if value is not None:
             try:
-                return Path(value)
-            except TypeError:
+                return Path(str(value))
+            except (TypeError, ValueError):
                 return None
         if default is None:
             return None
-        return Path(default)
+        return Path(str(default))
+
+    def _path_or_default(self, key: str, fallback: str) -> Path:
+        value = self._get(key)
+        if value is None:
+            return Path(fallback)
+        try:
+            return Path(str(value))
+        except (TypeError, ValueError):
+            return Path(fallback)
 
     # ------------------------------------------------------------------
     # Generic flags
@@ -198,7 +206,7 @@ class ApplicationSettings:
 
     @property
     def tmp_directory(self) -> Path:
-        return Path(self._get("FPV_TMP_DIR", "/tmp/fpv_tmp"))
+        return self._path_or_default("FPV_TMP_DIR", "/tmp/fpv_tmp")
 
     @property
     def tmp_directory_configured(self) -> Optional[str]:
@@ -207,7 +215,7 @@ class ApplicationSettings:
 
     @property
     def backup_directory(self) -> Path:
-        return Path(self._get("BACKUP_DIR", "/app/data/backups"))
+        return self._path_or_default("BACKUP_DIR", "/app/data/backups")
 
     @property
     def nas_originals_directory(self) -> Path:
@@ -247,7 +255,7 @@ class ApplicationSettings:
 
     @property
     def upload_tmp_directory(self) -> Path:
-        return Path(self._get("UPLOAD_TMP_DIR", "/app/data/tmp/upload"))
+        return self._path_or_default("UPLOAD_TMP_DIR", "/app/data/tmp/upload")
 
     # ------------------------------------------------------------------
     # Concurrency settings

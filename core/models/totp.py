@@ -2,10 +2,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.db import db
+
+if TYPE_CHECKING:  # pragma: no cover
+    from core.models.user import User
 
 # SQLite 互換の BigInt 定義
 BigInt = db.BigInteger().with_variant(db.Integer, "sqlite")

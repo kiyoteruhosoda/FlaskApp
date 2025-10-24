@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Iterable, List
+from typing import Any, Iterable, List, TYPE_CHECKING
 
 from sqlalchemy.orm import DynamicMapped, Mapped, mapped_column, relationship
 
 from core.db import db
+
+if TYPE_CHECKING:  # pragma: no cover
+    from core.models.service_account_api_key import ServiceAccountApiKey
 
 # Align BIGINT usage with other models to keep SQLite compatibility
 BigInt = db.BigInteger().with_variant(db.Integer, "sqlite")

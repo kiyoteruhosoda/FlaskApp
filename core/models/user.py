@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Iterable, Optional
+from typing import Iterable, Optional, TYPE_CHECKING
 
 from flask import has_request_context, session, g
 from flask_login import UserMixin
@@ -9,6 +9,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.db import db
 from werkzeug.security import generate_password_hash, check_password_hash
+
+
+if TYPE_CHECKING:  # pragma: no cover
+    from core.models.google_account import GoogleAccount
+    from core.models.totp import TOTPCredential
 
 
 # Define BIGINT type compatible with SQLite auto increment

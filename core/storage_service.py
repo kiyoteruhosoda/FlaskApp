@@ -6,7 +6,17 @@ import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable, Iterator, Optional, Protocol, Sequence, runtime_checkable
+from typing import (
+    IO,
+    Any,
+    Callable,
+    Iterable,
+    Iterator,
+    Optional,
+    Protocol,
+    Sequence,
+    runtime_checkable,
+)
 
 from domain.storage import StorageDomain, StorageIntent, StorageResolution
 
@@ -59,6 +69,9 @@ class StorageService(Protocol):
     def join(self, base: str, *parts: str) -> str:
         ...
 
+    def normalize_path(self, path: str) -> str:
+        ...
+
     def ensure_parent(self, path: str) -> None:
         ...
 
@@ -74,7 +87,7 @@ class StorageService(Protocol):
     def remove_tree(self, path: str) -> None:
         ...
 
-    def open(self, path: str, mode: str = "rb", **kwargs: Any):
+    def open(self, path: str, mode: str = "rb", **kwargs: Any) -> IO[Any]:
         ...
 
     def walk(self, top: str) -> Iterator[tuple[str, list[str], list[str]]]:
@@ -240,6 +253,12 @@ class LocalFilesystemStorageService:
         clean_parts = [part for part in parts if part]
         return os.path.join(base, *clean_parts) if clean_parts else base
 
+    def normalize_path(self, path: str) -> str:
+        """Return a canonical display form for ``path``."""
+
+        normalized = os.path.normpath(path)
+        return normalized.replace(os.sep, "/")
+
     def ensure_parent(self, path: str) -> None:
         parent = Path(path).parent
         if not parent:
@@ -261,7 +280,7 @@ class LocalFilesystemStorageService:
     def remove_tree(self, path: str) -> None:
         shutil.rmtree(path)
 
-    def open(self, path: str, mode: str = "rb", **kwargs: Any):
+    def open(self, path: str, mode: str = "rb", **kwargs: Any) -> IO[Any]:
         if any(flag in mode for flag in ("w", "a", "+")):
             self.ensure_parent(path)
         return open(path, mode, **kwargs)

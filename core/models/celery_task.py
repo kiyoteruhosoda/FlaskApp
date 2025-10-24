@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-from __future__ import annotations
-
 import enum
 import json
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.db import db
+
+if TYPE_CHECKING:  # pragma: no cover
+    from core.models.job_sync import JobSync
 
 
 BigInt = db.BigInteger().with_variant(db.Integer, "sqlite")
@@ -157,11 +158,10 @@ class CeleryTaskRecord(db.Model):
 
         if record is None:
             obj_type, obj_id = object_identity or (None, None)
-            record = cls(
-                task_name=task_name,
-                object_type=obj_type,
-                object_id=obj_id,
-            )
+            record = cls()
+            record.task_name = task_name
+            record.object_type = obj_type
+            record.object_id = obj_id
             scoped_db.session.add(record)
 
         if celery_task_id and record.celery_task_id != celery_task_id:

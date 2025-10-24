@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from sqlalchemy import event, select
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.db import db
+
+if TYPE_CHECKING:  # pragma: no cover
+    from core.models.google_account import GoogleAccount
+    from core.models.photo_models import PickerSelection
 
 BigInt = db.BigInteger().with_variant(db.Integer, "sqlite")
 

@@ -27,6 +27,7 @@ from features.totp.domain.exceptions import (
     TOTPValidationError,
 )
 from features.totp.domain.parser import parse_otpauth_uri
+from features.totp.infrastructure.repositories import TOTPCredentialRepository
 
 from . import bp
 from .openapi import json_request_body
@@ -223,7 +224,16 @@ def api_totp_create():
     resolved = _resolve_totp_payload(payload)
 
     try:
-        input_dto = TOTPCreateInput(user_id=user.id, **resolved)
+        create_kwargs = {
+            "account": resolved.get("account", ""),
+            "issuer": resolved.get("issuer", ""),
+            "secret": resolved.get("secret", ""),
+            "description": resolved.get("description"),
+            "algorithm": resolved.get("algorithm", "SHA1"),
+            "digits": resolved.get("digits", 6),
+            "period": resolved.get("period", 30),
+        }
+        input_dto = TOTPCreateInput(user_id=user.id, **create_kwargs)
         entity = TOTPCreateUseCase().execute(input_dto)
     except TOTPValidationError as exc:
         response = {"error": "validation_error", "message": str(exc)}
@@ -233,7 +243,8 @@ def api_totp_create():
     except TOTPConflictError as exc:
         return jsonify({"error": "conflict", "message": str(exc)}), 409
 
-    return jsonify({"totp": _serialize_totp_entity(entity)})
+    serialized = _serialize_totp_entity(entity)
+    return jsonify({"totp": serialized, "item": serialized}), 201
 
 
 @bp.put("/totp/<int:credential_id>")
@@ -271,8 +282,28 @@ def api_totp_update(credential_id: int):
     if disabled_value is not None:
         resolved["disabled"] = _coerce_bool(disabled_value)
 
+    repository = TOTPCredentialRepository()
+    existing = repository.find_by_id(credential_id, user_id=user.id)
+    if not existing:
+        return jsonify({"error": "not_found"}), 404
+
+    resolved.pop("disabled", None)
+
+    update_kwargs = {
+        "id": credential_id,
+        "user_id": user.id,
+        "account": resolved.get("account", existing.account),
+        "issuer": resolved.get("issuer", existing.issuer),
+        "description": resolved.get("description", existing.description),
+        "algorithm": resolved.get("algorithm", existing.algorithm),
+        "digits": resolved.get("digits", existing.digits),
+        "period": resolved.get("period", existing.period),
+    }
+    if "secret" in resolved:
+        update_kwargs["secret"] = resolved["secret"]
+
     try:
-        input_dto = TOTPUpdateInput(user_id=user.id, credential_id=credential_id, **resolved)
+        input_dto = TOTPUpdateInput(**update_kwargs)
         entity = TOTPUpdateUseCase().execute(input_dto)
     except TOTPValidationError as exc:
         response = {"error": "validation_error", "message": str(exc)}
@@ -282,7 +313,8 @@ def api_totp_update(credential_id: int):
     except TOTPNotFoundError:
         return jsonify({"error": "not_found"}), 404
 
-    return jsonify({"totp": _serialize_totp_entity(entity)})
+    serialized = _serialize_totp_entity(entity)
+    return jsonify({"totp": serialized, "item": serialized})
 
 
 @bp.delete("/totp/<int:credential_id>")

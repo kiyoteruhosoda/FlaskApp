@@ -1,4 +1,8 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone
+
+from sqlalchemy.orm import Mapped, mapped_column
 
 from ..db import db
 
@@ -9,24 +13,24 @@ BigInt = db.BigInteger().with_variant(db.Integer, "sqlite")
 class WorkerLog(db.Model):
     __tablename__ = "worker_log"
 
-    id = db.Column(BigInt, primary_key=True, autoincrement=True)
-    created_at = db.Column(
+    id: Mapped[int] = mapped_column(BigInt, primary_key=True, autoincrement=True)
+    created_at: Mapped[datetime] = mapped_column(
         db.DateTime,
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
-    level = db.Column(db.String(20), nullable=False)
-    event = db.Column(db.String(50), nullable=False)
-    logger_name = db.Column(db.String(120))
-    task_name = db.Column(db.String(255))
-    task_uuid = db.Column(db.String(36))
-    worker_hostname = db.Column(db.String(255))
-    queue_name = db.Column(db.String(120))
-    status = db.Column(db.String(40))
-    message = db.Column(db.Text, nullable=False)
-    trace = db.Column(db.Text)
-    meta_json = db.Column(db.JSON)
-    extra_json = db.Column(db.JSON)
+    level: Mapped[str] = mapped_column(db.String(20), nullable=False)
+    event: Mapped[str] = mapped_column(db.String(50), nullable=False)
+    logger_name: Mapped[str | None] = mapped_column(db.String(120), nullable=True)
+    task_name: Mapped[str | None] = mapped_column(db.String(255), nullable=True)
+    task_uuid: Mapped[str | None] = mapped_column(db.String(36), nullable=True)
+    worker_hostname: Mapped[str | None] = mapped_column(db.String(255), nullable=True)
+    queue_name: Mapped[str | None] = mapped_column(db.String(120), nullable=True)
+    status: Mapped[str | None] = mapped_column(db.String(40), nullable=True)
+    message: Mapped[str] = mapped_column(db.Text, nullable=False)
+    trace: Mapped[str | None] = mapped_column(db.Text, nullable=True)
+    meta_json: Mapped[dict | None] = mapped_column(db.JSON, nullable=True)
+    extra_json: Mapped[dict | None] = mapped_column(db.JSON, nullable=True)
 
 
 __all__ = ["WorkerLog"]

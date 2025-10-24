@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone
 from typing import Iterable, Optional
 
 from flask import has_request_context, session, g
 from flask_login import UserMixin
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.db import db
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -24,28 +27,64 @@ role_permissions = db.Table(
     db.Column("perm_id", BigInt, db.ForeignKey("permission.id"), primary_key=True),
 )
 
+
 class Role(db.Model):
-    id = db.Column(BigInt, primary_key=True, autoincrement=True)
-    name = db.Column(db.String(80), unique=True, nullable=False)  # 'admin' 等
-    permissions = db.relationship("Permission", secondary=role_permissions, backref="roles")
+    __tablename__ = "role"
+
+    id: Mapped[int] = mapped_column(BigInt, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(db.String(80), unique=True, nullable=False)  # 'admin' 等
+    permissions: Mapped[list["Permission"]] = relationship(
+        "Permission",
+        secondary=role_permissions,
+        back_populates="roles",
+    )
+    users: Mapped[list["User"]] = relationship(
+        "User",
+        secondary=user_roles,
+        back_populates="roles",
+    )
+
 
 class Permission(db.Model):
-    id = db.Column(BigInt, primary_key=True, autoincrement=True)
-    code = db.Column(db.String(120), unique=True, nullable=False)  # 'reservation:create' 等
+    __tablename__ = "permission"
+
+    id: Mapped[int] = mapped_column(BigInt, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(db.String(120), unique=True, nullable=False)  # 'reservation:create' 等
+    roles: Mapped[list[Role]] = relationship(
+        "Role",
+        secondary=role_permissions,
+        back_populates="permissions",
+    )
+
 
 class User(db.Model, UserMixin):
-    id = db.Column(BigInt, primary_key=True, autoincrement=True)
-    email = db.Column(db.String(255), unique=True, index=True, nullable=False)
-    username = db.Column(db.String(80), nullable=True)  # ユーザー名フィールドを追加
-    password_hash = db.Column(db.String(255), nullable=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    totp_secret = db.Column(db.String(32), nullable=True)
-    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    __tablename__ = "user"
+
+    id: Mapped[int] = mapped_column(BigInt, primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(db.String(255), unique=True, index=True, nullable=False)
+    username: Mapped[str | None] = mapped_column(db.String(80), nullable=True)  # ユーザー名フィールドを追加
+    password_hash: Mapped[str] = mapped_column(db.String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    totp_secret: Mapped[str | None] = mapped_column(db.String(32), nullable=True)
+    is_active: Mapped[bool] = mapped_column(db.Boolean, default=True, nullable=False)
     # API リフレッシュトークンを検証するためのハッシュ
-    refresh_token_hash = db.Column(db.String(255), nullable=True)
+    refresh_token_hash: Mapped[str | None] = mapped_column(db.String(255), nullable=True)
 
     # 追加：ロール関連
-    roles = db.relationship("Role", secondary=user_roles, backref="users")
+    roles: Mapped[list[Role]] = relationship(
+        "Role",
+        secondary=user_roles,
+        back_populates="users",
+    )
+    google_accounts: Mapped[list["GoogleAccount"]] = relationship(
+        "GoogleAccount",
+        back_populates="user",
+    )
+    totp_credentials: Mapped[list["TOTPCredential"]] = relationship(
+        "TOTPCredential",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
     # ヘルパ
     def set_password(self, raw):

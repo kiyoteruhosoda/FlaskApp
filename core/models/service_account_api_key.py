@@ -1,9 +1,11 @@
 """Models for service account API keys and their usage logs."""
 from __future__ import annotations
+from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Iterable, List
 
+from sqlalchemy.orm import DynamicMapped, Mapped, mapped_column, relationship
 from werkzeug.security import check_password_hash
 
 from core.db import db
@@ -19,33 +21,34 @@ def _utc_now() -> datetime:
 class ServiceAccountApiKey(db.Model):
     __tablename__ = "service_account_api_key"
 
-    api_key_id = db.Column(BigInt, primary_key=True, autoincrement=True)
-    service_account_id = db.Column(
+    api_key_id: Mapped[int] = mapped_column(BigInt, primary_key=True, autoincrement=True)
+    service_account_id: Mapped[int] = mapped_column(
         BigInt,
         db.ForeignKey("service_account.service_account_id"),
         nullable=False,
         index=True,
     )
-    public_id = db.Column(db.String(32), nullable=False, unique=True)
-    secret_hash = db.Column(db.String(255), nullable=False)
-    scope_names = db.Column(db.String(2000), nullable=False)
-    expires_at = db.Column(db.DateTime(timezone=True), nullable=True)
-    revoked_at = db.Column(db.DateTime(timezone=True), nullable=True)
-    created_at = db.Column(
+    public_id: Mapped[str] = mapped_column(db.String(32), nullable=False, unique=True)
+    secret_hash: Mapped[str] = mapped_column(db.String(255), nullable=False)
+    scope_names: Mapped[str] = mapped_column(db.String(2000), nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(db.DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(db.DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
         db.DateTime(timezone=True),
         nullable=False,
         default=_utc_now,
         server_default=db.func.now(),
     )
-    created_by = db.Column(db.String(255), nullable=False)
+    created_by: Mapped[str] = mapped_column(db.String(255), nullable=False)
 
-    service_account = db.relationship(
+    service_account: Mapped["ServiceAccount"] = relationship(
         "ServiceAccount",
-        backref=db.backref(
-            "api_keys",
-            lazy="dynamic",
-            cascade="all, delete-orphan",
-        ),
+        back_populates="api_keys",
+    )
+    access_logs: DynamicMapped["ServiceAccountApiKeyLog"] = relationship(
+        "ServiceAccountApiKeyLog",
+        back_populates="api_key",
+        cascade="all, delete-orphan",
     )
 
     def set_scopes(self, scopes: Iterable[str]) -> None:
@@ -84,7 +87,7 @@ class ServiceAccountApiKey(db.Model):
             return False
         return check_password_hash(self.secret_hash, secret)
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, str | int | None]:
         return {
             "api_key_id": self.api_key_id,
             "service_account_id": self.service_account_id,
@@ -100,33 +103,29 @@ class ServiceAccountApiKey(db.Model):
 class ServiceAccountApiKeyLog(db.Model):
     __tablename__ = "service_account_api_key_log"
 
-    log_id = db.Column(BigInt, primary_key=True, autoincrement=True)
-    api_key_id = db.Column(
+    log_id: Mapped[int] = mapped_column(BigInt, primary_key=True, autoincrement=True)
+    api_key_id: Mapped[int] = mapped_column(
         BigInt,
         db.ForeignKey("service_account_api_key.api_key_id"),
         nullable=False,
         index=True,
     )
-    accessed_at = db.Column(
+    accessed_at: Mapped[datetime] = mapped_column(
         db.DateTime(timezone=True),
         nullable=False,
         default=_utc_now,
         server_default=db.func.now(),
     )
-    ip_address = db.Column(db.String(64), nullable=True)
-    endpoint = db.Column(db.String(255), nullable=True)
-    user_agent = db.Column(db.String(255), nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(db.String(64), nullable=True)
+    endpoint: Mapped[str | None] = mapped_column(db.String(255), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(db.String(255), nullable=True)
 
-    api_key = db.relationship(
+    api_key: Mapped[ServiceAccountApiKey] = relationship(
         "ServiceAccountApiKey",
-        backref=db.backref(
-            "access_logs",
-            lazy="dynamic",
-            cascade="all, delete-orphan",
-        ),
+        back_populates="access_logs",
     )
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, str | int | None]:
         return {
             "log_id": self.log_id,
             "api_key_id": self.api_key_id,

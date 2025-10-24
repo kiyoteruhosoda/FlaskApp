@@ -84,11 +84,16 @@ class _StorageAccessor:
         if self._service is None:
             from core.storage_service import LocalFilesystemStorageService
 
-            self._service = LocalFilesystemStorageService(
-                config_resolver=self.configured,
-                env_resolver=self.environment,
+            service: "StorageService" = cast(
+                "StorageService",
+                LocalFilesystemStorageService(
+                    config_resolver=self.configured,
+                    env_resolver=self.environment,
+                ),
             )
-        return self._service
+            self._service = service
+
+        return cast("StorageService", self._service)
 
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -148,6 +153,8 @@ class ApplicationSettings:
         """Return an integer configuration value."""
 
         value = self._get(key)
+        if value is None:
+            return default
         try:
             return int(value)
         except (TypeError, ValueError):

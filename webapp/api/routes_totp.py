@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import time
 from datetime import datetime, timezone
+from typing import Callable
 
 import pyotp
 from flask import jsonify, request
@@ -33,8 +34,28 @@ from .openapi import json_request_body
 from .routes import get_current_user, login_or_jwt_required
 
 
+_HASH_DIGESTS: dict[str, Callable[[], "hashlib._Hash"]] = {
+    "sha1": hashlib.sha1,
+    "sha256": hashlib.sha256,
+    "sha512": hashlib.sha512,
+}
+
+
 def _ensure_totp_permission(user, perm_code: str):
-    return bool(user and hasattr(user, "can") and user.can(perm_code))
+    if user is None:
+        return False
+    try:
+        can_method = user.can
+    except AttributeError:
+        return False
+    return bool(can_method(perm_code))
+
+
+def _resolve_digest(name: str | None) -> Callable[[], "hashlib._Hash"]:
+    if not isinstance(name, str):
+        return hashlib.sha1
+    normalized = name.strip().lower()
+    return _HASH_DIGESTS.get(normalized, hashlib.sha1)
 
 
 def _serialize_datetime(value):
@@ -46,7 +67,7 @@ def _serialize_datetime(value):
 
 
 def _build_totp_uri(entity):
-    digest = getattr(hashlib, entity.algorithm.lower(), hashlib.sha1)
+    digest = _resolve_digest(entity.algorithm)
     totp = pyotp.TOTP(
         entity.secret,
         digits=entity.digits,
@@ -57,7 +78,7 @@ def _build_totp_uri(entity):
 
 
 def _generate_totp_preview(entity):
-    digest = getattr(hashlib, entity.algorithm.lower(), hashlib.sha1)
+    digest = _resolve_digest(entity.algorithm)
     totp = pyotp.TOTP(
         entity.secret,
         digits=entity.digits,

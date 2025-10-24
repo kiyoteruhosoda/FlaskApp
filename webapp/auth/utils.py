@@ -1,7 +1,7 @@
 import json
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Callable
 
 from flask import current_app
 
@@ -47,7 +47,25 @@ def log_requests_and_send(
     )
 
     # 実リクエスト
-    req_func = getattr(requests, method.lower())
+    if not isinstance(method, str):
+        raise ValueError("HTTP method must be a string")
+    normalized_method = method.strip().lower()
+    if normalized_method == "get":
+        req_func: Callable[..., requests.Response] = requests.get
+    elif normalized_method == "post":
+        req_func = requests.post
+    elif normalized_method == "put":
+        req_func = requests.put
+    elif normalized_method == "delete":
+        req_func = requests.delete
+    elif normalized_method == "patch":
+        req_func = requests.patch
+    elif normalized_method == "head":
+        req_func = requests.head
+    elif normalized_method == "options":
+        req_func = requests.options
+    else:
+        raise ValueError(f"Unsupported HTTP method: {method}")
     try:
         res = req_func(
             url,
@@ -77,11 +95,14 @@ def log_requests_and_send(
         res_body = res.json()
     except Exception:
         res_body = res.text
+    try:
+        response_headers = dict(res.headers)
+    except AttributeError:
+        response_headers = None
+
     response_payload = {
         "status_code": res.status_code,
-        "headers": _mask_sensitive_values(dict(res.headers))
-        if hasattr(res, "headers")
-        else None,
+        "headers": _mask_sensitive_values(response_headers) if response_headers is not None else None,
         "body": _mask_sensitive_values(res_body),
     }
     log_callable = current_app.logger.info

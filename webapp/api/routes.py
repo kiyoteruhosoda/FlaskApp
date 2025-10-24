@@ -622,7 +622,15 @@ def _emit_structured_api_log(message: str, *, level: str, event: str, **extra_co
         'context': context,
     }
 
-    log_method = getattr(current_app.logger, level, current_app.logger.info)
+    logger = current_app.logger
+    log_methods = {
+        'debug': logger.debug,
+        'info': logger.info,
+        'warning': logger.warning,
+        'error': logger.error,
+        'critical': logger.critical,
+    }
+    log_method = log_methods.get(level.lower(), logger.info)
     log_method(
         json.dumps(payload, ensure_ascii=False, default=str),
         extra={'event': event, 'request_id': request_id},

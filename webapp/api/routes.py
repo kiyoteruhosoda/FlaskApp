@@ -353,7 +353,10 @@ def _storage_service() -> StorageService:
 def _storage_area(selector: StorageSelector) -> StorageArea:
     service = _storage_service()
     if isinstance(selector, StorageDomain):
-        return service.for_domain(selector)
+        area = service.for_domain(selector)
+        _normalize_storage_defaults(area.config_key)
+        return area
+    _normalize_storage_defaults(selector)
     return service.for_key(selector)
 
 

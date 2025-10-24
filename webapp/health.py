@@ -38,8 +38,13 @@ def health_ready():
     }
     for field, domain in directory_checks.items():
         area = service.for_domain(domain)
-        base = area.first_existing()
-        exists = bool(base and service.exists(base))
+        configured_path = settings.storage.configured(area.config_key)
+        if configured_path:
+            exists = service.exists(configured_path)
+        else:
+            base = area.first_existing()
+            exists = bool(base and service.exists(base))
+
         if exists:
             details[field] = "ok"
         else:

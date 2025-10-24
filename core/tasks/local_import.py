@@ -450,16 +450,16 @@ _import_destination_storage: StorageService = _spawn_storage_service()
 # Explicit mapping of config keys to storage services
 _STORAGE_SERVICE_MAP = {
     "LOCAL_IMPORT_DIR": _import_source_storage,
-    # Add more config keys and their corresponding storage services here as needed
+    "FPV_NAS_ORIGINALS_DIR": _import_destination_storage,
+    "FPV_NAS_PLAY_DIR": _import_destination_storage,
+    "FPV_NAS_THUMBS_DIR": _import_destination_storage,
 }
 
 def _storage_for_config_key(config_key: str) -> StorageService:
     try:
         return _STORAGE_SERVICE_MAP[config_key]
     except KeyError:
-        # Default to destination storage for unknown keys, or raise an error for clarity
-        # return _import_destination_storage
-        raise ValueError(f"Unknown storage config key: {config_key!r}")
+        return _import_destination_storage
 _zip_service = ZipArchiveService(
     _log_info,
     _log_warning,

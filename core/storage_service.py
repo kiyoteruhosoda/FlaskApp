@@ -69,6 +69,9 @@ class StorageService(Protocol):
     def join(self, base: str, *parts: str) -> str:
         ...
 
+    def normalize_path(self, path: str) -> str:
+        ...
+
     def ensure_parent(self, path: str) -> None:
         ...
 
@@ -249,6 +252,12 @@ class LocalFilesystemStorageService:
     def join(self, base: str, *parts: str) -> str:
         clean_parts = [part for part in parts if part]
         return os.path.join(base, *clean_parts) if clean_parts else base
+
+    def normalize_path(self, path: str) -> str:
+        """Return a canonical display form for ``path``."""
+
+        normalized = os.path.normpath(path)
+        return normalized.replace(os.sep, "/")
 
     def ensure_parent(self, path: str) -> None:
         parent = Path(path).parent

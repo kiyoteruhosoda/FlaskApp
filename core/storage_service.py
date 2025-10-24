@@ -6,7 +6,17 @@ import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable, Iterator, Optional, Protocol, Sequence, runtime_checkable
+from typing import (
+    IO,
+    Any,
+    Callable,
+    Iterable,
+    Iterator,
+    Optional,
+    Protocol,
+    Sequence,
+    runtime_checkable,
+)
 
 from domain.storage import StorageDomain, StorageIntent, StorageResolution
 
@@ -74,7 +84,7 @@ class StorageService(Protocol):
     def remove_tree(self, path: str) -> None:
         ...
 
-    def open(self, path: str, mode: str = "rb", **kwargs: Any):
+    def open(self, path: str, mode: str = "rb", **kwargs: Any) -> IO[Any]:
         ...
 
     def walk(self, top: str) -> Iterator[tuple[str, list[str], list[str]]]:
@@ -261,7 +271,7 @@ class LocalFilesystemStorageService:
     def remove_tree(self, path: str) -> None:
         shutil.rmtree(path)
 
-    def open(self, path: str, mode: str = "rb", **kwargs: Any):
+    def open(self, path: str, mode: str = "rb", **kwargs: Any) -> IO[Any]:
         if any(flag in mode for flag in ("w", "a", "+")):
             self.ensure_parent(path)
         return open(path, mode, **kwargs)

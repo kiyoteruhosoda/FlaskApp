@@ -2,10 +2,15 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.db import db
+
+if TYPE_CHECKING:  # pragma: no cover
+    from core.models.google_account import GoogleAccount
+    from core.models.picker_session import PickerSession
 
 BigInt = db.BigInteger().with_variant(db.Integer, "sqlite")
 

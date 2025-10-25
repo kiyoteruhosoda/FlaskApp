@@ -1,6 +1,9 @@
+import pytest
+
 from features.wiki.domain.commands import (
     WikiPageCommandFactory,
     WikiPageCreationCommand,
+    WikiPageDeleteCommand,
     WikiPageUpdateCommand,
 )
 from features.wiki.domain.exceptions import WikiValidationError
@@ -121,4 +124,28 @@ def test_build_update_command_validates_required_fields() -> None:
         assert "タイトルと内容は必須です" in str(exc) or "ページ識別子は必須です" in str(exc)
     else:  # pragma: no cover - defensive
         raise AssertionError("expected validation error")
+
+
+def test_build_delete_command_normalizes_values() -> None:
+    factory = WikiPageCommandFactory()
+
+    command = factory.build_delete_command(
+        slug="  sample-slug  ",
+        executor_id=7,
+        has_admin_rights=True,
+    )
+
+    assert isinstance(command, WikiPageDeleteCommand)
+    assert command.slug == "sample-slug"
+    assert command.executor_id == 7
+    assert command.has_admin_rights is True
+
+
+def test_build_delete_command_requires_identifier() -> None:
+    factory = WikiPageCommandFactory()
+
+    with pytest.raises(WikiValidationError) as exc:
+        factory.build_delete_command(slug="  ", executor_id=1, has_admin_rights=False)
+
+    assert "Page identifier is required." in str(exc.value)
 

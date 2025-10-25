@@ -1357,3 +1357,24 @@ msgstr "Hide navigation"
 msgid "Show navigation"
 msgstr "Show navigation"
 
+msgid "Page identifier is required."
+msgstr "Page identifier is required."
+
+msgid "You do not have permission to delete this page."
+msgstr "You do not have permission to delete this page."
+
+msgid "Cannot delete a page that has child pages."
+msgstr "Cannot delete a page that has child pages."
+
+msgid "Failed to delete the page."
+msgstr "Failed to delete the page."
+
+msgid "Page deleted successfully."
+msgstr "Page deleted successfully."
+
+msgid "Security verification failed. Please reload the page and try again."
+msgstr "Security verification failed. Please reload the page and try again."
+
+msgid "Are you sure you want to delete this page?"
+msgstr "Are you sure you want to delete this page?"
+

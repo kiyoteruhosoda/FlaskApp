@@ -136,14 +136,14 @@ class TestWikiPageService:
         """ページ階層取得のテスト"""
         with app.app_context():
             service = WikiPageService()
-            
+
             # 親ページを作成
             parent = service.create_page(
                 title="親ページ",
                 content="親の内容",
                 user_id=test_user.id
             )
-            
+
             # 子ページを作成
             child1 = service.create_page(
                 title="子ページ1",
@@ -151,20 +151,59 @@ class TestWikiPageService:
                 user_id=test_user.id,
                 parent_id=parent.id
             )
-            
+
             child2 = service.create_page(
                 title="子ページ2",
                 content="子2の内容",
                 user_id=test_user.id,
                 parent_id=parent.id
             )
-            
+
             # 階層構造を取得
             hierarchy = service.get_page_hierarchy()
-            
+
             assert len(hierarchy) == 1  # 親ページが1つ
             assert hierarchy[0]['title'] == "親ページ"
             assert len(hierarchy[0]['children']) == 2  # 子ページが2つ
+
+    def test_delete_page_without_children(self, app, db_session, test_user):
+        """子ページがない場合にページを削除できる"""
+        with app.app_context():
+            service = WikiPageService()
+
+            page = service.create_page(
+                title="削除対象",
+                content="内容",
+                user_id=test_user.id,
+            )
+
+            result = service.delete_page(page.id, user_id=test_user.id)
+
+            assert result is True
+            assert WikiPage.query.filter_by(id=page.id).first() is None
+
+    def test_delete_page_with_children_fails(self, app, db_session, test_user):
+        """子ページがある場合は削除できない"""
+        with app.app_context():
+            service = WikiPageService()
+
+            parent = service.create_page(
+                title="親ページ",
+                content="親の内容",
+                user_id=test_user.id,
+            )
+
+            service.create_page(
+                title="子ページ",
+                content="子の内容",
+                user_id=test_user.id,
+                parent_id=parent.id,
+            )
+
+            result = service.delete_page(parent.id, user_id=test_user.id)
+
+            assert result is False
+            assert WikiPage.query.filter_by(id=parent.id).first() is not None
 
 
 class TestWikiCategoryService:

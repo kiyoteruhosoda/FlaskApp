@@ -68,6 +68,18 @@ class WikiPageUpdateResult:
 
 
 @dataclass(frozen=True)
+class WikiPageDeleteInput:
+    slug: str
+    executor_id: int
+    has_admin_rights: bool
+
+
+@dataclass(frozen=True)
+class WikiPageDeleteResult:
+    slug: str
+
+
+@dataclass(frozen=True)
 class WikiPageSearchResult:
     query: str
     pages: List[WikiPage]

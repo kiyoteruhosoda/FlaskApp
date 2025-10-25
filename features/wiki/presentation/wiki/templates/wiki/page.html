@@ -98,6 +98,13 @@
                     <a href="{{ url_for('wiki.edit_page', slug=page.slug) }}" class="btn btn-secondary btn-sm">
                         <i class="fas fa-edit"></i> {{ _('Edit') }}
                     </a>
+                    <form method="post" action="{{ url_for('wiki.delete_page', slug=page.slug) }}" class="d-inline"
+                          onsubmit="return confirm('{{ _('Are you sure you want to delete this page?')|escape }}');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit" class="btn btn-danger btn-sm">
+                            <i class="fas fa-trash"></i> {{ _('Delete') }}
+                        </button>
+                    </form>
                     {% endif %}
                 </div>
             </div>

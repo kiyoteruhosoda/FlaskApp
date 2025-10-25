@@ -10,7 +10,7 @@ import signal
 import socket
 from datetime import datetime, timezone
 from types import FrameType
-from typing import Callable, Optional
+from typing import Callable, Optional, cast
 from uuid import uuid4
 
 from flask import Flask
@@ -23,6 +23,7 @@ from core.settings import settings
 
 
 LifecycleHandler = Callable[[int, Optional[FrameType]], None]
+PrevSignalHandler = Optional[LifecycleHandler] | int
 
 
 def _build_lifecycle_payload(
@@ -118,8 +119,7 @@ def register_lifecycle_logging(app: Flask) -> None:
 
     atexit.register(_atexit_handler)
     ext_state["atexit_handler"] = _atexit_handler
-
-    def _make_signal_handler(previous: Optional[LifecycleHandler], signum: int) -> LifecycleHandler:
+    def _make_signal_handler(previous: PrevSignalHandler, signum: int) -> LifecycleHandler:
         def _handler(sig: int, frame: Optional[FrameType]) -> None:
             _log_lifecycle_event(
                 app,
@@ -128,11 +128,10 @@ def register_lifecycle_logging(app: Flask) -> None:
                 reason=f"signal.{signal.Signals(sig).name}",
             )
 
-            if previous is None or previous in (signal.SIG_DFL, signal.SIG_IGN):
-                return
+            if callable(previous):
+                cast(LifecycleHandler, previous)(sig, frame)
 
-            previous(sig, frame)
-
+        return _handler
         return _handler
 
     signal_handlers = ext_state.setdefault("signal_handlers", {})

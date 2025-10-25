@@ -966,6 +966,7 @@ def picker_import_item(
                 )
                 raise NetworkError()
 
+        fetched_base_url: str | None = None
         if item is not None:
             fetched_base_url = item.get("baseUrl")
             if not fetched_base_url:
@@ -973,8 +974,11 @@ def picker_import_item(
             sel.base_url = fetched_base_url
             sel.base_url_fetched_at = now
             sel.base_url_valid_until = now + timedelta(hours=1)
+
+        if fetched_base_url is not None:
             base_url = fetched_base_url
-        elif base_url is None:
+
+        if base_url is None:
             raise BaseUrlExpired()
 
         meta = item.get("mediaMetadata", {}) if item else {}
@@ -1526,7 +1530,7 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
                 "mime_type": mime,
                 "width": width_value,
                 "height": height_value,
-                "duration_ms": int(meta.get("video", {}).get("durationMillis", 0) or 0),
+                "duration_ms": int(meta.get("video", {}).get("durationMillis", 0)),
                 "shot_at": shot_at,
                 "imported_at": datetime.now(timezone.utc),
                 "is_video": is_video,

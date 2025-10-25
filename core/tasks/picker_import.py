@@ -1530,7 +1530,7 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
                 "mime_type": mime,
                 "width": width_value,
                 "height": height_value,
-                "duration_ms": int(meta.get("video", {}).get("durationMillis", 0)),
+                "duration_ms": int(meta.get("video", {}).get("durationMillis", 0) or 0),
                 "shot_at": shot_at,
                 "imported_at": datetime.now(timezone.utc),
                 "is_video": is_video,

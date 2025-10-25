@@ -966,15 +966,15 @@ def picker_import_item(
                 )
                 raise NetworkError()
 
-            if item is not None:
-                base_url = item.get("baseUrl")
-                if not base_url:
-                    raise BaseUrlExpired()
-                sel.base_url = base_url
-                sel.base_url_fetched_at = now
-                sel.base_url_valid_until = now + timedelta(hours=1)
-
-        if base_url is None:
+        if item is not None:
+            fetched_base_url = item.get("baseUrl")
+            if not fetched_base_url:
+                raise BaseUrlExpired()
+            sel.base_url = fetched_base_url
+            sel.base_url_fetched_at = now
+            sel.base_url_valid_until = now + timedelta(hours=1)
+            base_url = fetched_base_url
+        elif base_url is None:
             raise BaseUrlExpired()
 
         meta = item.get("mediaMetadata", {}) if item else {}
@@ -1557,14 +1557,12 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
     end_time = datetime.now(timezone.utc)
     if imported > 0:
         ps.status = "imported"
-        if hasattr(ps, "completed_at"):
-            setattr(ps, "completed_at", end_time)
+        ps.completed_at = end_time
     elif failed > 0:
         ps.status = "error"
     else:  # only duplicates
         ps.status = "imported"
-        if hasattr(ps, "completed_at"):
-            setattr(ps, "completed_at", end_time)
+        ps.completed_at = end_time
 
     db.session.commit()
 

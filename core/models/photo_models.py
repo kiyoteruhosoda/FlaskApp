@@ -191,6 +191,33 @@ class Exif(db.Model):
         back_populates="exif",
     )
 
+    def __init__(
+        self,
+        media_id: int,
+        camera_make: Optional[str] = None,
+        camera_model: Optional[str] = None,
+        lens: Optional[str] = None,
+        iso: Optional[int] = None,
+        shutter: Optional[str] = None,
+        f_number: Optional[float] = None,
+        focal_len: Optional[float] = None,
+        gps_lat: Optional[float] = None,
+        gps_lng: Optional[float] = None,
+        raw_json: Optional[str] = None,
+    ) -> None:
+        """Exif モデルのコンストラクタ（型チェック対応）"""
+        self.media_id = media_id
+        self.camera_make = camera_make
+        self.camera_model = camera_model
+        self.lens = lens
+        self.iso = iso
+        self.shutter = shutter
+        self.f_number = f_number
+        self.focal_len = focal_len
+        self.gps_lat = gps_lat
+        self.gps_lng = gps_lng
+        self.raw_json = raw_json
+
 
 class Album(db.Model):
     __tablename__ = "album"
@@ -289,6 +316,22 @@ class MediaPlayback(db.Model):
         "Media",
         back_populates="playbacks",
     )
+
+    def __init__(
+        self,
+        media_id: int,
+        preset: str,
+        rel_path: str | None = None,
+        status: str = "pending",
+        created_at: datetime | None = None,
+        updated_at: datetime | None = None,
+    ) -> None:
+        self.media_id = media_id
+        self.preset = preset
+        self.rel_path = rel_path
+        self.status = status
+        self.created_at = created_at or datetime.now(timezone.utc)
+        self.updated_at = updated_at or datetime.now(timezone.utc)
 
     def update_paths(self, rel_path: str | None, poster_rel_path: str | None) -> None:
         """再生用およびポスター用のパスを更新する."""

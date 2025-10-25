@@ -810,8 +810,11 @@ def _resolve_session_scope(user: User | None) -> list[str]:
     return normalized
 
 
-def _set_session_access_cookie(response, user: User) -> None:
-    scope_items = _resolve_session_scope(user)
+def _set_session_access_cookie(
+    response, user: User, scope_items: Iterable[str] | None = None
+) -> None:
+    if scope_items is None:
+        scope_items = _resolve_session_scope(user)
     try:
         access_token = TokenService.generate_access_token(user, scope_items)
     except Exception:  # pragma: no cover - defensive logging
@@ -886,8 +889,19 @@ def login_or_jwt_required(f):
                         token_source=token_source or 'unknown',
                         authenticated_user=_serialize_user_for_log(current_user),
                     )
+                    user_obj = getattr(
+                        current_user, "_get_current_object", lambda: current_user
+                    )()
+                    session_scope_items = _resolve_session_scope(user_obj)
+                    session_scope = set(session_scope_items)
+                    g.current_token_scope = session_scope if session_scope else None
+                    g.current_user = user_obj
                     response = make_response(f(*args, **kwargs))
-                    _set_session_access_cookie(response, current_user)
+                    _set_session_access_cookie(
+                        response,
+                        user_obj,
+                        scope_items=session_scope_items,
+                    )
                     return response
                 return jsonify({'error': 'invalid_token'}), 401
 

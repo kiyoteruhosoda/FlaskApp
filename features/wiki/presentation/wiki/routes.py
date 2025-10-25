@@ -2,7 +2,16 @@
 
 from __future__ import annotations
 
-from flask import abort, flash, jsonify, redirect, render_template, request, url_for
+from flask import (
+    abort,
+    current_app,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 from flask_babel import _
 from flask_login import current_user
 
@@ -194,6 +203,7 @@ def delete_page(slug: str):
             flash(_("Failed to delete the page."), "error")
         return redirect(url_for("wiki.view_page", slug=slug))
     except Exception:  # noqa: BLE001 - フォールバック
+        current_app.logger.exception("Unexpected error while deleting wiki page", extra={"slug": slug})
         flash(_("Failed to delete the page."), "error")
         return redirect(url_for("wiki.view_page", slug=slug))
 

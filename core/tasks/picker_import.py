@@ -978,6 +978,7 @@ def picker_import_item(
         # ここでのbase_urlの再バリデーションは不要（既に上でチェック済み）
         meta = item.get("mediaMetadata", {}) if item else {}
         is_video = bool(meta.get("video")) or (mi.mime_type or "").startswith("video/")
+        assert base_url is not None  # 型チェッカに明示
         dl_url = base_url + ("=dv" if is_video else "=d")
         try:
             dl = _download(dl_url, tmp_dir, headers=headers)
@@ -1556,12 +1557,14 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
     end_time = datetime.now(timezone.utc)
     if imported > 0:
         ps.status = "imported"
-        ps.completed_at = end_time
+        ps.last_progress_at = end_time
     elif failed > 0:
         ps.status = "error"
     else:  # only duplicates
         ps.status = "imported"
-        ps.completed_at = end_time
+        ps.last_progress_at = end_time
+
+    ps.updated_at = end_time
 
     db.session.commit()
 

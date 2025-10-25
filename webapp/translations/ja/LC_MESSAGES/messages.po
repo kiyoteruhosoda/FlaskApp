@@ -3398,6 +3398,9 @@ msgstr "ページの削除に失敗しました。"
 msgid "Page deleted successfully."
 msgstr "ページを削除しました。"
 
+msgid "Security verification failed. Please reload the page and try again."
+msgstr "セキュリティ検証に失敗しました。ページを再読み込みしてから再試行してください。"
+
 msgid "Are you sure you want to delete this page?"
 msgstr "このページを削除してもよろしいですか？"
 

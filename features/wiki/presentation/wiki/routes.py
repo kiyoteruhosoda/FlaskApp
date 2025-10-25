@@ -46,6 +46,7 @@ from features.wiki.domain.exceptions import (
     WikiPageNotFoundError,
     WikiValidationError,
 )
+from webapp.security import get_or_set_csrf_token, validate_csrf_token
 
 from . import bp
 
@@ -80,6 +81,7 @@ def view_page(slug: str):
         children=view_model.children,
         categories=view_model.categories,
         page_hierarchy=view_model.page_hierarchy,
+        csrf_token=get_or_set_csrf_token(),
     )
 
 
@@ -178,6 +180,14 @@ def edit_page(slug: str):
 @require_perms("wiki:write")
 def delete_page(slug: str):
     """Wikiページ削除"""
+
+    if not validate_csrf_token(request.form.get("csrf_token")):
+        current_app.logger.warning(
+            "Rejected wiki page deletion due to invalid CSRF token",
+            extra={"slug": slug},
+        )
+        flash(_("Security verification failed. Please reload the page and try again."), "error")
+        return redirect(url_for("wiki.view_page", slug=slug))
 
     has_admin_rights = current_user.can("wiki:admin")
     payload = WikiPageDeleteInput(

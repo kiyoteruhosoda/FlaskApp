@@ -328,10 +328,18 @@ class ApplicationSettings:
     # ------------------------------------------------------------------
     @property
     def service_account_signing_audiences(self) -> Tuple[str, ...]:
-        raw = self._get("SERVICE_ACCOUNT_SIGNING_AUDIENCE", "") or ""
+        raw = self._get("SERVICE_ACCOUNT_SIGNING_AUDIENCE")
+        if raw is None or (isinstance(raw, str) and not raw.strip()):
+            raw = self._env.get("SERVICE_ACCOUNT_SIGNING_AUDIENCE")
+
         if not raw:
             return ()
-        values = [segment.strip() for segment in raw.split(",")]
+
+        if isinstance(raw, (list, tuple)):
+            values = [str(item).strip() for item in raw]
+        else:
+            values = [segment.strip() for segment in str(raw).split(",")]
+
         return tuple(value for value in values if value)
 
     @property

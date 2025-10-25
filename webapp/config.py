@@ -2,6 +2,8 @@ import os
 import sys
 from types import ModuleType
 
+from sqlalchemy.pool import StaticPool
+
 from dotenv import load_dotenv
 
 from core.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
@@ -92,7 +94,10 @@ class TestConfig(BaseApplicationSettings):
 
     TESTING = True
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
-    SQLALCHEMY_ENGINE_OPTIONS = {}
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "connect_args": {"check_same_thread": False},
+        "poolclass": StaticPool,
+    }
 
     SECRET_KEY = "test-secret-key"
     JWT_SECRET_KEY = "test-jwt-secret"

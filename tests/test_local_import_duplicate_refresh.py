@@ -18,7 +18,12 @@ from features.photonest.domain.local_import.media_file import MediaFileAnalysis
 def app_context():
     app = create_app()
     with app.app_context():
-        yield
+        db.create_all()
+        try:
+            yield
+        finally:
+            db.session.remove()
+            db.drop_all()
 
 
 def _write_dummy_file(path: Path) -> None:

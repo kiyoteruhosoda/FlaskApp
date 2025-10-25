@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from flask import Blueprint, jsonify
+import os
+
+from flask import Blueprint, jsonify, current_app
 from sqlalchemy import text
 
 from .extensions import db
@@ -36,11 +38,28 @@ def health_ready():
         "fpv_nas_thumbs_dir": StorageDomain.MEDIA_THUMBNAILS,
         "fpv_nas_play_dir": StorageDomain.MEDIA_PLAYBACK,
     }
+    storage_accessor = settings.storage
     for field, domain in directory_checks.items():
         area = service.for_domain(domain)
+        configured = current_app.config.get(area.config_key)
+        if configured:
+            configured_path = os.fspath(configured)
+            if os.path.exists(configured_path):
+                details[field] = "ok"
+                continue
+            ok = False
+            details[field] = "missing"
+            continue
+
+        fallback_path = storage_accessor.configured(area.config_key)
+        if fallback_path:
+            fallback_path = os.fspath(fallback_path)
+            if os.path.exists(fallback_path):
+                details[field] = "ok"
+                continue
+
         base = area.first_existing()
-        exists = bool(base and service.exists(base))
-        if exists:
+        if base and os.path.exists(base):
             details[field] = "ok"
         else:
             ok = False

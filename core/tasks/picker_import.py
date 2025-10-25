@@ -589,6 +589,13 @@ def _start_lock_heartbeat(selection_id: int, locked_by: str, interval: float) ->
     stop = threading.Event()
     app = current_app._get_current_object()
 
+    if settings.testing:
+        class _NoopThread:
+            def join(self, timeout: float | None = None) -> None:  # noqa: D401, ANN001
+                return None
+
+        return stop, _NoopThread()  # type: ignore[return-value]
+
     def _beat() -> None:
         with app.app_context():
             while not stop.is_set():

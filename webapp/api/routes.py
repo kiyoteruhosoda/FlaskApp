@@ -357,7 +357,14 @@ def _storage_area(selector: StorageSelector) -> StorageArea:
     return service.for_key(selector)
 
 
-def _normalize_storage_defaults(config_key: str) -> None:
+def _normalize_storage_defaults(selector: StorageSelector) -> None:
+    service = _storage_service()
+    if isinstance(selector, StorageDomain):
+        area = service.for_domain(selector)
+        config_key = area.config_key
+    else:
+        config_key = selector
+
     defaults_override = _STORAGE_DEFAULTS.get(config_key)
     if defaults_override is None:
         return
@@ -370,21 +377,18 @@ def _normalize_storage_defaults(config_key: str) -> None:
     if _STORAGE_DEFAULTS.get(config_key) != normalized:
         _STORAGE_DEFAULTS[config_key] = normalized
 
-    service = _storage_service()
     if service.defaults(config_key) != normalized:
         service.set_defaults(config_key, normalized)
 
 
 def _storage_path_candidates(selector: StorageSelector) -> list[str]:
-    if isinstance(selector, str):
-        _normalize_storage_defaults(selector)
+    _normalize_storage_defaults(selector)
     area = _storage_area(selector)
     return area.candidates()
 
 
 def _storage_path(selector: StorageSelector) -> str | None:
-    if isinstance(selector, str):
-        _normalize_storage_defaults(selector)
+    _normalize_storage_defaults(selector)
     area = _storage_area(selector)
     return area.first_existing()
 
@@ -394,8 +398,7 @@ def _resolve_storage_file(
     *path_parts: str,
     intent: StorageIntent = StorageIntent.READ,
 ) -> ResolvedStorageFile:
-    if isinstance(selector, str):
-        _normalize_storage_defaults(selector)
+    _normalize_storage_defaults(selector)
     area = _storage_area(selector)
     resolution = area.resolve(*path_parts, intent=intent)
     return ResolvedStorageFile(selector=selector, area=area, resolution=resolution)
@@ -649,7 +652,7 @@ def _local_import_log(message: str, *, level: str = 'info', event: str = 'local_
 
 def _set_jwt_context(principal: AuthenticatedPrincipal, scope: set[str]) -> None:
     g.current_user = principal
-    g.current_token_scope = scope
+    g.current_token_scope = scope if scope else None
 
 
 def jwt_required(f):
@@ -775,13 +778,6 @@ def login_or_jwt_required(f):
             stage='start',
         )
 
-        if settings.login_disabled:
-            _auth_log(
-                'Authentication bypassed because LOGIN_DISABLED is active',
-                stage='bypass',
-            )
-            return f(*args, **kwargs)
-
         auth_header = request.headers.get('Authorization')
         token = None
         token_source = None
@@ -792,6 +788,13 @@ def login_or_jwt_required(f):
         elif request.cookies.get('access_token'):
             token = request.cookies.get('access_token')
             token_source = 'cookie'
+
+        if settings.login_disabled and not token and not current_user.is_authenticated:
+            _auth_log(
+                'Authentication bypassed because LOGIN_DISABLED is active',
+                stage='bypass',
+            )
+            return f(*args, **kwargs)
 
         if token:
             _auth_log(

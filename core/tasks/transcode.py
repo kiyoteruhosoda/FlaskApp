@@ -435,6 +435,10 @@ def transcode_queue_scan() -> Dict[str, object]:
     )
 
     for m in medias:
+        if not m.local_rel_path:
+            skipped += 1
+            continue
+
         src_path = _orig_dir() / m.local_rel_path
         if not src_path.exists():
             skipped += 1

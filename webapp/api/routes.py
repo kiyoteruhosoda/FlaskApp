@@ -26,6 +26,7 @@ from flask import (
     url_for,
     flash,
     g,
+    make_response,
 )
 from flask_login import login_required, logout_user, login_user
 from flask_babel import gettext as _
@@ -59,6 +60,9 @@ from shared.application.authenticated_principal import AuthenticatedPrincipal
 from shared.domain.user import UserRegistrationService
 from shared.infrastructure.user_repository import SqlAlchemyUserRepository
 from ..services.token_service import TokenService
+
+
+API_LOGIN_SCOPE_SESSION_KEY = "api_login_granted_scope"
 from ..auth.totp import verify_totp
 from ..auth.service_account_auth import (
     ServiceAccountJWTError,
@@ -769,6 +773,61 @@ def _remove_media_files(media: Media) -> None:
             _remove(StorageDomain.MEDIA_PLAYBACK, poster_rel.as_posix())
 
 
+def _normalize_scope_items(items: Iterable[str]) -> list[str]:
+    normalized: set[str] = set()
+    for item in items:
+        if not isinstance(item, str):
+            continue
+        token = item.strip()
+        if token:
+            normalized.add(token)
+    return sorted(normalized)
+
+
+def _resolve_session_scope(user: User | None) -> list[str]:
+    stored_scope = session.get(API_LOGIN_SCOPE_SESSION_KEY)
+    candidates: list[str] = []
+    has_stored_scope = stored_scope is not None
+
+    if isinstance(stored_scope, str):
+        candidates.extend(part for part in stored_scope.split() if part)
+    elif isinstance(stored_scope, (list, tuple, set, frozenset)):
+        for part in stored_scope:
+            if isinstance(part, str) and part.strip():
+                candidates.append(part)
+
+    token_scope = getattr(g, "current_token_scope", None)
+    if token_scope:
+        candidates.extend(str(item) for item in token_scope if str(item).strip())
+
+    if not candidates and not has_stored_scope and user is not None:
+        permissions = getattr(user, "all_permissions", None)
+        if isinstance(permissions, (set, frozenset, list, tuple)):
+            candidates.extend(str(item) for item in permissions if str(item).strip())
+
+    normalized = _normalize_scope_items(candidates)
+    session[API_LOGIN_SCOPE_SESSION_KEY] = normalized
+    return normalized
+
+
+def _set_session_access_cookie(response, user: User) -> None:
+    scope_items = _resolve_session_scope(user)
+    try:
+        access_token = TokenService.generate_access_token(user, scope_items)
+    except Exception:  # pragma: no cover - defensive logging
+        current_app.logger.exception("Failed to regenerate session access token")
+        response.delete_cookie("access_token")
+        return
+
+    response.set_cookie(
+        "access_token",
+        access_token,
+        httponly=True,
+        secure=settings.session_cookie_secure,
+        samesite="Lax",
+    )
+
+
 def login_or_jwt_required(f):
     """Flask-LoginまたはJWT認証の両方に対応するデコレータ"""
     @wraps(f)
@@ -814,17 +873,34 @@ def login_or_jwt_required(f):
                     reason='invalid_token',
                     token_source=token_source or 'unknown',
                 )
+                if (
+                    token_source == 'cookie'
+                    and current_user.is_authenticated
+                    and isinstance(current_user, User)
+                ):
+                    _auth_log(
+                        'Regenerating access token from session after JWT failure',
+                        level='info',
+                        stage='fallback',
+                        reason='invalid_token',
+                        token_source=token_source or 'unknown',
+                        authenticated_user=_serialize_user_for_log(current_user),
+                    )
+                    response = make_response(f(*args, **kwargs))
+                    _set_session_access_cookie(response, current_user)
+                    return response
                 return jsonify({'error': 'invalid_token'}), 401
 
-            _set_jwt_context(principal, set(principal.scope))
-            _auth_log(
-                'Authentication successful via JWT',
-                stage='success',
-                auth_method='jwt',
-                token_source=token_source or 'unknown',
-                authenticated_user=_serialize_user_for_log(principal),
-            )
-            return f(*args, **kwargs)
+            else:
+                _set_jwt_context(principal, set(principal.scope))
+                _auth_log(
+                    'Authentication successful via JWT',
+                    stage='success',
+                    auth_method='jwt',
+                    token_source=token_source or 'unknown',
+                    authenticated_user=_serialize_user_for_log(principal),
+                )
+                return f(*args, **kwargs)
 
         if current_user.is_authenticated:
             _auth_log(
@@ -1846,6 +1922,7 @@ def api_login(data):
     user_permissions = user_model.all_permissions
     granted_scope = sorted(requested_scope & user_permissions)
     scope_str = " ".join(granted_scope)
+    session[API_LOGIN_SCOPE_SESSION_KEY] = granted_scope
 
     # TokenServiceを使用してトークンペアを生成
     access_token, refresh_token = TokenService.generate_token_pair(user_model, granted_scope)
@@ -1895,6 +1972,7 @@ def api_logout():
         logout_user()
 
     session.pop("picker_session_id", None)
+    session.pop(API_LOGIN_SCOPE_SESSION_KEY, None)
 
     resp = jsonify({"result": "ok"})
     resp.delete_cookie("access_token")
@@ -1916,6 +1994,7 @@ def api_refresh(data):
         return jsonify({"error": "invalid_token"}), 401
 
     access_token, new_refresh_token, scope_str = token_bundle
+    session[API_LOGIN_SCOPE_SESSION_KEY] = _normalize_scope_items(scope_str.split())
 
     resp = jsonify({
         "access_token": access_token,

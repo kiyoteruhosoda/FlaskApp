@@ -62,7 +62,7 @@ def _playback_not_ready(
 ) -> Dict[str, object]:
     """Return a standard response when playback assets are not yet available."""
 
-    blockers = {"reason": reason}
+    blockers: Dict[str, object] = {"reason": reason}
     if extra:
         blockers.update(extra)
 
@@ -137,8 +137,7 @@ def _select_playback(media_id: int) -> MediaPlayback | None:
         .first()
     )
 
-
-def _load_poster_image(pb: MediaPlayback, *, log: "StructuredTaskLogger" | None = None) -> tuple[Image.Image, str] | None:
+def _load_poster_image(pb: MediaPlayback, *, log: StructuredTaskLogger | None = None) -> tuple[Image.Image, str] | None:
     """Return poster image and rel path if it can be loaded from disk."""
 
     if not pb.poster_rel_path:
@@ -241,7 +240,7 @@ def _resolve_video_source(
     media: Media,
     rel_name: Path,
     *,
-    log: "StructuredTaskLogger" | None = None,
+    log: StructuredTaskLogger | None = None,
 ) -> tuple[_SourceResolution | None, Dict[str, object] | None]:
     """Resolve a base image for video thumbnails with graceful fallbacks."""
 
@@ -288,9 +287,8 @@ def _resolve_video_source(
             playback_expected_path=playback_path,
             playback_exists=playback_exists,
         )
-
     poster_result = _load_poster_image(pb, log=log)
-    poster_img = poster_result[0] if poster_result else None
+    poster_img, poster_rel_path = poster_result if poster_result else (None, None)
     candidate_paths: list[tuple[Path, str]] = []
     if pb.rel_path:
         candidate_paths.append((_play_dir() / pb.rel_path, "playback"))
@@ -302,7 +300,7 @@ def _resolve_video_source(
         if log:
             log.info(
                 "thumbnail_generation.poster_selected",
-                poster_rel_path=poster_result[1],
+                poster_rel_path=poster_rel_path,
                 poster_long_side=poster_quality,
             )
         return _SourceResolution(
@@ -341,7 +339,7 @@ def _resolve_video_source(
         if log:
             log.info(
                 "thumbnail_generation.poster_fallback",
-                poster_rel_path=poster_result[1],
+                poster_rel_path=poster_rel_path,
                 poster_long_side=poster_quality,
                 note=note,
             )
@@ -370,7 +368,7 @@ def _resolve_photo_source(
     media: Media,
     rel_name: Path,
     *,
-    log: "StructuredTaskLogger" | None = None,
+    log: StructuredTaskLogger | None = None,
 ) -> tuple[_SourceResolution | None, Dict[str, object] | None]:
     """Resolve a base image for photo thumbnails."""
 
@@ -430,7 +428,7 @@ def _resolve_source(
     media: Media,
     rel_name: Path,
     *,
-    log: "StructuredTaskLogger" | None = None,
+    log: StructuredTaskLogger | None = None,
 ) -> tuple[_SourceResolution | None, Dict[str, object] | None]:
     if media.is_video:
         return _resolve_video_source(media, rel_name, log=log)

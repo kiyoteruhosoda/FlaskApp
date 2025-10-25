@@ -8,6 +8,7 @@ import os
 
 from core.settings import settings
 from core.models.photo_models import PickerSelection
+from core.models.picker_session import PickerSession
 from ..extensions import db
 from . import bp
 from .openapi import json_request_body

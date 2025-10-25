@@ -84,11 +84,16 @@ class _StorageAccessor:
         if self._service is None:
             from core.storage_service import LocalFilesystemStorageService
 
-            self._service = LocalFilesystemStorageService(
-                config_resolver=self.configured,
-                env_resolver=self.environment,
+            service: "StorageService" = cast(
+                "StorageService",
+                LocalFilesystemStorageService(
+                    config_resolver=self.configured,
+                    env_resolver=self.environment,
+                ),
             )
-        return self._service
+            self._service = service
+
+        return cast("StorageService", self._service)
 
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -148,6 +153,8 @@ class ApplicationSettings:
         """Return an integer configuration value."""
 
         value = self._get(key)
+        if value is None:
+            return default
         try:
             return int(value)
         except (TypeError, ValueError):
@@ -321,10 +328,18 @@ class ApplicationSettings:
     # ------------------------------------------------------------------
     @property
     def service_account_signing_audiences(self) -> Tuple[str, ...]:
-        raw = self._get("SERVICE_ACCOUNT_SIGNING_AUDIENCE", "") or ""
+        raw = self._get("SERVICE_ACCOUNT_SIGNING_AUDIENCE")
+        if raw is None or (isinstance(raw, str) and not raw.strip()):
+            raw = self._env.get("SERVICE_ACCOUNT_SIGNING_AUDIENCE")
+
         if not raw:
             return ()
-        values = [segment.strip() for segment in raw.split(",")]
+
+        if isinstance(raw, (list, tuple)):
+            values = [str(item).strip() for item in raw]
+        else:
+            values = [segment.strip() for segment in str(raw).split(",")]
+
         return tuple(value for value in values if value)
 
     @property

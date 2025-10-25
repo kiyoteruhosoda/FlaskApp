@@ -15,6 +15,7 @@ from features.photonest.domain.local_import.media_entities import (
     build_media_item_from_analysis,
     ensure_exif_for_media,
 )
+from features.photonest.domain.local_import.media_file import MediaFileAnalysis
 
 
 class PlaybackError(RuntimeError):
@@ -22,12 +23,18 @@ class PlaybackError(RuntimeError):
 
 
 class AnalysisService(Protocol):
-    def __call__(self, file_path: str):
+    def __call__(self, file_path: str) -> MediaFileAnalysis:
         ...
 
 
 class PostProcessService(Protocol):
-    def __call__(self, media, *, logger_override, request_context: Dict[str, Any]):
+    def __call__(
+        self,
+        media,
+        *,
+        logger_override,
+        request_context: Dict[str, Any],
+    ) -> Dict[str, Any]:
         ...
 
 

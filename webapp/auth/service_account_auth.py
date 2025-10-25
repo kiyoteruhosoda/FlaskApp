@@ -269,7 +269,8 @@ class ServiceAccountTokenValidator:
                 _("The token issue time is in the future."),
             )
 
-        _ServiceAccountJTIStore.mark_as_used(claims.get("jti"), issued_at, expires_at)
+        jti_value = claims.get("jti")
+        _ServiceAccountJTIStore.mark_as_used(jti_value, issued_at, expires_at)
 
         account_scopes = set(account.scopes)
         if required_scopes:
@@ -288,6 +289,53 @@ def _extract_bearer_token() -> str | None:
     if auth_header.lower().startswith("bearer "):
         return auth_header.split(" ", 1)[1].strip()
     return None
+
+def _combine_allowed_audiences(
+    candidate: str | Sequence[str] | None,
+) -> str | list[str] | None:
+    """Merge dynamic and configured audience values."""
+
+    configured = settings.service_account_signing_audiences
+    raw_env = settings._env.get("SERVICE_ACCOUNT_SIGNING_AUDIENCE")  # type: ignore[attr-defined]
+    if raw_env:
+        if isinstance(raw_env, str):
+            env_values = [segment.strip() for segment in raw_env.split(",")]
+        else:
+            env_values = [str(raw_env)]
+    else:
+        env_values = []
+
+    def _append(values: list[str], value: object | None) -> None:
+        if value is None:
+            return
+        if isinstance(value, str):
+            text = value.strip()
+        else:
+            text = str(value).strip()
+        if not text:
+            return
+        if text not in values:
+            values.append(text)
+
+    allowed: list[str] = []
+
+    if isinstance(candidate, (list, tuple, set)):
+        for item in candidate:
+            _append(allowed, item)
+    else:
+        _append(allowed, candidate)
+
+    for item in configured:
+        _append(allowed, item)
+
+    for item in env_values:
+        _append(allowed, item)
+
+    if not allowed:
+        return None
+    if len(allowed) == 1:
+        return allowed[0]
+    return allowed
 
 
 def require_service_account_scopes(
@@ -308,10 +356,12 @@ def require_service_account_scopes(
             else:
                 resolved_audience = audience
 
+            merged_audience = _combine_allowed_audiences(resolved_audience)
+
             try:
                 account, claims = ServiceAccountTokenValidator.verify(
                     token,
-                    audience=resolved_audience,
+                    audience=merged_audience,
                     required_scopes=scopes,
                 )
             except ServiceAccountJWTError as exc:
@@ -320,7 +370,7 @@ def require_service_account_scopes(
                     extra={
                         "event": "service_account.auth_failed",
                         "code": exc.code,
-                        "message": exc.message,
+                        "error_message": exc.message,
                         "endpoint": request.path,
                     },
                 )

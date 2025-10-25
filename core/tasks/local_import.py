@@ -5,7 +5,7 @@ import os
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
 
 from core.db import db
 from core.models.photo_models import (
@@ -436,11 +436,14 @@ def _spawn_storage_service() -> StorageService:
     spawner = getattr(base_service, "spawn", None)
     if callable(spawner):
         spawned = spawner()
-        if spawned is not None:
+        if spawned is not None and isinstance(spawned, StorageService):
             return spawned
-    return LocalFilesystemStorageService(
-        config_resolver=settings.storage.configured,
-        env_resolver=settings.storage.environment,
+    return cast(
+        StorageService,
+        LocalFilesystemStorageService(
+            config_resolver=settings.storage.configured,
+            env_resolver=settings.storage.environment,
+        ),
     )
 
 
@@ -450,16 +453,14 @@ _import_destination_storage: StorageService = _spawn_storage_service()
 # Explicit mapping of config keys to storage services
 _STORAGE_SERVICE_MAP = {
     "LOCAL_IMPORT_DIR": _import_source_storage,
-    # Add more config keys and their corresponding storage services here as needed
+    "FPV_NAS_ORIGINALS_DIR": _import_destination_storage,
+    "FPV_NAS_PLAY_DIR": _import_destination_storage,
+    "FPV_NAS_THUMBS_DIR": _import_destination_storage,
 }
 
+
 def _storage_for_config_key(config_key: str) -> StorageService:
-    try:
-        return _STORAGE_SERVICE_MAP[config_key]
-    except KeyError:
-        # Default to destination storage for unknown keys, or raise an error for clarity
-        # return _import_destination_storage
-        raise ValueError(f"Unknown storage config key: {config_key!r}")
+    return _STORAGE_SERVICE_MAP.get(config_key, _import_destination_storage)
 _zip_service = ZipArchiveService(
     _log_info,
     _log_warning,
@@ -1168,12 +1169,22 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
     try:
         import_dir = _resolve_directory('LOCAL_IMPORT_DIR')
     except RuntimeError:
-        import_dir = BaseApplicationSettings.LOCAL_IMPORT_DIR
+        fallback_import = BaseApplicationSettings.LOCAL_IMPORT_DIR
+        if not isinstance(fallback_import, (str, os.PathLike)):
+            raise RuntimeError(
+                "BaseApplicationSettings.LOCAL_IMPORT_DIR must be configured as a path"
+            )
+        import_dir = os.fspath(fallback_import)
 
     try:
         originals_dir = _resolve_directory('FPV_NAS_ORIGINALS_DIR')
     except RuntimeError:
-        originals_dir = BaseApplicationSettings.FPV_NAS_ORIGINALS_DIR
+        fallback_originals = BaseApplicationSettings.FPV_NAS_ORIGINALS_DIR
+        if not isinstance(fallback_originals, (str, os.PathLike)):
+            raise RuntimeError(
+                "BaseApplicationSettings.FPV_NAS_ORIGINALS_DIR must be configured as a path"
+            )
+        originals_dir = os.fspath(fallback_originals)
 
     celery_task_id = None
     if task_instance is not None:

@@ -6,9 +6,9 @@ import importlib
 import importlib.util
 import os
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timezone, tzinfo
 from pathlib import Path
-from typing import Any, Final, Iterator
+from typing import Any, Final, Iterator, cast
 from zoneinfo import ZoneInfo
 
 from flask import current_app
@@ -63,10 +63,10 @@ def open_image_compat(path: str | Path) -> Iterator[Image.Image]:
     when the context exits.
     """
 
-    image_obj: Image.Image | None = None
+    img: Any = None
 
     try:
-        image_obj = Image.open(path)
+        img = Image.open(path)
     except UnidentifiedImageError:
         try:
             from pillow_heif import open_heif  # type: ignore
@@ -74,18 +74,19 @@ def open_image_compat(path: str | Path) -> Iterator[Image.Image]:
             raise
 
         heif_file = open_heif(str(path))
-        image_obj = heif_file.to_pillow()
+        img = heif_file.to_pillow()
         # ``heif_file`` instances do not provide ``close`` and are managed by
         # the library, so we only manage the Pillow image here.
+
+    image_obj = cast(Image.Image, img)
 
     try:
         yield image_obj
     finally:
-        if image_obj is not None:
-            try:
-                image_obj.close()
-            except Exception:
-                pass
+        try:
+            image_obj.close()
+        except Exception:
+            pass
 
 
 def greet(name: str) -> str:
@@ -164,7 +165,7 @@ def get_file_date_from_name(filename: str) -> datetime | None:
     return None
 
 
-def _default_app_timezone() -> timezone:
+def _default_app_timezone() -> tzinfo:
     """Return the application's default timezone.
 
     The function prefers the Flask ``BABEL_DEFAULT_TIMEZONE`` configuration
@@ -183,7 +184,7 @@ def _default_app_timezone() -> timezone:
     return timezone.utc
 
 
-def _extract_offset_timezone(tag: str, exif_data: dict) -> timezone | None:
+def _extract_offset_timezone(tag: str, exif_data: dict) -> tzinfo | None:
     """Return a timezone derived from EXIF offset tags if available.
 
     EXIF 2.31 introduces dedicated offset tags that accompany the primary

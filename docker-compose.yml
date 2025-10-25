@@ -1,6 +1,19 @@
 version: '3.8'
 
 services:
+  db:
+    image: mariadb:10.11
+    ports:
+      - "3307:3306"
+    env_file:
+      - .env
+    volumes:
+      - ./db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p${MARIADB_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
   web:
     image: photonest:latest
     # container_name: 削除 ← プロジェクト名に任せる
@@ -27,9 +40,12 @@ services:
       - UPLOAD_TMP_DIR=/app/data/tmp/upload
       - UPLOAD_DESTINATION_DIR=/app/data/uploads
       - API_BASE_URL=${API_BASE_URL:-http://localhost:5000}
+      - DATABASE_URI=mysql+pymysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}?charset=utf8mb4
     env_file:
       - .env
     depends_on:
+      db:
+        condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
@@ -62,9 +78,12 @@ services:
       - UPLOAD_TMP_DIR=/app/data/tmp/upload
       - UPLOAD_DESTINATION_DIR=/app/data/uploads
       - API_BASE_URL=${API_BASE_URL:-http://localhost:5000}
+      - DATABASE_URI=mysql+pymysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}?charset=utf8mb4
     env_file:
       - .env
     depends_on:
+      db:
+        condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
@@ -101,11 +120,14 @@ services:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - API_BASE_URL=${API_BASE_URL:-http://localhost:5000}
+      - DATABASE_URI=mysql+pymysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}?charset=utf8mb4
     env_file:
       - .env
     depends_on:
-      redis:
+      db:
         condition: service_healthy
+      redis:
+        condition: service_healthy        
     user: "${PUID:-1000}:${PGID:-1000}"
     restart: unless-stopped
     healthcheck:

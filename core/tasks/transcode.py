@@ -435,6 +435,10 @@ def transcode_queue_scan() -> Dict[str, object]:
     )
 
     for m in medias:
+        if not m.local_rel_path:
+            skipped += 1
+            continue
+
         src_path = _orig_dir() / m.local_rel_path
         if not src_path.exists():
             skipped += 1
@@ -458,14 +462,13 @@ def transcode_queue_scan() -> Dict[str, object]:
             pb.error_msg = None
             pb.updated_at = now
         else:
-            pb = MediaPlayback(
-                media_id=m.id,
-                preset="std1080p",
-                rel_path=rel_path,
-                status="pending",
-                created_at=now,
-                updated_at=now,
-            )
+            pb = MediaPlayback()
+            pb.media_id = m.id
+            pb.preset = "std1080p"
+            pb.rel_path = rel_path
+            pb.status = "pending"
+            pb.created_at = now
+            pb.updated_at = now
             db.session.add(pb)
         queued += 1
 

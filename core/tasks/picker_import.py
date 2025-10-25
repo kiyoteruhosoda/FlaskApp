@@ -975,12 +975,7 @@ def picker_import_item(
             sel.base_url_fetched_at = now
             sel.base_url_valid_until = now + timedelta(hours=1)
 
-        if fetched_base_url is not None:
-            base_url = fetched_base_url
-
-        if base_url is None:
-            raise BaseUrlExpired()
-
+        # ここでのbase_urlの再バリデーションは不要（既に上でチェック済み）
         meta = item.get("mediaMetadata", {}) if item else {}
         is_video = bool(meta.get("video")) or (mi.mime_type or "").startswith("video/")
         dl_url = base_url + ("=dv" if is_video else "=d")

@@ -462,13 +462,14 @@ def transcode_queue_scan() -> Dict[str, object]:
             pb.error_msg = None
             pb.updated_at = now
         else:
-            pb = MediaPlayback()
-            pb.media_id = m.id
-            pb.preset = "std1080p"
-            pb.rel_path = rel_path
-            pb.status = "pending"
-            pb.created_at = now
-            pb.updated_at = now
+            pb = MediaPlayback(
+                media_id=m.id,
+                preset="std1080p",
+                rel_path=rel_path,
+                status="pending",
+                created_at=now,
+                updated_at=now,
+            )
             db.session.add(pb)
         queued += 1
 

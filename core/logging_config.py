@@ -23,7 +23,7 @@ def _resolve_flask_app() -> Optional["Flask"]:
 
     if not has_app_context():
         return None
-    return cast("Flask", cast(Any, current_app)._get_current_object())
+    return cast("Flask", current_app._get_current_object())
 
 
 def _create_appdb_db_handler() -> logging.Handler:

@@ -33,6 +33,15 @@ class WikiPageUpdateCommand:
     has_admin_rights: bool
 
 
+@dataclass(frozen=True)
+class WikiPageDeleteCommand:
+    """ページ削除に必要な値を正規化したコマンド。"""
+
+    slug: str
+    executor_id: int
+    has_admin_rights: bool
+
+
 class WikiPageCommandFactory:
     """入力値を正規化しドメインコマンドへ変換するファクトリ。"""
 
@@ -88,6 +97,23 @@ class WikiPageCommandFactory:
             has_admin_rights=has_admin_rights,
         )
 
+    def build_delete_command(
+        self,
+        *,
+        slug: str,
+        executor_id: int,
+        has_admin_rights: bool,
+    ) -> WikiPageDeleteCommand:
+        normalized_slug = self._normalize_slug_for_lookup(slug)
+        if not normalized_slug:
+            raise WikiValidationError("Page identifier is required.")
+
+        return WikiPageDeleteCommand(
+            slug=normalized_slug,
+            executor_id=executor_id,
+            has_admin_rights=has_admin_rights,
+        )
+
     @staticmethod
     def _normalize_required(value: str | None, error_message: str) -> str:
         normalized = (value or "").strip()
@@ -138,5 +164,6 @@ __all__ = [
     "WikiPageCommandFactory",
     "WikiPageCreationCommand",
     "WikiPageUpdateCommand",
+    "WikiPageDeleteCommand",
 ]
 

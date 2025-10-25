@@ -27,6 +27,8 @@ from features.wiki.application.dto import (
     WikiPageFormPreparation,
     WikiPageHistoryView,
     WikiPageSearchResult,
+    WikiPageDeleteInput,
+    WikiPageDeleteResult,
     WikiPageUpdateInput,
     WikiPageUpdateResult,
     WikiMediaUploadResult,
@@ -222,6 +224,41 @@ class WikiPageUpdateUseCase:
             raise WikiOperationError("ページの更新に失敗しました")
 
         return WikiPageUpdateResult(page=updated_page)
+
+
+class WikiPageDeletionUseCase:
+    """ページ削除ユースケース"""
+
+    def __init__(
+        self,
+        page_service: Optional[WikiPageService] = None,
+        command_factory: Optional[WikiPageCommandFactory] = None,
+        permission_service: Optional[WikiPagePermissionService] = None,
+    ) -> None:
+        self.page_service = page_service or WikiPageService()
+        self.command_factory = command_factory or WikiPageCommandFactory()
+        self.permission_service = permission_service or WikiPagePermissionService()
+
+    def execute(self, data: WikiPageDeleteInput) -> WikiPageDeleteResult:
+        command = self.command_factory.build_delete_command(
+            slug=data.slug,
+            executor_id=data.executor_id,
+            has_admin_rights=data.has_admin_rights,
+        )
+
+        page = self.page_service.get_page_by_slug(command.slug)
+        if not page:
+            raise WikiPageNotFoundError(f"slug={command.slug}")
+
+        editor = EditorContext(user_id=command.executor_id, is_admin=command.has_admin_rights)
+        if not self.permission_service.can_delete(page, editor):
+            raise WikiAccessDeniedError("You do not have permission to delete this page.")
+
+        success = self.page_service.delete_page(page.id, user_id=command.executor_id)
+        if not success:
+            raise WikiOperationError("page_has_children")
+
+        return WikiPageDeleteResult(slug=page.slug)
 
 
 class WikiPageSearchUseCase:
@@ -476,6 +513,7 @@ __all__ = [
     "WikiPageEditPreparationUseCase",
     "WikiPageFormPreparationUseCase",
     "WikiPageHistoryUseCase",
+    "WikiPageDeletionUseCase",
     "WikiPageSearchUseCase",
     "WikiPageUpdateUseCase",
     "WikiMediaUploadUseCase",

@@ -49,6 +49,11 @@ class WikiPagePermissionService:
 
         return getattr(page, "created_by_id", None) == editor.user_id
 
+    def can_delete(self, page: SupportsWikiPage | WikiPageEntity, editor: EditorContext) -> bool:
+        """指定したユーザーがページを削除できるか判定する。"""
+
+        return self.can_edit(page, editor)
+
 
 __all__ = ["EditorContext", "WikiPagePermissionService", "SupportsWikiPage"]
 

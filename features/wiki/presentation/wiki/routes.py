@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 from flask import abort, flash, jsonify, redirect, render_template, request, url_for
+from flask_babel import _
 from flask_login import current_user
 
-from features.wiki.application.dto import WikiCategoryCreateInput, WikiPageCreateInput, WikiPageUpdateInput
+from features.wiki.application.dto import (
+    WikiCategoryCreateInput,
+    WikiPageCreateInput,
+    WikiPageDeleteInput,
+    WikiPageUpdateInput,
+)
 from features.wiki.application.use_cases import (
     WikiAdminDashboardUseCase,
     WikiApiPagesUseCase,
@@ -21,6 +27,7 @@ from features.wiki.application.use_cases import (
     WikiPageFormPreparationUseCase,
     WikiPageHistoryUseCase,
     WikiPageSearchUseCase,
+    WikiPageDeletionUseCase,
     WikiPageUpdateUseCase,
 )
 from core.models.authz import require_perms
@@ -156,6 +163,42 @@ def edit_page(slug: str):
 
     flash("ページを更新しました", "success")
     return redirect(url_for("wiki.view_page", slug=result.page.slug))
+
+
+@bp.route("/page/<slug>/delete", methods=["POST"])
+@require_perms("wiki:write")
+def delete_page(slug: str):
+    """Wikiページ削除"""
+
+    has_admin_rights = current_user.can("wiki:admin")
+    payload = WikiPageDeleteInput(
+        slug=slug,
+        executor_id=current_user.id,
+        has_admin_rights=has_admin_rights,
+    )
+
+    try:
+        WikiPageDeletionUseCase().execute(payload)
+    except WikiValidationError:
+        flash(_("Page identifier is required."), "error")
+        return redirect(url_for("wiki.view_page", slug=slug))
+    except WikiPageNotFoundError:
+        abort(404)
+    except WikiAccessDeniedError:
+        flash(_("You do not have permission to delete this page."), "error")
+        return redirect(url_for("wiki.view_page", slug=slug))
+    except WikiOperationError as exc:
+        if str(exc) == "page_has_children":
+            flash(_("Cannot delete a page that has child pages."), "error")
+        else:
+            flash(_("Failed to delete the page."), "error")
+        return redirect(url_for("wiki.view_page", slug=slug))
+    except Exception:  # noqa: BLE001 - フォールバック
+        flash(_("Failed to delete the page."), "error")
+        return redirect(url_for("wiki.view_page", slug=slug))
+
+    flash(_("Page deleted successfully."), "success")
+    return redirect(url_for("wiki.index"))
 
 
 @bp.route("/search")

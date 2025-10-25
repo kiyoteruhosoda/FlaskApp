@@ -3383,3 +3383,21 @@ msgstr "ナビゲーションを隠す"
 msgid "Show navigation"
 msgstr "ナビゲーションを表示"
 
+msgid "Page identifier is required."
+msgstr "ページ識別子は必須です。"
+
+msgid "You do not have permission to delete this page."
+msgstr "このページを削除する権限がありません。"
+
+msgid "Cannot delete a page that has child pages."
+msgstr "子ページが存在するため削除できません。"
+
+msgid "Failed to delete the page."
+msgstr "ページの削除に失敗しました。"
+
+msgid "Page deleted successfully."
+msgstr "ページを削除しました。"
+
+msgid "Are you sure you want to delete this page?"
+msgstr "このページを削除してもよろしいですか？"
+

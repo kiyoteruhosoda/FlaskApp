@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, cast
 
 from flask import current_app, has_app_context
 
@@ -14,12 +14,24 @@ _APPDB_HANDLER_ATTR = "_is_appdb_log_handler"
 _WORKER_HANDLER_ATTR = "_is_worker_db_log_handler"
 
 
+if TYPE_CHECKING:  # pragma: no cover
+    from flask import Flask
+
+
+def _resolve_flask_app() -> Optional["Flask"]:
+    """Return the concrete Flask app when an application context is active."""
+
+    if not has_app_context():
+        return None
+    return cast("Flask", cast(Any, current_app)._get_current_object())
+
+
 def _create_appdb_db_handler() -> logging.Handler:
     """Create a DBLogHandler configured for appdb logging."""
 
     from core.db_log_handler import DBLogHandler
 
-    app_obj = current_app._get_current_object() if has_app_context() else None
+    app_obj = _resolve_flask_app()
     handler = DBLogHandler(app=app_obj)
     handler.setLevel(logging.INFO)
     setattr(handler, _APPDB_HANDLER_ATTR, True)
@@ -50,7 +62,7 @@ def _create_worker_db_handler() -> logging.Handler:
 
     from core.db_log_handler import WorkerDBLogHandler
 
-    app_obj = current_app._get_current_object() if has_app_context() else None
+    app_obj = _resolve_flask_app()
     handler = WorkerDBLogHandler(app=app_obj)
     handler.setLevel(logging.INFO)
     setattr(handler, _WORKER_HANDLER_ATTR, True)

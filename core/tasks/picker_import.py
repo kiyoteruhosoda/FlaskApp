@@ -27,7 +27,17 @@ import shutil
 import tempfile
 from pathlib import Path
 import threading
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    SupportsIndex,
+    SupportsInt,
+    Tuple,
+    cast,
+)
 
 import requests
 from sqlalchemy import update
@@ -48,7 +58,8 @@ from core.logging_config import setup_task_logging, log_task_error, log_task_inf
 from core.settings import ApplicationSettings, settings
 from core.tasks import media_post_processing
 from core.tasks.media_post_processing import process_media_post_import
-from flask import current_app
+from flask import Flask, current_app
+from werkzeug.local import LocalProxy
 from core.utils import open_image_compat
 
 # picker_import専用ロガーを取得（両方のログハンドラーが設定済み）
@@ -511,7 +522,10 @@ def _download(url: str, dest_dir: Path, headers: Dict[str, str] | None = None) -
         raise
 
 
-def _coerce_positive_int(value: object) -> Optional[int]:
+ConvertibleToInt = SupportsInt | SupportsIndex | str | bytes | bytearray
+
+
+def _coerce_positive_int(value: ConvertibleToInt | None) -> Optional[int]:
     """Return *value* coerced to ``int`` when possible and positive."""
 
     try:
@@ -587,7 +601,8 @@ def _start_lock_heartbeat(selection_id: int, locked_by: str, interval: float) ->
     """Start background thread sending lock heartbeats."""
 
     stop = threading.Event()
-    app = current_app._get_current_object()
+    app_proxy = cast(LocalProxy[Flask], current_app)
+    app = cast(Flask, app_proxy._get_current_object())
 
     if settings.testing:
         class _NoopThread:
@@ -951,13 +966,16 @@ def picker_import_item(
                 )
                 raise NetworkError()
 
-            base_url = item.get("baseUrl")
-            if not base_url:
+        fetched_base_url: str | None = None
+        if item is not None:
+            fetched_base_url = item.get("baseUrl")
+            if not fetched_base_url:
                 raise BaseUrlExpired()
-            sel.base_url = base_url
+            sel.base_url = fetched_base_url
             sel.base_url_fetched_at = now
             sel.base_url_valid_until = now + timedelta(hours=1)
 
+        # ここでのbase_urlの再バリデーションは不要（既に上でチェック済み）
         meta = item.get("mediaMetadata", {}) if item else {}
         is_video = bool(meta.get("video")) or (mi.mime_type or "").startswith("video/")
         dl_url = base_url + ("=dv" if is_video else "=d")
@@ -1157,24 +1175,27 @@ def picker_import_item(
                     is_video=is_video,
                 )
 
-                media = Media(
-                    source_type="google_photos",
-                    google_media_id=mi.id,
-                    account_id=ps.account_id,
-                    local_rel_path=str(out_rel),
-                    filename=mi.filename or Path(out_rel).name,
-                    hash_sha256=dl.sha256,
-                    bytes=dl.bytes,
-                    mime_type=mi.mime_type,
-                    width=width_value,
-                    height=height_value,
-                    duration_ms=int(meta.get("video", {}).get("durationMillis", 0) or 0)
-                    if is_video
-                    else None,
-                    shot_at=shot_at,
-                    imported_at=now,
-                    is_video=is_video,
-                )
+                media_kwargs: dict[str, Any] = {
+                    "source_type": "google_photos",
+                    "google_media_id": mi.id,
+                    "account_id": ps.account_id,
+                    "local_rel_path": str(out_rel),
+                    "filename": mi.filename or Path(out_rel).name,
+                    "hash_sha256": dl.sha256,
+                    "bytes": dl.bytes,
+                    "mime_type": mi.mime_type,
+                    "width": width_value,
+                    "height": height_value,
+                    "duration_ms": (
+                        int(meta.get("video", {}).get("durationMillis", 0) or 0)
+                        if is_video
+                        else None
+                    ),
+                    "shot_at": shot_at,
+                    "imported_at": now,
+                    "is_video": is_video,
+                }
+                media = Media(**media_kwargs)
                 db.session.add(media)
                 db.session.flush()
 
@@ -1382,6 +1403,20 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
     if note == "no_selection":
         return {"ok": True, "imported": 0, "dup": 0, "failed": 0}
 
+    if ps is None or gacc is None:
+        logger.error(
+            json.dumps(
+                {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "session_id": picker_session_id,
+                    "account_id": account_id,
+                    "error": "session_state_invalid",
+                }
+            ),
+            extra={"event": "picker.session.error"},
+        )
+        return {"ok": False, "imported": 0, "dup": 0, "failed": 0, "note": "session_state_invalid"}
+
     stats = ps.stats()
     stats["selected_count"] = len(selected_ids)
     processed_ids = stats.get("processed_ids", [])
@@ -1479,22 +1514,23 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
                 is_video=is_video,
             )
 
-            media = Media(
-                source_type="google_photos",
-                google_media_id=media_id,
-                account_id=account_id,
-                local_rel_path=str(out_rel),
-                filename=filename or Path(out_rel).name,
-                hash_sha256=dl.sha256,
-                bytes=dl.bytes,
-                mime_type=mime,
-                width=width_value,
-                height=height_value,
-                duration_ms=int(meta.get("video", {}).get("durationMillis", 0) or 0),
-                shot_at=shot_at,
-                imported_at=datetime.now(timezone.utc),
-                is_video=is_video,
-            )
+            media_kwargs: dict[str, Any] = {
+                "source_type": "google_photos",
+                "google_media_id": media_id,
+                "account_id": account_id,
+                "local_rel_path": str(out_rel),
+                "filename": filename or Path(out_rel).name,
+                "hash_sha256": dl.sha256,
+                "bytes": dl.bytes,
+                "mime_type": mime,
+                "width": width_value,
+                "height": height_value,
+                "duration_ms": int(meta.get("video", {}).get("durationMillis", 0) or 0),
+                "shot_at": shot_at,
+                "imported_at": datetime.now(timezone.utc),
+                "is_video": is_video,
+            }
+            media = Media(**media_kwargs)
             db.session.add(media)
             db.session.flush()  # obtain media.id
 

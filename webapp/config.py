@@ -62,7 +62,7 @@ class BaseApplicationSettings:
     GOOGLE_CLIENT_ID = _default("GOOGLE_CLIENT_ID")
     GOOGLE_CLIENT_SECRET = _default("GOOGLE_CLIENT_SECRET")
 
-    # Encryption for OAuth tokens
+    # Token encryption
     OAUTH_TOKEN_KEY = _default("OAUTH_TOKEN_KEY")
     OAUTH_TOKEN_KEY_FILE = _default("OAUTH_TOKEN_KEY_FILE")
 

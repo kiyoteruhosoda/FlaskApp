@@ -10,16 +10,16 @@ def _gen_key() -> str:
     return base64.urlsafe_b64encode(os.urandom(32)).decode()
 
 
-def test_validate_oauth_key_valid():
+def test_validate_encryption_key_valid():
     key = _gen_key()
-    ok, msg = crypto.validate_oauth_key(key)
+    ok, msg = crypto.validate_encryption_key(key)
     assert ok is True
     assert msg == "base64(32bytes)"
 
 
-def test_validate_oauth_key_invalid_length():
+def test_validate_encryption_key_invalid_length():
     bad_key = base64.urlsafe_b64encode(b'123').decode()
-    ok, msg = crypto.validate_oauth_key(bad_key)
+    ok, msg = crypto.validate_encryption_key(bad_key)
     assert ok is False
     assert "invalid base64 length" in msg
 

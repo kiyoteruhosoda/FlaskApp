@@ -15,8 +15,8 @@ def test_defaults_are_applied_when_env_missing():
     assert settings.logs_database_uri == "sqlite:///application_logs.db"
     assert settings.google_client_id == ""
     assert settings.google_client_secret == ""
-    assert settings.oauth_token_key is None
-    assert settings.oauth_token_key_file is None
+    assert settings.token_encryption_key is None
+    assert settings.token_encryption_key_file is None
     assert settings.transcode_crf == 20
     assert settings.service_account_signing_audiences == ()
     assert settings.access_token_issuer == "fpv-webapp"
@@ -49,8 +49,8 @@ def test_environment_overrides_are_reflected():
     assert settings.logs_database_uri == "sqlite:///logs.db"
     assert settings.google_client_id == "client"
     assert settings.google_client_secret == "secret"
-    assert settings.oauth_token_key == "base64:QUJDREVGR0hJSktMTU5PUA=="
-    assert settings.oauth_token_key_file == "/secrets/token.key"
+    assert settings.token_encryption_key == "base64:QUJDREVGR0hJSktMTU5PUA=="
+    assert settings.token_encryption_key_file == "/secrets/token.key"
     assert settings.transcode_crf == 24
     assert settings.service_account_signing_audiences == ("aud-a", "aud-b", "aud-c")
     assert settings.access_token_issuer == "issuer-x"

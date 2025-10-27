@@ -313,11 +313,11 @@ class ApplicationSettings:
         return self._get("GOOGLE_CLIENT_SECRET", "") or ""
 
     @property
-    def oauth_token_key(self) -> Optional[str]:
+    def token_encryption_key(self) -> Optional[str]:
         return self._get("OAUTH_TOKEN_KEY")
 
     @property
-    def oauth_token_key_file(self) -> Optional[str]:
+    def token_encryption_key_file(self) -> Optional[str]:
         path = self._get("OAUTH_TOKEN_KEY_FILE")
         if path:
             return path

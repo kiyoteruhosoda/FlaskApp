@@ -27,8 +27,8 @@ def _decode_key(raw: str) -> bytes:
     return key
 
 
-def validate_oauth_key(raw: str) -> Tuple[bool, str]:
-    """Validate OAuth encryption key string using ``_load_key`` logic."""
+def validate_encryption_key(raw: str) -> Tuple[bool, str]:
+    """Validate token encryption key string using ``_load_key`` logic."""
 
     if not raw:
         return False, "not set"
@@ -44,11 +44,11 @@ def _load_key(raw: Optional[str] = None, *, config: ApplicationSettings = settin
     if raw is not None:
         return _decode_key(raw)
 
-    key_str = config.oauth_token_key
+    key_str = config.token_encryption_key
     if key_str:
         return _decode_key(key_str)
 
-    path = config.oauth_token_key_file
+    path = config.token_encryption_key_file
     if path:
         with open(path, "r") as f:
             return _decode_key(f.read().strip())

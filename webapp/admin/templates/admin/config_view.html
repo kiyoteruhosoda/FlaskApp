@@ -452,10 +452,45 @@
                       </td>
                       <td>{% if field.required %}{{ _('Yes') }}{% else %}{{ _('No') }}{% endif %}</td>
                       <td class="small">
-                        {{ field.description }}
+                        <div data-field-description-text>{{ field.description }}</div>
+                        {% set default_label = _('Default description: %(description)s', description='__DEFAULT__') %}
+                        {% if field.custom_description and field.base_description %}
+                        <div
+                          class="text-muted small mt-1"
+                          data-field-description-default
+                          data-default-label="{{ default_label }}"
+                        >
+                          {{ _('Default description: %(description)s', description=field.base_description) }}
+                        </div>
+                        {% else %}
+                        <div
+                          class="text-muted small mt-1{% if not field.base_description %} d-none{% endif %}"
+                          data-field-description-default
+                          data-default-label="{{ default_label }}"
+                        >
+                          {% if field.base_description %}
+                          {{ _('Default description: %(description)s', description=field.base_description) }}
+                          {% endif %}
+                        </div>
+                        {% endif %}
                         {% if field.default_hint %}
                         <div class="text-muted">{{ field.default_hint }}</div>
                         {% endif %}
+                        <div class="mt-2">
+                          <label class="form-label mb-1" for="app-config-description-{{ field.key }}">
+                            {{ _('Custom description (optional)') }}
+                          </label>
+                          <textarea
+                            class="form-control form-control-sm"
+                            id="app-config-description-{{ field.key }}"
+                            name="app_config_description[{{ field.key }}]"
+                            rows="2"
+                            data-field-description-input
+                          >{{- field.custom_description_input|default('') -}}</textarea>
+                          <div class="form-text">
+                            {{ _('Leave blank to use the default description shown above.') }}
+                          </div>
+                        </div>
                       </td>
                       <td>
                         {% if field.editable %}

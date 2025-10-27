@@ -203,11 +203,19 @@ def _build_setting_row(
     override_values: Mapping[str, str],
     selected: set[str],
     default_flags: set[str],
+    custom_descriptions: Mapping[str, str] | None = None,
+    description_overrides: Mapping[str, str] | None = None,
 ) -> Dict[str, Any]:
     current_value = effective_config.get(key)
     stored_has_value = key in stored_payload
     stored_value = stored_payload.get(key)
     default_value = defaults.get(key)
+    persisted_description: str | None = None
+    if custom_descriptions and key in custom_descriptions:
+        persisted_description = custom_descriptions[key]
+    override_description: str | None = None
+    if description_overrides and key in description_overrides:
+        override_description = description_overrides[key]
 
     if key in override_values:
         form_value = override_values[key]
@@ -223,10 +231,33 @@ def _build_setting_row(
         f"{value} {label}" for value, label in choices
     )
 
+    if isinstance(override_description, str):
+        normalized_override = override_description.strip()
+    else:
+        normalized_override = None
+    if isinstance(persisted_description, str):
+        normalized_persisted = persisted_description.strip()
+    else:
+        normalized_persisted = None
+
+    if normalized_override:
+        custom_description = normalized_override
+        description_source = "override"
+    elif override_description is not None:
+        custom_description = None
+        description_source = "default"
+    elif normalized_persisted:
+        custom_description = persisted_description
+        description_source = "custom"
+    else:
+        custom_description = None
+        description_source = "default"
+
     search_text = _compose_search_text(
         key,
         definition.label,
         definition.description,
+        custom_description,
         current_json,
         default_json,
         form_value,
@@ -234,12 +265,20 @@ def _build_setting_row(
         choices_text,
     )
 
+    base_description = definition.description
+    effective_description = custom_description or base_description
+    description_input_value = (
+        override_description
+        if override_description is not None
+        else (persisted_description or "")
+    )
+
     return {
         "key": key,
         "label": definition.label,
         "data_type": definition.data_type,
         "required": definition.required,
-        "description": definition.description,
+        "description": effective_description,
         "current_json": current_json,
         "default_json": default_json,
         "form_value": form_value,
@@ -253,6 +292,10 @@ def _build_setting_row(
         "editable": definition.editable,
         "default_hint": definition.default_hint,
         "search_text": search_text,
+        "base_description": base_description,
+        "custom_description": custom_description,
+        "custom_description_input": description_input_value,
+        "description_source": description_source,
     }
 
 
@@ -264,10 +307,14 @@ def _prepare_application_field_models(
     overrides: Dict[str, str] | None = None,
     selected_keys: set[str] | None = None,
     default_flags: set[str] | None = None,
+    custom_descriptions: Mapping[str, str] | None = None,
+    description_overrides: Mapping[str, str] | None = None,
 ) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]]]:
     override_values = overrides or {}
     selected = selected_keys or set()
     defaults = default_flags or set()
+    descriptions = custom_descriptions or {}
+    description_inputs = description_overrides or {}
 
     rows_by_key: dict[str, Dict[str, Any]] = {}
     for key in sorted(definitions):
@@ -281,6 +328,8 @@ def _prepare_application_field_models(
             override_values=override_values,
             selected=selected,
             default_flags=defaults,
+            custom_descriptions=descriptions,
+            description_overrides=description_inputs,
         )
 
     sections: list[Dict[str, Any]] = []
@@ -396,10 +445,13 @@ def _build_config_context(
     app_overrides: Dict[str, str] | None = None,
     app_selected: set[str] | None = None,
     app_use_defaults: set[str] | None = None,
+    app_description_overrides: Mapping[str, str] | None = None,
     cors_overrides: Dict[str, str] | None = None,
     cors_use_defaults: set[str] | None = None,
 ) -> Dict[str, Any]:
-    application_payload = SystemSettingService.load_application_config_payload()
+    application_payload, application_descriptions = (
+        SystemSettingService.load_application_config_with_metadata()
+    )
     application_config = {**DEFAULT_APPLICATION_SETTINGS, **application_payload}
 
     readonly_application_values: dict[str, Any] = {}
@@ -421,6 +473,8 @@ def _build_config_context(
         overrides=app_overrides,
         selected_keys=app_selected,
         default_flags=app_use_defaults,
+        custom_descriptions=application_descriptions,
+        description_overrides=app_description_overrides,
     )
     cors_fields = _build_cors_field_rows(
         cors_definitions,
@@ -444,6 +498,7 @@ def _build_config_context(
 
     return {
         "application_payload": application_payload,
+        "application_descriptions": application_descriptions,
         "application_config": application_config,
         "cors_payload": cors_payload,
         "cors_config": cors_config,
@@ -486,6 +541,23 @@ def _serialize_config_context(context: Dict[str, Any]) -> Dict[str, Any]:
         "descriptions": {
             "application_config_description": context.get("application_config_description"),
             "cors_config_description": context.get("cors_config_description"),
+        },
+        "application_settings_map": {
+            field.get("key"): {
+                "key": field.get("key"),
+                "label": field.get("label"),
+                "value": field.get("current_json"),
+                "default_value": field.get("default_json"),
+                "description": field.get("description"),
+                "base_description": field.get("base_description"),
+                "custom_description": field.get("custom_description"),
+                "custom_description_input": field.get("custom_description_input"),
+                "required": field.get("required"),
+                "data_type": field.get("data_type"),
+                "description_source": field.get("description_source"),
+            }
+            for field in context.get("application_fields", [])
+            if field.get("key")
         },
     }
 
@@ -716,6 +788,7 @@ def show_config():
     app_overrides: Dict[str, str] = {}
     app_selected: set[str] = set()
     app_use_defaults: set[str] = set()
+    app_description_overrides: Dict[str, str] = {}
     cors_overrides: Dict[str, str] = {}
     cors_use_defaults: set[str] = set()
     relogin_previous_config: Dict[str, Any] | None = None
@@ -761,12 +834,31 @@ def show_config():
                 if definition.editable
                 and request.form.get(f"app_config_use_default[{key}]") == "1"
             }
-            if not app_selected:
+            app_description_overrides = {
+                key: request.form.get(f"app_config_description[{key}]") or ""
+                for key in application_definitions
+                if f"app_config_description[{key}]" in request.form
+            }
+            description_map = context.get("application_descriptions", {})
+            description_updates: Dict[str, str] = {}
+            description_removals: set[str] = set()
+            for key, raw_description in app_description_overrides.items():
+                normalized = raw_description.strip()
+                if normalized:
+                    if description_map.get(key) != normalized:
+                        description_updates[key] = normalized
+                else:
+                    if key in description_map:
+                        description_removals.add(key)
+
+            has_description_changes = bool(description_updates or description_removals)
+
+            if not app_selected and not has_description_changes:
                 errors.append(_(u"Select at least one setting to update."))
             else:
                 updates: Dict[str, Any] = {}
                 remove_keys: list[str] = []
-                previous_config = dict(context["application_config"])
+                previous_config = dict(context["application_config"]) if app_selected else None
                 for key in app_selected:
                     definition = application_definitions.get(key)
                     if definition is None:
@@ -790,12 +882,16 @@ def show_config():
                     updates[key] = parsed_value
                 if not errors:
                     SystemSettingService.update_application_settings(
-                        updates, remove_keys=remove_keys
+                        updates,
+                        remove_keys=remove_keys,
+                        description_updates=description_updates,
+                        remove_description_keys=description_removals,
                     )
                     from webapp import _apply_persisted_settings
 
                     _apply_persisted_settings(current_app)
-                    relogin_previous_config = previous_config
+                    if updates or remove_keys:
+                        relogin_previous_config = previous_config
                     success_message = _(u"Application configuration updated.")
         elif action == "update-cors":
             cors_overrides = {
@@ -897,6 +993,7 @@ def show_config():
                 app_overrides=app_overrides,
                 app_selected=app_selected,
                 app_use_defaults=app_use_defaults,
+                app_description_overrides=app_description_overrides,
                 cors_overrides=cors_overrides,
                 cors_use_defaults=cors_use_defaults,
             )

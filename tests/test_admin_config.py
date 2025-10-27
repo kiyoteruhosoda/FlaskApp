@@ -187,6 +187,57 @@ def test_update_application_config_triggers_relogin_warning(client):
     assert config["SECRET_KEY"] == "new-secret-key"
 
 
+def test_update_application_config_description_only(client):
+    user = _create_system_manager()
+    _login(client, user)
+
+    response = client.post(
+        "/admin/config",
+        data={
+            "action": "update-app-config-fields",
+            "app_config_description[SECRET_KEY]": "Production secret key",
+        },
+        headers={"X-Requested-With": "XMLHttpRequest", "Accept": "application/json"},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["status"] == "success"
+    entry = payload["application_settings_map"]["SECRET_KEY"]
+    assert entry["custom_description"] == "Production secret key"
+    assert entry["custom_description_input"] == "Production secret key"
+
+    descriptions = SystemSettingService.load_application_config_descriptions()
+    assert descriptions["SECRET_KEY"] == "Production secret key"
+
+
+def test_clear_application_config_description(client):
+    SystemSettingService.update_application_settings(
+        {}, description_updates={"SECRET_KEY": "Temporary"}
+    )
+
+    user = _create_system_manager()
+    _login(client, user)
+
+    response = client.post(
+        "/admin/config",
+        data={
+            "action": "update-app-config-fields",
+            "app_config_description[SECRET_KEY]": "",
+        },
+        headers={"X-Requested-With": "XMLHttpRequest", "Accept": "application/json"},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    entry = payload["application_settings_map"]["SECRET_KEY"]
+    assert entry["custom_description"] is None
+    assert entry["custom_description_input"] == ""
+
+    descriptions = SystemSettingService.load_application_config_descriptions()
+    assert "SECRET_KEY" not in descriptions
+
+
 def test_update_cors_config_success(client):
     user = _create_system_manager()
     _login(client, user)

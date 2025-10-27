@@ -152,6 +152,35 @@
       const defaultCell = row.querySelector('[data-field="default"]');
       updateDefaultCell(defaultCell, field.default_json);
 
+      const descriptionText = row.querySelector('[data-field-description-text]');
+      if (descriptionText) {
+        descriptionText.textContent = field.description || '';
+      }
+
+      const defaultDescription = row.querySelector('[data-field-description-default]');
+      if (defaultDescription) {
+        const baseDescription = field.base_description || '';
+        const template = defaultDescription.dataset.defaultLabel || '';
+        if (baseDescription && template) {
+          defaultDescription.textContent = template.replace('__DEFAULT__', baseDescription);
+        } else if (baseDescription) {
+          defaultDescription.textContent = baseDescription;
+        } else {
+          defaultDescription.textContent = '';
+        }
+        const hasCustom = !!(field.custom_description && field.custom_description.length > 0);
+        const shouldHide = !baseDescription || !hasCustom;
+        defaultDescription.classList.toggle('d-none', shouldHide);
+      }
+
+      const descriptionInput = row.querySelector('[data-field-description-input]');
+      if (descriptionInput) {
+        updateInputValue(
+          descriptionInput,
+          field.custom_description_input ?? field.custom_description ?? ''
+        );
+      }
+
       const input = row.querySelector('[data-field-input]');
       updateInputValue(input, field.form_value);
 

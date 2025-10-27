@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable
+from typing import Any, Dict, Iterable, Tuple
 
 from flask_babel import gettext as _
 
@@ -235,6 +235,44 @@ class SystemSettingService:
         db.session.commit()
         return setting
 
+    @staticmethod
+    def _decode_setting_payload(payload: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, str]]:
+        """Return value and description mappings from a stored payload."""
+
+        if not isinstance(payload, dict):
+            return {}, {}
+
+        values_section = payload.get("values") if "values" in payload else None
+        metadata = payload.get("metadata") if "metadata" in payload else None
+
+        if isinstance(values_section, dict):
+            values = dict(values_section)
+        else:
+            # Backwards compatibility with legacy payloads that stored values directly.
+            values = dict(payload)
+            metadata = {}
+
+        descriptions: Dict[str, str] = {}
+        if isinstance(metadata, dict):
+            description_map = metadata.get("descriptions")
+            if isinstance(description_map, dict):
+                for key, value in description_map.items():
+                    if isinstance(key, str) and isinstance(value, str):
+                        descriptions[key] = value
+
+        return values, descriptions
+
+    @staticmethod
+    def _encode_setting_payload(values: Dict[str, Any], descriptions: Dict[str, str]) -> Dict[str, Any]:
+        """Compose a JSON payload with optional description metadata."""
+
+        if descriptions:
+            return {
+                "values": dict(values),
+                "metadata": {"descriptions": dict(descriptions)},
+            }
+        return dict(values)
+
     @classmethod
     def load_application_config(cls) -> Dict[str, Any]:
         record_values = cls.load_application_config_payload()
@@ -242,10 +280,20 @@ class SystemSettingService:
 
     @classmethod
     def load_application_config_payload(cls) -> Dict[str, Any]:
+        values, _ = cls.load_application_config_with_metadata()
+        return values
+
+    @classmethod
+    def load_application_config_descriptions(cls) -> Dict[str, str]:
+        _, descriptions = cls.load_application_config_with_metadata()
+        return descriptions
+
+    @classmethod
+    def load_application_config_with_metadata(cls) -> Tuple[Dict[str, Any], Dict[str, str]]:
         record = cls._get_setting_record(cls._APPLICATION_CONFIG_KEY)
         if record is None or not isinstance(record.setting_json, dict):
-            return {}
-        return dict(record.setting_json)
+            return {}, {}
+        return cls._decode_setting_payload(record.setting_json)
 
     @classmethod
     def load_cors_config(cls) -> Dict[str, Any]:
@@ -259,17 +307,20 @@ class SystemSettingService:
         record = cls._get_setting_record(cls._CORS_CONFIG_KEY)
         if record is None or not isinstance(record.setting_json, dict):
             return {}
-        return dict(record.setting_json)
+        values, _ = cls._decode_setting_payload(record.setting_json)
+        return values
 
     @classmethod
     def upsert_application_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         payload = dict(DEFAULT_APPLICATION_SETTINGS)
         payload.update(values)
-        return cls._upsert_setting(
+        stored_payload = cls._encode_setting_payload(payload, {})
+        cls._upsert_setting(
             cls._APPLICATION_CONFIG_KEY,
-            payload,
+            stored_payload,
             description="Application configuration values.",
         )
+        return payload
 
     @classmethod
     def update_application_settings(
@@ -277,8 +328,10 @@ class SystemSettingService:
         values: Dict[str, Any],
         *,
         remove_keys: Iterable[str] | None = None,
+        description_updates: Dict[str, str] | None = None,
+        remove_description_keys: Iterable[str] | None = None,
     ) -> Dict[str, Any]:
-        current_payload = cls.load_application_config_payload()
+        current_payload, descriptions = cls.load_application_config_with_metadata()
         changed = False
 
         for key, value in values.items():
@@ -292,23 +345,40 @@ class SystemSettingService:
                     current_payload.pop(key)
                     changed = True
 
+        if description_updates:
+            for key, text in description_updates.items():
+                current_text = descriptions.get(key)
+                if current_text != text:
+                    descriptions[key] = text
+                    changed = True
+
+        if remove_description_keys:
+            for key in remove_description_keys:
+                if key in descriptions:
+                    descriptions.pop(key)
+                    changed = True
+
         if not changed:
             return current_payload
 
-        return cls._upsert_setting(
+        stored_payload = cls._encode_setting_payload(current_payload, descriptions)
+        cls._upsert_setting(
             cls._APPLICATION_CONFIG_KEY,
-            current_payload,
+            stored_payload,
             description="Application configuration values.",
         )
+        return current_payload
 
     @classmethod
     def upsert_cors_config(cls, allowed_origins: Iterable[str]) -> Dict[str, Any]:
         payload = {"allowedOrigins": list(allowed_origins)}
-        return cls._upsert_setting(
+        stored_payload = cls._encode_setting_payload(payload, {})
+        cls._upsert_setting(
             cls._CORS_CONFIG_KEY,
-            payload,
+            stored_payload,
             description="CORS configuration.",
         )
+        return payload
 
     @classmethod
     def update_cors_settings(
@@ -317,7 +387,7 @@ class SystemSettingService:
         *,
         remove_keys: Iterable[str] | None = None,
     ) -> Dict[str, Any]:
-        current_payload = cls.load_cors_config_payload()
+        current_payload, descriptions = cls._load_cors_with_metadata()
         changed = False
 
         for key, value in values.items():
@@ -334,11 +404,20 @@ class SystemSettingService:
         if not changed:
             return current_payload
 
-        return cls._upsert_setting(
+        stored_payload = cls._encode_setting_payload(current_payload, descriptions)
+        cls._upsert_setting(
             cls._CORS_CONFIG_KEY,
-            current_payload,
+            stored_payload,
             description="CORS configuration.",
         )
+        return current_payload
+
+    @classmethod
+    def _load_cors_with_metadata(cls) -> Tuple[Dict[str, Any], Dict[str, str]]:
+        record = cls._get_setting_record(cls._CORS_CONFIG_KEY)
+        if record is None or not isinstance(record.setting_json, dict):
+            return {}, {}
+        return cls._decode_setting_payload(record.setting_json)
 
     @classmethod
     def _upsert_setting(

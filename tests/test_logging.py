@@ -240,6 +240,15 @@ def test_unauthorized_logging_records_context(app):
         assert payload["request"]["user_agent"] == "pytest-agent"
         assert payload["message"] == "Redirected to login due to unauthorized access."
 
+        session_payload = payload["session"]
+        assert session_payload["cookie_name"] == app.config.get("SESSION_COOKIE_NAME", "session")
+        assert session_payload["cookie_present"] is False
+        assert session_payload["session_new"] is False
+        assert session_payload["session_permanent"] is False
+        assert session_payload["fresh_login"] is None
+        assert session_payload["remember_token_present"] is False
+        assert session_payload["user_id_present"] is True
+
 
 def test_status_change_logged(client):
     """Statusフィールドの変更がログに記録されることを確認する。"""

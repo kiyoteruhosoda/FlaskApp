@@ -1284,6 +1284,18 @@ def create_app():
         if not client_ip:
             client_ip = request.remote_addr
 
+        session_cookie_name = app.config.get("SESSION_COOKIE_NAME", "session")
+        session_cookie_value = request.cookies.get(session_cookie_name)
+        session_info = {
+            "cookie_name": session_cookie_name,
+            "cookie_present": session_cookie_value is not None,
+            "session_new": getattr(session, "new", None),
+            "session_permanent": session.permanent,
+            "fresh_login": session.get("_fresh"),
+            "remember_token_present": "_remember" in session,
+            "user_id_present": raw_user_id is not None,
+        }
+
         log_payload = {
             "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "id": request_id,
@@ -1301,6 +1313,7 @@ def create_app():
                 "forwarded_for": forwarded_for,
                 "user_agent": request.user_agent.string,
             },
+            "session": session_info,
         }
 
         app.logger.warning(

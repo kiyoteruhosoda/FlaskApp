@@ -6,7 +6,7 @@ import pytest
 from flask import url_for
 
 from core.models.service_account import ServiceAccount
-from core.models.user import User
+from core.models.user import Permission, Role, User
 from webapp.extensions import db
 from webapp.services.token_service import TokenService
 
@@ -28,6 +28,23 @@ def _create_user(email="user@example.com", password="password123"):
     db.session.add(user)
     db.session.commit()
     return user
+
+
+def _assign_permissions(user: User, *codes: str) -> list[str]:
+    role = Role(name=f"role-{uuid.uuid4().hex[:8]}")
+    db.session.add(role)
+
+    assigned_codes: list[str] = []
+    for code in codes:
+        permission = Permission(code=code)
+        db.session.add(permission)
+        role.permissions.append(permission)
+        assigned_codes.append(code)
+
+    user.roles.append(role)
+    db.session.add(user)
+    db.session.commit()
+    return assigned_codes
 
 
 def _create_service_account(app, scopes=None):
@@ -96,6 +113,25 @@ def test_profile_get_shows_preferences(client):
     # Localized current time should be displayed
     assert re.search(r"Local time \(Asia/Tokyo\).*<strong>", html, re.DOTALL)
     assert "UTC" in html
+    assert "No active permissions." in html
+
+
+def test_profile_shows_active_permissions_for_user(client):
+    user = _create_user()
+    codes = _assign_permissions(
+        user,
+        f"media:view:{uuid.uuid4().hex[:6]}",
+        f"album:edit:{uuid.uuid4().hex[:6]}",
+    )
+    _login(client, user)
+
+    response = client.get("/auth/profile")
+    assert response.status_code == 200
+
+    html = response.data.decode("utf-8")
+    assert "Active permissions" in html
+    for code in codes:
+        assert code in html
 
 
 def test_profile_post_updates_cookies_and_preferences(client):
@@ -131,6 +167,23 @@ def test_service_account_profile_hides_totp_button(client):
 
     html = response.data.decode("utf-8")
     assert "/auth/setup_totp" not in html
+
+
+def test_service_account_profile_shows_scoped_permissions(client):
+    requested_scope = {"album:view"}
+    account_id = _create_service_account(
+        client.application,
+        scopes=requested_scope | {"media:view"},
+    )
+    _service_account_login(client, account_id, scope=requested_scope)
+
+    response = client.get("/auth/profile")
+    assert response.status_code == 200
+
+    html = response.data.decode("utf-8")
+    assert "Active permissions" in html
+    assert "album:view" in html
+    assert "media:view" not in html
 
 
 def test_service_account_cannot_access_totp_setup(client):

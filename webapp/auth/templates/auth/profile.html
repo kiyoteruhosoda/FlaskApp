@@ -81,6 +81,20 @@
         </div>
         {% endif %}
 
+        <div class="profile-section mb-4">
+          <h2 class="h5 mb-3">{{ _('Active permissions') }}</h2>
+          {% if active_permissions %}
+          <div class="d-flex flex-wrap gap-2">
+            {% for code in active_permissions %}
+              <span class="badge bg-info text-dark">{{ code }}</span>
+            {% endfor %}
+          </div>
+          <p class="form-text text-muted mt-2">{{ _('These permissions reflect your currently active role or scoped session.') }}</p>
+          {% else %}
+          <p class="text-muted mb-0">{{ _('No active permissions.') }}</p>
+          {% endif %}
+        </div>
+
         <form method="post" class="profile-section">
           <input type="hidden" name="action" value="update-preferences">
           <h2 class="h5 mb-3">{{ _('Display preferences') }}</h2>

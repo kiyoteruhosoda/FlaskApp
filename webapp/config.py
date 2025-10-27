@@ -63,8 +63,8 @@ class BaseApplicationSettings:
     GOOGLE_CLIENT_SECRET = _default("GOOGLE_CLIENT_SECRET")
 
     # Token encryption
-    OAUTH_TOKEN_KEY = _default("OAUTH_TOKEN_KEY")
-    OAUTH_TOKEN_KEY_FILE = _default("OAUTH_TOKEN_KEY_FILE")
+    ENCRYPTION_KEY = _default("ENCRYPTION_KEY")
+    ENCRYPTION_KEY_FILE = _default("ENCRYPTION_KEY_FILE")
 
     # Download URL signing
     FPV_DL_SIGN_KEY = _default("FPV_DL_SIGN_KEY")

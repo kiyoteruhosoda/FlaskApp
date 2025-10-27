@@ -18,7 +18,7 @@ def app(tmp_path):
         "DATABASE_URI": f"sqlite:///{db_path}",
         "GOOGLE_CLIENT_ID": "",
         "GOOGLE_CLIENT_SECRET": "",
-        "OAUTH_TOKEN_KEY": base64.urlsafe_b64encode(b"0" * 32).decode(),
+        "ENCRYPTION_KEY": base64.urlsafe_b64encode(b"0" * 32).decode(),
         "FPV_DL_SIGN_KEY": base64.urlsafe_b64encode(b"1" * 32).decode(),
         "FPV_URL_TTL_THUMB": "600",
         "FPV_URL_TTL_PLAYBACK": "600",

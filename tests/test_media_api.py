@@ -19,7 +19,7 @@ def app(tmp_path):
     os.environ["GOOGLE_CLIENT_ID"] = "cid"
     os.environ["GOOGLE_CLIENT_SECRET"] = "sec"
     key = base64.urlsafe_b64encode(b"0" * 32).decode()
-    os.environ["OAUTH_TOKEN_KEY"] = key
+    os.environ["ENCRYPTION_KEY"] = key
     os.environ["FPV_DL_SIGN_KEY"] = base64.urlsafe_b64encode(b"1" * 32).decode()
     os.environ["FPV_URL_TTL_THUMB"] = "600"
     os.environ["FPV_URL_TTL_PLAYBACK"] = "600"

@@ -132,7 +132,7 @@ Google アカウントのOAuthトークンはAES-256-GCMで暗号化保存：
 python -c "
 import os, base64
 key = base64.b64encode(os.urandom(32)).decode()
-print(f'OAUTH_TOKEN_KEY=base64:{key}')
+print(f'ENCRYPTION_KEY=base64:{key}')
 "
 ```
 

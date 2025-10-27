@@ -64,7 +64,7 @@ class TestFlaskAppCreation:
     @patch.dict(os.environ, {
         'SECRET_KEY': 'test-secret',
         'DATABASE_URI': 'sqlite:///test.db',
-        'OAUTH_TOKEN_KEY': 'a' * 32
+        'ENCRYPTION_KEY': 'a' * 32
     })
     def test_create_app_function(self):
         """Test Flask app creation function."""
@@ -79,7 +79,7 @@ class TestFlaskAppCreation:
     @patch.dict(os.environ, {
         'SECRET_KEY': 'test-secret',
         'DATABASE_URI': 'sqlite:///test.db',
-        'OAUTH_TOKEN_KEY': 'a' * 32
+        'ENCRYPTION_KEY': 'a' * 32
     })
     def test_flask_app_extensions_initialization(self):
         """Test that Flask app extensions are properly initialized."""
@@ -108,7 +108,7 @@ class TestContextTask:
     @patch.dict(os.environ, {
         'SECRET_KEY': 'test-secret',
         'DATABASE_URI': 'sqlite:///test.db',
-        'OAUTH_TOKEN_KEY': 'a' * 32
+        'ENCRYPTION_KEY': 'a' * 32
     })
     def test_context_task_class_exists(self):
         """Test that ContextTask class is properly defined."""
@@ -120,7 +120,7 @@ class TestContextTask:
     @patch.dict(os.environ, {
         'SECRET_KEY': 'test-secret',
         'DATABASE_URI': 'sqlite:///test.db',
-        'OAUTH_TOKEN_KEY': 'a' * 32
+        'ENCRYPTION_KEY': 'a' * 32
     })
     def test_context_task_provides_app_context(self):
         """Test that ContextTask provides Flask app context."""
@@ -141,7 +141,7 @@ class TestContextTask:
     @patch.dict(os.environ, {
         'SECRET_KEY': 'test-secret',
         'DATABASE_URI': 'sqlite:///test.db',
-        'OAUTH_TOKEN_KEY': 'a' * 32
+        'ENCRYPTION_KEY': 'a' * 32
     })
     def test_context_task_database_access(self):
         """Test that ContextTask allows database access."""

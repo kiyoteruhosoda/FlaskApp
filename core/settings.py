@@ -314,11 +314,11 @@ class ApplicationSettings:
 
     @property
     def token_encryption_key(self) -> Optional[str]:
-        return self._get("OAUTH_TOKEN_KEY")
+        return self._get("ENCRYPTION_KEY")
 
     @property
     def token_encryption_key_file(self) -> Optional[str]:
-        path = self._get("OAUTH_TOKEN_KEY_FILE")
+        path = self._get("ENCRYPTION_KEY_FILE")
         if path:
             return path
         return self._get("FPV_OAUTH_TOKEN_KEY_FILE")

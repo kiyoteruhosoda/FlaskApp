@@ -262,7 +262,7 @@
               </p>
               {% endif %}
             </div>
-            <div class="config-section-actions" data-config-section-actions=""></div>
+            <div class="config-section-actions" data-config-section-actions="">
               <button type="submit" class="btn btn-primary mt-3">
                 {{ _('Save signing settings') }}
               </button>
@@ -609,22 +609,22 @@
               <button type="submit" class="btn btn-primary">
                 {{ _('Save CORS settings') }}
               </button>
-              {% if cors_config_updated_at %}
-              <div
-                class="form-text text-muted text-lg-end"
-                data-timestamp-target="cors"
-                data-description-target="cors"
-                data-label-updated="{{ _('Last updated at: %(timestamp)s', timestamp='__TIME__') }}"
-                data-description-label="{{ _('Description: %(description)s', description='__DESC__') }}"
-              >
-                {{ _('Last updated at: %(timestamp)s', timestamp=cors_config_updated_at|localtime('%Y-%m-%d %H:%M')) }}
-                {% if cors_config_description %}
-                <br>{{ _('Description: %(description)s', description=cors_config_description) }}
-                {% endif %}
-              </div>
-              {% endif %}
             </div>
           </form>
+          {% if cors_config_updated_at %}
+          <div
+            class="form-text text-muted text-lg-end"
+            data-timestamp-target="cors"
+            data-description-target="cors"
+            data-label-updated="{{ _('Last updated at: %(timestamp)s', timestamp='__TIME__') }}"
+            data-description-label="{{ _('Description: %(description)s', description='__DESC__') }}"
+          >
+            {{ _('Last updated at: %(timestamp)s', timestamp=cors_config_updated_at|localtime('%Y-%m-%d %H:%M')) }}
+            {% if cors_config_description %}
+            <br>{{ _('Description: %(description)s', description=cors_config_description) }}
+            {% endif %}
+          </div>
+          {% endif %}
         </div>
       </div>
     </section>

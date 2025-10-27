@@ -159,6 +159,10 @@ msgstr "Review uploaded photos and manage shared media assets."
 msgid "Open media view"
 msgstr "Open media view"
 
+#: webapp/admin/routes.py:767
+msgid "To save changes, select at least one setting and check its \"Update\" box."
+msgstr "To save changes, select at least one setting and check its \"Update\" box."
+
 #: webapp/dashboard/templates/dashboard/index.html:65
 msgid "No workspace tools are available for your current role."
 msgstr "No workspace tools are available for your current role."

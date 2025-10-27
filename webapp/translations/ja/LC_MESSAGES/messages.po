@@ -157,6 +157,10 @@ msgstr "Googleアカウント"
 msgid "Certificate Management"
 msgstr "証明書管理"
 
+#: webapp/admin/routes.py:767
+msgid "To save changes, select at least one setting and check its \"Update\" box."
+msgstr "変更を保存するには、「Update」にチェックを入れて更新する設定を選択してください。"
+
 #: webapp/templates/base.html:68
 msgid "Certificates"
 msgstr "証明書"

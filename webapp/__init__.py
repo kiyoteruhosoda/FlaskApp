@@ -1296,6 +1296,20 @@ def create_app():
             "user_id_present": raw_user_id is not None,
         }
 
+        if not session_info["cookie_present"]:
+            login_state = "session_cookie_missing"
+        elif not session_info["user_id_present"]:
+            login_state = "session_cookie_without_user_id"
+        elif session_info["fresh_login"] is False:
+            login_state = "session_not_fresh"
+        else:
+            login_state = "unknown"
+
+        diagnostics = {
+            "login_state": login_state,
+            "session_keys": sorted(key for key in session.keys()),
+        }
+
         log_payload = {
             "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "id": request_id,
@@ -1314,6 +1328,7 @@ def create_app():
                 "user_agent": request.user_agent.string,
             },
             "session": session_info,
+            "diagnostics": diagnostics,
         }
 
         app.logger.warning(
@@ -1324,6 +1339,24 @@ def create_app():
                 "request_id": request_id,
             },
         )
+
+        wants_json = (
+            request.is_json
+            or request.accept_mimetypes.best_match(["application/json", "text/html"]) == "application/json"
+        )
+        is_ajax = wants_json or request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+        if is_ajax:
+            response_payload = {
+                "status": "error",
+                "error": "unauthorized",
+                "message": _("Please log in to access this page."),
+                "login_state": login_state,
+            }
+            response = jsonify(response_payload)
+            response.status_code = 401
+            response.headers["X-Session-Expired"] = "1"
+            return response
 
         # i18nメッセージを自分で出す（カテゴリも自由）
         flash(_("Please log in to access this page."), "error")

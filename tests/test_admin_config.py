@@ -43,6 +43,41 @@ def test_config_page_requires_permission(client):
     assert response.status_code == 403
 
 
+def test_config_update_requires_login_returns_json(client):
+    app = client.application
+    original_testing = app.config.get("TESTING")
+    original_login_disabled = app.config.get("LOGIN_DISABLED")
+    app.config["TESTING"] = False
+    app.config["LOGIN_DISABLED"] = False
+
+    try:
+        response = client.post(
+            "/admin/config",
+            data={"action": "update-app-config-fields"},
+            headers={
+                "X-Requested-With": "XMLHttpRequest",
+                "Accept": "application/json",
+            },
+        )
+    finally:
+        if original_testing is None:
+            app.config.pop("TESTING", None)
+        else:
+            app.config["TESTING"] = original_testing
+
+        if original_login_disabled is None:
+            app.config.pop("LOGIN_DISABLED", None)
+        else:
+            app.config["LOGIN_DISABLED"] = original_login_disabled
+
+    assert response.status_code == 401
+    payload = response.get_json()
+    assert payload["error"] == "unauthorized"
+    assert payload["login_state"] == "session_cookie_missing"
+    assert payload["message"] == "Please log in to access this page."
+    assert response.headers["X-Session-Expired"] == "1"
+
+
 def test_config_page_displays_current_settings(client):
     SystemSettingService.update_application_settings({"FEATURE_FLAG": True})
     SystemSettingService.update_cors_settings({"allowedOrigins": ["https://example.com"]})

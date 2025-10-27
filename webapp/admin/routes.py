@@ -762,7 +762,11 @@ def show_config():
                 and request.form.get(f"app_config_use_default[{key}]") == "1"
             }
             if not app_selected:
-                errors.append(_(u"Select at least one setting to update."))
+                errors.append(
+                    _(
+                        u"To save changes, select at least one setting and check its \"Update\" box."
+                    )
+                )
             else:
                 updates: Dict[str, Any] = {}
                 remove_keys: list[str] = []

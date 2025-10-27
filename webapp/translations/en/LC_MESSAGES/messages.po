@@ -115,6 +115,18 @@ msgstr "Registration successful. Please log in."
 msgid "Logged out"
 msgstr "Logged out"
 
+#: webapp/static/js/admin-config.js
+msgid "Configuration updated successfully."
+msgstr "Configuration updated successfully."
+
+#: webapp/static/js/admin-config.js
+msgid "Configuration update failed."
+msgstr "Configuration update failed."
+
+#: webapp/static/js/admin-config.js
+msgid "Failed to submit the request."
+msgstr "Failed to submit the request."
+
 #: webapp/dashboard/templates/dashboard/index.html:6
 msgid "Workspace dashboard"
 msgstr "Workspace dashboard"

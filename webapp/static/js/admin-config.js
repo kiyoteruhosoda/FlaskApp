@@ -9,6 +9,22 @@
   const showSuccess = window.showSuccessToast || ((msg) => console.log(msg));
   const showError = window.showErrorToast || ((msg) => console.error(msg));
   const showWarning = window.showWarningToast || ((msg) => console.warn(msg));
+  const translate =
+    typeof window._ === 'function' ? window._ : (key, fallback = key) => fallback;
+  const i18nMessages = {
+    updateSuccess: translate(
+      'admin.config.update.success',
+      'Configuration updated successfully.'
+    ),
+    updateFailure: translate(
+      'admin.config.update.failure',
+      'Configuration update failed.'
+    ),
+    requestFailure: translate(
+      'admin.config.request.failure',
+      'Failed to submit the request.'
+    ),
+  };
 
   let reapplySearchFilter = null;
 
@@ -543,7 +559,7 @@
 
         const data = await response.json().catch(() => null);
         if (!response.ok || !data || data.status !== 'success') {
-          const message = data && data.message ? data.message : '設定の更新に失敗しました。';
+          const message = data && data.message ? data.message : i18nMessages.updateFailure;
           showError(message);
           if (data && Array.isArray(data.errors)) {
             data.errors.slice(1).forEach((msg) => showError(msg));
@@ -551,14 +567,14 @@
           return;
         }
 
-        showSuccess(data.message || '設定を更新しました。');
+        showSuccess(data.message || i18nMessages.updateSuccess);
         if (Array.isArray(data.warnings)) {
           data.warnings.forEach((msg) => showWarning(msg));
         }
         applyContext(data);
       } catch (error) {
         console.error('Failed to submit config form', error);
-        showError('リクエストの送信に失敗しました。');
+        showError(i18nMessages.requestFailure);
       } finally {
         if (submitButton) {
           submitButton.disabled = false;

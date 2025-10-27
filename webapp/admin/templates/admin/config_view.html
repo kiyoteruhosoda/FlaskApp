@@ -635,5 +635,12 @@
 
 {% block extra_scripts %}
 {{ super() }}
+<script>
+  window.i18nStrings = Object.assign(window.i18nStrings || {}, {
+    'admin.config.update.success': "{{ _('Configuration updated successfully.') }}",
+    'admin.config.update.failure': "{{ _('Configuration update failed.') }}",
+    'admin.config.request.failure': "{{ _('Failed to submit the request.') }}",
+  });
+</script>
 <script src="{{ url_for('static', filename='js/admin-config.js') }}"></script>
 {% endblock %}

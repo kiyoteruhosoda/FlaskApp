@@ -262,10 +262,11 @@
               </p>
               {% endif %}
             </div>
-
-            <button type="submit" class="btn btn-primary mt-3">
-              {{ _('Save signing settings') }}
-            </button>
+            <div class="config-section-actions" data-config-section-actions=""></div>
+              <button type="submit" class="btn btn-primary mt-3">
+                {{ _('Save signing settings') }}
+              </button>
+            </div>
             {% if signing_config_updated_at %}
             <div
               class="form-text text-muted mt-2"
@@ -604,7 +605,7 @@
                 </tbody>
               </table>
             </div>
-            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mt-4">
+            <div class="config-section-actions">
               <button type="submit" class="btn btn-primary">
                 {{ _('Save CORS settings') }}
               </button>

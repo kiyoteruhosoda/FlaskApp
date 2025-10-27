@@ -2,45 +2,59 @@ version: '3.8'
 
 services:
   db:
-    image: mariadb:10.11
+    image: photonest-db:latest
+    container_name: mariadb
+    environment:
+      - TZ=UTC
     ports:
       - "3307:3306"
     env_file:
       - .env
     volumes:
       - ./db_data:/var/lib/mysql
+    command:
+      - --default-time-zone=+00:00
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p${MARIADB_ROOT_PASSWORD} --silent"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p\"${MARIADB_ROOT_PASSWORD}\" --silent"]
       interval: 10s
-      timeout: 5s
-      retries: 5
+      timeout: 10s
+      retries: 15
+      start_period: 180s
+
   web:
     image: photonest:latest
     # container_name: 削除 ← プロジェクト名に任せる
     init: true
     stop_grace_period: 60s
     command: >
-      gunicorn wsgi:app
-      --bind 0.0.0.0:5000
-      --workers 2
-      --threads 4
-      --timeout 120
-      --graceful-timeout 90
-      --keep-alive 5
-      --max-requests 1000
-      --max-requests-jitter 100
-      --worker-tmp-dir /dev/shm
+      sh -c '
+        while ! mysql -h db -u "${MARIADB_USER}" -p"${MARIADB_PASSWORD}" --skip-ssl -e "SELECT 1" >/dev/null 2>&1; do
+          echo "$(date -u +"%Y-%m-%dT%H:%M:%SZ") Waiting for DB...";
+          sleep 3;
+        done;
+        echo "$(date -u +"%Y-%m-%dT%H:%M:%SZ") DB is ready. Starting web app...";
+        exec gunicorn wsgi:app \
+          --bind 0.0.0.0:5000 \
+          --workers 2 \
+          --threads 4 \
+          --timeout 120 \
+          --graceful-timeout 90 \
+          --keep-alive 5 \
+          --max-requests 1000 \
+          --max-requests-jitter 100 \
+          --worker-tmp-dir /dev/shm
+      '
     ports:
       - "127.0.0.1:8050:5000"
     environment:
       - FLASK_ENV=production
-      - TZ=${TZ:-Asia/Tokyo}
+      - TZ=UTC
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - UPLOAD_TMP_DIR=/app/data/tmp/upload
       - UPLOAD_DESTINATION_DIR=/app/data/uploads
       - API_BASE_URL=${API_BASE_URL:-http://localhost:5000}
-      - DATABASE_URI=mysql+pymysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}?charset=utf8mb4
+      - DATABASE_URI="mysql+pymysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}?charset=utf8mb4"
     env_file:
       - .env
     depends_on:
@@ -72,7 +86,7 @@ services:
     command: celery -A cli.src.celery.tasks worker --loglevel=info --concurrency=2
     environment:
       - FLASK_ENV=production
-      - TZ=${TZ:-Asia/Tokyo}
+      - TZ=UTC
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - UPLOAD_TMP_DIR=/app/data/tmp/upload
@@ -116,7 +130,7 @@ services:
       - /volume1/docker/photonest/data/celery:/app/data
     environment:
       - FLASK_ENV=production
-      - TZ=${TZ:-Asia/Tokyo}
+      - TZ=UTC
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - API_BASE_URL=${API_BASE_URL:-http://localhost:5000}
@@ -153,7 +167,7 @@ services:
       - --appendfsync
       - everysec
     environment:
-      - TZ=${TZ:-Asia/Tokyo}
+      - TZ=UTC
     volumes:
       - redis_data:/data
     restart: unless-stopped

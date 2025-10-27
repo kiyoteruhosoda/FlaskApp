@@ -7,6 +7,18 @@
 IMAGE_NAME = photonest:latest
 OUTPUT_TAR = photonest-latest.tar
 PLATFORM   = linux/amd64
+DB_IMAGE_NAME = photonest-db:latest
+DB_OUTPUT_TAR = photonest-db-latest.tar
+
+build-db:
+	@echo "=== Build MariaDB with initial SQL ==="
+	docker buildx build \
+	  --platform linux/amd64 \
+	  -t $(DB_IMAGE_NAME) ./db \
+	  --load
+	docker save $(DB_IMAGE_NAME) -o $(DB_OUTPUT_TAR)
+	chmod 644 $(DB_OUTPUT_TAR)
+	@echo "Build complete: $(DB_OUTPUT_TAR)"
 
 # Git情報（make 実行時に取得）
 COMMIT_HASH      := $(shell git rev-parse --short HEAD)
@@ -60,6 +72,9 @@ load:
 run:
 	docker run --rm -p 5000:5000 $(IMAGE_NAME)
 
+all: build build-db
+	@echo "All builds complete."
+
 clean:
-	rm -f $(OUTPUT_TAR)
+	rm -f $(OUTPUT_TAR) $(DB_OUTPUT_TAR)
 	docker builder prune -f

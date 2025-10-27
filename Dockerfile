@@ -55,6 +55,7 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libmariadb3 \
+    mariadb-client \
     curl \
     procps \
     ffmpeg \

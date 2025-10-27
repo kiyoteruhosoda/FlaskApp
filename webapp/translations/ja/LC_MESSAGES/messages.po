@@ -756,6 +756,18 @@ msgstr "サービスアカウントのプロフィール詳細は管理者が管
 msgid "Logged out"
 msgstr "ログアウトしました"
 
+#: webapp/static/js/admin-config.js
+msgid "Configuration updated successfully."
+msgstr "設定を更新しました。"
+
+#: webapp/static/js/admin-config.js
+msgid "Configuration update failed."
+msgstr "設定の更新に失敗しました。"
+
+#: webapp/static/js/admin-config.js
+msgid "Failed to submit the request."
+msgstr "リクエストの送信に失敗しました。"
+
 #: webapp/auth/routes.py:292
 #, python-format
 msgid "Google OAuth error: %(msg)s"

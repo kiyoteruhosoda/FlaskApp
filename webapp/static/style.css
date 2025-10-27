@@ -328,7 +328,7 @@ body.login-page footer {
   position: sticky;
   bottom: 0.5rem;
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   padding: 0.75rem 0.25rem 0.25rem;
   margin-top: 1rem;
   background: linear-gradient(
@@ -345,6 +345,17 @@ body.login-page footer {
 
 .config-section-actions .btn {
   min-width: 14rem;
+}
+
+.config-section-card .table-responsive,
+.config-block[data-config-block="cors"] .table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.config-section-card .table,
+.config-block[data-config-block="cors"] .table {
+  min-width: 48rem;
 }
 
 .config-block + .config-block {

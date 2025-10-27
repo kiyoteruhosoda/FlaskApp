@@ -632,6 +632,14 @@ def profile():
             label = code
         timezone_choices.append({"code": code, "label": label})
 
+    current_permissions = getattr(current_user, "permissions", set())
+    normalized_permissions = {
+        str(code).strip()
+        for code in current_permissions or []
+        if isinstance(code, str) and code.strip()
+    }
+    active_permissions = sorted(normalized_permissions)
+
     return render_template(
         "auth/profile.html",
         language_choices=language_choices,
@@ -643,6 +651,7 @@ def profile():
         active_role=getattr(current_user, "active_role", None),
         role_options=role_options,
         is_service_account=is_service_account,
+        active_permissions=active_permissions,
     )
 
 

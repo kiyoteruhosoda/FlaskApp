@@ -9,7 +9,7 @@ from http import HTTPStatus
 from flask import (
     abort,
     current_app,
-    flash,
+    flash as flask_flash,
     redirect,
     render_template,
     request,
@@ -230,7 +230,7 @@ def index():
         groups = service.list_groups()
     except CertsApiClientError as exc:
         current_app.logger.exception("Failed to load certificate groups via API")
-        flash(_("Failed to load certificate groups: %(message)s", message=str(exc)), "error")
+        flask_flash(_("Failed to load certificate groups: %(message)s", message=str(exc)), "error")
         groups = []
 
     stored_form_state = session.pop("certs_create_group_form", None)
@@ -329,13 +329,13 @@ def create_group():
     if not group_code:
         message = _("Group code is required.")
         _remember_form_state(errors=[message])
-        flash(message, "error")
+        flask_flash(message, "error")
         return redirect(url_for("certs_ui.index"))
 
     if not _GROUP_CODE_PATTERN.fullmatch(group_code):
         message = _("Group code must contain only lowercase letters, numbers, hyphen, or underscore.")
         _remember_form_state(errors=[message])
-        flash(message, "error")
+        flask_flash(message, "error")
         return redirect(url_for("certs_ui.index"))
 
     display_name = (form.get("display_name") or "").strip() or None
@@ -344,7 +344,7 @@ def create_group():
     except ValueError:
         message = _("Invalid usage type specified.")
         _remember_form_state(errors=[message])
-        flash(message, "error")
+        flask_flash(message, "error")
         return redirect(url_for("certs_ui.index"))
 
     key_type = (form.get("key_type") or "RSA").strip().upper()
@@ -355,7 +355,7 @@ def create_group():
     except ValueError:
         message = _("Key size must be a number.")
         _remember_form_state(errors=[message])
-        flash(message, "error")
+        flask_flash(message, "error")
         return redirect(url_for("certs_ui.index"))
 
     auto_rotate = form.get("auto_rotate") == "on"
@@ -364,12 +364,12 @@ def create_group():
     except ValueError:
         message = _("Rotation threshold must be a number.")
         _remember_form_state(errors=[message])
-        flash(message, "error")
+        flask_flash(message, "error")
         return redirect(url_for("certs_ui.index"))
     if rotation_threshold_days is None or rotation_threshold_days <= 0:
         message = _("Rotation threshold must be greater than zero.")
         _remember_form_state(errors=[message])
-        flash(message, "error")
+        flask_flash(message, "error")
         return redirect(url_for("certs_ui.index"))
 
     try:
@@ -377,7 +377,7 @@ def create_group():
     except SubjectValidationError as exc:
         _remember_form_state(errors=list(exc.errors))
         for message in exc.errors:
-            flash(message, "error")
+            flask_flash(message, "error")
         return redirect(url_for("certs_ui.index"))
 
     service = _service()
@@ -397,10 +397,10 @@ def create_group():
         current_app.logger.exception("Failed to create certificate group")
         message = _("Failed to create certificate group: %(message)s", message=str(exc))
         _remember_form_state(errors=[message])
-        flash(message, "error")
+        flask_flash(message, "error")
     else:
         session.pop("certs_create_group_form", None)
-        flash(_("Certificate group created."), "success")
+        flask_flash(_("Certificate group created."), "success")
 
     return redirect(url_for("certs_ui.index"))
 
@@ -430,7 +430,7 @@ def update_group(group_code: str):
     except ValueError:
         message = _("Invalid usage type specified.")
         _remember_edit_form_state(errors=[message])
-        flash(message, "error")
+        flask_flash(message, "error")
         return redirect(url_for("certs_ui.index"))
 
     key_type = (form.get("key_type") or "RSA").strip().upper()
@@ -441,7 +441,7 @@ def update_group(group_code: str):
     except ValueError:
         message = _("Key size must be a number.")
         _remember_edit_form_state(errors=[message])
-        flash(message, "error")
+        flask_flash(message, "error")
         return redirect(url_for("certs_ui.index"))
 
     auto_rotate = form.get("auto_rotate") == "on"
@@ -450,12 +450,12 @@ def update_group(group_code: str):
     except ValueError:
         message = _("Rotation threshold must be a number.")
         _remember_edit_form_state(errors=[message])
-        flash(message, "error")
+        flask_flash(message, "error")
         return redirect(url_for("certs_ui.index"))
     if rotation_threshold_days is None or rotation_threshold_days <= 0:
         message = _("Rotation threshold must be greater than zero.")
         _remember_edit_form_state(errors=[message])
-        flash(message, "error")
+        flask_flash(message, "error")
         return redirect(url_for("certs_ui.index"))
 
     try:
@@ -463,7 +463,7 @@ def update_group(group_code: str):
     except SubjectValidationError as exc:
         _remember_edit_form_state(errors=list(exc.errors))
         for message in exc.errors:
-            flash(message, "error")
+            flask_flash(message, "error")
         return redirect(url_for("certs_ui.index"))
 
     service = _service()
@@ -483,10 +483,10 @@ def update_group(group_code: str):
         current_app.logger.exception("Failed to update certificate group")
         message = _("Failed to update certificate group: %(message)s", message=str(exc))
         _remember_edit_form_state(errors=[message])
-        flash(message, "error")
+        flask_flash(message, "error")
     else:
         session.pop("certs_edit_group_form", None)
-        flash(_("Certificate group updated."), "success")
+        flask_flash(_("Certificate group updated."), "success")
 
     return redirect(url_for("certs_ui.index"))
 
@@ -503,7 +503,7 @@ def delete_group(group_code: str):
         current_app.logger.exception("Failed to delete certificate group")
         message = str(exc)
         if exc.status_code == HTTPStatus.CONFLICT:
-            flash(
+            flask_flash(
                 _(
                     "Cannot delete the group because active certificates exist: %(message)s",
                     message=message,
@@ -511,9 +511,9 @@ def delete_group(group_code: str):
                 "error",
             )
         else:
-            flash(_("Failed to delete certificate group: %(message)s", message=message), "error")
+            flask_flash(_("Failed to delete certificate group: %(message)s", message=message), "error")
     else:
-        flash(_("Certificate group deleted."), "success")
+        flask_flash(_("Certificate group deleted."), "success")
 
     return redirect(url_for("certs_ui.index"))
 
@@ -530,7 +530,7 @@ def group_detail(group_code: str):
         if exc.status_code == HTTPStatus.NOT_FOUND:
             abort(404)
         current_app.logger.exception("Failed to load certificates for group", extra={"group_code": group_code})
-        flash(_("Failed to load certificates: %(message)s", message=str(exc)), "error")
+        flask_flash(_("Failed to load certificates: %(message)s", message=str(exc)), "error")
         return redirect(url_for("certs_ui.index"))
 
     issued_certificate = session.pop("certs_last_issued", None)
@@ -572,7 +572,7 @@ def update_group_rotation(group_code: str):
             "Failed to load group before updating rotation",
             extra={"group_code": group_code},
         )
-        flash(_("Failed to update rotation setting: %(message)s", message=str(exc)), "error")
+        flask_flash(_("Failed to update rotation setting: %(message)s", message=str(exc)), "error")
         return redirect(url_for("certs_ui.group_detail", group_code=group_code))
 
     auto_rotate = request.form.get("auto_rotate") == "on"
@@ -594,9 +594,9 @@ def update_group_rotation(group_code: str):
             "Failed to update rotation setting",
             extra={"group_code": group_code},
         )
-        flash(_("Failed to update rotation setting: %(message)s", message=str(exc)), "error")
+        flask_flash(_("Failed to update rotation setting: %(message)s", message=str(exc)), "error")
     else:
-        flash(_("Rotation setting updated."), "success")
+        flask_flash(_("Rotation setting updated."), "success")
 
     return redirect(url_for("certs_ui.group_detail", group_code=group_code))
 
@@ -612,7 +612,7 @@ def issue_certificate(group_code: str):
     try:
         valid_days = _parse_int(form.get("valid_days"))
     except ValueError:
-        flash(_("Validity days must be a number."), "error")
+        flask_flash(_("Validity days must be a number."), "error")
         return redirect(url_for("certs_ui.group_detail", group_code=group_code))
 
     if form.get("unlimited_validity") == "on":
@@ -630,10 +630,10 @@ def issue_certificate(group_code: str):
         )
     except CertsApiClientError as exc:
         current_app.logger.exception("Failed to issue certificate for group", extra={"group_code": group_code})
-        flash(_("Failed to issue certificate: %(message)s", message=str(exc)), "error")
+        flask_flash(_("Failed to issue certificate: %(message)s", message=str(exc)), "error")
         return redirect(url_for("certs_ui.group_detail", group_code=group_code))
 
-    flash(_("Certificate issued successfully."), "success")
+    flask_flash(_("Certificate issued successfully."), "success")
     session["certs_last_issued"] = {
         "kid": result.kid,
         "certificatePem": result.certificate_pem,
@@ -663,9 +663,9 @@ def revoke_certificate_in_group(group_code: str, kid: str):
             "Failed to revoke certificate in group",
             extra={"group_code": group_code, "kid": kid},
         )
-        flash(_("Failed to revoke certificate: %(message)s", message=str(exc)), "error")
+        flask_flash(_("Failed to revoke certificate: %(message)s", message=str(exc)), "error")
     else:
-        flash(_("Certificate revoked."), "success")
+        flask_flash(_("Certificate revoked."), "success")
 
     return redirect(url_for("certs_ui.group_detail", group_code=group_code))
 
@@ -680,7 +680,7 @@ def search():
         groups = service.list_groups()
     except CertsApiClientError as exc:
         current_app.logger.exception("Failed to load groups for search")
-        flash(_("Failed to load groups: %(message)s", message=str(exc)), "error")
+        flask_flash(_("Failed to load groups: %(message)s", message=str(exc)), "error")
         groups = []
 
     filters = {
@@ -700,7 +700,7 @@ def search():
         try:
             usage_type = UsageType.from_str(filters["usage"]) if filters["usage"] else None
         except ValueError:
-            flash(_("Invalid usage type specified."), "error")
+            flask_flash(_("Invalid usage type specified."), "error")
             usage_type = None
 
         revoked_param = filters["revoked"].lower()
@@ -712,7 +712,7 @@ def search():
         elif revoked_param in {"false", "active"}:
             revoked = False
         else:
-            flash(_("Invalid revoked flag."), "error")
+            flask_flash(_("Invalid revoked flag."), "error")
             revoked = None
 
         def _parse_dt(value: str) -> datetime | None:
@@ -721,7 +721,7 @@ def search():
             try:
                 return datetime.fromisoformat(value)
             except ValueError:
-                flash(_("Use ISO 8601 format for date filters."), "error")
+                flask_flash(_("Use ISO 8601 format for date filters."), "error")
                 return None
 
         issued_from_dt = _parse_dt(filters["issued_from"])
@@ -743,7 +743,7 @@ def search():
             )
         except CertsApiClientError as exc:
             current_app.logger.exception("Failed to search certificates via API")
-            flash(_("Failed to search certificates: %(message)s", message=str(exc)), "error")
+            flask_flash(_("Failed to search certificates: %(message)s", message=str(exc)), "error")
             results = None
 
     return render_template(
@@ -767,7 +767,7 @@ def detail(kid: str):
         if exc.status_code == HTTPStatus.NOT_FOUND:
             abort(404)
         current_app.logger.exception("Failed to load certificate detail via API")
-        flash(str(exc), "error")
+        flask_flash(str(exc), "error")
         return redirect(url_for("certs_ui.index"))
 
     detail_context = {
@@ -797,7 +797,7 @@ def revoke(kid: str):
         if exc.status_code == HTTPStatus.NOT_FOUND:
             abort(404)
         current_app.logger.exception("Failed to load certificate for revoke via API")
-        flash(str(exc), "error")
+        flask_flash(str(exc), "error")
         return redirect(url_for("certs_ui.index"))
 
     if request.method == "POST":
@@ -808,9 +808,9 @@ def revoke(kid: str):
             if exc.status_code == HTTPStatus.NOT_FOUND:
                 abort(404)
             current_app.logger.exception("Failed to revoke certificate via API")
-            flash(str(exc), "error")
+            flask_flash(str(exc), "error")
             return redirect(url_for("certs_ui.revoke", kid=kid))
-        flash(_("Certificate revoked."), "success")
+        flask_flash(_("Certificate revoked."), "success")
         if next_url and next_url.startswith("/"):
             return redirect(next_url)
         return redirect(url_for("certs_ui.detail", kid=revoked.kid))

@@ -410,15 +410,6 @@ _PLATFORM_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         editable=False,
         multiline=True,
     ),
-    SettingFieldDefinition(
-        key="CORS_ALLOWED_ORIGINS",
-        label=_(u"Resolved CORS allowed origins"),
-        data_type="list",
-        required=True,
-        description=_(u"Effective origins after applying persisted configuration."),
-        editable=False,
-        multiline=True,
-    ),
 )
 
 _MEDIA_PROCESSING_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
@@ -525,6 +516,17 @@ READONLY_APPLICATION_SETTING_KEYS: frozenset[str] = frozenset(
 
 CORS_SETTING_DEFINITIONS: Mapping[str, SettingFieldDefinition] = MappingProxyType(
     {
+        "CORS_ALLOWED_ORIGINS": SettingFieldDefinition(
+            key="CORS_ALLOWED_ORIGINS",
+            label=_(u"Effective allowed origins"),
+            data_type="list",
+            required=False,
+            description=_(u"Read-only list of origins currently applied to the Flask app."),
+            multiline=True,
+            allow_empty=True,
+            editable=False,
+            default_hint=_(u"Updated automatically after saving allowedOrigins."),
+        ),
         "allowedOrigins": SettingFieldDefinition(
             key="allowedOrigins",
             label=_(u"Allowed origins"),
@@ -533,7 +535,7 @@ CORS_SETTING_DEFINITIONS: Mapping[str, SettingFieldDefinition] = MappingProxyTyp
             description=_(u"List of origins allowed by the CORS policy."),
             multiline=True,
             allow_empty=True,
-        )
+        ),
     }
 )
 

@@ -530,7 +530,7 @@
       id="section-cors"
       class="config-block mt-4"
       data-config-block="cors"
-      data-search-text="{{ _('CORS Allowed Origins')|e }}"
+      data-search-text="{{ (_('CORS Allowed Origins') ~ ' ' ~ _('Effective allowed origins') ~ ' ' ~ _('Allowed origins'))|e }}"
     >
       <div class="card shadow-sm border-0">
         <div class="card-header bg-white border-0 pb-0">
@@ -540,98 +540,102 @@
           </p>
         </div>
         <div class="card-body">
+          {% set allowed_field = (cors_fields | selectattr('key', 'equalto', 'allowedOrigins') | list | first) %}
+          {% set effective_field = (cors_fields | selectattr('key', 'equalto', 'CORS_ALLOWED_ORIGINS') | list | first) %}
+          {% set effective_value = (effective_field.form_value if effective_field else '') %}
           <form method="post" class="config-form" data-ajax-config-form data-config-form="cors">
             <input type="hidden" name="action" value="update-cors">
-            <div class="table-responsive">
-              <table class="table table-sm align-middle mb-0">
-                <thead>
-                  <tr>
-                    <th scope="col">{{ _('Key') }}</th>
-                    <th scope="col">{{ _('Current value') }}</th>
-                    <th scope="col">{{ _('Default') }}</th>
-                    <th scope="col">{{ _('New value') }}</th>
-                    <th scope="col">{{ _('Required') }}</th>
-                    <th scope="col">{{ _('Description') }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for field in cors_fields %}
-                  <tr
-                    id="cors-{{ field.key }}"
-                    data-config-row
-                    data-section="cors"
-                    data-search-text="{{ field.search_text|e }}"
-                    data-cors-key="{{ field.key }}"
+            <div class="row gy-4">
+              {% if effective_field %}
+              <div
+                class="col-12 col-lg-6"
+                id="cors-{{ effective_field.key }}"
+                data-search-text="{{ effective_field.search_text|e }}"
+              >
+                <label class="form-label">{{ effective_field.label }}</label>
+                {% if effective_field.description %}
+                <div class="text-muted small mb-2">{{ effective_field.description }}</div>
+                {% endif %}
+                <textarea
+                  class="form-control form-control-sm font-monospace"
+                  rows="6"
+                  readonly
+                  disabled
+                  data-cors-effective
+                >{{ effective_field.form_value }}</textarea>
+                <div
+                  class="form-text text-muted{% if effective_value|trim %} d-none{% endif %}"
+                  data-cors-effective-empty
+                >
+                  {{ _('No origins are currently allowed.') }}
+                </div>
+                {% if effective_field.default_hint %}
+                <div class="form-text text-muted">{{ effective_field.default_hint }}</div>
+                {% else %}
+                <div class="form-text text-muted">{{ _('Updated automatically after saving allowedOrigins.') }}</div>
+                {% endif %}
+              </div>
+              {% endif %}
+
+              {% if allowed_field %}
+              <div
+                class="col-12 col-lg-6"
+                id="cors-{{ allowed_field.key }}"
+                data-cors-key="{{ allowed_field.key }}"
+                data-search-text="{{ allowed_field.search_text|e }}"
+              >
+                <div class="d-flex align-items-center gap-2 mb-1">
+                  <label class="form-label mb-0" for="cors-input-{{ allowed_field.key }}">
+                    {{ allowed_field.label }}
+                  </label>
+                  <span
+                    class="badge mt-0 {% if allowed_field.using_default %}bg-secondary{% else %}bg-info{% endif %}"
+                    data-field="status-badge"
+                    data-label-using-default="{{ _('Using default') }}"
+                    data-label-overridden="{{ _('Overridden') }}"
                   >
-                    <td>
-                      <div><code>{{ field.key }}</code></div>
-                      <div class="text-muted small">{{ field.label }}</div>
-                      <span
-                        class="badge mt-1 {% if field.using_default %}bg-secondary{% else %}bg-info{% endif %}"
-                        data-field="status-badge"
-                        data-label-using-default="{{ _('Using default') }}"
-                        data-label-overridden="{{ _('Overridden') }}"
-                      >
-                        {% if field.using_default %}
-                        {{ _('Using default') }}
-                        {% else %}
-                        {{ _('Overridden') }}
-                        {% endif %}
-                      </span>
-                    </td>
-                    <td class="font-monospace small" data-field="current">{{ field.current_json }}</td>
-                    <td
-                      class="font-monospace small{% if not field.default_json %} text-muted{% endif %}"
-                      data-field="default"
-                      data-none-label="{{ _('None') }}"
-                    >
-                      {% if field.default_json %}
-                        {{ field.default_json }}
-                      {% else %}
-                        {{ _('None') }}
-                      {% endif %}
-                    </td>
-                    <td>
-                      {% if field.data_type == 'list' %}
-                      <textarea
-                        class="form-control form-control-sm font-monospace"
-                        name="cors_new[{{ field.key }}]"
-                        rows="3"
-                        data-cors-input
-                      >{{ field.form_value }}</textarea>
-                      <div class="form-text">{{ _('One value per line. Use "*" to allow any origin.') }}</div>
-                      {% else %}
-                      <input
-                        type="text"
-                        class="form-control form-control-sm"
-                        name="cors_new[{{ field.key }}]"
-                        value="{{ field.form_value }}"
-                        data-cors-input
-                      >
-                      {% endif %}
-                      <div class="form-check mt-2">
-                        <input
-                          class="form-check-input"
-                          type="checkbox"
-                          id="cors-use-default-{{ field.key }}"
-                          name="cors_use_default[{{ field.key }}]"
-                          value="1"
-                          {% if field.use_default %}checked{% endif %}
-                          data-cors-use-default
-                        >
-                        <label class="form-check-label" for="cors-use-default-{{ field.key }}">
-                          {{ _('Revert to default value') }}
-                        </label>
-                      </div>
-                    </td>
-                    <td>{% if field.required %}{{ _('Yes') }}{% else %}{{ _('No') }}{% endif %}</td>
-                    <td class="small">{{ field.description }}</td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
+                    {% if allowed_field.using_default %}
+                    {{ _('Using default') }}
+                    {% else %}
+                    {{ _('Overridden') }}
+                    {% endif %}
+                  </span>
+                </div>
+                <div class="text-muted small mb-2">{{ allowed_field.description }}</div>
+                <textarea
+                  class="form-control form-control-sm font-monospace"
+                  id="cors-input-{{ allowed_field.key }}"
+                  name="cors_new[{{ allowed_field.key }}]"
+                  rows="6"
+                  data-cors-input
+                >{{ allowed_field.form_value }}</textarea>
+                <div class="form-text">{{ _('One value per line. Use "*" to allow any origin.') }}</div>
+                <div class="form-check mt-2">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="cors-use-default-{{ allowed_field.key }}"
+                    name="cors_use_default[{{ allowed_field.key }}]"
+                    value="1"
+                    {% if allowed_field.use_default %}checked{% endif %}
+                    data-cors-use-default
+                  >
+                  <label class="form-check-label" for="cors-use-default-{{ allowed_field.key }}">
+                    {{ _('Revert to default value') }}
+                  </label>
+                </div>
+                <div class="mt-3">
+                  <div class="small fw-semibold">{{ _('Default') }}</div>
+                  <pre
+                    class="form-control form-control-sm font-monospace bg-light{{ ' text-muted' if not allowed_field.default_json else '' }}"
+                    data-field="default"
+                    data-none-label="{{ _('None') }}"
+                  >{% if allowed_field.default_json %}{{ allowed_field.default_json }}{% else %}{{ _('None') }}{% endif %}</pre>
+                </div>
+              </div>
+              {% endif %}
             </div>
-            <div class="config-section-actions">
+            <div class="config-section-actions mt-4">
               <button type="submit" class="btn btn-primary">
                 {{ _('Save CORS settings') }}
               </button>

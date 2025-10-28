@@ -179,6 +179,24 @@ def _compose_search_text(*parts: Any) -> str:
     return " ".join(token.strip() for token in tokens if token).lower()
 
 
+def _normalise_allowed_origins(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple, set)):
+        candidates = value
+    else:
+        candidates = [value]
+    normalised: list[str] = []
+    for candidate in candidates:
+        if candidate is None:
+            continue
+        text = str(candidate).strip()
+        if not text:
+            continue
+        normalised.append(text)
+    return normalised
+
+
 def _value_to_form_string(definition: SettingFieldDefinition, value: Any) -> str:
     if value is None:
         return ""
@@ -411,6 +429,11 @@ def _build_config_context(
     application_config = {**readonly_application_values, **application_config}
     cors_payload = SystemSettingService.load_cors_config_payload()
     cors_config = {**DEFAULT_CORS_SETTINGS, **cors_payload}
+    effective_allowed_origins = _normalise_allowed_origins(
+        current_app.config.get("CORS_ALLOWED_ORIGINS")
+    )
+    cors_config["CORS_ALLOWED_ORIGINS"] = effective_allowed_origins
+    cors_payload_for_rows = {**cors_payload, "CORS_ALLOWED_ORIGINS": effective_allowed_origins}
 
     application_definitions = _collect_application_definitions(application_config, application_payload)
     cors_definitions = _collect_cors_definitions()
@@ -426,7 +449,7 @@ def _build_config_context(
     cors_fields = _build_cors_field_rows(
         cors_definitions,
         cors_config,
-        cors_payload,
+        cors_payload_for_rows,
         overrides=cors_overrides,
         default_flags=cors_use_defaults,
     )
@@ -485,6 +508,7 @@ def _serialize_config_context(context: Dict[str, Any]) -> Dict[str, Any]:
         "application_sections": context.get("application_sections", []),
         "application_fields": context.get("application_fields", []),
         "cors_fields": context.get("cors_fields", []),
+        "cors_effective_origins": context.get("cors_config", {}).get("CORS_ALLOWED_ORIGINS", []),
         "signing_setting": asdict(context["signing_setting"]) if context.get("signing_setting") else None,
         "builtin_signing_secret": context.get("builtin_signing_secret"),
         "timestamps": {
@@ -851,13 +875,14 @@ def show_config():
         elif action == "update-cors":
             cors_overrides = {
                 key: request.form.get(f"cors_new[{key}]")
-                for key in cors_definitions
-                if f"cors_new[{key}]" in request.form
+                for key, definition in cors_definitions.items()
+                if definition.editable and f"cors_new[{key}]" in request.form
             }
             cors_use_defaults = {
                 key
-                for key in cors_definitions
-                if request.form.get(f"cors_use_default[{key}]") == "1"
+                for key, definition in cors_definitions.items()
+                if definition.editable
+                and request.form.get(f"cors_use_default[{key}]") == "1"
             }
 
             definition = cors_definitions.get("allowedOrigins")

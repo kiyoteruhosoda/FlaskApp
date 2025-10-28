@@ -550,7 +550,9 @@ class ApplicationSettings:
 
     @property
     def media_accel_redirect_enabled(self) -> bool:
-        return self.get_bool("MEDIA_ACCEL_REDIRECT_ENABLED", True)
+        # X-Accel-Redirect は環境設定が整っていないと 302 リダイレクトで動画再生が失敗する。
+        # そのためデフォルトでは無効化し、明示的に有効化した場合のみ利用する。
+        return self.get_bool("MEDIA_ACCEL_REDIRECT_ENABLED", False)
 
     # ------------------------------------------------------------------
     # Media URL configuration

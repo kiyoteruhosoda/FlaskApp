@@ -1034,6 +1034,7 @@ def test_media_detail_prefers_completed_playback(client, app):
 def test_download_with_accel_redirect(client, seed_thumb_media, app):
     media_id, rel = seed_thumb_media
     login(client)
+    app.config["MEDIA_ACCEL_REDIRECT_ENABLED"] = True
     app.config["MEDIA_ACCEL_THUMBNAILS_LOCATION"] = "/protected/thumbs"
     res = client.post(f"/api/media/{media_id}/thumb-url", json={"size": 1024})
     assert res.status_code == 200
@@ -1049,6 +1050,7 @@ def test_download_with_accel_redirect(client, seed_thumb_media, app):
 def test_download_original_with_accel_redirect(client, seed_thumb_media, app):
     media_id, rel = seed_thumb_media
     login(client)
+    app.config["MEDIA_ACCEL_REDIRECT_ENABLED"] = True
     app.config["MEDIA_ACCEL_ORIGINALS_LOCATION"] = "/protected/originals"
     res = client.post(f"/api/media/{media_id}/original-url")
     assert res.status_code == 200

@@ -129,7 +129,7 @@ MEDIA_NAS_THUMBNAILS_CONTAINER_DIRECTORY=/app/data/thumbs
 MEDIA_NAS_PLAYBACK_CONTAINER_DIRECTORY=/app/data/playback
 MEDIA_ACCEL_THUMBNAILS_LOCATION=/media/thumbs
 MEDIA_ACCEL_PLAYBACK_LOCATION=/media/playback
-MEDIA_ACCEL_REDIRECT_ENABLED=true
+MEDIA_ACCEL_REDIRECT_ENABLED=true  # デフォルトは false のため、X-Accel-Redirect を使う場合のみ true に設定
 ```
 
 **注意**: その他の設定項目（TZ、PUID、PGID等）はデフォルト値のまま使用可能です。

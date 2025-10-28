@@ -1297,6 +1297,12 @@ msgstr "Unavailable"
 msgid "Access token signing will use the built-in secret."
 msgstr "Access token signing will use the built-in secret."
 
+msgid "Please provide a JWT secret key for built-in signing."
+msgstr "Please provide a JWT secret key for built-in signing."
+
+msgid "Failed to update the built-in signing secret."
+msgstr "Failed to update the built-in signing secret."
+
 msgid "Access token signing certificate group updated."
 msgstr "Access token signing certificate group updated."
 
@@ -1324,8 +1330,8 @@ msgstr "Access Token Signing"
 msgid "Built-in secret (HS256)"
 msgstr "Built-in secret (HS256)"
 
-msgid "Use the built-in JWT secret key configured in the application settings."
-msgstr "Use the built-in JWT secret key configured in the application settings."
+msgid "Use the built-in JWT secret key configured below."
+msgstr "Use the built-in JWT secret key configured below."
 
 msgid "Server signing certificate groups"
 msgstr "Server signing certificate groups"

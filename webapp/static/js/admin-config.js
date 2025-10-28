@@ -6,6 +6,34 @@
     return;
   }
 
+  const builtinSecretInput = document.getElementById('access-token-signing-secret');
+  const builtinSecretContainer = document.querySelector('[data-builtin-secret-field]');
+
+  const toggleBuiltinSecretState = () => {
+    const builtinRadio = document.getElementById('access-token-signing-builtin');
+    const isBuiltinSelected = !!(builtinRadio && builtinRadio.checked);
+    if (builtinSecretInput) {
+      builtinSecretInput.disabled = !isBuiltinSelected;
+    }
+    if (builtinSecretContainer) {
+      builtinSecretContainer.classList.toggle('d-none', !isBuiltinSelected);
+    }
+  };
+
+  const updateBuiltinSecret = (value) => {
+    if (!builtinSecretInput) {
+      return;
+    }
+    builtinSecretInput.value = value || '';
+  };
+
+  const signingRadios = document.querySelectorAll('input[name="access_token_signing"]');
+  signingRadios.forEach((radio) => {
+    radio.addEventListener('change', () => {
+      toggleBuiltinSecretState();
+    });
+  });
+
   const showSuccess = window.showSuccessToast || ((msg) => console.log(msg));
   const showError = window.showErrorToast || ((msg) => console.error(msg));
   const showWarning = window.showWarningToast || ((msg) => console.warn(msg));
@@ -271,6 +299,7 @@
       if (builtinRadio) {
         builtinRadio.checked = true;
       }
+      toggleBuiltinSecretState();
       return;
     }
     if (signingSetting.mode === 'server_signing' && signingSetting.group_code) {
@@ -279,6 +308,7 @@
       if (radio) {
         radio.checked = true;
       }
+      toggleBuiltinSecretState();
     }
   }
 
@@ -506,6 +536,8 @@
     updateApplicationRows(data.application_fields);
     updateCorsRows(data.cors_fields);
     updateSigningSetting(data.signing_setting);
+    updateBuiltinSecret(data.builtin_signing_secret);
+    toggleBuiltinSecretState();
     updateTimestamps(data.timestamps, data.descriptions);
     if (typeof reapplySearchFilter === 'function') {
       reapplySearchFilter();
@@ -588,5 +620,6 @@
   });
 
   // Ensure the latest context is displayed when the page loads.
+  toggleBuiltinSecretState();
   fetchContext();
 })();

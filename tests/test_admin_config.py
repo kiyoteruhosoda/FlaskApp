@@ -123,14 +123,14 @@ def test_update_application_config_rejects_empty_required(client):
     user = _create_system_manager()
     _login(client, user)
 
-    original_value = SystemSettingService.load_application_config()["JWT_SECRET_KEY"]
+    original_value = SystemSettingService.load_application_config()["ACCESS_TOKEN_ISSUER"]
 
     response = client.post(
         "/admin/config",
         data={
             "action": "update-app-config-fields",
-            "app_config_selected": ["JWT_SECRET_KEY"],
-            "app_config_new[JWT_SECRET_KEY]": "",
+            "app_config_selected": ["ACCESS_TOKEN_ISSUER"],
+            "app_config_new[ACCESS_TOKEN_ISSUER]": "",
         },
         headers={"X-Requested-With": "XMLHttpRequest", "Accept": "application/json"},
     )
@@ -138,10 +138,10 @@ def test_update_application_config_rejects_empty_required(client):
     assert response.status_code == 400
     payload = response.get_json()
     assert payload["status"] == "error"
-    assert "Value for JWT secret key is required." in payload["message"]
+    assert "Value for Access token issuer is required." in payload["message"]
 
     config = SystemSettingService.load_application_config()
-    assert config["JWT_SECRET_KEY"] == original_value
+    assert config["ACCESS_TOKEN_ISSUER"] == original_value
 
 
 def test_update_application_config_rejects_readonly_field(client):
@@ -220,6 +220,55 @@ def test_update_application_config_triggers_relogin_warning(client):
 
     config = SystemSettingService.load_application_config()
     assert config["SECRET_KEY"] == "new-secret-key"
+
+
+def test_update_signing_requires_secret_for_builtin(client):
+    user = _create_system_manager()
+    _login(client, user)
+
+    original_secret = SystemSettingService.load_application_config()["JWT_SECRET_KEY"]
+
+    response = client.post(
+        "/admin/config",
+        data={
+            "action": "update-signing",
+            "access_token_signing": "builtin",
+            "builtin_secret": "",
+        },
+        headers={"X-Requested-With": "XMLHttpRequest", "Accept": "application/json"},
+    )
+
+    assert response.status_code == 400
+    payload = response.get_json()
+    assert payload["status"] == "error"
+    assert "Please provide a JWT secret key for built-in signing." in payload["message"]
+
+    config = SystemSettingService.load_application_config()
+    assert config["JWT_SECRET_KEY"] == original_secret
+
+
+def test_update_signing_builtin_updates_secret(client):
+    user = _create_system_manager()
+    _login(client, user)
+
+    response = client.post(
+        "/admin/config",
+        data={
+            "action": "update-signing",
+            "access_token_signing": "builtin",
+            "builtin_secret": "new-built-in-secret",
+        },
+        headers={"X-Requested-With": "XMLHttpRequest", "Accept": "application/json"},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["status"] == "success"
+    assert "Access token signing will use the built-in secret." in payload["message"]
+
+    config = SystemSettingService.load_application_config()
+    assert config["JWT_SECRET_KEY"] == "new-built-in-secret"
+    assert client.application.config["JWT_SECRET_KEY"] == "new-built-in-secret"
 
 
 def test_update_cors_config_success(client):

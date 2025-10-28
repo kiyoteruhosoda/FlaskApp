@@ -208,7 +208,28 @@
                 {{ _('Built-in secret (HS256)') }}
               </label>
               <div class="form-text">
-                {{ _('Use the built-in JWT secret key configured in the application settings.') }}
+                {{ _('Use the built-in JWT secret key configured below.') }}
+              </div>
+              <div
+                class="ms-4 mt-2 {% if not signing_setting.is_builtin %}d-none{% endif %}"
+                data-builtin-secret-field
+              >
+                <label class="form-label" for="access-token-signing-secret">
+                  {{ _('JWT secret key') }}
+                </label>
+                <input
+                  type="password"
+                  class="form-control"
+                  id="access-token-signing-secret"
+                  name="builtin_secret"
+                  value="{{ (builtin_signing_secret or '')|e }}"
+                  autocomplete="new-password"
+                  spellcheck="false"
+                  {% if not signing_setting.is_builtin %}disabled{% endif %}
+                >
+                <div class="form-text">
+                  {{ _('HS256 secret used for application issued JWT tokens.') }}
+                </div>
               </div>
             </div>
 

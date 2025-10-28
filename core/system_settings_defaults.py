@@ -31,7 +31,8 @@ DEFAULT_APPLICATION_SETTINGS: dict[str, object] = {
     "MEDIA_NAS_THUMBNAILS_DIRECTORY": "/app/data/media/thumbs",
     "MEDIA_NAS_PLAYBACK_DIRECTORY": "/app/data/media/playback",
     "MEDIA_NAS_ORIGINALS_DIRECTORY": "/app/data/media/originals",
-    "MEDIA_ACCEL_REDIRECT_ENABLED": True,
+    # X-Accel-Redirect を使用しない構成をデフォルトとし、明示的な有効化のみ許可する
+    "MEDIA_ACCEL_REDIRECT_ENABLED": False,
     "MEDIA_ACCEL_THUMBNAILS_LOCATION": "/mnt/data/media/thumbs",
     "MEDIA_ACCEL_PLAYBACK_LOCATION": "/mnt/data/media/playback",
     "MEDIA_ACCEL_ORIGINALS_LOCATION": "/mnt/data/media/originals",

@@ -85,6 +85,24 @@ _SECURITY_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         required=True,
         description=_(u"Audience (`aud`) claim enforced for access tokens."),
     ),
+    SettingFieldDefinition(
+        key="ENCRYPTION_KEY",
+        label=_(u"Token encryption key"),
+        data_type="string",
+        required=False,
+        description=_(u"PEM encoded key used for token encryption."),
+        allow_empty=True,
+        allow_null=True,
+    ),
+    SettingFieldDefinition(
+        key="ENCRYPTION_KEY_FILE",
+        label=_(u"Token encryption key file"),
+        data_type="string",
+        required=False,
+        description=_(u"Path to a PEM file used for token encryption."),
+        allow_empty=True,
+        allow_null=True,
+    ),
 )
 
 _SESSION_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
@@ -186,24 +204,6 @@ _OAUTH_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         required=False,
         description=_(u"Client secret for Google sign-in."),
         allow_empty=True,
-    ),
-    SettingFieldDefinition(
-        key="ENCRYPTION_KEY",
-        label=_(u"Token encryption key"),
-        data_type="string",
-        required=False,
-        description=_(u"PEM encoded key used for token encryption."),
-        allow_empty=True,
-        allow_null=True,
-    ),
-    SettingFieldDefinition(
-        key="ENCRYPTION_KEY_FILE",
-        label=_(u"Token encryption key file"),
-        data_type="string",
-        required=False,
-        description=_(u"Path to a PEM file used for token encryption."),
-        allow_empty=True,
-        allow_null=True,
     ),
 )
 
@@ -426,7 +426,7 @@ APPLICATION_SETTING_SECTIONS: tuple[SettingDefinitionSection, ...] = (
     SettingDefinitionSection(
         identifier="security",
         label=_(u"Security & Signing"),
-        description=_(u"Secrets, issuers, and token signing settings."),
+        description=_(u"Secrets, encryption keys, issuers, and token signing settings."),
         fields=_SECURITY_DEFINITIONS,
     ),
     SettingDefinitionSection(

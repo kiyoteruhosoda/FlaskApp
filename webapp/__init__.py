@@ -708,10 +708,22 @@ def _apply_persisted_settings(app: Flask) -> None:
     """Load persisted configuration values into ``app.config``."""
 
     try:
-        config_payload = SystemSettingService.load_application_config()
+        stored_payload = SystemSettingService.load_application_config_payload()
     except Exception as exc:  # pragma: no cover - defensive fallback
         app.logger.warning("Failed to load application settings from DB: %s", exc)
-        config_payload = dict(DEFAULT_APPLICATION_SETTINGS)
+        stored_payload = {}
+
+    config_payload = dict(DEFAULT_APPLICATION_SETTINGS)
+    config_payload.update(stored_payload)
+
+    if stored_payload:
+        for canonical_key, legacy_keys in settings._LEGACY_KEYS.items():
+            if canonical_key in stored_payload:
+                continue
+            for legacy_key in legacy_keys:
+                if legacy_key in stored_payload:
+                    config_payload[canonical_key] = stored_payload[legacy_key]
+                    break
     for key, value in config_payload.items():
         if key == "DATABASE_URI":
             continue

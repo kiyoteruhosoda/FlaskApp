@@ -110,8 +110,8 @@ def test_update_application_config_field_success(client):
         "/admin/config",
         data={
             "action": "update-app-config-fields",
-            "app_config_selected": ["UPLOAD_MAX_SIZE"],
-            "app_config_new[UPLOAD_MAX_SIZE]": "2048",
+            "app_config_selected": ["MEDIA_UPLOAD_MAX_SIZE_BYTES"],
+            "app_config_new[MEDIA_UPLOAD_MAX_SIZE_BYTES]": "2048",
         },
         headers={"X-Requested-With": "XMLHttpRequest", "Accept": "application/json"},
     )
@@ -121,10 +121,10 @@ def test_update_application_config_field_success(client):
     assert payload["status"] == "success"
     assert "Application configuration updated." in payload["message"]
     assert payload["action"] == "update-app-config-fields"
-    assert client.application.config["UPLOAD_MAX_SIZE"] == 2048
+    assert client.application.config["MEDIA_UPLOAD_MAX_SIZE_BYTES"] == 2048
 
     config = SystemSettingService.load_application_config()
-    assert config["UPLOAD_MAX_SIZE"] == 2048
+    assert config["MEDIA_UPLOAD_MAX_SIZE_BYTES"] == 2048
 
 
 def test_update_application_config_rejects_empty_required(client):

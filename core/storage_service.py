@@ -133,26 +133,46 @@ class StorageService(Protocol):
 _KNOWN_SPECS: tuple[_StorageSpec, ...] = (
     _StorageSpec(
         domain=StorageDomain.MEDIA_ORIGINALS,
-        config_key="FPV_NAS_ORIGINALS_DIR",
-        env_fallbacks=("FPV_NAS_ORIGINALS_CONTAINER_DIR", "FPV_NAS_ORIGINALS_DIR"),
+        config_key="MEDIA_NAS_ORIGINALS_DIRECTORY",
+        env_fallbacks=(
+            "MEDIA_NAS_ORIGINALS_CONTAINER_DIRECTORY",
+            "MEDIA_NAS_ORIGINALS_DIRECTORY",
+            "FPV_NAS_ORIGINALS_CONTAINER_DIR",
+            "FPV_NAS_ORIGINALS_DIR",
+        ),
         defaults=("/app/data/media", "/tmp/fpv_orig"),
     ),
     _StorageSpec(
         domain=StorageDomain.MEDIA_PLAYBACK,
-        config_key="FPV_NAS_PLAY_DIR",
-        env_fallbacks=("FPV_NAS_PLAY_CONTAINER_DIR", "FPV_NAS_PLAY_DIR"),
+        config_key="MEDIA_NAS_PLAYBACK_DIRECTORY",
+        env_fallbacks=(
+            "MEDIA_NAS_PLAYBACK_CONTAINER_DIRECTORY",
+            "MEDIA_NAS_PLAYBACK_DIRECTORY",
+            "FPV_NAS_PLAY_CONTAINER_DIR",
+            "FPV_NAS_PLAY_DIR",
+        ),
         defaults=("/app/data/playback", "/tmp/fpv_play"),
     ),
     _StorageSpec(
         domain=StorageDomain.MEDIA_THUMBNAILS,
-        config_key="FPV_NAS_THUMBS_DIR",
-        env_fallbacks=("FPV_NAS_THUMBS_CONTAINER_DIR", "FPV_NAS_THUMBS_DIR"),
+        config_key="MEDIA_NAS_THUMBNAILS_DIRECTORY",
+        env_fallbacks=(
+            "MEDIA_NAS_THUMBNAILS_CONTAINER_DIRECTORY",
+            "MEDIA_NAS_THUMBNAILS_DIRECTORY",
+            "FPV_NAS_THUMBS_CONTAINER_DIR",
+            "FPV_NAS_THUMBS_DIR",
+        ),
         defaults=("/app/data/thumbs", "/tmp/fpv_thumbs"),
     ),
     _StorageSpec(
         domain=StorageDomain.MEDIA_IMPORT,
-        config_key="LOCAL_IMPORT_DIR",
-        env_fallbacks=("LOCAL_IMPORT_CONTAINER_DIR", "LOCAL_IMPORT_DIR"),
+        config_key="MEDIA_LOCAL_IMPORT_DIRECTORY",
+        env_fallbacks=(
+            "MEDIA_LOCAL_IMPORT_CONTAINER_DIRECTORY",
+            "MEDIA_LOCAL_IMPORT_DIRECTORY",
+            "LOCAL_IMPORT_CONTAINER_DIR",
+            "LOCAL_IMPORT_DIR",
+        ),
         defaults=("/tmp/local_import",),
     ),
 )

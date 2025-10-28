@@ -120,22 +120,22 @@ GOOGLE_CLIENT_ID=<your-google-client-id>
 GOOGLE_CLIENT_SECRET=<your-google-client-secret>
 
 # ダウンロードURL署名設定
-FPV_DL_SIGN_KEY=<your-download-signing-key-here>
+MEDIA_DOWNLOAD_SIGNING_KEY=<your-download-signing-key-here>
 
 # NASパス（Nginx X-Accel-Redirectを使う場合の例）
-FPV_NAS_THUMBS_DIR=/volume1/docker/photonest/data/thumbs
-FPV_NAS_PLAY_DIR=/volume1/docker/photonest/data/playback
-FPV_NAS_THUMBS_CONTAINER_DIR=/app/data/thumbs
-FPV_NAS_PLAY_CONTAINER_DIR=/app/data/playback
-FPV_ACCEL_THUMBS_LOCATION=/media/thumbs
-FPV_ACCEL_PLAYBACK_LOCATION=/media/playback
-FPV_ACCEL_REDIRECT_ENABLED=true
+MEDIA_NAS_THUMBNAILS_DIRECTORY=/volume1/docker/photonest/data/thumbs
+MEDIA_NAS_PLAYBACK_DIRECTORY=/volume1/docker/photonest/data/playback
+MEDIA_NAS_THUMBNAILS_CONTAINER_DIRECTORY=/app/data/thumbs
+MEDIA_NAS_PLAYBACK_CONTAINER_DIRECTORY=/app/data/playback
+MEDIA_ACCEL_THUMBNAILS_LOCATION=/media/thumbs
+MEDIA_ACCEL_PLAYBACK_LOCATION=/media/playback
+MEDIA_ACCEL_REDIRECT_ENABLED=true
 ```
 
 **注意**: その他の設定項目（TZ、PUID、PGID等）はデフォルト値のまま使用可能です。
 
-X-Accel-Redirectを使用しない構成の場合は、`FPV_ACCEL_REDIRECT_ENABLED=false`を設定するか、
-`FPV_ACCEL_THUMBS_LOCATION`および`FPV_ACCEL_PLAYBACK_LOCATION`の値を空にしてください。
+X-Accel-Redirectを使用しない構成の場合は、`MEDIA_ACCEL_REDIRECT_ENABLED=false`を設定するか、
+`MEDIA_ACCEL_THUMBNAILS_LOCATION`および`MEDIA_ACCEL_PLAYBACK_LOCATION`の値を空にしてください。
 この設定により、Flaskアプリが直接ファイルを配信します。
 
 ### 2.2 docker-compose.ymlの設定確認
@@ -293,25 +293,25 @@ docker logs photonest-redis
 ```bash
 # データベースバックアップスクリプト
 #!/bin/bash
-BACKUP_DIR="/volume1/docker/photonest/backups"
+MEDIA_BACKUP_DIRECTORY="/volume1/docker/photonest/backups"
 DATE=$(date +%Y%m%d_%H%M%S)
 
 # 外部データベースのバックアップ（例：Synology MariaDBパッケージの場合）
 # Synology MariaDBの場合：
 mysqldump -h <your-db-host> -u <photonest_user> -p photonest > \
-    ${BACKUP_DIR}/db_backup_${DATE}.sql
+    ${MEDIA_BACKUP_DIRECTORY}/db_backup_${DATE}.sql
 
 # 別サーバーのMySQL/MariaDBの場合：
 # mysqldump -h <your-external-db-server> -u <photonest_user> -p photonest > \
-#     ${BACKUP_DIR}/db_backup_${DATE}.sql
+#     ${MEDIA_BACKUP_DIRECTORY}/db_backup_${DATE}.sql
 
 # メディアファイルバックアップ（必要に応じて）
-tar -czf ${BACKUP_DIR}/media_backup_${DATE}.tar.gz \
+tar -czf ${MEDIA_BACKUP_DIRECTORY}/media_backup_${DATE}.tar.gz \
     /volume1/docker/photonest/data/
 
 # 古いバックアップの削除（30日より古い）
-find ${BACKUP_DIR} -name "*.sql" -mtime +30 -delete
-find ${BACKUP_DIR} -name "*.tar.gz" -mtime +30 -delete
+find ${MEDIA_BACKUP_DIRECTORY} -name "*.sql" -mtime +30 -delete
+find ${MEDIA_BACKUP_DIRECTORY} -name "*.tar.gz" -mtime +30 -delete
 ```
 
 #### 6.3.2 アップデート手順
@@ -390,25 +390,25 @@ echo "nolumia stopped successfully!"
 #### backup-photonest.sh
 ```bash
 #!/bin/bash
-BACKUP_DIR="/volume1/docker/photonest/backups"
+MEDIA_BACKUP_DIRECTORY="/volume1/docker/photonest/backups"
 DATE=$(date +%Y%m%d_%H%M%S)
-mkdir -p ${BACKUP_DIR}
+mkdir -p ${MEDIA_BACKUP_DIRECTORY}
 
 # 外部データベースバックアップ
 # Synology MariaDBパッケージの場合
 mysqldump -h localhost -u <photonest_user> -p photonest \
     --single-transaction --routines --triggers > \
-    ${BACKUP_DIR}/photonest_db_${DATE}.sql
+    ${MEDIA_BACKUP_DIRECTORY}/photonest_db_${DATE}.sql
 
 # 別サーバーのデータベースの場合
 # mysqldump -h <your-db-server> -u <photonest_user> -p photonest \
 #     --single-transaction --routines --triggers > \
-#     ${BACKUP_DIR}/photonest_db_${DATE}.sql
+#     ${MEDIA_BACKUP_DIRECTORY}/photonest_db_${DATE}.sql
 
 # 設定ファイルバックアップ
-cp /volume1/docker/photonest/.env ${BACKUP_DIR}/env_${DATE}.backup
+cp /volume1/docker/photonest/.env ${MEDIA_BACKUP_DIRECTORY}/env_${DATE}.backup
 
-echo "Backup completed: ${BACKUP_DIR}"
+echo "Backup completed: ${MEDIA_BACKUP_DIRECTORY}"
 echo "Database: photonest_db_${DATE}.sql"
 echo "Config: env_${DATE}.backup"
 ```

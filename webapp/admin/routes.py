@@ -1040,10 +1040,10 @@ def show_data_files():
         return _(u"You do not have permission to access this page."), 403
 
     directory_definitions = [
-        ("FPV_NAS_ORIGINALS_DIR", _("Original Media Directory")),
-        ("FPV_NAS_THUMBS_DIR", _("Thumbnail Directory")),
-        ("FPV_NAS_PLAY_DIR", _("Playback Directory")),
-        ("LOCAL_IMPORT_DIR", _("Local Import Directory")),
+        ("MEDIA_NAS_ORIGINALS_DIRECTORY", _("Original Media Directory")),
+        ("MEDIA_NAS_THUMBNAILS_DIRECTORY", _("Thumbnail Directory")),
+        ("MEDIA_NAS_PLAYBACK_DIRECTORY", _("Playback Directory")),
+        ("MEDIA_LOCAL_IMPORT_DIRECTORY", _("Local Import Directory")),
     ]
     directory_keys = [config_key for config_key, _ in directory_definitions]
     selected_key = request.args.get("directory") or directory_keys[0]

@@ -40,12 +40,12 @@ def app(tmp_path):
     env = {
         "SECRET_KEY": "test",
         "DATABASE_URI": f"sqlite:///{db_path}",
-        "FPV_TMP_DIR": str(tmp_dir),
-        "FPV_NAS_ORIGINALS_DIR": str(orig_dir),
-        "FPV_NAS_PLAY_DIR": str(play_dir),
-        "FPV_NAS_THUMBS_DIR": str(thumbs_dir),
-        "LOCAL_IMPORT_DIR": str(import_dir),
-        "FPV_DL_SIGN_KEY": base64.urlsafe_b64encode(b"1" * 32).decode(),
+        "MEDIA_TEMP_DIRECTORY": str(tmp_dir),
+        "MEDIA_NAS_ORIGINALS_DIRECTORY": str(orig_dir),
+        "MEDIA_NAS_PLAYBACK_DIRECTORY": str(play_dir),
+        "MEDIA_NAS_THUMBNAILS_DIRECTORY": str(thumbs_dir),
+        "MEDIA_LOCAL_IMPORT_DIRECTORY": str(import_dir),
+        "MEDIA_DOWNLOAD_SIGNING_KEY": base64.urlsafe_b64encode(b"1" * 32).decode(),
     }
     prev = {k: os.environ.get(k) for k in env}
     os.environ.update(env)
@@ -212,8 +212,8 @@ def test_local_import_task_with_session(app, db_session, temp_dir):
     from core.models.photo_models import PickerSelection
     
     # app fixtureで設定されたディレクトリを使用
-    import_dir = Path(app.config['LOCAL_IMPORT_DIR'])
-    originals_dir = Path(app.config['FPV_NAS_ORIGINALS_DIR'])
+    import_dir = Path(app.config['MEDIA_LOCAL_IMPORT_DIRECTORY'])
+    originals_dir = Path(app.config['MEDIA_NAS_ORIGINALS_DIRECTORY'])
     
     # テスト用ファイルを作成
     test_video = import_dir / "test_video.mp4"
@@ -258,8 +258,8 @@ def test_local_import_task_with_session(app, db_session, temp_dir):
 def test_import_single_file_video_recoverable_failure(app, monkeypatch):
     """セッション経由の取り込みでは ffmpeg 不足を警告として扱う。"""
 
-    import_dir = Path(app.config["LOCAL_IMPORT_DIR"])
-    originals_dir = Path(app.config["FPV_NAS_ORIGINALS_DIR"])
+    import_dir = Path(app.config["MEDIA_LOCAL_IMPORT_DIRECTORY"])
+    originals_dir = Path(app.config["MEDIA_NAS_ORIGINALS_DIRECTORY"])
 
     test_video = import_dir / "recoverable.mp4"
     test_video.write_text("dummy video content")
@@ -289,10 +289,10 @@ def test_local_import_video_generates_playback_from_originals(app, monkeypatch):
     from core.models.photo_models import Media, MediaPlayback
     from core.tasks import media_post_processing, transcode as transcode_module
 
-    import_dir = Path(app.config["LOCAL_IMPORT_DIR"])
-    originals_dir = Path(app.config["FPV_NAS_ORIGINALS_DIR"])
-    play_dir = Path(app.config["FPV_NAS_PLAY_DIR"])
-    tmp_dir = Path(os.environ["FPV_TMP_DIR"])
+    import_dir = Path(app.config["MEDIA_LOCAL_IMPORT_DIRECTORY"])
+    originals_dir = Path(app.config["MEDIA_NAS_ORIGINALS_DIRECTORY"])
+    play_dir = Path(app.config["MEDIA_NAS_PLAYBACK_DIRECTORY"])
+    tmp_dir = Path(os.environ["MEDIA_TEMP_DIRECTORY"])
 
     for child in import_dir.iterdir():
         if child.is_file():
@@ -419,8 +419,8 @@ def test_local_import_duplicate_sets_google_media_id(app):
         db.session.add_all([media_item, media])
         db.session.commit()
 
-        import_dir = Path(app.config["LOCAL_IMPORT_DIR"])
-        originals_dir = app.config["FPV_NAS_ORIGINALS_DIR"]
+        import_dir = Path(app.config["MEDIA_LOCAL_IMPORT_DIRECTORY"])
+        originals_dir = app.config["MEDIA_NAS_ORIGINALS_DIRECTORY"]
         file_path = import_dir / "dup.jpg"
         file_path.write_bytes(b"dummy")
 
@@ -467,7 +467,7 @@ if __name__ == "__main__":
     print("\n" + "=" * 50)
     print("すべてのテストが完了しました！")
     print("\n使用方法:")
-    print("1. 環境変数 LOCAL_IMPORT_DIR に取り込み元ディレクトリを設定")
-    print("2. 環境変数 FPV_NAS_ORIGINALS_DIR に保存先ディレクトリを設定")
+    print("1. 環境変数 MEDIA_LOCAL_IMPORT_DIRECTORY に取り込み元ディレクトリを設定")
+    print("2. 環境変数 MEDIA_NAS_ORIGINALS_DIRECTORY に保存先ディレクトリを設定")
     print("3. Web管理画面 (/photo-view/settings) からインポート実行")
     print("4. または Celery タスクから実行: local_import_task_celery.delay()")

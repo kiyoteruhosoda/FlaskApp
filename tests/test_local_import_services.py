@@ -178,7 +178,7 @@ def test_directory_scanner_collects_supported_files_and_zip(tmp_path):
 
 def test_zip_archive_service_extracts_and_cleans(tmp_path):
     storage = LocalFilesystemStorageService()
-    storage.set_defaults("LOCAL_IMPORT_DIR", (str(tmp_path / "import_base"),))
+    storage.set_defaults("MEDIA_LOCAL_IMPORT_DIRECTORY", (str(tmp_path / "import_base"),))
 
     def _info(*args, **kwargs):
         return None

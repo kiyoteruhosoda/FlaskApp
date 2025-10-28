@@ -20,19 +20,19 @@ def app(tmp_path):
     os.environ["GOOGLE_CLIENT_SECRET"] = "sec"
     key = base64.urlsafe_b64encode(b"0" * 32).decode()
     os.environ["ENCRYPTION_KEY"] = key
-    os.environ["FPV_DL_SIGN_KEY"] = base64.urlsafe_b64encode(b"1" * 32).decode()
-    os.environ["FPV_URL_TTL_THUMB"] = "600"
-    os.environ["FPV_URL_TTL_PLAYBACK"] = "600"
-    os.environ["FPV_URL_TTL_ORIGINAL"] = "600"
+    os.environ["MEDIA_DOWNLOAD_SIGNING_KEY"] = base64.urlsafe_b64encode(b"1" * 32).decode()
+    os.environ["MEDIA_THUMBNAIL_URL_TTL_SECONDS"] = "600"
+    os.environ["MEDIA_PLAYBACK_URL_TTL_SECONDS"] = "600"
+    os.environ["MEDIA_ORIGINAL_URL_TTL_SECONDS"] = "600"
     thumbs = tmp_path / "thumbs"
     play = tmp_path / "play"
     orig = tmp_path / "orig"
     thumbs.mkdir()
     play.mkdir()
     orig.mkdir()
-    os.environ["FPV_NAS_THUMBS_DIR"] = str(thumbs)
-    os.environ["FPV_NAS_PLAY_DIR"] = str(play)
-    os.environ["FPV_NAS_ORIGINALS_DIR"] = str(orig)
+    os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"] = str(thumbs)
+    os.environ["MEDIA_NAS_PLAYBACK_DIRECTORY"] = str(play)
+    os.environ["MEDIA_NAS_ORIGINALS_DIRECTORY"] = str(orig)
     import importlib, sys
     import webapp.config as config_module
     importlib.reload(config_module)
@@ -112,7 +112,7 @@ def grant_permission(app, code: str) -> None:
 
 def make_token(payload: dict) -> str:
     canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
-    key = base64.urlsafe_b64decode(os.environ["FPV_DL_SIGN_KEY"])
+    key = base64.urlsafe_b64decode(os.environ["MEDIA_DOWNLOAD_SIGNING_KEY"])
     sig = hmac.new(key, canonical, hashlib.sha256).digest()
     return (
         base64.urlsafe_b64encode(canonical).rstrip(b"=").decode()
@@ -404,12 +404,12 @@ def seed_thumb_media(app):
         db.session.commit()
         mid = m.id
 
-    base = os.environ["FPV_NAS_THUMBS_DIR"]
+    base = os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"]
     path = os.path.join(base, "1024", rel)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "wb") as f:
         f.write(b"jpg")
-    orig_base = os.environ["FPV_NAS_ORIGINALS_DIR"]
+    orig_base = os.environ["MEDIA_NAS_ORIGINALS_DIRECTORY"]
     orig_path = os.path.join(orig_base, rel)
     os.makedirs(os.path.dirname(orig_path), exist_ok=True)
     with open(orig_path, "wb") as f:
@@ -482,7 +482,7 @@ def seed_playback_media(app):
         db.session.commit()
         ok_rel = pb_ok.rel_path
 
-    base = os.environ["FPV_NAS_PLAY_DIR"]
+    base = os.environ["MEDIA_NAS_PLAYBACK_DIRECTORY"]
     ok_path = os.path.join(base, ok_rel)
     os.makedirs(os.path.dirname(ok_path), exist_ok=True)
     with open(ok_path, "wb") as f:
@@ -765,7 +765,7 @@ def test_original_url_ok(client, seed_thumb_media):
     media_id, rel = seed_thumb_media
     login(client)
 
-    orig_path = Path(os.environ["FPV_NAS_ORIGINALS_DIR"]) / rel
+    orig_path = Path(os.environ["MEDIA_NAS_ORIGINALS_DIRECTORY"]) / rel
     orig_path.parent.mkdir(parents=True, exist_ok=True)
     orig_path.write_bytes(b"orig")
 
@@ -788,7 +788,7 @@ def test_original_url_not_found(client, seed_thumb_media):
     media_id, rel = seed_thumb_media
     login(client)
 
-    orig_path = Path(os.environ["FPV_NAS_ORIGINALS_DIR"]) / rel
+    orig_path = Path(os.environ["MEDIA_NAS_ORIGINALS_DIRECTORY"]) / rel
     if orig_path.exists():
         orig_path.unlink()
 
@@ -919,7 +919,7 @@ def test_playback_filename_for_mov(client, app):
         media_id = media.id
         playback_rel = playback.rel_path
 
-    play_dir = Path(os.environ["FPV_NAS_PLAY_DIR"])
+    play_dir = Path(os.environ["MEDIA_NAS_PLAYBACK_DIRECTORY"])
     playback_path = play_dir / playback_rel
     playback_path.parent.mkdir(parents=True, exist_ok=True)
     playback_path.write_bytes(os.urandom(1024))
@@ -1034,7 +1034,7 @@ def test_media_detail_prefers_completed_playback(client, app):
 def test_download_with_accel_redirect(client, seed_thumb_media, app):
     media_id, rel = seed_thumb_media
     login(client)
-    app.config["FPV_ACCEL_THUMBS_LOCATION"] = "/protected/thumbs"
+    app.config["MEDIA_ACCEL_THUMBNAILS_LOCATION"] = "/protected/thumbs"
     res = client.post(f"/api/media/{media_id}/thumb-url", json={"size": 1024})
     assert res.status_code == 200
     token_url = res.get_json()["url"]
@@ -1049,7 +1049,7 @@ def test_download_with_accel_redirect(client, seed_thumb_media, app):
 def test_download_original_with_accel_redirect(client, seed_thumb_media, app):
     media_id, rel = seed_thumb_media
     login(client)
-    app.config["FPV_ACCEL_ORIGINALS_LOCATION"] = "/protected/originals"
+    app.config["MEDIA_ACCEL_ORIGINALS_LOCATION"] = "/protected/originals"
     res = client.post(f"/api/media/{media_id}/original-url")
     assert res.status_code == 200
     token_url = res.get_json()["url"]
@@ -1064,8 +1064,8 @@ def test_download_original_with_accel_redirect(client, seed_thumb_media, app):
 def test_download_without_accel_redirect(client, seed_thumb_media, app):
     media_id, rel = seed_thumb_media
     login(client)
-    app.config["FPV_ACCEL_THUMBS_LOCATION"] = "/protected/thumbs"
-    app.config["FPV_ACCEL_REDIRECT_ENABLED"] = False
+    app.config["MEDIA_ACCEL_THUMBNAILS_LOCATION"] = "/protected/thumbs"
+    app.config["MEDIA_ACCEL_REDIRECT_ENABLED"] = False
     res = client.post(f"/api/media/{media_id}/thumb-url", json={"size": 1024})
     assert res.status_code == 200
     token_url = res.get_json()["url"]
@@ -1079,7 +1079,7 @@ def test_download_without_accel_redirect(client, seed_thumb_media, app):
 def test_ct_mismatch(client):
     login(client)
     rel = "2025/08/18/foo.png"
-    base = os.environ["FPV_NAS_THUMBS_DIR"]
+    base = os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"]
     path = os.path.join(base, "256", rel)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "wb") as f:
@@ -1130,7 +1130,7 @@ def test_media_thumbnail_route(client, app):
         db.session.commit()
         media_id = m.id
 
-    thumb_dir = Path(os.environ["FPV_NAS_THUMBS_DIR"]) / "256"
+    thumb_dir = Path(os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"]) / "256"
     thumb_dir.mkdir(parents=True, exist_ok=True)
     thumb_path = thumb_dir / "thumb.jpg"
     data = b"testdata"
@@ -1166,7 +1166,7 @@ def test_media_thumbnail_route_handles_heic(client, app):
         db.session.commit()
         media_id = media.id
 
-    thumb_dir = Path(os.environ["FPV_NAS_THUMBS_DIR"]) / "256"
+    thumb_dir = Path(os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"]) / "256"
     thumb_dir.mkdir(parents=True, exist_ok=True)
     thumb_path = thumb_dir / "heic-thumb.jpg"
     payload = b"heic"
@@ -1202,7 +1202,7 @@ def test_media_thumbnail_route_uses_thumbnail_rel_path(client, app):
         db.session.commit()
         media_id = media.id
 
-    thumb_dir = Path(os.environ["FPV_NAS_THUMBS_DIR"]) / "256" / "alt"
+    thumb_dir = Path(os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"]) / "256" / "alt"
     thumb_dir.mkdir(parents=True, exist_ok=True)
     thumb_path = thumb_dir / "thumb-alt.jpg"
     payload = b"alt-thumb"
@@ -1220,7 +1220,7 @@ def test_thumbnail_falls_back_to_default_path(client, app, monkeypatch, tmp_path
     from webapp.api import routes as api_routes
 
     with app.app_context():
-        original_thumb_dir = app.config["FPV_NAS_THUMBS_DIR"]
+        original_thumb_dir = app.config["MEDIA_NAS_THUMBNAILS_DIRECTORY"]
         media = Media(
             google_media_id="thumb-fallback",
             account_id=1,
@@ -1248,12 +1248,12 @@ def test_thumbnail_falls_back_to_default_path(client, app, monkeypatch, tmp_path
     payload = b"fallback"
     thumb_file.write_bytes(payload)
 
-    monkeypatch.setenv("FPV_NAS_THUMBS_DIR", str(host_path))
+    monkeypatch.setenv("MEDIA_NAS_THUMBNAILS_DIRECTORY", str(host_path))
     with app.app_context():
-        app.config["FPV_NAS_THUMBS_DIR"] = str(host_path)
+        app.config["MEDIA_NAS_THUMBNAILS_DIRECTORY"] = str(host_path)
     monkeypatch.setitem(
         api_routes._STORAGE_DEFAULTS,
-        "FPV_NAS_THUMBS_DIR",
+        "MEDIA_NAS_THUMBNAILS_DIRECTORY",
         str(fallback_path),
     )
 
@@ -1263,7 +1263,7 @@ def test_thumbnail_falls_back_to_default_path(client, app, monkeypatch, tmp_path
     assert res.data == payload
 
     with app.app_context():
-        app.config["FPV_NAS_THUMBS_DIR"] = original_thumb_dir
+        app.config["MEDIA_NAS_THUMBNAILS_DIRECTORY"] = original_thumb_dir
 
 
 def test_media_delete_requires_permission(client, app):
@@ -1317,7 +1317,7 @@ def test_media_recover_requires_permission(client, app):
         db.session.commit()
         media_id = media.id
 
-    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"]) / "2024" / "01" / "01"
+    orig_dir = Path(os.environ["MEDIA_NAS_ORIGINALS_DIRECTORY"]) / "2024" / "01" / "01"
     orig_dir.mkdir(parents=True, exist_ok=True)
     image_path = orig_dir / "recover.jpg"
     Image.new("RGB", (16, 16), color=(200, 80, 80)).save(image_path, format="JPEG")
@@ -1356,7 +1356,7 @@ def test_media_recover_success(client, app):
         db.session.commit()
         media_id = media.id
 
-    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"]) / "2024" / "02" / "02"
+    orig_dir = Path(os.environ["MEDIA_NAS_ORIGINALS_DIRECTORY"]) / "2024" / "02" / "02"
     orig_dir.mkdir(parents=True, exist_ok=True)
     image_path = orig_dir / "recover-success.jpg"
     Image.new("RGB", (48, 32), color=(120, 160, 200)).save(image_path, format="JPEG")
@@ -1407,7 +1407,7 @@ def test_thumbnail_missing_triggers_regeneration(client, app):
         db.session.commit()
         media_id = media.id
 
-    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"]) / "2024" / "03" / "03"
+    orig_dir = Path(os.environ["MEDIA_NAS_ORIGINALS_DIRECTORY"]) / "2024" / "03" / "03"
     orig_dir.mkdir(parents=True, exist_ok=True)
     image_path = orig_dir / "thumb-missing.jpg"
     Image.new("RGB", (32, 24), color=(10, 200, 150)).save(image_path, format="JPEG")
@@ -1447,7 +1447,7 @@ def test_media_delete_success(client, app):
         db.session.add(media)
         db.session.commit()
         media_id = media.id
-        orig_dir = Path(app.config["FPV_NAS_ORIGINALS_DIR"])
+        orig_dir = Path(app.config["MEDIA_NAS_ORIGINALS_DIRECTORY"])
         (orig_dir / media.local_rel_path).write_bytes(b"data")
 
     grant_permission(app, "media:delete")
@@ -1462,7 +1462,7 @@ def test_media_delete_success(client, app):
         refreshed = Media.query.get(media_id)
         assert refreshed is not None
         assert refreshed.is_deleted is True
-        assert not (Path(app.config["FPV_NAS_ORIGINALS_DIR"]) / refreshed.local_rel_path).exists()
+        assert not (Path(app.config["MEDIA_NAS_ORIGINALS_DIRECTORY"]) / refreshed.local_rel_path).exists()
 
 
 def test_media_delete_removes_media_from_albums(client, app):
@@ -1854,7 +1854,7 @@ def _create_album_with_media(app, *, rel_path: str = "fullsize.jpg"):
 
 def test_album_detail_includes_full_size_thumbnail(client, app):
     rel_path = "albums/preview/test.jpg"
-    thumbs_base = Path(os.environ["FPV_NAS_THUMBS_DIR"])
+    thumbs_base = Path(os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"])
     for size in ("512", "2048"):
         target = thumbs_base / size / rel_path
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -1878,7 +1878,7 @@ def test_album_detail_includes_full_size_thumbnail(client, app):
 
 def test_album_detail_full_size_fallback(client, app):
     rel_path = "albums/preview/fallback.jpg"
-    thumbs_base = Path(os.environ["FPV_NAS_THUMBS_DIR"])
+    thumbs_base = Path(os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"])
     target = thumbs_base / "512" / rel_path
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(b"thumb")

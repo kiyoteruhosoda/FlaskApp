@@ -23,9 +23,9 @@ def app(tmp_path):
     env_keys = {
         "SECRET_KEY": "test",
         "DATABASE_URI": f"sqlite:///{db_path}",
-        "FPV_NAS_ORIGINALS_DIR": str(orig),
-        "FPV_NAS_PLAY_DIR": str(play),
-        "FPV_NAS_THUMBS_DIR": str(thumbs),
+        "MEDIA_NAS_ORIGINALS_DIRECTORY": str(orig),
+        "MEDIA_NAS_PLAYBACK_DIRECTORY": str(play),
+        "MEDIA_NAS_THUMBNAILS_DIRECTORY": str(thumbs),
     }
     prev_env = {k: os.environ.get(k) for k in env_keys}
     os.environ.update(env_keys)
@@ -97,7 +97,7 @@ def _make_media(app, *, rel_path: str, is_video: bool, width: int, height: int, 
 
 
 def test_image_generation(app):
-    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
+    orig_dir = Path(os.environ["MEDIA_NAS_ORIGINALS_DIRECTORY"])
     path = orig_dir / "2025/08/18/img.jpg"
     path.parent.mkdir(parents=True, exist_ok=True)
     img = Image.new("RGB", (4032, 3024), color=(1, 2, 3))
@@ -108,7 +108,7 @@ def test_image_generation(app):
     media_id = _make_media(app, rel_path="2025/08/18/img.jpg", is_video=False, width=4032, height=3024)
     with app.app_context():
         res = thumbs_generate(media_id=media_id)
-    thumbs_dir = Path(os.environ["FPV_NAS_THUMBS_DIR"])
+    thumbs_dir = Path(os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"])
     expected_paths = {
         256: str(thumbs_dir / "256/2025/08/18/img.jpg"),
         512: str(thumbs_dir / "512/2025/08/18/img.jpg"),
@@ -123,20 +123,20 @@ def test_image_generation(app):
         "paths": expected_paths,
     }
 
-    out = Path(os.environ["FPV_NAS_THUMBS_DIR"])
+    out = Path(os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"])
     im256 = Image.open(out / "256/2025/08/18/img.jpg")
     assert im256.size == (192, 256)  # orientation applied
 
 
 def test_image_skip_existing(app):
-    orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
+    orig_dir = Path(os.environ["MEDIA_NAS_ORIGINALS_DIRECTORY"])
     path = orig_dir / "2025/08/18/img2.jpg"
     path.parent.mkdir(parents=True, exist_ok=True)
     Image.new("RGB", (3000, 2000), color=0).save(path)
     media_id = _make_media(app, rel_path="2025/08/18/img2.jpg", is_video=False, width=3000, height=2000)
 
     # pre-create 1024 thumb
-    out = Path(os.environ["FPV_NAS_THUMBS_DIR"])
+    out = Path(os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"])
     pre = out / "1024/2025/08/18/img2.jpg"
     pre.parent.mkdir(parents=True, exist_ok=True)
     Image.new("RGB", (1, 1)).save(pre)
@@ -150,7 +150,7 @@ def test_image_skip_existing(app):
 
 
 def test_video_with_playback(app):
-    play_dir = Path(os.environ["FPV_NAS_PLAY_DIR"])
+    play_dir = Path(os.environ["MEDIA_NAS_PLAYBACK_DIRECTORY"])
     poster_rel = "2025/08/18/poster.jpg"
     poster_path = play_dir / poster_rel
     poster_path.parent.mkdir(parents=True, exist_ok=True)
@@ -175,7 +175,7 @@ def test_video_with_playback(app):
         res = thumbs_generate(media_id=media_id)
     assert res["generated"] == [256, 512, 1024, 2048]
     assert set(res["paths"]) == {256, 512, 1024, 2048}
-    out = Path(os.environ["FPV_NAS_THUMBS_DIR"])
+    out = Path(os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"])
     assert (out / "256/2025/08/18/video.jpg").exists()
 
 
@@ -194,7 +194,7 @@ def test_video_playback_not_ready(app):
 
 
 def test_video_poster_low_quality_uses_frame(app, monkeypatch):
-    play_dir = Path(os.environ["FPV_NAS_PLAY_DIR"])
+    play_dir = Path(os.environ["MEDIA_NAS_PLAYBACK_DIRECTORY"])
     poster_rel = "2025/08/18/poster-low.jpg"
     poster_path = play_dir / poster_rel
     poster_path.parent.mkdir(parents=True, exist_ok=True)
@@ -240,7 +240,7 @@ def test_video_poster_low_quality_uses_frame(app, monkeypatch):
     assert res["generated"] == [256, 512, 1024, 2048]
     assert res["skipped"] == []
     assert res["notes"].startswith("frame extracted from playback")
-    thumbs_dir = Path(os.environ["FPV_NAS_THUMBS_DIR"])
+    thumbs_dir = Path(os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"])
     copied = thumbs_dir / "2048/2025/08/18/video-low.jpg"
     original = thumbs_dir / "1024/2025/08/18/video-low.jpg"
     assert copied.exists()

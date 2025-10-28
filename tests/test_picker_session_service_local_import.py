@@ -38,9 +38,9 @@ def app():
             'TESTING': True,
             'SECRET_KEY': 'test-secret-key',
             'DATABASE_URI': f'sqlite:///{db_path}',
-            'LOCAL_IMPORT_DIR': str(import_dir),
-            'FPV_NAS_ORIGINALS_DIR': str(originals_dir),
-            'FPV_TMP_DIR': str(temp_dir),
+            'MEDIA_LOCAL_IMPORT_DIRECTORY': str(import_dir),
+            'MEDIA_NAS_ORIGINALS_DIRECTORY': str(originals_dir),
+            'MEDIA_TEMP_DIRECTORY': str(temp_dir),
             'SQLALCHEMY_ENGINE_OPTIONS': {},
         }
         
@@ -70,7 +70,7 @@ def app():
 @pytest.fixture
 def local_import_session(app):
     """ローカルインポートセッションを作成"""
-    import_dir = Path(app.config['LOCAL_IMPORT_DIR'])
+    import_dir = Path(app.config['MEDIA_LOCAL_IMPORT_DIRECTORY'])
     
     # テストファイル作成
     (import_dir / "test_image.jpg").write_bytes(b"fake image data")
@@ -210,7 +210,7 @@ class TestPickerSessionServiceLocalImport:
     def test_selection_details_pagination_for_local_import(self, app):
         """ローカルインポートセッションの選択詳細ページングテスト"""
         with app.app_context():
-            import_dir = Path(app.config['LOCAL_IMPORT_DIR'])
+            import_dir = Path(app.config['MEDIA_LOCAL_IMPORT_DIRECTORY'])
 
             # 複数ファイルを作成
             for i in range(5):
@@ -341,7 +341,7 @@ class TestPickerSessionServiceLocalImport:
     def test_selection_details_with_mixed_statuses(self, app):
         """異なるステータスが混在するローカルインポートセッションのテスト"""
         with app.app_context():
-            import_dir = Path(app.config['LOCAL_IMPORT_DIR'])
+            import_dir = Path(app.config['MEDIA_LOCAL_IMPORT_DIRECTORY'])
 
             # 正常ファイル
             (import_dir / "good_file.jpg").write_bytes(b"good data")
@@ -366,8 +366,8 @@ class TestPickerSessionServiceLocalImport:
         from core.models.photo_models import Media, PickerSelection
 
         with app.app_context():
-            import_dir = Path(app.config['LOCAL_IMPORT_DIR'])
-            originals_dir = Path(app.config['FPV_NAS_ORIGINALS_DIR'])
+            import_dir = Path(app.config['MEDIA_LOCAL_IMPORT_DIRECTORY'])
+            originals_dir = Path(app.config['MEDIA_NAS_ORIGINALS_DIRECTORY'])
 
             file_path = import_dir / "dup.jpg"
             data = b"duplicate content"
@@ -553,7 +553,7 @@ class TestPickerSessionServiceLocalImport:
         """キャンセル要求時にタスクが中断されステータスが更新されることを検証"""
 
         with app.app_context():
-            import_dir = Path(app.config['LOCAL_IMPORT_DIR'])
+            import_dir = Path(app.config['MEDIA_LOCAL_IMPORT_DIRECTORY'])
             for i in range(3):
                 (import_dir / f'cancel_test_{i}.jpg').write_bytes(f'fake data {i}'.encode('utf-8'))
 

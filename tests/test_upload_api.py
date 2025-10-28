@@ -13,10 +13,10 @@ from webapp.services.token_service import TokenService
 @pytest.fixture
 def client(app_context, tmp_path):
     app = app_context
-    app.config['UPLOAD_TMP_DIR'] = str(tmp_path / 'tmp')
-    app.config['UPLOAD_DESTINATION_DIR'] = str(tmp_path / 'dest')
-    app.config['LOCAL_IMPORT_DIR'] = str(tmp_path / 'local_import')
-    app.config['UPLOAD_MAX_SIZE'] = 1024 * 1024
+    app.config['MEDIA_UPLOAD_TEMP_DIRECTORY'] = str(tmp_path / 'tmp')
+    app.config['MEDIA_UPLOAD_DESTINATION_DIRECTORY'] = str(tmp_path / 'dest')
+    app.config['MEDIA_LOCAL_IMPORT_DIRECTORY'] = str(tmp_path / 'local_import')
+    app.config['MEDIA_UPLOAD_MAX_SIZE_BYTES'] = 1024 * 1024
 
     (tmp_path / 'tmp').mkdir(parents=True, exist_ok=True)
     (tmp_path / 'dest').mkdir(parents=True, exist_ok=True)
@@ -60,7 +60,7 @@ def test_prepare_upload_accepts_png_image(client, auth_headers):
         session_id = sess.get('upload_session_id')
 
     assert session_id
-    tmp_dir = Path(client.application.config['UPLOAD_TMP_DIR']) / session_id
+    tmp_dir = Path(client.application.config['MEDIA_UPLOAD_TEMP_DIRECTORY']) / session_id
     stored_path = tmp_dir / payload['tempFileId']
     metadata_path = tmp_dir / f"{payload['tempFileId']}.json"
     assert stored_path.exists()
@@ -88,7 +88,7 @@ def test_prepare_upload_allows_mp4(client, auth_headers):
         session_id = sess.get('upload_session_id')
 
     assert session_id
-    tmp_dir = Path(client.application.config['UPLOAD_TMP_DIR']) / session_id
+    tmp_dir = Path(client.application.config['MEDIA_UPLOAD_TEMP_DIRECTORY']) / session_id
     stored_path = tmp_dir / payload['tempFileId']
     assert stored_path.exists()
     assert stored_path.read_bytes() == file_content
@@ -115,7 +115,7 @@ def test_prepare_upload_allows_mov(client, auth_headers):
         session_id = sess.get('upload_session_id')
 
     assert session_id
-    tmp_dir = Path(client.application.config['UPLOAD_TMP_DIR']) / session_id
+    tmp_dir = Path(client.application.config['MEDIA_UPLOAD_TEMP_DIRECTORY']) / session_id
     stored_path = tmp_dir / payload['tempFileId']
     assert stored_path.exists()
     assert stored_path.read_bytes() == file_content
@@ -136,7 +136,7 @@ def test_commit_upload_moves_files(client, auth_headers):
         session_id = sess.get('upload_session_id')
 
     assert session_id
-    tmp_dir = Path(client.application.config['UPLOAD_TMP_DIR']) / session_id
+    tmp_dir = Path(client.application.config['MEDIA_UPLOAD_TEMP_DIRECTORY']) / session_id
     assert tmp_dir.exists()
 
     commit_resp = client.post(
@@ -159,7 +159,7 @@ def test_commit_upload_moves_files(client, auth_headers):
     app = client.application
     with app.app_context():
         user = User.query.filter_by(email='upload@example.com').first()
-        import_dir = Path(app.config['LOCAL_IMPORT_DIR']) / str(user.id)
+        import_dir = Path(app.config['MEDIA_LOCAL_IMPORT_DIRECTORY']) / str(user.id)
         stored_file = import_dir / Path(result['relativePath'])
         assert stored_file.exists()
         assert stored_file.read_bytes() == file_content
@@ -197,7 +197,7 @@ def test_commit_upload_handles_move_oserror(client, auth_headers, monkeypatch):
         session_id = sess.get('upload_session_id')
 
     assert session_id
-    tmp_dir = Path(client.application.config['UPLOAD_TMP_DIR']) / session_id
+    tmp_dir = Path(client.application.config['MEDIA_UPLOAD_TEMP_DIRECTORY']) / session_id
     assert (tmp_dir / temp_payload['tempFileId']).exists()
     assert (tmp_dir / f"{temp_payload['tempFileId']}.json").exists()
 
@@ -234,7 +234,7 @@ def test_commit_upload_detects_missing_destination(client, auth_headers, monkeyp
         session_id = sess.get('upload_session_id')
 
     assert session_id
-    tmp_dir = Path(client.application.config['UPLOAD_TMP_DIR']) / session_id
+    tmp_dir = Path(client.application.config['MEDIA_UPLOAD_TEMP_DIRECTORY']) / session_id
     assert (tmp_dir / temp_payload['tempFileId']).exists()
     assert (tmp_dir / f"{temp_payload['tempFileId']}.json").exists()
 
@@ -276,7 +276,7 @@ def test_commit_upload_uses_actual_move_destination(client, auth_headers, monkey
     app = client.application
     with app.app_context():
         user = User.query.filter_by(email='upload@example.com').first()
-        import_dir = Path(app.config['LOCAL_IMPORT_DIR']) / str(user.id)
+        import_dir = Path(app.config['MEDIA_LOCAL_IMPORT_DIRECTORY']) / str(user.id)
         stored_file = import_dir / Path(result['relativePath'])
         assert stored_file.exists()
         assert stored_file.read_bytes() == file_content
@@ -335,7 +335,7 @@ def test_commit_partial_keeps_session_and_files(client, auth_headers):
     with client.session_transaction() as sess:
         assert sess.get('upload_session_id') == session_id
 
-    tmp_dir = Path(client.application.config['UPLOAD_TMP_DIR']) / session_id
+    tmp_dir = Path(client.application.config['MEDIA_UPLOAD_TEMP_DIRECTORY']) / session_id
     remaining_file = tmp_dir / second_payload['tempFileId']
     remaining_metadata = tmp_dir / f"{second_payload['tempFileId']}.json"
 

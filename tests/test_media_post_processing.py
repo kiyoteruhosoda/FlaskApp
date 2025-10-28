@@ -31,9 +31,9 @@ def app(tmp_path):
     env_keys = {
         "SECRET_KEY": "test",
         "DATABASE_URI": f"sqlite:///{db_path}",
-        "FPV_NAS_ORIGINALS_DIR": str(orig),
-        "FPV_NAS_PLAY_DIR": str(play),
-        "FPV_NAS_THUMBS_DIR": str(thumbs),
+        "MEDIA_NAS_ORIGINALS_DIRECTORY": str(orig),
+        "MEDIA_NAS_PLAYBACK_DIRECTORY": str(play),
+        "MEDIA_NAS_THUMBNAILS_DIRECTORY": str(thumbs),
     }
     prev_env = {k: os.environ.get(k) for k in env_keys}
     os.environ.update(env_keys)
@@ -84,8 +84,8 @@ def test_enqueue_media_playback_generates_thumbnails_for_completed_playback(app,
 
     monkeypatch.setattr(media_post_processing.shutil, "which", lambda _: "/usr/bin/ffmpeg")
 
-    play_dir = Path(os.environ["FPV_NAS_PLAY_DIR"])
-    thumbs_dir = Path(os.environ["FPV_NAS_THUMBS_DIR"])
+    play_dir = Path(os.environ["MEDIA_NAS_PLAYBACK_DIRECTORY"])
+    thumbs_dir = Path(os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"])
 
     poster_rel = "2025/09/27/video.jpg"
     poster_path = play_dir / poster_rel

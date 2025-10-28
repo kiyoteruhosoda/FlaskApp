@@ -21,8 +21,8 @@ def picker_app(tmp_path):
     env = {
         "SECRET_KEY": "test",
         "DATABASE_URI": f"sqlite:///{db_path}",
-        "FPV_TMP_DIR": str(tmp_dir),
-        "FPV_NAS_ORIGINALS_DIR": str(orig_dir),
+        "MEDIA_TEMP_DIRECTORY": str(tmp_dir),
+        "MEDIA_NAS_ORIGINALS_DIRECTORY": str(orig_dir),
     }
     prev_env = {key: os.environ.get(key) for key in env}
     os.environ.update(env)

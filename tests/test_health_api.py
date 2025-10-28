@@ -19,8 +19,8 @@ def app(tmp_path):
     play = tmp_path / "play"
     thumbs.mkdir()
     play.mkdir()
-    os.environ["FPV_NAS_THUMBS_DIR"] = str(thumbs)
-    os.environ["FPV_NAS_PLAY_DIR"] = str(play)
+    os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"] = str(thumbs)
+    os.environ["MEDIA_NAS_PLAYBACK_DIRECTORY"] = str(play)
 
     import importlib, sys
     import webapp.config as config_module
@@ -48,8 +48,8 @@ def app(tmp_path):
         }
         payload.update(
             {
-                "FPV_NAS_THUMBS_DIR": str(thumbs),
-                "FPV_NAS_PLAY_DIR": str(play),
+                "MEDIA_NAS_THUMBNAILS_DIRECTORY": str(thumbs),
+                "MEDIA_NAS_PLAYBACK_DIRECTORY": str(play),
             }
         )
         SystemSettingService.upsert_application_config(payload)

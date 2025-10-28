@@ -76,16 +76,16 @@ class TestHealthEndpoints:
     def test_health_ready_nas_paths_missing(self, app_context, client):
         """Test /health/ready when NAS paths are missing"""
         # 存在しないパスを設定
-        current_app.config['FPV_NAS_THUMBS_DIR'] = '/non/existent/path'
-        current_app.config['FPV_NAS_PLAY_DIR'] = '/another/non/existent/path'
+        current_app.config['MEDIA_NAS_THUMBNAILS_DIRECTORY'] = '/non/existent/path'
+        current_app.config['MEDIA_NAS_PLAYBACK_DIRECTORY'] = '/another/non/existent/path'
         
         response = client.get("/health/ready")
         assert response.status_code == 503
         
         data = response.get_json()
         assert data["status"] == "error"
-        assert data["fpv_nas_thumbs_dir"] == "missing"
-        assert data["fpv_nas_play_dir"] == "missing"
+        assert data["media_nas_thumbnails_directory"] == "missing"
+        assert data["media_nas_playback_directory"] == "missing"
 
     def test_health_ready_nas_paths_ok(self, app_context, client, tmp_path):
         """Test /health/ready when NAS paths exist"""
@@ -95,15 +95,15 @@ class TestHealthEndpoints:
         thumbs_dir.mkdir()
         play_dir.mkdir()
         
-        current_app.config['FPV_NAS_THUMBS_DIR'] = str(thumbs_dir)
-        current_app.config['FPV_NAS_PLAY_DIR'] = str(play_dir)
+        current_app.config['MEDIA_NAS_THUMBNAILS_DIRECTORY'] = str(thumbs_dir)
+        current_app.config['MEDIA_NAS_PLAYBACK_DIRECTORY'] = str(play_dir)
         
         response = client.get("/health/ready")
         assert response.status_code == 200
         
         data = response.get_json()
-        assert data["fpv_nas_thumbs_dir"] == "ok"
-        assert data["fpv_nas_play_dir"] == "ok"
+        assert data["media_nas_thumbnails_directory"] == "ok"
+        assert data["media_nas_playback_directory"] == "ok"
 
     def test_health_ready_no_redis_config(self, app_context, client):
         """Test /health/ready when Redis is not configured"""

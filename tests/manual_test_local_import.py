@@ -73,8 +73,8 @@ def test_local_import_task_with_session(app, db_session, temp_dir):
     originals_dir.mkdir()
     
     # Flaskアプリの設定を更新
-    app.config['LOCAL_IMPORT_DIR'] = str(import_dir)
-    app.config['FPV_NAS_ORIGINALS_DIR'] = str(originals_dir)
+    app.config['MEDIA_LOCAL_IMPORT_DIRECTORY'] = str(import_dir)
+    app.config['MEDIA_NAS_ORIGINALS_DIRECTORY'] = str(originals_dir)
     
     # テスト用ファイルを作成
     test_video = import_dir / "test_video.mp4"
@@ -124,7 +124,7 @@ if __name__ == "__main__":
     print("\n" + "=" * 50)
     print("すべてのテストが完了しました！")
     print("\n使用方法:")
-    print("1. 環境変数 LOCAL_IMPORT_DIR に取り込み元ディレクトリを設定")
-    print("2. 環境変数 FPV_NAS_ORIGINALS_DIR に保存先ディレクトリを設定")
+    print("1. 環境変数 MEDIA_LOCAL_IMPORT_DIRECTORY に取り込み元ディレクトリを設定")
+    print("2. 環境変数 MEDIA_NAS_ORIGINALS_DIRECTORY に保存先ディレクトリを設定")
     print("3. Web管理画面 (/photo-view/settings) からインポート実行")
     print("4. または Celery タスクから実行: local_import_task_celery.delay()")

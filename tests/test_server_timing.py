@@ -19,11 +19,11 @@ def app(tmp_path):
         "GOOGLE_CLIENT_ID": "",
         "GOOGLE_CLIENT_SECRET": "",
         "ENCRYPTION_KEY": base64.urlsafe_b64encode(b"0" * 32).decode(),
-        "FPV_DL_SIGN_KEY": base64.urlsafe_b64encode(b"1" * 32).decode(),
-        "FPV_URL_TTL_THUMB": "600",
-        "FPV_URL_TTL_PLAYBACK": "600",
-        "FPV_NAS_THUMBS_DIR": str(thumbs),
-        "FPV_NAS_PLAY_DIR": str(play),
+        "MEDIA_DOWNLOAD_SIGNING_KEY": base64.urlsafe_b64encode(b"1" * 32).decode(),
+        "MEDIA_THUMBNAIL_URL_TTL_SECONDS": "600",
+        "MEDIA_PLAYBACK_URL_TTL_SECONDS": "600",
+        "MEDIA_NAS_THUMBNAILS_DIRECTORY": str(thumbs),
+        "MEDIA_NAS_PLAYBACK_DIRECTORY": str(play),
     }
     original_env = {key: os.environ.get(key) for key in temp_env}
     os.environ.update(temp_env)

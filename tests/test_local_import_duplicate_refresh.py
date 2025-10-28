@@ -142,7 +142,7 @@ def test_duplicate_import_updates_relative_path(monkeypatch, tmp_path, app_conte
     playback_dir = tmp_path / "playback"
     import_dir.mkdir()
     originals_dir.mkdir()
-    monkeypatch.setenv("FPV_NAS_PLAY_DIR", str(playback_dir))
+    monkeypatch.setenv("MEDIA_NAS_PLAYBACK_DIRECTORY", str(playback_dir))
     monkeypatch.setattr(local_import, "_playback_storage_root", lambda: playback_dir)
 
     payload = b"dummy-video-payload"
@@ -291,7 +291,7 @@ def test_duplicate_refresh_realigns_playback_paths(
     playback_dir = tmp_path / "playback"
     import_dir.mkdir()
     originals_dir.mkdir()
-    monkeypatch.setenv("FPV_NAS_PLAY_DIR", str(playback_dir))
+    monkeypatch.setenv("MEDIA_NAS_PLAYBACK_DIRECTORY", str(playback_dir))
     monkeypatch.setattr(local_import, "_playback_storage_root", lambda: playback_dir)
 
     original_update = local_import._update_media_playback_paths
@@ -413,7 +413,7 @@ def test_update_media_playback_paths_sets_missing_rel_path(
 
     playback_dir = tmp_path / "playback"
     playback_dir.mkdir()
-    monkeypatch.setenv("FPV_NAS_PLAY_DIR", str(playback_dir))
+    monkeypatch.setenv("MEDIA_NAS_PLAYBACK_DIRECTORY", str(playback_dir))
     monkeypatch.setattr(local_import, "_playback_storage_root", lambda: playback_dir)
 
     media = Media(

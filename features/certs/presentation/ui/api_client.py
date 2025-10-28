@@ -130,9 +130,48 @@ class CertificateSearchResult:
 class CertsApiClient:
     """UIから証明書APIを利用するための簡易クライアント"""
 
+    DEFAULT_TIMEOUT: float = 10.0
+
     def __init__(self, app: Flask | None = None) -> None:
         self._app = app or current_app._get_current_object()
-        self._timeout = self._app.config.get("CERTS_API_TIMEOUT", 10)
+        raw_timeout = self._app.config.get("CERTS_API_TIMEOUT", self.DEFAULT_TIMEOUT)
+        self._timeout = self._normalise_timeout(raw_timeout)
+
+    @staticmethod
+    def _normalise_timeout(value: Any) -> float | tuple[Any, Any] | None:
+        """Convert configured timeout into a value accepted by ``requests``.
+
+        ``requests`` treats ``None`` as "wait forever", so we coerce explicit zero
+        values to ``None`` while leaving other data types unchanged. This keeps
+        backwards compatibility for custom tuple timeouts and ensures that an
+        administrator can set ``0`` to disable the timeout entirely.
+        """
+
+        if value is None:
+            return None
+        if isinstance(value, (int, float)):
+            return None if value == 0 else float(value)
+        if isinstance(value, str):
+            stripped = value.strip()
+            try:
+                numeric = float(stripped)
+            except ValueError:
+                return value
+            if numeric == 0:
+                return None
+            return numeric
+        if isinstance(value, (list, tuple)) and len(value) == 2:
+            first, second = value
+            coerced_first = CertsApiClient._normalise_timeout(first)
+            coerced_second = CertsApiClient._normalise_timeout(second)
+            if coerced_first is None or coerced_second is None:
+                return None
+            if isinstance(coerced_first, (int, float)) and isinstance(
+                coerced_second, (int, float)
+            ):
+                return (float(coerced_first), float(coerced_second))
+            return (coerced_first, coerced_second)
+        return value
 
     def list_certificates(
         self,

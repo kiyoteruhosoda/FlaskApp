@@ -52,6 +52,28 @@ def test_list_certificates_calls_external_api(monkeypatch, app_context):
     assert params == {"usage": UsageType.SERVER_SIGNING.value}
     headers = captured["kwargs"].get("headers")
     assert headers["Accept"] == "application/json"
+    assert captured["kwargs"].get("timeout") == pytest.approx(10.0)
+
+
+def test_timeout_zero_disables_request_limit(monkeypatch, app_context):
+    app = app_context
+    captured: dict[str, Any] = {}
+
+    def fake_send(method, url, **kwargs):
+        captured["timeout"] = kwargs.get("timeout")
+        return _DummyResponse(json_data={"certificates": []})
+
+    monkeypatch.setattr(
+        "features.certs.presentation.ui.api_client.log_requests_and_send",
+        fake_send,
+    )
+
+    with app.test_request_context("/certs/"):
+        app.config["CERTS_API_TIMEOUT"] = 0
+        client = CertsApiClient(app)
+        client.list_certificates()
+
+    assert captured["timeout"] is None
 
 
 def test_dispatch_network_error(monkeypatch, app_context):

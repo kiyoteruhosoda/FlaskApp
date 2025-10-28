@@ -758,6 +758,7 @@ def show_config():
 
                         _apply_persisted_settings(current_app)
                     except Exception:  # pragma: no cover - unexpected failure logged for debugging
+                        db.session.rollback()
                         current_app.logger.exception(
                             "Failed to persist built-in JWT signing secret"
                         )

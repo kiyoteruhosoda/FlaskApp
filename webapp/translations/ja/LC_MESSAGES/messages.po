@@ -3327,6 +3327,12 @@ msgstr "取得できません"
 msgid "Access token signing will use the built-in secret."
 msgstr "アクセストークンの署名に組み込みシークレットを利用します。"
 
+msgid "Please provide a JWT secret key for built-in signing."
+msgstr "組み込み署名用のJWTシークレットキーを入力してください。"
+
+msgid "Failed to update the built-in signing secret."
+msgstr "組み込み署名のシークレットキーの更新に失敗しました。"
+
 msgid "Access token signing certificate group updated."
 msgstr "アクセストークン署名の証明書グループを更新しました。"
 
@@ -3354,8 +3360,8 @@ msgstr "アクセストークン署名"
 msgid "Built-in secret (HS256)"
 msgstr "組み込みシークレット（HS256）"
 
-msgid "Use the built-in JWT secret key configured in the application settings."
-msgstr "アプリケーション設定の組み込みJWTシークレットキーを使用します。"
+msgid "Use the built-in JWT secret key configured below."
+msgstr "以下で設定した組み込みJWTシークレットキーを使用します。"
 
 msgid "Server signing certificate groups"
 msgstr "サーバー署名証明書グループ"

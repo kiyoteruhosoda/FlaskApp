@@ -398,6 +398,7 @@ def _build_config_context(
     app_use_defaults: set[str] | None = None,
     cors_overrides: Dict[str, str] | None = None,
     cors_use_defaults: set[str] | None = None,
+    builtin_signing_secret: str | None = None,
 ) -> Dict[str, Any]:
     application_payload = SystemSettingService.load_application_config_payload()
     application_config = {**DEFAULT_APPLICATION_SETTINGS, **application_payload}
@@ -442,6 +443,12 @@ def _build_config_context(
     cors_setting_record = SystemSetting.query.filter_by(setting_key="app.cors").one_or_none()
     signing_record = SystemSetting.query.filter_by(setting_key="access_token_signing").one_or_none()
 
+    builtin_secret_value = (
+        builtin_signing_secret
+        if builtin_signing_secret is not None
+        else application_config.get("JWT_SECRET_KEY")
+    )
+
     return {
         "application_payload": application_payload,
         "application_config": application_config,
@@ -459,6 +466,7 @@ def _build_config_context(
         "cors_config_updated_at": getattr(cors_setting_record, "updated_at", None),
         "cors_config_description": getattr(cors_setting_record, "description", None),
         "signing_config_updated_at": getattr(signing_record, "updated_at", None),
+        "builtin_signing_secret": builtin_secret_value,
     }
 
 
@@ -478,6 +486,7 @@ def _serialize_config_context(context: Dict[str, Any]) -> Dict[str, Any]:
         "application_fields": context.get("application_fields", []),
         "cors_fields": context.get("cors_fields", []),
         "signing_setting": asdict(context["signing_setting"]) if context.get("signing_setting") else None,
+        "builtin_signing_secret": context.get("builtin_signing_secret"),
         "timestamps": {
             "application_config_updated_at": _isoformat(context.get("application_config_updated_at")),
             "cors_config_updated_at": _isoformat(context.get("cors_config_updated_at")),
@@ -719,6 +728,7 @@ def show_config():
     cors_overrides: Dict[str, str] = {}
     cors_use_defaults: set[str] = set()
     relogin_previous_config: Dict[str, Any] | None = None
+    builtin_secret_override: str | None = None
 
     context = _build_config_context()
     application_definitions = context["application_definitions"]
@@ -732,22 +742,59 @@ def show_config():
 
         if action == "update-signing":
             selected = (request.form.get("access_token_signing") or "builtin").strip()
-            try:
-                if selected == "builtin":
-                    SystemSettingService.update_access_token_signing_setting("builtin")
-                    success_message = _(u"Access token signing will use the built-in secret.")
+            raw_secret_input = request.form.get("builtin_secret")
+            if raw_secret_input is not None:
+                builtin_secret_override = raw_secret_input.strip()
+            if selected == "builtin":
+                secret_value = builtin_secret_override or ""
+                if not secret_value:
+                    errors.append(_(u"Please provide a JWT secret key for built-in signing."))
                 else:
+                    try:
+                        SystemSettingService.update_application_settings(
+                            {"JWT_SECRET_KEY": secret_value}
+                        )
+                        from webapp import _apply_persisted_settings
+
+                        _apply_persisted_settings(current_app)
+                    except Exception:  # pragma: no cover - unexpected failure logged for debugging
+                        db.session.rollback()
+                        current_app.logger.exception(
+                            "Failed to persist built-in JWT signing secret"
+                        )
+                        errors.append(_(u"Failed to update the built-in signing secret."))
+                    else:
+                        try:
+                            SystemSettingService.update_access_token_signing_setting("builtin")
+                            success_message = _(
+                                u"Access token signing will use the built-in secret."
+                            )
+                        except AccessTokenSigningValidationError as exc:
+                            errors.append(str(exc))
+                        except Exception:  # pragma: no cover - unexpected failure logged for debugging
+                            current_app.logger.exception(
+                                "Failed to update access token signing configuration"
+                            )
+                            errors.append(
+                                _(u"Failed to update the access token signing configuration.")
+                            )
+            else:
+                try:
                     prefix = "server_signing:"
                     group_code = selected[len(prefix):] if selected.startswith(prefix) else selected
                     SystemSettingService.update_access_token_signing_setting(
                         "server_signing", group_code=group_code
                     )
                     success_message = _(u"Access token signing certificate group updated.")
-            except AccessTokenSigningValidationError as exc:
-                errors.append(str(exc))
-            except Exception:  # pragma: no cover - unexpected failure logged for debugging
-                current_app.logger.exception("Failed to update access token signing configuration")
-                errors.append(_(u"Failed to update the access token signing configuration."))
+                except AccessTokenSigningValidationError as exc:
+                    errors.append(str(exc))
+                except Exception:  # pragma: no cover - unexpected failure logged for debugging
+                    current_app.logger.exception(
+                        "Failed to update access token signing configuration"
+                    )
+                    errors.append(
+                        _(u"Failed to update the access token signing configuration.")
+                    )
         elif action == "update-app-config-fields":
             app_selected = set(request.form.getlist("app_config_selected"))
             app_overrides = {
@@ -903,6 +950,7 @@ def show_config():
                 app_use_defaults=app_use_defaults,
                 cors_overrides=cors_overrides,
                 cors_use_defaults=cors_use_defaults,
+                builtin_signing_secret=builtin_secret_override,
             )
 
     if request.method == "GET" and is_ajax:
@@ -914,6 +962,7 @@ def show_config():
         "admin/config_view.html",
         signing_setting=context["signing_setting"],
         server_signing_groups=context["server_signing_groups"],
+        builtin_signing_secret=context["builtin_signing_secret"],
         application_sections=context["application_sections"],
         application_fields=context["application_fields"],
         cors_fields=context["cors_fields"],

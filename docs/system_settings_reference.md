@@ -49,6 +49,7 @@
 
 - `mode="builtin"` の場合は `kid`・`groupCode` を設定しないでください。
 - `mode="server_signing"` かつ `groupCode` が欠けていると、更新時に `AccessTokenSigningValidationError` が送出されます。
+- 内蔵 HS256 署名を利用する際のシークレット値は `app.config` レコード内の `JWT_SECRET_KEY` に保存され、管理画面の「Access Token Signing」セクションから更新します。
 
 #### JSON 例
 
@@ -68,7 +69,7 @@ Flask の挙動や外部サービス連携など、多用途な設定をまと�
 | カテゴリ | 主なキー | 説明 |
 | --- | --- | --- |
 | Flask 基本 | `SECRET_KEY`, `SESSION_COOKIE_SECURE`, `SESSION_COOKIE_HTTPONLY`, `SESSION_COOKIE_SAMESITE`, `PERMANENT_SESSION_LIFETIME`, `PREFERRED_URL_SCHEME` | セッション・Cookie・URL の初期値 |
-| JWT | `JWT_SECRET_KEY`, `ACCESS_TOKEN_ISSUER`, `ACCESS_TOKEN_AUDIENCE` | アクセストークン発行に利用 |
+| JWT | `ACCESS_TOKEN_ISSUER`, `ACCESS_TOKEN_AUDIENCE` | アクセストークン発行に利用 |
 | 国際化 | `LANGUAGES`, `BABEL_DEFAULT_LOCALE`, `BABEL_DEFAULT_TIMEZONE` | 対応言語とタイムゾーン |
 | 外部サービス | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND` など | API 資格情報や接続 URL |
 | ファイル・ストレージ | `UPLOAD_TMP_DIR`, `UPLOAD_DESTINATION_DIR`, `UPLOAD_MAX_SIZE`, `FPV_*` 系キー | アップロード制限・保存先 |

@@ -72,14 +72,6 @@ _SECURITY_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         allow_empty=False,
     ),
     SettingFieldDefinition(
-        key="JWT_SECRET_KEY",
-        label=_(u"JWT secret key"),
-        data_type="string",
-        required=True,
-        description=_(u"HS256 secret used for application issued JWT tokens."),
-        allow_empty=False,
-    ),
-    SettingFieldDefinition(
         key="ACCESS_TOKEN_ISSUER",
         label=_(u"Access token issuer"),
         data_type="string",

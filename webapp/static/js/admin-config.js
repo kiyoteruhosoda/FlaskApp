@@ -255,6 +255,19 @@
     });
   }
 
+  function updateCorsEffective(origins) {
+    const textarea = document.querySelector('[data-cors-effective]');
+    if (!textarea) {
+      return;
+    }
+    const values = Array.isArray(origins) ? origins.filter((value) => !!value) : [];
+    textarea.value = values.join('\n');
+    const emptyHint = document.querySelector('[data-cors-effective-empty]');
+    if (emptyHint) {
+      emptyHint.classList.toggle('d-none', values.length > 0);
+    }
+  }
+
   function updateApplicationSections(sections) {
     if (!Array.isArray(sections)) {
       return;
@@ -535,6 +548,7 @@
     updateApplicationSections(data.application_sections);
     updateApplicationRows(data.application_fields);
     updateCorsRows(data.cors_fields);
+    updateCorsEffective(data.cors_effective_origins);
     updateSigningSetting(data.signing_setting);
     updateBuiltinSecret(data.builtin_signing_secret);
     toggleBuiltinSecretState();

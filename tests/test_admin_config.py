@@ -94,10 +94,12 @@ def test_config_page_displays_current_settings(client):
     html = response.data.decode("utf-8")
     assert 'name="app_config_new[FEATURE_FLAG]"' in html
     assert 'name="cors_new[allowedOrigins]"' in html
-    assert 'id="cors-CORS_ALLOWED_ORIGINS"' in html
     assert 'name="cors_new[CORS_ALLOWED_ORIGINS]"' not in html
     assert "Updated automatically after saving allowedOrigins." in html
     assert "https://example.com" in html
+    assert 'data-cors-effective' in html
+    assert 'data-cors-key="allowedOrigins"' in html
+    assert 'data-app-key="CORS_ALLOWED_ORIGINS"' not in html
 
 
 def test_update_application_config_field_success(client):

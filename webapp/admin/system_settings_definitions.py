@@ -408,15 +408,6 @@ _PLATFORM_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         editable=False,
         multiline=True,
     ),
-    SettingFieldDefinition(
-        key="CORS_ALLOWED_ORIGINS",
-        label=_(u"Resolved CORS allowed origins"),
-        data_type="list",
-        required=True,
-        description=_(u"Effective origins after applying persisted configuration."),
-        editable=False,
-        multiline=True,
-    ),
 )
 
 _MEDIA_PROCESSING_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (

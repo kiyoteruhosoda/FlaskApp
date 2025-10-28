@@ -508,6 +508,7 @@ def _serialize_config_context(context: Dict[str, Any]) -> Dict[str, Any]:
         "application_sections": context.get("application_sections", []),
         "application_fields": context.get("application_fields", []),
         "cors_fields": context.get("cors_fields", []),
+        "cors_effective_origins": context.get("cors_config", {}).get("CORS_ALLOWED_ORIGINS", []),
         "signing_setting": asdict(context["signing_setting"]) if context.get("signing_setting") else None,
         "builtin_signing_secret": context.get("builtin_signing_secret"),
         "timestamps": {

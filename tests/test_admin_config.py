@@ -81,6 +81,9 @@ def test_config_update_requires_login_returns_json(client):
 def test_config_page_displays_current_settings(client):
     SystemSettingService.update_application_settings({"FEATURE_FLAG": True})
     SystemSettingService.update_cors_settings({"allowedOrigins": ["https://example.com"]})
+    from webapp import _apply_persisted_settings
+
+    _apply_persisted_settings(client.application)
 
     user = _create_system_manager()
     _login(client, user)
@@ -91,6 +94,9 @@ def test_config_page_displays_current_settings(client):
     html = response.data.decode("utf-8")
     assert 'name="app_config_new[FEATURE_FLAG]"' in html
     assert 'name="cors_new[allowedOrigins]"' in html
+    assert 'id="cors-CORS_ALLOWED_ORIGINS"' in html
+    assert 'name="cors_new[CORS_ALLOWED_ORIGINS]"' not in html
+    assert "Updated automatically after saving allowedOrigins." in html
     assert "https://example.com" in html
 
 

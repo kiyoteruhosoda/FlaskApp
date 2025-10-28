@@ -592,40 +592,60 @@
                       {% endif %}
                     </td>
                     <td>
-                      {% if field.data_type == 'list' %}
-                      <textarea
-                        class="form-control form-control-sm font-monospace"
-                        name="cors_new[{{ field.key }}]"
-                        rows="3"
-                        data-cors-input
-                      >{{ field.form_value }}</textarea>
-                      <div class="form-text">{{ _('One value per line. Use "*" to allow any origin.') }}</div>
-                      {% else %}
-                      <input
-                        type="text"
-                        class="form-control form-control-sm"
-                        name="cors_new[{{ field.key }}]"
-                        value="{{ field.form_value }}"
-                        data-cors-input
-                      >
-                      {% endif %}
-                      <div class="form-check mt-2">
+                      {% if field.editable %}
+                        {% if field.data_type == 'list' %}
+                        <textarea
+                          class="form-control form-control-sm font-monospace"
+                          name="cors_new[{{ field.key }}]"
+                          rows="3"
+                          data-cors-input
+                        >{{ field.form_value }}</textarea>
+                        <div class="form-text">{{ _('One value per line. Use "*" to allow any origin.') }}</div>
+                        {% else %}
                         <input
-                          class="form-check-input"
-                          type="checkbox"
-                          id="cors-use-default-{{ field.key }}"
-                          name="cors_use_default[{{ field.key }}]"
-                          value="1"
-                          {% if field.use_default %}checked{% endif %}
-                          data-cors-use-default
+                          type="text"
+                          class="form-control form-control-sm"
+                          name="cors_new[{{ field.key }}]"
+                          value="{{ field.form_value }}"
+                          data-cors-input
                         >
-                        <label class="form-check-label" for="cors-use-default-{{ field.key }}">
-                          {{ _('Revert to default value') }}
-                        </label>
-                      </div>
+                        {% endif %}
+                        <div class="form-check mt-2">
+                          <input
+                            class="form-check-input"
+                            type="checkbox"
+                            id="cors-use-default-{{ field.key }}"
+                            name="cors_use_default[{{ field.key }}]"
+                            value="1"
+                            {% if field.use_default %}checked{% endif %}
+                            data-cors-use-default
+                          >
+                          <label class="form-check-label" for="cors-use-default-{{ field.key }}">
+                            {{ _('Revert to default value') }}
+                          </label>
+                        </div>
+                      {% else %}
+                        {% if field.multiline %}
+                        <textarea class="form-control form-control-sm font-monospace" rows="3" readonly disabled>{{ field.form_value }}</textarea>
+                        {% else %}
+                        <input
+                          type="text"
+                          class="form-control form-control-sm"
+                          value="{{ field.form_value }}"
+                          readonly
+                          disabled
+                        >
+                        {% endif %}
+                        <div class="form-text text-muted">{{ _('This setting is read-only and cannot be changed from the admin UI.') }}</div>
+                      {% endif %}
                     </td>
                     <td>{% if field.required %}{{ _('Yes') }}{% else %}{{ _('No') }}{% endif %}</td>
-                    <td class="small">{{ field.description }}</td>
+                    <td class="small">
+                      {{ field.description }}
+                      {% if field.default_hint %}
+                      <div class="text-muted">{{ field.default_hint }}</div>
+                      {% endif %}
+                    </td>
                   </tr>
                   {% endfor %}
                 </tbody>

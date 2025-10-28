@@ -209,7 +209,7 @@ _OAUTH_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
 
 _DOWNLOAD_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
     SettingFieldDefinition(
-        key="FPV_DL_SIGN_KEY",
+        key="MEDIA_DOWNLOAD_SIGNING_KEY",
         label=_(u"Download signing key"),
         data_type="string",
         required=False,
@@ -217,21 +217,21 @@ _DOWNLOAD_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         allow_empty=True,
     ),
     SettingFieldDefinition(
-        key="FPV_URL_TTL_THUMB",
+        key="MEDIA_THUMBNAIL_URL_TTL_SECONDS",
         label=_(u"Thumbnail URL TTL"),
         data_type="integer",
         required=True,
         description=_(u"Validity in seconds for thumbnail download URLs."),
     ),
     SettingFieldDefinition(
-        key="FPV_URL_TTL_PLAYBACK",
+        key="MEDIA_PLAYBACK_URL_TTL_SECONDS",
         label=_(u"Playback URL TTL"),
         data_type="integer",
         required=True,
         description=_(u"Validity in seconds for playback download URLs."),
     ),
     SettingFieldDefinition(
-        key="FPV_URL_TTL_ORIGINAL",
+        key="MEDIA_ORIGINAL_URL_TTL_SECONDS",
         label=_(u"Original URL TTL"),
         data_type="integer",
         required=True,
@@ -241,42 +241,42 @@ _DOWNLOAD_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
 
 _STORAGE_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
     SettingFieldDefinition(
-        key="FPV_TMP_DIR",
+        key="MEDIA_TEMP_DIRECTORY",
         label=_(u"Temporary working directory"),
         data_type="string",
         required=True,
         description=_(u"Directory used for intermediate processing files."),
     ),
     SettingFieldDefinition(
-        key="UPLOAD_TMP_DIR",
+        key="MEDIA_UPLOAD_TEMP_DIRECTORY",
         label=_(u"Upload temporary directory"),
         data_type="string",
         required=True,
         description=_(u"Temporary storage path for uploads."),
     ),
     SettingFieldDefinition(
-        key="UPLOAD_DESTINATION_DIR",
+        key="MEDIA_UPLOAD_DESTINATION_DIRECTORY",
         label=_(u"Upload destination directory"),
         data_type="string",
         required=True,
         description=_(u"Permanent storage path for uploaded files."),
     ),
     SettingFieldDefinition(
-        key="UPLOAD_MAX_SIZE",
+        key="MEDIA_UPLOAD_MAX_SIZE_BYTES",
         label=_(u"Upload max size (bytes)"),
         data_type="integer",
         required=True,
         description=_(u"Maximum upload size in bytes."),
     ),
     SettingFieldDefinition(
-        key="WIKI_UPLOAD_DIR",
+        key="WIKI_UPLOAD_DIRECTORY",
         label=_(u"Wiki upload directory"),
         data_type="string",
         required=True,
         description=_(u"Storage path for wiki attachments."),
     ),
     SettingFieldDefinition(
-        key="FPV_NAS_THUMBS_DIR",
+        key="MEDIA_NAS_THUMBNAILS_DIRECTORY",
         label=_(u"NAS thumbnails directory"),
         data_type="string",
         required=False,
@@ -284,7 +284,7 @@ _STORAGE_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         allow_empty=True,
     ),
     SettingFieldDefinition(
-        key="FPV_NAS_PLAY_DIR",
+        key="MEDIA_NAS_PLAYBACK_DIRECTORY",
         label=_(u"NAS playback directory"),
         data_type="string",
         required=False,
@@ -292,7 +292,7 @@ _STORAGE_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         allow_empty=True,
     ),
     SettingFieldDefinition(
-        key="FPV_ACCEL_THUMBS_LOCATION",
+        key="MEDIA_ACCEL_THUMBNAILS_LOCATION",
         label=_(u"Accel thumbnail location"),
         data_type="string",
         required=False,
@@ -300,7 +300,7 @@ _STORAGE_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         allow_empty=True,
     ),
     SettingFieldDefinition(
-        key="FPV_ACCEL_PLAYBACK_LOCATION",
+        key="MEDIA_ACCEL_PLAYBACK_LOCATION",
         label=_(u"Accel playback location"),
         data_type="string",
         required=False,
@@ -308,7 +308,7 @@ _STORAGE_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         allow_empty=True,
     ),
     SettingFieldDefinition(
-        key="FPV_ACCEL_ORIGINALS_LOCATION",
+        key="MEDIA_ACCEL_ORIGINALS_LOCATION",
         label=_(u"Accel originals location"),
         data_type="string",
         required=False,
@@ -316,7 +316,7 @@ _STORAGE_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         allow_empty=True,
     ),
     SettingFieldDefinition(
-        key="FPV_ACCEL_REDIRECT_ENABLED",
+        key="MEDIA_ACCEL_REDIRECT_ENABLED",
         label=_(u"Enable acceleration redirects"),
         data_type="boolean",
         required=True,
@@ -324,21 +324,21 @@ _STORAGE_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         choices=BOOLEAN_CHOICES,
     ),
     SettingFieldDefinition(
-        key="LOCAL_IMPORT_DIR",
+        key="MEDIA_LOCAL_IMPORT_DIRECTORY",
         label=_(u"Local import directory"),
         data_type="string",
         required=True,
         description=_(u"Local path watched for media imports."),
     ),
     SettingFieldDefinition(
-        key="BACKUP_DIR",
+        key="MEDIA_BACKUP_DIRECTORY",
         label=_(u"Backup directory"),
         data_type="string",
         required=True,
         description=_(u"Destination directory for scheduled backups."),
     ),
     SettingFieldDefinition(
-        key="FPV_NAS_ORIGINALS_DIR",
+        key="MEDIA_NAS_ORIGINALS_DIRECTORY",
         label=_(u"NAS originals directory"),
         data_type="string",
         required=True,

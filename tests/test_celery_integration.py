@@ -14,7 +14,7 @@ def app(tmp_path, monkeypatch):
     # Set up environment variables
     monkeypatch.setenv("SECRET_KEY", "test-secret-key")
     monkeypatch.setenv("DATABASE_URI", f"sqlite:///{tmp_path}/test.db")
-    monkeypatch.setenv("FPV_DL_SIGN_KEY", "test-sign-key")
+    monkeypatch.setenv("MEDIA_DOWNLOAD_SIGNING_KEY", "test-sign-key")
     monkeypatch.setenv("ENCRYPTION_KEY", "a" * 32)
     monkeypatch.setenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
     monkeypatch.setenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")

@@ -44,8 +44,8 @@ def health_ready():
 
     service = settings.storage.service()
     directory_checks = {
-        "fpv_nas_thumbs_dir": StorageDomain.MEDIA_THUMBNAILS,
-        "fpv_nas_play_dir": StorageDomain.MEDIA_PLAYBACK,
+        "media_nas_thumbnails_directory": StorageDomain.MEDIA_THUMBNAILS,
+        "media_nas_playback_directory": StorageDomain.MEDIA_PLAYBACK,
     }
     storage_accessor = settings.storage
     for field, domain in directory_checks.items():

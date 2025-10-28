@@ -88,7 +88,7 @@ def _resolve_local_import_directory() -> Optional[Path]:
     if candidate is None:
         candidate = (
             settings.local_import_directory_configured
-            or BaseApplicationSettings.LOCAL_IMPORT_DIR
+            or BaseApplicationSettings.MEDIA_LOCAL_IMPORT_DIRECTORY
         )
     if not candidate:
         return None

@@ -809,12 +809,12 @@ def create_app():
                 pass
 
     env_overrides = {
-        "FPV_TMP_DIR": settings.tmp_directory_configured,
-        "FPV_NAS_ORIGINALS_DIR": settings.nas_originals_directory_configured,
-        "FPV_NAS_PLAY_DIR": settings.nas_play_directory_configured,
-        "FPV_NAS_THUMBS_DIR": settings.nas_thumbs_directory_configured,
-        "LOCAL_IMPORT_DIR": settings.local_import_directory_configured,
-        "FPV_DL_SIGN_KEY": settings.fpv_download_signing_key,
+        "MEDIA_TEMP_DIRECTORY": settings.tmp_directory_configured,
+        "MEDIA_NAS_ORIGINALS_DIRECTORY": settings.nas_originals_directory_configured,
+        "MEDIA_NAS_PLAYBACK_DIRECTORY": settings.nas_play_directory_configured,
+        "MEDIA_NAS_THUMBNAILS_DIRECTORY": settings.nas_thumbs_directory_configured,
+        "MEDIA_LOCAL_IMPORT_DIRECTORY": settings.local_import_directory_configured,
+        "MEDIA_DOWNLOAD_SIGNING_KEY": settings.media_download_signing_key,
     }
     for key, value in env_overrides.items():
         if value:

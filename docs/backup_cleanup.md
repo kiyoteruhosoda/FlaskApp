@@ -14,7 +14,7 @@ nolumiaのバックアップファイル（データベースダンプ、メデ�
 ### 環境変数（.env）
 ```bash
 # バックアップディレクトリ
-BACKUP_DIR=/app/data/backups
+MEDIA_BACKUP_DIRECTORY=/app/data/backups
 
 # 保持期間（日数）
 BACKUP_RETENTION_DAYS=30

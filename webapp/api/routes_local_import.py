@@ -360,18 +360,18 @@ def _resolve_local_import_config():
     from webapp.config import BaseApplicationSettings
 
     directory_specs = [
-        ("LOCAL_IMPORT_DIR", "import", settings.local_import_directory_configured),
+        ("MEDIA_LOCAL_IMPORT_DIRECTORY", "import", settings.local_import_directory_configured),
         (
-            "FPV_NAS_ORIGINALS_DIR",
+            "MEDIA_NAS_ORIGINALS_DIRECTORY",
             "originals",
             settings.nas_originals_directory_configured,
         ),
         (
-            "FPV_NAS_THUMBS_DIR",
+            "MEDIA_NAS_THUMBNAILS_DIRECTORY",
             "thumbs",
             settings.nas_thumbs_directory_configured,
         ),
-        ("FPV_NAS_PLAY_DIR", "playback", settings.nas_play_directory_configured),
+        ("MEDIA_NAS_PLAYBACK_DIRECTORY", "playback", settings.nas_play_directory_configured),
     ]
 
     directories: list[dict[str, Any]] = []
@@ -434,10 +434,10 @@ def _resolve_local_import_config():
         return _prepare_local_import_path(None)
 
     return {
-        "import_dir": lookup.get("LOCAL_IMPORT_DIR", {}).get("info", {}).get("raw"),
-        "originals_dir": lookup.get("FPV_NAS_ORIGINALS_DIR", {}).get("info", {}).get("raw"),
-        "import_dir_info": _info_or_empty("LOCAL_IMPORT_DIR"),
-        "originals_dir_info": _info_or_empty("FPV_NAS_ORIGINALS_DIR"),
+        "import_dir": lookup.get("MEDIA_LOCAL_IMPORT_DIRECTORY", {}).get("info", {}).get("raw"),
+        "originals_dir": lookup.get("MEDIA_NAS_ORIGINALS_DIRECTORY", {}).get("info", {}).get("raw"),
+        "import_dir_info": _info_or_empty("MEDIA_LOCAL_IMPORT_DIRECTORY"),
+        "originals_dir_info": _info_or_empty("MEDIA_NAS_ORIGINALS_DIRECTORY"),
         "directories": directories,
     }
 
@@ -452,10 +452,10 @@ def local_import_status():
     originals_dir_info = config_info["originals_dir_info"]
 
     directory_labels = {
-        "LOCAL_IMPORT_DIR": _("Import directory"),
-        "FPV_NAS_ORIGINALS_DIR": _("Originals directory"),
-        "FPV_NAS_THUMBS_DIR": _("Thumbnails directory"),
-        "FPV_NAS_PLAY_DIR": _("Playback directory"),
+        "MEDIA_LOCAL_IMPORT_DIRECTORY": _("Import directory"),
+        "MEDIA_NAS_ORIGINALS_DIRECTORY": _("Originals directory"),
+        "MEDIA_NAS_THUMBNAILS_DIRECTORY": _("Thumbnails directory"),
+        "MEDIA_NAS_PLAYBACK_DIRECTORY": _("Playback directory"),
     }
 
     directories_payload: list[dict[str, Any]] = []

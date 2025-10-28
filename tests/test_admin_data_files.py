@@ -42,10 +42,10 @@ def _setup_admin_with_directories(client, tmp_path):
     import_file.parent.mkdir(parents=True, exist_ok=True)
     import_file.write_bytes(b"e" * 256)
 
-    app.config["FPV_NAS_ORIGINALS_DIR"] = str(originals_dir)
-    app.config["FPV_NAS_THUMBS_DIR"] = str(thumbs_dir)
-    app.config["FPV_NAS_PLAY_DIR"] = str(playback_dir)
-    app.config["LOCAL_IMPORT_DIR"] = str(import_dir)
+    app.config["MEDIA_NAS_ORIGINALS_DIRECTORY"] = str(originals_dir)
+    app.config["MEDIA_NAS_THUMBNAILS_DIRECTORY"] = str(thumbs_dir)
+    app.config["MEDIA_NAS_PLAYBACK_DIRECTORY"] = str(playback_dir)
+    app.config["MEDIA_LOCAL_IMPORT_DIRECTORY"] = str(import_dir)
 
     admin_role = Role(name="admin")
     system_manage = Permission(code="system:manage")
@@ -85,29 +85,29 @@ def test_data_files_page_shows_selected_directory_only(client, tmp_path):
 def test_data_files_allows_switching_filtering_and_pagination(client, tmp_path):
     _setup_admin_with_directories(client, tmp_path)
 
-    response = client.get("/admin/data-files?directory=FPV_NAS_PLAY_DIR")
+    response = client.get("/admin/data-files?directory=MEDIA_NAS_PLAYBACK_DIRECTORY")
     assert response.status_code == 200
     html = response.data.decode("utf-8")
     assert "photo1.mp4" in html
     assert "photo1.jpg" not in html
 
-    response = client.get("/admin/data-files?directory=FPV_NAS_ORIGINALS_DIR&per_page=1")
+    response = client.get("/admin/data-files?directory=MEDIA_NAS_ORIGINALS_DIRECTORY&per_page=1")
     html = response.data.decode("utf-8")
     assert html.count("photo1.jpg") == 1
     assert "photo2.jpg" not in html
     assert "page-link" in html
 
-    response = client.get("/admin/data-files?directory=FPV_NAS_ORIGINALS_DIR&per_page=1&page=2")
+    response = client.get("/admin/data-files?directory=MEDIA_NAS_ORIGINALS_DIRECTORY&per_page=1&page=2")
     html = response.data.decode("utf-8")
     assert "photo2.jpg" in html
     assert "photo1.jpg" not in html
 
-    response = client.get("/admin/data-files?directory=FPV_NAS_ORIGINALS_DIR&q=photo2")
+    response = client.get("/admin/data-files?directory=MEDIA_NAS_ORIGINALS_DIRECTORY&q=photo2")
     html = response.data.decode("utf-8")
     assert "photo2.jpg" in html
     assert "photo1.jpg" not in html
 
-    response = client.get("/admin/data-files?directory=FPV_NAS_ORIGINALS_DIR&q=nope")
+    response = client.get("/admin/data-files?directory=MEDIA_NAS_ORIGINALS_DIRECTORY&q=nope")
     html = response.data.decode("utf-8")
     assert "No files matched" in html
 

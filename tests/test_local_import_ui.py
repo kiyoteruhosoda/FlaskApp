@@ -43,9 +43,9 @@ def app():
             'TESTING': True,
             'SECRET_KEY': 'test-secret-key',
             'DATABASE_URI': f'sqlite:///{db_path}',
-            'LOCAL_IMPORT_DIR': str(import_dir),
-            'FPV_NAS_ORIGINALS_DIR': str(originals_dir),
-            'FPV_TMP_DIR': str(temp_dir),
+            'MEDIA_LOCAL_IMPORT_DIRECTORY': str(import_dir),
+            'MEDIA_NAS_ORIGINALS_DIRECTORY': str(originals_dir),
+            'MEDIA_TEMP_DIRECTORY': str(temp_dir),
             'SQLALCHEMY_ENGINE_OPTIONS': {},
             'BABEL_DEFAULT_LOCALE': 'en',
         }
@@ -266,7 +266,7 @@ class TestSessionDetailAPI:
             sess['_user_id'] = '1'
             sess['_fresh'] = True
 
-        import_dir = Path(app.config['LOCAL_IMPORT_DIR'])
+        import_dir = Path(app.config['MEDIA_LOCAL_IMPORT_DIRECTORY'])
 
         # 既存ファイルをクリーンアップ
         for child in list(import_dir.iterdir()):
@@ -397,7 +397,7 @@ class TestSessionDetailAPI:
             sess['_user_id'] = '1'
             sess['_fresh'] = True
 
-        import_dir = Path(app.config['LOCAL_IMPORT_DIR'])
+        import_dir = Path(app.config['MEDIA_LOCAL_IMPORT_DIRECTORY'])
         zip_path = import_dir / "bundle.zip"
         with zipfile.ZipFile(zip_path, "w") as archive:
             archive.writestr("images/inside.jpg", b"fake image data")

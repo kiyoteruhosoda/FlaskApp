@@ -35,9 +35,9 @@ def _ensure_permission(user: User, code: str, role_name: str = "wiki-uploader") 
 @pytest.fixture
 def wiki_client(app_context, tmp_path):
     app = app_context
-    app.config['UPLOAD_TMP_DIR'] = str(tmp_path / 'tmp')
-    app.config['WIKI_UPLOAD_DIR'] = str(tmp_path / 'wiki')
-    app.config['UPLOAD_MAX_SIZE'] = 1024 * 1024
+    app.config['MEDIA_UPLOAD_TEMP_DIRECTORY'] = str(tmp_path / 'tmp')
+    app.config['WIKI_UPLOAD_DIRECTORY'] = str(tmp_path / 'wiki')
+    app.config['MEDIA_UPLOAD_MAX_SIZE_BYTES'] = 1024 * 1024
 
     (tmp_path / 'tmp').mkdir(parents=True, exist_ok=True)
     (tmp_path / 'wiki').mkdir(parents=True, exist_ok=True)
@@ -64,9 +64,9 @@ def wiki_auth_headers(wiki_client):
 @pytest.fixture
 def wiki_client_no_perm(app_context, tmp_path):
     app = app_context
-    app.config['UPLOAD_TMP_DIR'] = str(tmp_path / 'tmp_no_perm')
-    app.config['WIKI_UPLOAD_DIR'] = str(tmp_path / 'wiki_no_perm')
-    app.config['UPLOAD_MAX_SIZE'] = 1024 * 1024
+    app.config['MEDIA_UPLOAD_TEMP_DIRECTORY'] = str(tmp_path / 'tmp_no_perm')
+    app.config['WIKI_UPLOAD_DIRECTORY'] = str(tmp_path / 'wiki_no_perm')
+    app.config['MEDIA_UPLOAD_MAX_SIZE_BYTES'] = 1024 * 1024
 
     (tmp_path / 'tmp_no_perm').mkdir(parents=True, exist_ok=True)
     (tmp_path / 'wiki_no_perm').mkdir(parents=True, exist_ok=True)
@@ -119,7 +119,7 @@ def test_wiki_upload_creates_media_record(wiki_client, wiki_auth_headers):
     assert media_payload['sourceType'] == 'wiki-media'
     assert media_payload['hashSha256'] == uploaded['hashSha256']
 
-    wiki_dir = Path(wiki_client.application.config['WIKI_UPLOAD_DIR'])
+    wiki_dir = Path(wiki_client.application.config['WIKI_UPLOAD_DIRECTORY'])
     stored_file = (
         wiki_dir / Path(uploaded['relativePath'])
         if uploaded.get('relativePath')

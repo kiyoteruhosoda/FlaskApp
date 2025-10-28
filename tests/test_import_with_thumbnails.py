@@ -73,7 +73,7 @@ def create_test_import():
             mock_requests.get.return_value = mock_response
             
             # Create a test image file to download
-            orig_dir = Path(os.environ["FPV_NAS_ORIGINALS_DIR"])
+            orig_dir = Path(os.environ["MEDIA_NAS_ORIGINALS_DIRECTORY"])
             test_image_data = b"fake_image_data_for_testing"
             
             # Mock the download response
@@ -111,7 +111,7 @@ def create_test_import():
                     print(f"Import result: {result}")
                     
                     # Check that thumbnails were generated
-                    thumbs_dir = Path(os.environ["FPV_NAS_THUMBS_DIR"])
+                    thumbs_dir = Path(os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"])
                     sizes = [256, 512, 1024, 2048]
                     
                     rel_path = "2025/08/28/20250828_100000_picker_testhash.jpg"

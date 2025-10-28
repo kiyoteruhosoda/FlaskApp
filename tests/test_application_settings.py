@@ -27,8 +27,8 @@ def test_environment_overrides_are_reflected():
     env = {
         "CELERY_BROKER_URL": "redis://broker/1",
         "CELERY_RESULT_BACKEND": "redis://backend/2",
-        "BACKUP_DIR": "/data/backups",
-        "FPV_TMP_DIR": "/var/tmp/fpv",
+        "MEDIA_BACKUP_DIRECTORY": "/data/backups",
+        "MEDIA_TEMP_DIRECTORY": "/var/tmp/fpv",
         "DATABASE_URI": "sqlite:///logs.db",
         "GOOGLE_CLIENT_ID": "client",
         "GOOGLE_CLIENT_SECRET": "secret",

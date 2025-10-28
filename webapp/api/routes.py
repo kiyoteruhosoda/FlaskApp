@@ -2897,7 +2897,7 @@ def _b64url_decode(data: str) -> bytes:
 
 def _sign_payload(payload: dict) -> str:
     canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
-    key_b64 = settings.fpv_download_signing_key
+    key_b64 = settings.media_download_signing_key
     key = _b64url_decode(key_b64) if key_b64 else b""
     sig = hmac.new(key, canonical, hashlib.sha256).digest()
     return f"{_b64url_encode(canonical)}.{_b64url_encode(sig)}"
@@ -2913,7 +2913,7 @@ def _verify_token(token: str):
     except Exception:
         return None, "invalid_token"
 
-    key_b64 = settings.fpv_download_signing_key
+    key_b64 = settings.media_download_signing_key
     key = _b64url_decode(key_b64) if key_b64 else b""
     canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
     expected_sig = hmac.new(key, canonical, hashlib.sha256).digest()
@@ -3025,7 +3025,7 @@ def api_media_thumbnail(media_id):
         or media.mime_type
         or "application/octet-stream"
     )
-    ttl = settings.fpv_url_ttl_thumb
+    ttl = settings.media_thumbnail_url_ttl_seconds
     service = _storage_service()
     with service.open(abs_path, "rb") as f:
         data = f.read()
@@ -3097,7 +3097,7 @@ def api_media_thumb_url(media_id):
         or media.mime_type
         or "application/octet-stream"
     )
-    ttl = settings.fpv_url_ttl_thumb
+    ttl = settings.media_thumbnail_url_ttl_seconds
     exp = int(time.time()) + ttl
     payload = {
         "v": 1,
@@ -3279,7 +3279,7 @@ def api_media_original_url(media_id):
         or media.mime_type
         or "application/octet-stream"
     )
-    ttl = settings.fpv_url_ttl_original
+    ttl = settings.media_original_url_ttl_seconds
     exp = int(time.time()) + ttl
     payload = {
         "v": 1,
@@ -3343,7 +3343,7 @@ def api_media_playback_url(media_id):
     if not resolved.exists or not resolved.absolute_path:
         return jsonify({"error": "not_found"}), 404
     ct = mimetypes.guess_type(resolved.absolute_path)[0] or "video/mp4"
-    ttl = settings.fpv_url_ttl_playback
+    ttl = settings.media_playback_url_ttl_seconds
     exp = int(time.time()) + ttl
     payload = {
         "v": 1,
@@ -3414,8 +3414,8 @@ def api_download(token):
             StorageDomain.MEDIA_THUMBNAILS,
             *rel.split("/"),
         )
-        accel_prefix = settings.fpv_accel_thumbs_location
-        ttl = settings.fpv_url_ttl_thumb
+        accel_prefix = settings.media_accel_thumbnails_location
+        ttl = settings.media_thumbnail_url_ttl_seconds
     elif typ == "playback":
         if not path.startswith("playback/"):
             return jsonify({"error": "forbidden"}), 403
@@ -3424,8 +3424,8 @@ def api_download(token):
             StorageDomain.MEDIA_PLAYBACK,
             *rel.split("/"),
         )
-        accel_prefix = settings.fpv_accel_playback_location
-        ttl = settings.fpv_url_ttl_playback
+        accel_prefix = settings.media_accel_playback_location
+        ttl = settings.media_playback_url_ttl_seconds
     elif typ == "original":
         if not path.startswith("originals/"):
             return jsonify({"error": "forbidden"}), 403
@@ -3434,8 +3434,8 @@ def api_download(token):
             StorageDomain.MEDIA_ORIGINALS,
             *rel.split("/"),
         )
-        accel_prefix = settings.fpv_accel_originals_location
-        ttl = settings.fpv_url_ttl_original
+        accel_prefix = settings.media_accel_originals_location
+        ttl = settings.media_original_url_ttl_seconds
     else:
         return jsonify({"error": "forbidden"}), 403
     if not resolved.exists or not resolved.absolute_path:
@@ -3462,7 +3462,7 @@ def api_download(token):
     cache_control = f"private, max-age={ttl}"
     range_header = request.headers.get("Range")
 
-    accel_enabled = settings.fpv_accel_redirect_enabled
+    accel_enabled = settings.media_accel_redirect_enabled
     accel_prefix = (accel_prefix or "").strip() if accel_enabled else ""
     accel_target = None
     if accel_prefix:

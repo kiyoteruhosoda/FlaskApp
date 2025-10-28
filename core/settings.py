@@ -16,7 +16,17 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Optional, Sequence, Tuple, TYPE_CHECKING, cast
+from typing import (
+    Any,
+    ClassVar,
+    Iterable,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    TYPE_CHECKING,
+    cast,
+)
 
 from flask import current_app, has_app_context
 
@@ -110,6 +120,27 @@ class ApplicationSettings:
     default values in a single location.
     """
 
+    _LEGACY_KEYS: ClassVar[dict[str, tuple[str, ...]]] = {
+        "MEDIA_DOWNLOAD_SIGNING_KEY": ("FPV_DL_SIGN_KEY",),
+        "MEDIA_THUMBNAIL_URL_TTL_SECONDS": ("FPV_URL_TTL_THUMB",),
+        "MEDIA_PLAYBACK_URL_TTL_SECONDS": ("FPV_URL_TTL_PLAYBACK",),
+        "MEDIA_ORIGINAL_URL_TTL_SECONDS": ("FPV_URL_TTL_ORIGINAL",),
+        "MEDIA_TEMP_DIRECTORY": ("FPV_TMP_DIR",),
+        "MEDIA_UPLOAD_TEMP_DIRECTORY": ("UPLOAD_TMP_DIR",),
+        "MEDIA_UPLOAD_DESTINATION_DIRECTORY": ("UPLOAD_DESTINATION_DIR",),
+        "MEDIA_UPLOAD_MAX_SIZE_BYTES": ("UPLOAD_MAX_SIZE",),
+        "WIKI_UPLOAD_DIRECTORY": ("WIKI_UPLOAD_DIR",),
+        "MEDIA_BACKUP_DIRECTORY": ("BACKUP_DIR",),
+        "MEDIA_NAS_THUMBNAILS_DIRECTORY": ("FPV_NAS_THUMBS_DIR",),
+        "MEDIA_NAS_PLAYBACK_DIRECTORY": ("FPV_NAS_PLAY_DIR",),
+        "MEDIA_NAS_ORIGINALS_DIRECTORY": ("FPV_NAS_ORIGINALS_DIR",),
+        "MEDIA_ACCEL_THUMBNAILS_LOCATION": ("FPV_ACCEL_THUMBS_LOCATION",),
+        "MEDIA_ACCEL_PLAYBACK_LOCATION": ("FPV_ACCEL_PLAYBACK_LOCATION",),
+        "MEDIA_ACCEL_ORIGINALS_LOCATION": ("FPV_ACCEL_ORIGINALS_LOCATION",),
+        "MEDIA_ACCEL_REDIRECT_ENABLED": ("FPV_ACCEL_REDIRECT_ENABLED",),
+        "MEDIA_LOCAL_IMPORT_DIRECTORY": ("LOCAL_IMPORT_DIR",),
+    }
+
     def __init__(self, env: Optional[Mapping[str, str]] = None) -> None:
         self._env = _EnvironmentFacade.from_environ(env)
         self._concurrency = _ConcurrencyAccessor(self)
@@ -119,11 +150,25 @@ class ApplicationSettings:
     # Generic helpers
     # ------------------------------------------------------------------
     def _get(self, key: str, default: Optional[str] = None):
+        app_config = None
         if has_app_context():
             app = cast("Flask", current_app)
-            if key in app.config:
-                return app.config.get(key)
-        return self._env.get(key, default)
+            app_config = app.config
+            if key in app_config:
+                return app_config.get(key)
+
+        value = self._env.get(key)
+        if value is not None:
+            return value
+
+        for legacy in self._LEGACY_KEYS.get(key, ()):  # pragma: no cover - legacy path
+            if app_config and legacy in app_config:
+                return app_config.get(legacy)
+            legacy_value = self._env.get(legacy)
+            if legacy_value is not None:
+                return legacy_value
+
+        return default
 
     def get(self, key: str, default=None):
         """Return the configured value for *key* or *default* if missing."""
@@ -213,16 +258,16 @@ class ApplicationSettings:
 
     @property
     def tmp_directory(self) -> Path:
-        return self._path_or_default("FPV_TMP_DIR", "/tmp/fpv_tmp")
+        return self._path_or_default("MEDIA_TEMP_DIRECTORY", "/tmp/fpv_tmp")
 
     @property
     def tmp_directory_configured(self) -> Optional[str]:
-        value = self._get("FPV_TMP_DIR")
+        value = self._get("MEDIA_TEMP_DIRECTORY")
         return str(value) if value else None
 
     @property
     def backup_directory(self) -> Path:
-        return self._path_or_default("BACKUP_DIR", "/app/data/backups")
+        return self._path_or_default("MEDIA_BACKUP_DIRECTORY", "/app/data/backups")
 
     @property
     def nas_originals_directory(self) -> Path:
@@ -242,27 +287,27 @@ class ApplicationSettings:
 
     @property
     def nas_originals_directory_configured(self) -> Optional[str]:
-        value = self._get("FPV_NAS_ORIGINALS_DIR")
+        value = self._get("MEDIA_NAS_ORIGINALS_DIRECTORY")
         return str(value) if value else None
 
     @property
     def nas_play_directory_configured(self) -> Optional[str]:
-        value = self._get("FPV_NAS_PLAY_DIR")
+        value = self._get("MEDIA_NAS_PLAYBACK_DIRECTORY")
         return str(value) if value else None
 
     @property
     def nas_thumbs_directory_configured(self) -> Optional[str]:
-        value = self._get("FPV_NAS_THUMBS_DIR")
+        value = self._get("MEDIA_NAS_THUMBNAILS_DIRECTORY")
         return str(value) if value else None
 
     @property
     def local_import_directory_configured(self) -> Optional[str]:
-        value = self._get("LOCAL_IMPORT_DIR")
+        value = self._get("MEDIA_LOCAL_IMPORT_DIRECTORY")
         return str(value) if value else None
 
     @property
     def upload_tmp_directory(self) -> Path:
-        return self._path_or_default("UPLOAD_TMP_DIR", "/app/data/tmp/upload")
+        return self._path_or_default("MEDIA_UPLOAD_TEMP_DIRECTORY", "/app/data/tmp/upload")
 
     # ------------------------------------------------------------------
     # Concurrency settings
@@ -484,50 +529,50 @@ class ApplicationSettings:
         return str(value) if value is not None else None
 
     @property
-    def fpv_download_signing_key(self) -> Optional[str]:
-        value = self._get("FPV_DL_SIGN_KEY")
+    def media_download_signing_key(self) -> Optional[str]:
+        value = self._get("MEDIA_DOWNLOAD_SIGNING_KEY")
         return str(value) if value is not None else None
 
     @property
-    def fpv_accel_thumbs_location(self) -> str:
-        value = self._get("FPV_ACCEL_THUMBS_LOCATION", "")
+    def media_accel_thumbnails_location(self) -> str:
+        value = self._get("MEDIA_ACCEL_THUMBNAILS_LOCATION", "")
         return str(value)
 
     @property
-    def fpv_accel_playback_location(self) -> str:
-        value = self._get("FPV_ACCEL_PLAYBACK_LOCATION", "")
+    def media_accel_playback_location(self) -> str:
+        value = self._get("MEDIA_ACCEL_PLAYBACK_LOCATION", "")
         return str(value)
 
     @property
-    def fpv_accel_originals_location(self) -> str:
-        value = self._get("FPV_ACCEL_ORIGINALS_LOCATION", "")
+    def media_accel_originals_location(self) -> str:
+        value = self._get("MEDIA_ACCEL_ORIGINALS_LOCATION", "")
         return str(value)
 
     @property
-    def fpv_accel_redirect_enabled(self) -> bool:
-        return self.get_bool("FPV_ACCEL_REDIRECT_ENABLED", True)
+    def media_accel_redirect_enabled(self) -> bool:
+        return self.get_bool("MEDIA_ACCEL_REDIRECT_ENABLED", True)
 
     # ------------------------------------------------------------------
     # Media URL configuration
     # ------------------------------------------------------------------
     @property
-    def fpv_url_ttl_thumb(self) -> int:
-        return self.get_int("FPV_URL_TTL_THUMB", 600)
+    def media_thumbnail_url_ttl_seconds(self) -> int:
+        return self.get_int("MEDIA_THUMBNAIL_URL_TTL_SECONDS", 600)
 
     @property
-    def fpv_url_ttl_original(self) -> int:
-        return self.get_int("FPV_URL_TTL_ORIGINAL", 600)
+    def media_original_url_ttl_seconds(self) -> int:
+        return self.get_int("MEDIA_ORIGINAL_URL_TTL_SECONDS", 600)
 
     @property
-    def fpv_url_ttl_playback(self) -> int:
-        return self.get_int("FPV_URL_TTL_PLAYBACK", 600)
+    def media_playback_url_ttl_seconds(self) -> int:
+        return self.get_int("MEDIA_PLAYBACK_URL_TTL_SECONDS", 600)
 
     # ------------------------------------------------------------------
     # Upload configuration
     # ------------------------------------------------------------------
     @property
     def upload_max_size(self) -> int:
-        return self.get_int("UPLOAD_MAX_SIZE", 100 * 1024 * 1024)
+        return self.get_int("MEDIA_UPLOAD_MAX_SIZE_BYTES", 100 * 1024 * 1024)
 
     # ------------------------------------------------------------------
     # Database configuration (extended)
@@ -542,7 +587,7 @@ class ApplicationSettings:
     # ------------------------------------------------------------------
     @property
     def wiki_upload_directory(self) -> Optional[str]:
-        value = self._get("WIKI_UPLOAD_DIR")
+        value = self._get("WIKI_UPLOAD_DIRECTORY")
         return str(value) if value is not None else None
 settings = ApplicationSettings()
 

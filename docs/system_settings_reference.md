@@ -72,7 +72,7 @@ Flask の挙動や外部サービス連携など、多用途な設定をまと�
 | JWT | `ACCESS_TOKEN_ISSUER`, `ACCESS_TOKEN_AUDIENCE` | アクセストークン発行に利用 |
 | 国際化 | `LANGUAGES`, `BABEL_DEFAULT_LOCALE`, `BABEL_DEFAULT_TIMEZONE` | 対応言語とタイムゾーン |
 | 外部サービス | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND` など | API 資格情報や接続 URL |
-| ファイル・ストレージ | `UPLOAD_TMP_DIR`, `UPLOAD_DESTINATION_DIR`, `UPLOAD_MAX_SIZE`, `FPV_*` 系キー | アップロード制限・保存先 |
+| ファイル・ストレージ | `MEDIA_UPLOAD_TEMP_DIRECTORY`, `MEDIA_UPLOAD_DESTINATION_DIRECTORY`, `MEDIA_UPLOAD_MAX_SIZE_BYTES`, `MEDIA_*` 系キー | アップロード制限・保存先 |
 | その他 | `CERTS_API_TIMEOUT`, `SERVICE_ACCOUNT_SIGNING_AUDIENCE`, `TRANSCODE_CRF` など | ドメイン固有の調整値 |
 
 - `CERTS_API_TIMEOUT` は 0 を指定するとタイムアウトせずに待機し続けます。
@@ -84,7 +84,7 @@ Flask の挙動や外部サービス連携など、多用途な設定をまと�
   "SECRET_KEY": "dev-secret-key",
   "SESSION_COOKIE_SECURE": false,
   "LANGUAGES": ["en", "ja"],
-  "UPLOAD_MAX_SIZE": 104857600
+  "MEDIA_UPLOAD_MAX_SIZE_BYTES": 104857600
 }
 ```
 

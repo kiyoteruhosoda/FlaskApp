@@ -62,9 +62,9 @@ class TestBackupCleanup:
             assert new_sql_file.exists()
 
     def test_cleanup_old_backups_with_env_var(self):
-        """環境変数BACKUP_DIRを使用するテスト"""
+        """環境変数MEDIA_BACKUP_DIRECTORYを使用するテスト"""
         with tempfile.TemporaryDirectory() as tmpdir:
-            with patch.dict(os.environ, {'BACKUP_DIR': tmpdir}):
+            with patch.dict(os.environ, {'MEDIA_BACKUP_DIRECTORY': tmpdir}):
                 result = cleanup_old_backups()
                 
                 assert result["ok"] is True

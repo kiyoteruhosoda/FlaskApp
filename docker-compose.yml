@@ -51,8 +51,8 @@ services:
       - TZ=UTC
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
-      - UPLOAD_TMP_DIR=/app/data/tmp/upload
-      - UPLOAD_DESTINATION_DIR=/app/data/uploads
+      - MEDIA_UPLOAD_TEMP_DIRECTORY=/app/data/tmp/upload
+      - MEDIA_UPLOAD_DESTINATION_DIRECTORY=/app/data/uploads
       - API_BASE_URL=${API_BASE_URL:-http://localhost:5000}
       - DATABASE_URI="mysql+pymysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}?charset=utf8mb4"
     env_file:
@@ -89,8 +89,8 @@ services:
       - TZ=UTC
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
-      - UPLOAD_TMP_DIR=/app/data/tmp/upload
-      - UPLOAD_DESTINATION_DIR=/app/data/uploads
+      - MEDIA_UPLOAD_TEMP_DIRECTORY=/app/data/tmp/upload
+      - MEDIA_UPLOAD_DESTINATION_DIRECTORY=/app/data/uploads
       - API_BASE_URL=${API_BASE_URL:-http://localhost:5000}
       - DATABASE_URI=mysql+pymysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}?charset=utf8mb4
     env_file:

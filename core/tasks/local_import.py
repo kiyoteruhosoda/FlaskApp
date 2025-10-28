@@ -452,10 +452,10 @@ _import_destination_storage: StorageService = _spawn_storage_service()
 
 # Explicit mapping of config keys to storage services
 _STORAGE_SERVICE_MAP = {
-    "LOCAL_IMPORT_DIR": _import_source_storage,
-    "FPV_NAS_ORIGINALS_DIR": _import_destination_storage,
-    "FPV_NAS_PLAY_DIR": _import_destination_storage,
-    "FPV_NAS_THUMBS_DIR": _import_destination_storage,
+    "MEDIA_LOCAL_IMPORT_DIRECTORY": _import_source_storage,
+    "MEDIA_NAS_ORIGINALS_DIRECTORY": _import_destination_storage,
+    "MEDIA_NAS_PLAYBACK_DIRECTORY": _import_destination_storage,
+    "MEDIA_NAS_THUMBNAILS_DIRECTORY": _import_destination_storage,
 }
 
 
@@ -1167,22 +1167,22 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
     """ローカルインポートタスクをアプリケーション層に委譲する。"""
 
     try:
-        import_dir = _resolve_directory('LOCAL_IMPORT_DIR')
+        import_dir = _resolve_directory('MEDIA_LOCAL_IMPORT_DIRECTORY')
     except RuntimeError:
-        fallback_import = BaseApplicationSettings.LOCAL_IMPORT_DIR
+        fallback_import = BaseApplicationSettings.MEDIA_LOCAL_IMPORT_DIRECTORY
         if not isinstance(fallback_import, (str, os.PathLike)):
             raise RuntimeError(
-                "BaseApplicationSettings.LOCAL_IMPORT_DIR must be configured as a path"
+                "BaseApplicationSettings.MEDIA_LOCAL_IMPORT_DIRECTORY must be configured as a path"
             )
         import_dir = os.fspath(fallback_import)
 
     try:
-        originals_dir = _resolve_directory('FPV_NAS_ORIGINALS_DIR')
+        originals_dir = _resolve_directory('MEDIA_NAS_ORIGINALS_DIRECTORY')
     except RuntimeError:
-        fallback_originals = BaseApplicationSettings.FPV_NAS_ORIGINALS_DIR
+        fallback_originals = BaseApplicationSettings.MEDIA_NAS_ORIGINALS_DIRECTORY
         if not isinstance(fallback_originals, (str, os.PathLike)):
             raise RuntimeError(
-                "BaseApplicationSettings.FPV_NAS_ORIGINALS_DIR must be configured as a path"
+                "BaseApplicationSettings.MEDIA_NAS_ORIGINALS_DIRECTORY must be configured as a path"
             )
         originals_dir = os.fspath(fallback_originals)
 

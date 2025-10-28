@@ -127,23 +127,19 @@
     <hr>
     <div class="alert alert-success" role="alert">
       <h2 class="h5">{{ _('New certificate issued.') }}</h2>
-      <p class="mb-2">{{ _('Copy the materials below. The private key is shown only once.') }}</p>
-      <dl class="row">
+      <dl class="row mb-2">
         <dt class="col-sm-3">KID</dt>
         <dd class="col-sm-9 font-monospace">{{ issued_certificate['kid'] }}</dd>
       </dl>
-      <div class="row g-3">
-        <div class="col-md-6">
-          <label class="form-label">{{ _('Private Key (PEM)') }}</label>
-          <textarea class="form-control font-monospace" rows="10" readonly>{{ issued_certificate['privateKeyPem'] }}</textarea>
-        </div>
-        <div class="col-md-6">
-          <label class="form-label">{{ _('Certificate (PEM)') }}</label>
-          <textarea class="form-control font-monospace" rows="10" readonly>{{ issued_certificate['certificatePem'] }}</textarea>
-          {% if not issued_certificate['certificatePem'] %}
-          <div class="form-text text-muted">{{ _('No certificate was generated for this key.') }}</div>
-          {% endif %}
-        </div>
+      {% if issued_certificate.get('hasPrivateKey') %}
+      <p class="mb-3 text-warning">{{ _('The private key was generated but is not displayed on this page. Please retrieve it securely from the API response or your key store.') }}</p>
+      {% endif %}
+      <div>
+        <label class="form-label">{{ _('Certificate (PEM)') }}</label>
+        <textarea class="form-control font-monospace" rows="10" readonly>{{ issued_certificate['certificatePem'] }}</textarea>
+        {% if not issued_certificate['certificatePem'] %}
+        <div class="form-text text-muted">{{ _('No certificate was generated for this key.') }}</div>
+        {% endif %}
       </div>
     </div>
     {% endif %}

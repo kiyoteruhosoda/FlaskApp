@@ -71,7 +71,7 @@ def app_context():
         importlib.reload(config_module)
 
         from webapp import create_app
-        from webapp.config import TestConfig
+        from .config import TestConfig
         from webapp.extensions import db
         from webapp.services.system_setting_service import SystemSettingService
         from webapp import _apply_persisted_settings

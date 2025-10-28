@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 DEFAULT_APPLICATION_SETTINGS: dict[str, object] = {
-    "SECRET_KEY": "dev-secret-key",
-    "JWT_SECRET_KEY": "dev-jwt-secret",
+    "SECRET_KEY": "default-secret-key",
+    "JWT_SECRET_KEY": "default-jwt-secret",
     "ACCESS_TOKEN_ISSUER": "fpv-webapp",
     "ACCESS_TOKEN_AUDIENCE": "fpv-webapp",
     "SESSION_COOKIE_SECURE": False,

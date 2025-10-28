@@ -358,6 +358,33 @@ body.login-page footer {
   min-width: 48rem;
 }
 
+.config-table__cell {
+  vertical-align: top;
+}
+
+.config-table__cell--key {
+  min-width: 12rem;
+  max-width: 20rem;
+}
+
+.config-table__cell--key code,
+.config-table__cell--key .text-muted {
+  display: inline-block;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.config-table__cell--current,
+.config-table__cell--default {
+  min-width: 12rem;
+  max-width: 24rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .config-block + .config-block {
   margin-top: 2rem;
 }

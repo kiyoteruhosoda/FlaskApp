@@ -637,8 +637,8 @@ def issue_certificate(group_code: str):
     session["certs_last_issued"] = {
         "kid": result.kid,
         "certificatePem": result.certificate_pem,
-        "privateKeyPem": result.private_key_pem,
         "usageType": result.usage_type.value,
+        "hasPrivateKey": bool(result.private_key_pem),
     }
     return redirect(url_for("certs_ui.group_detail", group_code=group_code))
 

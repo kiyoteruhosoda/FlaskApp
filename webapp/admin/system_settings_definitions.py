@@ -194,7 +194,7 @@ _OAUTH_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         allow_empty=True,
     ),
     SettingFieldDefinition(
-        key="OAUTH_TOKEN_KEY",
+        key="ENCRYPTION_KEY",
         label=_(u"Token encryption key"),
         data_type="string",
         required=False,
@@ -203,7 +203,7 @@ _OAUTH_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         allow_null=True,
     ),
     SettingFieldDefinition(
-        key="OAUTH_TOKEN_KEY_FILE",
+        key="ENCRYPTION_KEY_FILE",
         label=_(u"Token encryption key file"),
         data_type="string",
         required=False,

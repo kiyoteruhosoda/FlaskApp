@@ -26,13 +26,13 @@ def test_validate_encryption_key_invalid_length():
 
 def test_encrypt_decrypt_round_trip(monkeypatch):
     key = _gen_key()
-    monkeypatch.setenv("OAUTH_TOKEN_KEY", key)
+    monkeypatch.setenv("ENCRYPTION_KEY", key)
     token = crypto.encrypt("secret")
     assert crypto.decrypt(token) == "secret"
 
 
 def test_encrypt_decrypt_legacy_format(monkeypatch):
     key = _gen_key()
-    monkeypatch.setenv("OAUTH_TOKEN_KEY", key)
+    monkeypatch.setenv("ENCRYPTION_KEY", key)
     token = crypto.encrypt("data", envelope=False)
     assert crypto.decrypt(token) == "data"

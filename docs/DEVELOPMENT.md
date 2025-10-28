@@ -568,9 +568,9 @@ GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 
 # OAuth トークン暗号化用鍵（AES-256-GCM）
-OAUTH_TOKEN_KEY=base64:your-32-byte-base64-encoded-key
+ENCRYPTION_KEY=base64:your-32-byte-base64-encoded-key
 # または
-OAUTH_TOKEN_KEY_FILE=/path/to/key/file
+ENCRYPTION_KEY_FILE=/path/to/key/file
 
 # メディアストレージパス
 MEDIA_STORAGE_PATH=/path/to/media/storage
@@ -757,13 +757,13 @@ import base64
 # 32バイトのランダムキーを生成
 key = os.urandom(32)
 key_b64 = base64.b64encode(key).decode()
-print(f"OAUTH_TOKEN_KEY=base64:{key_b64}")
+print(f"ENCRYPTION_KEY=base64:{key_b64}")
 ```
 
 ### 10.2 暗号化の仕組み
 - トークンは `google_account.oauth_token_json` フィールドに暗号化保存
 - 復号化は `core/crypto.py` の `decrypt_oauth_token()` で実行
-- 鍵は環境変数 `OAUTH_TOKEN_KEY` または `OAUTH_TOKEN_KEY_FILE` で指定
+- 鍵は環境変数 `ENCRYPTION_KEY` または `ENCRYPTION_KEY_FILE` で指定
 
 ## 11. テストの実行
 pytest を使用した包括的なテストスイートが用意されています。
@@ -1001,13 +1001,13 @@ redis-cli
 #### トークン暗号化エラー
 ```bash
 # 暗号化鍵の確認
-echo $OAUTH_TOKEN_KEY
+echo $ENCRYPTION_KEY
 
 # 新しい鍵を生成
 python -c "
 import os, base64
 key = base64.b64encode(os.urandom(32)).decode()
-print(f'OAUTH_TOKEN_KEY=base64:{key}')
+print(f'ENCRYPTION_KEY=base64:{key}')
 "
 ```
 

@@ -32,7 +32,7 @@ def test_environment_overrides_are_reflected():
         "DATABASE_URI": "sqlite:///logs.db",
         "GOOGLE_CLIENT_ID": "client",
         "GOOGLE_CLIENT_SECRET": "secret",
-        "OAUTH_TOKEN_KEY": "base64:QUJDREVGR0hJSktMTU5PUA==",
+        "ENCRYPTION_KEY": "base64:QUJDREVGR0hJSktMTU5PUA==",
         "FPV_TRANSCODE_CRF": "24",
         "FPV_OAUTH_TOKEN_KEY_FILE": "/secrets/token.key",
         "SERVICE_ACCOUNT_SIGNING_AUDIENCE": "aud-a, aud-b, aud-c",

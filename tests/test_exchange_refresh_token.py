@@ -19,7 +19,7 @@ def app(tmp_path):
         "DATABASE_URI": f"sqlite:///{db_path}",
         "GOOGLE_CLIENT_ID": "cid",
         "GOOGLE_CLIENT_SECRET": "sec",
-        "OAUTH_TOKEN_KEY": key,
+        "ENCRYPTION_KEY": key,
     }
     prev = {k: os.environ.get(k) for k in env}
     os.environ.update(env)
@@ -51,7 +51,7 @@ def app(tmp_path):
                 "SECRET_KEY": env["SECRET_KEY"],
                 "GOOGLE_CLIENT_ID": env["GOOGLE_CLIENT_ID"],
                 "GOOGLE_CLIENT_SECRET": env["GOOGLE_CLIENT_SECRET"],
-                "OAUTH_TOKEN_KEY": env["OAUTH_TOKEN_KEY"],
+                "ENCRYPTION_KEY": env["ENCRYPTION_KEY"],
             }
         )
         SystemSettingService.upsert_application_config(payload)

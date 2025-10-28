@@ -14,7 +14,7 @@ def app(tmp_path, monkeypatch):
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "cid")
     monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "sec")
     key = base64.urlsafe_b64encode(b"0" * 32).decode()
-    monkeypatch.setenv("OAUTH_TOKEN_KEY", key)
+    monkeypatch.setenv("ENCRYPTION_KEY", key)
     from webapp.config import BaseApplicationSettings
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
     from webapp import create_app

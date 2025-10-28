@@ -35,7 +35,7 @@ DEFAULT_APPLICATION_SETTINGS: dict[str, object] = {
     "MEDIA_ACCEL_THUMBNAILS_LOCATION": "/mnt/data/media/thumbs",
     "MEDIA_ACCEL_PLAYBACK_LOCATION": "/mnt/data/media/playback",
     "MEDIA_ACCEL_ORIGINALS_LOCATION": "/mnt/data/media/originals",
-    "MEDIA_BACKUP_DIRECTORY": "/app/data/backups",
+    "SYSTEM_BACKUP_DIRECTORY": "/app/data/backups",
     "WIKI_UPLOAD_DIRECTORY": "/app/data/wiki",
     "CELERY_BROKER_URL": "redis://localhost:6379/0",
     "CELERY_RESULT_BACKEND": "redis://localhost:6379/0",

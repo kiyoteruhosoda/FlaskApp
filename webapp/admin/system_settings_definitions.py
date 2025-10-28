@@ -331,11 +331,13 @@ _STORAGE_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         allow_empty=True,
     ),
     SettingFieldDefinition(
-        key="MEDIA_BACKUP_DIRECTORY",
-        label=_(u"Backup directory"),
+        key="SYSTEM_BACKUP_DIRECTORY",
+        label=_(u"System backup directory"),
         data_type="string",
         required=True,
-        description=_(u"Destination directory for scheduled backups."),
+        description=_(
+            u"Destination directory for database, media, and configuration backups."
+        ),
     ),
     SettingFieldDefinition(
         key="WIKI_UPLOAD_DIRECTORY",

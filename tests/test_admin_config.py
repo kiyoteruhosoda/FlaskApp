@@ -102,6 +102,19 @@ def test_config_page_displays_current_settings(client):
     assert 'data-app-key="CORS_ALLOWED_ORIGINS"' not in html
 
 
+def test_apply_persisted_settings_prefers_legacy_backup_directory(app_context):
+    from webapp import _apply_persisted_settings
+
+    SystemSettingService.update_application_settings(
+        {"MEDIA_BACKUP_DIRECTORY": "/legacy/backups"},
+        remove_keys={"SYSTEM_BACKUP_DIRECTORY"},
+    )
+
+    _apply_persisted_settings(app_context)
+
+    assert app_context.config["SYSTEM_BACKUP_DIRECTORY"] == "/legacy/backups"
+
+
 def test_update_application_config_field_success(client):
     user = _create_system_manager()
     _login(client, user)

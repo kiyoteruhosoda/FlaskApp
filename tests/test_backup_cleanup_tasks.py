@@ -25,7 +25,7 @@ class TestBackupCleanupTasks:
             old_file.touch()
             old_file.stat()
             
-            with patch.dict('os.environ', {'MEDIA_BACKUP_DIRECTORY': tmpdir}):
+            with patch.dict('os.environ', {'SYSTEM_BACKUP_DIRECTORY': tmpdir}):
                 # タスク実行（self引数をモック）
                 class MockSelf:
                     pass
@@ -43,7 +43,7 @@ class TestBackupCleanupTasks:
             test_file = backup_path / "test_backup.sql"
             test_file.write_text("dummy content")
             
-            with patch.dict('os.environ', {'MEDIA_BACKUP_DIRECTORY': tmpdir}):
+            with patch.dict('os.environ', {'SYSTEM_BACKUP_DIRECTORY': tmpdir}):
                 # タスク実行（self引数をモック）
                 class MockSelf:
                     pass
@@ -57,10 +57,10 @@ class TestBackupCleanupTasks:
     def test_backup_cleanup_task_with_default_retention(self):
         """デフォルト保持期間でのバックアップクリーンアップタスクテスト"""
         with tempfile.TemporaryDirectory() as tmpdir:
-            with patch.dict('os.environ', {'MEDIA_BACKUP_DIRECTORY': tmpdir}):
+            with patch.dict('os.environ', {'SYSTEM_BACKUP_DIRECTORY': tmpdir}):
                 class MockSelf:
                     pass
-                
+
                 # デフォルト値（30日）でタスク実行
                 result = backup_cleanup_task(MockSelf())
                 

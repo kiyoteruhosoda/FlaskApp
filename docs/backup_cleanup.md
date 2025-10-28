@@ -14,7 +14,7 @@ nolumiaのバックアップファイル（データベースダンプ、メデ�
 ### 環境変数（.env）
 ```bash
 # バックアップディレクトリ
-MEDIA_BACKUP_DIRECTORY=/app/data/backups
+SYSTEM_BACKUP_DIRECTORY=/app/data/backups
 
 # 保持期間（日数）
 BACKUP_RETENTION_DAYS=30
@@ -62,5 +62,6 @@ INFO: 古いアーカイブバックアップファイルを削除: old_media_20
 
 ## 注意事項
 - メディアファイルのバックアップ（.tar.gz）は容量が大きいため、自動実行は慎重に検討してください
+- 旧名称 `MEDIA_BACKUP_DIRECTORY` も互換目的で解釈されますが、新規設定では `SYSTEM_BACKUP_DIRECTORY` を使用してください
 - Synology環境では `/volume1/docker/photonest/backups` を使用
 - 削除されたファイルは復元できません

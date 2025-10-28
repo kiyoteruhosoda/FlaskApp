@@ -62,6 +62,9 @@ from webapp.admin.system_settings_definitions import (
     READONLY_APPLICATION_SETTING_KEYS,
     SettingFieldDefinition,
 )
+
+
+_HIDDEN_APPLICATION_SETTING_KEYS: frozenset[str] = frozenset({"JWT_SECRET_KEY"})
 from webapp.services.system_setting_service import (
     AccessTokenSigningSetting,
     AccessTokenSigningValidationError,
@@ -135,7 +138,11 @@ def _collect_application_definitions(
     stored_payload: Dict[str, Any],
 ) -> Dict[str, SettingFieldDefinition]:
     definitions: Dict[str, SettingFieldDefinition] = dict(APPLICATION_SETTING_DEFINITIONS)
-    keys = set(DEFAULT_APPLICATION_SETTINGS) | set(effective_config) | set(stored_payload)
+    keys = (
+        set(DEFAULT_APPLICATION_SETTINGS)
+        | set(effective_config)
+        | set(stored_payload)
+    ) - set(_HIDDEN_APPLICATION_SETTING_KEYS)
     for key in keys:
         if key not in definitions:
             sample = stored_payload.get(key, effective_config.get(key))

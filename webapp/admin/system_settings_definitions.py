@@ -331,11 +331,13 @@ _STORAGE_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         description=_(u"Local path watched for media imports."),
     ),
     SettingFieldDefinition(
-        key="MEDIA_BACKUP_DIRECTORY",
-        label=_(u"Backup directory"),
+        key="SYSTEM_BACKUP_DIRECTORY",
+        label=_(u"System backup directory"),
         data_type="string",
         required=True,
-        description=_(u"Destination directory for scheduled backups."),
+        description=_(
+            u"Destination directory for database, media, and configuration backups."
+        ),
     ),
     SettingFieldDefinition(
         key="MEDIA_NAS_ORIGINALS_DIRECTORY",

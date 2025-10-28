@@ -130,7 +130,7 @@ class ApplicationSettings:
         "MEDIA_UPLOAD_DESTINATION_DIRECTORY": ("UPLOAD_DESTINATION_DIR",),
         "MEDIA_UPLOAD_MAX_SIZE_BYTES": ("UPLOAD_MAX_SIZE",),
         "WIKI_UPLOAD_DIRECTORY": ("WIKI_UPLOAD_DIR",),
-        "MEDIA_BACKUP_DIRECTORY": ("BACKUP_DIR",),
+        "SYSTEM_BACKUP_DIRECTORY": ("MEDIA_BACKUP_DIRECTORY", "BACKUP_DIR"),
         "MEDIA_NAS_THUMBNAILS_DIRECTORY": ("FPV_NAS_THUMBS_DIR",),
         "MEDIA_NAS_PLAYBACK_DIRECTORY": ("FPV_NAS_PLAY_DIR",),
         "MEDIA_NAS_ORIGINALS_DIRECTORY": ("FPV_NAS_ORIGINALS_DIR",),
@@ -267,7 +267,7 @@ class ApplicationSettings:
 
     @property
     def backup_directory(self) -> Path:
-        return self._path_or_default("MEDIA_BACKUP_DIRECTORY", "/app/data/backups")
+        return self._path_or_default("SYSTEM_BACKUP_DIRECTORY", "/app/data/backups")
 
     @property
     def nas_originals_directory(self) -> Path:

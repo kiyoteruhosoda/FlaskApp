@@ -293,26 +293,28 @@ docker logs photonest-redis
 ```bash
 # データベースバックアップスクリプト
 #!/bin/bash
-MEDIA_BACKUP_DIRECTORY="/volume1/docker/photonest/backups"
+SYSTEM_BACKUP_DIRECTORY="/volume1/docker/photonest/backups"
 DATE=$(date +%Y%m%d_%H%M%S)
 
 # 外部データベースのバックアップ（例：Synology MariaDBパッケージの場合）
 # Synology MariaDBの場合：
 mysqldump -h <your-db-host> -u <photonest_user> -p photonest > \
-    ${MEDIA_BACKUP_DIRECTORY}/db_backup_${DATE}.sql
+    ${SYSTEM_BACKUP_DIRECTORY}/db_backup_${DATE}.sql
 
 # 別サーバーのMySQL/MariaDBの場合：
 # mysqldump -h <your-external-db-server> -u <photonest_user> -p photonest > \
-#     ${MEDIA_BACKUP_DIRECTORY}/db_backup_${DATE}.sql
+#     ${SYSTEM_BACKUP_DIRECTORY}/db_backup_${DATE}.sql
 
 # メディアファイルバックアップ（必要に応じて）
-tar -czf ${MEDIA_BACKUP_DIRECTORY}/media_backup_${DATE}.tar.gz \
+tar -czf ${SYSTEM_BACKUP_DIRECTORY}/media_backup_${DATE}.tar.gz \
     /volume1/docker/photonest/data/
 
 # 古いバックアップの削除（30日より古い）
-find ${MEDIA_BACKUP_DIRECTORY} -name "*.sql" -mtime +30 -delete
-find ${MEDIA_BACKUP_DIRECTORY} -name "*.tar.gz" -mtime +30 -delete
+find ${SYSTEM_BACKUP_DIRECTORY} -name "*.sql" -mtime +30 -delete
+find ${SYSTEM_BACKUP_DIRECTORY} -name "*.tar.gz" -mtime +30 -delete
 ```
+
+> **補足**: 旧環境変数名 `MEDIA_BACKUP_DIRECTORY` も互換のためにサポートされていますが、運用設定は `SYSTEM_BACKUP_DIRECTORY` に移行してください。
 
 #### 6.3.2 アップデート手順
 1. 新しいnolumiaリリースをダウンロード
@@ -390,25 +392,25 @@ echo "nolumia stopped successfully!"
 #### backup-photonest.sh
 ```bash
 #!/bin/bash
-MEDIA_BACKUP_DIRECTORY="/volume1/docker/photonest/backups"
+SYSTEM_BACKUP_DIRECTORY="/volume1/docker/photonest/backups"
 DATE=$(date +%Y%m%d_%H%M%S)
-mkdir -p ${MEDIA_BACKUP_DIRECTORY}
+mkdir -p ${SYSTEM_BACKUP_DIRECTORY}
 
 # 外部データベースバックアップ
 # Synology MariaDBパッケージの場合
 mysqldump -h localhost -u <photonest_user> -p photonest \
     --single-transaction --routines --triggers > \
-    ${MEDIA_BACKUP_DIRECTORY}/photonest_db_${DATE}.sql
+    ${SYSTEM_BACKUP_DIRECTORY}/photonest_db_${DATE}.sql
 
 # 別サーバーのデータベースの場合
 # mysqldump -h <your-db-server> -u <photonest_user> -p photonest \
 #     --single-transaction --routines --triggers > \
-#     ${MEDIA_BACKUP_DIRECTORY}/photonest_db_${DATE}.sql
+#     ${SYSTEM_BACKUP_DIRECTORY}/photonest_db_${DATE}.sql
 
 # 設定ファイルバックアップ
-cp /volume1/docker/photonest/.env ${MEDIA_BACKUP_DIRECTORY}/env_${DATE}.backup
+cp /volume1/docker/photonest/.env ${SYSTEM_BACKUP_DIRECTORY}/env_${DATE}.backup
 
-echo "Backup completed: ${MEDIA_BACKUP_DIRECTORY}"
+echo "Backup completed: ${SYSTEM_BACKUP_DIRECTORY}"
 echo "Database: photonest_db_${DATE}.sql"
 echo "Config: env_${DATE}.backup"
 ```

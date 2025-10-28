@@ -27,7 +27,7 @@ def test_environment_overrides_are_reflected():
     env = {
         "CELERY_BROKER_URL": "redis://broker/1",
         "CELERY_RESULT_BACKEND": "redis://backend/2",
-        "MEDIA_BACKUP_DIRECTORY": "/data/backups",
+        "SYSTEM_BACKUP_DIRECTORY": "/data/backups",
         "MEDIA_TEMP_DIRECTORY": "/var/tmp/fpv",
         "DATABASE_URI": "sqlite:///logs.db",
         "GOOGLE_CLIENT_ID": "client",
@@ -55,6 +55,12 @@ def test_environment_overrides_are_reflected():
     assert settings.service_account_signing_audiences == ("aud-a", "aud-b", "aud-c")
     assert settings.access_token_issuer == "issuer-x"
     assert settings.access_token_audience == "aud-x"
+
+
+def test_backup_directory_legacy_env_is_supported():
+    settings = ApplicationSettings(env={"MEDIA_BACKUP_DIRECTORY": "/legacy/backups"})
+
+    assert settings.backup_directory == Path("/legacy/backups")
 
 
 def test_transcode_crf_invalid_value_falls_back_to_default():

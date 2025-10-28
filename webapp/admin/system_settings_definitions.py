@@ -139,7 +139,9 @@ _SESSION_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         label=_(u"Certificates API timeout"),
         data_type="float",
         required=True,
-        description=_(u"Timeout in seconds for certificate service requests."),
+        description=_(
+            u"Timeout in seconds for certificate service requests. Set to 0 to wait indefinitely."
+        ),
     ),
 )
 

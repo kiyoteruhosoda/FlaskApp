@@ -75,6 +75,8 @@ Flask の挙動や外部サービス連携など、多用途な設定をまと�
 | ファイル・ストレージ | `UPLOAD_TMP_DIR`, `UPLOAD_DESTINATION_DIR`, `UPLOAD_MAX_SIZE`, `FPV_*` 系キー | アップロード制限・保存先 |
 | その他 | `CERTS_API_TIMEOUT`, `SERVICE_ACCOUNT_SIGNING_AUDIENCE`, `TRANSCODE_CRF` など | ドメイン固有の調整値 |
 
+- `CERTS_API_TIMEOUT` は 0 を指定するとタイムアウトせずに待機し続けます。
+
 #### JSON 例
 
 ```json

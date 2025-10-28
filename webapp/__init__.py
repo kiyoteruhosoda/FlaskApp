@@ -722,6 +722,11 @@ def _apply_persisted_settings(app: Flask) -> None:
         else:
             app.config[key] = value
 
+    if "REMEMBER_COOKIE_SECURE" not in app.config:
+        app.config["REMEMBER_COOKIE_SECURE"] = bool(
+            app.config.get("SESSION_COOKIE_SECURE", False)
+        )
+
     try:
         cors_payload = SystemSettingService.load_cors_config()
     except Exception as exc:  # pragma: no cover - defensive fallback

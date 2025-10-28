@@ -722,7 +722,7 @@ def _apply_persisted_settings(app: Flask) -> None:
         else:
             app.config[key] = value
 
-    if "REMEMBER_COOKIE_SECURE" not in app.config:
+    if "REMEMBER_COOKIE_SECURE" not in config_payload:
         app.config["REMEMBER_COOKIE_SECURE"] = bool(
             app.config.get("SESSION_COOKIE_SECURE", False)
         )

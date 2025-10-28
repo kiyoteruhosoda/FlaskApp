@@ -27,7 +27,7 @@ DEFAULT_APPLICATION_SETTINGS: dict[str, object] = {
     "MEDIA_UPLOAD_TEMP_DIRECTORY": "/app/data/tmp/upload",
     "MEDIA_UPLOAD_DESTINATION_DIRECTORY": "/app/data/uploads",
     "MEDIA_UPLOAD_MAX_SIZE_BYTES": 100 * 1024 * 1024,
-    "MEDIA_LOCAL_IMPORT_DIRECTORY": "/app/data/media/import",
+    "MEDIA_LOCAL_IMPORT_DIRECTORY": "/app/data/media/local_import",
     "MEDIA_NAS_THUMBNAILS_DIRECTORY": "/app/data/media/thumbs",
     "MEDIA_NAS_PLAYBACK_DIRECTORY": "/app/data/media/playback",
     "MEDIA_NAS_ORIGINALS_DIRECTORY": "/app/data/media/originals",

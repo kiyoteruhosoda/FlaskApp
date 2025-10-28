@@ -51,10 +51,8 @@ services:
       - TZ=UTC
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
-      - MEDIA_UPLOAD_TEMP_DIRECTORY=/app/data/tmp/upload
-      - MEDIA_UPLOAD_DESTINATION_DIRECTORY=/app/data/uploads
       - API_BASE_URL=${API_BASE_URL:-http://localhost:5000}
-      - DATABASE_URI="mysql+pymysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}?charset=utf8mb4"
+      - DATABASE_URI=mysql+pymysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}?charset=utf8mb4
     env_file:
       - .env
     depends_on:
@@ -63,12 +61,7 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - /volume1/docker/photonest/data/media:/app/data/media
-      - /volume1/docker/photonest/data/thumbs:/app/data/thumbs
-      - /volume1/docker/photonest/data/playback:/app/data/playback
-      - /volume1/docker/photonest/data/local_import:/app/data/local_import
-      - /volume1/docker/photonest/data/tmp:/app/data/tmp
-      - /volume1/docker/photonest/data/uploads:/app/data/uploads
+      - /volume1/docker/photonest/data:/app/data
     user: "${PUID:-1000}:${PGID:-1000}"
     restart: unless-stopped
     healthcheck:
@@ -89,8 +82,6 @@ services:
       - TZ=UTC
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
-      - MEDIA_UPLOAD_TEMP_DIRECTORY=/app/data/tmp/upload
-      - MEDIA_UPLOAD_DESTINATION_DIRECTORY=/app/data/uploads
       - API_BASE_URL=${API_BASE_URL:-http://localhost:5000}
       - DATABASE_URI=mysql+pymysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}?charset=utf8mb4
     env_file:
@@ -101,12 +92,7 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - /volume1/docker/photonest/data/media:/app/data/media
-      - /volume1/docker/photonest/data/thumbs:/app/data/thumbs
-      - /volume1/docker/photonest/data/playback:/app/data/playback
-      - /volume1/docker/photonest/data/local_import:/app/data/local_import
-      - /volume1/docker/photonest/data/tmp:/app/data/tmp
-      - /volume1/docker/photonest/data/uploads:/app/data/uploads
+      - /volume1/docker/photonest/data:/app/data
     user: "${PUID:-1000}:${PGID:-1000}"
     restart: unless-stopped
     healthcheck:

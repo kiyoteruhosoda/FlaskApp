@@ -269,11 +269,11 @@ _STORAGE_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         description=_(u"Maximum upload size in bytes."),
     ),
     SettingFieldDefinition(
-        key="WIKI_UPLOAD_DIRECTORY",
-        label=_(u"Wiki upload directory"),
+        key="MEDIA_LOCAL_IMPORT_DIRECTORY",
+        label=_(u"Local import directory"),
         data_type="string",
         required=True,
-        description=_(u"Storage path for wiki attachments."),
+        description=_(u"Local path watched for media imports."),
     ),
     SettingFieldDefinition(
         key="MEDIA_NAS_THUMBNAILS_DIRECTORY",
@@ -290,6 +290,21 @@ _STORAGE_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         required=False,
         description=_(u"NAS path for playback assets."),
         allow_empty=True,
+    ),
+    SettingFieldDefinition(
+        key="MEDIA_NAS_ORIGINALS_DIRECTORY",
+        label=_(u"NAS originals directory"),
+        data_type="string",
+        required=True,
+        description=_(u"NAS path containing original media assets."),
+    ),
+    SettingFieldDefinition(
+        key="MEDIA_ACCEL_REDIRECT_ENABLED",
+        label=_(u"Enable acceleration redirects"),
+        data_type="boolean",
+        required=True,
+        description=_(u"Enable redirect responses when acceleration paths exist."),
+        choices=BOOLEAN_CHOICES,
     ),
     SettingFieldDefinition(
         key="MEDIA_ACCEL_THUMBNAILS_LOCATION",
@@ -316,21 +331,6 @@ _STORAGE_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         allow_empty=True,
     ),
     SettingFieldDefinition(
-        key="MEDIA_ACCEL_REDIRECT_ENABLED",
-        label=_(u"Enable acceleration redirects"),
-        data_type="boolean",
-        required=True,
-        description=_(u"Enable redirect responses when acceleration paths exist."),
-        choices=BOOLEAN_CHOICES,
-    ),
-    SettingFieldDefinition(
-        key="MEDIA_LOCAL_IMPORT_DIRECTORY",
-        label=_(u"Local import directory"),
-        data_type="string",
-        required=True,
-        description=_(u"Local path watched for media imports."),
-    ),
-    SettingFieldDefinition(
         key="SYSTEM_BACKUP_DIRECTORY",
         label=_(u"System backup directory"),
         data_type="string",
@@ -340,11 +340,11 @@ _STORAGE_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         ),
     ),
     SettingFieldDefinition(
-        key="MEDIA_NAS_ORIGINALS_DIRECTORY",
-        label=_(u"NAS originals directory"),
+        key="WIKI_UPLOAD_DIRECTORY",
+        label=_(u"Wiki upload directory"),
         data_type="string",
         required=True,
-        description=_(u"NAS path containing original media assets."),
+        description=_(u"Storage path for wiki attachments."),
     ),
 )
 

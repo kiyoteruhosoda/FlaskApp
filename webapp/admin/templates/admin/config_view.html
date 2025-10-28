@@ -348,7 +348,7 @@
                       data-search-text="{{ field.search_text|e }}"
                       data-app-key="{{ field.key }}"
                     >
-                      <td>
+                      <td class="config-table__cell config-table__cell--key">
                         <div><code>{{ field.key }}</code></div>
                         <div class="text-muted small">{{ field.label }}</div>
                         <span
@@ -364,9 +364,14 @@
                           {% endif %}
                         </span>
                       </td>
-                      <td class="font-monospace small" data-field="current">{{ field.current_json }}</td>
                       <td
-                        class="font-monospace small{% if not field.default_json %} text-muted{% endif %}"
+                        class="config-table__cell config-table__cell--current font-monospace small"
+                        data-field="current"
+                      >
+                        {{ field.current_json }}
+                      </td>
+                      <td
+                        class="config-table__cell config-table__cell--default font-monospace small{% if not field.default_json %} text-muted{% endif %}"
                         data-field="default"
                         data-none-label="{{ _('None') }}"
                       >

@@ -230,6 +230,23 @@ def test_login_rejects_scope_not_in_roles(client, scoped_user):
     assert _decode_scope(data["access_token"]) == "write:cert"
 
 
+def _load_cookies(response) -> SimpleCookie:
+    cookies = SimpleCookie()
+    for header in response.headers.getlist("Set-Cookie"):
+        cookies.load(header)
+    return cookies
+
+
+def _assert_cookie_cleared(response) -> None:
+    headers = response.headers.getlist("Set-Cookie")
+    assert not any(
+        "access_token=" in header and "Max-Age=0" not in header for header in headers
+    )
+    cookies = _load_cookies(response)
+    if "access_token" in cookies:
+        assert cookies["access_token"].value == ""
+
+
 def test_login_cookie_requires_gui_scope(app, client):
     from webapp.extensions import db
 
@@ -260,11 +277,7 @@ def test_login_cookie_requires_gui_scope(app, client):
     without_gui_data = without_gui_response.get_json()
     assert without_gui_data["scope"] == "user:manage"
 
-    without_gui_cookies = SimpleCookie()
-    for header in without_gui_response.headers.getlist("Set-Cookie"):
-        without_gui_cookies.load(header)
-    if "access_token" in without_gui_cookies:
-        assert without_gui_cookies["access_token"].value == ""
+    _assert_cookie_cleared(without_gui_response)
 
     with_gui_response = client.post(
         "/api/login",
@@ -278,12 +291,72 @@ def test_login_cookie_requires_gui_scope(app, client):
     with_gui_data = with_gui_response.get_json()
     assert with_gui_data["scope"] == "gui:view user:manage"
 
-    with_gui_cookies = SimpleCookie()
-    for header in with_gui_response.headers.getlist("Set-Cookie"):
-        with_gui_cookies.load(header)
-
+    with_gui_cookies = _load_cookies(with_gui_response)
     assert "access_token" in with_gui_cookies
     assert with_gui_cookies["access_token"].value != ""
+
+
+def test_refresh_cookie_requires_gui_scope(app, client):
+    from webapp.extensions import db
+
+    with app.app_context():
+        gui_perm = Permission(code="gui:view")
+        manage_perm = Permission(code="user:manage")
+        role = Role(name=f"refresh-role-{uuid.uuid4().hex[:8]}")
+        role.permissions.extend([gui_perm, manage_perm])
+
+        user = User(email=f"refresh-{uuid.uuid4().hex[:8]}@example.com")
+        user.set_password("pass")
+        user.roles.append(role)
+
+        db.session.add_all([gui_perm, manage_perm, role, user])
+        db.session.commit()
+
+        user_email = user.email
+
+    without_gui_login = client.post(
+        "/api/login",
+        json={
+            "email": user_email,
+            "password": "pass",
+            "scope": ["user:manage"],
+        },
+    )
+    assert without_gui_login.status_code == 200
+    without_gui_tokens = without_gui_login.get_json()
+    assert without_gui_tokens is not None
+    _assert_cookie_cleared(without_gui_login)
+
+    without_gui_refresh = client.post(
+        "/api/refresh",
+        json={"refresh_token": without_gui_tokens["refresh_token"]},
+    )
+    assert without_gui_refresh.status_code == 200
+    _assert_cookie_cleared(without_gui_refresh)
+
+    with_gui_login = client.post(
+        "/api/login",
+        json={
+            "email": user_email,
+            "password": "pass",
+            "scope": ["user:manage", "gui:view"],
+        },
+    )
+    assert with_gui_login.status_code == 200
+    with_gui_tokens = with_gui_login.get_json()
+    assert with_gui_tokens is not None
+    with_gui_login_cookies = _load_cookies(with_gui_login)
+    assert "access_token" in with_gui_login_cookies
+    assert with_gui_login_cookies["access_token"].value != ""
+
+    with_gui_refresh = client.post(
+        "/api/refresh",
+        json={"refresh_token": with_gui_tokens["refresh_token"]},
+    )
+    assert with_gui_refresh.status_code == 200
+    with_gui_refresh_cookies = _load_cookies(with_gui_refresh)
+    assert "access_token" in with_gui_refresh_cookies
+    assert with_gui_refresh_cookies["access_token"].value != ""
 
 
 def test_scoped_token_enforces_permissions(client, album_user):

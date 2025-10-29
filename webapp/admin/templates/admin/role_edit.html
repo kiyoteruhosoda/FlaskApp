@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "admin/components/capability_selector.html" as capability_selector %}
 {% block title %}{{ role and _('Edit Role') or _('Add Role') }}{% endblock %}
 {% block extra_head %}
 <style>
@@ -76,77 +77,62 @@
           </div>
         </div>
         <div class="col-lg-8">
-          <div class="card shadow-sm h-100">
-            <div class="card-header bg-white py-3">
-              <div class="d-flex flex-column flex-md-row gap-3 align-items-md-center justify-content-between">
-                <div>
-                  <h2 class="h5 mb-0">{{ _('Permissions') }}</h2>
-                  <span class="text-muted small">{{ _('Select the capabilities that should be included in this role.') }}</span>
-                </div>
-                <div class="d-flex flex-column gap-2 align-items-stretch">
-                  <div class="permission-search input-group">
-                    <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+          {% call capability_selector.panel(
+            'permission',
+            _('Permissions'),
+            _('Select the capabilities that should be included in this role.'),
+            _('Search permissions...'),
+            _('Search permissions'),
+            _('Select all shown permissions'),
+            _('Deselect all shown permissions')
+          ) %}
+          <div class="card-body">
+            <div id="permission-list" class="permission-list row row-cols-1 row-cols-md-2 g-3" data-capability-selector-list>
+              {% for perm in permissions %}
+              {% set parts = perm.code.split(':', 1) %}
+              {% set category = parts[0] %}
+              {% set action = parts[1] if parts|length > 1 else '' %}
+              {% set category_display = category|replace('_', ' ')|replace('-', ' ')|title %}
+              {% set action_display = action|replace('_', ' ')|replace('-', ' ')|capitalize %}
+              <div
+                class="col permission-item-wrapper"
+                data-perm-code="{{ perm.code|lower }}"
+                data-perm-category="{{ category|lower }}"
+                data-capability-selector-item
+              >
+                <div class="permission-item border rounded-3 p-3 h-100">
+                  <div class="form-check">
                     <input
-                      type="search"
-                      id="permission-filter"
-                      class="form-control"
-                      placeholder="{{ _('Search permissions...') }}"
-                      aria-label="{{ _('Search permissions') }}"
+                      class="form-check-input"
+                      type="checkbox"
+                      name="permissions"
+                      value="{{ perm.id }}"
+                      id="perm{{ perm.id }}"
+                      {% if perm.id in selected %}checked{% endif %}
                     >
-                  </div>
-                  <button type="button" id="toggle-visible-permissions" class="btn btn-outline-primary" data-action="select">
-                    <i class="fas fa-check-double me-1" id="toggle-visible-permissions-icon"></i>
-                    <span id="toggle-visible-permissions-label">{{ _('Select all shown permissions') }}</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div class="card-body">
-              <div id="permission-list" class="permission-list row row-cols-1 row-cols-md-2 g-3">
-                {% for perm in permissions %}
-                {% set parts = perm.code.split(':', 1) %}
-                {% set category = parts[0] %}
-                {% set action = parts[1] if parts|length > 1 else '' %}
-                {% set category_display = category|replace('_', ' ')|replace('-', ' ')|title %}
-                {% set action_display = action|replace('_', ' ')|replace('-', ' ')|capitalize %}
-                <div
-                  class="col permission-item-wrapper"
-                  data-perm-code="{{ perm.code|lower }}"
-                  data-perm-category="{{ category|lower }}"
-                >
-                  <div class="permission-item border rounded-3 p-3 h-100">
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="checkbox"
-                        name="permissions"
-                        value="{{ perm.id }}"
-                        id="perm{{ perm.id }}"
-                        {% if perm.id in selected %}checked{% endif %}
-                      >
-                      <label class="form-check-label d-block" for="perm{{ perm.id }}">
-                        <span class="badge rounded-pill bg-light text-dark text-uppercase small fw-semibold me-2">{{ category_display }}</span>
-                        <span class="fw-semibold">{{ perm.code }}</span>
-                        {% if action_display %}
-                        <div class="text-muted small mt-1">{{ action_display }}</div>
-                        {% endif %}
-                      </label>
-                    </div>
+                    <label class="form-check-label d-block" for="perm{{ perm.id }}">
+                      <span class="badge rounded-pill bg-light text-dark text-uppercase small fw-semibold me-2">{{ category_display }}</span>
+                      <span class="fw-semibold">{{ perm.code }}</span>
+                      {% if action_display %}
+                      <div class="text-muted small mt-1">{{ action_display }}</div>
+                      {% endif %}
+                    </label>
                   </div>
                 </div>
-                {% endfor %}
               </div>
-              <div id="no-permission-results" class="alert alert-light border mt-3 text-center" role="status" style="display: none;">
-                <i class="fas fa-info-circle me-2 text-muted"></i>{{ _('No permissions match your search.') }}
-              </div>
+              {% endfor %}
             </div>
-            <div class="card-footer bg-white d-flex flex-column flex-md-row gap-2 justify-content-end">
-              <a href="{{ url_for('admin.roles') }}" class="btn btn-outline-secondary">{{ _('Cancel') }}</a>
-              <button type="submit" class="btn btn-primary">
-                <i class="fas fa-save me-1"></i>{{ _('Save') }}
-              </button>
+            <div id="no-permission-results" class="alert alert-light border mt-3 text-center" role="status" data-capability-selector-empty style="display: none;">
+              <i class="fas fa-info-circle me-2 text-muted"></i>{{ _('No permissions match your search.') }}
             </div>
           </div>
+          <div class="card-footer bg-white d-flex flex-column flex-md-row gap-2 justify-content-end">
+            <a href="{{ url_for('admin.roles') }}" class="btn btn-outline-secondary">{{ _('Cancel') }}</a>
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-save me-1"></i>{{ _('Save') }}
+            </button>
+          </div>
+          {% endcall %}
         </div>
       </div>
     </form>
@@ -154,21 +140,20 @@
 </div>
 {% endblock %}
 {% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/capability_selector.js') }}"></script>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
-    const permissionFilter = document.getElementById('permission-filter');
-    const permissionItems = Array.from(document.querySelectorAll('.permission-item-wrapper'));
+    const selectorRoot = document.querySelector('[data-capability-selector="permission"]');
+    const permissionFilter = selectorRoot ? selectorRoot.querySelector('[data-capability-selector-filter]') : null;
+    const permissionList = selectorRoot ? selectorRoot.querySelector('[data-capability-selector-list]') : null;
+    const permissionItems = permissionList
+      ? Array.from(permissionList.querySelectorAll('[data-capability-selector-item]'))
+      : [];
     const countElement = document.getElementById('selected-permission-count');
-    const noResults = document.getElementById('no-permission-results');
-    const toggleVisibleButton = document.getElementById('toggle-visible-permissions');
-    const toggleButtonLabel = document.getElementById('toggle-visible-permissions-label');
-    const toggleButtonIcon = document.getElementById('toggle-visible-permissions-icon');
-    const selectText = {{ _('Select all shown permissions')|tojson }};
-    const deselectText = {{ _('Deselect all shown permissions')|tojson }};
-
-    function visiblePermissionItems() {
-      return permissionItems.filter((wrapper) => wrapper.style.display !== 'none');
-    }
+    const noResults = selectorRoot ? selectorRoot.querySelector('[data-capability-selector-empty]') : null;
+    const capabilitySelector = selectorRoot && window.CapabilitySelector
+      ? new window.CapabilitySelector(selectorRoot)
+      : null;
 
     function updateCount() {
       const selectedCount = permissionItems.filter((item) => {
@@ -179,76 +164,6 @@
       if (countElement) {
         countElement.textContent = selectedCount;
       }
-    }
-
-    function updateToggleButtonState() {
-      if (!toggleVisibleButton) {
-        return;
-      }
-
-      const visibleItems = visiblePermissionItems();
-      const hasVisibleItems = visibleItems.length > 0;
-
-      toggleVisibleButton.disabled = !hasVisibleItems;
-
-      if (!hasVisibleItems) {
-        toggleVisibleButton.dataset.action = 'select';
-        if (toggleButtonLabel) {
-          toggleButtonLabel.textContent = selectText;
-        }
-        if (toggleButtonIcon) {
-          toggleButtonIcon.className = 'fas fa-check-double me-1';
-        }
-        return;
-      }
-
-      const allVisibleSelected = visibleItems.every((wrapper) => {
-        const checkbox = wrapper.querySelector('input[type="checkbox"]');
-        return checkbox && checkbox.checked;
-      });
-
-      if (allVisibleSelected) {
-        toggleVisibleButton.dataset.action = 'deselect';
-        if (toggleButtonLabel) {
-          toggleButtonLabel.textContent = deselectText;
-        }
-        if (toggleButtonIcon) {
-          toggleButtonIcon.className = 'fas fa-times-circle me-1';
-        }
-      } else {
-        toggleVisibleButton.dataset.action = 'select';
-        if (toggleButtonLabel) {
-          toggleButtonLabel.textContent = selectText;
-        }
-        if (toggleButtonIcon) {
-          toggleButtonIcon.className = 'fas fa-check-double me-1';
-        }
-      }
-    }
-
-    function toggleVisiblePermissions() {
-      if (!toggleVisibleButton) {
-        return;
-      }
-
-      const action = toggleVisibleButton.dataset.action || 'select';
-      const shouldSelect = action === 'select';
-      const visibleItems = visiblePermissionItems();
-      let changed = false;
-
-      visibleItems.forEach((wrapper) => {
-        const checkbox = wrapper.querySelector('input[type="checkbox"]');
-        if (checkbox && checkbox.checked !== shouldSelect) {
-          checkbox.checked = shouldSelect;
-          changed = true;
-        }
-      });
-
-      if (changed) {
-        updateCount();
-      }
-
-      updateToggleButtonState();
     }
 
     function filterPermissions(value) {
@@ -269,32 +184,40 @@
         noResults.style.display = visible === 0 ? 'block' : 'none';
       }
 
-      updateToggleButtonState();
+      if (selectorRoot && capabilitySelector) {
+        capabilitySelector.updateToggleState();
+      }
     }
 
-    permissionItems.forEach((wrapper) => {
-      const checkbox = wrapper.querySelector('input[type="checkbox"]');
-      if (checkbox) {
-        checkbox.addEventListener('change', () => {
+    if (capabilitySelector) {
+      capabilitySelector.init({
+        onFilter: (value) => {
+          filterPermissions(value);
+        },
+        onSelectionChanged: () => {
           updateCount();
-          updateToggleButtonState();
+        }
+      });
+    } else {
+      if (permissionFilter) {
+        permissionFilter.addEventListener('input', (event) => {
+          filterPermissions(event.target.value);
         });
       }
-    });
 
-    if (permissionFilter) {
-      permissionFilter.addEventListener('input', (event) => {
-        filterPermissions(event.target.value);
+      permissionItems.forEach((wrapper) => {
+        const checkbox = wrapper.querySelector('input[type="checkbox"]');
+        if (checkbox) {
+          checkbox.addEventListener('change', () => {
+            updateCount();
+          });
+        }
       });
+
+      filterPermissions(permissionFilter ? permissionFilter.value : '');
     }
 
-    if (toggleVisibleButton) {
-      toggleVisibleButton.addEventListener('click', toggleVisiblePermissions);
-    }
-
-    filterPermissions(permissionFilter ? permissionFilter.value : '');
     updateCount();
-    updateToggleButtonState();
   });
 </script>
 {% endblock %}

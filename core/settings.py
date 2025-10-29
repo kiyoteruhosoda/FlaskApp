@@ -131,9 +131,9 @@ class ApplicationSettings:
         "MEDIA_UPLOAD_MAX_SIZE_BYTES": ("UPLOAD_MAX_SIZE",),
         "WIKI_UPLOAD_DIRECTORY": ("WIKI_UPLOAD_DIR",),
         "SYSTEM_BACKUP_DIRECTORY": ("MEDIA_BACKUP_DIRECTORY", "BACKUP_DIR"),
-        "MEDIA_NAS_THUMBNAILS_DIRECTORY": ("FPV_NAS_THUMBS_DIR",),
-        "MEDIA_NAS_PLAYBACK_DIRECTORY": ("FPV_NAS_PLAY_DIR",),
-        "MEDIA_NAS_ORIGINALS_DIRECTORY": ("FPV_NAS_ORIGINALS_DIR",),
+        "MEDIA_THUMBNAILS_DIRECTORY": ("FPV_NAS_THUMBS_DIR",),
+        "MEDIA_PLAYBACK_DIRECTORY": ("FPV_NAS_PLAY_DIR",),
+        "MEDIA_ORIGINALS_DIRECTORY": ("FPV_NAS_ORIGINALS_DIR",),
         "MEDIA_ACCEL_THUMBNAILS_LOCATION": ("FPV_ACCEL_THUMBS_LOCATION",),
         "MEDIA_ACCEL_PLAYBACK_LOCATION": ("FPV_ACCEL_PLAYBACK_LOCATION",),
         "MEDIA_ACCEL_ORIGINALS_LOCATION": ("FPV_ACCEL_ORIGINALS_LOCATION",),
@@ -286,18 +286,18 @@ class ApplicationSettings:
         return self._storage_directory(StorageDomain.MEDIA_IMPORT, "/tmp/local_import")
 
     @property
-    def nas_originals_directory_configured(self) -> Optional[str]:
-        value = self._get("MEDIA_NAS_ORIGINALS_DIRECTORY")
+    def media_originals_directory(self) -> Optional[str]:
+        value = self._get("MEDIA_ORIGINALS_DIRECTORY")
         return str(value) if value else None
 
     @property
-    def nas_play_directory_configured(self) -> Optional[str]:
-        value = self._get("MEDIA_NAS_PLAYBACK_DIRECTORY")
+    def media_play_directory(self) -> Optional[str]:
+        value = self._get("MEDIA_PLAYBACK_DIRECTORY")
         return str(value) if value else None
 
     @property
-    def nas_thumbs_directory_configured(self) -> Optional[str]:
-        value = self._get("MEDIA_NAS_THUMBNAILS_DIRECTORY")
+    def media_thumbs_directory(self) -> Optional[str]:
+        value = self._get("MEDIA_THUMBNAILS_DIRECTORY")
         return str(value) if value else None
 
     @property

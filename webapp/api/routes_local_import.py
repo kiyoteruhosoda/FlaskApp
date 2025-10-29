@@ -362,16 +362,16 @@ def _resolve_local_import_config():
     directory_specs = [
         ("MEDIA_LOCAL_IMPORT_DIRECTORY", "import", settings.local_import_directory_configured),
         (
-            "MEDIA_NAS_ORIGINALS_DIRECTORY",
+            "MEDIA_ORIGINALS_DIRECTORY",
             "originals",
-            settings.nas_originals_directory_configured,
+            settings.media_originals_directory,
         ),
         (
-            "MEDIA_NAS_THUMBNAILS_DIRECTORY",
+            "MEDIA_THUMBNAILS_DIRECTORY",
             "thumbs",
-            settings.nas_thumbs_directory_configured,
+            settings.media_thumbs_directory,
         ),
-        ("MEDIA_NAS_PLAYBACK_DIRECTORY", "playback", settings.nas_play_directory_configured),
+        ("MEDIA_PLAYBACK_DIRECTORY", "playback", settings.media_play_directory),
     ]
 
     directories: list[dict[str, Any]] = []
@@ -435,9 +435,9 @@ def _resolve_local_import_config():
 
     return {
         "import_dir": lookup.get("MEDIA_LOCAL_IMPORT_DIRECTORY", {}).get("info", {}).get("raw"),
-        "originals_dir": lookup.get("MEDIA_NAS_ORIGINALS_DIRECTORY", {}).get("info", {}).get("raw"),
+        "originals_dir": lookup.get("MEDIA_ORIGINALS_DIRECTORY", {}).get("info", {}).get("raw"),
         "import_dir_info": _info_or_empty("MEDIA_LOCAL_IMPORT_DIRECTORY"),
-        "originals_dir_info": _info_or_empty("MEDIA_NAS_ORIGINALS_DIRECTORY"),
+        "originals_dir_info": _info_or_empty("MEDIA_ORIGINALS_DIRECTORY"),
         "directories": directories,
     }
 
@@ -453,9 +453,9 @@ def local_import_status():
 
     directory_labels = {
         "MEDIA_LOCAL_IMPORT_DIRECTORY": _("Import directory"),
-        "MEDIA_NAS_ORIGINALS_DIRECTORY": _("Originals directory"),
-        "MEDIA_NAS_THUMBNAILS_DIRECTORY": _("Thumbnails directory"),
-        "MEDIA_NAS_PLAYBACK_DIRECTORY": _("Playback directory"),
+        "MEDIA_ORIGINALS_DIRECTORY": _("Originals directory"),
+        "MEDIA_THUMBNAILS_DIRECTORY": _("Thumbnails directory"),
+        "MEDIA_PLAYBACK_DIRECTORY": _("Playback directory"),
     }
 
     directories_payload: list[dict[str, Any]] = []

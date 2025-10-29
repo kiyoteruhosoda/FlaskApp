@@ -585,7 +585,7 @@ class LocalImportFileImporter:
                 "動画の再生ファイル生成に失敗しました (理由: playback_record_missing)"
             )
 
-        play_dir = self._directory_resolver("MEDIA_NAS_PLAYBACK_DIRECTORY")
+        play_dir = self._directory_resolver("MEDIA_PLAYBACK_DIRECTORY")
         playback_path = self._destination_storage.join(play_dir, playback_entry.rel_path)
         if not self._destination_storage.exists(playback_path):
             note = "playback_file_missing"

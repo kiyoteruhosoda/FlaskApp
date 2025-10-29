@@ -276,7 +276,7 @@ _STORAGE_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         description=_(u"Local path watched for media imports."),
     ),
     SettingFieldDefinition(
-        key="MEDIA_NAS_THUMBNAILS_DIRECTORY",
+        key="MEDIA_THUMBNAILS_DIRECTORY",
         label=_(u"NAS thumbnails directory"),
         data_type="string",
         required=False,
@@ -284,7 +284,7 @@ _STORAGE_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         allow_empty=True,
     ),
     SettingFieldDefinition(
-        key="MEDIA_NAS_PLAYBACK_DIRECTORY",
+        key="MEDIA_PLAYBACK_DIRECTORY",
         label=_(u"NAS playback directory"),
         data_type="string",
         required=False,
@@ -292,7 +292,7 @@ _STORAGE_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         allow_empty=True,
     ),
     SettingFieldDefinition(
-        key="MEDIA_NAS_ORIGINALS_DIRECTORY",
+        key="MEDIA_ORIGINALS_DIRECTORY",
         label=_(u"NAS originals directory"),
         data_type="string",
         required=True,

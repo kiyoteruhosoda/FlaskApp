@@ -822,9 +822,9 @@ def create_app():
 
     env_overrides = {
         "MEDIA_TEMP_DIRECTORY": settings.tmp_directory_configured,
-        "MEDIA_NAS_ORIGINALS_DIRECTORY": settings.nas_originals_directory_configured,
-        "MEDIA_NAS_PLAYBACK_DIRECTORY": settings.nas_play_directory_configured,
-        "MEDIA_NAS_THUMBNAILS_DIRECTORY": settings.nas_thumbs_directory_configured,
+        "MEDIA_ORIGINALS_DIRECTORY": settings.media_originals_directory,
+        "MEDIA_PLAYBACK_DIRECTORY": settings.media_play_directory,
+        "MEDIA_THUMBNAILS_DIRECTORY": settings.media_thumbs_directory,
         "MEDIA_LOCAL_IMPORT_DIRECTORY": settings.local_import_directory_configured,
         "MEDIA_DOWNLOAD_SIGNING_KEY": settings.media_download_signing_key,
     }

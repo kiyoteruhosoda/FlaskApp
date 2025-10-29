@@ -123,10 +123,10 @@ GOOGLE_CLIENT_SECRET=<your-google-client-secret>
 MEDIA_DOWNLOAD_SIGNING_KEY=<your-download-signing-key-here>
 
 # NASパス（Nginx X-Accel-Redirectを使う場合の例）
-MEDIA_NAS_THUMBNAILS_DIRECTORY=/volume1/docker/photonest/data/thumbs
-MEDIA_NAS_PLAYBACK_DIRECTORY=/volume1/docker/photonest/data/playback
-MEDIA_NAS_THUMBNAILS_CONTAINER_DIRECTORY=/app/data/thumbs
-MEDIA_NAS_PLAYBACK_CONTAINER_DIRECTORY=/app/data/playback
+MEDIA_THUMBNAILS_DIRECTORY=/volume1/docker/photonest/data/thumbs
+MEDIA_PLAYBACK_DIRECTORY=/volume1/docker/photonest/data/playback
+MEDIA_THUMBNAILS_CONTAINER_DIRECTORY=/app/data/thumbs
+MEDIA_PLAYBACK_CONTAINER_DIRECTORY=/app/data/playback
 MEDIA_ACCEL_THUMBNAILS_LOCATION=/media/thumbs
 MEDIA_ACCEL_PLAYBACK_LOCATION=/media/playback
 MEDIA_ACCEL_REDIRECT_ENABLED=true  # デフォルトは false のため、X-Accel-Redirect を使う場合のみ true に設定

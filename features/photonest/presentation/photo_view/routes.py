@@ -47,7 +47,7 @@ def _build_local_import_info():
         }
 
     import_info = _resolve(app_settings.local_import_directory_configured)
-    originals_info = _resolve(app_settings.nas_originals_directory_configured)
+    originals_info = _resolve(app_settings.media_originals_directory)
 
     return {
         "import": import_info,

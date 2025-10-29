@@ -17,9 +17,9 @@ def test_local_service_resolve_existing_path(tmp_path):
     playback_file = base_dir / "video.mp4"
     playback_file.write_text("test")
 
-    service = _make_service({"MEDIA_NAS_PLAYBACK_DIRECTORY": str(base_dir)})
+    service = _make_service({"MEDIA_PLAYBACK_DIRECTORY": str(base_dir)})
 
-    resolution = service.resolve_path("MEDIA_NAS_PLAYBACK_DIRECTORY", "video.mp4")
+    resolution = service.resolve_path("MEDIA_PLAYBACK_DIRECTORY", "video.mp4")
 
     assert resolution.base_path == str(base_dir)
     assert resolution.absolute_path == str(playback_file)
@@ -41,9 +41,9 @@ def test_local_service_resolve_without_parts_returns_base(tmp_path):
     base_dir.mkdir()
 
     service = _make_service()
-    service.set_defaults("MEDIA_NAS_THUMBNAILS_DIRECTORY", (str(base_dir),))
+    service.set_defaults("MEDIA_THUMBNAILS_DIRECTORY", (str(base_dir),))
 
-    resolution = service.resolve_path("MEDIA_NAS_THUMBNAILS_DIRECTORY")
+    resolution = service.resolve_path("MEDIA_THUMBNAILS_DIRECTORY")
 
     assert resolution.base_path == str(base_dir)
     assert resolution.absolute_path == str(base_dir)

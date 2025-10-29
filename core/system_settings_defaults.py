@@ -28,9 +28,9 @@ DEFAULT_APPLICATION_SETTINGS: dict[str, object] = {
     "MEDIA_UPLOAD_DESTINATION_DIRECTORY": "/app/data/uploads",
     "MEDIA_UPLOAD_MAX_SIZE_BYTES": 100 * 1024 * 1024,
     "MEDIA_LOCAL_IMPORT_DIRECTORY": "/app/data/media/local_import",
-    "MEDIA_NAS_THUMBNAILS_DIRECTORY": "/app/data/media/thumbs",
-    "MEDIA_NAS_PLAYBACK_DIRECTORY": "/app/data/media/playback",
-    "MEDIA_NAS_ORIGINALS_DIRECTORY": "/app/data/media/originals",
+    "MEDIA_THUMBNAILS_DIRECTORY": "/app/data/media/thumbs",
+    "MEDIA_PLAYBACK_DIRECTORY": "/app/data/media/playback",
+    "MEDIA_ORIGINALS_DIRECTORY": "/app/data/media/originals",
     # X-Accel-Redirect を使用しない構成をデフォルトとし、明示的な有効化のみ許可する
     "MEDIA_ACCEL_REDIRECT_ENABLED": False,
     "MEDIA_ACCEL_THUMBNAILS_LOCATION": "/media/thumbs",

@@ -421,6 +421,40 @@ class ApplicationSettings:
             return _DEFAULT_ACCESS_TOKEN_AUDIENCE
         return value.strip() or _DEFAULT_ACCESS_TOKEN_AUDIENCE
 
+    @property
+    def webauthn_rp_id(self) -> str:
+        value = self._get("WEBAUTHN_RP_ID")
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+        server_name = self.server_name
+        if server_name:
+            return server_name.split(":", 1)[0]
+
+        return "localhost"
+
+    @property
+    def webauthn_origin(self) -> str:
+        value = self._get("WEBAUTHN_ORIGIN")
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+        server_name = self.server_name
+        if server_name:
+            if server_name.startswith("http://") or server_name.startswith("https://"):
+                return server_name
+            scheme = self.preferred_url_scheme or "https"
+            return f"{scheme}://{server_name}"
+
+        return "http://localhost:5000"
+
+    @property
+    def webauthn_rp_name(self) -> str:
+        value = self._get("WEBAUTHN_RP_NAME")
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        return "Nolumia"
+
     # ------------------------------------------------------------------
     # Media processing configuration
     # ------------------------------------------------------------------

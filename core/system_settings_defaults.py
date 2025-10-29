@@ -42,6 +42,9 @@ DEFAULT_APPLICATION_SETTINGS: dict[str, object] = {
     "CELERY_RESULT_BACKEND": "redis://localhost:6379/0",
     "SERVICE_ACCOUNT_SIGNING_AUDIENCE": "",
     "TRANSCODE_CRF": 20,
+    "WEBAUTHN_RP_ID": "localhost",
+    "WEBAUTHN_ORIGIN": "http://localhost:5000",
+    "WEBAUTHN_RP_NAME": "Nolumia",
 }
 
 DEFAULT_CORS_SETTINGS: dict[str, object] = {

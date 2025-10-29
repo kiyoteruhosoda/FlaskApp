@@ -9,6 +9,7 @@ from .celery_task import CeleryTaskRecord, CeleryTaskStatus
 from .picker_session import PickerSession
 from .picker_import_task import PickerImportTask
 from .totp import TOTPCredential
+from .passkey import PasskeyCredential
 from .service_account import ServiceAccount
 from .service_account_api_key import ServiceAccountApiKey, ServiceAccountApiKeyLog
 from .system_setting import SystemSetting
@@ -28,6 +29,7 @@ __all__ = [
     'PickerSession',
     'PickerImportTask',
     'TOTPCredential',
+    'PasskeyCredential',
     'ServiceAccount',
     'ServiceAccountApiKey',
     'ServiceAccountApiKeyLog',

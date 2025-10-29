@@ -14,6 +14,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 if TYPE_CHECKING:  # pragma: no cover
     from core.models.google_account import GoogleAccount
     from core.models.totp import TOTPCredential
+    from core.models.passkey import PasskeyCredential
 
 
 # Define BIGINT type compatible with SQLite auto increment
@@ -89,6 +90,12 @@ class User(db.Model, UserMixin):
         "TOTPCredential",
         back_populates="user",
         cascade="all, delete-orphan",
+    )
+    passkey_credentials: Mapped[list["PasskeyCredential"]] = relationship(
+        "PasskeyCredential",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        order_by="PasskeyCredential.created_at",
     )
 
     # ヘルパ

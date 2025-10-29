@@ -199,6 +199,78 @@ msgstr "Profile"
 msgid "Sign-in details"
 msgstr "Sign-in details"
 
+#: webapp/auth/templates/auth/login.html
+msgid "Sign in with passkey"
+msgstr "Sign in with passkey"
+
+#: webapp/auth/templates/auth/login.html
+msgid "Passkey login requires a compatible browser."
+msgstr "Passkey login requires a compatible browser."
+
+#: webapp/auth/templates/auth/login.html
+msgid "Passkey login options could not be retrieved."
+msgstr "Passkey login options could not be retrieved."
+
+#: webapp/auth/templates/auth/login.html
+msgid "Passkey login failed. Please try again."
+msgstr "Passkey login failed. Please try again."
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Passkeys"
+msgstr "Passkeys"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Passkeys cannot be managed for service accounts."
+msgstr "Passkeys cannot be managed for service accounts."
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Unnamed passkey"
+msgstr "Unnamed passkey"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Created"
+msgstr "Created"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Last used"
+msgstr "Last used"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Remove"
+msgstr "Remove"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "No passkeys registered yet."
+msgstr "No passkeys registered yet."
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Add a new passkey"
+msgstr "Add a new passkey"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Passkey registration requires a compatible browser."
+msgstr "Passkey registration requires a compatible browser."
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Give this passkey a name (optional)"
+msgstr "Give this passkey a name (optional)"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Passkey registration options could not be retrieved."
+msgstr "Passkey registration options could not be retrieved."
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Passkey registration failed. Please try again."
+msgstr "Passkey registration failed. Please try again."
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Remove this passkey?"
+msgstr "Remove this passkey?"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Failed to remove passkey."
+msgstr "Failed to remove passkey."
+
 #: webapp/dashboard/templates/dashboard/index.html:103
 msgid "Administration"
 msgstr "Administration"

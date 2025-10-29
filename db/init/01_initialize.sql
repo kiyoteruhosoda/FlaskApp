@@ -658,6 +658,7 @@ INSERT INTO `permission` VALUES
 (17,'totp:view'),
 (18,'totp:write'),
 (3,'user:manage'),
+(24,'gui:view'),
 (11,'wiki:admin'),
 (12,'wiki:read'),
 (13,'wiki:write');

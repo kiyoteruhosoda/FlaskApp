@@ -1,10 +1,7 @@
 import importlib
 import os
 import uuid
-
-import importlib
-import os
-import uuid
+from http.cookies import SimpleCookie
 
 import jwt
 import pytest
@@ -231,6 +228,177 @@ def test_login_rejects_scope_not_in_roles(client, scoped_user):
     # maintenance:edit は保有ロールに含まれないため除外される
     assert data["scope"] == "write:cert"
     assert _decode_scope(data["access_token"]) == "write:cert"
+
+
+def _load_cookies(response) -> SimpleCookie:
+    cookies = SimpleCookie()
+    for header in response.headers.getlist("Set-Cookie"):
+        cookies.load(header)
+    return cookies
+
+
+def _filter_cookie_headers(response, name: str) -> list[str]:
+    headers: list[str] = []
+    for header in response.headers.getlist("Set-Cookie"):
+        prefix = header.split("=", 1)[0].strip()
+        if prefix == name:
+            headers.append(header)
+    return headers
+
+
+def _assert_cookie_cleared(response) -> None:
+    cookies = _load_cookies(response)
+    if "access_token" not in cookies:
+        return
+
+    morsel = cookies["access_token"]
+    assert morsel.value == ""
+    assert morsel["max-age"] == "0"
+    assert morsel["path"] == "/"
+
+    headers = _filter_cookie_headers(response, "access_token")
+    for header in headers:
+        assert "Max-Age=0" in header
+        assert "Path=/" in header
+
+
+def test_login_cookie_requires_gui_scope(app, client):
+    from webapp.extensions import db
+
+    with app.app_context():
+        gui_perm = Permission(code="gui:view")
+        manage_perm = Permission(code="user:manage")
+        role = Role(name=f"gui-role-{uuid.uuid4().hex[:8]}")
+        role.permissions.extend([gui_perm, manage_perm])
+
+        user = User(email=f"gui-{uuid.uuid4().hex[:8]}@example.com")
+        user.set_password("pass")
+        user.roles.append(role)
+
+        db.session.add_all([gui_perm, manage_perm, role, user])
+        db.session.commit()
+
+        user_email = user.email
+
+    without_gui_response = client.post(
+        "/api/login",
+        json={
+            "email": user_email,
+            "password": "pass",
+            "scope": ["user:manage"],
+        },
+    )
+    assert without_gui_response.status_code == 200
+    without_gui_data = without_gui_response.get_json()
+    assert without_gui_data["scope"] == "user:manage"
+
+    _assert_cookie_cleared(without_gui_response)
+
+    with_gui_response = client.post(
+        "/api/login",
+        json={
+            "email": user_email,
+            "password": "pass",
+            "scope": ["user:manage", "gui:view"],
+        },
+    )
+    assert with_gui_response.status_code == 200
+    with_gui_data = with_gui_response.get_json()
+    assert with_gui_data["scope"] == "gui:view user:manage"
+
+    with_gui_cookies = _load_cookies(with_gui_response)
+    assert "access_token" in with_gui_cookies
+    access_cookie = with_gui_cookies["access_token"]
+    assert access_cookie.value != ""
+    assert access_cookie["path"] == "/"
+
+    cookie_headers = _filter_cookie_headers(with_gui_response, "access_token")
+    assert cookie_headers
+    for header in cookie_headers:
+        assert "HttpOnly" in header
+        assert "Path=/" in header
+        assert "SameSite=" in header
+
+
+def test_refresh_cookie_requires_gui_scope(app, client):
+    from webapp.extensions import db
+
+    with app.app_context():
+        gui_perm = Permission(code="gui:view")
+        manage_perm = Permission(code="user:manage")
+        role = Role(name=f"refresh-role-{uuid.uuid4().hex[:8]}")
+        role.permissions.extend([gui_perm, manage_perm])
+
+        user = User(email=f"refresh-{uuid.uuid4().hex[:8]}@example.com")
+        user.set_password("pass")
+        user.roles.append(role)
+
+        db.session.add_all([gui_perm, manage_perm, role, user])
+        db.session.commit()
+
+        user_email = user.email
+
+    without_gui_login = client.post(
+        "/api/login",
+        json={
+            "email": user_email,
+            "password": "pass",
+            "scope": ["user:manage"],
+        },
+    )
+    assert without_gui_login.status_code == 200
+    without_gui_tokens = without_gui_login.get_json()
+    assert without_gui_tokens is not None
+    _assert_cookie_cleared(without_gui_login)
+
+    without_gui_refresh = client.post(
+        "/api/refresh",
+        json={"refresh_token": without_gui_tokens["refresh_token"]},
+    )
+    assert without_gui_refresh.status_code == 200
+    _assert_cookie_cleared(without_gui_refresh)
+
+    with_gui_login = client.post(
+        "/api/login",
+        json={
+            "email": user_email,
+            "password": "pass",
+            "scope": ["user:manage", "gui:view"],
+        },
+    )
+    assert with_gui_login.status_code == 200
+    with_gui_tokens = with_gui_login.get_json()
+    assert with_gui_tokens is not None
+    with_gui_login_cookies = _load_cookies(with_gui_login)
+    assert "access_token" in with_gui_login_cookies
+    login_cookie = with_gui_login_cookies["access_token"]
+    assert login_cookie.value != ""
+    assert login_cookie["path"] == "/"
+
+    login_cookie_headers = _filter_cookie_headers(with_gui_login, "access_token")
+    assert login_cookie_headers
+    for header in login_cookie_headers:
+        assert "HttpOnly" in header
+        assert "Path=/" in header
+        assert "SameSite=" in header
+
+    with_gui_refresh = client.post(
+        "/api/refresh",
+        json={"refresh_token": with_gui_tokens["refresh_token"]},
+    )
+    assert with_gui_refresh.status_code == 200
+    with_gui_refresh_cookies = _load_cookies(with_gui_refresh)
+    assert "access_token" in with_gui_refresh_cookies
+    refresh_cookie = with_gui_refresh_cookies["access_token"]
+    assert refresh_cookie.value != ""
+    assert refresh_cookie["path"] == "/"
+
+    refresh_cookie_headers = _filter_cookie_headers(with_gui_refresh, "access_token")
+    assert refresh_cookie_headers
+    for header in refresh_cookie_headers:
+        assert "HttpOnly" in header
+        assert "Path=/" in header
+        assert "SameSite=" in header
 
 
 def test_scoped_token_enforces_permissions(client, album_user):

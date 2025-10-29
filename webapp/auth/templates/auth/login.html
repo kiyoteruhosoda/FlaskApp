@@ -257,6 +257,26 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       }
 
+      const requiredGuiScope = 'gui:view';
+      if (loginData.scope) {
+        const normalizedScope = new Set();
+        const scopeSource = Array.isArray(loginData.scope)
+          ? loginData.scope
+          : String(loginData.scope).split(/[\s,]+/);
+        scopeSource.forEach((item) => {
+          if (typeof item === 'string') {
+            const trimmed = item.trim();
+            if (trimmed.length > 0) {
+              normalizedScope.add(trimmed);
+            }
+          }
+        });
+        normalizedScope.add(requiredGuiScope);
+        loginData.scope = Array.from(normalizedScope).join(' ');
+      } else {
+        loginData.scope = requiredGuiScope;
+      }
+
       const response = await fetch('/api/login', {
         method: 'POST',
         headers: {

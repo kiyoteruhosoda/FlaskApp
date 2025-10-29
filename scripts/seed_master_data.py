@@ -79,60 +79,117 @@ def seed_roles():
 
 def seed_permissions():
     """権限マスタデータの投入"""
-    permissions_data = [
-        {'id': 1, 'code': 'admin:photo-settings'},
-        {'id': 2, 'code': 'admin:job-settings'},
-        {'id': 3, 'code': 'user:manage'},
-        {'id': 4, 'code': 'album:create'},
-        {'id': 5, 'code': 'album:edit'},
-        {'id': 6, 'code': 'album:view'},
-        {'id': 7, 'code': 'media:view'},
-        {'id': 8, 'code': 'permission:manage'},
-        {'id': 9, 'code': 'role:manage'},
-        {'id': 10, 'code': 'system:manage'},
-        {'id': 11, 'code': 'wiki:admin'},
-        {'id': 12, 'code': 'wiki:read'},
-        {'id': 13, 'code': 'wiki:write'},
-        {'id': 14, 'code': 'media:tag-manage'},
-        {'id': 15, 'code': 'media:delete'},
-        {'id': 16, 'code': 'media:recover'},
-        {'id': 17, 'code': 'totp:view'},
-        {'id': 18, 'code': 'totp:write'},
-        {'id': 19, 'code': 'service_account:manage'},
-        {'id': 20, 'code': 'certificate:manage'},
-        {'id': 21, 'code': 'certificate:sign'},
-        {'id': 23, 'code': 'api_key:read'},
-        {'id': 24, 'code': 'api_key:manage'},
+    permission_codes = [
+        'admin:photo-settings',
+        'admin:job-settings',
+        'user:manage',
+        'album:create',
+        'album:edit',
+        'album:view',
+        'media:view',
+        'permission:manage',
+        'role:manage',
+        'system:manage',
+        'wiki:admin',
+        'wiki:read',
+        'wiki:write',
+        'media:tag-manage',
+        'media:delete',
+        'media:recover',
+        'totp:view',
+        'totp:write',
+        'service_account:manage',
+        'certificate:manage',
+        'api_key:manage',
+        'certificate:sign',
+        'api_key:read',
+        'gui:view',
     ]
-    
-    for perm_data in permissions_data:
-        existing_perm = Permission.query.filter_by(id=perm_data['id']).first()
-        if not existing_perm:
-            permission = Permission(**perm_data)
-            db.session.add(permission)
-            print(f"Added permission: {perm_data['code']}")
-        else:
-            print(f"Permission already exists: {perm_data['code']}")
+
+    for code in permission_codes:
+        existing_perm = Permission.query.filter_by(code=code).first()
+        if existing_perm:
+            print(f"Permission already exists: {code}")
+            continue
+
+        permission = Permission(code=code)
+        db.session.add(permission)
+        print(f"Added permission: {code}")
 
 
 def seed_role_permissions():
     """ロール権限関係の投入"""
-    role_permissions_data = [
-        # admin (role_id=1) - all permissions
-        (1, 1), (1, 2), (1, 3), (1, 4), (1, 5),
-        (1, 6), (1, 7), (1, 8), (1, 9), (1, 10),
-        (1, 11), (1, 12), (1, 13), (1, 14), (1, 15), (1, 16), (1, 17), (1, 18), (1, 19), (1, 20), (1, 21), (1, 23), (1, 24),
-        # manager (role_id=2) - limited permissions
-        (2, 1), (2, 4), (2, 5), (2, 6), (2, 7), (2, 14), (2, 15), (2, 16),
-        # member (role_id=3) - view only
-        (3, 6), (3, 7)
-    ]
-    
-    for role_id, perm_id in role_permissions_data:
-        role = Role.query.get(role_id)
-        permission = Permission.query.get(perm_id)
-        
-        if role and permission and permission not in role.permissions:
+    role_permissions_map = {
+        'admin': [
+            'admin:photo-settings',
+            'admin:job-settings',
+            'user:manage',
+            'album:create',
+            'album:edit',
+            'album:view',
+            'media:view',
+            'permission:manage',
+            'role:manage',
+            'system:manage',
+            'wiki:admin',
+            'wiki:read',
+            'wiki:write',
+            'media:tag-manage',
+            'media:delete',
+            'media:recover',
+            'totp:view',
+            'totp:write',
+            'service_account:manage',
+            'certificate:manage',
+            'api_key:manage',
+            'certificate:sign',
+            'api_key:read',
+            'gui:view',
+        ],
+        'manager': [
+            'admin:photo-settings',
+            'album:create',
+            'album:edit',
+            'album:view',
+            'media:view',
+            'media:tag-manage',
+            'media:delete',
+            'media:recover',
+            'gui:view',
+        ],
+        'member': [
+            'album:view',
+            'media:view',
+            'gui:view',
+        ],
+        'guest': [
+            'gui:view',
+        ],
+    }
+
+    all_permission_codes = {
+        code for codes in role_permissions_map.values() for code in codes
+    }
+    permissions_by_code = {
+        permission.code: permission
+        for permission in Permission.query.filter(
+            Permission.code.in_(all_permission_codes)
+        ).all()
+    }
+
+    for role_name, codes in role_permissions_map.items():
+        role = Role.query.filter_by(name=role_name).first()
+        if not role:
+            print(f"Role not found: {role_name}")
+            continue
+
+        for code in sorted(set(codes)):
+            permission = permissions_by_code.get(code)
+            if not permission:
+                print(f"Permission '{code}' not found for role '{role_name}'")
+                continue
+            if permission in role.permissions:
+                continue
             role.permissions.append(permission)
             print(f"Added permission '{permission.code}' to role '{role.name}'")
 

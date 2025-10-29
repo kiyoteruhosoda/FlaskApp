@@ -20,7 +20,7 @@ def app(tmp_path):
         "SECRET_KEY": "test",
         "DATABASE_URI": f"sqlite:///{db_path}",
         "MEDIA_TEMP_DIRECTORY": str(tmp_dir),
-        "MEDIA_NAS_ORIGINALS_DIRECTORY": str(orig_dir),
+        "MEDIA_ORIGINALS_DIRECTORY": str(orig_dir),
     }
     prev = {k: os.environ.get(k) for k in env}
     os.environ.update(env)

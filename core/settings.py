@@ -30,7 +30,7 @@ from typing import (
 
 from flask import current_app, has_app_context
 
-from domain.storage import StorageDomain
+from domain.storage import StorageDomain, StorageIntent
 
 _DEFAULT_ACCESS_TOKEN_ISSUER = "fpv-webapp"
 _DEFAULT_ACCESS_TOKEN_AUDIENCE = "fpv-webapp"
@@ -105,6 +105,33 @@ class _StorageAccessor:
 
         return cast("StorageService", self._service)
 
+    def directory(self, domain: StorageDomain) -> Path:
+        """Return a concrete :class:`Path` for *domain*.
+
+        The lookup prioritises configured values, then environment overrides,
+        finally falling back to service defaults.  The method intentionally
+        mirrors the previous ``ApplicationSettings._storage_directory`` helper
+        but keeps the resolution logic co-located with the storage accessor so
+        that callers operate on :class:`Path` objects rather than strings.
+        """
+
+        service = self.service()
+        area = service.for_domain(domain)
+
+        existing = area.first_existing()
+        if existing:
+            return Path(existing)
+
+        candidates = area.candidates(intent=StorageIntent.WRITE)
+        if candidates:
+            return Path(candidates[0])
+
+        defaults = service.defaults(area.config_key)
+        if defaults:
+            return Path(defaults[0])
+
+        raise RuntimeError(f"No storage candidates configured for domain: {domain!s}")
+
 
 if TYPE_CHECKING:  # pragma: no cover
     from flask import Flask
@@ -131,9 +158,9 @@ class ApplicationSettings:
         "MEDIA_UPLOAD_MAX_SIZE_BYTES": ("UPLOAD_MAX_SIZE",),
         "WIKI_UPLOAD_DIRECTORY": ("WIKI_UPLOAD_DIR",),
         "SYSTEM_BACKUP_DIRECTORY": ("MEDIA_BACKUP_DIRECTORY", "BACKUP_DIR"),
-        "MEDIA_NAS_THUMBNAILS_DIRECTORY": ("FPV_NAS_THUMBS_DIR",),
-        "MEDIA_NAS_PLAYBACK_DIRECTORY": ("FPV_NAS_PLAY_DIR",),
-        "MEDIA_NAS_ORIGINALS_DIRECTORY": ("FPV_NAS_ORIGINALS_DIR",),
+        "MEDIA_THUMBNAILS_DIRECTORY": ("FPV_NAS_THUMBS_DIR",),
+        "MEDIA_PLAYBACK_DIRECTORY": ("FPV_NAS_PLAY_DIR",),
+        "MEDIA_ORIGINALS_DIRECTORY": ("FPV_NAS_ORIGINALS_DIR",),
         "MEDIA_ACCEL_THUMBNAILS_LOCATION": ("FPV_ACCEL_THUMBS_LOCATION",),
         "MEDIA_ACCEL_PLAYBACK_LOCATION": ("FPV_ACCEL_PLAYBACK_LOCATION",),
         "MEDIA_ACCEL_ORIGINALS_LOCATION": ("FPV_ACCEL_ORIGINALS_LOCATION",),
@@ -245,17 +272,6 @@ class ApplicationSettings:
     # ------------------------------------------------------------------
     # Storage paths
     # ------------------------------------------------------------------
-    def _storage_directory(self, domain: StorageDomain, fallback: str) -> Path:
-        storage = self.storage.service()
-        area = storage.for_domain(domain)
-        base = area.first_existing()
-        if base:
-            return Path(base)
-        candidates = area.candidates()
-        if candidates:
-            return Path(candidates[0])
-        return Path(fallback)
-
     @property
     def tmp_directory(self) -> Path:
         return self._path_or_default("MEDIA_TEMP_DIRECTORY", "/tmp/fpv_tmp")
@@ -270,34 +286,38 @@ class ApplicationSettings:
         return self._path_or_default("SYSTEM_BACKUP_DIRECTORY", "/app/data/backups")
 
     @property
-    def nas_originals_directory(self) -> Path:
-        return self._storage_directory(StorageDomain.MEDIA_ORIGINALS, "/tmp/fpv_orig")
+    def storage_originals_directory(self) -> Path:
+        return self.storage.directory(StorageDomain.MEDIA_ORIGINALS)
 
     @property
-    def nas_play_directory(self) -> Path:
-        return self._storage_directory(StorageDomain.MEDIA_PLAYBACK, "/tmp/fpv_play")
+    def storage_play_directory(self) -> Path:
+        return self.storage.directory(StorageDomain.MEDIA_PLAYBACK)
 
     @property
-    def nas_thumbs_directory(self) -> Path:
-        return self._storage_directory(StorageDomain.MEDIA_THUMBNAILS, "/tmp/fpv_thumbs")
+    def storage_thumbs_directory(self) -> Path:
+        return self.storage.directory(StorageDomain.MEDIA_THUMBNAILS)
+
+    @property
+    def storage_local_import_directory(self) -> Path:
+        return self.storage.directory(StorageDomain.MEDIA_IMPORT)
 
     @property
     def local_import_directory(self) -> Path:
-        return self._storage_directory(StorageDomain.MEDIA_IMPORT, "/tmp/local_import")
+        return self.storage_local_import_directory
 
     @property
-    def nas_originals_directory_configured(self) -> Optional[str]:
-        value = self._get("MEDIA_NAS_ORIGINALS_DIRECTORY")
+    def media_originals_directory(self) -> Optional[str]:
+        value = self._get("MEDIA_ORIGINALS_DIRECTORY")
         return str(value) if value else None
 
     @property
-    def nas_play_directory_configured(self) -> Optional[str]:
-        value = self._get("MEDIA_NAS_PLAYBACK_DIRECTORY")
+    def media_play_directory(self) -> Optional[str]:
+        value = self._get("MEDIA_PLAYBACK_DIRECTORY")
         return str(value) if value else None
 
     @property
-    def nas_thumbs_directory_configured(self) -> Optional[str]:
-        value = self._get("MEDIA_NAS_THUMBNAILS_DIRECTORY")
+    def media_thumbs_directory(self) -> Optional[str]:
+        value = self._get("MEDIA_THUMBNAILS_DIRECTORY")
         return str(value) if value else None
 
     @property
@@ -357,6 +377,9 @@ class ApplicationSettings:
     def google_client_secret(self) -> str:
         return self._get("GOOGLE_CLIENT_SECRET", "") or ""
 
+    # ------------------------------------------------------------------
+    # Security & Signing
+    # ------------------------------------------------------------------
     @property
     def token_encryption_key(self) -> Optional[str]:
         return self._get("ENCRYPTION_KEY")
@@ -368,9 +391,6 @@ class ApplicationSettings:
             return path
         return self._get("FPV_OAUTH_TOKEN_KEY_FILE")
 
-    # ------------------------------------------------------------------
-    # Service account configuration
-    # ------------------------------------------------------------------
     @property
     def service_account_signing_audiences(self) -> Tuple[str, ...]:
         raw = self._get("SERVICE_ACCOUNT_SIGNING_AUDIENCE")

@@ -18,7 +18,7 @@ def test_thumbnail_generation():
     
     with app.app_context():
         # Create a test image file
-        orig_dir = Path(os.environ["MEDIA_NAS_ORIGINALS_DIRECTORY"])
+        orig_dir = Path(os.environ["MEDIA_ORIGINALS_DIRECTORY"])
         test_file = orig_dir / "2025/08/28/test_import.jpg"
         test_file.parent.mkdir(parents=True, exist_ok=True)
         
@@ -49,7 +49,7 @@ def test_thumbnail_generation():
             enqueue_thumbs_generate(media.id)
             
             # Check that thumbnails were created
-            thumbs_dir = Path(os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"])
+            thumbs_dir = Path(os.environ["MEDIA_THUMBNAILS_DIRECTORY"])
             sizes = [256, 512, 1024, 2048]
             
             for size in sizes:

@@ -453,9 +453,9 @@ _import_destination_storage: StorageService = _spawn_storage_service()
 # Explicit mapping of config keys to storage services
 _STORAGE_SERVICE_MAP = {
     "MEDIA_LOCAL_IMPORT_DIRECTORY": _import_source_storage,
-    "MEDIA_NAS_ORIGINALS_DIRECTORY": _import_destination_storage,
-    "MEDIA_NAS_PLAYBACK_DIRECTORY": _import_destination_storage,
-    "MEDIA_NAS_THUMBNAILS_DIRECTORY": _import_destination_storage,
+    "MEDIA_ORIGINALS_DIRECTORY": _import_destination_storage,
+    "MEDIA_PLAYBACK_DIRECTORY": _import_destination_storage,
+    "MEDIA_THUMBNAILS_DIRECTORY": _import_destination_storage,
 }
 
 
@@ -1177,12 +1177,12 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
         import_dir = os.fspath(fallback_import)
 
     try:
-        originals_dir = _resolve_directory('MEDIA_NAS_ORIGINALS_DIRECTORY')
+        originals_dir = _resolve_directory('MEDIA_ORIGINALS_DIRECTORY')
     except RuntimeError:
-        fallback_originals = BaseApplicationSettings.MEDIA_NAS_ORIGINALS_DIRECTORY
+        fallback_originals = BaseApplicationSettings.MEDIA_ORIGINALS_DIRECTORY
         if not isinstance(fallback_originals, (str, os.PathLike)):
             raise RuntimeError(
-                "BaseApplicationSettings.MEDIA_NAS_ORIGINALS_DIRECTORY must be configured as a path"
+                "BaseApplicationSettings.MEDIA_ORIGINALS_DIRECTORY must be configured as a path"
             )
         originals_dir = os.fspath(fallback_originals)
 

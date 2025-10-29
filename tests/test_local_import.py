@@ -41,9 +41,9 @@ def app(tmp_path):
         "SECRET_KEY": "test",
         "DATABASE_URI": f"sqlite:///{db_path}",
         "MEDIA_TEMP_DIRECTORY": str(tmp_dir),
-        "MEDIA_NAS_ORIGINALS_DIRECTORY": str(orig_dir),
-        "MEDIA_NAS_PLAYBACK_DIRECTORY": str(play_dir),
-        "MEDIA_NAS_THUMBNAILS_DIRECTORY": str(thumbs_dir),
+        "MEDIA_ORIGINALS_DIRECTORY": str(orig_dir),
+        "MEDIA_PLAYBACK_DIRECTORY": str(play_dir),
+        "MEDIA_THUMBNAILS_DIRECTORY": str(thumbs_dir),
         "MEDIA_LOCAL_IMPORT_DIRECTORY": str(import_dir),
         "MEDIA_DOWNLOAD_SIGNING_KEY": base64.urlsafe_b64encode(b"1" * 32).decode(),
     }
@@ -213,7 +213,7 @@ def test_local_import_task_with_session(app, db_session, temp_dir):
     
     # app fixtureで設定されたディレクトリを使用
     import_dir = Path(app.config['MEDIA_LOCAL_IMPORT_DIRECTORY'])
-    originals_dir = Path(app.config['MEDIA_NAS_ORIGINALS_DIRECTORY'])
+    originals_dir = Path(app.config['MEDIA_ORIGINALS_DIRECTORY'])
     
     # テスト用ファイルを作成
     test_video = import_dir / "test_video.mp4"
@@ -259,7 +259,7 @@ def test_import_single_file_video_recoverable_failure(app, monkeypatch):
     """セッション経由の取り込みでは ffmpeg 不足を警告として扱う。"""
 
     import_dir = Path(app.config["MEDIA_LOCAL_IMPORT_DIRECTORY"])
-    originals_dir = Path(app.config["MEDIA_NAS_ORIGINALS_DIRECTORY"])
+    originals_dir = Path(app.config["MEDIA_ORIGINALS_DIRECTORY"])
 
     test_video = import_dir / "recoverable.mp4"
     test_video.write_text("dummy video content")
@@ -290,8 +290,8 @@ def test_local_import_video_generates_playback_from_originals(app, monkeypatch):
     from core.tasks import media_post_processing, transcode as transcode_module
 
     import_dir = Path(app.config["MEDIA_LOCAL_IMPORT_DIRECTORY"])
-    originals_dir = Path(app.config["MEDIA_NAS_ORIGINALS_DIRECTORY"])
-    play_dir = Path(app.config["MEDIA_NAS_PLAYBACK_DIRECTORY"])
+    originals_dir = Path(app.config["MEDIA_ORIGINALS_DIRECTORY"])
+    play_dir = Path(app.config["MEDIA_PLAYBACK_DIRECTORY"])
     tmp_dir = Path(os.environ["MEDIA_TEMP_DIRECTORY"])
 
     for child in import_dir.iterdir():
@@ -420,7 +420,7 @@ def test_local_import_duplicate_sets_google_media_id(app):
         db.session.commit()
 
         import_dir = Path(app.config["MEDIA_LOCAL_IMPORT_DIRECTORY"])
-        originals_dir = app.config["MEDIA_NAS_ORIGINALS_DIRECTORY"]
+        originals_dir = app.config["MEDIA_ORIGINALS_DIRECTORY"]
         file_path = import_dir / "dup.jpg"
         file_path.write_bytes(b"dummy")
 
@@ -468,6 +468,6 @@ if __name__ == "__main__":
     print("すべてのテストが完了しました！")
     print("\n使用方法:")
     print("1. 環境変数 MEDIA_LOCAL_IMPORT_DIRECTORY に取り込み元ディレクトリを設定")
-    print("2. 環境変数 MEDIA_NAS_ORIGINALS_DIRECTORY に保存先ディレクトリを設定")
+    print("2. 環境変数 MEDIA_ORIGINALS_DIRECTORY に保存先ディレクトリを設定")
     print("3. Web管理画面 (/photo-view/settings) からインポート実行")
     print("4. または Celery タスクから実行: local_import_task_celery.delay()")

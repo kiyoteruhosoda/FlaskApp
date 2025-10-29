@@ -1047,9 +1047,9 @@ def show_data_files():
         return _(u"You do not have permission to access this page."), 403
 
     directory_definitions = [
-        ("MEDIA_NAS_ORIGINALS_DIRECTORY", _("Original Media Directory")),
-        ("MEDIA_NAS_THUMBNAILS_DIRECTORY", _("Thumbnail Directory")),
-        ("MEDIA_NAS_PLAYBACK_DIRECTORY", _("Playback Directory")),
+        ("MEDIA_ORIGINALS_DIRECTORY", _("Original Media Directory")),
+        ("MEDIA_THUMBNAILS_DIRECTORY", _("Thumbnail Directory")),
+        ("MEDIA_PLAYBACK_DIRECTORY", _("Playback Directory")),
         ("MEDIA_LOCAL_IMPORT_DIRECTORY", _("Local Import Directory")),
     ]
     directory_keys = [config_key for config_key, _ in directory_definitions]

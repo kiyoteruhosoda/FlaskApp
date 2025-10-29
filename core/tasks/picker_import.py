@@ -586,7 +586,7 @@ def _resolve_media_dimensions(
 def _ensure_dirs(*, config: ApplicationSettings = settings) -> Tuple[Path, Path]:
     """Return (tmp_dir, originals_dir) creating them if necessary."""
     tmp_dir = config.tmp_directory
-    orig_dir = config.nas_originals_directory
+    orig_dir = config.storage_originals_directory
     tmp_dir.mkdir(parents=True, exist_ok=True)
     orig_dir.mkdir(parents=True, exist_ok=True)
     return tmp_dir, orig_dir

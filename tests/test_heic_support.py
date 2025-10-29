@@ -42,7 +42,7 @@ def local_import_app(tmp_path: Path):
         "SECRET_KEY": "test",
         "DATABASE_URI": f"sqlite:///{db_path}",
         "MEDIA_TEMP_DIRECTORY": str(tmp_dir),
-        "MEDIA_NAS_ORIGINALS_DIRECTORY": str(orig_dir),
+        "MEDIA_ORIGINALS_DIRECTORY": str(orig_dir),
         "MEDIA_LOCAL_IMPORT_DIRECTORY": str(import_dir),
     }
     prev_env = {key: os.environ.get(key) for key in env}
@@ -178,7 +178,7 @@ def test_import_single_heic_file(local_import_app) -> None:
     from core.models.photo_models import Media
 
     import_dir = Path(local_import_app.config["MEDIA_LOCAL_IMPORT_DIRECTORY"])
-    originals_dir = Path(local_import_app.config["MEDIA_NAS_ORIGINALS_DIRECTORY"])
+    originals_dir = Path(local_import_app.config["MEDIA_ORIGINALS_DIRECTORY"])
 
     heic_path = import_dir / "import_target.heic"
     Image.new("RGB", (32, 24), "red").save(heic_path)

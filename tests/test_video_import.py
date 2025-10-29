@@ -143,9 +143,9 @@ def playback_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
     play_dir = tmp_path / "playback"
     play_dir.mkdir()
-    monkeypatch.delenv("MEDIA_NAS_PLAYBACK_DIRECTORY", raising=False)
-    monkeypatch.delenv("MEDIA_NAS_PLAYBACK_CONTAINER_DIRECTORY", raising=False)
-    monkeypatch.setenv("MEDIA_NAS_PLAYBACK_DIRECTORY", str(play_dir))
+    monkeypatch.delenv("MEDIA_PLAYBACK_DIRECTORY", raising=False)
+    monkeypatch.delenv("MEDIA_PLAYBACK_CONTAINER_DIRECTORY", raising=False)
+    monkeypatch.setenv("MEDIA_PLAYBACK_DIRECTORY", str(play_dir))
     return play_dir
 
 

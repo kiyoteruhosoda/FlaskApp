@@ -76,8 +76,8 @@ class TestHealthEndpoints:
     def test_health_ready_nas_paths_missing(self, app_context, client):
         """Test /health/ready when NAS paths are missing"""
         # 存在しないパスを設定
-        current_app.config['MEDIA_NAS_THUMBNAILS_DIRECTORY'] = '/non/existent/path'
-        current_app.config['MEDIA_NAS_PLAYBACK_DIRECTORY'] = '/another/non/existent/path'
+        current_app.config['MEDIA_THUMBNAILS_DIRECTORY'] = '/non/existent/path'
+        current_app.config['MEDIA_PLAYBACK_DIRECTORY'] = '/another/non/existent/path'
         
         response = client.get("/health/ready")
         assert response.status_code == 503
@@ -95,8 +95,8 @@ class TestHealthEndpoints:
         thumbs_dir.mkdir()
         play_dir.mkdir()
         
-        current_app.config['MEDIA_NAS_THUMBNAILS_DIRECTORY'] = str(thumbs_dir)
-        current_app.config['MEDIA_NAS_PLAYBACK_DIRECTORY'] = str(play_dir)
+        current_app.config['MEDIA_THUMBNAILS_DIRECTORY'] = str(thumbs_dir)
+        current_app.config['MEDIA_PLAYBACK_DIRECTORY'] = str(play_dir)
         
         response = client.get("/health/ready")
         assert response.status_code == 200

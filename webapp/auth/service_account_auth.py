@@ -64,6 +64,10 @@ class _ServiceAccountJTIStore:
         issued_at: datetime,
         expires_at: datetime,
     ) -> None:
+        if not settings.redis_url:
+            # Replay保護ストレージが未設定の場合はJTI検証をスキップし、後続処理を継続する
+            return
+
         if not isinstance(jti_value, str) or not jti_value.strip():
             raise ServiceAccountJWTError(
                 "MissingJTI",

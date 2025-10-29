@@ -22,8 +22,8 @@ def app(tmp_path):
         "MEDIA_DOWNLOAD_SIGNING_KEY": base64.urlsafe_b64encode(b"1" * 32).decode(),
         "MEDIA_THUMBNAIL_URL_TTL_SECONDS": "600",
         "MEDIA_PLAYBACK_URL_TTL_SECONDS": "600",
-        "MEDIA_NAS_THUMBNAILS_DIRECTORY": str(thumbs),
-        "MEDIA_NAS_PLAYBACK_DIRECTORY": str(play),
+        "MEDIA_THUMBNAILS_DIRECTORY": str(thumbs),
+        "MEDIA_PLAYBACK_DIRECTORY": str(play),
     }
     original_env = {key: os.environ.get(key) for key in temp_env}
     os.environ.update(temp_env)

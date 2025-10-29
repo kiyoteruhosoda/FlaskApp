@@ -30,9 +30,9 @@ def app(tmp_path):
     thumbs.mkdir()
     play.mkdir()
     orig.mkdir()
-    os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"] = str(thumbs)
-    os.environ["MEDIA_NAS_PLAYBACK_DIRECTORY"] = str(play)
-    os.environ["MEDIA_NAS_ORIGINALS_DIRECTORY"] = str(orig)
+    os.environ["MEDIA_THUMBNAILS_DIRECTORY"] = str(thumbs)
+    os.environ["MEDIA_PLAYBACK_DIRECTORY"] = str(play)
+    os.environ["MEDIA_ORIGINALS_DIRECTORY"] = str(orig)
     import importlib, sys
     import webapp.config as config_module
     importlib.reload(config_module)
@@ -404,12 +404,12 @@ def seed_thumb_media(app):
         db.session.commit()
         mid = m.id
 
-    base = os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"]
+    base = os.environ["MEDIA_THUMBNAILS_DIRECTORY"]
     path = os.path.join(base, "1024", rel)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "wb") as f:
         f.write(b"jpg")
-    orig_base = os.environ["MEDIA_NAS_ORIGINALS_DIRECTORY"]
+    orig_base = os.environ["MEDIA_ORIGINALS_DIRECTORY"]
     orig_path = os.path.join(orig_base, rel)
     os.makedirs(os.path.dirname(orig_path), exist_ok=True)
     with open(orig_path, "wb") as f:
@@ -482,7 +482,7 @@ def seed_playback_media(app):
         db.session.commit()
         ok_rel = pb_ok.rel_path
 
-    base = os.environ["MEDIA_NAS_PLAYBACK_DIRECTORY"]
+    base = os.environ["MEDIA_PLAYBACK_DIRECTORY"]
     ok_path = os.path.join(base, ok_rel)
     os.makedirs(os.path.dirname(ok_path), exist_ok=True)
     with open(ok_path, "wb") as f:
@@ -765,7 +765,7 @@ def test_original_url_ok(client, seed_thumb_media):
     media_id, rel = seed_thumb_media
     login(client)
 
-    orig_path = Path(os.environ["MEDIA_NAS_ORIGINALS_DIRECTORY"]) / rel
+    orig_path = Path(os.environ["MEDIA_ORIGINALS_DIRECTORY"]) / rel
     orig_path.parent.mkdir(parents=True, exist_ok=True)
     orig_path.write_bytes(b"orig")
 
@@ -788,7 +788,7 @@ def test_original_url_not_found(client, seed_thumb_media):
     media_id, rel = seed_thumb_media
     login(client)
 
-    orig_path = Path(os.environ["MEDIA_NAS_ORIGINALS_DIRECTORY"]) / rel
+    orig_path = Path(os.environ["MEDIA_ORIGINALS_DIRECTORY"]) / rel
     if orig_path.exists():
         orig_path.unlink()
 
@@ -919,7 +919,7 @@ def test_playback_filename_for_mov(client, app):
         media_id = media.id
         playback_rel = playback.rel_path
 
-    play_dir = Path(os.environ["MEDIA_NAS_PLAYBACK_DIRECTORY"])
+    play_dir = Path(os.environ["MEDIA_PLAYBACK_DIRECTORY"])
     playback_path = play_dir / playback_rel
     playback_path.parent.mkdir(parents=True, exist_ok=True)
     playback_path.write_bytes(os.urandom(1024))
@@ -1081,7 +1081,7 @@ def test_download_without_accel_redirect(client, seed_thumb_media, app):
 def test_ct_mismatch(client):
     login(client)
     rel = "2025/08/18/foo.png"
-    base = os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"]
+    base = os.environ["MEDIA_THUMBNAILS_DIRECTORY"]
     path = os.path.join(base, "256", rel)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "wb") as f:
@@ -1132,7 +1132,7 @@ def test_media_thumbnail_route(client, app):
         db.session.commit()
         media_id = m.id
 
-    thumb_dir = Path(os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"]) / "256"
+    thumb_dir = Path(os.environ["MEDIA_THUMBNAILS_DIRECTORY"]) / "256"
     thumb_dir.mkdir(parents=True, exist_ok=True)
     thumb_path = thumb_dir / "thumb.jpg"
     data = b"testdata"
@@ -1168,7 +1168,7 @@ def test_media_thumbnail_route_handles_heic(client, app):
         db.session.commit()
         media_id = media.id
 
-    thumb_dir = Path(os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"]) / "256"
+    thumb_dir = Path(os.environ["MEDIA_THUMBNAILS_DIRECTORY"]) / "256"
     thumb_dir.mkdir(parents=True, exist_ok=True)
     thumb_path = thumb_dir / "heic-thumb.jpg"
     payload = b"heic"
@@ -1204,7 +1204,7 @@ def test_media_thumbnail_route_uses_thumbnail_rel_path(client, app):
         db.session.commit()
         media_id = media.id
 
-    thumb_dir = Path(os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"]) / "256" / "alt"
+    thumb_dir = Path(os.environ["MEDIA_THUMBNAILS_DIRECTORY"]) / "256" / "alt"
     thumb_dir.mkdir(parents=True, exist_ok=True)
     thumb_path = thumb_dir / "thumb-alt.jpg"
     payload = b"alt-thumb"
@@ -1222,7 +1222,7 @@ def test_thumbnail_falls_back_to_default_path(client, app, monkeypatch, tmp_path
     from webapp.api import routes as api_routes
 
     with app.app_context():
-        original_thumb_dir = app.config["MEDIA_NAS_THUMBNAILS_DIRECTORY"]
+        original_thumb_dir = app.config["MEDIA_THUMBNAILS_DIRECTORY"]
         media = Media(
             google_media_id="thumb-fallback",
             account_id=1,
@@ -1250,12 +1250,12 @@ def test_thumbnail_falls_back_to_default_path(client, app, monkeypatch, tmp_path
     payload = b"fallback"
     thumb_file.write_bytes(payload)
 
-    monkeypatch.setenv("MEDIA_NAS_THUMBNAILS_DIRECTORY", str(host_path))
+    monkeypatch.setenv("MEDIA_THUMBNAILS_DIRECTORY", str(host_path))
     with app.app_context():
-        app.config["MEDIA_NAS_THUMBNAILS_DIRECTORY"] = str(host_path)
+        app.config["MEDIA_THUMBNAILS_DIRECTORY"] = str(host_path)
     monkeypatch.setitem(
         api_routes._STORAGE_DEFAULTS,
-        "MEDIA_NAS_THUMBNAILS_DIRECTORY",
+        "MEDIA_THUMBNAILS_DIRECTORY",
         str(fallback_path),
     )
 
@@ -1265,7 +1265,7 @@ def test_thumbnail_falls_back_to_default_path(client, app, monkeypatch, tmp_path
     assert res.data == payload
 
     with app.app_context():
-        app.config["MEDIA_NAS_THUMBNAILS_DIRECTORY"] = original_thumb_dir
+        app.config["MEDIA_THUMBNAILS_DIRECTORY"] = original_thumb_dir
 
 
 def test_media_delete_requires_permission(client, app):
@@ -1319,7 +1319,7 @@ def test_media_recover_requires_permission(client, app):
         db.session.commit()
         media_id = media.id
 
-    orig_dir = Path(os.environ["MEDIA_NAS_ORIGINALS_DIRECTORY"]) / "2024" / "01" / "01"
+    orig_dir = Path(os.environ["MEDIA_ORIGINALS_DIRECTORY"]) / "2024" / "01" / "01"
     orig_dir.mkdir(parents=True, exist_ok=True)
     image_path = orig_dir / "recover.jpg"
     Image.new("RGB", (16, 16), color=(200, 80, 80)).save(image_path, format="JPEG")
@@ -1358,7 +1358,7 @@ def test_media_recover_success(client, app):
         db.session.commit()
         media_id = media.id
 
-    orig_dir = Path(os.environ["MEDIA_NAS_ORIGINALS_DIRECTORY"]) / "2024" / "02" / "02"
+    orig_dir = Path(os.environ["MEDIA_ORIGINALS_DIRECTORY"]) / "2024" / "02" / "02"
     orig_dir.mkdir(parents=True, exist_ok=True)
     image_path = orig_dir / "recover-success.jpg"
     Image.new("RGB", (48, 32), color=(120, 160, 200)).save(image_path, format="JPEG")
@@ -1409,7 +1409,7 @@ def test_thumbnail_missing_triggers_regeneration(client, app):
         db.session.commit()
         media_id = media.id
 
-    orig_dir = Path(os.environ["MEDIA_NAS_ORIGINALS_DIRECTORY"]) / "2024" / "03" / "03"
+    orig_dir = Path(os.environ["MEDIA_ORIGINALS_DIRECTORY"]) / "2024" / "03" / "03"
     orig_dir.mkdir(parents=True, exist_ok=True)
     image_path = orig_dir / "thumb-missing.jpg"
     Image.new("RGB", (32, 24), color=(10, 200, 150)).save(image_path, format="JPEG")
@@ -1449,7 +1449,7 @@ def test_media_delete_success(client, app):
         db.session.add(media)
         db.session.commit()
         media_id = media.id
-        orig_dir = Path(app.config["MEDIA_NAS_ORIGINALS_DIRECTORY"])
+        orig_dir = Path(app.config["MEDIA_ORIGINALS_DIRECTORY"])
         (orig_dir / media.local_rel_path).write_bytes(b"data")
 
     grant_permission(app, "media:delete")
@@ -1464,7 +1464,7 @@ def test_media_delete_success(client, app):
         refreshed = Media.query.get(media_id)
         assert refreshed is not None
         assert refreshed.is_deleted is True
-        assert not (Path(app.config["MEDIA_NAS_ORIGINALS_DIRECTORY"]) / refreshed.local_rel_path).exists()
+        assert not (Path(app.config["MEDIA_ORIGINALS_DIRECTORY"]) / refreshed.local_rel_path).exists()
 
 
 def test_media_delete_removes_media_from_albums(client, app):
@@ -1856,7 +1856,7 @@ def _create_album_with_media(app, *, rel_path: str = "fullsize.jpg"):
 
 def test_album_detail_includes_full_size_thumbnail(client, app):
     rel_path = "albums/preview/test.jpg"
-    thumbs_base = Path(os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"])
+    thumbs_base = Path(os.environ["MEDIA_THUMBNAILS_DIRECTORY"])
     for size in ("512", "2048"):
         target = thumbs_base / size / rel_path
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -1880,7 +1880,7 @@ def test_album_detail_includes_full_size_thumbnail(client, app):
 
 def test_album_detail_full_size_fallback(client, app):
     rel_path = "albums/preview/fallback.jpg"
-    thumbs_base = Path(os.environ["MEDIA_NAS_THUMBNAILS_DIRECTORY"])
+    thumbs_base = Path(os.environ["MEDIA_THUMBNAILS_DIRECTORY"])
     target = thumbs_base / "512" / rel_path
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(b"thumb")

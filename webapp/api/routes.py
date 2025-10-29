@@ -3026,6 +3026,8 @@ def _build_content_disposition(filename: str) -> str:
     if sanitized and sanitized != fallback:
         return f'attachment; filename="{fallback}"; filename*=UTF-8\'\'{quote(sanitized, safe="")}'
     return f'attachment; filename="{fallback}"'
+
+
 @bp.get("/media/<int:media_id>/thumbnail")
 @login_or_jwt_required
 def api_media_thumbnail(media_id):
@@ -3089,6 +3091,18 @@ def api_media_thumbnail(media_id):
         or "application/octet-stream"
     )
     ttl = settings.media_thumbnail_url_ttl_seconds
+
+    # nginx X-Accel-Redirect 方式
+    if settings.media_accel_redirect_enabled:
+        # /mnt/data/media/thumbs/... → /media/thumbs/... に変換
+        rel_path = os.path.relpath(abs_path, settings.media_thumbs_directory)
+        accel_target = posixpath.join(settings.media_accel_thumbnails_location.rstrip("/"), rel_path)
+        resp = current_app.response_class(b"", mimetype=ct)
+        resp.headers["X-Accel-Redirect"] = accel_target
+        resp.headers["Cache-Control"] = f"private, max-age={ttl}"
+        return resp
+
+    # fallback: Flask側で直接送る
     service = _storage_service()
     with service.open(abs_path, "rb") as f:
         data = f.read()
@@ -3096,7 +3110,6 @@ def api_media_thumbnail(media_id):
     resp.headers["Content-Length"] = str(service.size(abs_path))
     resp.headers["Cache-Control"] = f"private, max-age={ttl}"
     return resp
-
 
 
 @bp.post("/media/<int:media_id>/thumb-url")

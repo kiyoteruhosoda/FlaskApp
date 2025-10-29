@@ -86,6 +86,14 @@ _SECURITY_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         description=_(u"Audience (`aud`) claim enforced for access tokens."),
     ),
     SettingFieldDefinition(
+        key="SERVICE_ACCOUNT_SIGNING_AUDIENCE",
+        label=_(u"Service account signing audience"),
+        data_type="string",
+        required=False,
+        description=_(u"Audience claim issued for service account tokens."),
+        allow_empty=True,
+    ),
+    SettingFieldDefinition(
         key="ENCRYPTION_KEY",
         label=_(u"Token encryption key"),
         data_type="string",
@@ -276,7 +284,7 @@ _STORAGE_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         description=_(u"Local path watched for media imports."),
     ),
     SettingFieldDefinition(
-        key="MEDIA_NAS_THUMBNAILS_DIRECTORY",
+        key="MEDIA_THUMBNAILS_DIRECTORY",
         label=_(u"NAS thumbnails directory"),
         data_type="string",
         required=False,
@@ -284,7 +292,7 @@ _STORAGE_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         allow_empty=True,
     ),
     SettingFieldDefinition(
-        key="MEDIA_NAS_PLAYBACK_DIRECTORY",
+        key="MEDIA_PLAYBACK_DIRECTORY",
         label=_(u"NAS playback directory"),
         data_type="string",
         required=False,
@@ -292,7 +300,7 @@ _STORAGE_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         allow_empty=True,
     ),
     SettingFieldDefinition(
-        key="MEDIA_NAS_ORIGINALS_DIRECTORY",
+        key="MEDIA_ORIGINALS_DIRECTORY",
         label=_(u"NAS originals directory"),
         data_type="string",
         required=True,
@@ -362,17 +370,7 @@ _CELERY_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         data_type="string",
         required=True,
         description=_(u"Connection URL for the Celery result backend."),
-    ),
-)
-
-_SERVICE_ACCOUNT_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
-    SettingFieldDefinition(
-        key="SERVICE_ACCOUNT_SIGNING_AUDIENCE",
-        label=_(u"Service account signing audience"),
-        data_type="string",
-        required=False,
-        description=_(u"Audience claim issued for service account tokens."),
-        allow_empty=True,
+        allow_null=True,
     ),
 )
 
@@ -472,12 +470,6 @@ APPLICATION_SETTING_SECTIONS: tuple[SettingDefinitionSection, ...] = (
         label=_(u"Background Tasks"),
         description=_(u"Celery broker and result backend configuration."),
         fields=_CELERY_DEFINITIONS,
-    ),
-    SettingDefinitionSection(
-        identifier="service-accounts",
-        label=_(u"Service Accounts"),
-        description=_(u"Settings related to service account tokens."),
-        fields=_SERVICE_ACCOUNT_DEFINITIONS,
     ),
     SettingDefinitionSection(
         identifier="media-processing",

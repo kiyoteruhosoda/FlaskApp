@@ -133,10 +133,10 @@ class StorageService(Protocol):
 _KNOWN_SPECS: tuple[_StorageSpec, ...] = (
     _StorageSpec(
         domain=StorageDomain.MEDIA_ORIGINALS,
-        config_key="MEDIA_NAS_ORIGINALS_DIRECTORY",
+        config_key="MEDIA_ORIGINALS_DIRECTORY",
         env_fallbacks=(
-            "MEDIA_NAS_ORIGINALS_CONTAINER_DIRECTORY",
-            "MEDIA_NAS_ORIGINALS_DIRECTORY",
+            "MEDIA_ORIGINALS_CONTAINER_DIRECTORY",
+            "MEDIA_ORIGINALS_DIRECTORY",
             "FPV_NAS_ORIGINALS_CONTAINER_DIR",
             "FPV_NAS_ORIGINALS_DIR",
         ),
@@ -144,10 +144,10 @@ _KNOWN_SPECS: tuple[_StorageSpec, ...] = (
     ),
     _StorageSpec(
         domain=StorageDomain.MEDIA_PLAYBACK,
-        config_key="MEDIA_NAS_PLAYBACK_DIRECTORY",
+        config_key="MEDIA_PLAYBACK_DIRECTORY",
         env_fallbacks=(
-            "MEDIA_NAS_PLAYBACK_CONTAINER_DIRECTORY",
-            "MEDIA_NAS_PLAYBACK_DIRECTORY",
+            "MEDIA_PLAYBACK_CONTAINER_DIRECTORY",
+            "MEDIA_PLAYBACK_DIRECTORY",
             "FPV_NAS_PLAY_CONTAINER_DIR",
             "FPV_NAS_PLAY_DIR",
         ),
@@ -155,10 +155,10 @@ _KNOWN_SPECS: tuple[_StorageSpec, ...] = (
     ),
     _StorageSpec(
         domain=StorageDomain.MEDIA_THUMBNAILS,
-        config_key="MEDIA_NAS_THUMBNAILS_DIRECTORY",
+        config_key="MEDIA_THUMBNAILS_DIRECTORY",
         env_fallbacks=(
-            "MEDIA_NAS_THUMBNAILS_CONTAINER_DIRECTORY",
-            "MEDIA_NAS_THUMBNAILS_DIRECTORY",
+            "MEDIA_THUMBNAILS_CONTAINER_DIRECTORY",
+            "MEDIA_THUMBNAILS_DIRECTORY",
             "FPV_NAS_THUMBS_CONTAINER_DIR",
             "FPV_NAS_THUMBS_DIR",
         ),

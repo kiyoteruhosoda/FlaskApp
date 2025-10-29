@@ -41,7 +41,7 @@ def test_video_transcoding():
     
     with app.app_context():
         # Create test video file
-        orig_dir = Path(os.environ["MEDIA_NAS_ORIGINALS_DIRECTORY"])
+        orig_dir = Path(os.environ["MEDIA_ORIGINALS_DIRECTORY"])
         test_file = orig_dir / "2025/08/28/test_video.mp4"
         
         has_ffmpeg = create_test_video(test_file)
@@ -75,7 +75,7 @@ def test_video_transcoding():
             if pb:
                 print(f"MediaPlayback created: ID={pb.id}, Status={pb.status}")
                 if pb.status == "done":
-                    play_dir = Path(os.environ["MEDIA_NAS_PLAYBACK_DIRECTORY"])
+                    play_dir = Path(os.environ["MEDIA_PLAYBACK_DIRECTORY"])
                     play_path = play_dir / pb.rel_path
                     if play_path.exists():
                         print(f"✓ Playback file created: {play_path}")
@@ -92,7 +92,7 @@ def test_video_transcoding():
             # Cleanup
             test_file.unlink(missing_ok=True)
             if pb and pb.rel_path:
-                play_path = Path(os.environ["MEDIA_NAS_PLAYBACK_DIRECTORY"]) / pb.rel_path
+                play_path = Path(os.environ["MEDIA_PLAYBACK_DIRECTORY"]) / pb.rel_path
                 play_path.unlink(missing_ok=True)
                 
                 # Clean up directories

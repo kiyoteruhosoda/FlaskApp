@@ -44,7 +44,7 @@ def app():
             'SECRET_KEY': 'test-secret-key',
             'DATABASE_URI': f'sqlite:///{db_path}',
             'MEDIA_LOCAL_IMPORT_DIRECTORY': str(import_dir),
-            'MEDIA_NAS_ORIGINALS_DIRECTORY': str(originals_dir),
+            'MEDIA_ORIGINALS_DIRECTORY': str(originals_dir),
             'MEDIA_TEMP_DIRECTORY': str(temp_dir),
             'SQLALCHEMY_ENGINE_OPTIONS': {},
             'BABEL_DEFAULT_LOCALE': 'en',

@@ -1,10 +1,7 @@
 import importlib
 import os
 import uuid
-
-import importlib
-import os
-import uuid
+from http.cookies import SimpleCookie
 
 import jwt
 import pytest
@@ -231,6 +228,62 @@ def test_login_rejects_scope_not_in_roles(client, scoped_user):
     # maintenance:edit は保有ロールに含まれないため除外される
     assert data["scope"] == "write:cert"
     assert _decode_scope(data["access_token"]) == "write:cert"
+
+
+def test_login_cookie_requires_gui_scope(app, client):
+    from webapp.extensions import db
+
+    with app.app_context():
+        gui_perm = Permission(code="gui:view")
+        manage_perm = Permission(code="user:manage")
+        role = Role(name=f"gui-role-{uuid.uuid4().hex[:8]}")
+        role.permissions.extend([gui_perm, manage_perm])
+
+        user = User(email=f"gui-{uuid.uuid4().hex[:8]}@example.com")
+        user.set_password("pass")
+        user.roles.append(role)
+
+        db.session.add_all([gui_perm, manage_perm, role, user])
+        db.session.commit()
+
+        user_email = user.email
+
+    without_gui_response = client.post(
+        "/api/login",
+        json={
+            "email": user_email,
+            "password": "pass",
+            "scope": ["user:manage"],
+        },
+    )
+    assert without_gui_response.status_code == 200
+    without_gui_data = without_gui_response.get_json()
+    assert without_gui_data["scope"] == "user:manage"
+
+    without_gui_cookies = SimpleCookie()
+    for header in without_gui_response.headers.getlist("Set-Cookie"):
+        without_gui_cookies.load(header)
+    if "access_token" in without_gui_cookies:
+        assert without_gui_cookies["access_token"].value == ""
+
+    with_gui_response = client.post(
+        "/api/login",
+        json={
+            "email": user_email,
+            "password": "pass",
+            "scope": ["user:manage", "gui:view"],
+        },
+    )
+    assert with_gui_response.status_code == 200
+    with_gui_data = with_gui_response.get_json()
+    assert with_gui_data["scope"] == "gui:view user:manage"
+
+    with_gui_cookies = SimpleCookie()
+    for header in with_gui_response.headers.getlist("Set-Cookie"):
+        with_gui_cookies.load(header)
+
+    assert "access_token" in with_gui_cookies
+    assert with_gui_cookies["access_token"].value != ""
 
 
 def test_scoped_token_enforces_permissions(client, album_user):

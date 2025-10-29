@@ -628,7 +628,7 @@ CREATE TABLE `permission` (
   `code` varchar(120) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `code` (`code`)
-) ENGINE=InnoDB AUTO_INCREMENT=24 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -658,6 +658,7 @@ INSERT INTO `permission` VALUES
 (17,'totp:view'),
 (18,'totp:write'),
 (3,'user:manage'),
+(24,'gui:view'),
 (11,'wiki:admin'),
 (12,'wiki:read'),
 (13,'wiki:write');

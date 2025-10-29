@@ -63,6 +63,7 @@ from ..services.token_service import TokenService
 
 
 API_LOGIN_SCOPE_SESSION_KEY = "api_login_granted_scope"
+GUI_VIEW_SCOPE = "gui:view"
 from ..auth.totp import verify_totp
 from ..auth.service_account_auth import (
     ServiceAccountJWTError,
@@ -810,15 +811,17 @@ def _resolve_session_scope(user: User | None) -> list[str]:
     return normalized
 
 
-def _set_session_access_cookie(
-    response, user: User, scope_items: Iterable[str] | None = None
+def _scope_allows_gui_cookie(scope_items: Iterable[str]) -> bool:
+    for item in scope_items:
+        if isinstance(item, str) and item.strip() == GUI_VIEW_SCOPE:
+            return True
+    return False
+
+
+def _set_gui_access_cookie(
+    response, access_token: str | None, scope_items: Iterable[str]
 ) -> None:
-    if scope_items is None:
-        scope_items = _resolve_session_scope(user)
-    try:
-        access_token = TokenService.generate_access_token(user, scope_items)
-    except Exception:  # pragma: no cover - defensive logging
-        current_app.logger.exception("Failed to regenerate session access token")
+    if not access_token or not _scope_allows_gui_cookie(scope_items):
         response.delete_cookie("access_token")
         return
 
@@ -829,6 +832,27 @@ def _set_session_access_cookie(
         secure=settings.session_cookie_secure,
         samesite="Lax",
     )
+
+
+def _set_session_access_cookie(
+    response, user: User, scope_items: Iterable[str] | None = None
+) -> None:
+    if scope_items is None:
+        scope_items = _resolve_session_scope(user)
+
+    normalized_scope = _normalize_scope_items(scope_items)
+    if not _scope_allows_gui_cookie(normalized_scope):
+        response.delete_cookie("access_token")
+        return
+
+    try:
+        access_token = TokenService.generate_access_token(user, normalized_scope)
+    except Exception:  # pragma: no cover - defensive logging
+        current_app.logger.exception("Failed to regenerate session access token")
+        response.delete_cookie("access_token")
+        return
+
+    _set_gui_access_cookie(response, access_token, normalized_scope)
 
 
 def login_or_jwt_required(f):
@@ -1970,7 +1994,9 @@ def api_login(data):
             "available_scopes": sorted(user_permissions),
         }
 
-    return jsonify(response_payload)
+    response = jsonify(response_payload)
+    _set_gui_access_cookie(response, access_token, granted_scope)
+    return response
 
 
 @bp.post("/logout")
@@ -2008,7 +2034,8 @@ def api_refresh(data):
         return jsonify({"error": "invalid_token"}), 401
 
     access_token, new_refresh_token, scope_str = token_bundle
-    session[API_LOGIN_SCOPE_SESSION_KEY] = _normalize_scope_items(scope_str.split())
+    scope_items = _normalize_scope_items(scope_str.split())
+    session[API_LOGIN_SCOPE_SESSION_KEY] = scope_items
 
     resp = jsonify({
         "access_token": access_token,
@@ -2016,13 +2043,7 @@ def api_refresh(data):
         "token_type": "Bearer",
         "scope": scope_str,
     })
-    resp.set_cookie(
-        "access_token",
-        access_token,
-        httponly=True,
-        secure=settings.session_cookie_secure,
-        samesite="Lax",
-    )
+    _set_gui_access_cookie(resp, access_token, scope_items)
     return resp
 
 

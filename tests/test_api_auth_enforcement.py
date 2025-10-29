@@ -73,8 +73,9 @@ def test_login_or_jwt_required_regenerates_cookie_on_invalid_token(app_context):
         from webapp.extensions import db
 
         manage_permission = Permission(code="user:manage")
+        gui_permission = Permission(code="gui:view")
         admin_role = Role(name="admin-fallback")
-        admin_role.permissions.append(manage_permission)
+        admin_role.permissions.extend([manage_permission, gui_permission])
         admin_user = User(email="fallback-admin@example.com")
         admin_user.set_password("pass")
         admin_user.roles.append(admin_role)
@@ -92,7 +93,7 @@ def test_login_or_jwt_required_regenerates_cookie_on_invalid_token(app_context):
         json={
             "email": "fallback-admin@example.com",
             "password": "pass",
-            "scope": ["user:manage"],
+            "scope": ["user:manage", "gui:view"],
         },
     )
     assert login_response.status_code == 200
@@ -112,7 +113,7 @@ def test_login_or_jwt_required_regenerates_cookie_on_invalid_token(app_context):
     original_cookie = refresh_cookies["access_token"].value
 
     with client.session_transaction() as session_state:
-        assert session_state.get(API_LOGIN_SCOPE_SESSION_KEY) == ["user:manage"]
+        assert session_state.get(API_LOGIN_SCOPE_SESSION_KEY) == ["gui:view", "user:manage"]
 
     client.set_cookie("access_token", "malformed.token.value", domain="localhost", path="/")
 
@@ -133,4 +134,4 @@ def test_login_or_jwt_required_regenerates_cookie_on_invalid_token(app_context):
     assert client_cookie == regenerated_cookie
 
     with client.session_transaction() as session_state:
-        assert session_state.get(API_LOGIN_SCOPE_SESSION_KEY) == ["user:manage"]
+        assert session_state.get(API_LOGIN_SCOPE_SESSION_KEY) == ["gui:view", "user:manage"]

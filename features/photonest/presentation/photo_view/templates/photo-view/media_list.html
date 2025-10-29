@@ -201,12 +201,15 @@
   }
   
   .media-card {
+    display: block;
     position: relative;
     border-radius: 8px;
     overflow: hidden;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     transition: transform 0.2s, box-shadow 0.2s;
     cursor: pointer;
+    text-decoration: none;
+    color: inherit;
   }
   
   .media-card:hover {
@@ -846,8 +849,9 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   function createMediaCard(media) {
-    const card = document.createElement('div');
+    const card = document.createElement('a');
     card.className = 'media-card';
+    card.href = `/photo-view/media/${media.id}`;
 
     // Determine whether the media is a video
     const isVideo = media.isVideo || media.is_video;
@@ -887,11 +891,6 @@ document.addEventListener('DOMContentLoaded', () => {
         <p class="media-meta">${metaLine}</p>
       </div>
     `;
-    
-    // Navigate to the media detail page on click
-    card.addEventListener('click', () => {
-      window.location.href = `/photo-view/media/${media.id}`;
-    });
     
     return card;
   }

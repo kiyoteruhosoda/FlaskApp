@@ -90,6 +90,7 @@ python scripts/seed_master_data.py
 - `album:view` - アルバム閲覧
 - `media:view` - メディア閲覧
 - `media:tag-manage` - メディアのタグ管理
+- `media:metadata-manage` - メディアのメタデータ（撮影日時など）の編集
 - `permission:manage` - 権限管理
 - `role:manage` - ロール管理
 - `system:manage` - システム管理

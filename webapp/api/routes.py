@@ -2481,6 +2481,19 @@ def _path_to_posix(rel_path: str | None) -> str | None:
     return normalized.as_posix()
 
 
+def _isoformat_utc(value: datetime | None) -> str | None:
+    """Return an ISO8601 string in UTC for *value* if present."""
+
+    if not value:
+        return None
+
+    if value.tzinfo is None:
+        normalized = value.replace(tzinfo=timezone.utc)
+    else:
+        normalized = value.astimezone(timezone.utc)
+    return normalized.isoformat().replace("+00:00", "Z")
+
+
 _PLAYBACK_STATUS_PRIORITY = {
     "done": 3,
     "processing": 2,
@@ -2563,14 +2576,8 @@ def serialize_media_detail(media: Media) -> dict:
         "width": media.width,
         "height": media.height,
         "duration_ms": media.duration_ms,
-        "shot_at": (
-            media.shot_at.isoformat().replace("+00:00", "Z") if media.shot_at else None
-        ),
-        "imported_at": (
-            media.imported_at.isoformat().replace("+00:00", "Z")
-            if media.imported_at
-            else None
-        ),
+        "shot_at": _isoformat_utc(media.shot_at),
+        "imported_at": _isoformat_utc(media.imported_at),
         "is_video": int(bool(media.is_video)),
         "is_deleted": int(bool(media.is_deleted)),
         "has_playback": int(bool(media.has_playback)),
@@ -2636,6 +2643,102 @@ def api_media_detail(media_id):
         extra={"event": "media.detail.success"},
     )
     return jsonify(media_data)
+
+
+@bp.patch("/media/<int:media_id>")
+@login_or_jwt_required
+@bp.doc(
+    methods=["PATCH"],
+    requestBody=json_request_body(
+        "Update metadata for a media item.",
+        schema={
+            "type": "object",
+            "properties": {
+                "shot_at": {
+                    "oneOf": [
+                        {"type": "string", "format": "date-time"},
+                        {"type": "null"},
+                    ],
+                    "description": "Timestamp that represents when the media was shot.",
+                }
+            },
+            "required": ["shot_at"],
+            "additionalProperties": False,
+        },
+        example={"shot_at": "2024-05-01T12:00:00Z"},
+    ),
+)
+def api_media_update_metadata(media_id: int):
+    """Update mutable metadata attributes for a media item."""
+
+    user = get_current_user()
+    if not user or not user.can("media:metadata-manage"):
+        return (
+            jsonify(
+                {
+                    "error": "forbidden",
+                    "message": _("You do not have permission to update the shooting date."),
+                }
+            ),
+            403,
+        )
+
+    media = Media.query.get(media_id)
+    if not media or media.is_deleted:
+        return jsonify({"error": "not_found"}), 404
+
+    payload = request.get_json(silent=True) or {}
+    if "shot_at" not in payload:
+        return jsonify({"error": "shot_at_required"}), 400
+
+    shot_at_value = payload.get("shot_at")
+    if shot_at_value is None:
+        normalized_shot_at: datetime | None = None
+    elif isinstance(shot_at_value, str):
+        candidate = shot_at_value.strip()
+        if not candidate:
+            normalized_shot_at = None
+        else:
+            try:
+                parsed = datetime.fromisoformat(candidate.replace("Z", "+00:00"))
+            except ValueError:
+                return jsonify({"error": "invalid_shot_at"}), 400
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            normalized_shot_at = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    else:
+        return jsonify({"error": "invalid_shot_at"}), 400
+
+    media.shot_at = normalized_shot_at
+    media.updated_at = datetime.now(timezone.utc)
+
+    try:
+        db.session.commit()
+    except Exception:
+        current_app.logger.exception(
+            "Failed to update media metadata", extra={"media_id": media_id}
+        )
+        db.session.rollback()
+        return (
+            jsonify({"error": "update_failed", "message": _("Failed to update media metadata.")}),
+            500,
+        )
+
+    db.session.refresh(media)
+
+    current_app.logger.info(
+        json.dumps(
+            {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "media_id": media_id,
+                "shot_at": _isoformat_utc(media.shot_at),
+                "event": "media.metadata.updated",
+            }
+        ),
+        extra={"event": "media.metadata.updated"},
+    )
+
+    return jsonify({"media": serialize_media_detail(media)})
 
 
 @bp.delete("/media/<int:media_id>")

@@ -1890,6 +1890,42 @@ msgstr "メディアが見つからないか、すでに削除されています
 msgid "Deleting..."
 msgstr "削除しています..."
 
+msgid "Shot At"
+msgstr "撮影日時"
+
+msgid "Edit shooting date"
+msgstr "撮影日時を編集"
+
+msgid "Clear"
+msgstr "クリア"
+
+msgid "Times are saved in UTC. Your local time will be converted automatically."
+msgstr "時刻はUTCで保存されます。ローカル時刻は自動的に変換されます。"
+
+msgid "Shooting date updated."
+msgstr "撮影日時を更新しました。"
+
+msgid "Shooting date removed."
+msgstr "撮影日時を削除しました。"
+
+msgid "Failed to update shooting date."
+msgstr "撮影日時の更新に失敗しました。"
+
+msgid "Enter a valid date and time before saving."
+msgstr "保存する前に有効な日時を入力してください。"
+
+msgid "You do not have permission to update the shooting date."
+msgstr "撮影日時を更新する権限がありません。"
+
+msgid "The server rejected the provided shooting date."
+msgstr "指定した撮影日時はサーバーで受理されませんでした。"
+
+msgid "Unknown date"
+msgstr "日時不明"
+
+msgid "Failed to update media metadata."
+msgstr "メディアのメタデータを更新できませんでした。"
+
 msgid "Define role basics and choose the permissions it should include."
 msgstr "ロールの基本情報を設定し、付与する権限を選択してください。"
 

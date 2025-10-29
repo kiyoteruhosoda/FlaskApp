@@ -659,6 +659,80 @@ def test_media_detail_includes_tags(client, seed_media_with_tags):
     assert {"Alice", "Paris"}.issubset(tag_names)
 
 
+def test_media_update_shot_at_requires_permission(client, seed_media_detail):
+    login(client)
+    media_id = seed_media_detail
+
+    res = client.patch(
+        f"/api/media/{media_id}",
+        json={"shot_at": "2025-09-01T10:20:30Z"},
+    )
+
+    assert res.status_code == 403
+
+
+def test_media_update_shot_at_invalid_input(client, app, seed_media_detail):
+    grant_permission(app, "media:metadata-manage")
+    login(client)
+    media_id = seed_media_detail
+
+    res = client.patch(
+        f"/api/media/{media_id}",
+        json={"shot_at": "not-a-date"},
+    )
+
+    assert res.status_code == 400
+    assert res.get_json()["error"] == "invalid_shot_at"
+
+
+def test_media_update_shot_at_success(client, app, seed_media_detail):
+    from webapp.extensions import db
+    from core.models.photo_models import Media
+
+    grant_permission(app, "media:metadata-manage")
+    login(client)
+    media_id = seed_media_detail
+    target = "2025-09-02T09:08:07Z"
+
+    res = client.patch(
+        f"/api/media/{media_id}",
+        json={"shot_at": target},
+    )
+
+    assert res.status_code == 200
+    payload = res.get_json()
+    assert payload["media"]["shot_at"] == target
+
+    with app.app_context():
+        stored = db.session.get(Media, media_id)
+        assert stored is not None
+        expected = datetime.fromisoformat(target.replace("Z", "+00:00")).replace(tzinfo=None)
+        assert stored.shot_at == expected
+
+
+def test_media_update_shot_at_clear(client, app, seed_media_detail):
+    from webapp.extensions import db
+    from core.models.photo_models import Media
+
+    grant_permission(app, "media:metadata-manage")
+    login(client)
+    media_id = seed_media_detail
+
+    res = client.patch(
+        f"/api/media/{media_id}",
+        json={"shot_at": None},
+    )
+
+    assert res.status_code == 200
+    payload = res.get_json()
+    assert payload["media"]["shot_at"] is None
+
+    with app.app_context():
+        stored = db.session.get(Media, media_id)
+        assert stored is not None
+        assert stored.shot_at is None
+
+
 def test_media_update_tags_requires_permission(client, seed_media_with_tags):
     login(client)
     media_id = seed_media_with_tags["media2"]

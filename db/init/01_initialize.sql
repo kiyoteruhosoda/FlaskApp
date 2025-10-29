@@ -650,6 +650,7 @@ INSERT INTO `permission` VALUES
 (15,'media:delete'),
 (16,'media:recover'),
 (14,'media:tag-manage'),
+(25,'media:metadata-manage'),
 (7,'media:view'),
 (8,'permission:manage'),
 (9,'role:manage'),
@@ -867,6 +868,7 @@ INSERT INTO `role_permissions` VALUES
 (1,12),
 (1,13),
 (1,14),
+(1,25),
 (1,15),
 (1,16),
 (1,17),
@@ -881,6 +883,7 @@ INSERT INTO `role_permissions` VALUES
 (2,5),
 (2,6),
 (2,7),
+(2,25),
 (3,6),
 (3,7),
 (5,20);

@@ -1478,6 +1478,55 @@ msgstr ""
 msgid "Deleting..."
 msgstr ""
 
+#: features/photonest/presentation/photo_view/templates/photo-view/media_detail.html:???
+msgid "Shot At"
+msgstr ""
+
+#: features/photonest/presentation/photo_view/templates/photo-view/media_detail.html:???
+msgid "Edit shooting date"
+msgstr ""
+
+#: features/photonest/presentation/photo_view/templates/photo-view/media_detail.html:???
+msgid "Clear"
+msgstr ""
+
+#: features/photonest/presentation/photo_view/templates/photo-view/media_detail.html:???
+msgid "Times are saved in UTC. Your local time will be converted automatically."
+msgstr ""
+
+#: features/photonest/presentation/photo_view/templates/photo-view/media_detail.html:???
+msgid "Shooting date updated."
+msgstr ""
+
+#: features/photonest/presentation/photo_view/templates/photo-view/media_detail.html:???
+msgid "Shooting date removed."
+msgstr ""
+
+#: features/photonest/presentation/photo_view/templates/photo-view/media_detail.html:???
+msgid "Failed to update shooting date."
+msgstr ""
+
+#: features/photonest/presentation/photo_view/templates/photo-view/media_detail.html:???
+msgid "Enter a valid date and time before saving."
+msgstr ""
+
+#: features/photonest/presentation/photo_view/templates/photo-view/media_detail.html:???
+#: webapp/api/routes.py:???
+msgid "You do not have permission to update the shooting date."
+msgstr ""
+
+#: features/photonest/presentation/photo_view/templates/photo-view/media_detail.html:???
+msgid "The server rejected the provided shooting date."
+msgstr ""
+
+#: features/photonest/presentation/photo_view/templates/photo-view/media_detail.html:???
+msgid "Unknown date"
+msgstr ""
+
+#: webapp/api/routes.py:???
+msgid "Failed to update media metadata."
+msgstr ""
+
 #: webapp/photo-view/templates/photo-view/home.html:199
 #: webapp/photo-view/templates/photo-view/session_detail.html:184
 msgid "Are you sure you want to cancel the local import?"

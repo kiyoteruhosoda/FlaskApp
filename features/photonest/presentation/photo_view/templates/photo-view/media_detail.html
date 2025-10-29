@@ -137,6 +137,48 @@
     word-break: break-word;
   }
 
+  .info-value.with-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .info-edit-btn {
+    background: transparent;
+    border: none;
+    color: #0d6efd;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 0;
+  }
+
+  .info-edit-btn:hover,
+  .info-edit-btn:focus {
+    text-decoration: underline;
+    outline: none;
+  }
+
+  .shot-at-editor {
+    margin-top: 8px;
+    text-align: right;
+  }
+
+  .shot-at-editor[hidden] {
+    display: none !important;
+  }
+
+  .shot-at-editor .input-group > .form-control {
+    min-width: 240px;
+  }
+
+  .shot-at-editor .helper-text {
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-top: 4px;
+  }
+
   .tag-chip-container {
     display: flex;
     flex-wrap: wrap;
@@ -399,6 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let tagEditorTimeout = null;
 
   const canManageTags = JSON.parse("{{ current_user.can('media:tag-manage') | tojson }}");
+  const canEditMetadata = JSON.parse("{{ current_user.can('media:metadata-manage') | tojson }}");
   const tagAttrLabels = {
     person: '{{ _("Person")|escapejs }}',
     place: '{{ _("Place")|escapejs }}',
@@ -418,6 +461,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const recoverConfirmText = '{{ _("Reapply metadata from the original file?")|escapejs }}';
   const recoverSuccessText = '{{ _("Media metadata was refreshed.")|escapejs }}';
   const recoverErrorText = '{{ _("Failed to refresh media metadata.")|escapejs }}';
+  const shotAtLabel = '{{ _("Shot At")|escapejs }}';
+  const shotAtEditLabel = '{{ _("Edit shooting date")|escapejs }}';
+  const shotAtSaveLabel = '{{ _("Save")|escapejs }}';
+  const shotAtCancelLabel = '{{ _("Cancel")|escapejs }}';
+  const shotAtClearLabel = '{{ _("Clear")|escapejs }}';
+  const shotAtHelperText = '{{ _("Times are saved in UTC. Your local time will be converted automatically.")|escapejs }}';
+  const shotAtUpdateSuccessText = '{{ _("Shooting date updated.")|escapejs }}';
+  const shotAtClearedText = '{{ _("Shooting date removed.")|escapejs }}';
+  const shotAtUpdateErrorText = '{{ _("Failed to update shooting date.")|escapejs }}';
+  const shotAtInvalidInputText = '{{ _("Enter a valid date and time before saving.")|escapejs }}';
+  const shotAtPermissionErrorText = '{{ _("You do not have permission to update the shooting date.")|escapejs }}';
+  const shotAtInvalidResponseText = '{{ _("The server rejected the provided shooting date.")|escapejs }}';
+  const unknownDateText = '{{ _("Unknown date")|escapejs }}';
   const recoverForbiddenText = '{{ _("You do not have permission to recover metadata.")|escapejs }}';
   const recoverSourceMissingText = '{{ _("Original file for recovery could not be found.")|escapejs }}';
   const recoverUnsupportedText = '{{ _("The original file type is not supported for recovery.")|escapejs }}';
@@ -630,7 +686,7 @@ document.addEventListener('DOMContentLoaded', () => {
     mediaTitle.textContent = displayTitle;
 
     const metaParts = [];
-    metaParts.push(displayDate || 'Unknown Date');
+    metaParts.push(displayDate || unknownDateText);
     if (media.bytes) {
       metaParts.push(formatFileSize(media.bytes));
     }
@@ -818,6 +874,30 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   function displayMediaInfo(media) {
+    const shotAtDisplay = formatDateTime(media.shot_at);
+    const resolvedShotAt =
+      shotAtDisplay && shotAtDisplay !== 'Not available' ? shotAtDisplay : unknownDateText;
+    const shotAtSection = `
+      <div class="info-item">
+        <span class="info-label">${shotAtLabel}:</span>
+        <span class="info-value${canEditMetadata ? ' with-actions' : ''}">
+          <span id="shot-at-display">${resolvedShotAt}</span>
+          ${canEditMetadata ? `<button type="button" class="info-edit-btn" id="shot-at-edit-btn">${shotAtEditLabel}</button>` : ''}
+        </span>
+      </div>
+      ${canEditMetadata ? `
+        <div class="shot-at-editor" id="shot-at-editor" hidden>
+          <div class="input-group input-group-sm">
+            <input type="datetime-local" class="form-control" id="shot-at-input" step="1">
+            <button type="button" class="btn btn-outline-primary" id="shot-at-save-btn">${shotAtSaveLabel}</button>
+            <button type="button" class="btn btn-outline-secondary" id="shot-at-cancel-btn">${shotAtCancelLabel}</button>
+            <button type="button" class="btn btn-outline-danger" id="shot-at-clear-btn">${shotAtClearLabel}</button>
+          </div>
+          <div class="helper-text" id="shot-at-helper">${shotAtHelperText}</div>
+        </div>
+      ` : ''}
+    `;
+
     // 基本情報
     basicInfo.innerHTML = `
       <div class="info-item">
@@ -828,10 +908,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <span class="info-label">Type:</span>
         <span class="info-value">${media.isVideo || media.is_video ? 'Video' : 'Photo'}</span>
       </div>
-      <div class="info-item">
-        <span class="info-label">Shot At:</span>
-        <span class="info-value">${formatDateTime(media.shot_at)}</span>
-      </div>
+      ${shotAtSection}
       <div class="info-item">
         <span class="info-label">Source:</span>
         <span class="info-value">${media.source_type === 'local' ? 'Local File' : 'Google Photos'}</span>
@@ -841,7 +918,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <span class="info-value">${formatDateTime(media.imported_at)}</span>
       </div>
     `;
-    
+
     // 技術情報
     technicalInfo.innerHTML = `
       <div class="info-item">
@@ -861,6 +938,133 @@ document.addEventListener('DOMContentLoaded', () => {
         <span class="info-value">${media.id}</span>
       </div>
     `;
+
+    if (canEditMetadata) {
+      setupShotAtEditor(media);
+    }
+  }
+
+  function setupShotAtEditor(media) {
+    if (!canEditMetadata) {
+      return;
+    }
+
+    const editor = document.getElementById('shot-at-editor');
+    const editBtn = document.getElementById('shot-at-edit-btn');
+    const input = document.getElementById('shot-at-input');
+    const saveBtn = document.getElementById('shot-at-save-btn');
+    const cancelBtn = document.getElementById('shot-at-cancel-btn');
+    const clearBtn = document.getElementById('shot-at-clear-btn');
+    const displayEl = document.getElementById('shot-at-display');
+
+    if (!editor || !editBtn || !input || !saveBtn || !cancelBtn || !clearBtn || !displayEl) {
+      return;
+    }
+
+    const setBusy = (busy) => {
+      [editBtn, saveBtn, cancelBtn, clearBtn, input].forEach((element) => {
+        if (element) {
+          element.disabled = busy;
+        }
+      });
+    };
+
+    const toggleEditor = (show) => {
+      editor.hidden = !show;
+      if (show) {
+        input.value = isoToLocalInputValue(media.shot_at);
+        requestAnimationFrame(() => {
+          input.focus();
+          input.select();
+        });
+      }
+    };
+
+    const showError = (message) => {
+      if (typeof showErrorToast === 'function') {
+        showErrorToast(message);
+      } else {
+        alert(message);
+      }
+    };
+
+    const applyUpdate = async (newIsoValue) => {
+      setBusy(true);
+      try {
+        const response = await window.apiClient.patch(`/api/media/${media.id}`, {
+          shot_at: newIsoValue,
+        });
+        if (!response.ok) {
+          if (response.status === 403) {
+            showError(shotAtPermissionErrorText);
+            return;
+          }
+          if (response.status === 400) {
+            showError(shotAtInvalidResponseText);
+            return;
+          }
+          showError(shotAtUpdateErrorText);
+          return;
+        }
+
+        let payload = null;
+        try {
+          payload = await response.json();
+        } catch (error) {
+          console.error('Failed to parse metadata update response:', error);
+        }
+
+        if (!payload || !payload.media) {
+          showError(shotAtUpdateErrorText);
+          return;
+        }
+
+        currentMedia = payload.media;
+        currentTags = Array.isArray(currentMedia.tags) ? currentMedia.tags : [];
+
+        toggleEditor(false);
+        displayMedia(currentMedia);
+        displayMediaInfo(currentMedia);
+        renderMediaTags();
+
+        if (typeof showSuccessToast === 'function') {
+          const message = currentMedia.shot_at ? shotAtUpdateSuccessText : shotAtClearedText;
+          showSuccessToast(message);
+        }
+      } catch (error) {
+        console.error('Failed to update shooting date:', error);
+        showError(shotAtUpdateErrorText);
+      } finally {
+        setBusy(false);
+      }
+    };
+
+    editBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      toggleEditor(true);
+    });
+
+    cancelBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      toggleEditor(false);
+    });
+
+    saveBtn.addEventListener('click', async (event) => {
+      event.preventDefault();
+      const localValue = input.value;
+      const isoValue = localInputValueToISO(localValue);
+      if (!isoValue) {
+        showError(shotAtInvalidInputText);
+        input.focus();
+        return;
+      }
+      await applyUpdate(isoValue);
+    });
+
+    clearBtn.addEventListener('click', async (event) => {
+      event.preventDefault();
+      await applyUpdate(null);
+    });
   }
 
   function renderMediaTags() {
@@ -1219,6 +1423,32 @@ document.addEventListener('DOMContentLoaded', () => {
       unitIndex++;
     }
     return `${size.toFixed(1)} ${units[unitIndex]}`;
+  }
+
+  function isoToLocalInputValue(isoString) {
+    if (!isoString) {
+      return '';
+    }
+    const hasOffset = /(?:Z|[+-]\d{2}:\d{2})$/i.test(isoString);
+    const normalized = hasOffset ? isoString : `${isoString}Z`;
+    const date = new Date(normalized);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    const pad = (value) => String(value).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+      + `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  }
+
+  function localInputValueToISO(localValue) {
+    if (!localValue) {
+      return null;
+    }
+    const date = new Date(localValue);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+    return date.toISOString().replace('.000Z', 'Z');
   }
   
   // キーボードナビゲーション

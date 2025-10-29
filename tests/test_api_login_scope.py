@@ -237,14 +237,29 @@ def _load_cookies(response) -> SimpleCookie:
     return cookies
 
 
+def _filter_cookie_headers(response, name: str) -> list[str]:
+    headers: list[str] = []
+    for header in response.headers.getlist("Set-Cookie"):
+        prefix = header.split("=", 1)[0].strip()
+        if prefix == name:
+            headers.append(header)
+    return headers
+
+
 def _assert_cookie_cleared(response) -> None:
-    headers = response.headers.getlist("Set-Cookie")
-    assert not any(
-        "access_token=" in header and "Max-Age=0" not in header for header in headers
-    )
     cookies = _load_cookies(response)
-    if "access_token" in cookies:
-        assert cookies["access_token"].value == ""
+    if "access_token" not in cookies:
+        return
+
+    morsel = cookies["access_token"]
+    assert morsel.value == ""
+    assert morsel["max-age"] == "0"
+    assert morsel["path"] == "/"
+
+    headers = _filter_cookie_headers(response, "access_token")
+    for header in headers:
+        assert "Max-Age=0" in header
+        assert "Path=/" in header
 
 
 def test_login_cookie_requires_gui_scope(app, client):
@@ -293,7 +308,16 @@ def test_login_cookie_requires_gui_scope(app, client):
 
     with_gui_cookies = _load_cookies(with_gui_response)
     assert "access_token" in with_gui_cookies
-    assert with_gui_cookies["access_token"].value != ""
+    access_cookie = with_gui_cookies["access_token"]
+    assert access_cookie.value != ""
+    assert access_cookie["path"] == "/"
+
+    cookie_headers = _filter_cookie_headers(with_gui_response, "access_token")
+    assert cookie_headers
+    for header in cookie_headers:
+        assert "HttpOnly" in header
+        assert "Path=/" in header
+        assert "SameSite=" in header
 
 
 def test_refresh_cookie_requires_gui_scope(app, client):
@@ -347,7 +371,16 @@ def test_refresh_cookie_requires_gui_scope(app, client):
     assert with_gui_tokens is not None
     with_gui_login_cookies = _load_cookies(with_gui_login)
     assert "access_token" in with_gui_login_cookies
-    assert with_gui_login_cookies["access_token"].value != ""
+    login_cookie = with_gui_login_cookies["access_token"]
+    assert login_cookie.value != ""
+    assert login_cookie["path"] == "/"
+
+    login_cookie_headers = _filter_cookie_headers(with_gui_login, "access_token")
+    assert login_cookie_headers
+    for header in login_cookie_headers:
+        assert "HttpOnly" in header
+        assert "Path=/" in header
+        assert "SameSite=" in header
 
     with_gui_refresh = client.post(
         "/api/refresh",
@@ -356,7 +389,16 @@ def test_refresh_cookie_requires_gui_scope(app, client):
     assert with_gui_refresh.status_code == 200
     with_gui_refresh_cookies = _load_cookies(with_gui_refresh)
     assert "access_token" in with_gui_refresh_cookies
-    assert with_gui_refresh_cookies["access_token"].value != ""
+    refresh_cookie = with_gui_refresh_cookies["access_token"]
+    assert refresh_cookie.value != ""
+    assert refresh_cookie["path"] == "/"
+
+    refresh_cookie_headers = _filter_cookie_headers(with_gui_refresh, "access_token")
+    assert refresh_cookie_headers
+    for header in refresh_cookie_headers:
+        assert "HttpOnly" in header
+        assert "Path=/" in header
+        assert "SameSite=" in header
 
 
 def test_scoped_token_enforces_permissions(client, album_user):

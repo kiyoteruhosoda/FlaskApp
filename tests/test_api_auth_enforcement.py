@@ -113,7 +113,7 @@ def test_login_or_jwt_required_regenerates_cookie_on_invalid_token(app_context):
     original_cookie = refresh_cookies["access_token"].value
 
     with client.session_transaction() as session_state:
-        assert session_state.get(API_LOGIN_SCOPE_SESSION_KEY) == ["gui:view", "user:manage"]
+        assert set(session_state.get(API_LOGIN_SCOPE_SESSION_KEY, [])) == {"gui:view", "user:manage"}
 
     client.set_cookie("access_token", "malformed.token.value", domain="localhost", path="/")
 
@@ -130,8 +130,19 @@ def test_login_or_jwt_required_regenerates_cookie_on_invalid_token(app_context):
     assert regenerated_cookie != "malformed.token.value"
     assert regenerated_cookie != original_cookie
 
+    access_cookie_headers = [
+        header
+        for header in response.headers.getlist("Set-Cookie")
+        if header.startswith("access_token=")
+    ]
+    assert access_cookie_headers
+    for header in access_cookie_headers:
+        assert "HttpOnly" in header
+        assert "Path=/" in header
+        assert "SameSite=" in header
+
     client_cookie = _get_cookie_value(client, "access_token")
     assert client_cookie == regenerated_cookie
 
     with client.session_transaction() as session_state:
-        assert session_state.get(API_LOGIN_SCOPE_SESSION_KEY) == ["gui:view", "user:manage"]
+        assert set(session_state.get(API_LOGIN_SCOPE_SESSION_KEY, [])) == {"gui:view", "user:manage"}

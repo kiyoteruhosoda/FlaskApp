@@ -232,6 +232,40 @@ def test_passkey_verify_login_success(monkeypatch, client):
         assert session[API_LOGIN_SCOPE_SESSION_KEY] == ["gui:view"]
 
 
+def test_passkey_verify_login_rejects_inactive_user(monkeypatch, client):
+    user = _create_user()
+    user.is_active = False
+    db.session.add(user)
+    db.session.commit()
+
+    class StubService:
+        def authenticate(self, **kwargs):
+            return user
+
+    monkeypatch.setattr("webapp.auth.routes.passkey_service", StubService())
+
+    with client.session_transaction() as session:
+        session[PASSKEY_AUTH_CHALLENGE_KEY] = "inactive-challenge"
+        session["passkey_auth_timestamp"] = datetime.now(timezone.utc).isoformat()
+
+    payload = {"credential": {"id": "cred"}}
+
+    response = client.post(
+        "/auth/passkey/verify/login",
+        data=json.dumps(payload),
+        content_type="application/json",
+    )
+
+    assert response.status_code == 403
+    assert response.get_json()["error"] == "account_inactive"
+
+    with client.session_transaction() as session:
+        assert PASSKEY_AUTH_CHALLENGE_KEY not in session
+        assert "passkey_auth_timestamp" not in session
+        assert "_user_id" not in session
+        assert API_LOGIN_SCOPE_SESSION_KEY not in session
+
+
 def test_passkey_verify_login_invalid_payload_clears_session(monkeypatch, client):
     user = _create_user()
 

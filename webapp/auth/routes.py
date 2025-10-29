@@ -473,6 +473,17 @@ def passkey_verify_login():
 
     _clear_passkey_auth_session()
 
+    if not getattr(user_model, "is_active", True):
+        current_app.logger.warning(
+            "Passkey authentication rejected for inactive user",
+            extra={
+                "event": "auth.passkey_login",
+                "path": request.path,
+                "user_id": getattr(user_model, "id", None),
+            },
+        )
+        return jsonify({"error": "account_inactive"}), 403
+
     available_permissions = sorted(getattr(user_model, "all_permissions", []) or [])
     granted_scope = []
     if "gui:view" in available_permissions:

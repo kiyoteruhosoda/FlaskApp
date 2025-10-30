@@ -31,7 +31,7 @@ ARG COMMIT_DATE=unknown
 ARG BUILD_DATE=unknown
 
 RUN echo "{" \
-        "\"version\": \"v${COMMIT_HASH}-${BRANCH}\"," \
+        "\"version\": \"${COMMIT_HASH}-${BRANCH}\"," \
         "\"commit_hash\": \"${COMMIT_HASH}\"," \
         "\"commit_hash_full\": \"${COMMIT_HASH_FULL}\"," \
         "\"branch\": \"${BRANCH}\"," \

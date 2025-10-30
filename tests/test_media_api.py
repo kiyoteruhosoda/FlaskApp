@@ -1098,7 +1098,7 @@ def test_accel_fallback_original(client, seed_thumb_media, app):
     assert res2.headers["Cache-Control"].startswith("private")
 
 
-def test_accel_fallback_original_requires_auth_without_token(client, seed_thumb_media):
+def test_accel_fallback_original_without_token_redirects(client, seed_thumb_media):
     _, rel = seed_thumb_media
     fallback_path = f"/media/originals/{rel.replace(os.sep, '/')}"
     res = client.get(fallback_path)
@@ -1106,15 +1106,13 @@ def test_accel_fallback_original_requires_auth_without_token(client, seed_thumb_
     assert res.headers.get("Location", "").endswith("/")
 
 
-def test_accel_fallback_original_without_token_with_login(client, seed_thumb_media):
+def test_accel_fallback_original_without_token_with_login_redirects(client, seed_thumb_media):
     _, rel = seed_thumb_media
     login(client)
     fallback_path = f"/media/originals/{rel.replace(os.sep, '/')}"
     res = client.get(fallback_path)
-    assert res.status_code == 200
-    assert res.data == b"orig"
-    assert res.headers.get("X-Accel-Redirect") is None
-    assert res.headers["Cache-Control"].startswith("private")
+    assert res.status_code == 302
+    assert res.headers.get("Location", "").endswith("/")
 
 
 def test_ct_mismatch(client):

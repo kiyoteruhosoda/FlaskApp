@@ -3153,18 +3153,6 @@ def _build_download_response(
         extra={"event": log_event},
     )
     return resp
-
-
-def _fallback_ttl(expected_type: str) -> int:
-    if expected_type == "thumb":
-        return settings.media_thumbnail_url_ttl_seconds
-    if expected_type == "playback":
-        return settings.media_playback_url_ttl_seconds
-    if expected_type == "original":
-        return settings.media_original_url_ttl_seconds
-    return 0
-
-
 def _infer_media_id(expected_type: str, rel_path: str) -> int | None:
     if expected_type == "original":
         media = Media.query.filter_by(local_rel_path=rel_path).first()
@@ -3202,28 +3190,14 @@ def _handle_accel_fallback(
 
     payload: dict[str, Any] | None = None
 
-    if token:
-        payload, err = _verify_token(token)
-        if err or payload.get("typ") != expected_type:
-            abort(404)
-        if payload.get("path") != expected_path:
-            abort(404)
-    else:
-        if not current_user.is_authenticated:
-            abort(404)
-        ttl = _fallback_ttl(expected_type)
-        now = int(time.time())
-        exp = now + ttl if ttl else now
-        payload = {
-            "v": 1,
-            "typ": expected_type,
-            "mid": _infer_media_id(expected_type, rel_normalized),
-            "size": None,
-            "path": expected_path,
-            "ct": None,
-            "exp": exp,
-            "nonce": uuid4().hex,
-        }
+    if not token:
+        abort(404)
+
+    payload, err = _verify_token(token)
+    if err or payload.get("typ") != expected_type:
+        abort(404)
+    if payload.get("path") != expected_path:
+        abort(404)
 
     resolved = _resolve_storage_file(storage_domain, *segments)
     if not resolved.exists or not resolved.absolute_path:

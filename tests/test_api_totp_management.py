@@ -81,9 +81,21 @@ def _create_user(app, *, permissions):
 
 
 def _login(client, user_id):
+    from flask import session as flask_session
+    from flask_login import login_user
+    from webapp.services.token_service import TokenService
+    from core.models.user import User
+
+    with client.application.test_request_context():
+        user = User.query.get(user_id)
+        principal = TokenService.create_principal_for_user(user)
+        login_user(principal)
+        flask_session["_fresh"] = True
+        persisted = dict(flask_session)
+
     with client.session_transaction() as session:
-        session["_user_id"] = str(user_id)
-        session["_fresh"] = True
+        session.update(persisted)
+        session.modified = True
 
 
 def test_totp_api_permission_flow(client, app):

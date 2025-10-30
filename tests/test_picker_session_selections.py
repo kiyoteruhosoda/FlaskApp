@@ -62,15 +62,31 @@ def _create_selection(app):
         sel = PickerSelection(session_id=ps.id, google_media_id="m1", status="pending")
         db.session.add(sel)
         db.session.commit()
-        return ps.id
+    return ps.id
+
+
+def _login_client(client):
+    from flask import session as flask_session
+    from flask_login import login_user
+    from core.models.user import User
+    from webapp.services.token_service import TokenService
+
+    with client.application.test_request_context():
+        user = User.query.first()
+        principal = TokenService.create_principal_for_user(user)
+        login_user(principal)
+        flask_session["_fresh"] = True
+        persisted = dict(flask_session)
+
+    with client.session_transaction() as sess:
+        sess.update(persisted)
+        sess.modified = True
 
 
 def test_picker_session_selections_endpoint(app):
     ps_id = _create_selection(app)
     client = app.test_client()
-    with client.session_transaction() as sess:
-        sess["_user_id"] = "1"
-        sess["_fresh"] = True
+    _login_client(client)
     resp = client.get(f"/api/picker/session/{ps_id}/selections")
     assert resp.status_code == 200
     data = resp.get_json()
@@ -96,9 +112,7 @@ def test_picker_session_selections_by_session_id_endpoint(app):
         db.session.commit()
 
     client = app.test_client()
-    with client.session_transaction() as sess:
-        sess["_user_id"] = "1"
-        sess["_fresh"] = True
+    _login_client(client)
     uuid_part = sess_id.split("/", 1)[1]
     resp = client.get(f"/api/picker/session/{uuid_part}/selections")
     assert resp.status_code == 200

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import FrozenSet, Iterable, Literal, Optional, Tuple
+from typing import Any, FrozenSet, Iterable, Literal, Optional, Tuple
 
 SERVICE_ACCOUNT_SUFFIX = " (sa)"
 
@@ -19,7 +19,9 @@ class AuthenticatedPrincipal:
     identifier: str
     scope: FrozenSet[str] = field(default_factory=frozenset)
     display_name: Optional[str] = None
-    roles: Tuple[str, ...] = ()
+    roles: Tuple[Any, ...] = ()
+    email: Optional[str] = field(default=None, repr=False)
+    _totp_secret: Optional[str] = field(default=None, repr=False)
     _permissions: FrozenSet[str] = field(default_factory=frozenset, repr=False)
 
     def __post_init__(self) -> None:
@@ -28,6 +30,14 @@ class AuthenticatedPrincipal:
             object.__setattr__(self, "_permissions", frozenset(self._permissions))
         else:
             object.__setattr__(self, "_permissions", self.scope)
+        email = (self.email or "").strip() if isinstance(self.email, str) else ""
+        object.__setattr__(self, "email", email or None)
+        secret = (
+            self._totp_secret.strip()
+            if isinstance(self._totp_secret, str)
+            else None
+        )
+        object.__setattr__(self, "_totp_secret", secret or None)
         if self.subject_type == "system" and self.display_name:
             normalized = self.display_name
             if not normalized.endswith(SERVICE_ACCOUNT_SUFFIX):
@@ -82,10 +92,8 @@ class AuthenticatedPrincipal:
         )
 
     @property
-    def totp_secret(self) -> None:
-        """Flask-Login API 互換のためのプレースホルダー。"""
-
-        return None
+    def totp_secret(self) -> Optional[str]:
+        return self._totp_secret
 
 
 __all__ = ["AuthenticatedPrincipal", "SubjectType"]

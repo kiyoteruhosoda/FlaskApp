@@ -17,9 +17,12 @@ def client(app_context):
 
 
 def _login(client, user):
-    with client.session_transaction() as session:
-        session["_user_id"] = str(user.id)
-        session["_fresh"] = True
+    response = client.post(
+        "/auth/login",
+        data={"email": user.email, "password": "password123"},
+        follow_redirects=False,
+    )
+    assert response.status_code in (302, 303)
 
 
 def _create_user(email="user@example.com", password="password123"):
@@ -190,12 +193,13 @@ def test_service_account_cannot_access_totp_setup(client):
     account_id = _create_service_account(client.application)
     _service_account_login(client, account_id)
 
-    with client.application.test_request_context():
-        dashboard_url = url_for("dashboard.dashboard")
+    with client.application.test_request_context(base_url="http://localhost"):
+        expected_redirect = url_for("dashboard.dashboard", _external=False)
 
     response = client.get("/auth/setup_totp", follow_redirects=False)
     assert response.status_code == 302
-    assert response.headers["Location"].endswith(dashboard_url)
+    redirect_target = response.headers["Location"]
+    assert redirect_target == expected_redirect
 
     with client.session_transaction() as sess:
         flashes = sess.get("_flashes", [])

@@ -19,10 +19,20 @@ def _create_user(email: str = "logout-user@example.com", password: str = "secret
 
 
 def _login_via_session(client, user: User, picker_session_id: str = "picker_sessions/test") -> None:
-    with client.session_transaction() as flask_session:
-        flask_session["_user_id"] = str(user.id)
+    from flask import session as flask_session
+    from flask_login import login_user
+    from webapp.services.token_service import TokenService
+
+    with client.application.test_request_context():
+        principal = TokenService.create_principal_for_user(user)
+        login_user(principal)
         flask_session["_fresh"] = True
         flask_session["picker_session_id"] = picker_session_id
+        persisted = dict(flask_session)
+
+    with client.session_transaction() as session:
+        session.update(persisted)
+        session.modified = True
 
 
 def test_api_logout_revokes_tokens_and_clears_session(client):

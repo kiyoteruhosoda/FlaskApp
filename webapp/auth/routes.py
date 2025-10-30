@@ -13,6 +13,7 @@ from flask import (
 import requests
 import json
 from datetime import datetime, timezone, timedelta
+from urllib.parse import urlsplit
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_babel import gettext as _, force_locale
 from . import (
@@ -76,6 +77,63 @@ PASSKEY_REGISTRATION_USER_ID_KEY = "passkey_registration_user_id"
 PASSKEY_AUTH_CHALLENGE_KEY = "passkey_authentication_challenge"
 
 
+def _normalize_redirect_target(location: str | None, *, fallback: str = "/") -> str:
+    """Normalize redirect targets to avoid malformed ``Location`` headers."""
+
+    if not location:
+        return fallback
+
+    value = location.strip()
+    if not value:
+        return fallback
+
+    lowered = value.lower()
+    if lowered.startswith("http://") or lowered.startswith("https://"):
+        return value
+
+    parsed = None
+    if value.startswith("//"):
+        parsed = urlsplit(value)
+        path = parsed.path or ""
+    elif value.startswith("://"):
+        parsed = urlsplit(f"http{value}")
+        path = parsed.path or ""
+    elif "://" in value:
+        parsed = urlsplit(value)
+        if parsed.scheme and parsed.netloc:
+            return value
+        path = parsed.path or ""
+    else:
+        path = value
+
+    if not path:
+        path = fallback
+
+    if not path.startswith("/"):
+        path = f"/{path}"
+
+    query = parsed.query if parsed is not None else ""
+    fragment = parsed.fragment if parsed is not None else ""
+
+    if not query and not fragment:
+        return path
+
+    result = path
+    if query:
+        result = f"{result}?{query}"
+    if fragment:
+        result = f"{result}#{fragment}"
+    return result
+
+
+def _relative_url_for(endpoint: str, **values) -> str:
+    return _normalize_redirect_target(url_for(endpoint, **values))
+
+
+def _redirect_to(endpoint: str, **values):
+    return redirect(_relative_url_for(endpoint, **values))
+
+
 def _sync_active_role(user_model):
     """Ensure the active role stored in the session is valid for the given user."""
     role_ids = [role.id for role in getattr(user_model, "roles", [])]
@@ -98,7 +156,7 @@ def _resolve_post_login_target() -> str:
     candidate = request.form.get("next") or request.args.get("next")
     if candidate and candidate.startswith("/") and not candidate.startswith("//"):
         return candidate
-    return url_for("dashboard.dashboard")
+    return _relative_url_for("dashboard.dashboard")
 
 
 def _resolve_next_target(default_endpoint: str) -> str:
@@ -106,7 +164,7 @@ def _resolve_next_target(default_endpoint: str) -> str:
     candidate = request.values.get("next")
     if candidate and candidate.startswith("/") and not candidate.startswith("//"):
         return candidate
-    return url_for(default_endpoint)
+    return _relative_url_for(default_endpoint)
 
 
 def _resolve_safe_next_value():
@@ -128,22 +186,15 @@ def _render_login_template():
 def _resolve_current_user_model() -> User | None:
     """現在のログイン状態から永続化されたユーザーモデルを解決する。"""
 
-    # LocalProxy 経由で実体を取得
     actual_user = current_user._get_current_object()  # type: ignore[attr-defined]
 
-    if isinstance(actual_user, User):
-        return actual_user
+    if not isinstance(actual_user, AuthenticatedPrincipal):
+        return None
 
-    if isinstance(actual_user, AuthenticatedPrincipal):
-        if actual_user.is_service_account:
-            return None
-        return User.query.get(actual_user.subject_id)
+    if actual_user.is_service_account:
+        return None
 
-    user_identifier = getattr(actual_user, "user_id", None)
-    if isinstance(user_identifier, int):
-        return User.query.get(user_identifier)
-
-    return None
+    return db.session.get(User, actual_user.subject_id)
 
 
 def _pop_role_selection_target() -> str:
@@ -151,7 +202,7 @@ def _pop_role_selection_target() -> str:
     candidate = session.pop("role_selection_next", None) or request.values.get("next")
     if candidate and candidate.startswith("/") and not candidate.startswith("//"):
         return candidate
-    return url_for("dashboard.dashboard")
+    return _relative_url_for("dashboard.dashboard")
 
 
 def _peek_role_selection_target() -> str | None:
@@ -169,14 +220,36 @@ def _login_with_domain_user(user, redirect_target=None, *, token=None, token_sco
         raise ValueError("Domain user is missing attached ORM model for login")
     return _finalize_login_session(
         model,
-        redirect_target or url_for("dashboard.dashboard"),
+        _normalize_redirect_target(
+            redirect_target,
+            fallback=_relative_url_for("dashboard.dashboard"),
+        ),
         token=token,
         token_scope=token_scope,
     )
 
 
 def _finalize_login_session(user_model, redirect_target, *, token=None, token_scope=None):
-    login_user(user_model)
+    if isinstance(user_model, AuthenticatedPrincipal):
+        principal = user_model
+    else:
+        try:
+            principal = TokenService.create_principal_for_user(
+                user_model,
+                scope=token_scope if token_scope is not None else None,
+            )
+        except ValueError as exc:
+            current_app.logger.warning(
+                "Failed to construct principal for login session: %s",
+                exc,
+                extra={"event": "auth.login.principal_error"},
+            )
+            raise
+
+    roles = list(getattr(principal, "roles", []) or [])
+
+    login_user(principal)
+    g.current_user = principal
     session.pop("active_role_id", None)
 
     if token_scope is None:
@@ -196,13 +269,17 @@ def _finalize_login_session(user_model, redirect_target, *, token=None, token_sc
         session[SERVICE_LOGIN_SESSION_KEY] = True
         g.current_token_scope = set(normalized_scope)
 
-    roles = list(getattr(user_model, "roles", []) or [])
+    normalized_redirect = _normalize_redirect_target(
+        redirect_target,
+        fallback=_relative_url_for("dashboard.dashboard"),
+    )
+
     if len(roles) > 1:
-        session["role_selection_next"] = redirect_target
-        response = redirect(url_for("auth.select_role"))
+        session["role_selection_next"] = normalized_redirect
+        response = redirect(_relative_url_for("auth.select_role"))
     else:
-        _sync_active_role(user_model)
-        response = redirect(redirect_target)
+        _sync_active_role(principal)
+        response = redirect(normalized_redirect)
 
     if token_scope is None:
         response.delete_cookie("access_token")
@@ -285,13 +362,13 @@ def _clear_passkey_auth_session():
 def _resolve_safe_redirect(default_endpoint: str, candidate: str | None) -> str:
     if candidate and isinstance(candidate, str) and candidate.startswith("/") and not candidate.startswith("//"):
         return candidate
-    return url_for(default_endpoint)
+    return _relative_url_for(default_endpoint)
 
 
 def _complete_registration(user):
     """ユーザー登録完了後の共通処理"""
     flash(_("Registration successful"), "success")
-    dashboard_url = url_for("dashboard.dashboard")
+    dashboard_url = _relative_url_for("dashboard.dashboard")
     redirect_response = _login_with_domain_user(user, dashboard_url)
     if redirect_response:
         return redirect_response
@@ -313,14 +390,14 @@ def _handle_registration_error(template_name, **template_kwargs):
     """登録時のロールエラーハンドリング"""
     flash(_("Default role 'guest' does not exist"), "error")
     if template_name == "auth/register_totp.html":
-        return redirect(url_for("auth.register"))
+        return _redirect_to("auth.register")
     return render_template(template_name, **template_kwargs)
 
 
 @bp.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for("dashboard.dashboard"))
+        return _redirect_to("dashboard.dashboard")
     if request.method == "POST":
         email = request.form.get("email")
         password = request.form.get("password")
@@ -344,9 +421,17 @@ def passkey_registration_options():
     if getattr(current_user, "is_service_account", False):
         return jsonify({"error": "not_supported"}), 403
 
+    user_model = _resolve_current_user_model()
+    if user_model is None:
+        current_app.logger.warning(
+            "Passkey registration requested but persistent user missing",
+            extra={"event": "auth.passkey_register", "path": request.path},
+        )
+        return jsonify({"error": "not_supported"}), 403
+
     try:
         options, challenge = passkey_service.generate_registration_options(
-            current_user._get_current_object()
+            user_model
         )
     except Exception:  # pragma: no cover - unexpected failure
         current_app.logger.exception(
@@ -385,13 +470,22 @@ def passkey_verify_register():
         _clear_passkey_registration_session()
         return jsonify({"error": "invalid_payload"}), 400
 
+    user_model = _resolve_current_user_model()
+    if user_model is None:
+        _clear_passkey_registration_session()
+        current_app.logger.warning(
+            "Passkey registration verification failed: persistent user missing",
+            extra={"event": "auth.passkey_register", "path": request.path},
+        )
+        return jsonify({"error": "not_supported"}), 403
+
     transports = credential_payload.get("response", {}).get("transports")
     label_raw = payload.get("label") or payload.get("name")
     label = label_raw.strip() if isinstance(label_raw, str) and label_raw.strip() else None
 
     try:
         record = passkey_service.register_passkey(
-            user=current_user._get_current_object(),
+            user=user_model,
             payload=json.dumps(credential_payload).encode("utf-8"),
             expected_challenge=challenge,
             transports=transports,
@@ -558,7 +652,15 @@ def delete_passkey(credential_id: int):
     if getattr(current_user, "is_service_account", False):
         return jsonify({"error": "not_supported"}), 403
 
-    record = passkey_repo.find_for_user(current_user.id, credential_id)
+    user_model = _resolve_current_user_model()
+    if user_model is None:
+        current_app.logger.warning(
+            "Passkey deletion requested but user could not be resolved",
+            extra={"event": "auth.passkey_delete", "path": request.path},
+        )
+        return jsonify({"error": "not_supported"}), 403
+
+    record = passkey_repo.find_for_user(user_model.id, credential_id)
     if record is None:
         return jsonify({"error": "not_found"}), 404
 
@@ -570,7 +672,7 @@ def delete_passkey(credential_id: int):
 def service_login():
     redirect_target = _resolve_next_target("dashboard.dashboard")
 
-    if current_user.is_authenticated and isinstance(current_user._get_current_object(), User):
+    if current_user.is_authenticated and not getattr(current_user, "is_service_account", False):
         return redirect(redirect_target)
 
     token = _extract_access_token()
@@ -701,7 +803,7 @@ def register():
             session["reg_user_id"] = u.id
             session["reg_secret"] = secret
             _set_session_timestamp("reg")
-            return redirect(url_for("auth.register_totp"))
+            return _redirect_to("auth.register_totp")
         except ValueError as e:
             flash(_("Registration failed: {}").format(str(e)), "error")
             return render_template("auth/register.html")
@@ -717,14 +819,14 @@ def register_totp():
     if not user_id or not secret or _is_session_expired("reg"):
         _clear_registration_session()
         flash(_("Session expired. Please register again."), "error")
-        return redirect(url_for("auth.register"))
+        return _redirect_to("auth.register")
     
     # ユーザーを取得
-    user_model = User.query.get(user_id)
+    user_model = db.session.get(User, user_id)
     if not user_model or user_model.is_active:
         _clear_registration_session()
         flash(_("Registration session invalid. Please register again."), "error")
-        return redirect(url_for("auth.register"))
+        return _redirect_to("auth.register")
     
     uri = provisioning_uri(user_model.email, secret)
     qr_data = qr_code_data_uri(uri)
@@ -776,14 +878,14 @@ def register_totp_cancel():
     
     if user_id:
         # 非アクティブユーザーを削除
-        user_model = User.query.get(user_id)
+        user_model = db.session.get(User, user_id)
         if user_model and not user_model.is_active:
             domain_user = user_repo._to_domain(user_model)
             user_repo.delete(domain_user)
     
     _clear_registration_session()
     flash(_("Registration cancelled. You can start over."), "info")
-    return redirect(url_for("auth.register"))
+    return _redirect_to("auth.register")
 
 
 @bp.route("/register/no_totp", methods=["GET", "POST"])
@@ -811,6 +913,16 @@ def register_no_totp():
 @login_required
 def profile():
     is_service_account = bool(getattr(current_user, "is_service_account", False))
+    user_model = _resolve_current_user_model()
+    if not is_service_account and user_model is None:
+        current_app.logger.warning(
+            "Profile requested but persistent user could not be resolved",
+            extra={"event": "auth.profile.user_missing", "path": request.path},
+        )
+        flash(_("We could not load your account information. Please sign in again."), "error")
+        logout_user()
+        return _redirect_to("auth.login")
+
     languages_iterable = list(settings.languages)
     languages = [lang for lang in languages_iterable if lang]
     if not languages:
@@ -843,7 +955,7 @@ def profile():
     server_time_utc = datetime.now(timezone.utc)
     localized_time = convert_to_timezone(server_time_utc, tzinfo)
 
-    raw_roles = list(getattr(current_user, "roles", []))
+    raw_roles = list(getattr(user_model, "roles", []) or []) if user_model else []
     role_options = [
         role
         for role in raw_roles
@@ -852,7 +964,7 @@ def profile():
     if request.method == "POST":
         action = request.form.get("action", "update-preferences")
         if action == "switch-role":
-            response = make_response(redirect(url_for("auth.profile")))
+            response = redirect(_relative_url_for("auth.profile"))
             role_choice = request.form.get("active_role")
             available_roles = {str(role.id): role for role in role_options}
 
@@ -870,7 +982,7 @@ def profile():
 
         form_lang = request.form.get("language")
         form_tz = request.form.get("timezone")
-        response = make_response(redirect(url_for("auth.profile")))
+        response = redirect(_relative_url_for("auth.profile"))
         updated = False
 
         if form_lang and form_lang in languages:
@@ -933,7 +1045,15 @@ def profile():
         if isinstance(code, str) and code.strip()
     }
     active_permissions = sorted(normalized_permissions)
-    passkey_credentials = list(getattr(current_user, "passkey_credentials", []) or [])
+    passkey_credentials: list = []
+    if not is_service_account and user_model is not None:
+        try:
+            passkey_credentials = passkey_repo.list_for_user(user_model.id)
+        except Exception:
+            current_app.logger.exception(
+                "Failed to load passkey credentials for profile",
+                extra={"event": "auth.profile.passkeys", "path": request.path},
+            )
 
     return render_template(
         "auth/profile.html",
@@ -957,23 +1077,44 @@ def edit():
     is_service_account = bool(getattr(current_user, "is_service_account", False))
     if is_service_account:
         flash(_("Service accounts cannot edit profile details."), "warning")
-        return redirect(url_for("auth.profile"))
+        return _redirect_to("auth.profile")
+
+    user_model = _resolve_current_user_model()
+    if user_model is None:
+        current_app.logger.warning(
+            "Profile edit requested but persistent user missing",
+            extra={"event": "auth.profile.edit", "path": request.path},
+        )
+        flash(_("We could not load your account information. Please sign in again."), "error")
+        logout_user()
+        return _redirect_to("auth.login")
+
     if request.method == "POST":
         email = request.form.get("email")
         password = request.form.get("password")
         if not email:
             flash(_("Email is required"), "error")
             return render_template("auth/edit.html", is_service_account=is_service_account)
-        if email != current_user.email and User.query.filter_by(email=email).first():
+        if email != user_model.email and User.query.filter_by(email=email).first():
             flash(_("Email already exists"), "error")
             return render_template("auth/edit.html", is_service_account=is_service_account)
-        current_user.email = email
+        user_model.email = email
         if password:
-            current_user.set_password(password)
+            user_model.set_password(password)
         db.session.commit()
+
+        try:
+            refreshed = TokenService.create_principal_for_user(user_model)
+        except ValueError:
+            refreshed = None
+
+        if refreshed is not None:
+            login_user(refreshed)
+            g.current_user = refreshed
+
         flash(_("Profile updated"), "success")
-        return redirect(url_for("auth.profile"))
-    return render_template("auth/edit.html", is_service_account=is_service_account)
+        return _redirect_to("auth.profile")
+    return render_template("auth/edit.html", is_service_account=is_service_account, user=user_model)
 
 
 @bp.route("/setup_totp", methods=["GET", "POST"])
@@ -985,7 +1126,11 @@ def setup_totp():
 
     if is_service_account:
         flash(_("Two-factor authentication is not available for service accounts."), "warning")
-        return redirect(service_redirect)
+        target = _normalize_redirect_target(
+            service_redirect,
+            fallback=_relative_url_for("dashboard.dashboard"),
+        )
+        return redirect(target)
 
     user_model = _resolve_current_user_model()
     if user_model is None:
@@ -995,7 +1140,7 @@ def setup_totp():
         )
         flash(_("We could not load your account information. Please sign in again."), "error")
         logout_user()
-        return redirect(url_for("auth.login"))
+        return _redirect_to("auth.login")
 
     if user_model.totp_secret:
         flash(_("Two-factor authentication already configured"), "error")
@@ -1029,6 +1174,13 @@ def setup_totp():
             )
         user_model.totp_secret = secret
         db.session.commit()
+        try:
+            refreshed = TokenService.create_principal_for_user(user_model)
+        except ValueError:
+            refreshed = None
+        if refreshed is not None:
+            login_user(refreshed)
+            g.current_user = refreshed
         _clear_setup_totp_session()
         flash(_("Two-factor authentication enabled"), "success")
         return redirect(next_url)
@@ -1073,7 +1225,7 @@ def logout():
     session.pop(SERVICE_LOGIN_SESSION_KEY, None)
     session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
 
-    response = make_response(redirect(url_for("index")))
+    response = redirect(_relative_url_for("index"))
     response.delete_cookie("access_token")
 
     current_app.logger.info(
@@ -1091,14 +1243,14 @@ def google_oauth_callback():
     """Google OAuth callback handler."""
     if request.args.get("error"):
         flash(_("Google OAuth error: %(msg)s", msg=request.args["error"]), "error")
-        return redirect(url_for("admin.google_accounts"))
+        return _redirect_to("admin.google_accounts")
 
     code = request.args.get("code")
     state = request.args.get("state")
     saved = session.get("google_oauth_state") or {}
     if not code or state != saved.get("state"):
         flash(_("Invalid OAuth state."), "error")
-        return redirect(url_for("admin.google_accounts"))
+        return _redirect_to("admin.google_accounts")
 
     callback_scheme = determine_external_scheme()
     callback_url = url_for(
@@ -1131,11 +1283,11 @@ def google_oauth_callback():
         current_app.logger.info(f"OAuth token response: {tokens}")
         if "error" in tokens:
             flash(_("Google token error: %(msg)s", msg=tokens.get("error_description", tokens["error"])), "error")
-            return redirect(url_for("admin.google_accounts"))
+            return _redirect_to("admin.google_accounts")
     except Exception as e:
         current_app.logger.error(f"Failed to obtain token from Google: {str(e)}")
         flash(_("Failed to obtain token from Google: %(msg)s", msg=str(e)), "error")
-        return redirect(url_for("admin.google_accounts"))
+        return _redirect_to("admin.google_accounts")
 
     access_token = tokens.get("access_token")
     email = None
@@ -1155,7 +1307,7 @@ def google_oauth_callback():
 
     if not email:
         flash(_("Failed to fetch email from Google."), "error")
-        return redirect(url_for("admin.google_accounts"))
+        return _redirect_to("admin.google_accounts")
 
     account = GoogleAccount.query.filter_by(email=email).first()
     scopes = saved.get("scopes") or []
@@ -1183,8 +1335,8 @@ def picker_auto():
     account = GoogleAccount.query.filter_by(user_id=current_user.id).first()
     if not account:
         flash(_("No Google account linked. Please link a Google account first."), "error")
-        return redirect(url_for("admin.google_accounts"))
-    return redirect(url_for("auth.picker", account_id=account.id))
+        return _redirect_to("admin.google_accounts")
+    return _redirect_to("auth.picker", account_id=account.id)
 
 @bp.get("/picker/<int:account_id>")
 @login_required
@@ -1199,12 +1351,12 @@ def picker(account_id: int):
             flash(_("No refresh token available."), "error")
         else:
             flash(_("Failed to refresh token: %(msg)s", msg=str(e)), "error")
-        return redirect(url_for("admin.google_accounts"))
+        return _redirect_to("admin.google_accounts")
 
     access_token = tokens.get("access_token")
     if not access_token:
         flash(_("Failed to obtain access token."), "error")
-        return redirect(url_for("admin.google_accounts"))
+        return _redirect_to("admin.google_accounts")
 
     try:
         res = log_requests_and_send(
@@ -1218,16 +1370,16 @@ def picker(account_id: int):
         picker_data = res.json()
     except requests.RequestException as e:  # pragma: no cover - network failure
         flash(_("Failed to create picker session: %(msg)s", msg=str(e)), "error")
-        return redirect(url_for("admin.google_accounts"))
+        return _redirect_to("admin.google_accounts")
     except ValueError:
         flash(_("Invalid response from picker API."), "error")
-        return redirect(url_for("admin.google_accounts"))
+        return _redirect_to("admin.google_accounts")
 
     picker_uri = picker_data.get("pickerUri")
     if not picker_uri:
         msg = picker_data.get("error") or _("Failed to create picker session.")
         flash(msg, "error")
-        return redirect(url_for("admin.google_accounts"))
+        return _redirect_to("admin.google_accounts")
 
     ps = PickerSession(
         account_id=account.id,
@@ -1265,4 +1417,4 @@ def picker(account_id: int):
 @login_required
 def google_accounts():
     """Redirect to admin Google accounts page."""
-    return redirect(url_for("admin.google_accounts"))
+    return _redirect_to("admin.google_accounts")

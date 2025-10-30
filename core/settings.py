@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import (
     Any,
+    Callable,
     ClassVar,
     Iterable,
     Mapping,
@@ -30,7 +31,7 @@ from typing import (
 
 from flask import current_app, has_app_context
 
-from domain.storage import StorageDomain, StorageIntent
+from domain.storage import StorageBackendType, StorageDomain, StorageIntent
 
 _DEFAULT_ACCESS_TOKEN_ISSUER = "fpv-webapp"
 _DEFAULT_ACCESS_TOKEN_AUDIENCE = "fpv-webapp"
@@ -68,12 +69,27 @@ class _ConcurrencyAccessor:
             return default
 
 
+StorageFactory = Callable[
+    [Callable[[str], Optional[str]] | None, Callable[[str], Optional[str]] | None],
+    "StorageService",
+]
+
+
 class _StorageAccessor:
     """Helper accessor exposing raw storage configuration values."""
 
     def __init__(self, settings: "ApplicationSettings") -> None:
         self._settings = settings
         self._service: Optional["StorageService"] = None
+        self._service_overridden = False
+        self._factories: dict[StorageBackendType, StorageFactory] = {}
+        self.register_backend(StorageBackendType.LOCAL, self._create_local_service)
+        self.register_backend(
+            StorageBackendType.AZURE_BLOB, self._create_azure_blob_service
+        )
+        self.register_backend(
+            StorageBackendType.EXTERNAL_REST, self._create_external_rest_service
+        )
 
     def configured(self, key: str) -> Optional[str]:
         value = self._settings._get(key)
@@ -87,21 +103,83 @@ class _StorageAccessor:
         """Inject a custom storage service implementation."""
 
         self._service = service
+        self._service_overridden = True
+
+    def register_backend(
+        self, backend: StorageBackendType, factory: StorageFactory
+    ) -> None:
+        """Register a factory used to instantiate a storage backend.
+
+        The registration can happen at application start-up.  When the active
+        backend matches *backend*, the cached service instance is cleared so
+        that subsequent :meth:`service` calls use the freshly registered
+        factory.
+        """
+
+        self._factories[backend] = factory
+        if (
+            not self._service_overridden
+            and self._service is not None
+            and self._settings.storage_backend is backend
+        ):
+            self._service = None
+
+    def _create_local_service(
+        self,
+        config_resolver: Callable[[str], Optional[str]] | None,
+        env_resolver: Callable[[str], Optional[str]] | None,
+    ) -> "StorageService":
+        from core.storage_service import LocalFilesystemStorageService
+
+        return cast(
+            "StorageService",
+            LocalFilesystemStorageService(
+                config_resolver=config_resolver,
+                env_resolver=env_resolver,
+            ),
+        )
+
+    def _create_azure_blob_service(
+        self,
+        config_resolver: Callable[[str], Optional[str]] | None,
+        env_resolver: Callable[[str], Optional[str]] | None,
+    ) -> "StorageService":
+        from core.storage_service import AzureBlobStorageService
+
+        return cast(
+            "StorageService",
+            AzureBlobStorageService(
+                config_resolver=config_resolver,
+                env_resolver=env_resolver,
+            ),
+        )
+
+    def _create_external_rest_service(
+        self,
+        config_resolver: Callable[[str], Optional[str]] | None,
+        env_resolver: Callable[[str], Optional[str]] | None,
+    ) -> "StorageService":
+        from core.storage_service import ExternalRestStorageService
+
+        return cast(
+            "StorageService",
+            ExternalRestStorageService(
+                config_resolver=config_resolver,
+                env_resolver=env_resolver,
+            ),
+        )
 
     def service(self) -> "StorageService":
         """Return the active :class:`StorageService` implementation."""
 
         if self._service is None:
-            from core.storage_service import LocalFilesystemStorageService
+            backend = self._settings.storage_backend
+            factory = self._factories.get(backend)
+            if factory is None:
+                raise ValueError(f"Storage backend '{backend.value}' is not registered")
 
-            service: "StorageService" = cast(
-                "StorageService",
-                LocalFilesystemStorageService(
-                    config_resolver=self.configured,
-                    env_resolver=self.environment,
-                ),
-            )
-            self._service = service
+            self._service = factory(self.configured, self.environment)
+            self._service_overridden = False
 
         return cast("StorageService", self._service)
 
@@ -272,6 +350,33 @@ class ApplicationSettings:
     # ------------------------------------------------------------------
     # Storage paths
     # ------------------------------------------------------------------
+    @property
+    def storage_backend(self) -> StorageBackendType:
+        """Return the configured storage backend implementation.
+
+        The value is resolved from the ``STORAGE_BACKEND`` environment or
+        application configuration variable.  When unset, the local filesystem
+        backend is used.
+        """
+
+        value = self.get("STORAGE_BACKEND", StorageBackendType.LOCAL.value)
+        if value is None:
+            return StorageBackendType.LOCAL
+
+        normalised = str(value).strip().lower()
+        if not normalised:
+            return StorageBackendType.LOCAL
+
+        for backend in StorageBackendType:
+            if backend.value == normalised:
+                return backend
+
+        raise ValueError(
+            f"Unsupported storage backend '{value}'. "
+            "Available values: "
+            + ", ".join(backend.value for backend in StorageBackendType)
+        )
+
     @property
     def tmp_directory(self) -> Path:
         return self._path_or_default("MEDIA_TEMP_DIRECTORY", "/tmp/fpv_tmp")

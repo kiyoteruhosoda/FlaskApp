@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from unittest.mock import DEFAULT
 
 
 class StorageDomain(Enum):
@@ -25,6 +24,14 @@ class StorageIntent(Enum):
     WRITE = "write"
     LIST = "list"
     DELETE = "delete"
+
+
+class StorageBackendType(Enum):
+    """サポートされるストレージ実装の種類."""
+
+    LOCAL = "local"
+    AZURE_BLOB = "azure_blob"
+    EXTERNAL_REST = "external_rest"
 
 
 @dataclass(frozen=True)

@@ -45,6 +45,7 @@ from ..services.gui_access_cookie import (
     normalize_scope_items,
 )
 from core.settings import settings
+from ..utils import determine_external_scheme
 
 
 user_repo = SqlAlchemyUserRepository(db.session)
@@ -1068,18 +1069,25 @@ def google_oauth_callback():
         flash(_("Invalid OAuth state."), "error")
         return redirect(url_for("admin.google_accounts"))
 
+    callback_scheme = determine_external_scheme()
+    callback_url = url_for(
+        "auth.google_oauth_callback", _external=True, _scheme=callback_scheme
+    )
+
     token_data = {
         "code": code,
         "client_id": settings.google_client_id,
         "client_secret": settings.google_client_secret,
-        "redirect_uri": url_for("auth.google_oauth_callback", _external=True),
+        "redirect_uri": callback_url,
         "grant_type": "authorization_code",
     }
 
     # デバッグログを追加
     current_app.logger.info(f"OAuth callback - client_id: {token_data['client_id']}")
     current_app.logger.info(f"OAuth callback - client_secret exists: {bool(token_data['client_secret'])}")
-    current_app.logger.info(f"OAuth callback - redirect_uri: {token_data['redirect_uri']}")
+    current_app.logger.info(
+        "OAuth callback - redirect_uri: %s", token_data["redirect_uri"]
+    )
 
     try:
         token_res = log_requests_and_send(

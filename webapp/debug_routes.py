@@ -6,6 +6,7 @@ OAuth URL生成のデバッグ用Blueprint
 from flask import Blueprint, request, jsonify, url_for
 
 from core.settings import settings
+from .utils import determine_external_scheme
 
 debug_bp = Blueprint('debug', __name__)
 
@@ -26,7 +27,11 @@ def debug_headers():
     
     # FlaskのURL生成テスト
     try:
-        callback_url = url_for('auth.google_oauth_callback', _external=True)
+        callback_url = url_for(
+            'auth.google_oauth_callback',
+            _external=True,
+            _scheme=determine_external_scheme(),
+        )
     except Exception as e:
         callback_url = f"Error: {str(e)}"
     
@@ -54,7 +59,11 @@ def debug_oauth_url():
     """OAuth URL生成のテスト"""
     try:
         # コールバックURL生成
-        callback_url = url_for('auth.google_oauth_callback', _external=True)
+        callback_url = url_for(
+            'auth.google_oauth_callback',
+            _external=True,
+            _scheme=determine_external_scheme(),
+        )
         
         # OAuth URLパラメータ作成
         from urllib.parse import urlencode

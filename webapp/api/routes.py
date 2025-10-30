@@ -17,16 +17,18 @@ from uuid import uuid4
 from typing import Any, Iterable, Iterator
 
 from flask import (
+    Response,
+    abort,
     current_app,
+    flash,
+    g,
     jsonify,
+    make_response,
     redirect,
     render_template,
     request,
     session,
     url_for,
-    flash,
-    g,
-    make_response,
 )
 from flask_login import login_required, logout_user, login_user
 from flask_babel import gettext as _
@@ -3057,6 +3059,209 @@ def _resolve_download_filename(payload: dict, rel: str, abs_path: str) -> str | 
     return filename
 
 
+def _build_accel_target(prefix: str | None, rel: str, token: str) -> str | None:
+    if not prefix:
+        return None
+
+    normalized_rel = rel.replace(os.sep, "/").lstrip("/")
+    if not normalized_rel:
+        return None
+
+    base = posixpath.join(prefix.rstrip("/"), normalized_rel)
+    if token:
+        return f"{base}?token={quote(token, safe='')}"
+    return base
+
+
+def _build_download_response(
+    *,
+    payload: dict,
+    resolved: "ResolvedStorageFile",
+    rel: str,
+    content_type: str,
+    download_filename: str | None,
+    accel_target: str | None,
+    log_event: str,
+) -> Response:
+    service = _storage_service()
+    abs_path = resolved.absolute_path
+    size = service.size(abs_path)
+    exp_ts = payload.get("exp")
+    try:
+        ttl = max(int(exp_ts) - int(time.time()), 0) if exp_ts else 0
+    except (TypeError, ValueError):
+        ttl = 0
+    cache_control = f"private, max-age={ttl}"
+    range_header = request.headers.get("Range") if request.method != "HEAD" else None
+
+    if range_header:
+        m = re.match(r"bytes=(\d+)-(\d*)", range_header)
+        if m:
+            start = int(m.group(1))
+            end = int(m.group(2) or size - 1)
+            end = min(end, size - 1)
+            length = end - start + 1
+            with service.open(abs_path, "rb") as f:
+                f.seek(start)
+                data = f.read(length)
+            resp = current_app.response_class(
+                data, 206, mimetype=content_type, direct_passthrough=True
+            )
+            resp.headers["Content-Range"] = f"bytes {start}-{end}/{size}"
+            resp.headers["Accept-Ranges"] = "bytes"
+            resp.headers["Content-Length"] = str(length)
+            resp.headers["Cache-Control"] = cache_control
+            if download_filename:
+                resp.headers["Content-Disposition"] = _build_content_disposition(
+                    download_filename
+                )
+            if accel_target:
+                resp.headers["X-Accel-Redirect"] = accel_target
+                current_app.logger.info(
+                    json.dumps(
+                        {
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                            "mid": payload.get("mid"),
+                            "nonce": payload.get("nonce"),
+                        }
+                    ),
+                    extra={"event": "dl.accel"},
+                )
+            current_app.logger.info(
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "mid": payload.get("mid"),
+                        "nonce": payload.get("nonce"),
+                        "start": start,
+                        "end": end,
+                    }
+                ),
+                extra={"event": "dl.range"},
+            )
+            current_app.logger.info(
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "mid": payload.get("mid"),
+                        "nonce": payload.get("nonce"),
+                    }
+                ),
+                extra={"event": log_event},
+            )
+            return resp
+
+    if request.method == "HEAD":
+        resp = current_app.response_class(b"", mimetype=content_type)
+        resp.headers["Content-Length"] = str(size)
+    else:
+        with service.open(abs_path, "rb") as f:
+            data = f.read()
+        resp = current_app.response_class(
+            data, mimetype=content_type, direct_passthrough=True
+        )
+        resp.headers["Content-Length"] = str(size)
+
+    resp.headers["Accept-Ranges"] = "bytes"
+    resp.headers["Cache-Control"] = cache_control
+    if download_filename:
+        resp.headers["Content-Disposition"] = _build_content_disposition(
+            download_filename
+        )
+    if accel_target:
+        resp.headers["X-Accel-Redirect"] = accel_target
+        current_app.logger.info(
+            json.dumps(
+                {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "mid": payload.get("mid"),
+                    "nonce": payload.get("nonce"),
+                }
+            ),
+            extra={"event": "dl.accel"},
+        )
+    current_app.logger.info(
+        json.dumps(
+            {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "mid": payload.get("mid"),
+                "nonce": payload.get("nonce"),
+            }
+        ),
+        extra={"event": log_event},
+    )
+    return resp
+def _infer_media_id(expected_type: str, rel_path: str) -> int | None:
+    if expected_type == "original":
+        media = Media.query.filter_by(local_rel_path=rel_path).first()
+        return media.id if media else None
+    if expected_type == "thumb":
+        media = Media.query.filter_by(thumbnail_rel_path=rel_path).first()
+        if media:
+            return media.id
+        media = Media.query.filter_by(local_rel_path=rel_path).first()
+        return media.id if media else None
+    if expected_type == "playback":
+        playback = MediaPlayback.query.filter_by(rel_path=rel_path).first()
+        return playback.media_id if playback else None
+    return None
+
+
+def _handle_accel_fallback(
+    *,
+    expected_type: str,
+    storage_domain: StorageDomain,
+    prefix: str,
+    rel: str,
+) -> Response:
+    token = request.args.get("token", "")
+
+    rel_normalized = rel.strip("/")
+    if not rel_normalized:
+        abort(404)
+
+    segments = rel_normalized.split("/")
+    if any(part in ("..", "") for part in segments):
+        abort(404)
+
+    expected_path = f"{prefix}/{rel_normalized}" if prefix else rel_normalized
+
+    payload: dict[str, Any] | None = None
+
+    if not token:
+        abort(404)
+
+    payload, err = _verify_token(token)
+    if err or payload.get("typ") != expected_type:
+        abort(404)
+    if payload.get("path") != expected_path:
+        abort(404)
+
+    resolved = _resolve_storage_file(storage_domain, *segments)
+    if not resolved.exists or not resolved.absolute_path:
+        abort(404)
+
+    ct = (
+        payload.get("ct") if payload else None
+    ) or mimetypes.guess_type(resolved.absolute_path)[0] or "application/octet-stream"
+
+    if payload is not None:
+        payload["ct"] = ct
+
+    download_filename = _resolve_download_filename(
+        payload or {}, rel_normalized, resolved.absolute_path
+    )
+    return _build_download_response(
+        payload=payload or {},
+        resolved=resolved,
+        rel=rel_normalized,
+        content_type=ct,
+        download_filename=download_filename,
+        accel_target=None,
+        log_event="dl.fallback",
+    )
+
+
 def _build_content_disposition(filename: str) -> str:
     """Build Content-Disposition header value keeping UTF-8 names intact."""
     sanitized = (filename or "").replace("\r", " ").replace("\n", " ").strip()
@@ -3496,6 +3701,39 @@ def api_media_playback_url(media_id):
     )
 
 
+@bp.route("/media/thumbs/<path:rel>", methods=["GET", "HEAD"])
+@skip_auth
+def api_download_thumb_fallback(rel: str):
+    return _handle_accel_fallback(
+        expected_type="thumb",
+        storage_domain=StorageDomain.MEDIA_THUMBNAILS,
+        prefix="thumbs",
+        rel=rel,
+    )
+
+
+@bp.route("/media/playback/<path:rel>", methods=["GET", "HEAD"])
+@skip_auth
+def api_download_playback_fallback(rel: str):
+    return _handle_accel_fallback(
+        expected_type="playback",
+        storage_domain=StorageDomain.MEDIA_PLAYBACK,
+        prefix="playback",
+        rel=rel,
+    )
+
+
+@bp.route("/media/originals/<path:rel>", methods=["GET", "HEAD"])
+@skip_auth
+def api_download_original_fallback(rel: str):
+    return _handle_accel_fallback(
+        expected_type="original",
+        storage_domain=StorageDomain.MEDIA_ORIGINALS,
+        prefix="originals",
+        rel=rel,
+    )
+
+
 @bp.route("/dl/<path:token>", methods=["GET", "HEAD"])
 @login_or_jwt_required
 def api_download(token):
@@ -3519,7 +3757,6 @@ def api_download(token):
         return jsonify({"error": "forbidden"}), 403
 
     typ = payload.get("typ")
-    service = _storage_service()
     if typ == "thumb":
         if not path.startswith("thumbs/"):
             return jsonify({"error": "forbidden"}), 403
@@ -3529,7 +3766,6 @@ def api_download(token):
             *rel.split("/"),
         )
         accel_prefix = settings.media_accel_thumbnails_location
-        ttl = settings.media_thumbnail_url_ttl_seconds
     elif typ == "playback":
         if not path.startswith("playback/"):
             return jsonify({"error": "forbidden"}), 403
@@ -3539,7 +3775,6 @@ def api_download(token):
             *rel.split("/"),
         )
         accel_prefix = settings.media_accel_playback_location
-        ttl = settings.media_playback_url_ttl_seconds
     elif typ == "original":
         if not path.startswith("originals/"):
             return jsonify({"error": "forbidden"}), 403
@@ -3549,7 +3784,6 @@ def api_download(token):
             *rel.split("/"),
         )
         accel_prefix = settings.media_accel_originals_location
-        ttl = settings.media_original_url_ttl_seconds
     else:
         return jsonify({"error": "forbidden"}), 403
     if not resolved.exists or not resolved.absolute_path:
@@ -3572,106 +3806,19 @@ def api_download(token):
     if guessed != ct:
         return jsonify({"error": "forbidden"}), 403
 
-    size = service.size(abs_path)
-    cache_control = f"private, max-age={ttl}"
-    range_header = request.headers.get("Range")
-
-    accel_enabled = settings.media_accel_redirect_enabled
-    accel_prefix = (accel_prefix or "").strip() if accel_enabled else ""
     accel_target = None
-    if accel_prefix:
-        rel_posix = rel.replace(os.sep, "/").lstrip("/")
-        accel_target = posixpath.join(accel_prefix.rstrip("/"), rel_posix)
+    if settings.media_accel_redirect_enabled:
+        accel_target = _build_accel_target(accel_prefix, rel, token)
 
-    if accel_target:
-        resp = current_app.response_class(b"", mimetype=ct)
-        resp.headers["Cache-Control"] = cache_control
-        resp.headers["Accept-Ranges"] = "bytes"
-        resp.headers["X-Accel-Redirect"] = accel_target
-        resp.headers["Content-Length"] = str(size)
-        if download_filename:
-            resp.headers["Content-Disposition"] = _build_content_disposition(
-                download_filename
-            )
-        current_app.logger.info(
-            json.dumps(
-                {
-                    "ts": datetime.now(timezone.utc).isoformat(),
-                    "mid": payload.get("mid"),
-                    "nonce": payload.get("nonce"),
-                }
-            ),
-            extra={"event": "dl.accel"},
-        )
-        return resp
-
-    if range_header:
-        m = re.match(r"bytes=(\d+)-(\d*)", range_header)
-        if m:
-            start = int(m.group(1))
-            end = int(m.group(2) or size - 1)
-            end = min(end, size - 1)
-            length = end - start + 1
-            with service.open(abs_path, "rb") as f:
-                f.seek(start)
-                data = f.read(length)
-            resp = current_app.response_class(
-                data, 206, mimetype=ct, direct_passthrough=True
-            )
-            resp.headers["Content-Range"] = f"bytes {start}-{end}/{size}"
-            resp.headers["Accept-Ranges"] = "bytes"
-            resp.headers["Content-Length"] = str(length)
-            resp.headers["Cache-Control"] = cache_control
-            if download_filename:
-                resp.headers["Content-Disposition"] = _build_content_disposition(
-                    download_filename
-                )
-            current_app.logger.info(
-                json.dumps(
-                    {
-                        "ts": datetime.now(timezone.utc).isoformat(),
-                        "mid": payload.get("mid"),
-                        "nonce": payload.get("nonce"),
-                        "start": start,
-                        "end": end,
-                    }
-                ),
-                extra={"event": "dl.range"},
-            )
-            return resp
-
-    if request.method == "HEAD":
-        resp = current_app.response_class(b"", mimetype=ct)
-        resp.headers["Content-Length"] = str(size)
-        resp.headers["Accept-Ranges"] = "bytes"
-        resp.headers["Cache-Control"] = cache_control
-        if download_filename:
-            resp.headers["Content-Disposition"] = _build_content_disposition(
-                download_filename
-            )
-        return resp
-
-    with service.open(abs_path, "rb") as f:
-        data = f.read()
-    resp = current_app.response_class(data, mimetype=ct, direct_passthrough=True)
-    resp.headers["Content-Length"] = str(size)
-    resp.headers["Accept-Ranges"] = "bytes"
-    resp.headers["Cache-Control"] = cache_control
-    if download_filename:
-        resp.headers["Content-Disposition"] = _build_content_disposition(
-            download_filename
-        )
-    current_app.logger.info(
-        json.dumps(
-            {
-                "ts": datetime.now(timezone.utc).isoformat(),
-                "mid": payload.get("mid"),
-                "nonce": payload.get("nonce"),
-            }
-        ),
-        extra={"event": "dl.success"},
+    return _build_download_response(
+        payload=payload,
+        resolved=resolved,
+        rel=rel,
+        content_type=ct,
+        download_filename=download_filename,
+        accel_target=accel_target,
+        log_event="dl.success",
     )
-    return resp
 
 
 @bp.get("/admin/user")

@@ -37,8 +37,8 @@ CREATE TABLE `album` (
   `cover_media_id` bigint(20) DEFAULT NULL,
   `visibility` enum('public','private','unlisted') NOT NULL,
   `display_order` int(11) DEFAULT NULL,
-  `created_at` datetime NOT NULL,
-  `updated_at` datetime NOT NULL,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   KEY `cover_media_id` (`cover_media_id`),
   CONSTRAINT `album_ibfk_1` FOREIGN KEY (`cover_media_id`) REFERENCES `media` (`id`)
@@ -125,8 +125,8 @@ CREATE TABLE `celery_task` (
   `payload_json` text NOT NULL DEFAULT '{}',
   `result_json` text DEFAULT NULL,
   `error_message` text DEFAULT NULL,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   UNIQUE KEY `celery_task_id` (`celery_task_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -192,8 +192,8 @@ CREATE TABLE `certificate_groups` (
   `key_size` int(11) DEFAULT NULL,
   `subject` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`subject`)),
   `usage_type` varchar(32) NOT NULL,
-  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT current_timestamp(6) ON UPDATE current_timestamp(6),
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_certificate_groups_group_code` (`group_code`),
   KEY `ix_certificate_groups_usage_type` (`usage_type`),
@@ -289,8 +289,8 @@ CREATE TABLE `google_account` (
   `scopes` text NOT NULL,
   `last_synced_at` datetime DEFAULT NULL,
   `oauth_token_json` text DEFAULT NULL,
-  `created_at` datetime NOT NULL,
-  `updated_at` datetime NOT NULL,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_user_google_email` (`user_id`,`email`),
   CONSTRAINT `google_account_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`)
@@ -368,7 +368,7 @@ CREATE TABLE `job_sync` (
   KEY `job_sync_celery_task_id_fkey` (`celery_task_id`),
   CONSTRAINT `job_sync_celery_task_id_fkey` FOREIGN KEY (`celery_task_id`) REFERENCES `celery_task` (`id`),
   CONSTRAINT `job_sync_ibfk_1` FOREIGN KEY (`session_id`) REFERENCES `picker_session` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -395,9 +395,9 @@ CREATE TABLE `log` (
   `trace` text DEFAULT NULL,
   `path` varchar(255) DEFAULT NULL,
   `request_id` varchar(36) DEFAULT NULL,
-  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -438,8 +438,8 @@ CREATE TABLE `media` (
   `is_deleted` tinyint(1) NOT NULL,
   `has_playback` tinyint(1) NOT NULL,
   `live_group_id` bigint(20) DEFAULT NULL,
-  `created_at` datetime NOT NULL,
-  `updated_at` datetime NOT NULL,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   `thumbnail_rel_path` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `account_id` (`account_id`),
@@ -474,8 +474,8 @@ CREATE TABLE `media_item` (
   `camera_model` varchar(255) DEFAULT NULL,
   `photo_metadata_id` bigint(20) DEFAULT NULL,
   `video_metadata_id` bigint(20) DEFAULT NULL,
-  `created_at` datetime NOT NULL,
-  `updated_at` datetime NOT NULL,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   KEY `photo_metadata_id` (`photo_metadata_id`),
   KEY `video_metadata_id` (`video_metadata_id`),
@@ -515,8 +515,8 @@ CREATE TABLE `media_playback` (
   `hash_sha256` char(64) DEFAULT NULL,
   `status` enum('pending','processing','done','error') NOT NULL,
   `error_msg` text DEFAULT NULL,
-  `created_at` datetime NOT NULL,
-  `updated_at` datetime NOT NULL,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   KEY `media_id` (`media_id`),
   CONSTRAINT `media_playback_ibfk_1` FOREIGN KEY (`media_id`) REFERENCES `media` (`id`)
@@ -548,7 +548,7 @@ CREATE TABLE `media_sidecar` (
   PRIMARY KEY (`id`),
   KEY `media_id` (`media_id`),
   CONSTRAINT `media_sidecar_ibfk_1` FOREIGN KEY (`media_id`) REFERENCES `media` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -599,12 +599,12 @@ CREATE TABLE `media_thumbnail_retry` (
   `retry_after` datetime NOT NULL,
   `force` tinyint(1) NOT NULL DEFAULT 0,
   `celery_task_id` varchar(255) DEFAULT NULL,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_media_thumbnail_retry_media_id` (`media_id`),
   CONSTRAINT `fk_media_thumbnail_retry_media_id` FOREIGN KEY (`media_id`) REFERENCES `media` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -702,7 +702,7 @@ DROP TABLE IF EXISTS `picker_import_task`;
 CREATE TABLE `picker_import_task` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -740,8 +740,8 @@ CREATE TABLE `picker_selection` (
   `locked_by` varchar(255) DEFAULT NULL,
   `lock_heartbeat_at` datetime DEFAULT NULL,
   `last_transition_at` datetime DEFAULT NULL,
-  `created_at` datetime NOT NULL,
-  `updated_at` datetime NOT NULL,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_picker_selection_session_media` (`session_id`,`google_media_id`),
   KEY `google_media_id` (`google_media_id`),
@@ -782,8 +782,8 @@ CREATE TABLE `picker_session` (
   `stats_json` text DEFAULT NULL,
   `last_polled_at` datetime DEFAULT NULL,
   `last_progress_at` datetime DEFAULT NULL,
-  `created_at` datetime NOT NULL,
-  `updated_at` datetime NOT NULL,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   UNIQUE KEY `session_id` (`session_id`),
   KEY `account_id` (`account_id`),
@@ -939,7 +939,7 @@ CREATE TABLE `service_account_api_key` (
   `scope_names` varchar(2000) NOT NULL,
   `expires_at` datetime(6) DEFAULT NULL,
   `revoked_at` datetime(6) DEFAULT NULL,
-  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `created_by` varchar(255) NOT NULL,
   PRIMARY KEY (`api_key_id`),
   UNIQUE KEY `uq_service_account_api_key_public_id` (`public_id`),
@@ -1025,13 +1025,13 @@ CREATE TABLE `tag` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
   `attr` enum('person','place','thing') NOT NULL,
-  `created_at` datetime NOT NULL,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `created_by` bigint(20) DEFAULT NULL,
-  `updated_at` datetime NOT NULL,
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   KEY `created_by` (`created_by`),
   CONSTRAINT `tag_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `user` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1060,8 +1060,8 @@ CREATE TABLE `totp_credential` (
   `algorithm` varchar(16) NOT NULL DEFAULT 'SHA1',
   `digits` smallint(6) NOT NULL DEFAULT 6,
   `period` smallint(6) NOT NULL DEFAULT 30,
-  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT current_timestamp(6) ON UPDATE current_timestamp(6),
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_totp_user_account_issuer` (`user_id`,`account`,`issuer`),
   KEY `ix_totp_credential_user_id` (`user_id`),
@@ -1090,10 +1090,11 @@ CREATE TABLE `user` (
   `email` varchar(255) NOT NULL,
   `username` varchar(80) DEFAULT NULL,
   `password_hash` varchar(255) NOT NULL,
-  `created_at` datetime DEFAULT NULL,
   `totp_secret` varchar(32) DEFAULT NULL,
   `is_active` tinyint(1) NOT NULL,
   `refresh_token_hash` varchar(255) DEFAULT NULL,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   UNIQUE KEY `ix_user_email` (`email`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -1150,7 +1151,7 @@ CREATE TABLE `video_metadata` (
   `fps` float DEFAULT NULL,
   `processing_status` enum('UNSPECIFIED','PROCESSING','READY','FAILED') DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1175,10 +1176,11 @@ CREATE TABLE `wiki_category` (
   `description` text DEFAULT NULL,
   `slug` varchar(100) NOT NULL,
   `sort_order` int(11) NOT NULL,
-  `created_at` datetime NOT NULL,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   UNIQUE KEY `ix_wiki_category_slug` (`slug`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1205,8 +1207,8 @@ CREATE TABLE `wiki_page` (
   `is_published` tinyint(1) NOT NULL,
   `parent_id` bigint(20) DEFAULT NULL,
   `sort_order` int(11) NOT NULL,
-  `created_at` datetime NOT NULL,
-  `updated_at` datetime NOT NULL,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   `created_by_id` bigint(20) NOT NULL,
   `updated_by_id` bigint(20) NOT NULL,
   PRIMARY KEY (`id`),
@@ -1217,7 +1219,7 @@ CREATE TABLE `wiki_page` (
   CONSTRAINT `wiki_page_ibfk_1` FOREIGN KEY (`created_by_id`) REFERENCES `user` (`id`),
   CONSTRAINT `wiki_page_ibfk_2` FOREIGN KEY (`parent_id`) REFERENCES `wiki_page` (`id`),
   CONSTRAINT `wiki_page_ibfk_3` FOREIGN KEY (`updated_by_id`) REFERENCES `user` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1276,7 +1278,7 @@ CREATE TABLE `wiki_revision` (
   KEY `page_id` (`page_id`),
   CONSTRAINT `wiki_revision_ibfk_1` FOREIGN KEY (`created_by_id`) REFERENCES `user` (`id`),
   CONSTRAINT `wiki_revision_ibfk_2` FOREIGN KEY (`page_id`) REFERENCES `wiki_page` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1297,7 +1299,7 @@ DROP TABLE IF EXISTS `worker_log`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `worker_log` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `level` varchar(20) NOT NULL,
   `event` varchar(50) NOT NULL,
   `logger_name` varchar(120) DEFAULT NULL,
@@ -1311,7 +1313,7 @@ CREATE TABLE `worker_log` (
   `meta_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`meta_json`)),
   `extra_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`extra_json`)),
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1322,3 +1324,44 @@ LOCK TABLES `worker_log` WRITE;
 /*!40000 ALTER TABLE `worker_log` DISABLE KEYS */;
 /*!40000 ALTER TABLE `worker_log` ENABLE KEYS */;
 UNLOCK TABLES;
+
+--
+-- Table structure for table `passkey_credential`
+--
+
+DROP TABLE IF EXISTS `passkey_credential`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `passkey_credential` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(20) NOT NULL,
+  `credential_id` VARCHAR(255) NOT NULL,
+  `public_key` TEXT NOT NULL,
+  `sign_count` BIGINT NOT NULL DEFAULT 0,
+  `transports` JSON DEFAULT NULL,
+  `name` VARCHAR(255) DEFAULT NULL,
+  `attestation_format` VARCHAR(64) DEFAULT NULL,
+  `aaguid` VARCHAR(64) DEFAULT NULL,
+  `backup_eligible` BOOLEAN NOT NULL DEFAULT FALSE,
+  `backup_state` BOOLEAN NOT NULL DEFAULT FALSE,
+  `last_used_at` DATETIME(6) DEFAULT NULL,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_passkey_credential_id` (`credential_id`),
+  KEY `ix_passkey_credential_user_id` (`user_id`),
+  CONSTRAINT `fk_passkey_credential_user_id_user`
+    FOREIGN KEY (`user_id`) REFERENCES `user` (`id`)
+    ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `worker_log`
+--
+
+LOCK TABLES `passkey_credential` WRITE;
+/*!40000 ALTER TABLE `worker_log` DISABLE KEYS */;
+/*!40000 ALTER TABLE `worker_log` ENABLE KEYS */;
+UNLOCK TABLES;
+

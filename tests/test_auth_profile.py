@@ -207,6 +207,23 @@ def test_service_account_cannot_access_totp_setup(client):
         assert "setup_totp_secret" not in sess
 
 
+def test_totp_setup_with_bearer_token_authenticated_user(client):
+    user = _create_user()
+
+    with client.application.app_context():
+        token = TokenService.generate_access_token(user)
+
+    response = client.get(
+        "/auth/setup_totp",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+
+    html = response.data.decode("utf-8")
+    assert "Setup Two-Factor Authentication" in html
+
+
 def test_localtime_filter_respects_timezone_cookie(app_context):
     app = app_context
     dt = datetime(2024, 1, 1, 15, 0, tzinfo=timezone.utc)

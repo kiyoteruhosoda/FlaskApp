@@ -81,5 +81,11 @@ class AuthenticatedPrincipal:
             _permissions=frozenset(scope),
         )
 
+    @property
+    def totp_secret(self) -> None:
+        """Flask-Login API 互換のためのプレースホルダー。"""
+
+        return None
+
 
 __all__ = ["AuthenticatedPrincipal", "SubjectType"]

@@ -125,6 +125,27 @@ def _render_login_template():
     )
 
 
+def _resolve_current_user_model() -> User | None:
+    """現在のログイン状態から永続化されたユーザーモデルを解決する。"""
+
+    # LocalProxy 経由で実体を取得
+    actual_user = current_user._get_current_object()  # type: ignore[attr-defined]
+
+    if isinstance(actual_user, User):
+        return actual_user
+
+    if isinstance(actual_user, AuthenticatedPrincipal):
+        if actual_user.is_service_account:
+            return None
+        return User.query.get(actual_user.subject_id)
+
+    user_identifier = getattr(actual_user, "user_id", None)
+    if isinstance(user_identifier, int):
+        return User.query.get(user_identifier)
+
+    return None
+
+
 def _pop_role_selection_target() -> str:
     """ロール選択後の遷移先を取得する。"""
     candidate = session.pop("role_selection_next", None) or request.values.get("next")
@@ -966,12 +987,22 @@ def setup_totp():
         flash(_("Two-factor authentication is not available for service accounts."), "warning")
         return redirect(service_redirect)
 
-    if current_user.totp_secret:
+    user_model = _resolve_current_user_model()
+    if user_model is None:
+        current_app.logger.warning(
+            "TOTP setup requested but no persistent user could be resolved",
+            extra={"event": "auth.totp.user_missing"},
+        )
+        flash(_("We could not load your account information. Please sign in again."), "error")
+        logout_user()
+        return redirect(url_for("auth.login"))
+
+    if user_model.totp_secret:
         flash(_("Two-factor authentication already configured"), "error")
         return redirect(next_url)
 
     secret = session.get("setup_totp_secret")
-    
+
     # セッション有効性をチェック
     if secret and _is_session_expired("setup_totp"):
         _clear_setup_totp_session()
@@ -982,7 +1013,7 @@ def setup_totp():
         session["setup_totp_secret"] = secret
         _set_session_timestamp("setup_totp")
     
-    uri = provisioning_uri(current_user.email, secret)
+    uri = provisioning_uri(user_model.email, secret)
     qr_data = qr_code_data_uri(uri)
     
     if request.method == "POST":
@@ -996,7 +1027,7 @@ def setup_totp():
                 otpauth_uri=uri,
                 next_url=next_url,
             )
-        current_user.totp_secret = secret
+        user_model.totp_secret = secret
         db.session.commit()
         _clear_setup_totp_session()
         flash(_("Two-factor authentication enabled"), "success")

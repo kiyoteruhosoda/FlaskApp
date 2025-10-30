@@ -83,6 +83,19 @@ def test_preferred_url_scheme_used_when_no_proxy_headers(set_preferred_scheme) -
     assert determine_external_scheme(request) == "https"
 
 
+def test_preferred_url_scheme_overrides_proxy_headers(set_preferred_scheme) -> None:
+    set_preferred_scheme("https")
+    request = _build_request(
+        scheme="http",
+        headers={
+            "Forwarded": "for=1.2.3.4;proto=http",
+            "X-Forwarded-Proto": "http",
+        },
+    )
+
+    assert determine_external_scheme(request) == "https"
+
+
 def test_request_scheme_used_as_next_fallback(set_preferred_scheme) -> None:
     set_preferred_scheme(None)
     request = _build_request(scheme="http")

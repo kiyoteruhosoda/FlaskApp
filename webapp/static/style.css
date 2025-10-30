@@ -544,29 +544,6 @@ body.login-page footer {
   margin-bottom: 20px;
 }
 
-.btn-secondary {
-  background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
-  color: #4a5568;
-  border: 1px solid #cbd5e0;
-  padding: 12px 24px;
-  border-radius: 10px;
-  font-weight: 500;
-  text-decoration: none;
-  display: inline-block;
-  transition: all 0.3s ease;
-  width: 100%;
-  text-align: center;
-}
-
-.btn-secondary:hover {
-  background: linear-gradient(135deg, #edf2f7 0%, #e2e8f0 100%);
-  border-color: #a0aec0;
-  color: #2d3748;
-  text-decoration: none;
-  transform: translateY(-1px);
-  box-shadow: 0 8px 25px rgba(74, 85, 104, 0.15);
-}
-
 /* Authentication code field specific icon positioning */
 .auth-code-field .input-icon {
   top: 50%;

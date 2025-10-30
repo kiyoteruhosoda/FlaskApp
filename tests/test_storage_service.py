@@ -1,6 +1,14 @@
 from __future__ import annotations
 
-from core.storage_service import LocalFilesystemStorageService
+import pytest
+
+from core.settings import ApplicationSettings
+from core.storage_service import (
+    AzureBlobStorageService,
+    ExternalRestStorageService,
+    LocalFilesystemStorageService,
+)
+from domain.storage import StorageBackendType
 
 
 def _make_service(config: dict[str, str] | None = None) -> LocalFilesystemStorageService:
@@ -48,3 +56,59 @@ def test_local_service_resolve_without_parts_returns_base(tmp_path):
     assert resolution.base_path == str(base_dir)
     assert resolution.absolute_path == str(base_dir)
     assert resolution.exists is True
+
+
+def test_settings_storage_backend_defaults_to_local():
+    settings = ApplicationSettings(env={})
+
+    service = settings.storage.service()
+
+    assert isinstance(service, LocalFilesystemStorageService)
+
+
+def test_settings_storage_backend_registration():
+    settings = ApplicationSettings(env={"STORAGE_BACKEND": "external_rest"})
+    created: list[str] = []
+
+    def factory(config_resolver, env_resolver):
+        created.append("called")
+        return LocalFilesystemStorageService(
+            config_resolver=config_resolver,
+            env_resolver=env_resolver,
+        )
+
+    settings.storage.register_backend(StorageBackendType.EXTERNAL_REST, factory)
+
+    service = settings.storage.service()
+
+    assert isinstance(service, LocalFilesystemStorageService)
+    assert created
+
+
+def test_settings_storage_backend_invalid_value():
+    settings = ApplicationSettings(env={"STORAGE_BACKEND": "invalid"})
+
+    with pytest.raises(ValueError):
+        _ = settings.storage_backend
+
+
+def test_settings_storage_backend_azure_blob_placeholder():
+    settings = ApplicationSettings(env={"STORAGE_BACKEND": "azure_blob"})
+
+    service = settings.storage.service()
+
+    assert isinstance(service, AzureBlobStorageService)
+
+    with pytest.raises(NotImplementedError):
+        service.exists("anything")
+
+
+def test_settings_storage_backend_external_rest_placeholder():
+    settings = ApplicationSettings(env={"STORAGE_BACKEND": "external_rest"})
+
+    service = settings.storage.service()
+
+    assert isinstance(service, ExternalRestStorageService)
+
+    with pytest.raises(NotImplementedError):
+        service.exists("anything")

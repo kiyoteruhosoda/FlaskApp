@@ -1907,7 +1907,7 @@ def api_login(data):
                 session["active_role_id"] = role.id
                 break
 
-    user_permissions = user_model.all_permissions
+    user_permissions = set(user_model.all_permissions)
     granted_scope = sorted(requested_scope & user_permissions)
     scope_str = " ".join(granted_scope)
     session[API_LOGIN_SCOPE_SESSION_KEY] = granted_scope
@@ -1984,7 +1984,7 @@ def api_refresh(data):
         return jsonify({"error": "invalid_token"}), 401
 
     access_token, new_refresh_token, scope_str = token_bundle
-    scope_items = _normalize_scope_items(scope_str.split())
+    scope_items = normalize_scope_items(scope_str.split())
     session[API_LOGIN_SCOPE_SESSION_KEY] = scope_items
 
     resp = jsonify({

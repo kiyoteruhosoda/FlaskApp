@@ -320,6 +320,46 @@ def test_login_cookie_requires_gui_scope(app, client):
         assert "SameSite=" in header
 
 
+def test_login_with_gui_scope_grants_requested_permissions_only(app, client):
+    from webapp.extensions import db
+
+    with app.app_context():
+        gui_perm = Permission(code="gui:view")
+        manage_perm = Permission(code="user:manage")
+        photo_perm = Permission(code="admin:photo-settings")
+        role = Role(name=f"gui-full-{uuid.uuid4().hex[:8]}")
+        role.permissions.extend([gui_perm, manage_perm, photo_perm])
+
+        user = User(email=f"full-{uuid.uuid4().hex[:8]}@example.com")
+        user.set_password("pass")
+        user.roles.append(role)
+
+        db.session.add_all([gui_perm, manage_perm, photo_perm, role, user])
+        db.session.commit()
+
+        user_email = user.email
+
+    response = client.post(
+        "/api/login",
+        json={
+            "email": user_email,
+            "password": "pass",
+            "scope": ["gui:view"],
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data is not None
+
+    expected_scope = {"gui:view"}
+    assert set(data["scope"].split()) == expected_scope
+    assert set(_decode_scope(data["access_token"]).split()) == expected_scope
+
+    cookies = _load_cookies(response)
+    assert "access_token" in cookies
+
+
 def test_refresh_cookie_requires_gui_scope(app, client):
     from webapp.extensions import db
 

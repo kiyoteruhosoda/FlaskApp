@@ -1241,6 +1241,78 @@ msgstr "プロフィール"
 msgid "Sign-in details"
 msgstr "サインイン情報"
 
+#: webapp/auth/templates/auth/login.html
+msgid "Sign in with passkey"
+msgstr "パスキーでサインイン"
+
+#: webapp/auth/templates/auth/login.html
+msgid "Passkey login requires a compatible browser."
+msgstr "パスキーでのサインインには対応ブラウザが必要です。"
+
+#: webapp/auth/templates/auth/login.html
+msgid "Passkey login options could not be retrieved."
+msgstr "パスキーサインインのオプションを取得できませんでした。"
+
+#: webapp/auth/templates/auth/login.html
+msgid "Passkey login failed. Please try again."
+msgstr "パスキーによるサインインに失敗しました。もう一度お試しください。"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Passkeys"
+msgstr "パスキー"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Passkeys cannot be managed for service accounts."
+msgstr "サービスアカウントではパスキーを管理できません。"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Unnamed passkey"
+msgstr "名称未設定のパスキー"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Created"
+msgstr "作成日時"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Last used"
+msgstr "最終利用"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Remove"
+msgstr "削除"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "No passkeys registered yet."
+msgstr "登録されているパスキーはありません。"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Add a new passkey"
+msgstr "新しいパスキーを追加"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Passkey registration requires a compatible browser."
+msgstr "パスキー登録には対応ブラウザが必要です。"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Give this passkey a name (optional)"
+msgstr "このパスキーに名前を付けてください（任意）"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Passkey registration options could not be retrieved."
+msgstr "パスキー登録のオプションを取得できませんでした。"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Passkey registration failed. Please try again."
+msgstr "パスキーの登録に失敗しました。もう一度お試しください。"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Remove this passkey?"
+msgstr "このパスキーを削除しますか？"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Failed to remove passkey."
+msgstr "パスキーを削除できませんでした。"
+
 #: webapp/dashboard/templates/dashboard/index.html:103
 msgid "Administration"
 msgstr "管理メニュー"

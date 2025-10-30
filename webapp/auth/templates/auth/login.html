@@ -64,14 +64,21 @@
           <div class="input-icon">
             <i class="fas fa-shield-alt"></i>
           </div>
-        </div>
       </div>
-      
-      <button type="submit" class="btn btn-login">
-        <i class="fas fa-sign-in-alt" style="margin-right: 8px;"></i>
-        {{ _('Sign In') }}
+    </div>
+
+      {% if passkey_available %}
+      <button type="button" class="btn btn-outline-primary passkey-btn" data-passkey-login>
+        <i class="fas fa-key" style="margin-right: 8px;"></i>
+        {{ _('Sign in with passkey') }}
       </button>
-    </form>
+      {% endif %}
+
+    <button type="submit" class="btn btn-login">
+      <i class="fas fa-sign-in-alt" style="margin-right: 8px;"></i>
+      {{ _('Sign In') }}
+    </button>
+  </form>
     
     <div class="forgot-password">
       <a href="{{ url_for('auth.register') }}">{{ _('Don\'t have an account? Sign up') }}</a>
@@ -110,6 +117,43 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   const originalFormAction = form.action;
+
+  const bufferToBase64Url = (buffer) => {
+    if (!(buffer instanceof ArrayBuffer)) {
+      return '';
+    }
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 1) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  };
+
+  const base64UrlToBuffer = (value) => {
+    if (typeof value !== 'string' || value.length === 0) {
+      return new ArrayBuffer(0);
+    }
+    const padded = value.replace(/-/g, '+').replace(/_/g, '/');
+    const padLength = (4 - (padded.length % 4)) % 4;
+    const normalized = padded + '='.repeat(padLength);
+    const binary = window.atob(normalized);
+    const buffer = new ArrayBuffer(binary.length);
+    const bytes = new Uint8Array(buffer);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return buffer;
+  };
+
+  const resolveNextValue = () => {
+    const nextField = document.querySelector('input[name="next"]');
+    const raw = (nextField?.value || '').trim();
+    if (raw.startsWith('/') && !raw.startsWith('//')) {
+      return raw;
+    }
+    return null;
+  };
 
   const normalizeScopes = (rawScopes) => {
     if (!Array.isArray(rawScopes)) {
@@ -224,6 +268,149 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     return null;
   };
+
+  const passkeyButton = document.querySelector('[data-passkey-login]');
+  if (passkeyButton) {
+    if (!window.PublicKeyCredential || typeof navigator.credentials === 'undefined') {
+      passkeyButton.disabled = true;
+      passkeyButton.classList.add('disabled');
+      passkeyButton.setAttribute('title', '{{ _('Passkey login requires a compatible browser.') }}');
+    } else {
+      passkeyButton.addEventListener('click', async (event) => {
+        event.preventDefault();
+        if (passkeyButton.classList.contains('loading')) {
+          return;
+        }
+
+        passkeyButton.classList.add('loading');
+        passkeyButton.disabled = true;
+
+        const storedRedirectPath = localStorage.getItem('redirect_after_login');
+
+        try {
+          const optionsResponse = await fetch('{{ url_for('auth.passkey_login_options') }}', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (!optionsResponse.ok) {
+            throw new Error('options');
+          }
+
+          const optionsPayload = await optionsResponse.json();
+          const publicKey = optionsPayload.publicKey || optionsPayload;
+
+          if (!publicKey || !publicKey.challenge) {
+            throw new Error('options');
+          }
+
+          publicKey.challenge = base64UrlToBuffer(publicKey.challenge);
+          if (Array.isArray(publicKey.allowCredentials)) {
+            publicKey.allowCredentials = publicKey.allowCredentials.map((item) => ({
+              ...item,
+              id: base64UrlToBuffer(item.id),
+            }));
+          }
+
+          const assertion = await navigator.credentials.get({ publicKey });
+          if (!assertion) {
+            throw new Error('abort');
+          }
+
+          const credentialPayload = {
+            id: assertion.id,
+            type: assertion.type,
+            rawId: bufferToBase64Url(assertion.rawId),
+            response: {
+              authenticatorData: bufferToBase64Url(assertion.response.authenticatorData),
+              clientDataJSON: bufferToBase64Url(assertion.response.clientDataJSON),
+              signature: bufferToBase64Url(assertion.response.signature),
+              userHandle: assertion.response.userHandle
+                ? bufferToBase64Url(assertion.response.userHandle)
+                : null,
+            },
+            clientExtensionResults: typeof assertion.getClientExtensionResults === 'function'
+              ? assertion.getClientExtensionResults()
+              : {},
+          };
+
+          const verifyResponse = await fetch('{{ url_for('auth.passkey_verify_login') }}', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              credential: credentialPayload,
+              next: storedRedirectPath || resolveNextValue(),
+            }),
+          });
+
+          if (!verifyResponse.ok) {
+            const errorData = await verifyResponse.json().catch(() => ({ error: 'verify' }));
+            throw new Error(errorData.error || 'verify');
+          }
+
+          const result = await verifyResponse.json();
+
+          if (result.refresh_token) {
+            localStorage.setItem('refresh_token', result.refresh_token);
+          }
+
+          const emailValue = (result.email || '').trim().toLowerCase();
+          if (emailValue.length > 0) {
+            const scopeStorageKey = `login_scope:${emailValue}`;
+            if (Array.isArray(result.available_scopes) && result.available_scopes.length > 0) {
+              writeStoredScopeRecord(scopeStorageKey, result.available_scopes, 'passkey');
+            } else {
+              localStorage.removeItem(scopeStorageKey);
+            }
+          }
+
+          if (result.requires_role_selection) {
+            if (storedRedirectPath) {
+              localStorage.removeItem('redirect_after_login');
+            }
+            window.location.href = result.redirect_url || '{{ url_for('auth.select_role') }}';
+            return;
+          }
+
+          if (storedRedirectPath) {
+            localStorage.removeItem('redirect_after_login');
+            window.location.href = storedRedirectPath;
+            return;
+          }
+
+          if (result.redirect_url) {
+            window.location.href = result.redirect_url;
+            return;
+          }
+
+          window.location.href = '{{ url_for('dashboard.dashboard') }}';
+        } catch (error) {
+          if (error && error.message === 'abort') {
+            // User cancelled the prompt; no feedback required.
+          } else if (error && error.message === 'options') {
+            if (typeof showErrorToast === 'function') {
+              showErrorToast('{{ _('Passkey login options could not be retrieved.') }}');
+            } else {
+              alert('{{ _('Passkey login options could not be retrieved.') }}');
+            }
+          } else {
+            if (typeof showErrorToast === 'function') {
+              showErrorToast('{{ _('Passkey login failed. Please try again.') }}');
+            } else {
+              alert('{{ _('Passkey login failed. Please try again.') }}');
+            }
+          }
+        } finally {
+          passkeyButton.classList.remove('loading');
+          passkeyButton.disabled = false;
+        }
+      });
+    }
+  }
 
   // APIベースの認証処理
   form.addEventListener('submit', async function(e) {

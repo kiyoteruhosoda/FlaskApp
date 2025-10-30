@@ -8,6 +8,7 @@ from flask import (
     current_app,
     make_response,
     g,
+    jsonify,
 )
 import requests
 import json
@@ -28,16 +29,29 @@ from core.models.picker_session import PickerSession
 from .utils import refresh_google_token, log_requests_and_send, RefreshTokenError
 from shared.application.auth_service import AuthService
 from shared.application.authenticated_principal import AuthenticatedPrincipal
+from shared.application.passkey_service import (
+    PasskeyAuthenticationError,
+    PasskeyRegistrationError,
+    PasskeyService,
+)
 from shared.domain.user import UserRegistrationService
+from shared.infrastructure.passkey_repository import SqlAlchemyPasskeyRepository
 from shared.infrastructure.user_repository import SqlAlchemyUserRepository
 from ..timezone import resolve_timezone, convert_to_timezone
 from ..services.token_service import TokenService
+from ..services.gui_access_cookie import (
+    API_LOGIN_SCOPE_SESSION_KEY,
+    apply_gui_access_cookie,
+    normalize_scope_items,
+)
 from core.settings import settings
 
 
 user_repo = SqlAlchemyUserRepository(db.session)
 user_registration_service = UserRegistrationService(user_repo)
 auth_service = AuthService(user_repo, user_registration_service)
+passkey_repo = SqlAlchemyPasskeyRepository(db.session)
+passkey_service = PasskeyService(passkey_repo)
 
 
 PROFILE_TIMEZONES = [
@@ -55,6 +69,10 @@ PROFILE_TIMEZONES = [
 
 # セッション有効期限（30分）
 SESSION_TIMEOUT_MINUTES = 30
+
+PASSKEY_REGISTRATION_CHALLENGE_KEY = "passkey_registration_challenge"
+PASSKEY_REGISTRATION_USER_ID_KEY = "passkey_registration_user_id"
+PASSKEY_AUTH_CHALLENGE_KEY = "passkey_authentication_challenge"
 
 
 def _sync_active_role(user_model):
@@ -99,7 +117,11 @@ def _resolve_safe_next_value():
 
 
 def _render_login_template():
-    return render_template("auth/login.html", next_value=_resolve_safe_next_value())
+    return render_template(
+        "auth/login.html",
+        next_value=_resolve_safe_next_value(),
+        passkey_available=True,
+    )
 
 
 def _pop_role_selection_target() -> str:
@@ -222,6 +244,28 @@ def _clear_setup_totp_session():
         session.pop(key, None)
 
 
+def _clear_passkey_registration_session():
+    keys_to_clear = [
+        PASSKEY_REGISTRATION_CHALLENGE_KEY,
+        PASSKEY_REGISTRATION_USER_ID_KEY,
+        "passkey_registration_timestamp",
+    ]
+    for key in keys_to_clear:
+        session.pop(key, None)
+
+
+def _clear_passkey_auth_session():
+    keys_to_clear = [PASSKEY_AUTH_CHALLENGE_KEY, "passkey_auth_timestamp"]
+    for key in keys_to_clear:
+        session.pop(key, None)
+
+
+def _resolve_safe_redirect(default_endpoint: str, candidate: str | None) -> str:
+    if candidate and isinstance(candidate, str) and candidate.startswith("/") and not candidate.startswith("//"):
+        return candidate
+    return url_for(default_endpoint)
+
+
 def _complete_registration(user):
     """ユーザー登録完了後の共通処理"""
     flash(_("Registration successful"), "success")
@@ -270,6 +314,234 @@ def login():
         redirect_target = _resolve_post_login_target()
         return _finalize_login_session(user_model, redirect_target)
     return _render_login_template()
+
+
+@bp.post("/passkey/options/register")
+@login_required
+def passkey_registration_options():
+    if getattr(current_user, "is_service_account", False):
+        return jsonify({"error": "not_supported"}), 403
+
+    try:
+        options, challenge = passkey_service.generate_registration_options(
+            current_user._get_current_object()
+        )
+    except Exception:  # pragma: no cover - unexpected failure
+        current_app.logger.exception(
+            "Failed to prepare passkey registration options",
+            extra={"event": "auth.passkey_register", "path": request.path},
+        )
+        return jsonify({"error": "options_unavailable"}), 500
+
+    session[PASSKEY_REGISTRATION_CHALLENGE_KEY] = challenge
+    session[PASSKEY_REGISTRATION_USER_ID_KEY] = current_user.id
+    _set_session_timestamp("passkey_registration")
+    session.modified = True
+    return jsonify(options)
+
+
+@bp.post("/passkey/verify/register")
+@login_required
+def passkey_verify_register():
+    if getattr(current_user, "is_service_account", False):
+        _clear_passkey_registration_session()
+        return jsonify({"error": "not_supported"}), 403
+
+    if _is_session_expired("passkey_registration"):
+        _clear_passkey_registration_session()
+        return jsonify({"error": "challenge_expired"}), 400
+
+    challenge = session.get(PASSKEY_REGISTRATION_CHALLENGE_KEY)
+    expected_user_id = session.get(PASSKEY_REGISTRATION_USER_ID_KEY)
+    if not challenge or expected_user_id != current_user.id:
+        _clear_passkey_registration_session()
+        return jsonify({"error": "challenge_missing"}), 400
+
+    payload = request.get_json(silent=True) or {}
+    credential_payload = payload.get("credential")
+    if not isinstance(credential_payload, dict):
+        _clear_passkey_registration_session()
+        return jsonify({"error": "invalid_payload"}), 400
+
+    transports = credential_payload.get("response", {}).get("transports")
+    label_raw = payload.get("label") or payload.get("name")
+    label = label_raw.strip() if isinstance(label_raw, str) and label_raw.strip() else None
+
+    try:
+        record = passkey_service.register_passkey(
+            user=current_user._get_current_object(),
+            payload=json.dumps(credential_payload).encode("utf-8"),
+            expected_challenge=challenge,
+            transports=transports,
+            name=label,
+        )
+    except PasskeyRegistrationError as exc:
+        _clear_passkey_registration_session()
+        current_app.logger.warning(
+            "Passkey registration verification failed",
+            extra={
+                "event": "auth.passkey_register",
+                "path": request.path,
+                "reason": exc.args[0] if exc.args else "verification_failed",
+            },
+        )
+        return (
+            jsonify({"error": exc.args[0] if exc.args else "verification_failed"}),
+            400,
+        )
+    except Exception:
+        _clear_passkey_registration_session()
+        current_app.logger.exception(
+            "Unexpected error during passkey registration",
+            extra={"event": "auth.passkey_register", "path": request.path},
+        )
+        return jsonify({"error": "internal_error"}), 500
+
+    _clear_passkey_registration_session()
+
+    passkey_payload = {
+        "id": record.id,
+        "name": record.name,
+        "created_at": record.created_at.isoformat() if record.created_at else None,
+        "last_used_at": record.last_used_at.isoformat() if record.last_used_at else None,
+        "transports": record.transports or [],
+        "backup_eligible": bool(getattr(record, "backup_eligible", False)),
+        "backup_state": bool(getattr(record, "backup_state", False)),
+    }
+    return jsonify({"result": "ok", "passkey": passkey_payload})
+
+
+@bp.post("/passkey/options/login")
+def passkey_login_options():
+    try:
+        options, challenge = passkey_service.generate_authentication_options()
+    except Exception:  # pragma: no cover - unexpected failure
+        current_app.logger.exception(
+            "Failed to prepare passkey authentication options",
+            extra={"event": "auth.passkey_login", "path": request.path},
+        )
+        return jsonify({"error": "options_unavailable"}), 500
+
+    session[PASSKEY_AUTH_CHALLENGE_KEY] = challenge
+    _set_session_timestamp("passkey_auth")
+    session.modified = True
+    return jsonify(options)
+
+
+@bp.post("/passkey/verify/login")
+def passkey_verify_login():
+    if _is_session_expired("passkey_auth"):
+        _clear_passkey_auth_session()
+        return jsonify({"error": "challenge_expired"}), 400
+
+    challenge = session.get(PASSKEY_AUTH_CHALLENGE_KEY)
+    if not challenge:
+        return jsonify({"error": "challenge_missing"}), 400
+
+    payload = request.get_json(silent=True) or {}
+    credential_payload = payload.get("credential")
+    if not isinstance(credential_payload, dict):
+        _clear_passkey_auth_session()
+        return jsonify({"error": "invalid_payload"}), 400
+
+    try:
+        user_model = passkey_service.authenticate(
+            payload=json.dumps(credential_payload).encode("utf-8"),
+            expected_challenge=challenge,
+        )
+    except PasskeyAuthenticationError as exc:
+        _clear_passkey_auth_session()
+        current_app.logger.warning(
+            "Passkey authentication failed",
+            extra={
+                "event": "auth.passkey_login",
+                "path": request.path,
+                "reason": exc.args[0] if exc.args else "verification_failed",
+            },
+        )
+        return (
+            jsonify({"error": exc.args[0] if exc.args else "verification_failed"}),
+            401,
+        )
+    except Exception:
+        _clear_passkey_auth_session()
+        current_app.logger.exception(
+            "Unexpected error during passkey authentication",
+            extra={"event": "auth.passkey_login", "path": request.path},
+        )
+        return jsonify({"error": "internal_error"}), 500
+
+    _clear_passkey_auth_session()
+
+    if not getattr(user_model, "is_active", True):
+        current_app.logger.warning(
+            "Passkey authentication rejected for inactive user",
+            extra={
+                "event": "auth.passkey_login",
+                "path": request.path,
+                "user_id": getattr(user_model, "id", None),
+            },
+        )
+        return jsonify({"error": "account_inactive"}), 403
+
+    available_permissions = sorted(getattr(user_model, "all_permissions", []) or [])
+    granted_scope = []
+    if "gui:view" in available_permissions:
+        granted_scope.append("gui:view")
+
+    session[API_LOGIN_SCOPE_SESSION_KEY] = normalize_scope_items(granted_scope)
+
+    try:
+        access_token, refresh_token = TokenService.generate_token_pair(
+            user_model, granted_scope
+        )
+    except Exception:
+        current_app.logger.exception(
+            "Failed to issue token pair for passkey login",
+            extra={"event": "auth.passkey_login", "path": request.path},
+        )
+        return jsonify({"error": "token_issue_failed"}), 500
+
+    raw_next = payload.get("next")
+    redirect_target = _resolve_safe_redirect("dashboard.dashboard", raw_next)
+    roles = list(getattr(user_model, "roles", []) or [])
+    requires_role_selection = len(roles) > 1
+
+    _finalize_login_session(user_model, redirect_target)
+
+    if requires_role_selection:
+        redirect_url = url_for("auth.select_role", next=redirect_target)
+    else:
+        redirect_url = redirect_target
+
+    response_payload = {
+        "result": "ok",
+        "redirect_url": redirect_url,
+        "requires_role_selection": requires_role_selection,
+        "available_scopes": available_permissions,
+        "scope": " ".join(granted_scope),
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "email": getattr(user_model, "email", None),
+    }
+
+    response = jsonify(response_payload)
+    apply_gui_access_cookie(response, access_token, granted_scope)
+    return response
+
+
+@bp.post("/passkey/<int:credential_id>/delete")
+@login_required
+def delete_passkey(credential_id: int):
+    if getattr(current_user, "is_service_account", False):
+        return jsonify({"error": "not_supported"}), 403
+
+    record = passkey_repo.find_for_user(current_user.id, credential_id)
+    if record is None:
+        return jsonify({"error": "not_found"}), 404
+
+    passkey_repo.delete(record)
+    return jsonify({"result": "ok"})
 
 
 @bp.route("/servicelogin", methods=["GET", "POST"])
@@ -639,6 +911,7 @@ def profile():
         if isinstance(code, str) and code.strip()
     }
     active_permissions = sorted(normalized_permissions)
+    passkey_credentials = list(getattr(current_user, "passkey_credentials", []) or [])
 
     return render_template(
         "auth/profile.html",
@@ -652,6 +925,7 @@ def profile():
         role_options=role_options,
         is_service_account=is_service_account,
         active_permissions=active_permissions,
+        passkey_credentials=passkey_credentials,
     )
 
 

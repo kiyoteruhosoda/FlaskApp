@@ -21,6 +21,9 @@ def test_defaults_are_applied_when_env_missing():
     assert settings.service_account_signing_audiences == ()
     assert settings.access_token_issuer == "fpv-webapp"
     assert settings.access_token_audience == "fpv-webapp"
+    assert settings.webauthn_rp_id == "localhost"
+    assert settings.webauthn_origin == "http://localhost:5000"
+    assert settings.webauthn_rp_name == "Nolumia"
 
 
 def test_environment_overrides_are_reflected():
@@ -38,6 +41,9 @@ def test_environment_overrides_are_reflected():
         "SERVICE_ACCOUNT_SIGNING_AUDIENCE": "aud-a, aud-b, aud-c",
         "ACCESS_TOKEN_ISSUER": "issuer-x",
         "ACCESS_TOKEN_AUDIENCE": "aud-x",
+        "WEBAUTHN_RP_ID": "photos.example.com",
+        "WEBAUTHN_ORIGIN": "https://photos.example.com",
+        "WEBAUTHN_RP_NAME": "Example Photos",
     }
 
     settings = ApplicationSettings(env=env)
@@ -55,6 +61,9 @@ def test_environment_overrides_are_reflected():
     assert settings.service_account_signing_audiences == ("aud-a", "aud-b", "aud-c")
     assert settings.access_token_issuer == "issuer-x"
     assert settings.access_token_audience == "aud-x"
+    assert settings.webauthn_rp_id == "photos.example.com"
+    assert settings.webauthn_origin == "https://photos.example.com"
+    assert settings.webauthn_rp_name == "Example Photos"
 
 
 def test_backup_directory_legacy_env_is_supported():

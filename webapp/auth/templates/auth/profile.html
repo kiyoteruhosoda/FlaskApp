@@ -46,6 +46,37 @@
           </div>
         </div>
 
+        <div class="profile-section mb-4">
+          <h2 class="h5 mb-3">{{ _('Passkeys') }}</h2>
+          {% if is_service_account %}
+            <p class="text-muted mb-0">{{ _('Passkeys cannot be managed for service accounts.') }}</p>
+          {% else %}
+            {% if passkey_credentials %}
+            <div class="list-group mb-3">
+              {% for credential in passkey_credentials %}
+              <div class="list-group-item d-flex justify-content-between align-items-start flex-wrap gap-2" data-passkey-entry data-passkey-id="{{ credential.id }}">
+                <div>
+                  <div class="fw-semibold">{{ credential.name or _('Unnamed passkey') }}</div>
+                  <div class="small text-muted">
+                    {{ _('Created') }}: {{ credential.created_at.strftime('%Y-%m-%d %H:%M') if credential.created_at }}
+                    {% if credential.last_used_at %}<br>{{ _('Last used') }}: {{ credential.last_used_at.strftime('%Y-%m-%d %H:%M') }}{% endif %}
+                  </div>
+                </div>
+                <button type="button" class="btn btn-outline-danger btn-sm" data-passkey-remove>
+                  <i class="fas fa-trash-alt me-1"></i>{{ _('Remove') }}
+                </button>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted mb-3">{{ _('No passkeys registered yet.') }}</p>
+            {% endif %}
+            <button type="button" class="btn btn-outline-primary" data-passkey-register>
+              <i class="fas fa-key me-2"></i>{{ _('Add a new passkey') }}
+            </button>
+          {% endif %}
+        </div>
+
         {% if role_options %}
         {% set role_count = role_options|length %}
         <div class="profile-section mb-4">
@@ -154,63 +185,245 @@
     const userEmail = (form?.dataset.userEmail || '').trim().toLowerCase();
     const storageKey = userEmail ? `login_scope:${userEmail}` : null;
 
-    if (!form || !select || !storageKey) {
-      return;
-    }
-
-    const persistSelectedScope = () => {
-      const option = select.selectedOptions && select.selectedOptions.length > 0
-        ? select.selectedOptions[0]
-        : null;
-
-      if (!option) {
-        localStorage.removeItem(storageKey);
-        return;
+    const bufferToBase64Url = (buffer) => {
+      if (!(buffer instanceof ArrayBuffer)) {
+        return '';
       }
-
-      const rawPermissions = option.dataset.rolePermissions || '';
-      if (!rawPermissions) {
-        localStorage.removeItem(storageKey);
-        return;
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i += 1) {
+        binary += String.fromCharCode(bytes[i]);
       }
+      return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    };
 
-      try {
-        const parsed = JSON.parse(rawPermissions);
-        if (!Array.isArray(parsed)) {
+    const base64UrlToBuffer = (value) => {
+      if (typeof value !== 'string' || value.length === 0) {
+        return new ArrayBuffer(0);
+      }
+      const padded = value.replace(/-/g, '+').replace(/_/g, '/');
+      const padLength = (4 - (padded.length % 4)) % 4;
+      const normalized = padded + '='.repeat(padLength);
+      const binary = window.atob(normalized);
+      const buffer = new ArrayBuffer(binary.length);
+      const bytes = new Uint8Array(buffer);
+      for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return buffer;
+    };
+
+    if (form && select && storageKey) {
+      const persistSelectedScope = () => {
+        const option = select.selectedOptions && select.selectedOptions.length > 0
+          ? select.selectedOptions[0]
+          : null;
+
+        if (!option) {
           localStorage.removeItem(storageKey);
           return;
         }
 
-        const normalized = Array.from(
-          new Set(
-            parsed
-              .map((item) => (typeof item === 'string' ? item.trim() : ''))
-              .filter((item) => item.length > 0)
-          )
-        );
+        const rawPermissions = option.dataset.rolePermissions || '';
+        if (!rawPermissions) {
+          localStorage.removeItem(storageKey);
+          return;
+        }
 
-        if (normalized.length > 0) {
-          const payload = {
-            permissions: normalized,
-            source: 'profile-switch',
-            roleSelection: {
-              roleId: option.value || null,
-            },
-            updatedAt: new Date().toISOString(),
-          };
-          localStorage.setItem(storageKey, JSON.stringify(payload));
-        } else {
+        try {
+          const parsed = JSON.parse(rawPermissions);
+          if (!Array.isArray(parsed)) {
+            localStorage.removeItem(storageKey);
+            return;
+          }
+
+          const normalized = Array.from(
+            new Set(
+              parsed
+                .map((item) => (typeof item === 'string' ? item.trim() : ''))
+                .filter((item) => item.length > 0)
+            )
+          );
+
+          if (normalized.length > 0) {
+            const payload = {
+              permissions: normalized,
+              source: 'profile-switch',
+              roleSelection: {
+                roleId: option.value || null,
+              },
+              updatedAt: new Date().toISOString(),
+            };
+            localStorage.setItem(storageKey, JSON.stringify(payload));
+          } else {
+            localStorage.removeItem(storageKey);
+          }
+        } catch (error) {
+          console.warn('Failed to persist selected role scope', error);
           localStorage.removeItem(storageKey);
         }
-      } catch (error) {
-        console.warn('Failed to persist selected role scope', error);
-        localStorage.removeItem(storageKey);
-      }
-    };
+      };
 
-    select.addEventListener('change', persistSelectedScope);
-    form.addEventListener('submit', persistSelectedScope);
-    persistSelectedScope();
+      select.addEventListener('change', persistSelectedScope);
+      form.addEventListener('submit', persistSelectedScope);
+      persistSelectedScope();
+    }
+
+    const registerButton = document.querySelector('[data-passkey-register]');
+    const removeButtons = document.querySelectorAll('[data-passkey-remove]');
+
+    if (registerButton) {
+      if (!window.PublicKeyCredential || typeof navigator.credentials === 'undefined') {
+        registerButton.disabled = true;
+        registerButton.classList.add('disabled');
+        registerButton.setAttribute('title', '{{ _('Passkey registration requires a compatible browser.') }}');
+      } else {
+        registerButton.addEventListener('click', async (event) => {
+          event.preventDefault();
+          if (registerButton.classList.contains('loading')) {
+            return;
+          }
+
+          registerButton.classList.add('loading');
+          registerButton.disabled = true;
+
+          try {
+            const optionsResponse = await fetch('{{ url_for('auth.passkey_registration_options') }}', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            });
+
+            if (!optionsResponse.ok) {
+              throw new Error('options');
+            }
+
+            const optionsPayload = await optionsResponse.json();
+            const publicKey = optionsPayload.publicKey || optionsPayload;
+
+            if (!publicKey || !publicKey.challenge) {
+              throw new Error('options');
+            }
+
+            publicKey.challenge = base64UrlToBuffer(publicKey.challenge);
+            if (publicKey.user && publicKey.user.id) {
+              publicKey.user.id = base64UrlToBuffer(publicKey.user.id);
+            }
+            if (Array.isArray(publicKey.excludeCredentials)) {
+              publicKey.excludeCredentials = publicKey.excludeCredentials.map((item) => ({
+                ...item,
+                id: base64UrlToBuffer(item.id),
+              }));
+            }
+
+            const credential = await navigator.credentials.create({ publicKey });
+            if (!credential) {
+              throw new Error('abort');
+            }
+
+            const credentialPayload = {
+              id: credential.id,
+              type: credential.type,
+              rawId: bufferToBase64Url(credential.rawId),
+              response: {
+                attestationObject: bufferToBase64Url(credential.response.attestationObject),
+                clientDataJSON: bufferToBase64Url(credential.response.clientDataJSON),
+                transports: typeof credential.response.getTransports === 'function'
+                  ? credential.response.getTransports()
+                  : (credential.response.transports || []),
+              },
+              clientExtensionResults: typeof credential.getClientExtensionResults === 'function'
+                ? credential.getClientExtensionResults()
+                : {},
+            };
+
+            const labelInput = prompt('{{ _('Give this passkey a name (optional)') }}', '');
+            const labelValue = labelInput && labelInput.trim().length > 0 ? labelInput.trim() : null;
+
+            const verifyResponse = await fetch('{{ url_for('auth.passkey_verify_register') }}', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                credential: credentialPayload,
+                label: labelValue,
+              }),
+            });
+
+            if (!verifyResponse.ok) {
+              const errorData = await verifyResponse.json().catch(() => ({ error: 'verify' }));
+              throw new Error(errorData.error || 'verify');
+            }
+
+            window.location.reload();
+          } catch (error) {
+            if (error && error.message === 'abort') {
+              // user cancelled, ignore
+            } else if (error && error.message === 'options') {
+              if (typeof showErrorToast === 'function') {
+                showErrorToast('{{ _('Passkey registration options could not be retrieved.') }}');
+              } else {
+                alert('{{ _('Passkey registration options could not be retrieved.') }}');
+              }
+            } else {
+              if (typeof showErrorToast === 'function') {
+                showErrorToast('{{ _('Passkey registration failed. Please try again.') }}');
+              } else {
+                alert('{{ _('Passkey registration failed. Please try again.') }}');
+              }
+            }
+          } finally {
+            registerButton.classList.remove('loading');
+            registerButton.disabled = false;
+          }
+        });
+      }
+    }
+
+    removeButtons.forEach((button) => {
+      button.addEventListener('click', async (event) => {
+        event.preventDefault();
+        const entry = button.closest('[data-passkey-entry]');
+        const identifier = entry?.dataset.passkeyId;
+        if (!identifier) {
+          return;
+        }
+
+        if (!confirm('{{ _('Remove this passkey?') }}')) {
+          return;
+        }
+
+        button.disabled = true;
+        button.classList.add('loading');
+
+        try {
+          const response = await fetch(`{{ url_for('auth.delete_passkey', credential_id=0) }}`.replace('0', identifier), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({}),
+          });
+
+          if (!response.ok) {
+            throw new Error('delete');
+          }
+
+          window.location.reload();
+        } catch (error) {
+          if (typeof showErrorToast === 'function') {
+            showErrorToast('{{ _('Failed to remove passkey.') }}');
+          } else {
+            alert('{{ _('Failed to remove passkey.') }}');
+          }
+        } finally {
+          button.classList.remove('loading');
+          button.disabled = false;
+        }
+      });
+    });
   });
 </script>
 {% endblock %}

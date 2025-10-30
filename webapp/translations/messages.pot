@@ -1132,6 +1132,78 @@ msgstr ""
 msgid "Sign-in details"
 msgstr ""
 
+#: webapp/auth/templates/auth/login.html
+msgid "Sign in with passkey"
+msgstr ""
+
+#: webapp/auth/templates/auth/login.html
+msgid "Passkey login requires a compatible browser."
+msgstr ""
+
+#: webapp/auth/templates/auth/login.html
+msgid "Passkey login options could not be retrieved."
+msgstr ""
+
+#: webapp/auth/templates/auth/login.html
+msgid "Passkey login failed. Please try again."
+msgstr ""
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Passkeys"
+msgstr ""
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Passkeys cannot be managed for service accounts."
+msgstr ""
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Unnamed passkey"
+msgstr ""
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Created"
+msgstr ""
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Last used"
+msgstr ""
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Remove"
+msgstr ""
+
+#: webapp/auth/templates/auth/profile.html
+msgid "No passkeys registered yet."
+msgstr ""
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Add a new passkey"
+msgstr ""
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Passkey registration requires a compatible browser."
+msgstr ""
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Give this passkey a name (optional)"
+msgstr ""
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Passkey registration options could not be retrieved."
+msgstr ""
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Passkey registration failed. Please try again."
+msgstr ""
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Remove this passkey?"
+msgstr ""
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Failed to remove passkey."
+msgstr ""
+
 #: webapp/dashboard/templates/dashboard/index.html:103
 msgid "Administration"
 msgstr ""

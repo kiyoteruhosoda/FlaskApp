@@ -83,15 +83,39 @@ def app():
 
 class TestSessionDetailAPI:
     """Session Detail API のテスト"""
-    
+
+    @staticmethod
+    def _login(client):
+        from flask import session as flask_session
+        from flask_login import login_user
+        from core.models.user import User
+        from webapp.extensions import db
+        from webapp.services.token_service import TokenService
+
+        with client.application.app_context():
+            user = User.query.first()
+            if user is None:
+                user = User(email="local-user@example.com")
+                user.set_password("secret")
+                db.session.add(user)
+                db.session.commit()
+
+        with client.application.test_request_context():
+            user = User.query.first()
+            principal = TokenService.create_principal_for_user(user)
+            login_user(principal)
+            flask_session["_fresh"] = True
+            persisted = dict(flask_session)
+
+        with client.session_transaction() as sess:
+            sess.update(persisted)
+            sess.modified = True
+
     def test_picker_sessions_list_includes_local_import(self, app):
         """セッション一覧にローカルインポートセッションが含まれることをテスト"""
         client = app.test_client()
-        
-        with client.session_transaction() as sess:
-            sess['_user_id'] = '1'
-            sess['_fresh'] = True
-        
+        self._login(client)
+
         with app.app_context():
             # ローカルインポート実行
             result = local_import_module.local_import_task()
@@ -120,9 +144,7 @@ class TestSessionDetailAPI:
         """ローカルインポートセッションの状態API テスト"""
         client = app.test_client()
         
-        with client.session_transaction() as sess:
-            sess['_user_id'] = '1'
-            sess['_fresh'] = True
+        self._login(client)
         
         with app.app_context():
             # ローカルインポート実行
@@ -146,10 +168,7 @@ class TestSessionDetailAPI:
     def test_session_selections_api_for_local_import(self, app):
         """ローカルインポートセッションの選択一覧API テスト"""
         client = app.test_client()
-
-        with client.session_transaction() as sess:
-            sess['_user_id'] = '1'
-            sess['_fresh'] = True
+        self._login(client)
 
         with app.app_context():
             # ローカルインポート実行
@@ -185,10 +204,7 @@ class TestSessionDetailAPI:
         """エラー選択の詳細リンクとページが動作することを確認"""
 
         client = app.test_client()
-
-        with client.session_transaction() as sess:
-            sess['_user_id'] = '1'
-            sess['_fresh'] = True
+        self._login(client)
 
         with app.app_context():
             result = local_import_module.local_import_task()
@@ -239,9 +255,7 @@ class TestSessionDetailAPI:
         """ログAPIがステータス付きのログを返すことを確認"""
         client = app.test_client()
 
-        with client.session_transaction() as sess:
-            sess['_user_id'] = '1'
-            sess['_fresh'] = True
+        self._login(client)
 
         with app.app_context():
             result = local_import_module.local_import_task()
@@ -262,9 +276,7 @@ class TestSessionDetailAPI:
 
         client = app.test_client()
 
-        with client.session_transaction() as sess:
-            sess['_user_id'] = '1'
-            sess['_fresh'] = True
+        self._login(client)
 
         import_dir = Path(app.config['MEDIA_LOCAL_IMPORT_DIRECTORY'])
 
@@ -317,9 +329,7 @@ class TestSessionDetailAPI:
         """ローカルインポートセッションでインポートAPIがブロックされることをテスト"""
         client = app.test_client()
 
-        with client.session_transaction() as sess:
-            sess['_user_id'] = '1'
-            sess['_fresh'] = True
+        self._login(client)
         
         with app.app_context():
             # ローカルインポート実行
@@ -393,9 +403,7 @@ class TestSessionDetailAPI:
 
         client = app.test_client()
 
-        with client.session_transaction() as sess:
-            sess['_user_id'] = '1'
-            sess['_fresh'] = True
+        self._login(client)
 
         import_dir = Path(app.config['MEDIA_LOCAL_IMPORT_DIRECTORY'])
         zip_path = import_dir / "bundle.zip"
@@ -426,9 +434,7 @@ class TestSessionDetailAPI:
 
         client = app.test_client()
 
-        with client.session_transaction() as sess:
-            sess['_user_id'] = '1'
-            sess['_fresh'] = True
+        self._login(client)
 
         with app.app_context():
             result = local_import_module.local_import_task()
@@ -458,9 +464,7 @@ class TestSessionDetailUI:
         """セッション詳細ページが正しくレンダリングされることをテスト"""
         client = app.test_client()
         
-        with client.session_transaction() as sess:
-            sess['_user_id'] = '1'
-            sess['_fresh'] = True
+        self._login(client)
         
         with app.app_context():
             # ローカルインポート実行
@@ -486,9 +490,7 @@ class TestSessionDetailUI:
         """ホームページにローカルインポートセッションが表示されることをテスト"""
         client = app.test_client()
         
-        with client.session_transaction() as sess:
-            sess['_user_id'] = '1'
-            sess['_fresh'] = True
+        self._login(client)
         
         with app.app_context():
             # ローカルインポート実行
@@ -515,9 +517,7 @@ class TestLocalImportIntegration:
         """完全なローカルインポートワークフローのテスト"""
         client = app.test_client()
         
-        with client.session_transaction() as sess:
-            sess['_user_id'] = '1'
-            sess['_fresh'] = True
+        self._login(client)
         
         # 1. 初期状態確認
         response = client.get('/api/sync/local-import/status')

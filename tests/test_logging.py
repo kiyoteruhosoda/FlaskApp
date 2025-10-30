@@ -213,7 +213,7 @@ def test_unauthorized_logging_records_context(app):
         headers=headers,
         environ_overrides={"REMOTE_ADDR": "192.0.2.10"},
     ):
-        flask_session["_user_id"] = "user-123"
+        flask_session["_user_id"] = "individual:123"
         response = app.login_manager.unauthorized()
         assert response.status_code == 302
 
@@ -228,7 +228,7 @@ def test_unauthorized_logging_records_context(app):
         assert payload["id"] == log_entry.request_id
         assert payload["timestamp"].endswith("Z")
 
-        expected_hash = hashlib.sha256("user-123".encode("utf-8")).hexdigest()
+        expected_hash = hashlib.sha256("individual:123".encode("utf-8")).hexdigest()
         assert payload["user"]["id_hash"] == expected_hash
         assert payload["user"]["is_authenticated"] is True
 

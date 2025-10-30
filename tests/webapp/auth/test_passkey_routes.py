@@ -30,9 +30,12 @@ def _create_user(email="user@example.com", password="password123"):
 
 
 def _login(client, user):
-    with client.session_transaction() as session:
-        session["_user_id"] = str(user.id)
-        session["_fresh"] = True
+    response = client.post(
+        "/auth/login",
+        data={"email": user.email, "password": "password123"},
+        follow_redirects=False,
+    )
+    assert response.status_code in (302, 303)
 
 
 def _assign_permission(user: User, code: str) -> None:

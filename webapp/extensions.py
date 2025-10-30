@@ -20,19 +20,27 @@ login_manager.login_message = None
 @login_manager.user_loader
 def load_user(user_id):
     from core.models.user import User
+    from webapp.services.token_service import TokenService
 
-    if isinstance(user_id, str) and user_id.startswith("system:"):
+    subject_type: str | None = None
+    raw_identifier = user_id
+
+    if isinstance(user_id, str) and ":" in user_id:
+        subject_type, raw_identifier = user_id.split(":", 1)
+    elif isinstance(user_id, str):
+        subject_type = "individual"
+    else:
+        subject_type = "individual"
+
+    if subject_type == "system":
         try:
-            _, raw_id = user_id.split(":", 1)
-            account_id = int(raw_id)
-        except (ValueError, AttributeError):
+            account_id = int(raw_identifier)
+        except (TypeError, ValueError):
             return None
 
         token = session.get(SERVICE_LOGIN_TOKEN_SESSION_KEY)
         if not token:
             return None
-
-        from webapp.services.token_service import TokenService
 
         principal = TokenService.create_principal_from_token(token)
         if not principal or not principal.is_service_account:
@@ -42,15 +50,30 @@ def load_user(user_id):
             session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
             return None
 
+        g.current_user = principal
         return principal
 
     try:
-        numeric_id = int(user_id)
+        numeric_id = int(raw_identifier)
     except (TypeError, ValueError):
         return None
 
     session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
-    return User.query.get(numeric_id)
+    user = db.session.get(User, numeric_id)
+    if not user or not getattr(user, "is_active", True):
+        return None
+
+    try:
+        principal = TokenService.create_principal_for_user(user)
+    except ValueError as exc:
+        current_app.logger.warning(
+            "Failed to create principal for user in user_loader",  # type: ignore[attr-defined]
+            extra={"event": "auth.user_loader.error", "user_id": numeric_id},
+        )
+        return None
+
+    g.current_user = principal
+    return principal
 
 
 @login_manager.request_loader

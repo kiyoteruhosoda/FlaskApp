@@ -17,6 +17,8 @@ from urllib.parse import urlsplit
 
 import jwt
 
+from contextlib import contextmanager
+
 from flask import (
     Flask,
     app,
@@ -763,7 +765,27 @@ def create_app():
     # .env を読み込む（環境変数が未設定の場合のみ）
     load_dotenv()
 
+    from flask.testing import FlaskClient
+
+    class _HostPreservingClient(FlaskClient):
+        def __init__(self, *args, **kwargs):  # type: ignore[override]
+            super().__init__(*args, **kwargs)
+            self.environ_base.setdefault("SERVER_NAME", "localhost")
+            self.environ_base.setdefault("HTTP_HOST", "localhost")
+
+        def open(self, *args, **kwargs):  # type: ignore[override]
+            if not kwargs.get("base_url"):
+                kwargs["base_url"] = "http://localhost"
+            return super().open(*args, **kwargs)
+
+        @contextmanager
+        def session_transaction(self, *args, **kwargs):  # type: ignore[override]
+            kwargs.setdefault("base_url", "http://localhost")
+            with super().session_transaction(*args, **kwargs) as sess:
+                yield sess
+
     app = Flask(__name__)
+    app.test_client_class = _HostPreservingClient
     app.config.from_object(BaseApplicationSettings)
     app.config.setdefault("LAST_BEAT_AT", None)
     app.config.setdefault("API_TITLE", "nolumia API")

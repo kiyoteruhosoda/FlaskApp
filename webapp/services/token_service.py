@@ -8,6 +8,8 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Iterable, Optional, Tuple, Any
 
+from sqlalchemy import inspect
+
 import jwt
 from flask import current_app
 
@@ -270,9 +272,7 @@ class TokenService:
             return None
 
         display_name = getattr(user, "username", None) or getattr(user, "email", None)
-        role_names = tuple(
-            sorted(role.name for role in (user.roles or []) if getattr(role, "name", None))
-        )
+        role_objects = tuple(user.roles or [])
 
         return AuthenticatedPrincipal(
             subject_type="individual",
@@ -280,7 +280,10 @@ class TokenService:
             identifier=identifier,
             scope=frozenset(scope_items),
             display_name=display_name,
-            roles=role_names,
+            roles=role_objects,
+            email=getattr(user, "email", None),
+            _totp_secret=getattr(user, "totp_secret", None),
+            _permissions=frozenset(scope_items),
         )
 
     @classmethod
@@ -299,6 +302,55 @@ class TokenService:
             return None
 
         return cls._build_principal_from_payload(payload)
+
+    @classmethod
+    def create_principal_for_user(
+        cls,
+        user: User,
+        scope: Iterable[str] | None = None,
+    ) -> AuthenticatedPrincipal:
+        """Build an AuthenticatedPrincipal for an ORM user model."""
+
+        if user is None:
+            raise ValueError("user must not be None")
+
+        if not getattr(user, "is_active", True):
+            raise ValueError("inactive_user")
+
+        user_id = getattr(user, "id", None)
+        if user_id is None:
+            raise ValueError("user_id_missing")
+
+        state = inspect(user)
+        if state.session is None:
+            user = db.session.merge(user, load=True)
+            state = inspect(user)
+
+        if scope is None:
+            scope_items: set[str] = set()
+            for role in getattr(user, "roles", []) or []:
+                for permission in getattr(role, "permissions", []) or []:
+                    code = getattr(permission, "code", None)
+                    if isinstance(code, str) and code.strip():
+                        scope_items.add(code.strip())
+        else:
+            normalized_scope, _ = cls._normalize_scope(scope)
+            scope_items = set(normalized_scope)
+
+        display_name = getattr(user, "username", None) or getattr(user, "email", None)
+        role_objects = tuple(getattr(user, "roles", []) or [])
+
+        return AuthenticatedPrincipal(
+            subject_type="individual",
+            subject_id=user_id,
+            identifier=f"i+{user_id}",
+            scope=frozenset(scope_items),
+            display_name=display_name,
+            roles=role_objects,
+            email=getattr(user, "email", None),
+            _totp_secret=getattr(user, "totp_secret", None),
+            _permissions=frozenset(scope_items),
+        )
 
     @staticmethod
     def _extract_subject(payload: dict[str, Any]) -> tuple[str, int, str]:

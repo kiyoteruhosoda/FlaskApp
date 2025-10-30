@@ -1687,6 +1687,14 @@ msgstr "すべてのメディアを読み込み済みです"
 msgid "Failed to load media. Please try again."
 msgstr "メディアの読み込みに失敗しました。再度お試しください。"
 
+#: features/photonest/presentation/photo_view/templates/photo-view/media_list.html:902
+msgid "Now Loading.."
+msgstr "Now Loading.."
+
+#: features/photonest/presentation/photo_view/templates/photo-view/media_list.html:903
+msgid "Failed to load thumbnail"
+msgstr "サムネイルの読み込みに失敗しました"
+
 #: webapp/photo-view/templates/photo-view/session_detail.html:10
 msgid "Session Details"
 msgstr "セッション詳細"

@@ -1433,6 +1433,14 @@ msgstr ""
 msgid "Failed to load media. Please try again."
 msgstr ""
 
+#: features/photonest/presentation/photo_view/templates/photo-view/media_list.html:902
+msgid "Now Loading.."
+msgstr ""
+
+#: features/photonest/presentation/photo_view/templates/photo-view/media_list.html:903
+msgid "Failed to load thumbnail"
+msgstr ""
+
 #: webapp/photo-view/templates/photo-view/session_detail.html:10
 msgid "Session Details"
 msgstr ""

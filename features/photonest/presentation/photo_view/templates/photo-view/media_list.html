@@ -217,22 +217,74 @@
     box-shadow: 0 6px 20px rgba(0,0,0,0.2);
   }
   
-  .media-thumbnail {
+  .media-thumbnail-wrapper {
+    position: relative;
     width: 100%;
-    object-fit: cover;
+    height: 200px;
     background: #f8f9fa;
+    overflow: hidden;
+    display: flex;
+    align-items: stretch;
   }
-  
-  .media-grid.size-small .media-thumbnail {
+
+  .media-grid.size-small .media-thumbnail-wrapper {
     height: 150px;
   }
-  
-  .media-grid.size-medium .media-thumbnail {
+
+  .media-grid.size-medium .media-thumbnail-wrapper {
     height: 200px;
   }
-  
-  .media-grid.size-large .media-thumbnail {
+
+  .media-grid.size-large .media-thumbnail-wrapper {
     height: 280px;
+  }
+
+  .media-thumbnail {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: opacity 0.25s ease;
+    opacity: 0;
+  }
+
+  .media-thumbnail-wrapper:not(.is-loading):not(.is-error) .media-thumbnail {
+    opacity: 1;
+  }
+
+  .thumbnail-loading-indicator {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(248,249,250,0.92) 100%);
+    color: #495057;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: opacity 0.25s ease;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .thumbnail-loading-indicator .loading-text {
+    letter-spacing: 0.02em;
+  }
+
+  .media-thumbnail-wrapper.is-loading .thumbnail-loading-indicator,
+  .media-thumbnail-wrapper.is-error .thumbnail-loading-indicator {
+    opacity: 1;
+  }
+
+  .media-thumbnail-wrapper.is-error {
+    background: rgba(220, 53, 69, 0.12);
+  }
+
+  .media-thumbnail-wrapper.is-error .thumbnail-loading-indicator {
+    background: linear-gradient(180deg, rgba(255,240,240,0.95) 0%, rgba(255,230,230,0.95) 100%);
+    color: #842029;
   }
   
   .media-overlay {
@@ -350,7 +402,7 @@
   </div>
 </div>
 
-<div id="media-grid" class="media-grid size-medium">
+<div id="media-grid" class="media-grid size-medium" data-max-concurrent-loads="4">
   <!-- Media cards are injected dynamically -->
 </div>
 
@@ -847,13 +899,199 @@ document.addEventListener('DOMContentLoaded', () => {
     place: '{{ _("Place")|escapejs }}',
     thing: '{{ _("Thing")|escapejs }}'
   };
+  const nowLoadingLabel = '{{ _("Now Loading..")|escapejs }}';
+  const failedToLoadThumbnailText = '{{ _("Failed to load thumbnail")|escapejs }}';
+  const DEFAULT_MAX_CONCURRENT_MEDIA_LOADS = 4;
+
+  function createLimitedConcurrencyQueue(options = {}) {
+    const normalized = Math.max(1, Number(options.concurrency) || DEFAULT_MAX_CONCURRENT_MEDIA_LOADS);
+    const pending = [];
+    let activeCount = 0;
+
+    const runNext = () => {
+      if (activeCount >= normalized) {
+        return;
+      }
+      const next = pending.shift();
+      if (!next) {
+        return;
+      }
+      activeCount += 1;
+      const { task, resolve, reject } = next;
+      Promise.resolve()
+        .then(task)
+        .then(resolve)
+        .catch((error) => {
+          console.error('Media load task failed', error);
+          reject?.(error);
+        })
+        .finally(() => {
+          activeCount = Math.max(0, activeCount - 1);
+          runNext();
+        });
+    };
+
+    return {
+      enqueue(task) {
+        let resolveFn;
+        let rejectFn;
+        const promise = new Promise((resolve, reject) => {
+          resolveFn = resolve;
+          rejectFn = reject;
+        });
+        pending.push({ task, resolve: resolveFn, reject: rejectFn });
+        runNext();
+        return promise;
+      },
+      clear(filterFn) {
+        if (typeof filterFn === 'function') {
+          for (let i = pending.length - 1; i >= 0; i -= 1) {
+            if (filterFn(pending[i])) {
+              pending.splice(i, 1);
+            }
+          }
+        } else {
+          pending.length = 0;
+        }
+      }
+    };
+  }
+
+  function createThumbnailLoader(options = {}) {
+    const queue = createLimitedConcurrencyQueue({ concurrency: options.concurrency });
+
+    const setLoadingText = (wrapper, text) => {
+      const textElement = wrapper?.querySelector('.thumbnail-loading-indicator .loading-text');
+      if (textElement) {
+        textElement.textContent = text;
+      }
+    };
+
+    return {
+      load(wrapper, url) {
+        if (!wrapper) {
+          return Promise.resolve();
+        }
+
+        const imageElement = wrapper.querySelector('img.media-thumbnail');
+        if (!imageElement) {
+          return Promise.resolve();
+        }
+
+        if (!url) {
+          wrapper.classList.remove('is-loading');
+          wrapper.classList.add('is-error');
+          setLoadingText(wrapper, failedToLoadThumbnailText);
+          return Promise.resolve();
+        }
+
+        if (
+          imageElement.dataset.thumbnailRequestedUrl === url &&
+          imageElement.dataset.thumbnailLoaded === 'true'
+        ) {
+          wrapper.classList.remove('is-loading');
+          wrapper.classList.remove('is-error');
+          setLoadingText(wrapper, nowLoadingLabel);
+          return Promise.resolve();
+        }
+
+        imageElement.dataset.thumbnailRequestedUrl = url;
+        imageElement.dataset.thumbnailLoaded = 'false';
+        wrapper.classList.add('is-loading');
+        wrapper.classList.remove('is-error');
+        setLoadingText(wrapper, nowLoadingLabel);
+        imageElement.removeAttribute('src');
+
+        return queue
+          .enqueue(
+            () =>
+              new Promise((resolve) => {
+                const image = new Image();
+                image.decoding = 'async';
+                image.onload = () => {
+                  if (imageElement.isConnected && imageElement.dataset.thumbnailRequestedUrl === url) {
+                    imageElement.src = url;
+                    imageElement.dataset.thumbnailLoaded = 'true';
+                    wrapper.classList.remove('is-loading');
+                    wrapper.classList.remove('is-error');
+                    setLoadingText(wrapper, nowLoadingLabel);
+                  }
+                  resolve();
+                };
+                image.onerror = () => {
+                  if (imageElement.isConnected && imageElement.dataset.thumbnailRequestedUrl === url) {
+                    wrapper.classList.add('is-error');
+                    setLoadingText(wrapper, failedToLoadThumbnailText);
+                    imageElement.dataset.thumbnailLoaded = 'false';
+                    imageElement.removeAttribute('src');
+                  }
+                  wrapper.classList.remove('is-loading');
+                  resolve();
+                };
+                image.src = url;
+              })
+          )
+          .catch((error) => {
+            console.error('Thumbnail load failed', error);
+          });
+      },
+      reset() {
+        queue.clear();
+      }
+    };
+  }
+
+  function resolveMediaThumbnailUrl(media) {
+    if (!media) {
+      return null;
+    }
+    if (typeof media.thumbnailUrl === 'string' && media.thumbnailUrl) {
+      return media.thumbnailUrl;
+    }
+    if (typeof media.thumbnail_url === 'string' && media.thumbnail_url) {
+      return media.thumbnail_url;
+    }
+    if (media.id !== null && media.id !== undefined) {
+      return `/api/media/${media.id}/thumbnail?size=256`;
+    }
+    return null;
+  }
+
+  const maxConcurrentMediaLoads = (() => {
+    const raw = mediaGrid?.dataset?.maxConcurrentLoads;
+    const parsed = Number.parseInt(raw || '', 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+    return DEFAULT_MAX_CONCURRENT_MEDIA_LOADS;
+  })();
+
+  const mediaThumbnailLoader = createThumbnailLoader({ concurrency: maxConcurrentMediaLoads });
 
   function createMediaCard(media) {
     const card = document.createElement('a');
     card.className = 'media-card';
     card.href = `/photo-view/media/${media.id}`;
 
-    // Determine whether the media is a video
+    const thumbnailWrapper = document.createElement('div');
+    thumbnailWrapper.className = 'media-thumbnail-wrapper is-loading';
+    const thumbnailImage = document.createElement('img');
+    thumbnailImage.className = 'media-thumbnail';
+    thumbnailImage.alt = media.filename || 'Media';
+    thumbnailImage.loading = 'lazy';
+    thumbnailImage.decoding = 'async';
+
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.className = 'thumbnail-loading-indicator';
+    loadingIndicator.innerHTML = `
+      <div class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></div>
+      <span class="loading-text">${nowLoadingLabel}</span>
+    `;
+
+    thumbnailWrapper.appendChild(thumbnailImage);
+    thumbnailWrapper.appendChild(loadingIndicator);
+    card.appendChild(thumbnailWrapper);
+
     const isVideo = media.isVideo || media.is_video;
 
     const sourceText = media.source_label || sourceLabels[media.source_type] || unknownSourceLabel;
@@ -875,23 +1113,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const metaLine = metaParts.filter(Boolean).join(' • ');
 
-    card.innerHTML = `
-      <img class="media-thumbnail"
-           src="/api/media/${media.id}/thumbnail?size=256"
-           alt="${media.filename || 'Media'}"
-           loading="lazy"
-           onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzZjNzU3ZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
-      
-      ${media.width && media.height ? `<div class="media-overlay">${media.width}×${media.height}</div>` : ''}
-      
-      ${isVideo ? '<div class="video-overlay"><i class="fas fa-play"></i></div>' : ''}
+    if (media.width && media.height) {
+      const dimensionOverlay = document.createElement('div');
+      dimensionOverlay.className = 'media-overlay';
+      dimensionOverlay.textContent = `${media.width}×${media.height}`;
+      card.appendChild(dimensionOverlay);
+    }
 
-      <div class="media-info">
-        <h6 class="media-title">${formatDateTime(media.shot_at) || 'Unknown Date'}</h6>
-        <p class="media-meta">${metaLine}</p>
-      </div>
-    `;
-    
+    if (isVideo) {
+      const videoOverlay = document.createElement('div');
+      videoOverlay.className = 'video-overlay';
+      videoOverlay.innerHTML = '<i class="fas fa-play"></i>';
+      card.appendChild(videoOverlay);
+    }
+
+    const infoContainer = document.createElement('div');
+    infoContainer.className = 'media-info';
+
+    const title = document.createElement('h6');
+    title.className = 'media-title';
+    title.textContent = formatDateTime(media.shot_at) || 'Unknown Date';
+
+    const meta = document.createElement('p');
+    meta.className = 'media-meta';
+    meta.textContent = metaLine;
+
+    infoContainer.appendChild(title);
+    infoContainer.appendChild(meta);
+    card.appendChild(infoContainer);
+
+    const thumbnailUrl = resolveMediaThumbnailUrl(media);
+    mediaThumbnailLoader.load(thumbnailWrapper, thumbnailUrl);
+
     return card;
   }
 
@@ -907,6 +1160,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function initializeInfiniteScroll() {
+    mediaThumbnailLoader.reset();
+
     // Read the current filter settings
     const typeValue =
       typeof typeFilter !== 'undefined' && typeFilter && VALID_TYPE_FILTERS.has(typeFilter.value)
@@ -928,22 +1183,29 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const paginationClient = new PaginationClient({
       baseUrl: '/api/media',
-      pageSize: 200,
+      pageSize: 24,
       parameters: parameters,
       onItemsLoaded: (items, meta) => {
         if (meta.isFirstPage) {
           mediaGrid.innerHTML = '';
           totalLoaded = 0;
         }
-        
-        items.forEach(media => {
+
+        const fragment = document.createDocumentFragment();
+        items.forEach((media) => {
           const card = createMediaCard(media);
-          mediaGrid.appendChild(card);
-          totalLoaded++;
+          if (card) {
+            fragment.appendChild(card);
+            totalLoaded += 1;
+          }
         });
-        
+
+        if (fragment.childNodes.length > 0) {
+          mediaGrid.appendChild(fragment);
+        }
+
         mediaCount.textContent = `${totalLoaded} ${itemsLabel}`;
-        
+
         if (items.length === 0 && meta.isFirstPage) {
           mediaGrid.innerHTML = `
             <div class="text-center text-muted p-5">

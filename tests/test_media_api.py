@@ -1039,12 +1039,13 @@ def test_download_with_accel_redirect(client, seed_thumb_media, app):
     res = client.post(f"/api/media/{media_id}/thumb-url", json={"size": 1024})
     assert res.status_code == 200
     token_url = res.get_json()["url"]
+    token = token_url.rsplit("/", 1)[-1]
     res2 = client.get(token_url)
     assert res2.status_code == 200
-    expected = "/protected/thumbs/" + "/".join(("1024", rel.replace(os.sep, "/")))
-    assert res2.headers["X-Accel-Redirect"] == expected
+    expected_path = "/protected/thumbs/" + "/".join(("1024", rel.replace(os.sep, "/")))
+    assert res2.headers["X-Accel-Redirect"] == f"{expected_path}?token={token}"
     assert res2.headers["Cache-Control"].startswith("private")
-    assert res2.data == b""
+    assert res2.data == b"jpg"
 
 
 def test_download_original_with_accel_redirect(client, seed_thumb_media, app):
@@ -1055,12 +1056,13 @@ def test_download_original_with_accel_redirect(client, seed_thumb_media, app):
     res = client.post(f"/api/media/{media_id}/original-url")
     assert res.status_code == 200
     token_url = res.get_json()["url"]
+    token = token_url.rsplit("/", 1)[-1]
     res2 = client.get(token_url)
     assert res2.status_code == 200
     expected = "/protected/originals/" + rel.replace(os.sep, "/")
-    assert res2.headers["X-Accel-Redirect"] == expected
+    assert res2.headers["X-Accel-Redirect"] == f"{expected}?token={token}"
     assert res2.headers["Cache-Control"].startswith("private")
-    assert res2.data == b""
+    assert res2.data == b"orig"
 
 
 def test_download_without_accel_redirect(client, seed_thumb_media, app):
@@ -1076,6 +1078,43 @@ def test_download_without_accel_redirect(client, seed_thumb_media, app):
     assert res2.headers.get("X-Accel-Redirect") is None
     assert res2.headers["Cache-Control"].startswith("private")
     assert res2.data == b"jpg"
+
+
+def test_accel_fallback_original(client, seed_thumb_media, app):
+    media_id, rel = seed_thumb_media
+    login(client)
+    app.config["MEDIA_ACCEL_REDIRECT_ENABLED"] = True
+    app.config["MEDIA_ACCEL_ORIGINALS_LOCATION"] = "/protected/originals"
+    res = client.post(f"/api/media/{media_id}/original-url")
+    assert res.status_code == 200
+    token_url = res.get_json()["url"]
+    token = token_url.rsplit("/", 1)[-1]
+
+    fallback_path = f"/media/originals/{rel.replace(os.sep, '/')}"
+    res2 = client.get(f"{fallback_path}?token={token}")
+    assert res2.status_code == 200
+    assert res2.data == b"orig"
+    assert res2.headers.get("X-Accel-Redirect") is None
+    assert res2.headers["Cache-Control"].startswith("private")
+
+
+def test_accel_fallback_original_requires_auth_without_token(client, seed_thumb_media):
+    _, rel = seed_thumb_media
+    fallback_path = f"/media/originals/{rel.replace(os.sep, '/')}"
+    res = client.get(fallback_path)
+    assert res.status_code == 302
+    assert res.headers.get("Location", "").endswith("/")
+
+
+def test_accel_fallback_original_without_token_with_login(client, seed_thumb_media):
+    _, rel = seed_thumb_media
+    login(client)
+    fallback_path = f"/media/originals/{rel.replace(os.sep, '/')}"
+    res = client.get(fallback_path)
+    assert res.status_code == 200
+    assert res.data == b"orig"
+    assert res.headers.get("X-Accel-Redirect") is None
+    assert res.headers["Cache-Control"].startswith("private")
 
 
 def test_ct_mismatch(client):

@@ -322,6 +322,7 @@ class MediaPlayback(db.Model):
         media_id: int,
         preset: str,
         rel_path: str | None = None,
+        poster_rel_path: str | None = None,
         status: str = "pending",
         created_at: datetime | None = None,
         updated_at: datetime | None = None,
@@ -329,6 +330,7 @@ class MediaPlayback(db.Model):
         self.media_id = media_id
         self.preset = preset
         self.rel_path = rel_path
+        self.poster_rel_path = poster_rel_path
         self.status = status
         self.created_at = created_at or datetime.now(timezone.utc)
         self.updated_at = updated_at or datetime.now(timezone.utc)

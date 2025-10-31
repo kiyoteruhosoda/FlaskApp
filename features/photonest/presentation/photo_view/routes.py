@@ -75,7 +75,11 @@ def home():
         "photo-view/home.html",
         google_accounts=google_accounts,
         local_import_info=_build_local_import_info(),
-        is_admin=current_user.can("system:manage") if current_user.is_authenticated else False,
+        is_admin=(
+            current_user.can("admin:photo-settings")
+            if current_user.is_authenticated
+            else False
+        ),
         can_view_sessions=(
             True
             if app_settings.login_disabled
@@ -202,13 +206,18 @@ def tags():
 
 
 @bp.route("/settings")
+@require_perms("admin:photo-settings")
 @require_perms("media:view")
 def settings():
     """Photo view settings page."""
     return render_template(
         "photo-view/settings.html",
         local_import_info=_build_local_import_info(),
-        is_admin=current_user.can("system:manage") if current_user.is_authenticated else False,
+        is_admin=(
+            current_user.can("admin:photo-settings")
+            if current_user.is_authenticated
+            else False
+        ),
     )
 
 

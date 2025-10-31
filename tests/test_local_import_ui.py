@@ -502,7 +502,7 @@ class TestSessionDetailUI(AuthenticatedClientMixin):
             session_id = result['session_id']
         
         # ホームページ呼び出し
-        response = client.get('/photo-view')
+        response = client.get('/photo-view/session')
         assert response.status_code == 200
         
         html = response.get_data(as_text=True)

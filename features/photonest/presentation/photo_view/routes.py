@@ -58,7 +58,16 @@ def _build_local_import_info():
 @bp.route("/", strict_slashes=False)
 @require_perms("media:view")
 def home():
-    """Photo view home page."""
+    """Redirect the legacy home page to the albums view."""
+
+    return redirect(url_for("photo_view.albums"))
+
+
+@bp.route("/session", strict_slashes=False)
+@require_perms("media:view")
+def session_home():
+    """Photo view session overview page."""
+
     if not app_settings.login_disabled and not current_user.can("media:session"):
         return redirect(url_for("index"))
 

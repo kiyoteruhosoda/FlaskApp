@@ -38,7 +38,7 @@
             {{ _('Photo View') }}
           </a>
           <ul class="dropdown-menu" aria-labelledby="photoNavDropdown">
-            <li><a class="dropdown-item" href="{{ url_for('photo_view.home') }}">{{ _('Sessions') }}</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('photo_view.session_home') }}">{{ _('Sessions') }}</a></li>
             <li><a class="dropdown-item" href="{{ url_for('photo_view.media_list') }}">{{ _('Media Gallery') }}</a></li>
             {% if current_user.can('album:view') %}
             <li><a class="dropdown-item" href="{{ url_for('photo_view.albums') }}">{{ _('Albums') }}</a></li>

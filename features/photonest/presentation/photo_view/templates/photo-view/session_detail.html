@@ -12,7 +12,7 @@
     <h1 id="session-title" class="mb-1">{{ _("Session Details") }}</h1>
     <p id="session-subtitle" class="text-muted small mb-0 d-none"></p>
   </div>
-  <a href="/photo-view" class="btn btn-outline-secondary btn-sm">
+  <a href="/photo-view/session" class="btn btn-outline-secondary btn-sm">
     <i class="bi bi-arrow-left"></i> {{ _("Back to Sessions") }}
   </a>
 </div>
@@ -152,13 +152,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const pickerSessionId = resolveSessionId();
   if (!pickerSessionId) {
-    window.location.href = '/photo-view';
+    window.location.href = '/photo-view/session';
     return;
   }
 
   if (/^\d+$/.test(pickerSessionId)) {
     console.warn('Numeric session ID detected, redirecting to sessions list');
-    window.location.href = '/photo-view';
+    window.location.href = '/photo-view/session';
     return;
   }
 
@@ -928,7 +928,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const resp = await window.apiClient.get(`/api/picker/session/${encodeURIComponent(pickerSessionId)}`);
       if (resp.status === 404) {
-        window.location.href = '/photo-view';
+        window.location.href = '/photo-view/session';
         return null;
       }
       if (resp.status === 401 || resp.status === 302) {

@@ -111,21 +111,21 @@ def test_settings_page_available_with_admin_permission(client):
     assert "Local Import Overview" in html
 
 
-def test_home_hides_settings_button_without_admin_permission(client):
+def test_session_home_hides_settings_button_without_admin_permission(client):
     """The photo view home page hides settings when admin scope is missing."""
 
     user = _create_user_with_permissions("media:view", "media:session")
     _login(client, user)
 
     with _require_auth_checks(client):
-        response = client.get("/photo-view/")
+        response = client.get("/photo-view/session")
 
     assert response.status_code == 200
     html = response.data.decode("utf-8")
     assert "/photo-view/settings" not in html
 
 
-def test_home_shows_settings_button_with_admin_permission(client):
+def test_session_home_shows_settings_button_with_admin_permission(client):
     """When the admin scope is granted the settings button becomes visible."""
 
     user = _create_user_with_permissions(
@@ -134,21 +134,21 @@ def test_home_shows_settings_button_with_admin_permission(client):
     _login(client, user)
 
     with _require_auth_checks(client):
-        response = client.get("/photo-view/")
+        response = client.get("/photo-view/session")
 
     assert response.status_code == 200
     html = response.data.decode("utf-8")
     assert "/photo-view/settings" in html
 
 
-def test_home_redirects_without_session_permission(client):
-    """Users lacking media:session cannot open the home page."""
+def test_session_home_redirects_without_session_permission(client):
+    """Users lacking media:session cannot open the session page."""
 
     user = _create_user_with_permissions("media:view")
     _login(client, user)
 
     with _require_auth_checks(client):
-        response = client.get("/photo-view/")
+        response = client.get("/photo-view/session")
 
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/")
@@ -166,4 +166,17 @@ def test_media_page_available_without_session_permission(client):
     assert response.status_code == 200
     html = response.data.decode("utf-8")
     assert "Media Gallery" in html
+
+
+def test_root_redirects_to_albums(client):
+    """Accessing /photo-view/ redirects to the albums view."""
+
+    user = _create_user_with_permissions("media:view")
+    _login(client, user)
+
+    with _require_auth_checks(client):
+        response = client.get("/photo-view/", follow_redirects=False)
+
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/photo-view/albums")
 

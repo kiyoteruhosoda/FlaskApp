@@ -183,27 +183,38 @@ class TokenService:
     ) -> Optional[AuthenticatedPrincipal]:
         """アクセストークンを検証して主体情報を取得する"""
 
-        return cls.create_principal_from_token(token)
+        principal, _ = cls.verify_access_token_with_reason(token)
+        return principal
 
     @classmethod
-    def _decode_access_token_payload(cls, token: str) -> Optional[dict[str, Any]]:
+    def verify_access_token_with_reason(
+        cls, token: str
+    ) -> tuple[Optional[AuthenticatedPrincipal], Optional[str]]:
+        """アクセストークン検証時の失敗理由を含めて主体情報を取得する"""
+
+        return cls.create_principal_with_reason(token)
+
+    @classmethod
+    def _decode_access_token_payload(
+        cls, token: str
+    ) -> tuple[Optional[dict[str, Any]], Optional[str]]:
         try:
             header = jwt.get_unverified_header(token)
         except jwt.InvalidTokenError:
             current_app.logger.debug("JWT token header invalid")
-            return None
+            return None, "invalid_header"
 
         algorithm = header.get("alg") if isinstance(header, dict) else None
         kid = header.get("kid") if isinstance(header, dict) else None
         if not isinstance(algorithm, str) or not algorithm:
             current_app.logger.debug("JWT token missing algorithm header")
-            return None
+            return None, "missing_algorithm"
 
         try:
             key = resolve_verification_key(algorithm, kid if isinstance(kid, str) else None)
         except (AccessTokenVerificationError, AccessTokenSigningError) as exc:
             current_app.logger.debug("JWT token verification key resolution failed: %s", exc)
-            return None
+            return None, "key_resolution_failed"
 
         expected_audience = settings.access_token_audience
         expected_issuer = settings.access_token_issuer
@@ -222,34 +233,34 @@ class TokenService:
             )
         except jwt.ExpiredSignatureError:
             current_app.logger.debug("JWT token expired")
-            return None
+            return None, "expired"
         except jwt.InvalidAudienceError:
             current_app.logger.debug("JWT token audience mismatch")
-            return None
+            return None, "audience_mismatch"
         except jwt.InvalidIssuerError:
             current_app.logger.debug("JWT token issuer mismatch")
-            return None
+            return None, "issuer_mismatch"
         except jwt.MissingRequiredClaimError as exc:
             current_app.logger.debug("JWT token missing required claim: %s", exc.claim)
-            return None
+            return None, f"missing_claim:{exc.claim}"
         except jwt.InvalidTokenError as exc:
             current_app.logger.debug(f"JWT token invalid: {exc}")
-            return None
+            return None, "invalid_token"
         except (ValueError, TypeError):
             current_app.logger.debug("JWT token format error")
-            return None
+            return None, "format_error"
 
-        return payload
+        return payload, None
 
     @classmethod
     def _build_principal_from_payload(
         cls, payload: dict[str, Any]
-    ) -> Optional[AuthenticatedPrincipal]:
+    ) -> tuple[Optional[AuthenticatedPrincipal], Optional[str]]:
         try:
             subject_type, subject_id, identifier = cls._extract_subject(payload)
         except ValueError:
             current_app.logger.debug("JWT token subject claim invalid")
-            return None
+            return None, "invalid_subject"
 
         scope_items = cls._extract_scope_items(payload)
 
@@ -257,7 +268,7 @@ class TokenService:
             account = ServiceAccount.query.get(subject_id)
             if not account or not account.is_active():
                 current_app.logger.debug("JWT token service account inactive or missing")
-                return None
+                return None, "service_account_inactive"
 
             return AuthenticatedPrincipal(
                 subject_type="system",
@@ -265,11 +276,11 @@ class TokenService:
                 identifier=identifier,
                 scope=frozenset(scope_items),
                 display_name=account.name,
-            )
+            ), None
 
         user = User.query.get(subject_id)
         if not user or not user.is_active:
-            return None
+            return None, "user_inactive_or_missing"
 
         display_name = getattr(user, "username", None) or getattr(user, "email", None)
         role_objects = tuple(user.roles or [])
@@ -284,7 +295,7 @@ class TokenService:
             email=getattr(user, "email", None),
             _totp_secret=getattr(user, "totp_secret", None),
             _permissions=frozenset(scope_items),
-        )
+        ), None
 
     @classmethod
     def create_principal_from_token(
@@ -297,11 +308,22 @@ class TokenService:
             AuthenticatedPrincipal: If the token is valid and not expired.
             None: If the token is invalid or expired.
         """
-        payload = cls._decode_access_token_payload(token)
-        if payload is None:
-            return None
+        principal, _ = cls.create_principal_with_reason(token)
+        return principal
 
-        return cls._build_principal_from_payload(payload)
+    @classmethod
+    def create_principal_with_reason(
+        cls, token: str
+    ) -> tuple[Optional[AuthenticatedPrincipal], Optional[str]]:
+        payload, payload_failure = cls._decode_access_token_payload(token)
+        if payload is None:
+            return None, payload_failure
+
+        principal, principal_failure = cls._build_principal_from_payload(payload)
+        if principal is None:
+            return None, principal_failure
+
+        return principal, None
 
     @classmethod
     def create_principal_for_user(

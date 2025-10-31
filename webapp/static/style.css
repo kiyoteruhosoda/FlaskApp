@@ -659,10 +659,6 @@ body.login-page .login-card .language-selector {
     font-size: 1.75rem;
   }
 
-  .form-control {
-    padding: 10px 12px 10px 40px;
-  }
-
   .input-icon {
     left: 12px;
     font-size: 1rem;
@@ -843,16 +839,15 @@ body.login-page .login-card .language-selector {
 .album-slideshow-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.88);
+  background: #000;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  justify-content: flex-start;
-  padding: 8px;
+  justify-content: center;
+  padding: 0;
   width: 100vw;
   height: 100vh;
   z-index: 1080;
-  backdrop-filter: blur(6px);
   box-sizing: border-box;
 }
 
@@ -874,37 +869,37 @@ body.login-page .login-card .language-selector {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 23, 42, 0.6);
-  border-radius: 18px;
-  overflow: hidden;
-  flex: 1 1 0;
+  flex: 1 1 auto;
   min-height: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .album-slideshow-stage img {
   width: 100%;
   height: 100%;
-  max-width: 100%;
-  max-height: 100%;
+  max-width: none;
+  max-height: none;
   object-fit: contain;
-  background: rgba(15, 23, 42, 0.3);
+  background: transparent;
 }
 
 .album-slideshow-nav {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(15, 23, 42, 0.7);
+  background: rgba(15, 23, 42, 0.5);
   border: none;
   color: #f8fafc;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
+  width: 52px;
+  height: 52px;
+  border-radius: 9999px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: background 0.2s ease;
+  z-index: 3;
 }
 
 .album-slideshow-nav:hover {
@@ -912,15 +907,14 @@ body.login-page .login-card .language-selector {
 }
 
 .album-slideshow-nav.prev {
-  left: 18px;
+  left: 24px;
 }
 
 .album-slideshow-nav.next {
-  right: 18px;
+  right: 24px;
 }
 
 .album-slideshow-footer {
-  margin-top: 18px;
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
@@ -959,8 +953,6 @@ body.login-page .login-card .language-selector {
   margin-top: 20px;
   padding: 40px 20px;
   text-align: center;
-  background: rgba(15, 23, 42, 0.55);
-  border-radius: 16px;
   font-size: 1.1rem;
 }
 
@@ -970,7 +962,9 @@ body.login-page .login-card .language-selector {
   align-items: center;
   justify-content: center;
   gap: 16px;
-  padding: 40px 20px;
+  padding: 120px 20px;
+  width: 100%;
+  height: 100%;
   color: #f8fafc;
 }
 
@@ -1008,8 +1002,16 @@ body.login-page .login-card .language-selector {
   }
 
   .album-slideshow-nav {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
+  }
+
+  .album-slideshow-nav.prev {
+    left: 16px;
+  }
+
+  .album-slideshow-nav.next {
+    right: 16px;
   }
 
   .album-slideshow-info .album-title {

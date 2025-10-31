@@ -1603,9 +1603,52 @@ document.addEventListener('DOMContentLoaded', () => {
     tile.appendChild(meta);
 
     if (hasValidId) {
+      const openMediaDetail = () => {
+        const detailUrl = `/photo-view/media/${id}`;
+        window.open(detailUrl, '_blank', 'noopener,noreferrer');
+      };
+
+      let longPressTimer = null;
+      let longPressTriggered = false;
+
       tile.addEventListener('click', (event) => {
+        if (longPressTriggered) {
+          event.preventDefault();
+          longPressTriggered = false;
+          return;
+        }
         event.preventDefault();
         toggleMediaSelection(media);
+      });
+
+      tile.addEventListener('contextmenu', (event) => {
+        event.preventDefault();
+        longPressTriggered = true;
+        openMediaDetail();
+      });
+
+      tile.addEventListener('pointerdown', (event) => {
+        if (event.pointerType !== 'touch') {
+          return;
+        }
+        longPressTriggered = false;
+        if (longPressTimer) {
+          window.clearTimeout(longPressTimer);
+        }
+        longPressTimer = window.setTimeout(() => {
+          longPressTriggered = true;
+          longPressTimer = null;
+          openMediaDetail();
+        }, 600);
+      });
+
+      ['pointerup', 'pointerleave', 'pointercancel'].forEach((type) => {
+        tile.addEventListener(type, () => {
+          if (longPressTimer) {
+            window.clearTimeout(longPressTimer);
+            longPressTimer = null;
+          }
+        });
       });
     }
 

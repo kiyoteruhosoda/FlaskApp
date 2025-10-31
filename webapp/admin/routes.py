@@ -26,6 +26,7 @@ from flask_babel import gettext as _
 from sqlalchemy.orm import selectinload
 
 from ..extensions import db
+from sqlalchemy import or_
 
 from core.models.system_setting import SystemSetting
 from core.system_settings_defaults import (
@@ -1616,9 +1617,14 @@ def permissions():
 
     query = Permission.query
     if search:
-        query = query.filter(Permission.code.contains(search))
+        query = query.filter(
+            or_(
+                Permission.code.contains(search),
+                Permission.detail.contains(search),
+            )
+        )
 
-    if sort not in ["id", "code"]:
+    if sort not in ["id", "code", "detail"]:
         sort = "id"
     sort_column = getattr(Permission, sort)
     if order == "desc":
@@ -1638,14 +1644,15 @@ def permission_add():
     if not current_user.can('permission:manage'):
         return _redirect_to_home()
     if request.method == "POST":
-        code = request.form.get("code")
+        code = (request.form.get("code") or "").strip()
+        detail = (request.form.get("detail") or "").strip()
         if not code:
             flash(_("Code is required."), "error")
             return render_template("admin/permission_edit.html", permission=None)
         if Permission.query.filter_by(code=code).first():
             flash(_("Permission already exists."), "error")
             return render_template("admin/permission_edit.html", permission=None)
-        p = Permission(code=code)
+        p = Permission(code=code, detail=detail or None)
         db.session.add(p)
         db.session.commit()
         flash(_("Permission created successfully."), "success")
@@ -1660,11 +1667,13 @@ def permission_edit(perm_id):
         return _redirect_to_home()
     perm = Permission.query.get_or_404(perm_id)
     if request.method == "POST":
-        code = request.form.get("code")
+        code = (request.form.get("code") or "").strip()
+        detail = (request.form.get("detail") or "").strip()
         if not code:
             flash(_("Code is required."), "error")
             return render_template("admin/permission_edit.html", permission=perm)
         perm.code = code
+        perm.detail = detail or None
         db.session.commit()
         flash(_("Permission updated."), "success")
         return redirect(url_for("admin.permissions"))

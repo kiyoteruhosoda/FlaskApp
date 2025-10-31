@@ -81,8 +81,8 @@ def app():
                     os.environ[key] = old_value
 
 
-class TestSessionDetailAPI:
-    """Session Detail API のテスト"""
+class AuthenticatedClientMixin:
+    """テストクライアントを認証状態にするためのヘルパーミックスイン"""
 
     @staticmethod
     def _login(client):
@@ -110,6 +110,10 @@ class TestSessionDetailAPI:
         with client.session_transaction() as sess:
             sess.update(persisted)
             sess.modified = True
+
+
+class TestSessionDetailAPI(AuthenticatedClientMixin):
+    """Session Detail API のテスト"""
 
     def test_picker_sessions_list_includes_local_import(self, app):
         """セッション一覧にローカルインポートセッションが含まれることをテスト"""
@@ -457,7 +461,7 @@ class TestSessionDetailAPI:
             assert metadata.get('session_id') == session_id
 
 
-class TestSessionDetailUI:
+class TestSessionDetailUI(AuthenticatedClientMixin):
     """Session Detail UI のテスト"""
     
     def test_session_detail_page_renders(self, app):
@@ -472,9 +476,9 @@ class TestSessionDetailUI:
             session_id = result['session_id']
         
         # セッション詳細ページ呼び出し
-        response = client.get(f'/photo-view?session_id={session_id}')
+        response = client.get(f'/photo-view/session/{session_id}')
         assert response.status_code == 200
-        
+
         html = response.get_data(as_text=True)
 
         # 必要なHTML要素が含まれていることを確認
@@ -510,7 +514,7 @@ class TestSessionDetailUI:
         assert 'Stop Local Import' in html
 
 
-class TestLocalImportIntegration:
+class TestLocalImportIntegration(AuthenticatedClientMixin):
     """ローカルインポート統合テスト"""
     
     def test_full_local_import_workflow(self, app):

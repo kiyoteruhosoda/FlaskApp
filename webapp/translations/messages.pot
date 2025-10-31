@@ -1308,10 +1308,6 @@ msgstr ""
 msgid "No Albums Found"
 msgstr ""
 
-#: webapp/photo-view/templates/photo-view/albums.html:134
-msgid "Albums will appear here when they are created from your media collection."
-msgstr ""
-
 #: webapp/photo-view/templates/photo-view/albums.html:173
 msgid "photos"
 msgstr ""

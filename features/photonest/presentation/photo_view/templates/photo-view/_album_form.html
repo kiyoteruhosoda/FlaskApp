@@ -127,11 +127,11 @@
     <div class="text-muted small" id="album-form-status"></div>
     <div>
       {% if is_editor_view %}
-        <a href="{{ cancel_url }}" class="btn btn-outline-secondary">{{ _('Cancel') }}</a>
+        <a href="{{ cancel_url }}" class="btn btn-outline-secondary btn-size-sm">{{ _('Cancel') }}</a>
       {% else %}
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+        <button type="button" class="btn btn-outline-secondary btn-size-sm" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
       {% endif %}
-      <button type="submit" class="btn btn-primary" id="save-album-btn" form="album-form">
+      <button type="submit" class="btn btn-primary btn-size-sm" id="save-album-btn" form="album-form">
         <span class="save-label-create">{{ _('Create Album') }}</span>
         <span class="save-label-update d-none">{{ _('Save Changes') }}</span>
       </button>

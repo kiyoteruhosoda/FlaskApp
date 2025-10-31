@@ -23,8 +23,8 @@
   }
 
   .role-card-active {
-    border-width: 2px;
-    border-color: rgba(var(--bs-primary-rgb), 0.95);
+    outline: solid 2px rgba(var(--bs-primary-rgb));
+    background-color: rgba(var(--bs-primary-rgb), 0.3);
     box-shadow: 0 1.25rem 2.5rem rgba(var(--bs-primary-rgb), 0.18);
     transform: translateY(-1px);
   }
@@ -119,7 +119,7 @@
       {% for role in roles %}
       <div class="col-md-6 col-xl-4">
         <div
-          class="role-card card h-100 border shadow-sm"
+          class="role-card card h-100 shadow-sm"
           role="checkbox"
           tabindex="0"
           data-role-card

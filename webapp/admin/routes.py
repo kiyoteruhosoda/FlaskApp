@@ -19,6 +19,7 @@ from flask import (
     jsonify,
     session,
     current_app,
+    Response,
 )
 from ..extensions import db
 from flask_login import login_required, current_user
@@ -105,6 +106,12 @@ def _can_read_api_keys() -> bool:
     if _can_manage_api_keys():
         return True
     return current_user.can("api_key:read")
+
+
+def _redirect_to_home() -> Response:
+    """権限不足時にトップページへリダイレクトする。"""
+
+    return redirect(url_for("index"))
 
 
 def _infer_data_type(value: Any) -> str:
@@ -589,7 +596,7 @@ def service_accounts():
     can_access_api_keys = _can_read_api_keys()
 
     if not (can_manage_accounts or can_access_api_keys):
-        return _(u"You do not have permission to access this page."), 403
+        return _redirect_to_home()
 
     accounts = [account.as_dict() for account in ServiceAccountService.list_accounts()]
     certificate_groups = [
@@ -708,7 +715,7 @@ def service_accounts_delete(account_id: int):
 @login_required
 def service_account_api_keys(account_id: int):
     if not _can_read_api_keys():
-        return _(u"You do not have permission to access this page."), 403
+        return _redirect_to_home()
 
     account = ServiceAccount.query.get(account_id)
     if not account:
@@ -748,10 +755,12 @@ def service_account_api_keys(account_id: int):
 @bp.route("/config", methods=["GET", "POST"])
 @login_required
 def show_config():
-    if not current_user.can("system:manage"):
-        return _(u"You do not have permission to access this page."), 403
     wants_json = request.accept_mimetypes["application/json"] > request.accept_mimetypes["text/html"]
     is_ajax = wants_json or request.headers.get("X-Requested-With") == "XMLHttpRequest"
+    if not current_user.can("system:manage"):
+        if is_ajax:
+            return jsonify({"error": "forbidden"}), 403
+        return _redirect_to_home()
 
     app_overrides: Dict[str, str] = {}
     app_selected: set[str] = set()
@@ -1010,7 +1019,7 @@ def show_config():
 @login_required
 def show_version():
     if not current_user.can("system:manage"):
-        return _(u"You do not have permission to access this page."), 403
+        return _redirect_to_home()
     from core.version import get_version_info
     version_info = get_version_info()
     try:
@@ -1044,7 +1053,7 @@ def show_version():
 @login_required
 def show_data_files():
     if not current_user.can("system:manage"):
-        return _(u"You do not have permission to access this page."), 403
+        return _redirect_to_home()
 
     directory_definitions = [
         ("MEDIA_ORIGINALS_DIRECTORY", _("Original Media Directory")),
@@ -1255,8 +1264,7 @@ def show_data_files():
 @login_required
 def user_reset_totp(user_id):
     if not current_user.can('user:manage'):
-        flash(_("You do not have permission to access this page."), "error")
-        return redirect(url_for("index"))
+        return _redirect_to_home()
     user = User.query.get_or_404(user_id)
     # TOTPシークレットをリセット（Noneにする）
     user.totp_secret = None
@@ -1269,8 +1277,7 @@ def user_reset_totp(user_id):
 @login_required
 def user_delete(user_id):
     if not current_user.can('user:manage'):
-        flash(_("You do not have permission to access this page."), "error")
-        return redirect(url_for("index"))
+        return _redirect_to_home()
     user = User.query.get_or_404(user_id)
     if user.id == current_user.id:
         flash(_("You cannot delete yourself."), "error")
@@ -1285,8 +1292,7 @@ def user_delete(user_id):
 @login_required
 def user_change_role(user_id):
     if not current_user.can('user:manage'):
-        flash(_("You do not have permission to access this page."), "error")
-        return redirect(url_for("index"))
+        return _redirect_to_home()
     user = User.query.get_or_404(user_id)
     role_ids = request.form.getlist("roles")
     if not role_ids:
@@ -1327,8 +1333,7 @@ def user_change_role(user_id):
 @login_required
 def user_edit_roles(user_id):
     if not current_user.can('user:manage'):
-        flash(_("You do not have permission to access this page."), "error")
-        return redirect(url_for("index"))
+        return _redirect_to_home()
     user = User.query.get_or_404(user_id)
     roles = Role.query.all()
     return render_template("admin/user_role_edit.html", user=user, roles=roles)
@@ -1338,8 +1343,7 @@ def user_edit_roles(user_id):
 @login_required
 def user_add():
     if not current_user.can('user:manage'):
-        flash(_("You do not have permission to access this page."), "error")
-        return redirect(url_for("index"))
+        return _redirect_to_home()
     roles = Role.query.all()
     if request.method == "POST":
         email = request.form.get("email")
@@ -1369,8 +1373,7 @@ def user_add():
 @login_required
 def user():
     if not current_user.can('user:manage'):
-        flash(_("You do not have permission to access this page."), "error")
-        return redirect(url_for("index"))
+        return _redirect_to_home()
     users = User.query.all()
     roles = Role.query.all()
     return render_template("admin/admin_users.html", users=users, roles=roles)
@@ -1380,8 +1383,7 @@ def user():
 @login_required
 def permissions():
     if not current_user.can('permission:manage'):
-        flash(_("You do not have permission to access this page."), "error")
-        return redirect(url_for("index"))
+        return _redirect_to_home()
     search = request.args.get("search", "").strip()
     sort = request.args.get("sort", "id")
     order = request.args.get("order", "asc")
@@ -1408,8 +1410,7 @@ def permissions():
 @login_required
 def permission_add():
     if not current_user.can('permission:manage'):
-        flash(_("You do not have permission to access this page."), "error")
-        return redirect(url_for("index"))
+        return _redirect_to_home()
     if request.method == "POST":
         code = request.form.get("code")
         if not code:
@@ -1430,8 +1431,7 @@ def permission_add():
 @login_required
 def permission_edit(perm_id):
     if not current_user.can('permission:manage'):
-        flash(_("You do not have permission to access this page."), "error")
-        return redirect(url_for("index"))
+        return _redirect_to_home()
     perm = Permission.query.get_or_404(perm_id)
     if request.method == "POST":
         code = request.form.get("code")
@@ -1449,8 +1449,7 @@ def permission_edit(perm_id):
 @login_required
 def permission_delete(perm_id):
     if not current_user.can('permission:manage'):
-        flash(_("You do not have permission to access this page."), "error")
-        return redirect(url_for("index"))
+        return _redirect_to_home()
     perm = Permission.query.get_or_404(perm_id)
     db.session.delete(perm)
     db.session.commit()
@@ -1462,8 +1461,7 @@ def permission_delete(perm_id):
 @login_required
 def roles():
     if not current_user.can('role:manage'):
-        flash(_("You do not have permission to access this page."), "error")
-        return redirect(url_for("index"))
+        return _redirect_to_home()
     roles = Role.query.all()
     return render_template("admin/roles.html", roles=roles)
 
@@ -1472,8 +1470,7 @@ def roles():
 @login_required
 def role_add():
     if not current_user.can('role:manage'):
-        flash(_("You do not have permission to access this page."), "error")
-        return redirect(url_for("index"))
+        return _redirect_to_home()
     permissions = Permission.query.all()
     if request.method == "POST":
         name = request.form.get("name")
@@ -1500,8 +1497,7 @@ def role_add():
 @login_required
 def role_edit(role_id):
     if not current_user.can('role:manage'):
-        flash(_("You do not have permission to access this page."), "error")
-        return redirect(url_for("index"))
+        return _redirect_to_home()
     role = Role.query.get_or_404(role_id)
     permissions = Permission.query.all()
     if request.method == "POST":
@@ -1527,8 +1523,7 @@ def role_edit(role_id):
 @login_required
 def role_delete(role_id):
     if not current_user.can('role:manage'):
-        flash(_("You do not have permission to access this page."), "error")
-        return redirect(url_for("index"))
+        return _redirect_to_home()
     role = Role.query.get_or_404(role_id)
     db.session.delete(role)
     db.session.commit()
@@ -1541,11 +1536,10 @@ def role_delete(role_id):
 def google_accounts():
     from core.models.google_account import GoogleAccount
 
-    # 管理者は全てのアカウントを表示、一般ユーザーは自分のアカウントのみ表示
-    if current_user.can('user:manage'):
-        accounts = GoogleAccount.query.all()
-    else:
-        accounts = GoogleAccount.query.filter_by(user_id=current_user.id).all()
+    if not current_user.can("user:manage"):
+        return _redirect_to_home()
+
+    accounts = GoogleAccount.query.all()
 
     return render_template("admin/google_accounts.html", accounts=accounts)
 

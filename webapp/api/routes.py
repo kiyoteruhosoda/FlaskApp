@@ -1883,7 +1883,8 @@ def api_login(data):
     email = data.get("email")
     password = data.get("password")
     token = data.get("token")
-    requested_scope = set(data.get("scope", []))
+    requested_scope_items = data.get("scope", [])
+    requested_scope = {item for item in requested_scope_items if isinstance(item, str)}
 
     user_model = auth_service.authenticate(email, password)
     if not user_model:
@@ -1908,7 +1909,14 @@ def api_login(data):
                 break
 
     user_permissions = set(user_model.all_permissions)
-    granted_scope = sorted(requested_scope & user_permissions)
+    available_scope_set = set(user_permissions)
+    if "gui:view" in requested_scope or "gui:view" in user_permissions:
+        available_scope_set.add("gui:view")
+
+    if "gui:view" in requested_scope:
+        granted_scope = sorted(available_scope_set)
+    else:
+        granted_scope = sorted(requested_scope & available_scope_set)
     scope_str = " ".join(granted_scope)
     session[API_LOGIN_SCOPE_SESSION_KEY] = granted_scope
 
@@ -1930,7 +1938,7 @@ def api_login(data):
             "requires_role_selection": True,
             "redirect_url": url_for("auth.select_role", next=redirect_target),
             "scope": scope_str,
-            "available_scopes": sorted(user_permissions),
+            "available_scopes": sorted(available_scope_set),
         }
     else:
         _sync_active_role(user_model)
@@ -1941,7 +1949,7 @@ def api_login(data):
             "requires_role_selection": False,
             "redirect_url": redirect_target,
             "scope": scope_str,
-            "available_scopes": sorted(user_permissions),
+            "available_scopes": sorted(available_scope_set),
         }
 
     response = jsonify(response_payload)

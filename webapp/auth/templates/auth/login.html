@@ -319,7 +319,7 @@ document.addEventListener('DOMContentLoaded', function() {
             throw new Error('abort');
           }
 
-          const credentialPayload = {
+          const requestPayload = {
             id: assertion.id,
             type: assertion.type,
             rawId: bufferToBase64Url(assertion.rawId),
@@ -336,15 +336,17 @@ document.addEventListener('DOMContentLoaded', function() {
               : {},
           };
 
+          const nextValue = storedRedirectPath || resolveNextValue();
+          if (nextValue) {
+            requestPayload.next = nextValue;
+          }
+
           const verifyResponse = await fetch('{{ url_for('auth.passkey_verify_login') }}', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              credential: credentialPayload,
-              next: storedRedirectPath || resolveNextValue(),
-            }),
+            body: JSON.stringify(requestPayload),
           });
 
           if (!verifyResponse.ok) {

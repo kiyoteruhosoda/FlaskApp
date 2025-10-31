@@ -52,7 +52,7 @@ def client(app):
 
 def _create_user_with_roles(app, email, password, role_names):
     from webapp.extensions import db
-    from core.models.user import User, Role
+    from core.models.user import User, Role, Permission
 
     with app.app_context():
         roles = []
@@ -60,6 +60,15 @@ def _create_user_with_roles(app, email, password, role_names):
             role = Role(name=name)
             db.session.add(role)
             roles.append(role)
+        dashboard_perm = (
+            Permission.query.filter_by(code="dashboard:view").first()
+            or Permission(code="dashboard:view")
+        )
+        if dashboard_perm.id is None:
+            db.session.add(dashboard_perm)
+        for role in roles:
+            if dashboard_perm not in role.permissions:
+                role.permissions.append(dashboard_perm)
         user = User(email=email)
         user.set_password(password)
         user.roles = roles

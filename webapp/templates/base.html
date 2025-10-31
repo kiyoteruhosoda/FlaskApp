@@ -27,9 +27,11 @@
         <li class="nav-item">
           <a class="nav-link" href="{{ url_for('index') }}">{{ _('Home') }}</a>
         </li>
+        {% if current_user.can('dashboard:view') %}
         <li class="nav-item">
           <a class="nav-link" href="{{ url_for('dashboard.dashboard') }}">{{ _('Dashboard') }}</a>
         </li>
+        {% endif %}
         {% if current_user.can('media:view') %}
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" id="photoNavDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -41,8 +43,10 @@
             {% if current_user.can('album:view') %}
             <li><a class="dropdown-item" href="{{ url_for('photo_view.albums') }}">{{ _('Albums') }}</a></li>
             {% endif %}
+            {% if current_user.can('admin:photo-settings') %}
             <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item" href="{{ url_for('photo_view.settings') }}">{{ _('Settings') }}</a></li>
+            {% endif %}
           </ul>
         </li>
         {% endif %}
@@ -114,7 +118,9 @@
               {% if not show_system_manage %}
               <li><hr class="dropdown-divider"></li>
               {% endif %}
+              {% if current_user.can('admin:photo-settings') %}
               <li><a class="dropdown-item" href="{{ url_for('photo_view.settings') }}">{{ _('Photo View Settings') }}</a></li>
+              {% endif %}
               <li><a class="dropdown-item" href="{{ url_for('photo_view.admin_exports') }}">{{ _('Photo Exports') }}</a></li>
               {% endif %}
             </ul>

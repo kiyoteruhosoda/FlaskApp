@@ -649,6 +649,7 @@ INSERT INTO `permission` VALUES
 (22,'certificate:sign'),
 (15,'media:delete'),
 (16,'media:recover'),
+(26,'media:session'),
 (14,'media:tag-manage'),
 (25,'media:metadata-manage'),
 (7,'media:view'),
@@ -659,6 +660,7 @@ INSERT INTO `permission` VALUES
 (17,'totp:view'),
 (18,'totp:write'),
 (3,'user:manage'),
+(26,'dashboard:view'),
 (24,'gui:view'),
 (11,'wiki:admin'),
 (12,'wiki:read'),
@@ -823,7 +825,7 @@ LOCK TABLES `role` WRITE;
 /*!40000 ALTER TABLE `role` DISABLE KEYS */;
 INSERT INTO `role` VALUES
 (1,'admin'),
-(2,'manager'),
+(2,'director'),
 (3,'member'),
 (4,'guest'),
 (5,'sign admin');
@@ -878,14 +880,17 @@ INSERT INTO `role_permissions` VALUES
 (1,21),
 (1,22),
 (1,23),
-(2,1),
+(1,24),
+(1,25),
+(1,26),
 (2,4),
 (2,5),
 (2,6),
 (2,7),
-(2,25),
 (3,6),
 (3,7),
+(3,26),
+(4,26),
 (5,20);
 /*!40000 ALTER TABLE `role_permissions` ENABLE KEYS */;
 UNLOCK TABLES;

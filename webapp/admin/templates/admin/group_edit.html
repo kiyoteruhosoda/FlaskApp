@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}
+  {% if is_edit %}
+    {{ _('Edit Group') }}
+  {% else %}
+    {{ _('Add Group') }}
+  {% endif %}
+{% endblock %}
+{% block content %}
+<h2>{{ _('Management') }}</h2>
+
+<ul class="nav nav-tabs mb-4">
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.user') }}">
+      <i class="fas fa-users"></i> {{ _('User Management') }}
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.google_accounts') }}">
+      <i class="fab fa-google"></i> {{ _('Google Accounts') }}
+    </a>
+  </li>
+  {% if current_user.can('service_account:manage') %}
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.service_accounts') }}">
+      <i class="fas fa-key"></i> {{ _('Service Accounts') }}
+    </a>
+  </li>
+  {% endif %}
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.show_config') }}">
+      <i class="fas fa-cogs"></i> {{ _('Config Settings') }}
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link active" href="{{ url_for('admin.groups') }}">
+      <i class="fas fa-layer-group"></i> {{ _('Groups') }}
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.roles') }}">
+      <i class="fas fa-user-tag"></i> {{ _('Roles') }}
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.permissions') }}">
+      <i class="fas fa-shield-alt"></i> {{ _('Permissions') }}
+    </a>
+  </li>
+</ul>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h3 class="h5 mb-4">
+      {% if is_edit %}
+        {{ _('Edit Group') }}
+      {% else %}
+        {{ _('Add Group') }}
+      {% endif %}
+    </h3>
+    <form method="post" class="d-flex flex-column gap-4">
+      <div>
+        <label class="form-label" for="group-name">{{ _('Group Name') }}</label>
+        <input
+          type="text"
+          class="form-control"
+          id="group-name"
+          name="name"
+          value="{{ form_state.name }}"
+          required
+          maxlength="120"
+        >
+      </div>
+      <div>
+        <label class="form-label" for="group-description">{{ _('Description') }}</label>
+        <textarea
+          class="form-control"
+          id="group-description"
+          name="description"
+          rows="3">{{ form_state.description }}</textarea>
+        <div class="form-text">{{ _('Optional description to help identify the group.') }}</div>
+      </div>
+      <div>
+        <label class="form-label" for="group-parent">{{ _('Parent Group') }}</label>
+        <select class="form-select" id="group-parent" name="parent_id">
+          <option value="" {% if not selected_parent_id %}selected{% endif %}>{{ _('No parent') }}</option>
+          {% for candidate in parent_options %}
+          <option value="{{ candidate.id }}" {% if selected_parent_id == candidate.id|string %}selected{% endif %}>{{ candidate.name }}</option>
+          {% endfor %}
+        </select>
+        <div class="form-text">{{ _('Select a parent to nest this group inside another group.') }}</div>
+      </div>
+      <div>
+        <label class="form-label" for="group-members">{{ _('Group Members') }}</label>
+        <select
+          class="form-select"
+          id="group-members"
+          name="user_ids"
+          multiple
+          size="10"
+        >
+          {% for user in users %}
+          <option value="{{ user.id }}" {% if user.id in selected_user_ids %}selected{% endif %}>
+            {{ user.display_name }} ({{ user.email }})
+          </option>
+          {% endfor %}
+        </select>
+        <div class="form-text">{{ _('Hold Ctrl (Windows/Linux) or Command (macOS) to select multiple users.') }}</div>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <button type="submit" class="btn btn-primary">
+          {% if is_edit %}
+            {{ _('Update Group') }}
+          {% else %}
+            {{ _('Create Group') }}
+          {% endif %}
+        </button>
+        <a href="{{ url_for('admin.groups') }}" class="btn btn-outline-secondary">{{ _('Cancel') }}</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

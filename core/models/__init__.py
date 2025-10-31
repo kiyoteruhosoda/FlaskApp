@@ -2,6 +2,7 @@
 
 # モデルの循環インポートを避けるため、ここで一括インポート
 from .user import User
+from .group import Group
 from .google_account import GoogleAccount
 from .photo_models import *
 from .job_sync import JobSync
@@ -17,6 +18,7 @@ from .system_setting import SystemSetting
 __all__ = [
     'User',
     'GoogleAccount',
+    'Group',
     'Media',
     'MediaSidecar',
     'Exif',

@@ -21,9 +21,11 @@ from flask import (
     current_app,
     Response,
 )
-from ..extensions import db
 from flask_login import login_required, current_user
 from flask_babel import gettext as _
+from sqlalchemy.orm import selectinload
+
+from ..extensions import db
 
 from core.models.system_setting import SystemSetting
 from core.system_settings_defaults import (
@@ -31,6 +33,7 @@ from core.system_settings_defaults import (
     DEFAULT_CORS_SETTINGS,
 )
 from core.models.user import User, Role, Permission
+from core.models.group import Group, GroupHierarchyError
 from core.models.service_account import ServiceAccount
 from core.settings import settings
 from core.storage_service import StorageService
@@ -106,6 +109,157 @@ def _can_read_api_keys() -> bool:
     if _can_manage_api_keys():
         return True
     return current_user.can("api_key:read")
+
+
+def _can_manage_groups() -> bool:
+    if not hasattr(current_user, "can"):
+        return False
+    return current_user.can("group:manage")
+
+
+def _initial_group_form_state(group: Group | None) -> dict[str, Any]:
+    if group is None:
+        return {
+            "name": "",
+            "description": "",
+            "parent_id": "",
+            "user_ids": [],
+        }
+    return {
+        "name": group.name,
+        "description": group.description or "",
+        "parent_id": str(group.parent_id) if group.parent_id else "",
+        "user_ids": [str(user.id) for user in group.users],
+    }
+
+
+def _extract_int_ids(values: list[str]) -> list[int]:
+    seen: set[int] = set()
+    result: list[int] = []
+    for raw in values:
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if value in seen:
+            continue
+        seen.add(value)
+        result.append(value)
+    return result
+
+
+def _get_group_parent_options(target: Group | None) -> list[Group]:
+    query = Group.query.order_by(Group.name)
+    if target is None or target.id is None:
+        return query.all()
+
+    excluded_ids: set[int] = {target.id}
+    for descendant in target.iter_descendants():
+        if descendant.id is not None:
+            excluded_ids.add(descendant.id)
+
+    if excluded_ids:
+        query = query.filter(~Group.id.in_(excluded_ids))
+    return query.all()
+
+
+def _render_group_form(group: Group | None, form_state: dict[str, Any]):
+    parent_options = _get_group_parent_options(group)
+    users = User.query.order_by(User.email).all()
+    raw_user_ids = form_state.get("user_ids", [])
+    if isinstance(raw_user_ids, str):
+        raw_user_ids = [raw_user_ids]
+    selected_user_ids = {
+        int(value)
+        for value in raw_user_ids
+        if isinstance(value, str) and value.isdigit()
+    }
+    selected_parent_id = form_state.get("parent_id", "")
+
+    return render_template(
+        "admin/group_edit.html",
+        group=group,
+        is_edit=group is not None,
+        parent_options=parent_options,
+        users=users,
+        form_state=form_state,
+        selected_parent_id=selected_parent_id,
+        selected_user_ids=selected_user_ids,
+    )
+
+
+def _handle_group_form(group: Group | None):
+    if request.method == "POST":
+        form_state = {
+            "name": (request.form.get("name") or "").strip(),
+            "description": (request.form.get("description") or "").strip(),
+            "parent_id": (request.form.get("parent_id") or "").strip(),
+            "user_ids": request.form.getlist("user_ids"),
+        }
+
+        errors: list[str] = []
+        name = form_state["name"]
+        if not name:
+            errors.append(_("Group name is required."))
+
+        if name:
+            query = Group.query.filter(Group.name == name)
+            if group is not None:
+                query = query.filter(Group.id != group.id)
+            if query.first() is not None:
+                errors.append(_("Group name already exists."))
+
+        parent: Group | None = None
+        parent_raw = form_state["parent_id"]
+        if parent_raw:
+            try:
+                parent_id = int(parent_raw)
+            except (TypeError, ValueError):
+                errors.append(_("Selected parent group does not exist."))
+            else:
+                parent = db.session.get(Group, parent_id)
+                if parent is None:
+                    errors.append(_("Selected parent group does not exist."))
+
+        user_ids = _extract_int_ids(form_state["user_ids"])
+        selected_users: list[User] = []
+        if user_ids:
+            selected_users = User.query.filter(User.id.in_(user_ids)).all()
+            if len(selected_users) != len(user_ids):
+                errors.append(_("One or more selected users do not exist."))
+
+        candidate = group or Group(name=name)
+        if parent is not None and not errors:
+            try:
+                candidate.ensure_assignable_parent(parent)
+            except GroupHierarchyError:
+                errors.append(_("The selected parent would create a circular hierarchy."))
+
+        if errors:
+            for message in errors:
+                flash(message, "error")
+            return _render_group_form(group, form_state)
+
+        if group is None:
+            candidate.name = name
+            candidate.description = form_state["description"] or None
+            candidate.users = selected_users
+            candidate.assign_parent(parent)
+            db.session.add(candidate)
+            db.session.commit()
+            flash(_("Group created successfully."), "success")
+            return redirect(url_for("admin.groups"))
+
+        group.name = name
+        group.description = form_state["description"] or None
+        group.assign_parent(parent)
+        group.users = selected_users
+        db.session.commit()
+        flash(_("Group updated successfully."), "success")
+        return redirect(url_for("admin.groups"))
+
+    form_state = _initial_group_form_state(group)
+    return _render_group_form(group, form_state)
 
 
 def _redirect_to_home() -> Response:
@@ -1377,6 +1531,78 @@ def user():
     users = User.query.all()
     roles = Role.query.all()
     return render_template("admin/admin_users.html", users=users, roles=roles)
+
+
+@bp.route("/groups", methods=["GET"])
+@login_required
+def groups():
+    if not _can_manage_groups():
+        return _redirect_to_home()
+
+    groups_query = (
+        Group.query.options(
+            selectinload(Group.parent),
+            selectinload(Group.children),
+            selectinload(Group.users),
+        )
+        .order_by(Group.name)
+    )
+    groups = groups_query.all()
+    return render_template("admin/groups.html", groups=groups)
+
+
+@bp.route("/groups/add", methods=["GET", "POST"])
+@login_required
+def group_add():
+    if not _can_manage_groups():
+        return _redirect_to_home()
+    return _handle_group_form(None)
+
+
+@bp.route("/groups/<int:group_id>/edit", methods=["GET", "POST"])
+@login_required
+def group_edit(group_id):
+    if not _can_manage_groups():
+        return _redirect_to_home()
+
+    group = (
+        Group.query.options(
+            selectinload(Group.users),
+            selectinload(Group.children),
+        )
+        .filter(Group.id == group_id)
+        .first_or_404()
+    )
+    return _handle_group_form(group)
+
+
+@bp.route("/groups/<int:group_id>/delete", methods=["POST"])
+@login_required
+def group_delete(group_id):
+    if not _can_manage_groups():
+        return _redirect_to_home()
+
+    group = (
+        Group.query.options(
+            selectinload(Group.children),
+            selectinload(Group.users),
+        )
+        .filter(Group.id == group_id)
+        .first_or_404()
+    )
+
+    if group.children:
+        flash(_("Cannot delete a group that still has subgroups."), "error")
+        return redirect(url_for("admin.groups"))
+
+    if group.users:
+        flash(_("Remove all users from the group before deleting it."), "error")
+        return redirect(url_for("admin.groups"))
+
+    db.session.delete(group)
+    db.session.commit()
+    flash(_("Group deleted successfully."), "success")
+    return redirect(url_for("admin.groups"))
 
 
 @bp.route("/permissions", methods=["GET"])

@@ -3804,3 +3804,80 @@ msgstr "セキュリティ検証に失敗しました。ページを再読み込
 msgid "Are you sure you want to delete this page?"
 msgstr "このページを削除してもよろしいですか？"
 
+msgid "Group Management"
+msgstr "グループ管理"
+
+msgid "Groups"
+msgstr "グループ"
+
+msgid "Add Group"
+msgstr "グループを追加"
+
+msgid "Parent Group"
+msgstr "親グループ"
+
+msgid "Subgroups"
+msgstr "子グループ"
+
+msgid "Members"
+msgstr "メンバー"
+
+msgid "No groups have been created yet."
+msgstr "まだグループが作成されていません。"
+
+msgid "Edit Group"
+msgstr "グループを編集"
+
+msgid "Group Name"
+msgstr "グループ名"
+
+msgid "Optional description to help identify the group."
+msgstr "グループを識別するための任意の説明です。"
+
+msgid "Select a parent to nest this group inside another group."
+msgstr "このグループを別のグループに入れ子にする場合は親グループを選択してください。"
+
+msgid "Group Members"
+msgstr "グループメンバー"
+
+msgid "Hold Ctrl (Windows/Linux) or Command (macOS) to select multiple users."
+msgstr "複数のユーザーを選択する場合は、Ctrl（Windows/Linux）またはCommand（macOS）キーを押しながら選択してください。"
+
+msgid "Create Group"
+msgstr "グループを作成"
+
+msgid "No parent"
+msgstr "親なし"
+
+msgid "Group name is required."
+msgstr "グループ名は必須です。"
+
+msgid "Group name already exists."
+msgstr "同名のグループが既に存在します。"
+
+msgid "Selected parent group does not exist."
+msgstr "選択した親グループが存在しません。"
+
+msgid "One or more selected users do not exist."
+msgstr "選択したユーザーの一部が存在しません。"
+
+msgid "The selected parent would create a circular hierarchy."
+msgstr "選択した親グループでは階層が循環します。"
+
+msgid "Group created successfully."
+msgstr "グループを作成しました。"
+
+msgid "Group updated successfully."
+msgstr "グループを更新しました。"
+
+msgid "Group deleted successfully."
+msgstr "グループを削除しました。"
+
+msgid "Cannot delete a group that still has subgroups."
+msgstr "子グループが残っているグループは削除できません。"
+
+msgid "Remove all users from the group before deleting it."
+msgstr "削除する前にグループからすべてのユーザーを外してください。"
+
+msgid "Are you sure you want to delete this group?"
+msgstr "このグループを削除してもよろしいですか？"

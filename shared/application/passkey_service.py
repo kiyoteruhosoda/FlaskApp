@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Type
 
 from webauthn import (
     generate_authentication_options,
@@ -14,11 +14,9 @@ from webauthn import (
 )
 from webauthn.helpers import base64url_to_bytes, bytes_to_base64url
 from webauthn.helpers.structs import (
-    AuthenticationCredential,
     AttestationConveyancePreference,
     AuthenticatorSelectionCriteria,
     PublicKeyCredentialDescriptor,
-    RegistrationCredential,
     ResidentKeyRequirement,
     UserVerificationRequirement,
 )
@@ -95,15 +93,15 @@ class PasskeyService:
     ):
         """Verify a registration response and persist the credential."""
 
-        try:
-            credential = RegistrationCredential.parse_raw(payload)
-        except Exception as exc:  # pragma: no cover - validation
-            raise PasskeyRegistrationError("invalid_payload") from exc
+        credential = self._coerce_credential_payload(payload, PasskeyRegistrationError)
+        expected_challenge_bytes = self._decode_expected_challenge(
+            expected_challenge, PasskeyRegistrationError
+        )
 
         try:
             verification = verify_registration_response(
                 credential=credential,
-                expected_challenge=expected_challenge,
+                expected_challenge=expected_challenge_bytes,
                 expected_rp_id=expected_rp_id or settings.webauthn_rp_id,
                 expected_origin=expected_origin or settings.webauthn_origin,
                 require_user_verification=True,
@@ -155,19 +153,25 @@ class PasskeyService:
     ):
         """Verify an authentication response and return the bound user model."""
 
-        try:
-            credential = AuthenticationCredential.parse_raw(payload)
-        except Exception as exc:  # pragma: no cover - validation
-            raise PasskeyAuthenticationError("invalid_payload") from exc
+        credential = self._coerce_credential_payload(
+            payload, PasskeyAuthenticationError
+        )
+        credential_id = credential.get("id") if isinstance(credential, dict) else None
+        if not isinstance(credential_id, str) or not credential_id:
+            raise PasskeyAuthenticationError("invalid_payload")
 
-        stored = self.repository.find_by_credential_id(credential.id)
+        stored = self.repository.find_by_credential_id(credential_id)
         if stored is None:
             raise PasskeyAuthenticationError("credential_not_found")
+
+        expected_challenge_bytes = self._decode_expected_challenge(
+            expected_challenge, PasskeyAuthenticationError
+        )
 
         try:
             verification = verify_authentication_response(
                 credential=credential,
-                expected_challenge=expected_challenge,
+                expected_challenge=expected_challenge_bytes,
                 expected_rp_id=expected_rp_id or settings.webauthn_rp_id,
                 expected_origin=expected_origin or settings.webauthn_origin,
                 credential_public_key=base64url_to_bytes(stored.public_key),
@@ -179,3 +183,41 @@ class PasskeyService:
 
         self.repository.touch_usage(stored, verification.new_sign_count)
         return stored.user
+
+    @staticmethod
+    def _coerce_credential_payload(
+        payload, error_cls: Type[PasskeyServiceError]
+    ) -> dict:
+        if isinstance(payload, dict):
+            return payload
+
+        if isinstance(payload, (bytes, bytearray)):
+            try:
+                payload = payload.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                raise error_cls("invalid_payload") from exc
+
+        if isinstance(payload, str):
+            try:
+                data = json.loads(payload)
+            except Exception as exc:
+                raise error_cls("invalid_payload") from exc
+            if isinstance(data, dict):
+                return data
+
+        raise error_cls("invalid_payload")
+
+    @staticmethod
+    def _decode_expected_challenge(
+        value, error_cls: Type[PasskeyServiceError]
+    ) -> bytes:
+        if isinstance(value, (bytes, bytearray)):
+            return bytes(value)
+
+        if isinstance(value, str):
+            try:
+                return base64url_to_bytes(value)
+            except Exception as exc:
+                raise error_cls("invalid_challenge") from exc
+
+        raise error_cls("invalid_challenge")

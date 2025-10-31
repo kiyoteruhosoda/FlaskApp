@@ -109,16 +109,6 @@ def test_generate_registration_options_excludes_existing_credentials(monkeypatch
 def test_register_passkey_persists_repository(monkeypatch, service, repository):
     user = DummyUser(2, "person@example.com")
 
-    class StubRegistrationCredential:
-        @staticmethod
-        def parse_raw(payload):
-            return SimpleNamespace()
-
-    monkeypatch.setattr(
-        "shared.application.passkey_service.RegistrationCredential",
-        StubRegistrationCredential,
-    )
-
     verification = SimpleNamespace(
         credential_id=b"cred-id",
         credential_public_key=b"public-key",
@@ -129,19 +119,37 @@ def test_register_passkey_persists_repository(monkeypatch, service, repository):
         credential_backed_up=True,
     )
 
+    captured: dict = {}
+
+    def fake_verify_registration_response(**kwargs):
+        captured.update(kwargs)
+        return verification
+
     monkeypatch.setattr(
         "shared.application.passkey_service.verify_registration_response",
-        lambda **kwargs: verification,
+        fake_verify_registration_response,
     )
+
+    payload_dict = {
+        "id": "cred-id",
+        "rawId": "cred-id",
+        "response": {
+            "attestationObject": "attestation",
+            "clientDataJSON": "client-data",
+        },
+        "type": "public-key",
+    }
 
     record = service.register_passkey(
         user=user,
-        payload=b"{}",
-        expected_challenge="expected",
+        payload=json.dumps(payload_dict).encode("utf-8"),
+        expected_challenge=bytes_to_base64url(b"expected"),
         transports=["internal"],
         name="Laptop",
     )
 
+    assert captured["credential"] == payload_dict
+    assert captured["expected_challenge"] == b"expected"
     assert repository.added_records, "repository.add should be invoked"
     added = repository.added_records[0]
     assert added["user"] is user
@@ -158,21 +166,11 @@ def test_register_passkey_persists_repository(monkeypatch, service, repository):
 
 
 def test_register_passkey_invalid_payload_raises_error(monkeypatch, service):
-    class StubRegistrationCredential:
-        @staticmethod
-        def parse_raw(payload):
-            raise ValueError("bad")
-
-    monkeypatch.setattr(
-        "shared.application.passkey_service.RegistrationCredential",
-        StubRegistrationCredential,
-    )
-
     with pytest.raises(PasskeyRegistrationError):
         service.register_passkey(
             user=DummyUser(3, "user@example.com"),
-            payload=b"not-json",
-            expected_challenge="challenge",
+            payload=b"\xff",
+            expected_challenge=bytes_to_base64url(b"challenge"),
         )
 
 
@@ -186,27 +184,37 @@ def test_authenticate_updates_sign_count(monkeypatch, service, repository):
     )
     repository.stored_record = stored_credential
 
-    credential_obj = SimpleNamespace(id="cred-123")
-
-    class StubAuthenticationCredential:
-        @staticmethod
-        def parse_raw(payload):
-            return credential_obj
-
-    monkeypatch.setattr(
-        "shared.application.passkey_service.AuthenticationCredential",
-        StubAuthenticationCredential,
-    )
-
     verification = SimpleNamespace(new_sign_count=42)
+    captured: dict = {}
+
+    def fake_verify_authentication_response(**kwargs):
+        captured.update(kwargs)
+        return verification
+
     monkeypatch.setattr(
         "shared.application.passkey_service.verify_authentication_response",
-        lambda **kwargs: verification,
+        fake_verify_authentication_response,
     )
 
-    result_user = service.authenticate(payload=b"{}", expected_challenge="expected")
+    payload_dict = {
+        "id": "cred-123",
+        "rawId": "cred-123",
+        "response": {
+            "authenticatorData": "data",
+            "clientDataJSON": "client",
+            "signature": "sig",
+        },
+        "type": "public-key",
+    }
+
+    result_user = service.authenticate(
+        payload=json.dumps(payload_dict).encode("utf-8"),
+        expected_challenge=bytes_to_base64url(b"expected"),
+    )
 
     assert result_user is stored_user
+    assert captured["credential"] == payload_dict
+    assert captured["expected_challenge"] == b"expected"
     assert repository.touched, "touch_usage should be called"
     touched_credential, new_sign_count = repository.touched[0]
     assert touched_credential.sign_count == 42
@@ -214,15 +222,58 @@ def test_authenticate_updates_sign_count(monkeypatch, service, repository):
 
 
 def test_authenticate_invalid_payload_raises_error(monkeypatch, service):
-    class StubAuthenticationCredential:
-        @staticmethod
-        def parse_raw(payload):
-            raise ValueError("bad")
+    with pytest.raises(PasskeyAuthenticationError):
+        service.authenticate(
+            payload=b"\xff",
+            expected_challenge=bytes_to_base64url(b"challenge"),
+        )
 
-    monkeypatch.setattr(
-        "shared.application.passkey_service.AuthenticationCredential",
-        StubAuthenticationCredential,
+
+def test_register_passkey_invalid_challenge(monkeypatch, service):
+    user = DummyUser(5, "register@example.com")
+    payload_dict = {
+        "id": "cred-id",
+        "rawId": "cred-id",
+        "response": {
+            "attestationObject": "attestation",
+            "clientDataJSON": "client-data",
+        },
+        "type": "public-key",
+    }
+
+    with pytest.raises(PasskeyRegistrationError) as exc:
+        service.register_passkey(
+            user=user,
+            payload=json.dumps(payload_dict).encode("utf-8"),
+            expected_challenge=None,
+        )
+
+    assert exc.value.args[0] == "invalid_challenge"
+
+
+def test_authenticate_invalid_challenge(monkeypatch, service, repository):
+    repository.stored_record = SimpleNamespace(
+        credential_id="cred-456",
+        public_key=bytes_to_base64url(b"public"),
+        sign_count=0,
+        user=DummyUser(6, "auth@example.com"),
     )
 
-    with pytest.raises(PasskeyAuthenticationError):
-        service.authenticate(payload=b"broken", expected_challenge="abc")
+    payload_dict = {
+        "id": "cred-456",
+        "rawId": "cred-456",
+        "response": {
+            "authenticatorData": "data",
+            "clientDataJSON": "client",
+            "signature": "sig",
+        },
+        "type": "public-key",
+    }
+
+    with pytest.raises(PasskeyAuthenticationError) as exc:
+        service.authenticate(
+            payload=json.dumps(payload_dict).encode("utf-8"),
+            expected_challenge=None,
+        )
+
+    assert exc.value.args[0] == "invalid_challenge"

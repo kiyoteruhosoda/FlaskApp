@@ -490,15 +490,9 @@
     background: rgba(59, 130, 246, 0.08);
   }
 
-  .album-media-toolbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-  }
-
   .album-media-toolbar .btn-group {
     flex-wrap: wrap;
+    width: 300px;
   }
 
   @media (max-width: 992px) {
@@ -544,7 +538,7 @@
     <h1 class="mb-0">{{ _('Albums') }}</h1>
     <div class="d-flex flex-wrap gap-2">
       <a id="create-album-btn" class="btn btn-primary" href="{{ url_for('photo_view.album_create') }}">
-        <i class="bi bi-plus-circle me-1"></i>{{ _('New Album') }}
+        <i class="bi bi-plus-circle me-1"></i>{{ _('Create Album') }}
       </a>
       <select id="sort-order" class="form-select form-select-sm" style="width: auto;">
         <option value="desc">{{ _('Newest First') }}</option>
@@ -590,7 +584,7 @@
     <h3>{{ _('No Albums Found') }}</h3>
     <p>{{ _('Create your first album by selecting media from your library.') }}</p>
     <a class="btn btn-primary" id="empty-create-btn" href="{{ url_for('photo_view.album_create') }}">
-      <i class="bi bi-plus-circle me-1"></i>{{ _('Create an album') }}
+      <i class="bi bi-plus-circle me-1"></i>{{ _('Create Album') }}
     </a>
   </div>
 

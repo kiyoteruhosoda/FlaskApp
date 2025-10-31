@@ -1389,9 +1389,6 @@ msgstr "メディア一覧を開く"
 msgid "Manage profile preferences"
 msgstr "プロフィール設定を管理"
 
-#: webapp/photo-view/templates/photo-view/albums.html:100
-#: webapp/photo-view/templates/photo-view/home.html:31
-#: webapp/templates/base.html:40
 msgid "Albums"
 msgstr "アルバム"
 
@@ -1407,6 +1404,15 @@ msgstr "新しい順"
 msgid "Oldest First"
 msgstr "古い順"
 
+msgid "Custom Order"
+msgstr "指定順"
+
+msgid "Reorder"
+msgstr "並び替え"
+
+msgid "Save Order"
+msgstr "並び順保存"
+
 msgid "Compact"
 msgstr "小"
 
@@ -1416,29 +1422,87 @@ msgstr "中"
 msgid "Large"
 msgstr "大"
 
-#: webapp/photo-view/templates/photo-view/albums.html:124
 msgid "Loading more albums..."
-msgstr ""
+msgstr "アルバム読み込み中"
 
-#: webapp/photo-view/templates/photo-view/albums.html:128
 msgid "All albums loaded"
-msgstr ""
+msgstr "アルバム読み込み完了"
 
-#: webapp/photo-view/templates/photo-view/albums.html:133
 msgid "No Albums Found"
-msgstr ""
+msgstr "アルバムが見つかりません"
 
-#: webapp/photo-view/templates/photo-view/albums.html:134
-msgid "Albums will appear here when they are created from your media collection."
-msgstr ""
-
-#: webapp/photo-view/templates/photo-view/albums.html:173
 msgid "photos"
-msgstr ""
+msgstr "写真"
+
+msgid "No media selected for cover."
+msgstr "表紙が選択されていません。"
+
+msgid "Remove from album"
+msgstr "アルバムから削除"
+
+msgid "Auto (use first media)"
+msgstr "自動選択"
+
+msgid "Create Album"
+msgstr "アルバム作成"
 
 #: webapp/photo-view/templates/photo-view/albums.html:228
 msgid "Failed to load albums. Please try again."
-msgstr ""
+msgstr "アルバムの読み込みに失敗しました"
+
+msgid "Select media and configure details to build a new album."
+msgstr "追加するメディアを選択してください。"
+
+msgid "Album Title"
+msgstr "タイトル"
+
+msgid "Visibility"
+msgstr "公開範囲"
+
+msgid "Private"
+msgstr "公開しない"
+
+msgid "Unlisted"
+msgstr "指定した人のみ"
+
+msgid "Public"
+msgstr "誰でも"
+
+msgid "Album Cover"
+msgstr "表紙"
+
+msgid "Taken after"
+msgstr "撮影日（開始）"
+
+msgid "撮影日（終了）"
+msgstr "表紙"
+
+msgid "All media"
+msgstr "全種類"
+
+msgid "Show all"
+msgstr "すべて"
+
+msgid "Selected only"
+msgstr "選択のみ"
+
+msgid "Unselected only"
+msgstr "未選択のみ"
+
+msgid "Reset"
+msgstr "リセット"
+
+msgid "Apply filters"
+msgstr "フィルタ適用"
+
+msgid "Click thumbnails to toggle selection. Use the quick actions to select or clear the visible media."
+msgstr "アルバムに追加するメディアを選んでください。"
+
+msgid "Select all shown"
+msgstr "すべて選択"
+
+msgid "Unselect shown"
+msgstr "すべて解除"
 
 #: webapp/photo-view/templates/photo-view/home.html:13
 msgid "Create New Session"
@@ -1679,6 +1743,30 @@ msgstr "物"
 
 msgid "Create and add"
 msgstr "追加"
+
+msgid "(No filename)"
+msgstr "（不明）"
+
+msgid "Video"
+msgstr "動画"
+
+msgid "Photo"
+msgstr "写真"
+
+msgid "Videos"
+msgstr "動画"
+
+msgid "Photos"
+msgstr "写真"
+
+msgid "Local File"
+msgstr "取り込み"
+
+msgid "Google Photos"
+msgstr "Googleフォト"
+
+msgid "Unknown"
+msgstr "不明"
 
 #: webapp/photo-view/templates/photo-view/media_list.html:151
 #: webapp/templates/base.html:38

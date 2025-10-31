@@ -206,7 +206,8 @@ def tags():
 
 
 @bp.route("/settings")
-@require_perms("media:view", "admin:photo-settings")
+@require_perms("admin:photo-settings")
+@require_perms("media:view")
 def settings():
     """Photo view settings page."""
     return render_template(

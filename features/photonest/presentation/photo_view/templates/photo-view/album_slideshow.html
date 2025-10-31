@@ -295,6 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const apiClient = new APIClient();
 
   async function loadSlideshow() {
+    slideshow.showOverlay();
     slideshow.setLoading(true);
     try {
       const response = await apiClient.get(`/api/albums/${albumId}`);

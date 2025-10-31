@@ -52,10 +52,16 @@ class TestCeleryAppConfiguration:
         
         assert hasattr(celery.conf, 'beat_schedule')
         assert 'picker-import-watchdog' in celery.conf.beat_schedule
-        
+        assert 'logs-cleanup' in celery.conf.beat_schedule
+
         watchdog_config = celery.conf.beat_schedule['picker-import-watchdog']
         assert watchdog_config['task'] == 'picker_import.watchdog'
         assert 'schedule' in watchdog_config
+
+        logs_config = celery.conf.beat_schedule['logs-cleanup']
+        assert logs_config['task'] == 'logs.cleanup'
+        assert 'schedule' in logs_config
+        assert logs_config.get('kwargs', {}).get('retention_days') == 365
 
 
 class TestFlaskAppCreation:
@@ -181,7 +187,8 @@ class TestCeleryTaskRegistration:
             'cli.src.celery.tasks.dummy_long_task',
             'cli.src.celery.tasks.download_file',
             'picker_import.item',
-            'picker_import.watchdog'
+            'picker_import.watchdog',
+            'logs.cleanup'
         ]
         
         for task_name in expected_tasks:

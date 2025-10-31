@@ -185,10 +185,15 @@ class TestCeleryIntegration:
         
         assert hasattr(celery.conf, 'beat_schedule')
         assert 'picker-import-watchdog' in celery.conf.beat_schedule
-        
+        assert 'logs-cleanup' in celery.conf.beat_schedule
+
         watchdog_schedule = celery.conf.beat_schedule['picker-import-watchdog']
         assert watchdog_schedule['task'] == 'picker_import.watchdog'
         assert 'schedule' in watchdog_schedule
+
+        logs_schedule = celery.conf.beat_schedule['logs-cleanup']
+        assert logs_schedule['task'] == 'logs.cleanup'
+        assert 'schedule' in logs_schedule
     
     def test_celery_task_registration(self):
         """Test that all expected tasks are registered with Celery."""
@@ -198,7 +203,8 @@ class TestCeleryIntegration:
             'cli.src.celery.tasks.dummy_long_task',
             'cli.src.celery.tasks.download_file',
             'picker_import.item',
-            'picker_import.watchdog'
+            'picker_import.watchdog',
+            'logs.cleanup'
         ]
         
         registered_tasks = list(celery.tasks.keys())

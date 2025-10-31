@@ -17,6 +17,7 @@ from core.tasks.session_recovery import (
     get_session_status_report
 )
 from core.tasks.backup_cleanup import cleanup_old_backups, get_backup_status
+from core.tasks.log_cleanup import cleanup_old_logs
 from core.tasks.media_post_processing import process_due_thumbnail_retries
 from core.logging_config import log_task_info, log_task_error
 from core.tasks.thumbs_generate import (
@@ -201,6 +202,21 @@ def cleanup_stale_sessions_task(self):
     except Exception as e:
         self.log_error(f"Cleanup stale sessions failed: {str(e)}",
                       event="session_recovery_cleanup", exc_info=True)
+        return {"ok": False, "error": str(e)}
+
+
+@celery.task(bind=True, name="logs.cleanup")
+def cleanup_old_logs_task(self, retention_days: int = 365):
+    """Delete log and picker session records older than the retention period."""
+    try:
+        return cleanup_old_logs(retention_days=retention_days)
+    except Exception as e:  # pragma: no cover - defensive path
+        self.log_error(
+            f"Log cleanup failed: {str(e)}",
+            event="logs_cleanup",
+            exc_info=True,
+            retention_days=retention_days,
+        )
         return {"ok": False, "error": str(e)}
 
 

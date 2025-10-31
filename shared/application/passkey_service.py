@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Iterable, Type
+from typing import Any, Iterable, Type
 
 from webauthn import (
     generate_authentication_options,
@@ -15,8 +15,14 @@ from webauthn import (
 from webauthn.helpers import base64url_to_bytes, bytes_to_base64url
 from webauthn.helpers.structs import (
     AttestationConveyancePreference,
+    AuthenticationCredential,
+    AuthenticatorAssertionResponse,
+    AuthenticatorAttachment,
+    AuthenticatorAttestationResponse,
     AuthenticatorSelectionCriteria,
+    AuthenticatorTransport,
     PublicKeyCredentialDescriptor,
+    RegistrationCredential,
     ResidentKeyRequirement,
     UserVerificationRequirement,
 )
@@ -93,7 +99,10 @@ class PasskeyService:
     ):
         """Verify a registration response and persist the credential."""
 
-        credential = self._coerce_credential_payload(payload, PasskeyRegistrationError)
+        credential_dict = self._coerce_credential_payload(payload, PasskeyRegistrationError)
+        credential = self._build_registration_credential(
+            credential_dict, PasskeyRegistrationError
+        )
         expected_challenge_bytes = self._decode_expected_challenge(
             expected_challenge, PasskeyRegistrationError
         )
@@ -153,14 +162,14 @@ class PasskeyService:
     ):
         """Verify an authentication response and return the bound user model."""
 
-        credential = self._coerce_credential_payload(
+        credential_dict = self._coerce_credential_payload(
             payload, PasskeyAuthenticationError
         )
-        credential_id = credential.get("id") if isinstance(credential, dict) else None
-        if not isinstance(credential_id, str) or not credential_id:
-            raise PasskeyAuthenticationError("invalid_payload")
+        credential = self._build_authentication_credential(
+            credential_dict, PasskeyAuthenticationError
+        )
 
-        stored = self.repository.find_by_credential_id(credential_id)
+        stored = self.repository.find_by_credential_id(credential.id)
         if stored is None:
             raise PasskeyAuthenticationError("credential_not_found")
 
@@ -206,6 +215,149 @@ class PasskeyService:
                 return data
 
         raise error_cls("invalid_payload")
+
+    @staticmethod
+    def _build_registration_credential(
+        payload: dict[str, Any], error_cls: Type[PasskeyServiceError]
+    ) -> RegistrationCredential:
+        try:
+            response = payload["response"]
+        except Exception as exc:
+            raise error_cls("invalid_payload") from exc
+
+        if not isinstance(response, dict):
+            raise error_cls("invalid_payload")
+
+        attachment = PasskeyService._parse_authenticator_attachment(
+            payload.get("authenticatorAttachment"), error_cls
+        )
+        transports = PasskeyService._parse_transports(
+            response.get("transports"), error_cls
+        )
+
+        try:
+            return RegistrationCredential(
+                id=PasskeyService._require_string(payload, "id", error_cls),
+                raw_id=base64url_to_bytes(
+                    PasskeyService._require_string(payload, "rawId", error_cls)
+                ),
+                response=AuthenticatorAttestationResponse(
+                    client_data_json=base64url_to_bytes(
+                        PasskeyService._require_string(
+                            response, "clientDataJSON", error_cls
+                        )
+                    ),
+                    attestation_object=base64url_to_bytes(
+                        PasskeyService._require_string(
+                            response, "attestationObject", error_cls
+                        )
+                    ),
+                    transports=transports,
+                ),
+                authenticator_attachment=attachment,
+            )
+        except PasskeyServiceError:
+            raise
+        except Exception as exc:
+            raise error_cls("invalid_payload") from exc
+
+    @staticmethod
+    def _build_authentication_credential(
+        payload: dict[str, Any], error_cls: Type[PasskeyServiceError]
+    ) -> AuthenticationCredential:
+        try:
+            response = payload["response"]
+        except Exception as exc:
+            raise error_cls("invalid_payload") from exc
+
+        if not isinstance(response, dict):
+            raise error_cls("invalid_payload")
+
+        attachment = PasskeyService._parse_authenticator_attachment(
+            payload.get("authenticatorAttachment"), error_cls
+        )
+
+        user_handle: bytes | None = None
+        if response.get("userHandle") is not None:
+            user_handle_value = response.get("userHandle")
+            if not isinstance(user_handle_value, str):
+                raise error_cls("invalid_payload")
+            try:
+                user_handle = base64url_to_bytes(user_handle_value)
+            except Exception as exc:
+                raise error_cls("invalid_payload") from exc
+
+        try:
+            return AuthenticationCredential(
+                id=PasskeyService._require_string(payload, "id", error_cls),
+                raw_id=base64url_to_bytes(
+                    PasskeyService._require_string(payload, "rawId", error_cls)
+                ),
+                response=AuthenticatorAssertionResponse(
+                    client_data_json=base64url_to_bytes(
+                        PasskeyService._require_string(
+                            response, "clientDataJSON", error_cls
+                        )
+                    ),
+                    authenticator_data=base64url_to_bytes(
+                        PasskeyService._require_string(
+                            response, "authenticatorData", error_cls
+                        )
+                    ),
+                    signature=base64url_to_bytes(
+                        PasskeyService._require_string(
+                            response, "signature", error_cls
+                        )
+                    ),
+                    user_handle=user_handle,
+                ),
+                authenticator_attachment=attachment,
+            )
+        except PasskeyServiceError:
+            raise
+        except Exception as exc:
+            raise error_cls("invalid_payload") from exc
+
+    @staticmethod
+    def _parse_authenticator_attachment(
+        value: Any, error_cls: Type[PasskeyServiceError]
+    ) -> AuthenticatorAttachment | None:
+        if value is None:
+            return None
+        if not isinstance(value, str) or not value:
+            raise error_cls("invalid_payload")
+        try:
+            return AuthenticatorAttachment(value)
+        except ValueError as exc:
+            raise error_cls("invalid_payload") from exc
+
+    @staticmethod
+    def _parse_transports(
+        transports: Any, error_cls: Type[PasskeyServiceError]
+    ) -> list[AuthenticatorTransport] | None:
+        if transports is None:
+            return None
+        if isinstance(transports, (str, bytes)) or not isinstance(transports, Iterable):
+            raise error_cls("invalid_payload")
+
+        parsed: list[AuthenticatorTransport] = []
+        for transport in transports:
+            if not isinstance(transport, str) or not transport:
+                raise error_cls("invalid_payload")
+            try:
+                parsed.append(AuthenticatorTransport(transport))
+            except ValueError as exc:
+                raise error_cls("invalid_payload") from exc
+        return parsed
+
+    @staticmethod
+    def _require_string(
+        payload: dict[str, Any], key: str, error_cls: Type[PasskeyServiceError]
+    ) -> str:
+        value = payload.get(key)
+        if not isinstance(value, str) or not value:
+            raise error_cls("invalid_payload")
+        return value
 
     @staticmethod
     def _decode_expected_challenge(

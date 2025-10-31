@@ -12,8 +12,10 @@ from webapp.auth.routes import (
     PASSKEY_AUTH_CHALLENGE_KEY,
     PASSKEY_REGISTRATION_CHALLENGE_KEY,
     PASSKEY_REGISTRATION_USER_ID_KEY,
+    _extract_passkey_client_data_details,
 )
 from webapp.services.gui_access_cookie import API_LOGIN_SCOPE_SESSION_KEY
+from webauthn.helpers import bytes_to_base64url
 
 
 @pytest.fixture
@@ -196,7 +198,9 @@ def test_passkey_verify_register_handles_error(monkeypatch, client):
 
     class StubService:
         def register_passkey(self, **kwargs):
-            raise PasskeyRegistrationError("verification_failed")
+            raise PasskeyRegistrationError("verification_failed") from ValueError(
+                "client challenge mismatch"
+            )
 
     monkeypatch.setattr("webapp.auth.routes.passkey_service", StubService())
 
@@ -205,11 +209,30 @@ def test_passkey_verify_register_handles_error(monkeypatch, client):
         session[PASSKEY_REGISTRATION_USER_ID_KEY] = user.id
         session["passkey_registration_timestamp"] = datetime.now(timezone.utc).isoformat()
 
+    captured_log = {}
+
+    def fake_warning(message, *args, **kwargs):
+        captured_log["message"] = message
+        captured_log["kwargs"] = kwargs
+
+    monkeypatch.setattr(client.application.logger, "warning", fake_warning)
+
+    client_data_payload = json.dumps(
+        {
+            "type": "webauthn.create",
+            "challenge": "client-challenge",
+            "origin": "https://example.com",
+        }
+    )
+
     payload = {
         "id": "cred-id",
         "rawId": "cred-raw",
         "type": "public-key",
-        "response": {"transports": []},
+        "response": {
+            "transports": [],
+            "clientDataJSON": bytes_to_base64url(client_data_payload.encode("utf-8")),
+        },
     }
 
     response = client.post(
@@ -222,10 +245,41 @@ def test_passkey_verify_register_handles_error(monkeypatch, client):
     body = response.get_json()
     assert body["error"] == "verification_failed"
 
+    assert captured_log["message"] == "Passkey registration verification failed"
+    log_extra = captured_log["kwargs"]["extra"]
+    trace_payload = json.loads(log_extra["trace"])
+    assert trace_payload["expected_challenge"] == "challenge"
+    assert trace_payload["client_challenge"] == "client-challenge"
+    assert trace_payload["cause"].startswith("ValueError: client challenge mismatch")
+    assert trace_payload["client_origin"] == "https://example.com"
+
     with client.session_transaction() as session:
         assert PASSKEY_REGISTRATION_CHALLENGE_KEY not in session
         assert PASSKEY_REGISTRATION_USER_ID_KEY not in session
         assert "passkey_registration_timestamp" not in session
+
+
+def test_extract_passkey_client_data_details():
+    client_data = json.dumps(
+        {
+            "type": "webauthn.create",
+            "challenge": "encoded-challenge",
+            "origin": "https://rp.example",
+        }
+    )
+    credential_payload = {
+        "id": "cred-id",
+        "response": {
+            "clientDataJSON": bytes_to_base64url(client_data.encode("utf-8")),
+        },
+    }
+
+    details = _extract_passkey_client_data_details(credential_payload)
+
+    assert details["challenge"] == "encoded-challenge"
+    assert details["origin"] == "https://rp.example"
+    assert details["raw"].startswith("{")
+    assert details["error"] is None
 
 
 def test_passkey_login_options_sets_challenge(monkeypatch, client):

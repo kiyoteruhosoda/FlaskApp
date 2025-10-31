@@ -13,6 +13,7 @@ from flask import (
 import requests
 import json
 from datetime import datetime, timezone, timedelta
+from typing import Any, Iterable
 from urllib.parse import urlsplit
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_babel import gettext as _, force_locale
@@ -75,6 +76,66 @@ SESSION_TIMEOUT_MINUTES = 30
 PASSKEY_REGISTRATION_CHALLENGE_KEY = "passkey_registration_challenge"
 PASSKEY_REGISTRATION_USER_ID_KEY = "passkey_registration_user_id"
 PASSKEY_AUTH_CHALLENGE_KEY = "passkey_authentication_challenge"
+
+
+def _extract_passkey_credential_payload(
+    payload: Any,
+    *,
+    meta_keys: Iterable[str] | None = None,
+    required_keys: Iterable[str] | None = None,
+) -> dict | None:
+    """Return a credential payload extracted from *payload* when possible."""
+
+    if not isinstance(payload, dict):
+        return None
+
+    nested = payload.get("credential")
+    required = set(required_keys or ())
+    if isinstance(nested, dict):
+        if required and not required.issubset(nested):
+            return None
+        return nested
+
+    meta = set(meta_keys or ())
+    candidate = {key: value for key, value in payload.items() if key not in meta}
+    if not candidate:
+        return None
+
+    if required and not required.issubset(candidate):
+        return None
+
+    return candidate
+
+
+def _gather_passkey_payload_keys(
+    payload: Any,
+    *,
+    meta_keys: Iterable[str] | None = None,
+) -> tuple[list[str], list[str], list[str]]:
+    """Return lists of root, credential, and response keys for logging."""
+
+    if not isinstance(payload, dict):
+        return [], [], []
+
+    root_keys = sorted(payload.keys())
+    nested = payload.get("credential")
+    meta = set(meta_keys or ())
+
+    if isinstance(nested, dict):
+        credential_payload: Any = nested
+    else:
+        credential_payload = {key: value for key, value in payload.items() if key not in meta}
+
+    credential_keys: list[str] = []
+    response_keys: list[str] = []
+
+    if isinstance(credential_payload, dict):
+        credential_keys = sorted(credential_payload.keys())
+        response = credential_payload.get("response")
+        if isinstance(response, dict):
+            response_keys = sorted(response.keys())
+
+    return root_keys, credential_keys, response_keys
 
 
 _DEFAULT_RP_ID_SENTINELS = {"localhost", "127.0.0.1"}
@@ -545,8 +606,28 @@ def passkey_verify_register():
         return jsonify({"error": "challenge_missing"}), 400
 
     payload = request.get_json(silent=True) or {}
-    credential_payload = payload.get("credential")
+    credential_payload = _extract_passkey_credential_payload(
+        payload,
+        meta_keys={"label", "name"},
+        required_keys={"id", "rawId", "response"},
+    )
     if not isinstance(credential_payload, dict):
+        root_keys, credential_keys, response_keys = _gather_passkey_payload_keys(
+            payload,
+            meta_keys={"label", "name"},
+        )
+        current_app.logger.warning(
+            "Passkey registration payload invalid",
+            extra={
+                "event": "auth.passkey_register",
+                "path": request.path,
+                "received_keys": root_keys,
+                "credential_keys": credential_keys,
+                "response_keys": response_keys,
+                "has_credential_key": isinstance(payload, dict)
+                and "credential" in payload,
+            },
+        )
         _clear_passkey_registration_session()
         return jsonify({"error": "invalid_payload"}), 400
 
@@ -559,9 +640,20 @@ def passkey_verify_register():
         )
         return jsonify({"error": "not_supported"}), 403
 
-    transports = credential_payload.get("response", {}).get("transports")
-    label_raw = payload.get("label") or payload.get("name")
-    label = label_raw.strip() if isinstance(label_raw, str) and label_raw.strip() else None
+    transports = None
+    if isinstance(credential_payload, dict):
+        response_section = credential_payload.get("response")
+        if isinstance(response_section, dict):
+            transports = response_section.get("transports")
+
+    label_raw = payload.get("label")
+    if label_raw is None:
+        label_raw = payload.get("name")
+    label = None
+    if isinstance(label_raw, str):
+        stripped = label_raw.strip()
+        if stripped:
+            label = stripped
 
     try:
         rp_id = _resolve_passkey_rp_id()
@@ -660,8 +752,28 @@ def passkey_verify_login():
         return jsonify({"error": "challenge_missing"}), 400
 
     payload = request.get_json(silent=True) or {}
-    credential_payload = payload.get("credential")
+    credential_payload = _extract_passkey_credential_payload(
+        payload,
+        meta_keys={"next"},
+        required_keys={"id", "rawId", "response"},
+    )
     if not isinstance(credential_payload, dict):
+        root_keys, credential_keys, response_keys = _gather_passkey_payload_keys(
+            payload,
+            meta_keys={"next"},
+        )
+        current_app.logger.warning(
+            "Passkey authentication payload invalid",
+            extra={
+                "event": "auth.passkey_login",
+                "path": request.path,
+                "received_keys": root_keys,
+                "credential_keys": credential_keys,
+                "response_keys": response_keys,
+                "has_credential_key": isinstance(payload, dict)
+                and "credential" in payload,
+            },
+        )
         _clear_passkey_auth_session()
         return jsonify({"error": "invalid_payload"}), 400
 

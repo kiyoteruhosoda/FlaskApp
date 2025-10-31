@@ -322,7 +322,7 @@
               throw new Error('abort');
             }
 
-            const credentialPayload = {
+            const requestPayload = {
               id: credential.id,
               type: credential.type,
               rawId: bufferToBase64Url(credential.rawId),
@@ -339,17 +339,17 @@
             };
 
             const labelInput = prompt('{{ _('Give this passkey a name (optional)') }}', '');
-            const labelValue = labelInput && labelInput.trim().length > 0 ? labelInput.trim() : null;
+            const labelValue = typeof labelInput === 'string' ? labelInput.trim() : '';
+            if (labelValue.length > 0) {
+              requestPayload.label = labelValue;
+            }
 
             const verifyResponse = await fetch('{{ url_for('auth.passkey_verify_register') }}', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
               },
-              body: JSON.stringify({
-                credential: credentialPayload,
-                label: labelValue,
-              }),
+              body: JSON.stringify(requestPayload),
             });
 
             if (!verifyResponse.ok) {

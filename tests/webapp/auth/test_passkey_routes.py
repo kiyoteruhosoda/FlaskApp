@@ -90,10 +90,11 @@ def test_passkey_verify_register_success(monkeypatch, client):
 
     class StubService:
         def register_passkey(self, **kwargs):
-            assert json.loads(kwargs["payload"].decode("utf-8")) == {
-                "id": "cred-id",
-                "response": {"transports": ["internal"]},
-            }
+            decoded = json.loads(kwargs["payload"].decode("utf-8"))
+            assert decoded["id"] == "cred-id"
+            assert decoded["rawId"] == "cred-raw"
+            assert decoded["type"] == "public-key"
+            assert decoded["response"] == {"transports": ["internal"]}
             assert kwargs["expected_challenge"] == "challenge"
             assert kwargs["name"] == "Laptop"
             assert kwargs["expected_rp_id"]
@@ -108,7 +109,11 @@ def test_passkey_verify_register_success(monkeypatch, client):
         session["passkey_registration_timestamp"] = datetime.now(timezone.utc).isoformat()
 
     payload = {
-        "credential": {"id": "cred-id", "response": {"transports": ["internal"]}},
+        "id": "cred-id",
+        "rawId": "cred-raw",
+        "type": "public-key",
+        "response": {"transports": ["internal"]},
+        "clientExtensionResults": {},
         "label": "Laptop",
     }
 
@@ -133,6 +138,58 @@ def test_passkey_verify_register_success(monkeypatch, client):
         assert "passkey_registration_timestamp" not in session
 
 
+def test_passkey_verify_register_accepts_nested_payload(monkeypatch, client):
+    user = _create_user()
+    _login(client, user)
+
+    record = SimpleNamespace(
+        id=11,
+        name=None,
+        created_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        last_used_at=None,
+        transports=["internal"],
+        backup_eligible=False,
+        backup_state=False,
+    )
+
+    class StubService:
+        def register_passkey(self, **kwargs):
+            decoded = json.loads(kwargs["payload"].decode("utf-8"))
+            assert decoded["id"] == "cred-id"
+            assert decoded["rawId"] == "cred-raw"
+            assert decoded["response"] == {"transports": ["internal"]}
+            return record
+
+    monkeypatch.setattr("webapp.auth.routes.passkey_service", StubService())
+
+    with client.session_transaction() as session:
+        session[PASSKEY_REGISTRATION_CHALLENGE_KEY] = "challenge"
+        session[PASSKEY_REGISTRATION_USER_ID_KEY] = user.id
+        session["passkey_registration_timestamp"] = datetime.now(timezone.utc).isoformat()
+
+    payload = {
+        "credential": {
+            "id": "cred-id",
+            "rawId": "cred-raw",
+            "type": "public-key",
+            "response": {"transports": ["internal"]},
+        },
+        "label": "",
+    }
+
+    response = client.post(
+        "/auth/passkey/verify/register",
+        data=json.dumps(payload),
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["result"] == "ok"
+    assert body["passkey"]["id"] == 11
+    assert body["passkey"]["name"] is None
+
+
 def test_passkey_verify_register_handles_error(monkeypatch, client):
     user = _create_user()
     _login(client, user)
@@ -148,9 +205,16 @@ def test_passkey_verify_register_handles_error(monkeypatch, client):
         session[PASSKEY_REGISTRATION_USER_ID_KEY] = user.id
         session["passkey_registration_timestamp"] = datetime.now(timezone.utc).isoformat()
 
+    payload = {
+        "id": "cred-id",
+        "rawId": "cred-raw",
+        "type": "public-key",
+        "response": {"transports": []},
+    }
+
     response = client.post(
         "/auth/passkey/verify/register",
-        data=json.dumps({"credential": {}}),
+        data=json.dumps(payload),
         content_type="application/json",
     )
 
@@ -192,7 +256,16 @@ def test_passkey_verify_login_success(monkeypatch, client):
 
     class StubService:
         def authenticate(self, **kwargs):
-            assert json.loads(kwargs["payload"].decode("utf-8")) == {"id": "cred", "raw": "data"}
+            decoded = json.loads(kwargs["payload"].decode("utf-8"))
+            assert decoded["id"] == "cred"
+            assert decoded["rawId"] == "cred-raw"
+            assert decoded["type"] == "public-key"
+            assert decoded["response"] == {
+                "authenticatorData": "auth-data",
+                "clientDataJSON": "client-data",
+                "signature": "signature",
+                "userHandle": None,
+            }
             assert kwargs["expected_challenge"] == "auth-challenge"
             assert kwargs["expected_rp_id"]
             assert kwargs["expected_origin"]
@@ -213,7 +286,16 @@ def test_passkey_verify_login_success(monkeypatch, client):
         session["passkey_auth_timestamp"] = datetime.now(timezone.utc).isoformat()
 
     payload = {
-        "credential": {"id": "cred", "raw": "data"},
+        "id": "cred",
+        "rawId": "cred-raw",
+        "type": "public-key",
+        "response": {
+            "authenticatorData": "auth-data",
+            "clientDataJSON": "client-data",
+            "signature": "signature",
+            "userHandle": None,
+        },
+        "clientExtensionResults": {},
         "next": "/dashboard",
     }
 
@@ -257,7 +339,17 @@ def test_passkey_verify_login_rejects_inactive_user(monkeypatch, client):
         session[PASSKEY_AUTH_CHALLENGE_KEY] = "inactive-challenge"
         session["passkey_auth_timestamp"] = datetime.now(timezone.utc).isoformat()
 
-    payload = {"credential": {"id": "cred"}}
+    payload = {
+        "id": "cred",
+        "rawId": "cred-raw",
+        "type": "public-key",
+        "response": {
+            "authenticatorData": "auth-data",
+            "clientDataJSON": "client-data",
+            "signature": "signature",
+            "userHandle": None,
+        },
+    }
 
     response = client.post(
         "/auth/passkey/verify/login",

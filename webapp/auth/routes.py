@@ -61,14 +61,13 @@ passkey_service = PasskeyService(passkey_repo)
 PROFILE_TIMEZONES = [
     "UTC",
     "Asia/Tokyo",
-    "Asia/Seoul",
     "Asia/Shanghai",
     "Asia/Singapore",
     "Australia/Sydney",
     "Europe/London",
-    "Europe/Paris",
-    "America/Los_Angeles",
     "America/New_York",
+    "America/Chicago",
+    "America/Los_Angeles",
 ]
 
 # セッション有効期限（30分）

@@ -63,9 +63,15 @@
           <i class="bi bi-x-lg"></i>
         </button>
       </div>
-      <div id="album-slideshow-loading" class="album-slideshow-loading">
-        <div class="spinner-border text-light" role="status"></div>
-        <span>{{ _('Loading slideshow...') }}</span>
+      <div
+        id="album-slideshow-loading"
+        class="album-slideshow-loading"
+        role="status"
+        aria-live="polite"
+      >
+        <div class="spinner-border text-light" aria-hidden="true"></div>
+        <span class="visually-hidden">{{ _('Loading slideshow...') }}</span>
+        <span class="album-slideshow-loading-text" aria-hidden="true">{{ _('Loading slideshow...') }}</span>
       </div>
       <div id="album-slideshow-stage" class="album-slideshow-stage d-none">
         <button type="button" class="album-slideshow-nav prev" id="album-slideshow-prev" aria-label="{{ _('Previous') }}">

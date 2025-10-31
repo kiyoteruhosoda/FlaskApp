@@ -343,6 +343,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const localImportBtn = document.getElementById('local-import-btn');
   const duplicateModeRadios = document.querySelectorAll('input[name="duplicate-regeneration"]');
   const isAdmin = {{ 'true' if is_admin else 'false' }};
+  const canViewSessions = {{ 'true' if can_view_sessions else 'false' }};
+  const sessionDetailTemplateUrl = "{{ url_for('photo_view.session_detail', session_id='__SESSION_ID__') }}";
 
   const uploadModalTrigger = document.getElementById('open-upload-modal');
   const uploadModalElement = document.getElementById('upload-modal');
@@ -479,6 +481,21 @@ document.addEventListener('DOMContentLoaded', () => {
     error: '{{ _("Error") }}',
     failed: '{{ _("Failed") }}'
   };
+
+  function encodeSessionIdForPath(sessionId) {
+    if (typeof sessionId !== 'string' || !sessionId) {
+      return '';
+    }
+    return sessionId
+      .split('/')
+      .map((segment) => encodeURIComponent(segment))
+      .join('/');
+  }
+
+  function buildSessionDetailUrl(sessionId) {
+    const encoded = encodeSessionIdForPath(sessionId);
+    return sessionDetailTemplateUrl.replace('__SESSION_ID__', encoded);
+  }
 
   function formatCounts(counts) {
     if (!counts || Object.keys(counts).length === 0) return '-';
@@ -1000,6 +1017,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const stopButtonHtml = showStopButton
       ? `<button class="btn btn-sm btn-outline-danger btn-size-sm" onclick="stopLocalImport('${session.sessionId}')"><i class="bi bi-stop-circle"></i> ${stopLocalImportLabel}</button>`
       : '';
+    const detailButtonHtml = canViewSessions
+      ? `<a href="${buildSessionDetailUrl(session.sessionId)}" class="btn btn-sm btn-primary btn-size-sm">{{ _("View Details") }}</a>`
+      : `<button type="button" class="btn btn-sm btn-outline-secondary btn-size-sm" disabled>{{ _("View Details") }}</button>`;
     let localStatusMessage = '';
     if (session.isLocalImport) {
       if (session.status === 'canceled') {
@@ -1018,7 +1038,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <td><small>${formatDateTime(session.createdAt)}</small></td>
       <td><small>${formatDateTime(session.lastProgressAt)}</small></td>
       <td class="session-actions">
-        <a href="/photo-view?session_id=${session.sessionId}" class="btn btn-sm btn-primary btn-size-sm">{{ _("View Details") }}</a>
+        ${detailButtonHtml}
         ${(displayStatus === 'ready' && !session.isLocalImport) ? `<button class="btn btn-sm btn-success btn-size-sm" onclick="startImport('${session.sessionId}')">{{ _("Start Import") }}</button>` : ''}
         ${stopButtonHtml}
         ${localStatusMessage}
@@ -1240,9 +1260,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const sessionId = payload && payload.session_id;
         if (sessionId) {
+          if (canViewSessions) {
+            setTimeout(() => {
+              window.location.href = buildSessionDetailUrl(sessionId);
+            }, 1500);
+            return;
+          }
           setTimeout(() => {
-            window.location.href = `/photo-view?session_id=${encodeURIComponent(sessionId)}`;
-          }, 1500);
+            refreshSessions();
+          }, 2000);
           return;
         }
 

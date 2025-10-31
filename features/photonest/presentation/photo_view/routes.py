@@ -8,7 +8,7 @@ implementation work.
 
 import os
 
-from flask import abort, render_template, request, url_for
+from flask import abort, redirect, render_template, request, url_for
 from flask_login import current_user
 
 from core.models.authz import require_perms
@@ -59,12 +59,10 @@ def _build_local_import_info():
 @require_perms("media:view")
 def home():
     """Photo view home page."""
-    # クエリパラメータでsession_idが指定されている場合は詳細ページを表示
-    session_id = request.args.get('session_id')
+    session_id = request.args.get("session_id")
     if session_id:
-        return render_template("photo-view/session_detail.html", picker_session_id=session_id)
+        return redirect(url_for("photo_view.session_detail", session_id=session_id))
 
-    # session_idがない場合は、すべてのセッション一覧を表示
     google_accounts = []
     if current_user.is_authenticated and getattr(current_user, "id", None):
         google_accounts = (
@@ -78,6 +76,25 @@ def home():
         google_accounts=google_accounts,
         local_import_info=_build_local_import_info(),
         is_admin=current_user.can("system:manage") if current_user.is_authenticated else False,
+        can_view_sessions=(
+            True
+            if app_settings.login_disabled
+            else (
+                current_user.can("media:session")
+                if current_user.is_authenticated
+                else False
+            )
+        ),
+    )
+
+
+@bp.route("/session/<path:session_id>", strict_slashes=False)
+@require_perms("media:view", "media:session")
+def session_detail(session_id: str):
+    """Render the detail page for a single picker session."""
+
+    return render_template(
+        "photo-view/session_detail.html", picker_session_id=session_id
     )
 
 
@@ -94,8 +111,8 @@ def selection_error_detail(session_id: str, selection_id: int):
     if not payload:
         abort(404)
 
-    session_detail_url = (
-        url_for("photo_view.home") + f"?session_id={payload['session']['sessionId']}"
+    session_detail_url = url_for(
+        "photo_view.session_detail", session_id=payload["session"]["sessionId"]
     )
 
     return render_template(

@@ -663,8 +663,7 @@ def test_service_login_rejects_individual_token(app, client):
         follow_redirects=False,
     )
 
-    assert response.status_code == 302
-    assert _normalize_location(response.headers["Location"]).endswith("/dashboard/")
+    assert response.status_code == 401
     with client.session_transaction() as sess:
         assert sess.get(SERVICE_LOGIN_SESSION_KEY) is None
 

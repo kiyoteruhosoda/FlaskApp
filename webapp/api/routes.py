@@ -1910,10 +1910,11 @@ def api_login(data):
 
     user_permissions = set(user_model.all_permissions)
     available_scope_set = set(user_permissions)
-    if "gui:view" in requested_scope or "gui:view" in user_permissions:
+    user_has_gui_view = "gui:view" in user_permissions
+    if user_has_gui_view:
         available_scope_set.add("gui:view")
 
-    if "gui:view" in requested_scope:
+    if "gui:view" in requested_scope and user_has_gui_view:
         granted_scope = sorted(available_scope_set)
     else:
         granted_scope = sorted(requested_scope & available_scope_set)

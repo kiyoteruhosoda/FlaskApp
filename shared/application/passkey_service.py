@@ -28,7 +28,10 @@ from webauthn.helpers.structs import (
 )
 
 from core.settings import settings
-from shared.infrastructure.passkey_repository import SqlAlchemyPasskeyRepository
+from shared.infrastructure.passkey_repository import (
+    DuplicatePasskeyCredentialError,
+    SqlAlchemyPasskeyRepository,
+)
 
 
 class PasskeyServiceError(RuntimeError):
@@ -123,18 +126,21 @@ class PasskeyService:
         )
         backup_state = bool(getattr(verification, "credential_backed_up", False))
 
-        record = self.repository.add(
-            user=user,
-            credential_id=bytes_to_base64url(verification.credential_id),
-            public_key=bytes_to_base64url(verification.credential_public_key),
-            sign_count=verification.sign_count,
-            transports=transports,
-            name=name,
-            attestation_format=getattr(verification, "fmt", None),
-            aaguid=getattr(verification, "aaguid", None),
-            backup_eligible=backup_eligible,
-            backup_state=backup_state,
-        )
+        try:
+            record = self.repository.add(
+                user=user,
+                credential_id=bytes_to_base64url(verification.credential_id),
+                public_key=bytes_to_base64url(verification.credential_public_key),
+                sign_count=verification.sign_count,
+                transports=transports,
+                name=name,
+                attestation_format=getattr(verification, "fmt", None),
+                aaguid=getattr(verification, "aaguid", None),
+                backup_eligible=backup_eligible,
+                backup_state=backup_state,
+            )
+        except DuplicatePasskeyCredentialError as exc:
+            raise PasskeyRegistrationError("already_registered") from exc
         return record
 
     def generate_authentication_options(

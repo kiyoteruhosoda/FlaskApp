@@ -5,8 +5,13 @@ from datetime import datetime, timezone
 from typing import Iterable
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from core.models.passkey import PasskeyCredential
+
+
+class DuplicatePasskeyCredentialError(RuntimeError):
+    """Raised when attempting to store a passkey that already exists."""
 
 
 class SqlAlchemyPasskeyRepository:
@@ -62,9 +67,13 @@ class SqlAlchemyPasskeyRepository:
             backup_eligible=backup_eligible,
             backup_state=backup_state,
         )
-        self._session.add(record)
-        self._session.commit()
-        self._session.refresh(record)
+        try:
+            self._session.add(record)
+            self._session.commit()
+            self._session.refresh(record)
+        except IntegrityError as exc:  # pragma: no cover - defensive branch
+            self._session.rollback()
+            raise DuplicatePasskeyCredentialError from exc
         return record
 
     def touch_usage(self, credential: PasskeyCredential, new_sign_count: int) -> None:

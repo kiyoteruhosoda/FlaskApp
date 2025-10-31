@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 import pytest
 
 from core.models.user import User, Role, Permission
@@ -14,8 +16,10 @@ def _login(client, user):
     from flask_login import login_user
     from webapp.services.token_service import TokenService
 
+    active_role_id = user.roles[0].id if user.roles else None
+
     with client.application.test_request_context():
-        principal = TokenService.create_principal_for_user(user)
+        principal = TokenService.create_principal_for_user(user, active_role_id=active_role_id)
         login_user(principal)
         flask_session["_fresh"] = True
         persisted = dict(flask_session)
@@ -131,4 +135,7 @@ def test_data_files_requires_system_manage_permission(client):
     _login(client, user)
 
     response = client.get("/admin/data-files")
-    assert response.status_code == 403
+    assert response.status_code == 302
+    with client.application.test_request_context():
+        target = urlparse(response.headers["Location"])
+        assert target.path == "/"

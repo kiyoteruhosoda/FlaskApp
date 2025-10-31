@@ -1,6 +1,8 @@
 """
 バージョン情報管理者ページのテスト
 """
+from urllib.parse import urlparse
+
 import json
 import pytest
 from unittest.mock import patch
@@ -35,11 +37,14 @@ class TestVersionAdminPage:
             'can': lambda self, perm: False
         })()
         mock_current_user.return_value = mock_user
-        
+
         response = client.get('/admin/version')
-        
-        # 管理者権限がないので403エラーが返される
-        assert response.status_code == 403
+
+        # 管理者権限がない場合はトップページへリダイレクトされる
+        assert response.status_code == 302
+        with client.application.test_request_context():
+            target = urlparse(response.headers['Location'])
+            assert target.path == '/'
     
     @patch('flask_login.utils._get_user')
     def test_version_admin_page_authorized(self, mock_current_user, client):

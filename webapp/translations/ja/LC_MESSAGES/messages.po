@@ -1390,7 +1390,7 @@ msgid "Manage profile preferences"
 msgstr "プロフィール設定を管理"
 
 msgid "Albums"
-msgstr "アルバム"
+msgstr "アルバム一覧"
 
 msgid "Filter by tags"
 msgstr "タグフィルター"
@@ -1784,13 +1784,13 @@ msgid "Unknown"
 msgstr "不明"
 
 msgid "Back to albums"
-msgstr "アルバムに戻る"
+msgstr "アルバム一覧に戻る"
 
 msgid "Back to album"
 msgstr "アルバムに戻る"
 
 msgid "Album Detail"
-msgstr "アルバム詳細"
+msgstr "アルバム"
 
 msgid "Start Slideshow"
 msgstr "スライドショー開始"
@@ -1808,7 +1808,7 @@ msgid "Save order"
 msgstr "並び替え順保存"
 
 msgid "Untitled Album"
-msgstr ""
+msgstr "名称未定"
 
 msgid "Failed to load album information."
 msgstr "アルバム情報の読み込みに失敗しました。"

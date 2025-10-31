@@ -5,19 +5,32 @@
 <style>
   .album-slideshow-page {
     min-height: calc(100vh - var(--navbar-height, 0px));
-    background: rgba(15, 23, 42, 0.9);
+    background: #000;
   }
 
   .album-slideshow-dialog {
-    padding: 24px;
+    padding: 0;
   }
 
-  .album-slideshow-header {
+  .album-slideshow-header,
+  .album-slideshow-footer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: 2;
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 12px;
-    margin-bottom: 12px;
+    padding: 16px 24px;
+  }
+
+  .album-slideshow-header {
+    top: 0;
+  }
+
+  .album-slideshow-footer {
+    bottom: 0;
   }
 
   .album-slideshow-actions {
@@ -27,8 +40,10 @@
   }
 
   @media (max-width: 576px) {
-    .album-slideshow-dialog {
-      padding: 16px;
+    .album-slideshow-header,
+    .album-slideshow-footer {
+      padding: 12px 16px;
+      gap: 8px;
     }
 
     .album-slideshow-actions {

@@ -475,11 +475,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const shotAtEditLabel = '{{ _("Edit shooting date")|escapejs }}';
   const shotAtSaveLabel = '{{ _("Save")|escapejs }}';
   const shotAtCancelLabel = '{{ _("Cancel")|escapejs }}';
-  const shotAtClearLabel = '{{ _("Clear")|escapejs }}';
-  const shotAtClearConfirmText = '{{ _("Are you sure you want to clear the shooting date? This change will be saved immediately.")|escapejs }}';
   const shotAtHelperText = '{{ _("Times are saved in UTC. Your local time will be converted automatically.")|escapejs }}';
   const shotAtUpdateSuccessText = '{{ _("Shooting date updated.")|escapejs }}';
-  const shotAtClearedText = '{{ _("Shooting date removed.")|escapejs }}';
   const shotAtUpdateErrorText = '{{ _("Failed to update shooting date.")|escapejs }}';
   const shotAtInvalidInputText = '{{ _("Enter a valid date and time before saving.")|escapejs }}';
   const shotAtPermissionErrorText = '{{ _("You do not have permission to update the shooting date.")|escapejs }}';
@@ -902,7 +899,6 @@ document.addEventListener('DOMContentLoaded', () => {
             <input type="datetime-local" class="form-control" id="shot-at-input" step="1">
             <button type="button" class="btn btn-outline-primary" id="shot-at-save-btn">${shotAtSaveLabel}</button>
             <button type="button" class="btn btn-outline-secondary" id="shot-at-cancel-btn">${shotAtCancelLabel}</button>
-            <button type="button" class="btn btn-outline-danger" id="shot-at-clear-btn">${shotAtClearLabel}</button>
           </div>
           <div class="helper-text" id="shot-at-helper">${shotAtHelperText}</div>
         </div>
@@ -965,15 +961,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const input = document.getElementById('shot-at-input');
     const saveBtn = document.getElementById('shot-at-save-btn');
     const cancelBtn = document.getElementById('shot-at-cancel-btn');
-    const clearBtn = document.getElementById('shot-at-clear-btn');
     const displayEl = document.getElementById('shot-at-display');
 
-    if (!editor || !editBtn || !input || !saveBtn || !cancelBtn || !clearBtn || !displayEl) {
+    if (!editor || !editBtn || !input || !saveBtn || !cancelBtn || !displayEl) {
       return;
     }
 
     const setBusy = (busy) => {
-      [editBtn, saveBtn, cancelBtn, clearBtn, input].forEach((element) => {
+      [editBtn, saveBtn, cancelBtn, input].forEach((element) => {
         if (element) {
           element.disabled = busy;
         }
@@ -1039,8 +1034,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderMediaTags();
 
         if (typeof showSuccessToast === 'function') {
-          const message = currentMedia.shot_at ? shotAtUpdateSuccessText : shotAtClearedText;
-          showSuccessToast(message);
+          showSuccessToast(shotAtUpdateSuccessText);
         }
       } catch (error) {
         console.error('Failed to update shooting date:', error);
@@ -1070,14 +1064,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       await applyUpdate(isoValue);
-    });
-
-    clearBtn.addEventListener('click', async (event) => {
-      event.preventDefault();
-      if (!window.confirm(shotAtClearConfirmText)) {
-        return;
-      }
-      await applyUpdate(null);
     });
   }
 

@@ -2114,20 +2114,11 @@ msgstr "メディアID:"
 msgid "Edit shooting date"
 msgstr "撮影日時を編集"
 
-msgid "Clear"
-msgstr "クリア"
-
-msgid "Are you sure you want to clear the shooting date? This change will be saved immediately."
-msgstr "撮影日時をクリアしてよろしいですか？この変更はすぐに保存されます。"
-
 msgid "Times are saved in UTC. Your local time will be converted automatically."
 msgstr "時刻はUTCで保存されます。ローカル時刻は自動的に変換されます。"
 
 msgid "Shooting date updated."
 msgstr "撮影日時を更新しました。"
-
-msgid "Shooting date removed."
-msgstr "撮影日時を削除しました。"
 
 msgid "Failed to update shooting date."
 msgstr "撮影日時の更新に失敗しました。"

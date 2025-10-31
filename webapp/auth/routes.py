@@ -1376,15 +1376,15 @@ def profile():
     timezone_labels = {
         "UTC": _("UTC"),
         "Asia/Tokyo": _("Asia/Tokyo (Japan)"),
-        "Asia/Seoul": _("Asia/Seoul (Korea)"),
         "Asia/Shanghai": _("Asia/Shanghai (China)"),
-        "Asia/Singapore": _("Asia/Singapore"),
-        "Australia/Sydney": _("Australia/Sydney"),
+        "Asia/Singapore": _("Asia/Singapore (Singapore)"),
+        "Australia/Sydney": _("Australia/Sydney (Australia)"),
         "Europe/London": _("Europe/London (UK)"),
-        "Europe/Paris": _("Europe/Paris (France)"),
-        "America/Los_Angeles": _("America/Los Angeles (USA)"),
-        "America/New_York": _("America/New York (USA)"),
+        "America/New_York": _("America/New York (USA, Eastern Time)"),
+        "America/Chicago": _("America/Chicago (USA, Central Time)"),
+        "America/Los_Angeles": _("America/Los Angeles (USA, Pacific Time)"),
     }
+
     if default_timezone not in timezone_labels:
         timezone_labels[default_timezone] = default_timezone
     timezone_choices = []

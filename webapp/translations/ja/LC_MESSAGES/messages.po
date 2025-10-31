@@ -35,20 +35,9 @@ msgstr "ログイン"
 msgid "Home"
 msgstr "ホーム"
 
-#: webapp/templates/base.html:7 webapp/templates/base.html:20
-#: webapp/templates/base.html:134 webapp/templates/admin/version_view.html:3
 msgid "AppName"
 msgstr "nolumia"
 
-#: webapp/admin/routes.py:21 webapp/admin/routes.py:36
-#: webapp/admin/routes.py:50 webapp/admin/routes.py:66
-#: webapp/admin/routes.py:84 webapp/admin/routes.py:95
-#: webapp/admin/routes.py:126 webapp/admin/routes.py:137
-#: webapp/admin/routes.py:165 webapp/admin/routes.py:187
-#: webapp/admin/routes.py:206 webapp/admin/routes.py:219
-#: webapp/admin/routes.py:229 webapp/admin/routes.py:257
-#: webapp/admin/routes.py:284 webapp/admin/routes.py:297
-#: webapp/api/routes.py:979 webapp/api/routes.py:1020
 msgid "You do not have permission to access this page."
 msgstr "このページにアクセスするにはログインが必要です。"
 
@@ -106,50 +95,97 @@ msgstr ""
 
 #: webapp/admin/routes.py:236 webapp/admin/routes.py:265
 msgid "Name is required."
-msgstr ""
+msgstr "名前は必須です。"
 
 #: webapp/admin/routes.py:239
 msgid "Role already exists."
-msgstr "このメールアドレスは既に登録されています"
+msgstr "このメールアドレスは既に登録されています。"
 
-#: webapp/admin/routes.py:248
+msgid "Manage how your account looks and feels."
+msgstr "アカウントの見た目と操作感を管理します。"
+
 msgid "Role created successfully."
-msgstr ""
+msgstr "ロールを作成しました。"
 
-#: webapp/admin/routes.py:274
+
 msgid "Role updated."
-msgstr ""
+msgstr "ロールを更新しました。"
 
-#: webapp/admin/routes.py:289
 msgid "Role deleted."
-msgstr ""
+msgstr "ロールを削除しました。"
 
-#: webapp/admin/templates/admin/admin_users.html:2
-#: webapp/admin/templates/admin/admin_users.html:16
-#: webapp/admin/templates/admin/admin_users.html:46
-#: webapp/admin/templates/admin/config_view.html:10
-#: webapp/admin/templates/admin/google_accounts.html:11
-#: webapp/admin/templates/admin/permissions.html:10
-#: webapp/admin/templates/admin/roles.html:10 webapp/templates/base.html:74
+msgid "Account overview"
+msgstr "アカウント概要"
+
+msgid "Signed in as"
+msgstr "サインイン中"
+
+msgid "Two-factor authentication"
+msgstr "二要素認証"
+
+msgid "Active permissions"
+msgstr "有効な権限"
+
+msgid "These permissions reflect your currently active role or scoped session."
+msgstr "これらの権限は、現在有効なロールまたはスコープ付きセッションに基づきます。"
+
+msgid "Display preferences"
+msgstr "表示設定"
+
+msgid "Language"
+msgstr "言語"
+
+msgid "Japanese"
+msgstr "日本語"
+
+msgid "English"
+msgstr "英語"
+
+msgid "Location / Timezone"
+msgstr "場所/時間"
+
+msgid "Asia/Tokyo (Japan)"
+msgstr "アジア/東京（日本）"
+
+msgid "Asia/Shanghai (China)"
+msgstr "アジア/上海（中国）"
+
+msgid "Asia/Singapore (Singapore)"
+msgstr "アジア/シンガポール（シンガポール）"
+
+msgid "Australia/Sydney (Australia)"
+msgstr "オーストラリア/シドニー（オーストラリア）"
+
+msgid "Europe/London (UK)"
+msgstr "ヨーロッパ/ロンドン（イギリス）"
+
+msgid "America/New York (USA, Eastern Time)"
+msgstr "アメリカ/ニューヨーク（アメリカ東部時間：ET）"
+
+msgid "America/Chicago (USA, Central Time)"
+msgstr "アメリカ/シカゴ（アメリカ中部時間：CT）"
+
+msgid "America/Los Angeles (USA, Pacific Time)"
+msgstr "アメリカ/ロサンゼルス（アメリカ太平洋時間：PT）"
+
 msgid "User Management"
 msgstr "ユーザー管理"
 
-#: webapp/admin/templates/admin/admin_users.html:9
-#: webapp/admin/templates/admin/config_view.html:4
-#: webapp/admin/templates/admin/google_accounts.html:5
-#: webapp/admin/templates/admin/permissions.html:4
-#: webapp/admin/templates/admin/roles.html:4 webapp/templates/base.html:70
+msgid "Save preferences"
+msgstr "設定を保存"
+
+msgid "Edit profile details"
+msgstr "プロフィール詳細を編集"
+
+msgid "Enable two-factor authentication"
+msgstr "二要素認証を有効にする"
+
+msgid "Update your sign-in details or password here."
+msgstr "サインイン情報やパスワードをここで更新できます。"
+
 msgid "Management"
 msgstr "管理メニュー"
 
-#: webapp/admin/templates/admin/admin_users.html:21
-#: webapp/admin/templates/admin/config_view.html:15
-#: webapp/admin/templates/admin/google_accounts.html:16
-#: webapp/admin/templates/admin/permissions.html:15
-#: webapp/admin/templates/admin/roles.html:15
-#: webapp/auth/templates/auth/google_accounts.html:2
-#: webapp/auth/templates/auth/google_accounts.html:7
-#: webapp/templates/base.html:75
 msgid "Google Accounts"
 msgstr "Googleアカウント"
 
@@ -1444,7 +1480,10 @@ msgid "Auto (use first media)"
 msgstr "自動選択"
 
 msgid "Create Album"
-msgstr "アルバム作成"
+msgstr "作成"
+
+msgid "Save Changes"
+msgstr "保存"
 
 #: webapp/photo-view/templates/photo-view/albums.html:228
 msgid "Failed to load albums. Please try again."

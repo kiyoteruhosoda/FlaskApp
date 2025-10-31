@@ -104,6 +104,7 @@ def seed_permissions():
         'api_key:manage',
         'certificate:sign',
         'api_key:read',
+        'dashboard:view',
         'gui:view',
     ]
 
@@ -146,6 +147,7 @@ def seed_role_permissions():
             'api_key:manage',
             'certificate:sign',
             'api_key:read',
+            'dashboard:view',
             'gui:view',
         ],
         'manager': [
@@ -158,14 +160,17 @@ def seed_role_permissions():
             'media:metadata-manage',
             'media:delete',
             'media:recover',
+            'dashboard:view',
             'gui:view',
         ],
         'member': [
             'album:view',
             'media:view',
+            'dashboard:view',
             'gui:view',
         ],
         'guest': [
+            'dashboard:view',
             'gui:view',
         ],
     }

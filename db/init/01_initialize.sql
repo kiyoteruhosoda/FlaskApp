@@ -659,6 +659,7 @@ INSERT INTO `permission` VALUES
 (17,'totp:view'),
 (18,'totp:write'),
 (3,'user:manage'),
+(26,'dashboard:view'),
 (24,'gui:view'),
 (11,'wiki:admin'),
 (12,'wiki:read'),
@@ -878,14 +879,18 @@ INSERT INTO `role_permissions` VALUES
 (1,21),
 (1,22),
 (1,23),
+(1,26),
 (2,1),
 (2,4),
 (2,5),
 (2,6),
 (2,7),
 (2,25),
+(2,26),
 (3,6),
 (3,7),
+(3,26),
+(4,26),
 (5,20);
 /*!40000 ALTER TABLE `role_permissions` ENABLE KEYS */;
 UNLOCK TABLES;

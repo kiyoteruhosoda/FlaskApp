@@ -22,16 +22,18 @@ def _create_user_with_roles_and_permissions(email, password):
     manager_role = Role(name="manager")
     manager_perm1 = Permission(code="media:manage")
     manager_perm2 = Permission(code="album:manage")
+    dashboard_perm = Permission(code="dashboard:view")
     db.session.add(manager_perm1)
     db.session.add(manager_perm2)
-    manager_role.permissions.extend([manager_perm1, manager_perm2])
+    db.session.add(dashboard_perm)
+    manager_role.permissions.extend([manager_perm1, manager_perm2, dashboard_perm])
     db.session.add(manager_role)
     
     # Create viewer role with only view permissions
     viewer_role = Role(name="viewer")
     viewer_perm = Permission(code="media:view")
     db.session.add(viewer_perm)
-    viewer_role.permissions.append(viewer_perm)
+    viewer_role.permissions.extend([viewer_perm, dashboard_perm])
     db.session.add(viewer_role)
     
     # Assign both roles to user

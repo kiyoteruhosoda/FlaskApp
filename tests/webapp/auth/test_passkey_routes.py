@@ -62,11 +62,16 @@ def _login(client, user):
 
 
 def _assign_permission(user: User, code: str) -> None:
-    role = Role(name=f"role-{user.id}-{code}")
+    role_name = f"role-{user.id}-primary"
+    role = next((item for item in user.roles if item.name == role_name), None)
+    if role is None:
+        role = Role(name=role_name)
+        user.roles.append(role)
+        db.session.add(role)
     permission = Permission(code=code)
     role.permissions.append(permission)
-    user.roles.append(role)
-    db.session.add_all([permission, role, user])
+    db.session.add(permission)
+    db.session.add(user)
     db.session.commit()
 
 
@@ -327,6 +332,7 @@ def test_passkey_login_options_sets_challenge(monkeypatch, client):
 
 def test_passkey_verify_login_success(monkeypatch, client):
     user = _create_user()
+    _assign_permission(user, "dashboard:view")
     _assign_permission(user, "gui:view")
 
     class StubService:
@@ -387,7 +393,7 @@ def test_passkey_verify_login_success(monkeypatch, client):
     assert body["requires_role_selection"] is False
     assert body["access_token"] == "access-token"
     assert body["refresh_token"] == "refresh-token"
-    assert issued_tokens["scope"] == ["gui:view"]
+    assert issued_tokens["scope"] == ["dashboard:view", "gui:view"]
 
     cookies = response.headers.getlist("Set-Cookie")
     assert any(cookie.startswith("access_token=access-token") for cookie in cookies)
@@ -395,7 +401,7 @@ def test_passkey_verify_login_success(monkeypatch, client):
     with client.session_transaction() as session:
         assert PASSKEY_AUTH_CHALLENGE_KEY not in session
         assert "passkey_auth_timestamp" not in session
-        assert session[API_LOGIN_SCOPE_SESSION_KEY] == ["gui:view"]
+        assert session[API_LOGIN_SCOPE_SESSION_KEY] == ["dashboard:view", "gui:view"]
 
 
 def test_passkey_verify_login_rejects_inactive_user(monkeypatch, client):

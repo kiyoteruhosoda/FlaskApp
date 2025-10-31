@@ -1,10 +1,12 @@
 from flask import render_template
-from flask_login import login_required, current_user
+from flask_login import current_user
+
+from core.models.authz import require_perms
 from . import bp
 
 
 @bp.route("/")
-@login_required
+@require_perms("dashboard:view")
 def dashboard():
     """Render the workspace dashboard with aggregated stats."""
 

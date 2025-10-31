@@ -8,6 +8,7 @@ from flask_login import UserMixin
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.db import db
+from core.models.group import group_user_membership
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
@@ -15,6 +16,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from core.models.google_account import GoogleAccount
     from core.models.totp import TOTPCredential
     from core.models.passkey import PasskeyCredential
+    from core.models.group import Group
 
 
 # Define BIGINT type compatible with SQLite auto increment
@@ -81,6 +83,11 @@ class User(db.Model, UserMixin):
     roles: Mapped[list[Role]] = relationship(
         "Role",
         secondary=user_roles,
+        back_populates="users",
+    )
+    groups: Mapped[list["Group"]] = relationship(
+        "Group",
+        secondary=group_user_membership,
         back_populates="users",
     )
     google_accounts: Mapped[list["GoogleAccount"]] = relationship(

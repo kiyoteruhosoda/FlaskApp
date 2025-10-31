@@ -100,8 +100,6 @@ CREATE TABLE `alembic_version` (
 
 LOCK TABLES `alembic_version` WRITE;
 /*!40000 ALTER TABLE `alembic_version` DISABLE KEYS */;
-INSERT INTO `alembic_version` VALUES
-('31b1901dba43');
 /*!40000 ALTER TABLE `alembic_version` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -661,6 +659,7 @@ INSERT INTO `permission` (`id`,`code`,`detail`) VALUES
 (17,'totp:view',NULL),
 (18,'totp:write',NULL),
 (3,'user:manage',NULL),
+(27,'group:manage',NULL),
 (26,'dashboard:view',NULL),
 (24,'gui:view',NULL),
 (11,'wiki:admin',NULL),
@@ -866,6 +865,7 @@ INSERT INTO `role_permissions` VALUES
 (1,7),
 (1,8),
 (1,9),
+(1,27),
 (1,10),
 (1,11),
 (1,12),
@@ -1050,6 +1050,34 @@ LOCK TABLES `tag` WRITE;
 UNLOCK TABLES;
 
 --
+-- Table structure for table `user_group`
+--
+
+DROP TABLE IF EXISTS `user_group`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `user_group` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `name` varchar(120) NOT NULL,
+  `description` text DEFAULT NULL,
+  `parent_id` bigint(20) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_user_group_name` (`name`),
+  KEY `ix_user_group_parent_id` (`parent_id`),
+  CONSTRAINT `fk_user_group_parent` FOREIGN KEY (`parent_id`) REFERENCES `user_group` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `user_group`
+--
+
+LOCK TABLES `user_group` WRITE;
+/*!40000 ALTER TABLE `user_group` DISABLE KEYS */;
+/*!40000 ALTER TABLE `user_group` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `totp_credential`
 --
 
@@ -1115,6 +1143,33 @@ LOCK TABLES `user` WRITE;
 INSERT INTO `user` VALUES
 (-1,'admin@example.com','admin','scrypt:32768:8:1$7oTcIUdekNLXGSXC$fd0f3320bde4570c7e1ea9d9d289aeb916db7a50fb62489a7e89d99c6cc576813506fd99f50904101c1eb85ff925f8dc879df5ded781ef2613224d702938c9c8','2025-09-23 10:17:33',NULL,1,NULL);
 /*!40000 ALTER TABLE `user` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `group_user_membership`
+--
+
+DROP TABLE IF EXISTS `group_user_membership`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `group_user_membership` (
+  `group_id` bigint(20) NOT NULL,
+  `user_id` bigint(20) NOT NULL,
+  PRIMARY KEY (`group_id`,`user_id`),
+  UNIQUE KEY `uq_group_user_membership` (`group_id`,`user_id`),
+  KEY `fk_group_membership_user` (`user_id`),
+  CONSTRAINT `fk_group_membership_group` FOREIGN KEY (`group_id`) REFERENCES `user_group` (`id`),
+  CONSTRAINT `fk_group_membership_user` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `group_user_membership`
+--
+
+LOCK TABLES `group_user_membership` WRITE;
+/*!40000 ALTER TABLE `group_user_membership` DISABLE KEYS */;
+/*!40000 ALTER TABLE `group_user_membership` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --

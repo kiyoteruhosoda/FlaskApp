@@ -1486,3 +1486,83 @@ msgstr "Security verification failed. Please reload the page and try again."
 msgid "Are you sure you want to delete this page?"
 msgstr "Are you sure you want to delete this page?"
 
+msgid "Group Management"
+msgstr "Group Management"
+
+msgid "Groups"
+msgstr "Groups"
+
+msgid "Add Group"
+msgstr "Add Group"
+
+msgid "Parent Group"
+msgstr "Parent Group"
+
+msgid "Subgroups"
+msgstr "Subgroups"
+
+msgid "Members"
+msgstr "Members"
+
+msgid "No groups have been created yet."
+msgstr "No groups have been created yet."
+
+msgid "Edit Group"
+msgstr "Edit Group"
+
+msgid "Group Name"
+msgstr "Group Name"
+
+msgid "Description"
+msgstr "Description"
+
+msgid "Optional description to help identify the group."
+msgstr "Optional description to help identify the group."
+
+msgid "Select a parent to nest this group inside another group."
+msgstr "Select a parent to nest this group inside another group."
+
+msgid "Group Members"
+msgstr "Group Members"
+
+msgid "Hold Ctrl (Windows/Linux) or Command (macOS) to select multiple users."
+msgstr "Hold Ctrl (Windows/Linux) or Command (macOS) to select multiple users."
+
+msgid "Create Group"
+msgstr "Create Group"
+
+msgid "No parent"
+msgstr "No parent"
+
+msgid "Group name is required."
+msgstr "Group name is required."
+
+msgid "Group name already exists."
+msgstr "Group name already exists."
+
+msgid "Selected parent group does not exist."
+msgstr "Selected parent group does not exist."
+
+msgid "One or more selected users do not exist."
+msgstr "One or more selected users do not exist."
+
+msgid "The selected parent would create a circular hierarchy."
+msgstr "The selected parent would create a circular hierarchy."
+
+msgid "Group created successfully."
+msgstr "Group created successfully."
+
+msgid "Group updated successfully."
+msgstr "Group updated successfully."
+
+msgid "Group deleted successfully."
+msgstr "Group deleted successfully."
+
+msgid "Cannot delete a group that still has subgroups."
+msgstr "Cannot delete a group that still has subgroups."
+
+msgid "Remove all users from the group before deleting it."
+msgstr "Remove all users from the group before deleting it."
+
+msgid "Are you sure you want to delete this group?"
+msgstr "Are you sure you want to delete this group?"

@@ -649,6 +649,7 @@ INSERT INTO `permission` VALUES
 (22,'certificate:sign'),
 (15,'media:delete'),
 (16,'media:recover'),
+(26,'media:session'),
 (14,'media:tag-manage'),
 (25,'media:metadata-manage'),
 (7,'media:view'),

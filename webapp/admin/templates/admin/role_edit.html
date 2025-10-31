@@ -11,8 +11,10 @@
     overflow-y: auto;
   }
   .permission-item {
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    background: var(--bs-body-bg);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, outline-color 0.2s ease;
+    background-color: var(--bs-body-bg);
+    outline: 2px solid transparent;
+    outline-offset: -2px;
   }
   .permission-item:hover {
     border-color: rgba(13, 110, 253, 0.35);
@@ -27,6 +29,12 @@
   }
   .permission-item .form-check-input:checked + .form-check-label .fw-semibold {
     color: var(--bs-primary);
+  }
+
+  .permission-item-wrapper.capability-selector-item-selected .permission-item {
+    outline: solid 2px rgba(var(--bs-primary-rgb));
+    background-color: rgba(var(--bs-primary-rgb), 0.3);
+    box-shadow: 0 1.25rem 2.5rem rgba(var(--bs-primary-rgb), 0.18);
   }
   @media (max-width: 991.98px) {
     .permission-list {

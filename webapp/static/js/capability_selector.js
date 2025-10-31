@@ -19,6 +19,7 @@
       this.toggleHandler = null;
       this.mutationObserver = null;
       this.handleCheckboxChange = this.handleCheckboxChange.bind(this);
+      this.updateItemSelectionClasses = this.updateItemSelectionClasses.bind(this);
     }
 
     init({ onFilter = null, onSelectionChanged = null, onToggle = null } = {}) {
@@ -65,7 +66,19 @@
       if (typeof this.changeHandler === 'function') {
         this.changeHandler(event);
       }
+      this.updateItemSelectionClasses();
       this.updateToggleState();
+    }
+
+    updateItemSelectionClasses() {
+      (this.items || []).forEach((item) => {
+        if (!item) {
+          return;
+        }
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        const isChecked = checkbox ? checkbox.checked : false;
+        item.classList.toggle('capability-selector-item-selected', isChecked);
+      });
     }
 
     refreshItems() {
@@ -74,6 +87,7 @@
         return;
       }
       this.items = Array.from(this.listContainer.querySelectorAll('[data-capability-selector-item]'));
+      this.updateItemSelectionClasses();
       this.updateToggleState();
     }
 
@@ -140,6 +154,7 @@
         this.toggleHandler({ shouldSelect, changed });
       }
 
+      this.updateItemSelectionClasses();
       this.updateToggleState();
     }
 

@@ -1411,7 +1411,12 @@ def api_album_detail(album_id: int):
                 "visibility": {
                     "type": "string",
                     "enum": sorted(ALBUM_VISIBILITY_VALUES),
-                    "description": "Visibility of the album (public/private/unlisted).",
+                    "description": (
+                        "Visibility of the album. "
+                        "Use 'private' to keep it to yourself, "
+                        "'unlisted' to share only with linked users, "
+                        "or 'public' to allow any album:view user to see it."
+                    ),
                 },
                 "mediaIds": {
                     "type": "array",
@@ -1551,7 +1556,11 @@ def api_album_create():
                 "visibility": {
                     "type": "string",
                     "enum": sorted(ALBUM_VISIBILITY_VALUES),
-                    "description": "Album visibility mode.",
+                    "description": (
+                        "Album visibility mode. "
+                        "Choose 'private' for yourself only, 'unlisted' for linked users, "
+                        "or 'public' for any viewer with album:view."
+                    ),
                 },
                 "mediaIds": {
                     "type": "array",

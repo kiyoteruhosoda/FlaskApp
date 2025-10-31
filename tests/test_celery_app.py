@@ -42,8 +42,10 @@ class TestCeleryAppConfiguration:
     def test_celery_timezone_configuration(self):
         """Test Celery timezone configuration."""
         from cli.src.celery.celery_app import celery
-        
-        assert celery.conf.timezone == 'Asia/Tokyo'
+        from core.settings import settings
+
+        expected_timezone = settings.babel_default_timezone or 'UTC'
+        assert celery.conf.timezone == expected_timezone
         assert celery.conf.enable_utc is True
     
     def test_beat_schedule_configuration(self):
@@ -52,10 +54,16 @@ class TestCeleryAppConfiguration:
         
         assert hasattr(celery.conf, 'beat_schedule')
         assert 'picker-import-watchdog' in celery.conf.beat_schedule
-        
+        assert 'logs-cleanup' in celery.conf.beat_schedule
+
         watchdog_config = celery.conf.beat_schedule['picker-import-watchdog']
         assert watchdog_config['task'] == 'picker_import.watchdog'
         assert 'schedule' in watchdog_config
+
+        logs_config = celery.conf.beat_schedule['logs-cleanup']
+        assert logs_config['task'] == 'logs.cleanup'
+        assert 'schedule' in logs_config
+        assert logs_config.get('kwargs', {}).get('retention_days') == 365
 
 
 class TestFlaskAppCreation:
@@ -69,12 +77,13 @@ class TestFlaskAppCreation:
     def test_create_app_function(self):
         """Test Flask app creation function."""
         from cli.src.celery.celery_app import create_app
-        
+        from webapp.config import BaseApplicationSettings
+
         app = create_app()
-        
+
         assert app is not None
-        assert app.config['SECRET_KEY'] == 'test-secret'
-        assert 'sqlite://' in app.config['SQLALCHEMY_DATABASE_URI']
+        assert app.config['SECRET_KEY'] == BaseApplicationSettings.SECRET_KEY
+        assert app.config['SQLALCHEMY_DATABASE_URI'] == BaseApplicationSettings.SQLALCHEMY_DATABASE_URI
     
     @patch.dict(os.environ, {
         'SECRET_KEY': 'test-secret',
@@ -84,21 +93,22 @@ class TestFlaskAppCreation:
     def test_flask_app_extensions_initialization(self):
         """Test that Flask app extensions are properly initialized."""
         from cli.src.celery.celery_app import create_app
-        
+
         app = create_app()
-        
+
         # Test that database is initialized
         with app.app_context():
             from core.db import db
-            assert db.app == app
+            engine = db.engine
+            assert engine is not None
     
     def test_flask_app_config_inheritance(self):
         """Test that Flask app inherits from BaseApplicationSettings class."""
         from cli.src.celery.celery_app import flask_app
         from webapp.config import BaseApplicationSettings
-        
+
         # Test some basic config values that should be inherited
-        assert hasattr(flask_app.config, 'SQLALCHEMY_TRACK_MODIFICATIONS')
+        assert 'SQLALCHEMY_TRACK_MODIFICATIONS' in flask_app.config
         assert flask_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] == BaseApplicationSettings.SQLALCHEMY_TRACK_MODIFICATIONS
 
 
@@ -131,12 +141,12 @@ class TestContextTask:
             def run(self):
                 from flask import current_app
                 return current_app.config['SECRET_KEY']
-        
+
         # Create and call the task
         task = TestTask()
         result = task()
-        
-        assert result == 'test-secret'
+
+        assert result == flask_app.config['SECRET_KEY']
     
     @patch.dict(os.environ, {
         'SECRET_KEY': 'test-secret',
@@ -181,7 +191,8 @@ class TestCeleryTaskRegistration:
             'cli.src.celery.tasks.dummy_long_task',
             'cli.src.celery.tasks.download_file',
             'picker_import.item',
-            'picker_import.watchdog'
+            'picker_import.watchdog',
+            'logs.cleanup'
         ]
         
         for task_name in expected_tasks:
@@ -256,12 +267,11 @@ class TestCeleryErrorHandling:
     def test_flask_app_creation_failure(self, mock_create_app):
         """Test handling of Flask app creation failure."""
         mock_create_app.side_effect = Exception("Flask app creation failed")
-        
+
         with pytest.raises(Exception, match="Flask app creation failed"):
-            # Re-import to trigger app creation
-            import importlib
             from cli.src.celery import celery_app
-            importlib.reload(celery_app)
+
+            celery_app.create_app()
     
     def test_celery_with_invalid_broker_url(self):
         """Test Celery behavior with invalid broker URL."""

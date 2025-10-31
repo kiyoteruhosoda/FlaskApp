@@ -508,6 +508,11 @@ celery.conf.beat_schedule = {
         "schedule": timedelta(days=1),  # 毎日実行
         "kwargs": {"retention_days": 30},  # 30日より古いファイルを削除
     },
+    "logs-cleanup": {
+        "task": "logs.cleanup",
+        "schedule": timedelta(days=1),  # 毎日実行
+        "kwargs": {"retention_days": 365},  # 1年以上前のログを削除
+    },
     "certificates-auto-rotation": {
         "task": "certificates.auto_rotate",
         "schedule": timedelta(hours=1),

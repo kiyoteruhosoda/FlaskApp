@@ -229,22 +229,22 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const strings = {
-    untitledAlbum: "{{ _('Untitled Album')|escapejs }}",
-    mediaCountSingular: "{{ ngettext('%(count)s photo', '%(count)s photos', 1, count='%(count)s')|escapejs }}",
-    mediaCountPlural: "{{ ngettext('%(count)s photo', '%(count)s photos', 2, count='%(count)s')|escapejs }}",
-    createdLabel: "{{ _('Created')|escapejs }}",
-    updatedLabel: "{{ _('Updated')|escapejs }}",
-    loadingError: "{{ _('Failed to load album information.')|escapejs }}",
-    noMedia: "{{ _('This album has no media yet.')|escapejs }}",
-    reorderHint: "{{ _('Drag and drop media tiles to change their order.')|escapejs }}",
-    reorderDirtyHint: "{{ _('Don\'t forget to save your changes.')|escapejs }}",
-    reorderSaving: "{{ _('Saving order...')|escapejs }}",
-    reorderSaved: "{{ _('Media order updated.')|escapejs }}",
-    reorderSaveError: "{{ _('Failed to save media order.')|escapejs }}",
+    untitledAlbum: "{{ _('Untitled Album')|escapejs|safe }}",
+    mediaCountSingular: "{{ ngettext('%(count)s photo', '%(count)s photos', 1, count='%(count)s')|escapejs|safe }}",
+    mediaCountPlural: "{{ ngettext('%(count)s photo', '%(count)s photos', 2, count='%(count)s')|escapejs|safe }}",
+    createdLabel: "{{ _('Created')|escapejs|safe }}",
+    updatedLabel: "{{ _('Updated')|escapejs|safe }}",
+    loadingError: "{{ _('Failed to load album information.')|escapejs|safe }}",
+    noMedia: "{{ _('This album has no media yet.')|escapejs|safe }}",
+    reorderHint: "{{ _('Drag and drop media tiles to change their order.')|escapejs|safe }}",
+    reorderDirtyHint: "{{ _('Don\'t forget to save your changes.')|escapejs|safe }}",
+    reorderSaving: "{{ _('Saving order...')|escapejs|safe }}",
+    reorderSaved: "{{ _('Media order updated.')|escapejs|safe }}",
+    reorderSaveError: "{{ _('Failed to save media order.')|escapejs|safe }}",
     visibilityLabels: {
-      public: "{{ _('Public')|escapejs }}",
-      private: "{{ _('Private')|escapejs }}",
-      unlisted: "{{ _('Unlisted')|escapejs }}",
+      public: "{{ _('Public')|escapejs|safe }}",
+      private: "{{ _('Private')|escapejs|safe }}",
+      unlisted: "{{ _('Unlisted')|escapejs|safe }}",
     },
   };
 

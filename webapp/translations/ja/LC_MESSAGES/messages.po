@@ -1460,13 +1460,13 @@ msgid "Visibility"
 msgstr "公開範囲"
 
 msgid "Private"
-msgstr "公開しない"
+msgstr "非公開"
 
 msgid "Unlisted"
-msgstr "指定した人のみ"
+msgstr "限定公開"
 
 msgid "Public"
-msgstr "誰でも"
+msgstr "公開"
 
 msgid "Album Cover"
 msgstr "表紙"
@@ -1474,8 +1474,8 @@ msgstr "表紙"
 msgid "Taken after"
 msgstr "撮影日（開始）"
 
-msgid "撮影日（終了）"
-msgstr "表紙"
+msgid "Taken before"
+msgstr "撮影日（終了）"
 
 msgid "All media"
 msgstr "全種類"
@@ -1779,6 +1779,57 @@ msgstr "Googleフォト"
 
 msgid "Unknown"
 msgstr "不明"
+
+msgid "Unknown"
+msgstr "不明"
+
+msgid "Back to albums"
+msgstr "アルバムに戻る"
+
+msgid "Back to album"
+msgstr "アルバムに戻る"
+
+msgid "Album Detail"
+msgstr "アルバム詳細"
+
+msgid "Start Slideshow"
+msgstr "スライドショー開始"
+
+msgid "View Media Library"
+msgstr "メディア一覧"
+
+msgid "Edit Album"
+msgstr "アルバム編集"
+
+msgid "Reorder media"
+msgstr "並び替え"
+
+msgid "Save order"
+msgstr "並び替え順保存"
+
+msgid "Untitled Album"
+msgstr ""
+
+msgid "Failed to load album information."
+msgstr "アルバム情報の読み込みに失敗しました。"
+
+msgid "This album has no media yet."
+msgstr "まだメディアが追加されていません。"
+
+msgid "Drag and drop media tiles to change their order."
+msgstr "ドラッグアンドドロップで並び順を変更できます。"
+
+msgid "Saving order..."
+msgstr "保存中"
+
+msgid "Media order updated."
+msgstr "並び順を保存しました。"
+
+msgid "Failed to save media order."
+msgstr "並び順の保存に失敗しました。"
+
+msgid "Shot at"
+msgstr "撮影日時"
 
 #: webapp/photo-view/templates/photo-view/media_list.html:151
 #: webapp/templates/base.html:38

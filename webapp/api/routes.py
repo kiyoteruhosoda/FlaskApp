@@ -850,33 +850,30 @@ def login_or_jwt_required(f):
                     reason='invalid_token',
                     token_source=token_source or 'unknown',
                 )
-                if (
-                    token_source == 'cookie'
-                    and current_user.is_authenticated
-                    and isinstance(current_user, User)
-                ):
-                    _auth_log(
-                        'Regenerating access token from session after JWT failure',
-                        level='info',
-                        stage='fallback',
-                        reason='invalid_token',
-                        token_source=token_source or 'unknown',
-                        authenticated_user=_serialize_user_for_log(current_user),
-                    )
+                if token_source == 'cookie' and current_user.is_authenticated:
                     user_obj = getattr(
                         current_user, "_get_current_object", lambda: current_user
                     )()
-                    session_scope_items = _resolve_session_scope(user_obj)
-                    session_scope = set(session_scope_items)
-                    g.current_token_scope = session_scope if session_scope else None
-                    g.current_user = user_obj
-                    response = make_response(f(*args, **kwargs))
-                    _refresh_gui_access_cookie(
-                        response,
-                        user_obj,
-                        scope_items=session_scope_items,
-                    )
-                    return response
+                    if isinstance(user_obj, User):
+                        _auth_log(
+                            'Regenerating access token from session after JWT failure',
+                            level='info',
+                            stage='fallback',
+                            reason='invalid_token',
+                            token_source=token_source or 'unknown',
+                            authenticated_user=_serialize_user_for_log(user_obj),
+                        )
+                        session_scope_items = _resolve_session_scope(user_obj)
+                        session_scope = set(session_scope_items)
+                        g.current_token_scope = session_scope if session_scope else None
+                        g.current_user = user_obj
+                        response = make_response(f(*args, **kwargs))
+                        _refresh_gui_access_cookie(
+                            response,
+                            user_obj,
+                            scope_items=session_scope_items,
+                        )
+                        return response
                 return jsonify({'error': 'invalid_token'}), 401
 
             else:

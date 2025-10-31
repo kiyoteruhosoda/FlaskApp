@@ -101,12 +101,20 @@ msgstr "名前は必須です。"
 msgid "Role already exists."
 msgstr "このメールアドレスは既に登録されています。"
 
+msgid "Current time"
+msgstr "現在時刻"
+
+msgid "Local time (Asia/Tokyo)"
+msgstr "日本時刻"
+
+msgid "To add another passkey, remove the existing passkey first."
+msgstr "別のパスキーを追加するには、現在のパスキーを削除してください。"
+
 msgid "Manage how your account looks and feels."
 msgstr "アカウントの見た目と操作感を管理します。"
 
 msgid "Role created successfully."
 msgstr "ロールを作成しました。"
-
 
 msgid "Role updated."
 msgstr "ロールを更新しました。"

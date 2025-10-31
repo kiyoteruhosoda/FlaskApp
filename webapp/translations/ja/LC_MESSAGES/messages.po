@@ -1523,6 +1523,18 @@ msgstr "限定公開"
 msgid "Public"
 msgstr "公開"
 
+msgid "Choose who can access the album."
+msgstr "アルバムを閲覧できる対象を選択します。"
+
+msgid "Only users explicitly linked to the album can view it."
+msgstr "アルバムに共有ユーザーとして紐づけた相手だけが閲覧できます。"
+
+msgid "Hidden from everyone else. Only you can view it."
+msgstr "他のユーザーには表示されません。閲覧できるのは自分だけです。"
+
+msgid "Visible to anyone who can access the photo viewer and has the \"album:view\" permission."
+msgstr "フォトビューアーにアクセスでき、かつ \"album:view\" 権限を持つユーザー全員に公開されます。"
+
 msgid "Album Cover"
 msgstr "表紙"
 

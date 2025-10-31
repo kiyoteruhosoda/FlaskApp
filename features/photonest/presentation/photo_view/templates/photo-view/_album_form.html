@@ -28,6 +28,14 @@
                   <option value="unlisted">{{ _('Unlisted') }}</option>
                   <option value="public">{{ _('Public') }}</option>
                 </select>
+                <div class="form-text small mt-2">
+                  <p class="mb-1">{{ _('Choose who can access the album.') }}</p>
+                  <ul class="mb-0 ps-3">
+                    <li><strong>{{ _('Unlisted') }}</strong> – {{ _('Only users explicitly linked to the album can view it.') }}</li>
+                    <li><strong>{{ _('Private') }}</strong> – {{ _('Hidden from everyone else. Only you can view it.') }}</li>
+                    <li><strong>{{ _('Public') }}</strong> – {{ _('Visible to anyone who can access the photo viewer and has the "album:view" permission.') }}</li>
+                  </ul>
+                </div>
               </div>
               <div class="mb-3">
                 <label class="form-label">{{ _('Album Cover') }}</label>
@@ -123,18 +131,18 @@
       </div>
     </form>
   </div>
-  <div class="modal-footer justify-content-between">
-    <div class="text-muted small" id="album-form-status"></div>
-    <div>
+  <div class="modal-footer album-form-footer">
+    <div class="text-muted small album-form-status" id="album-form-status"></div>
+    <div class="album-form-actions">
+      <button type="submit" class="btn btn-primary btn-size-sm" id="save-album-btn" form="album-form">
+        <span class="save-label-create">{{ _('Create Album') }}</span>
+        <span class="save-label-update d-none">{{ _('Save Changes') }}</span>
+      </button>
       {% if is_editor_view %}
         <a href="{{ cancel_url }}" class="btn btn-outline-secondary btn-size-sm">{{ _('Cancel') }}</a>
       {% else %}
         <button type="button" class="btn btn-outline-secondary btn-size-sm" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
       {% endif %}
-      <button type="submit" class="btn btn-primary btn-size-sm" id="save-album-btn" form="album-form">
-        <span class="save-label-create">{{ _('Create Album') }}</span>
-        <span class="save-label-update d-none">{{ _('Save Changes') }}</span>
-      </button>
     </div>
   </div>
 {% endmacro %}

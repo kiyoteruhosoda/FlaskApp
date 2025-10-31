@@ -59,6 +59,9 @@ def _build_local_import_info():
 @require_perms("media:view")
 def home():
     """Photo view home page."""
+    if not app_settings.login_disabled and not current_user.can("media:session"):
+        return redirect(url_for("index"))
+
     session_id = request.args.get("session_id")
     if session_id:
         return redirect(url_for("photo_view.session_detail", session_id=session_id))

@@ -1004,7 +1004,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const isMobileViewport = window.matchMedia ? window.matchMedia('(max-width: 575.98px)').matches : window.innerWidth <= 576;
 
     if (isMobileViewport) {
-      albumMediaScroll.style.maxHeight = '';
+      const viewportHeight = window.innerHeight || document.documentElement?.clientHeight;
+      if (!Number.isFinite(viewportHeight)) {
+        albumMediaScroll.style.maxHeight = '60vh';
+        return;
+      }
+
+      const scrollRect = albumMediaScroll.getBoundingClientRect();
+      const available = viewportHeight - scrollRect.top - 16;
+      const nextHeight = Math.floor(available);
+
+      albumMediaScroll.style.maxHeight = nextHeight > 0 ? `${nextHeight}px` : '180px';
       return;
     }
 

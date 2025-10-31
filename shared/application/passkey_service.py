@@ -45,7 +45,13 @@ class PasskeyService:
 
     repository: SqlAlchemyPasskeyRepository
 
-    def generate_registration_options(self, user) -> tuple[dict, str]:
+    def generate_registration_options(
+        self,
+        user,
+        *,
+        rp_id: str | None = None,
+        rp_name: str | None = None,
+    ) -> tuple[dict, str]:
         """Return creation options and encoded challenge for *user*."""
 
         exclude_credentials: list[PublicKeyCredentialDescriptor] = []
@@ -60,8 +66,8 @@ class PasskeyService:
             exclude_credentials.append(descriptor)
 
         options = generate_registration_options(
-            rp_id=settings.webauthn_rp_id,
-            rp_name=settings.webauthn_rp_name,
+            rp_id=rp_id or settings.webauthn_rp_id,
+            rp_name=rp_name or settings.webauthn_rp_name,
             user_id=str(user.id).encode("utf-8"),
             user_name=user.email,
             user_display_name=getattr(user, "display_name", user.email),
@@ -84,6 +90,8 @@ class PasskeyService:
         expected_challenge: str,
         transports: Iterable[str] | None = None,
         name: str | None = None,
+        expected_rp_id: str | None = None,
+        expected_origin: str | None = None,
     ):
         """Verify a registration response and persist the credential."""
 
@@ -96,8 +104,8 @@ class PasskeyService:
             verification = verify_registration_response(
                 credential=credential,
                 expected_challenge=expected_challenge,
-                expected_rp_id=settings.webauthn_rp_id,
-                expected_origin=settings.webauthn_origin,
+                expected_rp_id=expected_rp_id or settings.webauthn_rp_id,
+                expected_origin=expected_origin or settings.webauthn_origin,
                 require_user_verification=True,
             )
         except Exception as exc:
@@ -122,11 +130,15 @@ class PasskeyService:
         )
         return record
 
-    def generate_authentication_options(self) -> tuple[dict, str]:
+    def generate_authentication_options(
+        self,
+        *,
+        rp_id: str | None = None,
+    ) -> tuple[dict, str]:
         """Return request options and encoded challenge for authentication."""
 
         options = generate_authentication_options(
-            rp_id=settings.webauthn_rp_id,
+            rp_id=rp_id or settings.webauthn_rp_id,
             user_verification=UserVerificationRequirement.PREFERRED,
         )
         challenge = bytes_to_base64url(options.challenge)
@@ -138,6 +150,8 @@ class PasskeyService:
         *,
         payload: bytes,
         expected_challenge: str,
+        expected_rp_id: str | None = None,
+        expected_origin: str | None = None,
     ):
         """Verify an authentication response and return the bound user model."""
 
@@ -154,8 +168,8 @@ class PasskeyService:
             verification = verify_authentication_response(
                 credential=credential,
                 expected_challenge=expected_challenge,
-                expected_rp_id=settings.webauthn_rp_id,
-                expected_origin=settings.webauthn_origin,
+                expected_rp_id=expected_rp_id or settings.webauthn_rp_id,
+                expected_origin=expected_origin or settings.webauthn_origin,
                 credential_public_key=base64url_to_bytes(stored.public_key),
                 credential_current_sign_count=stored.sign_count,
                 require_user_verification=True,

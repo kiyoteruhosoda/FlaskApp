@@ -77,6 +77,46 @@ PASSKEY_REGISTRATION_USER_ID_KEY = "passkey_registration_user_id"
 PASSKEY_AUTH_CHALLENGE_KEY = "passkey_authentication_challenge"
 
 
+_DEFAULT_RP_ID_SENTINELS = {"localhost", "127.0.0.1"}
+_DEFAULT_ORIGIN_SENTINELS = {
+    "http://localhost",
+    "http://localhost:5000",
+    "https://localhost",
+    "https://localhost:5000",
+}
+
+
+def _resolve_passkey_rp_id() -> str:
+    """Determine the relying party ID for the current request."""
+
+    candidate = settings.webauthn_rp_id
+    host = request.host.split(":", 1)[0] if request.host else None
+
+    if not host:
+        return candidate
+
+    if candidate in _DEFAULT_RP_ID_SENTINELS and host not in _DEFAULT_RP_ID_SENTINELS:
+        return host
+
+    return candidate
+
+
+def _resolve_passkey_origin() -> str:
+    """Determine the expected origin for WebAuthn operations."""
+
+    candidate = settings.webauthn_origin.rstrip("/")
+    host = request.host
+    if not host:
+        return candidate
+
+    derived = f"{request.scheme}://{host}".rstrip("/")
+
+    if candidate.rstrip("/") in _DEFAULT_ORIGIN_SENTINELS and derived not in _DEFAULT_ORIGIN_SENTINELS:
+        return derived
+
+    return candidate
+
+
 def _normalize_redirect_target(location: str | None, *, fallback: str = "/") -> str:
     """Normalize redirect targets to avoid malformed ``Location`` headers."""
 
@@ -435,6 +475,17 @@ def login():
 @bp.post("/passkey/options/register")
 @login_required
 def passkey_registration_options():
+    current_app.logger.info(
+        "Passkey registration options request received",
+        extra={
+            "event": "auth.passkey_register",
+            "path": request.path,
+            "method": request.method,
+            "user_id": getattr(current_user, "id", None),
+            "service_account": bool(getattr(current_user, "is_service_account", False)),
+        },
+    )
+
     if getattr(current_user, "is_service_account", False):
         return jsonify({"error": "not_supported"}), 403
 
@@ -447,8 +498,10 @@ def passkey_registration_options():
         return jsonify({"error": "not_supported"}), 403
 
     try:
+        rp_id = _resolve_passkey_rp_id()
         options, challenge = passkey_service.generate_registration_options(
-            user_model
+            user_model,
+            rp_id=rp_id,
         )
     except Exception:  # pragma: no cover - unexpected failure
         current_app.logger.exception(
@@ -467,6 +520,16 @@ def passkey_registration_options():
 @bp.post("/passkey/verify/register")
 @login_required
 def passkey_verify_register():
+    current_app.logger.info(
+        "Passkey registration verification request received",
+        extra={
+            "event": "auth.passkey_register",
+            "path": request.path,
+            "method": request.method,
+            "user_id": getattr(current_user, "id", None),
+        },
+    )
+
     if getattr(current_user, "is_service_account", False):
         _clear_passkey_registration_session()
         return jsonify({"error": "not_supported"}), 403
@@ -501,12 +564,16 @@ def passkey_verify_register():
     label = label_raw.strip() if isinstance(label_raw, str) and label_raw.strip() else None
 
     try:
+        rp_id = _resolve_passkey_rp_id()
+        origin = _resolve_passkey_origin()
         record = passkey_service.register_passkey(
             user=user_model,
             payload=json.dumps(credential_payload).encode("utf-8"),
             expected_challenge=challenge,
             transports=transports,
             name=label,
+            expected_rp_id=rp_id,
+            expected_origin=origin,
         )
     except PasskeyRegistrationError as exc:
         _clear_passkey_registration_session()
@@ -546,8 +613,19 @@ def passkey_verify_register():
 
 @bp.post("/passkey/options/login")
 def passkey_login_options():
+    current_app.logger.info(
+        "Passkey login options request received",
+        extra={
+            "event": "auth.passkey_login",
+            "path": request.path,
+            "method": request.method,
+            "user_id": getattr(current_user, "id", None),
+        },
+    )
+
     try:
-        options, challenge = passkey_service.generate_authentication_options()
+        rp_id = _resolve_passkey_rp_id()
+        options, challenge = passkey_service.generate_authentication_options(rp_id=rp_id)
     except Exception:  # pragma: no cover - unexpected failure
         current_app.logger.exception(
             "Failed to prepare passkey authentication options",
@@ -563,6 +641,16 @@ def passkey_login_options():
 
 @bp.post("/passkey/verify/login")
 def passkey_verify_login():
+    current_app.logger.info(
+        "Passkey authentication request received",
+        extra={
+            "event": "auth.passkey_login",
+            "path": request.path,
+            "method": request.method,
+            "user_id": getattr(current_user, "id", None),
+        },
+    )
+
     if _is_session_expired("passkey_auth"):
         _clear_passkey_auth_session()
         return jsonify({"error": "challenge_expired"}), 400
@@ -578,9 +666,13 @@ def passkey_verify_login():
         return jsonify({"error": "invalid_payload"}), 400
 
     try:
+        rp_id = _resolve_passkey_rp_id()
+        origin = _resolve_passkey_origin()
         user_model = passkey_service.authenticate(
             payload=json.dumps(credential_payload).encode("utf-8"),
             expected_challenge=challenge,
+            expected_rp_id=rp_id,
+            expected_origin=origin,
         )
     except PasskeyAuthenticationError as exc:
         _clear_passkey_auth_session()

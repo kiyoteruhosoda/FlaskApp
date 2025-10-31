@@ -55,8 +55,9 @@ def test_passkey_registration_options_sets_session(monkeypatch, client):
     challenge = "challenge-value"
 
     class StubService:
-        def generate_registration_options(self, received_user):
+        def generate_registration_options(self, received_user, rp_id=None, rp_name=None):
             assert received_user.id == user.id
+            assert rp_id is not None
             return options_payload, challenge
 
     monkeypatch.setattr("webapp.auth.routes.passkey_service", StubService())
@@ -95,6 +96,8 @@ def test_passkey_verify_register_success(monkeypatch, client):
             }
             assert kwargs["expected_challenge"] == "challenge"
             assert kwargs["name"] == "Laptop"
+            assert kwargs["expected_rp_id"]
+            assert kwargs["expected_origin"]
             return record
 
     monkeypatch.setattr("webapp.auth.routes.passkey_service", StubService())
@@ -166,7 +169,8 @@ def test_passkey_login_options_sets_challenge(monkeypatch, client):
     challenge = "auth-challenge"
 
     class StubService:
-        def generate_authentication_options(self):
+        def generate_authentication_options(self, rp_id=None):
+            assert rp_id is not None
             return options_payload, challenge
 
     monkeypatch.setattr("webapp.auth.routes.passkey_service", StubService())
@@ -190,6 +194,8 @@ def test_passkey_verify_login_success(monkeypatch, client):
         def authenticate(self, **kwargs):
             assert json.loads(kwargs["payload"].decode("utf-8")) == {"id": "cred", "raw": "data"}
             assert kwargs["expected_challenge"] == "auth-challenge"
+            assert kwargs["expected_rp_id"]
+            assert kwargs["expected_origin"]
             return user
 
     monkeypatch.setattr("webapp.auth.routes.passkey_service", StubService())

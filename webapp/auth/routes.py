@@ -48,6 +48,7 @@ from ..services.gui_access_cookie import (
 )
 from core.settings import settings
 from ..utils import determine_external_scheme
+from webauthn.helpers import base64url_to_bytes
 
 
 user_repo = SqlAlchemyUserRepository(db.session)
@@ -136,6 +137,103 @@ def _gather_passkey_payload_keys(
             response_keys = sorted(response.keys())
 
     return root_keys, credential_keys, response_keys
+
+
+def _extract_passkey_client_data_details(
+    credential_payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Decode clientDataJSON and return challenge/origin details."""
+
+    details: dict[str, Any] = {
+        "challenge": None,
+        "origin": None,
+        "raw": None,
+        "error": None,
+    }
+
+    response_section = credential_payload.get("response")
+    if not isinstance(response_section, dict):
+        return details
+
+    encoded_client_data = response_section.get("clientDataJSON")
+    if not isinstance(encoded_client_data, str):
+        return details
+
+    try:
+        decoded_bytes = base64url_to_bytes(encoded_client_data)
+    except Exception as exc:
+        details["error"] = f"decode_error: {exc}"
+        return details
+
+    try:
+        decoded_text = decoded_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        details["error"] = f"utf8_error: {exc}"
+        return details
+
+    details["raw"] = decoded_text
+
+    try:
+        parsed = json.loads(decoded_text)
+    except Exception as exc:
+        details["error"] = f"json_error: {exc}"
+        return details
+
+    if isinstance(parsed, dict):
+        details["challenge"] = parsed.get("challenge")
+        details["origin"] = parsed.get("origin")
+
+    return details
+
+
+def _format_exception_chain(exc: Exception) -> str | None:
+    """Return a compact string summarizing the exception cause chain."""
+
+    chain: list[str] = []
+    current: Exception | None = exc.__cause__ if exc.__cause__ is not None else exc.__context__
+
+    while current is not None:
+        chain.append(f"{type(current).__name__}: {current}")
+        current = current.__cause__ if current.__cause__ is not None else current.__context__
+
+    if not chain:
+        return None
+
+    return " | ".join(chain)
+
+
+def _build_passkey_trace_payload(
+    *,
+    cause: str | None,
+    expected_challenge: str | None,
+    client_data_details: dict[str, Any],
+    expected_rp_id: str | None,
+    expected_origin: str | None,
+) -> str | None:
+    """Serialize trace details for structured logging."""
+
+    raw_client_data = client_data_details.get("raw")
+    preview = None
+    if isinstance(raw_client_data, str):
+        max_length = 512
+        preview = raw_client_data if len(raw_client_data) <= max_length else f"{raw_client_data[:max_length]}…"
+
+    payload = {
+        "cause": cause,
+        "expected_challenge": expected_challenge,
+        "client_challenge": client_data_details.get("challenge"),
+        "expected_rp_id": expected_rp_id,
+        "expected_origin": expected_origin,
+        "client_origin": client_data_details.get("origin"),
+        "client_data_error": client_data_details.get("error"),
+        "client_data_json_preview": preview,
+    }
+
+    sanitized = {key: value for key, value in payload.items() if value is not None}
+    if not sanitized:
+        return None
+
+    return json.dumps(sanitized, ensure_ascii=False)
 
 
 _DEFAULT_RP_ID_SENTINELS = {"localhost", "127.0.0.1"}
@@ -655,6 +753,8 @@ def passkey_verify_register():
         if stripped:
             label = stripped
 
+    client_data_details = _extract_passkey_client_data_details(credential_payload)
+
     try:
         rp_id = _resolve_passkey_rp_id()
         origin = _resolve_passkey_origin()
@@ -669,12 +769,20 @@ def passkey_verify_register():
         )
     except PasskeyRegistrationError as exc:
         _clear_passkey_registration_session()
+        trace_payload = _build_passkey_trace_payload(
+            cause=_format_exception_chain(exc),
+            expected_challenge=challenge,
+            client_data_details=client_data_details,
+            expected_rp_id=rp_id,
+            expected_origin=origin,
+        )
         current_app.logger.warning(
             "Passkey registration verification failed",
             extra={
                 "event": "auth.passkey_register",
                 "path": request.path,
                 "reason": exc.args[0] if exc.args else "verification_failed",
+                "trace": trace_payload,
             },
         )
         return (

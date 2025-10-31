@@ -36,3 +36,7 @@ docker logs mariadb | grep Entrypoint
 
 
 が出ていれば ✅ 新しいSQLが実行されています。
+
+/docs/DEVELOPMENT.md
+に移動
+

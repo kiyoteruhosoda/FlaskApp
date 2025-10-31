@@ -132,7 +132,7 @@ msgstr ""
 #: webapp/admin/templates/admin/permissions.html:10
 #: webapp/admin/templates/admin/roles.html:10 webapp/templates/base.html:74
 msgid "User Management"
-msgstr ""
+msgstr "ユーザー管理"
 
 #: webapp/admin/templates/admin/admin_users.html:9
 #: webapp/admin/templates/admin/config_view.html:4
@@ -140,7 +140,7 @@ msgstr ""
 #: webapp/admin/templates/admin/permissions.html:4
 #: webapp/admin/templates/admin/roles.html:4 webapp/templates/base.html:70
 msgid "Management"
-msgstr ""
+msgstr "管理メニュー"
 
 #: webapp/admin/templates/admin/admin_users.html:21
 #: webapp/admin/templates/admin/config_view.html:15
@@ -170,10 +170,10 @@ msgstr "証明書"
 #: webapp/admin/templates/admin/config_view.html:20
 #: webapp/admin/templates/admin/config_view.html:35
 #: webapp/admin/templates/admin/google_accounts.html:21
-#: webapp/admin/templates/admin/permissions.html:20
+#: webapp/admin/templates/admin/permissions.html:20User Ma
 #: webapp/admin/templates/admin/roles.html:20 webapp/templates/base.html:77
 msgid "Config Settings"
-msgstr ""
+msgstr "設定変更"
 
 #: webapp/admin/templates/admin/admin_users.html:33
 #: webapp/admin/templates/admin/admin_users.html:72
@@ -182,7 +182,7 @@ msgstr ""
 #: webapp/admin/templates/admin/permissions.html:25
 #: webapp/admin/templates/admin/roles.html:25 webapp/templates/base.html:80
 msgid "Roles"
-msgstr ""
+msgstr "ロール"
 
 #: webapp/admin/templates/admin/admin_users.html:40
 #: webapp/admin/templates/admin/config_view.html:30
@@ -192,7 +192,7 @@ msgstr ""
 #: webapp/admin/templates/admin/roles.html:30
 #: webapp/admin/templates/admin/roles.html:46 webapp/templates/base.html:83
 msgid "Permissions"
-msgstr ""
+msgstr "権限"
 
 #: webapp/admin/templates/admin/config_view.html:88
 msgid "Toggle section visibility"
@@ -202,11 +202,11 @@ msgstr "セクションの表示を切り替え"
 #: webapp/admin/templates/admin/user_add.html:2
 #: webapp/admin/templates/admin/user_add.html:4
 msgid "Add User"
-msgstr ""
+msgstr "ユーザー追加"
 
 #: webapp/admin/templates/admin/admin_users.html:54
 msgid "Search users..."
-msgstr ""
+msgstr "ユーザー検索"
 
 #: webapp/admin/templates/admin/admin_users.html:56
 #: webapp/photo-view/templates/photo-view/albums.html:107
@@ -256,19 +256,19 @@ msgstr "操作"
 
 #: webapp/admin/templates/admin/admin_users.html:87
 msgid "Loading more users..."
-msgstr ""
+msgstr "ユーザーを検索しています"
 
 #: webapp/admin/templates/admin/admin_users.html:91
 msgid "All users loaded"
-msgstr ""
+msgstr "ユーザー検索が完了しました"
 
 #: webapp/admin/templates/admin/admin_users.html:98
 msgid "Active"
-msgstr ""
+msgstr "有効"
 
 #: webapp/admin/templates/admin/admin_users.html:99
 msgid "Inactive"
-msgstr ""
+msgstr "無効"
 
 #: webapp/admin/templates/admin/admin_users.html:100
 msgid "users loaded"
@@ -1383,7 +1383,7 @@ msgstr "ナレッジを検索"
 
 #: webapp/dashboard/templates/dashboard/index.html:200
 msgid "Open media gallery"
-msgstr "メディアギャラリーを開く"
+msgstr "メディア一覧を開く"
 
 #: webapp/dashboard/templates/dashboard/index.html:206
 msgid "Manage profile preferences"
@@ -1393,17 +1393,28 @@ msgstr "プロフィール設定を管理"
 #: webapp/photo-view/templates/photo-view/home.html:31
 #: webapp/templates/base.html:40
 msgid "Albums"
-msgstr ""
+msgstr "アルバム"
 
-#: webapp/photo-view/templates/photo-view/albums.html:103
-#: webapp/photo-view/templates/photo-view/media_list.html:171
+msgid "Filter by tags"
+msgstr "タグフィルター"
+
+msgid "Thumbnail size"
+msgstr "サムネイルサイズ"
+
 msgid "Newest First"
-msgstr ""
+msgstr "新しい順"
 
-#: webapp/photo-view/templates/photo-view/albums.html:104
-#: webapp/photo-view/templates/photo-view/media_list.html:172
 msgid "Oldest First"
-msgstr ""
+msgstr "古い順"
+
+msgid "Compact"
+msgstr "小"
+
+msgid "Medium"
+msgstr "中"
+
+msgid "Large"
+msgstr "大"
 
 #: webapp/photo-view/templates/photo-view/albums.html:124
 msgid "Loading more albums..."
@@ -1435,7 +1446,7 @@ msgstr "新しいセッションを作成"
 
 #: webapp/photo-view/templates/photo-view/home.html:26
 msgid "View Media Gallery"
-msgstr "メディアギャラリーを見る"
+msgstr "メディア一覧を見る"
 
 #: webapp/photo-view/templates/photo-view/home.html:46
 msgid "All Picker Sessions"
@@ -1619,18 +1630,9 @@ msgstr "詳細を見る"
 msgid "Start Import"
 msgstr "インポート開始"
 
-#: webapp/photo-view/templates/photo-view/home.html:188
-#: webapp/photo-view/templates/photo-view/home.html:197
-#: webapp/photo-view/templates/photo-view/session_detail.html:136
-#: webapp/photo-view/templates/photo-view/session_detail.html:137
-#: webapp/photo-view/templates/photo-view/session_detail.html:145
-#: webapp/photo-view/templates/photo-view/session_detail.html:146
 msgid "Failed to start import."
 msgstr "インポートの開始に失敗しました。"
 
-#: webapp/photo-view/templates/photo-view/home.html:192
-#: webapp/photo-view/templates/photo-view/session_detail.html:141
-#: webapp/photo-view/templates/photo-view/session_detail.html:142
 msgid "Import started."
 msgstr "インポートを開始しました。"
 
@@ -1654,10 +1656,34 @@ msgstr "技術情報"
 msgid "EXIF Data"
 msgstr "EXIFデータ"
 
+msgid "Recover metadata"
+msgstr "メタデータ再取り込み"
+
+msgid "No tags assigned"
+msgstr "タグが設定されていません"
+
+msgid "Search tags..."
+msgstr "タグで検索"
+
+msgid "Tags"
+msgstr "タグ"
+
+msgid "Person"
+msgstr "人"
+
+msgid "Place"
+msgstr "場所"
+
+msgid "Thing"
+msgstr "物"
+
+msgid "Create and add"
+msgstr "追加"
+
 #: webapp/photo-view/templates/photo-view/media_list.html:151
 #: webapp/templates/base.html:38
 msgid "Media Gallery"
-msgstr "メディアギャラリー"
+msgstr "メディア一覧"
 
 #: webapp/photo-view/templates/photo-view/media_list.html:158
 msgid "All Media"
@@ -1970,8 +1996,32 @@ msgstr "メディアが見つからないか、すでに削除されています
 msgid "Deleting..."
 msgstr "削除しています..."
 
+msgid "File Name"
+msgstr "ファイル名"
+
+msgid "Type"
+msgstr "タイプ"
+
 msgid "Shot At"
 msgstr "撮影日時"
+
+msgid "Source"
+msgstr "取り込み元"
+
+msgid "Imported:"
+msgstr "取り込み日時"
+
+msgid "Dimensions:"
+msgstr "解像度"
+
+msgid "File Size:"
+msgstr "ファイルサイズ"
+
+msgid "MIME Type:"
+msgstr "MIMEタイプ"
+
+msgid "Media ID::"
+msgstr "メディアID:"
 
 msgid "Edit shooting date"
 msgstr "撮影日時を編集"

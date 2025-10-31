@@ -49,14 +49,14 @@
         {% if current_user.can('wiki:read') %}
         <li class="nav-item">
           <a class="nav-link" href="{{ url_for('wiki.index') }}">
-            <i class="fas fa-book"></i> Wiki
+            {{ _('Wiki') }}
           </a>
         </li>
         {% endif %}
         {% if current_user.can('certificate:manage') %}
         <li class="nav-item">
           <a class="nav-link" href="{{ url_for('certs_ui.index') }}">
-            <i class="bi bi-award me-1"></i>{{ _('Certificates') }}
+            {{ _('Certificates') }}
           </a>
         </li>
         {% endif %}

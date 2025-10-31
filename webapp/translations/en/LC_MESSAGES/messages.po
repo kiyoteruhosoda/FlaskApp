@@ -25,6 +25,12 @@ msgstr "Top"
 msgid "Welcome!"
 msgstr "Welcome!"
 
+msgid "Certificates"
+msgstr "Certificates"
+
+msgid "Wiki"
+msgstr "Wiki"
+
 msgid "You are logged in."
 msgstr "You are logged in."
 

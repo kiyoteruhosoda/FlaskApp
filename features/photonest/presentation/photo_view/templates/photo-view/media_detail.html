@@ -461,7 +461,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const recoverConfirmText = '{{ _("Reapply metadata from the original file?")|escapejs }}';
   const recoverSuccessText = '{{ _("Media metadata was refreshed.")|escapejs }}';
   const recoverErrorText = '{{ _("Failed to refresh media metadata.")|escapejs }}';
+
+  const fileNameLabel = '{{ _("File Name")|escapejs }}';
+  const typeLabel = '{{ _("Type")|escapejs }}';
   const shotAtLabel = '{{ _("Shot At")|escapejs }}';
+  const sourceLabel = '{{ _("Source")|escapejs }}';
+  const importedLabel = '{{ _("Imported")|escapejs }}';
+  const dimensionsLabel = '{{ _("Dimensions")|escapejs }}';
+  const fileSizeLabel = '{{ _("File Size")|escapejs }}';
+  const mimeTypeLabel = '{{ _("MIME Type")|escapejs }}';
+  const mediaIdLabel = '{{ _("Media ID")|escapejs }}';
+
   const shotAtEditLabel = '{{ _("Edit shooting date")|escapejs }}';
   const shotAtSaveLabel = '{{ _("Save")|escapejs }}';
   const shotAtCancelLabel = '{{ _("Cancel")|escapejs }}';
@@ -901,20 +911,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // 基本情報
     basicInfo.innerHTML = `
       <div class="info-item">
-        <span class="info-label">File Name:</span>
+        <span class="info-label">${fileNameLabel}:</span>
         <span class="info-value">${media.filename || '(No filename)'}</span>
       </div>
       <div class="info-item">
-        <span class="info-label">Type:</span>
+        <span class="info-label">${typeLabel}:</span>
         <span class="info-value">${media.isVideo || media.is_video ? 'Video' : 'Photo'}</span>
       </div>
       ${shotAtSection}
       <div class="info-item">
-        <span class="info-label">Source:</span>
+        <span class="info-label">${sourceLabel}:</span>
         <span class="info-value">${media.source_type === 'local' ? 'Local File' : 'Google Photos'}</span>
       </div>
       <div class="info-item">
-        <span class="info-label">Imported:</span>
+        <span class="info-label">${importedLabel}:</span>
         <span class="info-value">${formatDateTime(media.imported_at)}</span>
       </div>
     `;
@@ -922,19 +932,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // 技術情報
     technicalInfo.innerHTML = `
       <div class="info-item">
-        <span class="info-label">Dimensions:</span>
+        <span class="info-label">${dimensionsLabel}:</span>
         <span class="info-value">${media.width}×${media.height}</span>
       </div>
       <div class="info-item">
-        <span class="info-label">File Size:</span>
+        <span class="info-label">${fileSizeLabel}:</span>
         <span class="info-value">${formatFileSize(media.bytes)}</span>
       </div>
       <div class="info-item">
-        <span class="info-label">MIME Type:</span>
+        <span class="info-label">${mimeTypeLabel}:</span>
         <span class="info-value">${media.mime_type || 'Unknown'}</span>
       </div>
       <div class="info-item">
-        <span class="info-label">Media ID:</span>
+        <span class="info-label">${mediaIdLabel}:</span>
         <span class="info-value">${media.id}</span>
       </div>
     `;

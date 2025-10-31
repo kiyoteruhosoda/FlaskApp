@@ -825,7 +825,7 @@ LOCK TABLES `role` WRITE;
 /*!40000 ALTER TABLE `role` DISABLE KEYS */;
 INSERT INTO `role` VALUES
 (1,'admin'),
-(2,'manager'),
+(2,'director'),
 (3,'member'),
 (4,'guest'),
 (5,'sign admin');
@@ -880,14 +880,13 @@ INSERT INTO `role_permissions` VALUES
 (1,21),
 (1,22),
 (1,23),
+(1,24),
+(1,25),
 (1,26),
-(2,1),
 (2,4),
 (2,5),
 (2,6),
 (2,7),
-(2,25),
-(2,26),
 (3,6),
 (3,7),
 (3,26),

@@ -22,6 +22,7 @@ from webauthn.helpers.structs import (
     AuthenticatorSelectionCriteria,
     AuthenticatorTransport,
     PublicKeyCredentialDescriptor,
+    PublicKeyCredentialType,
     RegistrationCredential,
     ResidentKeyRequirement,
     UserVerificationRequirement,
@@ -66,7 +67,7 @@ class PasskeyService:
             try:
                 descriptor = PublicKeyCredentialDescriptor(
                     id=base64url_to_bytes(credential.credential_id),
-                    type="public-key",
+                    type=PublicKeyCredentialType.PUBLIC_KEY,
                 )
             except Exception:  # pragma: no cover - defensive
                 continue

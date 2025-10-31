@@ -15,6 +15,7 @@ from webauthn.helpers.structs import (
     AuthenticationCredential,
     AuthenticatorAssertionResponse,
     AuthenticatorAttestationResponse,
+    PublicKeyCredentialType,
     RegistrationCredential,
 )
 
@@ -109,7 +110,7 @@ def test_generate_registration_options_excludes_existing_credentials(monkeypatch
     assert len(captured["exclude_credentials"]) == 1
     descriptor = captured["exclude_credentials"][0]
     assert descriptor.id == b"existing-cred"
-    assert descriptor.type == "public-key"
+    assert descriptor.type is PublicKeyCredentialType.PUBLIC_KEY
 
 
 def test_register_passkey_persists_repository(monkeypatch, service, repository):

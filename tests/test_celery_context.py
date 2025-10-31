@@ -129,7 +129,7 @@ class TestCeleryAppContext:
         with patch('cli.src.celery.tasks.time.sleep'):
             with app.app_context():
                 result = dummy_long_task(x=2, y=3)
-                assert result == {"result": 5}
+                assert result == {"ok": True, "result": 5}
     
     def test_download_file_task_context(self, app, celery_app, tmp_path):
         """Test that download_file task has proper Flask context."""
@@ -224,7 +224,7 @@ class TestCeleryErrorHandling:
         with patch('cli.src.celery.tasks.time.sleep'):
             # This should work because ContextTask provides app context
             result = dummy_long_task(x=5, y=7)
-            assert result == {"result": 12}
+            assert result == {"ok": True, "result": 12}
     
     def test_database_error_handling(self, app, celery_app):
         """Test error handling when database operations fail."""
@@ -233,7 +233,9 @@ class TestCeleryErrorHandling:
         # Mock the underlying function to raise an exception
         with patch('cli.src.celery.tasks.picker_import_watchdog') as mock_watchdog:
             mock_watchdog.side_effect = Exception("Database error")
-            
+
             with app.app_context():
-                with pytest.raises(Exception, match="Database error"):
-                    picker_import_watchdog_task()
+                result = picker_import_watchdog_task()
+
+        assert result["ok"] is False
+        assert result["error"] == "Database error"

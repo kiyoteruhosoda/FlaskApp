@@ -755,10 +755,12 @@ def service_account_api_keys(account_id: int):
 @bp.route("/config", methods=["GET", "POST"])
 @login_required
 def show_config():
-    if not current_user.can("system:manage"):
-        return _redirect_to_home()
     wants_json = request.accept_mimetypes["application/json"] > request.accept_mimetypes["text/html"]
     is_ajax = wants_json or request.headers.get("X-Requested-With") == "XMLHttpRequest"
+    if not current_user.can("system:manage"):
+        if is_ajax:
+            return jsonify({"error": "forbidden"}), 403
+        return _redirect_to_home()
 
     app_overrides: Dict[str, str] = {}
     app_selected: set[str] = set()

@@ -1027,15 +1027,22 @@ def require_api_perms(*perm_codes):
                 )
                 return jsonify({'error': 'forbidden'}), 403
 
-            missing_permissions = [code for code in required_permissions if not user.can(code)]
-            if missing_permissions:
+            has_any_required = not required_permissions or user.can(*required_permissions)
+            if not has_any_required:
+                missing_permissions = sorted(
+                    {
+                        code
+                        for code in required_permissions
+                        if not user.can(code)
+                    }
+                )
                 _auth_log(
                     'Permission check failed: missing required permissions',
                     level='warning',
                     stage='authorization_failure',
                     reason='missing_permissions',
                     required_permissions=required_permissions,
-                    missing_permissions=sorted(set(missing_permissions)),
+                    missing_permissions=missing_permissions,
                     granted_permissions=granted_permissions,
                     authenticated_user=_serialize_user_for_log(user),
                 )

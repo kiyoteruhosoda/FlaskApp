@@ -106,6 +106,7 @@
                 class="col permission-item-wrapper"
                 data-perm-code="{{ perm.code|lower }}"
                 data-perm-category="{{ category|lower }}"
+                data-perm-detail="{{ perm.detail|default('') }}"
                 data-capability-selector-item
               >
                 <div class="permission-item border rounded-3 p-3 h-100">
@@ -123,6 +124,9 @@
                       <span class="fw-semibold">{{ perm.code }}</span>
                       {% if action_display %}
                       <div class="text-muted small mt-1">{{ action_display }}</div>
+                      {% endif %}
+                      {% if perm.detail %}
+                      <div class="text-muted small mt-1">{{ perm.detail }}</div>
                       {% endif %}
                     </label>
                   </div>
@@ -181,7 +185,9 @@
       permissionItems.forEach((wrapper) => {
         const code = wrapper.dataset.permCode || '';
         const category = wrapper.dataset.permCategory || '';
-        const matches = !keyword || code.includes(keyword) || category.includes(keyword);
+        const detail = (wrapper.dataset.permDetail || '').toLowerCase();
+        const matches =
+          !keyword || code.includes(keyword) || category.includes(keyword) || detail.includes(keyword);
         wrapper.style.display = matches ? '' : 'none';
         if (matches) {
           visible += 1;

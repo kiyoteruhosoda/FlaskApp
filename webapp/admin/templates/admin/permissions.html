@@ -46,7 +46,7 @@
   </a>
 </div>
 <form method="get" class="d-flex flex-wrap align-items-center mb-3 admin-filter-form">
-  <input type="text" name="search" class="form-control admin-filter-input" placeholder="{{ _('Search by code') }}" value="{{ search }}">
+  <input type="text" name="search" class="form-control admin-filter-input" placeholder="{{ _('Search by code or detail') }}" value="{{ search }}">
   <input type="hidden" name="sort" value="{{ sort }}">
   <input type="hidden" name="order" value="{{ order }}">
   <button type="submit" class="btn btn-outline-primary">{{ _('Search') }}</button>
@@ -56,6 +56,7 @@
     <tr>
       <th><a href="{{ url_for('admin.permissions', search=search, sort='id', order='asc' if sort!='id' or order=='desc' else 'desc') }}">ID</a></th>
       <th><a href="{{ url_for('admin.permissions', search=search, sort='code', order='asc' if sort!='code' or order=='desc' else 'desc') }}">{{ _('Code') }}</a></th>
+      <th><a href="{{ url_for('admin.permissions', search=search, sort='detail', order='asc' if sort!='detail' or order=='desc' else 'desc') }}">{{ _('Detail') }}</a></th>
       <th>{{ _('Actions') }}</th>
     </tr>
   </thead>
@@ -64,6 +65,7 @@
     <tr>
       <td>{{ perm.id }}</td>
       <td>{{ perm.code }}</td>
+      <td>{{ perm.detail or '' }}</td>
       <td>
         <div class="admin-action-buttons">
           <a href="{{ url_for('admin.permission_edit', perm_id=perm.id) }}" class="btn btn-primary btn-sm admin-action-button">

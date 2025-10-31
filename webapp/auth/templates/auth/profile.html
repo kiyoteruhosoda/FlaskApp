@@ -68,15 +68,17 @@
               </div>
               {% endfor %}
             </div>
-            <p class="form-text text-muted">{{ _('To add another passkey, remove the existing passkey first.') }}</p>
             {% else %}
             <p class="text-muted mb-3">{{ _('No passkeys registered yet.') }}</p>
-            <button type="button" class="btn btn-outline-primary" data-passkey-register>
-              <span class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true" data-passkey-spinner></span>
-              <i class="fas fa-key me-2" data-passkey-icon></i>
-              <span data-passkey-label>{{ _('Add a new passkey') }}</span>
-            </button>
             {% endif %}
+            <div class="d-flex flex-column flex-sm-row align-items-start gap-2">
+              <button type="button" class="btn btn-outline-primary" data-passkey-register>
+                <span class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true" data-passkey-spinner></span>
+                <i class="fas fa-key me-2" data-passkey-icon></i>
+                <span data-passkey-label>{{ _('Add a new passkey') }}</span>
+              </button>
+              <p class="form-text text-muted mb-0">{{ _('Register a passkey for each device you use.') }}</p>
+            </div>
           {% endif %}
         </div>
 

@@ -28,6 +28,14 @@
                   <option value="unlisted">{{ _('Unlisted') }}</option>
                   <option value="public">{{ _('Public') }}</option>
                 </select>
+                <div class="form-text small mt-2">
+                  <p class="mb-1">{{ _('Choose who can access the album.') }}</p>
+                  <ul class="mb-0 ps-3">
+                    <li><strong>{{ _('Unlisted') }}</strong> – {{ _('Only users explicitly linked to the album can view it.') }}</li>
+                    <li><strong>{{ _('Private') }}</strong> – {{ _('Hidden from everyone else. Only you can view it.') }}</li>
+                    <li><strong>{{ _('Public') }}</strong> – {{ _('Visible to anyone who can access the photo viewer and has the "album:view" permission.') }}</li>
+                  </ul>
+                </div>
               </div>
               <div class="mb-3">
                 <label class="form-label">{{ _('Album Cover') }}</label>

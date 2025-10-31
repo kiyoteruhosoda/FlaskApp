@@ -64,7 +64,8 @@ def load_user(user_id):
         return None
 
     try:
-        principal = TokenService.create_principal_for_user(user)
+        active_role_id = session.get("active_role_id")
+        principal = TokenService.create_principal_for_user(user, active_role_id=active_role_id)
     except ValueError as exc:
         current_app.logger.warning(
             "Failed to create principal for user in user_loader",  # type: ignore[attr-defined]

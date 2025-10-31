@@ -962,21 +962,34 @@ def profile():
     if request.method == "POST":
         action = request.form.get("action", "update-preferences")
         if action == "switch-role":
-            response = redirect(_relative_url_for("auth.profile"))
             role_choice = request.form.get("active_role")
             available_roles = {str(role.id): role for role in role_options}
 
             if role_choice and role_choice in available_roles:
                 session["active_role_id"] = available_roles[role_choice].id
+                session.modified = True
+                
+                # Reload the principal with the new active role
+                if user_model is not None:
+                    try:
+                        refreshed = TokenService.create_principal_for_user(
+                            user_model,
+                            active_role_id=available_roles[role_choice].id
+                        )
+                        login_user(refreshed)
+                        g.current_user = refreshed
+                    except ValueError:
+                        pass
+                
                 flash(_("Active role switched to %(role)s.", role=available_roles[role_choice].name), "success")
-                return response
+                return redirect(_relative_url_for("auth.profile"))
 
             if not role_options:
                 flash(_("Role switching is not available for this account."), "error")
-                return response
+                return redirect(_relative_url_for("auth.profile"))
 
             flash(_("Invalid role selection."), "error")
-            return response
+            return redirect(_relative_url_for("auth.profile"))
 
         form_lang = request.form.get("language")
         form_tz = request.form.get("timezone")
@@ -1102,7 +1115,8 @@ def edit():
         db.session.commit()
 
         try:
-            refreshed = TokenService.create_principal_for_user(user_model)
+            active_role_id = session.get("active_role_id")
+            refreshed = TokenService.create_principal_for_user(user_model, active_role_id=active_role_id)
         except ValueError:
             refreshed = None
 
@@ -1173,7 +1187,8 @@ def setup_totp():
         user_model.totp_secret = secret
         db.session.commit()
         try:
-            refreshed = TokenService.create_principal_for_user(user_model)
+            active_role_id = session.get("active_role_id")
+            refreshed = TokenService.create_principal_for_user(user_model, active_role_id=active_role_id)
         except ValueError:
             refreshed = None
         if refreshed is not None:

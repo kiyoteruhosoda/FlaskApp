@@ -237,6 +237,31 @@
     box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
   }
 
+  .album-form-footer {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    gap: 1rem;
+  }
+
+  .album-form-footer .album-form-status {
+    width: 100%;
+    text-align: center;
+  }
+
+  .album-form-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+  }
+
+  .album-form-actions .btn {
+    width: 100%;
+    max-width: 250px;
+  }
+
   .album-media-scroll {
     overflow-y: auto;
     border-radius: 12px;
@@ -324,6 +349,30 @@
     font-weight: 600;
     font-size: 1rem;
     color: #fee2e2;
+  }
+
+  @media (min-width: 768px) {
+    .album-form-footer {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .album-form-footer .album-form-status {
+      width: auto;
+      text-align: left;
+    }
+
+    .album-form-actions {
+      flex-direction: row-reverse;
+      justify-content: flex-end;
+      width: auto;
+    }
+
+    .album-form-actions .btn {
+      width: auto;
+      max-width: none;
+    }
   }
 
   @keyframes album-thumb-spin {
@@ -949,6 +998,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (!albumMediaScroll) {
+      return;
+    }
+
+    const isMobileViewport = window.matchMedia ? window.matchMedia('(max-width: 575.98px)').matches : window.innerWidth <= 576;
+
+    if (isMobileViewport) {
+      albumMediaScroll.style.maxHeight = '';
       return;
     }
 

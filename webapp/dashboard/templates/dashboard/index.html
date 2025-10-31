@@ -164,7 +164,9 @@
               <div>
                 <div class="fw-semibold">{{ _('Content overview') }}</div>
                 <div class="text-muted small">
+                  {% if current_user.can('wiki:admin') %}
                   {{ _('Wiki pages: %(count)s', count=stats.wiki_pages or 0) }}<br>
+                  {% endif %}
                   {{ _('Media items: %(count)s', count=stats.media_count or 0) }}
                 </div>
               </div>

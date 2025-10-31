@@ -476,6 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const shotAtSaveLabel = '{{ _("Save")|escapejs }}';
   const shotAtCancelLabel = '{{ _("Cancel")|escapejs }}';
   const shotAtClearLabel = '{{ _("Clear")|escapejs }}';
+  const shotAtClearConfirmText = '{{ _("Are you sure you want to clear the shooting date? This change will be saved immediately.")|escapejs }}';
   const shotAtHelperText = '{{ _("Times are saved in UTC. Your local time will be converted automatically.")|escapejs }}';
   const shotAtUpdateSuccessText = '{{ _("Shooting date updated.")|escapejs }}';
   const shotAtClearedText = '{{ _("Shooting date removed.")|escapejs }}';
@@ -1073,6 +1074,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     clearBtn.addEventListener('click', async (event) => {
       event.preventDefault();
+      if (!window.confirm(shotAtClearConfirmText)) {
+        return;
+      }
       await applyUpdate(null);
     });
   }

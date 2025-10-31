@@ -259,7 +259,8 @@
     padding: 0;
     background: #0f172a;
     cursor: pointer;
-    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, outline-color 0.12s ease, background-color 0.12s ease;
+    outline: 2px solid transparent;
   }
 
   .album-media-tile:hover {
@@ -268,9 +269,9 @@
   }
 
   .album-media-tile.selected {
-    outline: 3px solid rgba(var(--bs-primary-rgb));
-    outline-offset: 0;
-    box-shadow: 0 0.75rem 1.5rem rgba(var(--bs-primary-rgb), 0.1);
+    outline: solid 2px rgba(var(--bs-primary-rgb));
+    background-color: rgba(var(--bs-primary-rgb), 0.3);
+    box-shadow: 0 1.25rem 2.5rem rgba(var(--bs-primary-rgb), 0.18);
   }
 
   .album-media-thumb {
@@ -281,6 +282,19 @@
     background-size: cover;
     background-position: center;
     background-color: #1e293b;
+  }
+
+  .album-media-thumb::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-color: rgba(var(--bs-primary-rgb), 0.3);
+    opacity: 0;
+    transition: opacity 0.12s ease;
+  }
+
+  .album-media-tile.selected .album-media-thumb::before {
+    opacity: 1;
   }
 
   .album-media-thumb.is-loading::after {
@@ -334,7 +348,7 @@
   }
 
   .album-media-tile.selected .album-media-overlay {
-    background-color: rgba(var(--bs-primary-rgb), 0.);
+    background: linear-gradient(180deg, rgba(var(--bs-primary-rgb), 0.2) 0%, rgba(var(--bs-primary-rgb), 0.45) 100%);
   }
 
   .album-media-meta {

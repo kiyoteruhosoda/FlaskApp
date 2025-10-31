@@ -95,5 +95,31 @@ class AuthenticatedPrincipal:
     def totp_secret(self) -> Optional[str]:
         return self._totp_secret
 
+    @property
+    def active_role(self) -> Optional[Any]:
+        """
+        Determine the active role based on current permissions.
+        Returns the role whose permissions match the current scope.
+        """
+        if not self.roles:
+            return None
+        
+        current_perms = set(self.permissions)
+        
+        # Check if any role's permissions exactly match current permissions
+        for role in self.roles:
+            role_perms = set(getattr(perm, "code", "") for perm in getattr(role, "permissions", []))
+            if role_perms == current_perms:
+                return role
+        
+        # If no exact match, return the first role that's a subset
+        for role in self.roles:
+            role_perms = set(getattr(perm, "code", "") for perm in getattr(role, "permissions", []))
+            if role_perms and role_perms <= current_perms:
+                return role
+        
+        # Default to first role if available
+        return self.roles[0] if self.roles else None
+
 
 __all__ = ["AuthenticatedPrincipal", "SubjectType"]

@@ -308,6 +308,7 @@ class TokenService:
         cls,
         user: User,
         scope: Iterable[str] | None = None,
+        active_role_id: int | None = None,
     ) -> AuthenticatedPrincipal:
         """Build an AuthenticatedPrincipal for an ORM user model."""
 
@@ -328,11 +329,18 @@ class TokenService:
 
         if scope is None:
             scope_items: set[str] = set()
-            for role in getattr(user, "roles", []) or []:
-                for permission in getattr(role, "permissions", []) or []:
-                    code = getattr(permission, "code", None)
-                    if isinstance(code, str) and code.strip():
-                        scope_items.add(code.strip())
+            all_roles = list(getattr(user, "roles", []) or [])
+            
+            # Security: Only grant permissions when active_role_id is explicitly specified
+            # If active_role_id is None, grant NO permissions (secure by default)
+            if active_role_id is not None:
+                roles_to_use = [role for role in all_roles if role.id == active_role_id]
+                
+                for role in roles_to_use:
+                    for permission in getattr(role, "permissions", []) or []:
+                        code = getattr(permission, "code", None)
+                        if isinstance(code, str) and code.strip():
+                            scope_items.add(code.strip())
         else:
             normalized_scope, _ = cls._normalize_scope(scope)
             scope_items = set(normalized_scope)

@@ -250,8 +250,8 @@ msgid "No passkeys registered yet."
 msgstr "No passkeys registered yet."
 
 #: webapp/auth/templates/auth/profile.html
-msgid "To add another passkey, remove the existing passkey first."
-msgstr "To add another passkey, remove the existing passkey first."
+msgid "Register a passkey for each device you use."
+msgstr "Register a passkey for each device you use."
 
 #: webapp/auth/templates/auth/profile.html
 msgid "Add a new passkey"

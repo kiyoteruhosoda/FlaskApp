@@ -100,6 +100,7 @@ python scripts/seed_master_data.py
 - `service_account:manage` - サービスアカウント管理
 - `certificate:manage` - 証明書管理
 - `certificate:sign` - 証明書署名
+- `dashboard:view` - ワークスペースダッシュボード表示
 
 #### デフォルトユーザー
 - Email: `admin@example.com`

@@ -48,9 +48,9 @@
   data-back-url="{{ url_for('photo_view.album_detail', album_id=album_id) }}"
   data-albums-url="{{ url_for('photo_view.albums') }}"
 >
-  <div id="album-slideshow-overlay" class="album-slideshow-overlay d-none" aria-hidden="true">
+  <div id="album-slideshow-overlay" class="album-slideshow-overlay d-none chrome-hidden" aria-hidden="true">
     <div class="album-slideshow-dialog">
-      <div class="album-slideshow-header">
+      <div class="album-slideshow-header album-slideshow-chrome">
         <div class="album-slideshow-actions">
           <a href="{{ url_for('photo_view.album_detail', album_id=album_id) }}" class="btn btn-outline-light btn-sm" id="album-slideshow-back">
             <i class="bi bi-arrow-left"></i> {{ _('Back to album') }}
@@ -59,9 +59,6 @@
             <i class="bi bi-collection"></i> {{ _('Albums') }}
           </a>
         </div>
-        <button type="button" class="album-slideshow-close" id="album-slideshow-close" aria-label="{{ _('Close') }}">
-          <i class="bi bi-x-lg"></i>
-        </button>
       </div>
       <div
         id="album-slideshow-loading"
@@ -85,7 +82,7 @@
       <div id="album-slideshow-empty" class="album-slideshow-empty d-none">
         {{ _('This album has no media yet.') }}
       </div>
-      <div class="album-slideshow-footer">
+      <div class="album-slideshow-footer album-slideshow-chrome">
         <div class="album-slideshow-info">
           <span class="album-title" id="album-slideshow-title"></span>
           <span class="album-meta" id="album-slideshow-meta"></span>
@@ -130,7 +127,6 @@ document.addEventListener('DOMContentLoaded', () => {
     pause: "{{ _('Pause')|escapejs }}",
     next: "{{ _('Next')|escapejs }}",
     previous: "{{ _('Previous')|escapejs }}",
-    close: "{{ _('Close')|escapejs }}",
     shotAt: "{{ _('Shot at')|escapejs }}",
     position: "{{ _('%(current)s / %(total)s', current='%(current)s', total='%(total)s')|escapejs }}",
     mediaCountSingular: "{{ ngettext('%(count)s photo', '%(count)s photos', 1, count='%(count)s')|escapejs }}",
@@ -237,11 +233,6 @@ document.addEventListener('DOMContentLoaded', () => {
     backButton.addEventListener('click', handleExit(backUrl));
   }
 
-  const closeButton = document.getElementById('album-slideshow-close');
-  if (closeButton) {
-    closeButton.addEventListener('click', handleExit(backUrl));
-  }
-
   const albumsButton = document.getElementById('album-slideshow-albums');
   if (albumsButton) {
     albumsButton.addEventListener('click', (event) => {
@@ -249,6 +240,34 @@ document.addEventListener('DOMContentLoaded', () => {
       navigateTo(albumsUrl);
     });
   }
+
+  const overlayElement = document.getElementById('album-slideshow-overlay');
+  let chromeVisible = false;
+
+  function setChromeVisibility(visible) {
+    chromeVisible = visible;
+    if (!overlayElement) {
+      return;
+    }
+    overlayElement.classList.toggle('chrome-hidden', !visible);
+  }
+
+  function toggleChromeVisibility() {
+    setChromeVisibility(!chromeVisible);
+  }
+
+  if (overlayElement) {
+    setChromeVisibility(false);
+    overlayElement.addEventListener('focusin', () => {
+      setChromeVisibility(true);
+    });
+  }
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Tab' && overlayElement && overlayElement.getAttribute('aria-hidden') === 'false') {
+      setChromeVisibility(true);
+    }
+  });
 
   const emptyElement = document.getElementById('album-slideshow-empty');
 
@@ -264,17 +283,18 @@ document.addEventListener('DOMContentLoaded', () => {
     playPauseButton: document.getElementById('album-slideshow-toggle'),
     prevButton: document.getElementById('album-slideshow-prev'),
     nextButton: document.getElementById('album-slideshow-next'),
-    closeButton,
     labels: {
       play: strings.play,
       pause: strings.pause,
       next: strings.next,
       previous: strings.previous,
-      close: strings.close,
       counter: strings.position,
       noMedia: strings.noMedia,
       shotAt: strings.shotAt,
       albumTitleFallback: strings.untitledAlbum,
+    },
+    onStageInteraction: () => {
+      toggleChromeVisibility();
     },
     imageUrlResolver: resolveImageUrl,
     metadataFormatter: (item, context) => {
@@ -314,6 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
       slideshow.setLoading(false);
 
       const normalizedIndex = Number.isInteger(startIndex) && startIndex >= 0 ? startIndex : 0;
+      setChromeVisibility(false);
       slideshow.open(normalizedIndex, { autoplay });
     } catch (error) {
       console.error('Failed to load slideshow', error);

@@ -919,24 +919,6 @@ body.login-page .login-card .language-selector {
   right: 18px;
 }
 
-.album-slideshow-close {
-  position: absolute;
-  top: 28px;
-  right: 28px;
-  background: rgba(15, 23, 42, 0.85);
-  border-radius: 50%;
-  border: 1px solid rgba(148, 163, 184, 0.4);
-  width: 42px;
-  height: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #f8fafc;
-  cursor: pointer;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.35);
-  z-index: 2;
-}
-
 .album-slideshow-footer {
   margin-top: 18px;
   display: flex;
@@ -1003,6 +985,23 @@ body.login-page .login-card .language-selector {
   font-weight: 600;
 }
 
+.album-slideshow-chrome {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.album-slideshow-overlay.chrome-hidden .album-slideshow-chrome {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.album-slideshow-overlay.chrome-hidden .album-slideshow-header.album-slideshow-chrome {
+  transform: translateY(-16px);
+}
+
+.album-slideshow-overlay.chrome-hidden .album-slideshow-footer.album-slideshow-chrome {
+  transform: translateY(16px);
+}
+
 @media (max-width: 768px) {
   .album-slideshow-stage {
     min-height: 0;
@@ -1011,11 +1010,6 @@ body.login-page .login-card .language-selector {
   .album-slideshow-nav {
     width: 40px;
     height: 40px;
-  }
-
-  .album-slideshow-close {
-    top: 20px;
-    right: 20px;
   }
 
   .album-slideshow-info .album-title {

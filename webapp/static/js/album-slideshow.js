@@ -11,7 +11,6 @@ class AlbumSlideshow {
     this.playPauseButton = options.playPauseButton || null;
     this.prevButton = options.prevButton || null;
     this.nextButton = options.nextButton || null;
-    this.closeButton = options.closeButton || null;
     this.intervalMs = Number.isFinite(options.intervalMs) ? Number(options.intervalMs) : 5000;
     this.imageUrlResolver = typeof options.imageUrlResolver === 'function'
       ? options.imageUrlResolver
@@ -24,12 +23,15 @@ class AlbumSlideshow {
       pause: options.labels?.pause || 'Pause',
       next: options.labels?.next || 'Next',
       previous: options.labels?.previous || 'Previous',
-      close: options.labels?.close || 'Close',
       counter: options.labels?.counter || '%(current)s / %(total)s',
       noMedia: options.labels?.noMedia || 'No media items available.',
       shotAt: options.labels?.shotAt || 'Shot at',
       albumTitleFallback: options.labels?.albumTitleFallback || 'Album',
     };
+
+    this.onStageInteraction = typeof options.onStageInteraction === 'function'
+      ? options.onStageInteraction
+      : () => { this.togglePlay(); };
 
     this.mediaItems = [];
     this.albumTitle = this.labels.albumTitleFallback;
@@ -75,13 +77,6 @@ class AlbumSlideshow {
       this.nextButton.addEventListener('click', (event) => {
         event.preventDefault();
         this.showNext();
-      });
-    }
-
-    if (this.closeButton) {
-      this.closeButton.addEventListener('click', (event) => {
-        event.preventDefault();
-        this.hideOverlay();
       });
     }
 
@@ -416,7 +411,7 @@ class AlbumSlideshow {
     if (event.target.closest('.album-slideshow-nav')) {
       return;
     }
-    this.togglePlay();
+    this.onStageInteraction(event);
   }
 
   handleTouchStart(event) {
@@ -476,7 +471,7 @@ class AlbumSlideshow {
     if (Math.abs(deltaX) < tapThreshold && Math.abs(deltaY) < tapThreshold) {
       event.preventDefault();
       this.touchPreventClick = true;
-      this.togglePlay();
+      this.onStageInteraction(event);
     }
     this.touchStartTarget = null;
   }

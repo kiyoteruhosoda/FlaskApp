@@ -15,6 +15,7 @@ from webauthn import (
 from webauthn.helpers import base64url_to_bytes, bytes_to_base64url
 from webauthn.helpers.structs import (
     AuthenticationCredential,
+    AttestationConveyancePreference,
     AuthenticatorSelectionCriteria,
     PublicKeyCredentialDescriptor,
     RegistrationCredential,
@@ -64,7 +65,7 @@ class PasskeyService:
             user_id=str(user.id).encode("utf-8"),
             user_name=user.email,
             user_display_name=getattr(user, "display_name", user.email),
-            attestation="none",
+            attestation=AttestationConveyancePreference.NONE,
             authenticator_selection=AuthenticatorSelectionCriteria(
                 resident_key=ResidentKeyRequirement.PREFERRED,
                 user_verification=UserVerificationRequirement.PREFERRED,

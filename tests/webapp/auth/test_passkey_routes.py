@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from core.db import db
+from core.settings import settings
 from core.models.passkey import PasskeyCredential
 from core.models.user import Permission, Role, User
 from shared.application.passkey_service import PasskeyRegistrationError
@@ -13,6 +14,7 @@ from webapp.auth.routes import (
     PASSKEY_REGISTRATION_CHALLENGE_KEY,
     PASSKEY_REGISTRATION_USER_ID_KEY,
     _extract_passkey_client_data_details,
+    _resolve_passkey_origin,
 )
 from webapp.services.gui_access_cookie import API_LOGIN_SCOPE_SESSION_KEY
 from webauthn.helpers import bytes_to_base64url
@@ -21,6 +23,25 @@ from webauthn.helpers import bytes_to_base64url
 @pytest.fixture
 def client(app_context):
     return app_context.test_client()
+
+
+def test_resolve_passkey_origin_uses_preferred_scheme(monkeypatch, app_context):
+    monkeypatch.setattr(
+        type(settings),
+        "webauthn_origin",
+        property(lambda self: "http://localhost:5000"),
+    )
+    monkeypatch.setattr(
+        type(settings),
+        "preferred_url_scheme",
+        property(lambda self: "https"),
+    )
+
+    with app_context.test_request_context(
+        "/auth/passkey/options/register",
+        base_url="http://nolumia.com",
+    ):
+        assert _resolve_passkey_origin() == "https://nolumia.com"
 
 
 def _create_user(email="user@example.com", password="password123"):

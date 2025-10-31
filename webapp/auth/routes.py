@@ -268,7 +268,8 @@ def _resolve_passkey_origin() -> str:
     if not host:
         return candidate
 
-    derived = f"{request.scheme}://{host}".rstrip("/")
+    derived_scheme = determine_external_scheme(request)
+    derived = f"{derived_scheme}://{host}".rstrip("/")
 
     if candidate.rstrip("/") in _DEFAULT_ORIGIN_SENTINELS and derived not in _DEFAULT_ORIGIN_SENTINELS:
         return derived

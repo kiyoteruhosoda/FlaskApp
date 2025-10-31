@@ -601,9 +601,7 @@ def passkey_verify_login():
         return jsonify({"error": "account_inactive"}), 403
 
     available_permissions = sorted(getattr(user_model, "all_permissions", []) or [])
-    granted_scope = []
-    if "gui:view" in available_permissions:
-        granted_scope.append("gui:view")
+    granted_scope = list(available_permissions)
 
     session[API_LOGIN_SCOPE_SESSION_KEY] = normalize_scope_items(granted_scope)
 

@@ -626,6 +626,7 @@ DROP TABLE IF EXISTS `permission`;
 CREATE TABLE `permission` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `code` varchar(120) NOT NULL,
+  `detail` text DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `code` (`code`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -637,34 +638,34 @@ CREATE TABLE `permission` (
 
 LOCK TABLES `permission` WRITE;
 /*!40000 ALTER TABLE `permission` DISABLE KEYS */;
-INSERT INTO `permission` VALUES
-(2,'admin:job-settings'),
-(1,'admin:photo-settings'),
-(4,'album:create'),
-(5,'album:edit'),
-(6,'album:view'),
-(21,'api_key:manage'),
-(23,'api_key:read'),
-(20,'certificate:manage'),
-(22,'certificate:sign'),
-(15,'media:delete'),
-(16,'media:recover'),
-(26,'media:session'),
-(14,'media:tag-manage'),
-(25,'media:metadata-manage'),
-(7,'media:view'),
-(8,'permission:manage'),
-(9,'role:manage'),
-(19,'service_account:manage'),
-(10,'system:manage'),
-(17,'totp:view'),
-(18,'totp:write'),
-(3,'user:manage'),
-(26,'dashboard:view'),
-(24,'gui:view'),
-(11,'wiki:admin'),
-(12,'wiki:read'),
-(13,'wiki:write');
+INSERT INTO `permission` (`id`,`code`,`detail`) VALUES
+(2,'admin:job-settings',NULL),
+(1,'admin:photo-settings',NULL),
+(4,'album:create',NULL),
+(5,'album:edit',NULL),
+(6,'album:view',NULL),
+(21,'api_key:manage',NULL),
+(23,'api_key:read',NULL),
+(20,'certificate:manage',NULL),
+(22,'certificate:sign',NULL),
+(15,'media:delete',NULL),
+(16,'media:recover',NULL),
+(26,'media:session',NULL),
+(14,'media:tag-manage',NULL),
+(25,'media:metadata-manage',NULL),
+(7,'media:view',NULL),
+(8,'permission:manage',NULL),
+(9,'role:manage',NULL),
+(19,'service_account:manage',NULL),
+(10,'system:manage',NULL),
+(17,'totp:view',NULL),
+(18,'totp:write',NULL),
+(3,'user:manage',NULL),
+(26,'dashboard:view',NULL),
+(24,'gui:view',NULL),
+(11,'wiki:admin',NULL),
+(12,'wiki:read',NULL),
+(13,'wiki:write',NULL);
 /*!40000 ALTER TABLE `permission` ENABLE KEYS */;
 UNLOCK TABLES;
 

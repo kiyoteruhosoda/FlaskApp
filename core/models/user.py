@@ -56,6 +56,7 @@ class Permission(db.Model):
 
     id: Mapped[int] = mapped_column(BigInt, primary_key=True, autoincrement=True)
     code: Mapped[str] = mapped_column(db.String(120), unique=True, nullable=False)  # 'reservation:create' 等
+    detail: Mapped[str | None] = mapped_column(db.Text, nullable=True)
     roles: Mapped[list[Role]] = relationship(
         "Role",
         secondary=role_permissions,

@@ -841,7 +841,7 @@ def login_or_jwt_required(f):
                 authenticated_via_flask_login=current_user.is_authenticated,
             )
 
-            principal = TokenService.verify_access_token(token)
+            principal, verification_failure = TokenService.verify_access_token_with_reason(token)
             if not principal:
                 _auth_log(
                     'JWT token verification failed',
@@ -849,6 +849,7 @@ def login_or_jwt_required(f):
                     stage='failure',
                     reason='invalid_token',
                     token_source=token_source or 'unknown',
+                    verification_failure_reason=verification_failure,
                 )
                 if token_source == 'cookie' and current_user.is_authenticated:
                     user_obj = getattr(
@@ -862,6 +863,7 @@ def login_or_jwt_required(f):
                             reason='invalid_token',
                             token_source=token_source or 'unknown',
                             authenticated_user=_serialize_user_for_log(user_obj),
+                            verification_failure_reason=verification_failure,
                         )
                         session_scope_items = _resolve_session_scope(user_obj)
                         session_scope = set(session_scope_items)
@@ -884,6 +886,7 @@ def login_or_jwt_required(f):
                     auth_method='jwt',
                     token_source=token_source or 'unknown',
                     authenticated_user=_serialize_user_for_log(principal),
+                    granted_permissions=sorted(principal.scope) if principal.scope else [],
                 )
                 return f(*args, **kwargs)
 
@@ -986,7 +989,56 @@ def require_api_perms(*perm_codes):
                 return func(*args, **kwargs)
 
             user = get_current_user()
-            if not user or not user.can(*perm_codes):
+            required_permissions = [code for code in perm_codes if isinstance(code, str)]
+
+            def _collect_permissions(subject) -> list[str]:
+                if subject is None:
+                    return []
+
+                permissions_attr = getattr(subject, "permissions", None)
+                if permissions_attr is None:
+                    return []
+
+                permissions_value = permissions_attr
+                if callable(permissions_attr):  # pragma: no cover - defensive
+                    try:
+                        permissions_value = permissions_attr()
+                    except TypeError:
+                        permissions_value = []
+
+                if isinstance(permissions_value, (set, frozenset, list, tuple)):
+                    normalized = {
+                        str(item).strip()
+                        for item in permissions_value
+                        if isinstance(item, str) and item.strip()
+                    }
+                    return sorted(normalized)
+                return []
+
+            granted_permissions = _collect_permissions(user)
+
+            if not user:
+                _auth_log(
+                    'Permission check failed: unauthenticated access',
+                    level='warning',
+                    stage='authorization_failure',
+                    reason='no_authenticated_user',
+                    required_permissions=required_permissions,
+                )
+                return jsonify({'error': 'forbidden'}), 403
+
+            missing_permissions = [code for code in required_permissions if not user.can(code)]
+            if missing_permissions:
+                _auth_log(
+                    'Permission check failed: missing required permissions',
+                    level='warning',
+                    stage='authorization_failure',
+                    reason='missing_permissions',
+                    required_permissions=required_permissions,
+                    missing_permissions=sorted(set(missing_permissions)),
+                    granted_permissions=granted_permissions,
+                    authenticated_user=_serialize_user_for_log(user),
+                )
                 return jsonify({'error': 'forbidden'}), 403
 
             return func(*args, **kwargs)

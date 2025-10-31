@@ -68,12 +68,15 @@
               </div>
               {% endfor %}
             </div>
+            <p class="form-text text-muted">{{ _('To add another passkey, remove the existing passkey first.') }}</p>
             {% else %}
             <p class="text-muted mb-3">{{ _('No passkeys registered yet.') }}</p>
-            {% endif %}
             <button type="button" class="btn btn-outline-primary" data-passkey-register>
-              <i class="fas fa-key me-2"></i>{{ _('Add a new passkey') }}
+              <span class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true" data-passkey-spinner></span>
+              <i class="fas fa-key me-2" data-passkey-icon></i>
+              <span data-passkey-label>{{ _('Add a new passkey') }}</span>
             </button>
+            {% endif %}
           {% endif %}
         </div>
 
@@ -273,6 +276,10 @@
     const removeButtons = document.querySelectorAll('[data-passkey-remove]');
 
     if (registerButton) {
+      const spinner = registerButton.querySelector('[data-passkey-spinner]');
+      const icon = registerButton.querySelector('[data-passkey-icon]');
+      const duplicateMessage = "{{ _('This passkey is already registered for your account.')|escapejs }}";
+
       if (!window.PublicKeyCredential || typeof navigator.credentials === 'undefined') {
         registerButton.disabled = true;
         registerButton.classList.add('disabled');
@@ -286,6 +293,15 @@
 
           registerButton.classList.add('loading');
           registerButton.disabled = true;
+          registerButton.setAttribute('aria-busy', 'true');
+          if (spinner) {
+            spinner.classList.remove('d-none');
+          }
+          if (icon) {
+            icon.classList.add('d-none');
+          }
+
+          let hadExcludedCredentials = false;
 
           try {
             const optionsResponse = await fetch('{{ url_for('auth.passkey_registration_options') }}', {
@@ -311,6 +327,7 @@
               publicKey.user.id = base64UrlToBuffer(publicKey.user.id);
             }
             if (Array.isArray(publicKey.excludeCredentials)) {
+              hadExcludedCredentials = publicKey.excludeCredentials.length > 0;
               publicKey.excludeCredentials = publicKey.excludeCredentials.map((item) => ({
                 ...item,
                 id: base64UrlToBuffer(item.id),
@@ -359,14 +376,34 @@
 
             window.location.reload();
           } catch (error) {
-            if (error && error.message === 'abort') {
+            const errorName = (error && typeof error === 'object' && 'name' in error && typeof error.name === 'string')
+              ? error.name
+              : undefined;
+            const errorMessage = (error && typeof error.message === 'string') ? error.message : '';
+
+            if (errorMessage === 'abort' || errorName === 'AbortError') {
               // user cancelled, ignore
-            } else if (error && error.message === 'options') {
+            } else if (errorName === 'NotAllowedError' && hadExcludedCredentials) {
+              if (typeof showWarningToast === 'function') {
+                showWarningToast(duplicateMessage);
+              } else if (typeof alert === 'function') {
+                alert(duplicateMessage);
+              }
+            } else if (errorMessage === 'options') {
               if (typeof showErrorToast === 'function') {
                 showErrorToast('{{ _('Passkey registration options could not be retrieved.') }}');
               } else {
                 alert('{{ _('Passkey registration options could not be retrieved.') }}');
               }
+            } else if (errorMessage === 'already_registered') {
+              if (typeof showWarningToast === 'function') {
+                showWarningToast(duplicateMessage);
+              } else if (typeof alert === 'function') {
+                alert(duplicateMessage);
+              }
+              window.location.reload();
+            } else if (errorName === 'NotAllowedError') {
+              // treated as user cancellation when browser reports a generic NotAllowedError
             } else {
               if (typeof showErrorToast === 'function') {
                 showErrorToast('{{ _('Passkey registration failed. Please try again.') }}');
@@ -377,6 +414,13 @@
           } finally {
             registerButton.classList.remove('loading');
             registerButton.disabled = false;
+            registerButton.removeAttribute('aria-busy');
+            if (spinner) {
+              spinner.classList.add('d-none');
+            }
+            if (icon) {
+              icon.classList.remove('d-none');
+            }
           }
         });
       }

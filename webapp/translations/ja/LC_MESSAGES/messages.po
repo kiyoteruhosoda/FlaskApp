@@ -1286,12 +1286,20 @@ msgid "No passkeys registered yet."
 msgstr "登録されているパスキーはありません。"
 
 #: webapp/auth/templates/auth/profile.html
+msgid "To add another passkey, remove the existing passkey first."
+msgstr "別のパスキーを追加するには、既存のパスキーを削除してください。"
+
+#: webapp/auth/templates/auth/profile.html
 msgid "Add a new passkey"
 msgstr "新しいパスキーを追加"
 
 #: webapp/auth/templates/auth/profile.html
 msgid "Passkey registration requires a compatible browser."
 msgstr "パスキー登録には対応ブラウザが必要です。"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "This passkey is already registered for your account."
+msgstr "このパスキーはすでにあなたのアカウントに登録されています。"
 
 #: webapp/auth/templates/auth/profile.html
 msgid "Give this passkey a name (optional)"

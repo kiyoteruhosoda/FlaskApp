@@ -250,12 +250,20 @@ msgid "No passkeys registered yet."
 msgstr "No passkeys registered yet."
 
 #: webapp/auth/templates/auth/profile.html
+msgid "To add another passkey, remove the existing passkey first."
+msgstr "To add another passkey, remove the existing passkey first."
+
+#: webapp/auth/templates/auth/profile.html
 msgid "Add a new passkey"
 msgstr "Add a new passkey"
 
 #: webapp/auth/templates/auth/profile.html
 msgid "Passkey registration requires a compatible browser."
 msgstr "Passkey registration requires a compatible browser."
+
+#: webapp/auth/templates/auth/profile.html
+msgid "This passkey is already registered for your account."
+msgstr "This passkey is already registered for your account."
 
 #: webapp/auth/templates/auth/profile.html
 msgid "Give this passkey a name (optional)"

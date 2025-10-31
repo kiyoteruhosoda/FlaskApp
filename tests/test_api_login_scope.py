@@ -2,6 +2,7 @@ import importlib
 import os
 import uuid
 from http.cookies import SimpleCookie
+from urllib.parse import urlsplit
 
 import jwt
 import pytest
@@ -17,6 +18,19 @@ from shared.application.authenticated_principal import AuthenticatedPrincipal
 from core.models.user import Permission, Role, User
 from core.models.service_account import ServiceAccount
 from webapp.auth import SERVICE_LOGIN_SESSION_KEY
+
+
+def _normalize_location(value: str) -> str:
+    parsed = urlsplit(value)
+    if parsed.scheme or parsed.netloc:
+        return parsed.path or "/"
+    if value.startswith("://"):
+        remainder = value[3:]
+        slash_index = remainder.find("/")
+        if slash_index == -1:
+            return "/"
+        return remainder[slash_index:] or "/"
+    return parsed.path or value
 
 
 @pytest.fixture()
@@ -104,7 +118,8 @@ def scoped_user(app):
         read_perm = Permission(code="read:cert")
         write_perm = Permission(code="write:cert")
         other_perm = Permission(code="read:user")
-        db.session.add_all([read_perm, write_perm, other_perm])
+        gui_perm = Permission(code="gui:view")
+        db.session.add_all([read_perm, write_perm, other_perm, gui_perm])
         db.session.commit()
 
         role_reader = Role(name=f"reader-{uuid.uuid4().hex[:8]}")
@@ -114,7 +129,7 @@ def scoped_user(app):
         role_writer.permissions.append(write_perm)
 
         role_other = Role(name=f"other-{uuid.uuid4().hex[:8]}")
-        role_other.permissions.append(other_perm)
+        role_other.permissions.extend([other_perm, gui_perm])
 
         user = User(email=f"scope-{uuid.uuid4().hex[:8]}@example.com")
         user.set_password("pass")
@@ -188,7 +203,12 @@ def test_login_applies_requested_scope_subset(app, client, scoped_user):
     data = response.get_json()
 
     assert data["scope"] == "read:cert write:cert"
-    assert sorted(data["available_scopes"]) == ["read:cert", "read:user", "write:cert"]
+    assert sorted(data["available_scopes"]) == [
+        "gui:view",
+        "read:cert",
+        "read:user",
+        "write:cert",
+    ]
 
     decoded_scope = _decode_scope(data["access_token"])
     assert decoded_scope == "read:cert write:cert"
@@ -201,6 +221,38 @@ def test_login_applies_requested_scope_subset(app, client, scoped_user):
 
         assert principal.can("read:cert")
         assert not principal.can("read:user")
+
+
+def test_login_with_gui_scope_grants_all_permissions(app, client, scoped_user):
+    payload = {
+        "email": scoped_user.email,
+        "password": "pass",
+        "scope": "gui:view",
+    }
+
+    response = client.post("/api/login", json=payload)
+    assert response.status_code == 200
+    data = response.get_json()
+
+    expected_scope = "gui:view read:cert read:user write:cert"
+    assert data["scope"] == expected_scope
+    assert sorted(data["available_scopes"]) == [
+        "gui:view",
+        "read:cert",
+        "read:user",
+        "write:cert",
+    ]
+
+    with app.app_context():
+        principal = TokenService.verify_access_token(data["access_token"])
+        assert isinstance(principal, AuthenticatedPrincipal)
+        assert principal.id == scoped_user.id
+        assert principal.scope == frozenset(
+            {"gui:view", "read:cert", "read:user", "write:cert"}
+        )
+
+        assert principal.can("user:manage") is False
+        assert principal.can("gui:view") is True
 
 
 def test_login_with_missing_scope_grants_no_permissions(client, scoped_user):
@@ -320,7 +372,7 @@ def test_login_cookie_requires_gui_scope(app, client):
         assert "SameSite=" in header
 
 
-def test_login_with_gui_scope_grants_requested_permissions_only(app, client):
+def test_login_with_gui_scope_grants_full_permissions(app, client):
     from webapp.extensions import db
 
     with app.app_context():
@@ -352,7 +404,7 @@ def test_login_with_gui_scope_grants_requested_permissions_only(app, client):
     data = response.get_json()
     assert data is not None
 
-    expected_scope = {"gui:view"}
+    expected_scope = {"gui:view", "user:manage", "admin:photo-settings"}
     assert set(data["scope"].split()) == expected_scope
     assert set(_decode_scope(data["access_token"]).split()) == expected_scope
 
@@ -486,7 +538,8 @@ def test_service_login_sets_scope_and_redirects(app, client, service_login_accou
     )
 
     assert response.status_code == 302
-    assert response.headers["Location"].endswith(dashboard_path)
+    location = response.headers["Location"]
+    assert _normalize_location(location).endswith(_normalize_location(dashboard_path))
 
     with client.session_transaction() as sess:
         assert sess.get("active_role_id") is None
@@ -513,7 +566,7 @@ def test_service_login_honors_next_parameter(app, client, service_login_account)
     )
 
     assert response.status_code == 302
-    assert response.headers["Location"].endswith("/totp/")
+    assert _normalize_location(response.headers["Location"]).endswith("/totp/")
 
 
 def test_service_login_does_not_require_role_selection(app, client, service_login_account):
@@ -529,7 +582,7 @@ def test_service_login_does_not_require_role_selection(app, client, service_logi
     )
 
     assert response.status_code == 302
-    assert response.headers["Location"].endswith("/totp/")
+    assert _normalize_location(response.headers["Location"]).endswith("/totp/")
 
     with client.session_transaction() as sess:
         assert sess.get("role_selection_next") is None
@@ -579,6 +632,10 @@ def test_service_login_requires_token_for_anonymous(client):
 
 
 def test_service_login_rejects_individual_token(app, client):
+    with client.session_transaction() as sess:
+        sess.clear()
+    client.delete_cookie("access_token")
+
     with app.app_context():
         from webapp.extensions import db
 
@@ -607,6 +664,8 @@ def test_service_login_rejects_individual_token(app, client):
     )
 
     assert response.status_code == 401
+    with client.session_transaction() as sess:
+        assert sess.get(SERVICE_LOGIN_SESSION_KEY) is None
 
 
 def test_service_login_rejects_query_token(app, client, service_login_account):

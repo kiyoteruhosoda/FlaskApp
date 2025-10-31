@@ -149,6 +149,8 @@ def _sync_active_role(user_model):
         session["active_role_id"] = role_ids[0]
     else:
         session["active_role_id"] = role_ids[0]
+    
+    session.modified = True
 
 
 def _resolve_post_login_target() -> str:
@@ -232,11 +234,30 @@ def _login_with_domain_user(user, redirect_target=None, *, token=None, token_sco
 def _finalize_login_session(user_model, redirect_target, *, token=None, token_scope=None):
     if isinstance(user_model, AuthenticatedPrincipal):
         principal = user_model
+        roles = list(getattr(principal, "roles", []) or [])
     else:
+        # Determine active_role_id BEFORE creating principal
+        roles = list(getattr(user_model, "roles", []) or [])
+        role_ids = [role.id for role in roles]
+        
+        # Clear any existing active_role_id for fresh login
+        session.pop("active_role_id", None)
+        
+        # Determine which role should be active
+        active_role_id = None
+        if len(role_ids) == 1:
+            # Single role: auto-select it
+            active_role_id = role_ids[0]
+            session["active_role_id"] = active_role_id
+        elif len(role_ids) > 1:
+            # Multiple roles: will need selection (no active role yet)
+            active_role_id = None
+        
         try:
             principal = TokenService.create_principal_for_user(
                 user_model,
                 scope=token_scope if token_scope is not None else None,
+                active_role_id=active_role_id,
             )
         except ValueError as exc:
             current_app.logger.warning(
@@ -246,11 +267,8 @@ def _finalize_login_session(user_model, redirect_target, *, token=None, token_sc
             )
             raise
 
-    roles = list(getattr(principal, "roles", []) or [])
-
     login_user(principal)
     g.current_user = principal
-    session.pop("active_role_id", None)
 
     if token_scope is None:
         session.pop(SERVICE_LOGIN_SESSION_KEY, None)
@@ -278,7 +296,6 @@ def _finalize_login_session(user_model, redirect_target, *, token=None, token_sc
         session["role_selection_next"] = normalized_redirect
         response = redirect(_relative_url_for("auth.select_role"))
     else:
-        _sync_active_role(principal)
         response = redirect(normalized_redirect)
 
     if token_scope is None:
@@ -751,6 +768,21 @@ def select_role():
         available_roles = {str(role.id): role for role in roles}
         if role_choice and role_choice in available_roles:
             session["active_role_id"] = available_roles[role_choice].id
+            session.modified = True
+            
+            # Reload the principal with the selected role's permissions
+            user_model = _resolve_current_user_model()
+            if user_model is not None:
+                try:
+                    refreshed = TokenService.create_principal_for_user(
+                        user_model,
+                        active_role_id=available_roles[role_choice].id
+                    )
+                    login_user(refreshed)
+                    g.current_user = refreshed
+                except ValueError:
+                    pass
+            
             flash(
                 _(
                     "Active role switched to %(role)s.",

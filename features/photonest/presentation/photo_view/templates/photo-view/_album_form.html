@@ -131,18 +131,18 @@
       </div>
     </form>
   </div>
-  <div class="modal-footer justify-content-between">
-    <div class="text-muted small" id="album-form-status"></div>
-    <div>
+  <div class="modal-footer album-form-footer">
+    <div class="text-muted small album-form-status" id="album-form-status"></div>
+    <div class="album-form-actions">
+      <button type="submit" class="btn btn-primary btn-size-sm" id="save-album-btn" form="album-form">
+        <span class="save-label-create">{{ _('Create Album') }}</span>
+        <span class="save-label-update d-none">{{ _('Save Changes') }}</span>
+      </button>
       {% if is_editor_view %}
         <a href="{{ cancel_url }}" class="btn btn-outline-secondary btn-size-sm">{{ _('Cancel') }}</a>
       {% else %}
         <button type="button" class="btn btn-outline-secondary btn-size-sm" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
       {% endif %}
-      <button type="submit" class="btn btn-primary btn-size-sm" id="save-album-btn" form="album-form">
-        <span class="save-label-create">{{ _('Create Album') }}</span>
-        <span class="save-label-update d-none">{{ _('Save Changes') }}</span>
-      </button>
     </div>
   </div>
 {% endmacro %}

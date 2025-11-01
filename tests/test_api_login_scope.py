@@ -657,13 +657,21 @@ def test_service_login_rejects_individual_token(app, client):
 
         token = TokenService.generate_access_token(user, scope={"totp:view"})
 
+    with app.test_request_context():
+        dashboard_path = url_for("dashboard.dashboard")
+
     response = client.get(
         "/auth/servicelogin",
         headers={"Authorization": f"Bearer {token}"},
         follow_redirects=False,
     )
 
-    assert response.status_code == 401
+    assert response.status_code == 302
+    location = response.headers.get("Location")
+    assert location is not None
+    assert _normalize_location(location).endswith(
+        _normalize_location(dashboard_path)
+    )
     with client.session_transaction() as sess:
         assert sess.get(SERVICE_LOGIN_SESSION_KEY) is None
 

@@ -213,6 +213,10 @@ msgstr "Sign in with passkey"
 msgid "Passkey login requires a compatible browser."
 msgstr "Passkey login requires a compatible browser."
 
+#: webapp/auth/templates/auth/login.html webapp/auth/templates/auth/login.html
+msgid "Passkey sign-in still requires your email address so we can match your account."
+msgstr "Passkey sign-in still requires your email address so we can match your account."
+
 #: webapp/auth/templates/auth/login.html
 msgid "Passkey login options could not be retrieved."
 msgstr "Passkey login options could not be retrieved."

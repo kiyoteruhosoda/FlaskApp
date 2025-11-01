@@ -127,20 +127,46 @@ class PasskeyService:
         )
         backup_state = bool(getattr(verification, "credential_backed_up", False))
 
+        credential_id_encoded = bytes_to_base64url(verification.credential_id)
+        public_key_encoded = bytes_to_base64url(verification.credential_public_key)
+        attestation_format = getattr(verification, "fmt", None)
+        aaguid = getattr(verification, "aaguid", None)
+
         try:
             record = self.repository.add(
                 user=user,
-                credential_id=bytes_to_base64url(verification.credential_id),
-                public_key=bytes_to_base64url(verification.credential_public_key),
+                credential_id=credential_id_encoded,
+                public_key=public_key_encoded,
                 sign_count=verification.sign_count,
                 transports=transports,
                 name=name,
-                attestation_format=getattr(verification, "fmt", None),
-                aaguid=getattr(verification, "aaguid", None),
+                attestation_format=attestation_format,
+                aaguid=aaguid,
                 backup_eligible=backup_eligible,
                 backup_state=backup_state,
             )
         except DuplicatePasskeyCredentialError as exc:
+            existing = self.repository.find_by_credential_id(credential_id_encoded)
+            existing_user_id = None
+            if existing is not None:
+                existing_user_id = getattr(existing, "user_id", None)
+                if existing_user_id is None:
+                    existing_user = getattr(existing, "user", None)
+                    existing_user_id = getattr(existing_user, "id", None)
+
+            if existing is not None and existing_user_id == getattr(user, "id", None):
+                return self.repository.update_existing(
+                    existing,
+                    public_key=public_key_encoded,
+                    sign_count=verification.sign_count,
+                    transports=transports,
+                    name=name,
+                    attestation_format=attestation_format,
+                    aaguid=aaguid,
+                    backup_eligible=backup_eligible,
+                    backup_state=backup_state,
+                )
+
             raise PasskeyRegistrationError("already_registered") from exc
         return record
 

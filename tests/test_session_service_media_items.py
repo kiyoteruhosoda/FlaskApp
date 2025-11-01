@@ -148,3 +148,110 @@ def test_existing_pending_selection_reenqueued(app_context, monkeypatch):
         db.session.refresh(selection)
         assert selection.status == "enqueued"
         assert queued == [(selection.id, session.id)]
+
+
+def test_media_items_commit_for_duplicates_only(app_context, monkeypatch):
+    app = app_context
+
+    from webapp.extensions import db
+    from webapp.api.picker_session_service import PickerSessionService
+    from core.models.google_account import GoogleAccount
+    from core.models.picker_session import PickerSession
+    from core.models.photo_models import PickerSelection
+
+    with app.app_context():
+        account = GoogleAccount(
+            email="duplicate@example.com",
+            status="active",
+            scopes="photoslibrary.readonly",
+        )
+        db.session.add(account)
+        db.session.commit()
+
+        session = PickerSession(
+            session_id=f"session-{uuid4().hex}",
+            status="pending",
+            account_id=account.id,
+        )
+        now = datetime.now(timezone.utc)
+        session.created_at = now
+        session.updated_at = now
+        db.session.add(session)
+        db.session.commit()
+
+        original_commit = db.session.commit
+        commit_calls: list[datetime] = []
+
+        def tracking_commit():
+            commit_calls.append(datetime.now(timezone.utc))
+            return original_commit()
+
+        monkeypatch.setattr(db.session, "commit", tracking_commit)
+
+        def fake_auth_headers(account_id):
+            assert account_id == account.id
+            return {}
+
+        monkeypatch.setattr(
+            PickerSessionService,
+            "_auth_headers",
+            staticmethod(fake_auth_headers),
+        )
+
+        monkeypatch.setattr(
+            PickerSessionService,
+            "_refresh_session_snapshot",
+            staticmethod(lambda *_args, **_kwargs: None),
+        )
+
+        def fake_fetch(ps_obj, headers, session_id, cursor):
+            selections = []
+            for index in range(3):
+                selection = PickerSelection(
+                    session_id=ps_obj.id,
+                    google_media_id=f"DUP-{index}",
+                    status="dup",
+                )
+                db.session.add(selection)
+                selections.append(selection)
+            db.session.flush(selections)
+            return 0, len(selections), []
+
+        monkeypatch.setattr(
+            PickerSessionService,
+            "_fetch_and_store_items",
+            staticmethod(fake_fetch),
+        )
+
+        def fake_enqueue(_ps_obj, _items):
+            raise AssertionError("_enqueue_new_items should not be called for duplicates only")
+
+        monkeypatch.setattr(
+            PickerSessionService,
+            "_enqueue_new_items",
+            staticmethod(fake_enqueue),
+        )
+
+        payload, status_code = PickerSessionService._media_items_locked(
+            session.session_id,
+            None,
+        )
+
+        assert status_code == 200
+        assert payload == {"saved": 0, "duplicates": 3, "nextCursor": None}
+        assert len(commit_calls) == 2
+
+        dup_count = (
+            db.session.query(PickerSelection)
+            .filter_by(session_id=session.id, status="dup")
+            .count()
+        )
+        assert dup_count == 3
+
+        refreshed_session = db.session.get(PickerSession, session.id)
+        status_payload = PickerSessionService.status(refreshed_session)
+
+        assert status_payload["status"] == "imported"
+        assert refreshed_session.status == "imported"
+        assert status_payload["counts"].get("dup") == 3
+        assert len(commit_calls) >= 3

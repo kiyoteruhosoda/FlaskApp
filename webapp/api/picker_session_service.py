@@ -1027,8 +1027,13 @@ class PickerSessionService:
             saved, dup, new_pmis = PickerSessionService._fetch_and_store_items(
                 ps, headers, session_id, cursor
             )
-            new_count = len(new_pmis) if isinstance(new_pmis, list) else None
-            PickerSessionService._enqueue_new_items(ps, new_pmis)
+            if not isinstance(new_pmis, list):
+                new_pmis = list(new_pmis)
+            new_count = len(new_pmis)
+            if new_pmis:
+                PickerSessionService._enqueue_new_items(ps, new_pmis)
+            elif saved or dup:
+                db.session.commit()
             current_app.logger.info(
                 json.dumps(
                     {

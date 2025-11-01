@@ -22,6 +22,9 @@ msgstr ""
 msgid "Please log in to access this page."
 msgstr "このページにアクセスするにはログインが必要です。"
 
+msgid "Passkey sign-in still requires your email address so we can match your account."
+msgstr "パスキーでのサインインには、アカウント確認のためメールアドレスが必要です。"
+
 #: webapp/error_handlers.py:45
 msgid "An unexpected error occurred. Please try again later."
 msgstr "予期せぬエラーが発生しました。しばらくしてから再度お試しください。"

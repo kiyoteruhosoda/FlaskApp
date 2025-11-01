@@ -28,6 +28,22 @@
         </div>
       </div>
 
+      {% if passkey_available %}
+      <div class="passkey-section">
+        <button type="button" class="btn btn-outline-primary passkey-btn passkey-btn--inactive" data-passkey-login
+                data-email-required-message="{{ _('Passkey sign-in still requires your email address so we can match your account.') }}"
+                title="{{ _('Passkey sign-in still requires your email address so we can match your account.') }}"
+                aria-disabled="true">
+          <i class="fas fa-key" style="margin-right: 8px;"></i>
+          {{ _('Sign in with passkey') }}
+        </button>
+        <p class="passkey-hint" data-passkey-hint>
+          <i class="fas fa-info-circle" aria-hidden="true"></i>
+          {{ _('Passkey sign-in still requires your email address so we can match your account.') }}
+        </p>
+      </div>
+      {% endif %}
+
       <div class="form-group">
         <label for="password" class="form-label">
           <i class="fas fa-lock"></i>
@@ -66,22 +82,6 @@
           </div>
       </div>
     </div>
-
-      {% if passkey_available %}
-      <div class="passkey-section">
-        <button type="button" class="btn btn-outline-primary passkey-btn passkey-btn--inactive" data-passkey-login
-                data-email-required-message="{{ _('Passkey sign-in still requires your email address so we can match your account.') }}"
-                title="{{ _('Passkey sign-in still requires your email address so we can match your account.') }}"
-                aria-disabled="true" disabled>
-          <i class="fas fa-key" style="margin-right: 8px;"></i>
-          {{ _('Sign in with passkey') }}
-        </button>
-        <p class="passkey-hint" data-passkey-hint>
-          <i class="fas fa-info-circle" aria-hidden="true"></i>
-          {{ _('Passkey sign-in still requires your email address so we can match your account.') }}
-        </p>
-      </div>
-      {% endif %}
 
     <button type="submit" class="btn btn-login">
       <i class="fas fa-sign-in-alt" style="margin-right: 8px;"></i>

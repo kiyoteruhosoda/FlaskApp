@@ -111,6 +111,7 @@ def build_media_from_analysis(
         local_rel_path=relative_path,
         filename=analysis.source.name,
         hash_sha256=analysis.file_hash,
+        phash=analysis.perceptual_hash,
         bytes=analysis.file_size,
         mime_type=analysis.mime_type,
         width=analysis.width,
@@ -137,6 +138,7 @@ def apply_analysis_to_media_entity(media: Media, analysis: MediaFileAnalysis) ->
 
     media.mime_type = analysis.mime_type
     media.hash_sha256 = analysis.file_hash
+    media.phash = analysis.perceptual_hash
     media.bytes = analysis.file_size
     if analysis.width is not None:
         media.width = analysis.width

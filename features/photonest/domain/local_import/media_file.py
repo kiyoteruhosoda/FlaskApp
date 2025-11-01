@@ -12,6 +12,7 @@ from core.utils import get_file_date_from_exif, get_file_date_from_name
 from .entities import ImportFile
 from .media_metadata import (
     calculate_file_hash,
+    calculate_perceptual_hash,
     extract_exif_data,
     extract_video_metadata,
     generate_filename,
@@ -48,6 +49,7 @@ class MediaFileAnalysis:
     video_metadata: Dict[str, Any]
     destination_filename: str
     relative_path: str
+    perceptual_hash: Optional[str]
 
 
 class MediaMetadataProvider(Protocol):
@@ -69,6 +71,15 @@ class MediaMetadataProvider(Protocol):
         ...
 
     def get_relative_path(self, shot_at: datetime, destination_filename: str) -> str:
+        ...
+
+    def calculate_perceptual_hash(
+        self,
+        file_path: str,
+        *,
+        is_video: bool,
+        duration_ms: Optional[int],
+    ) -> Optional[str]:
         ...
 
 
@@ -93,6 +104,19 @@ class DefaultMediaMetadataProvider:
 
     def get_relative_path(self, shot_at: datetime, destination_filename: str) -> str:
         return get_relative_path(shot_at, destination_filename)
+
+    def calculate_perceptual_hash(
+        self,
+        file_path: str,
+        *,
+        is_video: bool,
+        duration_ms: Optional[int],
+    ) -> Optional[str]:
+        return calculate_perceptual_hash(
+            file_path,
+            is_video=is_video,
+            duration_ms=duration_ms,
+        )
 
 
 @dataclass(frozen=True)
@@ -138,6 +162,11 @@ class MediaFileAnalyzer:
         relative_path = self.metadata_provider.get_relative_path(
             shot_at, destination_filename
         )
+        perceptual_hash = self.metadata_provider.calculate_perceptual_hash(
+            file_path,
+            is_video=is_video,
+            duration_ms=duration_ms,
+        )
 
         return MediaFileAnalysis(
             source=source,
@@ -155,6 +184,7 @@ class MediaFileAnalyzer:
             video_metadata=video_metadata,
             destination_filename=destination_filename,
             relative_path=relative_path,
+            perceptual_hash=perceptual_hash,
         )
 
 

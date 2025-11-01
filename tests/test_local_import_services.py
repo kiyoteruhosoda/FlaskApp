@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -21,8 +22,17 @@ class DummyAnalysis:
         self.file_hash = file_hash
         self.file_size = file_size
         self.is_video = is_video
+        self.width = 800
+        self.height = 600
+        self.duration_ms = 0 if not is_video else 1000
+        self.orientation = None
+        self.shot_at = datetime.now(timezone.utc)
+        self.exif_data = {}
+        self.video_metadata = {}
+        self.mime_type = "image/jpeg" if not is_video else "video/mp4"
         self.destination_filename = "sample.jpg"
         self.relative_path = "sample/sample.jpg"
+        self.perceptual_hash = "dummy-phash"
 
 
 class DummyMedia:

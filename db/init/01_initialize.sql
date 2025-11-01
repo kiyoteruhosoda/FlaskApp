@@ -422,6 +422,7 @@ CREATE TABLE `media` (
   `local_rel_path` varchar(255) DEFAULT NULL,
   `filename` varchar(255) DEFAULT NULL,
   `hash_sha256` char(64) DEFAULT NULL,
+  `phash` varchar(64) DEFAULT NULL,
   `bytes` bigint(20) DEFAULT NULL,
   `mime_type` varchar(255) DEFAULT NULL,
   `width` int(11) DEFAULT NULL,
@@ -441,6 +442,7 @@ CREATE TABLE `media` (
   `thumbnail_rel_path` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `account_id` (`account_id`),
+  KEY `ix_media_phash_dimensions` (`phash`,`shot_at`,`width`,`height`,`duration_ms`,`is_video`),
   CONSTRAINT `media_ibfk_1` FOREIGN KEY (`account_id`) REFERENCES `google_account` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

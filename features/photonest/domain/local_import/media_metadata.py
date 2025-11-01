@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
+import math
+import statistics
 import subprocess
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
@@ -14,6 +17,11 @@ from PIL.ExifTags import TAGS
 from core.utils import open_image_compat, register_heif_support
 
 register_heif_support()
+
+try:  # Pillow 9.1+ provides the Resampling enum
+    _RESAMPLE_LANCZOS = Image.Resampling.LANCZOS  # type: ignore[attr-defined]
+except AttributeError:  # pragma: no cover - fallback for older Pillow
+    _RESAMPLE_LANCZOS = Image.LANCZOS  # type: ignore[attr-defined]
 
 
 def calculate_file_hash(file_path: str) -> str:
@@ -250,6 +258,141 @@ def extract_video_metadata(file_path: str) -> Dict:
     return metadata
 
 
+def _dct_2d(values: list[list[float]]) -> list[list[float]]:
+    rows = len(values)
+    cols = len(values[0]) if values else 0
+    if rows == 0 or cols == 0:
+        return []
+
+    cos_rows = [
+        [math.cos(math.pi * (2 * i + 1) * u / (2 * rows)) for i in range(rows)]
+        for u in range(rows)
+    ]
+    cos_cols = [
+        [math.cos(math.pi * (2 * j + 1) * v / (2 * cols)) for j in range(cols)]
+        for v in range(cols)
+    ]
+
+    result: list[list[float]] = [[0.0 for _ in range(cols)] for _ in range(rows)]
+    for u in range(rows):
+        alpha_u = math.sqrt(1.0 / rows) if u == 0 else math.sqrt(2.0 / rows)
+        for v in range(cols):
+            alpha_v = math.sqrt(1.0 / cols) if v == 0 else math.sqrt(2.0 / cols)
+            total = 0.0
+            for i in range(rows):
+                row_cos = cos_rows[u][i]
+                for j in range(cols):
+                    total += values[i][j] * row_cos * cos_cols[v][j]
+            result[u][v] = alpha_u * alpha_v * total
+    return result
+
+
+def _phash_from_image(image: Image.Image) -> Optional[str]:
+    try:
+        resized = image.convert("L").resize((32, 32), resample=_RESAMPLE_LANCZOS)
+    except Exception:  # pragma: no cover - unexpected image errors
+        return None
+
+    try:
+        pixels = list(resized.getdata())
+    finally:
+        resized.close()
+
+    matrix = [
+        [float(pixels[row * 32 + col]) for col in range(32)] for row in range(32)
+    ]
+    dct_matrix = _dct_2d(matrix)
+    if len(dct_matrix) < 8:
+        return None
+
+    top_left = [row[:8] for row in dct_matrix[:8]]
+    coefficients = [value for row in top_left for value in row]
+    if not coefficients:
+        return None
+
+    if len(coefficients) > 1:
+        reference = statistics.median(coefficients[1:])
+    else:
+        reference = coefficients[0]
+
+    bits = 0
+    for value in coefficients:
+        bits = (bits << 1) | (1 if value >= reference else 0)
+
+    return f"{bits:016x}"
+
+
+def _extract_video_frame(file_path: str, sample_time: float) -> Optional[Image.Image]:
+    command = [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-ss",
+        f"{sample_time:.3f}",
+        "-i",
+        str(file_path),
+        "-vframes",
+        "1",
+        "-f",
+        "image2pipe",
+        "-vcodec",
+        "png",
+        "-",
+    ]
+
+    try:
+        proc = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+    except FileNotFoundError:  # pragma: no cover - ffmpeg absent in environment
+        return None
+
+    if proc.returncode != 0 or not proc.stdout:
+        return None
+
+    buffer = io.BytesIO(proc.stdout)
+    try:
+        image = Image.open(buffer)
+        image.load()
+        return image
+    except Exception:  # pragma: no cover - corrupt frame output
+        return None
+    finally:
+        buffer.close()
+
+
+def calculate_perceptual_hash(
+    file_path: str,
+    *,
+    is_video: bool,
+    duration_ms: Optional[int],
+) -> Optional[str]:
+    """pHash を計算して16進文字列として返す。"""
+
+    if is_video:
+        duration_seconds = (duration_ms or 0) / 1000.0
+        if duration_seconds <= 0:
+            duration_seconds = 0.0
+        sample_time = min(10.0, duration_seconds / 2 if duration_seconds else 0.0)
+        frame = _extract_video_frame(file_path, sample_time)
+        if frame is None:
+            return None
+        try:
+            return _phash_from_image(frame)
+        finally:
+            frame.close()
+
+    try:
+        with open_image_compat(file_path) as image:
+            return _phash_from_image(image)
+    except Exception:  # pragma: no cover - unexpected I/O errors
+        return None
+
+
 def generate_filename(shot_at: datetime, file_extension: str, file_hash: str) -> str:
     """
     ファイル名を生成
@@ -272,6 +415,7 @@ def get_relative_path(shot_at: datetime, filename: str) -> str:
 
 __all__ = [
     "calculate_file_hash",
+    "calculate_perceptual_hash",
     "extract_exif_data",
     "extract_video_metadata",
     "generate_filename",

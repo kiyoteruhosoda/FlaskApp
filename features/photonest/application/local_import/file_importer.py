@@ -39,7 +39,7 @@ class PostProcessService(Protocol):
 
 
 class DuplicateChecker(Protocol):
-    def __call__(self, file_hash: str, file_size: int) -> Optional[Media]:
+    def __call__(self, analysis: MediaFileAnalysis) -> Optional[Media]:
         ...
 
 
@@ -225,9 +225,7 @@ class LocalImportFileImporter:
                 return outcome.as_dict()
 
             analysis = self._analysis_service(file_path)
-            existing_media = self._duplicate_checker(
-                analysis.file_hash, analysis.file_size
-            )
+            existing_media = self._duplicate_checker(analysis)
             if existing_media:
                 return self._handle_duplicate(
                     outcome,

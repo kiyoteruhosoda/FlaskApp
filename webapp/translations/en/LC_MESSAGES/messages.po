@@ -274,8 +274,16 @@ msgid "Passkey registration options could not be retrieved."
 msgstr "Passkey registration options could not be retrieved."
 
 #: webapp/auth/templates/auth/profile.html
-msgid "Passkey registration was cancelled before completion."
-msgstr "Passkey registration was cancelled before completion."
+msgid "Passkey registration timed out before the authenticator responded. Please try again and confirm the prompt on your device."
+msgstr "Passkey registration timed out before the authenticator responded. Please try again and confirm the prompt on your device."
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Passkey registration was cancelled from the authenticator prompt. Please retry and complete the device approval."
+msgstr "Passkey registration was cancelled from the authenticator prompt. Please retry and complete the device approval."
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Passkey registration was cancelled or timed out before completion. Please retry after completing the authenticator prompt."
+msgstr "Passkey registration was cancelled or timed out before completion. Please retry after completing the authenticator prompt."
 
 #: webapp/auth/templates/auth/profile.html
 msgid "Passkey registration failed. Please try again."

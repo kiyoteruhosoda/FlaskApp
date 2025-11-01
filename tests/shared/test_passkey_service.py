@@ -130,7 +130,9 @@ class DummyUser:
         self.display_name = display_name or email
 
 
-def test_generate_registration_options_excludes_existing_credentials(monkeypatch, service, repository):
+def test_generate_registration_options_does_not_exclude_existing_credentials(
+    monkeypatch, service, repository
+):
     existing = StubCredential(credential_id=bytes_to_base64url(b"existing-cred"))
     repository.credentials.append(existing)
 
@@ -158,11 +160,7 @@ def test_generate_registration_options_excludes_existing_credentials(monkeypatch
 
     assert challenge == bytes_to_base64url(b"reg-challenge")
     assert options == {"challenge": "serialized"}
-    assert "exclude_credentials" in captured
-    assert len(captured["exclude_credentials"]) == 1
-    descriptor = captured["exclude_credentials"][0]
-    assert descriptor.id == b"existing-cred"
-    assert descriptor.type is PublicKeyCredentialType.PUBLIC_KEY
+    assert "exclude_credentials" not in captured
 
 
 def test_generate_authentication_options_uses_allow_credentials(monkeypatch, service, repository):

@@ -83,7 +83,7 @@ def login(client):
     )
 
 
-def grant_permission(app, code: str) -> None:
+def grant_permission(app, code: str) -> int:
     from webapp.extensions import db
     from core.models.user import User, Role, Permission
 
@@ -108,6 +108,7 @@ def grant_permission(app, code: str) -> None:
             user.roles.append(role)
 
         db.session.commit()
+        return role.id
 
 
 def make_token(payload: dict) -> str:
@@ -780,7 +781,9 @@ def test_create_tag_requires_permission(client, app):
     res = client.post("/api/tags", json={"name": "Sunset", "attr": "thing"})
     assert res.status_code == 403
 
-    grant_permission(app, "media:tag-manage")
+    role_id = grant_permission(app, "media:tag-manage")
+    with client.session_transaction() as sess:
+        sess["active_role_id"] = role_id
     res = client.post("/api/tags", json={"name": "Sunset", "attr": "thing"})
     assert res.status_code == 201
     data = res.get_json()

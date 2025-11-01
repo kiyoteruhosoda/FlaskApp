@@ -41,17 +41,59 @@ class TestCeleryAppConfiguration:
     
     def test_celery_timezone_configuration(self):
         """Test Celery timezone configuration."""
-        from cli.src.celery.celery_app import celery
-        from core.settings import settings
+        from cli.src.celery.celery_app import celery, flask_app
 
-        expected_timezone = settings.babel_default_timezone or 'UTC'
+        with flask_app.app_context():
+            expected_timezone = flask_app.config.get("BABEL_DEFAULT_TIMEZONE") or 'UTC'
+
         assert celery.conf.timezone == expected_timezone
         assert celery.conf.enable_utc is True
-    
+
+    def test_create_app_applies_persisted_settings(self, monkeypatch, tmp_path):
+        """Ensure Celery's Flask app loads configuration stored in the database."""
+        from cli.src.celery import celery_app
+        from webapp.services.system_setting_service import SystemSettingService
+
+        persisted_key = "base64:WFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFg="
+        persisted_payload = {
+            "CELERY_BROKER_URL": "redis://persisted/1",
+            "CELERY_RESULT_BACKEND": "redis://persisted/1",
+            "ENCRYPTION_KEY": persisted_key,
+        }
+
+        monkeypatch.setenv('SECRET_KEY', 'test-secret')
+        db_path = tmp_path / 'celery_app.db'
+        monkeypatch.setenv('DATABASE_URI', f'sqlite:///{db_path}')
+
+        monkeypatch.setattr(
+            SystemSettingService,
+            "load_application_config_payload",
+            classmethod(lambda cls: dict(persisted_payload)),
+        )
+        monkeypatch.setattr(
+            SystemSettingService,
+            "load_cors_config_payload",
+            classmethod(lambda cls: {}),
+        )
+        monkeypatch.setattr(
+            SystemSettingService,
+            "load_cors_config",
+            classmethod(lambda cls: {"allowedOrigins": []}),
+        )
+
+        app = celery_app.create_app()
+
+        from core.settings import settings as application_settings
+
+        with app.app_context():
+            assert app.config["CELERY_BROKER_URL"] == persisted_payload["CELERY_BROKER_URL"]
+            assert app.config["CELERY_RESULT_BACKEND"] == persisted_payload["CELERY_RESULT_BACKEND"]
+            assert application_settings.token_encryption_key == persisted_payload["ENCRYPTION_KEY"]
+
     def test_beat_schedule_configuration(self):
         """Test Celery beat schedule configuration."""
         from cli.src.celery.celery_app import celery
-        
+
         assert hasattr(celery.conf, 'beat_schedule')
         assert 'picker-import-watchdog' in celery.conf.beat_schedule
         assert 'logs-cleanup' in celery.conf.beat_schedule

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import logging
 import math
 import statistics
 import subprocess
@@ -15,6 +16,8 @@ from PIL import Image
 from PIL.ExifTags import TAGS
 
 from core.utils import open_image_compat, register_heif_support
+
+logger = logging.getLogger(__name__)
 
 register_heif_support()
 
@@ -349,9 +352,16 @@ def _extract_video_frame(file_path: str, sample_time: float) -> Optional[Image.I
             check=False,
         )
     except FileNotFoundError:  # pragma: no cover - ffmpeg absent in environment
+        logger.warning("ffmpeg が見つからないため動画フレームの抽出に失敗しました: %s", file_path)
         return None
 
     if proc.returncode != 0 or not proc.stdout:
+        logger.warning(
+            "ffmpeg による動画フレーム抽出に失敗しました (returncode=%s, stderr=%s): %s",
+            proc.returncode,
+            proc.stderr.decode("utf-8", errors="ignore") if proc.stderr else "",
+            file_path,
+        )
         return None
 
     buffer = io.BytesIO(proc.stdout)
@@ -359,7 +369,13 @@ def _extract_video_frame(file_path: str, sample_time: float) -> Optional[Image.I
         image = Image.open(buffer)
         image.load()
         return image
-    except Exception:  # pragma: no cover - corrupt frame output
+    except Exception as exc:  # pragma: no cover - corrupt frame output
+        logger.warning(
+            "抽出した動画フレームのデコードに失敗しました (%s): %s",
+            exc,
+            file_path,
+            exc_info=True,
+        )
         return None
     finally:
         buffer.close()
@@ -380,6 +396,7 @@ def calculate_perceptual_hash(
         sample_time = min(10.0, duration_seconds / 2 if duration_seconds else 0.0)
         frame = _extract_video_frame(file_path, sample_time)
         if frame is None:
+            logger.warning("動画の pHash 計算に必要なフレーム取得に失敗しました: %s", file_path)
             return None
         try:
             return _phash_from_image(frame)
@@ -389,7 +406,13 @@ def calculate_perceptual_hash(
     try:
         with open_image_compat(file_path) as image:
             return _phash_from_image(image)
-    except Exception:  # pragma: no cover - unexpected I/O errors
+    except Exception as exc:  # pragma: no cover - unexpected I/O errors
+        logger.warning(
+            "画像の pHash 計算に失敗しました (%s): %s",
+            exc,
+            file_path,
+            exc_info=True,
+        )
         return None
 
 

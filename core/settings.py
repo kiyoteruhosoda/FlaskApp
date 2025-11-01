@@ -33,6 +33,8 @@ from flask import current_app, has_app_context
 
 from domain.storage import StorageBackendType, StorageDomain, StorageIntent
 
+from core.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
+
 _DEFAULT_ACCESS_TOKEN_ISSUER = "fpv-webapp"
 _DEFAULT_ACCESS_TOKEN_AUDIENCE = "fpv-webapp"
 
@@ -487,7 +489,15 @@ class ApplicationSettings:
     # ------------------------------------------------------------------
     @property
     def token_encryption_key(self) -> Optional[str]:
-        return self._get("ENCRYPTION_KEY")
+        value = self._get("ENCRYPTION_KEY")
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+        default_value = DEFAULT_APPLICATION_SETTINGS.get("ENCRYPTION_KEY")
+        if isinstance(default_value, str) and default_value.strip():
+            return default_value
+
+        return None
 
     @property
     def token_encryption_key_file(self) -> Optional[str]:

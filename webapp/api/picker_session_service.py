@@ -1039,6 +1039,16 @@ class PickerSessionService:
 
         db.session.add(mi)
 
+        # ``PickerSelection`` has a foreign key constraint to ``MediaItem``.
+        # In production (MariaDB) the manual INSERT executed below runs before
+        # SQLAlchemy has a chance to flush pending objects.  As a result the
+        # database observes the ``picker_selection`` row first and rejects it
+        # because the referenced ``media_item`` record has not been persisted
+        # yet.  Explicitly flushing the media item ensures the parent row is
+        # written to the database (together with any metadata) before we issue
+        # the upsert for the selection itself.
+        db.session.flush([mi])
+
         selection_table = PickerSelection.__table__
         selection_values = {
             "session_id": pmi.session_id,

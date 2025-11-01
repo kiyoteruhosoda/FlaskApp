@@ -17,6 +17,7 @@ from typing import Any, Iterable
 from urllib.parse import urlsplit
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_babel import gettext as _, force_locale
+from sqlalchemy import select
 from . import (
     SERVICE_LOGIN_SESSION_KEY,
     SERVICE_LOGIN_TOKEN_SESSION_KEY,
@@ -813,6 +814,27 @@ def passkey_verify_register():
 
 @bp.post("/passkey/options/login")
 def passkey_login_options():
+    payload = request.get_json(silent=True)
+    email_value = None
+    if isinstance(payload, dict):
+        raw_email = payload.get("email")
+        if isinstance(raw_email, str):
+            stripped = raw_email.strip()
+            if stripped:
+                email_value = stripped
+
+    if email_value is None:
+        form_email = request.form.get("email")
+        if isinstance(form_email, str):
+            stripped = form_email.strip()
+            if stripped:
+                email_value = stripped
+
+    user_model = None
+    if email_value:
+        stmt = select(User).where(User.email == email_value)
+        user_model = db.session.execute(stmt).scalar_one_or_none()
+
     current_app.logger.info(
         "Passkey login options request received",
         extra={
@@ -820,12 +842,17 @@ def passkey_login_options():
             "path": request.path,
             "method": request.method,
             "user_id": getattr(current_user, "id", None),
+            "lookup_email": email_value,
+            "resolved_user_id": getattr(user_model, "id", None),
         },
     )
 
     try:
         rp_id = _resolve_passkey_rp_id()
-        options, challenge = passkey_service.generate_authentication_options(rp_id=rp_id)
+        options, challenge = passkey_service.generate_authentication_options(
+            user=user_model,
+            rp_id=rp_id,
+        )
     except Exception:  # pragma: no cover - unexpected failure
         current_app.logger.exception(
             "Failed to prepare passkey authentication options",

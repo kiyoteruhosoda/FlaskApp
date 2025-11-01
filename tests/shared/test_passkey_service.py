@@ -15,6 +15,7 @@ from webauthn.helpers.structs import (
     AuthenticationCredential,
     AuthenticatorAssertionResponse,
     AuthenticatorAttestationResponse,
+    AuthenticatorTransport,
     PublicKeyCredentialType,
     RegistrationCredential,
 )
@@ -23,6 +24,7 @@ from webauthn.helpers.structs import (
 @dataclass
 class StubCredential:
     credential_id: str
+    transports: list[str] | None = None
 
 
 @dataclass
@@ -111,6 +113,49 @@ def test_generate_registration_options_excludes_existing_credentials(monkeypatch
     descriptor = captured["exclude_credentials"][0]
     assert descriptor.id == b"existing-cred"
     assert descriptor.type is PublicKeyCredentialType.PUBLIC_KEY
+
+
+def test_generate_authentication_options_uses_allow_credentials(monkeypatch, service, repository):
+    repository.credentials.extend(
+        [
+            StubCredential(credential_id=bytes_to_base64url(b"cred-1"), transports=["internal"]),
+            StubCredential(credential_id="***invalid***"),
+        ]
+    )
+
+    captured: dict = {}
+
+    class DummyOptions:
+        def __init__(self):
+            self.challenge = b"auth-challenge"
+
+    def fake_generate_authentication_options(**kwargs):
+        captured.update(kwargs)
+        return DummyOptions()
+
+    monkeypatch.setattr(
+        "shared.application.passkey_service.generate_authentication_options",
+        fake_generate_authentication_options,
+    )
+    monkeypatch.setattr(
+        "shared.application.passkey_service.options_to_json",
+        lambda options: json.dumps({"challenge": "serialized-auth"}),
+    )
+
+    user = DummyUser(10, "passkey@example.com")
+    options, challenge = service.generate_authentication_options(user=user)
+
+    assert challenge == bytes_to_base64url(b"auth-challenge")
+    assert options == {"challenge": "serialized-auth"}
+    descriptors = captured["allow_credentials"]
+    assert descriptors, "allow_credentials should include stored credentials"
+    descriptor = next(
+        (item for item in descriptors if item.id == b"cred-1"),
+        None,
+    )
+    assert descriptor is not None
+    assert descriptor.type is PublicKeyCredentialType.PUBLIC_KEY
+    assert descriptor.transports == [AuthenticatorTransport.INTERNAL]
 
 
 def test_register_passkey_persists_repository(monkeypatch, service, repository):

@@ -129,7 +129,8 @@ def _normalize_log_value(value: Any) -> Any:
 
 
 def _update_picker_session_from_data(ps: PickerSession, data: dict) -> None:
-    ps.session_id = data.get("id")
+    session_id = data.get("id")
+    ps.session_id = session_id
     ps.picker_uri = data.get("pickerUri")
     expire = data.get("expireTime")
     if expire is not None:
@@ -144,6 +145,22 @@ def _update_picker_session_from_data(ps: PickerSession, data: dict) -> None:
     if "mediaItemsSet" in data:
         ps.media_items_set = data.get("mediaItemsSet")
     ps.updated_at = datetime.now(timezone.utc)
+
+    if ps.account_id and not session_id:
+        try:
+            log_payload = {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "picker_session_id": ps.id,
+                "account_id": ps.account_id,
+                "payload_keys": sorted(data.keys()),
+            }
+            current_app.logger.warning(
+                json.dumps(log_payload, default=_normalize_log_value),
+                extra={"event": "pickerSession.sessionId.missing"},
+            )
+        except Exception:
+            # Logging must never break the update path.
+            pass
 
 
 class PickerSessionService:
@@ -242,12 +259,37 @@ class PickerSessionService:
         try:
             tokens = refresh_google_token(account)
         except RefreshTokenError as e:
+            current_app.logger.warning(
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "account_id": account.id,
+                        "reason": "refresh_token_failed",
+                        "status_code": getattr(e, "status_code", None),
+                        "message": str(e),
+                    },
+                    default=_normalize_log_value,
+                ),
+                extra={"event": "pickerSession.create.refreshTokenError"},
+            )
             status = 502 if e.status_code >= 500 else 401
             return {"error": str(e)}, status
 
         access_token = tokens.get("access_token")
         headers = {"Authorization": f"Bearer {access_token}"}
         body = {"title": title}
+        request_started_at = datetime.now(timezone.utc)
+        current_app.logger.info(
+            json.dumps(
+                {
+                    "ts": request_started_at.isoformat(),
+                    "account_id": account.id,
+                    "payload": {"title": title},
+                },
+                default=_normalize_log_value,
+            ),
+            extra={"event": "pickerSession.create.begin"},
+        )
         try:
             picker_res = log_requests_and_send(
                 "POST",
@@ -259,7 +301,43 @@ class PickerSessionService:
             picker_res.raise_for_status()
             picker_data = picker_res.json()
         except Exception as e:
+            current_app.logger.error(
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "account_id": account.id,
+                        "duration_ms": int((datetime.now(timezone.utc) - request_started_at).total_seconds() * 1000),
+                        "message": str(e),
+                    },
+                    default=_normalize_log_value,
+                ),
+                extra={"event": "pickerSession.create.failed"},
+            )
             return {"error": "picker_error", "message": str(e)}, 502
+
+        response_log_context = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "account_id": account.id,
+            "duration_ms": int((datetime.now(timezone.utc) - request_started_at).total_seconds() * 1000),
+            "has_session_id": bool(picker_data.get("id")),
+            "session_id": picker_data.get("id"),
+            "payload_keys": sorted(picker_data.keys()),
+        }
+        current_app.logger.info(
+            json.dumps(response_log_context, default=_normalize_log_value),
+            extra={"event": "pickerSession.create.response"},
+        )
+        if not picker_data.get("id"):
+            current_app.logger.warning(
+                json.dumps(
+                    {
+                        **response_log_context,
+                        "reason": "google_response_missing_session_id",
+                    },
+                    default=_normalize_log_value,
+                ),
+                extra={"event": "pickerSession.create.missingSessionId"},
+            )
 
         ps = PickerSession(
             account_id=account.id,
@@ -269,6 +347,18 @@ class PickerSessionService:
         db.session.add(ps)
         _update_picker_session_from_data(ps, picker_data)
         db.session.commit()
+        current_app.logger.info(
+            json.dumps(
+                {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "picker_session_id": ps.id,
+                    "account_id": account.id,
+                    "session_id": ps.session_id,
+                },
+                default=_normalize_log_value,
+            ),
+            extra={"event": "pickerSession.create.persisted"},
+        )
         return {
             "pickerSessionId": ps.id,
             "sessionId": ps.session_id,
@@ -284,6 +374,20 @@ class PickerSessionService:
     def status(ps: PickerSession) -> dict:
         account = GoogleAccount.query.get(ps.account_id) if ps.account_id else None
         selected = ps.selected_count
+
+        if account and account.status == "active" and not ps.session_id:
+            current_app.logger.info(
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "picker_session_id": ps.id,
+                        "account_id": ps.account_id,
+                        "reason": "missing_google_session_id",
+                    },
+                    default=_normalize_log_value,
+                ),
+                extra={"event": "pickerSession.status.missingSessionId"},
+            )
 
         counts_query = (
             db.session.query(
@@ -851,7 +955,27 @@ class PickerSessionService:
         try:
             with _media_items_concurrency:
                 lock = _get_lock(session_id)
+                current_app.logger.info(
+                    json.dumps(
+                        {
+                            "event": "picker.mediaItems.lock_attempt",
+                            "session_id": session_id,
+                            "cursor": cursor,
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                        }
+                    )
+                )
                 if not lock.acquire(blocking=False):
+                    current_app.logger.warning(
+                        json.dumps(
+                            {
+                                "event": "picker.mediaItems.lock_busy",
+                                "session_id": session_id,
+                                "cursor": cursor,
+                                "ts": datetime.now(timezone.utc).isoformat(),
+                            }
+                        )
+                    )
                     return {"error": "busy"}, 409
                 try:
                     return PickerSessionService._media_items_locked(session_id, cursor)
@@ -860,6 +984,17 @@ class PickerSessionService:
                     _release_lock(session_id, lock)
         except ConcurrencyLimitExceeded as exc:
             retry_after = exc.retry_after
+            current_app.logger.warning(
+                json.dumps(
+                    {
+                        "event": "picker.mediaItems.rate_limited",
+                        "session_id": session_id,
+                        "cursor": cursor,
+                        "retry_after": retry_after,
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
+            )
             return {
                 "error": "rate_limited",
                 "retryAfter": retry_after,
@@ -870,6 +1005,18 @@ class PickerSessionService:
         ps = PickerSession.query.filter_by(session_id=session_id).first()
         if not ps or ps.status not in ("pending", "processing"):
             return {"error": "not_found"}, 404
+        current_app.logger.info(
+            json.dumps(
+                {
+                    "event": "picker.mediaItems.lock_acquired",
+                    "session_id": session_id,
+                    "session_db_id": ps.id,
+                    "status": ps.status,
+                    "cursor": cursor,
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+        )
         PickerSessionService._mark_processing(ps)
         try:
             headers = PickerSessionService._auth_headers(ps.account_id)
@@ -880,7 +1027,21 @@ class PickerSessionService:
             saved, dup, new_pmis = PickerSessionService._fetch_and_store_items(
                 ps, headers, session_id, cursor
             )
+            new_count = len(new_pmis) if isinstance(new_pmis, list) else None
             PickerSessionService._enqueue_new_items(ps, new_pmis)
+            current_app.logger.info(
+                json.dumps(
+                    {
+                        "event": "picker.mediaItems.lock_complete",
+                        "session_id": session_id,
+                        "session_db_id": ps.id,
+                        "saved": saved,
+                        "duplicates": dup,
+                        "new_items": new_count,
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
+            )
             return {"saved": saved, "duplicates": dup, "nextCursor": None}, 200
         except Exception as e:
             db.session.rollback()
@@ -920,6 +1081,18 @@ class PickerSessionService:
         )
         sess_res.raise_for_status()
         sess_data = sess_res.json()
+        current_app.logger.info(
+            json.dumps(
+                {
+                    "event": "picker.mediaItems.session_snapshot",
+                    "session_id": session_id,
+                    "session_db_id": ps.id,
+                    "google_status": sess_data.get("state"),
+                    "selection_count": len(sess_data.get("mediaItems", []) or []),
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+        )
         _update_picker_session_from_data(ps, sess_data)
         db.session.commit()
 
@@ -931,6 +1104,7 @@ class PickerSessionService:
         saved = 0
         dup = 0
         new_pmis = []
+        page_index = 0
         while True:
             picker_data = PickerSessionService._fetch_items_page(headers, params)
             items = picker_data.get("mediaItems") or []
@@ -939,6 +1113,22 @@ class PickerSessionService:
             dup += page_dup
             new_pmis.extend(page_new)
             cursor = picker_data.get("nextPageToken")
+            current_app.logger.info(
+                json.dumps(
+                    {
+                        "event": "picker.mediaItems.page",
+                        "session_id": session_id,
+                        "session_db_id": ps.id,
+                        "page_index": page_index,
+                        "fetched": len(items),
+                        "saved": page_saved,
+                        "duplicates": page_dup,
+                        "next_cursor": cursor,
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
+            )
+            page_index += 1
             if cursor:
                 params["pageToken"] = cursor
                 continue
@@ -960,6 +1150,15 @@ class PickerSessionService:
                 raise RuntimeError(f"mediaItems fetch failed: {fetch_exc}")
 
             if getattr(res, "status_code", 200) == 429:
+                current_app.logger.warning(
+                    json.dumps(
+                        {
+                            "event": "picker.mediaItems.throttle",
+                            "params": params,
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                        }
+                    )
+                )
                 time.sleep(1)
                 continue
             res.raise_for_status()
@@ -1241,6 +1440,17 @@ class PickerSessionService:
         if selection_ids:
             PickerSessionService._ensure_import_tasks(selection_ids)
         db.session.commit()
+        current_app.logger.info(
+            json.dumps(
+                {
+                    "event": "picker.mediaItems.enqueued",
+                    "session_id": ps.session_id,
+                    "session_db_id": ps.id,
+                    "enqueued_count": len(selection_ids),
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+        )
         # Late import to allow tests to monkeypatch via picker_session module
         from webapp.api import picker_session as ps_module  # type: ignore
         for pmi in new_pmis:

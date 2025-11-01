@@ -129,7 +129,8 @@ def _normalize_log_value(value: Any) -> Any:
 
 
 def _update_picker_session_from_data(ps: PickerSession, data: dict) -> None:
-    ps.session_id = data.get("id")
+    session_id = data.get("id")
+    ps.session_id = session_id
     ps.picker_uri = data.get("pickerUri")
     expire = data.get("expireTime")
     if expire is not None:
@@ -144,6 +145,22 @@ def _update_picker_session_from_data(ps: PickerSession, data: dict) -> None:
     if "mediaItemsSet" in data:
         ps.media_items_set = data.get("mediaItemsSet")
     ps.updated_at = datetime.now(timezone.utc)
+
+    if ps.account_id and not session_id:
+        try:
+            log_payload = {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "picker_session_id": ps.id,
+                "account_id": ps.account_id,
+                "payload_keys": sorted(data.keys()),
+            }
+            current_app.logger.warning(
+                json.dumps(log_payload, default=_normalize_log_value),
+                extra={"event": "pickerSession.sessionId.missing"},
+            )
+        except Exception:
+            # Logging must never break the update path.
+            pass
 
 
 class PickerSessionService:
@@ -242,12 +259,37 @@ class PickerSessionService:
         try:
             tokens = refresh_google_token(account)
         except RefreshTokenError as e:
+            current_app.logger.warning(
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "account_id": account.id,
+                        "reason": "refresh_token_failed",
+                        "status_code": getattr(e, "status_code", None),
+                        "message": str(e),
+                    },
+                    default=_normalize_log_value,
+                ),
+                extra={"event": "pickerSession.create.refreshTokenError"},
+            )
             status = 502 if e.status_code >= 500 else 401
             return {"error": str(e)}, status
 
         access_token = tokens.get("access_token")
         headers = {"Authorization": f"Bearer {access_token}"}
         body = {"title": title}
+        request_started_at = datetime.now(timezone.utc)
+        current_app.logger.info(
+            json.dumps(
+                {
+                    "ts": request_started_at.isoformat(),
+                    "account_id": account.id,
+                    "payload": {"title": title},
+                },
+                default=_normalize_log_value,
+            ),
+            extra={"event": "pickerSession.create.begin"},
+        )
         try:
             picker_res = log_requests_and_send(
                 "POST",
@@ -259,7 +301,43 @@ class PickerSessionService:
             picker_res.raise_for_status()
             picker_data = picker_res.json()
         except Exception as e:
+            current_app.logger.error(
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "account_id": account.id,
+                        "duration_ms": int((datetime.now(timezone.utc) - request_started_at).total_seconds() * 1000),
+                        "message": str(e),
+                    },
+                    default=_normalize_log_value,
+                ),
+                extra={"event": "pickerSession.create.failed"},
+            )
             return {"error": "picker_error", "message": str(e)}, 502
+
+        response_log_context = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "account_id": account.id,
+            "duration_ms": int((datetime.now(timezone.utc) - request_started_at).total_seconds() * 1000),
+            "has_session_id": bool(picker_data.get("id")),
+            "session_id": picker_data.get("id"),
+            "payload_keys": sorted(picker_data.keys()),
+        }
+        current_app.logger.info(
+            json.dumps(response_log_context, default=_normalize_log_value),
+            extra={"event": "pickerSession.create.response"},
+        )
+        if not picker_data.get("id"):
+            current_app.logger.warning(
+                json.dumps(
+                    {
+                        **response_log_context,
+                        "reason": "google_response_missing_session_id",
+                    },
+                    default=_normalize_log_value,
+                ),
+                extra={"event": "pickerSession.create.missingSessionId"},
+            )
 
         ps = PickerSession(
             account_id=account.id,
@@ -269,6 +347,18 @@ class PickerSessionService:
         db.session.add(ps)
         _update_picker_session_from_data(ps, picker_data)
         db.session.commit()
+        current_app.logger.info(
+            json.dumps(
+                {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "picker_session_id": ps.id,
+                    "account_id": account.id,
+                    "session_id": ps.session_id,
+                },
+                default=_normalize_log_value,
+            ),
+            extra={"event": "pickerSession.create.persisted"},
+        )
         return {
             "pickerSessionId": ps.id,
             "sessionId": ps.session_id,
@@ -284,6 +374,20 @@ class PickerSessionService:
     def status(ps: PickerSession) -> dict:
         account = GoogleAccount.query.get(ps.account_id) if ps.account_id else None
         selected = ps.selected_count
+
+        if account and account.status == "active" and not ps.session_id:
+            current_app.logger.info(
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "picker_session_id": ps.id,
+                        "account_id": ps.account_id,
+                        "reason": "missing_google_session_id",
+                    },
+                    default=_normalize_log_value,
+                ),
+                extra={"event": "pickerSession.status.missingSessionId"},
+            )
 
         counts_query = (
             db.session.query(

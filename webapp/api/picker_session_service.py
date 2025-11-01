@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 import json
 import time
@@ -45,6 +46,13 @@ _locks_guard = Lock()
 _media_items_concurrency = create_limiter(
     "PICKER_MEDIA_ITEMS", retry_suffix="_RETRY_DELAY_SECONDS"
 )
+
+
+@dataclass
+class _SelectionSaveResult:
+    selection: PickerSelection
+    should_enqueue: bool
+    is_new_selection: bool
 
 
 def _acquire_media_items_slot() -> bool:
@@ -967,16 +975,20 @@ class PickerSessionService:
             if result is None:
                 dup += 1
                 continue
-            pmi = result
+            pmi = result.selection
             if getattr(pmi, "status", None) == "dup":
                 dup += 1
                 continue
-            saved += 1
-            new_pmis.append(pmi)
+
+            if result.is_new_selection:
+                saved += 1
+
+            if result.should_enqueue:
+                new_pmis.append(pmi)
         return saved, dup, new_pmis
 
     @staticmethod
-    def _save_single_item(ps: PickerSession, item: dict) -> Optional[PickerSelection]:
+    def _save_single_item(ps: PickerSession, item: dict) -> Optional["_SelectionSaveResult"]:
         item_id = item.get("id")
         if not item_id:
             return None
@@ -987,16 +999,23 @@ class PickerSessionService:
                 google_media_id=item_id, account_id=ps.account_id, is_deleted=False
             ).first()
         )
-        existing_selection = PickerSelection.query.filter_by(session_id=ps.id, google_media_id=item_id).first()
-        
-        # 現在のセッションで既に存在する場合は何もしない
-        if existing_selection:
-            return None
-            
+        existing_selection = (
+            PickerSelection.query.filter_by(session_id=ps.id, google_media_id=item_id)
+            .with_for_update(read=True)
+            .first()
+        )
+
+        was_existing = existing_selection is not None
+
         # 重複判定
         is_duplicate = existing_media is not None
-        status = "dup" if is_duplicate else "pending"
-        
+        if is_duplicate:
+            target_status = "dup"
+        elif existing_selection and existing_selection.status:
+            target_status = existing_selection.status
+        else:
+            target_status = "pending"
+
         if is_duplicate:
             current_app.logger.info(
                 json.dumps(
@@ -1010,7 +1029,12 @@ class PickerSessionService:
             )
 
         mi = MediaItem.query.get(item_id) or MediaItem(id=item_id, type="TYPE_UNSPECIFIED")
-        pmi = PickerSelection(session_id=ps.id, google_media_id=item_id, status=status)
+        pmi = existing_selection or PickerSelection(
+            session_id=ps.id,
+            google_media_id=item_id,
+            status=target_status,
+        )
+        pmi.status = target_status
 
         ct = item.get("createTime")
         if ct:
@@ -1112,18 +1136,36 @@ class PickerSessionService:
                     existing.status = "dup"
                     existing.updated_at = now
                 db.session.flush([existing])
-                return existing
+                return _SelectionSaveResult(
+                    selection=existing,
+                    should_enqueue=(
+                        not is_duplicate and existing.status == "pending"
+                    ),
+                    is_new_selection=False,
+                )
             raise
 
         db.session.flush()
-        selection = PickerSelection.query.filter_by(
-            session_id=ps.id, google_media_id=item_id
-        ).first()
+        selection = (
+            PickerSelection.query.filter_by(
+                session_id=ps.id, google_media_id=item_id
+            )
+            .with_for_update(read=True)
+            .first()
+        )
         if selection and is_duplicate and selection.status != "dup":
             selection.status = "dup"
             selection.updated_at = now
             db.session.flush([selection])
-        return selection
+        if not selection:
+            return None
+
+        should_enqueue = not is_duplicate and selection.status == "pending"
+        return _SelectionSaveResult(
+            selection=selection,
+            should_enqueue=should_enqueue,
+            is_new_selection=not was_existing,
+        )
 
     @staticmethod
     def _apply_meta(mi: MediaItem, pmi: PickerSelection, meta: dict) -> None:

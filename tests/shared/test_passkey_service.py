@@ -10,6 +10,7 @@ from shared.application.passkey_service import (
     PasskeyRegistrationError,
     PasskeyService,
 )
+from shared.infrastructure.passkey_repository import DuplicatePasskeyCredentialError
 from webauthn.helpers import bytes_to_base64url
 from webauthn.helpers.structs import (
     AuthenticationCredential,
@@ -33,22 +34,39 @@ class StubRepository:
     added_records: list[dict] = field(default_factory=list)
     touched: list[tuple] = field(default_factory=list)
     stored_record: SimpleNamespace | None = None
+    updated_records: list[tuple] = field(default_factory=list)
+    duplicate_on_add: bool = False
 
     def list_for_user(self, user_id: int):
         return list(self.credentials)
 
     def add(self, **kwargs):
+        if self.duplicate_on_add:
+            raise DuplicatePasskeyCredentialError
+
         self.added_records.append(kwargs)
         record = SimpleNamespace(
             id=len(self.added_records),
             user=kwargs["user"],
+            user_id=getattr(kwargs["user"], "id", None),
+            credential_id=kwargs.get("credential_id"),
+            public_key=kwargs.get("public_key"),
+            sign_count=kwargs.get("sign_count", 0),
             name=kwargs.get("name"),
             transports=list(kwargs.get("transports") or []),
             created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
             last_used_at=None,
+            attestation_format=kwargs.get("attestation_format"),
+            aaguid=kwargs.get("aaguid"),
             backup_eligible=kwargs.get("backup_eligible", False),
             backup_state=kwargs.get("backup_state", False),
         )
+
+        def _touch():
+            record.updated_at = datetime.now(timezone.utc)
+
+        record.touch = _touch  # type: ignore[attr-defined]
         self.stored_record = record
         return record
 
@@ -61,6 +79,38 @@ class StubRepository:
         credential.sign_count = new_sign_count
         credential.last_used_at = datetime.now(timezone.utc)
         self.touched.append((credential, new_sign_count))
+
+    def update_existing(self, credential, **kwargs):
+        self.updated_records.append((credential, kwargs))
+
+        public_key = kwargs.get("public_key")
+        if public_key is not None:
+            credential.public_key = public_key
+
+        if "sign_count" in kwargs and kwargs["sign_count"] is not None:
+            credential.sign_count = kwargs["sign_count"]
+
+        transports = kwargs.get("transports")
+        if transports is not None:
+            credential.transports = list(transports)
+
+        if "name" in kwargs and kwargs["name"] is not None:
+            credential.name = kwargs["name"]
+
+        if "attestation_format" in kwargs and kwargs["attestation_format"] is not None:
+            credential.attestation_format = kwargs["attestation_format"]
+
+        if "aaguid" in kwargs and kwargs["aaguid"] is not None:
+            credential.aaguid = kwargs["aaguid"]
+
+        if "backup_eligible" in kwargs and kwargs["backup_eligible"] is not None:
+            credential.backup_eligible = kwargs["backup_eligible"]
+
+        if "backup_state" in kwargs and kwargs["backup_state"] is not None:
+            credential.backup_state = kwargs["backup_state"]
+
+        credential.touch()
+        return credential
 
 
 @pytest.fixture
@@ -224,6 +274,80 @@ def test_register_passkey_persists_repository(monkeypatch, service, repository):
     assert added["backup_eligible"] is True
     assert added["backup_state"] is True
     assert record.name == "Laptop"
+
+
+def test_register_passkey_duplicate_returns_existing_record(monkeypatch, service, repository):
+    user = DummyUser(7, "duplicate@example.com")
+
+    verification = SimpleNamespace(
+        credential_id=b"cred-id",
+        credential_public_key=b"new-public-key",
+        sign_count=3,
+        fmt="packed",
+        aaguid="1111",
+        credential_device_type="multi-device",
+        credential_backed_up=True,
+    )
+
+    monkeypatch.setattr(
+        "shared.application.passkey_service.verify_registration_response",
+        lambda **_: verification,
+    )
+
+    raw_id_bytes = b"cred-id"
+    payload_dict = {
+        "id": bytes_to_base64url(raw_id_bytes),
+        "rawId": bytes_to_base64url(raw_id_bytes),
+        "response": {
+            "attestationObject": bytes_to_base64url(b"attestation"),
+            "clientDataJSON": bytes_to_base64url(b"client-data"),
+        },
+        "type": "public-key",
+    }
+
+    existing = SimpleNamespace(
+        id=99,
+        user=user,
+        user_id=user.id,
+        credential_id=bytes_to_base64url(b"cred-id"),
+        public_key="stale-key",
+        sign_count=1,
+        transports=["internal"],
+        name="Old Laptop",
+        attestation_format="packed",
+        aaguid="0000",
+        backup_eligible=False,
+        backup_state=False,
+        updated_at=datetime.now(timezone.utc),
+    )
+
+    def _touch():
+        existing.updated_at = datetime.now(timezone.utc)
+
+    existing.touch = _touch  # type: ignore[attr-defined]
+
+    repository.stored_record = existing
+    repository.duplicate_on_add = True
+
+    record = service.register_passkey(
+        user=user,
+        payload=json.dumps(payload_dict).encode("utf-8"),
+        expected_challenge=bytes_to_base64url(b"expected"),
+        transports=["internal", "hybrid"],
+        name="Work Laptop",
+    )
+
+    assert record is existing
+    assert repository.updated_records, "Existing record should be updated"
+    _, kwargs = repository.updated_records[0]
+    assert kwargs["public_key"] == bytes_to_base64url(b"new-public-key")
+    assert kwargs["sign_count"] == 3
+    assert record.public_key == bytes_to_base64url(b"new-public-key")
+    assert record.sign_count == 3
+    assert record.backup_eligible is True
+    assert record.backup_state is True
+    assert record.name == "Work Laptop"
+    assert record.transports == ["internal", "hybrid"]
 
 
 def test_register_passkey_invalid_payload_raises_error(monkeypatch, service):

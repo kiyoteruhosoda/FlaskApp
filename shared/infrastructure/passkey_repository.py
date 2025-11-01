@@ -85,3 +85,47 @@ class SqlAlchemyPasskeyRepository:
     def delete(self, credential: PasskeyCredential) -> None:
         self._session.delete(credential)
         self._session.commit()
+
+    def update_existing(
+        self,
+        credential: PasskeyCredential,
+        *,
+        public_key: str | None = None,
+        sign_count: int | None = None,
+        transports: Iterable[str] | None = None,
+        name: str | None = None,
+        attestation_format: str | None = None,
+        aaguid: str | None = None,
+        backup_eligible: bool | None = None,
+        backup_state: bool | None = None,
+    ) -> PasskeyCredential:
+        """Persist updated metadata for an existing credential."""
+
+        if public_key is not None:
+            credential.public_key = public_key
+
+        if sign_count is not None:
+            credential.sign_count = sign_count
+
+        if transports is not None:
+            credential.transports = list(transports) if transports else None
+
+        if name is not None:
+            credential.name = name
+
+        if attestation_format is not None:
+            credential.attestation_format = attestation_format
+
+        if aaguid is not None:
+            credential.aaguid = aaguid
+
+        if backup_eligible is not None:
+            credential.backup_eligible = backup_eligible
+
+        if backup_state is not None:
+            credential.backup_state = backup_state
+
+        credential.touch()
+        self._session.commit()
+        self._session.refresh(credential)
+        return credential

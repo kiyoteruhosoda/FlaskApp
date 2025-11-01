@@ -1354,6 +1354,10 @@ msgid "Passkey registration options could not be retrieved."
 msgstr "パスキー登録のオプションを取得できませんでした。"
 
 #: webapp/auth/templates/auth/profile.html
+msgid "Passkey registration was cancelled before completion."
+msgstr "パスキーの登録が完了する前にキャンセルされました。"
+
+#: webapp/auth/templates/auth/profile.html
 msgid "Passkey registration failed. Please try again."
 msgstr "パスキーの登録に失敗しました。もう一度お試しください。"
 

@@ -110,15 +110,6 @@ _SECURITY_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         ),
     ),
     SettingFieldDefinition(
-        key="ENCRYPTION_KEY_FILE",
-        label=_(u"Token encryption key file"),
-        data_type="string",
-        required=False,
-        description=_(u"Path to a PEM file used for token encryption."),
-        allow_empty=True,
-        allow_null=True,
-    ),
-    SettingFieldDefinition(
         key="WEBAUTHN_RP_ID",
         label=_(u"WebAuthn relying party ID"),
         data_type="string",

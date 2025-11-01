@@ -48,11 +48,6 @@ def _load_key(raw: Optional[str] = None, *, config: ApplicationSettings = settin
     if key_str:
         return _decode_key(key_str)
 
-    path = config.token_encryption_key_file
-    if path:
-        with open(path, "r") as f:
-            return _decode_key(f.read().strip())
-
     raise RuntimeError("Encryption key not configured")
 
 

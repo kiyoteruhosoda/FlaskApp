@@ -62,7 +62,6 @@ class BaseApplicationSettings:
 
     # Token encryption
     ENCRYPTION_KEY = _default("ENCRYPTION_KEY")
-    ENCRYPTION_KEY_FILE = _default("ENCRYPTION_KEY_FILE")
 
     # Download URL signing
     MEDIA_DOWNLOAD_SIGNING_KEY = _default("MEDIA_DOWNLOAD_SIGNING_KEY")

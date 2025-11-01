@@ -571,8 +571,6 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret
 
 # OAuth トークン暗号化用鍵（AES-256-GCM）
 ENCRYPTION_KEY=base64:your-32-byte-base64-encoded-key
-# または
-ENCRYPTION_KEY_FILE=/path/to/key/file
 
 # メディアストレージパス
 MEDIA_STORAGE_PATH=/path/to/media/storage
@@ -765,7 +763,7 @@ print(f"ENCRYPTION_KEY=base64:{key_b64}")
 ### 10.2 暗号化の仕組み
 - トークンは `google_account.oauth_token_json` フィールドに暗号化保存
 - 復号化は `core/crypto.py` の `decrypt_oauth_token()` で実行
-- 鍵は環境変数 `ENCRYPTION_KEY` または `ENCRYPTION_KEY_FILE` で指定
+- 鍵は環境変数 `ENCRYPTION_KEY` で指定
 
 ## 11. テストの実行
 pytest を使用した包括的なテストスイートが用意されています。

@@ -61,6 +61,38 @@ body.login-page footer {
   margin: 0;
 }
 
+.passkey-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.passkey-btn.passkey-btn--inactive {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.passkey-hint {
+  font-size: 0.85rem;
+  color: #64748b;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.passkey-hint i {
+  margin-top: 0.25rem;
+  color: inherit;
+}
+
+.passkey-hint--active {
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
 .form-group {
   position: relative;
   margin-bottom: 25px;

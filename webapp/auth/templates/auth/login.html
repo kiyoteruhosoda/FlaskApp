@@ -68,10 +68,19 @@
     </div>
 
       {% if passkey_available %}
-      <button type="button" class="btn btn-outline-primary passkey-btn" data-passkey-login>
-        <i class="fas fa-key" style="margin-right: 8px;"></i>
-        {{ _('Sign in with passkey') }}
-      </button>
+      <div class="passkey-section">
+        <button type="button" class="btn btn-outline-primary passkey-btn passkey-btn--inactive" data-passkey-login
+                data-email-required-message="{{ _('Passkey sign-in still requires your email address so we can match your account.') }}"
+                title="{{ _('Passkey sign-in still requires your email address so we can match your account.') }}"
+                aria-disabled="true" disabled>
+          <i class="fas fa-key" style="margin-right: 8px;"></i>
+          {{ _('Sign in with passkey') }}
+        </button>
+        <p class="passkey-hint" data-passkey-hint>
+          <i class="fas fa-info-circle" aria-hidden="true"></i>
+          {{ _('Passkey sign-in still requires your email address so we can match your account.') }}
+        </p>
+      </div>
       {% endif %}
 
     <button type="submit" class="btn btn-login">
@@ -111,6 +120,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Add loading state to form submission
   const form = document.getElementById('loginForm');
   const submitBtn = document.querySelector('.btn-login');
+  const emailField = document.getElementById('email');
 
   if (!form || !submitBtn) {
     return;
@@ -273,12 +283,59 @@ document.addEventListener('DOMContentLoaded', function() {
   };
 
   const passkeyButton = document.querySelector('[data-passkey-login]');
+  const passkeyHint = document.querySelector('[data-passkey-hint]');
+  const passkeyEmailRequiredMessage = passkeyButton?.getAttribute('data-email-required-message') || '';
+
+  const updatePasskeyButtonEmailState = () => {
+    if (!passkeyButton || passkeyButton.dataset.disabledCompatibility === 'true') {
+      return;
+    }
+
+    const hasEmail = (emailField?.value || '').trim().length > 0;
+    passkeyButton.disabled = !hasEmail;
+    passkeyButton.classList.toggle('passkey-btn--inactive', !hasEmail);
+    passkeyButton.setAttribute('aria-disabled', hasEmail ? 'false' : 'true');
+
+    if (passkeyHint) {
+      passkeyHint.classList.toggle('passkey-hint--active', !hasEmail);
+    }
+  };
+
+  if (emailField) {
+    emailField.addEventListener('input', updatePasskeyButtonEmailState);
+    emailField.addEventListener('change', updatePasskeyButtonEmailState);
+  }
+
+  const setCompatibilityDisabled = () => {
+    if (!passkeyButton) {
+      return;
+    }
+
+    passkeyButton.disabled = true;
+    passkeyButton.classList.add('disabled');
+    passkeyButton.dataset.disabledCompatibility = 'true';
+    passkeyButton.setAttribute('aria-disabled', 'true');
+  };
+
+  const clearCompatibilityDisabled = () => {
+    if (!passkeyButton) {
+      return;
+    }
+
+    if ('disabledCompatibility' in passkeyButton.dataset) {
+      delete passkeyButton.dataset.disabledCompatibility;
+    }
+
+    passkeyButton.classList.remove('disabled');
+  };
+
   if (passkeyButton) {
     if (!window.PublicKeyCredential || typeof navigator.credentials === 'undefined') {
-      passkeyButton.disabled = true;
-      passkeyButton.classList.add('disabled');
+      setCompatibilityDisabled();
       passkeyButton.setAttribute('title', '{{ _('Passkey login requires a compatible browser.') }}');
     } else {
+      clearCompatibilityDisabled();
+      updatePasskeyButtonEmailState();
       passkeyButton.addEventListener('click', async (event) => {
         event.preventDefault();
         if (passkeyButton.classList.contains('loading')) {
@@ -286,20 +343,30 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         passkeyButton.classList.add('loading');
-        passkeyButton.disabled = true;
-
-        const emailField = document.getElementById('email');
         const emailInputValue = (emailField?.value || '').trim();
         if (!emailInputValue) {
           if (emailField) {
-            if (typeof emailField.reportValidity === 'function') {
+            if (passkeyEmailRequiredMessage && typeof emailField.setCustomValidity === 'function') {
+              emailField.setCustomValidity(passkeyEmailRequiredMessage);
+              emailField.reportValidity();
+              emailField.setCustomValidity('');
+            } else if (typeof emailField.reportValidity === 'function') {
               emailField.reportValidity();
             } else {
               emailField.focus();
             }
           }
+
+          if (passkeyEmailRequiredMessage) {
+            if (typeof showErrorToast === 'function') {
+              showErrorToast(passkeyEmailRequiredMessage);
+            } else {
+              alert(passkeyEmailRequiredMessage);
+            }
+          }
+
           passkeyButton.classList.remove('loading');
-          passkeyButton.disabled = false;
+          updatePasskeyButtonEmailState();
           return;
         }
 
@@ -427,11 +494,13 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         } finally {
           passkeyButton.classList.remove('loading');
-          passkeyButton.disabled = false;
+          updatePasskeyButtonEmailState();
         }
       });
     }
   }
+
+  updatePasskeyButtonEmailState();
 
   // APIベースの認証処理
   form.addEventListener('submit', async function(e) {

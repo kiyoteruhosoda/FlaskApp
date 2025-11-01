@@ -1293,6 +1293,10 @@ msgstr "パスキーでサインイン"
 msgid "Passkey login requires a compatible browser."
 msgstr "パスキーでのサインインには対応ブラウザが必要です。"
 
+#: webapp/auth/templates/auth/login.html webapp/auth/templates/auth/login.html
+msgid "Passkey sign-in still requires your email address so we can match your account."
+msgstr "パスキーでサインインする場合も、アカウントを特定するためにメールアドレスの入力が必要です。"
+
 #: webapp/auth/templates/auth/login.html
 msgid "Passkey login options could not be retrieved."
 msgstr "パスキーサインインのオプションを取得できませんでした。"

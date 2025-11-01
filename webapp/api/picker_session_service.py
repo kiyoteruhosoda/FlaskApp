@@ -984,7 +984,27 @@ class PickerSessionService:
                 saved += 1
 
             if result.should_enqueue:
+                current_app.logger.info(
+                    json.dumps({
+                        "event": "picker.enqueue",
+                        "google_media_id": pmi.google_media_id,
+                        "status": pmi.status,
+                        "is_new": result.is_new_selection,
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                    })
+                )
                 new_pmis.append(pmi)
+            else:
+                current_app.logger.debug(
+                    json.dumps({
+                        "event": "picker.skip_enqueue",
+                        "google_media_id": pmi.google_media_id,
+                        "status": pmi.status,
+                        "is_new": result.is_new_selection,
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                    })
+                )
+        
         return saved, dup, new_pmis
 
     @staticmethod

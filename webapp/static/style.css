@@ -455,6 +455,15 @@ body.login-page footer {
   max-width: 12rem;
 }
 
+/* Use more compact spacing for small buttons inside tabular layouts */
+.table td .btn-size-sm,
+.table th .btn-size-sm {
+  min-width: 0;
+  max-width: none;
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.5rem;
+}
+
 .btn-login {
   width: 100%;
   padding: 14px;

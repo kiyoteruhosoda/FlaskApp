@@ -28,6 +28,7 @@ from core.models.photo_models import (
     VideoMetadata,
     Media,
 )
+from core.models.picker_import_task import PickerImportTask
 from core.models.log import Log
 from ..auth.utils import refresh_google_token, RefreshTokenError, log_requests_and_send
 from core.tasks.local_import import build_thumbnail_task_snapshot
@@ -1162,6 +1163,9 @@ class PickerSessionService:
 
     @staticmethod
     def _enqueue_new_items(ps: PickerSession, new_pmis: Iterable[PickerSelection]) -> None:
+        new_pmis = list(new_pmis)
+        if not new_pmis:
+            return
         # ps.status = "imported"  # 削除: 新しいアイテムをキューに追加しただけで、まだインポート完了ではない
         now = datetime.now(timezone.utc)
         ps.updated_at = now
@@ -1169,6 +1173,11 @@ class PickerSessionService:
         for pmi in new_pmis:
             pmi.status = "enqueued"
             pmi.enqueued_at = now
+        db.session.flush(new_pmis)
+
+        selection_ids = [pmi.id for pmi in new_pmis if pmi.id is not None]
+        if selection_ids:
+            PickerSessionService._ensure_import_tasks(selection_ids)
         db.session.commit()
         # Late import to allow tests to monkeypatch via picker_session module
         from webapp.api import picker_session as ps_module  # type: ignore
@@ -1249,6 +1258,32 @@ class PickerSessionService:
         task_record.update_payload({"job_id": job.id, "celery_task_id": task_id})
         db.session.commit()
         return job, task_id
+
+    @staticmethod
+    def _ensure_import_tasks(selection_ids: Sequence[int]) -> None:
+        if not selection_ids:
+            return
+
+        task_table = PickerImportTask.__table__
+        values = [{"id": sid} for sid in selection_ids]
+
+        bind = db.session.bind
+        dialect_name = bind.dialect.name if bind is not None else ""
+
+        if dialect_name == "mysql":
+            insert_stmt = mysql_insert(task_table).values(values)
+            statement = insert_stmt.on_duplicate_key_update(id=insert_stmt.inserted.id)
+            db.session.execute(statement)
+            return
+
+        if dialect_name == "sqlite":
+            insert_stmt = sqlite_insert(task_table).values(values)
+            statement = insert_stmt.on_conflict_do_nothing(index_elements=[task_table.c.id])
+            db.session.execute(statement)
+            return
+
+        for value in values:
+            db.session.merge(PickerImportTask(**value))
 
     @staticmethod
     def _publish_celery(ps: PickerSession, job: JobSync, task_id: str) -> None:

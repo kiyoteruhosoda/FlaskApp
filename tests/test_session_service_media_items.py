@@ -1,6 +1,19 @@
 from datetime import datetime, timezone
+from uuid import uuid4
 
 from sqlalchemy import inspect
+
+
+def _create_session(db):
+    from core.models.picker_session import PickerSession
+
+    session = PickerSession(session_id=f"session-{uuid4().hex}", status="pending")
+    now = datetime.now(timezone.utc)
+    session.created_at = now
+    session.updated_at = now
+    db.session.add(session)
+    db.session.commit()
+    return session
 
 
 def test_media_item_flushed_before_selection_insert(app_context, monkeypatch):
@@ -8,16 +21,10 @@ def test_media_item_flushed_before_selection_insert(app_context, monkeypatch):
 
     from webapp.extensions import db
     from webapp.api.picker_session_service import PickerSessionService
-    from core.models.picker_session import PickerSession
     from core.models.photo_models import MediaItem
 
     with app.app_context():
-        session = PickerSession(session_id="session-1", status="pending")
-        now = datetime.now(timezone.utc)
-        session.created_at = now
-        session.updated_at = now
-        db.session.add(session)
-        db.session.commit()
+        session = _create_session(db)
 
         original_execute = db.session.execute
 
@@ -49,3 +56,39 @@ def test_media_item_flushed_before_selection_insert(app_context, monkeypatch):
 
         assert selection is not None
         assert selection.google_media_id == "GOOGLE_MEDIA_ID"
+
+
+def test_enqueue_new_items_create_import_tasks(app_context, monkeypatch):
+    app = app_context
+
+    from webapp.extensions import db
+    from webapp.api.picker_session_service import PickerSessionService
+    from core.models.photo_models import PickerSelection
+    from core.models.picker_import_task import PickerImportTask
+
+    with app.app_context():
+        session = _create_session(db)
+
+        selection = PickerSelection(session_id=session.id, status="pending")
+        db.session.add(selection)
+        db.session.commit()
+
+        import webapp.api.picker_session as ps_module
+
+        queued = []
+
+        def fake_enqueue(selection_id, session_id):
+            queued.append((selection_id, session_id))
+
+        monkeypatch.setattr(ps_module, "enqueue_picker_import_item", fake_enqueue)
+
+        PickerSessionService._enqueue_new_items(session, [selection])
+
+        task = db.session.get(PickerImportTask, selection.id)
+        assert task is not None
+        assert queued == [(selection.id, session.id)]
+
+        # 2回目の呼び出しでも重複登録せずに処理できること
+        PickerSessionService._enqueue_new_items(session, [selection])
+        all_tasks = db.session.query(PickerImportTask).all()
+        assert [t.id for t in all_tasks] == [selection.id]

@@ -147,13 +147,45 @@ class PasskeyService:
     def generate_authentication_options(
         self,
         *,
+        user=None,
         rp_id: str | None = None,
     ) -> tuple[dict, str]:
         """Return request options and encoded challenge for authentication."""
 
+        allow_credentials: list[PublicKeyCredentialDescriptor] | None = None
+
+        if user is not None:
+            allow_credentials = []
+            for credential in self.repository.list_for_user(user.id):
+                descriptor_kwargs = {
+                    "id": base64url_to_bytes(credential.credential_id),
+                    "type": PublicKeyCredentialType.PUBLIC_KEY,
+                }
+
+                transports = []
+                for value in credential.transports or []:
+                    try:
+                        transports.append(AuthenticatorTransport(value))
+                    except Exception:  # pragma: no cover - defensive branch
+                        continue
+
+                if transports:
+                    descriptor_kwargs["transports"] = transports
+
+                try:
+                    descriptor = PublicKeyCredentialDescriptor(**descriptor_kwargs)
+                except Exception:  # pragma: no cover - defensive branch
+                    continue
+
+                allow_credentials.append(descriptor)
+
+            if not allow_credentials:
+                allow_credentials = None
+
         options = generate_authentication_options(
             rp_id=rp_id or settings.webauthn_rp_id,
             user_verification=UserVerificationRequirement.PREFERRED,
+            allow_credentials=allow_credentials,
         )
         challenge = bytes_to_base64url(options.challenge)
         options_json = json.loads(options_to_json(options))

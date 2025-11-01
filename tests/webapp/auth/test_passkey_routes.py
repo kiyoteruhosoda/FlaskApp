@@ -309,17 +309,25 @@ def test_extract_passkey_client_data_details():
 
 
 def test_passkey_login_options_sets_challenge(monkeypatch, client):
+    user = _create_user()
+    user_model = db.session.get(User, user.id)
     options_payload = {"publicKey": {}}
     challenge = "auth-challenge"
 
     class StubService:
-        def generate_authentication_options(self, rp_id=None):
+        def generate_authentication_options(self, *, user=None, rp_id=None):
             assert rp_id is not None
+            assert user is not None
+            assert user.id == user_model.id
             return options_payload, challenge
 
     monkeypatch.setattr("webapp.auth.routes.passkey_service", StubService())
 
-    response = client.post("/auth/passkey/options/login")
+    response = client.post(
+        "/auth/passkey/options/login",
+        data=json.dumps({"email": user.email}),
+        content_type="application/json",
+    )
     assert response.status_code == 200
     body = response.get_json()
     assert body["publicKey"] == options_payload["publicKey"]

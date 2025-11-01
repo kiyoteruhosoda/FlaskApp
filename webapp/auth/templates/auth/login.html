@@ -285,6 +285,21 @@ document.addEventListener('DOMContentLoaded', function() {
         passkeyButton.classList.add('loading');
         passkeyButton.disabled = true;
 
+        const emailField = document.getElementById('email');
+        const emailInputValue = (emailField?.value || '').trim();
+        if (!emailInputValue) {
+          if (emailField) {
+            if (typeof emailField.reportValidity === 'function') {
+              emailField.reportValidity();
+            } else {
+              emailField.focus();
+            }
+          }
+          passkeyButton.classList.remove('loading');
+          passkeyButton.disabled = false;
+          return;
+        }
+
         const storedRedirectPath = localStorage.getItem('redirect_after_login');
 
         try {
@@ -293,6 +308,7 @@ document.addEventListener('DOMContentLoaded', function() {
             headers: {
               'Content-Type': 'application/json',
             },
+            body: JSON.stringify({ email: emailInputValue }),
           });
 
           if (!optionsResponse.ok) {

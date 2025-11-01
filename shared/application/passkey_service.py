@@ -62,17 +62,6 @@ class PasskeyService:
     ) -> tuple[dict, str]:
         """Return creation options and encoded challenge for *user*."""
 
-        exclude_credentials: list[PublicKeyCredentialDescriptor] = []
-        for credential in self.repository.list_for_user(user.id):
-            try:
-                descriptor = PublicKeyCredentialDescriptor(
-                    id=base64url_to_bytes(credential.credential_id),
-                    type=PublicKeyCredentialType.PUBLIC_KEY,
-                )
-            except Exception:  # pragma: no cover - defensive
-                continue
-            exclude_credentials.append(descriptor)
-
         options = generate_registration_options(
             rp_id=rp_id or settings.webauthn_rp_id,
             rp_name=rp_name or settings.webauthn_rp_name,
@@ -84,7 +73,6 @@ class PasskeyService:
                 resident_key=ResidentKeyRequirement.PREFERRED,
                 user_verification=UserVerificationRequirement.PREFERRED,
             ),
-            exclude_credentials=exclude_credentials,
         )
         challenge = bytes_to_base64url(options.challenge)
         options_json = json.loads(options_to_json(options))

@@ -76,7 +76,6 @@
                 type="button"
                 class="btn btn-outline-primary"
                 data-passkey-register
-                data-passkey-existing-count="{{ passkey_credentials|length if passkey_credentials is not none else 0 }}"
               >
                 <span class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true" data-passkey-spinner></span>
                 <i class="fas fa-key me-2" data-passkey-icon></i>
@@ -289,9 +288,6 @@
       const spinner = registerButton.querySelector('[data-passkey-spinner]');
       const icon = registerButton.querySelector('[data-passkey-icon]');
       const duplicateMessage = "{{ _('This passkey is already registered for your account.')|escapejs }}";
-      const existingCountRaw = registerButton.getAttribute('data-passkey-existing-count');
-      const existingCount = existingCountRaw ? Number.parseInt(existingCountRaw, 10) || 0 : 0;
-      const hadExistingCredentialsAtLoad = existingCount > 0;
 
       if (!window.PublicKeyCredential || typeof navigator.credentials === 'undefined') {
         registerButton.disabled = true;
@@ -394,9 +390,15 @@
               : undefined;
             const errorMessage = (error && typeof error.message === 'string') ? error.message : '';
 
-            const shouldTreatAsDuplicate = hadExcludedCredentials || hadExistingCredentialsAtLoad;
+            const shouldTreatAsDuplicate = hadExcludedCredentials;
 
-            if ((errorMessage === 'abort' || errorName === 'AbortError') && shouldTreatAsDuplicate) {
+            if (errorName === 'InvalidStateError') {
+              if (typeof showWarningToast === 'function') {
+                showWarningToast(duplicateMessage);
+              } else if (typeof alert === 'function') {
+                alert(duplicateMessage);
+              }
+            } else if ((errorMessage === 'abort' || errorName === 'AbortError') && shouldTreatAsDuplicate) {
               if (typeof showWarningToast === 'function') {
                 showWarningToast(duplicateMessage);
               } else if (typeof alert === 'function') {
@@ -409,10 +411,21 @@
                 alert(duplicateMessage);
               }
             } else if (errorName === 'NotAllowedError') {
+              const normalizedMessage = (typeof errorMessage === 'string')
+                ? errorMessage.toLowerCase()
+                : '';
+              let notAllowedMessage;
+              if (normalizedMessage.includes('timed out') || normalizedMessage.includes('timeout')) {
+                notAllowedMessage = '{{ _('Passkey registration timed out before the authenticator responded. Please try again and confirm the prompt on your device.') }}';
+              } else if (normalizedMessage.includes('cancel') || normalizedMessage.includes('dismiss')) {
+                notAllowedMessage = '{{ _('Passkey registration was cancelled from the authenticator prompt. Please retry and complete the device approval.') }}';
+              } else {
+                notAllowedMessage = '{{ _('Passkey registration was cancelled or timed out before completion. Please retry after completing the authenticator prompt.') }}';
+              }
               if (typeof showErrorToast === 'function') {
-                showErrorToast('{{ _('Passkey registration was cancelled before completion.') }}');
+                showErrorToast(notAllowedMessage);
               } else if (typeof alert === 'function') {
-                alert('{{ _('Passkey registration was cancelled before completion.') }}');
+                alert(notAllowedMessage);
               }
             } else if (errorMessage === 'options') {
               if (typeof showErrorToast === 'function') {

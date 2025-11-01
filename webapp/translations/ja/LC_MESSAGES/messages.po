@@ -1354,8 +1354,16 @@ msgid "Passkey registration options could not be retrieved."
 msgstr "パスキー登録のオプションを取得できませんでした。"
 
 #: webapp/auth/templates/auth/profile.html
-msgid "Passkey registration was cancelled before completion."
-msgstr "パスキーの登録が完了する前にキャンセルされました。"
+msgid "Passkey registration timed out before the authenticator responded. Please try again and confirm the prompt on your device."
+msgstr "認証器からの応答前にパスキー登録がタイムアウトしました。デバイスのプロンプトを確認してから再度お試しください。"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Passkey registration was cancelled from the authenticator prompt. Please retry and complete the device approval."
+msgstr "認証器のプロンプトでパスキー登録がキャンセルされました。デバイスで承認を完了してから再度お試しください。"
+
+#: webapp/auth/templates/auth/profile.html
+msgid "Passkey registration was cancelled or timed out before completion. Please retry after completing the authenticator prompt."
+msgstr "パスキー登録は完了前にキャンセルまたはタイムアウトしました。認証器の操作を完了してから再度お試しください。"
 
 #: webapp/auth/templates/auth/profile.html
 msgid "Passkey registration failed. Please try again."

@@ -69,12 +69,14 @@ Flask の挙動や外部サービス連携など、多用途な設定をまと�
 | カテゴリ | 主なキー | 説明 |
 | --- | --- | --- |
 | Flask 基本 | `SECRET_KEY`, `SESSION_COOKIE_SECURE`, `SESSION_COOKIE_HTTPONLY`, `SESSION_COOKIE_SAMESITE`, `PERMANENT_SESSION_LIFETIME`, `PREFERRED_URL_SCHEME` | セッション・Cookie・URL の初期値 |
-| セキュリティ / 署名 | `SECRET_KEY`, `ACCESS_TOKEN_ISSUER`, `ACCESS_TOKEN_AUDIENCE`, `SERVICE_ACCOUNT_SIGNING_AUDIENCE`, `ENCRYPTION_KEY` | セッション署名やトークン発行に利用 |
+| セキュリティ / 署名 | `SECRET_KEY`, `ACCESS_TOKEN_ISSUER`, `ACCESS_TOKEN_AUDIENCE`, `SERVICE_ACCOUNT_SIGNING_AUDIENCE`, `ENCRYPTION_KEY`, `WEBAUTHN_RP_ID`, `WEBAUTHN_ORIGIN`, `WEBAUTHN_RP_NAME` | セッション署名・トークン発行・WebAuthn 認証情報に利用 |
 | 国際化 | `LANGUAGES`, `BABEL_DEFAULT_LOCALE`, `BABEL_DEFAULT_TIMEZONE` | 対応言語とタイムゾーン |
 | 外部サービス | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND` など | API 資格情報や接続 URL |
 | ファイル・ストレージ | `MEDIA_UPLOAD_TEMP_DIRECTORY`, `MEDIA_UPLOAD_DESTINATION_DIRECTORY`, `MEDIA_UPLOAD_MAX_SIZE_BYTES`, `MEDIA_*` 系キー | アップロード制限・保存先 |
 | その他 | `CERTS_API_TIMEOUT`, `TRANSCODE_CRF` など | ドメイン固有の調整値 |
 
+- `ENCRYPTION_KEY` は Google 連携で保存するトークンを暗号化する 32 バイトの base64 鍵です。初期値として `base64:ZGVmYXVsdC1nb29nbGUtZW5jcnlwdGlvbi1rZXktISE=` が設定されており、値を変更すると既存トークンを復号できなくなるため慎重に運用してください。
+- `WEBAUTHN_RP_ID` / `WEBAUTHN_ORIGIN` / `WEBAUTHN_RP_NAME` は WebAuthn のリライングパーティ情報です。RP ID はクッキー/証明書のドメインに一致させ、Origin はスキームを含む完全なオリジン URL、RP Name はブラウザに表示される名称を指定します。
 - `CERTS_API_TIMEOUT` は 0 を指定するとタイムアウトせずに待機し続けます。
 
 #### JSON 例

@@ -98,9 +98,47 @@ _SECURITY_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         label=_(u"Token encryption key"),
         data_type="string",
         required=False,
-        description=_(u"PEM encoded key used for token encryption."),
+        description=_(
+            u"32-byte base64 key used to encrypt Google account refresh tokens. "
+            "Changing this value prevents previously stored tokens from being decrypted."
+        ),
         allow_empty=True,
         allow_null=True,
+        default_hint=_(
+            u"Default: base64:ZGVmYXVsdC1nb29nbGUtZW5jcnlwdGlvbi1rZXktISE= "
+            "(preconfigured for Google integration)."
+        ),
+    ),
+    SettingFieldDefinition(
+        key="WEBAUTHN_RP_ID",
+        label=_(u"WebAuthn relying party ID"),
+        data_type="string",
+        required=True,
+        description=_(
+            u"Domain name asserted during WebAuthn registration and authentication. "
+            "Must match the cookie / TLS host." 
+        ),
+    ),
+    SettingFieldDefinition(
+        key="WEBAUTHN_ORIGIN",
+        label=_(u"WebAuthn origin"),
+        data_type="string",
+        required=True,
+        description=_(
+            u"Origin expected by the browser when verifying WebAuthn challenges "
+            "(scheme + host + optional port)."
+        ),
+        default_hint=_(u"Defaults to http://localhost:5000 in development."),
+    ),
+    SettingFieldDefinition(
+        key="WEBAUTHN_RP_NAME",
+        label=_(u"WebAuthn relying party name"),
+        data_type="string",
+        required=True,
+        description=_(
+            u"Human readable label presented to users during WebAuthn prompts."
+        ),
+        default_hint=_(u'Appears to users as "Nolumia" unless overridden.'),
     ),
 )
 

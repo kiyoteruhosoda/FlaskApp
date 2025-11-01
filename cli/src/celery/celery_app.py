@@ -13,6 +13,7 @@ from core.db import db
 from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 from core.models.job_sync import JobSync
 from core.logging_config import log_task_info
+from webapp import _apply_persisted_settings
 from webapp.config import BaseApplicationSettings
 
 # .envファイルを読み込み
@@ -23,21 +24,29 @@ def create_app():
     """Create and configure Flask app for Celery."""
     app = Flask(__name__)
     app.config.from_object(BaseApplicationSettings)
-    
+
     # Initialize database
     db.init_app(app)
-    
-    # Initialize other extensions  
+
+    # Initialize other extensions
     from webapp.extensions import migrate, login_manager, babel
     migrate.init_app(app, db)
     login_manager.init_app(app)
     babel.init_app(app)
-    
+
+    # Load persisted configuration so Celery shares runtime settings with the web app
+    with app.app_context():
+        _apply_persisted_settings(app)
+
     return app
 
-# Create Celery instance
-celery_runtime_settings = CelerySettings.from_application_settings()
+# Create Flask app context for Celery tasks
+flask_app = create_app()
 
+with flask_app.app_context():
+    celery_runtime_settings = CelerySettings.from_application_settings()
+
+# Create Celery instance
 celery = Celery(
     'cli.src.celery.celery_app',
     broker=celery_runtime_settings.broker_url,
@@ -46,9 +55,6 @@ celery = Celery(
 
 # Configure Celery
 celery.conf.update(celery_runtime_settings.as_mapping())
-
-# Create Flask app context for Celery tasks
-flask_app = create_app()
 
 def setup_celery_logging():
     """Setup logging for Celery workers to use worker_log and console output."""

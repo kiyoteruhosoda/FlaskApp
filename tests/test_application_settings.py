@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from core.settings import ApplicationSettings
+from core.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
 
 
 def test_defaults_are_applied_when_env_missing():
@@ -15,7 +16,10 @@ def test_defaults_are_applied_when_env_missing():
     assert settings.logs_database_uri == "sqlite:///application_logs.db"
     assert settings.google_client_id == ""
     assert settings.google_client_secret == ""
-    assert settings.token_encryption_key is None
+    assert (
+        settings.token_encryption_key
+        == DEFAULT_APPLICATION_SETTINGS["ENCRYPTION_KEY"]
+    )
     assert settings.transcode_crf == 20
     assert settings.service_account_signing_audiences == ()
     assert settings.access_token_issuer == "fpv-webapp"

@@ -490,13 +490,6 @@ class ApplicationSettings:
         return self._get("ENCRYPTION_KEY")
 
     @property
-    def token_encryption_key_file(self) -> Optional[str]:
-        path = self._get("ENCRYPTION_KEY_FILE")
-        if path:
-            return path
-        return self._get("FPV_OAUTH_TOKEN_KEY_FILE")
-
-    @property
     def service_account_signing_audiences(self) -> Tuple[str, ...]:
         raw = self._get("SERVICE_ACCOUNT_SIGNING_AUDIENCE")
         if raw is None or (isinstance(raw, str) and not raw.strip()):

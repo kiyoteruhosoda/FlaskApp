@@ -102,15 +102,6 @@ _SECURITY_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         allow_empty=True,
         allow_null=True,
     ),
-    SettingFieldDefinition(
-        key="ENCRYPTION_KEY_FILE",
-        label=_(u"Token encryption key file"),
-        data_type="string",
-        required=False,
-        description=_(u"Path to a PEM file used for token encryption."),
-        allow_empty=True,
-        allow_null=True,
-    ),
 )
 
 _SESSION_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (

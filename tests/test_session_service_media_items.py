@@ -52,10 +52,10 @@ def test_media_item_flushed_before_selection_insert(app_context, monkeypatch):
             },
         }
 
-        selection = PickerSessionService._save_single_item(session, media_item_payload)
+        result = PickerSessionService._save_single_item(session, media_item_payload)
 
-        assert selection is not None
-        assert selection.google_media_id == "GOOGLE_MEDIA_ID"
+        assert result is not None
+        assert result.selection.google_media_id == "GOOGLE_MEDIA_ID"
 
 
 def test_enqueue_new_items_create_import_tasks(app_context, monkeypatch):
@@ -92,3 +92,59 @@ def test_enqueue_new_items_create_import_tasks(app_context, monkeypatch):
         PickerSessionService._enqueue_new_items(session, [selection])
         all_tasks = db.session.query(PickerImportTask).all()
         assert [t.id for t in all_tasks] == [selection.id]
+
+
+def test_existing_pending_selection_reenqueued(app_context, monkeypatch):
+    app = app_context
+
+    from webapp.extensions import db
+    from webapp.api.picker_session_service import PickerSessionService
+    from core.models.photo_models import PickerSelection
+    from core.models.picker_import_task import PickerImportTask
+
+    with app.app_context():
+        session = _create_session(db)
+
+        selection = PickerSelection(
+            session_id=session.id,
+            google_media_id="GOOGLE_MEDIA_ID",
+            status="pending",
+        )
+        db.session.add(selection)
+        db.session.commit()
+
+        media_item_payload = {
+            "id": "GOOGLE_MEDIA_ID",
+            "createTime": "2025-11-01T14:49:31.817Z",
+            "mediaFile": {
+                "baseUrl": "https://example.invalid/base",
+                "mimeType": "image/jpeg",
+                "filename": "photo.jpg",
+                "mediaFileMetadata": {"width": 1600, "height": 900},
+            },
+        }
+
+        saved, dup, new_pmis = PickerSessionService._save_media_items(
+            session, [media_item_payload]
+        )
+
+        assert saved == 0
+        assert dup == 0
+        assert [pmi.id for pmi in new_pmis] == [selection.id]
+
+        import webapp.api.picker_session as ps_module
+
+        queued: list[tuple[int | None, int]] = []
+
+        def fake_enqueue(selection_id, session_id):
+            queued.append((selection_id, session_id))
+
+        monkeypatch.setattr(ps_module, "enqueue_picker_import_item", fake_enqueue)
+
+        PickerSessionService._enqueue_new_items(session, new_pmis)
+
+        task = db.session.get(PickerImportTask, selection.id)
+        assert task is not None
+        db.session.refresh(selection)
+        assert selection.status == "enqueued"
+        assert queued == [(selection.id, session.id)]

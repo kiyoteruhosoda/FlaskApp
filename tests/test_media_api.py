@@ -2123,8 +2123,9 @@ def test_picker_session_service_allows_reimport_of_deleted_media(app):
             },
         }
 
-        selection = PickerSessionService._save_single_item(session, item)
-        assert selection is not None
+        result = PickerSessionService._save_single_item(session, item)
+        assert result is not None
+        selection = result.selection
         assert selection.status == "pending"
         assert selection.google_media_id == deleted_media.google_media_id
 

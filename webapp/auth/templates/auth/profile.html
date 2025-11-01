@@ -72,7 +72,12 @@
             <p class="text-muted mb-3">{{ _('No passkeys registered yet.') }}</p>
             {% endif %}
             <div class="d-flex flex-column flex-sm-row align-items-start gap-2">
-              <button type="button" class="btn btn-outline-primary" data-passkey-register>
+              <button
+                type="button"
+                class="btn btn-outline-primary"
+                data-passkey-register
+                data-passkey-existing-count="{{ passkey_credentials|length if passkey_credentials is not none else 0 }}"
+              >
                 <span class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true" data-passkey-spinner></span>
                 <i class="fas fa-key me-2" data-passkey-icon></i>
                 <span data-passkey-label>{{ _('Add a new passkey') }}</span>
@@ -284,6 +289,9 @@
       const spinner = registerButton.querySelector('[data-passkey-spinner]');
       const icon = registerButton.querySelector('[data-passkey-icon]');
       const duplicateMessage = "{{ _('This passkey is already registered for your account.')|escapejs }}";
+      const existingCountRaw = registerButton.getAttribute('data-passkey-existing-count');
+      const existingCount = existingCountRaw ? Number.parseInt(existingCountRaw, 10) || 0 : 0;
+      const hadExistingCredentialsAtLoad = existingCount > 0;
 
       if (!window.PublicKeyCredential || typeof navigator.credentials === 'undefined') {
         registerButton.disabled = true;
@@ -386,13 +394,25 @@
               : undefined;
             const errorMessage = (error && typeof error.message === 'string') ? error.message : '';
 
-            if (errorMessage === 'abort' || errorName === 'AbortError') {
-              // user cancelled, ignore
-            } else if (errorName === 'NotAllowedError' && hadExcludedCredentials) {
+            const shouldTreatAsDuplicate = hadExcludedCredentials || hadExistingCredentialsAtLoad;
+
+            if ((errorMessage === 'abort' || errorName === 'AbortError') && shouldTreatAsDuplicate) {
               if (typeof showWarningToast === 'function') {
                 showWarningToast(duplicateMessage);
               } else if (typeof alert === 'function') {
                 alert(duplicateMessage);
+              }
+            } else if (errorName === 'NotAllowedError' && shouldTreatAsDuplicate) {
+              if (typeof showWarningToast === 'function') {
+                showWarningToast(duplicateMessage);
+              } else if (typeof alert === 'function') {
+                alert(duplicateMessage);
+              }
+            } else if (errorName === 'NotAllowedError') {
+              if (typeof showErrorToast === 'function') {
+                showErrorToast('{{ _('Passkey registration was cancelled before completion.') }}');
+              } else if (typeof alert === 'function') {
+                alert('{{ _('Passkey registration was cancelled before completion.') }}');
               }
             } else if (errorMessage === 'options') {
               if (typeof showErrorToast === 'function') {
@@ -407,8 +427,6 @@
                 alert(duplicateMessage);
               }
               window.location.reload();
-            } else if (errorName === 'NotAllowedError') {
-              // treated as user cancellation when browser reports a generic NotAllowedError
             } else {
               if (typeof showErrorToast === 'function') {
                 showErrorToast('{{ _('Passkey registration failed. Please try again.') }}');

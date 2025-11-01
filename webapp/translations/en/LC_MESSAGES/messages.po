@@ -274,6 +274,10 @@ msgid "Passkey registration options could not be retrieved."
 msgstr "Passkey registration options could not be retrieved."
 
 #: webapp/auth/templates/auth/profile.html
+msgid "Passkey registration was cancelled before completion."
+msgstr "Passkey registration was cancelled before completion."
+
+#: webapp/auth/templates/auth/profile.html
 msgid "Passkey registration failed. Please try again."
 msgstr "Passkey registration failed. Please try again."
 

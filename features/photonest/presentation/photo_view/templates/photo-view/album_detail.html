@@ -87,6 +87,49 @@
     color: rgba(241, 245, 249, 0.9);
   }
 
+  .album-media-overlay-bottom {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .album-media-actions {
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
+  }
+
+  .album-media-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: rgba(15, 23, 42, 0.75);
+    border: none;
+    color: #f8fafc;
+    border-radius: 999px;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.75rem;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  .album-media-action:hover,
+  .album-media-action:focus {
+    background: rgba(15, 23, 42, 0.95);
+    color: #ffffff;
+    text-decoration: none;
+    outline: none;
+  }
+
+  .album-media-action:focus-visible {
+    outline: 2px solid rgba(59, 130, 246, 0.85);
+    outline-offset: 2px;
+  }
+
+  .album-media-action .bi {
+    font-size: 1rem;
+  }
+
   .album-media-empty {
     font-size: 1.1rem;
   }
@@ -214,6 +257,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const albumId = Number('{{ album_id }}');
+  const mediaDetailBasePath = {{ url_for('photo_view.media_detail', media_id=0)|tojson }}.replace(/0$/, '');
   const apiClient = new APIClient();
   const state = {
     album: null,
@@ -246,6 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
       private: "{{ _('Private')|escapejs|safe }}",
       unlisted: "{{ _('Unlisted')|escapejs|safe }}",
     },
+    viewDetails: "{{ _('View Details')|escapejs|safe }}",
   };
 
   const elements = {
@@ -694,6 +739,25 @@ document.addEventListener('DOMContentLoaded', () => {
     window.location.href = url.toString();
   }
 
+  function navigateToMediaDetail(mediaId, options = {}) {
+    const normalizedMediaId = Number(mediaId);
+    if (!Number.isInteger(normalizedMediaId) || normalizedMediaId < 0) {
+      return;
+    }
+
+    const basePath = mediaDetailBasePath.endsWith('/')
+      ? mediaDetailBasePath
+      : `${mediaDetailBasePath}/`;
+    const url = new URL(`${basePath}${normalizedMediaId}`, window.location.origin);
+
+    const albumContextId = Number(options.albumId);
+    if (Number.isInteger(albumContextId) && albumContextId >= 0) {
+      url.searchParams.set('album_id', albumContextId.toString());
+    }
+
+    window.location.href = url.toString();
+  }
+
   function renderMediaGrid() {
     elements.mediaGrid.innerHTML = '';
     elements.mediaGrid.classList.toggle('reorder-active', reorderState.active);
@@ -725,12 +789,25 @@ document.addEventListener('DOMContentLoaded', () => {
       const dragHandle = reorderState.active
         ? '<div class="album-media-drag-handle" aria-hidden="true"><i class="bi bi-grip-vertical"></i></div>'
         : '';
+      const overlayBottomContent = !reorderState.active && Number.isFinite(mediaId)
+        ? `
+          <div class="album-media-overlay-bottom">
+            ${shotMeta || ''}
+            <div class="album-media-actions">
+              <button type="button" class="album-media-action album-media-detail-btn" data-media-id="${mediaId}">
+                <i class="bi bi-card-image" aria-hidden="true"></i>
+                <span>${strings.viewDetails}</span>
+              </button>
+            </div>
+          </div>
+        `
+        : (shotMeta || '');
 
       tile.innerHTML = `
         <img src="${thumbnailSrc}" alt="${safeTitle}" loading="lazy">
         <div class="album-media-overlay">
           <span class="badge">${index + 1}</span>
-          ${shotMeta}
+          ${overlayBottomContent}
         </div>
         ${dragHandle}
       `;
@@ -747,6 +824,15 @@ document.addEventListener('DOMContentLoaded', () => {
         tile.addEventListener('click', () => {
           navigateToSlideshow(index, { autoplay: false });
         });
+        if (Number.isFinite(mediaId)) {
+          const detailButton = tile.querySelector('.album-media-detail-btn');
+          if (detailButton) {
+            detailButton.addEventListener('click', (event) => {
+              event.stopPropagation();
+              navigateToMediaDetail(mediaId, { albumId });
+            });
+          }
+        }
       }
 
       elements.mediaGrid.appendChild(tile);

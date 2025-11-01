@@ -46,6 +46,7 @@ from features.photonest.domain.local_import.media_entities import (
 )
 from features.photonest.domain.local_import.media_file import (
     DefaultMediaMetadataProvider,
+    MediaFileAnalysis,
     MediaFileAnalyzer,
 )
 from features.photonest.domain.local_import.media_metadata import (
@@ -512,11 +513,57 @@ def _extract_zip_archive(zip_path: str, *, session_id: Optional[str] = None) -> 
     return _zip_service.extract(zip_path, session_id=session_id)
 
 
-def check_duplicate_media(file_hash: str, file_size: int) -> Optional[Media]:
-    """重複チェック: SHA-256 + サイズ一致"""
+def check_duplicate_media(analysis: MediaFileAnalysis) -> Optional[Media]:
+    """重複チェック: pHash + 解像度 + 撮影日時 (+ 長さ)."""
+
+    base_query = Media.query.filter(
+        Media.is_deleted.is_(False),
+        Media.is_video.is_(analysis.is_video),
+        Media.shot_at == analysis.shot_at,
+        Media.width == analysis.width,
+        Media.height == analysis.height,
+    )
+
+    base_query = base_query.filter(Media.duration_ms == analysis.duration_ms)
+
+    candidates = base_query.all()
+
+    if analysis.perceptual_hash:
+        for candidate in candidates:
+            if candidate.phash and candidate.phash == analysis.perceptual_hash:
+                return candidate
+
+    for candidate in candidates:
+        if not candidate.phash or not analysis.perceptual_hash:
+            if (
+                candidate.hash_sha256 == analysis.file_hash
+                and candidate.bytes == analysis.file_size
+            ):
+                return candidate
+
+    if analysis.perceptual_hash:
+        phash_candidates = (
+            Media.query.filter(
+                Media.is_deleted.is_(False),
+                Media.is_video.is_(analysis.is_video),
+                Media.phash == analysis.perceptual_hash,
+                Media.duration_ms == analysis.duration_ms,
+            )
+            .all()
+        )
+        for candidate in phash_candidates:
+            if (
+                candidate.shot_at == analysis.shot_at
+                and candidate.width == analysis.width
+                and candidate.height == analysis.height
+            ):
+                return candidate
+        if phash_candidates:
+            return phash_candidates[0]
+
     return Media.query.filter_by(
-        hash_sha256=file_hash,
-        bytes=file_size,
+        hash_sha256=analysis.file_hash,
+        bytes=analysis.file_size,
         is_deleted=False,
     ).first()
 

@@ -180,6 +180,7 @@ def test_duplicate_import_updates_relative_path(monkeypatch, tmp_path, app_conte
                 video_metadata={"fps": 30.0},
                 destination_filename=Path(rel_path).name,
                 relative_path=rel_path,
+                perceptual_hash="video-phash",
             )
 
     analyzer = DummyAnalyzer()
@@ -333,6 +334,7 @@ def test_duplicate_refresh_realigns_playback_paths(
                 video_metadata={"fps": 30.0},
                 destination_filename=Path(self.relative_path).name,
                 relative_path=self.relative_path,
+                perceptual_hash="video-phash",
             )
 
     analyzer = DummyAnalyzer()

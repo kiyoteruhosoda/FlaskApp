@@ -56,6 +56,7 @@ class Media(db.Model):
     thumbnail_rel_path: Mapped[str | None] = mapped_column(db.String(255), nullable=True)
     filename: Mapped[str | None] = mapped_column(db.String(255), nullable=True)
     hash_sha256: Mapped[str | None] = mapped_column(db.CHAR(64), nullable=True)
+    phash: Mapped[str | None] = mapped_column(db.String(64), nullable=True)
     bytes: Mapped[int | None] = mapped_column(BigInt, nullable=True)
 
     # メディア情報

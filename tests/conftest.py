@@ -137,6 +137,7 @@ ALWAYS_RUN = {
     "tests/test_local_import_results.py",
     "tests/test_celery_app.py",
     "tests/test_celery_context.py",
+    "tests/test_picker_import_item.py",
 }
 
 

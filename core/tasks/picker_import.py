@@ -58,6 +58,9 @@ from core.logging_config import setup_task_logging, log_task_error, log_task_inf
 from core.settings import ApplicationSettings, settings
 from core.tasks import media_post_processing
 from core.tasks.media_post_processing import process_media_post_import
+from features.photonest.domain.local_import.media_metadata import (
+    calculate_perceptual_hash,
+)
 from flask import Flask, current_app
 from werkzeug.local import LocalProxy
 from core.utils import open_image_compat
@@ -974,6 +977,7 @@ def picker_import_item(
             sel.base_url = fetched_base_url
             sel.base_url_fetched_at = now
             sel.base_url_valid_until = now + timedelta(hours=1)
+            base_url = fetched_base_url
 
         # ここでのbase_urlの再バリデーションは不要（既に上でチェック済み）
         meta = item.get("mediaMetadata", {}) if item else {}
@@ -1196,6 +1200,12 @@ def picker_import_item(
                     "imported_at": now,
                     "is_video": is_video,
                 }
+                perceptual_hash = calculate_perceptual_hash(
+                    str(final_path),
+                    is_video=is_video,
+                    duration_ms=media_kwargs["duration_ms"] or None,
+                )
+                media_kwargs["phash"] = perceptual_hash
                 media = Media(**media_kwargs)
                 db.session.add(media)
                 db.session.flush()
@@ -1531,6 +1541,12 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
                 "imported_at": datetime.now(timezone.utc),
                 "is_video": is_video,
             }
+            perceptual_hash = calculate_perceptual_hash(
+                str(final_path),
+                is_video=is_video,
+                duration_ms=media_kwargs["duration_ms"] or None,
+            )
+            media_kwargs["phash"] = perceptual_hash
             media = Media(**media_kwargs)
             db.session.add(media)
             db.session.flush()  # obtain media.id

@@ -5,6 +5,8 @@ from datetime import datetime, timezone, timedelta
 
 import requests
 
+from PIL import Image
+
 import pytest
 
 from core.tasks import picker_import_item, picker_import_queue_scan
@@ -73,6 +75,17 @@ def _setup_item(app, *, mime="image/jpeg", filename="a.jpg", mtype="PHOTO"):
         return ps.id, pmi.id
 
 
+def _install_post_process_stub(monkeypatch, mod, called_thumbs: list[int], called_play: list[int]):
+    def fake_post_process(media, **kwargs):
+        if getattr(media, "is_video", False):
+            called_play.append(media.id)
+            return {"playback": {"media_id": media.id}}
+        called_thumbs.append(media.id)
+        return {"thumbnails": {"media_id": media.id}}
+
+    monkeypatch.setattr(mod, "process_media_post_import", fake_post_process)
+
+
 def test_picker_import_item_imports(monkeypatch, app, tmp_path):
     ps_id, pmi_id = _setup_item(app)
 
@@ -98,12 +111,12 @@ def test_picker_import_item_imports(monkeypatch, app, tmp_path):
         def json(self):
             return {"baseUrl": "http://example/file", "mediaMetadata": {"width": "1", "height": "1"}}
 
-    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None: FakeResp())
+    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None, **kwargs: FakeResp())
 
     called_thumbs: list[int] = []
     called_play: list[int] = []
-    monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: called_thumbs.append(mid))
-    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid, **kwargs: called_play.append(mid))
+
+    _install_post_process_stub(monkeypatch, mod, called_thumbs, called_play)
 
     with app.app_context():
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
@@ -119,6 +132,60 @@ def test_picker_import_item_imports(monkeypatch, app, tmp_path):
         assert pmi.lock_heartbeat_at is None
         assert Media.query.count() == 1
         assert media.source_type == "google_photos"
+        assert called_thumbs == [media.id]
+        assert called_play == []
+
+
+def test_picker_import_item_sets_phash(monkeypatch, app, tmp_path):
+    ps_id, pmi_id = _setup_item(app)
+
+    import importlib
+
+    mod = importlib.import_module("core.tasks.picker_import")
+
+    def fake_download(url, dest_dir, headers=None):
+        path = dest_dir / "dl.jpg"
+        image = Image.new("RGB", (16, 16), color=(255, 0, 0))
+        image.save(path, format="JPEG")
+        data = path.read_bytes()
+        return mod.Downloaded(path, len(data), hashlib.sha256(data).hexdigest())
+
+    monkeypatch.setattr(mod, "_download", fake_download)
+    monkeypatch.setattr(mod, "_exchange_refresh_token", lambda g, p: ("tok", None))
+
+    class FakeResp:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"baseUrl": "http://example/file", "mediaMetadata": {"width": "16", "height": "16"}}
+
+    def fake_requests_get(url, headers=None, timeout=None):
+        return FakeResp()
+
+    monkeypatch.setattr(mod.requests, "get", fake_requests_get)
+    called_thumbs: list[int] = []
+    called_play: list[int] = []
+    _install_post_process_stub(monkeypatch, mod, called_thumbs, called_play)
+
+    computed_hash: dict[str, str | None] = {}
+    original_calculate = mod.calculate_perceptual_hash
+
+    def tracking_calculate(file_path: str, *, is_video: bool, duration_ms):
+        value = original_calculate(file_path, is_video=is_video, duration_ms=duration_ms)
+        computed_hash["value"] = value
+        return value
+
+    monkeypatch.setattr(mod, "calculate_perceptual_hash", tracking_calculate)
+
+    with app.app_context():
+        res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
+        from core.models.photo_models import Media
+
+        media = Media.query.one()
+        assert res["ok"] is True
+        assert computed_hash.get("value") not in (None, "")
+        assert media.phash == computed_hash["value"]
         assert called_thumbs == [media.id]
         assert called_play == []
 
@@ -147,12 +214,11 @@ def test_picker_import_item_dup(monkeypatch, app, tmp_path):
         def json(self):
             return {"baseUrl": "http://example/file", "mediaMetadata": {"width": "1", "height": "1"}}
 
-    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None: FakeResp())
+    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None, **kwargs: FakeResp())
 
     called_thumbs: list[int] = []
     called_play: list[int] = []
-    monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: called_thumbs.append(mid))
-    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid, **kwargs: called_play.append(mid))
+    _install_post_process_stub(monkeypatch, mod, called_thumbs, called_play)
 
     # pre-create media with same hash
     from core.models.photo_models import Media
@@ -215,12 +281,11 @@ def test_picker_import_item_reimports_deleted_media(monkeypatch, app, tmp_path):
         def json(self):
             return {"baseUrl": "http://example/file", "mediaMetadata": {"width": "1", "height": "1"}}
 
-    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None: FakeResp())
+    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None, **kwargs: FakeResp())
 
     called_thumbs: list[int] = []
     called_play: list[int] = []
-    monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: called_thumbs.append(mid))
-    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid, **kwargs: called_play.append(mid))
+    _install_post_process_stub(monkeypatch, mod, called_thumbs, called_play)
 
     from core.models.photo_models import Media
     from webapp.extensions import db
@@ -289,12 +354,11 @@ def test_picker_import_item_video_queues_playback(monkeypatch, app, tmp_path):
                 "mediaMetadata": {"width": "1", "height": "1", "video": {"durationMillis": "1000"}},
             }
 
-    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None: FakeResp())
+    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None, **kwargs: FakeResp())
 
     called_thumbs: list[int] = []
     called_play: list[int] = []
-    monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: called_thumbs.append(mid))
-    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid, **kwargs: called_play.append(mid))
+    _install_post_process_stub(monkeypatch, mod, called_thumbs, called_play)
 
     with app.app_context():
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
@@ -381,9 +445,10 @@ def test_picker_import_item_heartbeat(monkeypatch, app, tmp_path):
         def json(self):
             return {"baseUrl": "http://example/file", "mediaMetadata": {"width": "1", "height": "1"}}
 
-    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None: FakeResp())
-    monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: None)
-    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid, **kwargs: None)
+    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None, **kwargs: FakeResp())
+    called_thumbs: list[int] = []
+    called_play: list[int] = []
+    _install_post_process_stub(monkeypatch, mod, called_thumbs, called_play)
 
     with app.app_context():
         res = picker_import_item(
@@ -402,6 +467,8 @@ def test_picker_import_item_heartbeat(monkeypatch, app, tmp_path):
         assert pmi.attempts == 1
         assert pmi.started_at is not None
         assert pmi.finished_at is not None
+        assert len(called_thumbs) == 1
+        assert called_play == []
 
 
 def test_picker_import_item_reresolves_expired_base_url(monkeypatch, app, tmp_path):
@@ -423,7 +490,7 @@ def test_picker_import_item_reresolves_expired_base_url(monkeypatch, app, tmp_pa
 
     monkeypatch.setattr(mod, "_exchange_refresh_token", lambda g, p: ("tok", None))
 
-    def fake_get(url, headers=None):
+    def fake_get(url, headers=None, **kwargs):
         class Resp:
             def raise_for_status(self):
                 return None
@@ -446,8 +513,9 @@ def test_picker_import_item_reresolves_expired_base_url(monkeypatch, app, tmp_pa
         return mod.Downloaded(path, len(content), sha)
 
     monkeypatch.setattr(mod, "_download", fake_download)
-    monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: None)
-    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid, **kwargs: None)
+    called_thumbs: list[int] = []
+    called_play: list[int] = []
+    _install_post_process_stub(monkeypatch, mod, called_thumbs, called_play)
 
     with app.app_context():
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
@@ -457,6 +525,8 @@ def test_picker_import_item_reresolves_expired_base_url(monkeypatch, app, tmp_pa
         assert pmi.base_url == "http://new"
         assert pmi.base_url_valid_until is not None
         assert ps.last_progress_at > before
+        assert len(called_thumbs) == 1
+        assert called_play == []
 
 
 def test_picker_import_item_reresolve_failure_marks_expired(monkeypatch, app, tmp_path):
@@ -484,10 +554,11 @@ def test_picker_import_item_reresolve_failure_marks_expired(monkeypatch, app, tm
         def json(self):
             return {}
 
-    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None: Resp())
+    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None, **kwargs: Resp())
     monkeypatch.setattr(mod, "_download", lambda url, dest_dir, headers=None: None)
-    monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: None)
-    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid, **kwargs: None)
+    called_thumbs: list[int] = []
+    called_play: list[int] = []
+    _install_post_process_stub(monkeypatch, mod, called_thumbs, called_play)
 
     with app.app_context():
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
@@ -496,6 +567,8 @@ def test_picker_import_item_reresolve_failure_marks_expired(monkeypatch, app, tm
         assert res["status"] == "expired"
         assert pmi.status == "expired"
         assert ps.last_progress_at > before
+        assert called_thumbs == []
+        assert called_play == []
 
 
 def test_picker_import_item_network_error_requeues(monkeypatch, app, tmp_path):
@@ -513,14 +586,15 @@ def test_picker_import_item_network_error_requeues(monkeypatch, app, tmp_path):
         def json(self):
             return {"baseUrl": "http://example/file", "mediaMetadata": {"width": "1", "height": "1"}}
 
-    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None: FakeResp())
+    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None, **kwargs: FakeResp())
 
     def fail_download(url, dest_dir, headers=None):
         raise requests.exceptions.ConnectionError()
 
     monkeypatch.setattr(mod, "_download", fail_download)
-    monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: None)
-    monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid, **kwargs: None)
+    called_thumbs: list[int] = []
+    called_play: list[int] = []
+    _install_post_process_stub(monkeypatch, mod, called_thumbs, called_play)
 
     with app.app_context():
         from core.models.picker_session import PickerSession
@@ -532,6 +606,8 @@ def test_picker_import_item_network_error_requeues(monkeypatch, app, tmp_path):
         assert res["status"] == "enqueued"
         assert pmi.finished_at is None
         assert ps.last_progress_at == before
+        assert called_thumbs == []
+        assert called_play == []
 
 
 def test_picker_import_item_auth_error_fails(monkeypatch, app, tmp_path):

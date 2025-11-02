@@ -118,6 +118,17 @@ def _replace_suffix(path: Path, suffix: str) -> Path:
     return path.with_name(path.name + suffix)
 
 
+def _write_image(image: Image.Image, dest: Path) -> None:
+    """Write *image* to *dest* using the destination suffix to select format."""
+
+    tmp = dest.with_suffix(dest.suffix + ".tmp")
+    if dest.suffix.lower() == ".jpg":
+        image.save(tmp, "JPEG", quality=85, progressive=True)
+    else:
+        image.save(tmp, "PNG")
+    tmp.replace(dest)
+
+
 def _select_playback(media_id: int) -> MediaPlayback | None:
     """Return the newest completed playback prioritising the std1080p preset."""
 
@@ -570,19 +581,39 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
                 last_output_size = size
                 last_output_path = dest
             else:
-                skipped.append(size)
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    _write_image(img, dest)
+                except Exception as exc:  # pragma: no cover - defensive
+                    if log:
+                        log.warning(
+                            "thumbnail_generation.original_used_failed",
+                            requested_size=size,
+                            source_size=long_side,
+                            dest_path=dest.as_posix(),
+                            error=str(exc),
+                        )
+                    skipped.append(size)
+                    continue
+
+                generated.append(size)
+                paths[size] = dest.as_posix()
+                if log:
+                    log.info(
+                        "thumbnail_generation.original_used",  # pragma: no cover - logging
+                        requested_size=size,
+                        source_size=long_side,
+                        dest_path=dest.as_posix(),
+                    )
+                last_output_size = size
+                last_output_path = dest
             continue
 
         dest.parent.mkdir(parents=True, exist_ok=True)
         scale = size / float(long_side)
         new_size = (int(img.size[0] * scale), int(img.size[1] * scale))
         resized = img.resize(new_size, Image.Resampling.LANCZOS)
-        tmp = dest.with_suffix(dest.suffix + ".tmp")
-        if dest.suffix.lower() == ".jpg":
-            resized.save(tmp, "JPEG", quality=85, progressive=True)
-        else:
-            resized.save(tmp, "PNG")
-        tmp.replace(dest)
+        _write_image(resized, dest)
         generated.append(size)
         paths[size] = dest.as_posix()
         last_output_size = size

@@ -128,6 +128,37 @@ def test_image_generation(app):
     assert im256.size == (192, 256)  # orientation applied
 
 
+def test_small_image_uses_original_when_smaller_than_minimum(app):
+    orig_dir = Path(os.environ["MEDIA_ORIGINALS_DIRECTORY"])
+    path = orig_dir / "2025/08/18/small.jpg"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (120, 80), color=(20, 30, 40)).save(path)
+
+    media_id = _make_media(
+        app,
+        rel_path="2025/08/18/small.jpg",
+        is_video=False,
+        width=120,
+        height=80,
+    )
+
+    with app.app_context():
+        res = thumbs_generate(media_id=media_id)
+
+    assert res["generated"] == [256, 512, 1024, 2048]
+    assert res["skipped"] == []
+
+    thumbs_dir = Path(os.environ["MEDIA_THUMBNAILS_DIRECTORY"])
+    base = thumbs_dir / "256/2025/08/18/small.jpg"
+    assert base.exists()
+    with Image.open(base) as thumb:
+        assert thumb.size == (120, 80)
+
+    for size in [512, 1024, 2048]:
+        copy_path = thumbs_dir / f"{size}/2025/08/18/small.jpg"
+        assert copy_path.exists()
+
+
 def test_image_skip_existing(app):
     orig_dir = Path(os.environ["MEDIA_ORIGINALS_DIRECTORY"])
     path = orig_dir / "2025/08/18/img2.jpg"

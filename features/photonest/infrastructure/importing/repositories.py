@@ -27,6 +27,7 @@ class SqlAlchemyMediaRepository:
 
     def save_media(self, media: Media, import_session: ImportSession) -> MediaModel:
         model = MediaModel(
+            source_type=media.origin,
             google_media_id=media.extras.get("google_media_id"),
             account_id=media.extras.get("account_id"),
             local_rel_path=media.relative_path,

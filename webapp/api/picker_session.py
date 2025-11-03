@@ -11,7 +11,7 @@ from flask import (
     url_for,
 )
 from flask_login import login_required
-from sqlalchemy import func, or_, and_, cast, String, text
+from sqlalchemy import func, or_, and_
 from ..extensions import db
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
@@ -448,9 +448,9 @@ def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
     session_conditions = []
     
     # For databases that support JSON extraction (MariaDB, MySQL, PostgreSQL, SQLite 3.38+)
+    # SQLAlchemy's func.json_extract works across multiple database backends
     # We'll build a session filter that checks extra_json for session identifiers
     try:
-        # MariaDB/MySQL JSON_EXTRACT syntax
         # Check if extra_json contains matching session_id or session_db_id
         if session_identifier:
             session_conditions.append(
@@ -467,8 +467,9 @@ def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
             session_conditions.append(
                 func.json_extract(WorkerLog.extra_json, '$.session_db_id') == ps.id
             )
-    except Exception:
-        # If JSON functions aren't supported, we'll filter in Python
+    except (AttributeError, NotImplementedError):
+        # If JSON functions aren't supported by the database backend, 
+        # we'll fall back to Python-level filtering
         pass
     
     # Build the query with event and session filters

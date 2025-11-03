@@ -420,6 +420,10 @@ def api_picker_session_status(session_id):
 
 def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
     """Collect import logs for a picker session.
+    
+    This function retrieves logs for both Local Import and Google Photos Picker
+    import sessions. It uses SQL-level JSON extraction to filter logs by session
+    identifiers for improved performance and reliability.
 
     Args:
         ps: Picker session model instance.
@@ -430,6 +434,11 @@ def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
 
     Returns:
         List of log dictionaries sorted by ID ascending.
+        
+    Note:
+        For databases that support JSON functions (MariaDB, MySQL, PostgreSQL,
+        SQLite 3.38+), session filtering is done at the SQL level for better
+        performance. For other databases, filtering is done in Python.
     """
 
     if not ps:

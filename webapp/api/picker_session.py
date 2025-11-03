@@ -441,6 +441,33 @@ def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
         or_(WorkerLog.event.like("local_import%"), WorkerLog.event.like("import.%"))
     )
 
+    session_filters = []
+
+    if session_identifier:
+        session_filters.append(
+            WorkerLog.extra_json.contains({"session_id": session_identifier})
+        )
+        session_filters.append(
+            WorkerLog.extra_json.contains({"active_session_id": session_identifier})
+        )
+        session_filters.append(
+            WorkerLog.extra_json.contains({"target_session_id": session_identifier})
+        )
+        session_filters.append(
+            WorkerLog.message.contains(
+                f'"session_id": {json.dumps(session_identifier)}'
+            )
+        )
+
+    if ps.id is not None:
+        session_filters.append(WorkerLog.extra_json.contains({"session_db_id": ps.id}))
+        session_filters.append(
+            WorkerLog.message.contains(f'"session_db_id": {json.dumps(ps.id)}')
+        )
+
+    if session_filters:
+        query = query.filter(or_(*session_filters))
+
     if limit is None:
         query = query.order_by(WorkerLog.id.asc())
     else:

@@ -2,7 +2,9 @@
 window.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('form').forEach(form => {
     form.addEventListener('submit', (event) => {
-      if (event.defaultPrevented) {
+      // Skip if another handler already handled it (e.g., AJAX),
+      // or if this form explicitly opts out of the global spinner.
+      if (event.defaultPrevented || form.hasAttribute('data-no-spinner')) {
         return;
       }
       const btn = form.querySelector('button[type="submit"]');

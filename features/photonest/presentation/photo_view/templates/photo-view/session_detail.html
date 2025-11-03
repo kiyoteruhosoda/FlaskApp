@@ -647,7 +647,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const safeDisplayName = escapeHtml(displayName);
     const canDisplayLink = selection.mediaId && ['imported', 'dup'].includes(selection.status);
     const fileCellContent = canDisplayLink
-      ? `<a href="/photo-view/media/${selection.mediaId}" class="text-decoration-none">${safeDisplayName}</a>`
+      ? `<a href="/photo-view/media/${selection.mediaId}" class="text-decoration-none" target="_blank">${safeDisplayName}</a>`
       : safeDisplayName;
     const errorMessageHtml = selection.error
       ? `<div class="text-danger small">${escapeHtml(selection.error)}</div>`

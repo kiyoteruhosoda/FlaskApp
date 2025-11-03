@@ -57,7 +57,10 @@ from core.models.photo_models import (
 )
 from core.models.celery_task import CeleryTaskStatus
 from core.logging_config import setup_task_logging, log_task_error, log_task_info
-from features.photonest.application.local_import.logger import LocalImportTaskLogger
+from features.photonest.application.local_import.logger import (
+    ImportLogEmitter,
+    LocalImportTaskLogger,
+)
 from core.settings import ApplicationSettings, settings
 from core.tasks import media_post_processing
 from core.tasks.media_post_processing import process_media_post_import
@@ -98,6 +101,9 @@ def _normalize_event(event: str) -> str:
     return f'import.picker.{event}'
 
 
+_import_log = ImportLogEmitter(_task_logger, normalise_event=_normalize_event)
+
+
 def _log_info(
     event: str,
     message: str,
@@ -107,15 +113,14 @@ def _log_info(
     status: Optional[str] = None,
     **details: Any,
 ) -> None:
-    payload = dict(details)
-    if session_db_id is not None:
-        payload.setdefault('session_db_id', session_db_id)
-    _task_logger.info(
-        _normalize_event(event),
+    _emit_log(
+        "info",
+        event,
         message,
-        session_id=session_identifier,
+        session_identifier=session_identifier,
+        session_db_id=session_db_id,
         status=status,
-        **payload,
+        details=details,
     )
 
 
@@ -128,15 +133,14 @@ def _log_warning(
     status: Optional[str] = None,
     **details: Any,
 ) -> None:
-    payload = dict(details)
-    if session_db_id is not None:
-        payload.setdefault('session_db_id', session_db_id)
-    _task_logger.warning(
-        _normalize_event(event),
+    _emit_log(
+        "warning",
+        event,
         message,
-        session_id=session_identifier,
+        session_identifier=session_identifier,
+        session_db_id=session_db_id,
         status=status,
-        **payload,
+        details=details,
     )
 
 
@@ -150,17 +154,44 @@ def _log_error(
     exc_info: bool = False,
     **details: Any,
 ) -> None:
-    payload = dict(details)
-    if session_db_id is not None:
-        payload.setdefault('session_db_id', session_db_id)
-    _task_logger.error(
-        _normalize_event(event),
+    _emit_log(
+        "error",
+        event,
         message,
-        session_id=session_identifier,
+        session_identifier=session_identifier,
+        session_db_id=session_db_id,
         status=status,
         exc_info=exc_info,
-        **payload,
+        details=details,
     )
+
+
+def _emit_log(
+    level: str,
+    event: str,
+    message: str,
+    *,
+    session_identifier: Optional[str],
+    session_db_id: Optional[int],
+    status: Optional[str],
+    exc_info: bool = False,
+    details: Dict[str, Any],
+) -> None:
+    emitter = _import_log
+    payload_defaults: Dict[str, Any] = {}
+    if session_db_id is not None:
+        payload_defaults['session_db_id'] = session_db_id
+    if session_identifier is not None:
+        emitter = emitter.bind(session_id=session_identifier, **payload_defaults)
+    elif payload_defaults:
+        emitter = emitter.bind(**payload_defaults)
+
+    if level == "info":
+        emitter.info(event, message, status=status, **details)
+    elif level == "warning":
+        emitter.warning(event, message, status=status, **details)
+    else:
+        emitter.error(event, message, status=status, exc_info=exc_info, **details)
 
 
 def _fsync_dir(path: Path) -> None:

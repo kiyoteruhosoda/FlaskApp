@@ -90,6 +90,22 @@ class LocalImportTaskLogger:
     def __init__(self, task_logger, celery_logger) -> None:  # pragma: no cover - 型ヒント用
         self._task_logger = task_logger
         self._celery_logger = celery_logger
+    
+    @staticmethod
+    def _normalize_event(event: str) -> str:
+        """Normalize event names to use consistent 'import.*' prefix.
+        
+        Converts 'local_import.*' events to 'import.local.*' for consistency
+        with Google Photos Picker imports which use 'import.picker.*'.
+        """
+        if event.startswith('import.'):
+            return event
+        if event.startswith('local_import.'):
+            suffix = event[len('local_import.'):]
+            return f'import.local.{suffix}'
+        if event.startswith('local_import'):
+            return 'import.local'
+        return f'import.local.{event}'
 
     def info(
         self,
@@ -193,6 +209,9 @@ class LocalImportTaskLogger:
         exc_info: bool,
         details: Dict[str, Any],
     ) -> None:
+        # Normalize event names to use consistent 'import.*' prefix
+        normalized_event = self._normalize_event(event)
+        
         payload: Dict[str, Any] = dict(details)
         if session_id is not None:
             payload.setdefault("session_id", session_id)
@@ -215,7 +234,7 @@ class LocalImportTaskLogger:
         severity.log_to_task(
             self._task_logger,
             composed_message,
-            event=event,
+            event=normalized_event,
             status=resolved_status,
             payload=payload_for_log,
             exc_info=exc_info,
@@ -223,7 +242,7 @@ class LocalImportTaskLogger:
         severity.log_to_celery(
             self._celery_logger,
             composed_message,
-            event=event,
+            event=normalized_event,
             status=resolved_status,
             payload=payload_for_log,
             exc_info=exc_info,

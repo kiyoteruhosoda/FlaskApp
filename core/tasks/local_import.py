@@ -92,6 +92,25 @@ LocalImportPlaybackError = _PlaybackError
 _task_logger = LocalImportTaskLogger(logger, celery_logger)
 
 
+def _normalize_event(event: str) -> str:
+    """Normalize event names to use consistent 'import.*' prefix.
+    
+    Converts 'local_import.*' events to 'import.local.*' for consistency
+    with Google Photos Picker imports which use 'import.picker.*'.
+    
+    This allows unified filtering of all import logs using 'import.%' pattern.
+    """
+    if event.startswith('import.'):
+        return event
+    if event.startswith('local_import.'):
+        suffix = event[len('local_import.'):]
+        return f'import.local.{suffix}'
+    if event.startswith('local_import'):
+        # Handle edge case of 'local_import' without trailing dot
+        return 'import.local'
+    return f'import.local.{event}'
+
+
 def _log_info(
     event: str,
     message: str,
@@ -103,7 +122,7 @@ def _log_info(
     """情報ログを記録。"""
 
     _task_logger.info(
-        event,
+        _normalize_event(event),
         message,
         session_id=session_id,
         status=status,
@@ -122,7 +141,7 @@ def _log_warning(
     """警告ログを記録。"""
 
     _task_logger.warning(
-        event,
+        _normalize_event(event),
         message,
         session_id=session_id,
         status=status,
@@ -142,7 +161,7 @@ def _log_error(
 
     status_value = details.pop("status", None)
     _task_logger.error(
-        event,
+        _normalize_event(event),
         message,
         session_id=session_id,
         status=status_value,

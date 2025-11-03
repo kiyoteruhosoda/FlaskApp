@@ -11,7 +11,7 @@ from flask import (
     url_for,
 )
 from flask_login import login_required
-from sqlalchemy import func, or_, and_
+from sqlalchemy import func, or_
 from ..extensions import db
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
@@ -420,10 +420,6 @@ def api_picker_session_status(session_id):
 
 def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
     """Collect import logs for a picker session.
-    
-    This function retrieves logs for both Local Import and Google Photos Picker
-    import sessions. It uses SQL-level JSON extraction to filter logs by session
-    identifiers for improved performance and reliability.
 
     Args:
         ps: Picker session model instance.
@@ -434,11 +430,6 @@ def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
 
     Returns:
         List of log dictionaries sorted by ID ascending.
-        
-    Note:
-        For databases that support JSON functions (MariaDB, MySQL, PostgreSQL,
-        SQLite 3.38+), session filtering is done at the SQL level for better
-        performance. For other databases, filtering is done in Python.
     """
 
     if not ps:
@@ -446,57 +437,17 @@ def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
 
     session_identifier = ps.session_id
 
-    # Base event filter: match local_import or import.* events
-    event_filter = or_(
-        WorkerLog.event.like("local_import%"), 
-        WorkerLog.event.like("import.%")
+    # Filter for all import logs
+    # - New logs use 'import.*' prefix (import.local.*, import.picker.*)
+    # - Legacy logs use 'local_import.*' prefix (for backward compatibility)
+    query = WorkerLog.query.filter(
+        or_(WorkerLog.event.like("import.%"), WorkerLog.event.like("local_import%"))
     )
-    
-    # Session filter conditions
-    # Try to filter at SQL level using JSON extraction for better performance
-    session_conditions = []
-    
-    # For databases that support JSON extraction (MariaDB, MySQL, PostgreSQL, SQLite 3.38+)
-    # SQLAlchemy's func.json_extract works across multiple database backends
-    # We'll build a session filter that checks extra_json for session identifiers
-    try:
-        # Check if extra_json contains matching session_id or session_db_id
-        if session_identifier:
-            session_conditions.append(
-                func.json_extract(WorkerLog.extra_json, '$.session_id') == session_identifier
-            )
-            session_conditions.append(
-                func.json_extract(WorkerLog.extra_json, '$.active_session_id') == session_identifier
-            )
-            session_conditions.append(
-                func.json_extract(WorkerLog.extra_json, '$.target_session_id') == session_identifier
-            )
-        
-        if ps.id is not None:
-            session_conditions.append(
-                func.json_extract(WorkerLog.extra_json, '$.session_db_id') == ps.id
-            )
-    except (AttributeError, NotImplementedError):
-        # If JSON functions aren't supported by the database backend, 
-        # we'll fall back to Python-level filtering
-        pass
-    
-    # Build the query with event and session filters
-    if session_conditions:
-        query = WorkerLog.query.filter(
-            and_(event_filter, or_(*session_conditions))
-        )
-    else:
-        # Fallback: no SQL-level session filtering
-        query = WorkerLog.query.filter(event_filter)
 
     if limit is None:
         query = query.order_by(WorkerLog.id.asc())
     else:
-        # When we have SQL-level session filtering, we can use the exact limit
-        # Otherwise, retrieve more rows to account for Python-level filtering
-        multiplier = 1 if session_conditions else 5
-        query = query.order_by(WorkerLog.id.desc()).limit(limit * multiplier)
+        query = query.order_by(WorkerLog.id.desc()).limit(limit * 5)
 
     def _transform_row(row):
         try:

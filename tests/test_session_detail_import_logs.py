@@ -190,10 +190,10 @@ def test_collect_logs_includes_local_import_logs(app):
         db.session.add(ps)
         db.session.flush()
         
-        # Create worker logs for local import
+        # Create worker logs for local import (using new import.local.* event names)
         test_logs = [
             {
-                "event": "local_import.scan.start",
+                "event": "import.local.scan.start",
                 "level": "INFO",
                 "message": json.dumps({
                     "message": "ローカルインポート開始",
@@ -209,7 +209,7 @@ def test_collect_logs_includes_local_import_logs(app):
                 "status": "started"
             },
             {
-                "event": "local_import.file.processed_success",
+                "event": "import.local.file.processed_success",
                 "level": "INFO",
                 "message": json.dumps({
                     "message": "ファイル処理成功",

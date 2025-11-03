@@ -807,7 +807,7 @@ def api_picker_session_import_by_session_id(session_id: str):
                 "status": ps.status,
                 **({"job_id": payload.get("jobId")} if payload.get("jobId") else {}),
             }),
-            extra={"event": "picker.import.suppress"},
+            extra={"event": "import.picker.suppress"},
         )
     else:
         current_app.logger.info(
@@ -819,7 +819,7 @@ def api_picker_session_import_by_session_id(session_id: str):
                 "job_status": payload.get("status"),
                 "celery_task_id": payload.get("celeryTaskId"),
             }),
-            extra={"event": "picker.import.enqueue"},
+            extra={"event": "import.picker.enqueue"},
         )
     return _json_response(payload, status)
 

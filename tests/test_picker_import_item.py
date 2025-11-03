@@ -79,6 +79,12 @@ def test_picker_import_item_imports(monkeypatch, app, tmp_path):
     import importlib
     mod = importlib.import_module("core.tasks.picker_import")
 
+    monkeypatch.setattr(
+        mod,
+        "_compute_perceptual_hash",
+        lambda *_, **__: "deadbeef",
+    )
+
     content = b"hello"
     sha = hashlib.sha256(content).hexdigest()
 
@@ -119,6 +125,7 @@ def test_picker_import_item_imports(monkeypatch, app, tmp_path):
         assert pmi.lock_heartbeat_at is None
         assert Media.query.count() == 1
         assert media.source_type == "google_photos"
+        assert media.phash == "deadbeef"
         assert called_thumbs == [media.id]
         assert called_play == []
 

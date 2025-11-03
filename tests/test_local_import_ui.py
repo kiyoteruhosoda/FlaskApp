@@ -21,6 +21,7 @@ from webapp.extensions import db
 from core.models.picker_session import PickerSession
 from core.models.photo_models import PickerSelection
 from core.models.log import Log
+from core.models.worker_log import WorkerLog
 from core.tasks import local_import as local_import_module
 
 
@@ -274,6 +275,53 @@ class TestSessionDetailAPI(AuthenticatedClientMixin):
         assert logs, '少なくとも1件のログが返されること'
         assert all('status' in entry for entry in logs)
         assert any(entry.get('status') for entry in logs)
+
+    def test_session_logs_not_hidden_by_other_sessions(self, app):
+        """他セッションのログで最新が埋まっても対象セッションのログを取得できることを確認"""
+
+        client = app.test_client()
+
+        self._login(client)
+
+        with app.app_context():
+            result = local_import_module.local_import_task()
+            session_id = result['session_id']
+
+            assert (
+                WorkerLog.query.filter(WorkerLog.message.contains(session_id)).count()
+            ), '事前条件として対象セッションのログが存在すること'
+
+            for idx in range(150):
+                extra = {
+                    'session_id': f'other_session_{idx}',
+                    'status': 'completed',
+                }
+                payload = {
+                    'message': 'other session log',
+                    '_extra': dict(extra),
+                }
+                db.session.add(
+                    WorkerLog(
+                        level='INFO',
+                        event='import.session.completed',
+                        message=json.dumps(payload, ensure_ascii=False),
+                        status='completed',
+                        logger_name='pytest',
+                        extra_json=extra,
+                        meta_json={'source': 'test'},
+                    )
+                )
+
+            db.session.commit()
+
+        response = client.get(f'/api/picker/session/{session_id}/logs?limit=20')
+        assert response.status_code == 200
+
+        data = response.get_json()
+        logs = data.get('logs', [])
+
+        assert logs, '対象セッションのログが取得できること'
+        assert len(logs) <= 20
 
     def test_session_logs_include_full_file_path(self, app):
         """ログにフルパスのファイル情報が含まれることを確認"""

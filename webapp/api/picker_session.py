@@ -11,7 +11,7 @@ from flask import (
     url_for,
 )
 from flask_login import login_required
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, cast
 from ..extensions import db
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
@@ -440,6 +440,42 @@ def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
     query = WorkerLog.query.filter(
         or_(WorkerLog.event.like("local_import%"), WorkerLog.event.like("import.%"))
     )
+
+    session_filters = []
+
+    if session_identifier:
+        session_filters.append(
+            WorkerLog.extra_json.contains({"session_id": session_identifier})
+        )
+        session_filters.append(
+            WorkerLog.extra_json.contains({"active_session_id": session_identifier})
+        )
+        session_filters.append(
+            WorkerLog.extra_json.contains({"target_session_id": session_identifier})
+        )
+        session_filters.append(
+            WorkerLog.message.contains(
+                f'"session_id": {json.dumps(session_identifier)}'
+            )
+        )
+
+    if ps.id is not None:
+        session_filters.append(WorkerLog.extra_json.contains({"session_db_id": ps.id}))
+
+        session_db_id_root = cast(
+            func.json_extract(WorkerLog.message, "$.session_db_id"),
+            db.Integer,
+        )
+        session_db_id_extra = cast(
+            func.json_extract(WorkerLog.message, "$._extra.session_db_id"),
+            db.Integer,
+        )
+
+        session_filters.append(session_db_id_root == ps.id)
+        session_filters.append(session_db_id_extra == ps.id)
+
+    if session_filters:
+        query = query.filter(or_(*session_filters))
 
     if limit is None:
         query = query.order_by(WorkerLog.id.asc())

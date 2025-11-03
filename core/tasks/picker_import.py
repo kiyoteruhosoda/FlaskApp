@@ -42,6 +42,8 @@ from typing import (
 import requests
 from sqlalchemy import update
 
+from application.picker_import.queue_service import PickerQueueService
+from application.picker_import.watchdog_service import PickerImportWatchdog
 from core.crypto import decrypt
 from core.db import db
 from core.models.google_account import GoogleAccount
@@ -59,8 +61,21 @@ from core.settings import ApplicationSettings, settings
 from core.tasks import media_post_processing
 from core.tasks.media_post_processing import process_media_post_import
 from flask import Flask, current_app
+from infrastructure.picker_import import LocalPerceptualHashCalculator
+from infrastructure.picker_import.repositories import (
+    PickerSelectionRepository,
+    PickerSessionRepository,
+)
+from domain.picker_import.entities import ImportSessionProgress, ImportResult
+from domain.picker_import.services import (
+    ImportResultAggregator,
+    MediaHashingService,
+)
 from werkzeug.local import LocalProxy
 from core.utils import open_image_compat
+
+
+hashing_service = MediaHashingService(LocalPerceptualHashCalculator())
 
 # picker_import専用ロガーを取得（両方のログハンドラーが設定済み）
 logger = logging.getLogger('picker_import')
@@ -150,27 +165,11 @@ def enqueue_media_playback(media_id: int) -> None:
 def picker_import_queue_scan() -> Dict[str, int]:
     """Publish ``enqueued`` Google Photos selections to the worker queue."""
 
-    queued = 0
-    now = datetime.now(timezone.utc)
-
-    selections: List[PickerSelection] = (
-        PickerSelection.query.filter(
-            PickerSelection.status == "enqueued",
-            PickerSelection.google_media_id.isnot(None),
-        )
-        .order_by(PickerSelection.id)
-        .all()
+    service = PickerQueueService(
+        repository=PickerSelectionRepository(),
+        enqueue_func=enqueue_picker_import_item,
     )
-
-    for sel in selections:
-        sel.enqueued_at = sel.enqueued_at or now
-        enqueue_picker_import_item(sel.id, sel.session_id)
-        queued += 1
-
-    if queued:
-        db.session.commit()
-
-    return {"queued": queued}
+    return service.publish_enqueued()
 
 
 def backoff(attempts: int) -> timedelta:
@@ -185,252 +184,19 @@ def picker_import_watchdog(
     stale_running: int = 600,
     max_attempts: int = 3,
 ) -> Dict[str, int]:
-    """Housekeeping task for :class:`PickerSelection` rows.
+    """Housekeeping task for :class:`PickerSelection` rows."""
 
-    The function performs the following maintenance steps:
-
-    1. ``running`` rows with expired heartbeats are released.  If the
-       ``attempts`` value is below ``max_attempts`` the row returns to
-       ``enqueued``.  Otherwise it is marked ``failed`` and ``finished_at`` is
-       set.
-    2. ``failed`` rows are retried once their backoff delay has elapsed.
-    3. ``enqueued`` rows that have been waiting for more than five minutes are
-       republished to the worker queue and a warning is logged.
-    """
-
-    now = datetime.now(timezone.utc)
-    metrics = {"requeued": 0, "failed": 0, "recovered": 0, "republished": 0}
-
-    # --- 1. handle stale running rows -----------------------------------
-    running = (
-        PickerSelection.query.filter(
-            PickerSelection.status == "running",
-            PickerSelection.google_media_id.isnot(None),
-        ).all()
+    service = PickerImportWatchdog(
+        selection_repository=PickerSelectionRepository(),
+        session_repository=PickerSessionRepository(),
+        enqueue_func=enqueue_picker_import_item,
+        logger=logger,
     )
-    for sel in running:
-        hb = sel.lock_heartbeat_at
-        if hb and hb.tzinfo is None:
-            hb = hb.replace(tzinfo=timezone.utc)
-        started = sel.started_at
-        if started and started.tzinfo is None:
-            started = started.replace(tzinfo=timezone.utc)
-
-        stale = False
-        if hb is None or hb < now - timedelta(seconds=lock_lease):
-            stale = True
-        if started and started < now - timedelta(seconds=stale_running):
-            stale = True
-
-        if not stale:
-            continue
-
-        if sel.attempts < max_attempts:
-            sel.status = "enqueued"
-            sel.locked_by = None
-            sel.lock_heartbeat_at = None
-            sel.started_at = None
-            sel.enqueued_at = now
-            sel.last_transition_at = now
-            metrics["requeued"] += 1
-            logger.info(
-                json.dumps(
-                    {
-                        "ts": now.isoformat(),
-                        "selection_id": sel.id,
-                        "attempts": sel.attempts,
-                    }
-                ),
-                extra={"event": "scavenger.requeue"},
-            )
-        else:
-            sel.status = "failed"
-            sel.locked_by = None
-            sel.lock_heartbeat_at = None
-            sel.finished_at = now
-            sel.last_transition_at = now
-            metrics["failed"] += 1
-            logger.info(
-                json.dumps(
-                    {
-                        "ts": now.isoformat(),
-                        "selection_id": sel.id,
-                        "attempts": sel.attempts,
-                    }
-                ),
-                extra={"event": "scavenger.finalize_failed"},
-            )
-
-    if metrics["requeued"] or metrics["failed"]:
-        db.session.commit()
-
-    # --- 2. retry failed rows after backoff ------------------------------
-    failed_rows = (
-        PickerSelection.query.filter(
-            PickerSelection.status == "failed",
-            PickerSelection.google_media_id.isnot(None),
-        ).all()
+    return service.run(
+        lock_lease=lock_lease,
+        stale_running=stale_running,
+        max_attempts=max_attempts,
     )
-    for sel in failed_rows:
-        lt = sel.last_transition_at
-        if lt and lt.tzinfo is None:
-            lt = lt.replace(tzinfo=timezone.utc)
-        if lt and lt + backoff(sel.attempts) <= now:
-            sel.status = "enqueued"
-            sel.enqueued_at = now
-            sel.finished_at = None
-            sel.last_transition_at = now
-            metrics["recovered"] += 1
-            logger.info(
-                json.dumps(
-                    {
-                        "ts": now.isoformat(),
-                        "selection_id": sel.id,
-                        "attempts": sel.attempts,
-                    }
-                ),
-                extra={"event": "scavenger.requeue"},
-            )
-
-    if metrics["recovered"]:
-        db.session.commit()
-
-    # --- 3. republish stalled enqueued rows ------------------------------
-    enqueued_rows = (
-        PickerSelection.query.filter(
-            PickerSelection.status == "enqueued",
-            PickerSelection.google_media_id.isnot(None),
-        ).all()
-    )
-    stale_threshold = now - timedelta(minutes=5)
-    for sel in enqueued_rows:
-        enq_at = sel.enqueued_at or sel.last_transition_at
-        if not enq_at:
-            continue
-        if enq_at.tzinfo is None:
-            enq_at = enq_at.replace(tzinfo=timezone.utc)
-        if enq_at < stale_threshold:
-            enqueue_picker_import_item(sel.id, sel.session_id)
-            sel.enqueued_at = now
-            metrics["republished"] += 1
-            logger.warning("republished stalled selection %s", sel.id)
-
-    if metrics["republished"]:
-        db.session.commit()
-
-    # --- 4. auto-complete finished sessions -----------------------------
-    from core.models.picker_session import PickerSession
-    from core.models.job_sync import JobSync
-    
-    # Find sessions in "importing" status that might be complete
-    importing_sessions = (
-        PickerSession.query.filter(
-            PickerSession.status == "importing",
-            PickerSession.account_id.isnot(None),
-        ).all()
-    )
-    metrics["completed_sessions"] = 0
-    
-    for ps in importing_sessions:
-        # Check if all selections for this session are in terminal states
-        selections = PickerSelection.query.filter_by(session_id=ps.id).all()
-        if not selections:
-            # No selections means import should be marked as completed (empty import)
-            ps.status = "imported"
-            ps.last_progress_at = now
-            ps.updated_at = now
-            
-            # Update related job
-            job = JobSync.query.filter_by(target="picker_import", session_id=ps.id).order_by(JobSync.id.desc()).first()
-            if job and job.status in ("queued", "running"):
-                job.finished_at = now
-                job.status = "success"
-
-                # Update job stats
-                stats = json.loads(job.stats_json or "{}")
-                stats["countsByStatus"] = {}
-                stats["completed_at"] = now.isoformat()
-                job.stats_json = json.dumps(stats)
-                if job.celery_task:
-                    job.celery_task.status = CeleryTaskStatus.SUCCESS
-                    job.celery_task.finished_at = now
-                    job.celery_task.error_message = None
-                    job.celery_task.set_result({"countsByStatus": {}, "status": "success"})
-            
-            metrics["completed_sessions"] += 1
-            logger.info(
-                json.dumps({
-                    "ts": now.isoformat(),
-                    "session_id": ps.id,
-                    "status": "imported",
-                    "reason": "no_selections",
-                }),
-                extra={"event": "picker.session.auto_complete"},
-            )
-            continue
-            
-        terminal_states = {"imported", "dup", "failed", "expired"}
-        all_terminal = all(sel.status in terminal_states for sel in selections)
-        
-        if all_terminal:
-            # Count results
-            status_counts = {}
-            for sel in selections:
-                status_counts[sel.status] = status_counts.get(sel.status, 0) + 1
-            
-            # Update session status
-            has_imported = status_counts.get("imported", 0) > 0 or status_counts.get("dup", 0) > 0
-            has_failed = status_counts.get("failed", 0) > 0 or status_counts.get("expired", 0) > 0
-            
-            if has_imported and not has_failed:
-                ps.status = "imported"
-            elif has_imported and has_failed:
-                ps.status = "imported"  # Partial success still counts as imported
-            else:
-                ps.status = "error"
-            
-            ps.last_progress_at = now
-            ps.updated_at = now
-            
-            # Update related job
-            job = JobSync.query.filter_by(target="picker_import", session_id=ps.id).order_by(JobSync.id.desc()).first()
-            if job and job.status in ("queued", "running"):
-                job.finished_at = now
-                if ps.status == "imported":
-                    job.status = "success"
-                else:
-                    job.status = "failed"
-
-                # Update job stats
-                stats = json.loads(job.stats_json or "{}")
-                stats["countsByStatus"] = status_counts
-                stats["completed_at"] = now.isoformat()
-                job.stats_json = json.dumps(stats)
-                if job.celery_task:
-                    if job.status == "success":
-                        job.celery_task.status = CeleryTaskStatus.SUCCESS
-                        job.celery_task.error_message = None
-                    else:
-                        job.celery_task.status = CeleryTaskStatus.FAILED
-                        job.celery_task.error_message = None
-                    job.celery_task.finished_at = now
-                    job.celery_task.set_result({"countsByStatus": status_counts, "status": job.status})
-            
-            metrics["completed_sessions"] += 1
-            logger.info(
-                json.dumps({
-                    "ts": now.isoformat(),
-                    "session_id": ps.id,
-                    "status": ps.status,
-                    "counts": status_counts,
-                }),
-                extra={"event": "watchdog.session.complete"},
-            )
-    
-    if metrics["completed_sessions"]:
-        db.session.commit()
-
-    return metrics
 
 # ---------------------------------------------------------------------------
 # Helper utilities
@@ -1176,6 +942,12 @@ def picker_import_item(
                     is_video=is_video,
                 )
 
+                duration_ms = (
+                    int(meta.get("video", {}).get("durationMillis", 0) or 0)
+                    if is_video
+                    else None
+                )
+
                 media_kwargs: dict[str, Any] = {
                     "source_type": "google_photos",
                     "google_media_id": mi.id,
@@ -1187,15 +959,18 @@ def picker_import_item(
                     "mime_type": mi.mime_type,
                     "width": width_value,
                     "height": height_value,
-                    "duration_ms": (
-                        int(meta.get("video", {}).get("durationMillis", 0) or 0)
-                        if is_video
-                        else None
-                    ),
+                    "duration_ms": duration_ms,
                     "shot_at": shot_at,
                     "imported_at": now,
                     "is_video": is_video,
                 }
+                phash = hashing_service.compute(
+                    file_path=final_path,
+                    is_video=is_video,
+                    duration_ms=duration_ms,
+                )
+                if phash:
+                    media_kwargs["phash"] = phash
                 media = Media(**media_kwargs)
                 db.session.add(media)
                 db.session.flush()
@@ -1347,9 +1122,8 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
     the ``note`` field of the response.
     """
 
-    imported = 0
-    dup = 0
-    failed = 0
+    progress = ImportSessionProgress()
+    aggregator = ImportResultAggregator(progress)
     note = None
     start_time = datetime.now(timezone.utc)
 
@@ -1372,19 +1146,22 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
             json.dumps({"ts": start_time.isoformat(), "session_id": picker_session_id, "error": note}),
             extra={"event": "picker.session.error"},
         )
-        return {"ok": False, "imported": 0, "dup": 0, "failed": 0, "note": note}
+        result = ImportResult(ok=False, progress=progress, note=note)
+        return result.to_payload()
     if note == "already_done":
         logger.info(
             json.dumps({"ts": start_time.isoformat(), "session_id": picker_session_id, "note": note}),
             extra={"event": "picker.session.skip"},
         )
-        return {"ok": True, "imported": 0, "dup": 0, "failed": 0, "note": note}
+        result = ImportResult(ok=True, progress=progress, note=note)
+        return result.to_payload()
     if note == "account_not_found":
         logger.error(
             json.dumps({"ts": start_time.isoformat(), "session_id": picker_session_id, "error": note}),
             extra={"event": "picker.session.error"},
         )
-        return {"ok": False, "imported": 0, "dup": 0, "failed": 0, "note": note}
+        result = ImportResult(ok=False, progress=progress, note=note)
+        return result.to_payload()
 
     # 2. Exchange refresh token for access token
     access_token, note = _exchange_refresh_token(gacc, ps)  # type: ignore[arg-type]
@@ -1393,16 +1170,19 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
             json.dumps({"ts": datetime.now(timezone.utc).isoformat(), "session_id": picker_session_id, "error": note}),
             extra={"event": "picker.session.error"},
         )
-        return {"ok": False, "imported": 0, "dup": 0, "failed": 0, "note": note}
+        result = ImportResult(ok=False, progress=progress, note=note)
+        return result.to_payload()
 
     headers = {"Authorization": f"Bearer {access_token}"}
 
     # 3. Fetch selected IDs from callback storage or picker session
     selected_ids, note = _fetch_selected_ids(ps, headers)  # type: ignore[arg-type]
     if note == "session_get_error":
-        return {"ok": False, "imported": 0, "dup": 0, "failed": 0, "note": note}
+        result = ImportResult(ok=False, progress=progress, note=note)
+        return result.to_payload()
     if note == "no_selection":
-        return {"ok": True, "imported": 0, "dup": 0, "failed": 0}
+        result = ImportResult(ok=True, progress=progress, note=None)
+        return result.to_payload()
 
     if ps is None or gacc is None:
         logger.error(
@@ -1416,7 +1196,8 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
             ),
             extra={"event": "picker.session.error"},
         )
-        return {"ok": False, "imported": 0, "dup": 0, "failed": 0, "note": "session_state_invalid"}
+        result = ImportResult(ok=False, progress=progress, note="session_state_invalid")
+        return result.to_payload()
 
     stats = ps.stats()
     stats["selected_count"] = len(selected_ids)
@@ -1434,7 +1215,7 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
             r.raise_for_status()
             item_data = r.json()
         except Exception:
-            failed += len(chunk_ids)
+            aggregator.register_failures(len(chunk_ids))
             continue
 
         # Extract list of media items depending on response structure
@@ -1450,7 +1231,7 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
         for i, item in enumerate(results):
             media_id = item.get("id")
             if not media_id:
-                failed += 1
+                aggregator.register_failure()
                 continue
             processed_ids.append(media_id)
             
@@ -1464,9 +1245,9 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
                             "session_id": picker_session_id,
                             "progress": f"{i + 1}/{total_count}",
                             "media_id": media_id,
-                            "imported": imported,
-                            "duplicates": dup,
-                            "failed": failed,
+                            "imported": progress.imported,
+                            "duplicates": progress.duplicated,
+                            "failed": progress.failed,
                         }
                     ),
                     extra={"event": "picker.session.progress"},
@@ -1481,12 +1262,12 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
             try:
                 dl = _download(dl_url, tmp_dir)
             except Exception:
-                failed += 1
+                aggregator.register_failure()
                 continue
 
             # Deduplication by hash
             if Media.query.filter_by(hash_sha256=dl.sha256, is_deleted=False).first():
-                dup += 1
+                aggregator.register_success(duplicated=True)
                 dl.path.unlink(missing_ok=True)
                 continue
 
@@ -1515,6 +1296,12 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
                 is_video=is_video,
             )
 
+            duration_ms = (
+                int(meta.get("video", {}).get("durationMillis", 0) or 0)
+                if is_video
+                else None
+            )
+
             media_kwargs: dict[str, Any] = {
                 "source_type": "google_photos",
                 "google_media_id": media_id,
@@ -1526,11 +1313,18 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
                 "mime_type": mime,
                 "width": width_value,
                 "height": height_value,
-                "duration_ms": int(meta.get("video", {}).get("durationMillis", 0) or 0),
+                "duration_ms": duration_ms,
                 "shot_at": shot_at,
                 "imported_at": datetime.now(timezone.utc),
                 "is_video": is_video,
             }
+            phash = hashing_service.compute(
+                file_path=final_path,
+                is_video=is_video,
+                duration_ms=duration_ms,
+            )
+            if phash:
+                media_kwargs["phash"] = phash
             media = Media(**media_kwargs)
             db.session.add(media)
             db.session.flush()  # obtain media.id
@@ -1547,7 +1341,7 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
                 },
             )
 
-            imported += 1
+            aggregator.register_success(duplicated=False)
 
         db.session.commit()
 
@@ -1555,10 +1349,10 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
     ps.set_stats(stats)
 
     end_time = datetime.now(timezone.utc)
-    if imported > 0:
+    if progress.imported > 0:
         ps.status = "imported"
         ps.last_progress_at = end_time
-    elif failed > 0:
+    elif progress.failed > 0:
         ps.status = "error"
     else:  # only duplicates
         ps.status = "imported"
@@ -1578,19 +1372,21 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
                 "account_id": account_id,
                 "status": ps.status,
                 "duration_seconds": duration_seconds,
-                "imported": imported,
-                "duplicates": dup,
-                "failed": failed,
+                "imported": progress.imported,
+                "duplicates": progress.duplicated,
+                "failed": progress.failed,
                 "processed_total": len(processed_ids),
             }
         ),
         extra={"event": "picker.session.complete"},
     )
 
-    ok = imported > 0 or failed == 0
-    if imported > 0 and failed > 0:
+    ok = progress.imported > 0 or progress.failed == 0
+    if progress.imported > 0 and progress.failed > 0:
         note = "partial"
-    return {"ok": ok, "imported": imported, "dup": dup, "failed": failed, "note": note}
+
+    result = ImportResult(ok=ok, progress=progress, note=note)
+    return result.to_payload()
 
 
 __all__ = [

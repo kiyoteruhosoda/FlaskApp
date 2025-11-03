@@ -79,6 +79,14 @@
             >
               <a class="config-tree__link" href="#section-signing">{{ _('Access Token Signing') }}</a>
             </li>
+            <li
+              class="config-tree__item"
+              data-config-tree-node
+              data-target="#section-import-export"
+              data-search-text="{{ (_('Import configuration') ~ ' ' ~ _('Export configuration'))|e }}"
+            >
+              <a class="config-tree__link" href="#section-import-export">{{ _('Import / Export') }}</a>
+            </li>
             <li class="config-tree__heading">{{ _('Application configuration') }}</li>
             <li
               class="config-tree__item"
@@ -176,6 +184,67 @@
     <div class="alert alert-info d-none" data-config-empty-state>
       {{ _('No settings match your search. Try a different keyword.') }}
     </div>
+
+    <section
+      id="section-import-export"
+      class="config-block"
+      data-config-block="import-export"
+      data-search-text="{{ (_('Import configuration') ~ ' ' ~ _('Export configuration') ~ ' JSON')|e }}"
+    >
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-white border-0 pb-0">
+          <h4 class="card-title mb-1">{{ _('Import / Export') }}</h4>
+          <p class="text-muted small mb-0">
+            {{ _('Download the current configuration as JSON or import a JSON file to update settings.') }}
+          </p>
+        </div>
+        <div class="card-body">
+          <div class="row gy-4">
+            <div class="col-12 col-lg-6">
+              <h5 class="h6">{{ _('Export configuration') }}</h5>
+              <p class="text-muted small">
+                {{ _('Download the application and CORS settings as a JSON file.') }}
+              </p>
+              <form method="post" action="{{ url_for('admin.show_config') }}">
+                <input type="hidden" name="action" value="export-config">
+                <button type="submit" class="btn btn-outline-primary">
+                  <i class="fas fa-download me-1" aria-hidden="true"></i>
+                  {{ _('Export JSON') }}
+                </button>
+              </form>
+            </div>
+            <div class="col-12 col-lg-6">
+              <h5 class="h6">{{ _('Import configuration') }}</h5>
+              <p class="text-muted small">
+                {{ _('Upload a JSON export to apply configuration changes. Existing secrets that are not included will be preserved.') }}
+              </p>
+              <form
+                method="post"
+                action="{{ url_for('admin.show_config') }}"
+                enctype="multipart/form-data"
+              >
+                <input type="hidden" name="action" value="import-config">
+                <div class="mb-3">
+                  <label class="form-label" for="config-import-file">{{ _('Configuration file (.json)') }}</label>
+                  <input
+                    class="form-control"
+                    type="file"
+                    id="config-import-file"
+                    name="config_file"
+                    accept="application/json"
+                    required
+                  >
+                </div>
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-upload me-1" aria-hidden="true"></i>
+                  {{ _('Import JSON') }}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
 
     {% set signing_search_terms = [_('Access Token Signing')] %}
     {% for group in server_signing_groups or [] %}

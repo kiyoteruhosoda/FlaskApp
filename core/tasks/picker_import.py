@@ -1326,7 +1326,45 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
 
     tmp_dir, orig_dir = _ensure_dirs()
 
-    for chunk_ids in _chunk(selected_ids, 50):
+    _log_info(
+        "picker.session.directories",
+        json.dumps(
+            {
+                "ts": start_time.isoformat(),
+                "session_id": picker_session_id,
+                "tmp_dir": str(tmp_dir),
+                "originals_dir": str(orig_dir),
+            }
+        ),
+        session_identifier=session_identifier,
+        session_db_id=picker_session_id,
+        tmp_dir=str(tmp_dir),
+        originals_dir=str(orig_dir),
+    )
+
+    total_selected = len(selected_ids)
+    chunk_total = (total_selected + 49) // 50 if total_selected else 0
+
+    for chunk_index, chunk_ids in enumerate(_chunk(selected_ids, 50), start=1):
+        chunk_start = datetime.now(timezone.utc)
+        _log_info(
+            "picker.batch.fetch.start",
+            json.dumps(
+                {
+                    "ts": chunk_start.isoformat(),
+                    "session_id": picker_session_id,
+                    "chunk_index": chunk_index,
+                    "chunk_size": len(chunk_ids),
+                    "chunks_total": chunk_total,
+                }
+            ),
+            session_identifier=session_identifier,
+            session_db_id=picker_session_id,
+            chunk_index=chunk_index,
+            chunk_size=len(chunk_ids),
+            chunks_total=chunk_total,
+        )
+
         try:
             r = requests.post(
                 "https://photospicker.googleapis.com/v1/mediaItems:batchGet",
@@ -1335,8 +1373,27 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
             )
             r.raise_for_status()
             item_data = r.json()
-        except Exception:
+        except Exception as exc:
             aggregator.register_failures(len(chunk_ids))
+            _log_error(
+                "picker.batch.fetch.failed",
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "session_id": picker_session_id,
+                        "chunk_index": chunk_index,
+                        "chunk_size": len(chunk_ids),
+                        "error": str(exc),
+                    }
+                ),
+                session_identifier=session_identifier,
+                session_db_id=picker_session_id,
+                chunk_index=chunk_index,
+                chunk_size=len(chunk_ids),
+                error_type=type(exc).__name__,
+                error_message=str(exc),
+                exc_info=True,
+            )
             continue
 
         # Extract list of media items depending on response structure
@@ -1349,23 +1406,74 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
             elif item_data.get("mediaItems"):
                 results.extend(item_data["mediaItems"])
 
-        for i, item in enumerate(results):
+        chunk_finish = datetime.now(timezone.utc)
+        _log_info(
+            "picker.batch.fetch.success",
+            json.dumps(
+                {
+                    "ts": chunk_finish.isoformat(),
+                    "session_id": picker_session_id,
+                    "chunk_index": chunk_index,
+                    "chunk_size": len(chunk_ids),
+                    "result_count": len(results),
+                    "duration_ms": int((chunk_finish - chunk_start).total_seconds() * 1000),
+                }
+            ),
+            session_identifier=session_identifier,
+            session_db_id=picker_session_id,
+            chunk_index=chunk_index,
+            chunk_size=len(chunk_ids),
+            result_count=len(results),
+        )
+
+        if not results:
+            _log_warning(
+                "picker.batch.fetch.empty",
+                json.dumps(
+                    {
+                        "ts": chunk_finish.isoformat(),
+                        "session_id": picker_session_id,
+                        "chunk_index": chunk_index,
+                        "chunk_size": len(chunk_ids),
+                    }
+                ),
+                session_identifier=session_identifier,
+                session_db_id=picker_session_id,
+                chunk_index=chunk_index,
+                chunk_size=len(chunk_ids),
+            )
+
+        for item_index, item in enumerate(results, start=1):
             media_id = item.get("id")
             if not media_id:
                 aggregator.register_failure()
+                _log_error(
+                    "picker.item.missing_id",
+                    json.dumps(
+                        {
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                            "session_id": picker_session_id,
+                            "chunk_index": chunk_index,
+                            "item_index": item_index,
+                        }
+                    ),
+                    session_identifier=session_identifier,
+                    session_db_id=picker_session_id,
+                    chunk_index=chunk_index,
+                    item_index=item_index,
+                )
                 continue
             processed_ids.append(media_id)
-            
-            # 進捗ログ (10件ごとまたは最初と最後)
+
             total_count = len(results)
-            if i == 0 or i == total_count - 1 or (i + 1) % 10 == 0:
+            if item_index == 1 or item_index == total_count or item_index % 10 == 0:
                 _log_info(
                     "picker.session.progress",
                     json.dumps(
                         {
                             "ts": datetime.now(timezone.utc).isoformat(),
                             "session_id": picker_session_id,
-                            "progress": f"{i + 1}/{total_count}",
+                            "progress": f"{item_index}/{total_count}",
                             "media_id": media_id,
                             "imported": progress.imported,
                             "duplicates": progress.duplicated,
@@ -1378,23 +1486,136 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
                     imported=progress.imported,
                     duplicates=progress.duplicated,
                     failed=progress.failed,
+                    chunk_index=chunk_index,
+                    item_index=item_index,
                 )
-            
+
             base_url = item.get("baseUrl")
+            if not base_url:
+                aggregator.register_failure()
+                _log_error(
+                    "picker.item.base_url_missing",
+                    json.dumps(
+                        {
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                            "session_id": picker_session_id,
+                            "media_id": media_id,
+                            "chunk_index": chunk_index,
+                            "item_index": item_index,
+                        }
+                    ),
+                    session_identifier=session_identifier,
+                    session_db_id=picker_session_id,
+                    media_id=media_id,
+                    chunk_index=chunk_index,
+                    item_index=item_index,
+                )
+                continue
+
             filename = item.get("filename")
             mime = item.get("mimeType")
             meta = item.get("mediaMetadata", {})
             is_video = bool(meta.get("video")) or (mime or "").startswith("video/")
             dl_url = base_url + ("=dv" if is_video else "=d")
+
+            _log_info(
+                "picker.item.download.start",
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "session_id": picker_session_id,
+                        "media_id": media_id,
+                        "chunk_index": chunk_index,
+                        "item_index": item_index,
+                        "url": dl_url,
+                    }
+                ),
+                session_identifier=session_identifier,
+                session_db_id=picker_session_id,
+                media_id=media_id,
+                chunk_index=chunk_index,
+                item_index=item_index,
+                url=dl_url,
+            )
+
             try:
                 dl = _download(dl_url, tmp_dir)
-            except Exception:
+            except Exception as exc:
                 aggregator.register_failure()
+                _log_error(
+                    "picker.item.download.failed",
+                    json.dumps(
+                        {
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                            "session_id": picker_session_id,
+                            "media_id": media_id,
+                            "chunk_index": chunk_index,
+                            "item_index": item_index,
+                            "error": str(exc),
+                        }
+                    ),
+                    session_identifier=session_identifier,
+                    session_db_id=picker_session_id,
+                    media_id=media_id,
+                    chunk_index=chunk_index,
+                    item_index=item_index,
+                    error_type=type(exc).__name__,
+                    error_message=str(exc),
+                    exc_info=True,
+                )
                 continue
 
-            # Deduplication by hash
+            _log_info(
+                "picker.item.download.success",
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "session_id": picker_session_id,
+                        "media_id": media_id,
+                        "chunk_index": chunk_index,
+                        "item_index": item_index,
+                        "bytes": dl.bytes,
+                        "sha256": dl.sha256,
+                    }
+                ),
+                session_identifier=session_identifier,
+                session_db_id=picker_session_id,
+                media_id=media_id,
+                chunk_index=chunk_index,
+                item_index=item_index,
+                bytes=dl.bytes,
+                sha256=dl.sha256,
+            )
+
             if Media.query.filter_by(hash_sha256=dl.sha256, is_deleted=False).first():
                 aggregator.register_success(duplicated=True)
+                _log_info(
+                    "picker.item.duplicate",
+                    json.dumps(
+                        {
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                            "session_id": picker_session_id,
+                            "media_id": media_id,
+                            "chunk_index": chunk_index,
+                            "item_index": item_index,
+                            "sha256": dl.sha256,
+                            "progress": {
+                                "imported": progress.imported,
+                                "duplicates": progress.duplicated,
+                                "failed": progress.failed,
+                            },
+                        }
+                    ),
+                    session_identifier=session_identifier,
+                    session_db_id=picker_session_id,
+                    media_id=media_id,
+                    chunk_index=chunk_index,
+                    item_index=item_index,
+                    sha256=dl.sha256,
+                    imported=progress.imported,
+                    duplicates=progress.duplicated,
+                    failed=progress.failed,
+                )
                 dl.path.unlink(missing_ok=True)
                 continue
 
@@ -1415,6 +1636,30 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
             final_path = orig_dir / out_rel
             final_path.parent.mkdir(parents=True, exist_ok=True)
             os.replace(dl.path, final_path)
+
+            _log_info(
+                "picker.item.file.saved",
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "session_id": picker_session_id,
+                        "media_id": media_id,
+                        "chunk_index": chunk_index,
+                        "item_index": item_index,
+                        "file_path": str(final_path),
+                        "bytes": dl.bytes,
+                        "mime_type": mime,
+                    }
+                ),
+                session_identifier=session_identifier,
+                session_db_id=picker_session_id,
+                media_id=media_id,
+                chunk_index=chunk_index,
+                item_index=item_index,
+                file_path=str(final_path),
+                bytes=dl.bytes,
+                mime_type=mime,
+            )
 
             width_value, height_value = _resolve_media_dimensions(
                 meta=meta,
@@ -1456,6 +1701,26 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
             db.session.add(media)
             db.session.flush()  # obtain media.id
 
+            _log_info(
+                "picker.item.media.created",
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "session_id": picker_session_id,
+                        "media_id": media_id,
+                        "chunk_index": chunk_index,
+                        "item_index": item_index,
+                        "media_db_id": media.id,
+                    }
+                ),
+                session_identifier=session_identifier,
+                session_db_id=picker_session_id,
+                media_id=media_id,
+                media_db_id=media.id,
+                chunk_index=chunk_index,
+                item_index=item_index,
+            )
+
             exif = Exif(media_id=media.id, raw_json=json.dumps(item))
             db.session.add(exif)
 
@@ -1470,7 +1735,57 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
 
             aggregator.register_success(duplicated=False)
 
+            _log_info(
+                "picker.item.success",
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "session_id": picker_session_id,
+                        "media_id": media_id,
+                        "chunk_index": chunk_index,
+                        "item_index": item_index,
+                        "media_db_id": media.id,
+                        "progress": {
+                            "imported": progress.imported,
+                            "duplicates": progress.duplicated,
+                            "failed": progress.failed,
+                        },
+                    }
+                ),
+                session_identifier=session_identifier,
+                session_db_id=picker_session_id,
+                media_id=media_id,
+                media_db_id=media.id,
+                chunk_index=chunk_index,
+                item_index=item_index,
+                imported=progress.imported,
+                duplicates=progress.duplicated,
+                failed=progress.failed,
+            )
+
         db.session.commit()
+
+        _log_info(
+            "picker.batch.complete",
+            json.dumps(
+                {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "session_id": picker_session_id,
+                    "chunk_index": chunk_index,
+                    "chunk_size": len(chunk_ids),
+                    "imported": progress.imported,
+                    "duplicates": progress.duplicated,
+                    "failed": progress.failed,
+                }
+            ),
+            session_identifier=session_identifier,
+            session_db_id=picker_session_id,
+            chunk_index=chunk_index,
+            chunk_size=len(chunk_ids),
+            imported=progress.imported,
+            duplicates=progress.duplicated,
+            failed=progress.failed,
+        )
 
     stats["processed_ids"] = processed_ids
     ps.set_stats(stats)

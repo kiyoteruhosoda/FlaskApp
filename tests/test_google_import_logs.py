@@ -82,12 +82,41 @@ def test_collect_logs_includes_google_import_entries(app_context):
             )
         )
 
+        detailed_payload = {
+            "message": "Download completed",
+            "_extra": {
+                "session_id": session.session_id,
+                "chunk_index": 1,
+                "item_index": 1,
+                "bytes": 2048,
+                "sha256": "deadbeef",
+            },
+        }
+        db.session.add(
+            WorkerLog(
+                level="INFO",
+                event="import.picker.item.download.success",
+                message=json.dumps(detailed_payload, ensure_ascii=False),
+                extra_json=detailed_payload["_extra"],
+                created_at=datetime.now(timezone.utc),
+            )
+        )
+
         db.session.commit()
 
         logs = _collect_local_import_logs(session, limit=None)
 
-        assert len(logs) == 3
+        assert len(logs) == 4
         events = {entry["event"] for entry in logs}
         assert "import.session.created" in events
         assert "import.stage.fetch.start" in events
         assert "import.stage.normalize.start" in events
+        assert "import.picker.item.download.success" in events
+
+        download_entry = next(
+            entry for entry in logs if entry["event"] == "import.picker.item.download.success"
+        )
+        assert download_entry["details"]["chunk_index"] == 1
+        assert download_entry["details"]["item_index"] == 1
+        assert download_entry["details"]["bytes"] == 2048
+        assert download_entry["details"]["sha256"] == "deadbeef"

@@ -61,14 +61,21 @@ from core.settings import ApplicationSettings, settings
 from core.tasks import media_post_processing
 from core.tasks.media_post_processing import process_media_post_import
 from flask import Flask, current_app
+from infrastructure.picker_import import LocalPerceptualHashCalculator
 from infrastructure.picker_import.repositories import (
     PickerSelectionRepository,
     PickerSessionRepository,
 )
 from domain.picker_import.entities import ImportSessionProgress, ImportResult
-from domain.picker_import.services import ImportResultAggregator
+from domain.picker_import.services import (
+    ImportResultAggregator,
+    MediaHashingService,
+)
 from werkzeug.local import LocalProxy
 from core.utils import open_image_compat
+
+
+hashing_service = MediaHashingService(LocalPerceptualHashCalculator())
 
 # picker_import専用ロガーを取得（両方のログハンドラーが設定済み）
 logger = logging.getLogger('picker_import')
@@ -935,6 +942,12 @@ def picker_import_item(
                     is_video=is_video,
                 )
 
+                duration_ms = (
+                    int(meta.get("video", {}).get("durationMillis", 0) or 0)
+                    if is_video
+                    else None
+                )
+
                 media_kwargs: dict[str, Any] = {
                     "source_type": "google_photos",
                     "google_media_id": mi.id,
@@ -946,15 +959,18 @@ def picker_import_item(
                     "mime_type": mi.mime_type,
                     "width": width_value,
                     "height": height_value,
-                    "duration_ms": (
-                        int(meta.get("video", {}).get("durationMillis", 0) or 0)
-                        if is_video
-                        else None
-                    ),
+                    "duration_ms": duration_ms,
                     "shot_at": shot_at,
                     "imported_at": now,
                     "is_video": is_video,
                 }
+                phash = hashing_service.compute(
+                    file_path=final_path,
+                    is_video=is_video,
+                    duration_ms=duration_ms,
+                )
+                if phash:
+                    media_kwargs["phash"] = phash
                 media = Media(**media_kwargs)
                 db.session.add(media)
                 db.session.flush()
@@ -1280,6 +1296,12 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
                 is_video=is_video,
             )
 
+            duration_ms = (
+                int(meta.get("video", {}).get("durationMillis", 0) or 0)
+                if is_video
+                else None
+            )
+
             media_kwargs: dict[str, Any] = {
                 "source_type": "google_photos",
                 "google_media_id": media_id,
@@ -1291,11 +1313,18 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
                 "mime_type": mime,
                 "width": width_value,
                 "height": height_value,
-                "duration_ms": int(meta.get("video", {}).get("durationMillis", 0) or 0),
+                "duration_ms": duration_ms,
                 "shot_at": shot_at,
                 "imported_at": datetime.now(timezone.utc),
                 "is_video": is_video,
             }
+            phash = hashing_service.compute(
+                file_path=final_path,
+                is_video=is_video,
+                duration_ms=duration_ms,
+            )
+            if phash:
+                media_kwargs["phash"] = phash
             media = Media(**media_kwargs)
             db.session.add(media)
             db.session.flush()  # obtain media.id

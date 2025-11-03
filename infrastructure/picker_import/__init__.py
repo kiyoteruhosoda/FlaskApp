@@ -1,3 +1,4 @@
+from .hashers import LocalPerceptualHashCalculator
 from .repositories import (
     MediaRepository,
     PickerSelectionMapper,
@@ -7,6 +8,7 @@ from .repositories import (
 
 __all__ = [
     "MediaRepository",
+    "LocalPerceptualHashCalculator",
     "PickerSelectionMapper",
     "PickerSelectionRepository",
     "PickerSessionRepository",

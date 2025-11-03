@@ -6,7 +6,14 @@ from .entities import (
     ImportSession,
     ImportSessionProgress,
 )
-from .services import ImportResultAggregator, SelectionClassifier, determine_session_status, is_session_finished
+from .services import (
+    ImportResultAggregator,
+    MediaHashingService,
+    PerceptualHashCalculator,
+    SelectionClassifier,
+    determine_session_status,
+    is_session_finished,
+)
 
 __all__ = [
     "ImportCommand",
@@ -16,6 +23,8 @@ __all__ = [
     "ImportSession",
     "ImportSessionProgress",
     "ImportResultAggregator",
+    "MediaHashingService",
+    "PerceptualHashCalculator",
     "SelectionClassifier",
     "determine_session_status",
     "is_session_finished",

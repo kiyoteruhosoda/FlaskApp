@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from pathlib import Path
+from typing import Iterable, Optional, Protocol
 
 from .entities import ImportSelection, ImportSessionProgress
 
@@ -54,3 +55,38 @@ def determine_session_status(progress: ImportSessionProgress) -> str:
     if progress.failed:
         return "error"
     return "ready"
+
+
+class PerceptualHashCalculator(Protocol):
+    """知覚ハッシュ計算を抽象化するためのポート。"""
+
+    def calculate(
+        self,
+        *,
+        file_path: Path,
+        is_video: bool,
+        duration_ms: Optional[int],
+    ) -> Optional[str]:
+        ...
+
+
+@dataclass
+class MediaHashingService:
+    """メディア取り込み時に知覚ハッシュを生成するドメインサービス。"""
+
+    calculator: PerceptualHashCalculator
+
+    def compute(
+        self,
+        *,
+        file_path: Path,
+        is_video: bool,
+        duration_ms: Optional[int],
+    ) -> Optional[str]:
+        """知覚ハッシュを計算して返す。"""
+
+        return self.calculator.calculate(
+            file_path=file_path,
+            is_video=is_video,
+            duration_ms=duration_ms,
+        )

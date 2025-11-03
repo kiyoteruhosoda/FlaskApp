@@ -316,7 +316,7 @@ class TestSessionDetailAPI(AuthenticatedClientMixin):
         logs = payload.get('logs', [])
 
         success_entries = [
-            entry for entry in logs if entry.get('event') == 'local_import.file.processed_success'
+            entry for entry in logs if entry.get('event') == 'import.local.file.processed_success'
         ]
         assert success_entries, '成功ログが少なくとも1件含まれていること'
 
@@ -425,9 +425,9 @@ class TestSessionDetailAPI(AuthenticatedClientMixin):
         assert 'logs' in data
 
         events = [entry.get('event') for entry in data['logs']]
-        assert any(event == 'local_import.zip.extracted' for event in events)
+        assert any(event == 'import.local.zip.extracted' for event in events)
 
-        extracted_entries = [entry for entry in data['logs'] if entry.get('event') == 'local_import.zip.extracted']
+        extracted_entries = [entry for entry in data['logs'] if entry.get('event') == 'import.local.zip.extracted']
         assert extracted_entries, 'expected at least one zip extraction log entry'
 
         details = extracted_entries[-1].get('details', {})

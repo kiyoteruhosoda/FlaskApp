@@ -88,3 +88,44 @@ def test_import_config_updates_settings(client, app_context, monkeypatch):
     assert stored_application["SESSION_COOKIE_SECURE"] is True
     assert stored_application["JWT_SECRET_KEY"] == "initial-secret"
     assert stored_cors["allowedOrigins"] == ["https://after.example"]
+
+
+def test_import_config_does_not_modify_readonly_settings(client, app_context, monkeypatch):
+    admin = _MockAdminUser()
+    monkeypatch.setattr("flask_login.utils._get_user", lambda: admin)
+
+    with app_context.app_context():
+        SystemSettingService.update_application_settings(
+            {
+                "SITE_NAME": "Before Import",
+                "SQLALCHEMY_DATABASE_URI": "sqlite:///before.db",
+            }
+        )
+
+    payload = {
+        "version": 1,
+        "application": {
+            "SITE_NAME": "After Import",
+            "SQLALCHEMY_DATABASE_URI": "sqlite:///after.db",
+        },
+    }
+
+    data = {
+        "action": "import-config",
+        "config_file": (io.BytesIO(json.dumps(payload).encode("utf-8")), "config.json"),
+    }
+
+    response = client.post(
+        "/admin/config",
+        data=data,
+        content_type="multipart/form-data",
+        follow_redirects=False,
+    )
+
+    assert response.status_code in (302, 303)
+
+    with app_context.app_context():
+        stored_application = SystemSettingService.load_application_config_payload()
+
+    assert stored_application["SITE_NAME"] == "After Import"
+    assert stored_application["SQLALCHEMY_DATABASE_URI"] == "sqlite:///before.db"

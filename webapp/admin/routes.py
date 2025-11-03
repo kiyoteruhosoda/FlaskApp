@@ -694,6 +694,35 @@ def _serialize_config_context(context: Dict[str, Any]) -> Dict[str, Any]:
     return serialized
 
 
+def _build_export_payload(context: Dict[str, Any]) -> Dict[str, Any]:
+    """管理画面からダウンロードする設定エクスポート用ペイロードを構築する。"""
+
+    timestamps = _serialize_config_context(context)
+    application_payload = {
+        key: value
+        for key, value in (context.get("application_payload") or {}).items()
+        if key not in _HIDDEN_APPLICATION_SETTING_KEYS
+    }
+    cors_payload = dict(context.get("cors_payload") or {})
+
+    payload: Dict[str, Any] = {
+        "version": 1,
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "application": application_payload,
+        "cors": cors_payload,
+    }
+
+    metadata: Dict[str, Any] = {}
+    if timestamps.get("timestamps"):
+        metadata["timestamps"] = timestamps["timestamps"]
+    if timestamps.get("descriptions"):
+        metadata["descriptions"] = timestamps["descriptions"]
+    if metadata:
+        payload["metadata"] = metadata
+
+    return payload
+
+
 def _parse_setting_value(key: str, definition: SettingFieldDefinition, raw_value: str | None):
     label = definition.label or key
     if definition.data_type == "boolean":
@@ -935,6 +964,13 @@ def show_config():
         warnings: list[str] = []
         success_message: str | None = None
 
+        if action == "export-config":
+            payload = _build_export_payload(context)
+            response_data = json.dumps(payload, ensure_ascii=False, indent=2)
+            response = current_app.response_class(response_data, mimetype="application/json")
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            response.headers["Content-Disposition"] = f"attachment; filename=\"config-export-{timestamp}.json\""
+            return response
         if action == "update-signing":
             selected = (request.form.get("access_token_signing") or "builtin").strip()
             raw_secret_input = request.form.get("builtin_secret")
@@ -990,6 +1026,108 @@ def show_config():
                     errors.append(
                         _(u"Failed to update the access token signing configuration.")
                     )
+        elif action == "import-config":
+            previous_application_config = dict(context["application_config"])
+            uploaded = request.files.get("config_file")
+            if uploaded is None or not uploaded.filename:
+                errors.append(_(u"Please choose a configuration file to import."))
+            else:
+                try:
+                    raw_data = uploaded.read()
+                    decoded = raw_data.decode("utf-8")
+                except UnicodeDecodeError:
+                    errors.append(_(u"Uploaded configuration could not be decoded as UTF-8."))
+                else:
+                    try:
+                        imported_data = json.loads(decoded)
+                    except json.JSONDecodeError:
+                        errors.append(_(u"Uploaded configuration file contains invalid JSON."))
+                    else:
+                        if not isinstance(imported_data, Mapping):
+                            errors.append(_(u"Uploaded configuration must be a JSON object."))
+                        else:
+                            application_section = imported_data.get("application")
+                            cors_section = imported_data.get("cors")
+                            if application_section is None and cors_section is None:
+                                errors.append(_(u"Imported configuration is empty."))
+                            else:
+                                application_changed = False
+                                cors_changed = False
+                                settings_applied = False
+                                try:
+                                    if application_section is not None:
+                                        if not isinstance(application_section, Mapping):
+                                            raise ValueError(
+                                                _(u"Application settings in the imported file must be a JSON object.")
+                                            )
+                                        sanitized_application = {
+                                            key: value
+                                            for key, value in dict(application_section).items()
+                                            if key not in _HIDDEN_APPLICATION_SETTING_KEYS
+                                        }
+                                        current_payload = SystemSettingService.load_application_config_payload()
+                                        visible_current_payload = {
+                                            key: value
+                                            for key, value in current_payload.items()
+                                            if key not in _HIDDEN_APPLICATION_SETTING_KEYS
+                                        }
+                                        remove_keys = [
+                                            key
+                                            for key in current_payload.keys()
+                                            if key not in sanitized_application
+                                            and key not in _HIDDEN_APPLICATION_SETTING_KEYS
+                                        ]
+                                        if (
+                                            sanitized_application != visible_current_payload
+                                            or bool(remove_keys)
+                                        ):
+                                            SystemSettingService.update_application_settings(
+                                                sanitized_application,
+                                                remove_keys=remove_keys,
+                                            )
+                                            application_changed = True
+                                            settings_applied = True
+
+                                    if cors_section is not None and not errors:
+                                        if not isinstance(cors_section, Mapping):
+                                            raise ValueError(
+                                                _(u"CORS settings in the imported file must be a JSON object.")
+                                            )
+                                        sanitized_cors = dict(cors_section)
+                                        current_cors_payload = SystemSettingService.load_cors_config_payload()
+                                        remove_cors_keys = [
+                                            key for key in current_cors_payload.keys() if key not in sanitized_cors
+                                        ]
+                                        if (
+                                            sanitized_cors != current_cors_payload
+                                            or bool(remove_cors_keys)
+                                        ):
+                                            SystemSettingService.update_cors_settings(
+                                                sanitized_cors,
+                                                remove_keys=remove_cors_keys,
+                                            )
+                                            cors_changed = True
+                                            settings_applied = True
+                                except ValueError as exc:
+                                    errors.append(str(exc))
+                                except Exception:  # pragma: no cover - unexpected failure logged for debugging
+                                    db.session.rollback()
+                                    current_app.logger.exception("Failed to import configuration payload")
+                                    errors.append(
+                                        _(u"Failed to import configuration. Please check the application logs.")
+                                    )
+                                else:
+                                    if not errors:
+                                        if settings_applied:
+                                            from webapp import _apply_persisted_settings
+
+                                            _apply_persisted_settings(current_app)
+                                        if application_changed:
+                                            relogin_previous_config = previous_application_config
+                                        if application_changed or cors_changed:
+                                            success_message = _(u"Configuration imported successfully.")
+                                        else:
+                                            success_message = _(u"No changes were applied because the imported configuration matches the current settings.")
         elif action == "update-app-config-fields":
             app_selected = set(request.form.getlist("app_config_selected"))
             app_overrides = {
@@ -1096,7 +1234,7 @@ def show_config():
 
         if success_message and not errors:
             context = _build_config_context()
-            if action == "update-app-config-fields" and relogin_previous_config is not None:
+            if action in {"update-app-config-fields", "import-config"} and relogin_previous_config is not None:
                 warnings.extend(
                     _detect_relogin_changes(
                         relogin_previous_config,

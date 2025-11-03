@@ -11,7 +11,7 @@ from flask import (
     url_for,
 )
 from flask_login import login_required
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from ..extensions import db
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
@@ -419,7 +419,7 @@ def api_picker_session_status(session_id):
 
 
 def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
-    """Collect local import logs for a picker session.
+    """Collect import logs for a picker session.
 
     Args:
         ps: Picker session model instance.
@@ -437,7 +437,9 @@ def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
 
     session_identifier = ps.session_id
 
-    query = WorkerLog.query.filter(WorkerLog.event.like("local_import%"))
+    query = WorkerLog.query.filter(
+        or_(WorkerLog.event.like("local_import%"), WorkerLog.event.like("import.%"))
+    )
 
     if limit is None:
         query = query.order_by(WorkerLog.id.asc())

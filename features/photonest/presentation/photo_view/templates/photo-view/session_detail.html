@@ -512,15 +512,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function renderLocalImportLogs(logs = [], showSection = isLocalImport) {
+  function renderSessionLogs(logs = []) {
     if (!logSection || !logBody) {
-      return;
-    }
-
-    if (!showSection) {
-      logSection.classList.add('d-none');
-      logBody.innerHTML = '';
-      toggleLogDownloadButton(false);
       return;
     }
 
@@ -954,11 +947,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function fetchSessionLogs() {
     if (!pickerSessionId) {
-      return;
-    }
-
-    if (!isLocalImport) {
-      renderLocalImportLogs([], false);
+      renderSessionLogs([]);
       return;
     }
 
@@ -969,7 +958,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const payload = await resp.json().catch(() => ({}));
-      renderLocalImportLogs(payload.logs || [], true);
+      renderSessionLogs(payload.logs || []);
     } catch (error) {
       console.warn('Failed to fetch session logs:', error);
     }
@@ -1018,11 +1007,7 @@ document.addEventListener('DOMContentLoaded', () => {
       currentCounts = sessionData?.counts || currentCounts || {};
       updateCountsDisplay(currentCounts, latestStatus);
 
-      if (sessionData && sessionData.isLocalImport) {
-        await fetchSessionLogs();
-      } else {
-        renderLocalImportLogs([], false);
-      }
+      await fetchSessionLogs();
 
       if (!paginationClient) {
         paginationClient = new PaginationClient({

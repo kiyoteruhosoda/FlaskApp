@@ -146,8 +146,11 @@ def picker_import_item_task(self, selection_id: int, session_id: int) -> dict:
     try:
         return picker_import_item(selection_id=selection_id, session_id=session_id)
     except Exception as e:
-        self.log_error(f"Picker import item failed (selection_id={selection_id}, session_id={session_id}): {str(e)}", 
-                      event="picker_import_item", exc_info=True)
+        self.log_error(
+            f"Picker import item failed (selection_id={selection_id}, session_id={session_id}): {str(e)}",
+            event="import.picker.item",
+            exc_info=True,
+        )
         return {"ok": False, "error": str(e)}
 
 
@@ -156,8 +159,11 @@ def picker_import_watchdog_task():
     try:
         return picker_import_watchdog()
     except Exception as e:
-        logger.error(f"Picker import watchdog failed: {str(e)}", 
-                    extra={'event': 'picker_import_watchdog'}, exc_info=True)
+        logger.error(
+            f"Picker import watchdog failed: {str(e)}",
+            extra={'event': 'import.picker.watchdog'},
+            exc_info=True,
+        )
         return {"ok": False, "error": str(e)}
 
 

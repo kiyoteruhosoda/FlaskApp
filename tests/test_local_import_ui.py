@@ -232,7 +232,7 @@ class TestSessionDetailAPI(AuthenticatedClientMixin):
             db.session.add(
                 Log(
                     level='ERROR',
-                    event='picker.import.unexpected_error',
+                    event='import.picker.unexpected_error',
                     message=json.dumps(log_payload, ensure_ascii=False),
                 )
             )

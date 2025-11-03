@@ -57,6 +57,7 @@ from core.models.photo_models import (
 )
 from core.models.celery_task import CeleryTaskStatus
 from core.logging_config import setup_task_logging, log_task_error, log_task_info
+from features.photonest.application.local_import.logger import LocalImportTaskLogger
 from core.settings import ApplicationSettings, settings
 from core.tasks import media_post_processing
 from core.tasks.media_post_processing import process_media_post_import
@@ -78,7 +79,88 @@ from core.utils import open_image_compat
 hashing_service = MediaHashingService(LocalPerceptualHashCalculator())
 
 # picker_import専用ロガーを取得（両方のログハンドラーが設定済み）
-logger = logging.getLogger('picker_import')
+logger = setup_task_logging('picker_import')
+celery_logger = logging.getLogger('celery.task.picker_import')
+_task_logger = LocalImportTaskLogger(logger, celery_logger)
+
+
+def _normalize_event(event: str) -> str:
+    if event.startswith('import.'):
+        return event
+    if event.startswith('local_import'):
+        return event
+    if event.startswith('picker.import.'):
+        suffix = event[len('picker.import.') :]
+        return f'import.picker.{suffix}'
+    if event.startswith('picker.'):
+        suffix = event[len('picker.') :]
+        return f'import.picker.{suffix}'
+    return f'import.picker.{event}'
+
+
+def _log_info(
+    event: str,
+    message: str,
+    *,
+    session_identifier: Optional[str] = None,
+    session_db_id: Optional[int] = None,
+    status: Optional[str] = None,
+    **details: Any,
+) -> None:
+    payload = dict(details)
+    if session_db_id is not None:
+        payload.setdefault('session_db_id', session_db_id)
+    _task_logger.info(
+        _normalize_event(event),
+        message,
+        session_id=session_identifier,
+        status=status,
+        **payload,
+    )
+
+
+def _log_warning(
+    event: str,
+    message: str,
+    *,
+    session_identifier: Optional[str] = None,
+    session_db_id: Optional[int] = None,
+    status: Optional[str] = None,
+    **details: Any,
+) -> None:
+    payload = dict(details)
+    if session_db_id is not None:
+        payload.setdefault('session_db_id', session_db_id)
+    _task_logger.warning(
+        _normalize_event(event),
+        message,
+        session_id=session_identifier,
+        status=status,
+        **payload,
+    )
+
+
+def _log_error(
+    event: str,
+    message: str,
+    *,
+    session_identifier: Optional[str] = None,
+    session_db_id: Optional[int] = None,
+    status: Optional[str] = None,
+    exc_info: bool = False,
+    **details: Any,
+) -> None:
+    payload = dict(details)
+    if session_db_id is not None:
+        payload.setdefault('session_db_id', session_db_id)
+    _task_logger.error(
+        _normalize_event(event),
+        message,
+        session_id=session_identifier,
+        status=status,
+        exc_info=exc_info,
+        **payload,
+    )
 
 
 def _fsync_dir(path: Path) -> None:
@@ -133,9 +215,10 @@ def enqueue_picker_import_item(selection_id: int, session_id: int) -> None:
                 current_app.logger.warning(
                     "Celery worker unavailable for picker import item; skipping in test mode.",
                     extra={
-                        "event": "picker.import.enqueue.skip",
+                        "event": "import.picker.enqueue.skip",
                         "selection_id": selection_id,
                         "session_id": session_id,
+                        "session_db_id": session_id,
                         "error": str(exc),
                     },
                 )
@@ -237,14 +320,12 @@ def _download(url: str, dest_dir: Path, headers: Dict[str, str] | None = None) -
         resp.raise_for_status()
         
         # ダウンロード成功ログ
-        logger.info(
+        _log_info(
+            "picker.download.success",
             f"ファイルダウンロード成功: {url} ({len(resp.content)} bytes)",
-            extra={
-                "event": "picker.download.success",
-                "url": url,
-                "content_length": len(resp.content),
-                "status_code": resp.status_code
-            }
+            url=url,
+            content_length=len(resp.content),
+            status_code=resp.status_code,
         )
         
         tmp_name = hashlib.sha1(url.encode("utf-8")).hexdigest()
@@ -254,36 +335,30 @@ def _download(url: str, dest_dir: Path, headers: Dict[str, str] | None = None) -
         sha = hashlib.sha256(resp.content).hexdigest()
         return Downloaded(tmp_path, len(resp.content), sha)
     except requests.Timeout as e:
-        logger.error(
+        _log_error(
+            "picker.download.timeout",
             f"ダウンロードタイムアウト: {url}",
-            extra={
-                "event": "picker.download.timeout",
-                "url": url,
-                "error_message": str(e)
-            }
+            url=url,
+            error_message=str(e),
         )
         raise
     except requests.HTTPError as e:
-        logger.error(
+        _log_error(
+            "picker.download.http_error",
             f"ダウンロードHTTPエラー: {url} - Status: {e.response.status_code if e.response else 'Unknown'}",
-            extra={
-                "event": "picker.download.http_error",
-                "url": url,
-                "status_code": e.response.status_code if e.response else None,
-                "response_text": e.response.text if e.response else None
-            }
+            url=url,
+            status_code=e.response.status_code if e.response else None,
+            response_text=e.response.text if e.response else None,
         )
         raise
     except Exception as e:
-        logger.error(
+        _log_error(
+            "picker.download.error",
             f"ダウンロード予期しないエラー: {url} - {str(e)}",
-            extra={
-                "event": "picker.download.error",
-                "url": url,
-                "error_type": type(e).__name__,
-                "error_message": str(e)
-            },
-            exc_info=True
+            url=url,
+            error_type=type(e).__name__,
+            error_message=str(e),
+            exc_info=True,
         )
         raise
 
@@ -390,7 +465,8 @@ def _start_lock_heartbeat(selection_id: int, locked_by: str, interval: float) ->
                         )
                         .values(lock_heartbeat_at=ts)
                     )
-                logger.info(
+                _log_info(
+                    "picker.item.heartbeat",
                     json.dumps(
                         {
                             "ts": ts.isoformat(),
@@ -398,7 +474,8 @@ def _start_lock_heartbeat(selection_id: int, locked_by: str, interval: float) ->
                             "locked_by": locked_by,
                         }
                     ),
-                    extra={"event": "picker.item.heartbeat"},
+                    selection_id=selection_id,
+                    locked_by=locked_by,
                 )
                 stop.wait(interval)
 
@@ -483,14 +560,14 @@ def _fetch_selected_ids(ps: PickerSession, headers: Dict[str, str]) -> tuple[Lis
             elif sess_data.get("selectedMediaItems"):
                 selected_ids = [m["id"] for m in sess_data["selectedMediaItems"]]
                 
-            logger.info(
+            _log_info(
+                "picker.session.fetch.success",
                 f"Google Photos セッション取得成功: session_id={ps.session_id}, 選択アイテム数={len(selected_ids)}",
-                extra={
-                    "event": "picker.session.fetch.success",
-                    "picker_session_id": ps.id,
-                    "google_session_id": ps.session_id,
-                    "selected_count": len(selected_ids)
-                }
+                session_identifier=ps.session_id,
+                session_db_id=ps.id,
+                picker_session_id=ps.id,
+                google_session_id=ps.session_id,
+                selected_count=len(selected_ids),
             )
         except requests.HTTPError as e:
             error_details = {
@@ -500,12 +577,12 @@ def _fetch_selected_ids(ps: PickerSession, headers: Dict[str, str]) -> tuple[Lis
                 "response_text": e.response.text if e.response else None,
                 "error_type": "HTTPError"
             }
-            logger.error(
+            _log_error(
+                "picker.session.fetch.http_error",
                 f"Google Photos セッション取得HTTPエラー: session_id={ps.session_id} - {e}",
-                extra={
-                    "event": "picker.session.fetch.http_error",
-                    "error_details": json.dumps(error_details)
-                }
+                session_identifier=ps.session_id,
+                session_db_id=ps.id,
+                error_details=json.dumps(error_details),
             )
             ps.status = "error"
             db.session.commit()
@@ -517,12 +594,12 @@ def _fetch_selected_ids(ps: PickerSession, headers: Dict[str, str]) -> tuple[Lis
                 "error_type": "RequestException",
                 "error_message": str(e)
             }
-            logger.error(
+            _log_error(
+                "picker.session.fetch.request_error",
                 f"Google Photos セッション取得リクエストエラー: session_id={ps.session_id} - {e}",
-                extra={
-                    "event": "picker.session.fetch.request_error",
-                    "error_details": json.dumps(error_details)
-                }
+                session_identifier=ps.session_id,
+                session_db_id=ps.id,
+                error_details=json.dumps(error_details),
             )
             ps.status = "error"
             db.session.commit()
@@ -534,13 +611,13 @@ def _fetch_selected_ids(ps: PickerSession, headers: Dict[str, str]) -> tuple[Lis
                 "error_type": type(e).__name__,
                 "error_message": str(e)
             }
-            logger.error(
+            _log_error(
+                "picker.session.fetch.unexpected_error",
                 f"Google Photos セッション取得予期しないエラー: session_id={ps.session_id} - {e}",
-                extra={
-                    "event": "picker.session.fetch.unexpected_error",
-                    "error_details": json.dumps(error_details)
-                },
-                exc_info=True
+                session_identifier=ps.session_id,
+                session_db_id=ps.id,
+                error_details=json.dumps(error_details),
+                exc_info=True,
             )
             ps.status = "error"
             db.session.commit()
@@ -604,21 +681,12 @@ def picker_import_item(
     if not sel:
         return {"ok": False, "error": "not_found"}
 
-    logger.info(
-        json.dumps(
-            {
-                "ts": datetime.now(timezone.utc).isoformat(),
-                "selection_id": sel.id,
-                "session_id": session_id,
-                "locked_by": locked_by,
-            }
-        ),
-        extra={"event": "picker.item.claim"},
-    )
-
     stop_evt, hb_thread = _start_lock_heartbeat(sel.id, locked_by, heartbeat_interval)
 
     tmp_dir, orig_dir = _ensure_dirs()
+
+    session_identifier: Optional[str] = None
+    session_db_id: Optional[int] = None
 
     try:
         # Retrieve account and access token
@@ -626,6 +694,23 @@ def picker_import_item(
         gacc = GoogleAccount.query.get(ps.account_id) if ps else None
         if not ps or not gacc:
             raise AuthError()
+        session_identifier = ps.session_id
+        session_db_id = ps.id
+        _log_info(
+            "picker.item.claim",
+            json.dumps(
+                {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "selection_id": sel.id,
+                    "session_id": session_id,
+                    "locked_by": locked_by,
+                }
+            ),
+            session_identifier=session_identifier,
+            session_db_id=session_db_id,
+            selection_id=sel.id,
+            locked_by=locked_by,
+        )
         access_token, note = _exchange_refresh_token(gacc, ps)
         if not access_token:
             if note == "oauth_failed":
@@ -653,14 +738,13 @@ def picker_import_item(
                 r.raise_for_status()
                 item = r.json()
                 
-                logger.info(
+                _log_info(
+                    "picker.media.fetch.success",
                     f"Google Photos メディアアイテム取得成功: media_id={mi.id}",
-                    extra={
-                        "event": "picker.media.fetch.success",
-                        "google_media_id": mi.id,
-                        "selection_id": sel.id,
-                        "session_id": session_id
-                    }
+                    session_identifier=session_identifier,
+                    session_db_id=session_db_id,
+                    google_media_id=mi.id,
+                    selection_id=sel.id,
                 )
             except requests.HTTPError as e:
                 error_details = {
@@ -672,30 +756,30 @@ def picker_import_item(
                     "error_type": "HTTPError"
                 }
                 if e.response is not None and e.response.status_code in (401, 403):
-                    logger.error(
+                    _log_error(
+                        "picker.media.fetch.auth_error",
                         f"Google Photos メディアアイテム取得認証エラー: media_id={mi.id} - {e}",
-                        extra={
-                            "event": "picker.media.fetch.auth_error",
-                            "error_details": json.dumps(error_details)
-                        }
+                        session_identifier=session_identifier,
+                        session_db_id=session_db_id,
+                        error_details=json.dumps(error_details),
                     )
                     raise AuthError()
                 elif e.response is not None and e.response.status_code == 404:
-                    logger.warning(
+                    _log_warning(
+                        "picker.media.fetch.not_found",
                         f"Google Photos メディアアイテムが見つからない: media_id={mi.id} - {e}",
-                        extra={
-                            "event": "picker.media.fetch.not_found",
-                            "error_details": json.dumps(error_details)
-                        }
+                        session_identifier=session_identifier,
+                        session_db_id=session_db_id,
+                        error_details=json.dumps(error_details),
                     )
                     raise BaseUrlExpired()
                 else:
-                    logger.error(
+                    _log_error(
+                        "picker.media.fetch.http_error",
                         f"Google Photos メディアアイテム取得HTTPエラー: media_id={mi.id} - {e}",
-                        extra={
-                            "event": "picker.media.fetch.http_error",
-                            "error_details": json.dumps(error_details)
-                        }
+                        session_identifier=session_identifier,
+                        session_db_id=session_db_id,
+                        error_details=json.dumps(error_details),
                     )
                     raise NetworkError()
             except requests.RequestException as e:
@@ -706,12 +790,12 @@ def picker_import_item(
                     "error_type": "RequestException",
                     "error_message": str(e)
                 }
-                logger.error(
+                _log_error(
+                    "picker.media.fetch.request_error",
                     f"Google Photos メディアアイテム取得リクエストエラー: media_id={mi.id} - {e}",
-                    extra={
-                        "event": "picker.media.fetch.request_error",
-                        "error_details": json.dumps(error_details)
-                    }
+                    session_identifier=session_identifier,
+                    session_db_id=session_db_id,
+                    error_details=json.dumps(error_details),
                 )
                 raise NetworkError()
             except Exception as e:
@@ -722,13 +806,13 @@ def picker_import_item(
                     "error_type": type(e).__name__,
                     "error_message": str(e)
                 }
-                logger.error(
+                _log_error(
+                    "picker.media.fetch.unexpected_error",
                     f"Google Photos メディアアイテム取得予期しないエラー: media_id={mi.id} - {e}",
-                    extra={
-                        "event": "picker.media.fetch.unexpected_error",
-                        "error_details": json.dumps(error_details)
-                    },
-                    exc_info=True
+                    session_identifier=session_identifier,
+                    session_db_id=session_db_id,
+                    error_details=json.dumps(error_details),
+                    exc_info=True,
                 )
                 raise NetworkError()
 
@@ -762,12 +846,12 @@ def picker_import_item(
                 "filename": mi.filename,
                 "mime_type": mi.mime_type
             }
-            logger.error(
+            _log_error(
+                "picker.download.failed.http",
                 f"ファイルダウンロード失敗 (HTTP Error): {e}",
-                extra={
-                    "event": "picker.download.failed.http",
-                    "error_details": json.dumps(error_details)
-                }
+                session_identifier=session_identifier,
+                session_db_id=ps.id,
+                error_details=json.dumps(error_details),
             )
             if e.response is not None and e.response.status_code in (401, 403):
                 raise AuthError()
@@ -785,12 +869,12 @@ def picker_import_item(
                 "filename": mi.filename,
                 "mime_type": mi.mime_type
             }
-            logger.error(
+            _log_error(
+                "picker.download.failed.request",
                 f"ファイルダウンロード失敗 (Request Error): {e}",
-                extra={
-                    "event": "picker.download.failed.request",
-                    "error_details": json.dumps(error_details)
-                }
+                session_identifier=session_identifier,
+                session_db_id=ps.id,
+                error_details=json.dumps(error_details),
             )
             raise NetworkError()
         except Exception as e:
@@ -806,13 +890,13 @@ def picker_import_item(
                 "filename": mi.filename,
                 "mime_type": mi.mime_type
             }
-            logger.error(
+            _log_error(
+                "picker.download.failed.unexpected",
                 f"ファイルダウンロード失敗 (Unexpected Error): {e}",
-                extra={
-                    "event": "picker.download.failed.unexpected",
-                    "error_details": json.dumps(error_details)
-                },
-                exc_info=True
+                session_identifier=session_identifier,
+                session_db_id=ps.id,
+                error_details=json.dumps(error_details),
+                exc_info=True,
             )
             raise
 
@@ -855,20 +939,20 @@ def picker_import_item(
                             raise
                         with contextlib.suppress(FileNotFoundError):
                             dl.path.unlink()
-                        logger.warning(
+                        _log_warning(
+                            "picker.file.move.cross_device",
                             f"クロスデバイス移動を検知しコピーで保存: {dl.path} -> {final_path}",
-                            extra={
-                                "event": "picker.file.move.cross_device",
-                                "selection_id": sel.id,
-                                "session_id": session_id,
-                                "sha256": dl.sha256,
-                            },
+                            session_identifier=session_identifier,
+                            session_db_id=ps.id,
+                            selection_id=sel.id,
+                            sha256=dl.sha256,
                         )
                     else:
                         raise
 
                 # ファイル保存ログ
-                logger.info(
+                _log_info(
+                    "picker.file.saved",
                     json.dumps(
                         {
                             "ts": now.isoformat(),
@@ -882,7 +966,15 @@ def picker_import_item(
                             "move_method": move_method,
                         }
                     ),
-                    extra={"event": "picker.file.saved"},
+                    session_identifier=session_identifier,
+                    session_db_id=session_db_id,
+                    selection_id=sel.id,
+                    file_path=str(final_path),
+                    file_size=dl.bytes,
+                    mime_type=mi.mime_type,
+                    sha256=dl.sha256,
+                    original_filename=mi.filename,
+                    move_method=move_method,
                 )
             except OSError as e:
                 # ファイル移動エラーをログDBに記録
@@ -898,12 +990,12 @@ def picker_import_item(
                     "filename": mi.filename,
                     "sha256": dl.sha256
                 }
-                logger.error(
+                _log_error(
+                    "picker.file.move.failed",
                     f"ファイル移動失敗: {dl.path} -> {final_path} - {e}",
-                    extra={
-                        "event": "picker.file.move.failed",
-                        "error_details": json.dumps(error_details)
-                    }
+                    session_identifier=session_identifier,
+                session_db_id=session_db_id,
+                    error_details=json.dumps(error_details),
                 )
                 # 一時ファイルのクリーンアップ
                 dl.path.unlink(missing_ok=True)
@@ -922,13 +1014,13 @@ def picker_import_item(
                     "filename": mi.filename,
                     "sha256": dl.sha256
                 }
-                logger.error(
+                _log_error(
+                    "picker.file.operation.failed",
                     f"ファイル操作予期しないエラー: {dl.path} -> {final_path} - {e}",
-                    extra={
-                        "event": "picker.file.operation.failed",
-                        "error_details": json.dumps(error_details)
-                    },
-                    exc_info=True
+                    session_identifier=session_identifier,
+                session_db_id=session_db_id,
+                    error_details=json.dumps(error_details),
+                    exc_info=True,
                 )
                 # 一時ファイルのクリーンアップ
                 dl.path.unlink(missing_ok=True)
@@ -991,15 +1083,14 @@ def picker_import_item(
                 sel.status = "imported"
                 
                 # DB登録成功ログ
-                logger.info(
+                _log_info(
+                    "picker.media.db.saved",
                     f"メディアDB登録成功: media_id={media.id}, google_media_id={mi.id}",
-                    extra={
-                        "event": "picker.media.db.saved",
-                        "media_id": media.id,
-                        "google_media_id": mi.id,
-                        "selection_id": sel.id,
-                        "session_id": session_id
-                    }
+                    session_identifier=session_identifier,
+                session_db_id=session_db_id,
+                    media_id=media.id,
+                    google_media_id=mi.id,
+                    selection_id=sel.id,
                 )
             except Exception as e:
                 # DB登録エラーをログDBに記録
@@ -1014,71 +1105,80 @@ def picker_import_item(
                     "error_type": type(e).__name__,
                     "error_message": str(e)
                 }
-                logger.error(
+                _log_error(
+                    "picker.media.db.failed",
                     f"メディアDB登録失敗: {mi.id} - {e}",
-                    extra={
-                        "event": "picker.media.db.failed",
-                        "error_details": json.dumps(error_details)
-                    },
-                    exc_info=True
+                    session_identifier=session_identifier,
+                    session_db_id=ps.id,
+                    error_details=json.dumps(error_details),
+                    exc_info=True,
                 )
                 # ファイルのクリーンアップ（DB登録に失敗した場合）
                 try:
                     final_path.unlink(missing_ok=True)
-                    logger.info(f"DB登録失敗によりファイルクリーンアップ: {final_path}")
+                    _log_info(
+                        "picker.file.cleanup.after_db_failure",
+                        f"DB登録失敗によりファイルクリーンアップ: {final_path}",
+                        session_identifier=session_identifier,
+                        session_db_id=ps.id,
+                        file_path=str(final_path),
+                    )
                 except Exception as cleanup_error:
-                    logger.warning(f"ファイルクリーンアップ失敗: {final_path} - {cleanup_error}")
+                    _log_warning(
+                        "picker.file.cleanup.failed",
+                        f"ファイルクリーンアップ失敗: {final_path} - {cleanup_error}",
+                        session_identifier=session_identifier,
+                        session_db_id=ps.id,
+                        file_path=str(final_path),
+                        error_message=str(cleanup_error),
+                    )
                 raise
 
     except AuthError as e:
         sel.status = "failed"
         sel.error_msg = str(e)
-        logger.error(
+        _log_error(
+            "picker.import.auth_error",
             f"認証エラー: selection_id={sel.id} - {e}",
-            extra={
-                "event": "picker.import.auth_error",
-                "selection_id": sel.id,
-                "session_id": session_id,
-                "error_message": str(e)
-            }
+            session_identifier=session_identifier,
+            session_db_id=session_db_id or session_id,
+            selection_id=sel.id,
+            error_message=str(e),
         )
     except BaseUrlExpired as e:
         sel.status = "expired"
         sel.error_msg = str(e)
-        logger.warning(
+        _log_warning(
+            "picker.import.url_expired",
             f"ベースURL有効期限切れ: selection_id={sel.id} - {e}",
-            extra={
-                "event": "picker.import.url_expired",
-                "selection_id": sel.id,
-                "session_id": session_id,
-                "error_message": str(e)
-            }
+            session_identifier=session_identifier,
+            session_db_id=session_db_id or session_id,
+            selection_id=sel.id,
+            error_message=str(e),
         )
     except NetworkError as e:
         sel.status = "enqueued"
         sel.error_msg = str(e)
-        logger.warning(
+        _log_warning(
+            "picker.import.network_error",
             f"ネットワークエラー（再試行予定）: selection_id={sel.id} - {e}",
-            extra={
-                "event": "picker.import.network_error",
-                "selection_id": sel.id,
-                "session_id": session_id,
-                "error_message": str(e)
-            }
+            session_identifier=session_identifier,
+            session_db_id=session_db_id or session_id,
+            selection_id=sel.id,
+            error_message=str(e),
         )
     except Exception as e:
         sel.status = "failed"
         sel.error_msg = str(e)
-        logger.error(
+        _log_error(
+            "picker.import.unexpected_error",
             f"予期しないエラー: selection_id={sel.id} - {e}",
-            extra={
-                "event": "picker.import.unexpected_error",
-                "selection_id": sel.id,
-                "session_id": session_id,
-                "error_type": type(e).__name__,
-                "error_message": str(e)
-            },
-            exc_info=True
+            session_identifier=session_identifier,
+            session_db_id=session_db_id or session_id,
+            selection_id=sel.id,
+            error_type=type(e).__name__,
+            error_message=str(e),
+            exc_info=True,
         )
 
     finally:
@@ -1095,7 +1195,8 @@ def picker_import_item(
         sel.locked_by = None
         sel.lock_heartbeat_at = None
         db.session.commit()
-        logger.info(
+        _log_info(
+            "picker.item.end",
             json.dumps(
                 {
                     "ts": end.isoformat(),
@@ -1103,7 +1204,10 @@ def picker_import_item(
                     "status": sel.status,
                 }
             ),
-            extra={"event": "picker.item.end"},
+            session_identifier=session_identifier,
+            session_db_id=session_db_id,
+            selection_id=sel.id,
+            status=sel.status,
         )
 
     return {"ok": sel.status in {"imported", "dup"}, "status": sel.status}
@@ -1128,37 +1232,32 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
     start_time = datetime.now(timezone.utc)
 
     # セッション開始ログ
-    logger.info(
-        json.dumps(
-            {
-                "ts": start_time.isoformat(),
-                "session_id": picker_session_id,
-                "account_id": account_id,
-            }
-        ),
-        extra={"event": "picker.session.start"},
-    )
-
     # 1. Lookup picker session and account
     ps, gacc, note = _lookup_session_and_account(picker_session_id, account_id)
     if note == "invalid_session":
-        logger.error(
+        _log_error(
+            "picker.session.error",
             json.dumps({"ts": start_time.isoformat(), "session_id": picker_session_id, "error": note}),
-            extra={"event": "picker.session.error"},
+            session_db_id=picker_session_id,
+            error=note,
         )
         result = ImportResult(ok=False, progress=progress, note=note)
         return result.to_payload()
     if note == "already_done":
-        logger.info(
+        _log_info(
+            "picker.session.skip",
             json.dumps({"ts": start_time.isoformat(), "session_id": picker_session_id, "note": note}),
-            extra={"event": "picker.session.skip"},
+            session_db_id=picker_session_id,
+            note=note,
         )
         result = ImportResult(ok=True, progress=progress, note=note)
         return result.to_payload()
     if note == "account_not_found":
-        logger.error(
+        _log_error(
+            "picker.session.error",
             json.dumps({"ts": start_time.isoformat(), "session_id": picker_session_id, "error": note}),
-            extra={"event": "picker.session.error"},
+            session_db_id=picker_session_id,
+            error=note,
         )
         result = ImportResult(ok=False, progress=progress, note=note)
         return result.to_payload()
@@ -1166,9 +1265,11 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
     # 2. Exchange refresh token for access token
     access_token, note = _exchange_refresh_token(gacc, ps)  # type: ignore[arg-type]
     if note:
-        logger.error(
+        _log_error(
+            "picker.session.error",
             json.dumps({"ts": datetime.now(timezone.utc).isoformat(), "session_id": picker_session_id, "error": note}),
-            extra={"event": "picker.session.error"},
+            session_db_id=picker_session_id,
+            error=note,
         )
         result = ImportResult(ok=False, progress=progress, note=note)
         return result.to_payload()
@@ -1185,7 +1286,8 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
         return result.to_payload()
 
     if ps is None or gacc is None:
-        logger.error(
+        _log_error(
+            "picker.session.error",
             json.dumps(
                 {
                     "ts": datetime.now(timezone.utc).isoformat(),
@@ -1194,10 +1296,29 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
                     "error": "session_state_invalid",
                 }
             ),
-            extra={"event": "picker.session.error"},
+            session_db_id=picker_session_id,
+            account_id=account_id,
+            error="session_state_invalid",
         )
         result = ImportResult(ok=False, progress=progress, note="session_state_invalid")
         return result.to_payload()
+
+    session_identifier = ps.session_id
+
+    _log_info(
+        "picker.session.start",
+        json.dumps(
+            {
+                "ts": start_time.isoformat(),
+                "session_id": ps.session_id,
+                "picker_session_id": ps.id,
+                "account_id": account_id,
+            }
+        ),
+        session_identifier=session_identifier,
+        session_db_id=ps.id,
+        account_id=account_id,
+    )
 
     stats = ps.stats()
     stats["selected_count"] = len(selected_ids)
@@ -1238,7 +1359,8 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
             # 進捗ログ (10件ごとまたは最初と最後)
             total_count = len(results)
             if i == 0 or i == total_count - 1 or (i + 1) % 10 == 0:
-                logger.info(
+                _log_info(
+                    "picker.session.progress",
                     json.dumps(
                         {
                             "ts": datetime.now(timezone.utc).isoformat(),
@@ -1250,7 +1372,12 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
                             "failed": progress.failed,
                         }
                     ),
-                    extra={"event": "picker.session.progress"},
+                    session_identifier=session_identifier,
+                    session_db_id=picker_session_id,
+                    media_id=media_id,
+                    imported=progress.imported,
+                    duplicates=progress.duplicated,
+                    failed=progress.failed,
                 )
             
             base_url = item.get("baseUrl")
@@ -1364,7 +1491,8 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
 
     # セッション完了ログ
     duration_seconds = (end_time - start_time).total_seconds()
-    logger.info(
+    _log_info(
+        "picker.session.complete",
         json.dumps(
             {
                 "ts": end_time.isoformat(),
@@ -1378,7 +1506,15 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
                 "processed_total": len(processed_ids),
             }
         ),
-        extra={"event": "picker.session.complete"},
+        session_identifier=session_identifier,
+        session_db_id=picker_session_id,
+        account_id=account_id,
+        status=ps.status,
+        duration_seconds=duration_seconds,
+        imported=progress.imported,
+        duplicates=progress.duplicated,
+        failed=progress.failed,
+        processed_total=len(processed_ids),
     )
 
     ok = progress.imported > 0 or progress.failed == 0

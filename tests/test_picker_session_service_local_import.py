@@ -319,7 +319,7 @@ class TestPickerSessionServiceLocalImport:
             }
             log_entry = Log(
                 level='ERROR',
-                event='picker.import.unexpected_error',
+                event='import.picker.unexpected_error',
                 message=json.dumps(log_payload, ensure_ascii=False),
             )
             db.session.add(log_entry)
@@ -334,7 +334,7 @@ class TestPickerSessionServiceLocalImport:
             assert payload['logs'], '少なくとも1件のログが返されること'
 
             first_log = payload['logs'][0]
-            assert first_log['event'] == 'picker.import.unexpected_error'
+            assert first_log['event'] == 'import.picker.unexpected_error'
             assert first_log['extra']['selection_id'] == selection.id
             assert first_log['errorDetails']['reason'] == 'timeout'
 

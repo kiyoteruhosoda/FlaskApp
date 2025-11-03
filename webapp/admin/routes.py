@@ -772,6 +772,91 @@ def _parse_setting_value(key: str, definition: SettingFieldDefinition, raw_value
     return value
 
 
+def _normalize_import_setting_value(
+    key: str, definition: SettingFieldDefinition, value: Any
+) -> Any:
+    label = definition.label or key
+
+    if value is None:
+        if definition.allow_null:
+            return None
+        if definition.data_type == "list" and definition.allow_empty:
+            return []
+        if definition.data_type == "string" and definition.allow_empty:
+            return ""
+        raise ValueError(_(u"Value for %(key)s is required.", key=label))
+
+    if definition.data_type == "boolean":
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"true", "false"}:
+                return normalized == "true"
+        raise ValueError(_(u"Please choose a value for %(key)s.", key=label))
+
+    if definition.data_type == "integer":
+        if isinstance(value, bool):
+            raise ValueError(_(u"Value for %(key)s must be an integer.", key=label))
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float) and value.is_integer():
+            return int(value)
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped:
+                raise ValueError(_(u"Value for %(key)s is required.", key=label))
+            try:
+                return int(stripped)
+            except ValueError as exc:  # pragma: no cover - defensive guard
+                raise ValueError(_(u"Value for %(key)s must be an integer.", key=label)) from exc
+        raise ValueError(_(u"Value for %(key)s must be an integer.", key=label))
+
+    if definition.data_type == "float":
+        if isinstance(value, bool):
+            raise ValueError(_(u"Value for %(key)s must be a number.", key=label))
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped:
+                raise ValueError(_(u"Value for %(key)s is required.", key=label))
+            try:
+                return float(stripped)
+            except ValueError as exc:  # pragma: no cover - defensive guard
+                raise ValueError(_(u"Value for %(key)s must be a number.", key=label)) from exc
+        raise ValueError(_(u"Value for %(key)s must be a number.", key=label))
+
+    if definition.data_type == "list":
+        if not isinstance(value, list):
+            raise ValueError(
+                _(u"Value for %(key)s must be an array of strings.", key=label)
+            )
+        normalized: list[str] = []
+        for item in value:
+            if item is None:
+                continue
+            item_text = str(item).strip()
+            if item_text:
+                normalized.append(item_text)
+        if not normalized:
+            if definition.required and not definition.allow_empty:
+                raise ValueError(_(u"Value for %(key)s cannot be empty.", key=label))
+            return []
+        return normalized
+
+    # String-like fields
+    text = str(value)
+    stripped = text.strip()
+    if stripped:
+        return stripped
+    if definition.allow_empty:
+        return ""
+    if definition.allow_null:
+        return None
+    raise ValueError(_(u"Value for %(key)s is required.", key=label))
+
+
 # サービスアカウント管理
 @bp.route("/service-accounts")
 @login_required
@@ -1060,23 +1145,46 @@ def show_config():
                                             raise ValueError(
                                                 _(u"Application settings in the imported file must be a JSON object.")
                                             )
-                                        sanitized_application = {
-                                            key: value
-                                            for key, value in dict(application_section).items()
-                                            if key not in _HIDDEN_APPLICATION_SETTING_KEYS
-                                        }
+                                        sanitized_application: Dict[str, Any] = {}
+                                        skipped_readonly_keys: list[str] = []
+                                        for key, value in dict(application_section).items():
+                                            if key in _HIDDEN_APPLICATION_SETTING_KEYS:
+                                                continue
+                                            definition = application_definitions.get(key)
+                                            if definition is None:
+                                                raise ValueError(
+                                                    _(u"Unknown application setting: %(key)s", key=key)
+                                                )
+                                            if not definition.editable:
+                                                skipped_readonly_keys.append(definition.label or key)
+                                                continue
+                                            sanitized_application[key] = _normalize_import_setting_value(
+                                                key, definition, value
+                                            )
+                                        for label in skipped_readonly_keys:
+                                            warnings.append(
+                                                _(u"%(setting)s is read-only and was skipped during import.", setting=label)
+                                            )
                                         current_payload = SystemSettingService.load_application_config_payload()
                                         visible_current_payload = {
                                             key: value
                                             for key, value in current_payload.items()
                                             if key not in _HIDDEN_APPLICATION_SETTING_KEYS
+                                            and (
+                                                (definition := application_definitions.get(key)) is not None
+                                                and definition.editable
+                                            )
                                         }
-                                        remove_keys = [
-                                            key
-                                            for key in current_payload.keys()
-                                            if key not in sanitized_application
-                                            and key not in _HIDDEN_APPLICATION_SETTING_KEYS
-                                        ]
+                                        remove_keys: list[str] = []
+                                        if sanitized_application or not application_section:
+                                            for key in current_payload.keys():
+                                                if key in _HIDDEN_APPLICATION_SETTING_KEYS:
+                                                    continue
+                                                definition = application_definitions.get(key)
+                                                if definition is None or not definition.editable:
+                                                    continue
+                                                if key not in sanitized_application:
+                                                    remove_keys.append(key)
                                         if (
                                             sanitized_application != visible_current_payload
                                             or bool(remove_keys)

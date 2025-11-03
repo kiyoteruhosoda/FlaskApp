@@ -11,7 +11,7 @@ from flask import (
     url_for,
 )
 from flask_login import login_required
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, and_, cast, String, text
 from ..extensions import db
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
@@ -437,14 +437,56 @@ def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
 
     session_identifier = ps.session_id
 
-    query = WorkerLog.query.filter(
-        or_(WorkerLog.event.like("local_import%"), WorkerLog.event.like("import.%"))
+    # Base event filter: match local_import or import.* events
+    event_filter = or_(
+        WorkerLog.event.like("local_import%"), 
+        WorkerLog.event.like("import.%")
     )
+    
+    # Session filter conditions
+    # Try to filter at SQL level using JSON extraction for better performance
+    session_conditions = []
+    
+    # For databases that support JSON extraction (MariaDB, MySQL, PostgreSQL, SQLite 3.38+)
+    # We'll build a session filter that checks extra_json for session identifiers
+    try:
+        # MariaDB/MySQL JSON_EXTRACT syntax
+        # Check if extra_json contains matching session_id or session_db_id
+        if session_identifier:
+            session_conditions.append(
+                func.json_extract(WorkerLog.extra_json, '$.session_id') == session_identifier
+            )
+            session_conditions.append(
+                func.json_extract(WorkerLog.extra_json, '$.active_session_id') == session_identifier
+            )
+            session_conditions.append(
+                func.json_extract(WorkerLog.extra_json, '$.target_session_id') == session_identifier
+            )
+        
+        if ps.id is not None:
+            session_conditions.append(
+                func.json_extract(WorkerLog.extra_json, '$.session_db_id') == ps.id
+            )
+    except Exception:
+        # If JSON functions aren't supported, we'll filter in Python
+        pass
+    
+    # Build the query with event and session filters
+    if session_conditions:
+        query = WorkerLog.query.filter(
+            and_(event_filter, or_(*session_conditions))
+        )
+    else:
+        # Fallback: no SQL-level session filtering
+        query = WorkerLog.query.filter(event_filter)
 
     if limit is None:
         query = query.order_by(WorkerLog.id.asc())
     else:
-        query = query.order_by(WorkerLog.id.desc()).limit(limit * 5)
+        # When we have SQL-level session filtering, we can use the exact limit
+        # Otherwise, retrieve more rows to account for Python-level filtering
+        multiplier = 1 if session_conditions else 5
+        query = query.order_by(WorkerLog.id.desc()).limit(limit * multiplier)
 
     def _transform_row(row):
         try:

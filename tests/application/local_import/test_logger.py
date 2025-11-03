@@ -8,7 +8,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from features.photonest.application.local_import.logger import LocalImportTaskLogger
+from features.photonest.application.local_import.logger import (
+    ImportLogEmitter,
+    LocalImportTaskLogger,
+)
 from features.photonest.domain.local_import.logging import compose_message, with_session
 
 
@@ -153,4 +156,51 @@ def test_commit_with_error_logging_reports_and_reraises(monkeypatch, task_logger
         status="error",
         exc_info=True,
         **payload,
+    )
+
+
+def test_import_log_emitter_applies_context_and_normalisation() -> None:
+    base_logger = MagicMock(spec=LocalImportTaskLogger)
+    emitter = ImportLogEmitter(base_logger, normalise_event=lambda value: f"normalized.{value}")
+
+    bound = emitter.bind(session_id="session-1", request_id="req-1")
+    bound.info("event.start", "message", status="custom", attempt=1)
+
+    base_logger.info.assert_called_once_with(
+        "normalized.event.start",
+        "message",
+        session_id="session-1",
+        status="custom",
+        request_id="req-1",
+        attempt=1,
+    )
+
+
+def test_import_log_emitter_merges_additional_context() -> None:
+    base_logger = MagicMock(spec=LocalImportTaskLogger)
+    emitter = ImportLogEmitter(base_logger, normalise_event=lambda value: value)
+
+    base = emitter.bind(session_id="session-A", session_db_id=42)
+    base.warning("event.warn", "warn", bytes=512)
+
+    base_logger.warning.assert_called_once_with(
+        "event.warn",
+        "warn",
+        session_id="session-A",
+        status=None,
+        session_db_id=42,
+        bytes=512,
+    )
+
+    child = base.bind(session_id="session-B")
+    child.error("event.fail", "error", exc_info=True, status="failed", retry=2)
+
+    base_logger.error.assert_called_once_with(
+        "event.fail",
+        "error",
+        session_id="session-B",
+        status="failed",
+        exc_info=True,
+        session_db_id=42,
+        retry=2,
     )

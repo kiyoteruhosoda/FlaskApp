@@ -437,6 +437,37 @@ def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
 
     session_identifier = ps.session_id
 
+    def _normalize_identifier(value):
+        if value is None:
+            return None
+        if isinstance(value, str):
+            candidate = value.strip()
+            return candidate or None
+        if isinstance(value, (int,)):
+            return str(value)
+        return None
+
+    session_aliases = set()
+
+    def _add_alias(value):
+        normalized = _normalize_identifier(value)
+        if normalized:
+            session_aliases.add(normalized)
+
+    _add_alias(session_identifier)
+
+    if session_identifier:
+        base_identifier = session_identifier.split("#", 1)[0]
+        _add_alias(base_identifier)
+        if "/" in base_identifier:
+            _add_alias(base_identifier.split("/", 1)[-1])
+
+    if ps.account_id is not None:
+        _add_alias(f"google-{ps.account_id}")
+
+    if ps.id is not None:
+        _add_alias(ps.id)
+
     query = WorkerLog.query.filter(
         or_(WorkerLog.event.like("local_import%"), WorkerLog.event.like("import.%"))
     )
@@ -466,14 +497,81 @@ def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
 
         session_matches = False
 
-        if extras.get("session_id") == session_identifier:
+        candidate_keys = {
+            "session_id",
+            "sessionId",
+            "session_identifier",
+            "sessionIdentifier",
+            "session_key",
+            "sessionKey",
+            "session_db_id",
+            "active_session_id",
+            "target_session_id",
+            "import_session_id",
+            "importSessionId",
+            "picker_session_id",
+            "pickerSessionId",
+        }
+
+        nested_session_keys = {
+            "session_id",
+            "sessionId",
+            "session_key",
+            "sessionKey",
+            "id",
+        }
+
+        def _collect_candidates(mapping):
+            candidates = set()
+            if not isinstance(mapping, dict):
+                return candidates
+
+            for key in candidate_keys:
+                if key in mapping:
+                    normalized = _normalize_identifier(mapping.get(key))
+                    if normalized:
+                        candidates.add(normalized)
+
+            session_block = mapping.get("session")
+            if isinstance(session_block, dict):
+                for key in nested_session_keys:
+                    normalized = _normalize_identifier(session_block.get(key))
+                    if normalized:
+                        candidates.add(normalized)
+
+            result_block = mapping.get("result")
+            if isinstance(result_block, dict):
+                candidates.update(_collect_candidates(result_block))
+
+            details_block = mapping.get("details")
+            if isinstance(details_block, dict):
+                candidates.update(_collect_candidates(details_block))
+
+            return candidates
+
+        candidate_values = set()
+        candidate_values.update(_collect_candidates(extras))
+        candidate_values.update(_collect_candidates(payload))
+
+        if session_aliases.intersection(candidate_values):
             session_matches = True
-        elif ps.id is not None and extras.get("session_db_id") == ps.id:
-            session_matches = True
-        elif extras.get("active_session_id") == session_identifier:
-            session_matches = True
-        elif extras.get("target_session_id") == session_identifier:
-            session_matches = True
+
+        if not session_matches and ps.account_id is not None:
+            account_identifier = _normalize_identifier(ps.account_id)
+
+            for container in (extras, payload):
+                if not isinstance(container, dict):
+                    continue
+                account_value = _normalize_identifier(
+                    container.get("account_id") or container.get("accountId")
+                )
+                if account_value != account_identifier:
+                    continue
+
+                source_value = container.get("import_source") or container.get("source")
+                if isinstance(source_value, str) and source_value.lower().startswith("google"):
+                    session_matches = True
+                    break
 
         if not session_matches:
             return None

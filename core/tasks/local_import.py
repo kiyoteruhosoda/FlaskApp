@@ -32,7 +32,10 @@ from features.photonest.application.local_import.file_importer import (
     LocalImportFileImporter,
     PlaybackError as _PlaybackError,
 )
-from features.photonest.application.local_import.logger import LocalImportTaskLogger
+from features.photonest.application.local_import.logger import (
+    ImportLogEmitter,
+    LocalImportTaskLogger,
+)
 from features.photonest.application.local_import.queue import LocalImportQueueProcessor
 from features.photonest.application.local_import.scanner import ImportDirectoryScanner
 from features.photonest.application.local_import.use_case import LocalImportUseCase
@@ -92,6 +95,13 @@ LocalImportPlaybackError = _PlaybackError
 _task_logger = LocalImportTaskLogger(logger, celery_logger)
 
 
+def _identity_event(event: str) -> str:
+    return event
+
+
+_import_log = ImportLogEmitter(_task_logger, normalise_event=_identity_event)
+
+
 def _log_info(
     event: str,
     message: str,
@@ -102,7 +112,7 @@ def _log_info(
 ) -> None:
     """情報ログを記録。"""
 
-    _task_logger.info(
+    _import_log.info(
         event,
         message,
         session_id=session_id,
@@ -121,7 +131,7 @@ def _log_warning(
 ) -> None:
     """警告ログを記録。"""
 
-    _task_logger.warning(
+    _import_log.warning(
         event,
         message,
         session_id=session_id,
@@ -141,7 +151,7 @@ def _log_error(
     """エラーログを記録。"""
 
     status_value = details.pop("status", None)
-    _task_logger.error(
+    _import_log.error(
         event,
         message,
         session_id=session_id,

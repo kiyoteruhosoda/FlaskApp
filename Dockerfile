@@ -40,7 +40,6 @@ RUN echo "{" \
     "}"> core/version.json
 
 
-
 # ========= 実行ステージ =========
 FROM ${RUNTIME_BASE}
 
@@ -63,14 +62,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 ARG APP_UID=1000
 ARG APP_GID=1000
+
 RUN groupadd -g ${APP_GID} -r appuser \
  && useradd  -u ${APP_UID} -r -g appuser appuser
 
 COPY --from=builder /usr/local /usr/local
 
-# --- アプリ本体のみに限定してコピー ---
+# アプリ本体コピー
 COPY --chown=appuser:appuser wsgi.py ./wsgi.py
-
 COPY --chown=appuser:appuser application/ ./application/
 COPY --chown=appuser:appuser cli/ ./cli/
 COPY --chown=appuser:appuser core/ ./core/
@@ -81,14 +80,19 @@ COPY --chown=appuser:appuser infrastructure/ ./infrastructure/
 COPY --chown=appuser:appuser shared/ ./shared/
 COPY --chown=appuser:appuser webapp/ ./webapp/
 
-
-# version.json はビルダーで生成したものを上書きコピーする
+# version.jsonはbuilderから
 COPY --from=builder --chown=appuser:appuser /app/core/version.json /app/core/version.json
 
+# compile translations (optional but faster startup)
 RUN python -m compileall webapp/translations/ || true
 
-RUN mkdir -p data/media data/thumbs data/playback data/local_import data/tmp data/uploads \
- && chown -R appuser:appuser data/
+# (デフォルト動作用) コンテナ側に最低限の data ルートだけ用意
+RUN mkdir -p /app/data \
+ && chown -R appuser:appuser /app/data
+
+# Add entrypoint script
+COPY --chown=appuser:appuser scripts/entrypoint.sh /script/entrypoint.sh
+RUN chmod +x /script/entrypoint.sh
 
 USER appuser
 
@@ -96,4 +100,3 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
   CMD sh -c 'BASE="${API_BASE_URL:-http://localhost:5000}"; BASE="${BASE%/}"; curl -fsS "$BASE/health/live" || exit 1'
 
 EXPOSE 5000
-CMD ["gunicorn","--bind","0.0.0.0:5000","--workers","4","--timeout","120","--keep-alive","5","wsgi:app"]

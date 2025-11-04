@@ -650,7 +650,7 @@ INSERT INTO `permission` (`id`,`code`,`detail`) VALUES
 (22,'certificate:sign',NULL),
 (15,'media:delete',NULL),
 (16,'media:recover',NULL),
-(26,'media:session',NULL),
+(28,'media:session',NULL),
 (14,'media:tag-manage',NULL),
 (25,'media:metadata-manage',NULL),
 (7,'media:view',NULL),
@@ -867,13 +867,11 @@ INSERT INTO `role_permissions` VALUES
 (1,7),
 (1,8),
 (1,9),
-(1,27),
 (1,10),
 (1,11),
 (1,12),
 (1,13),
 (1,14),
-(1,25),
 (1,15),
 (1,16),
 (1,17),
@@ -886,6 +884,8 @@ INSERT INTO `role_permissions` VALUES
 (1,24),
 (1,25),
 (1,26),
+(1,27),
+(1,28),
 (2,4),
 (2,5),
 (2,6),
@@ -1142,8 +1142,17 @@ CREATE TABLE `user` (
 
 LOCK TABLES `user` WRITE;
 /*!40000 ALTER TABLE `user` DISABLE KEYS */;
-INSERT INTO `user` VALUES
-(-1,'admin@example.com','admin','scrypt:32768:8:1$7oTcIUdekNLXGSXC$fd0f3320bde4570c7e1ea9d9d289aeb916db7a50fb62489a7e89d99c6cc576813506fd99f50904101c1eb85ff925f8dc879df5ded781ef2613224d702938c9c8','2025-09-23 10:17:33',NULL,1,NULL);
+INSERT INTO `user` (
+  id, email, username, password_hash, totp_secret, is_active, refresh_token_hash
+) VALUES (
+  -1,
+  'admin@example.com',
+  'admin',
+  'scrypt:32768:8:1$7oTcIUdekNLXGSXC$fd0f3320bde4570c7e1ea9d9d289aeb916db7a50fb62489a7e89d99c6cc576813506fd99f50904101c1eb85ff925f8dc879df5ded781ef2613224d702938c9c8',
+  NULL,
+  1,
+  NULL
+);
 /*!40000 ALTER TABLE `user` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1184,6 +1193,8 @@ DROP TABLE IF EXISTS `user_roles`;
 CREATE TABLE `user_roles` (
   `user_id` bigint(20) NOT NULL,
   `role_id` bigint(20) NOT NULL,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`user_id`,`role_id`),
   KEY `role_id` (`role_id`),
   CONSTRAINT `user_roles_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `role` (`id`),
@@ -1197,8 +1208,11 @@ CREATE TABLE `user_roles` (
 
 LOCK TABLES `user_roles` WRITE;
 /*!40000 ALTER TABLE `user_roles` DISABLE KEYS */;
-INSERT INTO `user_roles` VALUES
-(-1,1);
+INSERT INTO `user_roles` (
+  user_id, role_id
+) VALUES (
+  -1, 1
+);
 /*!40000 ALTER TABLE `user_roles` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1420,11 +1434,11 @@ CREATE TABLE `passkey_credential` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `worker_log`
+-- Dumping data for table `passkey_credential`
 --
 
 LOCK TABLES `passkey_credential` WRITE;
-/*!40000 ALTER TABLE `worker_log` DISABLE KEYS */;
-/*!40000 ALTER TABLE `worker_log` ENABLE KEYS */;
+/*!40000 ALTER TABLE `passkey_credential` DISABLE KEYS */;
+/*!40000 ALTER TABLE `passkey_credential` ENABLE KEYS */;
 UNLOCK TABLES;
 

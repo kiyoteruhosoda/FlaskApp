@@ -1,6 +1,29 @@
 version: '3.8'
 
 services:
+  init-paths:
+    image: alpine
+    command: >
+      sh -c "
+        echo '[init] ensure dirs exist';
+        mkdir -p /host/db_data;
+        mkdir -p /host/data/backups;
+        mkdir -p /host/data/celery;
+        mkdir -p /host/data/media/local_import;
+        mkdir -p /host/data/media/originals;
+        mkdir -p /host/data/media/playback;
+        mkdir -p /host/data/media/thumbs;
+        mkdir -p /host/data/tmp;
+        mkdir -p /host/data/uploads;
+        echo '[init] apply correct ownership';
+        chown -R 1000:1000 /host/data /host/db_data;
+        chmod -R 775 /host/data /host/db_data;
+        echo '[init] done';
+      "
+    volumes:
+      - /volume1/docker/photonest:/host
+    restart: "no"
+
   db:
     image: photonest-db:latest
     container_name: mariadb
@@ -11,9 +34,12 @@ services:
     env_file:
       - .env
     volumes:
-      - ./db_data:/var/lib/mysql
+      - /volume1/docker/photonest/db_data:/var/lib/mysql
     command:
       - --default-time-zone=+00:00
+    depends_on:
+      init-paths:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p\"${MARIADB_ROOT_PASSWORD}\" --silent"]
       interval: 10s
@@ -23,27 +49,10 @@ services:
 
   web:
     image: photonest:latest
-    # container_name: 削除 ← プロジェクト名に任せる
     init: true
     stop_grace_period: 60s
-    command: >
-      sh -c '
-        while ! mysql -h db -u "${MARIADB_USER}" -p"${MARIADB_PASSWORD}" --skip-ssl -e "SELECT 1" >/dev/null 2>&1; do
-          echo "$(date -u +"%Y-%m-%dT%H:%M:%SZ") Waiting for DB...";
-          sleep 3;
-        done;
-        echo "$(date -u +"%Y-%m-%dT%H:%M:%SZ") DB is ready. Starting web app...";
-        exec gunicorn wsgi:app \
-          --bind 0.0.0.0:5000 \
-          --workers 2 \
-          --threads 4 \
-          --timeout 120 \
-          --graceful-timeout 90 \
-          --keep-alive 5 \
-          --max-requests 1000 \
-          --max-requests-jitter 100 \
-          --worker-tmp-dir /dev/shm
-      '
+    entrypoint: ["/script/entrypoint.sh"]
+    command: web
     ports:
       - "127.0.0.1:8050:5000"
     environment:
@@ -73,10 +82,10 @@ services:
 
   worker:
     image: photonest:latest
-    # container_name: 付けない
     init: true
     stop_grace_period: 60s
-    command: celery -A cli.src.celery.tasks worker --loglevel=info --concurrency=2 -Q celery,picker_import
+    entrypoint: ["/script/entrypoint.sh"]
+    command: worker
     environment:
       - FLASK_ENV=production
       - TZ=UTC
@@ -104,14 +113,10 @@ services:
 
   beat:
     image: photonest:latest
-    # container_name: 削除
     init: true
     stop_grace_period: 60s
-    command: [
-      "celery", "-A", "cli.src.celery.tasks", "beat",
-      "--loglevel=info",
-      "--schedule=/app/data/celerybeat-schedule"
-    ]
+    entrypoint: ["/script/entrypoint.sh"]
+    command: beat
     volumes:
       - /volume1/docker/photonest/data/celery:/app/data
     environment:

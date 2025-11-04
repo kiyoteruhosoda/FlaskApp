@@ -3,13 +3,16 @@ from __future__ import annotations
 
 from typing import Any, Iterable
 
-from flask import current_app
+from flask import current_app, request
 
 from core.settings import settings
+from webapp.utils import determine_external_scheme
 
 GUI_ACCESS_COOKIE_NAME = "access_token"
 GUI_VIEW_SCOPE = "gui:view"
 API_LOGIN_SCOPE_SESSION_KEY = "api_login_granted_scope"
+
+_LOCAL_HTTP_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
 
 def normalize_scope_items(items: Iterable[str]) -> list[str]:
@@ -30,12 +33,36 @@ def should_issue_gui_access_cookie(scope_items: Iterable[str]) -> bool:
     return False
 
 
+def _resolve_secure_cookie_flag() -> bool:
+    """Decide whether GUI cookies should be marked as ``Secure``."""
+
+    configured_secure = settings.session_cookie_secure
+    scheme = determine_external_scheme(request)
+
+    if configured_secure:
+        if scheme == "https":
+            return True
+
+        host = (request.host or "").split(":", 1)[0].lower()
+        if host in _LOCAL_HTTP_HOSTS or current_app.debug or current_app.testing or settings.testing:
+            current_app.logger.debug(
+                "Downgrading GUI cookie Secure flag for local HTTP request.",
+                extra={"event": "auth.cookie.insecure", "host": host, "scheme": scheme},
+            )
+            return False
+
+        return True
+
+    return scheme == "https"
+
+
 def gui_access_cookie_options() -> tuple[dict[str, Any], dict[str, Any]]:
+    secure_flag = _resolve_secure_cookie_flag()
     set_options: dict[str, Any] = {
         "httponly": True,
-        "secure": settings.session_cookie_secure,
+        "secure": secure_flag,
     }
-    delete_options: dict[str, Any] = {}
+    delete_options: dict[str, Any] = {"secure": secure_flag}
 
     config = current_app.config
     same_site = config.get("SESSION_COOKIE_SAMESITE", "Lax")

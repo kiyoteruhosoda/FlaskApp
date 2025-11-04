@@ -87,3 +87,36 @@ def test_api_login_requires_totp(client, app):
     data = res.get_json()
     assert data["requires_role_selection"] is False
     assert data["redirect_url"].endswith("/dashboard/")
+
+
+def test_api_login_accepts_string_scope(client, app):
+    from webapp.extensions import db
+    from core.models.user import Permission, Role, User
+
+    with app.app_context():
+        gui_permission = Permission(code="gui:view")
+        dashboard_permission = Permission(code="dashboard:view")
+        role = Role(name="string-scope-role")
+        role.permissions.extend([gui_permission, dashboard_permission])
+        user = User(email="scope-string@example.com")
+        user.set_password("pass")
+        user.roles.append(role)
+        db.session.add_all([gui_permission, dashboard_permission, role, user])
+        db.session.commit()
+        email = user.email
+
+    response = client.post(
+        "/api/login",
+        json={
+            "email": email,
+            "password": "pass",
+            "scope": "dashboard:view gui:view",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert "gui:view" in payload["scope"].split()
+    assert "dashboard:view" in payload["scope"].split()
+    cookies = response.headers.getlist("Set-Cookie")
+    assert any("access_token=" in cookie for cookie in cookies)

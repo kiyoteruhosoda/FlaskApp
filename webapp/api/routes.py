@@ -9,6 +9,7 @@ import posixpath
 import re
 import secrets
 import time
+from collections.abc import Iterable as IterableABC, Mapping as MappingABC
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlencode, quote
@@ -109,6 +110,34 @@ auth_service = AuthService(user_repo, user_registration_service)
 VALID_TAG_ATTRS = {"person", "place", "thing"}
 
 _STORAGE_DEFAULTS: dict[str, tuple[str, ...]] = {}
+
+
+_SCOPE_TOKEN_SPLIT_PATTERN = re.compile(r"[,\s]+")
+
+
+def _extract_requested_scope(raw_scope: Any) -> list[str]:
+    """Normalize requested scope input into a list of strings."""
+
+    if raw_scope is None:
+        return []
+
+    if isinstance(raw_scope, str):
+        candidates: IterableABC[str] = _SCOPE_TOKEN_SPLIT_PATTERN.split(raw_scope)
+    elif isinstance(raw_scope, MappingABC):
+        candidates = raw_scope.values()
+    elif isinstance(raw_scope, IterableABC):
+        candidates = raw_scope
+    else:
+        return []
+
+    normalized: list[str] = []
+    for item in candidates:
+        if not isinstance(item, str):
+            continue
+        token = item.strip()
+        if token:
+            normalized.append(token)
+    return normalized
 
 
 @dataclass(frozen=True)
@@ -1948,8 +1977,7 @@ def api_login(data):
     email = data.get("email")
     password = data.get("password")
     token = data.get("token")
-    requested_scope_items = data.get("scope", [])
-    requested_scope = {item for item in requested_scope_items if isinstance(item, str)}
+    requested_scope = set(_extract_requested_scope(data.get("scope")))
 
     user_model = auth_service.authenticate(email, password)
     if not user_model:

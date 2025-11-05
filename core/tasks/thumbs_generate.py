@@ -86,11 +86,10 @@ def _thumb_base_dir() -> Path:
 
     storage_service = settings.storage.service()
     area = storage_service.for_domain(StorageDomain.MEDIA_THUMBNAILS)
-    base = area.first_existing()
+    # Thumbnails are written by this task; prefer ensuring a writable base.
+    base = area.ensure_base() or area.first_existing()
     if not base:
-        base = area.ensure_base()
-    if not base:
-        base = "/tmp/fpv_thumbs"
+        raise RuntimeError("MEDIA_THUMBNAILS base directory is not configured")
     return storage_service.ensure_directory(base)
 
 
@@ -99,7 +98,9 @@ def _orig_dir() -> Path:
     base = area.first_existing()
     if not base:
         candidates = area.candidates()
-        base = candidates[0] if candidates else "/tmp/fpv_orig"
+        base = candidates[0] if candidates else None
+    if not base:
+        raise RuntimeError("MEDIA_ORIGINALS base directory is not configured")
     return Path(base)
 
 
@@ -108,7 +109,9 @@ def _play_dir() -> Path:
     base = area.first_existing()
     if not base:
         candidates = area.candidates()
-        base = candidates[0] if candidates else "/tmp/fpv_play"
+        base = candidates[0] if candidates else None
+    if not base:
+        raise RuntimeError("MEDIA_PLAYBACK base directory is not configured")
     return Path(base)
 
 

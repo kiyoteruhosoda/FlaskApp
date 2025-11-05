@@ -48,18 +48,19 @@ def _orig_dir() -> Path:
     base = storage_area.first_existing()
     if not base:
         candidates = storage_area.candidates()
-        base = candidates[0] if candidates else "/tmp/fpv_orig"
+        base = candidates[0] if candidates else None
+    if not base:
+        raise RuntimeError("MEDIA_ORIGINALS base directory is not configured")
     return Path(base)
 
 
 def _play_dir() -> Path:
     storage_service = settings.storage.service()
     storage_area = storage_service.for_domain(StorageDomain.MEDIA_PLAYBACK)
-    base = storage_area.first_existing()
+    # Playback files are written by this task; ensure a writable base directory.
+    base = storage_area.ensure_base() or storage_area.first_existing()
     if not base:
-        base = storage_area.ensure_base()
-    if not base:
-        base = "/tmp/fpv_play"
+        raise RuntimeError("MEDIA_PLAYBACK base directory is not configured")
     return storage_service.ensure_directory(base)
 
 

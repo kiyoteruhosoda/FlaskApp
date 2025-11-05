@@ -46,7 +46,11 @@ class PasswordResetToken(db.Model):
     def is_valid(self) -> bool:
         """トークンが有効かどうかをチェックする。"""
         now = datetime.now(timezone.utc)
-        return not self.used and self.expires_at > now
+        # SQLiteはtimezoneを保存しないため、naive datetimeをUTCとして扱う
+        expires = self.expires_at
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        return not self.used and expires > now
 
     @classmethod
     def create_token(

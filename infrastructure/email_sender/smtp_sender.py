@@ -121,7 +121,8 @@ class SmtpEmailSender(IEmailSender):
         # パラメータ名が異なります
         
         # 共通パラメータを準備
-        # reply_toは文字列の場合はリストに変換、Noneや空の場合は空リストに
+        # reply_toはドメインモデルでOptional[str]として定義されているため、
+        # 文字列の場合はリストに変換、Noneや空の場合は空リストに変換する
         reply_to_list = []
         if message.reply_to and isinstance(message.reply_to, str):
             stripped = message.reply_to.strip()

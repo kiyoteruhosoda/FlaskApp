@@ -4,6 +4,7 @@ from flask_login import LoginManager
 from flask_babel import Babel
 from flask_babel import lazy_gettext as _l
 from flask import current_app, g, session
+from flask_mail import Mail
 
 from webapp.auth import SERVICE_LOGIN_TOKEN_SESSION_KEY
 from flask_smorest import Api
@@ -13,6 +14,7 @@ login_manager = LoginManager()
 login_manager.login_view = "auth.login"  # 未ログイン時のリダイレクト先
 babel = Babel()
 api = Api()
+mail = Mail()
 
 login_manager.login_message = None
 

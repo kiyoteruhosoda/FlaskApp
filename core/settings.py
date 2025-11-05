@@ -788,6 +788,32 @@ class ApplicationSettings:
         value = self._get("MAIL_DEFAULT_SENDER")
         return str(value) if value is not None else None
 
+    @property
+    def mail_provider(self) -> str:
+        """Return the configured mail provider.
+        
+        Only 'smtp' is supported in production. Defaults to smtp.
+        Note: 'console' provider is only available in test environments.
+        """
+        value = self._get("MAIL_PROVIDER", "smtp")
+        if not value:
+            return "smtp"
+        
+        provider = str(value).lower().strip()
+        
+        # Validate: only smtp is allowed in production
+        if provider != "smtp":
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"Invalid mail provider '{provider}' configured. Only 'smtp' is supported. "
+                f"Falling back to 'smtp'. Note: 'console' is only for tests.",
+                extra={"event": "settings.mail_provider.invalid"}
+            )
+            return "smtp"
+        
+        return provider
+
 settings = ApplicationSettings()
 
 __all__ = ["ApplicationSettings", "settings"]

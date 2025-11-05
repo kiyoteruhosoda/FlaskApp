@@ -44,6 +44,16 @@ DEFAULT_APPLICATION_SETTINGS: dict[str, object] = {
     "WEBAUTHN_RP_ID": "localhost",
     "WEBAUTHN_ORIGIN": "http://localhost:5000",
     "WEBAUTHN_RP_NAME": "Nolumia",
+    # Mail configuration
+    "MAIL_ENABLED": False,
+    "MAIL_PROVIDER": "smtp",
+    "MAIL_SERVER": "smtp.gmail.com",
+    "MAIL_PORT": 587,
+    "MAIL_USE_TLS": True,
+    "MAIL_USE_SSL": False,
+    "MAIL_USERNAME": "",
+    "MAIL_PASSWORD": "",
+    "MAIL_DEFAULT_SENDER": "",
 }
 
 DEFAULT_CORS_SETTINGS: dict[str, object] = {

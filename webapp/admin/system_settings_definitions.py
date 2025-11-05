@@ -451,6 +451,82 @@ _MEDIA_PROCESSING_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
     ),
 )
 
+_MAIL_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
+    SettingFieldDefinition(
+        key="MAIL_ENABLED",
+        label=_(u"Enable mail functionality"),
+        data_type="boolean",
+        required=True,
+        description=_(u"Enable or disable email sending functionality."),
+        choices=BOOLEAN_CHOICES,
+    ),
+    SettingFieldDefinition(
+        key="MAIL_PROVIDER",
+        label=_(u"Mail provider"),
+        data_type="string",
+        required=True,
+        description=_(u"Email provider type. Currently only 'smtp' is supported."),
+        default_hint=_(u"Only 'smtp' is supported in production."),
+    ),
+    SettingFieldDefinition(
+        key="MAIL_SERVER",
+        label=_(u"SMTP server"),
+        data_type="string",
+        required=False,
+        description=_(u"SMTP server hostname or IP address."),
+        allow_empty=True,
+        default_hint=_(u"Example: smtp.gmail.com"),
+    ),
+    SettingFieldDefinition(
+        key="MAIL_PORT",
+        label=_(u"SMTP port"),
+        data_type="integer",
+        required=True,
+        description=_(u"SMTP server port number."),
+        default_hint=_(u"Common ports: 587 (TLS), 465 (SSL), 25 (plain)"),
+    ),
+    SettingFieldDefinition(
+        key="MAIL_USE_TLS",
+        label=_(u"Use TLS"),
+        data_type="boolean",
+        required=True,
+        description=_(u"Enable STARTTLS for SMTP connection."),
+        choices=BOOLEAN_CHOICES,
+    ),
+    SettingFieldDefinition(
+        key="MAIL_USE_SSL",
+        label=_(u"Use SSL"),
+        data_type="boolean",
+        required=True,
+        description=_(u"Use SSL/TLS wrapper for SMTP connection."),
+        choices=BOOLEAN_CHOICES,
+    ),
+    SettingFieldDefinition(
+        key="MAIL_USERNAME",
+        label=_(u"SMTP username"),
+        data_type="string",
+        required=False,
+        description=_(u"Username for SMTP authentication."),
+        allow_empty=True,
+    ),
+    SettingFieldDefinition(
+        key="MAIL_PASSWORD",
+        label=_(u"SMTP password"),
+        data_type="string",
+        required=False,
+        description=_(u"Password for SMTP authentication."),
+        allow_empty=True,
+    ),
+    SettingFieldDefinition(
+        key="MAIL_DEFAULT_SENDER",
+        label=_(u"Default sender"),
+        data_type="string",
+        required=False,
+        description=_(u"Default email address used as sender. Falls back to MAIL_USERNAME if empty."),
+        allow_empty=True,
+    ),
+)
+
 APPLICATION_SETTING_SECTIONS: tuple[SettingDefinitionSection, ...] = (
     SettingDefinitionSection(
         identifier="security",
@@ -505,6 +581,12 @@ APPLICATION_SETTING_SECTIONS: tuple[SettingDefinitionSection, ...] = (
         label=_(u"Media Processing"),
         description=_(u"Transcoding pipeline defaults."),
         fields=_MEDIA_PROCESSING_DEFINITIONS,
+    ),
+    SettingDefinitionSection(
+        identifier="mail",
+        label=_(u"Mail Configuration"),
+        description=_(u"Email server settings and mail functionality."),
+        fields=_MAIL_DEFINITIONS,
     ),
 )
 

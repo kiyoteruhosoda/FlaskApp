@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
+from sqlalchemy import update
 from sqlalchemy.orm import Mapped, mapped_column
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -94,8 +95,6 @@ class PasswordResetToken(db.Model):
         Returns:
             トークンが正常に更新された場合True、それ以外はFalse
         """
-        from sqlalchemy import update
-        
         stmt = (
             update(cls)
             .where(

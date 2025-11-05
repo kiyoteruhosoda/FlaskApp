@@ -2,7 +2,7 @@
 
 import pytest
 from domain.email_sender.email_message import EmailMessage
-from infrastructure.email_sender.console_sender import ConsoleEmailSender
+from tests.infrastructure.email_sender.console_sender import ConsoleEmailSender
 
 
 class TestConsoleSender:

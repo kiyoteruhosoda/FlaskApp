@@ -6,7 +6,7 @@
 
 ### SmtpEmailSender
 
-Flask-Mailを使用したSMTP送信実装です。
+Flask-Mailを使用したSMTP送信実装です。本番環境で使用します。
 
 ```python
 from infrastructure.email_sender import SmtpEmailSender
@@ -15,34 +15,51 @@ from webapp.extensions import mail
 sender = SmtpEmailSender(mail=mail, default_sender="sender@example.com")
 ```
 
-### ConsoleEmailSender
+### ConsoleEmailSender（テスト専用）
 
-コンソール出力によるメール送信実装です。テスト環境や開発環境で使用します。
+コンソール出力によるメール送信実装です。**テスト環境専用**です。
+
+この実装は `tests/infrastructure/email_sender/` に移動されました。
 
 ```python
-from infrastructure.email_sender import ConsoleEmailSender
+# テストでのみ使用可能
+from tests.infrastructure.email_sender import ConsoleEmailSender
 
 sender = ConsoleEmailSender()
-# メールはコンソールに出力されます
+# メールはコンソールに出力されます（実際には送信されません）
 ```
 
-### EmailSenderFactory
+### EmailSenderFactory（本番環境用）
 
-設定に基づいて適切な実装を生成するファクトリです。
+設定に基づいて適切な実装を生成するファクトリです。**本番環境ではSMTPのみサポート**します。
 
 ```python
 from infrastructure.email_sender import EmailSenderFactory
 
-# 設定から自動的に適切な実装を生成
+# 設定から自動的にSMTP実装を生成
 sender = EmailSenderFactory.create()
 
-# または明示的にプロバイダーを指定
-sender = EmailSenderFactory.create(provider="console")
+# または明示的にプロバイダーを指定（smtpのみ）
+sender = EmailSenderFactory.create(provider="smtp")
+```
+
+### TestEmailSenderFactory（テスト専用）
+
+テスト環境でConsoleEmailSenderを使用する場合は、テスト専用のファクトリを使用します。
+
+```python
+# テストでのみ使用可能
+from tests.infrastructure.email_sender import TestEmailSenderFactory
+
+# テスト用のコンソール実装を生成
+sender = TestEmailSenderFactory.create(provider="console")
 ```
 
 ## 設定
 
-### SMTP設定
+### SMTP設定（本番環境）
+
+本番環境では `smtp` のみが有効です。
 
 ```env
 MAIL_PROVIDER=smtp
@@ -54,11 +71,7 @@ MAIL_PASSWORD=your-app-password
 MAIL_DEFAULT_SENDER=your-email@example.com
 ```
 
-### Console設定（テスト用）
-
-```env
-MAIL_PROVIDER=console
-```
+**注意:** `MAIL_PROVIDER=console` は本番環境では使用できません。テスト専用です。
 
 ## 新しい実装の追加
 

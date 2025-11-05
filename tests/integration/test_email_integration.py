@@ -8,7 +8,9 @@ from unittest.mock import patch
 
 from application.email_service import EmailService
 from domain.email_sender import EmailMessage
-from infrastructure.email_sender import ConsoleEmailSender, EmailSenderFactory
+from infrastructure.email_sender import EmailSenderFactory
+from tests.infrastructure.email_sender.console_sender import ConsoleEmailSender
+from tests.infrastructure.email_sender.factory import TestEmailSenderFactory
 
 
 class TestEmailIntegration:
@@ -31,8 +33,8 @@ class TestEmailIntegration:
 
     def test_email_service_with_factory(self):
         """Test EmailService with factory-created sender."""
-        # ファクトリを使用してコンソール送信者を明示的に作成
-        sender = EmailSenderFactory.create(provider="console")
+        # テスト用ファクトリを使用してコンソール送信者を明示的に作成
+        sender = TestEmailSenderFactory.create(provider="console")
         
         assert isinstance(sender, ConsoleEmailSender)
         
@@ -93,6 +95,12 @@ class TestEmailIntegration:
         # これは正常な動作（テスト環境では完全なFlaskアプリがない）
         with pytest.raises(ValueError, match="Flask-Mail instance is required"):
             EmailSenderFactory.create(provider="smtp")
+
+    def test_production_factory_rejects_console(self):
+        """Test that production factory rejects console provider."""
+        # 本番環境のファクトリはconsoleプロバイダーを受け付けない
+        with pytest.raises(ValueError, match="Unsupported email provider.*console.*only available in tests"):
+            EmailSenderFactory.create(provider="console")
 
     def test_email_service_with_html(self):
         """Test sending email with HTML body."""

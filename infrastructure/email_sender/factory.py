@@ -12,7 +12,6 @@ from flask_mail import Mail
 
 from domain.email_sender.sender_interface import IEmailSender
 from .smtp_sender import SmtpEmailSender
-from .console_sender import ConsoleEmailSender
 
 
 logger = logging.getLogger(__name__)
@@ -23,11 +22,14 @@ class EmailSenderFactory:
     
     設定に基づいて適切なIEmailSender実装を生成します。
     Strategy パターンの具体的な戦略選択を担当します。
+    
+    Note:
+        本番環境ではSMTPのみをサポートします。
+        テスト用のConsoleEmailSenderは tests/infrastructure/email_sender/ にあります。
     """
 
-    # サポートされているメールプロバイダー
+    # サポートされているメールプロバイダー（本番環境）
     PROVIDER_SMTP = "smtp"
-    PROVIDER_CONSOLE = "console"
     
     # デフォルトプロバイダー
     DEFAULT_PROVIDER = PROVIDER_SMTP
@@ -41,7 +43,7 @@ class EmailSenderFactory:
         """設定に基づいてメール送信実装を生成する.
         
         Args:
-            provider: メールプロバイダー名（smtp, console）
+            provider: メールプロバイダー名（smtp のみサポート）
                      Noneの場合は設定またはデフォルトから取得
             mail: Flask-Mailインスタンス（SMTPプロバイダーで必要）
             default_sender: デフォルトの送信者アドレス
@@ -63,18 +65,15 @@ class EmailSenderFactory:
             extra={"event": "email.factory.create", "provider": provider}
         )
         
-        # プロバイダーに応じた実装を生成
+        # プロバイダーに応じた実装を生成（本番環境ではSMTPのみ）
         if provider == EmailSenderFactory.PROVIDER_SMTP:
             return EmailSenderFactory._create_smtp_sender(mail, default_sender)
-        
-        elif provider == EmailSenderFactory.PROVIDER_CONSOLE:
-            return EmailSenderFactory._create_console_sender()
         
         else:
             raise ValueError(
                 f"Unsupported email provider: {provider}. "
-                f"Supported providers: {EmailSenderFactory.PROVIDER_SMTP}, "
-                f"{EmailSenderFactory.PROVIDER_CONSOLE}"
+                f"Supported provider: {EmailSenderFactory.PROVIDER_SMTP}. "
+                f"Note: 'console' provider is only available in tests."
             )
 
     @staticmethod
@@ -134,12 +133,3 @@ class EmailSenderFactory:
                 pass
         
         return SmtpEmailSender(mail=mail, default_sender=default_sender)
-
-    @staticmethod
-    def _create_console_sender() -> ConsoleEmailSender:
-        """コンソールメール送信実装を生成する.
-        
-        Returns:
-            ConsoleEmailSender: コンソール送信実装
-        """
-        return ConsoleEmailSender()

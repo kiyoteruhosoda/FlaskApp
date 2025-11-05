@@ -467,6 +467,7 @@ _MAIL_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         required=True,
         description=_(u"Email provider type. Currently only 'smtp' is supported."),
         default_hint=_(u"Only 'smtp' is supported in production."),
+        editable=False,
     ),
     SettingFieldDefinition(
         key="MAIL_SERVER",

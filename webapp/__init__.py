@@ -869,7 +869,7 @@ def create_app():
     
     # Initialize Flask-Mailman
     from .extensions import mail
-    # メール機能が有効な場合のみ設定を適用
+    # メール機能が有効な場合のみ設定を適用して初期化
     if settings.mail_enabled:
         app.config['MAIL_SERVER'] = settings.mail_server
         app.config['MAIL_PORT'] = settings.mail_port
@@ -878,7 +878,7 @@ def create_app():
         app.config['MAIL_USERNAME'] = settings.mail_username
         app.config['MAIL_PASSWORD'] = settings.mail_password
         app.config['MAIL_DEFAULT_SENDER'] = settings.mail_default_sender or settings.mail_username
-    mail.init_app(app)
+        mail.init_app(app)
 
     register_error_handlers(app)
 

@@ -1818,8 +1818,15 @@ def password_forgot():
         
         from webapp.services.password_reset_service import PasswordResetService
         
+        # パスワードリセットリクエストを作成
+        success, error_message = PasswordResetService.create_reset_request(email)
+        
+        if not success and error_message:
+            # メール機能が無効な場合のみエラーを表示
+            flash(error_message, "error")
+            return render_template("auth/password_forgot.html")
+        
         # セキュリティ: 常に成功メッセージを返す（アカウント存在確認攻撃を防ぐ）
-        PasswordResetService.create_reset_request(email)
         flash(
             _("If an account exists with that email address, you will receive a password reset link. Please check your spam folder if you don't see it."),
             "success"

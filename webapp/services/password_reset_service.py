@@ -28,18 +28,30 @@ class PasswordResetService:
         return secrets.token_urlsafe(cls.TOKEN_LENGTH)
 
     @classmethod
-    def create_reset_request(cls, email: str) -> bool:
+    def create_reset_request(cls, email: str) -> tuple[bool, Optional[str]]:
         """パスワードリセットリクエストを作成し、メールを送信する。
         
         セキュリティ上の理由から、メールアドレスが存在するかどうかに関わらず
         常にTrueを返す（アカウント存在確認攻撃を防ぐため）。
+        ただし、メール機能が無効な場合は、ユーザーに通知するためにFalseとエラーメッセージを返す。
         
         Args:
             email: リセット対象のメールアドレス
             
         Returns:
-            常にTrue
+            tuple[bool, Optional[str]]: (成功フラグ, エラーメッセージ)
+                - メール機能が無効な場合: (False, エラーメッセージ)
+                - その他の場合: (True, None) - セキュリティのため常に成功を返す
         """
+        # メール機能が有効かチェック（先にチェックして早期リターン）
+        from core.settings import settings
+        if not settings.mail_enabled:
+            current_app.logger.warning(
+                "Password reset requested but mail is disabled",
+                extra={"event": "password_reset.mail_disabled", "email": email}
+            )
+            return (False, "メール送信に失敗しました。有効なメール送信先が設定されていません。管理者にお問い合わせ下さい。")
+        
         user = db.session.query(User).filter_by(email=email).first()
         
         if user and user.is_active:
@@ -75,7 +87,7 @@ class PasswordResetService:
                 # ユーザーには成功を返す（情報漏洩防止）
         
         # セキュリティ: メールが存在するかどうかに関わらず成功を返す
-        return True
+        return (True, None)
 
     @classmethod
     def _send_reset_email(cls, email: str, token: str) -> None:
@@ -86,7 +98,17 @@ class PasswordResetService:
         Args:
             email: 送信先メールアドレス
             token: リセットトークン（平文）
+            
+        Raises:
+            RuntimeError: メール機能が無効、または送信に失敗した場合
         """
+        # メール機能が有効かチェック
+        from core.settings import settings
+        if not settings.mail_enabled:
+            raise RuntimeError(
+                "メール送信に失敗しました。有効なメール送信先が設定されていません。管理者にお問い合わせ下さい。"
+            )
+        
         # リセットURLを生成
         # determine_external_schemeを使用してスキームを決定
         from flask import request
@@ -113,8 +135,7 @@ class PasswordResetService:
             )
         else:
             raise RuntimeError(
-                f"Failed to send password reset email via EmailService to {email}. "
-                "Check email service configuration and logs for details."
+                "メール送信に失敗しました。有効なメール送信先が設定されていません。管理者にお問い合わせ下さい。"
             )
 
     @classmethod

@@ -66,6 +66,15 @@ class EmailService:
             bool: 送信に成功した場合True、失敗した場合False
         """
         try:
+            # メール機能が有効かチェック
+            from core.settings import settings
+            if not settings.mail_enabled:
+                logger.warning(
+                    "Email sending attempted but mail is disabled",
+                    extra={"event": "email.service.disabled", "to": to}
+                )
+                return False
+            
             # EmailMessage値オブジェクトを作成
             message = EmailMessage(
                 to=to,

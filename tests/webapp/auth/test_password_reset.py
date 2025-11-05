@@ -52,37 +52,44 @@ class TestPasswordResetService:
         test_user = _create_test_user()
         
         # Mock EmailService.send_password_reset_email to avoid actual email
+        # Also enable mail in settings
         with app_context.test_request_context():
             with patch('application.email_service.EmailService.send_password_reset_email') as mock_send:
-                mock_send.return_value = True
-                result = PasswordResetService.create_reset_request(test_user.email)
-                assert result is True
-                assert mock_send.called
-                
-                # Check that token was created
-                token = PasswordResetToken.query.filter_by(email=test_user.email).first()
-                assert token is not None
-                assert token.used is False
-                # Handle timezone-naive datetime from SQLite
-                expires = token.expires_at
-                if expires.tzinfo is None:
-                    expires = expires.replace(tzinfo=timezone.utc)
-                assert expires > datetime.now(timezone.utc)
+                from core.settings import settings
+                with patch.object(type(settings), 'mail_enabled', property(lambda self: True)):
+                    mock_send.return_value = True
+                    success, error = PasswordResetService.create_reset_request(test_user.email)
+                    assert success is True
+                    assert error is None
+                    assert mock_send.called
+                    
+                    # Check that token was created
+                    token = PasswordResetToken.query.filter_by(email=test_user.email).first()
+                    assert token is not None
+                    assert token.used is False
+                    # Handle timezone-naive datetime from SQLite
+                    expires = token.expires_at
+                    if expires.tzinfo is None:
+                        expires = expires.replace(tzinfo=timezone.utc)
+                    assert expires > datetime.now(timezone.utc)
     
     def test_create_reset_request_nonexistent_user(self, app_context):
         """Test creating a reset request for non-existent user returns True."""
         with app_context.test_request_context():
             with patch('application.email_service.EmailService.send_password_reset_email') as mock_send:
-                mock_send.return_value = True
-                result = PasswordResetService.create_reset_request("nonexistent@example.com")
-                # Should return True to prevent user enumeration
-                assert result is True
-                # Mail should not be sent
-                assert not mock_send.called
-                
-                # No token should be created
-                token = PasswordResetToken.query.filter_by(email="nonexistent@example.com").first()
-                assert token is None
+                from core.settings import settings
+                with patch.object(type(settings), 'mail_enabled', property(lambda self: True)):
+                    mock_send.return_value = True
+                    success, error = PasswordResetService.create_reset_request("nonexistent@example.com")
+                    # Should return True to prevent user enumeration
+                    assert success is True
+                    assert error is None
+                    # Mail should not be sent
+                    assert not mock_send.called
+                    
+                    # No token should be created
+                    token = PasswordResetToken.query.filter_by(email="nonexistent@example.com").first()
+                    assert token is None
     
     def test_create_reset_request_inactive_user(self, app_context):
         """Test creating a reset request for inactive user returns True."""
@@ -90,16 +97,35 @@ class TestPasswordResetService:
         
         with app_context.test_request_context():
             with patch('application.email_service.EmailService.send_password_reset_email') as mock_send:
-                mock_send.return_value = True
-                result = PasswordResetService.create_reset_request(inactive_user.email)
-                # Should return True to prevent user enumeration
-                assert result is True
-                # Mail should not be sent
-                assert not mock_send.called
-                
-                # No token should be created for inactive users
-                token = PasswordResetToken.query.filter_by(email=inactive_user.email).first()
-                assert token is None
+                from core.settings import settings
+                with patch.object(type(settings), 'mail_enabled', property(lambda self: True)):
+                    mock_send.return_value = True
+                    success, error = PasswordResetService.create_reset_request(inactive_user.email)
+                    # Should return True to prevent user enumeration
+                    assert success is True
+                    assert error is None
+                    # Mail should not be sent
+                    assert not mock_send.called
+                    
+                    # No token should be created for inactive users
+                    token = PasswordResetToken.query.filter_by(email=inactive_user.email).first()
+                    assert token is None
+    
+    def test_create_reset_request_mail_disabled(self, app_context):
+        """Test creating a reset request when mail is disabled returns error."""
+        test_user = _create_test_user()
+        
+        with app_context.test_request_context():
+            # Mail is disabled by default in tests
+            success, error = PasswordResetService.create_reset_request(test_user.email)
+            assert success is False
+            assert error is not None
+            assert "メール送信に失敗しました" in error
+            assert "管理者にお問い合わせ下さい" in error
+            
+            # No token should be created when mail is disabled
+            token = PasswordResetToken.query.filter_by(email=test_user.email).first()
+            assert token is None
     
     def test_verify_token_valid(self, app_context):
         """Test verifying a valid token."""
@@ -259,27 +285,31 @@ class TestPasswordResetRoutes:
         test_user = _create_test_user()
         
         with patch('application.email_service.EmailService.send_password_reset_email') as mock_send:
-            mock_send.return_value = True
-            response = client.post(
-                '/auth/password/forgot',
-                data={'email': test_user.email},
-                follow_redirects=True
-            )
-            assert response.status_code == 200
-            assert mock_send.called
+            from core.settings import settings
+            with patch.object(type(settings), 'mail_enabled', property(lambda self: True)):
+                mock_send.return_value = True
+                response = client.post(
+                    '/auth/password/forgot',
+                    data={'email': test_user.email},
+                    follow_redirects=True
+                )
+                assert response.status_code == 200
+                assert mock_send.called
     
     def test_password_forgot_post_invalid_email(self, client):
         """Test POST request with invalid email."""
         with patch('application.email_service.EmailService.send_password_reset_email') as mock_send:
-            mock_send.return_value = True
-            response = client.post(
-                '/auth/password/forgot',
-                data={'email': 'nonexistent@example.com'},
-                follow_redirects=True
-            )
-            assert response.status_code == 200
-            # Should show success message (to prevent user enumeration)
-            assert not mock_send.called
+            from core.settings import settings
+            with patch.object(type(settings), 'mail_enabled', property(lambda self: True)):
+                mock_send.return_value = True
+                response = client.post(
+                    '/auth/password/forgot',
+                    data={'email': 'nonexistent@example.com'},
+                    follow_redirects=True
+                )
+                assert response.status_code == 200
+                # Should show success message (to prevent user enumeration)
+                assert not mock_send.called
     
     def test_password_forgot_post_no_email(self, client):
         """Test POST request without email."""
@@ -289,6 +319,21 @@ class TestPasswordResetRoutes:
             follow_redirects=True
         )
         assert response.status_code == 200
+    
+    def test_password_forgot_post_mail_disabled(self, app_context, client):
+        """Test POST request when mail is disabled."""
+        test_user = _create_test_user()
+        
+        # Mail is disabled by default, so don't patch it
+        response = client.post(
+            '/auth/password/forgot',
+            data={'email': test_user.email},
+            follow_redirects=False  # Don't follow redirect to check error message
+        )
+        assert response.status_code == 200
+        # Check that error message is shown
+        assert 'メール送信に失敗しました' in response.get_data(as_text=True)
+        assert '管理者にお問い合わせ下さい' in response.get_data(as_text=True)
     
     def test_password_reset_get_valid_token(self, app_context, client):
         """Test GET request with valid token."""

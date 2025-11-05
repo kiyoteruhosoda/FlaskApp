@@ -3,14 +3,13 @@ import secrets
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
-from flask import current_app, render_template, url_for
-from flask_mail import Message
+from flask import current_app, url_for
 
 from core.db import db
 from core.models.password_reset_token import PasswordResetToken
 from core.models.user import User
-from webapp.extensions import mail
 from webapp.utils import determine_external_scheme
+from application.email_service import EmailService
 
 
 class PasswordResetService:
@@ -82,6 +81,8 @@ class PasswordResetService:
     def _send_reset_email(cls, email: str, token: str) -> None:
         """パスワードリセットメールを送信する。
         
+        新しいEmailServiceを使用してメールを送信します。
+        
         Args:
             email: 送信先メールアドレス
             token: リセットトークン（平文）
@@ -97,35 +98,21 @@ class PasswordResetService:
             _scheme=scheme
         )
         
-        # メール本文
-        subject = "パスワードリセットのご案内"
-        body = f"""
-以下のリンクからパスワードを再設定してください。
-このリンクの有効期限は{cls.TOKEN_VALIDITY_MINUTES}分です。
-
-{reset_url}
-
-※このメールに心当たりがない場合は、このメールを破棄してください。
-"""
-        
-        html_body = render_template(
-            'auth/email/password_reset.html',
+        # EmailServiceを使用してメール送信
+        email_service = EmailService()
+        success = email_service.send_password_reset_email(
+            email=email,
             reset_url=reset_url,
             validity_minutes=cls.TOKEN_VALIDITY_MINUTES
         )
         
-        msg = Message(
-            subject=subject,
-            recipients=[email],
-            body=body,
-            html=html_body
-        )
-        mail.send(msg)
-        
-        current_app.logger.info(
-            "Password reset email sent",
-            extra={"event": "password_reset.email_sent", "email": email}
-        )
+        if success:
+            current_app.logger.info(
+                "Password reset email sent",
+                extra={"event": "password_reset.email_sent", "email": email}
+            )
+        else:
+            raise Exception("Failed to send password reset email via EmailService")
 
     @classmethod
     def verify_token(cls, token: str) -> Optional[str]:

@@ -51,9 +51,10 @@ class TestPasswordResetService:
         """Test creating a reset request for an active user."""
         test_user = _create_test_user()
         
-        # Mock mail sending to avoid actual email
+        # Mock EmailService.send_password_reset_email to avoid actual email
         with app_context.test_request_context():
-            with patch('webapp.services.password_reset_service.mail.send') as mock_send:
+            with patch('application.email_service.EmailService.send_password_reset_email') as mock_send:
+                mock_send.return_value = True
                 result = PasswordResetService.create_reset_request(test_user.email)
                 assert result is True
                 assert mock_send.called
@@ -71,7 +72,8 @@ class TestPasswordResetService:
     def test_create_reset_request_nonexistent_user(self, app_context):
         """Test creating a reset request for non-existent user returns True."""
         with app_context.test_request_context():
-            with patch('webapp.services.password_reset_service.mail.send') as mock_send:
+            with patch('application.email_service.EmailService.send_password_reset_email') as mock_send:
+                mock_send.return_value = True
                 result = PasswordResetService.create_reset_request("nonexistent@example.com")
                 # Should return True to prevent user enumeration
                 assert result is True
@@ -87,7 +89,8 @@ class TestPasswordResetService:
         inactive_user = _create_test_user(email="inactive@example.com", is_active=False)
         
         with app_context.test_request_context():
-            with patch('webapp.services.password_reset_service.mail.send') as mock_send:
+            with patch('application.email_service.EmailService.send_password_reset_email') as mock_send:
+                mock_send.return_value = True
                 result = PasswordResetService.create_reset_request(inactive_user.email)
                 # Should return True to prevent user enumeration
                 assert result is True
@@ -255,7 +258,8 @@ class TestPasswordResetRoutes:
         """Test POST request with valid email."""
         test_user = _create_test_user()
         
-        with patch('webapp.services.password_reset_service.mail.send') as mock_send:
+        with patch('application.email_service.EmailService.send_password_reset_email') as mock_send:
+            mock_send.return_value = True
             response = client.post(
                 '/auth/password/forgot',
                 data={'email': test_user.email},
@@ -266,7 +270,8 @@ class TestPasswordResetRoutes:
     
     def test_password_forgot_post_invalid_email(self, client):
         """Test POST request with invalid email."""
-        with patch('webapp.services.password_reset_service.mail.send') as mock_send:
+        with patch('application.email_service.EmailService.send_password_reset_email') as mock_send:
+            mock_send.return_value = True
             response = client.post(
                 '/auth/password/forgot',
                 data={'email': 'nonexistent@example.com'},

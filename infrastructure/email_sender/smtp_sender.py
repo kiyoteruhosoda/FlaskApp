@@ -123,7 +123,7 @@ class SmtpEmailSender(IEmailSender):
         # 共通パラメータを準備
         # reply_toは文字列の場合はリストに変換、Noneや空の場合は空リストに
         reply_to_list = []
-        if message.reply_to:
+        if message.reply_to and isinstance(message.reply_to, str):
             stripped = message.reply_to.strip()
             if stripped:
                 reply_to_list = [stripped]

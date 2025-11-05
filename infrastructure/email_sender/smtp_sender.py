@@ -120,30 +120,22 @@ class SmtpEmailSender(IEmailSender):
         # Flask-MailmanはDjangoのEmailMessageをベースにしているため、
         # パラメータ名が異なります
         
-        # HTMLボディがある場合
+        # 共通パラメータを準備
+        common_params = {
+            'subject': message.subject,
+            'body': message.html_body if message.html_body else message.body,
+            'from_email': sender,
+            'to': message.to,
+            'cc': message.cc or [],
+            'bcc': message.bcc or [],
+            'reply_to': [message.reply_to] if message.reply_to else []
+        }
+        
+        # EmailMessageを作成
+        mail_message = EmailMessage(**common_params)
+        
+        # HTMLボディがある場合はcontent_subtypeを設定
         if message.html_body:
-            # HTMLをメインのボディとして使用
-            mail_message = EmailMessage(
-                subject=message.subject,
-                body=message.html_body,
-                from_email=sender,
-                to=message.to,
-                cc=message.cc or [],
-                bcc=message.bcc or [],
-                reply_to=[message.reply_to] if message.reply_to else None
-            )
-            # HTMLとして送信するためcontent_subtypeを設定
             mail_message.content_subtype = 'html'
-        else:
-            # プレーンテキストのみの場合
-            mail_message = EmailMessage(
-                subject=message.subject,
-                body=message.body,
-                from_email=sender,
-                to=message.to,
-                cc=message.cc or [],
-                bcc=message.bcc or [],
-                reply_to=[message.reply_to] if message.reply_to else None
-            )
         
         return mail_message

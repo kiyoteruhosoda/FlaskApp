@@ -8,6 +8,7 @@ import logging
 from typing import Optional, List
 
 from flask import current_app, render_template
+from flask_babel import gettext as _
 
 from domain.email_sender import IEmailSender, EmailMessage
 from infrastructure.email_sender import EmailSenderFactory
@@ -111,17 +112,19 @@ class EmailService:
             bool: 送信に成功した場合True、失敗した場合False
         """
         try:
-            # メール本文の生成
-            subject = "パスワードリセットのご案内"
+            # メール本文の生成（英語がデフォルト、翻訳ファイルで日本語化）
+            subject = _("Password Reset Request")
             
-            body = f"""
-以下のリンクからパスワードを再設定してください。
-このリンクの有効期限は{validity_minutes}分です。
-
-{reset_url}
-
-※このメールに心当たりがない場合は、このメールを破棄してください。
-"""
+            body = _(
+                "Please reset your password by clicking the link below.\n"
+                "This link will expire in %(minutes)d minutes.\n"
+                "\n"
+                "%(url)s\n"
+                "\n"
+                "If you did not request this password reset, please ignore this email.",
+                minutes=validity_minutes,
+                url=reset_url
+            )
             
             # HTMLテンプレートの使用を試みる
             html_body = None

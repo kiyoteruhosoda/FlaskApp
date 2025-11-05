@@ -125,9 +125,10 @@ class TestEmailService:
         
         message = mock_sender.sent_messages[0]
         assert message.to == ["test@example.com"]
-        assert message.subject == "パスワードリセットのご案内"
+        # Default language is English
+        assert message.subject == "Password Reset Request"
         assert "https://example.com/reset?token=abc123" in message.body
-        assert "30分" in message.body
+        assert "30 minutes" in message.body
 
     def test_validate_sender_config(self):
         """Test validating sender configuration."""

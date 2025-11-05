@@ -72,6 +72,21 @@ msgstr "ホーム"
 msgid "AppName"
 msgstr "nolumia"
 
+msgid "Service Accounts"
+msgstr "サービスアカウント"
+
+msgid "Groups"
+msgstr "グループ"
+
+msgid "Version Info"
+msgstr "バージョン情報"
+
+msgid "Version Information"
+msgstr "バージョン情報"
+
+msgid "Data Files"
+msgstr "データファイル"
+
 msgid "You do not have permission to access this page."
 msgstr "このページにアクセスするにはログインが必要です。"
 

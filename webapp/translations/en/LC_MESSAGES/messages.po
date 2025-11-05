@@ -49,6 +49,21 @@ msgstr "Welcome!"
 msgid "Certificates"
 msgstr "Certificates"
 
+msgid "Service Accounts"
+msgstr "Service Accounts"
+
+msgid "Groups"
+msgstr "Groups"
+
+msgid "Version Info"
+msgstr "Version Info"
+
+msgid "Version Information"
+msgstr "Version Information"
+
+msgid "Data Files"
+msgstr "Data Files"
+
 msgid "Wiki"
 msgstr "Wiki"
 

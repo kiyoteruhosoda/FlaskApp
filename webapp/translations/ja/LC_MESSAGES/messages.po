@@ -3023,3 +3023,21 @@ msgstr "削除する前にグループからすべてのユーザーを外して
 
 msgid "Passkey sign-in still requires your email address so we can match your account."
 msgstr "パスキーでサインインするには、メールアドレスが必要です。"
+
+msgid "Password Reset Request"
+msgstr "パスワードリセットのご案内"
+
+msgid "Please reset your password by clicking the link below.\n"
+"This link will expire in %(minutes)d minutes.\n"
+"\n"
+"%(url)s\n"
+"\n"
+"If you did not request this password reset, please ignore this email."
+
+msgstr "以下のリンクからパスワードを再設定してください。\n"
+"このリンクの有効期限は%(minutes)d分です。\n"
+"\n"
+"%(url)s\n"
+"\n"
+"※このメールに心当たりがない場合は、このメールを破棄してください。"
+

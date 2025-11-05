@@ -8,7 +8,7 @@ import logging
 from typing import Optional
 
 from flask import current_app
-from flask_mailman import EmailMessage, Mail
+from flask_mailman import EmailMessage, EmailMultiAlternatives, Mail
 
 from domain.email_sender.sender_interface import IEmailSender
 from domain.email_sender.email_message import EmailMessage as DomainEmailMessage
@@ -123,7 +123,7 @@ class SmtpEmailSender(IEmailSender):
         # 共通パラメータを準備
         common_params = {
             'subject': message.subject,
-            'body': message.html_body if message.html_body else message.body,
+            'body': message.body,
             'from_email': sender,
             'to': message.to,
             'cc': message.cc or [],
@@ -131,11 +131,13 @@ class SmtpEmailSender(IEmailSender):
             'reply_to': [message.reply_to] if message.reply_to else []
         }
         
-        # EmailMessageを作成
-        mail_message = EmailMessage(**common_params)
-        
-        # HTMLボディがある場合はcontent_subtypeを設定
+        # HTMLボディがある場合はEmailMultiAlternativesを使用
         if message.html_body:
-            mail_message.content_subtype = 'html'
+            mail_message = EmailMultiAlternatives(**common_params)
+            # HTMLバージョンを添付
+            mail_message.attach_alternative(message.html_body, "text/html")
+        else:
+            # プレーンテキストのみの場合はEmailMessageを使用
+            mail_message = EmailMessage(**common_params)
         
         return mail_message

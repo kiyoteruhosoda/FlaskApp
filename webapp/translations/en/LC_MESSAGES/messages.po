@@ -19,26 +19,6 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-# Password Reset Email - Subject
-msgid "Password Reset Request"
-msgstr "Password Reset Request"
-
-# Password Reset Email - Body
-msgid ""
-"Please reset your password by clicking the link below.\n"
-"This link will expire in %(minutes)d minutes.\n"
-"\n"
-"%(url)s\n"
-"\n"
-"If you did not request this password reset, please ignore this email."
-msgstr ""
-"Please reset your password by clicking the link below.\n"
-"This link will expire in %(minutes)d minutes.\n"
-"\n"
-"%(url)s\n"
-"\n"
-"If you did not request this password reset, please ignore this email."
-
 #~ msgid "Home"
 #~ msgstr "Home"
 

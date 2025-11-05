@@ -89,11 +89,13 @@
     </button>
   </form>
     
-    <div class="forgot-password">
-      <a href="{{ url_for('auth.password_forgot') }}">{{ _('Forgot your password?') }}</a>
-    </div>
-    <div class="forgot-password">
-      <a href="{{ url_for('auth.register') }}">{{ _('Don\'t have an account? Sign up') }}</a>
+    <div class="auth-links">
+      <div class="forgot-password">
+        <a href="{{ url_for('auth.password_forgot') }}">{{ _('Forgot your password?') }}</a>
+      </div>
+      <div class="forgot-password">
+        <a href="{{ url_for('auth.register') }}">{{ _('Don\'t have an account? Sign up') }}</a>
+      </div>
     </div>
     <div class="language-selector dropdown">
       <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="languageDropdown"

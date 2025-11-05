@@ -139,6 +139,8 @@ class PasswordResetService:
         """
         # トークンハッシュで検索できないため、全てのアクティブなトークンを取得
         # （有効期限内かつ未使用）
+        # NOTE: パフォーマンス最適化: 実運用では古いトークンの定期的なクリーンアップを推奨
+        # また、インデックス（used, expires_at）により検索は効率化される
         now = datetime.now(timezone.utc)
         active_tokens = db.session.query(PasswordResetToken).filter(
             PasswordResetToken.used == False,

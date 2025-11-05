@@ -22,9 +22,9 @@ def upgrade():
         'password_reset_token',
         sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), primary_key=True, autoincrement=True),
         sa.Column('email', sa.String(255), nullable=False, index=True),
-        sa.Column('token_hash', sa.String(255), nullable=False, unique=True),
-        sa.Column('expires_at', sa.DateTime(), nullable=False),
-        sa.Column('used', sa.Boolean(), nullable=False, server_default='0'),
+        sa.Column('token_hash', sa.String(255), nullable=False, unique=True, index=True),
+        sa.Column('expires_at', sa.DateTime(), nullable=False, index=True),
+        sa.Column('used', sa.Boolean(), nullable=False, server_default='0', index=True),
         sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP')),
     )
 

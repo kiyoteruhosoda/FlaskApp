@@ -1442,3 +1442,34 @@ LOCK TABLES `passkey_credential` WRITE;
 /*!40000 ALTER TABLE `passkey_credential` ENABLE KEYS */;
 UNLOCK TABLES;
 
+
+--
+-- Table structure for table `password_reset_token`
+--
+
+DROP TABLE IF EXISTS `password_reset_token`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+
+CREATE TABLE `password_reset_token` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `email` VARCHAR(255) NOT NULL,
+  `token_hash` VARCHAR(255) NOT NULL,
+  `expires_at` DATETIME NOT NULL,
+  `used` BOOLEAN NOT NULL DEFAULT 0,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_password_reset_token_hash` (`token_hash`),
+  KEY `ix_password_reset_token_email` (`email`),
+  KEY `ix_password_reset_token_expires_at` (`expires_at`),
+  KEY `ix_password_reset_token_used` (`used`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `password_reset_token`
+--
+
+LOCK TABLES `password_reset_token` WRITE;
+/*!40000 ALTER TABLE `password_reset_token` DISABLE KEYS */;
+/*!40000 ALTER TABLE `password_reset_token` ENABLE KEYS */;
+UNLOCK TABLES;

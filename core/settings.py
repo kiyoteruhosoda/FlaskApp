@@ -792,7 +792,7 @@ class ApplicationSettings:
     def mail_provider(self) -> str:
         """Return the configured mail provider (smtp, console).
         
-        デフォルトはsmtpです。テスト環境ではconsoleを使用することを推奨します。
+        Defaults to smtp. Console is recommended for test environments.
         """
         value = self._get("MAIL_PROVIDER", "smtp")
         if not value:

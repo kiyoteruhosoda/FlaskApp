@@ -86,7 +86,8 @@ class EmailSenderFactory:
         """
         try:
             from core.settings import settings
-            provider = settings.get("MAIL_PROVIDER", EmailSenderFactory.DEFAULT_PROVIDER)
+            # Use dedicated property instead of generic get()
+            provider = settings.mail_provider
             return str(provider).lower().strip()
         except Exception as e:
             logger.warning(

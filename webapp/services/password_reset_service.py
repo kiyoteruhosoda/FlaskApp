@@ -112,7 +112,10 @@ class PasswordResetService:
                 extra={"event": "password_reset.email_sent", "email": email}
             )
         else:
-            raise Exception("Failed to send password reset email via EmailService")
+            raise RuntimeError(
+                f"Failed to send password reset email via EmailService to {email}. "
+                "Check email service configuration and logs for details."
+            )
 
     @classmethod
     def verify_token(cls, token: str) -> Optional[str]:

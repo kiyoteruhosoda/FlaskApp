@@ -166,6 +166,7 @@ class PasswordResetService:
         Returns:
             成功した場合True、失敗した場合False
         """
+        # トークンを検証（verify_tokenメソッドを再利用）
         email = cls.verify_token(token)
         if not email:
             return False
@@ -174,21 +175,40 @@ class PasswordResetService:
         if not user or not user.is_active:
             return False
         
-        # パスワードを更新
-        user.set_password(new_password)
-        
-        # トークンを使用済みにする
+        # トークンオブジェクトを取得（メールアドレスから）
         now = datetime.now(timezone.utc)
-        active_tokens = db.session.query(PasswordResetToken).filter(
+        matching_token = db.session.query(PasswordResetToken).filter(
             PasswordResetToken.email == email,
             PasswordResetToken.used == False,
             PasswordResetToken.expires_at > now
-        ).all()
+        ).first()
         
-        for reset_token in active_tokens:
-            if reset_token.check_token(token):
-                reset_token.mark_as_used()
-                break
+        # トークンが見つからない場合（verify_tokenで検証済みのはずだが念のため）
+        if not matching_token or not matching_token.check_token(token):
+            return False
+        
+        # トークンを原子的に使用済みにマークする（並行アクセス対策）
+        # この操作は、used = false の条件付きでUPDATEを実行するため、
+        # 2つの並行リクエストのうち1つだけが成功する
+        token_marked = PasswordResetToken.mark_as_used_atomic(
+            matching_token.id, 
+            email
+        )
+        
+        if not token_marked:
+            # トークンが既に使用済みの場合（並行リクエストで先に使用された）
+            current_app.logger.warning(
+                "Token already used (concurrent access detected)",
+                extra={
+                    "event": "password_reset.token_already_used",
+                    "email": email,
+                    "token_id": matching_token.id
+                }
+            )
+            return False
+        
+        # パスワードを更新
+        user.set_password(new_password)
         
         db.session.commit()
         

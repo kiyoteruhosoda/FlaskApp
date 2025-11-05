@@ -856,6 +856,17 @@ def create_app():
 
     babel.init_app(app, locale_selector=_select_locale)
     smorest_api.init_app(app)
+    
+    # Initialize Flask-Mail
+    from .extensions import mail
+    app.config['MAIL_SERVER'] = settings.mail_server
+    app.config['MAIL_PORT'] = settings.mail_port
+    app.config['MAIL_USE_TLS'] = settings.mail_use_tls
+    app.config['MAIL_USE_SSL'] = settings.mail_use_ssl
+    app.config['MAIL_USERNAME'] = settings.mail_username
+    app.config['MAIL_PASSWORD'] = settings.mail_password
+    app.config['MAIL_DEFAULT_SENDER'] = settings.mail_default_sender or settings.mail_username
+    mail.init_app(app)
 
     register_error_handlers(app)
 

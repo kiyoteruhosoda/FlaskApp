@@ -1802,3 +1802,76 @@ def picker(account_id: int):
 def google_accounts():
     """Redirect to admin Google accounts page."""
     return _redirect_to("admin.google_accounts")
+
+
+@bp.route("/password/forgot", methods=["GET", "POST"])
+def password_forgot():
+    """パスワードリセットメール送信画面。"""
+    if current_user.is_authenticated:
+        return _redirect_to("dashboard.dashboard")
+    
+    if request.method == "POST":
+        email = request.form.get("email")
+        if not email:
+            flash(_("Email address is required"), "error")
+            return render_template("auth/password_forgot.html")
+        
+        from webapp.services.password_reset_service import PasswordResetService
+        
+        # セキュリティ: 常に成功メッセージを返す（アカウント存在確認攻撃を防ぐ）
+        PasswordResetService.create_reset_request(email)
+        flash(
+            _("If an account exists with that email address, you will receive a password reset link. Please check your spam folder if you don't see it."),
+            "success"
+        )
+        return _redirect_to("auth.login")
+    
+    return render_template("auth/password_forgot.html")
+
+
+@bp.route("/password/reset", methods=["GET", "POST"])
+def password_reset():
+    """パスワードリセット画面。"""
+    if current_user.is_authenticated:
+        return _redirect_to("dashboard.dashboard")
+    
+    token = request.args.get("token") or request.form.get("token")
+    if not token:
+        flash(_("Invalid or missing reset token"), "error")
+        return _redirect_to("auth.login")
+    
+    from webapp.services.password_reset_service import PasswordResetService
+    
+    # トークンの検証（GETリクエストでも検証して早期にエラーを表示）
+    if request.method == "GET":
+        email = PasswordResetService.verify_token(token)
+        if not email:
+            flash(_("This password reset link is invalid or has expired"), "error")
+            return _redirect_to("auth.login")
+    
+    if request.method == "POST":
+        password = request.form.get("password")
+        password_confirm = request.form.get("password_confirm")
+        
+        if not password or not password_confirm:
+            flash(_("Both password fields are required"), "error")
+            return render_template("auth/password_reset.html", token=token)
+        
+        if password != password_confirm:
+            flash(_("Passwords do not match"), "error")
+            return render_template("auth/password_reset.html", token=token)
+        
+        if len(password) < 8:
+            flash(_("Password must be at least 8 characters long"), "error")
+            return render_template("auth/password_reset.html", token=token)
+        
+        # パスワードリセット実行
+        success = PasswordResetService.reset_password(token, password)
+        if success:
+            flash(_("Your password has been reset successfully. Please log in with your new password."), "success")
+            return _redirect_to("auth.login")
+        else:
+            flash(_("This password reset link is invalid or has expired"), "error")
+            return _redirect_to("auth.login")
+    
+    return render_template("auth/password_reset.html", token=token)

@@ -1,1584 +1,1570 @@
-msgid "Home"
-msgstr "Home"
+# English translations for PROJECT.
+# Copyright (C) 2025 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2025-11-05 00:22+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: en\n"
+"Language-Team: en <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
 
-msgid "AppName"
-msgstr "nolumia"
+#~ msgid "Home"
+#~ msgstr "Home"
 
-msgid "Dashboard"
-msgstr "Dashboard"
+#~ msgid "AppName"
+#~ msgstr "nolumia"
 
-msgid "Certificate Management"
-msgstr "Certificate Management"
+#~ msgid "Dashboard"
+#~ msgstr "Dashboard"
 
-msgid "Login"
-msgstr "Login"
+#~ msgid "Certificate Management"
+#~ msgstr "Certificate Management"
 
-msgid "Register"
-msgstr "Register"
+#~ msgid "Login"
+#~ msgstr "Login"
 
-msgid "Logout"
-msgstr "Logout"
+#~ msgid "Register"
+#~ msgstr "Register"
 
-msgid "Top"
-msgstr "Top"
+#~ msgid "Logout"
+#~ msgstr "Logout"
 
-msgid "Welcome!"
-msgstr "Welcome!"
+#~ msgid "Top"
+#~ msgstr "Top"
 
-msgid "Certificates"
-msgstr "Certificates"
+#~ msgid "Welcome!"
+#~ msgstr "Welcome!"
 
-msgid "Wiki"
-msgstr "Wiki"
+#~ msgid "Certificates"
+#~ msgstr "Certificates"
 
-msgid "You are logged in."
-msgstr "You are logged in."
+#~ msgid "Wiki"
+#~ msgstr "Wiki"
 
-msgid "Please login to continue."
-msgstr "Please login to continue."
+#~ msgid "You are logged in."
+#~ msgstr "You are logged in."
 
-msgid "Password"
-msgstr "Password"
+#~ msgid "Please login to continue."
+#~ msgstr "Please login to continue."
 
-msgid "Create account"
-msgstr "Create account"
+#~ msgid "Password"
+#~ msgstr "Password"
 
-msgid "Invalid email or password"
-msgstr "Invalid email or password"
+#~ msgid "Create account"
+#~ msgstr "Create account"
 
-msgid "Email and password are required"
-msgstr "Email and password are required"
+#~ msgid "Invalid email or password"
+#~ msgstr "Invalid email or password"
 
-msgid "Please provide a public key."
-msgstr "Please provide a public key."
+#~ msgid "Email and password are required"
+#~ msgstr "Email and password are required"
 
-msgid "The public key is not a valid PEM-formatted value."
-msgstr "The public key is not a valid PEM-formatted value."
+#~ msgid "Please provide a public key."
+#~ msgstr "Please provide a public key."
 
-msgid "The provided public key type is not supported."
-msgstr "The provided public key type is not supported."
+#~ msgid "The public key is not a valid PEM-formatted value."
+#~ msgstr "The public key is not a valid PEM-formatted value."
 
-msgid "You are not allowed to assign the specified scopes."
-msgstr "You are not allowed to assign the specified scopes."
+#~ msgid "The provided public key type is not supported."
+#~ msgstr "The provided public key type is not supported."
 
-msgid "Please provide a service account name."
-msgstr "Please provide a service account name."
+#~ msgid "You are not allowed to assign the specified scopes."
+#~ msgstr "You are not allowed to assign the specified scopes."
 
-msgid "A service account with the same name already exists."
-msgstr "A service account with the same name already exists."
+#~ msgid "Please provide a service account name."
+#~ msgstr "Please provide a service account name."
 
-msgid "The service account identifier is missing from the token."
-msgstr "The service account identifier is missing from the token."
+#~ msgid "A service account with the same name already exists."
+#~ msgstr "A service account with the same name already exists."
 
-msgid "The service account is not registered."
-msgstr "The service account is not registered."
+#~ msgid "The service account identifier is missing from the token."
+#~ msgstr "The service account identifier is missing from the token."
 
-msgid "The service account is disabled."
-msgstr "The service account is disabled."
+#~ msgid "The service account is not registered."
+#~ msgstr "The service account is not registered."
 
-msgid "The token is not provided."
-msgstr "The token is not provided."
+#~ msgid "The service account is disabled."
+#~ msgstr "The service account is disabled."
 
-msgid "The JWT header is invalid."
-msgstr "The JWT header is invalid."
+#~ msgid "The token is not provided."
+#~ msgstr "The token is not provided."
 
-msgid "The signature algorithm is not supported."
-msgstr "The signature algorithm is not supported."
+#~ msgid "The JWT header is invalid."
+#~ msgstr "The JWT header is invalid."
 
-msgid "Failed to parse the JWT."
-msgstr "Failed to parse the JWT."
+#~ msgid "The signature algorithm is not supported."
+#~ msgstr "The signature algorithm is not supported."
 
-msgid "The token has expired."
-msgstr "The token has expired."
+#~ msgid "Failed to parse the JWT."
+#~ msgstr "Failed to parse the JWT."
 
-msgid "The audience does not match."
-msgstr "The audience does not match."
+#~ msgid "The token has expired."
+#~ msgstr "The token has expired."
 
-msgid "Failed to verify the signature."
-msgstr "Failed to verify the signature."
+#~ msgid "The audience does not match."
+#~ msgstr "The audience does not match."
 
-msgid "The JWT is invalid."
-msgstr "The JWT is invalid."
+#~ msgid "Failed to verify the signature."
+#~ msgstr "Failed to verify the signature."
 
-msgid "The token lifetime is invalid."
-msgstr "The token lifetime is invalid."
+#~ msgid "The JWT is invalid."
+#~ msgstr "The JWT is invalid."
 
-msgid "The token lifetime exceeds the maximum allowed."
-msgstr "The token lifetime exceeds the maximum allowed."
+#~ msgid "The token lifetime is invalid."
+#~ msgstr "The token lifetime is invalid."
 
-msgid "The token issue time is in the future."
-msgstr "The token issue time is in the future."
+#~ msgid "The token lifetime exceeds the maximum allowed."
+#~ msgstr "The token lifetime exceeds the maximum allowed."
 
-msgid "The required scope is not granted."
-msgstr "The required scope is not granted."
+#~ msgid "The token issue time is in the future."
+#~ msgstr "The token issue time is in the future."
 
-msgid "Email already exists"
-msgstr "Email already exists"
+#~ msgid "The required scope is not granted."
+#~ msgstr "The required scope is not granted."
 
-msgid "Registration successful. Please log in."
-msgstr "Registration successful. Please log in."
+#~ msgid "Email already exists"
+#~ msgstr "Email already exists"
 
-msgid "Logged out"
-msgstr "Logged out"
+#~ msgid "Registration successful. Please log in."
+#~ msgstr "Registration successful. Please log in."
 
-#: webapp/static/js/admin-config.js
-msgid "Configuration updated successfully."
-msgstr "Configuration updated successfully."
+#~ msgid "Logged out"
+#~ msgstr "Logged out"
 
-#: webapp/static/js/admin-config.js
-msgid "Configuration update failed."
-msgstr "Configuration update failed."
+#~ msgid "Configuration updated successfully."
+#~ msgstr "Configuration updated successfully."
 
-#: webapp/static/js/admin-config.js
-msgid "Failed to submit the request."
-msgstr "Failed to submit the request."
+#~ msgid "Configuration update failed."
+#~ msgstr "Configuration update failed."
 
-#: webapp/dashboard/templates/dashboard/index.html:6
-msgid "Workspace dashboard"
-msgstr "Workspace dashboard"
+#~ msgid "Failed to submit the request."
+#~ msgstr "Failed to submit the request."
 
-#: webapp/dashboard/templates/dashboard/index.html:8
-msgid "Stay on top of shared knowledge, media operations, and administration from one place."
-msgstr "Stay on top of shared knowledge, media operations, and administration from one place."
+#~ msgid "Workspace dashboard"
+#~ msgstr "Workspace dashboard"
 
-#: webapp/dashboard/templates/dashboard/index.html:13
-msgid "Signed in"
-msgstr "Signed in"
+#~ msgid ""
+#~ "Stay on top of shared knowledge, "
+#~ "media operations, and administration from "
+#~ "one place."
+#~ msgstr ""
+#~ "Stay on top of shared knowledge, "
+#~ "media operations, and administration from "
+#~ "one place."
 
-#: webapp/dashboard/templates/dashboard/index.html:16
-msgid "Welcome back, %(name)s"
-msgstr "Welcome back, %(name)s"
+#~ msgid "Signed in"
+#~ msgstr "Signed in"
 
-#: webapp/dashboard/templates/dashboard/index.html:25
-msgid "Key workspaces"
-msgstr "Key workspaces"
+#~ msgid "Welcome back, %(name)s"
+#~ msgstr "Welcome back, %(name)s"
 
-#: webapp/dashboard/templates/dashboard/index.html:34
-msgid "Team wiki"
-msgstr "Team wiki"
+#~ msgid "Key workspaces"
+#~ msgstr "Key workspaces"
 
-#: webapp/dashboard/templates/dashboard/index.html:36
-msgid "Browse policies, guides, and notes maintained by your team."
-msgstr "Browse policies, guides, and notes maintained by your team."
+#~ msgid "Team wiki"
+#~ msgstr "Team wiki"
 
-#: webapp/dashboard/templates/dashboard/index.html:39
-msgid "Open wiki"
-msgstr "Open wiki"
+#~ msgid "Browse policies, guides, and notes maintained by your team."
+#~ msgstr "Browse policies, guides, and notes maintained by your team."
 
-#: webapp/dashboard/templates/dashboard/index.html:50
-msgid "Media library"
-msgstr "Media library"
+#~ msgid "Open wiki"
+#~ msgstr "Open wiki"
 
-#: webapp/dashboard/templates/dashboard/index.html:52
-msgid "Review uploaded photos and manage shared media assets."
-msgstr "Review uploaded photos and manage shared media assets."
+#~ msgid "Media library"
+#~ msgstr "Media library"
 
-#: webapp/dashboard/templates/dashboard/index.html:55
-msgid "Open media view"
-msgstr "Open media view"
+#~ msgid "Review uploaded photos and manage shared media assets."
+#~ msgstr "Review uploaded photos and manage shared media assets."
 
-#: webapp/admin/routes.py:767
-msgid "To save changes, select at least one setting and check its \"Update\" box."
-msgstr "To save changes, select at least one setting and check its \"Update\" box."
+#~ msgid "Open media view"
+#~ msgstr "Open media view"
 
-#: webapp/dashboard/templates/dashboard/index.html:65
-msgid "No workspace tools are available for your current role."
-msgstr "No workspace tools are available for your current role."
+#~ msgid ""
+#~ "To save changes, select at least "
+#~ "one setting and check its \"Update\" "
+#~ "box."
+#~ msgstr ""
+#~ "To save changes, select at least "
+#~ "one setting and check its \"Update\" "
+#~ "box."
 
-#: webapp/dashboard/templates/dashboard/index.html:75
-msgid "Operations shortcuts"
-msgstr "Operations shortcuts"
+#~ msgid "No workspace tools are available for your current role."
+#~ msgstr "No workspace tools are available for your current role."
 
-#: webapp/dashboard/templates/dashboard/index.html:83
-msgid "Account settings"
-msgstr "Account settings"
+#~ msgid "Operations shortcuts"
+#~ msgstr "Operations shortcuts"
 
-#: webapp/dashboard/templates/dashboard/index.html:86
-msgid "Update your profile, preferred language, and sign-in credentials."
-msgstr "Update your profile, preferred language, and sign-in credentials."
+#~ msgid "Account settings"
+#~ msgstr "Account settings"
 
-#: webapp/dashboard/templates/dashboard/index.html:90
-msgid "Profile"
-msgstr "Profile"
+#~ msgid "Update your profile, preferred language, and sign-in credentials."
+#~ msgstr "Update your profile, preferred language, and sign-in credentials."
 
-#: webapp/dashboard/templates/dashboard/index.html:93
-msgid "Sign-in details"
-msgstr "Sign-in details"
+#~ msgid "Profile"
+#~ msgstr "Profile"
 
-#: webapp/auth/templates/auth/login.html
-msgid "Sign in with passkey"
-msgstr "Sign in with passkey"
+#~ msgid "Sign-in details"
+#~ msgstr "Sign-in details"
 
-#: webapp/auth/templates/auth/login.html
-msgid "Passkey login requires a compatible browser."
-msgstr "Passkey login requires a compatible browser."
+#~ msgid "Sign in with passkey"
+#~ msgstr "Sign in with passkey"
 
-#: webapp/auth/templates/auth/login.html webapp/auth/templates/auth/login.html
-msgid "Passkey sign-in still requires your email address so we can match your account."
-msgstr "Passkey sign-in still requires your email address so we can match your account."
+#~ msgid "Passkey login requires a compatible browser."
+#~ msgstr "Passkey login requires a compatible browser."
 
-#: webapp/auth/templates/auth/login.html
-msgid "Passkey login options could not be retrieved."
-msgstr "Passkey login options could not be retrieved."
+#~ msgid ""
+#~ "Passkey sign-in still requires your "
+#~ "email address so we can match your"
+#~ " account."
+#~ msgstr ""
+#~ "Passkey sign-in still requires your "
+#~ "email address so we can match your"
+#~ " account."
 
-#: webapp/auth/templates/auth/login.html
-msgid "Passkey login failed. Please try again."
-msgstr "Passkey login failed. Please try again."
+#~ msgid "Passkey login options could not be retrieved."
+#~ msgstr "Passkey login options could not be retrieved."
 
-#: webapp/auth/templates/auth/profile.html
-msgid "Passkeys"
-msgstr "Passkeys"
+#~ msgid "Passkey login failed. Please try again."
+#~ msgstr "Passkey login failed. Please try again."
 
-#: webapp/auth/templates/auth/profile.html
-msgid "Passkeys cannot be managed for service accounts."
-msgstr "Passkeys cannot be managed for service accounts."
+#~ msgid "Passkeys"
+#~ msgstr "Passkeys"
 
-#: webapp/auth/templates/auth/profile.html
-msgid "Unnamed passkey"
-msgstr "Unnamed passkey"
+#~ msgid "Passkeys cannot be managed for service accounts."
+#~ msgstr "Passkeys cannot be managed for service accounts."
 
-#: webapp/auth/templates/auth/profile.html
-msgid "Created"
-msgstr "Created"
+#~ msgid "Unnamed passkey"
+#~ msgstr "Unnamed passkey"
 
-#: webapp/auth/templates/auth/profile.html
-msgid "Last used"
-msgstr "Last used"
+#~ msgid "Created"
+#~ msgstr "Created"
 
-#: webapp/auth/templates/auth/profile.html
-msgid "Remove"
-msgstr "Remove"
+#~ msgid "Last used"
+#~ msgstr "Last used"
 
-#: webapp/auth/templates/auth/profile.html
-msgid "No passkeys registered yet."
-msgstr "No passkeys registered yet."
+#~ msgid "Remove"
+#~ msgstr "Remove"
 
-#: webapp/auth/templates/auth/profile.html
-msgid "Register a passkey for each device you use."
-msgstr "Register a passkey for each device you use."
+#~ msgid "No passkeys registered yet."
+#~ msgstr "No passkeys registered yet."
 
-#: webapp/auth/templates/auth/profile.html
-msgid "Add a new passkey"
-msgstr "Add a new passkey"
+#~ msgid "Register a passkey for each device you use."
+#~ msgstr "Register a passkey for each device you use."
 
-#: webapp/auth/templates/auth/profile.html
-msgid "Passkey registration requires a compatible browser."
-msgstr "Passkey registration requires a compatible browser."
+#~ msgid "Add a new passkey"
+#~ msgstr "Add a new passkey"
 
-#: webapp/auth/templates/auth/profile.html
-msgid "This passkey is already registered for your account."
-msgstr "This passkey is already registered for your account."
+#~ msgid "Passkey registration requires a compatible browser."
+#~ msgstr "Passkey registration requires a compatible browser."
 
-#: webapp/auth/templates/auth/profile.html
-msgid "Give this passkey a name (optional)"
-msgstr "Give this passkey a name (optional)"
+#~ msgid "This passkey is already registered for your account."
+#~ msgstr "This passkey is already registered for your account."
 
-#: webapp/auth/templates/auth/profile.html
-msgid "Passkey registration options could not be retrieved."
-msgstr "Passkey registration options could not be retrieved."
+#~ msgid "Give this passkey a name (optional)"
+#~ msgstr "Give this passkey a name (optional)"
 
-#: webapp/auth/templates/auth/profile.html
-msgid "Passkey registration timed out before the authenticator responded. Please try again and confirm the prompt on your device."
-msgstr "Passkey registration timed out before the authenticator responded. Please try again and confirm the prompt on your device."
+#~ msgid "Passkey registration options could not be retrieved."
+#~ msgstr "Passkey registration options could not be retrieved."
 
-#: webapp/auth/templates/auth/profile.html
-msgid "Passkey registration was cancelled from the authenticator prompt. Please retry and complete the device approval."
-msgstr "Passkey registration was cancelled from the authenticator prompt. Please retry and complete the device approval."
+#~ msgid ""
+#~ "Passkey registration timed out before "
+#~ "the authenticator responded. Please try "
+#~ "again and confirm the prompt on "
+#~ "your device."
+#~ msgstr ""
+#~ "Passkey registration timed out before "
+#~ "the authenticator responded. Please try "
+#~ "again and confirm the prompt on "
+#~ "your device."
 
-#: webapp/auth/templates/auth/profile.html
-msgid "Passkey registration was cancelled or timed out before completion. Please retry after completing the authenticator prompt."
-msgstr "Passkey registration was cancelled or timed out before completion. Please retry after completing the authenticator prompt."
+#~ msgid ""
+#~ "Passkey registration was cancelled from "
+#~ "the authenticator prompt. Please retry "
+#~ "and complete the device approval."
+#~ msgstr ""
+#~ "Passkey registration was cancelled from "
+#~ "the authenticator prompt. Please retry "
+#~ "and complete the device approval."
 
-#: webapp/auth/templates/auth/profile.html
-msgid "Passkey registration failed. Please try again."
-msgstr "Passkey registration failed. Please try again."
+#~ msgid ""
+#~ "Passkey registration was cancelled or "
+#~ "timed out before completion. Please "
+#~ "retry after completing the authenticator "
+#~ "prompt."
+#~ msgstr ""
+#~ "Passkey registration was cancelled or "
+#~ "timed out before completion. Please "
+#~ "retry after completing the authenticator "
+#~ "prompt."
 
-#: webapp/auth/templates/auth/profile.html
-msgid "Remove this passkey?"
-msgstr "Remove this passkey?"
+#~ msgid "Passkey registration failed. Please try again."
+#~ msgstr "Passkey registration failed. Please try again."
 
-#: webapp/auth/templates/auth/profile.html
-msgid "Failed to remove passkey."
-msgstr "Failed to remove passkey."
+#~ msgid "Remove this passkey?"
+#~ msgstr "Remove this passkey?"
 
-#: webapp/dashboard/templates/dashboard/index.html:103
-msgid "Administration"
-msgstr "Administration"
+#~ msgid "Failed to remove passkey."
+#~ msgstr "Failed to remove passkey."
 
-#: webapp/dashboard/templates/dashboard/index.html:106
-msgid "Review user access, configuration, and connected integrations."
-msgstr "Review user access, configuration, and connected integrations."
+#~ msgid "Administration"
+#~ msgstr "Administration"
 
-#: webapp/dashboard/templates/dashboard/index.html:110
-msgid "Users"
-msgstr "Users"
+#~ msgid "Review user access, configuration, and connected integrations."
+#~ msgstr "Review user access, configuration, and connected integrations."
 
-#: webapp/dashboard/templates/dashboard/index.html:113
-msgid "Settings"
-msgstr "Settings"
+#~ msgid "Users"
+#~ msgstr "Users"
 
-#: webapp/dashboard/templates/dashboard/index.html:116
-msgid "Google accounts"
-msgstr "Google accounts"
+#~ msgid "Settings"
+#~ msgstr "Settings"
 
-#: webapp/dashboard/templates/dashboard/index.html:130
-msgid "Your status"
-msgstr "Your status"
+#~ msgid "Google accounts"
+#~ msgstr "Google accounts"
 
-#: webapp/dashboard/templates/dashboard/index.html:138
-msgid "Display name"
-msgstr "Display name"
+#~ msgid "Your status"
+#~ msgstr "Your status"
 
-#: webapp/dashboard/templates/dashboard/index.html:139
-msgid "Not provided"
-msgstr "Not provided"
+#~ msgid "Display name"
+#~ msgstr "Display name"
 
-#: webapp/dashboard/templates/dashboard/index.html:147
-msgid "Active role"
-msgstr "Active role"
+#~ msgid "Not provided"
+#~ msgstr "Not provided"
 
-#: webapp/dashboard/templates/dashboard/index.html:152
-msgid "No active role selected"
-msgstr "No active role selected"
+#~ msgid "Active role"
+#~ msgstr "Active role"
 
-#: webapp/dashboard/templates/dashboard/index.html:156
-msgid "Roles assigned: %(count)s"
-msgstr "Roles assigned: %(count)s"
+#~ msgid "No active role selected"
+#~ msgstr "No active role selected"
 
-#: webapp/dashboard/templates/dashboard/index.html:165
-msgid "Content overview"
-msgstr "Content overview"
+#~ msgid "Roles assigned: %(count)s"
+#~ msgstr "Roles assigned: %(count)s"
 
-#: webapp/dashboard/templates/dashboard/index.html:167
-msgid "Wiki pages: %(count)s"
-msgstr "Wiki pages: %(count)s"
+#~ msgid "Content overview"
+#~ msgstr "Content overview"
 
-#: webapp/dashboard/templates/dashboard/index.html:168
-msgid "Media items: %(count)s"
-msgstr "Media items: %(count)s"
+#~ msgid "Wiki pages: %(count)s"
+#~ msgstr "Wiki pages: %(count)s"
 
-#: webapp/dashboard/templates/dashboard/index.html:179
-msgid "Quick links"
-msgstr "Quick links"
+#~ msgid "Media items: %(count)s"
+#~ msgstr "Media items: %(count)s"
 
-#: webapp/dashboard/templates/dashboard/index.html:186
-msgid "Create wiki page"
-msgstr "Create wiki page"
+#~ msgid "Quick links"
+#~ msgstr "Quick links"
 
-#: webapp/dashboard/templates/dashboard/index.html:193
-msgid "Search knowledge base"
-msgstr "Search knowledge base"
+#~ msgid "Create wiki page"
+#~ msgstr "Create wiki page"
 
-#: webapp/dashboard/templates/dashboard/index.html:200
-msgid "Open media gallery"
-msgstr "Open media gallery"
+#~ msgid "Search knowledge base"
+#~ msgstr "Search knowledge base"
 
-#: webapp/dashboard/templates/dashboard/index.html:206
-msgid "Manage profile preferences"
-msgstr "Manage profile preferences"
+#~ msgid "Open media gallery"
+#~ msgstr "Open media gallery"
 
-msgid "This page requires login."
-msgstr "This page requires login."
+#~ msgid "Manage profile preferences"
+#~ msgstr "Manage profile preferences"
 
-msgid "Please log in to access this page."
-msgstr "Please log in to access this page."
+#~ msgid "This page requires login."
+#~ msgstr "This page requires login."
 
-#: webapp/error_handlers.py:45
-msgid "An unexpected error occurred. Please try again later."
-msgstr "An unexpected error occurred. Please try again later."
+#~ msgid "Please log in to access this page."
+#~ msgstr "Please log in to access this page."
 
-msgid "If you cannot scan the QR code, add this secret manually in your app:"
-msgstr "If you cannot scan the QR code, add this secret manually in your app:"
+#~ msgid "An unexpected error occurred. Please try again later."
+#~ msgstr "An unexpected error occurred. Please try again later."
 
-msgid "Welcome Back"
-msgstr "Welcome Back"
+#~ msgid "If you cannot scan the QR code, add this secret manually in your app:"
+#~ msgstr "If you cannot scan the QR code, add this secret manually in your app:"
 
-msgid "Sign in to your %(app_name)s account"
-msgstr "Sign in to your %(app_name)s account"
+#~ msgid "Welcome Back"
+#~ msgstr "Welcome Back"
 
-msgid "Email Address"
-msgstr "Email Address"
+#~ msgid "Sign in to your %(app_name)s account"
+#~ msgstr "Sign in to your %(app_name)s account"
 
-msgid "Enter your email"
-msgstr "Enter your email"
+#~ msgid "Email Address"
+#~ msgstr "Email Address"
 
-msgid "Enter your password"
-msgstr "Enter your password"
+#~ msgid "Enter your email"
+#~ msgstr "Enter your email"
 
-msgid "Authentication Code"
-msgstr "Authentication Code"
+#~ msgid "Enter your password"
+#~ msgstr "Enter your password"
 
-msgid "Enter the 6-digit code from your authenticator app (optional if not set up)"
-msgstr "Enter the 6-digit code from your authenticator app (optional if not set up)"
+#~ msgid "Authentication Code"
+#~ msgstr "Authentication Code"
 
-msgid "Sign In"
-msgstr "Sign In"
+#~ msgid ""
+#~ "Enter the 6-digit code from your "
+#~ "authenticator app (optional if not set"
+#~ " up)"
+#~ msgstr ""
+#~ "Enter the 6-digit code from your "
+#~ "authenticator app (optional if not set"
+#~ " up)"
 
-msgid "Don't have an account? Sign up"
-msgstr "Don't have an account? Sign up"
+#~ msgid "Sign In"
+#~ msgstr "Sign In"
 
-msgid "Create Account"
-msgstr "Create Account"
+#~ msgid "Don't have an account? Sign up"
+#~ msgstr "Don't have an account? Sign up"
 
-msgid "Join %(app_name)s and start organizing your memories"
-msgstr "Join %(app_name)s and start organizing your memories"
+#~ msgid "Create Account"
+#~ msgstr "Create Account"
 
-msgid "Create a strong password"
-msgstr "Create a strong password"
+#~ msgid "Join %(app_name)s and start organizing your memories"
+#~ msgstr "Join %(app_name)s and start organizing your memories"
 
-msgid "Two-factor authentication will be set up in the next step for enhanced security"
-msgstr "Two-factor authentication will be set up in the next step for enhanced security"
+#~ msgid "Create a strong password"
+#~ msgstr "Create a strong password"
 
-msgid "Already have an account? Sign in"
-msgstr "Already have an account? Sign in"
+#~ msgid ""
+#~ "Two-factor authentication will be set"
+#~ " up in the next step for "
+#~ "enhanced security"
+#~ msgstr ""
+#~ "Two-factor authentication will be set"
+#~ " up in the next step for "
+#~ "enhanced security"
 
-msgid "Join %(app_name)s without two-factor authentication"
-msgstr "Join %(app_name)s without two-factor authentication"
+#~ msgid "Already have an account? Sign in"
+#~ msgstr "Already have an account? Sign in"
 
-msgid "=== %(app_name)s Version Information ==="
-msgstr "=== %(app_name)s Version Information ==="
+#~ msgid "Join %(app_name)s without two-factor authentication"
+#~ msgstr "Join %(app_name)s without two-factor authentication"
 
-msgid "%(app_name)s Version Information"
-msgstr "%(app_name)s Version Information"
+#~ msgid "=== %(app_name)s Version Information ==="
+#~ msgstr "=== %(app_name)s Version Information ==="
 
-#: webapp/templates/admin/version_view.html:20
-msgid "Version String"
-msgstr "Version String"
+#~ msgid "%(app_name)s Version Information"
+#~ msgstr "%(app_name)s Version Information"
 
-#: webapp/templates/admin/version_view.html:33
-msgid "Full Commit Hash"
-msgstr "Full Commit Hash"
+#~ msgid "Version String"
+#~ msgstr "Version String"
 
-#: webapp/templates/admin/version_view.html:57
-msgid "Runtime Environment"
-msgstr "Runtime Environment"
+#~ msgid "Full Commit Hash"
+#~ msgstr "Full Commit Hash"
 
-#: webapp/templates/admin/version_view.html:63
-msgid "Python Version"
-msgstr "Python Version"
+#~ msgid "Runtime Environment"
+#~ msgstr "Runtime Environment"
 
-#: webapp/templates/admin/version_view.html:68
-msgid "Platform"
-msgstr "Platform"
+#~ msgid "Python Version"
+#~ msgstr "Python Version"
 
-#: webapp/templates/admin/version_view.html:70
-msgid "Hostname"
-msgstr "Hostname"
+#~ msgid "Platform"
+#~ msgstr "Platform"
 
-#: webapp/templates/admin/version_view.html:72
-msgid "Environment"
-msgstr "Environment"
+#~ msgid "Hostname"
+#~ msgstr "Hostname"
 
-#: webapp/templates/admin/version_view.html:74
-msgid "Debug Mode"
-msgstr "Debug Mode"
+#~ msgid "Environment"
+#~ msgstr "Environment"
 
-#: webapp/templates/admin/version_view.html:80
-msgid "Flask Version"
-msgstr "Flask Version"
+#~ msgid "Debug Mode"
+#~ msgstr "Debug Mode"
 
-#: webapp/templates/admin/version_view.html:82
-msgid "Werkzeug Version"
-msgstr "Werkzeug Version"
+#~ msgid "Flask Version"
+#~ msgstr "Flask Version"
 
-#: webapp/templates/admin/version_view.html:90
-msgid "API Access"
-msgstr "API Access"
+#~ msgid "Werkzeug Version"
+#~ msgstr "Werkzeug Version"
 
-#: webapp/templates/admin/version_view.html:95
-msgid "You can retrieve the same information through the API."
-msgstr "You can retrieve the same information through the API."
+#~ msgid "API Access"
+#~ msgstr "API Access"
 
-#: webapp/templates/admin/version_view.html:104
-msgid "Test Endpoint"
-msgstr "Test Endpoint"
+#~ msgid "You can retrieve the same information through the API."
+#~ msgstr "You can retrieve the same information through the API."
 
-#: webapp/templates/admin/version_view.html:107
-msgid "API Response"
-msgstr "API Response"
+#~ msgid "Test Endpoint"
+#~ msgstr "Test Endpoint"
 
-#: webapp/templates/admin/version_view.html:126
-msgid "Server time is fetched from the health API once per minute."
-msgstr "Server time is fetched from the health API once per minute."
+#~ msgid "API Response"
+#~ msgstr "API Response"
 
-#: webapp/templates/admin/version_view.html:197
-msgid "An error occurred while requesting version information."
-msgstr "An error occurred while requesting version information."
+#~ msgid "Server time is fetched from the health API once per minute."
+#~ msgstr "Server time is fetched from the health API once per minute."
 
-msgid "=== %(app_name)s Master Data Seeding ==="
-msgstr "=== %(app_name)s Master Data Seeding ==="
+#~ msgid "An error occurred while requesting version information."
+#~ msgstr "An error occurred while requesting version information."
 
-msgid "Note: This account will not have two-factor authentication enabled"
-msgstr "Note: This account will not have two-factor authentication enabled"
+#~ msgid "=== %(app_name)s Master Data Seeding ==="
+#~ msgstr "=== %(app_name)s Master Data Seeding ==="
 
-msgid "Register with two-factor authentication"
-msgstr "Register with two-factor authentication"
+#~ msgid "Note: This account will not have two-factor authentication enabled"
+#~ msgstr "Note: This account will not have two-factor authentication enabled"
 
-msgid "Register without two-factor authentication"
-msgstr "Register without two-factor authentication"
+#~ msgid "Register with two-factor authentication"
+#~ msgstr "Register with two-factor authentication"
 
-msgid "000000"
-msgstr "000000"
+#~ msgid "Register without two-factor authentication"
+#~ msgstr "Register without two-factor authentication"
 
-msgid "Signing In..."
-msgstr "Signing In..."
+#~ msgid "000000"
+#~ msgstr "000000"
 
-msgid "Creating Account..."
-msgstr "Creating Account..."
+#~ msgid "Signing In..."
+#~ msgstr "Signing In..."
 
-msgid "Email"
-msgstr "Email"
+#~ msgid "Creating Account..."
+#~ msgstr "Creating Account..."
 
-msgid "Next"
-msgstr "Next"
+#~ msgid "Email"
+#~ msgstr "Email"
 
-msgid "Setup Two-Factor Authentication"
-msgstr "Setup Two-Factor Authentication"
+#~ msgid "Next"
+#~ msgstr "Next"
 
-msgid "Scan the QR code with your authenticator app and enter the current code"
-msgstr "Scan the QR code with your authenticator app and enter the current code"
+#~ msgid "Setup Two-Factor Authentication"
+#~ msgstr "Setup Two-Factor Authentication"
 
-msgid "Complete Registration"
-msgstr "Complete Registration"
+#~ msgid "Scan the QR code with your authenticator app and enter the current code"
+#~ msgstr "Scan the QR code with your authenticator app and enter the current code"
 
-msgid "Completing Registration..."
-msgstr "Completing Registration..."
+#~ msgid "Complete Registration"
+#~ msgstr "Complete Registration"
 
-msgid "Show setup key"
-msgstr "Show setup key"
+#~ msgid "Completing Registration..."
+#~ msgstr "Completing Registration..."
 
-msgid "Hide setup key"
-msgstr "Hide setup key"
+#~ msgid "Show setup key"
+#~ msgstr "Show setup key"
 
-msgid "If you cannot scan the QR code, enter this setup key manually in your authenticator app:"
-msgstr "If you cannot scan the QR code, enter this setup key manually in your authenticator app:"
+#~ msgid "Hide setup key"
+#~ msgstr "Hide setup key"
 
-msgid "Copy to clipboard"
-msgstr "Copy to clipboard"
+#~ msgid ""
+#~ "If you cannot scan the QR code,"
+#~ " enter this setup key manually in "
+#~ "your authenticator app:"
+#~ msgstr ""
+#~ "If you cannot scan the QR code,"
+#~ " enter this setup key manually in "
+#~ "your authenticator app:"
 
-msgid "Manual setup instructions:"
-msgstr "Manual setup instructions:"
+#~ msgid "Copy to clipboard"
+#~ msgstr "Copy to clipboard"
 
-msgid "Open your authenticator app (Google Authenticator, Authy, etc.)"
-msgstr "Open your authenticator app (Google Authenticator, Authy, etc.)"
+#~ msgid "Manual setup instructions:"
+#~ msgstr "Manual setup instructions:"
 
-msgid "Select \"Add account\" or \"+\""
-msgstr "Select \"Add account\" or \"+\""
+#~ msgid "Open your authenticator app (Google Authenticator, Authy, etc.)"
+#~ msgstr "Open your authenticator app (Google Authenticator, Authy, etc.)"
 
-msgid "Choose \"Enter a setup key\" or \"Manual entry\""
-msgstr "Choose \"Enter a setup key\" or \"Manual entry\""
+#~ msgid "Select \"Add account\" or \"+\""
+#~ msgstr "Select \"Add account\" or \"+\""
 
-msgid "Enter the account name:"
-msgstr "Enter the account name:"
+#~ msgid "Choose \"Enter a setup key\" or \"Manual entry\""
+#~ msgstr "Choose \"Enter a setup key\" or \"Manual entry\""
 
-msgid "Enter the setup key shown above"
-msgstr "Enter the setup key shown above"
+#~ msgid "Enter the account name:"
+#~ msgstr "Enter the account name:"
 
-msgid "Select \"Time-based\" if asked"
-msgstr "Select \"Time-based\" if asked"
+#~ msgid "Enter the setup key shown above"
+#~ msgstr "Enter the setup key shown above"
 
-msgid "Save and enter the 6-digit code below"
-msgstr "Save and enter the 6-digit code below"
+#~ msgid "Select \"Time-based\" if asked"
+#~ msgstr "Select \"Time-based\" if asked"
 
-msgid "Enable Two-Factor Authentication"
-msgstr "Enable Two-Factor Authentication"
+#~ msgid "Save and enter the 6-digit code below"
+#~ msgstr "Save and enter the 6-digit code below"
 
-msgid "Back to Profile"
-msgstr "Back to Profile"
+#~ msgid "Enable Two-Factor Authentication"
+#~ msgstr "Enable Two-Factor Authentication"
 
-msgid "Enabling..."
-msgstr "Enabling..."
+#~ msgid "Back to Profile"
+#~ msgstr "Back to Profile"
 
-msgid "Cancel Registration"
-msgstr "Cancel Registration"
+#~ msgid "Enabling..."
+#~ msgstr "Enabling..."
 
-msgid "Cancel Setup"
-msgstr "Cancel Setup"
+#~ msgid "Cancel Registration"
+#~ msgstr "Cancel Registration"
 
-msgid "Registration cancelled. You can start over."
-msgstr "Registration cancelled. You can start over."
+#~ msgid "Cancel Setup"
+#~ msgstr "Cancel Setup"
 
-msgid "Two-factor authentication setup cancelled."
-msgstr "Two-factor authentication setup cancelled."
+#~ msgid "Registration cancelled. You can start over."
+#~ msgstr "Registration cancelled. You can start over."
 
-msgid "Two-factor authentication is not available for service accounts."
-msgstr "Two-factor authentication is not available for service accounts."
+#~ msgid "Two-factor authentication setup cancelled."
+#~ msgstr "Two-factor authentication setup cancelled."
 
-msgid "Service accounts cannot edit profile details."
-msgstr "Service accounts cannot edit profile details."
+#~ msgid "Two-factor authentication is not available for service accounts."
+#~ msgstr "Two-factor authentication is not available for service accounts."
 
-msgid "Profile details are managed by administrators for service accounts."
-msgstr "Profile details are managed by administrators for service accounts."
+#~ msgid "Service accounts cannot edit profile details."
+#~ msgstr "Service accounts cannot edit profile details."
 
-msgid "Registration session invalid. Please register again."
-msgstr "Registration session invalid. Please register again."
+#~ msgid "Profile details are managed by administrators for service accounts."
+#~ msgstr "Profile details are managed by administrators for service accounts."
 
-msgid "Registration failed: {}"
-msgstr "Registration failed: {}"
+#~ msgid "Registration session invalid. Please register again."
+#~ msgstr "Registration session invalid. Please register again."
 
-msgid "Created"
-msgstr "Created"
+#~ msgid "Registration failed: {}"
+#~ msgstr "Registration failed: {}"
 
-msgid "Updated"
-msgstr "Updated"
+#~ msgid "Updated"
+#~ msgstr "Updated"
 
-msgid "Unknown"
-msgstr "Unknown"
+#~ msgid "Unknown"
+#~ msgstr "Unknown"
 
-msgid "Page Information"
-msgstr "Page Information"
+#~ msgid "Page Information"
+#~ msgstr "Page Information"
 
-msgid "Created Date"
-msgstr "Created Date"
+#~ msgid "Created Date"
+#~ msgstr "Created Date"
 
-msgid "Created By"
-msgstr "Created By"
+#~ msgid "Created By"
+#~ msgstr "Created By"
 
-msgid "Slug"
-msgstr "Slug"
+#~ msgid "Slug"
+#~ msgstr "Slug"
 
-msgid "Statistics"
-msgstr "Statistics"
+#~ msgid "Statistics"
+#~ msgstr "Statistics"
 
-msgid "Total Revisions"
-msgstr "Total Revisions"
+#~ msgid "Total Revisions"
+#~ msgstr "Total Revisions"
 
-msgid "Last Updated"
-msgstr "Last Updated"
+#~ msgid "Last Updated"
+#~ msgstr "Last Updated"
 
-msgid "Last Updated By"
-msgstr "Last Updated By"
+#~ msgid "Last Updated By"
+#~ msgstr "Last Updated By"
 
-msgid "Current Title"
-msgstr "Current Title"
+#~ msgid "Current Title"
+#~ msgstr "Current Title"
 
-msgid "Title"
-msgstr "Title"
+#~ msgid "Title"
+#~ msgstr "Title"
 
-msgid "Content Length"
-msgstr "Content Length"
+#~ msgid "Content Length"
+#~ msgstr "Content Length"
 
-msgid "characters"
-msgstr "characters"
+#~ msgid "characters"
+#~ msgstr "characters"
 
-msgid "Show Content"
-msgstr "Show Content"
+#~ msgid "Show Content"
+#~ msgstr "Show Content"
 
-msgid "Hide Content"
-msgstr "Hide Content"
+#~ msgid "Hide Content"
+#~ msgstr "Hide Content"
 
-msgid "Page content at this point"
-msgstr "Page content at this point"
+#~ msgid "Page content at this point"
+#~ msgstr "Page content at this point"
 
-msgid "Change History"
-msgstr "Change History"
+#~ msgid "Change History"
+#~ msgstr "Change History"
 
-msgid "No History"
-msgstr "No History"
+#~ msgid "No History"
+#~ msgstr "No History"
 
-msgid "This page has no change history yet."
-msgstr "This page has no change history yet."
+#~ msgid "This page has no change history yet."
+#~ msgstr "This page has no change history yet."
 
-msgid "Back to Page"
-msgstr "Back to Page"
+#~ msgid "Back to Page"
+#~ msgstr "Back to Page"
 
-msgid "Wiki Top"
-msgstr "Wiki Top"
+#~ msgid "Wiki Top"
+#~ msgstr "Wiki Top"
 
-msgid "Categories"
-msgstr "Categories"
+#~ msgid "Categories"
+#~ msgstr "Categories"
 
-msgid "Page Hierarchy"
-msgstr "Page Hierarchy"
+#~ msgid "Page Hierarchy"
+#~ msgstr "Page Hierarchy"
 
-msgid "No pages available"
-msgstr "No pages available"
+#~ msgid "No pages available"
+#~ msgstr "No pages available"
 
-msgid "New Page"
-msgstr "New Page"
+#~ msgid "New Page"
+#~ msgstr "New Page"
 
-msgid "Admin"
-msgstr "Admin"
+#~ msgid "Admin"
+#~ msgstr "Admin"
 
-msgid "Search pages..."
-msgstr "Search pages..."
+#~ msgid "Search pages..."
+#~ msgstr "Search pages..."
 
-msgid "Recently Updated Pages"
-msgstr "Recently Updated Pages"
+#~ msgid "Recently Updated Pages"
+#~ msgstr "Recently Updated Pages"
 
-msgid "No pages yet."
-msgstr "No pages yet."
+#~ msgid "No pages yet."
+#~ msgstr "No pages yet."
 
-msgid "Create New Page"
-msgstr "Create New Page"
+#~ msgid "Create New Page"
+#~ msgstr "Create New Page"
 
-msgid "Back to Wiki Top"
-msgstr "Back to Wiki Top"
+#~ msgid "Back to Wiki Top"
+#~ msgstr "Back to Wiki Top"
 
-msgid "No categories"
-msgstr "No categories"
+#~ msgid "No categories"
+#~ msgstr "No categories"
 
-msgid "Navigation"
-msgstr "Navigation"
+#~ msgid "Navigation"
+#~ msgstr "Navigation"
 
-msgid "Search"
-msgstr "Search"
+#~ msgid "Search"
+#~ msgstr "Search"
 
-msgid "Edit"
-msgstr "Edit"
+#~ msgid "Edit"
+#~ msgstr "Edit"
 
-msgid "History"
-msgstr "History"
+#~ msgid "History"
+#~ msgstr "History"
 
-msgid "Sub Pages"
-msgstr "Sub Pages"
+#~ msgid "Sub Pages"
+#~ msgstr "Sub Pages"
 
-msgid "Parent Page"
-msgstr "Parent Page"
+#~ msgid "Parent Page"
+#~ msgstr "Parent Page"
 
-msgid "Are you sure you want to cancel the local import?"
-msgstr "Are you sure you want to cancel the local import?"
+#~ msgid "Are you sure you want to cancel the local import?"
+#~ msgstr "Are you sure you want to cancel the local import?"
 
-msgid "Certificate List"
-msgstr "Certificate List"
+#~ msgid "Certificate List"
+#~ msgstr "Certificate List"
 
-msgid "Common Name"
-msgstr "Common Name"
+#~ msgid "Common Name"
+#~ msgstr "Common Name"
 
-msgid "Generate New"
-msgstr "Generate New"
+#~ msgid "Generate New"
+#~ msgstr "Generate New"
 
-msgid "Public Key Distribution"
-msgstr "Public Key Distribution"
+#~ msgid "Public Key Distribution"
+#~ msgstr "Public Key Distribution"
 
-msgid "Usage"
-msgstr "Usage"
+#~ msgid "Usage"
+#~ msgstr "Usage"
 
-msgid "All"
-msgstr "All"
+#~ msgid "All"
+#~ msgstr "All"
 
-msgid "Issued At"
-msgstr "Issued At"
+#~ msgid "Issued At"
+#~ msgstr "Issued At"
 
-msgid "Status"
-msgstr "Status"
+#~ msgid "Status"
+#~ msgstr "Status"
 
-msgid "Revoked At"
-msgstr "Revoked At"
+#~ msgid "Revoked At"
+#~ msgstr "Revoked At"
 
-msgid "Actions"
-msgstr "Actions"
+#~ msgid "Actions"
+#~ msgstr "Actions"
 
-msgid "Revoked"
-msgstr "Revoked"
+#~ msgid "Revoked"
+#~ msgstr "Revoked"
 
-msgid "Active"
-msgstr "Active"
+#~ msgid "Active"
+#~ msgstr "Active"
 
-msgid "View Details"
-msgstr "View Details"
+#~ msgid "View Details"
+#~ msgstr "View Details"
 
-msgid "Revoke"
-msgstr "Revoke"
+#~ msgid "Revoke"
+#~ msgstr "Revoke"
 
-msgid "No certificates available to display."
-msgstr "No certificates available to display."
+#~ msgid "No certificates available to display."
+#~ msgstr "No certificates available to display."
 
-msgid "Certificate Details"
-msgstr "Certificate Details"
+#~ msgid "Certificate Details"
+#~ msgstr "Certificate Details"
 
-msgid "KID"
-msgstr "KID"
+#~ msgid "KID"
+#~ msgstr "KID"
 
-msgid "Back to List"
-msgstr "Back to List"
+#~ msgid "Back to List"
+#~ msgstr "Back to List"
 
-msgid "Revoke Certificate"
-msgstr "Revoke Certificate"
+#~ msgid "Revoke Certificate"
+#~ msgstr "Revoke Certificate"
 
-msgid "Metadata"
-msgstr "Metadata"
+#~ msgid "Metadata"
+#~ msgstr "Metadata"
 
-msgid "Revocation Reason"
-msgstr "Revocation Reason"
+#~ msgid "Revocation Reason"
+#~ msgstr "Revocation Reason"
 
-msgid "Subject"
-msgstr "Subject"
+#~ msgid "Subject"
+#~ msgstr "Subject"
 
-msgid "Issuer"
-msgstr "Issuer"
+#~ msgid "Issuer"
+#~ msgstr "Issuer"
 
-msgid "Validity Period"
-msgstr "Validity Period"
+#~ msgid "Validity Period"
+#~ msgstr "Validity Period"
 
-msgid "to"
-msgstr "to"
+#~ msgid "to"
+#~ msgstr "to"
 
-msgid "Certificate (PEM)"
-msgstr "Certificate (PEM)"
+#~ msgid "Certificate (PEM)"
+#~ msgstr "Certificate (PEM)"
 
-msgid "JWK Information"
-msgstr "JWK Information"
+#~ msgid "JWK Information"
+#~ msgstr "JWK Information"
 
-msgid "Generate Certificate"
-msgstr "Generate Certificate"
+#~ msgid "Generate Certificate"
+#~ msgstr "Generate Certificate"
 
-msgid "Input Form"
-msgstr "Input Form"
+#~ msgid "Input Form"
+#~ msgstr "Input Form"
 
-msgid "Email Address"
-msgstr "Email Address"
+#~ msgid "Validity (days)"
+#~ msgstr "Validity (days)"
 
-msgid "Validity (days)"
-msgstr "Validity (days)"
+#~ msgid "Key Type"
+#~ msgstr "Key Type"
 
-msgid "Key Type"
-msgstr "Key Type"
+#~ msgid "RSA Key Size"
+#~ msgstr "RSA Key Size"
 
-msgid "RSA Key Size"
-msgstr "RSA Key Size"
+#~ msgid "Key Usage"
+#~ msgstr "Key Usage"
 
-msgid "Key Usage"
-msgstr "Key Usage"
+#~ msgid "Mark as CA certificate"
+#~ msgstr "Mark as CA certificate"
 
-msgid "Mark as CA certificate"
-msgstr "Mark as CA certificate"
+#~ msgid "Generate"
+#~ msgstr "Generate"
 
-msgid "Generate"
-msgstr "Generate"
+#~ msgid "Private Key / Public Key"
+#~ msgstr "Private Key / Public Key"
 
-msgid "Private Key / Public Key"
-msgstr "Private Key / Public Key"
+#~ msgid "Private Key"
+#~ msgstr "Private Key"
 
-msgid "Private Key"
-msgstr "Private Key"
+#~ msgid "Public Key"
+#~ msgstr "Public Key"
 
-msgid "Public Key"
-msgstr "Public Key"
+#~ msgid "Generation results will appear here."
+#~ msgstr "Generation results will appear here."
 
-msgid "Generation results will appear here."
-msgstr "Generation results will appear here."
+#~ msgid "Certificate / JWKS"
+#~ msgstr "Certificate / JWKS"
 
-msgid "Certificate / JWKS"
-msgstr "Certificate / JWKS"
+#~ msgid "JWK"
+#~ msgstr "JWK"
 
-msgid "JWK"
-msgstr "JWK"
+#~ msgid "Certificate details will be shown after generation."
+#~ msgstr "Certificate details will be shown after generation."
 
-msgid "Certificate details will be shown after generation."
-msgstr "Certificate details will be shown after generation."
+#~ msgid "Revoke the certificate below and provide a reason for the revocation."
+#~ msgstr "Revoke the certificate below and provide a reason for the revocation."
 
-msgid "Revoke the certificate below and provide a reason for the revocation."
-msgstr "Revoke the certificate below and provide a reason for the revocation."
+#~ msgid "Example: Key was compromised"
+#~ msgstr "Example: Key was compromised"
 
-msgid "Example: Key was compromised"
-msgstr "Example: Key was compromised"
+#~ msgid "Back"
+#~ msgstr "Back"
 
-msgid "Back"
-msgstr "Back"
+#~ msgid ""
+#~ "Are you sure you want to revoke"
+#~ " this certificate? This action cannot "
+#~ "be undone."
+#~ msgstr ""
+#~ "Are you sure you want to revoke"
+#~ " this certificate? This action cannot "
+#~ "be undone."
 
-msgid "Are you sure you want to revoke this certificate? This action cannot be undone."
-msgstr "Are you sure you want to revoke this certificate? This action cannot be undone."
+#~ msgid ""
+#~ "Links to the JWKS endpoints and "
+#~ "information about currently published keys."
+#~ msgstr ""
+#~ "Links to the JWKS endpoints and "
+#~ "information about currently published keys."
 
-msgid "Links to the JWKS endpoints and information about currently published keys."
-msgstr "Links to the JWKS endpoints and information about currently published keys."
+#~ msgid "Endpoint"
+#~ msgstr "Endpoint"
 
-msgid "Endpoint"
-msgstr "Endpoint"
+#~ msgid "Open in Browser"
+#~ msgstr "Open in Browser"
 
-msgid "Open in Browser"
-msgstr "Open in Browser"
+#~ msgid "Copy URL"
+#~ msgstr "Copy URL"
 
-msgid "Copy URL"
-msgstr "Copy URL"
+#~ msgid "JWKS JSON"
+#~ msgstr "JWKS JSON"
 
-msgid "JWKS JSON"
-msgstr "JWKS JSON"
+#~ msgid "Unsupported subject attribute: %(attribute)s"
+#~ msgstr "Unsupported subject attribute: %(attribute)s"
 
-msgid "Unsupported subject attribute: %(attribute)s"
-msgstr "Unsupported subject attribute: %(attribute)s"
+#~ msgid "Invalid value for subject attribute %(attribute)s: %(error)s"
+#~ msgstr "Invalid value for subject attribute %(attribute)s: %(error)s"
 
-msgid "Invalid value for subject attribute %(attribute)s: %(error)s"
-msgstr "Invalid value for subject attribute %(attribute)s: %(error)s"
+#~ msgid "Subject must not be empty"
+#~ msgstr "Subject must not be empty"
 
-msgid "Subject must not be empty"
-msgstr "Subject must not be empty"
+#~ msgid "Country code (C) must be a two-letter ISO 3166-1 value (e.g., JP)"
+#~ msgstr "Country code (C) must be a two-letter ISO 3166-1 value (e.g., JP)"
 
-msgid "Country code (C) must be a two-letter ISO 3166-1 value (e.g., JP)"
-msgstr "Country code (C) must be a two-letter ISO 3166-1 value (e.g., JP)"
+#~ msgid "RSA key length must be at least 2048 bits"
+#~ msgstr "RSA key length must be at least 2048 bits"
 
-msgid "RSA key length must be at least 2048 bits"
-msgstr "RSA key length must be at least 2048 bits"
+#~ msgid "Unsupported key type: %(key_type)s"
+#~ msgstr "Unsupported key type: %(key_type)s"
 
-msgid "Unsupported key type: %(key_type)s"
-msgstr "Unsupported key type: %(key_type)s"
+#~ msgid "Failed to load CSR"
+#~ msgstr "Failed to load CSR"
 
-msgid "Failed to load CSR"
-msgstr "Failed to load CSR"
+#~ msgid "Only RSA keys are currently supported"
+#~ msgstr "Only RSA keys are currently supported"
 
-msgid "Only RSA keys are currently supported"
-msgstr "Only RSA keys are currently supported"
+#~ msgid "Unsupported keyUsage value: %(usage)s"
+#~ msgstr "Unsupported keyUsage value: %(usage)s"
 
-msgid "Unsupported keyUsage value: %(usage)s"
-msgstr "Unsupported keyUsage value: %(usage)s"
+#~ msgid "Validity period must be at least one day"
+#~ msgstr "Validity period must be at least one day"
 
-msgid "Validity period must be at least one day"
-msgstr "Validity period must be at least one day"
+#~ msgid "Unsupported elliptic curve"
+#~ msgstr "Unsupported elliptic curve"
 
-msgid "Unsupported elliptic curve"
-msgstr "Unsupported elliptic curve"
+#~ msgid "digitalSignature - digital signature"
+#~ msgstr "digitalSignature - digital signature"
 
-msgid "digitalSignature - digital signature"
-msgstr "digitalSignature - digital signature"
+#~ msgid "contentCommitment - content commitment"
+#~ msgstr "contentCommitment - content commitment"
 
-msgid "contentCommitment - content commitment"
-msgstr "contentCommitment - content commitment"
+#~ msgid "keyEncipherment - key encipherment"
+#~ msgstr "keyEncipherment - key encipherment"
 
-msgid "keyEncipherment - key encipherment"
-msgstr "keyEncipherment - key encipherment"
+#~ msgid "dataEncipherment - data encipherment"
+#~ msgstr "dataEncipherment - data encipherment"
 
-msgid "dataEncipherment - data encipherment"
-msgstr "dataEncipherment - data encipherment"
+#~ msgid "keyAgreement - key agreement"
+#~ msgstr "keyAgreement - key agreement"
 
-msgid "keyAgreement - key agreement"
-msgstr "keyAgreement - key agreement"
+#~ msgid "keyCertSign - certificate signing"
+#~ msgstr "keyCertSign - certificate signing"
 
-msgid "keyCertSign - certificate signing"
-msgstr "keyCertSign - certificate signing"
+#~ msgid "crlSign - CRL signing"
+#~ msgstr "crlSign - CRL signing"
 
-msgid "crlSign - CRL signing"
-msgstr "crlSign - CRL signing"
+#~ msgid "encipherOnly - encipher only"
+#~ msgstr "encipherOnly - encipher only"
 
-msgid "encipherOnly - encipher only"
-msgstr "encipherOnly - encipher only"
+#~ msgid "decipherOnly - decipher only"
+#~ msgstr "decipherOnly - decipher only"
 
-msgid "decipherOnly - decipher only"
-msgstr "decipherOnly - decipher only"
+#~ msgid "Country (C)"
+#~ msgstr "Country (C)"
 
-msgid "Country (C)"
-msgstr "Country (C)"
+#~ msgid "State or Province (ST)"
+#~ msgstr "State or Province (ST)"
 
-msgid "State or Province (ST)"
-msgstr "State or Province (ST)"
+#~ msgid "Locality (L)"
+#~ msgstr "Locality (L)"
 
-msgid "Locality (L)"
-msgstr "Locality (L)"
+#~ msgid "Organization (O)"
+#~ msgstr "Organization (O)"
 
-msgid "Organization (O)"
-msgstr "Organization (O)"
+#~ msgid "Organizational Unit (OU)"
+#~ msgstr "Organizational Unit (OU)"
 
-msgid "Organizational Unit (OU)"
-msgstr "Organizational Unit (OU)"
+#~ msgid "Common Name (CN)"
+#~ msgstr "Common Name (CN)"
 
-msgid "Common Name (CN)"
-msgstr "Common Name (CN)"
+#~ msgid "Certificate Groups"
+#~ msgstr "Certificate Groups"
 
-msgid "Email Address"
-msgstr "Email Address"
+#~ msgid "Failed to load certificate groups: %(message)s"
+#~ msgstr "Failed to load certificate groups: %(message)s"
 
-msgid "Certificate Groups"
-msgstr "Certificate Groups"
+#~ msgid "Group code is required."
+#~ msgstr "Group code is required."
 
-msgid "Failed to load certificate groups: %(message)s"
-msgstr "Failed to load certificate groups: %(message)s"
+#~ msgid "Invalid usage type specified."
+#~ msgstr "Invalid usage type specified."
 
-msgid "Group code is required."
-msgstr "Group code is required."
+#~ msgid "Key size must be a number."
+#~ msgstr "Key size must be a number."
 
-msgid "Invalid usage type specified."
-msgstr "Invalid usage type specified."
+#~ msgid "Rotation threshold must be a number."
+#~ msgstr "Rotation threshold must be a number."
 
-msgid "Key size must be a number."
-msgstr "Key size must be a number."
+#~ msgid "Rotation threshold must be greater than zero."
+#~ msgstr "Rotation threshold must be greater than zero."
 
-msgid "Rotation threshold must be a number."
-msgstr "Rotation threshold must be a number."
+#~ msgid "Enter at least one subject attribute."
+#~ msgstr "Enter at least one subject attribute."
 
-msgid "Rotation threshold must be greater than zero."
-msgstr "Rotation threshold must be greater than zero."
+#~ msgid "Failed to create certificate group: %(message)s"
+#~ msgstr "Failed to create certificate group: %(message)s"
 
-msgid "Enter at least one subject attribute."
-msgstr "Enter at least one subject attribute."
+#~ msgid "Certificate group created."
+#~ msgstr "Certificate group created."
 
-msgid "Failed to create certificate group: %(message)s"
-msgstr "Failed to create certificate group: %(message)s"
+#~ msgid "Failed to update certificate group: %(message)s"
+#~ msgstr "Failed to update certificate group: %(message)s"
 
-msgid "Certificate group created."
-msgstr "Certificate group created."
+#~ msgid "Certificate group updated."
+#~ msgstr "Certificate group updated."
 
-msgid "Failed to update certificate group: %(message)s"
-msgstr "Failed to update certificate group: %(message)s"
+#~ msgid "Cannot delete the group because active certificates exist: %(message)s"
+#~ msgstr "Cannot delete the group because active certificates exist: %(message)s"
 
-msgid "Certificate group updated."
-msgstr "Certificate group updated."
+#~ msgid "Display name must be a string."
+#~ msgstr "Display name must be a string."
 
-msgid "Cannot delete the group because active certificates exist: %(message)s"
-msgstr "Cannot delete the group because active certificates exist: %(message)s"
+#~ msgid "Key type is required."
+#~ msgstr "Key type is required."
 
-msgid "Display name must be a string."
-msgstr "Display name must be a string."
+#~ msgid "Key curve must be a string."
+#~ msgstr "Key curve must be a string."
 
-msgid "Key type is required."
-msgstr "Key type is required."
+#~ msgid "Key size must be an integer."
+#~ msgstr "Key size must be an integer."
 
-msgid "Key curve must be a string."
-msgstr "Key curve must be a string."
+#~ msgid "Rotation threshold days must be an integer."
+#~ msgstr "Rotation threshold days must be an integer."
 
-msgid "Key size must be an integer."
-msgstr "Key size must be an integer."
+#~ msgid "Rotation threshold days must be at least 1."
+#~ msgstr "Rotation threshold days must be at least 1."
 
-msgid "Rotation threshold days must be an integer."
-msgstr "Rotation threshold days must be an integer."
+#~ msgid "Subject must be provided as an object."
+#~ msgstr "Subject must be provided as an object."
 
-msgid "Rotation threshold days must be at least 1."
-msgstr "Rotation threshold days must be at least 1."
+#~ msgid "Limit must be an integer."
+#~ msgstr "Limit must be an integer."
 
-msgid "Subject must be provided as an object."
-msgstr "Subject must be provided as an object."
+#~ msgid "Offset must be an integer."
+#~ msgstr "Offset must be an integer."
 
-msgid "Limit must be an integer."
-msgstr "Limit must be an integer."
+#~ msgid "Issued-from must be in ISO 8601 format."
+#~ msgstr "Issued-from must be in ISO 8601 format."
 
-msgid "Offset must be an integer."
-msgstr "Offset must be an integer."
+#~ msgid "Issued-to must be in ISO 8601 format."
+#~ msgstr "Issued-to must be in ISO 8601 format."
 
-msgid "Issued-from must be in ISO 8601 format."
-msgstr "Issued-from must be in ISO 8601 format."
+#~ msgid "Expires-from must be in ISO 8601 format."
+#~ msgstr "Expires-from must be in ISO 8601 format."
 
-msgid "Issued-to must be in ISO 8601 format."
-msgstr "Issued-to must be in ISO 8601 format."
+#~ msgid "Expires-to must be in ISO 8601 format."
+#~ msgstr "Expires-to must be in ISO 8601 format."
 
-msgid "Expires-from must be in ISO 8601 format."
-msgstr "Expires-from must be in ISO 8601 format."
+#~ msgid "Valid days must be an integer."
+#~ msgstr "Valid days must be an integer."
 
-msgid "Expires-to must be in ISO 8601 format."
-msgstr "Expires-to must be in ISO 8601 format."
+#~ msgid "Valid days must be at least 1."
+#~ msgstr "Valid days must be at least 1."
 
-msgid "Valid days must be an integer."
-msgstr "Valid days must be an integer."
+#~ msgid "Key usage must be provided as an array."
+#~ msgstr "Key usage must be provided as an array."
 
-msgid "Valid days must be at least 1."
-msgstr "Valid days must be at least 1."
+#~ msgid "Key bits must be an integer."
+#~ msgstr "Key bits must be an integer."
 
-msgid "Key usage must be provided as an array."
-msgstr "Key usage must be provided as an array."
+#~ msgid "Key usage must be provided as an array of strings."
+#~ msgstr "Key usage must be provided as an array of strings."
 
-msgid "Key bits must be an integer."
-msgstr "Key bits must be an integer."
+#~ msgid "Days must be an integer."
+#~ msgstr "Days must be an integer."
 
-msgid "Key usage must be provided as an array of strings."
-msgstr "Key usage must be provided as an array of strings."
+#~ msgid "Group code must be a string."
+#~ msgstr "Group code must be a string."
 
-msgid "Days must be an integer."
-msgstr "Days must be an integer."
+#~ msgid "The group parameter is invalid."
+#~ msgstr "The group parameter is invalid."
 
-msgid "Group code must be a string."
-msgstr "Group code must be a string."
+#~ msgid "Reason must be a string."
+#~ msgstr "Reason must be a string."
 
-msgid "The group parameter is invalid."
-msgstr "The group parameter is invalid."
+#~ msgid "The certificate does not exist in the specified group."
+#~ msgstr "The certificate does not exist in the specified group."
 
-msgid "Reason must be a string."
-msgstr "Reason must be a string."
+#~ msgid "Failed to delete certificate group: %(message)s"
+#~ msgstr "Failed to delete certificate group: %(message)s"
 
-msgid "The certificate does not exist in the specified group."
-msgstr "The certificate does not exist in the specified group."
+#~ msgid "Certificate group deleted."
+#~ msgstr "Certificate group deleted."
 
-msgid "Failed to delete certificate group: %(message)s"
-msgstr "Failed to delete certificate group: %(message)s"
+#~ msgid "Failed to update rotation setting: %(message)s"
+#~ msgstr "Failed to update rotation setting: %(message)s"
 
-msgid "Certificate group deleted."
-msgstr "Certificate group deleted."
+#~ msgid "Rotation setting updated."
+#~ msgstr "Rotation setting updated."
 
-msgid "Failed to update rotation setting: %(message)s"
-msgstr "Failed to update rotation setting: %(message)s"
+#~ msgid "Certificates for %(group)s"
+#~ msgstr "Certificates for %(group)s"
 
-msgid "Rotation setting updated."
-msgstr "Rotation setting updated."
+#~ msgid "Back to Groups"
+#~ msgstr "Back to Groups"
 
-msgid "Certificates for %(group)s"
-msgstr "Certificates for %(group)s"
+#~ msgid "Group Settings"
+#~ msgstr "Group Settings"
 
-msgid "Back to Groups"
-msgstr "Back to Groups"
+#~ msgid "Group Code"
+#~ msgstr "Group Code"
 
-msgid "Group Settings"
-msgstr "Group Settings"
+#~ msgid "Display Name"
+#~ msgstr "Display Name"
 
-msgid "Group Code"
-msgstr "Group Code"
+#~ msgid "Auto Rotate"
+#~ msgstr "Auto Rotate"
 
-msgid "Display Name"
-msgstr "Display Name"
+#~ msgid "Rotation Threshold (days)"
+#~ msgstr "Rotation Threshold (days)"
 
-msgid "Usage"
-msgstr "Usage"
+#~ msgid "Updated At"
+#~ msgstr "Updated At"
 
-msgid "Auto Rotate"
-msgstr "Auto Rotate"
+#~ msgid "Enabled"
+#~ msgstr "Enabled"
 
-msgid "Rotation Threshold (days)"
-msgstr "Rotation Threshold (days)"
+#~ msgid "Disabled"
+#~ msgstr "Disabled"
 
-msgid "Key Type"
-msgstr "Key Type"
+#~ msgid "View Certificates"
+#~ msgstr "View Certificates"
 
-msgid "Subject"
-msgstr "Subject"
+#~ msgid "Delete"
+#~ msgstr "Delete"
 
-msgid "Updated At"
-msgstr "Updated At"
+#~ msgid "Are you sure you want to delete this group?"
+#~ msgstr "Are you sure you want to delete this group?"
 
-msgid "Actions"
-msgstr "Actions"
+#~ msgid "No certificate groups available."
+#~ msgstr "No certificate groups available."
 
-msgid "Enabled"
-msgstr "Enabled"
+#~ msgid "Create Certificate Group"
+#~ msgstr "Create Certificate Group"
 
-msgid "Disabled"
-msgstr "Disabled"
+#~ msgid "Key Parameters"
+#~ msgstr "Key Parameters"
 
-msgid "View Certificates"
-msgstr "View Certificates"
+#~ msgid "Select key parameters"
+#~ msgstr "Select key parameters"
 
-msgid "Edit"
-msgstr "Edit"
+#~ msgid "Custom configuration (%(details)s)"
+#~ msgstr "Custom configuration (%(details)s)"
 
-msgid "Delete"
-msgstr "Delete"
+#~ msgid ""
+#~ "Fill in all required subject attributes"
+#~ " using ASCII characters. Country code "
+#~ "must be a two-letter ISO 3166-1"
+#~ " alpha-2 value (e.g., JP)."
+#~ msgstr ""
+#~ "Fill in all required subject attributes"
+#~ " using ASCII characters. Country code "
+#~ "must be a two-letter ISO 3166-1"
+#~ " alpha-2 value (e.g., JP)."
 
-msgid "Are you sure you want to delete this group?"
-msgstr "Are you sure you want to delete this group?"
+#~ msgid "Required"
+#~ msgstr "Required"
 
-msgid "No certificate groups available."
-msgstr "No certificate groups available."
+#~ msgid "Optional"
+#~ msgstr "Optional"
 
-msgid "Create Certificate Group"
-msgstr "Create Certificate Group"
+#~ msgid "Please fill in all required subject attributes."
+#~ msgstr "Please fill in all required subject attributes."
 
-msgid "Key Parameters"
-msgstr "Key Parameters"
+#~ msgid "%(label)s is required."
+#~ msgstr "%(label)s is required."
 
-msgid "Select key parameters"
-msgstr "Select key parameters"
+#~ msgid "Usage Type"
+#~ msgstr "Usage Type"
 
-msgid "Custom configuration (%(details)s)"
-msgstr "Custom configuration (%(details)s)"
+#~ msgid "Select usage type"
+#~ msgstr "Select usage type"
 
-msgid "Fill in all required subject attributes using ASCII characters. Country code must be a two-letter ISO 3166-1 alpha-2 value (e.g., JP)."
-msgstr "Fill in all required subject attributes using ASCII characters. Country code must be a two-letter ISO 3166-1 alpha-2 value (e.g., JP)."
+#~ msgid "Select all shown permissions"
+#~ msgstr "Select all shown permissions"
 
-msgid "Required"
-msgstr "Required"
+#~ msgid "Key Size"
+#~ msgstr "Key Size"
 
-msgid "Optional"
-msgstr "Optional"
+#~ msgid "Key Curve"
+#~ msgstr "Key Curve"
 
-msgid "Please fill in all required subject attributes."
-msgstr "Please fill in all required subject attributes."
+#~ msgid "Subject Template"
+#~ msgstr "Subject Template"
 
-msgid "%(label)s is required."
-msgstr "%(label)s is required."
+#~ msgid "Enable automatic rotation"
+#~ msgstr "Enable automatic rotation"
 
-msgid "Usage Type"
-msgstr "Usage Type"
+#~ msgid ""
+#~ "Non-expiring keys should disable "
+#~ "automatic rotation to avoid immediate "
+#~ "re-issuance."
+#~ msgstr ""
+#~ "Non-expiring keys should disable "
+#~ "automatic rotation to avoid immediate "
+#~ "re-issuance."
 
-msgid "Select usage type"
-msgstr "Select usage type"
+#~ msgid "Update rotation setting"
+#~ msgstr "Update rotation setting"
 
-msgid "Select all shown permissions"
-msgstr "Select all shown permissions"
+#~ msgid "Save Group"
+#~ msgstr "Save Group"
 
-msgid "Key Size"
-msgstr "Key Size"
+#~ msgid "Edit Certificate Group"
+#~ msgstr "Edit Certificate Group"
 
-msgid "Key Curve"
-msgstr "Key Curve"
+#~ msgid "Update Group"
+#~ msgstr "Update Group"
 
-msgid "Subject Template"
-msgstr "Subject Template"
+#~ msgid "Close"
+#~ msgstr "Close"
 
-msgid "Enable automatic rotation"
-msgstr "Enable automatic rotation"
+#~ msgid "Cancel"
+#~ msgstr "Cancel"
 
-msgid "Non-expiring keys should disable automatic rotation to avoid immediate re-issuance."
-msgstr "Non-expiring keys should disable automatic rotation to avoid immediate re-issuance."
+#~ msgid "Key Profile"
+#~ msgstr "Key Profile"
 
-msgid "Update rotation setting"
-msgstr "Update rotation setting"
+#~ msgid "JWKS Endpoint"
+#~ msgstr "JWKS Endpoint"
 
-msgid "Save Group"
-msgstr "Save Group"
+#~ msgid "Public JWKS URL"
+#~ msgstr "Public JWKS URL"
 
-msgid "Edit Certificate Group"
-msgstr "Edit Certificate Group"
+#~ msgid "Copy"
+#~ msgstr "Copy"
 
-msgid "Update Group"
-msgstr "Update Group"
+#~ msgid "Open JWKS"
+#~ msgstr "Open JWKS"
 
-msgid "Close"
-msgstr "Close"
+#~ msgid "Issue New Certificate"
+#~ msgstr "Issue New Certificate"
 
-msgid "Cancel"
-msgstr "Cancel"
+#~ msgid "Issue without expiration"
+#~ msgstr "Issue without expiration"
 
-msgid "Key Profile"
-msgstr "Key Profile"
+#~ msgid "When enabled, the issued key will not include an expiry date."
+#~ msgstr "When enabled, the issued key will not include an expiry date."
 
-msgid "JWKS Endpoint"
-msgstr "JWKS Endpoint"
+#~ msgid "Subject Overrides"
+#~ msgstr "Subject Overrides"
 
-msgid "Public JWKS URL"
-msgstr "Public JWKS URL"
+#~ msgid "Issue Certificate"
+#~ msgstr "Issue Certificate"
 
-msgid "Copy"
-msgstr "Copy"
+#~ msgid "New certificate issued."
+#~ msgstr "New certificate issued."
 
-msgid "Open JWKS"
-msgstr "Open JWKS"
+#~ msgid "Copy the materials below. The private key is shown only once."
+#~ msgstr "Copy the materials below. The private key is shown only once."
 
-msgid "Issue New Certificate"
-msgstr "Issue New Certificate"
+#~ msgid "Private Key (PEM)"
+#~ msgstr "Private Key (PEM)"
 
-msgid "Validity (days)"
-msgstr "Validity (days)"
+#~ msgid "Issued Certificates"
+#~ msgstr "Issued Certificates"
 
-msgid "Issue without expiration"
-msgstr "Issue without expiration"
+#~ msgid "Provide an optional reason for revocation."
+#~ msgstr "Provide an optional reason for revocation."
 
-msgid "When enabled, the issued key will not include an expiry date."
-msgstr "When enabled, the issued key will not include an expiry date."
+#~ msgid "Reason"
+#~ msgstr "Reason"
 
-msgid "Key Usage"
-msgstr "Key Usage"
+#~ msgid "Copied!"
+#~ msgstr "Copied!"
 
-msgid "Subject Overrides"
-msgstr "Subject Overrides"
+#~ msgid "Failed to load certificates: %(message)s"
+#~ msgstr "Failed to load certificates: %(message)s"
 
-msgid "Issue Certificate"
-msgstr "Issue Certificate"
+#~ msgid "Validity days must be a number."
+#~ msgstr "Validity days must be a number."
 
-msgid "New certificate issued."
-msgstr "New certificate issued."
+#~ msgid "Failed to issue certificate: %(message)s"
+#~ msgstr "Failed to issue certificate: %(message)s"
 
-msgid "Copy the materials below. The private key is shown only once."
-msgstr "Copy the materials below. The private key is shown only once."
+#~ msgid "Certificate issued successfully."
+#~ msgstr "Certificate issued successfully."
 
-msgid "Private Key (PEM)"
-msgstr "Private Key (PEM)"
+#~ msgid "Failed to revoke certificate: %(message)s"
+#~ msgstr "Failed to revoke certificate: %(message)s"
 
-msgid "Certificate (PEM)"
-msgstr "Certificate (PEM)"
+#~ msgid "Certificate revoked."
+#~ msgstr "Certificate revoked."
 
-msgid "Issued Certificates"
-msgstr "Issued Certificates"
+#~ msgid "Failed to load groups: %(message)s"
+#~ msgstr "Failed to load groups: %(message)s"
 
-msgid "Provide an optional reason for revocation."
-msgstr "Provide an optional reason for revocation."
+#~ msgid "Invalid revoked flag."
+#~ msgstr "Invalid revoked flag."
 
-msgid "Reason"
-msgstr "Reason"
+#~ msgid "Unlimited"
+#~ msgstr "Unlimited"
 
-msgid "Copied!"
-msgstr "Copied!"
+#~ msgid "No certificate is stored for this key."
+#~ msgstr "No certificate is stored for this key."
 
-msgid "Failed to load certificates: %(message)s"
-msgstr "Failed to load certificates: %(message)s"
+#~ msgid "Not used for signing keys."
+#~ msgstr "Not used for signing keys."
 
-msgid "Validity days must be a number."
-msgstr "Validity days must be a number."
+#~ msgid "No certificate was generated for this key."
+#~ msgstr "No certificate was generated for this key."
 
-msgid "Failed to issue certificate: %(message)s"
-msgstr "Failed to issue certificate: %(message)s"
+#~ msgid "Use ISO 8601 format for date filters."
+#~ msgstr "Use ISO 8601 format for date filters."
 
-msgid "Certificate issued successfully."
-msgstr "Certificate issued successfully."
+#~ msgid "Failed to search certificates: %(message)s"
+#~ msgstr "Failed to search certificates: %(message)s"
 
-msgid "Failed to revoke certificate: %(message)s"
-msgstr "Failed to revoke certificate: %(message)s"
+#~ msgid "Certificate Search"
+#~ msgstr "Certificate Search"
 
-msgid "Certificate revoked."
-msgstr "Certificate revoked."
+#~ msgid "All Groups"
+#~ msgstr "All Groups"
 
-msgid "Failed to load groups: %(message)s"
-msgstr "Failed to load groups: %(message)s"
+#~ msgid "Subject Contains"
+#~ msgstr "Subject Contains"
 
-msgid "Invalid revoked flag."
-msgstr "Invalid revoked flag."
+#~ msgid "Issued From"
+#~ msgstr "Issued From"
 
-msgid "Unlimited"
-msgstr "Unlimited"
+#~ msgid "Issued To"
+#~ msgstr "Issued To"
 
-msgid "No certificate is stored for this key."
-msgstr "No certificate is stored for this key."
+#~ msgid "Expires From"
+#~ msgstr "Expires From"
 
-msgid "Not used for signing keys."
-msgstr "Not used for signing keys."
+#~ msgid "Expires To"
+#~ msgstr "Expires To"
 
-msgid "No certificate was generated for this key."
-msgstr "No certificate was generated for this key."
+#~ msgid "Revoked Status"
+#~ msgstr "Revoked Status"
 
-msgid "Use ISO 8601 format for date filters."
-msgstr "Use ISO 8601 format for date filters."
+#~ msgid "Search Results"
+#~ msgstr "Search Results"
 
-msgid "Failed to search certificates: %(message)s"
-msgstr "Failed to search certificates: %(message)s"
+#~ msgid "%(count)d certificates found"
+#~ msgstr "%(count)d certificates found"
 
-msgid "Certificate Search"
-msgstr "Certificate Search"
+#~ msgid "Group"
+#~ msgstr "Group"
 
-msgid "All Groups"
-msgstr "All Groups"
+#~ msgid ""
+#~ "Specify at least one search condition"
+#~ " and submit the form to view "
+#~ "results."
+#~ msgstr ""
+#~ "Specify at least one search condition"
+#~ " and submit the form to view "
+#~ "results."
 
-msgid "Subject Contains"
-msgstr "Subject Contains"
+#~ msgid "Back to Group"
+#~ msgstr "Back to Group"
 
-msgid "Issued From"
-msgstr "Issued From"
+#~ msgid "Are you sure you want to issue a new certificate for this group?"
+#~ msgstr "Are you sure you want to issue a new certificate for this group?"
 
-msgid "Issued To"
-msgstr "Issued To"
+#~ msgid "Current Time"
+#~ msgstr "Current Time"
 
-msgid "Expires From"
-msgstr "Expires From"
+#~ msgid "Local Time"
+#~ msgstr "Local Time"
 
-msgid "Expires To"
-msgstr "Expires To"
+#~ msgid "UTC Time"
+#~ msgstr "UTC Time"
 
-msgid "Revoked Status"
-msgstr "Revoked Status"
+#~ msgid "Server Time"
+#~ msgstr "Server Time"
 
-msgid "All"
-msgstr "All"
+#~ msgid "Back to Home"
+#~ msgstr "Back to Home"
 
-msgid "Active"
-msgstr "Active"
+#~ msgid "Unavailable"
+#~ msgstr "Unavailable"
 
-msgid "Revoked"
-msgstr "Revoked"
+#~ msgid "Access token signing will use the built-in secret."
+#~ msgstr "Access token signing will use the built-in secret."
 
-msgid "Search"
-msgstr "Search"
+#~ msgid "Please provide a JWT secret key for built-in signing."
+#~ msgstr "Please provide a JWT secret key for built-in signing."
 
-msgid "Search Results"
-msgstr "Search Results"
+#~ msgid "Failed to update the built-in signing secret."
+#~ msgstr "Failed to update the built-in signing secret."
 
-msgid "%(count)d certificates found"
-msgstr "%(count)d certificates found"
+#~ msgid "Access token signing certificate group updated."
+#~ msgstr "Access token signing certificate group updated."
 
-msgid "Group"
-msgstr "Group"
+#~ msgid "Please select a certificate group for signing."
+#~ msgstr "Please select a certificate group for signing."
 
-msgid "Specify at least one search condition and submit the form to view results."
-msgstr "Specify at least one search condition and submit the form to view results."
+#~ msgid "Failed to update the access token signing configuration."
+#~ msgstr "Failed to update the access token signing configuration."
 
-msgid "Back to Group"
-msgstr "Back to Group"
+#~ msgid "No certificate group has been configured for server signing."
+#~ msgstr "No certificate group has been configured for server signing."
 
-msgid "Are you sure you want to issue a new certificate for this group?"
-msgstr "Are you sure you want to issue a new certificate for this group?"
+#~ msgid "The selected certificate group could not be found."
+#~ msgstr "The selected certificate group could not be found."
 
-msgid "Current Time"
-msgstr "Current Time"
+#~ msgid "The certificate group is not configured for server signing usage."
+#~ msgstr "The certificate group is not configured for server signing usage."
 
-msgid "Local Time"
-msgstr "Local Time"
+#~ msgid "No active certificates are available in the selected group."
+#~ msgstr "No active certificates are available in the selected group."
 
-msgid "UTC Time"
-msgstr "UTC Time"
+#~ msgid "Access Token Signing"
+#~ msgstr "Access Token Signing"
 
-msgid "Server Time"
-msgstr "Server Time"
+#~ msgid "Built-in secret (HS256)"
+#~ msgstr "Built-in secret (HS256)"
 
-msgid "Back to Home"
-msgstr "Back to Home"
+#~ msgid "Use the built-in JWT secret key configured below."
+#~ msgstr "Use the built-in JWT secret key configured below."
 
-msgid "Unavailable"
-msgstr "Unavailable"
+#~ msgid "Server signing certificate groups"
+#~ msgstr "Server signing certificate groups"
 
-msgid "Access token signing will use the built-in secret."
-msgstr "Access token signing will use the built-in secret."
+#~ msgid "Unnamed group"
+#~ msgstr "Unnamed group"
 
-msgid "Please provide a JWT secret key for built-in signing."
-msgstr "Please provide a JWT secret key for built-in signing."
+#~ msgid "Latest active certificate: %(kid)s"
+#~ msgstr "Latest active certificate: %(kid)s"
 
-msgid "Failed to update the built-in signing secret."
-msgstr "Failed to update the built-in signing secret."
+#~ msgid "Algorithm: %(algorithm)s"
+#~ msgstr "Algorithm: %(algorithm)s"
 
-msgid "Access token signing certificate group updated."
-msgstr "Access token signing certificate group updated."
+#~ msgid "Expires at: %(timestamp)s"
+#~ msgstr "Expires at: %(timestamp)s"
 
-msgid "Please select a certificate group for signing."
-msgstr "Please select a certificate group for signing."
+#~ msgid "No active certificates are available in this group."
+#~ msgstr "No active certificates are available in this group."
 
-msgid "Failed to update the access token signing configuration."
-msgstr "Failed to update the access token signing configuration."
+#~ msgid ""
+#~ "No server signing certificate groups are"
+#~ " available. Create a certificate group "
+#~ "first."
+#~ msgstr ""
+#~ "No server signing certificate groups are"
+#~ " available. Create a certificate group "
+#~ "first."
 
-msgid "No certificate group has been configured for server signing."
-msgstr "No certificate group has been configured for server signing."
+#~ msgid "Save signing settings"
+#~ msgstr "Save signing settings"
 
-msgid "The selected certificate group could not be found."
-msgstr "The selected certificate group could not be found."
+#~ msgid "Not Found"
+#~ msgstr "Not Found"
 
-msgid "The certificate group is not configured for server signing usage."
-msgstr "The certificate group is not configured for server signing usage."
+#~ msgid "Internal Server Error"
+#~ msgstr "Internal Server Error"
 
-msgid "No active certificates are available in the selected group."
-msgstr "No active certificates are available in the selected group."
+#~ msgid "Error"
+#~ msgstr "Error"
 
-msgid "Access Token Signing"
-msgstr "Access Token Signing"
+#~ msgid "Role switching is not available for this account."
+#~ msgstr "Role switching is not available for this account."
 
-msgid "Built-in secret (HS256)"
-msgstr "Built-in secret (HS256)"
+#~ msgid "Settings navigation"
+#~ msgstr "Settings navigation"
 
-msgid "Use the built-in JWT secret key configured below."
-msgstr "Use the built-in JWT secret key configured below."
+#~ msgid "Hide navigation"
+#~ msgstr "Hide navigation"
 
-msgid "Server signing certificate groups"
-msgstr "Server signing certificate groups"
+#~ msgid "Show navigation"
+#~ msgstr "Show navigation"
 
-msgid "Unnamed group"
-msgstr "Unnamed group"
+#~ msgid "Page identifier is required."
+#~ msgstr "Page identifier is required."
 
-msgid "Latest active certificate: %(kid)s"
-msgstr "Latest active certificate: %(kid)s"
+#~ msgid "You do not have permission to delete this page."
+#~ msgstr "You do not have permission to delete this page."
 
-msgid "Algorithm: %(algorithm)s"
-msgstr "Algorithm: %(algorithm)s"
+#~ msgid "Cannot delete a page that has child pages."
+#~ msgstr "Cannot delete a page that has child pages."
 
-msgid "Expires at: %(timestamp)s"
-msgstr "Expires at: %(timestamp)s"
+#~ msgid "Failed to delete the page."
+#~ msgstr "Failed to delete the page."
 
-msgid "No active certificates are available in this group."
-msgstr "No active certificates are available in this group."
+#~ msgid "Page deleted successfully."
+#~ msgstr "Page deleted successfully."
 
-msgid "No server signing certificate groups are available. Create a certificate group first."
-msgstr "No server signing certificate groups are available. Create a certificate group first."
+#~ msgid "Security verification failed. Please reload the page and try again."
+#~ msgstr "Security verification failed. Please reload the page and try again."
 
-msgid "Save signing settings"
-msgstr "Save signing settings"
+#~ msgid "Are you sure you want to delete this page?"
+#~ msgstr "Are you sure you want to delete this page?"
 
-msgid "Not Found"
-msgstr "Not Found"
+#~ msgid "Group Management"
+#~ msgstr "Group Management"
 
-msgid "Internal Server Error"
-msgstr "Internal Server Error"
+#~ msgid "Groups"
+#~ msgstr "Groups"
 
-msgid "Error"
-msgstr "Error"
+#~ msgid "Add Group"
+#~ msgstr "Add Group"
 
-msgid "Role switching is not available for this account."
-msgstr "Role switching is not available for this account."
+#~ msgid "Parent Group"
+#~ msgstr "Parent Group"
 
+#~ msgid "Subgroups"
+#~ msgstr "Subgroups"
 
-msgid "Settings navigation"
-msgstr "Settings navigation"
+#~ msgid "Members"
+#~ msgstr "Members"
 
-msgid "Hide navigation"
-msgstr "Hide navigation"
+#~ msgid "No groups have been created yet."
+#~ msgstr "No groups have been created yet."
 
-msgid "Show navigation"
-msgstr "Show navigation"
+#~ msgid "Edit Group"
+#~ msgstr "Edit Group"
 
-msgid "Page identifier is required."
-msgstr "Page identifier is required."
+#~ msgid "Group Name"
+#~ msgstr "Group Name"
 
-msgid "You do not have permission to delete this page."
-msgstr "You do not have permission to delete this page."
+#~ msgid "Description"
+#~ msgstr "Description"
 
-msgid "Cannot delete a page that has child pages."
-msgstr "Cannot delete a page that has child pages."
+#~ msgid "Optional description to help identify the group."
+#~ msgstr "Optional description to help identify the group."
 
-msgid "Failed to delete the page."
-msgstr "Failed to delete the page."
+#~ msgid "Select a parent to nest this group inside another group."
+#~ msgstr "Select a parent to nest this group inside another group."
 
-msgid "Page deleted successfully."
-msgstr "Page deleted successfully."
+#~ msgid "Group Members"
+#~ msgstr "Group Members"
 
-msgid "Security verification failed. Please reload the page and try again."
-msgstr "Security verification failed. Please reload the page and try again."
+#~ msgid "Hold Ctrl (Windows/Linux) or Command (macOS) to select multiple users."
+#~ msgstr "Hold Ctrl (Windows/Linux) or Command (macOS) to select multiple users."
 
-msgid "Are you sure you want to delete this page?"
-msgstr "Are you sure you want to delete this page?"
+#~ msgid "Create Group"
+#~ msgstr "Create Group"
 
-msgid "Group Management"
-msgstr "Group Management"
+#~ msgid "No parent"
+#~ msgstr "No parent"
 
-msgid "Groups"
-msgstr "Groups"
+#~ msgid "Group name is required."
+#~ msgstr "Group name is required."
 
-msgid "Add Group"
-msgstr "Add Group"
+#~ msgid "Group name already exists."
+#~ msgstr "Group name already exists."
 
-msgid "Parent Group"
-msgstr "Parent Group"
+#~ msgid "Selected parent group does not exist."
+#~ msgstr "Selected parent group does not exist."
 
-msgid "Subgroups"
-msgstr "Subgroups"
+#~ msgid "One or more selected users do not exist."
+#~ msgstr "One or more selected users do not exist."
 
-msgid "Members"
-msgstr "Members"
+#~ msgid "The selected parent would create a circular hierarchy."
+#~ msgstr "The selected parent would create a circular hierarchy."
 
-msgid "No groups have been created yet."
-msgstr "No groups have been created yet."
+#~ msgid "Group created successfully."
+#~ msgstr "Group created successfully."
 
-msgid "Edit Group"
-msgstr "Edit Group"
+#~ msgid "Group updated successfully."
+#~ msgstr "Group updated successfully."
 
-msgid "Group Name"
-msgstr "Group Name"
+#~ msgid "Group deleted successfully."
+#~ msgstr "Group deleted successfully."
 
-msgid "Description"
-msgstr "Description"
+#~ msgid "Cannot delete a group that still has subgroups."
+#~ msgstr "Cannot delete a group that still has subgroups."
 
-msgid "Optional description to help identify the group."
-msgstr "Optional description to help identify the group."
+#~ msgid "Remove all users from the group before deleting it."
+#~ msgstr "Remove all users from the group before deleting it."
 
-msgid "Select a parent to nest this group inside another group."
-msgstr "Select a parent to nest this group inside another group."
-
-msgid "Group Members"
-msgstr "Group Members"
-
-msgid "Hold Ctrl (Windows/Linux) or Command (macOS) to select multiple users."
-msgstr "Hold Ctrl (Windows/Linux) or Command (macOS) to select multiple users."
-
-msgid "Create Group"
-msgstr "Create Group"
-
-msgid "No parent"
-msgstr "No parent"
-
-msgid "Group name is required."
-msgstr "Group name is required."
-
-msgid "Group name already exists."
-msgstr "Group name already exists."
-
-msgid "Selected parent group does not exist."
-msgstr "Selected parent group does not exist."
-
-msgid "One or more selected users do not exist."
-msgstr "One or more selected users do not exist."
-
-msgid "The selected parent would create a circular hierarchy."
-msgstr "The selected parent would create a circular hierarchy."
-
-msgid "Group created successfully."
-msgstr "Group created successfully."
-
-msgid "Group updated successfully."
-msgstr "Group updated successfully."
-
-msgid "Group deleted successfully."
-msgstr "Group deleted successfully."
-
-msgid "Cannot delete a group that still has subgroups."
-msgstr "Cannot delete a group that still has subgroups."
-
-msgid "Remove all users from the group before deleting it."
-msgstr "Remove all users from the group before deleting it."
-
-msgid "Are you sure you want to delete this group?"
-msgstr "Are you sure you want to delete this group?"

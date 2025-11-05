@@ -753,6 +753,41 @@ class ApplicationSettings:
     def wiki_upload_directory(self) -> Optional[str]:
         value = self._get("WIKI_UPLOAD_DIRECTORY")
         return str(value) if value is not None else None
+
+    # ------------------------------------------------------------------
+    # Mail configuration
+    # ------------------------------------------------------------------
+    @property
+    def mail_server(self) -> str:
+        return self._get("MAIL_SERVER", "") or ""
+
+    @property
+    def mail_port(self) -> int:
+        return self.get_int("MAIL_PORT", 587)
+
+    @property
+    def mail_use_tls(self) -> bool:
+        return self.get_bool("MAIL_USE_TLS", True)
+
+    @property
+    def mail_use_ssl(self) -> bool:
+        return self.get_bool("MAIL_USE_SSL", False)
+
+    @property
+    def mail_username(self) -> Optional[str]:
+        value = self._get("MAIL_USERNAME")
+        return str(value) if value is not None else None
+
+    @property
+    def mail_password(self) -> Optional[str]:
+        value = self._get("MAIL_PASSWORD")
+        return str(value) if value is not None else None
+
+    @property
+    def mail_default_sender(self) -> Optional[str]:
+        value = self._get("MAIL_DEFAULT_SENDER")
+        return str(value) if value is not None else None
+
 settings = ApplicationSettings()
 
 __all__ = ["ApplicationSettings", "settings"]

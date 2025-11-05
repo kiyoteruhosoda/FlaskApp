@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-08-30 14:55+0900\n"
+"POT-Creation-Date: 2025-11-05 00:22+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ja\n"
@@ -17,2044 +17,6 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
-
-#: webapp/__init__.py:252 webapp/__init__.py:264
-msgid "Please log in to access this page."
-msgstr "このページにアクセスするにはログインが必要です。"
-
-msgid "Passkey sign-in still requires your email address so we can match your account."
-msgstr "パスキーでのサインインには、アカウント確認のためメールアドレスが必要です。"
-
-#: webapp/error_handlers.py:45
-msgid "An unexpected error occurred. Please try again later."
-msgstr "予期せぬエラーが発生しました。しばらくしてから再度お試しください。"
-
-#: webapp/__init__.py:262 webapp/auth/templates/auth/login.html:2
-#: webapp/templates/base.html:98
-msgid "Login"
-msgstr "ログイン"
-
-#: webapp/__init__.py:263 webapp/templates/base.html:28
-msgid "Home"
-msgstr "ホーム"
-
-msgid "AppName"
-msgstr "nolumia"
-
-msgid "You do not have permission to access this page."
-msgstr "このページにアクセスするにはログインが必要です。"
-
-#: webapp/admin/routes.py:42
-msgid "TOTP secret reset for user."
-msgstr ""
-
-#: webapp/admin/routes.py:54
-msgid "You cannot delete yourself."
-msgstr ""
-
-#: webapp/admin/routes.py:58
-msgid "User deleted successfully."
-msgstr ""
-
-#: webapp/admin/routes.py:72 webapp/admin/routes.py:110
-msgid "Selected role does not exist."
-msgstr ""
-
-#: webapp/admin/routes.py:76
-msgid "User role updated."
-msgstr ""
-
-#: webapp/admin/routes.py:103
-msgid "Email, password, and role are required."
-msgstr "メールアドレスとパスワードは必須です"
-
-#: webapp/admin/routes.py:106
-msgid "Email already exists."
-msgstr "このメールアドレスは既に登録されています"
-
-#: webapp/admin/routes.py:117
-msgid "User created successfully."
-msgstr ""
-
-#: webapp/admin/routes.py:170 webapp/admin/routes.py:193
-msgid "Code is required."
-msgstr ""
-
-#: webapp/admin/routes.py:173
-msgid "Permission already exists."
-msgstr "このメールアドレスは既に登録されています"
-
-#: webapp/admin/routes.py:178
-msgid "Permission created successfully."
-msgstr ""
-
-#: webapp/admin/routes.py:197
-msgid "Permission updated."
-msgstr ""
-
-#: webapp/admin/routes.py:211
-msgid "Permission deleted."
-msgstr ""
-
-#: webapp/admin/routes.py:236 webapp/admin/routes.py:265
-msgid "Name is required."
-msgstr "名前は必須です。"
-
-#: webapp/admin/routes.py:239
-msgid "Role already exists."
-msgstr "このメールアドレスは既に登録されています。"
-
-msgid "Current time"
-msgstr "現在時刻"
-
-msgid "Local time (Asia/Tokyo)"
-msgstr "日本時刻"
-
-msgid "Register a passkey for each device you use."
-msgstr "利用する各デバイス向けにパスキーを登録してください。"
-
-msgid "Manage how your account looks and feels."
-msgstr "アカウントの見た目と操作感を管理します。"
-
-msgid "Role created successfully."
-msgstr "ロールを作成しました。"
-
-msgid "Role updated."
-msgstr "ロールを更新しました。"
-
-msgid "Role deleted."
-msgstr "ロールを削除しました。"
-
-msgid "Account overview"
-msgstr "アカウント概要"
-
-msgid "Signed in as"
-msgstr "サインイン中"
-
-msgid "Two-factor authentication"
-msgstr "二要素認証"
-
-msgid "Active permissions"
-msgstr "有効な権限"
-
-msgid "These permissions reflect your currently active role or scoped session."
-msgstr "これらの権限は、現在有効なロールまたはスコープ付きセッションに基づきます。"
-
-msgid "Display preferences"
-msgstr "表示設定"
-
-msgid "Language"
-msgstr "言語"
-
-msgid "Japanese"
-msgstr "日本語"
-
-msgid "English"
-msgstr "英語"
-
-msgid "Location / Timezone"
-msgstr "場所/時間"
-
-msgid "Asia/Tokyo (Japan)"
-msgstr "アジア/東京（日本）"
-
-msgid "Asia/Shanghai (China)"
-msgstr "アジア/上海（中国）"
-
-msgid "Asia/Singapore (Singapore)"
-msgstr "アジア/シンガポール（シンガポール）"
-
-msgid "Australia/Sydney (Australia)"
-msgstr "オーストラリア/シドニー（オーストラリア）"
-
-msgid "Europe/London (UK)"
-msgstr "ヨーロッパ/ロンドン（イギリス）"
-
-msgid "America/New York (USA, Eastern Time)"
-msgstr "アメリカ/ニューヨーク（アメリカ東部時間：ET）"
-
-msgid "America/Chicago (USA, Central Time)"
-msgstr "アメリカ/シカゴ（アメリカ中部時間：CT）"
-
-msgid "America/Los Angeles (USA, Pacific Time)"
-msgstr "アメリカ/ロサンゼルス（アメリカ太平洋時間：PT）"
-
-msgid "User Management"
-msgstr "ユーザー管理"
-
-msgid "Save preferences"
-msgstr "設定を保存"
-
-msgid "Edit profile details"
-msgstr "プロフィール詳細を編集"
-
-msgid "Enable two-factor authentication"
-msgstr "二要素認証を有効にする"
-
-msgid "Update your sign-in details or password here."
-msgstr "サインイン情報やパスワードをここで更新できます。"
-
-msgid "Management"
-msgstr "管理メニュー"
-
-msgid "Google Accounts"
-msgstr "Googleアカウント"
-
-#: webapp/templates/base.html:91 webapp/templates/index.html:52
-msgid "Certificate Management"
-msgstr "証明書管理"
-
-#: webapp/admin/routes.py:767
-msgid "To save changes, select at least one setting and check its \"Update\" box."
-msgstr "変更を保存するには、「Update」にチェックを入れて更新する設定を選択してください。"
-
-#: webapp/templates/base.html:68
-msgid "Certificates"
-msgstr "証明書"
-
-#: webapp/admin/templates/admin/admin_users.html:26
-#: webapp/admin/templates/admin/config_view.html:2
-#: webapp/admin/templates/admin/config_view.html:20
-#: webapp/admin/templates/admin/config_view.html:35
-#: webapp/admin/templates/admin/google_accounts.html:21
-#: webapp/admin/templates/admin/permissions.html:20User Ma
-#: webapp/admin/templates/admin/roles.html:20 webapp/templates/base.html:77
-msgid "Config Settings"
-msgstr "設定変更"
-
-#: webapp/admin/templates/admin/admin_users.html:33
-#: webapp/admin/templates/admin/admin_users.html:72
-#: webapp/admin/templates/admin/config_view.html:25
-#: webapp/admin/templates/admin/google_accounts.html:26
-#: webapp/admin/templates/admin/permissions.html:25
-#: webapp/admin/templates/admin/roles.html:25 webapp/templates/base.html:80
-msgid "Roles"
-msgstr "ロール"
-
-#: webapp/admin/templates/admin/admin_users.html:40
-#: webapp/admin/templates/admin/config_view.html:30
-#: webapp/admin/templates/admin/google_accounts.html:31
-#: webapp/admin/templates/admin/permissions.html:30
-#: webapp/admin/templates/admin/role_edit.html:11
-#: webapp/admin/templates/admin/roles.html:30
-#: webapp/admin/templates/admin/roles.html:46 webapp/templates/base.html:83
-msgid "Permissions"
-msgstr "権限"
-
-#: webapp/admin/templates/admin/config_view.html:88
-msgid "Toggle section visibility"
-msgstr "セクションの表示を切り替え"
-
-#: webapp/admin/templates/admin/admin_users.html:50
-#: webapp/admin/templates/admin/user_add.html:2
-#: webapp/admin/templates/admin/user_add.html:4
-msgid "Add User"
-msgstr "ユーザー追加"
-
-#: webapp/admin/templates/admin/admin_users.html:54
-msgid "Search users..."
-msgstr "ユーザー検索"
-
-#: webapp/admin/templates/admin/admin_users.html:56
-#: webapp/photo-view/templates/photo-view/albums.html:107
-#: webapp/photo-view/templates/photo-view/home.html:16
-#: webapp/photo-view/templates/photo-view/media_list.html:177
-msgid "Refresh"
-msgstr "再読み込み"
-
-#: webapp/admin/templates/admin/admin_users.html:62
-#: webapp/admin/templates/admin/admin_users.html:85
-#: webapp/photo-view/templates/photo-view/albums.html:113
-#: webapp/photo-view/templates/photo-view/albums.html:122
-#: webapp/photo-view/templates/photo-view/home.html:48
-#: webapp/photo-view/templates/photo-view/home.html:74
-#: webapp/photo-view/templates/photo-view/media_list.html:152
-#: webapp/photo-view/templates/photo-view/media_list.html:188
-msgid "Loading..."
-msgstr "読み込み中..."
-
-#: webapp/admin/templates/admin/admin_users.html:70
-#: webapp/admin/templates/admin/google_accounts.html:44
-#: webapp/auth/templates/auth/google_accounts.html:15
-msgid "Email"
-msgstr "メール"
-
-#: webapp/admin/templates/admin/admin_users.html:71
-#: webapp/admin/templates/admin/google_accounts.html:45
-#: webapp/auth/templates/auth/google_accounts.html:16
-#: webapp/photo-view/templates/photo-view/home.html:56
-#: webapp/photo-view/templates/photo-view/session_detail.html:33
-msgid "Status"
-msgstr "ステータス"
-
-#: webapp/admin/templates/admin/admin_users.html:73
-#: webapp/photo-view/templates/photo-view/home.html:59
-msgid "Created At"
-msgstr "作成日時"
-
-#: webapp/admin/templates/admin/admin_users.html:74
-#: webapp/admin/templates/admin/google_accounts.html:50
-#: webapp/admin/templates/admin/permissions.html:52
-#: webapp/admin/templates/admin/roles.html:47
-#: webapp/auth/templates/auth/google_accounts.html:21
-#: webapp/photo-view/templates/photo-view/home.html:61
-msgid "Actions"
-msgstr "操作"
-
-#: webapp/admin/templates/admin/admin_users.html:87
-msgid "Loading more users..."
-msgstr "ユーザーを検索しています"
-
-#: webapp/admin/templates/admin/admin_users.html:91
-msgid "All users loaded"
-msgstr "ユーザー検索が完了しました"
-
-#: webapp/admin/templates/admin/admin_users.html:98
-msgid "Active"
-msgstr "有効"
-
-#: webapp/admin/templates/admin/admin_users.html:99
-msgid "Inactive"
-msgstr "無効"
-
-#: webapp/admin/templates/admin/admin_users.html:100
-msgid "users loaded"
-msgstr ""
-
-#: webapp/admin/templates/admin/admin_users.html:101
-msgid "deactivate"
-msgstr "無効化"
-
-#: webapp/admin/templates/admin/admin_users.html:102
-msgid "activate"
-msgstr "有効化"
-
-#: webapp/admin/templates/admin/admin_users.html:103
-msgid "Are you sure you want to"
-msgstr ""
-
-#: webapp/admin/templates/admin/admin_users.html:104
-msgid "this user?"
-msgstr ""
-
-#: webapp/admin/templates/admin/admin_users.html:147
-msgid "Deactivate User"
-msgstr ""
-
-#: webapp/admin/templates/admin/admin_users.html:147
-msgid "Activate User"
-msgstr ""
-
-#: webapp/admin/templates/admin/admin_users.html:151
-msgid "Edit Roles"
-msgstr ""
-
-#: webapp/admin/templates/admin/admin_users.html:153
-msgid "Reset TOTP"
-msgstr ""
-
-#: webapp/admin/templates/admin/admin_users.html:156
-msgid "Delete User"
-msgstr ""
-
-#: webapp/admin/templates/admin/admin_users.html:194
-msgid "Failed to load users."
-msgstr ""
-
-#: webapp/admin/templates/admin/admin_users.html:234
-msgid "Reset TOTP for this user?"
-msgstr ""
-
-#: webapp/admin/templates/admin/admin_users.html:245
-msgid "TOTP reset successfully"
-msgstr ""
-
-#: webapp/admin/templates/admin/admin_users.html:247
-#: webapp/admin/templates/admin/admin_users.html:252
-msgid "Failed to reset TOTP"
-msgstr ""
-
-#: webapp/admin/templates/admin/admin_users.html:257
-msgid "Are you sure you want to delete this user?"
-msgstr ""
-
-#: webapp/admin/templates/admin/admin_users.html:268
-msgid "User deleted successfully"
-msgstr ""
-
-#: webapp/admin/templates/admin/admin_users.html:271
-#: webapp/admin/templates/admin/admin_users.html:276
-msgid "Failed to delete user"
-msgstr ""
-
-#: webapp/admin/templates/admin/admin_users.html:297
-#: webapp/admin/templates/admin/admin_users.html:302
-msgid "Failed to update user status"
-msgstr ""
-
-#: webapp/admin/templates/admin/google_accounts.html:2
-#: webapp/admin/templates/admin/google_accounts.html:36
-msgid "Google Accounts Management"
-msgstr "Googleアカウント管理"
-
-#: webapp/admin/templates/admin/google_accounts.html:43
-msgid "User"
-msgstr ""
-
-#: webapp/admin/templates/admin/google_accounts.html:46
-#: webapp/auth/templates/auth/google_accounts.html:17
-msgid "Scopes"
-msgstr ""
-
-#: webapp/admin/templates/admin/google_accounts.html:47
-#: webapp/auth/templates/auth/google_accounts.html:18
-msgid "Last Synced"
-msgstr ""
-
-#: webapp/admin/templates/admin/google_accounts.html:48
-#: webapp/auth/templates/auth/google_accounts.html:19
-msgid "Token"
-msgstr ""
-
-#: webapp/admin/templates/admin/google_accounts.html:49
-#: webapp/auth/templates/auth/google_accounts.html:20
-msgid "Refresh Token Expiry"
-msgstr ""
-
-#: webapp/admin/templates/admin/google_accounts.html:61
-msgid "No User"
-msgstr ""
-
-#: webapp/admin/templates/admin/google_accounts.html:67
-#: webapp/auth/templates/auth/google_accounts.html:30
-msgid "active"
-msgstr ""
-
-#: webapp/admin/templates/admin/google_accounts.html:91
-#: webapp/auth/templates/auth/google_accounts.html:55
-msgid "Disable"
-msgstr ""
-
-#: webapp/admin/templates/admin/google_accounts.html:92
-#: webapp/admin/templates/admin/permissions.html:65
-#: webapp/admin/templates/admin/roles.html:63
-#: webapp/auth/templates/auth/google_accounts.html:56
-msgid "Delete"
-msgstr "削除"
-
-#: webapp/admin/templates/admin/google_accounts.html:93
-#: webapp/auth/templates/auth/google_accounts.html:58
-msgid "Test"
-msgstr ""
-
-#: webapp/admin/templates/admin/google_accounts.html:130
-msgid "Disable this Google account?"
-msgstr ""
-
-#: webapp/admin/templates/admin/google_accounts.html:137
-msgid "Google account disabled successfully"
-msgstr ""
-
-#: webapp/admin/templates/admin/google_accounts.html:140
-msgid "Failed to disable Google account"
-msgstr ""
-
-#: webapp/admin/templates/admin/google_accounts.html:151
-msgid "Delete this Google account?"
-msgstr "アカウント名を入力："
-
-#: webapp/admin/templates/admin/google_accounts.html:154
-msgid "Google account deleted successfully"
-msgstr ""
-
-#: webapp/admin/templates/admin/google_accounts.html:157
-msgid "Failed to delete Google account"
-msgstr ""
-
-#: webapp/admin/templates/admin/permission_edit.html:2
-#: webapp/admin/templates/admin/permission_edit.html:4
-msgid "Edit Permission"
-msgstr ""
-
-#: webapp/admin/templates/admin/permission_edit.html:2
-#: webapp/admin/templates/admin/permission_edit.html:4
-#: webapp/admin/templates/admin/permissions.html:38
-msgid "Add Permission"
-msgstr ""
-
-#: webapp/admin/templates/admin/permission_edit.html:7
-#: webapp/admin/templates/admin/permissions.html:51
-msgid "Code"
-msgstr ""
-
-#: webapp/admin/templates/admin/permission_edit.html:10
-#: webapp/admin/templates/admin/role_edit.html:19
-msgid "Save"
-msgstr ""
-
-#: webapp/admin/templates/admin/permission_edit.html:11
-#: webapp/admin/templates/admin/role_edit.html:20
-#: webapp/admin/templates/admin/user_add.html:23
-#: webapp/admin/templates/admin/user_role_edit.html:45
-msgid "Cancel"
-msgstr "キャンセル"
-
-#: webapp/admin/templates/admin/permissions.html:2
-#: webapp/admin/templates/admin/permissions.html:35
-msgid "Permission Management"
-msgstr ""
-
-#: webapp/admin/templates/admin/permissions.html:42
-msgid "Search by code"
-msgstr ""
-
-#: webapp/admin/templates/admin/permissions.html:45
-msgid "Search"
-msgstr ""
-
-#: webapp/admin/templates/admin/permissions.html:61
-#: webapp/admin/templates/admin/roles.html:61
-msgid "Edit"
-msgstr "編集"
-
-#: webapp/admin/templates/admin/permissions.html:64
-msgid "Are you sure you want to delete this permission?"
-msgstr "この権限を削除してもよろしいですか？"
-
-#: webapp/admin/templates/admin/role_edit.html:2
-#: webapp/admin/templates/admin/role_edit.html:4
-msgid "Edit Role"
-msgstr ""
-
-#: webapp/admin/templates/admin/role_edit.html:2
-#: webapp/admin/templates/admin/role_edit.html:4
-#: webapp/admin/templates/admin/roles.html:38
-msgid "Add Role"
-msgstr ""
-
-#: webapp/admin/templates/admin/role_edit.html:7
-#: webapp/admin/templates/admin/roles.html:45
-msgid "Name"
-msgstr ""
-
-#: webapp/admin/templates/admin/roles.html:2
-#: webapp/admin/templates/admin/roles.html:35
-msgid "Role Management"
-msgstr ""
-
-#: webapp/admin/templates/admin/roles.html:62
-msgid "Are you sure you want to delete this role?"
-msgstr ""
-
-#: webapp/admin/templates/admin/user_add.html:11
-#: webapp/auth/templates/auth/login.html:28
-#: webapp/auth/templates/auth/register.html:28
-#: webapp/auth/templates/auth/register_no_totp.html:28
-msgid "Password"
-msgstr "パスワード"
-
-#: webapp/admin/templates/admin/user_add.html:15
-msgid "Role"
-msgstr ""
-
-#: webapp/admin/templates/admin/user_add.html:22
-msgid "Create"
-msgstr "アカウント作成"
-
-#: webapp/admin/templates/admin/user_role_edit.html:2
-#: webapp/admin/templates/admin/user_role_edit.html:5
-msgid "Edit User Roles"
-msgstr ""
-
-#: webapp/admin/templates/admin/user_role_edit.html:11
-msgid "Current User"
-msgstr ""
-
-#: webapp/admin/templates/admin/user_role_edit.html:16
-msgid "Current Roles"
-msgstr ""
-
-#: webapp/admin/templates/admin/user_role_edit.html:23
-msgid "No roles assigned"
-msgstr ""
-
-#: webapp/admin/templates/admin/user_role_edit.html:29
-msgid "Select New Role"
-msgstr ""
-
-#: webapp/admin/templates/admin/user_role_edit.html:31
-msgid "Choose a role..."
-msgstr ""
-
-#: webapp/admin/templates/admin/user_role_edit.html:44
-msgid "Update Role"
-msgstr ""
-
-#: webapp/admin/templates/admin/user_role_edit.html:52
-msgid "Available Roles and Permissions"
-msgstr "利用可能なロールと権限"
-
-#: webapp/auth/routes.py:329
-msgid "Active role cleared. All assigned roles are now in effect."
-msgstr "アクティブロールを解除しました。割り当てられているすべてのロールが有効になります。"
-
-#: webapp/auth/routes.py:334
-msgid "Active role switched to %(role)s."
-msgstr "アクティブロールを%(role)sに切り替えました。"
-
-#: webapp/auth/routes.py:337 webapp/admin/routes.py:87
-msgid "Invalid role selection."
-msgstr "無効なロールが選択されました。"
-
-#: webapp/admin/routes.py:81 webapp/admin/routes.py:91
-msgid "At least one role must be selected."
-msgstr "少なくとも1つのロールを選択してください。"
-
-#: webapp/admin/routes.py:110
-msgid "User roles updated."
-msgstr "ユーザーのロールを更新しました。"
-
-#: webapp/auth/templates/auth/profile.html:51
-msgid "Role settings"
-msgstr "ロール設定"
-
-#: webapp/auth/templates/auth/profile.html:55
-msgid "Active role"
-msgstr "アクティブロール"
-
-#: webapp/auth/templates/auth/profile.html:57
-msgid "Use all assigned roles"
-msgstr "割り当てられているすべてのロールを使用"
-
-#: webapp/auth/templates/auth/profile.html:62
-msgid "Selecting a specific role limits your permissions to that role."
-msgstr "特定のロールを選択すると、そのロールの権限だけが有効になります。"
-
-#: webapp/auth/templates/auth/profile.html:65
-msgid "Switch role"
-msgstr "ロールを切り替える"
-
-#: webapp/admin/templates/admin/user_role_edit.html:29
-msgid "Select roles to assign"
-msgstr "割り当てるロールを選択"
-
-#: webapp/admin/templates/admin/user_role_edit.html:40
-msgid "Hold Ctrl (Windows) or Command (macOS) to select multiple roles."
-msgstr "複数選択するには Ctrl (Windows) または Command (macOS) キーを押しながら選択してください。"
-
-#: webapp/admin/templates/admin/user_role_edit.html:44
-msgid "Update roles"
-msgstr "ロールを更新"
-
-#: webapp/admin/templates/admin/user_role_edit.html:66
-msgid "No permissions"
-msgstr ""
-
-#: webapp/api/routes.py:1026
-msgid "You cannot deactivate yourself."
-msgstr ""
-
-#: webapp/api/routes.py:1035
-msgid "User status updated successfully."
-msgstr ""
-
-#: webapp/auth/routes.py:59 webapp/auth/routes.py:169
-msgid "Registration successful"
-msgstr "登録が完了しました。ログインしてください。"
-
-#: webapp/auth/routes.py:67 webapp/auth/routes.py:109
-msgid "Email and password are required"
-msgstr "メールアドレスとパスワードは必須です"
-
-#: webapp/services/service_account_service.py:34
-msgid "Please provide a public key."
-msgstr "公開鍵を入力してください。"
-
-#: webapp/services/service_account_service.py:45
-msgid "The public key is not a valid PEM-formatted value."
-msgstr "公開鍵のPEM形式が正しくありません。"
-
-#: webapp/services/service_account_service.py:51
-msgid "The provided public key type is not supported."
-msgstr "サポートされていない公開鍵の種類です。"
-
-#: webapp/services/service_account_service.py:72
-msgid "You are not allowed to assign the specified scopes."
-msgstr "指定されたスコープを付与する権限がありません。"
-
-#: webapp/services/service_account_service.py:90
-msgid "Please provide a service account name."
-msgstr "アカウント名を入力してください。"
-
-#: webapp/services/service_account_service.py:107
-msgid "A service account with the same name already exists."
-msgstr "同じアカウント名が既に存在します。"
-
-msgid "The service account identifier is missing from the token."
-msgstr "トークンにサービスアカウント識別子が含まれていません。"
-
-msgid "The service account is not registered."
-msgstr "サービスアカウントが登録されていません。"
-
-msgid "The service account is disabled."
-msgstr "サービスアカウントが無効化されています。"
-
-msgid "The token is not provided."
-msgstr "トークンが指定されていません。"
-
-msgid "The JWT header is invalid."
-msgstr "JWTヘッダが不正です。"
-
-msgid "The signature algorithm is not supported."
-msgstr "サポートされていない署名方式です。"
-
-msgid "Failed to parse the JWT."
-msgstr "JWTの解析に失敗しました。"
-
-msgid "The token has expired."
-msgstr "トークンの有効期限が切れています。"
-
-msgid "The audience does not match."
-msgstr "audienceが一致しません。"
-
-msgid "Failed to verify the signature."
-msgstr "署名の検証に失敗しました。"
-
-msgid "The JWT is invalid."
-msgstr "JWTが不正です。"
-
-msgid "The token lifetime is invalid."
-msgstr "トークンの有効期限が不正です。"
-
-msgid "The token lifetime exceeds the maximum allowed."
-msgstr "トークンの有効期限が長すぎます。"
-
-msgid "The token issue time is in the future."
-msgstr "トークンの発行時刻が未来です。"
-
-msgid "The required scope is not granted."
-msgstr "必要なスコープが付与されていません。"
-
-#: webapp/auth/routes.py:70 webapp/auth/routes.py:115 webapp/auth/routes.py:226
-msgid "Email already exists"
-msgstr "このメールアドレスは既に登録されています"
-
-#: webapp/auth/routes.py:77
-msgid "Default role 'guest' does not exist"
-msgstr ""
-
-#: webapp/auth/routes.py:93
-msgid "Invalid email or password"
-msgstr "メールアドレスまたはパスワードが正しくありません"
-
-#: webapp/auth/routes.py:97 webapp/auth/routes.py:160 webapp/auth/routes.py:262
-msgid "Invalid authentication code"
-msgstr "認証コード"
-
-#: webapp/auth/routes.py:131 webapp/auth/routes.py:173
-#, python-brace-format
-msgid "Registration failed: {}"
-msgstr "登録に失敗しました: {}"
-
-#: webapp/auth/routes.py:144
-msgid "Session expired. Please register again."
-msgstr "登録セッションが無効です。再度登録してください。"
-
-#: webapp/auth/routes.py:151
-msgid "Registration session invalid. Please register again."
-msgstr "登録セッションが無効です。再度登録してください。"
-
-#: webapp/auth/routes.py:192
-msgid "Registration cancelled. You can start over."
-msgstr "登録がキャンセルされました。最初からやり直せます。"
-
-#: webapp/auth/routes.py:223
-msgid "Email is required"
-msgstr "メールアドレスとパスワードは必須です"
-
-#: webapp/auth/routes.py:232
-msgid "Profile updated"
-msgstr ""
-
-#: webapp/auth/routes.py:241
-msgid "Two-factor authentication already configured"
-msgstr "二要素認証の設定がキャンセルされました。"
-
-#: webapp/auth/routes.py:267
-msgid "Two-factor authentication enabled"
-msgstr "二要素認証の設定がキャンセルされました。"
-
-#: webapp/auth/routes.py:276
-msgid "Two-factor authentication setup cancelled."
-msgstr "二要素認証の設定がキャンセルされました。"
-
-#: webapp/auth/routes.py:236 webapp/auth/templates/auth/edit.html:33 \
-#: webapp/auth/templates/auth/profile.html:100
-msgid "Two-factor authentication is not available for service accounts."
-msgstr "サービスアカウントでは二要素認証を利用できません。"
-
-msgid "Service accounts cannot edit profile details."
-msgstr "サービスアカウントではプロフィール詳細を編集できません。"
-
-msgid "Profile details are managed by administrators for service accounts."
-msgstr "サービスアカウントのプロフィール詳細は管理者が管理します。"
-
-#: webapp/auth/routes.py:283
-msgid "Logged out"
-msgstr "ログアウトしました"
-
-#: webapp/static/js/admin-config.js
-msgid "Configuration updated successfully."
-msgstr "設定を更新しました。"
-
-#: webapp/static/js/admin-config.js
-msgid "Configuration update failed."
-msgstr "設定の更新に失敗しました。"
-
-#: webapp/static/js/admin-config.js
-msgid "Failed to submit the request."
-msgstr "リクエストの送信に失敗しました。"
-
-#: webapp/auth/routes.py:292
-#, python-format
-msgid "Google OAuth error: %(msg)s"
-msgstr ""
-
-#: webapp/auth/routes.py:299
-msgid "Invalid OAuth state."
-msgstr ""
-
-#: webapp/auth/routes.py:319
-#, python-format
-msgid "Google token error: %(msg)s"
-msgstr ""
-
-#: webapp/auth/routes.py:322
-#, python-format
-msgid "Failed to obtain token from Google: %(msg)s"
-msgstr ""
-
-#: webapp/auth/routes.py:342
-msgid "Failed to fetch email from Google."
-msgstr ""
-
-#: webapp/auth/routes.py:359
-#, python-format
-msgid "Google account linked: %(email)s"
-msgstr ""
-
-#: webapp/auth/routes.py:369
-msgid "No Google account linked. Please link a Google account first."
-msgstr ""
-
-#: webapp/auth/routes.py:383
-msgid "No refresh token available."
-msgstr ""
-
-#: webapp/auth/routes.py:385
-#, python-format
-msgid "Failed to refresh token: %(msg)s"
-msgstr ""
-
-#: webapp/auth/routes.py:390
-msgid "Failed to obtain access token."
-msgstr ""
-
-#: webapp/auth/routes.py:404
-#, python-format
-msgid "Failed to create picker session: %(msg)s"
-msgstr ""
-
-#: webapp/auth/routes.py:407
-msgid "Invalid response from picker API."
-msgstr ""
-
-#: webapp/auth/routes.py:412
-msgid "Failed to create picker session."
-msgstr ""
-
-#: webapp/auth/templates/auth/edit.html:2
-#: webapp/auth/templates/auth/edit.html:8
-msgid "Edit Profile"
-msgstr "プロフィールに戻る"
-
-#: webapp/auth/templates/auth/edit.html:9
-msgid "Update your account information"
-msgstr ""
-
-#: webapp/auth/templates/auth/edit.html:16
-#: webapp/auth/templates/auth/login.html:16
-#: webapp/auth/templates/auth/register.html:16
-#: webapp/auth/templates/auth/register_no_totp.html:16
-msgid "Email Address"
-msgstr "メールアドレス"
-
-#: webapp/auth/templates/auth/edit.html:23
-#: webapp/auth/templates/auth/login.html:22
-#: webapp/auth/templates/auth/register.html:22
-#: webapp/auth/templates/auth/register_no_totp.html:22
-msgid "Enter your email"
-msgstr "メールアドレスを入力"
-
-#: webapp/auth/templates/auth/edit.html:29
-msgid "New Password"
-msgstr "パスワード"
-
-#: webapp/auth/templates/auth/edit.html:35
-msgid "Leave blank to keep current password"
-msgstr ""
-
-#: webapp/auth/templates/auth/edit.html:40
-msgid "Update Profile"
-msgstr "プロフィールに戻る"
-
-#: webapp/auth/templates/auth/edit.html:49
-msgid "Two-factor authentication is not enabled"
-msgstr "二要素認証の設定がキャンセルされました。"
-
-#: webapp/auth/templates/auth/edit.html:53
-#: webapp/auth/templates/auth/setup_totp.html:59
-msgid "Enable Two-Factor Authentication"
-msgstr "二要素認証を有効にする"
-
-#: webapp/auth/templates/auth/edit.html:60
-msgid "Two-factor authentication is enabled"
-msgstr "二要素認証の設定がキャンセルされました。"
-
-#: webapp/auth/templates/auth/edit.html:67
-msgid "Back to Dashboard"
-msgstr "ダッシュボード"
-
-#: webapp/auth/templates/auth/google_accounts.html:8
-msgid "Add Account"
-msgstr "アカウント追加"
-
-#: webapp/auth/templates/auth/google_accounts.html:54
-msgid "Reauth"
-msgstr "再認証"
-
-#: webapp/auth/templates/auth/google_accounts.html:57
-msgid "Picker"
-msgstr ""
-
-#: webapp/auth/templates/auth/login.html:8
-msgid "Welcome Back"
-msgstr "おかえりなさい"
-
-#: webapp/auth/templates/auth/login.html:9
-msgid "Sign in to your %(app_name)s account"
-msgstr "%(app_name)sアカウントにサインイン"
-
-#: webapp/auth/templates/auth/login.html:34
-msgid "Enter your password"
-msgstr "パスワードを入力"
-
-#: webapp/auth/templates/auth/login.html:40
-#: webapp/auth/templates/auth/register_totp.html:46
-#: webapp/auth/templates/auth/setup_totp.html:46
-msgid "Authentication Code"
-msgstr "認証コード"
-
-#: webapp/auth/templates/auth/login.html:44
-msgid ""
-"Enter the 6-digit code from your authenticator app (optional if not set "
-"up)"
-msgstr "認証アプリから6桁のコードを入力（設定していない場合は省略可）"
-
-#: webapp/auth/templates/auth/login.html:51
-#: webapp/auth/templates/auth/register_totp.html:53
-#: webapp/auth/templates/auth/setup_totp.html:53
-msgid "000000"
-msgstr "000000"
-
-#: webapp/auth/templates/auth/login.html:57
-#: webapp/auth/templates/auth/login.html:201
-msgid "Sign In"
-msgstr "サインイン"
-
-#: webapp/auth/templates/auth/login.html:62
-msgid "Don't have an account? Sign up"
-msgstr "アカウントをお持ちでない方はこちら"
-
-#: webapp/auth/templates/auth/login.html:133
-msgid "Signing In..."
-msgstr "サインイン中..."
-
-#: webapp/auth/templates/auth/login.html:161
-msgid "Login successful"
-msgstr ""
-
-#: webapp/auth/templates/auth/login.html:175
-msgid "Invalid email, password, or authentication code"
-msgstr "メールアドレスまたはパスワードが正しくありません"
-
-#: webapp/auth/templates/auth/login.html:176
-msgid "Login failed. Please try again."
-msgstr ""
-
-#: webapp/auth/templates/auth/login.html:193
-msgid "Network error. Falling back to standard login."
-msgstr ""
-
-#: webapp/auth/templates/auth/picker.html:2
-#: webapp/auth/templates/auth/picker.html:5
-msgid "Photo Picker"
-msgstr ""
-
-#: webapp/auth/templates/auth/picker.html:10
-msgid "Open Photo Picker"
-msgstr ""
-
-#: webapp/auth/templates/auth/picker.html:19
-msgid "Open Photo View"
-msgstr ""
-
-#: webapp/auth/templates/auth/register.html:2
-#: webapp/auth/templates/auth/register_no_totp.html:2
-#: webapp/templates/base.html:101
-msgid "Register"
-msgstr "新規登録"
-
-#: webapp/auth/templates/auth/register.html:8
-#: webapp/auth/templates/auth/register.html:44
-#: webapp/auth/templates/auth/register_no_totp.html:8
-#: webapp/auth/templates/auth/register_no_totp.html:44
-msgid "Create Account"
-msgstr "アカウント作成"
-
-#: webapp/auth/templates/auth/register.html:9
-msgid "Join %(app_name)s and start organizing your memories"
-msgstr "%(app_name)sに参加して思い出を整理しましょう"
-
-#: webapp/auth/templates/auth/register.html:34
-#: webapp/auth/templates/auth/register_no_totp.html:34
-msgid "Create a strong password"
-msgstr "強力なパスワードを作成"
-
-#: webapp/auth/templates/auth/register.html:39
-msgid ""
-"Two-factor authentication will be set up in the next step for enhanced "
-"security"
-msgstr "セキュリティ強化のため、次のステップで二要素認証を設定します"
-
-#: webapp/auth/templates/auth/register.html:49
-#: webapp/auth/templates/auth/register_no_totp.html:49
-msgid "Already have an account? Sign in"
-msgstr "既にアカウントをお持ちの方はこちら"
-
-#: webapp/auth/templates/auth/register.html:53
-msgid "Register without two-factor authentication"
-msgstr "二要素認証なしで登録"
-
-#: webapp/auth/templates/auth/register.html:121
-#: webapp/auth/templates/auth/register_no_totp.html:121
-msgid "Creating Account..."
-msgstr "アカウント作成中..."
-
-#: webapp/auth/templates/auth/register_no_totp.html:9
-msgid "Join %(app_name)s without two-factor authentication"
-msgstr "二要素認証なしで%(app_name)sに参加"
-
-msgid "=== %(app_name)s Version Information ==="
-msgstr "=== %(app_name)s バージョン情報 ==="
-
-msgid "%(app_name)s Version Information"
-msgstr "%(app_name)s バージョン情報"
-
-#: webapp/templates/admin/version_view.html:20
-msgid "Version String"
-msgstr "バージョン文字列"
-
-#: webapp/templates/admin/version_view.html:33
-msgid "Full Commit Hash"
-msgstr "コミットハッシュ（フル）"
-
-#: webapp/templates/admin/version_view.html:57
-msgid "Runtime Environment"
-msgstr "実行環境"
-
-#: webapp/templates/admin/version_view.html:63
-msgid "Python Version"
-msgstr "Pythonバージョン"
-
-#: webapp/templates/admin/version_view.html:68
-msgid "Platform"
-msgstr "プラットフォーム"
-
-#: webapp/templates/admin/version_view.html:70
-msgid "Hostname"
-msgstr "ホスト名"
-
-#: webapp/templates/admin/version_view.html:72
-msgid "Environment"
-msgstr "環境"
-
-#: webapp/templates/admin/version_view.html:74
-msgid "Debug Mode"
-msgstr "デバッグモード"
-
-#: webapp/templates/admin/version_view.html:80
-msgid "Flask Version"
-msgstr "Flaskバージョン"
-
-#: webapp/templates/admin/version_view.html:82
-msgid "Werkzeug Version"
-msgstr "Werkzeugバージョン"
-
-#: webapp/templates/admin/version_view.html:90
-msgid "API Access"
-msgstr "APIアクセス"
-
-#: webapp/templates/admin/version_view.html:95
-msgid "You can retrieve the same information through the API."
-msgstr "同じ情報をAPI経由でも取得できます。"
-
-#: webapp/templates/admin/version_view.html:104
-msgid "Test Endpoint"
-msgstr "エンドポイントをテスト"
-
-#: webapp/templates/admin/version_view.html:107
-msgid "API Response"
-msgstr "APIレスポンス"
-
-#: webapp/templates/admin/version_view.html:126
-msgid "Server time is fetched from the health API once per minute."
-msgstr "サーバー時刻はヘルスAPIから1分ごとに取得されます。"
-
-#: webapp/templates/admin/version_view.html:197
-msgid "An error occurred while requesting version information."
-msgstr "バージョン情報の取得中にエラーが発生しました。"
-
-msgid "=== %(app_name)s Master Data Seeding ==="
-msgstr "=== %(app_name)s マスターデータ投入 ==="
-
-#: webapp/auth/templates/auth/register_no_totp.html:39
-msgid "Note: This account will not have two-factor authentication enabled"
-msgstr "注意：このアカウントでは二要素認証が有効になりません"
-
-#: webapp/auth/templates/auth/register_no_totp.html:53
-msgid "Register with two-factor authentication"
-msgstr "二要素認証ありで登録"
-
-#: webapp/auth/templates/auth/register_totp.html:2
-msgid "Verify TOTP"
-msgstr ""
-
-#: webapp/auth/templates/auth/register_totp.html:8
-#: webapp/auth/templates/auth/setup_totp.html:2
-#: webapp/auth/templates/auth/setup_totp.html:8
-msgid "Setup Two-Factor Authentication"
-msgstr "二要素認証の設定"
-
-#: webapp/auth/templates/auth/register_totp.html:9
-#: webapp/auth/templates/auth/setup_totp.html:9
-msgid "Scan the QR code with your authenticator app and enter the current code"
-msgstr "認証アプリでQRコードをスキャンし、現在のコードを入力してください"
-
-#: webapp/auth/templates/auth/register_totp.html:20
-#: webapp/auth/templates/auth/register_totp.html:334
-#: webapp/auth/templates/auth/setup_totp.html:20
-#: webapp/auth/templates/auth/setup_totp.html:336
-msgid "Show setup key"
-msgstr "設定キーを表示"
-
-#: webapp/auth/templates/auth/register_totp.html:27
-#: webapp/auth/templates/auth/setup_totp.html:27
-msgid ""
-"If you cannot scan the QR code, enter this setup key manually in your "
-"authenticator app:"
-msgstr "QRコードをスキャンできない場合は、この設定キーを認証アプリに手動で入力してください："
-
-#: webapp/auth/templates/auth/register_totp.html:33
-#: webapp/auth/templates/auth/setup_totp.html:33
-msgid "Copy to clipboard"
-msgstr "クリップボードにコピー"
-
-#: webapp/auth/templates/auth/register_totp.html:42
-#: webapp/auth/templates/auth/setup_totp.html:42
-msgid "If you are using this device, you can open the setup link directly:"
-msgstr "この端末をご利用の場合は、以下の設定リンクを直接開くことができます："
-
-#: webapp/auth/templates/auth/register_totp.html:47
-#: webapp/auth/templates/auth/setup_totp.html:47
-msgid "Open setup link"
-msgstr "設定リンクを開く"
-
-#: webapp/auth/templates/auth/register_totp.html:49
-#: webapp/auth/templates/auth/setup_totp.html:49
-msgid "Copy setup link"
-msgstr "設定リンクをコピー"
-
-#: webapp/auth/templates/auth/register_totp.html:59
-msgid "Complete Registration"
-msgstr "登録完了"
-
-#: webapp/auth/templates/auth/register_totp.html:67
-msgid "Cancel Registration"
-msgstr "登録をキャンセル"
-
-#: webapp/auth/templates/auth/register_totp.html:296
-msgid "Completing Registration..."
-msgstr "登録完了中..."
-
-#: webapp/auth/templates/auth/register_totp.html:330
-#: webapp/auth/templates/auth/setup_totp.html:332
-msgid "Hide setup key"
-msgstr "設定キーを非表示"
-
-#: webapp/auth/templates/auth/setup_totp.html:64
-msgid "Back to Profile"
-msgstr "プロフィールに戻る"
-
-#: webapp/auth/templates/auth/setup_totp.html:69
-msgid "Cancel Setup"
-msgstr "設定をキャンセル"
-
-#: webapp/auth/templates/auth/setup_totp.html:298
-msgid "Enabling..."
-msgstr "有効化中..."
-
-#: webapp/dashboard/templates/dashboard/index.html:3
-#: webapp/dashboard/templates/dashboard/index.html:5
-#: webapp/templates/base.html:29 webapp/templates/index.html:21
-msgid "Dashboard"
-msgstr "ダッシュボード"
-
-#: webapp/dashboard/templates/dashboard/index.html:6
-msgid "Workspace dashboard"
-msgstr "ワークスペースダッシュボード"
-
-#: webapp/dashboard/templates/dashboard/index.html:8
-msgid "Stay on top of shared knowledge, media operations, and administration from one place."
-msgstr "共有ナレッジやメディア運用、管理業務をこのページからまとめて確認できます。"
-
-#: webapp/dashboard/templates/dashboard/index.html:13
-msgid "Signed in"
-msgstr "サインイン中"
-
-#: webapp/dashboard/templates/dashboard/index.html:16
-msgid "Welcome back, %(name)s"
-msgstr "おかえりなさい、%(name)s さん"
-
-#: webapp/dashboard/templates/dashboard/index.html:25
-msgid "Key workspaces"
-msgstr "主要ワークスペース"
-
-#: webapp/dashboard/templates/dashboard/index.html:34
-msgid "Team wiki"
-msgstr "チームWiki"
-
-#: webapp/dashboard/templates/dashboard/index.html:36
-msgid "Browse policies, guides, and notes maintained by your team."
-msgstr "チームで管理しているポリシーやガイド、ノートを確認できます。"
-
-#: webapp/dashboard/templates/dashboard/index.html:39
-msgid "Open wiki"
-msgstr "Wikiを開く"
-
-#: webapp/dashboard/templates/dashboard/index.html:50
-msgid "Media library"
-msgstr "メディアライブラリ"
-
-#: webapp/dashboard/templates/dashboard/index.html:52
-msgid "Review uploaded photos and manage shared media assets."
-msgstr "アップロード済みの写真や共有メディアを確認・管理できます。"
-
-#: webapp/dashboard/templates/dashboard/index.html:55
-msgid "Open media view"
-msgstr "メディアビューを開く"
-
-#: webapp/dashboard/templates/dashboard/index.html:65
-msgid "No workspace tools are available for your current role."
-msgstr "現在のロールでは利用できるワークスペースツールがありません。"
-
-#: webapp/dashboard/templates/dashboard/index.html:75
-msgid "Operations shortcuts"
-msgstr "運用ショートカット"
-
-#: webapp/dashboard/templates/dashboard/index.html:83
-msgid "Account settings"
-msgstr "アカウント設定"
-
-#: webapp/dashboard/templates/dashboard/index.html:86
-msgid "Update your profile, preferred language, and sign-in credentials."
-msgstr "プロフィールや使用言語、サインイン情報を更新します。"
-
-#: webapp/dashboard/templates/dashboard/index.html:90
-msgid "Profile"
-msgstr "プロフィール"
-
-#: webapp/dashboard/templates/dashboard/index.html:93
-msgid "Sign-in details"
-msgstr "サインイン情報"
-
-#: webapp/auth/templates/auth/login.html
-msgid "Sign in with passkey"
-msgstr "パスキーでサインイン"
-
-#: webapp/auth/templates/auth/login.html
-msgid "Passkey login requires a compatible browser."
-msgstr "パスキーでのサインインには対応ブラウザが必要です。"
-
-#: webapp/auth/templates/auth/login.html webapp/auth/templates/auth/login.html
-msgid "Passkey sign-in still requires your email address so we can match your account."
-msgstr "パスキーでサインインする場合も、アカウントを特定するためにメールアドレスの入力が必要です。"
-
-#: webapp/auth/templates/auth/login.html
-msgid "Passkey login options could not be retrieved."
-msgstr "パスキーサインインのオプションを取得できませんでした。"
-
-#: webapp/auth/templates/auth/login.html
-msgid "Passkey login failed. Please try again."
-msgstr "パスキーによるサインインに失敗しました。もう一度お試しください。"
-
-#: webapp/auth/templates/auth/profile.html
-msgid "Passkeys"
-msgstr "パスキー"
-
-#: webapp/auth/templates/auth/profile.html
-msgid "Passkeys cannot be managed for service accounts."
-msgstr "サービスアカウントではパスキーを管理できません。"
-
-#: webapp/auth/templates/auth/profile.html
-msgid "Unnamed passkey"
-msgstr "名称未設定のパスキー"
-
-#: webapp/auth/templates/auth/profile.html
-msgid "Created"
-msgstr "作成日時"
-
-#: webapp/auth/templates/auth/profile.html
-msgid "Last used"
-msgstr "最終利用"
-
-#: webapp/auth/templates/auth/profile.html
-msgid "Remove"
-msgstr "削除"
-
-#: webapp/auth/templates/auth/profile.html
-msgid "No passkeys registered yet."
-msgstr "登録されているパスキーはありません。"
-
-#: webapp/auth/templates/auth/profile.html
-msgid "Register a passkey for each device you use."
-msgstr "利用する各デバイス向けにパスキーを登録してください。"
-
-#: webapp/auth/templates/auth/profile.html
-msgid "Add a new passkey"
-msgstr "新しいパスキーを追加"
-
-#: webapp/auth/templates/auth/profile.html
-msgid "Passkey registration requires a compatible browser."
-msgstr "パスキー登録には対応ブラウザが必要です。"
-
-#: webapp/auth/templates/auth/profile.html
-msgid "This passkey is already registered for your account."
-msgstr "このパスキーはすでにあなたのアカウントに登録されています。"
-
-#: webapp/auth/templates/auth/profile.html
-msgid "Give this passkey a name (optional)"
-msgstr "このパスキーに名前を付けてください（任意）"
-
-#: webapp/auth/templates/auth/profile.html
-msgid "Passkey registration options could not be retrieved."
-msgstr "パスキー登録のオプションを取得できませんでした。"
-
-#: webapp/auth/templates/auth/profile.html
-msgid "Passkey registration timed out before the authenticator responded. Please try again and confirm the prompt on your device."
-msgstr "認証器からの応答前にパスキー登録がタイムアウトしました。デバイスのプロンプトを確認してから再度お試しください。"
-
-#: webapp/auth/templates/auth/profile.html
-msgid "Passkey registration was cancelled from the authenticator prompt. Please retry and complete the device approval."
-msgstr "認証器のプロンプトでパスキー登録がキャンセルされました。デバイスで承認を完了してから再度お試しください。"
-
-#: webapp/auth/templates/auth/profile.html
-msgid "Passkey registration was cancelled or timed out before completion. Please retry after completing the authenticator prompt."
-msgstr "パスキー登録は完了前にキャンセルまたはタイムアウトしました。認証器の操作を完了してから再度お試しください。"
-
-#: webapp/auth/templates/auth/profile.html
-msgid "Passkey registration failed. Please try again."
-msgstr "パスキーの登録に失敗しました。もう一度お試しください。"
-
-#: webapp/auth/templates/auth/profile.html
-msgid "Remove this passkey?"
-msgstr "このパスキーを削除しますか？"
-
-#: webapp/auth/templates/auth/profile.html
-msgid "Failed to remove passkey."
-msgstr "パスキーを削除できませんでした。"
-
-#: webapp/dashboard/templates/dashboard/index.html:103
-msgid "Administration"
-msgstr "管理メニュー"
-
-#: webapp/dashboard/templates/dashboard/index.html:106
-msgid "Review user access, configuration, and connected integrations."
-msgstr "ユーザー権限、設定、連携サービスを確認します。"
-
-#: webapp/dashboard/templates/dashboard/index.html:110
-msgid "Users"
-msgstr "ユーザー"
-
-#: webapp/dashboard/templates/dashboard/index.html:113
-msgid "Settings"
-msgstr "設定"
-
-#: webapp/dashboard/templates/dashboard/index.html:116
-msgid "Google accounts"
-msgstr "Googleアカウント"
-
-#: webapp/dashboard/templates/dashboard/index.html:130
-msgid "Your status"
-msgstr "あなたのステータス"
-
-#: webapp/dashboard/templates/dashboard/index.html:138
-msgid "Display name"
-msgstr "表示名"
-
-#: webapp/dashboard/templates/dashboard/index.html:139
-msgid "Not provided"
-msgstr "未設定"
-
-#: webapp/dashboard/templates/dashboard/index.html:147
-msgid "Active role"
-msgstr "選択中のロール"
-
-#: webapp/dashboard/templates/dashboard/index.html:152
-msgid "No active role selected"
-msgstr "選択中のロールはありません"
-
-#: webapp/dashboard/templates/dashboard/index.html:156
-msgid "Roles assigned: %(count)s"
-msgstr "付与ロール数: %(count)s"
-
-#: webapp/dashboard/templates/dashboard/index.html:165
-msgid "Content overview"
-msgstr "コンテンツ概要"
-
-#: webapp/dashboard/templates/dashboard/index.html:167
-msgid "Wiki pages: %(count)s"
-msgstr "Wikiページ数: %(count)s"
-
-#: webapp/dashboard/templates/dashboard/index.html:168
-msgid "Media items: %(count)s"
-msgstr "メディア項目数: %(count)s"
-
-#: webapp/dashboard/templates/dashboard/index.html:179
-msgid "Quick links"
-msgstr "クイックリンク"
-
-#: webapp/dashboard/templates/dashboard/index.html:186
-msgid "Create wiki page"
-msgstr "Wikiページを作成"
-
-#: webapp/dashboard/templates/dashboard/index.html:193
-msgid "Search knowledge base"
-msgstr "ナレッジを検索"
-
-#: webapp/dashboard/templates/dashboard/index.html:200
-msgid "Open media gallery"
-msgstr "メディア一覧を開く"
-
-#: webapp/dashboard/templates/dashboard/index.html:206
-msgid "Manage profile preferences"
-msgstr "プロフィール設定を管理"
-
-msgid "Albums"
-msgstr "アルバム一覧"
-
-msgid "Filter by tags"
-msgstr "タグフィルター"
-
-msgid "Thumbnail size"
-msgstr "サムネイルサイズ"
-
-msgid "Newest First"
-msgstr "新しい順"
-
-msgid "Oldest First"
-msgstr "古い順"
-
-msgid "Custom Order"
-msgstr "指定順"
-
-msgid "Reorder"
-msgstr "並び替え"
-
-msgid "Save Order"
-msgstr "並び順保存"
-
-msgid "Compact"
-msgstr "小"
-
-msgid "Medium"
-msgstr "中"
-
-msgid "Large"
-msgstr "大"
-
-msgid "Loading more albums..."
-msgstr "アルバム読み込み中"
-
-msgid "All albums loaded"
-msgstr "アルバム読み込み完了"
-
-msgid "No Albums Found"
-msgstr "アルバムが見つかりません"
-
-msgid "photos"
-msgstr "写真"
-
-msgid "No media selected for cover."
-msgstr "表紙が選択されていません。"
-
-msgid "Remove from album"
-msgstr "アルバムから削除"
-
-msgid "Auto (use first media)"
-msgstr "自動選択"
-
-msgid "Create Album"
-msgstr "作成"
-
-msgid "Save Changes"
-msgstr "保存"
-
-#: webapp/photo-view/templates/photo-view/albums.html:228
-msgid "Failed to load albums. Please try again."
-msgstr "アルバムの読み込みに失敗しました"
-
-msgid "Select media and configure details to build a new album."
-msgstr "追加するメディアを選択してください。"
-
-msgid "Album Title"
-msgstr "タイトル"
-
-msgid "Visibility"
-msgstr "公開範囲"
-
-msgid "Private"
-msgstr "非公開"
-
-msgid "Unlisted"
-msgstr "限定公開"
-
-msgid "Public"
-msgstr "公開"
-
-msgid "Choose who can access the album."
-msgstr "アルバムを閲覧できる対象を選択します。"
-
-msgid "Only users explicitly linked to the album can view it."
-msgstr "アルバムに共有ユーザーとして紐づけた相手だけが閲覧できます。"
-
-msgid "Hidden from everyone else. Only you can view it."
-msgstr "他のユーザーには表示されません。閲覧できるのは自分だけです。"
-
-msgid "Visible to anyone who can access the photo viewer and has the \"album:view\" permission."
-msgstr "フォトビューアーにアクセスでき、かつ \"album:view\" 権限を持つユーザー全員に公開されます。"
-
-msgid "Album Cover"
-msgstr "表紙"
-
-msgid "Taken after"
-msgstr "撮影日（開始）"
-
-msgid "Taken before"
-msgstr "撮影日（終了）"
-
-msgid "All media"
-msgstr "全種類"
-
-msgid "Show all"
-msgstr "すべて"
-
-msgid "Selected only"
-msgstr "選択のみ"
-
-msgid "Unselected only"
-msgstr "未選択のみ"
-
-msgid "Reset"
-msgstr "リセット"
-
-msgid "Apply filters"
-msgstr "フィルタ適用"
-
-msgid "Click thumbnails to toggle selection. Use the quick actions to select or clear the visible media."
-msgstr "アルバムに追加するメディアを選んでください。"
-
-msgid "Select all shown"
-msgstr "すべて選択"
-
-msgid "Unselect shown"
-msgstr "すべて解除"
-
-#: webapp/photo-view/templates/photo-view/home.html:13
-msgid "Create New Session"
-msgstr "新しいセッションを作成"
-
-#: webapp/photo-view/templates/photo-view/home.html:26
-msgid "View Media Gallery"
-msgstr "メディア一覧を見る"
-
-#: webapp/photo-view/templates/photo-view/home.html:46
-msgid "All Picker Sessions"
-msgstr "ピッカーセッション一覧"
-
-#: webapp/photo-view/templates/photo-view/home.html:55
-msgid "Session ID"
-msgstr "セッションID"
-
-#: webapp/photo-view/templates/photo-view/home.html:57
-msgid "Selected Count"
-msgstr "選択数"
-
-#: webapp/photo-view/templates/photo-view/home.html:57
-#: webapp/photo-view/templates/photo-view/session_detail.html:72
-msgid "Target Account"
-msgstr "対象アカウント"
-
-#: webapp/photo-view/templates/photo-view/home.html:58
-msgid "File Status"
-msgstr "ファイル状況"
-
-#: webapp/photo-view/templates/photo-view/home.html:60
-msgid "Last Progress"
-msgstr "最終更新"
-
-#: webapp/photo-view/templates/photo-view/home.html:76
-msgid "Loading more sessions..."
-msgstr "セッションを読み込み中..."
-
-#: webapp/photo-view/templates/photo-view/home.html:80
-msgid "All sessions loaded"
-msgstr "すべてのセッションを読み込み済みです"
-
-#: webapp/photo-view/templates/photo-view/home.html:83
-msgid "sessions loaded"
-msgstr "件のセッションを読み込み済み"
-
-#: webapp/photo-view/templates/photo-view/home.html:84
-msgid "No sessions loaded yet"
-msgstr "まだセッションが読み込まれていません"
-
-#: webapp/photo-view/templates/photo-view/home.html:118
-msgid "Failed to load sessions."
-msgstr "セッションの読み込みに失敗しました。"
-
-#: webapp/photo-view/templates/photo-view/home.html:119
-msgid "Error loading sessions"
-msgstr "セッションの読み込みでエラーが発生しました"
-
-#: webapp/photo-view/templates/photo-view/home.html:48
-#: webapp/photo-view/templates/photo-view/session_detail.html:69
-msgid "Pending"
-msgstr "保留"
-
-#: webapp/photo-view/templates/photo-view/home.html:49
-#: webapp/photo-view/templates/photo-view/session_detail.html:70
-msgid "Expanding"
-msgstr "展開中"
-
-#: webapp/photo-view/templates/photo-view/home.html:85
-#: webapp/photo-view/templates/photo-view/session_detail.html:101
-msgid "Ready"
-msgstr "準備完了"
-
-#: webapp/photo-view/templates/photo-view/home.html:50
-#: webapp/photo-view/templates/photo-view/session_detail.html:71
-msgid "Enqueued"
-msgstr "キュー投入"
-
-#: webapp/photo-view/templates/photo-view/home.html:87
-#: webapp/photo-view/templates/photo-view/session_detail.html:102
-msgid "Processing"
-msgstr "処理中"
-
-#: webapp/photo-view/templates/photo-view/home.html:51
-#: webapp/photo-view/templates/photo-view/session_detail.html:72
-msgid "Running"
-msgstr "処理中"
-
-#: webapp/photo-view/templates/photo-view/home.html:89
-#: webapp/photo-view/templates/photo-view/session_detail.html:103
-msgid "Importing"
-msgstr "インポート中"
-
-#: webapp/photo-view/templates/photo-view/home.html:47
-#: webapp/photo-view/templates/photo-view/home.html:88
-#: webapp/photo-view/templates/photo-view/session_detail.html:73
-msgid "Imported"
-msgstr "取り込み完了"
-
-#: webapp/photo-view/templates/photo-view/home.html:90
-#: webapp/photo-view/templates/photo-view/session_detail.html:104
-msgid "Canceled"
-msgstr "キャンセル済み"
-
-#: webapp/photo-view/templates/photo-view/home.html:90
-#: webapp/photo-view/templates/photo-view/session_detail.html:104
-msgid "Expired"
-msgstr "期限切れ"
-
-#: webapp/photo-view/templates/photo-view/home.html:91
-#: webapp/photo-view/templates/photo-view/session_detail.html:105
-msgid "Error"
-msgstr "エラー"
-
-msgid "Role switching is not available for this account."
-msgstr "このアカウントではロール切り替えを利用できません。"
-
-#: webapp/photo-view/templates/photo-view/home.html:52
-#: webapp/photo-view/templates/photo-view/session_detail.html:73
-msgid "Failed"
-msgstr "失敗"
-
-#: webapp/photo-view/templates/photo-view/home.html:53
-#: webapp/photo-view/templates/photo-view/session_detail.html:74
-msgid "Duplicate"
-msgstr "重複"
-
-#: webapp/photo-view/templates/photo-view/home.html:54
-#: webapp/photo-view/templates/photo-view/session_detail.html:75
-msgid "Skipped"
-msgstr "スキップ"
-
-#: webapp/photo-view/templates/photo-view/session_detail.html:96
-msgid "Local Import"
-msgstr "ローカルインポート"
-
-#: webapp/photo-view/templates/photo-view/home.html:131
-#: webapp/photo-view/templates/photo-view/session_detail.html:24
-msgid "Stop Local Import"
-msgstr "ローカルインポートを停止"
-
-#: webapp/photo-view/templates/photo-view/home.html:73
-#: webapp/photo-view/templates/photo-view/session_detail.html:90
-msgid "Local import is running. You can stop it if needed."
-msgstr "ローカルインポートを実行中です。必要に応じてここから停止できます。"
-
-#: webapp/photo-view/templates/photo-view/home.html:70
-#: webapp/photo-view/templates/photo-view/session_detail.html:91
-msgid "Canceling local import..."
-msgstr "ローカルインポートを停止しています..."
-
-#: webapp/photo-view/templates/photo-view/home.html:71
-#: webapp/photo-view/templates/photo-view/session_detail.html:92
-msgid "Local import was canceled."
-msgstr "ローカルインポートを停止しました。"
-
-#: webapp/photo-view/templates/photo-view/home.html:72
-#: webapp/photo-view/templates/photo-view/session_detail.html:93
-msgid "Failed to stop local import."
-msgstr "ローカルインポートの停止に失敗しました。"
-
-#: webapp/photo-view/templates/photo-view/home.html:199
-#: webapp/photo-view/templates/photo-view/session_detail.html:184
-msgid "Are you sure you want to cancel the local import?"
-msgstr "ローカルインポートをキャンセルしますか？"
-
-#: webapp/photo-view/templates/photo-view/session_detail.html:94
-msgid "Local import session runs automatically."
-msgstr "ローカルインポートセッションは自動で実行されます。"
-
-#: webapp/photo-view/templates/photo-view/session_detail.html:117
-msgid "Local Import Session. Import runs automatically."
-msgstr "ローカルインポートセッションです。インポートは自動的に実行されました。"
-
-#: webapp/photo-view/templates/photo-view/session_detail.html:119
-msgid "Import can only be started when the session status is ready."
-msgstr "ステータスがreadyのときのみインポートを開始できます。"
-
-#: webapp/photo-view/templates/photo-view/session_detail.html:197
-msgid "Import is not available for the current status."
-msgstr "現在のステータスではインポートを実行できません。"
-
-#: webapp/photo-view/templates/photo-view/home.html:129
-msgid "View Details"
-msgstr "詳細を見る"
-
-#: webapp/photo-view/templates/photo-view/home.html:130
-#: webapp/photo-view/templates/photo-view/session_detail.html:16
-msgid "Start Import"
-msgstr "インポート開始"
-
-msgid "Failed to start import."
-msgstr "インポートの開始に失敗しました。"
-
-msgid "Import started."
-msgstr "インポートを開始しました。"
-
-#: webapp/photo-view/templates/photo-view/media_detail.html:147
-msgid "Back"
-msgstr "戻る"
-
-#: webapp/photo-view/templates/photo-view/media_detail.html:150
-msgid "Download"
-msgstr "ダウンロード"
-
-#: webapp/photo-view/templates/photo-view/media_detail.html:185
-msgid "Basic Information"
-msgstr "基本情報"
-
-#: webapp/photo-view/templates/photo-view/media_detail.html:192
-msgid "Technical Details"
-msgstr "技術情報"
-
-#: webapp/photo-view/templates/photo-view/media_detail.html:199
-msgid "EXIF Data"
-msgstr "EXIFデータ"
-
-msgid "Recover metadata"
-msgstr "メタデータ再取り込み"
-
-msgid "No tags assigned"
-msgstr "タグが設定されていません"
-
-msgid "Search tags..."
-msgstr "タグで検索"
-
-msgid "Tags"
-msgstr "タグ"
-
-msgid "Person"
-msgstr "人物"
-
-msgid "Place"
-msgstr "場所"
-
-msgid "Thing"
-msgstr "モノ"
-
-msgid "Event"
-msgstr "出来事"
-
-msgid "Scene"
-msgstr "風景"
-
-msgid "Activity"
-msgstr "行動"
-
-msgid "Others"
-msgstr "その他"
-
-msgid "Create and add"
-msgstr "追加"
-
-msgid "(No filename)"
-msgstr "（不明）"
-
-msgid "Video"
-msgstr "動画"
-
-msgid "Photo"
-msgstr "写真"
-
-msgid "Videos"
-msgstr "動画"
-
-msgid "Photos"
-msgstr "写真"
-
-msgid "Local File"
-msgstr "取り込み"
-
-msgid "Google Photos"
-msgstr "Googleフォト"
-
-msgid "Unknown"
-msgstr "不明"
-
-msgid "Unknown"
-msgstr "不明"
-
-msgid "Back to albums"
-msgstr "アルバム一覧に戻る"
-
-msgid "Back to album"
-msgstr "アルバムに戻る"
-
-msgid "Album Detail"
-msgstr "アルバム"
-
-msgid "Start Slideshow"
-msgstr "スライドショー開始"
-
-msgid "View Media Library"
-msgstr "メディア一覧"
-
-msgid "Edit Album"
-msgstr "アルバム編集"
-
-msgid "Reorder media"
-msgstr "並び替え"
-
-msgid "Save order"
-msgstr "並び替え順保存"
-
-msgid "Untitled Album"
-msgstr "名称未定"
-
-msgid "Failed to load album information."
-msgstr "アルバム情報の読み込みに失敗しました。"
-
-msgid "This album has no media yet."
-msgstr "まだメディアが追加されていません。"
-
-msgid "Drag and drop media tiles to change their order."
-msgstr "ドラッグアンドドロップで並び順を変更できます。"
-
-msgid "Saving order..."
-msgstr "保存中"
-
-msgid "Media order updated."
-msgstr "並び順を保存しました。"
-
-msgid "Failed to save media order."
-msgstr "並び順の保存に失敗しました。"
-
-msgid "Shot at"
-msgstr "撮影日時"
-
-#: webapp/photo-view/templates/photo-view/media_list.html:151
-#: webapp/templates/base.html:38
-msgid "Media Gallery"
-msgstr "メディア一覧"
-
-#: webapp/photo-view/templates/photo-view/media_list.html:158
-msgid "All Media"
-msgstr "すべてのメディア"
-
-#: webapp/photo-view/templates/photo-view/media_list.html:159
-msgid "Photos Only"
-msgstr "写真のみ"
-
-#: webapp/photo-view/templates/photo-view/media_list.html:160
-msgid "Videos Only"
-msgstr "動画のみ"
-
-#: webapp/photo-view/templates/photo-view/media_list.html:165
-msgid "Size"
-msgstr "サイズ"
-
-#: webapp/photo-view/templates/photo-view/media_list.html:190
-msgid "Loading more media..."
-msgstr "メディアを読み込み中..."
-
-#: webapp/photo-view/templates/photo-view/media_list.html:194
-msgid "All media loaded"
-msgstr "すべてのメディアを読み込み済みです"
-
-#: webapp/photo-view/templates/photo-view/media_list.html:303
-msgid "Failed to load media. Please try again."
-msgstr "メディアの読み込みに失敗しました。再度お試しください。"
-
-#: features/photonest/presentation/photo_view/templates/photo-view/media_list.html:902
-msgid "Now Loading.."
-msgstr "Now Loading.."
-
-#: features/photonest/presentation/photo_view/templates/photo-view/media_list.html:903
-msgid "Failed to load thumbnail"
-msgstr "サムネイルの読み込みに失敗しました"
-
-#: webapp/photo-view/templates/photo-view/session_detail.html:10
-msgid "Session Details"
-msgstr "セッション詳細"
-
-#: webapp/photo-view/templates/photo-view/session_detail.html:11
-msgid "Back to Sessions"
-msgstr "セッション一覧に戻る"
-
-#: webapp/photo-view/templates/photo-view/session_detail.html:15
-msgid "Loading session info..."
-msgstr "セッション情報を読み込み中..."
-
-#: webapp/photo-view/templates/photo-view/home.html:93
-#: webapp/photo-view/templates/photo-view/session_detail.html:26
-msgid "Selected Files"
-msgstr "選択ファイル数"
-
-#: webapp/photo-view/templates/photo-view/session_detail.html:33
-msgid "Failed files will be retried up to three times."
-msgstr "失敗したファイルは最大3回まで再試行されます。"
-
-#: webapp/photo-view/templates/photo-view/session_detail.html:45
-msgid "Filter by keyword"
-msgstr "キーワードで絞り込み"
-
-#: webapp/photo-view/templates/photo-view/session_detail.html:46
-msgid "Search filename or ID"
-msgstr "ファイル名またはIDを検索"
-
-#: webapp/photo-view/templates/photo-view/session_detail.html:49
-msgid "Status filter"
-msgstr "ステータスで絞り込み"
-
-#: webapp/photo-view/templates/photo-view/session_detail.html:51
-msgid "All statuses"
-msgstr "すべてのステータス"
-
-#: webapp/photo-view/templates/photo-view/session_detail.html:63
-msgid "Reset filters"
-msgstr "絞り込みをリセット"
-
-#: webapp/photo-view/templates/photo-view/session_detail.html:32
-msgid "File"
-msgstr "ファイル"
-
-#: webapp/photo-view/templates/photo-view/session_detail.html:34
-msgid "Attempts"
-msgstr "試行回数"
-
-#: webapp/photo-view/templates/photo-view/session_detail.html:35
-#: webapp/templates/error.html:2 webapp/templates/error.html:4
-msgid "Error"
-msgstr "エラー"
-
-#: webapp/photo-view/templates/photo-view/session_detail.html:108
-msgid "Working..."
-msgstr "処理中..."
-
-#: webapp/templates/base.html:34 webapp/templates/index.html:34
-msgid "Photo View"
-msgstr "フォトビュー"
-
-#: webapp/templates/base.html:37
-msgid "Sessions"
-msgstr "セッション"
-
-#: webapp/templates/base.html:43
-msgid "Settings"
-msgstr "設定"
-
-#: webapp/templates/base.html:87
-msgid "Photo View Admin"
-msgstr "フォトビュー管理"
-
-#: webapp/templates/base.html:88
-msgid "Photo Exports"
-msgstr "フォトエクスポート"
-
-#: webapp/templates/base.html:94
-msgid "Logout"
-msgstr "ログアウト"
-
-#: webapp/templates/index.html:2
-msgid "Top"
-msgstr "トップ"
-
-#: webapp/templates/index.html:5
-msgid "Welcome!"
-msgstr "ようこそ！"
-
-#: webapp/templates/index.html:8
-msgid "You are logged in."
-msgstr "ログイン済みです。"
-
-#: webapp/templates/index.html:10
-msgid "Please login to continue."
-msgstr "続行するにはログインしてください。"
 
 #~ msgid "Create account"
 #~ msgstr "アカウント作成"
@@ -2095,1808 +57,3040 @@ msgstr "続行するにはログインしてください。"
 #~ msgid "Save and enter the 6-digit code below"
 #~ msgstr "保存して下記に6桁のコードを入力"
 
-msgid "Created"
-msgstr "作成"
+#~ msgid "Please log in to access this page."
+#~ msgstr "このページにアクセスするにはログインが必要です。"
 
-msgid "Updated"
-msgstr "更新"
+#~ msgid ""
+#~ "Passkey sign-in still requires your "
+#~ "email address so we can match your"
+#~ " account."
+#~ msgstr "パスキーでのサインインには、アカウント確認のためメールアドレスが必要です。"
 
-msgid "Unknown"
-msgstr "不明"
+#~ msgid "An unexpected error occurred. Please try again later."
+#~ msgstr "予期せぬエラーが発生しました。しばらくしてから再度お試しください。"
 
-msgid "Page Information"
-msgstr "ページ情報"
+#~ msgid "Login"
+#~ msgstr "ログイン"
 
-msgid "Created Date"
-msgstr "作成日"
+#~ msgid "Home"
+#~ msgstr "ホーム"
 
-msgid "Created By"
-msgstr "作成者"
+#~ msgid "AppName"
+#~ msgstr "nolumia"
 
-msgid "Slug"
-msgstr "スラッグ"
+#~ msgid "You do not have permission to access this page."
+#~ msgstr "このページにアクセスするにはログインが必要です。"
 
-msgid "Statistics"
-msgstr "統計"
+#~ msgid "TOTP secret reset for user."
+#~ msgstr ""
 
-msgid "Total Revisions"
-msgstr "総リビジョン数"
+#~ msgid "You cannot delete yourself."
+#~ msgstr ""
 
-msgid "Last Updated"
-msgstr "最終更新"
+#~ msgid "User deleted successfully."
+#~ msgstr ""
 
-msgid "Last Updated By"
-msgstr "最終更新者"
+#~ msgid "Selected role does not exist."
+#~ msgstr ""
 
-msgid "Current Title"
-msgstr "現在のタイトル"
+#~ msgid "User role updated."
+#~ msgstr ""
 
-msgid "Title"
-msgstr "タイトル"
+#~ msgid "Email, password, and role are required."
+#~ msgstr "メールアドレスとパスワードは必須です"
 
-msgid "Content Length"
-msgstr "内容長"
+#~ msgid "Email already exists."
+#~ msgstr "このメールアドレスは既に登録されています"
 
-msgid "characters"
-msgstr "文字"
+#~ msgid "User created successfully."
+#~ msgstr ""
 
-msgid "Show Content"
-msgstr "内容を表示"
+#~ msgid "Code is required."
+#~ msgstr ""
 
-msgid "Hide Content"
-msgstr "内容を隠す"
+#~ msgid "Permission already exists."
+#~ msgstr "このメールアドレスは既に登録されています"
 
-msgid "Page content at this point"
-msgstr "この時点でのページ内容"
+#~ msgid "Permission created successfully."
+#~ msgstr ""
 
-msgid "Change History"
-msgstr "変更履歴"
+#~ msgid "Permission updated."
+#~ msgstr ""
 
-msgid "No History"
-msgstr "履歴がありません"
+#~ msgid "Permission deleted."
+#~ msgstr ""
 
-msgid "This page has no change history yet."
-msgstr "このページの変更履歴はまだありません。"
+#~ msgid "Name is required."
+#~ msgstr "名前は必須です。"
 
-msgid "Back to Page"
-msgstr "ページに戻る"
+#~ msgid "Role already exists."
+#~ msgstr "このメールアドレスは既に登録されています。"
 
-msgid "Wiki Top"
-msgstr "Wiki トップ"
+#~ msgid "Current time"
+#~ msgstr "現在時刻"
 
-msgid "Categories"
-msgstr "カテゴリ"
+#~ msgid "Local time (Asia/Tokyo)"
+#~ msgstr "日本時刻"
 
-msgid "Page Hierarchy"
-msgstr "ページ階層"
+#~ msgid "Register a passkey for each device you use."
+#~ msgstr "利用する各デバイス向けにパスキーを登録してください。"
 
-msgid "No pages available"
-msgstr "ページがありません"
+#~ msgid "Manage how your account looks and feels."
+#~ msgstr "アカウントの見た目と操作感を管理します。"
 
-msgid "New Page"
-msgstr "新規ページ"
+#~ msgid "Role created successfully."
+#~ msgstr "ロールを作成しました。"
 
-msgid "Admin"
-msgstr "管理"
+#~ msgid "Role updated."
+#~ msgstr "ロールを更新しました。"
 
-msgid "Search pages..."
-msgstr "ページを検索..."
+#~ msgid "Role deleted."
+#~ msgstr "ロールを削除しました。"
 
-msgid "Recently Updated Pages"
-msgstr "最近更新されたページ"
+#~ msgid "Account overview"
+#~ msgstr "アカウント概要"
 
-msgid "No pages yet."
-msgstr "まだページがありません。"
+#~ msgid "Signed in as"
+#~ msgstr "サインイン中"
 
-msgid "Create New Page"
-msgstr "新規ページ作成"
+#~ msgid "Two-factor authentication"
+#~ msgstr "二要素認証"
 
-msgid "Back to Wiki Top"
-msgstr "Wiki トップに戻る"
+#~ msgid "Active permissions"
+#~ msgstr "有効な権限"
 
-msgid "No categories"
-msgstr "カテゴリなし"
+#~ msgid "These permissions reflect your currently active role or scoped session."
+#~ msgstr "これらの権限は、現在有効なロールまたはスコープ付きセッションに基づきます。"
 
-msgid "Navigation"
-msgstr "ナビゲーション"
+#~ msgid "Display preferences"
+#~ msgstr "表示設定"
 
-msgid "Search"
-msgstr "検索"
+#~ msgid "Language"
+#~ msgstr "言語"
 
-msgid "Edit"
-msgstr "編集"
+#~ msgid "Japanese"
+#~ msgstr "日本語"
 
-msgid "History"
-msgstr "履歴"
+#~ msgid "English"
+#~ msgstr "英語"
 
-msgid "Sub Pages"
-msgstr "サブページ"
+#~ msgid "Location / Timezone"
+#~ msgstr "場所/時間"
 
-msgid "Parent Page"
-msgstr "親ページ"
+#~ msgid "Asia/Tokyo (Japan)"
+#~ msgstr "アジア/東京（日本）"
 
-msgid "You do not have permission to delete media."
-msgstr "メディアを削除する権限がありません。"
+#~ msgid "Asia/Shanghai (China)"
+#~ msgstr "アジア/上海（中国）"
 
-msgid "Are you sure you want to delete this media? This action cannot be undone."
-msgstr "このメディアを削除してよろしいですか？この操作は元に戻せません。"
+#~ msgid "Asia/Singapore (Singapore)"
+#~ msgstr "アジア/シンガポール（シンガポール）"
 
-msgid "Media was deleted successfully."
-msgstr "メディアを削除しました。"
+#~ msgid "Australia/Sydney (Australia)"
+#~ msgstr "オーストラリア/シドニー（オーストラリア）"
 
-msgid "Failed to delete media."
-msgstr "メディアの削除に失敗しました。"
+#~ msgid "Europe/London (UK)"
+#~ msgstr "ヨーロッパ/ロンドン（イギリス）"
 
-msgid "Media was not found or is already deleted."
-msgstr "メディアが見つからないか、すでに削除されています。"
+#~ msgid "America/New York (USA, Eastern Time)"
+#~ msgstr "アメリカ/ニューヨーク（アメリカ東部時間：ET）"
 
-msgid "Deleting..."
-msgstr "削除しています..."
+#~ msgid "America/Chicago (USA, Central Time)"
+#~ msgstr "アメリカ/シカゴ（アメリカ中部時間：CT）"
 
-msgid "File Name"
-msgstr "ファイル名"
+#~ msgid "America/Los Angeles (USA, Pacific Time)"
+#~ msgstr "アメリカ/ロサンゼルス（アメリカ太平洋時間：PT）"
 
-msgid "Type"
-msgstr "タイプ"
+#~ msgid "User Management"
+#~ msgstr "ユーザー管理"
 
-msgid "Shot At"
-msgstr "撮影日時"
+#~ msgid "Save preferences"
+#~ msgstr "設定を保存"
 
-msgid "Source"
-msgstr "取り込み元"
+#~ msgid "Edit profile details"
+#~ msgstr "プロフィール詳細を編集"
 
-msgid "Imported:"
-msgstr "取り込み日時"
+#~ msgid "Enable two-factor authentication"
+#~ msgstr "二要素認証を有効にする"
 
-msgid "Dimensions:"
-msgstr "解像度"
+#~ msgid "Update your sign-in details or password here."
+#~ msgstr "サインイン情報やパスワードをここで更新できます。"
 
-msgid "File Size:"
-msgstr "ファイルサイズ"
+#~ msgid "Management"
+#~ msgstr "管理メニュー"
 
-msgid "MIME Type:"
-msgstr "MIMEタイプ"
+#~ msgid "Google Accounts"
+#~ msgstr "Googleアカウント"
 
-msgid "Media ID::"
-msgstr "メディアID:"
+#~ msgid "Certificate Management"
+#~ msgstr "証明書管理"
 
-msgid "Edit shooting date"
-msgstr "撮影日時を編集"
+#~ msgid ""
+#~ "To save changes, select at least "
+#~ "one setting and check its \"Update\" "
+#~ "box."
+#~ msgstr "変更を保存するには、「Update」にチェックを入れて更新する設定を選択してください。"
 
-msgid "Times are saved in UTC. Your local time will be converted automatically."
-msgstr "時刻はUTCで保存されます。ローカル時刻は自動的に変換されます。"
+#~ msgid "Certificates"
+#~ msgstr "証明書"
 
-msgid "Shooting date updated."
-msgstr "撮影日時を更新しました。"
+#~ msgid "Config Settings"
+#~ msgstr "設定変更"
 
-msgid "Failed to update shooting date."
-msgstr "撮影日時の更新に失敗しました。"
+#~ msgid "Roles"
+#~ msgstr "ロール"
 
-msgid "Enter a valid date and time before saving."
-msgstr "保存する前に有効な日時を入力してください。"
+#~ msgid "Permissions"
+#~ msgstr "権限"
 
-msgid "You do not have permission to update the shooting date."
-msgstr "撮影日時を更新する権限がありません。"
+#~ msgid "Toggle section visibility"
+#~ msgstr "セクションの表示を切り替え"
 
-msgid "The server rejected the provided shooting date."
-msgstr "指定した撮影日時はサーバーで受理されませんでした。"
+#~ msgid "Add User"
+#~ msgstr "ユーザー追加"
 
-msgid "Unknown date"
-msgstr "日時不明"
+#~ msgid "Search users..."
+#~ msgstr "ユーザー検索"
 
-msgid "Failed to update media metadata."
-msgstr "メディアのメタデータを更新できませんでした。"
+#~ msgid "Refresh"
+#~ msgstr "再読み込み"
 
-msgid "Define role basics and choose the permissions it should include."
-msgstr "ロールの基本情報を設定し、付与する権限を選択してください。"
+#~ msgid "Loading..."
+#~ msgstr "読み込み中..."
 
-msgid "Enter role name"
-msgstr "ロール名を入力"
+#~ msgid "Email"
+#~ msgstr "メール"
 
-msgid "Selected permissions"
-msgstr "選択中の権限"
+#~ msgid "Status"
+#~ msgstr "ステータス"
 
-msgid "This role currently grants the following number of permissions."
-msgstr "このロールに現在付与されている権限数です。"
+#~ msgid "Created At"
+#~ msgstr "作成日時"
 
-msgid "Tip: Use the search box to quickly filter permissions by name or category."
-msgstr "ヒント: 検索ボックスで名前やカテゴリから権限を絞り込めます。"
+#~ msgid "Actions"
+#~ msgstr "操作"
 
-msgid "Select the capabilities that should be included in this role."
-msgstr "このロールに含める機能を選択してください。"
+#~ msgid "Loading more users..."
+#~ msgstr "ユーザーを検索しています"
 
-msgid "Search permissions..."
-msgstr "権限を検索..."
+#~ msgid "All users loaded"
+#~ msgstr "ユーザー検索が完了しました"
 
-msgid "Search permissions"
-msgstr "権限を検索"
+#~ msgid "Active"
+#~ msgstr "有効"
 
-msgid "No permissions match your search."
-msgstr "該当する権限がありません。"
+#~ msgid "Inactive"
+#~ msgstr "無効"
 
-#: webapp/api/routes.py:239
-msgid "You do not have permission to stop a local import."
-msgstr "ローカルインポートを停止する権限がありません。"
+#~ msgid "users loaded"
+#~ msgstr ""
 
-#: webapp/api/routes.py:247
-msgid "Local import session not found."
-msgstr "ローカルインポートセッションが見つかりません。"
+#~ msgid "deactivate"
+#~ msgstr "無効化"
 
-#: webapp/api/routes.py:255
-msgid "Local import session is already canceled."
-msgstr "ローカルインポートセッションはすでに停止済みです。"
+#~ msgid "activate"
+#~ msgstr "有効化"
 
-#: webapp/api/routes.py:262
-msgid "Local import session is not currently running."
-msgstr "ローカルインポートセッションは実行中ではありません。"
+#~ msgid "Are you sure you want to"
+#~ msgstr ""
 
-#: webapp/api/routes.py:301
-msgid "Local import session was canceled."
-msgstr "ローカルインポートセッションを停止しました。"
+#~ msgid "this user?"
+#~ msgstr ""
 
-msgid "Download full logs (ZIP)"
-msgstr "ログ全量をZIPでダウンロード"
+#~ msgid "Deactivate User"
+#~ msgstr ""
 
-msgid "Preparing download..."
-msgstr "ダウンロード準備中..."
+#~ msgid "Activate User"
+#~ msgstr ""
 
-msgid "Failed to download logs."
-msgstr "ログのダウンロードに失敗しました。"
+#~ msgid "Edit Roles"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:76
-#: features/totp/presentation/templates/totp/index.html:310
-msgid "Show registration form"
-msgstr "登録フォームを表示"
+#~ msgid "Reset TOTP"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:309
-msgid "Hide registration form"
-msgstr "登録フォームを閉じる"
+#~ msgid "Delete User"
+#~ msgstr ""
 
-#: webapp/templates/base.html:139
-msgid "Session expired. Please log in again."
-msgstr "セッションの有効期限が切れました。再度ログインしてください。"
+#~ msgid "Failed to load users."
+#~ msgstr ""
 
-#: webapp/templates/base.html:141
-msgid "Loading more items..."
-msgstr "さらに項目を読み込み中..."
+#~ msgid "Reset TOTP for this user?"
+#~ msgstr ""
 
-#: webapp/templates/base.html:142
-msgid "No more items to display."
-msgstr "表示できる項目はこれ以上ありません。"
+#~ msgid "TOTP reset successfully"
+#~ msgstr ""
 
-#: webapp/templates/base.html:143
-msgid "Load error: %(message)s"
-msgstr "読み込みエラー: %(message)s"
+#~ msgid "Failed to reset TOTP"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:323
-msgid "No TOTP registrations yet."
-msgstr "TOTP の登録はまだありません。"
+#~ msgid "Are you sure you want to delete this user?"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:324
-msgid "Click to copy"
-msgstr "クリックしてコピー"
+#~ msgid "User deleted successfully"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:325
-msgid "Copy one-time code"
-msgstr "ワンタイムコードをコピー"
+#~ msgid "Failed to delete user"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:328
-msgid "Copied the one-time code."
-msgstr "ワンタイムコードをコピーしました。"
+#~ msgid "Failed to update user status"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:329
-msgid "Failed to copy the one-time code."
-msgstr "ワンタイムコードをコピーできませんでした。"
+#~ msgid "Google Accounts Management"
+#~ msgstr "Googleアカウント管理"
 
-#: features/totp/presentation/templates/totp/index.html:330
-msgid "Remaining %(seconds)s seconds"
-msgstr "残り %(seconds)s 秒"
+#~ msgid "User"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:331
-msgid "Previewing"
-msgstr "プレビュー中"
+#~ msgid "Scopes"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:332
-msgid "-- seconds remaining"
-msgstr "残り -- 秒"
+#~ msgid "Last Synced"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:333
-msgid "Waiting for preview"
-msgstr "プレビュー待ち"
+#~ msgid "Token"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:334
-msgid "Preview unavailable"
-msgstr "プレビューを利用できません"
+#~ msgid "Refresh Token Expiry"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:335
-msgid "Failed to load the TOTP list."
-msgstr "TOTP 一覧の読み込みに失敗しました。"
+#~ msgid "No User"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:336
-msgid "The otpauth URI is not valid."
-msgstr "otpauth URI が無効です。"
+#~ msgid "active"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:337
-msgid "The otpauth URI is not for TOTP."
-msgstr "この otpauth URI は TOTP 用ではありません。"
+#~ msgid "Disable"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:338
-msgid "The otpauth URI is missing required information."
-msgstr "otpauth URI に必要な情報が不足しています。"
+#~ msgid "Delete"
+#~ msgstr "削除"
 
-#: features/totp/presentation/templates/totp/index.html:339
-msgid "Registered the TOTP entry."
-msgstr "TOTP を登録しました。"
+#~ msgid "Test"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:340
-msgid "Failed to register the TOTP entry."
-msgstr "TOTP の登録に失敗しました。"
+#~ msgid "Disable this Google account?"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:341
-msgid "Extracted information from the URI."
-msgstr "URI から情報を取得しました。"
+#~ msgid "Google account disabled successfully"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:342
-msgid "Failed to parse the otpauth URI."
-msgstr "otpauth URI を解析できませんでした。"
+#~ msgid "Failed to disable Google account"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:343
-msgid "Updated the TOTP entry."
-msgstr "TOTP を更新しました。"
+#~ msgid "Delete this Google account?"
+#~ msgstr "アカウント名を入力："
 
-#: features/totp/presentation/templates/totp/index.html:344
-msgid "Failed to update the TOTP entry."
-msgstr "TOTP の更新に失敗しました。"
+#~ msgid "Google account deleted successfully"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:345
-msgid "Imported TOTP entries."
-msgstr "TOTP をインポートしました。"
+#~ msgid "Failed to delete Google account"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:346
-msgid "Failed to import TOTP entries."
-msgstr "TOTP のインポートに失敗しました。"
+#~ msgid "Edit Permission"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:347
-msgid "Duplicate entries detected"
-msgstr "重複しているエントリが見つかりました"
+#~ msgid "Add Permission"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:348
-msgid "Select \"Overwrite even if duplicates exist\" and try again."
-msgstr "「重複していても上書きする」を選択して再試行してください。"
+#~ msgid "Code"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:349
-msgid "Provide JSON text or choose a file."
-msgstr "JSON テキストを入力するかファイルを選択してください。"
+#~ msgid "Save"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:350
-msgid "Failed to read the file."
-msgstr "ファイルを読み込めませんでした。"
+#~ msgid "Cancel"
+#~ msgstr "キャンセル"
 
-#: features/totp/presentation/templates/totp/index.html:351
-msgid "Downloaded the JSON file."
-msgstr "JSON ファイルをダウンロードしました。"
+#~ msgid "Permission Management"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:352
-msgid "Failed to export TOTP entries."
-msgstr "TOTP のエクスポートに失敗しました。"
+#~ msgid "Search by code"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:353
-msgid "Delete %(issuer)s / %(account)s?"
-msgstr "%(issuer)s / %(account)s を削除しますか？"
+#~ msgid "Search"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:354
-msgid "Deleted the TOTP entry."
-msgstr "TOTP を削除しました。"
+#~ msgid "Edit"
+#~ msgstr "編集"
 
-#: features/totp/presentation/templates/totp/index.html:355
-msgid "Failed to delete the TOTP entry."
-msgstr "TOTP の削除に失敗しました。"
+#~ msgid "Are you sure you want to delete this permission?"
+#~ msgstr "この権限を削除してもよろしいですか？"
 
-#: features/totp/presentation/templates/totp/index.html:356
-msgid "Failed to decode the QR code."
-msgstr "QR コードのデコードに失敗しました。"
+#~ msgid "Edit Role"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:357
-msgid "This browser does not support reading images from the clipboard."
-msgstr "このブラウザはクリップボードからの画像読み取りに対応していません。"
+#~ msgid "Add Role"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:358
-msgid "No image found in the clipboard."
-msgstr "クリップボードに画像が見つかりません。"
+#~ msgid "Name"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:359
-msgid "Failed to load the image."
-msgstr "画像を読み込めませんでした。"
+#~ msgid "Role Management"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:360
-msgid "Could not detect a QR code."
-msgstr "QR コードを検出できませんでした。"
+#~ msgid "Are you sure you want to delete this role?"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html:361
-msgid "Read information from the QR code."
-msgstr "QR コードから情報を読み取りました。"
+#~ msgid "Password"
+#~ msgstr "パスワード"
 
-#: features/wiki/presentation/wiki/templates/wiki/admin.html:3
-#: features/wiki/presentation/wiki/templates/wiki/admin.html:14
-msgid "Wiki Administration"
-msgstr "Wiki管理"
+#~ msgid "Role"
+#~ msgstr ""
 
-#: features/wiki/presentation/wiki/templates/wiki/admin.html:16
-#: features/wiki/presentation/wiki/templates/wiki/category.html:24
-#: features/wiki/presentation/wiki/templates/wiki/search.html:16
-msgid "Back to Wiki Home"
-msgstr "Wikiホームに戻る"
+#~ msgid "Create"
+#~ msgstr "アカウント作成"
 
-#: features/wiki/presentation/wiki/templates/wiki/admin.html:27
-msgid "Total Pages"
-msgstr "ページ総数"
+#~ msgid "Edit User Roles"
+#~ msgstr ""
 
-#: features/wiki/presentation/wiki/templates/wiki/admin.html:36
-msgid "Total Categories"
-msgstr "カテゴリ総数"
+#~ msgid "Current User"
+#~ msgstr ""
 
-#: features/wiki/presentation/wiki/templates/wiki/admin.html:45
-msgid "Recent Pages"
-msgstr "最近のページ"
+#~ msgid "Current Roles"
+#~ msgstr ""
 
-#: features/wiki/presentation/wiki/templates/wiki/admin.html:56
-msgid "Create New"
-msgstr "新規作成"
+#~ msgid "No roles assigned"
+#~ msgstr ""
 
-#: features/wiki/presentation/wiki/templates/wiki/admin.html:64
-#: features/wiki/presentation/wiki/templates/wiki/create_category.html:3
-#: features/wiki/presentation/wiki/templates/wiki/create_category.html:14
-msgid "Create New Category"
-msgstr "新規カテゴリ作成"
+#~ msgid "Select New Role"
+#~ msgstr ""
 
-#: features/wiki/presentation/wiki/templates/wiki/admin.html:73
-msgid "Administration Tools"
-msgstr "管理ツール"
+#~ msgid "Choose a role..."
+#~ msgstr ""
 
-#: features/wiki/presentation/wiki/templates/wiki/admin.html:78
-msgid "Manage Categories"
-msgstr "カテゴリを管理"
+#~ msgid "Update Role"
+#~ msgstr ""
 
-#: features/wiki/presentation/wiki/templates/wiki/admin.html:81
-msgid "Search Pages"
-msgstr "ページを検索"
+#~ msgid "Available Roles and Permissions"
+#~ msgstr "利用可能なロールと権限"
 
-#: features/wiki/presentation/wiki/templates/wiki/admin.html:135
-msgid "View All Pages"
-msgstr "すべてのページを表示"
+#~ msgid "Active role cleared. All assigned roles are now in effect."
+#~ msgstr "アクティブロールを解除しました。割り当てられているすべてのロールが有効になります。"
 
-#: features/wiki/presentation/wiki/templates/wiki/categories.html:3
-#: features/wiki/presentation/wiki/templates/wiki/categories.html:14
-msgid "Category List"
-msgstr "カテゴリ一覧"
+#~ msgid "Active role switched to %(role)s."
+#~ msgstr "アクティブロールを%(role)sに切り替えました。"
 
-#: features/wiki/presentation/wiki/templates/wiki/categories.html:17
-msgid "New Category"
-msgstr "新規カテゴリ"
+#~ msgid "Invalid role selection."
+#~ msgstr "無効なロールが選択されました。"
 
-#: features/wiki/presentation/wiki/templates/wiki/categories.html:20
-msgid "Wiki Home"
-msgstr "Wikiホーム"
+#~ msgid "At least one role must be selected."
+#~ msgstr "少なくとも1つのロールを選択してください。"
 
-#: features/wiki/presentation/wiki/templates/wiki/categories.html:38
-#: features/wiki/presentation/wiki/templates/wiki/category.html:17
-#, python-format
-msgid "%(count)s pages"
-msgstr "%(count)s ページ"
+#~ msgid "User roles updated."
+#~ msgstr "ユーザーのロールを更新しました。"
 
-#: features/wiki/presentation/wiki/templates/wiki/categories.html:48
-msgid "No description"
-msgstr "説明はありません"
+#~ msgid "Role settings"
+#~ msgstr "ロール設定"
 
-#: features/wiki/presentation/wiki/templates/wiki/categories.html:53
-#: features/wiki/presentation/wiki/templates/wiki/category.html:121
-#, python-format
-msgid "Slug: %(slug)s"
-msgstr "スラッグ: %(slug)s"
+#~ msgid "Active role"
+#~ msgstr "アクティブロール"
 
-#: features/wiki/presentation/wiki/templates/wiki/categories.html:54
-#: features/wiki/presentation/wiki/templates/wiki/category.html:122
-#, python-format
-msgid "Created: %(date)s"
-msgstr "作成日時: %(date)s"
+#~ msgid "Use all assigned roles"
+#~ msgstr "割り当てられているすべてのロールを使用"
 
-#: features/wiki/presentation/wiki/templates/wiki/categories.html:61
-msgid "View"
-msgstr "表示"
+#~ msgid "Selecting a specific role limits your permissions to that role."
+#~ msgstr "特定のロールを選択すると、そのロールの権限だけが有効になります。"
 
-#: features/wiki/presentation/wiki/templates/wiki/categories.html:65
-#: features/wiki/presentation/wiki/templates/wiki/category.html:92
-#: features/wiki/presentation/wiki/templates/wiki/create.html:120
-msgid "Create Page"
-msgstr "ページを作成"
+#~ msgid "Switch role"
+#~ msgstr "ロールを切り替える"
 
-#: features/wiki/presentation/wiki/templates/wiki/categories.html:77
-msgid "There are no categories yet"
-msgstr "カテゴリはまだありません"
+#~ msgid "Select roles to assign"
+#~ msgstr "割り当てるロールを選択"
 
-#: features/wiki/presentation/wiki/templates/wiki/categories.html:79
-msgid "Create the first category to organize your pages."
-msgstr "ページを整理するために最初のカテゴリを作成してください。"
+#~ msgid "Hold Ctrl (Windows) or Command (macOS) to select multiple roles."
+#~ msgstr "複数選択するには Ctrl (Windows) または Command (macOS) キーを押しながら選択してください。"
 
-#: features/wiki/presentation/wiki/templates/wiki/categories.html:82
-#: features/wiki/presentation/wiki/templates/wiki/create_category.html:55
-msgid "Create Category"
-msgstr "カテゴリを作成"
+#~ msgid "Update roles"
+#~ msgstr "ロールを更新"
 
-#: features/wiki/presentation/wiki/templates/wiki/category.html:32
-msgid "Pages in this Category"
-msgstr "このカテゴリ内のページ"
+#~ msgid "No permissions"
+#~ msgstr ""
 
-#: features/wiki/presentation/wiki/templates/wiki/category.html:47
-#, python-format
-msgid "%(title)s child page"
-msgstr "%(title)s の子ページ"
+#~ msgid "You cannot deactivate yourself."
+#~ msgstr ""
 
-#: features/wiki/presentation/wiki/templates/wiki/category.html:57
-#, python-format
-msgid "Updated: %(datetime)s"
-msgstr "更新日時: %(datetime)s"
+#~ msgid "User status updated successfully."
+#~ msgstr ""
 
-#: features/wiki/presentation/wiki/templates/wiki/category.html:87
-msgid "There are no pages in this category yet"
-msgstr "このカテゴリにはまだページがありません"
+#~ msgid "Registration successful"
+#~ msgstr "登録が完了しました。ログインしてください。"
 
-#: features/wiki/presentation/wiki/templates/wiki/category.html:89
-msgid "Create the first page to get started."
-msgstr "最初のページを作成して開始しましょう。"
+#~ msgid "Email and password are required"
+#~ msgstr "メールアドレスとパスワードは必須です"
 
-#: features/wiki/presentation/wiki/templates/wiki/category.html:104
-msgid "Within this Category"
-msgstr "このカテゴリ内"
+#~ msgid "Please provide a public key."
+#~ msgstr "公開鍵を入力してください。"
 
-#: features/wiki/presentation/wiki/templates/wiki/category.html:117
-msgid "Category Information"
-msgstr "カテゴリ情報"
+#~ msgid "The public key is not a valid PEM-formatted value."
+#~ msgstr "公開鍵のPEM形式が正しくありません。"
 
-#: features/wiki/presentation/wiki/templates/wiki/category.html:123
-#, python-format
-msgid "Number of Pages: %(count)s"
-msgstr "ページ数: %(count)s"
+#~ msgid "The provided public key type is not supported."
+#~ msgstr "サポートされていない公開鍵の種類です。"
 
-#: features/wiki/presentation/wiki/templates/wiki/create.html:33
-#: features/wiki/presentation/wiki/templates/wiki/create_category.html:36
-msgid "Generated automatically (customizable)"
-msgstr "自動生成（変更可能）"
+#~ msgid "You are not allowed to assign the specified scopes."
+#~ msgstr "指定されたスコープを付与する権限がありません。"
 
-#: features/wiki/presentation/wiki/templates/wiki/create.html:35
-#: features/wiki/presentation/wiki/templates/wiki/create_category.html:38
-msgid ""
-"This identifier is used in the URL. Letters, numbers, hyphens, and "
-"underscores are allowed."
-msgstr "この識別子はURLで使用されます。英数字、ハイフン、アンダースコアが利用できます。"
+#~ msgid "Please provide a service account name."
+#~ msgstr "アカウント名を入力してください。"
 
-#: features/wiki/presentation/wiki/templates/wiki/create.html:41
-#: features/wiki/presentation/wiki/templates/wiki/edit.html:31
-msgid "Content"
-msgstr "内容"
+#~ msgid "A service account with the same name already exists."
+#~ msgstr "同じアカウント名が既に存在します。"
 
-#: features/wiki/presentation/wiki/templates/wiki/create.html:49
-#: features/wiki/presentation/wiki/templates/wiki/edit.html:39
-msgid "Preview"
-msgstr "プレビュー"
+#~ msgid "The service account identifier is missing from the token."
+#~ msgstr "トークンにサービスアカウント識別子が含まれていません。"
 
-#: features/wiki/presentation/wiki/templates/wiki/create.html:64
-#: features/wiki/presentation/wiki/templates/wiki/create.html:212
-#: features/wiki/presentation/wiki/templates/wiki/edit.html:54
-#: features/wiki/presentation/wiki/templates/wiki/edit.html:167
-msgid "Loading preview..."
-msgstr "プレビューを読み込み中..."
+#~ msgid "The service account is not registered."
+#~ msgstr "サービスアカウントが登録されていません。"
 
-#: features/wiki/presentation/wiki/templates/wiki/create.html:71
-#: features/wiki/presentation/wiki/templates/wiki/edit.html:61
-msgid ""
-"Markdown is supported. URLs starting with http: or https: are "
-"automatically linked."
-msgstr "Markdownが利用できます。http: または https: で始まるURLは自動的にリンクされます。"
+#~ msgid "The service account is disabled."
+#~ msgstr "サービスアカウントが無効化されています。"
 
-#: features/wiki/presentation/wiki/templates/wiki/create.html:72
-#: features/wiki/presentation/wiki/templates/wiki/edit.html:62
-msgid "Diagram Support:"
-msgstr "図表サポート:"
+#~ msgid "The token is not provided."
+#~ msgstr "トークンが指定されていません。"
 
-#: features/wiki/presentation/wiki/templates/wiki/create.html:72
-#: features/wiki/presentation/wiki/templates/wiki/edit.html:62
-msgid "Use <code>```mermaid</code> to create Mermaid diagrams."
-msgstr "Mermaidの図を作成するには <code>```mermaid</code> を使用してください。"
+#~ msgid "The JWT header is invalid."
+#~ msgstr "JWTヘッダが不正です。"
 
-#: features/wiki/presentation/wiki/templates/wiki/create.html:86
-msgid "None (top level)"
-msgstr "なし（トップレベル）"
+#~ msgid "The signature algorithm is not supported."
+#~ msgstr "サポートされていない署名方式です。"
 
-#: features/wiki/presentation/wiki/templates/wiki/create.html:95
-msgid "Select a parent page to nest this page beneath it."
-msgstr "親ページを選択すると、このページをその配下に配置できます。"
+#~ msgid "Failed to parse the JWT."
+#~ msgstr "JWTの解析に失敗しました。"
 
-#: features/wiki/presentation/wiki/templates/wiki/create.html:114
-#: features/wiki/presentation/wiki/templates/wiki/edit.html:95
-msgid "No categories available."
-msgstr "利用可能なカテゴリがありません。"
+#~ msgid "The token has expired."
+#~ msgstr "トークンの有効期限が切れています。"
 
-#: features/wiki/presentation/wiki/templates/wiki/create.html:132
-msgid "Help"
-msgstr "ヘルプ"
+#~ msgid "The audience does not match."
+#~ msgstr "audienceが一致しません。"
 
-#: features/wiki/presentation/wiki/templates/wiki/create.html:136
-msgid "Markdown Examples:"
-msgstr "Markdownの例:"
+#~ msgid "Failed to verify the signature."
+#~ msgstr "署名の検証に失敗しました。"
 
-#: features/wiki/presentation/wiki/templates/wiki/create.html:137
-msgid "Heading 1"
-msgstr "見出し1"
+#~ msgid "The JWT is invalid."
+#~ msgstr "JWTが不正です。"
 
-#: features/wiki/presentation/wiki/templates/wiki/create.html:138
-msgid "Heading 2"
-msgstr "見出し2"
+#~ msgid "The token lifetime is invalid."
+#~ msgstr "トークンの有効期限が不正です。"
 
-#: features/wiki/presentation/wiki/templates/wiki/create.html:139
-msgid "Bold"
-msgstr "太字"
-
-#: features/wiki/presentation/wiki/templates/wiki/create.html:140
-msgid "Italic"
-msgstr "斜体"
-
-#: features/wiki/presentation/wiki/templates/wiki/create.html:141
-msgid "Link"
-msgstr "リンク"
-
-#: features/wiki/presentation/wiki/templates/wiki/create.html:142
-msgid "List item"
-msgstr "リスト項目"
-
-#: features/wiki/presentation/wiki/templates/wiki/create.html:208
-#: features/wiki/presentation/wiki/templates/wiki/edit.html:163
-msgid "There is no content to preview"
-msgstr "プレビューする内容がありません"
-
-#: features/wiki/presentation/wiki/templates/wiki/create.html:228
-#: features/wiki/presentation/wiki/templates/wiki/edit.html:185
-msgid "Preview error:"
-msgstr "プレビューエラー:"
-
-#: features/wiki/presentation/wiki/templates/wiki/create.html:229
-#: features/wiki/presentation/wiki/templates/wiki/edit.html:186
-msgid "Failed to load preview"
-msgstr "プレビューの読み込みに失敗しました"
-
-#: features/wiki/presentation/wiki/templates/wiki/create_category.html:16
-msgid "Back to Categories"
-msgstr "カテゴリ一覧に戻る"
-
-#: features/wiki/presentation/wiki/templates/wiki/create_category.html:24
-msgid "Category Name"
-msgstr "カテゴリ名"
-
-#: features/wiki/presentation/wiki/templates/wiki/create_category.html:28
-msgid "Choose a descriptive category name."
-msgstr "カテゴリの内容が分かる名前を入力してください。"
-
-#: features/wiki/presentation/wiki/templates/wiki/create_category.html:43
-msgid "Description"
-msgstr "説明"
-
-#: features/wiki/presentation/wiki/templates/wiki/create_category.html:46
-msgid "Describe the purpose or contents of this category (optional)."
-msgstr "このカテゴリの目的や内容を記載してください（任意）。"
-
-#: features/wiki/presentation/wiki/templates/wiki/create_category.html:65
-msgid "About Categories"
-msgstr "カテゴリについて"
-
-#: features/wiki/presentation/wiki/templates/wiki/create_category.html:70
-msgid "Categories help organize Wiki pages."
-msgstr "カテゴリはWikiページを整理するのに役立ちます。"
-
-#: features/wiki/presentation/wiki/templates/wiki/create_category.html:71
-msgid "A single page can belong to multiple categories."
-msgstr "1つのページは複数のカテゴリに属することができます。"
-
-#: features/wiki/presentation/wiki/templates/wiki/create_category.html:72
-msgid "Because the slug is used in URLs, choose clear alphanumeric characters."
-msgstr "スラッグはURLに使用されるため、わかりやすい英数字を選んでください。"
+#~ msgid "The token lifetime exceeds the maximum allowed."
+#~ msgstr "トークンの有効期限が長すぎます。"
 
-#: features/wiki/presentation/wiki/templates/wiki/create_category.html:73
-msgid "You can edit categories after they are created."
-msgstr "カテゴリは作成後に編集できます。"
+#~ msgid "The token issue time is in the future."
+#~ msgstr "トークンの発行時刻が未来です。"
 
-#: features/wiki/presentation/wiki/templates/wiki/edit.html:3
-#: features/wiki/presentation/wiki/templates/wiki/edit.html:14
-#, python-format
-msgid "Edit Page: %(title)s"
-msgstr "ページを編集: %(title)s"
+#~ msgid "The required scope is not granted."
+#~ msgstr "必要なスコープが付与されていません。"
 
-#: features/wiki/presentation/wiki/templates/wiki/edit.html:67
-msgid "Change Summary"
-msgstr "変更概要"
+#~ msgid "Email already exists"
+#~ msgstr "このメールアドレスは既に登録されています"
 
-#: features/wiki/presentation/wiki/templates/wiki/edit.html:69
-msgid "Briefly describe the changes you made."
-msgstr "行った変更内容を簡潔に記載してください。"
+#~ msgid "Default role 'guest' does not exist"
+#~ msgstr ""
 
-#: features/wiki/presentation/wiki/templates/wiki/edit.html:70
-msgid "This description appears in history (optional)."
-msgstr "この説明は履歴に表示されます（任意）。"
+#~ msgid "Invalid email or password"
+#~ msgstr "メールアドレスまたはパスワードが正しくありません"
 
-#: features/wiki/presentation/wiki/templates/wiki/edit.html:217
-#: features/wiki/presentation/wiki/templates/wiki/page.html:267
-msgid "Show source code"
-msgstr "ソースコードを表示"
+#~ msgid "Invalid authentication code"
+#~ msgstr "認証コード"
 
-#: features/wiki/presentation/wiki/templates/wiki/edit.html:221
-#: features/wiki/presentation/wiki/templates/wiki/page.html:271
-msgid "Hide source code"
-msgstr "ソースコードを非表示"
+#~ msgid "Registration failed: {}"
+#~ msgstr "登録に失敗しました: {}"
 
-#: features/wiki/presentation/wiki/templates/wiki/history.html:3
-#: features/wiki/presentation/wiki/templates/wiki/history.html:14
-#, python-format
-msgid "History for %(title)s"
-msgstr "%(title)s の履歴"
+#~ msgid "Session expired. Please register again."
+#~ msgstr "登録セッションが無効です。再度登録してください。"
 
-#: features/wiki/presentation/wiki/templates/wiki/history.html:18
-msgid "View Page"
-msgstr "ページを表示"
+#~ msgid "Registration session invalid. Please register again."
+#~ msgstr "登録セッションが無効です。再度登録してください。"
 
-#: features/wiki/presentation/wiki/templates/wiki/search.html:3
-msgid "Search Results"
-msgstr "検索結果"
+#~ msgid "Registration cancelled. You can start over."
+#~ msgstr "登録がキャンセルされました。最初からやり直せます。"
 
-#: features/wiki/presentation/wiki/templates/wiki/search.html:14
-msgid "Wiki Search"
-msgstr "Wiki検索"
+#~ msgid "Email is required"
+#~ msgstr "メールアドレスとパスワードは必須です"
 
-#: features/wiki/presentation/wiki/templates/wiki/search.html:26
-msgid "Search by page title..."
-msgstr "ページタイトルで検索..."
+#~ msgid "Profile updated"
+#~ msgstr ""
 
-#: features/wiki/presentation/wiki/templates/wiki/search.html:40
-#, python-format
-msgid "Search Results: \"%(query)s\""
-msgstr "検索結果: \"%(query)s\""
+#~ msgid "Two-factor authentication already configured"
+#~ msgstr "二要素認証の設定がキャンセルされました。"
 
-#: features/wiki/presentation/wiki/templates/wiki/search.html:41
-#, python-format
-msgid "%(count)s results"
-msgstr "%(count)s 件"
+#~ msgid "Two-factor authentication enabled"
+#~ msgstr "二要素認証の設定がキャンセルされました。"
 
-#: features/wiki/presentation/wiki/templates/wiki/search.html:80
-msgid "No search results found"
-msgstr "検索結果は見つかりませんでした"
+#~ msgid "Two-factor authentication setup cancelled."
+#~ msgstr "二要素認証の設定がキャンセルされました。"
 
-#: features/wiki/presentation/wiki/templates/wiki/search.html:82
-#, python-format
-msgid "No pages matched \"%(query)s\"."
-msgstr "\"%(query)s\" に一致するページはありません。"
+#~ msgid "Two-factor authentication is not available for service accounts."
+#~ msgstr "サービスアカウントでは二要素認証を利用できません。"
 
-#: features/wiki/presentation/wiki/templates/wiki/search.html:83
-msgid "Try searching with different keywords."
-msgstr "別のキーワードで検索してみてください。"
+#~ msgid "Service accounts cannot edit profile details."
+#~ msgstr "サービスアカウントではプロフィール詳細を編集できません。"
 
-#: features/wiki/presentation/wiki/templates/wiki/search.html:93
-msgid "Search Wiki Pages"
-msgstr "Wikiページを検索"
+#~ msgid "Profile details are managed by administrators for service accounts."
+#~ msgstr "サービスアカウントのプロフィール詳細は管理者が管理します。"
 
-#: features/wiki/presentation/wiki/templates/wiki/search.html:95
-msgid "Enter a keyword in the search box above to find pages."
-msgstr "ページを探すには上の検索欄にキーワードを入力してください。"
+#~ msgid "Logged out"
+#~ msgstr "ログアウトしました"
 
-#: features/totp/presentation/templates/totp/index.html
-#: webapp/templates/base.html
-#: webapp/templates/index.html
-msgid "TOTP Management"
-msgstr "TOTP 管理"
+#~ msgid "Configuration updated successfully."
+#~ msgstr "設定を更新しました。"
 
+#~ msgid "Configuration update failed."
+#~ msgstr "設定の更新に失敗しました。"
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Register New TOTP"
-msgstr "新規 TOTP 登録"
+#~ msgid "Failed to submit the request."
+#~ msgstr "リクエストの送信に失敗しました。"
 
+#~ msgid "Google OAuth error: %(msg)s"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Register by scanning a QR code or entering the details manually."
-msgstr "QR を読み取るか手入力で登録できます。"
+#~ msgid "Invalid OAuth state."
+#~ msgstr ""
 
+#~ msgid "Google token error: %(msg)s"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Account"
-msgstr "アカウント"
+#~ msgid "Failed to obtain token from Google: %(msg)s"
+#~ msgstr ""
 
+#~ msgid "Failed to fetch email from Google."
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Issuer"
-msgstr "発行元"
+#~ msgid "Google account linked: %(email)s"
+#~ msgstr ""
 
+#~ msgid "No Google account linked. Please link a Google account first."
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Secret"
-msgstr "シークレット"
+#~ msgid "No refresh token available."
+#~ msgstr ""
 
+#~ msgid "Failed to refresh token: %(msg)s"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Spaces and hyphens are removed automatically (Base32)."
-msgstr "空白やハイフンは自動で除去されます (Base32)"
+#~ msgid "Failed to obtain access token."
+#~ msgstr ""
 
+#~ msgid "Failed to create picker session: %(msg)s"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Digits"
-msgstr "桁数"
+#~ msgid "Invalid response from picker API."
+#~ msgstr ""
 
+#~ msgid "Failed to create picker session."
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Period (seconds)"
-msgstr "有効期間 (秒)"
+#~ msgid "Edit Profile"
+#~ msgstr "プロフィールに戻る"
 
+#~ msgid "Update your account information"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Description (optional)"
-msgstr "説明 (任意)"
+#~ msgid "Email Address"
+#~ msgstr "メールアドレス"
 
+#~ msgid "Enter your email"
+#~ msgstr "メールアドレスを入力"
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Read from QR code"
-msgstr "QR コードから読み込む"
+#~ msgid "New Password"
+#~ msgstr "パスワード"
 
+#~ msgid "Leave blank to keep current password"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Paste from clipboard"
-msgstr "クリップボードから貼り付け"
+#~ msgid "Update Profile"
+#~ msgstr "プロフィールに戻る"
 
+#~ msgid "Two-factor authentication is not enabled"
+#~ msgstr "二要素認証の設定がキャンセルされました。"
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Reads a QR code from an image in your clipboard."
-msgstr "クリップボードの画像から QR を読み取ります。"
+#~ msgid "Enable Two-Factor Authentication"
+#~ msgstr "二要素認証を有効にする"
 
+#~ msgid "Two-factor authentication is enabled"
+#~ msgstr "二要素認証の設定がキャンセルされました。"
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "otpauth URI (optional)"
-msgstr "otpauth URI (任意)"
+#~ msgid "Back to Dashboard"
+#~ msgstr "ダッシュボード"
 
+#~ msgid "Add Account"
+#~ msgstr "アカウント追加"
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Paste the URI and press \"Parse URI\" to populate the form."
-msgstr "URI を貼り付けて「URI を展開」を押すとフォームへ展開します。"
+#~ msgid "Reauth"
+#~ msgstr "再認証"
 
+#~ msgid "Picker"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Parse URI"
-msgstr "URI を展開"
+#~ msgid "Welcome Back"
+#~ msgstr "おかえりなさい"
 
+#~ msgid "Sign in to your %(app_name)s account"
+#~ msgstr "%(app_name)sアカウントにサインイン"
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Current preview"
-msgstr "現在のプレビュー"
+#~ msgid "Enter your password"
+#~ msgstr "パスワードを入力"
 
+#~ msgid "Authentication Code"
+#~ msgstr "認証コード"
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Registered TOTP entries"
-msgstr "登録済み TOTP 一覧"
+#~ msgid ""
+#~ "Enter the 6-digit code from your "
+#~ "authenticator app (optional if not set"
+#~ " up)"
+#~ msgstr "認証アプリから6桁のコードを入力（設定していない場合は省略可）"
 
+#~ msgid "000000"
+#~ msgstr "000000"
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "The list refreshes every second."
-msgstr "一覧は 1 秒ごとに自動更新されます。"
+#~ msgid "Sign In"
+#~ msgstr "サインイン"
 
+#~ msgid "Don't have an account? Sign up"
+#~ msgstr "アカウントをお持ちでない方はこちら"
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Sort by issuer"
-msgstr "発行元順"
+#~ msgid "Signing In..."
+#~ msgstr "サインイン中..."
 
+#~ msgid "Login successful"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Sort by account"
-msgstr "アカウント順"
+#~ msgid "Invalid email, password, or authentication code"
+#~ msgstr "メールアドレスまたはパスワードが正しくありません"
 
+#~ msgid "Login failed. Please try again."
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Sort by updated time"
-msgstr "更新日時順"
+#~ msgid "Network error. Falling back to standard login."
+#~ msgstr ""
 
+#~ msgid "Photo Picker"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "One-time code"
-msgstr "ワンタイムコード"
+#~ msgid "Open Photo Picker"
+#~ msgstr ""
 
+#~ msgid "Open Photo View"
+#~ msgstr ""
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Time remaining"
-msgstr "残り時間"
+#~ msgid "Register"
+#~ msgstr "新規登録"
 
+#~ msgid "Create Account"
+#~ msgstr "アカウント作成"
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Updated at"
-msgstr "更新日時"
+#~ msgid "Join %(app_name)s and start organizing your memories"
+#~ msgstr "%(app_name)sに参加して思い出を整理しましょう"
 
+#~ msgid "Create a strong password"
+#~ msgstr "強力なパスワードを作成"
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Loading data..."
-msgstr "データ取得中..."
+#~ msgid ""
+#~ "Two-factor authentication will be set"
+#~ " up in the next step for "
+#~ "enhanced security"
+#~ msgstr "セキュリティ強化のため、次のステップで二要素認証を設定します"
 
+#~ msgid "Already have an account? Sign in"
+#~ msgstr "既にアカウントをお持ちの方はこちら"
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Edit TOTP"
-msgstr "TOTP を編集"
+#~ msgid "Register without two-factor authentication"
+#~ msgstr "二要素認証なしで登録"
 
+#~ msgid "Creating Account..."
+#~ msgstr "アカウント作成中..."
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Update secret (optional)"
-msgstr "シークレットを更新 (任意)"
+#~ msgid "Join %(app_name)s without two-factor authentication"
+#~ msgstr "二要素認証なしで%(app_name)sに参加"
 
+#~ msgid "=== %(app_name)s Version Information ==="
+#~ msgstr "=== %(app_name)s バージョン情報 ==="
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Leave blank to keep the current secret."
-msgstr "空欄のままにすると変更しません"
+#~ msgid "%(app_name)s Version Information"
+#~ msgstr "%(app_name)s バージョン情報"
 
+#~ msgid "Version String"
+#~ msgstr "バージョン文字列"
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Import TOTPs"
-msgstr "TOTP をインポート"
+#~ msgid "Full Commit Hash"
+#~ msgstr "コミットハッシュ（フル）"
 
+#~ msgid "Runtime Environment"
+#~ msgstr "実行環境"
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Paste or choose a JSON file. Duplicates will be reviewed before continuing."
-msgstr "JSON ファイルを貼り付けるか選択してください。重複がある場合は確認後に続行します。"
+#~ msgid "Python Version"
+#~ msgstr "Pythonバージョン"
 
+#~ msgid "Platform"
+#~ msgstr "プラットフォーム"
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "JSON file"
-msgstr "JSON ファイル"
+#~ msgid "Hostname"
+#~ msgstr "ホスト名"
 
+#~ msgid "Environment"
+#~ msgstr "環境"
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Paste JSON directly"
-msgstr "JSON を直接貼り付け"
+#~ msgid "Debug Mode"
+#~ msgstr "デバッグモード"
 
+#~ msgid "Flask Version"
+#~ msgstr "Flaskバージョン"
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Overwrite even if duplicates exist"
-msgstr "重複があっても上書きする"
+#~ msgid "Werkzeug Version"
+#~ msgstr "Werkzeugバージョン"
 
+#~ msgid "API Access"
+#~ msgstr "APIアクセス"
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Close"
-msgstr "閉じる"
+#~ msgid "You can retrieve the same information through the API."
+#~ msgstr "同じ情報をAPI経由でも取得できます。"
 
+#~ msgid "Test Endpoint"
+#~ msgstr "エンドポイントをテスト"
 
-#: features/totp/presentation/templates/totp/index.html
-msgid "Run import"
-msgstr "インポート実行"
+#~ msgid "API Response"
+#~ msgstr "APIレスポンス"
 
-msgid "Certificate List"
-msgstr "証明書一覧"
+#~ msgid "Server time is fetched from the health API once per minute."
+#~ msgstr "サーバー時刻はヘルスAPIから1分ごとに取得されます。"
 
-msgid "Common Name"
-msgstr "コモンネーム"
+#~ msgid "An error occurred while requesting version information."
+#~ msgstr "バージョン情報の取得中にエラーが発生しました。"
 
-msgid "Generate New"
-msgstr "新規生成"
+#~ msgid "=== %(app_name)s Master Data Seeding ==="
+#~ msgstr "=== %(app_name)s マスターデータ投入 ==="
 
-msgid "Public Key Distribution"
-msgstr "公開鍵配布"
+#~ msgid "Note: This account will not have two-factor authentication enabled"
+#~ msgstr "注意：このアカウントでは二要素認証が有効になりません"
 
-msgid "Usage"
-msgstr "用途"
+#~ msgid "Register with two-factor authentication"
+#~ msgstr "二要素認証ありで登録"
 
-msgid "All"
-msgstr "すべて"
+#~ msgid "Verify TOTP"
+#~ msgstr ""
 
-msgid "Issued At"
-msgstr "発行日時"
+#~ msgid "Setup Two-Factor Authentication"
+#~ msgstr "二要素認証の設定"
 
-msgid "Status"
-msgstr "状態"
+#~ msgid "Scan the QR code with your authenticator app and enter the current code"
+#~ msgstr "認証アプリでQRコードをスキャンし、現在のコードを入力してください"
 
-msgid "Revoked At"
-msgstr "失効日時"
+#~ msgid "Show setup key"
+#~ msgstr "設定キーを表示"
 
-msgid "Actions"
-msgstr "操作"
+#~ msgid ""
+#~ "If you cannot scan the QR code,"
+#~ " enter this setup key manually in "
+#~ "your authenticator app:"
+#~ msgstr "QRコードをスキャンできない場合は、この設定キーを認証アプリに手動で入力してください："
 
-msgid "Revoked"
-msgstr "失効"
+#~ msgid "Copy to clipboard"
+#~ msgstr "クリップボードにコピー"
 
-msgid "Active"
-msgstr "有効"
+#~ msgid "If you are using this device, you can open the setup link directly:"
+#~ msgstr "この端末をご利用の場合は、以下の設定リンクを直接開くことができます："
 
-msgid "View Details"
-msgstr "詳細を表示"
+#~ msgid "Open setup link"
+#~ msgstr "設定リンクを開く"
 
-msgid "Revoke"
-msgstr "失効"
+#~ msgid "Copy setup link"
+#~ msgstr "設定リンクをコピー"
 
-msgid "No certificates available to display."
-msgstr "表示できる証明書がありません。"
+#~ msgid "Complete Registration"
+#~ msgstr "登録完了"
 
-msgid "Certificate Details"
-msgstr "証明書詳細"
+#~ msgid "Cancel Registration"
+#~ msgstr "登録をキャンセル"
 
-msgid "KID"
-msgstr "KID"
+#~ msgid "Completing Registration..."
+#~ msgstr "登録完了中..."
 
-msgid "Back to List"
-msgstr "一覧に戻る"
+#~ msgid "Hide setup key"
+#~ msgstr "設定キーを非表示"
 
-msgid "Revoke Certificate"
-msgstr "証明書を失効"
+#~ msgid "Back to Profile"
+#~ msgstr "プロフィールに戻る"
 
-msgid "Metadata"
-msgstr "メタ情報"
+#~ msgid "Cancel Setup"
+#~ msgstr "設定をキャンセル"
 
-msgid "Revocation Reason"
-msgstr "失効理由"
+#~ msgid "Enabling..."
+#~ msgstr "有効化中..."
 
-msgid "Subject"
-msgstr "サブジェクト"
+#~ msgid "Dashboard"
+#~ msgstr "ダッシュボード"
 
-msgid "Issuer"
-msgstr "発行者"
+#~ msgid "Workspace dashboard"
+#~ msgstr "ワークスペースダッシュボード"
 
-msgid "Validity Period"
-msgstr "有効期間"
+#~ msgid ""
+#~ "Stay on top of shared knowledge, "
+#~ "media operations, and administration from "
+#~ "one place."
+#~ msgstr "共有ナレッジやメディア運用、管理業務をこのページからまとめて確認できます。"
 
-msgid "to"
-msgstr "〜"
+#~ msgid "Signed in"
+#~ msgstr "サインイン中"
 
-msgid "Certificate (PEM)"
-msgstr "証明書 (PEM)"
+#~ msgid "Welcome back, %(name)s"
+#~ msgstr "おかえりなさい、%(name)s さん"
 
-msgid "JWK Information"
-msgstr "JWK情報"
+#~ msgid "Key workspaces"
+#~ msgstr "主要ワークスペース"
 
-msgid "Generate Certificate"
-msgstr "証明書生成"
+#~ msgid "Team wiki"
+#~ msgstr "チームWiki"
 
-msgid "Input Form"
-msgstr "入力フォーム"
+#~ msgid "Browse policies, guides, and notes maintained by your team."
+#~ msgstr "チームで管理しているポリシーやガイド、ノートを確認できます。"
 
-msgid "Email Address"
-msgstr "メールアドレス"
+#~ msgid "Open wiki"
+#~ msgstr "Wikiを開く"
 
-msgid "Validity (days)"
-msgstr "有効日数"
+#~ msgid "Media library"
+#~ msgstr "メディアライブラリ"
 
-msgid "Key Type"
-msgstr "鍵タイプ"
+#~ msgid "Review uploaded photos and manage shared media assets."
+#~ msgstr "アップロード済みの写真や共有メディアを確認・管理できます。"
 
-msgid "RSA Key Size"
-msgstr "RSA鍵長"
+#~ msgid "Open media view"
+#~ msgstr "メディアビューを開く"
 
-msgid "Key Usage"
-msgstr "Key Usage"
+#~ msgid "No workspace tools are available for your current role."
+#~ msgstr "現在のロールでは利用できるワークスペースツールがありません。"
 
-msgid "Mark as CA certificate"
-msgstr "CA証明書としてマークする"
+#~ msgid "Operations shortcuts"
+#~ msgstr "運用ショートカット"
 
-msgid "Generate"
-msgstr "生成する"
+#~ msgid "Account settings"
+#~ msgstr "アカウント設定"
 
-msgid "Private Key / Public Key"
-msgstr "秘密鍵 / 公開鍵"
+#~ msgid "Update your profile, preferred language, and sign-in credentials."
+#~ msgstr "プロフィールや使用言語、サインイン情報を更新します。"
 
-msgid "Private Key"
-msgstr "秘密鍵"
+#~ msgid "Profile"
+#~ msgstr "プロフィール"
 
-msgid "Public Key"
-msgstr "公開鍵"
+#~ msgid "Sign-in details"
+#~ msgstr "サインイン情報"
 
-msgid "Generation results will appear here."
-msgstr "生成結果がここに表示されます。"
+#~ msgid "Sign in with passkey"
+#~ msgstr "パスキーでサインイン"
 
-msgid "Certificate / JWKS"
-msgstr "証明書 / JWKS"
+#~ msgid "Passkey login requires a compatible browser."
+#~ msgstr "パスキーでのサインインには対応ブラウザが必要です。"
 
-msgid "JWK"
-msgstr "JWK"
+#~ msgid "Passkey login options could not be retrieved."
+#~ msgstr "パスキーサインインのオプションを取得できませんでした。"
 
-msgid "Certificate details will be shown after generation."
-msgstr "証明書生成後に詳細が表示されます。"
+#~ msgid "Passkey login failed. Please try again."
+#~ msgstr "パスキーによるサインインに失敗しました。もう一度お試しください。"
 
-msgid "Revoke the certificate below and provide a reason for the revocation."
-msgstr "以下の証明書を失効させます。理由を入力してください。"
+#~ msgid "Passkeys"
+#~ msgstr "パスキー"
 
-msgid "Example: Key was compromised"
-msgstr "例: 鍵漏洩が判明したため"
+#~ msgid "Passkeys cannot be managed for service accounts."
+#~ msgstr "サービスアカウントではパスキーを管理できません。"
 
-msgid "Back"
-msgstr "戻る"
+#~ msgid "Unnamed passkey"
+#~ msgstr "名称未設定のパスキー"
 
-msgid "Are you sure you want to revoke this certificate? This action cannot be undone."
-msgstr "本当に失効しますか？この操作は元に戻せません。"
+#~ msgid "Created"
+#~ msgstr "作成日時"
 
-msgid "Links to the JWKS endpoints and information about currently published keys."
-msgstr "JWKSエンドポイントへのリンクと現在公開中の鍵情報です。"
+#~ msgid "Last used"
+#~ msgstr "最終利用"
 
-msgid "Endpoint"
-msgstr "エンドポイント"
+#~ msgid "Remove"
+#~ msgstr "削除"
 
-msgid "Open in Browser"
-msgstr "ブラウザで開く"
+#~ msgid "No passkeys registered yet."
+#~ msgstr "登録されているパスキーはありません。"
 
-msgid "Copy URL"
-msgstr "URLをコピー"
+#~ msgid "Add a new passkey"
+#~ msgstr "新しいパスキーを追加"
 
-msgid "JWKS JSON"
-msgstr "JWKS JSON"
+#~ msgid "Passkey registration requires a compatible browser."
+#~ msgstr "パスキー登録には対応ブラウザが必要です。"
 
-msgid "Unsupported subject attribute: %(attribute)s"
-msgstr "未対応のsubject属性です: %(attribute)s"
+#~ msgid "This passkey is already registered for your account."
+#~ msgstr "このパスキーはすでにあなたのアカウントに登録されています。"
 
-msgid "Invalid value for subject attribute %(attribute)s: %(error)s"
-msgstr "subject属性%(attribute)sの値が不正です: %(error)s"
+#~ msgid "Give this passkey a name (optional)"
+#~ msgstr "このパスキーに名前を付けてください（任意）"
 
-msgid "Subject must not be empty"
-msgstr "subjectを空にすることはできません"
+#~ msgid "Passkey registration options could not be retrieved."
+#~ msgstr "パスキー登録のオプションを取得できませんでした。"
 
-msgid "Country code (C) must be a two-letter ISO 3166-1 value (e.g., JP)"
-msgstr "国コード(C)はISO 3166-1の2文字コードで指定してください（例: JP）"
+#~ msgid ""
+#~ "Passkey registration timed out before "
+#~ "the authenticator responded. Please try "
+#~ "again and confirm the prompt on "
+#~ "your device."
+#~ msgstr "認証器からの応答前にパスキー登録がタイムアウトしました。デバイスのプロンプトを確認してから再度お試しください。"
 
-msgid "RSA key length must be at least 2048 bits"
-msgstr "RSA鍵長は2048ビット以上である必要があります"
+#~ msgid ""
+#~ "Passkey registration was cancelled from "
+#~ "the authenticator prompt. Please retry "
+#~ "and complete the device approval."
+#~ msgstr "認証器のプロンプトでパスキー登録がキャンセルされました。デバイスで承認を完了してから再度お試しください。"
 
-msgid "Unsupported key type: %(key_type)s"
-msgstr "未対応の鍵タイプです: %(key_type)s"
+#~ msgid ""
+#~ "Passkey registration was cancelled or "
+#~ "timed out before completion. Please "
+#~ "retry after completing the authenticator "
+#~ "prompt."
+#~ msgstr "パスキー登録は完了前にキャンセルまたはタイムアウトしました。認証器の操作を完了してから再度お試しください。"
 
-msgid "Failed to load CSR"
-msgstr "CSRの読み込みに失敗しました"
+#~ msgid "Passkey registration failed. Please try again."
+#~ msgstr "パスキーの登録に失敗しました。もう一度お試しください。"
 
-msgid "Only RSA keys are currently supported"
-msgstr "現在RSA鍵のみサポートしています"
+#~ msgid "Remove this passkey?"
+#~ msgstr "このパスキーを削除しますか？"
 
-msgid "Unsupported keyUsage value: %(usage)s"
-msgstr "未対応のkeyUsageが指定されました: %(usage)s"
+#~ msgid "Failed to remove passkey."
+#~ msgstr "パスキーを削除できませんでした。"
 
-msgid "Validity period must be at least one day"
-msgstr "有効期限は1日以上で指定してください"
+#~ msgid "Administration"
+#~ msgstr "管理メニュー"
 
-msgid "Unsupported elliptic curve"
-msgstr "サポートされていないEC曲線です"
+#~ msgid "Review user access, configuration, and connected integrations."
+#~ msgstr "ユーザー権限、設定、連携サービスを確認します。"
 
-msgid "digitalSignature - digital signature"
-msgstr "digitalSignature - 電子署名"
+#~ msgid "Users"
+#~ msgstr "ユーザー"
 
-msgid "contentCommitment - content commitment"
-msgstr "contentCommitment - コンテンツコミット"
+#~ msgid "Settings"
+#~ msgstr "設定"
 
-msgid "keyEncipherment - key encipherment"
-msgstr "keyEncipherment - 鍵暗号化"
+#~ msgid "Google accounts"
+#~ msgstr "Googleアカウント"
 
-msgid "dataEncipherment - data encipherment"
-msgstr "dataEncipherment - データ暗号化"
+#~ msgid "Your status"
+#~ msgstr "あなたのステータス"
 
-msgid "keyAgreement - key agreement"
-msgstr "keyAgreement - 鍵共有"
+#~ msgid "Display name"
+#~ msgstr "表示名"
 
-msgid "keyCertSign - certificate signing"
-msgstr "keyCertSign - 証明書署名"
+#~ msgid "Not provided"
+#~ msgstr "未設定"
 
-msgid "crlSign - CRL signing"
-msgstr "crlSign - CRL署名"
+#~ msgid "No active role selected"
+#~ msgstr "選択中のロールはありません"
 
-msgid "encipherOnly - encipher only"
-msgstr "encipherOnly - 暗号化専用"
+#~ msgid "Roles assigned: %(count)s"
+#~ msgstr "付与ロール数: %(count)s"
 
-msgid "decipherOnly - decipher only"
-msgstr "decipherOnly - 復号専用"
+#~ msgid "Content overview"
+#~ msgstr "コンテンツ概要"
 
-msgid "Country (C)"
-msgstr "国名 (C)"
+#~ msgid "Wiki pages: %(count)s"
+#~ msgstr "Wikiページ数: %(count)s"
 
-msgid "State or Province (ST)"
-msgstr "都道府県 (ST)"
+#~ msgid "Media items: %(count)s"
+#~ msgstr "メディア項目数: %(count)s"
 
-msgid "Locality (L)"
-msgstr "市区町村 (L)"
+#~ msgid "Quick links"
+#~ msgstr "クイックリンク"
 
-msgid "Organization (O)"
-msgstr "組織名 (O)"
+#~ msgid "Create wiki page"
+#~ msgstr "Wikiページを作成"
 
-msgid "Organizational Unit (OU)"
-msgstr "部署名 (OU)"
+#~ msgid "Search knowledge base"
+#~ msgstr "ナレッジを検索"
 
-msgid "Common Name (CN)"
-msgstr "コモンネーム (CN)"
+#~ msgid "Open media gallery"
+#~ msgstr "メディア一覧を開く"
 
-msgid "Email Address"
-msgstr "メールアドレス"
+#~ msgid "Manage profile preferences"
+#~ msgstr "プロフィール設定を管理"
 
-msgid "Certificate Groups"
-msgstr "証明書グループ"
+#~ msgid "Albums"
+#~ msgstr "アルバム一覧"
 
-msgid "Failed to load certificate groups: %(message)s"
-msgstr "証明書グループの取得に失敗しました: %(message)s"
+#~ msgid "Filter by tags"
+#~ msgstr "タグフィルター"
 
-msgid "Group code is required."
-msgstr "グループコードは必須です。"
+#~ msgid "Thumbnail size"
+#~ msgstr "サムネイルサイズ"
 
-msgid "Invalid usage type specified."
-msgstr "用途の指定が不正です。"
+#~ msgid "Newest First"
+#~ msgstr "新しい順"
 
-msgid "Key size must be a number."
-msgstr "鍵長は数値で指定してください。"
+#~ msgid "Oldest First"
+#~ msgstr "古い順"
 
-msgid "Rotation threshold must be a number."
-msgstr "ローテーション閾値は数値で指定してください。"
+#~ msgid "Custom Order"
+#~ msgstr "指定順"
 
-msgid "Rotation threshold must be greater than zero."
-msgstr "ローテーション閾値は1以上で指定してください。"
+#~ msgid "Reorder"
+#~ msgstr "並び替え"
 
-msgid "Enter at least one subject attribute."
-msgstr "少なくとも1つのサブジェクト属性を入力してください。"
+#~ msgid "Save Order"
+#~ msgstr "並び順保存"
 
-msgid "Failed to create certificate group: %(message)s"
-msgstr "証明書グループの作成に失敗しました: %(message)s"
+#~ msgid "Compact"
+#~ msgstr "小"
 
-msgid "Certificate group created."
-msgstr "証明書グループを作成しました。"
+#~ msgid "Medium"
+#~ msgstr "中"
 
-msgid "Failed to update certificate group: %(message)s"
-msgstr "証明書グループの更新に失敗しました: %(message)s"
+#~ msgid "Large"
+#~ msgstr "大"
 
-msgid "Certificate group updated."
-msgstr "証明書グループを更新しました。"
+#~ msgid "Loading more albums..."
+#~ msgstr "アルバム読み込み中"
 
-msgid "Cannot delete the group because active certificates exist: %(message)s"
-msgstr "有効な証明書が存在するためグループを削除できません: %(message)s"
+#~ msgid "All albums loaded"
+#~ msgstr "アルバム読み込み完了"
 
-msgid "Failed to delete certificate group: %(message)s"
-msgstr "証明書グループの削除に失敗しました: %(message)s"
+#~ msgid "No Albums Found"
+#~ msgstr "アルバムが見つかりません"
 
-msgid "Certificate group deleted."
-msgstr "証明書グループを削除しました。"
+#~ msgid "photos"
+#~ msgstr "写真"
 
-msgid "Failed to update rotation setting: %(message)s"
-msgstr "ローテーション設定の更新に失敗しました: %(message)s"
+#~ msgid "No media selected for cover."
+#~ msgstr "表紙が選択されていません。"
 
-msgid "Rotation setting updated."
-msgstr "ローテーション設定を更新しました。"
+#~ msgid "Remove from album"
+#~ msgstr "アルバムから削除"
 
-msgid "Certificates for %(group)s"
-msgstr "%(group)s の証明書"
+#~ msgid "Auto (use first media)"
+#~ msgstr "自動選択"
 
-msgid "Back to Groups"
-msgstr "グループ一覧に戻る"
+#~ msgid "Create Album"
+#~ msgstr "作成"
 
-msgid "Group Settings"
-msgstr "グループ設定"
+#~ msgid "Save Changes"
+#~ msgstr "保存"
 
-msgid "Group Code"
-msgstr "グループコード"
+#~ msgid "Failed to load albums. Please try again."
+#~ msgstr "アルバムの読み込みに失敗しました"
 
-msgid "Display Name"
-msgstr "表示名"
+#~ msgid "Select media and configure details to build a new album."
+#~ msgstr "追加するメディアを選択してください。"
 
-msgid "Usage"
-msgstr "用途"
+#~ msgid "Album Title"
+#~ msgstr "タイトル"
 
-msgid "Auto Rotate"
-msgstr "自動ローテーション"
+#~ msgid "Visibility"
+#~ msgstr "公開範囲"
 
-msgid "Rotation Threshold (days)"
-msgstr "ローテーション閾値（日）"
+#~ msgid "Private"
+#~ msgstr "非公開"
 
-msgid "Key Type"
-msgstr "鍵タイプ"
+#~ msgid "Unlisted"
+#~ msgstr "限定公開"
 
-msgid "Subject"
-msgstr "サブジェクト"
+#~ msgid "Public"
+#~ msgstr "公開"
 
-msgid "Updated At"
-msgstr "更新日時"
+#~ msgid "Choose who can access the album."
+#~ msgstr "アルバムを閲覧できる対象を選択します。"
 
-msgid "Actions"
-msgstr "操作"
+#~ msgid "Only users explicitly linked to the album can view it."
+#~ msgstr "アルバムに共有ユーザーとして紐づけた相手だけが閲覧できます。"
 
-msgid "Enabled"
-msgstr "有効"
+#~ msgid "Hidden from everyone else. Only you can view it."
+#~ msgstr "他のユーザーには表示されません。閲覧できるのは自分だけです。"
 
-msgid "Disabled"
-msgstr "無効"
+#~ msgid ""
+#~ "Visible to anyone who can access "
+#~ "the photo viewer and has the "
+#~ "\"album:view\" permission."
+#~ msgstr "フォトビューアーにアクセスでき、かつ \"album:view\" 権限を持つユーザー全員に公開されます。"
 
-msgid "View Certificates"
-msgstr "証明書を表示"
+#~ msgid "Album Cover"
+#~ msgstr "表紙"
 
-msgid "Edit"
-msgstr "編集"
+#~ msgid "Taken after"
+#~ msgstr "撮影日（開始）"
 
-msgid "Delete"
-msgstr "削除"
+#~ msgid "Taken before"
+#~ msgstr "撮影日（終了）"
 
-msgid "Are you sure you want to delete this group?"
-msgstr "このグループを削除してもよろしいですか？"
+#~ msgid "All media"
+#~ msgstr "全種類"
 
-msgid "No certificate groups available."
-msgstr "表示可能な証明書グループがありません。"
+#~ msgid "Show all"
+#~ msgstr "すべて"
 
-msgid "Create Certificate Group"
-msgstr "証明書グループを作成"
+#~ msgid "Selected only"
+#~ msgstr "選択のみ"
 
-msgid "Key Parameters"
-msgstr "鍵パラメータ"
+#~ msgid "Unselected only"
+#~ msgstr "未選択のみ"
 
-msgid "Select key parameters"
-msgstr "鍵パラメータを選択"
+#~ msgid "Reset"
+#~ msgstr "リセット"
 
-msgid "Custom configuration (%(details)s)"
-msgstr "カスタム設定（%(details)s）"
+#~ msgid "Apply filters"
+#~ msgstr "フィルタ適用"
 
-msgid "Fill in all required subject attributes using ASCII characters. Country code must be a two-letter ISO 3166-1 alpha-2 value (e.g., JP)."
-msgstr "必須のサブジェクト属性をすべてASCII文字で入力してください。国コードはISO 3166-1の2文字（例: JP）である必要があります。"
+#~ msgid ""
+#~ "Click thumbnails to toggle selection. "
+#~ "Use the quick actions to select or"
+#~ " clear the visible media."
+#~ msgstr "アルバムに追加するメディアを選んでください。"
 
-msgid "Required"
-msgstr "必須"
+#~ msgid "Select all shown"
+#~ msgstr "すべて選択"
 
-msgid "Optional"
-msgstr "任意"
+#~ msgid "Unselect shown"
+#~ msgstr "すべて解除"
 
-msgid "Please fill in all required subject attributes."
-msgstr "必須のサブジェクト属性を入力してください。"
+#~ msgid "Create New Session"
+#~ msgstr "新しいセッションを作成"
 
-msgid "%(label)s is required."
-msgstr "%(label)s は必須です。"
+#~ msgid "View Media Gallery"
+#~ msgstr "メディア一覧を見る"
 
-msgid "Usage Type"
-msgstr "用途タイプ"
+#~ msgid "All Picker Sessions"
+#~ msgstr "ピッカーセッション一覧"
 
-msgid "Select usage type"
-msgstr "用途タイプを選択"
+#~ msgid "Session ID"
+#~ msgstr "セッションID"
 
-msgid "Select all shown permissions"
-msgstr "表示されている権限をすべて選択"
+#~ msgid "Selected Count"
+#~ msgstr "選択数"
 
-msgid "Key Size"
-msgstr "鍵長"
+#~ msgid "Target Account"
+#~ msgstr "対象アカウント"
 
-msgid "Key Curve"
-msgstr "曲線名"
+#~ msgid "File Status"
+#~ msgstr "ファイル状況"
 
-msgid "Subject Template"
-msgstr "サブジェクトテンプレート"
+#~ msgid "Last Progress"
+#~ msgstr "最終更新"
 
-msgid "Enable automatic rotation"
-msgstr "自動ローテーションを有効にする"
+#~ msgid "Loading more sessions..."
+#~ msgstr "セッションを読み込み中..."
 
-msgid "Non-expiring keys should disable automatic rotation to avoid immediate re-issuance."
-msgstr "無期限のキーでは即時再発行を防ぐため自動ローテーションを無効にしてください。"
+#~ msgid "All sessions loaded"
+#~ msgstr "すべてのセッションを読み込み済みです"
 
-msgid "Update rotation setting"
-msgstr "ローテーション設定を更新"
+#~ msgid "sessions loaded"
+#~ msgstr "件のセッションを読み込み済み"
 
-msgid "Save Group"
-msgstr "グループを保存"
+#~ msgid "No sessions loaded yet"
+#~ msgstr "まだセッションが読み込まれていません"
 
-msgid "Edit Certificate Group"
-msgstr "証明書グループを編集"
+#~ msgid "Failed to load sessions."
+#~ msgstr "セッションの読み込みに失敗しました。"
 
-msgid "Update Group"
-msgstr "グループを更新"
+#~ msgid "Error loading sessions"
+#~ msgstr "セッションの読み込みでエラーが発生しました"
 
-msgid "Close"
-msgstr "閉じる"
+#~ msgid "Pending"
+#~ msgstr "保留"
 
-msgid "Cancel"
-msgstr "キャンセル"
+#~ msgid "Expanding"
+#~ msgstr "展開中"
 
-msgid "Key Profile"
-msgstr "鍵プロファイル"
+#~ msgid "Ready"
+#~ msgstr "準備完了"
 
-msgid "JWKS Endpoint"
-msgstr "JWKSエンドポイント"
+#~ msgid "Enqueued"
+#~ msgstr "キュー投入"
 
-msgid "Public JWKS URL"
-msgstr "公開JWKS URL"
+#~ msgid "Processing"
+#~ msgstr "処理中"
 
-msgid "Copy"
-msgstr "コピー"
+#~ msgid "Running"
+#~ msgstr "処理中"
 
-msgid "Open JWKS"
-msgstr "JWKSを開く"
+#~ msgid "Importing"
+#~ msgstr "インポート中"
 
-msgid "Issue New Certificate"
-msgstr "新しい証明書を発行"
+#~ msgid "Imported"
+#~ msgstr "取り込み完了"
 
-msgid "Validity (days)"
-msgstr "有効日数"
+#~ msgid "Canceled"
+#~ msgstr "キャンセル済み"
 
-msgid "Issue without expiration"
-msgstr "有効期限を設定しない"
+#~ msgid "Expired"
+#~ msgstr "期限切れ"
 
-msgid "When enabled, the issued key will not include an expiry date."
-msgstr "有効にすると発行されるキーに有効期限が設定されません。"
+#~ msgid "Error"
+#~ msgstr "エラー"
 
-msgid "Key Usage"
-msgstr "Key Usage"
+#~ msgid "Role switching is not available for this account."
+#~ msgstr "このアカウントではロール切り替えを利用できません。"
 
-msgid "Subject Overrides"
-msgstr "サブジェクト上書き"
+#~ msgid "Failed"
+#~ msgstr "失敗"
 
-msgid "Issue Certificate"
-msgstr "証明書を発行"
+#~ msgid "Duplicate"
+#~ msgstr "重複"
 
-msgid "New certificate issued."
-msgstr "証明書を発行しました。"
+#~ msgid "Skipped"
+#~ msgstr "スキップ"
 
-msgid "Copy the materials below. The private key is shown only once."
-msgstr "以下の情報をコピーしてください。秘密鍵は今回のみ表示されます。"
+#~ msgid "Local Import"
+#~ msgstr "ローカルインポート"
 
-msgid "Private Key (PEM)"
-msgstr "秘密鍵 (PEM)"
+#~ msgid "Stop Local Import"
+#~ msgstr "ローカルインポートを停止"
 
-msgid "Certificate (PEM)"
-msgstr "証明書 (PEM)"
+#~ msgid "Local import is running. You can stop it if needed."
+#~ msgstr "ローカルインポートを実行中です。必要に応じてここから停止できます。"
 
-msgid "Issued Certificates"
-msgstr "発行済み証明書"
+#~ msgid "Canceling local import..."
+#~ msgstr "ローカルインポートを停止しています..."
 
-msgid "Provide an optional reason for revocation."
-msgstr "任意で失効理由を入力してください。"
+#~ msgid "Local import was canceled."
+#~ msgstr "ローカルインポートを停止しました。"
 
-msgid "Reason"
-msgstr "理由"
+#~ msgid "Failed to stop local import."
+#~ msgstr "ローカルインポートの停止に失敗しました。"
 
-msgid "Copied!"
-msgstr "コピーしました！"
+#~ msgid "Are you sure you want to cancel the local import?"
+#~ msgstr "ローカルインポートをキャンセルしますか？"
 
-msgid "Failed to load certificates: %(message)s"
-msgstr "証明書の取得に失敗しました: %(message)s"
+#~ msgid "Local import session runs automatically."
+#~ msgstr "ローカルインポートセッションは自動で実行されます。"
 
-msgid "Validity days must be a number."
-msgstr "有効日数は数値で指定してください。"
+#~ msgid "Local Import Session. Import runs automatically."
+#~ msgstr "ローカルインポートセッションです。インポートは自動的に実行されました。"
 
-msgid "Failed to issue certificate: %(message)s"
-msgstr "証明書の発行に失敗しました: %(message)s"
+#~ msgid "Import can only be started when the session status is ready."
+#~ msgstr "ステータスがreadyのときのみインポートを開始できます。"
 
-msgid "Certificate issued successfully."
-msgstr "証明書を発行しました。"
+#~ msgid "Import is not available for the current status."
+#~ msgstr "現在のステータスではインポートを実行できません。"
 
-msgid "Failed to revoke certificate: %(message)s"
-msgstr "証明書の失効に失敗しました: %(message)s"
+#~ msgid "View Details"
+#~ msgstr "詳細を見る"
 
-msgid "Failed to load groups: %(message)s"
-msgstr "グループの取得に失敗しました: %(message)s"
+#~ msgid "Start Import"
+#~ msgstr "インポート開始"
 
-msgid "Invalid revoked flag."
-msgstr "失効ステータスの指定が不正です。"
+#~ msgid "Failed to start import."
+#~ msgstr "インポートの開始に失敗しました。"
 
-msgid "Unlimited"
-msgstr "無期限"
+#~ msgid "Import started."
+#~ msgstr "インポートを開始しました。"
 
-msgid "No certificate is stored for this key."
-msgstr "この鍵には証明書が保存されていません。"
+#~ msgid "Back"
+#~ msgstr "戻る"
 
-msgid "Not used for signing keys."
-msgstr "署名用途の鍵では使用しません。"
+#~ msgid "Download"
+#~ msgstr "ダウンロード"
 
-msgid "No certificate was generated for this key."
-msgstr "この鍵については証明書が生成されませんでした。"
+#~ msgid "Basic Information"
+#~ msgstr "基本情報"
 
-msgid "Use ISO 8601 format for date filters."
-msgstr "日付フィルターはISO 8601形式で指定してください。"
+#~ msgid "Technical Details"
+#~ msgstr "技術情報"
 
-msgid "Failed to search certificates: %(message)s"
-msgstr "証明書の検索に失敗しました: %(message)s"
+#~ msgid "EXIF Data"
+#~ msgstr "EXIFデータ"
 
-msgid "Certificate Search"
-msgstr "証明書検索"
+#~ msgid "Recover metadata"
+#~ msgstr "メタデータ再取り込み"
 
-msgid "All Groups"
-msgstr "すべてのグループ"
+#~ msgid "No tags assigned"
+#~ msgstr "タグが設定されていません"
 
-msgid "Subject Contains"
-msgstr "サブジェクトに含む文字列"
+#~ msgid "Search tags..."
+#~ msgstr "タグで検索"
 
-msgid "Issued From"
-msgstr "発行日（開始）"
+#~ msgid "Tags"
+#~ msgstr "タグ"
 
-msgid "Issued To"
-msgstr "発行日（終了）"
+#~ msgid "Person"
+#~ msgstr "人物"
 
-msgid "Expires From"
-msgstr "有効期限（開始）"
+#~ msgid "Place"
+#~ msgstr "場所"
 
-msgid "Expires To"
-msgstr "有効期限（終了）"
+#~ msgid "Thing"
+#~ msgstr "モノ"
 
-msgid "Revoked Status"
-msgstr "失効状態"
+#~ msgid "Event"
+#~ msgstr "出来事"
 
-msgid "All"
-msgstr "すべて"
+#~ msgid "Scene"
+#~ msgstr "風景"
 
-msgid "Active"
-msgstr "有効"
+#~ msgid "Activity"
+#~ msgstr "行動"
 
-msgid "Revoked"
-msgstr "失効"
+#~ msgid "Others"
+#~ msgstr "その他"
 
-msgid "Search"
-msgstr "検索"
+#~ msgid "Create and add"
+#~ msgstr "追加"
 
-msgid "Search Results"
-msgstr "検索結果"
+#~ msgid "(No filename)"
+#~ msgstr "（不明）"
 
-msgid "%(count)d certificates found"
-msgstr "%(count)d 件の証明書が見つかりました"
+#~ msgid "Video"
+#~ msgstr "動画"
 
-msgid "Group"
-msgstr "グループ"
+#~ msgid "Photo"
+#~ msgstr "写真"
 
-msgid "Specify at least one search condition and submit the form to view results."
-msgstr "少なくとも1つ検索条件を入力してから実行してください。"
+#~ msgid "Videos"
+#~ msgstr "動画"
 
-msgid "Back to Group"
-msgstr "グループに戻る"
+#~ msgid "Photos"
+#~ msgstr "写真"
 
+#~ msgid "Local File"
+#~ msgstr "取り込み"
 
-msgid "Display name must be a string."
-msgstr "displayNameは文字列で指定してください"
+#~ msgid "Google Photos"
+#~ msgstr "Googleフォト"
 
-msgid "Key type is required."
-msgstr "keyTypeは必須です"
+#~ msgid "Unknown"
+#~ msgstr "不明"
 
-msgid "Key curve must be a string."
-msgstr "keyCurveは文字列で指定してください"
+#~ msgid "Back to albums"
+#~ msgstr "アルバム一覧に戻る"
 
-msgid "Key size must be an integer."
-msgstr "keySizeは整数で指定してください"
+#~ msgid "Back to album"
+#~ msgstr "アルバムに戻る"
 
-msgid "Rotation threshold days must be an integer."
-msgstr "rotationThresholdDaysは整数で指定してください"
+#~ msgid "Album Detail"
+#~ msgstr "アルバム"
 
-msgid "Rotation threshold days must be at least 1."
-msgstr "rotationThresholdDaysは1以上で指定してください"
+#~ msgid "Start Slideshow"
+#~ msgstr "スライドショー開始"
 
-msgid "Subject must be provided as an object."
-msgstr "subjectはオブジェクトで指定してください"
+#~ msgid "View Media Library"
+#~ msgstr "メディア一覧"
 
-msgid "Limit must be an integer."
-msgstr "limitは整数で指定してください"
+#~ msgid "Edit Album"
+#~ msgstr "アルバム編集"
 
-msgid "Offset must be an integer."
-msgstr "offsetは整数で指定してください"
+#~ msgid "Reorder media"
+#~ msgstr "並び替え"
 
-msgid "Issued-from must be in ISO 8601 format."
-msgstr "issuedFromはISO8601形式で指定してください"
+#~ msgid "Save order"
+#~ msgstr "並び替え順保存"
 
-msgid "Issued-to must be in ISO 8601 format."
-msgstr "issuedToはISO8601形式で指定してください"
+#~ msgid "Untitled Album"
+#~ msgstr "名称未定"
 
-msgid "Expires-from must be in ISO 8601 format."
-msgstr "expiresFromはISO8601形式で指定してください"
+#~ msgid "Failed to load album information."
+#~ msgstr "アルバム情報の読み込みに失敗しました。"
 
-msgid "Expires-to must be in ISO 8601 format."
-msgstr "expiresToはISO8601形式で指定してください"
+#~ msgid "This album has no media yet."
+#~ msgstr "まだメディアが追加されていません。"
 
-msgid "Valid days must be an integer."
-msgstr "validDaysは整数で指定してください"
+#~ msgid "Drag and drop media tiles to change their order."
+#~ msgstr "ドラッグアンドドロップで並び順を変更できます。"
 
-msgid "Valid days must be at least 1."
-msgstr "validDaysは1以上で指定してください"
+#~ msgid "Saving order..."
+#~ msgstr "保存中"
 
-msgid "Key usage must be provided as an array."
-msgstr "keyUsageは配列で指定してください"
+#~ msgid "Media order updated."
+#~ msgstr "並び順を保存しました。"
 
-msgid "Key bits must be an integer."
-msgstr "keyBitsは整数で指定してください"
+#~ msgid "Failed to save media order."
+#~ msgstr "並び順の保存に失敗しました。"
 
-msgid "Key usage must be provided as an array of strings."
-msgstr "keyUsageは文字列配列で指定してください"
+#~ msgid "Shot at"
+#~ msgstr "撮影日時"
 
-msgid "Days must be an integer."
-msgstr "daysは整数で指定してください"
+#~ msgid "Media Gallery"
+#~ msgstr "メディア一覧"
 
-msgid "Group code must be a string."
-msgstr "groupCodeは文字列で指定してください"
+#~ msgid "All Media"
+#~ msgstr "すべてのメディア"
 
-msgid "The group parameter is invalid."
-msgstr "groupパラメータが不正です"
+#~ msgid "Photos Only"
+#~ msgstr "写真のみ"
 
-msgid "Reason must be a string."
-msgstr "reasonは文字列で指定してください"
+#~ msgid "Videos Only"
+#~ msgstr "動画のみ"
 
-msgid "The certificate does not exist in the specified group."
-msgstr "指定したグループに証明書が存在しません"
+#~ msgid "Size"
+#~ msgstr "サイズ"
 
-msgid "Are you sure you want to issue a new certificate for this group?"
-msgstr "このグループに新しい証明書を発行します。よろしいですか？"
+#~ msgid "Loading more media..."
+#~ msgstr "メディアを読み込み中..."
 
-msgid "Current Time"
-msgstr "現在時刻"
+#~ msgid "All media loaded"
+#~ msgstr "すべてのメディアを読み込み済みです"
 
-msgid "Local Time"
-msgstr "ローカル時刻"
+#~ msgid "Failed to load media. Please try again."
+#~ msgstr "メディアの読み込みに失敗しました。再度お試しください。"
 
-msgid "UTC Time"
-msgstr "UTC時刻"
+#~ msgid "Now Loading.."
+#~ msgstr "Now Loading.."
 
-msgid "Server Time"
-msgstr "サーバー時刻"
+#~ msgid "Failed to load thumbnail"
+#~ msgstr "サムネイルの読み込みに失敗しました"
 
-msgid "Back to Home"
-msgstr "ホームに戻る"
+#~ msgid "Session Details"
+#~ msgstr "セッション詳細"
 
-msgid "Unavailable"
-msgstr "取得できません"
+#~ msgid "Back to Sessions"
+#~ msgstr "セッション一覧に戻る"
 
-msgid "Access token signing will use the built-in secret."
-msgstr "アクセストークンの署名に組み込みシークレットを利用します。"
+#~ msgid "Loading session info..."
+#~ msgstr "セッション情報を読み込み中..."
 
-msgid "Please provide a JWT secret key for built-in signing."
-msgstr "組み込み署名用のJWTシークレットキーを入力してください。"
+#~ msgid "Selected Files"
+#~ msgstr "選択ファイル数"
 
-msgid "Failed to update the built-in signing secret."
-msgstr "組み込み署名のシークレットキーの更新に失敗しました。"
+#~ msgid "Failed files will be retried up to three times."
+#~ msgstr "失敗したファイルは最大3回まで再試行されます。"
 
-msgid "Access token signing certificate group updated."
-msgstr "アクセストークン署名の証明書グループを更新しました。"
+#~ msgid "Filter by keyword"
+#~ msgstr "キーワードで絞り込み"
 
-msgid "Please select a certificate group for signing."
-msgstr "署名に使用する証明書グループを選択してください。"
+#~ msgid "Search filename or ID"
+#~ msgstr "ファイル名またはIDを検索"
 
-msgid "Failed to update the access token signing configuration."
-msgstr "アクセストークン署名の設定を更新できませんでした。"
+#~ msgid "Status filter"
+#~ msgstr "ステータスで絞り込み"
 
-msgid "No certificate group has been configured for server signing."
-msgstr "サーバー署名用の証明書グループが設定されていません。"
+#~ msgid "All statuses"
+#~ msgstr "すべてのステータス"
 
-msgid "The selected certificate group could not be found."
-msgstr "選択した証明書グループが見つかりません。"
+#~ msgid "Reset filters"
+#~ msgstr "絞り込みをリセット"
 
-msgid "The certificate group is not configured for server signing usage."
-msgstr "この証明書グループはサーバー署名用に設定されていません。"
+#~ msgid "File"
+#~ msgstr "ファイル"
 
-msgid "No active certificates are available in the selected group."
-msgstr "選択されたグループには利用可能な証明書がありません。"
+#~ msgid "Attempts"
+#~ msgstr "試行回数"
 
-msgid "Access Token Signing"
-msgstr "アクセストークン署名"
+#~ msgid "Working..."
+#~ msgstr "処理中..."
 
-msgid "Built-in secret (HS256)"
-msgstr "組み込みシークレット（HS256）"
+#~ msgid "Photo View"
+#~ msgstr "フォトビュー"
 
-msgid "Use the built-in JWT secret key configured below."
-msgstr "以下で設定した組み込みJWTシークレットキーを使用します。"
+#~ msgid "Sessions"
+#~ msgstr "セッション"
 
-msgid "Server signing certificate groups"
-msgstr "サーバー署名証明書グループ"
+#~ msgid "Photo View Admin"
+#~ msgstr "フォトビュー管理"
 
-msgid "Unnamed group"
-msgstr "名称未設定のグループ"
+#~ msgid "Photo Exports"
+#~ msgstr "フォトエクスポート"
 
-msgid "Latest active certificate: %(kid)s"
-msgstr "最新の有効な証明書: %(kid)s"
+#~ msgid "Logout"
+#~ msgstr "ログアウト"
 
-msgid "Algorithm: %(algorithm)s"
-msgstr "アルゴリズム: %(algorithm)s"
+#~ msgid "Top"
+#~ msgstr "トップ"
 
-msgid "Expires at: %(timestamp)s"
-msgstr "有効期限: %(timestamp)s"
+#~ msgid "Welcome!"
+#~ msgstr "ようこそ！"
 
-msgid "No active certificates are available in this group."
-msgstr "このグループには有効な証明書がありません。"
+#~ msgid "You are logged in."
+#~ msgstr "ログイン済みです。"
 
-msgid "No server signing certificate groups are available. Create a certificate group first."
-msgstr "サーバー署名用の証明書グループがありません。先に証明書グループを作成してください。"
+#~ msgid "Please login to continue."
+#~ msgstr "続行するにはログインしてください。"
 
-msgid "Save signing settings"
-msgstr "署名設定を保存"
+#~ msgid "Updated"
+#~ msgstr "更新"
 
-msgid "Not Found"
-msgstr "見つかりません"
+#~ msgid "Page Information"
+#~ msgstr "ページ情報"
 
-msgid "Internal Server Error"
-msgstr "サーバー内部エラー"
+#~ msgid "Created Date"
+#~ msgstr "作成日"
 
-msgid "Error"
-msgstr "エラー"
+#~ msgid "Created By"
+#~ msgstr "作成者"
 
-msgid "Settings navigation"
-msgstr "設定ナビゲーション"
+#~ msgid "Slug"
+#~ msgstr "スラッグ"
 
-msgid "Hide navigation"
-msgstr "ナビゲーションを隠す"
+#~ msgid "Statistics"
+#~ msgstr "統計"
 
-msgid "Show navigation"
-msgstr "ナビゲーションを表示"
+#~ msgid "Total Revisions"
+#~ msgstr "総リビジョン数"
 
-msgid "Page identifier is required."
-msgstr "ページ識別子は必須です。"
+#~ msgid "Last Updated"
+#~ msgstr "最終更新"
 
-msgid "You do not have permission to delete this page."
-msgstr "このページを削除する権限がありません。"
+#~ msgid "Last Updated By"
+#~ msgstr "最終更新者"
 
-msgid "Cannot delete a page that has child pages."
-msgstr "子ページが存在するため削除できません。"
+#~ msgid "Current Title"
+#~ msgstr "現在のタイトル"
 
-msgid "Failed to delete the page."
-msgstr "ページの削除に失敗しました。"
+#~ msgid "Title"
+#~ msgstr "タイトル"
 
-msgid "Page deleted successfully."
-msgstr "ページを削除しました。"
+#~ msgid "Content Length"
+#~ msgstr "内容長"
 
-msgid "Security verification failed. Please reload the page and try again."
-msgstr "セキュリティ検証に失敗しました。ページを再読み込みしてから再試行してください。"
+#~ msgid "characters"
+#~ msgstr "文字"
 
-msgid "Are you sure you want to delete this page?"
-msgstr "このページを削除してもよろしいですか？"
+#~ msgid "Show Content"
+#~ msgstr "内容を表示"
 
-msgid "Group Management"
-msgstr "グループ管理"
+#~ msgid "Hide Content"
+#~ msgstr "内容を隠す"
 
-msgid "Groups"
-msgstr "グループ"
+#~ msgid "Page content at this point"
+#~ msgstr "この時点でのページ内容"
 
-msgid "Add Group"
-msgstr "グループを追加"
+#~ msgid "Change History"
+#~ msgstr "変更履歴"
 
-msgid "Parent Group"
-msgstr "親グループ"
+#~ msgid "No History"
+#~ msgstr "履歴がありません"
 
-msgid "Subgroups"
-msgstr "子グループ"
+#~ msgid "This page has no change history yet."
+#~ msgstr "このページの変更履歴はまだありません。"
 
-msgid "Members"
-msgstr "メンバー"
+#~ msgid "Back to Page"
+#~ msgstr "ページに戻る"
 
-msgid "No groups have been created yet."
-msgstr "まだグループが作成されていません。"
+#~ msgid "Wiki Top"
+#~ msgstr "Wiki トップ"
 
-msgid "Edit Group"
-msgstr "グループを編集"
+#~ msgid "Categories"
+#~ msgstr "カテゴリ"
 
-msgid "Group Name"
-msgstr "グループ名"
+#~ msgid "Page Hierarchy"
+#~ msgstr "ページ階層"
 
-msgid "Optional description to help identify the group."
-msgstr "グループを識別するための任意の説明です。"
+#~ msgid "No pages available"
+#~ msgstr "ページがありません"
 
-msgid "Select a parent to nest this group inside another group."
-msgstr "このグループを別のグループに入れ子にする場合は親グループを選択してください。"
+#~ msgid "New Page"
+#~ msgstr "新規ページ"
 
-msgid "Group Members"
-msgstr "グループメンバー"
+#~ msgid "Admin"
+#~ msgstr "管理"
 
-msgid "Hold Ctrl (Windows/Linux) or Command (macOS) to select multiple users."
-msgstr "複数のユーザーを選択する場合は、Ctrl（Windows/Linux）またはCommand（macOS）キーを押しながら選択してください。"
+#~ msgid "Search pages..."
+#~ msgstr "ページを検索..."
 
-msgid "Create Group"
-msgstr "グループを作成"
+#~ msgid "Recently Updated Pages"
+#~ msgstr "最近更新されたページ"
 
-msgid "No parent"
-msgstr "親なし"
+#~ msgid "No pages yet."
+#~ msgstr "まだページがありません。"
 
-msgid "Group name is required."
-msgstr "グループ名は必須です。"
+#~ msgid "Create New Page"
+#~ msgstr "新規ページ作成"
 
-msgid "Group name already exists."
-msgstr "同名のグループが既に存在します。"
+#~ msgid "Back to Wiki Top"
+#~ msgstr "Wiki トップに戻る"
 
-msgid "Selected parent group does not exist."
-msgstr "選択した親グループが存在しません。"
+#~ msgid "No categories"
+#~ msgstr "カテゴリなし"
 
-msgid "One or more selected users do not exist."
-msgstr "選択したユーザーの一部が存在しません。"
+#~ msgid "Navigation"
+#~ msgstr "ナビゲーション"
 
-msgid "The selected parent would create a circular hierarchy."
-msgstr "選択した親グループでは階層が循環します。"
+#~ msgid "History"
+#~ msgstr "履歴"
 
-msgid "Group created successfully."
-msgstr "グループを作成しました。"
+#~ msgid "Sub Pages"
+#~ msgstr "サブページ"
 
-msgid "Group updated successfully."
-msgstr "グループを更新しました。"
+#~ msgid "Parent Page"
+#~ msgstr "親ページ"
 
-msgid "Group deleted successfully."
-msgstr "グループを削除しました。"
+#~ msgid "You do not have permission to delete media."
+#~ msgstr "メディアを削除する権限がありません。"
 
-msgid "Cannot delete a group that still has subgroups."
-msgstr "子グループが残っているグループは削除できません。"
+#~ msgid ""
+#~ "Are you sure you want to delete"
+#~ " this media? This action cannot be"
+#~ " undone."
+#~ msgstr "このメディアを削除してよろしいですか？この操作は元に戻せません。"
 
-msgid "Remove all users from the group before deleting it."
-msgstr "削除する前にグループからすべてのユーザーを外してください。"
+#~ msgid "Media was deleted successfully."
+#~ msgstr "メディアを削除しました。"
 
-msgid "Are you sure you want to delete this group?"
-msgstr "このグループを削除してもよろしいですか？"
+#~ msgid "Failed to delete media."
+#~ msgstr "メディアの削除に失敗しました。"
+
+#~ msgid "Media was not found or is already deleted."
+#~ msgstr "メディアが見つからないか、すでに削除されています。"
+
+#~ msgid "Deleting..."
+#~ msgstr "削除しています..."
+
+#~ msgid "File Name"
+#~ msgstr "ファイル名"
+
+#~ msgid "Type"
+#~ msgstr "タイプ"
+
+#~ msgid "Shot At"
+#~ msgstr "撮影日時"
+
+#~ msgid "Source"
+#~ msgstr "取り込み元"
+
+#~ msgid "Imported:"
+#~ msgstr "取り込み日時"
+
+#~ msgid "Dimensions:"
+#~ msgstr "解像度"
+
+#~ msgid "File Size:"
+#~ msgstr "ファイルサイズ"
+
+#~ msgid "MIME Type:"
+#~ msgstr "MIMEタイプ"
+
+#~ msgid "Media ID::"
+#~ msgstr "メディアID:"
+
+#~ msgid "Edit shooting date"
+#~ msgstr "撮影日時を編集"
+
+#~ msgid ""
+#~ "Times are saved in UTC. Your local"
+#~ " time will be converted automatically."
+#~ msgstr "時刻はUTCで保存されます。ローカル時刻は自動的に変換されます。"
+
+#~ msgid "Shooting date updated."
+#~ msgstr "撮影日時を更新しました。"
+
+#~ msgid "Failed to update shooting date."
+#~ msgstr "撮影日時の更新に失敗しました。"
+
+#~ msgid "Enter a valid date and time before saving."
+#~ msgstr "保存する前に有効な日時を入力してください。"
+
+#~ msgid "You do not have permission to update the shooting date."
+#~ msgstr "撮影日時を更新する権限がありません。"
+
+#~ msgid "The server rejected the provided shooting date."
+#~ msgstr "指定した撮影日時はサーバーで受理されませんでした。"
+
+#~ msgid "Unknown date"
+#~ msgstr "日時不明"
+
+#~ msgid "Failed to update media metadata."
+#~ msgstr "メディアのメタデータを更新できませんでした。"
+
+#~ msgid "Define role basics and choose the permissions it should include."
+#~ msgstr "ロールの基本情報を設定し、付与する権限を選択してください。"
+
+#~ msgid "Enter role name"
+#~ msgstr "ロール名を入力"
+
+#~ msgid "Selected permissions"
+#~ msgstr "選択中の権限"
+
+#~ msgid "This role currently grants the following number of permissions."
+#~ msgstr "このロールに現在付与されている権限数です。"
+
+#~ msgid ""
+#~ "Tip: Use the search box to quickly"
+#~ " filter permissions by name or "
+#~ "category."
+#~ msgstr "ヒント: 検索ボックスで名前やカテゴリから権限を絞り込めます。"
+
+#~ msgid "Select the capabilities that should be included in this role."
+#~ msgstr "このロールに含める機能を選択してください。"
+
+#~ msgid "Search permissions..."
+#~ msgstr "権限を検索..."
+
+#~ msgid "Search permissions"
+#~ msgstr "権限を検索"
+
+#~ msgid "No permissions match your search."
+#~ msgstr "該当する権限がありません。"
+
+#~ msgid "You do not have permission to stop a local import."
+#~ msgstr "ローカルインポートを停止する権限がありません。"
+
+#~ msgid "Local import session not found."
+#~ msgstr "ローカルインポートセッションが見つかりません。"
+
+#~ msgid "Local import session is already canceled."
+#~ msgstr "ローカルインポートセッションはすでに停止済みです。"
+
+#~ msgid "Local import session is not currently running."
+#~ msgstr "ローカルインポートセッションは実行中ではありません。"
+
+#~ msgid "Local import session was canceled."
+#~ msgstr "ローカルインポートセッションを停止しました。"
+
+#~ msgid "Download full logs (ZIP)"
+#~ msgstr "ログ全量をZIPでダウンロード"
+
+#~ msgid "Preparing download..."
+#~ msgstr "ダウンロード準備中..."
+
+#~ msgid "Failed to download logs."
+#~ msgstr "ログのダウンロードに失敗しました。"
+
+#~ msgid "Show registration form"
+#~ msgstr "登録フォームを表示"
+
+#~ msgid "Hide registration form"
+#~ msgstr "登録フォームを閉じる"
+
+#~ msgid "Session expired. Please log in again."
+#~ msgstr "セッションの有効期限が切れました。再度ログインしてください。"
+
+#~ msgid "Loading more items..."
+#~ msgstr "さらに項目を読み込み中..."
+
+#~ msgid "No more items to display."
+#~ msgstr "表示できる項目はこれ以上ありません。"
+
+#~ msgid "Load error: %(message)s"
+#~ msgstr "読み込みエラー: %(message)s"
+
+#~ msgid "No TOTP registrations yet."
+#~ msgstr "TOTP の登録はまだありません。"
+
+#~ msgid "Click to copy"
+#~ msgstr "クリックしてコピー"
+
+#~ msgid "Copy one-time code"
+#~ msgstr "ワンタイムコードをコピー"
+
+#~ msgid "Copied the one-time code."
+#~ msgstr "ワンタイムコードをコピーしました。"
+
+#~ msgid "Failed to copy the one-time code."
+#~ msgstr "ワンタイムコードをコピーできませんでした。"
+
+#~ msgid "Remaining %(seconds)s seconds"
+#~ msgstr "残り %(seconds)s 秒"
+
+#~ msgid "Previewing"
+#~ msgstr "プレビュー中"
+
+#~ msgid "-- seconds remaining"
+#~ msgstr "残り -- 秒"
+
+#~ msgid "Waiting for preview"
+#~ msgstr "プレビュー待ち"
+
+#~ msgid "Preview unavailable"
+#~ msgstr "プレビューを利用できません"
+
+#~ msgid "Failed to load the TOTP list."
+#~ msgstr "TOTP 一覧の読み込みに失敗しました。"
+
+#~ msgid "The otpauth URI is not valid."
+#~ msgstr "otpauth URI が無効です。"
+
+#~ msgid "The otpauth URI is not for TOTP."
+#~ msgstr "この otpauth URI は TOTP 用ではありません。"
+
+#~ msgid "The otpauth URI is missing required information."
+#~ msgstr "otpauth URI に必要な情報が不足しています。"
+
+#~ msgid "Registered the TOTP entry."
+#~ msgstr "TOTP を登録しました。"
+
+#~ msgid "Failed to register the TOTP entry."
+#~ msgstr "TOTP の登録に失敗しました。"
+
+#~ msgid "Extracted information from the URI."
+#~ msgstr "URI から情報を取得しました。"
+
+#~ msgid "Failed to parse the otpauth URI."
+#~ msgstr "otpauth URI を解析できませんでした。"
+
+#~ msgid "Updated the TOTP entry."
+#~ msgstr "TOTP を更新しました。"
+
+#~ msgid "Failed to update the TOTP entry."
+#~ msgstr "TOTP の更新に失敗しました。"
+
+#~ msgid "Imported TOTP entries."
+#~ msgstr "TOTP をインポートしました。"
+
+#~ msgid "Failed to import TOTP entries."
+#~ msgstr "TOTP のインポートに失敗しました。"
+
+#~ msgid "Duplicate entries detected"
+#~ msgstr "重複しているエントリが見つかりました"
+
+#~ msgid "Select \"Overwrite even if duplicates exist\" and try again."
+#~ msgstr "「重複していても上書きする」を選択して再試行してください。"
+
+#~ msgid "Provide JSON text or choose a file."
+#~ msgstr "JSON テキストを入力するかファイルを選択してください。"
+
+#~ msgid "Failed to read the file."
+#~ msgstr "ファイルを読み込めませんでした。"
+
+#~ msgid "Downloaded the JSON file."
+#~ msgstr "JSON ファイルをダウンロードしました。"
+
+#~ msgid "Failed to export TOTP entries."
+#~ msgstr "TOTP のエクスポートに失敗しました。"
+
+#~ msgid "Delete %(issuer)s / %(account)s?"
+#~ msgstr "%(issuer)s / %(account)s を削除しますか？"
+
+#~ msgid "Deleted the TOTP entry."
+#~ msgstr "TOTP を削除しました。"
+
+#~ msgid "Failed to delete the TOTP entry."
+#~ msgstr "TOTP の削除に失敗しました。"
+
+#~ msgid "Failed to decode the QR code."
+#~ msgstr "QR コードのデコードに失敗しました。"
+
+#~ msgid "This browser does not support reading images from the clipboard."
+#~ msgstr "このブラウザはクリップボードからの画像読み取りに対応していません。"
+
+#~ msgid "No image found in the clipboard."
+#~ msgstr "クリップボードに画像が見つかりません。"
+
+#~ msgid "Failed to load the image."
+#~ msgstr "画像を読み込めませんでした。"
+
+#~ msgid "Could not detect a QR code."
+#~ msgstr "QR コードを検出できませんでした。"
+
+#~ msgid "Read information from the QR code."
+#~ msgstr "QR コードから情報を読み取りました。"
+
+#~ msgid "Wiki Administration"
+#~ msgstr "Wiki管理"
+
+#~ msgid "Back to Wiki Home"
+#~ msgstr "Wikiホームに戻る"
+
+#~ msgid "Total Pages"
+#~ msgstr "ページ総数"
+
+#~ msgid "Total Categories"
+#~ msgstr "カテゴリ総数"
+
+#~ msgid "Recent Pages"
+#~ msgstr "最近のページ"
+
+#~ msgid "Create New"
+#~ msgstr "新規作成"
+
+#~ msgid "Create New Category"
+#~ msgstr "新規カテゴリ作成"
+
+#~ msgid "Administration Tools"
+#~ msgstr "管理ツール"
+
+#~ msgid "Manage Categories"
+#~ msgstr "カテゴリを管理"
+
+#~ msgid "Search Pages"
+#~ msgstr "ページを検索"
+
+#~ msgid "View All Pages"
+#~ msgstr "すべてのページを表示"
+
+#~ msgid "Category List"
+#~ msgstr "カテゴリ一覧"
+
+#~ msgid "New Category"
+#~ msgstr "新規カテゴリ"
+
+#~ msgid "Wiki Home"
+#~ msgstr "Wikiホーム"
+
+#~ msgid "%(count)s pages"
+#~ msgstr "%(count)s ページ"
+
+#~ msgid "No description"
+#~ msgstr "説明はありません"
+
+#~ msgid "Slug: %(slug)s"
+#~ msgstr "スラッグ: %(slug)s"
+
+#~ msgid "Created: %(date)s"
+#~ msgstr "作成日時: %(date)s"
+
+#~ msgid "View"
+#~ msgstr "表示"
+
+#~ msgid "Create Page"
+#~ msgstr "ページを作成"
+
+#~ msgid "There are no categories yet"
+#~ msgstr "カテゴリはまだありません"
+
+#~ msgid "Create the first category to organize your pages."
+#~ msgstr "ページを整理するために最初のカテゴリを作成してください。"
+
+#~ msgid "Create Category"
+#~ msgstr "カテゴリを作成"
+
+#~ msgid "Pages in this Category"
+#~ msgstr "このカテゴリ内のページ"
+
+#~ msgid "%(title)s child page"
+#~ msgstr "%(title)s の子ページ"
+
+#~ msgid "Updated: %(datetime)s"
+#~ msgstr "更新日時: %(datetime)s"
+
+#~ msgid "There are no pages in this category yet"
+#~ msgstr "このカテゴリにはまだページがありません"
+
+#~ msgid "Create the first page to get started."
+#~ msgstr "最初のページを作成して開始しましょう。"
+
+#~ msgid "Within this Category"
+#~ msgstr "このカテゴリ内"
+
+#~ msgid "Category Information"
+#~ msgstr "カテゴリ情報"
+
+#~ msgid "Number of Pages: %(count)s"
+#~ msgstr "ページ数: %(count)s"
+
+#~ msgid "Generated automatically (customizable)"
+#~ msgstr "自動生成（変更可能）"
+
+#~ msgid ""
+#~ "This identifier is used in the "
+#~ "URL. Letters, numbers, hyphens, and "
+#~ "underscores are allowed."
+#~ msgstr "この識別子はURLで使用されます。英数字、ハイフン、アンダースコアが利用できます。"
+
+#~ msgid "Content"
+#~ msgstr "内容"
+
+#~ msgid "Preview"
+#~ msgstr "プレビュー"
+
+#~ msgid "Loading preview..."
+#~ msgstr "プレビューを読み込み中..."
+
+#~ msgid ""
+#~ "Markdown is supported. URLs starting "
+#~ "with http: or https: are automatically"
+#~ " linked."
+#~ msgstr "Markdownが利用できます。http: または https: で始まるURLは自動的にリンクされます。"
+
+#~ msgid "Diagram Support:"
+#~ msgstr "図表サポート:"
+
+#~ msgid "Use <code>```mermaid</code> to create Mermaid diagrams."
+#~ msgstr "Mermaidの図を作成するには <code>```mermaid</code> を使用してください。"
+
+#~ msgid "None (top level)"
+#~ msgstr "なし（トップレベル）"
+
+#~ msgid "Select a parent page to nest this page beneath it."
+#~ msgstr "親ページを選択すると、このページをその配下に配置できます。"
+
+#~ msgid "No categories available."
+#~ msgstr "利用可能なカテゴリがありません。"
+
+#~ msgid "Help"
+#~ msgstr "ヘルプ"
+
+#~ msgid "Markdown Examples:"
+#~ msgstr "Markdownの例:"
+
+#~ msgid "Heading 1"
+#~ msgstr "見出し1"
+
+#~ msgid "Heading 2"
+#~ msgstr "見出し2"
+
+#~ msgid "Bold"
+#~ msgstr "太字"
+
+#~ msgid "Italic"
+#~ msgstr "斜体"
+
+#~ msgid "Link"
+#~ msgstr "リンク"
+
+#~ msgid "List item"
+#~ msgstr "リスト項目"
+
+#~ msgid "There is no content to preview"
+#~ msgstr "プレビューする内容がありません"
+
+#~ msgid "Preview error:"
+#~ msgstr "プレビューエラー:"
+
+#~ msgid "Failed to load preview"
+#~ msgstr "プレビューの読み込みに失敗しました"
+
+#~ msgid "Back to Categories"
+#~ msgstr "カテゴリ一覧に戻る"
+
+#~ msgid "Category Name"
+#~ msgstr "カテゴリ名"
+
+#~ msgid "Choose a descriptive category name."
+#~ msgstr "カテゴリの内容が分かる名前を入力してください。"
+
+#~ msgid "Description"
+#~ msgstr "説明"
+
+#~ msgid "Describe the purpose or contents of this category (optional)."
+#~ msgstr "このカテゴリの目的や内容を記載してください（任意）。"
+
+#~ msgid "About Categories"
+#~ msgstr "カテゴリについて"
+
+#~ msgid "Categories help organize Wiki pages."
+#~ msgstr "カテゴリはWikiページを整理するのに役立ちます。"
+
+#~ msgid "A single page can belong to multiple categories."
+#~ msgstr "1つのページは複数のカテゴリに属することができます。"
+
+#~ msgid "Because the slug is used in URLs, choose clear alphanumeric characters."
+#~ msgstr "スラッグはURLに使用されるため、わかりやすい英数字を選んでください。"
+
+#~ msgid "You can edit categories after they are created."
+#~ msgstr "カテゴリは作成後に編集できます。"
+
+#~ msgid "Edit Page: %(title)s"
+#~ msgstr "ページを編集: %(title)s"
+
+#~ msgid "Change Summary"
+#~ msgstr "変更概要"
+
+#~ msgid "Briefly describe the changes you made."
+#~ msgstr "行った変更内容を簡潔に記載してください。"
+
+#~ msgid "This description appears in history (optional)."
+#~ msgstr "この説明は履歴に表示されます（任意）。"
+
+#~ msgid "Show source code"
+#~ msgstr "ソースコードを表示"
+
+#~ msgid "Hide source code"
+#~ msgstr "ソースコードを非表示"
+
+#~ msgid "History for %(title)s"
+#~ msgstr "%(title)s の履歴"
+
+#~ msgid "View Page"
+#~ msgstr "ページを表示"
+
+#~ msgid "Search Results"
+#~ msgstr "検索結果"
+
+#~ msgid "Wiki Search"
+#~ msgstr "Wiki検索"
+
+#~ msgid "Search by page title..."
+#~ msgstr "ページタイトルで検索..."
+
+#~ msgid "Search Results: \"%(query)s\""
+#~ msgstr "検索結果: \"%(query)s\""
+
+#~ msgid "%(count)s results"
+#~ msgstr "%(count)s 件"
+
+#~ msgid "No search results found"
+#~ msgstr "検索結果は見つかりませんでした"
+
+#~ msgid "No pages matched \"%(query)s\"."
+#~ msgstr "\"%(query)s\" に一致するページはありません。"
+
+#~ msgid "Try searching with different keywords."
+#~ msgstr "別のキーワードで検索してみてください。"
+
+#~ msgid "Search Wiki Pages"
+#~ msgstr "Wikiページを検索"
+
+#~ msgid "Enter a keyword in the search box above to find pages."
+#~ msgstr "ページを探すには上の検索欄にキーワードを入力してください。"
+
+#~ msgid "TOTP Management"
+#~ msgstr "TOTP 管理"
+
+#~ msgid "Register New TOTP"
+#~ msgstr "新規 TOTP 登録"
+
+#~ msgid "Register by scanning a QR code or entering the details manually."
+#~ msgstr "QR を読み取るか手入力で登録できます。"
+
+#~ msgid "Account"
+#~ msgstr "アカウント"
+
+#~ msgid "Issuer"
+#~ msgstr "発行元"
+
+#~ msgid "Secret"
+#~ msgstr "シークレット"
+
+#~ msgid "Spaces and hyphens are removed automatically (Base32)."
+#~ msgstr "空白やハイフンは自動で除去されます (Base32)"
+
+#~ msgid "Digits"
+#~ msgstr "桁数"
+
+#~ msgid "Period (seconds)"
+#~ msgstr "有効期間 (秒)"
+
+#~ msgid "Description (optional)"
+#~ msgstr "説明 (任意)"
+
+#~ msgid "Read from QR code"
+#~ msgstr "QR コードから読み込む"
+
+#~ msgid "Paste from clipboard"
+#~ msgstr "クリップボードから貼り付け"
+
+#~ msgid "Reads a QR code from an image in your clipboard."
+#~ msgstr "クリップボードの画像から QR を読み取ります。"
+
+#~ msgid "otpauth URI (optional)"
+#~ msgstr "otpauth URI (任意)"
+
+#~ msgid "Paste the URI and press \"Parse URI\" to populate the form."
+#~ msgstr "URI を貼り付けて「URI を展開」を押すとフォームへ展開します。"
+
+#~ msgid "Parse URI"
+#~ msgstr "URI を展開"
+
+#~ msgid "Current preview"
+#~ msgstr "現在のプレビュー"
+
+#~ msgid "Registered TOTP entries"
+#~ msgstr "登録済み TOTP 一覧"
+
+#~ msgid "The list refreshes every second."
+#~ msgstr "一覧は 1 秒ごとに自動更新されます。"
+
+#~ msgid "Sort by issuer"
+#~ msgstr "発行元順"
+
+#~ msgid "Sort by account"
+#~ msgstr "アカウント順"
+
+#~ msgid "Sort by updated time"
+#~ msgstr "更新日時順"
+
+#~ msgid "One-time code"
+#~ msgstr "ワンタイムコード"
+
+#~ msgid "Time remaining"
+#~ msgstr "残り時間"
+
+#~ msgid "Updated at"
+#~ msgstr "更新日時"
+
+#~ msgid "Loading data..."
+#~ msgstr "データ取得中..."
+
+#~ msgid "Edit TOTP"
+#~ msgstr "TOTP を編集"
+
+#~ msgid "Update secret (optional)"
+#~ msgstr "シークレットを更新 (任意)"
+
+#~ msgid "Leave blank to keep the current secret."
+#~ msgstr "空欄のままにすると変更しません"
+
+#~ msgid "Import TOTPs"
+#~ msgstr "TOTP をインポート"
+
+#~ msgid ""
+#~ "Paste or choose a JSON file. "
+#~ "Duplicates will be reviewed before "
+#~ "continuing."
+#~ msgstr "JSON ファイルを貼り付けるか選択してください。重複がある場合は確認後に続行します。"
+
+#~ msgid "JSON file"
+#~ msgstr "JSON ファイル"
+
+#~ msgid "Paste JSON directly"
+#~ msgstr "JSON を直接貼り付け"
+
+#~ msgid "Overwrite even if duplicates exist"
+#~ msgstr "重複があっても上書きする"
+
+#~ msgid "Close"
+#~ msgstr "閉じる"
+
+#~ msgid "Run import"
+#~ msgstr "インポート実行"
+
+#~ msgid "Certificate List"
+#~ msgstr "証明書一覧"
+
+#~ msgid "Common Name"
+#~ msgstr "コモンネーム"
+
+#~ msgid "Generate New"
+#~ msgstr "新規生成"
+
+#~ msgid "Public Key Distribution"
+#~ msgstr "公開鍵配布"
+
+#~ msgid "Usage"
+#~ msgstr "用途"
+
+#~ msgid "All"
+#~ msgstr "すべて"
+
+#~ msgid "Issued At"
+#~ msgstr "発行日時"
+
+#~ msgid "Revoked At"
+#~ msgstr "失効日時"
+
+#~ msgid "Revoked"
+#~ msgstr "失効"
+
+#~ msgid "Revoke"
+#~ msgstr "失効"
+
+#~ msgid "No certificates available to display."
+#~ msgstr "表示できる証明書がありません。"
+
+#~ msgid "Certificate Details"
+#~ msgstr "証明書詳細"
+
+#~ msgid "KID"
+#~ msgstr "KID"
+
+#~ msgid "Back to List"
+#~ msgstr "一覧に戻る"
+
+#~ msgid "Revoke Certificate"
+#~ msgstr "証明書を失効"
+
+#~ msgid "Metadata"
+#~ msgstr "メタ情報"
+
+#~ msgid "Revocation Reason"
+#~ msgstr "失効理由"
+
+#~ msgid "Subject"
+#~ msgstr "サブジェクト"
+
+#~ msgid "Validity Period"
+#~ msgstr "有効期間"
+
+#~ msgid "to"
+#~ msgstr "〜"
+
+#~ msgid "Certificate (PEM)"
+#~ msgstr "証明書 (PEM)"
+
+#~ msgid "JWK Information"
+#~ msgstr "JWK情報"
+
+#~ msgid "Generate Certificate"
+#~ msgstr "証明書生成"
+
+#~ msgid "Input Form"
+#~ msgstr "入力フォーム"
+
+#~ msgid "Validity (days)"
+#~ msgstr "有効日数"
+
+#~ msgid "Key Type"
+#~ msgstr "鍵タイプ"
+
+#~ msgid "RSA Key Size"
+#~ msgstr "RSA鍵長"
+
+#~ msgid "Key Usage"
+#~ msgstr "Key Usage"
+
+#~ msgid "Mark as CA certificate"
+#~ msgstr "CA証明書としてマークする"
+
+#~ msgid "Generate"
+#~ msgstr "生成する"
+
+#~ msgid "Private Key / Public Key"
+#~ msgstr "秘密鍵 / 公開鍵"
+
+#~ msgid "Private Key"
+#~ msgstr "秘密鍵"
+
+#~ msgid "Public Key"
+#~ msgstr "公開鍵"
+
+#~ msgid "Generation results will appear here."
+#~ msgstr "生成結果がここに表示されます。"
+
+#~ msgid "Certificate / JWKS"
+#~ msgstr "証明書 / JWKS"
+
+#~ msgid "JWK"
+#~ msgstr "JWK"
+
+#~ msgid "Certificate details will be shown after generation."
+#~ msgstr "証明書生成後に詳細が表示されます。"
+
+#~ msgid "Revoke the certificate below and provide a reason for the revocation."
+#~ msgstr "以下の証明書を失効させます。理由を入力してください。"
+
+#~ msgid "Example: Key was compromised"
+#~ msgstr "例: 鍵漏洩が判明したため"
+
+#~ msgid ""
+#~ "Are you sure you want to revoke"
+#~ " this certificate? This action cannot "
+#~ "be undone."
+#~ msgstr "本当に失効しますか？この操作は元に戻せません。"
+
+#~ msgid ""
+#~ "Links to the JWKS endpoints and "
+#~ "information about currently published keys."
+#~ msgstr "JWKSエンドポイントへのリンクと現在公開中の鍵情報です。"
+
+#~ msgid "Endpoint"
+#~ msgstr "エンドポイント"
+
+#~ msgid "Open in Browser"
+#~ msgstr "ブラウザで開く"
+
+#~ msgid "Copy URL"
+#~ msgstr "URLをコピー"
+
+#~ msgid "JWKS JSON"
+#~ msgstr "JWKS JSON"
+
+#~ msgid "Unsupported subject attribute: %(attribute)s"
+#~ msgstr "未対応のsubject属性です: %(attribute)s"
+
+#~ msgid "Invalid value for subject attribute %(attribute)s: %(error)s"
+#~ msgstr "subject属性%(attribute)sの値が不正です: %(error)s"
+
+#~ msgid "Subject must not be empty"
+#~ msgstr "subjectを空にすることはできません"
+
+#~ msgid "Country code (C) must be a two-letter ISO 3166-1 value (e.g., JP)"
+#~ msgstr "国コード(C)はISO 3166-1の2文字コードで指定してください（例: JP）"
+
+#~ msgid "RSA key length must be at least 2048 bits"
+#~ msgstr "RSA鍵長は2048ビット以上である必要があります"
+
+#~ msgid "Unsupported key type: %(key_type)s"
+#~ msgstr "未対応の鍵タイプです: %(key_type)s"
+
+#~ msgid "Failed to load CSR"
+#~ msgstr "CSRの読み込みに失敗しました"
+
+#~ msgid "Only RSA keys are currently supported"
+#~ msgstr "現在RSA鍵のみサポートしています"
+
+#~ msgid "Unsupported keyUsage value: %(usage)s"
+#~ msgstr "未対応のkeyUsageが指定されました: %(usage)s"
+
+#~ msgid "Validity period must be at least one day"
+#~ msgstr "有効期限は1日以上で指定してください"
+
+#~ msgid "Unsupported elliptic curve"
+#~ msgstr "サポートされていないEC曲線です"
+
+#~ msgid "digitalSignature - digital signature"
+#~ msgstr "digitalSignature - 電子署名"
+
+#~ msgid "contentCommitment - content commitment"
+#~ msgstr "contentCommitment - コンテンツコミット"
+
+#~ msgid "keyEncipherment - key encipherment"
+#~ msgstr "keyEncipherment - 鍵暗号化"
+
+#~ msgid "dataEncipherment - data encipherment"
+#~ msgstr "dataEncipherment - データ暗号化"
+
+#~ msgid "keyAgreement - key agreement"
+#~ msgstr "keyAgreement - 鍵共有"
+
+#~ msgid "keyCertSign - certificate signing"
+#~ msgstr "keyCertSign - 証明書署名"
+
+#~ msgid "crlSign - CRL signing"
+#~ msgstr "crlSign - CRL署名"
+
+#~ msgid "encipherOnly - encipher only"
+#~ msgstr "encipherOnly - 暗号化専用"
+
+#~ msgid "decipherOnly - decipher only"
+#~ msgstr "decipherOnly - 復号専用"
+
+#~ msgid "Country (C)"
+#~ msgstr "国名 (C)"
+
+#~ msgid "State or Province (ST)"
+#~ msgstr "都道府県 (ST)"
+
+#~ msgid "Locality (L)"
+#~ msgstr "市区町村 (L)"
+
+#~ msgid "Organization (O)"
+#~ msgstr "組織名 (O)"
+
+#~ msgid "Organizational Unit (OU)"
+#~ msgstr "部署名 (OU)"
+
+#~ msgid "Common Name (CN)"
+#~ msgstr "コモンネーム (CN)"
+
+#~ msgid "Certificate Groups"
+#~ msgstr "証明書グループ"
+
+#~ msgid "Failed to load certificate groups: %(message)s"
+#~ msgstr "証明書グループの取得に失敗しました: %(message)s"
+
+#~ msgid "Group code is required."
+#~ msgstr "グループコードは必須です。"
+
+#~ msgid "Invalid usage type specified."
+#~ msgstr "用途の指定が不正です。"
+
+#~ msgid "Key size must be a number."
+#~ msgstr "鍵長は数値で指定してください。"
+
+#~ msgid "Rotation threshold must be a number."
+#~ msgstr "ローテーション閾値は数値で指定してください。"
+
+#~ msgid "Rotation threshold must be greater than zero."
+#~ msgstr "ローテーション閾値は1以上で指定してください。"
+
+#~ msgid "Enter at least one subject attribute."
+#~ msgstr "少なくとも1つのサブジェクト属性を入力してください。"
+
+#~ msgid "Failed to create certificate group: %(message)s"
+#~ msgstr "証明書グループの作成に失敗しました: %(message)s"
+
+#~ msgid "Certificate group created."
+#~ msgstr "証明書グループを作成しました。"
+
+#~ msgid "Failed to update certificate group: %(message)s"
+#~ msgstr "証明書グループの更新に失敗しました: %(message)s"
+
+#~ msgid "Certificate group updated."
+#~ msgstr "証明書グループを更新しました。"
+
+#~ msgid "Cannot delete the group because active certificates exist: %(message)s"
+#~ msgstr "有効な証明書が存在するためグループを削除できません: %(message)s"
+
+#~ msgid "Failed to delete certificate group: %(message)s"
+#~ msgstr "証明書グループの削除に失敗しました: %(message)s"
+
+#~ msgid "Certificate group deleted."
+#~ msgstr "証明書グループを削除しました。"
+
+#~ msgid "Failed to update rotation setting: %(message)s"
+#~ msgstr "ローテーション設定の更新に失敗しました: %(message)s"
+
+#~ msgid "Rotation setting updated."
+#~ msgstr "ローテーション設定を更新しました。"
+
+#~ msgid "Certificates for %(group)s"
+#~ msgstr "%(group)s の証明書"
+
+#~ msgid "Back to Groups"
+#~ msgstr "グループ一覧に戻る"
+
+#~ msgid "Group Settings"
+#~ msgstr "グループ設定"
+
+#~ msgid "Group Code"
+#~ msgstr "グループコード"
+
+#~ msgid "Display Name"
+#~ msgstr "表示名"
+
+#~ msgid "Auto Rotate"
+#~ msgstr "自動ローテーション"
+
+#~ msgid "Rotation Threshold (days)"
+#~ msgstr "ローテーション閾値（日）"
+
+#~ msgid "Updated At"
+#~ msgstr "更新日時"
+
+#~ msgid "Enabled"
+#~ msgstr "有効"
+
+#~ msgid "Disabled"
+#~ msgstr "無効"
+
+#~ msgid "View Certificates"
+#~ msgstr "証明書を表示"
+
+#~ msgid "Are you sure you want to delete this group?"
+#~ msgstr "このグループを削除してもよろしいですか？"
+
+#~ msgid "No certificate groups available."
+#~ msgstr "表示可能な証明書グループがありません。"
+
+#~ msgid "Create Certificate Group"
+#~ msgstr "証明書グループを作成"
+
+#~ msgid "Key Parameters"
+#~ msgstr "鍵パラメータ"
+
+#~ msgid "Select key parameters"
+#~ msgstr "鍵パラメータを選択"
+
+#~ msgid "Custom configuration (%(details)s)"
+#~ msgstr "カスタム設定（%(details)s）"
+
+#~ msgid ""
+#~ "Fill in all required subject attributes"
+#~ " using ASCII characters. Country code "
+#~ "must be a two-letter ISO 3166-1"
+#~ " alpha-2 value (e.g., JP)."
+#~ msgstr "必須のサブジェクト属性をすべてASCII文字で入力してください。国コードはISO 3166-1の2文字（例: JP）である必要があります。"
+
+#~ msgid "Required"
+#~ msgstr "必須"
+
+#~ msgid "Optional"
+#~ msgstr "任意"
+
+#~ msgid "Please fill in all required subject attributes."
+#~ msgstr "必須のサブジェクト属性を入力してください。"
+
+#~ msgid "%(label)s is required."
+#~ msgstr "%(label)s は必須です。"
+
+#~ msgid "Usage Type"
+#~ msgstr "用途タイプ"
+
+#~ msgid "Select usage type"
+#~ msgstr "用途タイプを選択"
+
+#~ msgid "Select all shown permissions"
+#~ msgstr "表示されている権限をすべて選択"
+
+#~ msgid "Key Size"
+#~ msgstr "鍵長"
+
+#~ msgid "Key Curve"
+#~ msgstr "曲線名"
+
+#~ msgid "Subject Template"
+#~ msgstr "サブジェクトテンプレート"
+
+#~ msgid "Enable automatic rotation"
+#~ msgstr "自動ローテーションを有効にする"
+
+#~ msgid ""
+#~ "Non-expiring keys should disable "
+#~ "automatic rotation to avoid immediate "
+#~ "re-issuance."
+#~ msgstr "無期限のキーでは即時再発行を防ぐため自動ローテーションを無効にしてください。"
+
+#~ msgid "Update rotation setting"
+#~ msgstr "ローテーション設定を更新"
+
+#~ msgid "Save Group"
+#~ msgstr "グループを保存"
+
+#~ msgid "Edit Certificate Group"
+#~ msgstr "証明書グループを編集"
+
+#~ msgid "Update Group"
+#~ msgstr "グループを更新"
+
+#~ msgid "Key Profile"
+#~ msgstr "鍵プロファイル"
+
+#~ msgid "JWKS Endpoint"
+#~ msgstr "JWKSエンドポイント"
+
+#~ msgid "Public JWKS URL"
+#~ msgstr "公開JWKS URL"
+
+#~ msgid "Copy"
+#~ msgstr "コピー"
+
+#~ msgid "Open JWKS"
+#~ msgstr "JWKSを開く"
+
+#~ msgid "Issue New Certificate"
+#~ msgstr "新しい証明書を発行"
+
+#~ msgid "Issue without expiration"
+#~ msgstr "有効期限を設定しない"
+
+#~ msgid "When enabled, the issued key will not include an expiry date."
+#~ msgstr "有効にすると発行されるキーに有効期限が設定されません。"
+
+#~ msgid "Subject Overrides"
+#~ msgstr "サブジェクト上書き"
+
+#~ msgid "Issue Certificate"
+#~ msgstr "証明書を発行"
+
+#~ msgid "New certificate issued."
+#~ msgstr "証明書を発行しました。"
+
+#~ msgid "Copy the materials below. The private key is shown only once."
+#~ msgstr "以下の情報をコピーしてください。秘密鍵は今回のみ表示されます。"
+
+#~ msgid "Private Key (PEM)"
+#~ msgstr "秘密鍵 (PEM)"
+
+#~ msgid "Issued Certificates"
+#~ msgstr "発行済み証明書"
+
+#~ msgid "Provide an optional reason for revocation."
+#~ msgstr "任意で失効理由を入力してください。"
+
+#~ msgid "Reason"
+#~ msgstr "理由"
+
+#~ msgid "Copied!"
+#~ msgstr "コピーしました！"
+
+#~ msgid "Failed to load certificates: %(message)s"
+#~ msgstr "証明書の取得に失敗しました: %(message)s"
+
+#~ msgid "Validity days must be a number."
+#~ msgstr "有効日数は数値で指定してください。"
+
+#~ msgid "Failed to issue certificate: %(message)s"
+#~ msgstr "証明書の発行に失敗しました: %(message)s"
+
+#~ msgid "Certificate issued successfully."
+#~ msgstr "証明書を発行しました。"
+
+#~ msgid "Failed to revoke certificate: %(message)s"
+#~ msgstr "証明書の失効に失敗しました: %(message)s"
+
+#~ msgid "Failed to load groups: %(message)s"
+#~ msgstr "グループの取得に失敗しました: %(message)s"
+
+#~ msgid "Invalid revoked flag."
+#~ msgstr "失効ステータスの指定が不正です。"
+
+#~ msgid "Unlimited"
+#~ msgstr "無期限"
+
+#~ msgid "No certificate is stored for this key."
+#~ msgstr "この鍵には証明書が保存されていません。"
+
+#~ msgid "Not used for signing keys."
+#~ msgstr "署名用途の鍵では使用しません。"
+
+#~ msgid "No certificate was generated for this key."
+#~ msgstr "この鍵については証明書が生成されませんでした。"
+
+#~ msgid "Use ISO 8601 format for date filters."
+#~ msgstr "日付フィルターはISO 8601形式で指定してください。"
+
+#~ msgid "Failed to search certificates: %(message)s"
+#~ msgstr "証明書の検索に失敗しました: %(message)s"
+
+#~ msgid "Certificate Search"
+#~ msgstr "証明書検索"
+
+#~ msgid "All Groups"
+#~ msgstr "すべてのグループ"
+
+#~ msgid "Subject Contains"
+#~ msgstr "サブジェクトに含む文字列"
+
+#~ msgid "Issued From"
+#~ msgstr "発行日（開始）"
+
+#~ msgid "Issued To"
+#~ msgstr "発行日（終了）"
+
+#~ msgid "Expires From"
+#~ msgstr "有効期限（開始）"
+
+#~ msgid "Expires To"
+#~ msgstr "有効期限（終了）"
+
+#~ msgid "Revoked Status"
+#~ msgstr "失効状態"
+
+#~ msgid "%(count)d certificates found"
+#~ msgstr "%(count)d 件の証明書が見つかりました"
+
+#~ msgid "Group"
+#~ msgstr "グループ"
+
+#~ msgid ""
+#~ "Specify at least one search condition"
+#~ " and submit the form to view "
+#~ "results."
+#~ msgstr "少なくとも1つ検索条件を入力してから実行してください。"
+
+#~ msgid "Back to Group"
+#~ msgstr "グループに戻る"
+
+#~ msgid "Display name must be a string."
+#~ msgstr "displayNameは文字列で指定してください"
+
+#~ msgid "Key type is required."
+#~ msgstr "keyTypeは必須です"
+
+#~ msgid "Key curve must be a string."
+#~ msgstr "keyCurveは文字列で指定してください"
+
+#~ msgid "Key size must be an integer."
+#~ msgstr "keySizeは整数で指定してください"
+
+#~ msgid "Rotation threshold days must be an integer."
+#~ msgstr "rotationThresholdDaysは整数で指定してください"
+
+#~ msgid "Rotation threshold days must be at least 1."
+#~ msgstr "rotationThresholdDaysは1以上で指定してください"
+
+#~ msgid "Subject must be provided as an object."
+#~ msgstr "subjectはオブジェクトで指定してください"
+
+#~ msgid "Limit must be an integer."
+#~ msgstr "limitは整数で指定してください"
+
+#~ msgid "Offset must be an integer."
+#~ msgstr "offsetは整数で指定してください"
+
+#~ msgid "Issued-from must be in ISO 8601 format."
+#~ msgstr "issuedFromはISO8601形式で指定してください"
+
+#~ msgid "Issued-to must be in ISO 8601 format."
+#~ msgstr "issuedToはISO8601形式で指定してください"
+
+#~ msgid "Expires-from must be in ISO 8601 format."
+#~ msgstr "expiresFromはISO8601形式で指定してください"
+
+#~ msgid "Expires-to must be in ISO 8601 format."
+#~ msgstr "expiresToはISO8601形式で指定してください"
+
+#~ msgid "Valid days must be an integer."
+#~ msgstr "validDaysは整数で指定してください"
+
+#~ msgid "Valid days must be at least 1."
+#~ msgstr "validDaysは1以上で指定してください"
+
+#~ msgid "Key usage must be provided as an array."
+#~ msgstr "keyUsageは配列で指定してください"
+
+#~ msgid "Key bits must be an integer."
+#~ msgstr "keyBitsは整数で指定してください"
+
+#~ msgid "Key usage must be provided as an array of strings."
+#~ msgstr "keyUsageは文字列配列で指定してください"
+
+#~ msgid "Days must be an integer."
+#~ msgstr "daysは整数で指定してください"
+
+#~ msgid "Group code must be a string."
+#~ msgstr "groupCodeは文字列で指定してください"
+
+#~ msgid "The group parameter is invalid."
+#~ msgstr "groupパラメータが不正です"
+
+#~ msgid "Reason must be a string."
+#~ msgstr "reasonは文字列で指定してください"
+
+#~ msgid "The certificate does not exist in the specified group."
+#~ msgstr "指定したグループに証明書が存在しません"
+
+#~ msgid "Are you sure you want to issue a new certificate for this group?"
+#~ msgstr "このグループに新しい証明書を発行します。よろしいですか？"
+
+#~ msgid "Current Time"
+#~ msgstr "現在時刻"
+
+#~ msgid "Local Time"
+#~ msgstr "ローカル時刻"
+
+#~ msgid "UTC Time"
+#~ msgstr "UTC時刻"
+
+#~ msgid "Server Time"
+#~ msgstr "サーバー時刻"
+
+#~ msgid "Back to Home"
+#~ msgstr "ホームに戻る"
+
+#~ msgid "Unavailable"
+#~ msgstr "取得できません"
+
+#~ msgid "Access token signing will use the built-in secret."
+#~ msgstr "アクセストークンの署名に組み込みシークレットを利用します。"
+
+#~ msgid "Please provide a JWT secret key for built-in signing."
+#~ msgstr "組み込み署名用のJWTシークレットキーを入力してください。"
+
+#~ msgid "Failed to update the built-in signing secret."
+#~ msgstr "組み込み署名のシークレットキーの更新に失敗しました。"
+
+#~ msgid "Access token signing certificate group updated."
+#~ msgstr "アクセストークン署名の証明書グループを更新しました。"
+
+#~ msgid "Please select a certificate group for signing."
+#~ msgstr "署名に使用する証明書グループを選択してください。"
+
+#~ msgid "Failed to update the access token signing configuration."
+#~ msgstr "アクセストークン署名の設定を更新できませんでした。"
+
+#~ msgid "No certificate group has been configured for server signing."
+#~ msgstr "サーバー署名用の証明書グループが設定されていません。"
+
+#~ msgid "The selected certificate group could not be found."
+#~ msgstr "選択した証明書グループが見つかりません。"
+
+#~ msgid "The certificate group is not configured for server signing usage."
+#~ msgstr "この証明書グループはサーバー署名用に設定されていません。"
+
+#~ msgid "No active certificates are available in the selected group."
+#~ msgstr "選択されたグループには利用可能な証明書がありません。"
+
+#~ msgid "Access Token Signing"
+#~ msgstr "アクセストークン署名"
+
+#~ msgid "Built-in secret (HS256)"
+#~ msgstr "組み込みシークレット（HS256）"
+
+#~ msgid "Use the built-in JWT secret key configured below."
+#~ msgstr "以下で設定した組み込みJWTシークレットキーを使用します。"
+
+#~ msgid "Server signing certificate groups"
+#~ msgstr "サーバー署名証明書グループ"
+
+#~ msgid "Unnamed group"
+#~ msgstr "名称未設定のグループ"
+
+#~ msgid "Latest active certificate: %(kid)s"
+#~ msgstr "最新の有効な証明書: %(kid)s"
+
+#~ msgid "Algorithm: %(algorithm)s"
+#~ msgstr "アルゴリズム: %(algorithm)s"
+
+#~ msgid "Expires at: %(timestamp)s"
+#~ msgstr "有効期限: %(timestamp)s"
+
+#~ msgid "No active certificates are available in this group."
+#~ msgstr "このグループには有効な証明書がありません。"
+
+#~ msgid ""
+#~ "No server signing certificate groups are"
+#~ " available. Create a certificate group "
+#~ "first."
+#~ msgstr "サーバー署名用の証明書グループがありません。先に証明書グループを作成してください。"
+
+#~ msgid "Save signing settings"
+#~ msgstr "署名設定を保存"
+
+#~ msgid "Not Found"
+#~ msgstr "見つかりません"
+
+#~ msgid "Internal Server Error"
+#~ msgstr "サーバー内部エラー"
+
+#~ msgid "Settings navigation"
+#~ msgstr "設定ナビゲーション"
+
+#~ msgid "Hide navigation"
+#~ msgstr "ナビゲーションを隠す"
+
+#~ msgid "Show navigation"
+#~ msgstr "ナビゲーションを表示"
+
+#~ msgid "Page identifier is required."
+#~ msgstr "ページ識別子は必須です。"
+
+#~ msgid "You do not have permission to delete this page."
+#~ msgstr "このページを削除する権限がありません。"
+
+#~ msgid "Cannot delete a page that has child pages."
+#~ msgstr "子ページが存在するため削除できません。"
+
+#~ msgid "Failed to delete the page."
+#~ msgstr "ページの削除に失敗しました。"
+
+#~ msgid "Page deleted successfully."
+#~ msgstr "ページを削除しました。"
+
+#~ msgid "Security verification failed. Please reload the page and try again."
+#~ msgstr "セキュリティ検証に失敗しました。ページを再読み込みしてから再試行してください。"
+
+#~ msgid "Are you sure you want to delete this page?"
+#~ msgstr "このページを削除してもよろしいですか？"
+
+#~ msgid "Group Management"
+#~ msgstr "グループ管理"
+
+#~ msgid "Groups"
+#~ msgstr "グループ"
+
+#~ msgid "Add Group"
+#~ msgstr "グループを追加"
+
+#~ msgid "Parent Group"
+#~ msgstr "親グループ"
+
+#~ msgid "Subgroups"
+#~ msgstr "子グループ"
+
+#~ msgid "Members"
+#~ msgstr "メンバー"
+
+#~ msgid "No groups have been created yet."
+#~ msgstr "まだグループが作成されていません。"
+
+#~ msgid "Edit Group"
+#~ msgstr "グループを編集"
+
+#~ msgid "Group Name"
+#~ msgstr "グループ名"
+
+#~ msgid "Optional description to help identify the group."
+#~ msgstr "グループを識別するための任意の説明です。"
+
+#~ msgid "Select a parent to nest this group inside another group."
+#~ msgstr "このグループを別のグループに入れ子にする場合は親グループを選択してください。"
+
+#~ msgid "Group Members"
+#~ msgstr "グループメンバー"
+
+#~ msgid "Hold Ctrl (Windows/Linux) or Command (macOS) to select multiple users."
+#~ msgstr "複数のユーザーを選択する場合は、Ctrl（Windows/Linux）またはCommand（macOS）キーを押しながら選択してください。"
+
+#~ msgid "Create Group"
+#~ msgstr "グループを作成"
+
+#~ msgid "No parent"
+#~ msgstr "親なし"
+
+#~ msgid "Group name is required."
+#~ msgstr "グループ名は必須です。"
+
+#~ msgid "Group name already exists."
+#~ msgstr "同名のグループが既に存在します。"
+
+#~ msgid "Selected parent group does not exist."
+#~ msgstr "選択した親グループが存在しません。"
+
+#~ msgid "One or more selected users do not exist."
+#~ msgstr "選択したユーザーの一部が存在しません。"
+
+#~ msgid "The selected parent would create a circular hierarchy."
+#~ msgstr "選択した親グループでは階層が循環します。"
+
+#~ msgid "Group created successfully."
+#~ msgstr "グループを作成しました。"
+
+#~ msgid "Group updated successfully."
+#~ msgstr "グループを更新しました。"
+
+#~ msgid "Group deleted successfully."
+#~ msgstr "グループを削除しました。"
+
+#~ msgid "Cannot delete a group that still has subgroups."
+#~ msgstr "子グループが残っているグループは削除できません。"
+
+#~ msgid "Remove all users from the group before deleting it."
+#~ msgstr "削除する前にグループからすべてのユーザーを外してください。"
+

@@ -102,7 +102,7 @@ class EmailMessage:
 
 #### SmtpEmailSender（SMTP実装）
 
-Flask-Mailを使用してSMTPプロトコル経由でメールを送信します。
+Flask-Mailmanを使用してSMTPプロトコル経由でメールを送信します。
 
 ```python
 class SmtpEmailSender(IEmailSender):
@@ -111,7 +111,7 @@ class SmtpEmailSender(IEmailSender):
         self.default_sender = default_sender
 
     def send(self, message: EmailMessage) -> bool:
-        # Flask-Mail経由でSMTP送信
+        # Flask-Mailman経由でSMTP送信
         ...
 ```
 

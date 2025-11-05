@@ -7,7 +7,7 @@
 import logging
 from typing import Optional
 
-from flask_mail import Mail
+from flask_mailman import Mail
 
 from domain.email_sender.sender_interface import IEmailSender
 from infrastructure.email_sender import SmtpEmailSender
@@ -39,7 +39,7 @@ class TestEmailSenderFactory(ProductionFactory):
         Args:
             provider: メールプロバイダー名（smtp, console）
                      Noneの場合は設定またはデフォルトから取得
-            mail: Flask-Mailインスタンス（SMTPプロバイダーで必要）
+            mail: Flask-Mailmanインスタンス（SMTPプロバイダーで必要）
             default_sender: デフォルトの送信者アドレス
             
         Returns:

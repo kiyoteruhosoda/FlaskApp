@@ -1,14 +1,14 @@
 """SMTP email sender implementation - Infrastructure layer.
 
 このモジュールはSMTPプロトコルを使用したメール送信の実装を提供します。
-Flask-Mailを使用して、既存の設定との互換性を保ちます。
+Flask-Mailmanを使用して、既存の設定との互換性を保ちます。
 """
 
 import logging
 from typing import Optional
 
 from flask import current_app
-from flask_mail import Message, Mail
+from flask_mailman import EmailMessage, Mail
 
 from domain.email_sender.sender_interface import IEmailSender
 from domain.email_sender.email_message import EmailMessage as DomainEmailMessage
@@ -20,11 +20,11 @@ logger = logging.getLogger(__name__)
 class SmtpEmailSender(IEmailSender):
     """SMTPを使用したメール送信実装.
     
-    Flask-Mailを使用してSMTP経由でメールを送信します。
+    Flask-Mailmanを使用してSMTP経由でメールを送信します。
     既存のMAIL_*設定との互換性を保ちます。
     
     Attributes:
-        mail: Flask-Mailインスタンス
+        mail: Flask-Mailmanインスタンス
         default_sender: デフォルトの送信者アドレス
     """
 
@@ -32,7 +32,7 @@ class SmtpEmailSender(IEmailSender):
         """初期化.
         
         Args:
-            mail: Flask-Mailインスタンス
+            mail: Flask-Mailmanインスタンス
             default_sender: デフォルトの送信者アドレス
         """
         self.mail = mail
@@ -51,7 +51,7 @@ class SmtpEmailSender(IEmailSender):
             Exception: 送信中にエラーが発生した場合
         """
         try:
-            # DomainEmailMessage から Flask-Mail の Message に変換
+            # DomainEmailMessage から Flask-Mailman の EmailMessage に変換
             mail_message = self._convert_to_flask_message(message)
             
             # メール送信
@@ -86,7 +86,7 @@ class SmtpEmailSender(IEmailSender):
             bool: 設定が有効な場合True、無効な場合False
         """
         try:
-            # Flask-Mailの設定が存在するか確認
+            # Flask-Mailmanの設定が存在するか確認
             if not hasattr(current_app, 'config'):
                 return False
             
@@ -104,28 +104,33 @@ class SmtpEmailSender(IEmailSender):
             logger.error(f"Failed to validate SMTP config: {e}")
             return False
 
-    def _convert_to_flask_message(self, message: DomainEmailMessage) -> Message:
-        """ドメインメッセージをFlask-Mailメッセージに変換する.
+    def _convert_to_flask_message(self, message: DomainEmailMessage) -> EmailMessage:
+        """ドメインメッセージをFlask-Mailmanメッセージに変換する.
         
         Args:
             message: ドメインメッセージ
             
         Returns:
-            Message: Flask-Mailメッセージ
+            EmailMessage: Flask-Mailmanメッセージ
         """
         # 送信者アドレスの決定
         sender = message.from_address or self.default_sender
         
-        # Flask-Mail Message の作成
-        mail_message = Message(
+        # Flask-Mailman EmailMessage の作成
+        # Flask-MailmanはDjangoのEmailMessageをベースにしているため、
+        # パラメータ名が異なります
+        mail_message = EmailMessage(
             subject=message.subject,
-            recipients=message.to,
-            body=message.body,
-            html=message.html_body,
-            sender=sender,
-            cc=message.cc,
-            bcc=message.bcc,
-            reply_to=message.reply_to
+            body=message.body if not message.html_body else message.html_body,
+            from_email=sender,
+            to=message.to,
+            cc=message.cc or [],
+            bcc=message.bcc or [],
+            reply_to=[message.reply_to] if message.reply_to else None
         )
+        
+        # HTMLボディがある場合はcontent_subtypeを設定
+        if message.html_body:
+            mail_message.content_subtype = 'html'
         
         return mail_message

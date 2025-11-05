@@ -8,7 +8,7 @@ import logging
 from typing import Optional
 
 from flask import Flask, current_app
-from flask_mail import Mail
+from flask_mailman import Mail
 
 from domain.email_sender.sender_interface import IEmailSender
 from .smtp_sender import SmtpEmailSender
@@ -45,7 +45,7 @@ class EmailSenderFactory:
         Args:
             provider: メールプロバイダー名（smtp のみサポート）
                      Noneの場合は設定またはデフォルトから取得
-            mail: Flask-Mailインスタンス（SMTPプロバイダーで必要）
+            mail: Flask-Mailmanインスタンス（SMTPプロバイダーで必要）
             default_sender: デフォルトの送信者アドレス
             
         Returns:
@@ -103,14 +103,14 @@ class EmailSenderFactory:
         """SMTPメール送信実装を生成する.
         
         Args:
-            mail: Flask-Mailインスタンス
+            mail: Flask-Mailmanインスタンス
             default_sender: デフォルトの送信者アドレス
             
         Returns:
             SmtpEmailSender: SMTP送信実装
             
         Raises:
-            ValueError: Flask-Mailインスタンスが提供されていない場合
+            ValueError: Flask-Mailmanインスタンスが提供されていない場合
         """
         if mail is None:
             # Flaskアプリケーションコンテキストから取得を試みる
@@ -120,7 +120,7 @@ class EmailSenderFactory:
                 logger.info("Using mail instance from webapp.extensions")
             except Exception as e:
                 raise ValueError(
-                    "Flask-Mail instance is required for SMTP provider. "
+                    "Flask-Mailman instance is required for SMTP provider. "
                     "Please provide 'mail' parameter or ensure webapp.extensions.mail is initialized."
                 ) from e
         

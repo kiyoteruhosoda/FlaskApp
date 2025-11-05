@@ -788,6 +788,17 @@ class ApplicationSettings:
         value = self._get("MAIL_DEFAULT_SENDER")
         return str(value) if value is not None else None
 
+    @property
+    def mail_provider(self) -> str:
+        """Return the configured mail provider (smtp, console).
+        
+        デフォルトはsmtpです。テスト環境ではconsoleを使用することを推奨します。
+        """
+        value = self._get("MAIL_PROVIDER", "smtp")
+        if not value:
+            return "smtp"
+        return str(value).lower().strip()
+
 settings = ApplicationSettings()
 
 __all__ = ["ApplicationSettings", "settings"]

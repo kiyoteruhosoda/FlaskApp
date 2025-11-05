@@ -187,6 +187,60 @@ class TestPasswordResetService:
         user = User.query.filter_by(email=test_user.email).first()
         assert user.check_password("newpass1")
         assert not user.check_password("newpass2")
+    
+    def test_atomic_token_update_prevents_race_condition(self, app_context):
+        """Test that atomic token update prevents race conditions."""
+        test_user = _create_test_user()
+        raw_token = PasswordResetService.generate_reset_token()
+        reset_token = PasswordResetToken.create_token(test_user.email, raw_token)
+        db.session.add(reset_token)
+        db.session.commit()
+        token_id = reset_token.id
+        
+        # 最初のリセットでトークンを原子的にマークする
+        result1 = PasswordResetToken.mark_as_used_atomic(token_id, test_user.email)
+        assert result1 is True, "First atomic update should succeed"
+        db.session.commit()
+        
+        # 2回目の試行は失敗すべき（トークンは既に使用済み）
+        result2 = PasswordResetToken.mark_as_used_atomic(token_id, test_user.email)
+        assert result2 is False, "Second atomic update should fail (token already used)"
+        
+        # トークンが使用済みであることを確認
+        token_after = PasswordResetToken.query.filter_by(id=token_id).first()
+        assert token_after.used is True
+    
+    def test_reset_password_detects_already_used_token(self, app_context):
+        """Test that reset_password correctly detects and rejects already-used tokens."""
+        test_user = _create_test_user()
+        raw_token = PasswordResetService.generate_reset_token()
+        reset_token = PasswordResetToken.create_token(test_user.email, raw_token)
+        db.session.add(reset_token)
+        db.session.commit()
+        token_id = reset_token.id
+        
+        # 最初のリセットが成功
+        result1 = PasswordResetService.reset_password(raw_token, "password1")
+        assert result1 is True, "First password reset should succeed"
+        
+        # トークンが使用済みであることを確認
+        db.session.expire_all()
+        token_after = PasswordResetToken.query.filter_by(id=token_id).first()
+        assert token_after.used is True, "Token should be marked as used"
+        
+        # 別のコードパスで同じトークンを原子的に更新しようとすると失敗すべき
+        # （これは並行リクエストの2番目のリクエストをシミュレート）
+        result2 = PasswordResetToken.mark_as_used_atomic(token_id, test_user.email)
+        assert result2 is False, "Atomic update should fail on already-used token"
+        
+        # 2回目のパスワードリセットも失敗すべき
+        result3 = PasswordResetService.reset_password(raw_token, "password2")
+        assert result3 is False, "Second password reset should fail"
+        
+        # パスワードは最初のリセットのものであるべき
+        user = User.query.filter_by(email=test_user.email).first()
+        assert user.check_password("password1"), "Password should be from first reset"
+        assert not user.check_password("password2"), "Password should not be from second reset"
 
 
 class TestPasswordResetRoutes:

@@ -79,3 +79,31 @@ class PasswordResetToken(db.Model):
     def mark_as_used(self) -> None:
         """トークンを使用済みとしてマークする。"""
         self.used = True
+
+    @classmethod
+    def mark_as_used_atomic(cls, token_id: int, email: str) -> bool:
+        """トークンを原子的に使用済みとしてマークする。
+        
+        並行アクセスからトークンを保護するために、
+        WHERE used = false 条件付きでUPDATEを実行します。
+        
+        Args:
+            token_id: トークンのID
+            email: トークンに関連付けられたメールアドレス
+            
+        Returns:
+            トークンが正常に更新された場合True、それ以外はFalse
+        """
+        from sqlalchemy import update
+        
+        stmt = (
+            update(cls)
+            .where(
+                cls.id == token_id,
+                cls.email == email,
+                cls.used == False
+            )
+            .values(used=True)
+        )
+        result = db.session.execute(stmt)
+        return result.rowcount > 0

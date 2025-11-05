@@ -121,6 +121,9 @@ class SmtpEmailSender(IEmailSender):
         # パラメータ名が異なります
         
         # 共通パラメータを準備
+        # reply_toは文字列の場合はリストに変換、空の場合は空リストに
+        reply_to_list = [message.reply_to] if message.reply_to and message.reply_to.strip() else []
+        
         common_params = {
             'subject': message.subject,
             'body': message.body,
@@ -128,7 +131,7 @@ class SmtpEmailSender(IEmailSender):
             'to': message.to,
             'cc': message.cc or [],
             'bcc': message.bcc or [],
-            'reply_to': [message.reply_to] if message.reply_to else []
+            'reply_to': reply_to_list
         }
         
         # HTMLボディがある場合はEmailMultiAlternativesを使用

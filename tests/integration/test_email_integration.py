@@ -90,10 +90,10 @@ class TestEmailIntegration:
             )
 
     def test_factory_smtp_requires_mail_instance(self):
-        """Test that SMTP factory requires Flask-Mail instance."""
-        # SMTPを作成しようとするが、Flask-Mailが利用できないのでエラーになる
+        """Test that SMTP factory requires Flask-Mailman instance."""
+        # SMTPを作成しようとするが、Flask-Mailmanが利用できないのでエラーになる
         # これは正常な動作（テスト環境では完全なFlaskアプリがない）
-        with pytest.raises(ValueError, match="Flask-Mail instance is required"):
+        with pytest.raises(ValueError, match="Flask-Mailman instance is required"):
             EmailSenderFactory.create(provider="smtp")
 
     def test_production_factory_rejects_console(self):

@@ -50,7 +50,7 @@
 │                                                                │
 │  ┌─────────────────────┐  ┌─────────────────────────────┐   │
 │  │  SmtpEmailSender    │  │  ConsoleEmailSender         │   │
-│  │  (Flask-Mail使用)    │  │  (コンソール出力)            │   │
+│  │  (Flask-Mailman使用)    │  │  (コンソール出力)            │   │
 │  └─────────────────────┘  └─────────────────────────────┘   │
 │                                                                │
 │  ┌──────────────────────────────────────────────────────┐   │
@@ -203,7 +203,7 @@
 │  MAIL_PROVIDER=smtp                      │
 │  ↓                                       │
 │  SmtpEmailSender が使用される              │
-│  → Flask-Mail経由でSMTP送信               │
+│  → Flask-Mailman経由でSMTP送信               │
 │                                          │
 │  MAIL_PROVIDER=console                   │
 │  ↓                                       │

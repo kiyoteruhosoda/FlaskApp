@@ -4,6 +4,7 @@ flask-smorest
 flask-babel
 Flask-Login
 Flask-SQLAlchemy
+Flask-Mailman
 webargs
 marshmallow
 pillow

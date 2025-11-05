@@ -13,7 +13,7 @@
    - ✅ `EmailMessage` 値オブジェクト（不変、バリデーション付き）
 
 2. **Infrastructure層** (技術実装)
-   - ✅ `SmtpEmailSender` (Flask-Mail使用)
+   - ✅ `SmtpEmailSender` (Flask-Mailman使用)
    - ✅ `ConsoleEmailSender` (テスト/開発用)
    - ✅ `EmailSenderFactory` (DI実装)
 

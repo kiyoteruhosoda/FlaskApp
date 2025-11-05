@@ -4,7 +4,7 @@ from flask_login import LoginManager
 from flask_babel import Babel
 from flask_babel import lazy_gettext as _l
 from flask import current_app, g, session
-from flask_mail import Mail
+from flask_mailman import Mail
 
 from webapp.auth import SERVICE_LOGIN_TOKEN_SESSION_KEY
 from flask_smorest import Api

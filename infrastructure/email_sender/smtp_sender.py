@@ -121,8 +121,12 @@ class SmtpEmailSender(IEmailSender):
         # パラメータ名が異なります
         
         # 共通パラメータを準備
-        # reply_toは文字列の場合はリストに変換、空の場合は空リストに
-        reply_to_list = [message.reply_to] if message.reply_to and message.reply_to.strip() else []
+        # reply_toは文字列の場合はリストに変換、Noneや空の場合は空リストに
+        reply_to_list = []
+        if message.reply_to:
+            stripped = message.reply_to.strip()
+            if stripped:
+                reply_to_list = [stripped]
         
         common_params = {
             'subject': message.subject,

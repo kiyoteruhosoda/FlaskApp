@@ -259,7 +259,7 @@ def seed_media_with_tags(app):
     with app.app_context():
         tag_person = Tag(name="Alice", attr="person")
         tag_place = Tag(name="Paris", attr="place")
-        tag_thing = Tag(name="Camera", attr="thing")
+        tag_event = Tag(name="Camera", attr="event")
 
         base_time = datetime(2025, 1, 1, tzinfo=timezone.utc)
         media1 = Media(
@@ -307,9 +307,9 @@ def seed_media_with_tags(app):
 
         media1.tags.extend([tag_person, tag_place])
         media2.tags.append(tag_person)
-        media3.tags.append(tag_thing)
+        media3.tags.append(tag_event)
 
-        db.session.add_all([tag_person, tag_place, tag_thing, media1, media2, media3])
+        db.session.add_all([tag_person, tag_place, tag_event, media1, media2, media3])
         db.session.commit()
 
         return {
@@ -319,7 +319,7 @@ def seed_media_with_tags(app):
             "tags": {
                 "person": tag_person.id,
                 "place": tag_place.id,
-                "thing": tag_thing.id,
+                "event": tag_event.id,
             },
         }
 
@@ -745,7 +745,7 @@ def test_media_update_tags_success(client, app, seed_media_with_tags):
     grant_permission(app, "media:tag-manage")
     login(client)
     media_id = seed_media_with_tags["media2"]
-    new_tag = seed_media_with_tags["tags"]["thing"]
+    new_tag = seed_media_with_tags["tags"]["event"]
 
     res = client.put(
         f"/api/media/{media_id}/tags",
@@ -778,19 +778,19 @@ def test_unused_tags_removed_from_master(client, app, seed_media_with_tags):
 
 def test_create_tag_requires_permission(client, app):
     login(client)
-    res = client.post("/api/tags", json={"name": "Sunset", "attr": "thing"})
+    res = client.post("/api/tags", json={"name": "Sunset", "attr": "event"})
     assert res.status_code == 403
 
     role_id = grant_permission(app, "media:tag-manage")
     with client.session_transaction() as sess:
         sess["active_role_id"] = role_id
-    res = client.post("/api/tags", json={"name": "Sunset", "attr": "thing"})
+    res = client.post("/api/tags", json={"name": "Sunset", "attr": "event"})
     assert res.status_code == 201
     data = res.get_json()
     assert data["tag"]["name"] == "Sunset"
     assert data["created"] is True
 
-    res = client.post("/api/tags", json={"name": "Sunset", "attr": "thing"})
+    res = client.post("/api/tags", json={"name": "Sunset", "attr": "event"})
     assert res.status_code == 200
     data = res.get_json()
     assert data["created"] is False

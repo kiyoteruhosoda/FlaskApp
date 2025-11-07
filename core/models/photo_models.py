@@ -257,7 +257,17 @@ class Tag(db.Model):
     id: Mapped[int] = mapped_column(BigInt, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(db.String(255), nullable=False)
     attr: Mapped[str] = mapped_column(
-        db.Enum("person", "place", "thing", name="tag_attr"),
+        db.Enum(
+            "thing",
+            "person",
+            "place",
+            "event",
+            "scene",
+            "activity",
+            "source",
+            "others",
+            name="tag_attr",
+        ),
         nullable=False,
     )
     created_at: Mapped[datetime] = mapped_column(

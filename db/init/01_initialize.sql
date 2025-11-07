@@ -1032,7 +1032,7 @@ DROP TABLE IF EXISTS `tag`;
 CREATE TABLE `tag` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
-  `attr` enum('person','place','thing') NOT NULL,
+  `attr` enum("thing", 'person', 'place', 'event', 'scene', 'activity', 'source', 'others') NOT NULL,
   `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `created_by` bigint(20) DEFAULT NULL,
   `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),

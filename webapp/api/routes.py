@@ -107,7 +107,16 @@ user_registration_service = UserRegistrationService(user_repo)
 auth_service = AuthService(user_repo, user_registration_service)
 
 
-VALID_TAG_ATTRS = {"person", "place", "thing"}
+VALID_TAG_ATTRS = {
+    "thing",
+    "person",
+    "place",
+    "event",
+    "scene",
+    "activity",
+    "source",
+    "others",
+}
 
 _STORAGE_DEFAULTS: dict[str, tuple[str, ...]] = {}
 
@@ -2871,7 +2880,7 @@ def api_tags_list():
                 "attr": {
                     "type": "string",
                     "enum": sorted(VALID_TAG_ATTRS),
-                    "description": "Tag attribute used for grouping (person/place/thing).",
+                    "description": "Tag attribute used for grouping.",
                 },
             },
             "required": ["name", "attr"],

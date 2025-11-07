@@ -452,9 +452,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const canManageTags = JSON.parse("{{ current_user.can('media:tag-manage') | tojson }}");
   const canEditMetadata = JSON.parse("{{ current_user.can('media:metadata-manage') | tojson }}");
   const tagAttrLabels = {
+    thing: '{{ _("Thing")|escapejs }}',
     person: '{{ _("Person")|escapejs }}',
     place: '{{ _("Place")|escapejs }}',
-    thing: '{{ _("Thing")|escapejs }}'
+    event: '{{ _("Event")|escapejs }}',
+    scene: '{{ _("Scene")|escapejs }}',
+    activity: '{{ _("Activity")|escapejs }}',
+    source: '{{ _("Source")|escapejs }}',
+    others: '{{ _("Others")|escapejs }}'
   };
   const noTagsAssignedText = '{{ _("No tags assigned")|escapejs }}';
   const noTagSuggestionsText = '{{ _("No tags found")|escapejs }}';

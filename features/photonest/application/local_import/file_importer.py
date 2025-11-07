@@ -454,7 +454,7 @@ class LocalImportFileImporter:
         for key, display in normalized.items():
             tag = existing_map.get(key)
             if tag is None:
-                tag = Tag(name=display, attr="thing")
+                tag = Tag(name=display, attr="source")
                 self._db.session.add(tag)
                 self._db.session.flush([tag])
             resolved.append(tag)

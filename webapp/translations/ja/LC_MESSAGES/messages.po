@@ -1398,6 +1398,9 @@ msgstr "行動"
 msgid "Others"
 msgstr "その他"
 
+msgid "Source"
+msgstr "ソース"
+
 msgid "Create and add"
 msgstr "追加"
 

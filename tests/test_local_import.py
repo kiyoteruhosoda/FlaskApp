@@ -4,6 +4,7 @@
 """
 
 import base64
+import io
 import os
 import sys
 import shutil
@@ -12,6 +13,7 @@ from pathlib import Path
 import tempfile
 import zipfile
 import pytest
+from PIL import Image
 
 # プロジェクトルートを追加
 sys.path.insert(0, '/home/kyon/myproject')
@@ -132,6 +134,14 @@ def _make_video(path: Path, size: str = "640x360", *, duration: str = "1") -> No
     ]
     subprocess.run(cmd, check=True, capture_output=True)
 
+
+def _make_jpeg_bytes(color: tuple[int, int, int] = (200, 200, 200)) -> bytes:
+    """Generate a small JPEG payload for testing."""
+
+    buffer = io.BytesIO()
+    Image.new("RGB", (4, 4), color=color).save(buffer, format="JPEG")
+    return buffer.getvalue()
+
 def create_test_files(import_dir: str) -> list:
     """テスト用のファイルを作成"""
     test_files = []
@@ -204,6 +214,52 @@ def test_scan_directory_extracts_zip(tmp_path):
 
     for path in scanned_files:
         assert os.path.exists(path)
+
+
+def test_local_import_assigns_tags_from_zip_structure(app, monkeypatch):
+    """ZIP内ディレクトリ名がタグとして登録されることを検証。"""
+
+    from core.models.photo_models import Media, Tag
+    from webapp.extensions import db
+    from core.tasks import local_import as local_import_module
+
+    import_dir = Path(app.config["MEDIA_LOCAL_IMPORT_DIRECTORY"])
+
+    # Clean import directory
+    for child in list(import_dir.iterdir()):
+        if child.is_file():
+            child.unlink()
+        else:
+            shutil.rmtree(child)
+
+    archive_path = import_dir / "upload.zip"
+    member_name = "Takeout/Google フォト/Photos from 2014/IMG_1069.JPG"
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr(member_name, _make_jpeg_bytes())
+
+    # Avoid triggering heavy post-processing in tests
+    monkeypatch.setattr(
+        local_import_module._file_importer,
+        "_post_process_service",
+        lambda *args, **kwargs: {},
+    )
+
+    with app.app_context():
+        result = local_import_task()
+        assert result["success"] >= 1
+
+        media = Media.query.filter(Media.is_deleted.is_(False)).first()
+        assert media is not None
+
+        # Refresh to ensure tag relationship loaded
+        db.session.refresh(media)
+        tag_names = sorted(tag.name for tag in media.tags)
+        assert tag_names == ["Google フォト", "Photos from 2014", "Takeout"]
+        assert all(tag.attr == "thing" for tag in media.tags)
+
+        # Tags should be persisted and reusable
+        all_tags = Tag.query.order_by(Tag.name.asc()).all()
+        assert {tag.name for tag in all_tags} == set(tag_names)
 
 def test_local_import_task_with_session(app, db_session, temp_dir):
     """ローカルインポートタスクでPickerSessionとPickerSelectionが作成されることをテスト"""

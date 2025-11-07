@@ -1160,6 +1160,7 @@ _file_importer = LocalImportFileImporter(
     supported_extensions=SUPPORTED_EXTENSIONS,
     source_storage=_import_source_storage,
     destination_storage=_import_destination_storage,
+    tag_resolver=_zip_service.tags_for,
 )
 
 def _invoke_current_import_single_file(

@@ -4,6 +4,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from flask import current_app, url_for
+from flask_babel import gettext as _
 
 from core.db import db
 from core.models.password_reset_token import PasswordResetToken
@@ -50,7 +51,12 @@ class PasswordResetService:
                 "Password reset requested but mail is disabled",
                 extra={"event": "password_reset.mail_disabled", "email": email}
             )
-            return (False, "メール送信に失敗しました。有効なメール送信先が設定されていません。管理者にお問い合わせ下さい。")
+            return (
+                False,
+                _(
+                    "Failed to send email. A valid mail sender is not configured. Please contact the administrator."
+                ),
+            )
         
         user = db.session.query(User).filter_by(email=email).first()
         
@@ -106,7 +112,9 @@ class PasswordResetService:
         from core.settings import settings
         if not settings.mail_enabled:
             raise RuntimeError(
-                "メール送信に失敗しました。有効なメール送信先が設定されていません。管理者にお問い合わせ下さい。"
+                _(
+                    "Failed to send email. A valid mail sender is not configured. Please contact the administrator."
+                )
             )
         
         # リセットURLを生成
@@ -135,7 +143,9 @@ class PasswordResetService:
             )
         else:
             raise RuntimeError(
-                "メール送信に失敗しました。有効なメール送信先が設定されていません。管理者にお問い合わせ下さい。"
+                _(
+                    "Failed to send email. A valid mail sender is not configured. Please contact the administrator."
+                )
             )
 
     @classmethod

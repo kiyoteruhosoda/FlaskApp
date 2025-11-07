@@ -120,8 +120,8 @@ class TestPasswordResetService:
             success, error = PasswordResetService.create_reset_request(test_user.email)
             assert success is False
             assert error is not None
-            assert "メール送信に失敗しました" in error
-            assert "管理者にお問い合わせ下さい" in error
+            assert "Failed to send email" in error
+            assert "Please contact the administrator" in error
             
             # No token should be created when mail is disabled
             token = PasswordResetToken.query.filter_by(email=test_user.email).first()
@@ -332,8 +332,9 @@ class TestPasswordResetRoutes:
         )
         assert response.status_code == 200
         # Check that error message is shown
-        assert 'メール送信に失敗しました' in response.get_data(as_text=True)
-        assert '管理者にお問い合わせ下さい' in response.get_data(as_text=True)
+        body = response.get_data(as_text=True)
+        assert 'Failed to send email' in body
+        assert 'Please contact the administrator' in body
     
     def test_password_reset_get_valid_token(self, app_context, client):
         """Test GET request with valid token."""

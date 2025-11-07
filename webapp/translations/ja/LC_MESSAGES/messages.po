@@ -3056,3 +3056,5 @@ msgstr "以下のリンクからパスワードを再設定してください。
 "\n"
 "※このメールに心当たりがない場合は、このメールを破棄してください。"
 
+msgid "Failed to send email. A valid mail sender is not configured. Please contact the administrator."
+msgstr "メール送信に失敗しました。有効なメール送信先が設定されていません。管理者にお問い合わせ下さい。"

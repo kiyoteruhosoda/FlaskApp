@@ -1586,3 +1586,93 @@ msgstr "Cannot delete a group that still has subgroups."
 msgid "Remove all users from the group before deleting it."
 msgstr "Remove all users from the group before deleting it."
 
+msgid "Bulk action requires at least one media id."
+msgstr "Bulk action requires at least one media id."
+
+msgid "Media id must be an integer."
+msgstr "Media id must be an integer."
+
+msgid "Unsupported bulk action."
+msgstr "Unsupported bulk action."
+
+msgid "You do not have permission to manage media tags."
+msgstr "You do not have permission to manage media tags."
+
+msgid "Tag ids are required for this action."
+msgstr "Tag ids are required for this action."
+
+msgid "Tag id must be an integer."
+msgstr "Tag id must be an integer."
+
+msgid "Some tags were not found."
+msgstr "Some tags were not found."
+
+msgid "Some media items were not found or already deleted."
+msgstr "Some media items were not found or already deleted."
+
+msgid "Select media to start bulk actions."
+msgstr "Select media to start bulk actions."
+
+msgid "Add tags"
+msgstr "Add tags"
+
+msgid "Remove tags"
+msgstr "Remove tags"
+
+msgid "Delete selected"
+msgstr "Delete selected"
+
+msgid "Clear selection"
+msgstr "Clear selection"
+
+msgid "Add tags to selected media"
+msgstr "Add tags to selected media"
+
+msgid "Search tags"
+msgstr "Search tags"
+
+msgid "Search tags..."
+msgstr "Search tags..."
+
+msgid "No tags selected yet."
+msgstr "No tags selected yet."
+
+msgid "Selected tags will be applied to all chosen media items."
+msgstr "Selected tags will be applied to all chosen media items."
+
+msgid "Apply changes"
+msgstr "Apply changes"
+
+msgid "Selected {count} items"
+msgstr "Selected {count} items"
+
+msgid "Select at least one media item."
+msgstr "Select at least one media item."
+
+msgid "Remove tags from selected media"
+msgstr "Remove tags from selected media"
+
+msgid "This action targets {count} media items."
+msgstr "This action targets {count} media items."
+
+msgid "Tags updated for selected media."
+msgstr "Tags updated for selected media."
+
+msgid "Failed to update tags for selected media."
+msgstr "Failed to update tags for selected media."
+
+msgid "Toggle selection for {name}"
+msgstr "Toggle selection for {name}"
+
+msgid "Select at least one tag."
+msgstr "Select at least one tag."
+
+msgid "Are you sure you want to delete the selected media? This action cannot be undone."
+msgstr "Are you sure you want to delete the selected media? This action cannot be undone."
+
+msgid "Deleted {count} media items."
+msgstr "Deleted {count} media items."
+
+msgid "Failed to delete selected media."
+msgstr "Failed to delete selected media."
+

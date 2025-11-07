@@ -3061,3 +3061,93 @@ msgstr "以下のリンクからパスワードを再設定してください。
 
 msgid "Failed to send email. A valid mail sender is not configured. Please contact the administrator."
 msgstr "メール送信に失敗しました。有効なメール送信先が設定されていません。管理者にお問い合わせ下さい。"
+
+msgid "Bulk action requires at least one media id."
+msgstr "一括操作には1件以上のメディアIDが必要です。"
+
+msgid "Media id must be an integer."
+msgstr "メディアIDは整数で指定してください。"
+
+msgid "Unsupported bulk action."
+msgstr "サポートされていない一括操作です。"
+
+msgid "You do not have permission to manage media tags."
+msgstr "メディアタグを管理する権限がありません。"
+
+msgid "Tag ids are required for this action."
+msgstr "この操作にはタグIDが必要です。"
+
+msgid "Tag id must be an integer."
+msgstr "タグIDは整数で指定してください。"
+
+msgid "Some tags were not found."
+msgstr "見つからないタグがあります。"
+
+msgid "Some media items were not found or already deleted."
+msgstr "一部のメディアが見つからないか、すでに削除されています。"
+
+msgid "Select media to start bulk actions."
+msgstr "一括操作を始めるメディアを選択してください。"
+
+msgid "Add tags"
+msgstr "タグを追加"
+
+msgid "Remove tags"
+msgstr "タグを削除"
+
+msgid "Delete selected"
+msgstr "選択した項目を削除"
+
+msgid "Clear selection"
+msgstr "選択を解除"
+
+msgid "Add tags to selected media"
+msgstr "選択したメディアにタグを追加"
+
+msgid "Search tags"
+msgstr "タグを検索"
+
+msgid "Search tags..."
+msgstr "タグを検索..."
+
+msgid "No tags selected yet."
+msgstr "タグはまだ選択されていません。"
+
+msgid "Selected tags will be applied to all chosen media items."
+msgstr "選択したタグはすべての対象メディアに適用されます。"
+
+msgid "Apply changes"
+msgstr "変更を適用"
+
+msgid "Selected {count} items"
+msgstr "選択中: {count}件"
+
+msgid "Select at least one media item."
+msgstr "メディアを1件以上選択してください。"
+
+msgid "Remove tags from selected media"
+msgstr "選択したメディアからタグを削除"
+
+msgid "This action targets {count} media items."
+msgstr "この操作は{count}件のメディアに適用されます。"
+
+msgid "Tags updated for selected media."
+msgstr "選択したメディアのタグを更新しました。"
+
+msgid "Failed to update tags for selected media."
+msgstr "選択したメディアのタグを更新できませんでした。"
+
+msgid "Toggle selection for {name}"
+msgstr "{name}の選択状態を切り替え"
+
+msgid "Select at least one tag."
+msgstr "タグを1つ以上選択してください。"
+
+msgid "Are you sure you want to delete the selected media? This action cannot be undone."
+msgstr "選択したメディアを削除しますか？この操作は元に戻せません。"
+
+msgid "Deleted {count} media items."
+msgstr "{count}件のメディアを削除しました。"
+
+msgid "Failed to delete selected media."
+msgstr "選択したメディアを削除できませんでした。"

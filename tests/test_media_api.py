@@ -4,6 +4,7 @@ import json
 import hmac
 import hashlib
 import time
+import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -109,6 +110,35 @@ def grant_permission(app, code: str) -> int:
 
         db.session.commit()
         return role.id
+
+
+def create_media_record(app, **overrides) -> int:
+    from webapp.extensions import db
+    from core.models.photo_models import Media
+
+    with app.app_context():
+        google_media_id = overrides.get("google_media_id") or f"bulk-auto-{uuid.uuid4()}"
+        local_rel_path = overrides.get("local_rel_path") or f"{google_media_id}.jpg"
+        shot_at = overrides.get("shot_at") or datetime(2025, 1, 1, tzinfo=timezone.utc)
+        imported_at = overrides.get("imported_at") or (shot_at + timedelta(minutes=1))
+
+        media = Media(
+            google_media_id=google_media_id,
+            account_id=overrides.get("account_id", 1),
+            local_rel_path=local_rel_path,
+            bytes=overrides.get("bytes", 10),
+            mime_type=overrides.get("mime_type", "image/jpeg"),
+            width=overrides.get("width", 100),
+            height=overrides.get("height", 100),
+            shot_at=shot_at,
+            imported_at=imported_at,
+            is_video=overrides.get("is_video", False),
+            is_deleted=overrides.get("is_deleted", False),
+            has_playback=overrides.get("has_playback", False),
+        )
+        db.session.add(media)
+        db.session.commit()
+        return media.id
 
 
 def make_token(payload: dict) -> str:
@@ -1410,6 +1440,369 @@ def test_media_delete_requires_permission(client, app):
     assert response.status_code == 403
     data = response.get_json()
     assert data["error"] == "forbidden"
+
+
+def test_media_bulk_delete_requires_permission(client, app):
+    from webapp.extensions import db
+    from core.models.photo_models import Media
+
+    with app.app_context():
+        media = Media(
+            google_media_id="bulk-no-perm",
+            account_id=1,
+            local_rel_path="bulk-no-perm.jpg",
+            bytes=10,
+            mime_type="image/jpeg",
+            width=100,
+            height=100,
+            shot_at=datetime(2025, 2, 1, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 2, 2, tzinfo=timezone.utc),
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        db.session.add(media)
+        db.session.commit()
+        media_id = media.id
+
+    login(client)
+    response = client.post(
+        "/api/media/bulk-actions",
+        json={"media_ids": [media_id], "action": "delete"},
+    )
+    assert response.status_code == 403
+    data = response.get_json()
+    assert data["error"] == "forbidden"
+
+
+def test_media_bulk_action_requires_media_ids(client):
+    login(client)
+
+    response = client.post(
+        "/api/media/bulk-actions",
+        json={"action": "delete"},
+    )
+
+    assert response.status_code == 400
+    data = response.get_json()
+    assert data["error"] == "media_ids_required"
+
+
+def test_media_bulk_action_rejects_invalid_action(client, app):
+    login(client)
+    media_id = create_media_record(app)
+
+    response = client.post(
+        "/api/media/bulk-actions",
+        json={"media_ids": [media_id], "action": "archive"},
+    )
+
+    assert response.status_code == 400
+    data = response.get_json()
+    assert data["error"] == "invalid_action"
+
+
+def test_media_bulk_add_tags_requires_permission(client, app):
+    login(client)
+    media_id = create_media_record(app)
+
+    response = client.post(
+        "/api/media/bulk-actions",
+        json={"media_ids": [media_id], "action": "add_tags", "tag_ids": [123]},
+    )
+
+    assert response.status_code == 403
+    data = response.get_json()
+    assert data["error"] == "forbidden"
+
+
+def test_media_bulk_delete_success(client, app):
+    from webapp.extensions import db
+    from core.models.photo_models import Media, Album
+
+    login(client)
+    grant_permission(app, "media:delete")
+
+    with app.app_context():
+        m1 = Media(
+            google_media_id="bulk-del-1",
+            account_id=1,
+            local_rel_path="bulk-del-1.jpg",
+            bytes=10,
+            mime_type="image/jpeg",
+            width=100,
+            height=100,
+            shot_at=datetime(2025, 2, 1, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 2, 2, tzinfo=timezone.utc),
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        m2 = Media(
+            google_media_id="bulk-del-2",
+            account_id=1,
+            local_rel_path="bulk-del-2.jpg",
+            bytes=10,
+            mime_type="image/jpeg",
+            width=100,
+            height=100,
+            shot_at=datetime(2025, 2, 3, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 2, 4, tzinfo=timezone.utc),
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        db.session.add_all([m1, m2])
+        db.session.flush()
+
+        album = Album(
+            name="Bulk Album",
+            description="",
+            visibility="private",
+            cover_media_id=m1.id,
+        )
+        album.media.append(m1)
+        album.media.append(m2)
+        db.session.add(album)
+        db.session.commit()
+
+        m1_id, m2_id = m1.id, m2.id
+        album_id = album.id
+
+    response = client.post(
+        "/api/media/bulk-actions",
+        json={"media_ids": [m1_id], "action": "delete"},
+    )
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["result"] == "deleted"
+    assert data["deleted_ids"] == [m1_id]
+
+    with app.app_context():
+        refreshed = Media.query.get(m1_id)
+        assert refreshed.is_deleted is True
+        album = Album.query.get(album_id)
+        assert album.cover_media_id == m2_id
+        remaining_ids = {media.id for media in album.media}
+        assert remaining_ids == {m2_id}
+
+
+def test_media_bulk_add_tags_success(client, app):
+    from webapp.extensions import db
+    from core.models.photo_models import Media, Tag
+
+    login(client)
+    grant_permission(app, "media:tag-manage")
+
+    with app.app_context():
+        media1 = Media(
+            google_media_id="bulk-add-1",
+            account_id=1,
+            local_rel_path="bulk-add-1.jpg",
+            bytes=10,
+            mime_type="image/jpeg",
+            width=100,
+            height=100,
+            shot_at=datetime(2025, 2, 5, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 2, 6, tzinfo=timezone.utc),
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        media2 = Media(
+            google_media_id="bulk-add-2",
+            account_id=1,
+            local_rel_path="bulk-add-2.jpg",
+            bytes=10,
+            mime_type="image/jpeg",
+            width=100,
+            height=100,
+            shot_at=datetime(2025, 2, 7, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 2, 8, tzinfo=timezone.utc),
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+        )
+        tag = Tag(name="Family", attr="person")
+        db.session.add_all([media1, media2, tag])
+        db.session.commit()
+        media_ids = [media1.id, media2.id]
+        tag_id = tag.id
+
+    response = client.post(
+        "/api/media/bulk-actions",
+        json={"media_ids": media_ids, "action": "add_tags", "tag_ids": [tag_id]},
+    )
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["result"] == "updated"
+
+    with app.app_context():
+        refreshed = Media.query.filter(Media.id.in_(media_ids)).all()
+        assert all(any(tag.id == tag_id for tag in media.tags) for media in refreshed)
+
+
+def test_media_bulk_add_tags_requires_tag_ids(client, app):
+    login(client)
+    grant_permission(app, "media:tag-manage")
+    media_id = create_media_record(app)
+
+    response = client.post(
+        "/api/media/bulk-actions",
+        json={"media_ids": [media_id], "action": "add_tags"},
+    )
+
+    assert response.status_code == 400
+    data = response.get_json()
+    assert data["error"] == "tag_ids_required"
+
+
+def test_media_bulk_add_tags_unknown_tag_returns_400(client, app):
+    login(client)
+    grant_permission(app, "media:tag-manage")
+    media_id = create_media_record(app)
+
+    missing_tag_id = 999999
+    response = client.post(
+        "/api/media/bulk-actions",
+        json={
+            "media_ids": [media_id],
+            "action": "add_tags",
+            "tag_ids": [missing_tag_id],
+        },
+    )
+
+    assert response.status_code == 400
+    data = response.get_json()
+    assert data["error"] == "unknown_tag"
+    assert data["missing"] == [missing_tag_id]
+
+
+def test_media_bulk_remove_tags_success(client, app):
+    from webapp.extensions import db
+    from core.models.photo_models import Media, Tag
+
+    login(client)
+    grant_permission(app, "media:tag-manage")
+
+    with app.app_context():
+        tag_remove = Tag(name="Vacation", attr="place")
+        tag_keep = Tag(name="Portrait", attr="person")
+        media1 = Media(
+            google_media_id="bulk-rem-1",
+            account_id=1,
+            local_rel_path="bulk-rem-1.jpg",
+            bytes=10,
+            mime_type="image/jpeg",
+            width=100,
+            height=100,
+            shot_at=datetime(2025, 2, 9, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 2, 10, tzinfo=timezone.utc),
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+            tags=[tag_remove, tag_keep],
+        )
+        media2 = Media(
+            google_media_id="bulk-rem-2",
+            account_id=1,
+            local_rel_path="bulk-rem-2.jpg",
+            bytes=10,
+            mime_type="image/jpeg",
+            width=100,
+            height=100,
+            shot_at=datetime(2025, 2, 11, tzinfo=timezone.utc),
+            imported_at=datetime(2025, 2, 12, tzinfo=timezone.utc),
+            is_video=False,
+            is_deleted=False,
+            has_playback=False,
+            tags=[tag_remove],
+        )
+        db.session.add_all([media1, media2])
+        db.session.commit()
+        remove_id = tag_remove.id
+        keep_id = tag_keep.id
+        media_ids = [media1.id, media2.id]
+
+    response = client.post(
+        "/api/media/bulk-actions",
+        json={"media_ids": media_ids, "action": "remove_tags", "tag_ids": [remove_id]},
+    )
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["result"] == "updated"
+
+    with app.app_context():
+        refreshed = Media.query.filter(Media.id.in_(media_ids)).all()
+        for media in refreshed:
+            removed_ids = {tag.id for tag in media.tags}
+            assert remove_id not in removed_ids
+        remaining_tag = Tag.query.get(keep_id)
+        assert remaining_tag is not None
+        assert Tag.query.get(remove_id) is None
+
+
+def test_media_bulk_remove_tags_requires_permission(client, app):
+    login(client)
+    media_id = create_media_record(app)
+
+    response = client.post(
+        "/api/media/bulk-actions",
+        json={"media_ids": [media_id], "action": "remove_tags", "tag_ids": [123]},
+    )
+
+    assert response.status_code == 403
+    data = response.get_json()
+    assert data["error"] == "forbidden"
+
+
+def test_media_bulk_remove_tags_requires_tag_ids(client, app):
+    login(client)
+    grant_permission(app, "media:tag-manage")
+    media_id = create_media_record(app)
+
+    response = client.post(
+        "/api/media/bulk-actions",
+        json={"media_ids": [media_id], "action": "remove_tags"},
+    )
+
+    assert response.status_code == 400
+    data = response.get_json()
+    assert data["error"] == "tag_ids_required"
+
+
+def test_media_bulk_remove_tags_unknown_tag_returns_400(client, app):
+    login(client)
+    grant_permission(app, "media:tag-manage")
+    media_id = create_media_record(app)
+
+    missing_tag_id = 888888
+    response = client.post(
+        "/api/media/bulk-actions",
+        json={
+            "media_ids": [media_id],
+            "action": "remove_tags",
+            "tag_ids": [missing_tag_id],
+        },
+    )
+
+    assert response.status_code == 400
+    data = response.get_json()
+    assert data["error"] == "unknown_tag"
+    assert data["missing"] == [missing_tag_id]
+
+
+def test_media_bulk_action_missing_media_returns_404(client, app):
+    login(client)
+    grant_permission(app, "media:delete")
+
+    response = client.post(
+        "/api/media/bulk-actions",
+        json={"media_ids": [99999], "action": "delete"},
+    )
+    assert response.status_code == 404
+    data = response.get_json()
+    assert data["error"] == "media_not_found"
 
 
 def test_media_recover_requires_permission(client, app):

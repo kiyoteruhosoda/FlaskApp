@@ -789,6 +789,78 @@ def _remove_media_files(media: Media) -> None:
             _remove(StorageDomain.MEDIA_PLAYBACK, poster_rel.as_posix())
 
 
+def _soft_delete_media(media: Media, *, now: datetime | None = None) -> None:
+    if media.is_deleted:
+        return
+
+    effective_now = now or datetime.now(timezone.utc)
+
+    associated_albums = (
+        Album.query.join(album_item, Album.id == album_item.c.album_id)
+        .filter(album_item.c.media_id == media.id)
+        .all()
+    )
+
+    if associated_albums:
+        db.session.execute(
+            album_item.delete().where(album_item.c.media_id == media.id)
+        )
+        for album in associated_albums:
+            if album.cover_media_id == media.id:
+                new_cover_id = db.session.execute(
+                    select(album_item.c.media_id)
+                    .where(album_item.c.album_id == album.id)
+                    .order_by(
+                        album_item.c.sort_index.asc(),
+                        album_item.c.media_id.asc(),
+                    )
+                    .limit(1)
+                ).scalar()
+                album.cover_media_id = new_cover_id
+            else:
+                if album.cover_media_id is not None:
+                    existing_cover = db.session.execute(
+                        select(album_item.c.media_id)
+                        .where(
+                            album_item.c.album_id == album.id,
+                            album_item.c.media_id == album.cover_media_id,
+                        )
+                        .limit(1)
+                    ).scalar()
+                    if existing_cover is None:
+                        new_cover_id = db.session.execute(
+                            select(album_item.c.media_id)
+                            .where(album_item.c.album_id == album.id)
+                            .order_by(
+                                album_item.c.sort_index.asc(),
+                                album_item.c.media_id.asc(),
+                            )
+                            .limit(1)
+                        ).scalar()
+                        album.cover_media_id = new_cover_id
+
+            album.updated_at = effective_now
+
+    _remove_media_files(media)
+    media.is_deleted = True
+    media.updated_at = effective_now
+
+
+def _remove_unused_tags(tag_ids: set[int]) -> None:
+    if not tag_ids:
+        return
+
+    unused_tags = (
+        Tag.query.filter(Tag.id.in_(tag_ids))
+        .outerjoin(media_tag, Tag.id == media_tag.c.tag_id)
+        .group_by(Tag.id)
+        .having(db.func.count(media_tag.c.media_id) == 0)
+        .all()
+    )
+    for unused_tag in unused_tags:
+        db.session.delete(unused_tag)
+
+
 def _resolve_session_scope(user: User | None) -> list[str]:
     stored_scope = session.get(API_LOGIN_SCOPE_SESSION_KEY)
     candidates: list[str] = []
@@ -2780,55 +2852,8 @@ def api_media_delete(media_id: int):
     if not media or media.is_deleted:
         return jsonify({"error": "not_found"}), 404
 
-    associated_albums = (
-        Album.query.join(album_item, Album.id == album_item.c.album_id)
-        .filter(album_item.c.media_id == media_id)
-        .all()
-    )
-
-    if associated_albums:
-        db.session.execute(
-            album_item.delete().where(album_item.c.media_id == media_id)
-        )
-        now = datetime.now(timezone.utc)
-        for album in associated_albums:
-            if album.cover_media_id == media_id:
-                new_cover_id = db.session.execute(
-                    select(album_item.c.media_id)
-                    .where(album_item.c.album_id == album.id)
-                    .order_by(
-                        album_item.c.sort_index.asc(),
-                        album_item.c.media_id.asc(),
-                    )
-                    .limit(1)
-                ).scalar()
-                album.cover_media_id = new_cover_id
-            else:
-                if album.cover_media_id is not None:
-                    existing_cover = db.session.execute(
-                        select(album_item.c.media_id)
-                        .where(
-                            album_item.c.album_id == album.id,
-                            album_item.c.media_id == album.cover_media_id,
-                        )
-                        .limit(1)
-                    ).scalar()
-                    if existing_cover is None:
-                        new_cover_id = db.session.execute(
-                            select(album_item.c.media_id)
-                            .where(album_item.c.album_id == album.id)
-                            .order_by(
-                                album_item.c.sort_index.asc(),
-                                album_item.c.media_id.asc(),
-                            )
-                            .limit(1)
-                        ).scalar()
-                        album.cover_media_id = new_cover_id
-
-            album.updated_at = now
-
-    _remove_media_files(media)
-    media.is_deleted = True
+    now = datetime.now(timezone.utc)
+    _soft_delete_media(media, now=now)
     db.session.commit()
 
     current_app.logger.info(
@@ -2843,6 +2868,287 @@ def api_media_delete(media_id: int):
     )
 
     return jsonify({"result": "deleted"})
+
+
+@bp.post("/media/bulk-actions")
+@login_or_jwt_required
+def api_media_bulk_actions():
+    """Apply bulk actions to multiple media items."""
+
+    user = get_current_user()
+    payload = request.get_json(silent=True) or {}
+
+    media_ids_raw = payload.get("media_ids")
+    if not isinstance(media_ids_raw, list) or not media_ids_raw:
+        return (
+            jsonify(
+                {
+                    "error": "media_ids_required",
+                    "message": _("Bulk action requires at least one media id."),
+                }
+            ),
+            400,
+        )
+
+    normalized_media_ids: list[int] = []
+    seen_media_ids: set[int] = set()
+    for raw_id in media_ids_raw:
+        try:
+            media_id = int(raw_id)
+        except (TypeError, ValueError):
+            return (
+                jsonify(
+                    {
+                        "error": "invalid_media_id",
+                        "message": _("Media id must be an integer."),
+                    }
+                ),
+                400,
+            )
+        if media_id not in seen_media_ids:
+            seen_media_ids.add(media_id)
+            normalized_media_ids.append(media_id)
+
+    action = payload.get("action")
+    valid_actions = {"delete", "add_tags", "remove_tags"}
+    if action not in valid_actions:
+        return (
+            jsonify(
+                {
+                    "error": "invalid_action",
+                    "message": _("Unsupported bulk action."),
+                }
+            ),
+            400,
+        )
+
+    if action == "delete":
+        if not user or not user.can("media:delete"):
+            return (
+                jsonify(
+                    {
+                        "error": "forbidden",
+                        "message": _("You do not have permission to delete media."),
+                    }
+                ),
+                403,
+            )
+        target_tags: list[Tag] = []
+    else:
+        if not user or not user.can("media:tag-manage"):
+            return (
+                jsonify(
+                    {
+                        "error": "forbidden",
+                        "message": _("You do not have permission to manage media tags."),
+                    }
+                ),
+                403,
+            )
+
+        tag_ids_raw = payload.get("tag_ids")
+        if not isinstance(tag_ids_raw, list) or not tag_ids_raw:
+            return (
+                jsonify(
+                    {
+                        "error": "tag_ids_required",
+                        "message": _("Tag ids are required for this action."),
+                    }
+                ),
+                400,
+            )
+
+        normalized_tag_ids: list[int] = []
+        seen_tag_ids: set[int] = set()
+        for raw_tag_id in tag_ids_raw:
+            try:
+                tag_id = int(raw_tag_id)
+            except (TypeError, ValueError):
+                return (
+                    jsonify(
+                        {
+                            "error": "invalid_tag_id",
+                            "message": _("Tag id must be an integer."),
+                        }
+                    ),
+                    400,
+                )
+            if tag_id not in seen_tag_ids:
+                seen_tag_ids.add(tag_id)
+                normalized_tag_ids.append(tag_id)
+
+        if not normalized_tag_ids:
+            return (
+                jsonify(
+                    {
+                        "error": "tag_ids_required",
+                        "message": _("Tag ids are required for this action."),
+                    }
+                ),
+                400,
+            )
+
+        target_tags = Tag.query.filter(Tag.id.in_(normalized_tag_ids)).all()
+        found_tag_ids = {tag.id for tag in target_tags}
+        missing_tag_ids = [tag_id for tag_id in normalized_tag_ids if tag_id not in found_tag_ids]
+        if missing_tag_ids:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown_tag",
+                        "missing": missing_tag_ids,
+                        "message": _("Some tags were not found."),
+                    }
+                ),
+                400,
+            )
+
+    medias = (
+        Media.query.options(joinedload(Media.tags))
+        .filter(Media.id.in_(normalized_media_ids))
+        .all()
+    )
+
+    media_by_id = {media.id: media for media in medias if not media.is_deleted}
+    ordered_medias: list[Media] = []
+    for media_id in normalized_media_ids:
+        media = media_by_id.get(media_id)
+        if not media:
+            return (
+                jsonify(
+                    {
+                        "error": "media_not_found",
+                        "missing": [mid for mid in normalized_media_ids if mid not in media_by_id],
+                        "message": _("Some media items were not found or already deleted."),
+                    }
+                ),
+                404,
+            )
+        ordered_medias.append(media)
+
+    now = datetime.now(timezone.utc)
+
+    if action == "delete":
+        for media in ordered_medias:
+            _soft_delete_media(media, now=now)
+
+        db.session.commit()
+
+        user_id = getattr(user, "id", None)
+        for media in ordered_medias:
+            current_app.logger.info(
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "media_id": media.id,
+                        "user_id": user_id,
+                    }
+                ),
+                extra={"event": "media.delete"},
+            )
+
+        return jsonify({"result": "deleted", "deleted_ids": normalized_media_ids})
+
+    tag_map = {tag.id: tag for tag in target_tags}
+    changed_medias: list[Media] = []
+
+    if action == "add_tags":
+        for media in ordered_medias:
+            existing_tag_ids = {tag.id for tag in media.tags}
+            has_changes = False
+            for tag in target_tags:
+                if tag.id not in existing_tag_ids:
+                    media.tags.append(tag)
+                    has_changes = True
+            if has_changes:
+                media.updated_at = now
+                changed_medias.append(media)
+
+        if changed_medias:
+            db.session.flush()
+        db.session.commit()
+
+        if changed_medias:
+            current_app.logger.info(
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "media_ids": [media.id for media in changed_medias],
+                        "tag_ids": [tag.id for tag in target_tags],
+                        "user_id": getattr(user, "id", None),
+                        "action": "add",
+                    }
+                ),
+                extra={"event": "media.tags.bulk_add"},
+            )
+
+        return jsonify(
+            {
+                "result": "updated",
+                "media": [
+                    {
+                        "id": media.id,
+                        "tags": [
+                            serialize_tag(tag)
+                            for tag in sorted(media.tags, key=lambda t: (t.name or "").lower())
+                        ],
+                    }
+                    for media in changed_medias
+                ],
+            }
+        )
+
+    # remove_tags
+    target_tag_ids = set(tag_map.keys())
+    removed_tag_ids: set[int] = set()
+
+    for media in ordered_medias:
+        has_changes = False
+        for tag in list(media.tags):
+            if tag.id in target_tag_ids:
+                media.tags.remove(tag)
+                removed_tag_ids.add(tag.id)
+                has_changes = True
+        if has_changes:
+            media.updated_at = now
+            changed_medias.append(media)
+
+    if changed_medias:
+        db.session.flush()
+        if removed_tag_ids:
+            _remove_unused_tags(removed_tag_ids)
+
+    db.session.commit()
+
+    if changed_medias:
+        current_app.logger.info(
+            json.dumps(
+                {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "media_ids": [media.id for media in changed_medias],
+                    "tag_ids": sorted(removed_tag_ids),
+                    "user_id": getattr(user, "id", None),
+                    "action": "remove",
+                }
+            ),
+            extra={"event": "media.tags.bulk_remove"},
+        )
+
+    return jsonify(
+        {
+            "result": "updated",
+            "media": [
+                {
+                    "id": media.id,
+                    "tags": [
+                        serialize_tag(tag)
+                        for tag in sorted(media.tags, key=lambda t: (t.name or "").lower())
+                    ],
+                }
+                for media in changed_medias
+            ],
+        }
+    )
 
 
 @bp.get("/tags")
@@ -3052,15 +3358,7 @@ def api_media_update_tags(media_id: int):
 
     removed_tag_ids = previous_tag_ids - new_tag_ids
     if removed_tag_ids:
-        unused_tags = (
-            Tag.query.filter(Tag.id.in_(removed_tag_ids))
-            .outerjoin(media_tag, Tag.id == media_tag.c.tag_id)
-            .group_by(Tag.id)
-            .having(db.func.count(media_tag.c.media_id) == 0)
-            .all()
-        )
-        for unused_tag in unused_tags:
-            db.session.delete(unused_tag)
+        _remove_unused_tags(removed_tag_ids)
 
     db.session.commit()
 

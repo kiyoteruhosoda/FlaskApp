@@ -26,6 +26,44 @@
     margin-left: auto;
   }
 
+  .bulk-actions-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    background: #e7f1ff;
+    border: 1px solid #bdd5ff;
+    border-radius: 8px;
+  }
+
+  .bulk-actions-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .bulk-selection-count {
+    font-weight: 700;
+    color: #0d6efd;
+    font-size: 1.25rem;
+    line-height: 1;
+  }
+
+  .bulk-selection-label {
+    font-size: 0.9rem;
+    color: #0c63e4;
+  }
+
+  .bulk-actions-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+
   .tag-filter {
     flex: 0 1 320px;
     max-width: 360px;
@@ -133,6 +171,68 @@
   .tag-suggestion-item:hover {
     background: #f1f3f5;
   }
+
+  .bulk-tag-input-group {
+    position: relative;
+  }
+
+  .bulk-tag-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ced4da;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+    max-height: 220px;
+    overflow-y: auto;
+    display: none;
+    z-index: 30;
+  }
+
+  .bulk-tag-suggestions.visible {
+    display: block;
+  }
+
+  .bulk-tag-suggestion-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+
+  .bulk-tag-suggestion-item:hover {
+    background: #f8f9fa;
+  }
+
+  .bulk-tag-selected-container {
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .bulk-tag-selected-container.empty {
+    min-height: 32px;
+    align-items: center;
+    color: #6c757d;
+    font-size: 0.85rem;
+  }
+
+  .bulk-tag-empty {
+    font-size: 0.85rem;
+  }
+
+  .bulk-tag-modal-body {
+    padding-bottom: 0;
+  }
+
+  .bulk-tag-modal-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
   
   .size-control {
     display: flex;
@@ -210,6 +310,51 @@
     cursor: pointer;
     text-decoration: none;
     color: inherit;
+  }
+
+  .media-card.selected {
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.35), 0 6px 18px rgba(13, 110, 253, 0.25);
+  }
+
+  .media-card .media-select-toggle {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.95);
+    background-color: rgba(33, 37, 41, 0.55);
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease, background-color 0.2s ease;
+    z-index: 2;
+  }
+
+  .media-card .media-select-toggle:hover,
+  .media-card .media-select-toggle:focus {
+    background-color: rgba(13, 110, 253, 0.85);
+  }
+
+  .media-card .media-select-toggle:focus-visible {
+    outline: 3px solid rgba(13, 110, 253, 0.6);
+    outline-offset: 2px;
+  }
+
+  .media-card:hover .media-select-toggle,
+  .media-card.selected .media-select-toggle {
+    opacity: 1;
+  }
+
+  .media-card.selected .media-select-toggle {
+    background-color: rgba(13, 110, 253, 0.95);
+  }
+
+  .media-card .media-select-toggle i {
+    pointer-events: none;
   }
   
   .media-card:hover {
@@ -402,6 +547,27 @@
   </div>
 </div>
 
+<div id="bulk-selection-bar" class="bulk-actions-bar d-none" aria-live="polite">
+  <div class="bulk-actions-info">
+    <span id="bulk-selection-count" class="bulk-selection-count">0</span>
+    <span id="bulk-selection-label" class="bulk-selection-label">{{ _("Select media to start bulk actions.") }}</span>
+  </div>
+  <div class="bulk-actions-buttons">
+    <button id="bulk-add-tags-btn" type="button" class="btn btn-primary btn-sm">
+      <i class="fas fa-tags me-1"></i>{{ _("Add tags") }}
+    </button>
+    <button id="bulk-remove-tags-btn" type="button" class="btn btn-outline-primary btn-sm">
+      <i class="fas fa-tag me-1"></i>{{ _("Remove tags") }}
+    </button>
+    <button id="bulk-delete-btn" type="button" class="btn btn-danger btn-sm">
+      <i class="fas fa-trash-alt me-1"></i>{{ _("Delete selected") }}
+    </button>
+    <button id="bulk-clear-btn" type="button" class="btn btn-outline-secondary btn-sm">
+      <i class="fas fa-times me-1"></i>{{ _("Clear selection") }}
+    </button>
+  </div>
+</div>
+
 <div id="media-grid" class="media-grid size-medium" data-max-concurrent-loads="4">
   <!-- Media cards are injected dynamically -->
 </div>
@@ -417,6 +583,37 @@
   <p>{{ _("All media loaded") }}</p>
 </div>
 
+<div class="modal fade" id="bulk-tag-modal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="bulk-tag-modal-title">{{ _("Add tags to selected media") }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ _("Close") }}"></button>
+      </div>
+      <div class="modal-body bulk-tag-modal-body">
+        <p id="bulk-tag-modal-description" class="text-muted small mb-3">{{ _("Select media to start bulk actions.") }}</p>
+        <div class="mb-3">
+          <label for="bulk-tag-input" class="form-label">{{ _("Search tags") }}</label>
+          <div class="bulk-tag-input-group">
+            <input type="text" id="bulk-tag-input" class="form-control" placeholder="{{ _("Search tags...") }}" autocomplete="off">
+            <div id="bulk-tag-suggestions" class="bulk-tag-suggestions"></div>
+          </div>
+        </div>
+        <div id="bulk-tag-selected" class="bulk-tag-selected-container empty">
+          <span class="bulk-tag-empty">{{ _("No tags selected yet.") }}</span>
+        </div>
+      </div>
+      <div class="modal-footer bulk-tag-modal-footer">
+        <div class="text-muted small">{{ _("Selected tags will be applied to all chosen media items.") }}</div>
+        <div>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ _("Cancel") }}</button>
+          <button type="button" class="btn btn-primary" id="bulk-tag-apply-btn">{{ _("Apply changes") }}</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const mediaGrid = document.getElementById('media-grid');
@@ -429,6 +626,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const tagFilterSuggestions = document.getElementById('tag-filter-suggestions');
   const selectedTagFiltersContainer = document.getElementById('selected-tag-filters');
   const tagFilterBox = document.getElementById('tag-filter-box');
+  const bulkSelectionBar = document.getElementById('bulk-selection-bar');
+  const bulkSelectionCount = document.getElementById('bulk-selection-count');
+  const bulkSelectionLabel = document.getElementById('bulk-selection-label');
+  const bulkAddTagsBtn = document.getElementById('bulk-add-tags-btn');
+  const bulkRemoveTagsBtn = document.getElementById('bulk-remove-tags-btn');
+  const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
+  const bulkClearBtn = document.getElementById('bulk-clear-btn');
+  const bulkTagModalElement = document.getElementById('bulk-tag-modal');
+  const bulkTagModalTitle = document.getElementById('bulk-tag-modal-title');
+  const bulkTagModalDescription = document.getElementById('bulk-tag-modal-description');
+  const bulkTagInput = document.getElementById('bulk-tag-input');
+  const bulkTagSuggestions = document.getElementById('bulk-tag-suggestions');
+  const bulkTagSelectedContainer = document.getElementById('bulk-tag-selected');
+  const bulkTagApplyBtn = document.getElementById('bulk-tag-apply-btn');
   const SEARCH_PARAM_TYPE = 'type';
   const SEARCH_PARAM_ORDER = 'order';
   const SEARCH_PARAM_TAG = 'tag';
@@ -440,6 +651,11 @@ document.addEventListener('DOMContentLoaded', () => {
   let totalLoaded = 0;
   let selectedTagFilters = [];
   let tagSuggestionTimeout = null;
+  const selectedMedia = new Map();
+  let bulkTagModalInstance = null;
+  const bulkTagSelection = new Map();
+  let bulkTagMode = 'add';
+  let bulkTagSuggestionTimeout = null;
 
   function formatDateTime(isoString) {
     if (!isoString) return '';
@@ -883,6 +1099,503 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 200);
   }
 
+  function parseMediaPayload(raw) {
+    if (!raw) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') {
+        return null;
+      }
+      const id = Number(parsed.id);
+      if (!Number.isFinite(id)) {
+        return null;
+      }
+      return {
+        id,
+        filename: parsed.filename || '',
+        tags: Array.isArray(parsed.tags) ? parsed.tags : [],
+      };
+    } catch (error) {
+      console.error('Failed to parse media payload', error);
+      return null;
+    }
+  }
+
+  function normalizeMediaForSelection(media) {
+    if (!media) {
+      return null;
+    }
+    const id = Number(media.id ?? media.media_id);
+    if (!Number.isFinite(id)) {
+      return null;
+    }
+    const normalizedTags = [];
+    if (Array.isArray(media.tags)) {
+      media.tags.forEach((tag) => {
+        if (!tag) {
+          return;
+        }
+        const tagId = Number(tag.id ?? tag.tag_id);
+        if (!Number.isFinite(tagId)) {
+          return;
+        }
+        normalizedTags.push({
+          id: tagId,
+          name: tag.name || '',
+          attr: tag.attr || null,
+        });
+      });
+    }
+    return {
+      id,
+      filename: media.filename || '',
+      tags: normalizedTags,
+    };
+  }
+
+  function updateCardSelectionState(card, isSelected) {
+    if (!card) {
+      return;
+    }
+    const normalized = Boolean(isSelected);
+    card.classList.toggle('selected', normalized);
+    const toggle = card.querySelector('.media-select-toggle');
+    if (toggle) {
+      toggle.setAttribute('aria-pressed', normalized ? 'true' : 'false');
+    }
+  }
+
+  function setupCardSelection(card, media) {
+    if (!card) {
+      return;
+    }
+    const normalized = normalizeMediaForSelection(media) || parseMediaPayload(card.dataset.mediaPayload);
+    if (!normalized) {
+      return;
+    }
+    card.dataset.mediaId = String(normalized.id);
+    card.dataset.mediaPayload = JSON.stringify(normalized);
+    const isSelected = selectedMedia.has(normalized.id);
+    updateCardSelectionState(card, isSelected);
+    const toggle = card.querySelector('.media-select-toggle');
+    if (toggle) {
+      const labelTemplate = bulkStrings.tagToggleLabel || '';
+      const displayName = normalized.filename || `#${normalized.id}`;
+      toggle.setAttribute('aria-label', labelTemplate.replace('{name}', displayName));
+    }
+  }
+
+  function toggleMediaSelection(media, card, desiredState) {
+    const payload = parseMediaPayload(card?.dataset?.mediaPayload) || normalizeMediaForSelection(media);
+    if (!payload) {
+      return;
+    }
+    const id = payload.id;
+    const shouldSelect = typeof desiredState === 'boolean' ? desiredState : !selectedMedia.has(id);
+    if (shouldSelect) {
+      selectedMedia.set(id, payload);
+    } else {
+      selectedMedia.delete(id);
+    }
+    if (card) {
+      card.dataset.mediaPayload = JSON.stringify(payload);
+      updateCardSelectionState(card, shouldSelect);
+    }
+    updateBulkSelectionBar();
+  }
+
+  function getSelectedMediaIds() {
+    return Array.from(selectedMedia.keys());
+  }
+
+  function updateBulkSelectionBar() {
+    if (!bulkSelectionBar) {
+      return;
+    }
+    const count = selectedMedia.size;
+    if (count === 0) {
+      bulkSelectionBar.classList.add('d-none');
+      if (bulkSelectionCount) {
+        bulkSelectionCount.textContent = '0';
+      }
+      if (bulkSelectionLabel) {
+        bulkSelectionLabel.textContent = bulkStrings.selectionHint || '';
+      }
+      return;
+    }
+
+    bulkSelectionBar.classList.remove('d-none');
+    if (bulkSelectionCount) {
+      bulkSelectionCount.textContent = String(count);
+    }
+    if (bulkSelectionLabel) {
+      const template = bulkStrings.selectionCount || '{count}';
+      bulkSelectionLabel.textContent = template.replace('{count}', count);
+    }
+  }
+
+  function clearSelection() {
+    selectedMedia.forEach((_, mediaId) => {
+      const card = mediaGrid?.querySelector(`.media-card[data-media-id="${mediaId}"]`);
+      if (card) {
+        updateCardSelectionState(card, false);
+      }
+    });
+    selectedMedia.clear();
+    updateBulkSelectionBar();
+  }
+
+  function applyMediaUpdates(updates) {
+    if (!Array.isArray(updates)) {
+      return;
+    }
+    updates.forEach((item) => {
+      if (!item) {
+        return;
+      }
+      const id = Number(item.id);
+      if (!Number.isFinite(id)) {
+        return;
+      }
+      const tags = Array.isArray(item.tags)
+        ? item.tags
+            .map((tag) => ({
+              id: Number(tag.id),
+              name: tag.name || '',
+              attr: tag.attr || null,
+            }))
+            .filter((tag) => Number.isFinite(tag.id))
+        : [];
+      if (selectedMedia.has(id)) {
+        const current = selectedMedia.get(id) || { id, filename: '', tags: [] };
+        selectedMedia.set(id, { ...current, id, tags });
+      }
+      const card = mediaGrid?.querySelector(`.media-card[data-media-id="${id}"]`);
+      if (card) {
+        const payload = parseMediaPayload(card.dataset.mediaPayload) || { id, filename: '', tags: [] };
+        payload.tags = tags;
+        card.dataset.mediaPayload = JSON.stringify(payload);
+      }
+    });
+  }
+
+  function computeCommonTags() {
+    const result = [];
+    if (selectedMedia.size === 0) {
+      return result;
+    }
+    let intersection = null;
+    const tagIndex = new Map();
+    selectedMedia.forEach((media) => {
+      const tags = Array.isArray(media.tags) ? media.tags : [];
+      const idSet = new Set();
+      tags.forEach((tag) => {
+        const tagId = Number(tag.id);
+        if (!Number.isFinite(tagId)) {
+          return;
+        }
+        idSet.add(tagId);
+        if (!tagIndex.has(tagId)) {
+          tagIndex.set(tagId, {
+            id: tagId,
+            name: tag.name || '',
+            attr: tag.attr || null,
+          });
+        }
+      });
+      if (intersection === null) {
+        intersection = idSet;
+      } else {
+        intersection = new Set([...intersection].filter((value) => idSet.has(value)));
+      }
+    });
+    if (!intersection) {
+      return result;
+    }
+    intersection.forEach((id) => {
+      if (tagIndex.has(id)) {
+        result.push(tagIndex.get(id));
+      }
+    });
+    return result;
+  }
+
+  function ensureBulkTagModal() {
+    if (!bulkTagModalElement || !window.bootstrap || !window.bootstrap.Modal) {
+      return null;
+    }
+    if (!bulkTagModalInstance) {
+      bulkTagModalInstance = new window.bootstrap.Modal(bulkTagModalElement);
+      bulkTagModalElement.addEventListener('hidden.bs.modal', () => {
+        bulkTagSelection.clear();
+        renderBulkTagSelection();
+        hideBulkTagSuggestions();
+      });
+    }
+    return bulkTagModalInstance;
+  }
+
+  function hideBulkTagSuggestions() {
+    if (bulkTagSuggestions) {
+      bulkTagSuggestions.innerHTML = '';
+      bulkTagSuggestions.classList.remove('visible');
+    }
+  }
+
+  function showBulkTagSuggestions(items) {
+    if (!bulkTagSuggestions) {
+      return;
+    }
+    bulkTagSuggestions.innerHTML = '';
+    const candidates = Array.isArray(items) ? items : [];
+    if (candidates.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'bulk-tag-suggestion-item text-muted';
+      empty.textContent = noTagsFoundText;
+      bulkTagSuggestions.appendChild(empty);
+      bulkTagSuggestions.classList.add('visible');
+      return;
+    }
+
+    candidates.forEach((tag) => {
+      const tagId = Number(tag.id);
+      if (!Number.isFinite(tagId)) {
+        return;
+      }
+      const item = document.createElement('div');
+      item.className = 'bulk-tag-suggestion-item';
+      const attrLabel = tag.attr && tagAttrLabels[tag.attr] ? ` · ${tagAttrLabels[tag.attr]}` : '';
+      item.textContent = `${tag.name}${attrLabel}`;
+      item.addEventListener('click', () => {
+        addBulkTagSelection(tag);
+        hideBulkTagSuggestions();
+        if (bulkTagInput) {
+          bulkTagInput.value = '';
+          bulkTagInput.focus();
+        }
+      });
+      bulkTagSuggestions.appendChild(item);
+    });
+    bulkTagSuggestions.classList.add('visible');
+  }
+
+  function renderBulkTagSelection() {
+    if (!bulkTagSelectedContainer) {
+      return;
+    }
+    bulkTagSelectedContainer.innerHTML = '';
+    if (bulkTagSelection.size === 0) {
+      bulkTagSelectedContainer.classList.add('empty');
+      const empty = document.createElement('span');
+      empty.className = 'bulk-tag-empty';
+      empty.textContent = bulkStrings.noTagsSelected || '';
+      bulkTagSelectedContainer.appendChild(empty);
+      return;
+    }
+    bulkTagSelectedContainer.classList.remove('empty');
+    bulkTagSelection.forEach((tag) => {
+      const chip = document.createElement('span');
+      chip.className = 'tag-chip';
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = tag.name;
+      chip.appendChild(nameSpan);
+      if (tag.attr && tagAttrLabels[tag.attr]) {
+        const attrSpan = document.createElement('span');
+        attrSpan.style.fontSize = '0.75rem';
+        attrSpan.style.opacity = '0.7';
+        attrSpan.textContent = ` (${tagAttrLabels[tag.attr]})`;
+        chip.appendChild(attrSpan);
+      }
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'tag-chip-remove';
+      removeBtn.innerHTML = '&times;';
+      removeBtn.setAttribute('aria-label', `${removeTagLabel} ${tag.name}`);
+      removeBtn.addEventListener('click', () => {
+        removeBulkTagSelection(tag.id);
+      });
+      chip.appendChild(removeBtn);
+      bulkTagSelectedContainer.appendChild(chip);
+    });
+  }
+
+  function addBulkTagSelection(tag) {
+    if (!tag) {
+      return;
+    }
+    const tagId = Number(tag.id);
+    if (!Number.isFinite(tagId) || bulkTagSelection.has(tagId)) {
+      return;
+    }
+    bulkTagSelection.set(tagId, {
+      id: tagId,
+      name: tag.name || '',
+      attr: tag.attr || null,
+    });
+    renderBulkTagSelection();
+  }
+
+  function removeBulkTagSelection(tagId) {
+    if (!Number.isFinite(Number(tagId))) {
+      return;
+    }
+    bulkTagSelection.delete(Number(tagId));
+    renderBulkTagSelection();
+  }
+
+  function scheduleBulkTagSuggestionFetch(value) {
+    clearTimeout(bulkTagSuggestionTimeout);
+    const trimmed = value ? value.trim() : '';
+    if (!trimmed) {
+      hideBulkTagSuggestions();
+      return;
+    }
+    bulkTagSuggestionTimeout = setTimeout(async () => {
+      const suggestions = await fetchTagSuggestions(trimmed);
+      const available = suggestions.filter((suggestion) => !bulkTagSelection.has(Number(suggestion.id)));
+      showBulkTagSuggestions(available);
+    }, 200);
+  }
+
+  function openBulkTagModal(mode) {
+    if (selectedMedia.size === 0) {
+      if (window.showWarningToast) {
+        window.showWarningToast(bulkStrings.noSelection || '');
+      }
+      return;
+    }
+    const modal = ensureBulkTagModal();
+    if (!modal) {
+      return;
+    }
+    bulkTagMode = mode === 'remove' ? 'remove' : 'add';
+    bulkTagSelection.clear();
+    if (bulkTagMode === 'remove') {
+      computeCommonTags().forEach((tag) => {
+        if (tag && Number.isFinite(Number(tag.id))) {
+          bulkTagSelection.set(Number(tag.id), tag);
+        }
+      });
+    }
+    renderBulkTagSelection();
+    if (bulkTagModalTitle) {
+      bulkTagModalTitle.textContent = bulkTagMode === 'remove'
+        ? bulkStrings.removeTagsTitle || ''
+        : bulkStrings.addTagsTitle || '';
+    }
+    if (bulkTagModalDescription) {
+      const template = bulkStrings.modalDescription || bulkStrings.selectionCount || bulkStrings.selectionHint || '';
+      bulkTagModalDescription.textContent = template.replace('{count}', selectedMedia.size);
+    }
+    if (bulkTagInput) {
+      bulkTagInput.value = '';
+      bulkTagInput.placeholder = bulkStrings.tagSearchPlaceholder || '';
+    }
+    hideBulkTagSuggestions();
+    modal.show();
+    setTimeout(() => {
+      bulkTagInput?.focus();
+    }, 150);
+  }
+
+  async function handleBulkActionError(response, fallbackMessage) {
+    let message = fallbackMessage;
+    if (response && typeof response.json === 'function') {
+      try {
+        const data = await response.json();
+        if (data && data.message) {
+          message = data.message;
+        }
+      } catch (error) {
+        // ignore parse errors
+      }
+    }
+    if (window.showErrorToast) {
+      window.showErrorToast(message || fallbackMessage || 'Error');
+    }
+  }
+
+  async function performBulkDelete() {
+    if (selectedMedia.size === 0) {
+      if (window.showWarningToast) {
+        window.showWarningToast(bulkStrings.noSelection || '');
+      }
+      return;
+    }
+    const confirmMessage = bulkStrings.confirmDelete || '';
+    if (confirmMessage && !window.confirm(confirmMessage)) {
+      return;
+    }
+    const mediaIds = getSelectedMediaIds();
+    try {
+      const response = await window.apiClient.post('/api/media/bulk-actions', {
+        media_ids: mediaIds,
+        action: 'delete',
+      });
+      if (!response.ok) {
+        await handleBulkActionError(response, bulkStrings.deleteError || 'Failed to delete selected media.');
+        return;
+      }
+      const data = await response.json();
+      const deletedIds = Array.isArray(data?.deleted_ids) ? data.deleted_ids : [];
+      const count = deletedIds.length || mediaIds.length;
+      clearSelection();
+      restartMediaQuery({ skipQueryUpdate: true, preserveSelection: true });
+      if (window.showSuccessToast) {
+        const template = bulkStrings.deleteSuccess || 'Deleted {count} media items.';
+        window.showSuccessToast(template.replace('{count}', count));
+      }
+    } catch (error) {
+      console.error('Failed to delete media in bulk', error);
+      if (window.showErrorToast) {
+        window.showErrorToast(bulkStrings.deleteError || 'Failed to delete selected media.');
+      }
+    }
+  }
+
+  async function submitBulkTagChanges() {
+    if (selectedMedia.size === 0) {
+      if (window.showWarningToast) {
+        window.showWarningToast(bulkStrings.noSelection || '');
+      }
+      return;
+    }
+    const tagIds = Array.from(bulkTagSelection.keys());
+    if (tagIds.length === 0) {
+      if (window.showWarningToast) {
+        window.showWarningToast(bulkStrings.selectTagPrompt || '');
+      }
+      return;
+    }
+    const mediaIds = getSelectedMediaIds();
+    const action = bulkTagMode === 'remove' ? 'remove_tags' : 'add_tags';
+    try {
+      const response = await window.apiClient.post('/api/media/bulk-actions', {
+        media_ids: mediaIds,
+        action,
+        tag_ids: tagIds,
+      });
+      if (!response.ok) {
+        await handleBulkActionError(response, bulkStrings.tagsUpdateError || 'Failed to update tags for selected media.');
+        return;
+      }
+      const data = await response.json();
+      applyMediaUpdates(data?.media);
+      const modal = ensureBulkTagModal();
+      modal?.hide();
+      if (window.showSuccessToast) {
+        window.showSuccessToast(bulkStrings.tagsUpdated || 'Tags updated for selected media.');
+      }
+    } catch (error) {
+      console.error('Failed to update tags for selected media', error);
+      if (window.showErrorToast) {
+        window.showErrorToast(bulkStrings.tagsUpdateError || 'Failed to update tags for selected media.');
+      }
+    }
+  }
+
   const sourceLabels = {
     local: '{{ _("Local import")|escapejs }}',
     google_photos: '{{ _("Google Photos")|escapejs }}'
@@ -903,6 +1616,25 @@ document.addEventListener('DOMContentLoaded', () => {
     activity: '{{ _("Activity")|escapejs }}',
     source: '{{ _("Source")|escapejs }}',
     others: '{{ _("Others")|escapejs }}'
+  };
+  const bulkStrings = {
+    selectionHint: '{{ _("Select media to start bulk actions.")|escapejs }}',
+    selectionCount: '{{ _("Selected {count} items")|escapejs }}',
+    noSelection: '{{ _("Select at least one media item.")|escapejs }}',
+    addTagsTitle: '{{ _("Add tags to selected media")|escapejs }}',
+    removeTagsTitle: '{{ _("Remove tags from selected media")|escapejs }}',
+    modalDescription: '{{ _("This action targets {count} media items.")|escapejs }}',
+    tagSearchPlaceholder: '{{ _("Search tags...")|escapejs }}',
+    noTagsSelected: '{{ _("No tags selected yet.")|escapejs }}',
+    tagApplyInstruction: '{{ _("Selected tags will be applied to all chosen media items.")|escapejs }}',
+    applyChanges: '{{ _("Apply changes")|escapejs }}',
+    confirmDelete: '{{ _("Are you sure you want to delete the selected media? This action cannot be undone.")|escapejs }}',
+    deleteSuccess: '{{ _("Deleted {count} media items.")|escapejs }}',
+    deleteError: '{{ _("Failed to delete selected media.")|escapejs }}',
+    tagsUpdated: '{{ _("Tags updated for selected media.")|escapejs }}',
+    tagsUpdateError: '{{ _("Failed to update tags for selected media.")|escapejs }}',
+    tagToggleLabel: '{{ _("Toggle selection for {name}")|escapejs }}',
+    selectTagPrompt: '{{ _("Select at least one tag.")|escapejs }}'
   };
   const nowLoadingLabel = '{{ _("Now Loading..")|escapejs }}';
   const failedToLoadThumbnailText = '{{ _("Failed to load thumbnail")|escapejs }}';
@@ -1078,6 +1810,28 @@ document.addEventListener('DOMContentLoaded', () => {
     card.className = 'media-card';
     card.href = `/photo-view/media/${media.id}`;
 
+    const selectionButton = document.createElement('button');
+    selectionButton.type = 'button';
+    selectionButton.className = 'media-select-toggle';
+    selectionButton.setAttribute('aria-pressed', 'false');
+    selectionButton.innerHTML = '<i class="fas fa-check"></i>';
+    selectionButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleMediaSelection(media, card);
+    });
+    card.appendChild(selectionButton);
+
+    card.addEventListener('click', (event) => {
+      if (event.target.closest('.media-select-toggle')) {
+        return;
+      }
+      if (selectedMedia.size > 0 || event.ctrlKey || event.metaKey) {
+        event.preventDefault();
+        toggleMediaSelection(media, card);
+      }
+    });
+
     const thumbnailWrapper = document.createElement('div');
     thumbnailWrapper.className = 'media-thumbnail-wrapper is-loading';
     const thumbnailImage = document.createElement('img');
@@ -1154,6 +1908,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function restartMediaQuery(options = {}) {
+    if (!options.preserveSelection) {
+      clearSelection();
+    }
     if (!options.skipQueryUpdate) {
       syncFiltersToQuery();
     }
@@ -1200,6 +1957,7 @@ document.addEventListener('DOMContentLoaded', () => {
         items.forEach((media) => {
           const card = createMediaCard(media);
           if (card) {
+            setupCardSelection(card, media);
             fragment.appendChild(card);
             totalLoaded += 1;
           }
@@ -1208,6 +1966,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fragment.childNodes.length > 0) {
           mediaGrid.appendChild(fragment);
         }
+
+        updateBulkSelectionBar();
 
         mediaCount.textContent = `${totalLoaded} ${itemsLabel}`;
 
@@ -1322,6 +2082,69 @@ document.addEventListener('DOMContentLoaded', () => {
       hideTagSuggestions();
     }
   });
+
+  if (bulkAddTagsBtn) {
+    bulkAddTagsBtn.addEventListener('click', () => openBulkTagModal('add'));
+  }
+
+  if (bulkRemoveTagsBtn) {
+    bulkRemoveTagsBtn.addEventListener('click', () => openBulkTagModal('remove'));
+  }
+
+  if (bulkDeleteBtn) {
+    bulkDeleteBtn.addEventListener('click', () => {
+      performBulkDelete();
+    });
+  }
+
+  if (bulkClearBtn) {
+    bulkClearBtn.addEventListener('click', () => {
+      clearSelection();
+    });
+  }
+
+  if (bulkTagApplyBtn) {
+    bulkTagApplyBtn.addEventListener('click', () => {
+      submitBulkTagChanges();
+    });
+  }
+
+  if (bulkTagInput) {
+    bulkTagInput.addEventListener('input', (event) => {
+      scheduleBulkTagSuggestionFetch(event.target.value || '');
+    });
+
+    bulkTagInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        const firstSuggestion = bulkTagSuggestions?.querySelector('.bulk-tag-suggestion-item');
+        if (firstSuggestion) {
+          firstSuggestion.click();
+        }
+      } else if (event.key === 'Escape') {
+        hideBulkTagSuggestions();
+        bulkTagInput.value = '';
+      }
+    });
+  }
+
+  if (bulkTagModalElement) {
+    bulkTagModalElement.addEventListener('click', (event) => {
+      if (bulkTagSuggestions && !bulkTagSuggestions.contains(event.target) && event.target !== bulkTagInput) {
+        hideBulkTagSuggestions();
+      }
+    });
+  }
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !document.body.classList.contains('modal-open')) {
+      if (selectedMedia.size > 0) {
+        clearSelection();
+      }
+    }
+  });
+
+  updateBulkSelectionBar();
 
   const initialFilters = readFiltersFromQuery();
   restoreFiltersFromState(initialFilters);

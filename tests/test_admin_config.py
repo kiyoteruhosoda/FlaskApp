@@ -360,3 +360,54 @@ def test_update_cors_config_rejects_invalid_origin(client):
 
     config = SystemSettingService.load_cors_config()
     assert config["allowedOrigins"] == ["https://existing.example.com"]
+
+
+def test_apply_persisted_settings_initializes_mailman_when_enabled(app_context):
+    from webapp import _apply_persisted_settings
+    from webapp.extensions import mail
+
+    # Ensure a clean starting point
+    app_context.extensions.pop("mailman", None)
+    mail.state = None
+    mail.app = None
+
+    SystemSettingService.update_application_settings(
+        {
+            "MAIL_ENABLED": True,
+            "MAIL_SERVER": "smtp.runtime.test",
+            "MAIL_PORT": 2525,
+            "MAIL_USE_TLS": False,
+            "MAIL_USE_SSL": True,
+            "MAIL_USERNAME": "mailer@example.com",
+            "MAIL_PASSWORD": "secret",
+            "MAIL_DEFAULT_SENDER": "noreply@example.com",
+        }
+    )
+
+    _apply_persisted_settings(app_context)
+
+    mail_state = app_context.extensions.get("mailman")
+    assert mail_state is not None
+    assert mail_state.server == "smtp.runtime.test"
+    assert mail_state.port == 2525
+    assert mail_state.use_ssl is True
+    assert mail.state is mail_state
+    assert mail.app is app_context
+
+
+def test_apply_persisted_settings_removes_mailman_when_disabled(app_context):
+    from webapp import _apply_persisted_settings
+    from webapp.extensions import mail
+
+    # First enable mail to ensure the extension is registered
+    SystemSettingService.update_application_settings({"MAIL_ENABLED": True})
+    _apply_persisted_settings(app_context)
+    assert "mailman" in app_context.extensions
+
+    # Disable mail and verify teardown
+    SystemSettingService.update_application_settings({"MAIL_ENABLED": False})
+    _apply_persisted_settings(app_context)
+
+    assert "mailman" not in getattr(app_context, "extensions", {})
+    assert mail.state is None
+    assert mail.app is None

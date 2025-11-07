@@ -789,6 +789,10 @@ class ApplicationSettings:
         return str(value) if value is not None else None
 
     @property
+    def mail_enabled(self) -> bool:
+        return self.get_bool("MAIL_ENABLED", False)
+
+    @property
     def mail_provider(self) -> str:
         """Return the configured mail provider.
         

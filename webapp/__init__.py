@@ -754,6 +754,30 @@ def _apply_persisted_settings(app: Flask) -> None:
     else:
         allowed_origins = []
     app.config["CORS_ALLOWED_ORIGINS"] = tuple(allowed_origins)
+    
+    # メール設定を再適用
+    from .extensions import mail
+
+    mail_enabled = bool(config_payload.get("MAIL_ENABLED", False))
+
+    if mail_enabled:
+        app.config["MAIL_SERVER"] = config_payload.get("MAIL_SERVER", "")
+        app.config["MAIL_PORT"] = config_payload.get("MAIL_PORT", 587)
+        app.config["MAIL_USE_TLS"] = config_payload.get("MAIL_USE_TLS", True)
+        app.config["MAIL_USE_SSL"] = config_payload.get("MAIL_USE_SSL", False)
+        app.config["MAIL_USERNAME"] = config_payload.get("MAIL_USERNAME", "")
+        app.config["MAIL_PASSWORD"] = config_payload.get("MAIL_PASSWORD", "")
+        app.config["MAIL_DEFAULT_SENDER"] = config_payload.get("MAIL_DEFAULT_SENDER") or config_payload.get("MAIL_USERNAME", "")
+
+        mail_state = mail.init_app(app)
+        mail.state = mail_state
+        mail.app = app
+    else:
+        extensions = getattr(app, "extensions", None)
+        if isinstance(extensions, MutableMapping):
+            extensions.pop("mailman", None)
+        mail.state = None
+        mail.app = None
 
 
 def create_app():
@@ -859,14 +883,18 @@ def create_app():
     
     # Initialize Flask-Mailman
     from .extensions import mail
-    app.config['MAIL_SERVER'] = settings.mail_server
-    app.config['MAIL_PORT'] = settings.mail_port
-    app.config['MAIL_USE_TLS'] = settings.mail_use_tls
-    app.config['MAIL_USE_SSL'] = settings.mail_use_ssl
-    app.config['MAIL_USERNAME'] = settings.mail_username
-    app.config['MAIL_PASSWORD'] = settings.mail_password
-    app.config['MAIL_DEFAULT_SENDER'] = settings.mail_default_sender or settings.mail_username
-    mail.init_app(app)
+    # メール機能が有効な場合のみ設定を適用して初期化
+    if settings.mail_enabled:
+        app.config['MAIL_SERVER'] = settings.mail_server
+        app.config['MAIL_PORT'] = settings.mail_port
+        app.config['MAIL_USE_TLS'] = settings.mail_use_tls
+        app.config['MAIL_USE_SSL'] = settings.mail_use_ssl
+        app.config['MAIL_USERNAME'] = settings.mail_username
+        app.config['MAIL_PASSWORD'] = settings.mail_password
+        app.config['MAIL_DEFAULT_SENDER'] = settings.mail_default_sender or settings.mail_username
+        mail_state = mail.init_app(app)
+        mail.state = mail_state
+        mail.app = app
 
     register_error_handlers(app)
 

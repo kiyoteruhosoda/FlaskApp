@@ -6,8 +6,8 @@ import shutil
 import tempfile
 import uuid
 import zipfile
-from pathlib import Path
-from typing import Callable, Iterable, List, Optional
+from pathlib import Path, PurePosixPath
+from typing import Callable, Dict, Iterable, List, Optional, Set
 
 from core.storage_service import StorageService
 from domain.storage import StorageDomain
@@ -34,6 +34,8 @@ class ZipArchiveService:
         self._storage = storage_service
         self._extracted_directories: List[str] = []
         self._base_directory: Optional[Path] = None
+        self._tags_by_extracted_path: Dict[str, List[str]] = {}
+        self._files_by_directory: Dict[str, Set[str]] = {}
 
     def _zip_extraction_base_dir(self) -> Path:
         if self._base_directory is not None:
@@ -57,7 +59,9 @@ class ZipArchiveService:
         return extraction_root
 
     def _register_extracted_directory(self, path: Path) -> None:
-        self._extracted_directories.append(str(path))
+        directory = str(path)
+        self._extracted_directories.append(directory)
+        self._files_by_directory.setdefault(directory, set())
 
     def cleanup(self) -> None:
         while self._extracted_directories:
@@ -65,7 +69,7 @@ class ZipArchiveService:
             try:
                 self._storage.remove_tree(dir_path)
             except FileNotFoundError:
-                continue
+                pass
             except Exception as exc:  # pragma: no cover - unexpected
                 self._log_warning(
                     "local_import.zip.cleanup_failed",
@@ -74,6 +78,10 @@ class ZipArchiveService:
                     error_type=type(exc).__name__,
                     error_message=str(exc),
                 )
+            finally:
+                extracted = self._files_by_directory.pop(str(dir_path), set())
+                for file_path in extracted:
+                    self._tags_by_extracted_path.pop(file_path, None)
 
     def extract(self, zip_path: str, *, session_id: Optional[str] = None) -> List[str]:
         extracted_files: List[str] = []
@@ -93,7 +101,8 @@ class ZipArchiveService:
                     if member.is_dir():
                         continue
 
-                    member_path = Path(member.filename)
+                    normalized_name = (member.filename or "").replace("\\", "/")
+                    member_path = PurePosixPath(normalized_name)
                     if member_path.is_absolute() or any(part == ".." for part in member_path.parts):
                         self._log_warning(
                             "local_import.zip.unsafe_member",
@@ -107,7 +116,7 @@ class ZipArchiveService:
                     if member_path.suffix.lower() not in self._supported_extensions:
                         continue
 
-                    target_path = extraction_dir / member_path
+                    target_path = extraction_dir.joinpath(*member_path.parts)
                     self._storage.ensure_directory(str(target_path.parent))
 
                     with archive.open(member) as src, self._storage.open(
@@ -115,7 +124,29 @@ class ZipArchiveService:
                     ) as dst:
                         shutil.copyfileobj(src, dst)
 
-                    extracted_files.append(str(target_path))
+                    extracted_file = str(target_path)
+                    extracted_files.append(extracted_file)
+                    self._files_by_directory[str(extraction_dir)].add(extracted_file)
+
+                    raw_tags = [
+                        part.strip()
+                        for part in member_path.parts[:-1]
+                        if part and part not in {".", ".."}
+                    ]
+                    seen: Set[str] = set()
+                    ordered_tags: List[str] = []
+                    for tag in raw_tags:
+                        normalized = tag.strip()
+                        if not normalized:
+                            continue
+                        key = normalized.lower()
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        ordered_tags.append(normalized)
+                    if ordered_tags:
+                        self._tags_by_extracted_path[extracted_file] = ordered_tags
+
                     self._log_info(
                         "local_import.zip.member_extracted",
                         "ZIP内のファイルを抽出",
@@ -123,7 +154,7 @@ class ZipArchiveService:
                         status="extracted",
                         zip_path=zip_path,
                         member=member.filename,
-                        extracted_path=str(target_path),
+                        extracted_path=extracted_file,
                     )
 
         except zipfile.BadZipFile as exc:
@@ -187,6 +218,18 @@ class ZipArchiveService:
                 )
 
         return extracted_files
+
+    def tags_for(self, extracted_path: str) -> List[str]:
+        """Return tag candidates derived from ZIP member directories."""
+
+        if not extracted_path:
+            return []
+
+        normalized_path = str(Path(extracted_path))
+        tags = self._tags_by_extracted_path.get(normalized_path)
+        if not tags:
+            return []
+        return list(tags)
 
 
 __all__ = ["ZipArchiveService", "ZipExtractionError"]

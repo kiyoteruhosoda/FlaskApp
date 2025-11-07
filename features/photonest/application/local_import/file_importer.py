@@ -4,9 +4,9 @@ from __future__ import annotations
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, Optional, Protocol
+from typing import Any, Dict, Iterable, List, Optional, Protocol
 
-from core.models.photo_models import Media, MediaPlayback
+from core.models.photo_models import Media, MediaPlayback, Tag
 from core.storage_service import StorageService
 from features.photonest.domain.local_import.entities import ImportFile, ImportOutcome
 from features.photonest.domain.local_import.logging import existing_media_destination_context, file_log_context
@@ -72,6 +72,11 @@ class ThumbnailRegenerator(Protocol):
         ...
 
 
+class TagResolver(Protocol):
+    def __call__(self, file_path: str) -> Iterable[str]:
+        ...
+
+
 class Logger(Protocol):
     def info(self, event: str, message: str, *, session_id: Optional[str] = None, status: Optional[str] = None, **details: Any) -> None:
         ...
@@ -125,6 +130,7 @@ class LocalImportFileImporter:
         source_storage: StorageService,
         destination_storage: StorageService,
         playback_policy: Optional[PlaybackFailurePolicy] = None,
+        tag_resolver: Optional[TagResolver] = None,
     ) -> None:
         self._db = db
         self._logger = logger
@@ -139,6 +145,7 @@ class LocalImportFileImporter:
         self._playback_policy = playback_policy or PlaybackFailurePolicy()
         self._source_storage = source_storage
         self._destination_storage = destination_storage
+        self._tag_resolver = tag_resolver
 
     def _copy_to_destination(self, source_path: str, destination_path: str) -> None:
         if self._source_storage is self._destination_storage:
@@ -410,6 +417,50 @@ class LocalImportFileImporter:
                 status="warning",
             )
 
+    def _resolve_directory_tags(self, file_path: str) -> List[Tag]:
+        if not self._tag_resolver:
+            return []
+
+        try:
+            raw_tags = list(self._tag_resolver(file_path) or [])
+        except Exception:  # pragma: no cover - defensive
+            return []
+
+        if not raw_tags:
+            return []
+
+        normalized: Dict[str, str] = {}
+        for candidate in raw_tags:
+            if candidate is None:
+                continue
+            name = str(candidate).strip()
+            if not name:
+                continue
+            key = name.lower()
+            if key not in normalized:
+                normalized[key] = name
+
+        if not normalized:
+            return []
+
+        existing_tags = (
+            self._db.session.query(Tag)
+            .filter(self._db.func.lower(Tag.name).in_(list(normalized.keys())))
+            .all()
+        )
+        existing_map = {tag.name.lower(): tag for tag in existing_tags}
+
+        resolved: List[Tag] = []
+        for key, display in normalized.items():
+            tag = existing_map.get(key)
+            if tag is None:
+                tag = Tag(name=display, attr="thing")
+                self._db.session.add(tag)
+                self._db.session.flush([tag])
+            resolved.append(tag)
+
+        return resolved
+
     def _store_new_media(
         self,
         outcome: ImportOutcome,
@@ -456,6 +507,13 @@ class LocalImportFileImporter:
         exif_model = ensure_exif_for_media(media, analysis)
         if exif_model is not None:
             self._db.session.add(exif_model)
+
+        directory_tags = self._resolve_directory_tags(file_path)
+        if directory_tags:
+            for tag in directory_tags:
+                if tag not in media.tags:
+                    media.tags.append(tag)
+            self._db.session.flush()
 
         self._db.session.commit()
 

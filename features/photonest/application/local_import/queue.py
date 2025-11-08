@@ -200,7 +200,7 @@ class LocalImportQueueProcessor:
             try:
                 selection.status = "running"
                 selection.started_at = datetime.now(timezone.utc)
-                selection.error = None
+                selection.error_msg = None
                 self._db.session.commit()
                 self._logger.info(
                     "local_import.selection.running",
@@ -321,7 +321,7 @@ class LocalImportQueueProcessor:
                         selection.finished_at = datetime.now(timezone.utc)
                 else:
                     selection.status = "failed"
-                    selection.error = detail["reason"]
+                    selection.error_msg = detail["reason"]
                     selection.finished_at = datetime.now(timezone.utc)
                     existing_google_id = file_result.get("media_google_id")
                     if existing_google_id:

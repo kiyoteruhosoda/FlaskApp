@@ -503,7 +503,7 @@ class TestPickerSessionServiceLocalImport:
 
             # 真の失敗が判明したケースを模擬
             selection.status = 'failed'
-            selection.error = 'failed to import'
+            selection.error_msg = 'failed to import'
             db.session.commit()
 
             result = PickerSessionService.status(ps)

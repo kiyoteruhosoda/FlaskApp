@@ -155,10 +155,19 @@
       </tbody>
     </table>
   </div>
+    <div id="local-import-log-pagination" class="d-flex flex-column flex-md-row gap-2 align-items-md-center justify-content-md-between mt-2 d-none">
+      <div id="local-import-log-pagination-status" class="small text-muted"></div>
+      <div class="d-flex align-items-center gap-2">
+        <button type="button" id="local-import-log-pagination-load" class="btn btn-outline-primary btn-sm">
+          <span class="spinner-border spinner-border-sm align-text-bottom me-1 d-none" id="local-import-log-pagination-spinner" role="status" aria-hidden="true"></span>
+          {{ _("Load more") }}
+        </button>
+      </div>
+    </div>
 </div>
 
-<div id="server-data" 
-     data-picker-session-id="{{ picker_session_id or '' }}" 
+<div id="server-data"
+     data-picker-session-id="{{ picker_session_id or '' }}"
      style="display: none;"></div>
 
 <script>
@@ -214,6 +223,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const logFilterNoticeEl = document.getElementById('local-import-log-filter');
   const logFilterNoticeTextEl = document.getElementById('local-import-log-filter-text');
   const logFilterClearButton = document.getElementById('local-import-log-filter-clear');
+  const logPaginationContainer = document.getElementById('local-import-log-pagination');
+  const logPaginationStatusEl = document.getElementById('local-import-log-pagination-status');
+  const logPaginationButton = document.getElementById('local-import-log-pagination-load');
+  const logPaginationSpinner = document.getElementById('local-import-log-pagination-spinner');
   const selectionPaginationEl = document.getElementById('selection-pagination');
   const selectionPaginationStatusEl = document.getElementById('selection-pagination-status');
   const selectionPaginationButton = document.getElementById('selection-pagination-load');
@@ -364,6 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const taskHiddenEntriesLabel = '{{ _("Additional items hidden") }}';
 
   const noLogsMessage = '{{ _("No logs yet.") }}';
+  const LOG_PAGE_SIZE = 200;
 
   const localImportRunningMessage = '{{ _("Local import is running. You can stop it if needed.") }}';
   const localImportCancelingMessage = '{{ _("Canceling local import...") }}';
@@ -715,6 +729,94 @@ document.addEventListener('DOMContentLoaded', () => {
     return source.filter((entry) => extractFileTaskIdFromLog(entry) === fileTaskId);
   }
 
+  function mergeLogs(existing = [], incoming = []) {
+    const byId = new Map();
+    const withoutId = [];
+
+    const addEntry = (entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return;
+      }
+      const rawId = entry.id;
+      if (typeof rawId === 'number' && Number.isFinite(rawId)) {
+        const previous = byId.get(rawId);
+        if (previous) {
+          byId.set(rawId, { ...previous, ...entry });
+        } else {
+          byId.set(rawId, entry);
+        }
+      } else {
+        withoutId.push(entry);
+      }
+    };
+
+    existing.forEach(addEntry);
+    incoming.forEach(addEntry);
+
+    const sorted = Array.from(byId.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([, value]) => value);
+
+    return [...sorted, ...withoutId];
+  }
+
+  function setLogPaginationLoading(isLoading) {
+    if (!logPaginationButton || !logPaginationSpinner) {
+      return;
+    }
+    if (isLoading) {
+      logPaginationSpinner.classList.remove('d-none');
+      logPaginationButton.disabled = true;
+      logPaginationButton.classList.add('disabled');
+    } else {
+      logPaginationSpinner.classList.add('d-none');
+      const hasOlder = Boolean(logPaginationState.hasOlderLogs);
+      logPaginationButton.disabled = !hasOlder;
+      logPaginationButton.classList.toggle('disabled', !hasOlder);
+    }
+  }
+
+  function updateLogPaginationControls() {
+    if (!logPaginationContainer) {
+      return;
+    }
+
+    const total = Array.isArray(allLogsCache) ? allLogsCache.length : 0;
+    const hasLogs = total > 0;
+    const hasOlder = Boolean(logPaginationState.hasOlderLogs);
+
+    if (!hasLogs && !hasOlder) {
+      logPaginationContainer.classList.add('d-none');
+      if (logPaginationStatusEl) {
+        logPaginationStatusEl.textContent = '';
+      }
+      if (logPaginationButton) {
+        logPaginationButton.classList.add('d-none');
+        logPaginationButton.disabled = true;
+        logPaginationButton.classList.add('disabled');
+      }
+      if (logPaginationSpinner) {
+        logPaginationSpinner.classList.add('d-none');
+      }
+      return;
+    }
+
+    logPaginationContainer.classList.remove('d-none');
+
+    if (logPaginationStatusEl) {
+      logPaginationStatusEl.textContent = `{{ _("Showing") }} ${total.toLocaleString()}`;
+    }
+
+    if (logPaginationButton) {
+      logPaginationButton.classList.toggle('d-none', !hasOlder);
+      logPaginationButton.disabled = !hasOlder;
+      logPaginationButton.classList.toggle('disabled', !hasOlder);
+      if (!hasOlder && logPaginationSpinner) {
+        logPaginationSpinner.classList.add('d-none');
+      }
+    }
+  }
+
   function resolveFileTaskDisplayName(fileTaskId, fallback = '') {
     if (!fileTaskId) {
       return fallback;
@@ -905,6 +1007,7 @@ document.addEventListener('DOMContentLoaded', () => {
       emptyRow.id = 'local-import-log-empty';
       emptyRow.innerHTML = `<td colspan="5" class="text-center text-muted py-3">${escapeHtml(noLogsMessage)}</td>`;
       logBody.appendChild(emptyRow);
+      updateLogPaginationControls();
       return;
     }
 
@@ -935,6 +1038,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       logBody.appendChild(row);
     });
+
+    updateLogPaginationControls();
   }
 
   function renderFileTasks(items = []) {
@@ -1019,9 +1124,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const selectionFileTaskMap = new Map();
   const fileTaskMetadataMap = new Map();
   const fileNameTaskMap = new Map();
+  const logPaginationState = {
+    oldestLoadedId: null,
+    newestLoadedId: null,
+    nextCursor: null,
+    hasOlderLogs: false,
+  };
   let allLogsCache = [];
   let currentLogs = [];
   let logFilterState = null;
+  let isFetchingLogs = false;
   let paginationClient;
   let isLocalImport = false;
   let latestStatus = 'unknown';
@@ -1031,6 +1143,15 @@ document.addEventListener('DOMContentLoaded', () => {
   let selectionRefreshStaging = null;
 
   toggleLogDownloadButton(false);
+
+  function resetLogPaginationState() {
+    logPaginationState.oldestLoadedId = null;
+    logPaginationState.newestLoadedId = null;
+    logPaginationState.nextCursor = null;
+    logPaginationState.hasOlderLogs = false;
+  }
+
+  resetLogPaginationState();
 
   function formatDateTime(isoString) {
     if (!isoString) return '-';
@@ -1419,22 +1540,100 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  async function fetchSessionLogs() {
+  async function fetchSessionLogs(options = {}) {
     if (!pickerSessionId) {
       allLogsCache = [];
+      resetLogPaginationState();
       renderSessionLogs([]);
       return;
     }
 
+    const {
+      mode = logPaginationState.newestLoadedId !== null ? 'after' : 'initial',
+      cursor = null,
+      afterId = null,
+      appendOlder = false,
+      resetExisting = false,
+      limit = LOG_PAGE_SIZE,
+      fileTaskId = null,
+    } = options || {};
+
+    if (isFetchingLogs) {
+      return;
+    }
+
+    const cursorNumber = typeof cursor === 'number' ? cursor : Number.parseInt(cursor, 10);
+    const afterNumber = typeof afterId === 'number' ? afterId : Number.parseInt(afterId, 10);
+    const effectiveLimit = Number.isFinite(limit) ? Math.max(1, Math.min(limit, 500)) : LOG_PAGE_SIZE;
+
+    const params = new URLSearchParams();
+    params.set('limit', effectiveLimit);
+    if (Number.isFinite(cursorNumber) && cursorNumber > 0) {
+      params.set('cursor', cursorNumber);
+    }
+    if (Number.isFinite(afterNumber) && afterNumber >= 0) {
+      params.set('after', afterNumber);
+    }
+    if (fileTaskId) {
+      params.set('file_task_id', fileTaskId);
+    }
+
+    if (appendOlder) {
+      setLogPaginationLoading(true);
+    }
+
+    isFetchingLogs = true;
+
     try {
-      const resp = await window.apiClient.get(`/api/picker/session/${encodeURIComponent(pickerSessionId)}/logs?limit=all`);
+      const query = params.toString();
+      const url = `/api/picker/session/${encodeURIComponent(pickerSessionId)}/logs${query ? `?${query}` : ''}`;
+      const resp = await window.apiClient.get(url);
       if (!resp.ok) {
         throw new Error(`HTTP ${resp.status}`);
       }
 
       const payload = await resp.json().catch(() => ({}));
       const logs = Array.isArray(payload.logs) ? payload.logs : [];
-      allLogsCache = [...logs];
+      const hasNext = Boolean(payload.hasNext);
+      const nextCursor = typeof payload.nextCursor === 'number' ? payload.nextCursor : null;
+      const oldestId = typeof payload.oldestLogId === 'number'
+        ? payload.oldestLogId
+        : (logs.length > 0 ? logs[0].id : null);
+      const newestId = typeof payload.newestLogId === 'number'
+        ? payload.newestLogId
+        : (logs.length > 0 ? logs[logs.length - 1].id : null);
+
+      if (resetExisting && !fileTaskId) {
+        allLogsCache = [];
+        resetLogPaginationState();
+      }
+
+      if (logs.length > 0) {
+        allLogsCache = mergeLogs(allLogsCache, logs);
+      } else if (resetExisting && !fileTaskId) {
+        allLogsCache = [];
+      }
+
+      if (!fileTaskId) {
+        if (mode === 'older' || mode === 'initial') {
+          if (typeof oldestId === 'number' && Number.isFinite(oldestId)) {
+            if (logPaginationState.oldestLoadedId === null || oldestId < logPaginationState.oldestLoadedId) {
+              logPaginationState.oldestLoadedId = oldestId;
+            }
+          }
+          logPaginationState.hasOlderLogs = hasNext;
+          logPaginationState.nextCursor = hasNext
+            ? (typeof nextCursor === 'number' ? nextCursor : oldestId)
+            : null;
+        }
+
+        if (typeof newestId === 'number' && Number.isFinite(newestId)) {
+          if (logPaginationState.newestLoadedId === null || newestId > logPaginationState.newestLoadedId) {
+            logPaginationState.newestLoadedId = newestId;
+          }
+        }
+      }
+
       buildSelectionFileTaskMap(allLogsCache);
 
       if (logFilterState && logFilterState.fileTaskId) {
@@ -1458,6 +1657,16 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (error) {
       console.warn('Failed to fetch session logs:', error);
+      if (!fileTaskId && appendOlder) {
+        logPaginationState.hasOlderLogs = false;
+        logPaginationState.nextCursor = null;
+        updateLogPaginationControls();
+      }
+    } finally {
+      if (appendOlder) {
+        setLogPaginationLoading(false);
+      }
+      isFetchingLogs = false;
     }
   }
 
@@ -1530,7 +1739,13 @@ document.addEventListener('DOMContentLoaded', () => {
       currentCounts = sessionData?.counts || currentCounts || {};
       updateCountsDisplay(currentCounts, latestStatus);
 
-      await fetchSessionLogs();
+      if (forceReset) {
+        await fetchSessionLogs({ mode: 'initial', resetExisting: true });
+      } else if (logPaginationState.newestLoadedId !== null) {
+        await fetchSessionLogs({ mode: 'after', afterId: logPaginationState.newestLoadedId });
+      } else {
+        await fetchSessionLogs({ mode: 'initial', resetExisting: true });
+      }
       await fetchFileTasks();
 
       if (!paginationClient) {
@@ -1790,6 +2005,26 @@ document.addEventListener('DOMContentLoaded', () => {
       if (logSection && typeof logSection.scrollIntoView === 'function') {
         logSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
+    });
+  }
+
+  if (logPaginationButton) {
+    logPaginationButton.addEventListener('click', () => {
+      if (!logPaginationState.hasOlderLogs) {
+        return;
+      }
+
+      const nextCursor = logPaginationState.nextCursor;
+      const cursorValue = typeof nextCursor === 'number' ? nextCursor : Number.parseInt(nextCursor, 10);
+      if (!Number.isFinite(cursorValue) || cursorValue <= 0) {
+        return;
+      }
+
+      fetchSessionLogs({
+        mode: 'older',
+        cursor: cursorValue,
+        appendOlder: true,
+      });
     });
   }
 

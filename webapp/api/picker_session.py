@@ -1031,8 +1031,23 @@ def api_picker_session_logs(session_id: str):
     if not ps:
         return _json_response({"error": "not_found"}, 404)
 
-    limit = request.args.get("limit", type=int) or 100
-    limit = max(1, min(limit, 500))
+    raw_limit = request.args.get("limit")
+    limit: Optional[int]
+
+    if raw_limit is None or (isinstance(raw_limit, str) and not raw_limit.strip()):
+        limit = 100
+    elif isinstance(raw_limit, str) and raw_limit.strip().lower() in {"all", "full"}:
+        limit = None
+    else:
+        try:
+            limit_candidate = int(raw_limit)
+        except (TypeError, ValueError):
+            limit_candidate = None
+
+        if limit_candidate is None:
+            limit = 100
+        else:
+            limit = max(1, min(limit_candidate, 500))
 
     requested_file_task_id = request.args.get("file_task_id") or request.args.get(
         "fileTaskId"

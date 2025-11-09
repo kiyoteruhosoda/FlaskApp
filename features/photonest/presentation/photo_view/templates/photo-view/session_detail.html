@@ -75,6 +75,7 @@
           <th>{{ _("Status") }}</th>
           <th>{{ _("Attempts") }}</th>
           <th>{{ _("Error") }}</th>
+          <th>{{ _("Logs") }}</th>
         </tr>
       </thead>
       <tbody id="selection-body">
@@ -98,8 +99,8 @@
   <p class="text-muted small mb-2">
     <i class="bi bi-info-circle"></i> {{ _("Latest worker log status for each processed file.") }}
   </p>
-  <div class="table-responsive">
-    <table class="table table-sm mb-0">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
       <thead>
         <tr>
           <th style="width: 28%">{{ _("File") }}</th>
@@ -118,18 +119,26 @@
   </div>
 </div>
 
-<div id="local-import-logs-section" class="mt-4 d-none">
-  <h2>{{ _("Import Logs") }}</h2>
-  <div class="d-flex flex-column flex-lg-row gap-2 align-items-lg-center justify-content-lg-between mb-2">
-    <p class="text-muted small mb-0">
-      <i class="bi bi-info-circle"></i> {{ _("ZIP extraction and file processing logs appear here while local import runs.") }}
-    </p>
-    <button type="button" id="local-import-log-download" class="btn btn-outline-secondary btn-sm d-none">
-      <i class="bi bi-download"></i> {{ _("Download full logs (ZIP)") }}
-    </button>
-  </div>
-  <div class="table-responsive">
-    <table class="table table-sm mb-0">
+  <div id="local-import-logs-section" class="mt-4 d-none">
+    <h2>{{ _("Import Logs") }}</h2>
+    <div class="d-flex flex-column flex-lg-row gap-2 align-items-lg-center justify-content-lg-between mb-2">
+      <p class="text-muted small mb-0">
+        <i class="bi bi-info-circle"></i> {{ _("ZIP extraction and file processing logs appear here while local import runs.") }}
+      </p>
+      <button type="button" id="local-import-log-download" class="btn btn-outline-secondary btn-sm d-none">
+        <i class="bi bi-download"></i> {{ _("Download full logs (ZIP)") }}
+      </button>
+    </div>
+    <div class="table-responsive">
+      <div id="local-import-log-filter" class="alert alert-info py-2 px-3 d-none" role="status">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+          <div id="local-import-log-filter-text" class="small mb-0"></div>
+          <button type="button" id="local-import-log-filter-clear" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-x-circle"></i> {{ _("Show all logs") }}
+          </button>
+        </div>
+      </div>
+      <table class="table table-sm mb-0">
       <thead>
         <tr>
           <th style="width: 18%">{{ _("Time") }}</th>
@@ -202,6 +211,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const logSection = document.getElementById('local-import-logs-section');
   const logBody = document.getElementById('local-import-log-body');
   const logDownloadButton = document.getElementById('local-import-log-download');
+  const logFilterNoticeEl = document.getElementById('local-import-log-filter');
+  const logFilterNoticeTextEl = document.getElementById('local-import-log-filter-text');
+  const logFilterClearButton = document.getElementById('local-import-log-filter-clear');
   const selectionPaginationEl = document.getElementById('selection-pagination');
   const selectionPaginationStatusEl = document.getElementById('selection-pagination-status');
   const selectionPaginationButton = document.getElementById('selection-pagination-load');
@@ -272,6 +284,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const logDownloadPreparingLabel = '{{ _("Preparing download...") }}';
   const logDownloadFailedMessage = '{{ _("Failed to download logs.") }}';
   const logDownloadLoadingHtml = `<span class="spinner-border spinner-border-sm align-text-bottom me-2" role="status" aria-hidden="true"></span>${escapeHtml(logDownloadPreparingLabel)}`;
+  const viewFileLogsLabel = '{{ _("View file logs") }}';
+  const logFilterActivePrefix = '{{ _("Log filter active") }}';
+  const logFilterActiveForLabel = '{{ _("Showing logs for") }}';
+  const showAllLogsLabel = '{{ _("Show all logs") }}';
+  const logFilterUnavailableMessage = '{{ _("No logs available for this file yet.") }}';
 
   const selectionStatusLabels = {
     pending: '{{ _("Pending") }}',
@@ -585,16 +602,305 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function renderSessionLogs(logs = []) {
+  function normalizeFileName(value) {
+    if (value === null || value === undefined) {
+      return '';
+    }
+    if (typeof value === 'string') {
+      return value.trim().toLowerCase();
+    }
+    try {
+      return String(value).trim().toLowerCase();
+    } catch (err) {
+      return '';
+    }
+  }
+
+  function extractSelectionId(details) {
+    if (!details || typeof details !== 'object') {
+      return null;
+    }
+    const candidates = [
+      details.selection_id,
+      details.selectionId,
+      details.selectionID,
+      details.selection,
+    ];
+    for (const candidate of candidates) {
+      if (candidate === null || candidate === undefined) {
+        continue;
+      }
+      if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+        return candidate;
+      }
+      if (typeof candidate === 'string') {
+        const trimmed = candidate.trim();
+        if (!trimmed) {
+          continue;
+        }
+        const parsed = Number.parseInt(trimmed, 10);
+        if (!Number.isNaN(parsed)) {
+          return parsed;
+        }
+      } else {
+        const parsed = Number.parseInt(candidate, 10);
+        if (!Number.isNaN(parsed)) {
+          return parsed;
+        }
+      }
+    }
+    return null;
+  }
+
+  function extractFileTaskIdFromLog(logEntry) {
+    if (!logEntry || typeof logEntry !== 'object') {
+      return null;
+    }
+    if (typeof logEntry.fileTaskId === 'string' && logEntry.fileTaskId.trim()) {
+      return logEntry.fileTaskId.trim();
+    }
+    const details = logEntry.details || {};
+    const candidates = [details.fileTaskId, details.file_task_id];
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate.trim()) {
+        return candidate.trim();
+      }
+    }
+    return null;
+  }
+
+  function buildSelectionFileTaskMap(logs = []) {
+    selectionFileTaskMap.clear();
+    fileNameTaskMap.clear();
+    if (!Array.isArray(logs)) {
+      return;
+    }
+    logs.forEach((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return;
+      }
+      const details = entry.details || {};
+      const fileTaskId = extractFileTaskIdFromLog(entry);
+      if (fileTaskId) {
+        const selectionId = extractSelectionId(details);
+        if (selectionId !== null && selectionId !== undefined) {
+          selectionFileTaskMap.set(selectionId, fileTaskId);
+        }
+        const nameCandidates = [
+          details.basename,
+          details.file,
+          details.filename,
+          details.name,
+          details.path,
+          details.source,
+          details.source_path,
+          details.file_path,
+        ];
+        for (const candidate of nameCandidates) {
+          const normalized = normalizeFileName(candidate);
+          if (normalized) {
+            fileNameTaskMap.set(normalized, fileTaskId);
+            break;
+          }
+        }
+      }
+    });
+  }
+
+  function filterLogsByFileTask(fileTaskId) {
+    const source = Array.isArray(allLogsCache) ? allLogsCache : [];
+    if (!fileTaskId) {
+      return [...source];
+    }
+    return source.filter((entry) => extractFileTaskIdFromLog(entry) === fileTaskId);
+  }
+
+  function resolveFileTaskDisplayName(fileTaskId, fallback = '') {
+    if (!fileTaskId) {
+      return fallback;
+    }
+    const metadata = fileTaskMetadataMap.get(fileTaskId);
+    if (metadata && metadata.fileName) {
+      return metadata.fileName;
+    }
+    const fromLogs = (Array.isArray(allLogsCache) ? allLogsCache : []).find(
+      (entry) => extractFileTaskIdFromLog(entry) === fileTaskId,
+    );
+    if (fromLogs) {
+      const details = fromLogs.details || {};
+      const nameCandidates = [
+        details.basename,
+        details.file,
+        details.filename,
+        details.name,
+        details.path,
+        details.source,
+        details.source_path,
+        details.file_path,
+      ];
+      for (const candidate of nameCandidates) {
+        if (typeof candidate === 'string' && candidate.trim()) {
+          return candidate;
+        }
+      }
+    }
+    return fallback || fileTaskId;
+  }
+
+  function updateLogFilterNotice(filterState) {
+    if (!logFilterNoticeEl) {
+      return;
+    }
+    if (!filterState || !filterState.fileTaskId) {
+      logFilterNoticeEl.classList.add('d-none');
+      if (logFilterNoticeTextEl) {
+        logFilterNoticeTextEl.textContent = '';
+      }
+      if (logFilterClearButton) {
+        logFilterClearButton.classList.add('d-none');
+        logFilterClearButton.disabled = true;
+        logFilterClearButton.innerHTML = `<i class="bi bi-x-circle"></i> ${escapeHtml(showAllLogsLabel)}`;
+      }
+      return;
+    }
+
+    const fileDisplayName = filterState.fileName
+      || resolveFileTaskDisplayName(filterState.fileTaskId, filterState.fileTaskId);
+    const labelHtml = `<span class="fw-semibold">${escapeHtml(logFilterActivePrefix)}:</span> ${escapeHtml(logFilterActiveForLabel)} <code>${escapeHtml(fileDisplayName)}</code>`;
+    logFilterNoticeEl.classList.remove('d-none');
+    if (logFilterNoticeTextEl) {
+      logFilterNoticeTextEl.innerHTML = labelHtml;
+    }
+    if (logFilterClearButton) {
+      logFilterClearButton.classList.remove('d-none');
+      logFilterClearButton.disabled = false;
+      logFilterClearButton.innerHTML = `<i class="bi bi-x-circle"></i> ${escapeHtml(showAllLogsLabel)}`;
+    }
+  }
+
+  function clearLogFilter() {
+    logFilterState = null;
+    updateLogFilterNotice(null);
+    renderSessionLogs(allLogsCache);
+  }
+
+  function applyLogFilter(filterState) {
+    if (!filterState || !filterState.fileTaskId) {
+      clearLogFilter();
+      return;
+    }
+
+    const resolvedName = filterState.fileName
+      || resolveFileTaskDisplayName(filterState.fileTaskId, filterState.fileTaskId);
+
+    logFilterState = {
+      fileTaskId: filterState.fileTaskId,
+      selectionId: filterState.selectionId || null,
+      fileName: resolvedName,
+    };
+
+    const filteredLogs = filterLogsByFileTask(logFilterState.fileTaskId);
+    renderSessionLogs(filteredLogs, { filter: logFilterState });
+
+    if (
+      filteredLogs.length === 0
+      && typeof showInfoToast === 'function'
+    ) {
+      showInfoToast(logFilterUnavailableMessage, 4000);
+    }
+  }
+
+  function resolveFileTaskIdForSelection(selectionId, selectionData = null, fallbackName = '') {
+    if (selectionId === null || selectionId === undefined) {
+      return null;
+    }
+
+    if (selectionFileTaskMap.has(selectionId)) {
+      return selectionFileTaskMap.get(selectionId);
+    }
+
+    const selection = selectionData || selectionRecords.get(selectionId) || {};
+    const candidateTaskIds = [selection.fileTaskId];
+    for (const candidate of candidateTaskIds) {
+      if (typeof candidate === 'string' && candidate.trim()) {
+        selectionFileTaskMap.set(selectionId, candidate.trim());
+        return candidate.trim();
+      }
+    }
+
+    const candidateNames = [];
+    if (selection.filename) candidateNames.push(selection.filename);
+    if (selection.localFilename) candidateNames.push(selection.localFilename);
+    if (selection.localFilePath) candidateNames.push(selection.localFilePath);
+    if (fallbackName) candidateNames.push(fallbackName);
+
+    const normalizedCandidates = candidateNames
+      .map((name) => normalizeFileName(name))
+      .filter((value) => Boolean(value));
+    const normalizedCandidateSet = new Set(normalizedCandidates);
+
+    for (const normalized of normalizedCandidates) {
+      if (fileNameTaskMap.has(normalized)) {
+        const matched = fileNameTaskMap.get(normalized);
+        selectionFileTaskMap.set(selectionId, matched);
+        return matched;
+      }
+    }
+
+    const logs = Array.isArray(allLogsCache) ? allLogsCache : [];
+    for (const entry of logs) {
+      const details = entry?.details || {};
+      const detailSelectionId = extractSelectionId(details);
+      const entryFileTaskId = extractFileTaskIdFromLog(entry);
+
+      if (detailSelectionId === selectionId && entryFileTaskId) {
+        selectionFileTaskMap.set(selectionId, entryFileTaskId);
+        return entryFileTaskId;
+      }
+
+      if (!entryFileTaskId || normalizedCandidateSet.size === 0) {
+        continue;
+      }
+
+      const detailNames = [
+        details.basename,
+        details.file,
+        details.filename,
+        details.name,
+        details.path,
+        details.source,
+        details.source_path,
+        details.file_path,
+      ];
+      for (const detailName of detailNames) {
+        const normalized = normalizeFileName(detailName);
+        if (normalized && normalizedCandidateSet.has(normalized)) {
+          selectionFileTaskMap.set(selectionId, entryFileTaskId);
+          return entryFileTaskId;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  function renderSessionLogs(logs = [], options = {}) {
     if (!logSection || !logBody) {
       return;
     }
 
+    const entries = Array.isArray(logs) ? logs : [];
+    currentLogs = [...entries];
+
+    const activeFilter = options && options.filter ? options.filter.fileTaskId : null;
+    const filterState = options && options.filter ? options.filter : null;
+
     logSection.classList.remove('d-none');
     logBody.innerHTML = '';
     toggleLogDownloadButton(true);
+    updateLogFilterNotice(filterState);
 
-    if (!logs || logs.length === 0) {
+    if (!entries || entries.length === 0) {
       const emptyRow = document.createElement('tr');
       emptyRow.id = 'local-import-log-empty';
       emptyRow.innerHTML = `<td colspan="5" class="text-center text-muted py-3">${escapeHtml(noLogsMessage)}</td>`;
@@ -602,7 +908,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    logs.forEach((log) => {
+    entries.forEach((log) => {
       const row = document.createElement('tr');
       const level = (log.level || '').toUpperCase();
       const badgeClass = getLevelBadgeClass(level);
@@ -614,6 +920,10 @@ document.addEventListener('DOMContentLoaded', () => {
         escapeHtml(log.message || ''),
         detailsText ? `<div class="text-muted small">${detailsText}</div>` : ''
       ].join('');
+
+      if (activeFilter && extractFileTaskIdFromLog(log) === activeFilter) {
+        row.classList.add('table-active');
+      }
 
       row.innerHTML = `
         <td>${escapeHtml(formatDateTime(log.createdAt))}</td>
@@ -634,6 +944,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     fileProgressSection.classList.remove('d-none');
     fileProgressBody.innerHTML = '';
+    fileTaskMetadataMap.clear();
 
     if (!items || items.length === 0) {
       const emptyRow = document.createElement('tr');
@@ -689,9 +1000,28 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
 
       fileProgressBody.appendChild(row);
+
+      if (item.fileTaskId) {
+        fileTaskMetadataMap.set(item.fileTaskId, {
+          fileName: item.fileName || item.fileTaskId,
+          state: item.state,
+          updatedAt: item.updatedAt,
+        });
+        const normalizedName = normalizeFileName(item.fileName || item.fileTaskId);
+        if (normalizedName) {
+          fileNameTaskMap.set(normalizedName, item.fileTaskId);
+        }
+      }
     });
   }
 
+  const selectionRecords = new Map();
+  const selectionFileTaskMap = new Map();
+  const fileTaskMetadataMap = new Map();
+  const fileNameTaskMap = new Map();
+  let allLogsCache = [];
+  let currentLogs = [];
+  let logFilterState = null;
   let paginationClient;
   let isLocalImport = false;
   let latestStatus = 'unknown';
@@ -786,6 +1116,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const errorLinkHtml = selection.errorDetailsUrl
       ? `<div><a href="${escapeHtml(selection.errorDetailsUrl)}" class="small link-danger link-offset-2">${escapeHtml(viewErrorDetailsLabel)}</a></div>`
       : '';
+    const logLinkHtml = (isLocalImport && selection.id)
+      ? `<button type="button" class="btn btn-link btn-sm selection-log-link p-0" data-selection-id="${selection.id}" data-file-display="${safeDisplayName}">
+          <i class="bi bi-journal-text"></i> ${escapeHtml(viewFileLogsLabel)}
+        </button>`
+      : '<span class="text-muted small">-</span>';
     tr.innerHTML = `
       <td>${fileCellContent}</td>
       <td>
@@ -795,6 +1130,7 @@ document.addEventListener('DOMContentLoaded', () => {
       </td>
       <td>${selection.attempts}</td>
       <td>${errorMessageHtml}${errorLinkHtml}</td>
+      <td>${logLinkHtml}</td>
     `;
     return tr;
   }
@@ -1085,18 +1421,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function fetchSessionLogs() {
     if (!pickerSessionId) {
+      allLogsCache = [];
       renderSessionLogs([]);
       return;
     }
 
     try {
-      const resp = await window.apiClient.get(`/api/picker/session/${encodeURIComponent(pickerSessionId)}/logs?limit=50`);
+      const resp = await window.apiClient.get(`/api/picker/session/${encodeURIComponent(pickerSessionId)}/logs?limit=all`);
       if (!resp.ok) {
         throw new Error(`HTTP ${resp.status}`);
       }
 
       const payload = await resp.json().catch(() => ({}));
-      renderSessionLogs(payload.logs || []);
+      const logs = Array.isArray(payload.logs) ? payload.logs : [];
+      allLogsCache = [...logs];
+      buildSelectionFileTaskMap(allLogsCache);
+
+      if (logFilterState && logFilterState.fileTaskId) {
+        logFilterState = {
+          ...logFilterState,
+          fileName: resolveFileTaskDisplayName(
+            logFilterState.fileTaskId,
+            logFilterState.fileName || logFilterState.fileTaskId,
+          ),
+        };
+      }
+
+      const effectiveLogs = logFilterState
+        ? filterLogsByFileTask(logFilterState.fileTaskId)
+        : allLogsCache;
+
+      if (logFilterState) {
+        renderSessionLogs(effectiveLogs, { filter: logFilterState });
+      } else {
+        renderSessionLogs(effectiveLogs);
+      }
     } catch (error) {
       console.warn('Failed to fetch session logs:', error);
     }
@@ -1191,12 +1550,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectionBody.innerHTML = '';
                 displayedSelectionCount = 0;
               }
+              selectionRecords.clear();
             }
 
             if (items.length === 0 && meta.currentPage === 1) {
               const tr = document.createElement('tr');
               tr.innerHTML = `
-                <td colspan="4" class="text-center text-muted py-4">
+                <td colspan="5" class="text-center text-muted py-4">
                   ${buildEmptyMessage(latestStatus)}
                 </td>
               `;
@@ -1214,6 +1574,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (items.length > 0) {
+              items.forEach((selection) => {
+                if (selection && typeof selection.id === 'number') {
+                  selectionRecords.set(selection.id, selection);
+                }
+              });
+
               const newRows = items.map(selection => createSelectionRow(selection));
 
               if (isStaging) {
@@ -1270,6 +1636,7 @@ document.addEventListener('DOMContentLoaded', () => {
         paginationClient.reset();
         selectionRefreshStaging = null;
         displayedSelectionCount = 0;
+        selectionRecords.clear();
       }
 
       if (paginationClient) {
@@ -1314,7 +1681,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (rows.length === 0) {
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td colspan="4" class="text-center text-muted py-4">
+            <td colspan="5" class="text-center text-muted py-4">
               ${buildEmptyMessage(latestStatus)}
             </td>
           `;
@@ -1378,6 +1745,60 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       syncSessionFiltersToHash();
       refreshSelections({ forceReset: true });
+    });
+  }
+
+  if (selectionBody) {
+    selectionBody.addEventListener('click', (event) => {
+      const trigger = event.target.closest('.selection-log-link');
+      if (!trigger) {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (!isLocalImport) {
+        return;
+      }
+
+      const selectionIdValue = trigger.getAttribute('data-selection-id');
+      const selectionId = Number.parseInt(selectionIdValue || '', 10);
+      const fallbackName = trigger.getAttribute('data-file-display') || '';
+
+      if (!Number.isFinite(selectionId)) {
+        if (typeof showInfoToast === 'function') {
+          showInfoToast(logFilterUnavailableMessage, 4000);
+        }
+        return;
+      }
+
+      const selectionData = selectionRecords.get(selectionId) || null;
+      const fileTaskId = resolveFileTaskIdForSelection(selectionId, selectionData, fallbackName);
+
+      if (!fileTaskId) {
+        if (typeof showInfoToast === 'function') {
+          showInfoToast(logFilterUnavailableMessage, 4000);
+        }
+        return;
+      }
+
+      const displayName = selectionData?.filename
+        || fallbackName
+        || resolveFileTaskDisplayName(fileTaskId, fileTaskId);
+      applyLogFilter({ fileTaskId, selectionId, fileName: displayName });
+
+      if (logSection && typeof logSection.scrollIntoView === 'function') {
+        logSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  }
+
+  if (logFilterClearButton) {
+    logFilterClearButton.addEventListener('click', () => {
+      clearLogFilter();
+      if (logSection && typeof logSection.scrollIntoView === 'function') {
+        logSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     });
   }
 

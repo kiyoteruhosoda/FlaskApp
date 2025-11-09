@@ -266,7 +266,7 @@ class TestSessionDetailAPI(AuthenticatedClientMixin):
             result = local_import_module.local_import_task()
             session_id = result['session_id']
 
-        response = client.get(f'/api/picker/session/{session_id}/logs?limit=50')
+        response = client.get(f'/api/picker/session/{session_id}/logs?limit=all')
         assert response.status_code == 200
 
         payload = response.get_json()
@@ -310,7 +310,7 @@ class TestSessionDetailAPI(AuthenticatedClientMixin):
         assert detail_entry is not None, '結果詳細に対象ファイルが含まれていること'
         assert detail_entry.get('basename') == target_file.name
 
-        response = client.get(f'/api/picker/session/{session_id}/logs?limit=50')
+        response = client.get(f'/api/picker/session/{session_id}/logs?limit=all')
         assert response.status_code == 200
 
         payload = response.get_json()
@@ -493,7 +493,7 @@ class TestSessionDetailAPI(AuthenticatedClientMixin):
             result = local_import_module.local_import_task()
             session_id = result['session_id']
 
-        response = client.get(f'/api/picker/session/{session_id}/logs?limit=20')
+        response = client.get(f'/api/picker/session/{session_id}/logs?limit=all')
         assert response.status_code == 200
 
         data = response.get_json()

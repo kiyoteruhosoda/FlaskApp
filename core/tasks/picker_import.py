@@ -1353,7 +1353,6 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
 
     stats = ps.stats()
     stats["selected_count"] = len(selected_ids)
-    processed_ids = stats.get("processed_ids", [])
 
     tmp_dir, orig_dir = _ensure_dirs()
 
@@ -1494,7 +1493,7 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
                     item_index=item_index,
                 )
                 continue
-            processed_ids.append(media_id)
+            # 成功した項目は進捗サマリでのみ追跡する
 
             total_count = len(results)
             if item_index == 1 or item_index == total_count or item_index % 10 == 0:
@@ -1818,7 +1817,13 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
             failed=progress.failed,
         )
 
-    stats["processed_ids"] = processed_ids
+    stats["progress"] = {
+        "imported": progress.imported,
+        "duplicated": progress.duplicated,
+        "failed": progress.failed,
+    }
+
+    total_processed = progress.imported + progress.duplicated + progress.failed
     ps.set_stats(stats)
 
     end_time = datetime.now(timezone.utc)
@@ -1849,7 +1854,7 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
                 "imported": progress.imported,
                 "duplicates": progress.duplicated,
                 "failed": progress.failed,
-                "processed_total": len(processed_ids),
+                "processed_total": total_processed,
             }
         ),
         session_identifier=session_identifier,
@@ -1860,7 +1865,7 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
         imported=progress.imported,
         duplicates=progress.duplicated,
         failed=progress.failed,
-        processed_total=len(processed_ids),
+        processed_total=total_processed,
     )
 
     ok = progress.imported > 0 or progress.failed == 0

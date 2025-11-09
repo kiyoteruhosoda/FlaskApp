@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 import io
 import json
 import zipfile
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 from flask import (
     current_app,
     jsonify,
@@ -66,6 +66,9 @@ _picker_session_logs_prefixed_limiter = create_limiter(
 )
 _picker_session_status_prefixed_limiter = create_limiter(
     "PICKER_SESSION_STATUS_PREFIX"
+)
+_picker_session_file_tasks_limiter = create_limiter(
+    "PICKER_SESSION_FILE_TASKS"
 )
 _picker_session_import_numeric_limiter = create_limiter(
     "PICKER_SESSION_IMPORT_NUMERIC"
@@ -544,6 +547,59 @@ def _collect_local_import_logs(
         or_(WorkerLog.event.like("local_import%"), WorkerLog.event.like("import.%"))
     )
 
+    def _apply_session_scope(worker_query):
+        if not session_aliases:
+            return worker_query
+
+        normalized_aliases = [alias for alias in session_aliases if alias]
+
+        if not normalized_aliases:
+            return worker_query
+
+        json_paths = [
+            "$.session_id",
+            "$.sessionId",
+            "$.session_identifier",
+            "$.sessionIdentifier",
+            "$.session_key",
+            "$.sessionKey",
+            "$.session_db_id",
+            "$.active_session_id",
+            "$.target_session_id",
+            "$.import_session_id",
+            "$.importSessionId",
+            "$.picker_session_id",
+            "$.pickerSessionId",
+            "$.session.session_id",
+            "$.session.sessionId",
+            "$.session.session_key",
+            "$.session.sessionKey",
+            "$.session.id",
+        ]
+
+        filters = []
+        for alias in normalized_aliases:
+            filters.append(WorkerLog.message.contains(alias))
+            alias_json = func.json_quote(alias)
+            alias_numeric: Optional[int]
+            try:
+                alias_numeric = int(alias)
+            except (TypeError, ValueError):
+                alias_numeric = None
+            for column in (WorkerLog.extra_json, WorkerLog.meta_json):
+                for path in json_paths:
+                    json_expr = func.json_extract(column, path)
+                    filters.append(json_expr == alias_json)
+                    if alias_numeric is not None:
+                        filters.append(json_expr == alias_numeric)
+
+        if filters:
+            worker_query = worker_query.filter(or_(*filters))
+
+        return worker_query
+
+    query = _apply_session_scope(query)
+
     if file_task_id:
         query = query.filter(WorkerLog.file_task_id == file_task_id)
 
@@ -577,6 +633,38 @@ def _collect_local_import_logs(
         if row_extras:
             extras.update(row_extras)
 
+        def _coerce_progress_step(value: Any) -> Optional[int]:
+            if value is None:
+                return None
+            if isinstance(value, bool):
+                return None
+            if isinstance(value, int):
+                return value
+            if isinstance(value, str):
+                candidate = value.strip()
+                if not candidate:
+                    return None
+                try:
+                    return int(candidate)
+                except ValueError:
+                    return None
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                return None
+
+        progress_step = row.progress_step
+        if progress_step is None:
+            for candidate in (
+                extras.get("progress_step"),
+                extras.get("progressStep"),
+                payload.get("progress_step"),
+                payload.get("progressStep"),
+            ):
+                progress_step = _coerce_progress_step(candidate)
+                if progress_step is not None:
+                    break
+
         candidate_values = set()
         candidate_values.update(_extract_session_identifier_candidates(extras))
         candidate_values.update(_extract_session_identifier_candidates(payload))
@@ -607,6 +695,8 @@ def _collect_local_import_logs(
             "active_session_id",
             "target_session_id",
             "status",
+            "progress_step",
+            "progressStep",
         }
 
         details = {
@@ -645,6 +735,9 @@ def _collect_local_import_logs(
         if row.file_task_id:
             log_entry["fileTaskId"] = row.file_task_id
 
+        if progress_step is not None:
+            log_entry["progressStep"] = progress_step
+
         if include_raw:
             log_entry["raw"] = {
                 "id": row.id,
@@ -660,6 +753,9 @@ def _collect_local_import_logs(
                 "worker_hostname": row.worker_hostname,
                 "queue_name": row.queue_name,
                 "file_task_id": row.file_task_id,
+                "progress_step": row.progress_step
+                if row.progress_step is not None
+                else progress_step,
                 "raw_message": row.message,
                 "parsed_message": payload,
                 "extra_json": row.extra_json,
@@ -705,6 +801,7 @@ def _collect_local_import_logs(
             fallback_query = WorkerLog.query.filter(
                 WorkerLog.event == "local_import.zip.extracted"
             )
+            fallback_query = _apply_session_scope(fallback_query)
             if file_task_id:
                 fallback_query = fallback_query.filter(WorkerLog.file_task_id == file_task_id)
             fallback_query = fallback_query.order_by(WorkerLog.id.asc())
@@ -740,6 +837,188 @@ def _collect_local_import_logs(
                         logs = trimmed
 
     return logs
+
+
+def _normalize_file_task_state(
+    progress_step: Optional[int],
+    status: Optional[str],
+    level: Optional[str],
+    event: Optional[str],
+) -> str:
+    normalized_level = (level or "").upper()
+    if normalized_level in {"ERROR", "CRITICAL"}:
+        return "error"
+
+    normalized_status = (status or "").strip().lower()
+    normalized_event = (event or "").strip().lower()
+
+    if normalized_status:
+        if any(keyword in normalized_status for keyword in ("error", "fail", "missing", "denied", "timeout")):
+            return "error"
+        if "skip" in normalized_status:
+            return "skipped"
+        if normalized_status.startswith("dup") or "duplicate" in normalized_status:
+            return "duplicate"
+        if normalized_status in {"warning", "canceled", "cancelled"}:
+            return "warning"
+        if normalized_status in {"success", "completed", "done"}:
+            return "success"
+        if normalized_status in {"stored", "copied", "written"}:
+            return "storing"
+        if "thumbnail" in normalized_status:
+            return "thumbnail"
+        if any(keyword in normalized_status for keyword in ("meta", "analy")):
+            return "metadata"
+        if normalized_status in {"processing", "running", "pending"}:
+            return "processing"
+
+    if normalized_event:
+        if "error" in normalized_event or "failed" in normalized_event:
+            return "error"
+        if "duplicate" in normalized_event:
+            return "duplicate"
+        if "skip" in normalized_event:
+            return "skipped"
+        if "thumbnail" in normalized_event:
+            return "thumbnail"
+        if any(keyword in normalized_event for keyword in ("meta", "analy")):
+            return "metadata"
+        if normalized_event.endswith(".success") or normalized_event.endswith(".done"):
+            return "success"
+        if any(keyword in normalized_event for keyword in ("cleanup", "store", "copy")):
+            return "storing"
+
+    if isinstance(progress_step, int):
+        if progress_step >= 9:
+            return "error"
+        if progress_step >= 5:
+            return "success"
+        if progress_step == 4:
+            return "storing"
+        if progress_step == 3:
+            return "thumbnail"
+        if progress_step == 2:
+            return "metadata"
+        if progress_step == 1:
+            return "processing"
+
+    return "processing"
+
+
+def _collect_local_import_file_tasks(
+    ps,
+    *,
+    limit: Optional[int] = None,
+) -> tuple[List[Dict[str, Any]], int]:
+    if not ps:
+        return [], 0
+
+    logs = _collect_local_import_logs(ps, limit=None)
+    summary: Dict[str, Dict[str, Any]] = {}
+    order: List[str] = []
+
+    for entry in logs:
+        file_task_id = entry.get("fileTaskId")
+        if not file_task_id:
+            continue
+
+        current = summary.get(file_task_id)
+        if current is None:
+            current = {
+                "fileTaskId": file_task_id,
+                "state": "processing",
+            }
+            summary[file_task_id] = current
+            order.append(file_task_id)
+
+        details = entry.get("details") or {}
+
+        display_name: Optional[str] = None
+        for key in (
+            "basename",
+            "file",
+            "filename",
+            "name",
+            "path",
+            "file_path",
+            "source",
+            "source_path",
+        ):
+            value = details.get(key)
+            if isinstance(value, str):
+                candidate = value.strip()
+                if candidate:
+                    display_name = candidate
+                    break
+        if display_name:
+            current["fileName"] = display_name
+
+        status_text = entry.get("status") or details.get("status")
+        if status_text:
+            current["status"] = str(status_text)
+
+        progress_step = entry.get("progressStep")
+        progress_int: Optional[int]
+        if progress_step is None:
+            progress_int = None
+        elif isinstance(progress_step, int):
+            progress_int = progress_step
+        else:
+            try:
+                progress_int = int(progress_step)
+            except (TypeError, ValueError):
+                progress_int = None
+        if progress_int is not None:
+            current["progressStep"] = progress_int
+
+        message = entry.get("message")
+        if message:
+            current["message"] = message
+
+        event = entry.get("event")
+        if event:
+            current["event"] = event
+
+        level = entry.get("level")
+        if level:
+            current["level"] = level
+
+        updated_at = entry.get("createdAt")
+        if updated_at:
+            current["updatedAt"] = updated_at
+
+        note_value = details.get("notes") or details.get("reason")
+        if note_value:
+            current["notes"] = str(note_value)
+
+        error_value = details.get("error") or details.get("error_message")
+        if error_value:
+            current["error"] = str(error_value)
+
+        current["state"] = _normalize_file_task_state(
+            current.get("progressStep"),
+            current.get("status"),
+            current.get("level"),
+            current.get("event"),
+        )
+
+    items: List[Dict[str, Any]] = [summary[file_id] for file_id in order]
+
+    for item in items:
+        if not item.get("fileName"):
+            item["fileName"] = item["fileTaskId"]
+        for key in list(item.keys()):
+            if item[key] is None:
+                item.pop(key)
+
+    items.sort(key=lambda item: item.get("updatedAt") or "", reverse=True)
+    total_count = len(items)
+
+    if limit is not None and total_count > 0:
+        bounded = max(1, min(limit, total_count))
+        items = items[:bounded]
+
+    return items, total_count
 
 
 @bp.get("/picker/session/<string:session_id>/logs")
@@ -778,6 +1057,25 @@ def api_picker_session_logs(session_id: str):
         payload["selectedFileTaskId"] = requested_file_task_id
 
     return _json_response(payload)
+
+
+@bp.get("/picker/session/<string:session_id>/file-tasks")
+@login_or_jwt_required
+@limit_concurrency(_picker_session_file_tasks_limiter)
+def api_picker_session_file_tasks(session_id: str):
+    """Return latest worker log derived file task summaries."""
+
+    ps = PickerSessionService.resolve_session_identifier(session_id)
+    if not ps:
+        return _json_response({"error": "not_found"}, 404)
+
+    limit = request.args.get("limit", type=int)
+    if limit is not None:
+        limit = max(1, min(limit, 1000))
+
+    items, total = _collect_local_import_file_tasks(ps, limit=limit)
+
+    return _json_response({"items": items, "total": total})
 
 
 @bp.get("/picker/session/<string:session_id>/logs/download")

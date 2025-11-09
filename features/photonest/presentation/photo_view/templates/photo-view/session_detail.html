@@ -93,6 +93,31 @@
   </div>
 </div>
 
+<div id="local-import-file-progress" class="mt-4 d-none">
+  <h2>{{ _("File Progress") }}</h2>
+  <p class="text-muted small mb-2">
+    <i class="bi bi-info-circle"></i> {{ _("Latest worker log status for each processed file.") }}
+  </p>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <thead>
+        <tr>
+          <th style="width: 28%">{{ _("File") }}</th>
+          <th style="width: 16%">{{ _("State") }}</th>
+          <th style="width: 16%">{{ _("Step") }}</th>
+          <th style="width: 18%">{{ _("Updated") }}</th>
+          <th>{{ _("Message") }}</th>
+        </tr>
+      </thead>
+      <tbody id="local-import-file-progress-body">
+        <tr id="local-import-file-progress-empty">
+          <td colspan="5" class="text-center text-muted py-3">{{ _("No file activity yet.") }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
 <div id="local-import-logs-section" class="mt-4 d-none">
   <h2>{{ _("Import Logs") }}</h2>
   <div class="d-flex flex-column flex-lg-row gap-2 align-items-lg-center justify-content-lg-between mb-2">
@@ -172,6 +197,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const sessionSubtitleEl = document.getElementById('session-subtitle');
   const localImportStatusEl = document.getElementById('local-import-status');
   const localImportTasksEl = document.getElementById('local-import-tasks');
+  const fileProgressSection = document.getElementById('local-import-file-progress');
+  const fileProgressBody = document.getElementById('local-import-file-progress-body');
   const logSection = document.getElementById('local-import-logs-section');
   const logBody = document.getElementById('local-import-log-body');
   const logDownloadButton = document.getElementById('local-import-log-download');
@@ -283,6 +310,30 @@ document.addEventListener('DOMContentLoaded', () => {
     canceled: '{{ _("Canceled") }}'
   };
 
+  const fileTaskStateLabels = {
+    processing: '{{ _("Processing") }}',
+    metadata: '{{ _("Metadata analysis") }}',
+    thumbnail: '{{ _("Thumbnail generation") }}',
+    storing: '{{ _("File placement") }}',
+    success: '{{ _("Completed") }}',
+    error: '{{ _("Error") }}',
+    skipped: '{{ _("Skipped") }}',
+    duplicate: '{{ _("Duplicate") }}',
+    warning: '{{ _("Attention") }}'
+  };
+
+  const progressStepLabels = {
+    1: '{{ _("Started") }}',
+    2: '{{ _("Metadata analysis") }}',
+    3: '{{ _("Thumbnail generation") }}',
+    4: '{{ _("File placement") }}',
+    5: '{{ _("Completed") }}',
+    9: '{{ _("Error") }}'
+  };
+
+  const noFileTasksMessage = '{{ _("No file activity yet.") }}';
+  const unknownLabel = '{{ _("Unknown") }}';
+
   const taskLabelDefault = '{{ _("Task") }}';
   const taskCountLabels = {
     total: '{{ _("Total") }}',
@@ -379,6 +430,28 @@ document.addEventListener('DOMContentLoaded', () => {
         return 'danger';
       case 'canceled':
         return 'dark';
+      default:
+        return 'secondary';
+    }
+  }
+
+  function getFileTaskBadgeClass(state) {
+    switch ((state || '').toLowerCase()) {
+      case 'success':
+        return 'success';
+      case 'error':
+        return 'danger';
+      case 'warning':
+        return 'warning';
+      case 'duplicate':
+        return 'info';
+      case 'skipped':
+        return 'secondary';
+      case 'thumbnail':
+        return 'primary';
+      case 'metadata':
+      case 'storing':
+      case 'processing':
       default:
         return 'secondary';
     }
@@ -551,6 +624,71 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
 
       logBody.appendChild(row);
+    });
+  }
+
+  function renderFileTasks(items = []) {
+    if (!fileProgressSection || !fileProgressBody) {
+      return;
+    }
+
+    fileProgressSection.classList.remove('d-none');
+    fileProgressBody.innerHTML = '';
+
+    if (!items || items.length === 0) {
+      const emptyRow = document.createElement('tr');
+      emptyRow.innerHTML = `<td colspan="5" class="text-center text-muted py-3">${escapeHtml(noFileTasksMessage)}</td>`;
+      fileProgressBody.appendChild(emptyRow);
+      return;
+    }
+
+    items.forEach((item) => {
+      const row = document.createElement('tr');
+      const state = (item.state || '').toString().toLowerCase();
+      const badgeClass = getFileTaskBadgeClass(state);
+      const stateLabel = fileTaskStateLabels[state] || item.state || unknownLabel;
+      const rawStatus = (item.status || '').toString();
+      const progressValue = item.progressStep;
+      const stepLabel = typeof progressValue === 'number' ? (progressStepLabels[progressValue] || null) : null;
+      const stepText = typeof progressValue === 'number'
+        ? `${progressValue}${stepLabel ? ` (${escapeHtml(stepLabel)})` : ''}`
+        : '-';
+      const updatedAt = item.updatedAt ? escapeHtml(formatDateTime(item.updatedAt)) : '-';
+      const messageParts = [];
+      if (item.message) {
+        messageParts.push(escapeHtml(item.message));
+      }
+      if (item.notes) {
+        messageParts.push(`<span class="text-muted small">${escapeHtml(item.notes)}</span>`);
+      }
+      if (item.error) {
+        messageParts.push(`<span class="text-danger small">${escapeHtml(item.error)}</span>`);
+      }
+      if (item.event) {
+        messageParts.push(`<span class="text-muted small">${escapeHtml(item.event)}</span>`);
+      }
+      if (!messageParts.length) {
+        messageParts.push('-');
+      }
+
+      const rawStatusHtml = rawStatus
+        ? `<div class="text-muted small">${escapeHtml(rawStatus)}</div>`
+        : '';
+
+      row.innerHTML = `
+        <td>${escapeHtml(item.fileName || item.fileTaskId || '-')}
+          ${item.fileTaskId ? `<div class="text-muted small">${escapeHtml(item.fileTaskId)}</div>` : ''}
+        </td>
+        <td>
+          <span class="badge bg-${badgeClass}">${escapeHtml(stateLabel)}</span>
+          ${rawStatusHtml}
+        </td>
+        <td>${stepText}</td>
+        <td>${updatedAt}</td>
+        <td>${messageParts.join('<br>')}</td>
+      `;
+
+      fileProgressBody.appendChild(row);
     });
   }
 
@@ -964,6 +1102,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  async function fetchFileTasks() {
+    if (!pickerSessionId || !isLocalImport) {
+      if (fileProgressSection) {
+        fileProgressSection.classList.add('d-none');
+      }
+      return;
+    }
+
+    if (!fileProgressSection || !fileProgressBody) {
+      return;
+    }
+
+    try {
+      const resp = await window.apiClient.get(`/api/picker/session/${encodeURIComponent(pickerSessionId)}/file-tasks`);
+      if (!resp.ok) {
+        throw new Error(`HTTP ${resp.status}`);
+      }
+
+      const payload = await resp.json().catch(() => ({}));
+      const items = Array.isArray(payload.items) ? payload.items : [];
+      renderFileTasks(items);
+    } catch (error) {
+      console.warn('Failed to fetch file task summaries:', error);
+    }
+  }
+
   async function stopLocalImportSession() {
     if (!pickerSessionId || !stopLocalImportBtn) {
       return;
@@ -1008,6 +1172,7 @@ document.addEventListener('DOMContentLoaded', () => {
       updateCountsDisplay(currentCounts, latestStatus);
 
       await fetchSessionLogs();
+      await fetchFileTasks();
 
       if (!paginationClient) {
         paginationClient = new PaginationClient({

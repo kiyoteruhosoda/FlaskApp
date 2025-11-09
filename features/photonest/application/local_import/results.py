@@ -3,6 +3,9 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, Optional
 
+
+SUMMARY_ENTRY_LIMIT = 200
+
 from sqlalchemy import and_
 
 from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
@@ -107,6 +110,8 @@ def build_thumbnail_task_snapshot(
 
     summary["status"] = "progress"
     fatal_errors = 0
+
+    omitted_entries = 0
 
     for row in selection_rows:
         media_id = row.media_id
@@ -218,9 +223,23 @@ def build_thumbnail_task_snapshot(
             if fatal_error:
                 entry_payload["fatal"] = True
 
-        summary["entries"].append(entry_payload)
+        should_include = (
+            final_status != "completed"
+            or retry_flag
+            or fatal_error
+            or bool(note)
+        )
+
+        if should_include:
+            if len(summary["entries"]) < SUMMARY_ENTRY_LIMIT:
+                summary["entries"].append(entry_payload)
+            else:
+                omitted_entries += 1
 
     summary["fatal"] = fatal_errors
+
+    if omitted_entries > 0:
+        summary["entriesTruncated"] = omitted_entries
 
     if fatal_errors > 0:
         summary["status"] = "error"

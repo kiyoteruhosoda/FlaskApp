@@ -12,6 +12,14 @@ BigInt = db.BigInteger().with_variant(db.Integer, "sqlite")
 
 class WorkerLog(db.Model):
     __tablename__ = "worker_log"
+    __table_args__ = (
+        db.Index("ix_worker_log_file_task_id", "file_task_id"),
+        db.Index(
+            "ix_worker_log_file_task_id_progress_step",
+            "file_task_id",
+            "progress_step",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(BigInt, primary_key=True, autoincrement=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -25,6 +33,7 @@ class WorkerLog(db.Model):
     task_name: Mapped[str | None] = mapped_column(db.String(255), nullable=True)
     task_uuid: Mapped[str | None] = mapped_column(db.String(36), nullable=True)
     file_task_id: Mapped[str | None] = mapped_column(db.String(64), nullable=True)
+    progress_step: Mapped[int | None] = mapped_column(db.Integer, nullable=True)
     worker_hostname: Mapped[str | None] = mapped_column(db.String(255), nullable=True)
     queue_name: Mapped[str | None] = mapped_column(db.String(120), nullable=True)
     status: Mapped[str | None] = mapped_column(db.String(40), nullable=True)

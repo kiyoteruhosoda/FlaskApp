@@ -547,13 +547,17 @@ def _collect_local_import_logs(
     if file_task_id:
         query = query.filter(WorkerLog.file_task_id == file_task_id)
 
+    bounded_limit: Optional[int] = None
+
     if limit is None:
         query = query.order_by(WorkerLog.id.asc())
     else:
+        scan_multiplier = 5 if file_task_id_index is None else 10
+        bounded_limit = max(limit * scan_multiplier, limit)
         if file_task_id_index is None:
-            query = query.order_by(WorkerLog.id.desc()).limit(limit * 5)
+            query = query.order_by(WorkerLog.id.desc()).limit(bounded_limit)
         else:
-            query = query.order_by(WorkerLog.id.asc())
+            query = query.order_by(WorkerLog.id.asc()).limit(bounded_limit)
 
     def _transform_row(row):
         try:
@@ -666,6 +670,7 @@ def _collect_local_import_logs(
         return log_entry
 
     logs: list[Dict[str, Any]] = []
+    tracked_file_task_ids: set[str] = set()
     extracted_present = False
 
     for row in query:
@@ -676,8 +681,16 @@ def _collect_local_import_logs(
         if file_task_id_index is not None and row.file_task_id:
             file_task_id_index.setdefault(row.file_task_id, row.id)
 
+        file_task_id_value = log_entry.get("fileTaskId")
+        if isinstance(file_task_id_value, str):
+            tracked_file_task_ids.add(file_task_id_value)
+
         if limit is not None and len(logs) >= limit:
             if file_task_id_index is None:
+                break
+            if tracked_file_task_ids and tracked_file_task_ids.issubset(
+                file_task_id_index.keys()
+            ):
                 break
             continue
 
@@ -695,6 +708,8 @@ def _collect_local_import_logs(
             if file_task_id:
                 fallback_query = fallback_query.filter(WorkerLog.file_task_id == file_task_id)
             fallback_query = fallback_query.order_by(WorkerLog.id.asc())
+            if bounded_limit is not None:
+                fallback_query = fallback_query.limit(bounded_limit)
 
             fallback_entry = None
             for row in fallback_query:

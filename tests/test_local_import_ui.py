@@ -9,7 +9,7 @@ import os
 import shutil
 import tempfile
 import zipfile
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -21,6 +21,7 @@ from webapp.extensions import db
 from core.models.picker_session import PickerSession
 from core.models.photo_models import PickerSelection
 from core.models.log import Log
+from core.models.worker_log import WorkerLog
 from core.tasks import local_import as local_import_module
 
 
@@ -328,7 +329,81 @@ class TestSessionDetailAPI(AuthenticatedClientMixin):
         log_details = matched_entry.get('details', {})
         assert log_details.get('file_path') == target_path_str
         assert log_details.get('basename') == target_file.name
-    
+
+    def test_file_tasks_endpoint_returns_summary(self, app):
+        client = app.test_client()
+
+        self._login(client)
+
+        with app.app_context():
+            session = PickerSession(
+                session_id="local_import_summary_api",
+                status="processing",
+            )
+            db.session.add(session)
+            db.session.commit()
+
+            base_time = datetime.now(timezone.utc)
+
+            first_payload = {
+                "message": "Start",
+                "_extra": {
+                    "session_id": session.session_id,
+                    "file": "alpha.jpg",
+                    "status": "processing",
+                    "progress_step": 1,
+                },
+            }
+            db.session.add(
+                WorkerLog(
+                    level="INFO",
+                    event="local_import.file.begin",
+                    message=json.dumps(first_payload, ensure_ascii=False),
+                    extra_json=first_payload["_extra"],
+                    file_task_id="alpha",
+                    progress_step=1,
+                    created_at=base_time,
+                )
+            )
+
+            second_payload = {
+                "message": "Failed",
+                "_extra": {
+                    "session_id": session.session_id,
+                    "file": "beta.jpg",
+                    "status": "failed",
+                    "progress_step": 9,
+                    "error": "io_error",
+                },
+            }
+            db.session.add(
+                WorkerLog(
+                    level="ERROR",
+                    event="local_import.file.failed",
+                    message=json.dumps(second_payload, ensure_ascii=False),
+                    extra_json=second_payload["_extra"],
+                    file_task_id="beta",
+                    progress_step=9,
+                    created_at=base_time + timedelta(seconds=2),
+                )
+            )
+
+            db.session.commit()
+
+        response = client.get(f'/api/picker/session/{session.session_id}/file-tasks')
+        assert response.status_code == 200
+
+        payload = response.get_json()
+        items = payload.get('items')
+
+        assert isinstance(items, list)
+        assert payload.get('total') == len(items) == 2
+        summary = {item['fileTaskId']: item for item in items}
+
+        assert summary['alpha']['state'] == 'processing'
+        assert summary['beta']['state'] == 'error'
+        assert summary['beta'].get('error') == 'io_error'
+
     def test_session_import_api_blocked_for_local_import(self, app):
         """ローカルインポートセッションでインポートAPIがブロックされることをテスト"""
         client = app.test_client()

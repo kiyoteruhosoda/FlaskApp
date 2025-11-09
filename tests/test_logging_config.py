@@ -229,7 +229,7 @@ def test_worker_handler_extracts_fields_from_payload():
         "queue_name": "celery",
         "status": "SUCCESS",
         "_meta": {"foo": "bar"},
-        "_extra": {"baz": "qux"},
+        "_extra": {"baz": "qux", "progress_step": "4"},
     }
 
     result = handler._build_insert_values(
@@ -240,7 +240,7 @@ def test_worker_handler_extracts_fields_from_payload():
         path_value=None,
         request_id=None,
         payload=payload,
-        extras={},
+        extras={"progress_step": "4"},
     )
 
     assert result["task_name"] == "app.tasks.example"
@@ -249,7 +249,8 @@ def test_worker_handler_extracts_fields_from_payload():
     assert result["queue_name"] == "celery"
     assert result["status"] == "SUCCESS"
     assert result["meta_json"] == {"foo": "bar"}
-    assert result["extra_json"] == {"baz": "qux"}
+    assert result["extra_json"] == {"baz": "qux", "progress_step": "4"}
+    assert result["progress_step"] == 4
 
     message_payload = json.loads(result["message"])
     assert message_payload["task_name"] == "app.tasks.example"

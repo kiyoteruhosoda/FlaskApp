@@ -1383,6 +1383,7 @@ CREATE TABLE `worker_log` (
   `task_name` varchar(255) DEFAULT NULL,
   `task_uuid` char(36) DEFAULT NULL,
   `file_task_id` varchar(64) DEFAULT NULL,
+  `progress_step` int DEFAULT NULL,
   `worker_hostname` varchar(255) DEFAULT NULL,
   `queue_name` varchar(120) DEFAULT NULL,
   `status` varchar(40) DEFAULT NULL,
@@ -1391,7 +1392,8 @@ CREATE TABLE `worker_log` (
   `meta_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`meta_json`)),
   `extra_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`extra_json`)),
   PRIMARY KEY (`id`),
-  KEY `ix_worker_log_file_task_id` (`file_task_id`)
+  KEY `ix_worker_log_file_task_id` (`file_task_id`),
+  KEY `ix_worker_log_file_task_id_progress_step` (`file_task_id`,`progress_step`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

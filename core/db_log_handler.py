@@ -296,6 +296,27 @@ class WorkerDBLogHandler(DBLogHandler):
         except TypeError:
             return json.loads(json.dumps(value, ensure_ascii=False, default=str))
 
+    @staticmethod
+    def _coerce_int(value: Optional[Any]) -> Optional[int]:
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, int):
+            return value
+        if isinstance(value, str):
+            candidate = value.strip()
+            if not candidate:
+                return None
+            try:
+                return int(candidate)
+            except ValueError:
+                return None
+        try:
+            return int(value)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return None
+
     def _build_insert_values(
         self,
         *,
@@ -347,11 +368,17 @@ class WorkerDBLogHandler(DBLogHandler):
         if isinstance(queue_name_candidate, dict):
             queue_name_candidate = queue_name_candidate.get("name") or queue_name_candidate.get("routing_key")
 
-        file_task_id = (
-            getattr(record, "file_task_id", None)
-            or extras.get("file_task_id")
-            or extras.get("fileTaskId")
-            or payload_file_task_id
+        def _first_non_null(*candidates: Any) -> Any:
+            for candidate in candidates:
+                if candidate is not None:
+                    return candidate
+            return None
+
+        file_task_id = _first_non_null(
+            getattr(record, "file_task_id", None),
+            extras.get("file_task_id"),
+            extras.get("fileTaskId"),
+            payload_file_task_id,
         )
         truncated_file_task_id = self._truncate(file_task_id, 64)
 
@@ -362,6 +389,15 @@ class WorkerDBLogHandler(DBLogHandler):
         )
 
         status = payload.get("status")
+
+        progress_step_value = _first_non_null(
+            getattr(record, "progress_step", None),
+            extras.get("progress_step"),
+            extras.get("progressStep"),
+            payload.get("progress_step"),
+            payload.get("progressStep"),
+        )
+        progress_step = self._coerce_int(progress_step_value)
 
         meta_json = self._coerce_jsonable(payload.get("_meta"))
         extra_json = self._coerce_jsonable(payload.get("_extra"))
@@ -375,6 +411,7 @@ class WorkerDBLogHandler(DBLogHandler):
             "worker_hostname": self._truncate(worker_hostname, 255),
             "queue_name": queue_name,
             "file_task_id": truncated_file_task_id,
+            "progress_step": progress_step,
             "status": self._truncate(status, 40),
             "message": message_json,
             "trace": trace,

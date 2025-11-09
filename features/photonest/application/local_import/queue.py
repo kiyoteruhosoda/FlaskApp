@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, Optional
 
@@ -167,7 +168,8 @@ class LocalImportQueueProcessor:
             filename = selection.local_filename or (
                 os.path.basename(file_path) if file_path else f"selection_{selection.id}"
             )
-            file_context = file_log_context(file_path, filename)
+            file_task_id = str(uuid.uuid4())
+            file_context = file_log_context(file_path, filename, file_task_id=file_task_id)
             display_file = file_context.get("file") or filename
 
             if self._cancel_requested(session, task_instance=task_instance):
@@ -234,6 +236,7 @@ class LocalImportQueueProcessor:
                 originals_dir,
                 session_id=active_session_id,
                 duplicate_regeneration=effective_duplicate_regen,
+                file_task_id=file_task_id,
             )
 
             result_status = file_result.get("status")
@@ -254,6 +257,8 @@ class LocalImportQueueProcessor:
                 "reason": file_result["reason"],
                 "media_id": file_result.get("media_id"),
             }
+            if file_task_id:
+                detail["fileTaskId"] = file_task_id
             basename = file_context.get("basename")
             if basename and basename != detail["file"]:
                 detail["basename"] = basename

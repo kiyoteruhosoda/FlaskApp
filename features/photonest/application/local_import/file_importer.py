@@ -165,6 +165,7 @@ class LocalImportFileImporter:
         *,
         session_id: Optional[str] = None,
         duplicate_regeneration: Optional[str] = None,
+        file_task_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         source = ImportFile(file_path)
         outcome = ImportOutcome(
@@ -179,7 +180,7 @@ class LocalImportFileImporter:
             },
         )
 
-        file_context = file_log_context(file_path)
+        file_context = file_log_context(file_path, file_task_id=file_task_id)
 
         self._logger.info(
             "local_import.file.begin",

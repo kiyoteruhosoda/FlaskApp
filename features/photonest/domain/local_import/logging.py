@@ -47,7 +47,12 @@ def with_session(details: Dict[str, Any], session_id: Optional[str]) -> Dict[str
     return merged
 
 
-def file_log_context(file_path: Optional[str], filename: Optional[str] = None) -> Dict[str, Any]:
+def file_log_context(
+    file_path: Optional[str],
+    filename: Optional[str] = None,
+    *,
+    file_task_id: Optional[str] = None,
+) -> Dict[str, Any]:
     """ファイル関連ログに共通のコンテキストを生成する。"""
 
     context: Dict[str, Any] = {}
@@ -67,6 +72,9 @@ def file_log_context(file_path: Optional[str], filename: Optional[str] = None) -
             context["basename"] = base_name
     elif base_name:
         context["basename"] = base_name
+
+    if file_task_id:
+        context["file_task_id"] = file_task_id
 
     return context
 

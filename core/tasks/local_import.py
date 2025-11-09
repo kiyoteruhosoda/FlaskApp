@@ -1107,6 +1107,7 @@ def import_single_file(
     *,
     session_id: Optional[str] = None,
     duplicate_regeneration: Optional[str] = None,
+    file_task_id: Optional[str] = None,
 ) -> Dict:
     """単一ファイル取り込みのアプリケーションサービスへの委譲."""
 
@@ -1116,6 +1117,7 @@ def import_single_file(
         originals_dir,
         session_id=session_id,
         duplicate_regeneration=duplicate_regeneration,
+        file_task_id=file_task_id,
     )
 
 
@@ -1170,6 +1172,7 @@ def _invoke_current_import_single_file(
     *,
     session_id: Optional[str] = None,
     duplicate_regeneration: Optional[str] = None,
+    file_task_id: Optional[str] = None,
 ) -> Dict:
     from core.tasks import local_import as local_import_module
 
@@ -1177,6 +1180,7 @@ def _invoke_current_import_single_file(
     kwargs = {
         "session_id": session_id,
         "duplicate_regeneration": duplicate_regeneration,
+        "file_task_id": file_task_id,
     }
     try:
         return importer(
@@ -1186,6 +1190,14 @@ def _invoke_current_import_single_file(
             **kwargs,
         )
     except TypeError as exc:
+        if "file_task_id" in str(exc):
+            kwargs.pop("file_task_id", None)
+            return importer(
+                file_path,
+                import_dir,
+                originals_dir,
+                **kwargs,
+            )
         if "duplicate_regeneration" in str(exc):
             kwargs.pop("duplicate_regeneration", None)
             return importer(

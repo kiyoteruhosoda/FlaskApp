@@ -549,6 +549,8 @@ def _collect_local_import_logs(
 
     bounded_limit: Optional[int] = None
 
+    min_id_threshold: Optional[int] = None
+
     if limit is None:
         query = query.order_by(WorkerLog.id.asc())
     else:
@@ -557,7 +559,12 @@ def _collect_local_import_logs(
         if file_task_id_index is None:
             query = query.order_by(WorkerLog.id.desc()).limit(bounded_limit)
         else:
-            query = query.order_by(WorkerLog.id.asc()).limit(bounded_limit)
+            if file_task_id is None:
+                max_worker_log_id = db.session.query(func.max(WorkerLog.id)).scalar()
+                if max_worker_log_id is not None:
+                    min_id_threshold = max(max_worker_log_id - bounded_limit + 1, 0)
+                    query = query.filter(WorkerLog.id >= min_id_threshold)
+            query = query.order_by(WorkerLog.id.asc())
 
     def _transform_row(row):
         try:
@@ -708,7 +715,9 @@ def _collect_local_import_logs(
             if file_task_id:
                 fallback_query = fallback_query.filter(WorkerLog.file_task_id == file_task_id)
             fallback_query = fallback_query.order_by(WorkerLog.id.asc())
-            if bounded_limit is not None:
+            if min_id_threshold is not None and file_task_id is None:
+                fallback_query = fallback_query.filter(WorkerLog.id >= min_id_threshold)
+            elif bounded_limit is not None:
                 fallback_query = fallback_query.limit(bounded_limit)
 
             fallback_entry = None

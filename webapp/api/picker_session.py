@@ -874,6 +874,12 @@ def _collect_local_import_logs(
                         trimmed.sort(key=lambda item: item.get("id", 0))
                         logs = trimmed
 
+    if logs:
+        id_values = [entry.get("id") for entry in logs if isinstance(entry.get("id"), int)]
+        if id_values:
+            oldest_id = min(id_values)
+            newest_id = max(id_values)
+
     has_more = False
     if (
         return_meta

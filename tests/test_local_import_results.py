@@ -88,3 +88,44 @@ def test_snapshot_keeps_pending_when_playback_processing(app_context):
     entry = snapshot["entries"][0]
     assert entry["status"] == "progress"
     assert entry["playbackStatus"] == "processing"
+
+
+def test_snapshot_truncates_completed_entries(app_context):
+    session = _create_basic_session("local_import_session_truncate")
+
+    for index in range(60):
+        media_item = MediaItem(id=f"local-photo-{index}", type="PHOTO")
+        db.session.add(media_item)
+        db.session.flush()
+
+        media = Media(
+            google_media_id=media_item.id,
+            source_type="local",
+            local_rel_path=f"photos/{index:03d}.jpg",
+            thumbnail_rel_path=f"thumbs/{index:03d}.jpg",
+            filename=f"photo_{index:03d}.jpg",
+            is_video=False,
+            has_playback=False,
+        )
+        db.session.add(media)
+        db.session.flush()
+
+        selection = PickerSelection(
+            session_id=session.id,
+            status="imported",
+            google_media_id=media_item.id,
+            local_file_path=f"/import/photos/{index:03d}.jpg",
+            local_filename=f"photo_{index:03d}.jpg",
+        )
+        db.session.add(selection)
+
+    db.session.commit()
+
+    snapshot = build_thumbnail_task_snapshot(db, session, recorded_entries=None)
+
+    assert snapshot["total"] == 60
+    assert snapshot["completed"] == 60
+    assert len(snapshot["entries"]) <= 50
+    omitted = snapshot.get("entriesOmitted")
+    assert omitted
+    assert omitted.get("completed") == 10

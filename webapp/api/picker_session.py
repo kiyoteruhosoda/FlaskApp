@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 import io
 import json
 import zipfile
+from typing import Any, Dict, Optional
 from flask import (
     current_app,
     jsonify,
@@ -71,6 +72,96 @@ _picker_session_import_numeric_limiter = create_limiter(
 )
 _picker_session_import_limiter = create_limiter("PICKER_SESSION_IMPORT")
 _picker_session_finish_limiter = create_limiter("PICKER_SESSION_FINISH")
+
+
+_LOG_SESSION_KEYS = {
+    "session_id",
+    "sessionId",
+    "session_identifier",
+    "sessionIdentifier",
+    "session_key",
+    "sessionKey",
+    "session_db_id",
+    "active_session_id",
+    "target_session_id",
+    "import_session_id",
+    "importSessionId",
+    "picker_session_id",
+    "pickerSessionId",
+}
+
+_LOG_NESTED_SESSION_KEYS = {"session_id", "sessionId", "session_key", "sessionKey", "id"}
+
+
+def _normalize_log_identifier(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        candidate = value.strip()
+        return candidate or None
+    if isinstance(value, (int,)):
+        return str(value)
+    return None
+
+
+def _extract_session_identifier_candidates(mapping: Any) -> set[str]:
+    candidates: set[str] = set()
+    if not isinstance(mapping, dict):
+        return candidates
+
+    for key in _LOG_SESSION_KEYS:
+        if key in mapping:
+            normalized = _normalize_log_identifier(mapping.get(key))
+            if normalized:
+                candidates.add(normalized)
+
+    session_block = mapping.get("session")
+    if isinstance(session_block, dict):
+        for key in _LOG_NESTED_SESSION_KEYS:
+            normalized = _normalize_log_identifier(session_block.get(key))
+            if normalized:
+                candidates.add(normalized)
+
+    result_block = mapping.get("result")
+    if isinstance(result_block, dict):
+        candidates.update(_extract_session_identifier_candidates(result_block))
+
+    details_block = mapping.get("details")
+    if isinstance(details_block, dict):
+        candidates.update(_extract_session_identifier_candidates(details_block))
+
+    return candidates
+
+
+def _build_session_aliases(ps) -> set[str]:
+    session_aliases: set[str] = set()
+    if not ps:
+        return session_aliases
+
+    session_identifier = getattr(ps, "session_id", None)
+
+    def _add_alias(value: Any) -> None:
+        normalized = _normalize_log_identifier(value)
+        if normalized:
+            session_aliases.add(normalized)
+
+    _add_alias(session_identifier)
+
+    if session_identifier:
+        base_identifier = session_identifier.split("#", 1)[0]
+        _add_alias(base_identifier)
+        if "/" in base_identifier:
+            _add_alias(base_identifier.split("/", 1)[-1])
+
+    account_id = getattr(ps, "account_id", None)
+    if account_id is not None:
+        _add_alias(f"google-{account_id}")
+
+    db_id = getattr(ps, "id", None)
+    if db_id is not None:
+        _add_alias(db_id)
+
+    return session_aliases
 
 @bp.get("/picker/sessions")
 @login_or_jwt_required
@@ -418,7 +509,13 @@ def api_picker_session_status(session_id):
     return _json_response(payload)
 
 
-def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
+def _collect_local_import_logs(
+    ps,
+    limit=None,
+    include_raw: bool = False,
+    file_task_id: Optional[str] = None,
+    file_task_id_index: Optional[Dict[str, int]] = None,
+):
     """Collect import logs for a picker session.
 
     Args:
@@ -427,6 +524,9 @@ def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
             matching entries.
         include_raw: When ``True`` the original log payloads and metadata are
             included in the response dictionaries.
+        file_task_id: Optional identifier to scope logs to a single processed file.
+        file_task_id_index: Optional mapping updated with the first log ID for
+            each encountered ``file_task_id``.
 
     Returns:
         List of log dictionaries sorted by ID ascending.
@@ -435,47 +535,25 @@ def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
     if not ps:
         return []
 
-    session_identifier = ps.session_id
-
-    def _normalize_identifier(value):
-        if value is None:
-            return None
-        if isinstance(value, str):
-            candidate = value.strip()
-            return candidate or None
-        if isinstance(value, (int,)):
-            return str(value)
-        return None
-
-    session_aliases = set()
-
-    def _add_alias(value):
-        normalized = _normalize_identifier(value)
-        if normalized:
-            session_aliases.add(normalized)
-
-    _add_alias(session_identifier)
-
-    if session_identifier:
-        base_identifier = session_identifier.split("#", 1)[0]
-        _add_alias(base_identifier)
-        if "/" in base_identifier:
-            _add_alias(base_identifier.split("/", 1)[-1])
-
-    if ps.account_id is not None:
-        _add_alias(f"google-{ps.account_id}")
-
-    if ps.id is not None:
-        _add_alias(ps.id)
+    session_aliases = _build_session_aliases(ps)
+    account_identifier = None
+    if getattr(ps, "account_id", None) is not None:
+        account_identifier = _normalize_log_identifier(ps.account_id)
 
     query = WorkerLog.query.filter(
         or_(WorkerLog.event.like("local_import%"), WorkerLog.event.like("import.%"))
     )
 
+    if file_task_id:
+        query = query.filter(WorkerLog.file_task_id == file_task_id)
+
     if limit is None:
         query = query.order_by(WorkerLog.id.asc())
     else:
-        query = query.order_by(WorkerLog.id.desc()).limit(limit * 5)
+        if file_task_id_index is None:
+            query = query.order_by(WorkerLog.id.desc()).limit(limit * 5)
+        else:
+            query = query.order_by(WorkerLog.id.asc())
 
     def _transform_row(row):
         try:
@@ -486,7 +564,7 @@ def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
         if not isinstance(payload, dict):
             payload = {"message": payload}
 
-        extras = {}
+        extras: Dict[str, Any] = {}
         payload_extras = payload.get("_extra")
         if isinstance(payload_extras, dict):
             extras.update(payload_extras)
@@ -495,74 +573,17 @@ def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
         if row_extras:
             extras.update(row_extras)
 
-        session_matches = False
-
-        candidate_keys = {
-            "session_id",
-            "sessionId",
-            "session_identifier",
-            "sessionIdentifier",
-            "session_key",
-            "sessionKey",
-            "session_db_id",
-            "active_session_id",
-            "target_session_id",
-            "import_session_id",
-            "importSessionId",
-            "picker_session_id",
-            "pickerSessionId",
-        }
-
-        nested_session_keys = {
-            "session_id",
-            "sessionId",
-            "session_key",
-            "sessionKey",
-            "id",
-        }
-
-        def _collect_candidates(mapping):
-            candidates = set()
-            if not isinstance(mapping, dict):
-                return candidates
-
-            for key in candidate_keys:
-                if key in mapping:
-                    normalized = _normalize_identifier(mapping.get(key))
-                    if normalized:
-                        candidates.add(normalized)
-
-            session_block = mapping.get("session")
-            if isinstance(session_block, dict):
-                for key in nested_session_keys:
-                    normalized = _normalize_identifier(session_block.get(key))
-                    if normalized:
-                        candidates.add(normalized)
-
-            result_block = mapping.get("result")
-            if isinstance(result_block, dict):
-                candidates.update(_collect_candidates(result_block))
-
-            details_block = mapping.get("details")
-            if isinstance(details_block, dict):
-                candidates.update(_collect_candidates(details_block))
-
-            return candidates
-
         candidate_values = set()
-        candidate_values.update(_collect_candidates(extras))
-        candidate_values.update(_collect_candidates(payload))
+        candidate_values.update(_extract_session_identifier_candidates(extras))
+        candidate_values.update(_extract_session_identifier_candidates(payload))
 
-        if session_aliases.intersection(candidate_values):
-            session_matches = True
+        session_matches = bool(session_aliases.intersection(candidate_values))
 
-        if not session_matches and ps.account_id is not None:
-            account_identifier = _normalize_identifier(ps.account_id)
-
+        if not session_matches and account_identifier is not None:
             for container in (extras, payload):
                 if not isinstance(container, dict):
                     continue
-                account_value = _normalize_identifier(
+                account_value = _normalize_log_identifier(
                     container.get("account_id") or container.get("accountId")
                 )
                 if account_value != account_identifier:
@@ -617,6 +638,9 @@ def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
             "details": details,
         }
 
+        if row.file_task_id:
+            log_entry["fileTaskId"] = row.file_task_id
+
         if include_raw:
             log_entry["raw"] = {
                 "id": row.id,
@@ -631,6 +655,7 @@ def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
                 "task_uuid": row.task_uuid,
                 "worker_hostname": row.worker_hostname,
                 "queue_name": row.queue_name,
+                "file_task_id": row.file_task_id,
                 "raw_message": row.message,
                 "parsed_message": payload,
                 "extra_json": row.extra_json,
@@ -640,7 +665,7 @@ def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
 
         return log_entry
 
-    logs = []
+    logs: list[Dict[str, Any]] = []
     extracted_present = False
 
     for row in query:
@@ -648,27 +673,36 @@ def _collect_local_import_logs(ps, limit=None, include_raw: bool = False):
         if log_entry is None:
             continue
 
+        if file_task_id_index is not None and row.file_task_id:
+            file_task_id_index.setdefault(row.file_task_id, row.id)
+
+        if limit is not None and len(logs) >= limit:
+            if file_task_id_index is None:
+                break
+            continue
+
         logs.append(log_entry)
         if log_entry.get("event") == "local_import.zip.extracted":
             extracted_present = True
-
-        if limit is not None and len(logs) >= limit:
-            break
 
     if limit is not None:
         logs.sort(key=lambda item: item.get("id", 0))
 
         if not extracted_present:
-            fallback_query = (
-                WorkerLog.query.filter(WorkerLog.event == "local_import.zip.extracted")
-                .order_by(WorkerLog.id.asc())
+            fallback_query = WorkerLog.query.filter(
+                WorkerLog.event == "local_import.zip.extracted"
             )
+            if file_task_id:
+                fallback_query = fallback_query.filter(WorkerLog.file_task_id == file_task_id)
+            fallback_query = fallback_query.order_by(WorkerLog.id.asc())
 
             fallback_entry = None
             for row in fallback_query:
                 entry = _transform_row(row)
                 if entry is None:
                     continue
+                if file_task_id_index is not None and row.file_task_id:
+                    file_task_id_index.setdefault(row.file_task_id, row.id)
                 fallback_entry = entry
 
             if fallback_entry and fallback_entry.get("id") not in {
@@ -706,9 +740,29 @@ def api_picker_session_logs(session_id: str):
     limit = request.args.get("limit", type=int) or 100
     limit = max(1, min(limit, 500))
 
-    logs = _collect_local_import_logs(ps, limit=limit)
+    requested_file_task_id = request.args.get("file_task_id") or request.args.get(
+        "fileTaskId"
+    )
+    if isinstance(requested_file_task_id, str):
+        requested_file_task_id = requested_file_task_id.strip() or None
 
-    return _json_response({"logs": logs})
+    file_task_id_index: Dict[str, int] = {}
+
+    logs = _collect_local_import_logs(
+        ps,
+        limit=limit,
+        file_task_id=requested_file_task_id,
+        file_task_id_index=file_task_id_index,
+    )
+
+    ordered_file_task_ids = sorted(file_task_id_index.items(), key=lambda item: item[1])
+    file_task_ids = [item[0] for item in ordered_file_task_ids]
+
+    payload = {"logs": logs, "fileTaskIds": file_task_ids}
+    if requested_file_task_id:
+        payload["selectedFileTaskId"] = requested_file_task_id
+
+    return _json_response(payload)
 
 
 @bp.get("/picker/session/<string:session_id>/logs/download")
@@ -721,7 +775,18 @@ def api_picker_session_logs_download(session_id: str):
     if not ps:
         return _json_response({"error": "not_found"}, 404)
 
-    logs = _collect_local_import_logs(ps, limit=None, include_raw=True)
+    requested_file_task_id = request.args.get("file_task_id") or request.args.get(
+        "fileTaskId"
+    )
+    if isinstance(requested_file_task_id, str):
+        requested_file_task_id = requested_file_task_id.strip() or None
+
+    logs = _collect_local_import_logs(
+        ps,
+        limit=None,
+        include_raw=True,
+        file_task_id=requested_file_task_id,
+    )
 
     log_lines = []
     for entry in logs:
@@ -733,6 +798,9 @@ def api_picker_session_logs_download(session_id: str):
         "downloaded_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "log_count": len(logs),
     }
+
+    if requested_file_task_id:
+        metadata["file_task_id"] = requested_file_task_id
 
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:

@@ -1,7 +1,8 @@
 """取り込み結果の集計ロジック."""
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, Optional
+from collections import defaultdict
+from typing import Any, DefaultDict, Dict, Iterable, Optional
 
 from sqlalchemy import and_
 
@@ -12,6 +13,33 @@ from core.models.photo_models import (
     MediaPlayback,
     PickerSelection,
 )
+
+
+_ENTRY_LIMIT_DEFAULT = 50
+_ENTRY_LIMITS: Dict[str, int] = {
+    "error": 200,
+    "warning": 150,
+    "progress": 150,
+    "pending": 150,
+    "completed": 50,
+    "unknown": 50,
+}
+
+
+def _normalized_status(value: Optional[str]) -> str:
+    """Normalize status values so that limits can be applied consistently."""
+
+    if not value:
+        return "unknown"
+
+    lowered = value.lower()
+    if lowered in {"fatal"}:
+        return "error"
+    return lowered
+
+
+def _entry_limit(status: str) -> int:
+    return _ENTRY_LIMITS.get(status, _ENTRY_LIMIT_DEFAULT)
 
 
 def build_thumbnail_task_snapshot(
@@ -107,6 +135,9 @@ def build_thumbnail_task_snapshot(
 
     summary["status"] = "progress"
     fatal_errors = 0
+
+    entry_counters: DefaultDict[str, int] = defaultdict(int)
+    omitted_counters: DefaultDict[str, int] = defaultdict(int)
 
     for row in selection_rows:
         media_id = row.media_id
@@ -218,7 +249,16 @@ def build_thumbnail_task_snapshot(
             if fatal_error:
                 entry_payload["fatal"] = True
 
-        summary["entries"].append(entry_payload)
+        status_key = _normalized_status(final_status)
+        current_count = entry_counters[status_key]
+        limit = _entry_limit(status_key)
+
+        if current_count < limit:
+            summary["entries"].append(entry_payload)
+        else:
+            omitted_counters[status_key] += 1
+
+        entry_counters[status_key] = current_count + 1
 
     summary["fatal"] = fatal_errors
 
@@ -230,5 +270,8 @@ def build_thumbnail_task_snapshot(
         summary["status"] = "progress"
     else:
         summary["status"] = "completed" if summary["total"] > 0 else "idle"
+
+    if omitted_counters:
+        summary["entriesOmitted"] = dict(omitted_counters)
 
     return summary

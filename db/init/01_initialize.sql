@@ -1382,6 +1382,7 @@ CREATE TABLE `worker_log` (
   `logger_name` varchar(120) DEFAULT NULL,
   `task_name` varchar(255) DEFAULT NULL,
   `task_uuid` char(36) DEFAULT NULL,
+  `file_task_id` varchar(64) DEFAULT NULL,
   `worker_hostname` varchar(255) DEFAULT NULL,
   `queue_name` varchar(120) DEFAULT NULL,
   `status` varchar(40) DEFAULT NULL,
@@ -1389,7 +1390,8 @@ CREATE TABLE `worker_log` (
   `trace` text DEFAULT NULL,
   `meta_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`meta_json`)),
   `extra_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`extra_json`)),
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `ix_worker_log_file_task_id` (`file_task_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

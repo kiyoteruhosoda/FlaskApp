@@ -24,6 +24,7 @@ class WorkerLog(db.Model):
     logger_name: Mapped[str | None] = mapped_column(db.String(120), nullable=True)
     task_name: Mapped[str | None] = mapped_column(db.String(255), nullable=True)
     task_uuid: Mapped[str | None] = mapped_column(db.String(36), nullable=True)
+    file_task_id: Mapped[str | None] = mapped_column(db.String(64), nullable=True)
     worker_hostname: Mapped[str | None] = mapped_column(db.String(255), nullable=True)
     queue_name: Mapped[str | None] = mapped_column(db.String(120), nullable=True)
     status: Mapped[str | None] = mapped_column(db.String(40), nullable=True)

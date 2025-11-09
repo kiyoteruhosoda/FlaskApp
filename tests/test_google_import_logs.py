@@ -2,6 +2,7 @@
 
 import json
 from datetime import datetime, timezone
+from typing import Dict
 
 import pytest
 
@@ -120,3 +121,68 @@ def test_collect_logs_includes_google_import_entries(app_context):
         assert download_entry["details"]["item_index"] == 1
         assert download_entry["details"]["bytes"] == 2048
         assert download_entry["details"]["sha256"] == "deadbeef"
+
+
+@pytest.mark.usefixtures("app_context")
+def test_collect_logs_filters_by_file_task_id(app_context):
+    with app_context.app_context():
+        session = PickerSession(
+            session_id="local_import_session",
+            status="processing",
+        )
+        db.session.add(session)
+        db.session.commit()
+
+        base_payload = {
+            "message": "Processing file",
+            "_extra": {"session_id": session.session_id},
+        }
+
+        first_payload = dict(base_payload)
+        first_payload["_extra"] = dict(base_payload["_extra"])
+        first_payload["_extra"]["file"] = "alpha.jpg"
+        db.session.add(
+            WorkerLog(
+                level="INFO",
+                event="local_import.file.begin",
+                message=json.dumps(first_payload, ensure_ascii=False),
+                extra_json=first_payload["_extra"],
+                file_task_id="alpha",
+                created_at=datetime.now(timezone.utc),
+            )
+        )
+
+        second_payload = dict(base_payload)
+        second_payload["_extra"] = dict(base_payload["_extra"])
+        second_payload["_extra"]["file"] = "beta.jpg"
+        db.session.add(
+            WorkerLog(
+                level="INFO",
+                event="local_import.file.begin",
+                message=json.dumps(second_payload, ensure_ascii=False),
+                extra_json=second_payload["_extra"],
+                file_task_id="beta",
+                created_at=datetime.now(timezone.utc),
+            )
+        )
+
+        db.session.commit()
+
+        index: Dict[str, int] = {}
+        all_logs = _collect_local_import_logs(
+            session,
+            limit=None,
+            file_task_id_index=index,
+        )
+
+        assert {entry["fileTaskId"] for entry in all_logs} == {"alpha", "beta"}
+        assert set(index.keys()) == {"alpha", "beta"}
+
+        alpha_logs = _collect_local_import_logs(
+            session,
+            limit=None,
+            file_task_id="alpha",
+        )
+
+        assert len(alpha_logs) == 1
+        assert alpha_logs[0]["fileTaskId"] == "alpha"

@@ -318,6 +318,7 @@ class WorkerDBLogHandler(DBLogHandler):
         payload_task_uuid = _get_from_payload("task_uuid", "task_id", "uuid", "id")
         payload_worker_hostname = _get_from_payload("worker_hostname", "hostname")
         payload_queue_name = _get_from_payload("queue_name", "queue")
+        payload_file_task_id = _get_from_payload("file_task_id", "fileTaskId")
 
         task_name = (
             getattr(record, "task_name", None)
@@ -336,15 +337,29 @@ class WorkerDBLogHandler(DBLogHandler):
             or extras.get("hostname")
             or payload_worker_hostname
         )
-        queue_name = (
+        queue_name_candidate = (
             getattr(record, "queue", None)
             or getattr(record, "queue_name", None)
             or extras.get("queue")
             or extras.get("queue_name")
             or payload_queue_name
         )
-        if isinstance(queue_name, dict):
-            queue_name = queue_name.get("name") or queue_name.get("routing_key")
+        if isinstance(queue_name_candidate, dict):
+            queue_name_candidate = queue_name_candidate.get("name") or queue_name_candidate.get("routing_key")
+
+        file_task_id = (
+            getattr(record, "file_task_id", None)
+            or extras.get("file_task_id")
+            or extras.get("fileTaskId")
+            or payload_file_task_id
+        )
+        truncated_file_task_id = self._truncate(file_task_id, 64)
+
+        queue_name = (
+            self._truncate(truncated_file_task_id, 120)
+            if truncated_file_task_id
+            else self._truncate(queue_name_candidate, 120)
+        )
 
         status = payload.get("status")
 
@@ -358,7 +373,8 @@ class WorkerDBLogHandler(DBLogHandler):
             "task_name": self._truncate(task_name, 255),
             "task_uuid": self._truncate(task_uuid, 36),
             "worker_hostname": self._truncate(worker_hostname, 255),
-            "queue_name": self._truncate(queue_name, 120),
+            "queue_name": queue_name,
+            "file_task_id": truncated_file_task_id,
             "status": self._truncate(status, 40),
             "message": message_json,
             "trace": trace,

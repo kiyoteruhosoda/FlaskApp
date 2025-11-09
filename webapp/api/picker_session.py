@@ -518,6 +518,10 @@ def _collect_local_import_logs(
     include_raw: bool = False,
     file_task_id: Optional[str] = None,
     file_task_id_index: Optional[Dict[str, int]] = None,
+    *,
+    before_log_id: Optional[int] = None,
+    after_log_id: Optional[int] = None,
+    return_meta: bool = False,
 ):
     """Collect import logs for a picker session.
 
@@ -598,10 +602,30 @@ def _collect_local_import_logs(
 
         return worker_query
 
+    before_id: Optional[int] = None
+    if before_log_id is not None:
+        try:
+            before_id = int(before_log_id)
+        except (TypeError, ValueError):
+            before_id = None
+
+    after_id: Optional[int] = None
+    if after_log_id is not None:
+        try:
+            after_id = int(after_log_id)
+        except (TypeError, ValueError):
+            after_id = None
+
     query = _apply_session_scope(query)
 
     if file_task_id:
         query = query.filter(WorkerLog.file_task_id == file_task_id)
+
+    if after_id is not None:
+        query = query.filter(WorkerLog.id > after_id)
+
+    if before_id is not None:
+        query = query.filter(WorkerLog.id < before_id)
 
     bounded_limit: Optional[int] = None
 
@@ -610,10 +634,7 @@ def _collect_local_import_logs(
     else:
         scan_multiplier = 5 if file_task_id_index is None else 10
         bounded_limit = max(limit * scan_multiplier, limit)
-        if file_task_id_index is None:
-            query = query.order_by(WorkerLog.id.desc()).limit(bounded_limit)
-        else:
-            query = query.order_by(WorkerLog.id.asc()).limit(bounded_limit)
+        query = query.order_by(WorkerLog.id.desc()).limit(bounded_limit)
 
     def _transform_row(row):
         try:
@@ -775,7 +796,9 @@ def _collect_local_import_logs(
             continue
 
         if file_task_id_index is not None and row.file_task_id:
-            file_task_id_index.setdefault(row.file_task_id, row.id)
+            current_index = file_task_id_index.get(row.file_task_id)
+            if current_index is None or row.id < current_index:
+                file_task_id_index[row.file_task_id] = row.id
 
         file_task_id_value = log_entry.get("fileTaskId")
         if isinstance(file_task_id_value, str):
@@ -794,6 +817,15 @@ def _collect_local_import_logs(
         if log_entry.get("event") == "local_import.zip.extracted":
             extracted_present = True
 
+    oldest_id: Optional[int] = None
+    newest_id: Optional[int] = None
+
+    if logs:
+        id_values = [entry.get("id") for entry in logs if isinstance(entry.get("id"), int)]
+        if id_values:
+            oldest_id = min(id_values)
+            newest_id = max(id_values)
+
     if limit is not None:
         logs.sort(key=lambda item: item.get("id", 0))
 
@@ -804,6 +836,10 @@ def _collect_local_import_logs(
             fallback_query = _apply_session_scope(fallback_query)
             if file_task_id:
                 fallback_query = fallback_query.filter(WorkerLog.file_task_id == file_task_id)
+            if after_id is not None:
+                fallback_query = fallback_query.filter(WorkerLog.id > after_id)
+            if before_id is not None:
+                fallback_query = fallback_query.filter(WorkerLog.id < before_id)
             fallback_query = fallback_query.order_by(WorkerLog.id.asc())
             if bounded_limit is not None:
                 fallback_query = fallback_query.limit(bounded_limit)
@@ -814,7 +850,9 @@ def _collect_local_import_logs(
                 if entry is None:
                     continue
                 if file_task_id_index is not None and row.file_task_id:
-                    file_task_id_index.setdefault(row.file_task_id, row.id)
+                    existing_index = file_task_id_index.get(row.file_task_id)
+                    if existing_index is None or row.id < existing_index:
+                        file_task_id_index[row.file_task_id] = row.id
                 fallback_entry = entry
 
             if fallback_entry and fallback_entry.get("id") not in {
@@ -835,6 +873,38 @@ def _collect_local_import_logs(
                         trimmed.append(fallback_entry)
                         trimmed.sort(key=lambda item: item.get("id", 0))
                         logs = trimmed
+
+    if logs:
+        id_values = [entry.get("id") for entry in logs if isinstance(entry.get("id"), int)]
+        if id_values:
+            oldest_id = min(id_values)
+            newest_id = max(id_values)
+
+    has_more = False
+    if (
+        return_meta
+        and limit is not None
+        and after_id is None
+        and oldest_id is not None
+    ):
+        more_query = WorkerLog.query
+        more_query = _apply_session_scope(more_query)
+        if file_task_id:
+            more_query = more_query.filter(WorkerLog.file_task_id == file_task_id)
+        more_query = more_query.filter(WorkerLog.id < oldest_id)
+        more_query = more_query.order_by(WorkerLog.id.asc()).limit(1)
+        has_more = more_query.first() is not None
+
+    next_cursor = oldest_id if has_more else None
+
+    if return_meta:
+        meta = {
+            "has_more": has_more,
+            "next_cursor": next_cursor,
+            "oldest_log_id": oldest_id,
+            "newest_log_id": newest_id,
+        }
+        return logs, meta
 
     return logs
 
@@ -1032,22 +1102,39 @@ def api_picker_session_logs(session_id: str):
         return _json_response({"error": "not_found"}, 404)
 
     raw_limit = request.args.get("limit")
+    page_size_param = request.args.get("pageSize")
+    limit_param = raw_limit if raw_limit is not None else page_size_param
     limit: Optional[int]
 
-    if raw_limit is None or (isinstance(raw_limit, str) and not raw_limit.strip()):
-        limit = 100
-    elif isinstance(raw_limit, str) and raw_limit.strip().lower() in {"all", "full"}:
+    if limit_param is None or (isinstance(limit_param, str) and not limit_param.strip()):
+        limit = 200
+    elif isinstance(limit_param, str) and limit_param.strip().lower() in {"all", "full"}:
         limit = None
     else:
         try:
-            limit_candidate = int(raw_limit)
+            limit_candidate = int(limit_param)
         except (TypeError, ValueError):
             limit_candidate = None
 
         if limit_candidate is None:
-            limit = 100
+            limit = 200
         else:
             limit = max(1, min(limit_candidate, 500))
+
+    cursor_raw = request.args.get("cursor")
+    after_raw = request.args.get("after") or request.args.get("since")
+
+    cursor_value: Optional[int]
+    try:
+        cursor_value = int(cursor_raw) if cursor_raw is not None else None
+    except (TypeError, ValueError):
+        cursor_value = None
+
+    after_value: Optional[int]
+    try:
+        after_value = int(after_raw) if after_raw is not None else None
+    except (TypeError, ValueError):
+        after_value = None
 
     requested_file_task_id = request.args.get("file_task_id") or request.args.get(
         "fileTaskId"
@@ -1057,17 +1144,33 @@ def api_picker_session_logs(session_id: str):
 
     file_task_id_index: Dict[str, int] = {}
 
-    logs = _collect_local_import_logs(
+    logs_result = _collect_local_import_logs(
         ps,
         limit=limit,
         file_task_id=requested_file_task_id,
         file_task_id_index=file_task_id_index,
+        before_log_id=cursor_value,
+        after_log_id=after_value,
+        return_meta=True,
     )
+
+    if isinstance(logs_result, tuple):
+        logs, meta = logs_result
+    else:
+        logs = logs_result
+        meta = {}
 
     ordered_file_task_ids = sorted(file_task_id_index.items(), key=lambda item: item[1])
     file_task_ids = [item[0] for item in ordered_file_task_ids]
 
-    payload = {"logs": logs, "fileTaskIds": file_task_ids}
+    payload = {
+        "logs": logs,
+        "fileTaskIds": file_task_ids,
+        "hasNext": bool(meta.get("has_more")),
+        "nextCursor": meta.get("next_cursor"),
+        "oldestLogId": meta.get("oldest_log_id"),
+        "newestLogId": meta.get("newest_log_id"),
+    }
     if requested_file_task_id:
         payload["selectedFileTaskId"] = requested_file_task_id
 

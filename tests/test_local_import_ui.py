@@ -330,6 +330,55 @@ class TestSessionDetailAPI(AuthenticatedClientMixin):
         assert log_details.get('file_path') == target_path_str
         assert log_details.get('basename') == target_file.name
 
+    def test_session_logs_pagination_metadata(self, app):
+        """ログAPIがページング情報を返し、次のページを取得できることを確認"""
+
+        client = app.test_client()
+        self._login(client)
+
+        session_identifier = 'picker_sessions/paginated'
+
+        with app.app_context():
+            session = PickerSession(session_id=session_identifier, status='processing')
+            db.session.add(session)
+            db.session.commit()
+
+            for index in range(250):
+                payload = {
+                    'message': f'entry-{index}',
+                    'session_id': session_identifier,
+                }
+                log_entry = WorkerLog(
+                    level='INFO',
+                    event='local_import.test',
+                    status='ok',
+                    message=json.dumps(payload),
+                    extra_json={'session_id': session_identifier},
+                )
+                db.session.add(log_entry)
+
+            db.session.commit()
+
+        first_resp = client.get(f'/api/picker/session/{session_identifier}/logs?limit=200')
+        assert first_resp.status_code == 200
+        first_payload = first_resp.get_json()
+        assert len(first_payload['logs']) == 200
+        assert first_payload['hasNext'] is True
+        assert isinstance(first_payload['nextCursor'], int)
+        assert first_payload['oldestLogId'] == first_payload['nextCursor']
+
+        next_cursor = first_payload['nextCursor']
+
+        second_resp = client.get(
+            f'/api/picker/session/{session_identifier}/logs?limit=200&cursor={next_cursor}'
+        )
+        assert second_resp.status_code == 200
+        second_payload = second_resp.get_json()
+        assert len(second_payload['logs']) == 50
+        assert second_payload['hasNext'] is False
+        assert second_payload['nextCursor'] is None
+        assert second_payload['oldestLogId'] < next_cursor
+
     def test_file_tasks_endpoint_returns_summary(self, app):
         client = app.test_client()
 

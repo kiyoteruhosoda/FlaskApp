@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional, Tuple
 
-from celery import Celery
+from celery import Celery, signals
 from celery.exceptions import Retry as CeleryRetry
 from dotenv import load_dotenv
 from flask import Flask
@@ -136,6 +136,27 @@ def setup_celery_logging():
 # Setup logging when app is created
 with flask_app.app_context():
     setup_celery_logging()
+
+
+def _ensure_worker_logging() -> None:
+    """Attach logging handlers within an application context."""
+
+    with flask_app.app_context():
+        setup_celery_logging()
+
+
+@signals.worker_process_init.connect
+def _configure_worker_process_logging(**_: Any) -> None:
+    """Ensure each Celery worker process attaches the DB log handler."""
+
+    _ensure_worker_logging()
+
+
+@signals.beat_init.connect
+def _configure_beat_logging(**_: Any) -> None:
+    """Ensure Celery beat also sends logs to the database."""
+
+    _ensure_worker_logging()
 
 
 def _to_str(value: Any) -> Optional[str]:

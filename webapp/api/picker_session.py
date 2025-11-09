@@ -547,6 +547,59 @@ def _collect_local_import_logs(
         or_(WorkerLog.event.like("local_import%"), WorkerLog.event.like("import.%"))
     )
 
+    def _apply_session_scope(worker_query):
+        if not session_aliases:
+            return worker_query
+
+        normalized_aliases = [alias for alias in session_aliases if alias]
+
+        if not normalized_aliases:
+            return worker_query
+
+        json_paths = [
+            "$.session_id",
+            "$.sessionId",
+            "$.session_identifier",
+            "$.sessionIdentifier",
+            "$.session_key",
+            "$.sessionKey",
+            "$.session_db_id",
+            "$.active_session_id",
+            "$.target_session_id",
+            "$.import_session_id",
+            "$.importSessionId",
+            "$.picker_session_id",
+            "$.pickerSessionId",
+            "$.session.session_id",
+            "$.session.sessionId",
+            "$.session.session_key",
+            "$.session.sessionKey",
+            "$.session.id",
+        ]
+
+        filters = []
+        for alias in normalized_aliases:
+            filters.append(WorkerLog.message.contains(alias))
+            alias_json = func.json_quote(alias)
+            alias_numeric: Optional[int]
+            try:
+                alias_numeric = int(alias)
+            except (TypeError, ValueError):
+                alias_numeric = None
+            for column in (WorkerLog.extra_json, WorkerLog.meta_json):
+                for path in json_paths:
+                    json_expr = func.json_extract(column, path)
+                    filters.append(json_expr == alias_json)
+                    if alias_numeric is not None:
+                        filters.append(json_expr == alias_numeric)
+
+        if filters:
+            worker_query = worker_query.filter(or_(*filters))
+
+        return worker_query
+
+    query = _apply_session_scope(query)
+
     if file_task_id:
         query = query.filter(WorkerLog.file_task_id == file_task_id)
 
@@ -748,6 +801,7 @@ def _collect_local_import_logs(
             fallback_query = WorkerLog.query.filter(
                 WorkerLog.event == "local_import.zip.extracted"
             )
+            fallback_query = _apply_session_scope(fallback_query)
             if file_task_id:
                 fallback_query = fallback_query.filter(WorkerLog.file_task_id == file_task_id)
             fallback_query = fallback_query.order_by(WorkerLog.id.asc())

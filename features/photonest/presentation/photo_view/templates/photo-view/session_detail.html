@@ -61,6 +61,12 @@
         </select>
       </div>
       <div class="col-12 col-md-2 col-lg-auto">
+        <button type="submit" id="selection-filter-search-btn" class="btn btn-outline-primary btn-sm w-100">
+          <span id="selection-filter-search-spinner" class="spinner-border spinner-border-sm align-text-bottom me-1 d-none" role="status" aria-hidden="true"></span>
+          <span id="selection-filter-search-btn-label">{{ _("Search") }}</span>
+        </button>
+      </div>
+      <div class="col-12 col-md-2 col-lg-auto">
         <button type="button" id="selection-filter-reset" class="btn btn-outline-secondary btn-sm w-100">
           <i class="bi bi-x-circle"></i> {{ _("Reset filters") }}
         </button>
@@ -235,6 +241,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const selectionFilterSearchInput = document.getElementById('selection-filter-search');
   const selectionFilterStatusSelect = document.getElementById('selection-filter-status');
   const selectionFilterResetButton = document.getElementById('selection-filter-reset');
+  const selectionFilterSearchButton = document.getElementById('selection-filter-search-btn');
+  const selectionFilterSearchSpinner = document.getElementById('selection-filter-search-spinner');
+  const selectionFilterSearchLabel = document.getElementById('selection-filter-search-btn-label');
   const filterStateApi = window.filterState || null;
   const SESSION_FILTER_SECTION = 'sessionDetail';
 
@@ -378,6 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const noLogsMessage = '{{ _("No logs yet.") }}';
   const LOG_PAGE_SIZE = 200;
+  const FILE_PROGRESS_MAX_ITEMS = 100;
 
   const localImportRunningMessage = '{{ _("Local import is running. You can stop it if needed.") }}';
   const localImportCancelingMessage = '{{ _("Canceling local import...") }}';
@@ -386,6 +396,26 @@ document.addEventListener('DOMContentLoaded', () => {
   const localImportCancelConfirmMessage = '{{ _("Are you sure you want to cancel the local import?") }}';
 
   let selectionFilterSearchDebounce = null;
+
+  function setSelectionFilterSearchBusy(isBusy) {
+    if (!selectionFilterSearchButton || !selectionFilterSearchSpinner || !selectionFilterSearchLabel) {
+      return;
+    }
+
+    if (isBusy) {
+      selectionFilterSearchSpinner.classList.remove('d-none');
+      selectionFilterSearchLabel.classList.add('d-none');
+      selectionFilterSearchButton.disabled = true;
+      selectionFilterSearchButton.classList.add('disabled');
+      selectionFilterSearchButton.setAttribute('aria-busy', 'true');
+    } else {
+      selectionFilterSearchSpinner.classList.add('d-none');
+      selectionFilterSearchLabel.classList.remove('d-none');
+      selectionFilterSearchButton.disabled = false;
+      selectionFilterSearchButton.classList.remove('disabled');
+      selectionFilterSearchButton.removeAttribute('aria-busy');
+    }
+  }
 
   function getStatusBadgeClass(status) {
     switch (status) {
@@ -1050,15 +1080,39 @@ document.addEventListener('DOMContentLoaded', () => {
     fileProgressSection.classList.remove('d-none');
     fileProgressBody.innerHTML = '';
     fileTaskMetadataMap.clear();
+    fileNameTaskMap.clear();
 
-    if (!items || items.length === 0) {
+    const allItems = Array.isArray(items) ? items : [];
+
+    if (allItems.length === 0) {
       const emptyRow = document.createElement('tr');
       emptyRow.innerHTML = `<td colspan="5" class="text-center text-muted py-3">${escapeHtml(noFileTasksMessage)}</td>`;
       fileProgressBody.appendChild(emptyRow);
       return;
     }
 
-    items.forEach((item) => {
+    const registerFileTaskMetadata = (item) => {
+      if (!item || !item.fileTaskId) {
+        return;
+      }
+
+      fileTaskMetadataMap.set(item.fileTaskId, {
+        fileName: item.fileName || item.fileTaskId,
+        state: item.state,
+        updatedAt: item.updatedAt,
+      });
+
+      const normalizedName = normalizeFileName(item.fileName || item.fileTaskId);
+      if (normalizedName) {
+        fileNameTaskMap.set(normalizedName, item.fileTaskId);
+      }
+    };
+
+    allItems.forEach(registerFileTaskMetadata);
+
+    const itemsToDisplay = allItems.slice(0, FILE_PROGRESS_MAX_ITEMS);
+
+    itemsToDisplay.forEach((item) => {
       const row = document.createElement('tr');
       const state = (item.state || '').toString().toLowerCase();
       const badgeClass = getFileTaskBadgeClass(state);
@@ -1105,19 +1159,15 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
 
       fileProgressBody.appendChild(row);
-
-      if (item.fileTaskId) {
-        fileTaskMetadataMap.set(item.fileTaskId, {
-          fileName: item.fileName || item.fileTaskId,
-          state: item.state,
-          updatedAt: item.updatedAt,
-        });
-        const normalizedName = normalizeFileName(item.fileName || item.fileTaskId);
-        if (normalizedName) {
-          fileNameTaskMap.set(normalizedName, item.fileTaskId);
-        }
-      }
     });
+
+    if (allItems.length > itemsToDisplay.length) {
+      const hiddenCount = allItems.length - itemsToDisplay.length;
+      const infoRow = document.createElement('tr');
+      const hiddenLabel = `${escapeHtml(taskHiddenEntriesLabel)} (${hiddenCount.toLocaleString()})`;
+      infoRow.innerHTML = `<td colspan="5" class="text-center text-muted small">${hiddenLabel}</td>`;
+      fileProgressBody.appendChild(infoRow);
+    }
   }
 
   const selectionRecords = new Map();
@@ -1728,9 +1778,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function refreshSelections(options = {}) {
-    const { forceReset = false } = options || {};
+    const { forceReset = false, showSearchSpinner = false } = options || {};
     if (isRefreshing) {
       return;
+    }
+    if (showSearchSpinner) {
+      setSelectionFilterSearchBusy(true);
     }
     isRefreshing = true;
     try {
@@ -1920,6 +1973,9 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error(err);
     } finally {
       isRefreshing = false;
+      if (showSearchSpinner) {
+        setSelectionFilterSearchBusy(false);
+      }
     }
   }
 
@@ -1927,7 +1983,10 @@ document.addEventListener('DOMContentLoaded', () => {
     selectionFilterForm.addEventListener('submit', (event) => {
       event.preventDefault();
       syncSessionFiltersToHash();
-      refreshSelections({ forceReset: true });
+      const submitter = event.submitter || document.activeElement;
+      const triggeredBySearchButton =
+        selectionFilterSearchButton && submitter === selectionFilterSearchButton;
+      refreshSelections({ forceReset: true, showSearchSpinner: Boolean(triggeredBySearchButton) });
     });
   }
 

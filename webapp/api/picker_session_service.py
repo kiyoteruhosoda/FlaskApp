@@ -445,6 +445,7 @@ class PickerSessionService:
 
         pending_statuses = ("pending", "enqueued", "running")
         has_pending = any(counts.get(status, 0) > 0 for status in pending_statuses)
+        import_failed = counts.get("failed", 0)
 
         stats = ps.stats() if hasattr(ps, "stats") else {}
         if not isinstance(stats, dict):
@@ -470,7 +471,23 @@ class PickerSessionService:
 
         status_changed = False
         if ps.status not in {"canceled", "failed"}:
-            if thumbnails_failed and ps.status != "error":
+            if import_failed > 0 and not has_pending and ps.status != "error":
+                current_app.logger.info(
+                    json.dumps(
+                        {
+                            **status_log_context,
+                            "status_after": "error",
+                            "reason": "failed_items_without_pending",
+                        },
+                        default=str,
+                    ),
+                    extra={"event": "pickerSession.status.importFailure"},
+                )
+                ps.status = "error"
+                ps.last_progress_at = now
+                ps.updated_at = now
+                status_changed = True
+            elif thumbnails_failed and ps.status != "error":
                 current_app.logger.info(
                     json.dumps(
                         {
@@ -546,7 +563,6 @@ class PickerSessionService:
             dup_count = counts.get("dup", 0)
             manual_skipped_count = counts.get("skipped", 0)
             import_skipped = dup_count + manual_skipped_count
-            import_failed = counts.get("failed", 0)
             only_manual_skipped = (
                 import_success == 0
                 and import_failed == 0
@@ -614,13 +630,16 @@ class PickerSessionService:
 
             stage_before = stats.get("stage")
             stage_after = stage_before
+            has_import_failures = import_failed > 0
             if stage_before == "expanding":
                 if pending_remaining > 0 or thumbnails_pending or only_manual_skipped:
                     stage_after = "progress"
                 elif thumbnails_failed:
                     stage_after = "error"
+                elif has_import_failures:
+                    stage_after = "error"
             elif stage_before not in {"canceled"}:
-                if thumbnails_failed:
+                if thumbnails_failed or has_import_failures:
                     stage_after = "error"
                 elif (
                     pending_remaining > 0

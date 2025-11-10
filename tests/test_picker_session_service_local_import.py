@@ -7,6 +7,7 @@ import tempfile
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import os
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -20,6 +21,9 @@ from core.models.photo_models import PickerSelection, Media, MediaItem
 from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 from core.models.log import Log
 from core.tasks.local_import import local_import_task
+from features.photonest.application.local_import.use_case import LocalImportUseCase
+from features.photonest.domain.local_import.import_result import ImportTaskResult
+from features.photonest.domain.local_import.session import LocalImportSessionService
 
 
 @pytest.fixture
@@ -513,6 +517,73 @@ class TestPickerSessionServiceLocalImport:
             tasks = (result.get('stats') or {}).get('tasks') or []
             assert tasks, "tasks payload should exist"
             assert tasks[0]['status'] == 'error'
+
+    def test_finalize_session_marks_error_even_with_thumbnail_progress(self, app, monkeypatch):
+        """サムネイル進行中でも失敗があればセッションはerrorで確定する"""
+        with app.app_context():
+            session = PickerSession(
+                account_id=None,
+                session_id="local-import-error-progress",
+                status="processing",
+            )
+            db.session.add(session)
+            db.session.commit()
+
+            db.session.add_all(
+                [
+                    PickerSelection(session_id=session.id, status='failed'),
+                    PickerSelection(session_id=session.id, status='imported'),
+                ]
+            )
+            db.session.commit()
+
+            result = ImportTaskResult(session_id=session.session_id)
+            result.mark_failed()
+
+            logger = MagicMock()
+            session_service = LocalImportSessionService(db, logger.error)
+            use_case = LocalImportUseCase(
+                db=db,
+                logger=logger,
+                session_service=session_service,
+                scanner=MagicMock(),
+                queue_processor=MagicMock(),
+            )
+
+            snapshot = {
+                'status': 'progress',
+                'total': 1,
+                'completed': 0,
+                'pending': 1,
+                'failed': 0,
+                'entries': [],
+            }
+
+            monkeypatch.setattr(
+                'features.photonest.application.local_import.use_case.build_thumbnail_task_snapshot',
+                lambda *args, **kwargs: dict(snapshot),
+            )
+
+            use_case._finalize_session(
+                session,
+                result,
+                session.session_id,
+                celery_task_id="celery123",
+            )
+
+            db.session.refresh(session)
+            stats = session.stats()
+
+            assert session.status == 'error'
+            import_task = next(
+                (task for task in stats.get('tasks', []) if task.get('key') == 'import'),
+                None,
+            )
+            assert import_task is not None
+            assert import_task['status'] == 'error'
+            assert stats.get('stage') == 'error'
+            thumbnails = stats.get('thumbnails')
+            assert thumbnails and thumbnails.get('status') == 'progress'
 
     def test_status_prefers_counts_over_remote_poll(self, app, monkeypatch):
         """PickerSessionService.status should not call remote API when local counts exist."""

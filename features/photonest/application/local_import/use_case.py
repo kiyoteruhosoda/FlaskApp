@@ -454,12 +454,12 @@ class LocalImportUseCase:
             if cancel_requested:
                 final_status = "canceled"
                 result.mark_canceled()
+            elif (not result.ok) or result.failed > 0:
+                final_status = "error"
             elif pending_remaining > 0 or thumbnails_pending:
                 final_status = "processing"
             else:
-                if (not result.ok) or result.failed > 0:
-                    final_status = "error"
-                elif thumbnails_failed:
+                if thumbnails_failed:
                     final_status = "imported"
                 elif only_duplicates:
                     final_status = "imported"
@@ -491,10 +491,10 @@ class LocalImportUseCase:
 
             import_task_status = "canceled" if cancel_requested else None
             if import_task_status is None:
-                if pending_remaining > 0 or thumbnails_pending:
-                    import_task_status = "progress"
-                elif result.failed > 0 or not result.ok:
+                if result.failed > 0 or not result.ok:
                     import_task_status = "error"
+                elif pending_remaining > 0 or thumbnails_pending:
+                    import_task_status = "progress"
                 elif result.success > 0 or only_duplicates:
                     import_task_status = "completed"
                 elif only_skipped or result.processed > 0:
@@ -540,7 +540,9 @@ class LocalImportUseCase:
 
             stage_value = "canceled" if cancel_requested else None
             if stage_value != "canceled":
-                if thumbnails_failed:
+                if result.failed > 0 or not result.ok:
+                    stage_value = "error"
+                elif thumbnails_failed:
                     stage_value = "error"
                 elif pending_remaining > 0 or thumbnails_pending or only_skipped:
                     stage_value = "progress"

@@ -6,7 +6,13 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, Optional
 
-from core.models.photo_models import PickerSelection
+from core.models.photo_models import (
+    Media,
+    MediaItem,
+    PhotoMetadata,
+    PickerSelection,
+    VideoMetadata,
+)
 from features.photonest.domain.local_import.logging import file_log_context
 from features.photonest.domain.local_import.import_result import ImportTaskResult
 
@@ -309,8 +315,16 @@ class LocalImportQueueProcessor:
                 if file_result["success"]:
                     selection.status = "imported"
                     selection.finished_at = datetime.now(timezone.utc)
-                    selection.google_media_id = file_result.get("media_google_id")
-                    selection.media_id = file_result.get("media_id")
+                    media_identifier = file_result.get("media_id")
+                    self._assign_google_media_id(
+                        selection,
+                        file_result.get("media_google_id"),
+                        file_context,
+                        media_id=media_identifier,
+                        resequence_on_conflict=True,
+                    )
+                    if media_identifier is not None:
+                        selection.media_id = media_identifier
                 elif (
                     result_status in {"duplicate", "duplicate_refreshed"}
                     and not thumbnail_failed
@@ -318,7 +332,12 @@ class LocalImportQueueProcessor:
                     selection.status = "dup"
                     existing_google_id = file_result.get("media_google_id")
                     if existing_google_id:
-                        selection.google_media_id = existing_google_id
+                        self._assign_google_media_id(
+                            selection,
+                            existing_google_id,
+                            file_context,
+                            media_id=file_result.get("media_id"),
+                        )
                     existing_media_id = file_result.get("media_id")
                     if existing_media_id is not None:
                         selection.media_id = existing_media_id
@@ -330,7 +349,12 @@ class LocalImportQueueProcessor:
                     selection.finished_at = datetime.now(timezone.utc)
                     existing_google_id = file_result.get("media_google_id")
                     if existing_google_id:
-                        selection.google_media_id = existing_google_id
+                        self._assign_google_media_id(
+                            selection,
+                            existing_google_id,
+                            file_context,
+                            media_id=file_result.get("media_id"),
+                        )
                     media_identifier = file_result.get("media_id")
                     if media_identifier is not None:
                         selection.media_id = media_identifier
@@ -418,3 +442,206 @@ class LocalImportQueueProcessor:
             entry["status"] = "completed"
 
         aggregate.add_thumbnail_record(entry)
+
+    def _assign_google_media_id(
+        self,
+        selection: PickerSelection,
+        google_media_id: Optional[str],
+        file_context: Optional[Dict[str, Any]] = None,
+        *,
+        media_id: Optional[int] = None,
+        resequence_on_conflict: bool = False,
+    ) -> bool:
+        """Assign ``google_media_id`` while avoiding unique constraint conflicts."""
+
+        if not google_media_id:
+            selection.google_media_id = None
+            return True
+
+        if selection.google_media_id == google_media_id:
+            return True
+
+        conflict_id = (
+            self._db.session.query(PickerSelection.id)
+            .filter(
+                PickerSelection.session_id == selection.session_id,
+                PickerSelection.google_media_id == google_media_id,
+                PickerSelection.id != selection.id,
+            )
+            .scalar()
+        )
+
+        if conflict_id is not None:
+            if resequence_on_conflict:
+                resequenced_id = self._resequence_google_media_id(
+                    selection,
+                    google_media_id,
+                    media_id,
+                    file_context,
+                )
+                if resequenced_id:
+                    selection.google_media_id = resequenced_id
+                    return True
+            context = dict(file_context or {})
+            self._logger.warning(
+                "local_import.selection.google_id_conflict",
+                "Selectionの google_media_id を設定できません（同一セッション内で重複）",
+                selection_id=getattr(selection, "id", None),
+                google_media_id=google_media_id,
+                conflicting_selection_id=conflict_id,
+                **context,
+            )
+            return False
+
+        selection.google_media_id = google_media_id
+        return True
+
+    def _resequence_google_media_id(
+        self,
+        selection: PickerSelection,
+        google_media_id: str,
+        media_id: Optional[int],
+        file_context: Optional[Dict[str, Any]] = None,
+    ) -> Optional[str]:
+        """Generate a new google_media_id and update related records.
+
+        ``google_media_id`` が既存 Selection と衝突した場合でも、新規取り込み結果を
+        失わないように再採番を行う。関連する ``Media`` / ``MediaItem`` が存在する場合は
+        それらの ID も整合するよう更新する。
+        """
+
+        context = dict(file_context or {})
+        new_google_id = self._generate_unique_google_media_id(selection, google_media_id)
+
+        # Update Media if the current import created one.
+        if media_id is not None:
+            media_obj = self._db.session.get(Media, media_id)
+            if media_obj and media_obj.google_media_id == google_media_id:
+                media_obj.google_media_id = new_google_id
+            elif media_obj and media_obj.google_media_id not in {None, google_media_id}:
+                self._logger.warning(
+                    "local_import.selection.resequence_media_mismatch",
+                    "Media の google_media_id が取り込み結果と一致しないため再採番をスキップ",
+                    selection_id=getattr(selection, "id", None),
+                    media_id=media_id,
+                    current_media_google_id=media_obj.google_media_id,
+                    expected_google_media_id=google_media_id,
+                    candidate_google_media_id=new_google_id,
+                    **context,
+                )
+                return None
+
+        # Clone MediaItem metadata when available to keep PickerSelection joins working.
+        if not self._ensure_media_item_resequenced(
+            original_google_id=google_media_id,
+            new_google_id=new_google_id,
+            selection=selection,
+            context=context,
+        ):
+            return None
+
+        self._logger.info(
+            "local_import.selection.google_id_resequenced",
+            "google_media_id を再採番して更新しました",
+            selection_id=getattr(selection, "id", None),
+            original_google_media_id=google_media_id,
+            resequenced_google_media_id=new_google_id,
+            media_id=media_id,
+            **context,
+        )
+        return new_google_id
+
+    def _generate_unique_google_media_id(
+        self, selection: PickerSelection, base_id: str
+    ) -> str:
+        suffix = uuid.uuid4().hex[:12]
+        # 255 文字制限を超えないようにベースを切り詰める
+        max_base_length = 255 - len(suffix) - 1
+        truncated_base = base_id[:max_base_length] if len(base_id) > max_base_length else base_id
+        candidate = f"{truncated_base}-{suffix}"
+
+        while (
+            self._db.session.query(PickerSelection.id)
+            .filter(
+                PickerSelection.session_id == selection.session_id,
+                PickerSelection.google_media_id == candidate,
+            )
+            .first()
+            is not None
+            or self._db.session.get(MediaItem, candidate) is not None
+        ):
+            suffix = uuid.uuid4().hex[:12]
+            candidate = f"{truncated_base}-{suffix}"
+        return candidate
+
+    def _ensure_media_item_resequenced(
+        self,
+        *,
+        original_google_id: str,
+        new_google_id: str,
+        selection: PickerSelection,
+        context: Dict[str, Any],
+    ) -> bool:
+        media_item = self._db.session.get(MediaItem, original_google_id)
+        if media_item is None:
+            # MediaItem が存在しない場合は特に更新不要
+            return True
+
+        if media_item.picker_selections:
+            # 他のSelectionが既に参照している場合は複製して再採番する
+            cloned_item = self._clone_media_item(media_item, new_google_id)
+            if cloned_item is None:
+                self._logger.error(
+                    "local_import.selection.media_item_clone_failed",
+                    "MediaItem の複製に失敗したため再採番できません",
+                    original_google_media_id=original_google_id,
+                    resequenced_google_media_id=new_google_id,
+                    **context,
+                )
+                return False
+            selection.media_item = cloned_item
+            return True
+
+        # 他のSelectionから参照されていない場合はそのままIDを差し替える
+        media_item.id = new_google_id
+        selection.media_item = media_item
+        return True
+
+    def _clone_media_item(
+        self,
+        media_item: MediaItem,
+        new_google_id: str,
+    ) -> Optional[MediaItem]:
+        """Clone a ``MediaItem`` with its metadata for resequencing."""
+
+        cloned_item = MediaItem(
+            id=new_google_id,
+            type=media_item.type,
+            mime_type=media_item.mime_type,
+            filename=media_item.filename,
+            width=media_item.width,
+            height=media_item.height,
+            camera_make=media_item.camera_make,
+            camera_model=media_item.camera_model,
+        )
+
+        if media_item.photo_metadata is not None:
+            photo = PhotoMetadata(
+                focal_length=media_item.photo_metadata.focal_length,
+                aperture_f_number=media_item.photo_metadata.aperture_f_number,
+                iso_equivalent=media_item.photo_metadata.iso_equivalent,
+                exposure_time=media_item.photo_metadata.exposure_time,
+            )
+            cloned_item.photo_metadata = photo
+            self._db.session.add(photo)
+
+        if media_item.video_metadata is not None:
+            video = VideoMetadata(
+                fps=media_item.video_metadata.fps,
+                processing_status=media_item.video_metadata.processing_status,
+            )
+            cloned_item.video_metadata = video
+            self._db.session.add(video)
+
+        self._db.session.add(cloned_item)
+        return cloned_item

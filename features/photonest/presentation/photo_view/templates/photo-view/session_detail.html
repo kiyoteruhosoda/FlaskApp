@@ -45,7 +45,13 @@
     <form id="selection-filter-form" class="row g-2 align-items-end">
       <div class="col-12 col-md-6 col-lg-4">
         <label for="selection-filter-search" class="form-label small text-muted mb-1">{{ _("Filter by keyword") }}</label>
-        <input id="selection-filter-search" type="search" class="form-control form-control-sm" placeholder="{{ _("Search filename or ID") }}" autocomplete="off">
+        <div class="input-group">
+          <input id="selection-filter-search" type="search" class="form-control form-control-sm" placeholder="{{ _("Search filename or ID") }}" autocomplete="off">
+          <button type="button" id="selection-filter-search-btn" class="btn btn-outline-primary btn-sm">
+            <span id="selection-filter-search-spinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+            <span id="selection-filter-search-btn-label">{{ _("Search") }}</span>
+          </button>
+        </div>
       </div>
       <div class="col-12 col-md-4 col-lg-3">
         <label for="selection-filter-status" class="form-label small text-muted mb-1">{{ _("Status filter") }}</label>
@@ -235,6 +241,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const selectionFilterSearchInput = document.getElementById('selection-filter-search');
   const selectionFilterStatusSelect = document.getElementById('selection-filter-status');
   const selectionFilterResetButton = document.getElementById('selection-filter-reset');
+  const selectionFilterSearchBtn = document.getElementById('selection-filter-search-btn');
+  const selectionFilterSearchSpinner = document.getElementById('selection-filter-search-spinner');
+  const selectionFilterSearchBtnLabel = document.getElementById('selection-filter-search-btn-label');
   const filterStateApi = window.filterState || null;
   const SESSION_FILTER_SECTION = 'sessionDetail';
 
@@ -386,6 +395,27 @@ document.addEventListener('DOMContentLoaded', () => {
   const localImportCancelConfirmMessage = '{{ _("Are you sure you want to cancel the local import?") }}';
 
   let selectionFilterSearchDebounce = null;
+  let selectionSearchLoading = false;
+
+  function setSelectionSearchLoading(isLoading) {
+    selectionSearchLoading = isLoading;
+    if (selectionFilterSearchSpinner) {
+      selectionFilterSearchSpinner.classList.toggle('d-none', !isLoading);
+    }
+    if (selectionFilterSearchBtnLabel) {
+      selectionFilterSearchBtnLabel.style.display = isLoading ? 'none' : '';
+    }
+    if (selectionFilterSearchBtn) {
+      selectionFilterSearchBtn.disabled = isLoading;
+      selectionFilterSearchBtn.classList.toggle('disabled', isLoading);
+    }
+    if (selectionFilterSearchInput) {
+      selectionFilterSearchInput.disabled = isLoading;
+    }
+    if (selectionFilterStatusSelect) {
+      selectionFilterStatusSelect.disabled = isLoading;
+    }
+  }
 
   function getStatusBadgeClass(status) {
     switch (status) {
@@ -1733,6 +1763,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     isRefreshing = true;
+    setSelectionSearchLoading(true);
     try {
       const sessionData = await fetchSessionStatus();
       latestStatus = sessionData?.status || latestStatus;
@@ -1920,6 +1951,7 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error(err);
     } finally {
       isRefreshing = false;
+      setSelectionSearchLoading(false);
     }
   }
 
@@ -1931,6 +1963,25 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // 検索ボタンクリック時に検索実行
+  if (selectionFilterSearchBtn) {
+    selectionFilterSearchBtn.addEventListener('click', () => {
+      syncSessionFiltersToHash();
+      refreshSelections({ forceReset: true });
+    });
+  }
+
+  // Enterキー押下時に検索実行
+  if (selectionFilterSearchInput) {
+    selectionFilterSearchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        syncSessionFiltersToHash();
+        refreshSelections({ forceReset: true });
+      }
+    });
+  }
+
   if (selectionFilterStatusSelect) {
     selectionFilterStatusSelect.addEventListener('change', () => {
       syncSessionFiltersToHash();
@@ -1938,17 +1989,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  if (selectionFilterSearchInput) {
-    selectionFilterSearchInput.addEventListener('input', () => {
-      if (selectionFilterSearchDebounce) {
-        clearTimeout(selectionFilterSearchDebounce);
-      }
-      selectionFilterSearchDebounce = setTimeout(() => {
-        syncSessionFiltersToHash();
-        refreshSelections({ forceReset: true });
-      }, 300);
-    });
-  }
+  // 自動検索（input変更時）は無効化
+  // if (selectionFilterSearchInput) {
+  //   selectionFilterSearchInput.addEventListener('input', () => {
+  //     if (selectionFilterSearchDebounce) {
+  //       clearTimeout(selectionFilterSearchDebounce);
+  //     }
+  //     selectionFilterSearchDebounce = setTimeout(() => {
+  //       syncSessionFiltersToHash();
+  //       refreshSelections({ forceReset: true });
+  //     }, 300);
+  //   });
+  // }
 
   if (selectionFilterResetButton) {
     selectionFilterResetButton.addEventListener('click', () => {

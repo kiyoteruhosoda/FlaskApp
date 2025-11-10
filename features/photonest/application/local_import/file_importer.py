@@ -345,7 +345,6 @@ class LocalImportFileImporter:
                     session_id=session_id,
                     status="duplicate_refreshed",
                 )
-                self._remove_source(file_context, file_path, existing_media, destination_details, session_id)
             else:
                 self._logger.info(
                     "local_import.file.duplicate",
@@ -382,41 +381,9 @@ class LocalImportFileImporter:
 
         outcome.details["duplicate_regeneration_mode"] = regen_mode
 
-        return outcome.as_dict()
+        self._remove_source_file(file_path, file_context, session_id)
 
-    def _remove_source(
-        self,
-        file_context: Dict[str, Any],
-        file_path: str,
-        existing_media: Media,
-        destination_details: Dict[str, Any],
-        session_id: Optional[str],
-    ) -> None:
-        try:
-            self._source_storage.remove(file_path)
-            self._logger.info(
-                "local_import.file.duplicate_source_removed",
-                "重複ファイルのソースを削除",
-                **file_context,
-                media_id=existing_media.id,
-                **destination_details,
-                session_id=session_id,
-                status="cleaned",
-            )
-        except FileNotFoundError:
-            pass
-        except OSError as cleanup_exc:
-            self._logger.warning(
-                "local_import.file.duplicate_source_remove_failed",
-                "重複ファイル削除に失敗",
-                **file_context,
-                media_id=existing_media.id,
-                **destination_details,
-                error_type=type(cleanup_exc).__name__,
-                error_message=str(cleanup_exc),
-                session_id=session_id,
-                status="warning",
-            )
+        return outcome.as_dict()
 
     def _resolve_directory_tags(self, file_path: str) -> List[Tag]:
         if not self._tag_resolver:
@@ -534,14 +501,7 @@ class LocalImportFileImporter:
                 media, post_process_result or {}, outcome, file_context, session_id
             )
 
-        self._source_storage.remove(file_path)
-        self._logger.info(
-            "local_import.file.source_removed",
-            "取り込み完了後に元ファイルを削除",
-            **file_context,
-            session_id=session_id,
-            status="cleaned",
-        )
+        self._remove_source_file(file_path, file_context, session_id)
 
         outcome.details.update(
             {
@@ -706,3 +666,18 @@ class LocalImportFileImporter:
                 session_id=session_id,
                 status="warning",
             )
+
+    def _remove_source_file(
+        self,
+        file_path: str,
+        file_context: Dict[str, Any],
+        session_id: Optional[str],
+    ) -> None:
+        self._source_storage.remove(file_path)
+        self._logger.info(
+            "local_import.file.source_removed",
+            "取り込み完了後に元ファイルを削除",
+            **file_context,
+            session_id=session_id,
+            status="cleaned",
+        )

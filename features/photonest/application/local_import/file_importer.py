@@ -673,7 +673,29 @@ class LocalImportFileImporter:
         file_context: Dict[str, Any],
         session_id: Optional[str],
     ) -> None:
-        self._source_storage.remove(file_path)
+        try:
+            self._source_storage.remove(file_path)
+        except FileNotFoundError:
+            self._logger.info(
+                "local_import.file.source_missing",
+                "取り込み完了後に元ファイルが見つからず削除をスキップ",
+                **file_context,
+                session_id=session_id,
+                status="missing",
+            )
+            return
+        except OSError as remove_error:
+            self._logger.warning(
+                "local_import.file.source_remove_failed",
+                "取り込み完了後の元ファイル削除に失敗",
+                error_type=type(remove_error).__name__,
+                error_message=str(remove_error),
+                **file_context,
+                session_id=session_id,
+                status="warning",
+            )
+            return
+
         self._logger.info(
             "local_import.file.source_removed",
             "取り込み完了後に元ファイルを削除",

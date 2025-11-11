@@ -1110,6 +1110,21 @@ document.addEventListener('DOMContentLoaded', () => {
     return null;
   }
 
+  function stripLogDetailSuffix(message, detailsText) {
+    if (typeof message !== 'string' || !detailsText) {
+      return message;
+    }
+
+    const marker = ' | details=';
+    const markerIndex = message.lastIndexOf(marker);
+    if (markerIndex === -1) {
+      return message;
+    }
+
+    const prefix = message.slice(0, markerIndex);
+    return prefix.trimEnd();
+  }
+
   function renderSessionLogs(logs = [], options = {}) {
     if (!logSection || !logBody) {
       return;
@@ -1142,9 +1157,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const statusText = (log.status || '').toString();
       const statusBadgeClass = getStatusBadgeClass(statusText);
       const detailsText = formatLogDetails(log.details);
+      const displayMessage = stripLogDetailSuffix(log.message || '', detailsText);
 
       const messageHtml = [
-        escapeHtml(log.message || ''),
+        escapeHtml(displayMessage || ''),
         detailsText ? `<div class="text-muted small">${detailsText}</div>` : ''
       ].join('');
 

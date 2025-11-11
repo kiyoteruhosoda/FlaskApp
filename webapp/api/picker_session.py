@@ -32,6 +32,10 @@ from .concurrency import create_limiter, limit_concurrency
 from .openapi import json_request_body
 from .blueprint import AuthEnforcedBlueprint
 
+SESSION_LOG_DEFAULT_LIMIT = 100
+SESSION_LOG_MAX_LIMIT = 500
+
+
 bp = AuthEnforcedBlueprint('picker_session_api', __name__)
 
 
@@ -1107,7 +1111,7 @@ def api_picker_session_logs(session_id: str):
     limit: Optional[int]
 
     if limit_param is None or (isinstance(limit_param, str) and not limit_param.strip()):
-        limit = 200
+        limit = SESSION_LOG_DEFAULT_LIMIT
     elif isinstance(limit_param, str) and limit_param.strip().lower() in {"all", "full"}:
         limit = None
     else:
@@ -1117,9 +1121,9 @@ def api_picker_session_logs(session_id: str):
             limit_candidate = None
 
         if limit_candidate is None:
-            limit = 200
+            limit = SESSION_LOG_DEFAULT_LIMIT
         else:
-            limit = max(1, min(limit_candidate, 500))
+            limit = max(1, min(limit_candidate, SESSION_LOG_MAX_LIMIT))
 
     cursor_raw = request.args.get("cursor")
     after_raw = request.args.get("after") or request.args.get("since")

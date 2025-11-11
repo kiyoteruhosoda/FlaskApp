@@ -30,7 +30,13 @@
   <div id="session-info" class="text-muted mt-2">
     {{ _("Loading session info...") }}
   </div>
-  <div id="local-import-tasks" class="mt-3 d-none"></div>
+  <div id="local-import-tasks-container" class="mt-3 d-none table-loading-container">
+    <div id="local-import-tasks-loading" class="table-loading-overlay d-none" role="status" aria-live="polite">
+      <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+      <span class="visually-hidden">{{ _("Loading...") }}</span>
+    </div>
+    <div id="local-import-tasks"></div>
+  </div>
 </div>
 
 <div id="import-status" class="mt-3" aria-live="polite"></div>
@@ -73,7 +79,11 @@
       </div>
     </form>
   </div>
-  <div class="table-responsive">
+  <div id="selection-table-container" class="table-responsive table-loading-container">
+    <div id="selection-loading-overlay" class="table-loading-overlay d-none" role="status" aria-live="polite">
+      <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+      <span class="visually-hidden">{{ _("Loading...") }}</span>
+    </div>
     <table class="table table-sm">
       <thead>
         <tr>
@@ -135,7 +145,7 @@
         <i class="bi bi-download"></i> {{ _("Download full logs (ZIP)") }}
       </button>
     </div>
-    <div class="table-responsive">
+    <div id="local-import-log-table-container" class="table-responsive table-loading-container">
       <div id="local-import-log-filter" class="alert alert-info py-2 px-3 d-none" role="status">
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
           <div id="local-import-log-filter-text" class="small mb-0"></div>
@@ -143,6 +153,10 @@
             <i class="bi bi-x-circle"></i> {{ _("Show all logs") }}
           </button>
         </div>
+      </div>
+      <div id="local-import-log-loading-overlay" class="table-loading-overlay d-none" role="status" aria-live="polite">
+        <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+        <span class="visually-hidden">{{ _("Loading...") }}</span>
       </div>
       <table class="table table-sm mb-0">
       <thead>
@@ -220,11 +234,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const sessionTitleEl = document.getElementById('session-title');
   const sessionSubtitleEl = document.getElementById('session-subtitle');
   const localImportStatusEl = document.getElementById('local-import-status');
-  const localImportTasksEl = document.getElementById('local-import-tasks');
+  const localImportTasksContainer = document.getElementById('local-import-tasks-container');
+  const localImportTasksContent = document.getElementById('local-import-tasks');
+  const localImportTasksOverlay = document.getElementById('local-import-tasks-loading');
   const fileProgressSection = document.getElementById('local-import-file-progress');
   const fileProgressBody = document.getElementById('local-import-file-progress-body');
   const logSection = document.getElementById('local-import-logs-section');
   const logBody = document.getElementById('local-import-log-body');
+  const logTableContainer = document.getElementById('local-import-log-table-container');
+  const logLoadingOverlay = document.getElementById('local-import-log-loading-overlay');
   const logDownloadButton = document.getElementById('local-import-log-download');
   const logFilterNoticeEl = document.getElementById('local-import-log-filter');
   const logFilterNoticeTextEl = document.getElementById('local-import-log-filter-text');
@@ -244,6 +262,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const selectionFilterSearchBtn = document.getElementById('selection-filter-search-btn');
   const selectionFilterSearchSpinner = document.getElementById('selection-filter-search-spinner');
   const selectionFilterSearchBtnLabel = document.getElementById('selection-filter-search-btn-label');
+  const selectionTableContainer = document.getElementById('selection-table-container');
+  const selectionLoadingOverlay = document.getElementById('selection-loading-overlay');
   const filterStateApi = window.filterState || null;
   const SESSION_FILTER_SECTION = 'sessionDetail';
 
@@ -439,6 +459,57 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function setSelectionTableLoading(isLoading) {
+    if (!selectionTableContainer || !selectionLoadingOverlay) {
+      return;
+    }
+
+    selectionLoadingOverlay.classList.toggle('d-none', !isLoading);
+    selectionTableContainer.classList.toggle('table-loading-active', isLoading);
+
+    if (isLoading) {
+      selectionTableContainer.setAttribute('aria-busy', 'true');
+    } else {
+      selectionTableContainer.removeAttribute('aria-busy');
+    }
+  }
+
+  function setLogTableLoading(isLoading) {
+    if (!logTableContainer || !logLoadingOverlay) {
+      return;
+    }
+
+    logLoadingOverlay.classList.toggle('d-none', !isLoading);
+    logTableContainer.classList.toggle('table-loading-active', isLoading);
+
+    if (isLoading) {
+      logTableContainer.setAttribute('aria-busy', 'true');
+    } else {
+      logTableContainer.removeAttribute('aria-busy');
+    }
+  }
+
+  function setLocalImportTasksLoading(isLoading, options = {}) {
+    if (!localImportTasksContainer || !localImportTasksOverlay) {
+      return;
+    }
+
+    const { reveal = false } = options || {};
+
+    if (isLoading) {
+      if (reveal) {
+        localImportTasksContainer.classList.remove('d-none');
+      }
+      localImportTasksOverlay.classList.remove('d-none');
+      localImportTasksContainer.classList.add('table-loading-active');
+      localImportTasksContainer.setAttribute('aria-busy', 'true');
+    } else {
+      localImportTasksOverlay.classList.add('d-none');
+      localImportTasksContainer.classList.remove('table-loading-active');
+      localImportTasksContainer.removeAttribute('aria-busy');
+    }
+  }
+
   function getStatusBadgeClass(status) {
     switch (status) {
       case 'pending': return 'secondary';
@@ -546,18 +617,24 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderLocalImportTasks(stats = {}) {
-    if (!localImportTasksEl) {
+    if (!localImportTasksContainer || !localImportTasksContent) {
+      localImportTasksInitialized = true;
       return;
     }
 
     const tasks = Array.isArray(stats.tasks) ? stats.tasks : [];
+
     if (!isLocalImport || tasks.length === 0) {
-      localImportTasksEl.classList.add('d-none');
-      localImportTasksEl.innerHTML = '';
+      localImportTasksInitialized = true;
+      localImportTasksContent.innerHTML = '';
+      localImportTasksContainer.classList.add('d-none');
+      setLocalImportTasksLoading(false);
       return;
     }
 
-    localImportTasksEl.classList.remove('d-none');
+    localImportTasksInitialized = true;
+    localImportTasksContainer.classList.remove('d-none');
+    setLocalImportTasksLoading(false);
 
     const sections = tasks.map((task) => {
       const statusValue = (task.status || '').toString();
@@ -625,7 +702,7 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     });
 
-    localImportTasksEl.innerHTML = `<div class="d-flex flex-column gap-2">${sections.join('')}</div>`;
+    localImportTasksContent.innerHTML = `<div class="d-flex flex-column gap-2">${sections.join('')}</div>`;
   }
 
   function formatLogDetails(details) {
@@ -1301,6 +1378,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentCounts = {};
   let displayedSelectionCount = 0;
   let selectionRefreshStaging = null;
+  let localImportTasksInitialized = false;
 
   toggleLogDownloadButton(false);
 
@@ -1672,7 +1750,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  async function fetchSessionStatus() {
+  async function fetchSessionStatus(options = {}) {
+    const { showTaskSpinner = false } = options || {};
+
+    if (showTaskSpinner) {
+      const shouldReveal = isLocalImport || !localImportTasksInitialized;
+      setLocalImportTasksLoading(true, { reveal: shouldReveal });
+    }
+
     try {
       const resp = await window.apiClient.get(`/api/picker/session/${encodeURIComponent(pickerSessionId)}`);
       if (resp.status === 404) {
@@ -1697,6 +1782,10 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       console.warn('Failed to fetch session status:', error);
       return null;
+    } finally {
+      if (showTaskSpinner) {
+        setLocalImportTasksLoading(false);
+      }
     }
   }
 
@@ -1716,6 +1805,7 @@ document.addEventListener('DOMContentLoaded', () => {
       resetExisting = false,
       limit = LOG_PAGE_SIZE,
       fileTaskId = null,
+      showSpinner = false,
     } = options || {};
 
     if (isFetchingLogs) {
@@ -1745,6 +1835,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (appendOlder) {
       setLogPaginationLoading(true);
+    }
+
+    if (showSpinner) {
+      setLogTableLoading(true);
     }
 
     isFetchingLogs = true;
@@ -1846,6 +1940,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (appendOlder) {
         setLogPaginationLoading(false);
       }
+      if (showSpinner) {
+        setLogTableLoading(false);
+      }
       isFetchingLogs = false;
     }
   }
@@ -1908,27 +2005,47 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function refreshSelections(options = {}) {
-    const { forceReset = false, showSearchSpinner = false } = options || {};
+    const {
+      forceReset = false,
+      showSearchSpinner = false,
+      showSelectionSpinner,
+      showLogSpinner,
+      showTaskSpinner,
+    } = options || {};
+
+    const shouldShowSelectionSpinner = typeof showSelectionSpinner === 'boolean'
+      ? showSelectionSpinner
+      : (forceReset || !paginationClient);
+    const shouldShowLogSpinner = typeof showLogSpinner === 'boolean'
+      ? showLogSpinner
+      : (forceReset || logPaginationState.newestLoadedId === null);
+    const shouldShowTaskSpinner = typeof showTaskSpinner === 'boolean'
+      ? showTaskSpinner
+      : (forceReset || !localImportTasksInitialized);
+
     if (isRefreshing) {
       return;
     }
     if (showSearchSpinner) {
       setSelectionFilterSearchBusy(true);
     }
+    if (shouldShowSelectionSpinner) {
+      setSelectionTableLoading(true);
+    }
     isRefreshing = true;
     setSelectionSearchLoading(showSearchSpinner);
     try {
-      const sessionData = await fetchSessionStatus();
+      const sessionData = await fetchSessionStatus({ showTaskSpinner: shouldShowTaskSpinner });
       latestStatus = sessionData?.status || latestStatus;
       currentCounts = sessionData?.counts || currentCounts || {};
       updateCountsDisplay(currentCounts, latestStatus);
 
       if (forceReset) {
-        await fetchSessionLogs({ mode: 'initial', resetExisting: true });
+        await fetchSessionLogs({ mode: 'initial', resetExisting: true, showSpinner: shouldShowLogSpinner });
       } else if (logPaginationState.newestLoadedId !== null) {
-        await fetchSessionLogs({ mode: 'after', afterId: logPaginationState.newestLoadedId });
+        await fetchSessionLogs({ mode: 'after', afterId: logPaginationState.newestLoadedId, showSpinner: shouldShowLogSpinner });
       } else {
-        await fetchSessionLogs({ mode: 'initial', resetExisting: true });
+        await fetchSessionLogs({ mode: 'initial', resetExisting: true, showSpinner: shouldShowLogSpinner });
       }
       await fetchFileTasks();
 
@@ -2108,6 +2225,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (showSearchSpinner) {
         setSelectionFilterSearchBusy(false);
       }
+      if (shouldShowSelectionSpinner) {
+        setSelectionTableLoading(false);
+      }
     }
   }
 
@@ -2226,6 +2346,7 @@ document.addEventListener('DOMContentLoaded', () => {
         mode: 'older',
         cursor: cursorValue,
         appendOlder: true,
+        showSpinner: true,
       });
     });
   }

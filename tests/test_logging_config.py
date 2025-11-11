@@ -260,3 +260,4 @@ def test_worker_handler_extracts_fields_from_payload():
     # Ensure other fields remain untouched.
     assert message_payload["message"] == "Task finished"
     assert message_payload["status"] == "SUCCESS"
+

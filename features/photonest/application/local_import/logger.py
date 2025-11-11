@@ -77,6 +77,8 @@ class _LogSeverity(Enum):
         exc_info: bool,
     ) -> None:
         extra = {"event": event, "status": status, **payload}
+        if "_skip_worker_db" not in extra:
+            extra["_skip_worker_db"] = True
         if self is _LogSeverity.INFO:
             celery_logger.info(message, extra=extra)
         elif self is _LogSeverity.WARNING:

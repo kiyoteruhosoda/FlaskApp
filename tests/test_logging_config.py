@@ -260,3 +260,25 @@ def test_worker_handler_extracts_fields_from_payload():
     # Ensure other fields remain untouched.
     assert message_payload["message"] == "Task finished"
     assert message_payload["status"] == "SUCCESS"
+
+
+def test_worker_handler_skips_records_marked_for_omission(monkeypatch):
+    handler = WorkerDBLogHandler()
+    record = logging.LogRecord(
+        name="celery.task.local_import",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=42,
+        msg="{\"message\": \"skip\"}",
+        args=(),
+        exc_info=None,
+    )
+    record._skip_worker_db = True
+
+    def fail_resolve_engine(self):  # pragma: no cover - ensure emit exits early
+        raise AssertionError("emit should not attempt to resolve engine")
+
+    monkeypatch.setattr(WorkerDBLogHandler, "_resolve_engine", fail_resolve_engine)
+
+    # Should not raise even though resolving the engine would fail.
+    handler.emit(record)

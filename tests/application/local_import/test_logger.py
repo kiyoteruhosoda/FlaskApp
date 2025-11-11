@@ -58,7 +58,7 @@ def test_info_logs_to_task_and_celery(monkeypatch, task_logger, celery_logger) -
     )
     celery_logger.info.assert_called_once_with(
         expected_message,
-        extra={"event": "event", "status": "info", **payload},
+        extra={"event": "event", "status": "info", **payload, "_skip_worker_db": True},
     )
 
 
@@ -82,7 +82,7 @@ def test_warning_logs_with_custom_status(task_logger, celery_logger) -> None:
     )
     celery_logger.warning.assert_called_once_with(
         expected_message,
-        extra={"event": "event", "status": "custom", **payload},
+        extra={"event": "event", "status": "custom", **payload, "_skip_worker_db": True},
     )
 
 
@@ -112,7 +112,7 @@ def test_error_logs_and_propagates_exception(monkeypatch, task_logger, celery_lo
     )
     celery_logger.error.assert_called_once_with(
         expected_message,
-        extra={"event": "event", "status": "error", **payload},
+        extra={"event": "event", "status": "error", **payload, "_skip_worker_db": True},
         exc_info=True,
     )
 

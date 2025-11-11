@@ -272,11 +272,6 @@ class DBLogHandler(logging.Handler):
 class WorkerDBLogHandler(DBLogHandler):
     """Logging handler dedicated to persisting Celery worker logs."""
 
-    def emit(self, record: logging.LogRecord) -> None:
-        if getattr(record, "_skip_worker_db", False):
-            return
-        super().emit(record)
-
     def _get_log_model(self):
         from .models.worker_log import WorkerLog  # Local import to avoid circular dependencies
 

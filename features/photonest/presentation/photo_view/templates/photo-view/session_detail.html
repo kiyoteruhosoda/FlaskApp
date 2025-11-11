@@ -67,12 +67,6 @@
         </select>
       </div>
       <div class="col-12 col-md-2 col-lg-auto">
-        <button type="submit" id="selection-filter-search-btn" class="btn btn-outline-primary btn-sm w-100">
-          <span id="selection-filter-search-spinner" class="spinner-border spinner-border-sm align-text-bottom me-1 d-none" role="status" aria-hidden="true"></span>
-          <span id="selection-filter-search-btn-label">{{ _("Search") }}</span>
-        </button>
-      </div>
-      <div class="col-12 col-md-2 col-lg-auto">
         <button type="button" id="selection-filter-reset" class="btn btn-outline-secondary btn-sm w-100">
           <i class="bi bi-x-circle"></i> {{ _("Reset filters") }}
         </button>
@@ -392,7 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const taskHiddenEntriesLabel = '{{ _("Additional items hidden") }}';
 
   const noLogsMessage = '{{ _("No logs yet.") }}';
-  const LOG_PAGE_SIZE = 200;
+  const LOG_PAGE_SIZE = 100;
   const FILE_PROGRESS_MAX_ITEMS = 100;
 
   const localImportRunningMessage = '{{ _("Local import is running. You can stop it if needed.") }}';
@@ -425,22 +419,22 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function setSelectionFilterSearchBusy(isBusy) {
-    if (!selectionFilterSearchButton || !selectionFilterSearchSpinner || !selectionFilterSearchLabel) {
+    if (!selectionFilterSearchBtn || !selectionFilterSearchSpinner || !selectionFilterSearchBtnLabel) {
       return;
     }
 
     if (isBusy) {
       selectionFilterSearchSpinner.classList.remove('d-none');
-      selectionFilterSearchLabel.classList.add('d-none');
-      selectionFilterSearchButton.disabled = true;
-      selectionFilterSearchButton.classList.add('disabled');
-      selectionFilterSearchButton.setAttribute('aria-busy', 'true');
+      selectionFilterSearchBtnLabel.classList.add('d-none');
+      selectionFilterSearchBtn.disabled = true;
+      selectionFilterSearchBtn.classList.add('disabled');
+      selectionFilterSearchBtn.setAttribute('aria-busy', 'true');
     } else {
       selectionFilterSearchSpinner.classList.add('d-none');
-      selectionFilterSearchLabel.classList.remove('d-none');
-      selectionFilterSearchButton.disabled = false;
-      selectionFilterSearchButton.classList.remove('disabled');
-      selectionFilterSearchButton.removeAttribute('aria-busy');
+      selectionFilterSearchBtnLabel.classList.remove('d-none');
+      selectionFilterSearchBtn.disabled = false;
+      selectionFilterSearchBtn.classList.remove('disabled');
+      selectionFilterSearchBtn.removeAttribute('aria-busy');
     }
   }
 
@@ -786,35 +780,78 @@ document.addEventListener('DOMContentLoaded', () => {
     return source.filter((entry) => extractFileTaskIdFromLog(entry) === fileTaskId);
   }
 
+  function normalizeLogId(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed.length > 0) {
+        const parsed = Number.parseInt(trimmed, 10);
+        if (!Number.isNaN(parsed)) {
+          return parsed;
+        }
+      }
+    }
+    return null;
+  }
+
+  function buildLogFallbackKey(entry) {
+    if (!entry || typeof entry !== 'object') {
+      return '';
+    }
+    const createdAt = entry.createdAt ? new Date(entry.createdAt).getTime() : 0;
+    const event = entry.event || '';
+    const status = entry.status || '';
+    const message = entry.message || '';
+    const details = entry.details ? JSON.stringify(entry.details) : '';
+    return `${createdAt}|${event}|${status}|${message}|${details}`;
+  }
+
   function mergeLogs(existing = [], incoming = []) {
     const byId = new Map();
-    const withoutId = [];
+    const byFallbackKey = new Map();
 
     const addEntry = (entry) => {
       if (!entry || typeof entry !== 'object') {
         return;
       }
-      const rawId = entry.id;
-      if (typeof rawId === 'number' && Number.isFinite(rawId)) {
-        const previous = byId.get(rawId);
-        if (previous) {
-          byId.set(rawId, { ...previous, ...entry });
-        } else {
-          byId.set(rawId, entry);
-        }
-      } else {
-        withoutId.push(entry);
+
+      const normalizedId = normalizeLogId(entry.id);
+      if (normalizedId !== null) {
+        const previous = byId.get(normalizedId);
+        const merged = previous ? { ...previous, ...entry, id: normalizedId } : { ...entry, id: normalizedId };
+        byId.set(normalizedId, merged);
+        return;
       }
+
+      const fallbackKey = buildLogFallbackKey(entry);
+      if (!fallbackKey) {
+        return;
+      }
+      const previous = byFallbackKey.get(fallbackKey);
+      const merged = previous ? { ...previous, ...entry } : entry;
+      byFallbackKey.set(fallbackKey, merged);
     };
 
     existing.forEach(addEntry);
     incoming.forEach(addEntry);
 
-    const sorted = Array.from(byId.entries())
+    const sortedById = Array.from(byId.entries())
       .sort((a, b) => a[0] - b[0])
       .map(([, value]) => value);
 
-    return [...sorted, ...withoutId];
+    const fallbackEntries = Array.from(byFallbackKey.values())
+      .sort((a, b) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        if (timeA === timeB) {
+          return 0;
+        }
+        return timeA - timeB;
+      });
+
+    return [...sortedById, ...fallbackEntries];
   }
 
   function setLogPaginationLoading(isLoading) {
@@ -1813,7 +1850,7 @@ document.addEventListener('DOMContentLoaded', () => {
       setSelectionFilterSearchBusy(true);
     }
     isRefreshing = true;
-    setSelectionSearchLoading(true);
+    setSelectionSearchLoading(showSearchSpinner);
     try {
       const sessionData = await fetchSessionStatus();
       latestStatus = sessionData?.status || latestStatus;
@@ -2001,6 +2038,7 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error(err);
     } finally {
       isRefreshing = false;
+      setSelectionSearchLoading(false);
       if (showSearchSpinner) {
         setSelectionFilterSearchBusy(false);
       }
@@ -2012,28 +2050,19 @@ document.addEventListener('DOMContentLoaded', () => {
       event.preventDefault();
       syncSessionFiltersToHash();
       const submitter = event.submitter || document.activeElement;
-      const triggeredBySearchButton =
-        selectionFilterSearchButton && submitter === selectionFilterSearchButton;
-      refreshSelections({ forceReset: true, showSearchSpinner: Boolean(triggeredBySearchButton) });
+      const triggeredBySearchButton = Boolean(selectionFilterSearchBtn && submitter === selectionFilterSearchBtn);
+      const triggeredByInput = Boolean(selectionFilterSearchInput && submitter === selectionFilterSearchInput);
+      const shouldShowSpinner = triggeredBySearchButton || triggeredByInput;
+      refreshSelections({ forceReset: true, showSearchSpinner: shouldShowSpinner });
     });
   }
 
   // 検索ボタンクリック時に検索実行
   if (selectionFilterSearchBtn) {
-    selectionFilterSearchBtn.addEventListener('click', () => {
+    selectionFilterSearchBtn.addEventListener('click', (event) => {
+      event.preventDefault();
       syncSessionFiltersToHash();
-      refreshSelections({ forceReset: true });
-    });
-  }
-
-  // Enterキー押下時に検索実行
-  if (selectionFilterSearchInput) {
-    selectionFilterSearchInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        syncSessionFiltersToHash();
-        refreshSelections({ forceReset: true });
-      }
+      refreshSelections({ forceReset: true, showSearchSpinner: true });
     });
   }
 

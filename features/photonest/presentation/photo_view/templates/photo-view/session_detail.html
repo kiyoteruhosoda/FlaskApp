@@ -777,7 +777,36 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!fileTaskId) {
       return [...source];
     }
-    return source.filter((entry) => extractFileTaskIdFromLog(entry) === fileTaskId);
+
+    const uniqueById = new Set();
+    const uniqueByFallback = new Set();
+    const filtered = [];
+
+    source.forEach((entry) => {
+      if (extractFileTaskIdFromLog(entry) !== fileTaskId) {
+        return;
+      }
+
+      const normalizedId = normalizeLogId(entry?.id);
+      if (normalizedId !== null) {
+        if (uniqueById.has(normalizedId)) {
+          return;
+        }
+        uniqueById.add(normalizedId);
+        filtered.push(entry);
+        return;
+      }
+
+      const fallbackKey = buildLogFallbackKey(entry);
+      if (!fallbackKey || uniqueByFallback.has(fallbackKey)) {
+        return;
+      }
+
+      uniqueByFallback.add(fallbackKey);
+      filtered.push(entry);
+    });
+
+    return filtered;
   }
 
   function normalizeLogId(value) {

@@ -18,6 +18,7 @@ import pytest
 import webapp.config as config_module
 from webapp import create_app
 from webapp.extensions import db
+from webapp.api.picker_session import SESSION_LOG_DEFAULT_LIMIT
 from core.models.picker_session import PickerSession
 from core.models.photo_models import PickerSelection
 from core.models.log import Log
@@ -338,12 +339,14 @@ class TestSessionDetailAPI(AuthenticatedClientMixin):
 
         session_identifier = 'picker_sessions/paginated'
 
+        total_logs = 250
+
         with app.app_context():
             session = PickerSession(session_id=session_identifier, status='processing')
             db.session.add(session)
             db.session.commit()
 
-            for index in range(250):
+            for index in range(total_logs):
                 payload = {
                     'message': f'entry-{index}',
                     'session_id': session_identifier,
@@ -359,10 +362,13 @@ class TestSessionDetailAPI(AuthenticatedClientMixin):
 
             db.session.commit()
 
-        first_resp = client.get(f'/api/picker/session/{session_identifier}/logs?limit=200')
+        first_resp = client.get(
+            f'/api/picker/session/{session_identifier}/logs?limit={SESSION_LOG_DEFAULT_LIMIT}'
+        )
         assert first_resp.status_code == 200
         first_payload = first_resp.get_json()
-        assert len(first_payload['logs']) == 200
+        first_count = len(first_payload['logs'])
+        assert first_count == SESSION_LOG_DEFAULT_LIMIT
         assert first_payload['hasNext'] is True
         assert isinstance(first_payload['nextCursor'], int)
         assert first_payload['oldestLogId'] == first_payload['nextCursor']
@@ -370,13 +376,38 @@ class TestSessionDetailAPI(AuthenticatedClientMixin):
         next_cursor = first_payload['nextCursor']
 
         second_resp = client.get(
-            f'/api/picker/session/{session_identifier}/logs?limit=200&cursor={next_cursor}'
+            f'/api/picker/session/{session_identifier}/logs?'
+            f'limit={SESSION_LOG_DEFAULT_LIMIT}&cursor={next_cursor}'
         )
         assert second_resp.status_code == 200
         second_payload = second_resp.get_json()
-        assert len(second_payload['logs']) == 50
-        assert second_payload['hasNext'] is False
-        assert second_payload['nextCursor'] is None
+        second_count = len(second_payload['logs'])
+        expected_second = min(
+            SESSION_LOG_DEFAULT_LIMIT,
+            total_logs - first_count,
+        )
+        assert second_count == expected_second
+        remaining_after_second = total_logs - first_count - second_count
+
+        if remaining_after_second > 0:
+            assert second_payload['hasNext'] is True
+            assert isinstance(second_payload['nextCursor'], int)
+            assert second_payload['nextCursor'] != next_cursor
+
+            third_cursor = second_payload['nextCursor']
+            third_resp = client.get(
+                f'/api/picker/session/{session_identifier}/logs?'
+                f'limit={SESSION_LOG_DEFAULT_LIMIT}&cursor={third_cursor}'
+            )
+            assert third_resp.status_code == 200
+            third_payload = third_resp.get_json()
+            assert len(third_payload['logs']) == remaining_after_second
+            assert third_payload['hasNext'] is False
+            assert third_payload['nextCursor'] is None
+            assert third_payload['oldestLogId'] < third_cursor
+        else:
+            assert second_payload['hasNext'] is False
+            assert second_payload['nextCursor'] is None
         assert second_payload['oldestLogId'] < next_cursor
 
     def test_file_tasks_endpoint_returns_summary(self, app):

@@ -16,6 +16,10 @@ from core.models.google_account import GoogleAccount
 from core.settings import settings as app_settings
 
 from . import bp
+from webapp.api.picker_session import (
+    SESSION_LOG_DEFAULT_LIMIT,
+    SESSION_LOG_MAX_LIMIT,
+)
 from webapp.api.picker_session_service import PickerSessionService
 
 
@@ -110,7 +114,10 @@ def session_detail(session_id: str):
     """Render the detail page for a single picker session."""
 
     return render_template(
-        "photo-view/session_detail.html", picker_session_id=session_id
+        "photo-view/session_detail.html",
+        picker_session_id=session_id,
+        session_log_page_size=SESSION_LOG_DEFAULT_LIMIT,
+        session_log_max_limit=SESSION_LOG_MAX_LIMIT,
     )
 
 

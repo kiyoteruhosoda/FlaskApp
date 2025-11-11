@@ -1059,3 +1059,29 @@ body.login-page .login-card .language-selector {
     font-size: 1.05rem;
   }
 }
+
+.table-loading-container {
+  position: relative;
+}
+
+.table-loading-container.table-loading-active {
+  min-height: 120px;
+}
+
+.table-loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(var(--bs-body-bg-rgb, 255, 255, 255), 0.85);
+  backdrop-filter: blur(2px);
+  z-index: 10;
+  pointer-events: none;
+  color: var(--bs-body-color, #212529);
+}
+
+.table-loading-overlay .spinner-border {
+  width: 2rem;
+  height: 2rem;
+}

@@ -1708,6 +1708,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const cursorNumber = typeof cursor === 'number' ? cursor : Number.parseInt(cursor, 10);
     const afterNumber = typeof afterId === 'number' ? afterId : Number.parseInt(afterId, 10);
+    const previousNewestId = typeof logPaginationState.newestLoadedId === 'number'
+      ? logPaginationState.newestLoadedId
+      : null;
     const effectiveLimit = Number.isFinite(limit)
       ? Math.max(1, Math.min(limit, LOG_PAGE_MAX))
       : LOG_PAGE_SIZE;
@@ -1742,27 +1745,42 @@ document.addEventListener('DOMContentLoaded', () => {
       const logs = Array.isArray(payload.logs) ? payload.logs : [];
       const hasNext = Boolean(payload.hasNext);
       const nextCursor = typeof payload.nextCursor === 'number' ? payload.nextCursor : null;
-      const oldestId = typeof payload.oldestLogId === 'number'
+      const payloadOldestId = typeof payload.oldestLogId === 'number'
         ? payload.oldestLogId
         : (logs.length > 0 ? logs[0].id : null);
-      const newestId = typeof payload.newestLogId === 'number'
+      const payloadNewestId = typeof payload.newestLogId === 'number'
         ? payload.newestLogId
         : (logs.length > 0 ? logs[logs.length - 1].id : null);
+
+      let logsToMerge = logs;
+
+      if (!fileTaskId && mode === 'after' && Number.isFinite(previousNewestId)) {
+        logsToMerge = logs.filter((entry) => {
+          const normalizedId = normalizeLogId(entry?.id);
+          if (normalizedId === null) {
+            return true;
+          }
+          return normalizedId > previousNewestId;
+        });
+      }
+
+      const oldestId = normalizeLogId(payloadOldestId);
+      const newestId = normalizeLogId(payloadNewestId);
 
       if (resetExisting && !fileTaskId) {
         allLogsCache = [];
         resetLogPaginationState();
       }
 
-      if (logs.length > 0) {
-        allLogsCache = mergeLogs(allLogsCache, logs);
+      if (logsToMerge.length > 0) {
+        allLogsCache = mergeLogs(allLogsCache, logsToMerge);
       } else if (resetExisting && !fileTaskId) {
         allLogsCache = [];
       }
 
       if (!fileTaskId) {
         if (mode === 'older' || mode === 'initial') {
-          if (typeof oldestId === 'number' && Number.isFinite(oldestId)) {
+          if (oldestId !== null) {
             if (logPaginationState.oldestLoadedId === null || oldestId < logPaginationState.oldestLoadedId) {
               logPaginationState.oldestLoadedId = oldestId;
             }
@@ -1773,7 +1791,7 @@ document.addEventListener('DOMContentLoaded', () => {
             : null;
         }
 
-        if (typeof newestId === 'number' && Number.isFinite(newestId)) {
+        if (logsToMerge.length > 0 && newestId !== null) {
           if (logPaginationState.newestLoadedId === null || newestId > logPaginationState.newestLoadedId) {
             logPaginationState.newestLoadedId = newestId;
           }

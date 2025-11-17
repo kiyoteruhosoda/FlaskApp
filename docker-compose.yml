@@ -16,8 +16,10 @@ services:
         mkdir -p /host/data/tmp;
         mkdir -p /host/data/uploads;
         echo '[init] apply correct ownership';
-        chown -R 1000:1000 /host/data /host/db_data;
-        chmod -R 775 /host/data /host/db_data;
+        chown -R 999:999 /host/db_data;
+        chmod -R 770 /host/db_data;
+        chown -R 1000:1000 /host/data;
+        chmod -R 775 /host/data;
         echo '[init] done';
       "
     volumes:

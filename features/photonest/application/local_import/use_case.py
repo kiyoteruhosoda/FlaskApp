@@ -12,6 +12,13 @@ from core.models.photo_models import PickerSelection
 from features.photonest.domain.local_import.import_result import ImportTaskResult
 from .results import build_thumbnail_task_snapshot
 
+# Phase 2: 状態管理ログ統合
+from features.photonest.infrastructure.local_import.logging_integration import (
+    init_audit_logger,
+    log_with_audit,
+    log_performance,
+)
+
 
 class LocalImportUseCase:
     """ローカルインポート処理を調整するユースケース."""
@@ -40,6 +47,16 @@ class LocalImportUseCase:
         celery_task_id: Optional[str] = None,
         task_instance=None,
     ) -> Dict[str, Any]:
+        # Phase 2: 処理開始ログ
+        import time
+        start_time = time.perf_counter()
+        
+        log_with_audit(
+            "ローカルインポートタスク開始",
+            session_id=session_id,
+            celery_task_id=celery_task_id,
+        )
+        
         result = ImportTaskResult(
             session_id=session_id,
             celery_task_id=celery_task_id,
@@ -211,6 +228,30 @@ class LocalImportUseCase:
             )
 
         summary_payload = result.to_dict()
+
+        # Phase 2: 処理完了ログとパフォーマンス記録
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        
+        # エラーサマリーを作成（大量データ対策）
+        error_summary = self._create_error_summary(result)
+        
+        log_performance(
+            "local_import_task",
+            duration_ms,
+            session_id=result.session_id,
+            celery_task_id=celery_task_id,
+            total_files=result.processed,
+            success_count=result.success,
+            failed_count=result.failed,
+            error_summary=error_summary,
+        )
+        
+        log_with_audit(
+            f"ローカルインポートタスク完了: {result.success}成功, {result.failed}失敗",
+            session_id=result.session_id,
+            celery_task_id=celery_task_id,
+            error_count=error_summary.get("total_errors", 0),
+        )
 
         self._logger.info(
             "local_import.task.summary",
@@ -584,4 +625,57 @@ class LocalImportUseCase:
                 error_type=type(exc).__name__,
                 error_message=str(exc),
                 celery_task_id=celery_task_id,
-            )
+            )    
+    def _create_error_summary(self, result: ImportTaskResult) -> dict:
+        """エラーサマリーを作成（大量データ対策）
+        
+        Args:
+            result: インポート結果
+            
+        Returns:
+            dict: エラーサマリー（件数と代表例のみ）
+        """
+        from collections import Counter
+        
+        errors = result.failure_reasons if hasattr(result, 'failure_reasons') and result.failure_reasons else (
+            result.errors if hasattr(result, 'errors') and result.errors else []
+        )
+        
+        if not errors:
+            return {"total_errors": 0}
+        
+        # エラータイプを抽出して集計
+        error_types = []
+        for error in errors:
+            if isinstance(error, dict) and "type" in error:
+                error_types.append(error["type"])
+            elif isinstance(error, Exception):
+                error_types.append(type(error).__name__)
+            elif isinstance(error, str):
+                # 文字列の場合は先頭の単語を使用
+                error_types.append(error.split(":")[0] if ":" in error else "Unknown")
+            else:
+                error_types.append("Unknown")
+        
+        # 件数集計
+        error_type_counts = dict(Counter(error_types))
+        
+        # 代表的なエラーを最大5件まで保存
+        sample_errors = []
+        for error in errors[:5]:
+            if isinstance(error, dict):
+                sample_errors.append(error)
+            elif isinstance(error, Exception):
+                sample_errors.append({
+                    "type": type(error).__name__,
+                    "message": str(error),
+                })
+            else:
+                sample_errors.append({"message": str(error)})
+        
+        return {
+            "total_errors": len(errors),
+            "error_types": error_type_counts,
+            "sample_errors": sample_errors,
+            "_note": f"全{len(errors)}件中、代表例{len(sample_errors)}件のみ表示",
+        }

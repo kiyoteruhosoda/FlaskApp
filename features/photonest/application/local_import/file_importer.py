@@ -17,6 +17,14 @@ from features.photonest.domain.local_import.media_entities import (
 )
 from features.photonest.domain.local_import.media_file import MediaFileAnalysis
 
+# Phase 2: 状態管理ログ統合
+from features.photonest.infrastructure.local_import.logging_integration import (
+    log_file_operation,
+    log_duplicate_check,
+    log_error_with_actions,
+    log_performance,
+)
+
 
 class PlaybackError(RuntimeError):
     """ローカルインポート時の再生資産準備に失敗したことを表す."""
@@ -167,6 +175,11 @@ class LocalImportFileImporter:
         duplicate_regeneration: Optional[str] = None,
         file_task_id: Optional[str] = None,
     ) -> Dict[str, Any]:
+        # Phase 2: パフォーマンス計測開始
+        import time
+        start_time = time.perf_counter()
+        item_id = file_task_id or f"item_{hash(file_path)}"
+        
         source = ImportFile(file_path)
         outcome = ImportOutcome(
             source,
@@ -181,6 +194,15 @@ class LocalImportFileImporter:
         )
 
         file_context = file_log_context(file_path, file_task_id=file_task_id)
+
+        # Phase 2: ファイル処理開始ログ
+        log_file_operation(
+            "ファイル取り込み開始",
+            file_path=file_path,
+            operation="import",
+            session_id=session_id,
+            item_id=item_id,
+        )
 
         self._logger.info(
             "local_import.file.begin",
@@ -233,9 +255,20 @@ class LocalImportFileImporter:
                 return outcome.as_dict()
 
             analysis = self._analysis_service(file_path)
+            
+            # Phase 2: 重複チェックログ
             existing_media = self._duplicate_checker(analysis)
+            log_duplicate_check(
+                "重複チェック完了",
+                file_hash=analysis.hash if analysis else "",
+                match_type="exact" if existing_media else "none",
+                session_id=session_id,
+                item_id=item_id,
+                is_duplicate=bool(existing_media),
+            )
+            
             if existing_media:
-                return self._handle_duplicate(
+                result = self._handle_duplicate(
                     outcome,
                     existing_media,
                     file_context,
@@ -245,8 +278,18 @@ class LocalImportFileImporter:
                     session_id,
                     duplicate_regeneration,
                 )
+                # Phase 2: パフォーマンスログ（重複）
+                duration_ms = (time.perf_counter() - start_time) * 1000
+                log_performance(
+                    "file_import_duplicate",
+                    duration_ms,
+                    session_id=session_id,
+                    item_id=item_id,
+                    file_size_bytes=file_size,
+                )
+                return result
 
-            return self._store_new_media(
+            result = self._store_new_media(
                 outcome,
                 analysis,
                 file_context,
@@ -254,8 +297,51 @@ class LocalImportFileImporter:
                 originals_dir,
                 session_id,
             )
+            
+            # Phase 2: パフォーマンスログ（成功）
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            log_performance(
+                "file_import_success",
+                duration_ms,
+                session_id=session_id,
+                item_id=item_id,
+                file_size_bytes=file_size,
+            )
+            log_file_operation(
+                "ファイル取り込み完了",
+                file_path=file_path,
+                operation="import",
+                session_id=session_id,
+                item_id=item_id,
+            )
+            
+            return result
         except Exception as exc:
             self._db.session.rollback()
+            
+            # Phase 2: エラーログと推奨アクション
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            log_performance(
+                "file_import_failed",
+                duration_ms,
+                session_id=session_id,
+                item_id=item_id,
+            )
+            
+            from features.photonest.application.local_import.troubleshooting import (
+                TroubleshootingEngine,
+            )
+            engine = TroubleshootingEngine()
+            diagnosis = engine.diagnose(exc, {"file_path": file_path, "operation": "import"})
+            
+            log_error_with_actions(
+                f"ファイル取り込み失敗: {diagnosis.summary}",
+                error=exc,
+                recommended_actions=diagnosis.recommended_actions,
+                session_id=session_id,
+                item_id=item_id,
+            )
+            
             self._logger.error(
                 "local_import.file.failed",
                 "ローカルファイル取り込み中にエラーが発生",

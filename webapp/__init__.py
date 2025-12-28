@@ -898,6 +898,15 @@ def create_app():
 
     register_error_handlers(app)
 
+    # Local Import監査ロガー初期化
+    with app.app_context():
+        try:
+            from features.photonest.infrastructure.local_import.logging_integration import init_audit_logger
+            init_audit_logger()
+            app.logger.info("Local Import監査ロガーを初期化しました")
+        except Exception as e:
+            app.logger.warning(f"Local Import監査ロガー初期化をスキップしました: {e}")
+
     with app.app_context():
         smorest_api.spec.components.security_scheme(
             "JWTBearerAuth",
@@ -1192,6 +1201,10 @@ def create_app():
 
     from features.certs.presentation.api import certs_api_bp
     app.register_blueprint(certs_api_bp, url_prefix="/api")
+
+    # Local Import状態管理API
+    from features.photonest.presentation.local_import_status_api import bp as local_import_status_bp
+    app.register_blueprint(local_import_status_bp)
 
     # CLI コマンド登録
     register_cli_commands(app)

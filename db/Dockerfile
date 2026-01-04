@@ -2,7 +2,8 @@
 FROM mariadb:10.11
 
 # 初期SQLを公式の初期化ディレクトリにコピー
-COPY ./init /docker-entrypoint-initdb.d
+COPY ./init/ /docker-entrypoint-initdb.d/
+RUN chmod -R 644 /docker-entrypoint-initdb.d/*
 
 # タイムゾーンを固定（任意）
 ENV TZ=UTC

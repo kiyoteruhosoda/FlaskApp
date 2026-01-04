@@ -408,6 +408,55 @@ LOCK TABLES `log` WRITE;
 UNLOCK TABLES;
 
 --
+-- Table structure for table `local_import_audit_log`
+--
+
+DROP TABLE IF EXISTS `local_import_audit_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `local_import_audit_log` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `timestamp` DATETIME(6) NOT NULL DEFAULT UTC_TIMESTAMP(6),
+  `level` varchar(20) NOT NULL,
+  `category` varchar(50) NOT NULL,
+  `message` text NOT NULL,
+  `session_id` bigint(20) DEFAULT NULL,
+  `item_id` varchar(255) DEFAULT NULL,
+  `request_id` varchar(255) DEFAULT NULL,
+  `task_id` varchar(255) DEFAULT NULL,
+  `correlation_id` varchar(255) DEFAULT NULL,
+  `details` json DEFAULT NULL,
+  `error_type` varchar(255) DEFAULT NULL,
+  `error_message` text DEFAULT NULL,
+  `stack_trace` text DEFAULT NULL,
+  `recommended_actions` json DEFAULT NULL,
+  `duration_ms` float DEFAULT NULL,
+  `from_state` varchar(50) DEFAULT NULL,
+  `to_state` varchar(50) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_timestamp` (`timestamp`),
+  KEY `idx_level` (`level`),
+  KEY `idx_category` (`category`),
+  KEY `idx_session_id` (`session_id`),
+  KEY `idx_item_id` (`item_id`),
+  KEY `idx_request_id` (`request_id`),
+  KEY `idx_task_id` (`task_id`),
+  KEY `idx_session_timestamp` (`session_id`,`timestamp`),
+  KEY `idx_item_timestamp` (`item_id`,`timestamp`),
+  KEY `idx_level_category` (`level`,`category`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `local_import_audit_log`
+--
+
+LOCK TABLES `local_import_audit_log` WRITE;
+/*!40000 ALTER TABLE `local_import_audit_log` DISABLE KEYS */;
+/*!40000 ALTER TABLE `local_import_audit_log` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `media`
 --
 

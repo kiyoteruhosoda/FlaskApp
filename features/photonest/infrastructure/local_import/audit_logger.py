@@ -208,7 +208,8 @@ class AuditLogger:
                 "details": entry.details,
             },
         )
-        def _truncate_details(self, details: dict) -> dict:
+
+    def _truncate_details(self, details: dict) -> dict:
         """detailsを切り詰め（大量データ対策）
         
         Args:

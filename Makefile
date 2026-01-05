@@ -9,14 +9,16 @@ OUTPUT_TAR = photonest-latest.tar
 PLATFORM   = linux/amd64
 DB_IMAGE_NAME = photonest-db:latest
 DB_OUTPUT_TAR = photonest-db-latest.tar
+DOCKER_API_VERSION ?= 1.43
+DOCKER = DOCKER_API_VERSION=$(DOCKER_API_VERSION) docker
 
 build-db:
 	@echo "=== Build MariaDB with initial SQL ==="
-	docker buildx build \
+	$(DOCKER) buildx build \
 	  --platform linux/amd64 \
 	  -t $(DB_IMAGE_NAME) ./db \
 	  --load
-	docker save $(DB_IMAGE_NAME) -o $(DB_OUTPUT_TAR)
+	$(DOCKER) save $(DB_IMAGE_NAME) -o $(DB_OUTPUT_TAR)
 	chmod 644 $(DB_OUTPUT_TAR)
 	@echo "Build complete: $(DB_OUTPUT_TAR)"
 
@@ -34,7 +36,7 @@ BUILD_DATE       := $(shell date -Iseconds)
 build:
 	@set -e; \
 	echo "=== [1/4] Build & LOAD locally (for version check) ==="; \
-	docker buildx build \
+	$(DOCKER) buildx build \
       --network=host \
 	  --platform $(PLATFORM) \
 	  --build-arg COMMIT_HASH=$(COMMIT_HASH) \
@@ -45,10 +47,10 @@ build:
 	  -t $(IMAGE_NAME) . \
 	  --load; \
 	echo "=== [2/4] Show version.json (local image) ==="; \
-	JSON=$$(docker run --rm $(IMAGE_NAME) cat /app/core/version.json); \
+	JSON=$$($(DOCKER) run --rm $(IMAGE_NAME) cat /app/core/version.json); \
 	echo "$$JSON"; \
 	echo "=== [3/4] Export TAR artifact (docker save) ==="; \
-	docker save $(IMAGE_NAME) -o $(OUTPUT_TAR); \
+	$(DOCKER) save $(IMAGE_NAME) -o $(OUTPUT_TAR); \
 	chmod 644 $(OUTPUT_TAR); \
 	echo "=== [4/4] FINAL: Same version.json (from step 2) ==="; \
 	echo "$$JSON"; \
@@ -60,10 +62,10 @@ build:
 # TAR をロードしたイメージで version.json を表示（TAR 側の中身検証用）
 show-tar-version:
 	@echo "=== Verify version.json from TAR ==="
-	-@docker image rm -f $(IMAGE_NAME) >/dev/null 2>&1 || true
-	@IMG=$$(docker load -i $(OUTPUT_TAR) | awk -F': ' '/Loaded image:/ {print $$2}' | tail -n1); \
+	-@$(DOCKER) image rm -f $(IMAGE_NAME) >/dev/null 2>&1 || true
+	@IMG=$$($(DOCKER) load -i $(OUTPUT_TAR) | awk -F': ' '/Loaded image:/ {print $$2}' | tail -n1); \
 	  echo "Loaded: $$IMG"; \
-	  docker run --rm $$IMG cat /app/core/version.json
+	  $(DOCKER) run --rm $$IMG cat /app/core/version.json
 	@echo "===================================="
 
 load:
@@ -77,4 +79,4 @@ all: build build-db
 
 clean:
 	rm -f $(OUTPUT_TAR) $(DB_OUTPUT_TAR)
-	docker builder prune -f
+	$(DOCKER) builder prune -f

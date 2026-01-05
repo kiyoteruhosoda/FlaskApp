@@ -260,7 +260,8 @@ class AuditLogger:
             }
         
         return truncated
-        def log_state_transition(
+
+    def log_state_transition(
         self,
         from_state: str,
         to_state: str,

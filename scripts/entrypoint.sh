@@ -6,18 +6,37 @@ log()  { printf "\033[32m[entrypoint]\033[0m %s\n" "$*"; }
 warn() { printf "\033[33m[entrypoint][warn]\033[0m %s\n" "$*"; }
 err()  { printf "\033[31m[entrypoint][error]\033[0m %s\n" "$*"; }
 
-# ===== Directory prepare =====
-log "Ensuring /app/data directory structure"
+# ===== Mode selection =====
+MODE="${1:-web}"
 
-mkdir -p /app/data \
-         /app/data/backups \
-         /app/data/celery \
-         /app/data/media/local_import \
-         /app/data/media/originals \
-         /app/data/media/playback \
-         /app/data/media/thumbs \
-         /app/data/tmp \
-         /app/data/uploads
+# ===== Directory prepare =====
+ensure_directories() {
+  mode="$1"
+  case "$mode" in
+    web)
+      dirs="/app/data /app/data/backups /app/data/media/local_import \
+/app/data/media/originals /app/data/media/playback /app/data/media/thumbs \
+/app/data/tmp /app/data/uploads"
+      ;;
+    worker)
+      dirs="/app/data /app/data/media/local_import /app/data/media/originals \
+/app/data/media/playback /app/data/media/thumbs /app/data/tmp /app/data/uploads"
+      ;;
+    beat)
+      dirs="/app/data"
+      ;;
+    *)
+      dirs="/app/data"
+      ;;
+  esac
+
+  log "Ensuring /app/data directory structure for mode '$mode'"
+  for dir in $dirs; do
+    mkdir -p "$dir"
+  done
+}
+
+ensure_directories "$MODE"
 
 # ===== Permissions =====
 if [ -n "${PUID:-}" ] && [ -n "${PGID:-}" ]; then
@@ -62,7 +81,6 @@ if [ ! -f "$FLAG" ]; then
 fi
 
 # ===== Mode selection =====
-MODE="${1:-web}"
 shift || true
 
 case "$MODE" in

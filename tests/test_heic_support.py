@@ -19,6 +19,9 @@ from core.tasks.local_import import (
 from core.utils import get_file_date_from_exif
 
 
+pytestmark = [pytest.mark.integration, pytest.mark.filesystem]
+
+
 @pytest.fixture(autouse=True)
 def _ensure_heif_support() -> None:
     """Register the HEIF plugin for Pillow once per test session."""

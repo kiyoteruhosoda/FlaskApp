@@ -17,7 +17,7 @@ from core.models.photo_models import PickerSelection
 
 from features.photonest.domain.local_import.import_result import ImportTaskResult
 from features.photonest.domain.local_import.state_machine import SessionState, ItemState
-from features.photonest.infrastructure.local_import.repositories import (
+from features.photonest.infrastructure.local_import.state_repositories import (
     create_state_management_service,
 )
 from features.photonest.infrastructure.local_import.logging_integration import (

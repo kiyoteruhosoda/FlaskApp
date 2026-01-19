@@ -8,6 +8,8 @@ from typing import Dict, Iterable
 
 import pytest
 
+pytestmark = pytest.mark.unit  # アプリケーション層のユニットテスト
+
 from features.photonest.application.importing import (
     ImportApplicationService,
     ImportCommand,

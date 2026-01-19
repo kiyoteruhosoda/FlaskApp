@@ -17,7 +17,7 @@ from features.photonest.infrastructure.local_import.logging_integration import (
     log_file_operation,
     log_performance,
 )
-from features.photonest.infrastructure.local_import.repositories import (
+from features.photonest.infrastructure.local_import.state_repositories import (
     create_state_management_service,
 )
 

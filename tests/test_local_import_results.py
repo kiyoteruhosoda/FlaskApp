@@ -1,5 +1,9 @@
 """Tests for local import result helpers."""
 
+import pytest
+
+pytestmark = [pytest.mark.integration, pytest.mark.filesystem]
+
 from features.photonest.application.local_import.results import build_thumbnail_task_snapshot
 from webapp.extensions import db
 from core.models.picker_session import PickerSession

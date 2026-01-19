@@ -15,6 +15,11 @@ from unittest.mock import patch
 
 import pytest
 
+
+pytestmark = [pytest.mark.integration, pytest.mark.filesystem]
+
+import pytest
+
 import webapp.config as config_module
 from webapp import create_app
 from webapp.extensions import db

@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.unit
+
 from features.photonest.domain.local_import.import_result import ImportTaskResult
 
 

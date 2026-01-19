@@ -1,6 +1,8 @@
 import pytest
 from unittest.mock import MagicMock
 
+pytestmark = [pytest.mark.integration, pytest.mark.filesystem]
+
 from features.photonest.application.local_import.queue import LocalImportQueueProcessor
 from core.models.photo_models import Media, MediaItem, PickerSelection
 from core.models.picker_session import PickerSession

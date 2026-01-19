@@ -8,11 +8,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+pytestmark = pytest.mark.unit  # ファイルシステムに依存しないユニットテスト
+
 from features.photonest.domain.local_import.state_machine import (
     ItemState,
     SessionState,
     StateConsistencyValidator,
-    StateMachineError,
 )
 
 

@@ -8,6 +8,9 @@ from pillow_heif import register_heif_opener
 from core.tasks import picker_import_item
 
 
+pytestmark = [pytest.mark.integration, pytest.mark.filesystem]
+
+
 @pytest.fixture
 def picker_app(tmp_path):
     """Create an application instance configured for picker import tests."""

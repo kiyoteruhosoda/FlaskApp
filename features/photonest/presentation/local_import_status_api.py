@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-from flask import Blueprint, jsonify
-from flask_smorest import abort
+from flask import jsonify
+from flask_smorest import abort, Blueprint
 from marshmallow import Schema, fields
 
 from core.db import db
@@ -16,7 +16,7 @@ from features.photonest.infrastructure.local_import.audit_log_repository import 
     LogCategory,
     LogLevel,
 )
-from features.photonest.infrastructure.local_import.repositories import (
+from features.photonest.infrastructure.local_import.state_repositories import (
     create_state_management_service,
 )
 from features.photonest.application.local_import.troubleshooting import (

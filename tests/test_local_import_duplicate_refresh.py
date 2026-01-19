@@ -5,6 +5,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = [pytest.mark.integration, pytest.mark.filesystem]
+
 from webapp import create_app
 from core.tasks import local_import
 from core.tasks.local_import import import_single_file

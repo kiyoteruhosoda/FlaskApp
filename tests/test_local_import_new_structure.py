@@ -3,6 +3,8 @@ from __future__ import annotations
 import pytest
 from datetime import datetime, timezone
 
+pytestmark = pytest.mark.unit
+
 from features.photonest.domain.local_import.value_objects import (
     FileHash,
     ImportStatus,

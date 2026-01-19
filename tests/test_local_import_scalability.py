@@ -9,6 +9,8 @@ import json
 import pytest
 from unittest.mock import Mock, MagicMock
 
+pytestmark = pytest.mark.unit
+
 from features.photonest.infrastructure.local_import.audit_logger import (
     AuditLogger,
     AuditLogEntry,

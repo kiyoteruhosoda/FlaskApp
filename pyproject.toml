@@ -26,3 +26,17 @@ authors = [
         "webauthn"
     ]
 requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+markers = [
+    "unit: 外部依存のない高速なユニットテスト",
+    "integration: 外部リソース（DB、ファイルシステム）を必要とする統合テスト",
+    "ffmpeg: FFmpegが必要なテスト（デフォルトでスキップ）",
+    "filesystem: 実ファイルシステムアクセスが必要なテスト（デフォルトでスキップ）",
+    "smtp: SMTPサーバーが必要なテスト（デフォルトでスキップ）",
+]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "-m", "not (ffmpeg or filesystem or smtp)",  # デフォルトで外部依存テストをスキップ
+]

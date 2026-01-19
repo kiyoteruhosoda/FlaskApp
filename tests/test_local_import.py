@@ -21,6 +21,7 @@ sys.path.insert(0, '/home/kyon/myproject')
 from core.tasks.local_import import import_single_file, local_import_task, scan_import_directory
 
 
+pytestmark = [pytest.mark.integration, pytest.mark.filesystem]
 ffmpeg_missing = shutil.which("ffmpeg") is None
 
 

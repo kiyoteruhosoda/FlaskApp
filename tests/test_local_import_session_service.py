@@ -4,6 +4,9 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+
+pytestmark = pytest.mark.unit
+
 from sqlalchemy.exc import PendingRollbackError
 
 from features.photonest.domain.local_import.session import LocalImportSessionService

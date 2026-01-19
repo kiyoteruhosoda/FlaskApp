@@ -16,6 +16,9 @@ from core.tasks.local_import import import_single_file
 from core.tasks.thumbs_generate import PLAYBACK_NOT_READY_NOTES
 
 
+pytestmark = [pytest.mark.integration, pytest.mark.filesystem]
+
+
 def create_test_video(path: Path) -> None:
     """最小限のMP4ヘッダのみを持つテスト用動画ファイルを生成する。"""
 

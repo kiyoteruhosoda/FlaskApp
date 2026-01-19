@@ -7,10 +7,15 @@ import tempfile
 from pathlib import Path
 from datetime import datetime, timezone
 
+import pytest
+
 from webapp import create_app
 from core.tasks.picker_import import enqueue_media_playback
 from core.models.photo_models import Media, MediaPlayback
 from webapp.extensions import db
+
+
+pytestmark = [pytest.mark.integration, pytest.mark.ffmpeg, pytest.mark.filesystem]
 
 
 def create_test_video(path: Path) -> None:

@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from typing import Mapping
 
+import pytest
+
+pytestmark = pytest.mark.unit
+
 from features.photonest.domain.local_import.logging import LogEntry
 
 

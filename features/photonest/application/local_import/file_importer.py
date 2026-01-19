@@ -260,7 +260,7 @@ class LocalImportFileImporter:
             existing_media = self._duplicate_checker(analysis)
             log_duplicate_check(
                 "重複チェック完了",
-                file_hash=analysis.hash if analysis else "",
+                file_hash=analysis.file_hash if analysis else "",
                 match_type="exact" if existing_media else "none",
                 session_id=session_id,
                 item_id=item_id,

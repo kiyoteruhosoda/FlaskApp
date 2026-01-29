@@ -54,7 +54,12 @@ class BaseApplicationSettings:
             "max_overflow": 20,
         })
         if db_uri.startswith("mysql"):
-            SQLALCHEMY_ENGINE_OPTIONS["connect_args"] = {"connect_timeout": 10}
+            SQLALCHEMY_ENGINE_OPTIONS["connect_args"] = {
+                "connect_timeout": 10,
+                # クエリタイムアウトを60秒に設定（デフォルトは28800秒=8時間）
+                "read_timeout": 60,
+                "write_timeout": 60,
+            }
 
     # Google OAuth
     GOOGLE_CLIENT_ID = _default("GOOGLE_CLIENT_ID")

@@ -508,7 +508,32 @@ class InfiniteScrollHelper {
 
         // Trigger the initial load
         if (this.noMoreDataIndicator) this.noMoreDataIndicator.style.display = 'none';
-        return this.pagination.loadFirst(params);
+        
+        // Wrap loadFirst to check if viewport needs more items after each load
+        const checkAndLoadMore = async () => {
+            await this.pagination.loadFirst(params);
+            this._fillViewportIfNeeded(container, handler);
+        };
+        return checkAndLoadMore();
+    }
+
+    /**
+     * Fill viewport if content doesn't exceed the visible area
+     * This ensures infinite scroll works even on large screens
+     */
+    async _fillViewportIfNeeded(container, handler) {
+        // Wait a short time for DOM to update
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        const scrollHeight = container.scrollHeight;
+        const clientHeight = this.container === document.body ? window.innerHeight : container.clientHeight;
+        
+        // If content doesn't fill the viewport and more data is available, load more
+        if (scrollHeight <= clientHeight + this.threshold && !this.pagination.isLoading && this.pagination.hasNext) {
+            await this.pagination.loadNext();
+            // Recursively check again after loading more
+            this._fillViewportIfNeeded(container, handler);
+        }
     }
 
     /**

@@ -13,6 +13,7 @@ BigInt = db.BigInteger().with_variant(db.Integer, "sqlite")
 class WorkerLog(db.Model):
     __tablename__ = "worker_log"
     __table_args__ = (
+        db.Index("ix_worker_log_event", "event"),
         db.Index("ix_worker_log_file_task_id", "file_task_id"),
         db.Index(
             "ix_worker_log_file_task_id_progress_step",

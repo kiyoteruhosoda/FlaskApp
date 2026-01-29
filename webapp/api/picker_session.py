@@ -564,42 +564,36 @@ def _collect_local_import_logs(
         if not normalized_aliases:
             return worker_query
 
+        # 最も一般的に使用されるJSONパスのみに絞る
         json_paths = [
             "$.session_id",
             "$.sessionId",
-            "$.session_identifier",
-            "$.sessionIdentifier",
-            "$.session_key",
-            "$.sessionKey",
-            "$.session_db_id",
-            "$.active_session_id",
-            "$.target_session_id",
             "$.import_session_id",
-            "$.importSessionId",
             "$.picker_session_id",
-            "$.pickerSessionId",
-            "$.session.session_id",
-            "$.session.sessionId",
-            "$.session.session_key",
-            "$.session.sessionKey",
-            "$.session.id",
         ]
 
         filters = []
         for alias in normalized_aliases:
+            # メッセージ内の文字列検索
             filters.append(WorkerLog.message.contains(alias))
-            alias_json = func.json_quote(alias)
-            alias_numeric: Optional[int]
+            
+            # 数値IDかどうかチェック
+            alias_numeric: Optional[int] = None
             try:
                 alias_numeric = int(alias)
             except (TypeError, ValueError):
-                alias_numeric = None
+                pass
+            
+            # JSONフィールド検索 - 効率化のため条件を絞る
             for column in (WorkerLog.extra_json, WorkerLog.meta_json):
                 for path in json_paths:
                     json_expr = func.json_extract(column, path)
-                    filters.append(json_expr == alias_json)
                     if alias_numeric is not None:
+                        # 数値IDの場合は数値比較のみ
                         filters.append(json_expr == alias_numeric)
+                    else:
+                        # 文字列IDの場合はJSON引用形式での比較
+                        filters.append(json_expr == func.json_quote(alias))
 
         if filters:
             worker_query = worker_query.filter(or_(*filters))
@@ -634,10 +628,14 @@ def _collect_local_import_logs(
     bounded_limit: Optional[int] = None
 
     if limit is None:
-        query = query.order_by(WorkerLog.id.asc())
+        # limit未指定の場合は最大件数を設定して暴走を防ぐ
+        query = query.order_by(WorkerLog.id.asc()).limit(10000)
     else:
-        scan_multiplier = 5 if file_task_id_index is None else 10
-        bounded_limit = max(limit * scan_multiplier, limit)
+        # scan_multiplierを小さくして負荷を軽減
+        scan_multiplier = 3 if file_task_id_index is None else 5
+        bounded_limit = max(limit * scan_multiplier, limit, 100)
+        # 最大5000件に制限
+        bounded_limit = min(bounded_limit, 5000)
         query = query.order_by(WorkerLog.id.desc()).limit(bounded_limit)
 
     def _transform_row(row):

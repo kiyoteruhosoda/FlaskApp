@@ -1945,7 +1945,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const paginationClient = new PaginationClient({
       baseUrl: '/api/media',
-      pageSize: 24,
+      pageSize: 100,
       parameters: parameters,
       onItemsLoaded: (items, meta) => {
         if (meta.isFirstPage) {

@@ -7,7 +7,7 @@ from flask_smorest import Page
 from marshmallow import Schema, fields
 
 from core.settings import settings
-from webapp.utils.auth import require_roles
+from core.models.authz import require_perms
 
 __all__ = ["bp"]
 
@@ -38,7 +38,7 @@ class CDNConfigValidationSchema(Schema):
 
 @bp.get("/status")
 @bp.response(200, CDNStatusSchema)
-@require_roles("admin")
+@require_perms("admin")
 def get_cdn_status():
     """CDN機能の現在の状態を取得."""
     # Azure CDN設定のチェック
@@ -76,7 +76,7 @@ def get_cdn_status():
 
 @bp.get("/validate-config")
 @bp.response(200, CDNConfigValidationSchema)
-@require_roles("admin")
+@require_perms("admin")
 def validate_cdn_config():
     """現在のCDN設定を検証."""
     provider = settings.cdn_provider

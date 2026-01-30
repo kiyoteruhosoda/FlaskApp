@@ -1,102 +1,25 @@
-# ===== ベースを可変に =====
-ARG BUILDER_BASE=public.ecr.aws/docker/library/python:3.11-slim
-ARG RUNTIME_BASE=public.ecr.aws/docker/library/python:3.11-slim
+# For more information, please refer to https://aka.ms/vscode-docker-python
+FROM python:3-slim
 
-# ========= ビルドステージ =========
-FROM ${BUILDER_BASE} AS builder
+EXPOSE 5002
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+# Keeps Python from generating .pyc files in the container
+ENV PYTHONDONTWRITEBYTECODE=1
 
-WORKDIR /app
+# Turns off buffering for easier container logging
+ENV PYTHONUNBUFFERED=1
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    default-libmysqlclient-dev \
-    pkg-config \
-    git \
-  && rm -rf /var/lib/apt/lists/*
-
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-
-# version.json を生成するために最低限必要なファイルだけ
-COPY scripts/ ./scripts/
-COPY core/ ./core/
-
-ARG COMMIT_HASH=unknown
-ARG COMMIT_HASH_FULL=unknown
-ARG BRANCH=unknown
-ARG COMMIT_DATE=unknown
-ARG BUILD_DATE=unknown
-
-RUN echo "{" \
-        "\"version\": \"${COMMIT_HASH}-${BRANCH}\"," \
-        "\"commit_hash\": \"${COMMIT_HASH}\"," \
-        "\"commit_hash_full\": \"${COMMIT_HASH_FULL}\"," \
-        "\"branch\": \"${BRANCH}\"," \
-        "\"commit_date\": \"${COMMIT_DATE}\"," \
-        "\"build_date\": \"${BUILD_DATE}\"" \
-    "}"> core/version.json
-
-
-# ========= 実行ステージ =========
-FROM ${RUNTIME_BASE}
-
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    FLASK_APP=wsgi.py \
-    FLASK_ENV=production \
-    PYTHONPATH=/app \
-    API_BASE_URL=http://localhost:5000
+# Install pip requirements
+COPY requirements.txt .
+RUN python -m pip install -r requirements.txt
 
 WORKDIR /app
+COPY . /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libmariadb3 \
-    mariadb-client \
-    curl \
-    procps \
-    ffmpeg \
-  && rm -rf /var/lib/apt/lists/*
-
-ARG APP_UID=1000
-ARG APP_GID=1000
-
-RUN groupadd -g ${APP_GID} -r appuser \
- && useradd  -u ${APP_UID} -r -g appuser appuser
-
-COPY --from=builder /usr/local /usr/local
-
-# アプリ本体コピー
-COPY --chown=appuser:appuser wsgi.py ./wsgi.py
-COPY --chown=appuser:appuser application/ ./application/
-COPY --chown=appuser:appuser cli/ ./cli/
-COPY --chown=appuser:appuser core/ ./core/
-COPY --chown=appuser:appuser domain/ ./domain/
-COPY --chown=appuser:appuser features/ ./features/
-COPY --chown=appuser:appuser flask_smorest/ ./flask_smorest/
-COPY --chown=appuser:appuser infrastructure/ ./infrastructure/
-COPY --chown=appuser:appuser shared/ ./shared/
-COPY --chown=appuser:appuser webapp/ ./webapp/
-
-# version.jsonはbuilderから
-COPY --from=builder --chown=appuser:appuser /app/core/version.json /app/core/version.json
-
-# compile translations (optional but faster startup)
-RUN python -m compileall webapp/translations/ || true
-
-# (デフォルト動作用) コンテナ側に最低限の data ルートだけ用意
-RUN mkdir -p /app/data \
- && chown -R appuser:appuser /app/data
-
-# Add entrypoint script
-COPY --chown=appuser:appuser scripts/entrypoint.sh /script/entrypoint.sh
-RUN chmod +x /script/entrypoint.sh
-
+# Creates a non-root user with an explicit UID and adds permission to access the /app folder
+# For more info, please refer to https://aka.ms/vscode-docker-python-configure-containers
+RUN adduser -u 5678 --disabled-password --gecos "" appuser && chown -R appuser /app
 USER appuser
 
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-  CMD sh -c 'BASE="${API_BASE_URL:-http://localhost:5000}"; BASE="${BASE%/}"; curl -fsS "$BASE/health/live" || exit 1'
-
-EXPOSE 5000
+# During debugging, this entry point will be overridden. For more information, please refer to https://aka.ms/vscode-docker-python-debug
+CMD ["gunicorn", "--bind", "0.0.0.0:5002", "wsgi:app"]

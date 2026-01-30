@@ -268,7 +268,7 @@ class ExternalRestStorageService(_UnimplementedStorageService):
 
 _KNOWN_SPECS: tuple[_StorageSpec, ...] = (
     _StorageSpec(
-        domain=StorageDomain.MEDIA_ORIGINALS,
+        domain=StorageDomain.MEDIA,
         config_key="MEDIA_ORIGINALS_DIRECTORY",
         env_fallbacks=(
             "MEDIA_ORIGINALS_DIRECTORY",
@@ -276,7 +276,7 @@ _KNOWN_SPECS: tuple[_StorageSpec, ...] = (
         defaults=("/app/data/media",),
     ),
     _StorageSpec(
-        domain=StorageDomain.MEDIA_PLAYBACK,
+        domain=StorageDomain.MEDIA,
         config_key="MEDIA_PLAYBACK_DIRECTORY",
         env_fallbacks=(
             "MEDIA_PLAYBACK_DIRECTORY",
@@ -284,7 +284,7 @@ _KNOWN_SPECS: tuple[_StorageSpec, ...] = (
         defaults=("/app/data/playback",),
     ),
     _StorageSpec(
-        domain=StorageDomain.MEDIA_THUMBNAILS,
+        domain=StorageDomain.THUMBNAILS,
         config_key="MEDIA_THUMBNAILS_DIRECTORY",
         env_fallbacks=(
             "MEDIA_THUMBNAILS_DIRECTORY",
@@ -292,7 +292,7 @@ _KNOWN_SPECS: tuple[_StorageSpec, ...] = (
         defaults=("/app/data/thumbs",),
     ),
     _StorageSpec(
-        domain=StorageDomain.MEDIA_IMPORT,
+        domain=StorageDomain.TEMP,
         config_key="MEDIA_LOCAL_IMPORT_DIRECTORY",
         env_fallbacks=(
             "MEDIA_LOCAL_IMPORT_DIRECTORY",

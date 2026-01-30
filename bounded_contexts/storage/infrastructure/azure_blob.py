@@ -31,6 +31,9 @@ class AzureBlobStorage:
     
     def initialize(self, configuration: StorageConfiguration) -> None:
         """Azure Blob Storageクライアントを初期化."""
+        # ImportErrorを避けるために、グローバル宣言を最初に
+        global BlobServiceClient, ResourceExistsError, ResourceNotFoundError, HttpResponseError
+        
         try:
             # azure-storage-blobが利用可能な場合のみインポート
             from azure.core.exceptions import (
@@ -39,9 +42,6 @@ class AzureBlobStorage:
                 HttpResponseError,
             )
             from azure.storage.blob import BlobServiceClient
-            
-            # ImportErrorを避けるために、モジュールレベルで定義
-            global BlobServiceClient, ResourceExistsError, ResourceNotFoundError, HttpResponseError
             
             self._configuration = configuration
             
@@ -69,10 +69,11 @@ class AzureBlobStorage:
             except ResourceExistsError:
                 pass  # 既に存在する場合は無視
                 
-        except ImportError:
+        except ImportError as import_error:
             raise StorageException(
-                "azure-storage-blobパッケージがインストールされていません。"
-                "pip install azure-storage-blob"
+                f"Azure Blob Storage初期化エラー: 必要なパッケージが正しくインストールされていません。\n"
+                f"詳細: {import_error}\n"
+                f"requirements.txtの依存関係を確認してください。"
             )
         except Exception as e:
             raise StorageException(f"Azure Blob Storage初期化エラー: {e}")
@@ -302,10 +303,16 @@ class AzureBlobStorage:
         return quote(full_path, safe="/")
 
 
-# Type hint用のAny（azure-storage-blobがなくても型エラーを回避）
+# オプショナル依存の型とクラスを初期化
+BlobServiceClient = None
+ResourceExistsError = None
+ResourceNotFoundError = None
+HttpResponseError = None
+
+# Type hint用（azure-storage-blobがなくても型エラーを回避）
 try:
     from typing import TYPE_CHECKING
     if TYPE_CHECKING:
-        from azure.storage.blob import BlobServiceClient, ContainerClient
+        from azure.storage.blob import BlobServiceClient as _BlobServiceClient, ContainerClient
 except ImportError:
     from typing import Any

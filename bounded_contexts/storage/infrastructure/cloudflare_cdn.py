@@ -142,4 +142,197 @@ class CloudFlareCDN:
             # パージリクエストを構築
             if purge_request.purge_type == "url":
                 # 完全URLでパージ
-                purge_urls = []\n                for path in purge_request.paths:\n                    if path.startswith('http'):\n                        purge_urls.append(path)\n                    else:\n                        purge_urls.append(f\"https://{self._origin_hostname}/{path}\")\n                \n                # CloudFlare Purge APIペイロード\n                payload = {\n                    \"files\": purge_urls\n                }\n            elif purge_request.purge_type == \"prefix\":\n                # プレフィックスでパージ\n                payload = {\n                    \"prefixes\": purge_request.paths\n                }\n            elif purge_request.purge_type == \"tag\":\n                # キャッシュタグでパージ\n                payload = {\n                    \"tags\": purge_request.paths\n                }\n            else:\n                raise StorageException(f\"未対応のパージタイプ: {purge_request.purge_type}\")\n            \n            # 実際のHTTPリクエストは省略（requests等を使用）\n            # POST https://api.cloudflare.com/client/v4/zones/{zone_id}/purge_cache\n            \n            # パージジョブIDを生成（模擬）\n            import uuid\n            purge_job_id = str(uuid.uuid4())\n            \n            logger.info(f\"CloudFlare CDNパージ完了: job_id={purge_job_id}\")\n            return purge_job_id\n            \n        except Exception as e:\n            raise StorageException(f\"CDNキャッシュパージエラー: {e}\")\n    \n    def get_cache_status(self, path: StoragePath) -> str:\n        \"\"\"キャッシュステータスを取得（HIT/MISS/BYPASS）.\"\"\"\n        try:\n            # CloudFlare Analytics APIを使用してキャッシュステータスを取得\n            logger.info(f\"CloudFlare CDNキャッシュステータス取得: {path.relative_path}\")\n            \n            # 模擬的なキャッシュステータス\n            # 実際の実装では Analytics API レスポンスから取得\n            return \"HIT\"  # HIT, MISS, BYPASS, EXPIRED, STALE\n            \n        except Exception as e:\n            logger.warning(f\"CDNキャッシュステータス取得エラー: {e}\")\n            return \"UNKNOWN\"\n    \n    def update_cdn_configuration(self, config: CDNConfiguration) -> None:\n        \"\"\"CDN設定を更新.\"\"\"\n        if not self._zone_id or not self._api_token:\n            raise StorageException(\"CDNが初期化されていません\")\n        \n        try:\n            # CloudFlare Zone Settings APIで設定を更新\n            logger.info(f\"CloudFlare CDN設定更新: cache_ttl={config.cache_ttl}\")\n            \n            # キャッシュ設定の更新\n            cache_settings = {\n                \"browser_cache_ttl\": config.cache_ttl,\n                \"edge_cache_ttl\": config.cache_ttl,\n            }\n            \n            # 圧縮設定\n            if config.enable_gzip:\n                compression_settings = {\n                    \"gzip\": \"on\",\n                }\n            if config.enable_brotli:\n                compression_settings[\"brotli\"] = \"on\"\n            \n            # 実際のAPIコールは省略（requests等を使用）\n            # PATCH https://api.cloudflare.com/client/v4/zones/{zone_id}/settings/\n            \n        except Exception as e:\n            raise StorageException(f\"CDN設定更新エラー: {e}\")\n    \n    def get_analytics(\n        self, \n        path_prefix: StoragePath,\n        start_time: str,\n        end_time: str,\n    ) -> Iterator[CDNAnalytics]:\n        \"\"\"CDNアナリティクスデータを取得.\"\"\"\n        if not self._zone_id or not self._api_token:\n            raise StorageException(\"CDNが初期化されていません\")\n        \n        try:\n            # CloudFlare Analytics APIからデータを取得\n            logger.info(f\"CloudFlare CDNアナリティクス取得: {path_prefix.relative_path} ({start_time} - {end_time})\")\n            \n            # 模擬的なアナリティクスデータ\n            # 実際の実装では CloudFlare Analytics API を使用\n            yield CDNAnalytics(\n                path=path_prefix,\n                requests_count=2500,\n                cache_hit_ratio=0.92,\n                bandwidth_bytes=1024 * 1024 * 80,  # 80MB\n                response_time_ms=18.2,\n                status_codes={200: 2350, 404: 100, 500: 50},\n                edge_locations={\"Tokyo\": 1200, \"Seoul\": 800, \"Singapore\": 500},\n                period_start=start_time,\n                period_end=end_time,\n            )\n            \n        except Exception as e:\n            raise StorageException(f\"CDNアナリティクス取得エラー: {e}\")\n    \n    def prefetch_content(self, paths: list[StoragePath]) -> None:\n        \"\"\"コンテンツをCDNエッジに事前フェッチ.\"\"\"\n        if not self._zone_id or not self._api_token:\n            raise StorageException(\"CDNが初期化されていません\")\n        \n        try:\n            # CloudFlareのPrefetch APIを使用\n            logger.info(f\"CloudFlare CDNプリフェッチ開始: {len(paths)} files\")\n            \n            prefetch_urls = []\n            for path in paths:\n                cdn_url = self.get_cdn_url(path)\n                prefetch_urls.append(cdn_url)\n            \n            # プリフェッチリクエストを送信（実装省略）\n            # 実際の実装では HTTP リクエストでエッジキャッシュを温める\n            \n            for url in prefetch_urls:\n                logger.info(f\"CDNプリフェッチ: {url}\")\n            \n        except Exception as e:\n            raise StorageException(f\"CDNプリフェッチエラー: {e}\")\n    \n    def upload_to_origin_and_invalidate(\n        self, \n        path: StoragePath, \n        content: bytes,\n    ) -> StorageMetadata:\n        \"\"\"オリジンにアップロードしてCDNキャッシュを無効化.\"\"\"\n        if not self._origin_storage:\n            raise StorageException(\"オリジンストレージが設定されていません\")\n        \n        try:\n            # 1. オリジンストレージにアップロード\n            self._origin_storage.write(path, content)\n            metadata = self._origin_storage.get_metadata(path)\n            \n            # 2. CDNキャッシュを無効化\n            cdn_url = self.get_cdn_url(path)\n            purge_request = CDNPurgeRequest(\n                paths=[cdn_url],\n                purge_type=\"url\",\n                priority=1,\n            )\n            self.purge_cache(purge_request)\n            \n            # 3. CDN URLをメタデータに追加\n            return StorageMetadata(\n                path=metadata.path,\n                size=metadata.size,\n                content_type=metadata.content_type,\n                etag=metadata.etag,\n                last_modified=metadata.last_modified,\n                custom_metadata=metadata.custom_metadata,\n                cdn_url=cdn_url,\n                cache_status=\"PURGED\",\n            )\n            \n        except Exception as e:\n            raise StorageException(f\"オリジンアップロード+CDN無効化エラー: {e}\")\n    \n    def delete_from_origin_and_purge(self, path: StoragePath) -> None:\n        \"\"\"オリジンから削除してCDNキャッシュをパージ.\"\"\"\n        if not self._origin_storage:\n            raise StorageException(\"オリジンストレージが設定されていません\")\n        \n        try:\n            # 1. オリジンストレージから削除\n            self._origin_storage.delete(path)\n            \n            # 2. CDNキャッシュをパージ\n            cdn_url = self.get_cdn_url(path)\n            purge_request = CDNPurgeRequest(\n                paths=[cdn_url],\n                purge_type=\"url\",\n                priority=1,\n            )\n            self.purge_cache(purge_request)\n            \n            logger.info(f\"オリジン削除+CDNパージ完了: {path.relative_path}\")\n            \n        except Exception as e:\n            raise StorageException(f\"オリジン削除+CDNパージエラー: {e}\")
+                purge_urls = []
+                for path in purge_request.paths:
+                    if path.startswith('http'):
+                        purge_urls.append(path)
+                    else:
+                        purge_urls.append(f"https://{self._origin_hostname}/{path}")
+                
+                # CloudFlare Purge APIペイロード
+                payload = {
+                    "files": purge_urls
+                }
+            elif purge_request.purge_type == "prefix":
+                # プレフィックスでパージ
+                payload = {
+                    "prefixes": purge_request.paths
+                }
+            elif purge_request.purge_type == "tag":
+                # キャッシュタグでパージ
+                payload = {
+                    "tags": purge_request.paths
+                }
+            else:
+                raise StorageException(f"未対応のパージタイプ: {purge_request.purge_type}")
+            
+            # 実際のHTTPリクエストは省略（requests等を使用）
+            # POST https://api.cloudflare.com/client/v4/zones/{zone_id}/purge_cache
+            
+            # パージジョブIDを生成（模擬）
+            import uuid
+            purge_job_id = str(uuid.uuid4())
+            
+            logger.info(f"CloudFlare CDNパージ完了: job_id={purge_job_id}")
+            return purge_job_id
+            
+        except Exception as e:
+            raise StorageException(f"CDNキャッシュパージエラー: {e}")
+    
+    def get_cache_status(self, path: StoragePath) -> str:
+        """""キャッシュステータスを取得（HIT/MISS/BYPASS）."""""
+        try:
+            # CloudFlare Analytics APIを使用してキャッシュステータスを取得
+            logger.info(f"CloudFlare CDNキャッシュステータス取得: {path.relative_path}")
+            
+            # 模擬的なキャッシュステータス
+            # 実際の実装では Analytics API レスポンスから取得
+            return "HIT"  # HIT, MISS, BYPASS, EXPIRED, STALE
+            
+        except Exception as e:
+            logger.warning(f"CDNキャッシュステータス取得エラー: {e}")
+            return "UNKNOWN"
+    
+    def update_cdn_configuration(self, config: CDNConfiguration) -> None:
+        """""CDN設定を更新."""""
+        if not self._zone_id or not self._api_token:
+            raise StorageException("CDNが初期化されていません")
+        
+        try:
+            # CloudFlare Zone Settings APIで設定を更新
+            logger.info(f"CloudFlare CDN設定更新: cache_ttl={config.cache_ttl}")
+            
+            # キャッシュ設定の更新
+            cache_settings = {
+                "browser_cache_ttl": config.cache_ttl,
+                "edge_cache_ttl": config.cache_ttl,
+            }
+            
+            # 圧縮設定
+            if config.enable_gzip:
+                compression_settings = {
+                    "gzip": "on",
+                }
+            if config.enable_brotli:
+                compression_settings["brotli"] = "on"
+            
+            # 実際のAPIコールは省略（requests等を使用）
+            # PATCH https://api.cloudflare.com/client/v4/zones/{zone_id}/settings/
+            
+        except Exception as e:
+            raise StorageException(f"CDN設定更新エラー: {e}")
+    
+    def get_analytics(
+        self, 
+        path_prefix: StoragePath,
+        start_time: str,
+        end_time: str,
+    ) -> Iterator[CDNAnalytics]:
+        """""CDNアナリティクスデータを取得."""""
+        if not self._zone_id or not self._api_token:
+            raise StorageException("CDNが初期化されていません")
+        
+        try:
+            # CloudFlare Analytics APIからデータを取得
+            logger.info(f"CloudFlare CDNアナリティクス取得: {path_prefix.relative_path} ({start_time} - {end_time})")
+            
+            # 模擬的なアナリティクスデータ
+            # 実際の実装では CloudFlare Analytics API を使用
+            yield CDNAnalytics(
+                path=path_prefix,
+                requests_count=2500,
+                cache_hit_ratio=0.92,
+                bandwidth_bytes=1024 * 1024 * 80,  # 80MB
+                response_time_ms=18.2,
+                status_codes={200: 2350, 404: 100, 500: 50},
+                edge_locations={"Tokyo": 1200, "Seoul": 800, "Singapore": 500},
+                period_start=start_time,
+                period_end=end_time,
+            )
+            
+        except Exception as e:
+            raise StorageException(f"CDNアナリティクス取得エラー: {e}")
+    
+    def prefetch_content(self, paths: list[StoragePath]) -> None:
+        """""コンテンツをCDNエッジに事前フェッチ."""""
+        if not self._zone_id or not self._api_token:
+            raise StorageException("CDNが初期化されていません")
+        
+        try:
+            # CloudFlareのPrefetch APIを使用
+            logger.info(f"CloudFlare CDNプリフェッチ開始: {len(paths)} files")
+            
+            prefetch_urls = []
+            for path in paths:
+                cdn_url = self.get_cdn_url(path)
+                prefetch_urls.append(cdn_url)
+            
+            # プリフェッチリクエストを送信（実装省略）
+            # 実際の実装では HTTP リクエストでエッジキャッシュを温める
+            
+            for url in prefetch_urls:
+                logger.info(f"CDNプリフェッチ: {url}")
+            
+        except Exception as e:
+            raise StorageException(f"CDNプリフェッチエラー: {e}")
+    
+    def upload_to_origin_and_invalidate(
+        self, 
+        path: StoragePath, 
+        content: bytes,
+    ) -> StorageMetadata:
+        """""オリジンにアップロードしてCDNキャッシュを無効化."""""
+        if not self._origin_storage:
+            raise StorageException("オリジンストレージが設定されていません")
+        
+        try:
+            # 1. オリジンストレージにアップロード
+            self._origin_storage.write(path, content)
+            metadata = self._origin_storage.get_metadata(path)
+            
+            # 2. CDNキャッシュを無効化
+            cdn_url = self.get_cdn_url(path)
+            purge_request = CDNPurgeRequest(
+                paths=[cdn_url],
+                purge_type="url",
+                priority=1,
+            )
+            self.purge_cache(purge_request)
+            
+            # 3. CDN URLをメタデータに追加
+            return StorageMetadata(
+                path=metadata.path,
+                size=metadata.size,
+                content_type=metadata.content_type,
+                etag=metadata.etag,
+                last_modified=metadata.last_modified,
+                custom_metadata=metadata.custom_metadata,
+                cdn_url=cdn_url,
+                cache_status="PURGED",
+            )
+            
+        except Exception as e:
+            raise StorageException(f"オリジンアップロード+CDN無効化エラー: {e}")
+    
+    def delete_from_origin_and_purge(self, path: StoragePath) -> None:
+        """""オリジンから削除してCDNキャッシュをパージ."""""
+        if not self._origin_storage:
+            raise StorageException("オリジンストレージが設定されていません")
+        
+        try:
+            # 1. オリジンストレージから削除
+            self._origin_storage.delete(path)
+            
+            # 2. CDNキャッシュをパージ
+            cdn_url = self.get_cdn_url(path)
+            purge_request = CDNPurgeRequest(
+                paths=[cdn_url],
+                purge_type="url",
+                priority=1,
+            )
+            self.purge_cache(purge_request)
+            
+            logger.info(f"オリジン削除+CDNパージ完了: {path.relative_path}")
+            
+        except Exception as e:
+            raise StorageException(f"オリジン削除+CDNパージエラー: {e}")

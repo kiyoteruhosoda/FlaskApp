@@ -26,8 +26,24 @@ gunicorn
 apispec
 webauthn
 
+# ストレージバックエンド依存関係（常時インストール）
+azure-storage-blob>=12.28.0
+azure-core>=1.38.0
+
 # 開発環境でのみ必要な依存関係
 Flask-Migrate
 alembic
 pytest
 js2py
+debugpy
+
+# 将来対応予定のストレージバックエンド
+# 実装完成後にコメントアウトを外して有効化する
+# 
+# AWS S3対応（実装時に有効化）
+# boto3>=1.34.0
+# botocore>=1.34.0
+#
+# Google Cloud Storage対応（実装時に有効化）  
+# google-cloud-storage>=2.10.0
+# google-cloud-core>=2.4.0

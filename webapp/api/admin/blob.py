@@ -7,7 +7,7 @@ from flask_smorest import Page
 from marshmallow import Schema, fields
 
 from core.settings import settings
-from webapp.utils.auth import require_roles
+from core.models.authz import require_perms
 
 __all__ = ["bp"]
 
@@ -41,7 +41,7 @@ class BlobConfigValidationSchema(Schema):
 
 @bp.get("/status")
 @bp.response(200, BlobStatusSchema)
-@require_roles("admin")
+@require_perms("admin")
 def get_blob_status():
     """Blob Storage機能の現在の状態を取得."""
     # 接続文字列設定のチェック
@@ -72,7 +72,7 @@ def get_blob_status():
 
 @bp.get("/validate-config")
 @bp.response(200, BlobConfigValidationSchema)
-@require_roles("admin")
+@require_perms("admin")
 def validate_blob_config():
     """現在のBlob Storage設定を検証."""
     provider = settings.blob_provider

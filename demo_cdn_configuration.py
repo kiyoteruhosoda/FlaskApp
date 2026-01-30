@@ -135,12 +135,12 @@ def demonstrate_cdn_usage():
     
     try:
         from bounded_contexts.storage.application.services import StorageApplicationService
-        from bounded_contexts.storage.infrastructure.in_memory_repository import InMemoryStorageRepository
+        # from bounded_contexts.storage.infrastructure.in_memory_repository import InMemoryStorageRepository  # 存在しないモジュール
         from bounded_contexts.storage.domain import StoragePath, StorageDomain, StorageIntent
         
         # テスト用サービス
-        repository = InMemoryStorageRepository()
-        service = StorageApplicationService(repository)
+        # repository = InMemoryStorageRepository()
+        # service = StorageApplicationService(repository)
         
         # テスト用パス
         test_path = StoragePath(

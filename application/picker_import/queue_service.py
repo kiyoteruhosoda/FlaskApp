@@ -1,24 +1,38 @@
+"""Picker Queue Service - Application layer.
+
+enqueued状態のSelectionをバックグラウンド処理キューへ転送します。
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Callable, Dict
+from typing import Callable, Protocol, TypeAlias
 
 from core.models.photo_models import PickerSelection
 from infrastructure.picker_import.repositories import PickerSelectionRepository
 
 
-EnqueueFunc = Callable[[int, int], None]
+# キュー投入関数の型エイリアス
+EnqueueFunc: TypeAlias = Callable[[int, int], None]
 
 
-@dataclass
+class SelectionEnqueuer(Protocol):
+    """Selection をキューに投入する契約."""
+
+    def __call__(self, selection_id: int, session_id: int) -> None:
+        ...
+
+
+@dataclass(slots=True)
 class PickerQueueService:
     """enqueued状態のSelectionをバックグラウンド処理キューへ転送する。"""
 
     repository: PickerSelectionRepository
     enqueue_func: EnqueueFunc
 
-    def publish_enqueued(self) -> Dict[str, int]:
+    def publish_enqueued(self) -> dict[str, int]:
+        """enqueued 状態の Selection をキューへ投入."""
         now = datetime.now(timezone.utc)
         queued = 0
 
@@ -32,3 +46,6 @@ class PickerQueueService:
             self.repository.commit()
 
         return {"queued": queued}
+
+
+__all__ = ["EnqueueFunc", "PickerQueueService", "SelectionEnqueuer"]

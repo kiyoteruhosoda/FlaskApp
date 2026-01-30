@@ -57,7 +57,7 @@ from core.models.photo_models import (
 )
 from core.models.celery_task import CeleryTaskStatus
 from core.logging_config import setup_task_logging, log_task_error, log_task_info
-from features.photonest.application.local_import.logger import (
+from bounded_contexts.photonest.application.local_import.logger import (
     ImportLogEmitter,
     LocalImportTaskLogger,
 )

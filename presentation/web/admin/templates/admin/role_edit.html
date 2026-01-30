@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% import "admin/components/capability_selector.html" as capability_selector %}
+{% block title %}{{ role and _('Edit Role') or _('Add Role') }}{% endblock %}
+{% block extra_head %}
+<style>
+  .role-form .card {
+    border: none;
+  }
+  .permission-list {
+    max-height: 520px;
+    overflow-y: auto;
+  }
+  .permission-item {
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, outline-color 0.2s ease;
+    background-color: var(--bs-body-bg);
+    outline: 2px solid transparent;
+    outline-offset: -2px;
+  }
+  .permission-item:hover {
+    border-color: rgba(13, 110, 253, 0.35);
+    box-shadow: 0 0.75rem 1.5rem rgba(13, 110, 253, 0.1);
+  }
+  .permission-item .form-check-input:focus {
+    box-shadow: none;
+  }
+  .permission-item .form-check-input:checked + .form-check-label .badge {
+    background-color: var(--bs-primary);
+    color: #fff;
+  }
+  .permission-item .form-check-input:checked + .form-check-label .fw-semibold {
+    color: var(--bs-primary);
+  }
+
+  .permission-item-wrapper.capability-selector-item-selected .permission-item {
+    outline: solid 2px rgba(var(--bs-primary-rgb));
+    background-color: rgba(var(--bs-primary-rgb), 0.3);
+    box-shadow: 0 1.25rem 2.5rem rgba(var(--bs-primary-rgb), 0.18);
+  }
+  @media (max-width: 991.98px) {
+    .permission-list {
+      max-height: none;
+    }
+  }
+</style>
+{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-xl-10 col-xxl-8">
+    <form method="post" class="role-form">
+      <div class="row g-4 align-items-stretch">
+        <div class="col-lg-4">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <div class="d-flex align-items-center mb-3">
+                <div class="flex-grow-1">
+                  <h1 class="h4 mb-1">{{ role and _('Edit Role') or _('Add Role') }}</h1>
+                  <p class="text-muted small mb-0">{{ _('Define role basics and choose the permissions it should include.') }}</p>
+                </div>
+              </div>
+              <div class="mb-4">
+                <label class="form-label fw-semibold" for="role-name">{{ _('Name') }}</label>
+                <input
+                  type="text"
+                  class="form-control form-control-lg"
+                  id="role-name"
+                  name="name"
+                  value="{{ role.name if role else '' }}"
+                  placeholder="{{ _('Enter role name') }}"
+                  required
+                >
+              </div>
+              <div class="bg-light rounded-3 p-3 mb-4">
+                <h2 class="h6 mb-1">{{ _('Selected permissions') }}</h2>
+                <p class="text-muted small mb-2">{{ _('This role currently grants the following number of permissions.') }}</p>
+                <div class="d-flex align-items-baseline gap-2">
+                  <span class="display-6 mb-0" id="selected-permission-count">{{ selected|length }}</span>
+                  <span class="text-muted">/ {{ permissions|length }}</span>
+                </div>
+              </div>
+              <p class="text-muted small mb-0">
+                <i class="fas fa-lightbulb me-1 text-warning"></i>
+                {{ _('Tip: Use the search box to quickly filter permissions by name or category.') }}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-8">
+          {% call capability_selector.panel(
+            'permission',
+            _('Permissions'),
+            _('Select the capabilities that should be included in this role.'),
+            _('Search permissions...'),
+            _('Search permissions'),
+            _('Select all shown permissions'),
+            _('Deselect all shown permissions')
+          ) %}
+          <div class="card-body">
+            <div id="permission-list" class="permission-list row row-cols-1 row-cols-md-2 g-3" data-capability-selector-list>
+              {% for perm in permissions %}
+              {% set parts = perm.code.split(':', 1) %}
+              {% set category = parts[0] %}
+              {% set action = parts[1] if parts|length > 1 else '' %}
+              {% set category_display = category|replace('_', ' ')|replace('-', ' ')|title %}
+              {% set action_display = action|replace('_', ' ')|replace('-', ' ')|capitalize %}
+              <div
+                class="col permission-item-wrapper"
+                data-perm-code="{{ perm.code|lower }}"
+                data-perm-category="{{ category|lower }}"
+                data-perm-detail="{{ perm.detail|default('') }}"
+                data-capability-selector-item
+              >
+                <div class="permission-item border rounded-3 p-3 h-100">
+                  <div class="form-check">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      name="permissions"
+                      value="{{ perm.id }}"
+                      id="perm{{ perm.id }}"
+                      {% if perm.id in selected %}checked{% endif %}
+                    >
+                    <label class="form-check-label d-block" for="perm{{ perm.id }}">
+                      <span class="badge rounded-pill bg-light text-dark text-uppercase small fw-semibold me-2">{{ category_display }}</span>
+                      <span class="fw-semibold">{{ perm.code }}</span>
+                      {% if action_display %}
+                      <div class="text-muted small mt-1">{{ action_display }}</div>
+                      {% endif %}
+                      {% if perm.detail %}
+                      <div class="text-muted small mt-1">{{ perm.detail }}</div>
+                      {% endif %}
+                    </label>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            <div id="no-permission-results" class="alert alert-light border mt-3 text-center" role="status" data-capability-selector-empty style="display: none;">
+              <i class="fas fa-info-circle me-2 text-muted"></i>{{ _('No permissions match your search.') }}
+            </div>
+          </div>
+          <div class="card-footer bg-white d-flex flex-column flex-md-row gap-2 justify-content-end">
+            <a href="{{ url_for('admin.roles') }}" class="btn btn-outline-secondary">{{ _('Cancel') }}</a>
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-save me-1"></i>{{ _('Save') }}
+            </button>
+          </div>
+          {% endcall %}
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/capability_selector.js') }}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const selectorRoot = document.querySelector('[data-capability-selector="permission"]');
+    const permissionFilter = selectorRoot ? selectorRoot.querySelector('[data-capability-selector-filter]') : null;
+    const permissionList = selectorRoot ? selectorRoot.querySelector('[data-capability-selector-list]') : null;
+    const permissionItems = permissionList
+      ? Array.from(permissionList.querySelectorAll('[data-capability-selector-item]'))
+      : [];
+    const countElement = document.getElementById('selected-permission-count');
+    const noResults = selectorRoot ? selectorRoot.querySelector('[data-capability-selector-empty]') : null;
+    const capabilitySelector = selectorRoot && window.CapabilitySelector
+      ? new window.CapabilitySelector(selectorRoot)
+      : null;
+
+    function updateCount() {
+      const selectedCount = permissionItems.filter((item) => {
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        return checkbox && checkbox.checked;
+      }).length;
+
+      if (countElement) {
+        countElement.textContent = selectedCount;
+      }
+    }
+
+    function filterPermissions(value) {
+      const keyword = value.trim().toLowerCase();
+      let visible = 0;
+
+      permissionItems.forEach((wrapper) => {
+        const code = wrapper.dataset.permCode || '';
+        const category = wrapper.dataset.permCategory || '';
+        const detail = (wrapper.dataset.permDetail || '').toLowerCase();
+        const matches =
+          !keyword || code.includes(keyword) || category.includes(keyword) || detail.includes(keyword);
+        wrapper.style.display = matches ? '' : 'none';
+        if (matches) {
+          visible += 1;
+        }
+      });
+
+      if (noResults) {
+        noResults.style.display = visible === 0 ? 'block' : 'none';
+      }
+
+      if (selectorRoot && capabilitySelector) {
+        capabilitySelector.updateToggleState();
+      }
+    }
+
+    if (capabilitySelector) {
+      capabilitySelector.init({
+        onFilter: (value) => {
+          filterPermissions(value);
+        },
+        onSelectionChanged: () => {
+          updateCount();
+        }
+      });
+    } else {
+      if (permissionFilter) {
+        permissionFilter.addEventListener('input', (event) => {
+          filterPermissions(event.target.value);
+        });
+      }
+
+      permissionItems.forEach((wrapper) => {
+        const checkbox = wrapper.querySelector('input[type="checkbox"]');
+        if (checkbox) {
+          checkbox.addEventListener('change', () => {
+            updateCount();
+          });
+        }
+      });
+
+      // Apply initial filter state (capabilitySelector handles this automatically in its init method)
+      filterPermissions(permissionFilter ? permissionFilter.value : '');
+    }
+
+    updateCount();
+  });
+</script>
+{% endblock %}

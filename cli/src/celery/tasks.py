@@ -25,7 +25,7 @@ from core.tasks.thumbs_generate import (
     PlaybackNotReadyError,
     thumbs_generate,
 )
-from features.certs.tasks.rotate_certificates import (  # noqa: F401 - タスク登録目的
+from bounded_contexts.certs.tasks.rotate_certificates import (  # noqa: F401 - タスク登録目的
     auto_rotate_certificates_task,
 )
 

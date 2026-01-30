@@ -1,0 +1,671 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Login') }} - {{ _('AppName') }}{% endblock %}
+{% block body_attributes %} class="login-page"{% endblock %}
+
+{% block content %}
+<div class="login-container">
+  <div class="login-card">
+    <div class="login-header">
+      <h1 class="login-title">{{ _('Welcome Back') }}</h1>
+      <p class="login-subtitle">{{ _('Sign in to your %(app_name)s account', app_name=_('AppName')) }}</p>
+    </div>
+    
+    <form method="post" class="login-form" id="loginForm">
+      {% if next_value %}
+      <input type="hidden" name="next" value="{{ next_value }}">
+      {% endif %}
+      <div class="form-group">
+        <label for="email" class="form-label">
+          <i class="fas fa-envelope"></i>
+          {{ _('Email Address') }}
+        </label>
+        <div class="input-wrapper">
+          <input type="email" class="form-control" id="email" name="email"
+                 placeholder="{{ _('Enter your email') }}" required>
+          <div class="input-icon">
+            <i class="fas fa-envelope"></i>
+          </div>
+        </div>
+      </div>
+
+      {% if passkey_available %}
+      <div class="passkey-section">
+        <button type="button" class="btn btn-outline-primary passkey-btn passkey-btn--inactive" data-passkey-login
+                data-email-required-message="{{ _('Passkey sign-in still requires your email address so we can match your account.') }}"
+                title="{{ _('Passkey sign-in still requires your email address so we can match your account.') }}"
+                aria-disabled="true">
+          <i class="fas fa-key" style="margin-right: 8px;"></i>
+          {{ _('Sign in with passkey') }}
+        </button>
+        <p class="passkey-hint" data-passkey-hint>
+          <i class="fas fa-info-circle" aria-hidden="true"></i>
+          {{ _('Passkey sign-in still requires your email address so we can match your account.') }}
+        </p>
+      </div>
+      {% endif %}
+
+      <div class="form-group">
+        <label for="password" class="form-label">
+          <i class="fas fa-lock"></i>
+          {{ _('Password') }}
+        </label>
+        <div class="input-wrapper password-toggle-wrapper">
+          <input type="password" class="form-control" id="password" name="password"
+                 placeholder="{{ _('Enter your password') }}" required>
+          <button type="button" class="toggle-password-btn" aria-label="{{ _('Show password') }}"
+                  aria-pressed="false" aria-controls="password"
+                  data-show-label="{{ _('Show password') }}"
+                  data-hide-label="{{ _('Hide password') }}">
+            <i class="fas fa-eye"></i>
+            <span class="visually-hidden">{{ _('Toggle password visibility') }}</span>
+          </button>
+          <div class="input-icon">
+            <i class="fas fa-lock"></i>
+          </div>
+        </div>
+      </div>
+      
+      <div class="form-group auth-code-field">
+        <label for="token" class="form-label">
+          <i class="fas fa-shield-alt"></i>
+          {{ _('Authentication Code') }}
+        </label>
+        <div class="auth-code-info">
+          <i class="fas fa-info-circle"></i>
+          {{ _('Enter the 6-digit code from your authenticator app (optional if not set up)') }}
+        </div>
+        <div class="input-wrapper">
+          <input type="text" class="form-control" id="token" name="token"
+                 placeholder="{{ _('000000') }}" maxlength="6" pattern="[0-9]{6}">
+          <div class="input-icon">
+            <i class="fas fa-shield-alt"></i>
+          </div>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-login">
+      <i class="fas fa-sign-in-alt" style="margin-right: 8px;"></i>
+      {{ _('Sign In') }}
+    </button>
+  </form>
+    
+    <div class="auth-links">
+      <div class="forgot-password">
+        <a href="{{ url_for('auth.password_forgot') }}">{{ _('Forgot your password?') }}</a>
+      </div>
+      <div class="forgot-password">
+        <a href="{{ url_for('auth.register') }}">{{ _('Don\'t have an account? Sign up') }}</a>
+      </div>
+    </div>
+    <div class="language-selector dropdown">
+      <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="languageDropdown"
+              data-bs-toggle="dropdown" aria-expanded="false"
+              aria-label="{{ _('Select language') }}">
+        <i class="bi bi-translate"></i>
+        <span class="language-label">{{ language_labels.get(current_language) or (current_language|upper) }}</span>
+      </button>
+      <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="languageDropdown">
+        {% for lang_code in language_selector_languages %}
+        <li>
+          <a class="dropdown-item{% if lang_code == current_language %} active{% endif %}" href="{{ url_for('set_lang', lang_code=lang_code) }}">
+            {{ language_labels.get(lang_code) or (lang_code|upper) }}
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+
+      <p class="text-muted small">Version: {{ app_version }}</p>
+
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Add loading state to form submission
+  const form = document.getElementById('loginForm');
+  const submitBtn = document.querySelector('.btn-login');
+  const emailField = document.getElementById('email');
+
+  if (!form || !submitBtn) {
+    return;
+  }
+
+  const originalFormAction = form.action;
+
+  const bufferToBase64Url = (input) => {
+    let bytes;
+    if (input instanceof ArrayBuffer) {
+      bytes = new Uint8Array(input);
+    } else if (ArrayBuffer.isView(input)) {
+      bytes = new Uint8Array(input.buffer, input.byteOffset, input.byteLength);
+    } else {
+      return '';
+    }
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 1) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  };
+
+  const base64UrlToBuffer = (value) => {
+    if (typeof value !== 'string' || value.length === 0) {
+      return new Uint8Array();
+    }
+    const padded = value.replace(/-/g, '+').replace(/_/g, '/');
+    const padLength = (4 - (padded.length % 4)) % 4;
+    const normalized = padded + '='.repeat(padLength);
+    const binary = window.atob(normalized);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  };
+
+  const resolveNextValue = () => {
+    const nextField = document.querySelector('input[name="next"]');
+    const raw = (nextField?.value || '').trim();
+    if (raw.startsWith('/') && !raw.startsWith('//')) {
+      return raw;
+    }
+    return null;
+  };
+
+  const normalizeScopes = (rawScopes) => {
+    if (!Array.isArray(rawScopes)) {
+      return [];
+    }
+    return Array.from(
+      new Set(
+        rawScopes
+          .map((item) => (typeof item === 'string' ? item.trim() : ''))
+          .filter((item) => item.length > 0)
+      )
+    );
+  };
+
+  const readStoredScopeRecord = (storageKey) => {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return {
+          permissions: normalizeScopes(parsed),
+          source: 'legacy',
+          roleSelection: null,
+        };
+      }
+
+      if (
+        parsed &&
+        Array.isArray(parsed.permissions)
+      ) {
+        const normalizedRoleSelection = (() => {
+          const rawRoleSelection = parsed.roleSelection;
+          if (!rawRoleSelection || typeof rawRoleSelection !== 'object') {
+            return null;
+          }
+
+          const rawRoleId = rawRoleSelection.roleId;
+          if (typeof rawRoleId === 'string') {
+            const trimmed = rawRoleId.trim();
+            return trimmed.length > 0 ? { roleId: trimmed } : null;
+          }
+
+          if (typeof rawRoleId === 'number' && Number.isFinite(rawRoleId)) {
+            return { roleId: String(rawRoleId) };
+          }
+
+          return null;
+        })();
+
+        return {
+          permissions: normalizeScopes(parsed.permissions),
+          source: typeof parsed.source === 'string' ? parsed.source : 'unknown',
+          roleSelection: normalizedRoleSelection,
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to parse stored login scope', error);
+    }
+
+    return null;
+  };
+
+  const writeStoredScopeRecord = (storageKey, permissions, source, extra = {}) => {
+    if (!storageKey) {
+      return;
+    }
+
+    const normalized = normalizeScopes(permissions);
+    if (normalized.length === 0) {
+      localStorage.removeItem(storageKey);
+      return;
+    }
+
+    const payload = {
+      permissions: normalized,
+      source,
+      updatedAt: new Date().toISOString(),
+      ...extra,
+    };
+
+    localStorage.setItem(storageKey, JSON.stringify(payload));
+  };
+
+  const canReuseStoredScope = (record) => {
+    if (!record || record.permissions.length === 0) {
+      return false;
+    }
+
+    if (record.source === 'single-role') {
+      return true;
+    }
+
+    if (record.source === 'role-selection' || record.source === 'profile-switch') {
+      const roleId = record.roleSelection?.roleId;
+      return typeof roleId === 'string' && roleId.length > 0;
+    }
+
+    return false;
+  };
+
+  const getStoredRoleId = (record) => {
+    if (!record) {
+      return null;
+    }
+    const roleId = record.roleSelection?.roleId;
+    if (typeof roleId === 'string' && roleId.length > 0) {
+      return roleId;
+    }
+    return null;
+  };
+
+  const passkeyButton = document.querySelector('[data-passkey-login]');
+  const passkeyHint = document.querySelector('[data-passkey-hint]');
+  const passkeyEmailRequiredMessage = passkeyButton?.getAttribute('data-email-required-message') || '';
+
+  const updatePasskeyButtonEmailState = () => {
+    if (!passkeyButton || passkeyButton.dataset.disabledCompatibility === 'true') {
+      return;
+    }
+
+    const hasEmail = (emailField?.value || '').trim().length > 0;
+    passkeyButton.disabled = !hasEmail;
+    passkeyButton.classList.toggle('passkey-btn--inactive', !hasEmail);
+    passkeyButton.setAttribute('aria-disabled', hasEmail ? 'false' : 'true');
+
+    if (passkeyHint) {
+      passkeyHint.classList.toggle('passkey-hint--active', !hasEmail);
+    }
+  };
+
+  if (emailField) {
+    emailField.addEventListener('input', updatePasskeyButtonEmailState);
+    emailField.addEventListener('change', updatePasskeyButtonEmailState);
+  }
+
+  const setCompatibilityDisabled = () => {
+    if (!passkeyButton) {
+      return;
+    }
+
+    passkeyButton.disabled = true;
+    passkeyButton.classList.add('disabled');
+    passkeyButton.dataset.disabledCompatibility = 'true';
+    passkeyButton.setAttribute('aria-disabled', 'true');
+  };
+
+  const clearCompatibilityDisabled = () => {
+    if (!passkeyButton) {
+      return;
+    }
+
+    if ('disabledCompatibility' in passkeyButton.dataset) {
+      delete passkeyButton.dataset.disabledCompatibility;
+    }
+
+    passkeyButton.classList.remove('disabled');
+  };
+
+  if (passkeyButton) {
+    if (!window.PublicKeyCredential || typeof navigator.credentials === 'undefined') {
+      setCompatibilityDisabled();
+      passkeyButton.setAttribute('title', '{{ _('Passkey login requires a compatible browser.') }}');
+    } else {
+      clearCompatibilityDisabled();
+      updatePasskeyButtonEmailState();
+      passkeyButton.addEventListener('click', async (event) => {
+        event.preventDefault();
+        if (passkeyButton.classList.contains('loading')) {
+          return;
+        }
+
+        passkeyButton.classList.add('loading');
+        const emailInputValue = (emailField?.value || '').trim();
+        if (!emailInputValue) {
+          if (emailField) {
+            if (passkeyEmailRequiredMessage && typeof emailField.setCustomValidity === 'function') {
+              emailField.setCustomValidity(passkeyEmailRequiredMessage);
+              emailField.reportValidity();
+              emailField.setCustomValidity('');
+            } else if (typeof emailField.reportValidity === 'function') {
+              emailField.reportValidity();
+            } else {
+              emailField.focus();
+            }
+          }
+
+          if (passkeyEmailRequiredMessage) {
+            if (typeof showErrorToast === 'function') {
+              showErrorToast(passkeyEmailRequiredMessage);
+            } else {
+              alert(passkeyEmailRequiredMessage);
+            }
+          }
+
+          passkeyButton.classList.remove('loading');
+          updatePasskeyButtonEmailState();
+          return;
+        }
+
+        const storedRedirectPath = localStorage.getItem('redirect_after_login');
+
+        try {
+          const optionsResponse = await fetch('{{ url_for('auth.passkey_login_options') }}', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email: emailInputValue }),
+          });
+
+          if (!optionsResponse.ok) {
+            throw new Error('options');
+          }
+
+          const optionsPayload = await optionsResponse.json();
+          const publicKey = optionsPayload.publicKey || optionsPayload;
+
+          if (!publicKey || !publicKey.challenge) {
+            throw new Error('options');
+          }
+
+          publicKey.challenge = base64UrlToBuffer(publicKey.challenge);
+          if (Array.isArray(publicKey.allowCredentials)) {
+            publicKey.allowCredentials = publicKey.allowCredentials.map((item) => ({
+              ...item,
+              id: base64UrlToBuffer(item.id),
+            }));
+          }
+
+          const assertion = await navigator.credentials.get({ publicKey });
+          if (!assertion) {
+            throw new Error('abort');
+          }
+
+          const requestPayload = {
+            id: assertion.id,
+            type: assertion.type,
+            rawId: bufferToBase64Url(assertion.rawId),
+            response: {
+              authenticatorData: bufferToBase64Url(assertion.response.authenticatorData),
+              clientDataJSON: bufferToBase64Url(assertion.response.clientDataJSON),
+              signature: bufferToBase64Url(assertion.response.signature),
+              userHandle: assertion.response.userHandle
+                ? bufferToBase64Url(assertion.response.userHandle)
+                : null,
+            },
+            clientExtensionResults: typeof assertion.getClientExtensionResults === 'function'
+              ? assertion.getClientExtensionResults()
+              : {},
+          };
+
+          const nextValue = storedRedirectPath || resolveNextValue();
+          if (nextValue) {
+            requestPayload.next = nextValue;
+          }
+
+          const verifyResponse = await fetch('{{ url_for('auth.passkey_verify_login') }}', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestPayload),
+          });
+
+          if (!verifyResponse.ok) {
+            const errorData = await verifyResponse.json().catch(() => ({ error: 'verify' }));
+            throw new Error(errorData.error || 'verify');
+          }
+
+          const result = await verifyResponse.json();
+
+          if (result.refresh_token) {
+            localStorage.setItem('refresh_token', result.refresh_token);
+          }
+
+          const emailValue = (result.email || '').trim().toLowerCase();
+          if (emailValue.length > 0) {
+            const scopeStorageKey = `login_scope:${emailValue}`;
+            if (Array.isArray(result.available_scopes) && result.available_scopes.length > 0) {
+              writeStoredScopeRecord(scopeStorageKey, result.available_scopes, 'passkey');
+            } else {
+              localStorage.removeItem(scopeStorageKey);
+            }
+          }
+
+          if (result.requires_role_selection) {
+            if (storedRedirectPath) {
+              localStorage.removeItem('redirect_after_login');
+            }
+            window.location.href = result.redirect_url || '{{ url_for('auth.select_role') }}';
+            return;
+          }
+
+          if (storedRedirectPath) {
+            localStorage.removeItem('redirect_after_login');
+            window.location.href = storedRedirectPath;
+            return;
+          }
+
+          if (result.redirect_url) {
+            window.location.href = result.redirect_url;
+            return;
+          }
+
+          window.location.href = '{{ url_for('dashboard.dashboard') }}';
+        } catch (error) {
+          if (error && error.message === 'abort') {
+            // User cancelled the prompt; no feedback required.
+          } else if (error && error.message === 'options') {
+            if (typeof showErrorToast === 'function') {
+              showErrorToast('{{ _('Passkey login options could not be retrieved.') }}');
+            } else {
+              alert('{{ _('Passkey login options could not be retrieved.') }}');
+            }
+          } else {
+            if (typeof showErrorToast === 'function') {
+              showErrorToast('{{ _('Passkey login failed. Please try again.') }}');
+            } else {
+              alert('{{ _('Passkey login failed. Please try again.') }}');
+            }
+          }
+        } finally {
+          passkeyButton.classList.remove('loading');
+          updatePasskeyButtonEmailState();
+        }
+      });
+    }
+  }
+
+  updatePasskeyButtonEmailState();
+
+  // APIベースの認証処理
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    submitBtn.classList.add('loading');
+    submitBtn.innerHTML = '<span style="opacity: 0;">{{ _("Signing In...") }}</span>';
+    
+    try {
+      const formData = new FormData(form);
+      const storedRedirectPath = localStorage.getItem('redirect_after_login');
+      const emailValue = (formData.get('email') || '').trim().toLowerCase();
+      const formNextValue = (formData.get('next') || '').trim();
+      const loginData = {
+        email: formData.get('email'),
+        password: formData.get('password'),
+        token: formData.get('token') || null,
+        next: storedRedirectPath || (formNextValue.length > 0 ? formNextValue : null)
+      };
+
+      let scopeStorageKey = null;
+      if (emailValue) {
+        scopeStorageKey = `login_scope:${emailValue}`;
+        const storedScopeRecord = readStoredScopeRecord(scopeStorageKey);
+        if (canReuseStoredScope(storedScopeRecord)) {
+          loginData.scope = storedScopeRecord.permissions.join(' ');
+          const storedRoleId = getStoredRoleId(storedScopeRecord);
+          if (storedRoleId) {
+            loginData.active_role_id = storedRoleId;
+          }
+        }
+      }
+
+      const requiredGuiScope = 'gui:view';
+      if (loginData.scope) {
+        const normalizedScope = new Set();
+        const scopeSource = Array.isArray(loginData.scope)
+          ? loginData.scope
+          : String(loginData.scope).split(/[\s,]+/);
+        scopeSource.forEach((item) => {
+          if (typeof item === 'string') {
+            const trimmed = item.trim();
+            if (trimmed.length > 0) {
+              normalizedScope.add(trimmed);
+            }
+          }
+        });
+        normalizedScope.add(requiredGuiScope);
+        loginData.scope = Array.from(normalizedScope).join(' ');
+      } else {
+        loginData.scope = requiredGuiScope;
+      }
+
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(loginData)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+
+        // リフレッシュトークンをlocalStorageに保存
+        if (result.refresh_token) {
+          localStorage.setItem('refresh_token', result.refresh_token);
+        }
+
+        if (emailValue && scopeStorageKey) {
+          if (!result.requires_role_selection) {
+            const availableScopes = Array.isArray(result.available_scopes)
+              ? result.available_scopes
+              : [];
+            writeStoredScopeRecord(
+              scopeStorageKey,
+              availableScopes,
+              'single-role'
+            );
+          } else {
+            localStorage.removeItem(scopeStorageKey);
+          }
+        }
+
+        if (result.requires_role_selection) {
+          if (storedRedirectPath) {
+            localStorage.removeItem('redirect_after_login');
+          }
+          window.location.href = result.redirect_url || '/auth/select-role';
+          return;
+        }
+
+        // ログイン成功メッセージ
+        if (typeof showSuccessToast === 'function') {
+          showSuccessToast('{{ _("Login successful") }}');
+        }
+
+        // リダイレクト処理
+        if (storedRedirectPath) {
+          localStorage.removeItem('redirect_after_login');
+          window.location.href = storedRedirectPath;
+        } else if (result.redirect_url) {
+          window.location.href = result.redirect_url;
+        } else {
+          window.location.href = '{{ url_for("dashboard.dashboard") }}';
+        }
+      } else {
+        const errorData = await response.json();
+        const errorMessage = errorData.error === 'invalid_credentials' 
+          ? '{{ _("Invalid email, password, or authentication code") }}'
+          : '{{ _("Login failed. Please try again.") }}';
+        
+        if (typeof showErrorToast === 'function') {
+          showErrorToast(errorMessage);
+        } else {
+          alert(errorMessage);
+        }
+        
+        // フォールバック: 従来のフォーム送信
+        form.action = originalFormAction;
+        form.submit();
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      
+      // ネットワークエラーの場合は従来のフォーム送信にフォールバック
+      if (typeof showErrorToast === 'function') {
+        showErrorToast('{{ _("Network error. Falling back to standard login.") }}');
+      }
+      
+      form.action = originalFormAction;
+      form.submit();
+    } finally {
+      // ローディング状態を解除
+      submitBtn.classList.remove('loading');
+      submitBtn.innerHTML = '<i class="fas fa-sign-in-alt" style="margin-right: 8px;"></i>{{ _("Sign In") }}';
+    }
+  });
+  
+  // Auto-format authentication code
+  const tokenInput = document.getElementById('token');
+  tokenInput.addEventListener('input', function(e) {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 6) {
+      value = value.substring(0, 6);
+    }
+    e.target.value = value;
+  });
+  
+  // Enhanced focus effects
+  const inputs = document.querySelectorAll('.form-control');
+  inputs.forEach(input => {
+    input.addEventListener('focus', function() {
+      this.parentElement.classList.add('focused');
+    });
+    
+    input.addEventListener('blur', function() {
+      this.parentElement.classList.remove('focused');
+    });
+  });
+});
+</script>
+{% endblock %}

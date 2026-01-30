@@ -1,7 +1,2 @@
-"""Utility helpers for the Flask web application layer."""
-
-from .url_helpers import determine_external_scheme
-
-__all__ = [
-    "determine_external_scheme",
-]
+# Redirect to presentation.web.utils
+from presentation.web.utils import *  # noqa: F403, F401

@@ -1,0 +1,1678 @@
+# English translations for PROJECT.
+# Copyright (C) 2025 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2025-11-05 00:22+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: en\n"
+"Language-Team: en <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+msgid "Home"
+msgstr "Home"
+
+msgid "AppName"
+msgstr "nolumia"
+
+msgid "Dashboard"
+msgstr "Dashboard"
+
+msgid "Certificate Management"
+msgstr "Certificate Management"
+
+msgid "Login"
+msgstr "Login"
+
+msgid "Register"
+msgstr "Register"
+
+msgid "Logout"
+msgstr "Logout"
+
+msgid "Top"
+msgstr "Top"
+
+msgid "Welcome!"
+msgstr "Welcome!"
+
+msgid "Certificates"
+msgstr "Certificates"
+
+msgid "Service Accounts"
+msgstr "Service Accounts"
+
+msgid "Groups"
+msgstr "Groups"
+
+msgid "Version Info"
+msgstr "Version Info"
+
+msgid "Version Information"
+msgstr "Version Information"
+
+msgid "Data Files"
+msgstr "Data Files"
+
+msgid "Wiki"
+msgstr "Wiki"
+
+msgid "You are logged in."
+msgstr "You are logged in."
+
+msgid "Please login to continue."
+msgstr "Please login to continue."
+
+msgid "Password"
+msgstr "Password"
+
+msgid "Create account"
+msgstr "Create account"
+
+msgid "Invalid email or password"
+msgstr "Invalid email or password"
+
+msgid "Email and password are required"
+msgstr "Email and password are required"
+
+msgid "Please provide a public key."
+msgstr "Please provide a public key."
+
+msgid "The public key is not a valid PEM-formatted value."
+msgstr "The public key is not a valid PEM-formatted value."
+
+msgid "The provided public key type is not supported."
+msgstr "The provided public key type is not supported."
+
+msgid "You are not allowed to assign the specified scopes."
+msgstr "You are not allowed to assign the specified scopes."
+
+msgid "Please provide a service account name."
+msgstr "Please provide a service account name."
+
+msgid "A service account with the same name already exists."
+msgstr "A service account with the same name already exists."
+
+msgid "The service account identifier is missing from the token."
+msgstr "The service account identifier is missing from the token."
+
+msgid "The service account is not registered."
+msgstr "The service account is not registered."
+
+msgid "The service account is disabled."
+msgstr "The service account is disabled."
+
+msgid "The token is not provided."
+msgstr "The token is not provided."
+
+msgid "The JWT header is invalid."
+msgstr "The JWT header is invalid."
+
+msgid "The signature algorithm is not supported."
+msgstr "The signature algorithm is not supported."
+
+msgid "Failed to parse the JWT."
+msgstr "Failed to parse the JWT."
+
+msgid "The token has expired."
+msgstr "The token has expired."
+
+msgid "The audience does not match."
+msgstr "The audience does not match."
+
+msgid "Failed to verify the signature."
+msgstr "Failed to verify the signature."
+
+msgid "The JWT is invalid."
+msgstr "The JWT is invalid."
+
+msgid "The token lifetime is invalid."
+msgstr "The token lifetime is invalid."
+
+msgid "The token lifetime exceeds the maximum allowed."
+msgstr "The token lifetime exceeds the maximum allowed."
+
+msgid "The token issue time is in the future."
+msgstr "The token issue time is in the future."
+
+msgid "The required scope is not granted."
+msgstr "The required scope is not granted."
+
+msgid "Email already exists"
+msgstr "Email already exists"
+
+msgid "Registration successful. Please log in."
+msgstr "Registration successful. Please log in."
+
+msgid "Logged out"
+msgstr "Logged out"
+
+msgid "Configuration updated successfully."
+msgstr "Configuration updated successfully."
+
+msgid "Configuration update failed."
+msgstr "Configuration update failed."
+
+msgid "Failed to submit the request."
+msgstr "Failed to submit the request."
+
+msgid "Workspace dashboard"
+msgstr "Workspace dashboard"
+
+msgid ""
+#~ "Stay on top of shared knowledge, "
+#~ "media operations, and administration from "
+#~ "one place."
+msgstr ""
+#~ "Stay on top of shared knowledge, "
+#~ "media operations, and administration from "
+#~ "one place."
+
+msgid "Signed in"
+msgstr "Signed in"
+
+msgid "Welcome back, %(name)s"
+msgstr "Welcome back, %(name)s"
+
+msgid "Key workspaces"
+msgstr "Key workspaces"
+
+msgid "Team wiki"
+msgstr "Team wiki"
+
+msgid "Browse policies, guides, and notes maintained by your team."
+msgstr "Browse policies, guides, and notes maintained by your team."
+
+msgid "Open wiki"
+msgstr "Open wiki"
+
+msgid "Media library"
+msgstr "Media library"
+
+msgid "Review uploaded photos and manage shared media assets."
+msgstr "Review uploaded photos and manage shared media assets."
+
+msgid "Open media view"
+msgstr "Open media view"
+
+msgid ""
+#~ "To save changes, select at least "
+#~ "one setting and check its \"Update\" "
+#~ "box."
+msgstr ""
+#~ "To save changes, select at least "
+#~ "one setting and check its \"Update\" "
+#~ "box."
+
+msgid "No workspace tools are available for your current role."
+msgstr "No workspace tools are available for your current role."
+
+msgid "Operations shortcuts"
+msgstr "Operations shortcuts"
+
+msgid "Account settings"
+msgstr "Account settings"
+
+msgid "Update your profile, preferred language, and sign-in credentials."
+msgstr "Update your profile, preferred language, and sign-in credentials."
+
+msgid "Profile"
+msgstr "Profile"
+
+msgid "Sign-in details"
+msgstr "Sign-in details"
+
+msgid "Sign in with passkey"
+msgstr "Sign in with passkey"
+
+msgid "Passkey login requires a compatible browser."
+msgstr "Passkey login requires a compatible browser."
+
+msgid ""
+#~ "Passkey sign-in still requires your "
+#~ "email address so we can match your"
+#~ " account."
+msgstr ""
+#~ "Passkey sign-in still requires your "
+#~ "email address so we can match your"
+#~ " account."
+
+msgid "Passkey login options could not be retrieved."
+msgstr "Passkey login options could not be retrieved."
+
+msgid "Passkey login failed. Please try again."
+msgstr "Passkey login failed. Please try again."
+
+msgid "Passkeys"
+msgstr "Passkeys"
+
+msgid "Passkeys cannot be managed for service accounts."
+msgstr "Passkeys cannot be managed for service accounts."
+
+msgid "Unnamed passkey"
+msgstr "Unnamed passkey"
+
+msgid "Created"
+msgstr "Created"
+
+msgid "Last used"
+msgstr "Last used"
+
+msgid "Remove"
+msgstr "Remove"
+
+msgid "No passkeys registered yet."
+msgstr "No passkeys registered yet."
+
+msgid "Register a passkey for each device you use."
+msgstr "Register a passkey for each device you use."
+
+msgid "Add a new passkey"
+msgstr "Add a new passkey"
+
+msgid "Passkey registration requires a compatible browser."
+msgstr "Passkey registration requires a compatible browser."
+
+msgid "This passkey is already registered for your account."
+msgstr "This passkey is already registered for your account."
+
+msgid "Give this passkey a name (optional)"
+msgstr "Give this passkey a name (optional)"
+
+msgid "Passkey registration options could not be retrieved."
+msgstr "Passkey registration options could not be retrieved."
+
+msgid ""
+#~ "Passkey registration timed out before "
+#~ "the authenticator responded. Please try "
+#~ "again and confirm the prompt on "
+#~ "your device."
+msgstr ""
+#~ "Passkey registration timed out before "
+#~ "the authenticator responded. Please try "
+#~ "again and confirm the prompt on "
+#~ "your device."
+
+msgid ""
+#~ "Passkey registration was cancelled from "
+#~ "the authenticator prompt. Please retry "
+#~ "and complete the device approval."
+msgstr ""
+#~ "Passkey registration was cancelled from "
+#~ "the authenticator prompt. Please retry "
+#~ "and complete the device approval."
+
+msgid ""
+#~ "Passkey registration was cancelled or "
+#~ "timed out before completion. Please "
+#~ "retry after completing the authenticator "
+#~ "prompt."
+msgstr ""
+#~ "Passkey registration was cancelled or "
+#~ "timed out before completion. Please "
+#~ "retry after completing the authenticator "
+#~ "prompt."
+
+msgid "Passkey registration failed. Please try again."
+msgstr "Passkey registration failed. Please try again."
+
+msgid "Remove this passkey?"
+msgstr "Remove this passkey?"
+
+msgid "Failed to remove passkey."
+msgstr "Failed to remove passkey."
+
+msgid "Administration"
+msgstr "Administration"
+
+msgid "Review user access, configuration, and connected integrations."
+msgstr "Review user access, configuration, and connected integrations."
+
+msgid "Users"
+msgstr "Users"
+
+msgid "Settings"
+msgstr "Settings"
+
+msgid "Google accounts"
+msgstr "Google accounts"
+
+msgid "Your status"
+msgstr "Your status"
+
+msgid "Display name"
+msgstr "Display name"
+
+msgid "Not provided"
+msgstr "Not provided"
+
+msgid "Active role"
+msgstr "Active role"
+
+msgid "No active role selected"
+msgstr "No active role selected"
+
+msgid "Roles assigned: %(count)s"
+msgstr "Roles assigned: %(count)s"
+
+msgid "Content overview"
+msgstr "Content overview"
+
+msgid "Wiki pages: %(count)s"
+msgstr "Wiki pages: %(count)s"
+
+msgid "Media items: %(count)s"
+msgstr "Media items: %(count)s"
+
+msgid "Quick links"
+msgstr "Quick links"
+
+msgid "Create wiki page"
+msgstr "Create wiki page"
+
+msgid "Search knowledge base"
+msgstr "Search knowledge base"
+
+msgid "Open media gallery"
+msgstr "Open media gallery"
+
+msgid "Manage profile preferences"
+msgstr "Manage profile preferences"
+
+msgid "This page requires login."
+msgstr "This page requires login."
+
+msgid "Please log in to access this page."
+msgstr "Please log in to access this page."
+
+msgid "An unexpected error occurred. Please try again later."
+msgstr "An unexpected error occurred. Please try again later."
+
+msgid "If you cannot scan the QR code, add this secret manually in your app:"
+msgstr "If you cannot scan the QR code, add this secret manually in your app:"
+
+msgid "Welcome Back"
+msgstr "Welcome Back"
+
+msgid "Sign in to your %(app_name)s account"
+msgstr "Sign in to your %(app_name)s account"
+
+msgid "Email Address"
+msgstr "Email Address"
+
+msgid "Enter your email"
+msgstr "Enter your email"
+
+msgid "Enter your password"
+msgstr "Enter your password"
+
+msgid "Authentication Code"
+msgstr "Authentication Code"
+
+msgid ""
+#~ "Enter the 6-digit code from your "
+#~ "authenticator app (optional if not set"
+#~ " up)"
+msgstr ""
+#~ "Enter the 6-digit code from your "
+#~ "authenticator app (optional if not set"
+#~ " up)"
+
+msgid "Sign In"
+msgstr "Sign In"
+
+msgid "Don't have an account? Sign up"
+msgstr "Don't have an account? Sign up"
+
+msgid "Create Account"
+msgstr "Create Account"
+
+msgid "Join %(app_name)s and start organizing your memories"
+msgstr "Join %(app_name)s and start organizing your memories"
+
+msgid "Create a strong password"
+msgstr "Create a strong password"
+
+msgid ""
+#~ "Two-factor authentication will be set"
+#~ " up in the next step for "
+#~ "enhanced security"
+msgstr ""
+#~ "Two-factor authentication will be set"
+#~ " up in the next step for "
+#~ "enhanced security"
+
+msgid "Already have an account? Sign in"
+msgstr "Already have an account? Sign in"
+
+msgid "Join %(app_name)s without two-factor authentication"
+msgstr "Join %(app_name)s without two-factor authentication"
+
+msgid "=== %(app_name)s Version Information ==="
+msgstr "=== %(app_name)s Version Information ==="
+
+msgid "%(app_name)s Version Information"
+msgstr "%(app_name)s Version Information"
+
+msgid "Version String"
+msgstr "Version String"
+
+msgid "Full Commit Hash"
+msgstr "Full Commit Hash"
+
+msgid "Runtime Environment"
+msgstr "Runtime Environment"
+
+msgid "Python Version"
+msgstr "Python Version"
+
+msgid "Platform"
+msgstr "Platform"
+
+msgid "Hostname"
+msgstr "Hostname"
+
+msgid "Environment"
+msgstr "Environment"
+
+msgid "Debug Mode"
+msgstr "Debug Mode"
+
+msgid "Flask Version"
+msgstr "Flask Version"
+
+msgid "Werkzeug Version"
+msgstr "Werkzeug Version"
+
+msgid "API Access"
+msgstr "API Access"
+
+msgid "You can retrieve the same information through the API."
+msgstr "You can retrieve the same information through the API."
+
+msgid "Test Endpoint"
+msgstr "Test Endpoint"
+
+msgid "API Response"
+msgstr "API Response"
+
+msgid "Server time is fetched from the health API once per minute."
+msgstr "Server time is fetched from the health API once per minute."
+
+msgid "An error occurred while requesting version information."
+msgstr "An error occurred while requesting version information."
+
+msgid "=== %(app_name)s Master Data Seeding ==="
+msgstr "=== %(app_name)s Master Data Seeding ==="
+
+msgid "Note: This account will not have two-factor authentication enabled"
+msgstr "Note: This account will not have two-factor authentication enabled"
+
+msgid "Register with two-factor authentication"
+msgstr "Register with two-factor authentication"
+
+msgid "Register without two-factor authentication"
+msgstr "Register without two-factor authentication"
+
+msgid "000000"
+msgstr "000000"
+
+msgid "Signing In..."
+msgstr "Signing In..."
+
+msgid "Creating Account..."
+msgstr "Creating Account..."
+
+msgid "Email"
+msgstr "Email"
+
+msgid "Next"
+msgstr "Next"
+
+msgid "Setup Two-Factor Authentication"
+msgstr "Setup Two-Factor Authentication"
+
+msgid "Scan the QR code with your authenticator app and enter the current code."
+msgstr "Scan the QR code with your authenticator app and enter the current code."
+
+msgid "Open the picker in a new window or scan the QR code with your mobile device to sign in to Google Photos."
+msgstr "Open the picker in a new window or scan the QR code with your mobile device to sign in to Google Photos."
+
+msgid "Complete Registration"
+msgstr "Complete Registration"
+
+msgid "Completing Registration..."
+msgstr "Completing Registration..."
+
+msgid "Show setup key"
+msgstr "Show setup key"
+
+msgid "Hide setup key"
+msgstr "Hide setup key"
+
+msgid ""
+#~ "If you cannot scan the QR code,"
+#~ " enter this setup key manually in "
+#~ "your authenticator app:"
+msgstr ""
+#~ "If you cannot scan the QR code,"
+#~ " enter this setup key manually in "
+#~ "your authenticator app:"
+
+msgid "Copy to clipboard"
+msgstr "Copy to clipboard"
+
+msgid "Manual setup instructions:"
+msgstr "Manual setup instructions:"
+
+msgid "Open your authenticator app (Google Authenticator, Authy, etc.)"
+msgstr "Open your authenticator app (Google Authenticator, Authy, etc.)"
+
+msgid "Select \"Add account\" or \"+\""
+msgstr "Select \"Add account\" or \"+\""
+
+msgid "Choose \"Enter a setup key\" or \"Manual entry\""
+msgstr "Choose \"Enter a setup key\" or \"Manual entry\""
+
+msgid "Enter the account name:"
+msgstr "Enter the account name:"
+
+msgid "Enter the setup key shown above"
+msgstr "Enter the setup key shown above"
+
+msgid "Select \"Time-based\" if asked"
+msgstr "Select \"Time-based\" if asked"
+
+msgid "Save and enter the 6-digit code below"
+msgstr "Save and enter the 6-digit code below"
+
+msgid "Enable Two-Factor Authentication"
+msgstr "Enable Two-Factor Authentication"
+
+msgid "Back to Profile"
+msgstr "Back to Profile"
+
+msgid "Enabling..."
+msgstr "Enabling..."
+
+msgid "Cancel Registration"
+msgstr "Cancel Registration"
+
+msgid "Cancel Setup"
+msgstr "Cancel Setup"
+
+msgid "Registration cancelled. You can start over."
+msgstr "Registration cancelled. You can start over."
+
+msgid "Two-factor authentication setup cancelled."
+msgstr "Two-factor authentication setup cancelled."
+
+msgid "Two-factor authentication is not available for service accounts."
+msgstr "Two-factor authentication is not available for service accounts."
+
+msgid "Service accounts cannot edit profile details."
+msgstr "Service accounts cannot edit profile details."
+
+msgid "Profile details are managed by administrators for service accounts."
+msgstr "Profile details are managed by administrators for service accounts."
+
+msgid "Registration session invalid. Please register again."
+msgstr "Registration session invalid. Please register again."
+
+msgid "Registration failed: {}"
+msgstr "Registration failed: {}"
+
+msgid "Updated"
+msgstr "Updated"
+
+msgid "Unknown"
+msgstr "Unknown"
+
+msgid "Page Information"
+msgstr "Page Information"
+
+msgid "Created Date"
+msgstr "Created Date"
+
+msgid "Created By"
+msgstr "Created By"
+
+msgid "Slug"
+msgstr "Slug"
+
+msgid "Statistics"
+msgstr "Statistics"
+
+msgid "Total Revisions"
+msgstr "Total Revisions"
+
+msgid "Last Updated"
+msgstr "Last Updated"
+
+msgid "Last Updated By"
+msgstr "Last Updated By"
+
+msgid "Current Title"
+msgstr "Current Title"
+
+msgid "Title"
+msgstr "Title"
+
+msgid "Content Length"
+msgstr "Content Length"
+
+msgid "characters"
+msgstr "characters"
+
+msgid "Show Content"
+msgstr "Show Content"
+
+msgid "Hide Content"
+msgstr "Hide Content"
+
+msgid "Page content at this point"
+msgstr "Page content at this point"
+
+msgid "Change History"
+msgstr "Change History"
+
+msgid "No History"
+msgstr "No History"
+
+msgid "This page has no change history yet."
+msgstr "This page has no change history yet."
+
+msgid "Back to Page"
+msgstr "Back to Page"
+
+msgid "Wiki Top"
+msgstr "Wiki Top"
+
+msgid "Categories"
+msgstr "Categories"
+
+msgid "Page Hierarchy"
+msgstr "Page Hierarchy"
+
+msgid "No pages available"
+msgstr "No pages available"
+
+msgid "New Page"
+msgstr "New Page"
+
+msgid "Admin"
+msgstr "Admin"
+
+msgid "Search pages..."
+msgstr "Search pages..."
+
+msgid "Recently Updated Pages"
+msgstr "Recently Updated Pages"
+
+msgid "No pages yet."
+msgstr "No pages yet."
+
+msgid "Create New Page"
+msgstr "Create New Page"
+
+msgid "Back to Wiki Top"
+msgstr "Back to Wiki Top"
+
+msgid "No categories"
+msgstr "No categories"
+
+msgid "Navigation"
+msgstr "Navigation"
+
+msgid "Search"
+msgstr "Search"
+
+msgid "Edit"
+msgstr "Edit"
+
+msgid "History"
+msgstr "History"
+
+msgid "Sub Pages"
+msgstr "Sub Pages"
+
+msgid "Parent Page"
+msgstr "Parent Page"
+
+msgid "Are you sure you want to cancel the local import?"
+msgstr "Are you sure you want to cancel the local import?"
+
+msgid "Certificate List"
+msgstr "Certificate List"
+
+msgid "Common Name"
+msgstr "Common Name"
+
+msgid "Generate New"
+msgstr "Generate New"
+
+msgid "Public Key Distribution"
+msgstr "Public Key Distribution"
+
+msgid "Usage"
+msgstr "Usage"
+
+msgid "All"
+msgstr "All"
+
+msgid "Issued At"
+msgstr "Issued At"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Revoked At"
+msgstr "Revoked At"
+
+msgid "Actions"
+msgstr "Actions"
+
+msgid "Revoked"
+msgstr "Revoked"
+
+msgid "Active"
+msgstr "Active"
+
+msgid "View Details"
+msgstr "View Details"
+
+msgid "Revoke"
+msgstr "Revoke"
+
+msgid "No certificates available to display."
+msgstr "No certificates available to display."
+
+msgid "Certificate Details"
+msgstr "Certificate Details"
+
+msgid "KID"
+msgstr "KID"
+
+msgid "Back to List"
+msgstr "Back to List"
+
+msgid "Revoke Certificate"
+msgstr "Revoke Certificate"
+
+msgid "Metadata"
+msgstr "Metadata"
+
+msgid "Revocation Reason"
+msgstr "Revocation Reason"
+
+msgid "Subject"
+msgstr "Subject"
+
+msgid "Issuer"
+msgstr "Issuer"
+
+msgid "Validity Period"
+msgstr "Validity Period"
+
+msgid "to"
+msgstr "to"
+
+msgid "Certificate (PEM)"
+msgstr "Certificate (PEM)"
+
+msgid "JWK Information"
+msgstr "JWK Information"
+
+msgid "Generate Certificate"
+msgstr "Generate Certificate"
+
+msgid "Input Form"
+msgstr "Input Form"
+
+msgid "Validity (days)"
+msgstr "Validity (days)"
+
+msgid "Key Type"
+msgstr "Key Type"
+
+msgid "RSA Key Size"
+msgstr "RSA Key Size"
+
+msgid "Key Usage"
+msgstr "Key Usage"
+
+msgid "Mark as CA certificate"
+msgstr "Mark as CA certificate"
+
+msgid "Generate"
+msgstr "Generate"
+
+msgid "Private Key / Public Key"
+msgstr "Private Key / Public Key"
+
+msgid "Private Key"
+msgstr "Private Key"
+
+msgid "Public Key"
+msgstr "Public Key"
+
+msgid "Generation results will appear here."
+msgstr "Generation results will appear here."
+
+msgid "Certificate / JWKS"
+msgstr "Certificate / JWKS"
+
+msgid "JWK"
+msgstr "JWK"
+
+msgid "Certificate details will be shown after generation."
+msgstr "Certificate details will be shown after generation."
+
+msgid "Revoke the certificate below and provide a reason for the revocation."
+msgstr "Revoke the certificate below and provide a reason for the revocation."
+
+msgid "Example: Key was compromised"
+msgstr "Example: Key was compromised"
+
+msgid "Back"
+msgstr "Back"
+
+msgid ""
+#~ "Are you sure you want to revoke"
+#~ " this certificate? This action cannot "
+#~ "be undone."
+msgstr ""
+#~ "Are you sure you want to revoke"
+#~ " this certificate? This action cannot "
+#~ "be undone."
+
+msgid ""
+#~ "Links to the JWKS endpoints and "
+#~ "information about currently published keys."
+msgstr ""
+#~ "Links to the JWKS endpoints and "
+#~ "information about currently published keys."
+
+msgid "Endpoint"
+msgstr "Endpoint"
+
+msgid "Open in Browser"
+msgstr "Open in Browser"
+
+msgid "Copy URL"
+msgstr "Copy URL"
+
+msgid "JWKS JSON"
+msgstr "JWKS JSON"
+
+msgid "Unsupported subject attribute: %(attribute)s"
+msgstr "Unsupported subject attribute: %(attribute)s"
+
+msgid "Invalid value for subject attribute %(attribute)s: %(error)s"
+msgstr "Invalid value for subject attribute %(attribute)s: %(error)s"
+
+msgid "Subject must not be empty"
+msgstr "Subject must not be empty"
+
+msgid "Country code (C) must be a two-letter ISO 3166-1 value (e.g., JP)"
+msgstr "Country code (C) must be a two-letter ISO 3166-1 value (e.g., JP)"
+
+msgid "RSA key length must be at least 2048 bits"
+msgstr "RSA key length must be at least 2048 bits"
+
+msgid "Unsupported key type: %(key_type)s"
+msgstr "Unsupported key type: %(key_type)s"
+
+msgid "Failed to load CSR"
+msgstr "Failed to load CSR"
+
+msgid "Only RSA keys are currently supported"
+msgstr "Only RSA keys are currently supported"
+
+msgid "Unsupported keyUsage value: %(usage)s"
+msgstr "Unsupported keyUsage value: %(usage)s"
+
+msgid "Validity period must be at least one day"
+msgstr "Validity period must be at least one day"
+
+msgid "Unsupported elliptic curve"
+msgstr "Unsupported elliptic curve"
+
+msgid "digitalSignature - digital signature"
+msgstr "digitalSignature - digital signature"
+
+msgid "contentCommitment - content commitment"
+msgstr "contentCommitment - content commitment"
+
+msgid "keyEncipherment - key encipherment"
+msgstr "keyEncipherment - key encipherment"
+
+msgid "dataEncipherment - data encipherment"
+msgstr "dataEncipherment - data encipherment"
+
+msgid "keyAgreement - key agreement"
+msgstr "keyAgreement - key agreement"
+
+msgid "keyCertSign - certificate signing"
+msgstr "keyCertSign - certificate signing"
+
+msgid "crlSign - CRL signing"
+msgstr "crlSign - CRL signing"
+
+msgid "encipherOnly - encipher only"
+msgstr "encipherOnly - encipher only"
+
+msgid "decipherOnly - decipher only"
+msgstr "decipherOnly - decipher only"
+
+msgid "Country (C)"
+msgstr "Country (C)"
+
+msgid "State or Province (ST)"
+msgstr "State or Province (ST)"
+
+msgid "Locality (L)"
+msgstr "Locality (L)"
+
+msgid "Organization (O)"
+msgstr "Organization (O)"
+
+msgid "Organizational Unit (OU)"
+msgstr "Organizational Unit (OU)"
+
+msgid "Common Name (CN)"
+msgstr "Common Name (CN)"
+
+msgid "Certificate Groups"
+msgstr "Certificate Groups"
+
+msgid "Failed to load certificate groups: %(message)s"
+msgstr "Failed to load certificate groups: %(message)s"
+
+msgid "Group code is required."
+msgstr "Group code is required."
+
+msgid "Invalid usage type specified."
+msgstr "Invalid usage type specified."
+
+msgid "Key size must be a number."
+msgstr "Key size must be a number."
+
+msgid "Rotation threshold must be a number."
+msgstr "Rotation threshold must be a number."
+
+msgid "Rotation threshold must be greater than zero."
+msgstr "Rotation threshold must be greater than zero."
+
+msgid "Enter at least one subject attribute."
+msgstr "Enter at least one subject attribute."
+
+msgid "Failed to create certificate group: %(message)s"
+msgstr "Failed to create certificate group: %(message)s"
+
+msgid "Certificate group created."
+msgstr "Certificate group created."
+
+msgid "Failed to update certificate group: %(message)s"
+msgstr "Failed to update certificate group: %(message)s"
+
+msgid "Certificate group updated."
+msgstr "Certificate group updated."
+
+msgid "Cannot delete the group because active certificates exist: %(message)s"
+msgstr "Cannot delete the group because active certificates exist: %(message)s"
+
+msgid "Display name must be a string."
+msgstr "Display name must be a string."
+
+msgid "Key type is required."
+msgstr "Key type is required."
+
+msgid "Key curve must be a string."
+msgstr "Key curve must be a string."
+
+msgid "Key size must be an integer."
+msgstr "Key size must be an integer."
+
+msgid "Rotation threshold days must be an integer."
+msgstr "Rotation threshold days must be an integer."
+
+msgid "Rotation threshold days must be at least 1."
+msgstr "Rotation threshold days must be at least 1."
+
+msgid "Subject must be provided as an object."
+msgstr "Subject must be provided as an object."
+
+msgid "Limit must be an integer."
+msgstr "Limit must be an integer."
+
+msgid "Offset must be an integer."
+msgstr "Offset must be an integer."
+
+msgid "Issued-from must be in ISO 8601 format."
+msgstr "Issued-from must be in ISO 8601 format."
+
+msgid "Issued-to must be in ISO 8601 format."
+msgstr "Issued-to must be in ISO 8601 format."
+
+msgid "Expires-from must be in ISO 8601 format."
+msgstr "Expires-from must be in ISO 8601 format."
+
+msgid "Expires-to must be in ISO 8601 format."
+msgstr "Expires-to must be in ISO 8601 format."
+
+msgid "Valid days must be an integer."
+msgstr "Valid days must be an integer."
+
+msgid "Valid days must be at least 1."
+msgstr "Valid days must be at least 1."
+
+msgid "Key usage must be provided as an array."
+msgstr "Key usage must be provided as an array."
+
+msgid "Key bits must be an integer."
+msgstr "Key bits must be an integer."
+
+msgid "Key usage must be provided as an array of strings."
+msgstr "Key usage must be provided as an array of strings."
+
+msgid "Days must be an integer."
+msgstr "Days must be an integer."
+
+msgid "Group code must be a string."
+msgstr "Group code must be a string."
+
+msgid "The group parameter is invalid."
+msgstr "The group parameter is invalid."
+
+msgid "Reason must be a string."
+msgstr "Reason must be a string."
+
+msgid "The certificate does not exist in the specified group."
+msgstr "The certificate does not exist in the specified group."
+
+msgid "Failed to delete certificate group: %(message)s"
+msgstr "Failed to delete certificate group: %(message)s"
+
+msgid "Certificate group deleted."
+msgstr "Certificate group deleted."
+
+msgid "Failed to update rotation setting: %(message)s"
+msgstr "Failed to update rotation setting: %(message)s"
+
+msgid "Rotation setting updated."
+msgstr "Rotation setting updated."
+
+msgid "Certificates for %(group)s"
+msgstr "Certificates for %(group)s"
+
+msgid "Back to Groups"
+msgstr "Back to Groups"
+
+msgid "Group Settings"
+msgstr "Group Settings"
+
+msgid "Group Code"
+msgstr "Group Code"
+
+msgid "Display Name"
+msgstr "Display Name"
+
+msgid "Auto Rotate"
+msgstr "Auto Rotate"
+
+msgid "Rotation Threshold (days)"
+msgstr "Rotation Threshold (days)"
+
+msgid "Updated At"
+msgstr "Updated At"
+
+msgid "Enabled"
+msgstr "Enabled"
+
+msgid "Disabled"
+msgstr "Disabled"
+
+msgid "View Certificates"
+msgstr "View Certificates"
+
+msgid "Delete"
+msgstr "Delete"
+
+msgid "Are you sure you want to delete this group?"
+msgstr "Are you sure you want to delete this group?"
+
+msgid "No certificate groups available."
+msgstr "No certificate groups available."
+
+msgid "Create Certificate Group"
+msgstr "Create Certificate Group"
+
+msgid "Key Parameters"
+msgstr "Key Parameters"
+
+msgid "Select key parameters"
+msgstr "Select key parameters"
+
+msgid "Custom configuration (%(details)s)"
+msgstr "Custom configuration (%(details)s)"
+
+msgid ""
+#~ "Fill in all required subject attributes"
+#~ " using ASCII characters. Country code "
+#~ "must be a two-letter ISO 3166-1"
+#~ " alpha-2 value (e.g., JP)."
+msgstr ""
+#~ "Fill in all required subject attributes"
+#~ " using ASCII characters. Country code "
+#~ "must be a two-letter ISO 3166-1"
+#~ " alpha-2 value (e.g., JP)."
+
+msgid "Required"
+msgstr "Required"
+
+msgid "Optional"
+msgstr "Optional"
+
+msgid "Please fill in all required subject attributes."
+msgstr "Please fill in all required subject attributes."
+
+msgid "%(label)s is required."
+msgstr "%(label)s is required."
+
+msgid "Usage Type"
+msgstr "Usage Type"
+
+msgid "Select usage type"
+msgstr "Select usage type"
+
+msgid "Select all shown permissions"
+msgstr "Select all shown permissions"
+
+msgid "Key Size"
+msgstr "Key Size"
+
+msgid "Key Curve"
+msgstr "Key Curve"
+
+msgid "Subject Template"
+msgstr "Subject Template"
+
+msgid "Enable automatic rotation"
+msgstr "Enable automatic rotation"
+
+msgid ""
+#~ "Non-expiring keys should disable "
+#~ "automatic rotation to avoid immediate "
+#~ "re-issuance."
+msgstr ""
+#~ "Non-expiring keys should disable "
+#~ "automatic rotation to avoid immediate "
+#~ "re-issuance."
+
+msgid "Update rotation setting"
+msgstr "Update rotation setting"
+
+msgid "Save Group"
+msgstr "Save Group"
+
+msgid "Edit Certificate Group"
+msgstr "Edit Certificate Group"
+
+msgid "Update Group"
+msgstr "Update Group"
+
+msgid "Close"
+msgstr "Close"
+
+msgid "Cancel"
+msgstr "Cancel"
+
+msgid "Key Profile"
+msgstr "Key Profile"
+
+msgid "JWKS Endpoint"
+msgstr "JWKS Endpoint"
+
+msgid "Public JWKS URL"
+msgstr "Public JWKS URL"
+
+msgid "Copy"
+msgstr "Copy"
+
+msgid "Open JWKS"
+msgstr "Open JWKS"
+
+msgid "Issue New Certificate"
+msgstr "Issue New Certificate"
+
+msgid "Issue without expiration"
+msgstr "Issue without expiration"
+
+msgid "When enabled, the issued key will not include an expiry date."
+msgstr "When enabled, the issued key will not include an expiry date."
+
+msgid "Subject Overrides"
+msgstr "Subject Overrides"
+
+msgid "Issue Certificate"
+msgstr "Issue Certificate"
+
+msgid "New certificate issued."
+msgstr "New certificate issued."
+
+msgid "Copy the materials below. The private key is shown only once."
+msgstr "Copy the materials below. The private key is shown only once."
+
+msgid "Private Key (PEM)"
+msgstr "Private Key (PEM)"
+
+msgid "Issued Certificates"
+msgstr "Issued Certificates"
+
+msgid "Provide an optional reason for revocation."
+msgstr "Provide an optional reason for revocation."
+
+msgid "Reason"
+msgstr "Reason"
+
+msgid "Copied!"
+msgstr "Copied!"
+
+msgid "Failed to load certificates: %(message)s"
+msgstr "Failed to load certificates: %(message)s"
+
+msgid "Validity days must be a number."
+msgstr "Validity days must be a number."
+
+msgid "Failed to issue certificate: %(message)s"
+msgstr "Failed to issue certificate: %(message)s"
+
+msgid "Certificate issued successfully."
+msgstr "Certificate issued successfully."
+
+msgid "Failed to revoke certificate: %(message)s"
+msgstr "Failed to revoke certificate: %(message)s"
+
+msgid "Certificate revoked."
+msgstr "Certificate revoked."
+
+msgid "Failed to load groups: %(message)s"
+msgstr "Failed to load groups: %(message)s"
+
+msgid "Invalid revoked flag."
+msgstr "Invalid revoked flag."
+
+msgid "Unlimited"
+msgstr "Unlimited"
+
+msgid "No certificate is stored for this key."
+msgstr "No certificate is stored for this key."
+
+msgid "Not used for signing keys."
+msgstr "Not used for signing keys."
+
+msgid "No certificate was generated for this key."
+msgstr "No certificate was generated for this key."
+
+msgid "Use ISO 8601 format for date filters."
+msgstr "Use ISO 8601 format for date filters."
+
+msgid "Failed to search certificates: %(message)s"
+msgstr "Failed to search certificates: %(message)s"
+
+msgid "Certificate Search"
+msgstr "Certificate Search"
+
+msgid "All Groups"
+msgstr "All Groups"
+
+msgid "Subject Contains"
+msgstr "Subject Contains"
+
+msgid "Issued From"
+msgstr "Issued From"
+
+msgid "Issued To"
+msgstr "Issued To"
+
+msgid "Expires From"
+msgstr "Expires From"
+
+msgid "Expires To"
+msgstr "Expires To"
+
+msgid "Revoked Status"
+msgstr "Revoked Status"
+
+msgid "Search Results"
+msgstr "Search Results"
+
+msgid "%(count)d certificates found"
+msgstr "%(count)d certificates found"
+
+msgid "Group"
+msgstr "Group"
+
+msgid ""
+#~ "Specify at least one search condition"
+#~ " and submit the form to view "
+#~ "results."
+msgstr ""
+#~ "Specify at least one search condition"
+#~ " and submit the form to view "
+#~ "results."
+
+msgid "Back to Group"
+msgstr "Back to Group"
+
+msgid "Are you sure you want to issue a new certificate for this group?"
+msgstr "Are you sure you want to issue a new certificate for this group?"
+
+msgid "Current Time"
+msgstr "Current Time"
+
+msgid "Local Time"
+msgstr "Local Time"
+
+msgid "UTC Time"
+msgstr "UTC Time"
+
+msgid "Server Time"
+msgstr "Server Time"
+
+msgid "Back to Home"
+msgstr "Back to Home"
+
+msgid "Unavailable"
+msgstr "Unavailable"
+
+msgid "Access token signing will use the built-in secret."
+msgstr "Access token signing will use the built-in secret."
+
+msgid "Please provide a JWT secret key for built-in signing."
+msgstr "Please provide a JWT secret key for built-in signing."
+
+msgid "Failed to update the built-in signing secret."
+msgstr "Failed to update the built-in signing secret."
+
+msgid "Access token signing certificate group updated."
+msgstr "Access token signing certificate group updated."
+
+msgid "Please select a certificate group for signing."
+msgstr "Please select a certificate group for signing."
+
+msgid "Failed to update the access token signing configuration."
+msgstr "Failed to update the access token signing configuration."
+
+msgid "No certificate group has been configured for server signing."
+msgstr "No certificate group has been configured for server signing."
+
+msgid "The selected certificate group could not be found."
+msgstr "The selected certificate group could not be found."
+
+msgid "The certificate group is not configured for server signing usage."
+msgstr "The certificate group is not configured for server signing usage."
+
+msgid "No active certificates are available in the selected group."
+msgstr "No active certificates are available in the selected group."
+
+msgid "Access Token Signing"
+msgstr "Access Token Signing"
+
+msgid "Built-in secret (HS256)"
+msgstr "Built-in secret (HS256)"
+
+msgid "Use the built-in JWT secret key configured below."
+msgstr "Use the built-in JWT secret key configured below."
+
+msgid "Server signing certificate groups"
+msgstr "Server signing certificate groups"
+
+msgid "Unnamed group"
+msgstr "Unnamed group"
+
+msgid "Latest active certificate: %(kid)s"
+msgstr "Latest active certificate: %(kid)s"
+
+msgid "Algorithm: %(algorithm)s"
+msgstr "Algorithm: %(algorithm)s"
+
+msgid "Expires at: %(timestamp)s"
+msgstr "Expires at: %(timestamp)s"
+
+msgid "No active certificates are available in this group."
+msgstr "No active certificates are available in this group."
+
+msgid ""
+#~ "No server signing certificate groups are"
+#~ " available. Create a certificate group "
+#~ "first."
+msgstr ""
+#~ "No server signing certificate groups are"
+#~ " available. Create a certificate group "
+#~ "first."
+
+msgid "Save signing settings"
+msgstr "Save signing settings"
+
+msgid "Not Found"
+msgstr "Not Found"
+
+msgid "Internal Server Error"
+msgstr "Internal Server Error"
+
+msgid "Error"
+msgstr "Error"
+
+msgid "Role switching is not available for this account."
+msgstr "Role switching is not available for this account."
+
+msgid "Settings navigation"
+msgstr "Settings navigation"
+
+msgid "Hide navigation"
+msgstr "Hide navigation"
+
+msgid "Show navigation"
+msgstr "Show navigation"
+
+msgid "Page identifier is required."
+msgstr "Page identifier is required."
+
+msgid "You do not have permission to delete this page."
+msgstr "You do not have permission to delete this page."
+
+msgid "Cannot delete a page that has child pages."
+msgstr "Cannot delete a page that has child pages."
+
+msgid "Failed to delete the page."
+msgstr "Failed to delete the page."
+
+msgid "Page deleted successfully."
+msgstr "Page deleted successfully."
+
+msgid "Security verification failed. Please reload the page and try again."
+msgstr "Security verification failed. Please reload the page and try again."
+
+msgid "Are you sure you want to delete this page?"
+msgstr "Are you sure you want to delete this page?"
+
+msgid "Group Management"
+msgstr "Group Management"
+
+msgid "Groups"
+msgstr "Groups"
+
+msgid "Add Group"
+msgstr "Add Group"
+
+msgid "Parent Group"
+msgstr "Parent Group"
+
+msgid "Subgroups"
+msgstr "Subgroups"
+
+msgid "Members"
+msgstr "Members"
+
+msgid "No groups have been created yet."
+msgstr "No groups have been created yet."
+
+msgid "Edit Group"
+msgstr "Edit Group"
+
+msgid "Group Name"
+msgstr "Group Name"
+
+msgid "Description"
+msgstr "Description"
+
+msgid "Optional description to help identify the group."
+msgstr "Optional description to help identify the group."
+
+msgid "Select a parent to nest this group inside another group."
+msgstr "Select a parent to nest this group inside another group."
+
+msgid "Group Members"
+msgstr "Group Members"
+
+msgid "Hold Ctrl (Windows/Linux) or Command (macOS) to select multiple users."
+msgstr "Hold Ctrl (Windows/Linux) or Command (macOS) to select multiple users."
+
+msgid "Create Group"
+msgstr "Create Group"
+
+msgid "No parent"
+msgstr "No parent"
+
+msgid "Group name is required."
+msgstr "Group name is required."
+
+msgid "Group name already exists."
+msgstr "Group name already exists."
+
+msgid "Selected parent group does not exist."
+msgstr "Selected parent group does not exist."
+
+msgid "One or more selected users do not exist."
+msgstr "One or more selected users do not exist."
+
+msgid "The selected parent would create a circular hierarchy."
+msgstr "The selected parent would create a circular hierarchy."
+
+msgid "Group created successfully."
+msgstr "Group created successfully."
+
+msgid "Group updated successfully."
+msgstr "Group updated successfully."
+
+msgid "Group deleted successfully."
+msgstr "Group deleted successfully."
+
+msgid "Cannot delete a group that still has subgroups."
+msgstr "Cannot delete a group that still has subgroups."
+
+msgid "Remove all users from the group before deleting it."
+msgstr "Remove all users from the group before deleting it."
+
+msgid "Bulk action requires at least one media id."
+msgstr "Bulk action requires at least one media id."
+
+msgid "Media id must be an integer."
+msgstr "Media id must be an integer."
+
+msgid "Unsupported bulk action."
+msgstr "Unsupported bulk action."
+
+msgid "You do not have permission to manage media tags."
+msgstr "You do not have permission to manage media tags."
+
+msgid "Tag ids are required for this action."
+msgstr "Tag ids are required for this action."
+
+msgid "Tag id must be an integer."
+msgstr "Tag id must be an integer."
+
+msgid "Some tags were not found."
+msgstr "Some tags were not found."
+
+msgid "Some media items were not found or already deleted."
+msgstr "Some media items were not found or already deleted."
+
+msgid "Select media to start bulk actions."
+msgstr "Select media to start bulk actions."
+
+msgid "Add tags"
+msgstr "Add tags"
+
+msgid "Remove tags"
+msgstr "Remove tags"
+
+msgid "Delete selected"
+msgstr "Delete selected"
+
+msgid "Clear selection"
+msgstr "Clear selection"
+
+msgid "Add tags to selected media"
+msgstr "Add tags to selected media"
+
+msgid "Search tags"
+msgstr "Search tags"
+
+msgid "Search tags..."
+msgstr "Search tags..."
+
+msgid "No tags selected yet."
+msgstr "No tags selected yet."
+
+msgid "Selected tags will be applied to all chosen media items."
+msgstr "Selected tags will be applied to all chosen media items."
+
+msgid "Apply changes"
+msgstr "Apply changes"
+
+msgid "Selected {count} items"
+msgstr "Selected {count} items"
+
+msgid "Select at least one media item."
+msgstr "Select at least one media item."
+
+msgid "Remove tags from selected media"
+msgstr "Remove tags from selected media"
+
+msgid "This action targets {count} media items."
+msgstr "This action targets {count} media items."
+
+msgid "Tags updated for selected media."
+msgstr "Tags updated for selected media."
+
+msgid "Failed to update tags for selected media."
+msgstr "Failed to update tags for selected media."
+
+msgid "Toggle selection for {name}"
+msgstr "Toggle selection for {name}"
+
+msgid "Select at least one tag."
+msgstr "Select at least one tag."
+
+msgid "Are you sure you want to delete the selected media? This action cannot be undone."
+msgstr "Are you sure you want to delete the selected media? This action cannot be undone."
+
+msgid "Deleted {count} media items."
+msgstr "Deleted {count} media items."
+
+msgid "Failed to delete selected media."
+msgstr "Failed to delete selected media."
+

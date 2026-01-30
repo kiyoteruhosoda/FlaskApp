@@ -1,8 +1,13 @@
+"""Picker Import repositories - Infrastructure layer.
+
+PickerSession / PickerSelection の永続化を担当するリポジトリ群です。
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from typing import Final
 
 from sqlalchemy import update
 
@@ -10,73 +15,68 @@ from core.db import db
 from core.models.picker_session import PickerSession
 from core.models.photo_models import Media, PickerSelection
 from domain.picker_import.entities import ImportSelection, ImportSession
+from infrastructure.base import BaseRepository, Mapper, UnitOfWork
 
 
-@dataclass
-class PickerSelectionMapper:
-    """SQLAlchemyモデルをドメインオブジェクトに変換するマッパー。"""
+@dataclass(frozen=True, slots=True)
+class PickerSelectionMapper(Mapper[PickerSelection, ImportSelection]):
+    """PickerSelection → ImportSelection マッパー."""
 
-    def to_domain(self, selection: PickerSelection) -> ImportSelection:
+    def to_domain(self, model: PickerSelection) -> ImportSelection:
         return ImportSelection(
-            selection_id=selection.id,
-            session_id=selection.session_id,
-            google_media_id=selection.google_media_id,
-            status=selection.status,
-            attempts=selection.attempts,
-            locked_by=selection.locked_by,
-            locked_at=selection.lock_heartbeat_at,
+            selection_id=model.id,
+            session_id=model.session_id,
+            google_media_id=model.google_media_id,
+            status=model.status,
+            attempts=model.attempts,
+            locked_by=model.locked_by,
+            locked_at=model.lock_heartbeat_at,
         )
 
 
-class PickerSelectionRepository:
-    """PickerSelectionに関する永続化操作をカプセル化。"""
+class PickerSelectionRepository(BaseRepository[PickerSelection]):
+    """PickerSelectionに関する永続化操作をカプセル化."""
 
-    def __init__(self, mapper: Optional[PickerSelectionMapper] = None) -> None:
-        self.mapper = mapper or PickerSelectionMapper()
+    # ステータス定数
+    STATUS_ENQUEUED: Final[str] = "enqueued"
+    STATUS_RUNNING: Final[str] = "running"
+    STATUS_FAILED: Final[str] = "failed"
+
+    def __init__(
+        self,
+        mapper: PickerSelectionMapper | None = None,
+        uow: UnitOfWork | None = None,
+    ) -> None:
+        super().__init__(uow)
+        self._mapper = mapper or PickerSelectionMapper()
+
+    def list_by_status(self, status: str) -> list[PickerSelection]:
+        """指定ステータスかつ google_media_id を持つ Selection を取得."""
+        query = PickerSelection.query.filter(
+            PickerSelection.status == status,
+            PickerSelection.google_media_id.isnot(None),
+        )
+        if status == self.STATUS_ENQUEUED:
+            query = query.order_by(PickerSelection.id)
+        return query.all()
 
     def list_enqueued(self) -> list[PickerSelection]:
-        return (
-            PickerSelection.query.filter(
-                PickerSelection.status == "enqueued",
-                PickerSelection.google_media_id.isnot(None),
-            )
-            .order_by(PickerSelection.id)
-            .all()
-        )
+        return self.list_by_status(self.STATUS_ENQUEUED)
 
     def list_running(self) -> list[PickerSelection]:
-        return (
-            PickerSelection.query.filter(
-                PickerSelection.status == "running",
-                PickerSelection.google_media_id.isnot(None),
-            ).all()
-        )
+        return self.list_by_status(self.STATUS_RUNNING)
 
     def list_failed(self) -> list[PickerSelection]:
-        return (
-            PickerSelection.query.filter(
-                PickerSelection.status == "failed",
-                PickerSelection.google_media_id.isnot(None),
-            ).all()
-        )
+        return self.list_by_status(self.STATUS_FAILED)
 
     def list_by_session(self, session_id: int) -> list[PickerSelection]:
         return PickerSelection.query.filter_by(session_id=session_id).all()
 
-    def get(self, selection_id: int) -> Optional[PickerSelection]:
-        return PickerSelection.query.get(selection_id)
+    def get(self, selection_id: int) -> PickerSelection | None:
+        return db.session.get(PickerSelection, selection_id)
 
-    def to_domain(self, selection: PickerSelection) -> ImportSelection:
-        return self.mapper.to_domain(selection)
-
-    def save(self, selection: PickerSelection) -> None:
-        db.session.add(selection)
-
-    def commit(self) -> None:
-        db.session.commit()
-
-    def rollback(self) -> None:
-        db.session.rollback()
+    def to_domain(self, model: PickerSelection) -> ImportSelection:
+        return self._mapper.to_domain(model)
 
     def claim(
         self,
@@ -86,15 +86,16 @@ class PickerSelectionRepository:
         locked_by: str,
         now: datetime,
     ) -> bool:
+        """enqueued → running への原子的状態遷移."""
         stmt = (
             update(PickerSelection)
             .where(
                 PickerSelection.id == selection_id,
                 PickerSelection.session_id == session_id,
-                PickerSelection.status == "enqueued",
+                PickerSelection.status == self.STATUS_ENQUEUED,
             )
             .values(
-                status="running",
+                status=self.STATUS_RUNNING,
                 locked_by=locked_by,
                 lock_heartbeat_at=now,
                 attempts=PickerSelection.attempts + 1,
@@ -102,19 +103,17 @@ class PickerSelectionRepository:
                 last_transition_at=now,
             )
         )
-        res = db.session.execute(stmt)
-        if res.rowcount == 0:
-            db.session.rollback()
+        result = db.session.execute(stmt)
+        if result.rowcount == 0:
+            self.rollback()
             return False
-        db.session.commit()
+        self.commit()
         return True
 
 
-class PickerSessionRepository:
-    """PickerSessionの取得と保存を司る。"""
-
-    def get(self, session_id: int) -> Optional[PickerSession]:
-        return PickerSession.query.get(session_id)
+@dataclass(frozen=True, slots=True)
+class PickerSessionMapper(Mapper[PickerSession, ImportSession]):
+    """PickerSession → ImportSession マッパー."""
 
     def to_domain(self, model: PickerSession) -> ImportSession:
         return ImportSession(
@@ -126,11 +125,23 @@ class PickerSessionRepository:
             media_items_set=bool(model.media_items_set),
         )
 
-    def save(self, model: PickerSession) -> None:
-        db.session.add(model)
 
-    def commit(self) -> None:
-        db.session.commit()
+class PickerSessionRepository(BaseRepository[PickerSession]):
+    """PickerSessionの取得と保存を司る."""
+
+    def __init__(
+        self,
+        mapper: PickerSessionMapper | None = None,
+        uow: UnitOfWork | None = None,
+    ) -> None:
+        super().__init__(uow)
+        self._mapper = mapper or PickerSessionMapper()
+
+    def get(self, session_id: int) -> PickerSession | None:
+        return db.session.get(PickerSession, session_id)
+
+    def to_domain(self, model: PickerSession) -> ImportSession:
+        return self._mapper.to_domain(model)
 
     def list_importing(self) -> list[PickerSession]:
         return (
@@ -141,19 +152,16 @@ class PickerSessionRepository:
         )
 
 
-class MediaRepository:
-    """Mediaモデルの永続化。"""
+class MediaRepository(BaseRepository[Media]):
+    """Mediaモデルの永続化."""
 
-    def add(self, media: Media) -> None:
-        db.session.add(media)
-
-    def commit(self) -> None:
-        db.session.commit()
+    pass
 
 
 __all__ = [
-    "PickerSelectionRepository",
-    "PickerSessionRepository",
-    "PickerSelectionMapper",
     "MediaRepository",
+    "PickerSelectionMapper",
+    "PickerSelectionRepository",
+    "PickerSessionMapper",
+    "PickerSessionRepository",
 ]

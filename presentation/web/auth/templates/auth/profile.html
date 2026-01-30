@@ -1,0 +1,509 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Profile') }} - {{ _('AppName') }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-xl-6 col-lg-7 col-md-9">
+    <div class="card shadow-sm profile-card">
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+          <div>
+            <h1 class="h3 mb-1">{{ _('Profile') }}</h1>
+            <p class="text-muted mb-0">{{ _('Manage how your account looks and feels.') }}</p>
+          </div>
+          <div>
+            <span class="badge rounded-pill text-bg-light text-secondary">
+              <i class="fas fa-clock me-1"></i>
+              {{ _('Current time') }}
+            </span>
+            <div class="mt-2 small text-muted">
+              <div>{{ _('Local time ({tz})').format(tz=selected_timezone) }}<br><strong>{{ localized_time.strftime('%Y-%m-%d %H:%M:%S %Z') }}</strong></div>
+              <div class="mt-1">UTC<br><strong>{{ server_time_utc.strftime('%Y-%m-%d %H:%M:%S UTC') }}</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="profile-section mb-4">
+          <h2 class="h5 mb-3">{{ _('Account overview') }}</h2>
+          <div class="row g-3">
+            <div class="col-sm-6">
+              <div class="profile-summary">
+                <span class="text-muted small text-uppercase">{{ _('Signed in as') }}</span>
+                <p class="mb-0 fw-semibold">{{ current_user.display_name }}</p>
+                <p class="mb-0 text-muted">{{ current_user.email }}</p>
+              </div>
+            </div>
+            <div class="col-sm-6">
+              <div class="profile-summary">
+                <span class="text-muted small text-uppercase">{{ _('Two-factor authentication') }}</span>
+                {% if current_user.totp_secret %}
+                  <span class="badge bg-success">{{ _('Enabled') }}</span>
+                {% else %}
+                  <span class="badge bg-secondary">{{ _('Disabled') }}</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="profile-section mb-4">
+          <h2 class="h5 mb-3">{{ _('Passkeys') }}</h2>
+          {% if is_service_account %}
+            <p class="text-muted mb-0">{{ _('Passkeys cannot be managed for service accounts.') }}</p>
+          {% else %}
+            {% if passkey_credentials %}
+            <div class="list-group mb-3">
+              {% for credential in passkey_credentials %}
+              <div class="list-group-item d-flex justify-content-between align-items-start flex-wrap gap-2" data-passkey-entry data-passkey-id="{{ credential.id }}">
+                <div>
+                  <div class="fw-semibold">{{ credential.name or _('Unnamed passkey') }}</div>
+                  <div class="small text-muted">
+                    {{ _('Created') }}: {{ credential.created_at.strftime('%Y-%m-%d %H:%M') if credential.created_at }}
+                    {% if credential.last_used_at %}<br>{{ _('Last used') }}: {{ credential.last_used_at.strftime('%Y-%m-%d %H:%M') }}{% endif %}
+                  </div>
+                </div>
+                <button type="button" class="btn btn-outline-danger btn-sm" data-passkey-remove>
+                  <i class="fas fa-trash-alt me-1"></i>{{ _('Remove') }}
+                </button>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted mb-3">{{ _('No passkeys registered yet.') }}</p>
+            {% endif %}
+            <div class="d-flex flex-column flex-sm-row align-items-start gap-2">
+              <button
+                type="button"
+                class="btn btn-outline-primary"
+                data-passkey-register
+              >
+                <span class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true" data-passkey-spinner></span>
+                <i class="fas fa-key me-2" data-passkey-icon></i>
+                <span data-passkey-label>{{ _('Add a new passkey') }}</span>
+              </button>
+              <p class="form-text text-muted mb-0">{{ _('Register a passkey for each device you use.') }}</p>
+            </div>
+          {% endif %}
+        </div>
+
+        {% if role_options %}
+        {% set role_count = role_options|length %}
+        <div class="profile-section mb-4">
+          <h2 class="h5 mb-3">{{ _('Role settings') }}</h2>
+          {% if role_count > 1 %}
+          <form method="post" class="role-switcher-form" data-role-switcher-form data-user-email="{{ current_user.email|e }}">
+            <input type="hidden" name="action" value="switch-role">
+            <div class="mb-3">
+              <label for="active-role" class="form-label">{{ _('Active role') }}</label>
+              <select class="form-select" id="active-role" name="active_role" required data-role-switcher-select>
+                {% for role in role_options %}
+                  {% set is_selected = (active_role and role.id == active_role.id) or (not active_role and loop.first) %}
+                  <option value="{{ role.id }}" data-role-permissions='{{ role.permissions|map(attribute="code")|list|tojson }}'
+                          {% if is_selected %}selected{% endif %}>{{ role.name }}</option>
+                {% endfor %}
+              </select>
+              <div class="form-text">{{ _('Selecting a specific role limits your permissions to that role.') }}</div>
+            </div>
+            <button type="submit" class="btn btn-outline-primary">
+              <i class="fas fa-exchange-alt me-2"></i>{{ _('Switch role') }}
+            </button>
+          </form>
+          {% else %}
+          <div class="profile-summary">
+            <span class="text-muted small text-uppercase">{{ _('Current Roles') }}</span>
+            <div class="d-flex flex-wrap gap-2 mt-1">
+              {% for role in role_options %}
+                <span class="badge bg-secondary">{{ role.name }}</span>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="profile-section mb-4">
+          <h2 class="h5 mb-3">{{ _('Active permissions') }}</h2>
+          {% if active_permissions %}
+          <div class="d-flex flex-wrap gap-2">
+            {% for code in active_permissions %}
+              <span class="badge bg-info text-dark">{{ code }}</span>
+            {% endfor %}
+          </div>
+          <p class="form-text text-muted mt-2">{{ _('These permissions reflect your currently active role or scoped session.') }}</p>
+          {% else %}
+          <p class="text-muted mb-0">{{ _('No active permissions.') }}</p>
+          {% endif %}
+        </div>
+
+        <form method="post" class="profile-section">
+          <input type="hidden" name="action" value="update-preferences">
+          <h2 class="h5 mb-3">{{ _('Display preferences') }}</h2>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label for="language" class="form-label">{{ _('Language') }}</label>
+              <select class="form-select" id="language" name="language">
+                {% for item in language_choices %}
+                  <option value="{{ item.code }}" {% if item.code == selected_language %}selected{% endif %}>{{ item.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label for="timezone" class="form-label">{{ _('Location / Timezone') }}</label>
+              <select class="form-select" id="timezone" name="timezone">
+                {% for item in timezone_choices %}
+                  <option value="{{ item.code }}" {% if item.code == selected_timezone %}selected{% endif %}>{{ item.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-save me-2"></i>{{ _('Save preferences') }}
+            </button>
+            {% if is_service_account %}
+              <button type="button" class="btn btn-outline-secondary" disabled>
+                <i class="fas fa-user-edit me-2"></i>{{ _('Edit profile details') }}
+              </button>
+              <div class="form-text text-muted small">
+                {{ _('Profile details are managed by administrators for service accounts.') }}
+              </div>
+            {% else %}
+              <a href="{{ url_for('auth.edit') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-user-edit me-2"></i>{{ _('Edit profile details') }}
+              </a>
+            {% endif %}
+            {% if not is_service_account and not current_user.totp_secret %}
+              <a href="{{ url_for('auth.setup_totp', next=url_for('auth.profile')) }}" class="btn btn-outline-warning">
+                <i class="fas fa-mobile-alt me-2"></i>{{ _('Enable two-factor authentication') }}
+              </a>
+            {% endif %}
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{{ super() }}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const form = document.querySelector('[data-role-switcher-form]');
+    const select = form?.querySelector('[data-role-switcher-select]');
+    const userEmail = (form?.dataset.userEmail || '').trim().toLowerCase();
+    const storageKey = userEmail ? `login_scope:${userEmail}` : null;
+
+    const bufferToBase64Url = (input) => {
+      let bytes;
+      if (input instanceof ArrayBuffer) {
+        bytes = new Uint8Array(input);
+      } else if (ArrayBuffer.isView(input)) {
+        bytes = new Uint8Array(input.buffer, input.byteOffset, input.byteLength);
+      } else {
+        return '';
+      }
+      let binary = '';
+      for (let i = 0; i < bytes.length; i += 1) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    };
+
+    const base64UrlToBuffer = (value) => {
+      if (typeof value !== 'string' || value.length === 0) {
+        return new Uint8Array();
+      }
+      const padded = value.replace(/-/g, '+').replace(/_/g, '/');
+      const padLength = (4 - (padded.length % 4)) % 4;
+      const normalized = padded + '='.repeat(padLength);
+      const binary = window.atob(normalized);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes;
+    };
+
+    if (form && select && storageKey) {
+      const persistSelectedScope = () => {
+        const option = select.selectedOptions && select.selectedOptions.length > 0
+          ? select.selectedOptions[0]
+          : null;
+
+        if (!option) {
+          localStorage.removeItem(storageKey);
+          return;
+        }
+
+        const rawPermissions = option.dataset.rolePermissions || '';
+        if (!rawPermissions) {
+          localStorage.removeItem(storageKey);
+          return;
+        }
+
+        try {
+          const parsed = JSON.parse(rawPermissions);
+          if (!Array.isArray(parsed)) {
+            localStorage.removeItem(storageKey);
+            return;
+          }
+
+          const normalized = Array.from(
+            new Set(
+              parsed
+                .map((item) => (typeof item === 'string' ? item.trim() : ''))
+                .filter((item) => item.length > 0)
+            )
+          );
+
+          if (normalized.length > 0) {
+            const payload = {
+              permissions: normalized,
+              source: 'profile-switch',
+              roleSelection: {
+                roleId: option.value || null,
+              },
+              updatedAt: new Date().toISOString(),
+            };
+            localStorage.setItem(storageKey, JSON.stringify(payload));
+          } else {
+            localStorage.removeItem(storageKey);
+          }
+        } catch (error) {
+          console.warn('Failed to persist selected role scope', error);
+          localStorage.removeItem(storageKey);
+        }
+      };
+
+      select.addEventListener('change', persistSelectedScope);
+      form.addEventListener('submit', persistSelectedScope);
+      persistSelectedScope();
+    }
+
+    const registerButton = document.querySelector('[data-passkey-register]');
+    const removeButtons = document.querySelectorAll('[data-passkey-remove]');
+
+    if (registerButton) {
+      const spinner = registerButton.querySelector('[data-passkey-spinner]');
+      const icon = registerButton.querySelector('[data-passkey-icon]');
+      const duplicateMessage = "{{ _('This passkey is already registered for your account.')|escapejs }}";
+
+      if (!window.PublicKeyCredential || typeof navigator.credentials === 'undefined') {
+        registerButton.disabled = true;
+        registerButton.classList.add('disabled');
+        registerButton.setAttribute('title', '{{ _('Passkey registration requires a compatible browser.') }}');
+      } else {
+        registerButton.addEventListener('click', async (event) => {
+          event.preventDefault();
+          if (registerButton.classList.contains('loading')) {
+            return;
+          }
+
+          registerButton.classList.add('loading');
+          registerButton.disabled = true;
+          registerButton.setAttribute('aria-busy', 'true');
+          if (spinner) {
+            spinner.classList.remove('d-none');
+          }
+          if (icon) {
+            icon.classList.add('d-none');
+          }
+
+          let hadExcludedCredentials = false;
+
+          try {
+            const optionsResponse = await fetch('{{ url_for('auth.passkey_registration_options') }}', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            });
+
+            if (!optionsResponse.ok) {
+              throw new Error('options');
+            }
+
+            const optionsPayload = await optionsResponse.json();
+            const publicKey = optionsPayload.publicKey || optionsPayload;
+
+            if (!publicKey || !publicKey.challenge) {
+              throw new Error('options');
+            }
+
+            publicKey.challenge = base64UrlToBuffer(publicKey.challenge);
+            if (publicKey.user && publicKey.user.id) {
+              publicKey.user.id = base64UrlToBuffer(publicKey.user.id);
+            }
+            if (Array.isArray(publicKey.excludeCredentials)) {
+              hadExcludedCredentials = publicKey.excludeCredentials.length > 0;
+              publicKey.excludeCredentials = publicKey.excludeCredentials.map((item) => ({
+                ...item,
+                id: base64UrlToBuffer(item.id),
+              }));
+            }
+
+            const credential = await navigator.credentials.create({ publicKey });
+            if (!credential) {
+              throw new Error('abort');
+            }
+
+            const requestPayload = {
+              id: credential.id,
+              type: credential.type,
+              rawId: bufferToBase64Url(credential.rawId),
+              response: {
+                attestationObject: bufferToBase64Url(credential.response.attestationObject),
+                clientDataJSON: bufferToBase64Url(credential.response.clientDataJSON),
+                transports: typeof credential.response.getTransports === 'function'
+                  ? credential.response.getTransports()
+                  : (credential.response.transports || []),
+              },
+              clientExtensionResults: typeof credential.getClientExtensionResults === 'function'
+                ? credential.getClientExtensionResults()
+                : {},
+            };
+
+            const labelInput = prompt('{{ _('Give this passkey a name (optional)') }}', '');
+            const labelValue = typeof labelInput === 'string' ? labelInput.trim() : '';
+            if (labelValue.length > 0) {
+              requestPayload.label = labelValue;
+            }
+
+            const verifyResponse = await fetch('{{ url_for('auth.passkey_verify_register') }}', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(requestPayload),
+            });
+
+            if (!verifyResponse.ok) {
+              const errorData = await verifyResponse.json().catch(() => ({ error: 'verify' }));
+              throw new Error(errorData.error || 'verify');
+            }
+
+            window.location.reload();
+          } catch (error) {
+            const errorName = (error && typeof error === 'object' && 'name' in error && typeof error.name === 'string')
+              ? error.name
+              : undefined;
+            const errorMessage = (error && typeof error.message === 'string') ? error.message : '';
+
+            const shouldTreatAsDuplicate = hadExcludedCredentials;
+
+            if (errorName === 'InvalidStateError') {
+              if (typeof showWarningToast === 'function') {
+                showWarningToast(duplicateMessage);
+              } else if (typeof alert === 'function') {
+                alert(duplicateMessage);
+              }
+            } else if ((errorMessage === 'abort' || errorName === 'AbortError') && shouldTreatAsDuplicate) {
+              if (typeof showWarningToast === 'function') {
+                showWarningToast(duplicateMessage);
+              } else if (typeof alert === 'function') {
+                alert(duplicateMessage);
+              }
+            } else if (errorName === 'NotAllowedError' && shouldTreatAsDuplicate) {
+              if (typeof showWarningToast === 'function') {
+                showWarningToast(duplicateMessage);
+              } else if (typeof alert === 'function') {
+                alert(duplicateMessage);
+              }
+            } else if (errorName === 'NotAllowedError') {
+              const normalizedMessage = (typeof errorMessage === 'string')
+                ? errorMessage.toLowerCase()
+                : '';
+              let notAllowedMessage;
+              if (normalizedMessage.includes('timed out') || normalizedMessage.includes('timeout')) {
+                notAllowedMessage = '{{ _('Passkey registration timed out before the authenticator responded. Please try again and confirm the prompt on your device.') }}';
+              } else if (normalizedMessage.includes('cancel') || normalizedMessage.includes('dismiss')) {
+                notAllowedMessage = '{{ _('Passkey registration was cancelled from the authenticator prompt. Please retry and complete the device approval.') }}';
+              } else {
+                notAllowedMessage = '{{ _('Passkey registration was cancelled or timed out before completion. Please retry after completing the authenticator prompt.') }}';
+              }
+              if (typeof showErrorToast === 'function') {
+                showErrorToast(notAllowedMessage);
+              } else if (typeof alert === 'function') {
+                alert(notAllowedMessage);
+              }
+            } else if (errorMessage === 'options') {
+              if (typeof showErrorToast === 'function') {
+                showErrorToast('{{ _('Passkey registration options could not be retrieved.') }}');
+              } else {
+                alert('{{ _('Passkey registration options could not be retrieved.') }}');
+              }
+            } else if (errorMessage === 'already_registered') {
+              if (typeof showWarningToast === 'function') {
+                showWarningToast(duplicateMessage);
+              } else if (typeof alert === 'function') {
+                alert(duplicateMessage);
+              }
+              window.location.reload();
+            } else {
+              if (typeof showErrorToast === 'function') {
+                showErrorToast('{{ _('Passkey registration failed. Please try again.') }}');
+              } else {
+                alert('{{ _('Passkey registration failed. Please try again.') }}');
+              }
+            }
+          } finally {
+            registerButton.classList.remove('loading');
+            registerButton.disabled = false;
+            registerButton.removeAttribute('aria-busy');
+            if (spinner) {
+              spinner.classList.add('d-none');
+            }
+            if (icon) {
+              icon.classList.remove('d-none');
+            }
+          }
+        });
+      }
+    }
+
+    removeButtons.forEach((button) => {
+      button.addEventListener('click', async (event) => {
+        event.preventDefault();
+        const entry = button.closest('[data-passkey-entry]');
+        const identifier = entry?.dataset.passkeyId;
+        if (!identifier) {
+          return;
+        }
+
+        if (!confirm('{{ _('Remove this passkey?') }}')) {
+          return;
+        }
+
+        button.disabled = true;
+        button.classList.add('loading');
+
+        try {
+          const response = await fetch(`{{ url_for('auth.delete_passkey', credential_id=0) }}`.replace('0', identifier), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({}),
+          });
+
+          if (!response.ok) {
+            throw new Error('delete');
+          }
+
+          window.location.reload();
+        } catch (error) {
+          if (typeof showErrorToast === 'function') {
+            showErrorToast('{{ _('Failed to remove passkey.') }}');
+          } else {
+            alert('{{ _('Failed to remove passkey.') }}');
+          }
+        } finally {
+          button.classList.remove('loading');
+          button.disabled = false;
+        }
+      });
+    });
+  });
+</script>
+{% endblock %}

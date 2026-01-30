@@ -1,8 +1,2 @@
-"""Security helpers for the web application."""
-
-__all__ = [
-    "get_or_set_csrf_token",
-    "validate_csrf_token",
-]
-
-from .csrf import get_or_set_csrf_token, validate_csrf_token
+# Redirect to presentation.web.security
+from presentation.web.security import *  # noqa: F403, F401

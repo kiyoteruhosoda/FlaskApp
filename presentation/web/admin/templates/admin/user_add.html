@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Add User') }}{% endblock %}
+{% block content %}
+<h2>{{ _('Add User') }}</h2>
+<form method="post">
+  <div class="mb-3">
+    <label for="email" class="form-label">Email</label>
+    <input type="email" class="form-control" id="email" name="email" required>
+  </div>
+  <div class="mb-3">
+    <label for="password" class="form-label">{{ _('Password') }}</label>
+    <div class="password-toggle-wrapper">
+      <input type="password" class="form-control" id="password" name="password" required>
+      <button type="button" class="toggle-password-btn" aria-label="{{ _('Show password') }}"
+              aria-pressed="false" aria-controls="password"
+              data-show-label="{{ _('Show password') }}"
+              data-hide-label="{{ _('Hide password') }}">
+        <i class="fas fa-eye"></i>
+        <span class="visually-hidden">{{ _('Toggle password visibility') }}</span>
+      </button>
+    </div>
+  </div>
+  <div class="mb-3">
+    <label for="role" class="form-label">{{ _('Role') }}</label>
+    <select class="form-select" id="role" name="role" required>
+      {% for role in roles %}
+        <option value="{{ role.id }}">{{ role.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit" class="btn btn-primary btn-size-sm">{{ _('Create') }}</button>
+  <a href="{{ url_for('admin.user') }}" class="btn btn-outline-secondary btn-size-sm">{{ _('Cancel') }}</a>
+</form>
+{% endblock %}

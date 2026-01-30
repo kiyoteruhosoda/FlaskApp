@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Register') }} - {{ _('AppName') }}{% endblock %}
+{% block body_attributes %} class="login-page"{% endblock %}
+
+{% block content %}
+<div class="login-container">
+  <div class="login-card">
+    <div class="login-header">
+      <h1 class="login-title">{{ _('Create Account') }}</h1>
+      <p class="login-subtitle">{{ _('Join %(app_name)s without two-factor authentication', app_name=_('AppName')) }}</p>
+    </div>
+    
+    <form method="post" class="login-form">
+      <div class="form-group">
+        <label for="email" class="form-label">
+          <i class="fas fa-envelope"></i>
+          {{ _('Email Address') }}
+        </label>
+        <div class="input-wrapper">
+          <input type="email" class="form-control" id="email" name="email"
+                 placeholder="{{ _('Enter your email') }}" required>
+          <div class="input-icon">
+            <i class="fas fa-envelope"></i>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="password" class="form-label">
+          <i class="fas fa-lock"></i>
+          {{ _('Password') }}
+        </label>
+        <div class="input-wrapper password-toggle-wrapper">
+          <input type="password" class="form-control" id="password" name="password"
+                 placeholder="{{ _('Create a strong password') }}" required>
+          <button type="button" class="toggle-password-btn" aria-label="{{ _('Show password') }}"
+                  aria-pressed="false" aria-controls="password"
+                  data-show-label="{{ _('Show password') }}"
+                  data-hide-label="{{ _('Hide password') }}">
+            <i class="fas fa-eye"></i>
+            <span class="visually-hidden">{{ _('Toggle password visibility') }}</span>
+          </button>
+          <div class="input-icon">
+            <i class="fas fa-lock"></i>
+          </div>
+        </div>
+      </div>
+      
+      <div class="auth-code-info" style="background: linear-gradient(135deg, #fff3cd 0%, #fefefe 100%); border-color: #ffc107; color: #856404;">
+        <i class="fas fa-exclamation-triangle"></i>
+        {{ _('Note: This account will not have two-factor authentication enabled') }}
+      </div>
+      
+      <button type="submit" class="btn btn-login">
+        <i class="fas fa-user-plus" style="margin-right: 8px;"></i>
+        {{ _('Create Account') }}
+      </button>
+    </form>
+    
+    <div class="forgot-password">
+      <a href="{{ url_for('auth.login') }}">{{ _('Already have an account? Sign in') }}</a>
+    </div>
+    
+    <div class="forgot-password" style="margin-top: 10px;">
+      <a href="{{ url_for('auth.register') }}">{{ _('Register with two-factor authentication') }}</a>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Add loading state to form submission - Only one loading indicator
+  const form = document.querySelector('.login-form');
+  const submitBtn = document.querySelector('.btn-login');
+  const originalContent = submitBtn.innerHTML;
+  
+  form.addEventListener('submit', function() {
+    submitBtn.classList.add('loading');
+    submitBtn.innerHTML = '<span style="opacity: 0;">{{ _("Creating Account...") }}</span>';
+  });
+  
+  // Enhanced focus effects
+  const inputs = document.querySelectorAll('.form-control');
+  inputs.forEach(input => {
+    input.addEventListener('focus', function() {
+      this.parentElement.classList.add('focused');
+    });
+    
+    input.addEventListener('blur', function() {
+      this.parentElement.classList.remove('focused');
+    });
+  });
+});
+</script>
+{% endblock %}

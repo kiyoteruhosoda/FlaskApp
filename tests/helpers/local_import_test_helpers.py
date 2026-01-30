@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
 
-from features.photonest.domain.local_import.value_objects import (
+from bounded_contexts.photonest.domain.local_import.value_objects import (
     FileHash,
     ImportStatus,
     RelativePath,
 )
-from features.photonest.domain.local_import.services import (
+from bounded_contexts.photonest.domain.local_import.services import (
     MediaSignature,
     MediaDuplicateChecker,
 )
@@ -220,19 +220,19 @@ def test_value_objects_immutability():
 
 def enable_new_duplicate_checker():
     """新しい重複チェッカーを有効化（テスト用）."""
-    from features.photonest.application.local_import import adapters
+    from bounded_contexts.photonest.application.local_import import adapters
     adapters._USE_NEW_DUPLICATE_CHECKER = True
 
 
 def disable_new_duplicate_checker():
     """旧重複チェッカーに戻す（テスト用）."""
-    from features.photonest.application.local_import import adapters
+    from bounded_contexts.photonest.application.local_import import adapters
     adapters._USE_NEW_DUPLICATE_CHECKER = False
 
 
 def compare_implementations_on_test_data(analysis):
     """テストデータで新旧実装を比較."""
-    from features.photonest.application.local_import.adapters import (
+    from bounded_contexts.photonest.application.local_import.adapters import (
         compare_duplicate_checkers,
     )
     return compare_duplicate_checkers(analysis)

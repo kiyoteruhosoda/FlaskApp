@@ -1,0 +1,259 @@
+/* Wiki機能専用スタイル */
+
+.wiki-content {
+    line-height: 1.8;
+    color: #333;
+}
+
+.wiki-content h1 {
+    font-size: 2rem;
+    font-weight: 600;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.wiki-content h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.875rem;
+    color: #495057;
+}
+
+.wiki-content h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-top: 1.25rem;
+    margin-bottom: 0.75rem;
+    color: #6c757d;
+}
+
+.wiki-content p {
+    margin-bottom: 1rem;
+}
+
+.wiki-content ul, .wiki-content ol {
+    margin-bottom: 1rem;
+    padding-left: 2rem;
+}
+
+.wiki-content li {
+    margin-bottom: 0.25rem;
+}
+
+.wiki-content blockquote {
+    margin: 1rem 0;
+    padding: 0.75rem 1rem;
+    background-color: #f8f9fa;
+    border-left: 4px solid #0d6efd;
+    color: #495057;
+}
+
+.wiki-content code {
+    background-color: #f8f9fa;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    color: #e83e8c;
+}
+
+.wiki-content pre {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.375rem;
+    overflow-x: auto;
+    border: 1px solid #dee2e6;
+}
+
+.wiki-content pre code {
+    background-color: transparent;
+    padding: 0;
+    color: #212529;
+}
+
+.wiki-content table {
+    width: 100%;
+    margin-bottom: 1rem;
+    border-collapse: collapse;
+}
+
+.wiki-content table th,
+.wiki-content table td {
+    padding: 0.5rem;
+    border: 1px solid #dee2e6;
+    text-align: left;
+}
+
+.wiki-content table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+}
+
+.wiki-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.375rem;
+    margin: 1rem 0;
+}
+
+.wiki-content a {
+    color: #0d6efd;
+    text-decoration: none;
+}
+
+.wiki-content a:hover {
+    color: #0a58ca;
+    text-decoration: underline;
+}
+
+/* 自動リンク化されたURLのスタイル */
+.wiki-content a[href^="http"]:not([href*="localhost"]):not([href*="127.0.0.1"]) {
+    color: #198754;
+    text-decoration: none;
+    padding: 2px 4px;
+    border-radius: 3px;
+    background-color: rgba(25, 135, 84, 0.1);
+}
+
+.wiki-content a[href^="http"]:not([href*="localhost"]):not([href*="127.0.0.1"]):hover {
+    color: #146c43;
+    text-decoration: none;
+    background-color: rgba(25, 135, 84, 0.2);
+}
+
+.wiki-content a[href^="http"]:not([href*="localhost"]):not([href*="127.0.0.1"])::after {
+    content: " ↗";
+    font-size: 0.8em;
+    opacity: 0.7;
+}
+
+/* サイドバーのページ階層 */
+.wiki-sidebar .page-tree ul {
+    margin-left: 1rem;
+    border-left: 1px solid #dee2e6;
+    padding-left: 0.5rem;
+}
+
+.wiki-sidebar .page-tree li {
+    margin-bottom: 0.25rem;
+}
+
+.wiki-sidebar .page-tree a {
+    color: #495057;
+    font-size: 0.9rem;
+}
+
+.wiki-sidebar .page-tree a:hover {
+    color: #0d6efd;
+}
+
+/* 検索結果 */
+.wiki-search-results .search-result {
+    padding: 1rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.wiki-search-results .search-result:last-child {
+    border-bottom: none;
+}
+
+.wiki-search-results .search-result-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.wiki-search-results .search-result-excerpt {
+    color: #6c757d;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.wiki-search-results .search-result-meta {
+    color: #adb5bd;
+    font-size: 0.8rem;
+}
+
+/* ページ履歴 */
+.wiki-revision-list .revision-item {
+    padding: 0.75rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.wiki-revision-list .revision-item:last-child {
+    border-bottom: none;
+}
+
+.wiki-revision-list .revision-number {
+    font-weight: 600;
+    color: #0d6efd;
+}
+
+.wiki-revision-list .revision-summary {
+    font-style: italic;
+    color: #6c757d;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+    .wiki-content {
+        font-size: 0.9rem;
+    }
+    
+    .wiki-content h1 {
+        font-size: 1.5rem;
+    }
+    
+    .wiki-content h2 {
+        font-size: 1.25rem;
+    }
+    
+    .wiki-content h3 {
+        font-size: 1.125rem;
+    }
+    
+    .wiki-content pre {
+        font-size: 0.8rem;
+    }
+}
+
+/* プレビュー機能のスタイル */
+#preview-container {
+    min-height: 300px;
+}
+
+#preview-container .card {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+}
+
+#preview-content {
+    min-height: 250px;
+}
+
+.btn-group .btn-check:checked + .btn {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: white;
+}
+
+/* エディタータブ切り替えアニメーション */
+#editor-container, #preview-container {
+    transition: opacity 0.2s ease-in-out;
+}
+
+/* プレビューローディング状態 */
+#preview-content .text-muted {
+    text-align: center;
+    padding: 2rem;
+    font-style: italic;
+}
+
+/* プレビューエラー状態 */
+#preview-content .text-danger {
+    text-align: center;
+    padding: 2rem;
+    font-weight: bold;
+}

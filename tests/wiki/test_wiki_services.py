@@ -4,10 +4,10 @@ Wiki機能のテスト
 
 import pytest
 from datetime import datetime, timezone
-from features.wiki.application.services import WikiPageService, WikiCategoryService
+from bounded_contexts.wiki.application.services import WikiPageService, WikiCategoryService
 from core.models.wiki.models import WikiPage, WikiCategory
 from core.models.user import User
-from features.wiki.domain.slug import SlugService
+from bounded_contexts.wiki.domain.slug import SlugService
 
 
 class TestWikiPageService:

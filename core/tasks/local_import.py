@@ -28,39 +28,39 @@ from webapp.config import BaseApplicationSettings
 from core.settings import settings
 from domain.storage import StorageDomain
 
-from features.photonest.application.local_import.file_importer import (
+from bounded_contexts.photonest.application.local_import.file_importer import (
     LocalImportFileImporter,
     PlaybackError as _PlaybackError,
 )
-from features.photonest.application.local_import.logger import (
+from bounded_contexts.photonest.application.local_import.logger import (
     ImportLogEmitter,
     LocalImportTaskLogger,
 )
-from features.photonest.application.local_import.queue import LocalImportQueueProcessor
-from features.photonest.application.local_import.scanner import ImportDirectoryScanner
-from features.photonest.application.local_import.use_case import LocalImportUseCase
-from features.photonest.application.local_import.results import build_thumbnail_task_snapshot as _build_thumbnail_task_snapshot
-from features.photonest.domain.local_import.media_entities import (
+from bounded_contexts.photonest.application.local_import.queue import LocalImportQueueProcessor
+from bounded_contexts.photonest.application.local_import.scanner import ImportDirectoryScanner
+from bounded_contexts.photonest.application.local_import.use_case import LocalImportUseCase
+from bounded_contexts.photonest.application.local_import.results import build_thumbnail_task_snapshot as _build_thumbnail_task_snapshot
+from bounded_contexts.photonest.domain.local_import.media_entities import (
     apply_analysis_to_media_entity,
     build_media_from_analysis,
     build_media_item_from_analysis,
     ensure_exif_for_media,
     update_media_item_from_analysis,
 )
-from features.photonest.domain.local_import.media_file import (
+from bounded_contexts.photonest.domain.local_import.media_file import (
     DefaultMediaMetadataProvider,
     MediaFileAnalysis,
     MediaFileAnalyzer,
 )
-from features.photonest.domain.local_import.media_metadata import (
+from bounded_contexts.photonest.domain.local_import.media_metadata import (
     calculate_file_hash,
     extract_exif_data,
     extract_video_metadata as _extract_video_metadata,
     get_image_dimensions,
 )
-from features.photonest.domain.local_import.policies import SUPPORTED_EXTENSIONS
-from features.photonest.domain.local_import.zip_archive import ZipArchiveService
-from features.photonest.domain.local_import.session import LocalImportSessionService
+from bounded_contexts.photonest.domain.local_import.policies import SUPPORTED_EXTENSIONS
+from bounded_contexts.photonest.domain.local_import.zip_archive import ZipArchiveService
+from bounded_contexts.photonest.domain.local_import.session import LocalImportSessionService
 
 # Re-export ``thumbs_generate`` so tests can monkeypatch the function without
 # reaching into the deeper module.  The helper is still invoked via
@@ -534,7 +534,7 @@ def check_duplicate_media(analysis: MediaFileAnalysis) -> Optional[Media]:
     - 問題発生時は即座にロールバック可能
     """
     # 新構造を使った実装（アダプター経由）
-    from features.photonest.application.local_import.adapters import (
+    from bounded_contexts.photonest.application.local_import.adapters import (
         check_duplicate_media_new,
     )
     

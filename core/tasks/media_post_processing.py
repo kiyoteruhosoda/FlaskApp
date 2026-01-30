@@ -5,7 +5,7 @@ from __future__ import annotations
 import shutil as _shutil
 from typing import Any, Dict, Optional
 
-from features.photonest.application.media_processing import (
+from bounded_contexts.photonest.application.media_processing import (
     MediaPlaybackService,
     MediaPostProcessingService,
     StructuredMediaTaskLogger,
@@ -13,8 +13,8 @@ from features.photonest.application.media_processing import (
     ThumbnailRetryMonitorService,
     ThumbnailRetryService,
 )
-from features.photonest.domain.media_processing import ThumbnailRetryPolicy
-from features.photonest.infrastructure.media_processing import (
+from bounded_contexts.photonest.domain.media_processing import ThumbnailRetryPolicy
+from bounded_contexts.photonest.infrastructure.media_processing import (
     CeleryThumbnailRetryScheduler,
     SqlAlchemyThumbnailRetryRepository,
 )

@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="{{ get_locale() or 'ja' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="user-timezone" content="{{ current_timezone_name }}">
+  <title>{% block title %}{{ _('AppName') }}{% endblock %}</title>
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body{% block body_attributes %}{% endblock %}>
+
+<header>
+  <nav class="navbar navbar-expand-lg navbar-light bg-light">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="{{ url_for('index') }}">{{ _('AppName') }}</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav me-auto">
+        {% if current_user.is_authenticated %}
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('index') }}">{{ _('Home') }}</a>
+        </li>
+        {% if current_user.can('dashboard:view') %}
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('dashboard.dashboard') }}">{{ _('Dashboard') }}</a>
+        </li>
+        {% endif %}
+        {% if current_user.can('media:view') %}
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" id="photoNavDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            {{ _('Photo View') }}
+          </a>
+          <ul class="dropdown-menu" aria-labelledby="photoNavDropdown">
+            {% if current_user.can('media:session') %}
+            <li><a class="dropdown-item" href="{{ url_for('photo_view.session_home') }}">{{ _('Sessions') }}</a></li>
+            {% endif %}
+            <li><a class="dropdown-item" href="{{ url_for('photo_view.media_list') }}">{{ _('Media Gallery') }}</a></li>
+            {% if current_user.can('album:view') %}
+            <li><a class="dropdown-item" href="{{ url_for('photo_view.albums') }}">{{ _('Albums') }}</a></li>
+            {% endif %}
+            {% if current_user.can('admin:photo-settings') %}
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{{ url_for('photo_view.settings') }}">{{ _('Settings') }}</a></li>
+            {% endif %}
+          </ul>
+        </li>
+        {% endif %}
+        {% if current_user.can('wiki:read') %}
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('wiki.index') }}">
+            {{ _('Wiki') }}
+          </a>
+        </li>
+        {% endif %}
+        {% if current_user.can('certificate:manage') %}
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('certs_ui.index') }}">
+            {{ _('Certificates') }}
+          </a>
+        </li>
+        {% endif %}
+        {% endif %}
+      </ul>
+      <ul class="navbar-nav">
+        {% if current_user.is_authenticated %}
+          {% set show_system_manage = current_user.can('system:manage') %}
+          {% set show_user_manage = current_user.can('user:manage') %}
+          {% set show_service_accounts = current_user.can('service_account:manage') %}
+          {% set show_api_key_management = current_user.can('api_key:manage') or current_user.can('api_key:read') %}
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('auth.profile') }}">
+              <i class="fas fa-user-circle me-1"></i>{{ current_user.display_name }}
+            </a>
+          </li>
+          {% if current_user.can('user:manage') or current_user.can('role:manage') or current_user.can('permission:manage') or show_service_accounts or show_system_manage %}
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="managementNavDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              {{ _('Management') }}
+            </a>
+            <ul class="dropdown-menu" aria-labelledby="managementNavDropdown">
+              {% if show_user_manage %}
+              <li><a class="dropdown-item" href="{{ url_for('admin.user') }}">{{ _('User Management') }}</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('admin.google_accounts') }}">{{ _('Google Accounts') }}</a></li>
+              {% endif %}
+              {% if show_service_accounts %}
+              <li><a class="dropdown-item" href="{{ url_for('admin.service_accounts') }}">{{ _('Service Accounts') }}</a></li>
+              {% elif show_api_key_management %}
+              <li><a class="dropdown-item" href="{{ url_for('admin.service_accounts') }}">{{ _('API Key Management') }}</a></li>
+              {% endif %}
+              {% if show_user_manage %}
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="{{ url_for('admin.show_config') }}">{{ _('Config Settings') }}</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('admin.show_version') }}">{{ _('Version Info') }}</a></li>
+              {% endif %}
+              {% if current_user.can('role:manage') %}
+              <li><a class="dropdown-item" href="{{ url_for('admin.roles') }}">{{ _('Roles') }}</a></li>
+              {% endif %}
+              {% if current_user.can('permission:manage') %}
+              <li><a class="dropdown-item" href="{{ url_for('admin.permissions') }}">{{ _('Permissions') }}</a></li>
+              {% endif %}
+              {% if current_user.can('totp:view') %}
+              <li><a class="dropdown-item" href="{{ url_for('totp.index') }}">{{ _('TOTP Management') }}</a></li>
+              {% endif %}
+              {% if show_system_manage %}
+              <li><hr class="dropdown-divider"></li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('admin.show_data_files') }}">
+                  {{ _('Data Files') }}
+                </a>
+              </li>
+              {% endif %}
+              {% if show_system_manage %}
+              {% if not show_system_manage %}
+              <li><hr class="dropdown-divider"></li>
+              {% endif %}
+              {% if current_user.can('admin:photo-settings') %}
+              <li><a class="dropdown-item" href="{{ url_for('photo_view.settings') }}">{{ _('Photo View Settings') }}</a></li>
+              {% endif %}
+              <li><a class="dropdown-item" href="{{ url_for('photo_view.admin_exports') }}">{{ _('Photo Exports') }}</a></li>
+              {% endif %}
+            </ul>
+          </li>
+          {% endif %}
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('auth.logout') }}">{{ _('Logout') }}</a>
+          </li>
+        {% else %}
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('auth.login') }}">{{ _('Login') }}</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('auth.register') }}">{{ _('Register') }}</a>
+          </li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+</nav>
+</header>
+
+<main class="container-fluid mt-4">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-messages">
+        {% for cat, msg in messages %}
+          <div class="alert alert-{{ 'danger' if cat == 'error' else cat }} alert-dismissible fade show" role="alert">
+            {{ msg }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+</main>
+
+<!-- Toast Container -->
+<div aria-live="polite" aria-atomic="true" class="position-relative">
+  <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toast-container">
+    <!-- Toasts will be dynamically added here -->
+  </div>
+</div>
+
+  <hr class="mt-5 mb-4">
+<footer class="text-center mb-3">
+  <p class="text-muted">&copy; 2025 {{ _('AppName') }}</p>
+  <p class="text-muted small">Version: {{ app_version }}</p>
+</footer>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js"></script>
+  <script src="{{ url_for('static', filename='js/i18n-helper.js') }}"></script>
+  <script>
+    window.i18nStrings = Object.assign(window.i18nStrings || {}, {
+      'app.sessionExpired': "{{ _('Session expired. Please log in again.') }}",
+      'pagination.loading.label': "{{ _('Loading...') }}",
+      'pagination.loading.message': "{{ _('Loading more items...') }}",
+      'pagination.end.message': "{{ _('No more items to display.') }}",
+      'pagination.error.template': "{{ _('Load error: %(message)s', message='%(message)s') }}",
+    });
+  </script>
+  <script src="{{ url_for('static', filename='js/timezone.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/api-client.js') }}"></script>
+  <script src="{{ url_for('static', filename='main.js') }}"></script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

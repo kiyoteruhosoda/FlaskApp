@@ -1,5 +1,2 @@
-from flask import Blueprint
-
-bp = Blueprint("dashboard", __name__, template_folder="templates")
-
-from . import routes  # noqa: E402,F401
+# Redirect to presentation.web.dashboard
+from presentation.web.dashboard import *  # noqa: F403, F401

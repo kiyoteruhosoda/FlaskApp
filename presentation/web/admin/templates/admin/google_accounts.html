@@ -1,0 +1,360 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Google Accounts Management') }}{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <h1 class="h2 mb-1">{{ _('Google Accounts Management') }}</h1>
+  <p class="text-muted mb-0">{{ _('Monitor and control the Google accounts connected for photo imports.') }}</p>
+</div>
+
+<!-- Management Navigation Tabs -->
+<ul class="nav nav-tabs mb-4">
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.user') }}">
+      <i class="fas fa-users"></i> {{ _('User Management') }}
+    </a>
+  </li>
+  {% if current_user.can('group:manage') %}
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.groups') }}">
+      <i class="fas fa-layer-group"></i> {{ _('Groups') }}
+    </a>
+  </li>
+  {% endif %}
+  <li class="nav-item">
+    <a class="nav-link active" href="{{ url_for('admin.google_accounts') }}">
+      <i class="fab fa-google"></i> {{ _('Google Accounts') }}
+    </a>
+  </li>
+  {% if current_user.can('service_account:manage') %}
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.service_accounts') }}">
+      <i class="fas fa-key"></i> {{ _('Service Accounts') }}
+    </a>
+  </li>
+  {% endif %}
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.show_config') }}">
+      <i class="fas fa-cogs"></i> {{ _('Config Settings') }}
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.roles') }}">
+      <i class="fas fa-user-tag"></i> {{ _('Roles') }}
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin.permissions') }}">
+      <i class="fas fa-shield-alt"></i> {{ _('Permissions') }}
+    </a>
+  </li>
+</ul>
+
+<div class="card shadow-sm">
+  <div class="card-header bg-white py-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+      <div>
+        <h2 class="h4 mb-1">{{ _('Connected accounts') }}</h2>
+        <p class="text-muted mb-0 small">{{ _('Keep accounts healthy and up to date to avoid sync interruptions.') }}</p>
+      </div>
+      <button type="button" id="btn-add-account" class="btn btn-primary d-flex align-items-center gap-2" data-scope-profile="photo_picker">
+        <i class="bi bi-plus-circle"></i>
+        <span>{{ _('Add account') }}</span>
+      </button>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light text-uppercase small text-muted">
+          <tr>
+            <th scope="col">{{ _('ID') }}</th>
+            <th scope="col">{{ _('User') }}</th>
+            <th scope="col">{{ _('Email') }}</th>
+            <th scope="col">{{ _('Status') }}</th>
+            <th scope="col">{{ _('Scopes') }}</th>
+            <th scope="col">{{ _('Last synced') }}</th>
+            <th scope="col">{{ _('Token health') }}</th>
+            <th scope="col">{{ _('Refresh token expires') }}</th>
+            <th scope="col">{{ _('Actions') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in accounts %}
+          <tr>
+            <td class="text-muted">#{{ a.id }}</td>
+            <td>
+              {% if a.user %}
+                <div class="fw-semibold">{{ a.user.email }}</div>
+              {% else %}
+                <span class="text-muted">{{ _('No linked user') }}</span>
+              {% endif %}
+            </td>
+            <td><span class="fw-semibold">{{ a.email }}</span></td>
+            <td>
+              {% if a.status == 'active' %}
+                <span class="badge text-bg-success d-inline-flex align-items-center gap-1">
+                  <i class="bi bi-check-circle"></i>{{ _('Active') }}
+                </span>
+              {% elif a.status == 'disabled' %}
+                <span class="badge text-bg-secondary">{{ _('Disabled') }}</span>
+              {% else %}
+                <span class="badge text-bg-warning text-dark">{{ a.status|capitalize }}</span>
+              {% endif %}
+            </td>
+            <td style="min-width: 320px;">
+              {% set scope_prefix = 'https://www.googleapis.com/auth/' %}
+              {% set scope_prefix_len = scope_prefix|length %}
+              <div class="d-flex flex-wrap gap-1 scope-list">
+                {% for s in a.scopes_list() %}
+                  {% set has_prefix = s.startswith(scope_prefix) %}
+                  <span class="badge text-bg-secondary scope-badge" title="{{ s }}">
+                    {% if has_prefix %}
+                      <span class="scope-prefix">{{ scope_prefix }}</span>
+                    {% endif %}
+                    <span class="scope-name">{{ has_prefix and s[scope_prefix_len:] or s }}</span>
+                  </span>
+                {% endfor %}
+              </div>
+            </td>
+            <td class="text-nowrap">
+              {% if a.last_synced_at %}
+                {{ a.last_synced_at|localtime('%Y-%m-%d %H:%M') }}
+              {% else %}
+                {{ _('Never') }}
+              {% endif %}
+            </td>
+            <td>
+              {% if a.oauth_token_json %}
+                <span class="badge text-bg-success d-inline-flex align-items-center gap-1">
+                  <i class="bi bi-shield-check"></i>{{ _('Healthy') }}
+                </span>
+              {% else %}
+                <span class="badge text-bg-danger d-inline-flex align-items-center gap-1">
+                  <i class="bi bi-exclamation-triangle"></i>{{ _('Action required') }}
+                </span>
+              {% endif %}
+            </td>
+            {% set refresh_expiry = a.refresh_token_expires_at(as_datetime=True) %}
+            <td class="text-nowrap">
+              {% if refresh_expiry %}
+                {{ refresh_expiry|localtime('%Y-%m-%d %H:%M') }}
+              {% else %}
+                {{ _('Unknown') }}
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <div class="dropdown action-menu" data-id="{{ a.id }}" data-scopes="{{ a.scopes }}" data-scope-profile="photo_picker">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                  <i class="bi bi-sliders"></i> {{ _('Manage') }}
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                  {% if a.status == 'disabled' %}
+                    <li><a class="dropdown-item btn-activate" href="#"><i class="bi bi-check-circle me-2"></i>{{ _('Activate account') }}</a></li>
+                  {% else %}
+                    <li><a class="dropdown-item btn-disable" href="#"><i class="bi bi-pause-circle me-2"></i>{{ _('Disable account') }}</a></li>
+                  {% endif %}
+                  <li><a class="dropdown-item btn-reauth" href="#"><i class="bi bi-arrow-repeat me-2"></i>{{ _('Re-authorise') }}</a></li>
+                  <li><a class="dropdown-item btn-test" href="#"><i class="bi bi-activity me-2"></i>{{ _('Run connectivity test') }}</a></li>
+                  <li><a class="dropdown-item" href="{{ url_for('auth.picker', account_id=a.id) }}"><i class="bi bi-collection-play me-2"></i>{{ _('Open picker') }}</a></li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li><a class="dropdown-item text-danger btn-delete" href="#"><i class="bi bi-trash me-2"></i>{{ _('Remove account') }}</a></li>
+                </ul>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+.scope-list {
+  gap: 0.5rem !important;
+}
+
+.scope-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.6rem;
+  max-width: 100%;
+  white-space: normal;
+  word-break: break-word;
+  cursor: default;
+  line-height: 1.2;
+  border-radius: 999px;
+}
+
+.scope-badge .scope-prefix {
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+}
+
+.scope-badge .scope-name {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.scope-badge:hover,
+.scope-badge:focus {
+  background: #5c636a !important;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Add Account
+  const btnAddAccount = document.getElementById('btn-add-account');
+  const defaultScopeProfile = btnAddAccount?.dataset.scopeProfile || 'photo_picker';
+  if (btnAddAccount) {
+    btnAddAccount.addEventListener('click', async (e) => {
+      e.preventDefault();
+      try {
+        const payload = {
+          redirect: '{{ url_for("admin.google_accounts") }}'
+        };
+        if (defaultScopeProfile) {
+          payload.scope_profile = defaultScopeProfile;
+        }
+
+        const resp = await fetch('{{ url_for("api.google_oauth_start") }}', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await resp.json();
+        if (data.auth_url) {
+          window.location.href = data.auth_url;
+        }
+      } catch (err) {
+        console.error(err);
+        showErrorToast('{{ _("Failed to start OAuth.") }}');
+      }
+    });
+  }
+
+  // Re-auth
+  document.querySelectorAll('.btn-reauth').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const group = e.target.closest('[data-id]');
+      const scopes = (group?.dataset.scopes || '')
+        .split(',').map(s => s.trim()).filter(Boolean);
+      const scopeProfile = group?.dataset.scopeProfile || defaultScopeProfile;
+      try {
+        const payload = {
+          redirect: '{{ url_for("admin.google_accounts") }}'
+        };
+        if (scopes.length) {
+          payload.scopes = scopes;
+        }
+        if (scopeProfile) {
+          payload.scope_profile = scopeProfile;
+        }
+
+        const resp = await fetch('{{ url_for("api.google_oauth_start") }}', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await resp.json();
+        if (data.auth_url) {
+          window.location.href = data.auth_url;
+        }
+      } catch (err) {
+        console.error(err);
+        showErrorToast('{{ _("Failed to start re-auth.") }}');
+      }
+    });
+  });
+
+  // Activate
+  document.querySelectorAll('.btn-activate').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const id = e.target.closest('[data-id]')?.dataset.id;
+      if (!id) return;
+      if (!confirm('{{ _("Activate this Google account?") }}')) return;
+      const resp = await fetch(`/api/google/accounts/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'active' })
+      });
+      if (resp.ok) {
+        showSuccessToast('{{ _("Google account activated successfully") }}');
+        location.reload();
+      } else {
+        showErrorToast('{{ _("Failed to activate Google account") }}');
+      }
+    });
+  });
+
+  // Disable
+  document.querySelectorAll('.btn-disable').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const id = e.target.closest('[data-id]')?.dataset.id;
+      if (!id) return;
+      if (!confirm('{{ _("Disable this Google account?") }}')) return;
+      const resp = await fetch(`/api/google/accounts/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'disabled' })
+      });
+      if (resp.ok) {
+        showSuccessToast('{{ _("Google account disabled successfully") }}');
+        location.reload();
+      } else {
+        showErrorToast('{{ _("Failed to disable Google account") }}');
+      }
+    });
+  });
+
+  // Delete
+  document.querySelectorAll('.btn-delete').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const id = e.target.closest('[data-id]')?.dataset.id;
+      if (!id) return;
+      if (!confirm('{{ _("Delete this Google account?") }}')) return;
+      const resp = await fetch(`/api/google/accounts/${id}`, { method: 'DELETE' });
+      if (resp.ok) {
+        showSuccessToast('{{ _("Google account deleted successfully") }}');
+        location.reload();
+      } else {
+        showErrorToast('{{ _("Failed to delete Google account") }}');
+      }
+    });
+  });
+
+  // Test
+  document.querySelectorAll('.btn-test').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const id = e.target.closest('[data-id]')?.dataset.id;
+      if (!id) return;
+      const resp = await fetch(`/api/google/accounts/${id}/test`, { method: 'POST' });
+      const data = await resp.json();
+      if (data.result) {
+        showSuccessToast(data.result);
+      } else if (data.error) {
+        showErrorToast(data.error);
+      } else {
+        showInfoToast('OK');
+      }
+    });
+  });
+});
+</script>
+
+{% endblock %}

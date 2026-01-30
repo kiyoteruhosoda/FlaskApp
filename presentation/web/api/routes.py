@@ -1103,7 +1103,7 @@ def api_get_current_user():
         role_data.append({
             "id": role.id,
             "name": role.name,
-            "permissions": [p.scope for p in getattr(role, "permissions", [])]
+            "permissions": [p.code for p in getattr(role, "permissions", [])]
         })
 
     # 現在アクティブなロール
@@ -1115,7 +1115,7 @@ def api_get_current_user():
                 active_role = {
                     "id": role.id,
                     "name": role.name,
-                    "permissions": [p.scope for p in getattr(role, "permissions", [])]
+                    "permissions": [p.code for p in getattr(role, "permissions", [])]
                 }
                 break
 
@@ -1125,7 +1125,7 @@ def api_get_current_user():
         "email": user.email,
         "roles": role_data,
         "active_role": active_role,
-        "permissions": user.all_permissions if hasattr(user, "all_permissions") else [],
+        "permissions": list(user.all_permissions) if hasattr(user, "all_permissions") else [],
         "created_at": user.created_at.isoformat() if hasattr(user, "created_at") else None,
         "updated_at": user.updated_at.isoformat() if hasattr(user, "updated_at") else None,
     })
@@ -1185,24 +1185,25 @@ def api_select_role():
     session.modified = True
 
     # プリンシパルを更新
-    user_model = _resolve_current_user_model()
-    if user_model is not None:
-        try:
-            refreshed = TokenService.create_principal_for_user(
-                user_model,
-                active_role_id=selected_role.id
-            )
-            login_user(refreshed)
-            g.current_user = refreshed
-        except ValueError:
-            pass
+    # TODO: _resolve_current_user_model が定義されていないためコメントアウト
+    # user_model = _resolve_current_user_model()
+    # if user_model is not None:
+    #     try:
+    #         refreshed = TokenService.create_principal_for_user(
+    #             user_model,
+    #             active_role_id=selected_role.id
+    #         )
+    #         login_user(refreshed)
+    #         g.current_user = refreshed
+    #     except ValueError:
+    #         pass
 
     return jsonify({
         "success": True,
         "active_role": {
             "id": selected_role.id,
             "name": selected_role.name,
-            "permissions": [p.scope for p in getattr(selected_role, "permissions", [])]
+            "permissions": [p.code for p in getattr(selected_role, "permissions", [])]
         },
         "redirect_url": session.pop("role_selection_next", url_for("dashboard.dashboard"))
     })
@@ -1222,7 +1223,7 @@ def api_get_user_roles():
         role_data.append({
             "id": role.id,
             "name": role.name,
-            "permissions": [p.scope for p in getattr(role, "permissions", [])]
+            "permissions": [p.code for p in getattr(role, "permissions", [])]
         })
 
     active_role_id = session.get("active_role_id")

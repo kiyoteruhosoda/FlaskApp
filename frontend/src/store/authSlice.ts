@@ -130,10 +130,12 @@ const authSlice = createSlice({
     // ログイン
     builder
       .addCase(login.pending, (state) => {
+        console.log('[authSlice] login.pending');
         state.isLoading = true;
         state.error = null;
       })
       .addCase(login.fulfilled, (state, action) => {
+        console.log('[authSlice] login.fulfilled');
         state.isLoading = false;
         // Flaskはuserオブジェクトを返さないので、認証状態のみ更新
         state.isAuthenticated = true;
@@ -141,6 +143,7 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(login.rejected, (state, action) => {
+        console.log('[authSlice] login.rejected, error:', action.payload);
         state.isLoading = false;
         state.error = action.payload as string;
         state.isAuthenticated = false;
@@ -166,15 +169,18 @@ const authSlice = createSlice({
     // 現在のユーザー取得
     builder
       .addCase(getCurrentUser.pending, (state) => {
+        console.log('[authSlice] getCurrentUser.pending');
         state.isLoading = true;
       })
       .addCase(getCurrentUser.fulfilled, (state, action) => {
+        console.log('[authSlice] getCurrentUser.fulfilled, user:', action.payload);
         state.isLoading = false;
         state.user = action.payload;
         state.isAuthenticated = true;
         state.error = null;
       })
       .addCase(getCurrentUser.rejected, (state, action) => {
+        console.log('[authSlice] getCurrentUser.rejected, error:', action.payload);
         state.isLoading = false;
         state.error = action.payload as string;
         state.isAuthenticated = false;

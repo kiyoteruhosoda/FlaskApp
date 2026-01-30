@@ -49,12 +49,28 @@ def _handle_html_error(error, *, is_server_error: bool):
         else:
             message_key = getattr(error, "name", "Error")
             localized_message = _localize_message(message_key)
+            
+            # デバッグ情報を追加
             payload = {
                 "status": "error",
                 "code": code,
                 "message": localized_message,
                 "error": localized_message,
             }
+            
+            # Flask-Smorestのバリデーションエラーの詳細情報を追加
+            if hasattr(error, 'data') and error.data:
+                payload['validation_errors'] = error.data
+                current_app.logger.error(f"Validation errors: {error.data}")
+            
+            # リクエスト情報をログに出力
+            current_app.logger.error(f"API Error - Method: {request.method}, Path: {request.path}")
+            current_app.logger.error(f"Request Headers: {dict(request.headers)}")
+            if request.is_json:
+                current_app.logger.error(f"Request JSON: {request.get_json()}")
+            elif request.form:
+                current_app.logger.error(f"Request Form: {dict(request.form)}")
+            
             logger = current_app.logger.warning
             log_kwargs = {}
 
@@ -84,6 +100,7 @@ def register_error_handlers(app):
     @app.errorhandler(403)
     @app.errorhandler(404)
     @app.errorhandler(405)
+    @app.errorhandler(422)  # Unprocessable Entityを追加
     def handle_client_errors(error):
         """Handle 4xx errors by redirecting to the top page."""
 

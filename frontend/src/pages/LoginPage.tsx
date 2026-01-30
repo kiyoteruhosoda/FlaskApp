@@ -11,7 +11,7 @@ const LoginPage: React.FC = () => {
   const { t } = useTranslation();
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading, error } = useSelector((state: RootState) => state.auth);
+  const { isLoading, error } = useSelector((state: RootState) => state.auth);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -25,12 +25,6 @@ const LoginPage: React.FC = () => {
   const changeLanguage = (lng: string) => {
     i18n.changeLanguage(lng);
   };
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/');
-    }
-  }, [isAuthenticated, navigate]);
 
   useEffect(() => {
     return () => {
@@ -57,6 +51,7 @@ const LoginPage: React.FC = () => {
 
     try {
       const result = await dispatch(login(loginData));
+      
       if (login.fulfilled.match(result)) {
         // ログイン成功後、ユーザー情報を取得
         await dispatch(getCurrentUser());
@@ -65,7 +60,9 @@ const LoginPage: React.FC = () => {
         if (result.payload.requires_role_selection) {
           navigate('/select-role');
         } else {
-          navigate(result.payload.redirect_url || '/');
+          // redirect_urlまたはデフォルトのダッシュボードへ
+          const redirectUrl = result.payload.redirect_url || '/dashboard';
+          navigate(redirectUrl);
         }
       } else if (login.rejected.match(result)) {
         // TOTPが必要な場合の判定

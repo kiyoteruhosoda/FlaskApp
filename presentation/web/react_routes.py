@@ -14,17 +14,24 @@ def register_react_routes(app: Flask):
     @app.route('/<path:filename>')
     def react_static(filename):
         # Only serve specific static files, not catch-all
-        static_files = ['favicon.ico', 'manifest.json', 'logo192.png', 'robots.txt']
+        static_files = ['favicon.ico', 'manifest.json', 'logo192.png', 'robots.txt', 'vite.svg']
         if filename in static_files:
             build_path = os.path.join(app.root_path, '..', '..', 'frontend', 'build')
-            return send_from_directory(build_path, filename)
+            try:
+                return send_from_directory(build_path, filename)
+            except FileNotFoundError:
+                app.logger.debug(f"Static file not found: {filename}")
+                return {'error': 'File not found'}, 404
+        # Return 404 if not a static file
+        app.logger.debug(f"Not a static file: {filename}")
+        return {'error': 'File not found'}, 404
     
     # Serve React app for all non-API routes (catch-all must be last)
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')
     def catch_all(path):
         # Skip static files - they are handled by specific routes above
-        static_files = ['favicon.ico', 'manifest.json', 'logo192.png', 'robots.txt']
+        static_files = ['favicon.ico', 'manifest.json', 'logo192.png', 'robots.txt', 'vite.svg']
         if path in static_files:
             return react_static(path)
             
@@ -44,15 +51,30 @@ def register_react_routes(app: Flask):
         # Auth routes should serve React app
         # All other routes should serve React app
         
+        # Production: serve from build directory
         build_path = os.path.join(app.root_path, '..', '..', 'frontend', 'build')
         index_path = os.path.join(build_path, 'index.html')
         
-        print(f"Looking for React build at: {build_path}")
-        print(f"Index path: {index_path}")
-        print(f"Index exists: {os.path.exists(index_path)}")
+        app.logger.debug(f"Looking for React build at: {build_path}")
+        app.logger.debug(f"Index path: {index_path}")
+        app.logger.debug(f"Index exists: {os.path.exists(index_path)}")
         
         if os.path.exists(index_path):
             return send_from_directory(build_path, 'index.html')
         else:
-            # Fallback template if React build doesn't exist
-            return render_template('react_fallback.html'), 200
+            # Build not found - in development, direct user to Vite
+            return f'''
+            <!DOCTYPE html>
+            <html>
+            <head><title>PhotoNest - Development Mode</title></head>
+            <body>
+                <h1>PhotoNest - Development Mode</h1>
+                <p>React build not found. Please access the Vite dev server directly:</p>
+                <p><a href="http://localhost:3000">http://localhost:3000</a></p>
+                <pre>cd frontend && npm run dev</pre>
+                <hr>
+                <p>For production, build first:</p>
+                <pre>cd frontend && npm run build</pre>
+            </body>
+            </html>
+            ''', 2

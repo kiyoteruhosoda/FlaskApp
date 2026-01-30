@@ -1214,12 +1214,59 @@ def create_app():
     from bounded_contexts.photonest.presentation.local_import_status_api import bp as local_import_status_bp
     app.register_blueprint(local_import_status_bp)
 
-    # React アプリケーション用ルート登録
+    # CLI コマンド登録
+    register_cli_commands(app)
+
+    # React アプリケーション用ルート登録（最後に登録してcatch-allが他のルートと競合しないようにする）
     from .react_routes import register_react_routes
     register_react_routes(app)
 
-    # CLI コマンド登録
-    register_cli_commands(app)
+    # カスタムエラーハンドラーを追加（デバッグ強化）
+    @app.errorhandler(422)
+    def handle_validation_error(e):
+        """Marshmallow validation errors (422 Unprocessable Entity) のデバッグ強化"""
+        import traceback
+        from marshmallow import ValidationError
+        from flask_smorest.error_handler import ErrorHandlerMixin
+        
+        app.logger.error(f"422 Validation Error occurred:")
+        app.logger.error(f"Request path: {request.path}")
+        app.logger.error(f"Request method: {request.method}")
+        app.logger.error(f"Request headers: {dict(request.headers)}")
+        app.logger.error(f"Request args: {request.args.to_dict()}")
+        
+        try:
+            request_json = request.get_json(force=True)
+            app.logger.error(f"Request JSON: {request_json}")
+        except Exception as json_error:
+            app.logger.error(f"Failed to parse request JSON: {json_error}")
+            app.logger.error(f"Raw request data: {request.data}")
+        
+        app.logger.error(f"Exception details: {e}")
+        app.logger.error(f"Exception type: {type(e)}")
+        if hasattr(e, 'description'):
+            app.logger.error(f"Exception description: {e.description}")
+        if hasattr(e, 'data'):
+            app.logger.error(f"Exception data: {e.data}")
+            
+        # Traceback も出力
+        app.logger.error(f"Traceback:\n{traceback.format_exc()}")
+        
+        # デフォルトのFlask-Smorest処理に委任
+        return {"error": "validation_failed", "message": str(e), "details": getattr(e, 'data', {})}, 422
+
+    @app.errorhandler(500)
+    def handle_internal_server_error(e):
+        """500 Internal Server Error のデバッグ強化"""
+        import traceback
+        
+        app.logger.error(f"500 Internal Server Error occurred:")
+        app.logger.error(f"Request path: {request.path}")
+        app.logger.error(f"Request method: {request.method}")
+        app.logger.error(f"Exception: {e}")
+        app.logger.error(f"Traceback:\n{traceback.format_exc()}")
+        
+        return {"error": "internal_server_error", "message": "An internal error occurred"}, 500
 
     @app.before_request
     def _apply_login_disabled_for_testing():

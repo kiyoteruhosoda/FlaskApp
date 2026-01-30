@@ -132,15 +132,49 @@ class ApiClient {
   }
 
   async getCurrentUser(): Promise<ApiResponse<User>> {
-    return this.get<User>('/auth/me');
+    try {
+      const response = await this.client.get<User>('/auth/me');
+      // Flask APIは直接データを返すので、ApiResponse形式に変換
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.response?.data?.error || 'ユーザー情報の取得に失敗しました'
+      };
+    }
   }
 
   async getUserRoles(): Promise<ApiResponse<any>> {
-    return this.get<any>('/auth/roles');
+    try {
+      const response = await this.client.get<any>('/auth/roles');
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.response?.data?.error || 'ロール情報の取得に失敗しました'
+      };
+    }
   }
 
   async selectRole(roleId: number): Promise<ApiResponse<any>> {
-    return this.post<any>('/auth/select-role', { role_id: roleId });
+    try {
+      const response = await this.client.post<any>('/auth/select-role', { role_id: roleId });
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.response?.data?.error || 'ロール選択に失敗しました'
+      };
+    }
   }
 
   async updateProfile(userData: Partial<User>): Promise<ApiResponse<User>> {

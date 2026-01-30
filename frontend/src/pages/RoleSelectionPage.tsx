@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Button, Alert, Spinner, Form } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
-import { selectRole, getUserRoles, clearError, getCurrentUser } from '../store/authSlice';
+import { clearError, getCurrentUser } from '../store/authSlice';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -10,7 +10,7 @@ const RoleSelectionPage: React.FC = () => {
   const { t } = useTranslation();
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const { isLoading, error, user } = useSelector((state: RootState) => state.auth);
+  const { isLoading, error } = useSelector((state: RootState) => state.auth);
 
   const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
   const [roles, setRoles] = useState<any[]>([]);
@@ -70,7 +70,6 @@ const RoleSelectionPage: React.FC = () => {
         // リダイレクト
         navigate(data.redirect_url || '/dashboard');
       } else {
-        const errorData = await response.json();
         dispatch(clearError());
         // エラーハンドリングは適切に行う
       }

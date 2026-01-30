@@ -22,9 +22,12 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, isLoading } = useSelector((state: RootState) => state.auth);
+  const { isAuthenticated, isLoading, user } = useSelector((state: RootState) => state.auth);
+
+  console.log('[ProtectedRoute] isAuthenticated:', isAuthenticated, 'isLoading:', isLoading, 'user:', user);
 
   if (isLoading) {
+    console.log('[ProtectedRoute] Loading...');
     return (
       <div className="d-flex justify-content-center align-items-center vh-100">
         <div className="spinner-border" role="status">
@@ -32,6 +35,10 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
         </div>
       </div>
     );
+  }
+
+  if (!isAuthenticated) {
+    console.log('[ProtectedRoute] Not authenticated, redirecting to /login');
   }
 
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
@@ -64,25 +71,40 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 // Main App Component
 const AppContent: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { isAuthenticated } = useSelector((state: RootState) => state.auth);
+  const { isAuthenticated, user } = useSelector((state: RootState) => state.auth);
+
+  console.log('[AppContent] isAuthenticated:', isAuthenticated, 'user:', user);
 
   useEffect(() => {
-    // アクセストークンがある場合、現在のユーザーを取得
+    // アクセストークンがある場合、かつユーザー情報がまだない場合のみ取得
     const token = localStorage.getItem('access_token');
-    if (token && !isAuthenticated) {
+    console.log('[AppContent useEffect] token:', token ? 'exists' : 'none', 'user:', user);
+    
+    if (token && !user) {
+      console.log('[AppContent useEffect] Fetching current user...');
       dispatch(getCurrentUser());
     }
-  }, [dispatch, isAuthenticated]);
+  }, [dispatch, user]);
 
   return (
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Layout>
         <Routes>
           {/* Public Routes */}
           <Route 
             path="/login" 
             element={
-              isAuthenticated ? <Navigate to="/" /> : <LoginPage />
+              isAuthenticated ? (
+                <>
+                  {console.log('[Route /login] Already authenticated, redirecting to /')}
+                  <Navigate to="/" />
+                </>
+              ) : (
+                <>
+                  {console.log('[Route /login] Not authenticated, showing LoginPage')}
+                  <LoginPage />
+                </>
+              )
             } 
           />
           <Route path="/select-role" element={<RoleSelectionPage />} />
@@ -95,6 +117,30 @@ const AppContent: React.FC = () => {
                 <div className="container py-4">
                   <h1>Welcome to PhotoNest</h1>
                   <p>Your family photo management platform</p>
+                </div>
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="/dashboard" 
+            element={
+              <ProtectedRoute>
+                <div className="container py-4">
+                  <h1>Dashboard</h1>
+                  <p>Your dashboard content will be displayed here</p>
+                </div>
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="/profile" 
+            element={
+              <ProtectedRoute>
+                <div className="container py-4">
+                  <h1>Profile</h1>
+                  <p>Your profile settings will be displayed here</p>
                 </div>
               </ProtectedRoute>
             } 

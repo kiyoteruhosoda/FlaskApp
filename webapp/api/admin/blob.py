@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from flask import Blueprint
+from flask_smorest import Blueprint
 from flask_smorest import Page
 from marshmallow import Schema, fields
 
@@ -17,26 +17,26 @@ bp = Blueprint("blob", __name__, url_prefix="/api/admin/blob")
 class BlobStatusSchema(Schema):
     """Blob Storage状態レスポンス."""
     
-    enabled = fields.Boolean(required=True, description="Blob Storage機能の有効/無効")
-    provider = fields.String(required=True, description="Blobストレージプロバイダー")
-    container_name = fields.String(required=True, description="コンテナ名")
-    endpoint_suffix = fields.String(required=True, description="エンドポイントサフィックス")
-    secure_transfer = fields.Boolean(required=True, description="セキュア転送の有効/無効")
-    auto_create_container = fields.Boolean(required=True, description="コンテナ自動作成の有効/無効")
-    public_access_level = fields.String(required=True, description="パブリックアクセスレベル")
-    connection_configured = fields.Boolean(required=True, description="接続設定の有無")
-    account_configured = fields.Boolean(required=True, description="アカウント設定の有無")
-    sas_token_configured = fields.Boolean(required=True, description="SASトークン設定の有無")
+    enabled = fields.Boolean(required=True, metadata={"description": "Blob Storage機能の有効/無効"})
+    provider = fields.String(required=True, metadata={"description": "Blobストレージプロバイダー"})
+    container_name = fields.String(required=True, metadata={"description": "コンテナ名"})
+    endpoint_suffix = fields.String(required=True, metadata={"description": "エンドポイントサフィックス"})
+    secure_transfer = fields.Boolean(required=True, metadata={"description": "セキュア転送の有効/無効"})
+    auto_create_container = fields.Boolean(required=True, metadata={"description": "コンテナ自動作成の有効/無効"})
+    public_access_level = fields.String(required=True, metadata={"description": "パブリックアクセスレベル"})
+    connection_configured = fields.Boolean(required=True, metadata={"description": "接続設定の有無"})
+    account_configured = fields.Boolean(required=True, metadata={"description": "アカウント設定の有無"})
+    sas_token_configured = fields.Boolean(required=True, metadata={"description": "SASトークン設定の有無"})
 
 
 class BlobConfigValidationSchema(Schema):
     """Blob Storage設定検証レスポンス."""
     
-    provider = fields.String(required=True, description="検証対象プロバイダー")
-    valid = fields.Boolean(required=True, description="設定の有効性")
-    missing_fields = fields.List(fields.String(), required=True, description="不足している設定項目")
-    warnings = fields.List(fields.String(), required=True, description="警告メッセージ")
-    recommendations = fields.List(fields.String(), required=True, description="推奨事項")
+    provider = fields.String(required=True, metadata={"description": "検証対象プロバイダー"})
+    valid = fields.Boolean(required=True, metadata={"description": "設定の有効性"})
+    missing_fields = fields.List(fields.String(), required=True, metadata={"description": "不足している設定項目"})
+    warnings = fields.List(fields.String(), required=True, metadata={"description": "警告メッセージ"})
+    recommendations = fields.List(fields.String(), required=True, metadata={"description": "推奨事項"})
 
 
 @bp.get("/status")

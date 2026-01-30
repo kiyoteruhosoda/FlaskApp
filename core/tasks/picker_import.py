@@ -43,7 +43,7 @@ import requests
 from sqlalchemy import update
 
 from bounded_contexts.picker_import.application.queue_service import PickerQueueService
-from bounded_contexts.picker_import.watchdog_service import PickerImportWatchdog
+from bounded_contexts.picker_import.application.watchdog_service import PickerImportWatchdog
 from core.crypto import decrypt
 from core.db import db
 from core.models.google_account import GoogleAccount
@@ -65,13 +65,13 @@ from core.settings import ApplicationSettings, settings
 from core.tasks import media_post_processing
 from core.tasks.media_post_processing import process_media_post_import
 from flask import Flask, current_app
-from bounded_contexts.picker_import import LocalPerceptualHashCalculator
-from bounded_contexts.picker_import.repositories import (
+from bounded_contexts.picker_import.infrastructure import LocalPerceptualHashCalculator
+from bounded_contexts.picker_import.infrastructure.repositories import (
     PickerSelectionRepository,
     PickerSessionRepository,
 )
-from bounded_contexts.picker_import.entities import ImportSessionProgress, ImportResult
-from bounded_contexts.picker_import.services import (
+from bounded_contexts.picker_import.domain.entities import ImportSessionProgress, ImportResult
+from bounded_contexts.picker_import.domain.services import (
     ImportResultAggregator,
     MediaHashingService,
 )

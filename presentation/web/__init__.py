@@ -1140,9 +1140,8 @@ def create_app():
 
     # Blueprint 登録
     from .auth import bp as auth_bp
-    importlib.import_module("webapp.auth.routes")
+    from .auth.routes import picker as picker_view  # 最初にインポート
     app.register_blueprint(auth_bp, url_prefix="/auth")
-    from .auth.routes import picker as picker_view
     app.add_url_rule("/picker/<int:account_id>", view_func=picker_view, endpoint="picker")
 
     from .dashboard import bp as dashboard_bp
@@ -1168,7 +1167,7 @@ def create_app():
     
     _strip_openapi_path_prefix(smorest_api.spec, api_url_prefix)
 
-    from webapp.api import routes as api_routes
+    from presentation.web.api import routes as api_routes
 
     app.add_url_rule(
         "/media/thumbs/<path:rel>",

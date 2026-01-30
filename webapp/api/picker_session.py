@@ -27,7 +27,7 @@ from .picker_session_service import (
 )
 from core.tasks.picker_import import enqueue_picker_import_item  # re-export for tests
 from .pagination import PaginationParams, paginate_and_respond
-from .routes import login_or_jwt_required  # JWT認証対応のデコレータをインポート
+from presentation.web.api.routes import login_or_jwt_required  # JWT認証対応のデコレータをインポート
 from .concurrency import create_limiter, limit_concurrency
 from .openapi import json_request_body
 from .blueprint import AuthEnforcedBlueprint

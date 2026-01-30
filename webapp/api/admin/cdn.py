@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from flask import Blueprint
+from flask_smorest import Blueprint
 from flask_smorest import Page
 from marshmallow import Schema, fields
 
@@ -17,23 +17,23 @@ bp = Blueprint("cdn", __name__, url_prefix="/api/admin/cdn")
 class CDNStatusSchema(Schema):
     """CDN状態レスポンス."""
     
-    enabled = fields.Boolean(required=True, description="CDN機能の有効/無効")
-    provider = fields.String(required=True, description="CDNプロバイダー")
-    cache_ttl = fields.Integer(required=True, description="キャッシュTTL（秒）")
-    compression_enabled = fields.Boolean(required=True, description="圧縮の有効/無効")
-    secure_urls_enabled = fields.Boolean(required=True, description="セキュアURL機能の有効/無効")
-    azure_configured = fields.Boolean(required=True, description="Azure CDN設定の有無")
-    cloudflare_configured = fields.Boolean(required=True, description="CloudFlare CDN設定の有無")
-    generic_configured = fields.Boolean(required=True, description="Generic CDN設定の有無")
+    enabled = fields.Boolean(required=True, metadata={"description": "CDN機能の有効/無効"})
+    provider = fields.String(required=True, metadata={"description": "CDNプロバイダー"})
+    cache_ttl = fields.Integer(required=True, metadata={"description": "キャッシュTTL（秒）"})
+    compression_enabled = fields.Boolean(required=True, metadata={"description": "圧縮の有効/無効"})
+    secure_urls_enabled = fields.Boolean(required=True, metadata={"description": "セキュアURL機能の有効/無効"})
+    azure_configured = fields.Boolean(required=True, metadata={"description": "Azure CDN設定の有無"})
+    cloudflare_configured = fields.Boolean(required=True, metadata={"description": "CloudFlare CDN設定の有無"})
+    generic_configured = fields.Boolean(required=True, metadata={"description": "Generic CDN設定の有無"})
 
 
 class CDNConfigValidationSchema(Schema):
     """CDN設定検証レスポンス."""
     
-    provider = fields.String(required=True, description="検証対象プロバイダー")
-    valid = fields.Boolean(required=True, description="設定の有効性")
-    missing_fields = fields.List(fields.String(), required=True, description="不足している設定項目")
-    warnings = fields.List(fields.String(), required=True, description="警告メッセージ")
+    provider = fields.String(required=True, metadata={"description": "検証対象プロバイダー"})
+    valid = fields.Boolean(required=True, metadata={"description": "設定の有効性"})
+    missing_fields = fields.List(fields.String(), required=True, metadata={"description": "不足している設定項目"})
+    warnings = fields.List(fields.String(), required=True, metadata={"description": "警告メッセージ"})
 
 
 @bp.get("/status")

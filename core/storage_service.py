@@ -19,7 +19,7 @@ from typing import (
     runtime_checkable,
 )
 
-from domain.storage import (
+from bounded_contexts.storage.domain import (
     StorageBackendType,
     StorageDomain,
     StorageIntent,

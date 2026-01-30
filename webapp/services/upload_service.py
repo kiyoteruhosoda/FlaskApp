@@ -15,7 +15,7 @@ from werkzeug.datastructures import FileStorage
 
 from webapp.config import BaseApplicationSettings
 from core.settings import settings
-from domain.storage import StorageDomain
+from bounded_contexts.storage import StorageDomain
 
 
 class UploadError(Exception):

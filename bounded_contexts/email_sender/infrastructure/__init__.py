@@ -7,7 +7,7 @@ Note:
     ConsoleEmailSenderはテスト専用のため、tests/infrastructure/email_sender/ に移動しました。
 """
 
-from .smtp_sender import SmtpEmailSender
+from .smtp_sender import SMTPEmailSender
 from .factory import EmailSenderFactory
 
-__all__ = ["SmtpEmailSender", "EmailSenderFactory"]
+__all__ = ["SMTPEmailSender", "EmailSenderFactory"]

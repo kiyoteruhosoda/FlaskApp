@@ -2,8 +2,8 @@
 
 import pytest
 from unittest.mock import Mock, patch
-from domain.email_sender import IEmailSender, EmailMessage
-from application.email_service import EmailService
+from bounded_contexts.email_sender import IEmailSender, EmailMessage
+from bounded_contexts.email_service import EmailService
 
 
 class MockEmailSender(IEmailSender):

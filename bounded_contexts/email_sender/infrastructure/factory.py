@@ -11,8 +11,8 @@ from typing import Final
 
 from flask_mailman import Mail
 
-from domain.email_sender import EmailSender
-from .smtp_sender import SmtpEmailSender
+from bounded_contexts.email_sender.domain.sender_interface import EmailSender
+from .smtp_sender import SMTPEmailSender
 
 logger = logging.getLogger(__name__)
 
@@ -86,12 +86,12 @@ class EmailSenderFactory:
         cls,
         mail: Mail | None,
         default_sender: str | None,
-    ) -> SmtpEmailSender:
+    ) -> SMTPEmailSender:
         """SMTPメール送信実装を生成."""
         resolved_mail = mail or cls._resolve_mail_instance()
         resolved_sender = default_sender or cls._resolve_default_sender()
 
-        return SmtpEmailSender(mail=resolved_mail, default_sender=resolved_sender)
+        return SMTPEmailSender(mail=resolved_mail, default_sender=resolved_sender)
 
     @staticmethod
     def _resolve_mail_instance() -> Mail:

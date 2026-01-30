@@ -10,7 +10,7 @@ from pathlib import Path, PurePosixPath
 from typing import Callable, Dict, Iterable, List, Optional, Set
 
 from core.storage_service import StorageService
-from domain.storage import StorageDomain
+from bounded_contexts.storage import StorageDomain
 
 class ZipExtractionError(Exception):
     """ZIP展開処理で致命的なエラーが発生した場合に送出。"""

@@ -38,7 +38,7 @@ from core.models.group import Group, GroupHierarchyError
 from core.models.service_account import ServiceAccount
 from core.settings import settings
 from core.storage_service import StorageService
-from domain.storage import StorageDomain
+from bounded_contexts.storage import StorageDomain
 from webapp.services.service_account_service import (
     ServiceAccountNotFoundError,
     ServiceAccountService,

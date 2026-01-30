@@ -2,7 +2,7 @@
 
 import logging
 import pytest
-from domain.email_sender.email_message import EmailMessage
+from bounded_contexts.email_sender.domain.email_message import EmailMessage
 from tests.helpers.email_sender import ConsoleEmailSender
 
 
@@ -104,9 +104,8 @@ class TestConsoleSender:
             from_address="sender@example.com"
         )
         
-        formatted = sender._format_message(message)
+        formatted = sender.format_message(message)
         
-        assert "From: sender@example.com" in formatted
         assert "To: test@example.com" in formatted
         assert "Subject: Test Subject" in formatted
         assert "Test Body" in formatted

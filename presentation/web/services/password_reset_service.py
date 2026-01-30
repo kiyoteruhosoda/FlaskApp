@@ -10,7 +10,7 @@ from core.db import db
 from core.models.password_reset_token import PasswordResetToken
 from core.models.user import User
 from webapp.utils import determine_external_scheme
-from application.email_service import EmailService
+from bounded_contexts.email_service import EmailService
 
 
 class PasswordResetService:

@@ -11,7 +11,7 @@ from uuid import uuid4
 from core.db import db
 from core.models.photo_models import Media, MediaPlayback
 from core.settings import settings
-from domain.storage import StorageDomain
+from bounded_contexts.storage import StorageDomain
 
 from .logger import StructuredMediaTaskLogger
 

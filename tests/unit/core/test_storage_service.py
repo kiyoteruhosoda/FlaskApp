@@ -8,7 +8,7 @@ from core.storage_service import (
     ExternalRestStorageService,
     LocalFilesystemStorageService,
 )
-from domain.storage import StorageBackendType
+from bounded_contexts.storage import StorageBackendType
 
 
 def _make_service(config: dict[str, str] | None = None) -> LocalFilesystemStorageService:

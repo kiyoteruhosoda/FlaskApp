@@ -31,7 +31,7 @@ from typing import (
 
 from flask import current_app, has_app_context
 
-from domain.storage import StorageBackendType, StorageDomain, StorageIntent
+from bounded_contexts.storage.domain import StorageBackendType, StorageDomain, StorageIntent
 
 from core.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
 

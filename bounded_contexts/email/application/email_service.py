@@ -12,8 +12,8 @@ from dataclasses import dataclass, field
 from flask import render_template
 from flask_babel import gettext as _
 
-from domain.email_sender import EmailMessage, EmailSender
-from infrastructure.email_sender import EmailSenderFactory
+from bounded_contexts.email_sender import EmailMessage, EmailSender
+from bounded_contexts.email_sender import EmailSenderFactory
 
 logger = logging.getLogger(__name__)
 

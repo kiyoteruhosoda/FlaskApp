@@ -11,7 +11,7 @@ from typing import Final
 
 from flask_mailman import Mail
 
-from domain.email_sender import EmailSender
+from bounded_contexts.email_sender import EmailSender
 from .smtp_sender import SmtpEmailSender
 
 logger = logging.getLogger(__name__)

@@ -8,7 +8,7 @@ from sqlalchemy import text
 from .extensions import db
 from core.time import utc_now_isoformat
 from core.settings import settings
-from domain.storage import StorageDomain
+from bounded_contexts.storage import StorageDomain
 
 # 認証なしのhealth用Blueprint
 health_bp = Blueprint("health", __name__, url_prefix="/health")

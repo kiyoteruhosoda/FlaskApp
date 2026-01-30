@@ -13,7 +13,7 @@ from flask import current_app
 from flask_mailman import EmailMessage as FlaskEmailMessage
 from flask_mailman import EmailMultiAlternatives, Mail
 
-from domain.email_sender.email_message import EmailMessage
+from bounded_contexts.email_sender.email_message import EmailMessage
 
 logger = logging.getLogger(__name__)
 

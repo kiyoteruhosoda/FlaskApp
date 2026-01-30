@@ -25,7 +25,7 @@ from PIL import Image, ImageOps
 from core.models.photo_models import Media, MediaPlayback
 from core.logging_config import structured_task_logger
 from core.settings import settings
-from domain.storage import StorageDomain
+from bounded_contexts.storage import StorageDomain
 
 if TYPE_CHECKING:  # pragma: no cover
     from core.logging_config import StructuredTaskLogger

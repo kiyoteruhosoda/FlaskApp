@@ -26,7 +26,7 @@ from core.tasks.thumbs_generate import (
 from webapp.config import BaseApplicationSettings
 
 from core.settings import settings
-from domain.storage import StorageDomain
+from bounded_contexts.storage import StorageDomain
 
 from bounded_contexts.photonest.application.local_import.file_importer import (
     LocalImportFileImporter,

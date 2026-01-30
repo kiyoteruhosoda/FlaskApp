@@ -1,7 +1,7 @@
 """Tests for EmailMessage value object."""
 
 import pytest
-from domain.email_sender.email_message import EmailMessage
+from bounded_contexts.email_sender.domain.email_message import EmailMessage
 
 
 class TestEmailMessage:

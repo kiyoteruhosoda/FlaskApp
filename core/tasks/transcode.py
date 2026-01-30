@@ -30,7 +30,7 @@ from core.db import db
 from core.models.photo_models import Media, MediaPlayback
 from core.logging_config import setup_task_logging
 from core.settings import ApplicationSettings, settings
-from domain.storage import StorageDomain
+from bounded_contexts.storage import StorageDomain
 from .thumbs_generate import thumbs_generate
 
 # transcode専用ロガーを取得（両方のログハンドラーが設定済み）

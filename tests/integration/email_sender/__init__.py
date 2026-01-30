@@ -1,0 +1,1 @@
+# Email sender integration tests

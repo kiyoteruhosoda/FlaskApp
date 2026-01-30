@@ -89,7 +89,7 @@ from core.tasks.local_import import (
 from core.tasks.media_post_processing import enqueue_thumbs_generate
 from core.time import utc_now_isoformat
 from core.storage_service import StorageArea, StorageSelector, StorageService
-from domain.storage import StorageDomain, StorageIntent, StorageResolution
+from bounded_contexts.storage import StorageDomain, StorageIntent, StorageResolution
 
 from .schemas.auth import (
     LoginRequestSchema,

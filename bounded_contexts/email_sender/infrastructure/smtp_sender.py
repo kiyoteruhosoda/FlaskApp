@@ -13,13 +13,13 @@ from flask import current_app
 from flask_mailman import EmailMessage as FlaskEmailMessage
 from flask_mailman import EmailMultiAlternatives, Mail
 
-from domain.email_sender.email_message import EmailMessage
+from bounded_contexts.email_sender.domain.email_message import EmailMessage
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class SmtpEmailSender:
+class SMTPEmailSender:
     """SMTPを使用したメール送信実装.
 
     Flask-Mailmanを使用してSMTP経由でメールを送信します。
@@ -108,4 +108,4 @@ class SmtpEmailSender:
         return []
 
 
-__all__ = ["SmtpEmailSender"]
+__all__ = ["SMTPEmailSender"]

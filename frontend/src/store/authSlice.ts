@@ -10,10 +10,13 @@ interface AuthState {
   redirectUrl: string | null;
 }
 
+// 初期状態でトークンの有無をチェック
+const hasToken = !!localStorage.getItem('access_token');
+
 const initialState: AuthState = {
   user: null,
-  isAuthenticated: false,
-  isLoading: false,
+  isAuthenticated: hasToken, // トークンがあれば認証済みとみなす
+  isLoading: hasToken, // トークンがあればユーザー情報取得中
   error: null,
   redirectUrl: null,
 };

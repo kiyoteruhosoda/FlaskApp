@@ -97,8 +97,6 @@
               {% if show_user_manage %}
               <li><hr class="dropdown-divider"></li>
               <li><a class="dropdown-item" href="{{ url_for('admin.show_config') }}">{{ _('Config Settings') }}</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('admin.cdn_configuration') }}">{{ _('CDN Configuration') }}</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('admin.blob_configuration') }}">{{ _('Blob Storage Configuration') }}</a></li>
               <li><a class="dropdown-item" href="{{ url_for('admin.show_version') }}">{{ _('Version Info') }}</a></li>
               {% endif %}
               {% if current_user.can('role:manage') %}

@@ -2041,3 +2041,14 @@ def _build_pagination_pages(page: int, total_pages: int, window: int = 2) -> lis
     start = max(page - window, 1)
     end = min(page + window, total_pages)
     return list(range(start, end + 1))
+
+
+# CDN設定管理
+@bp.route("/cdn-configuration")
+@login_required
+def cdn_configuration():
+    """CDN設定画面."""
+    if not current_user.can("admin"):
+        return _redirect_to_home()
+    
+    return render_template("admin/cdn_configuration.html")

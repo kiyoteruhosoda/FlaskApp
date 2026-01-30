@@ -54,6 +54,22 @@ DEFAULT_APPLICATION_SETTINGS: dict[str, object] = {
     "MAIL_USERNAME": "",
     "MAIL_PASSWORD": "",
     "MAIL_DEFAULT_SENDER": "",
+    # CDN configuration
+    "CDN_ENABLED": False,
+    "CDN_PROVIDER": "none",  # none, azure, cloudflare, generic
+    "CDN_AZURE_ACCOUNT_NAME": "",
+    "CDN_AZURE_ACCESS_KEY": "",
+    "CDN_AZURE_PROFILE": "",
+    "CDN_AZURE_ENDPOINT": "",
+    "CDN_CLOUDFLARE_API_TOKEN": "",
+    "CDN_CLOUDFLARE_ZONE_ID": "",
+    "CDN_CLOUDFLARE_ORIGIN_HOSTNAME": "",
+    "CDN_GENERIC_ENDPOINT": "",
+    "CDN_GENERIC_API_TOKEN": "",
+    "CDN_CACHE_TTL": 3600,
+    "CDN_ENABLE_COMPRESSION": True,
+    "CDN_SECURE_URLS_ENABLED": False,
+    "CDN_ACCESS_KEY": "",
 }
 
 DEFAULT_CORS_SETTINGS: dict[str, object] = {

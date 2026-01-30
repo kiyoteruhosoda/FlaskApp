@@ -818,6 +818,111 @@ class ApplicationSettings:
         
         return provider
 
+    # ------------------------------------------------------------------
+    # CDN configuration  
+    # ------------------------------------------------------------------
+    @property
+    def cdn_enabled(self) -> bool:
+        """CDN機能の有効/無効."""
+        return self.get_bool("CDN_ENABLED", False)
+    
+    @property 
+    def cdn_provider(self) -> str:
+        """CDNプロバイダー (none, azure, cloudflare, generic)."""
+        value = self._get("CDN_PROVIDER", "none")
+        if not value:
+            return "none"
+        
+        provider = str(value).lower().strip()
+        valid_providers = ["none", "azure", "cloudflare", "generic"]
+        
+        if provider not in valid_providers:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"Invalid CDN provider '{provider}' configured. "
+                f"Valid providers: {valid_providers}. Falling back to 'none'.",
+                extra={"event": "settings.cdn_provider.invalid"}
+            )
+            return "none"
+        
+        return provider
+    
+    @property
+    def cdn_azure_account_name(self) -> Optional[str]:
+        """Azure CDNアカウント名."""
+        value = self._get("CDN_AZURE_ACCOUNT_NAME")
+        return str(value) if value is not None else None
+    
+    @property
+    def cdn_azure_access_key(self) -> Optional[str]:
+        """Azure CDNアクセスキー.""" 
+        value = self._get("CDN_AZURE_ACCESS_KEY")
+        return str(value) if value is not None else None
+    
+    @property
+    def cdn_azure_profile(self) -> Optional[str]:
+        """Azure CDNプロファイル名."""
+        value = self._get("CDN_AZURE_PROFILE")
+        return str(value) if value is not None else None
+    
+    @property
+    def cdn_azure_endpoint(self) -> Optional[str]:
+        """Azure CDNエンドポイント名."""
+        value = self._get("CDN_AZURE_ENDPOINT")
+        return str(value) if value is not None else None
+    
+    @property
+    def cdn_cloudflare_api_token(self) -> Optional[str]:
+        """CloudFlare CDN APIトークン."""
+        value = self._get("CDN_CLOUDFLARE_API_TOKEN")
+        return str(value) if value is not None else None
+    
+    @property
+    def cdn_cloudflare_zone_id(self) -> Optional[str]:
+        """CloudFlare CDN ゾーンID."""
+        value = self._get("CDN_CLOUDFLARE_ZONE_ID")
+        return str(value) if value is not None else None
+    
+    @property
+    def cdn_cloudflare_origin_hostname(self) -> Optional[str]:
+        """CloudFlare CDN オリジンホスト名."""
+        value = self._get("CDN_CLOUDFLARE_ORIGIN_HOSTNAME")
+        return str(value) if value is not None else None
+    
+    @property
+    def cdn_generic_endpoint(self) -> Optional[str]:
+        """汎用CDN APIエンドポイント."""
+        value = self._get("CDN_GENERIC_ENDPOINT")
+        return str(value) if value is not None else None
+    
+    @property
+    def cdn_generic_api_token(self) -> Optional[str]:
+        """汎用CDN APIトークン."""
+        value = self._get("CDN_GENERIC_API_TOKEN")
+        return str(value) if value is not None else None
+    
+    @property
+    def cdn_cache_ttl(self) -> int:
+        """CDNキャッシュTTL（秒）."""
+        return self.get_int("CDN_CACHE_TTL", 3600)
+    
+    @property
+    def cdn_enable_compression(self) -> bool:
+        """CDN圧縮の有効/無効."""
+        return self.get_bool("CDN_ENABLE_COMPRESSION", True)
+    
+    @property
+    def cdn_secure_urls_enabled(self) -> bool:
+        """CDNセキュアURL機能の有効/無効."""
+        return self.get_bool("CDN_SECURE_URLS_ENABLED", False)
+    
+    @property
+    def cdn_access_key(self) -> Optional[str]:
+        """CDNセキュアURL用アクセスキー."""
+        value = self._get("CDN_ACCESS_KEY")
+        return str(value) if value is not None else None
+
 settings = ApplicationSettings()
 
 __all__ = ["ApplicationSettings", "settings"]

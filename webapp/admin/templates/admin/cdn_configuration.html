@@ -1,0 +1,262 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ _('CDN Configuration') }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- ページヘッダー -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">{{ _('CDN Configuration') }}</h1>
+            <p class="text-gray-600">{{ _('Configure Content Delivery Network settings for faster global media delivery.') }}</p>
+        </div>
+        
+        <!-- CDN状態カード -->
+        <div class="bg-white shadow-lg rounded-lg mb-8">
+            <div class="p-6 border-b border-gray-200">
+                <h2 class="text-xl font-semibold text-gray-900 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                    {{ _('Current Status') }}
+                </h2>
+            </div>
+            <div class="p-6">
+                <div id="cdn-status" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- 状態情報はJavaScriptで動的に読み込み -->
+                    <div class="animate-pulse">
+                        <div class="h-4 bg-gray-300 rounded w-3/4 mb-2"></div>
+                        <div class="h-3 bg-gray-300 rounded w-1/2"></div>
+                    </div>
+                </div>
+                
+                <div class="mt-6 flex space-x-4">
+                    <button id="validate-config-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition duration-200">
+                        {{ _('Validate Configuration') }}
+                    </button>
+                    <button id="refresh-status-btn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition duration-200">
+                        {{ _('Refresh Status') }}
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 設定変更フォーム -->
+        <div class="bg-white shadow-lg rounded-lg mb-8">
+            <div class="p-6 border-b border-gray-200">
+                <h2 class="text-xl font-semibold text-gray-900 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    {{ _('CDN Settings') }}
+                </h2>
+            </div>
+            <div class="p-6">
+                <p class="text-sm text-gray-600 mb-4">
+                    {{ _('Modify CDN settings through the system settings page. Changes will take effect immediately.') }}
+                </p>
+                
+                <div class="flex space-x-4">
+                    <a href="{{ url_for('admin.system_settings', section='cdn') }}" 
+                       class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg transition duration-200 inline-flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4"/>
+                        </svg>
+                        {{ _('Open System Settings') }}
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- CDN プロバイダー情報 -->
+        <div class="bg-white shadow-lg rounded-lg">
+            <div class="p-6 border-b border-gray-200">
+                <h2 class="text-xl font-semibold text-gray-900 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    {{ _('Supported CDN Providers') }}
+                </h2>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Azure CDN -->
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-center mb-3">
+                            <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                                <svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2L2 7v10c0 5.55 3.84 9.95 9 11 5.16-1.05 9-5.45 9-11V7l-10-5z"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-900">Azure CDN</h3>
+                        </div>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li>• {{ _('Microsoft Azure global network') }}</li>
+                            <li>• {{ _('Integrated with Azure Blob Storage') }}</li>
+                            <li>• {{ _('Advanced analytics and monitoring') }}</li>
+                            <li>• {{ _('Secure token-based URLs') }}</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- CloudFlare CDN -->
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-center mb-3">
+                            <div class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center mr-3">
+                                <svg class="w-4 h-4 text-orange-600" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2L2 7v10c0 5.55 3.84 9.95 9 11 5.16-1.05 9-5.45 9-11V7l-10-5z"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-900">CloudFlare CDN</h3>
+                        </div>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li>• {{ _('Global edge network with 200+ locations') }}</li>
+                            <li>• {{ _('Fast cache purging and preloading') }}</li>
+                            <li>• {{ _('Geographic and IP-based restrictions') }}</li>
+                            <li>• {{ _('Real-time analytics and insights') }}</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Generic CDN -->
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-center mb-3">
+                            <div class="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center mr-3">
+                                <svg class="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2L2 7v10c0 5.55 3.84 9.95 9 11 5.16-1.05 9-5.45 9-11V7l-10-5z"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-900">{{ _('Generic CDN') }}</h3>
+                        </div>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li>• {{ _('Custom CDN provider support') }}</li>
+                            <li>• {{ _('Flexible API integration') }}</li>
+                            <li>• {{ _('Configurable endpoints and tokens') }}</li>
+                            <li>• {{ _('Basic cache management') }}</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="mt-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-yellow-700">
+                                <strong>{{ _('Important:') }}</strong> {{ _('CDN provider changes require proper origin storage configuration. Ensure your storage backend is properly configured before enabling CDN.') }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // CDN状態を取得
+    async function loadCDNStatus() {
+        try {
+            const response = await fetch('/api/admin/cdn/status');
+            const data = await response.json();
+            renderCDNStatus(data);
+        } catch (error) {
+            console.error('CDN状態取得エラー:', error);
+            document.getElementById('cdn-status').innerHTML = `
+                <div class="col-span-full p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <p class="text-red-700">${'{{ _("Error loading CDN status") }}'}</p>
+                </div>
+            `;
+        }
+    }
+    
+    // CDN状態を表示
+    function renderCDNStatus(data) {
+        const statusContainer = document.getElementById('cdn-status');
+        
+        const statusHtml = `
+            <div class="space-y-2">
+                <div class="flex items-center">
+                    <span class="w-3 h-3 rounded-full mr-3 ${data.enabled ? 'bg-green-500' : 'bg-red-500'}"></span>
+                    <span class="font-medium">${'{{ _("CDN Status") }}'}</span>
+                </div>
+                <p class="text-sm text-gray-600 ml-6">${data.enabled ? '{{ _("Enabled") }}' : '{{ _("Disabled") }}'}</p>
+            </div>
+            
+            <div class="space-y-2">
+                <div class="flex items-center">
+                    <span class="font-medium">${'{{ _("Provider") }}'}</span>
+                </div>
+                <p class="text-sm text-gray-600">${data.provider}</p>
+            </div>
+            
+            <div class="space-y-2">
+                <div class="flex items-center">
+                    <span class="font-medium">${'{{ _("Cache TTL") }}'}</span>
+                </div>
+                <p class="text-sm text-gray-600">${data.cache_ttl}${'{{ _("s") }}'}</p>
+            </div>
+            
+            <div class="space-y-2">
+                <div class="flex items-center">
+                    <span class="w-3 h-3 rounded-full mr-3 ${data.azure_configured ? 'bg-green-500' : 'bg-gray-300'}"></span>
+                    <span class="font-medium">Azure CDN</span>
+                </div>
+                <p class="text-sm text-gray-600 ml-6">${data.azure_configured ? '{{ _("Configured") }}' : '{{ _("Not configured") }}'}</p>
+            </div>
+            
+            <div class="space-y-2">
+                <div class="flex items-center">
+                    <span class="w-3 h-3 rounded-full mr-3 ${data.cloudflare_configured ? 'bg-green-500' : 'bg-gray-300'}"></span>
+                    <span class="font-medium">CloudFlare CDN</span>
+                </div>
+                <p class="text-sm text-gray-600 ml-6">${data.cloudflare_configured ? '{{ _("Configured") }}' : '{{ _("Not configured") }}'}</p>
+            </div>
+            
+            <div class="space-y-2">
+                <div class="flex items-center">
+                    <span class="w-3 h-3 rounded-full mr-3 ${data.compression_enabled ? 'bg-blue-500' : 'bg-gray-300'}"></span>
+                    <span class="font-medium">${'{{ _("Compression") }}'}</span>
+                </div>
+                <p class="text-sm text-gray-600 ml-6">${data.compression_enabled ? '{{ _("Enabled") }}' : '{{ _("Disabled") }}'}</p>
+            </div>
+        `;
+        
+        statusContainer.innerHTML = statusHtml;
+    }
+    
+    // 設定検証
+    async function validateConfig() {
+        try {
+            const response = await fetch('/api/admin/cdn/validate-config');
+            const data = await response.json();
+            
+            let message = `${'{{ _("Provider") }}'}: ${data.provider}\\n`;
+            message += `${'{{ _("Valid") }}'}: ${data.valid ? '{{ _("Yes") }}' : '{{ _("No") }}'}\\n`;
+            
+            if (data.missing_fields.length > 0) {
+                message += `\\n${'{{ _("Missing fields") }}'}:\\n${data.missing_fields.join('\\n')}`;
+            }
+            
+            if (data.warnings.length > 0) {
+                message += `\\n${'{{ _("Warnings") }}'}:\\n${data.warnings.join('\\n')}`;
+            }
+            
+            alert(message);
+        } catch (error) {
+            console.error('設定検証エラー:', error);
+            alert('{{ _("Error validating CDN configuration") }}');
+        }
+    }
+    
+    // イベントリスナー
+    document.getElementById('refresh-status-btn').addEventListener('click', loadCDNStatus);
+    document.getElementById('validate-config-btn').addEventListener('click', validateConfig);
+    
+    // 初期読み込み
+    loadCDNStatus();
+});
+</script>
+{% endblock %}

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CDN設定のデモ・検証スクリプト."""
+"""CDN・Blob Storage設定のデモ・検証スクリプト."""
 
 import os
 import sys
@@ -223,22 +223,77 @@ CloudFlare CDN用:
 """)
 
 
+def print_blob_settings():
+    """現在のBlob Storage設定を表示."""
+    print("=== PhotoNest Blob Storage設定確認 ===\n")
+    
+    # 基本設定
+    print("【基本設定】")
+    print(f"Blob有効: {settings.blob_enabled}")
+    print(f"Blobプロバイダー: {settings.blob_provider}")
+    print(f"コンテナ名: {settings.blob_container_name}")
+    print(f"セキュア転送: {settings.blob_secure_transfer}")
+    print(f"パブリックアクセス: {settings.blob_public_access_level}")
+    print()
+    
+    if not settings.blob_enabled:
+        print("⚠️  Blob Storageが無効になっています")
+        print("   システム設定で BLOB_ENABLED=True に変更してください")
+        return
+    
+    if settings.blob_provider == "none":
+        print("📄 Blobプロバイダーが 'none' に設定されています")
+        print("   ローカルストレージが使用されます")
+        return
+    
+    # Azure Blob Storage設定
+    if settings.blob_provider == "azure":
+        print("【Azure Blob Storage設定】")
+        print(f"アカウント名: {settings.blob_account_name or '(未設定)'}")
+        print(f"アクセスキー: {'設定済み' if settings.blob_access_key else '(未設定)'}")
+        print(f"接続文字列: {'設定済み' if settings.blob_connection_string else '(未設定)'}")
+        print(f"SASトークン: {'設定済み' if settings.blob_sas_token else '(未設定)'}")
+        print(f"エンドポイントサフィックス: {settings.blob_endpoint_suffix}")
+        
+        # 認証方法の判定
+        if settings.blob_connection_string:
+            print("✅ 認証方法: 接続文字列 (推奨)")
+        elif settings.blob_account_name and settings.blob_access_key:
+            print("✅ 認証方法: アカウント名 + アクセスキー")
+        elif settings.blob_sas_token:
+            print("⚠️  認証方法: SASトークン (時間制限あり)")
+        else:
+            print("❌ 認証情報が不完全です")
+            print("   接続文字列、またはアカウント名+アクセスキーを設定してください")
+        
+        print()
+    
+    else:
+        print(f"❌ 未対応のプロバイダー: {settings.blob_provider}")
+        return
+
+
 def main():
     """メイン実行関数."""
     import argparse
     
-    parser = argparse.ArgumentParser(description="PhotoNest CDN設定デモ・検証")
+    parser = argparse.ArgumentParser(description="PhotoNest CDN・Blob Storage設定デモ・検証")
+    parser.add_argument("--cdn", action="store_true", help="CDN設定を表示")
+    parser.add_argument("--blob", action="store_true", help="Blob Storage設定を表示")
+    parser.add_argument("--settings", action="store_true", help="CDN設定を表示 (後方互換)")
     parser.add_argument("--demo", action="store_true", help="CDN機能のデモを実行")
-    parser.add_argument("--settings", action="store_true", default=True, help="CDN設定を表示")
     
     args = parser.parse_args()
     
-    if len(sys.argv) == 1:  # 引数なしの場合
-        args.settings = True
+    if len(sys.argv) == 1:  # 引数なしの場合はCDN設定を表示
+        args.cdn = True
     
     try:
-        if args.settings:
+        if args.cdn or args.settings:
             print_cdn_settings()
+        
+        if args.blob:
+            print_blob_settings()
         
         if args.demo:
             demonstrate_cdn_usage()

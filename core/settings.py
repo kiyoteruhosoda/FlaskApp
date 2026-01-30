@@ -923,6 +923,104 @@ class ApplicationSettings:
         value = self._get("CDN_ACCESS_KEY")
         return str(value) if value is not None else None
 
+    # ------------------------------------------------------------------
+    # Azure Blob Storage configuration
+    # ------------------------------------------------------------------
+    @property
+    def blob_enabled(self) -> bool:
+        """Azure Blob Storage機能の有効/無効."""
+        return self.get_bool("BLOB_ENABLED", False)
+    
+    @property
+    def blob_provider(self) -> str:
+        """Blobストレージプロバイダー (none, azure, local)."""
+        value = self._get("BLOB_PROVIDER", "none")
+        if not value:
+            return "none"
+        
+        provider = str(value).lower().strip()
+        valid_providers = ["none", "azure", "local"]
+        
+        if provider not in valid_providers:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"Invalid Blob provider '{provider}' configured. "
+                f"Valid providers: {valid_providers}. Falling back to 'none'.",
+                extra={"event": "settings.blob_provider.invalid"}
+            )
+            return "none"
+        
+        return provider
+    
+    @property
+    def blob_connection_string(self) -> Optional[str]:
+        """Azure Blob Storage接続文字列."""
+        value = self._get("BLOB_CONNECTION_STRING")
+        return str(value) if value is not None else None
+    
+    @property
+    def blob_container_name(self) -> str:
+        """Azure Blobコンテナ名."""
+        value = self._get("BLOB_CONTAINER_NAME", "photonest")
+        return str(value) if value else "photonest"
+    
+    @property
+    def blob_account_name(self) -> Optional[str]:
+        """Azure Blobアカウント名."""
+        value = self._get("BLOB_ACCOUNT_NAME")
+        return str(value) if value is not None else None
+    
+    @property
+    def blob_access_key(self) -> Optional[str]:
+        """Azure Blobアクセスキー."""
+        value = self._get("BLOB_ACCESS_KEY")
+        return str(value) if value is not None else None
+    
+    @property
+    def blob_sas_token(self) -> Optional[str]:
+        """Azure Blob SASトークン."""
+        value = self._get("BLOB_SAS_TOKEN")
+        return str(value) if value is not None else None
+    
+    @property
+    def blob_endpoint_suffix(self) -> str:
+        """Azure Blobエンドポイントサフィックス."""
+        value = self._get("BLOB_ENDPOINT_SUFFIX", "core.windows.net")
+        return str(value) if value else "core.windows.net"
+    
+    @property
+    def blob_secure_transfer(self) -> bool:
+        """Azure Blobセキュア転送要求."""
+        return self.get_bool("BLOB_SECURE_TRANSFER", True)
+    
+    @property
+    def blob_create_container_if_not_exists(self) -> bool:
+        """コンテナ自動作成の有効/無効."""
+        return self.get_bool("BLOB_CREATE_CONTAINER_IF_NOT_EXISTS", True)
+    
+    @property
+    def blob_public_access_level(self) -> str:
+        """Blobパブリックアクセスレベル (none, blob, container)."""
+        value = self._get("BLOB_PUBLIC_ACCESS_LEVEL", "none")
+        if not value:
+            return "none"
+        
+        access_level = str(value).lower().strip()
+        valid_levels = ["none", "blob", "container"]
+        
+        if access_level not in valid_levels:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"Invalid Blob public access level '{access_level}' configured. "
+                f"Valid levels: {valid_levels}. Falling back to 'none'.",
+                extra={"event": "settings.blob_access_level.invalid"}
+            )
+            return "none"
+        
+        return access_level
+
 settings = ApplicationSettings()
 
 __all__ = ["ApplicationSettings", "settings"]

@@ -457,6 +457,12 @@ class StorageApplicationService:
         if domain in self._backends:
             return self._backends[domain]
         
+        # システム設定から自動設定を試行
+        backend = self._get_backend_from_settings(domain)
+        if backend:
+            self._backends[domain] = backend
+            return backend
+        
         # 設定を取得
         configuration = self._repository.get_configuration(domain)
         if not configuration:
@@ -636,8 +642,87 @@ class StorageApplicationService:
             )
             
             # CDNバックエンドを作成
-            return self._factory.create_backend(cdn_config)
+            cdn_backend = self._factory.create_backend(cdn_config)
+            logger.info(f"システム設定からCDNバックエンドを作成: domain={domain}, provider={provider}")
+            return cdn_backend
         
         except Exception as e:
             logger.error(f"システム設定からのCDNバックエンド作成エラー: domain={domain}, error={e}")
+            return None
+    
+    def _get_backend_from_settings(self, domain: str) -> StorageBackend | CDNBackend | None:
+        """システム設定からストレージバックエンドを自動作成."""
+        try:
+            # Blob Storage設定を優先チェック
+            if settings.blob_enabled and settings.blob_provider and settings.blob_provider != "none":
+                blob_backend = self._create_blob_backend_from_settings()
+                if blob_backend:
+                    logger.info(f"システム設定からBlobバックエンドを作成: domain={domain}, provider={settings.blob_provider}")
+                    return blob_backend
+            
+            # CDN設定をチェック
+            if settings.cdn_enabled and settings.cdn_provider and settings.cdn_provider != "none":
+                cdn_backend = self._get_cdn_backend_from_settings(domain)
+                if cdn_backend:
+                    return cdn_backend
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"システム設定からのバックエンド作成エラー: domain={domain}, error={e}")
+            return None
+    
+    def _create_blob_backend_from_settings(self) -> StorageBackend | None:
+        """システム設定からBlobバックエンドを作成."""
+        try:
+            if not settings.blob_enabled or not settings.blob_provider:
+                return None
+            
+            provider = settings.blob_provider
+            
+            if provider == "azure":
+                # 認証方法を決定（接続文字列 > アカウント認証 > SASトークン）
+                if settings.blob_connection_string:
+                    credentials = StorageCredentials(
+                        backend_type=StorageBackendType.AZURE_BLOB,
+                        connection_string=settings.blob_connection_string,
+                    )
+                elif settings.blob_account_name and settings.blob_access_key:
+                    credentials = StorageCredentials(
+                        backend_type=StorageBackendType.AZURE_BLOB,
+                        account_name=settings.blob_account_name,
+                        access_key=settings.blob_access_key,
+                        endpoint_suffix=settings.blob_endpoint_suffix or "core.windows.net",
+                    )
+                elif settings.blob_sas_token:
+                    credentials = StorageCredentials(
+                        backend_type=StorageBackendType.AZURE_BLOB,
+                        sas_token=settings.blob_sas_token,
+                        account_name=settings.blob_account_name,
+                        endpoint_suffix=settings.blob_endpoint_suffix or "core.windows.net",
+                    )
+                else:
+                    logger.warning("Azure Blob認証情報が不完全です")
+                    return None
+                
+                # Blob設定を作成
+                blob_config = StorageConfiguration(
+                    backend_type=StorageBackendType.AZURE_BLOB,
+                    credentials=credentials,
+                    container_name=settings.blob_container_name,
+                    base_path="",
+                    secure_transfer=settings.blob_secure_transfer,
+                    public_access_level=settings.blob_public_access_level,
+                )
+                
+                # Blobバックエンドを作成
+                blob_backend = self._factory.create_backend(blob_config)
+                return blob_backend
+            
+            else:
+                logger.warning(f"未対応のBlobプロバイダー: {provider}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Blobバックエンド作成エラー: {e}")
             return None

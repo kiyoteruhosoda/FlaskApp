@@ -70,6 +70,18 @@ DEFAULT_APPLICATION_SETTINGS: dict[str, object] = {
     "CDN_ENABLE_COMPRESSION": True,
     "CDN_SECURE_URLS_ENABLED": False,
     "CDN_ACCESS_KEY": "",
+    # Azure Blob Storage configuration
+    "BLOB_ENABLED": False,
+    "BLOB_PROVIDER": "none",  # none, azure, local
+    "BLOB_CONNECTION_STRING": "",
+    "BLOB_CONTAINER_NAME": "photonest",
+    "BLOB_ACCOUNT_NAME": "",
+    "BLOB_ACCESS_KEY": "",
+    "BLOB_SAS_TOKEN": "",
+    "BLOB_ENDPOINT_SUFFIX": "core.windows.net",
+    "BLOB_SECURE_TRANSFER": True,
+    "BLOB_CREATE_CONTAINER_IF_NOT_EXISTS": True,
+    "BLOB_PUBLIC_ACCESS_LEVEL": "none",  # none, blob, container
 }
 
 DEFAULT_CORS_SETTINGS: dict[str, object] = {

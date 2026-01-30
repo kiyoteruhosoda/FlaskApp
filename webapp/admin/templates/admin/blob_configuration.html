@@ -1,0 +1,360 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ _('Blob Storage Configuration') }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- ページヘッダー -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">{{ _('Blob Storage Configuration') }}</h1>
+            <p class="text-gray-600">{{ _('Configure Azure Blob Storage settings for scalable and reliable media file storage.') }}</p>
+        </div>
+        
+        <!-- Blob Storage状態カード -->
+        <div class="bg-white shadow-lg rounded-lg mb-8">
+            <div class="p-6 border-b border-gray-200">
+                <h2 class="text-xl font-semibold text-gray-900 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
+                    </svg>
+                    {{ _('Current Status') }}
+                </h2>
+            </div>
+            <div class="p-6">
+                <div id="blob-status" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- 状態情報はJavaScriptで動的に読み込み -->
+                    <div class="animate-pulse">
+                        <div class="h-4 bg-gray-300 rounded w-3/4 mb-2"></div>
+                        <div class="h-3 bg-gray-300 rounded w-1/2"></div>
+                    </div>
+                </div>
+                
+                <div class="mt-6 flex space-x-4">
+                    <button id="validate-config-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition duration-200">
+                        {{ _('Validate Configuration') }}
+                    </button>
+                    <button id="refresh-status-btn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition duration-200">
+                        {{ _('Refresh Status') }}
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 設定変更フォーム -->
+        <div class="bg-white shadow-lg rounded-lg mb-8">
+            <div class="p-6 border-b border-gray-200">
+                <h2 class="text-xl font-semibold text-gray-900 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    {{ _('Blob Storage Settings') }}
+                </h2>
+            </div>
+            <div class="p-6">
+                <p class="text-sm text-gray-600 mb-4">
+                    {{ _('Modify Blob Storage settings through the system settings page. Changes will take effect immediately.') }}
+                </p>
+                
+                <div class="flex space-x-4">
+                    <a href="{{ url_for('admin.system_settings', section='blob') }}" 
+                       class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg transition duration-200 inline-flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4"/>
+                        </svg>
+                        {{ _('Open System Settings') }}
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 認証方法の説明 -->
+        <div class="bg-white shadow-lg rounded-lg mb-8">
+            <div class="p-6 border-b border-gray-200">
+                <h2 class="text-xl font-semibold text-gray-900 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                    </svg>
+                    {{ _('Authentication Methods') }}
+                </h2>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- 接続文字列 -->
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-center mb-3">
+                            <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                                <svg class="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-900">{{ _('Connection String') }}</h3>
+                            <span class="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">{{ _('Recommended') }}</span>
+                        </div>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li>• {{ _('Most secure and convenient') }}</li>
+                            <li>• {{ _('Single configuration parameter') }}</li>
+                            <li>• {{ _('Includes all necessary credentials') }}</li>
+                            <li>• {{ _('Easy to manage and rotate') }}</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- アカウント名+アクセスキー -->
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-center mb-3">
+                            <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                                <svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 1L3 5V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V5L12 1M10 17L6 13L7.41 11.59L10 14.17L16.59 7.58L18 9L10 17Z"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-900">{{ _('Account + Key') }}</h3>
+                        </div>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li>• {{ _('Traditional authentication method') }}</li>
+                            <li>• {{ _('Separate account name and key') }}</li>
+                            <li>• {{ _('Requires two configuration fields') }}</li>
+                            <li>• {{ _('Alternative to connection string') }}</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- SASトークン -->
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-center mb-3">
+                            <div class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center mr-3">
+                                <svg class="w-4 h-4 text-orange-600" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 1L3 5V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V5L12 1M11 7H13V9H11V7M11 11H13V17H11V11Z"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-900">{{ _('SAS Token') }}</h3>
+                            <span class="ml-2 px-2 py-1 bg-orange-100 text-orange-800 text-xs font-medium rounded">{{ _('Time-limited') }}</span>
+                        </div>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li>• {{ _('Time-limited access') }}</li>
+                            <li>• {{ _('Fine-grained permissions') }}</li>
+                            <li>• {{ _('Requires periodic renewal') }}</li>
+                            <li>• {{ _('Good for temporary access') }}</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="mt-6 p-4 bg-blue-50 border-l-4 border-blue-400 rounded-r-lg">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-blue-700">
+                                <strong>{{ _('Tip:') }}</strong> {{ _('You only need one authentication method. Connection string is the recommended approach for production environments.') }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Blob Storage機能 -->
+        <div class="bg-white shadow-lg rounded-lg">
+            <div class="p-6 border-b border-gray-200">
+                <h2 class="text-xl font-semibold text-gray-900 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    {{ _('Azure Blob Storage Benefits') }}
+                </h2>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- 左側：メリット -->
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">{{ _('Key Benefits') }}</h3>
+                        <ul class="space-y-3">
+                            <li class="flex items-start">
+                                <svg class="w-5 h-5 text-green-500 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                </svg>
+                                <div>
+                                    <strong class="text-gray-900">{{ _('Unlimited Scalability') }}</strong>
+                                    <p class="text-gray-600 text-sm">{{ _('Automatically scales to handle petabytes of data') }}</p>
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <svg class="w-5 h-5 text-green-500 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                </svg>
+                                <div>
+                                    <strong class="text-gray-900">{{ _('High Availability') }}</strong>
+                                    <p class="text-gray-600 text-sm">{{ _('99.9% uptime SLA with geo-redundant replication') }}</p>
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <svg class="w-5 h-5 text-green-500 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                </svg>
+                                <div>
+                                    <strong class="text-gray-900">{{ _('Cost-Effective') }}</strong>
+                                    <p class="text-gray-600 text-sm">{{ _('Pay only for what you use with multiple storage tiers') }}</p>
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <svg class="w-5 h-5 text-green-500 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                </svg>
+                                <div>
+                                    <strong class="text-gray-900">{{ _('Global CDN Integration') }}</strong>
+                                    <p class="text-gray-600 text-sm">{{ _('Perfect origin for Azure CDN worldwide delivery') }}</p>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <!-- 右側：使用例 -->
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">{{ _('Use Cases') }}</h3>
+                        <div class="space-y-4">
+                            <div class="p-4 bg-gray-50 rounded-lg">
+                                <h4 class="font-medium text-gray-900 mb-2">{{ _('Photo Archive') }}</h4>
+                                <p class="text-sm text-gray-600">{{ _('Store millions of family photos with automatic backup and versioning.') }}</p>
+                            </div>
+                            <div class="p-4 bg-gray-50 rounded-lg">
+                                <h4 class="font-medium text-gray-900 mb-2">{{ _('Video Streaming') }}</h4>
+                                <p class="text-sm text-gray-600">{{ _('Large video files with global CDN distribution for smooth playback.') }}</p>
+                            </div>
+                            <div class="p-4 bg-gray-50 rounded-lg">
+                                <h4 class="font-medium text-gray-900 mb-2">{{ _('Backup & Archive') }}</h4>
+                                <p class="text-sm text-gray-600">{{ _('Long-term storage with automated lifecycle management.') }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-8 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-yellow-700">
+                                <strong>{{ _('Important:') }}</strong> {{ _('Enabling Blob Storage will migrate all new uploads to Azure. Existing local files will remain accessible but new files will be stored in the cloud.') }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Blob Storage状態を取得
+    async function loadBlobStatus() {
+        try {
+            const response = await fetch('/api/admin/blob/status');
+            const data = await response.json();
+            renderBlobStatus(data);
+        } catch (error) {
+            console.error('Blob Storage状態取得エラー:', error);
+            document.getElementById('blob-status').innerHTML = `
+                <div class="col-span-full p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <p class="text-red-700">${'{{ _("Error loading Blob Storage status") }}'}</p>
+                </div>
+            `;
+        }
+    }
+    
+    // Blob Storage状態を表示
+    function renderBlobStatus(data) {
+        const statusContainer = document.getElementById('blob-status');
+        
+        const statusHtml = `
+            <div class="space-y-2">
+                <div class="flex items-center">
+                    <span class="w-3 h-3 rounded-full mr-3 ${data.enabled ? 'bg-green-500' : 'bg-red-500'}"></span>
+                    <span class="font-medium">${'{{ _("Blob Status") }}'}</span>
+                </div>
+                <p class="text-sm text-gray-600 ml-6">${data.enabled ? '{{ _("Enabled") }}' : '{{ _("Disabled") }}'}</p>
+            </div>
+            
+            <div class="space-y-2">
+                <div class="flex items-center">
+                    <span class="font-medium">${'{{ _("Provider") }}'}</span>
+                </div>
+                <p class="text-sm text-gray-600">${data.provider}</p>
+            </div>
+            
+            <div class="space-y-2">
+                <div class="flex items-center">
+                    <span class="font-medium">${'{{ _("Container") }}'}</span>
+                </div>
+                <p class="text-sm text-gray-600">${data.container_name}</p>
+            </div>
+            
+            <div class="space-y-2">
+                <div class="flex items-center">
+                    <span class="w-3 h-3 rounded-full mr-3 ${data.connection_configured ? 'bg-green-500' : 'bg-gray-300'}"></span>
+                    <span class="font-medium">${'{{ _("Connection String") }}'}</span>
+                </div>
+                <p class="text-sm text-gray-600 ml-6">${data.connection_configured ? '{{ _("Configured") }}' : '{{ _("Not configured") }}'}</p>
+            </div>
+            
+            <div class="space-y-2">
+                <div class="flex items-center">
+                    <span class="w-3 h-3 rounded-full mr-3 ${data.account_configured ? 'bg-green-500' : 'bg-gray-300'}"></span>
+                    <span class="font-medium">${'{{ _("Account Credentials") }}'}</span>
+                </div>
+                <p class="text-sm text-gray-600 ml-6">${data.account_configured ? '{{ _("Configured") }}' : '{{ _("Not configured") }}'}</p>
+            </div>
+            
+            <div class="space-y-2">
+                <div class="flex items-center">
+                    <span class="w-3 h-3 rounded-full mr-3 ${data.secure_transfer ? 'bg-green-500' : 'bg-yellow-500'}"></span>
+                    <span class="font-medium">${'{{ _("Secure Transfer") }}'}</span>
+                </div>
+                <p class="text-sm text-gray-600 ml-6">${data.secure_transfer ? '{{ _("Required") }}' : '{{ _("Not required") }}'}</p>
+            </div>
+        `;
+        
+        statusContainer.innerHTML = statusHtml;
+    }
+    
+    // 設定検証
+    async function validateConfig() {
+        try {
+            const response = await fetch('/api/admin/blob/validate-config');
+            const data = await response.json();
+            
+            let message = `${'{{ _("Provider") }}'}: ${data.provider}\\n`;
+            message += `${'{{ _("Valid") }}'}: ${data.valid ? '{{ _("Yes") }}' : '{{ _("No") }}'}\\n`;
+            
+            if (data.missing_fields.length > 0) {
+                message += `\\n${'{{ _("Missing fields") }}'}:\\n${data.missing_fields.join('\\n')}`;
+            }
+            
+            if (data.warnings.length > 0) {
+                message += `\\n${'{{ _("Warnings") }}'}:\\n${data.warnings.join('\\n')}`;
+            }
+            
+            if (data.recommendations.length > 0) {
+                message += `\\n${'{{ _("Recommendations") }}'}:\\n${data.recommendations.join('\\n')}`;
+            }
+            
+            alert(message);
+        } catch (error) {
+            console.error('設定検証エラー:', error);
+            alert('{{ _("Error validating Blob Storage configuration") }}');
+        }
+    }
+    
+    // イベントリスナー
+    document.getElementById('refresh-status-btn').addEventListener('click', loadBlobStatus);
+    document.getElementById('validate-config-btn').addEventListener('click', validateConfig);
+    
+    // 初期読み込み
+    loadBlobStatus();
+});
+</script>
+{% endblock %}

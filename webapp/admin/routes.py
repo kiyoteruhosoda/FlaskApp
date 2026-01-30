@@ -2052,3 +2052,14 @@ def cdn_configuration():
         return _redirect_to_home()
     
     return render_template("admin/cdn_configuration.html")
+
+
+# Blob Storage設定管理
+@bp.route("/blob-configuration")
+@login_required
+def blob_configuration():
+    """Blob Storage設定画面."""
+    if not current_user.can("admin"):
+        return _redirect_to_home()
+    
+    return render_template("admin/blob_configuration.html")

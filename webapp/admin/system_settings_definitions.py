@@ -659,6 +659,111 @@ _CDN_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
     ),
 )
 
+
+_BLOB_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
+    SettingFieldDefinition(
+        key="BLOB_ENABLED",
+        label=_(u"Enable Azure Blob Storage"),
+        data_type="boolean",
+        required=True,
+        description=_(u"Enable or disable Azure Blob Storage functionality for media storage."),
+        choices=BOOLEAN_CHOICES,
+        default_hint=_(u"Disable to use local storage only"),
+    ),
+    SettingFieldDefinition(
+        key="BLOB_PROVIDER",
+        label=_(u"Blob storage provider"),
+        data_type="string",
+        required=True,
+        description=_(u"Blob storage service provider to use."),
+        choices=(
+            ("none", _(u"No Blob storage (Local only)")),
+            ("azure", _(u"Azure Blob Storage")),
+            ("local", _(u"Local file system")),
+        ),
+        default_hint=_(u"Select 'none' to disable Blob storage"),
+    ),
+    SettingFieldDefinition(
+        key="BLOB_CONNECTION_STRING",
+        label=_(u"Azure Blob connection string"),
+        data_type="string",
+        required=False,
+        description=_(u"Complete Azure Blob Storage connection string (preferred method)."),
+        allow_empty=True,
+        default_hint=_(u"Format: DefaultEndpointsProtocol=https;AccountName=...;AccountKey=..."),
+    ),
+    SettingFieldDefinition(
+        key="BLOB_ACCOUNT_NAME",
+        label=_(u"Azure Blob account name"),
+        data_type="string", 
+        required=False,
+        description=_(u"Azure Storage account name (alternative to connection string)."),
+        allow_empty=True,
+    ),
+    SettingFieldDefinition(
+        key="BLOB_ACCESS_KEY",
+        label=_(u"Azure Blob access key"),
+        data_type="string",
+        required=False,
+        description=_(u"Azure Storage account access key (alternative to connection string)."),
+        allow_empty=True,
+    ),
+    SettingFieldDefinition(
+        key="BLOB_CONTAINER_NAME",
+        label=_(u"Blob container name"),
+        data_type="string",
+        required=True,
+        description=_(u"Name of the Azure Blob container for storing media files."),
+        default_hint=_(u"Default: photonest"),
+    ),
+    SettingFieldDefinition(
+        key="BLOB_SAS_TOKEN",
+        label=_(u"Azure Blob SAS token"),
+        data_type="string",
+        required=False,
+        description=_(u"Shared Access Signature token for Azure Blob access (optional)."),
+        allow_empty=True,
+    ),
+    SettingFieldDefinition(
+        key="BLOB_ENDPOINT_SUFFIX",
+        label=_(u"Azure endpoint suffix"),
+        data_type="string",
+        required=True,
+        description=_(u"Azure Storage endpoint suffix (usually core.windows.net)."),
+        default_hint=_(u"Default: core.windows.net"),
+    ),
+    SettingFieldDefinition(
+        key="BLOB_SECURE_TRANSFER",
+        label=_(u"Require secure transfer"),
+        data_type="boolean",
+        required=True,
+        description=_(u"Require HTTPS for all Azure Blob Storage operations."),
+        choices=BOOLEAN_CHOICES,
+        default_hint=_(u"Recommended: True"),
+    ),
+    SettingFieldDefinition(
+        key="BLOB_CREATE_CONTAINER_IF_NOT_EXISTS",
+        label=_(u"Auto-create container"),
+        data_type="boolean",
+        required=True,
+        description=_(u"Automatically create the container if it doesn't exist."),
+        choices=BOOLEAN_CHOICES,
+    ),
+    SettingFieldDefinition(
+        key="BLOB_PUBLIC_ACCESS_LEVEL",
+        label=_(u"Public access level"),
+        data_type="string",
+        required=True,
+        description=_(u"Container public access level for new containers."),
+        choices=(
+            ("none", _(u"Private (No public access)")),
+            ("blob", _(u"Blob (Public blob access only)")),
+            ("container", _(u"Container (Full public access)")),
+        ),
+        default_hint=_(u"Recommended: Private for security"),
+    ),
+)
+
 APPLICATION_SETTING_SECTIONS: tuple[SettingDefinitionSection, ...] = (
     SettingDefinitionSection(
         identifier="security",
@@ -725,6 +830,12 @@ APPLICATION_SETTING_SECTIONS: tuple[SettingDefinitionSection, ...] = (
         label=_(u"CDN Configuration"),
         description=_(u"Content Delivery Network settings for faster global media delivery."),
         fields=_CDN_DEFINITIONS,
+    ),
+    SettingDefinitionSection(
+        identifier="blob",
+        label=_(u"Blob Storage Configuration"),
+        description=_(u"Azure Blob Storage settings for scalable media file storage."),
+        fields=_BLOB_DEFINITIONS,
     ),
 )
 

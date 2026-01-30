@@ -1162,6 +1162,10 @@ def create_app():
     from webapp.api.admin.cdn import bp as cdn_admin_bp
     smorest_api.register_blueprint(cdn_admin_bp)
     
+    # Blob admin API
+    from webapp.api.admin.blob import bp as blob_admin_bp
+    smorest_api.register_blueprint(blob_admin_bp)
+    
     _strip_openapi_path_prefix(smorest_api.spec, api_url_prefix)
 
     from webapp.api import routes as api_routes

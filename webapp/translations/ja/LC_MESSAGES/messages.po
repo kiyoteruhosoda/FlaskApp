@@ -3151,3 +3151,204 @@ msgstr "{count}件のメディアを削除しました。"
 
 msgid "Failed to delete selected media."
 msgstr "選択したメディアを削除できませんでした。"
+
+msgid "CDN Configuration"
+msgstr "CDN設定"
+
+msgid "Blob Storage Configuration"
+msgstr "Blobストレージ設定"
+
+msgid "Current Status"
+msgstr "現在の状態"
+
+msgid "Validate Configuration"
+msgstr "設定を検証"
+
+msgid "Refresh Status"
+msgstr "状態を更新"
+
+msgid "Blob Storage Settings"
+msgstr "Blobストレージ設定"
+
+msgid "Open System Settings"
+msgstr "システム設定を開く"
+
+msgid "Authentication Methods"
+msgstr "認証方法"
+
+msgid "Connection String"
+msgstr "接続文字列"
+
+msgid "Recommended"
+msgstr "推奨"
+
+msgid "Most secure and convenient"
+msgstr "最も安全で便利"
+
+msgid "Single configuration parameter"
+msgstr "1つの設定パラメータで完結"
+
+msgid "Includes all necessary credentials"
+msgstr "必要な認証情報をすべて含む"
+
+msgid "Easy to manage and rotate"
+msgstr "管理とローテーションが簡単"
+
+msgid "Account + Key"
+msgstr "アカウント + キー"
+
+msgid "Traditional authentication method"
+msgstr "従来の認証方法"
+
+msgid "Separate account name and key"
+msgstr "アカウント名とキーを個別に設定"
+
+msgid "Requires two configuration fields"
+msgstr "2つの設定フィールドが必要"
+
+msgid "Alternative to connection string"
+msgstr "接続文字列の代替方法"
+
+msgid "SAS Token"
+msgstr "SASトークン"
+
+msgid "Time-limited"
+msgstr "期間限定"
+
+msgid "Time-limited access"
+msgstr "期間限定のアクセス"
+
+msgid "Fine-grained permissions"
+msgstr "詳細な権限設定"
+
+msgid "Requires periodic renewal"
+msgstr "定期的な更新が必要"
+
+msgid "Good for temporary access"
+msgstr "一時的なアクセスに適している"
+
+msgid "Tip:"
+msgstr "ヒント:"
+
+msgid "You only need one authentication method. Connection string is the recommended approach for production environments."
+msgstr "認証方法は1つだけ必要です。本番環境では接続文字列の使用を推奨します。"
+
+msgid "Azure Blob Storage Benefits"
+msgstr "Azure Blobストレージのメリット"
+
+msgid "Key Benefits"
+msgstr "主な利点"
+
+msgid "Unlimited Scalability"
+msgstr "無制限のスケーラビリティ"
+
+msgid "Automatically scales to handle petabytes of data"
+msgstr "ペタバイト規模のデータを自動的に処理"
+
+msgid "High Availability"
+msgstr "高可用性"
+
+msgid "99.9% uptime SLA with geo-redundant replication"
+msgstr "地理冗長レプリケーションによる99.9%稼働率SLA"
+
+msgid "Cost-Effective"
+msgstr "コスト効率"
+
+msgid "Pay only for what you use with multiple storage tiers"
+msgstr "使った分だけ支払い、複数のストレージ階層を利用可能"
+
+msgid "Global CDN Integration"
+msgstr "グローバルCDN統合"
+
+msgid "Perfect origin for Azure CDN worldwide delivery"
+msgstr "Azure CDNによる世界規模配信の完璧な配信元"
+
+msgid "Use Cases"
+msgstr "利用例"
+
+msgid "Photo Archive"
+msgstr "写真アーカイブ"
+
+msgid "Store millions of family photos with automatic backup and versioning."
+msgstr "何百万枚もの家族写真を自動バックアップとバージョン管理で保存。"
+
+msgid "Video Streaming"
+msgstr "動画ストリーミング"
+
+msgid "Large video files with global CDN distribution for smooth playback."
+msgstr "グローバルCDN配信による大容量動画ファイルのスムーズな再生。"
+
+msgid "Backup & Archive"
+msgstr "バックアップ&アーカイブ"
+
+msgid "Long-term storage with automated lifecycle management."
+msgstr "自動化されたライフサイクル管理による長期保存。"
+
+msgid "Important:"
+msgstr "重要:"
+
+msgid "Enabling Blob Storage will migrate all new uploads to Azure. Existing local files will remain accessible but new files will be stored in the cloud."
+msgstr "Blobストレージを有効にすると、すべての新規アップロードがAzureに移行されます。既存のローカルファイルは引き続きアクセス可能ですが、新しいファイルはクラウドに保存されます。"
+
+msgid "Configure Azure Blob Storage settings for scalable and reliable media file storage."
+msgstr "スケーラブルで信頼性の高いメディアファイルストレージのためのAzure Blobストレージ設定。"
+
+msgid "Error loading Blob Storage status"
+msgstr "Blobストレージの状態読み込みエラー"
+
+msgid "Blob Status"
+msgstr "Blobの状態"
+
+msgid "Enabled"
+msgstr "有効"
+
+msgid "Disabled"
+msgstr "無効"
+
+msgid "Provider"
+msgstr "プロバイダ"
+
+msgid "Container"
+msgstr "コンテナ"
+
+msgid "Connection String"
+msgstr "接続文字列"
+
+msgid "Configured"
+msgstr "設定済み"
+
+msgid "Not configured"
+msgstr "未設定"
+
+msgid "Account Credentials"
+msgstr "アカウント認証情報"
+
+msgid "Secure Transfer"
+msgstr "セキュア転送"
+
+msgid "Required"
+msgstr "必須"
+
+msgid "Not required"
+msgstr "非必須"
+
+msgid "Valid"
+msgstr "有効"
+
+msgid "Yes"
+msgstr "はい"
+
+msgid "No"
+msgstr "いいえ"
+
+msgid "Missing fields"
+msgstr "不足フィールド"
+
+msgid "Warnings"
+msgstr "警告"
+
+msgid "Recommendations"
+msgstr "推奨事項"
+
+msgid "Error validating Blob Storage configuration"
+msgstr "Blobストレージ設定の検証エラー"

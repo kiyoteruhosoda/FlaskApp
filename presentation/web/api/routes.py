@@ -1088,6 +1088,152 @@ def api_auth_check():
     })
 
 
+@bp.get("/auth/me")
+@login_or_jwt_required
+def api_get_current_user():
+    """現在のユーザー情報と権限を取得"""
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "authentication_required"}), 401
+
+    # ロール情報を含める
+    roles = list(getattr(user, "roles", []) or [])
+    role_data = []
+    for role in roles:
+        role_data.append({
+            "id": role.id,
+            "name": role.name,
+            "permissions": [p.scope for p in getattr(role, "permissions", [])]
+        })
+
+    # 現在アクティブなロール
+    active_role_id = session.get("active_role_id")
+    active_role = None
+    if active_role_id:
+        for role in roles:
+            if role.id == active_role_id:
+                active_role = {
+                    "id": role.id,
+                    "name": role.name,
+                    "permissions": [p.scope for p in getattr(role, "permissions", [])]
+                }
+                break
+
+    return jsonify({
+        "id": user.id,
+        "username": getattr(user, "username", user.email),
+        "email": user.email,
+        "roles": role_data,
+        "active_role": active_role,
+        "permissions": user.all_permissions if hasattr(user, "all_permissions") else [],
+        "created_at": user.created_at.isoformat() if hasattr(user, "created_at") else None,
+        "updated_at": user.updated_at.isoformat() if hasattr(user, "updated_at") else None,
+    })
+
+
+@bp.get("/auth/me")
+@login_or_jwt_required
+def api_current_user():
+    """現在認証されているユーザーの詳細情報を返す"""
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "authentication_required"}), 401
+
+    roles = list(getattr(user, "roles", []) or [])
+    user_permissions = list(getattr(user, "all_permissions", []) or [])
+
+    return jsonify({
+        "id": user.id,
+        "username": getattr(user, "username", user.email),
+        "email": user.email,
+        "roles": [{
+            "id": role.id,
+            "name": role.name
+        } for role in roles],
+        "permissions": user_permissions,
+        "created_at": getattr(user, "created_at", "").isoformat() if hasattr(getattr(user, "created_at", None), "isoformat") else "",
+        "updated_at": getattr(user, "updated_at", "").isoformat() if hasattr(getattr(user, "updated_at", None), "isoformat") else ""
+    })
+
+
+@bp.post("/auth/select-role")
+@login_or_jwt_required
+def api_select_role():
+    """アクティブロールを選択"""
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "authentication_required"}), 401
+
+    data = request.get_json() or {}
+    role_id = data.get("role_id")
+    
+    if not role_id:
+        return jsonify({"error": "role_id_required"}), 400
+
+    roles = list(getattr(user, "roles", []) or [])
+    selected_role = None
+    for role in roles:
+        if role.id == role_id:
+            selected_role = role
+            break
+    
+    if not selected_role:
+        return jsonify({"error": "invalid_role"}), 400
+
+    # アクティブロールを設定
+    session["active_role_id"] = selected_role.id
+    session.modified = True
+
+    # プリンシパルを更新
+    user_model = _resolve_current_user_model()
+    if user_model is not None:
+        try:
+            refreshed = TokenService.create_principal_for_user(
+                user_model,
+                active_role_id=selected_role.id
+            )
+            login_user(refreshed)
+            g.current_user = refreshed
+        except ValueError:
+            pass
+
+    return jsonify({
+        "success": True,
+        "active_role": {
+            "id": selected_role.id,
+            "name": selected_role.name,
+            "permissions": [p.scope for p in getattr(selected_role, "permissions", [])]
+        },
+        "redirect_url": session.pop("role_selection_next", url_for("dashboard.dashboard"))
+    })
+
+
+@bp.get("/auth/roles")
+@login_or_jwt_required
+def api_get_user_roles():
+    """現在のユーザーの利用可能なロール一覧を取得"""
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "authentication_required"}), 401
+
+    roles = list(getattr(user, "roles", []) or [])
+    role_data = []
+    for role in roles:
+        role_data.append({
+            "id": role.id,
+            "name": role.name,
+            "permissions": [p.scope for p in getattr(role, "permissions", [])]
+        })
+
+    active_role_id = session.get("active_role_id")
+    
+    return jsonify({
+        "roles": role_data,
+        "active_role_id": active_role_id,
+        "requires_selection": len(roles) > 1 and active_role_id is None
+    })
+
+
 def require_api_perms(*perm_codes):
     """APIエンドポイント向けの権限チェックデコレータ"""
 
@@ -2048,7 +2194,7 @@ def api_album_delete(album_id: int):
     return jsonify({"result": "deleted"})
 
 
-@bp.post("/login")
+@bp.post("/auth/login")
 @bp.doc(security=[])
 @bp.arguments(LoginRequestSchema)
 @bp.response(200, LoginResponseSchema, description="ユーザー認証してJWTを発行")
@@ -2132,7 +2278,7 @@ def api_login(data):
     return response
 
 
-@bp.post("/logout")
+@bp.post("/auth/logout")
 @login_or_jwt_required
 @bp.response(200, LogoutResponseSchema)
 def api_logout():
@@ -2152,7 +2298,7 @@ def api_logout():
     return resp
 
 
-@bp.post("/refresh")
+@bp.post("/auth/refresh")
 @bp.doc(security=[])
 @bp.arguments(RefreshRequestSchema)
 @bp.response(200, RefreshResponseSchema)

@@ -5,6 +5,7 @@ Python実行時は `source /home/kyon/myproject/.venv/bin/activate && python mai
 開発はDDDベースで層を区切って
 同じ処理は共通化して
 テストファイルはテストディレクトリに配置すること
+オブジェクト指向でポリモーフィズムを意識すること
 
 
 

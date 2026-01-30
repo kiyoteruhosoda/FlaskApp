@@ -1214,6 +1214,10 @@ def create_app():
     from bounded_contexts.photonest.presentation.local_import_status_api import bp as local_import_status_bp
     app.register_blueprint(local_import_status_bp)
 
+    # React アプリケーション用ルート登録
+    from .react_routes import register_react_routes
+    register_react_routes(app)
+
     # CLI コマンド登録
     register_cli_commands(app)
 
@@ -1358,11 +1362,8 @@ def create_app():
 
         return response
 
-    # ルート
-    @app.route("/")
-    def index():
-        # HTML レスポンスを生成
-        return make_response(render_template("index.html"))
+    # 注意：既存のルートは削除し、Reactアプリケーションが処理します
+    # ルート "/" は react_routes.py で処理される
 
     # テストページ（デバッグ用）
     @app.route("/test/session-refresh")

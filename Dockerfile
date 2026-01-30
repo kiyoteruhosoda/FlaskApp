@@ -9,12 +9,30 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # Turns off buffering for easier container logging
 ENV PYTHONUNBUFFERED=1
 
+# Install Node.js (for frontend building)
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install pip requirements
 COPY requirements.txt .
 RUN python -m pip install -r requirements.txt
 
 WORKDIR /app
+
+# Copy frontend files first for better caching
+COPY frontend/package*.json ./frontend/
+RUN cd frontend && npm ci --only=production
+
+# Copy all application files
 COPY . /app
+
+# Build frontend
+RUN cd frontend && npm run build
 
 # Creates a non-root user with an explicit UID and adds permission to access the /app folder
 # For more info, please refer to https://aka.ms/vscode-docker-python-configure-containers

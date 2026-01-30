@@ -2,6 +2,9 @@
 # Photonest Makefile (stable build + show version + docker-save tar)
 # ================================
 
+# フロントエンドタスクをインクルード
+include frontend.mk
+
 .PHONY: build load run clean show-tar-version
 
 IMAGE_NAME = photonest:latest

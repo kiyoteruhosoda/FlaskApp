@@ -66,7 +66,7 @@ def sample_data(app):
         # Create a picker session
         session = PickerSession(
             account_id=account.id,
-            status="active"
+            status="importing"
         )
         db.session.add(session)
         db.session.flush()
@@ -355,7 +355,7 @@ class TestCeleryTaskPerformance:
                 
                 # Should complete quickly when sleep is mocked
                 assert (end_time - start_time) < 1.0
-                assert result == {"result": 30}
+                assert result == {"ok": True, "result": 30}
                 mock_sleep.assert_called_once_with(5)
     
     def test_watchdog_task_performance(self, app, sample_data):

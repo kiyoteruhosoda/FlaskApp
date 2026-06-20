@@ -1273,8 +1273,15 @@ def create_app():
         app.logger.error(f"Request method: {request.method}")
         app.logger.error(f"Exception: {e}")
         app.logger.error(f"Traceback:\n{traceback.format_exc()}")
-        
-        return {"error": "internal_server_error", "message": "An internal error occurred"}, 500
+
+        # メッセージをロケールに合わせて翻訳し、Content-Language を付与する
+        locale = str(get_locale() or app.config.get("BABEL_DEFAULT_LOCALE", "en"))
+        response = jsonify(
+            {"error": "internal_server_error", "message": _("Internal Server Error")}
+        )
+        response.status_code = 500
+        response.headers["Content-Language"] = locale
+        return response
 
     @app.before_request
     def _apply_login_disabled_for_testing():

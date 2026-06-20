@@ -50,11 +50,14 @@ def app(tmp_path):
 
 
 def _create_selection(app):
+    import uuid
     from webapp.extensions import db
     from core.models.photo_models import MediaItem, PickerSelection
     from core.models.picker_session import PickerSession
     with app.app_context():
-        ps = PickerSession(account_id=1, status="pending")
+        # 数値IDによる参照はセキュリティ上廃止されたため、session_id を割り当てる
+        sess_id = f"picker_sessions/{uuid.uuid4().hex}"
+        ps = PickerSession(account_id=1, status="pending", session_id=sess_id)
         db.session.add(ps)
         mi = MediaItem(id="m1", mime_type="image/jpeg", filename="a.jpg", type="PHOTO")
         db.session.add(mi)
@@ -62,7 +65,7 @@ def _create_selection(app):
         sel = PickerSelection(session_id=ps.id, google_media_id="m1", status="pending")
         db.session.add(sel)
         db.session.commit()
-    return ps.id
+    return sess_id
 
 
 def _login_client(client):
@@ -84,10 +87,11 @@ def _login_client(client):
 
 
 def test_picker_session_selections_endpoint(app):
-    ps_id = _create_selection(app)
+    sess_id = _create_selection(app)
     client = app.test_client()
     _login_client(client)
-    resp = client.get(f"/api/picker/session/{ps_id}/selections")
+    uuid_part = sess_id.split("/", 1)[1]
+    resp = client.get(f"/api/picker/session/{uuid_part}/selections")
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["counts"]["pending"] == 1

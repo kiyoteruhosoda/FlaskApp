@@ -56,10 +56,19 @@ def _login(client, user: User) -> None:
     from flask_login import login_user
     from webapp.services.token_service import TokenService
 
+    # アクティブロールを選択した状態を再現する。権限はセキュアバイデフォルトで
+    # active_role_id が指定された場合のみ付与されるため、ログイン後のロール選択を
+    # 模倣しないと can() が常に False になる。
+    active_role_id = user.roles[0].id if getattr(user, "roles", None) else None
+
     with client.application.test_request_context():
-        principal = TokenService.create_principal_for_user(user)
+        principal = TokenService.create_principal_for_user(
+            user, active_role_id=active_role_id
+        )
         login_user(principal)
         flask_session["_fresh"] = True
+        if active_role_id is not None:
+            flask_session["active_role_id"] = active_role_id
         persisted = dict(flask_session)
 
     with client.session_transaction() as session:

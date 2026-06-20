@@ -814,9 +814,9 @@ def create_app():
 
     # ``BaseApplicationSettings`` はモジュール import 時に ``DATABASE_URI`` を読み取って
     # 凍結する。同一プロセスで複数回 ``create_app()`` を呼ぶ（テスト等）場合でも、
-    # 各呼び出しが現在の環境変数の DB に接続できるよう実行時に再解決する。
-    # 本番では import 時と同値のため影響しない。
-    runtime_database_uri = os.environ.get("DATABASE_URI")
+    # 各呼び出しが現在の設定の DB に接続できるよう実行時に再解決する。
+    # 本番では import 時と同値のため影響しない。設定値は Settings 経由で取得する。
+    runtime_database_uri = settings.database_uri
     if runtime_database_uri:
         app.config["SQLALCHEMY_DATABASE_URI"] = runtime_database_uri
     app.config.setdefault("LAST_BEAT_AT", None)

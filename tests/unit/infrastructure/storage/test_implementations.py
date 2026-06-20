@@ -241,44 +241,61 @@ class TestAzureBlobStorage:
             relative_path="test/sample.jpg",
         )
     
+    @staticmethod
+    def _mock_azure_modules(service_class):
+        """initialize() の遅延 import が拾えるよう azure モジュールを差し替える。
+
+        impl は ``from azure.storage.blob import BlobServiceClient`` /
+        ``from azure.core.exceptions import ...`` をメソッド内で行い global を
+        再束縛するため、sys.modules 側の属性として mock を公開する必要がある。
+        ``except ResourceExistsError`` が成立するよう例外は実クラスを用いる。
+        """
+        class FakeResourceExistsError(Exception):
+            pass
+
+        blob_module = MagicMock()
+        blob_module.BlobServiceClient = service_class
+        exc_module = MagicMock()
+        exc_module.ResourceExistsError = FakeResourceExistsError
+        exc_module.ResourceNotFoundError = type("FakeResourceNotFoundError", (Exception,), {})
+        exc_module.HttpResponseError = type("FakeHttpResponseError", (Exception,), {})
+        modules = {
+            'azure.storage.blob': blob_module,
+            'azure.core.exceptions': exc_module,
+        }
+        return modules, FakeResourceExistsError
+
     def test_initialize_without_azure_package_raises_error(self, azure_config):
         """azure-storage-blobパッケージなしで初期化エラーテスト."""
         storage = AzureBlobStorage()
-        
+
         # azure.storage.blobモジュールのimportをモック
         with patch.dict('sys.modules', {'azure.storage.blob': None}):
-            with pytest.raises(StorageException, match="azure-storage-blobパッケージがインストールされていません"):
+            with pytest.raises(StorageException, match="必要なパッケージが正しくインストールされていません"):
                 storage.initialize(azure_config)
-    
+
     def test_initialize_with_connection_string(self, azure_config):
         """接続文字列での初期化テスト."""
         # Azure Blobのモックテスト - 実際のazure-storage-blobは不要
-        with patch.dict('sys.modules', {
-            'azure.storage.blob': MagicMock(),
-            'azure.core.exceptions': MagicMock(),
-        }):
-            # BlobServiceClientをモック
-            mock_service_class = MagicMock()
-            mock_client = MagicMock()
-            mock_service_class.from_connection_string.return_value = mock_client
-            
-            mock_container = MagicMock()
-            mock_client.get_container_client.return_value = mock_container
-            
-            # ResourceExistsErrorをモック
-            mock_exists_error = MagicMock()
-            mock_container.create_container.side_effect = mock_exists_error()
-            
-            # モックを使って初期化
-            with patch('bounded_contexts.storage.infrastructure.azure_blob.BlobServiceClient', mock_service_class):
-                with patch('bounded_contexts.storage.infrastructure.azure_blob.ResourceExistsError', mock_exists_error):
-                    storage = AzureBlobStorage()
-                    storage.initialize(azure_config)
-                    
-                    mock_service_class.from_connection_string.assert_called_once_with(
-                        azure_config.credentials.connection_string
-                    )
-    
+        mock_service_class = MagicMock()
+        mock_client = MagicMock()
+        mock_service_class.from_connection_string.return_value = mock_client
+
+        mock_container = MagicMock()
+        mock_client.get_container_client.return_value = mock_container
+
+        modules, FakeResourceExistsError = self._mock_azure_modules(mock_service_class)
+        # コンテナが既に存在するケースを再現
+        mock_container.create_container.side_effect = FakeResourceExistsError()
+
+        with patch.dict('sys.modules', modules):
+            storage = AzureBlobStorage()
+            storage.initialize(azure_config)
+
+            mock_service_class.from_connection_string.assert_called_once_with(
+                azure_config.credentials.connection_string
+            )
+
     def test_initialize_with_account_key(self):
         """アカウントキーでの初期化テスト."""
         credentials = StorageCredentials(
@@ -291,32 +308,25 @@ class TestAzureBlobStorage:
             backend_type=StorageBackendType.AZURE_BLOB,
             credentials=credentials,
         )
-        
-        with patch.dict('sys.modules', {
-            'azure.storage.blob': MagicMock(),
-            'azure.core.exceptions': MagicMock(),
-        }):
-            # BlobServiceClientをモック
-            mock_service_class = MagicMock()
-            mock_client = MagicMock()
-            mock_service_class.return_value = mock_client
-            
-            mock_container = MagicMock()
-            mock_client.get_container_client.return_value = mock_container
-            
-            # ResourceExistsErrorをモック
-            mock_exists_error = MagicMock()
-            
-            with patch('bounded_contexts.storage.infrastructure.azure_blob.BlobServiceClient', mock_service_class):
-                with patch('bounded_contexts.storage.infrastructure.azure_blob.ResourceExistsError', mock_exists_error):
-                    storage = AzureBlobStorage()
-                    storage.initialize(config)
-                    
-                    # アカウントURLでBlobServiceClientが作成される
-                    mock_service_class.assert_called_once()
-                    call_kwargs = mock_service_class.call_args[1]
-                    assert call_kwargs['account_url'] == "https://testaccount.blob.core.windows.net"
-                    assert call_kwargs['credential'] == "testkey"
+
+        mock_service_class = MagicMock()
+        mock_client = MagicMock()
+        mock_service_class.return_value = mock_client
+
+        mock_container = MagicMock()
+        mock_client.get_container_client.return_value = mock_container
+
+        modules, _ = self._mock_azure_modules(mock_service_class)
+
+        with patch.dict('sys.modules', modules):
+            storage = AzureBlobStorage()
+            storage.initialize(config)
+
+            # アカウントURLでBlobServiceClientが作成される
+            mock_service_class.assert_called_once()
+            call_kwargs = mock_service_class.call_args[1]
+            assert call_kwargs['account_url'] == "https://testaccount.blob.core.windows.net"
+            assert call_kwargs['credential'] == "testkey"
     
     def test_initialize_with_invalid_credentials_raises_error(self):
         """不正認証情報で初期化エラーテスト."""

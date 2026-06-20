@@ -23,11 +23,23 @@ from bounded_contexts.storage.domain import (
     StorageBackendType,
     StorageDomain,
     StorageIntent,
-    StorageResolution,
 )
 
 PathPart = str | os.PathLike[str] | bytes
 StorageSelector = StorageDomain | str
+
+
+@dataclass(frozen=True)
+class ResolvedPath:
+    """``StorageArea.resolve`` の結果（解決済みパス情報）.
+
+    ``StorageResolution`` 列挙（サムネイルサイズ）とは別物。base/絶対パスと
+    実在有無を保持する。
+    """
+
+    base_path: str | None
+    absolute_path: str | None
+    exists: bool
 
 
 @dataclass(frozen=True)
@@ -55,7 +67,7 @@ class StorageArea(Protocol):
         self,
         *path_parts: PathPart,
         intent: StorageIntent = StorageIntent.READ,
-    ) -> StorageResolution:
+    ) -> ResolvedPath:
         ...
 
     def ensure_base(self) -> str | None:
@@ -126,7 +138,7 @@ class StorageService(Protocol):
         selector: StorageSelector,
         *path_parts: PathPart,
         intent: StorageIntent = StorageIntent.READ,
-    ) -> StorageResolution:
+    ) -> ResolvedPath:
         ...
 
     def set_defaults(self, config_key: str, defaults: Sequence[str]) -> None:
@@ -216,7 +228,7 @@ class _UnimplementedStorageService:
         selector: StorageSelector,
         *path_parts: PathPart,
         intent: StorageIntent = StorageIntent.READ,
-    ) -> StorageResolution:  # noqa: D401,ARG002
+    ) -> ResolvedPath:  # noqa: D401,ARG002
         self._raise()
 
     def set_defaults(self, config_key: str, defaults: Sequence[str]) -> None:  # noqa: D401,ARG002
@@ -268,7 +280,7 @@ class ExternalRestStorageService(_UnimplementedStorageService):
 
 _KNOWN_SPECS: tuple[_StorageSpec, ...] = (
     _StorageSpec(
-        domain=StorageDomain.MEDIA,
+        domain=StorageDomain.MEDIA_ORIGINALS,
         config_key="MEDIA_ORIGINALS_DIRECTORY",
         env_fallbacks=(
             "MEDIA_ORIGINALS_DIRECTORY",
@@ -276,7 +288,7 @@ _KNOWN_SPECS: tuple[_StorageSpec, ...] = (
         defaults=("/app/data/media",),
     ),
     _StorageSpec(
-        domain=StorageDomain.MEDIA,
+        domain=StorageDomain.MEDIA_PLAYBACK,
         config_key="MEDIA_PLAYBACK_DIRECTORY",
         env_fallbacks=(
             "MEDIA_PLAYBACK_DIRECTORY",
@@ -284,7 +296,7 @@ _KNOWN_SPECS: tuple[_StorageSpec, ...] = (
         defaults=("/app/data/playback",),
     ),
     _StorageSpec(
-        domain=StorageDomain.THUMBNAILS,
+        domain=StorageDomain.MEDIA_THUMBNAILS,
         config_key="MEDIA_THUMBNAILS_DIRECTORY",
         env_fallbacks=(
             "MEDIA_THUMBNAILS_DIRECTORY",
@@ -292,7 +304,7 @@ _KNOWN_SPECS: tuple[_StorageSpec, ...] = (
         defaults=("/app/data/thumbs",),
     ),
     _StorageSpec(
-        domain=StorageDomain.TEMP,
+        domain=StorageDomain.MEDIA_IMPORT,
         config_key="MEDIA_LOCAL_IMPORT_DIRECTORY",
         env_fallbacks=(
             "MEDIA_LOCAL_IMPORT_DIRECTORY",
@@ -329,29 +341,29 @@ class _LocalStorageArea(StorageArea):
         self,
         *path_parts: PathPart,
         intent: StorageIntent = StorageIntent.READ,  # noqa: ARG002
-    ) -> StorageResolution:
+    ) -> ResolvedPath:
         candidates = self.candidates(intent=intent)
         normalised = self._service._normalise_parts(path_parts)
         if normalised is None:
-            return StorageResolution(None, None, False)
+            return ResolvedPath(None, None, False)
 
         if not normalised:
             for candidate in candidates:
                 if self._service.exists(candidate):
-                    return StorageResolution(candidate, candidate, True)
+                    return ResolvedPath(candidate, candidate, True)
             fallback = candidates[0] if candidates else None
-            return StorageResolution(fallback, fallback, False)
+            return ResolvedPath(fallback, fallback, False)
 
         for base in candidates:
             candidate_path = self._service.join(base, *normalised)
             if self._service.exists(candidate_path):
-                return StorageResolution(base, candidate_path, True)
+                return ResolvedPath(base, candidate_path, True)
 
         fallback_base = candidates[0] if candidates else None
         fallback_path = (
             self._service.join(fallback_base, *normalised) if fallback_base else None
         )
-        return StorageResolution(fallback_base, fallback_path, False)
+        return ResolvedPath(fallback_base, fallback_path, False)
 
     def ensure_base(self) -> str | None:
         candidates = self.candidates(intent=StorageIntent.WRITE)
@@ -462,7 +474,7 @@ class LocalFilesystemStorageService:
         selector: StorageSelector,
         *path_parts: PathPart,
         intent: StorageIntent = StorageIntent.READ,
-    ) -> StorageResolution:  # noqa: ARG002
+    ) -> ResolvedPath:  # noqa: ARG002
         return self._area(selector).resolve(*path_parts, intent=intent)
 
     def set_defaults(self, config_key: str, defaults: Sequence[str]) -> None:

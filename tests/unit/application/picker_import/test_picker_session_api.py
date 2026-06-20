@@ -583,34 +583,27 @@ def test_media_items_busy(monkeypatch, client, app):
         ps_module._release_media_items_lock(session_id, lock)
 
 
-def test_media_items_rate_limited(client, app):
+def test_media_items_rate_limited(client, app, monkeypatch):
     login(client, app)
 
-    from webapp.api import picker_session_service as service_module
+    # ハンドラが実際に使用するモジュール（presentation.web 側）の limiter を対象にする。
+    from presentation.web.api import picker_session_service as service_module
 
-    with app.app_context():
-        previous_limit = app.config.get("PICKER_MEDIA_ITEMS_MAX_CONCURRENCY")
-        app.config["PICKER_MEDIA_ITEMS_MAX_CONCURRENCY"] = 1
-        assert service_module._acquire_media_items_slot()
+    # 同時実行枠を使い切った状態を再現する（acquire が常に失敗）。
+    monkeypatch.setattr(
+        service_module._media_items_concurrency, "acquire", lambda: False
+    )
 
-    try:
-        res = client.post(
-            "/api/picker/session/mediaItems", json={"sessionId": "any"}
-        )
-        assert res.status_code == 429
-        data = res.get_json()
-        assert data["error"] == "rate_limited"
-        assert "retryAfter" in data
-        retry_after_header = res.headers.get("Retry-After")
-        if retry_after_header is not None:
-            assert retry_after_header.isdigit()
-    finally:
-        service_module._release_media_items_slot()
-        with app.app_context():
-            if previous_limit is None:
-                app.config.pop("PICKER_MEDIA_ITEMS_MAX_CONCURRENCY", None)
-            else:
-                app.config["PICKER_MEDIA_ITEMS_MAX_CONCURRENCY"] = previous_limit
+    res = client.post(
+        "/api/picker/session/mediaItems", json={"sessionId": "any"}
+    )
+    assert res.status_code == 429
+    data = res.get_json()
+    assert data["error"] == "rate_limited"
+    assert "retryAfter" in data
+    retry_after_header = res.headers.get("Retry-After")
+    if retry_after_header is not None:
+        assert retry_after_header.isdigit()
 
 
 def test_picker_sessions_list_rate_limited(client, app):

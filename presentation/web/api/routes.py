@@ -36,6 +36,17 @@ from flask_babel import gettext as _
 from functools import wraps
 
 from . import bp
+from bounded_contexts.photonest.application.album import (
+    AlbumApplicationError,
+    AlbumApplicationService,
+    CreateAlbumCommand,
+    ReorderAlbumMediaCommand,
+    ReorderAlbumsCommand,
+    UpdateAlbumCommand,
+)
+from bounded_contexts.photonest.application.album.commands import UNSET
+from bounded_contexts.photonest.domain.album import AlbumVisibility
+from bounded_contexts.photonest.infrastructure.album import SqlAlchemyAlbumRepository
 from .health import skip_auth
 from .openapi import json_request_body
 from ..extensions import db
@@ -1313,81 +1324,24 @@ def require_api_perms(*perm_codes):
     return decorator
 
 
-def _parse_media_ids(raw_value):
-    """リクエストペイロードからメディアIDの配列を整形する。"""
+def _album_service() -> AlbumApplicationService:
+    """アルバムユースケースのアプリケーションサービスを組み立てる。"""
 
-    if raw_value is None:
-        return []
-
-    if not isinstance(raw_value, (list, tuple)):
-        raise ValueError('mediaIds must be a list')
-
-    ordered: list[int] = []
-    seen: set[int] = set()
-    for item in raw_value:
-        if item in (None, ''):
-            continue
-        try:
-            media_id = int(item)
-        except (TypeError, ValueError) as exc:
-            raise ValueError('mediaIds must contain integers') from exc
-
-        if media_id not in seen:
-            seen.add(media_id)
-            ordered.append(media_id)
-
-    return ordered
+    return AlbumApplicationService(SqlAlchemyAlbumRepository(db.session))
 
 
-def _load_ordered_media(media_ids: list[int]):
-    """指定されたID順にMediaレコードを取得する。"""
+def _album_error_response(error: AlbumApplicationError):
+    """アプリケーション例外を従来どおりの JSON エラー応答へ変換する。"""
 
-    if not media_ids:
-        return [], []
-
-    medias = Media.query.filter(Media.id.in_(media_ids)).all()
-    media_map = {media.id: media for media in medias}
-
-    ordered: list[Media] = []
-    missing: list[int] = []
-    for media_id in media_ids:
-        media = media_map.get(media_id)
-        if media is None:
-            missing.append(media_id)
-        else:
-            ordered.append(media)
-
-    return ordered, missing
-
-
-def _update_album_sort_indexes(album_id: int, media_ids: list[int]) -> None:
-    """アルバム内のメディア順序をsort_indexに保存する。"""
-
-    if not media_ids:
-        return
-
-    for position, media_id in enumerate(media_ids):
-        db.session.execute(
-            album_item.update()
-            .where(
-                album_item.c.album_id == album_id,
-                album_item.c.media_id == media_id,
-            )
-            .values(sort_index=position)
-        )
+    body = {"error": error.code, "message": _(error.message)}
+    body.update(error.details)
+    return jsonify(body), error.status
 
 
 def _get_album_media_rows(album_id: int):
-    """アルバムに紐づくメディア情報を取得する。"""
+    """アルバムに紐づくメディア情報を取得する（表示用の読み取りモデル）。"""
 
-    return (
-        db.session.query(Media, album_item.c.sort_index)
-        .join(album_item, album_item.c.media_id == Media.id)
-        .filter(album_item.c.album_id == album_id)
-        .options(joinedload(Media.tags))
-        .order_by(album_item.c.sort_index.asc(), Media.id.asc())
-        .all()
-    )
+    return SqlAlchemyAlbumRepository(db.session).media_rows(album_id)
 
 
 def serialize_album_summary(
@@ -1501,7 +1455,8 @@ def serialize_album_detail(album: Album, media_rows) -> dict:
     return summary
 
 
-ALBUM_VISIBILITY_VALUES = {"public", "private", "unlisted"}
+# 公開範囲の正規セットはドメインの値オブジェクトを単一の真実とする。
+ALBUM_VISIBILITY_VALUES = AlbumVisibility.values()
 
 
 @bp.get("/albums")
@@ -1701,92 +1656,18 @@ def api_album_create():
     """アルバムを新規作成する。"""
 
     payload = request.get_json(silent=True) or {}
-    name = (payload.get("name") or "").strip()
-    description = (payload.get("description") or "").strip()
-    visibility = (payload.get("visibility") or "private").strip().lower()
-
-    if not name:
-        return (
-            jsonify({"error": "name_required", "message": _("Album name is required.")}),
-            400,
-        )
-
-    if visibility not in ALBUM_VISIBILITY_VALUES:
-        return (
-            jsonify({"error": "invalid_visibility", "message": _("Invalid album visibility value.")}),
-            400,
-        )
+    command = CreateAlbumCommand(
+        name=payload.get("name"),
+        description=payload.get("description"),
+        visibility=payload.get("visibility"),
+        media_ids=payload.get("mediaIds"),
+        cover_media_id=payload.get("coverMediaId"),
+    )
 
     try:
-        media_ids = _parse_media_ids(payload.get("mediaIds"))
-    except ValueError:
-        return (
-            jsonify(
-                {
-                    "error": "invalid_media_ids",
-                    "message": _("Invalid media selection payload."),
-                }
-            ),
-            400,
-        )
-
-    cover_media_raw = payload.get("coverMediaId")
-    if cover_media_raw in (None, ""):
-        cover_media_id = None
-    else:
-        try:
-            cover_media_id = int(cover_media_raw)
-        except (TypeError, ValueError):
-            return (
-                jsonify({"error": "invalid_cover", "message": _("Cover media id must be an integer.")}),
-                400,
-            )
-
-    ordered_medias, missing_ids = _load_ordered_media(media_ids)
-    if missing_ids:
-        return (
-            jsonify(
-                {
-                    "error": "invalid_media",
-                    "message": _("Some selected media could not be found."),
-                    "missingMediaIds": missing_ids,
-                }
-            ),
-            400,
-        )
-
-    if cover_media_id and cover_media_id not in media_ids:
-        return (
-            jsonify(
-                {
-                    "error": "invalid_cover",
-                    "message": _("Cover image must be one of the selected media items."),
-                }
-            ),
-            400,
-        )
-
-    now = datetime.now(timezone.utc)
-    album = Album(
-        name=name,
-        description=description or None,
-        visibility=visibility,
-        cover_media_id=cover_media_id,
-        created_at=now,
-        updated_at=now,
-    )
-    db.session.add(album)
-    db.session.flush()
-
-    album.media = ordered_medias
-    db.session.flush()
-    _update_album_sort_indexes(album.id, media_ids)
-
-    if not album.cover_media_id and media_ids:
-        album.cover_media_id = media_ids[0]
-
-    album.updated_at = now
-    db.session.commit()
+        album = _album_service().create(command)
+    except AlbumApplicationError as error:
+        return _album_error_response(error)
 
     detail = serialize_album_detail(album, _get_album_media_rows(album.id))
     return jsonify({"album": detail, "created": True}), 201
@@ -1842,125 +1723,20 @@ def api_album_create():
 def api_album_update(album_id: int):
     """アルバム情報を更新する。"""
 
-    album = Album.query.get(album_id)
-    if not album:
-        return (
-            jsonify({"error": "not_found", "message": _("Album not found.")}),
-            404,
-        )
-
     payload = request.get_json(silent=True) or {}
+    command = UpdateAlbumCommand(
+        album_id=album_id,
+        name=payload.get("name"),
+        description=payload.get("description"),
+        visibility=payload.get("visibility"),
+        media_ids=payload.get("mediaIds"),
+        cover_media_id=payload.get("coverMediaId") if "coverMediaId" in payload else UNSET,
+    )
 
-    name = payload.get("name")
-    description = payload.get("description")
-    visibility = payload.get("visibility")
-    media_ids_raw = payload.get("mediaIds")
-    cover_media_raw = payload.get("coverMediaId") if "coverMediaId" in payload else None
-
-    has_changes = False
-
-    if isinstance(name, str):
-        stripped = name.strip()
-        if not stripped:
-            return (
-                jsonify({"error": "name_required", "message": _("Album name is required.")}),
-                400,
-            )
-        if stripped != album.name:
-            album.name = stripped
-            has_changes = True
-
-    if isinstance(description, str):
-        normalized_desc = description.strip() or None
-        if normalized_desc != album.description:
-            album.description = normalized_desc
-            has_changes = True
-
-    if isinstance(visibility, str):
-        vis_value = visibility.strip().lower()
-        if vis_value not in ALBUM_VISIBILITY_VALUES:
-            return (
-                jsonify({"error": "invalid_visibility", "message": _("Invalid album visibility value.")}),
-                400,
-            )
-        if vis_value != album.visibility:
-            album.visibility = vis_value
-            has_changes = True
-
-    if media_ids_raw is not None:
-        try:
-            media_ids = _parse_media_ids(media_ids_raw)
-        except ValueError:
-            return (
-                jsonify(
-                    {
-                        "error": "invalid_media_ids",
-                        "message": _("Invalid media selection payload."),
-                    }
-                ),
-                400,
-            )
-
-        ordered_medias, missing_ids = _load_ordered_media(media_ids)
-        if missing_ids:
-            return (
-                jsonify(
-                    {
-                        "error": "invalid_media",
-                        "message": _("Some selected media could not be found."),
-                        "missingMediaIds": missing_ids,
-                    }
-                ),
-                400,
-            )
-
-        album.media = ordered_medias
-        db.session.flush()
-        _update_album_sort_indexes(album.id, media_ids)
-        has_changes = True
-        current_media_ids = media_ids
-    else:
-        current_media_ids = [media.id for media in album.media]
-
-    if album.cover_media_id and album.cover_media_id not in current_media_ids:
-        album.cover_media_id = current_media_ids[0] if current_media_ids else None
-        has_changes = True
-
-    if "coverMediaId" in payload:
-        if cover_media_raw in (None, ""):
-            cover_media_id = None
-        else:
-            try:
-                cover_media_id = int(cover_media_raw)
-            except (TypeError, ValueError):
-                return (
-                    jsonify({"error": "invalid_cover", "message": _("Cover media id must be an integer.")}),
-                    400,
-                )
-
-        if cover_media_id and cover_media_id not in current_media_ids:
-            return (
-                jsonify(
-                    {
-                        "error": "invalid_cover",
-                        "message": _("Cover image must be one of the selected media items."),
-                    }
-                ),
-                400,
-            )
-
-        if cover_media_id != album.cover_media_id:
-            album.cover_media_id = cover_media_id
-            has_changes = True
-
-    if not album.cover_media_id and current_media_ids:
-        album.cover_media_id = current_media_ids[0]
-
-    now = datetime.now(timezone.utc)
-    if has_changes:
-        album.updated_at = now
-
-    db.session.commit()
+    try:
+        album, has_changes = _album_service().update(command)
+    except AlbumApplicationError as error:
+        return _album_error_response(error)
 
     detail = serialize_album_detail(album, _get_album_media_rows(album.id))
     return jsonify({"album": detail, "updated": has_changes})
@@ -1990,87 +1766,16 @@ def api_album_update(album_id: int):
 def api_album_media_reorder(album_id: int):
     """アルバム内のメディア表示順を更新する。"""
 
-    album = Album.query.get(album_id)
-    if not album:
-        return (
-            jsonify({"error": "not_found", "message": _("Album not found.")}),
-            404,
-        )
-
     payload = request.get_json(silent=True) or {}
-    media_ids_raw = payload.get("mediaIds")
-
-    if not isinstance(media_ids_raw, list):
-        return (
-            jsonify(
-                {
-                    "error": "invalid_media_order",
-                    "message": _("Media order payload must be a list of media ids."),
-                }
-            ),
-            400,
-        )
-
-    normalized_ids: list[int] = []
-    seen: set[int] = set()
+    command = ReorderAlbumMediaCommand(album_id=album_id, media_ids=payload.get("mediaIds"))
 
     try:
-        for value in media_ids_raw:
-            media_id = int(value)
-            if media_id in seen:
-                raise ValueError("duplicate media id")
-            seen.add(media_id)
-            normalized_ids.append(media_id)
-    except (TypeError, ValueError):
-        return (
-            jsonify(
-                {
-                    "error": "invalid_media_order",
-                    "message": _("Media order payload must include each album media id exactly once."),
-                }
-            ),
-            400,
-        )
-
-    media_rows = _get_album_media_rows(album_id)
-    current_media_ids = [media.id for media, _ in media_rows]
-
-    if not normalized_ids:
-        if current_media_ids:
-            return (
-                jsonify(
-                    {
-                        "error": "invalid_media_order",
-                        "message": _("Media order payload must include every media id currently in the album."),
-                    }
-                ),
-                400,
-            )
-
-        detail = serialize_album_detail(album, media_rows)
-        return jsonify({"updated": False, "album": detail})
-
-    if len(normalized_ids) != len(current_media_ids) or set(normalized_ids) != set(current_media_ids):
-        return (
-            jsonify(
-                {
-                    "error": "invalid_media_order",
-                    "message": _("Media order payload must include every media id currently in the album."),
-                }
-            ),
-            400,
-        )
-
-    if normalized_ids == current_media_ids:
-        detail = serialize_album_detail(album, media_rows)
-        return jsonify({"updated": False, "album": detail})
-
-    _update_album_sort_indexes(album.id, normalized_ids)
-    album.updated_at = datetime.now(timezone.utc)
-    db.session.commit()
+        album, updated = _album_service().reorder_media(command)
+    except AlbumApplicationError as error:
+        return _album_error_response(error)
 
     detail = serialize_album_detail(album, _get_album_media_rows(album.id))
-    return jsonify({"updated": True, "album": detail})
+    return jsonify({"updated": updated, "album": detail})
 
 
 @bp.put("/albums/order")
@@ -2098,83 +1803,14 @@ def api_albums_reorder():
     """アルバムの表示順序を更新する。"""
 
     payload = request.get_json(silent=True) or {}
-    album_ids_raw = payload.get("albumIds")
-
-    if not isinstance(album_ids_raw, list) or not album_ids_raw:
-        return (
-            jsonify(
-                {
-                    "error": "invalid_payload",
-                    "message": _("Album order payload must include at least one album id."),
-                }
-            ),
-            400,
-        )
-
-    normalized_ids = []
-    seen = set()
+    command = ReorderAlbumsCommand(album_ids=payload.get("albumIds"))
 
     try:
-        for value in album_ids_raw:
-            album_id = int(value)
-            if album_id in seen:
-                continue
-            normalized_ids.append(album_id)
-            seen.add(album_id)
-    except (TypeError, ValueError):
-        return (
-            jsonify(
-                {
-                    "error": "invalid_payload",
-                    "message": _("Album order payload must include integer ids."),
-                }
-            ),
-            400,
-        )
+        normalized_ids, updated = _album_service().reorder_albums(command)
+    except AlbumApplicationError as error:
+        return _album_error_response(error)
 
-    if not normalized_ids:
-        return (
-            jsonify(
-                {
-                    "error": "invalid_payload",
-                    "message": _("Album order payload must include at least one album id."),
-                }
-            ),
-            400,
-        )
-
-    albums = Album.query.filter(Album.id.in_(normalized_ids)).all()
-    album_by_id = {album.id: album for album in albums}
-    missing_ids = [album_id for album_id in normalized_ids if album_id not in album_by_id]
-
-    if missing_ids:
-        return (
-            jsonify(
-                {
-                    "error": "invalid_album",
-                    "message": _("Some specified albums could not be found."),
-                    "missingAlbumIds": missing_ids,
-                }
-            ),
-            400,
-        )
-
-    now = datetime.now(timezone.utc)
-    updated_count = 0
-
-    for index, album_id in enumerate(normalized_ids):
-        album = album_by_id[album_id]
-        if album.display_order != index:
-            album.display_order = index
-            album.updated_at = now
-            updated_count += 1
-
-    if updated_count:
-        db.session.commit()
-    else:
-        db.session.rollback()
-
-    return jsonify({"updated": bool(updated_count), "albumIds": normalized_ids})
+    return jsonify({"updated": updated, "albumIds": normalized_ids})
 
 
 @bp.delete("/albums/<int:album_id>")
@@ -2182,15 +1818,10 @@ def api_albums_reorder():
 def api_album_delete(album_id: int):
     """アルバムを削除する。"""
 
-    album = Album.query.get(album_id)
-    if not album:
-        return (
-            jsonify({"error": "not_found", "message": _("Album not found.")}),
-            404,
-        )
-
-    db.session.delete(album)
-    db.session.commit()
+    try:
+        _album_service().delete(album_id)
+    except AlbumApplicationError as error:
+        return _album_error_response(error)
 
     return jsonify({"result": "deleted"})
 

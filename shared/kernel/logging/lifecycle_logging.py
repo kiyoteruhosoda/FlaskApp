@@ -17,9 +17,9 @@ from flask import Flask
 
 from sqlalchemy.engine import make_url
 
-from core.db_log_handler import DBLogHandler
-from core.logging_config import ensure_appdb_file_logging
-from core.settings import settings
+from shared.kernel.logging.db_log_handler import DBLogHandler
+from shared.kernel.logging.logging_config import ensure_appdb_file_logging
+from shared.kernel.settings.settings import settings
 
 
 LifecycleHandler = Callable[[int, Optional[FrameType]], None]

@@ -1,100 +1,20 @@
-import base64
-import json
-import os
-from typing import Optional, Tuple
+"""後方互換シム: 実体は :mod:`shared.kernel.crypto.crypto` へ移動した。
 
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+DDD のカーネル層 (Shared Kernel) を単一の真実の源とするため、トークン暗号化
+処理は ``shared.kernel.crypto.crypto`` に集約する。既存の
+``from core.crypto import encrypt, decrypt`` 等を壊さないよう委譲する。
+"""
 
-from core.settings import ApplicationSettings, settings
+from shared.kernel.crypto.crypto import *  # noqa: F401,F403
 
 
-def _decode_key(raw: str) -> bytes:
-    """Decode a key string into 32 bytes.
+def __getattr__(name):  # PEP 562: ``_decode_key`` 等のアンダースコア名も遅延委譲する
+    import importlib
 
-    Supports values prefixed with ``"base64:"`` as well as plain base64
-    strings.  Raises :class:`ValueError` if the key is invalid or the decoded
-    length is not 32 bytes.
-    """
-
-    if raw.startswith("base64:"):
-        raw = raw.split(":", 1)[1]
+    module = importlib.import_module("shared.kernel.crypto.crypto")
     try:
-        key = base64.urlsafe_b64decode(raw)
-    except Exception as exc:  # pragma: no cover - defensive
-        raise ValueError(f"base64 decode failed: {exc}") from exc
-    if len(key) != 32:
-        raise ValueError(f"invalid base64 length: {len(key)} bytes (32 required)")
-    return key
-
-
-def validate_encryption_key(raw: str) -> Tuple[bool, str]:
-    """Validate token encryption key string using ``_load_key`` logic."""
-
-    if not raw:
-        return False, "not set"
-    try:
-        _load_key(raw)  # will raise on error
-        return True, "base64(32bytes)"
-    except Exception as exc:  # pragma: no cover - defensive
-        return False, str(exc)
-
-def _load_key(raw: Optional[str] = None, *, config: ApplicationSettings = settings) -> bytes:
-    """Load 32-byte encryption key from a string, env var, or file."""
-
-    if raw is not None:
-        return _decode_key(raw)
-
-    key_str = config.token_encryption_key
-    if key_str:
-        return _decode_key(key_str)
-
-    raise RuntimeError("Encryption key not configured")
-
-
-def encrypt(plaintext: str, *, envelope: bool = True) -> str:
-    """Encrypt text using AES-256-GCM.
-
-    When ``envelope`` is ``True`` (default), returns a JSON envelope that
-    matches the format expected by the CLI.  If ``False`` it returns the
-    legacy ``nonce+ciphertext`` base64 string for backwards compatibility.
-    """
-    if plaintext is None:
-        return ""
-    key = _load_key()
-    aesgcm = AESGCM(key)
-    nonce = os.urandom(12)
-    ct = aesgcm.encrypt(nonce, plaintext.encode("utf-8"), None)
-    if envelope:
-        env = {
-            "alg": "AES-256-GCM",
-            "nonce": base64.b64encode(nonce).decode("utf-8"),
-            "ct": base64.b64encode(ct).decode("utf-8"),
-        }
-        return json.dumps(env)
-    return base64.urlsafe_b64encode(nonce + ct).decode("utf-8")
-
-
-def decrypt(token: Optional[str]) -> str:
-    """Decrypt a token produced by :func:`encrypt`.
-
-    Supports both the JSON envelope format and the legacy ``nonce+ciphertext``
-    base64 format.
-    """
-    if not token:
-        return ""
-    key = _load_key()
-    try:
-        env = json.loads(token)
-        if isinstance(env, dict) and env.get("alg") == "AES-256-GCM":
-            nonce = base64.b64decode(env["nonce"])
-            ct = base64.b64decode(env["ct"])
-            aesgcm = AESGCM(key)
-            return aesgcm.decrypt(nonce, ct, None).decode("utf-8")
-    except (json.JSONDecodeError, KeyError, ValueError):
-        pass
-
-    raw = base64.urlsafe_b64decode(token.encode("utf-8"))
-    nonce, ct = raw[:12], raw[12:]
-    aesgcm = AESGCM(key)
-    return aesgcm.decrypt(nonce, ct, None).decode("utf-8")
-
+        return getattr(module, name)
+    except AttributeError as exc:  # pragma: no cover - 通常は到達しない
+        raise AttributeError(
+            f"module {__name__!r} has no attribute {name!r}"
+        ) from exc

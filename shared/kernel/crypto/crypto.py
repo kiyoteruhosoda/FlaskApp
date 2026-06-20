@@ -5,7 +5,7 @@ from typing import Optional, Tuple
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from core.settings import ApplicationSettings, settings
+from shared.kernel.settings.settings import ApplicationSettings, settings
 
 
 def _decode_key(raw: str) -> bytes:

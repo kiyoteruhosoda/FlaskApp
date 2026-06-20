@@ -26,7 +26,7 @@ def test_db_log_handler_with_event():
     print("Testing DBLogHandler with event attribute...")
     
     # モックオブジェクトを作成
-    with patch('core.db_log_handler.db') as mock_db:
+    with patch('shared.kernel.logging.db_log_handler.db') as mock_db:
         mock_conn = Mock()
         mock_db.engine.begin.return_value.__enter__.return_value = mock_conn
         
@@ -68,7 +68,7 @@ def test_db_log_handler_without_event():
     print("Testing DBLogHandler without event attribute...")
     
     # モックオブジェクトを作成
-    with patch('core.db_log_handler.db') as mock_db:
+    with patch('shared.kernel.logging.db_log_handler.db') as mock_db:
         mock_conn = Mock()
         mock_db.engine.begin.return_value.__enter__.return_value = mock_conn
         
@@ -110,7 +110,7 @@ def test_db_log_handler_exception_handling():
     print("Testing DBLogHandler exception handling...")
     
     # データベースエラーを発生させるためのモック
-    with patch('core.db_log_handler.db') as mock_db:
+    with patch('shared.kernel.logging.db_log_handler.db') as mock_db:
         mock_db.engine.begin.side_effect = Exception("Database connection failed")
         
         handler = DBLogHandler()

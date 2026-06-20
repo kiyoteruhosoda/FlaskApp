@@ -9,8 +9,8 @@ from sqlalchemy import insert, create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import DataError, OperationalError
 
-from .db import db
-from .settings import settings
+from shared.kernel.database.db import db
+from shared.kernel.settings.settings import settings
 
 if TYPE_CHECKING:  # pragma: no cover
     from flask import Flask
@@ -243,7 +243,7 @@ class DBLogHandler(logging.Handler):
             raise RuntimeError("Failed to persist log record to database") from exc
 
     def _get_log_model(self):
-        from .models.log import Log  # Local import to avoid circular dependencies
+        from core.models.log import Log  # Local import to avoid circular dependencies
 
         return Log
 
@@ -273,7 +273,7 @@ class WorkerDBLogHandler(DBLogHandler):
     """Logging handler dedicated to persisting Celery worker logs."""
 
     def _get_log_model(self):
-        from .models.worker_log import WorkerLog  # Local import to avoid circular dependencies
+        from core.models.worker_log import WorkerLog  # Local import to avoid circular dependencies
 
         return WorkerLog
 

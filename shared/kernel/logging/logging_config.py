@@ -33,7 +33,7 @@ def _resolve_flask_app() -> Optional["Flask"]:
 def _create_appdb_db_handler() -> logging.Handler:
     """Create a DBLogHandler configured for appdb logging."""
 
-    from core.db_log_handler import DBLogHandler
+    from shared.kernel.logging.db_log_handler import DBLogHandler
 
     app_obj = _resolve_flask_app()
     handler = DBLogHandler(app=app_obj)
@@ -45,7 +45,7 @@ def _create_appdb_db_handler() -> logging.Handler:
 def ensure_appdb_file_logging(logger: logging.Logger) -> None:
     """Attach the database-backed appdb log handler to *logger* if missing."""
 
-    from core.db_log_handler import DBLogHandler
+    from shared.kernel.logging.db_log_handler import DBLogHandler
 
     for handler in logger.handlers:
         if getattr(handler, _APPDB_HANDLER_ATTR, False):
@@ -64,7 +64,7 @@ def ensure_appdb_file_logging(logger: logging.Logger) -> None:
 def _create_worker_db_handler() -> logging.Handler:
     """Create a WorkerDBLogHandler configured for Celery worker logging."""
 
-    from core.db_log_handler import WorkerDBLogHandler
+    from shared.kernel.logging.db_log_handler import WorkerDBLogHandler
 
     app_obj = _resolve_flask_app()
     handler = WorkerDBLogHandler(app=app_obj)
@@ -76,7 +76,7 @@ def _create_worker_db_handler() -> logging.Handler:
 def ensure_worker_db_logging(logger: logging.Logger) -> None:
     """Attach the worker-specific database log handler to *logger* if missing."""
 
-    from core.db_log_handler import DBLogHandler, WorkerDBLogHandler
+    from shared.kernel.logging.db_log_handler import DBLogHandler, WorkerDBLogHandler
 
     has_worker_handler = False
 

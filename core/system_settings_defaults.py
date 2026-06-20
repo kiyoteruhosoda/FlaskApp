@@ -1,94 +1,22 @@
-"""Default payloads for persisted system configuration."""
-from __future__ import annotations
+"""後方互換シム: 実体は :mod:`shared.kernel.settings.system_settings_defaults` へ移動した。
 
-DEFAULT_APPLICATION_SETTINGS: dict[str, object] = {
-    "SECRET_KEY": "default-secret-key",
-    "JWT_SECRET_KEY": "default-jwt-secret",
-    "ACCESS_TOKEN_ISSUER": "fpv-webapp",
-    "ACCESS_TOKEN_AUDIENCE": "fpv-webapp",
-    "SESSION_COOKIE_SECURE": False,
-    "SESSION_COOKIE_HTTPONLY": True,
-    "SESSION_COOKIE_SAMESITE": "Lax",
-    "PERMANENT_SESSION_LIFETIME": 1800,
-    "PREFERRED_URL_SCHEME": "",
-    "CERTS_API_TIMEOUT": 10.0,
-    "LANGUAGES": ["ja", "en"],
-    "BABEL_DEFAULT_LOCALE": "en",
-    "BABEL_DEFAULT_TIMEZONE": "Asia/Tokyo",
-    "GOOGLE_CLIENT_ID": "",
-    "GOOGLE_CLIENT_SECRET": "",
-    "ENCRYPTION_KEY": None,
-    "MEDIA_DOWNLOAD_SIGNING_KEY": "",
-    "MEDIA_THUMBNAIL_URL_TTL_SECONDS": 600,
-    "MEDIA_PLAYBACK_URL_TTL_SECONDS": 600,
-    "MEDIA_ORIGINAL_URL_TTL_SECONDS": 600,
-    "MEDIA_TEMP_DIRECTORY": "/tmp/fpv_tmp",
-    "MEDIA_UPLOAD_TEMP_DIRECTORY": "/app/data/tmp/upload",
-    "MEDIA_UPLOAD_DESTINATION_DIRECTORY": "/app/data/uploads",
-    "MEDIA_UPLOAD_MAX_SIZE_BYTES": 100 * 1024 * 1024,
-    "MEDIA_LOCAL_IMPORT_DIRECTORY": "/app/data/media/local_import",
-    "MEDIA_THUMBNAILS_DIRECTORY": "/app/data/media/thumbs",
-    "MEDIA_PLAYBACK_DIRECTORY": "/app/data/media/playback",
-    "MEDIA_ORIGINALS_DIRECTORY": "/app/data/media/originals",
-    # X-Accel-Redirect を使用しない構成をデフォルトとし、明示的な有効化のみ許可する
-    "MEDIA_ACCEL_REDIRECT_ENABLED": False,
-    "MEDIA_ACCEL_THUMBNAILS_LOCATION": "/media/thumbs",
-    "MEDIA_ACCEL_PLAYBACK_LOCATION": "/media/playback",
-    "MEDIA_ACCEL_ORIGINALS_LOCATION": "/media/originals",
-    "SYSTEM_BACKUP_DIRECTORY": "/app/data/backups",
-    "WIKI_UPLOAD_DIRECTORY": "/app/data/wiki",
-    "CELERY_BROKER_URL": "redis://localhost:6379/0",
-    "CELERY_RESULT_BACKEND": "redis://localhost:6379/0",
-    "SERVICE_ACCOUNT_SIGNING_AUDIENCE": "",
-    "TRANSCODE_CRF": 20,
-    "WEBAUTHN_RP_ID": "localhost",
-    "WEBAUTHN_ORIGIN": "http://localhost:5000",
-    "WEBAUTHN_RP_NAME": "Nolumia",
-    # Mail configuration
-    "MAIL_ENABLED": False,
-    "MAIL_PROVIDER": "smtp",
-    "MAIL_SERVER": "smtp.gmail.com",
-    "MAIL_PORT": 587,
-    "MAIL_USE_TLS": True,
-    "MAIL_USE_SSL": False,
-    "MAIL_USERNAME": "",
-    "MAIL_PASSWORD": "",
-    "MAIL_DEFAULT_SENDER": "",
-    # CDN configuration
-    "CDN_ENABLED": False,
-    "CDN_PROVIDER": "none",  # none, azure, cloudflare, generic
-    "CDN_AZURE_ACCOUNT_NAME": "",
-    "CDN_AZURE_ACCESS_KEY": "",
-    "CDN_AZURE_PROFILE": "",
-    "CDN_AZURE_ENDPOINT": "",
-    "CDN_CLOUDFLARE_API_TOKEN": "",
-    "CDN_CLOUDFLARE_ZONE_ID": "",
-    "CDN_CLOUDFLARE_ORIGIN_HOSTNAME": "",
-    "CDN_GENERIC_ENDPOINT": "",
-    "CDN_GENERIC_API_TOKEN": "",
-    "CDN_CACHE_TTL": 3600,
-    "CDN_ENABLE_COMPRESSION": True,
-    "CDN_SECURE_URLS_ENABLED": False,
-    "CDN_ACCESS_KEY": "",
-    # Azure Blob Storage configuration
-    "BLOB_ENABLED": False,
-    "BLOB_PROVIDER": "none",  # none, azure, local
-    "BLOB_CONNECTION_STRING": "",
-    "BLOB_CONTAINER_NAME": "photonest",
-    "BLOB_ACCOUNT_NAME": "",
-    "BLOB_ACCESS_KEY": "",
-    "BLOB_SAS_TOKEN": "",
-    "BLOB_ENDPOINT_SUFFIX": "core.windows.net",
-    "BLOB_SECURE_TRANSFER": True,
-    "BLOB_CREATE_CONTAINER_IF_NOT_EXISTS": True,
-    "BLOB_PUBLIC_ACCESS_LEVEL": "none",  # none, blob, container
-}
+永続化システム設定の既定値は DDD のカーネル層に集約する。既存の
+``from core.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS`` 等を
+壊さないよう再公開する。
+"""
 
-DEFAULT_CORS_SETTINGS: dict[str, object] = {
-    "allowedOrigins": [],
-}
+from shared.kernel.settings.system_settings_defaults import *  # noqa: F401,F403
 
-__all__ = [
-    "DEFAULT_APPLICATION_SETTINGS",
-    "DEFAULT_CORS_SETTINGS",
-]
+
+def __getattr__(name):  # PEP 562: __all__ 外の名前も遅延委譲する
+    import importlib
+
+    module = importlib.import_module(
+        "shared.kernel.settings.system_settings_defaults"
+    )
+    try:
+        return getattr(module, name)
+    except AttributeError as exc:  # pragma: no cover - 通常は到達しない
+        raise AttributeError(
+            f"module {__name__!r} has no attribute {name!r}"
+        ) from exc

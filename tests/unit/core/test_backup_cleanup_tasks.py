@@ -26,11 +26,7 @@ class TestBackupCleanupTasks:
             old_file.stat()
             
             with patch.dict('os.environ', {'SYSTEM_BACKUP_DIRECTORY': tmpdir}):
-                # タスク実行（self引数をモック）
-                class MockSelf:
-                    pass
-                
-                result = backup_cleanup_task(MockSelf(), retention_days=30)
+                result = backup_cleanup_task.run(retention_days=30)
                 
                 assert result["ok"] is True
                 assert "backup_dir" in result
@@ -44,11 +40,7 @@ class TestBackupCleanupTasks:
             test_file.write_text("dummy content")
             
             with patch.dict('os.environ', {'SYSTEM_BACKUP_DIRECTORY': tmpdir}):
-                # タスク実行（self引数をモック）
-                class MockSelf:
-                    pass
-                
-                result = backup_status_task(MockSelf())
+                result = backup_status_task.run()
                 
                 assert result["ok"] is True
                 assert result["exists"] is True
@@ -58,11 +50,8 @@ class TestBackupCleanupTasks:
         """デフォルト保持期間でのバックアップクリーンアップタスクテスト"""
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch.dict('os.environ', {'SYSTEM_BACKUP_DIRECTORY': tmpdir}):
-                class MockSelf:
-                    pass
-
                 # デフォルト値（30日）でタスク実行
-                result = backup_cleanup_task(MockSelf())
+                result = backup_cleanup_task.run()
                 
                 assert result["ok"] is True
                 assert "retention_days" in result

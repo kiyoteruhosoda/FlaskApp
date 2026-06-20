@@ -89,7 +89,7 @@ def test_login_or_jwt_required_regenerates_cookie_on_invalid_token(app_context):
 
     client = app.test_client()
     login_response = client.post(
-        "/api/login",
+        "/api/auth/login",
         json={
             "email": "fallback-admin@example.com",
             "password": "pass",
@@ -102,7 +102,7 @@ def test_login_or_jwt_required_regenerates_cookie_on_invalid_token(app_context):
     refresh_token = login_payload["refresh_token"]
 
     refresh_response = client.post(
-        "/api/refresh",
+        "/api/auth/refresh",
         json={"refresh_token": refresh_token},
     )
     assert refresh_response.status_code == 200

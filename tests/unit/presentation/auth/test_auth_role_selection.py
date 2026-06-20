@@ -174,7 +174,7 @@ def test_api_login_requires_role_selection(client, app):
     )
 
     res = client.post(
-        "/api/login",
+        "/api/auth/login",
         json={"email": email, "password": "pass", "next": "/dashboard/library"},
     )
     assert res.status_code == 200

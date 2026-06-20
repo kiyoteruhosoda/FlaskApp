@@ -198,7 +198,7 @@ def test_login_applies_requested_scope_subset(app, client, scoped_user):
         "scope": "read:cert write:cert delete:cert",
     }
 
-    response = client.post("/api/login", json=payload)
+    response = client.post("/api/auth/login", json=payload)
     assert response.status_code == 200
     data = response.get_json()
 
@@ -230,7 +230,7 @@ def test_login_with_gui_scope_grants_all_permissions(app, client, scoped_user):
         "scope": "gui:view",
     }
 
-    response = client.post("/api/login", json=payload)
+    response = client.post("/api/auth/login", json=payload)
     assert response.status_code == 200
     data = response.get_json()
 
@@ -258,7 +258,7 @@ def test_login_with_gui_scope_grants_all_permissions(app, client, scoped_user):
 def test_login_with_missing_scope_grants_no_permissions(client, scoped_user):
     payload = {"email": scoped_user.email, "password": "pass"}
 
-    response = client.post("/api/login", json=payload)
+    response = client.post("/api/auth/login", json=payload)
     assert response.status_code == 200
     data = response.get_json()
 
@@ -273,7 +273,7 @@ def test_login_rejects_scope_not_in_roles(client, scoped_user):
         "scope": "maintenance:edit write:cert",
     }
 
-    response = client.post("/api/login", json=payload)
+    response = client.post("/api/auth/login", json=payload)
     assert response.status_code == 200
     data = response.get_json()
 
@@ -333,7 +333,7 @@ def test_login_cookie_requires_gui_scope(app, client):
         user_email = user.email
 
     without_gui_response = client.post(
-        "/api/login",
+        "/api/auth/login",
         json={
             "email": user_email,
             "password": "pass",
@@ -347,7 +347,7 @@ def test_login_cookie_requires_gui_scope(app, client):
     _assert_cookie_cleared(without_gui_response)
 
     with_gui_response = client.post(
-        "/api/login",
+        "/api/auth/login",
         json={
             "email": user_email,
             "password": "pass",
@@ -392,7 +392,7 @@ def test_login_with_gui_scope_grants_full_permissions(app, client):
         user_email = user.email
 
     response = client.post(
-        "/api/login",
+        "/api/auth/login",
         json={
             "email": user_email,
             "password": "pass",
@@ -431,7 +431,7 @@ def test_refresh_cookie_requires_gui_scope(app, client):
         user_email = user.email
 
     without_gui_login = client.post(
-        "/api/login",
+        "/api/auth/login",
         json={
             "email": user_email,
             "password": "pass",
@@ -444,14 +444,14 @@ def test_refresh_cookie_requires_gui_scope(app, client):
     _assert_cookie_cleared(without_gui_login)
 
     without_gui_refresh = client.post(
-        "/api/refresh",
+        "/api/auth/refresh",
         json={"refresh_token": without_gui_tokens["refresh_token"]},
     )
     assert without_gui_refresh.status_code == 200
     _assert_cookie_cleared(without_gui_refresh)
 
     with_gui_login = client.post(
-        "/api/login",
+        "/api/auth/login",
         json={
             "email": user_email,
             "password": "pass",
@@ -475,7 +475,7 @@ def test_refresh_cookie_requires_gui_scope(app, client):
         assert "SameSite=" in header
 
     with_gui_refresh = client.post(
-        "/api/refresh",
+        "/api/auth/refresh",
         json={"refresh_token": with_gui_tokens["refresh_token"]},
     )
     assert with_gui_refresh.status_code == 200
@@ -500,7 +500,7 @@ def test_scoped_token_enforces_permissions(client, album_user):
         "scope": "album:create",
     }
 
-    login_response = client.post("/api/login", json=payload)
+    login_response = client.post("/api/auth/login", json=payload)
     assert login_response.status_code == 200
     tokens = login_response.get_json()
 

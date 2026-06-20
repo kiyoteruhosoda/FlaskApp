@@ -39,7 +39,7 @@ def login(client, app, *, token: str | None = None):
     payload = {"email": app.test_user_email, "password": "pass"}
     if token:
         payload["token"] = token
-    res = client.post("/api/login", json=payload)
+    res = client.post("/api/auth/login", json=payload)
     assert res.status_code == 200
     data = res.get_json()
     assert data["requires_role_selection"] is False
@@ -56,7 +56,7 @@ def test_login_returns_refresh_token(client, app):
 
 def test_refresh_works(client, app):
     old_access, refresh = login(client, app)
-    res = client.post("/api/refresh", json={"refresh_token": refresh})
+    res = client.post("/api/auth/refresh", json={"refresh_token": refresh})
     assert res.status_code == 200
     data = res.get_json()
     assert data["access_token"] != old_access
@@ -66,7 +66,7 @@ def test_refresh_works(client, app):
 
 
 def test_refresh_invalid_token(client, app):
-    res = client.post("/api/refresh", json={"refresh_token": "invalid"})
+    res = client.post("/api/auth/refresh", json={"refresh_token": "invalid"})
     assert res.status_code == 401
 
 
@@ -82,5 +82,5 @@ def test_refresh_inactive_user(client, app):
         user.is_active = False
         db.session.commit()
 
-    res = client.post("/api/refresh", json={"refresh_token": refresh})
+    res = client.post("/api/auth/refresh", json={"refresh_token": refresh})
     assert res.status_code == 401

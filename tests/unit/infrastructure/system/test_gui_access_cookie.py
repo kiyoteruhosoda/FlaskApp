@@ -43,7 +43,7 @@ def test_access_cookie_not_secure_for_local_http_when_secure_enforced(app, clien
     email = _create_gui_user(app)
 
     response = client.post(
-        "/api/login",
+        "/api/auth/login",
         json={"email": email, "password": "pass", "scope": "gui:view dashboard:view"},
         base_url="http://localhost",
     )
@@ -59,7 +59,7 @@ def test_access_cookie_remains_secure_on_https_when_enforced(app, client):
     email = _create_gui_user(app)
 
     response = client.post(
-        "/api/login",
+        "/api/auth/login",
         json={"email": email, "password": "pass", "scope": "gui:view"},
         base_url="https://example.com",
     )
@@ -75,7 +75,7 @@ def test_access_cookie_secure_on_https_even_without_flag(app, client):
     email = _create_gui_user(app)
 
     response = client.post(
-        "/api/login",
+        "/api/auth/login",
         json={"email": email, "password": "pass", "scope": "gui:view"},
         base_url="https://example.com",
     )

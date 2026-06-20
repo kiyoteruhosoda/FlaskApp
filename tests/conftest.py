@@ -44,12 +44,34 @@ def _coerce_env_value(key: str, default):
     return raw
 
 
+@pytest.fixture(autouse=True)
+def _restore_os_environ():
+    """各テストの前後で ``os.environ`` をスナップショット・復元する.
+
+    多くのテストが ``os.environ`` を書き換えるが後始末をしないため、設定値
+    （``DATABASE_URI`` 等）が後続テストへ漏れて連鎖失敗していた。設定は
+    ``settings`` シングルトンや ``create_app`` が実行時に環境変数を参照するため、
+    テスト境界での環境変数の隔離がグローバルな安定性に直結する。
+    """
+    snapshot = dict(os.environ)
+    try:
+        yield
+    finally:
+        # 追加・変更されたキーを元に戻し、削除されたキーを復元する。
+        for key in list(os.environ.keys()):
+            if key not in snapshot:
+                del os.environ[key]
+        for key, value in snapshot.items():
+            if os.environ.get(key) != value:
+                os.environ[key] = value
+
+
 @pytest.fixture
 def app_context():
     """アプリケーションコンテキストを提供するfixture"""
     import os
     import importlib
-    
+
     # テスト用の環境変数を設定
     original_env = {}
     test_env = {

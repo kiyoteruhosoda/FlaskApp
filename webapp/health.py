@@ -1,97 +1,19 @@
-from datetime import datetime
+"""後方互換リダイレクト: ``presentation.web.health`` への委譲.
 
-import os
-
-from flask import Blueprint, jsonify, current_app
-from sqlalchemy import text
-
-from .extensions import db
-from core.time import utc_now_isoformat
-from core.settings import settings
-from bounded_contexts.storage import StorageDomain
-
-# 認証なしのhealth用Blueprint
-health_bp = Blueprint("health", __name__, url_prefix="/health")
+DDD 移行で残った重複モジュール。直接 import すると同一 Blueprint へ
+ルートを二重登録してアプリ/テストの状態を壊すため、唯一の実体である
+presentation 層へ委譲する（単一の真実の源）。
+"""
+from presentation.web.health import *  # noqa: F401,F403
 
 
-@health_bp.get("/live")
-def health_live():
-    """Simple liveness probe."""
-    return jsonify({"status": "ok"}), 200
+def __getattr__(name):  # PEP 562: アンダースコア始まり等も遅延委譲する
+    import importlib
 
-
-@health_bp.get("/ready")
-def health_ready():
-    """Readiness probe checking database and NAS paths."""
-    ok = True
-    details = {}
-
+    module = importlib.import_module("presentation.web.health")
     try:
-        db.session.execute(text("SELECT 1"))
-        details["db"] = "ok"
-    except Exception:
-        ok = False
-        details["db"] = "error"
-
-    service = settings.storage.service()
-    directory_checks = {
-        "media_nas_thumbnails_directory": StorageDomain.MEDIA_THUMBNAILS,
-        "media_nas_playback_directory": StorageDomain.MEDIA_PLAYBACK,
-    }
-    storage_accessor = settings.storage
-    for field, domain in directory_checks.items():
-        area = service.for_domain(domain)
-        configured = current_app.config.get(area.config_key)
-        if configured:
-            configured_path = os.fspath(configured)
-            if os.path.exists(configured_path):
-                details[field] = "ok"
-                continue
-            ok = False
-            details[field] = "missing"
-            continue
-
-        fallback_path = storage_accessor.configured(area.config_key)
-        if fallback_path:
-            fallback_path = os.fspath(fallback_path)
-            if os.path.exists(fallback_path):
-                details[field] = "ok"
-                continue
-
-        base = area.first_existing()
-        if base and os.path.exists(base):
-            details[field] = "ok"
-        else:
-            ok = False
-            details[field] = "missing"
-
-    redis_url = settings.redis_url
-    if redis_url:
-        try:  # pragma: no cover - optional dependency
-            import redis
-
-            r = redis.from_url(redis_url)
-            r.ping()
-            details["redis"] = "ok"
-        except Exception:
-            ok = False
-            details["redis"] = "error"
-
-    status = 200 if ok else 503
-    details["status"] = "ok" if ok else "error"
-    return jsonify(details), status
-
-
-@health_bp.get("/beat")
-def health_beat():
-    """Return last beat timestamp and current server time."""
-    last = settings.last_beat_at
-    return (
-        jsonify(
-            {
-                "lastBeatAt": last.isoformat() if isinstance(last, datetime) else None,
-                "server_time": utc_now_isoformat(),
-            }
-        ),
-        200,
-    )
+        return getattr(module, name)
+    except AttributeError as exc:  # pragma: no cover
+        raise AttributeError(
+            f"module {__name__!r} has no attribute {name!r}"
+        ) from exc

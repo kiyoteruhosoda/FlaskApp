@@ -86,4 +86,4 @@ def register_react_routes(app: Flask):
                 <pre>cd frontend && npm run build</pre>
             </body>
             </html>
-            ''', 2
+            ''', 200

@@ -811,6 +811,14 @@ def create_app():
     app = Flask(__name__)
     app.test_client_class = _HostPreservingClient
     app.config.from_object(BaseApplicationSettings)
+
+    # ``BaseApplicationSettings`` はモジュール import 時に ``DATABASE_URI`` を読み取って
+    # 凍結する。同一プロセスで複数回 ``create_app()`` を呼ぶ（テスト等）場合でも、
+    # 各呼び出しが現在の環境変数の DB に接続できるよう実行時に再解決する。
+    # 本番では import 時と同値のため影響しない。
+    runtime_database_uri = os.environ.get("DATABASE_URI")
+    if runtime_database_uri:
+        app.config["SQLALCHEMY_DATABASE_URI"] = runtime_database_uri
     app.config.setdefault("LAST_BEAT_AT", None)
     app.config.setdefault("API_TITLE", "nolumia API")
     app.config.setdefault("API_VERSION", "1.0.0")

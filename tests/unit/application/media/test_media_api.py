@@ -1363,7 +1363,7 @@ def test_media_thumbnail_route_uses_thumbnail_rel_path(client, app):
 def test_thumbnail_falls_back_to_default_path(client, app, monkeypatch, tmp_path):
     from webapp.extensions import db
     from core.models.photo_models import Media
-    from webapp.api import routes as api_routes
+    from presentation.web.api import routes as api_routes
 
     with app.app_context():
         original_thumb_dir = app.config["MEDIA_THUMBNAILS_DIRECTORY"]

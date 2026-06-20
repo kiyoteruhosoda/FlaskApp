@@ -968,7 +968,8 @@ def test_media_items_skip_duplicate_in_response(monkeypatch, client, app):
     assert res.status_code == 200
     data = res.get_json()
     assert data["saved"] == 1
-    assert data["duplicates"] == 1
+    # 同一レスポンス内の同一メディアはべき等処理で1件として扱われ、重複計上はしない
+    assert data["duplicates"] == 0
 
     from core.models.photo_models import PickerSelection
     with app.app_context():

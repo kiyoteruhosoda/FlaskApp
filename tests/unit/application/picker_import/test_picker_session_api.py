@@ -23,6 +23,9 @@ def app(tmp_path):
     from webapp import create_app
     app = create_app()
     app.config.update(TESTING=True)
+    # 設定シングルトンは import 時に環境変数をスナップショットするため、
+    # フィクスチャで後から設定した ENCRYPTION_KEY を app.config 経由で確実に渡す。
+    app.config["ENCRYPTION_KEY"] = key
     from webapp.extensions import db
     from core.models.user import User
     from core.models.google_account import GoogleAccount

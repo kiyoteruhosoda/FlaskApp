@@ -153,6 +153,11 @@ def test_watchdog_republishes_stalled_enqueued(monkeypatch, app, caplog):
         db.session.commit()
 
         caplog.set_level(logging.WARNING)
-        picker_import_watchdog()
+        result = picker_import_watchdog()
         assert called == [sel_id]
-        assert any("republished" in r.message for r in caplog.records)
+        # 再発行された件数は戻り値のメトリクスで検証する
+        # （ログ本文は JSON ペイロードで、イベント名は extra の "watchdog.republish"）。
+        assert result["republished"] == 1
+        assert any(
+            getattr(r, "event", "") == "watchdog.republish" for r in caplog.records
+        )

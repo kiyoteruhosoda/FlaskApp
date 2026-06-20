@@ -64,8 +64,6 @@ def app():
             os.environ[key] = str(value)
 
         try:
-            importlib.reload(config_module)
-            importlib.reload(local_import_module)
             app = create_app()
             app.config.update(test_config)
 

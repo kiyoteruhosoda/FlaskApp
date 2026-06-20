@@ -41,12 +41,9 @@ def app(tmp_path):
         os.environ[key] = value
 
     try:
-        # configモジュールをリロードして新しい環境変数を反映
-        import webapp.config as config_module
-        importlib.reload(config_module)
-        import webapp as webapp_module
-        importlib.reload(webapp_module)
-        
+        # reload しない: create_app は DATABASE_URI を runtime 再解決し、settings は
+        # env を遅延参照するため reload は不要。reload(webapp) はシム submodule の
+        # identity を分岐させ後続テストの monkeypatch を壊す。
         from webapp import create_app
         from tests.config import TestConfig
 
@@ -98,12 +95,6 @@ def app(tmp_path):
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = original_value
-        
-        # モジュールをクリーンアップ
-        if "webapp.config" in sys.modules:
-            del sys.modules["webapp.config"]
-        if "webapp" in sys.modules:
-            del sys.modules["webapp"]
 
 
 @pytest.fixture

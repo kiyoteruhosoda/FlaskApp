@@ -52,9 +52,7 @@ def local_import_app(tmp_path: Path):
     os.environ.update(env)
 
     import webapp.config as config_module
-    importlib.reload(config_module)
     import webapp as webapp_module
-    importlib.reload(webapp_module)
 
     from webapp.config import BaseApplicationSettings
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
@@ -74,8 +72,8 @@ def local_import_app(tmp_path: Path):
         db.session.remove()
         db.drop_all()
 
-    sys.modules.pop("webapp.config", None)
-    sys.modules.pop("webapp", None)
+    # webapp / webapp.config を sys.modules から pop しない（後続テストの
+    # シム submodule identity を壊し monkeypatch を無効化するため）。
     for key, value in prev_env.items():
         if value is None:
             os.environ.pop(key, None)

@@ -29,10 +29,9 @@ def app(tmp_path):
     os.environ.update(env)
 
     import importlib, sys
-    import webapp.config as config_module
-    importlib.reload(config_module)
-    import webapp as webapp_module
-    importlib.reload(webapp_module)
+    # webapp / webapp.config を reload しない。create_app は DATABASE_URI を runtime に
+    # 再解決し、settings は env を遅延参照するため reload は不要。reload(webapp) は
+    # シム submodule の identity を分岐させ、後続テストの monkeypatch を無効化する。
     from webapp.config import BaseApplicationSettings
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
     from webapp import create_app
@@ -47,8 +46,9 @@ def app(tmp_path):
         db.session.commit()
 
     yield app
-    del sys.modules["webapp.config"]
-    del sys.modules["webapp"]
+    # webapp / webapp.config を sys.modules から削除すると、後続テストが参照する
+    # シム submodule（例: webapp.api.picker_session）の identity が変わり
+    # monkeypatch が効かなくなる。reload は in-place で identity を保つため del しない。
     for k, v in prev.items():
         if v is None:
             os.environ.pop(k, None)

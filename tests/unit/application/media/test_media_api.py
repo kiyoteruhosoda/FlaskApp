@@ -34,11 +34,10 @@ def app(tmp_path):
     os.environ["MEDIA_THUMBNAILS_DIRECTORY"] = str(thumbs)
     os.environ["MEDIA_PLAYBACK_DIRECTORY"] = str(play)
     os.environ["MEDIA_ORIGINALS_DIRECTORY"] = str(orig)
-    import importlib, sys
-    import webapp.config as config_module
-    importlib.reload(config_module)
-    import webapp as webapp_module
-    importlib.reload(webapp_module)
+    # reload しない: create_app は DATABASE_URI を runtime 再解決し、settings は env を
+    # 遅延参照するため reload は不要。reload(webapp) はシム submodule の identity を
+    # 分岐させ後続テストの monkeypatch を壊す。
+    import sys
     from webapp.config import BaseApplicationSettings
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
     from webapp import create_app
@@ -61,8 +60,6 @@ def app(tmp_path):
         db.session.commit()
 
     yield app
-    del sys.modules["webapp.config"]
-    del sys.modules["webapp"]
 
 
 @pytest.fixture

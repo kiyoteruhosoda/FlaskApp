@@ -46,7 +46,7 @@ def app(tmp_path):
         importlib.reload(webapp_module)
         
         from webapp import create_app
-        from .config import TestConfig
+        from tests.config import TestConfig
 
         app = create_app()
         app.config.from_object(TestConfig)

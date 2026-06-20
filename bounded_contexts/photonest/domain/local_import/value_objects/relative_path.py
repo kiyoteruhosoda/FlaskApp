@@ -23,11 +23,14 @@ class RelativePath:
         path = Path(self.value)
         if path.is_absolute():
             raise ValueError(f"Path must be relative: {self.value}")
-        
-        parts = self._normalize_parts(path)
-        if any(part == ".." for part in parts):
+
+        # 正規化で ".." を除去する前に、生のパス要素で検査する
+        # （除去後に検査すると常にすり抜けてしまうため）。
+        if any(part == ".." for part in path.parts):
             raise ValueError(f"Path cannot contain '..': {self.value}")
-        
+
+        parts = self._normalize_parts(path)
+
         # 正規化されたパスを再設定
         normalized = "/".join(parts)
         object.__setattr__(self, 'value', normalized)

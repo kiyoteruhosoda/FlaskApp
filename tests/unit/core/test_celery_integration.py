@@ -27,7 +27,14 @@ def app(tmp_path, monkeypatch):
     with app.app_context():
         from core.db import db
         db.create_all()
-    
+
+    # Celery タスクは ContextTask 経由で celery_app.flask_app のコンテキストを使う。
+    # flask_app は import 時に生成されるシングルトンのため、全体実行では別テストの
+    # DB で凍結され "no such table" になる。テストの app へ差し替えてテストの DB を
+    # 使わせる（単独実行でも同じ app になり挙動は変わらない）。
+    import cli.src.celery.celery_app as celery_app_module
+    monkeypatch.setattr(celery_app_module, "flask_app", app, raising=False)
+
     return app
 
 

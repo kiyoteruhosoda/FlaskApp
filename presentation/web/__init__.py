@@ -1265,14 +1265,27 @@ def create_app():
 
     @app.errorhandler(500)
     def handle_internal_server_error(e):
-        """500 Internal Server Error のデバッグ強化"""
-        import traceback
-        
-        app.logger.error(f"500 Internal Server Error occurred:")
-        app.logger.error(f"Request path: {request.path}")
-        app.logger.error(f"Request method: {request.method}")
-        app.logger.error(f"Exception: {e}")
-        app.logger.error(f"Traceback:\n{traceback.format_exc()}")
+        """500 Internal Server Error を1件の構造化ログとして記録する。
+
+        元例外のメッセージ・リクエストパス・トレースバックを単一の Log
+        エントリにまとめる。Flask 既定の例外ログ（log_exception）は下で
+        抑制しているため、500 についてはこのハンドラが唯一の記録元となる。
+        """
+        original = getattr(e, "original_exception", None)
+        exc = original if original is not None else e
+
+        # api.server_error の after_request ログと二重化しないよう印を付ける
+        g.exception_logged = True
+
+        app.logger.error(
+            json.dumps({"message": str(exc), "status": 500}, ensure_ascii=False),
+            exc_info=True,
+            extra={
+                "event": "api.server_error",
+                "path": request.path,
+                "request_id": getattr(g, "request_id", None),
+            },
+        )
 
         # メッセージをロケールに合わせて翻訳し、Content-Language を付与する
         locale = str(get_locale() or app.config.get("BABEL_DEFAULT_LOCALE", "en"))
@@ -1282,6 +1295,16 @@ def create_app():
         response.status_code = 500
         response.headers["Content-Language"] = locale
         return response
+
+    def _log_exception_via_handler(exc_info):
+        """Flask 既定の例外ログを抑制する。
+
+        500 は handle_internal_server_error が構造化ログとして記録するため、
+        Flask が出力する "Exception on ..." の重複ログを抑える。
+        """
+        return None
+
+    app.log_exception = _log_exception_via_handler
 
     @app.before_request
     def _apply_login_disabled_for_testing():

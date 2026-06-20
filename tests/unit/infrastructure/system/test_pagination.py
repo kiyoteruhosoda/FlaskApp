@@ -31,9 +31,7 @@ def app(tmp_path):
     
     import importlib
     import webapp.config as config_module
-    importlib.reload(config_module)
     import webapp as webapp_module
-    importlib.reload(webapp_module)
     from webapp.config import BaseApplicationSettings
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
     from webapp import create_app

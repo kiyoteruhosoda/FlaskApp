@@ -13,7 +13,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from bounded_contexts.wiki.presentation.wiki.utils import markdown_to_html
 
-FIXTURE_PATH = Path(__file__).resolve().parent / "fixtures" / "test_diagrams_wiki.md"
+FIXTURE_PATH = Path(__file__).resolve().parents[3] / "fixtures" / "test_diagrams_wiki.md"
 
 
 def test_mermaid_block_is_converted_to_html():

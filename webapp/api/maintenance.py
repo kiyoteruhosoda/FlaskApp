@@ -1,37 +1,19 @@
-"""Maintenance API endpoints protected by service account JWTs."""
-from __future__ import annotations
+"""後方互換リダイレクト: ``presentation.web.api.maintenance`` への委譲.
 
-from flask import jsonify
-from .blueprint import AuthEnforcedBlueprint
-
-from . import bp
-from ..auth.service_account_auth import require_service_account_scopes
-
-maintenance_bp = AuthEnforcedBlueprint(
-    "maintenance_api", __name__, url_prefix="/maintenance"
-)
+DDD 移行で残った重複モジュール。直接 import すると同一 Blueprint へ
+ルートを二重登録してアプリ/テストの状態を壊すため、唯一の実体である
+presentation 層へ委譲する（単一の真実の源）。
+"""
+from presentation.web.api.maintenance import *  # noqa: F401,F403
 
 
-def _default_audience(req) -> str:
-    base = req.url_root.rstrip("/")
-    return f"{base}/api/maintenance"
+def __getattr__(name):  # PEP 562: アンダースコア始まり等も遅延委譲する
+    import importlib
 
-
-@maintenance_bp.route("/ping", methods=["GET"])
-@require_service_account_scopes(["maintenance:read"], audience=_default_audience)
-def maintenance_ping():
-    from flask import g
-
-    account = getattr(g, "service_account", None)
-    return (
-        jsonify(
-            {
-                "status": "ok",
-                "service_account": account.name if account else None,
-            }
-        ),
-        200,
-    )
-
-
-bp.register_blueprint(maintenance_bp)
+    module = importlib.import_module("presentation.web.api.maintenance")
+    try:
+        return getattr(module, name)
+    except AttributeError as exc:  # pragma: no cover
+        raise AttributeError(
+            f"module {__name__!r} has no attribute {name!r}"
+        ) from exc

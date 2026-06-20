@@ -39,4 +39,8 @@ addopts = [
     "-v",
     "--strict-markers",
     "-m", "not (ffmpeg or filesystem or smtp)",  # デフォルトで外部依存テストをスキップ
+    # 同名のテストファイル/ディレクトリ（test_csrf.py 等が複数箇所に存在）が
+    # 既定の prepend インポートモードでは衝突し収集エラーになるため、
+    # パス単位で一意にモジュール化する importlib モードを使う。
+    "--import-mode=importlib",
 ]

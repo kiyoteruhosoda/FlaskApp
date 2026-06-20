@@ -1,80 +1,76 @@
-#!/usr/bin/env python3
-"""Test script for thumbnail generation during import."""
+"""インポート時のサムネイル生成テスト."""
 
 import os
-import tempfile
 from pathlib import Path
+
+import pytest
 from PIL import Image
 
-from webapp import create_app
-from core.tasks.picker_import import enqueue_thumbs_generate
-from core.models.photo_models import Media
-from webapp.extensions import db
 
+@pytest.fixture
+def app(tmp_path):
+    originals = tmp_path / "originals"
+    thumbs = tmp_path / "thumbs"
+    play = tmp_path / "play"
+    for d in (originals, thumbs, play):
+        d.mkdir(parents=True, exist_ok=True)
 
-def test_thumbnail_generation():
-    """Test that thumbnails are generated automatically during import."""
+    os.environ["SECRET_KEY"] = "test"
+    os.environ["DATABASE_URI"] = f"sqlite:///{tmp_path / 'test.db'}"
+    os.environ["MEDIA_ORIGINALS_DIRECTORY"] = str(originals)
+    os.environ["MEDIA_THUMBNAILS_DIRECTORY"] = str(thumbs)
+    os.environ["MEDIA_PLAYBACK_DIRECTORY"] = str(play)
+
+    from webapp.config import BaseApplicationSettings
+
+    BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
+    from webapp import create_app
+
     app = create_app()
-    
+    app.config.update(
+        TESTING=True,
+        MEDIA_ORIGINALS_DIRECTORY=str(originals),
+        MEDIA_THUMBNAILS_DIRECTORY=str(thumbs),
+        MEDIA_PLAYBACK_DIRECTORY=str(play),
+    )
+    from webapp.extensions import db
+
     with app.app_context():
-        # Create a test image file
-        orig_dir = Path(os.environ["MEDIA_ORIGINALS_DIRECTORY"])
-        test_file = orig_dir / "2025/08/28/test_import.jpg"
+        db.create_all()
+    yield app
+
+
+def test_thumbnail_generation(app):
+    """インポートされた画像からサムネイルが生成されることを検証する."""
+    from core.tasks.picker_import import enqueue_thumbs_generate
+    from core.models.photo_models import Media
+    from webapp.extensions import db
+
+    with app.app_context():
+        orig_dir = Path(app.config["MEDIA_ORIGINALS_DIRECTORY"])
+        thumbs_dir = Path(app.config["MEDIA_THUMBNAILS_DIRECTORY"])
+
+        rel_path = "2025/08/28/test_import.jpg"
+        test_file = orig_dir / rel_path
         test_file.parent.mkdir(parents=True, exist_ok=True)
-        
-        # Create a test image
-        img = Image.new("RGB", (2000, 1500), color=(255, 0, 0))
-        img.save(test_file)
-        
-        try:
-            # Create a Media record
-            media = Media(
-                google_media_id="test_import_123",
-                account_id=1,
-                local_rel_path="2025/08/28/test_import.jpg",
-                hash_sha256="test_hash_123",
-                bytes=12345,
-                mime_type="image/jpeg",
-                width=2000,
-                height=1500,
-                is_video=False,
-            )
-            db.session.add(media)
-            db.session.commit()
-            
-            print(f"Created media with ID: {media.id}")
-            
-            # Test thumbnail generation
-            print("Generating thumbnails...")
-            enqueue_thumbs_generate(media.id)
-            
-            # Check that thumbnails were created
-            thumbs_dir = Path(os.environ["MEDIA_THUMBNAILS_DIRECTORY"])
-            sizes = [256, 512, 1024, 2048]
-            
-            for size in sizes:
-                thumb_path = thumbs_dir / str(size) / "2025/08/28/test_import.jpg"
-                if thumb_path.exists():
-                    print(f"✓ Thumbnail {size}px created: {thumb_path}")
-                else:
-                    print(f"✗ Thumbnail {size}px NOT created: {thumb_path}")
-                    
-        finally:
-            # Cleanup
-            test_file.unlink(missing_ok=True)
-            for size in [256, 512, 1024, 2048]:
-                thumb_path = thumbs_dir / str(size) / "2025/08/28/test_import.jpg"
-                thumb_path.unlink(missing_ok=True)
+        Image.new("RGB", (2000, 1500), color=(255, 0, 0)).save(test_file)
 
-            # Remove empty directories
-            for size in [256, 512, 1024, 2048]:
-                try:
-                    (thumbs_dir / str(size) / "2025/08/28").rmdir()
-                    (thumbs_dir / str(size) / "2025/08").rmdir()
-                    (thumbs_dir / str(size) / "2025").rmdir()
-                except OSError:
-                    pass
+        media = Media(
+            google_media_id="test_import_123",
+            account_id=1,
+            local_rel_path=rel_path,
+            hash_sha256="test_hash_123",
+            bytes=test_file.stat().st_size,
+            mime_type="image/jpeg",
+            width=2000,
+            height=1500,
+            is_video=False,
+        )
+        db.session.add(media)
+        db.session.commit()
 
+        enqueue_thumbs_generate(media.id)
 
-if __name__ == "__main__":
-    test_thumbnail_generation()
+        # サムネイルファイルが少なくとも1つ作成されること
+        generated = list(thumbs_dir.rglob("*.jpg"))
+        assert generated, "サムネイルが1つも生成されていない"

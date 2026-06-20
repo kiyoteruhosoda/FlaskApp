@@ -26,10 +26,19 @@ def register_react_routes(app: Flask):
         app.logger.debug(f"Not a static file: {filename}")
         return {'error': 'File not found'}, 404
     
+    # Serve the React app at the site root. This is named "index" because
+    # server-rendered templates (e.g. base.html navbar) link back here via
+    # url_for("index").
+    @app.route('/')
+    def index():
+        return _serve_react_app('')
+
     # Serve React app for all non-API routes (catch-all must be last)
-    @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')
     def catch_all(path):
+        return _serve_react_app(path)
+
+    def _serve_react_app(path):
         # Skip static files - they are handled by specific routes above
         static_files = ['favicon.ico', 'manifest.json', 'logo192.png', 'robots.txt', 'vite.svg']
         if path in static_files:
@@ -77,4 +86,4 @@ def register_react_routes(app: Flask):
                 <pre>cd frontend && npm run build</pre>
             </body>
             </html>
-            ''', 2
+            ''', 200

@@ -29,9 +29,7 @@ def app(tmp_path):
     os.environ.update(temp_env)
 
     import webapp.config as config_module
-    importlib.reload(config_module)
     import webapp as webapp_module
-    importlib.reload(webapp_module)
     from webapp import create_app
     from webapp.config import BaseApplicationSettings
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
@@ -52,8 +50,6 @@ def app(tmp_path):
             else:
                 os.environ[key] = value
 
-        del sys.modules["webapp.config"]
-        del sys.modules["webapp"]
 
 
 @pytest.fixture

@@ -83,7 +83,7 @@ class TestItemStateMachine:
 class TestLoggingIntegration:
     """ログ統合のテスト"""
     
-    @patch('features.photonest.infrastructure.local_import.logging_integration.AuditLogger')
+    @patch('bounded_contexts.photonest.infrastructure.local_import.logging_integration.AuditLogger')
     def test_init_audit_logger(self, mock_audit_logger):
         """監査ロガー初期化のテスト"""
         from bounded_contexts.photonest.infrastructure.local_import.logging_integration import init_audit_logger
@@ -135,17 +135,17 @@ class TestRepositories:
     
     def test_factory_function_signature(self):
         """ファクトリ関数のシグネチャ確認"""
-        from bounded_contexts.photonest.infrastructure.local_import.repositories import (
+        from bounded_contexts.photonest.infrastructure.local_import.state_repositories import (
             create_state_management_service,
         )
         
         # 関数が存在することを確認
         assert callable(create_state_management_service)
     
-    @patch('features.photonest.infrastructure.local_import.repositories.PickerSession')
+    @patch('bounded_contexts.photonest.infrastructure.local_import.state_repositories.PickerSession')
     def test_session_repository_creation(self, mock_session):
         """セッションリポジトリ作成のテスト"""
-        from bounded_contexts.photonest.infrastructure.local_import.repositories import (
+        from bounded_contexts.photonest.infrastructure.local_import.state_repositories import (
             SessionRepositoryImpl,
         )
         
@@ -153,8 +153,8 @@ class TestRepositories:
         repo = SessionRepositoryImpl(mock_db_session)
         
         assert repo is not None
-        assert hasattr(repo, 'get')
-        assert hasattr(repo, 'save')
+        assert hasattr(repo, 'get_session_state')
+        assert hasattr(repo, 'update_session_state')
 
 
 # ============================================================
@@ -174,15 +174,15 @@ class TestLocalImportStatusAPI:
     def test_schema_definitions(self):
         """Marshmallow スキーマが定義されている"""
         from bounded_contexts.photonest.presentation.local_import_status_api import (
-            SessionStatusResponseSchema,
-            ErrorLogResponseSchema,
-            StateTransitionResponseSchema,
+            SessionStatusSchema,
+            ErrorLogSchema,
+            StateTransitionSchema,
         )
         
         # スキーマがインスタンス化できることを確認
-        assert SessionStatusResponseSchema() is not None
-        assert ErrorLogResponseSchema() is not None
-        assert StateTransitionResponseSchema() is not None
+        assert SessionStatusSchema() is not None
+        assert ErrorLogSchema() is not None
+        assert StateTransitionSchema() is not None
 
 
 # ============================================================
@@ -328,7 +328,11 @@ class TestVueComponent:
         """Vueコンポーネントファイルが存在する"""
         import os
         
-        vue_file = r"c:\Users\kiyoteru.hosoda\source\repos\FlaskApp\webapp\src\components\LocalImportStatus.vue"
+        vue_file = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "..", "..", "..", "..",
+            "webapp", "src", "components", "LocalImportStatus.vue",
+        )
         
         assert os.path.exists(vue_file), "LocalImportStatus.vueが存在しない"
     
@@ -336,7 +340,11 @@ class TestVueComponent:
         """Vueコンポーネントの基本構造を確認"""
         import os
         
-        vue_file = r"c:\Users\kiyoteru.hosoda\source\repos\FlaskApp\webapp\src\components\LocalImportStatus.vue"
+        vue_file = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "..", "..", "..", "..",
+            "webapp", "src", "components", "LocalImportStatus.vue",
+        )
         
         if os.path.exists(vue_file):
             with open(vue_file, 'r', encoding='utf-8') as f:

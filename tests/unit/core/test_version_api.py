@@ -32,8 +32,8 @@ class TestVersionAPI:
             "app_start_date": "2025-09-07T17:22:17.270537"
         }
         
-        with patch("webapp.api.version.get_version_info", return_value=mock_version_info):
-            with patch("webapp.api.version.get_version_string", return_value="vtest123"):
+        with patch("presentation.web.api.version.get_version_info", return_value=mock_version_info):
+            with patch("presentation.web.api.version.get_version_string", return_value="vtest123"):
                 response = client.get('/api/version')
         
         assert response.status_code == 200
@@ -45,7 +45,7 @@ class TestVersionAPI:
     
     def test_version_endpoint_error(self, client):
         """バージョンAPIのエラー系テスト"""
-        with patch("webapp.api.version.get_version_info", side_effect=Exception("Test error")):
+        with patch("presentation.web.api.version.get_version_info", side_effect=Exception("Test error")):
             response = client.get('/api/version')
         
         assert response.status_code == 500

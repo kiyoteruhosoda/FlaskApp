@@ -1,87 +1,19 @@
-"""リクエスト内容をそのまま返すAPIエンドポイント。"""
-from __future__ import annotations
+"""後方互換リダイレクト: ``presentation.web.api.echo`` への委譲.
 
-from flask import Response, request
-
-from . import bp
-from .routes import login_or_jwt_required
-
-
-def _build_request_target() -> str:
-    """クエリ文字列を含むリクエストターゲットを生成する。"""
-
-    query_string = request.query_string.decode("utf-8", "replace")
-    if query_string:
-        return f"{request.path}?{query_string}"
-    return request.path
+DDD 移行で残った重複モジュール。直接 import すると同一 Blueprint へ
+ルートを二重登録してアプリ/テストの状態を壊すため、唯一の実体である
+presentation 層へ委譲する（単一の真実の源）。
+"""
+from presentation.web.api.echo import *  # noqa: F401,F403
 
 
-def _format_request_as_plain_text() -> str:
-    """HTTPリクエスト形式のプレーンテキストを生成する。"""
+def __getattr__(name):  # PEP 562: アンダースコア始まり等も遅延委譲する
+    import importlib
 
-    protocol = request.environ.get("SERVER_PROTOCOL", "HTTP/1.1")
-    request_line = f"{request.method} {_build_request_target()} {protocol}"
-
-    header_lines = [f"{header}: {value}" for header, value in request.headers.items()]
-
-    body = request.get_data(as_text=True)
-    sections = [request_line, *header_lines, ""]
-    if body:
-        sections.append(body)
-
-    return "\r\n".join(sections)
-
-
-@bp.route(
-    "/echo",
-    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-)
-@login_or_jwt_required
-@bp.doc(
-    methods=["POST", "PUT", "PATCH"],
-    requestBody={
-        "required": False,
-        "description": "Echoes the submitted payload and headers. Useful for testing proxy behaviour.",
-        "content": {
-            "application/json": {
-                "schema": {
-                    "type": "object",
-                    "additionalProperties": True,
-                    "description": "任意のJSONオブジェクト。フィールド名や型に制限はありません。",
-                },
-                "example": {"message": "Hello", "count": 1},
-            },
-            "text/plain": {
-                "schema": {
-                    "type": "string",
-                    "description": "生のテキストボディ。JSON以外を確認したい場合に利用します。",
-                },
-                "example": "raw body",
-            },
-        },
-    },
-    responses={
-        200: {
-            "description": "Returns the incoming request in raw HTTP message format.",
-            "content": {
-                "text/plain": {
-                    "schema": {
-                        "type": "string",
-                        "description": "HTTPリクエストメッセージをそのまま表現したテキスト。",
-                        "example": (
-                            "POST /api/echo HTTP/1.1\r\n"
-                            "Content-Type: application/json\r\n"
-                            "X-Debug: 1\r\n\r\n"
-                            '{"message": "Hello"}'
-                        ),
-                    }
-                }
-            },
-        }
-    },
-)
-def echo() -> Response:
-    """受信したリクエストのヘッダとボディをHTTPメッセージ形式で返す。"""
-
-    response_text = _format_request_as_plain_text()
-    return Response(response_text, mimetype="text/plain")
+    module = importlib.import_module("presentation.web.api.echo")
+    try:
+        return getattr(module, name)
+    except AttributeError as exc:  # pragma: no cover
+        raise AttributeError(
+            f"module {__name__!r} has no attribute {name!r}"
+        ) from exc

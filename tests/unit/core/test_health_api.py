@@ -24,9 +24,7 @@ def app(tmp_path):
 
     import importlib, sys
     import webapp.config as config_module
-    importlib.reload(config_module)
     import webapp as webapp_module
-    importlib.reload(webapp_module)
     from webapp.config import BaseApplicationSettings
 
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
@@ -59,8 +57,6 @@ def app(tmp_path):
         _apply_persisted_settings(app)
 
     yield app
-    del sys.modules["webapp.config"]
-    del sys.modules["webapp"]
 
 
 @pytest.fixture

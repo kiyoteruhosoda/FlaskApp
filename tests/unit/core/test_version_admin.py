@@ -71,7 +71,7 @@ class TestVersionAdminPage:
         
         # 管理者権限があるので正常にページが表示される
         assert response.status_code == 200
-        assert b'version_info' in response.data  # テンプレート変数が渡されている
+        assert b'vtest123' in response.data  # version_info がテンプレートに渡され描画されている
         assert b'test123' in response.data  # コミットハッシュが表示されている
     
     @patch('flask_login.utils._get_user')

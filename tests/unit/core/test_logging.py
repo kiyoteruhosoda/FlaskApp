@@ -21,7 +21,9 @@ def app(tmp_path):
     test_env_vars = {
         "SECRET_KEY": "test-secret-key",
         "JWT_SECRET_KEY": "test-jwt-secret",
-        "DATABASE_URI": "sqlite:///:memory:",
+        # DBLogHandler は別エンジン接続で書き込むため :memory: では DB が共有されない。
+        # ハンドラの書き込みをテストから参照できるようファイル DB を使う。
+        "DATABASE_URI": f"sqlite:///{tmp_path / 'test.db'}",
         "GOOGLE_CLIENT_ID": "",
         "GOOGLE_CLIENT_SECRET": "",
         "ENCRYPTION_KEY": base64.urlsafe_b64encode(b"0" * 32).decode(),
@@ -39,22 +41,33 @@ def app(tmp_path):
         os.environ[key] = value
 
     try:
-        # configモジュールをリロードして新しい環境変数を反映
-        import webapp.config as config_module
-        importlib.reload(config_module)
-        import webapp as webapp_module
-        importlib.reload(webapp_module)
-        
+        # reload しない: create_app は DATABASE_URI を runtime 再解決し、settings は
+        # env を遅延参照するため reload は不要。reload(webapp) はシム submodule の
+        # identity を分岐させ後続テストの monkeypatch を壊す。
         from webapp import create_app
-        from .config import TestConfig
+        from tests.config import TestConfig
 
         app = create_app()
         app.config.from_object(TestConfig)
+        # 例外を伝播させず 500 エラーハンドラを実行させる（エラーログ記録を検証するため）。
+        app.config["PROPAGATE_EXCEPTIONS"] = False
 
         from webapp.extensions import db
 
         with app.app_context():
             db.create_all()
+
+            # アプリは testing モードで DB ログを無効化するため、ログの DB 記録を
+            # 検証する本テストでは DBLogHandler を明示的に取り付ける。
+            import logging as _logging
+            from core.db_log_handler import DBLogHandler
+
+            for _h in list(app.logger.handlers):
+                if isinstance(_h, DBLogHandler):
+                    app.logger.removeHandler(_h)
+            _db_handler = DBLogHandler(app=app)
+            _db_handler.setLevel(_logging.INFO)
+            app.logger.addHandler(_db_handler)
 
             @app.route("/boom")
             def boom():
@@ -82,12 +95,6 @@ def app(tmp_path):
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = original_value
-        
-        # モジュールをクリーンアップ
-        if "webapp.config" in sys.modules:
-            del sys.modules["webapp.config"]
-        if "webapp" in sys.modules:
-            del sys.modules["webapp"]
 
 
 @pytest.fixture

@@ -9,8 +9,8 @@ import sys
 import traceback
 
 
-def test_import(module_path: str, description: str) -> tuple[bool, str]:
-    """モジュールのインポートをテスト"""
+def _check_import(module_path: str, description: str) -> tuple[bool, str]:
+    """モジュールのインポートを検証する（pytest ケースではなく手動スクリプト用ヘルパ）。"""
     try:
         __import__(module_path)
         return True, f"✓ {description}"
@@ -24,22 +24,22 @@ def main():
     
     tests = [
         # Domain層
-        ("features.photonest.domain.local_import.state_machine", "Domain: State Machine"),
+        ("bounded_contexts.photonest.domain.local_import.state_machine", "Domain: State Machine"),
         
         # Application層
-        ("features.photonest.application.local_import.state_synchronizer", "Application: State Synchronizer"),
-        ("features.photonest.application.local_import.state_management_service", "Application: State Management Service"),
-        ("features.photonest.application.local_import.troubleshooting", "Application: Troubleshooting Engine"),
-        ("features.photonest.application.local_import.integration_example", "Application: Integration Example"),
+        ("bounded_contexts.photonest.application.local_import.state_synchronizer", "Application: State Synchronizer"),
+        ("bounded_contexts.photonest.application.local_import.state_management_service", "Application: State Management Service"),
+        ("bounded_contexts.photonest.application.local_import.troubleshooting", "Application: Troubleshooting Engine"),
+        ("bounded_contexts.photonest.application.local_import.integration_example", "Application: Integration Example"),
         
         # Infrastructure層
-        ("features.photonest.infrastructure.local_import.audit_logger", "Infrastructure: Audit Logger"),
-        ("features.photonest.infrastructure.local_import.audit_log_repository", "Infrastructure: Audit Log Repository"),
-        ("features.photonest.infrastructure.local_import.repositories", "Infrastructure: Repositories"),
-        ("features.photonest.infrastructure.local_import.logging_integration", "Infrastructure: Logging Integration"),
+        ("bounded_contexts.photonest.infrastructure.local_import.audit_logger", "Infrastructure: Audit Logger"),
+        ("bounded_contexts.photonest.infrastructure.local_import.audit_log_repository", "Infrastructure: Audit Log Repository"),
+        ("bounded_contexts.photonest.infrastructure.local_import.repositories", "Infrastructure: Repositories"),
+        ("bounded_contexts.photonest.infrastructure.local_import.logging_integration", "Infrastructure: Logging Integration"),
         
         # Presentation層
-        ("features.photonest.presentation.local_import_status_api", "Presentation: Status API"),
+        ("bounded_contexts.photonest.presentation.local_import_status_api", "Presentation: Status API"),
     ]
     
     print("=" * 80)
@@ -49,7 +49,7 @@ def main():
     
     results = []
     for module_path, description in tests:
-        success, message = test_import(module_path, description)
+        success, message = _check_import(module_path, description)
         results.append((success, message))
         print(message)
         if not success:

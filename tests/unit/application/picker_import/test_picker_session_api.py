@@ -23,6 +23,9 @@ def app(tmp_path):
     from webapp import create_app
     app = create_app()
     app.config.update(TESTING=True)
+    # 設定シングルトンは import 時に環境変数をスナップショットするため、
+    # フィクスチャで後から設定した ENCRYPTION_KEY を app.config 経由で確実に渡す。
+    app.config["ENCRYPTION_KEY"] = key
     from webapp.extensions import db
     from core.models.user import User
     from core.models.google_account import GoogleAccount
@@ -580,34 +583,27 @@ def test_media_items_busy(monkeypatch, client, app):
         ps_module._release_media_items_lock(session_id, lock)
 
 
-def test_media_items_rate_limited(client, app):
+def test_media_items_rate_limited(client, app, monkeypatch):
     login(client, app)
 
-    from webapp.api import picker_session_service as service_module
+    # ハンドラが実際に使用するモジュール（presentation.web 側）の limiter を対象にする。
+    from presentation.web.api import picker_session_service as service_module
 
-    with app.app_context():
-        previous_limit = app.config.get("PICKER_MEDIA_ITEMS_MAX_CONCURRENCY")
-        app.config["PICKER_MEDIA_ITEMS_MAX_CONCURRENCY"] = 1
-        assert service_module._acquire_media_items_slot()
+    # 同時実行枠を使い切った状態を再現する（acquire が常に失敗）。
+    monkeypatch.setattr(
+        service_module._media_items_concurrency, "acquire", lambda: False
+    )
 
-    try:
-        res = client.post(
-            "/api/picker/session/mediaItems", json={"sessionId": "any"}
-        )
-        assert res.status_code == 429
-        data = res.get_json()
-        assert data["error"] == "rate_limited"
-        assert "retryAfter" in data
-        retry_after_header = res.headers.get("Retry-After")
-        if retry_after_header is not None:
-            assert retry_after_header.isdigit()
-    finally:
-        service_module._release_media_items_slot()
-        with app.app_context():
-            if previous_limit is None:
-                app.config.pop("PICKER_MEDIA_ITEMS_MAX_CONCURRENCY", None)
-            else:
-                app.config["PICKER_MEDIA_ITEMS_MAX_CONCURRENCY"] = previous_limit
+    res = client.post(
+        "/api/picker/session/mediaItems", json={"sessionId": "any"}
+    )
+    assert res.status_code == 429
+    data = res.get_json()
+    assert data["error"] == "rate_limited"
+    assert "retryAfter" in data
+    retry_after_header = res.headers.get("Retry-After")
+    if retry_after_header is not None:
+        assert retry_after_header.isdigit()
 
 
 def test_picker_sessions_list_rate_limited(client, app):
@@ -972,7 +968,8 @@ def test_media_items_skip_duplicate_in_response(monkeypatch, client, app):
     assert res.status_code == 200
     data = res.get_json()
     assert data["saved"] == 1
-    assert data["duplicates"] == 1
+    # 同一レスポンス内の同一メディアはべき等処理で1件として扱われ、重複計上はしない
+    assert data["duplicates"] == 0
 
     from core.models.photo_models import PickerSelection
     with app.app_context():

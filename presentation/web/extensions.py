@@ -1,6 +1,6 @@
 from core.db import db
 from flask_migrate import Migrate
-from flask_login import LoginManager
+from flask_login import LoginManager, AnonymousUserMixin
 from flask_babel import Babel
 from flask_babel import lazy_gettext as _l
 from flask import current_app, g, session
@@ -17,6 +17,20 @@ api = Api()
 mail = Mail()
 
 login_manager.login_message = None
+
+
+class AnonymousUser(AnonymousUserMixin):
+    """未認証ユーザー。権限チェック ``can()`` を常に ``False`` で返す。
+
+    ``current_user.can(...)`` を認証状態に関わらず安全に呼べるようにする
+    （未認証時に AttributeError とならないため）。
+    """
+
+    def can(self, *codes: str) -> bool:
+        return False
+
+
+login_manager.anonymous_user = AnonymousUser
 
 
 @login_manager.user_loader

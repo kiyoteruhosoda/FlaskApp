@@ -23,7 +23,6 @@ def app(tmp_path):
 
     import webapp.config as config_module
 
-    config_module = importlib.reload(config_module)
     BaseApplicationSettings = config_module.BaseApplicationSettings
 
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
@@ -67,12 +66,12 @@ def test_api_login_requires_totp(client, app):
         db.session.commit()
         totp_email = totp_user.email
 
-    res = client.post("/api/login", json={"email": totp_email, "password": "pass"})
+    res = client.post("/api/auth/login", json={"email": totp_email, "password": "pass"})
     assert res.status_code == 401
     assert res.get_json()["error"] == "totp_required"
 
     res = client.post(
-        "/api/login",
+        "/api/auth/login",
         json={"email": totp_email, "password": "pass", "token": "000000"},
     )
     assert res.status_code == 401
@@ -80,7 +79,7 @@ def test_api_login_requires_totp(client, app):
 
     valid_token = pyotp.TOTP(secret).now()
     res = client.post(
-        "/api/login",
+        "/api/auth/login",
         json={"email": totp_email, "password": "pass", "token": valid_token},
     )
     assert res.status_code == 200
@@ -106,7 +105,7 @@ def test_api_login_accepts_string_scope(client, app):
         email = user.email
 
     response = client.post(
-        "/api/login",
+        "/api/auth/login",
         json={
             "email": email,
             "password": "pass",

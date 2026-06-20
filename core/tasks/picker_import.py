@@ -855,6 +855,9 @@ def picker_import_item(
             sel.base_url = fetched_base_url
             sel.base_url_fetched_at = now
             sel.base_url_valid_until = now + timedelta(hours=1)
+            # 取得した base_url をダウンロードに使用する（キャッシュ未使用の経路で
+            # ローカル変数 base_url が None のままにならないようにする）。
+            base_url = fetched_base_url
 
         # ここでのbase_urlの再バリデーションは不要（既に上でチェック済み）
         meta = item.get("mediaMetadata", {}) if item else {}

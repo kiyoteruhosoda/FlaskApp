@@ -45,7 +45,7 @@ def test_api_logout_revokes_tokens_and_clears_session(client):
     assert user.refresh_token_hash is not None
     assert user.check_refresh_token(refresh_token)
 
-    response = client.post("/api/logout")
+    response = client.post("/api/auth/logout")
     assert response.status_code == 200
     payload = response.get_json()
     assert payload["result"] == "ok"
@@ -81,7 +81,7 @@ def test_api_logout_rejects_inactive_user_token_via_request_loader(client):
     app.config["LOGIN_DISABLED"] = False
 
     try:
-        response = client.post("/api/logout")
+        response = client.post("/api/auth/logout")
     finally:
         app.config["TESTING"] = original_testing
         app.config["LOGIN_DISABLED"] = original_login_disabled

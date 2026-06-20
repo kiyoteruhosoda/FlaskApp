@@ -32,9 +32,7 @@ def app(tmp_path):
 
     import importlib, sys
     import webapp.config as config_module
-    importlib.reload(config_module)
     import webapp as webapp_module
-    importlib.reload(webapp_module)
     from webapp.config import BaseApplicationSettings
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
     from webapp import create_app
@@ -51,8 +49,6 @@ def app(tmp_path):
         db.session.commit()
 
     yield app
-    del sys.modules["webapp.config"]
-    del sys.modules["webapp"]
     for k, v in prev_env.items():
         if v is None:
             os.environ.pop(k, None)

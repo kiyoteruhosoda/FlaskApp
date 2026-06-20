@@ -21,10 +21,9 @@ def app(tmp_path):
     prev = {k: os.environ.get(k) for k in env}
     os.environ.update(env)
 
-    import webapp.config as config_module
-    importlib.reload(config_module)
-    import webapp as webapp_module
-    importlib.reload(webapp_module)
+    # webapp / webapp.config を reload しない。create_app は DATABASE_URI を runtime に
+    # 再解決し、settings は env を遅延参照するため reload は不要。reload(webapp) は
+    # シム submodule の identity を分岐させ、後続テストの monkeypatch を無効化する。
     from webapp.config import BaseApplicationSettings
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
     from webapp import create_app
@@ -40,8 +39,9 @@ def app(tmp_path):
         db.session.add_all([acc, user])
         db.session.commit()
     yield app
-    del sys.modules["webapp.config"]
-    del sys.modules["webapp"]
+    # webapp / webapp.config を sys.modules から削除すると、後続テストが参照する
+    # シム submodule（例: webapp.api.picker_session）の identity が変わり
+    # monkeypatch が効かなくなる。reload は in-place で identity を保つため del しない。
     for k, v in prev.items():
         if v is None:
             os.environ.pop(k, None)
@@ -50,11 +50,14 @@ def app(tmp_path):
 
 
 def _create_selection(app):
+    import uuid
     from webapp.extensions import db
     from core.models.photo_models import MediaItem, PickerSelection
     from core.models.picker_session import PickerSession
     with app.app_context():
-        ps = PickerSession(account_id=1, status="pending")
+        # 数値IDによる参照はセキュリティ上廃止されたため、session_id を割り当てる
+        sess_id = f"picker_sessions/{uuid.uuid4().hex}"
+        ps = PickerSession(account_id=1, status="pending", session_id=sess_id)
         db.session.add(ps)
         mi = MediaItem(id="m1", mime_type="image/jpeg", filename="a.jpg", type="PHOTO")
         db.session.add(mi)
@@ -62,7 +65,7 @@ def _create_selection(app):
         sel = PickerSelection(session_id=ps.id, google_media_id="m1", status="pending")
         db.session.add(sel)
         db.session.commit()
-    return ps.id
+    return sess_id
 
 
 def _login_client(client):
@@ -84,10 +87,11 @@ def _login_client(client):
 
 
 def test_picker_session_selections_endpoint(app):
-    ps_id = _create_selection(app)
+    sess_id = _create_selection(app)
     client = app.test_client()
     _login_client(client)
-    resp = client.get(f"/api/picker/session/{ps_id}/selections")
+    uuid_part = sess_id.split("/", 1)[1]
+    resp = client.get(f"/api/picker/session/{uuid_part}/selections")
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["counts"]["pending"] == 1

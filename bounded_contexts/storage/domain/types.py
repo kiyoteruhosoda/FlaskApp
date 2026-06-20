@@ -28,11 +28,26 @@ class StorageBackendType(Enum):
 
 
 class StorageDomain(Enum):
-    """Storage domain categories."""
+    """Storage domain categories.
+
+    細分化されたメディア用ドメイン（originals / playback / thumbnails / import）は、
+    ``StorageService.for_domain`` で各保存先ディレクトリへ 1:1 に解決される。
+    ``MEDIA`` / ``THUMBNAILS`` などの粗いカテゴリは ``StoragePath`` のラベルや
+    CDN 連携で用いる。
+    """
+
+    # 粗いカテゴリ（StoragePath のラベル等で使用）
     MEDIA = "media"
     THUMBNAILS = "thumbnails"
     TEMP = "temp"
     BACKUPS = "backups"
+    DEFAULT = "default"
+
+    # メディア保存先に 1:1 対応する細分化ドメイン（for_domain で解決）
+    MEDIA_ORIGINALS = "media_originals"
+    MEDIA_PLAYBACK = "media_playback"
+    MEDIA_THUMBNAILS = "media_thumbnails"
+    MEDIA_IMPORT = "media_import"
 
 
 class StorageIntent(Enum):
@@ -43,6 +58,7 @@ class StorageIntent(Enum):
     CACHE = "cache"
     READ = "read"  # Added for compatibility
     WRITE = "write"  # Added for compatibility
+    DELETE = "delete"  # 削除時のクリーンアップ用
     
     # CDN specific intents
     CDN_OPTIMIZED = "cdn_optimized"

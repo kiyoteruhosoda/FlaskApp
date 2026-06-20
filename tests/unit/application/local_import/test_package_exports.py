@@ -5,9 +5,9 @@ import pytest
 
 
 def test_local_import_package_exposes_public_api(monkeypatch: pytest.MonkeyPatch) -> None:
-    package = importlib.reload(importlib.import_module("features.photonest.application.local_import"))
+    package = importlib.reload(importlib.import_module("bounded_contexts.photonest.application.local_import"))
     direct_logger = importlib.import_module(
-        "features.photonest.application.local_import.logger"
+        "bounded_contexts.photonest.application.local_import.logger"
     ).LocalImportTaskLogger
 
     original_import = package.import_module
@@ -26,7 +26,7 @@ def test_local_import_package_exposes_public_api(monkeypatch: pytest.MonkeyPatch
 
 
 def test_local_import_package_invalid_attribute() -> None:
-    package = importlib.reload(importlib.import_module("features.photonest.application.local_import"))
+    package = importlib.reload(importlib.import_module("bounded_contexts.photonest.application.local_import"))
 
     assert not hasattr(package, "NonExisting")
     try:

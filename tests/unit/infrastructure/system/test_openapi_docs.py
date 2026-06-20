@@ -2,8 +2,6 @@ import json
 import re
 import pytest
 
-from webapp.extensions import api as smorest_api
-
 
 @pytest.mark.usefixtures('app_context')
 class TestOpenAPIDocs:
@@ -16,13 +14,14 @@ class TestOpenAPIDocs:
         assert payload['openapi'] == '3.0.3'
 
         servers = payload.get('servers', [])
+        # プロキシ経由（forwarded proto=https）でない素の http アクセスでは、
+        # 実際のスキームである http のみがサーバとして提示される。
         assert servers == [
-            {'url': 'https://localhost/api'},
             {'url': 'http://localhost/api'},
         ]
 
-        assert '/login' in payload['paths']
-        login_post = payload['paths']['/login']['post']
+        assert '/auth/login' in payload['paths']
+        login_post = payload['paths']['/auth/login']['post']
         request_schema = login_post['requestBody']['content']['application/json']['schema']
         assert request_schema == {'$ref': '#/components/schemas/LoginRequest'}
         response_schema = login_post['responses']['200']['content']['application/json']['schema']
@@ -84,7 +83,13 @@ class TestOpenAPIDocs:
         response = client.get('/api/docs', base_url='http://nolumia.com', headers=headers)
         assert response.status_code == 200
 
-        assert smorest_api.spec.options.get('servers') == [
+        # Swagger UI のサーバドロップダウンは openapi.json の servers から生成される。
+        # servers はリクエスト毎に算出されるため、spec の静的オプションではなく
+        # 実際に配信される openapi.json を検証する。
+        spec = client.get(
+            '/api/openapi.json', base_url='http://nolumia.com', headers=headers
+        ).get_json()
+        assert spec['servers'] == [
             {'url': 'https://nolumia.com/api'},
             {'url': 'http://nolumia.com/api'},
         ]
@@ -104,7 +109,7 @@ class TestOpenAPIDocs:
         api_data = json.loads(match.group(1))
 
         login_entry = next(
-            (item for item in api_data if item.get('path') == '/login' and item.get('method') == 'POST'),
+            (item for item in api_data if item.get('path') == '/auth/login' and item.get('method') == 'POST'),
             None,
         )
         assert login_entry is not None, 'Login endpoint not found in overview data'
@@ -212,8 +217,8 @@ class TestOpenAPIDocs:
         assert response.status_code == 200
         payload = response.get_json()
 
-        login_security = payload['paths']['/login']['post']['security']
-        refresh_security = payload['paths']['/refresh']['post']['security']
+        login_security = payload['paths']['/auth/login']['post']['security']
+        refresh_security = payload['paths']['/auth/refresh']['post']['security']
         token_security = payload['paths']['/token']['post']['security']
 
         assert login_security == []

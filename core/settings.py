@@ -746,6 +746,16 @@ class ApplicationSettings:
         value = self._get("SQLALCHEMY_DATABASE_URI")
         return str(value) if value is not None else None
 
+    @property
+    def database_uri(self) -> Optional[str]:
+        """``DATABASE_URI`` を返す。
+
+        ``SQLALCHEMY_DATABASE_URI`` の元となる接続文字列の環境変数。
+        ``create_app`` が実行時に DB を再解決する際の参照元として用いる。
+        """
+        value = self._get("DATABASE_URI")
+        return str(value) if value is not None else None
+
     # ------------------------------------------------------------------
     # Wiki feature configuration
     # ------------------------------------------------------------------

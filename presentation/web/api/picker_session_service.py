@@ -1193,6 +1193,7 @@ class PickerSessionService:
         saved = 0
         dup = 0
         new_pmis = []
+        enqueued_keys: set = set()
         for item in items:
             result = PickerSessionService._save_single_item(ps, item)
             if result is None:
@@ -1206,7 +1207,13 @@ class PickerSessionService:
             if result.is_new_selection:
                 saved += 1
 
+            # 同一レスポンス内に同じメディアが重複して含まれる場合でも、
+            # 取り込みタスクの enqueue は1セレクション1回に抑える（べき等処理）。
+            if result.should_enqueue and pmi.google_media_id in enqueued_keys:
+                continue
+
             if result.should_enqueue:
+                enqueued_keys.add(pmi.google_media_id)
                 current_app.logger.info(
                     json.dumps({
                         "event": "picker.enqueue",

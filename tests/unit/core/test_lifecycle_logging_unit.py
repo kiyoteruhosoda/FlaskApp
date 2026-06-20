@@ -29,8 +29,6 @@ def lifecycle_app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     import webapp.config as config_module
     import webapp as webapp_module
 
-    importlib.reload(config_module)
-    importlib.reload(webapp_module)
 
     from webapp import create_app
     from webapp.extensions import db
@@ -59,9 +57,8 @@ def lifecycle_app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
             db.session.remove()
             db.drop_all()
 
-        for module_name in ("webapp.config", "webapp"):
-            if module_name in sys.modules:
-                del sys.modules[module_name]
+        # webapp / webapp.config を sys.modules から削除しない（後続テストの
+        # シム submodule identity を壊し monkeypatch を無効化するため）。
 
 
 def test_lifecycle_logging_records_startup(lifecycle_app):

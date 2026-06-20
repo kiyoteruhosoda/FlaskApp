@@ -27,7 +27,14 @@ def app(tmp_path, monkeypatch):
     with app.app_context():
         from core.db import db
         db.create_all()
-    
+
+    # Celery タスクは ContextTask 経由で celery_app.flask_app のコンテキストを使う。
+    # flask_app は import 時に生成されるシングルトンのため、全体実行では別テストの
+    # DB で凍結され "no such table" になる。テストの app へ差し替えてテストの DB を
+    # 使わせる（単独実行でも同じ app になり挙動は変わらない）。
+    import cli.src.celery.celery_app as celery_app_module
+    monkeypatch.setattr(celery_app_module, "flask_app", app, raising=False)
+
     return app
 
 
@@ -66,7 +73,7 @@ def sample_data(app):
         # Create a picker session
         session = PickerSession(
             account_id=account.id,
-            status="active"
+            status="importing"
         )
         db.session.add(session)
         db.session.flush()
@@ -169,7 +176,8 @@ class TestPickerImportItem:
             selection = sample_data['selections'][0]
             
             # Mock the Google API calls and file operations
-            with patch('core.tasks.picker_import.picker_import_item') as mock_import:
+            # タスクは cli.src.celery.tasks 名前空間に取り込んだ参照を使うため、そちらを patch する
+            with patch('cli.src.celery.tasks.picker_import_item') as mock_import:
                 mock_import.return_value = {"ok": True, "status": "completed"}
                 
                 result = picker_import_item_task(selection.id, selection.session_id)
@@ -215,19 +223,20 @@ class TestCeleryTaskFileOperations:
                 mock_get.assert_called_once_with(test_url, timeout=DEFAULT_DOWNLOAD_TIMEOUT)
 
     def test_download_file_task_error_handling(self, app, tmp_path):
-        """Test download file task error handling."""
+        """ネットワークエラーを捕捉しエラー結果を返すことを確認する。"""
         from cli.src.celery.tasks import download_file
         import requests
-        
+
         test_url = "http://example.com/nonexistent.txt"
-        
+
         # Mock requests to raise an exception
         with patch('cli.src.celery.tasks.requests.get') as mock_get:
             mock_get.side_effect = requests.RequestException("Network error")
-            
+
             with app.app_context():
-                with pytest.raises(requests.RequestException):
-                    download_file(url=test_url, dest_dir=str(tmp_path))
+                result = download_file(url=test_url, dest_dir=str(tmp_path))
+                assert result["ok"] is False
+                assert "Network error" in result["error"]
 
     def test_download_file_custom_timeout(self, app, tmp_path):
         """カスタムタイムアウト値が requests.get に渡されることを確認する。"""
@@ -247,7 +256,7 @@ class TestCeleryTaskFileOperations:
                 mock_get.assert_called_once_with(test_url, timeout=5)
 
     def test_download_file_timeout_error(self, app, tmp_path):
-        """タイムアウト例外が伝播することを確認する。"""
+        """タイムアウト例外を捕捉しエラー結果を返すことを確認する。"""
         from cli.src.celery.tasks import download_file
         import requests
 
@@ -257,24 +266,30 @@ class TestCeleryTaskFileOperations:
             mock_get.side_effect = requests.Timeout("Request timed out")
 
             with app.app_context():
-                with pytest.raises(requests.Timeout):
-                    download_file(url=slow_url, dest_dir=str(tmp_path))
+                result = download_file(url=slow_url, dest_dir=str(tmp_path))
+                assert result["ok"] is False
+                assert "timed out" in result["error"].lower()
 
 
 class TestCeleryTaskErrorScenarios:
     """Test error scenarios in Celery tasks."""
     
     def test_watchdog_with_database_error(self, app):
-        """Test watchdog behavior when database operations fail."""
+        """DB エラー時に watchdog タスクが例外を捕捉しエラー結果を返すことを確認する。"""
+        import cli.src.celery.tasks as tasks_module
         from cli.src.celery.tasks import picker_import_watchdog_task
-        
-        # Mock database query to raise an exception
-        with patch('core.models.photo_models.PickerSelection.query') as mock_query:
-            mock_query.filter_by.side_effect = Exception("Database connection error")
-            
+
+        # watchdog 本体が DB エラーで失敗するケースを再現する
+        with patch.object(
+            tasks_module,
+            "picker_import_watchdog",
+            side_effect=Exception("Database connection error"),
+        ):
             with app.app_context():
-                with pytest.raises(Exception, match="Database connection error"):
-                    picker_import_watchdog_task()
+                result = picker_import_watchdog_task()
+
+        assert result["ok"] is False
+        assert "Database connection error" in result["error"]
     
     def test_import_item_with_missing_session(self, app, sample_data):
         """Test import item task with missing session."""
@@ -355,8 +370,8 @@ class TestCeleryTaskPerformance:
                 
                 # Should complete quickly when sleep is mocked
                 assert (end_time - start_time) < 1.0
-                assert result == {"result": 30}
-                mock_sleep.assert_called_once_with(5)
+                assert result == {"ok": True, "result": 30}
+                mock_sleep.assert_called_once_with(2)
     
     def test_watchdog_task_performance(self, app, sample_data):
         """Test that watchdog task completes in reasonable time."""

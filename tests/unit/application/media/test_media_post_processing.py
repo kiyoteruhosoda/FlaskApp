@@ -41,8 +41,6 @@ def app(tmp_path):
     import webapp.config as config_module
     import webapp as webapp_module
 
-    importlib.reload(config_module)
-    importlib.reload(webapp_module)
 
     from webapp.config import BaseApplicationSettings
 
@@ -66,8 +64,8 @@ def app(tmp_path):
         db_ext.session.remove()
         db_ext.drop_all()
 
-    for module in ("webapp.config", "webapp"):
-        sys.modules.pop(module, None)
+    # webapp / webapp.config を sys.modules から pop しない。シム submodule の
+    # identity が変わり、後続テストの monkeypatch（enqueue 等）が無効化される。
 
     for key, value in prev_env.items():
         if value is None:

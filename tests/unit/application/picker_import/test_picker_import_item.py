@@ -98,7 +98,7 @@ def test_picker_import_item_imports(monkeypatch, app, tmp_path):
         def json(self):
             return {"baseUrl": "http://example/file", "mediaMetadata": {"width": "1", "height": "1"}}
 
-    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None: FakeResp())
+    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None, **kwargs: FakeResp())
 
     called_thumbs: list[int] = []
     called_play: list[int] = []
@@ -147,7 +147,7 @@ def test_picker_import_item_dup(monkeypatch, app, tmp_path):
         def json(self):
             return {"baseUrl": "http://example/file", "mediaMetadata": {"width": "1", "height": "1"}}
 
-    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None: FakeResp())
+    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None, **kwargs: FakeResp())
 
     called_thumbs: list[int] = []
     called_play: list[int] = []
@@ -215,7 +215,7 @@ def test_picker_import_item_reimports_deleted_media(monkeypatch, app, tmp_path):
         def json(self):
             return {"baseUrl": "http://example/file", "mediaMetadata": {"width": "1", "height": "1"}}
 
-    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None: FakeResp())
+    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None, **kwargs: FakeResp())
 
     called_thumbs: list[int] = []
     called_play: list[int] = []
@@ -289,7 +289,7 @@ def test_picker_import_item_video_queues_playback(monkeypatch, app, tmp_path):
                 "mediaMetadata": {"width": "1", "height": "1", "video": {"durationMillis": "1000"}},
             }
 
-    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None: FakeResp())
+    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None, **kwargs: FakeResp())
 
     called_thumbs: list[int] = []
     called_play: list[int] = []
@@ -381,7 +381,7 @@ def test_picker_import_item_heartbeat(monkeypatch, app, tmp_path):
         def json(self):
             return {"baseUrl": "http://example/file", "mediaMetadata": {"width": "1", "height": "1"}}
 
-    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None: FakeResp())
+    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None, **kwargs: FakeResp())
     monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: None)
     monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid, **kwargs: None)
 
@@ -484,7 +484,7 @@ def test_picker_import_item_reresolve_failure_marks_expired(monkeypatch, app, tm
         def json(self):
             return {}
 
-    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None: Resp())
+    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None, **kwargs: Resp())
     monkeypatch.setattr(mod, "_download", lambda url, dest_dir, headers=None: None)
     monkeypatch.setattr(mod, "enqueue_thumbs_generate", lambda mid: None)
     monkeypatch.setattr(mod, "enqueue_media_playback", lambda mid, **kwargs: None)
@@ -513,7 +513,7 @@ def test_picker_import_item_network_error_requeues(monkeypatch, app, tmp_path):
         def json(self):
             return {"baseUrl": "http://example/file", "mediaMetadata": {"width": "1", "height": "1"}}
 
-    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None: FakeResp())
+    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None, **kwargs: FakeResp())
 
     def fail_download(url, dest_dir, headers=None):
         raise requests.exceptions.ConnectionError()

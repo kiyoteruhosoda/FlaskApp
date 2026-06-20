@@ -1,4 +1,4 @@
-"""`features.photonest.domain.local_import.media_metadata` のユーティリティに関するテスト。"""
+"""`bounded_contexts.photonest.domain.local_import.media_metadata` のユーティリティに関するテスト。"""
 
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ def test_extract_video_metadata_uses_quicktime_creationdate_when_creation_time_m
         return _DummyCompletedProcess(stdout)
 
     monkeypatch.setattr(
-        "features.photonest.domain.local_import.media_metadata.subprocess.run", _fake_run
+        "bounded_contexts.photonest.domain.local_import.media_metadata.subprocess.run", _fake_run
     )
 
     metadata = extract_video_metadata("dummy.mov")
@@ -74,7 +74,7 @@ def test_extract_video_metadata_prefers_stream_creation_time(
         return _DummyCompletedProcess(stdout)
 
     monkeypatch.setattr(
-        "features.photonest.domain.local_import.media_metadata.subprocess.run", _fake_run
+        "bounded_contexts.photonest.domain.local_import.media_metadata.subprocess.run", _fake_run
     )
 
     metadata = extract_video_metadata("dummy.mov")
@@ -103,7 +103,7 @@ def test_extract_video_metadata_keeps_stream_creation_time_when_falling_back(
         return _DummyCompletedProcess(stdout)
 
     monkeypatch.setattr(
-        "features.photonest.domain.local_import.media_metadata.subprocess.run", _fake_run
+        "bounded_contexts.photonest.domain.local_import.media_metadata.subprocess.run", _fake_run
     )
 
     metadata = extract_video_metadata("dummy.mov")

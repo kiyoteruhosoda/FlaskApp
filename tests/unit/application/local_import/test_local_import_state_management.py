@@ -83,7 +83,7 @@ class TestItemStateMachine:
 class TestLoggingIntegration:
     """ログ統合のテスト"""
     
-    @patch('features.photonest.infrastructure.local_import.logging_integration.AuditLogger')
+    @patch('bounded_contexts.photonest.infrastructure.local_import.logging_integration.AuditLogger')
     def test_init_audit_logger(self, mock_audit_logger):
         """監査ロガー初期化のテスト"""
         from bounded_contexts.photonest.infrastructure.local_import.logging_integration import init_audit_logger
@@ -142,7 +142,7 @@ class TestRepositories:
         # 関数が存在することを確認
         assert callable(create_state_management_service)
     
-    @patch('features.photonest.infrastructure.local_import.repositories.PickerSession')
+    @patch('bounded_contexts.photonest.infrastructure.local_import.repositories.PickerSession')
     def test_session_repository_creation(self, mock_session):
         """セッションリポジトリ作成のテスト"""
         from bounded_contexts.photonest.infrastructure.local_import.repositories import (

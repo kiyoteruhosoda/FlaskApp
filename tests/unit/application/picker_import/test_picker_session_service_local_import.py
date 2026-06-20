@@ -560,7 +560,7 @@ class TestPickerSessionServiceLocalImport:
             }
 
             monkeypatch.setattr(
-                'features.photonest.application.local_import.use_case.build_thumbnail_task_snapshot',
+                'bounded_contexts.photonest.application.local_import.use_case.build_thumbnail_task_snapshot',
                 lambda *args, **kwargs: dict(snapshot),
             )
 
@@ -632,8 +632,8 @@ class TestPickerSessionServiceLocalImport:
 
             original_import = local_import_module.import_single_file
 
-            def fake_import(file_path, import_dir, originals_dir, *, session_id=None):
-                result = original_import(file_path, import_dir, originals_dir, session_id=session_id)
+            def fake_import(file_path, import_dir, originals_dir, *, session_id=None, **kwargs):
+                result = original_import(file_path, import_dir, originals_dir, session_id=session_id, **kwargs)
 
                 if session_id and not getattr(fake_import, 'triggered', False):
                     fake_import.triggered = True

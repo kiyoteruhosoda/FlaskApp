@@ -1,4 +1,4 @@
-"""features.photonest.domain.local_import.logging のテスト."""
+"""bounded_contexts.photonest.domain.local_import.logging のテスト."""
 
 from __future__ import annotations
 

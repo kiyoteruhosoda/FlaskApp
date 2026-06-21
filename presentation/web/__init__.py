@@ -39,7 +39,7 @@ from .extensions import db, migrate, login_manager, babel, api as smorest_api
 from .error_handlers import register_error_handlers
 from webapp.auth import SERVICE_LOGIN_SESSION_KEY, SERVICE_LOGIN_TOKEN_SESSION_KEY
 from webapp.auth.api_key_auth import API_KEY_SECURITY_SCHEME_NAME
-from .timezone import resolve_timezone, convert_to_timezone
+from .timezone import resolve_timezone
 from core.db_log_handler import DBLogHandler
 from core.logging_config import ensure_appdb_file_logging
 from core.settings import settings
@@ -64,6 +64,7 @@ from .openapi_spec import (
     strip_openapi_path_prefix,
 )
 from .cors import configure_cors
+from .jinja_filters import register_template_filters
 
 
 def _apply_persisted_settings(app: Flask) -> None:
@@ -416,38 +417,7 @@ def create_app():
             current_language=current_language,
         )
 
-    @app.template_filter("localtime")
-    def _localtime_filter(value, fmt="%Y/%m/%d %H:%M"):
-        """Render *value* in the user's preferred time zone."""
-
-        if value is None:
-            return ""
-        if not isinstance(value, datetime):
-            return value
-
-        tzinfo = getattr(g, "user_timezone", timezone.utc)
-        localized = convert_to_timezone(value, tzinfo)
-        if localized is None:
-            return ""
-        if fmt is None:
-            return localized
-        return localized.strftime(fmt)
-
-    @app.template_filter("escapejs")
-    def _escapejs_filter(value):
-        """Escape a string for safe embedding inside JavaScript strings."""
-
-        if value is None:
-            return ""
-
-        if not isinstance(value, str):
-            value = str(value)
-
-        # ``json.dumps`` provides the necessary escaping for characters that
-        # would otherwise break out of a JavaScript string literal (quotes,
-        # newlines, etc.). The surrounding quotes added by ``json.dumps`` are
-        # removed because the template already provides them.
-        return json.dumps(value, ensure_ascii=False)[1:-1]
+    register_template_filters(app)
 
     disable_db_logging = testing_mode or settings.testing
 

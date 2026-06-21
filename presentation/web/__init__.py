@@ -63,84 +63,7 @@ from .openapi_spec import (
     normalize_openapi_prefix,
     strip_openapi_path_prefix,
 )
-
-
-_DEFAULT_CORS_ALLOW_HEADERS = "Authorization,Content-Type"
-_DEFAULT_CORS_ALLOW_METHODS = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
-_DEFAULT_CORS_MAX_AGE = "86400"
-
-
-def _configure_cors(app: Flask) -> None:
-    """Configure Cross-Origin Resource Sharing based on application settings."""
-
-    def _current_allowed_origins() -> tuple[str, ...]:
-        config_value = settings.cors_allowed_origins
-        origins = tuple(value for value in config_value if value)
-        app.config["CORS_ALLOWED_ORIGINS"] = origins
-        return origins
-
-    def _is_origin_allowed(origin: Optional[str]) -> bool:
-        if not origin:
-            return False
-        allowed_origins = _current_allowed_origins()
-        if not allowed_origins:
-            return False
-        if "*" in allowed_origins:
-            return True
-        return origin in allowed_origins
-
-    def _apply_base_headers(response, origin: str) -> None:
-        allowed_origins = _current_allowed_origins()
-        if "*" in allowed_origins:
-            response.headers["Access-Control-Allow-Origin"] = "*"
-        else:
-            response.headers["Access-Control-Allow-Origin"] = origin
-            response.headers.add("Vary", "Origin")
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers.setdefault("Access-Control-Max-Age", _DEFAULT_CORS_MAX_AGE)
-
-    @app.before_request
-    def _handle_cors_preflight():
-        if request.method != "OPTIONS":
-            return None
-        origin = request.headers.get("Origin")
-        if not _is_origin_allowed(origin):
-            return None
-
-        response = make_response("", 204)
-        _apply_base_headers(response, origin or "")
-
-        requested_method = request.headers.get("Access-Control-Request-Method")
-        response.headers["Access-Control-Allow-Methods"] = (
-            requested_method or _DEFAULT_CORS_ALLOW_METHODS
-        )
-
-        requested_headers = request.headers.get("Access-Control-Request-Headers")
-        if requested_headers:
-            response.headers["Access-Control-Allow-Headers"] = requested_headers
-        else:
-            response.headers["Access-Control-Allow-Headers"] = _DEFAULT_CORS_ALLOW_HEADERS
-
-        return response
-
-    @app.after_request
-    def _apply_cors_headers(response):
-        origin = request.headers.get("Origin")
-        if not _is_origin_allowed(origin):
-            return response
-
-        _apply_base_headers(response, origin or "")
-
-        if "Access-Control-Allow-Methods" not in response.headers:
-            response.headers["Access-Control-Allow-Methods"] = _DEFAULT_CORS_ALLOW_METHODS
-
-        request_headers = request.headers.get("Access-Control-Request-Headers")
-        if request_headers:
-            response.headers["Access-Control-Allow-Headers"] = request_headers
-        elif "Access-Control-Allow-Headers" not in response.headers:
-            response.headers["Access-Control-Allow-Headers"] = _DEFAULT_CORS_ALLOW_HEADERS
-
-        return response
+from .cors import configure_cors
 
 
 def _apply_persisted_settings(app: Flask) -> None:
@@ -376,7 +299,7 @@ def create_app():
         )
         smorest_api.spec.options.setdefault("security", [{"JWTBearerAuth": []}])
 
-    _configure_cors(app)
+    configure_cors(app)
 
     with app.app_context():
         configured_servers = (settings.api_spec_options or {}).get("servers")

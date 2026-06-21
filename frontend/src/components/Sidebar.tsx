@@ -63,12 +63,22 @@ const Sidebar: React.FC = () => {
               </div>
 
               {hasPermission('media:session') && (
-                <Nav.Link 
-                  href="/sessions" 
+                <Nav.Link
+                  href="/sessions"
                   className={`d-flex align-items-center py-2 ${isActive('/sessions') ? 'active' : ''}`}
                 >
                   <i className="bi bi-collection me-2"></i>
                   {!sidebarCollapsed && <span>{t('Sessions')}</span>}
+                </Nav.Link>
+              )}
+
+              {hasPermission('media:session') && (
+                <Nav.Link
+                  href="/jobs"
+                  className={`d-flex align-items-center py-2 ${isActive('/jobs') ? 'active' : ''}`}
+                >
+                  <i className="bi bi-list-task me-2"></i>
+                  {!sidebarCollapsed && <span>{t('Sync Jobs')}</span>}
                 </Nav.Link>
               )}
 

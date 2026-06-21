@@ -15,6 +15,8 @@ import ToastNotification from './components/ToastNotification';
 import LoginPage from './pages/LoginPage';
 import RoleSelectionPage from './pages/RoleSelectionPage';
 import MediaGalleryPage from './pages/MediaGalleryPage';
+import JobsPage from './pages/JobsPage';
+import SessionsPage from './pages/SessionsPage';
 
 // Bootstrap CSS
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -146,13 +148,31 @@ const AppContent: React.FC = () => {
             } 
           />
           
-          <Route 
-            path="/media" 
+          <Route
+            path="/media"
             element={
               <ProtectedRoute>
                 <MediaGalleryPage />
               </ProtectedRoute>
-            } 
+            }
+          />
+
+          <Route
+            path="/jobs"
+            element={
+              <ProtectedRoute>
+                <JobsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/sessions"
+            element={
+              <ProtectedRoute>
+                <SessionsPage />
+              </ProtectedRoute>
+            }
           />
 
           {/* Catch all route */}

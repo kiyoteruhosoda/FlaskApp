@@ -136,3 +136,113 @@ export interface TaskStatus {
   error?: string;
   progress?: number;
 }
+// ===== 同期・変換ジョブ履歴 (/api/sync/jobs) =====
+export type JobStatus =
+  | 'queued'
+  | 'running'
+  | 'success'
+  | 'partial'
+  | 'failed'
+  | 'canceled';
+
+export type JobTargetCategory =
+  | 'local_import'
+  | 'picker_import'
+  | 'transcode'
+  | 'thumbnail'
+  | 'google_photos'
+  | 'other';
+
+export interface SyncJob {
+  id: number;
+  target: string;
+  targetCategory: JobTargetCategory;
+  taskName: string | null;
+  queueName: string | null;
+  trigger: string | null;
+  status: JobStatus;
+  accountId: number | null;
+  sessionId: number | null;
+  celeryTaskId: number | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  durationMs: number | null;
+  statsSummary: Record<string, number>;
+  errorMessage: string | null;
+  retryable: boolean;
+}
+
+export interface SyncJobDetail extends SyncJob {
+  stats: Record<string, any>;
+  args: Record<string, any>;
+  celeryTask?: {
+    taskName: string;
+    status: string;
+    errorMessage: string | null;
+    startedAt: string | null;
+    finishedAt: string | null;
+  };
+}
+
+export interface Pagination {
+  currentPage: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
+export interface SyncJobListResponse {
+  jobs: SyncJob[];
+  pagination: Pagination;
+  filter: {
+    status: string | null;
+    target: string | null;
+    since: string | null;
+    until: string | null;
+  };
+  server_time: string;
+}
+
+export interface SyncJobDetailResponse {
+  job: SyncJobDetail;
+  server_time: string;
+}
+
+export interface SyncJobsQuery {
+  page?: number;
+  pageSize?: number;
+  status?: JobStatus | '';
+  target?: JobTargetCategory | '';
+  since?: string;
+  until?: string;
+}
+
+// ===== Picker セッション一覧 (/api/picker/sessions) =====
+export interface PickerSessionRow {
+  id: number;
+  sessionId: string;
+  accountId: number | null;
+  status: string;
+  selectedCount: number;
+  createdAt: string | null;
+  lastProgressAt: string | null;
+  counts: Record<string, number>;
+  accountEmail: string | null;
+  isLocalImport: boolean;
+}
+
+export interface PickerSessionListResponse {
+  sessions: PickerSessionRow[];
+  pagination: {
+    hasNext: boolean;
+    hasPrev: boolean;
+    nextCursor: string | null;
+    prevCursor: string | null;
+    currentPage: number | null;
+    totalPages: number | null;
+    totalCount: number | null;
+  };
+  server_time: string;
+}

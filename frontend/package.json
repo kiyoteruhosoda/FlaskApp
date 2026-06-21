@@ -12,6 +12,8 @@
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "type-check": "tsc --noEmit",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "clean": "rm -rf build dist node_modules/.vite"
   },
   "dependencies": {
@@ -30,6 +32,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",
+    "@playwright/test": "^1.61.0",
     "@types/node": "^25.1.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
@@ -41,6 +44,6 @@
     "eslint-plugin-react-refresh": "^0.4.14",
     "globals": "^15.12.0",
     "typescript": "^5.6.3",
-    "vite": "^6.0.3"
+    "vite": "^6.4.3"
   }
 }

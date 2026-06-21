@@ -11,7 +11,11 @@ import {
   PaginatedResponse,
   SystemSettings,
   GoogleAccount,
-  TaskStatus
+  TaskStatus,
+  SyncJobListResponse,
+  SyncJobDetailResponse,
+  SyncJobsQuery,
+  PickerSessionListResponse
 } from '../types/api';
 
 class ApiClient {
@@ -293,6 +297,28 @@ class ApiClient {
   // タスク状況API
   async getTaskStatus(taskId: string): Promise<ApiResponse<TaskStatus>> {
     return this.get<TaskStatus>(`/tasks/${taskId}/status`);
+  }
+
+  // ===== 同期・変換ジョブ履歴 API =====
+  // バックエンドは {jobs, pagination, ...} の生レスポンスを返すため、
+  // ApiResponse ラップせず素の型で受ける。
+  async getSyncJobs(params?: SyncJobsQuery): Promise<SyncJobListResponse> {
+    const response = await this.client.get<SyncJobListResponse>('/sync/jobs', { params });
+    return response.data;
+  }
+
+  async getSyncJob(id: number): Promise<SyncJobDetailResponse> {
+    const response = await this.client.get<SyncJobDetailResponse>(`/sync/jobs/${id}`);
+    return response.data;
+  }
+
+  // ===== Picker セッション一覧 API（実エンドポイント /picker/sessions） =====
+  async getPickerSessions(params?: {
+    page?: number;
+    pageSize?: number;
+  }): Promise<PickerSessionListResponse> {
+    const response = await this.client.get<PickerSessionListResponse>('/picker/sessions', { params });
+    return response.data;
   }
 }
 

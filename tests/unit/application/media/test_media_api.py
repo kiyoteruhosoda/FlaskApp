@@ -39,7 +39,7 @@ def app(tmp_path):
     # 遅延参照するため reload は不要。reload(webapp) はシム submodule の identity を
     # 分岐させ後続テストの monkeypatch を壊す。
     import sys
-    from presentation.web.config import BaseApplicationSettings
+    from presentation.web.bootstrap.config import BaseApplicationSettings
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
     from presentation.web import create_app
 

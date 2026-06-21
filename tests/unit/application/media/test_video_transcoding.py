@@ -12,7 +12,7 @@ import pytest
 from presentation.web import create_app
 from core.tasks.picker_import import enqueue_media_playback
 from core.models.photo_models import Media, MediaPlayback
-from presentation.web.extensions import db
+from presentation.web.bootstrap.extensions import db
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.ffmpeg, pytest.mark.filesystem]

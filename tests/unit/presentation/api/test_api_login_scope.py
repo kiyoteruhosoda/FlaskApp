@@ -51,7 +51,7 @@ def app(tmp_path):
         original_env[key] = os.environ.get(key)
         os.environ[key] = value
 
-    import presentation.web.config as config_module
+    import presentation.web.bootstrap.config as config_module
 
     BaseApplicationSettings = config_module.BaseApplicationSettings
 

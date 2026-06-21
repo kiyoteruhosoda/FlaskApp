@@ -1,11 +1,11 @@
-"""`presentation/web/unauthorized_handler.py` の純粋ロジックの単体テスト。
+"""`presentation/web/middleware/unauthorized_handler.py` の純粋ロジックの単体テスト。
 
 未認証理由の分類はログ診断とクライアント挙動（再ログイン誘導）に直結するため、
 セッション状態の各組み合わせに対する分類を網羅的に検証する。ハンドラ全体は
 既存の統合テスト（auth.unauthorized ログ / X-Session-Expired 応答）で網羅。
 """
 
-from presentation.web.unauthorized_handler import classify_login_state
+from presentation.web.middleware.unauthorized_handler import classify_login_state
 
 
 def _session_info(**overrides):

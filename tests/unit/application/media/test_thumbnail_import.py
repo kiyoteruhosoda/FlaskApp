@@ -21,7 +21,7 @@ def app(tmp_path):
     os.environ["MEDIA_THUMBNAILS_DIRECTORY"] = str(thumbs)
     os.environ["MEDIA_PLAYBACK_DIRECTORY"] = str(play)
 
-    from presentation.web.config import BaseApplicationSettings
+    from presentation.web.bootstrap.config import BaseApplicationSettings
 
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
     from presentation.web import create_app
@@ -33,7 +33,7 @@ def app(tmp_path):
         MEDIA_THUMBNAILS_DIRECTORY=str(thumbs),
         MEDIA_PLAYBACK_DIRECTORY=str(play),
     )
-    from presentation.web.extensions import db
+    from presentation.web.bootstrap.extensions import db
 
     with app.app_context():
         db.create_all()
@@ -44,7 +44,7 @@ def test_thumbnail_generation(app):
     """インポートされた画像からサムネイルが生成されることを検証する."""
     from core.tasks.picker_import import enqueue_thumbs_generate
     from core.models.photo_models import Media
-    from presentation.web.extensions import db
+    from presentation.web.bootstrap.extensions import db
 
     with app.app_context():
         orig_dir = Path(app.config["MEDIA_ORIGINALS_DIRECTORY"])

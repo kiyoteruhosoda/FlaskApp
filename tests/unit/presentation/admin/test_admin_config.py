@@ -6,7 +6,7 @@ import pytest
 
 from core.models.user import User, Role, Permission
 from core.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
-from presentation.web.extensions import db
+from presentation.web.bootstrap.extensions import db
 from presentation.web.services.system_setting_service import SystemSettingService
 
 
@@ -364,7 +364,7 @@ def test_update_cors_config_rejects_invalid_origin(client):
 
 def test_apply_persisted_settings_initializes_mailman_when_enabled(app_context):
     from presentation.web import _apply_persisted_settings
-    from presentation.web.extensions import mail
+    from presentation.web.bootstrap.extensions import mail
 
     # Ensure a clean starting point
     app_context.extensions.pop("mailman", None)
@@ -397,7 +397,7 @@ def test_apply_persisted_settings_initializes_mailman_when_enabled(app_context):
 
 def test_apply_persisted_settings_removes_mailman_when_disabled(app_context):
     from presentation.web import _apply_persisted_settings
-    from presentation.web.extensions import mail
+    from presentation.web.bootstrap.extensions import mail
 
     # First enable mail to ensure the extension is registered
     SystemSettingService.update_application_settings({"MAIL_ENABLED": True})

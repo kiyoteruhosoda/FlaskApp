@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from presentation.web import create_app
 from core.models.picker_session import PickerSession
 from core.models.photo_models import PickerSelection, MediaItem
-from presentation.web.extensions import db
+from presentation.web.bootstrap.extensions import db
 
 
 def create_test_import():

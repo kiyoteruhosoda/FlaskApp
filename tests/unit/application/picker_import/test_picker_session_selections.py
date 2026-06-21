@@ -24,12 +24,12 @@ def app(tmp_path):
     # webapp / webapp.config を reload しない。create_app は DATABASE_URI を runtime に
     # 再解決し、settings は env を遅延参照するため reload は不要。reload(webapp) は
     # シム submodule の identity を分岐させ、後続テストの monkeypatch を無効化する。
-    from presentation.web.config import BaseApplicationSettings
+    from presentation.web.bootstrap.config import BaseApplicationSettings
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
     from presentation.web import create_app
     app = create_app()
     app.config.update(TESTING=True)
-    from presentation.web.extensions import db
+    from presentation.web.bootstrap.extensions import db
     from core.models.google_account import GoogleAccount
     from core.models.user import User
     with app.app_context():
@@ -51,7 +51,7 @@ def app(tmp_path):
 
 def _create_selection(app):
     import uuid
-    from presentation.web.extensions import db
+    from presentation.web.bootstrap.extensions import db
     from core.models.photo_models import MediaItem, PickerSelection
     from core.models.picker_session import PickerSession
     with app.app_context():
@@ -100,7 +100,7 @@ def test_picker_session_selections_endpoint(app):
 
 def test_picker_session_selections_by_session_id_endpoint(app):
     import uuid
-    from presentation.web.extensions import db
+    from presentation.web.bootstrap.extensions import db
     from core.models.photo_models import MediaItem, PickerSelection
     from core.models.picker_session import PickerSession
 

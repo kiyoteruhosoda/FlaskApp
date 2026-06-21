@@ -49,7 +49,7 @@ from bounded_contexts.photonest.domain.album import AlbumVisibility
 from bounded_contexts.photonest.infrastructure.album import SqlAlchemyAlbumRepository
 from .health import skip_auth
 from .openapi import json_request_body
-from ..extensions import db
+from ..bootstrap.extensions import db
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
 from core.models.photo_models import (

@@ -23,7 +23,7 @@ from core.tasks.thumbs_generate import (
     PLAYBACK_NOT_READY_NOTES,
     thumbs_generate as _thumbs_generate,
 )
-from presentation.web.config import BaseApplicationSettings
+from presentation.web.bootstrap.config import BaseApplicationSettings
 
 from core.settings import settings
 from bounded_contexts.storage import StorageDomain

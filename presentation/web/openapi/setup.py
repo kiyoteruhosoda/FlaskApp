@@ -15,8 +15,9 @@ from flask import Flask
 from core.settings import settings
 from presentation.web.auth.api_key_auth import API_KEY_SECURITY_SCHEME_NAME
 
-from .extensions import api as smorest_api
-from .openapi_spec import calculate_openapi_server_urls, normalize_openapi_prefix
+from presentation.web.bootstrap.extensions import api as smorest_api
+
+from .spec import calculate_openapi_server_urls, normalize_openapi_prefix
 
 
 def apply_openapi_config_defaults(app: Flask) -> None:

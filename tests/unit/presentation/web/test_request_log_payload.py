@@ -1,4 +1,4 @@
-"""`presentation/web/request_log_payload.py` の単体テスト。
+"""`presentation/web/middleware/request_log_payload.py` の単体テスト。
 
 ログ整形ロジックは機密マスクとサイズ制御という監査・セキュリティ上重要な
 振る舞いを担うため、純粋関数として境界条件まで網羅的に検証する。
@@ -6,7 +6,7 @@
 
 from werkzeug.datastructures import FileStorage, MultiDict
 
-from presentation.web.request_log_payload import (
+from presentation.web.middleware.request_log_payload import (
     MAX_LOG_PAYLOAD_BYTES,
     MAX_POST_PARAM_STRING_LENGTH,
     format_file_parameters_for_logging,

@@ -1,4 +1,4 @@
-"""`presentation/web/openapi_spec.py` の単体テスト。
+"""`presentation/web/openapi/spec.py` の単体テスト。
 
 OpenAPI のサーバ URL 算出はプロキシ配下やサブパス公開時のドキュメント正しさに
 直結するため、URL 正規化・結合の純粋関数と、リクエスト依存の算出ロジックの
@@ -10,8 +10,8 @@ import types
 
 import pytest
 
-from presentation.web import openapi_spec
-from presentation.web.openapi_spec import (
+from presentation.web.openapi import spec as openapi_spec
+from presentation.web.openapi.spec import (
     build_base_url,
     calculate_openapi_server_urls,
     combine_base_and_prefix,

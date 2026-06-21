@@ -2,7 +2,7 @@ import pytest
 
 from core.models.user import User
 from shared.application.authenticated_principal import AuthenticatedPrincipal
-from presentation.web.extensions import db
+from presentation.web.bootstrap.extensions import db
 from presentation.web.services.token_service import TokenService
 
 

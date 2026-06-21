@@ -95,7 +95,7 @@ nolumia/
 └── docker-compose.yml  # ローカル/本番のコンテナ構成
 ```
 
-> **補足:** Web アプリの実体は `presentation/web/` に一本化されています（旧 `webapp/` パッケージは撤去済み）。OpenAPI 拡張は pip の `flask-smorest`（`requirements.txt` で固定）を使用し、`/api/overview` のインタラクティブ仕様表・favicon 付き Swagger UI・エラースキーマ拡張などの独自機能は `presentation/web/smorest_ext.py` とアプリのテンプレートでアドオンしています（本体フォークは廃止）。
+> **補足:** Web アプリの実体は `presentation/web/` に一本化されています（旧 `webapp/` パッケージは撤去済み）。OpenAPI 拡張は pip の `flask-smorest`（`requirements.txt` で固定）を使用し、`/api/overview` のインタラクティブ仕様表・favicon 付き Swagger UI・エラースキーマ拡張などの独自機能は `presentation/web/openapi/smorest_ext.py` とアプリのテンプレートでアドオンしています（本体フォークは廃止）。
 
 ### 主要機能
 - 🔐 **セキュア認証**: JWT + ロールベース権限管理、TOTP 多要素認証

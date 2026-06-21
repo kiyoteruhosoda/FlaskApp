@@ -14,7 +14,7 @@ from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 from core.models.job_sync import JobSync
 from core.logging_config import log_task_info
 from presentation.web import _apply_persisted_settings
-from presentation.web.config import BaseApplicationSettings
+from presentation.web.bootstrap.config import BaseApplicationSettings
 
 # .envファイルを読み込み
 load_dotenv()
@@ -29,7 +29,7 @@ def create_app():
     db.init_app(app)
 
     # Initialize other extensions
-    from presentation.web.extensions import migrate, login_manager, babel
+    from presentation.web.bootstrap.extensions import migrate, login_manager, babel
     migrate.init_app(app, db)
     login_manager.init_app(app)
     babel.init_app(app)

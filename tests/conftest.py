@@ -72,7 +72,7 @@ def _restore_os_environ():
         # 一部フィクスチャは test 用環境変数の下で webapp.config を reload するが
         # 元に戻さないため、BaseApplicationSettings の値（SECRET_KEY/DATABASE_URI 等）
         # が後続テストへ漏れて連鎖失敗していた。
-        config_module = sys.modules.get("presentation.web.config")
+        config_module = sys.modules.get("presentation.web.bootstrap.config")
         if config_module is not None:
             try:
                 importlib.reload(config_module)
@@ -121,12 +121,12 @@ def app_context():
     
     try:
         # configモジュールをリロード
-        import presentation.web.config as config_module
+        import presentation.web.bootstrap.config as config_module
         importlib.reload(config_module)
 
         from presentation.web import create_app
         from .config import TestConfig
-        from presentation.web.extensions import db
+        from presentation.web.bootstrap.extensions import db
         from presentation.web.services.system_setting_service import SystemSettingService
         from presentation.web import _apply_persisted_settings
 

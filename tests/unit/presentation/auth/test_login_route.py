@@ -7,7 +7,7 @@ from urllib.parse import urlsplit
 import pytest
 
 from core.models.user import User
-from presentation.web.extensions import db
+from presentation.web.bootstrap.extensions import db
 
 
 @pytest.fixture

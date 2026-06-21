@@ -21,7 +21,7 @@ def app(tmp_path):
         original_env[key] = os.environ.get(key)
         os.environ[key] = value
 
-    import presentation.web.config as config_module
+    import presentation.web.bootstrap.config as config_module
 
     BaseApplicationSettings = config_module.BaseApplicationSettings
 
@@ -31,7 +31,7 @@ def app(tmp_path):
     app = create_app()
     app.config.update(TESTING=True)
 
-    from presentation.web.extensions import db
+    from presentation.web.bootstrap.extensions import db
 
     with app.app_context():
         db.create_all()
@@ -55,7 +55,7 @@ def client(app):
 
 
 def test_api_login_requires_totp(client, app):
-    from presentation.web.extensions import db
+    from presentation.web.bootstrap.extensions import db
     from core.models.user import User
 
     with app.app_context():
@@ -89,7 +89,7 @@ def test_api_login_requires_totp(client, app):
 
 
 def test_api_login_accepts_string_scope(client, app):
-    from presentation.web.extensions import db
+    from presentation.web.bootstrap.extensions import db
     from core.models.user import Permission, Role, User
 
     with app.app_context():

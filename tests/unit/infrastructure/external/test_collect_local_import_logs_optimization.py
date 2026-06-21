@@ -26,14 +26,14 @@ def app(tmp_path):
     key = base64.urlsafe_b64encode(b"0" * 32).decode()
     os.environ["ENCRYPTION_KEY"] = key
 
-    from presentation.web.config import BaseApplicationSettings
+    from presentation.web.bootstrap.config import BaseApplicationSettings
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
 
     from presentation.web import create_app
     app = create_app()
     app.config.update(TESTING=True)
 
-    from presentation.web.extensions import db
+    from presentation.web.bootstrap.extensions import db
     from core.models.user import User
 
     with app.app_context():
@@ -52,7 +52,7 @@ def app(tmp_path):
 @pytest.fixture
 def db_session(app):
     """データベースセッション"""
-    from presentation.web.extensions import db
+    from presentation.web.bootstrap.extensions import db
     with app.app_context():
         yield db.session
 

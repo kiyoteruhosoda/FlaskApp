@@ -26,12 +26,12 @@ def lifecycle_app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     for key, value in env_vars.items():
         monkeypatch.setenv(key, value)
 
-    import presentation.web.config as config_module
+    import presentation.web.bootstrap.config as config_module
     import presentation.web as webapp_module
 
 
     from presentation.web import create_app
-    from presentation.web.extensions import db
+    from presentation.web.bootstrap.extensions import db
 
     app = create_app()
     app.config["TESTING"] = True

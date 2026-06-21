@@ -5,7 +5,7 @@ import os
 from flask import Blueprint, jsonify, current_app
 from sqlalchemy import text
 
-from .extensions import db
+from presentation.web.bootstrap.extensions import db
 from core.time import utc_now_isoformat
 from core.settings import settings
 from bounded_contexts.storage import StorageDomain

@@ -13,7 +13,7 @@ from uuid import uuid4
 from flask import current_app
 from werkzeug.datastructures import FileStorage
 
-from presentation.web.config import BaseApplicationSettings
+from presentation.web.bootstrap.config import BaseApplicationSettings
 from core.settings import settings
 from bounded_contexts.storage import StorageDomain
 

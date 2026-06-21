@@ -382,7 +382,7 @@ def api_picker_session_callback(session_id):
 @limit_concurrency(_picker_session_summary_limiter)
 def api_picker_session_summary(picker_session_id):
     """Return selection counts and job summary for picker session."""
-    ps = PickerSession.query.get(picker_session_id)
+    ps = db.session.get(PickerSession, picker_session_id)
     if not ps:
         return _json_response({"error": "not_found"}, 404)
 
@@ -1451,7 +1451,7 @@ def api_picker_session_finish(picker_session_id):
     if status not in {"imported", "expired", "error"}:
         return _json_response({"error": "invalid_status"}, 400)
 
-    ps = PickerSession.query.get(picker_session_id)
+    ps = db.session.get(PickerSession, picker_session_id)
     if not ps:
         return _json_response({"error": "not_found"}, 404)
 

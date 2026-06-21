@@ -72,7 +72,7 @@ class GoogleController(BaseController):
         """Googleアカウント更新処理."""
         self._require_permission("admin")
         
-        account = GoogleAccount.query.get(account_id)
+        account = db.session.get(GoogleAccount, account_id)
         if not account:
             return self._error_response(_("Google account not found"), 404)
         
@@ -100,7 +100,7 @@ class GoogleController(BaseController):
         """Googleアカウント削除処理."""
         self._require_permission("admin")
         
-        account = GoogleAccount.query.get(account_id)
+        account = db.session.get(GoogleAccount, account_id)
         if not account:
             return self._error_response(_("Google account not found"), 404)
         
@@ -119,7 +119,7 @@ class GoogleController(BaseController):
         """Googleアカウントテスト処理."""
         self._require_permission("admin")
         
-        account = GoogleAccount.query.get(account_id)
+        account = db.session.get(GoogleAccount, account_id)
         if not account:
             return self._error_response(_("Google account not found"), 404)
         

@@ -158,7 +158,7 @@ class TagController(BaseController):
         """メディアタグ更新処理."""
         from core.models.photo_models import Media
         
-        media = Media.query.get(media_id)
+        media = db.session.get(Media, media_id)
         if not media:
             return self._error_response(_("Media not found"), 404)
         
@@ -173,7 +173,7 @@ class TagController(BaseController):
         
         # 新しいタグを追加
         for tag_id in tag_ids:
-            tag = Tag.query.get(tag_id)
+            tag = db.session.get(Tag, tag_id)
             if tag:
                 db.session.execute(
                     media_tag.insert().values(
@@ -193,7 +193,7 @@ class TagController(BaseController):
     
     def _get_tag_or_404(self, tag_id: int) -> Tag:
         """タグ取得（404エラー付き）."""
-        tag = Tag.query.get(tag_id)
+        tag = db.session.get(Tag, tag_id)
         if not tag:
             abort(404, description=_("Tag not found"))
         return tag

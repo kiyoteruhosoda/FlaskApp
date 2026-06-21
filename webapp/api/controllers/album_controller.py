@@ -260,7 +260,7 @@ class AlbumController(BaseController):
             sort_order = order_info.get("sort_order")
             
             if album_id and sort_order is not None:
-                album = Album.query.get(album_id)
+                album = db.session.get(Album, album_id)
                 if album:
                     album.sort_order = sort_order
                     album.updated_at = utc_now_isoformat()
@@ -287,7 +287,7 @@ class AlbumController(BaseController):
         
         for media_id in media_ids:
             # メディア存在チェック
-            media = Media.query.get(media_id)
+            media = db.session.get(Media, media_id)
             if not media:
                 continue
             

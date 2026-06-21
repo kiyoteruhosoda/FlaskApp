@@ -847,7 +847,7 @@ def service_accounts_detail(account_id: int):
     if not current_user.can("service_account:manage"):
         return jsonify({"error": "forbidden"}), 403
 
-    account = ServiceAccount.query.get(account_id)
+    account = db.session.get(ServiceAccount, account_id)
     if not account:
         return jsonify({"error": "not_found"}), 404
     return jsonify({"item": account.as_dict()})
@@ -901,7 +901,7 @@ def service_account_api_keys(account_id: int):
     if not _can_read_api_keys():
         return _redirect_to_home()
 
-    account = ServiceAccount.query.get(account_id)
+    account = db.session.get(ServiceAccount, account_id)
     if not account:
         flash(_(u"The requested service account could not be found."), "warning")
         return redirect(url_for("admin.service_accounts"))
@@ -1648,7 +1648,7 @@ def user_add():
         if User.query.filter_by(email=email).first():
             flash(_("Email already exists."), "error")
             return render_template("admin/user_add.html", roles=roles)
-        role_obj = Role.query.get(int(role_id))
+        role_obj = db.session.get(Role, int(role_id))
         if not role_obj:
             flash(_("Selected role does not exist."), "error")
             return render_template("admin/user_add.html", roles=roles)
@@ -1856,7 +1856,7 @@ def role_add():
             return render_template("admin/role_edit.html", role=None, permissions=permissions, selected=[])
         role = Role(name=name)
         for pid in perm_ids:
-            perm = Permission.query.get(int(pid))
+            perm = db.session.get(Permission, int(pid))
             if perm:
                 role.permissions.append(perm)
         db.session.add(role)
@@ -1882,7 +1882,7 @@ def role_edit(role_id):
         role.name = name
         role.permissions = []
         for pid in perm_ids:
-            perm = Permission.query.get(int(pid))
+            perm = db.session.get(Permission, int(pid))
             if perm:
                 role.permissions.append(perm)
         db.session.commit()

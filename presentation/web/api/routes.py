@@ -1052,7 +1052,7 @@ def get_current_user():
         if getattr(cached, "id", None) == principal.id:
             return cached
 
-        user = User.query.get(principal.id)
+        user = db.session.get(User, principal.id)
         if user and user.is_active:
             g.current_user_model = user
             g.current_user = user
@@ -1559,7 +1559,7 @@ def api_album_detail(album_id: int):
     )
 
     try:
-        album = Album.query.get(album_id)
+        album = db.session.get(Album, album_id)
     except Exception as exc:  # pragma: no cover - unexpected database failure
         current_app.logger.exception(
             json.dumps({**log_context, "stage": "query_failed", "error": str(exc)}),
@@ -2552,7 +2552,7 @@ def api_media_update_metadata(media_id: int):
             403,
         )
 
-    media = Media.query.get(media_id)
+    media = db.session.get(Media, media_id)
     if not media or media.is_deleted:
         return jsonify({"error": "not_found"}), 404
 
@@ -2626,7 +2626,7 @@ def api_media_delete(media_id: int):
             403,
         )
 
-    media = Media.query.get(media_id)
+    media = db.session.get(Media, media_id)
     if not media or media.is_deleted:
         return jsonify({"error": "not_found"}), 404
 
@@ -3028,7 +3028,7 @@ def api_tags_update(tag_id: int):
     if not current_user.can("media:tag-manage"):
         return jsonify({"error": "forbidden"}), 403
 
-    tag = Tag.query.get(tag_id)
+    tag = db.session.get(Tag, tag_id)
     if not tag:
         return jsonify({"error": "not_found"}), 404
 
@@ -3195,7 +3195,7 @@ def _resolve_download_filename(payload: dict, rel: str, abs_path: str) -> str | 
     filename: str | None = None
     media_id = payload.get("mid")
     if media_id is not None:
-        media = Media.query.get(media_id)
+        media = db.session.get(Media, media_id)
         if media and media.filename:
             filename = media.filename
 
@@ -3437,7 +3437,7 @@ def api_media_thumbnail(media_id):
     if size not in (256, 512, 1024, 2048):
         return jsonify({"error": "invalid_size"}), 400
 
-    media = Media.query.get(media_id)
+    media = db.session.get(Media, media_id)
     if not media:
         return jsonify({"error": "not_found"}), 404
     if media.is_deleted:
@@ -3540,7 +3540,7 @@ def api_media_thumb_url(media_id):
     if size not in (256, 512, 1024, 2048):
         return jsonify({"error": "invalid_size"}), 400
 
-    media = Media.query.get(media_id)
+    media = db.session.get(Media, media_id)
     if not media:
         return jsonify({"error": "not_found"}), 404
     if media.is_deleted:
@@ -3621,7 +3621,7 @@ def api_media_recover(media_id: int):
     if not user or not user.can("media:recover"):
         return jsonify({"error": "forbidden"}), 403
 
-    media = Media.query.get(media_id)
+    media = db.session.get(Media, media_id)
     if not media:
         return jsonify({"error": "not_found"}), 404
     if media.is_deleted:
@@ -3735,7 +3735,7 @@ def api_media_recover(media_id: int):
 @bp.post("/media/<int:media_id>/original-url")
 @login_or_jwt_required
 def api_media_original_url(media_id):
-    media = Media.query.get(media_id)
+    media = db.session.get(Media, media_id)
     if not media:
         return jsonify({"error": "not_found"}), 404
     if media.is_deleted:
@@ -3798,7 +3798,7 @@ def api_media_original_url(media_id):
 @bp.post("/media/<int:media_id>/playback-url")
 @login_or_jwt_required
 def api_media_playback_url(media_id):
-    media = Media.query.get(media_id)
+    media = db.session.get(Media, media_id)
     if not media or not media.is_video:
         return jsonify({"error": "not_found"}), 404
     if media.is_deleted:

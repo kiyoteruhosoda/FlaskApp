@@ -467,7 +467,7 @@ def thumbs_generate(*, media_id: int, force: bool = False) -> Dict[str, object]:
         requested_resolutions=SIZES,
     )
 
-    m = Media.query.get(media_id)
+    m = db.session.get(Media, media_id)
     if not m:
         log.error(
             "thumbnail_generation.not_found",

@@ -767,7 +767,7 @@ def _refresh_existing_media_metadata(
 
     media_item = None
     if media.google_media_id:
-        media_item = MediaItem.query.get(media.google_media_id)
+        media_item = db.session.get(MediaItem, media.google_media_id)
         if media_item:
             metadata_obj = update_media_item_from_analysis(media_item, analysis)
             if metadata_obj is not None:

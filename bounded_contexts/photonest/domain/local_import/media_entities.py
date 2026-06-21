@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
+from core.db import db
 from core.models.photo_models import Exif, Media, MediaItem, PhotoMetadata, VideoMetadata
 
 from .media_file import MediaFileAnalysis
@@ -162,7 +163,7 @@ def ensure_exif_for_media(media: Media, analysis: MediaFileAnalysis) -> Optional
 
     exif = media.exif
     if exif is None:
-        exif = Exif.query.get(media.id)  # type: ignore[arg-type]
+        exif = db.session.get(Exif, media.id)  # type: ignore[arg-type]
     exif = exif or Exif(media_id=media.id)
     exif.camera_make = analysis.exif_data.get("Make")
     exif.camera_model = analysis.exif_data.get("Model")

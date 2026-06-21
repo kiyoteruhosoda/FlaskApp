@@ -64,7 +64,7 @@ class StorageController(BaseController):
                 abort(400, description=_("Invalid download token"))
             
             # メディア取得
-            media = Media.query.get(media_id)
+            media = db.session.get(Media, media_id)
             if not media:
                 abort(404, description=_("Media not found"))
             
@@ -77,7 +77,7 @@ class StorageController(BaseController):
     
     def _handle_media_stream(self, media_id: int) -> Response:
         """メディアストリーミング処理."""
-        media = Media.query.get(media_id)
+        media = db.session.get(Media, media_id)
         if not media:
             abort(404, description=_("Media not found"))
         

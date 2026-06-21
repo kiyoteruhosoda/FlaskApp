@@ -372,7 +372,7 @@ class PickerSessionService:
     # --- Status -----------------------------------------------------------
     @staticmethod
     def status(ps: PickerSession) -> dict:
-        account = GoogleAccount.query.get(ps.account_id) if ps.account_id else None
+        account = db.session.get(GoogleAccount, ps.account_id) if ps.account_id else None
         selected = ps.selected_count
 
         if account and account.status == "active" and not ps.session_id:
@@ -1085,7 +1085,7 @@ class PickerSessionService:
 
     @staticmethod
     def _auth_headers(account_id: int) -> Optional[dict]:
-        account = GoogleAccount.query.get(account_id)
+        account = db.session.get(GoogleAccount, account_id)
         if not account:
             return None
         try:
@@ -1278,7 +1278,7 @@ class PickerSessionService:
                 extra={"event": "picker.mediaItems.duplicate"},
             )
 
-        mi = MediaItem.query.get(item_id) or MediaItem(id=item_id, type="TYPE_UNSPECIFIED")
+        mi = db.session.get(MediaItem, item_id) or MediaItem(id=item_id, type="TYPE_UNSPECIFIED")
         pmi = existing_selection or PickerSelection(
             session_id=ps.id,
             google_media_id=item_id,

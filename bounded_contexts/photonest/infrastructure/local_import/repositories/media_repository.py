@@ -108,4 +108,4 @@ class MediaRepositoryImpl:
     
     def get_by_id(self, media_id: int) -> Optional[Media]:
         """IDによるメディア取得."""
-        return Media.query.get(media_id)
+        return self._db.session.get(Media, media_id)

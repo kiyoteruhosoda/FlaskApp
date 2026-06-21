@@ -394,7 +394,7 @@ class MediaController(BaseController):
         deleted_count = 0
         for media_id in media_ids:
             try:
-                media = Media.query.get(media_id)
+                media = db.session.get(Media, media_id)
                 if media:
                     self._delete_media_files(media)
                     from webapp.extensions import db
@@ -411,10 +411,10 @@ class MediaController(BaseController):
         processed_count = 0
         for media_id in media_ids:
             try:
-                media = Media.query.get(media_id)
+                media = db.session.get(Media, media_id)
                 if media:
                     for tag_id in tag_ids:
-                        tag = Tag.query.get(tag_id)
+                        tag = db.session.get(Tag, tag_id)
                         if tag and tag not in media.tags:
                             media.tags.append(tag)
                     processed_count += 1
@@ -429,10 +429,10 @@ class MediaController(BaseController):
         processed_count = 0
         for media_id in media_ids:
             try:
-                media = Media.query.get(media_id)
+                media = db.session.get(Media, media_id)
                 if media:
                     for tag_id in tag_ids:
-                        tag = Tag.query.get(tag_id)
+                        tag = db.session.get(Tag, tag_id)
                         if tag and tag in media.tags:
                             media.tags.remove(tag)
                     processed_count += 1

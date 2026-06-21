@@ -69,7 +69,7 @@ class MediaPlaybackService:
         operation_id: str,
         request_context: Optional[Dict[str, Any]],
     ) -> Tuple[Optional[MediaPlayback], Optional[Dict[str, Any]]]:
-        media = Media.query.get(media_id)
+        media = db.session.get(Media, media_id)
         if media is None:
             self._logger.error(
                 event="video_transcoding.media_missing",

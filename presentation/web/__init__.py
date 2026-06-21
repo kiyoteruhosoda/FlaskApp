@@ -1,5 +1,4 @@
 # webapp/__init__.py
-import logging
 import importlib
 import json
 import os
@@ -20,7 +19,6 @@ from flask_login import current_user, logout_user
 
 from flask_babel import get_locale
 from flask_babel import gettext as _
-from sqlalchemy.engine import make_url
 
 from core.settings import settings
 
@@ -28,8 +26,6 @@ from .extensions import db, migrate, login_manager, babel, api as smorest_api
 from .error_handlers import register_error_handlers
 from webapp.auth import SERVICE_LOGIN_SESSION_KEY, SERVICE_LOGIN_TOKEN_SESSION_KEY
 from .timezone import resolve_timezone
-from core.db_log_handler import DBLogHandler
-from core.logging_config import ensure_appdb_file_logging
 from core.settings import settings
 from webapp.services.token_service import TokenService
 from .cors import configure_cors
@@ -42,6 +38,7 @@ from .locale import select_locale
 from .system_routes import register_system_routes
 from .blueprints import register_blueprints
 from .openapi_setup import apply_openapi_config_defaults, register_openapi_runtime
+from .logging_setup import configure_logging
 
 # 後方互換: 旧名 ``_apply_persisted_settings`` を広く参照しているため別名を維持する。
 _apply_persisted_settings = apply_persisted_settings
@@ -270,46 +267,7 @@ def create_app():
     register_template_filters(app)
 
     disable_db_logging = testing_mode or settings.testing
-
-    # Logging configuration
-    if not disable_db_logging:
-        if not any(isinstance(h, DBLogHandler) for h in app.logger.handlers):
-            db_handler = DBLogHandler(app=app)
-            db_handler.setLevel(logging.INFO)
-            app.logger.addHandler(db_handler)
-
-        ensure_appdb_file_logging(app.logger)
-
-        should_bind_db_handlers = True
-        logging_database_uri = database_uri
-        if logging_database_uri:
-            try:
-                url = make_url(logging_database_uri)
-            except Exception:  # pragma: no cover - invalid URI should not block logging
-                url = None
-            if url is not None and url.get_backend_name() == "sqlite":
-                if url.database in (None, "", ":memory:"):
-                    should_bind_db_handlers = False
-
-        if should_bind_db_handlers:
-            for handler in app.logger.handlers:
-                if isinstance(handler, DBLogHandler):
-                    handler.bind_to_app(app)
-    elif app.logger.level == logging.NOTSET:
-        app.logger.setLevel(logging.INFO)
-    
-    # デバッグモードでは詳細ログを有効化
-    if app.debug:
-        app.logger.setLevel(logging.DEBUG)
-        # コンソールハンドラーも追加
-        import sys
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(logging.DEBUG)
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        console_handler.setFormatter(formatter)
-        app.logger.addHandler(console_handler)
-    else:
-        app.logger.setLevel(logging.INFO)
+    configure_logging(app, database_uri=database_uri, disable_db_logging=disable_db_logging)
 
 
 

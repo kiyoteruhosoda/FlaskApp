@@ -1,6 +1,6 @@
 # 本番環境で必要な依存関係
 Flask
-flask-smorest
+flask-smorest==0.47.0
 flask-babel
 Flask-Login
 Flask-SQLAlchemy

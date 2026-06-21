@@ -23,7 +23,6 @@ from .routes import (
 @bp.post("/sync/local-import")
 @login_or_jwt_required
 @bp.doc(
-    methods=["POST"],
     requestBody=json_request_body(
         "Trigger the local import worker.",
         required=False,

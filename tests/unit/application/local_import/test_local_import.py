@@ -55,9 +55,9 @@ def app(tmp_path):
     os.environ.update(env)
 
     import importlib
-    import presentation.web.config as config_module
+    import presentation.web.bootstrap.config as config_module
     import presentation.web as webapp_module
-    from presentation.web.config import BaseApplicationSettings
+    from presentation.web.bootstrap.config import BaseApplicationSettings
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
     from presentation.web import create_app
     app = create_app()

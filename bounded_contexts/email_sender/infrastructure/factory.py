@@ -97,9 +97,9 @@ class EmailSenderFactory:
     def _resolve_mail_instance() -> Mail:
         """Flask-Mailmanインスタンスを取得."""
         try:
-            from presentation.web.extensions import mail as app_mail
+            from presentation.web.bootstrap.extensions import mail as app_mail
 
-            logger.info("Using mail instance from presentation.web.extensions")
+            logger.info("Using mail instance from presentation.web.bootstrap.extensions")
             return app_mail
         except Exception as e:
             raise ValueError(

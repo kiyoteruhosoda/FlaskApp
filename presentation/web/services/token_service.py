@@ -17,7 +17,7 @@ from core.models.user import User
 from core.models.service_account import ServiceAccount
 from core.settings import settings
 from shared.application.authenticated_principal import AuthenticatedPrincipal
-from presentation.web.extensions import db
+from presentation.web.bootstrap.extensions import db
 from presentation.web.services.access_token_signing import (
     AccessTokenSigningError,
     AccessTokenVerificationError,

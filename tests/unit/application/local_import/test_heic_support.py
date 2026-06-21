@@ -52,10 +52,10 @@ def local_import_app(tmp_path: Path):
     prev_env = {key: os.environ.get(key) for key in env}
     os.environ.update(env)
 
-    import presentation.web.config as config_module
+    import presentation.web.bootstrap.config as config_module
     import presentation.web as webapp_module
 
-    from presentation.web.config import BaseApplicationSettings
+    from presentation.web.bootstrap.config import BaseApplicationSettings
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
     from presentation.web import create_app
 

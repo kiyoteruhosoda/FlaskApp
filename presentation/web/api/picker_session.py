@@ -13,7 +13,7 @@ from flask import (
 )
 from flask_login import login_required
 from sqlalchemy import func, or_
-from ..extensions import db
+from ..bootstrap.extensions import db
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
 from core.models.job_sync import JobSync

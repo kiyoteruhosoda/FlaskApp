@@ -1,4 +1,4 @@
-# webapp/__init__.py
+# presentation/web/__init__.py
 import importlib
 import os
 
@@ -6,24 +6,24 @@ from flask import Flask
 
 from core.settings import settings
 
-from .extensions import db, migrate, login_manager, babel, api as smorest_api
-from .error_handlers import register_error_handlers, register_debug_error_handlers
-from .cors import configure_cors
-from .jinja_filters import register_template_filters
-from .persisted_settings import apply_persisted_settings
-from .cli_commands import register_cli_commands
-from .request_logging import register_request_logging
-from .unauthorized_handler import register_unauthorized_handler
-from .locale import select_locale
-from .system_routes import register_system_routes
+from .bootstrap.extensions import db, migrate, login_manager, babel, api as smorest_api
+from .middleware.error_handlers import register_error_handlers, register_debug_error_handlers
+from .bootstrap.cors import configure_cors
+from .templating.jinja_filters import register_template_filters
+from .bootstrap.persisted_settings import apply_persisted_settings
+from .bootstrap.cli_commands import register_cli_commands
+from .middleware.request_logging import register_request_logging
+from .middleware.unauthorized_handler import register_unauthorized_handler
+from .templating.locale import select_locale
+from .routes.system_routes import register_system_routes
 from .blueprints import register_blueprints
-from .openapi_setup import apply_openapi_config_defaults, register_openapi_runtime
-from .logging_setup import configure_logging
-from .service_login import register_service_login_hooks
-from .template_context import register_template_context
-from .test_client import HostPreservingClient
-from .proxy_fix import apply_debug_proxy_fix
-from .mail_setup import configure_mail
+from .openapi.setup import apply_openapi_config_defaults, register_openapi_runtime
+from .bootstrap.logging_setup import configure_logging
+from .routes.service_login import register_service_login_hooks
+from .templating.template_context import register_template_context
+from .bootstrap.test_client import HostPreservingClient
+from .bootstrap.proxy_fix import apply_debug_proxy_fix
+from .bootstrap.mail_setup import configure_mail
 
 # 後方互換: 旧名 ``_apply_persisted_settings`` を広く参照しているため別名を維持する。
 _apply_persisted_settings = apply_persisted_settings
@@ -32,7 +32,7 @@ _apply_persisted_settings = apply_persisted_settings
 def create_app():
     """アプリケーションファクトリ"""
     from dotenv import load_dotenv
-    from .config import BaseApplicationSettings
+    from .bootstrap.config import BaseApplicationSettings
 
     # .env を読み込む（環境変数が未設定の場合のみ）
     load_dotenv()
@@ -132,7 +132,7 @@ def create_app():
     register_cli_commands(app)
 
     # React アプリケーション用ルート登録（最後に登録してcatch-allが他のルートと競合しないようにする）
-    from .react_routes import register_react_routes
+    from .routes.react_routes import register_react_routes
     register_react_routes(app)
 
     # カスタムエラーハンドラーを追加（デバッグ強化）

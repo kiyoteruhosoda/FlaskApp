@@ -36,8 +36,10 @@ class BaseApplicationSettings:
 
     # Internationalisation
     LANGUAGES = list(_default("LANGUAGES") or ["en", "ja"])
+    # ``translations`` は ``presentation/web/`` 直下に配置されている。本モジュールは
+    # ``presentation/web/bootstrap/`` 配下のため、親ディレクトリを基準に解決する。
     BABEL_TRANSLATION_DIRECTORIES = os.path.join(
-        os.path.dirname(__file__), "translations"
+        os.path.dirname(os.path.dirname(__file__)), "translations"
     )
     BABEL_DEFAULT_LOCALE = _default("BABEL_DEFAULT_LOCALE")
     BABEL_DEFAULT_TIMEZONE = _default("BABEL_DEFAULT_TIMEZONE")

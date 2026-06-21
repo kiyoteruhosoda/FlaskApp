@@ -1,4 +1,4 @@
-"""`presentation/web/cors.py` の純粋ロジックの単体テスト。
+"""`presentation/web/bootstrap/cors.py` の純粋ロジックの単体テスト。
 
 許可オリジン判定とヘッダ付与は、認可境界に直結するため誤りが許されない。
 アプリ生成・リクエストコンテキストに依存しない形で境界条件を検証する
@@ -9,8 +9,8 @@ import types
 
 from werkzeug.datastructures import Headers
 
-from presentation.web import cors
-from presentation.web.cors import (
+from presentation.web.bootstrap import cors
+from presentation.web.bootstrap.cors import (
     DEFAULT_CORS_MAX_AGE,
     allowed_origins_from_settings,
     apply_base_headers,

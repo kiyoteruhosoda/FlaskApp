@@ -23,7 +23,7 @@ from . import (
     SERVICE_LOGIN_TOKEN_SESSION_KEY,
     bp,
 )
-from ..extensions import db
+from ..bootstrap.extensions import db
 from core.models.user import User
 from core.models.google_account import GoogleAccount
 from core.crypto import encrypt, decrypt
@@ -40,7 +40,7 @@ from shared.application.passkey_service import (
 from shared.domain.user import UserRegistrationService
 from shared.infrastructure.passkey_repository import SqlAlchemyPasskeyRepository
 from shared.infrastructure.user_repository import SqlAlchemyUserRepository
-from ..timezone import resolve_timezone, convert_to_timezone
+from ..templating.timezone import resolve_timezone, convert_to_timezone
 from ..services.token_service import TokenService
 from ..services.gui_access_cookie import (
     API_LOGIN_SCOPE_SESSION_KEY,

@@ -28,16 +28,16 @@ def app(tmp_path):
     original_env = {key: os.environ.get(key) for key in temp_env}
     os.environ.update(temp_env)
 
-    import presentation.web.config as config_module
+    import presentation.web.bootstrap.config as config_module
     import presentation.web as webapp_module
     from presentation.web import create_app
-    from presentation.web.config import BaseApplicationSettings
+    from presentation.web.bootstrap.config import BaseApplicationSettings
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
 
     app = create_app()
     app.config.update(TESTING=True)
 
-    from presentation.web.extensions import db
+    from presentation.web.bootstrap.extensions import db
     with app.app_context():
         db.create_all()
 

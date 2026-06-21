@@ -30,16 +30,16 @@ def app(tmp_path):
     os.environ["ENCRYPTION_KEY"] = key
     
     import importlib
-    import presentation.web.config as config_module
+    import presentation.web.bootstrap.config as config_module
     import presentation.web as webapp_module
-    from presentation.web.config import BaseApplicationSettings
+    from presentation.web.bootstrap.config import BaseApplicationSettings
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
     from presentation.web import create_app
 
     app = create_app()
     app.config.update(TESTING=True)
 
-    from presentation.web.extensions import db
+    from presentation.web.bootstrap.extensions import db
     from core.models.user import User
 
     with app.app_context():
@@ -198,7 +198,7 @@ def test_pagination_integration(app):
     from core.models.photo_models import Media
     from core.models.google_account import GoogleAccount
     from core.models.user import User
-    from presentation.web.extensions import db
+    from presentation.web.bootstrap.extensions import db
 
     with app.app_context():
         # テスト用のユーザーを作成
@@ -279,7 +279,7 @@ def test_cursor_based_pagination(app):
     from core.models.photo_models import Media
     from core.models.google_account import GoogleAccount
     from core.models.user import User
-    from presentation.web.extensions import db
+    from presentation.web.bootstrap.extensions import db
 
     with app.app_context():
         # テスト用のユーザーを作成
@@ -398,7 +398,7 @@ def test_pagination_order(app, order):
     from core.models.photo_models import Media
     from core.models.google_account import GoogleAccount
     from core.models.user import User
-    from presentation.web.extensions import db
+    from presentation.web.bootstrap.extensions import db
 
     with app.app_context():
         # テスト用のユーザーを作成

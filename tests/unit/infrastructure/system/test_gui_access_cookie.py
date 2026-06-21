@@ -15,7 +15,7 @@ def client(app):
 
 
 def _create_gui_user(app):
-    from presentation.web.extensions import db
+    from presentation.web.bootstrap.extensions import db
     from core.models.user import Permission, Role, User
 
     with app.app_context():

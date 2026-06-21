@@ -25,7 +25,7 @@ from flask_login import login_required, current_user
 from flask_babel import gettext as _
 from sqlalchemy.orm import selectinload
 
-from ..extensions import db
+from ..bootstrap.extensions import db
 from sqlalchemy import or_
 
 from core.models.system_setting import SystemSetting

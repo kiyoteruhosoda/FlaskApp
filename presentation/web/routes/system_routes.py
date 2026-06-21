@@ -11,7 +11,7 @@ from __future__ import annotations
 from flask import Flask, make_response, redirect, render_template, request, url_for
 from flask_babel import gettext as _
 
-from .locale import select_locale
+from presentation.web.templating.locale import select_locale
 
 
 def register_system_routes(app: Flask) -> None:

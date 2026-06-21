@@ -6,7 +6,7 @@ from flask import jsonify, request, current_app
 from sqlalchemy import text
 
 from . import bp
-from ..extensions import db
+from ..bootstrap.extensions import db
 from core.time import utc_now_isoformat
 from core.settings import settings
 from bounded_contexts.storage import StorageDomain

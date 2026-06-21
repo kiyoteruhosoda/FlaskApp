@@ -1,7 +1,7 @@
 import pytest
 
 from presentation.web.services.token_service import TokenService
-from presentation.web.extensions import db
+from presentation.web.bootstrap.extensions import db
 from core.models.user import User
 
 

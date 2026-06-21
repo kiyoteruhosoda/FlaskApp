@@ -25,7 +25,7 @@ def app(app_context):
 
 @pytest.fixture
 def db_session(app):
-    from presentation.web.extensions import db
+    from presentation.web.bootstrap.extensions import db
 
     return db.session
 

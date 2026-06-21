@@ -5,7 +5,7 @@ import pytest
 from flask import session
 
 from core.models.user import User, Role, Permission
-from presentation.web.extensions import db
+from presentation.web.bootstrap.extensions import db
 
 
 @pytest.fixture

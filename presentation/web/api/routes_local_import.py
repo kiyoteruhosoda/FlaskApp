@@ -9,7 +9,7 @@ import os
 from core.settings import settings
 from core.models.photo_models import PickerSelection
 from core.models.picker_session import PickerSession
-from ..extensions import db
+from ..bootstrap.extensions import db
 from . import bp
 from .openapi import json_request_body
 from .routes import (
@@ -356,7 +356,7 @@ def _prepare_local_import_path(path_value):
 
 
 def _resolve_local_import_config():
-    from presentation.web.config import BaseApplicationSettings
+    from presentation.web.bootstrap.config import BaseApplicationSettings
 
     directory_specs = [
         ("MEDIA_LOCAL_IMPORT_DIRECTORY", "import", settings.local_import_directory_configured),

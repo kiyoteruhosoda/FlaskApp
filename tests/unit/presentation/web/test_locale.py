@@ -1,4 +1,4 @@
-"""`presentation/web/locale.py` のロケール選択の単体テスト。
+"""`presentation/web/templating/locale.py` のロケール選択の単体テスト。
 
 表示言語の決定はユーザー体験に直結するため、cookie > Accept-Language > 既定の
 優先順位とコンテキスト外フォールバックを検証する。アプリ設定は差し替え、
@@ -10,8 +10,8 @@ import types
 import pytest
 from flask import Flask
 
-from presentation.web import locale
-from presentation.web.locale import select_locale
+from presentation.web.templating import locale
+from presentation.web.templating.locale import select_locale
 
 
 @pytest.fixture

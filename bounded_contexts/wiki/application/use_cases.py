@@ -44,7 +44,7 @@ from bounded_contexts.wiki.domain.exceptions import (
     WikiPageNotFoundError,
     WikiValidationError,
 )
-from presentation.web.config import BaseApplicationSettings
+from presentation.web.bootstrap.config import BaseApplicationSettings
 from presentation.web.services.upload_service import commit_uploads_to_directory
 
 

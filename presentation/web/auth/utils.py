@@ -8,7 +8,7 @@ from flask import current_app
 from core.settings import settings
 import requests
 
-from ..extensions import db
+from ..bootstrap.extensions import db
 from core.crypto import encrypt, decrypt
 
 

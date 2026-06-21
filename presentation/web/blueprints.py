@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from flask import Flask
 
-from .extensions import api as smorest_api
-from .openapi_spec import ensure_openapi_success_responses, strip_openapi_path_prefix
+from .bootstrap.extensions import api as smorest_api
+from .openapi.spec import ensure_openapi_success_responses, strip_openapi_path_prefix
 
 
 def register_blueprints(app: Flask, *, testing_mode: bool) -> None:
@@ -68,12 +68,12 @@ def register_blueprints(app: Flask, *, testing_mode: bool) -> None:
     ensure_openapi_success_responses(smorest_api.spec)
 
     # 認証なしの健康チェック用Blueprint
-    from .health import health_bp
+    from .routes.health import health_bp
     app.register_blueprint(health_bp, url_prefix="/health")
 
     # デバッグ用Blueprint（開発環境のみ）
     if app.debug or testing_mode:
-        from .debug_routes import debug_bp
+        from .routes.debug_routes import debug_bp
         app.register_blueprint(debug_bp, url_prefix="/debug")
 
     from bounded_contexts.wiki.presentation.wiki import bp as wiki_bp

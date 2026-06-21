@@ -1,4 +1,4 @@
-"""`presentation/web/translation.py` の単体テスト。
+"""`presentation/web/templating/translation.py` の単体テスト。
 
 PO カタログ読込は ``.mo`` を生成しない運用（AGENTS.md §2）の要であり、
 破損ファイルや欠落ロケールでも落ちないことが重要なため、ファイル入出力を
@@ -10,8 +10,8 @@ import types
 
 import pytest
 
-from presentation.web import translation
-from presentation.web.translation import (
+from presentation.web.templating import translation
+from presentation.web.templating.translation import (
     load_po_catalog,
     resolve_translation_directories,
 )

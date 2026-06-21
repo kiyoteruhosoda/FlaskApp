@@ -52,7 +52,7 @@ def app(tmp_path):
         # 例外を伝播させず 500 エラーハンドラを実行させる（エラーログ記録を検証するため）。
         app.config["PROPAGATE_EXCEPTIONS"] = False
 
-        from presentation.web.extensions import db
+        from presentation.web.bootstrap.extensions import db
 
         with app.app_context():
             db.create_all()

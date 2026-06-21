@@ -5,7 +5,7 @@ from flask import current_app, flash, g, jsonify, redirect, request, url_for
 from flask_babel import gettext as _, get_locale
 from werkzeug.exceptions import InternalServerError, default_exceptions
 
-from .translation import translate_message
+from presentation.web.templating.translation import translate_message
 
 
 def _localize_message(message: str) -> str:

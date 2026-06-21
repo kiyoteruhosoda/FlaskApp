@@ -10,12 +10,12 @@ def app(tmp_path_factory):
     os.environ["SECRET_KEY"] = "test"
     os.environ["JWT_SECRET_KEY"] = "jwt-secret"
     os.environ["DATABASE_URI"] = f"sqlite:///{db_path}"
-    from presentation.web.config import BaseApplicationSettings
+    from presentation.web.bootstrap.config import BaseApplicationSettings
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
     from presentation.web import create_app
     app = create_app()
     app.config.update(TESTING=True)
-    from presentation.web.extensions import db
+    from presentation.web.bootstrap.extensions import db
     from core.models.user import User
     with app.app_context():
         db.create_all()
@@ -73,7 +73,7 @@ def test_refresh_invalid_token(client, app):
 def test_refresh_inactive_user(client, app):
     _, refresh = login(client, app)
 
-    from presentation.web.extensions import db
+    from presentation.web.bootstrap.extensions import db
     from core.models.user import User
 
     with app.app_context():

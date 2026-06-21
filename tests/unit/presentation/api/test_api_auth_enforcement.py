@@ -70,7 +70,7 @@ def test_login_or_jwt_required_regenerates_cookie_on_invalid_token(app_context):
 
     with app.app_context():
         from core.models.user import Permission, Role, User
-        from presentation.web.extensions import db
+        from presentation.web.bootstrap.extensions import db
 
         manage_permission = Permission(code="user:manage")
         gui_permission = Permission(code="gui:view")

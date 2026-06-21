@@ -16,7 +16,7 @@ from presentation.web import create_app
 from core.tasks.local_import import local_import_task, scan_import_directory
 from core.models.picker_session import PickerSession
 from core.models.photo_models import PickerSelection
-from presentation.web.config import BaseApplicationSettings
+from presentation.web.bootstrap.config import BaseApplicationSettings
 from core.tasks.local_import import local_import_task, scan_import_directory
 
 def create_test_files(import_dir: str) -> list:

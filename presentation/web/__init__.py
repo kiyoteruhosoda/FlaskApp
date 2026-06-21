@@ -12,7 +12,6 @@ from flask import (
     app,
     g,
     current_app,
-    has_request_context,
     jsonify,
     make_response,
     redirect,
@@ -50,6 +49,7 @@ from .persisted_settings import apply_persisted_settings
 from .cli_commands import register_cli_commands
 from .request_logging import register_request_logging
 from .unauthorized_handler import register_unauthorized_handler
+from .locale import select_locale
 
 # 後方互換: 旧名 ``_apply_persisted_settings`` を広く参照しているため別名を維持する。
 _apply_persisted_settings = apply_persisted_settings
@@ -161,7 +161,7 @@ def create_app():
         if value:
             app.config[key] = value
 
-    babel.init_app(app, locale_selector=_select_locale)
+    babel.init_app(app, locale_selector=select_locale)
     smorest_api.init_app(app)
     
     # Initialize Flask-Mailman
@@ -587,7 +587,7 @@ def create_app():
     def i18n_probe():
         return {
             "cookie": request.cookies.get("lang"),
-            "locale": str(_select_locale()),
+            "locale": str(select_locale()),
             "t_Login": _("Login"),
             "t_Home": _("Home"),
             "t_LoginMessage": _("Please log in to access this page."),
@@ -603,26 +603,6 @@ def create_app():
             db.create_all()
 
     return app
-
-
-def _select_locale():
-    """1) cookie lang 2) Accept-Language 3) default"""
-    from flask import current_app
-
-    if not has_request_context():
-        return settings.babel_default_locale or "en"
-
-    cookie_lang = request.cookies.get("lang")
-    languages = [lang for lang in settings.languages if lang]
-    if cookie_lang in languages:
-        return cookie_lang
-
-    best_match = request.accept_languages.best_match(languages) if languages else None
-    if best_match:
-        return best_match
-
-    return settings.babel_default_locale or "en"
-
 
 
 def __getattr__(name: str):

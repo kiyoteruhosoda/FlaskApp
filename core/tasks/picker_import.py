@@ -521,12 +521,12 @@ def _start_lock_heartbeat(selection_id: int, locked_by: str, interval: float) ->
 
 
 def _lookup_session_and_account(picker_session_id: int, account_id: int) -> tuple[PickerSession | None, GoogleAccount | None, str | None]:
-    ps = PickerSession.query.get(picker_session_id)
+    ps = db.session.get(PickerSession, picker_session_id)
     if not ps or ps.account_id != account_id:
         return None, None, "invalid_session"
     if ps.status in {"imported", "canceled", "expired"}:
         return ps, None, "already_done"
-    gacc = GoogleAccount.query.get(account_id)
+    gacc = db.session.get(GoogleAccount, account_id)
     if not gacc:
         return ps, None, "account_not_found"
     return ps, gacc, None
@@ -708,7 +708,7 @@ def picker_import_item(
         return {"ok": False, "error": "not_enqueued"}
     db.session.commit()
 
-    sel = PickerSelection.query.get(selection_id)
+    sel = db.session.get(PickerSelection, selection_id)
     if not sel:
         return {"ok": False, "error": "not_found"}
 
@@ -721,8 +721,8 @@ def picker_import_item(
 
     try:
         # Retrieve account and access token
-        ps = PickerSession.query.get(session_id)
-        gacc = GoogleAccount.query.get(ps.account_id) if ps else None
+        ps = db.session.get(PickerSession, session_id)
+        gacc = db.session.get(GoogleAccount, ps.account_id) if ps else None
         if not ps or not gacc:
             raise AuthError()
         session_identifier = ps.session_id
@@ -1222,7 +1222,7 @@ def picker_import_item(
         terminal = {"imported", "dup", "failed", "expired"}
         if sel.status in terminal:
             sel.finished_at = end
-            ps = PickerSession.query.get(session_id)
+            ps = db.session.get(PickerSession, session_id)
             if ps:
                 ps.last_progress_at = end
         sel.last_transition_at = end

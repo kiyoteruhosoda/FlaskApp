@@ -149,7 +149,7 @@ class ServiceAccountService:
         active: bool,
         allowed_scopes: Iterable[str] | None,
     ) -> ServiceAccount:
-        account = ServiceAccount.query.get(account_id)
+        account = db.session.get(ServiceAccount, account_id)
         if not account:
             raise ServiceAccountNotFoundError()
 
@@ -190,7 +190,7 @@ class ServiceAccountService:
 
     @staticmethod
     def delete_account(account_id: int) -> None:
-        account = ServiceAccount.query.get(account_id)
+        account = db.session.get(ServiceAccount, account_id)
         if not account:
             raise ServiceAccountNotFoundError()
 

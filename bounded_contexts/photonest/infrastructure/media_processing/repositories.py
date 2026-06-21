@@ -29,7 +29,7 @@ def _as_entry(record: CeleryTaskRecord) -> ThumbnailRetryEntry:
 
 def _load_record(entry: ThumbnailRetryEntry) -> Optional[CeleryTaskRecord]:
     if entry.id:
-        record = CeleryTaskRecord.query.get(entry.id)
+        record = db.session.get(CeleryTaskRecord, entry.id)
         if record is not None:
             return record
     if entry.media_id is None:

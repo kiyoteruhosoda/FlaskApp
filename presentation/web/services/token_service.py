@@ -265,7 +265,7 @@ class TokenService:
         scope_items = cls._extract_scope_items(payload)
 
         if subject_type == "system":
-            account = ServiceAccount.query.get(subject_id)
+            account = db.session.get(ServiceAccount, subject_id)
             if not account or not account.is_active():
                 current_app.logger.debug("JWT token service account inactive or missing")
                 return None, "service_account_inactive"
@@ -278,7 +278,7 @@ class TokenService:
                 display_name=account.name,
             ), None
 
-        user = User.query.get(subject_id)
+        user = db.session.get(User, subject_id)
         if not user or not user.is_active:
             return None, "user_inactive_or_missing"
 
@@ -430,7 +430,7 @@ class TokenService:
             current_app.logger.debug("Invalid refresh token format")
             return None
 
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if not user:
             current_app.logger.debug("Refresh token verification failed: user not found")
             return None
@@ -474,7 +474,7 @@ class TokenService:
                 )
                 return
 
-            target_user = User.query.get(subject.id)
+            target_user = db.session.get(User, subject.id)
             if target_user is None:
                 current_app.logger.debug(
                     "Refresh token revoke skipped: user not found (id=%s)",

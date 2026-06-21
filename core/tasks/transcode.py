@@ -523,7 +523,7 @@ def transcode_worker(*, media_playback_id: int, force: bool = False) -> Dict[str
             extra={"event": "transcode.force.flag", "media_playback_id": media_playback_id},
         )
 
-    pb = MediaPlayback.query.get(media_playback_id)
+    pb = db.session.get(MediaPlayback, media_playback_id)
     if not pb:
         return {
             "ok": False,

@@ -137,7 +137,7 @@ class LocalImportSessionService:
                 self._db.session.rollback()
             except Exception:
                 pass
-            fresh = session.__class__.query.get(session.id)
+            fresh = self._db.session.get(session.__class__, session.id)
             if not fresh:
                 return True
             session.status = fresh.status

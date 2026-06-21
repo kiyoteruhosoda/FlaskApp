@@ -1,26 +1,15 @@
 """Centralized HTTP error handling for HTML requests."""
-from importlib import import_module
+import json
 
-from flask import current_app, flash, jsonify, redirect, request, url_for
+from flask import current_app, flash, g, jsonify, redirect, request, url_for
 from flask_babel import gettext as _, get_locale
 from werkzeug.exceptions import InternalServerError, default_exceptions
 
+from .translation import translate_message
+
 
 def _localize_message(message: str) -> str:
-    translated = _(message)
-    if translated != message:
-        return translated
-
-    try:
-        webapp_module = import_module("webapp")
-    except ModuleNotFoundError:  # pragma: no cover - defensive fallback
-        return message
-
-    translate_fn = getattr(webapp_module, "_translate_message", None)
-    if callable(translate_fn):
-        return translate_fn(message)
-
-    return message
+    return translate_message(message)
 
 
 def _is_api_request() -> bool:
@@ -137,4 +126,87 @@ def register_error_handlers(app):
 
         current_app.logger.info("401 %s -> redirect login", request.path)
         return redirect(url_for("auth.login"))
+
+
+def register_debug_error_handlers(app):
+    """422/500 の詳細ログ付きハンドラを登録する。
+
+    ``register_error_handlers`` の後に呼ぶことで、422/500 についてはこちらの
+    ハンドラが優先される（Flask はコード単位で後勝ち）。500 の Flask 既定例外
+    ログも抑制し、構造化ログとの二重出力を防ぐ。
+    """
+
+    @app.errorhandler(422)
+    def handle_validation_error(e):
+        """Marshmallow validation errors (422 Unprocessable Entity) のデバッグ強化"""
+        import traceback
+
+        app.logger.error("422 Validation Error occurred:")
+        app.logger.error(f"Request path: {request.path}")
+        app.logger.error(f"Request method: {request.method}")
+        app.logger.error(f"Request headers: {dict(request.headers)}")
+        app.logger.error(f"Request args: {request.args.to_dict()}")
+
+        try:
+            request_json = request.get_json(force=True)
+            app.logger.error(f"Request JSON: {request_json}")
+        except Exception as json_error:
+            app.logger.error(f"Failed to parse request JSON: {json_error}")
+            app.logger.error(f"Raw request data: {request.data}")
+
+        app.logger.error(f"Exception details: {e}")
+        app.logger.error(f"Exception type: {type(e)}")
+        if hasattr(e, 'description'):
+            app.logger.error(f"Exception description: {e.description}")
+        if hasattr(e, 'data'):
+            app.logger.error(f"Exception data: {e.data}")
+
+        # Traceback も出力
+        app.logger.error(f"Traceback:\n{traceback.format_exc()}")
+
+        # デフォルトのFlask-Smorest処理に委任
+        return {"error": "validation_failed", "message": str(e), "details": getattr(e, 'data', {})}, 422
+
+    @app.errorhandler(500)
+    def handle_internal_server_error(e):
+        """500 Internal Server Error を1件の構造化ログとして記録する。
+
+        元例外のメッセージ・リクエストパス・トレースバックを単一の Log
+        エントリにまとめる。Flask 既定の例外ログ（log_exception）は下で
+        抑制しているため、500 についてはこのハンドラが唯一の記録元となる。
+        """
+        original = getattr(e, "original_exception", None)
+        exc = original if original is not None else e
+
+        # api.server_error の after_request ログと二重化しないよう印を付ける
+        g.exception_logged = True
+
+        app.logger.error(
+            json.dumps({"message": str(exc), "status": 500}, ensure_ascii=False),
+            exc_info=True,
+            extra={
+                "event": "api.server_error",
+                "path": request.path,
+                "request_id": getattr(g, "request_id", None),
+            },
+        )
+
+        # メッセージをロケールに合わせて翻訳し、Content-Language を付与する
+        locale = str(get_locale() or app.config.get("BABEL_DEFAULT_LOCALE", "en"))
+        response = jsonify(
+            {"error": "internal_server_error", "message": _("Internal Server Error")}
+        )
+        response.status_code = 500
+        response.headers["Content-Language"] = locale
+        return response
+
+    def _log_exception_via_handler(exc_info):
+        """Flask 既定の例外ログを抑制する。
+
+        500 は handle_internal_server_error が構造化ログとして記録するため、
+        Flask が出力する "Exception on ..." の重複ログを抑える。
+        """
+        return None
+
+    app.log_exception = _log_exception_via_handler
 

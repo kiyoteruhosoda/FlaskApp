@@ -10,7 +10,7 @@ Flask-Mailを使用したSMTP送信実装です。本番環境で使用します
 
 ```python
 from infrastructure.email_sender import SmtpEmailSender
-from webapp.extensions import mail
+from presentation.web.extensions import mail
 
 sender = SmtpEmailSender(mail=mail, default_sender="sender@example.com")
 ```

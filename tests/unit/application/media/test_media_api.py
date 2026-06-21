@@ -39,9 +39,9 @@ def app(tmp_path):
     # 遅延参照するため reload は不要。reload(webapp) はシム submodule の identity を
     # 分岐させ後続テストの monkeypatch を壊す。
     import sys
-    from webapp.config import BaseApplicationSettings
+    from presentation.web.config import BaseApplicationSettings
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
-    from webapp import create_app
+    from presentation.web import create_app
 
     app = create_app()
     app.config.update(TESTING=True)
@@ -2433,7 +2433,7 @@ def test_picker_session_service_allows_reimport_of_deleted_media(app):
     from core.models.photo_models import Media
     from core.models.picker_session import PickerSession
     from core.models.google_account import GoogleAccount
-    from webapp.api.picker_session_service import PickerSessionService
+    from presentation.web.api.picker_session_service import PickerSessionService
 
     with app.app_context():
         account = GoogleAccount.query.first()

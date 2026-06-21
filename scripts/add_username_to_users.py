@@ -9,7 +9,7 @@ import os
 # パスを追加してプロジェクトモジュールをインポート可能にする
 sys.path.insert(0, os.path.abspath('.'))
 
-from webapp import create_app
+from presentation.web import create_app
 from core.db import db
 from core.models.user import User
 

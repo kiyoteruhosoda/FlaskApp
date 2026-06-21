@@ -73,6 +73,8 @@ def register_openapi_runtime(app: Flask) -> None:
 
         configured_servers = (settings.api_spec_options or {}).get("servers")
 
+    _register_openapi_overview_route(app)
+
     @app.before_request
     def _refresh_openapi_server_urls():
         if configured_servers:
@@ -83,3 +85,27 @@ def register_openapi_runtime(app: Flask) -> None:
         prefix = normalize_openapi_prefix(settings.openapi_url_prefix)
         server_urls = calculate_openapi_server_urls(prefix)
         spec.options["servers"] = [{"url": url} for url in server_urls]
+
+
+def _register_openapi_overview_route(app: Flask) -> None:
+    """``/api/overview`` にエンドポイント一覧テーブルを公開する。
+
+    flask-smorest 本体には無いアプリ固有機能を、ドキュメント用 Blueprint を
+    フォークせずアプリのルートとして登録する。
+    """
+
+    overview_path = (app.config.get("OPENAPI_OVERVIEW_PATH") or "").strip("/")
+    if not overview_path:
+        return
+
+    prefix = (app.config.get("OPENAPI_URL_PREFIX") or "").rstrip("/")
+    rule = f"{prefix}/{overview_path}"
+
+    if any(r.rule == rule for r in app.url_map.iter_rules()):
+        return
+
+    app.add_url_rule(
+        rule,
+        endpoint="openapi_overview",
+        view_func=smorest_api.render_openapi_overview,
+    )

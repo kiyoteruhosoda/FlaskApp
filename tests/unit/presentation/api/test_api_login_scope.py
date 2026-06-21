@@ -14,11 +14,11 @@ from core.system_settings_defaults import (
     DEFAULT_CORS_SETTINGS,
 )
 
-from webapp.services.token_service import TokenService
+from presentation.web.services.token_service import TokenService
 from shared.application.authenticated_principal import AuthenticatedPrincipal
 from core.models.user import Permission, Role, User
 from core.models.service_account import ServiceAccount
-from webapp.auth import SERVICE_LOGIN_SESSION_KEY
+from presentation.web.auth import SERVICE_LOGIN_SESSION_KEY
 
 
 def _normalize_location(value: str) -> str:
@@ -51,12 +51,12 @@ def app(tmp_path):
         original_env[key] = os.environ.get(key)
         os.environ[key] = value
 
-    import webapp.config as config_module
+    import presentation.web.config as config_module
 
     BaseApplicationSettings = config_module.BaseApplicationSettings
 
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
-    from webapp import create_app
+    from presentation.web import create_app
 
     app = create_app()
     app.config.update(TESTING=True, LOGIN_DISABLED=False)
@@ -68,8 +68,8 @@ def app(tmp_path):
         if getattr(func, "__name__", "") != "_apply_login_disabled_for_testing"
     ]
 
-    from webapp.services.system_setting_service import SystemSettingService
-    from webapp import _apply_persisted_settings
+    from presentation.web.services.system_setting_service import SystemSettingService
+    from presentation.web import _apply_persisted_settings
 
     with app.app_context():
         db.create_all()

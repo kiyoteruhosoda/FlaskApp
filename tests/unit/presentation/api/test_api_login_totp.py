@@ -21,17 +21,17 @@ def app(tmp_path):
         original_env[key] = os.environ.get(key)
         os.environ[key] = value
 
-    import webapp.config as config_module
+    import presentation.web.config as config_module
 
     BaseApplicationSettings = config_module.BaseApplicationSettings
 
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
-    from webapp import create_app
+    from presentation.web import create_app
 
     app = create_app()
     app.config.update(TESTING=True)
 
-    from webapp.extensions import db
+    from presentation.web.extensions import db
 
     with app.app_context():
         db.create_all()
@@ -55,7 +55,7 @@ def client(app):
 
 
 def test_api_login_requires_totp(client, app):
-    from webapp.extensions import db
+    from presentation.web.extensions import db
     from core.models.user import User
 
     with app.app_context():
@@ -89,7 +89,7 @@ def test_api_login_requires_totp(client, app):
 
 
 def test_api_login_accepts_string_scope(client, app):
-    from webapp.extensions import db
+    from presentation.web.extensions import db
     from core.models.user import Permission, Role, User
 
     with app.app_context():

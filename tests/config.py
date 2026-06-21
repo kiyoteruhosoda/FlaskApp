@@ -2,7 +2,7 @@
 
 from sqlalchemy.pool import StaticPool
 
-from webapp.config import BaseApplicationSettings
+from presentation.web.config import BaseApplicationSettings
 
 
 class TestConfig(BaseApplicationSettings):

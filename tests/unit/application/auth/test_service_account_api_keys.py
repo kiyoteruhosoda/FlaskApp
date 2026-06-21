@@ -8,12 +8,12 @@ from core.models.service_account_api_key import ServiceAccountApiKeyLog
 from core.models.user import Permission, Role, User
 from bounded_contexts.certs.domain.usage import UsageType
 from bounded_contexts.certs.infrastructure.models import CertificateGroupEntity
-from webapp.auth.api_key_auth import require_api_key_scopes
-from webapp.services.service_account_api_key_service import (
+from presentation.web.auth.api_key_auth import require_api_key_scopes
+from presentation.web.services.service_account_api_key_service import (
     ServiceAccountApiKeyService,
     ServiceAccountApiKeyValidationError,
 )
-from webapp.services.service_account_service import ServiceAccountService
+from presentation.web.services.service_account_service import ServiceAccountService
 
 
 def _ensure_certificate_group() -> str:
@@ -54,7 +54,7 @@ def _create_service_account(scopes: str) -> int:
 def _login(client, user: User) -> None:
     from flask import session as flask_session
     from flask_login import login_user
-    from webapp.services.token_service import TokenService
+    from presentation.web.services.token_service import TokenService
 
     # アクティブロールを選択した状態を再現する。権限はセキュアバイデフォルトで
     # active_role_id が指定された場合のみ付与されるため、ログイン後のロール選択を

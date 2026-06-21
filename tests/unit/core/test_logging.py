@@ -44,7 +44,7 @@ def app(tmp_path):
         # reload しない: create_app は DATABASE_URI を runtime 再解決し、settings は
         # env を遅延参照するため reload は不要。reload(webapp) はシム submodule の
         # identity を分岐させ後続テストの monkeypatch を壊す。
-        from webapp import create_app
+        from presentation.web import create_app
         from tests.config import TestConfig
 
         app = create_app()
@@ -52,7 +52,7 @@ def app(tmp_path):
         # 例外を伝播させず 500 エラーハンドラを実行させる（エラーログ記録を検証するため）。
         app.config["PROPAGATE_EXCEPTIONS"] = False
 
-        from webapp.extensions import db
+        from presentation.web.extensions import db
 
         with app.app_context():
             db.create_all()

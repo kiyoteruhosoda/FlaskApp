@@ -19,9 +19,9 @@ def app(tmp_path):
     os.environ["GOOGLE_CLIENT_SECRET"] = "sec"
     key = base64.urlsafe_b64encode(b"0" * 32).decode()
     os.environ["ENCRYPTION_KEY"] = key
-    from webapp.config import BaseApplicationSettings
+    from presentation.web.config import BaseApplicationSettings
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
-    from webapp import create_app
+    from presentation.web import create_app
     app = create_app()
     app.config.update(TESTING=True)
     # 設定シングルトンは import 時に環境変数をスナップショットするため、
@@ -551,7 +551,7 @@ def test_media_items_retry_on_429(monkeypatch, client, app):
     monkeypatch.setattr("requests.get", fake_get)
 
     sleeps = []
-    import webapp.api.picker_session as ps_module
+    import presentation.web.api.picker_session as ps_module
     monkeypatch.setattr(ps_module.time, "sleep", lambda s: sleeps.append(s))
 
     res = client.post(
@@ -568,7 +568,7 @@ def test_media_items_busy(monkeypatch, client, app):
     login(client, app)
     session_id = "sid"
 
-    from webapp.api import picker_session as ps_module
+    from presentation.web.api import picker_session as ps_module
     lock = ps_module._get_media_items_lock(session_id)
     assert lock.acquire(blocking=False)
     try:
@@ -607,7 +607,7 @@ def test_media_items_rate_limited(client, app, monkeypatch):
 def test_picker_sessions_list_rate_limited(client, app):
     login(client, app)
 
-    from webapp.api import picker_session as ps_module
+    from presentation.web.api import picker_session as ps_module
 
     with app.app_context():
         previous_limit = app.config.get("PICKER_SESSIONS_LIST_MAX_CONCURRENCY")
@@ -707,7 +707,7 @@ def test_media_items_enqueue_and_skip_duplicate(monkeypatch, client, app):
     monkeypatch.setattr("requests.get", fake_get)
 
     enqueued = []
-    import webapp.api.picker_session as ps_module
+    import presentation.web.api.picker_session as ps_module
 
     def fake_enqueue(pmi_id, sess_id):
         with app.app_context():
@@ -943,7 +943,7 @@ def test_media_items_skip_duplicate_in_response(monkeypatch, client, app):
     monkeypatch.setattr("requests.get", fake_get)
 
     enqueued = []
-    import webapp.api.picker_session as ps_module
+    import presentation.web.api.picker_session as ps_module
 
     def fake_enqueue(pmi_id, sess_id):
         with app.app_context():

@@ -182,7 +182,6 @@ def api_totp_list():
 @bp.post("/totp")
 @login_or_jwt_required
 @bp.doc(
-    methods=["POST"],
     requestBody=json_request_body(
         "Create a new TOTP credential for the current tenant.",
         schema={
@@ -271,7 +270,6 @@ def api_totp_create():
 @bp.put("/totp/<int:credential_id>")
 @login_or_jwt_required
 @bp.doc(
-    methods=["PUT"],
     requestBody=json_request_body(
         "Update an existing TOTP credential.",
         schema={
@@ -366,7 +364,6 @@ def api_totp_export():
 @bp.post("/totp/import")
 @login_or_jwt_required
 @bp.doc(
-    methods=["POST"],
     requestBody=json_request_body(
         "Bulk import TOTP credentials from exported metadata.",
         schema={

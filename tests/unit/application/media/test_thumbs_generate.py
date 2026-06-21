@@ -31,15 +31,15 @@ def app(tmp_path):
     os.environ.update(env_keys)
 
     import importlib, sys
-    import webapp.config as config_module
-    import webapp as webapp_module
-    from webapp.config import BaseApplicationSettings
+    import presentation.web.config as config_module
+    import presentation.web as webapp_module
+    from presentation.web.config import BaseApplicationSettings
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
-    from webapp import create_app
+    from presentation.web import create_app
 
     app = create_app()
     app.config.update(TESTING=True)
-    from webapp.extensions import db
+    from presentation.web.extensions import db
     from core.models.google_account import GoogleAccount
 
     with app.app_context():
@@ -62,7 +62,7 @@ def app(tmp_path):
 
 
 def _make_media(app, *, rel_path: str, is_video: bool, width: int, height: int, **extra):
-    from webapp.extensions import db
+    from presentation.web.extensions import db
     from core.models.photo_models import Media
 
     with app.app_context():
@@ -185,7 +185,7 @@ def test_video_with_playback(app):
 
     media_id = _make_media(app, rel_path="2025/08/18/video.mp4", is_video=True, width=3000, height=2000)
 
-    from webapp.extensions import db
+    from presentation.web.extensions import db
     from core.models.photo_models import MediaPlayback
     with app.app_context():
         pb = MediaPlayback(
@@ -241,7 +241,7 @@ def test_video_poster_low_quality_uses_frame(app, monkeypatch):
     )
 
     from importlib import import_module
-    from webapp.extensions import db
+    from presentation.web.extensions import db
     from core.models.photo_models import MediaPlayback
     thumbs_mod = import_module("core.tasks.thumbs_generate")
 

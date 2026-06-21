@@ -161,12 +161,12 @@ def create_app():
 
 def __getattr__(name: str):
     if name == "api":
-        module = importlib.import_module("webapp.api")
+        module = importlib.import_module("presentation.web.api")
         globals()[name] = module
         return module
     if name == "auth":
-        module = importlib.import_module("webapp.auth")
+        module = importlib.import_module("presentation.web.auth")
         globals()[name] = module
         return module
-    raise AttributeError(f"module 'webapp' has no attribute {name!r}")
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

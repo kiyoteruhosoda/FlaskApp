@@ -23,20 +23,20 @@ def app(tmp_path):
     os.environ["MEDIA_PLAYBACK_DIRECTORY"] = str(play)
 
     import importlib, sys
-    import webapp.config as config_module
-    import webapp as webapp_module
-    from webapp.config import BaseApplicationSettings
+    import presentation.web.config as config_module
+    import presentation.web as webapp_module
+    from presentation.web.config import BaseApplicationSettings
 
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
-    from webapp import create_app
+    from presentation.web import create_app
 
     app = create_app()
     app.config.update(TESTING=True)
     app.config["LAST_BEAT_AT"] = datetime.now(timezone.utc)
 
-    from webapp.extensions import db
-    from webapp.services.system_setting_service import SystemSettingService
-    from webapp import _apply_persisted_settings
+    from presentation.web.extensions import db
+    from presentation.web.services.system_setting_service import SystemSettingService
+    from presentation.web import _apply_persisted_settings
 
     with app.app_context():
         db.create_all()

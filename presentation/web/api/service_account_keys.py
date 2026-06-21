@@ -76,7 +76,6 @@ def list_service_account_keys(account_id: int):
 @bp.route("/service_accounts/<int:account_id>/keys", methods=["POST"])
 @login_or_jwt_required
 @bp.doc(
-    methods=["POST"],
     requestBody=json_request_body(
         "Create a new API key for the specified service account.",
         required=False,

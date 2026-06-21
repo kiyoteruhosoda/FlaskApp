@@ -20,10 +20,10 @@ pytestmark = [pytest.mark.integration, pytest.mark.filesystem]
 
 import pytest
 
-import webapp.config as config_module
-from webapp import create_app
-from webapp.extensions import db
-from webapp.api.picker_session import SESSION_LOG_DEFAULT_LIMIT
+import presentation.web.config as config_module
+from presentation.web import create_app
+from presentation.web.extensions import db
+from presentation.web.api.picker_session import SESSION_LOG_DEFAULT_LIMIT
 from core.models.picker_session import PickerSession
 from core.models.photo_models import PickerSelection
 from core.models.log import Log
@@ -94,8 +94,8 @@ class AuthenticatedClientMixin:
         from flask import session as flask_session
         from flask_login import login_user
         from core.models.user import User
-        from webapp.extensions import db
-        from webapp.services.token_service import TokenService
+        from presentation.web.extensions import db
+        from presentation.web.services.token_service import TokenService
 
         with client.application.app_context():
             user = User.query.first()

@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from webapp.services.system_setting_service import SystemSettingService
+from presentation.web.services.system_setting_service import SystemSettingService
 
 
 class _MockAdminUser:

@@ -7,7 +7,7 @@ from flask import url_for
 
 from core.models.service_account import ServiceAccount
 from core.models.user import Permission, Role, User
-from webapp.services.token_service import TokenService
+from presentation.web.services.token_service import TokenService
 from core.db import db
 
 

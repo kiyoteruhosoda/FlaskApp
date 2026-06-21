@@ -6,7 +6,7 @@ from unittest.mock import patch
 from click.testing import CliRunner
 
 from flask_babel import gettext as _
-from webapp import create_app
+from presentation.web import create_app
 
 
 class TestVersionCLI:

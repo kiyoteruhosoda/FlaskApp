@@ -34,6 +34,19 @@ def _has_auth_marker(func: Callable) -> bool:
 class AuthEnforcedBlueprint(SmorestBlueprint):
     """Blueprint that rejects routes without explicit auth configuration."""
 
+    @staticmethod
+    def doc(**kwargs):  # type: ignore[override]
+        """``@bp.doc`` から ``methods`` を取り除いてから委譲する。
+
+        flask-smorest 0.47 では ``@bp.doc(methods=[...])`` に渡した ``methods`` が
+        そのまま OpenAPI の operation オブジェクトへ流れ込む。ルートのメソッドは
+        ``@bp.route(methods=...)`` 側で既にスコープされるため、ドキュメントに
+        混入しないよう除去する（仕様への ``methods`` 漏れ防止）。
+        """
+
+        kwargs.pop("methods", None)
+        return SmorestBlueprint.doc(**kwargs)
+
     def add_url_rule(  # type: ignore[override]
         self,
         rule,

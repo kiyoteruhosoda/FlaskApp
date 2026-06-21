@@ -20,7 +20,7 @@ def app(tmp_path, monkeypatch):
     monkeypatch.setenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
     
     # Import and create app
-    from webapp import create_app
+    from presentation.web import create_app
     app = create_app()
     
     # Create tables

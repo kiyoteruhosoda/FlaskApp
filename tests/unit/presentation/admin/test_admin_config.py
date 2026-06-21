@@ -6,8 +6,8 @@ import pytest
 
 from core.models.user import User, Role, Permission
 from core.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
-from webapp.extensions import db
-from webapp.services.system_setting_service import SystemSettingService
+from presentation.web.extensions import db
+from presentation.web.services.system_setting_service import SystemSettingService
 
 
 @pytest.fixture
@@ -18,7 +18,7 @@ def client(app_context):
 def _login(client, user):
     from flask import session as flask_session
     from flask_login import login_user
-    from webapp.services.token_service import TokenService
+    from presentation.web.services.token_service import TokenService
 
     active_role_id = user.roles[0].id if user.roles else None
 
@@ -98,7 +98,7 @@ def test_config_update_requires_login_returns_json(client):
 def test_config_page_displays_current_settings(client):
     SystemSettingService.update_application_settings({"FEATURE_FLAG": True})
     SystemSettingService.update_cors_settings({"allowedOrigins": ["https://example.com"]})
-    from webapp import _apply_persisted_settings
+    from presentation.web import _apply_persisted_settings
 
     _apply_persisted_settings(client.application)
 
@@ -120,7 +120,7 @@ def test_config_page_displays_current_settings(client):
 
 
 def test_apply_persisted_settings_prefers_legacy_backup_directory(app_context):
-    from webapp import _apply_persisted_settings
+    from presentation.web import _apply_persisted_settings
 
     SystemSettingService.update_application_settings(
         {"MEDIA_BACKUP_DIRECTORY": "/legacy/backups"},
@@ -363,8 +363,8 @@ def test_update_cors_config_rejects_invalid_origin(client):
 
 
 def test_apply_persisted_settings_initializes_mailman_when_enabled(app_context):
-    from webapp import _apply_persisted_settings
-    from webapp.extensions import mail
+    from presentation.web import _apply_persisted_settings
+    from presentation.web.extensions import mail
 
     # Ensure a clean starting point
     app_context.extensions.pop("mailman", None)
@@ -396,8 +396,8 @@ def test_apply_persisted_settings_initializes_mailman_when_enabled(app_context):
 
 
 def test_apply_persisted_settings_removes_mailman_when_disabled(app_context):
-    from webapp import _apply_persisted_settings
-    from webapp.extensions import mail
+    from presentation.web import _apply_persisted_settings
+    from presentation.web.extensions import mail
 
     # First enable mail to ensure the extension is registered
     SystemSettingService.update_application_settings({"MAIL_ENABLED": True})

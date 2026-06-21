@@ -3,7 +3,7 @@ from urllib.parse import urlparse
 import pytest
 
 from core.models.user import User, Role, Permission
-from webapp.extensions import db
+from presentation.web.extensions import db
 
 
 @pytest.fixture
@@ -14,7 +14,7 @@ def client(app_context):
 def _login(client, user):
     from flask import session as flask_session
     from flask_login import login_user
-    from webapp.services.token_service import TokenService
+    from presentation.web.services.token_service import TokenService
 
     active_role_id = user.roles[0].id if user.roles else None
 

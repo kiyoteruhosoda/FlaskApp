@@ -14,11 +14,11 @@ from jwt.algorithms import ECAlgorithm, RSAAlgorithm
 from core.db import db
 from bounded_contexts.certs.domain.usage import UsageType
 from bounded_contexts.certs.infrastructure.models import CertificateGroupEntity
-from webapp.auth.service_account_auth import (
+from presentation.web.auth.service_account_auth import (
     ServiceAccountJWTError,
     ServiceAccountTokenValidator,
 )
-from webapp.services.service_account_service import (
+from presentation.web.services.service_account_service import (
     ServiceAccountService,
     ServiceAccountValidationError,
 )
@@ -69,7 +69,7 @@ def redis_store(app_context, monkeypatch):
     store = _InMemoryRedis()
     app_context.config["REDIS_URL"] = "redis://localhost:6379/0"
     monkeypatch.setattr(
-        "webapp.auth.service_account_auth.redis.from_url",
+        "presentation.web.auth.service_account_auth.redis.from_url",
         lambda url: store,
     )
     return store
@@ -129,7 +129,7 @@ def _mock_jwks(monkeypatch, mapping: dict[str, list[dict]]):
         return {"keys": keys}
 
     monkeypatch.setattr(
-        "webapp.auth.service_account_auth.ListJwksUseCase.execute", fake_execute
+        "presentation.web.auth.service_account_auth.ListJwksUseCase.execute", fake_execute
     )
 
 

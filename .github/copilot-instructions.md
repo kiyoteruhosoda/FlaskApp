@@ -12,7 +12,7 @@ Python実行時は `source /home/kyon/myproject/.venv/bin/activate && python mai
 ## Project Overview
 - **PhotoNest** is a family photo viewer and sync platform, with a Python backend (Flask), MariaDB, and Celery-based background processing.
 - The system is split into:
-  - `webapp/`: Flask app (API, UI, auth, admin, feature modules)
+  - `presentation/web/`: Flask app (API, UI, auth, admin, feature modules)
   - `core/`: Core logic (crypto, DB, models, tasks)
   - `cli/`: Celery configuration and task definitions
   - `domain/`: Domain layer (DDD architecture)
@@ -34,14 +34,14 @@ Python実行時は `source /home/kyon/myproject/.venv/bin/activate && python mai
   - `domain/`: Pure business logic and domain models
   - `application/`: Application services and use cases
   - `infrastructure/`: Data access and external service integration
-- **API**: RESTful endpoints under `/api/` (see requirements.md for endpoint/param conventions)
+- **API**: RESTful endpoints under `/api/` (see docs/requirements.md for endpoint/param conventions)
 - **DB**: MariaDB 10.11, models in `core/models/`, migrations in `migrations/`
 - **Background Workers**: Celery-based async processing for media conversion, thumbnail generation, and Google Photos sync
   - Media playback conversion: `transcode_worker()` in `core/tasks/transcode.py`
   - Thumbnail generation: `thumbs_generate()` in `core/tasks/thumbs_generate.py`
   - Photo picker import: `picker_import_item()` in `core/tasks/picker_import.py`
 - **Config**: `.env` for secrets, keys, and DB connection; requires `python-dotenv` for loading
-- **i18n**: Translations in `webapp/translations/`, compiled with `pybabel compile -d webapp/translations -f`
+- **i18n**: Translations in `presentation/web/translations/`, compiled with `pybabel compile -d presentation/web/translations -f`
 - **Security**: Google tokens encrypted, role-based permissions (`current_user.can()`), signed download URLs
 - **Media Storage**: Structured by date (`YYYY/MM/DD/`) with originals, playback files, and multi-size thumbnails
 
@@ -50,14 +50,14 @@ Python実行時は `source /home/kyon/myproject/.venv/bin/activate && python mai
 - **Error Handling**: API errors return toast messages; retry logic and error pages for fatal errors
 - **Testing**: Use `pytest` in `tests/`; CLI and API both have test coverage
 - **Component Structure**: Blueprint pattern with url_prefix: `/api`, `/auth`, `/admin`, `/photo-view`, `/dashboard`
-- **Naming**: DB, files, and endpoints follow conventions in `requirements.md`
+- **Naming**: DB, files, and endpoints follow conventions in `docs/requirements.md`
 - **Media Processing**: Videos transcoded to H.264/AAC MP4 (1080p, CRF20), thumbnails in 256/1024/2048px
 - **Token Security**: Download URLs use HMAC-signed tokens with expiration (`_sign_payload()` in API routes)
 
 ## Integration Points
 - **Google API**: OAuth flow, token storage, and refresh logic in `core/models/google_account.py` and `core/crypto.py`
 - **Media Processing**: Video conversion and thumbnailing via workers in `core/tasks/`
-- **Admin/Settings**: Settings and job history require admin permissions; see UI/validation rules in `requirements.md`
+- **Admin/Settings**: Settings and job history require admin permissions; see UI/validation rules in `docs/requirements.md`
 - **File Downloads**: Signed URLs via `/api/dl/<token>` with type-specific paths (`thumbs/`, `playback/`)
 - **Authorization**: Role-based access with Permission model; use `@require_roles()` decorator and `current_user.can()`
 
@@ -68,6 +68,6 @@ Python実行時は `source /home/kyon/myproject/.venv/bin/activate && python mai
 - Background task functions return `{"ok": bool, ...}` dicts for test/monitoring compatibility
 
 ## References
-- See `requirements.md` for detailed API, DB, and UI specs
+- See `docs/requirements.md` for detailed API, DB, and UI specs
 - See `README.md` and `cli/README.md` for setup and workflow details
-- See `core/` and `webapp/` for main logic and API/UI code
+- See `core/` and `presentation/web/` for main logic and API/UI code

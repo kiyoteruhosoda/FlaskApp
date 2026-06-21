@@ -30,9 +30,9 @@ def app(tmp_path):
     # webapp / webapp.config を reload しない。create_app は DATABASE_URI を runtime に
     # 再解決し、settings は env を遅延参照するため reload は不要。reload(webapp) は
     # シム submodule の identity を分岐させ、後続テストの monkeypatch を無効化する。
-    from webapp.config import BaseApplicationSettings
+    from presentation.web.config import BaseApplicationSettings
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
-    from webapp import create_app
+    from presentation.web import create_app
     app = create_app()
     app.config.update(TESTING=True)
     from core.models.google_account import GoogleAccount

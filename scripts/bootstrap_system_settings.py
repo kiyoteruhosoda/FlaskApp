@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 from typing import Any, Iterable
 
-from webapp import create_app
-from webapp.extensions import db
-from webapp.services.system_setting_service import SystemSettingService
+from presentation.web import create_app
+from presentation.web.extensions import db
+from presentation.web.services.system_setting_service import SystemSettingService
 from core.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
 from core.settings import ApplicationSettings
 

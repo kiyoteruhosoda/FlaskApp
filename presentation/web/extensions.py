@@ -7,7 +7,7 @@ from flask import current_app, g, session
 from flask_mailman import Mail
 
 from presentation.web.auth import SERVICE_LOGIN_TOKEN_SESSION_KEY
-from flask_smorest import Api
+from presentation.web.smorest_ext import Api
 
 migrate = Migrate()
 login_manager = LoginManager()

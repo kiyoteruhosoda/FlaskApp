@@ -8,7 +8,7 @@ from unittest.mock import patch, MagicMock
 import pytest
 from flask import current_app
 
-from webapp.extensions import db
+from presentation.web.extensions import db
 
 
 class TestHealthEndpoints:
@@ -49,7 +49,7 @@ class TestHealthEndpoints:
 
     def test_health_ready_db_error(self, app_context, client):
         """Test /health/ready when database is unavailable"""
-        with patch('webapp.extensions.db.session.execute') as mock_execute:
+        with patch('presentation.web.extensions.db.session.execute') as mock_execute:
             mock_execute.side_effect = Exception("Database connection failed")
             
             response = client.get("/health/ready")

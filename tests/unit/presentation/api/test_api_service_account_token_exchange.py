@@ -11,8 +11,8 @@ from core.db import db
 from bounded_contexts.certs.application.use_cases import IssueCertificateForGroupUseCase
 from bounded_contexts.certs.domain.usage import UsageType
 from bounded_contexts.certs.infrastructure.models import CertificateGroupEntity
-from webapp.services.service_account_service import ServiceAccountService
-from webapp.services.token_service import TokenService
+from presentation.web.services.service_account_service import ServiceAccountService
+from presentation.web.services.token_service import TokenService
 from shared.application.authenticated_principal import AuthenticatedPrincipal
 
 
@@ -64,7 +64,7 @@ def _redis_store(app_context, monkeypatch):
     store = _InMemoryRedis()
     app_context.config["REDIS_URL"] = "redis://localhost:6379/0"
     monkeypatch.setattr(
-        "webapp.auth.service_account_auth.redis.from_url",
+        "presentation.web.auth.service_account_auth.redis.from_url",
         lambda url: store,
     )
     return store

@@ -18,7 +18,7 @@ sys.path.insert(0, '/home/kyon/myproject')
 
 from core.db import db
 from core.models.log import Log
-from webapp import create_app
+from presentation.web import create_app
 
 
 def parse_message_json(message):

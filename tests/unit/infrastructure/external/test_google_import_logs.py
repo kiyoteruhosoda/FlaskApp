@@ -9,8 +9,8 @@ import pytest
 from core.models.google_account import GoogleAccount
 from core.models.picker_session import PickerSession
 from core.models.worker_log import WorkerLog
-from webapp.api.picker_session import _collect_local_import_logs, _collect_local_import_file_tasks
-from webapp.extensions import db
+from presentation.web.api.picker_session import _collect_local_import_logs, _collect_local_import_file_tasks
+from presentation.web.extensions import db
 
 
 @pytest.mark.usefixtures("app_context")

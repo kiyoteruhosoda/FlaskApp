@@ -1,7 +1,7 @@
 import pytest
 
-from webapp.services.token_service import TokenService
-from webapp.extensions import db
+from presentation.web.services.token_service import TokenService
+from presentation.web.extensions import db
 from core.models.user import User
 
 

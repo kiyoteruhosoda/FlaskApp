@@ -20,9 +20,15 @@ core/version.json
 env/
 venv/
 
-# VSCode / PyCharm
+# VSCode / PyCharm / Visual Studio
 .vscode/
 .idea/
+.vs/
+
+# テスト・ツールのキャッシュ
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 
 # ログや一時ファイル
 *.log

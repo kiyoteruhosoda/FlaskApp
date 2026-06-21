@@ -22,7 +22,7 @@ def app(tmp_path, monkeypatch):
     db_path.parent.mkdir(parents=True, exist_ok=True)
     
     # Import and create app
-    from webapp import create_app
+    from presentation.web import create_app
     app = create_app()
     
     # Create tables

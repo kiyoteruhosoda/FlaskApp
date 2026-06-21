@@ -8,7 +8,7 @@ import shutil
 from pathlib import Path
 from datetime import datetime, timezone
 
-from webapp import create_app
+from presentation.web import create_app
 from core.tasks.local_import import import_single_file
 from core.models.photo_models import Media, MediaItem, PhotoMetadata, VideoMetadata, Exif
 

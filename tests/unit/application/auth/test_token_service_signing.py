@@ -11,9 +11,9 @@ from core.settings import settings
 from bounded_contexts.certs.application.use_cases import IssueCertificateForGroupUseCase
 from bounded_contexts.certs.domain.usage import UsageType
 from bounded_contexts.certs.infrastructure.models import CertificateGroupEntity, IssuedCertificateEntity
-from webapp.services.access_token_signing import AccessTokenSigningError
-from webapp.services.system_setting_service import SystemSettingService
-from webapp.services.token_service import TokenService
+from presentation.web.services.access_token_signing import AccessTokenSigningError
+from presentation.web.services.system_setting_service import SystemSettingService
+from presentation.web.services.token_service import TokenService
 from core.db import db
 
 

@@ -6,6 +6,8 @@ import { login, clearError, getCurrentUser } from '../store/authSlice';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import i18n from 'i18next';
+import axios from 'axios';
+import { startPasskeyAuthentication, isPasskeySupported } from '../utils/webauthn';
 
 const LoginPage: React.FC = () => {
   const { t } = useTranslation();
@@ -21,6 +23,7 @@ const LoginPage: React.FC = () => {
 
   const [showTotpField, setShowTotpField] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [passkeyError, setPasskeyError] = useState<string | null>(null);
 
   const changeLanguage = (lng: string) => {
     i18n.changeLanguage(lng);
@@ -77,19 +80,48 @@ const LoginPage: React.FC = () => {
   };
 
   const handlePasskeyLogin = async () => {
+    setPasskeyError(null);
+    if (!isPasskeySupported()) {
+      setPasskeyError(t('Passkey is not supported on this device'));
+      return;
+    }
     setPasskeyLoading(true);
     try {
-      // TODO: Passkey認証の実装
-      alert(t('Passkey login is not implemented yet'));
-    } catch (err) {
-      console.error('Passkey login error:', err);
+      // 認証オプション取得(チャレンジは Flask セッションに保持されるため cookie 必須)
+      const optionsRes = await axios.post(
+        '/auth/passkey/options/login',
+        formData.email ? { email: formData.email } : {},
+        { withCredentials: true }
+      );
+      const assertion = await startPasskeyAuthentication(optionsRes.data);
+      const verifyRes = await axios.post('/auth/passkey/verify/login', assertion, {
+        withCredentials: true,
+      });
+      const data = verifyRes.data || {};
+      if (data.access_token) localStorage.setItem('access_token', data.access_token);
+      if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
+
+      await dispatch(getCurrentUser());
+      if (data.requires_role_selection) {
+        navigate('/select-role');
+      } else {
+        navigate(data.redirect_url || '/dashboard');
+      }
+    } catch (err: any) {
+      if (err?.name === 'NotAllowedError' || err?.message === 'passkey_canceled') {
+        setPasskeyError(t('Passkey sign-in was canceled'));
+      } else {
+        setPasskeyError(
+          err?.response?.data?.error || t('Passkey sign-in failed')
+        );
+      }
     } finally {
       setPasskeyLoading(false);
     }
   };
 
   return (
-    <div className="position-relative">
+    <div className="position-relative" data-testid="login-page">
       {/* 言語切替 - 固定位置 */}
       <div className="position-fixed top-0 end-0 m-3" style={{zIndex: 1050}}>
         <Dropdown>
@@ -167,6 +199,7 @@ const LoginPage: React.FC = () => {
                   type="submit"
                   className="w-100 mb-3"
                   disabled={isLoading}
+                  data-testid="login-submit"
                 >
                   {isLoading ? (
                     <>
@@ -178,12 +211,19 @@ const LoginPage: React.FC = () => {
                   )}
                 </Button>
 
+                {passkeyError && (
+                  <Alert variant="warning" dismissible onClose={() => setPasskeyError(null)}>
+                    {passkeyError}
+                  </Alert>
+                )}
+
                 {/* パスキーログイン */}
                 <div className="d-grid mb-3">
                   <Button
                     variant="outline-secondary"
                     onClick={handlePasskeyLogin}
                     disabled={passkeyLoading}
+                    data-testid="passkey-login-btn"
                   >
                     {passkeyLoading ? (
                       <>

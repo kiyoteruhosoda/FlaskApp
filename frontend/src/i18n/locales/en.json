@@ -100,5 +100,8 @@
   "Search tags": "Search tags",
   "No tags found": "No tags found",
   "Failed to load tags": "Failed to load tags",
-  "Search": "Search"
+  "Search": "Search",
+  "Passkey is not supported on this device": "Passkey is not supported on this device",
+  "Passkey sign-in was canceled": "Passkey sign-in was canceled",
+  "Passkey sign-in failed": "Passkey sign-in failed"
 }

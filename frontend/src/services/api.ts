@@ -49,7 +49,13 @@ class ApiClient {
     this.client.interceptors.response.use(
       (response) => response,
       async (error) => {
-        if (error.response?.status === 401) {
+        // 認証エンドポイント自体の 401(資格情報不正・TOTP要求等)は
+        // セッション失効とは異なるため、リフレッシュ/リダイレクトを行わない。
+        const requestUrl: string = error.config?.url || '';
+        const isAuthEndpoint =
+          requestUrl.includes('/auth/login') ||
+          requestUrl.includes('/auth/refresh');
+        if (error.response?.status === 401 && !isAuthEndpoint) {
           // トークン期限切れの場合、リフレッシュトークンで再取得を試行
           const refreshToken = localStorage.getItem('refresh_token');
           if (refreshToken) {

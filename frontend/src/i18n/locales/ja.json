@@ -100,5 +100,8 @@
   "Search tags": "タグを検索",
   "No tags found": "タグがありません",
   "Failed to load tags": "タグの読み込みに失敗しました",
-  "Search": "検索"
+  "Search": "検索",
+  "Passkey is not supported on this device": "この端末はパスキーに対応していません",
+  "Passkey sign-in was canceled": "パスキーのサインインがキャンセルされました",
+  "Passkey sign-in failed": "パスキーのサインインに失敗しました"
 }

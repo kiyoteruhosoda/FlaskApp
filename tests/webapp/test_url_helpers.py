@@ -7,7 +7,7 @@ from werkzeug.test import EnvironBuilder
 from werkzeug.wrappers import Request
 
 from core.settings import settings
-from webapp.utils.url_helpers import determine_external_scheme
+from presentation.web.utils.url_helpers import determine_external_scheme
 
 
 def _build_request(*, headers: dict[str, str] | None = None, scheme: str = "http") -> Request:

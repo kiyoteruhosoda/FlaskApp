@@ -1,6 +1,6 @@
 from flask import session
 
-from webapp.security import get_or_set_csrf_token, validate_csrf_token
+from presentation.web.security import get_or_set_csrf_token, validate_csrf_token
 
 
 def test_get_or_set_csrf_token_generates_and_reuses_value(app_context):

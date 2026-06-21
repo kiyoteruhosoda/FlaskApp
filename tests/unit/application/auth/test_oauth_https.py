@@ -7,7 +7,7 @@ import pytest
 from flask import url_for
 from werkzeug.test import EnvironBuilder
 from werkzeug.wrappers import Request
-from webapp import create_app
+from presentation.web import create_app
 
 
 def test_oauth_url_generation_http():
@@ -94,7 +94,7 @@ def test_oauth_start_api_with_scope_profile_photo_picker():
     app.config['TESTING'] = True
     app.config['GOOGLE_CLIENT_ID'] = 'test-client-id'
 
-    from webapp.api.routes import google_oauth_start
+    from presentation.web.api.routes import google_oauth_start
 
     with app.test_request_context(
         '/api/google/oauth/start',
@@ -125,7 +125,7 @@ def test_oauth_start_api_with_invalid_scope_profile():
     app.config['TESTING'] = True
     app.config['GOOGLE_CLIENT_ID'] = 'test-client-id'
 
-    from webapp.api.routes import google_oauth_start
+    from presentation.web.api.routes import google_oauth_start
 
     with app.test_request_context(
         '/api/google/oauth/start',

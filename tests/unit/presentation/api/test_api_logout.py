@@ -1,8 +1,8 @@
 import pytest
 
 from core.models.user import User
-from webapp.extensions import db
-from webapp.services.token_service import TokenService
+from presentation.web.extensions import db
+from presentation.web.services.token_service import TokenService
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def _create_user(email: str = "logout-user@example.com", password: str = "secret
 def _login_via_session(client, user: User, picker_session_id: str = "picker_sessions/test") -> None:
     from flask import session as flask_session
     from flask_login import login_user
-    from webapp.services.token_service import TokenService
+    from presentation.web.services.token_service import TokenService
 
     with client.application.test_request_context():
         principal = TokenService.create_principal_for_user(user)

@@ -11,9 +11,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from webapp import create_app
-from webapp.api.picker_session_service import PickerSessionService
-from webapp.api.pagination import PaginationParams
+from presentation.web import create_app
+from presentation.web.api.picker_session_service import PickerSessionService
+from presentation.web.api.pagination import PaginationParams
 from core.models.picker_session import PickerSession
 from core.models.google_account import GoogleAccount
 from core.models.photo_models import PickerSelection, Media, MediaItem
@@ -607,7 +607,7 @@ class TestPickerSessionServiceLocalImport:
             def fail_refresh(_account):
                 raise AssertionError('refresh_google_token should not run when counts are available')
 
-            monkeypatch.setattr('webapp.api.picker_session_service.refresh_google_token', fail_refresh)
+            monkeypatch.setattr('presentation.web.api.picker_session_service.refresh_google_token', fail_refresh)
 
             result = PickerSessionService.status(ps)
 

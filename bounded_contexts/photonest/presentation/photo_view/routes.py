@@ -16,11 +16,11 @@ from core.models.google_account import GoogleAccount
 from core.settings import settings as app_settings
 
 from . import bp
-from webapp.api.picker_session import (
+from presentation.web.api.picker_session import (
     SESSION_LOG_DEFAULT_LIMIT,
     SESSION_LOG_MAX_LIMIT,
 )
-from webapp.api.picker_session_service import PickerSessionService
+from presentation.web.api.picker_session_service import PickerSessionService
 
 
 def _build_local_import_info():

@@ -9,8 +9,8 @@ from unittest.mock import MagicMock
 # プロジェクトパスを追加
 sys.path.insert(0, os.path.abspath('.'))
 
-from webapp.api.picker_session_service import PickerSessionService
-from webapp.api.pagination import PaginationParams
+from presentation.web.api.picker_session_service import PickerSessionService
+from presentation.web.api.pagination import PaginationParams
 from core.models.picker_session import PickerSession
 from core.models.photo_models import PickerSelection
 

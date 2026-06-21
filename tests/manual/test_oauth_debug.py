@@ -7,7 +7,7 @@ import sys
 import os
 sys.path.insert(0, '/home/kyon/myproject')
 
-from webapp import create_app
+from presentation.web import create_app
 from flask import url_for
 
 def test_oauth_url_generation():

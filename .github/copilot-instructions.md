@@ -12,7 +12,7 @@ Python実行時は `source /home/kyon/myproject/.venv/bin/activate && python mai
 ## Project Overview
 - **PhotoNest** is a family photo viewer and sync platform, with a Python backend (Flask), MariaDB, and Celery-based background processing.
 - The system is split into:
-  - `webapp/`: Flask app (API, UI, auth, admin, feature modules)
+  - `presentation/web/`: Flask app (API, UI, auth, admin, feature modules)
   - `core/`: Core logic (crypto, DB, models, tasks)
   - `cli/`: Celery configuration and task definitions
   - `domain/`: Domain layer (DDD architecture)
@@ -41,7 +41,7 @@ Python実行時は `source /home/kyon/myproject/.venv/bin/activate && python mai
   - Thumbnail generation: `thumbs_generate()` in `core/tasks/thumbs_generate.py`
   - Photo picker import: `picker_import_item()` in `core/tasks/picker_import.py`
 - **Config**: `.env` for secrets, keys, and DB connection; requires `python-dotenv` for loading
-- **i18n**: Translations in `webapp/translations/`, compiled with `pybabel compile -d webapp/translations -f`
+- **i18n**: Translations in `presentation/web/translations/`, compiled with `pybabel compile -d presentation/web/translations -f`
 - **Security**: Google tokens encrypted, role-based permissions (`current_user.can()`), signed download URLs
 - **Media Storage**: Structured by date (`YYYY/MM/DD/`) with originals, playback files, and multi-size thumbnails
 
@@ -70,4 +70,4 @@ Python実行時は `source /home/kyon/myproject/.venv/bin/activate && python mai
 ## References
 - See `docs/requirements.md` for detailed API, DB, and UI specs
 - See `README.md` and `cli/README.md` for setup and workflow details
-- See `core/` and `webapp/` for main logic and API/UI code
+- See `core/` and `presentation/web/` for main logic and API/UI code

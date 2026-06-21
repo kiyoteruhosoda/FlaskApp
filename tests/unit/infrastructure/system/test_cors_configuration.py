@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from webapp import create_app
-from webapp.extensions import db
-from webapp.services.system_setting_service import SystemSettingService
+from presentation.web import create_app
+from presentation.web.extensions import db
+from presentation.web.services.system_setting_service import SystemSettingService
 from core.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
-from webapp import _apply_persisted_settings
+from presentation.web import _apply_persisted_settings
 
 
 @pytest.fixture

@@ -8,7 +8,7 @@ import os
 import sys
 sys.path.insert(0, '/home/kyon/myproject')
 
-from webapp import create_app
+from presentation.web import create_app
 from flask import url_for
 import logging
 

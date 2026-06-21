@@ -7,7 +7,7 @@ import json
 import pytest
 from unittest.mock import patch
 
-from webapp import create_app
+from presentation.web import create_app
 
 
 class TestVersionAdminPage:
@@ -180,7 +180,7 @@ class TestVersionPageIntegration:
         """テンプレートコンテキストプロセッサのテスト"""
         # app_versionがテンプレートで利用可能かテスト
         
-        from webapp import create_app
+        from presentation.web import create_app
         
         app = create_app()
         with app.test_request_context():

@@ -21,12 +21,12 @@ def app(tmp_path):
         original_env[key] = os.environ.get(key)
         os.environ[key] = value
 
-    import webapp.config as config_module
+    import presentation.web.config as config_module
 
     BaseApplicationSettings = config_module.BaseApplicationSettings
 
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
-    from webapp import create_app
+    from presentation.web import create_app
 
     app = create_app()
     app.config.update(TESTING=True)
@@ -81,7 +81,7 @@ def _create_user(app, *, permissions):
 def _login(client, user_id):
     from flask import session as flask_session
     from flask_login import login_user
-    from webapp.services.token_service import TokenService
+    from presentation.web.services.token_service import TokenService
     from core.models.user import User
 
     with client.application.test_request_context():

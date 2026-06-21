@@ -9,14 +9,14 @@ from core.settings import settings
 from core.models.passkey import PasskeyCredential
 from core.models.user import Permission, Role, User
 from shared.application.passkey_service import PasskeyRegistrationError
-from webapp.auth.routes import (
+from presentation.web.auth.routes import (
     PASSKEY_AUTH_CHALLENGE_KEY,
     PASSKEY_REGISTRATION_CHALLENGE_KEY,
     PASSKEY_REGISTRATION_USER_ID_KEY,
     _extract_passkey_client_data_details,
     _resolve_passkey_origin,
 )
-from webapp.services.gui_access_cookie import API_LOGIN_SCOPE_SESSION_KEY
+from presentation.web.services.gui_access_cookie import API_LOGIN_SCOPE_SESSION_KEY
 from webauthn.helpers import bytes_to_base64url
 
 
@@ -88,7 +88,7 @@ def test_passkey_registration_options_sets_session(monkeypatch, client):
             assert rp_id is not None
             return options_payload, challenge
 
-    monkeypatch.setattr("webapp.auth.routes.passkey_service", StubService())
+    monkeypatch.setattr("presentation.web.auth.routes.passkey_service", StubService())
 
     response = client.post("/auth/passkey/options/register")
     assert response.status_code == 200
@@ -129,7 +129,7 @@ def test_passkey_verify_register_success(monkeypatch, client):
             assert kwargs["expected_origin"]
             return record
 
-    monkeypatch.setattr("webapp.auth.routes.passkey_service", StubService())
+    monkeypatch.setattr("presentation.web.auth.routes.passkey_service", StubService())
 
     with client.session_transaction() as session:
         session[PASSKEY_REGISTRATION_CHALLENGE_KEY] = "challenge"
@@ -188,7 +188,7 @@ def test_passkey_verify_register_accepts_nested_payload(monkeypatch, client):
             assert decoded["response"] == {"transports": ["internal"]}
             return record
 
-    monkeypatch.setattr("webapp.auth.routes.passkey_service", StubService())
+    monkeypatch.setattr("presentation.web.auth.routes.passkey_service", StubService())
 
     with client.session_transaction() as session:
         session[PASSKEY_REGISTRATION_CHALLENGE_KEY] = "challenge"
@@ -228,7 +228,7 @@ def test_passkey_verify_register_handles_error(monkeypatch, client):
                 "client challenge mismatch"
             )
 
-    monkeypatch.setattr("webapp.auth.routes.passkey_service", StubService())
+    monkeypatch.setattr("presentation.web.auth.routes.passkey_service", StubService())
 
     with client.session_transaction() as session:
         session[PASSKEY_REGISTRATION_CHALLENGE_KEY] = "challenge"
@@ -321,7 +321,7 @@ def test_passkey_login_options_sets_challenge(monkeypatch, client):
             assert user.id == user_model.id
             return options_payload, challenge
 
-    monkeypatch.setattr("webapp.auth.routes.passkey_service", StubService())
+    monkeypatch.setattr("presentation.web.auth.routes.passkey_service", StubService())
 
     response = client.post(
         "/auth/passkey/options/login",
@@ -360,7 +360,7 @@ def test_passkey_verify_login_success(monkeypatch, client):
             assert kwargs["expected_origin"]
             return user
 
-    monkeypatch.setattr("webapp.auth.routes.passkey_service", StubService())
+    monkeypatch.setattr("presentation.web.auth.routes.passkey_service", StubService())
 
     issued_tokens = {"scope": None}
 
@@ -368,7 +368,7 @@ def test_passkey_verify_login_success(monkeypatch, client):
         issued_tokens["scope"] = scope
         return "access-token", "refresh-token"
 
-    monkeypatch.setattr("webapp.auth.routes.TokenService.generate_token_pair", staticmethod(fake_generate_token_pair))
+    monkeypatch.setattr("presentation.web.auth.routes.TokenService.generate_token_pair", staticmethod(fake_generate_token_pair))
 
     with client.session_transaction() as session:
         session[PASSKEY_AUTH_CHALLENGE_KEY] = "auth-challenge"
@@ -422,7 +422,7 @@ def test_passkey_verify_login_rejects_inactive_user(monkeypatch, client):
         def authenticate(self, **kwargs):
             return user
 
-    monkeypatch.setattr("webapp.auth.routes.passkey_service", StubService())
+    monkeypatch.setattr("presentation.web.auth.routes.passkey_service", StubService())
 
     with client.session_transaction() as session:
         session[PASSKEY_AUTH_CHALLENGE_KEY] = "inactive-challenge"
@@ -463,7 +463,7 @@ def test_passkey_verify_login_invalid_payload_clears_session(monkeypatch, client
         def authenticate(self, **kwargs):
             return user
 
-    monkeypatch.setattr("webapp.auth.routes.passkey_service", StubService())
+    monkeypatch.setattr("presentation.web.auth.routes.passkey_service", StubService())
 
     with client.session_transaction() as session:
         session[PASSKEY_AUTH_CHALLENGE_KEY] = "auth-challenge"

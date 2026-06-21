@@ -6,7 +6,7 @@ import pytest
 
 from core.models.photo_models import Media
 from core.models.user import Permission, Role, User
-from webapp.services.token_service import TokenService
+from presentation.web.services.token_service import TokenService
 from core.db import db
 
 

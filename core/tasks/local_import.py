@@ -23,7 +23,7 @@ from core.tasks.thumbs_generate import (
     PLAYBACK_NOT_READY_NOTES,
     thumbs_generate as _thumbs_generate,
 )
-from webapp.config import BaseApplicationSettings
+from presentation.web.config import BaseApplicationSettings
 
 from core.settings import settings
 from bounded_contexts.storage import StorageDomain
@@ -1299,7 +1299,7 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
 
 if __name__ == "__main__":
     # テスト実行用
-    from webapp import create_app
+    from presentation.web import create_app
     
     app = create_app()
     with app.app_context():

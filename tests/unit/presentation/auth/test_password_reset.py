@@ -7,7 +7,7 @@ from unittest.mock import patch, MagicMock
 from core.db import db
 from core.models.user import User, Role
 from core.models.password_reset_token import PasswordResetToken
-from webapp.services.password_reset_service import PasswordResetService
+from presentation.web.services.password_reset_service import PasswordResetService
 
 
 @pytest.fixture

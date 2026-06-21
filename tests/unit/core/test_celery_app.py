@@ -52,7 +52,7 @@ class TestCeleryAppConfiguration:
     def test_create_app_applies_persisted_settings(self, monkeypatch, tmp_path):
         """Ensure Celery's Flask app loads configuration stored in the database."""
         from cli.src.celery import celery_app
-        from webapp.services.system_setting_service import SystemSettingService
+        from presentation.web.services.system_setting_service import SystemSettingService
 
         persisted_key = "base64:WFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFg="
         persisted_payload = {
@@ -119,7 +119,7 @@ class TestFlaskAppCreation:
     def test_create_app_function(self):
         """Test Flask app creation function."""
         from cli.src.celery.celery_app import create_app
-        from webapp.config import BaseApplicationSettings
+        from presentation.web.config import BaseApplicationSettings
 
         app = create_app()
 
@@ -147,7 +147,7 @@ class TestFlaskAppCreation:
     def test_flask_app_config_inheritance(self):
         """Test that Flask app inherits from BaseApplicationSettings class."""
         from cli.src.celery.celery_app import flask_app
-        from webapp.config import BaseApplicationSettings
+        from presentation.web.config import BaseApplicationSettings
 
         # Test some basic config values that should be inherited
         assert 'SQLALCHEMY_TRACK_MODIFICATIONS' in flask_app.config
@@ -355,8 +355,8 @@ class TestCeleryModuleImports:
     def test_webapp_modules_import(self):
         """Test that webapp modules can be imported in Celery context."""
         try:
-            from webapp.config import BaseApplicationSettings
-            from webapp.extensions import migrate, login_manager, babel
+            from presentation.web.config import BaseApplicationSettings
+            from presentation.web.extensions import migrate, login_manager, babel
             assert True  # If we get here, imports succeeded
         except ImportError as e:
             pytest.fail(f"Failed to import webapp modules: {e}")

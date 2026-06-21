@@ -13,8 +13,8 @@ from bounded_contexts.certs.application.use_cases import (
 )
 from bounded_contexts.certs.domain.usage import UsageType
 from bounded_contexts.certs.infrastructure.models import CertificateGroupEntity
-from webapp.services.service_account_api_key_service import ServiceAccountApiKeyService
-from webapp.services.service_account_service import ServiceAccountService
+from presentation.web.services.service_account_api_key_service import ServiceAccountApiKeyService
+from presentation.web.services.service_account_service import ServiceAccountService
 
 
 def _prepare_service_account_signing_context(app_context, *, group_code: str):

@@ -313,7 +313,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     limit = args.limit if args.limit and args.limit > 0 else None
 
-    from webapp import create_app
+    from presentation.web import create_app
 
     app = create_app()
 

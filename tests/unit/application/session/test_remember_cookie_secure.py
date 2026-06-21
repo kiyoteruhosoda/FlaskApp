@@ -8,7 +8,7 @@ def test_remember_cookie_secure_inherits_session(monkeypatch):
     # 環境変数を設定
     monkeypatch.setenv("DATABASE_URI", "sqlite:///:memory:")
     
-    from webapp.services import system_setting_service
+    from presentation.web.services import system_setting_service
 
     def _load_application_config_payload(cls) -> Dict[str, Any]:
         return {"SESSION_COOKIE_SECURE": True}
@@ -27,7 +27,7 @@ def test_remember_cookie_secure_inherits_session(monkeypatch):
         classmethod(_load_cors_config),
     )
 
-    from webapp import create_app
+    from presentation.web import create_app
 
     app = create_app()
 
@@ -39,7 +39,7 @@ def test_remember_cookie_secure_updates_with_session_changes(monkeypatch):
     # 環境変数を設定
     monkeypatch.setenv("DATABASE_URI", "sqlite:///:memory:")
     
-    from webapp.services import system_setting_service
+    from presentation.web.services import system_setting_service
 
     def _load_cors_config(cls) -> Dict[str, Any]:
         return {"allowedOrigins": []}
@@ -59,7 +59,7 @@ def test_remember_cookie_secure_updates_with_session_changes(monkeypatch):
         classmethod(_load_application_config_payload_false),
     )
 
-    from webapp import _apply_persisted_settings, create_app
+    from presentation.web import _apply_persisted_settings, create_app
 
     app = create_app()
 

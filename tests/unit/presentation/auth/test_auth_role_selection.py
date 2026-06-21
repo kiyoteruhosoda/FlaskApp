@@ -18,16 +18,16 @@ def app(tmp_path):
         original_env[key] = os.environ.get(key)
         os.environ[key] = value
 
-    from webapp.config import BaseApplicationSettings
+    from presentation.web.config import BaseApplicationSettings
 
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
 
-    from webapp import create_app
+    from presentation.web import create_app
 
     app = create_app()
     app.config.update(TESTING=True)
 
-    from webapp.extensions import db
+    from presentation.web.extensions import db
 
     with app.app_context():
         db.create_all()
@@ -51,7 +51,7 @@ def client(app):
 
 
 def _create_user_with_roles(app, email, password, role_names):
-    from webapp.extensions import db
+    from presentation.web.extensions import db
     from core.models.user import User, Role, Permission
 
     with app.app_context():

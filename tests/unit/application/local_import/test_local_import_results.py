@@ -5,7 +5,7 @@ import pytest
 pytestmark = [pytest.mark.integration, pytest.mark.filesystem]
 
 from bounded_contexts.photonest.application.local_import.results import build_thumbnail_task_snapshot
-from webapp.extensions import db
+from presentation.web.extensions import db
 from core.models.picker_session import PickerSession
 from core.models.photo_models import Media, MediaItem, PickerSelection, MediaPlayback
 

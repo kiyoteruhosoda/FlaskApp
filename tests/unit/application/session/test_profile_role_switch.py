@@ -5,7 +5,7 @@ import pytest
 from flask import session
 
 from core.models.user import User, Role, Permission
-from webapp.extensions import db
+from presentation.web.extensions import db
 
 
 @pytest.fixture
@@ -186,7 +186,7 @@ def test_current_user_can_method_respects_active_role(client):
     # Make a request that would check permissions
     with client.application.test_request_context():
         from flask_login import login_user
-        from webapp.services.token_service import TokenService
+        from presentation.web.services.token_service import TokenService
         
         # Simulate loading the user as the login system does
         with client.session_transaction() as sess:

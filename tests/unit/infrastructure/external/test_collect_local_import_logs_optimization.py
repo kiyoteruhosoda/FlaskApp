@@ -26,14 +26,14 @@ def app(tmp_path):
     key = base64.urlsafe_b64encode(b"0" * 32).decode()
     os.environ["ENCRYPTION_KEY"] = key
 
-    from webapp.config import BaseApplicationSettings
+    from presentation.web.config import BaseApplicationSettings
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
 
-    from webapp import create_app
+    from presentation.web import create_app
     app = create_app()
     app.config.update(TESTING=True)
 
-    from webapp.extensions import db
+    from presentation.web.extensions import db
     from core.models.user import User
 
     with app.app_context():
@@ -52,7 +52,7 @@ def app(tmp_path):
 @pytest.fixture
 def db_session(app):
     """データベースセッション"""
-    from webapp.extensions import db
+    from presentation.web.extensions import db
     with app.app_context():
         yield db.session
 
@@ -61,7 +61,7 @@ def test_collect_logs_with_numeric_session_id(app, db_session):
     """数値セッションIDでのログ収集テスト"""
     from core.models.picker_session import PickerSession
     from core.models.worker_log import WorkerLog
-    from webapp.api.picker_session import _collect_local_import_logs
+    from presentation.web.api.picker_session import _collect_local_import_logs
 
     # PickerSessionを作成（数値ID）
     ps = PickerSession(
@@ -111,7 +111,7 @@ def test_collect_logs_with_string_session_id(app, db_session):
     """文字列セッションIDでのログ収集テスト（メッセージ検索のみ）"""
     from core.models.picker_session import PickerSession
     from core.models.worker_log import WorkerLog
-    from webapp.api.picker_session import _collect_local_import_logs
+    from presentation.web.api.picker_session import _collect_local_import_logs
 
     session_id_str = "local_import_20260123_123456_abcdef"
 
@@ -167,7 +167,7 @@ def test_collect_logs_with_limit_none(app, db_session):
     """limit=Noneでも最大10000件に制限されることを確認"""
     from core.models.picker_session import PickerSession
     from core.models.worker_log import WorkerLog
-    from webapp.api.picker_session import _collect_local_import_logs
+    from presentation.web.api.picker_session import _collect_local_import_logs
 
     session_id = "local_import_limit_test"
 
@@ -206,7 +206,7 @@ def test_collect_logs_with_limit(app, db_session):
     """limitパラメータが正しく機能することを確認"""
     from core.models.picker_session import PickerSession
     from core.models.worker_log import WorkerLog
-    from webapp.api.picker_session import _collect_local_import_logs
+    from presentation.web.api.picker_session import _collect_local_import_logs
 
     session_id = "local_import_limited"
 
@@ -241,7 +241,7 @@ def test_collect_logs_json_path_optimization(app, db_session):
     """最適化されたJSONパス（4個のみ）で正しく検索できることを確認"""
     from core.models.picker_session import PickerSession
     from core.models.worker_log import WorkerLog
-    from webapp.api.picker_session import _collect_local_import_logs
+    from presentation.web.api.picker_session import _collect_local_import_logs
 
     session_id = "optimized_path_test"
 
@@ -293,7 +293,7 @@ def test_collect_logs_file_task_id_filter(app, db_session):
     """file_task_idフィルタが正しく機能することを確認"""
     from core.models.picker_session import PickerSession
     from core.models.worker_log import WorkerLog
-    from webapp.api.picker_session import _collect_local_import_logs
+    from presentation.web.api.picker_session import _collect_local_import_logs
 
     session_id = "file_task_filter_test"
     target_file_task = "task_123"
@@ -337,7 +337,7 @@ def test_collect_logs_event_filter(app, db_session):
     """eventフィルタ（local_import% / import.%）が正しく機能することを確認"""
     from core.models.picker_session import PickerSession
     from core.models.worker_log import WorkerLog
-    from webapp.api.picker_session import _collect_local_import_logs
+    from presentation.web.api.picker_session import _collect_local_import_logs
 
     session_id = "event_filter_test"
 
@@ -387,7 +387,7 @@ def test_collect_logs_performance_no_explosion(app, db_session):
     """クエリ条件が爆発しないことを確認（パフォーマンステスト）"""
     from core.models.picker_session import PickerSession
     from core.models.worker_log import WorkerLog
-    from webapp.api.picker_session import _collect_local_import_logs
+    from presentation.web.api.picker_session import _collect_local_import_logs
     import time
 
     session_id_str = "performance_test_session"

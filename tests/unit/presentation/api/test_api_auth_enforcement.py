@@ -3,10 +3,10 @@ from http.cookies import SimpleCookie
 from flask import Flask, jsonify
 import pytest
 
-from webapp.api.blueprint import AuthEnforcedBlueprint
-from webapp.api.health import skip_auth
-from webapp.api.routes import API_LOGIN_SCOPE_SESSION_KEY, login_or_jwt_required
-from webapp.auth.service_account_auth import require_service_account_scopes
+from presentation.web.api.blueprint import AuthEnforcedBlueprint
+from presentation.web.api.health import skip_auth
+from presentation.web.api.routes import API_LOGIN_SCOPE_SESSION_KEY, login_or_jwt_required
+from presentation.web.auth.service_account_auth import require_service_account_scopes
 
 
 def _register_routes(blueprint):
@@ -70,7 +70,7 @@ def test_login_or_jwt_required_regenerates_cookie_on_invalid_token(app_context):
 
     with app.app_context():
         from core.models.user import Permission, Role, User
-        from webapp.extensions import db
+        from presentation.web.extensions import db
 
         manage_permission = Permission(code="user:manage")
         gui_permission = Permission(code="gui:view")

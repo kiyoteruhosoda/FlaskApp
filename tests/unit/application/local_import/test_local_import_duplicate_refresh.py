@@ -8,7 +8,7 @@ from core.db import db
 
 pytestmark = [pytest.mark.integration, pytest.mark.filesystem]
 
-from webapp import create_app
+from presentation.web import create_app
 from core.tasks import local_import
 from core.tasks.local_import import import_single_file
 from core.models.photo_models import Media, MediaItem, MediaPlayback, PhotoMetadata, Exif

@@ -20,7 +20,7 @@ def _create_session(db):
 def test_media_item_flushed_before_selection_insert(app_context, monkeypatch):
     app = app_context
 
-    from webapp.api.picker_session_service import PickerSessionService
+    from presentation.web.api.picker_session_service import PickerSessionService
     from core.models.photo_models import MediaItem
 
     with app.app_context():
@@ -61,7 +61,7 @@ def test_media_item_flushed_before_selection_insert(app_context, monkeypatch):
 def test_enqueue_new_items_create_import_tasks(app_context, monkeypatch):
     app = app_context
 
-    from webapp.api.picker_session_service import PickerSessionService
+    from presentation.web.api.picker_session_service import PickerSessionService
     from core.models.photo_models import PickerSelection
     from core.models.picker_import_task import PickerImportTask
 
@@ -72,7 +72,7 @@ def test_enqueue_new_items_create_import_tasks(app_context, monkeypatch):
         db.session.add(selection)
         db.session.commit()
 
-        import webapp.api.picker_session as ps_module
+        import presentation.web.api.picker_session as ps_module
 
         queued = []
 
@@ -96,7 +96,7 @@ def test_enqueue_new_items_create_import_tasks(app_context, monkeypatch):
 def test_existing_pending_selection_reenqueued(app_context, monkeypatch):
     app = app_context
 
-    from webapp.api.picker_session_service import PickerSessionService
+    from presentation.web.api.picker_session_service import PickerSessionService
     from core.models.photo_models import PickerSelection
     from core.models.picker_import_task import PickerImportTask
 
@@ -130,7 +130,7 @@ def test_existing_pending_selection_reenqueued(app_context, monkeypatch):
         assert dup == 0
         assert [pmi.id for pmi in new_pmis] == [selection.id]
 
-        import webapp.api.picker_session as ps_module
+        import presentation.web.api.picker_session as ps_module
 
         queued: list[tuple[int | None, int]] = []
 
@@ -151,7 +151,7 @@ def test_existing_pending_selection_reenqueued(app_context, monkeypatch):
 def test_media_items_commit_for_duplicates_only(app_context, monkeypatch):
     app = app_context
 
-    from webapp.api.picker_session_service import PickerSessionService
+    from presentation.web.api.picker_session_service import PickerSessionService
     from core.models.google_account import GoogleAccount
     from core.models.picker_session import PickerSession
     from core.models.photo_models import PickerSelection

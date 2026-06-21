@@ -317,51 +317,5 @@ class TestDatabaseMigration:
             assert True
 
 
-# ============================================================
-# Vue Component Tests (Structure Validation)
-# ============================================================
-
-class TestVueComponent:
-    """Vueコンポーネントの構造テスト"""
-    
-    def test_vue_component_file_exists(self):
-        """Vueコンポーネントファイルが存在する"""
-        import os
-        
-        vue_file = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "..", "..", "..", "..",
-            "webapp", "src", "components", "LocalImportStatus.vue",
-        )
-        
-        assert os.path.exists(vue_file), "LocalImportStatus.vueが存在しない"
-    
-    def test_vue_component_structure(self):
-        """Vueコンポーネントの基本構造を確認"""
-        import os
-        
-        vue_file = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "..", "..", "..", "..",
-            "webapp", "src", "components", "LocalImportStatus.vue",
-        )
-        
-        if os.path.exists(vue_file):
-            with open(vue_file, 'r', encoding='utf-8') as f:
-                content = f.read()
-            
-            # 必須セクションの存在確認
-            assert '<template>' in content, "templateセクションがない"
-            assert '<script>' in content, "scriptセクションがない"
-            assert '<style' in content, "styleセクションがない"
-            
-            # 必須プロパティの確認
-            assert 'sessionId' in content, "sessionId propが定義されていない"
-            assert 'loadData' in content, "loadDataメソッドが定義されていない"
-            
-            # APIエンドポイント呼び出しの確認
-            assert '/api/local-import/sessions/' in content, "APIエンドポイントが定義されていない"
-
-
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

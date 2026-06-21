@@ -77,20 +77,18 @@ nolumia/
 │   └── kernel/         #   共有カーネル（crypto, database, logging, settings）
 │
 ├── presentation/       # プレゼンテーション層（Flask Web アプリ）
-│   └── web/            #   create_app・Blueprint・API・認証・テンプレート等（唯一の実体）
-│
-├── webapp/             # 後方互換シム層（presentation.web へのエイリアス。新規参照は presentation を使用）
+│   └── web/            #   create_app・Blueprint・API・認証・テンプレート等（Web の単一実体）
 │
 ├── core/               # 共通基盤（暗号化・Celery タスク・モデル・設定・ストレージ・version）
 ├── cli/                # Celery タスク定義・CLI（cli.src.celery 配下）
 ├── migrations/         # データベースマイグレーション（Alembic）
 │
-├── frontend/           # フロントエンド（React/TypeScript）
-├── flask_smorest/      # ベンダリングした flask-smorest（OpenAPI 拡張）
+├── frontend/           # フロントエンド（React/TypeScript・Vite。独立した SPA）
+├── flask_smorest/      # flask-smorest のカスタムフォーク（/api/overview 等の独自機能を追加）
 ├── db/                 # DB コンテナ用 Dockerfile と初期化 SQL
 ├── scripts/            # 運用・デモ・シードスクリプト
 ├── docs/               # ドキュメント
-├── tests/              # テスト（unit / integration / webapp ほか）
+├── tests/              # テスト（unit / integration ほか）
 │
 ├── main.py             # 開発用エントリポイント（flask run 相当）
 ├── wsgi.py             # 本番 WSGI エントリポイント（gunicorn 用）
@@ -98,7 +96,7 @@ nolumia/
 └── docker-compose.yml  # ローカル/本番のコンテナ構成
 ```
 
-> **補足:** かつての `webapp/` パッケージは `presentation/web/` へ移設済みで、`webapp/` は後方互換のための薄いエイリアス層（`sys.modules` 経由で presentation を指す）になっています。新しいコードは `presentation.web.*` を直接参照してください。
+> **補足:** Web アプリの実体は `presentation/web/` に一本化されています（旧 `webapp/` パッケージは撤去済み）。`flask_smorest/` はリポジトリ直下に置かれた **flask-smorest のカスタムフォーク**で、`/api/overview` のインタラクティブ仕様表や favicon 付き Swagger UI などの独自機能を含みます（リポジトリルートが `sys.path` 先頭に来るため、pip 版より優先して読み込まれます）。
 
 ### 主要機能
 - 🔐 **セキュア認証**: JWT + ロールベース権限管理、TOTP 多要素認証

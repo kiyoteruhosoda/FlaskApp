@@ -5,7 +5,7 @@ import json
 import pytest
 from unittest.mock import patch
 
-from webapp import create_app
+from presentation.web import create_app
 from core.version import get_version_info, get_version_string
 
 

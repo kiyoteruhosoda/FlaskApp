@@ -1,6 +1,6 @@
 import pytest
 
-from webapp.extensions import db
+from presentation.web.extensions import db
 from core.models.group import Group, GroupHierarchyError
 
 

@@ -44,8 +44,8 @@ from bounded_contexts.wiki.domain.exceptions import (
     WikiPageNotFoundError,
     WikiValidationError,
 )
-from webapp.config import BaseApplicationSettings
-from webapp.services.upload_service import commit_uploads_to_directory
+from presentation.web.config import BaseApplicationSettings
+from presentation.web.services.upload_service import commit_uploads_to_directory
 
 
 class WikiIndexUseCase:

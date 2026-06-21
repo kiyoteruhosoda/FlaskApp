@@ -46,7 +46,7 @@ from bounded_contexts.wiki.domain.exceptions import (
     WikiPageNotFoundError,
     WikiValidationError,
 )
-from webapp.security import get_or_set_csrf_token, validate_csrf_token
+from presentation.web.security import get_or_set_csrf_token, validate_csrf_token
 
 from . import bp
 

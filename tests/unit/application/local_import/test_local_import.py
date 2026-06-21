@@ -55,11 +55,11 @@ def app(tmp_path):
     os.environ.update(env)
 
     import importlib
-    import webapp.config as config_module
-    import webapp as webapp_module
-    from webapp.config import BaseApplicationSettings
+    import presentation.web.config as config_module
+    import presentation.web as webapp_module
+    from presentation.web.config import BaseApplicationSettings
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
-    from webapp import create_app
+    from presentation.web import create_app
     app = create_app()
     app.config.update(TESTING=True)
     with app.app_context():

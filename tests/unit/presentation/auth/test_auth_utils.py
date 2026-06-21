@@ -3,7 +3,7 @@ import logging
 
 import pytest
 
-from webapp.auth import utils as auth_utils
+from presentation.web.auth import utils as auth_utils
 
 
 class DummyResponse:

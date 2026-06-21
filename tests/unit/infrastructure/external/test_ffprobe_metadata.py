@@ -7,7 +7,7 @@ import tempfile
 import subprocess
 from pathlib import Path
 
-from webapp import create_app
+from presentation.web import create_app
 from core.tasks.local_import import import_single_file, extract_video_metadata
 from core.models.photo_models import Media, MediaItem, VideoMetadata
 

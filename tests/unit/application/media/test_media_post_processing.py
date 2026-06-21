@@ -39,15 +39,15 @@ def app(tmp_path):
     prev_env = {k: os.environ.get(k) for k in env_keys}
     os.environ.update(env_keys)
 
-    import webapp.config as config_module
-    import webapp as webapp_module
+    import presentation.web.config as config_module
+    import presentation.web as webapp_module
 
 
-    from webapp.config import BaseApplicationSettings
+    from presentation.web.config import BaseApplicationSettings
 
     BaseApplicationSettings.SQLALCHEMY_ENGINE_OPTIONS = {}
 
-    from webapp import create_app
+    from presentation.web import create_app
 
     app = create_app()
     app.config.update(TESTING=True)
@@ -59,7 +59,7 @@ def app(tmp_path):
     yield app
 
     with app.app_context():
-        from webapp.extensions import db as db_ext
+        from presentation.web.extensions import db as db_ext
 
         db_ext.session.remove()
         db_ext.drop_all()

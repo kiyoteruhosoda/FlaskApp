@@ -1,11 +1,15 @@
 # nolumia
 
-nolumiaは、DDD（ドメイン駆動設計）アーキテクチャを採用したFlaskベースの家族写真管理・同期プラットフォームです。Google Photos同期、ローカルファイルインポート、動画変換、サムネイル生成などの処理をCeleryによるバックグラウンドジョブで実行します。
+nolumia は、DDD（ドメイン駆動設計）アーキテクチャを採用した Flask ベースの家族写真管理・同期プラットフォームです。Google Photos 同期、ローカルファイルインポート、動画変換、サムネイル生成などの処理を Celery によるバックグラウンドジョブで実行します。
 
+## 📚 ドキュメント
 
-## 開発向けDOC
-
-/docs/DEVELOPMENT.md
+- **[開発ガイド](docs/DEVELOPMENT.md)** - 詳細なセットアップ、Celery、テスト実行
+- **[シングルサーバ構成ガイド](docs/SINGLE_SERVER_GUIDE.md)** - 1台構成での起動手順
+- **[Synology デプロイ](docs/synology-deployment.md)** - Synology NAS 専用デプロイガイド
+- **[TOTP 管理ガイド](docs/totp_management.md)** - TOTP 資格情報の登録・インポート/エクスポート手順
+- **[システム要件・API 仕様](docs/requirements.md)** - 技術仕様書・API/DB/UI 設計
+- **[ドキュメント一覧](docs/)** - その他の設計・運用ドキュメント
 
 ## 🚀 クイックスタート
 
@@ -21,7 +25,7 @@ pip install -r requirements.txt
 
 # 3. 環境設定
 cp .env.example .env
-# .envファイルを編集してデータベース接続情報等を設定
+# .env ファイルを編集してデータベース接続情報等を設定
 
 # 4. データベースセットアップ
 flask db upgrade
@@ -31,14 +35,14 @@ flask seed-master
 python main.py
 ```
 
-### 本番環境（Docker推奨）
+### 本番環境（Docker 推奨）
 ```bash
-# 1. Dockerイメージビルド
-docker build -t photonest:latest .
+# 1. Docker イメージビルド
+docker build -t nolumia:latest .
 
 # 2. 環境設定
 cp .env.example .env
-# .envファイルを本番環境用に編集
+# .env ファイルを本番環境用に編集
 
 # 3. サービス起動
 docker-compose up -d
@@ -48,41 +52,68 @@ docker-compose exec web flask db upgrade
 docker-compose exec web flask seed-master
 ```
 
-## 📚 ドキュメント
-
-- **[開発ガイド](DEVELOPMENT.md)** - 詳細なセットアップ、Celery、テスト実行
-- **[Synologyデプロイ](synology-deployment.md)** - Synology NAS専用デプロイガイド
-- **[TOTP 管理ガイド](docs/totp_management.md)** - TOTP資格情報の登録・インポート/エクスポート手順
-- **[API仕様](requirements.md)** - 技術仕様書・API設計
-
 ## 🏗️ アーキテクチャ
 
-### DDD構成
+DDD のレイヤード/ヘキサゴナル構成を採用し、ビジネスロジックを **境界づけられたコンテキスト（bounded contexts）** に分割しています。各コンテキストは `domain` / `application` / `infrastructure`（必要に応じて `presentation` / `tasks`）の層を内包します。
+
 ```
 nolumia/
-├── webapp/           # Webアプリケーション層（Flask）
-├── domain/          # ドメイン層（ビジネスロジック）
-├── application/     # アプリケーションサービス層
-├── infrastructure/  # インフラストラクチャ層（DB、外部API）
-├── core/           # 共通機能（暗号化、タスク）
-├── cli/            # Celeryタスク定義
-└── migrations/     # データベースマイグレーション
+├── bounded_contexts/   # 境界づけられたコンテキスト（ドメインごとの中核ロジック）
+│   ├── photonest/      #   写真・メディア管理の中核ドメイン
+│   ├── picker_import/  #   Google Photos ピッカー連携・インポート
+│   ├── storage/        #   ストレージ抽象（ローカル/クラウド）
+│   ├── email/          #   メール送信ユースケース
+│   ├── email_sender/   #   メール送信の実装（SMTP 等）
+│   ├── certs/          #   アクセストークン署名証明書管理
+│   ├── totp/           #   TOTP（多要素認証）
+│   └── wiki/           #   Wiki/ドキュメント
+│       └── {domain, application, infrastructure, presentation, tasks}/
+│
+├── shared/             # 複数コンテキストで共有する要素
+│   ├── domain/         #   共有ドメイン（user, auth など）
+│   ├── application/    #   共有アプリケーションサービス
+│   ├── infrastructure/ #   共有インフラ（リポジトリ実装など）
+│   ├── presentation/   #   共有プレゼンテーション部品
+│   └── kernel/         #   共有カーネル（crypto, database, logging, settings）
+│
+├── presentation/       # プレゼンテーション層（Flask Web アプリ）
+│   └── web/            #   create_app・Blueprint・API・認証・テンプレート等（唯一の実体）
+│
+├── webapp/             # 後方互換シム層（presentation.web へのエイリアス。新規参照は presentation を使用）
+│
+├── core/               # 共通基盤（暗号化・Celery タスク・モデル・設定・ストレージ・version）
+├── cli/                # Celery タスク定義・CLI（cli.src.celery 配下）
+├── migrations/         # データベースマイグレーション（Alembic）
+│
+├── frontend/           # フロントエンド（React/TypeScript）
+├── flask_smorest/      # ベンダリングした flask-smorest（OpenAPI 拡張）
+├── db/                 # DB コンテナ用 Dockerfile と初期化 SQL
+├── scripts/            # 運用・デモ・シードスクリプト
+├── docs/               # ドキュメント
+├── tests/              # テスト（unit / integration / webapp ほか）
+│
+├── main.py             # 開発用エントリポイント（flask run 相当）
+├── wsgi.py             # 本番 WSGI エントリポイント（gunicorn 用）
+├── Makefile / frontend.mk  # Docker イメージ・フロントエンドのビルドタスク
+└── docker-compose.yml  # ローカル/本番のコンテナ構成
 ```
 
+> **補足:** かつての `webapp/` パッケージは `presentation/web/` へ移設済みで、`webapp/` は後方互換のための薄いエイリアス層（`sys.modules` 経由で presentation を指す）になっています。新しいコードは `presentation.web.*` を直接参照してください。
+
 ### 主要機能
-- 🔐 **セキュア認証**: JWT + ロールベース権限管理
+- 🔐 **セキュア認証**: JWT + ロールベース権限管理、TOTP 多要素認証
 - 📸 **メディア管理**: 写真・動画の統合管理
-- ☁️ **Google Photos同期**: OAuth認証による自動同期
-- 🎬 **動画変換**: FFmpegによるH.264/AAC変換
+- ☁️ **Google Photos 同期**: OAuth 認証による自動同期
+- 🎬 **動画変換**: FFmpeg による H.264/AAC 変換
 - 🖼️ **サムネイル生成**: 多段階サムネイル（256/1024/2048px）
-- ⚡ **バックグラウンド処理**: Celery + Redisによる非同期処理
+- ⚡ **バックグラウンド処理**: Celery + Redis による非同期処理
 - 🔢 **TOTP 管理**: otpauth URI や QR コードからの登録、OTP プレビュー、JSON インポート/エクスポート
 
 ## 🔧 必要環境
 
 ### 開発環境
 - Python 3.10+
-- Redis（Celery用）
+- Redis（Celery 用）
 - MariaDB 10.11+
 - FFmpeg（動画変換用）
 
@@ -94,8 +125,8 @@ nolumia/
 
 ## 🚨 重要な注意事項
 
-### Celeryワーカー（必須）
-nolumiaのバックグラウンド処理には**Celeryワーカーが必須**です：
+### Celery ワーカー（必須）
+nolumia のバックグラウンド処理には **Celery ワーカーが必須** です：
 
 ```bash
 # 正しいワーカー起動コマンド
@@ -105,8 +136,8 @@ celery -A cli.src.celery.tasks worker --loglevel=info
 celery -A cli.src.celery.tasks beat --loglevel=info
 ```
 
-### 📊 Celeryタスクの状況確認
-アプリケーションのデータベースに保存されたCeleryタスクの状態は、次のヘルパースクリプトで一覧できます。
+### 📊 Celery タスクの状況確認
+アプリケーションのデータベースに保存された Celery タスクの状態は、次のヘルパースクリプトで一覧できます。
 
 ```bash
 # 直近50件（デフォルト）のタスクをテーブル表示
@@ -130,7 +161,7 @@ python -m cli.src.celery.inspect_tasks --json --limit 0
 ## 🔒 セキュリティ
 
 ### OAuth トークン暗号化
-Google アカウントのOAuthトークンはAES-256-GCMで暗号化保存：
+Google アカウントの OAuth トークンは AES-256-GCM で暗号化保存：
 
 ```bash
 # 暗号化鍵生成（32バイト）
@@ -142,7 +173,7 @@ print(f'ENCRYPTION_KEY=base64:{key}')
 ```
 
 ### 環境変数設定
-`.env.example`をコピーして必要な値を設定：
+`.env.example` をコピーして必要な値を設定：
 
 ```env
 # セキュリティキー（必ず変更）
@@ -151,7 +182,7 @@ SECRET_KEY=<your-strong-secret-key>
 # データベース接続
 DATABASE_URI=mysql+pymysql://<user>:<pass>@<host>/<db>
 
-# Google OAuth（Google Photos同期用）
+# Google OAuth（Google Photos 同期用）
 GOOGLE_CLIENT_ID=<your-google-client-id>
 GOOGLE_CLIENT_SECRET=<your-google-client-secret>
 ```
@@ -163,27 +194,27 @@ GOOGLE_CLIENT_SECRET=<your-google-client-secret>
 pytest
 
 # カバレッジ付き
-pytest --cov=webapp --cov=core
+pytest --cov=presentation --cov=bounded_contexts --cov=shared --cov=core
 
 # 特定テスト
-pytest tests/test_celery_*.py -v
+pytest tests/unit/core/test_celery_*.py -v
 ```
 
 ## 📦 デプロイ方法
 
 ### 開発環境
-詳細は [DEVELOPMENT.md](DEVELOPMENT.md) を参照
+詳細は [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) を参照
 
 ### Synology NAS
-Synology Container Manager用の詳細デプロイガイド：
-[synology-deployment.md](synology-deployment.md)
+Synology Container Manager 用の詳細デプロイガイド：
+[docs/synology-deployment.md](docs/synology-deployment.md)
 
 ### 本番サーバー
 ```bash
-# リリースパッケージ作成
-./create-release.sh
+# Docker イメージ・成果物 tar のビルド（Makefile）
+make build
 
-# Dockerデプロイ
+# Docker デプロイ
 docker-compose -f docker-compose.yml up -d
 ```
 
@@ -191,7 +222,7 @@ docker-compose -f docker-compose.yml up -d
 
 ### よくある問題
 
-#### 1. 「Celery処理待ち中...」が消えない
+#### 1. 「Celery 処理待ち中...」が消えない
 ```bash
 # 自動リカバリが動作しているか確認
 ps aux | grep "celery.*beat"
@@ -209,16 +240,16 @@ result = cleanup_stale_sessions_task.delay()
 flask seed-master
 ```
 
-#### 3. Redis接続エラー
+#### 3. Redis 接続エラー
 ```bash
-# Redis起動確認
+# Redis 起動確認
 redis-cli ping
 
-# Docker使用の場合
+# Docker 使用の場合
 docker run -d -p 6379:6379 redis:7-alpine
 ```
 
-詳細なトラブルシューティングは [DEVELOPMENT.md](DEVELOPMENT.md) を参照してください。
+詳細なトラブルシューティングは [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) を参照してください。
 
 ## 🤝 コントリビューション
 
@@ -234,5 +265,4 @@ docker run -d -p 6379:6379 redis:7-alpine
 
 ---
 
-**📖 詳細情報**: [DEVELOPMENT.md](DEVELOPMENT.md) | **🚀 Synologyデプロイ**: [synology-deployment.md](synology-deployment.md)
-
+**📖 詳細情報**: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | **🚀 Synology デプロイ**: [docs/synology-deployment.md](docs/synology-deployment.md)

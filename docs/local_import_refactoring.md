@@ -309,6 +309,6 @@ features/photonest/
 ## 参考資料
 
 - [AGENTS.md](../../AGENTS.md) - プロジェクト共通ルール
-- [requirements.md](../../requirements.md) - システム要件定義
+- [requirements.md](requirements.md) - システム要件定義
 - Eric Evans著『ドメイン駆動設計』
 - Vaughn Vernon著『実践ドメイン駆動設計』

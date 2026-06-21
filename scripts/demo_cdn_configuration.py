@@ -188,7 +188,7 @@ def show_help():
 CDN設定デモスクリプト
 
 使用方法:
-  python demo_cdn_configuration.py [オプション]
+  python scripts/demo_cdn_configuration.py [オプション]
 
 オプション:
   --settings      現在のCDN設定を表示（デフォルト）

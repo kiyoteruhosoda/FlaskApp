@@ -13,12 +13,8 @@ from flask import (
     g,
     current_app,
     jsonify,
-    make_response,
-    redirect,
-    render_template,
     request,
     session,
-    url_for,
 )
 from flask_login import current_user, logout_user
 
@@ -50,6 +46,7 @@ from .cli_commands import register_cli_commands
 from .request_logging import register_request_logging
 from .unauthorized_handler import register_unauthorized_handler
 from .locale import select_locale
+from .system_routes import register_system_routes
 
 # 後方互換: 旧名 ``_apply_persisted_settings`` を広く参照しているため別名を維持する。
 _apply_persisted_settings = apply_persisted_settings
@@ -560,42 +557,8 @@ def create_app():
     # 注意：既存のルートは削除し、Reactアプリケーションが処理します
     # ルート "/" は react_routes.py で処理される
 
-    # テストページ（デバッグ用）
-    @app.route("/test/session-refresh")
-    def test_session_refresh():
-        return render_template("test_session_refresh.html")
-
-    # 言語切替（/lang/ja, /lang/en）
-    @app.get("/lang/<lang_code>")
-    def set_lang(lang_code):
-        if lang_code not in app.config["LANGUAGES"]:
-            lang_code = app.config["BABEL_DEFAULT_LOCALE"]
-        resp = make_response(redirect(request.headers.get("Referer", url_for("index"))))
-        # 30日保持
-        resp.set_cookie(
-            "lang",
-            lang_code,
-            max_age=60 * 60 * 24 * 30,
-            httponly=False,
-            path="/",
-        )
-        return resp
-    
     register_unauthorized_handler(app, login_manager)
-
-    @app.get("/i18n-probe")
-    def i18n_probe():
-        return {
-            "cookie": request.cookies.get("lang"),
-            "locale": str(select_locale()),
-            "t_Login": _("Login"),
-            "t_Home": _("Home"),
-            "t_LoginMessage": _("Please log in to access this page."),
-        }
-
-    @app.route("/.well-known/appspecific/com.chrome.devtools.json")
-    def chrome_devtools_json():
-        return {}, 204  # 空レスポンスを返す
+    register_system_routes(app)
 
     with app.app_context():
         db_uri = settings.sqlalchemy_database_uri or ""

@@ -9,10 +9,6 @@ from collections.abc import MutableMapping
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from babel.messages.pofile import read_po
-from functools import lru_cache
-from pathlib import Path
-
 from contextlib import contextmanager
 
 from flask import (
@@ -35,7 +31,7 @@ from flask_login import current_user, logout_user
 from flask_babel import get_locale
 from flask_babel import gettext as _
 from sqlalchemy.engine import make_url
-from typing import Dict, Optional
+from typing import Optional
 
 from core.settings import settings
 
@@ -72,68 +68,6 @@ from .openapi_spec import (
 _DEFAULT_CORS_ALLOW_HEADERS = "Authorization,Content-Type"
 _DEFAULT_CORS_ALLOW_METHODS = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
 _DEFAULT_CORS_MAX_AGE = "86400"
-
-
-def _resolve_translation_directories() -> list[str]:
-    directories_config = settings.babel_translation_directories
-    candidates = [directory for directory in directories_config if directory]
-    return [str(Path(candidate)) for candidate in candidates if candidate]
-
-
-@lru_cache(maxsize=32)
-def _load_po_catalog(locale: str, directories: tuple[str, ...]) -> Dict[str, str]:
-    catalog: Dict[str, str] = {}
-    for directory in directories:
-        po_path = Path(directory) / locale / "LC_MESSAGES" / "messages.po"
-        if not po_path.exists():
-            continue
-        try:
-            with po_path.open("rb") as buffer:
-                parsed_catalog = read_po(buffer)
-        except (OSError, ValueError):  # pragma: no cover - corrupted file handling
-            continue
-        for message in parsed_catalog:
-            message_id = getattr(message, "id", None)
-            message_str = getattr(message, "string", None)
-            if message_id and message_str:
-                catalog.setdefault(message_id, message_str)
-    return catalog
-
-
-def _translate_message(message: str) -> str:
-    translated = _(message)
-    if translated != message:
-        return translated
-
-    locale_obj = get_locale()
-    locale_candidates: list[str] = []
-    if locale_obj is not None:
-        locale_str = str(locale_obj)
-        if locale_str:
-            locale_candidates.append(locale_str)
-            if "_" in locale_str:
-                base = locale_str.split("_", 1)[0]
-                if base and base not in locale_candidates:
-                    locale_candidates.append(base)
-
-    default_locale = settings.babel_default_locale
-    if isinstance(default_locale, str) and default_locale:
-        if default_locale not in locale_candidates:
-            locale_candidates.append(default_locale)
-
-    directories = tuple(_resolve_translation_directories())
-    if not directories:
-        return message
-
-    for candidate in locale_candidates:
-        candidate = candidate.strip()
-        if not candidate:
-            continue
-        catalog = _load_po_catalog(candidate, directories)
-        if message in catalog:
-            return catalog[message]
-
-    return message
 
 
 def _configure_cors(app: Flask) -> None:

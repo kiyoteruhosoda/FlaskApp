@@ -1,26 +1,13 @@
 """Centralized HTTP error handling for HTML requests."""
-from importlib import import_module
-
 from flask import current_app, flash, jsonify, redirect, request, url_for
 from flask_babel import gettext as _, get_locale
 from werkzeug.exceptions import InternalServerError, default_exceptions
 
+from .translation import translate_message
+
 
 def _localize_message(message: str) -> str:
-    translated = _(message)
-    if translated != message:
-        return translated
-
-    try:
-        webapp_module = import_module("webapp")
-    except ModuleNotFoundError:  # pragma: no cover - defensive fallback
-        return message
-
-    translate_fn = getattr(webapp_module, "_translate_message", None)
-    if callable(translate_fn):
-        return translate_fn(message)
-
-    return message
+    return translate_message(message)
 
 
 def _is_api_request() -> bool:

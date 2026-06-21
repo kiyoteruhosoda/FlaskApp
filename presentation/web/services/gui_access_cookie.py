@@ -6,7 +6,7 @@ from typing import Any, Iterable
 from flask import current_app, request
 
 from core.settings import settings
-from webapp.utils import determine_external_scheme
+from presentation.web.utils import determine_external_scheme
 
 GUI_ACCESS_COOKIE_NAME = "access_token"
 GUI_VIEW_SCOPE = "gui:view"

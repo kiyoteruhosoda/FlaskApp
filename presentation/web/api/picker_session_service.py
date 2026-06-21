@@ -1483,7 +1483,7 @@ class PickerSessionService:
             )
         )
         # Late import to allow tests to monkeypatch via picker_session module
-        from webapp.api import picker_session as ps_module  # type: ignore
+        from presentation.web.api import picker_session as ps_module  # type: ignore
         for pmi in new_pmis:
             ps_module.enqueue_picker_import_item(pmi.id, ps.id)
 

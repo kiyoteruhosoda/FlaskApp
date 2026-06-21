@@ -38,7 +38,7 @@ def _stub_playback_success(monkeypatch: pytest.MonkeyPatch, playback_dir: Path) 
         request_context=None,
         force_regenerate: bool = False,
     ) -> dict:
-        media = Media.query.get(media_id)
+        media = db.session.get(Media, media_id)
         if media:
             media.has_playback = True
         playback = MediaPlayback.query.filter_by(media_id=media_id, preset="std1080p").first()
@@ -119,17 +119,17 @@ def _import_video(
     result = import_single_file(str(import_path), str(import_dir), str(originals_dir))
     assert result["success"], result
 
-    media = Media.query.get(result["media_id"])
+    media = db.session.get(Media, result["media_id"])
     assert media is not None
     assert media.google_media_id == result["media_google_id"]
     assert result["imported_filename"] == Path(media.local_rel_path).name
     assert Path(result["imported_path"]) == originals_dir / media.local_rel_path
 
-    media_item = MediaItem.query.get(media.google_media_id)
+    media_item = db.session.get(MediaItem, media.google_media_id)
     assert media_item is not None
     assert media_item.type == "VIDEO"
 
-    video_meta = VideoMetadata.query.get(media_item.video_metadata_id)
+    video_meta = db.session.get(VideoMetadata, media_item.video_metadata_id)
     assert video_meta is not None
     assert video_meta.processing_status == "UNSPECIFIED"
 
@@ -538,7 +538,7 @@ def test_duplicate_video_invalid_regen_mode_forces_playback(
     first = import_single_file(str(test_video), str(import_dir), str(originals_dir))
     assert first["success"] is True
 
-    media = Media.query.get(first["media_id"])
+    media = db.session.get(Media, first["media_id"])
     assert media is not None
 
     playback_calls: list[tuple[int, bool]] = []

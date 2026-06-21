@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
+from core.db import db
 
 pytestmark = [pytest.mark.integration, pytest.mark.filesystem]
 
@@ -10,14 +11,12 @@ from core.models.picker_session import PickerSession
 
 @pytest.fixture
 def db_session(app_context):
-    from webapp.extensions import db
 
     return db.session
 
 
 @pytest.mark.usefixtures("app_context")
 def test_assign_google_media_id_skips_conflict(db_session):
-    from webapp.extensions import db
 
     processor = LocalImportQueueProcessor(
         db=db,
@@ -75,7 +74,6 @@ def test_assign_google_media_id_skips_conflict(db_session):
 
 @pytest.mark.usefixtures("app_context")
 def test_assign_google_media_id_resequences_on_conflict(db_session):
-    from webapp.extensions import db
 
     processor = LocalImportQueueProcessor(
         db=db,

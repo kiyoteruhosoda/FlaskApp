@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from core.db import db
 from core.tasks import (
     backfill_playback_posters,
     transcode_queue_scan,
@@ -53,7 +54,6 @@ def app(tmp_path):
 
     app = create_app()
     app.config.update(TESTING=True)
-    from webapp.extensions import db
     from core.models.google_account import GoogleAccount
 
     with app.app_context():
@@ -85,7 +85,6 @@ def _make_media(
     has_playback: bool = False,
     **extra,
 ):
-    from webapp.extensions import db
     from core.models.photo_models import Media
 
     with app.app_context():
@@ -112,7 +111,6 @@ def _make_media(
 
 
 def _make_playback(app, media_id: int, rel_path: str, status: str = "pending") -> int:
-    from webapp.extensions import db
     from core.models.photo_models import MediaPlayback
 
     with app.app_context():
@@ -206,7 +204,6 @@ def test_queue_scan_skip_existing(app):
         p.write_bytes(b"0")
         ids.append(_make_media(app, rel_path=f"2025/08/18/{name}", width=640, height=480))
 
-    from webapp.extensions import db
     from core.models.photo_models import MediaPlayback
     with app.app_context():
         pb1 = MediaPlayback(media_id=ids[0], preset="std1080p", rel_path="2025/08/18/a.mp4", status="done")
@@ -217,7 +214,7 @@ def test_queue_scan_skip_existing(app):
 
         res = transcode_queue_scan()
         assert res == {"queued": 1, "skipped": 2, "notes": None}
-        assert MediaPlayback.query.get(pb3.id).status == "pending"
+        assert db.session.get(MediaPlayback, pb3.id).status == "pending"
 
 
 # ---------------------------------------------------------------------------
@@ -238,11 +235,11 @@ def test_worker_transcode_basic(app):
         assert res["ok"] is True
         from core.models.photo_models import MediaPlayback, Media
 
-        pb = MediaPlayback.query.get(pb_id)
+        pb = db.session.get(MediaPlayback, pb_id)
         assert pb.status == "done"
         assert pb.width == 1280 and pb.height == 720
         assert pb.poster_rel_path is not None
-        m = Media.query.get(media_id)
+        m = db.session.get(Media, media_id)
         assert m.has_playback is True
         assert m.thumbnail_rel_path is not None
         out = Path(os.environ["MEDIA_PLAYBACK_DIRECTORY"]) / pb.rel_path
@@ -269,14 +266,14 @@ def test_worker_transcode_passthrough_mp4(app):
         assert res["note"] == "passthrough"
         from core.models.photo_models import MediaPlayback, Media
 
-        pb = MediaPlayback.query.get(pb_id)
+        pb = db.session.get(MediaPlayback, pb_id)
         assert pb is not None
         assert pb.status == "done"
         play_path = Path(os.environ["MEDIA_PLAYBACK_DIRECTORY"]) / pb.rel_path
         assert res["output_path"] == str(play_path)
         assert play_path.exists()
         assert play_path.read_bytes() == video_path.read_bytes()
-        media = Media.query.get(media_id)
+        media = db.session.get(Media, media_id)
         assert media and media.has_playback is True
 
 
@@ -303,11 +300,11 @@ def test_worker_transcode_detects_missing_output(app, monkeypatch):
 
         from core.models.photo_models import MediaPlayback, Media
 
-        pb = MediaPlayback.query.get(pb_id)
+        pb = db.session.get(MediaPlayback, pb_id)
         assert pb.status == "error"
         assert pb.error_msg == "missing_output"
 
-        media = Media.query.get(media_id)
+        media = db.session.get(Media, media_id)
         assert media.has_playback is False
 
 
@@ -319,7 +316,6 @@ def test_worker_transcode_normalizes_rel_path(app):
     media_id = _make_media(app, rel_path="2025/08/18/win.mov", width=640, height=360)
 
     with app.app_context():
-        from webapp.extensions import db
         from core.models.photo_models import MediaPlayback
 
         pb = MediaPlayback(
@@ -393,7 +389,7 @@ def test_worker_transcode_populates_playback_metadata(app):
 
         from core.models.photo_models import MediaPlayback
 
-        pb = MediaPlayback.query.get(pb_id)
+        pb = db.session.get(MediaPlayback, pb_id)
         assert pb is not None
         assert pb.rel_path.endswith(".mp4")
         assert pb.width == 640
@@ -416,10 +412,9 @@ def test_backfill_playback_posters_existing_playback(app):
         transcode_worker(media_playback_id=pb_id)
 
         from core.models.photo_models import MediaPlayback, Media
-        from webapp.extensions import db
 
-        pb = MediaPlayback.query.get(pb_id)
-        m = Media.query.get(media_id)
+        pb = db.session.get(MediaPlayback, pb_id)
+        m = db.session.get(Media, media_id)
         assert pb.poster_rel_path is not None
         assert m.thumbnail_rel_path is not None
 
@@ -463,7 +458,7 @@ def test_worker_transcode_downscale(app):
         assert res["ok"] is True
         from core.models.photo_models import MediaPlayback
 
-        pb = MediaPlayback.query.get(pb_id)
+        pb = db.session.get(MediaPlayback, pb_id)
         assert pb.width == 1920 and pb.height == 1080
 
 
@@ -480,7 +475,7 @@ def test_worker_missing_audio(app):
         assert res["ok"] is False
         from core.models.photo_models import MediaPlayback
 
-        pb = MediaPlayback.query.get(pb_id)
+        pb = db.session.get(MediaPlayback, pb_id)
         assert pb.status == "error"
         assert pb.error_msg == "missing_stream"
 
@@ -550,7 +545,7 @@ def test_worker_missing_input(app):
         assert res["ok"] is False
         from core.models.photo_models import MediaPlayback
 
-        pb = MediaPlayback.query.get(pb_id)
+        pb = db.session.get(MediaPlayback, pb_id)
         assert pb.status == "error"
         assert pb.error_msg == "missing_input"
 

@@ -88,7 +88,7 @@ from ..auth.service_account_auth import (
     ServiceAccountTokenValidator,
 )
 from core.settings import settings
-from webapp.utils import determine_external_scheme
+from presentation.web.utils import determine_external_scheme
 import jwt
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func, select, case

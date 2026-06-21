@@ -1,3 +1,4 @@
+from core.db import db
 #!/usr/bin/env python
 """
 ローカルインポート機能のテスト用スクリプト
@@ -61,7 +62,6 @@ def app(tmp_path):
     from webapp import create_app
     app = create_app()
     app.config.update(TESTING=True)
-    from webapp.extensions import db
     with app.app_context():
         db.create_all()
 
@@ -77,7 +77,6 @@ def app(tmp_path):
 @pytest.fixture
 def db_session(app):
     """Database session fixture."""
-    from webapp.extensions import db
     with app.app_context():
         yield db.session
 
@@ -217,7 +216,6 @@ def test_local_import_assigns_tags_from_zip_structure(app, monkeypatch):
     """ZIP内ディレクトリ名がタグとして登録されることを検証。"""
 
     from core.models.photo_models import Media, Tag
-    from webapp.extensions import db
     from core.tasks import local_import as local_import_module
 
     import_dir = Path(app.config["MEDIA_LOCAL_IMPORT_DIRECTORY"])
@@ -386,11 +384,10 @@ def test_local_import_video_generates_playback_from_originals(app, monkeypatch):
     monkeypatch.setattr(transcode_module, "_probe", wrapped_probe)
 
     def fake_enqueue_media_playback(media_id: int, **kwargs):
-        from webapp.extensions import db
 
         pb = MediaPlayback.query.filter_by(media_id=media_id, preset="std1080p").first()
         if not pb:
-            media = Media.query.get(media_id)
+            media = db.session.get(Media, media_id)
             assert media is not None
             rel_path = str(Path(media.local_rel_path).with_suffix(".mp4"))
             pb = MediaPlayback(media_id=media_id, preset="std1080p", rel_path=rel_path, status="pending")
@@ -434,7 +431,6 @@ def test_local_import_duplicate_sets_google_media_id(app):
     from bounded_contexts.photonest.application.local_import.queue import LocalImportQueueProcessor
     from core.models.picker_session import PickerSession
     from core.models.photo_models import Media, MediaItem, PickerSelection
-    from webapp.extensions import db
 
     class DummyLogger:
         def info(self, *args, **kwargs):

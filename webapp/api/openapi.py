@@ -1,41 +1,11 @@
-"""OpenAPI helper utilities for documenting JSON request bodies."""
-from __future__ import annotations
+"""後方互換エイリアス: ``presentation.web.api.openapi`` を唯一の実体として参照する。
 
-from typing import Any, Dict, Optional
+DDD 移行で残った重複モジュール。``sys.modules`` 上で presentation 層の実体へ
+エイリアスすることで、唯一の真実の源を共有する。これにより import 順序に
+依存せず、モジュール属性のパッチ（テスト）や Blueprint の単一登録を保証する。
+"""
+import sys as _sys
+import importlib as _importlib
 
-
-def json_request_body(
-    description: str,
-    *,
-    required: bool = True,
-    schema: Optional[Dict[str, Any]] = None,
-    example: Optional[Any] = None,
-) -> Dict[str, Any]:
-    """Create a requestBody block for JSON payloads.
-
-    Args:
-        description: Human readable description for Swagger UI.
-        required: Whether the request body is required for the operation.
-        schema: Optional JSON schema describing the expected payload structure.
-        example: Optional example payload to display in Swagger UI.
-
-    Returns:
-        A dictionary compatible with Flask-Smorest's ``@bp.doc`` ``requestBody``
-        parameter.
-    """
-
-    content_schema: Dict[str, Any]
-    if schema is None:
-        content_schema = {"type": "object", "additionalProperties": True}
-    else:
-        content_schema = schema
-
-    content: Dict[str, Any] = {"application/json": {"schema": content_schema}}
-    if example is not None:
-        content["application/json"]["example"] = example
-
-    return {
-        "required": required,
-        "description": description,
-        "content": content,
-    }
+_impl = _importlib.import_module("presentation.web.api.openapi")
+_sys.modules[__name__] = _impl

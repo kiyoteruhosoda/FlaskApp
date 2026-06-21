@@ -6,7 +6,7 @@ from flask_babel import lazy_gettext as _l
 from flask import current_app, g, session
 from flask_mailman import Mail
 
-from webapp.auth import SERVICE_LOGIN_TOKEN_SESSION_KEY
+from presentation.web.auth import SERVICE_LOGIN_TOKEN_SESSION_KEY
 from flask_smorest import Api
 
 migrate = Migrate()
@@ -36,7 +36,7 @@ login_manager.anonymous_user = AnonymousUser
 @login_manager.user_loader
 def load_user(user_id):
     from core.models.user import User
-    from webapp.services.token_service import TokenService
+    from presentation.web.services.token_service import TokenService
 
     subject_type: str | None = None
     raw_identifier = user_id
@@ -104,7 +104,7 @@ def load_user_from_request(request):
         token = request.cookies.get("access_token")
     if not token:
         return None
-    from webapp.services.token_service import TokenService
+    from presentation.web.services.token_service import TokenService
 
     principal = TokenService.create_principal_from_token(token)
     if not principal:

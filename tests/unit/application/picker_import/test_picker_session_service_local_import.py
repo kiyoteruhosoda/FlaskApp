@@ -12,7 +12,6 @@ from unittest.mock import MagicMock
 import pytest
 
 from webapp import create_app
-from webapp.extensions import db
 from webapp.api.picker_session_service import PickerSessionService
 from webapp.api.pagination import PaginationParams
 from core.models.picker_session import PickerSession
@@ -24,6 +23,7 @@ from core.tasks.local_import import local_import_task
 from bounded_contexts.photonest.application.local_import.use_case import LocalImportUseCase
 from bounded_contexts.photonest.domain.local_import.import_result import ImportTaskResult
 from bounded_contexts.photonest.domain.local_import.session import LocalImportSessionService
+from core.db import db
 
 
 @pytest.fixture
@@ -120,7 +120,6 @@ class TestPickerSessionServiceLocalImport:
 
     def test_status_reverts_to_processing_when_pending_items_exist(self, app):
         """選択が進行中の場合はステータスが processing に戻る"""
-        from webapp.extensions import db
         with app.app_context():
             ps = PickerSession(
                 session_id="local_import_pending",
@@ -145,7 +144,6 @@ class TestPickerSessionServiceLocalImport:
     def test_status_uses_expanding_stage_for_display(self, app):
         """ローカルインポートのstageがexpandingのときは表示ステータスもexpandingになる"""
 
-        from webapp.extensions import db
 
         with app.app_context():
             ps = PickerSession(
@@ -366,7 +364,6 @@ class TestPickerSessionServiceLocalImport:
 
     def test_reimport_after_deletion_creates_new_media(self, app):
         """削除済みメディアの再取り込みが新規レコードになることを確認"""
-        from webapp.extensions import db
         from core.models.photo_models import Media, PickerSelection
 
         with app.app_context():
@@ -742,7 +739,7 @@ class TestPickerSessionServiceLocalImport:
 
             payload = PickerSessionService.status(ps)
 
-            refreshed = PickerSession.query.get(ps.id)
+            refreshed = db.session.get(PickerSession, ps.id)
             stats = refreshed.stats()
 
             assert refreshed.status == 'processing'
@@ -760,7 +757,7 @@ class TestPickerSessionServiceLocalImport:
             db.session.commit()
 
             payload_after = PickerSessionService.status(refreshed)
-            refreshed_after = PickerSession.query.get(ps.id)
+            refreshed_after = db.session.get(PickerSession, ps.id)
             stats_after = refreshed_after.stats()
 
             assert refreshed_after.status == 'imported'
@@ -830,7 +827,7 @@ class TestPickerSessionServiceLocalImport:
 
             payload = PickerSessionService.status(ps)
 
-            refreshed = PickerSession.query.get(ps.id)
+            refreshed = db.session.get(PickerSession, ps.id)
             stats = refreshed.stats()
 
             assert refreshed.status == 'error'

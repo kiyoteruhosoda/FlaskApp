@@ -8,6 +8,7 @@ import requests
 import pytest
 
 from core.tasks import picker_import_item, picker_import_queue_scan
+from core.db import db
 
 
 @pytest.fixture
@@ -37,7 +38,6 @@ def app(tmp_path):
     from webapp import create_app
     app = create_app()
     app.config.update(TESTING=True)
-    from webapp.extensions import db
     from core.models.google_account import GoogleAccount
     with app.app_context():
         db.create_all()
@@ -57,7 +57,6 @@ def app(tmp_path):
 
 
 def _setup_item(app, *, mime="image/jpeg", filename="a.jpg", mtype="PHOTO"):
-    from webapp.extensions import db
     from core.models.photo_models import MediaItem, PickerSelection
     from core.models.picker_session import PickerSession
 
@@ -111,7 +110,7 @@ def test_picker_import_item_imports(monkeypatch, app, tmp_path):
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
         from core.models.photo_models import PickerSelection, Media
 
-        pmi = PickerSelection.query.get(pmi_id)
+        pmi = db.session.get(PickerSelection, pmi_id)
         media = Media.query.one()
         assert res["ok"] is True
         assert pmi.status == "imported"
@@ -159,7 +158,6 @@ def test_picker_import_item_dup(monkeypatch, app, tmp_path):
 
     # pre-create media with same hash
     from core.models.photo_models import Media
-    from webapp.extensions import db
     from datetime import datetime, timezone
 
     with app.app_context():
@@ -182,7 +180,7 @@ def test_picker_import_item_dup(monkeypatch, app, tmp_path):
 
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
         from core.models.photo_models import PickerSelection
-        pmi = PickerSelection.query.get(pmi_id)
+        pmi = db.session.get(PickerSelection, pmi_id)
         assert res["ok"] is True
         assert pmi.status == "dup"
         assert pmi.finished_at is not None
@@ -227,7 +225,6 @@ def test_picker_import_item_reimports_deleted_media(monkeypatch, app, tmp_path):
     )
 
     from core.models.photo_models import Media
-    from webapp.extensions import db
     from datetime import datetime, timezone
 
     with app.app_context():
@@ -255,7 +252,7 @@ def test_picker_import_item_reimports_deleted_media(monkeypatch, app, tmp_path):
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
         from core.models.photo_models import PickerSelection
 
-        pmi = PickerSelection.query.get(pmi_id)
+        pmi = db.session.get(PickerSelection, pmi_id)
         assert res["ok"] is True
         assert pmi.status == "imported"
         assert Media.query.filter_by(is_deleted=False).count() == 1
@@ -305,7 +302,7 @@ def test_picker_import_item_video_queues_playback(monkeypatch, app, tmp_path):
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
         from core.models.photo_models import PickerSelection, Media
 
-        pmi = PickerSelection.query.get(pmi_id)
+        pmi = db.session.get(PickerSelection, pmi_id)
         media = Media.query.one()
         assert res["ok"] is True
         assert pmi.status == "imported"
@@ -333,7 +330,6 @@ def test_picker_import_queue_scan(monkeypatch, app):
 
 
 def test_picker_import_queue_scan_skips_local(app):
-    from webapp.extensions import db
     from core.models.photo_models import PickerSelection
     from core.models.picker_session import PickerSession
 
@@ -372,7 +368,7 @@ def test_picker_import_item_heartbeat(monkeypatch, app, tmp_path):
             fh.write(content)
         time.sleep(0.05)
         from core.models.photo_models import PickerSelection as PS
-        heartbeat_vals.append(PS.query.get(pmi_id).lock_heartbeat_at)
+        heartbeat_vals.append(db.session.get(PS, pmi_id).lock_heartbeat_at)
         return mod.Downloaded(path, len(content), sha)
 
     monkeypatch.setattr(mod, "_download", fake_download)
@@ -397,7 +393,7 @@ def test_picker_import_item_heartbeat(monkeypatch, app, tmp_path):
         )
         from core.models.photo_models import PickerSelection
 
-        pmi = PickerSelection.query.get(pmi_id)
+        pmi = db.session.get(PickerSelection, pmi_id)
         assert res["ok"] is True
         assert heartbeat_vals[0] is not None
         assert pmi.locked_by is None
@@ -413,16 +409,15 @@ def test_picker_import_item_reresolves_expired_base_url(monkeypatch, app, tmp_pa
     import importlib
     mod = importlib.import_module("core.tasks.picker_import")
 
-    from webapp.extensions import db
     from core.models.photo_models import PickerSelection
     from core.models.picker_session import PickerSession
     with app.app_context():
-        pmi = PickerSelection.query.get(pmi_id)
+        pmi = db.session.get(PickerSelection, pmi_id)
         pmi.base_url = "http://old"
         pmi.base_url_fetched_at = datetime.now(timezone.utc) - timedelta(hours=2)
         pmi.base_url_valid_until = datetime.now(timezone.utc) - timedelta(seconds=1)
         db.session.commit()
-        before = PickerSession.query.get(ps_id).last_progress_at
+        before = db.session.get(PickerSession, ps_id).last_progress_at
 
     monkeypatch.setattr(mod, "_exchange_refresh_token", lambda g, p: ("tok", None))
 
@@ -453,8 +448,8 @@ def test_picker_import_item_reresolves_expired_base_url(monkeypatch, app, tmp_pa
 
     with app.app_context():
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
-        pmi = PickerSelection.query.get(pmi_id)
-        ps = PickerSession.query.get(ps_id)
+        pmi = db.session.get(PickerSelection, pmi_id)
+        ps = db.session.get(PickerSession, ps_id)
         assert res["status"] == "imported"
         assert pmi.base_url == "http://new"
         assert pmi.base_url_valid_until is not None
@@ -467,15 +462,14 @@ def test_picker_import_item_reresolve_failure_marks_expired(monkeypatch, app, tm
     import importlib
     mod = importlib.import_module("core.tasks.picker_import")
 
-    from webapp.extensions import db
     from core.models.photo_models import PickerSelection
     from core.models.picker_session import PickerSession
     with app.app_context():
-        pmi = PickerSelection.query.get(pmi_id)
+        pmi = db.session.get(PickerSelection, pmi_id)
         pmi.base_url = "http://old"
         pmi.base_url_valid_until = datetime.now(timezone.utc) - timedelta(seconds=1)
         db.session.commit()
-        before = PickerSession.query.get(ps_id).last_progress_at
+        before = db.session.get(PickerSession, ps_id).last_progress_at
 
     monkeypatch.setattr(mod, "_exchange_refresh_token", lambda g, p: ("tok", None))
 
@@ -492,8 +486,8 @@ def test_picker_import_item_reresolve_failure_marks_expired(monkeypatch, app, tm
 
     with app.app_context():
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
-        pmi = PickerSelection.query.get(pmi_id)
-        ps = PickerSession.query.get(ps_id)
+        pmi = db.session.get(PickerSelection, pmi_id)
+        ps = db.session.get(PickerSession, ps_id)
         assert res["status"] == "expired"
         assert pmi.status == "expired"
         assert ps.last_progress_at > before
@@ -524,11 +518,11 @@ def test_picker_import_item_network_error_requeues(monkeypatch, app, tmp_path):
 
     with app.app_context():
         from core.models.picker_session import PickerSession
-        before = PickerSession.query.get(ps_id).last_progress_at
+        before = db.session.get(PickerSession, ps_id).last_progress_at
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
         from core.models.photo_models import PickerSelection
-        pmi = PickerSelection.query.get(pmi_id)
-        ps = PickerSession.query.get(ps_id)
+        pmi = db.session.get(PickerSelection, pmi_id)
+        ps = db.session.get(PickerSession, ps_id)
         assert res["status"] == "enqueued"
         assert pmi.finished_at is None
         assert ps.last_progress_at == before
@@ -544,11 +538,11 @@ def test_picker_import_item_auth_error_fails(monkeypatch, app, tmp_path):
 
     with app.app_context():
         from core.models.picker_session import PickerSession
-        before = PickerSession.query.get(ps_id).last_progress_at
+        before = db.session.get(PickerSession, ps_id).last_progress_at
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
         from core.models.photo_models import PickerSelection
-        pmi = PickerSelection.query.get(pmi_id)
-        ps = PickerSession.query.get(ps_id)
+        pmi = db.session.get(PickerSelection, pmi_id)
+        ps = db.session.get(PickerSession, ps_id)
         assert res["status"] == "failed"
         assert pmi.finished_at is not None
         assert ps.last_progress_at > before

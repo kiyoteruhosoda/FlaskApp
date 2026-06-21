@@ -15,7 +15,7 @@ from bounded_contexts.certs.domain.exceptions import (
     CertificatePrivateKeyNotFoundError,
 )
 from bounded_contexts.certs.domain.usage import UsageType
-from webapp.services.system_setting_service import (
+from presentation.web.services.system_setting_service import (
     AccessTokenSigningSetting,
     AccessTokenSigningValidationError,
     SystemSettingService,

@@ -1,3 +1,4 @@
+from core.db import db
 #!/usr/bin/env python3
 """ffprobeを使った動画メタデータ取得のテスト"""
 
@@ -9,7 +10,6 @@ from pathlib import Path
 from webapp import create_app
 from core.tasks.local_import import import_single_file, extract_video_metadata
 from core.models.photo_models import Media, MediaItem, VideoMetadata
-from webapp.extensions import db
 
 
 def create_real_test_video(path: Path) -> bool:
@@ -65,7 +65,7 @@ def test_ffprobe_metadata_extraction():
             
             if result_video["success"]:
                 media_id = result_video["media_id"]
-                media = Media.query.get(media_id)
+                media = db.session.get(Media, media_id)
                 print(f"作成されたMedia: ID={media.id}")
                 print(f"  - mime_type: {media.mime_type}")
                 print(f"  - is_video: {media.is_video}")
@@ -74,12 +74,12 @@ def test_ffprobe_metadata_extraction():
                 
                 # MediaItemの確認
                 if media.google_media_id:
-                    media_item = MediaItem.query.get(media.google_media_id)
+                    media_item = db.session.get(MediaItem, media.google_media_id)
                     if media_item:
                         print(f"MediaItem: ID={media_item.id}, type={media_item.type}")
                         
                         if media_item.video_metadata_id:
-                            video_metadata = VideoMetadata.query.get(media_item.video_metadata_id)
+                            video_metadata = db.session.get(VideoMetadata, media_item.video_metadata_id)
                             print(f"VideoMetadata: ID={video_metadata.id}")
                             print(f"  - fps: {video_metadata.fps}")
                             print(f"  - processing_status: {video_metadata.processing_status}")

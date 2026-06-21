@@ -39,12 +39,12 @@ from core.models.service_account import ServiceAccount
 from core.settings import settings
 from core.storage_service import StorageService
 from bounded_contexts.storage import StorageDomain
-from webapp.services.service_account_service import (
+from presentation.web.services.service_account_service import (
     ServiceAccountNotFoundError,
     ServiceAccountService,
     ServiceAccountValidationError,
 )
-from webapp.services.service_account_api_key_service import (
+from presentation.web.services.service_account_api_key_service import (
     ServiceAccountApiKeyNotFoundError,
     ServiceAccountApiKeyService,
     ServiceAccountApiKeyValidationError,
@@ -60,7 +60,7 @@ from bounded_contexts.certs.domain.exceptions import (
     CertificatePrivateKeyNotFoundError,
 )
 from bounded_contexts.certs.domain.usage import UsageType
-from webapp.admin.system_settings_definitions import (
+from presentation.web.admin.system_settings_definitions import (
     APPLICATION_SETTING_DEFINITIONS,
     APPLICATION_SETTING_SECTIONS,
     CORS_SETTING_DEFINITIONS,
@@ -70,7 +70,7 @@ from webapp.admin.system_settings_definitions import (
 
 
 _HIDDEN_APPLICATION_SETTING_KEYS: frozenset[str] = frozenset({"JWT_SECRET_KEY"})
-from webapp.services.system_setting_service import (
+from presentation.web.services.system_setting_service import (
     AccessTokenSigningSetting,
     AccessTokenSigningValidationError,
     SystemSettingService,
@@ -985,7 +985,7 @@ def show_config():
                         SystemSettingService.update_application_settings(
                             {"JWT_SECRET_KEY": secret_value}
                         )
-                        from webapp import _apply_persisted_settings
+                        from presentation.web import _apply_persisted_settings
 
                         _apply_persisted_settings(current_app)
                     except Exception:  # pragma: no cover - unexpected failure logged for debugging
@@ -1119,7 +1119,7 @@ def show_config():
                                 else:
                                     if not errors:
                                         if settings_applied:
-                                            from webapp import _apply_persisted_settings
+                                            from presentation.web import _apply_persisted_settings
 
                                             _apply_persisted_settings(current_app)
                                         if application_changed:
@@ -1176,7 +1176,7 @@ def show_config():
                     SystemSettingService.update_application_settings(
                         updates, remove_keys=remove_keys
                     )
-                    from webapp import _apply_persisted_settings
+                    from presentation.web import _apply_persisted_settings
 
                     _apply_persisted_settings(current_app)
                     relogin_previous_config = previous_config
@@ -1225,7 +1225,7 @@ def show_config():
                     SystemSettingService.update_cors_settings(
                         updates, remove_keys=remove_keys
                     )
-                    from webapp import _apply_persisted_settings
+                    from presentation.web import _apply_persisted_settings
 
                     _apply_persisted_settings(current_app)
                     success_message = _(u"CORS allowed origins updated.")

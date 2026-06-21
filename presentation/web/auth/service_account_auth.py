@@ -17,7 +17,7 @@ from redis import RedisError
 
 from core.models.service_account import ServiceAccount
 from shared.domain.auth.principal import AuthenticatedPrincipal
-from webapp.services.service_account_service import ServiceAccountService
+from presentation.web.services.service_account_service import ServiceAccountService
 from bounded_contexts.certs.application.use_cases import ListJwksUseCase
 from bounded_contexts.certs.domain.exceptions import CertificateGroupNotFoundError
 

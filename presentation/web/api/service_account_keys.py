@@ -12,7 +12,7 @@ from shared.application.auth import resolve_actor_identifier
 from . import bp
 from .openapi import json_request_body
 from .routes import login_or_jwt_required
-from webapp.services.service_account_api_key_service import (
+from presentation.web.services.service_account_api_key_service import (
     ServiceAccountApiKeyNotFoundError,
     ServiceAccountApiKeyService,
     ServiceAccountApiKeyValidationError,

@@ -2,10 +2,10 @@ from urllib.parse import urlparse
 
 import pytest
 
-from webapp.extensions import db
 from webapp.services.token_service import TokenService
 from core.models.user import User, Role, Permission
 from core.models.group import Group
+from core.db import db
 
 
 def _login(client, user):

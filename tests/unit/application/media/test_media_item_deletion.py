@@ -1,7 +1,7 @@
 """MediaItem削除時のPhotoMetadataの削除をテスト"""
 
 from core.models.photo_models import MediaItem, PhotoMetadata
-from webapp.extensions import db
+from core.db import db
 
 
 def test_photo_metadata_deleted_with_media_item(app_context):
@@ -26,9 +26,9 @@ def test_photo_metadata_deleted_with_media_item(app_context):
     db.session.commit()
 
     metadata_id = photo_metadata.id
-    assert PhotoMetadata.query.get(metadata_id) is not None
+    assert db.session.get(PhotoMetadata, metadata_id) is not None
 
     db.session.delete(media_item)
     db.session.commit()
 
-    assert PhotoMetadata.query.get(metadata_id) is None
+    assert db.session.get(PhotoMetadata, metadata_id) is None

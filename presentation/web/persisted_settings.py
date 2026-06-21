@@ -18,7 +18,7 @@ from core.system_settings_defaults import (
     DEFAULT_CORS_SETTINGS,
 )
 
-from webapp.services.system_setting_service import SystemSettingService
+from presentation.web.services.system_setting_service import SystemSettingService
 
 
 def apply_persisted_settings(app: Flask) -> None:

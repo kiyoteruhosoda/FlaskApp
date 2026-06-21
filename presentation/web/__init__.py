@@ -6,14 +6,12 @@ import json
 import os
 import time
 from collections.abc import MutableMapping
-from copy import deepcopy
 from datetime import datetime, timezone
 from uuid import uuid4
 
 from babel.messages.pofile import read_po
 from functools import lru_cache
 from pathlib import Path
-from urllib.parse import urlsplit
 
 from contextlib import contextmanager
 
@@ -37,7 +35,7 @@ from flask_login import current_user, logout_user
 from flask_babel import get_locale
 from flask_babel import gettext as _
 from sqlalchemy.engine import make_url
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from core.settings import settings
 
@@ -62,6 +60,12 @@ from .request_log_payload import (
     mask_sensitive_data,
     prepare_log_payload,
     truncate_long_parameter_values,
+)
+from .openapi_spec import (
+    calculate_openapi_server_urls,
+    ensure_openapi_success_responses,
+    normalize_openapi_prefix,
+    strip_openapi_path_prefix,
 )
 
 
@@ -130,92 +134,6 @@ def _translate_message(message: str) -> str:
             return catalog[message]
 
     return message
-
-
-def _normalize_openapi_prefix(prefix: Optional[str]) -> str:
-    if not prefix:
-        return ""
-    normalized = prefix.strip()
-    if not normalized:
-        return ""
-    if not normalized.startswith("/"):
-        normalized = f"/{normalized}"
-    # The OpenAPI server URL should not end with a trailing slash unless the prefix is root
-    return normalized.rstrip("/")
-
-
-def _strip_openapi_path_prefix(spec, prefix: Optional[str]) -> None:
-    normalized_prefix = _normalize_openapi_prefix(prefix)
-    if not normalized_prefix:
-        return
-    paths = getattr(spec, "_paths", None)
-    if not isinstance(paths, MutableMapping):
-        return
-    items = list(paths.items())
-    if not items:
-        return
-    if not any(path.startswith(normalized_prefix) for path, _ in items):
-        return
-    new_paths = type(paths)()
-    for path, operations in items:
-        if path.startswith(normalized_prefix):
-            trimmed = path[len(normalized_prefix) :]
-            if not trimmed:
-                trimmed = "/"
-            elif not trimmed.startswith("/"):
-                trimmed = f"/{trimmed}"
-            new_paths[trimmed] = operations
-        else:
-            new_paths[path] = operations
-    spec._paths = new_paths
-
-
-def _ensure_openapi_success_responses(spec) -> None:
-    if spec is None:
-        return
-    paths = getattr(spec, "_paths", None)
-    if not isinstance(paths, MutableMapping):
-        return
-    default_response = {
-        "description": "Successful response",
-        "content": {
-            "application/json": {
-                "schema": {
-                    "type": "object",
-                    "required": ["result"],
-                    "properties": {
-                        "result": {
-                            "type": "string",
-                            "description": "Generic success indicator.",
-                            "example": "OK",
-                        }
-                    },
-                    "additionalProperties": False,
-                }
-            }
-        },
-    }
-    for operations in paths.values():
-        if not isinstance(operations, MutableMapping):
-            continue
-        for operation in operations.values():
-            if not isinstance(operation, MutableMapping):
-                continue
-            responses = operation.setdefault("responses", {})
-            if not isinstance(responses, MutableMapping):
-                continue
-            has_success = False
-            for status_code in responses.keys():
-                try:
-                    code_int = int(status_code)
-                except (TypeError, ValueError):
-                    continue
-                if 200 <= code_int < 300:
-                    has_success = True
-                    break
-            if has_success:
-                continue
-            responses["200"] = deepcopy(default_response)
 
 
 def _configure_cors(app: Flask) -> None:
@@ -289,102 +207,6 @@ def _configure_cors(app: Flask) -> None:
             response.headers["Access-Control-Allow-Headers"] = _DEFAULT_CORS_ALLOW_HEADERS
 
         return response
-
-def _normalize_script_root(script_root: Optional[str]) -> str:
-    if not script_root:
-        return ""
-    normalized = script_root.strip()
-    if not normalized:
-        return ""
-    if not normalized.startswith("/"):
-        normalized = f"/{normalized}"
-    return normalized.rstrip("/")
-
-
-def _build_base_url(scheme: str, host: str, script_root: str) -> str:
-    base = f"{scheme}://{host.strip()}"
-    if script_root and script_root != "/":
-        base = f"{base}{script_root}"
-    return base
-
-
-def _combine_base_and_prefix(base: str, api_prefix: str) -> str:
-    normalized_base = base.rstrip("/") or ("/" if base.startswith("/") else base or "/")
-    if not api_prefix:
-        return normalized_base
-    if normalized_base == "/":
-        return api_prefix or "/"
-    if normalized_base.endswith(api_prefix):
-        return normalized_base
-    return f"{normalized_base}{api_prefix}"
-
-
-def _calculate_openapi_server_urls(prefix: str) -> List[str]:
-    script_root = _normalize_script_root(request.script_root)
-
-    host = (request.host or "").strip()
-    if not host:
-        host_url = request.host_url or ""
-        if host_url:
-            host = urlsplit(host_url).netloc
-    if not host:
-        url_root = request.url_root or ""
-        if url_root:
-            host = urlsplit(url_root).netloc
-    host = host.strip()
-
-    def add_url(urls: List[str], seen: set[str], base: str) -> None:
-        if not base:
-            return
-        combined = _combine_base_and_prefix(base, prefix)
-        if combined in seen:
-            return
-        seen.add(combined)
-        urls.append(combined)
-
-    urls: List[str] = []
-    seen: set[str] = set()
-
-    def add_scheme(scheme: Optional[str]) -> None:
-        if not scheme:
-            return
-        normalized = scheme.strip().lower()
-        if normalized and normalized not in schemes:
-            schemes.append(normalized)
-
-    schemes: List[str] = []
-
-    add_scheme(settings.preferred_url_scheme)
-
-    forwarded_header = request.headers.get("Forwarded", "")
-    if forwarded_header:
-        for part in forwarded_header.split(","):
-            for attribute in part.split(";"):
-                attribute = attribute.strip()
-                if attribute.lower().startswith("proto="):
-                    value = attribute.split("=", 1)[1].strip().strip('"')
-                    add_scheme(value)
-
-    x_forwarded_proto = request.headers.get("X-Forwarded-Proto", "")
-    if x_forwarded_proto:
-        for proto in x_forwarded_proto.split(","):
-            add_scheme(proto)
-
-    add_scheme(request.scheme or request.environ.get("wsgi.url_scheme"))
-
-    if not schemes:
-        schemes = ["http"]
-
-    if host:
-        for scheme in schemes:
-            base = _build_base_url(scheme, host, script_root)
-            add_url(urls, seen, base)
-
-    if not urls:
-        fallback = "/" if not prefix else prefix
-        return [fallback]
-
-    return urls
 
 
 def _apply_persisted_settings(app: Flask) -> None:
@@ -632,8 +454,8 @@ def create_app():
         spec = getattr(smorest_api, "spec", None)
         if spec is None:
             return
-        prefix = _normalize_openapi_prefix(settings.openapi_url_prefix)
-        server_urls = _calculate_openapi_server_urls(prefix)
+        prefix = normalize_openapi_prefix(settings.openapi_url_prefix)
+        server_urls = calculate_openapi_server_urls(prefix)
         spec.options["servers"] = [{"url": url} for url in server_urls]
 
     # ★ Jinja から get_locale() を使えるようにする
@@ -854,7 +676,7 @@ def create_app():
     from webapp.api.admin.blob import bp as blob_admin_bp
     smorest_api.register_blueprint(blob_admin_bp)
     
-    _strip_openapi_path_prefix(smorest_api.spec, api_url_prefix)
+    strip_openapi_path_prefix(smorest_api.spec, api_url_prefix)
 
     from presentation.web.api import routes as api_routes
 
@@ -876,7 +698,7 @@ def create_app():
         view_func=api_routes.api_download_original_fallback,
         methods=["GET", "HEAD"],
     )
-    _ensure_openapi_success_responses(smorest_api.spec)
+    ensure_openapi_success_responses(smorest_api.spec)
 
     # 認証なしの健康チェック用Blueprint
     from .health import health_bp

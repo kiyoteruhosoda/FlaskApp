@@ -3,6 +3,7 @@ import os
 import uuid
 
 import pytest
+from core.db import db
 
 
 @pytest.fixture()
@@ -30,7 +31,6 @@ def app(tmp_path):
     app = create_app()
     app.config.update(TESTING=True)
 
-    from webapp.extensions import db
 
     with app.app_context():
         db.create_all()
@@ -57,7 +57,6 @@ def client(app):
 
 
 def _create_user(app, *, permissions):
-    from webapp.extensions import db
     from core.models.user import User, Role, Permission
 
     with app.app_context():
@@ -86,7 +85,7 @@ def _login(client, user_id):
     from core.models.user import User
 
     with client.application.test_request_context():
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         principal = TokenService.create_principal_for_user(user)
         login_user(principal)
         flask_session["_fresh"] = True
@@ -98,7 +97,6 @@ def _login(client, user_id):
 
 
 def test_totp_api_permission_flow(client, app):
-    from webapp.extensions import db
     from core.models.totp import TOTPCredential
 
     viewer_id = _create_user(app, permissions=["totp:view"])

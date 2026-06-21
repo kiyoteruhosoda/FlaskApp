@@ -11,10 +11,10 @@ from core.settings import settings
 from bounded_contexts.certs.application.use_cases import IssueCertificateForGroupUseCase
 from bounded_contexts.certs.domain.usage import UsageType
 from bounded_contexts.certs.infrastructure.models import CertificateGroupEntity, IssuedCertificateEntity
-from webapp.extensions import db
 from webapp.services.access_token_signing import AccessTokenSigningError
 from webapp.services.system_setting_service import SystemSettingService
 from webapp.services.token_service import TokenService
+from core.db import db
 
 
 @pytest.mark.usefixtures("app_context")
@@ -180,7 +180,7 @@ def test_revoked_certificate_configuration_surfaces_error():
     issued = IssueCertificateForGroupUseCase().execute(group.group_code)
     SystemSettingService.update_access_token_signing_setting("server_signing", group_code=group.group_code)
 
-    certificate_entity = IssuedCertificateEntity.query.get(issued.kid)
+    certificate_entity = db.session.get(IssuedCertificateEntity, issued.kid)
     certificate_entity.revoked_at = datetime.now(timezone.utc) - timedelta(days=1)
     db.session.add(certificate_entity)
     db.session.commit()

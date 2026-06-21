@@ -5,6 +5,7 @@ from datetime import datetime, timezone, timedelta
 import pytest
 
 from core.tasks.picker_import import picker_import_watchdog, backoff
+from core.db import db
 
 
 @pytest.fixture
@@ -34,7 +35,6 @@ def app(tmp_path):
     from webapp import create_app
     app = create_app()
     app.config.update(TESTING=True)
-    from webapp.extensions import db
     from core.models.google_account import GoogleAccount
     with app.app_context():
         db.create_all()
@@ -54,7 +54,6 @@ def app(tmp_path):
 
 
 def _setup_item(app):
-    from webapp.extensions import db
     from core.models.photo_models import MediaItem, PickerSelection
     from core.models.picker_session import PickerSession
 
@@ -73,7 +72,6 @@ def _setup_item(app):
 def test_watchdog_handles_stale_running(app):
     ps_id, sel1 = _setup_item(app)
 
-    from webapp.extensions import db
     from core.models.photo_models import PickerSelection, MediaItem
 
     with app.app_context():
@@ -87,14 +85,14 @@ def test_watchdog_handles_stale_running(app):
         sel2 = sel2_obj.id
 
         now = datetime.now(timezone.utc)
-        s1 = PickerSelection.query.get(sel1)
+        s1 = db.session.get(PickerSelection, sel1)
         s1.status = "running"
         s1.locked_by = "w1"
         s1.lock_heartbeat_at = now - timedelta(seconds=121)
         s1.started_at = now - timedelta(seconds=121)
         s1.attempts = 1
 
-        s2 = PickerSelection.query.get(sel2)
+        s2 = db.session.get(PickerSelection, sel2)
         s2.status = "running"
         s2.locked_by = "w2"
         s2.lock_heartbeat_at = now - timedelta(seconds=121)
@@ -104,8 +102,8 @@ def test_watchdog_handles_stale_running(app):
 
         picker_import_watchdog()
 
-        s1 = PickerSelection.query.get(sel1)
-        s2 = PickerSelection.query.get(sel2)
+        s1 = db.session.get(PickerSelection, sel1)
+        s2 = db.session.get(PickerSelection, sel2)
         assert s1.status == "enqueued"
         assert s1.locked_by is None
         assert s1.lock_heartbeat_at is None
@@ -116,11 +114,10 @@ def test_watchdog_handles_stale_running(app):
 def test_watchdog_retries_failed_after_backoff(app):
     ps_id, sel_id = _setup_item(app)
 
-    from webapp.extensions import db
     from core.models.photo_models import PickerSelection
 
     with app.app_context():
-        sel = PickerSelection.query.get(sel_id)
+        sel = db.session.get(PickerSelection, sel_id)
         sel.status = "failed"
         sel.attempts = 2
         sel.last_transition_at = datetime.now(timezone.utc) - backoff(2) - timedelta(seconds=1)
@@ -129,7 +126,7 @@ def test_watchdog_retries_failed_after_backoff(app):
 
         picker_import_watchdog()
 
-        sel = PickerSelection.query.get(sel_id)
+        sel = db.session.get(PickerSelection, sel_id)
         assert sel.status == "enqueued"
         assert sel.finished_at is None
 
@@ -144,11 +141,10 @@ def test_watchdog_republishes_stalled_enqueued(monkeypatch, app, caplog):
         mod, "enqueue_picker_import_item", lambda sid, sess: called.append(sid)
     )
 
-    from webapp.extensions import db
     from core.models.photo_models import PickerSelection
 
     with app.app_context():
-        sel = PickerSelection.query.get(sel_id)
+        sel = db.session.get(PickerSelection, sel_id)
         sel.enqueued_at = datetime.now(timezone.utc) - timedelta(minutes=6)
         db.session.commit()
 

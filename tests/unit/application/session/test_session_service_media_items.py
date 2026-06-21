@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from sqlalchemy import inspect
+from core.db import db
 
 
 def _create_session(db):
@@ -19,7 +20,6 @@ def _create_session(db):
 def test_media_item_flushed_before_selection_insert(app_context, monkeypatch):
     app = app_context
 
-    from webapp.extensions import db
     from webapp.api.picker_session_service import PickerSessionService
     from core.models.photo_models import MediaItem
 
@@ -61,7 +61,6 @@ def test_media_item_flushed_before_selection_insert(app_context, monkeypatch):
 def test_enqueue_new_items_create_import_tasks(app_context, monkeypatch):
     app = app_context
 
-    from webapp.extensions import db
     from webapp.api.picker_session_service import PickerSessionService
     from core.models.photo_models import PickerSelection
     from core.models.picker_import_task import PickerImportTask
@@ -97,7 +96,6 @@ def test_enqueue_new_items_create_import_tasks(app_context, monkeypatch):
 def test_existing_pending_selection_reenqueued(app_context, monkeypatch):
     app = app_context
 
-    from webapp.extensions import db
     from webapp.api.picker_session_service import PickerSessionService
     from core.models.photo_models import PickerSelection
     from core.models.picker_import_task import PickerImportTask
@@ -153,7 +151,6 @@ def test_existing_pending_selection_reenqueued(app_context, monkeypatch):
 def test_media_items_commit_for_duplicates_only(app_context, monkeypatch):
     app = app_context
 
-    from webapp.extensions import db
     from webapp.api.picker_session_service import PickerSessionService
     from core.models.google_account import GoogleAccount
     from core.models.picker_session import PickerSession

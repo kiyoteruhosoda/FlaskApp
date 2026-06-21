@@ -6,8 +6,8 @@ import pytest
 
 from core.models.photo_models import Media
 from core.models.user import Permission, Role, User
-from webapp.extensions import db
 from webapp.services.token_service import TokenService
+from core.db import db
 
 
 def _ensure_permission(user: User, code: str, role_name: str = "wiki-uploader") -> None:
@@ -129,7 +129,7 @@ def test_wiki_upload_creates_media_record(wiki_client, wiki_auth_headers):
     assert stored_file.read_bytes() == file_content
 
     with wiki_client.application.app_context():
-        media = Media.query.get(media_payload['id'])
+        media = db.session.get(Media, media_payload['id'])
         assert media is not None
         assert media.source_type == 'wiki-media'
         assert media.local_rel_path == media_payload['localRelPath']

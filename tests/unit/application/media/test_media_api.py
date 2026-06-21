@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
+from core.db import db
 
 
 @pytest.fixture
@@ -45,7 +46,6 @@ def app(tmp_path):
     app = create_app()
     app.config.update(TESTING=True)
 
-    from webapp.extensions import db
     from core.models.user import User
     from core.models.google_account import GoogleAccount
 
@@ -82,7 +82,6 @@ def login(client):
 
 
 def grant_permission(app, code: str) -> int:
-    from webapp.extensions import db
     from core.models.user import User, Role, Permission
 
     with app.app_context():
@@ -110,7 +109,6 @@ def grant_permission(app, code: str) -> int:
 
 
 def create_media_record(app, **overrides) -> int:
-    from webapp.extensions import db
     from core.models.photo_models import Media
 
     with app.app_context():
@@ -151,7 +149,6 @@ def make_token(payload: dict) -> str:
 
 @pytest.fixture
 def seed_media_bulk(app):
-    from webapp.extensions import db
     from core.models.photo_models import Media
 
     base_shot = datetime(2025, 8, 1, tzinfo=timezone.utc)
@@ -198,7 +195,6 @@ def seed_media_bulk(app):
 
 @pytest.fixture
 def seed_media_without_shot_at(app):
-    from webapp.extensions import db
     from core.models.photo_models import Media
     from core.models.google_account import GoogleAccount
 
@@ -228,7 +224,6 @@ def seed_media_without_shot_at(app):
 
 @pytest.fixture
 def seed_media_range(app):
-    from webapp.extensions import db
     from core.models.photo_models import Media
 
     with app.app_context():
@@ -280,7 +275,6 @@ def seed_media_range(app):
 
 @pytest.fixture
 def seed_media_with_tags(app):
-    from webapp.extensions import db
     from core.models.photo_models import Media, Tag
 
     with app.app_context():
@@ -353,7 +347,6 @@ def seed_media_with_tags(app):
 
 @pytest.fixture
 def seed_media_detail(app):
-    from webapp.extensions import db
     from core.models.photo_models import (
         Media,
         Exif,
@@ -410,7 +403,6 @@ def seed_media_detail(app):
 
 @pytest.fixture
 def seed_thumb_media(app):
-    from webapp.extensions import db
     from core.models.photo_models import Media
 
     rel = "2025/08/18/pic.jpg"
@@ -447,7 +439,6 @@ def seed_thumb_media(app):
 
 @pytest.fixture
 def seed_playback_media(app):
-    from webapp.extensions import db
     from core.models.photo_models import Media, MediaPlayback
 
     with app.app_context():
@@ -521,7 +512,6 @@ def seed_playback_media(app):
 
 @pytest.fixture
 def seed_deleted_media(app):
-    from webapp.extensions import db
     from core.models.photo_models import Media
 
     with app.app_context():
@@ -714,7 +704,6 @@ def test_media_update_shot_at_invalid_input(client, app, seed_media_detail):
 
 
 def test_media_update_shot_at_success(client, app, seed_media_detail):
-    from webapp.extensions import db
     from core.models.photo_models import Media
 
     grant_permission(app, "media:metadata-manage")
@@ -739,7 +728,6 @@ def test_media_update_shot_at_success(client, app, seed_media_detail):
 
 
 def test_media_update_shot_at_clear(client, app, seed_media_detail):
-    from webapp.extensions import db
     from core.models.photo_models import Media
 
     grant_permission(app, "media:metadata-manage")
@@ -797,7 +785,6 @@ def test_unused_tags_removed_from_master(client, app, seed_media_with_tags):
 
     with app.app_context():
         from core.models.photo_models import Tag
-        from webapp.extensions import db
 
         assert db.session.get(Tag, place_tag_id) is None
         assert db.session.get(Tag, person_tag_id) is not None
@@ -988,7 +975,6 @@ def test_range_video(client, seed_playback_media):
 
 
 def test_playback_filename_for_mov(client, app):
-    from webapp.extensions import db
     from core.models.photo_models import Media, MediaPlayback
 
     login(client)
@@ -1040,7 +1026,6 @@ def test_playback_filename_for_mov(client, app):
 
 
 def test_media_detail_playback_paths_normalized(client, app):
-    from webapp.extensions import db
     from core.models.photo_models import Media, MediaPlayback
 
     login(client)
@@ -1085,7 +1070,6 @@ def test_media_detail_playback_paths_normalized(client, app):
 
 
 def test_media_detail_prefers_completed_playback(client, app):
-    from webapp.extensions import db
     from core.models.photo_models import Media, MediaPlayback
 
     login(client)
@@ -1251,7 +1235,6 @@ def test_thumb_url_deleted_media(client, seed_deleted_media):
 
 
 def test_media_thumbnail_route(client, app):
-    from webapp.extensions import db
     from core.models.photo_models import Media
 
     with app.app_context():
@@ -1287,7 +1270,6 @@ def test_media_thumbnail_route(client, app):
 
 
 def test_media_thumbnail_route_handles_heic(client, app):
-    from webapp.extensions import db
     from core.models.photo_models import Media
 
     with app.app_context():
@@ -1322,7 +1304,6 @@ def test_media_thumbnail_route_handles_heic(client, app):
 
 
 def test_media_thumbnail_route_uses_thumbnail_rel_path(client, app):
-    from webapp.extensions import db
     from core.models.photo_models import Media
 
     with app.app_context():
@@ -1358,7 +1339,6 @@ def test_media_thumbnail_route_uses_thumbnail_rel_path(client, app):
 
 
 def test_thumbnail_falls_back_to_default_path(client, app, monkeypatch, tmp_path):
-    from webapp.extensions import db
     from core.models.photo_models import Media
     from presentation.web.api import routes as api_routes
 
@@ -1410,7 +1390,6 @@ def test_thumbnail_falls_back_to_default_path(client, app, monkeypatch, tmp_path
 
 
 def test_media_delete_requires_permission(client, app):
-    from webapp.extensions import db
     from core.models.photo_models import Media
 
     with app.app_context():
@@ -1440,7 +1419,6 @@ def test_media_delete_requires_permission(client, app):
 
 
 def test_media_bulk_delete_requires_permission(client, app):
-    from webapp.extensions import db
     from core.models.photo_models import Media
 
     with app.app_context():
@@ -1514,7 +1492,6 @@ def test_media_bulk_add_tags_requires_permission(client, app):
 
 
 def test_media_bulk_delete_success(client, app):
-    from webapp.extensions import db
     from core.models.photo_models import Media, Album
 
     login(client)
@@ -1576,16 +1553,15 @@ def test_media_bulk_delete_success(client, app):
     assert data["deleted_ids"] == [m1_id]
 
     with app.app_context():
-        refreshed = Media.query.get(m1_id)
+        refreshed = db.session.get(Media, m1_id)
         assert refreshed.is_deleted is True
-        album = Album.query.get(album_id)
+        album = db.session.get(Album, album_id)
         assert album.cover_media_id == m2_id
         remaining_ids = {media.id for media in album.media}
         assert remaining_ids == {m2_id}
 
 
 def test_media_bulk_add_tags_success(client, app):
-    from webapp.extensions import db
     from core.models.photo_models import Media, Tag
 
     login(client)
@@ -1676,7 +1652,6 @@ def test_media_bulk_add_tags_unknown_tag_returns_400(client, app):
 
 
 def test_media_bulk_remove_tags_success(client, app):
-    from webapp.extensions import db
     from core.models.photo_models import Media, Tag
 
     login(client)
@@ -1734,9 +1709,9 @@ def test_media_bulk_remove_tags_success(client, app):
         for media in refreshed:
             removed_ids = {tag.id for tag in media.tags}
             assert remove_id not in removed_ids
-        remaining_tag = Tag.query.get(keep_id)
+        remaining_tag = db.session.get(Tag, keep_id)
         assert remaining_tag is not None
-        assert Tag.query.get(remove_id) is None
+        assert db.session.get(Tag, remove_id) is None
 
 
 def test_media_bulk_remove_tags_requires_permission(client, app):
@@ -1803,7 +1778,6 @@ def test_media_bulk_action_missing_media_returns_404(client, app):
 
 
 def test_media_recover_requires_permission(client, app):
-    from webapp.extensions import db
     from core.models.photo_models import Media
 
     rel_path = "2024/01/01/recover.jpg"
@@ -1839,7 +1813,6 @@ def test_media_recover_requires_permission(client, app):
 
 
 def test_media_recover_success(client, app):
-    from webapp.extensions import db
     from core.models.photo_models import Media
 
     rel_path = "2024/02/02/recover-success.jpg"
@@ -1881,7 +1854,7 @@ def test_media_recover_success(client, app):
     assert isinstance(payload.get("thumbnailJobTriggered"), bool)
 
     with app.app_context():
-        refreshed = Media.query.get(media_id)
+        refreshed = db.session.get(Media, media_id)
         assert refreshed is not None
         assert refreshed.hash_sha256 is not None
         assert refreshed.bytes == os.path.getsize(image_path)
@@ -1891,7 +1864,6 @@ def test_media_recover_success(client, app):
 
 
 def test_thumbnail_missing_triggers_regeneration(client, app):
-    from webapp.extensions import db
     from core.models.photo_models import Media
 
     rel_path = "2024/03/03/thumb-missing.jpg"
@@ -1926,13 +1898,12 @@ def test_thumbnail_missing_triggers_regeneration(client, app):
     assert payload.get("thumbnailJobTriggered") is True
 
     with app.app_context():
-        refreshed = Media.query.get(media_id)
+        refreshed = db.session.get(Media, media_id)
         assert refreshed is not None
         assert refreshed.is_deleted is False
 
 
 def test_media_delete_success(client, app):
-    from webapp.extensions import db
     from core.models.photo_models import Media
 
     with app.app_context():
@@ -1965,14 +1936,13 @@ def test_media_delete_success(client, app):
     assert data["result"] == "deleted"
 
     with app.app_context():
-        refreshed = Media.query.get(media_id)
+        refreshed = db.session.get(Media, media_id)
         assert refreshed is not None
         assert refreshed.is_deleted is True
         assert not (Path(app.config["MEDIA_ORIGINALS_DIRECTORY"]) / refreshed.local_rel_path).exists()
 
 
 def test_media_delete_removes_media_from_albums(client, app):
-    from webapp.extensions import db
     from core.models.photo_models import Media, Album, album_item
 
     with app.app_context():
@@ -2034,7 +2004,7 @@ def test_media_delete_removes_media_from_albums(client, app):
     assert response.status_code == 200
 
     with app.app_context():
-        album = Album.query.get(album_id)
+        album = db.session.get(Album, album_id)
         remaining_entries = db.session.execute(
             album_item.select().where(album_item.c.album_id == album_id)
         ).all()
@@ -2046,7 +2016,6 @@ def test_media_delete_removes_media_from_albums(client, app):
 
 
 def test_media_delete_clears_cover_when_album_becomes_empty(client, app):
-    from webapp.extensions import db
     from core.models.photo_models import Media, Album, album_item
 
     with app.app_context():
@@ -2090,7 +2059,7 @@ def test_media_delete_clears_cover_when_album_becomes_empty(client, app):
     assert response.status_code == 200
 
     with app.app_context():
-        album = Album.query.get(album_id)
+        album = db.session.get(Album, album_id)
         remaining_entries = db.session.execute(
             album_item.select().where(album_item.c.album_id == album_id)
         ).all()
@@ -2099,7 +2068,6 @@ def test_media_delete_clears_cover_when_album_becomes_empty(client, app):
 
 
 def test_album_list_custom_order(client, app):
-    from webapp.extensions import db
     from core.models.photo_models import Album
 
     with app.app_context():
@@ -2123,7 +2091,6 @@ def test_album_list_custom_order(client, app):
 
 
 def test_album_reorder_updates_display_order(client, app):
-    from webapp.extensions import db
     from core.models.photo_models import Album
 
     with app.app_context():
@@ -2156,7 +2123,6 @@ def test_album_reorder_updates_display_order(client, app):
 
 
 def test_album_update_removing_all_media_clears_cover(client, app):
-    from webapp.extensions import db
     from core.models.photo_models import Media, Album, album_item
 
     with app.app_context():
@@ -2220,12 +2186,11 @@ def test_album_update_removing_all_media_clears_cover(client, app):
     assert payload["album"]["coverMediaId"] is None
 
     with app.app_context():
-        refreshed = Album.query.get(album_id)
+        refreshed = db.session.get(Album, album_id)
         assert refreshed.cover_media_id is None
 
 
 def test_album_api_handles_missing_cover_media(client, app):
-    from webapp.extensions import db
     from core.models.photo_models import Album
 
     with app.app_context():
@@ -2256,7 +2221,6 @@ def test_album_api_handles_missing_cover_media(client, app):
 
 
 def test_album_media_reorder_updates_sort_index(client, app):
-    from webapp.extensions import db
     from core.models.photo_models import Media, Album, album_item
 
     with app.app_context():
@@ -2322,7 +2286,6 @@ def test_album_media_reorder_updates_sort_index(client, app):
 
 
 def _create_album_with_media(app, *, rel_path: str = "fullsize.jpg"):
-    from webapp.extensions import db
     from core.models.photo_models import Media, Album, album_item
 
     with app.app_context():
@@ -2404,7 +2367,6 @@ def test_album_detail_full_size_fallback(client, app):
 
 
 def test_album_media_reorder_rejects_missing_ids(client, app):
-    from webapp.extensions import db
     from core.models.photo_models import Media, Album, album_item
 
     with app.app_context():
@@ -2468,7 +2430,6 @@ def test_album_media_reorder_rejects_missing_ids(client, app):
     payload = response.get_json()
     assert payload["error"] == "invalid_media_order"
 def test_picker_session_service_allows_reimport_of_deleted_media(app):
-    from webapp.extensions import db
     from core.models.photo_models import Media
     from core.models.picker_session import PickerSession
     from core.models.google_account import GoogleAccount

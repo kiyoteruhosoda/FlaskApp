@@ -7,8 +7,8 @@ from flask import url_for
 
 from core.models.service_account import ServiceAccount
 from core.models.user import Permission, Role, User
-from webapp.extensions import db
 from webapp.services.token_service import TokenService
+from core.db import db
 
 
 @pytest.fixture
@@ -64,7 +64,7 @@ def _create_service_account(app, scopes=None):
 
 def _service_account_login(client, account_id, scope=None):
     with client.application.app_context():
-        account = ServiceAccount.query.get(account_id)
+        account = db.session.get(ServiceAccount, account_id)
         token = TokenService.generate_service_account_access_token(
             account, scope=scope or set()
         )

@@ -11,6 +11,7 @@ import pytest
 from PIL import Image
 from datetime import datetime, timezone, timedelta
 from types import SimpleNamespace
+from core.db import db
 
 
 TEST_RETRY_BLOCKERS = {"reason": "playback assets pending"}
@@ -51,7 +52,6 @@ def app(tmp_path):
     app = create_app()
     app.config.update(TESTING=True)
 
-    from webapp.extensions import db
 
     with app.app_context():
         db.create_all()
@@ -90,7 +90,6 @@ def test_enqueue_media_playback_generates_thumbnails_for_completed_playback(app,
     poster_path.parent.mkdir(parents=True, exist_ok=True)
     Image.new("RGB", (1280, 720), color=(10, 20, 30)).save(poster_path)
 
-    from webapp.extensions import db
     from core.models.photo_models import Media, MediaPlayback
 
     with app.app_context():
@@ -199,7 +198,6 @@ def test_enqueue_thumbs_generate_schedules_retry(monkeypatch):
 @pytest.mark.usefixtures("app")
 def test_enqueue_thumbs_generate_records_retry(app, monkeypatch):
     from core.tasks import media_post_processing
-    from webapp.extensions import db
     from core.models.photo_models import Media
     from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
     import cli.src.celery.tasks as celery_tasks
@@ -275,7 +273,6 @@ def test_enqueue_thumbs_generate_records_retry(app, monkeypatch):
 @pytest.mark.usefixtures("app")
 def test_process_due_thumbnail_retries_clears_success(app, monkeypatch):
     from core.tasks import media_post_processing
-    from webapp.extensions import db
     from core.models.photo_models import Media
     from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 
@@ -343,7 +340,6 @@ def test_process_due_thumbnail_retries_clears_success(app, monkeypatch):
 @pytest.mark.usefixtures("app")
 def test_process_due_thumbnail_retries_reschedules_pending(app, monkeypatch):
     from core.tasks import media_post_processing
-    from webapp.extensions import db
     from core.models.photo_models import Media
     from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
     import cli.src.celery.tasks as celery_tasks
@@ -426,7 +422,6 @@ def test_process_due_thumbnail_retries_reschedules_pending(app, monkeypatch):
 @pytest.mark.usefixtures("app")
 def test_process_due_thumbnail_retries_reports_blocked_retries(app, monkeypatch):
     from core.tasks import media_post_processing
-    from webapp.extensions import db
     from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 
     class StubLogger:
@@ -487,7 +482,6 @@ def test_process_due_thumbnail_retries_reports_blocked_retries(app, monkeypatch)
 @pytest.mark.usefixtures("app")
 def test_enqueue_thumbs_generate_stops_after_max_attempts(app, monkeypatch):
     from core.tasks import media_post_processing
-    from webapp.extensions import db
     from core.models.photo_models import Media
     from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 

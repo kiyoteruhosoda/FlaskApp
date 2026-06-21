@@ -1,3 +1,4 @@
+from core.db import db
 #!/usr/bin/env python3
 """ローカルインポートのMediaItem作成機能のテスト"""
 
@@ -10,7 +11,6 @@ from datetime import datetime, timezone
 from webapp import create_app
 from core.tasks.local_import import import_single_file
 from core.models.photo_models import Media, MediaItem, PhotoMetadata, VideoMetadata, Exif
-from webapp.extensions import db
 
 
 def create_test_image(path: Path) -> None:
@@ -70,18 +70,18 @@ def test_local_import_with_media_item():
             
             if result_image["success"]:
                 media_id = result_image["media_id"]
-                media = Media.query.get(media_id)
+                media = db.session.get(Media, media_id)
                 print(f"作成されたMedia: ID={media.id}, google_media_id={media.google_media_id}")
                 
                 # MediaItemが作成されているかチェック
                 if media.google_media_id:
-                    media_item = MediaItem.query.get(media.google_media_id)
+                    media_item = db.session.get(MediaItem, media.google_media_id)
                     if media_item:
                         print(f"作成されたMediaItem: ID={media_item.id}, type={media_item.type}")
                         
                         # PhotoMetadataがあるかチェック
                         if media_item.photo_metadata_id:
-                            photo_meta = PhotoMetadata.query.get(media_item.photo_metadata_id)
+                            photo_meta = db.session.get(PhotoMetadata, media_item.photo_metadata_id)
                             print(f"作成されたPhotoMetadata: ID={photo_meta.id}")
                         else:
                             print("PhotoMetadata: 作成されていません")
@@ -97,18 +97,18 @@ def test_local_import_with_media_item():
             
             if result_video["success"]:
                 media_id = result_video["media_id"]
-                media = Media.query.get(media_id)
+                media = db.session.get(Media, media_id)
                 print(f"作成されたMedia: ID={media.id}, google_media_id={media.google_media_id}")
                 
                 # MediaItemが作成されているかチェック
                 if media.google_media_id:
-                    media_item = MediaItem.query.get(media.google_media_id)
+                    media_item = db.session.get(MediaItem, media.google_media_id)
                     if media_item:
                         print(f"作成されたMediaItem: ID={media_item.id}, type={media_item.type}")
                         
                         # VideoMetadataがあるかチェック
                         if media_item.video_metadata_id:
-                            video_meta = VideoMetadata.query.get(media_item.video_metadata_id)
+                            video_meta = db.session.get(VideoMetadata, media_item.video_metadata_id)
                             print(f"作成されたVideoMetadata: ID={video_meta.id}, fps={video_meta.fps}")
                         else:
                             print("VideoMetadata: 作成されていません")

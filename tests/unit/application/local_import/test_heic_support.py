@@ -10,6 +10,7 @@ import pytest
 from PIL import Image, UnidentifiedImageError
 from pillow_heif import register_heif_opener
 
+from core.db import db
 from core.tasks.local_import import (
     extract_exif_data,
     get_image_dimensions,
@@ -61,7 +62,6 @@ def local_import_app(tmp_path: Path):
     app = create_app()
     app.config.update(TESTING=True)
 
-    from webapp.extensions import db
 
     with app.app_context():
         db.create_all()
@@ -190,7 +190,7 @@ def test_import_single_heic_file(local_import_app) -> None:
         assert result["success"] is True
         assert result["media_id"] is not None
 
-        media = Media.query.get(result["media_id"])
+        media = db.session.get(Media, result["media_id"])
 
         assert media is not None
         assert media.mime_type == "image/heic"

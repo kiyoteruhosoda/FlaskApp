@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+from core.db import db
 
 pytestmark = [pytest.mark.integration, pytest.mark.filesystem]
 
@@ -11,7 +12,6 @@ from webapp import create_app
 from core.tasks import local_import
 from core.tasks.local_import import import_single_file
 from core.models.photo_models import Media, MediaItem, MediaPlayback, PhotoMetadata, Exif
-from webapp.extensions import db
 from bounded_contexts.photonest.domain.local_import.entities import ImportFile
 from bounded_contexts.photonest.domain.local_import.media_file import MediaFileAnalysis
 
@@ -79,19 +79,19 @@ def test_duplicate_import_refreshes_metadata(monkeypatch, tmp_path, app_context)
     first = import_single_file(str(file_path), str(import_dir), str(originals_dir))
     assert first["success"] is True
 
-    media = Media.query.get(first["media_id"])
+    media = db.session.get(Media, first["media_id"])
     assert media.width == 640
     assert media.height == 480
     assert media.orientation == 1
 
-    exif = Exif.query.get(media.id)
+    exif = db.session.get(Exif, media.id)
     assert exif.camera_make == "BugCam"
     assert exif.camera_model == "BugCam-1"
     assert exif.iso == 100
 
-    media_item = MediaItem.query.get(media.google_media_id)
+    media_item = db.session.get(MediaItem, media.google_media_id)
     assert media_item.photo_metadata is not None
-    photo_meta = PhotoMetadata.query.get(media_item.photo_metadata_id)
+    photo_meta = db.session.get(PhotoMetadata, media_item.photo_metadata_id)
     assert photo_meta.iso_equivalent == 100
     assert photo_meta.aperture_f_number == 2.8
 
@@ -108,7 +108,7 @@ def test_duplicate_import_refreshes_metadata(monkeypatch, tmp_path, app_context)
 
     db.session.expire_all()
 
-    media = Media.query.get(first["media_id"])
+    media = db.session.get(Media, first["media_id"])
     assert media.width == 1280
     assert media.height == 720
     assert media.orientation == 6
@@ -120,17 +120,17 @@ def test_duplicate_import_refreshes_metadata(monkeypatch, tmp_path, app_context)
     assert media.hash_sha256 == local_import.calculate_file_hash(str(stored_original))
     assert media.bytes == stored_original.stat().st_size
 
-    exif = Exif.query.get(media.id)
+    exif = db.session.get(Exif, media.id)
     assert exif.camera_make == "FixedCam"
     assert exif.camera_model == "FixedCam-X"
     assert exif.iso == 200
     assert exif.shutter == "1/125"
 
-    media_item = MediaItem.query.get(media.google_media_id)
+    media_item = db.session.get(MediaItem, media.google_media_id)
     assert media_item.width == 1280
     assert media_item.height == 720
     assert media_item.photo_metadata is not None
-    photo_meta = PhotoMetadata.query.get(media_item.photo_metadata_id)
+    photo_meta = db.session.get(PhotoMetadata, media_item.photo_metadata_id)
     assert photo_meta.iso_equivalent == 200
     assert photo_meta.aperture_f_number == 4.0
     assert photo_meta.exposure_time == "1/125"
@@ -203,7 +203,7 @@ def test_duplicate_import_updates_relative_path(monkeypatch, tmp_path, app_conte
     first = import_single_file(str(file_path), str(import_dir), str(originals_dir))
     assert first["success"] is True
 
-    media = Media.query.get(first["media_id"])
+    media = db.session.get(Media, first["media_id"])
     old_relative = analyzer.old_relative_path
     assert media.local_rel_path == old_relative
     old_original = originals_dir / old_relative
@@ -243,7 +243,7 @@ def test_duplicate_import_updates_relative_path(monkeypatch, tmp_path, app_conte
     assert second["imported_path"] == str(originals_dir / analyzer.new_relative_path)
 
     db.session.expire_all()
-    refreshed = Media.query.get(first["media_id"])
+    refreshed = db.session.get(Media, first["media_id"])
     assert refreshed.local_rel_path == analyzer.new_relative_path
     assert refreshed.shot_at == datetime(2018, 1, 28, 1, 39, 22)
 
@@ -357,7 +357,7 @@ def test_duplicate_refresh_realigns_playback_paths(
     first = import_single_file(str(file_path), str(import_dir), str(originals_dir))
     assert first["success"] is True
 
-    media = Media.query.get(first["media_id"])
+    media = db.session.get(Media, first["media_id"])
     old_relative = analyzer.relative_path
     assert media.local_rel_path == old_relative
 
@@ -394,7 +394,7 @@ def test_duplicate_refresh_realigns_playback_paths(
     assert second["relative_path"] == old_relative
 
     db.session.expire_all()
-    refreshed = Media.query.get(first["media_id"])
+    refreshed = db.session.get(Media, first["media_id"])
     playback_entry = MediaPlayback.query.filter_by(media_id=refreshed.id).one()
 
     assert update_calls.get("called") is True

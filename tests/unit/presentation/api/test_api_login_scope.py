@@ -8,6 +8,7 @@ import jwt
 import pytest
 from flask import url_for
 
+from core.db import db
 from core.system_settings_defaults import (
     DEFAULT_APPLICATION_SETTINGS,
     DEFAULT_CORS_SETTINGS,
@@ -67,7 +68,6 @@ def app(tmp_path):
         if getattr(func, "__name__", "") != "_apply_login_disabled_for_testing"
     ]
 
-    from webapp.extensions import db
     from webapp.services.system_setting_service import SystemSettingService
     from webapp import _apply_persisted_settings
 
@@ -111,7 +111,6 @@ def client(app):
 
 @pytest.fixture()
 def scoped_user(app):
-    from webapp.extensions import db
 
     with app.app_context():
         read_perm = Permission(code="read:cert")
@@ -142,7 +141,6 @@ def scoped_user(app):
 
 @pytest.fixture()
 def album_user(app):
-    from webapp.extensions import db
     from core.models.user import Permission, Role, User
 
     with app.app_context():
@@ -166,7 +164,6 @@ def album_user(app):
 
 @pytest.fixture()
 def service_login_account(app):
-    from webapp.extensions import db
     from core.models.service_account import ServiceAccount
 
     with app.app_context():
@@ -314,7 +311,6 @@ def _assert_cookie_cleared(response) -> None:
 
 
 def test_login_cookie_requires_gui_scope(app, client):
-    from webapp.extensions import db
 
     with app.app_context():
         gui_perm = Permission(code="gui:view")
@@ -372,7 +368,6 @@ def test_login_cookie_requires_gui_scope(app, client):
 
 
 def test_login_with_gui_scope_grants_full_permissions(app, client):
-    from webapp.extensions import db
 
     with app.app_context():
         gui_perm = Permission(code="gui:view")
@@ -412,7 +407,6 @@ def test_login_with_gui_scope_grants_full_permissions(app, client):
 
 
 def test_refresh_cookie_requires_gui_scope(app, client):
-    from webapp.extensions import db
 
     with app.app_context():
         gui_perm = Permission(code="gui:view")
@@ -524,7 +518,7 @@ def test_scoped_token_enforces_permissions(client, album_user):
 
 def test_service_login_sets_scope_and_redirects(app, client, service_login_account):
     with app.app_context():
-        account = ServiceAccount.query.get(service_login_account["account_id"])
+        account = db.session.get(ServiceAccount, service_login_account["account_id"])
         token = TokenService.generate_service_account_access_token(account, scope={"totp:view"})
 
     with app.test_request_context():
@@ -554,7 +548,7 @@ def test_service_login_sets_scope_and_redirects(app, client, service_login_accou
 
 def test_service_login_honors_next_parameter(app, client, service_login_account):
     with app.app_context():
-        account = ServiceAccount.query.get(service_login_account["account_id"])
+        account = db.session.get(ServiceAccount, service_login_account["account_id"])
         token = TokenService.generate_service_account_access_token(account, scope={"totp:view"})
 
     response = client.get(
@@ -570,7 +564,7 @@ def test_service_login_honors_next_parameter(app, client, service_login_account)
 
 def test_service_login_does_not_require_role_selection(app, client, service_login_account):
     with app.app_context():
-        account = ServiceAccount.query.get(service_login_account["account_id"])
+        account = db.session.get(ServiceAccount, service_login_account["account_id"])
         token = TokenService.generate_service_account_access_token(account, scope={"totp:view"})
 
     response = client.get(
@@ -594,7 +588,7 @@ def test_service_login_does_not_require_role_selection(app, client, service_logi
 
 def test_service_login_denies_scope_when_token_missing(app, client, service_login_account):
     with app.app_context():
-        account = ServiceAccount.query.get(service_login_account["account_id"])
+        account = db.session.get(ServiceAccount, service_login_account["account_id"])
         token = TokenService.generate_service_account_access_token(account, scope={"totp:view"})
 
     response = client.get(
@@ -636,7 +630,6 @@ def test_service_login_rejects_individual_token(app, client):
     client.delete_cookie("access_token")
 
     with app.app_context():
-        from webapp.extensions import db
 
         perm = Permission.query.filter_by(code="totp:view").one_or_none()
         if perm is None:
@@ -677,7 +670,7 @@ def test_service_login_rejects_individual_token(app, client):
 
 def test_service_login_rejects_query_token(app, client, service_login_account):
     with app.app_context():
-        account = ServiceAccount.query.get(service_login_account["account_id"])
+        account = db.session.get(ServiceAccount, service_login_account["account_id"])
         token = TokenService.generate_service_account_access_token(account, scope={"totp:view"})
 
     response = client.get(
@@ -691,7 +684,7 @@ def test_service_login_rejects_query_token(app, client, service_login_account):
 
 def test_service_login_mismatch_invalidates_session(app, client, service_login_account):
     with app.app_context():
-        account = ServiceAccount.query.get(service_login_account["account_id"])
+        account = db.session.get(ServiceAccount, service_login_account["account_id"])
         token = TokenService.generate_service_account_access_token(account, scope={"totp:view"})
 
     login_response = client.get(
@@ -707,7 +700,6 @@ def test_service_login_mismatch_invalidates_session(app, client, service_login_a
         assert sess.get("_user_id") is not None
 
     with app.app_context():
-        from webapp.extensions import db
 
         other_account = ServiceAccount(name=f"svc-mismatch-{uuid.uuid4().hex[:6]}")
         other_account.set_scopes({"totp:view"})

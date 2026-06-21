@@ -6,6 +6,7 @@ from PIL import Image
 from pillow_heif import register_heif_opener
 
 from core.tasks import picker_import_item
+from core.db import db
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.filesystem]
@@ -43,7 +44,6 @@ def picker_app(tmp_path):
     app = create_app()
     app.config.update(TESTING=True)
 
-    from webapp.extensions import db
     from core.models.google_account import GoogleAccount
 
     with app.app_context():
@@ -69,7 +69,6 @@ def picker_app(tmp_path):
 
 
 def _setup_item(app, *, mime="image/jpeg", filename="a.jpg", mtype="PHOTO"):
-    from webapp.extensions import db
     from core.models.photo_models import MediaItem, PickerSelection
     from core.models.picker_session import PickerSession
 
@@ -140,9 +139,9 @@ def test_picker_import_heic_dimensions(monkeypatch, picker_app):
 
         from core.models.photo_models import Media, MediaItem, PickerSelection
 
-        selection = PickerSelection.query.get(pmi_id)
+        selection = db.session.get(PickerSelection, pmi_id)
         media = Media.query.one()
-        media_item = MediaItem.query.get("m1")
+        media_item = db.session.get(MediaItem, "m1")
 
         assert result["ok"] is True
         assert selection.status == "imported"

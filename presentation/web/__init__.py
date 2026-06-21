@@ -5,7 +5,7 @@ import importlib
 import json
 import os
 import time
-from collections.abc import Mapping, MutableMapping, Sequence
+from collections.abc import MutableMapping
 from copy import deepcopy
 from datetime import datetime, timezone
 from uuid import uuid4
@@ -14,8 +14,6 @@ from babel.messages.pofile import read_po
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlsplit
-
-import jwt
 
 from contextlib import contextmanager
 
@@ -39,11 +37,9 @@ from flask_login import current_user, logout_user
 from flask_babel import get_locale
 from flask_babel import gettext as _
 from sqlalchemy.engine import make_url
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from core.settings import settings
-
-from werkzeug.datastructures import FileStorage
 
 from .extensions import db, migrate, login_manager, babel, api as smorest_api
 from .error_handlers import register_error_handlers
@@ -60,333 +56,18 @@ from core.system_settings_defaults import (
 )
 from webapp.services.system_setting_service import SystemSettingService
 from webapp.services.token_service import TokenService
-
-
-_SENSITIVE_KEYWORDS = {
-    "password",
-    "passwd",
-    "secret",
-    "token",
-    "access_token",
-    "refresh_token",
-    "api_key",
-}
-
-
-_MAX_LOG_PAYLOAD_BYTES = 60_000
-
-
-_MAX_POST_PARAM_STRING_LENGTH = 120
+from .request_log_payload import (
+    format_file_parameters_for_logging,
+    format_form_parameters_for_logging,
+    mask_sensitive_data,
+    prepare_log_payload,
+    truncate_long_parameter_values,
+)
 
 
 _DEFAULT_CORS_ALLOW_HEADERS = "Authorization,Content-Type"
 _DEFAULT_CORS_ALLOW_METHODS = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
 _DEFAULT_CORS_MAX_AGE = "86400"
-
-
-def _is_sensitive_key(key):
-    if not isinstance(key, str):
-        return False
-    key_lower = key.lower()
-    return any(keyword in key_lower for keyword in _SENSITIVE_KEYWORDS)
-
-
-def _mask_sensitive_data(data):
-    """再帰的に辞書やリスト内の機密情報をマスクする。"""
-
-    if isinstance(data, Mapping):
-        masked = {}
-        for key, value in data.items():
-            if _is_sensitive_key(key):
-                masked[key] = "***"
-            else:
-                masked[key] = _mask_sensitive_data(value)
-        return masked
-    if isinstance(data, Sequence) and not isinstance(data, (str, bytes, bytearray)):
-        return [_mask_sensitive_data(item) for item in data]
-    return data
-
-
-def _summarize_for_logging(
-    data,
-    *,
-    _depth=0,
-    _max_depth=2,
-    _max_string_length=120,
-    _max_list_items=1,
-    _max_dict_items=10,
-):
-    """ログ用にJSONレスポンスを必要最小限の情報へ要約する。"""
-
-    if data is None or isinstance(data, (bool, int, float)):
-        return data
-
-    if isinstance(data, str):
-        if len(data) <= _max_string_length:
-            return data
-        return f"{data[:_max_string_length]}… ({len(data)} chars)"
-
-    if isinstance(data, (bytes, bytearray)):
-        return f"<binary {len(data)} bytes>"
-
-    if _depth >= _max_depth:
-        if isinstance(data, Mapping):
-            keys = list(data.keys())
-            summary = {
-                "type": "dict",
-                "keys": keys[:_max_dict_items],
-                "length": len(keys),
-            }
-            if len(keys) > _max_dict_items:
-                summary["..."] = f"{len(keys) - _max_dict_items} more keys"
-            return summary
-        if isinstance(data, Sequence) and not isinstance(data, (str, bytes, bytearray)):
-            return {
-                "type": "list",
-                "length": len(data),
-            }
-        return str(data)
-
-    if isinstance(data, Mapping):
-        summary = {}
-        for index, (key, value) in enumerate(data.items()):
-            if index >= _max_dict_items:
-                summary["..."] = f"{len(data) - _max_dict_items} more keys"
-                break
-            summary[key] = _summarize_for_logging(
-                value,
-                _depth=_depth + 1,
-                _max_depth=_max_depth,
-                _max_string_length=_max_string_length,
-                _max_list_items=_max_list_items,
-                _max_dict_items=_max_dict_items,
-            )
-        return summary
-
-    if isinstance(data, Sequence) and not isinstance(data, (str, bytes, bytearray)):
-        length = len(data)
-        summary = {"length": length}
-        if length:
-            sample_count = min(length, _max_list_items)
-            summary["sample"] = [
-                _summarize_for_logging(
-                    data[i],
-                    _depth=_depth + 1,
-                    _max_depth=_max_depth,
-                    _max_string_length=_max_string_length,
-                    _max_list_items=_max_list_items,
-                    _max_dict_items=_max_dict_items,
-                )
-                for i in range(sample_count)
-            ]
-            if length > sample_count:
-                summary["..."] = f"{length - sample_count} more items"
-        return summary
-
-    return str(data)
-
-
-def _serialize_for_logging(payload: Any) -> Tuple[str, int]:
-    text = json.dumps(payload, ensure_ascii=False, default=str)
-    return text, len(text.encode("utf-8"))
-
-
-def _prepare_log_payload(
-    payload: Dict[str, Any],
-    *,
-    keys_to_summarize: Sequence[str],
-    max_bytes: int = _MAX_LOG_PAYLOAD_BYTES,
-) -> Tuple[Dict[str, Any], str]:
-    working = dict(payload)
-    text, size = _serialize_for_logging(working)
-    if size <= max_bytes:
-        return working, text
-
-    truncation: Dict[str, Dict[str, Any]] = {}
-    existing_truncation = working.get("_truncation")
-    if isinstance(existing_truncation, dict):
-        truncation.update(existing_truncation)
-
-    for key in keys_to_summarize:
-        if key not in working:
-            continue
-        value = working[key]
-        if value is None:
-            continue
-        summary = _summarize_for_logging(value)
-        if summary is value:
-            continue
-
-        _, value_size = _serialize_for_logging(value)
-        truncation[key] = {
-            "summary": True,
-            "originalBytes": value_size,
-        }
-        working[key] = summary
-        working["_truncation"] = {"limitBytes": max_bytes, **truncation}
-
-        text, size = _serialize_for_logging(working)
-        if size <= max_bytes:
-            return working, text
-
-    minimal: Dict[str, Any] = {
-        "status": working.get("status"),
-        "message": "payload omitted due to size limit",
-        "_truncation": {"limitBytes": max_bytes, **truncation, "omitted": True},
-    }
-
-    text, size = _serialize_for_logging(minimal)
-    if size <= max_bytes:
-        return minimal, text
-
-    fallback = {
-        "message": "payload omitted",
-        "_truncation": {"limitBytes": max_bytes, "omitted": True},
-    }
-    fallback_text, _ = _serialize_for_logging(fallback)
-    return fallback, fallback_text
-
-
-def _truncate_long_parameter_values(value: Any) -> Any:
-    if isinstance(value, Mapping):
-        return {k: _truncate_long_parameter_values(v) for k, v in value.items()}
-
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
-        return [_truncate_long_parameter_values(item) for item in value]
-
-    if isinstance(value, str):
-        if len(value) <= _MAX_POST_PARAM_STRING_LENGTH:
-            return value
-        return f"{value[:_MAX_POST_PARAM_STRING_LENGTH]}… ({len(value)} chars)"
-
-    if isinstance(value, (bytes, bytearray)):
-        return f"<binary {len(value)} bytes>"
-
-    return value
-
-
-def _format_form_parameters_for_logging(form) -> Dict[str, Any]:
-    if not form:
-        return {}
-
-    result: Dict[str, Any] = {}
-    for key in form.keys():
-        values = form.getlist(key)
-        summarized_values = [_truncate_long_parameter_values(value) for value in values]
-        if len(summarized_values) == 1:
-            result[key] = summarized_values[0]
-        else:
-            result[key] = summarized_values
-    return result
-
-
-def _summarize_file_storage(storage: FileStorage) -> Dict[str, Any]:
-    summary: Dict[str, Any] = {"omitted": True}
-    filename = getattr(storage, "filename", None)
-    if filename:
-        summary["filename"] = filename
-    content_type = getattr(storage, "content_type", None)
-    if content_type:
-        summary["contentType"] = content_type
-    content_length = getattr(storage, "content_length", None)
-    if isinstance(content_length, int):
-        summary["contentLength"] = content_length
-    return summary
-
-
-def _format_file_parameters_for_logging(files) -> Dict[str, Any]:
-    if not files:
-        return {}
-
-    result: Dict[str, Any] = {}
-    for key in files.keys():
-        storages: List[FileStorage] = files.getlist(key)
-        summarized = [_summarize_file_storage(storage) for storage in storages]
-        if len(summarized) == 1:
-            result[key] = summarized[0]
-        else:
-            result[key] = summarized
-    return result
-
-
-def _extract_request_jwt_details() -> Optional[Dict[str, Any]]:
-    token: Optional[str] = None
-    source: Optional[str] = None
-
-    authorization = request.headers.get("Authorization")
-    if authorization and authorization.lower().startswith("bearer "):
-        token = authorization.split(" ", 1)[1].strip()
-        source = "authorization_header"
-
-    if not token:
-        cookie_token = request.cookies.get("access_token")
-        if cookie_token:
-            token = cookie_token
-            source = "access_token_cookie"
-
-    if not token:
-        return None
-
-    details: Dict[str, Any] = {"source": source or "unknown", "token": token}
-
-    try:
-        header = jwt.get_unverified_header(token)
-    except jwt.InvalidTokenError as exc:
-        details["header_error"] = str(exc)
-        header = None
-    else:
-        details["header"] = header
-
-    algorithms: Optional[list[str]] = None
-    if isinstance(header, dict):
-        algorithm = header.get("alg")
-        if isinstance(algorithm, str) and algorithm:
-            algorithms = [algorithm]
-
-    decode_options = {
-        "verify_signature": False,
-        "verify_aud": False,
-        "verify_exp": False,
-        "verify_iss": False,
-    }
-
-    try:
-        payload = jwt.decode(
-            token,
-            options=decode_options,
-            algorithms=algorithms
-            or [
-                "HS256",
-                "HS384",
-                "HS512",
-                "RS256",
-                "RS384",
-                "RS512",
-                "ES256",
-                "ES384",
-                "ES512",
-                "PS256",
-                "PS384",
-                "PS512",
-            ],
-        )
-    except Exception as exc:  # pragma: no cover - defensive logging aid
-        details["payload_error"] = str(exc)
-    else:
-        details["payload"] = payload
-
-    return details
-
-
-def _build_error_log_extra(event_name: str, jwt_details: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    extra = {
-        "event": event_name,
-        "request_id": getattr(g, "request_id", None),
-        "path": request.path,
-    }
-    if jwt_details:
-        extra["_trace_payload"] = {"jwt": jwt_details}
-    return extra
 
 
 def _resolve_translation_directories() -> list[str]:
@@ -1331,21 +1012,21 @@ def create_app():
             }
             args_dict = request.args.to_dict()
             if args_dict:
-                log_dict["args"] = _mask_sensitive_data(args_dict)
-            form_dict = _format_form_parameters_for_logging(request.form)
+                log_dict["args"] = mask_sensitive_data(args_dict)
+            form_dict = format_form_parameters_for_logging(request.form)
             if form_dict:
-                log_dict["form"] = _mask_sensitive_data(form_dict)
-            files_dict = _format_file_parameters_for_logging(request.files)
+                log_dict["form"] = mask_sensitive_data(form_dict)
+            files_dict = format_file_parameters_for_logging(request.files)
             if files_dict:
-                log_dict["files"] = _mask_sensitive_data(files_dict)
+                log_dict["files"] = mask_sensitive_data(files_dict)
             if input_json is not None:
                 processed_json = (
-                    _truncate_long_parameter_values(input_json)
+                    truncate_long_parameter_values(input_json)
                     if request.method.upper() == "POST"
                     else input_json
                 )
-                log_dict["json"] = _mask_sensitive_data(processed_json)
-            _, serialized_payload = _prepare_log_payload(
+                log_dict["json"] = mask_sensitive_data(processed_json)
+            _, serialized_payload = prepare_log_payload(
                 log_dict,
                 keys_to_summarize=("json", "form", "args", "files"),
             )
@@ -1370,13 +1051,13 @@ def create_app():
                     print(f"Error parsing JSON response {request.path}:", e)
                     resp_json = None
             masked_json = (
-                _mask_sensitive_data(resp_json) if resp_json is not None else None
+                mask_sensitive_data(resp_json) if resp_json is not None else None
             )
             base_payload = {
                 "status": response.status_code,
                 "json": masked_json,
             }
-            _, log_payload = _prepare_log_payload(
+            _, log_payload = prepare_log_payload(
                 base_payload,
                 keys_to_summarize=("json",),
             )
@@ -1408,9 +1089,9 @@ def create_app():
                 log_dict["query_string"] = qs
             form_dict = request.form.to_dict()
             if form_dict:
-                log_dict["form"] = _mask_sensitive_data(form_dict)
+                log_dict["form"] = mask_sensitive_data(form_dict)
             if input_json is not None:
-                log_dict["json"] = _mask_sensitive_data(input_json)
+                log_dict["json"] = mask_sensitive_data(input_json)
             app.logger.error(
                 json.dumps(log_dict, ensure_ascii=False),
                 extra={

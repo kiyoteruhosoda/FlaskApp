@@ -11,6 +11,7 @@ from marshmallow import Schema, fields
 
 from core.db import db
 from core.models.picker_session import PickerSession
+from core.models.photo_models import PickerSelection
 from bounded_contexts.photonest.infrastructure.local_import.audit_log_repository import (
     AuditLogRepository,
     LogCategory,
@@ -148,6 +149,94 @@ def get_session_errors(session_id: int):
             for log in errors
         ],
     })
+
+
+@bp.get("/sessions/<int:session_id>/items")
+def get_session_items(session_id: int):
+    """セッション内のファイル単位の取り込み状態を一覧取得する.
+
+    各ファイル(PickerSelection)の取り込み状態・試行回数・エラー原因を返し、
+    UI からファイル単位で結果を追跡できるようにする。``/items/<item_id>/logs``
+    と組み合わせることで、1ファイルの詳細な時系列ログまで辿れる。
+
+    Query Parameters:
+        status: 状態フィルタ(例: failed, imported, dup, running, enqueued)
+        limit: 取得件数上限(デフォルト200, 最大1000)
+        offset: 取得開始位置(デフォルト0)
+
+    Returns:
+        ファイル単位の状態リストと、状態別の集計。
+    """
+    from flask import request
+
+    session = db.session.get(PickerSession, session_id)
+    if not session:
+        abort(404, message=f"セッションが見つかりません: {session_id}")
+
+    status_filter = request.args.get("status")
+    try:
+        limit = max(1, min(int(request.args.get("limit", 200)), 1000))
+    except (TypeError, ValueError):
+        limit = 200
+    try:
+        offset = max(0, int(request.args.get("offset", 0)))
+    except (TypeError, ValueError):
+        offset = 0
+
+    base_query = PickerSelection.query.filter(
+        PickerSelection.session_id == session_id
+    )
+
+    # 状態別の集計(フィルタに依らずセッション全体を返す)。
+    status_counts = dict(
+        db.session.query(
+            PickerSelection.status,
+            db.func.count(PickerSelection.id),
+        )
+        .filter(PickerSelection.session_id == session_id)
+        .group_by(PickerSelection.status)
+        .all()
+    )
+    total = sum(status_counts.values())
+
+    query = base_query
+    if status_filter:
+        query = query.filter(PickerSelection.status == status_filter)
+
+    selections = (
+        query.order_by(PickerSelection.id).limit(limit).offset(offset).all()
+    )
+
+    def _iso(value):
+        return value.isoformat() if value else None
+
+    items = [
+        {
+            "id": sel.id,
+            "item_id": str(sel.id),
+            "filename": sel.local_filename,
+            "file_path": sel.local_file_path,
+            "status": sel.status,
+            "attempts": sel.attempts,
+            "error_msg": sel.error_msg,
+            "google_media_id": sel.google_media_id,
+            "enqueued_at": _iso(sel.enqueued_at),
+            "started_at": _iso(sel.started_at),
+            "finished_at": _iso(sel.finished_at),
+        }
+        for sel in selections
+    ]
+
+    return jsonify(
+        {
+            "session_id": session_id,
+            "total_count": total,
+            "status_counts": status_counts,
+            "filter": {"status": status_filter, "limit": limit, "offset": offset},
+            "returned_count": len(items),
+            "items": items,
+        }
+    )
 
 
 @bp.get("/sessions/<int:session_id>/transitions")

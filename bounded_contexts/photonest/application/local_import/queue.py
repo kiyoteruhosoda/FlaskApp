@@ -27,11 +27,18 @@ class LocalImportQueueProcessor:
         logger,
         importer,
         cancel_requested,
+        max_attempts: int = 0,
+        audit_recorder=None,
     ) -> None:
         self._db = db
         self._logger = logger
         self._importer = importer
         self._cancel_requested = cancel_requested
+        # 0 以下はリトライ上限なし。正の値で「毒ファイル」の無限リトライを防ぐ。
+        self._max_attempts = max_attempts if max_attempts and max_attempts > 0 else 0
+        # ファイル単位の監査ログを DB へ残すための注入可能なレコーダ(任意)。
+        # None の場合は記録しない。失敗してもインポート本体は止めない。
+        self._audit_recorder = audit_recorder
 
     def enqueue(
         self,
@@ -85,7 +92,22 @@ class LocalImportQueueProcessor:
                     celery_task_id=celery_task_id,
                 )
             else:
+                # 取り込み済み・重複は冪等にスキップ(再実行のチェックポイント)。
                 if selection.status in ("imported", "dup"):
+                    continue
+                # リトライ上限に達した失敗は「毒ファイル」とみなし再キューしない。
+                if self._is_exhausted(selection):
+                    self._logger.warning(
+                        "local_import.selection.exhausted",
+                        "リトライ上限に達したためSelectionを再キューしません",
+                        session_db_id=session.id,
+                        **file_context,
+                        selection_id=selection.id,
+                        attempts=selection.attempts,
+                        max_attempts=self._max_attempts,
+                        session_id=active_session_id,
+                        celery_task_id=celery_task_id,
+                    )
                     continue
                 selection.status = "enqueued"
                 selection.enqueued_at = now
@@ -98,6 +120,7 @@ class LocalImportQueueProcessor:
                     session_db_id=session.id,
                     **file_context,
                     selection_id=selection.id,
+                    attempts=selection.attempts,
                     session_id=active_session_id,
                     celery_task_id=celery_task_id,
                 )
@@ -123,6 +146,89 @@ class LocalImportQueueProcessor:
             .order_by(PickerSelection.id)
         )
 
+    def _is_exhausted(self, selection) -> bool:
+        """リトライ上限に達した失敗Selectionかどうかを判定する."""
+
+        if self._max_attempts <= 0:
+            return False
+        if getattr(selection, "status", None) != "failed":
+            return False
+        return (selection.attempts or 0) >= self._max_attempts
+
+    def _resume_summary(self, session) -> Dict[str, int]:
+        """セッション内のSelectionを状態別に集計する(再開状況の可視化用)."""
+
+        rows = (
+            self._db.session.query(
+                PickerSelection.status,
+                self._db.func.count(PickerSelection.id),
+            )
+            .filter(PickerSelection.session_id == session.id)
+            .group_by(PickerSelection.status)
+            .all()
+        )
+        counts = {status: count for status, count in rows}
+        return {
+            "done": counts.get("imported", 0) + counts.get("dup", 0),
+            "imported": counts.get("imported", 0),
+            "duplicate": counts.get("dup", 0),
+            "pending": counts.get("pending", 0) + counts.get("enqueued", 0),
+            "interrupted": counts.get("running", 0),
+            "failed": counts.get("failed", 0),
+            "skipped": counts.get("skipped", 0),
+        }
+
+    def _record_audit(self, record: Dict[str, Any]) -> None:
+        """注入された監査レコーダへ記録する(失敗してもインポートは止めない)."""
+
+        recorder = self._audit_recorder
+        if recorder is None:
+            return
+        try:
+            recorder(record)
+        except Exception:  # pragma: no cover - 監査ログ失敗は本体に影響させない
+            pass
+
+    def _record_item_audit(
+        self,
+        session,
+        selection,
+        detail: Dict[str, Any],
+        *,
+        from_state: Optional[str],
+        celery_task_id: Optional[str],
+        error_type: Optional[str] = None,
+    ) -> None:
+        """ファイル1件分の取り込み状態・エラー原因を監査ログとして記録する."""
+
+        if self._audit_recorder is None:
+            return
+
+        to_state = getattr(selection, "status", None)
+        detail_status = detail.get("status")
+        failed = to_state == "failed" or detail_status == "failed"
+        reason = detail.get("reason")
+        record: Dict[str, Any] = {
+            "kind": "item",
+            "session_id": getattr(session, "id", None),
+            "item_id": str(getattr(selection, "id", "")) or None,
+            "file": detail.get("file") or selection.local_filename,
+            "file_path": selection.local_file_path,
+            "filename": selection.local_filename,
+            "status": to_state,
+            "success": detail_status == "success",
+            "failed": failed,
+            "reason": reason,
+            "media_id": detail.get("media_id"),
+            "attempts": getattr(selection, "attempts", None),
+            "from_state": from_state,
+            "to_state": to_state,
+            "celery_task_id": celery_task_id,
+            "thumbnail": detail.get("thumbnail"),
+            "error_type": error_type,
+        }
+        self._record_audit(record)
+
     def process(
         self,
         session,
@@ -140,6 +246,26 @@ class LocalImportQueueProcessor:
 
         if isinstance(result, dict):
             result = ImportTaskResult.from_dict(result)
+
+        resume_summary = self._resume_summary(session)
+        if resume_summary.get("done") or resume_summary.get("interrupted"):
+            # 再開実行: 既に完了済みの件数と、中断(running残り)を可視化する。
+            self._logger.info(
+                "local_import.resume.summary",
+                "前回までの進捗を引き継いで取り込みを再開",
+                session_id=active_session_id,
+                celery_task_id=celery_task_id,
+                **resume_summary,
+            )
+            self._record_audit(
+                {
+                    "kind": "resume_summary",
+                    "session_id": getattr(session, "id", None),
+                    "celery_task_id": celery_task_id,
+                    **resume_summary,
+                    "max_attempts": self._max_attempts,
+                }
+            )
 
         selections = list(self.pending_query(session).all())
         total_files = len(selections)
@@ -203,11 +329,56 @@ class LocalImportQueueProcessor:
                     )
                 break
 
+            # 前回クラッシュ等で running のまま残り、かつ既に上限到達している
+            # Selection はここで失敗確定にして再処理しない(無限リトライ防止)。
+            if self._max_attempts > 0 and (selection.attempts or 0) >= self._max_attempts:
+                result.increment_processed()
+                result.increment_failed()
+                reason = selection.error_msg or "リトライ上限に達しました"
+                result.add_error(f"{display_file}: {reason}")
+                try:
+                    selection.status = "failed"
+                    selection.error_msg = reason
+                    selection.finished_at = datetime.now(timezone.utc)
+                    selection.lock_heartbeat_at = None
+                    self._db.session.commit()
+                except Exception:
+                    self._db.session.rollback()
+                self._logger.warning(
+                    "local_import.selection.exhausted_skip",
+                    "リトライ上限到達のためSelectionをスキップ",
+                    selection_id=selection.id,
+                    **file_context,
+                    attempts=selection.attempts,
+                    max_attempts=self._max_attempts,
+                    session_id=active_session_id,
+                    celery_task_id=celery_task_id,
+                )
+                exhausted_detail = {
+                    "file": display_file,
+                    "status": "failed",
+                    "reason": reason,
+                    "attempts": selection.attempts,
+                }
+                result.append_detail(exhausted_detail)
+                self._record_item_audit(
+                    session,
+                    selection,
+                    exhausted_detail,
+                    from_state="running",
+                    celery_task_id=celery_task_id,
+                    error_type="RetryLimitExceeded",
+                )
+                continue
+
             result.increment_processed()
 
             try:
                 selection.status = "running"
                 selection.started_at = datetime.now(timezone.utc)
+                # 試行回数を加算してチェックポイント(リトライ上限判定)に用いる。
+                selection.attempts = (selection.attempts or 0) + 1
+                selection.lock_heartbeat_at = datetime.now(timezone.utc)
                 selection.error_msg = None
                 self._db.session.commit()
                 self._logger.info(
@@ -358,6 +529,8 @@ class LocalImportQueueProcessor:
                     media_identifier = file_result.get("media_id")
                     if media_identifier is not None:
                         selection.media_id = media_identifier
+                # 終端状態に達したのでロックのハートビートを解放する。
+                selection.lock_heartbeat_at = None
                 self._db.session.commit()
             except Exception as exc:
                 self._db.session.rollback()
@@ -371,6 +544,15 @@ class LocalImportQueueProcessor:
                     session_id=active_session_id,
                     celery_task_id=celery_task_id,
                 )
+
+            # ファイル単位の監査ログを DB へ記録(UI からの追跡用)。
+            self._record_item_audit(
+                session,
+                selection,
+                detail,
+                from_state="running",
+                celery_task_id=celery_task_id,
+            )
 
             if file_result["success"]:
                 result.increment_success()

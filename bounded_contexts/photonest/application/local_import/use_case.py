@@ -50,7 +50,7 @@ class LocalImportUseCase:
         # Phase 2: 処理開始ログ
         import time
         start_time = time.perf_counter()
-        
+
         log_with_audit(
             "ローカルインポートタスク開始",
             session_id=session_id,
@@ -234,7 +234,7 @@ class LocalImportUseCase:
         
         # エラーサマリーを作成（大量データ対策）
         error_summary = self._create_error_summary(result)
-        
+
         log_performance(
             "local_import_task",
             duration_ms,

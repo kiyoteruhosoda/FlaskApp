@@ -1,26 +1,15 @@
 # webapp/__init__.py
 import importlib
-import json
 import os
 
 from contextlib import contextmanager
 
-from flask import (
-    Flask,
-    app,
-    g,
-    jsonify,
-    request,
-)
-
-from flask_babel import get_locale
-from flask_babel import gettext as _
+from flask import Flask
 
 from core.settings import settings
 
 from .extensions import db, migrate, login_manager, babel, api as smorest_api
-from .error_handlers import register_error_handlers
-from core.settings import settings
+from .error_handlers import register_error_handlers, register_debug_error_handlers
 from .cors import configure_cors
 from .jinja_filters import register_template_filters
 from .persisted_settings import apply_persisted_settings
@@ -43,7 +32,6 @@ def create_app():
     """アプリケーションファクトリ"""
     from dotenv import load_dotenv
     from .config import BaseApplicationSettings
-    from werkzeug.middleware.proxy_fix import ProxyFix
 
     # .env を読み込む（環境変数が未設定の場合のみ）
     load_dotenv()
@@ -191,81 +179,7 @@ def create_app():
     register_react_routes(app)
 
     # カスタムエラーハンドラーを追加（デバッグ強化）
-    @app.errorhandler(422)
-    def handle_validation_error(e):
-        """Marshmallow validation errors (422 Unprocessable Entity) のデバッグ強化"""
-        import traceback
-        from marshmallow import ValidationError
-        from flask_smorest.error_handler import ErrorHandlerMixin
-        
-        app.logger.error(f"422 Validation Error occurred:")
-        app.logger.error(f"Request path: {request.path}")
-        app.logger.error(f"Request method: {request.method}")
-        app.logger.error(f"Request headers: {dict(request.headers)}")
-        app.logger.error(f"Request args: {request.args.to_dict()}")
-        
-        try:
-            request_json = request.get_json(force=True)
-            app.logger.error(f"Request JSON: {request_json}")
-        except Exception as json_error:
-            app.logger.error(f"Failed to parse request JSON: {json_error}")
-            app.logger.error(f"Raw request data: {request.data}")
-        
-        app.logger.error(f"Exception details: {e}")
-        app.logger.error(f"Exception type: {type(e)}")
-        if hasattr(e, 'description'):
-            app.logger.error(f"Exception description: {e.description}")
-        if hasattr(e, 'data'):
-            app.logger.error(f"Exception data: {e.data}")
-            
-        # Traceback も出力
-        app.logger.error(f"Traceback:\n{traceback.format_exc()}")
-        
-        # デフォルトのFlask-Smorest処理に委任
-        return {"error": "validation_failed", "message": str(e), "details": getattr(e, 'data', {})}, 422
-
-    @app.errorhandler(500)
-    def handle_internal_server_error(e):
-        """500 Internal Server Error を1件の構造化ログとして記録する。
-
-        元例外のメッセージ・リクエストパス・トレースバックを単一の Log
-        エントリにまとめる。Flask 既定の例外ログ（log_exception）は下で
-        抑制しているため、500 についてはこのハンドラが唯一の記録元となる。
-        """
-        original = getattr(e, "original_exception", None)
-        exc = original if original is not None else e
-
-        # api.server_error の after_request ログと二重化しないよう印を付ける
-        g.exception_logged = True
-
-        app.logger.error(
-            json.dumps({"message": str(exc), "status": 500}, ensure_ascii=False),
-            exc_info=True,
-            extra={
-                "event": "api.server_error",
-                "path": request.path,
-                "request_id": getattr(g, "request_id", None),
-            },
-        )
-
-        # メッセージをロケールに合わせて翻訳し、Content-Language を付与する
-        locale = str(get_locale() or app.config.get("BABEL_DEFAULT_LOCALE", "en"))
-        response = jsonify(
-            {"error": "internal_server_error", "message": _("Internal Server Error")}
-        )
-        response.status_code = 500
-        response.headers["Content-Language"] = locale
-        return response
-
-    def _log_exception_via_handler(exc_info):
-        """Flask 既定の例外ログを抑制する。
-
-        500 は handle_internal_server_error が構造化ログとして記録するため、
-        Flask が出力する "Exception on ..." の重複ログを抑える。
-        """
-        return None
-
-    app.log_exception = _log_exception_via_handler
+    register_debug_error_handlers(app)
 
     @app.before_request
     def _apply_login_disabled_for_testing():

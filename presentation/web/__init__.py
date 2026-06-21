@@ -2,8 +2,6 @@
 import importlib
 import os
 
-from contextlib import contextmanager
-
 from flask import Flask
 
 from core.settings import settings
@@ -23,6 +21,8 @@ from .openapi_setup import apply_openapi_config_defaults, register_openapi_runti
 from .logging_setup import configure_logging
 from .service_login import register_service_login_hooks
 from .template_context import register_template_context
+from .test_client import HostPreservingClient
+from .proxy_fix import apply_debug_proxy_fix
 
 # 後方互換: 旧名 ``_apply_persisted_settings`` を広く参照しているため別名を維持する。
 _apply_persisted_settings = apply_persisted_settings
@@ -36,27 +36,8 @@ def create_app():
     # .env を読み込む（環境変数が未設定の場合のみ）
     load_dotenv()
 
-    from flask.testing import FlaskClient
-
-    class _HostPreservingClient(FlaskClient):
-        def __init__(self, *args, **kwargs):  # type: ignore[override]
-            super().__init__(*args, **kwargs)
-            self.environ_base.setdefault("SERVER_NAME", "localhost")
-            self.environ_base.setdefault("HTTP_HOST", "localhost")
-
-        def open(self, *args, **kwargs):  # type: ignore[override]
-            if not kwargs.get("base_url"):
-                kwargs["base_url"] = "http://localhost"
-            return super().open(*args, **kwargs)
-
-        @contextmanager
-        def session_transaction(self, *args, **kwargs):  # type: ignore[override]
-            kwargs.setdefault("base_url", "http://localhost")
-            with super().session_transaction(*args, **kwargs) as sess:
-                yield sess
-
     app = Flask(__name__)
-    app.test_client_class = _HostPreservingClient
+    app.test_client_class = HostPreservingClient
     app.config.from_object(BaseApplicationSettings)
 
     # ``BaseApplicationSettings`` はモジュール import 時に ``DATABASE_URI`` を読み取って
@@ -70,19 +51,7 @@ def create_app():
     apply_openapi_config_defaults(app)
 
     # リバースプロキシ（nginx等）使用時のHTTPS検出
-    # ProxyFixをカスタマイズしてデバッグ情報を追加
-    from werkzeug.middleware.proxy_fix import ProxyFix
-    
-    class DebugProxyFix(ProxyFix):
-        def __call__(self, environ, start_response):
-            app.logger.debug(f"ProxyFix - Original scheme: {environ.get('wsgi.url_scheme')}")
-            app.logger.debug(f"ProxyFix - X-Forwarded-Proto: {environ.get('HTTP_X_FORWARDED_PROTO')}")
-            app.logger.debug(f"ProxyFix - X-Forwarded-Host: {environ.get('HTTP_X_FORWARDED_HOST')}")
-            result = super().__call__(environ, start_response)
-            app.logger.debug(f"ProxyFix - Final scheme: {environ.get('wsgi.url_scheme')}")
-            return result
-    
-    app.wsgi_app = DebugProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+    apply_debug_proxy_fix(app)
 
     # 拡張初期化
     db.init_app(app)

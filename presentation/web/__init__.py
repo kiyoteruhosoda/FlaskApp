@@ -23,6 +23,7 @@ from .service_login import register_service_login_hooks
 from .template_context import register_template_context
 from .test_client import HostPreservingClient
 from .proxy_fix import apply_debug_proxy_fix
+from .mail_setup import configure_mail
 
 # 後方互換: 旧名 ``_apply_persisted_settings`` を広く参照しているため別名を維持する。
 _apply_persisted_settings = apply_persisted_settings
@@ -85,21 +86,8 @@ def create_app():
 
     babel.init_app(app, locale_selector=select_locale)
     smorest_api.init_app(app)
-    
-    # Initialize Flask-Mailman
-    from .extensions import mail
-    # メール機能が有効な場合のみ設定を適用して初期化
-    if settings.mail_enabled:
-        app.config['MAIL_SERVER'] = settings.mail_server
-        app.config['MAIL_PORT'] = settings.mail_port
-        app.config['MAIL_USE_TLS'] = settings.mail_use_tls
-        app.config['MAIL_USE_SSL'] = settings.mail_use_ssl
-        app.config['MAIL_USERNAME'] = settings.mail_username
-        app.config['MAIL_PASSWORD'] = settings.mail_password
-        app.config['MAIL_DEFAULT_SENDER'] = settings.mail_default_sender or settings.mail_username
-        mail_state = mail.init_app(app)
-        mail.state = mail_state
-        mail.app = app
+
+    configure_mail(app)
 
     register_error_handlers(app)
 

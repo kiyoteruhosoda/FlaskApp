@@ -2,7 +2,6 @@
 import importlib
 import json
 import os
-from datetime import timezone
 
 from contextlib import contextmanager
 
@@ -21,7 +20,6 @@ from core.settings import settings
 
 from .extensions import db, migrate, login_manager, babel, api as smorest_api
 from .error_handlers import register_error_handlers
-from .timezone import resolve_timezone
 from core.settings import settings
 from .cors import configure_cors
 from .jinja_filters import register_template_filters
@@ -35,6 +33,7 @@ from .blueprints import register_blueprints
 from .openapi_setup import apply_openapi_config_defaults, register_openapi_runtime
 from .logging_setup import configure_logging
 from .service_login import register_service_login_hooks
+from .template_context import register_template_context
 
 # 後方互換: 旧名 ``_apply_persisted_settings`` を広く参照しているため別名を維持する。
 _apply_persisted_settings = apply_persisted_settings
@@ -159,59 +158,8 @@ def create_app():
     configure_cors(app)
     register_openapi_runtime(app)
 
-    # ★ Jinja から get_locale() を使えるようにする
-    app.jinja_env.globals["get_locale"] = get_locale
-
-    # テンプレートコンテキストプロセッサ：バージョン情報とタイムゾーンを追加
-    from core.version import get_version_string
-
-    @app.before_request
-    def _set_request_timezone():
-        tz_cookie = request.cookies.get("tz")
-        fallback = settings.babel_default_timezone
-        tz_name, tzinfo = resolve_timezone(tz_cookie, fallback)
-        g.user_timezone_name = tz_name
-        g.user_timezone = tzinfo
-
+    register_template_context(app)
     register_service_login_hooks(app)
-
-    @app.context_processor
-    def inject_version():
-        languages = [str(lang).strip() for lang in settings.languages if str(lang).strip()]
-        if not languages:
-            default_language = settings.babel_default_locale or "en"
-            if default_language:
-                languages = [default_language]
-
-        default_language = settings.babel_default_locale or (
-            languages[0] if languages else "en"
-        )
-
-        locale_obj = get_locale()
-        current_language = str(locale_obj) if locale_obj else default_language
-        if "_" in current_language:
-            short_lang = current_language.split("_")[0]
-            if short_lang in languages:
-                current_language = short_lang
-        if current_language not in languages and languages:
-            current_language = languages[0]
-
-        language_labels = {
-            "ja": _("Japanese"),
-            "en": _("English"),
-        }
-        for lang in languages:
-            language_labels.setdefault(lang, lang.upper())
-
-        return dict(
-            app_version=get_version_string(),
-            current_timezone=getattr(g, "user_timezone", timezone.utc),
-            current_timezone_name=getattr(g, "user_timezone_name", "UTC"),
-            language_selector_languages=languages,
-            language_labels=language_labels,
-            current_language=current_language,
-        )
-
     register_template_filters(app)
 
     disable_db_logging = testing_mode or settings.testing

@@ -303,11 +303,20 @@ class StorageApplicationService:
     ) -> str:
         """CDN配信URLを取得（システム設定を考慮）."""
         try:
+            # ドメインに CDN バックエンドが明示設定されている場合は、グローバルな
+            # CDN 設定にかかわらずその CDN を優先する（per-domain 設定 > 全体設定）。
+            # 全体設定はあくまで「明示設定のないドメインへ自動付与する CDN」を制御する。
+            backend = self._get_backend(domain)
+            if hasattr(backend, "get_cdn_url"):
+                url = backend.get_cdn_url(storage_path)
+                logger.info(f"CDN URL取得: domain={domain}, path={storage_path.relative_path}")
+                return url
+
             # システム設定でCDNが無効になっている場合
             if not settings.cdn_enabled or settings.cdn_provider == "none":
                 logger.info(f"CDNが無効のため通常URLを返却: domain={domain}")
                 return self.generate_download_url(domain, storage_path)
-            
+
             # CDN設定に基づいて自動的にCDNバックエンドを作成
             cdn_backend = self._get_cdn_backend_from_settings(domain)
             if cdn_backend:
@@ -319,17 +328,9 @@ class StorageApplicationService:
                     logger.warning(f"CDN URL取得失敗、通常URLにフォールバック: domain={domain}, error={cdn_error}")
                     # CDN失敗時は通常URLにフォールバック
                     return self.generate_download_url(domain, storage_path)
-            
-            # 明示的にCDNが設定されたドメインの場合
-            backend = self._get_backend(domain)
-            
-            # CDNバックエンドでなければ通常のURLを返す
-            if not hasattr(backend, 'get_cdn_url'):
-                return self.generate_download_url(domain, storage_path)
-            
-            url = backend.get_cdn_url(storage_path)
-            logger.info(f"CDN URL取得: domain={domain}, path={storage_path.relative_path}")
-            return url
+
+            # 明示・自動いずれの CDN も該当しなければ通常 URL を返す。
+            return self.generate_download_url(domain, storage_path)
         except Exception as e:
             logger.error(f"CDN URL取得エラー: domain={domain}, path={storage_path.relative_path}, error={e}")
             # 最終的なフォールバック

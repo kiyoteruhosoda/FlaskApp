@@ -246,3 +246,50 @@ export interface PickerSessionListResponse {
   };
   server_time: string;
 }
+
+// ===== 写真管理 (media / albums / tags) =====
+export interface MediaTag {
+  id: number;
+  name: string;
+  attr: string | null;
+}
+
+export interface PhotoItem {
+  id: number;
+  filename: string | null;
+  shot_at: string | null;
+  mime_type: string | null;
+  width: number | null;
+  height: number | null;
+  is_video: number;
+  has_playback: number;
+  bytes: number | null;
+  source_type: string | null;
+  source_label: string | null;
+  account_id: number | null;
+  account_email: string | null;
+  camera_make: string | null;
+  camera_model: string | null;
+  tags: MediaTag[];
+}
+
+export interface CursorListResponse<T> {
+  items: T[];
+  hasNext?: boolean;
+  hasPrev?: boolean;
+  nextCursor?: string | null;
+  prevCursor?: string | null;
+  server_time?: string;
+}
+
+export interface AlbumSummary {
+  id: number;
+  title: string;
+  description: string | null;
+  visibility: string | null;
+  coverImageId: number | null;
+  coverMediaId: number | null;
+  mediaCount: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+}

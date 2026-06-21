@@ -124,3 +124,57 @@ def test_job_detail_404(app_context):
     client = app.test_client()
     resp = client.get("/api/sync/jobs/999999")
     assert resp.status_code == 404
+
+
+@pytest.mark.usefixtures("app_context")
+def test_job_retry_dispatches_and_creates_new_job(app_context, monkeypatch):
+    app = app_context
+    job = _add_job("local_import_task", "failed",
+                   task_name="local_import_task")
+    job.args_json = json.dumps({"args": ["sess-1"], "kwargs": {}})
+    db.session.commit()
+
+    captured = {}
+
+    def fake_dispatch(task_name, args, kwargs):
+        captured["task_name"] = task_name
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return "new-celery-id"
+
+    import presentation.web.api.routes_sync_jobs as mod
+    monkeypatch.setattr(mod, "_dispatch_retry", fake_dispatch)
+
+    client = app.test_client()
+    resp = client.post(f"/api/sync/jobs/{job.id}/retry")
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["success"] is True
+    assert body["retriedFrom"] == job.id
+    assert body["taskId"] == "new-celery-id"
+    assert captured["task_name"] == "local_import_task"
+    assert captured["args"] == ["sess-1"]
+
+    # 新しい JobSync(trigger=retry) が作成される
+    new_job = db.session.get(JobSync, body["newJobId"])
+    assert new_job is not None
+    assert new_job.trigger == "retry"
+    assert new_job.status == "queued"
+
+
+@pytest.mark.usefixtures("app_context")
+def test_job_retry_rejects_non_retryable(app_context):
+    app = app_context
+    job = _add_job("local_import_task", "success")
+    client = app.test_client()
+    resp = client.post(f"/api/sync/jobs/{job.id}/retry")
+    assert resp.status_code == 409
+    assert resp.get_json()["status"] == "success"
+
+
+@pytest.mark.usefixtures("app_context")
+def test_job_retry_404(app_context):
+    app = app_context
+    client = app.test_client()
+    resp = client.post("/api/sync/jobs/999999/retry")
+    assert resp.status_code == 404

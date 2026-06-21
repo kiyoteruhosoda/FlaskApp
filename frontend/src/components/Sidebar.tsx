@@ -99,6 +99,14 @@ const Sidebar: React.FC = () => {
                   {!sidebarCollapsed && <span>{t('Albums')}</span>}
                 </Nav.Link>
               )}
+
+              <Nav.Link
+                href="/tags"
+                className={`d-flex align-items-center py-2 ${isActive('/tags') ? 'active' : ''}`}
+              >
+                <i className="bi bi-tags me-2"></i>
+                {!sidebarCollapsed && <span>{t('Tags')}</span>}
+              </Nav.Link>
             </>
           )}
 

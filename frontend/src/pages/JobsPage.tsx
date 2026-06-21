@@ -97,11 +97,28 @@ const JobsPage: React.FC = () => {
     }
   };
 
-  const handleRetry = (job: SyncJob) => {
-    // 再実行エンドポイントは次フェーズ。UI 導線のみ用意。
-    setInfo(
-      t('Retry for job #{{id}} will be available in the next phase.', { id: job.id })
-    );
+  const [retryingId, setRetryingId] = useState<number | null>(null);
+
+  const handleRetry = async (job: SyncJob) => {
+    setRetryingId(job.id);
+    setInfo(null);
+    setError(null);
+    try {
+      const res = await apiClient.retrySyncJob(job.id);
+      setInfo(
+        t('Job #{{id}} re-queued (new job #{{newId}}).', {
+          id: job.id,
+          newId: res.newJobId,
+        })
+      );
+      await loadJobs();
+    } catch (e: any) {
+      setError(
+        e?.response?.data?.error || e?.message || t('Failed to retry job')
+      );
+    } finally {
+      setRetryingId(null);
+    }
   };
 
   const downloadJson = () => {
@@ -256,10 +273,11 @@ const JobsPage: React.FC = () => {
                         <Button
                           size="sm"
                           variant="outline-warning"
+                          disabled={retryingId === job.id}
                           onClick={() => handleRetry(job)}
                           data-testid="job-retry-btn"
                         >
-                          {t('Retry')}
+                          {retryingId === job.id ? t('Retrying...') : t('Retry')}
                         </Button>
                       )}
                     </td>

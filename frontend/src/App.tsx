@@ -14,7 +14,9 @@ import ToastNotification from './components/ToastNotification';
 // Pages
 import LoginPage from './pages/LoginPage';
 import RoleSelectionPage from './pages/RoleSelectionPage';
-import MediaGalleryPage from './pages/MediaGalleryPage';
+import MediaPage from './pages/MediaPage';
+import AlbumsPage from './pages/AlbumsPage';
+import TagsPage from './pages/TagsPage';
 import JobsPage from './pages/JobsPage';
 import SessionsPage from './pages/SessionsPage';
 
@@ -152,7 +154,25 @@ const AppContent: React.FC = () => {
             path="/media"
             element={
               <ProtectedRoute>
-                <MediaGalleryPage />
+                <MediaPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/albums"
+            element={
+              <ProtectedRoute>
+                <AlbumsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/tags"
+            element={
+              <ProtectedRoute>
+                <TagsPage />
               </ProtectedRoute>
             }
           />

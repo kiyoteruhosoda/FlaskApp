@@ -15,7 +15,11 @@ import {
   SyncJobListResponse,
   SyncJobDetailResponse,
   SyncJobsQuery,
-  PickerSessionListResponse
+  PickerSessionListResponse,
+  PhotoItem,
+  AlbumSummary,
+  MediaTag,
+  CursorListResponse
 } from '../types/api';
 
 class ApiClient {
@@ -312,12 +316,62 @@ class ApiClient {
     return response.data;
   }
 
+  async retrySyncJob(id: number): Promise<{
+    success: boolean;
+    retriedFrom: number;
+    newJobId: number;
+    taskId: string | null;
+  }> {
+    const response = await this.client.post(`/sync/jobs/${id}/retry`);
+    return response.data;
+  }
+
   // ===== Picker セッション一覧 API（実エンドポイント /picker/sessions） =====
   async getPickerSessions(params?: {
     page?: number;
     pageSize?: number;
   }): Promise<PickerSessionListResponse> {
     const response = await this.client.get<PickerSessionListResponse>('/picker/sessions', { params });
+    return response.data;
+  }
+
+  // ===== 写真管理 API（実エンドポイントの生レスポンスで受ける） =====
+  async getPhotos(params?: {
+    pageSize?: number;
+    cursor?: string;
+    is_video?: 0 | 1;
+    order?: 'asc' | 'desc';
+  }): Promise<CursorListResponse<PhotoItem>> {
+    const response = await this.client.get<CursorListResponse<PhotoItem>>('/media', { params });
+    return response.data;
+  }
+
+  async getPhoto(id: number): Promise<PhotoItem> {
+    const response = await this.client.get<PhotoItem>(`/media/${id}`);
+    return response.data;
+  }
+
+  async getPhotoThumbUrl(id: number, size: number): Promise<string | null> {
+    const response = await this.client.post<{ url?: string }>(`/media/${id}/thumb-url`, { size });
+    return response.data?.url ?? null;
+  }
+
+  async getPhotoPlaybackUrl(id: number): Promise<string | null> {
+    const response = await this.client.post<{ url?: string }>(`/media/${id}/playback-url`);
+    return response.data?.url ?? null;
+  }
+
+  async getAlbums(params?: {
+    pageSize?: number;
+    cursor?: string;
+    q?: string;
+  }): Promise<CursorListResponse<AlbumSummary>> {
+    const response = await this.client.get<CursorListResponse<AlbumSummary>>('/albums', { params });
+    return response.data;
+  }
+
+  async getTags(params?: { q?: string; limit?: number }): Promise<{ items: MediaTag[] }> {
+    const response = await this.client.get<{ items: MediaTag[] }>('/tags', { params });
     return response.data;
   }
 }

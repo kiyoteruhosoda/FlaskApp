@@ -231,6 +231,81 @@ def api_sync_job_detail(job_id: int):
     )
 
 
+def _dispatch_retry(task_name: str, args: list, kwargs: dict):
+    """元ジョブと同じ Celery タスクを再投入し、新しい task id を返す.
+
+    テストでは本関数を monkeypatch して Celery 非依存にする。
+    """
+
+    from cli.src.celery.celery_app import celery
+
+    result = celery.send_task(task_name, args=list(args), kwargs=dict(kwargs))
+    return getattr(result, "id", None)
+
+
+@bp.post("/sync/jobs/<int:job_id>/retry")
+@login_or_jwt_required
+def api_sync_job_retry(job_id: int):
+    """失敗/部分成功ジョブを再実行する(状態が failed/partial のときのみ)."""
+
+    job = db.session.get(JobSync, job_id)
+    if job is None:
+        return jsonify({"error": "job not found", "id": job_id}), 404
+
+    if job.status not in ("failed", "partial"):
+        return (
+            jsonify(
+                {
+                    "error": "job is not retryable",
+                    "status": job.status,
+                    "id": job_id,
+                }
+            ),
+            409,
+        )
+
+    if not job.task_name:
+        return (
+            jsonify({"error": "job has no task name to retry", "id": job_id}),
+            422,
+        )
+
+    call = _parse_json(job.args_json)
+    args = call.get("args") if isinstance(call.get("args"), list) else []
+    kwargs = call.get("kwargs") if isinstance(call.get("kwargs"), dict) else {}
+
+    try:
+        task_id = _dispatch_retry(job.task_name, args, kwargs)
+    except Exception as exc:  # pragma: no cover - 環境依存(broker 不通など)
+        return (
+            jsonify({"error": "failed to dispatch retry", "detail": str(exc)}),
+            502,
+        )
+
+    new_job = JobSync(
+        target=job.target,
+        task_name=job.task_name,
+        queue_name=job.queue_name,
+        trigger="retry",
+        account_id=job.account_id,
+        session_id=job.session_id,
+        status="queued",
+        args_json=job.args_json,
+    )
+    db.session.add(new_job)
+    db.session.commit()
+
+    return jsonify(
+        {
+            "success": True,
+            "retriedFrom": job_id,
+            "newJobId": new_job.id,
+            "taskId": task_id,
+            "server_time": _iso(datetime.now(timezone.utc)),
+        }
+    )
+
+
 def _parse_dt(raw: Optional[str]) -> Optional[datetime]:
     if not raw:
         return None

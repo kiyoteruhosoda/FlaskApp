@@ -115,4 +115,37 @@ test.describe('Sync Jobs page', () => {
     await page.goto('/jobs');
     await expect(page.getByTestId('jobs-empty')).toBeVisible();
   });
+
+  test('retries a failed job', async ({ page }) => {
+    await page.route(
+      (url) => url.pathname === '/api/sync/jobs',
+      (route) =>
+        route.fulfill({
+          json: listResponse([
+            job({ id: 5, status: 'failed', retryable: true, errorMessage: 'boom' }),
+          ]),
+        })
+    );
+    let retried = false;
+    await page.route(
+      (url) => url.pathname === '/api/sync/jobs/5/retry',
+      (route) => {
+        retried = true;
+        route.fulfill({
+          json: {
+            success: true,
+            retriedFrom: 5,
+            newJobId: 99,
+            taskId: 'celery-99',
+            server_time: 'x',
+          },
+        });
+      }
+    );
+
+    await page.goto('/jobs');
+    await page.getByTestId('job-retry-btn').click();
+    await expect(page.getByText(/re-queued|再投入/)).toBeVisible();
+    expect(retried).toBe(true);
+  });
 });

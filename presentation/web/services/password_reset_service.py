@@ -9,7 +9,7 @@ from flask_babel import gettext as _
 from core.db import db
 from core.models.password_reset_token import PasswordResetToken
 from core.models.user import User
-from webapp.utils import determine_external_scheme
+from presentation.web.utils import determine_external_scheme
 from bounded_contexts.email import EmailService
 
 

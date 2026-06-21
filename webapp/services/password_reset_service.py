@@ -1,19 +1,11 @@
-"""後方互換リダイレクト: ``presentation.web.services.password_reset_service``.
+"""後方互換エイリアス: ``presentation.web.services.password_reset_service`` を唯一の実体として参照する。
 
-実体は presentation 層に一本化する（重複コピーの放置による不整合を防ぐ）。
+DDD 移行で残った重複モジュール。``sys.modules`` 上で presentation 層の実体へ
+エイリアスすることで、唯一の真実の源を共有する。これにより import 順序に
+依存せず、モジュール属性のパッチ（テスト）や Blueprint の単一登録を保証する。
 """
-from presentation.web.services.password_reset_service import *  # noqa: F401,F403
+import sys as _sys
+import importlib as _importlib
 
-
-def __getattr__(name):  # PEP 562: 非公開名も遅延委譲する
-    import importlib
-
-    module = importlib.import_module(
-        "presentation.web.services.password_reset_service"
-    )
-    try:
-        return getattr(module, name)
-    except AttributeError as exc:  # pragma: no cover
-        raise AttributeError(
-            f"module {__name__!r} has no attribute {name!r}"
-        ) from exc
+_impl = _importlib.import_module("presentation.web.services.password_reset_service")
+_sys.modules[__name__] = _impl

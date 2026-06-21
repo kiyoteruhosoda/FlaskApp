@@ -1816,7 +1816,7 @@ def password_forgot():
             flash(_("Email address is required"), "error")
             return render_template("auth/password_forgot.html")
         
-        from webapp.services.password_reset_service import PasswordResetService
+        from presentation.web.services.password_reset_service import PasswordResetService
         
         # パスワードリセットリクエストを作成
         success, error_message = PasswordResetService.create_reset_request(email)
@@ -1847,7 +1847,7 @@ def password_reset():
         flash(_("Invalid or missing reset token"), "error")
         return _redirect_to("auth.login")
     
-    from webapp.services.password_reset_service import PasswordResetService
+    from presentation.web.services.password_reset_service import PasswordResetService
     
     # トークンの検証（GETリクエストでも検証して早期にエラーを表示）
     if request.method == "GET":

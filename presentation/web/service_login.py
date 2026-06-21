@@ -10,8 +10,8 @@ from __future__ import annotations
 from flask import Flask, current_app, g, request, session
 from flask_login import current_user, logout_user
 
-from webapp.auth import SERVICE_LOGIN_SESSION_KEY, SERVICE_LOGIN_TOKEN_SESSION_KEY
-from webapp.services.token_service import TokenService
+from presentation.web.auth import SERVICE_LOGIN_SESSION_KEY, SERVICE_LOGIN_TOKEN_SESSION_KEY
+from presentation.web.services.token_service import TokenService
 
 
 def register_service_login_hooks(app: Flask) -> None:

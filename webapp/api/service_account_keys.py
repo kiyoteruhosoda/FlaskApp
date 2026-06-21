@@ -1,19 +1,11 @@
-"""後方互換リダイレクト: ``presentation.web.api.service_account_keys`` への委譲.
+"""後方互換エイリアス: ``presentation.web.api.service_account_keys`` を唯一の実体として参照する。
 
-DDD 移行で残った重複モジュール。直接 import すると同一 Blueprint へ
-ルートを二重登録してアプリ/テストの状態を壊すため、唯一の実体である
-presentation 層へ委譲する（単一の真実の源）。
+DDD 移行で残った重複モジュール。``sys.modules`` 上で presentation 層の実体へ
+エイリアスすることで、唯一の真実の源を共有する。これにより import 順序に
+依存せず、モジュール属性のパッチ（テスト）や Blueprint の単一登録を保証する。
 """
-from presentation.web.api.service_account_keys import *  # noqa: F401,F403
+import sys as _sys
+import importlib as _importlib
 
-
-def __getattr__(name):  # PEP 562: アンダースコア始まり等も遅延委譲する
-    import importlib
-
-    module = importlib.import_module("presentation.web.api.service_account_keys")
-    try:
-        return getattr(module, name)
-    except AttributeError as exc:  # pragma: no cover
-        raise AttributeError(
-            f"module {__name__!r} has no attribute {name!r}"
-        ) from exc
+_impl = _importlib.import_module("presentation.web.api.service_account_keys")
+_sys.modules[__name__] = _impl

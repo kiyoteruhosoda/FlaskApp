@@ -357,7 +357,7 @@ def _prepare_local_import_path(path_value):
 
 
 def _resolve_local_import_config():
-    from webapp.config import BaseApplicationSettings
+    from presentation.web.config import BaseApplicationSettings
 
     directory_specs = [
         ("MEDIA_LOCAL_IMPORT_DIRECTORY", "import", settings.local_import_directory_configured),

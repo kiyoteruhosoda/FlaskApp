@@ -20,7 +20,7 @@ from bounded_contexts.certs.domain.exceptions import (
 )
 from bounded_contexts.certs.domain.usage import UsageType
 from core.settings import settings
-from webapp.auth.api_key_auth import require_api_key_scopes
+from presentation.web.auth.api_key_auth import require_api_key_scopes
 
 from . import bp
 from .openapi import json_request_body

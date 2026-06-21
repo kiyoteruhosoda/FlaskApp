@@ -13,7 +13,7 @@ from __future__ import annotations
 from flask import Flask
 
 from core.settings import settings
-from webapp.auth.api_key_auth import API_KEY_SECURITY_SCHEME_NAME
+from presentation.web.auth.api_key_auth import API_KEY_SECURITY_SCHEME_NAME
 
 from .extensions import api as smorest_api
 from .openapi_spec import calculate_openapi_server_urls, normalize_openapi_prefix

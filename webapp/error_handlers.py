@@ -1,8 +1,11 @@
-"""後方互換シム: 実体は :mod:`presentation.web.error_handlers` へ移動した。
+"""後方互換エイリアス: ``presentation.web.error_handlers`` を唯一の実体として参照する。
 
-旧 ``webapp`` 配下の HTTP エラーハンドラは presentation 層へ統合済み。重複した
-実装を残すと挙動が分岐するため、本モジュールは新しい実装をそのまま再公開する。
+DDD 移行で残った重複モジュール。``sys.modules`` 上で presentation 層の実体へ
+エイリアスすることで、唯一の真実の源を共有する。これにより import 順序に
+依存せず、モジュール属性のパッチ（テスト）や Blueprint の単一登録を保証する。
 """
+import sys as _sys
+import importlib as _importlib
 
-from presentation.web.error_handlers import *  # noqa: F401,F403
-from presentation.web.error_handlers import register_error_handlers  # noqa: F401
+_impl = _importlib.import_module("presentation.web.error_handlers")
+_sys.modules[__name__] = _impl

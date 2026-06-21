@@ -10,12 +10,9 @@ from flask import (
     Flask,
     app,
     g,
-    current_app,
     jsonify,
     request,
-    session,
 )
-from flask_login import current_user, logout_user
 
 from flask_babel import get_locale
 from flask_babel import gettext as _
@@ -24,10 +21,8 @@ from core.settings import settings
 
 from .extensions import db, migrate, login_manager, babel, api as smorest_api
 from .error_handlers import register_error_handlers
-from webapp.auth import SERVICE_LOGIN_SESSION_KEY, SERVICE_LOGIN_TOKEN_SESSION_KEY
 from .timezone import resolve_timezone
 from core.settings import settings
-from webapp.services.token_service import TokenService
 from .cors import configure_cors
 from .jinja_filters import register_template_filters
 from .persisted_settings import apply_persisted_settings
@@ -39,6 +34,7 @@ from .system_routes import register_system_routes
 from .blueprints import register_blueprints
 from .openapi_setup import apply_openapi_config_defaults, register_openapi_runtime
 from .logging_setup import configure_logging
+from .service_login import register_service_login_hooks
 
 # 後方互換: 旧名 ``_apply_persisted_settings`` を広く参照しているため別名を維持する。
 _apply_persisted_settings = apply_persisted_settings
@@ -177,55 +173,7 @@ def create_app():
         g.user_timezone_name = tz_name
         g.user_timezone = tzinfo
 
-    @app.before_request
-    def _apply_service_login_scope():
-        if not session.get(SERVICE_LOGIN_SESSION_KEY):
-            return
-        if getattr(g, "current_token_scope", None) is not None:
-            return
-
-        token = request.cookies.get("access_token")
-        if not token:
-            g.current_token_scope = set()
-            session.pop(SERVICE_LOGIN_SESSION_KEY, None)
-            session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
-            logout_user()
-            g.service_login_clear_cookie = True
-            return
-
-        principal = TokenService.create_principal_from_token(token)
-        if not principal:
-            g.current_token_scope = set()
-            session.pop(SERVICE_LOGIN_SESSION_KEY, None)
-            session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
-            logout_user()
-            g.service_login_clear_cookie = True
-            return
-
-        principal_scope = principal.scope if principal else frozenset()
-        if current_user.is_authenticated and hasattr(current_user, "get_id"):
-            current_id = str(current_user.get_id())
-            if current_id != str(principal.get_id()):
-                current_app.logger.warning(
-                    "Service login token subject mismatch; ignoring token scope",
-                    extra={"event": "auth.service_login", "path": request.path},
-                )
-                logout_user()
-                session.pop(SERVICE_LOGIN_SESSION_KEY, None)
-                session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
-                g.current_token_scope = set()
-                g.service_login_clear_cookie = True
-                return
-
-        if principal.is_service_account:
-            session[SERVICE_LOGIN_TOKEN_SESSION_KEY] = token
-        g.current_token_scope = set(principal_scope)
-
-    @app.after_request
-    def _clear_service_login_cookie(response):
-        if getattr(g, "service_login_clear_cookie", False):
-            response.delete_cookie("access_token")
-        return response
+    register_service_login_hooks(app)
 
     @app.context_processor
     def inject_version():

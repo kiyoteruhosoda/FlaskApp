@@ -25,7 +25,7 @@ test.describe('Register', () => {
     await page.fill('input[name="password"]', 'password1');
     await page.fill('input[name="confirm_password"]', 'password2');
     await page.getByTestId('register-submit').click();
-    await expect(page.getByTestId('register-error')).toContainText('Passwords do not match');
+    await expect(page.getByTestId('register-error')).toContainText('パスワードが一致しません');
   });
 
   test('shows error when password is too short', async ({ page }) => {
@@ -72,7 +72,7 @@ test.describe('Register', () => {
     await page.fill('input[name="confirm_password"]', 'password123');
     await page.getByTestId('register-submit').click();
 
-    await expect(page.getByTestId('register-error')).toContainText('already in use');
+    await expect(page.getByTestId('register-error')).toContainText('すでに使用されています');
     await expect(page).toHaveURL('/register');
   });
 });

@@ -89,8 +89,8 @@ test.describe('Roles Page', () => {
     await page.goto('/admin/roles');
     await expect(page.getByTestId('roles-page')).toBeVisible();
     await expect(page.getByTestId('roles-table')).toBeVisible();
-    await expect(page.getByText('admin')).toBeVisible();
-    await expect(page.getByText('viewer')).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'admin', exact: true })).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'viewer', exact: true })).toBeVisible();
   });
 
   test('shows empty state', async ({ page }) => {
@@ -145,8 +145,8 @@ test.describe('Groups Page', () => {
     await page.goto('/admin/groups');
     await expect(page.getByTestId('groups-page')).toBeVisible();
     await expect(page.getByTestId('groups-table')).toBeVisible();
-    await expect(page.getByText('Family')).toBeVisible();
-    await expect(page.getByText('Kids')).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'Family' }).first()).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'Kids' })).toBeVisible();
   });
 
   test('shows empty state', async ({ page }) => {
@@ -237,7 +237,7 @@ test.describe('Permissions Page', () => {
 
     await page.goto('/admin/permissions');
     await page.fill('[data-testid="permissions-search"]', 'media');
-    await page.getByRole('button', { name: 'Search' }).click();
+    await page.getByRole('button', { name: '検索' }).click();
 
     await expect(page.getByTestId('permissions-table')).toBeVisible();
   });

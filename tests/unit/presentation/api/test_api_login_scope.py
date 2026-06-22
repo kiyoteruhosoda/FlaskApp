@@ -18,7 +18,7 @@ from presentation.web.services.token_service import TokenService
 from shared.application.authenticated_principal import AuthenticatedPrincipal
 from core.models.user import Permission, Role, User
 from core.models.service_account import ServiceAccount
-from presentation.web.auth import SERVICE_LOGIN_SESSION_KEY
+from presentation.web.auth import SERVICE_LOGIN_SESSION_KEY  # still tested in test_service_login_returns_token_json
 
 
 def _normalize_location(value: str) -> str:
@@ -516,94 +516,27 @@ def test_scoped_token_enforces_permissions(client, album_user):
     assert update_response.get_json()["error"] == "forbidden"
 
 
-def test_service_login_sets_scope_and_redirects(app, client, service_login_account):
+def test_service_login_returns_token_json(app, client, service_login_account):
+    """Stateless service login: returns JSON with token, creates no session."""
     with app.app_context():
         account = db.session.get(ServiceAccount, service_login_account["account_id"])
         token = TokenService.generate_service_account_access_token(account, scope={"totp:view"})
 
-    with app.test_request_context():
-        dashboard_path = url_for("dashboard.dashboard")
-
     response = client.get(
         "/auth/servicelogin",
         headers={"Authorization": f"Bearer {token}"},
-        follow_redirects=False,
     )
 
-    assert response.status_code == 302
-    location = response.headers["Location"]
-    assert _normalize_location(location).endswith(_normalize_location(dashboard_path))
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["token_type"] == "bearer"
+    assert data["access_token"] == token
+    assert "totp:view" in data["scope"].split()
 
+    # No session created — service account must use Bearer token per request
     with client.session_transaction() as sess:
-        assert sess.get("active_role_id") is None
-        assert sess.get(SERVICE_LOGIN_SESSION_KEY) is True
-        assert sess.get("_user_id") == f"system:{service_login_account['account_id']}"
-
-    totp_response = client.get("/totp/")
-    assert totp_response.status_code == 200
-
-    cookie_headers = response.headers.getlist("Set-Cookie")
-    assert any(header.startswith("access_token=") for header in cookie_headers)
-
-
-def test_service_login_honors_next_parameter(app, client, service_login_account):
-    with app.app_context():
-        account = db.session.get(ServiceAccount, service_login_account["account_id"])
-        token = TokenService.generate_service_account_access_token(account, scope={"totp:view"})
-
-    response = client.get(
-        "/auth/servicelogin",
-        query_string={"next": "/totp/"},
-        headers={"Authorization": f"Bearer {token}"},
-        follow_redirects=False,
-    )
-
-    assert response.status_code == 302
-    assert _normalize_location(response.headers["Location"]).endswith("/totp/")
-
-
-def test_service_login_does_not_require_role_selection(app, client, service_login_account):
-    with app.app_context():
-        account = db.session.get(ServiceAccount, service_login_account["account_id"])
-        token = TokenService.generate_service_account_access_token(account, scope={"totp:view"})
-
-    response = client.get(
-        "/auth/servicelogin",
-        query_string={"next": "/totp/"},
-        headers={"Authorization": f"Bearer {token}"},
-        follow_redirects=False,
-    )
-
-    assert response.status_code == 302
-    assert _normalize_location(response.headers["Location"]).endswith("/totp/")
-
-    with client.session_transaction() as sess:
-        assert sess.get("role_selection_next") is None
-        assert sess.get(SERVICE_LOGIN_SESSION_KEY) is True
-        assert sess.get("active_role_id") is None
-
-    totp_response = client.get("/totp/")
-    assert totp_response.status_code == 200
-
-
-def test_service_login_denies_scope_when_token_missing(app, client, service_login_account):
-    with app.app_context():
-        account = db.session.get(ServiceAccount, service_login_account["account_id"])
-        token = TokenService.generate_service_account_access_token(account, scope={"totp:view"})
-
-    response = client.get(
-        "/auth/servicelogin",
-        headers={"Authorization": f"Bearer {token}"},
-        follow_redirects=False,
-    )
-
-    assert response.status_code == 302
-
-    # remove the access token cookie to simulate external deletion
-    client.delete_cookie("access_token")
-
-    restricted_response = client.get("/totp/")
-    assert restricted_response.status_code in {302, 401, 403}
+        assert sess.get(SERVICE_LOGIN_SESSION_KEY) is None
+        assert sess.get("_user_id") is None
 
 
 def test_service_login_rejects_invalid_token(client):
@@ -616,21 +549,21 @@ def test_service_login_rejects_invalid_token(client):
     assert response.status_code == 401
 
 
-def test_service_login_requires_token_for_anonymous(client):
+def test_service_login_requires_bearer_header(client):
+    """No token at all → 400."""
     response = client.get("/auth/servicelogin")
-
     assert response.status_code == 400
 
 
+def test_service_login_requires_token_for_anonymous(client):
+    """Query-param tokens are rejected; only Authorization: Bearer is accepted."""
+    response = client.get("/auth/servicelogin")
+    assert response.status_code == 400
 
 
 def test_service_login_rejects_individual_token(app, client):
-    with client.session_transaction() as sess:
-        sess.clear()
-    client.delete_cookie("access_token")
-
+    """Individual (non-service-account) tokens must be rejected."""
     with app.app_context():
-
         perm = Permission.query.filter_by(code="totp:view").one_or_none()
         if perm is None:
             perm = Permission(code="totp:view")
@@ -649,26 +582,18 @@ def test_service_login_rejects_individual_token(app, client):
 
         token = TokenService.generate_access_token(user, scope={"totp:view"})
 
-    with app.test_request_context():
-        dashboard_path = url_for("dashboard.dashboard")
-
     response = client.get(
         "/auth/servicelogin",
         headers={"Authorization": f"Bearer {token}"},
         follow_redirects=False,
     )
 
-    assert response.status_code == 302
-    location = response.headers.get("Location")
-    assert location is not None
-    assert _normalize_location(location).endswith(
-        _normalize_location(dashboard_path)
-    )
-    with client.session_transaction() as sess:
-        assert sess.get(SERVICE_LOGIN_SESSION_KEY) is None
+    assert response.status_code == 401
+    assert response.get_json()["error"] == "invalid_token"
 
 
 def test_service_login_rejects_query_token(app, client, service_login_account):
+    """Token passed as query parameter → 400 (only Authorization header accepted)."""
     with app.app_context():
         account = db.session.get(ServiceAccount, service_login_account["account_id"])
         token = TokenService.generate_service_account_access_token(account, scope={"totp:view"})
@@ -682,43 +607,16 @@ def test_service_login_rejects_query_token(app, client, service_login_account):
     assert response.status_code == 400
 
 
-def test_service_login_mismatch_invalidates_session(app, client, service_login_account):
+def test_service_account_bearer_token_accesses_api(app, client, service_login_account):
+    """Service account uses Bearer token directly on API routes — no session needed."""
     with app.app_context():
         account = db.session.get(ServiceAccount, service_login_account["account_id"])
         token = TokenService.generate_service_account_access_token(account, scope={"totp:view"})
 
-    login_response = client.get(
-        "/auth/servicelogin",
+    response = client.get(
+        "/api/totp",
         headers={"Authorization": f"Bearer {token}"},
-        follow_redirects=False,
     )
 
-    assert login_response.status_code == 302
-
-    with client.session_transaction() as sess:
-        assert sess.get(SERVICE_LOGIN_SESSION_KEY) is True
-        assert sess.get("_user_id") is not None
-
-    with app.app_context():
-
-        other_account = ServiceAccount(name=f"svc-mismatch-{uuid.uuid4().hex[:6]}")
-        other_account.set_scopes({"totp:view"})
-        db.session.add(other_account)
-        db.session.commit()
-
-        mismatch_token = TokenService.generate_service_account_access_token(
-            other_account, scope={"totp:view"}
-        )
-
-    client.set_cookie("access_token", mismatch_token, domain="localhost")
-
-    mismatch_response = client.get("/totp/", follow_redirects=False)
-
-    assert mismatch_response.status_code in {302, 401, 403}
-
-    cookie_headers = mismatch_response.headers.getlist("Set-Cookie")
-    assert any("access_token=" in header and "Max-Age=0" in header for header in cookie_headers)
-
-    with client.session_transaction() as sess:
-        assert sess.get(SERVICE_LOGIN_SESSION_KEY) is None
-        assert sess.get("_user_id") is None
+    # totp:view is sufficient to access the TOTP list endpoint
+    assert response.status_code == 200

@@ -6,7 +6,6 @@ from flask import (
     flash,
     session,
     current_app,
-    make_response,
     g,
     jsonify,
 )
@@ -512,22 +511,6 @@ def _finalize_login_session(user_model, redirect_target, *, token=None, token_sc
     return response
 
 
-def _extract_access_token() -> str | None:
-    token_param = request.values.get("access_token")
-    if isinstance(token_param, str):
-        candidate = token_param.strip()
-        if candidate:
-            return candidate
-
-    auth_header = request.headers.get("Authorization", "")
-    if isinstance(auth_header, str) and auth_header.lower().startswith("bearer "):
-        candidate = auth_header.split(" ", 1)[1].strip()
-        if candidate:
-            return candidate
-
-    return None
-
-
 def _is_session_expired(key_prefix):
     """セッションが期限切れかどうかをチェック"""
     timestamp_key = f"{key_prefix}_timestamp"
@@ -1024,19 +1007,22 @@ def delete_passkey(credential_id: int):
 
 @bp.route("/servicelogin", methods=["GET", "POST"])
 def service_login():
-    redirect_target = _resolve_next_target("dashboard.dashboard")
+    """サービスアカウントのトークン検証エンドポイント（ステートレス）。
 
-    if current_user.is_authenticated and not getattr(current_user, "is_service_account", False):
-        return redirect(redirect_target)
-
-    token = _extract_access_token()
-    if not token:
+    セッションは作成しない。Bearer トークンを検証して JSON で返す。
+    サービスアカウントは以降のリクエストで Authorization: Bearer ヘッダを使うこと。
+    """
+    auth_header = request.headers.get("Authorization", "")
+    if not (isinstance(auth_header, str) and auth_header.lower().startswith("bearer ")):
         current_app.logger.warning(
-            "Service login request rejected: missing access token",
+            "Service login request rejected: missing bearer token",
             extra={"event": "auth.service_login", "path": request.path},
         )
-        session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
-        return make_response(_("Access token is required"), 400)
+        return jsonify({"error": "token_required", "message": _("Authorization: Bearer <token> header is required")}), 400
+
+    token = auth_header.split(" ", 1)[1].strip()
+    if not token:
+        return jsonify({"error": "token_required", "message": _("Access token is required")}), 400
 
     principal = TokenService.create_principal_from_token(token)
     if not principal:
@@ -1044,54 +1030,33 @@ def service_login():
             "Service login token verification failed",
             extra={"event": "auth.service_login", "path": request.path},
         )
-        session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
-        return make_response(_("Invalid access token"), 401)
-
+        return jsonify({"error": "invalid_token", "message": _("Invalid access token")}), 401
 
     if not principal.is_service_account:
         current_app.logger.warning(
-            "Service login token rejected: subject type is not a service account",
+            "Service login token rejected: not a service account token",
             extra={"event": "auth.service_login", "path": request.path},
         )
-        session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
-        return make_response(_("Invalid access token"), 401)
+        return jsonify({"error": "invalid_token", "message": _("Token is not a service account token")}), 401
+
+    scope_list = sorted(principal.scope)
     current_app.logger.info(
-        "Service login successful",
+        "Service token validated",
         extra={
             "event": "auth.service_login",
             "path": request.path,
             "service_account_id": principal.id,
             "actor": principal.display_name,
-            "redirect": redirect_target,
-            "roles": [],
+            "scope": " ".join(scope_list),
         },
     )
 
-    session.pop("active_role_id", None)
-
-    normalized_scope = sorted(item.strip() for item in principal.scope if item)
-    session[SERVICE_LOGIN_SESSION_KEY] = True
-    session[SERVICE_LOGIN_TOKEN_SESSION_KEY] = token
-    g.current_token_scope = set(principal.scope)
-
-    g.current_user = principal
-    login_user(principal)
-
-    response = redirect(redirect_target)
-
-    if token:
-        response.set_cookie(
-            "access_token",
-            token,
-            httponly=True,
-            secure=settings.session_cookie_secure,
-            samesite="Lax",
-        )
-    else:
-        response.delete_cookie("access_token")
-
-    session.modified = True
-    return response
+    return jsonify({
+        "token_type": "bearer",
+        "access_token": token,
+        "scope": " ".join(scope_list),
+        "service_account": principal.display_name,
+    })
 
 
 @bp.route("/select-role", methods=["GET", "POST"])

@@ -224,6 +224,15 @@ const AlbumDetailPage: React.FC = () => {
                 </>
               ) : (
                 <>
+                  {album.mediaCount > 0 && (
+                    <Link
+                      to={`/albums/${album.id}/slideshow`}
+                      className="btn btn-outline-secondary"
+                      data-testid="album-slideshow"
+                    >
+                      <i className="bi bi-play-circle me-1" />{t('Slideshow')}
+                    </Link>
+                  )}
                   {album.mediaCount > 1 && (
                     <Button variant="outline-secondary" onClick={startReorder} data-testid="album-reorder">
                       <i className="bi bi-arrow-down-up me-1" />{t('Reorder')}

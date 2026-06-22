@@ -36,6 +36,12 @@ import {
   TOTPSetupResponse,
   RegisterUserRequest,
   RegisterUserResponse,
+  PickerSessionStatus,
+  PickerSessionLogsResponse,
+  PickerSessionSelectionsResponse,
+  SelectionErrorPayload,
+  LocalImportStatusResponse,
+  ConfigResponse,
 } from '../types/api';
 
 class ApiClient {
@@ -384,6 +390,74 @@ class ApiClient {
     pageSize?: number;
   }): Promise<PickerSessionListResponse> {
     const response = await this.client.get<PickerSessionListResponse>('/picker/sessions', { params });
+    return response.data;
+  }
+
+  async getPickerSessionStatus(sessionId: string): Promise<PickerSessionStatus> {
+    const response = await this.client.get<PickerSessionStatus>(`/picker/session/${encodeURIComponent(sessionId)}`);
+    return response.data;
+  }
+
+  async getPickerSessionSelections(sessionId: string, params?: {
+    page?: number;
+    pageSize?: number;
+    status?: string[];
+    search?: string;
+  }): Promise<PickerSessionSelectionsResponse> {
+    const response = await this.client.get<PickerSessionSelectionsResponse>(
+      `/picker/session/${encodeURIComponent(sessionId)}/selections`,
+      { params }
+    );
+    return response.data;
+  }
+
+  async getPickerSessionLogs(sessionId: string, params?: {
+    limit?: number;
+    cursor?: number;
+    after?: number;
+  }): Promise<PickerSessionLogsResponse> {
+    const response = await this.client.get<PickerSessionLogsResponse>(
+      `/picker/session/${encodeURIComponent(sessionId)}/logs`,
+      { params }
+    );
+    return response.data;
+  }
+
+  async getPickerSelectionError(sessionId: string, selectionId: number): Promise<SelectionErrorPayload> {
+    const response = await this.client.get<SelectionErrorPayload>(
+      `/picker/session/${encodeURIComponent(sessionId)}/selections/${selectionId}/error`
+    );
+    return response.data;
+  }
+
+  async getLocalImportStatus(): Promise<LocalImportStatusResponse> {
+    const response = await this.client.get<LocalImportStatusResponse>('/sync/local-import/status');
+    return response.data;
+  }
+
+  async triggerLocalImport(opts?: { duplicateRegeneration?: string }): Promise<{ success: boolean; session_id?: string }> {
+    const response = await this.client.post<{ success: boolean; session_id?: string }>('/sync/local-import', opts ?? {});
+    return response.data;
+  }
+
+  // ===== アプリケーション設定 (/admin/config) =====
+  async getConfig(): Promise<ConfigResponse> {
+    const response = await this.client.get<ConfigResponse>('/admin/config');
+    return response.data;
+  }
+
+  async updateConfig(payload: { updates?: Record<string, any>; resetKeys?: string[] }): Promise<ConfigResponse> {
+    const response = await this.client.put<ConfigResponse>('/admin/config', payload);
+    return response.data;
+  }
+
+  async updateConfigCors(payload: { allowedOrigins?: string[]; reset?: boolean }): Promise<ConfigResponse> {
+    const response = await this.client.put<ConfigResponse>('/admin/config/cors', payload);
+    return response.data;
+  }
+
+  async updateConfigSigning(payload: { mode: string; secret?: string; groupCode?: string }): Promise<ConfigResponse> {
+    const response = await this.client.put<ConfigResponse>('/admin/config/signing', payload);
     return response.data;
   }
 

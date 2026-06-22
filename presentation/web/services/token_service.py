@@ -435,6 +435,11 @@ class TokenService:
             current_app.logger.debug("Refresh token verification failed: user not found")
             return None
 
+        # セキュリティ上重要な判定のため、リクエスト中に他経路（flask-login の
+        # user_loader 等）で identity-map にキャッシュされた古い状態ではなく、
+        # 現在の DB の値を読み直す。
+        db.session.refresh(user)
+
         if not user.is_active:
             current_app.logger.debug("Refresh token verification failed: user inactive")
             return None

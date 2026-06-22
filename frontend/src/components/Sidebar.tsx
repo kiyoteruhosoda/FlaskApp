@@ -107,6 +107,16 @@ const Sidebar: React.FC = () => {
                 <i className="bi bi-tags me-2"></i>
                 {!sidebarCollapsed && <span>{t('Tags')}</span>}
               </Nav.Link>
+
+              {hasPermission('admin:photo-settings') && (
+                <Nav.Link
+                  href="/photo-settings"
+                  className={`d-flex align-items-center py-2 ${isActive('/photo-settings') ? 'active' : ''}`}
+                >
+                  <i className="bi bi-sliders me-2"></i>
+                  {!sidebarCollapsed && <span>{t('Photo Settings')}</span>}
+                </Nav.Link>
+              )}
             </>
           )}
 
@@ -180,10 +190,10 @@ const Sidebar: React.FC = () => {
                 </Nav.Link>
               )}
 
-              {hasPermission('admin:system-settings') && (
+              {hasPermission('system:manage') && (
                 <Nav.Link
-                  href="/admin/system-settings"
-                  className={`d-flex align-items-center py-2 ${isActive('/admin/system-settings') ? 'active' : ''}`}
+                  href="/admin/config"
+                  className={`d-flex align-items-center py-2 ${isActive('/admin/config') ? 'active' : ''}`}
                 >
                   <i className="bi bi-gear me-2"></i>
                   {!sidebarCollapsed && <span>{t('System Settings')}</span>}
@@ -197,6 +207,16 @@ const Sidebar: React.FC = () => {
                 >
                   <i className="bi bi-google me-2"></i>
                   {!sidebarCollapsed && <span>{t('Google Accounts')}</span>}
+                </Nav.Link>
+              )}
+
+              {hasPermission('system:manage') && (
+                <Nav.Link
+                  href="/admin/photo-exports"
+                  className={`d-flex align-items-center py-2 ${isActive('/admin/photo-exports') ? 'active' : ''}`}
+                >
+                  <i className="bi bi-box-arrow-up me-2"></i>
+                  {!sidebarCollapsed && <span>{t('Photo Exports')}</span>}
                 </Nav.Link>
               )}
             </>

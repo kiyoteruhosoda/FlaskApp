@@ -30,6 +30,12 @@ import RolesPage from './pages/RolesPage';
 import GroupsPage from './pages/GroupsPage';
 import PermissionsPage from './pages/PermissionsPage';
 import ServiceAccountsPage from './pages/ServiceAccountsPage';
+import SessionDetailPage from './pages/SessionDetailPage';
+import SelectionErrorPage from './pages/SelectionErrorPage';
+import SlideshowPage from './pages/SlideshowPage';
+import PhotoSettingsPage from './pages/PhotoSettingsPage';
+import PhotoExportsPage from './pages/PhotoExportsPage';
+import ConfigPage from './pages/ConfigPage';
 
 // Bootstrap CSS
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -221,6 +227,51 @@ const AppContent: React.FC = () => {
           />
 
           <Route
+            path="/sessions/:sessionId"
+            element={
+              <ProtectedRoute>
+                <SessionDetailPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/sessions/:sessionId/selection/:selectionId/error"
+            element={
+              <ProtectedRoute>
+                <SelectionErrorPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/albums/:albumId/slideshow"
+            element={
+              <ProtectedRoute>
+                <SlideshowPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/photo-settings"
+            element={
+              <ProtectedRoute>
+                <PhotoSettingsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/photo-exports"
+            element={
+              <ProtectedRoute>
+                <PhotoExportsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/admin/users"
             element={
               <ProtectedRoute>
@@ -270,6 +321,15 @@ const AppContent: React.FC = () => {
             element={
               <ProtectedRoute>
                 <ServiceAccountsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/config"
+            element={
+              <ProtectedRoute>
+                <ConfigPage />
               </ProtectedRoute>
             }
           />

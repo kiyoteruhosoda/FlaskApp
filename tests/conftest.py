@@ -98,6 +98,58 @@ def _restore_os_environ():
             pass
 
 
+@pytest.fixture(autouse=True)
+def _reset_login_cache_per_request(request):
+    """pytest-flask の app context リークによる認証キャッシュの持ち越しを中和する.
+
+    ``pytest-flask`` の autouse fixture ``_push_request_context`` はテスト実行中
+    ずっと ``app.test_request_context()`` を push し続ける。Flask は同一アプリの
+    app context が既に存在するとそれを再利用するため、テストクライアントの各
+    リクエスト間で ``g`` と SQLAlchemy の identity map が共有されてしまう。
+
+    その結果、``flask_login`` が ``g._login_user`` にキャッシュした principal や、
+    別 app context でコミットされた DB 変更が後続リクエストへ反映されず、本番では
+    起きない（本番はリクエストごとに fresh な app context）テスト固有の不整合が
+    生じる。各リクエスト開始時にこれらのキャッシュをクリアし、本番と同様に毎回
+    ユーザーを読み直すようにする。
+    """
+
+    app = None
+    if "app" in request.fixturenames:
+        try:
+            app = request.getfixturevalue("app")
+        except Exception:  # pragma: no cover - app fixture の取得失敗時は何もしない
+            app = None
+
+    if app is not None and not getattr(app, "_login_cache_reset_hook", False):
+        from flask import g
+        from core.db import db as _db
+
+        def _clear_leaked_request_caches():  # pragma: no cover - テスト環境専用フック
+            # flask_login が前リクエストでキャッシュした principal を破棄して再読込させる。
+            g.pop("_login_user", None)
+            # アプリ独自の per-request キャッシュも破棄する。
+            g.pop("current_user", None)
+            g.pop("current_user_model", None)
+            g.pop("current_principal", None)
+            # 別 app context でコミットされた変更を見えるよう identity map を失効させる。
+            try:
+                _db.session.expire_all()
+            except Exception:
+                pass
+
+        # ``app.before_request`` は最初のリクエスト後に登録不可となる
+        # （module/session スコープで共有される app fixture では既に処理済みの
+        # ことがある）。``before_request_funcs`` へ直接追加してロックを回避し、
+        # 同一 app へ二重登録しないようフラグで防ぐ。
+        app.before_request_funcs.setdefault(None, []).append(
+            _clear_leaked_request_caches
+        )
+        app._login_cache_reset_hook = True
+
+    yield
+
+
 @pytest.fixture
 def app_context():
     """アプリケーションコンテキストを提供するfixture"""

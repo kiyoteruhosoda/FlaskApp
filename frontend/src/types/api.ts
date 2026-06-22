@@ -446,3 +446,171 @@ export interface RegisterUserResponse {
   refresh_token: string;
   token_type: string;
 }
+
+// ===== セッション詳細・ログ =====
+
+export interface PickerSessionStatus {
+  id: number;
+  sessionId: string;
+  status: string;
+  accountId: number | null;
+  accountEmail: string | null;
+  selectedCount: number | null;
+  counts: Record<string, number>;
+  createdAt: string | null;
+  lastProgressAt: string | null;
+  isLocalImport: boolean;
+  stats: Record<string, any> | null;
+}
+
+export interface PickerSelectionItem {
+  id: number;
+  sessionDbId: number;
+  googleMediaId: string | null;
+  filename: string | null;
+  status: string;
+  attempts: number;
+  error: string | null;
+  localFilePath: string | null;
+  enqueuedAt: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
+export interface SessionLogEntry {
+  id: number;
+  level: string;
+  message: string;
+  timestamp: string;
+  fileTaskId: string | null;
+  progressStep: number | null;
+}
+
+export interface SelectionErrorPayload {
+  session: { id: number; sessionId: string; status: string; accountId: number | null };
+  selection: PickerSelectionItem;
+  logs: SessionLogEntry[];
+}
+
+export interface PickerSessionLogsResponse {
+  logs: SessionLogEntry[];
+  hasNext: boolean;
+  nextCursor: number | null;
+  fileTaskIds: string[];
+}
+
+export interface PickerSessionSelectionsResponse {
+  selections: PickerSelectionItem[];
+  pagination: {
+    hasNext: boolean;
+    totalCount: number | null;
+  };
+}
+
+// ===== ローカルインポート設定 =====
+
+export interface DirectoryInfo {
+  key: string;
+  config_key: string;
+  label: string;
+  path: string | null;
+  absolute: string | null;
+  realpath: string | null;
+  exists: boolean;
+  source: string;
+}
+
+export interface LocalImportStatusResponse {
+  config: {
+    import_dir: string | null;
+    originals_dir: string | null;
+    import_dir_absolute: string | null;
+    import_dir_realpath: string | null;
+    import_dir_exists: boolean;
+    originals_dir_exists: boolean;
+  };
+  status: {
+    pending_files: number;
+    ready: boolean;
+  };
+  directories: DirectoryInfo[];
+  defaults: { duplicateRegeneration: string };
+  server_time: string;
+}
+
+// ===== アプリケーション設定 (/admin/config) =====
+
+export type ConfigFieldType = 'string' | 'integer' | 'float' | 'boolean' | 'list';
+
+export interface ConfigField {
+  key: string;
+  label: string;
+  data_type: ConfigFieldType;
+  required: boolean;
+  description: string;
+  current_json: string;
+  default_json: string;
+  form_value: string;
+  choices: Array<[string, string]>;
+  multiline: boolean;
+  using_default: boolean;
+  allow_empty: boolean;
+  allow_null: boolean;
+  editable: boolean;
+  default_hint: string | null;
+  search_text: string;
+  section: string;
+  section_label: string;
+  anchor_id: string;
+}
+
+export interface ConfigSection {
+  identifier: string;
+  label: string;
+  description: string | null;
+  fields: ConfigField[];
+  anchor_id: string;
+  search_text: string;
+}
+
+export interface SigningSetting {
+  mode: string;
+  kid: string | null;
+  group_code: string | null;
+}
+
+export interface SigningCertificate {
+  kid: string | null;
+  issuedAt: string | null;
+  expiresAt: string | null;
+  algorithm: string | null;
+  subject: string | null;
+}
+
+export interface SigningGroup {
+  groupCode: string;
+  groupLabel: string;
+  latestCertificate: SigningCertificate | null;
+}
+
+export interface ConfigResponse {
+  application_sections: ConfigSection[];
+  application_fields: ConfigField[];
+  cors_fields: ConfigField[];
+  cors_effective_origins: string[];
+  signing_setting: SigningSetting | null;
+  signingGroups: SigningGroup[];
+  builtin_signing_secret: string | null;
+  timestamps: {
+    application_config_updated_at: string | null;
+    cors_config_updated_at: string | null;
+    signing_config_updated_at: string | null;
+  };
+  descriptions: {
+    application_config_description: string | null;
+    cors_config_description: string | null;
+  };
+  warnings?: string[];
+  updated?: boolean;
+  status: string;
+}

@@ -11,6 +11,7 @@ import {
   Alert,
   Pagination as BsPagination,
 } from 'react-bootstrap';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { PickerSessionRow } from '../types/api';
@@ -124,14 +125,13 @@ const SessionsPage: React.FC = () => {
                     <td className="small">{formatDateTime(s.createdAt)}</td>
                     <td className="small">{formatDateTime(s.lastProgressAt)}</td>
                     <td className="text-end">
-                      <Button
-                        size="sm"
-                        variant="outline-secondary"
-                        href={`/photo-view/session/${encodeURIComponent(s.sessionId)}`}
+                      <Link
+                        to={`/sessions/${encodeURIComponent(s.sessionId)}`}
+                        className="btn btn-sm btn-outline-secondary"
                         data-testid="session-detail-link"
                       >
                         {t('Details')}
-                      </Button>
+                      </Link>
                     </td>
                   </tr>
                 ))}

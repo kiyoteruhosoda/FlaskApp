@@ -6,7 +6,6 @@ from flask_babel import lazy_gettext as _l
 from flask import current_app, g, session
 from flask_mailman import Mail
 
-from presentation.web.auth import SERVICE_LOGIN_TOKEN_SESSION_KEY
 from presentation.web.openapi.smorest_ext import Api
 
 migrate = Migrate()
@@ -38,53 +37,29 @@ def load_user(user_id):
     from core.models.user import User
     from presentation.web.services.token_service import TokenService
 
-    subject_type: str | None = None
-    raw_identifier = user_id
-
-    if isinstance(user_id, str) and ":" in user_id:
-        subject_type, raw_identifier = user_id.split(":", 1)
-    elif isinstance(user_id, str):
-        subject_type = "individual"
-    else:
-        subject_type = "individual"
-
-    if subject_type == "system":
-        try:
-            account_id = int(raw_identifier)
-        except (TypeError, ValueError):
-            return None
-
-        token = session.get(SERVICE_LOGIN_TOKEN_SESSION_KEY)
-        if not token:
-            return None
-
-        principal = TokenService.create_principal_from_token(token)
-        if not principal or not principal.is_service_account:
-            session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
-            return None
-        if principal.subject_id != account_id:
-            session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
-            return None
-
-        g.current_user = principal
-        return principal
+    # Service accounts are stateless — they authenticate per-request via Bearer tokens.
+    # Session-based service account authentication is no longer supported.
+    if isinstance(user_id, str) and user_id.startswith("system:"):
+        return None
 
     try:
-        numeric_id = int(raw_identifier)
+        numeric_id = int(user_id.split(":", 1)[1] if ":" in str(user_id) else user_id)
     except (TypeError, ValueError):
         return None
 
-    session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
     user = db.session.get(User, numeric_id)
-    if not user or not getattr(user, "is_active", True):
+    if not user:
+        return None
+
+    if not getattr(user, "is_active", True):
         return None
 
     try:
         active_role_id = session.get("active_role_id")
         principal = TokenService.create_principal_for_user(user, active_role_id=active_role_id)
-    except ValueError as exc:
+    except ValueError:
         current_app.logger.warning(
-            "Failed to create principal for user in user_loader",  # type: ignore[attr-defined]
+            "Failed to create principal for user in user_loader",
             extra={"event": "auth.user_loader.error", "user_id": numeric_id},
         )
         return None
@@ -113,11 +88,6 @@ def load_user_from_request(request):
             extra={"event": "auth.jwt.invalid"},
         )
         return None
-
-    if principal.is_service_account:
-        session[SERVICE_LOGIN_TOKEN_SESSION_KEY] = token
-    else:
-        session.pop(SERVICE_LOGIN_TOKEN_SESSION_KEY, None)
 
     g.current_token_scope = set(principal.scope)
     g.current_user = principal

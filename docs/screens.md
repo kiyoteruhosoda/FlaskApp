@@ -53,18 +53,23 @@ UI は現在 **2系統**が併存している：
 | 設定 | `/photo-view/settings` | NASパス・サムネ/変換・同期状態（要 `admin:photo-settings`） |
 | エクスポート | `/photo-view/admin/exports`(+`/<id>`) | エクスポート（要 `system:manage`） |
 
-### 2.2 React（移行中）
+### 2.2 React（移行完了）
 | 画面 | パス | 機能 | API | React |
 |---|---|---|---|---|
 | メディアギャラリー | `/media` | グリッド・種別フィルタ・追加読込・詳細モーダル(EXIF/タグ編集/動画再生) | `GET /api/media`, `POST /api/media/<id>/thumb-url`, `POST /api/media/<id>/playback-url`, `PUT /api/media/<id>/tags` | ✅ |
 | アルバム一覧 | `/albums` | 表紙・件数・検索・**作成/編集/削除** | `GET /api/albums`, `POST /api/albums`, `PUT /api/albums/<id>`, `DELETE /api/albums/<id>` | ✅ |
-| アルバム詳細 | `/albums/:id` | メディアグリッド・編集・削除・**DnD 並び替え** | `GET /api/albums/<id>`, `PUT /api/albums/<id>`, `DELETE /api/albums/<id>`, `PUT /api/albums/<id>/media/order` | ✅ |
+| アルバム詳細 | `/albums/:id` | メディアグリッド・編集・削除・**DnD 並び替え**・**スライドショー起動** | `GET /api/albums/<id>`, `PUT /api/albums/<id>`, `DELETE /api/albums/<id>`, `PUT /api/albums/<id>/media/order` | ✅ |
+| スライドショー | `/albums/:id/slideshow` | フルスクリーン再生・自動再生・キーボード操作 | `GET /api/albums/<id>`, `POST /api/media/<id>/thumb-url` | ✅ |
 | タグ一覧 | `/tags` | 一覧・検索・**タグ作成** | `GET /api/tags`, `POST /api/tags` | ✅ |
 | 取り込みセッション一覧 | `/sessions` | 状態/種別/件数/詳細リンク | `GET /api/picker/sessions` | ✅ |
+| セッション詳細 | `/sessions/:sessionId` | セッション情報・取込ファイル一覧（ステータスフィルタ）・ログ | `GET /api/picker/session/<id>`, `GET /api/picker/session/<id>/selections`, `GET /api/picker/session/<id>/logs` | ✅ |
+| 取込失敗詳細 | `/sessions/:sessionId/selection/:id/error` | 失敗ファイルのエラーメッセージ・関連ログ | `GET /api/picker/session/<id>/selections/<sid>/error` | ✅ |
+| 写真設定 | `/photo-settings` | NASパス状態・ローカルインポート実行（要 `admin:photo-settings`） | `GET /api/sync/local-import/status`, `POST /api/sync/local-import` | ✅ |
+| エクスポート | `/admin/photo-exports` | エクスポート管理（プレースホルダー、要 `system:manage`） | — | ✅ |
 
 **写真管理 API（実装済）**: media 一覧/詳細・サムネ/再生署名URL・タグ付与、albums
-CRUD＋メディア並び替え(`PUT /api/albums/<id>/media/order`)、tags 作成/一覧/付与。
-React 側 write（CRUD/付与/動画再生）の配線が完了。
+CRUD＋メディア並び替え(`PUT /api/albums/<id>/media/order`)、tags 作成/一覧/付与、
+セッション詳細・選択エラー・ログ、ローカルインポートステータス/実行。
 
 ---
 
@@ -90,7 +95,7 @@ React 側 write（CRUD/付与/動画再生）の配線が完了。
 | 権限管理 | `/admin/permissions` | CRUD・検索 | ✅ `GET/POST /api/admin/permissions`, `GET/PUT/DELETE /api/admin/permissions/<id>` | ✅ `/admin/permissions` |
 | サービスアカウント | `/admin/service-accounts` | CRUD・スコープ | ✅ `GET/POST /api/admin/service-accounts`, `GET/PUT/DELETE /api/admin/service-accounts/<id>` | ✅ `/admin/service-accounts` |
 | Google アカウント | `/admin/google_accounts` | OAuth 連携管理（外部OAuth設定依存） | ⬜ | ✅ 画面なし |
-| 設定 | `/admin/config` | アプリ設定 | ⬜ | ⬜ |
+| 設定 | `/admin/config` | アプリ設定（セクション別・検索・CORS・トークン署名）。モダンUIに刷新 | ✅ `GET /api/admin/config`, `PUT /api/admin/config`, `PUT /api/admin/config/cors`, `PUT /api/admin/config/signing` | ✅ `/admin/config` |
 | バージョン情報 | `/admin/version` | ビルド情報 | `GET /api/version` | ✅ 画面なし |
 | データファイル | `/admin/data-files` | DLログ等（バックエンド管理ツール） | ⬜ | ✅ 画面なし |
 | TOTP 管理 | `/totp/` | 2FA 管理（管理者用） | ✅ `/api/totp/*` | ⬜ |
@@ -104,6 +109,7 @@ React 側 write（CRUD/付与/動画再生）の配線が完了。
 - `presentation/web/api/admin_permissions.py` — 権限 CRUD（`admin:system-settings`）
 - `presentation/web/api/admin_service_accounts.py` — サービスアカウント CRUD（`admin:system-settings`）
 - `presentation/web/api/admin_misc.py` — ダッシュボード統計（`admin:system-settings`）
+- `presentation/web/api/admin_config.py` — アプリ設定／CORS／トークン署名（`system:manage`）
 
 ---
 
@@ -130,14 +136,19 @@ React 側 write（CRUD/付与/動画再生）の配線が完了。
 6. ✅ 管理 JSON API 新設＋React 化（ユーザー/ロール/グループ/権限/サービスアカウント/ダッシュボード）
 7. ✅ 認証 React 化（登録・プロフィール表示/編集・2FA 設定/解除・パスキー管理）
 8. ✅ パスワード再設定 React 化（`/forgot-password`, `/reset-password`）
-9. ⬜ Wiki の React 化
-10. ⬜ Jinja からの完全切替（React `/` ホーム実装、旧テンプレート撤去）
+9. ✅ 写真管理 全画面 React 化（セッション詳細/取込失敗詳細/スライドショー/写真設定/エクスポート）
+10. ✅ アプリ設定 React 化（`/admin/config` — セクション別UI・検索・CORS・トークン署名）
+11. ⬜ Wiki の React 化
+12. ⬜ Jinja からの完全切替（React `/` ホーム実装、旧テンプレート撤去）
 
 ## 7. 開発・テスト
 
 - フロント: `cd frontend && npm ci && npm run build`（`tsc && vite`）。
 - E2E: `npx playwright test`（Playwright、`frontend/e2e/`）。API は `page.route` でモックし
-  Flask/DB 非依存で実行。テスト対象: login, register, profile, sessions, jobs, photos, auth (forgot/reset password), admin (dashboard/roles/groups/permissions/service-accounts)。
+  Flask/DB 非依存で実行。テスト対象: login, register, profile, sessions, jobs, photos,
+  photos_extended（セッション詳細/スライドショー/写真設定/エクスポート）, auth (forgot/reset password),
+  admin (dashboard/roles/groups/permissions/service-accounts), config（アプリ設定）。
 - バックエンド: `uv run pytest`（API は `tests/unit/presentation/api/`）。
-  新規テスト: `test_api_admin_crud.py`（26件）、`test_api_new_auth_endpoints.py`（15件）。
+  新規テスト: `test_api_admin_crud.py`（26件）、`test_api_new_auth_endpoints.py`（15件）、
+  `test_api_admin_config.py`（22件）。
 - 依存: `frontend/node_modules` は **git 管理外**。CI/デプロイは `npm ci` 前提。

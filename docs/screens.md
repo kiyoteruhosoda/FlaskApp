@@ -19,11 +19,11 @@ UI は現在 **2系統**が併存している：
 | ログイン | `/auth/login` | ID/パスワード、TOTP、失敗時メッセージ | `POST /api/auth/login` | ✅ `/login` |
 | ロール選択 | `/auth/select-role` | 複数ロール時に有効ロール選択 | `GET /api/auth/roles`, `POST /api/auth/select-role` | ✅ `/select-role` |
 | サービスログイン | `/auth/servicelogin` | サービスアカウント用 | — | ⬜ |
-| 登録 | `/auth/register`(+`/totp`,`/no_totp`) | 新規ユーザー登録・TOTP セットアップ | — | ⬜ |
-| プロフィール | `/auth/profile` | 自分の情報表示 | `GET /api/auth/me` | ⬜ |
-| 編集 | `/auth/edit` | 表示名等の編集 | — | ⬜ |
-| TOTP 設定 | `/auth/setup_totp`(+cancel) | 2FA 登録 | `GET/POST /api/totp` | ⬜ |
-| パスキー | `/auth/passkey/*` | WebAuthn 登録/ログイン/削除 | `POST /auth/passkey/options|verify/{register,login}` | 🟡（ログインに統合） |
+| 登録 | `/auth/register`(+`/totp`,`/no_totp`) | 新規ユーザー登録・TOTP セットアップ | `POST /api/auth/register` | ✅ `/register` |
+| プロフィール | `/auth/profile` | 自分の情報表示・編集 | `GET /api/auth/me`, `PUT /api/auth/profile` | ✅ `/profile` |
+| 編集 | `/auth/edit` | 表示名等の編集 | `PUT /api/auth/profile` | ✅（ProfilePage に統合） |
+| TOTP 設定 | `/auth/setup_totp`(+cancel) | 2FA 登録・解除 | `GET /api/auth/2fa/status`, `POST /api/auth/2fa/setup`, `POST /api/auth/2fa/confirm`, `DELETE /api/auth/2fa` | ✅（ProfilePage に統合） |
+| パスキー | `/auth/passkey/*` | WebAuthn 登録/ログイン/削除 | `POST /auth/passkey/options\|verify/{register,login}` | 🟡（ログインに統合） |
 | パスワード再設定 | `/auth/password/forgot`,`/reset` | 失念時の再設定 | — | ⬜ |
 | ログアウト | `/auth/logout` | セッション破棄 | `POST /api/auth/logout` | ✅ |
 | Google 連携 | `/auth/settings/google-accounts` | OAuth 連携 | — | ⬜ |
@@ -125,8 +125,10 @@ React 側 write（CRUD/付与/動画再生）の配線が完了。
 4. ✅ ログイン（パスワード/TOTP/ロール選択/ログアウト、パスキー統合）
 5. ✅ 写真管理 write（アルバム CRUD/並び替え、タグ作成/付与、動画再生）
 6. 🟡 管理 JSON API 層の新設 → 管理画面の React 化（**ユーザー管理完了**、ロール/グループ/権限/設定は未着手）
-7. ⬜ Wiki の React 化
-8. ⬜ Jinja からの完全切替（React `/` ホーム実装、旧テンプレート撤去）
+7. ✅ 認証 React 化（登録・プロフィール表示/編集・2FA 設定/解除）
+8. ⬜ パスワード再設定・Google 連携の React 化
+9. ⬜ Wiki の React 化
+10. ⬜ Jinja からの完全切替（React `/` ホーム実装、旧テンプレート撤去）
 
 ## 7. 開発・テスト
 

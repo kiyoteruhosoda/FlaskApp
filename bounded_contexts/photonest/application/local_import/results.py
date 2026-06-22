@@ -8,8 +8,8 @@ SUMMARY_ENTRY_LIMIT = 200
 
 from sqlalchemy import and_
 
-from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
-from core.models.photo_models import (
+from shared.infrastructure.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
+from bounded_contexts.photonest.infrastructure.photo_models import (
     Media,
     MediaItem,
     MediaPlayback,

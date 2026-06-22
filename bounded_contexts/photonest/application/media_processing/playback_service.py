@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, Optional, Tuple
 from uuid import uuid4
 
 from shared.kernel.database.db import db
-from core.models.photo_models import Media, MediaPlayback
+from bounded_contexts.photonest.infrastructure.photo_models import Media, MediaPlayback
 from shared.kernel.settings.settings import settings
 from bounded_contexts.storage import StorageDomain
 

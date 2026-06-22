@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Optional
 
-from core.models.photo_models import Media
+from bounded_contexts.photonest.infrastructure.photo_models import Media
 from bounded_contexts.photonest.domain.local_import.services import MediaSignature
 
 

@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import Optional, Any, Dict
 
 from shared.kernel.database.db import db
-from core.models.photo_models import Media
+from bounded_contexts.photonest.infrastructure.photo_models import Media
 from bounded_contexts.photonest.domain.local_import.value_objects import FileHash
 from bounded_contexts.photonest.domain.local_import.services import (
     MediaDuplicateChecker,

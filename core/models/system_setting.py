@@ -1,35 +1,19 @@
-"""System-wide configuration persisted in the database."""
-from __future__ import annotations
+"""後方互換シム: 実体は :mod:`shared.infrastructure.models.system_setting` へ移動した。
 
-from datetime import datetime, timezone
-from typing import Any
+ORM モデルを所有 context／共有 infrastructure へ集約。既存の import を
+壊さないよう再公開する。新規コードは正本を直接 import すること。
+"""
 
-from sqlalchemy import BigInteger, DateTime, Integer, JSON, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
-
-from core.db import db
+from shared.infrastructure.models.system_setting import *  # noqa: F401,F403
 
 
-class SystemSetting(db.Model):
-    """Keyed JSON payload describing application configuration."""
+def __getattr__(name):  # PEP 562: __all__ 外の名前も遅延委譲する
+    import importlib
 
-    __tablename__ = "system_settings"
-    __table_args__ = {"sqlite_autoincrement": True}
-
-    id: Mapped[int] = mapped_column(
-        BigInteger().with_variant(Integer, "sqlite"),
-        primary_key=True,
-        autoincrement=True,
-    )
-    setting_key: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
-    setting_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
-    )
-
-
-__all__ = ["SystemSetting"]
+    module = importlib.import_module("shared.infrastructure.models.system_setting")
+    try:
+        return getattr(module, name)
+    except AttributeError as exc:  # pragma: no cover
+        raise AttributeError(
+            f"module {__name__!r} has no attribute {name!r}"
+        ) from exc

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, Protocol, TypeAlias
 
-from core.models.photo_models import PickerSelection
+from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
 from bounded_contexts.picker_import.infrastructure.repositories import PickerSelectionRepository
 
 

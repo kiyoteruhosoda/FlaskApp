@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from shared.kernel.database.db import db
-from core.models.photo_models import Exif, Media, MediaItem, PhotoMetadata, VideoMetadata
+from bounded_contexts.photonest.infrastructure.photo_models import Exif, Media, MediaItem, PhotoMetadata, VideoMetadata
 
 from .media_file import MediaFileAnalysis
 

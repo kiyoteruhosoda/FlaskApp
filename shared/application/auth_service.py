@@ -10,7 +10,7 @@ from shared.domain.user.repository import UserRepository
 
 
 if TYPE_CHECKING:
-    from core.models.user import User as UserModel
+    from shared.infrastructure.models.user import User as UserModel
 
 
 class AuthService:

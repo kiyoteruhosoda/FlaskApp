@@ -2,7 +2,7 @@
 
 from typing import List, Optional, Dict, Any, Callable
 from datetime import datetime, timezone
-from core.models.wiki.models import WikiPage, WikiCategory, WikiRevision
+from bounded_contexts.wiki.infrastructure.wiki_models import WikiPage, WikiCategory, WikiRevision
 from bounded_contexts.wiki.infrastructure.repositories import (
     WikiPageRepository,
     WikiCategoryRepository,

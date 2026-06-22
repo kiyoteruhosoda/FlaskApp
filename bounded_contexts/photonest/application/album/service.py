@@ -49,7 +49,7 @@ class AlbumApplicationService:
     def _new_album(self, **fields: Any) -> Any:
         if self._album_factory is not None:
             return self._album_factory(**fields)
-        from core.models.photo_models import Album
+        from bounded_contexts.photonest.infrastructure.photo_models import Album
 
         return Album(**fields)
 

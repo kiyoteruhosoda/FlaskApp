@@ -1,108 +1,19 @@
-"""Password reset token model."""
-from __future__ import annotations
+"""後方互換シム: 実体は :mod:`shared.infrastructure.models.password_reset_token` へ移動した。
 
-from datetime import datetime, timezone, timedelta
-from typing import Optional
+ORM モデルを所有 context／共有 infrastructure へ集約。既存の import を
+壊さないよう再公開する。新規コードは正本を直接 import すること。
+"""
 
-from sqlalchemy import update
-from sqlalchemy.orm import Mapped, mapped_column
-from werkzeug.security import generate_password_hash, check_password_hash
-
-from core.db import db
+from shared.infrastructure.models.password_reset_token import *  # noqa: F401,F403
 
 
-# Define BIGINT type compatible with SQLite auto increment
-BigInt = db.BigInteger().with_variant(db.Integer, "sqlite")
+def __getattr__(name):  # PEP 562: __all__ 外の名前も遅延委譲する
+    import importlib
 
-
-class PasswordResetToken(db.Model):
-    """パスワードリセットトークンを管理するモデル。
-    
-    セキュリティ要件:
-    - トークンはハッシュ化して保存
-    - 有効期限は30分
-    - 一度使用したら再利用不可
-    """
-    __tablename__ = "password_reset_token"
-
-    id: Mapped[int] = mapped_column(BigInt, primary_key=True, autoincrement=True)
-    email: Mapped[str] = mapped_column(db.String(255), nullable=False, index=True)
-    token_hash: Mapped[str] = mapped_column(db.String(255), nullable=False, unique=True)
-    expires_at: Mapped[datetime] = mapped_column(db.DateTime, nullable=False)
-    used: Mapped[bool] = mapped_column(db.Boolean, default=False, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        db.DateTime, 
-        default=lambda: datetime.now(timezone.utc),
-        nullable=False
-    )
-
-    def set_token(self, raw_token: str) -> None:
-        """トークンをハッシュ化して保存する。"""
-        self.token_hash = generate_password_hash(raw_token)
-
-    def check_token(self, raw_token: str) -> bool:
-        """トークンを検証する。"""
-        return check_password_hash(self.token_hash, raw_token)
-
-    def is_valid(self) -> bool:
-        """トークンが有効かどうかをチェックする。"""
-        now = datetime.now(timezone.utc)
-        # SQLiteはtimezoneを保存しないため、naive datetimeをUTCとして扱う
-        expires = self.expires_at
-        if expires.tzinfo is None:
-            expires = expires.replace(tzinfo=timezone.utc)
-        return not self.used and expires > now
-
-    @classmethod
-    def create_token(
-        cls, 
-        email: str, 
-        raw_token: str,
-        validity_minutes: int = 30
-    ) -> "PasswordResetToken":
-        """新しいパスワードリセットトークンを作成する。
-        
-        Args:
-            email: ユーザーのメールアドレス
-            raw_token: 平文のトークン（ハッシュ化される）
-            validity_minutes: トークンの有効期限（分）
-            
-        Returns:
-            作成されたPasswordResetTokenインスタンス
-        """
-        token = cls(
-            email=email,
-            expires_at=datetime.now(timezone.utc) + timedelta(minutes=validity_minutes)
-        )
-        token.set_token(raw_token)
-        return token
-
-    def mark_as_used(self) -> None:
-        """トークンを使用済みとしてマークする。"""
-        self.used = True
-
-    @classmethod
-    def mark_as_used_atomic(cls, token_id: int, email: str) -> bool:
-        """トークンを原子的に使用済みとしてマークする。
-        
-        並行アクセスからトークンを保護するために、
-        WHERE used = false 条件付きでUPDATEを実行します。
-        
-        Args:
-            token_id: トークンのID
-            email: トークンに関連付けられたメールアドレス
-            
-        Returns:
-            トークンが正常に更新された場合True、それ以外はFalse
-        """
-        stmt = (
-            update(cls)
-            .where(
-                cls.id == token_id,
-                cls.email == email,
-                cls.used == False
-            )
-            .values(used=True)
-        )
-        result = db.session.execute(stmt)
-        return result.rowcount > 0
+    module = importlib.import_module("shared.infrastructure.models.password_reset_token")
+    try:
+        return getattr(module, name)
+    except AttributeError as exc:  # pragma: no cover
+        raise AttributeError(
+            f"module {__name__!r} has no attribute {name!r}"
+        ) from exc

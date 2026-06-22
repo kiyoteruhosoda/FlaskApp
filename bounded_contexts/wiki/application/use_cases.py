@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional, Sequence
 
 from shared.kernel.database.db import db
-from core.models.photo_models import Media
+from bounded_contexts.photonest.infrastructure.photo_models import Media
 from shared.kernel.settings.settings import settings
 
 from bounded_contexts.wiki.application.dto import (

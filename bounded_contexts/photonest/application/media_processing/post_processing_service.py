@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Callable, Dict, Optional
 from uuid import uuid4
 
-from core.models.photo_models import Media
+from bounded_contexts.photonest.infrastructure.photo_models import Media
 
 from .logger import StructuredMediaTaskLogger
 from .thumbnail_service import ThumbnailGenerationService

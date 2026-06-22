@@ -11,8 +11,8 @@ import os
 from flask import abort, redirect, request, url_for
 from flask_login import current_user
 
-from core.models.authz import require_perms
-from core.models.google_account import GoogleAccount
+from shared.infrastructure.models.authz import require_perms
+from shared.infrastructure.models.google_account import GoogleAccount
 from shared.kernel.settings.settings import settings as app_settings
 
 from . import bp

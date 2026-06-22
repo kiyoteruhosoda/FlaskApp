@@ -18,19 +18,19 @@ from sqlalchemy import or_, func, insert as sa_insert
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError
-from core.models.google_account import GoogleAccount
-from core.models.picker_session import PickerSession
-from core.models.job_sync import JobSync
-from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
-from core.models.photo_models import (
+from shared.infrastructure.models.google_account import GoogleAccount
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+from shared.infrastructure.models.job_sync import JobSync
+from shared.infrastructure.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
+from bounded_contexts.photonest.infrastructure.photo_models import (
     PickerSelection,
     MediaItem,
     PhotoMetadata,
     VideoMetadata,
     Media,
 )
-from core.models.picker_import_task import PickerImportTask
-from core.models.log import Log
+from bounded_contexts.picker_import.infrastructure.picker_import_task import PickerImportTask
+from shared.infrastructure.models.log import Log
 from shared.infrastructure.google_oauth import refresh_google_token, RefreshTokenError
 from shared.infrastructure.http_logging import log_requests_and_send
 from core.tasks.local_import import build_thumbnail_task_snapshot

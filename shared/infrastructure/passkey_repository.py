@@ -7,7 +7,7 @@ from typing import Iterable
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from core.models.passkey import PasskeyCredential
+from shared.infrastructure.models.passkey import PasskeyCredential
 
 
 class DuplicatePasskeyCredentialError(RuntimeError):

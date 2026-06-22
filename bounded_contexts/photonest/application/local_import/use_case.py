@@ -6,8 +6,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from core.models.picker_session import PickerSession
-from core.models.photo_models import PickerSelection
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
 
 from bounded_contexts.photonest.domain.local_import.import_result import ImportTaskResult
 from .results import build_thumbnail_task_snapshot

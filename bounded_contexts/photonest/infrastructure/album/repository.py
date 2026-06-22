@@ -9,7 +9,7 @@ from typing import Any
 from sqlalchemy.orm import joinedload
 
 from bounded_contexts.photonest.application.album.repository import AlbumRepository
-from core.models.photo_models import Album, Media, album_item
+from bounded_contexts.photonest.infrastructure.photo_models import Album, Media, album_item
 
 
 class SqlAlchemyAlbumRepository(AlbumRepository):

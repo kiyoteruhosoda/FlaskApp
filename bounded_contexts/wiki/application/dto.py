@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence
 
-from core.models.photo_models import Media
-from core.models.wiki.models import WikiCategory, WikiPage, WikiRevision
+from bounded_contexts.photonest.infrastructure.photo_models import Media
+from bounded_contexts.wiki.infrastructure.wiki_models import WikiCategory, WikiPage, WikiRevision
 
 
 @dataclass(frozen=True)

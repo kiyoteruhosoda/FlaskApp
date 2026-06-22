@@ -6,7 +6,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from core.models.photo_models import Media as MediaModel
+from bounded_contexts.photonest.infrastructure.photo_models import Media as MediaModel
 
 from ...domain.importing.import_session import ImportSession
 from ...domain.importing.media import Media

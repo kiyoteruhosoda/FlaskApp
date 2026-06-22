@@ -56,14 +56,15 @@ UI は現在 **2系統**が併存している：
 ### 2.2 React（移行中）
 | 画面 | パス | 機能 | API | React |
 |---|---|---|---|---|
-| メディアギャラリー | `/media` | グリッド・種別フィルタ・追加読込・詳細モーダル(EXIF/タグ) | `GET /api/media`, `POST /api/media/<id>/thumb-url` | ✅ |
-| アルバム一覧 | `/albums` | 表紙・件数・検索 | `GET /api/albums` | ✅(一覧) / 🟡(CRUD未) |
-| タグ一覧 | `/tags` | 一覧・検索 | `GET /api/tags` | ✅(一覧) / 🟡(付与・作成未) |
+| メディアギャラリー | `/media` | グリッド・種別フィルタ・追加読込・詳細モーダル(EXIF/タグ編集/動画再生) | `GET /api/media`, `POST /api/media/<id>/thumb-url`, `POST /api/media/<id>/playback-url`, `PUT /api/media/<id>/tags` | ✅ |
+| アルバム一覧 | `/albums` | 表紙・件数・検索・**作成/編集/削除** | `GET /api/albums`, `POST /api/albums`, `PUT /api/albums/<id>`, `DELETE /api/albums/<id>` | ✅ |
+| アルバム詳細 | `/albums/:id` | メディアグリッド・編集・削除・**DnD 並び替え** | `GET /api/albums/<id>`, `PUT /api/albums/<id>`, `DELETE /api/albums/<id>`, `PUT /api/albums/<id>/media/order` | ✅ |
+| タグ一覧 | `/tags` | 一覧・検索・**タグ作成** | `GET /api/tags`, `POST /api/tags` | ✅ |
 | 取り込みセッション一覧 | `/sessions` | 状態/種別/件数/詳細リンク | `GET /api/picker/sessions` | ✅ |
 
-**写真管理 API（実装済）**: media 一覧/詳細・サムネ/再生署名URL、albums
-CRUD(`POST/PUT/DELETE /api/albums`, 並び替え)、tags(`GET/POST /api/tags`,
-`PUT /api/media/<id>/tags`)。React 側は read を実装済、**CRUD/付与/動画再生は未配線**。
+**写真管理 API（実装済）**: media 一覧/詳細・サムネ/再生署名URL・タグ付与、albums
+CRUD＋メディア並び替え(`PUT /api/albums/<id>/media/order`)、tags 作成/一覧/付与。
+React 側 write（CRUD/付与/動画再生）の配線が完了。
 
 ---
 
@@ -80,16 +81,16 @@ CRUD(`POST/PUT/DELETE /api/albums`, 並び替え)、tags(`GET/POST /api/tags`,
 
 ## 4. 管理（/admin, /dashboard 等）
 
-> ⚠️ **重要**: 管理系は現状ほぼ **Jinja フォーム POST**で、**JSON API が未整備**
-> （`service-accounts.json` のみ JSON）。React 化には先に **管理 JSON API 層**の
-> 新設が必要（最大の工数項目）。
+> ℹ️ **ユーザー管理**は JSON API + React 画面が実装済み。他の管理系は引き続き
+> Jinja フォーム POST が実体（JSON API 未整備）。
 
 | 画面 | パス | 機能 | JSON API | React |
 |---|---|---|---|---|
 | ダッシュボード | `/dashboard/` | 統計 | ⬜ | ⬜ |
-| ユーザー管理 | `/admin/user`(+add/edit-roles/role/delete/reset-totp) | CRUD・ロール付与 | ⬜ | ⬜ |
+| ユーザー管理 | `/admin/user`(Jinja) / `/admin/users`(React) | CRUD・ロール付与・TOTP リセット | ✅ `GET/POST /api/admin/users`, `GET/PUT/DELETE /api/admin/users/<id>`, `PUT /api/admin/users/<id>/roles`, `POST /api/admin/users/<id>/reset-totp` | ✅ `/admin/users` |
+| ロール一覧 | — | ロール一覧（ユーザー管理画面で利用） | ✅ `GET /api/admin/roles` | ✅（UsersPage に統合） |
 | グループ | `/admin/groups`(+add/edit/delete) | CRUD | ⬜ | ⬜ |
-| ロール | `/admin/roles`(+add/edit) | CRUD・権限割当 | ⬜ | ⬜ |
+| ロール CRUD | `/admin/roles`(+add/edit) | CRUD・権限割当 | ⬜ | ⬜ |
 | 権限 | `/admin/permissions`(+add/edit/delete) | CRUD | ⬜ | ⬜ |
 | サービスアカウント | `/admin/service-accounts`(+API keys) | CRUD・APIキー | ✅(`.json`) | ⬜ |
 | Google アカウント | `/admin/google_accounts` | 連携管理 | ⬜ | ⬜ |
@@ -100,6 +101,9 @@ CRUD(`POST/PUT/DELETE /api/albums`, 並び替え)、tags(`GET/POST /api/tags`,
 | 証明書 | `/certs/*` | 証明書グループ/失効 | ⬜ | ⬜ |
 | Wiki | `/wiki/*` | 一覧/閲覧/編集/履歴/カテゴリ/検索 | (`/wiki/api/*`) | ⬜ |
 
+**管理 API（実装済）**: `presentation/web/api/admin_users.py`。要 `user:manage` 権限。
+ロール CRUD / グループ / 権限 / 設定等の管理 JSON API は未整備。
+
 ---
 
 ## 5. ナビゲーション
@@ -107,7 +111,9 @@ CRUD(`POST/PUT/DELETE /api/albums`, 並び替え)、tags(`GET/POST /api/tags`,
 - **Jinja**（`base.html`）: Home / Dashboard / Photo▼(Sessions, Media, Albums,
   Settings) / Wiki / Certs / Profile / Management▼(各管理) / Logout
 - **React**（`Sidebar`）: Home / Dashboard / Media(Sessions, Sync Jobs, Media
-  Gallery, Albums, Tags) / Administration(Users, System Settings, Google Accounts)
+  Gallery, Albums, Tags) / Administration(Users※, System Settings, Google Accounts)
+
+※ Users リンクは `user:manage` 権限保有時のみ表示。
 
 ---
 
@@ -117,8 +123,8 @@ CRUD(`POST/PUT/DELETE /api/albums`, 並び替え)、tags(`GET/POST /api/tags`,
 2. ✅ 同期ジョブ履歴（一覧/詳細/再実行）＋取り込みセッション一覧
 3. ✅ 写真管理 read（メディア/アルバム/タグ一覧・メディア詳細）
 4. ✅ ログイン（パスワード/TOTP/ロール選択/ログアウト、パスキー統合）
-5. ⬜ 写真管理 write（アルバム CRUD/並び替え、タグ作成/付与、動画再生）
-6. ⬜ 管理 JSON API 層の新設 → 管理画面（ユーザー/ロール/権限/設定…）の React 化
+5. ✅ 写真管理 write（アルバム CRUD/並び替え、タグ作成/付与、動画再生）
+6. 🟡 管理 JSON API 層の新設 → 管理画面の React 化（**ユーザー管理完了**、ロール/グループ/権限/設定は未着手）
 7. ⬜ Wiki の React 化
 8. ⬜ Jinja からの完全切替（React `/` ホーム実装、旧テンプレート撤去）
 

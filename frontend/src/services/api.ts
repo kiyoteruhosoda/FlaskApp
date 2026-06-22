@@ -11,7 +11,15 @@ import {
   PaginatedResponse,
   SystemSettings,
   GoogleAccount,
-  TaskStatus
+  TaskStatus,
+  SyncJobListResponse,
+  SyncJobDetailResponse,
+  SyncJobsQuery,
+  PickerSessionListResponse,
+  PhotoItem,
+  AlbumSummary,
+  MediaTag,
+  CursorListResponse
 } from '../types/api';
 
 class ApiClient {
@@ -41,7 +49,13 @@ class ApiClient {
     this.client.interceptors.response.use(
       (response) => response,
       async (error) => {
-        if (error.response?.status === 401) {
+        // 認証エンドポイント自体の 401(資格情報不正・TOTP要求等)は
+        // セッション失効とは異なるため、リフレッシュ/リダイレクトを行わない。
+        const requestUrl: string = error.config?.url || '';
+        const isAuthEndpoint =
+          requestUrl.includes('/auth/login') ||
+          requestUrl.includes('/auth/refresh');
+        if (error.response?.status === 401 && !isAuthEndpoint) {
           // トークン期限切れの場合、リフレッシュトークンで再取得を試行
           const refreshToken = localStorage.getItem('refresh_token');
           if (refreshToken) {
@@ -293,6 +307,78 @@ class ApiClient {
   // タスク状況API
   async getTaskStatus(taskId: string): Promise<ApiResponse<TaskStatus>> {
     return this.get<TaskStatus>(`/tasks/${taskId}/status`);
+  }
+
+  // ===== 同期・変換ジョブ履歴 API =====
+  // バックエンドは {jobs, pagination, ...} の生レスポンスを返すため、
+  // ApiResponse ラップせず素の型で受ける。
+  async getSyncJobs(params?: SyncJobsQuery): Promise<SyncJobListResponse> {
+    const response = await this.client.get<SyncJobListResponse>('/sync/jobs', { params });
+    return response.data;
+  }
+
+  async getSyncJob(id: number): Promise<SyncJobDetailResponse> {
+    const response = await this.client.get<SyncJobDetailResponse>(`/sync/jobs/${id}`);
+    return response.data;
+  }
+
+  async retrySyncJob(id: number): Promise<{
+    success: boolean;
+    retriedFrom: number;
+    newJobId: number;
+    taskId: string | null;
+  }> {
+    const response = await this.client.post(`/sync/jobs/${id}/retry`);
+    return response.data;
+  }
+
+  // ===== Picker セッション一覧 API（実エンドポイント /picker/sessions） =====
+  async getPickerSessions(params?: {
+    page?: number;
+    pageSize?: number;
+  }): Promise<PickerSessionListResponse> {
+    const response = await this.client.get<PickerSessionListResponse>('/picker/sessions', { params });
+    return response.data;
+  }
+
+  // ===== 写真管理 API（実エンドポイントの生レスポンスで受ける） =====
+  async getPhotos(params?: {
+    pageSize?: number;
+    cursor?: string;
+    is_video?: 0 | 1;
+    order?: 'asc' | 'desc';
+  }): Promise<CursorListResponse<PhotoItem>> {
+    const response = await this.client.get<CursorListResponse<PhotoItem>>('/media', { params });
+    return response.data;
+  }
+
+  async getPhoto(id: number): Promise<PhotoItem> {
+    const response = await this.client.get<PhotoItem>(`/media/${id}`);
+    return response.data;
+  }
+
+  async getPhotoThumbUrl(id: number, size: number): Promise<string | null> {
+    const response = await this.client.post<{ url?: string }>(`/media/${id}/thumb-url`, { size });
+    return response.data?.url ?? null;
+  }
+
+  async getPhotoPlaybackUrl(id: number): Promise<string | null> {
+    const response = await this.client.post<{ url?: string }>(`/media/${id}/playback-url`);
+    return response.data?.url ?? null;
+  }
+
+  async getAlbums(params?: {
+    pageSize?: number;
+    cursor?: string;
+    q?: string;
+  }): Promise<CursorListResponse<AlbumSummary>> {
+    const response = await this.client.get<CursorListResponse<AlbumSummary>>('/albums', { params });
+    return response.data;
+  }
+
+  async getTags(params?: { q?: string; limit?: number }): Promise<{ items: MediaTag[] }> {
+    const response = await this.client.get<{ items: MediaTag[] }>('/tags', { params });
+    return response.data;
   }
 }
 

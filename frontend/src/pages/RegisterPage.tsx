@@ -69,18 +69,20 @@ const RegisterPage: React.FC = () => {
     <Container
       className="d-flex justify-content-center align-items-center"
       style={{ minHeight: '80vh' }}
+      data-testid="register-page"
     >
       <Card style={{ width: '100%', maxWidth: 420 }}>
         <Card.Body className="p-4">
           <h4 className="mb-4 text-center">{t('Create an account')}</h4>
 
-          {error && <Alert variant="danger">{error}</Alert>}
+          {error && <Alert variant="danger" data-testid="register-error">{error}</Alert>}
 
           <Form onSubmit={handleSubmit}>
             <Form.Group className="mb-3">
               <Form.Label>{t('Email')}</Form.Label>
               <Form.Control
                 type="email"
+                name="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 placeholder={t('Enter your email')}
@@ -93,6 +95,7 @@ const RegisterPage: React.FC = () => {
               <Form.Label>{t('Username')}</Form.Label>
               <Form.Control
                 type="text"
+                name="username"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 placeholder={t('Enter your username')}
@@ -103,6 +106,7 @@ const RegisterPage: React.FC = () => {
               <Form.Label>{t('Password')}</Form.Label>
               <Form.Control
                 type="password"
+                name="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder={t('Enter your password')}
@@ -114,6 +118,7 @@ const RegisterPage: React.FC = () => {
               <Form.Label>{t('Confirm Password')}</Form.Label>
               <Form.Control
                 type="password"
+                name="confirm_password"
                 value={confirmPassword}
                 onChange={e => setConfirmPassword(e.target.value)}
                 placeholder={t('Enter your password again')}
@@ -126,6 +131,7 @@ const RegisterPage: React.FC = () => {
               variant="primary"
               className="w-100"
               disabled={loading}
+              data-testid="register-submit"
             >
               {loading
                 ? <><Spinner size="sm" className="me-2" />{t('Signing up...')}</>

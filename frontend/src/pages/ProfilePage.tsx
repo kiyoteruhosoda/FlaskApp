@@ -166,7 +166,7 @@ const ProfilePage: React.FC = () => {
   if (!user) return null;
 
   return (
-    <Container className="py-4" style={{ maxWidth: 700 }}>
+    <Container className="py-4" style={{ maxWidth: 700 }} data-testid="profile-page">
       <h2 className="mb-4">{t('Profile')}</h2>
 
       {/* Profile Info Card */}
@@ -175,7 +175,7 @@ const ProfilePage: React.FC = () => {
           <div className="d-flex justify-content-between align-items-start mb-3">
             <Card.Title className="mb-0">{t('Profile')}</Card.Title>
             {!editMode && (
-              <Button variant="outline-primary" size="sm" onClick={startEdit}>
+              <Button variant="outline-primary" size="sm" onClick={startEdit} data-testid="profile-edit-btn">
                 <i className="bi bi-pencil me-1"></i>{t('Edit')}
               </Button>
             )}
@@ -209,6 +209,7 @@ const ProfilePage: React.FC = () => {
                 <Form.Label>{t('Email')}</Form.Label>
                 <Form.Control
                   type="email"
+                  name="email"
                   value={editEmail}
                   onChange={e => setEditEmail(e.target.value)}
                 />
@@ -217,6 +218,7 @@ const ProfilePage: React.FC = () => {
                 <Form.Label>{t('Username')}</Form.Label>
                 <Form.Control
                   type="text"
+                  name="username"
                   value={editUsername}
                   onChange={e => setEditUsername(e.target.value)}
                   placeholder={t('Enter your username')}
@@ -228,6 +230,7 @@ const ProfilePage: React.FC = () => {
                 <Form.Label>{t('New Password')}</Form.Label>
                 <Form.Control
                   type="password"
+                  name="new_password"
                   value={editPassword}
                   onChange={e => setEditPassword(e.target.value)}
                   placeholder={t('New Password')}
@@ -237,16 +240,17 @@ const ProfilePage: React.FC = () => {
                 <Form.Label>{t('Confirm Password')}</Form.Label>
                 <Form.Control
                   type="password"
+                  name="confirm_password"
                   value={editConfirmPassword}
                   onChange={e => setEditConfirmPassword(e.target.value)}
                   placeholder={t('Confirm Password')}
                 />
               </Form.Group>
               <div className="d-flex gap-2">
-                <Button variant="primary" onClick={handleSaveProfile} disabled={saving}>
+                <Button variant="primary" onClick={handleSaveProfile} disabled={saving} data-testid="profile-save-btn">
                   {saving ? <><Spinner size="sm" className="me-1" />{t('Saving...')}</> : t('Save')}
                 </Button>
-                <Button variant="outline-secondary" onClick={cancelEdit} disabled={saving}>
+                <Button variant="outline-secondary" onClick={cancelEdit} disabled={saving} data-testid="profile-cancel-btn">
                   {t('Cancel')}
                 </Button>
               </div>
@@ -274,12 +278,12 @@ const ProfilePage: React.FC = () => {
               )}
             </div>
             {!totpLoading && totpEnabled === false && !totpSetupData && (
-              <Button variant="outline-success" size="sm" onClick={handleSetupTOTP} disabled={totpBusy}>
+              <Button variant="outline-success" size="sm" onClick={handleSetupTOTP} disabled={totpBusy} data-testid="totp-enable-btn">
                 {totpBusy ? <Spinner size="sm" /> : <><i className="bi bi-shield-lock me-1"></i>{t('Enable 2FA')}</>}
               </Button>
             )}
             {!totpLoading && totpEnabled === true && !showDisableConfirm && (
-              <Button variant="outline-danger" size="sm" onClick={() => setShowDisableConfirm(true)} disabled={totpBusy}>
+              <Button variant="outline-danger" size="sm" onClick={() => setShowDisableConfirm(true)} disabled={totpBusy} data-testid="totp-disable-btn">
                 <i className="bi bi-shield-x me-1"></i>{t('Disable 2FA')}
               </Button>
             )}
@@ -298,7 +302,7 @@ const ProfilePage: React.FC = () => {
 
           {/* Disable confirmation */}
           {showDisableConfirm && (
-            <Alert variant="warning">
+            <Alert variant="warning" data-testid="totp-disable-confirm">
               <div className="mb-2">{t('Disable 2FA?')}</div>
               <div className="d-flex gap-2">
                 <Button
@@ -306,6 +310,7 @@ const ProfilePage: React.FC = () => {
                   size="sm"
                   onClick={handleDisableTOTP}
                   disabled={totpBusy}
+                  data-testid="totp-disable-confirm-btn"
                 >
                   {totpBusy ? <Spinner size="sm" /> : t('Disable 2FA')}
                 </Button>
@@ -345,6 +350,7 @@ const ProfilePage: React.FC = () => {
                 <Form.Label>{t('Enter the 6-digit verification code')}</Form.Label>
                 <Form.Control
                   type="text"
+                  name="totp_code"
                   inputMode="numeric"
                   maxLength={6}
                   value={totpCode}
@@ -359,6 +365,7 @@ const ProfilePage: React.FC = () => {
                   size="sm"
                   onClick={handleConfirmTOTP}
                   disabled={totpBusy || totpCode.length !== 6}
+                  data-testid="totp-verify-btn"
                 >
                   {totpBusy ? <Spinner size="sm" /> : t('Verify')}
                 </Button>

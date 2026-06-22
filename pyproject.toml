@@ -44,3 +44,8 @@ addopts = [
     # パス単位で一意にモジュール化する importlib モードを使う。
     "--import-mode=importlib",
 ]
+filterwarnings = [
+    # テストでは短い HMAC 鍵（jwt-secret 等）を使うため PyJWT が警告を出すが、
+    # 本番では十分な長さの鍵を使用するためテスト時のみ無視する。
+    "ignore::jwt.warnings.InsecureKeyLengthWarning",
+]

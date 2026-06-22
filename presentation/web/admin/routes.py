@@ -11,7 +11,6 @@ from typing import Any, Dict, Mapping
 import flask
 from flask import (
     Blueprint,
-    render_template,
     flash,
     redirect,
     url_for,
@@ -177,16 +176,7 @@ def _render_group_form(group: Group | None, form_state: dict[str, Any]):
     }
     selected_parent_id = form_state.get("parent_id", "")
 
-    return render_template(
-        "admin/group_edit.html",
-        group=group,
-        is_edit=group is not None,
-        parent_options=parent_options,
-        users=users,
-        form_state=form_state,
-        selected_parent_id=selected_parent_id,
-        selected_user_ids=selected_user_ids,
-    )
+    return redirect("/admin/groups")
 
 
 def _handle_group_form(group: Group | None):
@@ -796,14 +786,7 @@ def service_accounts():
     available_scopes = (
         sorted(current_user.permissions) if can_manage_accounts else []
     )
-    return render_template(
-        "admin/service_accounts.html",
-        accounts=accounts,
-        available_scopes=available_scopes,
-        can_manage_accounts=can_manage_accounts,
-        can_access_api_keys=can_access_api_keys,
-        certificate_groups=certificate_groups,
-    )
+    return redirect("/admin/service-accounts")
 
 
 @bp.route("/service-accounts.json", methods=["GET"])
@@ -927,12 +910,7 @@ def service_account_api_keys(account_id: int):
     else:
         account_dict["certificate_group_display_name"] = None
 
-    return render_template(
-        "admin/service_account_api_keys.html",
-        account=account_dict,
-        initial_keys=[record.as_dict() for record in key_records],
-        can_manage_api_keys=_can_manage_api_keys(),
-    )
+    return redirect("/admin/service-accounts")
 
 
 # Config表示ページ（管理者のみ）
@@ -1292,20 +1270,7 @@ def show_config():
         payload.update({"status": "success", "action": "fetch"})
         return jsonify(payload)
 
-    return render_template(
-        "admin/config_view.html",
-        signing_setting=context["signing_setting"],
-        server_signing_groups=context["server_signing_groups"],
-        builtin_signing_secret=context["builtin_signing_secret"],
-        application_sections=context["application_sections"],
-        application_fields=context["application_fields"],
-        cors_fields=context["cors_fields"],
-        application_config_updated_at=context["application_config_updated_at"],
-        application_config_description=context["application_config_description"],
-        cors_config_updated_at=context["cors_config_updated_at"],
-        cors_config_description=context["cors_config_description"],
-        signing_config_updated_at=context["signing_config_updated_at"],
-    )
+    return redirect("/admin/config")
 
 # バージョン情報表示ページ（管理者のみ）
 @bp.route("/version")
@@ -1335,11 +1300,7 @@ def show_version():
         "debug": current_app.debug,
         "hostname": socket.gethostname(),
     }
-    return render_template(
-        "admin/version_view.html",
-        version_info=version_info,
-        system_info=system_info,
-    )
+    return redirect("/")
 
 
 @bp.route("/data-files")
@@ -1543,14 +1504,7 @@ def show_data_files():
             }
         )
 
-    return render_template(
-        "admin/data_files.html",
-        directories=directories,
-        selected_directory=selected_directory,
-        filter_query=filter_query,
-        per_page=per_page,
-        per_page_options=per_page_select_options,
-    )
+    return redirect("/")
 
 # TOTPリセット
 @bp.route("/user/<int:user_id>/reset-totp", methods=["POST"])
@@ -1629,7 +1583,7 @@ def user_edit_roles(user_id):
         return _redirect_to_home()
     user = User.query.get_or_404(user_id)
     roles = Role.query.all()
-    return render_template("admin/user_role_edit.html", user=user, roles=roles)
+    return redirect("/admin/users")
 
 # ユーザー追加
 @bp.route("/user/add", methods=["GET", "POST"])
@@ -1644,14 +1598,14 @@ def user_add():
         role_id = request.form.get("role")
         if not email or not password or not role_id:
             flash(_("Email, password, and role are required."), "error")
-            return render_template("admin/user_add.html", roles=roles)
+            return redirect("/admin/users")
         if User.query.filter_by(email=email).first():
             flash(_("Email already exists."), "error")
-            return render_template("admin/user_add.html", roles=roles)
+            return redirect("/admin/users")
         role_obj = db.session.get(Role, int(role_id))
         if not role_obj:
             flash(_("Selected role does not exist."), "error")
-            return render_template("admin/user_add.html", roles=roles)
+            return redirect("/admin/users")
         u = User(email=email)
         u.set_password(password)
         u.roles.append(role_obj)
@@ -1659,7 +1613,7 @@ def user_add():
         db.session.commit()
         flash(_("User created successfully."), "success")
         return redirect(url_for("admin.user"))
-    return render_template("admin/user_add.html", roles=roles)
+    return redirect("/admin/users")
 
 
 @bp.route("/user", methods=["GET"])
@@ -1669,7 +1623,7 @@ def user():
         return _redirect_to_home()
     users = User.query.all()
     roles = Role.query.all()
-    return render_template("admin/admin_users.html", users=users, roles=roles)
+    return redirect("/admin/users")
 
 
 @bp.route("/groups", methods=["GET"])
@@ -1687,7 +1641,7 @@ def groups():
         .order_by(Group.name)
     )
     groups = groups_query.all()
-    return render_template("admin/groups.html", groups=groups)
+    return redirect("/admin/groups")
 
 
 @bp.route("/groups/add", methods=["GET", "POST"])
@@ -1770,10 +1724,7 @@ def permissions():
     else:
         sort_column = sort_column.asc()
 
-    perms = query.order_by(sort_column).all()
-    return render_template(
-        "admin/permissions.html", permissions=perms, search=search, sort=sort, order=order
-    )
+    return redirect("/admin/permissions")
 
 
 @bp.route("/permissions/add", methods=["GET", "POST"])
@@ -1786,16 +1737,16 @@ def permission_add():
         detail = (request.form.get("detail") or "").strip()
         if not code:
             flash(_("Code is required."), "error")
-            return render_template("admin/permission_edit.html", permission=None)
+            return redirect("/admin/permissions")
         if Permission.query.filter_by(code=code).first():
             flash(_("Permission already exists."), "error")
-            return render_template("admin/permission_edit.html", permission=None)
+            return redirect("/admin/permissions")
         p = Permission(code=code, detail=detail or None)
         db.session.add(p)
         db.session.commit()
         flash(_("Permission created successfully."), "success")
         return redirect(url_for("admin.permissions"))
-    return render_template("admin/permission_edit.html", permission=None)
+    return redirect("/admin/permissions")
 
 
 @bp.route("/permissions/<int:perm_id>/edit", methods=["GET", "POST"])
@@ -1809,13 +1760,13 @@ def permission_edit(perm_id):
         detail = (request.form.get("detail") or "").strip()
         if not code:
             flash(_("Code is required."), "error")
-            return render_template("admin/permission_edit.html", permission=perm)
+            return redirect("/admin/permissions")
         perm.code = code
         perm.detail = detail or None
         db.session.commit()
         flash(_("Permission updated."), "success")
         return redirect(url_for("admin.permissions"))
-    return render_template("admin/permission_edit.html", permission=perm)
+    return redirect("/admin/permissions")
 
 
 @bp.route("/permissions/<int:perm_id>/delete", methods=["POST"])
@@ -1836,7 +1787,7 @@ def roles():
     if not current_user.can('role:manage'):
         return _redirect_to_home()
     roles = Role.query.all()
-    return render_template("admin/roles.html", roles=roles)
+    return redirect("/admin/roles")
 
 
 @bp.route("/roles/add", methods=["GET", "POST"])
@@ -1850,10 +1801,10 @@ def role_add():
         perm_ids = request.form.getlist("permissions")
         if not name:
             flash(_("Name is required."), "error")
-            return render_template("admin/role_edit.html", role=None, permissions=permissions, selected=[])
+            return redirect("/admin/roles")
         if Role.query.filter_by(name=name).first():
             flash(_("Role already exists."), "error")
-            return render_template("admin/role_edit.html", role=None, permissions=permissions, selected=[])
+            return redirect("/admin/roles")
         role = Role(name=name)
         for pid in perm_ids:
             perm = db.session.get(Permission, int(pid))
@@ -1863,7 +1814,7 @@ def role_add():
         db.session.commit()
         flash(_("Role created successfully."), "success")
         return redirect(url_for("admin.roles"))
-    return render_template("admin/role_edit.html", role=None, permissions=permissions, selected=[])
+    return redirect("/admin/roles")
 
 
 @bp.route("/roles/<int:role_id>/edit", methods=["GET", "POST"])
@@ -1878,7 +1829,7 @@ def role_edit(role_id):
         perm_ids = request.form.getlist("permissions")
         if not name:
             flash(_("Name is required."), "error")
-            return render_template("admin/role_edit.html", role=role, permissions=permissions, selected=[p.id for p in role.permissions])
+            return redirect("/admin/roles")
         role.name = name
         role.permissions = []
         for pid in perm_ids:
@@ -1888,8 +1839,7 @@ def role_edit(role_id):
         db.session.commit()
         flash(_("Role updated."), "success")
         return redirect(url_for("admin.roles"))
-    selected = [p.id for p in role.permissions]
-    return render_template("admin/role_edit.html", role=role, permissions=permissions, selected=selected)
+    return redirect("/admin/roles")
 
 
 @bp.route("/roles/<int:role_id>/delete", methods=["POST"])
@@ -1914,7 +1864,7 @@ def google_accounts():
 
     accounts = GoogleAccount.query.all()
 
-    return render_template("admin/google_accounts.html", accounts=accounts)
+    return redirect("/")
 
 
 def _extract_service_account_payload() -> dict:

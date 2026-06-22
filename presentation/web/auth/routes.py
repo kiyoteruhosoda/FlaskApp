@@ -1,5 +1,4 @@
 from flask import (
-    render_template,
     request,
     redirect,
     url_for,
@@ -377,11 +376,7 @@ def _resolve_safe_next_value():
 
 
 def _render_login_template():
-    return render_template(
-        "auth/login.html",
-        next_value=_resolve_safe_next_value(),
-        passkey_available=True,
-    )
+    return redirect("/login")
 
 
 def _resolve_current_user_model() -> User | None:
@@ -579,19 +574,17 @@ def _validate_registration_input(email, password, template_name):
     """登録時の入力バリデーション"""
     if not email or not password:
         flash(_("Email and password are required"), "error")
-        return render_template(template_name)
+        return redirect("/register")
     if user_repo.get_by_email(email):
         flash(_("Email already exists"), "error")
-        return render_template(template_name)
+        return redirect("/register")
     return None
 
 
 def _handle_registration_error(template_name, **template_kwargs):
     """登録時のロールエラーハンドリング"""
     flash(_("Default role 'guest' does not exist"), "error")
-    if template_name == "auth/register_totp.html":
-        return _redirect_to("auth.register")
-    return render_template(template_name, **template_kwargs)
+    return redirect("/register")
 
 
 @bp.route("/login", methods=["GET", "POST"])
@@ -1103,13 +1096,7 @@ def select_role():
             message = f"{message} ({english_message})"
         flash(message, "error")
 
-    selected_role_id = session.get("active_role_id")
-    return render_template(
-        "auth/select_role.html",
-        roles=roles,
-        selected_role_id=selected_role_id,
-        next_target=_peek_role_selection_target(),
-    )
+    return redirect("/select-role")
 
 @bp.route("/register", methods=["GET", "POST"])
 def register():
@@ -1118,21 +1105,21 @@ def register():
         password = request.form.get("password")
         if not email or not password:
             flash(_("Email and password are required"), "error")
-            return render_template("auth/register.html")
-        
+            return redirect("/register")
+
         # アクティブユーザーが存在するかチェック
         existing_user = user_repo.get_by_email(email)
         if existing_user and existing_user.is_active:
             flash(_("Email already exists"), "error")
-            return render_template("auth/register.html")
-        
+            return redirect("/register")
+
         # 既存の登録セッションをクリア
         _clear_registration_session()
-        
+
         try:
             # TOTP設定待ちの非アクティブユーザーとして登録
             u = auth_service.register_with_pending_totp(email, password, roles=["guest"])
-            
+
             secret = new_totp_secret()
             session["reg_user_id"] = u.id
             session["reg_secret"] = secret
@@ -1140,8 +1127,8 @@ def register():
             return _redirect_to("auth.register_totp")
         except ValueError as e:
             flash(_("Registration failed: {}").format(str(e)), "error")
-            return render_template("auth/register.html")
-    return render_template("auth/register.html")
+            return redirect("/register")
+    return redirect("/register")
 
 
 @bp.route("/register/totp", methods=["GET", "POST"])
@@ -1169,13 +1156,8 @@ def register_totp():
         token = request.form.get("token")
         if not token or not verify_totp(secret, token):
             flash(_("Invalid authentication code"), "error")
-            return render_template(
-                "auth/register_totp.html",
-                qr_data=qr_data,
-                secret=secret,
-                otpauth_uri=uri,
-            )
-        
+            return redirect("/register")
+
         try:
             # ユーザーをTOTPと共にアクティブ化
             domain_user = user_repo._to_domain(user_model)
@@ -1190,19 +1172,9 @@ def register_totp():
             return redirect(dashboard_url)
         except Exception as e:
             flash(_("Registration failed: {}").format(str(e)), "error")
-            return render_template(
-                "auth/register_totp.html",
-                qr_data=qr_data,
-                secret=secret,
-                otpauth_uri=uri,
-            )
+            return redirect("/register")
 
-    return render_template(
-        "auth/register_totp.html",
-        qr_data=qr_data,
-        secret=secret,
-        otpauth_uri=uri,
-    )
+    return redirect("/register")
 
 
 @bp.route("/register/totp/cancel", methods=["POST"])
@@ -1240,7 +1212,7 @@ def register_no_totp():
         
         return _complete_registration(u)
     
-    return render_template("auth/register_no_totp.html")
+    return redirect("/register")
 
 
 @bp.route("/profile", methods=["GET", "POST"])
@@ -1402,20 +1374,7 @@ def profile():
                 extra={"event": "auth.profile.passkeys", "path": request.path},
             )
 
-    return render_template(
-        "auth/profile.html",
-        language_choices=language_choices,
-        selected_language=selected_language,
-        timezone_choices=timezone_choices,
-        selected_timezone=selected_timezone,
-        server_time_utc=server_time_utc,
-        localized_time=localized_time,
-        active_role=getattr(current_user, "active_role", None),
-        role_options=role_options,
-        is_service_account=is_service_account,
-        active_permissions=active_permissions,
-        passkey_credentials=passkey_credentials,
-    )
+    return redirect("/profile")
 
 
 @bp.route("/edit", methods=["GET", "POST"])
@@ -1441,10 +1400,10 @@ def edit():
         password = request.form.get("password")
         if not email:
             flash(_("Email is required"), "error")
-            return render_template("auth/edit.html", is_service_account=is_service_account)
+            return redirect("/profile")
         if email != user_model.email and User.query.filter_by(email=email).first():
             flash(_("Email already exists"), "error")
-            return render_template("auth/edit.html", is_service_account=is_service_account)
+            return redirect("/profile")
         user_model.email = email
         if password:
             user_model.set_password(password)
@@ -1462,7 +1421,7 @@ def edit():
 
         flash(_("Profile updated"), "success")
         return _redirect_to("auth.profile")
-    return render_template("auth/edit.html", is_service_account=is_service_account, user=user_model)
+    return redirect("/profile")
 
 
 @bp.route("/setup_totp", methods=["GET", "POST"])
@@ -1513,13 +1472,7 @@ def setup_totp():
         token = request.form.get("token")
         if not token or not verify_totp(secret, token):
             flash(_("Invalid authentication code"), "error")
-            return render_template(
-                "auth/setup_totp.html",
-                qr_data=qr_data,
-                secret=secret,
-                otpauth_uri=uri,
-                next_url=next_url,
-            )
+            return redirect("/profile")
         user_model.totp_secret = secret
         db.session.commit()
         try:
@@ -1533,13 +1486,7 @@ def setup_totp():
         _clear_setup_totp_session()
         flash(_("Two-factor authentication enabled"), "success")
         return redirect(next_url)
-    return render_template(
-        "auth/setup_totp.html",
-        qr_data=qr_data,
-        secret=secret,
-        otpauth_uri=uri,
-        next_url=next_url,
-    )
+    return redirect("/profile")
 
 @bp.route("/setup_totp/cancel", methods=["POST"])
 @login_required
@@ -1752,15 +1699,7 @@ def picker(account_id: int):
     db.session.add(ps)
     db.session.commit()
 
-    poll_interval = polling_conf.get("pollInterval")
-    qr_data = qr_code_data_uri(picker_uri)
-    return render_template(
-        "auth/picker.html",
-        session_id=ps.session_id,
-        picker_uri=picker_uri,
-        qr_data=qr_data,
-        poll_interval=poll_interval,
-    )
+    return redirect("/sessions")
 
 @bp.route("/settings/google-accounts")
 @login_required
@@ -1779,26 +1718,26 @@ def password_forgot():
         email = request.form.get("email")
         if not email:
             flash(_("Email address is required"), "error")
-            return render_template("auth/password_forgot.html")
-        
+            return redirect("/forgot-password")
+
         from presentation.web.services.password_reset_service import PasswordResetService
-        
+
         # パスワードリセットリクエストを作成
         success, error_message = PasswordResetService.create_reset_request(email)
-        
+
         if not success and error_message:
             # メール機能が無効な場合のみエラーを表示
             flash(error_message, "error")
-            return render_template("auth/password_forgot.html")
-        
+            return redirect("/forgot-password")
+
         # セキュリティ: 常に成功メッセージを返す（アカウント存在確認攻撃を防ぐ）
         flash(
             _("If an account exists with that email address, you will receive a password reset link. Please check your spam folder if you don't see it."),
             "success"
         )
         return _redirect_to("auth.login")
-    
-    return render_template("auth/password_forgot.html")
+
+    return redirect("/forgot-password")
 
 
 @bp.route("/password/reset", methods=["GET", "POST"])
@@ -1827,16 +1766,16 @@ def password_reset():
         
         if not password or not password_confirm:
             flash(_("Both password fields are required"), "error")
-            return render_template("auth/password_reset.html", token=token)
-        
+            return redirect(f"/reset-password?token={token}")
+
         if password != password_confirm:
             flash(_("Passwords do not match"), "error")
-            return render_template("auth/password_reset.html", token=token)
-        
+            return redirect(f"/reset-password?token={token}")
+
         if len(password) < 8:
             flash(_("Password must be at least 8 characters long"), "error")
-            return render_template("auth/password_reset.html", token=token)
-        
+            return redirect(f"/reset-password?token={token}")
+
         # パスワードリセット実行
         success = PasswordResetService.reset_password(token, password)
         if success:
@@ -1845,5 +1784,5 @@ def password_reset():
         else:
             flash(_("This password reset link is invalid or has expired"), "error")
             return _redirect_to("auth.login")
-    
-    return render_template("auth/password_reset.html", token=token)
+
+    return redirect(f"/reset-password?token={token}")

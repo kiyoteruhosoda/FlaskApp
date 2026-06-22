@@ -51,3 +51,7 @@ migrations/versions/__pycache__/
 
 # 管理外
 tmp/
+
+# テスト成果物
+test-results/
+playwright-report/

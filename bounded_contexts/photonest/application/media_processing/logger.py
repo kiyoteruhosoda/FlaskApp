@@ -7,7 +7,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from core.logging_config import log_task_error, log_task_info
+from shared.kernel.logging.logging_config import log_task_error, log_task_info
 
 
 class StructuredMediaTaskLogger:

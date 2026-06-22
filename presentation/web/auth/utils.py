@@ -5,7 +5,7 @@ from core.settings import settings
 import requests
 
 from ..bootstrap.extensions import db
-from core.crypto import encrypt, decrypt
+from shared.kernel.crypto.crypto import encrypt, decrypt
 
 # 外向き HTTP ロギングユーティリティは共有 infrastructure 層へ移動した。
 # 後方互換のため従来の ``from ..auth.utils import log_requests_and_send`` を維持する。

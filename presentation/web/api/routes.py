@@ -64,7 +64,7 @@ from core.models.photo_models import (
     media_tag,
 )
 from core.models.user import User, Role
-from core.crypto import decrypt
+from shared.kernel.crypto.crypto import decrypt
 from ..auth.utils import refresh_google_token, RefreshTokenError, log_requests_and_send
 from ..auth.routes import _sync_active_role
 from .pagination import PaginationParams, paginate_and_respond

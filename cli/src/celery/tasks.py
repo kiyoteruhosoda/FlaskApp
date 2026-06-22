@@ -19,7 +19,7 @@ from core.tasks.session_recovery import (
 from core.tasks.backup_cleanup import cleanup_old_backups, get_backup_status
 from core.tasks.log_cleanup import cleanup_old_logs
 from core.tasks.media_post_processing import process_due_thumbnail_retries
-from core.logging_config import log_task_info, log_task_error
+from shared.kernel.logging.logging_config import log_task_info, log_task_error
 from core.tasks.thumbs_generate import (
     PLAYBACK_NOT_READY_NOTES,
     PlaybackNotReadyError,

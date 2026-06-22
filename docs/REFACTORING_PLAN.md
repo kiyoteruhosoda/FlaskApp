@@ -90,17 +90,31 @@ shared/
 
 **成果:** 逆依存 4 → 2 に削減。`wiki` と `certs` から `presentation.web` への依存が消滅。
 
-### Phase 1 — `core` シムの張り替え（低リスク・機械的）
+### Phase 1 — `core` シムの張り替え（低リスク・機械的）✅（本コミットで完了）
 
-参照が少ないものから順に、import を `shared.kernel.*` へ張り替える。
+参照が少ないものから順に、**本番コード（production）**の import を
+`shared.kernel.*` へ張り替えた。
 
-1. `core.crypto`（5） → `shared.kernel.crypto.crypto`
-2. `core.lifecycle_logging`（3） → `shared.kernel.logging.lifecycle_logging`
-3. `core.db_log_handler`（6） → `shared.kernel.logging.db_log_handler`
-4. `core.logging_config`（7） → `shared.kernel.logging.logging_config`
-5. `core.system_settings_defaults`（14） → `shared.kernel.settings.system_settings_defaults`
+1. `core.crypto` → `shared.kernel.crypto.crypto`
+2. `core.lifecycle_logging` → `shared.kernel.logging.lifecycle_logging`
+3. `core.db_log_handler` → `shared.kernel.logging.db_log_handler`
+4. `core.logging_config` → `shared.kernel.logging.logging_config`
+5. `core.system_settings_defaults` → `shared.kernel.settings.system_settings_defaults`
 
-各ステップ: import 張り替え → テスト → シム削除（または `__getattr__` のみ残す）。
+張り替えた本番ファイル（計 17）: `presentation/web/`（auth/api/admin/bootstrap/services）、
+`bounded_contexts/photonest/`（media_processing / local_import ロガー・scheduler）、
+`cli/src/celery/`、`main.py`、`wsgi.py`、`scripts/`。
+
+**シム本体は意図的に残す**（`__getattr__` 付き再エクスポート）。理由:
+
+- `migrations/versions/8c1f2e3d4b5a_*.py` が `core.system_settings_defaults` を
+  参照しており、マイグレーションは履歴として不変に保つ。
+- `tests/unit/core/` 配下にシム再エクスポートの同一性を検証するテストがあり、
+  後方互換の回帰検知に有用。
+
+→ 本番コードの `core` シム依存は解消。残る `core.*` 参照は `tests/` と
+`migrations/` のみ。シム削除はフルテストスイートで安全確認できた段階で実施する。
+
 **`core.db`（83）と `core.settings`（48）は影響範囲が大きいため Phase 2 で単独実施。**
 
 ### Phase 2 — `core.db` / `core.settings` の張り替え
@@ -160,7 +174,7 @@ Google トークン更新）/ `core.tasks.local_import` / `concurrency` / `pagin
 ## 5. 進捗
 
 - [x] Phase 0: 逆依存 #1（timezone）・#2（http_logging）解消
-- [ ] Phase 1: 参照少数の `core` シム張り替え
+- [x] Phase 1: 参照少数の `core` シム張り替え（本番コード／シムは後方互換で残置）
 - [ ] Phase 2: `core.db` / `core.settings` 張り替え
 - [ ] Phase 3: `picker_session` を `picker_import` へ抽出（逆依存 #3・#4）
 - [ ] Phase 4: `core` 残置モジュールの最終移設

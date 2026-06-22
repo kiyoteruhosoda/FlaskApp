@@ -9,7 +9,7 @@ from flask_babel import gettext as _
 
 from core.db import db
 from core.models.system_setting import SystemSetting
-from core.system_settings_defaults import (
+from shared.kernel.settings.system_settings_defaults import (
     DEFAULT_APPLICATION_SETTINGS,
     DEFAULT_CORS_SETTINGS,
 )

@@ -6,7 +6,7 @@ import logging
 from typing import Optional
 
 from bounded_contexts.photonest.application.media_processing.interfaces import ThumbnailRetryScheduler
-from core.logging_config import setup_task_logging
+from shared.kernel.logging.logging_config import setup_task_logging
 
 
 class RetrySchedulingError(RuntimeError):

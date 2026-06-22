@@ -28,7 +28,7 @@ from ..bootstrap.extensions import db
 from sqlalchemy import or_
 
 from core.models.system_setting import SystemSetting
-from core.system_settings_defaults import (
+from shared.kernel.settings.system_settings_defaults import (
     DEFAULT_APPLICATION_SETTINGS,
     DEFAULT_CORS_SETTINGS,
 )

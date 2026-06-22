@@ -1,5 +1,5 @@
 from presentation.web import create_app
-from core.lifecycle_logging import register_lifecycle_logging
+from shared.kernel.logging.lifecycle_logging import register_lifecycle_logging
 
 app = create_app()
 register_lifecycle_logging(app)

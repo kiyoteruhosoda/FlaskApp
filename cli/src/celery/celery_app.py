@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from flask import Flask
 
 from core.celery_settings import CelerySettings
-from core.db import db
+from shared.kernel.database.db import db
 from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 from core.models.job_sync import JobSync
 from shared.kernel.logging.logging_config import log_task_info

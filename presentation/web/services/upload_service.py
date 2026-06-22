@@ -14,7 +14,7 @@ from flask import current_app
 from werkzeug.datastructures import FileStorage
 
 from presentation.web.bootstrap.config import BaseApplicationSettings
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 from bounded_contexts.storage import StorageDomain
 
 

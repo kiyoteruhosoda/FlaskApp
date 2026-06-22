@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from core.db import db
+from shared.kernel.database.db import db
 from bounded_contexts.certs.domain.models import CertificateEvent
 
 from .models import CertificateEventEntity

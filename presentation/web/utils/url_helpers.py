@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from flask import Request, request
 
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 
 
 def _extract_forwarded_proto(forwarded_header: str | None) -> str | None:

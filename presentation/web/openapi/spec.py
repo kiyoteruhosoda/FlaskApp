@@ -21,7 +21,7 @@ from urllib.parse import urlsplit
 
 from flask import request
 
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 
 
 def normalize_openapi_prefix(prefix: Optional[str]) -> str:

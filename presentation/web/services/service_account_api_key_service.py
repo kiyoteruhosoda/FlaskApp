@@ -9,7 +9,7 @@ import secrets
 from flask import current_app
 from werkzeug.security import generate_password_hash
 
-from core.db import db
+from shared.kernel.database.db import db
 from core.models.service_account import ServiceAccount
 from core.models.service_account_api_key import (
     ServiceAccountApiKey,

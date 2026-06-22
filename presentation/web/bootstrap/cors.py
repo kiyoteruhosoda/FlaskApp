@@ -12,7 +12,7 @@ from typing import Optional, Sequence
 
 from flask import Flask, make_response, request
 
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 
 
 DEFAULT_CORS_ALLOW_HEADERS = "Authorization,Content-Type"

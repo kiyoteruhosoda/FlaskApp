@@ -6,7 +6,7 @@ from flask_smorest import Blueprint
 from flask_smorest import Page
 from marshmallow import Schema, fields
 
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 from core.models.authz import require_perms
 
 __all__ = ["bp"]

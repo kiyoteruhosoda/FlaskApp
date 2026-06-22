@@ -13,7 +13,7 @@ from typing import Callable, Optional, TypeVar, Any, cast
 
 from flask import jsonify
 
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 
 
 class ConcurrencyLimitExceeded(RuntimeError):

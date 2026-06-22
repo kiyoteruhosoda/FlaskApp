@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from flask import Flask
 
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 from presentation.web.auth.api_key_auth import API_KEY_SECURITY_SCHEME_NAME
 
 from presentation.web.bootstrap.extensions import api as smorest_api

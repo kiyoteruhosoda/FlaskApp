@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
-from core.db import db
+from shared.kernel.database.db import db
 from bounded_contexts.photonest.infrastructure.local_import.audit_logger import (
     AuditLogger,
     LogCategory,

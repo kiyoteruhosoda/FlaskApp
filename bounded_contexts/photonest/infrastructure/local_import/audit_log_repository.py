@@ -11,7 +11,7 @@ from typing import Optional
 from sqlalchemy import JSON, BigInteger, Text, desc, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
-from core.db import db
+from shared.kernel.database.db import db
 from bounded_contexts.photonest.infrastructure.local_import.audit_logger import (
     AuditLogEntry,
     LogCategory,

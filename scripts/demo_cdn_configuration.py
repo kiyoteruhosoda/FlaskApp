@@ -12,7 +12,7 @@ sys.path.insert(0, str(project_root))
 from dotenv import load_dotenv
 load_dotenv()
 
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 
 
 def print_cdn_settings():

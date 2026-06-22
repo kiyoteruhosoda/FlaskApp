@@ -6,9 +6,9 @@ import mimetypes
 from pathlib import Path
 from typing import Optional, Sequence
 
-from core.db import db
+from shared.kernel.database.db import db
 from core.models.photo_models import Media
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 
 from bounded_contexts.wiki.application.dto import (
     WikiAdminDashboardView,

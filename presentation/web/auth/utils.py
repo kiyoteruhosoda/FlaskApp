@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timezone
 
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 import requests
 
 from ..bootstrap.extensions import db

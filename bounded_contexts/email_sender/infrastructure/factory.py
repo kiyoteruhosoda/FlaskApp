@@ -71,7 +71,7 @@ class EmailSenderFactory:
     def _get_provider_from_config(cls) -> str:
         """設定からメールプロバイダーを取得."""
         try:
-            from core.settings import settings
+            from shared.kernel.settings.settings import settings
 
             return str(settings.mail_provider).lower().strip()
         except Exception as e:
@@ -111,7 +111,7 @@ class EmailSenderFactory:
     def _resolve_default_sender() -> str | None:
         """デフォルト送信者を設定から取得."""
         try:
-            from core.settings import settings
+            from shared.kernel.settings.settings import settings
 
             return settings.mail_default_sender or settings.mail_username
         except Exception:

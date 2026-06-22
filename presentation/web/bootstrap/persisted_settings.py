@@ -12,7 +12,7 @@ from collections.abc import MutableMapping
 
 from flask import Flask
 
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 from shared.kernel.settings.system_settings_defaults import (
     DEFAULT_APPLICATION_SETTINGS,
     DEFAULT_CORS_SETTINGS,

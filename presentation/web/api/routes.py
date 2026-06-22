@@ -87,7 +87,7 @@ from ..auth.service_account_auth import (
     ServiceAccountJWTError,
     ServiceAccountTokenValidator,
 )
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 from presentation.web.utils import determine_external_scheme
 import jwt
 from sqlalchemy.orm import joinedload

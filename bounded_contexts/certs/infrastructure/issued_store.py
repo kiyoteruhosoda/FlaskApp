@@ -9,7 +9,7 @@ from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from sqlalchemy import func
 
-from core.db import db
+from shared.kernel.database.db import db
 from bounded_contexts.certs.domain.exceptions import CertificateNotFoundError
 from bounded_contexts.certs.domain.models import CertificateGroup, IssuedCertificate, RotationPolicy
 from bounded_contexts.certs.domain.usage import UsageType

@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Any
 import os
 
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 from core.models.photo_models import PickerSelection
 from core.models.picker_session import PickerSession
 from ..bootstrap.extensions import db
@@ -57,7 +57,7 @@ def trigger_local_import():
 
     from cli.src.celery.tasks import local_import_task_celery
     from core.models.picker_session import PickerSession
-    from core.db import db
+    from shared.kernel.database.db import db
     import uuid
     import random
     import string

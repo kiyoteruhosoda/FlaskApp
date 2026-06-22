@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from flask import Flask
 
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 
 from .extensions import mail
 

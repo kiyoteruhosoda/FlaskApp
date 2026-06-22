@@ -4,7 +4,7 @@ Wiki機能のリポジトリ実装 - データアクセス層
 
 from typing import List, Optional
 from sqlalchemy import desc, asc
-from core.db import db
+from shared.kernel.database.db import db
 from core.models.wiki.models import WikiPage, WikiCategory, WikiRevision
 from bounded_contexts.wiki.domain.entities import (
     WikiPage as WikiPageEntity,

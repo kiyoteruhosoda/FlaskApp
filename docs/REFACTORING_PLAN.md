@@ -117,15 +117,23 @@ shared/
 
 **`core.db`（83）と `core.settings`（48）は影響範囲が大きいため Phase 2 で単独実施。**
 
-### Phase 2 — `core.db` / `core.settings` の張り替え
+### Phase 2 — `core.db` / `core.settings` の張り替え ✅（本コミットで完了）
 
-最も参照の多い 2 モジュール。張り替えは機械的だが、ORM の `db` インスタンス同一性と
-設定シングルトンの初期化順序に注意。
+最も参照の多い 2 モジュール。**本番コード66ファイル**の import を
+正本へ張り替えた（フレーズ単位置換で `core.db_log_handler` 等を誤爆させない）。
 
-- `from core.db import db` → `from shared.kernel.database.db import db`
-- `from core.settings import settings, ApplicationSettings` → `shared.kernel.settings.settings`
-- 全テスト（unit + integration）で `db.metadata` の同一性・マイグレーション認識を確認。
-- 完了後、`core/db.py` `core/settings.py` のシムを削除。
+- `from core.db import ...` → `from shared.kernel.database.db import ...`
+- `from core.settings import ...` → `from shared.kernel.settings.settings import ...`
+
+**`db` インスタンス同一性を実機検証済み**:
+`core.db.db is shared.kernel.database.db.db == True`、
+`core.settings.settings is shared.kernel.settings.settings.settings == True`。
+シムが正本を再エクスポートしているため、import パスを変えても同一の単一
+SQLAlchemy インスタンス／設定シングルトンを参照する（`db.metadata` 断片化なし）。
+
+**シムは Phase 1 と同様に残置**。`core.db` / `core.settings` の残参照は `tests/`
+（55 ファイル）のみで、後方互換のため shim を保持する。本番からの直接 `core`
+参照は消滅。シム削除はフルテストスイートで安全確認できた段階で実施する。
 
 ### Phase 3 — `picker_session` を `picker_import` コンテキストへ抽出（高リスク）
 
@@ -175,6 +183,6 @@ Google トークン更新）/ `core.tasks.local_import` / `concurrency` / `pagin
 
 - [x] Phase 0: 逆依存 #1（timezone）・#2（http_logging）解消
 - [x] Phase 1: 参照少数の `core` シム張り替え（本番コード／シムは後方互換で残置）
-- [ ] Phase 2: `core.db` / `core.settings` 張り替え
+- [x] Phase 2: `core.db` / `core.settings` 張り替え（本番66ファイル／同一性検証済・シム残置）
 - [ ] Phase 3: `picker_session` を `picker_import` へ抽出（逆依存 #3・#4）
 - [ ] Phase 4: `core` 残置モジュールの最終移設

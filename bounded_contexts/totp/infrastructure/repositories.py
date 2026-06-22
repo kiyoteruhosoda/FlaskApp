@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Iterable, List, Optional
 
-from core.db import db
+from shared.kernel.database.db import db
 from core.models.totp import TOTPCredential as TOTPCredentialModel
 from bounded_contexts.totp.domain.entities import TOTPCredentialEntity
 

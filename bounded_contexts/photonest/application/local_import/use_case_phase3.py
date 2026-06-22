@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from core.db import db
+from shared.kernel.database.db import db
 from core.models.picker_session import PickerSession
 from core.models.photo_models import PickerSelection
 

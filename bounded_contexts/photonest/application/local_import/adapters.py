@@ -12,7 +12,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional, Any, Dict
 
-from core.db import db
+from shared.kernel.database.db import db
 from core.models.photo_models import Media
 from bounded_contexts.photonest.domain.local_import.value_objects import FileHash
 from bounded_contexts.photonest.domain.local_import.services import (

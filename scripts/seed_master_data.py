@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 # プロジェクトルートをパスに追加
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.db import db
+from shared.kernel.database.db import db
 from core.models.user import User, Role, Permission
 from core.models.system_setting import SystemSetting
 from shared.kernel.settings.system_settings_defaults import (

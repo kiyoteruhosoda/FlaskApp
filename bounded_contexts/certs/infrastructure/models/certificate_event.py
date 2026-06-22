@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from core.db import db
+from shared.kernel.database.db import db
 
 
 class CertificateEventEntity(db.Model):

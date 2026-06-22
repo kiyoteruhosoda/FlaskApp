@@ -9,7 +9,7 @@ import uuid
 import json
 import jwt
 from flask import current_app, g, request
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 from flask_babel import gettext as _
 from jwt import algorithms as jwt_algorithms
 import redis

@@ -19,7 +19,7 @@ from bounded_contexts.certs.domain.exceptions import (
     CertificateValidationError,
 )
 from bounded_contexts.certs.domain.usage import UsageType
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 from presentation.web.auth.api_key_auth import require_api_key_scopes
 
 from . import bp

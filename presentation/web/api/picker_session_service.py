@@ -10,7 +10,7 @@ from uuid import uuid4
 
 from flask import current_app
 
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 
 from .pagination import PaginationParams, Paginator
 from ..bootstrap.extensions import db

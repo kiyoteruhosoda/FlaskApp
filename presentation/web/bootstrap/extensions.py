@@ -1,4 +1,4 @@
-from core.db import db
+from shared.kernel.database.db import db
 from flask_migrate import Migrate
 from flask_login import LoginManager, AnonymousUserMixin
 from flask_babel import Babel

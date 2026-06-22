@@ -6,7 +6,7 @@ from typing import Optional
 from flask import current_app, url_for
 from flask_babel import gettext as _
 
-from core.db import db
+from shared.kernel.database.db import db
 from core.models.password_reset_token import PasswordResetToken
 from core.models.user import User
 from presentation.web.utils import determine_external_scheme
@@ -45,7 +45,7 @@ class PasswordResetService:
                 - その他の場合: (True, None) - セキュリティのため常に成功を返す
         """
         # メール機能が有効かチェック（先にチェックして早期リターン）
-        from core.settings import settings
+        from shared.kernel.settings.settings import settings
         if not settings.mail_enabled:
             current_app.logger.warning(
                 "Password reset requested but mail is disabled",
@@ -109,7 +109,7 @@ class PasswordResetService:
             RuntimeError: メール機能が無効、または送信に失敗した場合
         """
         # メール機能が有効かチェック
-        from core.settings import settings
+        from shared.kernel.settings.settings import settings
         if not settings.mail_enabled:
             raise RuntimeError(
                 _(

@@ -45,7 +45,7 @@ from ..services.gui_access_cookie import (
     apply_gui_access_cookie,
     normalize_scope_items,
 )
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 from ..utils import determine_external_scheme
 from webauthn.helpers import base64url_to_bytes
 

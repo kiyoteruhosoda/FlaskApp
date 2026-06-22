@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from datetime import datetime
 
-from core.db import db
+from shared.kernel.database.db import db
 from sqlalchemy import func
 
 from bounded_contexts.certs.domain.exceptions import (

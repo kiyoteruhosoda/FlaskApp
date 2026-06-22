@@ -20,7 +20,7 @@ from presentation.web.services.system_setting_service import (
     AccessTokenSigningValidationError,
     SystemSettingService,
 )
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 
 
 _ALLOWED_RSA_ALGORITHMS = {"RS256", "RS384", "RS512"}

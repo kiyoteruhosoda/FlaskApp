@@ -13,7 +13,7 @@ from flask_login import current_user
 
 from core.models.authz import require_perms
 from core.models.google_account import GoogleAccount
-from core.settings import settings as app_settings
+from shared.kernel.settings.settings import settings as app_settings
 
 from . import bp
 from presentation.web.api.picker_session import (

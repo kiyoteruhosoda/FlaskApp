@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from flask import has_request_context, request
 
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 
 
 def select_locale() -> str:

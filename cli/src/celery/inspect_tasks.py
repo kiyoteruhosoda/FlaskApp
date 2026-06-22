@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import func
 
-from core.db import db
+from shared.kernel.database.db import db
 from core.models import CeleryTaskRecord, CeleryTaskStatus
 
 # Statuses that represent work that has not been finalized yet.

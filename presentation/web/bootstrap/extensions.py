@@ -4,7 +4,10 @@ from flask_login import LoginManager, AnonymousUserMixin
 from flask_babel import Babel
 from flask_babel import lazy_gettext as _l
 from flask import current_app, g, session
-from flask_mailman import Mail
+
+# 共有の Mail インスタンス（shared/infrastructure へ集約済み）を再公開する。
+# 既存の ``from presentation.web.bootstrap.extensions import mail`` を維持する。
+from shared.infrastructure.mail import mail  # noqa: F401
 
 from presentation.web.openapi.smorest_ext import Api
 
@@ -13,7 +16,6 @@ login_manager = LoginManager()
 login_manager.login_view = None
 babel = Babel()
 api = Api()
-mail = Mail()
 
 login_manager.login_message = None
 

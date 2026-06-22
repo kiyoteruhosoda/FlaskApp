@@ -181,6 +181,38 @@ SQLAlchemy インスタンス／設定シングルトンを参照する（`db.me
 - **推移依存**: `core.tasks.local_import` → `presentation.web.bootstrap.config`
   （`core → presentation` の構造的逆転。Phase 4 の `core/tasks` 再配置で解消すべき）
 
+### Phase 3.x — 別件の逆依存解消 ✅（本コミットで完了）
+
+Phase 3 で判明した、picker_session 抽出とは独立の `presentation.web` 逆依存を解消した。
+
+1. **`BaseApplicationSettings.X` 参照 → 共有の `DEFAULT_APPLICATION_SETTINGS` 直読み**:
+   `BaseApplicationSettings.MEDIA_LOCAL_IMPORT_DIRECTORY` 等は実体が
+   `DEFAULT_APPLICATION_SETTINGS.get("...")`（`shared.kernel.settings`）なので、
+   consumer 側でそこから直接読む形に変更し import を除去した。
+   - `core/tasks/local_import.py`（推移依存の解消も兼ねる）
+   - `bounded_contexts/wiki/application/use_cases.py`
+   - `shared/application/upload_service.py`（移設に伴い）
+2. **`mail`（Flask-Mailman）を共有層へ移設**:
+   `presentation/web/bootstrap/extensions.py` の `mail = Mail()` を
+   `shared/infrastructure/mail.py` へ集約（`db` と同方針）。extensions は再公開、
+   `email` / `email_sender` の factory は `shared.infrastructure.mail` を参照。
+3. **`upload_service` を共有層へ移設**:
+   `presentation/web/services/upload_service.py` → `shared/application/upload_service.py`
+   （旧位置はシム）。`wiki` は shared から `commit_uploads_to_directory` を import。
+
+**成果: `bounded_contexts/* → presentation.web` の逆依存はゼロになった。**
+`core → presentation` も実質ゼロ（残るのは `core/tasks/local_import.py` の
+`if __name__ == "__main__"` ブロックで合成ルート `create_app` を呼ぶスクリプト
+エントリのみ。モジュール import 時には実行されないため構造的依存ではない）。
+
+検証: 移設した `mail` / `upload_service` がシム経由で同一オブジェクトを再公開し、
+`core.tasks.local_import` ・ `wiki` ・ `email_sender` factory が presentation 連鎖
+なしで import 解決することを実機確認。
+
+> 補足（別件・未対応）: `bounded_contexts/email/infrastructure/smtp_sender.py` に
+> `bounded_contexts.email_sender.email_message`（正しくは `...domain.email_message`）
+> を指す既存の壊れた import がある。本フェーズとは無関係の先在バグ。
+
 ### Phase 4 — `core` 残置モジュールの最終移設（方針決定が必要）
 
 | 対象 | 候補の移設先 | 論点 |
@@ -208,5 +240,5 @@ SQLAlchemy インスタンス／設定シングルトンを参照する（`db.me
 - [x] Phase 1: 参照少数の `core` シム張り替え（本番コード／シムは後方互換で残置）
 - [x] Phase 2: `core.db` / `core.settings` 張り替え（本番66ファイル／同一性検証済・シム残置）
 - [x] Phase 3: `picker_session` を `picker_import` へ抽出（逆依存 #3・#4 解消／シム残置）
-- [ ] Phase 3.x: 別件の逆依存（wiki/application・email factory・core.tasks→presentation）解消
+- [x] Phase 3.x: 別件の逆依存解消（bounded_contexts → presentation はゼロに）
 - [ ] Phase 4: `core` 残置モジュールの最終移設

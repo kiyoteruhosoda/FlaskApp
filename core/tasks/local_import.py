@@ -23,7 +23,7 @@ from core.tasks.thumbs_generate import (
     PLAYBACK_NOT_READY_NOTES,
     thumbs_generate as _thumbs_generate,
 )
-from presentation.web.bootstrap.config import BaseApplicationSettings
+from shared.kernel.settings.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
 
 from core.settings import settings
 from bounded_contexts.storage import StorageDomain
@@ -1281,20 +1281,20 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
     try:
         import_dir = _resolve_directory('MEDIA_LOCAL_IMPORT_DIRECTORY')
     except RuntimeError:
-        fallback_import = BaseApplicationSettings.MEDIA_LOCAL_IMPORT_DIRECTORY
+        fallback_import = DEFAULT_APPLICATION_SETTINGS.get('MEDIA_LOCAL_IMPORT_DIRECTORY')
         if not isinstance(fallback_import, (str, os.PathLike)):
             raise RuntimeError(
-                "BaseApplicationSettings.MEDIA_LOCAL_IMPORT_DIRECTORY must be configured as a path"
+                "MEDIA_LOCAL_IMPORT_DIRECTORY must be configured as a path"
             )
         import_dir = os.fspath(fallback_import)
 
     try:
         originals_dir = _resolve_directory('MEDIA_ORIGINALS_DIRECTORY')
     except RuntimeError:
-        fallback_originals = BaseApplicationSettings.MEDIA_ORIGINALS_DIRECTORY
+        fallback_originals = DEFAULT_APPLICATION_SETTINGS.get('MEDIA_ORIGINALS_DIRECTORY')
         if not isinstance(fallback_originals, (str, os.PathLike)):
             raise RuntimeError(
-                "BaseApplicationSettings.MEDIA_ORIGINALS_DIRECTORY must be configured as a path"
+                "MEDIA_ORIGINALS_DIRECTORY must be configured as a path"
             )
         originals_dir = os.fspath(fallback_originals)
 

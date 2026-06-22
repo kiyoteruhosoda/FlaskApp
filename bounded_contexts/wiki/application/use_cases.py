@@ -44,8 +44,8 @@ from bounded_contexts.wiki.domain.exceptions import (
     WikiPageNotFoundError,
     WikiValidationError,
 )
-from presentation.web.bootstrap.config import BaseApplicationSettings
-from presentation.web.services.upload_service import commit_uploads_to_directory
+from shared.kernel.settings.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
+from shared.application.upload_service import commit_uploads_to_directory
 
 
 class WikiIndexUseCase:
@@ -430,7 +430,7 @@ class WikiMediaUploadUseCase:
         if self._destination_dir is not None:
             base_dir = self._destination_dir
         else:
-            configured = settings.wiki_upload_directory or BaseApplicationSettings.WIKI_UPLOAD_DIRECTORY
+            configured = settings.wiki_upload_directory or DEFAULT_APPLICATION_SETTINGS.get("WIKI_UPLOAD_DIRECTORY")
             base_dir = Path(configured)
 
         try:

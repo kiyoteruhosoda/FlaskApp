@@ -97,14 +97,14 @@ class EmailSenderFactory:
     def _resolve_mail_instance() -> Mail:
         """Flask-Mailmanインスタンスを取得."""
         try:
-            from presentation.web.bootstrap.extensions import mail as app_mail
+            from shared.infrastructure.mail import mail as app_mail
 
-            logger.info("Using mail instance from presentation.web.bootstrap.extensions")
+            logger.info("Using shared mail instance from shared.infrastructure.mail")
             return app_mail
         except Exception as e:
             raise ValueError(
                 "Flask-Mailman instance is required for SMTP provider. "
-                "Please provide 'mail' parameter or ensure webapp.extensions.mail is initialized."
+                "Please provide 'mail' parameter or ensure shared.infrastructure.mail is initialized."
             ) from e
 
     @staticmethod

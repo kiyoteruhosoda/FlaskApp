@@ -62,21 +62,23 @@ def _create_service_account(app, scopes=None):
         return account.service_account_id
 
 
-def _service_account_login(client, account_id, scope=None):
+def _service_account_token(client, account_id, scope=None):
+    """サービスアカウント用のステートレス Bearer トークンを発行する。
+
+    サービスアカウントはセッションを持たず、リクエストごとに
+    ``Authorization: Bearer <token>`` で認証する。テストでは発行した
+    トークンを各リクエストのヘッダーに付与して利用する。
+    """
+
     with client.application.app_context():
         account = db.session.get(ServiceAccount, account_id)
-        token = TokenService.generate_service_account_access_token(
+        return TokenService.generate_service_account_access_token(
             account, scope=scope or set()
         )
 
-    response = client.get(
-        "/auth/servicelogin",
-        headers={"Authorization": f"Bearer {token}"},
-        follow_redirects=False,
-    )
 
-    assert response.status_code == 302
-    return response
+def _bearer_headers(token):
+    return {"Authorization": f"Bearer {token}"}
 
 
 def test_profile_requires_login(client):
@@ -163,9 +165,9 @@ def test_profile_post_updates_cookies_and_preferences(client):
 
 def test_service_account_profile_hides_totp_button(client):
     account_id = _create_service_account(client.application)
-    _service_account_login(client, account_id)
+    token = _service_account_token(client, account_id)
 
-    response = client.get("/auth/profile")
+    response = client.get("/auth/profile", headers=_bearer_headers(token))
     assert response.status_code == 200
 
     html = response.data.decode("utf-8")
@@ -178,9 +180,9 @@ def test_service_account_profile_shows_scoped_permissions(client):
         client.application,
         scopes=requested_scope | {"media:view"},
     )
-    _service_account_login(client, account_id, scope=requested_scope)
+    token = _service_account_token(client, account_id, scope=requested_scope)
 
-    response = client.get("/auth/profile")
+    response = client.get("/auth/profile", headers=_bearer_headers(token))
     assert response.status_code == 200
 
     html = response.data.decode("utf-8")
@@ -191,12 +193,16 @@ def test_service_account_profile_shows_scoped_permissions(client):
 
 def test_service_account_cannot_access_totp_setup(client):
     account_id = _create_service_account(client.application)
-    _service_account_login(client, account_id)
+    token = _service_account_token(client, account_id)
 
     with client.application.test_request_context(base_url="http://localhost"):
         expected_redirect = url_for("dashboard.dashboard", _external=False)
 
-    response = client.get("/auth/setup_totp", follow_redirects=False)
+    response = client.get(
+        "/auth/setup_totp",
+        headers=_bearer_headers(token),
+        follow_redirects=False,
+    )
     assert response.status_code == 302
     redirect_target = response.headers["Location"]
     assert redirect_target == expected_redirect

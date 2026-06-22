@@ -35,6 +35,7 @@ import SelectionErrorPage from './pages/SelectionErrorPage';
 import SlideshowPage from './pages/SlideshowPage';
 import PhotoSettingsPage from './pages/PhotoSettingsPage';
 import PhotoExportsPage from './pages/PhotoExportsPage';
+import ConfigPage from './pages/ConfigPage';
 
 // Bootstrap CSS
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -320,6 +321,15 @@ const AppContent: React.FC = () => {
             element={
               <ProtectedRoute>
                 <ServiceAccountsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/config"
+            element={
+              <ProtectedRoute>
+                <ConfigPage />
               </ProtectedRoute>
             }
           />

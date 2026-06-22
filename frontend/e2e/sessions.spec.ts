@@ -61,10 +61,10 @@ test.describe('Import Sessions page', () => {
     await expect(page.getByTestId('sessions-page')).toBeVisible();
     await expect(page.getByTestId('session-row')).toHaveCount(2);
     await expect(page.getByTestId('session-status').first()).toHaveText('imported');
-    // 詳細リンクは既存のサーバーレンダリング詳細ページを指す
+    // 詳細リンクは React のセッション詳細ページを指す
     await expect(page.getByTestId('session-detail-link').first()).toHaveAttribute(
       'href',
-      /\/photo-view\/session\//
+      /\/sessions\//
     );
   });
 

@@ -44,7 +44,7 @@ test.describe('Forgot Password', () => {
     await page.getByTestId('forgot-password-submit').click();
 
     await expect(page.getByTestId('forgot-password-error')).toBeVisible();
-    await expect(page.getByText('Email service is not configured')).toBeVisible();
+    await expect(page.getByText('Mail service not configured')).toBeVisible();
   });
 });
 
@@ -52,7 +52,7 @@ test.describe('Reset Password', () => {
   test('shows error when no token in URL', async ({ page }) => {
     await page.goto('/reset-password');
     await expect(page.getByTestId('reset-password-page')).toBeVisible();
-    await expect(page.getByText('Invalid or expired reset token')).toBeVisible();
+    await expect(page.getByText('無効または期限切れのリセットトークンです')).toBeVisible();
     await expect(page.getByTestId('reset-password-submit')).not.toBeVisible();
   });
 
@@ -69,7 +69,7 @@ test.describe('Reset Password', () => {
     await page.getByTestId('reset-password-submit').click();
 
     await expect(page.getByTestId('reset-password-error')).toBeVisible();
-    await expect(page.getByText('Passwords do not match')).toBeVisible();
+    await expect(page.getByText('パスワードが一致しません')).toBeVisible();
   });
 
   test('validates minimum password length', async ({ page }) => {
@@ -79,7 +79,7 @@ test.describe('Reset Password', () => {
     await page.getByTestId('reset-password-submit').click();
 
     await expect(page.getByTestId('reset-password-error')).toBeVisible();
-    await expect(page.getByText('Password must be at least 8 characters')).toBeVisible();
+    await expect(page.getByText('パスワードは8文字以上で入力してください')).toBeVisible();
   });
 
   test('resets password successfully and redirects to login', async ({ page }) => {
@@ -108,6 +108,6 @@ test.describe('Reset Password', () => {
     await page.getByTestId('reset-password-submit').click();
 
     await expect(page.getByTestId('reset-password-error')).toBeVisible();
-    await expect(page.getByText('Invalid or expired reset token')).toBeVisible();
+    await expect(page.getByText('無効または期限切れのリセットトークンです')).toBeVisible();
   });
 });

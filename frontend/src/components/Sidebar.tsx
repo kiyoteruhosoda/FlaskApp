@@ -190,10 +190,10 @@ const Sidebar: React.FC = () => {
                 </Nav.Link>
               )}
 
-              {hasPermission('admin:system-settings') && (
+              {hasPermission('system:manage') && (
                 <Nav.Link
-                  href="/admin/system-settings"
-                  className={`d-flex align-items-center py-2 ${isActive('/admin/system-settings') ? 'active' : ''}`}
+                  href="/admin/config"
+                  className={`d-flex align-items-center py-2 ${isActive('/admin/config') ? 'active' : ''}`}
                 >
                   <i className="bi bi-gear me-2"></i>
                   {!sidebarCollapsed && <span>{t('System Settings')}</span>}

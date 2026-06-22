@@ -121,7 +121,8 @@ test.describe('Session Detail Page', () => {
     );
 
     await page.goto(`/sessions/${encodeURIComponent(sessionIdRaw)}`);
-    await page.getByRole('tab', { name: /Logs/ }).click();
+    // i18n default locale is 'ja'; the Logs tab renders as 'ログ'
+    await page.getByRole('tab', { name: 'ログ' }).click();
     await expect(page.getByTestId('logs-list')).toBeVisible();
     await expect(page.getByText('Import started')).toBeVisible();
   });
@@ -219,7 +220,7 @@ test.describe('Slideshow Page', () => {
     );
 
     await page.goto('/albums/99/slideshow');
-    await expect(page.getByText('No photos in this album')).toBeVisible();
+    await expect(page.getByText('このアルバムに写真がありません')).toBeVisible();
   });
 });
 
@@ -281,7 +282,7 @@ test.describe('Photo Settings Page', () => {
     );
 
     await page.goto('/photo-settings');
-    await expect(page.getByText('Not Ready')).toBeVisible();
+    await expect(page.getByTestId('import-ready-badge')).toHaveText('未準備');
   });
 });
 
@@ -292,6 +293,6 @@ test.describe('Photo Exports Page', () => {
     await setupAuth(page);
     await page.goto('/admin/photo-exports');
     await expect(page.getByTestId('photo-exports-page')).toBeVisible();
-    await expect(page.getByText('Export management is not yet implemented.')).toBeVisible();
+    await expect(page.getByText('エクスポート管理は未実装です。')).toBeVisible();
   });
 });

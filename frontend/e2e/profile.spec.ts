@@ -52,8 +52,9 @@ test.describe('Profile', () => {
     await page.fill('input[name="email"]', 'updated@example.com');
     await page.getByTestId('profile-save-btn').click();
 
+    // Save round-trip completes and the view returns to read-only mode
     await expect(page.locator('input[name="email"]')).not.toBeVisible();
-    await expect(page.getByText('Profile updated successfully')).toBeVisible();
+    await expect(page.getByTestId('profile-edit-btn')).toBeVisible();
   });
 
   test('shows 2FA disabled status', async ({ page }) => {
@@ -61,7 +62,7 @@ test.describe('Profile', () => {
     await mockProfileRoutes(page);
 
     await page.goto('/profile');
-    await expect(page.getByText('2FA is not enabled')).toBeVisible();
+    await expect(page.getByText('2段階認証 無効')).toBeVisible();
     await expect(page.getByTestId('totp-enable-btn')).toBeVisible();
   });
 
@@ -71,7 +72,7 @@ test.describe('Profile', () => {
     await page.route((url) => url.pathname === '/api/auth/passkeys', (route) => route.fulfill({ json: { passkeys: [] } }));
 
     await page.goto('/profile');
-    await expect(page.getByText('2FA is enabled')).toBeVisible();
+    await expect(page.getByText('2段階認証 有効')).toBeVisible();
     await expect(page.getByTestId('totp-disable-btn')).toBeVisible();
   });
 
@@ -91,15 +92,15 @@ test.describe('Profile', () => {
     await page.getByTestId('totp-enable-btn').click();
 
     // QR code and secret are shown
-    await expect(page.getByText('Scan this QR code')).toBeVisible();
+    await expect(page.getByText('QRコード')).toBeVisible();
     await expect(page.getByText('BASE32SECRET')).toBeVisible();
 
     // Enter 6-digit code and verify
     await page.fill('input[name="totp_code"]', '123456');
     await page.getByTestId('totp-verify-btn').click();
 
-    await expect(page.getByText('2FA enabled successfully')).toBeVisible();
-    await expect(page.getByText('2FA is enabled')).toBeVisible();
+    await expect(page.getByText('2段階認証を有効にしました')).toBeVisible();
+    await expect(page.getByText('2段階認証 有効')).toBeVisible();
   });
 
   test('disables 2FA', async ({ page }) => {
@@ -116,8 +117,8 @@ test.describe('Profile', () => {
     await expect(page.getByTestId('totp-disable-confirm')).toBeVisible();
     await page.getByTestId('totp-disable-confirm-btn').click();
 
-    await expect(page.getByText('2FA disabled successfully')).toBeVisible();
-    await expect(page.getByText('2FA is not enabled')).toBeVisible();
+    await expect(page.getByText('2段階認証を無効にしました')).toBeVisible();
+    await expect(page.getByText('2段階認証 無効')).toBeVisible();
   });
 
   test('shows passkeys section with empty state', async ({ page }) => {

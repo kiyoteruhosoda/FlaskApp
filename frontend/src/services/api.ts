@@ -41,6 +41,7 @@ import {
   PickerSessionSelectionsResponse,
   SelectionErrorPayload,
   LocalImportStatusResponse,
+  ConfigResponse,
 } from '../types/api';
 
 class ApiClient {
@@ -436,6 +437,27 @@ class ApiClient {
 
   async triggerLocalImport(opts?: { duplicateRegeneration?: string }): Promise<{ success: boolean; session_id?: string }> {
     const response = await this.client.post<{ success: boolean; session_id?: string }>('/sync/local-import', opts ?? {});
+    return response.data;
+  }
+
+  // ===== アプリケーション設定 (/admin/config) =====
+  async getConfig(): Promise<ConfigResponse> {
+    const response = await this.client.get<ConfigResponse>('/admin/config');
+    return response.data;
+  }
+
+  async updateConfig(payload: { updates?: Record<string, any>; resetKeys?: string[] }): Promise<ConfigResponse> {
+    const response = await this.client.put<ConfigResponse>('/admin/config', payload);
+    return response.data;
+  }
+
+  async updateConfigCors(payload: { allowedOrigins?: string[]; reset?: boolean }): Promise<ConfigResponse> {
+    const response = await this.client.put<ConfigResponse>('/admin/config/cors', payload);
+    return response.data;
+  }
+
+  async updateConfigSigning(payload: { mode: string; secret?: string; groupCode?: string }): Promise<ConfigResponse> {
+    const response = await this.client.put<ConfigResponse>('/admin/config/signing', payload);
     return response.data;
   }
 

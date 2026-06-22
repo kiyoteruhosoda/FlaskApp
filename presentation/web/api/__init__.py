@@ -20,6 +20,7 @@ from . import admin_groups  # noqa: E402,F401
 from . import admin_permissions  # noqa: E402,F401
 from . import admin_service_accounts  # noqa: E402,F401
 from . import admin_misc  # noqa: E402,F401
+from . import admin_config  # noqa: E402,F401
 from . import auth_profile  # noqa: E402,F401
 from . import auth_passkeys  # noqa: E402,F401
 

@@ -537,3 +537,80 @@ export interface LocalImportStatusResponse {
   defaults: { duplicateRegeneration: string };
   server_time: string;
 }
+
+// ===== アプリケーション設定 (/admin/config) =====
+
+export type ConfigFieldType = 'string' | 'integer' | 'float' | 'boolean' | 'list';
+
+export interface ConfigField {
+  key: string;
+  label: string;
+  data_type: ConfigFieldType;
+  required: boolean;
+  description: string;
+  current_json: string;
+  default_json: string;
+  form_value: string;
+  choices: Array<[string, string]>;
+  multiline: boolean;
+  using_default: boolean;
+  allow_empty: boolean;
+  allow_null: boolean;
+  editable: boolean;
+  default_hint: string | null;
+  search_text: string;
+  section: string;
+  section_label: string;
+  anchor_id: string;
+}
+
+export interface ConfigSection {
+  identifier: string;
+  label: string;
+  description: string | null;
+  fields: ConfigField[];
+  anchor_id: string;
+  search_text: string;
+}
+
+export interface SigningSetting {
+  mode: string;
+  kid: string | null;
+  group_code: string | null;
+}
+
+export interface SigningCertificate {
+  kid: string | null;
+  issuedAt: string | null;
+  expiresAt: string | null;
+  algorithm: string | null;
+  subject: string | null;
+}
+
+export interface SigningGroup {
+  groupCode: string;
+  groupLabel: string;
+  latestCertificate: SigningCertificate | null;
+}
+
+export interface ConfigResponse {
+  application_sections: ConfigSection[];
+  application_fields: ConfigField[];
+  cors_fields: ConfigField[];
+  cors_effective_origins: string[];
+  signing_setting: SigningSetting | null;
+  signingGroups: SigningGroup[];
+  builtin_signing_secret: string | null;
+  timestamps: {
+    application_config_updated_at: string | null;
+    cors_config_updated_at: string | null;
+    signing_config_updated_at: string | null;
+  };
+  descriptions: {
+    application_config_description: string | null;
+    cors_config_description: string | null;
+  };
+  warnings?: string[];
+  updated?: boolean;
+  status: string;
+}

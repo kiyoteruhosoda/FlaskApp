@@ -19,6 +19,8 @@ import AlbumsPage from './pages/AlbumsPage';
 import TagsPage from './pages/TagsPage';
 import JobsPage from './pages/JobsPage';
 import SessionsPage from './pages/SessionsPage';
+import AlbumDetailPage from './pages/AlbumDetailPage';
+import UsersPage from './pages/UsersPage';
 
 // Bootstrap CSS
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -169,6 +171,15 @@ const AppContent: React.FC = () => {
           />
 
           <Route
+            path="/albums/:id"
+            element={
+              <ProtectedRoute>
+                <AlbumDetailPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/tags"
             element={
               <ProtectedRoute>
@@ -191,6 +202,15 @@ const AppContent: React.FC = () => {
             element={
               <ProtectedRoute>
                 <SessionsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute>
+                <UsersPage />
               </ProtectedRoute>
             }
           />

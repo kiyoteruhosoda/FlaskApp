@@ -110,7 +110,7 @@ const Sidebar: React.FC = () => {
             </>
           )}
 
-          {hasPermission('admin:system-settings') && (
+          {(hasPermission('admin:system-settings') || hasPermission('user:manage')) && (
             <>
               <div className="mt-3 mb-2">
                 {!sidebarCollapsed && (
@@ -120,29 +120,35 @@ const Sidebar: React.FC = () => {
                 )}
               </div>
 
-              <Nav.Link 
-                href="/admin/users" 
-                className={`d-flex align-items-center py-2 ${isActive('/admin/users') ? 'active' : ''}`}
-              >
-                <i className="bi bi-people me-2"></i>
-                {!sidebarCollapsed && <span>{t('Users')}</span>}
-              </Nav.Link>
+              {hasPermission('user:manage') && (
+                <Nav.Link
+                  href="/admin/users"
+                  className={`d-flex align-items-center py-2 ${isActive('/admin/users') ? 'active' : ''}`}
+                >
+                  <i className="bi bi-people me-2"></i>
+                  {!sidebarCollapsed && <span>{t('Users')}</span>}
+                </Nav.Link>
+              )}
 
-              <Nav.Link 
-                href="/admin/system-settings" 
-                className={`d-flex align-items-center py-2 ${isActive('/admin/system-settings') ? 'active' : ''}`}
-              >
-                <i className="bi bi-gear me-2"></i>
-                {!sidebarCollapsed && <span>{t('System Settings')}</span>}
-              </Nav.Link>
+              {hasPermission('admin:system-settings') && (
+                <Nav.Link
+                  href="/admin/system-settings"
+                  className={`d-flex align-items-center py-2 ${isActive('/admin/system-settings') ? 'active' : ''}`}
+                >
+                  <i className="bi bi-gear me-2"></i>
+                  {!sidebarCollapsed && <span>{t('System Settings')}</span>}
+                </Nav.Link>
+              )}
 
-              <Nav.Link 
-                href="/admin/google-accounts" 
-                className={`d-flex align-items-center py-2 ${isActive('/admin/google-accounts') ? 'active' : ''}`}
-              >
-                <i className="bi bi-google me-2"></i>
-                {!sidebarCollapsed && <span>{t('Google Accounts')}</span>}
-              </Nav.Link>
+              {hasPermission('admin:system-settings') && (
+                <Nav.Link
+                  href="/admin/google-accounts"
+                  className={`d-flex align-items-center py-2 ${isActive('/admin/google-accounts') ? 'active' : ''}`}
+                >
+                  <i className="bi bi-google me-2"></i>
+                  {!sidebarCollapsed && <span>{t('Google Accounts')}</span>}
+                </Nav.Link>
+              )}
             </>
           )}
         </Nav>

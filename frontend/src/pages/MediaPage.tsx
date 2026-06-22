@@ -13,7 +13,7 @@ import {
 } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
-import { PhotoItem } from '../types/api';
+import { PhotoItem, MediaTag } from '../types/api';
 import { formatDateTime } from '../utils/format';
 
 const MediaPage: React.FC = () => {
@@ -27,8 +27,18 @@ const MediaPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<'' | 'photo' | 'video'>('');
 
+  // detail modal state
   const [selected, setSelected] = useState<PhotoItem | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
+  const [mediaLoading, setMediaLoading] = useState(false);
+
+  // tag edit state
+  const [editingTags, setEditingTags] = useState(false);
+  const [allTags, setAllTags] = useState<MediaTag[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
+  const [savingTags, setSavingTags] = useState(false);
+  const [tagError, setTagError] = useState<string | null>(null);
 
   const loadPage = useCallback(
     async (reset: boolean) => {
@@ -52,7 +62,6 @@ const MediaPage: React.FC = () => {
     [cursor, typeFilter, t]
   );
 
-  // フィルタ変更時はリセットして再読込
   useEffect(() => {
     setItems([]);
     setCursor(null);
@@ -60,7 +69,6 @@ const MediaPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typeFilter]);
 
-  // 表示中アイテムのサムネ署名URLを取得
   useEffect(() => {
     let cancelled = false;
     const missing = items.filter((m) => !thumbs[m.id]);
@@ -77,20 +85,71 @@ const MediaPage: React.FC = () => {
         }
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [items, thumbs]);
 
   const openDetail = async (media: PhotoItem) => {
     setSelected(media);
     setPreviewUrl(null);
+    setPlaybackUrl(null);
+    setEditingTags(false);
+    setSelectedTagIds(media.tags.map((t) => t.id));
+    setTagError(null);
+    setMediaLoading(true);
     try {
-      const url = await apiClient.getPhotoThumbUrl(media.id, 1024);
-      setPreviewUrl(url);
+      if (media.is_video && media.has_playback) {
+        const url = await apiClient.getPhotoPlaybackUrl(media.id);
+        setPlaybackUrl(url);
+      } else {
+        const url = await apiClient.getPhotoThumbUrl(media.id, 1024);
+        setPreviewUrl(url);
+      }
     } catch {
       /* ignore */
+    } finally {
+      setMediaLoading(false);
     }
+  };
+
+  const startEditTags = async () => {
+    if (allTags.length === 0) {
+      try {
+        const data = await apiClient.getTags({ limit: 100 });
+        setAllTags(data.items);
+      } catch {
+        /* ignore */
+      }
+    }
+    setEditingTags(true);
+    setTagError(null);
+  };
+
+  const toggleTag = (tagId: number) => {
+    setSelectedTagIds((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
+    );
+  };
+
+  const saveTags = async () => {
+    if (!selected) return;
+    setSavingTags(true);
+    setTagError(null);
+    try {
+      const result = await apiClient.updateMediaTags(selected.id, selectedTagIds);
+      const updatedMedia = { ...selected, tags: result.tags };
+      setSelected(updatedMedia);
+      setItems((prev) => prev.map((m) => (m.id === selected.id ? updatedMedia : m)));
+      setEditingTags(false);
+    } catch (e: any) {
+      setTagError(e?.response?.data?.message || e?.message || t('Failed to save tags'));
+    } finally {
+      setSavingTags(false);
+    }
+  };
+
+  const closeDetail = () => {
+    setSelected(null);
+    setEditingTags(false);
   };
 
   return (
@@ -135,7 +194,7 @@ const MediaPage: React.FC = () => {
                 data-testid="media-card"
               >
                 <div
-                  className="ratio ratio-1x1 bg-light d-flex align-items-center justify-content-center"
+                  className="ratio ratio-1x1 bg-light d-flex align-items-center justify-content-center position-relative"
                   style={{ overflow: 'hidden' }}
                 >
                   {thumbs[m.id] ? (
@@ -146,6 +205,11 @@ const MediaPage: React.FC = () => {
                     />
                   ) : (
                     <i className="bi bi-image text-muted fs-2" />
+                  )}
+                  {Boolean(m.is_video) && (
+                    <div className="position-absolute top-50 start-50 translate-middle">
+                      <i className="bi bi-play-circle-fill text-white fs-3" style={{ textShadow: '0 0 4px #000' }} />
+                    </div>
                   )}
                 </div>
                 <Card.Body className="p-2">
@@ -172,7 +236,8 @@ const MediaPage: React.FC = () => {
         ) : null}
       </div>
 
-      <Modal show={!!selected} onHide={() => setSelected(null)} size="lg" centered>
+      {/* Detail Modal */}
+      <Modal show={!!selected} onHide={closeDetail} size="lg" centered>
         <Modal.Header closeButton>
           <Modal.Title className="text-truncate">
             {selected?.filename || (selected ? `#${selected.id}` : '')}
@@ -181,8 +246,25 @@ const MediaPage: React.FC = () => {
         <Modal.Body>
           {selected && (
             <>
+              {/* Media preview */}
               <div className="text-center mb-3 bg-light" style={{ minHeight: 200 }}>
-                {previewUrl ? (
+                {mediaLoading ? (
+                  <div className="py-5"><Spinner animation="border" /></div>
+                ) : selected.is_video ? (
+                  playbackUrl ? (
+                    <video
+                      controls
+                      src={playbackUrl}
+                      style={{ maxWidth: '100%', maxHeight: 480 }}
+                      data-testid="media-video"
+                    />
+                  ) : (
+                    <div className="py-5 text-muted">
+                      <i className="bi bi-play-circle fs-1 d-block mb-2" />
+                      {t('Video not available')}
+                    </div>
+                  )
+                ) : previewUrl ? (
                   <img
                     src={previewUrl}
                     alt={selected.filename || String(selected.id)}
@@ -190,11 +272,11 @@ const MediaPage: React.FC = () => {
                     data-testid="media-preview"
                   />
                 ) : (
-                  <div className="py-5">
-                    <Spinner animation="border" />
-                  </div>
+                  <div className="py-5"><Spinner animation="border" /></div>
                 )}
               </div>
+
+              {/* Metadata */}
               <dl className="row mb-2 small">
                 <dt className="col-sm-3">{t('Shot at')}</dt>
                 <dd className="col-sm-9">{formatDateTime(selected.shot_at)}</dd>
@@ -206,23 +288,75 @@ const MediaPage: React.FC = () => {
                 </dd>
                 <dt className="col-sm-3">{t('Camera')}</dt>
                 <dd className="col-sm-9">
-                  {[selected.camera_make, selected.camera_model]
-                    .filter(Boolean)
-                    .join(' ') || '—'}
+                  {[selected.camera_make, selected.camera_model].filter(Boolean).join(' ') || '—'}
                 </dd>
                 <dt className="col-sm-3">{t('Source')}</dt>
                 <dd className="col-sm-9">{selected.source_label || '—'}</dd>
               </dl>
-              <div>
-                <span className="me-2 small text-muted">{t('Tags')}:</span>
-                {selected.tags.length === 0 ? (
-                  <span className="text-muted small">—</span>
+
+              {/* Tags section */}
+              <div className="border-top pt-2">
+                {!editingTags ? (
+                  <div className="d-flex align-items-center gap-2 flex-wrap">
+                    <span className="small text-muted">{t('Tags')}:</span>
+                    {selected.tags.length === 0 ? (
+                      <span className="text-muted small">—</span>
+                    ) : (
+                      selected.tags.map((tag) => (
+                        <Badge bg="secondary" key={tag.id}>
+                          {tag.name}
+                        </Badge>
+                      ))
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline-secondary"
+                      onClick={startEditTags}
+                      data-testid="media-edit-tags"
+                    >
+                      <i className="bi bi-tag me-1" />{t('Edit Tags')}
+                    </Button>
+                  </div>
                 ) : (
-                  selected.tags.map((tag) => (
-                    <Badge bg="secondary" key={tag.id} className="me-1">
-                      {tag.name}
-                    </Badge>
-                  ))
+                  <div>
+                    <div className="small fw-semibold mb-2">{t('Select tags')}:</div>
+                    {tagError && <Alert variant="danger" className="py-1 px-2 small">{tagError}</Alert>}
+                    {allTags.length === 0 ? (
+                      <div className="text-muted small">{t('No tags available')}</div>
+                    ) : (
+                      <div className="d-flex flex-wrap gap-2 mb-2">
+                        {allTags.map((tag) => (
+                          <Form.Check
+                            key={tag.id}
+                            type="checkbox"
+                            id={`tag-${tag.id}`}
+                            label={tag.attr ? `${tag.name} (${tag.attr})` : tag.name}
+                            checked={selectedTagIds.includes(tag.id)}
+                            onChange={() => toggleTag(tag.id)}
+                            data-testid="tag-checkbox"
+                          />
+                        ))}
+                      </div>
+                    )}
+                    <div className="d-flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={saveTags}
+                        disabled={savingTags}
+                        data-testid="save-tags"
+                      >
+                        {savingTags ? <Spinner size="sm" animation="border" /> : t('Save Tags')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline-secondary"
+                        onClick={() => setEditingTags(false)}
+                      >
+                        {t('Cancel')}
+                      </Button>
+                    </div>
+                  </div>
                 )}
               </div>
             </>

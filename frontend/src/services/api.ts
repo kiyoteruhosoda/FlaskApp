@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { 
-  LoginRequest, 
-  LoginResponse, 
+import {
+  LoginRequest,
+  LoginResponse,
   RegisterRequest,
   User,
   Media,
@@ -18,8 +18,11 @@ import {
   PickerSessionListResponse,
   PhotoItem,
   AlbumSummary,
+  AlbumDetail,
   MediaTag,
-  CursorListResponse
+  CursorListResponse,
+  AdminUser,
+  AdminRole,
 } from '../types/api';
 
 class ApiClient {
@@ -378,6 +381,120 @@ class ApiClient {
 
   async getTags(params?: { q?: string; limit?: number }): Promise<{ items: MediaTag[] }> {
     const response = await this.client.get<{ items: MediaTag[] }>('/tags', { params });
+    return response.data;
+  }
+
+  // ===== アルバム CRUD / 並び替え =====
+
+  async getAlbumDetail(id: number): Promise<{ album: AlbumDetail }> {
+    const response = await this.client.get<{ album: AlbumDetail }>(`/albums/${id}`);
+    return response.data;
+  }
+
+  async createAlbumItem(data: {
+    name: string;
+    description?: string;
+    visibility?: string;
+    mediaIds?: number[];
+    coverMediaId?: number;
+  }): Promise<{ album: AlbumDetail; created: boolean }> {
+    const response = await this.client.post<{ album: AlbumDetail; created: boolean }>('/albums', data);
+    return response.data;
+  }
+
+  async updateAlbumItem(
+    id: number,
+    data: {
+      name?: string;
+      description?: string;
+      visibility?: string;
+      mediaIds?: number[];
+      coverMediaId?: number;
+    }
+  ): Promise<{ album: AlbumDetail; updated: boolean }> {
+    const response = await this.client.put<{ album: AlbumDetail; updated: boolean }>(`/albums/${id}`, data);
+    return response.data;
+  }
+
+  async deleteAlbumItem(id: number): Promise<{ result: string }> {
+    const response = await this.client.delete<{ result: string }>(`/albums/${id}`);
+    return response.data;
+  }
+
+  async reorderAlbumMedia(albumId: number, mediaIds: number[]): Promise<{ updated: boolean; album: AlbumDetail }> {
+    const response = await this.client.put<{ updated: boolean; album: AlbumDetail }>(
+      `/albums/${albumId}/media/order`,
+      { mediaIds }
+    );
+    return response.data;
+  }
+
+  // ===== タグ作成 =====
+
+  async createTag(name: string, attr: string): Promise<{ tag: MediaTag; created: boolean }> {
+    const response = await this.client.post<{ tag: MediaTag; created: boolean }>('/tags', { name, attr });
+    return response.data;
+  }
+
+  // ===== メディアタグ付与 =====
+
+  async updateMediaTags(mediaId: number, tagIds: number[]): Promise<{ tags: MediaTag[] }> {
+    const response = await this.client.put<{ tags: MediaTag[] }>(`/media/${mediaId}/tags`, { tag_ids: tagIds });
+    return response.data;
+  }
+
+  // ===== 管理 API — ユーザー管理 =====
+
+  async getAdminUsers(params?: { q?: string }): Promise<{ users: AdminUser[] }> {
+    const response = await this.client.get<{ users: AdminUser[] }>('/admin/users', { params });
+    return response.data;
+  }
+
+  async getAdminUser(id: number): Promise<{ user: AdminUser }> {
+    const response = await this.client.get<{ user: AdminUser }>(`/admin/users/${id}`);
+    return response.data;
+  }
+
+  async createAdminUser(data: {
+    email: string;
+    username?: string;
+    password: string;
+    roleIds?: number[];
+  }): Promise<{ user: AdminUser; created: boolean }> {
+    const response = await this.client.post<{ user: AdminUser; created: boolean }>('/admin/users', data);
+    return response.data;
+  }
+
+  async updateAdminUser(
+    id: number,
+    data: { email?: string; username?: string | null; isActive?: boolean }
+  ): Promise<{ user: AdminUser; updated: boolean }> {
+    const response = await this.client.put<{ user: AdminUser; updated: boolean }>(`/admin/users/${id}`, data);
+    return response.data;
+  }
+
+  async updateAdminUserRoles(id: number, roleIds: number[]): Promise<{ user: AdminUser; updated: boolean }> {
+    const response = await this.client.put<{ user: AdminUser; updated: boolean }>(
+      `/admin/users/${id}/roles`,
+      { roleIds }
+    );
+    return response.data;
+  }
+
+  async resetAdminUserTOTP(id: number): Promise<{ result: string; userId: number }> {
+    const response = await this.client.post<{ result: string; userId: number }>(
+      `/admin/users/${id}/reset-totp`
+    );
+    return response.data;
+  }
+
+  async deleteAdminUser(id: number): Promise<{ result: string; userId: number }> {
+    const response = await this.client.delete<{ result: string; userId: number }>(`/admin/users/${id}`);
+    return response.data;
+  }
+
+  async getAdminRoles(): Promise<{ roles: AdminRole[] }> {
+    const response = await this.client.get<{ roles: AdminRole[] }>('/admin/roles');
     return response.data;
   }
 }

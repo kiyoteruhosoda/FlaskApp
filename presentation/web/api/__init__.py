@@ -14,6 +14,7 @@ from . import maintenance  # noqa: E402,F401
 from . import echo  # noqa: E402,F401
 from . import service_account_keys  # noqa: E402,F401
 from . import service_account_signing  # noqa: E402,F401
+from . import admin_users  # noqa: E402,F401
 
 from .picker_session import bp as picker_session_bp
 

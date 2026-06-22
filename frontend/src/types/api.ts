@@ -292,4 +292,44 @@ export interface AlbumSummary {
   mediaCount: number;
   createdAt: string | null;
   updatedAt: string | null;
+  lastModified: string | null;
+  displayOrder: number | null;
+}
+
+export interface AlbumMediaItem {
+  id: number;
+  filename: string | null;
+  shotAt: string | null;
+  thumbnailUrl: string;
+  fullUrl: string;
+  sortIndex: number | null;
+  tags: MediaTag[];
+}
+
+export interface AlbumDetail extends AlbumSummary {
+  media: AlbumMediaItem[];
+  mediaIds: number[];
+}
+
+// ===== 管理 API =====
+
+export interface AdminRoleRef {
+  id: number;
+  name: string;
+}
+
+export interface AdminUser {
+  id: number;
+  email: string;
+  username: string | null;
+  isActive: boolean;
+  hasTOTP: boolean;
+  createdAt: string | null;
+  roles: AdminRoleRef[];
+}
+
+export interface AdminRole {
+  id: number;
+  name: string;
+  permissions: string[];
 }

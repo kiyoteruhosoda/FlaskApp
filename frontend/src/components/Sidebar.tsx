@@ -120,6 +120,16 @@ const Sidebar: React.FC = () => {
                 )}
               </div>
 
+              {hasPermission('admin:system-settings') && (
+                <Nav.Link
+                  href="/admin/dashboard"
+                  className={`d-flex align-items-center py-2 ${isActive('/admin/dashboard') ? 'active' : ''}`}
+                >
+                  <i className="bi bi-speedometer2 me-2"></i>
+                  {!sidebarCollapsed && <span>{t('System Overview')}</span>}
+                </Nav.Link>
+              )}
+
               {hasPermission('user:manage') && (
                 <Nav.Link
                   href="/admin/users"
@@ -127,6 +137,46 @@ const Sidebar: React.FC = () => {
                 >
                   <i className="bi bi-people me-2"></i>
                   {!sidebarCollapsed && <span>{t('Users')}</span>}
+                </Nav.Link>
+              )}
+
+              {hasPermission('user:manage') && (
+                <Nav.Link
+                  href="/admin/roles"
+                  className={`d-flex align-items-center py-2 ${isActive('/admin/roles') ? 'active' : ''}`}
+                >
+                  <i className="bi bi-shield me-2"></i>
+                  {!sidebarCollapsed && <span>{t('Roles')}</span>}
+                </Nav.Link>
+              )}
+
+              {hasPermission('user:manage') && (
+                <Nav.Link
+                  href="/admin/groups"
+                  className={`d-flex align-items-center py-2 ${isActive('/admin/groups') ? 'active' : ''}`}
+                >
+                  <i className="bi bi-diagram-3 me-2"></i>
+                  {!sidebarCollapsed && <span>{t('Groups')}</span>}
+                </Nav.Link>
+              )}
+
+              {hasPermission('admin:system-settings') && (
+                <Nav.Link
+                  href="/admin/permissions"
+                  className={`d-flex align-items-center py-2 ${isActive('/admin/permissions') ? 'active' : ''}`}
+                >
+                  <i className="bi bi-key me-2"></i>
+                  {!sidebarCollapsed && <span>{t('Permissions')}</span>}
+                </Nav.Link>
+              )}
+
+              {hasPermission('admin:system-settings') && (
+                <Nav.Link
+                  href="/admin/service-accounts"
+                  className={`d-flex align-items-center py-2 ${isActive('/admin/service-accounts') ? 'active' : ''}`}
+                >
+                  <i className="bi bi-robot me-2"></i>
+                  {!sidebarCollapsed && <span>{t('Service Accounts')}</span>}
                 </Nav.Link>
               )}
 

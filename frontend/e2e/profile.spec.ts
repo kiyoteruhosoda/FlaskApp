@@ -7,13 +7,21 @@ const TOTP_SETUP = {
   qr_data_uri: 'data:image/png;base64,iVBORw0KGgo=',
 };
 
+const MOCK_PASSKEYS = [
+  { id: 1, name: 'Touch ID', createdAt: '2024-01-01T00:00:00Z', lastUsedAt: '2024-06-01T00:00:00Z', transports: ['internal'] },
+];
+
+function mockProfileRoutes(page: Parameters<typeof page.route>[1] extends never ? never : import('@playwright/test').Page) {
+  return Promise.all([
+    page.route((url) => url.pathname === '/api/auth/2fa/status', (route) => route.fulfill({ json: { enabled: false } })),
+    page.route((url) => url.pathname === '/api/auth/passkeys', (route) => route.fulfill({ json: { passkeys: [] } })),
+  ]);
+}
+
 test.describe('Profile', () => {
   test('shows user info', async ({ page }) => {
     await setupAuth(page);
-    await page.route(
-      (url) => url.pathname === '/api/auth/2fa/status',
-      (route) => route.fulfill({ json: { enabled: false } })
-    );
+    await mockProfileRoutes(page);
 
     await page.goto('/profile');
     await expect(page.getByTestId('profile-page')).toBeVisible();
@@ -22,10 +30,7 @@ test.describe('Profile', () => {
 
   test('enters and cancels edit mode', async ({ page }) => {
     await setupAuth(page);
-    await page.route(
-      (url) => url.pathname === '/api/auth/2fa/status',
-      (route) => route.fulfill({ json: { enabled: false } })
-    );
+    await mockProfileRoutes(page);
 
     await page.goto('/profile');
     await page.getByTestId('profile-edit-btn').click();
@@ -36,10 +41,7 @@ test.describe('Profile', () => {
 
   test('saves profile changes', async ({ page }) => {
     await setupAuth(page);
-    await page.route(
-      (url) => url.pathname === '/api/auth/2fa/status',
-      (route) => route.fulfill({ json: { enabled: false } })
-    );
+    await mockProfileRoutes(page);
     await page.route(
       (url) => url.pathname === '/api/auth/profile',
       (route) => route.fulfill({ json: { updated: true, user: { id: 1, email: 'updated@example.com', username: 'admin' } } })
@@ -56,10 +58,7 @@ test.describe('Profile', () => {
 
   test('shows 2FA disabled status', async ({ page }) => {
     await setupAuth(page);
-    await page.route(
-      (url) => url.pathname === '/api/auth/2fa/status',
-      (route) => route.fulfill({ json: { enabled: false } })
-    );
+    await mockProfileRoutes(page);
 
     await page.goto('/profile');
     await expect(page.getByText('2FA is not enabled')).toBeVisible();
@@ -68,10 +67,8 @@ test.describe('Profile', () => {
 
   test('shows 2FA enabled status', async ({ page }) => {
     await setupAuth(page);
-    await page.route(
-      (url) => url.pathname === '/api/auth/2fa/status',
-      (route) => route.fulfill({ json: { enabled: true } })
-    );
+    await page.route((url) => url.pathname === '/api/auth/2fa/status', (route) => route.fulfill({ json: { enabled: true } }));
+    await page.route((url) => url.pathname === '/api/auth/passkeys', (route) => route.fulfill({ json: { passkeys: [] } }));
 
     await page.goto('/profile');
     await expect(page.getByText('2FA is enabled')).toBeVisible();
@@ -80,10 +77,7 @@ test.describe('Profile', () => {
 
   test('enables 2FA', async ({ page }) => {
     await setupAuth(page);
-    await page.route(
-      (url) => url.pathname === '/api/auth/2fa/status',
-      (route) => route.fulfill({ json: { enabled: false } })
-    );
+    await mockProfileRoutes(page);
     await page.route(
       (url) => url.pathname === '/api/auth/2fa/setup',
       (route) => route.fulfill({ json: TOTP_SETUP })
@@ -110,10 +104,8 @@ test.describe('Profile', () => {
 
   test('disables 2FA', async ({ page }) => {
     await setupAuth(page);
-    await page.route(
-      (url) => url.pathname === '/api/auth/2fa/status',
-      (route) => route.fulfill({ json: { enabled: true } })
-    );
+    await page.route((url) => url.pathname === '/api/auth/2fa/status', (route) => route.fulfill({ json: { enabled: true } }));
+    await page.route((url) => url.pathname === '/api/auth/passkeys', (route) => route.fulfill({ json: { passkeys: [] } }));
     await page.route(
       (url) => url.pathname === '/api/auth/2fa',
       (route) => route.fulfill({ json: { enabled: false } })
@@ -126,5 +118,39 @@ test.describe('Profile', () => {
 
     await expect(page.getByText('2FA disabled successfully')).toBeVisible();
     await expect(page.getByText('2FA is not enabled')).toBeVisible();
+  });
+
+  test('shows passkeys section with empty state', async ({ page }) => {
+    await setupAuth(page);
+    await mockProfileRoutes(page);
+
+    await page.goto('/profile');
+    await expect(page.getByTestId('passkeys-section')).toBeVisible();
+    await expect(page.getByTestId('passkeys-empty')).toBeVisible();
+  });
+
+  test('shows registered passkeys', async ({ page }) => {
+    await setupAuth(page);
+    await page.route((url) => url.pathname === '/api/auth/2fa/status', (route) => route.fulfill({ json: { enabled: false } }));
+    await page.route((url) => url.pathname === '/api/auth/passkeys', (route) => route.fulfill({ json: { passkeys: MOCK_PASSKEYS } }));
+
+    await page.goto('/profile');
+    await expect(page.getByTestId('passkeys-list')).toBeVisible();
+    await expect(page.getByText('Touch ID')).toBeVisible();
+  });
+
+  test('deletes a passkey', async ({ page }) => {
+    await setupAuth(page);
+    await page.route((url) => url.pathname === '/api/auth/2fa/status', (route) => route.fulfill({ json: { enabled: false } }));
+    await page.route((url) => url.pathname === '/api/auth/passkeys', (route) => route.fulfill({ json: { passkeys: MOCK_PASSKEYS } }));
+    await page.route(
+      (url) => url.pathname === '/api/auth/passkeys/1',
+      (route) => route.fulfill({ json: { result: 'deleted' } })
+    );
+
+    await page.goto('/profile');
+    await expect(page.getByTestId('passkey-item')).toBeVisible();
+    await page.getByTestId('passkey-delete-btn').click();
+    await expect(page.getByTestId('passkeys-empty')).toBeVisible();
   });
 });

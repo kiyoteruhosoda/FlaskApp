@@ -5,7 +5,7 @@ export const TEST_USER = {
   username: 'admin',
   display_name: 'Admin',
   email: 'admin@example.com',
-  permissions: ['media:view', 'media:session', 'album:view', 'admin:system-settings'],
+  permissions: ['media:view', 'media:session', 'album:view', 'admin:system-settings', 'user:manage'],
   roles: [{ id: 1, name: 'admin' }],
 };
 

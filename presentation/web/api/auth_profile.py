@@ -1,4 +1,4 @@
-"""認証プロフィール JSON API — 自分のプロフィール更新・2FA 設定・新規登録"""
+"""認証プロフィール JSON API — 自分のプロフィール更新・2FA 設定・新規登録・パスワードリセット"""
 from __future__ import annotations
 
 from flask import jsonify, request
@@ -10,6 +10,7 @@ from .routes import login_or_jwt_required, get_current_user
 from .health import skip_auth
 from ..auth.totp import new_totp_secret, provisioning_uri, verify_totp, qr_code_data_uri
 from ..services.token_service import TokenService
+from ..services.password_reset_service import PasswordResetService
 
 
 def _orm_user(user) -> User | None:
@@ -180,3 +181,34 @@ def api_auth_register():
         "refresh_token": refresh_token,
         "token_type": "Bearer",
     }), 201
+
+
+@bp.post("/auth/password/forgot")
+@skip_auth
+def api_auth_password_forgot():
+    """パスワードリセットメールを送信する（メールが存在しなくても成功を返す）。"""
+    payload = request.get_json(silent=True) or {}
+    email = (payload.get("email") or "").strip()
+    if not email:
+        return jsonify({"error": "email_required"}), 400
+    ok, err = PasswordResetService.create_reset_request(email)
+    if not ok:
+        return jsonify({"error": "mail_disabled", "message": err}), 503
+    return jsonify({"sent": True})
+
+
+@bp.post("/auth/password/reset")
+@skip_auth
+def api_auth_password_reset():
+    """トークンを検証して新しいパスワードを設定する。"""
+    payload = request.get_json(silent=True) or {}
+    token = (payload.get("token") or "").strip()
+    password = payload.get("password") or ""
+    if not token:
+        return jsonify({"error": "token_required"}), 400
+    if not password or len(password) < 8:
+        return jsonify({"error": "password_too_short"}), 400
+    ok = PasswordResetService.reset_password(token, password)
+    if not ok:
+        return jsonify({"error": "invalid_token"}), 400
+    return jsonify({"reset": True})

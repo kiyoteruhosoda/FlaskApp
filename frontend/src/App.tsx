@@ -23,6 +23,13 @@ import AlbumDetailPage from './pages/AlbumDetailPage';
 import UsersPage from './pages/UsersPage';
 import ProfilePage from './pages/ProfilePage';
 import RegisterPage from './pages/RegisterPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
+import RolesPage from './pages/RolesPage';
+import GroupsPage from './pages/GroupsPage';
+import PermissionsPage from './pages/PermissionsPage';
+import ServiceAccountsPage from './pages/ServiceAccountsPage';
 
 // Bootstrap CSS
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -122,6 +129,8 @@ const AppContent: React.FC = () => {
               isAuthenticated ? <Navigate to="/" /> : <RegisterPage />
             }
           />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           {/* Protected Routes */}
           <Route 
@@ -216,6 +225,51 @@ const AppContent: React.FC = () => {
             element={
               <ProtectedRoute>
                 <UsersPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/dashboard"
+            element={
+              <ProtectedRoute>
+                <AdminDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/roles"
+            element={
+              <ProtectedRoute>
+                <RolesPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/groups"
+            element={
+              <ProtectedRoute>
+                <GroupsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/permissions"
+            element={
+              <ProtectedRoute>
+                <PermissionsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/service-accounts"
+            element={
+              <ProtectedRoute>
+                <ServiceAccountsPage />
               </ProtectedRoute>
             }
           />

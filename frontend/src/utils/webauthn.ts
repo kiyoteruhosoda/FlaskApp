@@ -30,6 +30,68 @@ export function isPasskeySupported(): boolean {
   );
 }
 
+interface RegisterOptions {
+  challenge: string;
+  timeout?: number;
+  rp?: { id?: string; name: string };
+  user: { id: string; name: string; displayName: string };
+  pubKeyCredParams: Array<{ type: 'public-key'; alg: number }>;
+  attestation?: AttestationConveyancePreference;
+  excludeCredentials?: Array<{ id: string; type: 'public-key' }>;
+  authenticatorSelection?: AuthenticatorSelectionCriteria;
+}
+
+/**
+ * サーバーが返した登録オプション(base64url)を WebAuthn 用に変換して
+ * navigator.credentials.create を実行し、サーバー送信用 JSON を返す。
+ */
+export async function startPasskeyRegistration(
+  options: RegisterOptions
+): Promise<Record<string, unknown>> {
+  const publicKey: PublicKeyCredentialCreationOptions = {
+    challenge: base64urlToBuffer(options.challenge),
+    timeout: options.timeout,
+    rp: options.rp || { name: 'PhotoNest' },
+    user: {
+      id: base64urlToBuffer(options.user.id),
+      name: options.user.name,
+      displayName: options.user.displayName,
+    },
+    pubKeyCredParams: options.pubKeyCredParams,
+    attestation: options.attestation,
+    excludeCredentials: (options.excludeCredentials || []).map((c) => ({
+      id: base64urlToBuffer(c.id),
+      type: c.type,
+    })),
+    authenticatorSelection: options.authenticatorSelection,
+  };
+
+  const credential = (await navigator.credentials.create({
+    publicKey,
+  })) as PublicKeyCredential | null;
+
+  if (!credential) {
+    throw new Error('passkey_canceled');
+  }
+
+  const response = credential.response as AuthenticatorAttestationResponse;
+  const result: Record<string, unknown> = {
+    id: credential.id,
+    rawId: bufferToBase64url(credential.rawId),
+    type: credential.type,
+    response: {
+      clientDataJSON: bufferToBase64url(response.clientDataJSON),
+      attestationObject: bufferToBase64url(response.attestationObject),
+    },
+  };
+
+  if (typeof response.getTransports === 'function') {
+    (result.response as Record<string, unknown>).transports = response.getTransports();
+  }
+
+  return result;
+}
+
 interface AuthOptions {
   challenge: string;
   timeout?: number;

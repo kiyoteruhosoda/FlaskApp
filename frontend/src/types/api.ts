@@ -334,6 +334,75 @@ export interface AdminRole {
   permissions: string[];
 }
 
+// ===== 管理 API — ロール CRUD =====
+
+export interface AdminRoleDetail {
+  id: number;
+  name: string;
+  permissions: Array<{ id: number; code: string }>;
+  userCount: number;
+}
+
+// ===== 管理 API — グループ =====
+
+export interface AdminGroup {
+  id: number;
+  name: string;
+  description: string | null;
+  parentId: number | null;
+  parentName: string | null;
+  memberCount: number;
+  childCount: number;
+}
+
+export interface AdminGroupDetail extends AdminGroup {
+  members: Array<{ id: number; email: string; username: string | null }>;
+}
+
+// ===== 管理 API — 権限 =====
+
+export interface AdminPermission {
+  id: number;
+  code: string;
+  detail: string | null;
+  roleCount: number;
+}
+
+// ===== 管理 API — サービスアカウント =====
+
+export interface AdminServiceAccount {
+  id: number;
+  name: string;
+  description: string | null;
+  scopes: string[];
+  isActive: boolean;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+// ===== 管理 API — ダッシュボード =====
+
+export interface DashboardStats {
+  users: { total: number; active: number };
+  roles: number;
+  groups: number;
+  serviceAccounts: number;
+  media?: { total: number; photos: number; videos: number };
+  albums?: number;
+  tags?: number;
+  recentJobs: Array<{ id: number; target: string; status: string; startedAt: string | null }>;
+}
+
+// ===== パスキー =====
+
+export interface PasskeyItem {
+  id: number;
+  name: string | null;
+  createdAt: string | null;
+  lastUsedAt: string | null;
+  transports: string[];
+}
+
 // ===== プロフィール・2FA・登録 =====
 
 export interface ProfileUpdateRequest {

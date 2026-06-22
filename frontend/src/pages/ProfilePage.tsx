@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Card, Row, Col, Button, Form, Alert, Badge, Spinner } from 'react-bootstrap';
+import { Container, Card, Row, Col, Button, Form, Alert, Badge, Spinner, ListGroup } from 'react-bootstrap';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
 import { getCurrentUser } from '../store/authSlice';
 import { useTranslation } from 'react-i18next';
-import { TOTPSetupResponse } from '../types/api';
+import { TOTPSetupResponse, PasskeyItem } from '../types/api';
 import apiClient from '../services/api';
+import { startPasskeyRegistration } from '../utils/webauthn';
 
 const ProfilePage: React.FC = () => {
   const { t } = useTranslation();
@@ -32,9 +33,64 @@ const ProfilePage: React.FC = () => {
   const [totpSuccess, setTotpSuccess] = useState('');
   const [showDisableConfirm, setShowDisableConfirm] = useState(false);
 
+  // Passkey state
+  const [passkeys, setPasskeys] = useState<PasskeyItem[]>([]);
+  const [passkeysLoading, setPasskeysLoading] = useState(true);
+  const [passkeysError, setPasskeysError] = useState('');
+  const [passkeyRegistering, setPasskeyRegistering] = useState(false);
+  const [passkeySuccess, setPasskeySuccess] = useState('');
+  const [deletingPasskeyId, setDeletingPasskeyId] = useState<number | null>(null);
+
   useEffect(() => {
     loadTOTPStatus();
+    loadPasskeys();
   }, []);
+
+  const loadPasskeys = async () => {
+    setPasskeysLoading(true);
+    try {
+      const res = await apiClient.getPasskeys();
+      setPasskeys(res.passkeys);
+    } catch {
+      setPasskeysError(t('Failed to load passkeys'));
+    } finally {
+      setPasskeysLoading(false);
+    }
+  };
+
+  const handleRegisterPasskey = async () => {
+    setPasskeysError('');
+    setPasskeySuccess('');
+    setPasskeyRegistering(true);
+    try {
+      const options = await apiClient.getPasskeyRegisterOptions();
+      const credential = await startPasskeyRegistration(options as any);
+      await apiClient.verifyPasskeyRegister(credential);
+      setPasskeySuccess(t('Passkey registered successfully'));
+      await loadPasskeys();
+    } catch (err: any) {
+      if (err.name === 'NotAllowedError') {
+        setPasskeysError(t('Passkey registration was cancelled'));
+      } else {
+        setPasskeysError(t('Failed to register passkey'));
+      }
+    } finally {
+      setPasskeyRegistering(false);
+    }
+  };
+
+  const handleDeletePasskey = async (id: number) => {
+    setDeletingPasskeyId(id);
+    setPasskeysError('');
+    try {
+      await apiClient.deletePasskey(id);
+      setPasskeys((prev) => prev.filter((p) => p.id !== id));
+    } catch {
+      setPasskeysError(t('Failed to delete passkey'));
+    } finally {
+      setDeletingPasskeyId(null);
+    }
+  };
 
   const loadTOTPStatus = async () => {
     setTotpLoading(true);
@@ -379,6 +435,64 @@ const ProfilePage: React.FC = () => {
                 </Button>
               </div>
             </div>
+          )}
+        </Card.Body>
+      </Card>
+
+      {/* Passkeys Card */}
+      <Card className="mt-4" data-testid="passkeys-section">
+        <Card.Body>
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <Card.Title className="mb-0">{t('Passkeys')}</Card.Title>
+            <Button
+              variant="outline-primary"
+              size="sm"
+              onClick={handleRegisterPasskey}
+              disabled={passkeyRegistering}
+              data-testid="passkey-register-btn"
+            >
+              {passkeyRegistering ? <Spinner size="sm" /> : <><i className="bi bi-key me-1" />{t('Add Passkey')}</>}
+            </Button>
+          </div>
+
+          {passkeySuccess && (
+            <Alert variant="success" dismissible onClose={() => setPasskeySuccess('')}>
+              {passkeySuccess}
+            </Alert>
+          )}
+          {passkeysError && (
+            <Alert variant="danger" dismissible onClose={() => setPasskeysError('')} data-testid="passkey-error">
+              {passkeysError}
+            </Alert>
+          )}
+
+          {passkeysLoading ? (
+            <div className="text-center py-3"><Spinner animation="border" size="sm" /></div>
+          ) : passkeys.length === 0 ? (
+            <p className="text-muted small mb-0" data-testid="passkeys-empty">{t('No passkeys registered')}</p>
+          ) : (
+            <ListGroup variant="flush" data-testid="passkeys-list">
+              {passkeys.map((pk) => (
+                <ListGroup.Item key={pk.id} className="d-flex justify-content-between align-items-center px-0" data-testid="passkey-item">
+                  <div>
+                    <div className="fw-semibold">{pk.name || t('Passkey')}</div>
+                    <small className="text-muted">
+                      {pk.createdAt && <>{t('Added')} {new Date(pk.createdAt).toLocaleDateString()}</>}
+                      {pk.lastUsedAt && <> · {t('Last used')} {new Date(pk.lastUsedAt).toLocaleDateString()}</>}
+                    </small>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline-danger"
+                    onClick={() => handleDeletePasskey(pk.id)}
+                    disabled={deletingPasskeyId === pk.id}
+                    data-testid="passkey-delete-btn"
+                  >
+                    {deletingPasskeyId === pk.id ? <Spinner size="sm" /> : <i className="bi bi-trash" />}
+                  </Button>
+                </ListGroup.Item>
+              ))}
+            </ListGroup>
           )}
         </Card.Body>
       </Card>

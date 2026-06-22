@@ -135,28 +135,51 @@ SQLAlchemy インスタンス／設定シングルトンを参照する（`db.me
 （55 ファイル）のみで、後方互換のため shim を保持する。本番からの直接 `core`
 参照は消滅。シム削除はフルテストスイートで安全確認できた段階で実施する。
 
-### Phase 3 — `picker_session` を `picker_import` コンテキストへ抽出（高リスク）
+### Phase 3 — `picker_session` を `picker_import` コンテキストへ抽出 ✅（本コミットで完了）
 
-逆依存 #3・#4 の本丸。`presentation/web/api/picker_session{,_service}.py`（計 3000 行超）は
-実体が picker セッションの**アプリケーションロジック**であり、本来は既存の
-`bounded_contexts/picker_import/`（domain/application/infrastructure 完備）に属する。
+逆依存 #3・#4 の本丸。`PickerSessionService`（1658 行）は実体が picker セッションの
+**アプリケーションロジック**であり、既存の `bounded_contexts/picker_import/` に移設した。
+シムパターン（移設＋旧位置に後方互換シム）で実施。
 
-現状の依存（`picker_session_service.py`）:
-`core.settings` / `core.models.*` / `auth.utils`（→Phase 0 で共有化済の http_logging と
-Google トークン更新）/ `core.tasks.local_import` / `concurrency` / `pagination` / `core.time`。
+実施内容:
 
-手順案:
-1. `PickerSessionService` と定数（`SESSION_LOG_DEFAULT_LIMIT` 等）を
-   `bounded_contexts/picker_import/application/picker_session_service.py` へ移設。
-2. `auth.utils` への依存（`refresh_google_token` 等の Google OAuth）は
-   `shared/` もしくは `email`/認証系コンテキストの application サービスへ切り出し。
-3. `presentation/web/api/picker_session.py` と
-   `photonest/presentation/photo_view` の双方を、コンテキストの application サービス
-   経由に変更。
-4. `pagination` / `concurrency` の共有ヘルパは `shared/` へ。
+1. **汎用ヘルパを共有層へ移設**（旧位置にシム）:
+   - `presentation/web/api/pagination.py` → `shared/application/pagination.py`
+   - `presentation/web/api/concurrency.py` → `shared/application/concurrency.py`
+2. **Google OAuth を共有層へ移設**: `refresh_google_token` / `RefreshTokenError` を
+   `presentation/web/auth/utils.py` から `shared/infrastructure/google_oauth.py` へ。
+   `auth.utils` は OAuth・HTTP ロギングともに再エクスポートのみの薄いモジュールになった。
+3. **`PickerSessionService` ＋ 定数 ＋ モジュールヘルパを移設**:
+   `bounded_contexts/picker_import/application/picker_session_service.py`。
+   旧 `presentation/web/api/picker_session_service.py` はシム化。
+   `SESSION_LOG_DEFAULT_LIMIT` / `SESSION_LOG_MAX_LIMIT` の正本もここに集約。
+4. **consumer を更新**:
+   - `photonest/presentation/photo_view/routes.py` は context から直接 import
+     → **逆依存 #3・#4 解消**。
+   - `presentation/web/api/picker_session.py` は context／shared から import。
+5. **service 内の late import 逆依存を解消**: `_enqueue_new_items` が
+   `presentation.web.api.picker_session` 経由で呼んでいた `enqueue_picker_import_item`
+   を正本 `core.tasks.picker_import` 直呼びへ変更。該当テストの monkeypatch 先も
+   正本へ更新（`ps_module` の import 元のみ差し替え、patch 行は不変）。
 
-**前提:** Phase 1–2 完了（`core.settings`/`core.db` の張り替え済み）が望ましい。
-影響が大きいため独立 PR とし、契約テストを先に用意する。
+検証: 移設モジュールが正しいシンボルで解決すること、シムが `import *` で同一
+オブジェクトを再公開すること、移設 service が photonest の必要 API
+（`resolve_session_identifier` / `selection_error_payload`）・定数・内部ヘルパを保持し
+`_enqueue_new_items` が presentation を参照しないことを実機 import で確認済み。
+シムは Phase 1–2 同様に残置（routes / tests の後方互換）。
+
+**Phase 3 で新たに判明した別件の逆依存（未対応・要追跡）**:
+当初の調査は `*/presentation/` のみ対象だったが、`application/` `infrastructure/`
+にも `presentation.web` 依存が残存する。これらは picker_session 抽出とは独立で、
+別タスクとして扱う。
+
+- `bounded_contexts/wiki/application/use_cases.py`
+  → `presentation.web.bootstrap.config.BaseApplicationSettings`,
+    `presentation.web.services.upload_service.commit_uploads_to_directory`
+- `bounded_contexts/email{,_sender}/infrastructure/factory.py`
+  → `presentation.web.bootstrap.extensions.mail`（遅延 import）
+- **推移依存**: `core.tasks.local_import` → `presentation.web.bootstrap.config`
+  （`core → presentation` の構造的逆転。Phase 4 の `core/tasks` 再配置で解消すべき）
 
 ### Phase 4 — `core` 残置モジュールの最終移設（方針決定が必要）
 
@@ -184,5 +207,6 @@ Google トークン更新）/ `core.tasks.local_import` / `concurrency` / `pagin
 - [x] Phase 0: 逆依存 #1（timezone）・#2（http_logging）解消
 - [x] Phase 1: 参照少数の `core` シム張り替え（本番コード／シムは後方互換で残置）
 - [x] Phase 2: `core.db` / `core.settings` 張り替え（本番66ファイル／同一性検証済・シム残置）
-- [ ] Phase 3: `picker_session` を `picker_import` へ抽出（逆依存 #3・#4）
+- [x] Phase 3: `picker_session` を `picker_import` へ抽出（逆依存 #3・#4 解消／シム残置）
+- [ ] Phase 3.x: 別件の逆依存（wiki/application・email factory・core.tasks→presentation）解消
 - [ ] Phase 4: `core` 残置モジュールの最終移設

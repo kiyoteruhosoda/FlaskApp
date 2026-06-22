@@ -16,11 +16,11 @@ from core.models.google_account import GoogleAccount
 from shared.kernel.settings.settings import settings as app_settings
 
 from . import bp
-from presentation.web.api.picker_session import (
+from bounded_contexts.picker_import.application.picker_session_service import (
+    PickerSessionService,
     SESSION_LOG_DEFAULT_LIMIT,
     SESSION_LOG_MAX_LIMIT,
 )
-from presentation.web.api.picker_session_service import PickerSessionService
 
 
 def _build_local_import_info():

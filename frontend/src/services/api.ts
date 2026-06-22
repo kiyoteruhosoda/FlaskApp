@@ -23,6 +23,12 @@ import {
   CursorListResponse,
   AdminUser,
   AdminRole,
+  ProfileUpdateRequest,
+  ProfileUpdateResponse,
+  TOTPStatusResponse,
+  TOTPSetupResponse,
+  RegisterUserRequest,
+  RegisterUserResponse,
 } from '../types/api';
 
 class ApiClient {
@@ -196,6 +202,36 @@ class ApiClient {
 
   async updateProfile(userData: Partial<User>): Promise<ApiResponse<User>> {
     return this.put<User>('/auth/profile', userData);
+  }
+
+  async updateUserProfile(data: ProfileUpdateRequest): Promise<ProfileUpdateResponse> {
+    const response = await this.client.put<ProfileUpdateResponse>('/auth/profile', data);
+    return response.data;
+  }
+
+  async getTOTPStatus(): Promise<TOTPStatusResponse> {
+    const response = await this.client.get<TOTPStatusResponse>('/auth/2fa/status');
+    return response.data;
+  }
+
+  async setupTOTP(): Promise<TOTPSetupResponse> {
+    const response = await this.client.post<TOTPSetupResponse>('/auth/2fa/setup');
+    return response.data;
+  }
+
+  async confirmTOTP(secret: string, code: string): Promise<{ enabled: boolean }> {
+    const response = await this.client.post<{ enabled: boolean }>('/auth/2fa/confirm', { secret, code });
+    return response.data;
+  }
+
+  async disableTOTP(): Promise<{ enabled: boolean }> {
+    const response = await this.client.delete<{ enabled: boolean }>('/auth/2fa');
+    return response.data;
+  }
+
+  async registerUser(data: RegisterUserRequest): Promise<RegisterUserResponse> {
+    const response = await this.client.post<RegisterUserResponse>('/auth/register', data);
+    return response.data;
   }
 
   // メディアAPI

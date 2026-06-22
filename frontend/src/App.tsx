@@ -21,6 +21,8 @@ import JobsPage from './pages/JobsPage';
 import SessionsPage from './pages/SessionsPage';
 import AlbumDetailPage from './pages/AlbumDetailPage';
 import UsersPage from './pages/UsersPage';
+import ProfilePage from './pages/ProfilePage';
+import RegisterPage from './pages/RegisterPage';
 
 // Bootstrap CSS
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -114,6 +116,12 @@ const AppContent: React.FC = () => {
             } 
           />
           <Route path="/select-role" element={<RoleSelectionPage />} />
+          <Route
+            path="/register"
+            element={
+              isAuthenticated ? <Navigate to="/" /> : <RegisterPage />
+            }
+          />
 
           {/* Protected Routes */}
           <Route 
@@ -140,16 +148,13 @@ const AppContent: React.FC = () => {
             } 
           />
           
-          <Route 
-            path="/profile" 
+          <Route
+            path="/profile"
             element={
               <ProtectedRoute>
-                <div className="container py-4">
-                  <h1>Profile</h1>
-                  <p>Your profile settings will be displayed here</p>
-                </div>
+                <ProfilePage />
               </ProtectedRoute>
-            } 
+            }
           />
           
           <Route

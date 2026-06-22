@@ -333,3 +333,47 @@ export interface AdminRole {
   name: string;
   permissions: string[];
 }
+
+// ===== プロフィール・2FA・登録 =====
+
+export interface ProfileUpdateRequest {
+  email?: string;
+  username?: string;
+  password?: string;
+}
+
+export interface ProfileUpdateResponse {
+  updated: boolean;
+  user: {
+    id: number;
+    email: string;
+    username: string | null;
+  };
+}
+
+export interface TOTPStatusResponse {
+  enabled: boolean;
+}
+
+export interface TOTPSetupResponse {
+  secret: string;
+  otpauth_uri: string;
+  qr_data_uri: string;
+}
+
+export interface RegisterUserRequest {
+  email: string;
+  password: string;
+  username?: string;
+}
+
+export interface RegisterUserResponse {
+  user: {
+    id: number;
+    email: string;
+    username: string | null;
+  };
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+}

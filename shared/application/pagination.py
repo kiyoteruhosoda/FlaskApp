@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 from flask import request, current_app
 
-from core.time import utc_now_isoformat
+from shared.kernel.time.clock import utc_now_isoformat
 from sqlalchemy import asc, desc
 from sqlalchemy.orm import Query
 

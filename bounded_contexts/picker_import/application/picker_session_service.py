@@ -38,7 +38,7 @@ from shared.application.concurrency import (
     ConcurrencyLimitExceeded,
     create_limiter,
 )
-from core.time import utc_now_isoformat
+from shared.kernel.time.clock import utc_now_isoformat
 
 # ピッカーセッションのログ取得上限（presentation 層の routes と共有する単一の真実の源）
 SESSION_LOG_DEFAULT_LIMIT = 100

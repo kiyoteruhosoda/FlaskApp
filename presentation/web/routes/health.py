@@ -6,7 +6,7 @@ from flask import Blueprint, jsonify, current_app
 from sqlalchemy import text
 
 from presentation.web.bootstrap.extensions import db
-from core.time import utc_now_isoformat
+from shared.kernel.time.clock import utc_now_isoformat
 from shared.kernel.settings.settings import settings
 from bounded_contexts.storage import StorageDomain
 

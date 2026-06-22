@@ -14,7 +14,22 @@ import ToastNotification from './components/ToastNotification';
 // Pages
 import LoginPage from './pages/LoginPage';
 import RoleSelectionPage from './pages/RoleSelectionPage';
-import MediaGalleryPage from './pages/MediaGalleryPage';
+import MediaPage from './pages/MediaPage';
+import AlbumsPage from './pages/AlbumsPage';
+import TagsPage from './pages/TagsPage';
+import JobsPage from './pages/JobsPage';
+import SessionsPage from './pages/SessionsPage';
+import AlbumDetailPage from './pages/AlbumDetailPage';
+import UsersPage from './pages/UsersPage';
+import ProfilePage from './pages/ProfilePage';
+import RegisterPage from './pages/RegisterPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
+import RolesPage from './pages/RolesPage';
+import GroupsPage from './pages/GroupsPage';
+import PermissionsPage from './pages/PermissionsPage';
+import ServiceAccountsPage from './pages/ServiceAccountsPage';
 
 // Bootstrap CSS
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -108,6 +123,14 @@ const AppContent: React.FC = () => {
             } 
           />
           <Route path="/select-role" element={<RoleSelectionPage />} />
+          <Route
+            path="/register"
+            element={
+              isAuthenticated ? <Navigate to="/" /> : <RegisterPage />
+            }
+          />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           {/* Protected Routes */}
           <Route 
@@ -134,25 +157,121 @@ const AppContent: React.FC = () => {
             } 
           />
           
-          <Route 
-            path="/profile" 
+          <Route
+            path="/profile"
             element={
               <ProtectedRoute>
-                <div className="container py-4">
-                  <h1>Profile</h1>
-                  <p>Your profile settings will be displayed here</p>
-                </div>
+                <ProfilePage />
               </ProtectedRoute>
-            } 
+            }
           />
           
-          <Route 
-            path="/media" 
+          <Route
+            path="/media"
             element={
               <ProtectedRoute>
-                <MediaGalleryPage />
+                <MediaPage />
               </ProtectedRoute>
-            } 
+            }
+          />
+
+          <Route
+            path="/albums"
+            element={
+              <ProtectedRoute>
+                <AlbumsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/albums/:id"
+            element={
+              <ProtectedRoute>
+                <AlbumDetailPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/tags"
+            element={
+              <ProtectedRoute>
+                <TagsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/jobs"
+            element={
+              <ProtectedRoute>
+                <JobsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/sessions"
+            element={
+              <ProtectedRoute>
+                <SessionsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute>
+                <UsersPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/dashboard"
+            element={
+              <ProtectedRoute>
+                <AdminDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/roles"
+            element={
+              <ProtectedRoute>
+                <RolesPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/groups"
+            element={
+              <ProtectedRoute>
+                <GroupsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/permissions"
+            element={
+              <ProtectedRoute>
+                <PermissionsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/service-accounts"
+            element={
+              <ProtectedRoute>
+                <ServiceAccountsPage />
+              </ProtectedRoute>
+            }
           />
 
           {/* Catch all route */}

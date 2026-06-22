@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { 
-  LoginRequest, 
-  LoginResponse, 
+import {
+  LoginRequest,
+  LoginResponse,
   RegisterRequest,
   User,
   Media,
@@ -11,7 +11,31 @@ import {
   PaginatedResponse,
   SystemSettings,
   GoogleAccount,
-  TaskStatus
+  TaskStatus,
+  SyncJobListResponse,
+  SyncJobDetailResponse,
+  SyncJobsQuery,
+  PickerSessionListResponse,
+  PhotoItem,
+  AlbumSummary,
+  AlbumDetail,
+  MediaTag,
+  CursorListResponse,
+  AdminUser,
+  AdminRole,
+  AdminRoleDetail,
+  AdminGroup,
+  AdminGroupDetail,
+  AdminPermission,
+  AdminServiceAccount,
+  DashboardStats,
+  PasskeyItem,
+  ProfileUpdateRequest,
+  ProfileUpdateResponse,
+  TOTPStatusResponse,
+  TOTPSetupResponse,
+  RegisterUserRequest,
+  RegisterUserResponse,
 } from '../types/api';
 
 class ApiClient {
@@ -41,7 +65,13 @@ class ApiClient {
     this.client.interceptors.response.use(
       (response) => response,
       async (error) => {
-        if (error.response?.status === 401) {
+        // 認証エンドポイント自体の 401(資格情報不正・TOTP要求等)は
+        // セッション失効とは異なるため、リフレッシュ/リダイレクトを行わない。
+        const requestUrl: string = error.config?.url || '';
+        const isAuthEndpoint =
+          requestUrl.includes('/auth/login') ||
+          requestUrl.includes('/auth/refresh');
+        if (error.response?.status === 401 && !isAuthEndpoint) {
           // トークン期限切れの場合、リフレッシュトークンで再取得を試行
           const refreshToken = localStorage.getItem('refresh_token');
           if (refreshToken) {
@@ -181,6 +211,36 @@ class ApiClient {
     return this.put<User>('/auth/profile', userData);
   }
 
+  async updateUserProfile(data: ProfileUpdateRequest): Promise<ProfileUpdateResponse> {
+    const response = await this.client.put<ProfileUpdateResponse>('/auth/profile', data);
+    return response.data;
+  }
+
+  async getTOTPStatus(): Promise<TOTPStatusResponse> {
+    const response = await this.client.get<TOTPStatusResponse>('/auth/2fa/status');
+    return response.data;
+  }
+
+  async setupTOTP(): Promise<TOTPSetupResponse> {
+    const response = await this.client.post<TOTPSetupResponse>('/auth/2fa/setup');
+    return response.data;
+  }
+
+  async confirmTOTP(secret: string, code: string): Promise<{ enabled: boolean }> {
+    const response = await this.client.post<{ enabled: boolean }>('/auth/2fa/confirm', { secret, code });
+    return response.data;
+  }
+
+  async disableTOTP(): Promise<{ enabled: boolean }> {
+    const response = await this.client.delete<{ enabled: boolean }>('/auth/2fa');
+    return response.data;
+  }
+
+  async registerUser(data: RegisterUserRequest): Promise<RegisterUserResponse> {
+    const response = await this.client.post<RegisterUserResponse>('/auth/register', data);
+    return response.data;
+  }
+
   // メディアAPI
   async getMediaList(params?: {
     page?: number;
@@ -293,6 +353,326 @@ class ApiClient {
   // タスク状況API
   async getTaskStatus(taskId: string): Promise<ApiResponse<TaskStatus>> {
     return this.get<TaskStatus>(`/tasks/${taskId}/status`);
+  }
+
+  // ===== 同期・変換ジョブ履歴 API =====
+  // バックエンドは {jobs, pagination, ...} の生レスポンスを返すため、
+  // ApiResponse ラップせず素の型で受ける。
+  async getSyncJobs(params?: SyncJobsQuery): Promise<SyncJobListResponse> {
+    const response = await this.client.get<SyncJobListResponse>('/sync/jobs', { params });
+    return response.data;
+  }
+
+  async getSyncJob(id: number): Promise<SyncJobDetailResponse> {
+    const response = await this.client.get<SyncJobDetailResponse>(`/sync/jobs/${id}`);
+    return response.data;
+  }
+
+  async retrySyncJob(id: number): Promise<{
+    success: boolean;
+    retriedFrom: number;
+    newJobId: number;
+    taskId: string | null;
+  }> {
+    const response = await this.client.post(`/sync/jobs/${id}/retry`);
+    return response.data;
+  }
+
+  // ===== Picker セッション一覧 API（実エンドポイント /picker/sessions） =====
+  async getPickerSessions(params?: {
+    page?: number;
+    pageSize?: number;
+  }): Promise<PickerSessionListResponse> {
+    const response = await this.client.get<PickerSessionListResponse>('/picker/sessions', { params });
+    return response.data;
+  }
+
+  // ===== 写真管理 API（実エンドポイントの生レスポンスで受ける） =====
+  async getPhotos(params?: {
+    pageSize?: number;
+    cursor?: string;
+    is_video?: 0 | 1;
+    order?: 'asc' | 'desc';
+  }): Promise<CursorListResponse<PhotoItem>> {
+    const response = await this.client.get<CursorListResponse<PhotoItem>>('/media', { params });
+    return response.data;
+  }
+
+  async getPhoto(id: number): Promise<PhotoItem> {
+    const response = await this.client.get<PhotoItem>(`/media/${id}`);
+    return response.data;
+  }
+
+  async getPhotoThumbUrl(id: number, size: number): Promise<string | null> {
+    const response = await this.client.post<{ url?: string }>(`/media/${id}/thumb-url`, { size });
+    return response.data?.url ?? null;
+  }
+
+  async getPhotoPlaybackUrl(id: number): Promise<string | null> {
+    const response = await this.client.post<{ url?: string }>(`/media/${id}/playback-url`);
+    return response.data?.url ?? null;
+  }
+
+  async getAlbums(params?: {
+    pageSize?: number;
+    cursor?: string;
+    q?: string;
+  }): Promise<CursorListResponse<AlbumSummary>> {
+    const response = await this.client.get<CursorListResponse<AlbumSummary>>('/albums', { params });
+    return response.data;
+  }
+
+  async getTags(params?: { q?: string; limit?: number }): Promise<{ items: MediaTag[] }> {
+    const response = await this.client.get<{ items: MediaTag[] }>('/tags', { params });
+    return response.data;
+  }
+
+  // ===== アルバム CRUD / 並び替え =====
+
+  async getAlbumDetail(id: number): Promise<{ album: AlbumDetail }> {
+    const response = await this.client.get<{ album: AlbumDetail }>(`/albums/${id}`);
+    return response.data;
+  }
+
+  async createAlbumItem(data: {
+    name: string;
+    description?: string;
+    visibility?: string;
+    mediaIds?: number[];
+    coverMediaId?: number;
+  }): Promise<{ album: AlbumDetail; created: boolean }> {
+    const response = await this.client.post<{ album: AlbumDetail; created: boolean }>('/albums', data);
+    return response.data;
+  }
+
+  async updateAlbumItem(
+    id: number,
+    data: {
+      name?: string;
+      description?: string;
+      visibility?: string;
+      mediaIds?: number[];
+      coverMediaId?: number;
+    }
+  ): Promise<{ album: AlbumDetail; updated: boolean }> {
+    const response = await this.client.put<{ album: AlbumDetail; updated: boolean }>(`/albums/${id}`, data);
+    return response.data;
+  }
+
+  async deleteAlbumItem(id: number): Promise<{ result: string }> {
+    const response = await this.client.delete<{ result: string }>(`/albums/${id}`);
+    return response.data;
+  }
+
+  async reorderAlbumMedia(albumId: number, mediaIds: number[]): Promise<{ updated: boolean; album: AlbumDetail }> {
+    const response = await this.client.put<{ updated: boolean; album: AlbumDetail }>(
+      `/albums/${albumId}/media/order`,
+      { mediaIds }
+    );
+    return response.data;
+  }
+
+  // ===== タグ作成 =====
+
+  async createTag(name: string, attr: string): Promise<{ tag: MediaTag; created: boolean }> {
+    const response = await this.client.post<{ tag: MediaTag; created: boolean }>('/tags', { name, attr });
+    return response.data;
+  }
+
+  // ===== メディアタグ付与 =====
+
+  async updateMediaTags(mediaId: number, tagIds: number[]): Promise<{ tags: MediaTag[] }> {
+    const response = await this.client.put<{ tags: MediaTag[] }>(`/media/${mediaId}/tags`, { tag_ids: tagIds });
+    return response.data;
+  }
+
+  // ===== 管理 API — ユーザー管理 =====
+
+  async getAdminUsers(params?: { q?: string }): Promise<{ users: AdminUser[] }> {
+    const response = await this.client.get<{ users: AdminUser[] }>('/admin/users', { params });
+    return response.data;
+  }
+
+  async getAdminUser(id: number): Promise<{ user: AdminUser }> {
+    const response = await this.client.get<{ user: AdminUser }>(`/admin/users/${id}`);
+    return response.data;
+  }
+
+  async createAdminUser(data: {
+    email: string;
+    username?: string;
+    password: string;
+    roleIds?: number[];
+  }): Promise<{ user: AdminUser; created: boolean }> {
+    const response = await this.client.post<{ user: AdminUser; created: boolean }>('/admin/users', data);
+    return response.data;
+  }
+
+  async updateAdminUser(
+    id: number,
+    data: { email?: string; username?: string | null; isActive?: boolean }
+  ): Promise<{ user: AdminUser; updated: boolean }> {
+    const response = await this.client.put<{ user: AdminUser; updated: boolean }>(`/admin/users/${id}`, data);
+    return response.data;
+  }
+
+  async updateAdminUserRoles(id: number, roleIds: number[]): Promise<{ user: AdminUser; updated: boolean }> {
+    const response = await this.client.put<{ user: AdminUser; updated: boolean }>(
+      `/admin/users/${id}/roles`,
+      { roleIds }
+    );
+    return response.data;
+  }
+
+  async resetAdminUserTOTP(id: number): Promise<{ result: string; userId: number }> {
+    const response = await this.client.post<{ result: string; userId: number }>(
+      `/admin/users/${id}/reset-totp`
+    );
+    return response.data;
+  }
+
+  async deleteAdminUser(id: number): Promise<{ result: string; userId: number }> {
+    const response = await this.client.delete<{ result: string; userId: number }>(`/admin/users/${id}`);
+    return response.data;
+  }
+
+  async getAdminRoles(): Promise<{ roles: AdminRole[] }> {
+    const response = await this.client.get<{ roles: AdminRole[] }>('/admin/roles');
+    return response.data;
+  }
+
+  // ===== 管理 API — ロール CRUD =====
+
+  async createAdminRole(data: { name: string; permissionIds?: number[] }): Promise<{ role: AdminRoleDetail; created: boolean }> {
+    const response = await this.client.post<{ role: AdminRoleDetail; created: boolean }>('/admin/roles', data);
+    return response.data;
+  }
+
+  async getAdminRoleDetail(id: number): Promise<{ role: AdminRoleDetail }> {
+    const response = await this.client.get<{ role: AdminRoleDetail }>(`/admin/roles/${id}`);
+    return response.data;
+  }
+
+  async updateAdminRole(id: number, data: { name?: string; permissionIds?: number[] }): Promise<{ role: AdminRoleDetail; updated: boolean }> {
+    const response = await this.client.put<{ role: AdminRoleDetail; updated: boolean }>(`/admin/roles/${id}`, data);
+    return response.data;
+  }
+
+  async deleteAdminRole(id: number): Promise<{ result: string }> {
+    const response = await this.client.delete<{ result: string }>(`/admin/roles/${id}`);
+    return response.data;
+  }
+
+  // ===== 管理 API — グループ CRUD =====
+
+  async getAdminGroups(): Promise<{ groups: AdminGroup[] }> {
+    const response = await this.client.get<{ groups: AdminGroup[] }>('/admin/groups');
+    return response.data;
+  }
+
+  async createAdminGroup(data: { name: string; description?: string; parentId?: number | null }): Promise<{ group: AdminGroup; created: boolean }> {
+    const response = await this.client.post<{ group: AdminGroup; created: boolean }>('/admin/groups', data);
+    return response.data;
+  }
+
+  async getAdminGroupDetail(id: number): Promise<{ group: AdminGroupDetail }> {
+    const response = await this.client.get<{ group: AdminGroupDetail }>(`/admin/groups/${id}`);
+    return response.data;
+  }
+
+  async updateAdminGroup(id: number, data: { name?: string; description?: string; parentId?: number | null; memberIds?: number[] }): Promise<{ group: AdminGroup; updated: boolean }> {
+    const response = await this.client.put<{ group: AdminGroup; updated: boolean }>(`/admin/groups/${id}`, data);
+    return response.data;
+  }
+
+  async deleteAdminGroup(id: number): Promise<{ result: string }> {
+    const response = await this.client.delete<{ result: string }>(`/admin/groups/${id}`);
+    return response.data;
+  }
+
+  // ===== 管理 API — 権限 CRUD =====
+
+  async getAdminPermissions(params?: { q?: string }): Promise<{ permissions: AdminPermission[] }> {
+    const response = await this.client.get<{ permissions: AdminPermission[] }>('/admin/permissions', { params });
+    return response.data;
+  }
+
+  async createAdminPermission(data: { code: string; detail?: string }): Promise<{ permission: AdminPermission; created: boolean }> {
+    const response = await this.client.post<{ permission: AdminPermission; created: boolean }>('/admin/permissions', data);
+    return response.data;
+  }
+
+  async updateAdminPermission(id: number, data: { code?: string; detail?: string }): Promise<{ permission: AdminPermission; updated: boolean }> {
+    const response = await this.client.put<{ permission: AdminPermission; updated: boolean }>(`/admin/permissions/${id}`, data);
+    return response.data;
+  }
+
+  async deleteAdminPermission(id: number): Promise<{ result: string }> {
+    const response = await this.client.delete<{ result: string }>(`/admin/permissions/${id}`);
+    return response.data;
+  }
+
+  // ===== 管理 API — サービスアカウント CRUD =====
+
+  async getAdminServiceAccounts(params?: { q?: string }): Promise<{ serviceAccounts: AdminServiceAccount[] }> {
+    const response = await this.client.get<{ serviceAccounts: AdminServiceAccount[] }>('/admin/service-accounts', { params });
+    return response.data;
+  }
+
+  async createAdminServiceAccount(data: { name: string; description?: string; scopes?: string[]; isActive?: boolean }): Promise<{ serviceAccount: AdminServiceAccount; created: boolean }> {
+    const response = await this.client.post<{ serviceAccount: AdminServiceAccount; created: boolean }>('/admin/service-accounts', data);
+    return response.data;
+  }
+
+  async updateAdminServiceAccount(id: number, data: { name?: string; description?: string; scopes?: string[]; isActive?: boolean }): Promise<{ serviceAccount: AdminServiceAccount; updated: boolean }> {
+    const response = await this.client.put<{ serviceAccount: AdminServiceAccount; updated: boolean }>(`/admin/service-accounts/${id}`, data);
+    return response.data;
+  }
+
+  async deleteAdminServiceAccount(id: number): Promise<{ result: string }> {
+    const response = await this.client.delete<{ result: string }>(`/admin/service-accounts/${id}`);
+    return response.data;
+  }
+
+  // ===== 管理 API — ダッシュボード =====
+
+  async getAdminDashboard(): Promise<{ stats: DashboardStats }> {
+    const response = await this.client.get<{ stats: DashboardStats }>('/admin/dashboard');
+    return response.data;
+  }
+
+  // ===== パスキー管理 =====
+
+  async getPasskeys(): Promise<{ passkeys: PasskeyItem[] }> {
+    const response = await this.client.get<{ passkeys: PasskeyItem[] }>('/auth/passkeys');
+    return response.data;
+  }
+
+  async deletePasskey(id: number): Promise<{ result: string }> {
+    const response = await this.client.delete<{ result: string }>(`/auth/passkeys/${id}`);
+    return response.data;
+  }
+
+  async getPasskeyRegisterOptions(): Promise<Record<string, unknown>> {
+    const response = await this.client.get<Record<string, unknown>>('/auth/passkey/options/register');
+    return response.data;
+  }
+
+  async verifyPasskeyRegister(credential: Record<string, unknown>): Promise<{ result: string }> {
+    const response = await this.client.post<{ result: string }>('/auth/passkey/verify/register', credential);
+    return response.data;
+  }
+
+  // ===== パスワードリセット =====
+
+  async forgotPassword(email: string): Promise<{ sent: boolean }> {
+    const response = await this.client.post<{ sent: boolean }>('/auth/password/forgot', { email });
+    return response.data;
+  }
+
+  async resetPassword(token: string, password: string): Promise<{ reset: boolean }> {
+    const response = await this.client.post<{ reset: boolean }>('/auth/password/reset', { token, password });
+    return response.data;
   }
 }
 

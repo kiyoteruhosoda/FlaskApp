@@ -1232,11 +1232,29 @@ def _invoke_current_import_single_file(
             )
         raise
 
+def _resolve_max_attempts() -> int:
+    """リトライ上限を環境変数から解決する(既定3, 0以下で無制限)."""
+
+    raw = os.environ.get("LOCAL_IMPORT_MAX_ATTEMPTS")
+    if raw is None or raw.strip() == "":
+        return 3
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return 3
+
+
+from bounded_contexts.photonest.infrastructure.local_import.import_audit_recorder import (
+    record_local_import_event,
+)
+
 _queue_processor = LocalImportQueueProcessor(
     db=db,
     logger=_task_logger,
     importer=_invoke_current_import_single_file,
     cancel_requested=_session_service.cancel_requested,
+    max_attempts=_resolve_max_attempts(),
+    audit_recorder=record_local_import_event,
 )
 
 _use_case = LocalImportUseCase(

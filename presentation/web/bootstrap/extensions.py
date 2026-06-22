@@ -10,7 +10,7 @@ from presentation.web.openapi.smorest_ext import Api
 
 migrate = Migrate()
 login_manager = LoginManager()
-login_manager.login_view = "auth.login"  # 未ログイン時のリダイレクト先
+login_manager.login_view = None
 babel = Babel()
 api = Api()
 mail = Mail()

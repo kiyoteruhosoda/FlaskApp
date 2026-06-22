@@ -11,7 +11,6 @@ from flask import (
     current_app,
     flash as flask_flash,
     redirect,
-    render_template,
     request,
     session,
     url_for,
@@ -292,20 +291,7 @@ def index():
         if required
     ]
 
-    return render_template(
-        "certs/groups.html",
-        groups=groups,
-        usage_options=_usage_options(),
-        subject_fields=_SUBJECT_FIELD_DEFINITIONS,
-        required_subject_field_names=required_subject_field_names,
-        key_presets=_usage_key_presets(),
-        create_form_values=create_form_values,
-        create_form_errors=create_form_errors,
-        show_create_modal=show_create_modal,
-        edit_form_initial=edit_form_initial,
-        edit_form_errors=edit_form_errors,
-        show_edit_modal=show_edit_modal,
-    )
+    return redirect("/")
 
 
 @certs_ui_bp.route("/groups/create", methods=["POST"])
@@ -544,17 +530,7 @@ def group_detail(group_code: str):
         if required
     ]
 
-    return render_template(
-        "certs/group_detail.html",
-        group=group,
-        certificates=certificates,
-        jwks_url=jwks_url,
-        key_usage_choices=_KEY_USAGE_CHOICES,
-        issued_certificate=issued_certificate,
-        subject_fields=_SUBJECT_FIELD_DEFINITIONS,
-        required_subject_field_names=required_subject_field_names,
-        subject_form_values=subject_form_values,
-    )
+    return redirect("/")
 
 
 @certs_ui_bp.route("/groups/<string:group_code>/rotation", methods=["POST"])
@@ -746,14 +722,7 @@ def search():
             flask_flash(_("Failed to search certificates: %(message)s", message=str(exc)), "error")
             results = None
 
-    return render_template(
-        "certs/search.html",
-        usage_options=_usage_options(),
-        groups=groups,
-        filters=filters,
-        results=results,
-        current_url=request.full_path,
-    )
+    return redirect("/")
 
 
 @certs_ui_bp.route("/<string:kid>")
@@ -781,7 +750,7 @@ def detail(kid: str):
         "key_usage_labels": dict(_KEY_USAGE_CHOICES),
         "extended_key_usage_labels": dict(_EXTENDED_KEY_USAGE_CHOICES),
     }
-    return render_template("certs/detail.html", **detail_context)
+    return redirect("/")
 
 
 @certs_ui_bp.route("/revoke/<string:kid>", methods=["GET", "POST"])
@@ -815,4 +784,4 @@ def revoke(kid: str):
             return redirect(next_url)
         return redirect(url_for("certs_ui.detail", kid=revoked.kid))
 
-    return render_template("certs/revoke.html", certificate=certificate, next_url=next_url)
+    return redirect("/")

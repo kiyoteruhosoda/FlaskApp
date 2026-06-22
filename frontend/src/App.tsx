@@ -37,6 +37,18 @@ import PhotoSettingsPage from './pages/PhotoSettingsPage';
 import PhotoExportsPage from './pages/PhotoExportsPage';
 import ConfigPage from './pages/ConfigPage';
 
+// Wiki Pages
+import WikiIndexPage from './pages/wiki/WikiIndexPage';
+import WikiPageDetailPage from './pages/wiki/WikiPageDetailPage';
+import WikiCreatePage from './pages/wiki/WikiCreatePage';
+import WikiEditPage from './pages/wiki/WikiEditPage';
+import WikiSearchPage from './pages/wiki/WikiSearchPage';
+import WikiCategoryPage from './pages/wiki/WikiCategoryPage';
+import WikiCategoriesPage from './pages/wiki/WikiCategoriesPage';
+import WikiCreateCategoryPage from './pages/wiki/WikiCreateCategoryPage';
+import WikiHistoryPage from './pages/wiki/WikiHistoryPage';
+import WikiAdminPage from './pages/wiki/WikiAdminPage';
+
 // Bootstrap CSS
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
@@ -333,6 +345,18 @@ const AppContent: React.FC = () => {
               </ProtectedRoute>
             }
           />
+
+          {/* Wiki Routes */}
+          <Route path="/wiki" element={<ProtectedRoute><WikiIndexPage /></ProtectedRoute>} />
+          <Route path="/wiki/page/:slug" element={<ProtectedRoute><WikiPageDetailPage /></ProtectedRoute>} />
+          <Route path="/wiki/create" element={<ProtectedRoute><WikiCreatePage /></ProtectedRoute>} />
+          <Route path="/wiki/edit/:slug" element={<ProtectedRoute><WikiEditPage /></ProtectedRoute>} />
+          <Route path="/wiki/search" element={<ProtectedRoute><WikiSearchPage /></ProtectedRoute>} />
+          <Route path="/wiki/category/:slug" element={<ProtectedRoute><WikiCategoryPage /></ProtectedRoute>} />
+          <Route path="/wiki/categories" element={<ProtectedRoute><WikiCategoriesPage /></ProtectedRoute>} />
+          <Route path="/wiki/categories/create" element={<ProtectedRoute><WikiCreateCategoryPage /></ProtectedRoute>} />
+          <Route path="/wiki/history/:slug" element={<ProtectedRoute><WikiHistoryPage /></ProtectedRoute>} />
+          <Route path="/wiki/admin" element={<ProtectedRoute><WikiAdminPage /></ProtectedRoute>} />
 
           {/* Catch all route */}
           <Route path="*" element={<Navigate to="/" />} />

@@ -9,7 +9,6 @@ from core.settings import settings
 from .bootstrap.extensions import db, migrate, login_manager, babel, api as smorest_api
 from .middleware.error_handlers import register_error_handlers, register_debug_error_handlers
 from .bootstrap.cors import configure_cors
-from .templating.jinja_filters import register_template_filters
 from .bootstrap.persisted_settings import apply_persisted_settings
 from .bootstrap.cli_commands import register_cli_commands
 from .middleware.request_logging import register_request_logging
@@ -20,7 +19,6 @@ from .blueprints import register_blueprints
 from .openapi.setup import apply_openapi_config_defaults, register_openapi_runtime
 from .bootstrap.logging_setup import configure_logging
 from .routes.service_login import register_service_login_hooks
-from .templating.template_context import register_template_context
 from .bootstrap.test_client import HostPreservingClient
 from .bootstrap.proxy_fix import apply_debug_proxy_fix
 from .bootstrap.mail_setup import configure_mail
@@ -103,9 +101,7 @@ def create_app():
     configure_cors(app)
     register_openapi_runtime(app)
 
-    register_template_context(app)
     register_service_login_hooks(app)
-    register_template_filters(app)
 
     disable_db_logging = testing_mode or settings.testing
     configure_logging(app, database_uri=database_uri, disable_db_logging=disable_db_logging)

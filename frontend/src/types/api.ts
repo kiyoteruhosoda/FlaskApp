@@ -446,3 +446,94 @@ export interface RegisterUserResponse {
   refresh_token: string;
   token_type: string;
 }
+
+// ===== セッション詳細・ログ =====
+
+export interface PickerSessionStatus {
+  id: number;
+  sessionId: string;
+  status: string;
+  accountId: number | null;
+  accountEmail: string | null;
+  selectedCount: number | null;
+  counts: Record<string, number>;
+  createdAt: string | null;
+  lastProgressAt: string | null;
+  isLocalImport: boolean;
+  stats: Record<string, any> | null;
+}
+
+export interface PickerSelectionItem {
+  id: number;
+  sessionDbId: number;
+  googleMediaId: string | null;
+  filename: string | null;
+  status: string;
+  attempts: number;
+  error: string | null;
+  localFilePath: string | null;
+  enqueuedAt: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
+export interface SessionLogEntry {
+  id: number;
+  level: string;
+  message: string;
+  timestamp: string;
+  fileTaskId: string | null;
+  progressStep: number | null;
+}
+
+export interface SelectionErrorPayload {
+  session: { id: number; sessionId: string; status: string; accountId: number | null };
+  selection: PickerSelectionItem;
+  logs: SessionLogEntry[];
+}
+
+export interface PickerSessionLogsResponse {
+  logs: SessionLogEntry[];
+  hasNext: boolean;
+  nextCursor: number | null;
+  fileTaskIds: string[];
+}
+
+export interface PickerSessionSelectionsResponse {
+  selections: PickerSelectionItem[];
+  pagination: {
+    hasNext: boolean;
+    totalCount: number | null;
+  };
+}
+
+// ===== ローカルインポート設定 =====
+
+export interface DirectoryInfo {
+  key: string;
+  config_key: string;
+  label: string;
+  path: string | null;
+  absolute: string | null;
+  realpath: string | null;
+  exists: boolean;
+  source: string;
+}
+
+export interface LocalImportStatusResponse {
+  config: {
+    import_dir: string | null;
+    originals_dir: string | null;
+    import_dir_absolute: string | null;
+    import_dir_realpath: string | null;
+    import_dir_exists: boolean;
+    originals_dir_exists: boolean;
+  };
+  status: {
+    pending_files: number;
+    ready: boolean;
+  };
+  directories: DirectoryInfo[];
+  defaults: { duplicateRegeneration: string };
+  server_time: string;
+}

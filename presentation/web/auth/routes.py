@@ -38,7 +38,7 @@ from shared.application.passkey_service import (
 from shared.domain.user import UserRegistrationService
 from shared.infrastructure.passkey_repository import SqlAlchemyPasskeyRepository
 from shared.infrastructure.user_repository import SqlAlchemyUserRepository
-from ..templating.timezone import resolve_timezone, convert_to_timezone
+from shared.kernel.time.timezone import resolve_timezone, convert_to_timezone
 from ..services.token_service import TokenService
 from ..services.gui_access_cookie import (
     API_LOGIN_SCOPE_SESSION_KEY,

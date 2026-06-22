@@ -14,6 +14,14 @@ from . import maintenance  # noqa: E402,F401
 from . import echo  # noqa: E402,F401
 from . import service_account_keys  # noqa: E402,F401
 from . import service_account_signing  # noqa: E402,F401
+from . import admin_users  # noqa: E402,F401
+from . import admin_roles  # noqa: E402,F401
+from . import admin_groups  # noqa: E402,F401
+from . import admin_permissions  # noqa: E402,F401
+from . import admin_service_accounts  # noqa: E402,F401
+from . import admin_misc  # noqa: E402,F401
+from . import auth_profile  # noqa: E402,F401
+from . import auth_passkeys  # noqa: E402,F401
 
 from .picker_session import bp as picker_session_bp
 

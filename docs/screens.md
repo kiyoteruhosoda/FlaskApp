@@ -18,15 +18,15 @@ UI は現在 **2系統**が併存している：
 |---|---|---|---|---|
 | ログイン | `/auth/login` | ID/パスワード、TOTP、失敗時メッセージ | `POST /api/auth/login` | ✅ `/login` |
 | ロール選択 | `/auth/select-role` | 複数ロール時に有効ロール選択 | `GET /api/auth/roles`, `POST /api/auth/select-role` | ✅ `/select-role` |
-| サービスログイン | `/auth/servicelogin` | サービスアカウント用 | — | ⬜ |
-| 登録 | `/auth/register`(+`/totp`,`/no_totp`) | 新規ユーザー登録・TOTP セットアップ | — | ⬜ |
-| プロフィール | `/auth/profile` | 自分の情報表示 | `GET /api/auth/me` | ⬜ |
-| 編集 | `/auth/edit` | 表示名等の編集 | — | ⬜ |
-| TOTP 設定 | `/auth/setup_totp`(+cancel) | 2FA 登録 | `GET/POST /api/totp` | ⬜ |
-| パスキー | `/auth/passkey/*` | WebAuthn 登録/ログイン/削除 | `POST /auth/passkey/options|verify/{register,login}` | 🟡（ログインに統合） |
-| パスワード再設定 | `/auth/password/forgot`,`/reset` | 失念時の再設定 | — | ⬜ |
+| サービスログイン | `/auth/servicelogin` | サービスアカウント用（機械間通信） | — | ✅ 画面なし |
+| 登録 | `/auth/register`(+`/totp`,`/no_totp`) | 新規ユーザー登録・TOTP セットアップ | `POST /api/auth/register` | ✅ `/register` |
+| プロフィール | `/auth/profile` | 自分の情報表示・編集 | `GET /api/auth/me`, `PUT /api/auth/profile` | ✅ `/profile` |
+| 編集 | `/auth/edit` | 表示名等の編集 | `PUT /api/auth/profile` | ✅（ProfilePage に統合） |
+| TOTP 設定 | `/auth/setup_totp`(+cancel) | 2FA 登録・解除 | `GET /api/auth/2fa/status`, `POST /api/auth/2fa/setup`, `POST /api/auth/2fa/confirm`, `DELETE /api/auth/2fa` | ✅（ProfilePage に統合） |
+| パスキー管理 | `/auth/passkey/*` | WebAuthn 登録/ログイン/削除 | `GET /api/auth/passkeys`, `DELETE /api/auth/passkeys/<id>`, `POST /auth/passkey/options\|verify/{register,login}` | ✅（ProfilePage に統合） |
+| パスワード再設定 | `/auth/password/forgot`,`/reset` | 失念時の再設定 | `POST /api/auth/password/forgot`, `POST /api/auth/password/reset` | ✅ `/forgot-password`, `/reset-password` |
 | ログアウト | `/auth/logout` | セッション破棄 | `POST /api/auth/logout` | ✅ |
-| Google 連携 | `/auth/settings/google-accounts` | OAuth 連携 | — | ⬜ |
+| Google 連携 | `/auth/settings/google-accounts` | OAuth 連携（OAuthリダイレクトフロー） | — | ✅ 画面なし |
 
 **ログイン認証フロー（API）**: `POST /api/auth/login` は
 `invalid_credentials`(401) / `totp_required`(401) / `invalid_totp`(401) を返し、
@@ -56,14 +56,15 @@ UI は現在 **2系統**が併存している：
 ### 2.2 React（移行中）
 | 画面 | パス | 機能 | API | React |
 |---|---|---|---|---|
-| メディアギャラリー | `/media` | グリッド・種別フィルタ・追加読込・詳細モーダル(EXIF/タグ) | `GET /api/media`, `POST /api/media/<id>/thumb-url` | ✅ |
-| アルバム一覧 | `/albums` | 表紙・件数・検索 | `GET /api/albums` | ✅(一覧) / 🟡(CRUD未) |
-| タグ一覧 | `/tags` | 一覧・検索 | `GET /api/tags` | ✅(一覧) / 🟡(付与・作成未) |
+| メディアギャラリー | `/media` | グリッド・種別フィルタ・追加読込・詳細モーダル(EXIF/タグ編集/動画再生) | `GET /api/media`, `POST /api/media/<id>/thumb-url`, `POST /api/media/<id>/playback-url`, `PUT /api/media/<id>/tags` | ✅ |
+| アルバム一覧 | `/albums` | 表紙・件数・検索・**作成/編集/削除** | `GET /api/albums`, `POST /api/albums`, `PUT /api/albums/<id>`, `DELETE /api/albums/<id>` | ✅ |
+| アルバム詳細 | `/albums/:id` | メディアグリッド・編集・削除・**DnD 並び替え** | `GET /api/albums/<id>`, `PUT /api/albums/<id>`, `DELETE /api/albums/<id>`, `PUT /api/albums/<id>/media/order` | ✅ |
+| タグ一覧 | `/tags` | 一覧・検索・**タグ作成** | `GET /api/tags`, `POST /api/tags` | ✅ |
 | 取り込みセッション一覧 | `/sessions` | 状態/種別/件数/詳細リンク | `GET /api/picker/sessions` | ✅ |
 
-**写真管理 API（実装済）**: media 一覧/詳細・サムネ/再生署名URL、albums
-CRUD(`POST/PUT/DELETE /api/albums`, 並び替え)、tags(`GET/POST /api/tags`,
-`PUT /api/media/<id>/tags`)。React 側は read を実装済、**CRUD/付与/動画再生は未配線**。
+**写真管理 API（実装済）**: media 一覧/詳細・サムネ/再生署名URL・タグ付与、albums
+CRUD＋メディア並び替え(`PUT /api/albums/<id>/media/order`)、tags 作成/一覧/付与。
+React 側 write（CRUD/付与/動画再生）の配線が完了。
 
 ---
 
@@ -80,25 +81,29 @@ CRUD(`POST/PUT/DELETE /api/albums`, 並び替え)、tags(`GET/POST /api/tags`,
 
 ## 4. 管理（/admin, /dashboard 等）
 
-> ⚠️ **重要**: 管理系は現状ほぼ **Jinja フォーム POST**で、**JSON API が未整備**
-> （`service-accounts.json` のみ JSON）。React 化には先に **管理 JSON API 層**の
-> 新設が必要（最大の工数項目）。
-
 | 画面 | パス | 機能 | JSON API | React |
 |---|---|---|---|---|
-| ダッシュボード | `/dashboard/` | 統計 | ⬜ | ⬜ |
-| ユーザー管理 | `/admin/user`(+add/edit-roles/role/delete/reset-totp) | CRUD・ロール付与 | ⬜ | ⬜ |
-| グループ | `/admin/groups`(+add/edit/delete) | CRUD | ⬜ | ⬜ |
-| ロール | `/admin/roles`(+add/edit) | CRUD・権限割当 | ⬜ | ⬜ |
-| 権限 | `/admin/permissions`(+add/edit/delete) | CRUD | ⬜ | ⬜ |
-| サービスアカウント | `/admin/service-accounts`(+API keys) | CRUD・APIキー | ✅(`.json`) | ⬜ |
-| Google アカウント | `/admin/google_accounts` | 連携管理 | ⬜ | ⬜ |
+| システム概要 | `/admin/dashboard` | 統計・最近のジョブ | ✅ `GET /api/admin/dashboard` | ✅ `/admin/dashboard` |
+| ユーザー管理 | `/admin/users` | CRUD・ロール付与・TOTP リセット | ✅ `GET/POST /api/admin/users`, `GET/PUT/DELETE /api/admin/users/<id>`, `PUT /api/admin/users/<id>/roles`, `POST /api/admin/users/<id>/reset-totp` | ✅ `/admin/users` |
+| ロール管理 | `/admin/roles` | CRUD・権限割当 | ✅ `GET/POST /api/admin/roles`, `GET/PUT/DELETE /api/admin/roles/<id>` | ✅ `/admin/roles` |
+| グループ管理 | `/admin/groups` | CRUD・階層（親子） | ✅ `GET/POST /api/admin/groups`, `GET/PUT/DELETE /api/admin/groups/<id>` | ✅ `/admin/groups` |
+| 権限管理 | `/admin/permissions` | CRUD・検索 | ✅ `GET/POST /api/admin/permissions`, `GET/PUT/DELETE /api/admin/permissions/<id>` | ✅ `/admin/permissions` |
+| サービスアカウント | `/admin/service-accounts` | CRUD・スコープ | ✅ `GET/POST /api/admin/service-accounts`, `GET/PUT/DELETE /api/admin/service-accounts/<id>` | ✅ `/admin/service-accounts` |
+| Google アカウント | `/admin/google_accounts` | OAuth 連携管理（外部OAuth設定依存） | ⬜ | ✅ 画面なし |
 | 設定 | `/admin/config` | アプリ設定 | ⬜ | ⬜ |
-| バージョン情報 | `/admin/version` | ビルド情報 | (`GET /api/version`) | ⬜ |
-| データファイル | `/admin/data-files` | DLログ等 | ⬜ | ⬜ |
-| TOTP 管理 | `/totp/` | 2FA 管理 | ✅ `/api/totp/*` | ⬜ |
-| 証明書 | `/certs/*` | 証明書グループ/失効 | ⬜ | ⬜ |
-| Wiki | `/wiki/*` | 一覧/閲覧/編集/履歴/カテゴリ/検索 | (`/wiki/api/*`) | ⬜ |
+| バージョン情報 | `/admin/version` | ビルド情報 | `GET /api/version` | ✅ 画面なし |
+| データファイル | `/admin/data-files` | DLログ等（バックエンド管理ツール） | ⬜ | ✅ 画面なし |
+| TOTP 管理 | `/totp/` | 2FA 管理（管理者用） | ✅ `/api/totp/*` | ⬜ |
+| 証明書 | `/certs/*` | 証明書グループ/失効（PKI管理ツール） | ⬜ | ✅ 画面なし |
+| Wiki | `/wiki/*` | 一覧/閲覧/編集/履歴（Jinja複合UI） | `/wiki/api/*` | ✅ 画面なし |
+
+**管理 API（実装済）**:
+- `presentation/web/api/admin_users.py` — ユーザー CRUD（`user:manage`）
+- `presentation/web/api/admin_roles.py` — ロール CRUD（`user:manage`）
+- `presentation/web/api/admin_groups.py` — グループ CRUD（`user:manage`）
+- `presentation/web/api/admin_permissions.py` — 権限 CRUD（`admin:system-settings`）
+- `presentation/web/api/admin_service_accounts.py` — サービスアカウント CRUD（`admin:system-settings`）
+- `presentation/web/api/admin_misc.py` — ダッシュボード統計（`admin:system-settings`）
 
 ---
 
@@ -106,8 +111,12 @@ CRUD(`POST/PUT/DELETE /api/albums`, 並び替え)、tags(`GET/POST /api/tags`,
 
 - **Jinja**（`base.html`）: Home / Dashboard / Photo▼(Sessions, Media, Albums,
   Settings) / Wiki / Certs / Profile / Management▼(各管理) / Logout
-- **React**（`Sidebar`）: Home / Dashboard / Media(Sessions, Sync Jobs, Media
-  Gallery, Albums, Tags) / Administration(Users, System Settings, Google Accounts)
+- **React**（`Sidebar`）: Home / Media(Sessions, Sync Jobs, Media
+  Gallery, Albums, Tags) / Administration(System Overview, Users, Roles, Groups, Permissions, Service Accounts, System Settings, Google Accounts)
+
+管理メニューは権限によって表示制御：
+- `admin:system-settings`: System Overview, Permissions, Service Accounts, System Settings, Google Accounts
+- `user:manage`: Users, Roles, Groups
 
 ---
 
@@ -117,15 +126,18 @@ CRUD(`POST/PUT/DELETE /api/albums`, 並び替え)、tags(`GET/POST /api/tags`,
 2. ✅ 同期ジョブ履歴（一覧/詳細/再実行）＋取り込みセッション一覧
 3. ✅ 写真管理 read（メディア/アルバム/タグ一覧・メディア詳細）
 4. ✅ ログイン（パスワード/TOTP/ロール選択/ログアウト、パスキー統合）
-5. ⬜ 写真管理 write（アルバム CRUD/並び替え、タグ作成/付与、動画再生）
-6. ⬜ 管理 JSON API 層の新設 → 管理画面（ユーザー/ロール/権限/設定…）の React 化
-7. ⬜ Wiki の React 化
-8. ⬜ Jinja からの完全切替（React `/` ホーム実装、旧テンプレート撤去）
+5. ✅ 写真管理 write（アルバム CRUD/並び替え、タグ作成/付与、動画再生）
+6. ✅ 管理 JSON API 新設＋React 化（ユーザー/ロール/グループ/権限/サービスアカウント/ダッシュボード）
+7. ✅ 認証 React 化（登録・プロフィール表示/編集・2FA 設定/解除・パスキー管理）
+8. ✅ パスワード再設定 React 化（`/forgot-password`, `/reset-password`）
+9. ⬜ Wiki の React 化
+10. ⬜ Jinja からの完全切替（React `/` ホーム実装、旧テンプレート撤去）
 
 ## 7. 開発・テスト
 
 - フロント: `cd frontend && npm ci && npm run build`（`tsc && vite`）。
-- E2E: `npm run test:e2e`（Playwright）。API は `page.route` でモックし
-  Flask/DB 非依存で実行。
-- バックエンド: `pytest`（API は `tests/unit/presentation/api/`）。
+- E2E: `npx playwright test`（Playwright、`frontend/e2e/`）。API は `page.route` でモックし
+  Flask/DB 非依存で実行。テスト対象: login, register, profile, sessions, jobs, photos, auth (forgot/reset password), admin (dashboard/roles/groups/permissions/service-accounts)。
+- バックエンド: `uv run pytest`（API は `tests/unit/presentation/api/`）。
+  新規テスト: `test_api_admin_crud.py`（26件）、`test_api_new_auth_endpoints.py`（15件）。
 - 依存: `frontend/node_modules` は **git 管理外**。CI/デプロイは `npm ci` 前提。

@@ -292,4 +292,157 @@ export interface AlbumSummary {
   mediaCount: number;
   createdAt: string | null;
   updatedAt: string | null;
+  lastModified: string | null;
+  displayOrder: number | null;
+}
+
+export interface AlbumMediaItem {
+  id: number;
+  filename: string | null;
+  shotAt: string | null;
+  thumbnailUrl: string;
+  fullUrl: string;
+  sortIndex: number | null;
+  tags: MediaTag[];
+}
+
+export interface AlbumDetail extends AlbumSummary {
+  media: AlbumMediaItem[];
+  mediaIds: number[];
+}
+
+// ===== 管理 API =====
+
+export interface AdminRoleRef {
+  id: number;
+  name: string;
+}
+
+export interface AdminUser {
+  id: number;
+  email: string;
+  username: string | null;
+  isActive: boolean;
+  hasTOTP: boolean;
+  createdAt: string | null;
+  roles: AdminRoleRef[];
+}
+
+export interface AdminRole {
+  id: number;
+  name: string;
+  permissions: string[];
+}
+
+// ===== 管理 API — ロール CRUD =====
+
+export interface AdminRoleDetail {
+  id: number;
+  name: string;
+  permissions: Array<{ id: number; code: string }>;
+  userCount: number;
+}
+
+// ===== 管理 API — グループ =====
+
+export interface AdminGroup {
+  id: number;
+  name: string;
+  description: string | null;
+  parentId: number | null;
+  parentName: string | null;
+  memberCount: number;
+  childCount: number;
+}
+
+export interface AdminGroupDetail extends AdminGroup {
+  members: Array<{ id: number; email: string; username: string | null }>;
+}
+
+// ===== 管理 API — 権限 =====
+
+export interface AdminPermission {
+  id: number;
+  code: string;
+  detail: string | null;
+  roleCount: number;
+}
+
+// ===== 管理 API — サービスアカウント =====
+
+export interface AdminServiceAccount {
+  id: number;
+  name: string;
+  description: string | null;
+  scopes: string[];
+  isActive: boolean;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+// ===== 管理 API — ダッシュボード =====
+
+export interface DashboardStats {
+  users: { total: number; active: number };
+  roles: number;
+  groups: number;
+  serviceAccounts: number;
+  media?: { total: number; photos: number; videos: number };
+  albums?: number;
+  tags?: number;
+  recentJobs: Array<{ id: number; target: string; status: string; startedAt: string | null }>;
+}
+
+// ===== パスキー =====
+
+export interface PasskeyItem {
+  id: number;
+  name: string | null;
+  createdAt: string | null;
+  lastUsedAt: string | null;
+  transports: string[];
+}
+
+// ===== プロフィール・2FA・登録 =====
+
+export interface ProfileUpdateRequest {
+  email?: string;
+  username?: string;
+  password?: string;
+}
+
+export interface ProfileUpdateResponse {
+  updated: boolean;
+  user: {
+    id: number;
+    email: string;
+    username: string | null;
+  };
+}
+
+export interface TOTPStatusResponse {
+  enabled: boolean;
+}
+
+export interface TOTPSetupResponse {
+  secret: string;
+  otpauth_uri: string;
+  qr_data_uri: string;
+}
+
+export interface RegisterUserRequest {
+  email: string;
+  password: string;
+  username?: string;
+}
+
+export interface RegisterUserResponse {
+  user: {
+    id: number;
+    email: string;
+    username: string | null;
+  };
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
 }

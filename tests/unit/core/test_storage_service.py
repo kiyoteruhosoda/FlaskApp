@@ -9,6 +9,11 @@ from bounded_contexts.storage.infrastructure.filesystem import (
     LocalFilesystemStorageService,
 )
 from bounded_contexts.storage import StorageBackendType
+from bounded_contexts.storage.application import filesystem_factory
+from bounded_contexts.storage.application.filesystem_factory import (
+    create_storage_service,
+    get_storage_service,
+)
 
 
 def _make_service(config: dict[str, str] | None = None) -> LocalFilesystemStorageService:
@@ -61,28 +66,36 @@ def test_local_service_resolve_without_parts_returns_base(tmp_path):
 def test_settings_storage_backend_defaults_to_local():
     settings = ApplicationSettings(env={})
 
-    service = settings.storage.service()
+    service = get_storage_service(settings)
 
     assert isinstance(service, LocalFilesystemStorageService)
 
 
-def test_settings_storage_backend_registration():
+def test_filesystem_factory_custom_backend():
+    """filesystem_factory の register_backend でカスタムファクトリが使われること."""
     settings = ApplicationSettings(env={"STORAGE_BACKEND": "external_rest"})
     created: list[str] = []
 
-    def factory(config_resolver, env_resolver):
+    original_factory = filesystem_factory._factories.get(StorageBackendType.EXTERNAL_REST)
+
+    def custom_factory(config_resolver, env_resolver):
         created.append("called")
         return LocalFilesystemStorageService(
             config_resolver=config_resolver,
             env_resolver=env_resolver,
         )
 
-    settings.storage.register_backend(StorageBackendType.EXTERNAL_REST, factory)
+    filesystem_factory.register_backend(StorageBackendType.EXTERNAL_REST, custom_factory)
 
-    service = settings.storage.service()
-
-    assert isinstance(service, LocalFilesystemStorageService)
-    assert created
+    try:
+        service = get_storage_service(settings)
+        assert isinstance(service, LocalFilesystemStorageService)
+        assert created
+    finally:
+        if original_factory is not None:
+            filesystem_factory.register_backend(StorageBackendType.EXTERNAL_REST, original_factory)
+        elif StorageBackendType.EXTERNAL_REST in filesystem_factory._factories:
+            del filesystem_factory._factories[StorageBackendType.EXTERNAL_REST]
 
 
 def test_settings_storage_backend_invalid_value():
@@ -95,7 +108,7 @@ def test_settings_storage_backend_invalid_value():
 def test_settings_storage_backend_azure_blob_placeholder():
     settings = ApplicationSettings(env={"STORAGE_BACKEND": "azure_blob"})
 
-    service = settings.storage.service()
+    service = get_storage_service(settings)
 
     assert isinstance(service, AzureBlobStorageService)
 
@@ -106,7 +119,7 @@ def test_settings_storage_backend_azure_blob_placeholder():
 def test_settings_storage_backend_external_rest_placeholder():
     settings = ApplicationSettings(env={"STORAGE_BACKEND": "external_rest"})
 
-    service = settings.storage.service()
+    service = get_storage_service(settings)
 
     assert isinstance(service, ExternalRestStorageService)
 

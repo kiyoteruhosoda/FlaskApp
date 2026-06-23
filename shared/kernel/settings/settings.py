@@ -18,7 +18,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import (
     Any,
-    Callable,
     ClassVar,
     Iterable,
     Mapping,
@@ -31,7 +30,7 @@ from typing import (
 
 from flask import current_app, has_app_context
 
-from bounded_contexts.storage.domain import StorageBackendType, StorageDomain, StorageIntent
+from shared.kernel.storage_types import StorageBackendType
 
 from shared.kernel.settings.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
 
@@ -71,27 +70,15 @@ class _ConcurrencyAccessor:
             return default
 
 
-StorageFactory = Callable[
-    [Callable[[str], Optional[str]] | None, Callable[[str], Optional[str]] | None],
-    "StorageService",
-]
-
-
 class _StorageAccessor:
-    """Helper accessor exposing raw storage configuration values."""
+    """設定値へのアクセサ.
+
+    サービス生成責務は ``bounded_contexts.storage.application.filesystem_factory``
+    へ移管済み。このクラスは設定値の参照のみを担う。
+    """
 
     def __init__(self, settings: "ApplicationSettings") -> None:
         self._settings = settings
-        self._service: Optional["StorageService"] = None
-        self._service_overridden = False
-        self._factories: dict[StorageBackendType, StorageFactory] = {}
-        self.register_backend(StorageBackendType.LOCAL, self._create_local_service)
-        self.register_backend(
-            StorageBackendType.AZURE_BLOB, self._create_azure_blob_service
-        )
-        self.register_backend(
-            StorageBackendType.EXTERNAL_REST, self._create_external_rest_service
-        )
 
     def configured(self, key: str) -> Optional[str]:
         value = self._settings._get(key)
@@ -101,121 +88,9 @@ class _StorageAccessor:
         value = self._settings._env.get(key)
         return str(value) if value else None
 
-    def set_service(self, service: "StorageService") -> None:
-        """Inject a custom storage service implementation."""
-
-        self._service = service
-        self._service_overridden = True
-
-    def register_backend(
-        self, backend: StorageBackendType, factory: StorageFactory
-    ) -> None:
-        """Register a factory used to instantiate a storage backend.
-
-        The registration can happen at application start-up.  When the active
-        backend matches *backend*, the cached service instance is cleared so
-        that subsequent :meth:`service` calls use the freshly registered
-        factory.
-        """
-
-        self._factories[backend] = factory
-        if (
-            not self._service_overridden
-            and self._service is not None
-            and self._settings.storage_backend is backend
-        ):
-            self._service = None
-
-    def _create_local_service(
-        self,
-        config_resolver: Callable[[str], Optional[str]] | None,
-        env_resolver: Callable[[str], Optional[str]] | None,
-    ) -> "StorageService":
-        from bounded_contexts.storage.infrastructure.filesystem import LocalFilesystemStorageService
-
-        return cast(
-            "StorageService",
-            LocalFilesystemStorageService(
-                config_resolver=config_resolver,
-                env_resolver=env_resolver,
-            ),
-        )
-
-    def _create_azure_blob_service(
-        self,
-        config_resolver: Callable[[str], Optional[str]] | None,
-        env_resolver: Callable[[str], Optional[str]] | None,
-    ) -> "StorageService":
-        from bounded_contexts.storage.infrastructure.filesystem import AzureBlobStorageService
-
-        return cast(
-            "StorageService",
-            AzureBlobStorageService(
-                config_resolver=config_resolver,
-                env_resolver=env_resolver,
-            ),
-        )
-
-    def _create_external_rest_service(
-        self,
-        config_resolver: Callable[[str], Optional[str]] | None,
-        env_resolver: Callable[[str], Optional[str]] | None,
-    ) -> "StorageService":
-        from bounded_contexts.storage.infrastructure.filesystem import ExternalRestStorageService
-
-        return cast(
-            "StorageService",
-            ExternalRestStorageService(
-                config_resolver=config_resolver,
-                env_resolver=env_resolver,
-            ),
-        )
-
-    def service(self) -> "StorageService":
-        """Return the active :class:`StorageService` implementation."""
-
-        if self._service is None:
-            backend = self._settings.storage_backend
-            factory = self._factories.get(backend)
-            if factory is None:
-                raise ValueError(f"Storage backend '{backend.value}' is not registered")
-
-            self._service = factory(self.configured, self.environment)
-            self._service_overridden = False
-
-        return cast("StorageService", self._service)
-
-    def directory(self, domain: StorageDomain) -> Path:
-        """Return a concrete :class:`Path` for *domain*.
-
-        The lookup prioritises configured values, then environment overrides,
-        finally falling back to service defaults.  The method intentionally
-        mirrors the previous ``ApplicationSettings._storage_directory`` helper
-        but keeps the resolution logic co-located with the storage accessor so
-        that callers operate on :class:`Path` objects rather than strings.
-        """
-
-        service = self.service()
-        area = service.for_domain(domain)
-
-        existing = area.first_existing()
-        if existing:
-            return Path(existing)
-
-        candidates = area.candidates(intent=StorageIntent.WRITE)
-        if candidates:
-            return Path(candidates[0])
-
-        defaults = service.defaults(area.config_key)
-        if defaults:
-            return Path(defaults[0])
-
-        raise RuntimeError(f"No storage candidates configured for domain: {domain!s}")
-
 
 if TYPE_CHECKING:  # pragma: no cover
     from flask import Flask
-    from bounded_contexts.storage.infrastructure.filesystem import StorageService
 
 
 class ApplicationSettings:
@@ -394,19 +269,19 @@ class ApplicationSettings:
 
     @property
     def storage_originals_directory(self) -> Path:
-        return self.storage.directory(StorageDomain.MEDIA_ORIGINALS)
+        return self._path_or_default("MEDIA_ORIGINALS_DIRECTORY", "/app/data/media")
 
     @property
     def storage_play_directory(self) -> Path:
-        return self.storage.directory(StorageDomain.MEDIA_PLAYBACK)
+        return self._path_or_default("MEDIA_PLAYBACK_DIRECTORY", "/app/data/playback")
 
     @property
     def storage_thumbs_directory(self) -> Path:
-        return self.storage.directory(StorageDomain.MEDIA_THUMBNAILS)
+        return self._path_or_default("MEDIA_THUMBNAILS_DIRECTORY", "/app/data/thumbs")
 
     @property
     def storage_local_import_directory(self) -> Path:
-        return self.storage.directory(StorageDomain.MEDIA_IMPORT)
+        return self._path_or_default("MEDIA_LOCAL_IMPORT_DIRECTORY", "/tmp/local_import")
 
     @property
     def local_import_directory(self) -> Path:

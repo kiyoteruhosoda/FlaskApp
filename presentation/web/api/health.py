@@ -10,6 +10,7 @@ from ..bootstrap.extensions import db
 from shared.kernel.time.clock import utc_now_isoformat
 from shared.kernel.settings.settings import settings
 from bounded_contexts.storage import StorageDomain
+from bounded_contexts.storage.application.filesystem_factory import get_storage_service
 
 
 def skip_auth(f):
@@ -42,7 +43,7 @@ def health_ready():
         ok = False
         details["db"] = "error"
 
-    service = settings.storage.service()
+    service = get_storage_service(settings)
     directory_checks = {
         "media_nas_thumbnails_directory": StorageDomain.MEDIA_THUMBNAILS,
         "media_nas_playback_directory": StorageDomain.MEDIA_PLAYBACK,

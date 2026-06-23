@@ -12,9 +12,9 @@ import argparse
 import json
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
-# プロジェクトのルートディレクトリをPythonパスに追加
-sys.path.insert(0, '/home/kyon/myproject')
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from shared.kernel.database.db import db
 from shared.infrastructure.models.log import Log

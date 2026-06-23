@@ -152,8 +152,10 @@ def test_proxy_fix_headers():
             'X-Forwarded-Host': 'example.com'
         })
         
-        # デバッグエンドポイントが存在すれば確認
-        if response.status_code == 200:
+        # デバッグエンドポイントが存在し JSON を返す場合のみ確認する。
+        # SPA catch-all は任意パスに対し HTML シェル(200)を返すため、
+        # JSON でないレスポンスはデバッグエンドポイント未登録とみなす。
+        if response.status_code == 200 and response.is_json:
             data = response.get_json()
             assert data.get('scheme') == 'https'
 

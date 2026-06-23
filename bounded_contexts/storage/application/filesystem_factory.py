@@ -8,6 +8,7 @@ storage context 内に集約する。``settings`` は設定値のみを供給し
 from __future__ import annotations
 
 from typing import Callable, Optional, TYPE_CHECKING
+from weakref import WeakKeyDictionary
 
 from shared.kernel.storage_types import StorageBackendType
 
@@ -78,9 +79,29 @@ def create_storage_service(
     return factory(config_resolver, env_resolver)
 
 
+_service_cache: "WeakKeyDictionary[object, StorageService]" = WeakKeyDictionary()
+
+
 def get_storage_service(settings: object) -> "StorageService":
-    """Convenience wrapper: create a StorageService from an ApplicationSettings instance."""
+    """Return the StorageService for an ApplicationSettings instance.
+
+    The service is cached per ``settings`` instance so that state applied to it
+    (e.g. ``set_defaults``) persists across calls within the same process.  This
+    mirrors the singleton behaviour of the previous ``settings.storage.service()``
+    accessor.
+    """
+    cached = _service_cache.get(settings)
+    if cached is not None:
+        return cached
+
     backend_type = settings.storage_backend  # type: ignore[attr-defined]
     config_resolver = settings.storage.configured  # type: ignore[attr-defined]
     env_resolver = settings.storage.environment  # type: ignore[attr-defined]
-    return create_storage_service(backend_type, config_resolver, env_resolver)
+    service = create_storage_service(backend_type, config_resolver, env_resolver)
+    _service_cache[settings] = service
+    return service
+
+
+def reset_storage_service(settings: object) -> None:
+    """Drop the cached StorageService for *settings* (mainly for tests)."""
+    _service_cache.pop(settings, None)

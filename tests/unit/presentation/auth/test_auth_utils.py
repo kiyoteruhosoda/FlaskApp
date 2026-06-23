@@ -4,6 +4,7 @@ import logging
 import pytest
 
 from presentation.web.auth import utils as auth_utils
+from shared.infrastructure import http_logging
 
 
 class DummyResponse:
@@ -31,7 +32,7 @@ def test_log_requests_and_send_masks_sensitive_values(caplog, monkeypatch):
     def dummy_post(*args, **kwargs):
         return DummyResponse()
 
-    monkeypatch.setattr(auth_utils.requests, "post", dummy_post)
+    monkeypatch.setattr(http_logging.requests, "post", dummy_post)
 
     with caplog.at_level(logging.INFO):
         auth_utils.log_requests_and_send(

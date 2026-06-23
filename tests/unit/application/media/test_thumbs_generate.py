@@ -5,8 +5,10 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from bounded_contexts.photonest.tasks import thumbs_generate
-from bounded_contexts.photonest.tasks.thumbs_generate import PLAYBACK_NOT_READY_NOTES
+from bounded_contexts.photonest.tasks.thumbs_generate import (
+    PLAYBACK_NOT_READY_NOTES,
+    thumbs_generate,
+)
 
 
 @pytest.fixture

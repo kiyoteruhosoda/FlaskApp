@@ -66,7 +66,7 @@ class TestVersionAdminPage:
             "app_start_date": "2025-09-07T17:22:17.270537"
         }
         
-        with patch("core.version.get_version_info", return_value=mock_version_info):
+        with patch("shared.kernel.version.get_version_info", return_value=mock_version_info):
             response = client.get('/admin/version')
         
         # 管理者権限があるので正常にページが表示される
@@ -94,7 +94,7 @@ class TestVersionAdminPage:
             "app_start_date": "2025-09-07T18:35:12.123456"
         }
         
-        with patch("core.version.get_version_info", return_value=mock_version_info):
+        with patch("shared.kernel.version.get_version_info", return_value=mock_version_info):
             response = client.get('/admin/version')
         
         assert response.status_code == 200
@@ -134,7 +134,7 @@ class TestVersionAdminPage:
             "build_date": "2025-09-07T17:18:32+09:00"
         }
         
-        with patch("core.version.get_version_info", return_value=mock_version_info):
+        with patch("shared.kernel.version.get_version_info", return_value=mock_version_info):
             response = client.get('/admin/version')
         
         assert response.status_code == 200
@@ -166,7 +166,7 @@ class TestVersionPageIntegration:
     def test_version_in_footer(self, client):
         """フッターにバージョン情報が表示されることのテスト"""
         # 認証なしでアクセスできるページをテスト
-        with patch("core.version.get_version_string", return_value="vtest999"):
+        with patch("shared.kernel.version.get_version_string", return_value="vtest999"):
             # ヘルスチェックページなど、認証不要のページでテスト
             response = client.get('/health/live')
             

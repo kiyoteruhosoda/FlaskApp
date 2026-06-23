@@ -1278,7 +1278,7 @@ def show_config():
 def show_version():
     if not current_user.can("system:manage"):
         return _redirect_to_home()
-    from core.version import get_version_info
+    from shared.kernel.version import get_version_info
     version_info = get_version_info()
     try:
         flask_version = importlib_metadata.version("flask")

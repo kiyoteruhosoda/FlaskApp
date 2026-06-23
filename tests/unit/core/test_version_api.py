@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import patch
 
 from presentation.web import create_app
-from core.version import get_version_info, get_version_string
+from shared.kernel.version import get_version_info, get_version_string
 
 
 class TestVersionAPI:

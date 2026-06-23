@@ -21,7 +21,7 @@ def register_cli_commands(app: Flask) -> None:
     @app.cli.command("version")
     def show_version():
         """アプリケーションのバージョン情報を表示"""
-        from core.version import get_version_info, get_version_string
+        from shared.kernel.version import get_version_info, get_version_string
 
         click.echo(_("=== %(app_name)s Version Information ===", app_name=_("AppName")))
         version_info = get_version_info()

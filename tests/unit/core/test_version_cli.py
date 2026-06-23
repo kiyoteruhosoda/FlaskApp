@@ -31,8 +31,8 @@ class TestVersionCLI:
         
         runner = CliRunner()
         
-        with patch("core.version.get_version_info", return_value=mock_version_info):
-            with patch("core.version.get_version_string", return_value="vtest123"):
+        with patch("shared.kernel.version.get_version_info", return_value=mock_version_info):
+            with patch("shared.kernel.version.get_version_string", return_value="vtest123"):
                 with app.app_context():
                     header_text = _("%(app_name)s Version Information", app_name=_("AppName"))
                     result = runner.invoke(app.cli, ['version'])
@@ -57,8 +57,8 @@ class TestVersionCLI:
         
         runner = CliRunner()
         
-        with patch("core.version.get_version_info", return_value=mock_version_info):
-            with patch("core.version.get_version_string", return_value="dev"):
+        with patch("shared.kernel.version.get_version_info", return_value=mock_version_info):
+            with patch("shared.kernel.version.get_version_string", return_value="dev"):
                 with app.app_context():
                     result = runner.invoke(app.cli, ['version'])
         
@@ -72,7 +72,7 @@ class TestVersionCLI:
         """バージョンコマンドでの例外処理テスト"""
         runner = CliRunner()
         
-        with patch("core.version.get_version_info", side_effect=Exception("Test error")):
+        with patch("shared.kernel.version.get_version_info", side_effect=Exception("Test error")):
             with app.app_context():
                 result = runner.invoke(app.cli, ['version'])
         
@@ -92,8 +92,8 @@ class TestVersionCLI:
         
         runner = CliRunner()
         
-        with patch("core.version.get_version_info", return_value=mock_version_info):
-            with patch("core.version.get_version_string", return_value="v1a2b3c4"):
+        with patch("shared.kernel.version.get_version_info", return_value=mock_version_info):
+            with patch("shared.kernel.version.get_version_string", return_value="v1a2b3c4"):
                 with app.app_context():
                     header_line = _("=== %(app_name)s Version Information ===", app_name=_("AppName"))
                     result = runner.invoke(app.cli, ['version'])

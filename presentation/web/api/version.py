@@ -4,7 +4,7 @@
 from flask import jsonify
 from . import bp
 from .health import skip_auth
-from core.version import get_version_info, get_version_string
+from shared.kernel.version import get_version_info, get_version_string
 
 @bp.route('/version', methods=['GET'])
 @skip_auth

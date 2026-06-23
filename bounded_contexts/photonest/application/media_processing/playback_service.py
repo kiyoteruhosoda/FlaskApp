@@ -37,7 +37,8 @@ class MediaPlaybackService:
         """Return the base directory for playback assets if resolvable."""
 
         if self._playback_base_cache is False:
-            storage = settings.storage.service().for_domain(
+            from bounded_contexts.storage.application.filesystem_factory import get_storage_service
+            storage = get_storage_service(settings).for_domain(
                 StorageDomain.MEDIA_PLAYBACK
             )
             base = storage.first_existing()

@@ -80,7 +80,8 @@ def _tmp_base_dir() -> Path:
 def _resolve_local_import_directory() -> Optional[Path]:
     """Resolve and ensure the local import base directory."""
 
-    storage_service = settings.storage.service()
+    from bounded_contexts.storage.application.filesystem_factory import get_storage_service
+    storage_service = get_storage_service(settings)
     area = storage_service.for_domain(StorageDomain.MEDIA_IMPORT)
     candidate = area.first_existing()
     if candidate is None:

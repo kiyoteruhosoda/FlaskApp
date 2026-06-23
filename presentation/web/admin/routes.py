@@ -1339,7 +1339,8 @@ def show_data_files():
 
     directories: list[dict] = []
     selected_directory: dict | None = None
-    service = settings.storage.service()
+    from bounded_contexts.storage.application.filesystem_factory import get_storage_service
+    service = get_storage_service(settings)
 
     for config_key, label in directory_definitions:
         area = service.for_key(config_key)

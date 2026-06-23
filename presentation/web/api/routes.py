@@ -378,7 +378,8 @@ def api_service_account_token_exchange(data: dict) -> dict:
 
 
 def _storage_service() -> StorageService:
-    return settings.storage.service()
+    from bounded_contexts.storage.application.filesystem_factory import get_storage_service
+    return get_storage_service(settings)
 
 
 def _storage_area(selector: StorageSelector) -> StorageArea:

@@ -164,7 +164,8 @@ def _log_error(
 def _playback_storage_root() -> Optional[Path]:
     """Resolve the playback storage root directory."""
 
-    storage_area = settings.storage.service().for_domain(
+    from bounded_contexts.storage.application.filesystem_factory import get_storage_service
+    storage_area = get_storage_service(settings).for_domain(
         StorageDomain.MEDIA_PLAYBACK
     )
     base = storage_area.first_existing()
@@ -443,7 +444,8 @@ _session_service = LocalImportSessionService(db, _log_error)
 
 
 def _spawn_storage_service() -> StorageService:
-    base_service = settings.storage.service()
+    from bounded_contexts.storage.application.filesystem_factory import get_storage_service
+    base_service = get_storage_service(settings)
     spawner = getattr(base_service, "spawn", None)
     if callable(spawner):
         spawned = spawner()

@@ -42,7 +42,8 @@ logger = setup_task_logging("celery.task.transcode")
 # ---------------------------------------------------------------------------
 
 def _orig_dir() -> Path:
-    storage_area = settings.storage.service().for_domain(
+    from bounded_contexts.storage.application.filesystem_factory import get_storage_service
+    storage_area = get_storage_service(settings).for_domain(
         StorageDomain.MEDIA_ORIGINALS
     )
     base = storage_area.first_existing()
@@ -55,7 +56,8 @@ def _orig_dir() -> Path:
 
 
 def _play_dir() -> Path:
-    storage_service = settings.storage.service()
+    from bounded_contexts.storage.application.filesystem_factory import get_storage_service
+    storage_service = get_storage_service(settings)
     storage_area = storage_service.for_domain(StorageDomain.MEDIA_PLAYBACK)
     # Playback files are written by this task; ensure a writable base directory.
     base = storage_area.ensure_base() or storage_area.first_existing()

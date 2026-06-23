@@ -83,8 +83,8 @@ def _playback_not_ready(
 
 def _thumb_base_dir() -> Path:
     """Return thumbnail base directory creating it if necessary."""
-
-    storage_service = settings.storage.service()
+    from bounded_contexts.storage.application.filesystem_factory import get_storage_service
+    storage_service = get_storage_service(settings)
     area = storage_service.for_domain(StorageDomain.MEDIA_THUMBNAILS)
     # Thumbnails are written by this task; prefer ensuring a writable base.
     base = area.ensure_base() or area.first_existing()
@@ -94,7 +94,8 @@ def _thumb_base_dir() -> Path:
 
 
 def _orig_dir() -> Path:
-    area = settings.storage.service().for_domain(StorageDomain.MEDIA_ORIGINALS)
+    from bounded_contexts.storage.application.filesystem_factory import get_storage_service
+    area = get_storage_service(settings).for_domain(StorageDomain.MEDIA_ORIGINALS)
     base = area.first_existing()
     if not base:
         candidates = area.candidates()
@@ -105,7 +106,8 @@ def _orig_dir() -> Path:
 
 
 def _play_dir() -> Path:
-    area = settings.storage.service().for_domain(StorageDomain.MEDIA_PLAYBACK)
+    from bounded_contexts.storage.application.filesystem_factory import get_storage_service
+    area = get_storage_service(settings).for_domain(StorageDomain.MEDIA_PLAYBACK)
     base = area.first_existing()
     if not base:
         candidates = area.candidates()

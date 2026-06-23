@@ -10,8 +10,8 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from core.db import db
-from core.models.picker_session import PickerSession
+from shared.kernel.database.db import db
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
 from bounded_contexts.photonest.application.local_import.state_synchronizer import (
     ItemRepository,
     ItemStateSnapshot,

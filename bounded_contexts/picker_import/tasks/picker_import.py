@@ -1,0 +1,1889 @@
+from __future__ import annotations
+
+"""Photo picker import task.
+
+This module implements a simplified version of the specification provided in
+``T-WKR-1``.  It avoids a hard dependency on Celery so that the function can be
+invoked directly in tests.  The function follows the public contract of the
+worker:
+
+>>> picker_import(picker_session_id=1, account_id=1)
+{"ok": True, "imported": 0, "dup": 0, "failed": 0}
+
+The implementation is intentionally compact and omits many production features
+(resume support, structured logging, exponential backoff, etc.) but captures the
+core control‑flow so that unit tests can exercise the behaviour of the worker.
+"""
+
+from dataclasses import dataclass
+from datetime import datetime, timezone, timedelta
+import contextlib
+import errno
+import hashlib
+import json
+import logging
+import os
+import shutil
+import tempfile
+from pathlib import Path
+import threading
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    SupportsIndex,
+    SupportsInt,
+    Tuple,
+    cast,
+)
+
+import requests
+from sqlalchemy import update
+
+from bounded_contexts.picker_import.application.queue_service import PickerQueueService
+from bounded_contexts.picker_import.application.watchdog_service import PickerImportWatchdog
+from shared.kernel.crypto.crypto import decrypt
+from shared.kernel.database.db import db
+from shared.infrastructure.models.google_account import GoogleAccount
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+from bounded_contexts.photonest.infrastructure.photo_models import (
+    Exif,
+    Media,
+    MediaItem,
+    MediaPlayback,
+    PickerSelection,
+)
+from shared.infrastructure.models.celery_task import CeleryTaskStatus
+from shared.kernel.logging.logging_config import setup_task_logging, log_task_error, log_task_info
+from bounded_contexts.photonest.application.local_import.logger import (
+    ImportLogEmitter,
+    LocalImportTaskLogger,
+)
+from shared.kernel.settings.settings import ApplicationSettings, settings
+from bounded_contexts.photonest.tasks import media_post_processing
+from bounded_contexts.photonest.tasks.media_post_processing import process_media_post_import
+from flask import Flask, current_app
+from bounded_contexts.picker_import.infrastructure import LocalPerceptualHashCalculator
+from bounded_contexts.picker_import.infrastructure.repositories import (
+    PickerSelectionRepository,
+    PickerSessionRepository,
+)
+from bounded_contexts.picker_import.domain.entities import ImportSessionProgress, ImportResult
+from bounded_contexts.picker_import.domain.services import (
+    ImportResultAggregator,
+    MediaHashingService,
+)
+from werkzeug.local import LocalProxy
+from shared.kernel.utils import open_image_compat
+
+
+hashing_service = MediaHashingService(LocalPerceptualHashCalculator())
+
+# picker_import専用ロガーを取得（両方のログハンドラーが設定済み）
+logger = setup_task_logging('picker_import')
+celery_logger = logging.getLogger('celery.task.picker_import')
+_task_logger = LocalImportTaskLogger(logger, celery_logger)
+
+
+def _normalize_event(event: str) -> str:
+    if event.startswith('import.'):
+        return event
+    if event.startswith('local_import'):
+        return event
+    if event.startswith('picker.import.'):
+        suffix = event[len('picker.import.') :]
+        return f'import.picker.{suffix}'
+    if event.startswith('picker.'):
+        suffix = event[len('picker.') :]
+        return f'import.picker.{suffix}'
+    return f'import.picker.{event}'
+
+
+_import_log = ImportLogEmitter(_task_logger, normalise_event=_normalize_event)
+
+
+def _log_info(
+    event: str,
+    message: str,
+    *,
+    session_identifier: Optional[str] = None,
+    session_db_id: Optional[int] = None,
+    status: Optional[str] = None,
+    **details: Any,
+) -> None:
+    _emit_log(
+        "info",
+        event,
+        message,
+        session_identifier=session_identifier,
+        session_db_id=session_db_id,
+        status=status,
+        details=details,
+    )
+
+
+def _log_warning(
+    event: str,
+    message: str,
+    *,
+    session_identifier: Optional[str] = None,
+    session_db_id: Optional[int] = None,
+    status: Optional[str] = None,
+    **details: Any,
+) -> None:
+    _emit_log(
+        "warning",
+        event,
+        message,
+        session_identifier=session_identifier,
+        session_db_id=session_db_id,
+        status=status,
+        details=details,
+    )
+
+
+def _log_error(
+    event: str,
+    message: str,
+    *,
+    session_identifier: Optional[str] = None,
+    session_db_id: Optional[int] = None,
+    status: Optional[str] = None,
+    exc_info: bool = False,
+    **details: Any,
+) -> None:
+    _emit_log(
+        "error",
+        event,
+        message,
+        session_identifier=session_identifier,
+        session_db_id=session_db_id,
+        status=status,
+        exc_info=exc_info,
+        details=details,
+    )
+
+
+def _emit_log(
+    level: str,
+    event: str,
+    message: str,
+    *,
+    session_identifier: Optional[str],
+    session_db_id: Optional[int],
+    status: Optional[str],
+    exc_info: bool = False,
+    details: Dict[str, Any],
+) -> None:
+    emitter = _import_log
+    payload_defaults: Dict[str, Any] = {}
+    if session_db_id is not None:
+        payload_defaults['session_db_id'] = session_db_id
+    if session_identifier is not None:
+        emitter = emitter.bind(session_id=session_identifier, **payload_defaults)
+    elif payload_defaults:
+        emitter = emitter.bind(**payload_defaults)
+
+    if level == "info":
+        emitter.info(event, message, status=status, **details)
+    elif level == "warning":
+        emitter.warning(event, message, status=status, **details)
+    else:
+        emitter.error(event, message, status=status, exc_info=exc_info, **details)
+
+
+def _fsync_dir(path: Path) -> None:
+    """Best-effort fsync for directory entries."""
+
+    try:
+        dir_fd = os.open(str(path), os.O_DIRECTORY)
+    except OSError:
+        return
+    try:
+        os.fsync(dir_fd)
+    except OSError:
+        pass
+    finally:
+        os.close(dir_fd)
+
+
+class AuthError(Exception):
+    """Authorization failure that should not be retried."""
+
+
+class NetworkError(Exception):
+    """Transient network error that is safe to retry."""
+
+
+class BaseUrlExpired(Exception):
+    """Base URL could not be resolved and item should expire."""
+
+# ---------------------------------------------------------------------------
+# Queue hook
+# ---------------------------------------------------------------------------
+
+def enqueue_picker_import_item(selection_id: int, session_id: int) -> None:
+    """Enqueue import task for a single picked media item.
+
+    In production this would push a job onto a background worker system such
+    as Celery.  For tests the function acts as a hook that can be
+    monkeypatched to observe which items would be queued.
+    """
+    try:
+        from cli.src.celery.tasks import picker_import_item_task
+    except ImportError:
+        return None
+
+    try:
+        picker_import_item_task.delay(selection_id, session_id)
+    except Exception as exc:  # pragma: no cover - network failure path
+        try:
+            from flask import current_app
+
+            if settings.testing:
+                current_app.logger.warning(
+                    "Celery worker unavailable for picker import item; skipping in test mode.",
+                    extra={
+                        "event": "import.picker.enqueue.skip",
+                        "selection_id": selection_id,
+                        "session_id": session_id,
+                        "session_db_id": session_id,
+                        "error": str(exc),
+                    },
+                )
+                return None
+        except RuntimeError:
+            # Outside of Flask context (e.g., unit tests), simply ignore
+            return None
+        raise
+
+
+def enqueue_thumbs_generate(media_id: int) -> None:
+    """Backward compatible wrapper around the shared thumbnail helper."""
+
+    media_post_processing.enqueue_thumbs_generate(
+        media_id, logger_override=logger
+    )
+
+
+def enqueue_media_playback(media_id: int) -> None:
+    """Backward compatible wrapper around the shared video helper."""
+
+    media_post_processing.enqueue_media_playback(
+        media_id, logger_override=logger
+    )
+
+
+def picker_import_queue_scan() -> Dict[str, int]:
+    """Publish ``enqueued`` Google Photos selections to the worker queue."""
+
+    service = PickerQueueService(
+        repository=PickerSelectionRepository(),
+        enqueue_func=enqueue_picker_import_item,
+    )
+    return service.publish_enqueued()
+
+
+def backoff(attempts: int) -> timedelta:
+    """Return retry delay for *attempts* using exponential backoff."""
+
+    return timedelta(seconds=60 * (2 ** attempts))
+
+
+def picker_import_watchdog(
+    *,
+    lock_lease: int = 120,
+    stale_running: int = 600,
+    max_attempts: int = 3,
+) -> Dict[str, int]:
+    """Housekeeping task for :class:`PickerSelection` rows."""
+
+    service = PickerImportWatchdog(
+        selection_repository=PickerSelectionRepository(),
+        session_repository=PickerSessionRepository(),
+        enqueue_func=enqueue_picker_import_item,
+        logger=logger,
+    )
+    return service.run(
+        lock_lease=lock_lease,
+        stale_running=stale_running,
+        max_attempts=max_attempts,
+    )
+
+# ---------------------------------------------------------------------------
+# Helper utilities
+# ---------------------------------------------------------------------------
+
+@dataclass
+class Downloaded:
+    path: Path
+    bytes: int
+    sha256: str
+
+
+def _guess_ext(filename: str | None, mime: str | None) -> str:
+    """Return file extension including dot."""
+    if filename and "." in filename:
+        return os.path.splitext(filename)[1]
+    if mime:
+        if mime == "image/jpeg":
+            return ".jpg"
+        if mime == "image/png":
+            return ".png"
+        if mime == "image/heic" or mime == "image/heif":
+            return ".heic"
+        if mime == "video/mp4":
+            return ".mp4"
+        if mime == "video/quicktime":
+            return ".mov"
+    return ""
+
+
+def _download(url: str, dest_dir: Path, headers: Dict[str, str] | None = None) -> Downloaded:
+    """Download URL to *dest_dir* returning :class:`Downloaded`.
+
+    The optional *headers* parameter allows authenticated downloads.
+    """
+    try:
+        resp = requests.get(url, headers=headers, timeout=30)
+        resp.raise_for_status()
+        
+        # ダウンロード成功ログ
+        _log_info(
+            "picker.download.success",
+            f"ファイルダウンロード成功: {url} ({len(resp.content)} bytes)",
+            url=url,
+            content_length=len(resp.content),
+            status_code=resp.status_code,
+        )
+        
+        tmp_name = hashlib.sha1(url.encode("utf-8")).hexdigest()
+        tmp_path = dest_dir / tmp_name
+        with open(tmp_path, "wb") as fh:
+            fh.write(resp.content)
+        sha = hashlib.sha256(resp.content).hexdigest()
+        return Downloaded(tmp_path, len(resp.content), sha)
+    except requests.Timeout as e:
+        _log_error(
+            "picker.download.timeout",
+            f"ダウンロードタイムアウト: {url}",
+            url=url,
+            error_message=str(e),
+        )
+        raise
+    except requests.HTTPError as e:
+        _log_error(
+            "picker.download.http_error",
+            f"ダウンロードHTTPエラー: {url} - Status: {e.response.status_code if e.response else 'Unknown'}",
+            url=url,
+            status_code=e.response.status_code if e.response else None,
+            response_text=e.response.text if e.response else None,
+        )
+        raise
+    except Exception as e:
+        _log_error(
+            "picker.download.error",
+            f"ダウンロード予期しないエラー: {url} - {str(e)}",
+            url=url,
+            error_type=type(e).__name__,
+            error_message=str(e),
+            exc_info=True,
+        )
+        raise
+
+
+ConvertibleToInt = SupportsInt | SupportsIndex | str | bytes | bytearray
+
+
+def _coerce_positive_int(value: ConvertibleToInt | None) -> Optional[int]:
+    """Return *value* coerced to ``int`` when possible and positive."""
+
+    try:
+        if value is None:
+            return None
+        number = int(value)
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
+def _detect_image_dimensions(file_path: Path) -> tuple[Optional[int], Optional[int]]:
+    """Read image dimensions from *file_path* when possible."""
+
+    try:
+        with open_image_compat(file_path) as img:
+            width, height = img.size
+            return int(width), int(height)
+    except Exception:
+        logger.debug("寸法情報の取得に失敗: %s", file_path, exc_info=True)
+        return None, None
+
+
+def _resolve_media_dimensions(
+    *,
+    meta: dict,
+    media_item: Optional[MediaItem],
+    file_path: Optional[Path],
+    is_video: bool,
+) -> tuple[Optional[int], Optional[int]]:
+    """Determine width and height for the imported media item.
+
+    Prefer API metadata but fall back to reading the downloaded file when the
+    API omits dimension information (notably for HEIC images).
+    """
+
+    width = _coerce_positive_int(meta.get("width"))
+    height = _coerce_positive_int(meta.get("height"))
+
+    if media_item is not None:
+        width = width or _coerce_positive_int(media_item.width)
+        height = height or _coerce_positive_int(media_item.height)
+
+    if not is_video and file_path is not None and (width is None or height is None):
+        detected_width, detected_height = _detect_image_dimensions(file_path)
+        width = width or detected_width
+        height = height or detected_height
+
+    if media_item is not None:
+        if width is not None:
+            media_item.width = width
+        if height is not None:
+            media_item.height = height
+
+    return width, height
+
+
+def _ensure_dirs(*, config: ApplicationSettings = settings) -> Tuple[Path, Path]:
+    """Return (tmp_dir, originals_dir) creating them if necessary."""
+    tmp_dir = config.tmp_directory
+    orig_dir = config.storage_originals_directory
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    orig_dir.mkdir(parents=True, exist_ok=True)
+    return tmp_dir, orig_dir
+
+
+def _chunk(iterable: List[str], size: int) -> Iterable[List[str]]:
+    for i in range(0, len(iterable), size):
+        yield iterable[i : i + size]
+
+
+def _start_lock_heartbeat(selection_id: int, locked_by: str, interval: float) -> tuple[threading.Event, threading.Thread]:
+    """Start background thread sending lock heartbeats."""
+
+    stop = threading.Event()
+    app_proxy = cast(LocalProxy[Flask], current_app)
+    app = cast(Flask, app_proxy._get_current_object())
+
+    if settings.testing:
+        class _NoopThread:
+            def join(self, timeout: float | None = None) -> None:  # noqa: D401, ANN001
+                return None
+
+        return stop, _NoopThread()  # type: ignore[return-value]
+
+    def _beat() -> None:
+        with app.app_context():
+            while not stop.is_set():
+                ts = datetime.now(timezone.utc)
+                with db.engine.begin() as conn:
+                    conn.execute(
+                        update(PickerSelection)
+                        .where(
+                            PickerSelection.id == selection_id,
+                            PickerSelection.locked_by == locked_by,
+                        )
+                        .values(lock_heartbeat_at=ts)
+                    )
+                _log_info(
+                    "picker.item.heartbeat",
+                    json.dumps(
+                        {
+                            "ts": ts.isoformat(),
+                            "selection_id": selection_id,
+                            "locked_by": locked_by,
+                        }
+                    ),
+                    selection_id=selection_id,
+                    locked_by=locked_by,
+                )
+                stop.wait(interval)
+
+    thread = threading.Thread(target=_beat, daemon=True)
+    thread.start()
+    return stop, thread
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers for main import task
+# ---------------------------------------------------------------------------
+
+
+def _lookup_session_and_account(picker_session_id: int, account_id: int) -> tuple[PickerSession | None, GoogleAccount | None, str | None]:
+    ps = db.session.get(PickerSession, picker_session_id)
+    if not ps or ps.account_id != account_id:
+        return None, None, "invalid_session"
+    if ps.status in {"imported", "canceled", "expired"}:
+        return ps, None, "already_done"
+    gacc = db.session.get(GoogleAccount, account_id)
+    if not gacc:
+        return ps, None, "account_not_found"
+    return ps, gacc, None
+
+
+def _exchange_refresh_token(
+    gacc: GoogleAccount,
+    ps: PickerSession,
+    *,
+    config: ApplicationSettings = settings,
+) -> tuple[str | None, str | None]:
+    try:
+        token_data = json.loads(decrypt(gacc.oauth_token_json))
+        refresh_token = token_data.get("refresh_token")
+    except Exception:
+        ps.status = "error"
+        db.session.commit()
+        return None, "token_error"
+
+    try:
+        resp = requests.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "client_id": config.google_client_id,
+                "client_secret": config.google_client_secret,
+                "refresh_token": refresh_token,
+                "grant_type": "refresh_token",
+            },
+        )
+        data = resp.json()
+    except Exception:
+        ps.status = "error"
+        db.session.commit()
+        return None, "oauth_error"
+
+    if resp.status_code == 401 or data.get("error") == "invalid_grant":
+        ps.status = "failed"
+        db.session.commit()
+        return None, "oauth_failed"
+
+    if resp.status_code >= 400 or "access_token" not in data:
+        ps.status = "error"
+        db.session.commit()
+        return None, "oauth_error"
+
+    return data["access_token"], None
+
+
+def _fetch_selected_ids(ps: PickerSession, headers: Dict[str, str]) -> tuple[List[str], str | None]:
+    selected_ids: List[str] = []
+    if ps.session_id:
+        try:
+            r = requests.get(
+                f"https://photospicker.googleapis.com/v1/sessions/{ps.session_id}",
+                headers=headers,
+                timeout=30
+            )
+            r.raise_for_status()
+            sess_data = r.json()
+            if sess_data.get("selectedMediaItemIds"):
+                selected_ids = list(sess_data["selectedMediaItemIds"])
+            elif sess_data.get("selectedMediaItems"):
+                selected_ids = [m["id"] for m in sess_data["selectedMediaItems"]]
+                
+            _log_info(
+                "picker.session.fetch.success",
+                f"Google Photos セッション取得成功: session_id={ps.session_id}, 選択アイテム数={len(selected_ids)}",
+                session_identifier=ps.session_id,
+                session_db_id=ps.id,
+                picker_session_id=ps.id,
+                google_session_id=ps.session_id,
+                selected_count=len(selected_ids),
+            )
+        except requests.HTTPError as e:
+            error_details = {
+                "picker_session_id": ps.id,
+                "google_session_id": ps.session_id,
+                "status_code": e.response.status_code if e.response else None,
+                "response_text": e.response.text if e.response else None,
+                "error_type": "HTTPError"
+            }
+            _log_error(
+                "picker.session.fetch.http_error",
+                f"Google Photos セッション取得HTTPエラー: session_id={ps.session_id} - {e}",
+                session_identifier=ps.session_id,
+                session_db_id=ps.id,
+                error_details=json.dumps(error_details),
+            )
+            ps.status = "error"
+            db.session.commit()
+            return [], "session_get_error"
+        except requests.RequestException as e:
+            error_details = {
+                "picker_session_id": ps.id,
+                "google_session_id": ps.session_id,
+                "error_type": "RequestException",
+                "error_message": str(e)
+            }
+            _log_error(
+                "picker.session.fetch.request_error",
+                f"Google Photos セッション取得リクエストエラー: session_id={ps.session_id} - {e}",
+                session_identifier=ps.session_id,
+                session_db_id=ps.id,
+                error_details=json.dumps(error_details),
+            )
+            ps.status = "error"
+            db.session.commit()
+            return [], "session_get_error"
+        except Exception as e:
+            error_details = {
+                "picker_session_id": ps.id,
+                "google_session_id": ps.session_id,
+                "error_type": type(e).__name__,
+                "error_message": str(e)
+            }
+            _log_error(
+                "picker.session.fetch.unexpected_error",
+                f"Google Photos セッション取得予期しないエラー: session_id={ps.session_id} - {e}",
+                session_identifier=ps.session_id,
+                session_db_id=ps.id,
+                error_details=json.dumps(error_details),
+                exc_info=True,
+            )
+            ps.status = "error"
+            db.session.commit()
+            return [], "session_get_error"
+
+    count = len(selected_ids)
+    ps.selected_count = count
+    ps.media_items_set = count > 0
+
+    if count == 0:
+        ps.status = "ready"
+        db.session.commit()
+        return [], "no_selection"
+
+    return selected_ids, None
+
+
+# ---------------------------------------------------------------------------
+# Per item import
+# ---------------------------------------------------------------------------
+
+
+def picker_import_item(
+    *,
+    selection_id: int,
+    session_id: int,
+    locked_by: str = "worker",
+    heartbeat_interval: float = 30.0,
+) -> Dict[str, object]:
+    """Import a single :class:`PickerSelection`.
+
+    The function now performs an atomic claim of the selection row and updates
+    lock heartbeat timestamps while processing the item.
+    """
+
+    now = datetime.now(timezone.utc)
+
+    stmt = (
+        update(PickerSelection)
+        .where(
+            PickerSelection.id == selection_id,
+            PickerSelection.session_id == session_id,
+            PickerSelection.status == "enqueued",
+        )
+        .values(
+            status="running",
+            locked_by=locked_by,
+            lock_heartbeat_at=now,
+            attempts=PickerSelection.attempts + 1,
+            started_at=now,
+            last_transition_at=now,
+        )
+    )
+    res = db.session.execute(stmt)
+    if res.rowcount == 0:
+        db.session.rollback()
+        return {"ok": False, "error": "not_enqueued"}
+    db.session.commit()
+
+    sel = db.session.get(PickerSelection, selection_id)
+    if not sel:
+        return {"ok": False, "error": "not_found"}
+
+    stop_evt, hb_thread = _start_lock_heartbeat(sel.id, locked_by, heartbeat_interval)
+
+    tmp_dir, orig_dir = _ensure_dirs()
+
+    session_identifier: Optional[str] = None
+    session_db_id: Optional[int] = None
+
+    try:
+        # Retrieve account and access token
+        ps = db.session.get(PickerSession, session_id)
+        gacc = db.session.get(GoogleAccount, ps.account_id) if ps else None
+        if not ps or not gacc:
+            raise AuthError()
+        session_identifier = ps.session_id
+        session_db_id = ps.id
+        _log_info(
+            "picker.item.claim",
+            json.dumps(
+                {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "selection_id": sel.id,
+                    "session_id": session_id,
+                    "locked_by": locked_by,
+                }
+            ),
+            session_identifier=session_identifier,
+            session_db_id=session_db_id,
+            selection_id=sel.id,
+            locked_by=locked_by,
+        )
+        access_token, note = _exchange_refresh_token(gacc, ps)
+        if not access_token:
+            if note == "oauth_failed":
+                raise AuthError()
+            raise NetworkError()
+
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        mi: MediaItem = sel.media_item  # type: ignore[assignment]
+        base_url: str | None = None
+        item: dict | None = None
+        now = datetime.now(timezone.utc)
+        valid_until = sel.base_url_valid_until
+        if valid_until and valid_until.tzinfo is None:
+            valid_until = valid_until.replace(tzinfo=timezone.utc)
+        if sel.base_url and valid_until and valid_until > now:
+            base_url = sel.base_url
+        else:
+            try:
+                r = requests.get(
+                    f"https://photospicker.googleapis.com/v1/mediaItems/{mi.id}",
+                    headers=headers,
+                    timeout=30
+                )
+                r.raise_for_status()
+                item = r.json()
+                
+                _log_info(
+                    "picker.media.fetch.success",
+                    f"Google Photos メディアアイテム取得成功: media_id={mi.id}",
+                    session_identifier=session_identifier,
+                    session_db_id=session_db_id,
+                    google_media_id=mi.id,
+                    selection_id=sel.id,
+                )
+            except requests.HTTPError as e:
+                error_details = {
+                    "google_media_id": mi.id,
+                    "selection_id": sel.id,
+                    "session_id": session_id,
+                    "status_code": e.response.status_code if e.response else None,
+                    "response_text": e.response.text if e.response else None,
+                    "error_type": "HTTPError"
+                }
+                if e.response is not None and e.response.status_code in (401, 403):
+                    _log_error(
+                        "picker.media.fetch.auth_error",
+                        f"Google Photos メディアアイテム取得認証エラー: media_id={mi.id} - {e}",
+                        session_identifier=session_identifier,
+                        session_db_id=session_db_id,
+                        error_details=json.dumps(error_details),
+                    )
+                    raise AuthError()
+                elif e.response is not None and e.response.status_code == 404:
+                    _log_warning(
+                        "picker.media.fetch.not_found",
+                        f"Google Photos メディアアイテムが見つからない: media_id={mi.id} - {e}",
+                        session_identifier=session_identifier,
+                        session_db_id=session_db_id,
+                        error_details=json.dumps(error_details),
+                    )
+                    raise BaseUrlExpired()
+                else:
+                    _log_error(
+                        "picker.media.fetch.http_error",
+                        f"Google Photos メディアアイテム取得HTTPエラー: media_id={mi.id} - {e}",
+                        session_identifier=session_identifier,
+                        session_db_id=session_db_id,
+                        error_details=json.dumps(error_details),
+                    )
+                    raise NetworkError()
+            except requests.RequestException as e:
+                error_details = {
+                    "google_media_id": mi.id,
+                    "selection_id": sel.id,
+                    "session_id": session_id,
+                    "error_type": "RequestException",
+                    "error_message": str(e)
+                }
+                _log_error(
+                    "picker.media.fetch.request_error",
+                    f"Google Photos メディアアイテム取得リクエストエラー: media_id={mi.id} - {e}",
+                    session_identifier=session_identifier,
+                    session_db_id=session_db_id,
+                    error_details=json.dumps(error_details),
+                )
+                raise NetworkError()
+            except Exception as e:
+                error_details = {
+                    "google_media_id": mi.id,
+                    "selection_id": sel.id,
+                    "session_id": session_id,
+                    "error_type": type(e).__name__,
+                    "error_message": str(e)
+                }
+                _log_error(
+                    "picker.media.fetch.unexpected_error",
+                    f"Google Photos メディアアイテム取得予期しないエラー: media_id={mi.id} - {e}",
+                    session_identifier=session_identifier,
+                    session_db_id=session_db_id,
+                    error_details=json.dumps(error_details),
+                    exc_info=True,
+                )
+                raise NetworkError()
+
+        fetched_base_url: str | None = None
+        if item is not None:
+            fetched_base_url = item.get("baseUrl")
+            if not fetched_base_url:
+                raise BaseUrlExpired()
+            sel.base_url = fetched_base_url
+            sel.base_url_fetched_at = now
+            sel.base_url_valid_until = now + timedelta(hours=1)
+            # 取得した base_url をダウンロードに使用する（キャッシュ未使用の経路で
+            # ローカル変数 base_url が None のままにならないようにする）。
+            base_url = fetched_base_url
+
+        # ここでのbase_urlの再バリデーションは不要（既に上でチェック済み）
+        meta = item.get("mediaMetadata", {}) if item else {}
+        is_video = bool(meta.get("video")) or (mi.mime_type or "").startswith("video/")
+        assert base_url is not None  # 型チェッカに明示
+        dl_url = base_url + ("=dv" if is_video else "=d")
+        try:
+            dl = _download(dl_url, tmp_dir, headers=headers)
+        except requests.HTTPError as e:
+            # HTTPエラーの詳細をログDBに記録
+            error_details = {
+                "ts": now.isoformat(),
+                "selection_id": sel.id,
+                "session_id": session_id,
+                "url": dl_url,
+                "status_code": e.response.status_code if e.response else None,
+                "response_text": e.response.text if e.response else None,
+                "error_type": "HTTPError",
+                "google_media_id": mi.id,
+                "filename": mi.filename,
+                "mime_type": mi.mime_type
+            }
+            _log_error(
+                "picker.download.failed.http",
+                f"ファイルダウンロード失敗 (HTTP Error): {e}",
+                session_identifier=session_identifier,
+                session_db_id=ps.id,
+                error_details=json.dumps(error_details),
+            )
+            if e.response is not None and e.response.status_code in (401, 403):
+                raise AuthError()
+            raise NetworkError()
+        except requests.RequestException as e:
+            # リクエスト例外の詳細をログDBに記録
+            error_details = {
+                "ts": now.isoformat(),
+                "selection_id": sel.id,
+                "session_id": session_id,
+                "url": dl_url,
+                "error_type": "RequestException",
+                "error_message": str(e),
+                "google_media_id": mi.id,
+                "filename": mi.filename,
+                "mime_type": mi.mime_type
+            }
+            _log_error(
+                "picker.download.failed.request",
+                f"ファイルダウンロード失敗 (Request Error): {e}",
+                session_identifier=session_identifier,
+                session_db_id=ps.id,
+                error_details=json.dumps(error_details),
+            )
+            raise NetworkError()
+        except Exception as e:
+            # その他の予期しないエラーもログDBに記録
+            error_details = {
+                "ts": now.isoformat(),
+                "selection_id": sel.id,
+                "session_id": session_id,
+                "url": dl_url,
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "google_media_id": mi.id,
+                "filename": mi.filename,
+                "mime_type": mi.mime_type
+            }
+            _log_error(
+                "picker.download.failed.unexpected",
+                f"ファイルダウンロード失敗 (Unexpected Error): {e}",
+                session_identifier=session_identifier,
+                session_db_id=ps.id,
+                error_details=json.dumps(error_details),
+                exc_info=True,
+            )
+            raise
+
+        # Deduplication by hash
+        if Media.query.filter_by(hash_sha256=dl.sha256, is_deleted=False).first():
+            sel.status = "dup"
+            dl.path.unlink(missing_ok=True)
+        else:
+            shot_at = sel.create_time or now
+            ext = _guess_ext(mi.filename, mi.mime_type)
+            out_rel = f"{shot_at:%Y/%m/%d}/{shot_at:%Y%m%d_%H%M%S}_picker_{dl.sha256[:8]}{ext}"
+            final_path = orig_dir / out_rel
+            final_path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                move_method = "replace"
+                try:
+                    os.replace(dl.path, final_path)
+                except OSError as e:
+                    if e.errno == errno.EXDEV:
+                        move_method = "copy+replace"
+                        fd, tmp_name = tempfile.mkstemp(
+                            dir=str(final_path.parent), prefix=".tmp_picker_import_"
+                        )
+                        tmp_path = Path(tmp_name)
+                        try:
+                            with os.fdopen(fd, "wb", closefd=True) as wf, dl.path.open(
+                                "rb"
+                            ) as rf:
+                                shutil.copyfileobj(rf, wf, length=16 * 1024 * 1024)
+                                wf.flush()
+                                os.fsync(wf.fileno())
+                            with contextlib.suppress(OSError):
+                                shutil.copystat(dl.path, tmp_path, follow_symlinks=True)
+                            _fsync_dir(final_path.parent)
+                            os.replace(tmp_path, final_path)
+                            _fsync_dir(final_path.parent)
+                        except Exception:
+                            with contextlib.suppress(FileNotFoundError):
+                                tmp_path.unlink()
+                            raise
+                        with contextlib.suppress(FileNotFoundError):
+                            dl.path.unlink()
+                        _log_warning(
+                            "picker.file.move.cross_device",
+                            f"クロスデバイス移動を検知しコピーで保存: {dl.path} -> {final_path}",
+                            session_identifier=session_identifier,
+                            session_db_id=ps.id,
+                            selection_id=sel.id,
+                            sha256=dl.sha256,
+                        )
+                    else:
+                        raise
+
+                # ファイル保存ログ
+                _log_info(
+                    "picker.file.saved",
+                    json.dumps(
+                        {
+                            "ts": now.isoformat(),
+                            "selection_id": sel.id,
+                            "session_id": session_id,
+                            "file_path": str(final_path),
+                            "file_size": dl.bytes,
+                            "mime_type": mi.mime_type,
+                            "sha256": dl.sha256,
+                            "original_filename": mi.filename,
+                            "move_method": move_method,
+                        }
+                    ),
+                    session_identifier=session_identifier,
+                    session_db_id=session_db_id,
+                    selection_id=sel.id,
+                    file_path=str(final_path),
+                    file_size=dl.bytes,
+                    mime_type=mi.mime_type,
+                    sha256=dl.sha256,
+                    original_filename=mi.filename,
+                    move_method=move_method,
+                )
+            except OSError as e:
+                # ファイル移動エラーをログDBに記録
+                error_details = {
+                    "ts": now.isoformat(),
+                    "selection_id": sel.id,
+                    "session_id": session_id,
+                    "source_path": str(dl.path),
+                    "dest_path": str(final_path),
+                    "error_type": "OSError",
+                    "error_message": str(e),
+                    "google_media_id": mi.id,
+                    "filename": mi.filename,
+                    "sha256": dl.sha256
+                }
+                _log_error(
+                    "picker.file.move.failed",
+                    f"ファイル移動失敗: {dl.path} -> {final_path} - {e}",
+                    session_identifier=session_identifier,
+                session_db_id=session_db_id,
+                    error_details=json.dumps(error_details),
+                )
+                # 一時ファイルのクリーンアップ
+                dl.path.unlink(missing_ok=True)
+                raise
+            except Exception as e:
+                # その他のファイル操作エラーをログDBに記録
+                error_details = {
+                    "ts": now.isoformat(),
+                    "selection_id": sel.id,
+                    "session_id": session_id,
+                    "source_path": str(dl.path),
+                    "dest_path": str(final_path),
+                    "error_type": type(e).__name__,
+                    "error_message": str(e),
+                    "google_media_id": mi.id,
+                    "filename": mi.filename,
+                    "sha256": dl.sha256
+                }
+                _log_error(
+                    "picker.file.operation.failed",
+                    f"ファイル操作予期しないエラー: {dl.path} -> {final_path} - {e}",
+                    session_identifier=session_identifier,
+                session_db_id=session_db_id,
+                    error_details=json.dumps(error_details),
+                    exc_info=True,
+                )
+                # 一時ファイルのクリーンアップ
+                dl.path.unlink(missing_ok=True)
+                raise
+
+            try:
+                width_value, height_value = _resolve_media_dimensions(
+                    meta=meta,
+                    media_item=mi,
+                    file_path=final_path,
+                    is_video=is_video,
+                )
+
+                duration_ms = (
+                    int(meta.get("video", {}).get("durationMillis", 0) or 0)
+                    if is_video
+                    else None
+                )
+
+                media_kwargs: dict[str, Any] = {
+                    "source_type": "google_photos",
+                    "google_media_id": mi.id,
+                    "account_id": ps.account_id,
+                    "local_rel_path": str(out_rel),
+                    "filename": mi.filename or Path(out_rel).name,
+                    "hash_sha256": dl.sha256,
+                    "bytes": dl.bytes,
+                    "mime_type": mi.mime_type,
+                    "width": width_value,
+                    "height": height_value,
+                    "duration_ms": duration_ms,
+                    "shot_at": shot_at,
+                    "imported_at": now,
+                    "is_video": is_video,
+                }
+                phash = hashing_service.compute(
+                    file_path=final_path,
+                    is_video=is_video,
+                    duration_ms=duration_ms,
+                )
+                if phash:
+                    media_kwargs["phash"] = phash
+                media = Media(**media_kwargs)
+                db.session.add(media)
+                db.session.flush()
+
+                exif = Exif(media_id=media.id, raw_json=json.dumps(item or {}))
+                db.session.add(exif)
+
+                process_media_post_import(
+                    media,
+                    logger_override=logger,
+                    request_context={
+                        "session_id": session_id,
+                        "selection_id": sel.id,
+                        "source": "picker_import",
+                    },
+                )
+
+                sel.status = "imported"
+                
+                # DB登録成功ログ
+                _log_info(
+                    "picker.media.db.saved",
+                    f"メディアDB登録成功: media_id={media.id}, google_media_id={mi.id}",
+                    session_identifier=session_identifier,
+                session_db_id=session_db_id,
+                    media_id=media.id,
+                    google_media_id=mi.id,
+                    selection_id=sel.id,
+                )
+            except Exception as e:
+                # DB登録エラーをログDBに記録
+                error_details = {
+                    "ts": now.isoformat(),
+                    "selection_id": sel.id,
+                    "session_id": session_id,
+                    "google_media_id": mi.id,
+                    "filename": mi.filename,
+                    "sha256": dl.sha256,
+                    "file_path": str(final_path),
+                    "error_type": type(e).__name__,
+                    "error_message": str(e)
+                }
+                _log_error(
+                    "picker.media.db.failed",
+                    f"メディアDB登録失敗: {mi.id} - {e}",
+                    session_identifier=session_identifier,
+                    session_db_id=ps.id,
+                    error_details=json.dumps(error_details),
+                    exc_info=True,
+                )
+                # ファイルのクリーンアップ（DB登録に失敗した場合）
+                try:
+                    final_path.unlink(missing_ok=True)
+                    _log_info(
+                        "picker.file.cleanup.after_db_failure",
+                        f"DB登録失敗によりファイルクリーンアップ: {final_path}",
+                        session_identifier=session_identifier,
+                        session_db_id=ps.id,
+                        file_path=str(final_path),
+                    )
+                except Exception as cleanup_error:
+                    _log_warning(
+                        "picker.file.cleanup.failed",
+                        f"ファイルクリーンアップ失敗: {final_path} - {cleanup_error}",
+                        session_identifier=session_identifier,
+                        session_db_id=ps.id,
+                        file_path=str(final_path),
+                        error_message=str(cleanup_error),
+                    )
+                raise
+
+    except AuthError as e:
+        sel.status = "failed"
+        sel.error_msg = str(e)
+        _log_error(
+            "picker.import.auth_error",
+            f"認証エラー: selection_id={sel.id} - {e}",
+            session_identifier=session_identifier,
+            session_db_id=session_db_id or session_id,
+            selection_id=sel.id,
+            error_message=str(e),
+        )
+    except BaseUrlExpired as e:
+        sel.status = "expired"
+        sel.error_msg = str(e)
+        _log_warning(
+            "picker.import.url_expired",
+            f"ベースURL有効期限切れ: selection_id={sel.id} - {e}",
+            session_identifier=session_identifier,
+            session_db_id=session_db_id or session_id,
+            selection_id=sel.id,
+            error_message=str(e),
+        )
+    except NetworkError as e:
+        sel.status = "enqueued"
+        sel.error_msg = str(e)
+        _log_warning(
+            "picker.import.network_error",
+            f"ネットワークエラー（再試行予定）: selection_id={sel.id} - {e}",
+            session_identifier=session_identifier,
+            session_db_id=session_db_id or session_id,
+            selection_id=sel.id,
+            error_message=str(e),
+        )
+    except Exception as e:
+        sel.status = "failed"
+        sel.error_msg = str(e)
+        _log_error(
+            "picker.import.unexpected_error",
+            f"予期しないエラー: selection_id={sel.id} - {e}",
+            session_identifier=session_identifier,
+            session_db_id=session_db_id or session_id,
+            selection_id=sel.id,
+            error_type=type(e).__name__,
+            error_message=str(e),
+            exc_info=True,
+        )
+
+    finally:
+        stop_evt.set()
+        hb_thread.join()
+        end = datetime.now(timezone.utc)
+        terminal = {"imported", "dup", "failed", "expired"}
+        if sel.status in terminal:
+            sel.finished_at = end
+            ps = db.session.get(PickerSession, session_id)
+            if ps:
+                ps.last_progress_at = end
+        sel.last_transition_at = end
+        sel.locked_by = None
+        sel.lock_heartbeat_at = None
+        db.session.commit()
+        _log_info(
+            "picker.item.end",
+            json.dumps(
+                {
+                    "ts": end.isoformat(),
+                    "selection_id": sel.id,
+                    "status": sel.status,
+                }
+            ),
+            session_identifier=session_identifier,
+            session_db_id=session_db_id,
+            selection_id=sel.id,
+            status=sel.status,
+        )
+
+    return {"ok": sel.status in {"imported", "dup"}, "status": sel.status}
+
+
+# ---------------------------------------------------------------------------
+# Main task implementation
+# ---------------------------------------------------------------------------
+
+
+def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, object]:
+    """Import media selected by the Google Photos Picker.
+
+    The function returns a JSON‑serialisable dictionary describing the outcome
+    of the import.  Errors are handled in a best‑effort manner and reflected in
+    the ``note`` field of the response.
+    """
+
+    progress = ImportSessionProgress()
+    aggregator = ImportResultAggregator(progress)
+    note = None
+    start_time = datetime.now(timezone.utc)
+
+    # セッション開始ログ
+    # 1. Lookup picker session and account
+    ps, gacc, note = _lookup_session_and_account(picker_session_id, account_id)
+    if note == "invalid_session":
+        _log_error(
+            "picker.session.error",
+            json.dumps({"ts": start_time.isoformat(), "session_id": picker_session_id, "error": note}),
+            session_db_id=picker_session_id,
+            error=note,
+        )
+        result = ImportResult(ok=False, progress=progress, note=note)
+        return result.to_payload()
+    if note == "already_done":
+        _log_info(
+            "picker.session.skip",
+            json.dumps({"ts": start_time.isoformat(), "session_id": picker_session_id, "note": note}),
+            session_db_id=picker_session_id,
+            note=note,
+        )
+        result = ImportResult(ok=True, progress=progress, note=note)
+        return result.to_payload()
+    if note == "account_not_found":
+        _log_error(
+            "picker.session.error",
+            json.dumps({"ts": start_time.isoformat(), "session_id": picker_session_id, "error": note}),
+            session_db_id=picker_session_id,
+            error=note,
+        )
+        result = ImportResult(ok=False, progress=progress, note=note)
+        return result.to_payload()
+
+    # 2. Exchange refresh token for access token
+    access_token, note = _exchange_refresh_token(gacc, ps)  # type: ignore[arg-type]
+    if note:
+        _log_error(
+            "picker.session.error",
+            json.dumps({"ts": datetime.now(timezone.utc).isoformat(), "session_id": picker_session_id, "error": note}),
+            session_db_id=picker_session_id,
+            error=note,
+        )
+        result = ImportResult(ok=False, progress=progress, note=note)
+        return result.to_payload()
+
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    # 3. Fetch selected IDs from callback storage or picker session
+    selected_ids, note = _fetch_selected_ids(ps, headers)  # type: ignore[arg-type]
+    if note == "session_get_error":
+        result = ImportResult(ok=False, progress=progress, note=note)
+        return result.to_payload()
+    if note == "no_selection":
+        result = ImportResult(ok=True, progress=progress, note=None)
+        return result.to_payload()
+
+    if ps is None or gacc is None:
+        _log_error(
+            "picker.session.error",
+            json.dumps(
+                {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "session_id": picker_session_id,
+                    "account_id": account_id,
+                    "error": "session_state_invalid",
+                }
+            ),
+            session_db_id=picker_session_id,
+            account_id=account_id,
+            error="session_state_invalid",
+        )
+        result = ImportResult(ok=False, progress=progress, note="session_state_invalid")
+        return result.to_payload()
+
+    session_identifier = ps.session_id
+
+    _log_info(
+        "picker.session.start",
+        json.dumps(
+            {
+                "ts": start_time.isoformat(),
+                "session_id": ps.session_id,
+                "picker_session_id": ps.id,
+                "account_id": account_id,
+            }
+        ),
+        session_identifier=session_identifier,
+        session_db_id=ps.id,
+        account_id=account_id,
+    )
+
+    stats = ps.stats()
+    stats["selected_count"] = len(selected_ids)
+
+    tmp_dir, orig_dir = _ensure_dirs()
+
+    _log_info(
+        "picker.session.directories",
+        json.dumps(
+            {
+                "ts": start_time.isoformat(),
+                "session_id": picker_session_id,
+                "tmp_dir": str(tmp_dir),
+                "originals_dir": str(orig_dir),
+            }
+        ),
+        session_identifier=session_identifier,
+        session_db_id=picker_session_id,
+        tmp_dir=str(tmp_dir),
+        originals_dir=str(orig_dir),
+    )
+
+    total_selected = len(selected_ids)
+    chunk_total = (total_selected + 49) // 50 if total_selected else 0
+
+    for chunk_index, chunk_ids in enumerate(_chunk(selected_ids, 50), start=1):
+        chunk_start = datetime.now(timezone.utc)
+        _log_info(
+            "picker.batch.fetch.start",
+            json.dumps(
+                {
+                    "ts": chunk_start.isoformat(),
+                    "session_id": picker_session_id,
+                    "chunk_index": chunk_index,
+                    "chunk_size": len(chunk_ids),
+                    "chunks_total": chunk_total,
+                }
+            ),
+            session_identifier=session_identifier,
+            session_db_id=picker_session_id,
+            chunk_index=chunk_index,
+            chunk_size=len(chunk_ids),
+            chunks_total=chunk_total,
+        )
+
+        try:
+            r = requests.post(
+                "https://photospicker.googleapis.com/v1/mediaItems:batchGet",
+                json={"mediaItemIds": chunk_ids},
+                headers=headers,
+            )
+            r.raise_for_status()
+            item_data = r.json()
+        except Exception as exc:
+            aggregator.register_failures(len(chunk_ids))
+            _log_error(
+                "picker.batch.fetch.failed",
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "session_id": picker_session_id,
+                        "chunk_index": chunk_index,
+                        "chunk_size": len(chunk_ids),
+                        "error": str(exc),
+                    }
+                ),
+                session_identifier=session_identifier,
+                session_db_id=picker_session_id,
+                chunk_index=chunk_index,
+                chunk_size=len(chunk_ids),
+                error_type=type(exc).__name__,
+                error_message=str(exc),
+                exc_info=True,
+            )
+            continue
+
+        # Extract list of media items depending on response structure
+        results = []
+        if isinstance(item_data, dict):
+            if item_data.get("mediaItemResults"):
+                for res in item_data["mediaItemResults"]:
+                    if res.get("mediaItem"):
+                        results.append(res["mediaItem"])
+            elif item_data.get("mediaItems"):
+                results.extend(item_data["mediaItems"])
+
+        chunk_finish = datetime.now(timezone.utc)
+        _log_info(
+            "picker.batch.fetch.success",
+            json.dumps(
+                {
+                    "ts": chunk_finish.isoformat(),
+                    "session_id": picker_session_id,
+                    "chunk_index": chunk_index,
+                    "chunk_size": len(chunk_ids),
+                    "result_count": len(results),
+                    "duration_ms": int((chunk_finish - chunk_start).total_seconds() * 1000),
+                }
+            ),
+            session_identifier=session_identifier,
+            session_db_id=picker_session_id,
+            chunk_index=chunk_index,
+            chunk_size=len(chunk_ids),
+            result_count=len(results),
+        )
+
+        if not results:
+            _log_warning(
+                "picker.batch.fetch.empty",
+                json.dumps(
+                    {
+                        "ts": chunk_finish.isoformat(),
+                        "session_id": picker_session_id,
+                        "chunk_index": chunk_index,
+                        "chunk_size": len(chunk_ids),
+                    }
+                ),
+                session_identifier=session_identifier,
+                session_db_id=picker_session_id,
+                chunk_index=chunk_index,
+                chunk_size=len(chunk_ids),
+            )
+
+        for item_index, item in enumerate(results, start=1):
+            media_id = item.get("id")
+            if not media_id:
+                aggregator.register_failure()
+                _log_error(
+                    "picker.item.missing_id",
+                    json.dumps(
+                        {
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                            "session_id": picker_session_id,
+                            "chunk_index": chunk_index,
+                            "item_index": item_index,
+                        }
+                    ),
+                    session_identifier=session_identifier,
+                    session_db_id=picker_session_id,
+                    chunk_index=chunk_index,
+                    item_index=item_index,
+                )
+                continue
+            # 成功した項目は進捗サマリでのみ追跡する
+
+            total_count = len(results)
+            if item_index == 1 or item_index == total_count or item_index % 10 == 0:
+                _log_info(
+                    "picker.session.progress",
+                    json.dumps(
+                        {
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                            "session_id": picker_session_id,
+                            "progress": f"{item_index}/{total_count}",
+                            "media_id": media_id,
+                            "imported": progress.imported,
+                            "duplicates": progress.duplicated,
+                            "failed": progress.failed,
+                        }
+                    ),
+                    session_identifier=session_identifier,
+                    session_db_id=picker_session_id,
+                    media_id=media_id,
+                    imported=progress.imported,
+                    duplicates=progress.duplicated,
+                    failed=progress.failed,
+                    chunk_index=chunk_index,
+                    item_index=item_index,
+                )
+
+            base_url = item.get("baseUrl")
+            if not base_url:
+                aggregator.register_failure()
+                _log_error(
+                    "picker.item.base_url_missing",
+                    json.dumps(
+                        {
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                            "session_id": picker_session_id,
+                            "media_id": media_id,
+                            "chunk_index": chunk_index,
+                            "item_index": item_index,
+                        }
+                    ),
+                    session_identifier=session_identifier,
+                    session_db_id=picker_session_id,
+                    media_id=media_id,
+                    chunk_index=chunk_index,
+                    item_index=item_index,
+                )
+                continue
+
+            filename = item.get("filename")
+            mime = item.get("mimeType")
+            meta = item.get("mediaMetadata", {})
+            is_video = bool(meta.get("video")) or (mime or "").startswith("video/")
+            dl_url = base_url + ("=dv" if is_video else "=d")
+
+            _log_info(
+                "picker.item.download.start",
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "session_id": picker_session_id,
+                        "media_id": media_id,
+                        "chunk_index": chunk_index,
+                        "item_index": item_index,
+                        "url": dl_url,
+                    }
+                ),
+                session_identifier=session_identifier,
+                session_db_id=picker_session_id,
+                media_id=media_id,
+                chunk_index=chunk_index,
+                item_index=item_index,
+                url=dl_url,
+            )
+
+            try:
+                dl = _download(dl_url, tmp_dir)
+            except Exception as exc:
+                aggregator.register_failure()
+                _log_error(
+                    "picker.item.download.failed",
+                    json.dumps(
+                        {
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                            "session_id": picker_session_id,
+                            "media_id": media_id,
+                            "chunk_index": chunk_index,
+                            "item_index": item_index,
+                            "error": str(exc),
+                        }
+                    ),
+                    session_identifier=session_identifier,
+                    session_db_id=picker_session_id,
+                    media_id=media_id,
+                    chunk_index=chunk_index,
+                    item_index=item_index,
+                    error_type=type(exc).__name__,
+                    error_message=str(exc),
+                    exc_info=True,
+                )
+                continue
+
+            _log_info(
+                "picker.item.download.success",
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "session_id": picker_session_id,
+                        "media_id": media_id,
+                        "chunk_index": chunk_index,
+                        "item_index": item_index,
+                        "bytes": dl.bytes,
+                        "sha256": dl.sha256,
+                    }
+                ),
+                session_identifier=session_identifier,
+                session_db_id=picker_session_id,
+                media_id=media_id,
+                chunk_index=chunk_index,
+                item_index=item_index,
+                bytes=dl.bytes,
+                sha256=dl.sha256,
+            )
+
+            if Media.query.filter_by(hash_sha256=dl.sha256, is_deleted=False).first():
+                aggregator.register_success(duplicated=True)
+                _log_info(
+                    "picker.item.duplicate",
+                    json.dumps(
+                        {
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                            "session_id": picker_session_id,
+                            "media_id": media_id,
+                            "chunk_index": chunk_index,
+                            "item_index": item_index,
+                            "sha256": dl.sha256,
+                            "progress": {
+                                "imported": progress.imported,
+                                "duplicates": progress.duplicated,
+                                "failed": progress.failed,
+                            },
+                        }
+                    ),
+                    session_identifier=session_identifier,
+                    session_db_id=picker_session_id,
+                    media_id=media_id,
+                    chunk_index=chunk_index,
+                    item_index=item_index,
+                    sha256=dl.sha256,
+                    imported=progress.imported,
+                    duplicates=progress.duplicated,
+                    failed=progress.failed,
+                )
+                dl.path.unlink(missing_ok=True)
+                continue
+
+            shot_at_str = meta.get("creationTime")
+            try:
+                shot_at = (
+                    datetime.fromisoformat(shot_at_str.replace("Z", "+00:00"))
+                    if shot_at_str
+                    else datetime.now(timezone.utc)
+                )
+            except Exception:
+                shot_at = datetime.now(timezone.utc)
+
+            ext = _guess_ext(filename, mime)
+            out_rel = (
+                f"{shot_at:%Y/%m/%d}/{shot_at:%Y%m%d_%H%M%S}_picker_{dl.sha256[:8]}{ext}"
+            )
+            final_path = orig_dir / out_rel
+            final_path.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(dl.path, final_path)
+
+            _log_info(
+                "picker.item.file.saved",
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "session_id": picker_session_id,
+                        "media_id": media_id,
+                        "chunk_index": chunk_index,
+                        "item_index": item_index,
+                        "file_path": str(final_path),
+                        "bytes": dl.bytes,
+                        "mime_type": mime,
+                    }
+                ),
+                session_identifier=session_identifier,
+                session_db_id=picker_session_id,
+                media_id=media_id,
+                chunk_index=chunk_index,
+                item_index=item_index,
+                file_path=str(final_path),
+                bytes=dl.bytes,
+                mime_type=mime,
+            )
+
+            width_value, height_value = _resolve_media_dimensions(
+                meta=meta,
+                media_item=None,
+                file_path=final_path,
+                is_video=is_video,
+            )
+
+            duration_ms = (
+                int(meta.get("video", {}).get("durationMillis", 0) or 0)
+                if is_video
+                else None
+            )
+
+            media_kwargs: dict[str, Any] = {
+                "source_type": "google_photos",
+                "google_media_id": media_id,
+                "account_id": account_id,
+                "local_rel_path": str(out_rel),
+                "filename": filename or Path(out_rel).name,
+                "hash_sha256": dl.sha256,
+                "bytes": dl.bytes,
+                "mime_type": mime,
+                "width": width_value,
+                "height": height_value,
+                "duration_ms": duration_ms,
+                "shot_at": shot_at,
+                "imported_at": datetime.now(timezone.utc),
+                "is_video": is_video,
+            }
+            phash = hashing_service.compute(
+                file_path=final_path,
+                is_video=is_video,
+                duration_ms=duration_ms,
+            )
+            if phash:
+                media_kwargs["phash"] = phash
+            media = Media(**media_kwargs)
+            db.session.add(media)
+            db.session.flush()  # obtain media.id
+
+            _log_info(
+                "picker.item.media.created",
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "session_id": picker_session_id,
+                        "media_id": media_id,
+                        "chunk_index": chunk_index,
+                        "item_index": item_index,
+                        "media_db_id": media.id,
+                    }
+                ),
+                session_identifier=session_identifier,
+                session_db_id=picker_session_id,
+                media_id=media_id,
+                media_db_id=media.id,
+                chunk_index=chunk_index,
+                item_index=item_index,
+            )
+
+            exif = Exif(media_id=media.id, raw_json=json.dumps(item))
+            db.session.add(exif)
+
+            process_media_post_import(
+                media,
+                logger_override=logger,
+                request_context={
+                    "session_id": picker_session_id,
+                    "source": "picker_import_session_replay",
+                },
+            )
+
+            aggregator.register_success(duplicated=False)
+
+            _log_info(
+                "picker.item.success",
+                json.dumps(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "session_id": picker_session_id,
+                        "media_id": media_id,
+                        "chunk_index": chunk_index,
+                        "item_index": item_index,
+                        "media_db_id": media.id,
+                        "progress": {
+                            "imported": progress.imported,
+                            "duplicates": progress.duplicated,
+                            "failed": progress.failed,
+                        },
+                    }
+                ),
+                session_identifier=session_identifier,
+                session_db_id=picker_session_id,
+                media_id=media_id,
+                media_db_id=media.id,
+                chunk_index=chunk_index,
+                item_index=item_index,
+                imported=progress.imported,
+                duplicates=progress.duplicated,
+                failed=progress.failed,
+            )
+
+        db.session.commit()
+
+        _log_info(
+            "picker.batch.complete",
+            json.dumps(
+                {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "session_id": picker_session_id,
+                    "chunk_index": chunk_index,
+                    "chunk_size": len(chunk_ids),
+                    "imported": progress.imported,
+                    "duplicates": progress.duplicated,
+                    "failed": progress.failed,
+                }
+            ),
+            session_identifier=session_identifier,
+            session_db_id=picker_session_id,
+            chunk_index=chunk_index,
+            chunk_size=len(chunk_ids),
+            imported=progress.imported,
+            duplicates=progress.duplicated,
+            failed=progress.failed,
+        )
+
+    stats["progress"] = {
+        "imported": progress.imported,
+        "duplicated": progress.duplicated,
+        "failed": progress.failed,
+    }
+
+    total_processed = progress.imported + progress.duplicated + progress.failed
+    ps.set_stats(stats)
+
+    end_time = datetime.now(timezone.utc)
+    if progress.imported > 0:
+        ps.status = "imported"
+        ps.last_progress_at = end_time
+    elif progress.failed > 0:
+        ps.status = "error"
+    else:  # only duplicates
+        ps.status = "imported"
+        ps.last_progress_at = end_time
+
+    ps.updated_at = end_time
+
+    db.session.commit()
+
+    # セッション完了ログ
+    duration_seconds = (end_time - start_time).total_seconds()
+    _log_info(
+        "picker.session.complete",
+        json.dumps(
+            {
+                "ts": end_time.isoformat(),
+                "session_id": picker_session_id,
+                "account_id": account_id,
+                "status": ps.status,
+                "duration_seconds": duration_seconds,
+                "imported": progress.imported,
+                "duplicates": progress.duplicated,
+                "failed": progress.failed,
+                "processed_total": total_processed,
+            }
+        ),
+        session_identifier=session_identifier,
+        session_db_id=picker_session_id,
+        account_id=account_id,
+        status=ps.status,
+        duration_seconds=duration_seconds,
+        imported=progress.imported,
+        duplicates=progress.duplicated,
+        failed=progress.failed,
+        processed_total=total_processed,
+    )
+
+    ok = progress.imported > 0 or progress.failed == 0
+    if progress.imported > 0 and progress.failed > 0:
+        note = "partial"
+
+    result = ImportResult(ok=ok, progress=progress, note=note)
+    return result.to_payload()
+
+
+__all__ = [
+    "picker_import",
+    "enqueue_picker_import_item",
+    "picker_import_item",
+    "picker_import_queue_scan",
+    "enqueue_thumbs_generate",
+    "enqueue_media_playback",
+]

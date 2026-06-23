@@ -12,8 +12,8 @@ from typing import Final
 from sqlalchemy import update
 
 from shared.kernel.database.db import db
-from core.models.picker_session import PickerSession
-from core.models.photo_models import Media, PickerSelection
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+from bounded_contexts.photonest.infrastructure.photo_models import Media, PickerSelection
 from bounded_contexts.picker_import.domain.entities import ImportSelection, ImportSession
 from shared.infrastructure.repositories.base import BaseRepository, Mapper, UnitOfWork
 

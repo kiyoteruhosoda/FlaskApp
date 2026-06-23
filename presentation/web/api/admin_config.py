@@ -206,7 +206,7 @@ def api_admin_config_update():
 
         _apply_persisted_settings(current_app)
     except Exception:  # pragma: no cover - defensive
-        from core.db import db
+        from shared.kernel.database.db import db
 
         db.session.rollback()
         current_app.logger.exception("Failed to update application settings via API")
@@ -275,7 +275,7 @@ def api_admin_config_cors_update():
 
         _apply_persisted_settings(current_app)
     except Exception:  # pragma: no cover - defensive
-        from core.db import db
+        from shared.kernel.database.db import db
 
         db.session.rollback()
         current_app.logger.exception("Failed to update CORS settings via API")
@@ -319,7 +319,7 @@ def api_admin_config_signing_update():
         except AccessTokenSigningValidationError as exc:
             return jsonify({"error": "validation_error", "messages": [str(exc)]}), 400
         except Exception:  # pragma: no cover - defensive
-            from core.db import db
+            from shared.kernel.database.db import db
 
             db.session.rollback()
             current_app.logger.exception("Failed to update built-in signing via API")

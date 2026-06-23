@@ -24,7 +24,7 @@ from . import (
 from ..bootstrap.extensions import db
 from core.models.user import User
 from core.models.google_account import GoogleAccount
-from core.crypto import encrypt, decrypt
+from shared.kernel.crypto.crypto import encrypt, decrypt
 from .totp import new_totp_secret, verify_totp, provisioning_uri, qr_code_data_uri
 from core.models.picker_session import PickerSession
 from .utils import refresh_google_token, log_requests_and_send, RefreshTokenError
@@ -38,14 +38,14 @@ from shared.application.passkey_service import (
 from shared.domain.user import UserRegistrationService
 from shared.infrastructure.passkey_repository import SqlAlchemyPasskeyRepository
 from shared.infrastructure.user_repository import SqlAlchemyUserRepository
-from ..templating.timezone import resolve_timezone, convert_to_timezone
+from shared.kernel.time.timezone import resolve_timezone, convert_to_timezone
 from ..services.token_service import TokenService
 from ..services.gui_access_cookie import (
     API_LOGIN_SCOPE_SESSION_KEY,
     apply_gui_access_cookie,
     normalize_scope_items,
 )
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 from ..utils import determine_external_scheme
 from webauthn.helpers import base64url_to_bytes
 

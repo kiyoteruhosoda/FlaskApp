@@ -28,14 +28,14 @@ from ..bootstrap.extensions import db
 from sqlalchemy import or_
 
 from core.models.system_setting import SystemSetting
-from core.system_settings_defaults import (
+from shared.kernel.settings.system_settings_defaults import (
     DEFAULT_APPLICATION_SETTINGS,
     DEFAULT_CORS_SETTINGS,
 )
 from core.models.user import User, Role, Permission
 from core.models.group import Group, GroupHierarchyError
 from core.models.service_account import ServiceAccount
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 from core.storage_service import StorageService
 from bounded_contexts.storage import StorageDomain
 from presentation.web.services.service_account_service import (

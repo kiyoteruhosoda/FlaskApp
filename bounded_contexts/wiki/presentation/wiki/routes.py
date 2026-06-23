@@ -33,7 +33,7 @@ from bounded_contexts.wiki.application.use_cases import (
     WikiPageDeletionUseCase,
     WikiPageUpdateUseCase,
 )
-from core.models.authz import require_perms
+from shared.infrastructure.models.authz import require_perms
 from bounded_contexts.wiki.domain.exceptions import (
     WikiAccessDeniedError,
     WikiOperationError,

@@ -12,8 +12,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional, Any, Dict
 
-from core.db import db
-from core.models.photo_models import Media
+from shared.kernel.database.db import db
+from bounded_contexts.photonest.infrastructure.photo_models import Media
 from bounded_contexts.photonest.domain.local_import.value_objects import FileHash
 from bounded_contexts.photonest.domain.local_import.services import (
     MediaDuplicateChecker,
@@ -125,10 +125,10 @@ def check_duplicate_media_auto(analysis) -> Optional[Media]:
             return check_duplicate_media_new(analysis)
         except Exception:
             # 新実装で失敗した場合は旧実装にフォールバック
-            from core.tasks.local_import import check_duplicate_media as old_check
+            from bounded_contexts.photonest.tasks.local_import import check_duplicate_media as old_check
             return old_check(analysis)
     else:
-        from core.tasks.local_import import check_duplicate_media as old_check
+        from bounded_contexts.photonest.tasks.local_import import check_duplicate_media as old_check
         return old_check(analysis)
 
 
@@ -148,7 +148,7 @@ def compare_duplicate_checkers(analysis) -> Dict[str, Any]:
         比較結果の辞書
     """
     import time
-    from core.tasks.local_import import check_duplicate_media as old_check
+    from bounded_contexts.photonest.tasks.local_import import check_duplicate_media as old_check
     
     # 旧実装の実行
     start_old = time.perf_counter()

@@ -8,11 +8,11 @@ from celery.exceptions import Retry as CeleryRetry
 from dotenv import load_dotenv
 from flask import Flask
 
-from core.celery_settings import CelerySettings
-from core.db import db
+from shared.kernel.celery_settings import CelerySettings
+from shared.kernel.database.db import db
 from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 from core.models.job_sync import JobSync
-from core.logging_config import log_task_info
+from shared.kernel.logging.logging_config import log_task_info
 from presentation.web import _apply_persisted_settings
 from presentation.web.bootstrap.config import BaseApplicationSettings
 
@@ -58,7 +58,7 @@ celery.conf.update(celery_runtime_settings.as_mapping())
 
 def setup_celery_logging():
     """Setup logging for Celery workers to use worker_log and console output."""
-    from core.db_log_handler import DBLogHandler, WorkerDBLogHandler
+    from shared.kernel.logging.db_log_handler import DBLogHandler, WorkerDBLogHandler
     import sys
 
     # ログフォーマッター

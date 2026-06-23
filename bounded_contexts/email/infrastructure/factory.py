@@ -71,7 +71,7 @@ class EmailSenderFactory:
     def _get_provider_from_config(cls) -> str:
         """設定からメールプロバイダーを取得."""
         try:
-            from core.settings import settings
+            from shared.kernel.settings.settings import settings
 
             return str(settings.mail_provider).lower().strip()
         except Exception as e:
@@ -97,21 +97,21 @@ class EmailSenderFactory:
     def _resolve_mail_instance() -> Mail:
         """Flask-Mailmanインスタンスを取得."""
         try:
-            from presentation.web.bootstrap.extensions import mail as app_mail
+            from shared.infrastructure.mail import mail as app_mail
 
-            logger.info("Using mail instance from presentation.web.bootstrap.extensions")
+            logger.info("Using shared mail instance from shared.infrastructure.mail")
             return app_mail
         except Exception as e:
             raise ValueError(
                 "Flask-Mailman instance is required for SMTP provider. "
-                "Please provide 'mail' parameter or ensure webapp.extensions.mail is initialized."
+                "Please provide 'mail' parameter or ensure shared.infrastructure.mail is initialized."
             ) from e
 
     @staticmethod
     def _resolve_default_sender() -> str | None:
         """デフォルト送信者を設定から取得."""
         try:
-            from core.settings import settings
+            from shared.kernel.settings.settings import settings
 
             return settings.mail_default_sender or settings.mail_username
         except Exception:

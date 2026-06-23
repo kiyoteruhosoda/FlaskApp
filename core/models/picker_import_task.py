@@ -1,12 +1,19 @@
-"""Dummy model used only for app initialisation in tests."""
-from __future__ import annotations
+"""後方互換シム: 実体は :mod:`bounded_contexts.picker_import.infrastructure.picker_import_task` へ移動した。
 
-from sqlalchemy.orm import Mapped, mapped_column
+ORM モデルを所有 context／共有 infrastructure へ集約。既存の import を
+壊さないよう再公開する。新規コードは正本を直接 import すること。
+"""
 
-from core.db import db
+from bounded_contexts.picker_import.infrastructure.picker_import_task import *  # noqa: F401,F403
 
 
-class PickerImportTask(db.Model):
-    __tablename__ = "picker_import_task"
+def __getattr__(name):  # PEP 562: __all__ 外の名前も遅延委譲する
+    import importlib
 
-    id: Mapped[int] = mapped_column(db.Integer, primary_key=True)
+    module = importlib.import_module("bounded_contexts.picker_import.infrastructure.picker_import_task")
+    try:
+        return getattr(module, name)
+    except AttributeError as exc:  # pragma: no cover
+        raise AttributeError(
+            f"module {__name__!r} has no attribute {name!r}"
+        ) from exc

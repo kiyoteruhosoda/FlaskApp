@@ -8,7 +8,7 @@ from __future__ import annotations
 import time
 from typing import Optional
 
-from core.db import db
+from shared.kernel.database.db import db
 from bounded_contexts.photonest.domain.local_import.state_machine import ItemState, SessionState
 from bounded_contexts.photonest.infrastructure.local_import.logging_integration import (
     get_structured_logger,

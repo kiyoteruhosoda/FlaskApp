@@ -1,23 +1,10 @@
-"""Time-related helpers.
+"""後方互換シム: 実体は :mod:`shared.kernel.time.clock` へ移動した。
 
-This module centralizes helpers for obtaining timestamps in UTC.  Returning
-timestamps through a single function guarantees that the format stays
-consistent across the entire application.
+UTC 時刻ヘルパは Shared Kernel の time パッケージに集約する。既存の
+``from core.time import utc_now, utc_now_isoformat`` を壊さないよう再公開する。
+新規コードは ``shared.kernel.time.clock`` を直接 import すること。
 """
 
-from __future__ import annotations
+from shared.kernel.time.clock import utc_now, utc_now_isoformat
 
-from datetime import datetime, timezone
-
-
-def utc_now() -> datetime:
-    """Return the current UTC time as an aware ``datetime`` instance."""
-
-    return datetime.now(timezone.utc)
-
-
-def utc_now_isoformat() -> str:
-    """Return the current UTC time in ISO 8601 format ending with ``Z``."""
-
-    return utc_now().isoformat().replace("+00:00", "Z")
-
+__all__ = ["utc_now", "utc_now_isoformat"]

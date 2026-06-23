@@ -64,7 +64,7 @@ from core.models.photo_models import (
     media_tag,
 )
 from core.models.user import User, Role
-from core.crypto import decrypt
+from shared.kernel.crypto.crypto import decrypt
 from ..auth.utils import refresh_google_token, RefreshTokenError, log_requests_and_send
 from ..auth.routes import _sync_active_role
 from .pagination import PaginationParams, paginate_and_respond
@@ -87,7 +87,7 @@ from ..auth.service_account_auth import (
     ServiceAccountJWTError,
     ServiceAccountTokenValidator,
 )
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 from presentation.web.utils import determine_external_scheme
 import jwt
 from sqlalchemy.orm import joinedload
@@ -98,7 +98,7 @@ from core.tasks.local_import import (
     refresh_media_metadata_from_original,
 )
 from core.tasks.media_post_processing import enqueue_thumbs_generate
-from core.time import utc_now_isoformat
+from shared.kernel.time.clock import utc_now_isoformat
 from core.storage_service import StorageArea, StorageSelector, StorageService
 from bounded_contexts.storage import StorageDomain, StorageIntent, StorageResolution
 

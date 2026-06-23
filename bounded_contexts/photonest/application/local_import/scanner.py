@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable, List, Optional
 
-from core.storage_service import StorageService
+from bounded_contexts.storage.infrastructure.filesystem import StorageService
 from bounded_contexts.photonest.domain.local_import.logging import file_log_context
 
 

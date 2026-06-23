@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, Mapping, Optional, Tuple, Union
 
-from core.logging_config import log_task_error, log_task_info
+from shared.kernel.logging.logging_config import log_task_error, log_task_info
 from bounded_contexts.photonest.domain.local_import.logging import LogEntry
 
 

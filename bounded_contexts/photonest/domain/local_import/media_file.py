@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
 
-from core.utils import get_file_date_from_exif, get_file_date_from_name
+from shared.kernel.utils import get_file_date_from_exif, get_file_date_from_name
 
 from .entities import ImportFile
 from .media_metadata import (
@@ -27,7 +27,7 @@ from .policies import (
 )
 
 if TYPE_CHECKING:
-    from core.storage_service import StorageService
+    from bounded_contexts.storage.infrastructure.filesystem import StorageService
 
 
 @dataclass(frozen=True)

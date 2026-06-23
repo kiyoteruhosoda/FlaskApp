@@ -4,7 +4,7 @@ import os
 
 from flask import Flask
 
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 
 from .bootstrap.extensions import db, migrate, login_manager, babel, api as smorest_api
 from .middleware.error_handlers import register_error_handlers, register_debug_error_handlers

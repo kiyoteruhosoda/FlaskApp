@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, Optional
 
-from core.models.photo_models import (
+from bounded_contexts.photonest.infrastructure.photo_models import (
     Media,
     MediaItem,
     PhotoMetadata,

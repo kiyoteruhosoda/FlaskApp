@@ -21,7 +21,7 @@ from bounded_contexts.wiki.domain.markdown import (
 )
 from bounded_contexts.wiki.domain.slug import SlugService
 
-from presentation.web.templating.timezone import convert_to_timezone
+from shared.kernel.time.timezone import convert_to_timezone
 
 
 logger = logging.getLogger(__name__)

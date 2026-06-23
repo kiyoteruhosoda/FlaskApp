@@ -9,9 +9,9 @@ from flask import jsonify
 from flask_smorest import abort, Blueprint
 from marshmallow import Schema, fields
 
-from core.db import db
-from core.models.picker_session import PickerSession
-from core.models.photo_models import PickerSelection
+from shared.kernel.database.db import db
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
 from bounded_contexts.photonest.infrastructure.local_import.audit_log_repository import (
     AuditLogRepository,
     LogCategory,

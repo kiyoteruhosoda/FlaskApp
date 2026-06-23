@@ -5,7 +5,7 @@ OAuth URL生成のデバッグ用Blueprint
 
 from flask import Blueprint, request, jsonify, url_for
 
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 from .utils import determine_external_scheme
 
 debug_bp = Blueprint('debug', __name__)

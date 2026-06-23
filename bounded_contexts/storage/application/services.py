@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import IO, Iterator
 
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 
 from ..domain import (
     CDNBackend,

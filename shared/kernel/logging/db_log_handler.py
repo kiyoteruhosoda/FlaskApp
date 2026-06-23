@@ -243,7 +243,7 @@ class DBLogHandler(logging.Handler):
             raise RuntimeError("Failed to persist log record to database") from exc
 
     def _get_log_model(self):
-        from core.models.log import Log  # Local import to avoid circular dependencies
+        from shared.infrastructure.models.log import Log  # Local import to avoid circular dependencies
 
         return Log
 
@@ -273,7 +273,7 @@ class WorkerDBLogHandler(DBLogHandler):
     """Logging handler dedicated to persisting Celery worker logs."""
 
     def _get_log_model(self):
-        from core.models.worker_log import WorkerLog  # Local import to avoid circular dependencies
+        from shared.infrastructure.models.worker_log import WorkerLog  # Local import to avoid circular dependencies
 
         return WorkerLog
 

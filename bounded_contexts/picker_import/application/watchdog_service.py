@@ -7,9 +7,9 @@ import logging
 from typing import Callable, Dict
 
 from shared.kernel.database.db import db
-from core.models.celery_task import CeleryTaskStatus
-from core.models.job_sync import JobSync
-from core.models.picker_session import PickerSession
+from shared.infrastructure.models.celery_task import CeleryTaskStatus
+from shared.infrastructure.models.job_sync import JobSync
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
 from bounded_contexts.picker_import.infrastructure.repositories import (
     PickerSelectionRepository,
     PickerSessionRepository,

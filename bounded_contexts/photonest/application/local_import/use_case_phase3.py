@@ -11,9 +11,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from core.db import db
-from core.models.picker_session import PickerSession
-from core.models.photo_models import PickerSelection
+from shared.kernel.database.db import db
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
 
 from bounded_contexts.photonest.domain.local_import.import_result import ImportTaskResult
 from bounded_contexts.photonest.domain.local_import.state_machine import SessionState, ItemState

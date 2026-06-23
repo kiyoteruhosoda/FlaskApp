@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 # プロジェクトのルートディレクトリをPythonパスに追加
 sys.path.insert(0, '/home/kyon/myproject')
 
-from core.db import db
+from shared.kernel.database.db import db
 from core.models.log import Log
 from presentation.web import create_app
 

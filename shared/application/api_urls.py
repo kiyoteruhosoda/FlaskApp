@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from urllib.parse import urljoin
 
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 
 DEFAULT_API_BASE_URL = "http://localhost:5000"
 

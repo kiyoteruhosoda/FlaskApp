@@ -1,42 +1,15 @@
-"""Celery application configuration helpers."""
-from __future__ import annotations
+"""後方互換シム: 実体は :mod:`shared.kernel.celery_settings` へ移動した。
 
-from dataclasses import dataclass, field
-from typing import Mapping, Sequence
+既存の import を壊さないよう再公開する。新規コードは正本を直接 import すること。
+"""
 
-from core.settings import settings
+from shared.kernel.celery_settings import *  # noqa: F401,F403
 
 
-@dataclass(frozen=True)
-class CelerySettings:
-    """Immutable snapshot of Celery runtime configuration."""
-
-    broker_url: str
-    result_backend: str
-    task_serializer: str = "json"
-    result_serializer: str = "json"
-    accept_content: Sequence[str] = field(default_factory=lambda: ["json"])
-    timezone: str = "UTC"
-    enable_utc: bool = True
-
-    @classmethod
-    def from_application_settings(cls) -> "CelerySettings":
-        """Build settings using the shared application settings provider."""
-        return cls(
-            broker_url=settings.celery_broker_url,
-            result_backend=settings.celery_result_backend,
-            timezone=settings.babel_default_timezone or "UTC",
-            enable_utc=True,
-        )
-
-    def as_mapping(self) -> Mapping[str, object]:
-        """Expose the configuration using Celery's expected mapping format."""
-        return {
-            "broker_url": self.broker_url,
-            "result_backend": self.result_backend,
-            "task_serializer": self.task_serializer,
-            "result_serializer": self.result_serializer,
-            "accept_content": list(self.accept_content),
-            "timezone": self.timezone,
-            "enable_utc": self.enable_utc,
-        }
+def __getattr__(name):  # PEP 562
+    import importlib
+    module = importlib.import_module("shared.kernel.celery_settings")
+    try:
+        return getattr(module, name)
+    except AttributeError as exc:  # pragma: no cover
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc

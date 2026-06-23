@@ -131,7 +131,7 @@ class _StorageAccessor:
         config_resolver: Callable[[str], Optional[str]] | None,
         env_resolver: Callable[[str], Optional[str]] | None,
     ) -> "StorageService":
-        from core.storage_service import LocalFilesystemStorageService
+        from bounded_contexts.storage.infrastructure.filesystem import LocalFilesystemStorageService
 
         return cast(
             "StorageService",
@@ -146,7 +146,7 @@ class _StorageAccessor:
         config_resolver: Callable[[str], Optional[str]] | None,
         env_resolver: Callable[[str], Optional[str]] | None,
     ) -> "StorageService":
-        from core.storage_service import AzureBlobStorageService
+        from bounded_contexts.storage.infrastructure.filesystem import AzureBlobStorageService
 
         return cast(
             "StorageService",
@@ -161,7 +161,7 @@ class _StorageAccessor:
         config_resolver: Callable[[str], Optional[str]] | None,
         env_resolver: Callable[[str], Optional[str]] | None,
     ) -> "StorageService":
-        from core.storage_service import ExternalRestStorageService
+        from bounded_contexts.storage.infrastructure.filesystem import ExternalRestStorageService
 
         return cast(
             "StorageService",
@@ -215,7 +215,7 @@ class _StorageAccessor:
 
 if TYPE_CHECKING:  # pragma: no cover
     from flask import Flask
-    from core.storage_service import StorageService
+    from bounded_contexts.storage.infrastructure.filesystem import StorageService
 
 
 class ApplicationSettings:

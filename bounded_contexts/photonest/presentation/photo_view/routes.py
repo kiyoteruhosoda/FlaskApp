@@ -11,16 +11,16 @@ import os
 from flask import abort, redirect, request, url_for
 from flask_login import current_user
 
-from core.models.authz import require_perms
-from core.models.google_account import GoogleAccount
-from core.settings import settings as app_settings
+from shared.infrastructure.models.authz import require_perms
+from shared.infrastructure.models.google_account import GoogleAccount
+from shared.kernel.settings.settings import settings as app_settings
 
 from . import bp
-from presentation.web.api.picker_session import (
+from bounded_contexts.picker_import.application.picker_session_service import (
+    PickerSessionService,
     SESSION_LOG_DEFAULT_LIMIT,
     SESSION_LOG_MAX_LIMIT,
 )
-from presentation.web.api.picker_session_service import PickerSessionService
 
 
 def _build_local_import_info():

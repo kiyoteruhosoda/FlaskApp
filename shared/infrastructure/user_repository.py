@@ -2,7 +2,7 @@ from typing import List
 
 from sqlalchemy import select
 
-from core.models.user import User as UserModel, Role
+from shared.infrastructure.models.user import User as UserModel, Role
 from shared.domain.user.entities import User
 from shared.domain.user.repository import UserRepository
 

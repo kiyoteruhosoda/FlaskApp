@@ -16,7 +16,7 @@ from babel.messages.pofile import read_po
 from flask_babel import get_locale
 from flask_babel import gettext as _
 
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 
 
 def resolve_translation_directories() -> List[str]:

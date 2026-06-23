@@ -1,60 +1,23 @@
-"""TOTP 管理用のモデル定義"""
-from __future__ import annotations
+"""後方互換シム: 実体は
+:mod:`bounded_contexts.totp.infrastructure.totp_models` へ移動した。
 
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+TOTP 認証情報モデルは TOTP bounded context の infrastructure 層に属する。既存の
+``from core.models.totp import TOTPCredential`` を壊さないよう再公開する。
+新規コードは context 側を直接 import すること。
+"""
 
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from core.db import db
-
-if TYPE_CHECKING:  # pragma: no cover
-    from core.models.user import User
-
-# SQLite 互換の BigInt 定義
-BigInt = db.BigInteger().with_variant(db.Integer, "sqlite")
+from bounded_contexts.totp.infrastructure.totp_models import *  # noqa: F401,F403
 
 
-class TOTPCredential(db.Model):
-    """TOTP シークレットを管理するためのモデル"""
+def __getattr__(name):  # PEP 562: __all__ 外の名前も遅延委譲する
+    import importlib
 
-    __tablename__ = "totp_credential"
-    __table_args__ = (
-        db.UniqueConstraint("user_id", "account", "issuer", name="uq_totp_user_account_issuer"),
+    module = importlib.import_module(
+        "bounded_contexts.totp.infrastructure.totp_models"
     )
-
-    id: Mapped[int] = mapped_column(BigInt, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(
-        BigInt,
-        db.ForeignKey("user.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    account: Mapped[str] = mapped_column(db.String(255), nullable=False)
-    issuer: Mapped[str] = mapped_column(db.String(255), nullable=False)
-    secret: Mapped[str] = mapped_column(db.String(160), nullable=False)
-    description: Mapped[str | None] = mapped_column(db.Text, nullable=True)
-    algorithm: Mapped[str] = mapped_column(db.String(16), nullable=False, default="SHA1")
-    digits: Mapped[int] = mapped_column(db.SmallInteger, nullable=False, default=6)
-    period: Mapped[int] = mapped_column(db.SmallInteger, nullable=False, default=30)
-    created_at: Mapped[datetime] = mapped_column(
-        db.DateTime(timezone=True),
-        nullable=False,
-        default=lambda: datetime.now(timezone.utc),
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        db.DateTime(timezone=True),
-        nullable=False,
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
-    )
-
-    user: Mapped["User"] = relationship(
-        "User",
-        back_populates="totp_credentials",
-    )
-
-    def touch(self) -> None:
-        """updated_at を現在時刻で更新"""
-
-        self.updated_at = datetime.now(timezone.utc)
+    try:
+        return getattr(module, name)
+    except AttributeError as exc:  # pragma: no cover
+        raise AttributeError(
+            f"module {__name__!r} has no attribute {name!r}"
+        ) from exc

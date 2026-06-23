@@ -6,8 +6,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, Iterable, Optional, Sequence
 
 from bounded_contexts.photonest.application.media_processing.interfaces import ThumbnailRetryEntry, ThumbnailRetryRepository
-from core.db import db
-from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
+from shared.kernel.database.db import db
+from shared.infrastructure.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 
 _THUMBNAIL_RETRY_TASK_NAME = "thumbnail.retry"
 

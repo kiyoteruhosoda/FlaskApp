@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from core.db import db
+from shared.kernel.database.db import db
 from bounded_contexts.certs.domain.exceptions import CertificatePrivateKeyNotFoundError
 from bounded_contexts.certs.domain.models import CertificatePrivateKey
 

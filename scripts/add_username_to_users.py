@@ -10,7 +10,7 @@ import os
 sys.path.insert(0, os.path.abspath('.'))
 
 from presentation.web import create_app
-from core.db import db
+from shared.kernel.database.db import db
 from core.models.user import User
 
 

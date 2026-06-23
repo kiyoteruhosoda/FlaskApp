@@ -148,7 +148,7 @@ class EmailService:
     def _is_mail_enabled() -> bool:
         """メール機能が有効かチェック."""
         try:
-            from core.settings import settings
+            from shared.kernel.settings.settings import settings
 
             return settings.mail_enabled
         except Exception:

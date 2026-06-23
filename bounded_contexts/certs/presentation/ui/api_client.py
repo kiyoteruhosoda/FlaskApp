@@ -14,7 +14,7 @@ from cryptography.x509.oid import NameOID
 from flask import Flask, current_app, has_request_context, request, url_for
 
 from bounded_contexts.certs.domain.usage import UsageType
-from presentation.web.auth.utils import log_requests_and_send
+from shared.infrastructure.http_logging import log_requests_and_send
 from shared.application.api_urls import get_api_base_url
 
 

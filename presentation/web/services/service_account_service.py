@@ -8,7 +8,7 @@ from flask import current_app
 from flask_babel import gettext as _
 from sqlalchemy.exc import IntegrityError
 
-from core.db import db
+from shared.kernel.database.db import db
 from core.models.service_account import ServiceAccount
 from bounded_contexts.certs.application.use_cases import GetCertificateGroupUseCase
 from bounded_contexts.certs.domain.exceptions import CertificateGroupNotFoundError

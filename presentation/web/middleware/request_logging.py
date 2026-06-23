@@ -19,7 +19,7 @@ from uuid import uuid4
 
 from flask import Flask, g, request
 
-from core.time import utc_now_isoformat
+from shared.kernel.time.clock import utc_now_isoformat
 
 from .request_log_payload import (
     format_file_parameters_for_logging,

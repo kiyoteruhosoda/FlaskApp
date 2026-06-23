@@ -1,19 +1,19 @@
-# authz.py
-from functools import wraps
-from flask import abort
-from flask_login import current_user, login_required
+"""後方互換シム: 実体は :mod:`shared.infrastructure.models.authz` へ移動した。
 
-from core.settings import settings
+ORM モデルを所有 context／共有 infrastructure へ集約。既存の import を
+壊さないよう再公開する。新規コードは正本を直接 import すること。
+"""
 
-def require_perms(*perm_codes):
-    def deco(fn):
-        @wraps(fn)
-        @login_required
-        def wrapper(*a, **kw):
-            if settings.login_disabled:
-                return fn(*a, **kw)
-            if not current_user.can(*perm_codes):
-                abort(403)
-            return fn(*a, **kw)
-        return wrapper
-    return deco
+from shared.infrastructure.models.authz import *  # noqa: F401,F403
+
+
+def __getattr__(name):  # PEP 562: __all__ 外の名前も遅延委譲する
+    import importlib
+
+    module = importlib.import_module("shared.infrastructure.models.authz")
+    try:
+        return getattr(module, name)
+    except AttributeError as exc:  # pragma: no cover
+        raise AttributeError(
+            f"module {__name__!r} has no attribute {name!r}"
+        ) from exc

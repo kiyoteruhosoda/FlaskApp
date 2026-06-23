@@ -34,7 +34,6 @@ azure-core>=1.38.0
 Flask-Migrate
 alembic
 pytest
-js2py
 debugpy
 
 # 将来対応予定のストレージバックエンド

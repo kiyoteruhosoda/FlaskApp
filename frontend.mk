@@ -12,7 +12,7 @@ frontend-build: frontend-install
 
 # フロントエンド開発サーバーを起動
 frontend-dev:
-	cd frontend && npm start
+	cd frontend && npm run dev
 
 # フロントエンドをクリーン
 frontend-clean:

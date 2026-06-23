@@ -11,7 +11,7 @@ dist/
 *.egg-info/
 
 # バージョンファイル（ビルド時に動的生成）
-core/version.json
+shared/kernel/version.json
 
 
 

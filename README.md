@@ -79,7 +79,6 @@ nolumia/
 ├── presentation/       # プレゼンテーション層（Flask Web アプリ）
 │   └── web/            #   create_app・Blueprint・API・認証・テンプレート等（Web の単一実体）
 │
-├── core/               # 共通基盤（暗号化・Celery タスク・モデル・設定・ストレージ・version）
 ├── cli/                # Celery タスク定義・CLI（cli.src.celery 配下）
 ├── migrations/         # データベースマイグレーション（Alembic）
 │
@@ -191,10 +190,10 @@ GOOGLE_CLIENT_SECRET=<your-google-client-secret>
 pytest
 
 # カバレッジ付き
-pytest --cov=presentation --cov=bounded_contexts --cov=shared --cov=core
+pytest --cov=presentation --cov=bounded_contexts --cov=shared --cov=cli
 
 # 特定テスト
-pytest tests/unit/core/test_celery_*.py -v
+pytest tests/unit/core/ -v
 ```
 
 ## 📦 デプロイ方法

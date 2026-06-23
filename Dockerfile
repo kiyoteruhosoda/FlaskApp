@@ -1,43 +1,31 @@
-# For more information, please refer to https://aka.ms/vscode-docker-python
-FROM python:3-slim
+FROM python:3.11-slim
 
-EXPOSE 5002
+EXPOSE 5000
 
-# Keeps Python from generating .pyc files in the container
 ENV PYTHONDONTWRITEBYTECODE=1
-
-# Turns off buffering for easier container logging
 ENV PYTHONUNBUFFERED=1
 
-# Install Node.js (for frontend building)
 RUN apt-get update && apt-get install -y \
     curl \
     git \
-    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install pip requirements
 COPY requirements.txt .
 RUN python -m pip install -r requirements.txt
 
 WORKDIR /app
 
-# Copy frontend files first for better caching
 COPY frontend/package*.json ./frontend/
-RUN cd frontend && npm ci --only=production
+RUN cd frontend && npm ci
 
-# Copy all application files
 COPY . /app
 
-# Build frontend
 RUN cd frontend && npm run build
 
-# Creates a non-root user with an explicit UID and adds permission to access the /app folder
-# For more info, please refer to https://aka.ms/vscode-docker-python-configure-containers
 RUN adduser -u 5678 --disabled-password --gecos "" appuser && chown -R appuser /app
 USER appuser
 
-# During debugging, this entry point will be overridden. For more information, please refer to https://aka.ms/vscode-docker-python-debug
-CMD ["gunicorn", "--bind", "0.0.0.0:5002", "wsgi:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "wsgi:app"]

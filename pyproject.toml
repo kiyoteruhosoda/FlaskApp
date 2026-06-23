@@ -12,7 +12,7 @@ where = ["."]
 [project]
 name = "nolumia"                    # パッケージ名
 version = "0.1.0"                      # バージョン
-description = "Flask + CLI + Library project"
+description = "Flask-based family photo management platform with Celery background jobs"
 authors = [
     { name = "kiyoteru hosoda", email = "kiyoteru.hosoda@gmail.com" }
 ]

@@ -60,7 +60,7 @@ def app(tmp_path):
             # アプリは testing モードで DB ログを無効化するため、ログの DB 記録を
             # 検証する本テストでは DBLogHandler を明示的に取り付ける。
             import logging as _logging
-            from core.db_log_handler import DBLogHandler
+            from shared.kernel.logging.db_log_handler import DBLogHandler
 
             for _h in list(app.logger.handlers):
                 if isinstance(_h, DBLogHandler):
@@ -103,7 +103,7 @@ def client(app):
 
 
 def test_log_written(client):
-    from core.models.log import Log
+    from shared.infrastructure.models.log import Log
 
     resp = client.get("/boom")
     assert resp.status_code == 500
@@ -117,7 +117,7 @@ def test_log_written(client):
 
 
 def test_502_logged(client):
-    from core.models.log import Log
+    from shared.infrastructure.models.log import Log
 
     resp = client.get("/bad")
     assert resp.status_code == 502
@@ -131,7 +131,7 @@ def test_502_logged(client):
 
 
 def test_api_request_response_logged(client):
-    from core.models.log import Log
+    from shared.infrastructure.models.log import Log
 
     payload = {
         "hello": "world",
@@ -179,7 +179,7 @@ def test_api_request_response_logged(client):
 
 
 def test_api_form_logging_masks_sensitive_data(client):
-    from core.models.log import Log
+    from shared.infrastructure.models.log import Log
 
     resp = client.post(
         "/api/form",
@@ -208,7 +208,7 @@ def test_api_form_logging_masks_sensitive_data(client):
 
 
 def test_unauthorized_logging_records_context(app):
-    from core.models.log import Log
+    from shared.infrastructure.models.log import Log
 
     headers = {
         "User-Agent": "pytest-agent",
@@ -260,11 +260,11 @@ def test_unauthorized_logging_records_context(app):
 def test_status_change_logged(client):
     """Statusフィールドの変更がログに記録されることを確認する。"""
     import json
-    from core.db import db
-    from core.utils import log_status_change
-    from core.models.log import Log
-    from core.models.google_account import GoogleAccount
-    from core.models.picker_session import PickerSession
+    from shared.kernel.database.db import db
+    from shared.kernel.utils import log_status_change
+    from shared.infrastructure.models.log import Log
+    from shared.infrastructure.models.google_account import GoogleAccount
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
 
     with client.application.app_context():
         gacc = GoogleAccount(email="a@example.com", scopes="scope")

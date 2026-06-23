@@ -22,11 +22,11 @@ from . import (
     bp,
 )
 from ..bootstrap.extensions import db
-from core.models.user import User
-from core.models.google_account import GoogleAccount
+from shared.infrastructure.models.user import User
+from shared.infrastructure.models.google_account import GoogleAccount
 from shared.kernel.crypto.crypto import encrypt, decrypt
 from .totp import new_totp_secret, verify_totp, provisioning_uri, qr_code_data_uri
-from core.models.picker_session import PickerSession
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
 from .utils import refresh_google_token, log_requests_and_send, RefreshTokenError
 from shared.application.auth_service import AuthService
 from shared.application.authenticated_principal import AuthenticatedPrincipal

@@ -8,8 +8,8 @@ from typing import Iterable, Sequence
 
 from flask import current_app, g, request
 
-from core.models.service_account import ServiceAccount
-from core.models.service_account_api_key import ServiceAccountApiKey
+from shared.infrastructure.models.service_account import ServiceAccount
+from shared.infrastructure.models.service_account_api_key import ServiceAccountApiKey
 from shared.domain.auth.principal import AuthenticatedPrincipal
 from presentation.web.services.service_account_api_key_service import (
     ServiceAccountApiKeyService,

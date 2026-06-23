@@ -3,8 +3,8 @@ import json
 import base64
 import pytest
 
-from core.crypto import encrypt
-from core.system_settings_defaults import (
+from shared.kernel.crypto.crypto import encrypt
+from shared.kernel.settings.system_settings_defaults import (
     DEFAULT_APPLICATION_SETTINGS,
     DEFAULT_CORS_SETTINGS,
 )
@@ -33,8 +33,8 @@ def app(tmp_path):
     app = create_app()
     app.config.update(TESTING=True)
     from presentation.web.bootstrap.extensions import db
-    from core.models.google_account import GoogleAccount
-    from core.models.picker_session import PickerSession
+    from shared.infrastructure.models.google_account import GoogleAccount
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
     from presentation.web.services.system_setting_service import SystemSettingService
     from presentation.web import _apply_persisted_settings
 
@@ -76,14 +76,14 @@ def app(tmp_path):
 
 def test_exchange_refresh_token_invalid_grant(monkeypatch, app):
     import importlib
-    mod = importlib.import_module("core.tasks.picker_import")
+    mod = importlib.import_module("bounded_contexts.picker_import.tasks.picker_import")
     class Resp:
         status_code = 401
         def json(self):
             return {"error": "invalid_grant"}
     monkeypatch.setattr("requests.post", lambda *a, **k: Resp())
-    from core.models.picker_session import PickerSession
-    from core.models.google_account import GoogleAccount
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+    from shared.infrastructure.models.google_account import GoogleAccount
     with app.app_context():
         ps = PickerSession.query.first()
         gacc = GoogleAccount.query.first()
@@ -95,14 +95,14 @@ def test_exchange_refresh_token_invalid_grant(monkeypatch, app):
 
 def test_exchange_refresh_token_other_error(monkeypatch, app):
     import importlib
-    mod = importlib.import_module("core.tasks.picker_import")
+    mod = importlib.import_module("bounded_contexts.picker_import.tasks.picker_import")
     class Resp:
         status_code = 500
         def json(self):
             return {"error": "server_error"}
     monkeypatch.setattr("requests.post", lambda *a, **k: Resp())
-    from core.models.picker_session import PickerSession
-    from core.models.google_account import GoogleAccount
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+    from shared.infrastructure.models.google_account import GoogleAccount
     with app.app_context():
         ps = PickerSession.query.first()
         gacc = GoogleAccount.query.first()

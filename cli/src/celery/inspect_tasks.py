@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from sqlalchemy import func
 
 from shared.kernel.database.db import db
-from core.models import CeleryTaskRecord, CeleryTaskStatus
+from shared.infrastructure.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 
 # Statuses that represent work that has not been finalized yet.
 PENDING_STATUSES: Tuple[CeleryTaskStatus, ...] = (

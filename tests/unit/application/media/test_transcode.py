@@ -8,13 +8,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from core.db import db
-from core.tasks import (
+from shared.kernel.database.db import db
+from bounded_contexts.photonest.tasks.transcode import (
     backfill_playback_posters,
     transcode_queue_scan,
     transcode_worker,
 )
-from core.tasks import transcode as transcode_module
+import bounded_contexts.photonest.tasks.transcode as transcode_module
 
 
 ffmpeg_missing = shutil.which("ffmpeg") is None
@@ -54,7 +54,7 @@ def app(tmp_path):
 
     app = create_app()
     app.config.update(TESTING=True)
-    from core.models.google_account import GoogleAccount
+    from shared.infrastructure.models.google_account import GoogleAccount
 
     with app.app_context():
         db.create_all()
@@ -85,7 +85,7 @@ def _make_media(
     has_playback: bool = False,
     **extra,
 ):
-    from core.models.photo_models import Media
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
 
     with app.app_context():
         m = Media(
@@ -111,7 +111,7 @@ def _make_media(
 
 
 def _make_playback(app, media_id: int, rel_path: str, status: str = "pending") -> int:
-    from core.models.photo_models import MediaPlayback
+    from bounded_contexts.photonest.infrastructure.photo_models import MediaPlayback
 
     with app.app_context():
         pb = MediaPlayback(
@@ -187,7 +187,7 @@ def test_queue_scan_basic(app):
     with app.app_context():
         res = transcode_queue_scan()
         assert res == {"queued": 3, "skipped": 0, "notes": None}
-        from core.models.photo_models import MediaPlayback
+        from bounded_contexts.photonest.infrastructure.photo_models import MediaPlayback
 
         assert MediaPlayback.query.count() == 3
         pb = MediaPlayback.query.first()
@@ -204,7 +204,7 @@ def test_queue_scan_skip_existing(app):
         p.write_bytes(b"0")
         ids.append(_make_media(app, rel_path=f"2025/08/18/{name}", width=640, height=480))
 
-    from core.models.photo_models import MediaPlayback
+    from bounded_contexts.photonest.infrastructure.photo_models import MediaPlayback
     with app.app_context():
         pb1 = MediaPlayback(media_id=ids[0], preset="std1080p", rel_path="2025/08/18/a.mp4", status="done")
         pb2 = MediaPlayback(media_id=ids[1], preset="std1080p", rel_path="2025/08/18/b.mp4", status="pending")
@@ -233,7 +233,7 @@ def test_worker_transcode_basic(app):
     with app.app_context():
         res = transcode_worker(media_playback_id=pb_id)
         assert res["ok"] is True
-        from core.models.photo_models import MediaPlayback, Media
+        from bounded_contexts.photonest.infrastructure.photo_models import MediaPlayback, Media
 
         pb = db.session.get(MediaPlayback, pb_id)
         assert pb.status == "done"
@@ -264,7 +264,7 @@ def test_worker_transcode_passthrough_mp4(app):
         res = transcode_worker(media_playback_id=pb_id)
         assert res["ok"] is True
         assert res["note"] == "passthrough"
-        from core.models.photo_models import MediaPlayback, Media
+        from bounded_contexts.photonest.infrastructure.photo_models import MediaPlayback, Media
 
         pb = db.session.get(MediaPlayback, pb_id)
         assert pb is not None
@@ -298,7 +298,7 @@ def test_worker_transcode_detects_missing_output(app, monkeypatch):
         assert res["ok"] is False
         assert res["note"] == "missing_output"
 
-        from core.models.photo_models import MediaPlayback, Media
+        from bounded_contexts.photonest.infrastructure.photo_models import MediaPlayback, Media
 
         pb = db.session.get(MediaPlayback, pb_id)
         assert pb.status == "error"
@@ -316,7 +316,7 @@ def test_worker_transcode_normalizes_rel_path(app):
     media_id = _make_media(app, rel_path="2025/08/18/win.mov", width=640, height=360)
 
     with app.app_context():
-        from core.models.photo_models import MediaPlayback
+        from bounded_contexts.photonest.infrastructure.photo_models import MediaPlayback
 
         pb = MediaPlayback(
             media_id=media_id,
@@ -387,7 +387,7 @@ def test_worker_transcode_populates_playback_metadata(app):
         res = transcode_worker(media_playback_id=pb_id)
         assert res["ok"] is True
 
-        from core.models.photo_models import MediaPlayback
+        from bounded_contexts.photonest.infrastructure.photo_models import MediaPlayback
 
         pb = db.session.get(MediaPlayback, pb_id)
         assert pb is not None
@@ -411,7 +411,7 @@ def test_backfill_playback_posters_existing_playback(app):
     with app.app_context():
         transcode_worker(media_playback_id=pb_id)
 
-        from core.models.photo_models import MediaPlayback, Media
+        from bounded_contexts.photonest.infrastructure.photo_models import MediaPlayback, Media
 
         pb = db.session.get(MediaPlayback, pb_id)
         m = db.session.get(Media, media_id)
@@ -456,7 +456,7 @@ def test_worker_transcode_downscale(app):
     with app.app_context():
         res = transcode_worker(media_playback_id=pb_id)
         assert res["ok"] is True
-        from core.models.photo_models import MediaPlayback
+        from bounded_contexts.photonest.infrastructure.photo_models import MediaPlayback
 
         pb = db.session.get(MediaPlayback, pb_id)
         assert pb.width == 1920 and pb.height == 1080
@@ -473,7 +473,7 @@ def test_worker_missing_audio(app):
     with app.app_context():
         res = transcode_worker(media_playback_id=pb_id)
         assert res["ok"] is False
-        from core.models.photo_models import MediaPlayback
+        from bounded_contexts.photonest.infrastructure.photo_models import MediaPlayback
 
         pb = db.session.get(MediaPlayback, pb_id)
         assert pb.status == "error"
@@ -543,7 +543,7 @@ def test_worker_missing_input(app):
     with app.app_context():
         res = transcode_worker(media_playback_id=pb_id)
         assert res["ok"] is False
-        from core.models.photo_models import MediaPlayback
+        from bounded_contexts.photonest.infrastructure.photo_models import MediaPlayback
 
         pb = db.session.get(MediaPlayback, pb_id)
         assert pb.status == "error"

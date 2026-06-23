@@ -7,10 +7,10 @@ from unittest.mock import patch
 
 import pytest
 
-from core.db import db
-from core.models.user import User, Role
-from core.models.passkey import PasskeyCredential
-from core.models.password_reset_token import PasswordResetToken
+from shared.kernel.database.db import db
+from shared.infrastructure.models.user import User, Role
+from shared.infrastructure.models.passkey import PasskeyCredential
+from shared.infrastructure.models.password_reset_token import PasswordResetToken
 
 
 # ---------------------------------------------------------------------------

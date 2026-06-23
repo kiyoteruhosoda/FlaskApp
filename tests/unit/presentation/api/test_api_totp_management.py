@@ -3,7 +3,7 @@ import os
 import uuid
 
 import pytest
-from core.db import db
+from shared.kernel.database.db import db
 
 
 @pytest.fixture()
@@ -57,7 +57,7 @@ def client(app):
 
 
 def _create_user(app, *, permissions):
-    from core.models.user import User, Role, Permission
+    from shared.infrastructure.models.user import User, Role, Permission
 
     with app.app_context():
         perm_models = {}
@@ -82,7 +82,7 @@ def _login(client, user_id):
     from flask import session as flask_session
     from flask_login import login_user
     from presentation.web.services.token_service import TokenService
-    from core.models.user import User
+    from shared.infrastructure.models.user import User
 
     with client.application.test_request_context():
         user = db.session.get(User, user_id)
@@ -97,7 +97,7 @@ def _login(client, user_id):
 
 
 def test_totp_api_permission_flow(client, app):
-    from core.models.totp import TOTPCredential
+    from bounded_contexts.totp.infrastructure.totp_models import TOTPCredential
 
     viewer_id = _create_user(app, permissions=["totp:view"])
     editor_id = _create_user(app, permissions=["totp:view", "totp:write"])

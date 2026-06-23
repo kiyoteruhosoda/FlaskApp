@@ -6,8 +6,8 @@ pytestmark = [pytest.mark.integration, pytest.mark.filesystem]
 
 from bounded_contexts.photonest.application.local_import.results import build_thumbnail_task_snapshot
 from presentation.web.bootstrap.extensions import db
-from core.models.picker_session import PickerSession
-from core.models.photo_models import Media, MediaItem, PickerSelection, MediaPlayback
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+from bounded_contexts.photonest.infrastructure.photo_models import Media, MediaItem, PickerSelection, MediaPlayback
 
 
 def _create_basic_session(session_id: str = "local_import_session") -> PickerSession:

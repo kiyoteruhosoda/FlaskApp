@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from core.db import db
+from shared.kernel.database.db import db
 from bounded_contexts.certs.application.use_cases import (
     IssueCertificateForGroupUseCase,
     ListJwksUseCase,

@@ -52,6 +52,26 @@ def create_app():
     # リバースプロキシ（nginx等）使用時のHTTPS検出
     apply_debug_proxy_fix(app)
 
+    # モデル import（migrate 用に認識させる、かつマッパー設定前にすべてのモデルを
+    # 登録しておくことで SQLAlchemy の relationship 文字列解決を保証する）
+    import shared.infrastructure.models.user as _user  # noqa: F401
+    import shared.infrastructure.models.passkey as _passkey  # noqa: F401
+    import shared.infrastructure.models.google_account as _google_account  # noqa: F401
+    import shared.infrastructure.models.service_account as _service_account  # noqa: F401
+    import shared.infrastructure.models.service_account_api_key as _service_account_api_key  # noqa: F401
+    import shared.infrastructure.models.password_reset_token as _password_reset_token  # noqa: F401
+    import bounded_contexts.photonest.infrastructure.photo_models as _photo_models  # noqa: F401
+    import shared.infrastructure.models.job_sync as _job_sync  # noqa: F401
+    import bounded_contexts.picker_import.infrastructure.picker_session as _picker_session  # noqa: F401
+    import bounded_contexts.picker_import.infrastructure.picker_import_task as _picker_import_task  # noqa: F401
+    import shared.infrastructure.models.log as _log  # noqa: F401
+    import shared.infrastructure.models.worker_log as _worker_log  # noqa: F401
+    import shared.infrastructure.models.celery_task as _celery_task  # noqa: F401
+    import shared.infrastructure.models.system_setting as _system_setting  # noqa: F401
+    import bounded_contexts.wiki.infrastructure.wiki_models as _wiki_models  # noqa: F401
+    import bounded_contexts.totp.infrastructure.totp_models as _totp_models  # noqa: F401
+    from bounded_contexts.certs.infrastructure import models as _cert_models  # noqa: F401
+
     # 拡張初期化
     db.init_app(app)
     migrate.init_app(app, db)
@@ -106,19 +126,6 @@ def create_app():
     disable_db_logging = testing_mode or settings.testing
     configure_logging(app, database_uri=database_uri, disable_db_logging=disable_db_logging)
 
-
-
-    # モデル import（migrate 用に認識させる）
-    from core.models import user as _user  # noqa: F401
-    from core.models import google_account as _google_account  # noqa: F401
-    from core.models import photo_models as _photo_models    # noqa: F401
-    from core.models import job_sync as _job_sync    # noqa: F401
-    from core.models import picker_session as _picker_session  # noqa: F401
-    from core.models import picker_import_task as _picker_import_task  # noqa: F401
-    from core.models import log as _log  # noqa: F401
-    from core.models.wiki import models as _wiki_models  # noqa: F401
-    from core.models import totp as _totp_models  # noqa: F401
-    from bounded_contexts.certs.infrastructure import models as _cert_models  # noqa: F401
 
 
     # Blueprint 登録

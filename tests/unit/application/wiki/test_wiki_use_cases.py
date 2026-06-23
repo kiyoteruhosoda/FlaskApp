@@ -14,7 +14,7 @@ from bounded_contexts.wiki.application.use_cases import (
     WikiPageSearchUseCase,
     WikiPageUpdateUseCase,
 )
-from core.models.user import User
+from shared.infrastructure.models.user import User
 from bounded_contexts.wiki.domain.exceptions import WikiAccessDeniedError, WikiValidationError
 
 

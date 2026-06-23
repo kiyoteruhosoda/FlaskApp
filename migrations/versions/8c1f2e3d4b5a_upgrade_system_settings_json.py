@@ -5,7 +5,7 @@ import json
 from alembic import op
 import sqlalchemy as sa
 
-from core.system_settings_defaults import (
+from shared.kernel.settings.system_settings_defaults import (
     DEFAULT_APPLICATION_SETTINGS,
     DEFAULT_CORS_SETTINGS,
 )

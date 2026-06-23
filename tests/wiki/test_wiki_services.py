@@ -5,8 +5,8 @@ Wiki機能のテスト
 import pytest
 from datetime import datetime, timezone
 from bounded_contexts.wiki.application.services import WikiPageService, WikiCategoryService
-from core.models.wiki.models import WikiPage, WikiCategory
-from core.models.user import User
+from bounded_contexts.wiki.infrastructure.wiki_models import WikiPage, WikiCategory
+from shared.infrastructure.models.user import User
 from bounded_contexts.wiki.domain.slug import SlugService
 
 

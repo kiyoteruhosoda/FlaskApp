@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 sys.path.insert(0, '/home/kyon/myproject')
 
 from shared.kernel.database.db import db
-from core.models.log import Log
+from shared.infrastructure.models.log import Log
 from presentation.web import create_app
 
 

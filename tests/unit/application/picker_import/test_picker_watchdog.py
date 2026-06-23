@@ -4,8 +4,8 @@ from datetime import datetime, timezone, timedelta
 
 import pytest
 
-from core.tasks.picker_import import picker_import_watchdog, backoff
-from core.db import db
+from bounded_contexts.picker_import.tasks.picker_import import picker_import_watchdog, backoff
+from shared.kernel.database.db import db
 
 
 @pytest.fixture
@@ -35,7 +35,7 @@ def app(tmp_path):
     from presentation.web import create_app
     app = create_app()
     app.config.update(TESTING=True)
-    from core.models.google_account import GoogleAccount
+    from shared.infrastructure.models.google_account import GoogleAccount
     with app.app_context():
         db.create_all()
         acc = GoogleAccount(email="acc@example.com", scopes="", oauth_token_json="{}")
@@ -54,8 +54,8 @@ def app(tmp_path):
 
 
 def _setup_item(app):
-    from core.models.photo_models import MediaItem, PickerSelection
-    from core.models.picker_session import PickerSession
+    from bounded_contexts.photonest.infrastructure.photo_models import MediaItem, PickerSelection
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
 
     with app.app_context():
         ps = PickerSession(account_id=1, status="pending")
@@ -72,7 +72,7 @@ def _setup_item(app):
 def test_watchdog_handles_stale_running(app):
     ps_id, sel1 = _setup_item(app)
 
-    from core.models.photo_models import PickerSelection, MediaItem
+    from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection, MediaItem
 
     with app.app_context():
         # create second selection with different media item
@@ -114,7 +114,7 @@ def test_watchdog_handles_stale_running(app):
 def test_watchdog_retries_failed_after_backoff(app):
     ps_id, sel_id = _setup_item(app)
 
-    from core.models.photo_models import PickerSelection
+    from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
 
     with app.app_context():
         sel = db.session.get(PickerSelection, sel_id)
@@ -134,14 +134,14 @@ def test_watchdog_retries_failed_after_backoff(app):
 def test_watchdog_republishes_stalled_enqueued(monkeypatch, app, caplog):
     ps_id, sel_id = _setup_item(app)
     import importlib
-    mod = importlib.import_module("core.tasks.picker_import")
+    mod = importlib.import_module("bounded_contexts.picker_import.tasks.picker_import")
 
     called: list[int] = []
     monkeypatch.setattr(
         mod, "enqueue_picker_import_item", lambda sid, sess: called.append(sid)
     )
 
-    from core.models.photo_models import PickerSelection
+    from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
 
     with app.app_context():
         sel = db.session.get(PickerSelection, sel_id)

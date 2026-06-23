@@ -7,8 +7,8 @@ import requests
 
 import pytest
 
-from core.tasks import picker_import_item, picker_import_queue_scan
-from core.db import db
+from bounded_contexts.picker_import.tasks.picker_import import picker_import_item, picker_import_queue_scan
+from shared.kernel.database.db import db
 
 
 @pytest.fixture
@@ -38,7 +38,7 @@ def app(tmp_path):
     from presentation.web import create_app
     app = create_app()
     app.config.update(TESTING=True)
-    from core.models.google_account import GoogleAccount
+    from shared.infrastructure.models.google_account import GoogleAccount
     with app.app_context():
         db.create_all()
         acc = GoogleAccount(email="acc@example.com", scopes="", oauth_token_json="{}")
@@ -57,8 +57,8 @@ def app(tmp_path):
 
 
 def _setup_item(app, *, mime="image/jpeg", filename="a.jpg", mtype="PHOTO"):
-    from core.models.photo_models import MediaItem, PickerSelection
-    from core.models.picker_session import PickerSession
+    from bounded_contexts.photonest.infrastructure.photo_models import MediaItem, PickerSelection
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
 
     with app.app_context():
         ps = PickerSession(account_id=1, status="pending")
@@ -76,7 +76,7 @@ def test_picker_import_item_imports(monkeypatch, app, tmp_path):
     ps_id, pmi_id = _setup_item(app)
 
     import importlib
-    mod = importlib.import_module("core.tasks.picker_import")
+    mod = importlib.import_module("bounded_contexts.picker_import.tasks.picker_import")
 
     content = b"hello"
     sha = hashlib.sha256(content).hexdigest()
@@ -108,7 +108,7 @@ def test_picker_import_item_imports(monkeypatch, app, tmp_path):
 
     with app.app_context():
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
-        from core.models.photo_models import PickerSelection, Media
+        from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection, Media
 
         pmi = db.session.get(PickerSelection, pmi_id)
         media = Media.query.one()
@@ -127,7 +127,7 @@ def test_picker_import_item_dup(monkeypatch, app, tmp_path):
     ps_id, pmi_id = _setup_item(app)
 
     import importlib
-    mod = importlib.import_module("core.tasks.picker_import")
+    mod = importlib.import_module("bounded_contexts.picker_import.tasks.picker_import")
     content = b"hello"
     sha = hashlib.sha256(content).hexdigest()
 
@@ -157,7 +157,7 @@ def test_picker_import_item_dup(monkeypatch, app, tmp_path):
     )
 
     # pre-create media with same hash
-    from core.models.photo_models import Media
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
     from datetime import datetime, timezone
 
     with app.app_context():
@@ -179,7 +179,7 @@ def test_picker_import_item_dup(monkeypatch, app, tmp_path):
         db.session.commit()
 
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
-        from core.models.photo_models import PickerSelection
+        from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
         pmi = db.session.get(PickerSelection, pmi_id)
         assert res["ok"] is True
         assert pmi.status == "dup"
@@ -194,7 +194,7 @@ def test_picker_import_item_reimports_deleted_media(monkeypatch, app, tmp_path):
     ps_id, pmi_id = _setup_item(app)
 
     import importlib
-    mod = importlib.import_module("core.tasks.picker_import")
+    mod = importlib.import_module("bounded_contexts.picker_import.tasks.picker_import")
 
     content = b"hello"
     sha = hashlib.sha256(content).hexdigest()
@@ -224,7 +224,7 @@ def test_picker_import_item_reimports_deleted_media(monkeypatch, app, tmp_path):
         lambda media, **kwargs: post_imported.append(media.id),
     )
 
-    from core.models.photo_models import Media
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
     from datetime import datetime, timezone
 
     with app.app_context():
@@ -250,7 +250,7 @@ def test_picker_import_item_reimports_deleted_media(monkeypatch, app, tmp_path):
         db.session.commit()
 
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
-        from core.models.photo_models import PickerSelection
+        from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
 
         pmi = db.session.get(PickerSelection, pmi_id)
         assert res["ok"] is True
@@ -266,7 +266,7 @@ def test_picker_import_item_video_queues_playback(monkeypatch, app, tmp_path):
     ps_id, pmi_id = _setup_item(app, mime="video/mp4", filename="v.mp4", mtype="VIDEO")
 
     import importlib
-    mod = importlib.import_module("core.tasks.picker_import")
+    mod = importlib.import_module("bounded_contexts.picker_import.tasks.picker_import")
     content = b"hello"
     sha = hashlib.sha256(content).hexdigest()
 
@@ -300,7 +300,7 @@ def test_picker_import_item_video_queues_playback(monkeypatch, app, tmp_path):
 
     with app.app_context():
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
-        from core.models.photo_models import PickerSelection, Media
+        from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection, Media
 
         pmi = db.session.get(PickerSelection, pmi_id)
         media = Media.query.one()
@@ -316,7 +316,7 @@ def test_picker_import_queue_scan(monkeypatch, app):
     called: list[int] = []
 
     import importlib
-    mod = importlib.import_module("core.tasks.picker_import")
+    mod = importlib.import_module("bounded_contexts.picker_import.tasks.picker_import")
 
     def fake_enqueue(selection_id, session_id):
         called.append((selection_id, session_id))
@@ -330,8 +330,8 @@ def test_picker_import_queue_scan(monkeypatch, app):
 
 
 def test_picker_import_queue_scan_skips_local(app):
-    from core.models.photo_models import PickerSelection
-    from core.models.picker_session import PickerSession
+    from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
 
     with app.app_context():
         session = PickerSession(account_id=None, status="importing")
@@ -355,7 +355,7 @@ def test_picker_import_item_heartbeat(monkeypatch, app, tmp_path):
     ps_id, pmi_id = _setup_item(app)
 
     import importlib
-    mod = importlib.import_module("core.tasks.picker_import")
+    mod = importlib.import_module("bounded_contexts.picker_import.tasks.picker_import")
 
     content = b"hi"
     sha = hashlib.sha256(content).hexdigest()
@@ -367,7 +367,7 @@ def test_picker_import_item_heartbeat(monkeypatch, app, tmp_path):
         with open(path, "wb") as fh:
             fh.write(content)
         time.sleep(0.05)
-        from core.models.photo_models import PickerSelection as PS
+        from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection as PS
         heartbeat_vals.append(db.session.get(PS, pmi_id).lock_heartbeat_at)
         return mod.Downloaded(path, len(content), sha)
 
@@ -391,7 +391,7 @@ def test_picker_import_item_heartbeat(monkeypatch, app, tmp_path):
             locked_by="w1",
             heartbeat_interval=0.01,
         )
-        from core.models.photo_models import PickerSelection
+        from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
 
         pmi = db.session.get(PickerSelection, pmi_id)
         assert res["ok"] is True
@@ -407,10 +407,10 @@ def test_picker_import_item_reresolves_expired_base_url(monkeypatch, app, tmp_pa
     ps_id, pmi_id = _setup_item(app)
 
     import importlib
-    mod = importlib.import_module("core.tasks.picker_import")
+    mod = importlib.import_module("bounded_contexts.picker_import.tasks.picker_import")
 
-    from core.models.photo_models import PickerSelection
-    from core.models.picker_session import PickerSession
+    from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
     with app.app_context():
         pmi = db.session.get(PickerSelection, pmi_id)
         pmi.base_url = "http://old"
@@ -460,10 +460,10 @@ def test_picker_import_item_reresolve_failure_marks_expired(monkeypatch, app, tm
     ps_id, pmi_id = _setup_item(app)
 
     import importlib
-    mod = importlib.import_module("core.tasks.picker_import")
+    mod = importlib.import_module("bounded_contexts.picker_import.tasks.picker_import")
 
-    from core.models.photo_models import PickerSelection
-    from core.models.picker_session import PickerSession
+    from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
     with app.app_context():
         pmi = db.session.get(PickerSelection, pmi_id)
         pmi.base_url = "http://old"
@@ -497,7 +497,7 @@ def test_picker_import_item_network_error_requeues(monkeypatch, app, tmp_path):
     ps_id, pmi_id = _setup_item(app)
 
     import importlib
-    mod = importlib.import_module("core.tasks.picker_import")
+    mod = importlib.import_module("bounded_contexts.picker_import.tasks.picker_import")
 
     monkeypatch.setattr(mod, "_exchange_refresh_token", lambda g, p: ("tok", None))
 
@@ -517,10 +517,10 @@ def test_picker_import_item_network_error_requeues(monkeypatch, app, tmp_path):
     monkeypatch.setattr(mod, "process_media_post_import", lambda media, **kwargs: None)
 
     with app.app_context():
-        from core.models.picker_session import PickerSession
+        from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
         before = db.session.get(PickerSession, ps_id).last_progress_at
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
-        from core.models.photo_models import PickerSelection
+        from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
         pmi = db.session.get(PickerSelection, pmi_id)
         ps = db.session.get(PickerSession, ps_id)
         assert res["status"] == "enqueued"
@@ -532,15 +532,15 @@ def test_picker_import_item_auth_error_fails(monkeypatch, app, tmp_path):
     ps_id, pmi_id = _setup_item(app)
 
     import importlib
-    mod = importlib.import_module("core.tasks.picker_import")
+    mod = importlib.import_module("bounded_contexts.picker_import.tasks.picker_import")
 
     monkeypatch.setattr(mod, "_exchange_refresh_token", lambda g, p: (None, "oauth_failed"))
 
     with app.app_context():
-        from core.models.picker_session import PickerSession
+        from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
         before = db.session.get(PickerSession, ps_id).last_progress_at
         res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
-        from core.models.photo_models import PickerSelection
+        from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
         pmi = db.session.get(PickerSelection, pmi_id)
         ps = db.session.get(PickerSession, ps_id)
         assert res["status"] == "failed"

@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.abspath('.'))
 
 from presentation.web import create_app
 from shared.kernel.database.db import db
-from core.models.user import User
+from shared.infrastructure.models.user import User
 
 
 def add_usernames():

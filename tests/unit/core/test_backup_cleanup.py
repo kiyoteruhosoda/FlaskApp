@@ -7,7 +7,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-from core.tasks.backup_cleanup import cleanup_old_backups, get_backup_status
+from shared.application.tasks.backup_cleanup import cleanup_old_backups, get_backup_status
 
 
 class TestBackupCleanup:

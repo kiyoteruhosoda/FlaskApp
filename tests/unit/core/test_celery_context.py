@@ -27,7 +27,7 @@ def app(tmp_path, monkeypatch):
     
     # Create tables
     with app.app_context():
-        from core.db import db
+        from shared.kernel.database.db import db
         db.create_all()
     
     return app
@@ -81,7 +81,7 @@ class TestCeleryAppContext:
         class MockTask(ContextTask):
             def run(self):
                 from flask import current_app
-                from core.db import db
+                from shared.kernel.database.db import db
                 # This should not raise RuntimeError
                 return current_app.config['SECRET_KEY']
         
@@ -162,8 +162,8 @@ class TestCeleryIntegration:
     
     def test_database_access_in_task(self, app, celery_app):
         """Test that database can be accessed within Celery tasks."""
-        from core.models.photo_models import PickerSelection
-        from core.db import db
+        from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
+        from shared.kernel.database.db import db
         
         # Create a test function that mimics what picker_import_watchdog does
         def test_db_query():

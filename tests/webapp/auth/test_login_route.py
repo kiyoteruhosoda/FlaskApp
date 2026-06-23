@@ -6,7 +6,7 @@ from urllib.parse import urlsplit
 
 import pytest
 
-from core.models.user import User
+from shared.infrastructure.models.user import User
 from presentation.web.bootstrap.extensions import db
 
 

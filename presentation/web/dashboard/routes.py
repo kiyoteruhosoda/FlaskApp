@@ -1,5 +1,5 @@
 from flask import redirect
-from core.models.authz import require_perms
+from shared.infrastructure.models.authz import require_perms
 from . import bp
 
 

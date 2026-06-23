@@ -4,7 +4,7 @@ from __future__ import annotations
 from flask import jsonify, request
 
 from ..bootstrap.extensions import db
-from core.models.service_account import ServiceAccount
+from shared.infrastructure.models.service_account import ServiceAccount
 from . import bp
 from .routes import login_or_jwt_required, get_current_user
 

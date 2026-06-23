@@ -36,7 +36,7 @@ login_manager.anonymous_user = AnonymousUser
 
 @login_manager.user_loader
 def load_user(user_id):
-    from core.models.user import User
+    from shared.infrastructure.models.user import User
     from presentation.web.services.token_service import TokenService
 
     # Service accounts are stateless — they authenticate per-request via Bearer tokens.

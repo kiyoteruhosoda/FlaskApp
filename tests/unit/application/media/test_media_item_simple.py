@@ -1,4 +1,4 @@
-from core.db import db
+from shared.kernel.database.db import db
 #!/usr/bin/env python3
 """ローカルインポートのMediaItem作成機能のテスト（データベース確認版）"""
 
@@ -9,8 +9,8 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 from presentation.web import create_app
-from core.tasks.local_import import import_single_file
-from core.models.photo_models import Media, MediaItem, PhotoMetadata, VideoMetadata, Exif
+from bounded_contexts.photonest.tasks.local_import import import_single_file
+from bounded_contexts.photonest.infrastructure.photo_models import Media, MediaItem, PhotoMetadata, VideoMetadata, Exif
 
 
 def create_test_image(path: Path) -> None:

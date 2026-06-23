@@ -8,16 +8,16 @@ import jwt
 import pytest
 from flask import url_for
 
-from core.db import db
-from core.system_settings_defaults import (
+from shared.kernel.database.db import db
+from shared.kernel.settings.system_settings_defaults import (
     DEFAULT_APPLICATION_SETTINGS,
     DEFAULT_CORS_SETTINGS,
 )
 
 from presentation.web.services.token_service import TokenService
 from shared.application.authenticated_principal import AuthenticatedPrincipal
-from core.models.user import Permission, Role, User
-from core.models.service_account import ServiceAccount
+from shared.infrastructure.models.user import Permission, Role, User
+from shared.infrastructure.models.service_account import ServiceAccount
 from presentation.web.auth import SERVICE_LOGIN_SESSION_KEY  # still tested in test_service_login_returns_token_json
 
 
@@ -141,7 +141,7 @@ def scoped_user(app):
 
 @pytest.fixture()
 def album_user(app):
-    from core.models.user import Permission, Role, User
+    from shared.infrastructure.models.user import Permission, Role, User
 
     with app.app_context():
         create_perm = Permission(code="album:create")
@@ -164,7 +164,7 @@ def album_user(app):
 
 @pytest.fixture()
 def service_login_account(app):
-    from core.models.service_account import ServiceAccount
+    from shared.infrastructure.models.service_account import ServiceAccount
 
     with app.app_context():
         account = ServiceAccount(name=f"svc-{uuid.uuid4().hex[:8]}")

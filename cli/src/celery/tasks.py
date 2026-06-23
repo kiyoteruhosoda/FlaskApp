@@ -9,18 +9,18 @@ import requests
 
 DEFAULT_DOWNLOAD_TIMEOUT = 30
 
-from core.tasks.picker_import import picker_import_watchdog, picker_import_item
-from core.tasks.local_import import local_import_task
-from core.tasks.session_recovery import (
+from bounded_contexts.picker_import.tasks.picker_import import picker_import_watchdog, picker_import_item
+from bounded_contexts.photonest.tasks.local_import import local_import_task
+from bounded_contexts.picker_import.tasks.session_recovery import (
     cleanup_stale_sessions,
     force_cleanup_all_processing_sessions,
     get_session_status_report
 )
-from core.tasks.backup_cleanup import cleanup_old_backups, get_backup_status
-from core.tasks.log_cleanup import cleanup_old_logs
-from core.tasks.media_post_processing import process_due_thumbnail_retries
+from shared.application.tasks.backup_cleanup import cleanup_old_backups, get_backup_status
+from shared.application.tasks.log_cleanup import cleanup_old_logs
+from bounded_contexts.photonest.tasks.media_post_processing import process_due_thumbnail_retries
 from shared.kernel.logging.logging_config import log_task_info, log_task_error
-from core.tasks.thumbs_generate import (
+from bounded_contexts.photonest.tasks.thumbs_generate import (
     PLAYBACK_NOT_READY_NOTES,
     PlaybackNotReadyError,
     thumbs_generate,

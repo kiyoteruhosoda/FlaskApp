@@ -15,8 +15,8 @@ from typing import Any, Dict, Optional
 
 from flask import jsonify, request
 
-from core.models.celery_task import CeleryTaskRecord  # noqa: F401 - リレーション解決用
-from core.models.job_sync import JobSync
+from shared.infrastructure.models.celery_task import CeleryTaskRecord  # noqa: F401 - リレーション解決用
+from shared.infrastructure.models.job_sync import JobSync
 
 from ..bootstrap.extensions import db
 from . import bp

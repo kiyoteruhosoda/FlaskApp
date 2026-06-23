@@ -7,8 +7,8 @@ from flask import current_app, url_for
 from flask_babel import gettext as _
 
 from shared.kernel.database.db import db
-from core.models.password_reset_token import PasswordResetToken
-from core.models.user import User
+from shared.infrastructure.models.password_reset_token import PasswordResetToken
+from shared.infrastructure.models.user import User
 from presentation.web.utils import determine_external_scheme
 from bounded_contexts.email import EmailService
 

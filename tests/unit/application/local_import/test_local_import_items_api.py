@@ -12,9 +12,9 @@ import pytest
 
 pytestmark = pytest.mark.integration
 
-from core.db import db
-from core.models.picker_session import PickerSession
-from core.models.photo_models import PickerSelection
+from shared.kernel.database.db import db
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
 from bounded_contexts.photonest.presentation.local_import_status_api import (
     get_session_items,
 )

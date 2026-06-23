@@ -7,7 +7,7 @@ import pytest
 from presentation.web import create_app
 from presentation.web.bootstrap.extensions import db
 from presentation.web.services.system_setting_service import SystemSettingService
-from core.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
+from shared.kernel.settings.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
 from presentation.web import _apply_persisted_settings
 
 

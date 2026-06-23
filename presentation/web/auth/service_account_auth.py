@@ -15,7 +15,7 @@ from jwt import algorithms as jwt_algorithms
 import redis
 from redis import RedisError
 
-from core.models.service_account import ServiceAccount
+from shared.infrastructure.models.service_account import ServiceAccount
 from shared.domain.auth.principal import AuthenticatedPrincipal
 from presentation.web.services.service_account_service import ServiceAccountService
 from bounded_contexts.certs.application.use_cases import ListJwksUseCase

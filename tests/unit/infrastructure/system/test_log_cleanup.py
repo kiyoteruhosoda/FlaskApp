@@ -18,7 +18,7 @@ def app(tmp_path, monkeypatch):
     app = create_app()
 
     with app.app_context():
-        from core.db import db
+        from shared.kernel.database.db import db
 
         db.create_all()
 
@@ -30,12 +30,12 @@ def _make_time(days_ago: int) -> datetime:
 
 
 def test_cleanup_old_logs_removes_records(app):
-    from core.db import db
-    from core.models.job_sync import JobSync
-    from core.models.log import Log
-    from core.models.picker_session import PickerSession
-    from core.models.worker_log import WorkerLog
-    from core.tasks.log_cleanup import cleanup_old_logs
+    from shared.kernel.database.db import db
+    from shared.infrastructure.models.job_sync import JobSync
+    from shared.infrastructure.models.log import Log
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+    from shared.infrastructure.models.worker_log import WorkerLog
+    from shared.application.tasks.log_cleanup import cleanup_old_logs
 
     with app.app_context():
         old_time = _make_time(400)

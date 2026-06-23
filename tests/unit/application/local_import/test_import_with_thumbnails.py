@@ -9,8 +9,8 @@ from PIL import Image
 from datetime import datetime, timezone
 
 from presentation.web import create_app
-from core.models.picker_session import PickerSession
-from core.models.photo_models import PickerSelection, MediaItem
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection, MediaItem
 from presentation.web.bootstrap.extensions import db
 
 
@@ -49,13 +49,13 @@ def create_test_import():
         print(f"Created test session {ps.id} with selection {selection.id}")
         
         # Mock the import process to test thumbnail generation
-        from core.tasks.picker_import import picker_import_item
+        from bounded_contexts.picker_import.tasks.picker_import import picker_import_item
         
         # We'll need to mock external dependencies for this test
         import unittest.mock as mock
         
         # Mock the Google API calls and file download
-        with mock.patch('core.tasks.picker_import.requests') as mock_requests:
+        with mock.patch('bounded_contexts.picker_import.tasks.picker_import.requests') as mock_requests:
             # Mock the media item fetch response
             mock_response = mock.Mock()
             mock_response.json.return_value = {
@@ -82,7 +82,7 @@ def create_test_import():
             mock_dl_response.raise_for_status.return_value = None
             
             # Mock file creation
-            with mock.patch('core.tasks.picker_import._download') as mock_download:
+            with mock.patch('bounded_contexts.picker_import.tasks.picker_import._download') as mock_download:
                 # Create an actual test image file for thumbnail generation
                 test_img_path = orig_dir / "2025/08/28/20250828_100000_picker_testhash.jpg"
                 test_img_path.parent.mkdir(parents=True, exist_ok=True)
@@ -92,7 +92,7 @@ def create_test_import():
                 img.save(test_img_path)
                 
                 # Mock download result
-                from core.tasks.picker_import import Downloaded
+                from bounded_contexts.picker_import.tasks.picker_import import Downloaded
                 mock_download.return_value = Downloaded(
                     path=test_img_path,
                     sha256="testhash12345678",

@@ -4,8 +4,8 @@ from urllib.parse import urlparse
 
 import pytest
 
-from core.models.user import User, Role, Permission
-from core.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
+from shared.infrastructure.models.user import User, Role, Permission
+from shared.kernel.settings.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
 from presentation.web.bootstrap.extensions import db
 from presentation.web.services.system_setting_service import SystemSettingService
 

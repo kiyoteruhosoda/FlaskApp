@@ -40,7 +40,7 @@ def app(tmp_path):
     app.config.update(TESTING=True)
 
     from presentation.web.bootstrap.extensions import db
-    from core.models.user import User
+    from shared.infrastructure.models.user import User
 
     with app.app_context():
         db.create_all()
@@ -195,9 +195,9 @@ class TestPaginatedResult:
 
 def test_pagination_integration(app):
     """ページング機能の統合テスト"""
-    from core.models.photo_models import Media
-    from core.models.google_account import GoogleAccount
-    from core.models.user import User
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
+    from shared.infrastructure.models.google_account import GoogleAccount
+    from shared.infrastructure.models.user import User
     from presentation.web.bootstrap.extensions import db
 
     with app.app_context():
@@ -276,9 +276,9 @@ def test_pagination_integration(app):
 
 def test_cursor_based_pagination(app):
     """カーソーベースページングのテスト"""
-    from core.models.photo_models import Media
-    from core.models.google_account import GoogleAccount
-    from core.models.user import User
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
+    from shared.infrastructure.models.google_account import GoogleAccount
+    from shared.infrastructure.models.user import User
     from presentation.web.bootstrap.extensions import db
 
     with app.app_context():
@@ -395,9 +395,9 @@ def test_cursor_based_pagination(app):
 @pytest.mark.parametrize("order", ["asc", "desc"])
 def test_pagination_order(app, order):
     """ソート順のテスト"""
-    from core.models.photo_models import Media
-    from core.models.google_account import GoogleAccount
-    from core.models.user import User
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
+    from shared.infrastructure.models.google_account import GoogleAccount
+    from shared.infrastructure.models.user import User
     from presentation.web.bootstrap.extensions import db
 
     with app.app_context():

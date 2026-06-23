@@ -3,9 +3,9 @@ from urllib.parse import urlparse
 import pytest
 
 from presentation.web.services.token_service import TokenService
-from core.models.user import User, Role, Permission
-from core.models.group import Group
-from core.db import db
+from shared.infrastructure.models.user import User, Role, Permission
+from shared.infrastructure.models.group import Group
+from shared.kernel.database.db import db
 
 
 def _login(client, user):

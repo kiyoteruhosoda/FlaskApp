@@ -10,8 +10,8 @@ from datetime import datetime, timezone
 import pytest
 
 from presentation.web import create_app
-from core.tasks.picker_import import enqueue_media_playback
-from core.models.photo_models import Media, MediaPlayback
+from bounded_contexts.picker_import.tasks.picker_import import enqueue_media_playback
+from bounded_contexts.photonest.infrastructure.photo_models import Media, MediaPlayback
 from presentation.web.bootstrap.extensions import db
 
 

@@ -5,10 +5,10 @@ from datetime import datetime, timezone
 import pytest
 from flask import url_for
 
-from core.models.service_account import ServiceAccount
-from core.models.user import Permission, Role, User
+from shared.infrastructure.models.service_account import ServiceAccount
+from shared.infrastructure.models.user import Permission, Role, User
 from presentation.web.services.token_service import TokenService
-from core.db import db
+from shared.kernel.database.db import db
 
 
 @pytest.fixture

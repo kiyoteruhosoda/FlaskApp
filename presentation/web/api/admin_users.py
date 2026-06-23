@@ -5,7 +5,7 @@ from flask import jsonify, request
 from flask_login import current_user
 
 from ..bootstrap.extensions import db
-from core.models.user import User, Role
+from shared.infrastructure.models.user import User, Role
 from . import bp
 from .routes import login_or_jwt_required, get_current_user
 

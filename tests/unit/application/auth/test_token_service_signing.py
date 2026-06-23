@@ -4,9 +4,9 @@ import pytest
 from datetime import datetime, timedelta, timezone
 from flask import current_app
 
-from core.models.user import User
+from shared.infrastructure.models.user import User
 from shared.application.authenticated_principal import AuthenticatedPrincipal
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 
 from bounded_contexts.certs.application.use_cases import IssueCertificateForGroupUseCase
 from bounded_contexts.certs.domain.usage import UsageType
@@ -14,7 +14,7 @@ from bounded_contexts.certs.infrastructure.models import CertificateGroupEntity,
 from presentation.web.services.access_token_signing import AccessTokenSigningError
 from presentation.web.services.system_setting_service import SystemSettingService
 from presentation.web.services.token_service import TokenService
-from core.db import db
+from shared.kernel.database.db import db
 
 
 @pytest.mark.usefixtures("app_context")

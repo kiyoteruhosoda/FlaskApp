@@ -6,9 +6,9 @@ from typing import Dict
 
 import pytest
 
-from core.models.google_account import GoogleAccount
-from core.models.picker_session import PickerSession
-from core.models.worker_log import WorkerLog
+from shared.infrastructure.models.google_account import GoogleAccount
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+from shared.infrastructure.models.worker_log import WorkerLog
 from presentation.web.api.picker_session import _collect_local_import_logs, _collect_local_import_file_tasks
 from presentation.web.bootstrap.extensions import db
 

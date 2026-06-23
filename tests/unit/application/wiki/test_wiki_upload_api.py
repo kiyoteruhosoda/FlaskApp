@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from core.models.photo_models import Media
-from core.models.user import Permission, Role, User
+from bounded_contexts.photonest.infrastructure.photo_models import Media
+from shared.infrastructure.models.user import Permission, Role, User
 from presentation.web.services.token_service import TokenService
-from core.db import db
+from shared.kernel.database.db import db
 
 
 def _ensure_permission(user: User, code: str, role_name: str = "wiki-uploader") -> None:

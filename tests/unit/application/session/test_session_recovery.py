@@ -3,13 +3,13 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta, timezone
-from core.tasks.session_recovery import (
+from bounded_contexts.picker_import.tasks.session_recovery import (
     cleanup_stale_sessions, 
     force_cleanup_all_processing_sessions,
     get_session_status_report
 )
-from core.models.picker_session import PickerSession
-from core.db import db
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+from shared.kernel.database.db import db
 
 
 class TestSessionRecovery:

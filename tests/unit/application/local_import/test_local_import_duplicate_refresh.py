@@ -4,14 +4,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
-from core.db import db
+from shared.kernel.database.db import db
 
 pytestmark = [pytest.mark.integration, pytest.mark.filesystem]
 
 from presentation.web import create_app
-from core.tasks import local_import
-from core.tasks.local_import import import_single_file
-from core.models.photo_models import Media, MediaItem, MediaPlayback, PhotoMetadata, Exif
+from bounded_contexts.photonest.tasks import local_import
+from bounded_contexts.photonest.tasks.local_import import import_single_file
+from bounded_contexts.photonest.infrastructure.photo_models import Media, MediaItem, MediaPlayback, PhotoMetadata, Exif
 from bounded_contexts.photonest.domain.local_import.entities import ImportFile
 from bounded_contexts.photonest.domain.local_import.media_file import MediaFileAnalysis
 

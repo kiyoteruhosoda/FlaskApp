@@ -3,11 +3,11 @@ from __future__ import annotations
 
 from flask import jsonify
 
-from core.models.user import User, Role
-from core.models.group import Group
-from core.models.service_account import ServiceAccount
-from core.models.photo_models import Media, Album, Tag
-from core.models.job_sync import JobSync
+from shared.infrastructure.models.user import User, Role
+from shared.infrastructure.models.group import Group
+from shared.infrastructure.models.service_account import ServiceAccount
+from bounded_contexts.photonest.infrastructure.photo_models import Media, Album, Tag
+from shared.infrastructure.models.job_sync import JobSync
 from . import bp
 from .routes import login_or_jwt_required, get_current_user
 

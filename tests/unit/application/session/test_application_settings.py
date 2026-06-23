@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from core.settings import ApplicationSettings
-from core.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
+from shared.kernel.settings.settings import ApplicationSettings
+from shared.kernel.settings.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
 
 
 def test_defaults_are_applied_when_env_missing():

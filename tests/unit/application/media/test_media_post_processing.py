@@ -11,7 +11,7 @@ import pytest
 from PIL import Image
 from datetime import datetime, timezone, timedelta
 from types import SimpleNamespace
-from core.db import db
+from shared.kernel.database.db import db
 
 
 TEST_RETRY_BLOCKERS = {"reason": "playback assets pending"}
@@ -78,7 +78,7 @@ def app(tmp_path):
 def test_enqueue_media_playback_generates_thumbnails_for_completed_playback(app, monkeypatch):
     """Ensure completed playbacks backfill thumbnails when requested again."""
 
-    from core.tasks import media_post_processing
+    from bounded_contexts.photonest.tasks import media_post_processing
 
     monkeypatch.setattr(media_post_processing.shutil, "which", lambda _: "/usr/bin/ffmpeg")
 
@@ -90,7 +90,7 @@ def test_enqueue_media_playback_generates_thumbnails_for_completed_playback(app,
     poster_path.parent.mkdir(parents=True, exist_ok=True)
     Image.new("RGB", (1280, 720), color=(10, 20, 30)).save(poster_path)
 
-    from core.models.photo_models import Media, MediaPlayback
+    from bounded_contexts.photonest.infrastructure.photo_models import Media, MediaPlayback
 
     with app.app_context():
         media = Media(
@@ -145,7 +145,7 @@ def test_enqueue_thumbs_generate_schedules_retry(monkeypatch):
     """サムネイル生成が保留の場合に再試行がスケジュールされることを確認。"""
 
     from bounded_contexts.photonest.application.media_processing.retry_service import RetryScheduleResult
-    from core.tasks import media_post_processing
+    from bounded_contexts.photonest.tasks import media_post_processing
 
     monkeypatch.setattr(
         media_post_processing,
@@ -197,9 +197,9 @@ def test_enqueue_thumbs_generate_schedules_retry(monkeypatch):
 
 @pytest.mark.usefixtures("app")
 def test_enqueue_thumbs_generate_records_retry(app, monkeypatch):
-    from core.tasks import media_post_processing
-    from core.models.photo_models import Media
-    from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
+    from bounded_contexts.photonest.tasks import media_post_processing
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
+    from shared.infrastructure.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
     import cli.src.celery.tasks as celery_tasks
 
     monkeypatch.setattr(
@@ -272,9 +272,9 @@ def test_enqueue_thumbs_generate_records_retry(app, monkeypatch):
 
 @pytest.mark.usefixtures("app")
 def test_process_due_thumbnail_retries_clears_success(app, monkeypatch):
-    from core.tasks import media_post_processing
-    from core.models.photo_models import Media
-    from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
+    from bounded_contexts.photonest.tasks import media_post_processing
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
+    from shared.infrastructure.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 
     monkeypatch.setattr(
         media_post_processing,
@@ -339,9 +339,9 @@ def test_process_due_thumbnail_retries_clears_success(app, monkeypatch):
 
 @pytest.mark.usefixtures("app")
 def test_process_due_thumbnail_retries_reschedules_pending(app, monkeypatch):
-    from core.tasks import media_post_processing
-    from core.models.photo_models import Media
-    from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
+    from bounded_contexts.photonest.tasks import media_post_processing
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
+    from shared.infrastructure.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
     import cli.src.celery.tasks as celery_tasks
 
     monkeypatch.setattr(
@@ -421,8 +421,8 @@ def test_process_due_thumbnail_retries_reschedules_pending(app, monkeypatch):
 
 @pytest.mark.usefixtures("app")
 def test_process_due_thumbnail_retries_reports_blocked_retries(app, monkeypatch):
-    from core.tasks import media_post_processing
-    from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
+    from bounded_contexts.photonest.tasks import media_post_processing
+    from shared.infrastructure.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 
     class StubLogger:
         def __init__(self):
@@ -481,9 +481,9 @@ def test_process_due_thumbnail_retries_reports_blocked_retries(app, monkeypatch)
 
 @pytest.mark.usefixtures("app")
 def test_enqueue_thumbs_generate_stops_after_max_attempts(app, monkeypatch):
-    from core.tasks import media_post_processing
-    from core.models.photo_models import Media
-    from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
+    from bounded_contexts.photonest.tasks import media_post_processing
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
+    from shared.infrastructure.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 
     monkeypatch.setattr(
         media_post_processing,

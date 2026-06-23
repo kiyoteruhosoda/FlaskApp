@@ -42,8 +42,8 @@ def app(tmp_path):
 
 def test_thumbnail_generation(app):
     """インポートされた画像からサムネイルが生成されることを検証する."""
-    from core.tasks.picker_import import enqueue_thumbs_generate
-    from core.models.photo_models import Media
+    from bounded_contexts.picker_import.tasks.picker_import import enqueue_thumbs_generate
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
     from presentation.web.bootstrap.extensions import db
 
     with app.app_context():

@@ -27,16 +27,16 @@ from sqlalchemy.orm import selectinload
 from ..bootstrap.extensions import db
 from sqlalchemy import or_
 
-from core.models.system_setting import SystemSetting
+from shared.infrastructure.models.system_setting import SystemSetting
 from shared.kernel.settings.system_settings_defaults import (
     DEFAULT_APPLICATION_SETTINGS,
     DEFAULT_CORS_SETTINGS,
 )
-from core.models.user import User, Role, Permission
-from core.models.group import Group, GroupHierarchyError
-from core.models.service_account import ServiceAccount
+from shared.infrastructure.models.user import User, Role, Permission
+from shared.infrastructure.models.group import Group, GroupHierarchyError
+from shared.infrastructure.models.service_account import ServiceAccount
 from shared.kernel.settings.settings import settings
-from core.storage_service import StorageService
+from bounded_contexts.storage.infrastructure.filesystem import StorageService
 from bounded_contexts.storage import StorageDomain
 from presentation.web.services.service_account_service import (
     ServiceAccountNotFoundError,
@@ -1857,7 +1857,7 @@ def role_delete(role_id):
 @bp.route("/google-accounts", methods=["GET"])
 @login_required
 def google_accounts():
-    from core.models.google_account import GoogleAccount
+    from shared.infrastructure.models.google_account import GoogleAccount
 
     if not current_user.can("user:manage"):
         return _redirect_to_home()

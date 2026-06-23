@@ -23,7 +23,7 @@ def main():
         print(f"JWT_SECRET_KEY: {app.config.get('JWT_SECRET_KEY', 'NOT_SET')}")
         
         # ユーザー情報の確認
-        from core.models.user import User
+        from shared.infrastructure.models.user import User
         user = User.query.filter_by(email='admin@example.com').first()
         if user:
             print(f"ユーザー存在確認: {user.email} (ID: {user.id}, Active: {user.is_active})")

@@ -10,14 +10,14 @@ import pytest
 from PIL import Image, UnidentifiedImageError
 from pillow_heif import register_heif_opener
 
-from core.db import db
-from core.tasks.local_import import (
+from shared.kernel.database.db import db
+from bounded_contexts.photonest.tasks.local_import import (
     extract_exif_data,
     get_image_dimensions,
     import_single_file,
     scan_import_directory,
 )
-from core.utils import get_file_date_from_exif
+from shared.kernel.utils import get_file_date_from_exif
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.filesystem]
@@ -176,7 +176,7 @@ def test_extract_exif_date_from_heic_with_offset(monkeypatch, tmp_path: Path) ->
 def test_import_single_heic_file(local_import_app) -> None:
     """HEICファイルの取り込みが成功し、メタ情報が保存されることを確認。"""
 
-    from core.models.photo_models import Media
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
 
     import_dir = Path(local_import_app.config["MEDIA_LOCAL_IMPORT_DIRECTORY"])
     originals_dir = Path(local_import_app.config["MEDIA_ORIGINALS_DIRECTORY"])

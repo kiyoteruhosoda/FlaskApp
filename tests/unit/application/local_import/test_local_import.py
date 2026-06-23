@@ -1,4 +1,4 @@
-from core.db import db
+from shared.kernel.database.db import db
 #!/usr/bin/env python
 """
 ローカルインポート機能のテスト用スクリプト
@@ -19,7 +19,7 @@ from PIL import Image
 # プロジェクトルートを追加
 sys.path.insert(0, '/home/kyon/myproject')
 
-from core.tasks.local_import import import_single_file, local_import_task, scan_import_directory
+from bounded_contexts.photonest.tasks.local_import import import_single_file, local_import_task, scan_import_directory
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.filesystem]
@@ -215,8 +215,8 @@ def test_scan_directory_extracts_zip(tmp_path):
 def test_local_import_assigns_tags_from_zip_structure(app, monkeypatch):
     """ZIP内ディレクトリ名がタグとして登録されることを検証。"""
 
-    from core.models.photo_models import Media, Tag
-    from core.tasks import local_import as local_import_module
+    from bounded_contexts.photonest.infrastructure.photo_models import Media, Tag
+    import bounded_contexts.photonest.tasks.local_import as local_import_module
 
     import_dir = Path(app.config["MEDIA_LOCAL_IMPORT_DIRECTORY"])
 
@@ -259,8 +259,8 @@ def test_local_import_assigns_tags_from_zip_structure(app, monkeypatch):
 def test_local_import_task_with_session(app, db_session, temp_dir):
     """ローカルインポートタスクでPickerSessionとPickerSelectionが作成されることをテスト"""
     
-    from core.models.picker_session import PickerSession
-    from core.models.photo_models import PickerSelection
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+    from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
     
     # app fixtureで設定されたディレクトリを使用
     import_dir = Path(app.config['MEDIA_LOCAL_IMPORT_DIRECTORY'])
@@ -315,7 +315,7 @@ def test_import_single_file_video_recoverable_failure(app, monkeypatch):
     test_video = import_dir / "recoverable.mp4"
     test_video.write_text("dummy video content")
 
-    from core.tasks import media_post_processing
+    from bounded_contexts.photonest.tasks import media_post_processing
 
     def fake_enqueue(*args, **kwargs):
         return {"ok": False, "note": "ffmpeg_missing"}
@@ -337,8 +337,8 @@ def test_import_single_file_video_recoverable_failure(app, monkeypatch):
 def test_local_import_video_generates_playback_from_originals(app, monkeypatch):
     """動画取り込み時にオリジナル格納先からPlaybackが生成されることを検証。"""
 
-    from core.models.photo_models import Media, MediaPlayback
-    from core.tasks import media_post_processing, transcode as transcode_module
+    from bounded_contexts.photonest.infrastructure.photo_models import Media, MediaPlayback
+    from bounded_contexts.photonest.tasks import media_post_processing, transcode as transcode_module
 
     import_dir = Path(app.config["MEDIA_LOCAL_IMPORT_DIRECTORY"])
     originals_dir = Path(app.config["MEDIA_ORIGINALS_DIRECTORY"])
@@ -429,8 +429,8 @@ def test_local_import_duplicate_sets_google_media_id(app):
     """重複検出時でも Selection に media リンク情報が保存されることを確認"""
 
     from bounded_contexts.photonest.application.local_import.queue import LocalImportQueueProcessor
-    from core.models.picker_session import PickerSession
-    from core.models.photo_models import Media, MediaItem, PickerSelection
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+    from bounded_contexts.photonest.infrastructure.photo_models import Media, MediaItem, PickerSelection
 
     class DummyLogger:
         def info(self, *args, **kwargs):

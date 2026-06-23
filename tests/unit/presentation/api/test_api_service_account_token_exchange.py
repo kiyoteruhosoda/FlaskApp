@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 import jwt
 import pytest
 
-from core.db import db
+from shared.kernel.database.db import db
 from bounded_contexts.certs.application.use_cases import IssueCertificateForGroupUseCase
 from bounded_contexts.certs.domain.usage import UsageType
 from bounded_contexts.certs.infrastructure.models import CertificateGroupEntity

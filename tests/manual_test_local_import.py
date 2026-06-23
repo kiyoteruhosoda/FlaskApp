@@ -13,11 +13,11 @@ from pathlib import Path
 sys.path.insert(0, '/home/kyon/myproject')
 
 from presentation.web import create_app
-from core.tasks.local_import import local_import_task, scan_import_directory
-from core.models.picker_session import PickerSession
-from core.models.photo_models import PickerSelection
+from bounded_contexts.photonest.tasks.local_import import local_import_task, scan_import_directory
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
 from presentation.web.bootstrap.config import BaseApplicationSettings
-from core.tasks.local_import import local_import_task, scan_import_directory
+from bounded_contexts.photonest.tasks.local_import import local_import_task, scan_import_directory
 
 def create_test_files(import_dir: str) -> list:
     """テスト用のファイルを作成"""

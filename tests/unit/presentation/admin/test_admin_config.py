@@ -105,18 +105,22 @@ def test_config_page_displays_current_settings(client):
     user = _create_system_manager()
     _login(client, user)
 
-    response = client.get("/admin/config")
+    # 設定画面は React SPA が描画するため、SPA が利用する管理 API
+    # ``GET /api/admin/config`` が現在の設定値を返すことで検証する。
+    response = client.get("/api/admin/config")
     assert response.status_code == 200
 
-    html = response.data.decode("utf-8")
-    assert 'name="app_config_new[FEATURE_FLAG]"' in html
-    assert 'name="cors_new[allowedOrigins]"' in html
-    assert 'name="cors_new[CORS_ALLOWED_ORIGINS]"' not in html
-    assert "Updated automatically after saving allowedOrigins." in html
-    assert "https://example.com" in html
-    assert 'data-cors-effective' in html
-    assert 'data-cors-key="allowedOrigins"' in html
-    assert 'data-app-key="CORS_ALLOWED_ORIGINS"' not in html
+    data = response.get_json()
+
+    # 保存済みのアプリケーション設定（未定義キーを含む）がフィールドに現れること
+    field_keys = {field["key"] for field in data["application_fields"]}
+    assert "FEATURE_FLAG" in field_keys
+
+    # CORS の実効オリジンが反映されていること
+    assert "https://example.com" in data["cors_effective_origins"]
+
+    # CORS は専用フィールドで扱われ、アプリ設定フィールドには現れないこと
+    assert "CORS_ALLOWED_ORIGINS" not in field_keys
 
 
 def test_apply_persisted_settings_prefers_legacy_backup_directory(app_context):

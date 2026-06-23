@@ -105,20 +105,20 @@ def test_profile_requires_login(client):
 
 
 def test_profile_get_shows_preferences(client):
+    """プロフィール情報が API 経由で取得できること。
+
+    言語・タイムゾーンの選択 UI は React SPA がクッキーから描画する。
+    サーバ側は ``GET /api/auth/me`` でユーザー情報・権限を供給する。
+    新規ユーザーは権限を持たない。
+    """
     user = _create_user()
     _login(client, user)
 
-    response = client.get("/auth/profile")
+    response = client.get("/api/auth/me")
     assert response.status_code == 200
-
-    html = response.data.decode("utf-8")
-    assert '<option value="ja" selected' in html
-    assert '<option value="Asia/Tokyo" selected' in html
-
-    # Localized current time should be displayed
-    assert re.search(r"Local time \(Asia/Tokyo\).*<strong>", html, re.DOTALL)
-    assert "UTC" in html
-    assert "No active permissions." in html
+    data = response.get_json()
+    assert data["email"] == user.email
+    assert data["permissions"] == []
 
 
 def test_profile_shows_active_permissions_for_user(client):
@@ -130,19 +130,20 @@ def test_profile_shows_active_permissions_for_user(client):
     )
     _login(client, user)
 
-    response = client.get("/auth/profile")
+    response = client.get("/api/auth/me")
     assert response.status_code == 200
 
-    html = response.data.decode("utf-8")
-    assert "Active permissions" in html
+    permissions = response.get_json()["permissions"]
     for code in codes:
-        assert code in html
+        assert code in permissions
 
 
 def test_profile_post_updates_cookies_and_preferences(client):
     user = _create_user()
     _login(client, user)
 
+    # 言語・タイムゾーンの設定はサーバがプリファレンス用クッキーを発行する
+    # （描画自体は SPA が担当する）。
     response = client.post(
         "/auth/profile",
         data={"language": "en", "timezone": "America/New_York"},
@@ -154,27 +155,25 @@ def test_profile_post_updates_cookies_and_preferences(client):
     assert any("lang=en" in cookie for cookie in cookies)
     assert any("tz=America/New_York" in cookie for cookie in cookies)
 
-    # Follow redirect to ensure selections stick
-    follow = client.get(response.headers["Location"])
-    assert follow.status_code == 200
-    html = follow.data.decode("utf-8")
-    assert '<option value="en" selected' in html
-    assert '<option value="America/New_York" selected' in html
-    assert "Profile preferences updated." in html
-
 
 def test_service_account_profile_hides_totp_button(client):
     account_id = _create_service_account(client.application)
     token = _service_account_token(client, account_id)
 
-    response = client.get("/auth/profile", headers=_bearer_headers(token))
-    assert response.status_code == 200
-
-    html = response.data.decode("utf-8")
-    assert "/auth/setup_totp" not in html
+    # サービスアカウントは 2FA を利用できない。2FA ステータス API は
+    # 個人ユーザー以外には認証エラー(401)を返す。
+    response = client.get("/api/auth/2fa/status", headers=_bearer_headers(token))
+    assert response.status_code == 401
 
 
 def test_service_account_profile_shows_scoped_permissions(client):
+    """サービスアカウントの実効権限が発行時スコープに限定されること。
+
+    サービスアカウントの権限はトークンの granted scope で決まる。SPA は
+    トークンのスコープを参照するため、ここでは発行トークンを検証して
+    プリンシパルの権限がリクエストスコープ(album:view)に限定され、
+    アカウントが持つ他スコープ(media:view)が含まれないことを確認する。
+    """
     requested_scope = {"album:view"}
     account_id = _create_service_account(
         client.application,
@@ -182,13 +181,13 @@ def test_service_account_profile_shows_scoped_permissions(client):
     )
     token = _service_account_token(client, account_id, scope=requested_scope)
 
-    response = client.get("/auth/profile", headers=_bearer_headers(token))
-    assert response.status_code == 200
+    with client.application.app_context():
+        principal, _ = TokenService.verify_access_token_with_reason(token)
 
-    html = response.data.decode("utf-8")
-    assert "Active permissions" in html
-    assert "album:view" in html
-    assert "media:view" not in html
+    assert principal is not None
+    permissions = set(getattr(principal, "permissions", set()) or [])
+    assert "album:view" in permissions
+    assert "media:view" not in permissions
 
 
 def test_service_account_cannot_access_totp_setup(client):
@@ -223,24 +222,32 @@ def test_totp_setup_with_bearer_token_authenticated_user(client):
     with client.application.app_context():
         token = TokenService.generate_access_token(user)
 
-    response = client.get(
-        "/auth/setup_totp",
+    # TOTP 設定画面は SPA が描画する。設定開始は SPA が呼び出す
+    # ``POST /api/auth/2fa/setup`` がシークレットを返すことで検証する。
+    response = client.post(
+        "/api/auth/2fa/setup",
         headers={"Authorization": f"Bearer {token}"},
     )
 
     assert response.status_code == 200
+    data = response.get_json()
+    assert data["secret"]
+    assert data["otpauth_uri"]
+    assert data["qr_data_uri"]
 
-    html = response.data.decode("utf-8")
-    assert "Setup Two-Factor Authentication" in html
 
+def test_localtime_filter_respects_timezone_cookie():
+    """タイムゾーン変換ロジックが指定 TZ で正しく整形すること。
 
-def test_localtime_filter_respects_timezone_cookie(app_context):
-    app = app_context
+    旧 ``localtime`` Jinja フィルタは React SPA 移行で廃止された。クッキー由来の
+    TZ 解決と整形は純粋関数 ``resolve_timezone`` + ``format_localtime`` に集約
+    されているため、それらを直接検証する。
+    """
+    from shared.kernel.time.timezone import resolve_timezone
+    from presentation.web.templating.jinja_filters import format_localtime
+
     dt = datetime(2024, 1, 1, 15, 0, tzinfo=timezone.utc)
-
-    with app.test_request_context("/", headers=[("Cookie", "tz=America/New_York")]):
-        app.preprocess_request()
-        localtime_filter = app.jinja_env.filters["localtime"]
-        formatted = localtime_filter(dt, "%Y-%m-%d %H:%M")
+    _, tzinfo = resolve_timezone("America/New_York", "UTC")
+    formatted = format_localtime(dt, tzinfo, "%Y-%m-%d %H:%M")
 
     assert formatted == "2024-01-01 10:00"

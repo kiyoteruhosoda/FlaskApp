@@ -65,14 +65,18 @@ class TestVersionAdminPage:
             "build_date": "2025-09-07T17:18:32+09:00",
             "app_start_date": "2025-09-07T17:22:17.270537"
         }
-        
-        with patch("shared.kernel.version.get_version_info", return_value=mock_version_info):
-            response = client.get('/admin/version')
-        
-        # 管理者権限があるので正常にページが表示される
+
+        # バージョン情報画面は React SPA が描画するため、SPA が利用する
+        # 公開 API (/api/version) が情報を返すことで検証する。
+        with patch("presentation.web.api.version.get_version_info", return_value=mock_version_info):
+            with patch("presentation.web.api.version.get_version_string", return_value="vtest123"):
+                response = client.get('/api/version')
+
         assert response.status_code == 200
-        assert b'vtest123' in response.data  # version_info がテンプレートに渡され描画されている
-        assert b'test123' in response.data  # コミットハッシュが表示されている
+        data = json.loads(response.data)
+        assert data["ok"] is True
+        assert data["version"] == "vtest123"
+        assert data["details"]["commit_hash"] == "test123"
     
     @patch('flask_login.utils._get_user')
     def test_version_admin_page_template_content(self, mock_current_user, client):
@@ -94,26 +98,23 @@ class TestVersionAdminPage:
             "app_start_date": "2025-09-07T18:35:12.123456"
         }
         
-        with patch("shared.kernel.version.get_version_info", return_value=mock_version_info):
-            response = client.get('/admin/version')
-        
+        with patch("presentation.web.api.version.get_version_info", return_value=mock_version_info):
+            with patch("presentation.web.api.version.get_version_string", return_value="vtest456"):
+                response = client.get('/api/version')
+
         assert response.status_code == 200
-        response_text = response.data.decode('utf-8')
-        
-        # 各バージョン情報が表示されていることを確認
-        assert 'vtest456' in response_text
-        assert 'test456' in response_text
-        assert 'feature-branch' in response_text
-        assert '2025-09-07 16:45:30 +0900' in response_text
-        assert '2025-09-07T18:30:45+09:00' in response_text
-        
-        # GitHubリンクが含まれていることを確認（フルハッシュがある場合）
-        assert 'github.com' in response_text
-        assert 'test456789012345abcdef123456789012345abc' in response_text
-        
-        # APIテスト機能が含まれていることを確認
-        assert 'testVersionAPI' in response_text
-        assert '/api/version' in response_text
+        data = json.loads(response.data)
+
+        # 各バージョン情報が API レスポンスに含まれていることを確認
+        details = data["details"]
+        assert data["version"] == "vtest456"
+        assert details["commit_hash"] == "test456"
+        assert details["branch"] == "feature-branch"
+        assert details["commit_date"] == "2025-09-07 16:45:30 +0900"
+        assert details["build_date"] == "2025-09-07T18:30:45+09:00"
+
+        # フルコミットハッシュ（GitHub リンク生成に利用）が含まれていること
+        assert details["commit_hash_full"] == "test456789012345abcdef123456789012345abc"
     
     @patch('flask_login.utils._get_user')
     def test_version_admin_page_unknown_values(self, mock_current_user, client):
@@ -134,22 +135,19 @@ class TestVersionAdminPage:
             "build_date": "2025-09-07T17:18:32+09:00"
         }
         
-        with patch("shared.kernel.version.get_version_info", return_value=mock_version_info):
-            response = client.get('/admin/version')
-        
+        with patch("presentation.web.api.version.get_version_info", return_value=mock_version_info):
+            with patch("presentation.web.api.version.get_version_string", return_value="dev"):
+                response = client.get('/api/version')
+
         assert response.status_code == 200
-        response_text = response.data.decode('utf-8')
-        
-        # 不明な値が表示されていることを確認
-        assert 'dev' in response_text
-        assert 'unknown' in response_text
-        
-        # GitHubリンクが表示されないことを確認（unknownの場合）
-        # GitHubリンクのロジックをテスト
-        github_link_count = response_text.count('github.com')
-        unknown_count = response_text.count('unknown')
-        # unknownの場合はGitHubリンクが少ないはず
-        assert github_link_count < unknown_count
+        data = json.loads(response.data)
+
+        # 不明な値が API レスポンスに反映されていることを確認
+        assert data["version"] == "dev"
+        details = data["details"]
+        assert details["commit_hash"] == "unknown"
+        assert details["branch"] == "unknown"
+        assert details["commit_hash_full"] == "unknown"
 
 
 class TestVersionPageIntegration:
@@ -176,27 +174,19 @@ class TestVersionPageIntegration:
                 if 'vtest999' in response_text:
                     assert 'Version:' in response_text or 'vtest999' in response_text
     
-    def test_version_context_processor(self, client):
-        """テンプレートコンテキストプロセッサのテスト"""
-        # app_versionがテンプレートで利用可能かテスト
-        
-        from presentation.web import create_app
-        
-        app = create_app()
-        with app.test_request_context():
-            # コンテキストプロセッサが登録されているか確認
-            with app.app_context():
-                # テンプレートレンダリング時にapp_versionが利用可能か確認
-                from flask import render_template_string
-                
-                template = "{{ app_version }}"
-                
-                # 実際のバージョン文字列が返されることを確認
-                rendered = render_template_string(template)
-                # 空でないことを確認（具体的な値はファイルに依存するため）
-                assert len(rendered.strip()) > 0
-                # 一般的なバージョン形式（vで始まるかdevか）を確認
-                assert rendered.strip().startswith('v') or rendered.strip() == 'dev'
+    def test_version_string_available_via_api(self, client):
+        """バージョン文字列が API 経由で取得できること。
+
+        以前は ``app_version`` テンプレートコンテキストプロセッサで供給していたが、
+        React SPA 移行に伴いバージョン文字列は ``GET /api/version`` から取得する。
+        """
+        response = client.get('/api/version')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        version = data["version"]
+        # 空でなく、一般的なバージョン形式（v で始まるか dev）であること
+        assert len(version.strip()) > 0
+        assert version.strip().startswith('v') or version.strip() == 'dev'
 
 
 if __name__ == "__main__":

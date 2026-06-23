@@ -276,9 +276,14 @@ class TestPasswordResetRoutes:
     """Test password reset routes."""
     
     def test_password_forgot_get(self, client):
-        """Test GET request to password forgot page."""
-        response = client.get('/auth/password/forgot')
-        assert response.status_code == 200
+        """パスワード忘れフローの API エンドポイントが利用可能であること。
+
+        フォーム画面は React SPA が描画するため、SPA が呼び出す
+        ``POST /api/auth/password/forgot`` の入力検証で代替検証する。
+        """
+        response = client.post('/api/auth/password/forgot', json={})
+        assert response.status_code == 400
+        assert response.get_json()['error'] == 'email_required'
     
     def test_password_forgot_post_valid_email(self, app_context, client):
         """Test POST request with valid email."""
@@ -321,31 +326,35 @@ class TestPasswordResetRoutes:
         assert response.status_code == 200
     
     def test_password_forgot_post_mail_disabled(self, app_context, client):
-        """Test POST request when mail is disabled."""
+        """メール機能が無効な場合、API が 503 mail_disabled を返すこと。"""
         test_user = _create_test_user()
-        
+
         # Mail is disabled by default, so don't patch it
         response = client.post(
-            '/auth/password/forgot',
-            data={'email': test_user.email},
-            follow_redirects=False  # Don't follow redirect to check error message
+            '/api/auth/password/forgot',
+            json={'email': test_user.email},
         )
-        assert response.status_code == 200
-        # Check that error message is shown
-        body = response.get_data(as_text=True)
-        assert 'Failed to send email' in body
-        assert 'Please contact the administrator' in body
+        assert response.status_code == 503
+        assert response.get_json()['error'] == 'mail_disabled'
     
     def test_password_reset_get_valid_token(self, app_context, client):
-        """Test GET request with valid token."""
+        """有効なトークンでパスワードリセット API が成功すること。
+
+        リセット画面は React SPA が描画するため、SPA が呼び出す
+        ``POST /api/auth/password/reset`` が有効トークンを受理することで検証する。
+        """
         test_user = _create_test_user()
         raw_token = PasswordResetService.generate_reset_token()
         reset_token = PasswordResetToken.create_token(test_user.email, raw_token)
         db.session.add(reset_token)
         db.session.commit()
-        
-        response = client.get(f'/auth/password/reset?token={raw_token}')
+
+        response = client.post(
+            '/api/auth/password/reset',
+            json={'token': raw_token, 'password': 'newpassword123'},
+        )
         assert response.status_code == 200
+        assert response.get_json()['reset'] is True
     
     def test_password_reset_get_invalid_token(self, client):
         """Test GET request with invalid token."""

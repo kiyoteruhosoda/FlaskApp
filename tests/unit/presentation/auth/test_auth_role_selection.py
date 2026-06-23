@@ -80,23 +80,32 @@ def _create_user_with_roles(app, email, password, role_names):
 
 
 def test_login_redirects_to_role_selection(client, app):
+    """複数ロールのユーザーはログイン時にロール選択を要求されること。
+
+    ロール選択画面は React SPA が描画するため、SPA が利用する
+    ``POST /api/auth/login`` と ``GET /api/auth/roles`` で検証する。
+    """
     email, role_ids, role_names = _create_user_with_roles(
         app, "multi@example.com", "pass", ["admin", "editor"]
     )
 
     response = client.post(
-        "/auth/login",
-        data={"email": email, "password": "pass"},
-        follow_redirects=False,
+        "/api/auth/login",
+        json={"email": email, "password": "pass"},
     )
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["requires_role_selection"] is True
+    assert urlparse(data["redirect_url"]).path == "/auth/select-role"
 
-    assert response.status_code == 302
-    assert response.headers["Location"].endswith("/auth/select-role")
-
-    selection_page = client.get("/auth/select-role")
-    assert selection_page.status_code == 200
+    # 利用可能なロール一覧が API から取得できること
+    roles_response = client.get("/api/auth/roles")
+    assert roles_response.status_code == 200
+    roles_data = roles_response.get_json()
+    returned_names = {role["name"] for role in roles_data["roles"]}
     for name in role_names:
-        assert name.encode() in selection_page.data
+        assert name in returned_names
+    assert roles_data["requires_selection"] is True
 
 
 def test_role_selection_preserves_next_parameter(client, app):
@@ -104,36 +113,24 @@ def test_role_selection_preserves_next_parameter(client, app):
         app, "preserve-next@example.com", "pass", ["admin", "editor"]
     )
 
-    login_page = client.get(
-        "/auth/login", query_string={"next": "/certs/groups/create"}
-    )
-    assert login_page.status_code == 200
-    assert b'name="next"' in login_page.data
-    assert b'value="/certs/groups/create"' in login_page.data
-
     response = client.post(
-        "/auth/login",
-        data={
-            "email": email,
-            "password": "pass",
-            "next": "/certs/groups/create",
-        },
-        follow_redirects=False,
+        "/api/auth/login",
+        json={"email": email, "password": "pass", "next": "/certs/groups/create"},
     )
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["requires_role_selection"] is True
+    parsed = urlparse(data["redirect_url"])
+    assert parsed.path == "/auth/select-role"
+    assert parse_qs(parsed.query).get("next") == ["/certs/groups/create"]
 
-    assert response.status_code == 302
-    assert response.headers["Location"].endswith("/auth/select-role")
-
+    # ロール選択後は元の next 先へ遷移する redirect_url が返ること
     selection_response = client.post(
-        "/auth/select-role",
-        data={"active_role": str(role_ids[0])},
-        follow_redirects=False,
+        "/api/auth/select-role",
+        json={"role_id": role_ids[0]},
     )
-
-    assert selection_response.status_code == 302
-    assert selection_response.headers["Location"].endswith(
-        "/certs/groups/create"
-    )
+    assert selection_response.status_code == 200
+    assert selection_response.get_json()["redirect_url"] == "/certs/groups/create"
 
 
 def test_role_selection_sets_active_role(client, app):
@@ -141,27 +138,31 @@ def test_role_selection_sets_active_role(client, app):
         app, "choose@example.com", "pass", ["admin", "editor"]
     )
 
-    client.post("/auth/login", data={"email": email, "password": "pass"})
+    login = client.post(
+        "/api/auth/login", json={"email": email, "password": "pass"}
+    )
+    assert login.status_code == 200
 
     response = client.post(
-        "/auth/select-role",
-        data={"active_role": str(role_ids[0])},
-        follow_redirects=False,
+        "/api/auth/select-role",
+        json={"role_id": role_ids[0]},
     )
-    assert response.status_code == 302
-    assert response.headers["Location"].endswith("/dashboard/")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["success"] is True
+    assert data["active_role"]["id"] == role_ids[0]
+    assert data["redirect_url"].endswith("/dashboard/")
 
     with client.session_transaction() as sess:
         assert sess["active_role_id"] == role_ids[0]
 
-    # Invalid selections should not clear the active role
+    # 無効なロール選択はアクティブロールを変更しない
     response = client.post(
-        "/auth/select-role",
-        data={"active_role": "all"},
-        follow_redirects=False,
+        "/api/auth/select-role",
+        json={"role_id": 999999},
     )
-    assert response.status_code == 200
-    assert b"Invalid role selection" in response.data
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "invalid_role"
 
     with client.session_transaction() as sess:
         assert sess["active_role_id"] == role_ids[0]

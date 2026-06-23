@@ -216,54 +216,6 @@ def app_context():
                 os.environ[key] = original_value
 
 
-SKIP_RULES = [
-    ("test_celery_logging.py", "CeleryバックエンドとRedisが必要な結合テストのためスキップ"),
-    ("tests/test_celery_", "CeleryワーカーやRedisが必要なためスキップ"),
-    ("tests/test_picker_", "Google Photos連携やCeleryワーカーが必要なためスキップ"),
-    ("tests/test_local_import", "ローカルインポート用のNASディレクトリ・バックグラウンドサービスが必要なためスキップ"),
-    ("tests/test_thumbnail_import.py", "オリジナル写真格納先へのアクセスが必要なためスキップ"),
-    ("tests/test_video_transcoding.py", "動画トランスコード用のFFmpeg等外部依存が必要なためスキップ"),
-    ("tests/test_backup_cleanup_tasks.py", "バックアップCeleryタスク用のジョブ環境が必要なためスキップ"),
-    ("tests/test_logging.py", "本番相当のログテーブルとCelery構成が必要なためスキップ"),
-    ("tests/test_api_refresh_token.py", "Google OAuth資格情報が必要なためスキップ"),
-    ("test_production_oauth.py", "本番向けOAuth設定とProxy環境が必要なためスキップ"),
-    ("tests/test_pagination_fix.py", "実サービスのDB・Pickerデータが必要なためスキップ"),
-    ("tests/test_version_admin.py", "管理画面でのバージョン情報エンドポイント依存のためスキップ"),
-    ("tests/test_photo_picker.py", "Google Photos Pickerスコープ設定が本番環境依存のためスキップ"),
-    ("tests/wiki/", "Wikiサービスのシードデータと全文検索インデックスが必要なためスキップ"),
-]
-
-# 外部依存のスキップ対象から除外するテストファイル（相対パス）
-ALWAYS_RUN = {
-    "tests/test_picker_session_service_local_import.py",
-    "tests/test_local_import_duplicate_refresh.py",
-    "tests/test_local_import.py",
-    "tests/test_local_import_ui.py",
-    "tests/test_local_import_services.py",
-    "tests/test_local_import_results.py",
-    "tests/test_local_import_queue.py",
-    "tests/test_local_import_session_service.py",
-    "tests/test_celery_app.py",
-    "tests/test_celery_context.py",
-}
-
-
-def pytest_collection_modifyitems(config, items):
-    """外部サービス依存の大規模結合テストを環境に合わせてスキップ"""
-
-    for item in items:
-        path = Path(str(item.fspath))
-        try:
-            rel_path = path.relative_to(ROOT)
-        except ValueError:
-            rel_path = path
-
-        normalized = rel_path.as_posix()
-
-        if normalized in ALWAYS_RUN:
-            continue
-
-        for pattern, reason in SKIP_RULES:
-            if pattern in normalized:
-                item.add_marker(pytest.mark.skip(reason=reason))
-                break
+# NOTE: かつて存在した ``pytest_collection_modifyitems`` によるパスベースの
+# 一括 skip（SKIP_RULES / ALWAYS_RUN）はテスト再編で全パターンが陳腐化したため
+# 撤去した。外部依存のテストは各テスト側で skipif 等により条件付き制御する。

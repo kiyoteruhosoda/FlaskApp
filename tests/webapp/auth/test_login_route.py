@@ -52,8 +52,11 @@ def test_auth_login_sets_session_cookie_and_allows_ui_access(client):
         assert session_state.get("_user_id") == expected_identifier
         assert session_state.get("_fresh") is True
 
-    profile_response = client.get("/auth/profile")
-    assert profile_response.status_code == 200
+    # UI ページは React SPA が描画するため、認証済みアクセスの確認は
+    # SPA が利用する API (/api/auth/me) が 200 を返すことで検証する。
+    me_response = client.get("/api/auth/me")
+    assert me_response.status_code == 200
+    assert me_response.get_json()["email"] == user.email
 
 
 def test_auth_login_honours_next_parameter_and_persists_session(client):
@@ -78,5 +81,6 @@ def test_auth_login_honours_next_parameter_and_persists_session(client):
         expected_identifier = f"individual:{user.id}"
         assert session_state.get("_user_id") == expected_identifier
 
-    profile_response = client.get("/auth/profile")
-    assert profile_response.status_code == 200
+    me_response = client.get("/api/auth/me")
+    assert me_response.status_code == 200
+    assert me_response.get_json()["email"] == user.email

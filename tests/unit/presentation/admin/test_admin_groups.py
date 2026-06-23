@@ -95,7 +95,17 @@ def test_group_creation_and_child_assignment(client):
 
 
 def test_group_edit_rejects_circular_hierarchy(client):
+    """循環した親子関係を持つグループ更新が拒否されること。
+
+    グループ編集 UI は React SPA が描画するため、SPA が利用する管理 API
+    ``PUT /api/admin/groups/<id>`` で検証する。
+    """
     user = _create_group_manager()
+    # グループ更新 API は user:manage 権限を要求する。
+    user_manage = Permission(code="user:manage")
+    user.roles[0].permissions.append(user_manage)
+    db.session.add(user_manage)
+    db.session.commit()
     _login(client, user)
 
     parent = Group(name="Parent")
@@ -103,21 +113,16 @@ def test_group_edit_rejects_circular_hierarchy(client):
     child.assign_parent(parent)
     db.session.add_all([parent, child])
     db.session.commit()
+    parent_id, child_id = parent.id, child.id
 
-    response = client.post(
-        f"/admin/groups/{parent.id}/edit",
-        data={
-            "name": "Parent",
-            "description": "",
-            "parent_id": str(child.id),
-            "user_ids": [],
-        },
+    response = client.put(
+        f"/api/admin/groups/{parent_id}",
+        json={"parentId": child_id},
     )
-    assert response.status_code == 200
-    html = response.data.decode("utf-8")
-    assert "circular hierarchy" in html
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "hierarchy_error"
 
     with client.application.app_context():
-        refreshed = db.session.get(Group, parent.id)
+        refreshed = db.session.get(Group, parent_id)
         assert refreshed is not None
         assert refreshed.parent_id is None

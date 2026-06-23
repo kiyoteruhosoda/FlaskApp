@@ -9,7 +9,6 @@ import {
   WikiAdminData,
   WikiPage,
   WikiCategory,
-  WikiRevision,
   WikiCreatePageInput,
   WikiUpdatePageInput,
   WikiCreateCategoryInput,

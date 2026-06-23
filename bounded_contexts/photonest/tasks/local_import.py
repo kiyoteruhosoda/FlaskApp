@@ -1313,13 +1313,3 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
 
     _cleanup_extracted_directories()
     return result
-
-
-if __name__ == "__main__":
-    # テスト実行用
-    from presentation.web import create_app
-    
-    app = create_app()
-    with app.app_context():
-        result = local_import_task()
-        print(f"処理結果: {result}")

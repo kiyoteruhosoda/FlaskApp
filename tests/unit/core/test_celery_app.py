@@ -118,14 +118,19 @@ class TestFlaskAppCreation:
     })
     def test_create_app_function(self):
         """Test Flask app creation function."""
+        import cli.src.celery.celery_app as celery_app_module
         from cli.src.celery.celery_app import create_app
-        from presentation.web.bootstrap.config import BaseApplicationSettings
 
         app = create_app()
 
         assert app is not None
-        assert app.config['SECRET_KEY'] == BaseApplicationSettings.SECRET_KEY
-        assert app.config['SQLALCHEMY_DATABASE_URI'] == BaseApplicationSettings.SQLALCHEMY_DATABASE_URI
+        # 他テストが presentation.web.bootstrap.config を importlib.reload すると
+        # BaseApplicationSettings のクラス同一性が変わり、新規 import したクラスは
+        # create_app が参照する（reload 前の）クラスと属性値が乖離しうる。
+        # create_app が実際に保持する参照を用いて決定的に検証する。
+        base_settings = celery_app_module.BaseApplicationSettings
+        assert app.config['SECRET_KEY'] == base_settings.SECRET_KEY
+        assert app.config['SQLALCHEMY_DATABASE_URI'] == base_settings.SQLALCHEMY_DATABASE_URI
     
     @patch.dict(os.environ, {
         'SECRET_KEY': 'test-secret',

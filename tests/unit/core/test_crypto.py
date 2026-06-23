@@ -3,7 +3,7 @@ import os
 
 import pytest
 
-from core import crypto
+from shared.kernel.crypto import crypto
 
 
 def _gen_key() -> str:

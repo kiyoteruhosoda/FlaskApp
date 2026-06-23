@@ -72,7 +72,7 @@ def test_enqueue_new_items_create_import_tasks(app_context, monkeypatch):
         db.session.add(selection)
         db.session.commit()
 
-        from core.tasks import picker_import as ps_module
+        from bounded_contexts.picker_import.tasks import picker_import as ps_module
 
         queued = []
 
@@ -130,7 +130,7 @@ def test_existing_pending_selection_reenqueued(app_context, monkeypatch):
         assert dup == 0
         assert [pmi.id for pmi in new_pmis] == [selection.id]
 
-        from core.tasks import picker_import as ps_module
+        from bounded_contexts.picker_import.tasks import picker_import as ps_module
 
         queued: list[tuple[int | None, int]] = []
 

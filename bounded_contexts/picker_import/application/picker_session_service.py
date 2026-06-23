@@ -33,7 +33,7 @@ from bounded_contexts.picker_import.infrastructure.picker_import_task import Pic
 from shared.infrastructure.models.log import Log
 from shared.infrastructure.google_oauth import refresh_google_token, RefreshTokenError
 from shared.infrastructure.http_logging import log_requests_and_send
-from core.tasks.local_import import build_thumbnail_task_snapshot
+from bounded_contexts.photonest.tasks.local_import import build_thumbnail_task_snapshot
 from shared.application.concurrency import (
     ConcurrencyLimitExceeded,
     create_limiter,
@@ -1488,7 +1488,7 @@ class PickerSessionService:
             )
         )
         # 正本のタスクエントリポイント。テストはこのモジュール属性を monkeypatch する。
-        from core.tasks import picker_import as picker_import_tasks
+        from bounded_contexts.picker_import.tasks import picker_import as picker_import_tasks
         for pmi in new_pmis:
             picker_import_tasks.enqueue_picker_import_item(pmi.id, ps.id)
 

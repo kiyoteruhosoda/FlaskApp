@@ -213,16 +213,44 @@ Phase 3 で判明した、picker_session 抽出とは独立の `presentation.web
 > `bounded_contexts.email_sender.email_message`（正しくは `...domain.email_message`）
 > を指す既存の壊れた import がある。本フェーズとは無関係の先在バグ。
 
-### Phase 4 — `core` 残置モジュールの最終移設（方針決定が必要）
+### Phase 4 — `core` 残置モジュールの最終移設（strict DDD 分割）
+
+方針: `core/models` ・ `core/tasks` は **bounded context ごとに分割**（横断的なものは
+shared へ）。各移設はシムパターン（移設＋旧位置に後方互換シム）で実施し、
+`core/*` シムは presentation / tests / migrations / cli の後方互換のため残置する。
+
+**4-a. `core/time.py` → `shared/kernel/time/clock.py` ✅**
+純粋な UTC 時刻ヘルパをカーネルへ集約（timezone.py と同居）。
+
+**4-b. `core/models/` を所有 context／共有へ分割 ✅**
+- context 所有: `photo_models`→photonest, `picker_session`/`picker_import_task`→picker_import,
+  `totp`→totp, `wiki/models`→wiki（各 infrastructure 層）
+- 横断的（`shared/infrastructure/models/`）: user, group, authz, passkey,
+  password_reset_token, service_account(_api_key), system_setting, log, worker_log,
+  celery_task, google_account, job_sync
+- 各モデルの db import を `shared.kernel.database.db` へ、`bounded_contexts`/`shared`
+  内の `core.models.X` 参照(65箇所)を正本パスへ更新。`shared/infrastructure/__init__`
+  を遅延化し循環 import を回避。
+- 検証: 全30テーブルが二重登録なく登録、シム＝正本の同一性、循環なし。
+
+**4-c. `core/tasks/` を所有 context／共有へ分割 ✅**
+- photonest: `local_import`, `thumbs_generate`, `transcode`, `media_post_processing`
+  → `bounded_contexts/photonest/tasks/`
+- picker_import: `picker_import`, `session_recovery` → `bounded_contexts/picker_import/tasks/`
+- 横断（maintenance）: `backup_cleanup`, `log_cleanup` → `shared/application/tasks/`
+- Celery タスク名は `cli/src/celery/tasks.py` で `name="..."` 明示のため**不変**
+  （cli は未変更）。`bounded_contexts`/`shared` 内の `core.tasks.X` 参照を正本へ更新。
+- 検証: 全タスクモジュールが循環なく import 解決、シム＝正本の同一性、
+  cli ラッパの import がシム経由で解決。
+
+**4-d. 残りの軽量モジュール（未対応）**
 
 | 対象 | 候補の移設先 | 論点 |
 |---|---|---|
-| `core/models/` | `shared/infrastructure/models/` もしくは各 context の infrastructure | 複数コンテキストで共有される ORM モデルの所有権 |
-| `core/tasks/` | `shared/` もしくは各 context（Celery タスクはコンテキスト跨ぎのオーケストレーション） | タスク起動の責務分担 |
-| `core/storage/` | `shared/kernel/storage/` もしくは `storage` bounded context | 既に `bounded_contexts/storage/` が存在 |
-| `core/utils.py` `core/time.py` `core/version.py` | `shared/kernel/` | 純粋ユーティリティはカーネルへ |
-
-このフェーズは設計判断を伴うため、着手前に方針合意を取る。
+| `core/storage/` + `storage_service` | `bounded_contexts/storage/` もしくは `shared/kernel/storage/` | 既に storage context が存在 |
+| `core/utils.py` | `shared/kernel/` | PIL 依存の雑多ユーティリティ。要分解 |
+| `core/version.py` | （据え置き推奨） | `core/version.json` 成果物と密結合のため移設価値低 |
+| `core/celery_settings.py` | `shared/kernel/` | 参照1件のみ |
 
 ---
 
@@ -241,4 +269,7 @@ Phase 3 で判明した、picker_session 抽出とは独立の `presentation.web
 - [x] Phase 2: `core.db` / `core.settings` 張り替え（本番66ファイル／同一性検証済・シム残置）
 - [x] Phase 3: `picker_session` を `picker_import` へ抽出（逆依存 #3・#4 解消／シム残置）
 - [x] Phase 3.x: 別件の逆依存解消（bounded_contexts → presentation はゼロに）
-- [ ] Phase 4: `core` 残置モジュールの最終移設
+- [x] Phase 4-a: `core/time.py` → `shared/kernel/time/clock.py`
+- [x] Phase 4-b: `core/models/` を context／shared へ strict DDD 分割（30テーブル検証済）
+- [x] Phase 4-c: `core/tasks/` を context／shared へ strict DDD 分割（Celery 名不変・検証済）
+- [ ] Phase 4-d: 残りの軽量モジュール（storage / utils / celery_settings）

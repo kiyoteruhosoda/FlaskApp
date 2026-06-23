@@ -707,7 +707,7 @@ def test_media_items_enqueue_and_skip_duplicate(monkeypatch, client, app):
     monkeypatch.setattr("requests.get", fake_get)
 
     enqueued = []
-    from core.tasks import picker_import as ps_module
+    from bounded_contexts.picker_import.tasks import picker_import as ps_module
 
     def fake_enqueue(pmi_id, sess_id):
         with app.app_context():
@@ -943,7 +943,7 @@ def test_media_items_skip_duplicate_in_response(monkeypatch, client, app):
     monkeypatch.setattr("requests.get", fake_get)
 
     enqueued = []
-    from core.tasks import picker_import as ps_module
+    from bounded_contexts.picker_import.tasks import picker_import as ps_module
 
     def fake_enqueue(pmi_id, sess_id):
         with app.app_context():

@@ -25,6 +25,18 @@ COPY . /app
 
 RUN cd frontend && npm run build
 
+# Makefile から渡されるビルド情報で version.json を生成
+ARG COMMIT_HASH=dev
+ARG COMMIT_HASH_FULL=dev
+ARG BRANCH=unknown
+ARG COMMIT_DATE=unknown
+ARG BUILD_DATE=unknown
+
+RUN if [ "$BRANCH" = "main" ]; then VERSION="v${COMMIT_HASH}"; else VERSION="v${COMMIT_HASH}-${BRANCH}"; fi && \
+    printf '{\n  "version": "%s",\n  "commit_hash": "%s",\n  "commit_hash_full": "%s",\n  "branch": "%s",\n  "commit_date": "%s",\n  "build_date": "%s"\n}\n' \
+      "$VERSION" "$COMMIT_HASH" "$COMMIT_HASH_FULL" "$BRANCH" "$COMMIT_DATE" "$BUILD_DATE" \
+    > shared/kernel/version.json
+
 RUN adduser -u 5678 --disabled-password --gecos "" appuser && chown -R appuser /app
 USER appuser
 

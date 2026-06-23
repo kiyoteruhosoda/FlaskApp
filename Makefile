@@ -50,7 +50,7 @@ build:
 	  -t $(IMAGE_NAME) . \
 	  --load; \
 	echo "=== [2/4] Show version.json (local image) ==="; \
-	JSON=$$($(DOCKER) run --rm $(IMAGE_NAME) cat /app/core/version.json); \
+	JSON=$$($(DOCKER) run --rm $(IMAGE_NAME) cat /app/shared/kernel/version.json); \
 	echo "$$JSON"; \
 	echo "=== [3/4] Export TAR artifact (docker save) ==="; \
 	$(DOCKER) save $(IMAGE_NAME) -o $(OUTPUT_TAR); \
@@ -68,7 +68,7 @@ show-tar-version:
 	-@$(DOCKER) image rm -f $(IMAGE_NAME) >/dev/null 2>&1 || true
 	@IMG=$$($(DOCKER) load -i $(OUTPUT_TAR) | awk -F': ' '/Loaded image:/ {print $$2}' | tail -n1); \
 	  echo "Loaded: $$IMG"; \
-	  $(DOCKER) run --rm $$IMG cat /app/core/version.json
+	  $(DOCKER) run --rm $$IMG cat /app/shared/kernel/version.json
 	@echo "===================================="
 
 load:

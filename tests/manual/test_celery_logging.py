@@ -23,8 +23,8 @@ def test_celery_logging():
             print(f"Error sending task: {e}")
             
         # Check if logs were written to database
-        from core.db import db
-        from core.models.log import Log
+        from shared.kernel.database.db import db
+        from shared.infrastructure.models.log import Log
         
         # Get recent celery logs
         recent_logs = Log.query.filter(

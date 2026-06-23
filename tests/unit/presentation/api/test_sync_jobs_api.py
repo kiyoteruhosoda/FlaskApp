@@ -9,8 +9,8 @@ import pytest
 
 pytestmark = pytest.mark.integration
 
-from core.db import db
-from core.models.job_sync import JobSync
+from shared.kernel.database.db import db
+from shared.infrastructure.models.job_sync import JobSync
 from presentation.web.api.routes_sync_jobs import categorize_target
 
 

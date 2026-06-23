@@ -4,9 +4,9 @@ from datetime import datetime, timezone, timedelta
 from flask import url_for
 from unittest.mock import patch, MagicMock
 
-from core.db import db
-from core.models.user import User, Role
-from core.models.password_reset_token import PasswordResetToken
+from shared.kernel.database.db import db
+from shared.infrastructure.models.user import User, Role
+from shared.infrastructure.models.password_reset_token import PasswordResetToken
 from presentation.web.services.password_reset_service import PasswordResetService
 
 
@@ -55,7 +55,7 @@ class TestPasswordResetService:
         # Also enable mail in settings
         with app_context.test_request_context():
             with patch('bounded_contexts.email.application.email_service.EmailService.send_password_reset_email') as mock_send:
-                from core.settings import settings
+                from shared.kernel.settings.settings import settings
                 with patch.object(type(settings), 'mail_enabled', property(lambda self: True)):
                     mock_send.return_value = True
                     success, error = PasswordResetService.create_reset_request(test_user.email)
@@ -77,7 +77,7 @@ class TestPasswordResetService:
         """Test creating a reset request for non-existent user returns True."""
         with app_context.test_request_context():
             with patch('bounded_contexts.email.application.email_service.EmailService.send_password_reset_email') as mock_send:
-                from core.settings import settings
+                from shared.kernel.settings.settings import settings
                 with patch.object(type(settings), 'mail_enabled', property(lambda self: True)):
                     mock_send.return_value = True
                     success, error = PasswordResetService.create_reset_request("nonexistent@example.com")
@@ -97,7 +97,7 @@ class TestPasswordResetService:
         
         with app_context.test_request_context():
             with patch('bounded_contexts.email.application.email_service.EmailService.send_password_reset_email') as mock_send:
-                from core.settings import settings
+                from shared.kernel.settings.settings import settings
                 with patch.object(type(settings), 'mail_enabled', property(lambda self: True)):
                     mock_send.return_value = True
                     success, error = PasswordResetService.create_reset_request(inactive_user.email)
@@ -285,7 +285,7 @@ class TestPasswordResetRoutes:
         test_user = _create_test_user()
         
         with patch('bounded_contexts.email.application.email_service.EmailService.send_password_reset_email') as mock_send:
-            from core.settings import settings
+            from shared.kernel.settings.settings import settings
             with patch.object(type(settings), 'mail_enabled', property(lambda self: True)):
                 mock_send.return_value = True
                 response = client.post(
@@ -299,7 +299,7 @@ class TestPasswordResetRoutes:
     def test_password_forgot_post_invalid_email(self, client):
         """Test POST request with invalid email."""
         with patch('bounded_contexts.email.application.email_service.EmailService.send_password_reset_email') as mock_send:
-            from core.settings import settings
+            from shared.kernel.settings.settings import settings
             with patch.object(type(settings), 'mail_enabled', property(lambda self: True)):
                 mock_send.return_value = True
                 response = client.post(

@@ -25,7 +25,7 @@ def app(tmp_path, monkeypatch):
     
     # Create tables
     with app.app_context():
-        from core.db import db
+        from shared.kernel.database.db import db
         db.create_all()
 
     # Celery タスクは ContextTask 経由で celery_app.flask_app のコンテキストを使う。
@@ -42,10 +42,10 @@ def app(tmp_path, monkeypatch):
 def sample_data(app):
     """Create sample data for testing."""
     with app.app_context():
-        from core.db import db
-        from core.models.picker_session import PickerSession
-        from core.models.photo_models import PickerSelection, MediaItem
-        from core.models.google_account import GoogleAccount
+        from shared.kernel.database.db import db
+        from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+        from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection, MediaItem
+        from shared.infrastructure.models.google_account import GoogleAccount
         
         # Create a Google account
         account = GoogleAccount(
@@ -102,7 +102,7 @@ class TestPickerImportWatchdog:
     
     def test_watchdog_with_real_data(self, app, sample_data):
         """Test watchdog task with real database data."""
-        from core.tasks.picker_import import picker_import_watchdog
+        from bounded_contexts.picker_import.tasks.picker_import import picker_import_watchdog
         
         with app.app_context():
             # Run the watchdog function directly
@@ -120,9 +120,9 @@ class TestPickerImportWatchdog:
     
     def test_watchdog_stale_running_selections(self, app, sample_data):
         """Test watchdog handles stale running selections."""
-        from core.tasks.picker_import import picker_import_watchdog
-        from core.models.photo_models import PickerSelection
-        from core.db import db
+        from bounded_contexts.picker_import.tasks.picker_import import picker_import_watchdog
+        from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
+        from shared.kernel.database.db import db
         from datetime import datetime, timezone, timedelta
         
         with app.app_context():
@@ -158,7 +158,7 @@ class TestPickerImportItem:
     
     def test_picker_import_item_with_invalid_selection(self, app, sample_data):
         """Test picker import item with invalid selection ID."""
-        from core.tasks.picker_import import picker_import_item
+        from bounded_contexts.picker_import.tasks.picker_import import picker_import_item
         
         with app.app_context():
             # Try to import non-existent selection
@@ -337,7 +337,7 @@ class TestCeleryConfigurationValidation:
     def test_database_initialization(self, app):
         """Test that database is properly initialized in Celery context."""
         from cli.src.celery.celery_app import flask_app
-        from core.db import db
+        from shared.kernel.database.db import db
         
         with flask_app.app_context():
             # This should not raise an error
@@ -348,7 +348,7 @@ class TestCeleryConfigurationValidation:
             db.create_all()
             
             # Test basic query (should not raise an error)
-            from core.models.photo_models import PickerSelection
+            from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
             count = PickerSelection.query.count()
             assert isinstance(count, int)
 

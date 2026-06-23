@@ -4,8 +4,8 @@ from __future__ import annotations
 from flask import jsonify, request
 
 from ..bootstrap.extensions import db
-from core.models.group import Group, GroupHierarchyError
-from core.models.user import User
+from shared.infrastructure.models.group import Group, GroupHierarchyError
+from shared.infrastructure.models.user import User
 from . import bp
 from .routes import login_or_jwt_required, get_current_user
 

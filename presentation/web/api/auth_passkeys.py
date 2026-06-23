@@ -4,10 +4,10 @@ from __future__ import annotations
 from flask import jsonify
 
 from ..bootstrap.extensions import db
-from core.models.passkey import PasskeyCredential
+from shared.infrastructure.models.passkey import PasskeyCredential
 from . import bp
 from .routes import login_or_jwt_required, get_current_user
-from core.models.user import User
+from shared.infrastructure.models.user import User
 
 
 def _orm_user(user) -> User | None:

@@ -3,9 +3,9 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from flask import jsonify, g
 
-from core.db import db
-from core.models.service_account_api_key import ServiceAccountApiKeyLog
-from core.models.user import Permission, Role, User
+from shared.kernel.database.db import db
+from shared.infrastructure.models.service_account_api_key import ServiceAccountApiKeyLog
+from shared.infrastructure.models.user import Permission, Role, User
 from bounded_contexts.certs.domain.usage import UsageType
 from bounded_contexts.certs.infrastructure.models import CertificateGroupEntity
 from presentation.web.auth.api_key_auth import require_api_key_scopes

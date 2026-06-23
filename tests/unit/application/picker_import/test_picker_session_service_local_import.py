@@ -14,16 +14,16 @@ import pytest
 from presentation.web import create_app
 from presentation.web.api.picker_session_service import PickerSessionService
 from presentation.web.api.pagination import PaginationParams
-from core.models.picker_session import PickerSession
-from core.models.google_account import GoogleAccount
-from core.models.photo_models import PickerSelection, Media, MediaItem
-from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
-from core.models.log import Log
-from core.tasks.local_import import local_import_task
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+from shared.infrastructure.models.google_account import GoogleAccount
+from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection, Media, MediaItem
+from shared.infrastructure.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
+from shared.infrastructure.models.log import Log
+from bounded_contexts.photonest.tasks.local_import import local_import_task
 from bounded_contexts.photonest.application.local_import.use_case import LocalImportUseCase
 from bounded_contexts.photonest.domain.local_import.import_result import ImportTaskResult
 from bounded_contexts.photonest.domain.local_import.session import LocalImportSessionService
-from core.db import db
+from shared.kernel.database.db import db
 
 
 @pytest.fixture
@@ -364,7 +364,7 @@ class TestPickerSessionServiceLocalImport:
 
     def test_reimport_after_deletion_creates_new_media(self, app):
         """削除済みメディアの再取り込みが新規レコードになることを確認"""
-        from core.models.photo_models import Media, PickerSelection
+        from bounded_contexts.photonest.infrastructure.photo_models import Media, PickerSelection
 
         with app.app_context():
             import_dir = Path(app.config['MEDIA_LOCAL_IMPORT_DIRECTORY'])
@@ -625,7 +625,7 @@ class TestPickerSessionServiceLocalImport:
             for i in range(3):
                 (import_dir / f'cancel_test_{i}.jpg').write_bytes(f'fake data {i}'.encode('utf-8'))
 
-            from core.tasks import local_import as local_import_module
+            import bounded_contexts.photonest.tasks.local_import as local_import_module
 
             original_import = local_import_module.import_single_file
 

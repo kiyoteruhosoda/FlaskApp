@@ -5,8 +5,8 @@ import pytest
 from PIL import Image
 from pillow_heif import register_heif_opener
 
-from core.tasks import picker_import_item
-from core.db import db
+from bounded_contexts.picker_import.tasks.picker_import import picker_import_item
+from shared.kernel.database.db import db
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.filesystem]
@@ -44,7 +44,7 @@ def picker_app(tmp_path):
     app = create_app()
     app.config.update(TESTING=True)
 
-    from core.models.google_account import GoogleAccount
+    from shared.infrastructure.models.google_account import GoogleAccount
 
     with app.app_context():
         db.create_all()
@@ -69,8 +69,8 @@ def picker_app(tmp_path):
 
 
 def _setup_item(app, *, mime="image/jpeg", filename="a.jpg", mtype="PHOTO"):
-    from core.models.photo_models import MediaItem, PickerSelection
-    from core.models.picker_session import PickerSession
+    from bounded_contexts.photonest.infrastructure.photo_models import MediaItem, PickerSelection
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
 
     with app.app_context():
         picker_session = PickerSession(account_id=1, status="pending")
@@ -93,7 +93,7 @@ def test_picker_import_heic_dimensions(monkeypatch, picker_app):
 
     import importlib
 
-    mod = importlib.import_module("core.tasks.picker_import")
+    mod = importlib.import_module("bounded_contexts.picker_import.tasks.picker_import")
 
     width, height = 48, 32
 
@@ -121,7 +121,7 @@ def test_picker_import_heic_dimensions(monkeypatch, picker_app):
     called_thumbs: list[int] = []
     called_play: list[int] = []
 
-    from core.tasks import media_post_processing as mpp
+    import bounded_contexts.photonest.tasks.media_post_processing as mpp
 
     monkeypatch.setattr(
         mpp,
@@ -137,7 +137,7 @@ def test_picker_import_heic_dimensions(monkeypatch, picker_app):
     with picker_app.app_context():
         result = picker_import_item(selection_id=pmi_id, session_id=ps_id)
 
-        from core.models.photo_models import Media, MediaItem, PickerSelection
+        from bounded_contexts.photonest.infrastructure.photo_models import Media, MediaItem, PickerSelection
 
         selection = db.session.get(PickerSelection, pmi_id)
         media = Media.query.one()

@@ -52,7 +52,7 @@ def client(app):
 
 def _create_user_with_roles(app, email, password, role_names):
     from presentation.web.bootstrap.extensions import db
-    from core.models.user import User, Role, Permission
+    from shared.infrastructure.models.user import User, Role, Permission
 
     with app.app_context():
         roles = []

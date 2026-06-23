@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from core.settings import ApplicationSettings
-from core.storage_service import (
+from shared.kernel.settings.settings import ApplicationSettings
+from bounded_contexts.storage.infrastructure.filesystem import (
     AzureBlobStorageService,
     ExternalRestStorageService,
     LocalFilesystemStorageService,

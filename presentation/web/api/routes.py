@@ -50,9 +50,9 @@ from bounded_contexts.photonest.infrastructure.album import SqlAlchemyAlbumRepos
 from .health import skip_auth
 from .openapi import json_request_body
 from ..bootstrap.extensions import db
-from core.models.google_account import GoogleAccount
-from core.models.picker_session import PickerSession
-from core.models.photo_models import (
+from shared.infrastructure.models.google_account import GoogleAccount
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+from bounded_contexts.photonest.infrastructure.photo_models import (
     Media,
     Album,
     Exif,
@@ -63,7 +63,7 @@ from core.models.photo_models import (
     album_item,
     media_tag,
 )
-from core.models.user import User, Role
+from shared.infrastructure.models.user import User, Role
 from shared.kernel.crypto.crypto import decrypt
 from ..auth.utils import refresh_google_token, RefreshTokenError, log_requests_and_send
 from ..auth.routes import _sync_active_role
@@ -93,13 +93,13 @@ import jwt
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func, select, case
 from werkzeug.utils import secure_filename
-from core.tasks.local_import import (
+from bounded_contexts.photonest.tasks.local_import import (
     SUPPORTED_EXTENSIONS,
     refresh_media_metadata_from_original,
 )
-from core.tasks.media_post_processing import enqueue_thumbs_generate
+from bounded_contexts.photonest.tasks.media_post_processing import enqueue_thumbs_generate
 from shared.kernel.time.clock import utc_now_isoformat
-from core.storage_service import StorageArea, StorageSelector, StorageService
+from bounded_contexts.storage.infrastructure.filesystem import StorageArea, StorageSelector, StorageService
 from bounded_contexts.storage import StorageDomain, StorageIntent, StorageResolution
 
 from .schemas.auth import (

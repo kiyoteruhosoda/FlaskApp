@@ -7,8 +7,8 @@ from typing import Any
 import os
 
 from shared.kernel.settings.settings import settings
-from core.models.photo_models import PickerSelection
-from core.models.picker_session import PickerSession
+from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
 from ..bootstrap.extensions import db
 from . import bp
 from .openapi import json_request_body
@@ -56,7 +56,7 @@ def trigger_local_import():
         )
 
     from cli.src.celery.tasks import local_import_task_celery
-    from core.models.picker_session import PickerSession
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
     from shared.kernel.database.db import db
     import uuid
     import random
@@ -478,7 +478,7 @@ def local_import_status():
     file_count = 0
     if import_dir_info["exists"]:
         try:
-            from core.tasks.local_import import scan_import_directory
+            from bounded_contexts.photonest.tasks.local_import import scan_import_directory
             files = scan_import_directory(import_dir_info["realpath"])
             file_count = len(files)
         except Exception as e:

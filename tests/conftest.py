@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from core.system_settings_defaults import (
+from shared.kernel.settings.system_settings_defaults import (
     DEFAULT_APPLICATION_SETTINGS,
     DEFAULT_CORS_SETTINGS,
 )
@@ -82,7 +82,7 @@ def _restore_os_environ():
         # Flask の app.logger は import 名で共有されるため、DB ログ検証テストが
         # 残した DBLogHandler が累積してログ件数検証を壊す。漏れた分を除去する。
         try:
-            from core.db_log_handler import DBLogHandler
+            from shared.kernel.logging.db_log_handler import DBLogHandler
 
             _loggers = [_logging.getLogger()]
             _loggers.extend(
@@ -123,7 +123,7 @@ def _reset_login_cache_per_request(request):
 
     if app is not None and not getattr(app, "_login_cache_reset_hook", False):
         from flask import g
-        from core.db import db as _db
+        from shared.kernel.database.db import db as _db
 
         def _clear_leaked_request_caches():  # pragma: no cover - テスト環境専用フック
             # flask_login が前リクエストでキャッシュした principal を破棄して再読込させる。

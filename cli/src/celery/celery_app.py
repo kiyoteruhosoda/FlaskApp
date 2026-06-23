@@ -10,8 +10,8 @@ from flask import Flask
 
 from shared.kernel.celery_settings import CelerySettings
 from shared.kernel.database.db import db
-from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
-from core.models.job_sync import JobSync
+from shared.infrastructure.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
+from shared.infrastructure.models.job_sync import JobSync
 from shared.kernel.logging.logging_config import log_task_info
 from presentation.web import _apply_persisted_settings
 from presentation.web.bootstrap.config import BaseApplicationSettings

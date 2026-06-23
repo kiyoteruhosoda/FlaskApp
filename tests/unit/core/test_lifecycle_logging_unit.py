@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from core.lifecycle_logging import register_lifecycle_logging
-from core.models.log import Log
+from shared.kernel.logging.lifecycle_logging import register_lifecycle_logging
+from shared.infrastructure.models.log import Log
 
 
 @pytest.fixture

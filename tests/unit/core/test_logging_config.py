@@ -5,13 +5,13 @@ import logging
 
 import pytest
 
-import core.db_log_handler
+import shared.kernel.logging.db_log_handler
 # 内部関数 (_create_*_handler 等) をモンキーパッチするため、実体のある
 # 正本モジュール (shared.kernel.logging.logging_config) を直接参照する。
-# core.logging_config は後方互換シムであり、公開 API は同一オブジェクトを再公開する。
+# shared.kernel.logging.logging_config は後方互換シムであり、公開 API は同一オブジェクトを再公開する。
 from shared.kernel.logging import logging_config
-from core.db_log_handler import DBLogHandler, WorkerDBLogHandler
-from core.logging_config import ensure_appdb_file_logging, setup_task_logging
+from shared.kernel.logging.db_log_handler import DBLogHandler, WorkerDBLogHandler
+from shared.kernel.logging.logging_config import ensure_appdb_file_logging, setup_task_logging
 
 
 @pytest.fixture

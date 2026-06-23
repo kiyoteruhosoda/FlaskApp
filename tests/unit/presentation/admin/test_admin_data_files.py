@@ -2,7 +2,7 @@ from urllib.parse import urlparse
 
 import pytest
 
-from core.models.user import User, Role, Permission
+from shared.infrastructure.models.user import User, Role, Permission
 from presentation.web.bootstrap.extensions import db
 
 

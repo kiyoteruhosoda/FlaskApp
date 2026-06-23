@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from core.tasks import thumbs_generate
-from core.tasks.thumbs_generate import PLAYBACK_NOT_READY_NOTES
+from bounded_contexts.photonest.tasks import thumbs_generate
+from bounded_contexts.photonest.tasks.thumbs_generate import PLAYBACK_NOT_READY_NOTES
 
 
 @pytest.fixture
@@ -40,7 +40,7 @@ def app(tmp_path):
     app = create_app()
     app.config.update(TESTING=True)
     from presentation.web.bootstrap.extensions import db
-    from core.models.google_account import GoogleAccount
+    from shared.infrastructure.models.google_account import GoogleAccount
 
     with app.app_context():
         db.create_all()
@@ -63,7 +63,7 @@ def app(tmp_path):
 
 def _make_media(app, *, rel_path: str, is_video: bool, width: int, height: int, **extra):
     from presentation.web.bootstrap.extensions import db
-    from core.models.photo_models import Media
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
 
     with app.app_context():
         m = Media(
@@ -186,7 +186,7 @@ def test_video_with_playback(app):
     media_id = _make_media(app, rel_path="2025/08/18/video.mp4", is_video=True, width=3000, height=2000)
 
     from presentation.web.bootstrap.extensions import db
-    from core.models.photo_models import MediaPlayback
+    from bounded_contexts.photonest.infrastructure.photo_models import MediaPlayback
     with app.app_context():
         pb = MediaPlayback(
             media_id=media_id,
@@ -242,8 +242,8 @@ def test_video_poster_low_quality_uses_frame(app, monkeypatch):
 
     from importlib import import_module
     from presentation.web.bootstrap.extensions import db
-    from core.models.photo_models import MediaPlayback
-    thumbs_mod = import_module("core.tasks.thumbs_generate")
+    from bounded_contexts.photonest.infrastructure.photo_models import MediaPlayback
+    thumbs_mod = import_module("bounded_contexts.photonest.tasks.thumbs_generate")
 
     with app.app_context():
         pb = MediaPlayback(

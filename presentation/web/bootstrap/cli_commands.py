@@ -16,7 +16,7 @@ from .extensions import db
 def register_cli_commands(app: Flask) -> None:
     """CLI コマンドを登録"""
     import click
-    from core.models.user import Role, Permission
+    from shared.infrastructure.models.user import Role, Permission
 
     @app.cli.command("version")
     def show_version():

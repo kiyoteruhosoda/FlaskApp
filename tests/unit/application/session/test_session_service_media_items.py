@@ -2,11 +2,11 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from sqlalchemy import inspect
-from core.db import db
+from shared.kernel.database.db import db
 
 
 def _create_session(db):
-    from core.models.picker_session import PickerSession
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
 
     session = PickerSession(session_id=f"session-{uuid4().hex}", status="pending")
     now = datetime.now(timezone.utc)
@@ -21,7 +21,7 @@ def test_media_item_flushed_before_selection_insert(app_context, monkeypatch):
     app = app_context
 
     from presentation.web.api.picker_session_service import PickerSessionService
-    from core.models.photo_models import MediaItem
+    from bounded_contexts.photonest.infrastructure.photo_models import MediaItem
 
     with app.app_context():
         session = _create_session(db)
@@ -62,8 +62,8 @@ def test_enqueue_new_items_create_import_tasks(app_context, monkeypatch):
     app = app_context
 
     from presentation.web.api.picker_session_service import PickerSessionService
-    from core.models.photo_models import PickerSelection
-    from core.models.picker_import_task import PickerImportTask
+    from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
+    from bounded_contexts.picker_import.infrastructure.picker_import_task import PickerImportTask
 
     with app.app_context():
         session = _create_session(db)
@@ -97,8 +97,8 @@ def test_existing_pending_selection_reenqueued(app_context, monkeypatch):
     app = app_context
 
     from presentation.web.api.picker_session_service import PickerSessionService
-    from core.models.photo_models import PickerSelection
-    from core.models.picker_import_task import PickerImportTask
+    from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
+    from bounded_contexts.picker_import.infrastructure.picker_import_task import PickerImportTask
 
     with app.app_context():
         session = _create_session(db)
@@ -152,9 +152,9 @@ def test_media_items_commit_for_duplicates_only(app_context, monkeypatch):
     app = app_context
 
     from presentation.web.api.picker_session_service import PickerSessionService
-    from core.models.google_account import GoogleAccount
-    from core.models.picker_session import PickerSession
-    from core.models.photo_models import PickerSelection
+    from shared.infrastructure.models.google_account import GoogleAccount
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+    from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
 
     with app.app_context():
         account = GoogleAccount(

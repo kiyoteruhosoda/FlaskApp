@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from unittest.mock import MagicMock
 
-from core.db import db
+from shared.kernel.database.db import db
 
 pytestmark = pytest.mark.integration
 
@@ -13,8 +13,8 @@ from bounded_contexts.photonest.application.local_import.queue import (
     LocalImportQueueProcessor,
 )
 from bounded_contexts.photonest.domain.local_import.import_result import ImportTaskResult
-from core.models.photo_models import PickerSelection
-from core.models.picker_session import PickerSession
+from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
 
 
 class _RecordingAuditRecorder:

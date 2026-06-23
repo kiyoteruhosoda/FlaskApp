@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from core.db import db
+from shared.kernel.database.db import db
 
 
 @pytest.fixture
@@ -46,8 +46,8 @@ def app(tmp_path):
     app = create_app()
     app.config.update(TESTING=True)
 
-    from core.models.user import User
-    from core.models.google_account import GoogleAccount
+    from shared.infrastructure.models.user import User
+    from shared.infrastructure.models.google_account import GoogleAccount
 
     with app.app_context():
         db.create_all()
@@ -68,7 +68,7 @@ def client(app):
 
 
 def login(client):
-    from core.models.user import User
+    from shared.infrastructure.models.user import User
 
     app = client.application
     with app.app_context():
@@ -82,7 +82,7 @@ def login(client):
 
 
 def grant_permission(app, code: str) -> int:
-    from core.models.user import User, Role, Permission
+    from shared.infrastructure.models.user import User, Role, Permission
 
     with app.app_context():
         perm = Permission.query.filter_by(code=code).first()
@@ -109,7 +109,7 @@ def grant_permission(app, code: str) -> int:
 
 
 def create_media_record(app, **overrides) -> int:
-    from core.models.photo_models import Media
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
 
     with app.app_context():
         google_media_id = overrides.get("google_media_id") or f"bulk-auto-{uuid.uuid4()}"
@@ -149,7 +149,7 @@ def make_token(payload: dict) -> str:
 
 @pytest.fixture
 def seed_media_bulk(app):
-    from core.models.photo_models import Media
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
 
     base_shot = datetime(2025, 8, 1, tzinfo=timezone.utc)
     base_imp = datetime(2025, 8, 2, tzinfo=timezone.utc)
@@ -195,8 +195,8 @@ def seed_media_bulk(app):
 
 @pytest.fixture
 def seed_media_without_shot_at(app):
-    from core.models.photo_models import Media
-    from core.models.google_account import GoogleAccount
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
+    from shared.infrastructure.models.google_account import GoogleAccount
 
     with app.app_context():
         account_id = GoogleAccount.query.first().id
@@ -224,7 +224,7 @@ def seed_media_without_shot_at(app):
 
 @pytest.fixture
 def seed_media_range(app):
-    from core.models.photo_models import Media
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
 
     with app.app_context():
         m1 = Media(
@@ -275,7 +275,7 @@ def seed_media_range(app):
 
 @pytest.fixture
 def seed_media_with_tags(app):
-    from core.models.photo_models import Media, Tag
+    from bounded_contexts.photonest.infrastructure.photo_models import Media, Tag
 
     with app.app_context():
         tag_person = Tag(name="Alice", attr="person")
@@ -347,7 +347,7 @@ def seed_media_with_tags(app):
 
 @pytest.fixture
 def seed_media_detail(app):
-    from core.models.photo_models import (
+    from bounded_contexts.photonest.infrastructure.photo_models import (
         Media,
         Exif,
         MediaSidecar,
@@ -403,7 +403,7 @@ def seed_media_detail(app):
 
 @pytest.fixture
 def seed_thumb_media(app):
-    from core.models.photo_models import Media
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
 
     rel = "2025/08/18/pic.jpg"
     with app.app_context():
@@ -439,7 +439,7 @@ def seed_thumb_media(app):
 
 @pytest.fixture
 def seed_playback_media(app):
-    from core.models.photo_models import Media, MediaPlayback
+    from bounded_contexts.photonest.infrastructure.photo_models import Media, MediaPlayback
 
     with app.app_context():
         m_ok = Media(
@@ -512,7 +512,7 @@ def seed_playback_media(app):
 
 @pytest.fixture
 def seed_deleted_media(app):
-    from core.models.photo_models import Media
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
 
     with app.app_context():
         m = Media(
@@ -704,7 +704,7 @@ def test_media_update_shot_at_invalid_input(client, app, seed_media_detail):
 
 
 def test_media_update_shot_at_success(client, app, seed_media_detail):
-    from core.models.photo_models import Media
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
 
     grant_permission(app, "media:metadata-manage")
     login(client)
@@ -728,7 +728,7 @@ def test_media_update_shot_at_success(client, app, seed_media_detail):
 
 
 def test_media_update_shot_at_clear(client, app, seed_media_detail):
-    from core.models.photo_models import Media
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
 
     grant_permission(app, "media:metadata-manage")
     login(client)
@@ -784,7 +784,7 @@ def test_unused_tags_removed_from_master(client, app, seed_media_with_tags):
     assert res.status_code == 200
 
     with app.app_context():
-        from core.models.photo_models import Tag
+        from bounded_contexts.photonest.infrastructure.photo_models import Tag
 
         assert db.session.get(Tag, place_tag_id) is None
         assert db.session.get(Tag, person_tag_id) is not None
@@ -975,7 +975,7 @@ def test_range_video(client, seed_playback_media):
 
 
 def test_playback_filename_for_mov(client, app):
-    from core.models.photo_models import Media, MediaPlayback
+    from bounded_contexts.photonest.infrastructure.photo_models import Media, MediaPlayback
 
     login(client)
 
@@ -1026,7 +1026,7 @@ def test_playback_filename_for_mov(client, app):
 
 
 def test_media_detail_playback_paths_normalized(client, app):
-    from core.models.photo_models import Media, MediaPlayback
+    from bounded_contexts.photonest.infrastructure.photo_models import Media, MediaPlayback
 
     login(client)
 
@@ -1070,7 +1070,7 @@ def test_media_detail_playback_paths_normalized(client, app):
 
 
 def test_media_detail_prefers_completed_playback(client, app):
-    from core.models.photo_models import Media, MediaPlayback
+    from bounded_contexts.photonest.infrastructure.photo_models import Media, MediaPlayback
 
     login(client)
 
@@ -1235,7 +1235,7 @@ def test_thumb_url_deleted_media(client, seed_deleted_media):
 
 
 def test_media_thumbnail_route(client, app):
-    from core.models.photo_models import Media
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
 
     with app.app_context():
         m = Media(
@@ -1270,7 +1270,7 @@ def test_media_thumbnail_route(client, app):
 
 
 def test_media_thumbnail_route_handles_heic(client, app):
-    from core.models.photo_models import Media
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
 
     with app.app_context():
         media = Media(
@@ -1304,7 +1304,7 @@ def test_media_thumbnail_route_handles_heic(client, app):
 
 
 def test_media_thumbnail_route_uses_thumbnail_rel_path(client, app):
-    from core.models.photo_models import Media
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
 
     with app.app_context():
         media = Media(
@@ -1339,7 +1339,7 @@ def test_media_thumbnail_route_uses_thumbnail_rel_path(client, app):
 
 
 def test_thumbnail_falls_back_to_default_path(client, app, monkeypatch, tmp_path):
-    from core.models.photo_models import Media
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
     from presentation.web.api import routes as api_routes
 
     with app.app_context():
@@ -1390,7 +1390,7 @@ def test_thumbnail_falls_back_to_default_path(client, app, monkeypatch, tmp_path
 
 
 def test_media_delete_requires_permission(client, app):
-    from core.models.photo_models import Media
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
 
     with app.app_context():
         media = Media(
@@ -1419,7 +1419,7 @@ def test_media_delete_requires_permission(client, app):
 
 
 def test_media_bulk_delete_requires_permission(client, app):
-    from core.models.photo_models import Media
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
 
     with app.app_context():
         media = Media(
@@ -1492,7 +1492,7 @@ def test_media_bulk_add_tags_requires_permission(client, app):
 
 
 def test_media_bulk_delete_success(client, app):
-    from core.models.photo_models import Media, Album
+    from bounded_contexts.photonest.infrastructure.photo_models import Media, Album
 
     login(client)
     grant_permission(app, "media:delete")
@@ -1562,7 +1562,7 @@ def test_media_bulk_delete_success(client, app):
 
 
 def test_media_bulk_add_tags_success(client, app):
-    from core.models.photo_models import Media, Tag
+    from bounded_contexts.photonest.infrastructure.photo_models import Media, Tag
 
     login(client)
     grant_permission(app, "media:tag-manage")
@@ -1652,7 +1652,7 @@ def test_media_bulk_add_tags_unknown_tag_returns_400(client, app):
 
 
 def test_media_bulk_remove_tags_success(client, app):
-    from core.models.photo_models import Media, Tag
+    from bounded_contexts.photonest.infrastructure.photo_models import Media, Tag
 
     login(client)
     grant_permission(app, "media:tag-manage")
@@ -1778,7 +1778,7 @@ def test_media_bulk_action_missing_media_returns_404(client, app):
 
 
 def test_media_recover_requires_permission(client, app):
-    from core.models.photo_models import Media
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
 
     rel_path = "2024/01/01/recover.jpg"
 
@@ -1813,7 +1813,7 @@ def test_media_recover_requires_permission(client, app):
 
 
 def test_media_recover_success(client, app):
-    from core.models.photo_models import Media
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
 
     rel_path = "2024/02/02/recover-success.jpg"
 
@@ -1864,7 +1864,7 @@ def test_media_recover_success(client, app):
 
 
 def test_thumbnail_missing_triggers_regeneration(client, app):
-    from core.models.photo_models import Media
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
 
     rel_path = "2024/03/03/thumb-missing.jpg"
 
@@ -1904,7 +1904,7 @@ def test_thumbnail_missing_triggers_regeneration(client, app):
 
 
 def test_media_delete_success(client, app):
-    from core.models.photo_models import Media
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
 
     with app.app_context():
         media = Media(
@@ -1943,7 +1943,7 @@ def test_media_delete_success(client, app):
 
 
 def test_media_delete_removes_media_from_albums(client, app):
-    from core.models.photo_models import Media, Album, album_item
+    from bounded_contexts.photonest.infrastructure.photo_models import Media, Album, album_item
 
     with app.app_context():
         media1 = Media(
@@ -2016,7 +2016,7 @@ def test_media_delete_removes_media_from_albums(client, app):
 
 
 def test_media_delete_clears_cover_when_album_becomes_empty(client, app):
-    from core.models.photo_models import Media, Album, album_item
+    from bounded_contexts.photonest.infrastructure.photo_models import Media, Album, album_item
 
     with app.app_context():
         media = Media(
@@ -2068,7 +2068,7 @@ def test_media_delete_clears_cover_when_album_becomes_empty(client, app):
 
 
 def test_album_list_custom_order(client, app):
-    from core.models.photo_models import Album
+    from bounded_contexts.photonest.infrastructure.photo_models import Album
 
     with app.app_context():
         a1 = Album(name="First", description=None, visibility="private", display_order=2)
@@ -2091,7 +2091,7 @@ def test_album_list_custom_order(client, app):
 
 
 def test_album_reorder_updates_display_order(client, app):
-    from core.models.photo_models import Album
+    from bounded_contexts.photonest.infrastructure.photo_models import Album
 
     with app.app_context():
         albums = [
@@ -2123,7 +2123,7 @@ def test_album_reorder_updates_display_order(client, app):
 
 
 def test_album_update_removing_all_media_clears_cover(client, app):
-    from core.models.photo_models import Media, Album, album_item
+    from bounded_contexts.photonest.infrastructure.photo_models import Media, Album, album_item
 
     with app.app_context():
         media1 = Media(
@@ -2191,7 +2191,7 @@ def test_album_update_removing_all_media_clears_cover(client, app):
 
 
 def test_album_api_handles_missing_cover_media(client, app):
-    from core.models.photo_models import Album
+    from bounded_contexts.photonest.infrastructure.photo_models import Album
 
     with app.app_context():
         album = Album(
@@ -2221,7 +2221,7 @@ def test_album_api_handles_missing_cover_media(client, app):
 
 
 def test_album_media_reorder_updates_sort_index(client, app):
-    from core.models.photo_models import Media, Album, album_item
+    from bounded_contexts.photonest.infrastructure.photo_models import Media, Album, album_item
 
     with app.app_context():
         media_items = []
@@ -2286,7 +2286,7 @@ def test_album_media_reorder_updates_sort_index(client, app):
 
 
 def _create_album_with_media(app, *, rel_path: str = "fullsize.jpg"):
-    from core.models.photo_models import Media, Album, album_item
+    from bounded_contexts.photonest.infrastructure.photo_models import Media, Album, album_item
 
     with app.app_context():
         media = Media(
@@ -2367,7 +2367,7 @@ def test_album_detail_full_size_fallback(client, app):
 
 
 def test_album_media_reorder_rejects_missing_ids(client, app):
-    from core.models.photo_models import Media, Album, album_item
+    from bounded_contexts.photonest.infrastructure.photo_models import Media, Album, album_item
 
     with app.app_context():
         media1 = Media(
@@ -2430,9 +2430,9 @@ def test_album_media_reorder_rejects_missing_ids(client, app):
     payload = response.get_json()
     assert payload["error"] == "invalid_media_order"
 def test_picker_session_service_allows_reimport_of_deleted_media(app):
-    from core.models.photo_models import Media
-    from core.models.picker_session import PickerSession
-    from core.models.google_account import GoogleAccount
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+    from shared.infrastructure.models.google_account import GoogleAccount
     from presentation.web.api.picker_session_service import PickerSessionService
 
     with app.app_context():

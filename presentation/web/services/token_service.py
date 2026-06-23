@@ -13,8 +13,8 @@ from sqlalchemy import inspect
 import jwt
 from flask import current_app
 
-from core.models.user import User
-from core.models.service_account import ServiceAccount
+from shared.infrastructure.models.user import User
+from shared.infrastructure.models.service_account import ServiceAccount
 from shared.kernel.settings.settings import settings
 from shared.application.authenticated_principal import AuthenticatedPrincipal
 from presentation.web.bootstrap.extensions import db

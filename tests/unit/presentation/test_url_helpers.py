@@ -6,7 +6,7 @@ import pytest
 from werkzeug.test import EnvironBuilder
 from werkzeug.wrappers import Request
 
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 from presentation.web.utils.url_helpers import determine_external_scheme
 
 

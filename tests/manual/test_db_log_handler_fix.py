@@ -18,7 +18,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # Core modulesをインポート
-from core.db_log_handler import DBLogHandler
+from shared.kernel.logging.db_log_handler import DBLogHandler
 
 
 def test_db_log_handler_with_event():

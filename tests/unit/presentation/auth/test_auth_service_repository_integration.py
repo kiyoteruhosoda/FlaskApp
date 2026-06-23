@@ -4,8 +4,8 @@ from sqlalchemy.orm import sessionmaker
 
 from shared.application.auth_service import AuthService
 from shared.domain.user import UserRegistrationService
-from core.db import db
-from core.models.user import Role, User as UserModel
+from shared.kernel.database.db import db
+from shared.infrastructure.models.user import Role, User as UserModel
 from shared.infrastructure.user_repository import SqlAlchemyUserRepository
 
 

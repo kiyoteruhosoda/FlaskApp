@@ -11,7 +11,7 @@ from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from jwt.algorithms import ECAlgorithm, RSAAlgorithm
 
-from core.db import db
+from shared.kernel.database.db import db
 from bounded_contexts.certs.domain.usage import UsageType
 from bounded_contexts.certs.infrastructure.models import CertificateGroupEntity
 from presentation.web.auth.service_account_auth import (

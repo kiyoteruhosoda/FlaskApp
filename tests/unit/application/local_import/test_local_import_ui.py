@@ -24,11 +24,11 @@ import presentation.web.bootstrap.config as config_module
 from presentation.web import create_app
 from presentation.web.bootstrap.extensions import db
 from presentation.web.api.picker_session import SESSION_LOG_DEFAULT_LIMIT
-from core.models.picker_session import PickerSession
-from core.models.photo_models import PickerSelection
-from core.models.log import Log
-from core.models.worker_log import WorkerLog
-from core.tasks import local_import as local_import_module
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
+from shared.infrastructure.models.log import Log
+from shared.infrastructure.models.worker_log import WorkerLog
+import bounded_contexts.photonest.tasks.local_import as local_import_module
 
 
 @pytest.fixture
@@ -93,7 +93,7 @@ class AuthenticatedClientMixin:
     def _login(client):
         from flask import session as flask_session
         from flask_login import login_user
-        from core.models.user import User
+        from shared.infrastructure.models.user import User
         from presentation.web.bootstrap.extensions import db
         from presentation.web.services.token_service import TokenService
 

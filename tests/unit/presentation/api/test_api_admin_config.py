@@ -5,8 +5,8 @@ import uuid
 
 import pytest
 
-from core.db import db
-from core.models.user import Permission, Role, User
+from shared.kernel.database.db import db
+from shared.infrastructure.models.user import Permission, Role, User
 from presentation.web.services.system_setting_service import SystemSettingService
 
 

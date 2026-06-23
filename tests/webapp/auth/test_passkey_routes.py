@@ -4,10 +4,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from core.db import db
-from core.settings import settings
-from core.models.passkey import PasskeyCredential
-from core.models.user import Permission, Role, User
+from shared.kernel.database.db import db
+from shared.kernel.settings.settings import settings
+from shared.infrastructure.models.passkey import PasskeyCredential
+from shared.infrastructure.models.user import Permission, Role, User
 from shared.application.passkey_service import PasskeyRegistrationError
 from presentation.web.auth.routes import (
     PASSKEY_AUTH_CHALLENGE_KEY,

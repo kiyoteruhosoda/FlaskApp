@@ -1,8 +1,8 @@
 """Tests for the SQLAlchemy passkey repository implementation."""
 from __future__ import annotations
 
-from core.db import db
-from core.models.user import User
+from shared.kernel.database.db import db
+from shared.infrastructure.models.user import User
 from shared.infrastructure.passkey_repository import SqlAlchemyPasskeyRepository
 
 

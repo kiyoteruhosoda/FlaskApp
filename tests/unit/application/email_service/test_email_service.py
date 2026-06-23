@@ -26,7 +26,7 @@ class MockEmailSender(IEmailSender):
 class TestEmailService:
     """Test EmailService."""
 
-    @patch('core.settings.settings')
+    @patch('shared.kernel.settings.settings.settings')
     def test_send_email_success(self, mock_settings):
         """Test sending email successfully."""
         mock_settings.mail_enabled = True
@@ -47,7 +47,7 @@ class TestEmailService:
         assert message.subject == "Test Subject"
         assert message.body == "Test Body"
 
-    @patch('core.settings.settings')
+    @patch('shared.kernel.settings.settings.settings')
     def test_send_email_with_html(self, mock_settings):
         """Test sending email with HTML body."""
         mock_settings.mail_enabled = True
@@ -65,7 +65,7 @@ class TestEmailService:
         message = mock_sender.sent_messages[0]
         assert message.html_body == "<p>Test HTML</p>"
 
-    @patch('core.settings.settings')
+    @patch('shared.kernel.settings.settings.settings')
     def test_send_email_with_multiple_recipients(self, mock_settings):
         """Test sending email to multiple recipients."""
         mock_settings.mail_enabled = True
@@ -82,7 +82,7 @@ class TestEmailService:
         message = mock_sender.sent_messages[0]
         assert len(message.to) == 2
 
-    @patch('core.settings.settings')
+    @patch('shared.kernel.settings.settings.settings')
     def test_send_email_with_cc_and_bcc(self, mock_settings):
         """Test sending email with CC and BCC."""
         mock_settings.mail_enabled = True
@@ -104,7 +104,7 @@ class TestEmailService:
 
     def test_send_email_failure(self):
         """Test handling email send failure."""
-        with patch('core.settings.settings') as mock_settings:
+        with patch('shared.kernel.settings.settings.settings') as mock_settings:
             mock_settings.mail_enabled = True
             mock_sender = MockEmailSender()
             mock_sender.should_succeed = False
@@ -119,7 +119,7 @@ class TestEmailService:
             # Service should catch exception and return False
             assert result is False
 
-    @patch('core.settings.settings')
+    @patch('shared.kernel.settings.settings.settings')
     def test_send_password_reset_email(self, mock_settings):
         """Test sending password reset email."""
         mock_settings.mail_enabled = True
@@ -152,7 +152,7 @@ class TestEmailService:
 
     def test_send_email_with_invalid_data(self):
         """Test sending email with invalid data."""
-        with patch('core.settings.settings') as mock_settings:
+        with patch('shared.kernel.settings.settings.settings') as mock_settings:
             mock_settings.mail_enabled = True
             mock_sender = MockEmailSender()
             service = EmailService(sender=mock_sender)

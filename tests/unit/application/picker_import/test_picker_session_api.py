@@ -5,8 +5,8 @@ import uuid
 
 import pytest
 
-from core.crypto import encrypt
-from core.db import db
+from shared.kernel.crypto.crypto import encrypt
+from shared.kernel.database.db import db
 
 
 @pytest.fixture
@@ -27,8 +27,8 @@ def app(tmp_path):
     # 設定シングルトンは import 時に環境変数をスナップショットするため、
     # フィクスチャで後から設定した ENCRYPTION_KEY を app.config 経由で確実に渡す。
     app.config["ENCRYPTION_KEY"] = key
-    from core.models.user import User
-    from core.models.google_account import GoogleAccount
+    from shared.infrastructure.models.user import User
+    from shared.infrastructure.models.google_account import GoogleAccount
     with app.app_context():
         db.create_all()
         if not User.query.filter_by(email="u@example.com").first():
@@ -65,7 +65,7 @@ class FakeResp:
 
 
 def login(client, app):
-    from core.models.user import User
+    from shared.infrastructure.models.user import User
     with app.app_context():
         user = User.query.first()
     client.post(
@@ -104,7 +104,7 @@ def test_create_ok(monkeypatch, client, app):
     assert "pollInterval" in data["pollingConfig"]
     with client.session_transaction() as sess:
         assert sess["picker_session_id"] == data["pickerSessionId"]
-    from core.models.picker_session import PickerSession
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
     with app.app_context():
         ps = db.session.get(PickerSession, data["pickerSessionId"])
         assert ps.expire_time is not None
@@ -224,7 +224,7 @@ def test_import_enqueue_ok(monkeypatch, client, app):
     data = res.get_json()
     assert data["enqueued"] is True
     assert data["celeryTaskId"]
-    from core.models.picker_session import PickerSession
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
     with app.app_context():
         ps = PickerSession.query.filter_by(session_id=session_id).first()
         assert ps.status == "importing"
@@ -302,7 +302,7 @@ def test_import_by_session_id_ok(monkeypatch, client, app):
     assert res.status_code == 202
     data = res.get_json()
     assert data["enqueued"] is True
-    from core.models.picker_session import PickerSession
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
     with app.app_context():
         ps = PickerSession.query.filter_by(session_id=session_str).first()
         assert ps.status == "importing"
@@ -349,7 +349,7 @@ def test_callback_stores_ids(monkeypatch, client, app):
     data = res.get_json()
     assert data["count"] == 2
 
-    from core.models.picker_session import PickerSession
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
     with app.app_context():
         ps = db.session.get(PickerSession, ps_id)
         assert ps.status == "ready"
@@ -397,7 +397,7 @@ def test_media_items_endpoint(monkeypatch, client, app):
     res = client.post("/api/picker/session", json={"account_id": 1})
     session_name = res.get_json()["sessionId"]
     cursor = "c1"
-    from core.models.picker_session import PickerSession
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
     with app.app_context():
         ps = PickerSession.query.filter_by(session_id=session_name).first()
         ps.status = "processing"
@@ -464,8 +464,8 @@ def test_media_items_endpoint(monkeypatch, client, app):
     assert data["duplicates"] == 0
     assert data["nextCursor"] is None
 
-    from core.models.photo_models import MediaItem, PickerSelection
-    from core.models.picker_session import PickerSession
+    from bounded_contexts.photonest.infrastructure.photo_models import MediaItem, PickerSelection
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
     with app.app_context():
         mi1 = db.session.get(MediaItem, "m1")
         mi2 = db.session.get(MediaItem, "m2")
@@ -517,7 +517,7 @@ def test_media_items_retry_on_429(monkeypatch, client, app):
 
     res = client.post("/api/picker/session", json={"account_id": 1})
     session_name = res.get_json()["sessionId"]
-    from core.models.picker_session import PickerSession
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
     with app.app_context():
         ps = PickerSession.query.filter_by(session_id=session_name).first()
         ps.status = "processing"
@@ -666,8 +666,8 @@ def test_media_items_enqueue_and_skip_duplicate(monkeypatch, client, app):
     res = client.post("/api/picker/session", json={"account_id": 1})
     session_name = res.get_json()["sessionId"]
 
-    from core.models.picker_session import PickerSession
-    from core.models.photo_models import Media
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+    from bounded_contexts.photonest.infrastructure.photo_models import Media
     with app.app_context():
         ps = PickerSession.query.filter_by(session_id=session_name).first()
         ps.status = "processing"
@@ -711,7 +711,7 @@ def test_media_items_enqueue_and_skip_duplicate(monkeypatch, client, app):
 
     def fake_enqueue(pmi_id, sess_id):
         with app.app_context():
-            from core.models.photo_models import PickerSelection
+            from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
             pmi = db.session.get(PickerSelection, pmi_id)
             assert pmi.status == "enqueued"
             assert pmi.enqueued_at is not None
@@ -728,7 +728,7 @@ def test_media_items_enqueue_and_skip_duplicate(monkeypatch, client, app):
     assert data["saved"] == 1
     assert data["duplicates"] == 1
 
-    from core.models.photo_models import PickerSelection
+    from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
     with app.app_context():
         ps = PickerSession.query.filter_by(session_id=session_name).first()
         pmi = PickerSelection.query.filter_by(
@@ -745,9 +745,9 @@ def test_sessions_list_reports_duplicate_only_as_imported(client, app):
     """API list endpoint should surface duplicate-only sessions as imported with counts."""
     login(client, app)
 
-    from core.models.picker_session import PickerSession
-    from core.models.photo_models import PickerSelection
-    from core.models.google_account import GoogleAccount
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+    from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
+    from shared.infrastructure.models.google_account import GoogleAccount
 
     with app.app_context():
         account = GoogleAccount.query.first()
@@ -789,9 +789,9 @@ def test_session_summary_api(monkeypatch, client, app):
     res = client.post("/api/picker/session", json={"account_id": 1})
     ps_id = res.get_json()["pickerSessionId"]
 
-    from core.models.picker_session import PickerSession
-    from core.models.photo_models import PickerSelection
-    from core.models.job_sync import JobSync
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+    from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
+    from shared.infrastructure.models.job_sync import JobSync
     with app.app_context():
         ps = db.session.get(PickerSession, ps_id)
         db.session.add(PickerSelection(session_id=ps.id, google_media_id="m1", status="imported"))
@@ -844,9 +844,9 @@ def test_finish_updates_counts_and_job(monkeypatch, client, app):
     res = client.post("/api/picker/session", json={"account_id": 1})
     ps_id = res.get_json()["pickerSessionId"]
 
-    from core.models.picker_session import PickerSession
-    from core.models.photo_models import PickerSelection
-    from core.models.job_sync import JobSync
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+    from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
+    from shared.infrastructure.models.job_sync import JobSync
 
     with app.app_context():
         ps = db.session.get(PickerSession, ps_id)
@@ -904,7 +904,7 @@ def test_media_items_skip_duplicate_in_response(monkeypatch, client, app):
     res = client.post("/api/picker/session", json={"account_id": 1})
     session_name = res.get_json()["sessionId"]
 
-    from core.models.picker_session import PickerSession
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
     with app.app_context():
         ps = PickerSession.query.filter_by(session_id=session_name).first()
         ps.status = "processing"
@@ -947,7 +947,7 @@ def test_media_items_skip_duplicate_in_response(monkeypatch, client, app):
 
     def fake_enqueue(pmi_id, sess_id):
         with app.app_context():
-            from core.models.photo_models import PickerSelection
+            from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
             pmi = db.session.get(PickerSelection, pmi_id)
             assert pmi.status == "enqueued"
         enqueued.append((pmi_id, sess_id))
@@ -964,7 +964,7 @@ def test_media_items_skip_duplicate_in_response(monkeypatch, client, app):
     # 同一レスポンス内の同一メディアはべき等処理で1件として扱われ、重複計上はしない
     assert data["duplicates"] == 0
 
-    from core.models.photo_models import PickerSelection
+    from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
     with app.app_context():
         ps = PickerSession.query.filter_by(session_id=session_name).first()
         assert PickerSelection.query.filter_by(session_id=ps.id).count() == 1

@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterable
 from flask_babel import gettext as _
 
 from shared.kernel.database.db import db
-from core.models.system_setting import SystemSetting
+from shared.infrastructure.models.system_setting import SystemSetting
 from shared.kernel.settings.system_settings_defaults import (
     DEFAULT_APPLICATION_SETTINGS,
     DEFAULT_CORS_SETTINGS,

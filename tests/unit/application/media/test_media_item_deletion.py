@@ -1,7 +1,7 @@
 """MediaItem削除時のPhotoMetadataの削除をテスト"""
 
-from core.models.photo_models import MediaItem, PhotoMetadata
-from core.db import db
+from bounded_contexts.photonest.infrastructure.photo_models import MediaItem, PhotoMetadata
+from shared.kernel.database.db import db
 
 
 def test_photo_metadata_deleted_with_media_item(app_context):

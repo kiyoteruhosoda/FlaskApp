@@ -83,7 +83,7 @@ class TestCeleryAppConfiguration:
 
         app = celery_app.create_app()
 
-        from core.settings import settings as application_settings
+        from shared.kernel.settings.settings import settings as application_settings
 
         with app.app_context():
             assert app.config["CELERY_BROKER_URL"] == persisted_payload["CELERY_BROKER_URL"]
@@ -140,7 +140,7 @@ class TestFlaskAppCreation:
 
         # Test that database is initialized
         with app.app_context():
-            from core.db import db
+            from shared.kernel.database.db import db
             engine = db.engine
             assert engine is not None
     
@@ -202,7 +202,7 @@ class TestContextTask:
         # Create a test task that accesses the database
         class TestDatabaseTask(ContextTask):
             def run(self):
-                from core.db import db
+                from shared.kernel.database.db import db
                 from flask import current_app
                 # This should not raise RuntimeError
                 with current_app.app_context():
@@ -337,9 +337,9 @@ class TestCeleryModuleImports:
     def test_core_models_import(self):
         """Test that core models can be imported in Celery context."""
         try:
-            from core.models.photo_models import PickerSelection, Media
-            from core.models.picker_session import PickerSession
-            from core.models.google_account import GoogleAccount
+            from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection, Media
+            from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+            from shared.infrastructure.models.google_account import GoogleAccount
             assert True  # If we get here, imports succeeded
         except ImportError as e:
             pytest.fail(f"Failed to import core models: {e}")
@@ -347,7 +347,7 @@ class TestCeleryModuleImports:
     def test_core_tasks_import(self):
         """Test that core tasks can be imported in Celery context."""
         try:
-            from core.tasks.picker_import import picker_import_watchdog, picker_import_item
+            from bounded_contexts.picker_import.tasks.picker_import import picker_import_watchdog, picker_import_item
             assert True  # If we get here, imports succeeded
         except ImportError as e:
             pytest.fail(f"Failed to import core tasks: {e}")

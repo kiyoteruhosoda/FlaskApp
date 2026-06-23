@@ -11,8 +11,8 @@ sys.path.insert(0, os.path.abspath('.'))
 
 from presentation.web.api.picker_session_service import PickerSessionService
 from presentation.web.api.pagination import PaginationParams
-from core.models.picker_session import PickerSession
-from core.models.photo_models import PickerSelection
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
 
 def test_pagination_fix(app_context):
     """ページネーション修正をテスト（'id' 属性エラーが再発せず、辞書を返すこと）。"""

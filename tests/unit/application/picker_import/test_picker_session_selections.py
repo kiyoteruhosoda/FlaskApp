@@ -30,8 +30,8 @@ def app(tmp_path):
     app = create_app()
     app.config.update(TESTING=True)
     from presentation.web.bootstrap.extensions import db
-    from core.models.google_account import GoogleAccount
-    from core.models.user import User
+    from shared.infrastructure.models.google_account import GoogleAccount
+    from shared.infrastructure.models.user import User
     with app.app_context():
         db.create_all()
         acc = GoogleAccount(email="acc@example.com", scopes="", oauth_token_json="{}")
@@ -52,8 +52,8 @@ def app(tmp_path):
 def _create_selection(app):
     import uuid
     from presentation.web.bootstrap.extensions import db
-    from core.models.photo_models import MediaItem, PickerSelection
-    from core.models.picker_session import PickerSession
+    from bounded_contexts.photonest.infrastructure.photo_models import MediaItem, PickerSelection
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
     with app.app_context():
         # 数値IDによる参照はセキュリティ上廃止されたため、session_id を割り当てる
         sess_id = f"picker_sessions/{uuid.uuid4().hex}"
@@ -71,7 +71,7 @@ def _create_selection(app):
 def _login_client(client):
     from flask import session as flask_session
     from flask_login import login_user
-    from core.models.user import User
+    from shared.infrastructure.models.user import User
     from presentation.web.services.token_service import TokenService
 
     with client.application.test_request_context():
@@ -101,8 +101,8 @@ def test_picker_session_selections_endpoint(app):
 def test_picker_session_selections_by_session_id_endpoint(app):
     import uuid
     from presentation.web.bootstrap.extensions import db
-    from core.models.photo_models import MediaItem, PickerSelection
-    from core.models.picker_session import PickerSession
+    from bounded_contexts.photonest.infrastructure.photo_models import MediaItem, PickerSelection
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
 
     with app.app_context():
         sess_id = f"picker_sessions/{uuid.uuid4().hex}"

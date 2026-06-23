@@ -16,7 +16,7 @@ def app(tmp_path_factory):
     app = create_app()
     app.config.update(TESTING=True)
     from presentation.web.bootstrap.extensions import db
-    from core.models.user import User
+    from shared.infrastructure.models.user import User
     with app.app_context():
         db.create_all()
         # ユニークなメールアドレスを使用
@@ -74,7 +74,7 @@ def test_refresh_inactive_user(client, app):
     _, refresh = login(client, app)
 
     from presentation.web.bootstrap.extensions import db
-    from core.models.user import User
+    from shared.infrastructure.models.user import User
 
     with app.app_context():
         user = User.query.filter_by(email=app.test_user_email).first()

@@ -8,12 +8,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from core.db import db
-from core.models.photo_models import Media, MediaItem, MediaPlayback, VideoMetadata
-from core.tasks import local_import as local_import_module
-from core.tasks import media_post_processing
-from core.tasks.local_import import import_single_file
-from core.tasks.thumbs_generate import PLAYBACK_NOT_READY_NOTES
+from shared.kernel.database.db import db
+from bounded_contexts.photonest.infrastructure.photo_models import Media, MediaItem, MediaPlayback, VideoMetadata
+import bounded_contexts.photonest.tasks.local_import as local_import_module
+from bounded_contexts.photonest.tasks import media_post_processing
+from bounded_contexts.photonest.tasks.local_import import import_single_file
+from bounded_contexts.photonest.tasks.thumbs_generate import PLAYBACK_NOT_READY_NOTES
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.filesystem]

@@ -14,11 +14,11 @@ from flask import (
 from flask_login import login_required
 from sqlalchemy import func, or_
 from ..bootstrap.extensions import db
-from core.models.google_account import GoogleAccount
-from core.models.picker_session import PickerSession
-from core.models.job_sync import JobSync
-from core.models.photo_models import PickerSelection
-from core.models.worker_log import WorkerLog
+from shared.infrastructure.models.google_account import GoogleAccount
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+from shared.infrastructure.models.job_sync import JobSync
+from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
+from shared.infrastructure.models.worker_log import WorkerLog
 from bounded_contexts.picker_import.application.picker_session_service import (
     PickerSessionService,
     SESSION_LOG_DEFAULT_LIMIT,
@@ -27,7 +27,7 @@ from bounded_contexts.picker_import.application.picker_session_service import (
     _release_lock as _release_media_items_lock,
     time,
 )
-from core.tasks.picker_import import enqueue_picker_import_item  # re-export for tests
+from bounded_contexts.picker_import.tasks.picker_import import enqueue_picker_import_item  # re-export for tests
 from shared.application.pagination import PaginationParams, paginate_and_respond
 from .routes import login_or_jwt_required  # JWT認証対応のデコレータをインポート
 from shared.application.concurrency import create_limiter, limit_concurrency

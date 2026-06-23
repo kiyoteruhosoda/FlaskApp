@@ -2,8 +2,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from core.db import db
-from core.models import CeleryTaskRecord, CeleryTaskStatus
+from shared.kernel.database.db import db
+from shared.infrastructure.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 
 from cli.src.celery.inspect_tasks import (
     PENDING_STATUSES,

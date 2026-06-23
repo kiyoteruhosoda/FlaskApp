@@ -5,9 +5,9 @@ import uuid
 
 import pytest
 
-from core.db import db
-from core.models.user import Permission, Role, User
-from core.models.group import Group
+from shared.kernel.database.db import db
+from shared.infrastructure.models.user import Permission, Role, User
+from shared.infrastructure.models.group import Group
 
 
 # ---------------------------------------------------------------------------

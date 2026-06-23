@@ -1,4 +1,4 @@
-from core.db import db
+from shared.kernel.database.db import db
 #!/usr/bin/env python3
 """ffprobeを使った動画メタデータ取得のテスト"""
 
@@ -8,8 +8,8 @@ import subprocess
 from pathlib import Path
 
 from presentation.web import create_app
-from core.tasks.local_import import import_single_file, extract_video_metadata
-from core.models.photo_models import Media, MediaItem, VideoMetadata
+from bounded_contexts.photonest.tasks.local_import import import_single_file, extract_video_metadata
+from bounded_contexts.photonest.infrastructure.photo_models import Media, MediaItem, VideoMetadata
 
 
 def create_real_test_video(path: Path) -> bool:

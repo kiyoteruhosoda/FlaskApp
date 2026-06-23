@@ -1,7 +1,7 @@
 import pytest
 
 from presentation.web.bootstrap.extensions import db
-from core.models.group import Group, GroupHierarchyError
+from shared.infrastructure.models.group import Group, GroupHierarchyError
 
 
 @pytest.fixture

@@ -6,11 +6,11 @@ import os
 from datetime import datetime, timezone
 
 from presentation.web import create_app
-from core.db import db
+from shared.kernel.database.db import db
 from presentation.web.api.pagination import PaginationParams
 from presentation.web.api.picker_session_service import PickerSessionService
-from core.models.picker_session import PickerSession
-from core.models.photo_models import Media, MediaItem, PickerSelection
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+from bounded_contexts.photonest.infrastructure.photo_models import Media, MediaItem, PickerSelection
 
 
 def _restore_env(key: str, original_value: str | None) -> None:

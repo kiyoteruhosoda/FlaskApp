@@ -56,7 +56,7 @@ def client(app):
 
 def test_api_login_requires_totp(client, app):
     from presentation.web.bootstrap.extensions import db
-    from core.models.user import User
+    from shared.infrastructure.models.user import User
 
     with app.app_context():
         secret = pyotp.random_base32()
@@ -90,7 +90,7 @@ def test_api_login_requires_totp(client, app):
 
 def test_api_login_accepts_string_scope(client, app):
     from presentation.web.bootstrap.extensions import db
-    from core.models.user import Permission, Role, User
+    from shared.infrastructure.models.user import Permission, Role, User
 
     with app.app_context():
         gui_permission = Permission(code="gui:view")

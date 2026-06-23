@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import Generic, Protocol, TypeVar, runtime_checkable
 
-from core.db import db
+from shared.kernel.database.db import db
 
 
 T = TypeVar("T")

@@ -15,20 +15,20 @@ from typing import Dict, Iterable, List, Optional, Tuple, TYPE_CHECKING
 import contextlib
 import shutil
 
-from core.db import db
+from shared.kernel.database.db import db
 from shared.kernel.utils import open_image_compat, register_heif_support
 
 register_heif_support()
 
 from PIL import Image, ImageOps
 
-from core.models.photo_models import Media, MediaPlayback
-from core.logging_config import structured_task_logger
-from core.settings import settings
+from bounded_contexts.photonest.infrastructure.photo_models import Media, MediaPlayback
+from shared.kernel.logging.logging_config import structured_task_logger
+from shared.kernel.settings.settings import settings
 from bounded_contexts.storage import StorageDomain
 
 if TYPE_CHECKING:  # pragma: no cover
-    from core.logging_config import StructuredTaskLogger
+    from shared.kernel.logging.logging_config import StructuredTaskLogger
 
 
 _task_logger = structured_task_logger(__name__, task="thumbnail_generation")

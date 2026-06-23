@@ -26,10 +26,10 @@ import shutil
 import subprocess
 from typing import Any, Dict, List, Optional, cast
 
-from core.db import db
-from core.models.photo_models import Media, MediaPlayback
-from core.logging_config import setup_task_logging
-from core.settings import ApplicationSettings, settings
+from shared.kernel.database.db import db
+from bounded_contexts.photonest.infrastructure.photo_models import Media, MediaPlayback
+from shared.kernel.logging.logging_config import setup_task_logging
+from shared.kernel.settings.settings import ApplicationSettings, settings
 from bounded_contexts.storage import StorageDomain
 from .thumbs_generate import thumbs_generate
 

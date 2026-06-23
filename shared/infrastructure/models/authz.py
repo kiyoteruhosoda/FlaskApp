@@ -3,7 +3,7 @@ from functools import wraps
 from flask import abort
 from flask_login import current_user, login_required
 
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 
 def require_perms(*perm_codes):
     def deco(fn):

@@ -9,9 +9,9 @@
 
 import json
 from datetime import datetime, timedelta, timezone
-from core.models.picker_session import PickerSession
-from core.db import db
-from core.logging_config import setup_task_logging, log_task_error, log_task_info
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+from shared.kernel.database.db import db
+from shared.kernel.logging.logging_config import setup_task_logging, log_task_error, log_task_info
 import logging
 
 logger = setup_task_logging(__name__)

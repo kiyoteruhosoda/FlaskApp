@@ -1,31 +1,24 @@
-"""ストレージアクセスを統制するサービス群.
+"""後方互換シム: 実体は
+:mod:`bounded_contexts.storage.infrastructure.filesystem` へ移動した。
 
-抽象（contract）と具象実装（local / backends）を分離して提供する。利用側は
-本パッケージから ``StorageService`` 抽象や各実装をインポートする。
+パス解決ストレージサービス（``StorageService`` / ``StorageArea`` /
+``LocalFilesystemStorageService`` 等）は storage bounded context の
+infrastructure 層に属する。既存の ``from core.storage import ...`` を壊さない
+よう再公開する。新規コードは context 側を直接 import すること。
 """
 
-from __future__ import annotations
+from bounded_contexts.storage.infrastructure.filesystem import *  # noqa: F401,F403
 
-from .contract import (
-    PathPart,
-    ResolvedPath,
-    StorageArea,
-    StorageSelector,
-    StorageService,
-)
-from .local import LocalFilesystemStorageService
-from .backends import (
-    AzureBlobStorageService,
-    ExternalRestStorageService,
-)
 
-__all__ = [
-    "PathPart",
-    "StorageSelector",
-    "ResolvedPath",
-    "StorageArea",
-    "StorageService",
-    "LocalFilesystemStorageService",
-    "AzureBlobStorageService",
-    "ExternalRestStorageService",
-]
+def __getattr__(name):  # PEP 562: __all__ 外の名前も遅延委譲する
+    import importlib
+
+    module = importlib.import_module(
+        "bounded_contexts.storage.infrastructure.filesystem"
+    )
+    try:
+        return getattr(module, name)
+    except AttributeError as exc:  # pragma: no cover
+        raise AttributeError(
+            f"module {__name__!r} has no attribute {name!r}"
+        ) from exc

@@ -44,24 +44,24 @@ from sqlalchemy import update
 
 from bounded_contexts.picker_import.application.queue_service import PickerQueueService
 from bounded_contexts.picker_import.application.watchdog_service import PickerImportWatchdog
-from core.crypto import decrypt
-from core.db import db
-from core.models.google_account import GoogleAccount
-from core.models.picker_session import PickerSession
-from core.models.photo_models import (
+from shared.kernel.crypto.crypto import decrypt
+from shared.kernel.database.db import db
+from shared.infrastructure.models.google_account import GoogleAccount
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+from bounded_contexts.photonest.infrastructure.photo_models import (
     Exif,
     Media,
     MediaItem,
     MediaPlayback,
     PickerSelection,
 )
-from core.models.celery_task import CeleryTaskStatus
-from core.logging_config import setup_task_logging, log_task_error, log_task_info
+from shared.infrastructure.models.celery_task import CeleryTaskStatus
+from shared.kernel.logging.logging_config import setup_task_logging, log_task_error, log_task_info
 from bounded_contexts.photonest.application.local_import.logger import (
     ImportLogEmitter,
     LocalImportTaskLogger,
 )
-from core.settings import ApplicationSettings, settings
+from shared.kernel.settings.settings import ApplicationSettings, settings
 from bounded_contexts.photonest.tasks import media_post_processing
 from bounded_contexts.photonest.tasks.media_post_processing import process_media_post_import
 from flask import Flask, current_app

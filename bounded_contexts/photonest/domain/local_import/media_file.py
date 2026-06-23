@@ -27,7 +27,7 @@ from .policies import (
 )
 
 if TYPE_CHECKING:
-    from core.storage_service import StorageService
+    from bounded_contexts.storage.infrastructure.filesystem import StorageService
 
 
 @dataclass(frozen=True)

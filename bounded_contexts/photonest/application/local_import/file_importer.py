@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Protocol
 
 from bounded_contexts.photonest.infrastructure.photo_models import Media, MediaPlayback, Tag
-from core.storage_service import StorageService
+from bounded_contexts.storage.infrastructure.filesystem import StorageService
 from bounded_contexts.photonest.domain.local_import.entities import ImportFile, ImportOutcome
 from bounded_contexts.photonest.domain.local_import.logging import existing_media_destination_context, file_log_context
 from bounded_contexts.photonest.domain.local_import.media_entities import (

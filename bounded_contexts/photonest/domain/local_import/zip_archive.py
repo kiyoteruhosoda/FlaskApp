@@ -9,7 +9,7 @@ import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Callable, Dict, Iterable, List, Optional, Set
 
-from core.storage_service import StorageService
+from bounded_contexts.storage.infrastructure.filesystem import StorageService
 from bounded_contexts.storage import StorageDomain
 
 class ZipExtractionError(Exception):

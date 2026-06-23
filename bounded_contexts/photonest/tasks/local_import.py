@@ -7,16 +7,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
 
-from core.db import db
-from core.models.photo_models import (
+from shared.kernel.database.db import db
+from bounded_contexts.photonest.infrastructure.photo_models import (
     Media,
     MediaItem,
     MediaPlayback,
     PickerSelection,
 )
-from core.models.picker_session import PickerSession
-from core.logging_config import setup_task_logging
-from core.storage_service import LocalFilesystemStorageService, StorageService
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+from shared.kernel.logging.logging_config import setup_task_logging
+from bounded_contexts.storage.infrastructure.filesystem import LocalFilesystemStorageService, StorageService
 from bounded_contexts.photonest.tasks import media_post_processing
 from bounded_contexts.photonest.tasks.media_post_processing import process_media_post_import
 from bounded_contexts.photonest.tasks.thumbs_generate import (
@@ -25,7 +25,7 @@ from bounded_contexts.photonest.tasks.thumbs_generate import (
 )
 from shared.kernel.settings.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
 
-from core.settings import settings
+from shared.kernel.settings.settings import settings
 from bounded_contexts.storage import StorageDomain
 
 from bounded_contexts.photonest.application.local_import.file_importer import (

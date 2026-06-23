@@ -7,7 +7,7 @@ from typing import Any, TYPE_CHECKING
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from shared.kernel.database.db import db
-from core.crypto import decrypt
+from shared.kernel.crypto.crypto import decrypt
 
 if TYPE_CHECKING:  # pragma: no cover
     from shared.infrastructure.models.user import User

@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
-from core.logging_config import setup_task_logging
-from core.settings import ApplicationSettings, settings
+from shared.kernel.logging.logging_config import setup_task_logging
+from shared.kernel.settings.settings import ApplicationSettings, settings
 
 logger = setup_task_logging(__name__)
 

@@ -18,8 +18,8 @@ from bounded_contexts.photonest.infrastructure.media_processing import (
     CeleryThumbnailRetryScheduler,
     SqlAlchemyThumbnailRetryRepository,
 )
-from core.logging_config import setup_task_logging
-from core.models.photo_models import Media
+from shared.kernel.logging.logging_config import setup_task_logging
+from bounded_contexts.photonest.infrastructure.photo_models import Media
 
 from .thumbs_generate import PLAYBACK_NOT_READY_NOTES, thumbs_generate
 from .transcode import transcode_worker

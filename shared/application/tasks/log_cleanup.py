@@ -4,12 +4,12 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, select
 
-from core.db import db
-from core.logging_config import setup_task_logging
-from core.models.job_sync import JobSync
-from core.models.log import Log
-from core.models.picker_session import PickerSession
-from core.models.worker_log import WorkerLog
+from shared.kernel.database.db import db
+from shared.kernel.logging.logging_config import setup_task_logging
+from shared.infrastructure.models.job_sync import JobSync
+from shared.infrastructure.models.log import Log
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+from shared.infrastructure.models.worker_log import WorkerLog
 
 logger = setup_task_logging(__name__)
 

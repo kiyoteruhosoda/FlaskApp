@@ -54,122 +54,78 @@ def _login(client, email, password):
     return response
 
 
+def _active_permissions_via_api(client):
+    """``GET /api/auth/me`` からアクティブロールの権限集合を取得する。"""
+    me = client.get("/api/auth/me")
+    assert me.status_code == 200
+    active_role = me.get_json()["active_role"]
+    assert active_role is not None
+    return active_role, set(active_role["permissions"])
+
+
 def test_profile_role_switch_updates_permissions(client):
-    """Test that switching roles in profile updates the active permissions."""
+    """ロール切替でアクティブ権限が更新されること。
+
+    プロフィール画面・ロール切替 UI は React SPA が描画するため、SPA が利用する
+    ``POST /api/auth/select-role`` と ``GET /api/auth/me`` の active_role で検証する。
+    """
     email = f"test-{uuid.uuid4().hex[:8]}@example.com"
     password = "password123"
-    
+
     user, manager_role, viewer_role = _create_user_with_roles_and_permissions(email, password)
-    
-    # Login
-    response = _login(client, email, password)
-    assert response.status_code in (302, 303)
-    
-    # Should redirect to role selection
-    assert "/auth/select-role" in response.headers["Location"]
-    
+    manager_id, viewer_id = manager_role.id, viewer_role.id
+
+    # Login（複数ロールのためロール選択が要求される）
+    login = client.post("/api/auth/login", json={"email": email, "password": password})
+    assert login.status_code == 200
+    assert login.get_json()["requires_role_selection"] is True
+
     # Select manager role
-    response = client.post(
-        "/auth/select-role",
-        data={"active_role": str(manager_role.id)},
-        follow_redirects=False,
-    )
-    assert response.status_code in (302, 303)
-    
-    # Check profile shows manager permissions
-    response = client.get("/auth/profile")
+    response = client.post("/api/auth/select-role", json={"role_id": manager_id})
     assert response.status_code == 200
-    html = response.data.decode("utf-8")
-    
-    # Extract the Active permissions section
-    import re
-    active_perms_match = re.search(
-        r'<h2[^>]*>Active permissions</h2>.*?<div[^>]*class="d-flex[^"]*"[^>]*>(.*?)</div>',
-        html,
-        re.DOTALL
-    )
-    assert active_perms_match is not None, "Could not find Active permissions section"
-    active_perms_section = active_perms_match.group(1)
-    
-    # Should show manager permissions in the active permissions section
-    assert "media:manage" in active_perms_section
-    assert "album:manage" in active_perms_section
-    
+
+    active_role, manager_perms = _active_permissions_via_api(client)
+    assert active_role["name"] == "manager"
+    assert "media:manage" in manager_perms
+    assert "album:manage" in manager_perms
+
     # Now switch to viewer role
-    response = client.post(
-        "/auth/profile",
-        data={"action": "switch-role", "active_role": str(viewer_role.id)},
-        follow_redirects=True,
-    )
+    response = client.post("/api/auth/select-role", json={"role_id": viewer_id})
     assert response.status_code == 200
-    
-    # Check the flash message
-    html = response.data.decode("utf-8")
-    assert "Active role switched to viewer" in html
-    
-    # Extract the Active permissions section to verify it shows only viewer permissions
-    import re
-    active_perms_match = re.search(
-        r'<h2[^>]*>Active permissions</h2>.*?<div[^>]*class="d-flex[^"]*"[^>]*>(.*?)</div>',
-        html,
-        re.DOTALL
-    )
-    assert active_perms_match is not None, "Could not find Active permissions section"
-    active_perms_section = active_perms_match.group(1)
-    
-    # Check permissions are now limited to viewer role
-    assert "media:view" in active_perms_section
-    # Should NOT show manager permissions in the active permissions section
-    assert "media:manage" not in active_perms_section
-    assert "album:manage" not in active_perms_section
+    assert response.get_json()["active_role"]["name"] == "viewer"
+
+    active_role, viewer_perms = _active_permissions_via_api(client)
+    assert active_role["name"] == "viewer"
+    assert "media:view" in viewer_perms
+    assert "media:manage" not in viewer_perms
+    assert "album:manage" not in viewer_perms
 
 
 def test_profile_role_switch_persists_across_requests(client):
-    """Test that role switch persists in session across multiple requests."""
-    import re
-    
+    """ロール切替がセッションを跨いで維持されること。"""
     email = f"test-{uuid.uuid4().hex[:8]}@example.com"
     password = "password123"
-    
+
     user, manager_role, viewer_role = _create_user_with_roles_and_permissions(email, password)
-    
+    manager_id, viewer_id = manager_role.id, viewer_role.id
+
     # Login and select manager role
-    _login(client, email, password)
-    client.post("/auth/select-role", data={"active_role": str(manager_role.id)})
-    
-    # Verify manager permissions
-    response = client.get("/auth/profile")
-    html = response.data.decode("utf-8")
-    active_perms_match = re.search(
-        r'<h2[^>]*>Active permissions</h2>.*?<div[^>]*class="d-flex[^"]*"[^>]*>(.*?)</div>',
-        html,
-        re.DOTALL
-    )
-    assert active_perms_match is not None
-    assert "media:manage" in active_perms_match.group(1)
-    
+    client.post("/api/auth/login", json={"email": email, "password": password})
+    client.post("/api/auth/select-role", json={"role_id": manager_id})
+
+    _, manager_perms = _active_permissions_via_api(client)
+    assert "media:manage" in manager_perms
+
     # Switch to viewer role
-    client.post(
-        "/auth/profile",
-        data={"action": "switch-role", "active_role": str(viewer_role.id)},
-    )
-    
+    client.post("/api/auth/select-role", json={"role_id": viewer_id})
+
     # Make another request to verify the role persists
-    response = client.get("/auth/profile")
-    html = response.data.decode("utf-8")
-    active_perms_match = re.search(
-        r'<h2[^>]*>Active permissions</h2>.*?<div[^>]*class="d-flex[^"]*"[^>]*>(.*?)</div>',
-        html,
-        re.DOTALL
-    )
-    assert active_perms_match is not None
-    active_perms_section = active_perms_match.group(1)
-    assert "media:view" in active_perms_section
-    assert "media:manage" not in active_perms_section
-    
-    # Verify via dashboard or any other route
-    response = client.get("/dashboard/")
-    assert response.status_code == 200
+    _, viewer_perms = _active_permissions_via_api(client)
+    assert "media:view" in viewer_perms
+    assert "media:manage" not in viewer_perms
+
+    with client.session_transaction() as sess:
+        assert sess["active_role_id"] == viewer_id
 
 
 def test_current_user_can_method_respects_active_role(client):
@@ -203,27 +159,23 @@ def test_current_user_can_method_respects_active_role(client):
 
 
 def test_invalid_role_switch_shows_error(client):
-    """Test that switching to an invalid role shows an error."""
+    """無効なロールへの切替がエラーになり、元のロールが維持されること。"""
     email = f"test-{uuid.uuid4().hex[:8]}@example.com"
     password = "password123"
-    
+
     user, manager_role, viewer_role = _create_user_with_roles_and_permissions(email, password)
-    
+    manager_id = manager_role.id
+
     # Login and select manager role
-    _login(client, email, password)
-    client.post("/auth/select-role", data={"active_role": str(manager_role.id)})
-    
+    client.post("/api/auth/login", json={"email": email, "password": password})
+    client.post("/api/auth/select-role", json={"role_id": manager_id})
+
     # Try to switch to a non-existent role
-    response = client.post(
-        "/auth/profile",
-        data={"action": "switch-role", "active_role": "99999"},
-        follow_redirects=True,
-    )
-    
-    html = response.data.decode("utf-8")
-    assert "Invalid role selection" in html
-    
+    response = client.post("/api/auth/select-role", json={"role_id": 99999})
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "invalid_role"
+
     # Verify the original role is still active
-    response = client.get("/auth/profile")
-    html = response.data.decode("utf-8")
-    assert "media:manage" in html
+    active_role, manager_perms = _active_permissions_via_api(client)
+    assert active_role["id"] == manager_id
+    assert "media:manage" in manager_perms

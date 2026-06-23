@@ -199,35 +199,10 @@ class TestCDNValidation:
                 priority=1,
             )
 
-    @pytest.mark.skip(
-        reason="StoragePath は get_full_path を持たず、フルパス解決は "
-        "StoragePathResolverService(configuration 必須) が担う。旧 API 前提のため保留。"
-    )
-    def test_storage_path_for_cdn(self):
-        """CDN用ストレージパスの検証."""
-        # 通常のパス
-        normal_path = StoragePath(
-            domain="media",
-            intent="original",
-            relative_path="2024/01/30/image.jpg",
-        )
-        assert normal_path.get_full_path() == "media/original/2024/01/30/image.jpg"
-
-        # ワイルドカードパス（全パージ用）
-        wildcard_path = StoragePath(
-            domain="*",
-            intent="*",
-            relative_path="*",
-        )
-        assert wildcard_path.get_full_path() == "*/*/*"
-
-        # プレフィックスパス
-        prefix_path = StoragePath(
-            domain="thumbnails",
-            intent="small",
-            relative_path="2024/01/",
-        )
-        assert prefix_path.get_full_path() == "thumbnails/small/2024/01/"
+    # NOTE: 旧 ``StoragePath.get_full_path()`` を前提にした
+    # ``test_storage_path_for_cdn`` は削除した。フルパス解決は
+    # ``StoragePathResolverService.resolve_full_path``（StorageConfiguration 必須・
+    # enum ベース）へ移行しており、当該サービスのテストで担保される。
 
     def test_generic_cdn_backend_type(self):
         """汎用CDNバックエンドタイプの検証."""

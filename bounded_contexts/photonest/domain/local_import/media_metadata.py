@@ -14,7 +14,7 @@ from typing import Any, Dict, Optional, Tuple
 from PIL import Image
 from PIL.ExifTags import TAGS
 
-from core.utils import open_image_compat, register_heif_support
+from shared.kernel.utils import open_image_compat, register_heif_support
 
 register_heif_support()
 

@@ -76,7 +76,7 @@ from bounded_contexts.picker_import.domain.services import (
     MediaHashingService,
 )
 from werkzeug.local import LocalProxy
-from core.utils import open_image_compat
+from shared.kernel.utils import open_image_compat
 
 
 hashing_service = MediaHashingService(LocalPerceptualHashCalculator())

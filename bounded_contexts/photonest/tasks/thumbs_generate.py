@@ -16,7 +16,7 @@ import contextlib
 import shutil
 
 from core.db import db
-from core.utils import open_image_compat, register_heif_support
+from shared.kernel.utils import open_image_compat, register_heif_support
 
 register_heif_support()
 

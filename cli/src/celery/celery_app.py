@@ -8,7 +8,7 @@ from celery.exceptions import Retry as CeleryRetry
 from dotenv import load_dotenv
 from flask import Flask
 
-from core.celery_settings import CelerySettings
+from shared.kernel.celery_settings import CelerySettings
 from shared.kernel.database.db import db
 from core.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 from core.models.job_sync import JobSync

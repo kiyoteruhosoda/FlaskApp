@@ -16,6 +16,17 @@ from shared.kernel.logging.logging_config import log_task_info
 from presentation.web import _apply_persisted_settings
 from presentation.web.bootstrap.config import BaseApplicationSettings
 
+# shared.infrastructure.models.__init__ は shared モデル（User・GoogleAccount 等）を
+# import する。これらは bounded_context のモデルを文字列 relationship で参照しているため、
+# SQLAlchemy マッパー構成前に全依存モデルを登録する必要がある。
+# 具体的な cross-context 参照:
+#   User.totp_credentials       → TOTPCredential (totp context)
+#   GoogleAccount.picker_sessions → PickerSession (picker_import context)
+#   GoogleAccount.media_items    → Media (photonest context)
+import bounded_contexts.totp.infrastructure.totp_models as _totp_models  # noqa: F401
+import bounded_contexts.picker_import.infrastructure.picker_session as _picker_session_mod  # noqa: F401
+import bounded_contexts.photonest.infrastructure.photo_models as _photo_models  # noqa: F401
+
 # .envファイルを読み込み
 load_dotenv()
 

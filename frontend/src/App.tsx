@@ -15,6 +15,7 @@ import ToastNotification from './components/ToastNotification';
 import LoginPage from './pages/LoginPage';
 import RoleSelectionPage from './pages/RoleSelectionPage';
 import MediaPage from './pages/MediaPage';
+import MediaDuplicatesPage from './pages/MediaDuplicatesPage';
 import AlbumsPage from './pages/AlbumsPage';
 import TagsPage from './pages/TagsPage';
 import JobsPage from './pages/JobsPage';
@@ -207,6 +208,15 @@ const AppContent: React.FC = () => {
             element={
               <ProtectedRoute>
                 <AlbumDetailPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/media/duplicates"
+            element={
+              <ProtectedRoute>
+                <MediaDuplicatesPage />
               </ProtectedRoute>
             }
           />

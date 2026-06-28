@@ -411,5 +411,20 @@
   "Select a certificate group...": "証明書グループを選択...",
   "no valid certificate": "有効な証明書なし",
   "No server signing certificate groups available.": "利用可能なサーバー署名証明書グループがありません。",
-  "Save Signing": "署名設定を保存"
+  "Save Signing": "署名設定を保存",
+  "Duplicates": "重複",
+  "Duplicate media": "重複メディア",
+  "Review duplicate groups and keep one. Deleting is a soft delete; originals remain on storage.": "重複グループを確認し1枚を残します。削除はソフト削除で、原本はストレージに残ります。",
+  "Exact match": "完全一致",
+  "Similar": "類似",
+  "items": "件",
+  "Delete the others": "他を削除",
+  "Keep": "残す",
+  "Keep this": "これを残す",
+  "No duplicates found.": "重複は見つかりませんでした。",
+  "Failed to load duplicates.": "重複の取得に失敗しました。",
+  "Failed to delete media.": "メディアの削除に失敗しました。",
+  "Delete duplicates?": "重複を削除しますか？",
+  "{{groups}} groups, {{redundant}} redundant files": "{{groups}} グループ・余剰 {{redundant}} 件",
+  "Keep 1 item and soft-delete the other {{n}}. Originals stay on storage and can be recovered.": "1枚を残し、他の {{n}} 件をソフト削除します。原本はストレージに残り復元可能です。"
 }

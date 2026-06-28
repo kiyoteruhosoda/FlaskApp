@@ -2339,6 +2339,145 @@ def serialize_tag(tag: Tag) -> dict:
     }
 
 
+def _serialize_duplicate_member(media: Media) -> dict:
+    """重複レビュー画面で1メディアを比較表示するための最小情報を返す。"""
+
+    source_label = {
+        "local": "Local Import",
+        "google_photos": "Google Photos",
+    }.get(media.source_type, media.source_type or "unknown")
+    return {
+        "id": media.id,
+        "filename": media.filename,
+        "thumbnail_url": f"/api/media/{media.id}/thumbnail?size=512",
+        "width": media.width,
+        "height": media.height,
+        "bytes": media.bytes,
+        "is_video": int(bool(media.is_video)),
+        "source_type": media.source_type,
+        "source_label": source_label,
+        "shot_at": (
+            media.shot_at.isoformat().replace("+00:00", "Z") if media.shot_at else None
+        ),
+        "imported_at": (
+            media.imported_at.isoformat().replace("+00:00", "Z")
+            if media.imported_at
+            else None
+        ),
+    }
+
+
+@bp.get("/media/duplicates")
+@login_or_jwt_required
+def api_media_duplicates():
+    """重複候補のメディアをグループ化して返す（人手レビュー用・削除はしない）。
+
+    - ``exact``  : ``hash_sha256`` 一致（完全に同一バイト）
+    - ``similar``: ``phash`` 一致（再エンコード等の近似一致）。``exact`` グループに
+      含まれるメディアは ``similar`` からは除外し、重複表示を避ける。
+
+    削除は行わず、UI が残す1枚を選んで既存の削除API（``/media/bulk-actions`` の
+    ``delete``）を呼ぶ。誤判定でも originals は NAS に残るため安全。
+    """
+
+    user = get_current_user()
+    if not user or not user.can("media:view"):
+        return (
+            jsonify(
+                {
+                    "error": "forbidden",
+                    "message": _("You do not have permission to view media."),
+                }
+            ),
+            403,
+        )
+
+    max_groups = request.args.get("limit", type=int, default=100)
+    max_groups = max(1, min(max_groups, 500))
+
+    not_deleted = db.or_(Media.is_deleted.is_(False), Media.is_deleted.is_(None))
+
+    # 完全一致グループ（hash_sha256）
+    exact_hashes = [
+        row[0]
+        for row in (
+            db.session.query(Media.hash_sha256)
+            .filter(not_deleted, Media.hash_sha256.isnot(None))
+            .group_by(Media.hash_sha256)
+            .having(func.count(Media.id) > 1)
+            .order_by(func.count(Media.id).desc())
+            .limit(max_groups)
+            .all()
+        )
+    ]
+
+    # 近似一致グループ（phash）。完全一致済みのメディアは除外する。
+    similar_filter = [not_deleted, Media.phash.isnot(None)]
+    if exact_hashes:
+        similar_filter.append(
+            db.or_(
+                Media.hash_sha256.is_(None),
+                Media.hash_sha256.notin_(exact_hashes),
+            )
+        )
+    similar_hashes = [
+        row[0]
+        for row in (
+            db.session.query(Media.phash)
+            .filter(*similar_filter)
+            .group_by(Media.phash)
+            .having(func.count(Media.id) > 1)
+            .order_by(func.count(Media.id).desc())
+            .limit(max_groups)
+            .all()
+        )
+    ]
+
+    groups: list[dict] = []
+
+    for digest in exact_hashes:
+        members = (
+            Media.query.filter(not_deleted, Media.hash_sha256 == digest)
+            .order_by(Media.imported_at.asc(), Media.id.asc())
+            .all()
+        )
+        if len(members) < 2:
+            continue
+        groups.append(
+            {
+                "key": f"sha256:{digest}",
+                "match_type": "exact",
+                "count": len(members),
+                "items": [_serialize_duplicate_member(m) for m in members],
+            }
+        )
+
+    for digest in similar_hashes:
+        members_query = Media.query.filter(not_deleted, Media.phash == digest)
+        if exact_hashes:
+            members_query = members_query.filter(
+                db.or_(
+                    Media.hash_sha256.is_(None),
+                    Media.hash_sha256.notin_(exact_hashes),
+                )
+            )
+        members = members_query.order_by(
+            Media.imported_at.asc(), Media.id.asc()
+        ).all()
+        if len(members) < 2:
+            continue
+        groups.append(
+            {
+                "key": f"phash:{digest}",
+                "match_type": "similar",
+                "count": len(members),
+                "items": [_serialize_duplicate_member(m) for m in members],
+            }
+        )
+
+    return jsonify({"groups": groups, "group_count": len(groups)})
+
+
 def _path_to_posix(rel_path: str | None) -> str | None:
     """Convert a stored relative path into POSIX-style notation."""
 

@@ -6,6 +6,8 @@
 ## [Unreleased]
 
 ### Added
+- 重複メディアのレビュー画面（`/media/duplicates`）と API `GET /api/media/duplicates`。
+  exact(sha256)/similar(phash) でグループ化し人手で残す1枚を選択、他をソフト削除。詳細は ADR-0003。
 - マイグレーション/モデル乖離の回帰テスト `tests/integration/test_migration_model_consistency.py`
   （単一ベース/ヘッド検証 + autogenerate 差分ゼロ検証）。
 - CI ワークフロー `.github/workflows/test.yml`（push/PR でドリフトテスト実行）。

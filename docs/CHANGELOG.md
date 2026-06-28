@@ -1,0 +1,24 @@
+# CHANGELOG
+
+完了した重要な変更を記録する（運用ルール: 完了項目は Progress.md から本ファイルへ移す）。
+新しいものを上に追記する。書式は概ね Keep a Changelog 準拠。
+
+## [Unreleased]
+
+### Added
+- マイグレーション/モデル乖離の回帰テスト `tests/integration/test_migration_model_consistency.py`
+  （単一ベース/ヘッド検証 + autogenerate 差分ゼロ検証）。
+- CI ワークフロー `.github/workflows/test.yml`（push/PR でドリフトテスト実行）。
+- 認可マスタデータの単一カタログ `shared/domain/auth/master_data.py` と、冪等な
+  データマイグレーション `versions/*_seed_master_data.py`。
+- `media.google_media_id` の一意制約と、Google Photos 取り込みの「復活方式」
+  （`_upsert_google_media`：既存行をソフト削除含め復活・更新）。
+- 設定フラグ `REQUIRE_PASSWORD_CHANGE_ON_FIRST_LOGIN`（既定 OFF、土台のみ）。
+- マイグレーション運用 README（`migrations/README.md`）。
+
+### Changed
+- マイグレーション履歴を単一ベースライン `migrations/versions/init_master.py` に統合
+  （旧リビジョン 33 本を削除）。詳細は ADR-0001。
+- DB ネイティブ ENUM を廃止し全モデルの `Enum(...)` を `native_enum=False` 化。詳細は ADR-0002。
+- `scripts/seed_master_data.py` をカタログ参照に統一（値の二重管理を排除）。
+- 初期管理者パスワードを `ADMIN_INITIAL_PASSWORD` で上書き可能化。

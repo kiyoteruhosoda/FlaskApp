@@ -2,6 +2,29 @@
 
 このプロジェクト固有の設計ルール・制約事項をまとめる。
 
+## ドキュメント運用
+
+進捗・変更・設計判断は `docs/` 配下で管理する。
+
+```
+docs/
+├── Progress.md        # 進行中・未着手タスクのみ
+├── CHANGELOG.md       # 完了した重要な変更の要約
+├── decisions/         # 設計判断（ADR-NNNN-*.md、雛形は ADR-template.md）
+└── history/           # 後から経緯を追いたい規模の変更記録
+```
+
+運用ルール:
+
+1. **開発開始時** → `docs/Progress.md` に TODO を追加する。
+2. **作業中** → `docs/Progress.md` を更新する（状態・メモ）。
+3. **完了時** → `docs/Progress.md` から削除し、重要なら `docs/CHANGELOG.md`（要約）／
+   `docs/history/`（経緯）へ移す。Progress には完了項目を残さない。
+4. **重要な変更だけ** `docs/history/` に記録する（細かな進捗は残さない）。
+5. **設計判断は ADR** として `docs/decisions/ADR-NNNN-*.md` に残す。
+
+---
+
 ## 設計方針
 
 - **DDD（ドメイン駆動設計）** を採用する。Presentation / Application / Domain / Infrastructure の4層構造。依存方向は Presentation → Application → Domain、Infrastructure は Domain のインターフェースを実装する。

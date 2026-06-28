@@ -44,7 +44,7 @@ class PickerSession(db.Model):
             "expired",
             "error",
             "failed",
-            name="picker_session_status",
+            name="picker_session_status", native_enum=False,
         ),
         nullable=False,
         default="pending",

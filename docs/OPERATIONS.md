@@ -146,9 +146,60 @@ docker compose -p photonest -f /volume1/docker/photonest/docker-compose.yml up -
 docker logs mariadb | grep Entrypoint
 ```
 
+### originals からのメディア再構築
+
+DB を初期化した後、`MEDIA_ORIGINALS_DIRECTORY`（NAS 上の原本）から Media の
+メタデータを再登録する。取り込み inbox は取り込み後に空になるため、DB だけ作り直す
+場合はこの CLI で復元する（冪等。サムネイル等の派生生成は行わない）。
+
+```bash
+flask rebuild-originals             # originals を走査し未登録ファイルを Media 化
+flask rebuild-originals --dry-run   # 変更せず件数のみ集計
+flask rebuild-originals --refresh   # 既存 Media のメタデータも再適用
+flask rebuild-originals --verbose   # 1件ごとに表示
+```
+
+冪等性は `local_rel_path` をキーに担保するため、再実行しても重複登録されない。
+原本は削除・変更されない。
+
 ---
 
 ## 3. デプロイ
+
+### 環境切替（本番 / STG）
+
+`docker-compose.yml` の環境差分（プロジェクト名・ポート・データルート・ネットワーク・
+ドメイン）はすべて `.env` で切り替える。値未設定時のデフォルトは従来の本番値なので、
+既存の本番 `.env` は変更不要。
+
+| 変数 | 役割 | 本番デフォルト |
+|---|---|---|
+| `COMPOSE_PROJECT_NAME` | コンテナ/NW 接頭辞（環境分離の要） | `photonest` |
+| `HOST_DATA_ROOT` | 永続データのホスト側ルート | `/volume1/docker/photonest` |
+| `WEB_BIND_ADDR` / `WEB_HOST_PORT` | Web 公開（既定 127.0.0.1:8050） | `127.0.0.1` / `8050` |
+| `DB_HOST_PORT` / `DB_CONTAINER_NAME` | DB 公開ポート / コンテナ名 | `3307` / `mariadb` |
+| `DOCKER_NETWORK_NAME` / `DOCKER_NETWORK_SUBNET` | 外部ネットワーク | `photonest-dev` / `172.22.0.0/16` |
+| `WEB_IMAGE` / `DB_IMAGE` | 使用イメージタグ | `photonest:latest` / `photonest-db:latest` |
+| `API_BASE_URL` / `CORS_ALLOWED_ORIGINS` | 自己参照 URL / 許可オリジン（ドメイン） | 環境ごとに設定 |
+
+STG を本番と同一ホストで共存させる例:
+
+```bash
+# STG 用ディレクトリで .env を用意
+cp .env.staging.example .env       # ポート・データルート・NW・ドメインを STG 値に
+
+# STG 用の外部ネットワークを作成（初回のみ）
+docker network create photonest-stg
+
+# 設定の解決結果を確認（ポート/コンテナ名/ボリュームが STG 値か）
+docker compose config | grep -E "container_name|published|source:"
+
+# 起動（COMPOSE_PROJECT_NAME=photonest-stg により本番と分離）
+docker compose up -d
+```
+
+> ネットワークは `external: true`。環境ごとに別ネットワーク名にすることで、
+> サービス名（`db` 等）の名前解決が環境間で衝突しない。
 
 ### Docker（推奨）
 

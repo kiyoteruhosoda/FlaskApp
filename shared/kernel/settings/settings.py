@@ -224,6 +224,11 @@ class ApplicationSettings:
     def session_cookie_secure(self) -> bool:
         return self.get_bool("SESSION_COOKIE_SECURE", False)
 
+    @property
+    def require_password_change_on_first_login(self) -> bool:
+        """初回ログイン時にパスワード変更を強制するか（既定 False）。"""
+        return self.get_bool("REQUIRE_PASSWORD_CHANGE_ON_FIRST_LOGIN", False)
+
     # ------------------------------------------------------------------
     # Storage paths
     # ------------------------------------------------------------------

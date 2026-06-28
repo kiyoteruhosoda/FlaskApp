@@ -671,6 +671,30 @@ def _fetch_selected_ids(ps: PickerSession, headers: Dict[str, str]) -> tuple[Lis
 # ---------------------------------------------------------------------------
 
 
+def _upsert_google_media(media_kwargs: Dict[str, Any]) -> Media:
+    """google_media_id をキーに Media を新規作成、または既存行を復活・更新する。
+
+    Google Photos は ``google_media_id`` を安定キーとして DB 一意制約を持つ。
+    再取り込み時（ソフト削除済み・配信バイト変化で sha256 が変わった場合を含む）に
+    既存行があれば INSERT せず、``is_deleted=False`` に戻してメタデータを上書きする
+    （= 復活）。これにより一意制約違反を避けつつ冪等性を担保する。
+    """
+
+    google_media_id = media_kwargs.get("google_media_id")
+    existing = (
+        Media.query.filter_by(google_media_id=google_media_id).first()
+        if google_media_id
+        else None
+    )
+    if existing is None:
+        return Media(**media_kwargs)
+
+    for key, value in media_kwargs.items():
+        setattr(existing, key, value)
+    existing.is_deleted = False
+    return existing
+
+
 def picker_import_item(
     *,
     selection_id: int,
@@ -1097,12 +1121,12 @@ def picker_import_item(
                 )
                 if phash:
                     media_kwargs["phash"] = phash
-                media = Media(**media_kwargs)
+                media = _upsert_google_media(media_kwargs)
                 db.session.add(media)
                 db.session.flush()
 
-                exif = Exif(media_id=media.id, raw_json=json.dumps(item or {}))
-                db.session.add(exif)
+                # 復活時は既存 Exif があり得るため PK(media_id) で upsert する
+                db.session.merge(Exif(media_id=media.id, raw_json=json.dumps(item or {})))
 
                 process_media_post_import(
                     media,
@@ -1730,7 +1754,7 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
             )
             if phash:
                 media_kwargs["phash"] = phash
-            media = Media(**media_kwargs)
+            media = _upsert_google_media(media_kwargs)
             db.session.add(media)
             db.session.flush()  # obtain media.id
 
@@ -1754,8 +1778,8 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
                 item_index=item_index,
             )
 
-            exif = Exif(media_id=media.id, raw_json=json.dumps(item))
-            db.session.add(exif)
+            # 復活時は既存 Exif があり得るため PK(media_id) で upsert する
+            db.session.merge(Exif(media_id=media.id, raw_json=json.dumps(item)))
 
             process_media_post_import(
                 media,

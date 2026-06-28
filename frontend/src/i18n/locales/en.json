@@ -411,5 +411,20 @@
   "Select a certificate group...": "Select a certificate group...",
   "no valid certificate": "no valid certificate",
   "No server signing certificate groups available.": "No server signing certificate groups available.",
-  "Save Signing": "Save Signing"
+  "Save Signing": "Save Signing",
+  "Duplicates": "Duplicates",
+  "Duplicate media": "Duplicate media",
+  "Review duplicate groups and keep one. Deleting is a soft delete; originals remain on storage.": "Review duplicate groups and keep one. Deleting is a soft delete; originals remain on storage.",
+  "Exact match": "Exact match",
+  "Similar": "Similar",
+  "items": "items",
+  "Delete the others": "Delete the others",
+  "Keep": "Keep",
+  "Keep this": "Keep this",
+  "No duplicates found.": "No duplicates found.",
+  "Failed to load duplicates.": "Failed to load duplicates.",
+  "Failed to delete media.": "Failed to delete media.",
+  "Delete duplicates?": "Delete duplicates?",
+  "{{groups}} groups, {{redundant}} redundant files": "{{groups}} groups, {{redundant}} redundant files",
+  "Keep 1 item and soft-delete the other {{n}}. Originals stay on storage and can be recovered.": "Keep 1 item and soft-delete the other {{n}}. Originals stay on storage and can be recovered."
 }

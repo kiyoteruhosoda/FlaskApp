@@ -70,3 +70,56 @@ def register_cli_commands(app: Flask) -> None:
             db.session.rollback()
             click.echo(f"\n=== Seeding failed: {e} ===", err=True)
             raise click.ClickException(str(e))
+
+    @app.cli.command("rebuild-originals")
+    @click.option(
+        "--originals-dir",
+        default=None,
+        help="originals のルート。未指定時は設定から解決。",
+    )
+    @click.option(
+        "--refresh",
+        is_flag=True,
+        help="既存 Media のメタデータも再適用する。",
+    )
+    @click.option(
+        "--dry-run",
+        is_flag=True,
+        help="変更を加えず件数のみ集計する。",
+    )
+    @click.option(
+        "--verbose",
+        is_flag=True,
+        help="1件ごとの処理内容を表示する。",
+    )
+    def rebuild_originals(originals_dir, refresh, dry_run, verbose):
+        """originals ディレクトリを直接走査して Media を再登録する（冪等）。"""
+        from bounded_contexts.photonest.tasks.local_import import (
+            rebuild_media_from_originals,
+        )
+
+        click.echo("=== Rebuild media from originals ===")
+        if dry_run:
+            click.echo("(dry-run: 変更は加えません)")
+
+        stats = rebuild_media_from_originals(
+            originals_dir=originals_dir,
+            refresh_existing=refresh,
+            dry_run=dry_run,
+            progress=(lambda message: click.echo(f"  {message}")) if verbose else None,
+        )
+
+        click.echo(
+            "\n".join(
+                [
+                    "",
+                    f"scanned  : {stats['scanned']}",
+                    f"created  : {stats['created']}",
+                    f"refreshed: {stats['refreshed']}",
+                    f"skipped  : {stats['skipped']}",
+                    f"errors   : {stats['errors']}",
+                ]
+            )
+        )
+        if stats["errors"]:
+            raise click.ClickException(f"{stats['errors']} 件のエラーが発生しました")

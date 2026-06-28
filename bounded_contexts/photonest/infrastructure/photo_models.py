@@ -32,11 +32,18 @@ media_tag = db.Table(
 class Media(db.Model):
     __tablename__ = "media"
 
+    # google_media_id は Google Photos 取り込みの安定キー。再エンコードで
+    # sha256 は変わりうるため、GP の冪等性は google_media_id の一意制約で担保する。
+    # ローカル取り込みは google_media_id=NULL（MariaDB/SQLite とも複数 NULL を許容）。
+    __table_args__ = (
+        db.UniqueConstraint("google_media_id", name="uq_media_google_media_id"),
+    )
+
     id: Mapped[int] = mapped_column(BigInt, primary_key=True, autoincrement=True)
 
     # ソース情報
     source_type: Mapped[str] = mapped_column(
-        db.Enum("local", "google_photos", "wiki-media", name="media_source_type"),
+        db.Enum("local", "google_photos", "wiki-media", name="media_source_type", native_enum=False),
         nullable=False,
         default="local",
     )
@@ -160,7 +167,7 @@ class MediaSidecar(db.Model):
         nullable=False,
     )
     type: Mapped[str] = mapped_column(
-        db.Enum("video", "audio", "subtitle", name="media_sidecar_type"),
+        db.Enum("video", "audio", "subtitle", name="media_sidecar_type", native_enum=False),
         nullable=False,
     )
     rel_path: Mapped[str | None] = mapped_column(db.String(255), nullable=True)
@@ -228,7 +235,7 @@ class Album(db.Model):
     description: Mapped[str | None] = mapped_column(db.Text, nullable=True)
     cover_media_id: Mapped[int | None] = mapped_column(BigInt, db.ForeignKey("media.id"), nullable=True)
     visibility: Mapped[str] = mapped_column(
-        db.Enum("public", "private", "unlisted", name="album_visibility"),
+        db.Enum("public", "private", "unlisted", name="album_visibility", native_enum=False),
         nullable=False,
     )
     display_order: Mapped[int | None] = mapped_column(db.Integer, nullable=True)
@@ -266,7 +273,7 @@ class Tag(db.Model):
             "activity",
             "source",
             "others",
-            name="tag_attr",
+            name="tag_attr", native_enum=False,
         ),
         nullable=False,
     )
@@ -295,7 +302,7 @@ class MediaPlayback(db.Model):
     id: Mapped[int] = mapped_column(BigInt, primary_key=True, autoincrement=True)
     media_id: Mapped[int] = mapped_column(BigInt, db.ForeignKey("media.id"), nullable=False)
     preset: Mapped[str] = mapped_column(
-        db.Enum("original", "preview", "mobile", "std1080p", name="media_playback_preset"),
+        db.Enum("original", "preview", "mobile", "std1080p", name="media_playback_preset", native_enum=False),
         nullable=False,
     )
     rel_path: Mapped[str | None] = mapped_column(db.String(255), nullable=True)
@@ -308,7 +315,7 @@ class MediaPlayback(db.Model):
     poster_rel_path: Mapped[str | None] = mapped_column(db.String(255), nullable=True)
     hash_sha256: Mapped[str | None] = mapped_column(db.CHAR(64), nullable=True)
     status: Mapped[str] = mapped_column(
-        db.Enum("pending", "processing", "done", "error", name="media_playback_status"),
+        db.Enum("pending", "processing", "done", "error", name="media_playback_status", native_enum=False),
         nullable=False,
     )
     error_msg: Mapped[str | None] = mapped_column(db.Text, nullable=True)
@@ -359,7 +366,7 @@ class MediaItem(db.Model):
 
     id: Mapped[str] = mapped_column(db.String(255), primary_key=True)
     type: Mapped[str] = mapped_column(
-        db.Enum("TYPE_UNSPECIFIED", "PHOTO", "VIDEO", name="media_item_type"),
+        db.Enum("TYPE_UNSPECIFIED", "PHOTO", "VIDEO", name="media_item_type", native_enum=False),
         nullable=False,
     )
     mime_type: Mapped[str | None] = mapped_column(db.String(255), nullable=True)
@@ -434,7 +441,7 @@ class PickerSelection(db.Model):
             "failed",
             "expired",
             "skipped",
-            name="picker_selection_status",
+            name="picker_selection_status", native_enum=False,
         ),
         nullable=False,
         default="pending",
@@ -504,7 +511,7 @@ class VideoMetadata(db.Model):
     id: Mapped[int] = mapped_column(BigInt, primary_key=True, autoincrement=True)
     fps: Mapped[float | None] = mapped_column(db.Float, nullable=True)
     processing_status: Mapped[str | None] = mapped_column(
-        db.Enum("UNSPECIFIED", "PROCESSING", "READY", "FAILED", name="video_processing_status"),
+        db.Enum("UNSPECIFIED", "PROCESSING", "READY", "FAILED", name="video_processing_status", native_enum=False),
         nullable=True,
     )
 

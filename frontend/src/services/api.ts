@@ -42,6 +42,7 @@ import {
   SelectionErrorPayload,
   LocalImportStatusResponse,
   ConfigResponse,
+  DuplicateGroupsResponse,
 } from '../types/api';
 
 class ApiClient {
@@ -277,6 +278,21 @@ class ApiClient {
 
   async deleteMedia(id: string): Promise<ApiResponse<void>> {
     return this.delete<void>(`/media/${id}`);
+  }
+
+  async getMediaDuplicates(limit?: number): Promise<DuplicateGroupsResponse> {
+    const response = await this.client.get<DuplicateGroupsResponse>('/media/duplicates', {
+      params: limit ? { limit } : undefined,
+    });
+    return response.data;
+  }
+
+  async bulkDeleteMedia(mediaIds: number[]): Promise<{ result?: string }> {
+    const response = await this.client.post('/media/bulk-actions', {
+      media_ids: mediaIds,
+      action: 'delete',
+    });
+    return response.data;
   }
 
   // セッションAPI

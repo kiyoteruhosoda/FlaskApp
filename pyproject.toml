@@ -28,6 +28,9 @@ authors = [
 requires-python = ">=3.10"
 
 [tool.pytest.ini_options]
+# `pytest`（python -m なし）で実行してもリポジトリルートと cli/src を import 解決
+# できるようにする。これが無いと CI で conftest.py の `import shared` が失敗する。
+pythonpath = [".", "cli/src"]
 markers = [
     "unit: 外部依存のない高速なユニットテスト",
     "integration: 外部リソース（DB、ファイルシステム）を必要とする統合テスト",

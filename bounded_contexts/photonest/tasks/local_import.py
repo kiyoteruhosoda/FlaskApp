@@ -5,7 +5,7 @@ import os
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, cast
 
 from shared.kernel.database.db import db
 from bounded_contexts.photonest.infrastructure.photo_models import (
@@ -526,82 +526,32 @@ def _extract_zip_archive(zip_path: str, *, session_id: Optional[str] = None) -> 
 
 
 def check_duplicate_media(analysis: MediaFileAnalysis) -> Optional[Media]:
-    """重複チェック: pHash + 解像度 + 撮影日時 (+ 長さ).
-    
-    新しいDDD構造に移行中。内部実装は新構造を利用しますが、
-    インターフェースは既存のまま維持しています。
-    
-    移行戦略：
-    - フィーチャーフラグで新旧実装を切り替え可能
-    - 問題発生時は即座にロールバック可能
+    """重複チェック: pHash + 解像度 + 撮影日時 (+ 長さ) / SHA-256 + サイズ。
+
+    重複判定は単一の正準実装（DDD: ``MediaRepositoryImpl.find_by_signature`` を
+    ``check_duplicate_media_new`` 経由で利用）に委譲する。旧実装への
+    サイレントフォールバックは廃止し、想定外の失敗はそのまま伝播させる。
+
+    唯一の既知の例外経路は、ファイルハッシュが不正で署名（FileHash）を構築
+    できない場合（``ValueError``）。この場合のみ「重複なし」として取り込みを
+    継続し、握りつぶさずに警告ログを残す。
     """
-    # 新構造を使った実装（アダプター経由）
     from bounded_contexts.photonest.application.local_import.adapters import (
         check_duplicate_media_new,
     )
-    
+
     try:
         return check_duplicate_media_new(analysis)
-    except Exception as exc:
-        # 新実装で失敗した場合はフォールバック（旧実装）
+    except ValueError as exc:
+        # FileHash 検証失敗（ハッシュ未算出・長さ不正・非16進・負サイズ等）。
+        # 重複判定不能のため重複なし扱いで継続する（例外はログに残す）。
         _log_warning(
-            "local_import.duplicate_check.fallback",
-            f"新実装での重複チェックに失敗、旧実装にフォールバック: {str(exc)}",
+            "local_import.duplicate_check.invalid_signature",
+            "重複判定の署名を構築できないため重複なしとして継続します",
             error_type=type(exc).__name__,
             error_message=str(exc),
         )
-        
-        # 旧実装（念のため保持）
-        base_query = Media.query.filter(
-            Media.is_deleted.is_(False),
-            Media.is_video.is_(analysis.is_video),
-            Media.shot_at == analysis.shot_at,
-            Media.width == analysis.width,
-            Media.height == analysis.height,
-        )
-
-        base_query = base_query.filter(Media.duration_ms == analysis.duration_ms)
-
-        candidates = base_query.all()
-
-        if analysis.perceptual_hash:
-            for candidate in candidates:
-                if candidate.phash and candidate.phash == analysis.perceptual_hash:
-                    return candidate
-
-        for candidate in candidates:
-            if not candidate.phash or not analysis.perceptual_hash:
-                if (
-                    candidate.hash_sha256 == analysis.file_hash
-                    and candidate.bytes == analysis.file_size
-                ):
-                    return candidate
-
-        if analysis.perceptual_hash:
-            phash_candidates = (
-                Media.query.filter(
-                    Media.is_deleted.is_(False),
-                    Media.is_video.is_(analysis.is_video),
-                    Media.phash == analysis.perceptual_hash,
-                    Media.duration_ms == analysis.duration_ms,
-                )
-                .all()
-            )
-            for candidate in phash_candidates:
-                if (
-                    candidate.shot_at == analysis.shot_at
-                    and candidate.width == analysis.width
-                    and candidate.height == analysis.height
-                ):
-                    return candidate
-            if phash_candidates:
-                return phash_candidates[0]
-
-        return Media.query.filter_by(
-            hash_sha256=analysis.file_hash,
-            bytes=analysis.file_size,
-            is_deleted=False,
-        ).first()
+        return None
 
 
 def _refresh_existing_media_metadata(
@@ -1315,3 +1265,122 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
 
     _cleanup_extracted_directories()
     return result
+
+
+def rebuild_media_from_originals(
+    *,
+    originals_dir: Optional[str] = None,
+    refresh_existing: bool = False,
+    dry_run: bool = False,
+    progress: Optional[Callable[[str], None]] = None,
+) -> Dict[str, int]:
+    """originals ディレクトリを直接走査して Media を再登録する（冪等）。
+
+    取り込み inbox は取り込み後に空になり、originals を再スキャンする導線が無かった。
+    DB 初期化後などに、NAS 上の originals から Media メタデータを再構築するための
+    オフライン処理。サムネイル等の派生生成は行わない（メタデータの再登録のみ）。
+
+    冪等性は ``local_rel_path`` をキーに担保する（同じ相対パスの再登録はスキップ）。
+
+    Args:
+        originals_dir: originals のルート。未指定時は設定から解決。
+        refresh_existing: 既存 Media のメタデータも再適用する。
+        dry_run: 変更を加えず件数のみ集計する。
+        progress: 1件処理ごとに呼ばれる任意のコールバック（メッセージ文字列）。
+
+    Returns:
+        集計辞書（scanned / created / skipped / refreshed / errors）。
+    """
+
+    if originals_dir is None:
+        originals_dir = _resolve_directory("MEDIA_ORIGINALS_DIRECTORY")
+
+    root = Path(originals_dir)
+    stats: Dict[str, int] = {
+        "scanned": 0,
+        "created": 0,
+        "skipped": 0,
+        "refreshed": 0,
+        "errors": 0,
+    }
+
+    if not root.exists():
+        _log_warning(
+            "local_import.rebuild.missing_root",
+            "originals ディレクトリが存在しません",
+            originals_dir=originals_dir,
+            status="missing",
+        )
+        return stats
+
+    for path in sorted(p for p in root.rglob("*") if p.is_file()):
+        if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
+            continue
+
+        rel_path = path.relative_to(root).as_posix()
+        stats["scanned"] += 1
+
+        try:
+            existing = Media.query.filter_by(local_rel_path=rel_path).first()
+            if existing is not None:
+                if refresh_existing:
+                    if not dry_run:
+                        refresh_media_metadata_from_original(
+                            existing,
+                            originals_dir=originals_dir,
+                            fallback_path=str(path),
+                            file_extension=path.suffix.lower(),
+                            preserve_original_path=True,
+                        )
+                    stats["refreshed"] += 1
+                    if progress:
+                        progress(f"refreshed media_id={existing.id} {rel_path}")
+                else:
+                    stats["skipped"] += 1
+                continue
+
+            if dry_run:
+                stats["created"] += 1
+                if progress:
+                    progress(f"would create {rel_path}")
+                continue
+
+            analysis = _media_analyzer.analyze(str(path))
+            media = build_media_from_analysis(
+                analysis,
+                google_media_id=None,
+                relative_path=rel_path,
+            )
+            db.session.add(media)
+            db.session.flush()
+
+            exif_model = ensure_exif_for_media(media, analysis)
+            if exif_model is not None:
+                db.session.add(exif_model)
+
+            db.session.commit()
+            stats["created"] += 1
+            if progress:
+                progress(f"created media_id={media.id} {rel_path}")
+        except Exception as exc:  # noqa: BLE001 - 1件の失敗で全体を止めない
+            db.session.rollback()
+            stats["errors"] += 1
+            _log_error(
+                "local_import.rebuild.error",
+                "originals 再構築中にエラーが発生しました",
+                exc_info=True,
+                rel_path=rel_path,
+                error_type=type(exc).__name__,
+                error_message=str(exc),
+            )
+            if progress:
+                progress(f"error {rel_path}: {exc}")
+
+    _log_info(
+        "local_import.rebuild.done",
+        "originals 再構築が完了しました",
+        originals_dir=originals_dir,
+        status="done",
+        summary=stats,
+    )
+    return stats

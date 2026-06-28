@@ -614,3 +614,30 @@ export interface ConfigResponse {
   updated?: boolean;
   status: string;
 }
+
+// 重複検出（人手レビュー）
+export interface DuplicateMember {
+  id: number;
+  filename: string | null;
+  thumbnail_url: string;
+  width: number | null;
+  height: number | null;
+  bytes: number | null;
+  is_video: number;
+  source_type: string;
+  source_label: string;
+  shot_at: string | null;
+  imported_at: string | null;
+}
+
+export interface DuplicateGroup {
+  key: string;
+  match_type: 'exact' | 'similar';
+  count: number;
+  items: DuplicateMember[];
+}
+
+export interface DuplicateGroupsResponse {
+  groups: DuplicateGroup[];
+  group_count: number;
+}

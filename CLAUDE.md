@@ -2,6 +2,41 @@
 
 このプロジェクト固有の設計ルール・制約事項をまとめる。
 
+## ドキュメント運用
+
+進捗・変更・設計判断は `docs/` 配下で管理する。
+
+```
+docs/
+├── Progress.md        # 進行中・未着手タスクのみ
+├── CHANGELOG.md       # 完了した重要な変更の要約
+├── decisions/         # 設計判断（ADR-NNNN-*.md、雛形は ADR-template.md）
+└── history/           # 後から経緯を追いたい規模の変更記録
+```
+
+運用ルール:
+
+1. **開発開始時** → `docs/Progress.md` に TODO を追加する。
+2. **作業中** → `docs/Progress.md` を更新する（状態・メモ）。
+3. **完了時** → `docs/Progress.md` から削除し、重要なら `docs/CHANGELOG.md`（要約）／
+   `docs/history/`（経緯）へ移す。Progress には完了項目を残さない。
+4. **重要な変更だけ** `docs/history/` に記録する（細かな進捗は残さない）。
+5. **設計判断は ADR** として `docs/decisions/ADR-NNNN-*.md` に残す。
+
+`docs/Progress.md` は**優先順・番号・概要・状態・影響度・工数の表**で書く。
+補足が必要なものだけ表の下に「詳細」として番号付きで記載する。
+
+```
+| 優先 | # | 概要 | 状態 | 影響度 | 工数 |
+|---|---|---|---|---|---|
+| 1 | T1 | 〇〇を実装 | 🚧進行中 | 中 | 大 |
+```
+
+- 状態: ⬜未着手 / 🚧進行中 / 🟡要判断
+- 影響度・工数: 大 / 中 / 小
+
+---
+
 ## 設計方針
 
 - **DDD（ドメイン駆動設計）** を採用する。Presentation / Application / Domain / Infrastructure の4層構造。依存方向は Presentation → Application → Domain、Infrastructure は Domain のインターフェースを実装する。
@@ -67,6 +102,17 @@ presentation/web/
 - マイグレーションファイルは `migrations/versions/<revision_id>_<description>.py`。
 - 各ファイルの先頭に `from __future__ import annotations` を必ず記述。
 - `upgrade()` / `downgrade()` の両方を実装する。
+- ベースラインは `migrations/versions/init_master.py`（全テーブルを現行モデルから生成）。詳細は `migrations/README.md`。
+- マスタデータ（ロール・権限・初期管理者）は `shared/domain/auth/master_data.py` を唯一の出所とし、`versions/*_seed_master_data.py` と `scripts/seed_master_data.py` の双方が参照する。値をどちらかに直書きしない。
+
+---
+
+## DB モデリング（SQLAlchemy）
+
+- **DB ネイティブ ENUM カラムを使わない。** MariaDB の `ENUM` は値追加に `ALTER TABLE` が必要で DDL 運用と噛み合わず、序数変更でデータが壊れる。SQLAlchemy の `Enum(...)` を使う場合は必ず **`native_enum=False`**（全バックエンドで CHECK 制約付き VARCHAR になる）を指定する。あるいは `String` + 許可値の定数管理とする。
+- 型安全のための Python 側の許可値集中管理（`enum.Enum` クラスや定数タプル）は推奨。禁止しているのは「DB 側のネイティブ ENUM 型」であって、Python の列挙そのものではない。
+- 主キー等の `BigInteger` は SQLite テストとの両立のため `sa.BigInteger().with_variant(sa.Integer(), "sqlite")` を使う。
+- モデルを変更したら必ず対応するマイグレーションを追加する。乖離は `tests/integration/test_migration_model_consistency.py` が検出する。
 
 ---
 

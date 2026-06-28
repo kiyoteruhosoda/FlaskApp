@@ -213,26 +213,3 @@ def test_value_objects_immutability():
         pass  # 期待通り
     
     return True
-
-
-# ===== モンキーパッチヘルパー（既存テストとの互換性） =====
-
-
-def enable_new_duplicate_checker():
-    """新しい重複チェッカーを有効化（テスト用）."""
-    from bounded_contexts.photonest.application.local_import import adapters
-    adapters._USE_NEW_DUPLICATE_CHECKER = True
-
-
-def disable_new_duplicate_checker():
-    """旧重複チェッカーに戻す（テスト用）."""
-    from bounded_contexts.photonest.application.local_import import adapters
-    adapters._USE_NEW_DUPLICATE_CHECKER = False
-
-
-def compare_implementations_on_test_data(analysis):
-    """テストデータで新旧実装を比較."""
-    from bounded_contexts.photonest.application.local_import.adapters import (
-        compare_duplicate_checkers,
-    )
-    return compare_duplicate_checkers(analysis)

@@ -160,6 +160,14 @@ _SESSION_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         choices=BOOLEAN_CHOICES,
     ),
     SettingFieldDefinition(
+        key="REQUIRE_PASSWORD_CHANGE_ON_FIRST_LOGIN",
+        label=_(u"Require password change on first login"),
+        data_type="boolean",
+        required=True,
+        description=_(u"Force users to change their password on first login (optional, default off)."),
+        choices=BOOLEAN_CHOICES,
+    ),
+    SettingFieldDefinition(
         key="SESSION_COOKIE_SAMESITE",
         label=_(u"Session cookie SameSite"),
         data_type="string",

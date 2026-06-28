@@ -90,9 +90,19 @@ const Sidebar: React.FC = () => {
                 {!sidebarCollapsed && <span>{t('Media Gallery')}</span>}
               </Nav.Link>
 
+              {hasPermission('media:delete') && (
+                <Nav.Link
+                  href="/media/duplicates"
+                  className={`d-flex align-items-center py-2 ${isActive('/media/duplicates') ? 'active' : ''}`}
+                >
+                  <i className="bi bi-collection me-2"></i>
+                  {!sidebarCollapsed && <span>{t('Duplicates')}</span>}
+                </Nav.Link>
+              )}
+
               {hasPermission('album:view') && (
-                <Nav.Link 
-                  href="/albums" 
+                <Nav.Link
+                  href="/albums"
                   className={`d-flex align-items-center py-2 ${isActive('/albums') ? 'active' : ''}`}
                 >
                   <i className="bi bi-book me-2"></i>

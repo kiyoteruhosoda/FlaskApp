@@ -8,6 +8,8 @@ DEFAULT_APPLICATION_SETTINGS: dict[str, object] = {
     "ACCESS_TOKEN_AUDIENCE": "fpv-webapp",
     "SESSION_COOKIE_SECURE": False,
     "SESSION_COOKIE_HTTPONLY": True,
+    # 初回ログイン時にパスワード変更を強制するか（オプション機能・既定 OFF）
+    "REQUIRE_PASSWORD_CHANGE_ON_FIRST_LOGIN": False,
     "SESSION_COOKIE_SAMESITE": "Lax",
     "PERMANENT_SESSION_LIFETIME": 1800,
     "PREFERRED_URL_SCHEME": "",

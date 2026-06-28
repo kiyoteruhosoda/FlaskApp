@@ -20,6 +20,10 @@
 - 設定フラグ `REQUIRE_PASSWORD_CHANGE_ON_FIRST_LOGIN`（既定 OFF、土台のみ）。
 - マイグレーション運用 README（`migrations/README.md`）。
 
+### Fixed
+- CI で `pytest`（`python -m` なし）実行時に `conftest.py` の `import shared` が
+  `ModuleNotFoundError` になる問題を修正（pyproject に `pythonpath = [".", "cli/src"]` を追加）。
+
 ### Changed
 - 重複判定を単一実装に統合し、旧実装へのサイレントフォールバックを廃止。想定外の例外は
   伝播させ、不正ハッシュ時のみ明示的に「重複なし」で継続する。詳細は ADR-0004。

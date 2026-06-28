@@ -49,11 +49,14 @@
   メタデータ再生成は手作業。`MEDIA_ORIGINALS_DIRECTORY` を直接走査して再登録する
   CLI（冪等）を用意すると運用が安定。
 
-- ⬜ **初期管理者のセキュリティ強化** — env 上書きは対応済み。さらに初回ログイン時の
-  パスワード強制変更フローがあると堅い。
+- 🚧 **初回ログイン時パスワード強制変更（オプション・既定 OFF）** —
+  - ✅ 設定フラグ `REQUIRE_PASSWORD_CHANGE_ON_FIRST_LOGIN`（既定 False）を3ファイルに追加
+    （defaults / settings @property / 管理画面定義）。
+  - ⬜ 残: `user.must_change_password` 列＋マイグレーション、ログイン時のゲート
+    （フラグ ON 時に変更画面へ誘導）、フロントエンド対応。既定 OFF のため未配線でも無害。
 
-- ⬜ **CI への drift テスト組み込み** — `tests/integration/test_migration_model_consistency.py`
-  を CI で必須実行にする（ローカルでは追加済み）。
+- ✅ **CI への drift テスト組み込み** — `.github/workflows/test.yml` を追加し、push/PR で
+  `test_migration_model_consistency.py` を実行（従来 CI は Docker ビルドのみでテスト未実行だった）。
 
 ---
 

@@ -28,14 +28,14 @@
 
 ## 未着手 / 要対応
 
-- ⬜ **`media` への一意制約追加（冪等性のハード担保）** — 現状は重複判定が
-  「SELECT してから INSERT」のアプリ層実装で、`hash_sha256` / `google_media_id` に
-  DB 一意制約が無い。Celery 並行ワーカーで二重登録の競合リスク。
-  - ローカル取り込み: `hash_sha256` に部分一意制約（`is_deleted=False` 条件付きは
-    MariaDB では関数インデックス/別設計が必要 → 設計検討）。
-  - Google Photos: `google_media_id` を安定キーに一意化（再エンコードで sha256 は
-    変わりうるため、GP は sha256 だけでは冪等にならない）。
-  - 差分マイグレーションを `2a1f9c0b3d4e` 以降に追加する。
+- ✅ **`media.google_media_id` 一意制約＋復活方式** — 採用方針に従い実装。
+  - モデルに `UniqueConstraint("google_media_id")` を追加（NULL は複数許容＝ローカル無影響）。
+  - 差分マイグレーション `3b7c2e9a1f08_add_media_google_media_id_unique.py`（down=seed）。
+  - GP 取り込み2経路を `_upsert_google_media()` 化：既存（ソフト削除含む）があれば
+    INSERT せず `is_deleted=False` に戻してメタデータ上書き＝復活。Exif は merge で upsert。
+  - 検証: ドリフト緑 / picker・local_import 152 件緑 / media 75 件緑。
+  - 補足: ローカル取り込みの `hash_sha256` は引き続きアプリ層判定（部分一意制約は
+    MariaDB に無く別設計が要るため、必要なら別タスクで検討）。
 
 - ✅ **Enum 方針の統一** — 方針確定（DB ネイティブ ENUM 不使用＝`native_enum=False`）。
   全モデルの `db.Enum(...)` 14 箇所に `native_enum=False` を付与し、init_master を

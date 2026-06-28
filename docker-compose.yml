@@ -21,20 +21,20 @@ services:
         echo '[init] done';
       "
     volumes:
-      - /volume1/docker/photonest:/host
+      - ${HOST_DATA_ROOT:-/volume1/docker/photonest}:/host
     restart: "no"
 
   db:
-    image: photonest-db:latest
-    container_name: mariadb
+    image: ${DB_IMAGE:-photonest-db:latest}
+    container_name: ${DB_CONTAINER_NAME:-mariadb}
     environment:
       - TZ=UTC
     ports:
-      - "3307:3306"
+      - "${DB_HOST_PORT:-3307}:3306"
     env_file:
       - .env
     volumes:
-      - /volume1/docker/photonest/db_data:/var/lib/mysql
+      - ${HOST_DATA_ROOT:-/volume1/docker/photonest}/db_data:/var/lib/mysql
     command:
       - --default-time-zone=+00:00
     depends_on:
@@ -48,15 +48,15 @@ services:
       start_period: 180s
 
   web:
-    image: photonest:latest
+    image: ${WEB_IMAGE:-photonest:latest}
     init: true
     stop_grace_period: 60s
     entrypoint: ["/script/entrypoint.sh"]
     command: web
     ports:
-      - "127.0.0.1:8050:5000"
+      - "${WEB_BIND_ADDR:-127.0.0.1}:${WEB_HOST_PORT:-8050}:5000"
     environment:
-      - FLASK_ENV=production
+      - FLASK_ENV=${FLASK_ENV:-production}
       - TZ=UTC
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
@@ -70,7 +70,7 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - /volume1/docker/photonest/data:/app/data
+      - ${HOST_DATA_ROOT:-/volume1/docker/photonest}/data:/app/data
     user: "${PUID:-1000}:${PGID:-1000}"
     restart: unless-stopped
     healthcheck:
@@ -81,13 +81,13 @@ services:
       start_period: 40s
 
   worker:
-    image: photonest:latest
+    image: ${WEB_IMAGE:-photonest:latest}
     init: true
     stop_grace_period: 60s
     entrypoint: ["/script/entrypoint.sh"]
     command: worker
     environment:
-      - FLASK_ENV=production
+      - FLASK_ENV=${FLASK_ENV:-production}
       - TZ=UTC
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
@@ -101,7 +101,7 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - /volume1/docker/photonest/data:/app/data
+      - ${HOST_DATA_ROOT:-/volume1/docker/photonest}/data:/app/data
     user: "${PUID:-1000}:${PGID:-1000}"
     restart: unless-stopped
     healthcheck:
@@ -112,15 +112,15 @@ services:
       start_period: 60s
 
   beat:
-    image: photonest:latest
+    image: ${WEB_IMAGE:-photonest:latest}
     init: true
     stop_grace_period: 60s
     entrypoint: ["/script/entrypoint.sh"]
     command: beat
     volumes:
-      - /volume1/docker/photonest/data/celery:/app/data
+      - ${HOST_DATA_ROOT:-/volume1/docker/photonest}/data/celery:/app/data
     environment:
-      - FLASK_ENV=production
+      - FLASK_ENV=${FLASK_ENV:-production}
       - TZ=UTC
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
@@ -177,8 +177,8 @@ volumes:
 networks:
   default:
     external: true
-    name: photonest-dev
+    name: ${DOCKER_NETWORK_NAME:-photonest-dev}
     driver: bridge
     ipam:
       config:
-        - subnet: 172.22.0.0/16
+        - subnet: ${DOCKER_NETWORK_SUBNET:-172.22.0.0/16}

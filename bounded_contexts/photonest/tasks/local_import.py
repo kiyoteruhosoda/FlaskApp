@@ -5,7 +5,7 @@ import os
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, cast
 
 from shared.kernel.database.db import db
 from bounded_contexts.photonest.infrastructure.photo_models import (
@@ -1265,3 +1265,122 @@ def local_import_task(task_instance=None, session_id=None) -> Dict:
 
     _cleanup_extracted_directories()
     return result
+
+
+def rebuild_media_from_originals(
+    *,
+    originals_dir: Optional[str] = None,
+    refresh_existing: bool = False,
+    dry_run: bool = False,
+    progress: Optional[Callable[[str], None]] = None,
+) -> Dict[str, int]:
+    """originals ディレクトリを直接走査して Media を再登録する（冪等）。
+
+    取り込み inbox は取り込み後に空になり、originals を再スキャンする導線が無かった。
+    DB 初期化後などに、NAS 上の originals から Media メタデータを再構築するための
+    オフライン処理。サムネイル等の派生生成は行わない（メタデータの再登録のみ）。
+
+    冪等性は ``local_rel_path`` をキーに担保する（同じ相対パスの再登録はスキップ）。
+
+    Args:
+        originals_dir: originals のルート。未指定時は設定から解決。
+        refresh_existing: 既存 Media のメタデータも再適用する。
+        dry_run: 変更を加えず件数のみ集計する。
+        progress: 1件処理ごとに呼ばれる任意のコールバック（メッセージ文字列）。
+
+    Returns:
+        集計辞書（scanned / created / skipped / refreshed / errors）。
+    """
+
+    if originals_dir is None:
+        originals_dir = _resolve_directory("MEDIA_ORIGINALS_DIRECTORY")
+
+    root = Path(originals_dir)
+    stats: Dict[str, int] = {
+        "scanned": 0,
+        "created": 0,
+        "skipped": 0,
+        "refreshed": 0,
+        "errors": 0,
+    }
+
+    if not root.exists():
+        _log_warning(
+            "local_import.rebuild.missing_root",
+            "originals ディレクトリが存在しません",
+            originals_dir=originals_dir,
+            status="missing",
+        )
+        return stats
+
+    for path in sorted(p for p in root.rglob("*") if p.is_file()):
+        if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
+            continue
+
+        rel_path = path.relative_to(root).as_posix()
+        stats["scanned"] += 1
+
+        try:
+            existing = Media.query.filter_by(local_rel_path=rel_path).first()
+            if existing is not None:
+                if refresh_existing:
+                    if not dry_run:
+                        refresh_media_metadata_from_original(
+                            existing,
+                            originals_dir=originals_dir,
+                            fallback_path=str(path),
+                            file_extension=path.suffix.lower(),
+                            preserve_original_path=True,
+                        )
+                    stats["refreshed"] += 1
+                    if progress:
+                        progress(f"refreshed media_id={existing.id} {rel_path}")
+                else:
+                    stats["skipped"] += 1
+                continue
+
+            if dry_run:
+                stats["created"] += 1
+                if progress:
+                    progress(f"would create {rel_path}")
+                continue
+
+            analysis = _media_analyzer.analyze(str(path))
+            media = build_media_from_analysis(
+                analysis,
+                google_media_id=None,
+                relative_path=rel_path,
+            )
+            db.session.add(media)
+            db.session.flush()
+
+            exif_model = ensure_exif_for_media(media, analysis)
+            if exif_model is not None:
+                db.session.add(exif_model)
+
+            db.session.commit()
+            stats["created"] += 1
+            if progress:
+                progress(f"created media_id={media.id} {rel_path}")
+        except Exception as exc:  # noqa: BLE001 - 1件の失敗で全体を止めない
+            db.session.rollback()
+            stats["errors"] += 1
+            _log_error(
+                "local_import.rebuild.error",
+                "originals 再構築中にエラーが発生しました",
+                exc_info=True,
+                rel_path=rel_path,
+                error_type=type(exc).__name__,
+                error_message=str(exc),
+            )
+            if progress:
+                progress(f"error {rel_path}: {exc}")
+
+    _log_info(
+        "local_import.rebuild.done",
+        "originals 再構築が完了しました",
+        originals_dir=originals_dir,
+        status="done",
+        summary=stats,
+    )
+    return stats

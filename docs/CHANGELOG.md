@@ -6,6 +6,8 @@
 ## [Unreleased]
 
 ### Added
+- CLI `flask rebuild-originals`：`MEDIA_ORIGINALS_DIRECTORY` を直接走査して Media を
+  再登録（冪等、`--dry-run`/`--refresh`/`--verbose`）。DB 初期化後の復旧用。
 - 重複メディアのレビュー画面（`/media/duplicates`）と API `GET /api/media/duplicates`。
   exact(sha256)/similar(phash) でグループ化し人手で残す1枚を選択、他をソフト削除。詳細は ADR-0003。
 - マイグレーション/モデル乖離の回帰テスト `tests/integration/test_migration_model_consistency.py`

@@ -526,82 +526,32 @@ def _extract_zip_archive(zip_path: str, *, session_id: Optional[str] = None) -> 
 
 
 def check_duplicate_media(analysis: MediaFileAnalysis) -> Optional[Media]:
-    """重複チェック: pHash + 解像度 + 撮影日時 (+ 長さ).
-    
-    新しいDDD構造に移行中。内部実装は新構造を利用しますが、
-    インターフェースは既存のまま維持しています。
-    
-    移行戦略：
-    - フィーチャーフラグで新旧実装を切り替え可能
-    - 問題発生時は即座にロールバック可能
+    """重複チェック: pHash + 解像度 + 撮影日時 (+ 長さ) / SHA-256 + サイズ。
+
+    重複判定は単一の正準実装（DDD: ``MediaRepositoryImpl.find_by_signature`` を
+    ``check_duplicate_media_new`` 経由で利用）に委譲する。旧実装への
+    サイレントフォールバックは廃止し、想定外の失敗はそのまま伝播させる。
+
+    唯一の既知の例外経路は、ファイルハッシュが不正で署名（FileHash）を構築
+    できない場合（``ValueError``）。この場合のみ「重複なし」として取り込みを
+    継続し、握りつぶさずに警告ログを残す。
     """
-    # 新構造を使った実装（アダプター経由）
     from bounded_contexts.photonest.application.local_import.adapters import (
         check_duplicate_media_new,
     )
-    
+
     try:
         return check_duplicate_media_new(analysis)
-    except Exception as exc:
-        # 新実装で失敗した場合はフォールバック（旧実装）
+    except ValueError as exc:
+        # FileHash 検証失敗（ハッシュ未算出・長さ不正・非16進・負サイズ等）。
+        # 重複判定不能のため重複なし扱いで継続する（例外はログに残す）。
         _log_warning(
-            "local_import.duplicate_check.fallback",
-            f"新実装での重複チェックに失敗、旧実装にフォールバック: {str(exc)}",
+            "local_import.duplicate_check.invalid_signature",
+            "重複判定の署名を構築できないため重複なしとして継続します",
             error_type=type(exc).__name__,
             error_message=str(exc),
         )
-        
-        # 旧実装（念のため保持）
-        base_query = Media.query.filter(
-            Media.is_deleted.is_(False),
-            Media.is_video.is_(analysis.is_video),
-            Media.shot_at == analysis.shot_at,
-            Media.width == analysis.width,
-            Media.height == analysis.height,
-        )
-
-        base_query = base_query.filter(Media.duration_ms == analysis.duration_ms)
-
-        candidates = base_query.all()
-
-        if analysis.perceptual_hash:
-            for candidate in candidates:
-                if candidate.phash and candidate.phash == analysis.perceptual_hash:
-                    return candidate
-
-        for candidate in candidates:
-            if not candidate.phash or not analysis.perceptual_hash:
-                if (
-                    candidate.hash_sha256 == analysis.file_hash
-                    and candidate.bytes == analysis.file_size
-                ):
-                    return candidate
-
-        if analysis.perceptual_hash:
-            phash_candidates = (
-                Media.query.filter(
-                    Media.is_deleted.is_(False),
-                    Media.is_video.is_(analysis.is_video),
-                    Media.phash == analysis.perceptual_hash,
-                    Media.duration_ms == analysis.duration_ms,
-                )
-                .all()
-            )
-            for candidate in phash_candidates:
-                if (
-                    candidate.shot_at == analysis.shot_at
-                    and candidate.width == analysis.width
-                    and candidate.height == analysis.height
-                ):
-                    return candidate
-            if phash_candidates:
-                return phash_candidates[0]
-
-        return Media.query.filter_by(
-            hash_sha256=analysis.file_hash,
-            bytes=analysis.file_size,
-            is_deleted=False,
-        ).first()
+        return None
 
 
 def _refresh_existing_media_metadata(

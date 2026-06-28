@@ -19,6 +19,8 @@
 - マイグレーション運用 README（`migrations/README.md`）。
 
 ### Changed
+- 重複判定を単一実装に統合し、旧実装へのサイレントフォールバックを廃止。想定外の例外は
+  伝播させ、不正ハッシュ時のみ明示的に「重複なし」で継続する。詳細は ADR-0004。
 - マイグレーション履歴を単一ベースライン `migrations/versions/init_master.py` に統合
   （旧リビジョン 33 本を削除）。詳細は ADR-0001。
 - DB ネイティブ ENUM を廃止し全モデルの `Enum(...)` を `native_enum=False` 化。詳細は ADR-0002。

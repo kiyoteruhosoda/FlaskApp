@@ -17,6 +17,15 @@ from shared.kernel.settings.system_settings_defaults import (
     DEFAULT_APPLICATION_SETTINGS,
     DEFAULT_CORS_SETTINGS,
 )
+from shared.domain.auth.master_data import (
+    DEFAULT_ADMIN_EMAIL,
+    DEFAULT_ADMIN_ID,
+    DEFAULT_ADMIN_PASSWORD_HASH,
+    DEFAULT_ADMIN_ROLE,
+    PERMISSION_CODES,
+    ROLE_PERMISSIONS,
+    ROLES,
+)
 from flask_babel import gettext as _
 from presentation.web import create_app
 from presentation.web.services.system_setting_service import SystemSettingService
@@ -60,55 +69,18 @@ def seed_system_settings():
 
 def seed_roles():
     """ロールマスタデータの投入"""
-    roles_data = [
-        {'id': 1, 'name': 'admin'},
-        {'id': 2, 'name': 'manager'},
-        {'id': 3, 'name': 'member'},
-        {'id': 4, 'name': 'guest'}
-    ]
-    
-    for role_data in roles_data:
-        existing_role = Role.query.filter_by(id=role_data['id']).first()
+    for role_id, name in ROLES:
+        existing_role = Role.query.filter_by(id=role_id).first()
         if not existing_role:
-            role = Role(**role_data)
-            db.session.add(role)
-            print(f"Added role: {role_data['name']}")
+            db.session.add(Role(id=role_id, name=name))
+            print(f"Added role: {name}")
         else:
-            print(f"Role already exists: {role_data['name']}")
+            print(f"Role already exists: {name}")
 
 
 def seed_permissions():
     """権限マスタデータの投入"""
-    permission_codes = [
-        'admin:photo-settings',
-        'admin:job-settings',
-        'user:manage',
-        'album:create',
-        'album:edit',
-        'album:view',
-        'media:view',
-        'permission:manage',
-        'role:manage',
-        'system:manage',
-        'wiki:admin',
-        'wiki:read',
-        'wiki:write',
-        'media:tag-manage',
-        'media:metadata-manage',
-        'media:delete',
-        'media:recover',
-        'totp:view',
-        'totp:write',
-        'service_account:manage',
-        'certificate:manage',
-        'api_key:manage',
-        'certificate:sign',
-        'api_key:read',
-        'dashboard:view',
-        'gui:view',
-    ]
-
-    for code in permission_codes:
+    for code in PERMISSION_CODES:
         existing_perm = Permission.query.filter_by(code=code).first()
         if existing_perm:
             print(f"Permission already exists: {code}")
@@ -122,57 +94,7 @@ def seed_permissions():
 def seed_role_permissions():
     """ロール権限関係の投入"""
     role_permissions_map = {
-        'admin': [
-            'admin:photo-settings',
-            'admin:job-settings',
-            'user:manage',
-            'album:create',
-            'album:edit',
-            'album:view',
-            'media:view',
-            'permission:manage',
-            'role:manage',
-            'system:manage',
-            'wiki:admin',
-            'wiki:read',
-            'wiki:write',
-            'media:tag-manage',
-            'media:metadata-manage',
-            'media:delete',
-            'media:recover',
-            'totp:view',
-            'totp:write',
-            'service_account:manage',
-            'certificate:manage',
-            'api_key:manage',
-            'certificate:sign',
-            'api_key:read',
-            'dashboard:view',
-            'gui:view',
-        ],
-        'manager': [
-            'admin:photo-settings',
-            'album:create',
-            'album:edit',
-            'album:view',
-            'media:view',
-            'media:tag-manage',
-            'media:metadata-manage',
-            'media:delete',
-            'media:recover',
-            'dashboard:view',
-            'gui:view',
-        ],
-        'member': [
-            'album:view',
-            'media:view',
-            'dashboard:view',
-            'gui:view',
-        ],
-        'guest': [
-            'dashboard:view',
-            'gui:view',
-        ],
+        role_name: list(codes) for role_name, codes in ROLE_PERMISSIONS.items()
     }
 
     all_permission_codes = {
@@ -204,26 +126,32 @@ def seed_role_permissions():
 
 def seed_admin_user():
     """管理者ユーザーの投入"""
-    admin_email = "admin@example.com"
-    # デフォルトパスワード（実際の運用では変更必須）
-    admin_password_hash = "scrypt:32768:8:1$7oTcIUdekNLXGSXC$fd0f3320bde4570c7e1ea9d9d289aeb916db7a50fb62489a7e89d99c6cc576813506fd99f50904101c1eb85ff925f8dc879df5ded781ef2613224d702938c9c8"
-    
+    admin_email = DEFAULT_ADMIN_EMAIL
+    # 初期パスワードは環境変数で上書き可能。未指定時はフォールバック（要変更）。
+    raw_password = os.environ.get("ADMIN_INITIAL_PASSWORD")
+    if raw_password:
+        from werkzeug.security import generate_password_hash
+
+        admin_password_hash = generate_password_hash(raw_password)
+    else:
+        admin_password_hash = DEFAULT_ADMIN_PASSWORD_HASH
+
     existing_user = User.query.filter_by(email=admin_email).first()
     if not existing_user:
         admin_user = User(
-            id=1,
+            id=DEFAULT_ADMIN_ID,
             email=admin_email,
             password_hash=admin_password_hash,
             created_at=datetime.now(timezone.utc),
             is_active=True
         )
         db.session.add(admin_user)
-        
+
         # adminロールを付与
-        admin_role = Role.query.filter_by(name='admin').first()
+        admin_role = Role.query.filter_by(name=DEFAULT_ADMIN_ROLE).first()
         if admin_role:
             admin_user.roles.append(admin_role)
-        
+
         print(f"Added admin user: {admin_email}")
     else:
         print(f"Admin user already exists: {admin_email}")

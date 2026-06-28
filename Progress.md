@@ -37,10 +37,10 @@
     変わりうるため、GP は sha256 だけでは冪等にならない）。
   - 差分マイグレーションを `2a1f9c0b3d4e` 以降に追加する。
 
-- 🟡 **Enum 方針の統一（CLAUDE.md ルール vs 実モデル）** — 「Enum 禁止・String を使う」
-  ルールに対し、実モデルは `status` 等で `Enum` を多用。`local_import_audit_log` は
-  旧マイグレが String なのにモデルは Enum、と内部矛盾もあった。
-  → 方針決定が必要（下記「Enum ルールの妥当性」参照）。決定後に統一実装。
+- ✅ **Enum 方針の統一** — 方針確定（DB ネイティブ ENUM 不使用＝`native_enum=False`）。
+  全モデルの `db.Enum(...)` 14 箇所に `native_enum=False` を付与し、init_master を
+  再生成。CLAUDE.md に「DB モデリング」節を新設し、モデル定義ディレクトリへネスト
+  CLAUDE.md を追加（コード近傍で再強調）。ドリフトテスト・seed 検証ともに緑。
 
 - ⬜ **重複判定の二重実装の解消** — `check_duplicate_media` が新実装を try し例外で
   旧実装へサイレントフォールバック。障害が隠れるため一本化する。

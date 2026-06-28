@@ -42,7 +42,7 @@ class CeleryTaskRecord(db.Model):
     status: Mapped[CeleryTaskStatus] = mapped_column(
         db.Enum(
             CeleryTaskStatus,
-            name="celery_task_status",
+            name="celery_task_status", native_enum=False,
             values_callable=lambda enum_cls: [member.value for member in enum_cls],
         ),
         nullable=False,

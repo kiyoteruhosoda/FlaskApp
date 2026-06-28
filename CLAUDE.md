@@ -67,6 +67,17 @@ presentation/web/
 - マイグレーションファイルは `migrations/versions/<revision_id>_<description>.py`。
 - 各ファイルの先頭に `from __future__ import annotations` を必ず記述。
 - `upgrade()` / `downgrade()` の両方を実装する。
+- ベースラインは `migrations/versions/init_master.py`（全テーブルを現行モデルから生成）。詳細は `migrations/README.md`。
+- マスタデータ（ロール・権限・初期管理者）は `shared/domain/auth/master_data.py` を唯一の出所とし、`versions/*_seed_master_data.py` と `scripts/seed_master_data.py` の双方が参照する。値をどちらかに直書きしない。
+
+---
+
+## DB モデリング（SQLAlchemy）
+
+- **DB ネイティブ ENUM カラムを使わない。** MariaDB の `ENUM` は値追加に `ALTER TABLE` が必要で DDL 運用と噛み合わず、序数変更でデータが壊れる。SQLAlchemy の `Enum(...)` を使う場合は必ず **`native_enum=False`**（全バックエンドで CHECK 制約付き VARCHAR になる）を指定する。あるいは `String` + 許可値の定数管理とする。
+- 型安全のための Python 側の許可値集中管理（`enum.Enum` クラスや定数タプル）は推奨。禁止しているのは「DB 側のネイティブ ENUM 型」であって、Python の列挙そのものではない。
+- 主キー等の `BigInteger` は SQLite テストとの両立のため `sa.BigInteger().with_variant(sa.Integer(), "sqlite")` を使う。
+- モデルを変更したら必ず対応するマイグレーションを追加する。乖離は `tests/integration/test_migration_model_consistency.py` が検出する。
 
 ---
 

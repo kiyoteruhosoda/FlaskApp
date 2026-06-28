@@ -58,7 +58,7 @@ class JobSync(db.Model):
             "partial",
             "failed",
             "canceled",
-            name="job_sync_status",
+            name="job_sync_status", native_enum=False,
         ),
         nullable=False,
         default="queued",

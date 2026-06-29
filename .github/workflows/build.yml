@@ -3,28 +3,53 @@ name: Build Photonest
 on:
   push:
     branches:
-      - main   # main ブランチへの push で実行
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. リポジトリを完全 clone する（浅い clone だと Git 情報が取れない）
       - name: Checkout code
         uses: actions/checkout@v5
         with:
-          fetch-depth: 0   # ← ここに入れるのが正しい
+          fetch-depth: 0
 
-      # 2. Docker イメージをビルド & エクスポート
-      - name: Build Docker image
+      - name: Build app Docker image
         run: |
-          docker build -t photonest:latest .
-          docker save photonest:latest -o photonest-latest.tar
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          COMMIT_HASH_FULL=$(git rev-parse HEAD)
+          BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          COMMIT_DATE=$(git log -1 --format=%ci)
+          BUILD_DATE=$(date -Iseconds)
 
-      # 3. 成果物を保存（ダウンロード可能にする）
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v5
+          docker buildx build \
+            --platform linux/amd64 \
+            --build-arg COMMIT_HASH="$COMMIT_HASH" \
+            --build-arg COMMIT_HASH_FULL="$COMMIT_HASH_FULL" \
+            --build-arg BRANCH="$BRANCH" \
+            --build-arg COMMIT_DATE="$COMMIT_DATE" \
+            --build-arg BUILD_DATE="$BUILD_DATE" \
+            -t photonest:latest . \
+            --load
+
+          docker save photonest:latest -o photonest-latest.tar
+          chmod 644 photonest-latest.tar
+
+      - name: Build DB Docker image
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            -t photonest-db:latest ./db \
+            --load
+
+          docker save photonest-db:latest -o photonest-db-latest.tar
+          chmod 644 photonest-db-latest.tar
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v6
         with:
-          name: photonest-image
-          path: photonest-latest.tar
+          name: photonest-images
+          path: |
+            photonest-latest.tar
+            photonest-db-latest.tar

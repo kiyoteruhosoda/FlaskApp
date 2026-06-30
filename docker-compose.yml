@@ -56,7 +56,6 @@ services:
     ports:
       - "${WEB_BIND_ADDR:-127.0.0.1}:${WEB_HOST_PORT:-8050}:5000"
     environment:
-      - FLASK_ENV=${FLASK_ENV:-production}
       - TZ=UTC
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
@@ -87,7 +86,6 @@ services:
     entrypoint: ["/script/entrypoint.sh"]
     command: worker
     environment:
-      - FLASK_ENV=${FLASK_ENV:-production}
       - TZ=UTC
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
@@ -120,7 +118,6 @@ services:
     volumes:
       - ${HOST_DATA_ROOT:-/volume1/docker/photonest}/data/celery:/app/data
     environment:
-      - FLASK_ENV=${FLASK_ENV:-production}
       - TZ=UTC
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
@@ -176,7 +173,6 @@ volumes:
 
 networks:
   default:
-    external: true
     name: ${DOCKER_NETWORK_NAME:-photonest-dev}
     driver: bridge
     ipam:

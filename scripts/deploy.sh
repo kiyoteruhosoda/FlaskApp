@@ -23,6 +23,17 @@ MODE="${1:-deploy}"
 
 echo -e "\033[36m[deploy] Photonest deploy start (mode: $MODE)\033[0m"
 
+# ===== Update docker-compose.yml if supplied alongside the tar =====
+COMPOSE_SRC="$DOCKER_ROOT/docker-compose.yml"
+if [ -f "$COMPOSE_SRC" ]; then
+  echo "[deploy] Updating compose file from $COMPOSE_SRC"
+  mkdir -p "$BASE_DIR"
+  cp "$COMPOSE_SRC" "$COMPOSE_FILE"
+elif [ ! -f "$COMPOSE_FILE" ]; then
+  echo "[deploy][error] No docker-compose.yml found at $COMPOSE_FILE or $COMPOSE_SRC" >&2
+  exit 1
+fi
+
 # ===== Load app image =====
 if [ -f "$IMAGE_TAR" ]; then
   echo "[deploy] Loading image: $IMAGE_TAR"

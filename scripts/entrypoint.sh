@@ -34,10 +34,24 @@ if echo "${DATABASE_URI:-}" | grep -q "mysql"; then
   DB_PASS=$(echo "$DATABASE_URI" | sed -E 's#.*://[^:]+:([^@]+)@.*#\1#')
 
   log "Waiting for DB at $DB_HOST ..."
-  until mysql -h "$DB_HOST" -u "$DB_USER" "-p$DB_PASS" --skip-ssl -e "SELECT 1" >/dev/null 2>&1; do
+  export _DB_WAIT_HOST="$DB_HOST" _DB_WAIT_USER="$DB_USER" _DB_WAIT_PASS="$DB_PASS"
+  until python -c "
+import os, pymysql, sys
+try:
+    c = pymysql.connect(
+        host=os.environ['_DB_WAIT_HOST'],
+        user=os.environ['_DB_WAIT_USER'],
+        password=os.environ['_DB_WAIT_PASS'],
+        connect_timeout=3,
+    )
+    c.close()
+except Exception:
+    sys.exit(1)
+" >/dev/null 2>&1; do
     printf "."
     sleep 2
   done
+  unset _DB_WAIT_HOST _DB_WAIT_USER _DB_WAIT_PASS
   printf "\n"
   log "DB is ready"
 fi

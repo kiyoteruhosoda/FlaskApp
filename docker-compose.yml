@@ -51,7 +51,7 @@ services:
     image: ${WEB_IMAGE:-photonest:latest}
     init: true
     stop_grace_period: 60s
-    entrypoint: ["/script/entrypoint.sh"]
+    entrypoint: ["/app/scripts/entrypoint.sh"]
     command: web
     ports:
       - "${WEB_BIND_ADDR:-127.0.0.1}:${WEB_HOST_PORT:-8050}:5000"
@@ -83,7 +83,7 @@ services:
     image: ${WEB_IMAGE:-photonest:latest}
     init: true
     stop_grace_period: 60s
-    entrypoint: ["/script/entrypoint.sh"]
+    entrypoint: ["/app/scripts/entrypoint.sh"]
     command: worker
     environment:
       - TZ=UTC
@@ -113,7 +113,7 @@ services:
     image: ${WEB_IMAGE:-photonest:latest}
     init: true
     stop_grace_period: 60s
-    entrypoint: ["/script/entrypoint.sh"]
+    entrypoint: ["/app/scripts/entrypoint.sh"]
     command: beat
     volumes:
       - ${HOST_DATA_ROOT:-/volume1/docker/photonest}/data/celery:/app/data

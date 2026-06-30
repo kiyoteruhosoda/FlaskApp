@@ -21,6 +21,11 @@
 - マイグレーション運用 README（`migrations/README.md`）。
 
 ### Fixed
+- コンテナ起動失敗 `exec /script/entrypoint.sh failed: No such file or directory` を修正。
+  起動方法をイメージに焼き込み（Dockerfile に `ENTRYPOINT ["/app/scripts/entrypoint.sh"]` /
+  `CMD ["web"]`）、compose の `entrypoint:` 絶対パス上書きを撤去。compose は `command`
+  （web / worker / beat）でモードのみ指定する。デプロイ先の compose コピー同期漏れに対する
+  耐性を高めた（`scripts/README.md` に同期手順を明記）。
 - CI で `pytest`（`python -m` なし）実行時に `conftest.py` の `import shared` が
   `ModuleNotFoundError` になる問題を修正（pyproject に `pythonpath = [".", "cli/src"]` を追加）。
 

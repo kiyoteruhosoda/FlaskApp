@@ -53,3 +53,9 @@ jobs:
           path: |
             photonest-latest.tar
             photonest-db-latest.tar
+
+      - name: Upload scripts
+        uses: actions/upload-artifact@v6
+        with:
+          name: photonest-scripts
+          path: scripts/

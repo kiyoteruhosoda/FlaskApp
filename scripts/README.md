@@ -18,7 +18,8 @@ source .venv/bin/activate
 |---|---|
 | `.build.sh` | ローカルで Docker イメージをビルドし TAR を生成。前提チェック付き |
 | `entrypoint.sh` | Docker コンテナ起動スクリプト。`docker-compose.yml` から使用（web / worker / beat モード切替） |
-| `deploy.sh` | Synology NAS 向けデプロイスクリプト。tar イメージをロードし `docker compose up` を実行 |
+| `deploy.sh` | 本番（`/volume1/docker/photonest`）向けデプロイスクリプト |
+| `deploy-stg.sh` | STG（`/volume1/docker/photonest-stg`）向けデプロイスクリプト |
 | `generate_version.sh` | `shared/kernel/version.json` を生成。`Makefile` の `make build` から自動呼び出し |
 | `fix_redis_aof.sh` | Redis の AOF ファイルが壊れたときの緊急修復スクリプト |
 
@@ -50,15 +51,37 @@ scp photonest-latest.tar photonest-db-latest.tar <user>@<synology-host>:/volume1
 ./scripts/deploy.sh
 ```
 
-### deploy.sh
+### deploy.sh / deploy-stg.sh
+
+スクリプトの位置（`scripts/`）から `DOCKER_ROOT`（`/volume1/docker`）を自動導出します。
+TAR ファイルは `DOCKER_ROOT` 直下、compose ディレクトリはその下に配置してください。
+
+```
+/volume1/docker/
+├── photonest/           ← docker-compose.yml + .env（本番）
+├── photonest-stg/       ← docker-compose.yml + .env（STG）
+├── photonest-latest.tar
+├── photonest-db-latest.tar
+└── scripts/
+    ├── deploy.sh
+    └── deploy-stg.sh
+```
 
 ```bash
-# 通常デプロイ（コンテナ停止→イメージロード→起動→ヘルスチェック）
+# 本番：通常デプロイ（コンテナ停止 → イメージロード → 起動 → ヘルスチェック）
 ./scripts/deploy.sh
 
-# 完全初期化（DB・メディアデータをすべて削除してから起動）
+# 本番：完全初期化（DB・メディアデータをすべて削除してから起動）
 ./scripts/deploy.sh reset
+
+# STG：通常デプロイ
+./scripts/deploy-stg.sh
+
+# STG：完全初期化
+./scripts/deploy-stg.sh reset
 ```
+
+reset モードでは DB イメージ（`photonest-db-latest.tar`）も再ロードします。
 
 ---
 

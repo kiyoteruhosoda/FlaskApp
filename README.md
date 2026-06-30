@@ -67,39 +67,37 @@ npm run dev   # http://localhost:3000 で起動、Flask へのリクエストは
 
 ## ビルド
 
-Docker イメージのビルドは `make` コマンドで行います。成果物は `.tar` ファイルとして出力されます。
+Docker イメージのビルドは `scripts/.build.sh` で行います。成果物は `.tar` ファイルとして出力されます。
 
 ```bash
-# アプリイメージのビルド → photonest-latest.tar
-make build
+# アプリ + DB を両方ビルド（推奨）
+./scripts/.build.sh
 
-# DB イメージのビルド → photonest-db-latest.tar
-make build-db
+# アプリイメージのみ → photonest-latest.tar
+./scripts/.build.sh app
 
-# 両方まとめてビルド
-make all
+# DB イメージのみ → photonest-db-latest.tar
+./scripts/.build.sh db
 ```
 
-`make build` は以下を順に実行します:
+`scripts/.build.sh app` は以下を順に実行します:
 
-1. `docker buildx build` でイメージをローカルに作成（フロントエンドのビルドを含む）
-2. イメージ内の `shared/kernel/version.json` を表示して内容確認
-3. `docker save` で `photonest-latest.tar` を書き出し
+1. 前提チェック（Docker / buildx / make / git）
+2. `docker buildx build` でイメージをローカルに作成（フロントエンドのビルドを含む）
+3. イメージ内の `shared/kernel/version.json` を表示して内容確認
+4. `docker save` で `photonest-latest.tar` を書き出し
 
-その他の make ターゲット:
+`make` を直接使う場合:
 
 ```bash
-# TAR からイメージをロード
-make load
+make build           # アプリのみ
+make build-db        # DB のみ
+make all             # 両方
 
-# ロード済みイメージを単体起動（動作確認用）
-make run
-
-# TAR の中身のバージョン情報を確認
-make show-tar-version
-
-# 生成物と Docker ビルドキャッシュを削除
-make clean
+make load            # TAR からイメージをロード
+make run             # ロード済みイメージを単体起動（動作確認用）
+make show-tar-version  # TAR の中身のバージョン情報を確認
+make clean           # 生成物と Docker ビルドキャッシュを削除
 ```
 
 ## デプロイ

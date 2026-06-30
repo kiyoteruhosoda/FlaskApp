@@ -176,7 +176,6 @@ volumes:
 
 networks:
   default:
-    external: true
     name: ${DOCKER_NETWORK_NAME:-photonest-dev}
     driver: bridge
     ipam:

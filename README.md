@@ -102,7 +102,7 @@ make clean           # 生成物と Docker ビルドキャッシュを削除
 
 ## デプロイ
 
-### Synology NAS（本番）
+### Synology NAS（本番 / STG）
 
 `make build` / `make build-db` で生成した `.tar` を Synology に転送してから実行します。
 
@@ -110,20 +110,37 @@ make clean           # 生成物と Docker ビルドキャッシュを削除
 # TAR を Synology に転送（例）
 scp photonest-latest.tar photonest-db-latest.tar user@synology:/volume1/docker/
 
-# Synology 上でデプロイ（SSH 接続後）
+# 本番デプロイ（SSH 接続後）
 ./scripts/deploy.sh
 
-# DB・メディアデータを含む完全初期化（初回またはリセット時）
+# STG デプロイ
+./scripts/deploy-stg.sh
+
+# 完全初期化（初回またはリセット時）
 ./scripts/deploy.sh reset
+./scripts/deploy-stg.sh reset
 ```
 
-`deploy.sh` の処理内容:
+deploy スクリプトの処理内容:
 
 1. `photonest-latest.tar` をロード（`docker load`）
 2. 既存コンテナを停止（`docker compose down`）
-3. `reset` モードの場合は DB・メディアデータを削除
+3. `reset` モードの場合は `photonest-db-latest.tar` も再ロードし DB・メディアデータを削除
 4. コンテナを起動（`docker compose up -d`）
 5. `/health/live` へのポーリングでヘルスチェック
+
+期待するディレクトリ構成（Synology 上）:
+
+```
+/volume1/docker/
+├── photonest/           ← docker-compose.yml + .env（本番）
+├── photonest-stg/       ← docker-compose.yml + .env（STG）
+├── photonest-latest.tar
+├── photonest-db-latest.tar
+└── scripts/
+    ├── deploy.sh
+    └── deploy-stg.sh
+```
 
 コンテナ構成（`docker-compose.yml`）:
 

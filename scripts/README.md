@@ -16,10 +16,39 @@ source .venv/bin/activate
 
 | スクリプト | 用途 |
 |---|---|
+| `.build.sh` | ローカルで Docker イメージをビルドし TAR を生成。前提チェック付き |
 | `entrypoint.sh` | Docker コンテナ起動スクリプト。`docker-compose.yml` から使用（web / worker / beat モード切替） |
 | `deploy.sh` | Synology NAS 向けデプロイスクリプト。tar イメージをロードし `docker compose up` を実行 |
 | `generate_version.sh` | `shared/kernel/version.json` を生成。`Makefile` の `make build` から自動呼び出し |
 | `fix_redis_aof.sh` | Redis の AOF ファイルが壊れたときの緊急修復スクリプト |
+
+### .build.sh
+
+ローカルビルドのエントリーポイント。Docker / buildx / make / git の前提チェックを行ったうえで `make` を呼び出し、完了後に成果物のパスとサイズを表示します。
+
+```bash
+# アプリ + DB を両方ビルド（推奨）
+./scripts/.build.sh
+
+# アプリイメージのみ → photonest-latest.tar
+./scripts/.build.sh app
+
+# DB イメージのみ → photonest-db-latest.tar
+./scripts/.build.sh db
+
+# ヘルプ
+./scripts/.build.sh --help
+```
+
+ビルド後の流れ:
+
+```bash
+# 生成した TAR を Synology に転送
+scp photonest-latest.tar photonest-db-latest.tar <user>@<synology-host>:/volume1/docker/
+
+# Synology 上でデプロイ（SSH 接続後）
+./scripts/deploy.sh
+```
 
 ### deploy.sh
 

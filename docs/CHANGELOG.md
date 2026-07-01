@@ -6,6 +6,13 @@
 ## [Unreleased]
 
 ### Fixed
+- `worker`/`beat` コンテナの healthcheck（`docker-compose.yml`）が
+  `ps aux | grep -q ...` を使っているが、ベースイメージ `python:3.11-slim` には
+  `ps` コマンド（procps パッケージ）が含まれておらず、実行のたびに
+  `/bin/sh: ps: not found` で healthcheck が失敗していた。このエラーは
+  healthcheck プローブ自身の STDIO（`docker inspect` の `State.Health.Log`）に
+  記録され `docker compose logs` には出ないため気づきにくく、タスク自体は正常に
+  実行され続けていた。`Dockerfile` の apt-get install に `procps` を追加して修正。
 - `docs/OPERATIONS.md`「3. デプロイ」「5. ログ監視」のログ確認コマンド例を修正。
   `docker compose logs <サービス名>` は `docker-compose.yml`/`.env` があるディレクトリ
   （`/volume1/docker/photonest` 等）で実行する必要があるが、その前提が書かれておらず

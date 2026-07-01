@@ -1,12 +1,12 @@
 #!/bin/bash
 # 本番デプロイスクリプト
-# 使い方:
-#   ./scripts/deploy.sh          # 通常デプロイ（アプリのみ更新。DBスキーマ変更なし）
+# 使い方（モード引数は必須）:
+#   ./scripts/deploy.sh app      # 通常デプロイ（アプリのみ更新。DBスキーマ変更なし）
 #   ./scripts/deploy.sh migrate  # DDL更新時（新しい Alembic migration を追加した場合）
 #   ./scripts/deploy.sh reset    # 完全初期化（DB・メディアデータ消去。マスタデータ投入済みで起動）
 #
 # どれを使うか:
-#   - アプリのみ更新（DDL変更なし）        → 引数なし（deploy）
+#   - アプリのみ更新（DDL変更なし）        → app
 #   - DDL更新（migrations/versions/ 追加）  → migrate
 #   - 完全に作り直したいとき（破壊的）      → reset
 
@@ -26,12 +26,12 @@ DATA_PATH="$BASE_DIR/data"
 DB_PATH="$BASE_DIR/db_data"
 COMPOSE="docker compose -p $PROJECT -f $COMPOSE_FILE --env-file $ENV_FILE"
 
-MODE="${1:-deploy}"
+MODE="${1:-}"
 
 case "$MODE" in
-  deploy|migrate|reset) ;;
+  app|migrate|reset) ;;
   *)
-    echo "[deploy][error] Unknown mode: $MODE (use: deploy | migrate | reset)" >&2
+    echo "[deploy][error] Mode required. Usage: $0 <app|migrate|reset>" >&2
     exit 1
     ;;
 esac

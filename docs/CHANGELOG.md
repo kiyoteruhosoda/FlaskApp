@@ -6,9 +6,10 @@
 ## [Unreleased]
 
 ### Added
-- `scripts/deploy.sh` / `scripts/deploy-stg.sh` に `migrate` モードを追加。
-  引数だけで「アプリのみ更新（`deploy`）」「DDL更新（`migrate`＝`flask db upgrade`を
-  自動実行、既存データ保持）」「完全初期化（`reset`）」を切り替えられるようにした。
+- `scripts/deploy.sh` / `scripts/deploy-stg.sh` のモード引数を必須化し、
+  「アプリのみ更新（`app`）」「DDL更新（`migrate`＝`flask db upgrade`を自動実行、
+  既存データ保持）」「完全初期化（`reset`）」を明示引数だけで切り替えられるようにした
+  （引数省略時のデフォルト`deploy`は廃止）。
   `reset` は起動後に `flask db stamp head` を自動実行し、`db/init/01_initialize.sql`
   焼き込み時に空のまま投入される `alembic_version` を head に揃える（放置すると次回
   `migrate` が `init_master` から再実行され `CREATE TABLE` 重複エラーになっていた）。
@@ -28,6 +29,13 @@
 - マイグレーション運用 README（`migrations/README.md`）。
 
 ### Fixed
+- `Dockerfile` をマルチステージ化し、`photonest-latest.tar` の異常な肥大化を修正。
+  Node.js 本体・npm・`node_modules`（devDependencies の `@playwright/test` が
+  ダウンロードする E2E テスト用ブラウザ含む）は `frontend/build` のビルドにしか使わないが、
+  従来は単一ステージで最終イメージにそのまま焼き込まれていた。`frontend-builder`
+  （`node:20-slim`）ステージでビルドし、`frontend/build` の成果物だけを最終イメージへ
+  コピーするよう変更。`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` でビルド時のブラウザ
+  ダウンロードも停止。詳細は `docs/OPERATIONS.md`「6. トラブルシューティング」参照。
 - STG デプロイの troubleshooting 性を改善。詳細は `docs/OPERATIONS.md`「6. トラブルシューティング」参照。
   - `web` の healthcheck が公開ドメイン用の `API_BASE_URL` に対して名前解決していたため、
     NAS 環境で DNS 解決できず `socket.gaierror` で失敗し続けていた問題を修正

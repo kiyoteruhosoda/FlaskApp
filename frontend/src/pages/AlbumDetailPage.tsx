@@ -198,7 +198,7 @@ const AlbumDetailPage: React.FC = () => {
             <Col>
               <div className="d-flex align-items-center gap-2 mb-1">
                 <Link to="/albums" className="text-muted text-decoration-none">
-                  <i className="bi bi-arrow-left" />
+                  <i className="fa-solid fa-arrow-left" />
                 </Link>
                 <h1 className="h3 mb-0">{album.title}</h1>
                 {album.visibility && (
@@ -230,19 +230,19 @@ const AlbumDetailPage: React.FC = () => {
                       className="btn btn-outline-secondary"
                       data-testid="album-slideshow"
                     >
-                      <i className="bi bi-play-circle me-1" />{t('Slideshow')}
+                      <i className="fa-solid fa-circle-play me-1" />{t('Slideshow')}
                     </Link>
                   )}
                   {album.mediaCount > 1 && (
                     <Button variant="outline-secondary" onClick={startReorder} data-testid="album-reorder">
-                      <i className="bi bi-arrow-down-up me-1" />{t('Reorder')}
+                      <i className="fa-solid fa-arrow-down-up-across-line me-1" />{t('Reorder')}
                     </Button>
                   )}
                   <Button variant="outline-primary" onClick={openEdit} data-testid="album-edit">
-                    <i className="bi bi-pencil me-1" />{t('Edit')}
+                    <i className="fa-solid fa-pen me-1" />{t('Edit')}
                   </Button>
                   <Button variant="outline-danger" onClick={() => setShowDelete(true)} data-testid="album-delete">
-                    <i className="bi bi-trash me-1" />{t('Delete')}
+                    <i className="fa-solid fa-trash me-1" />{t('Delete')}
                   </Button>
                 </>
               )}
@@ -290,7 +290,7 @@ const AlbumDetailPage: React.FC = () => {
                           draggable={false}
                         />
                       ) : (
-                        <i className="bi bi-image text-muted fs-2" />
+                        <i className="fa-solid fa-image text-muted fs-2" />
                       )}
                     </div>
                     <Card.Body className="p-2">

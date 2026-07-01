@@ -59,16 +59,16 @@ const WikiIndexPage: React.FC = () => {
         </Col>
         <Col xs="auto" className="d-flex gap-2">
           <Link to="/wiki/search" className="btn btn-outline-secondary btn-sm">
-            <i className="bi bi-search me-1" />Search
+            <i className="fa-solid fa-magnifying-glass me-1" />Search
           </Link>
           <Link to="/wiki/create" className="btn btn-primary btn-sm">
-            <i className="bi bi-plus-lg me-1" />New Page
+            <i className="fa-solid fa-plus me-1" />New Page
           </Link>
           <Link to="/wiki/categories" className="btn btn-outline-secondary btn-sm">
-            <i className="bi bi-tags me-1" />Categories
+            <i className="fa-solid fa-tags me-1" />Categories
           </Link>
           <Link to="/wiki/admin" className="btn btn-outline-secondary btn-sm">
-            <i className="bi bi-gear me-1" />Admin
+            <i className="fa-solid fa-gear me-1" />Admin
           </Link>
         </Col>
       </Row>
@@ -134,7 +134,7 @@ const WikiIndexPage: React.FC = () => {
               )}
               <div className="mt-3">
                 <Link to="/wiki/categories/create" className="btn btn-outline-primary btn-sm">
-                  <i className="bi bi-plus me-1" />New Category
+                  <i className="fa-solid fa-plus me-1" />New Category
                 </Link>
               </div>
             </Card.Body>

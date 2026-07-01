@@ -154,7 +154,7 @@
       elements.tableBody.innerHTML = `
         <tr>
           <td colspan="${columnCount}" class="text-center py-4 text-muted">
-            <i class="bi bi-inbox me-2"></i>${t('totp.noEntries', 'No TOTP registrations yet.')}
+            <i class="fa-solid fa-inbox me-2"></i>${t('totp.noEntries', 'No TOTP registrations yet.')}
           </td>
         </tr>`;
       return;

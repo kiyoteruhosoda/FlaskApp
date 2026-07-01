@@ -120,7 +120,7 @@ const RolesPage: React.FC = () => {
         </Col>
         <Col xs="auto">
           <Button variant="primary" onClick={openCreate} data-testid="roles-create">
-            <i className="bi bi-plus-lg me-1" />{t('New Role')}
+            <i className="fa-solid fa-plus me-1" />{t('New Role')}
           </Button>
         </Col>
       </Row>
@@ -158,10 +158,10 @@ const RolesPage: React.FC = () => {
                 <td>
                   <div className="d-flex gap-1">
                     <Button size="sm" variant="outline-secondary" onClick={() => openEdit(r)} data-testid="role-edit">
-                      <i className="bi bi-pencil" />
+                      <i className="fa-solid fa-pen" />
                     </Button>
                     <Button size="sm" variant="outline-danger" onClick={() => setDeleteTarget(r)} data-testid="role-delete">
-                      <i className="bi bi-trash" />
+                      <i className="fa-solid fa-trash" />
                     </Button>
                   </div>
                 </td>

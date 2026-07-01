@@ -236,8 +236,8 @@ const UsersPage: React.FC = () => {
           <h1 className="h3 mb-1">{t('User Management')}</h1>
           <p className="text-muted mb-0">{t('Manage users, roles and access')}</p>
         </Col>
-        <Col xs="auto" className="d-flex gap-2">
-          <Form className="d-flex" onSubmit={submitSearch}>
+        <Col xs="auto" className="d-flex flex-nowrap gap-2">
+          <Form className="d-flex flex-nowrap" onSubmit={submitSearch}>
             <Form.Control
               type="search"
               placeholder={t('Search users')}
@@ -245,10 +245,10 @@ const UsersPage: React.FC = () => {
               onChange={(e) => setSearch(e.target.value)}
               data-testid="users-search"
             />
-            <Button type="submit" variant="outline-primary" className="ms-2">{t('Search')}</Button>
+            <Button type="submit" variant="outline-primary" className="ms-2 text-nowrap">{t('Search')}</Button>
           </Form>
-          <Button variant="primary" onClick={openCreate} data-testid="users-create">
-            <i className="bi bi-plus-lg me-1" />{t('New User')}
+          <Button variant="primary" onClick={openCreate} className="text-nowrap" data-testid="users-create">
+            <i className="fa-solid fa-plus me-1" />{t('New User')}
           </Button>
         </Col>
       </Row>
@@ -306,18 +306,18 @@ const UsersPage: React.FC = () => {
                   <td>
                     <div className="d-flex gap-1 flex-wrap">
                       <Button size="sm" variant="outline-secondary" onClick={() => openEdit(u)} data-testid="user-edit">
-                        <i className="bi bi-pencil" />
+                        <i className="fa-solid fa-pen" />
                       </Button>
                       <Button size="sm" variant="outline-primary" onClick={() => openRoles(u)} data-testid="user-roles">
-                        <i className="bi bi-shield" />
+                        <i className="fa-solid fa-shield-halved" />
                       </Button>
                       {u.hasTOTP && (
                         <Button size="sm" variant="outline-warning" onClick={() => resetTOTP(u)} title={t('Reset TOTP')} data-testid="user-reset-totp">
-                          <i className="bi bi-shield-x" />
+                          <i className="fa-solid fa-lock-open" />
                         </Button>
                       )}
                       <Button size="sm" variant="outline-danger" onClick={() => setDeleteTarget(u)} data-testid="user-delete">
-                        <i className="bi bi-trash" />
+                        <i className="fa-solid fa-trash" />
                       </Button>
                     </div>
                   </td>

@@ -17,10 +17,10 @@
     "clean": "rm -rf build dist node_modules/.vite"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-free": "^7.3.0",
     "@reduxjs/toolkit": "^2.2.1",
     "axios": "^1.6.7",
     "bootstrap": "^5.3.3",
-    "bootstrap-icons": "^1.11.3",
     "i18next": "^23.10.0",
     "i18next-browser-languagedetector": "^7.2.0",
     "react": "^18.2.0",

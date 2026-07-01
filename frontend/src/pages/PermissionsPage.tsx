@@ -112,7 +112,7 @@ const PermissionsPage: React.FC = () => {
             <Button type="submit" variant="outline-primary" className="ms-2">{t('Search')}</Button>
           </Form>
           <Button variant="primary" onClick={openCreate} data-testid="permissions-create">
-            <i className="bi bi-plus-lg me-1" />{t('New Permission')}
+            <i className="fa-solid fa-plus me-1" />{t('New Permission')}
           </Button>
         </Col>
       </Row>
@@ -142,10 +142,10 @@ const PermissionsPage: React.FC = () => {
                 <td>
                   <div className="d-flex gap-1">
                     <Button size="sm" variant="outline-secondary" onClick={() => openEdit(p)} data-testid="permission-edit">
-                      <i className="bi bi-pencil" />
+                      <i className="fa-solid fa-pen" />
                     </Button>
                     <Button size="sm" variant="outline-danger" onClick={() => setDeleteTarget(p)} data-testid="permission-delete">
-                      <i className="bi bi-trash" />
+                      <i className="fa-solid fa-trash" />
                     </Button>
                   </div>
                 </td>

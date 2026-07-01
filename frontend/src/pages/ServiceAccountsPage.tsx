@@ -129,7 +129,7 @@ const ServiceAccountsPage: React.FC = () => {
             <Button type="submit" variant="outline-primary" className="ms-2">{t('Search')}</Button>
           </Form>
           <Button variant="primary" onClick={openCreate} data-testid="sa-create">
-            <i className="bi bi-plus-lg me-1" />{t('New Service Account')}
+            <i className="fa-solid fa-plus me-1" />{t('New Service Account')}
           </Button>
         </Col>
       </Row>
@@ -175,10 +175,10 @@ const ServiceAccountsPage: React.FC = () => {
                 <td>
                   <div className="d-flex gap-1">
                     <Button size="sm" variant="outline-secondary" onClick={() => openEdit(a)} data-testid="sa-edit">
-                      <i className="bi bi-pencil" />
+                      <i className="fa-solid fa-pen" />
                     </Button>
                     <Button size="sm" variant="outline-danger" onClick={() => setDeleteTarget(a)} data-testid="sa-delete">
-                      <i className="bi bi-trash" />
+                      <i className="fa-solid fa-trash" />
                     </Button>
                   </div>
                 </td>

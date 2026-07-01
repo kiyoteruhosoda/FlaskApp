@@ -232,7 +232,7 @@ const LoginPage: React.FC = () => {
                       </>
                     ) : (
                       <>
-                        🔐 {t('Sign in with Passkey')}
+                        <i className="fa-solid fa-key me-2" />{t('Sign in with Passkey')}
                       </>
                     )}
                   </Button>

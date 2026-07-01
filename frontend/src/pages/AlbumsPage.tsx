@@ -194,7 +194,7 @@ const AlbumsPage: React.FC = () => {
             </Button>
           </Form>
           <Button variant="primary" onClick={openCreate} data-testid="albums-create">
-            <i className="bi bi-plus-lg me-1" />{t('New Album')}
+            <i className="fa-solid fa-plus me-1" />{t('New Album')}
           </Button>
         </Col>
       </Row>
@@ -232,7 +232,7 @@ const AlbumsPage: React.FC = () => {
                         style={{ objectFit: 'cover', width: '100%', height: '100%' }}
                       />
                     ) : (
-                      <i className="bi bi-book text-muted fs-1" />
+                      <i className="fa-solid fa-book text-muted fs-1" />
                     )}
                   </div>
                   <Card.Body className="p-2">
@@ -249,7 +249,7 @@ const AlbumsPage: React.FC = () => {
                     data-testid="album-edit"
                     title={t('Edit')}
                   >
-                    <i className="bi bi-pencil" />
+                    <i className="fa-solid fa-pen" />
                   </Button>
                   <Button
                     size="sm"
@@ -259,7 +259,7 @@ const AlbumsPage: React.FC = () => {
                     data-testid="album-delete"
                     title={t('Delete')}
                   >
-                    <i className="bi bi-trash" />
+                    <i className="fa-solid fa-trash" />
                   </Button>
                 </div>
               </Card>

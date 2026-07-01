@@ -369,7 +369,7 @@ class AlbumSlideshow {
     const icon = this.playPauseButton.querySelector('i');
     const label = this.playPauseButton.querySelector('[data-label]');
     const text = this.isPlaying ? this.labels.pause : this.labels.play;
-    const iconClass = this.isPlaying ? 'bi bi-pause-fill me-1' : 'bi bi-play-fill me-1';
+    const iconClass = this.isPlaying ? 'fa-solid fa-pause me-1' : 'fa-solid fa-play me-1';
     if (icon) {
       icon.className = iconClass;
     } else {

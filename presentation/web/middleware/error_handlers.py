@@ -165,7 +165,10 @@ def register_debug_error_handlers(app):
         app.logger.error(f"Traceback:\n{traceback.format_exc()}")
 
         # デフォルトのFlask-Smorest処理に委任
-        return {"error": "validation_failed", "message": str(e), "details": getattr(e, 'data', {})}, 422
+        # webargs の e.data には非シリアライズ可能な Schema インスタンスが
+        # 含まれる場合があるため、messages のみを details として返す。
+        error_data = getattr(e, 'data', None) or {}
+        return {"error": "validation_failed", "message": str(e), "details": error_data.get('messages', {})}, 422
 
     @app.errorhandler(500)
     def handle_internal_server_error(e):

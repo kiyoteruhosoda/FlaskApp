@@ -45,7 +45,7 @@ const WikiAdminPage: React.FC = () => {
     <Container fluid className="py-4">
       <div className="d-flex align-items-center mb-4">
         <Link to="/wiki" className="btn btn-outline-secondary btn-sm me-3">
-          <i className="bi bi-arrow-left me-1" />Wiki
+          <i className="fa-solid fa-arrow-left me-1" />Wiki
         </Link>
         <h1 className="h3 mb-0">Wiki Admin</h1>
       </div>
@@ -85,10 +85,10 @@ const WikiAdminPage: React.FC = () => {
                       </Link>
                       <div className="d-flex gap-2 ms-2">
                         <Link to={`/wiki/edit/${page.slug}`} className="btn btn-outline-secondary btn-sm">
-                          <i className="bi bi-pencil" />
+                          <i className="fa-solid fa-pen" />
                         </Link>
                         <Link to={`/wiki/history/${page.slug}`} className="btn btn-outline-secondary btn-sm">
-                          <i className="bi bi-clock-history" />
+                          <i className="fa-solid fa-clock-rotate-left" />
                         </Link>
                       </div>
                     </li>
@@ -104,13 +104,13 @@ const WikiAdminPage: React.FC = () => {
             <Card.Header><strong>Quick Actions</strong></Card.Header>
             <Card.Body className="d-flex flex-column gap-2">
               <Link to="/wiki/create" className="btn btn-primary">
-                <i className="bi bi-plus-lg me-2" />New Page
+                <i className="fa-solid fa-plus me-2" />New Page
               </Link>
               <Link to="/wiki/categories/create" className="btn btn-outline-primary">
-                <i className="bi bi-tag me-2" />New Category
+                <i className="fa-solid fa-tag me-2" />New Category
               </Link>
               <Link to="/wiki/categories" className="btn btn-outline-secondary">
-                <i className="bi bi-tags me-2" />Manage Categories
+                <i className="fa-solid fa-tags me-2" />Manage Categories
               </Link>
             </Card.Body>
           </Card>

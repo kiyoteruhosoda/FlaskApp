@@ -38,6 +38,25 @@ def register_system_routes(app: Flask) -> None:
         )
         return resp
 
+    @app.after_request
+    def _persist_query_lang_cookie(response):
+        """任意のページで ``?lang=xx`` が指定された場合、Cookie へ永続化する。
+
+        ログイン前のページでもクエリパラメータで言語を切り替えられるようにする
+        ため、``/lang/<code>`` 専用ルートを踏まなくても選択が次回以降のリクエスト
+        に引き継がれるようにする。
+        """
+        query_lang = request.args.get("lang")
+        if query_lang in app.config["LANGUAGES"] and request.cookies.get("lang") != query_lang:
+            response.set_cookie(
+                "lang",
+                query_lang,
+                max_age=60 * 60 * 24 * 30,
+                httponly=False,
+                path="/",
+            )
+        return response
+
     @app.get("/i18n-probe")
     def i18n_probe():
         return {

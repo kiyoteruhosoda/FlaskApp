@@ -189,8 +189,8 @@
       }
       if (this.toggleIcon) {
         this.toggleIcon.className = action === 'select'
-          ? 'fas fa-check-double me-1'
-          : 'fas fa-times-circle me-1';
+          ? 'fa-solid fa-check-double me-1'
+          : 'fa-solid fa-circle-xmark me-1';
       }
     }
   }

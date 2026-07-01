@@ -9,7 +9,7 @@ const PhotoExportsPage: React.FC = () => {
     <Container fluid className="py-4" data-testid="photo-exports-page">
       <h1 className="h3 mb-3">{t('Photo Exports')}</h1>
       <Alert variant="info">
-        <i className="bi bi-info-circle me-2" />
+        <i className="fa-solid fa-circle-info me-2" />
         {t('Export management is not yet implemented.')}
       </Alert>
     </Container>

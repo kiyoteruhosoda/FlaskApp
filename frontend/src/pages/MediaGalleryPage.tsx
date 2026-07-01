@@ -103,15 +103,15 @@ const MediaGalleryPage: React.FC = () => {
           />
           {media.media_type === 'video' && (
             <div className="position-absolute top-50 start-50 translate-middle">
-              <i className="bi bi-play-circle-fill text-white fs-1"></i>
+              <i className="fa-solid fa-circle-play text-white fs-1"></i>
             </div>
           )}
           <div className="position-absolute bottom-0 end-0 m-2">
             <span className="badge bg-dark">
               {media.media_type === 'video' ? (
-                <><i className="bi bi-camera-video me-1"></i>{media.duration}s</>
+                <><i className="fa-solid fa-video me-1"></i>{media.duration}s</>
               ) : (
-                <><i className="bi bi-image me-1"></i>{media.width}x{media.height}</>
+                <><i className="fa-solid fa-image me-1"></i>{media.width}x{media.height}</>
               )}
             </span>
           </div>
@@ -225,7 +225,7 @@ const MediaGalleryPage: React.FC = () => {
         </Col>
         <Col md={4} className="d-flex justify-content-end">
           <Button variant="outline-primary" onClick={loadMediaList}>
-            <i className="bi bi-arrow-clockwise me-2"></i>
+            <i className="fa-solid fa-rotate-right me-2"></i>
             {t('Refresh')}
           </Button>
         </Col>
@@ -254,7 +254,7 @@ const MediaGalleryPage: React.FC = () => {
 
           {mediaList.length === 0 && (
             <div className="text-center py-5">
-              <i className="bi bi-images fs-1 text-muted"></i>
+              <i className="fa-solid fa-images fs-1 text-muted"></i>
               <h5 className="mt-3 text-muted">{t('No media found')}</h5>
               <p className="text-muted">{t('Upload some photos or videos to get started')}</p>
             </div>

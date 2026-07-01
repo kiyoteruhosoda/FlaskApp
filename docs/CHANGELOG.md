@@ -6,6 +6,29 @@
 ## [Unreleased]
 
 ### Fixed
+- 新規作成ユーザーがログインできない不具合を修正。`admin_users.py` のユーザー作成/更新
+  API がメールアドレスの形式を検証していなかったため、非メール形式の値が登録でき、
+  ログイン時に `LoginRequestSchema`（`fields.Email`）で弾かれていた。加えて、その
+  バリデーションエラーを処理する `error_handlers.py` の 422 ハンドラが webargs の
+  `e.data` をそのまま返していたため、シリアライズ不可能な Schema インスタンスを含み
+  `TypeError` で 500 になる二次バグもあった（`e.data["messages"]` のみを返すよう修正）。
+- `/admin/groups`・`/admin/roles`・`/admin/config` に遷移できない不具合を修正。旧
+  Jinja UI 時代の Flask ルートが React SPA と同じパスを持ったまま「自分自身へ
+  redirect」する死んだコードとして残っており、無限リダイレクトになっていた
+  （`admin/routes.py`）。SPA シェルを返すよう修正し、あわせて `Sidebar.tsx`/`Header.tsx`
+  のリンクを `<a href>` から `react-router-dom` の `Link` に置き換えてクライアント
+  サイド遷移にした。また `/admin/groups` の権限チェックが `group:manage`
+  （どのロールにも付与され得ない存在しない権限コード）を要求していたため常に権限
+  エラーになっていたバグも修正し、React SPA/JSON API と同じ `user:manage` に統一。
+- `admin/users` ページで日本語表示時に検索ボックスと「検索」ボタンが縦に折り返される
+  不具合を修正（`flex-nowrap` を付与）。
+- 同期ジョブ履歴 (`JobSync`) に `session_recovery.cleanup_stale_sessions`・
+  `picker_import.watchdog` の no-op 実行（対象0件）まで記録され、履歴が埋もれていた
+  問題を修正。Celery タスクの共通実行基盤 (`cli/src/celery/celery_app.py` の
+  `ContextTask`) に no-op 判定を追加し、実際に処理が発生した場合のみ履歴を残すように
+  した。
+- ログイン画面の「パスキーでログイン」ボタンが絵文字 (🔐) だったのを FontAwesome の
+  鍵アイコンに変更。
 - `docs/OPERATIONS.md`「3. デプロイ」「5. ログ監視」のログ確認コマンド例を修正。
   `docker compose logs <サービス名>` は `docker-compose.yml`/`.env` があるディレクトリ
   （`/volume1/docker/photonest` 等）で実行する必要があるが、その前提が書かれておらず
@@ -14,6 +37,15 @@
   （`photonest-web-1`等）ではないため、「コンテナ構成」の表記もサービス名に修正した。
 
 ### Added
+- フロントエンドのアイコンを Bootstrap Icons から FontAwesome
+  （`@fortawesome/fontawesome-free`）に統一。`bootstrap-icons` 依存を削除。
+- ログイン前でも `?lang=` クエリパラメータ / `lang` Cookie で日英を切り替え可能に
+  した（既定は英語）。`select_locale()`（Flask-Babel）にクエリパラメータ対応を追加し、
+  フロントエンドの `i18n/config.ts` もハードコードされていた `lng: 'ja'` を廃止して
+  同じ `lang` Cookie/クエリを見るようにした。プロフィール画面にも言語切り替え UI を
+  追加。
+- Sidebar の Media メニューを表示系（メディアギャラリー・アルバム・タグ・重複）と
+  管理系（セッション・同期ジョブ・写真設定）に並び替え。
 - `deploy.sh`/`deploy-stg.sh` に Docker daemon 疎通の preflight チェックを追加。
   `sudo` なしで実行して `docker.sock` への `permission denied` が起きた場合、
   `docker load` の途中まで進んでから `set -e` で無言終了していた（コンテナは何も

@@ -23,9 +23,12 @@ from flask import (
 from flask_login import login_required, current_user
 from flask_babel import gettext as _
 from sqlalchemy.orm import selectinload
+from marshmallow import ValidationError as MarshmallowValidationError
+from marshmallow.validate import Email as EmailValidator
 
 from ..bootstrap.extensions import db
 from sqlalchemy import or_
+from ..routes.react_routes import serve_react_app
 
 from shared.infrastructure.models.system_setting import SystemSetting
 from shared.kernel.settings.system_settings_defaults import (
@@ -114,7 +117,11 @@ def _can_read_api_keys() -> bool:
 def _can_manage_groups() -> bool:
     if not hasattr(current_user, "can"):
         return False
-    return current_user.can("group:manage")
+    # "group:manage" は shared/domain/auth/master_data.py の PERMISSION_CODES に
+    # 存在しないため、どのロールにも付与され得ない（常に False になる）。
+    # React SPA (GroupsPage) が使う `/api/admin/groups` は user:manage を要求して
+    # おり、Sidebar のリンク表示も同じ権限で判定しているため、それに合わせる。
+    return current_user.can("user:manage")
 
 
 def _initial_group_form_state(group: Group | None) -> dict[str, Any]:
@@ -257,6 +264,18 @@ def _redirect_to_home() -> Response:
     """権限不足時にトップページへリダイレクトする。"""
 
     return redirect(url_for("index"))
+
+
+_email_validator = EmailValidator()
+
+
+def _is_valid_email(email: str) -> bool:
+    """ログイン時の ``LoginRequestSchema`` (``fields.Email``) と同じ基準で検証する。"""
+    try:
+        _email_validator(email)
+        return True
+    except MarshmallowValidationError:
+        return False
 
 
 def _infer_data_type(value: Any) -> str:
@@ -786,7 +805,8 @@ def service_accounts():
     available_scopes = (
         sorted(current_user.permissions) if can_manage_accounts else []
     )
-    return redirect("/admin/service-accounts")
+    # 一覧表示は React SPA (ServiceAccountsPage) が JSON API 経由で行う。
+    return serve_react_app("admin/service-accounts")
 
 
 @bp.route("/service-accounts.json", methods=["GET"])
@@ -1270,6 +1290,11 @@ def show_config():
         payload.update({"status": "success", "action": "fetch"})
         return jsonify(payload)
 
+    if request.method == "GET":
+        # ブラウザでの直接アクセス（ブックマーク・リロード等）は
+        # React SPA (ConfigPage) のシェルを返す。
+        return serve_react_app("admin/config")
+
     return redirect("/admin/config")
 
 # バージョン情報表示ページ（管理者のみ）
@@ -1600,6 +1625,9 @@ def user_add():
         if not email or not password or not role_id:
             flash(_("Email, password, and role are required."), "error")
             return redirect("/admin/users")
+        if not _is_valid_email(email):
+            flash(_("Please provide a valid email address."), "error")
+            return redirect("/admin/users")
         if User.query.filter_by(email=email).first():
             flash(_("Email already exists."), "error")
             return redirect("/admin/users")
@@ -1633,16 +1661,10 @@ def groups():
     if not _can_manage_groups():
         return _redirect_to_home()
 
-    groups_query = (
-        Group.query.options(
-            selectinload(Group.parent),
-            selectinload(Group.children),
-            selectinload(Group.users),
-        )
-        .order_by(Group.name)
-    )
-    groups = groups_query.all()
-    return redirect("/admin/groups")
+    # 一覧表示は React SPA (GroupsPage) が JSON API 経由で行う。
+    # このルートは /admin/groups への直接アクセス（ブックマーク・リロード等）
+    # に対して SPA シェルを返すためだけに存在する。
+    return serve_react_app("admin/groups")
 
 
 @bp.route("/groups/add", methods=["GET", "POST"])
@@ -1725,7 +1747,8 @@ def permissions():
     else:
         sort_column = sort_column.asc()
 
-    return redirect("/admin/permissions")
+    # 一覧表示は React SPA (PermissionsPage) が JSON API 経由で行う。
+    return serve_react_app("admin/permissions")
 
 
 @bp.route("/permissions/add", methods=["GET", "POST"])
@@ -1785,10 +1808,14 @@ def permission_delete(perm_id):
 @bp.route("/roles", methods=["GET"])
 @login_required
 def roles():
-    if not current_user.can('role:manage'):
+    # React SPA (RolesPage) が使う `/api/admin/roles` および Sidebar のリンク表示は
+    # いずれも user:manage で判定しているため、それに合わせる
+    # （role:manage だけを持つユーザーは実際には SPA 側の操作ができないため、
+    # 逆に user:manage を要求するのが実態と一致する）。
+    if not current_user.can('user:manage'):
         return _redirect_to_home()
-    roles = Role.query.all()
-    return redirect("/admin/roles")
+    # 一覧表示は React SPA (RolesPage) が JSON API 経由で行う。
+    return serve_react_app("admin/roles")
 
 
 @bp.route("/roles/add", methods=["GET", "POST"])
@@ -1865,7 +1892,8 @@ def google_accounts():
 
     accounts = GoogleAccount.query.all()
 
-    return redirect("/")
+    # 一覧表示は React SPA (GoogleAccountsPage 等) が JSON API 経由で行う。
+    return serve_react_app("admin/google-accounts")
 
 
 def _extract_service_account_payload() -> dict:

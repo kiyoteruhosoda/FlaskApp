@@ -204,11 +204,11 @@ const MediaPage: React.FC = () => {
                       style={{ objectFit: 'cover', width: '100%', height: '100%' }}
                     />
                   ) : (
-                    <i className="bi bi-image text-muted fs-2" />
+                    <i className="fa-solid fa-image text-muted fs-2" />
                   )}
                   {Boolean(m.is_video) && (
                     <div className="position-absolute top-50 start-50 translate-middle">
-                      <i className="bi bi-play-circle-fill text-white fs-3" style={{ textShadow: '0 0 4px #000' }} />
+                      <i className="fa-solid fa-circle-play text-white fs-3" style={{ textShadow: '0 0 4px #000' }} />
                     </div>
                   )}
                 </div>
@@ -216,7 +216,7 @@ const MediaPage: React.FC = () => {
                   <div className="small text-truncate">{m.filename || `#${m.id}`}</div>
                   {Boolean(m.is_video) && (
                     <Badge bg="dark" className="mt-1">
-                      <i className="bi bi-play-fill" /> {t('Video')}
+                      <i className="fa-solid fa-play" /> {t('Video')}
                     </Badge>
                   )}
                 </Card.Body>
@@ -260,7 +260,7 @@ const MediaPage: React.FC = () => {
                     />
                   ) : (
                     <div className="py-5 text-muted">
-                      <i className="bi bi-play-circle fs-1 d-block mb-2" />
+                      <i className="fa-solid fa-circle-play fs-1 d-block mb-2" />
                       {t('Video not available')}
                     </div>
                   )
@@ -314,7 +314,7 @@ const MediaPage: React.FC = () => {
                       onClick={startEditTags}
                       data-testid="media-edit-tags"
                     >
-                      <i className="bi bi-tag me-1" />{t('Edit Tags')}
+                      <i className="fa-solid fa-tag me-1" />{t('Edit Tags')}
                     </Button>
                   </div>
                 ) : (

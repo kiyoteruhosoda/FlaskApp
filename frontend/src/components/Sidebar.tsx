@@ -3,7 +3,7 @@ import { Nav } from 'react-bootstrap';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import { useTranslation } from 'react-i18next';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 const Sidebar: React.FC = () => {
   const { t } = useTranslation();
@@ -22,11 +22,11 @@ const Sidebar: React.FC = () => {
   if (!user) return null;
 
   return (
-    <div 
+    <div
       className={`bg-light border-end vh-100 position-sticky top-0 ${
         sidebarCollapsed ? 'd-none d-md-block' : ''
       }`}
-      style={{ 
+      style={{
         width: sidebarCollapsed ? '60px' : '250px',
         transition: 'width 0.3s ease',
         minHeight: '100vh'
@@ -34,20 +34,22 @@ const Sidebar: React.FC = () => {
     >
       <div className="p-3">
         <Nav className="flex-column">
-          <Nav.Link 
-            href="/" 
+          <Nav.Link
+            as={Link}
+            to="/"
             className={`d-flex align-items-center py-2 ${isActive('/') ? 'active' : ''}`}
           >
-            <i className="bi bi-house-door me-2"></i>
+            <i className="fa-solid fa-house me-2"></i>
             {!sidebarCollapsed && <span>{t('Home')}</span>}
           </Nav.Link>
 
           {hasPermission('dashboard:view') && (
-            <Nav.Link 
-              href="/dashboard" 
+            <Nav.Link
+              as={Link}
+              to="/dashboard"
               className={`d-flex align-items-center py-2 ${isActive('/dashboard') ? 'active' : ''}`}
             >
-              <i className="bi bi-speedometer2 me-2"></i>
+              <i className="fa-solid fa-gauge-high me-2"></i>
               {!sidebarCollapsed && <span>{t('Dashboard')}</span>}
             </Nav.Link>
           )}
@@ -62,68 +64,77 @@ const Sidebar: React.FC = () => {
                 )}
               </div>
 
+              {/* 表示系: 閲覧用のページ */}
+              <Nav.Link
+                as={Link}
+                to="/media"
+                className={`d-flex align-items-center py-2 ${isActive('/media') ? 'active' : ''}`}
+              >
+                <i className="fa-solid fa-images me-2"></i>
+                {!sidebarCollapsed && <span>{t('Media Gallery')}</span>}
+              </Nav.Link>
+
+              {hasPermission('album:view') && (
+                <Nav.Link
+                  as={Link}
+                  to="/albums"
+                  className={`d-flex align-items-center py-2 ${isActive('/albums') ? 'active' : ''}`}
+                >
+                  <i className="fa-solid fa-book me-2"></i>
+                  {!sidebarCollapsed && <span>{t('Albums')}</span>}
+                </Nav.Link>
+              )}
+
+              <Nav.Link
+                as={Link}
+                to="/tags"
+                className={`d-flex align-items-center py-2 ${isActive('/tags') ? 'active' : ''}`}
+              >
+                <i className="fa-solid fa-tags me-2"></i>
+                {!sidebarCollapsed && <span>{t('Tags')}</span>}
+              </Nav.Link>
+
+              {hasPermission('media:delete') && (
+                <Nav.Link
+                  as={Link}
+                  to="/media/duplicates"
+                  className={`d-flex align-items-center py-2 ${isActive('/media/duplicates') ? 'active' : ''}`}
+                >
+                  <i className="fa-solid fa-layer-group me-2"></i>
+                  {!sidebarCollapsed && <span>{t('Duplicates')}</span>}
+                </Nav.Link>
+              )}
+
+              {/* 管理系: 同期・設定用のページ */}
               {hasPermission('media:session') && (
                 <Nav.Link
-                  href="/sessions"
+                  as={Link}
+                  to="/sessions"
                   className={`d-flex align-items-center py-2 ${isActive('/sessions') ? 'active' : ''}`}
                 >
-                  <i className="bi bi-collection me-2"></i>
+                  <i className="fa-solid fa-layer-group me-2"></i>
                   {!sidebarCollapsed && <span>{t('Sessions')}</span>}
                 </Nav.Link>
               )}
 
               {hasPermission('media:session') && (
                 <Nav.Link
-                  href="/jobs"
+                  as={Link}
+                  to="/jobs"
                   className={`d-flex align-items-center py-2 ${isActive('/jobs') ? 'active' : ''}`}
                 >
-                  <i className="bi bi-list-task me-2"></i>
+                  <i className="fa-solid fa-list-check me-2"></i>
                   {!sidebarCollapsed && <span>{t('Sync Jobs')}</span>}
                 </Nav.Link>
               )}
 
-              <Nav.Link 
-                href="/media" 
-                className={`d-flex align-items-center py-2 ${isActive('/media') ? 'active' : ''}`}
-              >
-                <i className="bi bi-images me-2"></i>
-                {!sidebarCollapsed && <span>{t('Media Gallery')}</span>}
-              </Nav.Link>
-
-              {hasPermission('media:delete') && (
-                <Nav.Link
-                  href="/media/duplicates"
-                  className={`d-flex align-items-center py-2 ${isActive('/media/duplicates') ? 'active' : ''}`}
-                >
-                  <i className="bi bi-collection me-2"></i>
-                  {!sidebarCollapsed && <span>{t('Duplicates')}</span>}
-                </Nav.Link>
-              )}
-
-              {hasPermission('album:view') && (
-                <Nav.Link
-                  href="/albums"
-                  className={`d-flex align-items-center py-2 ${isActive('/albums') ? 'active' : ''}`}
-                >
-                  <i className="bi bi-book me-2"></i>
-                  {!sidebarCollapsed && <span>{t('Albums')}</span>}
-                </Nav.Link>
-              )}
-
-              <Nav.Link
-                href="/tags"
-                className={`d-flex align-items-center py-2 ${isActive('/tags') ? 'active' : ''}`}
-              >
-                <i className="bi bi-tags me-2"></i>
-                {!sidebarCollapsed && <span>{t('Tags')}</span>}
-              </Nav.Link>
-
               {hasPermission('admin:photo-settings') && (
                 <Nav.Link
-                  href="/photo-settings"
+                  as={Link}
+                  to="/photo-settings"
                   className={`d-flex align-items-center py-2 ${isActive('/photo-settings') ? 'active' : ''}`}
                 >
-                  <i className="bi bi-sliders me-2"></i>
+                  <i className="fa-solid fa-sliders me-2"></i>
                   {!sidebarCollapsed && <span>{t('Photo Settings')}</span>}
                 </Nav.Link>
               )}
@@ -142,90 +153,99 @@ const Sidebar: React.FC = () => {
 
               {hasPermission('admin:system-settings') && (
                 <Nav.Link
-                  href="/admin/dashboard"
+                  as={Link}
+                  to="/admin/dashboard"
                   className={`d-flex align-items-center py-2 ${isActive('/admin/dashboard') ? 'active' : ''}`}
                 >
-                  <i className="bi bi-speedometer2 me-2"></i>
+                  <i className="fa-solid fa-server me-2"></i>
                   {!sidebarCollapsed && <span>{t('System Overview')}</span>}
                 </Nav.Link>
               )}
 
               {hasPermission('user:manage') && (
                 <Nav.Link
-                  href="/admin/users"
+                  as={Link}
+                  to="/admin/users"
                   className={`d-flex align-items-center py-2 ${isActive('/admin/users') ? 'active' : ''}`}
                 >
-                  <i className="bi bi-people me-2"></i>
+                  <i className="fa-solid fa-users me-2"></i>
                   {!sidebarCollapsed && <span>{t('Users')}</span>}
                 </Nav.Link>
               )}
 
               {hasPermission('user:manage') && (
                 <Nav.Link
-                  href="/admin/roles"
+                  as={Link}
+                  to="/admin/roles"
                   className={`d-flex align-items-center py-2 ${isActive('/admin/roles') ? 'active' : ''}`}
                 >
-                  <i className="bi bi-shield me-2"></i>
+                  <i className="fa-solid fa-shield-halved me-2"></i>
                   {!sidebarCollapsed && <span>{t('Roles')}</span>}
                 </Nav.Link>
               )}
 
               {hasPermission('user:manage') && (
                 <Nav.Link
-                  href="/admin/groups"
+                  as={Link}
+                  to="/admin/groups"
                   className={`d-flex align-items-center py-2 ${isActive('/admin/groups') ? 'active' : ''}`}
                 >
-                  <i className="bi bi-diagram-3 me-2"></i>
+                  <i className="fa-solid fa-sitemap me-2"></i>
                   {!sidebarCollapsed && <span>{t('Groups')}</span>}
                 </Nav.Link>
               )}
 
               {hasPermission('admin:system-settings') && (
                 <Nav.Link
-                  href="/admin/permissions"
+                  as={Link}
+                  to="/admin/permissions"
                   className={`d-flex align-items-center py-2 ${isActive('/admin/permissions') ? 'active' : ''}`}
                 >
-                  <i className="bi bi-key me-2"></i>
+                  <i className="fa-solid fa-key me-2"></i>
                   {!sidebarCollapsed && <span>{t('Permissions')}</span>}
                 </Nav.Link>
               )}
 
               {hasPermission('admin:system-settings') && (
                 <Nav.Link
-                  href="/admin/service-accounts"
+                  as={Link}
+                  to="/admin/service-accounts"
                   className={`d-flex align-items-center py-2 ${isActive('/admin/service-accounts') ? 'active' : ''}`}
                 >
-                  <i className="bi bi-robot me-2"></i>
+                  <i className="fa-solid fa-robot me-2"></i>
                   {!sidebarCollapsed && <span>{t('Service Accounts')}</span>}
                 </Nav.Link>
               )}
 
               {hasPermission('system:manage') && (
                 <Nav.Link
-                  href="/admin/config"
+                  as={Link}
+                  to="/admin/config"
                   className={`d-flex align-items-center py-2 ${isActive('/admin/config') ? 'active' : ''}`}
                 >
-                  <i className="bi bi-gear me-2"></i>
+                  <i className="fa-solid fa-gear me-2"></i>
                   {!sidebarCollapsed && <span>{t('System Settings')}</span>}
                 </Nav.Link>
               )}
 
               {hasPermission('admin:system-settings') && (
                 <Nav.Link
-                  href="/admin/google-accounts"
+                  as={Link}
+                  to="/admin/google-accounts"
                   className={`d-flex align-items-center py-2 ${isActive('/admin/google-accounts') ? 'active' : ''}`}
                 >
-                  <i className="bi bi-google me-2"></i>
+                  <i className="fa-brands fa-google me-2"></i>
                   {!sidebarCollapsed && <span>{t('Google Accounts')}</span>}
                 </Nav.Link>
               )}
 
               {hasPermission('system:manage') && (
                 <Nav.Link
-                  href="/admin/photo-exports"
+                  as={Link}
+                  to="/admin/photo-exports"
                   className={`d-flex align-items-center py-2 ${isActive('/admin/photo-exports') ? 'active' : ''}`}
                 >
-                  <i className="bi bi-box-arrow-up me-2"></i>
+                  <i className="fa-solid fa-file-export me-2"></i>
                   {!sidebarCollapsed && <span>{t('Photo Exports')}</span>}
                 </Nav.Link>
               )}

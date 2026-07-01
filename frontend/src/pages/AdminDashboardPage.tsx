@@ -10,7 +10,7 @@ const StatCard: React.FC<{ title: string; value: number | string; icon: string; 
   <Card className="h-100">
     <Card.Body className="d-flex align-items-center gap-3">
       <div className={`text-${variant} fs-2`}>
-        <i className={`bi ${icon}`} />
+        <i className={`fa-solid ${icon}`} />
       </div>
       <div>
         <div className="fs-4 fw-bold">{value}</div>
@@ -56,33 +56,33 @@ const AdminDashboardPage: React.FC = () => {
         <>
           <Row className="g-3 mb-4">
             <Col sm={6} xl={3}>
-              <StatCard title={t('Total Users')} value={stats.users.total} icon="bi-people" />
+              <StatCard title={t('Total Users')} value={stats.users.total} icon="fa-users" />
             </Col>
             <Col sm={6} xl={3}>
-              <StatCard title={t('Active Users')} value={stats.users.active} icon="bi-person-check" variant="success" />
+              <StatCard title={t('Active Users')} value={stats.users.active} icon="fa-user-check" variant="success" />
             </Col>
             <Col sm={6} xl={3}>
-              <StatCard title={t('Roles')} value={stats.roles} icon="bi-shield" variant="info" />
+              <StatCard title={t('Roles')} value={stats.roles} icon="fa-shield-halved" variant="info" />
             </Col>
             <Col sm={6} xl={3}>
-              <StatCard title={t('Groups')} value={stats.groups} icon="bi-diagram-3" variant="warning" />
+              <StatCard title={t('Groups')} value={stats.groups} icon="fa-sitemap" variant="warning" />
             </Col>
             {stats.media && (
               <>
                 <Col sm={6} xl={3}>
-                  <StatCard title={t('Total Media')} value={stats.media.total} icon="bi-images" />
+                  <StatCard title={t('Total Media')} value={stats.media.total} icon="fa-images" />
                 </Col>
                 <Col sm={6} xl={3}>
-                  <StatCard title={t('Photos')} value={stats.media.photos} icon="bi-image" variant="success" />
+                  <StatCard title={t('Photos')} value={stats.media.photos} icon="fa-image" variant="success" />
                 </Col>
                 <Col sm={6} xl={3}>
-                  <StatCard title={t('Videos')} value={stats.media.videos} icon="bi-camera-video" variant="info" />
+                  <StatCard title={t('Videos')} value={stats.media.videos} icon="fa-video" variant="info" />
                 </Col>
               </>
             )}
             {stats.albums !== undefined && (
               <Col sm={6} xl={3}>
-                <StatCard title={t('Albums')} value={stats.albums} icon="bi-collection" variant="warning" />
+                <StatCard title={t('Albums')} value={stats.albums} icon="fa-layer-group" variant="warning" />
               </Col>
             )}
           </Row>

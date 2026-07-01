@@ -26,7 +26,10 @@ def _login(client, user):
 
 
 def _create_group_manager():
-    permission = Permission(code="group:manage")
+    # グループ管理は React SPA (GroupsPage) と同じく user:manage 権限で判定する
+    # （"group:manage" は master_data.py の PERMISSION_CODES に存在せず、
+    # どのロールにも付与できない無効な権限コードだった）。
+    permission = Permission(code="user:manage")
     role = Role(name="group-admin")
     role.permissions.append(permission)
 
@@ -57,6 +60,16 @@ def test_group_page_requires_permission(client):
     with client.application.test_request_context():
         target = urlparse(response.headers["Location"])
         assert target.path == "/"
+
+
+def test_group_page_serves_spa_shell_for_authorized_user(client):
+    """権限がある場合、/admin/groups への直接アクセスが自己リダイレクトの
+    無限ループにならず、SPA シェルを返すこと（302 にならないこと）。"""
+    user = _create_group_manager()
+    _login(client, user)
+
+    response = client.get("/admin/groups")
+    assert response.status_code == 200
 
 
 def test_group_creation_and_child_assignment(client):
@@ -100,12 +113,9 @@ def test_group_edit_rejects_circular_hierarchy(client):
     グループ編集 UI は React SPA が描画するため、SPA が利用する管理 API
     ``PUT /api/admin/groups/<id>`` で検証する。
     """
+    # _create_group_manager() が付与する user:manage がそのままグループ更新 API
+    # の権限要件を満たす。
     user = _create_group_manager()
-    # グループ更新 API は user:manage 権限を要求する。
-    user_manage = Permission(code="user:manage")
-    user.roles[0].permissions.append(user_manage)
-    db.session.add(user_manage)
-    db.session.commit()
     _login(client, user)
 
     parent = Group(name="Parent")

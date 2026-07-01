@@ -60,6 +60,16 @@ def test_config_page_requires_permission(client):
         assert target.path == "/"
 
 
+def test_config_page_serves_spa_shell_for_authorized_user(client):
+    """権限がある場合、/admin/config への直接アクセスが自己リダイレクトの
+    無限ループにならず、SPA シェルを返すこと（302 にならないこと）。"""
+    user = _create_system_manager()
+    _login(client, user)
+
+    response = client.get("/admin/config")
+    assert response.status_code == 200
+
+
 def test_config_update_requires_login_returns_json(client):
     app = client.application
     original_testing = app.config.get("TESTING")

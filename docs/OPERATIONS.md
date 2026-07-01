@@ -298,9 +298,10 @@ curl -s http://localhost:5000/api/health
 
 ## 4. 機能設定ガイド
 
-### OAuth HTTPS 設定
+APIエンドポイントの仕様は Swagger UI（`/api/docs`）または一覧ページ（`/api/overview`）を参照。
+以下は各機能を有効化・設定したいときに触る `.env` / DB設定のみ。
 
-リバースプロキシ（nginx / Synology）経由でHTTPS終端する場合の設定。
+### OAuth を HTTPS 経由（リバースプロキシ配下）で使いたいとき
 
 **.env**:
 ```env
@@ -321,9 +322,7 @@ proxy_set_header Host $host;
 curl -H "X-Forwarded-Proto: https" https://<domain>/debug/oauth-url
 ```
 
-### パスワードリセット機能
-
-メール経由でパスワードを再設定する機能。
+### パスワードリセット（メール経由）を有効化したいとき
 
 **.env**（SMTP設定）:
 ```env
@@ -336,78 +335,32 @@ MAIL_PASSWORD=your-app-password    # Gmailはアプリパスワードを使用
 MAIL_DEFAULT_SENDER=your-email@example.com
 ```
 
-主な仕様:
-- トークン: 256ビットランダム、ハッシュ化保存、**30分有効**、ワンタイム
-- エンドポイント: `GET/POST /auth/password/forgot`、`GET/POST /auth/password/reset`
-- テスト: `pytest tests/webapp/auth/test_password_reset.py -v`
+動作確認: `pytest tests/webapp/auth/test_password_reset.py -v`
 
-### TOTP 管理
+### TOTP（二要素認証）を管理したいとき
 
-管理者向け TOTP（二要素認証）の管理機能。
+管理画面から利用する（`totp:view`/`totp:write` 権限が必要）。追加の `.env` 設定は不要。
 
-**権限要件**:
-- `totp:view` — 一覧閲覧・エクスポート
-- `totp:write` — 登録・編集・削除・インポート
+### CDN 配信（Azure CDN / CloudFlare CDN）を有効化したいとき
 
-**主な操作**:
-- QR コード画像アップロードで `otpauth://` URI を自動解析
-- JSON エクスポート / インポート（`force` フラグで重複上書き）
-- 一覧は1秒ごとに OTP コードをフロントエンドで再計算
-
-**API エンドポイント**:
-
-| メソッド | パス | 説明 |
-|---|---|---|
-| `GET` | `/api/totp` | 一覧取得 |
-| `POST` | `/api/totp` | 新規登録 |
-| `PUT` | `/api/totp/<id>` | 更新 |
-| `DELETE` | `/api/totp/<id>` | 削除 |
-| `GET` | `/api/totp/export` | JSON エクスポート |
-| `POST` | `/api/totp/import` | JSON インポート |
-
-### CDN 統合
-
-画像・動画配信に CDN を使用する場合の設定。Azure CDN と CloudFlare CDN をサポート。
-
-```python
-from bounded_contexts.storage.domain import StorageCredentials, StorageConfiguration
-
-cdn_config = StorageConfiguration(
-    backend_type=StorageBackendType.AZURE_CDN,
-    credentials=StorageCredentials(
-        backend_type=StorageBackendType.AZURE_CDN,
-        account_name="your-cdn-account",
-        access_key="your-access-key",
-        cdn_profile="your-profile-name",
-        cdn_endpoint="your-endpoint-name",
-    ),
-    origin_backend_type=StorageBackendType.AZURE_BLOB,
-    # ... origin_credentials
-    cache_ttl=7200,
-    enable_compression=True,
-)
+**.env**:
+```env
+CDN_ENABLED=true
+CDN_PROVIDER=azure                     # azure / cloudflare / generic
+CDN_AZURE_ACCOUNT_NAME=<account>
+CDN_AZURE_ACCESS_KEY=<access-key>
+CDN_AZURE_PROFILE=<profile-name>
+CDN_AZURE_ENDPOINT=<endpoint-name>
+CDN_CACHE_TTL=3600
 ```
 
-### システム設定（DB管理）
+設定内容の確認: `python scripts/demo_cdn_configuration.py --cdn`
 
-`system_settings` テーブルで管理するアプリ設定。管理画面または初期投入スクリプトで更新する。
+### システム設定（DB管理）を変更したいとき
 
-| `setting_key` | 用途 |
-|---|---|
-| `access_token_signing` | JWTトークン署名モード（`builtin` / `server_signing`） |
-| `app.config` | Flask 共通設定・外部サービス接続 |
-| `app.cors` | CORS 許可オリジン配列 |
-
-`access_token_signing` の JSON 例:
-```json
-{
-  "mode": "server_signing",
-  "groupCode": "prod-signers"
-}
-```
-
-`mode="builtin"` の場合は `kid`・`groupCode` を設定しない。
-`mode="server_signing"` かつ `groupCode` が欠けると `AccessTokenSigningValidationError`。
+管理画面、または `python scripts/bootstrap_system_settings.py` で `system_settings`
+テーブルを更新する。主なキー: `access_token_signing`（JWT署名モード）、`app.config`、
+`app.cors`。
 
 ---
 

@@ -1,8 +1,14 @@
 #!/bin/bash
 # STG デプロイスクリプト
 # 使い方:
-#   ./scripts/deploy-stg.sh          # 通常デプロイ
-#   ./scripts/deploy-stg.sh reset    # 完全初期化（DB・メディアデータ消去）
+#   ./scripts/deploy-stg.sh          # 通常デプロイ（アプリのみ更新。DBスキーマ変更なし）
+#   ./scripts/deploy-stg.sh migrate  # DDL更新時（新しい Alembic migration を追加した場合）
+#   ./scripts/deploy-stg.sh reset    # 完全初期化（DB・メディアデータ消去。マスタデータ投入済みで起動）
+#
+# どれを使うか:
+#   - アプリのみ更新（DDL変更なし）        → 引数なし（deploy）
+#   - DDL更新（migrations/versions/ 追加）  → migrate
+#   - STG を完全に作り直したいとき          → reset
 
 set -euo pipefail
 
@@ -18,8 +24,17 @@ IMAGE_DB_TAR="$DOCKER_ROOT/photonest-db-latest.tar"
 HEALTH_URL="http://127.0.0.1:8051/health/live"
 DATA_PATH="$BASE_DIR/data"
 DB_PATH="$BASE_DIR/db_data"
+COMPOSE="docker compose -p $PROJECT -f $COMPOSE_FILE --env-file $ENV_FILE"
 
 MODE="${1:-deploy}"
+
+case "$MODE" in
+  deploy|migrate|reset) ;;
+  *)
+    echo "[deploy-stg][error] Unknown mode: $MODE (use: deploy | migrate | reset)" >&2
+    exit 1
+    ;;
+esac
 
 echo -e "\033[36m[deploy-stg] Photonest STG deploy start (mode: $MODE)\033[0m"
 
@@ -71,7 +86,7 @@ fi
 
 # ===== Stop running containers =====
 echo "[deploy-stg] docker compose down"
-docker compose -p "$PROJECT" -f "$COMPOSE_FILE" --env-file "$ENV_FILE" down || true
+$COMPOSE down || true
 
 # ===== Reset mode: clear data =====
 if [ "$MODE" = "reset" ]; then
@@ -89,7 +104,28 @@ fi
 
 # ===== Start containers =====
 echo "[deploy-stg] docker compose up -d"
-docker compose -p "$PROJECT" -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --remove-orphans
+$COMPOSE up -d --remove-orphans
+
+# ===== Schema sync =====
+case "$MODE" in
+  migrate)
+    # DDL更新時：既存データを保持したまま新しい migration だけを適用する。
+    echo "[deploy-stg] Applying pending DB migrations (flask db upgrade)"
+    $COMPOSE exec -T web flask db upgrade
+    ;;
+  reset)
+    # db/init/01_initialize.sql はスキーマ・マスタデータ込みで焼き込み済みだが
+    # alembic_version は空のまま投入される。ここで head にスタンプしておかないと、
+    # 次回 `migrate` 実行時に Alembic が「未適用」と誤認して init_master から
+    # 再実行し CREATE TABLE の重複エラーになる。
+    # 前提: db/init/01_initialize.sql は DBイメージ再ビルド（make build-db）前に
+    #       現在の migration head まで適用した状態から再生成しておくこと。
+    #       ずれていると「スキーマは古いのに head 扱い」という不整合になるので、
+    #       DDL変更時は 01_initialize.sql の再生成を忘れないこと。
+    echo "[deploy-stg] Stamping alembic_version to head (fresh DB from baked snapshot)"
+    $COMPOSE exec -T web flask db stamp head
+    ;;
+esac
 
 # ===== Wait for health check =====
 echo "[deploy-stg] Waiting for service health"
@@ -108,10 +144,10 @@ if ! curl -fs "$HEALTH_URL" >/dev/null 2>&1; then
   echo "" >&2
   echo "----- diagnostics -----" >&2
   echo "[deploy-stg] container status:" >&2
-  docker compose -p "$PROJECT" -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps >&2 || true
+  $COMPOSE ps >&2 || true
   echo "" >&2
   echo "[deploy-stg] recent web logs (docker logs = 標準出力のみ。ヘルスチェック失敗の詳細は下の Health.Log を見る):" >&2
-  docker compose -p "$PROJECT" -f "$COMPOSE_FILE" --env-file "$ENV_FILE" logs --tail 50 web >&2 || true
+  $COMPOSE logs --tail 50 web >&2 || true
   echo "" >&2
   echo "[deploy-stg] web healthcheck history (Container Manager の詳細ログに出るのはこれと同じ内容):" >&2
   docker inspect --format '{{json .State.Health}}' "${PROJECT}-web-1" 2>/dev/null | python3 -m json.tool >&2 || true

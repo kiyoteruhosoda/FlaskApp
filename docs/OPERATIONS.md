@@ -84,6 +84,10 @@ celery -A cli.src.celery.tasks beat --loglevel=info
 
 ### マイグレーション（Alembic）
 
+Synology / Docker 環境では通常 `scripts/deploy.sh migrate`（本番）/
+`scripts/deploy-stg.sh migrate`（STG）から自動適用する（3. デプロイ参照）。
+ここでは手動実行する場合のコマンドを示す。
+
 ```bash
 # 現在の状態確認
 flask db current
@@ -128,22 +132,31 @@ python scripts/seed_from_yaml.py
 
 ### DB再初期化（Synology / Docker）
 
-`db/init/01_initialize.sql` を更新した場合の手順:
+`db/init/01_initialize.sql`（DBイメージに焼き込むフルダンプ。スキーマ + ロール・権限・
+初期管理者ユーザーのマスタデータを含む）を更新した場合の手順:
 
 ```bash
-# 1. DBイメージをリビルド
+# 1. 現在の migration head まで適用済みの DB から 01_initialize.sql を再生成する
+#    （このステップを飛ばすと、スキーマが古いまま "head 扱い" になる不整合が起きる）
+mysqldump ... > db/init/01_initialize.sql   # 環境に応じたダンプコマンドに置き換える
+
+# 2. DBイメージをリビルド
 make build-db
 
-# 2. Synology側で停止・DB削除・イメージ更新
-docker compose -p photonest -f /volume1/docker/photonest/docker-compose.yml down
-rm -rf /volume1/docker/photonest/db_data/*
-docker load -i /volume1/docker/photonest-db-latest.tar
+# 3. Synology へ転送してデプロイ（DB・メディアデータを削除して作り直す）
+./scripts/deploy.sh reset       # 本番
+./scripts/deploy-stg.sh reset   # STG
+```
 
-# 3. 再起動
-docker compose -p photonest -f /volume1/docker/photonest/docker-compose.yml up -d
+`reset` はコンテナ停止 → DB/メディア削除 → イメージ再ロード → 起動 →
+`flask db stamp head`（Alembicのバージョン管理を焼き込み済みスキーマに追いつかせる）
+まで自動で行う。**マスタデータは `01_initialize.sql` に含まれているため、`reset` 単独で
+投入済みの状態になり、`flask seed-master` を別途実行する必要はない。**
 
-# 4. 初期化確認
-docker logs mariadb | grep Entrypoint
+初期化確認:
+```bash
+docker logs mariadb | grep Entrypoint      # 本番
+docker logs mariadb-stg | grep Entrypoint  # STG
 ```
 
 ### originals からのメディア再構築

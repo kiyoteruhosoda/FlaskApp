@@ -6,6 +6,13 @@
 ## [Unreleased]
 
 ### Added
+- `scripts/deploy.sh` / `scripts/deploy-stg.sh` に `migrate` モードを追加。
+  引数だけで「アプリのみ更新（`deploy`）」「DDL更新（`migrate`＝`flask db upgrade`を
+  自動実行、既存データ保持）」「完全初期化（`reset`）」を切り替えられるようにした。
+  `reset` は起動後に `flask db stamp head` を自動実行し、`db/init/01_initialize.sql`
+  焼き込み時に空のまま投入される `alembic_version` を head に揃える（放置すると次回
+  `migrate` が `init_master` から再実行され `CREATE TABLE` 重複エラーになっていた）。
+  詳細は `scripts/README.md` / `docs/OPERATIONS.md`「2. データベース操作」参照。
 - CLI `flask rebuild-originals`：`MEDIA_ORIGINALS_DIRECTORY` を直接走査して Media を
   再登録（冪等、`--dry-run`/`--refresh`/`--verbose`）。DB 初期化後の復旧用。
 - 重複メディアのレビュー画面（`/media/duplicates`）と API `GET /api/media/duplicates`。

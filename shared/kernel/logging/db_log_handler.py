@@ -202,7 +202,6 @@ class DBLogHandler(logging.Handler):
         message_json = json.dumps(payload, ensure_ascii=False, default=str)
 
         engine = self._resolve_engine()
-        self._ensure_table(engine)
 
         log_model = self._get_log_model()
         stmt = insert(log_model).values(
@@ -219,6 +218,7 @@ class DBLogHandler(logging.Handler):
         )
 
         def _persist(engine_to_use: Engine) -> None:
+            self._ensure_table(engine_to_use)
             with engine_to_use.begin() as conn:
                 conn.execute(stmt)
 
@@ -231,7 +231,6 @@ class DBLogHandler(logging.Handler):
                 fallback_engine = self._get_fallback_engine()
                 if fallback_engine is not engine:
                     try:
-                        self._ensure_table(fallback_engine)
                         _persist(fallback_engine)
                         return
                     except Exception:

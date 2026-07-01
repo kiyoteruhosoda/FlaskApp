@@ -108,13 +108,13 @@ def test_db_log_handler_without_event():
 def test_db_log_handler_exception_handling():
     """例外処理のテスト"""
     print("Testing DBLogHandler exception handling...")
-    
+
     # データベースエラーを発生させるためのモック
     with patch('shared.kernel.logging.db_log_handler.db') as mock_db:
         mock_db.engine.begin.side_effect = Exception("Database connection failed")
-        
+
         handler = DBLogHandler()
-        
+
         record = logging.LogRecord(
             name="test",
             level=logging.ERROR,
@@ -124,10 +124,46 @@ def test_db_log_handler_exception_handling():
             args=(),
             exc_info=None
         )
-        
+
         with pytest.raises(RuntimeError):
             handler.emit(record)
         print("✓ Exception handling test passed (exception propagated)")
+
+
+def test_db_log_handler_survives_table_creation_failure():
+    """CREATE TABLE 時点で DB に接続できない場合でもアプリをクラッシュさせないことを確認する。
+
+    ステージング環境で MySQL コンテナ起動待ちの間に app.logger.info() が呼ばれると
+    _ensure_table() が OperationalError を送出し、以前はそれが emit() 内の
+    try/except の外側で発生していたため未捕捉のまま Flask の起動処理全体を
+    クラッシュさせていた。
+    """
+    from sqlalchemy import create_engine
+    from sqlalchemy.exc import OperationalError
+
+    engine = create_engine("sqlite:///:memory:", future=True)
+    handler = DBLogHandler(engine=engine)
+
+    def _boom(self, engine_to_use):
+        raise OperationalError(
+            "CREATE TABLE log", {}, Exception("Can't connect to MySQL server on 'db'")
+        )
+
+    record = logging.LogRecord(
+        name="test",
+        level=logging.INFO,
+        pathname="test.py",
+        lineno=1,
+        msg="app startup",
+        args=(),
+        exc_info=None,
+    )
+
+    with patch.object(DBLogHandler, "_ensure_table", _boom):
+        # OperationalError は emit() 内で吸収され、呼び出し元へは伝播しない。
+        handler.emit(record)
+
+    print("✓ Table creation failure test passed (startup is not crashed)")
 
 
 if __name__ == "__main__":
@@ -138,7 +174,8 @@ if __name__ == "__main__":
         test_db_log_handler_with_event()
         test_db_log_handler_without_event()
         test_db_log_handler_exception_handling()
-        
+        test_db_log_handler_survives_table_creation_failure()
+
         print("=" * 50)
         print("All tests passed! ✓")
         print("\nThe fix for the 'Column event cannot be null' error is working correctly.")

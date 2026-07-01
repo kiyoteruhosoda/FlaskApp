@@ -174,48 +174,19 @@ flask rebuild-originals --verbose   # 1件ごとに表示
 
 ## 3. デプロイ
 
-### 環境切替（本番 / STG）
+流れ: **ビルド → デプロイ**。本番/STGどちらも同じ2ステップ。
 
-`docker-compose.yml` の環境差分（プロジェクト名・ポート・データルート・ネットワーク・
-ドメイン）はすべて `.env` で切り替える。値未設定時のデフォルトは従来の本番値なので、
-既存の本番 `.env` は変更不要。
-
-| 変数 | 役割 | 本番デフォルト |
-|---|---|---|
-| `COMPOSE_PROJECT_NAME` | コンテナ/NW 接頭辞（環境分離の要） | `photonest` |
-| `HOST_DATA_ROOT` | 永続データのホスト側ルート | `/volume1/docker/photonest` |
-| `WEB_BIND_ADDR` / `WEB_HOST_PORT` | Web 公開（既定 127.0.0.1:8050） | `127.0.0.1` / `8050` |
-| `DB_HOST_PORT` / `DB_CONTAINER_NAME` | DB 公開ポート / コンテナ名 | `3307` / `mariadb` |
-| `DOCKER_NETWORK_NAME` / `DOCKER_NETWORK_SUBNET` | 外部ネットワーク | `photonest-dev` / `172.22.0.0/16` |
-| `WEB_IMAGE` / `DB_IMAGE` | 使用イメージタグ | `photonest:latest` / `photonest-db:latest` |
-| `API_BASE_URL` / `CORS_ALLOWED_ORIGINS` | 自己参照 URL / 許可オリジン（ドメイン） | 環境ごとに設定 |
-
-STG を本番と同一ホストで共存させる例:
+### ビルド
 
 ```bash
-# STG 用ディレクトリで .env を用意
-cp .env.staging.example .env       # ポート・データルート・NW・ドメインを STG 値に
-
-# STG 用の外部ネットワークを作成（初回のみ）
-docker network create photonest-stg
-
-# 設定の解決結果を確認（ポート/コンテナ名/ボリュームが STG 値か）
-docker compose config | grep -E "container_name|published|source:"
-
-# 起動（COMPOSE_PROJECT_NAME=photonest-stg により本番と分離）
-./scripts/deploy-stg.sh app
+./scripts/.build.sh        # アプリ + DB イメージを TAR 生成（アプリのみ/DBのみも可）
 ```
 
-> ネットワークは `external: true`。環境ごとに別ネットワーク名にすることで、
-> サービス名（`db` 等）の名前解決が環境間で衝突しない。
+`make build` / `make build-db` を呼び出すラッパー。コマンドの詳細は `scripts/README.md` 参照。
 
 ### Docker（推奨）
 
 ```bash
-# ビルド（アプリ + DB イメージを TAR 生成。詳細は scripts/README.md）
-./scripts/.build.sh
-
-# デプロイ（本番）
 ./scripts/deploy.sh app       # アプリのみ更新
 ./scripts/deploy.sh migrate   # DDL更新
 ./scripts/deploy.sh reset     # 完全初期化
@@ -293,6 +264,36 @@ docker exec mariadb mysqldump -u root -p"$MARIADB_ROOT_PASSWORD" --single-transa
 docker compose -p photonest ps
 curl -s http://localhost:5000/api/health
 ```
+
+### STG を本番と同一ホストで共存させたいとき
+
+`docker-compose.yml` の環境差分（プロジェクト名・ポート・データルート・ネットワーク・
+ドメイン）はすべて `.env` で切り替える。値未設定時のデフォルトは従来の本番値なので、
+既存の本番 `.env` は変更不要。
+
+| 変数 | 役割 | 本番デフォルト |
+|---|---|---|
+| `COMPOSE_PROJECT_NAME` | コンテナ/NW 接頭辞（環境分離の要） | `photonest` |
+| `HOST_DATA_ROOT` | 永続データのホスト側ルート | `/volume1/docker/photonest` |
+| `WEB_BIND_ADDR` / `WEB_HOST_PORT` | Web 公開（既定 127.0.0.1:8050） | `127.0.0.1` / `8050` |
+| `DB_HOST_PORT` / `DB_CONTAINER_NAME` | DB 公開ポート / コンテナ名 | `3307` / `mariadb` |
+| `DOCKER_NETWORK_NAME` / `DOCKER_NETWORK_SUBNET` | 外部ネットワーク | `photonest-dev` / `172.22.0.0/16` |
+| `WEB_IMAGE` / `DB_IMAGE` | 使用イメージタグ | `photonest:latest` / `photonest-db:latest` |
+| `API_BASE_URL` / `CORS_ALLOWED_ORIGINS` | 自己参照 URL / 許可オリジン（ドメイン） | 環境ごとに設定 |
+
+```bash
+# STG 用ディレクトリで .env を用意
+cp .env.staging.example .env       # ポート・データルート・NW・ドメインを STG 値に
+
+# STG 用の外部ネットワークを作成（初回のみ）
+docker network create photonest-stg
+
+# 設定の解決結果を確認（ポート/コンテナ名/ボリュームが STG 値か）
+docker compose config | grep -E "container_name|published|source:"
+```
+
+> ネットワークは `external: true`。環境ごとに別ネットワーク名にすることで、
+> サービス名（`db` 等）の名前解決が環境間で衝突しない。
 
 ---
 

@@ -192,17 +192,30 @@ flask rebuild-originals --verbose   # 1件ごとに表示
 ./scripts/deploy.sh reset     # 完全初期化
 
 # STG は deploy-stg.sh を使う（同じ引数）
-
-# ログ確認
-docker compose logs web --tail 100
-docker compose logs worker --tail 50
 ```
 
-コンテナ構成:
-- `photonest-web` — Flask アプリ（ポート 5000）
-- `photonest-worker` — Celery ワーカー
-- `photonest-beat` — Celery Beat（定期タスク）
-- `photonest-redis` — Redis（Broker / Backend）
+ログ確認は `docker-compose.yml`/`.env` があるディレクトリに `cd` してから、
+**サービス名**（コンテナ名ではない）を指定する:
+
+```bash
+# 本番
+cd /volume1/docker/photonest
+docker compose logs web --tail 100
+docker compose logs worker --tail 50
+
+# STG
+cd /volume1/docker/photonest-stg
+docker compose logs web --tail 100
+```
+
+> 別ディレクトリから実行する場合は `docker compose -p photonest -f /volume1/docker/photonest/docker-compose.yml --env-file /volume1/docker/photonest/.env logs web` のように `-p`/`-f`/`--env-file` を明示する。
+
+サービス構成（`docker compose logs <サービス名>` の引数）:
+- `web` — Flask アプリ（ポート 5000）
+- `worker` — Celery ワーカー
+- `beat` — Celery Beat（定期タスク）
+- `redis` — Redis（Broker / Backend）
+- `db` — MariaDB
 
 ### Synology NAS デプロイ
 
@@ -261,7 +274,7 @@ docker exec mariadb mysqldump -u root -p"$MARIADB_ROOT_PASSWORD" --single-transa
     > /volume1/docker/photonest/backups/photonest_db_${DATE}.sql
 
 # 状態確認
-docker compose -p photonest ps
+cd /volume1/docker/photonest && docker compose ps
 curl -s http://localhost:5000/api/health
 ```
 
@@ -375,7 +388,8 @@ CDN_CACHE_TTL=3600
 # タスク状況を確認
 python -m cli.src.celery.inspect_tasks
 
-# コンテナログ
+# コンテナログ（docker-compose.yml/.envのあるディレクトリで実行。3.デプロイ参照）
+cd /volume1/docker/photonest
 docker compose logs worker --tail 100 | grep ERROR
 ```
 

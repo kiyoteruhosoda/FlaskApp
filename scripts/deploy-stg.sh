@@ -38,6 +38,14 @@ esac
 
 echo -e "\033[36m[deploy-stg] Photonest STG deploy start (mode: $MODE)\033[0m"
 
+# ===== Preflight: docker daemon must be reachable =====
+if ! docker info >/dev/null 2>&1; then
+  echo "[deploy-stg][error] Cannot reach the Docker daemon (permission denied or daemon down)." >&2
+  echo "  Run this script with sudo, or add your user to the 'docker' group and re-login:" >&2
+  echo "    sudo ./scripts/deploy-stg.sh $MODE" >&2
+  exit 1
+fi
+
 # ===== Load a docker image tar with visible progress =====
 # `docker load` は標準では進捗を表示せず、大きいイメージだと数分間無反応に見える。
 # `pv` があれば転送量・速度・経過時間を表示し、なければ一定間隔でハートビートを出して
@@ -60,9 +68,16 @@ load_image_with_progress() {
   while kill -0 "$pid" 2>/dev/null; do
     sleep 5
     waited=$((waited + 5))
-    echo "[deploy-stg] ...still loading, ${waited}s elapsed (pid $pid) - this is normal for large images"
+    # sleep 中に終了している場合があるので、表示直前にも生死を再確認する
+    # （そうしないと失敗直後でも1周分「まだ読み込み中」と誤表示してしまう）
+    if kill -0 "$pid" 2>/dev/null; then
+      echo "[deploy-stg] ...still loading, ${waited}s elapsed (pid $pid) - this is normal for large images"
+    fi
   done
-  wait "$pid"
+  if ! wait "$pid"; then
+    echo "[deploy-stg][error] docker load failed for $tar" >&2
+    exit 1
+  fi
 }
 
 # ===== Update docker-compose.yml if supplied alongside the tar =====

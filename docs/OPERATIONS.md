@@ -421,6 +421,7 @@ curl http://localhost:5000/api/health
 
 | 症状 | 対処 |
 |---|---|
+| `deploy.sh`/`deploy-stg.sh` が `permission denied ... docker.sock` で失敗する | `sudo` を付けて実行するか、実行ユーザーを `docker` グループに追加して再ログインする |
 | Container Manager に赤い traceback が出る | `docker inspect --format '{{json .State.Health}}' <container名> \| python3 -m json.tool` で healthcheck の実行結果を確認する（`docker compose -p <project> ps` でも Health 列が見える） |
 | `docker load` が反応なく見える | `...still loading` のハートビートが出続けていれば進行中。別ターミナルで `watch -n 2 'docker system df'` |
 | `docker events` にパスワードが平文で出る | `docker-compose.yml` の healthcheck が `${VAR}` を直接展開していないか確認する（`$$VAR` にする） |

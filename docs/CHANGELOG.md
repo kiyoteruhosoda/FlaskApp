@@ -6,6 +6,13 @@
 ## [Unreleased]
 
 ### Added
+- `deploy.sh`/`deploy-stg.sh` に Docker daemon 疎通の preflight チェックを追加。
+  `sudo` なしで実行して `docker.sock` への `permission denied` が起きた場合、
+  `docker load` の途中まで進んでから `set -e` で無言終了していた（コンテナは何も
+  変更されない）。実行直後に分かりやすいエラーで案内するよう変更。あわせて
+  `load_image_with_progress` のハートビートが `docker load` 失敗直後にも1回だけ
+  「まだ読み込み中」と誤表示していた不具合を修正し、失敗時は明示的にエラー終了する
+  ようにした。
 - `tests/integration/test_db_baseline_consistency.py` を追加。`db/init/01_initialize.sql`
   に焼き込まれた `alembic_version` と現在の migration head を突き合わせる回帰テスト
   （DB接続不要、ファイル突き合わせのみ）。`scripts/regenerate_db_baseline.sh` の

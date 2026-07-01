@@ -3,11 +3,15 @@ from __future__ import annotations
 
 from flask import jsonify, request
 from flask_login import current_user
+from marshmallow import ValidationError as MarshmallowValidationError
+from marshmallow.validate import Email as EmailValidator
 
 from ..bootstrap.extensions import db
 from shared.infrastructure.models.user import User, Role
 from . import bp
 from .routes import login_or_jwt_required, get_current_user
+
+_email_validator = EmailValidator()
 
 
 def _require_user_manage():
@@ -16,6 +20,15 @@ def _require_user_manage():
     if user is None or not user.can("user:manage"):
         return jsonify({"error": "forbidden", "message": "user:manage permission required"}), 403
     return None
+
+
+def _is_valid_email(email: str) -> bool:
+    """ログイン時の ``LoginRequestSchema`` (``fields.Email``) と同じ基準で検証する。"""
+    try:
+        _email_validator(email)
+        return True
+    except MarshmallowValidationError:
+        return False
 
 
 def _serialize_user(user: User) -> dict:
@@ -88,6 +101,8 @@ def api_admin_users_create():
 
     if not email:
         return jsonify({"error": "email_required"}), 400
+    if not _is_valid_email(email):
+        return jsonify({"error": "invalid_email", "message": "Please provide a valid email address."}), 400
     if not password:
         return jsonify({"error": "password_required"}), 400
     if User.query.filter_by(email=email).first():
@@ -126,6 +141,8 @@ def api_admin_user_update(user_id: int):
         new_email = (payload["email"] or "").strip()
         if not new_email:
             return jsonify({"error": "email_required"}), 400
+        if not _is_valid_email(new_email):
+            return jsonify({"error": "invalid_email", "message": "Please provide a valid email address."}), 400
         if new_email != user.email and User.query.filter_by(email=new_email).first():
             return jsonify({"error": "email_exists", "message": "Email already in use."}), 409
         user.email = new_email

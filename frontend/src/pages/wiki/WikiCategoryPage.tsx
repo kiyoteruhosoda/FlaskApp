@@ -47,7 +47,7 @@ const WikiCategoryPage: React.FC = () => {
     <Container fluid className="py-4">
       <div className="d-flex align-items-center mb-3">
         <Link to="/wiki/categories" className="btn btn-outline-secondary btn-sm me-3">
-          <i className="bi bi-arrow-left me-1" />Categories
+          <i className="fa-solid fa-arrow-left me-1" />Categories
         </Link>
         <h1 className="h3 mb-0">{category.name}</h1>
       </div>

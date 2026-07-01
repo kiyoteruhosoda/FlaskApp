@@ -110,7 +110,7 @@ const TagsPage: React.FC = () => {
             </Button>
           </Form>
           <Button variant="primary" onClick={openCreate} data-testid="tags-create">
-            <i className="bi bi-plus-lg me-1" />{t('New Tag')}
+            <i className="fa-solid fa-plus me-1" />{t('New Tag')}
           </Button>
         </Col>
       </Row>
@@ -141,7 +141,7 @@ const TagsPage: React.FC = () => {
                   className="border p-2"
                   data-testid="tag-item"
                 >
-                  <i className="bi bi-tag me-1" />
+                  <i className="fa-solid fa-tag me-1" />
                   {tag.name}
                   {tag.attr && <span className="text-muted ms-1">({tag.attr})</span>}
                 </Badge>

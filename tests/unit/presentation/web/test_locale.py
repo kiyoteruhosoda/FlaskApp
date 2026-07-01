@@ -1,8 +1,9 @@
 """`presentation/web/templating/locale.py` のロケール選択の単体テスト。
 
-表示言語の決定はユーザー体験に直結するため、cookie > Accept-Language > 既定の
-優先順位とコンテキスト外フォールバックを検証する。アプリ設定は差し替え、
-リクエストは Flask の ``test_request_context`` で再現して DB 非依存とする。
+表示言語の決定はユーザー体験に直結するため、query ?lang= > cookie >
+Accept-Language > 既定（英語）の優先順位とコンテキスト外フォールバックを
+検証する。アプリ設定は差し替え、リクエストは Flask の
+``test_request_context`` で再現して DB 非依存とする。
 """
 
 import types
@@ -37,6 +38,24 @@ def flask_app():
 def test_outside_request_context_returns_default(patched_settings):
     patched_settings(["en", "ja"], default="ja")
     assert select_locale() == "ja"
+
+
+def test_query_param_takes_priority_over_cookie_and_accept_language(patched_settings, flask_app):
+    patched_settings(["en", "ja"])
+    with flask_app.test_request_context(
+        "/?lang=ja",
+        headers={"Accept-Language": "en"},
+        environ_base={"HTTP_COOKIE": "lang=en"},
+    ):
+        assert select_locale() == "ja"
+
+
+def test_invalid_query_param_falls_back_to_cookie(patched_settings, flask_app):
+    patched_settings(["en", "ja"])
+    with flask_app.test_request_context(
+        "/?lang=fr", environ_base={"HTTP_COOKIE": "lang=ja"}
+    ):
+        assert select_locale() == "ja"
 
 
 def test_cookie_language_takes_priority(patched_settings, flask_app):

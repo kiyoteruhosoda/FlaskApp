@@ -54,15 +54,15 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose }) => {
   const getIcon = (type: string) => {
     switch (type) {
       case 'success':
-        return 'bi-check-circle-fill';
+        return 'fa-circle-check';
       case 'error':
-        return 'bi-exclamation-triangle-fill';
+        return 'fa-triangle-exclamation';
       case 'warning':
-        return 'bi-exclamation-triangle-fill';
+        return 'fa-triangle-exclamation';
       case 'info':
-        return 'bi-info-circle-fill';
+        return 'fa-circle-info';
       default:
-        return 'bi-info-circle-fill';
+        return 'fa-circle-info';
     }
   };
 
@@ -83,7 +83,7 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose }) => {
       className="text-white"
     >
       <Toast.Header>
-        <i className={`bi ${getIcon(toast.type)} me-2`}></i>
+        <i className={`fa-solid ${getIcon(toast.type)} me-2`}></i>
         <strong className="me-auto">
           {toast.type.charAt(0).toUpperCase() + toast.type.slice(1)}
         </strong>

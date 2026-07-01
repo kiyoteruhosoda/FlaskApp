@@ -114,7 +114,7 @@ const GroupsPage: React.FC = () => {
         </Col>
         <Col xs="auto">
           <Button variant="primary" onClick={openCreate} data-testid="groups-create">
-            <i className="bi bi-plus-lg me-1" />{t('New Group')}
+            <i className="fa-solid fa-plus me-1" />{t('New Group')}
           </Button>
         </Col>
       </Row>
@@ -144,10 +144,10 @@ const GroupsPage: React.FC = () => {
                 <td>
                   <div className="d-flex gap-1">
                     <Button size="sm" variant="outline-secondary" onClick={() => openEdit(g)} data-testid="group-edit">
-                      <i className="bi bi-pencil" />
+                      <i className="fa-solid fa-pen" />
                     </Button>
                     <Button size="sm" variant="outline-danger" onClick={() => setDeleteTarget(g)} data-testid="group-delete">
-                      <i className="bi bi-trash" />
+                      <i className="fa-solid fa-trash" />
                     </Button>
                   </div>
                 </td>

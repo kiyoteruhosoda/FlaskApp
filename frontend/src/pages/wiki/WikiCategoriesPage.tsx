@@ -38,14 +38,14 @@ const WikiCategoriesPage: React.FC = () => {
         <Col>
           <div className="d-flex align-items-center gap-3">
             <Link to="/wiki" className="btn btn-outline-secondary btn-sm">
-              <i className="bi bi-arrow-left me-1" />Wiki
+              <i className="fa-solid fa-arrow-left me-1" />Wiki
             </Link>
             <h1 className="h3 mb-0">Categories</h1>
           </div>
         </Col>
         <Col xs="auto">
           <Link to="/wiki/categories/create" className="btn btn-primary btn-sm">
-            <i className="bi bi-plus-lg me-1" />New Category
+            <i className="fa-solid fa-plus me-1" />New Category
           </Link>
         </Col>
       </Row>
@@ -53,7 +53,7 @@ const WikiCategoriesPage: React.FC = () => {
       {categories.length === 0 ? (
         <Card>
           <Card.Body className="text-center text-muted py-5">
-            <i className="bi bi-tags fs-2 d-block mb-2" />
+            <i className="fa-solid fa-tags fs-2 d-block mb-2" />
             <p className="mb-2">No categories yet.</p>
             <Link to="/wiki/categories/create" className="btn btn-primary btn-sm">Create the first category</Link>
           </Card.Body>

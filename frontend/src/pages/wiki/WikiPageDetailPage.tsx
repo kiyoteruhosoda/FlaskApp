@@ -95,13 +95,13 @@ const WikiPageDetailPage: React.FC = () => {
             <h1 className="h2 mb-0">{page.title}</h1>
             <div className="d-flex gap-2">
               <Link to={`/wiki/history/${page.slug}`} className="btn btn-outline-secondary btn-sm">
-                <i className="bi bi-clock-history me-1" />History
+                <i className="fa-solid fa-clock-rotate-left me-1" />History
               </Link>
               <Link to={`/wiki/edit/${page.slug}`} className="btn btn-outline-primary btn-sm">
-                <i className="bi bi-pencil me-1" />Edit
+                <i className="fa-solid fa-pen me-1" />Edit
               </Link>
               <Button variant="outline-danger" size="sm" onClick={() => setShowDeleteModal(true)}>
-                <i className="bi bi-trash me-1" />Delete
+                <i className="fa-solid fa-trash me-1" />Delete
               </Button>
             </div>
           </div>

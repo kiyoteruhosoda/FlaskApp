@@ -305,6 +305,26 @@ _TASK_IDENTITY_RESOLVERS: Dict[str, Any] = {
 }
 
 
+def _is_noop_cleanup_result(result: Any) -> bool:
+    return isinstance(result, dict) and result.get("updated_count") == 0
+
+
+def _is_noop_watchdog_result(result: Any) -> bool:
+    if not isinstance(result, dict):
+        return False
+    return sum(v for v in result.values() if isinstance(v, int)) == 0
+
+
+# 定期実行される housekeeping タスクのうち、実際に何も処理しなかった (no-op) 場合は
+# 同期ジョブ履歴 (JobSync) / タスク記録 (CeleryTaskRecord) を残さないようにするための
+# 判定関数レジストリ。high-frequency な監視タスクほど no-op が大半を占め、履歴が
+# 本当に必要なエントリを埋もれさせてしまうため。
+_NOOP_RESULT_PREDICATES: Dict[str, Any] = {
+    "session_recovery.cleanup_stale_sessions": _is_noop_cleanup_result,
+    "picker_import.watchdog": _is_noop_watchdog_result,
+}
+
+
 def _resolve_task_object(name: str, args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
     resolver = _TASK_IDENTITY_RESOLVERS.get(name)
     if resolver is None:
@@ -472,6 +492,25 @@ class ContextTask(celery.Task):
                     )
                 raise
             else:
+                noop_predicate = _NOOP_RESULT_PREDICATES.get(self.name)
+                is_noop_run = (
+                    job_created
+                    and noop_predicate is not None
+                    and noop_predicate(result)
+                )
+
+                if is_noop_run:
+                    # 何も処理しなかった定期実行はジョブ履歴・タスク記録を残さない。
+                    try:
+                        if job is not None:
+                            db.session.delete(job)
+                        if record is not None:
+                            db.session.delete(record)
+                        db.session.commit()
+                    except Exception:
+                        _safe_db_rollback()
+                    return result
+
                 if record is not None:
                     try:
                         record.status = CeleryTaskStatus.SUCCESS

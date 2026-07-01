@@ -136,7 +136,7 @@ const SlideshowPage: React.FC = () => {
         <div className="d-flex justify-content-between align-items-center text-white">
           <div>
             <Button variant="link" className="text-white p-0 me-3" onClick={() => navigate(`/albums/${albumId}`)}>
-              <i className="bi bi-x-lg fs-5" />
+              <i className="fa-solid fa-xmark fs-5" />
             </Button>
             <span className="fw-semibold">{album.title}</span>
           </div>
@@ -148,7 +148,7 @@ const SlideshowPage: React.FC = () => {
               onClick={() => setIsAutoplay((v) => !v)}
               data-testid="slideshow-autoplay"
             >
-              <i className={`bi ${isAutoplay ? 'bi-pause-fill' : 'bi-play-fill'}`} />
+              <i className={`fa-solid ${isAutoplay ? 'fa-pause' : 'fa-play'}`} />
             </Button>
           </div>
         </div>
@@ -162,7 +162,7 @@ const SlideshowPage: React.FC = () => {
         onClick={goPrev}
         data-testid="slideshow-prev"
       >
-        <i className="bi bi-chevron-left" />
+        <i className="fa-solid fa-chevron-left" />
       </Button>
       <Button
         variant="link"
@@ -171,7 +171,7 @@ const SlideshowPage: React.FC = () => {
         onClick={goNext}
         data-testid="slideshow-next"
       >
-        <i className="bi bi-chevron-right" />
+        <i className="fa-solid fa-chevron-right" />
       </Button>
 
       {/* Bottom caption */}

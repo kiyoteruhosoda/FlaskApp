@@ -126,7 +126,7 @@ const SessionDetailPage: React.FC = () => {
         </Col>
         <Col xs="auto">
           <Button variant="outline-secondary" size="sm" onClick={() => { loadSession(); loadSelections(); loadLogs(); }}>
-            <i className="bi bi-arrow-clockwise me-1" />
+            <i className="fa-solid fa-rotate-right me-1" />
             {t('Refresh')}
           </Button>
         </Col>

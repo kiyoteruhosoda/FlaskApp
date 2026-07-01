@@ -93,7 +93,7 @@ const MediaDuplicatesPage: React.FC = () => {
           </div>
         </div>
         <Button variant="outline-secondary" onClick={load} disabled={isLoading}>
-          <i className="bi bi-arrow-clockwise me-1" />
+          <i className="fa-solid fa-rotate-right me-1" />
           {t('Refresh')}
         </Button>
       </div>
@@ -137,7 +137,7 @@ const MediaDuplicatesPage: React.FC = () => {
                   disabled={deleting}
                   onClick={() => setPendingGroup(group)}
                 >
-                  <i className="bi bi-trash me-1" />
+                  <i className="fa-solid fa-trash me-1" />
                   {t('Delete the others')}
                 </Button>
               </Card.Header>

@@ -62,21 +62,21 @@ const toTypedValue = (field: ConfigField, draft: DraftValue): any => {
 };
 
 const SECTION_ICONS: Record<string, string> = {
-  security: 'bi-shield-lock',
-  sessions: 'bi-cookie',
-  platform: 'bi-cpu',
-  internationalization: 'bi-translate',
-  identity: 'bi-person-badge',
-  downloads: 'bi-link-45deg',
-  storage: 'bi-hdd-stack',
-  celery: 'bi-gear-wide-connected',
-  'media-processing': 'bi-film',
-  mail: 'bi-envelope',
-  cdn: 'bi-globe',
-  blob: 'bi-cloud',
-  custom: 'bi-puzzle',
-  cors: 'bi-shield-check',
-  signing: 'bi-key',
+  security: 'fa-lock',
+  sessions: 'fa-cookie',
+  platform: 'fa-microchip',
+  internationalization: 'fa-language',
+  identity: 'fa-id-badge',
+  downloads: 'fa-link',
+  storage: 'fa-server',
+  celery: 'fa-gears',
+  'media-processing': 'fa-film',
+  mail: 'fa-envelope',
+  cdn: 'fa-globe',
+  blob: 'fa-cloud',
+  custom: 'fa-puzzle-piece',
+  cors: 'fa-shield-halved',
+  signing: 'fa-key',
 };
 
 // ---------------------------------------------------------------------------
@@ -163,7 +163,7 @@ const FieldEditor: React.FC<FieldEditorProps> = ({ field, draft, modified, onCha
             data-testid={`config-field-${field.key}`}
           />
           <Button variant="outline-secondary" onClick={() => setShowSecret((v) => !v)} tabIndex={-1}>
-            <i className={`bi ${showSecret ? 'bi-eye-slash' : 'bi-eye'}`} />
+            <i className={`fa-solid ${showSecret ? 'fa-eye-slash' : 'fa-eye'}`} />
           </Button>
         </InputGroup>
       );
@@ -197,7 +197,7 @@ const FieldEditor: React.FC<FieldEditorProps> = ({ field, draft, modified, onCha
           {field.description && <div className="text-muted small mt-1">{field.description}</div>}
           {field.default_hint && (
             <div className="text-muted small mt-1 fst-italic">
-              <i className="bi bi-info-circle me-1" />{field.default_hint}
+              <i className="fa-solid fa-circle-info me-1" />{field.default_hint}
             </div>
           )}
         </Col>
@@ -213,7 +213,7 @@ const FieldEditor: React.FC<FieldEditorProps> = ({ field, draft, modified, onCha
                   onClick={onReset}
                   data-testid={`config-reset-${field.key}`}
                 >
-                  <i className="bi bi-arrow-counterclockwise me-1" />{t('Reset to default')}
+                  <i className="fa-solid fa-rotate-left me-1" />{t('Reset to default')}
                 </Button>
               )}
             </div>
@@ -440,7 +440,7 @@ const ConfigPage: React.FC = () => {
         </Col>
         <Col xs="auto">
           <Button variant="outline-secondary" size="sm" onClick={load}>
-            <i className="bi bi-arrow-clockwise me-1" />{t('Reload')}
+            <i className="fa-solid fa-rotate-right me-1" />{t('Reload')}
           </Button>
         </Col>
       </Row>
@@ -463,7 +463,7 @@ const ConfigPage: React.FC = () => {
         <Col lg={3} className="mb-3">
           <div style={{ position: 'sticky', top: 16 }}>
             <InputGroup className="mb-3">
-              <InputGroup.Text><i className="bi bi-search" /></InputGroup.Text>
+              <InputGroup.Text><i className="fa-solid fa-magnifying-glass" /></InputGroup.Text>
               <Form.Control
                 placeholder={t('Search settings...')}
                 value={search}
@@ -480,18 +480,18 @@ const ConfigPage: React.FC = () => {
                   className="d-flex align-items-center py-2"
                   role="button"
                 >
-                  <i className={`bi ${SECTION_ICONS[section.identifier] || 'bi-sliders'} me-2`} />
+                  <i className={`fa-solid ${SECTION_ICONS[section.identifier] || 'fa-sliders'} me-2`} />
                   <span className="small">{section.label}</span>
                   <Badge bg="light" text="dark" className="ms-auto border">{section.fields.length}</Badge>
                 </Nav.Link>
               ))}
               <hr className="my-2" />
               <Nav.Link onClick={() => scrollToSection('section-cors', 'cors')} className="d-flex align-items-center py-2" role="button">
-                <i className="bi bi-shield-check me-2" />
+                <i className="fa-solid fa-shield-halved me-2" />
                 <span className="small">{t('CORS')}</span>
               </Nav.Link>
               <Nav.Link onClick={() => scrollToSection('section-signing', 'signing')} className="d-flex align-items-center py-2" role="button">
-                <i className="bi bi-key me-2" />
+                <i className="fa-solid fa-key me-2" />
                 <span className="small">{t('Token Signing')}</span>
               </Nav.Link>
             </Nav>
@@ -510,7 +510,7 @@ const ConfigPage: React.FC = () => {
             <Card className="mb-4 shadow-sm" key={section.identifier} id={section.anchor_id} data-testid={`config-section-${section.identifier}`}>
               <Card.Header className="bg-white">
                 <div className="d-flex align-items-center">
-                  <i className={`bi ${SECTION_ICONS[section.identifier] || 'bi-sliders'} me-2 fs-5 text-primary`} />
+                  <i className={`fa-solid ${SECTION_ICONS[section.identifier] || 'fa-sliders'} me-2 fs-5 text-primary`} />
                   <div>
                     <div className="fw-semibold">{section.label}</div>
                     {section.description && <div className="text-muted small">{section.description}</div>}
@@ -538,7 +538,7 @@ const ConfigPage: React.FC = () => {
             <Card className="mb-4 shadow-sm" id="section-cors" data-testid="config-section-cors">
               <Card.Header className="bg-white">
                 <div className="d-flex align-items-center">
-                  <i className="bi bi-shield-check me-2 fs-5 text-primary" />
+                  <i className="fa-solid fa-shield-halved me-2 fs-5 text-primary" />
                   <div>
                     <div className="fw-semibold">{t('CORS')}</div>
                     <div className="text-muted small">{t('Cross-Origin Resource Sharing allowed origins')}</div>
@@ -574,7 +574,7 @@ const ConfigPage: React.FC = () => {
               </Card.Body>
               <Card.Footer className="bg-white text-end">
                 <Button variant="primary" size="sm" onClick={handleCorsSave} disabled={corsSaving} data-testid="config-cors-save">
-                  {corsSaving ? <Spinner size="sm" animation="border" className="me-1" /> : <i className="bi bi-check-lg me-1" />}
+                  {corsSaving ? <Spinner size="sm" animation="border" className="me-1" /> : <i className="fa-solid fa-check me-1" />}
                   {t('Save CORS')}
                 </Button>
               </Card.Footer>
@@ -586,7 +586,7 @@ const ConfigPage: React.FC = () => {
             <Card className="mb-4 shadow-sm" id="section-signing" data-testid="config-section-signing">
               <Card.Header className="bg-white">
                 <div className="d-flex align-items-center">
-                  <i className="bi bi-key me-2 fs-5 text-primary" />
+                  <i className="fa-solid fa-key me-2 fs-5 text-primary" />
                   <div>
                     <div className="fw-semibold">{t('Token Signing')}</div>
                     <div className="text-muted small">{t('How access tokens are signed')}</div>
@@ -617,7 +617,7 @@ const ConfigPage: React.FC = () => {
                         data-testid="config-signing-secret"
                       />
                       <Button variant="outline-secondary" onClick={() => setShowSigningSecret((v) => !v)} tabIndex={-1}>
-                        <i className={`bi ${showSigningSecret ? 'bi-eye-slash' : 'bi-eye'}`} />
+                        <i className={`fa-solid ${showSigningSecret ? 'fa-eye-slash' : 'fa-eye'}`} />
                       </Button>
                     </InputGroup>
                     {config.builtin_signing_secret && (
@@ -660,7 +660,7 @@ const ConfigPage: React.FC = () => {
               </Card.Body>
               <Card.Footer className="bg-white text-end">
                 <Button variant="primary" size="sm" onClick={handleSigningSave} disabled={signingSaving} data-testid="config-signing-save">
-                  {signingSaving ? <Spinner size="sm" animation="border" className="me-1" /> : <i className="bi bi-check-lg me-1" />}
+                  {signingSaving ? <Spinner size="sm" animation="border" className="me-1" /> : <i className="fa-solid fa-check me-1" />}
                   {t('Save Signing')}
                 </Button>
               </Card.Footer>
@@ -684,7 +684,7 @@ const ConfigPage: React.FC = () => {
             {t('Discard')}
           </Button>
           <Button variant="primary" size="sm" onClick={handleSave} disabled={saving} data-testid="config-save">
-            {saving ? <Spinner size="sm" animation="border" className="me-1" /> : <i className="bi bi-check-lg me-1" />}
+            {saving ? <Spinner size="sm" animation="border" className="me-1" /> : <i className="fa-solid fa-check me-1" />}
             {t('Save Changes')}
           </Button>
         </div>

@@ -4,7 +4,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
 import { logout } from '../store/authSlice';
 import { toggleSidebar } from '../store/uiSlice';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 const Header: React.FC = () => {
@@ -33,10 +33,10 @@ const Header: React.FC = () => {
               className="me-2"
               onClick={() => dispatch(toggleSidebar())}
             >
-              <i className="bi bi-list"></i>
+              <i className="fa-solid fa-bars"></i>
             </Button>
           )}
-          <Navbar.Brand href="/">PhotoNest</Navbar.Brand>
+          <Navbar.Brand as={Link} to="/">PhotoNest</Navbar.Brand>
         </div>
 
         <Navbar.Toggle aria-controls="basic-navbar-nav" />
@@ -44,23 +44,23 @@ const Header: React.FC = () => {
           {isAuthenticated ? (
             <>
               <Nav className="me-auto">
-                <Nav.Link href="/">{t('Home')}</Nav.Link>
+                <Nav.Link as={Link} to="/">{t('Home')}</Nav.Link>
                 {hasPermission('dashboard:view') && (
-                  <Nav.Link href="/dashboard">{t('Dashboard')}</Nav.Link>
+                  <Nav.Link as={Link} to="/dashboard">{t('Dashboard')}</Nav.Link>
                 )}
                 {hasPermission('media:view') && (
                   <NavDropdown title={t('Photo View')} id="photo-nav-dropdown">
                     {hasPermission('media:session') && (
-                      <NavDropdown.Item href="/sessions">{t('Sessions')}</NavDropdown.Item>
+                      <NavDropdown.Item as={Link} to="/sessions">{t('Sessions')}</NavDropdown.Item>
                     )}
-                    <NavDropdown.Item href="/media">{t('Media Gallery')}</NavDropdown.Item>
+                    <NavDropdown.Item as={Link} to="/media">{t('Media Gallery')}</NavDropdown.Item>
                     {hasPermission('album:view') && (
-                      <NavDropdown.Item href="/albums">{t('Albums')}</NavDropdown.Item>
+                      <NavDropdown.Item as={Link} to="/albums">{t('Albums')}</NavDropdown.Item>
                     )}
                     {hasPermission('admin:photo-settings') && (
                       <>
                         <NavDropdown.Divider />
-                        <NavDropdown.Item href="/photo-settings">{t('Settings')}</NavDropdown.Item>
+                        <NavDropdown.Item as={Link} to="/photo-settings">{t('Settings')}</NavDropdown.Item>
                       </>
                     )}
                   </NavDropdown>
@@ -68,11 +68,11 @@ const Header: React.FC = () => {
               </Nav>
               <Nav>
                 <NavDropdown title={user?.username || 'User'} id="user-nav-dropdown" align="end">
-                  <NavDropdown.Item href="/profile">{t('Profile')}</NavDropdown.Item>
+                  <NavDropdown.Item as={Link} to="/profile">{t('Profile')}</NavDropdown.Item>
                   {hasPermission('admin:system-settings') && (
                     <>
                       <NavDropdown.Divider />
-                      <NavDropdown.Item href="/admin">{t('Admin')}</NavDropdown.Item>
+                      <NavDropdown.Item as={Link} to="/admin/dashboard">{t('Admin')}</NavDropdown.Item>
                     </>
                   )}
                   <NavDropdown.Divider />
@@ -82,8 +82,8 @@ const Header: React.FC = () => {
             </>
           ) : (
             <Nav className="ms-auto">
-              <Nav.Link href="/login">{t('Login')}</Nav.Link>
-              <Nav.Link href="/register">{t('Register')}</Nav.Link>
+              <Nav.Link as={Link} to="/login">{t('Login')}</Nav.Link>
+              <Nav.Link as={Link} to="/register">{t('Register')}</Nav.Link>
             </Nav>
           )}
         </Navbar.Collapse>

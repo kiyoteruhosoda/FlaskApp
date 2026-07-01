@@ -39,7 +39,7 @@ const WikiSearchPage: React.FC = () => {
     <Container fluid className="py-4">
       <div className="d-flex align-items-center mb-3">
         <Link to="/wiki" className="btn btn-outline-secondary btn-sm me-3">
-          <i className="bi bi-arrow-left me-1" />Wiki
+          <i className="fa-solid fa-arrow-left me-1" />Wiki
         </Link>
         <h1 className="h3 mb-0">Search Wiki</h1>
       </div>
@@ -56,7 +56,7 @@ const WikiSearchPage: React.FC = () => {
                 autoFocus
               />
               <Button type="submit" variant="primary">
-                <i className="bi bi-search me-1" />Search
+                <i className="fa-solid fa-magnifying-glass me-1" />Search
               </Button>
             </InputGroup>
           </Form>

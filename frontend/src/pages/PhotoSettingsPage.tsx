@@ -63,7 +63,7 @@ const PhotoSettingsPage: React.FC = () => {
         </Col>
         <Col xs="auto">
           <Button variant="outline-secondary" size="sm" onClick={loadStatus} disabled={isLoading}>
-            <i className="bi bi-arrow-clockwise me-1" />
+            <i className="fa-solid fa-rotate-right me-1" />
             {t('Refresh')}
           </Button>
         </Col>
@@ -154,7 +154,7 @@ const PhotoSettingsPage: React.FC = () => {
                 {importTriggering ? (
                   <><Spinner size="sm" animation="border" className="me-1" />{t('Triggering...')}</>
                 ) : (
-                  <><i className="bi bi-play-fill me-1" />{t('Trigger Import')}</>
+                  <><i className="fa-solid fa-play me-1" />{t('Trigger Import')}</>
                 )}
               </Button>
               {!status.status.ready && (

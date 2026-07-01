@@ -91,24 +91,24 @@ window.showToast = function(message, type = 'success', duration = 5000) {
   switch (type) {
     case 'success':
       bgClass = 'bg-success';
-      iconClass = 'bi-check-circle-fill';
+      iconClass = 'fa-circle-check';
       break;
     case 'error':
     case 'danger':
       bgClass = 'bg-danger';
-      iconClass = 'bi-exclamation-triangle-fill';
+      iconClass = 'fa-triangle-exclamation';
       break;
     case 'warning':
       bgClass = 'bg-warning';
-      iconClass = 'bi-exclamation-triangle-fill';
+      iconClass = 'fa-triangle-exclamation';
       break;
     case 'info':
       bgClass = 'bg-info';
-      iconClass = 'bi-info-circle-fill';
+      iconClass = 'fa-circle-info';
       break;
     default:
       bgClass = 'bg-primary';
-      iconClass = 'bi-info-circle-fill';
+      iconClass = 'fa-circle-info';
   }
 
   // Create toast HTML
@@ -116,7 +116,7 @@ window.showToast = function(message, type = 'success', duration = 5000) {
     <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
       <div class="d-flex">
         <div class="toast-body">
-          <i class="bi ${iconClass} me-2"></i>
+          <i class="fa-solid ${iconClass} me-2"></i>
           ${message}
         </div>
         <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>

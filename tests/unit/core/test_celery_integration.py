@@ -144,13 +144,43 @@ class TestPickerImportWatchdog:
     def test_watchdog_celery_task_integration(self, app, sample_data):
         """Test the actual Celery task wrapper."""
         from cli.src.celery.tasks import picker_import_watchdog_task
-        
+
         with app.app_context():
             # This should run without errors
             result = picker_import_watchdog_task()
-            
+
             assert isinstance(result, dict)
             assert all(key in result for key in ['requeued', 'failed', 'recovered', 'republished'])
+
+    def test_watchdog_noop_does_not_create_job_sync_history(self, app):
+        """処理対象が何も無い (no-op) 実行では同期ジョブ履歴 (JobSync) を残さないこと。"""
+        from cli.src.celery.tasks import picker_import_watchdog_task
+        from shared.infrastructure.models.job_sync import JobSync
+        from shared.infrastructure.models.celery_task import CeleryTaskRecord
+
+        with app.app_context():
+            result = picker_import_watchdog_task()
+            assert all(v == 0 for v in result.values() if isinstance(v, int))
+
+            assert JobSync.query.filter_by(task_name="picker_import.watchdog").count() == 0
+            assert CeleryTaskRecord.query.filter_by(task_name="picker_import.watchdog").count() == 0
+
+    def test_watchdog_with_work_creates_job_sync_history(self, app, sample_data):
+        """実際に処理が発生した場合は同期ジョブ履歴 (JobSync) が記録されること。
+
+        ``sample_data`` の running セレクションは heartbeat 未設定のため、
+        watchdog 実行のたびに stale 判定され requeue される。
+        """
+        from cli.src.celery.tasks import picker_import_watchdog_task
+        from shared.infrastructure.models.job_sync import JobSync
+
+        with app.app_context():
+            result = picker_import_watchdog_task()
+            assert result["requeued"] == 1 or result["failed"] == 1
+
+            jobs = JobSync.query.filter_by(task_name="picker_import.watchdog").all()
+            assert len(jobs) == 1
+            assert jobs[0].status == "success"
 
 
 class TestPickerImportItem:
@@ -377,12 +407,71 @@ class TestCeleryTaskPerformance:
         """Test that watchdog task completes in reasonable time."""
         from cli.src.celery.tasks import picker_import_watchdog_task
         import time
-        
+
         with app.app_context():
             start_time = time.time()
             result = picker_import_watchdog_task()
             end_time = time.time()
-            
+
             # Should complete within a reasonable time
             assert (end_time - start_time) < 5.0
             assert isinstance(result, dict)
+
+
+class TestSessionRecoveryCeleryTaskIntegration:
+    """session_recovery.cleanup_stale_sessions の Celery タスクラッパー統合テスト。"""
+
+    def test_cleanup_noop_does_not_create_job_sync_history(self, app):
+        """何も処理しない (no-op) 実行では同期ジョブ履歴 (JobSync) を残さないこと。"""
+        from cli.src.celery.tasks import cleanup_stale_sessions_task
+        from shared.infrastructure.models.job_sync import JobSync
+        from shared.infrastructure.models.celery_task import CeleryTaskRecord
+
+        with app.app_context():
+            with patch('cli.src.celery.celery_app.celery') as mock_celery:
+                mock_inspect = MagicMock()
+                mock_inspect.active.return_value = {}
+                mock_celery.control.inspect.return_value = mock_inspect
+
+                result = cleanup_stale_sessions_task()
+
+            assert result["updated_count"] == 0
+            assert JobSync.query.filter_by(
+                task_name="session_recovery.cleanup_stale_sessions"
+            ).count() == 0
+            assert CeleryTaskRecord.query.filter_by(
+                task_name="session_recovery.cleanup_stale_sessions"
+            ).count() == 0
+
+    def test_cleanup_with_work_creates_job_sync_history(self, app):
+        """実際に処理が発生した場合は同期ジョブ履歴 (JobSync) が記録されること。"""
+        from cli.src.celery.tasks import cleanup_stale_sessions_task
+        from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+        from shared.kernel.database.db import db
+        from shared.infrastructure.models.job_sync import JobSync
+        from datetime import datetime, timedelta, timezone
+
+        with app.app_context():
+            old_time = datetime.now(timezone.utc) - timedelta(hours=3)
+            session = PickerSession(
+                session_id="picker-stale-job-sync-test",
+                status="processing",
+                created_at=old_time,
+                updated_at=old_time,
+            )
+            db.session.add(session)
+            db.session.commit()
+
+            with patch('cli.src.celery.celery_app.celery') as mock_celery:
+                mock_inspect = MagicMock()
+                mock_inspect.active.return_value = {}
+                mock_celery.control.inspect.return_value = mock_inspect
+
+                result = cleanup_stale_sessions_task()
+
+            assert result["updated_count"] == 1
+            jobs = JobSync.query.filter_by(
+                task_name="session_recovery.cleanup_stale_sessions"
+            ).all()
+            assert len(jobs) == 1
+            assert jobs[0].status == "success"

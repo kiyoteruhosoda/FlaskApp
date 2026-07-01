@@ -7,6 +7,8 @@
 |---|---|---|---|---|---|
 | 1 | T3 | 初回ログイン時パスワード強制変更フローの配線（既定 OFF） | 🚧進行中 | 小 | 中 |
 | 2 | T4 | `bounded_contexts/email` と `bounded_contexts/email_sender` の重複統合 | 🟡要判断 | 中 | 中 |
+| 3 | T5 | Photo Exports（/admin/photo-exports）画面が未実装（プレースホルダーのみ） | ⬜未着手 | 小 | 中 |
+| 4 | T6 | Google Accounts（/admin/google-accounts）のReact画面が未実装 | ⬜未着手 | 小 | 中 |
 
 ---
 
@@ -22,3 +24,11 @@
   は値オブジェクト・インターフェース・ファクトリを `bounded_contexts.email_sender` から
   import しており、テストも大半が `email_sender` 側を対象にしている。どちらか一方に
   統合するか、責務を分けるか要判断。
+- **T5 Photo Exports 未実装** — `frontend/src/pages/PhotoExportsPage.tsx`（`/admin/photo-exports`）
+  は `t('Export management is not yet implemented.')` を表示するだけのプレースホルダー。
+  エクスポート機能（対象選択・形式・ダウンロード導線）の実装が必要。
+- **T6 Google Accounts 画面未実装** — Sidebar には `/admin/google-accounts` へのリンクが
+  あり、バックエンドの一覧取得ロジック（`presentation/web/admin/routes.py` の
+  `google_accounts()`）も存在するが、対応する React ページ・ルート（`App.tsx`）が
+  存在しないため、遷移すると 404 相当（`Navigate to="/"`）になる。React ページの新規実装
+  が必要。

@@ -110,7 +110,7 @@ const WikiEditPage: React.FC = () => {
     <Container fluid className="py-4">
       <div className="d-flex align-items-center mb-3">
         <Link to={`/wiki/page/${slug}`} className="btn btn-outline-secondary btn-sm me-3">
-          <i className="bi bi-arrow-left me-1" />Back
+          <i className="fa-solid fa-arrow-left me-1" />Back
         </Link>
         <h1 className="h3 mb-0">Edit: {formData.page.title}</h1>
       </div>

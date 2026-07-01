@@ -9,7 +9,7 @@ import apiClient from '../services/api';
 import { startPasskeyRegistration } from '../utils/webauthn';
 
 const ProfilePage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
 
@@ -232,7 +232,7 @@ const ProfilePage: React.FC = () => {
             <Card.Title className="mb-0">{t('Profile')}</Card.Title>
             {!editMode && (
               <Button variant="outline-primary" size="sm" onClick={startEdit} data-testid="profile-edit-btn">
-                <i className="bi bi-pencil me-1"></i>{t('Edit')}
+                <i className="fa-solid fa-pen me-1"></i>{t('Edit')}
               </Button>
             )}
           </div>
@@ -315,6 +315,22 @@ const ProfilePage: React.FC = () => {
         </Card.Body>
       </Card>
 
+      {/* Language / Preferences Card */}
+      <Card className="mb-4" data-testid="language-settings">
+        <Card.Body>
+          <Card.Title className="mb-3">{t('Language')}</Card.Title>
+          <Form.Select
+            value={i18n.language}
+            onChange={(e) => i18n.changeLanguage(e.target.value)}
+            style={{ maxWidth: 240 }}
+            data-testid="language-select"
+          >
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+          </Form.Select>
+        </Card.Body>
+      </Card>
+
       {/* Security / 2FA Card */}
       <Card>
         <Card.Body>
@@ -335,12 +351,12 @@ const ProfilePage: React.FC = () => {
             </div>
             {!totpLoading && totpEnabled === false && !totpSetupData && (
               <Button variant="outline-success" size="sm" onClick={handleSetupTOTP} disabled={totpBusy} data-testid="totp-enable-btn">
-                {totpBusy ? <Spinner size="sm" /> : <><i className="bi bi-shield-lock me-1"></i>{t('Enable 2FA')}</>}
+                {totpBusy ? <Spinner size="sm" /> : <><i className="fa-solid fa-lock me-1"></i>{t('Enable 2FA')}</>}
               </Button>
             )}
             {!totpLoading && totpEnabled === true && !showDisableConfirm && (
               <Button variant="outline-danger" size="sm" onClick={() => setShowDisableConfirm(true)} disabled={totpBusy} data-testid="totp-disable-btn">
-                <i className="bi bi-shield-x me-1"></i>{t('Disable 2FA')}
+                <i className="fa-solid fa-lock-open me-1"></i>{t('Disable 2FA')}
               </Button>
             )}
           </div>
@@ -451,7 +467,7 @@ const ProfilePage: React.FC = () => {
               disabled={passkeyRegistering}
               data-testid="passkey-register-btn"
             >
-              {passkeyRegistering ? <Spinner size="sm" /> : <><i className="bi bi-key me-1" />{t('Add Passkey')}</>}
+              {passkeyRegistering ? <Spinner size="sm" /> : <><i className="fa-solid fa-key me-1" />{t('Add Passkey')}</>}
             </Button>
           </div>
 
@@ -488,7 +504,7 @@ const ProfilePage: React.FC = () => {
                     disabled={deletingPasskeyId === pk.id}
                     data-testid="passkey-delete-btn"
                   >
-                    {deletingPasskeyId === pk.id ? <Spinner size="sm" /> : <i className="bi bi-trash" />}
+                    {deletingPasskeyId === pk.id ? <Spinner size="sm" /> : <i className="fa-solid fa-trash" />}
                   </Button>
                 </ListGroup.Item>
               ))}

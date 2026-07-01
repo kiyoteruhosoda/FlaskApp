@@ -52,7 +52,7 @@ import WikiAdminPage from './pages/wiki/WikiAdminPage';
 
 // Bootstrap CSS
 import 'bootstrap/dist/css/bootstrap.min.css';
-import 'bootstrap-icons/font/bootstrap-icons.css';
+import '@fortawesome/fontawesome-free/css/all.min.css';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {

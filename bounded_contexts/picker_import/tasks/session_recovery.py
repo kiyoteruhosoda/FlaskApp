@@ -79,20 +79,23 @@ def cleanup_stale_sessions():
                         'args': task.get('args', []),
                     }
                     active_task_details.append(task_summary)
-        logger.info(
-            json.dumps(
-                {
-                    'message': 'Active Celery tasks snapshot',
-                    'active_task_count': len(active_task_details),
-                    'active_session_ids': sorted(active_session_ids),
-                    'tasks': active_task_details,
-                },
-                ensure_ascii=False,
-                default=str,
-            ),
-            extra={'event': 'session_recovery'},
-        )
-        
+        # 実行中タスクが無いスナップショットは記録価値が無いため、
+        # 何かActiveなタスクがある場合のみログに残す（no-op実行での記録肥大化を防ぐ）。
+        if active_task_details:
+            logger.info(
+                json.dumps(
+                    {
+                        'message': 'Active Celery tasks snapshot',
+                        'active_task_count': len(active_task_details),
+                        'active_session_ids': sorted(active_session_ids),
+                        'tasks': active_task_details,
+                    },
+                    ensure_ascii=False,
+                    default=str,
+                ),
+                extra={'event': 'session_recovery'},
+            )
+
         # 各タイプのタイムアウト時間を定義
         timeout_configs = {
             'local_import': timedelta(hours=2),    # ローカルインポート: 2時間
@@ -194,17 +197,7 @@ def cleanup_stale_sessions():
                 "details": updated_sessions
             }
         else:
-            logger.debug(
-                json.dumps(
-                    {
-                        'message': 'Session recovery found no stale sessions',
-                        'active_session_ids': sorted(active_session_ids),
-                    },
-                    ensure_ascii=False,
-                    default=str,
-                ),
-                extra={'event': 'session_recovery'},
-            )
+            # 対象0件のno-op実行はジョブ履歴を圧迫するためログに残さない。
             return {
                 "ok": True,
                 "updated_count": 0,

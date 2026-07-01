@@ -5,6 +5,14 @@
 
 ## [Unreleased]
 
+### Fixed
+- `docs/OPERATIONS.md`「3. デプロイ」「5. ログ監視」のログ確認コマンド例を修正。
+  `docker compose logs <サービス名>` は `docker-compose.yml`/`.env` があるディレクトリ
+  （`/volume1/docker/photonest` 等）で実行する必要があるが、その前提が書かれておらず
+  `/volume1/docker` 直下で実行すると `Failed to load /volume1/docker/.env` で失敗して
+  いた。また引数はサービス名（`web`/`worker`等）であってコンテナ名
+  （`photonest-web-1`等）ではないため、「コンテナ構成」の表記もサービス名に修正した。
+
 ### Added
 - `deploy.sh`/`deploy-stg.sh` に Docker daemon 疎通の preflight チェックを追加。
   `sudo` なしで実行して `docker.sock` への `permission denied` が起きた場合、

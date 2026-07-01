@@ -61,28 +61,24 @@
 
 ### ディレクトリ構造
 
-```
-bounded_contexts/          # bounded_contexts ごとに独立
-  storage/
-    domain/
-    application/
-    infrastructure/
+基本構成（`bounded_contexts/<context>/domain|application|infrastructure|presentation|tasks`、
+`shared/kernel/`）は `CLAUDE.md`「ディレクトリ構成」参照。現在の bounded contexts:
+`certs`, `email`, `email_sender`, `photonest`, `picker_import`, `storage`, `totp`, `wiki`
+（`presentation/`・`tasks/` はコンテキストごとに必要なものだけ持つ）。
 
-features/photonest/        # メイン機能
+ローカルインポート機能（4章参照）は `bounded_contexts/photonest/` 配下:
+
+```
+bounded_contexts/photonest/
   domain/local_import/
     value_objects/         # FileHash, ImportStatus, RelativePath
-    services/              # MediaDuplicateChecker, PathCalculator
+    services/              # duplicate_checker（重複判定）, PathCalculator
     specifications/        # 仕様パターン（AND/OR/NOT 組み合わせ）
   application/local_import/
-    use_cases/
     services/              # TransactionManager, FileProcessor
     dto/                   # ImportResultDTO, FileImportDTO
   infrastructure/local_import/
-    repositories/          # MediaRepositoryImpl
     storage/               # FileMover, MetadataExtractor
-
-core/                      # 横断的関心事（設定・ロギング等）
-shared/                    # 共有ユーティリティ
 ```
 
 ---
@@ -91,24 +87,22 @@ shared/                    # 共有ユーティリティ
 
 メール送信をDDDに基づいて分離し、SMTP / Console を設定で切り替え可能にした設計。
 
+> `bounded_contexts/email` と `bounded_contexts/email_sender` に実装が重複している
+> （リネーム途中と思われる。本番コードは `email` を使うが、値オブジェクト・
+> インターフェース・ファクトリの実体は `email_sender` にあり `email` 側はそこから
+> import している）。統合方針は `docs/Progress.md` T4 参照。以下は現状の実体。
+
 ### レイヤー構成
 
 | Layer | コンポーネント |
 |---|---|
-| Application | `application.email_service.EmailService` |
-| Domain | `domain.email_sender.IEmailSender`（抽象）、`EmailMessage`（値オブジェクト） |
-| Infrastructure | `SmtpEmailSender`、`ConsoleEmailSender`、`EmailSenderFactory` |
+| Application | `bounded_contexts/email/application/email_service.py`（`EmailService`） |
+| Domain | `bounded_contexts/email_sender/domain/sender_interface.py`（`EmailSender` Protocol。旧 `IEmailSender` は互換エイリアス）、`email_message.py`（`EmailMessage`） |
+| Infrastructure | `bounded_contexts/email_sender/infrastructure/`（`SmtpEmailSender`、`EmailSenderFactory`。`ConsoleEmailSender` はテスト/開発用） |
 
-### インターフェースと値オブジェクト
+### 値オブジェクト
 
 ```python
-class IEmailSender(ABC):
-    @abstractmethod
-    def send(self, message: EmailMessage) -> bool: ...
-
-    @abstractmethod
-    def validate_config(self) -> bool: ...
-
 @dataclass(frozen=True)
 class EmailMessage:
     to: List[str]
@@ -121,22 +115,9 @@ class EmailMessage:
     reply_to: Optional[str] = None
 ```
 
-### ファクトリと環境設定
-
-```env
-MAIL_PROVIDER=smtp          # smtp または console（テスト用）
-MAIL_SERVER=smtp.gmail.com
-MAIL_PORT=587
-MAIL_USE_TLS=True
-MAIL_USERNAME=your-email@example.com
-MAIL_PASSWORD=your-app-password
-MAIL_DEFAULT_SENDER=your-email@example.com
-```
-
-新しいプロバイダー（例: SendGrid）を追加する場合：
-1. `infrastructure/email_sender/` に `IEmailSender` 実装クラスを追加
-2. `EmailSenderFactory` に分岐を追加
-3. `.env` に `MAIL_PROVIDER=api` など追加
+`EmailSender` は Protocol（`send()` / `validate_config()`）。実装の追加は
+`EmailSenderFactory` に分岐を足すだけでよい。SMTP/Console の切替は
+`MAIL_PROVIDER`（`docs/OPERATIONS.md`「パスワードリセット」参照）。
 
 ---
 
@@ -198,7 +179,7 @@ MAX_ARRAY_ITEMS = 10
 
 ビジネス用語をそのまま型名・メソッド名に使用する。
 
-- 良い例: `MediaDuplicateChecker`, `ImportStatus`, `FileHash`, `AlbumItem`
+- 良い例: `ImportStatus`, `FileHash`, `AlbumItem`, `TransactionManager`
 - 避ける例: `Manager`, `Helper`, `Util`, `Data`
 
 ---
@@ -212,12 +193,12 @@ MAX_ARRAY_ITEMS = 10
 
 ### URL・エンドポイント
 
-- RESTful API リソース名: **単数形**
-  - `GET /admin/user` — 一覧
-  - `GET /admin/user/<id>` — 個別
-  - `POST /admin/user` — 作成
-  - `PUT /admin/user/<id>` — 更新
-  - `DELETE /admin/user/<id>` — 削除
+- RESTful API リソース名: **複数形**（`/api` プレフィックス配下）
+  - `GET /api/admin/users` — 一覧
+  - `GET /api/admin/users/<id>` — 個別
+  - `POST /api/admin/users` — 作成
+  - `PUT /api/admin/users/<id>` — 更新
+  - `DELETE /api/admin/users/<id>` — 削除
 
 ### Python
 
@@ -261,8 +242,8 @@ pytest -m integration
 # 全テスト（FFmpeg等が必要）
 pytest -m ""
 
-# 特定ファイル
-pytest tests/domain/email_sender/ -v
+# 特定ファイル（tests/unit|integration/<層>/<コンテキスト>/ の構成）
+pytest tests/unit/domain/email_sender/ -v
 ```
 
 ### Domain層テストの原則
@@ -274,7 +255,7 @@ Infrastructure層はリポジトリインターフェースを通じて差し替
 
 ## 8. バージョン管理
 
-バージョンは `core/version.json`（Dockerビルド時自動生成）から読み込む。
+バージョンは `shared/kernel/version.json`（Dockerビルド時自動生成）から読み込む。
 
 ```bash
 # バージョンファイル生成（開発環境）
@@ -291,4 +272,4 @@ GET /api/version
 - mainブランチ: `v{コミットハッシュ}` (例: `va0b7e23`)
 - その他: `v{コミットハッシュ}-{ブランチ名}` (例: `va0b7e23-feature`)
 
-本番環境では `core/version.json` が存在すれば Git 不要。
+本番環境では `shared/kernel/version.json` が存在すれば Git 不要。

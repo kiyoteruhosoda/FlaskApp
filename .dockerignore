@@ -25,3 +25,22 @@
 **/values.dev.yaml
 LICENSE
 README.md
+
+# ビルド成果物（DOCKER_ROOT 直下に出力される tar 等）。
+# .dockerignore に無いと docker build のたびに "transferring context" で
+# 前回ビルドの数十GB規模の tar を毎回スキャン・転送してしまう。
+*.tar
+**/build
+**/dist
+
+# ローカル開発・テストの一時成果物（ビルドに不要）
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+**/test-results
+**/playwright-report
+**/instance
+**/tmp
+**/*.log
+**/*.sqlite3
+**/application_logs.db

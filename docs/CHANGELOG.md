@@ -6,6 +6,13 @@
 ## [Unreleased]
 
 ### Added
+- `scripts/regenerate_db_baseline.sh` を追加。`db/init/01_initialize.sql`
+  （DBイメージに焼き込むベースラインSQL）の再生成を自動化。使い捨ての MariaDB
+  コンテナに対して `flask db upgrade` を実行し、現在の migration head の
+  スキーマ + マスタデータ（roles/permissions/初期管理者）をダンプする。
+  既存の開発/STG/本番DBは一切参照・変更しない。手動 `mysqldump` の運用を廃止。
+  `make regen-db-baseline` からも呼び出せる。詳細は `scripts/README.md` /
+  `docs/OPERATIONS.md`「2. データベース操作」参照。
 - `scripts/deploy.sh` / `scripts/deploy-stg.sh` のモード引数を必須化し、
   「アプリのみ更新（`app`）」「DDL更新（`migrate`＝`flask db upgrade`を自動実行、
   既存データ保持）」「完全初期化（`reset`）」を明示引数だけで切り替えられるようにした
@@ -29,6 +36,12 @@
 - マイグレーション運用 README（`migrations/README.md`）。
 
 ### Fixed
+- `.dockerignore` に `*.tar` 等を追加。`photonest-latest.tar`/`photonest-db-latest.tar`
+  が `.gitignore` では除外済みでも `.dockerignore` からは漏れていたため、ビルドの
+  たびに前回出力した数十GB規模の tar がビルドコンテキストとしてスキャン・転送され
+  （`docker build` の "transferring context" が数十GBに達する）原因になっていた。
+  あわせて `.pytest_cache` / `test-results` / `playwright-report` 等のローカル
+  開発・テスト成果物も除外。
 - `Dockerfile` をマルチステージ化し、`photonest-latest.tar` の異常な肥大化を修正。
   Node.js 本体・npm・`node_modules`（devDependencies の `@playwright/test` が
   ダウンロードする E2E テスト用ブラウザ含む）は `frontend/build` のビルドにしか使わないが、

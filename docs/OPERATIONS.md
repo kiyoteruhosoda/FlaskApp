@@ -133,12 +133,13 @@ python scripts/seed_from_yaml.py
 ### DB再初期化（Synology / Docker）
 
 `db/init/01_initialize.sql`（DBイメージに焼き込むフルダンプ。スキーマ + ロール・権限・
-初期管理者ユーザーのマスタデータを含む）を更新した場合の手順:
+初期管理者ユーザーのマスタデータを含む）は、DDLを変更したら `scripts/regenerate_db_baseline.sh`
+で再生成する（手動 `mysqldump` は不要）:
 
 ```bash
-# 1. 現在の migration head まで適用済みの DB から 01_initialize.sql を再生成する
+# 1. 現在の migration head から 01_initialize.sql を再生成する
 #    （このステップを飛ばすと、スキーマが古いまま "head 扱い" になる不整合が起きる）
-mysqldump ... > db/init/01_initialize.sql   # 環境に応じたダンプコマンドに置き換える
+./scripts/regenerate_db_baseline.sh
 
 # 2. DBイメージをリビルド
 make build-db
@@ -147,6 +148,12 @@ make build-db
 ./scripts/deploy.sh reset       # 本番
 ./scripts/deploy-stg.sh reset   # STG
 ```
+
+`scripts/regenerate_db_baseline.sh` は使い捨ての MariaDB コンテナを起動し、そこに対して
+`flask db upgrade` を実行して現在の migration head まで（スキーマ + マスタデータ）を
+適用したうえで `mysqldump` する。既存の開発/STG/本番DBの中身は一切参照・変更しない。
+含まれるのはスキーマとマスタデータ（ロール・権限・初期管理者）のみで、業務データ
+（メディア・アルバム・`system_settings` の値など）は含まれない。
 
 `reset` はコンテナ停止 → DB/メディア削除 → イメージ再ロード → 起動 →
 `flask db stamp head`（Alembicのバージョン管理を焼き込み済みスキーマに追いつかせる）
@@ -602,6 +609,24 @@ make build
 ```bash
 docker images photonest:latest
 docker history photonest:latest --no-trunc   # どのレイヤーが大きいか確認
+```
+
+### `docker build` の "transferring context" が数十GBある
+
+これはイメージサイズとは別の問題で、**ビルドコンテキスト（`docker build .` の `.` 配下）
+自体が大きい**ことが原因。`photonest-latest.tar` / `photonest-db-latest.tar` は
+`make build` / `make build-db` の出力先がリポジトリ直下（ビルドコンテキストの中）のため、
+`.dockerignore` で除外していないと**前回ビルドで作った tar 自体が次のビルドの
+コンテキストに含まれ**、ビルドごとに肥大化が積み重なる。`.gitignore` は `*.tar` を
+除外していたが `.dockerignore` には無かったため起きていた。`.dockerignore` に
+`*.tar` を追加して修正済み。
+
+```bash
+# 古い tar がビルドディレクトリに残っていないか確認
+du -sh photonest-latest.tar photonest-db-latest.tar 2>/dev/null
+
+# .dockerignore を反映したうえでのコンテキストサイズを確認（BuildKit）
+docker buildx build --no-cache -t photonest:latest . 2>&1 | grep -i "transferring context"
 ```
 
 ---

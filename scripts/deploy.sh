@@ -114,14 +114,14 @@ case "$MODE" in
     $COMPOSE exec -T web flask db upgrade
     ;;
   reset)
-    # db/init/01_initialize.sql はスキーマ・マスタデータ込みで焼き込み済みだが
-    # alembic_version は空のまま投入される。ここで head にスタンプしておかないと、
-    # 次回 `migrate` 実行時に Alembic が「未適用」と誤認して init_master から
-    # 再実行し CREATE TABLE の重複エラーになる。
+    # db/init/01_initialize.sql はスキーマ・マスタデータ込みで焼き込み済み。
+    # scripts/regenerate_db_baseline.sh で再生成したものは alembic_version も
+    # head に揃った状態で含まれるはずだが、念のためここでも stamp head しておき、
+    # 万一 alembic_version がずれた状態で焼き込まれていても次回 `migrate` が
+    # init_master から再実行され CREATE TABLE の重複エラーになるのを防ぐ。
     # 前提: db/init/01_initialize.sql は DBイメージ再ビルド（make build-db）前に
-    #       現在の migration head まで適用した状態から再生成しておくこと。
-    #       ずれていると「スキーマは古いのに head 扱い」という不整合になるので、
-    #       DDL変更時は 01_initialize.sql の再生成を忘れないこと。
+    #       ./scripts/regenerate_db_baseline.sh で現在の migration head から
+    #       再生成しておくこと。DDL変更時は忘れずに再生成すること。
     echo "[deploy] Stamping alembic_version to head (fresh DB from baked snapshot)"
     $COMPOSE exec -T web flask db stamp head
     ;;

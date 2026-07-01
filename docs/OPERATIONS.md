@@ -132,45 +132,27 @@ python scripts/seed_from_yaml.py
 
 ### DB再初期化（Synology / Docker）
 
-`db/init/01_initialize.sql`（DBイメージに焼き込むフルダンプ。スキーマ + ロール・権限・
-初期管理者ユーザーのマスタデータを含む）は、DDLを変更したら `scripts/regenerate_db_baseline.sh`
-で再生成する（手動 `mysqldump` は不要）:
+DDLを変更したとき:
 
 ```bash
-# 1. 現在の migration head から 01_initialize.sql を再生成する
-#    （このステップを飛ばすと、スキーマが古いまま "head 扱い" になる不整合が起きる）
+# 1. db/init/01_initialize.sql を現在の migration head から再生成
 ./scripts/regenerate_db_baseline.sh
 
 # 2. DBイメージをリビルド
 make build-db
 
-# 3. Synology へ転送してデプロイ（DB・メディアデータを削除して作り直す）
+# 3. デプロイ（DB・メディアデータを削除して作り直す）
 ./scripts/deploy.sh reset       # 本番
 ./scripts/deploy-stg.sh reset   # STG
 ```
-
-`scripts/regenerate_db_baseline.sh` は使い捨ての MariaDB コンテナを起動し、そこに対して
-`flask db upgrade` を実行して現在の migration head まで（スキーマ + マスタデータ）を
-適用したうえで `mysqldump` する。既存の開発/STG/本番DBの中身は一切参照・変更しない。
-含まれるのはスキーマとマスタデータ（ロール・権限・初期管理者）のみで、業務データ
-（メディア・アルバム・`system_settings` の値など）は含まれない。
-
-`reset` はコンテナ停止 → DB/メディア削除 → イメージ再ロード → 起動 →
-`flask db stamp head`（Alembicのバージョン管理を焼き込み済みスキーマに追いつかせる）
-まで自動で行う。**マスタデータは `01_initialize.sql` に含まれているため、`reset` 単独で
-投入済みの状態になり、`flask seed-master` を別途実行する必要はない。**
-
-再生成を忘れて DDL だけコミットする事故を防ぐため、
-`tests/integration/test_db_baseline_consistency.py` が `01_initialize.sql` に
-焼き込まれた `alembic_version` と現在の migration head を照合する（CI で自動実行、
-DBは使わずファイルの突き合わせのみ）。ずれていればテストが失敗し、
-`./scripts/regenerate_db_baseline.sh` の再実行を促すメッセージが出る。
 
 初期化確認:
 ```bash
 docker logs mariadb | grep Entrypoint      # 本番
 docker logs mariadb-stg | grep Entrypoint  # STG
 ```
+
+何が投入されるか・仕組みは `scripts/README.md` を参照。
 
 ### originals からのメディア再構築
 
@@ -510,130 +492,15 @@ curl http://localhost:5000/api/health
 
 ## 6. トラブルシューティング（Docker / デプロイ）
 
-### Container Manager（Synology）に出る「Traceback」は何か
+| 症状 | 対処 |
+|---|---|
+| Container Manager に赤い traceback が出る | `docker inspect --format '{{json .State.Health}}' <container名> \| python3 -m json.tool` で healthcheck の実行結果を確認する（`docker compose -p <project> ps` でも Health 列が見える） |
+| `docker load` が反応なく見える | `...still loading` のハートビートが出続けていれば進行中。別ターミナルで `watch -n 2 'docker system df'` |
+| `docker events` にパスワードが平文で出る | `docker-compose.yml` の healthcheck が `${VAR}` を直接展開していないか確認する（`$$VAR` にする） |
+| `photonest-latest.tar` が異常に大きい | `docker images photonest:latest` / `docker history photonest:latest --no-trunc` でレイヤーを確認する |
+| `docker build` の "transferring context" が大きい | `du -sh photonest-latest.tar photonest-db-latest.tar` で古い tar がビルドディレクトリに残っていないか確認する |
 
-Container Manager のコンテナ一覧・詳細画面に赤字で出る Python の traceback は、
-**アプリのクラッシュログではなく `healthcheck` の実行結果**（失敗時の標準エラー出力）。
-`docker logs <container>` には出ない（healthcheck はコンテナ内で別プロセスとして
-定期実行されるため、アプリ本体の stdout/stderr とは別に記録される）。
-
-確認方法:
-
-```bash
-# 直近の healthcheck 実行結果（Start/End/ExitCode/Output）を時系列で見る
-docker inspect --format '{{json .State.Health}}' <container名> | python3 -m json.tool
-
-# もしくは compose 経由
-docker compose -p <project> ps        # Health: healthy / unhealthy / starting
-```
-
-`socket.gaierror: [Errno -2] Name or service not known` /
-`urllib.error.URLError: <urlopen error [Errno -2] ...>` が出る場合、
-healthcheck が `API_BASE_URL`（外部公開ドメイン。CORS 等で使う自己参照 URL）に対して
-名前解決しようとして失敗しているケースが多い。`API_BASE_URL` は環境ごとに公開ドメインを
-指すため、コンテナ内蔵の DNS で解決できるとは限らない。`web` サービスの healthcheck は
-常にコンテナ内部の `http://127.0.0.1:5000/health/live` を叩くようにしてある
-（`docker-compose.yml` 参照）。同種のエラーが再発した場合は healthcheck が
-`API_BASE_URL` や外部ホスト名を参照していないか確認すること。
-
-`[ERROR] Control server error: [Errno 13] Permission denied: '/.gunicorn'` は
-gunicorn 25 以降がデフォルトで作る制御ソケット（`$HOME/.gunicorn/gunicorn.ctl`）を、
-非 root ユーザー実行かつ `HOME` 未設定のこのコンテナでは書き込めないために出るエラー。
-機能自体を使っていないため `scripts/entrypoint.sh` の gunicorn 起動オプションに
-`--no-control-socket` を付けて無効化済み。Web は動作していても毎起動時にこのエラーが
-出て気付きにくいので、直っていることを確認するには `docker logs` に `Control server error`
-が出ていないことを見る。
-
-### `docker load` が止まって見える
-
-`docker load -i xxx.tar` は標準で進捗を表示しないため、数百MB〜数GBのイメージだと
-数分間無反応に見える。`scripts/deploy-stg.sh` は `pv` があれば進捗バーを、なければ
-5秒おきに `...still loading, Ns elapsed` のハートビートを出すようにしてあるので、
-出力が止まっていなければ待ってよい。`pv` 未導入の場合は導入すると進捗バーになる:
-
-```bash
-sudo apt-get install -y pv   # または Synology の ipkg/Entware
-```
-
-別ターミナルで進行を確認したい場合:
-
-```bash
-watch -n 2 'docker system df'   # イメージの使用容量が増えていれば進行中
-```
-
-### `docker events` にパスワードが出る
-
-`docker compose.yml` の `healthcheck.test` に `${VAR}` 形式で環境変数を書くと、
-**docker compose がコンテナ作成時にパスワードそのものへ展開してしまい**、
-`docker events` の `exec_create` / `exec_start` にコマンド全体が平文で記録される
-（`mysqladmin ping ... -p"実際のパスワード"` のように出ていた原因）。
-
-対策として `$$VAR`（ドル記号を2つ）でエスケープし、docker compose 側では展開させず
-コンテナ内シェルの環境変数参照のまま渡すようにした（`db` / `redis` サービスの
-healthcheck を参照）。`$$` エスケープなら `docker events` にはリテラルの
-`$MARIADB_ROOT_PASSWORD` 等が残るだけで、実際の値は healthcheck 実行時にコンテナ内の
-シェルが解決する。
-
-> `redis` サービスの起動コマンド（ACL 設定用の `>${REDIS_PASSWORD}` 部分）は
-> コンテナ作成時の引数としてイメージの起動コマンドに直接埋め込まれる仕様上、
-> `docker inspect` の `Config.Cmd` に一度だけ残る。healthcheck のように毎回
-> `docker events` に出続けるものではないが、NAS 上で他ユーザーが `docker inspect`
-> できる環境では相応の注意が必要。
-
-新しく healthcheck やコマンドを追加する際は、**シークレットを含む値を `${VAR}` で
-直接埋め込まない**（`$$VAR` にする、または `MYSQL_PWD` のような環境変数経由の
-認証方式に寄せる）ことをルールとする。
-
-### `photonest-latest.tar` が異常に大きい（数GB〜数十GB）
-
-原因は多くの場合 **Node.js のビルドツールチェーンが最終イメージに焼き込まれていたこと**。
-以前の `Dockerfile` は単一ステージで、`frontend/` の実行時には不要な以下がすべて
-残っていた:
-
-- Node.js 本体・npm
-- `node_modules`（`typescript` / `vite` / `eslint` に加え、devDependencies の
-  `@playwright/test` の postinstall が E2E テスト用ブラウザ（Chromium/Firefox/WebKit、
-  各数百MB）をダウンロードして含んでいた）
-
-実際に実行時に必要なのは Flask が配信する `frontend/build/`（Vite のビルド成果物）だけで、
-Node 自体はビルドにしか使わない。`Dockerfile` をマルチステージ化し、
-`frontend-builder`（`node:20-slim`）ステージで `npm ci && npm run build` を実行して
-`frontend/build` だけを最終イメージ（`python:3.11-slim`）へコピーするように変更した。
-`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` を設定し、ビルドに使わない E2E 用ブラウザの
-ダウンロードも止めている。
-
-「ビルドのたびにリセットしたい」場合は `docker buildx build --no-cache` を使うか、
-`Makefile` の `clean`（`docker builder prune -f`）でビルドキャッシュを毎回破棄する:
-
-```bash
-make clean   # photonest-latest.tar / photonest-db-latest.tar 削除 + builder cache prune
-make build
-```
-
-現在のイメージサイズを確認する:
-
-```bash
-docker images photonest:latest
-docker history photonest:latest --no-trunc   # どのレイヤーが大きいか確認
-```
-
-### `docker build` の "transferring context" が数十GBある
-
-これはイメージサイズとは別の問題で、**ビルドコンテキスト（`docker build .` の `.` 配下）
-自体が大きい**ことが原因。`photonest-latest.tar` / `photonest-db-latest.tar` は
-`make build` / `make build-db` の出力先がリポジトリ直下（ビルドコンテキストの中）のため、
-`.dockerignore` で除外していないと**前回ビルドで作った tar 自体が次のビルドの
-コンテキストに含まれ**、ビルドごとに肥大化が積み重なる。`.gitignore` は `*.tar` を
-除外していたが `.dockerignore` には無かったため起きていた。`.dockerignore` に
-`*.tar` を追加して修正済み。
-
-```bash
-# 古い tar がビルドディレクトリに残っていないか確認
-du -sh photonest-latest.tar photonest-db-latest.tar 2>/dev/null
-
-# .dockerignore を反映したうえでのコンテキストサイズを確認（BuildKit）
-docker buildx build --no-cache -t photonest:latest . 2>&1 | grep -i "transferring context"
-```
+各症状の原因・仕組みは `scripts/README.md` を参照。
 
 ---
 

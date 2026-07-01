@@ -100,6 +100,8 @@ CREATE TABLE `alembic_version` (
 
 LOCK TABLES `alembic_version` WRITE;
 /*!40000 ALTER TABLE `alembic_version` DISABLE KEYS */;
+INSERT INTO `alembic_version` VALUES
+('3b7c2e9a1f08');
 /*!40000 ALTER TABLE `alembic_version` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -490,6 +492,7 @@ CREATE TABLE `media` (
   `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   `thumbnail_rel_path` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_media_google_media_id` (`google_media_id`),
   KEY `account_id` (`account_id`),
   KEY `ix_media_phash_dimensions` (`phash`,`shot_at`,`width`,`height`,`duration_ms`,`is_video`),
   CONSTRAINT `media_ibfk_1` FOREIGN KEY (`account_id`) REFERENCES `google_account` (`id`)

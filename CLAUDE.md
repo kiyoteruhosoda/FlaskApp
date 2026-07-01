@@ -8,6 +8,8 @@
 
 ```
 docs/
+├── ARCHITECTURE.md    # 設計・レイヤー構成・命名規則（DDDの実装パターン解説）
+├── OPERATIONS.md       # 手順書（下記「ドキュメントの役割分担」参照）
 ├── Progress.md        # 進行中・未着手タスクのみ
 ├── CHANGELOG.md       # 完了した重要な変更の要約
 ├── decisions/         # 設計判断（ADR-NNNN-*.md、雛形は ADR-template.md）
@@ -22,6 +24,23 @@ docs/
    `docs/history/`（経緯）へ移す。Progress には完了項目を残さない。
 4. **重要な変更だけ** `docs/history/` に記録する（細かな進捗は残さない）。
 5. **設計判断は ADR** として `docs/decisions/ADR-NNNN-*.md` に残す。
+
+### ドキュメントの役割分担（何をどこに書くか）
+
+| ドキュメント | 役割 | 書くこと | 書かないこと |
+|---|---|---|---|
+| `docs/OPERATIONS.md` | 手順書 | 「〇〇したいとき、〇〇する」という操作手順・コマンドのみ | なぜそうなっているか、過去に何が起きたか、内部の仕組み、API仕様 |
+| `docs/ARCHITECTURE.md` | 設計ガイド | レイヤー構成・命名規則・DDDパターンの解説 | 個別機能の操作手順、環境変数の一覧（OPERATIONS.md へ） |
+| `scripts/README.md`（および各コンテキストの README） | 仕様書 | スクリプト・設定が**現在どう動くか**（現状の挙動・制約・注意点） | 「以前は〜だったが」「原因は〜だった」という過去の不具合の経緯 |
+| `docs/CHANGELOG.md` | 変更履歴 | 過去の不具合とその原因・修正内容 | — |
+
+迷ったら「これは手順か（OPERATIONS）」「設計の解説か（ARCHITECTURE）」
+「現在の仕様か（README）」「過去の経緯か（CHANGELOG）」で判断する。
+同じ内容を複数箇所に重複して書かない。
+
+**APIエンドポイント仕様は手書きしない。** Flask-Smorest が自動生成する
+Swagger UI（`/api/docs`）・一覧ページ（`/api/overview`）・`/api/openapi.json`
+が唯一の出所。ドキュメントにはそこへのリンクだけを書く。
 
 `docs/Progress.md` は**優先順・番号・概要・状態・影響度・工数の表**で書く。
 補足が必要なものだけ表の下に「詳細」として番号付きで記載する。

@@ -84,6 +84,10 @@ celery -A cli.src.celery.tasks beat --loglevel=info
 
 ### マイグレーション（Alembic）
 
+Synology / Docker 環境では通常 `scripts/deploy.sh migrate`（本番）/
+`scripts/deploy-stg.sh migrate`（STG）から自動適用する（3. デプロイ参照）。
+ここでは手動実行する場合のコマンドを示す。
+
 ```bash
 # 現在の状態確認
 flask db current
@@ -128,23 +132,27 @@ python scripts/seed_from_yaml.py
 
 ### DB再初期化（Synology / Docker）
 
-`db/init/01_initialize.sql` を更新した場合の手順:
+DDLを変更したとき:
 
 ```bash
-# 1. DBイメージをリビルド
+# 1. db/init/01_initialize.sql を現在の migration head から再生成
+./scripts/regenerate_db_baseline.sh
+
+# 2. DBイメージをリビルド
 make build-db
 
-# 2. Synology側で停止・DB削除・イメージ更新
-docker compose -p photonest -f /volume1/docker/photonest/docker-compose.yml down
-rm -rf /volume1/docker/photonest/db_data/*
-docker load -i /volume1/docker/photonest-db-latest.tar
-
-# 3. 再起動
-docker compose -p photonest -f /volume1/docker/photonest/docker-compose.yml up -d
-
-# 4. 初期化確認
-docker logs mariadb | grep Entrypoint
+# 3. デプロイ（DB・メディアデータを削除して作り直す）
+./scripts/deploy.sh reset       # 本番
+./scripts/deploy-stg.sh reset   # STG
 ```
+
+初期化確認:
+```bash
+docker logs mariadb | grep Entrypoint      # 本番
+docker logs mariadb-stg | grep Entrypoint  # STG
+```
+
+何が投入されるか・仕組みは `scripts/README.md` を参照。
 
 ### originals からのメディア再構築
 
@@ -166,7 +174,98 @@ flask rebuild-originals --verbose   # 1件ごとに表示
 
 ## 3. デプロイ
 
-### 環境切替（本番 / STG）
+流れ: **ビルド → デプロイ**。本番/STGどちらも同じ2ステップ。
+
+### ビルド
+
+```bash
+./scripts/.build.sh        # アプリ + DB イメージを TAR 生成（アプリのみ/DBのみも可）
+```
+
+`make build` / `make build-db` を呼び出すラッパー。コマンドの詳細は `scripts/README.md` 参照。
+
+### Docker（推奨）
+
+```bash
+./scripts/deploy.sh app       # アプリのみ更新
+./scripts/deploy.sh migrate   # DDL更新
+./scripts/deploy.sh reset     # 完全初期化
+
+# STG は deploy-stg.sh を使う（同じ引数）
+
+# ログ確認
+docker compose logs web --tail 100
+docker compose logs worker --tail 50
+```
+
+コンテナ構成:
+- `photonest-web` — Flask アプリ（ポート 5000）
+- `photonest-worker` — Celery ワーカー
+- `photonest-beat` — Celery Beat（定期タスク）
+- `photonest-redis` — Redis（Broker / Backend）
+
+### Synology NAS デプロイ
+
+#### 必要環境
+- DSM 7.0 以上
+- Container Manager インストール済み
+
+#### 初回セットアップ
+
+ディレクトリ配置・TAR転送先は `scripts/README.md`（`deploy.sh` / `deploy-stg.sh`）参照。
+
+**1. .env 設定**（`photonest/.env`。最低限変更が必要な項目）
+
+```env
+SECRET_KEY=<strong-secret-key>
+JWT_SECRET_KEY=<strong-jwt-secret>
+MARIADB_ROOT_PASSWORD=<strong-password>
+MARIADB_USER=<user>
+MARIADB_PASSWORD=<strong-password>
+REDIS_PASSWORD=<strong-redis-password>
+GOOGLE_CLIENT_ID=<google-client-id>       # OAuth使用時のみ
+GOOGLE_CLIENT_SECRET=<google-client-secret>
+MEDIA_DOWNLOAD_SIGNING_KEY=<signing-key>
+```
+
+> DB・メディアのディレクトリは compose の `init-paths` サービスが起動時に自動作成する。File Station での手動作成は不要。
+
+**2. ビルド・転送・デプロイ**
+
+```bash
+# 開発マシンで
+./scripts/.build.sh
+scp photonest-latest.tar photonest-db-latest.tar <user>@<nas-ip>:/volume1/docker/
+
+# Synology 上で（初回はスキーマ + マスタデータ投入済みの状態まで起動する）
+./scripts/deploy.sh reset
+```
+
+**3. リバースプロキシ（DSM）**
+
+コントロールパネル → アプリケーションポータル → リバースプロキシ:
+- ソース: HTTPS / `<your-nas-domain.synology.me>` / 443
+- デスティネーション: HTTP / localhost / 5000
+
+SSL証明書はコントロールパネル → セキュリティ → 証明書 から Let's Encrypt で取得。
+
+#### 日常運用
+
+```bash
+# 更新（アプリのみ / DDL更新 / 完全初期化は「3. デプロイ」参照）
+./scripts/deploy.sh app
+
+# バックアップ
+DATE=$(date +%Y%m%d_%H%M%S)
+docker exec mariadb mysqldump -u root -p"$MARIADB_ROOT_PASSWORD" --single-transaction appdb \
+    > /volume1/docker/photonest/backups/photonest_db_${DATE}.sql
+
+# 状態確認
+docker compose -p photonest ps
+curl -s http://localhost:5000/api/health
+```
+
+### STG を本番と同一ホストで共存させたいとき
 
 `docker-compose.yml` の環境差分（プロジェクト名・ポート・データルート・ネットワーク・
 ドメイン）はすべて `.env` で切り替える。値未設定時のデフォルトは従来の本番値なので、
@@ -182,8 +281,6 @@ flask rebuild-originals --verbose   # 1件ごとに表示
 | `WEB_IMAGE` / `DB_IMAGE` | 使用イメージタグ | `photonest:latest` / `photonest-db:latest` |
 | `API_BASE_URL` / `CORS_ALLOWED_ORIGINS` | 自己参照 URL / 許可オリジン（ドメイン） | 環境ごとに設定 |
 
-STG を本番と同一ホストで共存させる例:
-
 ```bash
 # STG 用ディレクトリで .env を用意
 cp .env.staging.example .env       # ポート・データルート・NW・ドメインを STG 値に
@@ -193,133 +290,19 @@ docker network create photonest-stg
 
 # 設定の解決結果を確認（ポート/コンテナ名/ボリュームが STG 値か）
 docker compose config | grep -E "container_name|published|source:"
-
-# 起動（COMPOSE_PROJECT_NAME=photonest-stg により本番と分離）
-docker compose up -d
 ```
 
 > ネットワークは `external: true`。環境ごとに別ネットワーク名にすることで、
 > サービス名（`db` 等）の名前解決が環境間で衝突しない。
 
-### Docker（推奨）
-
-```bash
-# イメージビルド
-docker build -t photonest:latest .
-
-# 起動
-docker compose up -d
-
-# ログ確認
-docker compose logs web --tail 100
-docker compose logs worker --tail 50
-
-# マイグレーション後の再起動
-docker compose restart web
-```
-
-コンテナ構成:
-- `photonest-web` — Flask アプリ（ポート 5000）
-- `photonest-worker` — Celery ワーカー
-- `photonest-beat` — Celery Beat（定期タスク）
-- `photonest-redis` — Redis（Broker / Backend）
-
-### Synology NAS デプロイ
-
-#### 必要環境
-- DSM 7.0 以上
-- Container Manager インストール済み
-- MariaDB 10（パッケージセンター）または外部 MySQL/MariaDB
-
-#### 手順
-
-**1. データベース準備（Synology MariaDB の場合）**
-
-```sql
-CREATE DATABASE photonest CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER '<photonest_user>'@'%' IDENTIFIED BY '<your-password>';
-GRANT ALL PRIVILEGES ON photonest.* TO '<photonest_user>'@'%';
-FLUSH PRIVILEGES;
-```
-
-**2. ディレクトリ作成（File Station）**
-
-```
-/volume1/docker/photonest/
-├── config/
-├── data/
-│   ├── media/
-│   ├── thumbs/
-│   ├── playback/
-│   └── redis/
-└── backups/
-```
-
-**3. イメージをSynologyへ転送**
-
-```bash
-# 開発マシンで
-docker save photonest:latest > photonest-latest.tar
-scp photonest-latest.tar <admin>@<nas-ip>:/volume1/docker/
-```
-
-Container Manager → イメージ → 追加 → ファイルからインポート
-
-**4. .env 設定**（最低限変更が必要な項目）
-
-```env
-SECRET_KEY=<strong-secret-key>
-JWT_SECRET_KEY=<strong-jwt-secret>
-DATABASE_URI=mysql+pymysql://<user>:<pass>@<db-host>:3306/photonest
-REDIS_PASSWORD=<strong-redis-password>
-REDIS_URL=redis://:<strong-redis-password>@photonest-redis:6379/0
-CELERY_BROKER_URL=redis://:<strong-redis-password>@photonest-redis:6379/0
-CELERY_RESULT_BACKEND=redis://:<strong-redis-password>@photonest-redis:6379/0
-GOOGLE_CLIENT_ID=<google-client-id>       # OAuth使用時のみ
-GOOGLE_CLIENT_SECRET=<google-client-secret>
-MEDIA_DOWNLOAD_SIGNING_KEY=<signing-key>
-```
-
-**5. 初期化**
-
-```bash
-docker exec -it photonest-web bash
-flask db upgrade
-flask seed-master
-```
-
-**6. リバースプロキシ（DSM）**
-
-コントロールパネル → アプリケーションポータル → リバースプロキシ:
-- ソース: HTTPS / `<your-nas-domain.synology.me>` / 443
-- デスティネーション: HTTP / localhost / 5000
-
-SSL証明書はコントロールパネル → セキュリティ → 証明書 から Let's Encrypt で取得。
-
-#### Synology 運用スクリプト
-
-```bash
-# 起動
-cd /volume1/docker/photonest/
-docker-compose up -d
-
-# バックアップ
-DATE=$(date +%Y%m%d_%H%M%S)
-mysqldump -h <db-host> -u <user> -p photonest \
-    --single-transaction > /volume1/docker/photonest/backups/photonest_db_${DATE}.sql
-
-# 状態確認
-docker ps --filter "name=photonest" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-curl -s http://localhost:5000/api/health
-```
-
 ---
 
 ## 4. 機能設定ガイド
 
-### OAuth HTTPS 設定
+APIエンドポイントの仕様は Swagger UI（`/api/docs`）または一覧ページ（`/api/overview`）を参照。
+以下は各機能を有効化・設定したいときに触る `.env` / DB設定のみ。
 
-リバースプロキシ（nginx / Synology）経由でHTTPS終端する場合の設定。
+### OAuth を HTTPS 経由（リバースプロキシ配下）で使いたいとき
 
 **.env**:
 ```env
@@ -340,9 +323,7 @@ proxy_set_header Host $host;
 curl -H "X-Forwarded-Proto: https" https://<domain>/debug/oauth-url
 ```
 
-### パスワードリセット機能
-
-メール経由でパスワードを再設定する機能。
+### パスワードリセット（メール経由）を有効化したいとき
 
 **.env**（SMTP設定）:
 ```env
@@ -355,78 +336,32 @@ MAIL_PASSWORD=your-app-password    # Gmailはアプリパスワードを使用
 MAIL_DEFAULT_SENDER=your-email@example.com
 ```
 
-主な仕様:
-- トークン: 256ビットランダム、ハッシュ化保存、**30分有効**、ワンタイム
-- エンドポイント: `GET/POST /auth/password/forgot`、`GET/POST /auth/password/reset`
-- テスト: `pytest tests/webapp/auth/test_password_reset.py -v`
+動作確認: `pytest tests/webapp/auth/test_password_reset.py -v`
 
-### TOTP 管理
+### TOTP（二要素認証）を管理したいとき
 
-管理者向け TOTP（二要素認証）の管理機能。
+管理画面から利用する（`totp:view`/`totp:write` 権限が必要）。追加の `.env` 設定は不要。
 
-**権限要件**:
-- `totp:view` — 一覧閲覧・エクスポート
-- `totp:write` — 登録・編集・削除・インポート
+### CDN 配信（Azure CDN / CloudFlare CDN）を有効化したいとき
 
-**主な操作**:
-- QR コード画像アップロードで `otpauth://` URI を自動解析
-- JSON エクスポート / インポート（`force` フラグで重複上書き）
-- 一覧は1秒ごとに OTP コードをフロントエンドで再計算
-
-**API エンドポイント**:
-
-| メソッド | パス | 説明 |
-|---|---|---|
-| `GET` | `/api/totp` | 一覧取得 |
-| `POST` | `/api/totp` | 新規登録 |
-| `PUT` | `/api/totp/<id>` | 更新 |
-| `DELETE` | `/api/totp/<id>` | 削除 |
-| `GET` | `/api/totp/export` | JSON エクスポート |
-| `POST` | `/api/totp/import` | JSON インポート |
-
-### CDN 統合
-
-画像・動画配信に CDN を使用する場合の設定。Azure CDN と CloudFlare CDN をサポート。
-
-```python
-from bounded_contexts.storage.domain import StorageCredentials, StorageConfiguration
-
-cdn_config = StorageConfiguration(
-    backend_type=StorageBackendType.AZURE_CDN,
-    credentials=StorageCredentials(
-        backend_type=StorageBackendType.AZURE_CDN,
-        account_name="your-cdn-account",
-        access_key="your-access-key",
-        cdn_profile="your-profile-name",
-        cdn_endpoint="your-endpoint-name",
-    ),
-    origin_backend_type=StorageBackendType.AZURE_BLOB,
-    # ... origin_credentials
-    cache_ttl=7200,
-    enable_compression=True,
-)
+**.env**:
+```env
+CDN_ENABLED=true
+CDN_PROVIDER=azure                     # azure / cloudflare / generic
+CDN_AZURE_ACCOUNT_NAME=<account>
+CDN_AZURE_ACCESS_KEY=<access-key>
+CDN_AZURE_PROFILE=<profile-name>
+CDN_AZURE_ENDPOINT=<endpoint-name>
+CDN_CACHE_TTL=3600
 ```
 
-### システム設定（DB管理）
+設定内容の確認: `python scripts/demo_cdn_configuration.py --cdn`
 
-`system_settings` テーブルで管理するアプリ設定。管理画面または初期投入スクリプトで更新する。
+### システム設定（DB管理）を変更したいとき
 
-| `setting_key` | 用途 |
-|---|---|
-| `access_token_signing` | JWTトークン署名モード（`builtin` / `server_signing`） |
-| `app.config` | Flask 共通設定・外部サービス接続 |
-| `app.cors` | CORS 許可オリジン配列 |
-
-`access_token_signing` の JSON 例:
-```json
-{
-  "mode": "server_signing",
-  "groupCode": "prod-signers"
-}
-```
-
-`mode="builtin"` の場合は `kid`・`groupCode` を設定しない。
-`mode="server_signing"` かつ `groupCode` が欠けると `AccessTokenSigningValidationError`。
+管理画面、または `python scripts/bootstrap_system_settings.py` で `system_settings`
+テーブルを更新する。主なキー: `access_token_signing`（JWT署名モード）、`app.config`、
+`app.cors`。
 
 ---
 
@@ -482,7 +417,22 @@ curl http://localhost:5000/api/health
 
 ---
 
-## 6. バックアップ
+## 6. トラブルシューティング（Docker / デプロイ）
+
+| 症状 | 対処 |
+|---|---|
+| `deploy.sh`/`deploy-stg.sh` が `permission denied ... docker.sock` で失敗する | `sudo` を付けて実行するか、実行ユーザーを `docker` グループに追加して再ログインする |
+| Container Manager に赤い traceback が出る | `docker inspect --format '{{json .State.Health}}' <container名> \| python3 -m json.tool` で healthcheck の実行結果を確認する（`docker compose -p <project> ps` でも Health 列が見える） |
+| `docker load` が反応なく見える | `...still loading` のハートビートが出続けていれば進行中。別ターミナルで `watch -n 2 'docker system df'` |
+| `docker events` にパスワードが平文で出る | `docker-compose.yml` の healthcheck が `${VAR}` を直接展開していないか確認する（`$$VAR` にする） |
+| `photonest-latest.tar` が異常に大きい | `docker images photonest:latest` / `docker history photonest:latest --no-trunc` でレイヤーを確認する |
+| `docker build` の "transferring context" が大きい | `du -sh photonest-latest.tar photonest-db-latest.tar` で古い tar がビルドディレクトリに残っていないか確認する |
+
+各症状の原因・仕組みは `scripts/README.md` を参照。
+
+---
+
+## 7. バックアップ
 
 バックアップクリーンアップは Celery Beat が毎日自動実行（デフォルト30日保持）。
 

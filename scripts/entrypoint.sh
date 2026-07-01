@@ -135,6 +135,9 @@ shift || true
 case "$MODE" in
   web)
     log "Starting Gunicorn (web mode)"
+    # gunicorn 25+ はデフォルトで制御ソケット（/run/gunicorn.ctl 等）を作成しようとするが、
+    # 非rootユーザー実行のこのコンテナでは書き込み権限がなく
+    # "[ERROR] Control server error: [Errno 13] Permission denied" が出続ける。未使用機能のため無効化する。
     exec gunicorn wsgi:app \
       --bind 0.0.0.0:5000 \
       --workers 2 \
@@ -144,7 +147,8 @@ case "$MODE" in
       --keep-alive 5 \
       --max-requests 1000 \
       --max-requests-jitter 100 \
-      --worker-tmp-dir /dev/shm
+      --worker-tmp-dir /dev/shm \
+      --no-control-socket
     ;;
 
   worker)

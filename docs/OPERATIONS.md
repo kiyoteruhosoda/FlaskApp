@@ -203,7 +203,7 @@ docker network create photonest-stg
 docker compose config | grep -E "container_name|published|source:"
 
 # 起動（COMPOSE_PROJECT_NAME=photonest-stg により本番と分離）
-docker compose up -d
+./scripts/deploy-stg.sh app
 ```
 
 > ネットワークは `external: true`。環境ごとに別ネットワーク名にすることで、
@@ -212,18 +212,19 @@ docker compose up -d
 ### Docker（推奨）
 
 ```bash
-# イメージビルド
-docker build -t photonest:latest .
+# ビルド（アプリ + DB イメージを TAR 生成。詳細は scripts/README.md）
+./scripts/.build.sh
 
-# 起動
-docker compose up -d
+# デプロイ（本番）
+./scripts/deploy.sh app       # アプリのみ更新
+./scripts/deploy.sh migrate   # DDL更新
+./scripts/deploy.sh reset     # 完全初期化
+
+# STG は deploy-stg.sh を使う（同じ引数）
 
 # ログ確認
 docker compose logs web --tail 100
 docker compose logs worker --tail 50
-
-# マイグレーション後の再起動
-docker compose restart web
 ```
 
 コンテナ構成:
@@ -237,66 +238,39 @@ docker compose restart web
 #### 必要環境
 - DSM 7.0 以上
 - Container Manager インストール済み
-- MariaDB 10（パッケージセンター）または外部 MySQL/MariaDB
 
-#### 手順
+#### 初回セットアップ
 
-**1. データベース準備（Synology MariaDB の場合）**
+ディレクトリ配置・TAR転送先は `scripts/README.md`（`deploy.sh` / `deploy-stg.sh`）参照。
 
-```sql
-CREATE DATABASE photonest CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER '<photonest_user>'@'%' IDENTIFIED BY '<your-password>';
-GRANT ALL PRIVILEGES ON photonest.* TO '<photonest_user>'@'%';
-FLUSH PRIVILEGES;
-```
-
-**2. ディレクトリ作成（File Station）**
-
-```
-/volume1/docker/photonest/
-├── config/
-├── data/
-│   ├── media/
-│   ├── thumbs/
-│   ├── playback/
-│   └── redis/
-└── backups/
-```
-
-**3. イメージをSynologyへ転送**
-
-```bash
-# 開発マシンで
-docker save photonest:latest > photonest-latest.tar
-scp photonest-latest.tar <admin>@<nas-ip>:/volume1/docker/
-```
-
-Container Manager → イメージ → 追加 → ファイルからインポート
-
-**4. .env 設定**（最低限変更が必要な項目）
+**1. .env 設定**（`photonest/.env`。最低限変更が必要な項目）
 
 ```env
 SECRET_KEY=<strong-secret-key>
 JWT_SECRET_KEY=<strong-jwt-secret>
-DATABASE_URI=mysql+pymysql://<user>:<pass>@<db-host>:3306/photonest
+MARIADB_ROOT_PASSWORD=<strong-password>
+MARIADB_USER=<user>
+MARIADB_PASSWORD=<strong-password>
 REDIS_PASSWORD=<strong-redis-password>
-REDIS_URL=redis://:<strong-redis-password>@photonest-redis:6379/0
-CELERY_BROKER_URL=redis://:<strong-redis-password>@photonest-redis:6379/0
-CELERY_RESULT_BACKEND=redis://:<strong-redis-password>@photonest-redis:6379/0
 GOOGLE_CLIENT_ID=<google-client-id>       # OAuth使用時のみ
 GOOGLE_CLIENT_SECRET=<google-client-secret>
 MEDIA_DOWNLOAD_SIGNING_KEY=<signing-key>
 ```
 
-**5. 初期化**
+> DB・メディアのディレクトリは compose の `init-paths` サービスが起動時に自動作成する。File Station での手動作成は不要。
+
+**2. ビルド・転送・デプロイ**
 
 ```bash
-docker exec -it photonest-web bash
-flask db upgrade
-flask seed-master
+# 開発マシンで
+./scripts/.build.sh
+scp photonest-latest.tar photonest-db-latest.tar <user>@<nas-ip>:/volume1/docker/
+
+# Synology 上で（初回はスキーマ + マスタデータ投入済みの状態まで起動する）
+./scripts/deploy.sh reset
 ```
 
-**6. リバースプロキシ（DSM）**
+**3. リバースプロキシ（DSM）**
 
 コントロールパネル → アプリケーションポータル → リバースプロキシ:
 - ソース: HTTPS / `<your-nas-domain.synology.me>` / 443
@@ -304,20 +278,19 @@ flask seed-master
 
 SSL証明書はコントロールパネル → セキュリティ → 証明書 から Let's Encrypt で取得。
 
-#### Synology 運用スクリプト
+#### 日常運用
 
 ```bash
-# 起動
-cd /volume1/docker/photonest/
-docker-compose up -d
+# 更新（アプリのみ / DDL更新 / 完全初期化は「3. デプロイ」参照）
+./scripts/deploy.sh app
 
 # バックアップ
 DATE=$(date +%Y%m%d_%H%M%S)
-mysqldump -h <db-host> -u <user> -p photonest \
-    --single-transaction > /volume1/docker/photonest/backups/photonest_db_${DATE}.sql
+docker exec mariadb mysqldump -u root -p"$MARIADB_ROOT_PASSWORD" --single-transaction appdb \
+    > /volume1/docker/photonest/backups/photonest_db_${DATE}.sql
 
 # 状態確認
-docker ps --filter "name=photonest" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+docker compose -p photonest ps
 curl -s http://localhost:5000/api/health
 ```
 

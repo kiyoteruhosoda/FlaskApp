@@ -21,6 +21,18 @@
 - マイグレーション運用 README（`migrations/README.md`）。
 
 ### Fixed
+- STG デプロイの troubleshooting 性を改善。詳細は `docs/OPERATIONS.md`「6. トラブルシューティング」参照。
+  - `web` の healthcheck が公開ドメイン用の `API_BASE_URL` に対して名前解決していたため、
+    NAS 環境で DNS 解決できず `socket.gaierror` で失敗し続けていた問題を修正
+    （常にコンテナ内部の `127.0.0.1:5000/health/live` を見るように変更）。
+  - gunicorn 25+ のデフォルト制御ソケット作成で毎起動時に出ていた
+    `[ERROR] Control server error: Permission denied: '/.gunicorn'` を
+    `--no-control-socket` を付与して解消。
+  - `docker-compose.yml` の `db`/`redis` healthcheck が `${VAR}` 展開により
+    `docker events` へパスワード平文を記録していた問題を `$$VAR` エスケープで修正。
+  - `scripts/deploy-stg.sh`: `docker load` が無応答に見える問題に対し、`pv` があれば
+    進捗バー、なければ経過秒数のハートビートを表示するように変更。ヘルスチェック失敗時に
+    `docker compose ps` / 直近ログ / healthcheck 履歴を自動出力するよう強化。
 - コンテナ起動失敗 `exec /script/entrypoint.sh failed: No such file or directory` を修正。
   起動方法をイメージに焼き込み（Dockerfile に `ENTRYPOINT ["/app/scripts/entrypoint.sh"]` /
   `CMD ["web"]`）、compose の `entrypoint:` 絶対パス上書きを撤去。compose は `command`

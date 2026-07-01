@@ -41,7 +41,9 @@ services:
       init-paths:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p\"${MARIADB_ROOT_PASSWORD}\" --silent"]
+      # $$ でエスケープし、docker compose にパスワードを展開させずコンテナ内シェルの
+      # 環境変数参照のまま渡す（`docker events` / `docker inspect` に平文が残るのを防ぐ）。
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p\"$$MARIADB_ROOT_PASSWORD\" --silent"]
       interval: 10s
       timeout: 10s
       retries: 15
@@ -72,7 +74,10 @@ services:
     user: "${PUID:-1000}:${PGID:-1000}"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import os, urllib.request; base = os.environ.get('API_BASE_URL', 'http://localhost:5000').rstrip('/') ; urllib.request.urlopen(base + '/health/live')\""]
+      # API_BASE_URL は外部公開ドメイン（CORS等）用のため、コンテナ内部からの疎通確認には使わない。
+      # 外部ドメインを名前解決できない環境（NAS 側 DNS 未設定等）だと
+      # socket.gaierror: Name or service not known で毎回失敗する。
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health/live')\""]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -153,11 +158,14 @@ services:
       - everysec
     environment:
       - TZ=UTC
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-photonest123}
     volumes:
       - redis_data:/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD:-photonest123}", "ping"]
+      # $$ でエスケープし docker compose 展開を避ける（`docker events` に平文パスワードが
+      # 出力されるのを防ぐ）。コンテナ内の REDIS_PASSWORD 環境変数をシェルが解決する。
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
       interval: 30s
       timeout: 10s
       retries: 3

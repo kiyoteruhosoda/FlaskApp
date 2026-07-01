@@ -482,7 +482,85 @@ curl http://localhost:5000/api/health
 
 ---
 
-## 6. バックアップ
+## 6. トラブルシューティング（Docker / デプロイ）
+
+### Container Manager（Synology）に出る「Traceback」は何か
+
+Container Manager のコンテナ一覧・詳細画面に赤字で出る Python の traceback は、
+**アプリのクラッシュログではなく `healthcheck` の実行結果**（失敗時の標準エラー出力）。
+`docker logs <container>` には出ない（healthcheck はコンテナ内で別プロセスとして
+定期実行されるため、アプリ本体の stdout/stderr とは別に記録される）。
+
+確認方法:
+
+```bash
+# 直近の healthcheck 実行結果（Start/End/ExitCode/Output）を時系列で見る
+docker inspect --format '{{json .State.Health}}' <container名> | python3 -m json.tool
+
+# もしくは compose 経由
+docker compose -p <project> ps        # Health: healthy / unhealthy / starting
+```
+
+`socket.gaierror: [Errno -2] Name or service not known` /
+`urllib.error.URLError: <urlopen error [Errno -2] ...>` が出る場合、
+healthcheck が `API_BASE_URL`（外部公開ドメイン。CORS 等で使う自己参照 URL）に対して
+名前解決しようとして失敗しているケースが多い。`API_BASE_URL` は環境ごとに公開ドメインを
+指すため、コンテナ内蔵の DNS で解決できるとは限らない。`web` サービスの healthcheck は
+常にコンテナ内部の `http://127.0.0.1:5000/health/live` を叩くようにしてある
+（`docker-compose.yml` 参照）。同種のエラーが再発した場合は healthcheck が
+`API_BASE_URL` や外部ホスト名を参照していないか確認すること。
+
+`[ERROR] Control server error: [Errno 13] Permission denied: '/.gunicorn'` は
+gunicorn 25 以降がデフォルトで作る制御ソケット（`$HOME/.gunicorn/gunicorn.ctl`）を、
+非 root ユーザー実行かつ `HOME` 未設定のこのコンテナでは書き込めないために出るエラー。
+機能自体を使っていないため `scripts/entrypoint.sh` の gunicorn 起動オプションに
+`--no-control-socket` を付けて無効化済み。Web は動作していても毎起動時にこのエラーが
+出て気付きにくいので、直っていることを確認するには `docker logs` に `Control server error`
+が出ていないことを見る。
+
+### `docker load` が止まって見える
+
+`docker load -i xxx.tar` は標準で進捗を表示しないため、数百MB〜数GBのイメージだと
+数分間無反応に見える。`scripts/deploy-stg.sh` は `pv` があれば進捗バーを、なければ
+5秒おきに `...still loading, Ns elapsed` のハートビートを出すようにしてあるので、
+出力が止まっていなければ待ってよい。`pv` 未導入の場合は導入すると進捗バーになる:
+
+```bash
+sudo apt-get install -y pv   # または Synology の ipkg/Entware
+```
+
+別ターミナルで進行を確認したい場合:
+
+```bash
+watch -n 2 'docker system df'   # イメージの使用容量が増えていれば進行中
+```
+
+### `docker events` にパスワードが出る
+
+`docker compose.yml` の `healthcheck.test` に `${VAR}` 形式で環境変数を書くと、
+**docker compose がコンテナ作成時にパスワードそのものへ展開してしまい**、
+`docker events` の `exec_create` / `exec_start` にコマンド全体が平文で記録される
+（`mysqladmin ping ... -p"実際のパスワード"` のように出ていた原因）。
+
+対策として `$$VAR`（ドル記号を2つ）でエスケープし、docker compose 側では展開させず
+コンテナ内シェルの環境変数参照のまま渡すようにした（`db` / `redis` サービスの
+healthcheck を参照）。`$$` エスケープなら `docker events` にはリテラルの
+`$MARIADB_ROOT_PASSWORD` 等が残るだけで、実際の値は healthcheck 実行時にコンテナ内の
+シェルが解決する。
+
+> `redis` サービスの起動コマンド（ACL 設定用の `>${REDIS_PASSWORD}` 部分）は
+> コンテナ作成時の引数としてイメージの起動コマンドに直接埋め込まれる仕様上、
+> `docker inspect` の `Config.Cmd` に一度だけ残る。healthcheck のように毎回
+> `docker events` に出続けるものではないが、NAS 上で他ユーザーが `docker inspect`
+> できる環境では相応の注意が必要。
+
+新しく healthcheck やコマンドを追加する際は、**シークレットを含む値を `${VAR}` で
+直接埋め込まない**（`$$VAR` にする、または `MYSQL_PWD` のような環境変数経由の
+認証方式に寄せる）ことをルールとする。
+
+---
+
+## 7. バックアップ
 
 バックアップクリーンアップは Celery Beat が毎日自動実行（デフォルト30日保持）。
 

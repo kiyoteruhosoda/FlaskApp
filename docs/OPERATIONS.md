@@ -160,6 +160,12 @@ make build-db
 まで自動で行う。**マスタデータは `01_initialize.sql` に含まれているため、`reset` 単独で
 投入済みの状態になり、`flask seed-master` を別途実行する必要はない。**
 
+再生成を忘れて DDL だけコミットする事故を防ぐため、
+`tests/integration/test_db_baseline_consistency.py` が `01_initialize.sql` に
+焼き込まれた `alembic_version` と現在の migration head を照合する（CI で自動実行、
+DBは使わずファイルの突き合わせのみ）。ずれていればテストが失敗し、
+`./scripts/regenerate_db_baseline.sh` の再実行を促すメッセージが出る。
+
 初期化確認:
 ```bash
 docker logs mariadb | grep Entrypoint      # 本番

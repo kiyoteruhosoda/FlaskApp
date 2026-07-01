@@ -6,6 +6,10 @@
 ## [Unreleased]
 
 ### Added
+- `tests/integration/test_db_baseline_consistency.py` を追加。`db/init/01_initialize.sql`
+  に焼き込まれた `alembic_version` と現在の migration head を突き合わせる回帰テスト
+  （DB接続不要、ファイル突き合わせのみ）。`scripts/regenerate_db_baseline.sh` の
+  再生成忘れを CI で検出する。
 - `scripts/regenerate_db_baseline.sh` を追加。`db/init/01_initialize.sql`
   （DBイメージに焼き込むベースラインSQL）の再生成を自動化。使い捨ての MariaDB
   コンテナに対して `flask db upgrade` を実行し、現在の migration head の
@@ -36,6 +40,10 @@
 - マイグレーション運用 README（`migrations/README.md`）。
 
 ### Fixed
+- `db/init/01_initialize.sql` が実際には migration head（`3b7c2e9a1f08`: media.google_media_id
+  の一意制約）より古いまま放置されていた既存の乖離を修正（`media` テーブルへの
+  `uq_media_google_media_id` 追加、`alembic_version` へ head を記録）。
+  再発防止として上記の `test_db_baseline_consistency.py` を追加。
 - `.dockerignore` に `*.tar` 等を追加。`photonest-latest.tar`/`photonest-db-latest.tar`
   が `.gitignore` では除外済みでも `.dockerignore` からは漏れていたため、ビルドの
   たびに前回出力した数十GB規模の tar がビルドコンテキストとしてスキャン・転送され

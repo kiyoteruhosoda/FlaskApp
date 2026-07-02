@@ -130,26 +130,25 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="position-relative" data-testid="login-page">
-      {/* 言語切替 - 固定位置 */}
-      <div className="position-fixed top-0 end-0 m-3" style={{zIndex: 1050}}>
-        <Dropdown>
-          <Dropdown.Toggle variant="outline-light" size="sm" className="border-0">
-            {i18n.language === 'ja' ? '🇯🇵 日本語' : '🇺🇸 English'}
-          </Dropdown.Toggle>
-          <Dropdown.Menu>
-            <Dropdown.Item onClick={() => changeLanguage('ja')}>🇯🇵 日本語</Dropdown.Item>
-            <Dropdown.Item onClick={() => changeLanguage('en')}>🇺🇸 English</Dropdown.Item>
-          </Dropdown.Menu>
-        </Dropdown>
-      </div>
-    
+    <div data-testid="login-page">
       <Container fluid className="min-vh-100 d-flex align-items-center justify-content-center bg-light">
 
       <Row className="w-100">
         <Col md={6} lg={4} className="mx-auto">
           <Card className="shadow">
-            <Card.Header className="text-center py-3">
+            <Card.Header className="text-center py-3 position-relative">
+              {/* 言語切替 - カード内右上 */}
+              <div className="position-absolute top-0 end-0 m-2">
+                <Dropdown align="end">
+                  <Dropdown.Toggle variant="outline-secondary" size="sm" className="border-0">
+                    {i18n.language === 'ja' ? '🇯🇵 日本語' : '🇺🇸 English'}
+                  </Dropdown.Toggle>
+                  <Dropdown.Menu>
+                    <Dropdown.Item onClick={() => changeLanguage('ja')}>🇯🇵 日本語</Dropdown.Item>
+                    <Dropdown.Item onClick={() => changeLanguage('en')}>🇺🇸 English</Dropdown.Item>
+                  </Dropdown.Menu>
+                </Dropdown>
+              </div>
               <h4 className="mb-0">PhotoNest</h4>
               <small className="text-muted">
                 {loginStep === 'totp'

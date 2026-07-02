@@ -1,16 +1,21 @@
 import React, { useState } from 'react';
-import { Container, Card, Form, Button, Alert, Spinner } from 'react-bootstrap';
+import { Container, Row, Col, Card, Form, Button, Alert, Spinner, Dropdown } from 'react-bootstrap';
 import { useNavigate, Link } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../store';
 import { getCurrentUser } from '../store/authSlice';
 import { useTranslation } from 'react-i18next';
+import i18n from 'i18next';
 import apiClient from '../services/api';
 
 const RegisterPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
+
+  const changeLanguage = (lng: string) => {
+    i18n.changeLanguage(lng);
+  };
 
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
@@ -66,87 +71,106 @@ const RegisterPage: React.FC = () => {
   };
 
   return (
-    <Container
-      className="d-flex justify-content-center align-items-center"
-      style={{ minHeight: '80vh' }}
-      data-testid="register-page"
-    >
-      <Card style={{ width: '100%', maxWidth: 420 }}>
-        <Card.Body className="p-4">
-          <h4 className="mb-4 text-center">{t('Create an account')}</h4>
+    <div data-testid="register-page">
+      <Container fluid className="min-vh-100 d-flex align-items-center justify-content-center bg-light">
 
-          {error && <Alert variant="danger" data-testid="register-error">{error}</Alert>}
+      <Row className="w-100">
+        <Col md={6} lg={4} className="mx-auto">
+          <Card className="shadow">
+            <Card.Header className="text-center py-3 position-relative">
+              {/* 言語切替 - カード内右上 */}
+              <div className="position-absolute top-0 end-0 m-2">
+                <Dropdown align="end">
+                  <Dropdown.Toggle variant="outline-secondary" size="sm" className="border-0">
+                    {i18n.language === 'ja' ? '🇯🇵 日本語' : '🇺🇸 English'}
+                  </Dropdown.Toggle>
+                  <Dropdown.Menu>
+                    <Dropdown.Item onClick={() => changeLanguage('ja')}>🇯🇵 日本語</Dropdown.Item>
+                    <Dropdown.Item onClick={() => changeLanguage('en')}>🇺🇸 English</Dropdown.Item>
+                  </Dropdown.Menu>
+                </Dropdown>
+              </div>
+              <h4 className="mb-0">PhotoNest</h4>
+              <small className="text-muted">{t('Create an account')}</small>
+            </Card.Header>
+            <Card.Body className="p-4">
+              {error && <Alert variant="danger" data-testid="register-error">{error}</Alert>}
 
-          <Form onSubmit={handleSubmit}>
-            <Form.Group className="mb-3">
-              <Form.Label>{t('Email')}</Form.Label>
-              <Form.Control
-                type="email"
-                name="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder={t('Enter your email')}
-                autoFocus
-                required
-              />
-            </Form.Group>
+              <Form onSubmit={handleSubmit}>
+                <Form.Group className="mb-3">
+                  <Form.Label>{t('Email')}</Form.Label>
+                  <Form.Control
+                    type="email"
+                    name="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder={t('Enter your email')}
+                    autoFocus
+                    required
+                  />
+                </Form.Group>
 
-            <Form.Group className="mb-3">
-              <Form.Label>{t('Username')}</Form.Label>
-              <Form.Control
-                type="text"
-                name="username"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                placeholder={t('Enter your username')}
-              />
-            </Form.Group>
+                <Form.Group className="mb-3">
+                  <Form.Label>{t('Username')}</Form.Label>
+                  <Form.Control
+                    type="text"
+                    name="username"
+                    value={username}
+                    onChange={e => setUsername(e.target.value)}
+                    placeholder={t('Enter your username')}
+                  />
+                </Form.Group>
 
-            <Form.Group className="mb-3">
-              <Form.Label>{t('Password')}</Form.Label>
-              <Form.Control
-                type="password"
-                name="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder={t('Enter your password')}
-                required
-              />
-            </Form.Group>
+                <Form.Group className="mb-3">
+                  <Form.Label>{t('Password')}</Form.Label>
+                  <Form.Control
+                    type="password"
+                    name="password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder={t('Enter your password')}
+                    required
+                  />
+                </Form.Group>
 
-            <Form.Group className="mb-4">
-              <Form.Label>{t('Confirm Password')}</Form.Label>
-              <Form.Control
-                type="password"
-                name="confirm_password"
-                value={confirmPassword}
-                onChange={e => setConfirmPassword(e.target.value)}
-                placeholder={t('Enter your password again')}
-                required
-              />
-            </Form.Group>
+                <Form.Group className="mb-4">
+                  <Form.Label>{t('Confirm Password')}</Form.Label>
+                  <Form.Control
+                    type="password"
+                    name="confirm_password"
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    placeholder={t('Enter your password again')}
+                    required
+                  />
+                </Form.Group>
 
-            <Button
-              type="submit"
-              variant="primary"
-              className="w-100"
-              disabled={loading}
-              data-testid="register-submit"
-            >
-              {loading
-                ? <><Spinner size="sm" className="me-2" />{t('Signing up...')}</>
-                : t('Sign Up')}
-            </Button>
-          </Form>
-
-          <hr />
-          <p className="text-center mb-0 small">
-            {t("Already have an account?")}{' '}
-            <Link to="/login">{t('Sign in here')}</Link>
-          </p>
-        </Card.Body>
-      </Card>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  className="w-100"
+                  disabled={loading}
+                  data-testid="register-submit"
+                >
+                  {loading
+                    ? <><Spinner size="sm" className="me-2" />{t('Signing up...')}</>
+                    : t('Sign Up')}
+                </Button>
+              </Form>
+            </Card.Body>
+            <Card.Footer className="text-center py-3">
+              <small className="text-muted">
+                {t("Already have an account?")}{' '}
+                <Link to="/login" className="text-decoration-none">
+                  {t('Sign in here')}
+                </Link>
+              </small>
+            </Card.Footer>
+          </Card>
+        </Col>
+      </Row>
     </Container>
+    </div>
   );
 };
 

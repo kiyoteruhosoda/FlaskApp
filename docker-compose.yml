@@ -43,7 +43,12 @@ services:
     healthcheck:
       # $$ でエスケープし、docker compose にパスワードを展開させずコンテナ内シェルの
       # 環境変数参照のまま渡す（`docker events` / `docker inspect` に平文が残るのを防ぐ）。
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p\"$$MARIADB_ROOT_PASSWORD\" --silent"]
+      # --protocol=tcp を明示: "-h 127.0.0.1" だけだと mysqladmin がデフォルトで
+      # Unix ソケット経由に倒れることがあり、MariaDB 公式イメージが初回初期化時に
+      # 立てる一時ブートストラップサーバー（ネットワーク非公開・ソケットのみ）にも
+      # ping が通ってしまう。他コンテナから db:3306 へ実際に接続できるようになる前に
+      # healthy と誤判定され、reset 直後の flask db stamp が接続失敗するのを防ぐ。
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 --protocol=tcp -u root -p\"$$MARIADB_ROOT_PASSWORD\" --silent"]
       interval: 10s
       timeout: 10s
       retries: 15

@@ -86,11 +86,16 @@ echo ""
 echo "=== Photonest ローカルビルド (target: $TARGET) ==="
 echo ""
 
+BUILD_START=$(date +%s)
+
 case "$TARGET" in
   all) make all;     ARTIFACTS="photonest-latest.tar photonest-db-latest.tar" ;;
   app) make build;   ARTIFACTS="photonest-latest.tar" ;;
   db)  make build-db; ARTIFACTS="photonest-db-latest.tar" ;;
 esac
+
+BUILD_END=$(date +%s)
+BUILD_ELAPSED=$((BUILD_END - BUILD_START))
 
 echo ""
 echo "=== ビルド完了 ==="
@@ -101,6 +106,7 @@ for f in $ARTIFACTS; do
   fi
 done
 echo ""
+echo "所要時間: $((BUILD_ELAPSED / 60))分$((BUILD_ELAPSED % 60))秒"
 echo "次のステップ:"
 echo "  scp $ARTIFACTS <user>@<synology-host>:/volume1/docker/"
 echo "  # scripts/*.sh や docker-compose.yml を変更した場合は自動同期されないので、"

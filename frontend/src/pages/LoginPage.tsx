@@ -21,7 +21,7 @@ const LoginPage: React.FC = () => {
     totp_code: '',
   });
 
-  const [showTotpField, setShowTotpField] = useState(false);
+  const [loginStep, setLoginStep] = useState<'credentials' | 'totp'>('credentials');
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [passkeyError, setPasskeyError] = useState<string | null>(null);
 
@@ -49,16 +49,16 @@ const LoginPage: React.FC = () => {
     const loginData = {
       email: formData.email,
       password: formData.password,
-      ...(showTotpField && formData.totp_code && { token: formData.totp_code }),
+      ...(loginStep === 'totp' && formData.totp_code && { token: formData.totp_code }),
     };
 
     try {
       const result = await dispatch(login(loginData));
-      
+
       if (login.fulfilled.match(result)) {
         // ログイン成功後、ユーザー情報を取得
         await dispatch(getCurrentUser());
-        
+
         // ロール選択が必要かチェック
         if (result.payload.requires_role_selection) {
           navigate('/select-role');
@@ -68,15 +68,24 @@ const LoginPage: React.FC = () => {
           navigate(redirectUrl);
         }
       } else if (login.rejected.match(result)) {
-        // TOTPが必要な場合の判定
+        // TOTPが必要な場合は専用画面に切り替える
         const errorMessage = result.payload as string;
-        if (errorMessage && (errorMessage.includes('TOTP') || errorMessage.includes('totp_required') || errorMessage.includes('認証コード'))) {
-          setShowTotpField(true);
+        if (errorMessage === 'totp_required') {
+          setFormData(prev => ({ ...prev, totp_code: '' }));
+          setLoginStep('totp');
+        } else if (errorMessage === 'invalid_totp') {
+          setFormData(prev => ({ ...prev, totp_code: '' }));
         }
       }
     } catch (error) {
       console.error('Login error:', error);
     }
+  };
+
+  const handleBackToCredentials = () => {
+    dispatch(clearError());
+    setFormData(prev => ({ ...prev, totp_code: '' }));
+    setLoginStep('credentials');
   };
 
   const handlePasskeyLogin = async () => {
@@ -142,7 +151,11 @@ const LoginPage: React.FC = () => {
           <Card className="shadow">
             <Card.Header className="text-center py-3">
               <h4 className="mb-0">PhotoNest</h4>
-              <small className="text-muted">{t('Please sign in to your account')}</small>
+              <small className="text-muted">
+                {loginStep === 'totp'
+                  ? t('Two-factor authentication')
+                  : t('Please sign in to your account')}
+              </small>
             </Card.Header>
             <Card.Body className="p-4">
               {error && (
@@ -151,108 +164,145 @@ const LoginPage: React.FC = () => {
                 </Alert>
               )}
 
-              <Form onSubmit={handleSubmit}>
-                <Form.Group className="mb-3">
-                  <Form.Label>{t('Email')}</Form.Label>
-                  <Form.Control
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    placeholder={t('Enter your email')}
-                    required
-                    autoFocus
-                  />
-                </Form.Group>
+              {loginStep === 'credentials' ? (
+                <Form onSubmit={handleSubmit}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>{t('Email')}</Form.Label>
+                    <Form.Control
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      placeholder={t('Enter your email')}
+                      required
+                      autoFocus
+                    />
+                  </Form.Group>
 
-                <Form.Group className="mb-3">
-                  <Form.Label>{t('Password')}</Form.Label>
-                  <Form.Control
-                    type="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    placeholder={t('Enter your password')}
-                    required
-                  />
-                </Form.Group>
+                  <Form.Group className="mb-3">
+                    <Form.Label>{t('Password')}</Form.Label>
+                    <Form.Control
+                      type="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      placeholder={t('Enter your password')}
+                      required
+                    />
+                  </Form.Group>
 
-                {showTotpField && (
+                  <Button
+                    variant="primary"
+                    type="submit"
+                    className="w-100 mb-3"
+                    disabled={isLoading}
+                    data-testid="login-submit"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Spinner animation="border" size="sm" className="me-2" />
+                        {t('Signing in...')}
+                      </>
+                    ) : (
+                      t('Sign In')
+                    )}
+                  </Button>
+
+                  {passkeyError && (
+                    <Alert variant="warning" dismissible onClose={() => setPasskeyError(null)}>
+                      {passkeyError}
+                    </Alert>
+                  )}
+
+                  {/* パスキーログイン */}
+                  <div className="d-grid mb-3">
+                    <Button
+                      variant="outline-secondary"
+                      onClick={handlePasskeyLogin}
+                      disabled={passkeyLoading}
+                      data-testid="passkey-login-btn"
+                    >
+                      {passkeyLoading ? (
+                        <>
+                          <Spinner animation="border" size="sm" className="me-2" />
+                          {t('Authenticating...')}
+                        </>
+                      ) : (
+                        <>
+                          <i className="fa-solid fa-key me-2" />{t('Sign in with Passkey')}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  <div className="text-center">
+                    <Link to="/forgot-password" className="text-decoration-none">
+                      {t('Forgot your password?')}
+                    </Link>
+                  </div>
+                </Form>
+              ) : (
+                <Form onSubmit={handleSubmit} data-testid="totp-step-form">
                   <Form.Group className="mb-3">
                     <Form.Label>{t('Authentication Code')}</Form.Label>
                     <Form.Control
                       type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
                       name="totp_code"
                       value={formData.totp_code}
                       onChange={handleInputChange}
                       placeholder={t('Enter 6-digit code')}
                       maxLength={6}
+                      required
+                      autoFocus
+                      data-testid="totp-code-input"
                     />
                     <Form.Text className="text-muted">
                       {t('Enter the 6-digit code from your authenticator app')}
                     </Form.Text>
                   </Form.Group>
-                )}
 
-                <Button
-                  variant="primary"
-                  type="submit"
-                  className="w-100 mb-3"
-                  disabled={isLoading}
-                  data-testid="login-submit"
-                >
-                  {isLoading ? (
-                    <>
-                      <Spinner animation="border" size="sm" className="me-2" />
-                      {t('Signing in...')}
-                    </>
-                  ) : (
-                    t('Sign In')
-                  )}
-                </Button>
-
-                {passkeyError && (
-                  <Alert variant="warning" dismissible onClose={() => setPasskeyError(null)}>
-                    {passkeyError}
-                  </Alert>
-                )}
-
-                {/* パスキーログイン */}
-                <div className="d-grid mb-3">
                   <Button
-                    variant="outline-secondary"
-                    onClick={handlePasskeyLogin}
-                    disabled={passkeyLoading}
-                    data-testid="passkey-login-btn"
+                    variant="primary"
+                    type="submit"
+                    className="w-100 mb-3"
+                    disabled={isLoading}
+                    data-testid="login-submit"
                   >
-                    {passkeyLoading ? (
+                    {isLoading ? (
                       <>
                         <Spinner animation="border" size="sm" className="me-2" />
-                        {t('Authenticating...')}
+                        {t('Signing in...')}
                       </>
                     ) : (
-                      <>
-                        <i className="fa-solid fa-key me-2" />{t('Sign in with Passkey')}
-                      </>
+                      t('Sign In')
                     )}
                   </Button>
-                </div>
 
-                <div className="text-center">
-                  <Link to="/forgot-password" className="text-decoration-none">
-                    {t('Forgot your password?')}
-                  </Link>
-                </div>
-              </Form>
+                  <div className="text-center">
+                    <Button
+                      variant="link"
+                      className="text-decoration-none p-0"
+                      onClick={handleBackToCredentials}
+                      data-testid="totp-back-btn"
+                    >
+                      {t('Back')}
+                    </Button>
+                  </div>
+                </Form>
+              )}
             </Card.Body>
-            <Card.Footer className="text-center py-3">
-              <small className="text-muted">
-                {t("Don't have an account?")}{' '}
-                <Link to="/register" className="text-decoration-none">
-                  {t('Sign up here')}
-                </Link>
-              </small>
-            </Card.Footer>
+            {loginStep === 'credentials' && (
+              <Card.Footer className="text-center py-3">
+                <small className="text-muted">
+                  {t("Don't have an account?")}{' '}
+                  <Link to="/register" className="text-decoration-none">
+                    {t('Sign up here')}
+                  </Link>
+                </small>
+              </Card.Footer>
+            )}
           </Card>
         </Col>
       </Row>

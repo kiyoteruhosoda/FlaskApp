@@ -57,6 +57,16 @@ flask_app = create_app()
 with flask_app.app_context():
     celery_runtime_settings = CelerySettings.from_application_settings()
 
+# create_app()/CelerySettings の読み込みはこのモジュール import 時点（＝Celery
+# マスタープロセス内、--pool=prefork が子プロセスを fork するより前）に実行され、
+# その際 DB へ実接続している。ここで即座に破棄しておかないと、マスタープロセスが
+# 開いたコネクションが fork 後も子プロセスへ生きたまま引き継がれ、複数プロセスが
+# 同じソケットを使い回すことで MySQL プロトコルが混線する
+# （worker_process_init 側の dispose だけでは、fork 直前に Python レベルでは同じ
+#  Engine オブジェクト・プールの内部ロック状態までコピーされてしまうため不十分）。
+with flask_app.app_context():
+    db.engine.dispose()
+
 # Create Celery instance
 celery = Celery(
     'cli.src.celery.celery_app',

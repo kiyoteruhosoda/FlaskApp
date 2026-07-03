@@ -15,8 +15,14 @@
   コネクション（ソケット）をそのまま引き継ぐため、複数プロセスが同じ
   コネクションを使うと MySQL プロトコルのやり取りが混線し、ORM 内部で
   説明のつかないエラーとして表面化していた。`worker_process_init` シグナルで
-  `db.engine.dispose()` を呼び、fork 直後に各子プロセスへ新しいコネクションを
-  張り直させることで解決。
+  `db.engine.dispose()` を呼ぶだけでは不十分だった（fork 直前に Python レベルでは
+  同じ `Engine` オブジェクト・コネクションプールの内部ロック状態までコピーされて
+  しまうため、fork 後に破棄しても "Command Out of Sync" / "Lost connection to
+  MySQL server during query" という形で症状が残った）。根本対策として、fork が
+  発生するより前、モジュール import 時点（Celery マスタープロセス内）で
+  `create_app()` 実行直後に `db.engine.dispose()` を呼び、マスタープロセスが
+  DB コネクションを保持したまま fork されること自体をなくした。
+  `worker_process_init` 側の dispose は多重防御として残している。
 - 新規作成ユーザーがログインできない不具合を修正。`admin_users.py` のユーザー作成/更新
   API がメールアドレスの形式を検証していなかったため、非メール形式の値が登録でき、
   ログイン時に `LoginRequestSchema`（`fields.Email`）で弾かれていた。加えて、その

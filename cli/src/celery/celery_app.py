@@ -157,6 +157,28 @@ def _ensure_worker_logging() -> None:
 
 
 @signals.worker_process_init.connect
+def _dispose_db_engine_after_fork(**_: Any) -> None:
+    """Discard inherited DB connections in each forked prefork worker.
+
+    ``flask_app = create_app()`` above runs at module import time, i.e. in the
+    Celery master process, and ``_apply_persisted_settings()`` already opens a
+    real DB connection through ``db.engine`` during that call. Celery's
+    default ``--pool=prefork`` then forks worker child processes from that
+    master, so every child inherits the *same* open connection/socket in the
+    pool. If two processes (parent/sibling children) later use that inherited
+    connection concurrently, the MySQL protocol stream gets corrupted between
+    them, which surfaces as bizarre, hard-to-reproduce SQLAlchemy-internal
+    errors (e.g. ``NotImplementedError`` deep in ORM row processing) on the
+    first query a forked child runs. Disposing the engine right after fork
+    forces each child to open its own fresh connections instead of reusing
+    the parent's.
+    """
+
+    with flask_app.app_context():
+        db.engine.dispose()
+
+
+@signals.worker_process_init.connect
 def _configure_worker_process_logging(**_: Any) -> None:
     """Ensure each Celery worker process attaches the DB log handler."""
 

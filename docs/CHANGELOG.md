@@ -6,6 +6,17 @@
 ## [Unreleased]
 
 ### Fixed
+- Celery worker 起動直後、最初に実行されたタスク（`picker_import.watchdog` の
+  `list_importing()` クエリなど）が SQLAlchemy 内部の `NotImplementedError`
+  で失敗することがある不具合を修正。原因は `cli/src/celery/celery_app.py` の
+  `create_app()` が import 時点（＝Celery マスタープロセス内、`--pool=prefork`
+  が子プロセスを fork する前）に `_apply_persisted_settings()` 経由で実際に
+  DB へ接続してしまっていたこと。fork 後の子プロセスは親が開いた DB
+  コネクション（ソケット）をそのまま引き継ぐため、複数プロセスが同じ
+  コネクションを使うと MySQL プロトコルのやり取りが混線し、ORM 内部で
+  説明のつかないエラーとして表面化していた。`worker_process_init` シグナルで
+  `db.engine.dispose()` を呼び、fork 直後に各子プロセスへ新しいコネクションを
+  張り直させることで解決。
 - 新規作成ユーザーがログインできない不具合を修正。`admin_users.py` のユーザー作成/更新
   API がメールアドレスの形式を検証していなかったため、非メール形式の値が登録でき、
   ログイン時に `LoginRequestSchema`（`fields.Email`）で弾かれていた。加えて、その

@@ -32,6 +32,8 @@
   "Authentication Code": "認証コード",
   "Enter 6-digit code": "6桁のコードを入力",
   "Enter the 6-digit code from your authenticator app": "認証アプリの6桁のコードを入力してください",
+  "Two-factor authentication": "二段階認証",
+  "Back": "戻る",
   "Select Role": "ロール選択",
   "Choose your active role to continue": "継続するためにアクティブロールを選択してください",
   "Available Roles": "利用可能なロール",

@@ -121,6 +121,31 @@ fi
 echo "[deploy-stg] docker compose up -d"
 $COMPOSE up -d --remove-orphans
 
+# ===== Wait for DB to actually accept TCP connections =====
+# docker compose の depends_on/healthcheck は「healthy」と報告された時点で次に進むが、
+# MariaDB 公式イメージは初回初期化時に一時ブートストラップサーバー（ソケットのみ）を
+# 経由するため、healthcheck 実装によっては本来のネットワーク公開サーバーが起動する
+# 前に healthy 判定されることがある。ここで web コンテナから実際に db:3306 へ接続
+# できることを確認してから、以降の flask db stamp/upgrade を実行する。
+echo "[deploy-stg] Waiting for DB to accept connections from web container"
+DB_WAIT_OK=false
+for i in $(seq 1 30); do
+  if $COMPOSE exec -T web python -c "
+import socket
+s = socket.create_connection(('db', 3306), timeout=2)
+s.close()
+" >/dev/null 2>&1; then
+    DB_WAIT_OK=true
+    break
+  fi
+  echo "[deploy-stg] ...db not reachable yet ($i/30)"
+  sleep 2
+done
+if [ "$DB_WAIT_OK" != true ]; then
+  echo "[deploy-stg][error] db:3306 not reachable from web container after waiting" >&2
+  exit 1
+fi
+
 # ===== Schema sync =====
 case "$MODE" in
   migrate)

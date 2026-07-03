@@ -57,6 +57,16 @@ flask_app = create_app()
 with flask_app.app_context():
     celery_runtime_settings = CelerySettings.from_application_settings()
 
+# create_app()/CelerySettings の読み込みはこのモジュール import 時点（＝Celery
+# マスタープロセス内、--pool=prefork が子プロセスを fork するより前）に実行され、
+# その際 DB へ実接続している。ここで即座に破棄しておかないと、マスタープロセスが
+# 開いたコネクションが fork 後も子プロセスへ生きたまま引き継がれ、複数プロセスが
+# 同じソケットを使い回すことで MySQL プロトコルが混線する
+# （worker_process_init 側の dispose だけでは、fork 直前に Python レベルでは同じ
+#  Engine オブジェクト・プールの内部ロック状態までコピーされてしまうため不十分）。
+with flask_app.app_context():
+    db.engine.dispose()
+
 # Create Celery instance
 celery = Celery(
     'cli.src.celery.celery_app',
@@ -154,6 +164,28 @@ def _ensure_worker_logging() -> None:
 
     with flask_app.app_context():
         setup_celery_logging()
+
+
+@signals.worker_process_init.connect
+def _dispose_db_engine_after_fork(**_: Any) -> None:
+    """Discard inherited DB connections in each forked prefork worker.
+
+    ``flask_app = create_app()`` above runs at module import time, i.e. in the
+    Celery master process, and ``_apply_persisted_settings()`` already opens a
+    real DB connection through ``db.engine`` during that call. Celery's
+    default ``--pool=prefork`` then forks worker child processes from that
+    master, so every child inherits the *same* open connection/socket in the
+    pool. If two processes (parent/sibling children) later use that inherited
+    connection concurrently, the MySQL protocol stream gets corrupted between
+    them, which surfaces as bizarre, hard-to-reproduce SQLAlchemy-internal
+    errors (e.g. ``NotImplementedError`` deep in ORM row processing) on the
+    first query a forked child runs. Disposing the engine right after fork
+    forces each child to open its own fresh connections instead of reusing
+    the parent's.
+    """
+
+    with flask_app.app_context():
+        db.engine.dispose()
 
 
 @signals.worker_process_init.connect

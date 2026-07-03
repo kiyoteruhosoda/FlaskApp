@@ -143,6 +143,87 @@ class TestPasskeysManagementApi:
 
 
 # ---------------------------------------------------------------------------
+# Passkey Registration API  (/api/auth/passkey/options/register | verify/register)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.usefixtures("app_context")
+class TestPasskeyRegistrationApi:
+    def test_register_options_requires_auth(self, client):
+        # LOGIN_DISABLED のテスト環境では認証バイパス後にユーザー不在で 403 になる
+        res = client.get("/api/auth/passkey/options/register")
+        assert res.status_code in (401, 403)
+
+    def test_register_options_returns_challenge(self, client, app_context):
+        user = _create_user()
+        _login(client, user)
+
+        res = client.get("/api/auth/passkey/options/register")
+        assert res.status_code == 200
+        data = res.get_json()
+        assert data["challenge"]
+        assert data["user"]["name"] == user.email
+
+        with client.session_transaction() as session:
+            assert session.get("passkey_registration_challenge")
+            assert session.get("passkey_registration_user_id") == user.id
+
+    def test_verify_register_without_challenge(self, client, app_context):
+        user = _create_user()
+        _login(client, user)
+
+        res = client.post(
+            "/api/auth/passkey/verify/register",
+            json={"id": "abc", "rawId": "abc", "response": {}},
+        )
+        assert res.status_code == 400
+        assert res.get_json()["error"] == "challenge_missing"
+
+    def test_verify_register_invalid_payload(self, client, app_context):
+        user = _create_user()
+        _login(client, user)
+        client.get("/api/auth/passkey/options/register")
+
+        res = client.post("/api/auth/passkey/verify/register", json={"label": "My Key"})
+        assert res.status_code == 400
+        assert res.get_json()["error"] == "invalid_payload"
+
+    def test_verify_register_success(self, client, app_context):
+        """検証成功時はパスキーが返り、チャレンジがクリアされる。"""
+        user = _create_user()
+        _login(client, user)
+        client.get("/api/auth/passkey/options/register")
+
+        record = _create_passkey(user, name="My Key")
+        # PasskeyService は slots=True の dataclass のためクラス側のメソッドを差し替える
+        with patch(
+            "shared.application.passkey_service.PasskeyService.register_passkey",
+            return_value=record,
+        ):
+            res = client.post(
+                "/api/auth/passkey/verify/register",
+                json={
+                    "id": "abc",
+                    "rawId": "abc",
+                    "response": {
+                        "clientDataJSON": "x",
+                        "attestationObject": "y",
+                        "transports": ["internal"],
+                    },
+                    "label": "My Key",
+                },
+            )
+        assert res.status_code == 200
+        data = res.get_json()
+        assert data["result"] == "ok"
+        assert data["passkey"]["name"] == "My Key"
+
+        with client.session_transaction() as session:
+            assert session.get("passkey_registration_challenge") is None
+            assert session.get("passkey_registration_user_id") is None
+
+
+# ---------------------------------------------------------------------------
 # Password Reset JSON API  (/api/auth/password/forgot | /api/auth/password/reset)
 # ---------------------------------------------------------------------------
 

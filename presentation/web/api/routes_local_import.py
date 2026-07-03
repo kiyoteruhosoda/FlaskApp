@@ -531,6 +531,100 @@ def local_import_status():
     })
 
 
+@bp.post("/sync/local-import/upload")
+@login_or_jwt_required
+def upload_local_import_files():
+    """取り込みディレクトリへファイルを手動アップロードする。"""
+
+    user = get_current_user()
+    if not user or not getattr(user, "can", None) or not user.can("admin:photo-settings"):
+        _local_import_log(
+            "Local import upload rejected: insufficient permissions",
+            level="warning",
+            event="local_import.api.upload",
+            stage="denied",
+        )
+        return (
+            jsonify({"error": _("You do not have permission to upload import files.")}),
+            403,
+        )
+
+    config_info = _resolve_local_import_config()
+    import_dir_info = config_info["import_dir_info"]
+    if not import_dir_info.get("exists"):
+        _local_import_log(
+            "Local import upload rejected: import directory missing",
+            level="warning",
+            event="local_import.api.upload",
+            stage="directory_missing",
+            import_dir=import_dir_info.get("realpath"),
+        )
+        return jsonify({"error": _("Import directory does not exist.")}), 409
+
+    files = request.files.getlist("files")
+    if not files:
+        return jsonify({"error": _("No files were provided.")}), 400
+
+    from bounded_contexts.photonest.domain.local_import.policies import (
+        SUPPORTED_EXTENSIONS,
+    )
+
+    import_dir = import_dir_info["realpath"]
+    saved: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
+
+    for storage in files:
+        original_name = os.path.basename(storage.filename or "").strip()
+        if not original_name or original_name.startswith("."):
+            skipped.append({"filename": storage.filename or "", "reason": "invalid_filename"})
+            continue
+
+        extension = os.path.splitext(original_name)[1].lower()
+        if extension not in SUPPORTED_EXTENSIONS:
+            skipped.append({"filename": original_name, "reason": "unsupported_extension"})
+            continue
+
+        # 同名ファイルは上書きせず連番を付与する
+        target_name = original_name
+        stem, suffix = os.path.splitext(original_name)
+        counter = 1
+        while os.path.exists(os.path.join(import_dir, target_name)):
+            target_name = f"{stem}_{counter}{suffix}"
+            counter += 1
+
+        target_path = os.path.join(import_dir, target_name)
+        try:
+            storage.save(target_path)
+        except Exception as exc:
+            _local_import_log(
+                "Failed to save uploaded import file",
+                level="error",
+                event="local_import.api.upload",
+                stage="save_failed",
+                filename=original_name,
+                error=str(exc),
+            )
+            skipped.append({"filename": original_name, "reason": "save_failed"})
+            continue
+
+        saved.append({"filename": target_name, "size": os.path.getsize(target_path)})
+
+    _local_import_log(
+        "Local import upload completed",
+        event="local_import.api.upload",
+        stage="completed",
+        saved=len(saved),
+        skipped=len(skipped),
+    )
+
+    return jsonify({
+        "success": len(saved) > 0,
+        "saved": saved,
+        "skipped": skipped,
+        "server_time": datetime.now(timezone.utc).isoformat(),
+    }), (200 if saved else 400)
+
+
 @bp.post("/sync/local-import/directories")
 @login_or_jwt_required
 def ensure_local_import_directories():

@@ -131,6 +131,31 @@ class TestAdminRolesApi:
         get_res = client.get(f"/api/admin/roles/{role_id}")
         assert get_res.status_code == 404
 
+    def test_default_role_flagged_and_immutable(self, client, app_context):
+        """マスタデータのデフォルトロールは isDefault:true で編集・削除不可。"""
+        user = _create_admin(app_context, "user:manage")
+        _login(client, user)
+
+        default_role = Role(name="admin")
+        db.session.add(default_role)
+        db.session.commit()
+
+        res = client.get("/api/admin/roles")
+        assert res.status_code == 200
+        entries = {r["name"]: r for r in res.get_json()["roles"]}
+        assert entries["admin"]["isDefault"] is True
+        assert entries[user.roles[0].name]["isDefault"] is False
+
+        update_res = client.put(
+            f"/api/admin/roles/{default_role.id}", json={"name": "renamed"}
+        )
+        assert update_res.status_code == 403
+        assert update_res.get_json()["error"] == "default_role_immutable"
+
+        delete_res = client.delete(f"/api/admin/roles/{default_role.id}")
+        assert delete_res.status_code == 403
+        assert delete_res.get_json()["error"] == "default_role_immutable"
+
 
 # ---------------------------------------------------------------------------
 # Admin Permissions

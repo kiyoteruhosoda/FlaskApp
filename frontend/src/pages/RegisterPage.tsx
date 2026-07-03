@@ -76,22 +76,9 @@ const RegisterPage: React.FC = () => {
 
       <Row className="w-100">
         <Col md={6} lg={4} className="mx-auto">
-          <Card className="shadow">
-            <Card.Header className="text-center py-3 position-relative">
-              {/* 言語切替 - カード内右上 */}
-              <div className="position-absolute top-0 end-0 m-2">
-                <Dropdown align="end">
-                  <Dropdown.Toggle variant="outline-secondary" size="sm" className="border-0">
-                    {i18n.language === 'ja' ? '🇯🇵 日本語' : '🇺🇸 English'}
-                  </Dropdown.Toggle>
-                  <Dropdown.Menu>
-                    <Dropdown.Item onClick={() => changeLanguage('ja')}>🇯🇵 日本語</Dropdown.Item>
-                    <Dropdown.Item onClick={() => changeLanguage('en')}>🇺🇸 English</Dropdown.Item>
-                  </Dropdown.Menu>
-                </Dropdown>
-              </div>
-              <h4 className="mb-0">PhotoNest</h4>
-              <small className="text-muted">{t('Create an account')}</small>
+          <Card className="border-0 bg-transparent">
+            <Card.Header className="text-center py-3 border-0 bg-transparent">
+              <span className="text-muted">{t('Create an account')}</span>
             </Card.Header>
             <Card.Body className="p-4">
               {error && <Alert variant="danger" data-testid="register-error">{error}</Alert>}
@@ -158,13 +145,29 @@ const RegisterPage: React.FC = () => {
                 </Button>
               </Form>
             </Card.Body>
-            <Card.Footer className="text-center py-3">
-              <small className="text-muted">
-                {t("Already have an account?")}{' '}
-                <Link to="/login" className="text-decoration-none">
-                  {t('Sign in here')}
-                </Link>
-              </small>
+            <Card.Footer className="text-center py-3 border-0 bg-transparent">
+              <div className="mb-2">
+                <small className="text-muted">
+                  {t("Already have an account?")}{' '}
+                  <Link to="/login" className="text-decoration-none">
+                    {t('Sign in here')}
+                  </Link>
+                </small>
+              </div>
+              {/* 言語切替 */}
+              <Dropdown align="end" className="d-inline-block">
+                <Dropdown.Toggle
+                  variant="link"
+                  size="sm"
+                  className="text-decoration-none text-muted p-0"
+                >
+                  {i18n.language === 'ja' ? '🇯🇵 日本語' : '🇺🇸 English'}
+                </Dropdown.Toggle>
+                <Dropdown.Menu>
+                  <Dropdown.Item onClick={() => changeLanguage('ja')}>🇯🇵 日本語</Dropdown.Item>
+                  <Dropdown.Item onClick={() => changeLanguage('en')}>🇺🇸 English</Dropdown.Item>
+                </Dropdown.Menu>
+              </Dropdown>
             </Card.Footer>
           </Card>
         </Col>

@@ -143,7 +143,14 @@ const RolesPage: React.FC = () => {
           <tbody>
             {roles.map((r) => (
               <tr key={r.id} data-testid="role-row">
-                <td className="fw-semibold">{r.name}</td>
+                <td className="fw-semibold">
+                  {r.name}
+                  {r.isDefault && (
+                    <Badge bg="info" className="ms-2" data-testid="role-default-badge">
+                      {t('Default')}
+                    </Badge>
+                  )}
+                </td>
                 <td>
                   <div className="d-flex flex-wrap gap-1">
                     {r.permissions.slice(0, 4).map((p) => (
@@ -156,14 +163,18 @@ const RolesPage: React.FC = () => {
                   </div>
                 </td>
                 <td>
-                  <div className="d-flex gap-1">
-                    <Button size="sm" variant="outline-secondary" onClick={() => openEdit(r)} data-testid="role-edit">
-                      <i className="fa-solid fa-pen" />
-                    </Button>
-                    <Button size="sm" variant="outline-danger" onClick={() => setDeleteTarget(r)} data-testid="role-delete">
-                      <i className="fa-solid fa-trash" />
-                    </Button>
-                  </div>
+                  {r.isDefault ? (
+                    <span className="text-muted small">{t('Default roles cannot be edited')}</span>
+                  ) : (
+                    <div className="d-flex gap-1">
+                      <Button size="sm" variant="outline-secondary" onClick={() => openEdit(r)} data-testid="role-edit">
+                        <i className="fa-solid fa-pen" />
+                      </Button>
+                      <Button size="sm" variant="outline-danger" onClick={() => setDeleteTarget(r)} data-testid="role-delete">
+                        <i className="fa-solid fa-trash" />
+                      </Button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}

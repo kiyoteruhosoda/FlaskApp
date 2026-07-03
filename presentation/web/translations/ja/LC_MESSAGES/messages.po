@@ -3151,3 +3151,12 @@ msgstr "{count}件のメディアを削除しました。"
 
 msgid "Failed to delete selected media."
 msgstr "選択したメディアを削除できませんでした。"
+
+msgid "You do not have permission to upload import files."
+msgstr "インポートファイルをアップロードする権限がありません。"
+
+msgid "Import directory does not exist."
+msgstr "インポートディレクトリが存在しません。"
+
+msgid "No files were provided."
+msgstr "ファイルが指定されていません。"

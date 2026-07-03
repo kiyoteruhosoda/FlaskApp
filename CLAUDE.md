@@ -76,7 +76,7 @@ Swagger UI（`/api/docs`）・一覧ページ（`/api/overview`）・`/api/opena
 | Alembic | migrations/ 配下で管理 |
 | Redis | 7.x（パスワード保護必須） |
 | Gunicorn | `--workers=2 --threads=4` 推奨 |
-| Node.js | 20.x LTS（フロントエンドビルド用） |
+| Node.js | 24.x LTS（フロントエンドビルド用） |
 | ホスト | Linux / Synology DSM 7.x（Docker 上） |
 
 ---

@@ -13,9 +13,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_PATH="$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")"
 DOCKER_ROOT="$(dirname "$SCRIPT_DIR")"
 
 PROJECT="photonest"
+APP_IMAGE="photonest:latest"
 BASE_DIR="$DOCKER_ROOT/photonest"
 COMPOSE_FILE="$BASE_DIR/docker-compose.yml"
 ENV_FILE="$BASE_DIR/.env"
@@ -80,22 +82,83 @@ load_image_with_progress() {
   fi
 }
 
-# ===== Update docker-compose.yml if supplied alongside the tar =====
+# ===== Load app image =====
+# 自己更新後の再実行時（PHOTONEST_DEPLOY_SELF_UPDATED=1）はロード済みなのでスキップする。
+if [ "${PHOTONEST_DEPLOY_SELF_UPDATED:-}" = "1" ]; then
+  echo "[deploy] (self-update re-run) app image already loaded; skipping load"
+elif [ -f "$IMAGE_TAR" ]; then
+  load_image_with_progress "$IMAGE_TAR"
+else
+  echo "[deploy][error] Image tar not found: $IMAGE_TAR" >&2
+  exit 1
+fi
+
+# ===== Sync deploy assets from the loaded image =====
+# 過去に「リポジトリでは修正済みなのに NAS 上の deploy スクリプト・docker-compose.yml が
+# 古いままで、同じ起動失敗が再発し続ける」事故が繰り返された。
+# tar（アプリイメージ）を唯一の配布物とし、イメージに焼き込まれた
+# /app/docker-compose.yml と /app/scripts/deploy.sh をロード直後に取り出して使う。
+# スクリプト自身が更新された場合は置き換えて再実行する（tar の転送だけで修正が届く）。
+COMPOSE_SYNCED_FROM_IMAGE=false
+sync_assets_from_image() {
+  local cid
+  if ! cid=$(docker create "$APP_IMAGE" 2>/dev/null); then
+    echo "[deploy][warn] Could not inspect $APP_IMAGE; skipping asset sync" >&2
+    return 0
+  fi
+
+  # --- docker-compose.yml（イメージ内のコピーを唯一の出所とする） ---
+  mkdir -p "$BASE_DIR"
+  if docker cp "$cid:/app/docker-compose.yml" "$COMPOSE_FILE.new" >/dev/null 2>&1; then
+    mv -f "$COMPOSE_FILE.new" "$COMPOSE_FILE"
+    COMPOSE_SYNCED_FROM_IMAGE=true
+    echo "[deploy] compose file synced from image: $APP_IMAGE -> $COMPOSE_FILE"
+  else
+    rm -f "$COMPOSE_FILE.new"
+    echo "[deploy][warn] $APP_IMAGE has no /app/docker-compose.yml (old image); falling back to file copy" >&2
+  fi
+
+  # --- deploy スクリプト自身（差分があれば置き換えて再実行） ---
+  local script_name self_new
+  script_name="$(basename "$SCRIPT_PATH")"
+  self_new="$SCRIPT_DIR/.$script_name.new"
+  if docker cp "$cid:/app/scripts/$script_name" "$self_new" >/dev/null 2>&1; then
+    if cmp -s "$self_new" "$SCRIPT_PATH"; then
+      rm -f "$self_new"
+    elif [ "${PHOTONEST_DEPLOY_SELF_UPDATED:-}" = "1" ]; then
+      # 再実行後も差分が残るのは異常（置き換え失敗等）。無限ループを避けて続行する。
+      echo "[deploy][warn] Script still differs from image copy after self-update; continuing as-is" >&2
+      rm -f "$self_new"
+    else
+      chmod +x "$self_new"
+      mv -f "$self_new" "$SCRIPT_PATH"
+      docker rm -f "$cid" >/dev/null 2>&1 || true
+      echo -e "\033[36m[deploy] Deploy script updated from image; re-executing\033[0m"
+      PHOTONEST_DEPLOY_SELF_UPDATED=1 exec "$SCRIPT_PATH" "$MODE"
+    fi
+  else
+    rm -f "$self_new"
+    echo "[deploy][warn] $APP_IMAGE has no /app/scripts/$script_name (old image); keeping current script" >&2
+  fi
+
+  docker rm -f "$cid" >/dev/null 2>&1 || true
+}
+sync_assets_from_image
+
+# ===== Fallback: update docker-compose.yml from a file supplied alongside the tar =====
+# 新しいイメージなら上の sync で compose は取得済み。ここは古いイメージ
+# （/app/docker-compose.yml を含まない）向けの従来動作。
 COMPOSE_SRC="$DOCKER_ROOT/docker-compose.yml"
-if [ -f "$COMPOSE_SRC" ]; then
+if [ "$COMPOSE_SYNCED_FROM_IMAGE" = true ]; then
+  if [ -f "$COMPOSE_SRC" ]; then
+    echo "[deploy] note: $COMPOSE_SRC is ignored (image copy is authoritative)"
+  fi
+elif [ -f "$COMPOSE_SRC" ]; then
   echo "[deploy] Updating compose file from $COMPOSE_SRC"
   mkdir -p "$BASE_DIR"
   cp "$COMPOSE_SRC" "$COMPOSE_FILE"
 elif [ ! -f "$COMPOSE_FILE" ]; then
   echo "[deploy][error] No docker-compose.yml found at $COMPOSE_FILE or $COMPOSE_SRC" >&2
-  exit 1
-fi
-
-# ===== Load app image =====
-if [ -f "$IMAGE_TAR" ]; then
-  load_image_with_progress "$IMAGE_TAR"
-else
-  echo "[deploy][error] Image tar not found: $IMAGE_TAR" >&2
   exit 1
 fi
 
@@ -147,11 +210,26 @@ if [ "$DB_WAIT_OK" != true ]; then
 fi
 
 # ===== Schema sync =====
+# DB 待機直後でも MariaDB 側の受け入れ準備が一瞬遅れることがあるため、
+# 失敗しても少し待って再試行する（接続確立とサーバー完全起動の間の隙間対策）。
+run_flask_db_with_retry() {
+  local attempt
+  for attempt in 1 2 3; do
+    if $COMPOSE exec -T web flask db "$@"; then
+      return 0
+    fi
+    echo "[deploy][warn] flask db $* failed (attempt $attempt/3); retrying in 5s" >&2
+    sleep 5
+  done
+  echo "[deploy][error] flask db $* failed after 3 attempts" >&2
+  return 1
+}
+
 case "$MODE" in
   migrate)
     # DDL更新時：既存データを保持したまま新しい migration だけを適用する。
     echo "[deploy] Applying pending DB migrations (flask db upgrade)"
-    $COMPOSE exec -T web flask db upgrade
+    run_flask_db_with_retry upgrade
     ;;
   reset)
     # db/init/01_initialize.sql はスキーマ・マスタデータ込みで焼き込み済み。
@@ -163,7 +241,7 @@ case "$MODE" in
     #       ./scripts/regenerate_db_baseline.sh で現在の migration head から
     #       再生成しておくこと。DDL変更時は忘れずに再生成すること。
     echo "[deploy] Stamping alembic_version to head (fresh DB from baked snapshot)"
-    $COMPOSE exec -T web flask db stamp head
+    run_flask_db_with_retry stamp head
     ;;
 esac
 

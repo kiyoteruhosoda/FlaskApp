@@ -6,6 +6,32 @@
 ## [Unreleased]
 
 ### Added
+- **Google アカウント連携ページを新設**（`/admin/google-accounts`、
+  `GoogleAccountsPage.tsx`）。Sidebar からリンクのみ存在しページ未実装だったものを
+  実装。Google アカウント登録（`POST /api/google/oauth/start` → 認可 URL へ遷移、
+  コールバック後に本ページへ復帰）、連携済みアカウント一覧・有効/無効切替
+  （PATCH）・接続テスト（POST `/test`）・連携解除（DELETE、リフレッシュトークン
+  失効込み）ができる。
+- **Google フォトからの Photo インポート UI を追加**（Sessions ページ）。
+  連携済みアカウントを選択して `POST /api/picker/session` で Picker セッションを
+  作成し、`pickerUri` を新規タブで開く。作成後はセッション詳細への導線を表示。
+- **Google 連携用のシステム設定項目を追加**: `GOOGLE_OAUTH_REDIRECT_URI`
+  （OAuth コールバック URL の明示指定。空ならリクエストホストから自動生成）と
+  `GOOGLE_PHOTO_PICKER_SCOPES`（Photo Picker 連携で要求するスコープの一覧）。
+  defaults / settings.py / system_settings_definitions.py の3点セットで追加し、
+  `/api/google/oauth/start` と `/auth/google/callback` が参照する。
+- **メディア検索を追加**（Media Gallery）。タグ（複数選択）・撮影日時範囲・
+  メディア種別（写真/動画）で絞り込める `MediaSearchBar.tsx` を新設。
+  バックエンド `GET /api/media` の既存 `tags`/`after`/`before`/`type`
+  パラメータを利用（従来フロントは未対応の `is_video` を送っており種別フィルタが
+  効いていなかった不具合も修正）。
+- **アルバムへのメディア追加・表紙選択を実装**（アルバム詳細ページ）。
+  「メディアを追加」からメディア検索（タグ・撮影日時・種別）付きの複数選択
+  モーダル（`MediaPickerModal.tsx`）で画像・動画を選んで追加
+  （`PUT /api/albums/<id>` の `mediaIds`）。各メディアカードの
+  「表紙に設定」ボタンで表紙（`coverMediaId`）を選択でき、現表紙には
+  バッジを表示。
+
 - **`/healthz` を Web・API 双方に追加**（`presentation/web/routes/health.py` /
   `presentation/web/api/health.py`）。既存の `/health/live`・`/health/ready`
   （DB・NAS・Redis 疎通チェック）とは別に、デプロイ後「どのビルドが動作しているか」を
@@ -39,6 +65,16 @@
   `isDefault: true` 付きで表示。デフォルトロールは UI で編集・削除ボタンを出さず、
   API 側でも `PUT`/`DELETE /api/admin/roles/<id>` が `default_role_immutable`(403) を
   返すようガードした。
+
+### Changed
+- **favicon の配信場所を `/static/favicon.ico` に変更**。`frontend/index.html`
+  の参照先を変更し、実体は `frontend/public/static/favicon.ico`（Vite）と
+  `presentation/web/static/favicon.ico`（Flask）に配置。旧 `/favicon.ico` への
+  リクエストは 302 で `/static/favicon.ico` へリダイレクトする。
+- **ログイン画面のスタイル修正**: ヘッダ以外の背景を白に統一
+  （`bg-light` を除去、Footer も白背景化）。高さを `h-100` 固定から
+  flex-grow ベースに変更し、内容が画面に収まる場合は縦スクロールが
+  発生しないようにした。
 
 ### Fixed
 - `deploy-stg.sh reset` の `flask db stamp head` が `Can't connect to MySQL server

@@ -19,6 +19,14 @@ DEFAULT_APPLICATION_SETTINGS: dict[str, object] = {
     "BABEL_DEFAULT_TIMEZONE": "Asia/Tokyo",
     "GOOGLE_CLIENT_ID": "",
     "GOOGLE_CLIENT_SECRET": "",
+    # Google アカウント連携: OAuth コールバック URL の明示指定（空なら url_for で自動生成）
+    "GOOGLE_OAUTH_REDIRECT_URI": "",
+    # Google アカウント連携: Photo Picker 連携で要求する OAuth スコープ
+    "GOOGLE_PHOTO_PICKER_SCOPES": [
+        "https://www.googleapis.com/auth/photospicker.mediaitems.readonly",
+        "https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata",
+        "https://www.googleapis.com/auth/photoslibrary.appendonly",
+    ],
     "ENCRYPTION_KEY": None,
     "MEDIA_DOWNLOAD_SIGNING_KEY": "",
     "MEDIA_THUMBNAIL_URL_TTL_SECONDS": 600,

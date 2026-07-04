@@ -15,6 +15,11 @@ import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { PhotoItem, MediaTag } from '../types/api';
 import { formatDateTime } from '../utils/format';
+import MediaSearchBar, {
+  EMPTY_MEDIA_SEARCH_FILTERS,
+  MediaSearchFilters,
+  toMediaQueryParams,
+} from '../components/MediaSearchBar';
 
 const MediaPage: React.FC = () => {
   const { t } = useTranslation();
@@ -25,7 +30,8 @@ const MediaPage: React.FC = () => {
   const [hasNext, setHasNext] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [typeFilter, setTypeFilter] = useState<'' | 'photo' | 'video'>('');
+  // 検索条件（タグ・撮影日時・メディア種別）
+  const [filters, setFilters] = useState<MediaSearchFilters>(EMPTY_MEDIA_SEARCH_FILTERS);
 
   // detail modal state
   const [selected, setSelected] = useState<PhotoItem | null>(null);
@@ -45,8 +51,7 @@ const MediaPage: React.FC = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const params: any = { pageSize: 24 };
-        if (typeFilter) params.is_video = typeFilter === 'video' ? 1 : 0;
+        const params: any = { pageSize: 24, ...toMediaQueryParams(filters) };
         if (!reset && cursor) params.cursor = cursor;
         const data = await apiClient.getPhotos(params);
         const next = data.items || [];
@@ -59,7 +64,7 @@ const MediaPage: React.FC = () => {
         setIsLoading(false);
       }
     },
-    [cursor, typeFilter, t]
+    [cursor, filters, t]
   );
 
   useEffect(() => {
@@ -67,7 +72,7 @@ const MediaPage: React.FC = () => {
     setCursor(null);
     loadPage(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typeFilter]);
+  }, [filters]);
 
   useEffect(() => {
     let cancelled = false;
@@ -159,19 +164,12 @@ const MediaPage: React.FC = () => {
           <h1 className="h3 mb-1">{t('Media Gallery')}</h1>
           <p className="text-muted mb-0">{t('Browse imported photos and videos')}</p>
         </Col>
-        <Col xs="auto">
-          <Form.Select
-            value={typeFilter}
-            data-testid="media-type-filter"
-            onChange={(e) => setTypeFilter(e.target.value as '' | 'photo' | 'video')}
-            style={{ width: 160 }}
-          >
-            <option value="">{t('All')}</option>
-            <option value="photo">{t('Photos')}</option>
-            <option value="video">{t('Videos')}</option>
-          </Form.Select>
-        </Col>
       </Row>
+
+      {/* 検索: タグ・撮影日時・メディア種別 */}
+      <div className="border rounded p-3 mb-3 bg-body-tertiary">
+        <MediaSearchBar filters={filters} onChange={setFilters} />
+      </div>
 
       {error && (
         <Alert variant="danger" dismissible onClose={() => setError(null)}>

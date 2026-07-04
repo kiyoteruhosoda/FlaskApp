@@ -241,6 +241,12 @@ GOOGLE_CLIENT_SECRET=<google-client-secret>
 MEDIA_DOWNLOAD_SIGNING_KEY=<signing-key>
 ```
 
+Google アカウント連携の詳細設定（`GOOGLE_OAUTH_REDIRECT_URI` =
+コールバック URL の明示指定、`GOOGLE_PHOTO_PICKER_SCOPES` = Photo Picker で
+要求する OAuth スコープ）は管理画面の System Settings（Identity Providers
+セクション）から変更できる。未設定時はリクエストホストから自動生成／既定
+スコープが使われる。
+
 > DB・メディアのディレクトリは compose の `init-paths` サービスが起動時に自動作成する。File Station での手動作成は不要。
 
 **2. ビルド・転送・デプロイ**

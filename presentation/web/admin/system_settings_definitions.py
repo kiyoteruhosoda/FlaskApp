@@ -250,6 +250,29 @@ _OAUTH_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         description=_(u"Client secret for Google sign-in."),
         allow_empty=True,
     ),
+    SettingFieldDefinition(
+        key="GOOGLE_OAUTH_REDIRECT_URI",
+        label=_(u"Google OAuth redirect URI"),
+        data_type="string",
+        required=False,
+        description=_(
+            u"Explicit OAuth callback URL registered in the Google Cloud console. "
+            "Leave empty to derive it automatically from the request host."
+        ),
+        allow_empty=True,
+    ),
+    SettingFieldDefinition(
+        key="GOOGLE_PHOTO_PICKER_SCOPES",
+        label=_(u"Google Photo Picker scopes"),
+        data_type="list",
+        required=False,
+        description=_(
+            u"OAuth scopes requested when linking a Google account for the "
+            "Photo Picker import flow."
+        ),
+        multiline=True,
+        allow_empty=True,
+    ),
 )
 
 _DOWNLOAD_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (

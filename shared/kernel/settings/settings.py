@@ -364,6 +364,32 @@ class ApplicationSettings:
     def google_client_secret(self) -> str:
         return self._get("GOOGLE_CLIENT_SECRET", "") or ""
 
+    @property
+    def google_oauth_redirect_uri(self) -> str:
+        """明示設定された Google OAuth コールバック URL。空なら url_for で自動生成する。"""
+        value = self._get("GOOGLE_OAUTH_REDIRECT_URI", "") or ""
+        return value.strip() if isinstance(value, str) else ""
+
+    _DEFAULT_GOOGLE_PHOTO_PICKER_SCOPES: tuple[str, ...] = (
+        "https://www.googleapis.com/auth/photospicker.mediaitems.readonly",
+        "https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata",
+        "https://www.googleapis.com/auth/photoslibrary.appendonly",
+    )
+
+    @property
+    def google_photo_picker_scopes(self) -> Sequence[str]:
+        """Photo Picker 連携で要求する OAuth スコープの一覧。"""
+        value = self._get("GOOGLE_PHOTO_PICKER_SCOPES")
+        if value is None:
+            return self._DEFAULT_GOOGLE_PHOTO_PICKER_SCOPES
+        if isinstance(value, str):
+            scopes = [segment.strip() for segment in value.split(",") if segment.strip()]
+            return tuple(scopes) or self._DEFAULT_GOOGLE_PHOTO_PICKER_SCOPES
+        if isinstance(value, Iterable):
+            cleaned = [str(item).strip() for item in value if str(item).strip()]
+            return tuple(cleaned) or self._DEFAULT_GOOGLE_PHOTO_PICKER_SCOPES
+        return self._DEFAULT_GOOGLE_PHOTO_PICKER_SCOPES
+
     # ------------------------------------------------------------------
     # Security & Signing
     # ------------------------------------------------------------------

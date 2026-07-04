@@ -1,9 +1,9 @@
-from flask import Flask, current_app, send_from_directory
+from flask import Flask, current_app, redirect, send_from_directory
 import os
 
 # Static files that are served from the React build root rather than being
 # treated as client-side routes.
-_STATIC_FILES = ['favicon.ico', 'manifest.json', 'logo192.png', 'robots.txt', 'vite.svg']
+_STATIC_FILES = ['manifest.json', 'logo192.png', 'robots.txt', 'vite.svg']
 
 
 def _react_build_path() -> str:
@@ -57,6 +57,10 @@ def serve_react_app(path: str = ''):
 
 def serve_react_static(filename: str):
     """Serve a known static asset from the React build root."""
+    # The favicon lives under Flask's /static directory; keep legacy
+    # /favicon.ico requests (browsers request it by default) working.
+    if filename == 'favicon.ico':
+        return redirect('/static/favicon.ico')
     if filename in _STATIC_FILES:
         build_path = _react_build_path()
         try:

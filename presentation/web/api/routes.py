@@ -1963,13 +1963,15 @@ REQUIRED_GOOGLE_OAUTH_SCOPES = {
     "https://www.googleapis.com/auth/userinfo.email",
 }
 
-GOOGLE_OAUTH_SCOPE_SETS = {
-    "photo_picker": {
-        "https://www.googleapis.com/auth/photospicker.mediaitems.readonly",
-        "https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata",
-        "https://www.googleapis.com/auth/photoslibrary.appendonly",
-    },
-}
+
+def _google_oauth_profile_scopes(scope_profile: str) -> set[str] | None:
+    """名前付きスコーププロファイルを解決する。未知のプロファイルは None。
+
+    photo_picker のスコープはシステム設定 GOOGLE_PHOTO_PICKER_SCOPES から取得する。
+    """
+    if scope_profile == "photo_picker":
+        return set(settings.google_photo_picker_scopes)
+    return None
 
 
 @bp.post("/google/oauth/start")
@@ -2013,7 +2015,7 @@ def google_oauth_start():
     scope_profile = data.get("scope_profile")
 
     if scope_profile:
-        profile_scopes = GOOGLE_OAUTH_SCOPE_SETS.get(scope_profile)
+        profile_scopes = _google_oauth_profile_scopes(scope_profile)
         if profile_scopes is None:
             return (
                 jsonify({"error": "invalid_scope_profile", "scope_profile": scope_profile}),
@@ -2037,12 +2039,15 @@ def google_oauth_start():
         f"OAuth start - PREFERRED_URL_SCHEME: {settings.preferred_url_scheme}"
     )
     
-    callback_scheme = determine_external_scheme()
-    callback_url = url_for(
-        "auth.google_oauth_callback",
-        _external=True,
-        _scheme=callback_scheme,
-    )
+    # システム設定でコールバック URL が明示されていればそれを優先する
+    callback_url = settings.google_oauth_redirect_uri
+    if not callback_url:
+        callback_scheme = determine_external_scheme()
+        callback_url = url_for(
+            "auth.google_oauth_callback",
+            _external=True,
+            _scheme=callback_scheme,
+        )
     current_app.logger.info(f"OAuth start - Generated callback URL: {callback_url}")
     
     params = {

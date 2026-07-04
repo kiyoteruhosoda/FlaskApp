@@ -22,7 +22,7 @@ const Footer: React.FC = () => {
   // version.json 生成時点（scripts/generate_version.sh）で既に "v" 接頭辞込みの
   // 文字列（例: "v1a2b3c4"）になっているため、ここで追加の "v" は付けない。
   return (
-    <footer className="border-top py-2 text-center bg-light" data-testid="app-footer">
+    <footer className="border-top py-2 text-center bg-white" data-testid="app-footer">
       <small className="text-muted">
         PhotoNest{version ? ` ${version}` : ''}
       </small>

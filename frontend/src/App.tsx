@@ -39,6 +39,7 @@ import PhotoSettingsPage from './pages/PhotoSettingsPage';
 import PhotoImportsPage from './pages/PhotoImportsPage';
 import PhotoExportsPage from './pages/PhotoExportsPage';
 import ConfigPage from './pages/ConfigPage';
+import GoogleAccountsPage from './pages/GoogleAccountsPage';
 
 // Wiki Pages
 import WikiIndexPage from './pages/wiki/WikiIndexPage';
@@ -95,7 +96,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </main>
         </div>
       ) : (
-        <main className="flex-grow-1">
+        // 未ログイン画面（ログイン等）はヘッダ以外を白背景にし、子要素が
+        // flex-grow で高さを埋められるよう flex コンテナにする。
+        <main className="flex-grow-1 d-flex flex-column bg-white">
           {children}
         </main>
       )}
@@ -364,6 +367,15 @@ const AppContent: React.FC = () => {
             element={
               <ProtectedRoute>
                 <ConfigPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/google-accounts"
+            element={
+              <ProtectedRoute>
+                <GoogleAccountsPage />
               </ProtectedRoute>
             }
           />

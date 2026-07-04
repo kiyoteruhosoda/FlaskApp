@@ -122,6 +122,32 @@ export interface GoogleAccount {
   created_at: string;
 }
 
+// ===== Google アカウント連携（/api/google/*） =====
+export interface LinkedGoogleAccount {
+  id: number;
+  email: string;
+  status: 'active' | 'disabled' | string;
+  scopes: string[];
+  last_synced_at: string | null;
+  has_token: boolean;
+}
+
+export interface GoogleOAuthStartResponse {
+  auth_url: string;
+  server_time?: string;
+}
+
+// POST /api/picker/session のレスポンス
+export interface PickerSessionCreateResponse {
+  pickerSessionId: number;
+  sessionId: string | null;
+  pickerUri: string | null;
+  expireTime?: string | null;
+  pollingConfig?: Record<string, unknown> | null;
+  pickingConfig?: Record<string, unknown> | null;
+  mediaItemsSet?: boolean | null;
+}
+
 // フォーム関連
 export interface FormFieldError {
   field: string;

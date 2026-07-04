@@ -45,6 +45,9 @@ import {
   VersionResponse,
   ConfigResponse,
   DuplicateGroupsResponse,
+  LinkedGoogleAccount,
+  GoogleOAuthStartResponse,
+  PickerSessionCreateResponse,
 } from '../types/api';
 
 class ApiClient {
@@ -374,6 +377,52 @@ class ApiClient {
     return this.post<TaskStatus>(`/admin/google-accounts/${accountId}/sync`);
   }
 
+  // ===== Google アカウント連携（/api/google/*） =====
+
+  async getLinkedGoogleAccounts(): Promise<CursorListResponse<LinkedGoogleAccount>> {
+    const response = await this.client.get<CursorListResponse<LinkedGoogleAccount>>('/google/accounts');
+    return response.data;
+  }
+
+  // Google アカウント登録: OAuth 認可 URL を取得する。呼び出し側で auth_url へ遷移する。
+  async startGoogleAccountLink(redirect?: string): Promise<GoogleOAuthStartResponse> {
+    const response = await this.client.post<GoogleOAuthStartResponse>('/google/oauth/start', {
+      scope_profile: 'photo_picker',
+      ...(redirect ? { redirect } : {}),
+    });
+    return response.data;
+  }
+
+  async updateGoogleAccountStatus(
+    id: number,
+    status: 'active' | 'disabled'
+  ): Promise<{ result: string; status: string }> {
+    const response = await this.client.patch<{ result: string; status: string }>(
+      `/google/accounts/${id}`,
+      { status }
+    );
+    return response.data;
+  }
+
+  async unlinkGoogleAccount(id: number): Promise<{ result: string }> {
+    const response = await this.client.delete<{ result: string }>(`/google/accounts/${id}`);
+    return response.data;
+  }
+
+  async testGoogleAccount(id: number): Promise<{ result: string }> {
+    const response = await this.client.post<{ result: string }>(`/google/accounts/${id}/test`);
+    return response.data;
+  }
+
+  // Google Photos Picker セッションを作成する（Photo インポートの入口）
+  async createPickerSession(accountId?: number, title?: string): Promise<PickerSessionCreateResponse> {
+    const response = await this.client.post<PickerSessionCreateResponse>('/picker/session', {
+      ...(accountId != null ? { account_id: accountId } : {}),
+      ...(title ? { title } : {}),
+    });
+    return response.data;
+  }
+
   // タスク状況API
   async getTaskStatus(taskId: string): Promise<ApiResponse<TaskStatus>> {
     return this.get<TaskStatus>(`/tasks/${taskId}/status`);
@@ -501,7 +550,13 @@ class ApiClient {
   async getPhotos(params?: {
     pageSize?: number;
     cursor?: string;
-    is_video?: 0 | 1;
+    // メディア種別フィルタ（バックエンドの ?type= パラメータ）
+    type?: 'photo' | 'video';
+    // タグ ID のカンマ区切り（すべて含むメディアのみ）
+    tags?: string;
+    // 撮影日時の範囲（ISO 8601）
+    after?: string;
+    before?: string;
     order?: 'asc' | 'desc';
   }): Promise<CursorListResponse<PhotoItem>> {
     const response = await this.client.get<CursorListResponse<PhotoItem>>('/media', { params });

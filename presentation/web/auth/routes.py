@@ -1548,10 +1548,14 @@ def google_oauth_callback():
         flash(_("Invalid OAuth state."), "error")
         return _redirect_to("admin.google_accounts")
 
-    callback_scheme = determine_external_scheme()
-    callback_url = url_for(
-        "auth.google_oauth_callback", _external=True, _scheme=callback_scheme
-    )
+    # 認可要求時と同じ redirect_uri を使う必要があるため、
+    # システム設定 GOOGLE_OAUTH_REDIRECT_URI があればそれを優先する
+    callback_url = settings.google_oauth_redirect_uri
+    if not callback_url:
+        callback_scheme = determine_external_scheme()
+        callback_url = url_for(
+            "auth.google_oauth_callback", _external=True, _scheme=callback_scheme
+        )
 
     token_data = {
         "code": code,

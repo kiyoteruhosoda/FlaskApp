@@ -496,5 +496,6 @@
   "Select photos and videos in Google Photos and import them into the library.": "Google フォトで写真・動画を選択してライブラリに取り込みます。",
   "A linked Google account is required.": "連携済みの Google アカウントが必要です。",
   "Permission list is unavailable, so permission assignment cannot be edited here.": "権限一覧を取得できないため、ここでは権限の割り当てを編集できません。",
-  "Token encryption key is not configured. Set it in System Settings > Security & Signing.": "トークン暗号鍵（ENCRYPTION_KEY）が未設定です。System Settings の Security & Signing で設定してください。"
+  "Token encryption key is not configured. Set it in System Settings > Security & Signing.": "トークン暗号鍵（ENCRYPTION_KEY）が未設定です。System Settings の Security & Signing で設定してください。",
+  "This value is set by an environment variable. Changes saved here will not take effect until the environment variable is removed.": "この値は環境変数で設定されています。環境変数を外すまで、ここで保存した変更は反映されません。"
 }

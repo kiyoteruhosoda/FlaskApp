@@ -603,6 +603,8 @@ export interface ConfigField {
   default_hint: string | null;
   // 入力欄の直後に表示する固定サフィックス（値の一部が固定であることを明示）
   input_suffix?: string | null;
+  // 実効値の取得元（優先順位: environment > database > default）
+  value_source?: 'environment' | 'database' | 'default';
   search_text: string;
   section: string;
   section_label: string;

@@ -14,6 +14,7 @@ CORS 設定・メール設定を取得し、既定値とレガシーキーを考
 
 from __future__ import annotations
 
+import os
 import time
 from collections.abc import MutableMapping
 
@@ -31,6 +32,31 @@ from presentation.web.services.system_setting_service import SystemSettingServic
 _STALENESS_CHECK_INTERVAL_SECONDS = 10.0
 _LAST_CHECK_MONOTONIC_KEY = "_PERSISTED_SETTINGS_LAST_CHECK_MONOTONIC"
 _APPLIED_UPDATED_AT_KEY = "_PERSISTED_SETTINGS_APPLIED_UPDATED_AT"
+
+
+def _coerce_env_value(raw: str, default_value):
+    """環境変数の文字列値を、デフォルト値の型に合わせて変換する。
+
+    Flask 自身が参照するキー（PERMANENT_SESSION_LIFETIME 等）が文字列のまま
+    app.config に入ると誤動作するため、bool / int / float / list は変換する。
+    変換できない場合は文字列のまま返す（設定側の get_int 等が再変換する）。
+    """
+
+    if isinstance(default_value, bool):
+        return raw.strip().lower() in ("1", "true", "yes", "on")
+    if isinstance(default_value, int) and not isinstance(default_value, bool):
+        try:
+            return int(raw.strip())
+        except ValueError:
+            return raw
+    if isinstance(default_value, float):
+        try:
+            return float(raw.strip())
+        except ValueError:
+            return raw
+    if isinstance(default_value, (list, tuple)):
+        return [segment.strip() for segment in raw.split(",") if segment.strip()]
+    return raw
 
 
 def _latest_settings_updated_at():
@@ -105,6 +131,17 @@ def apply_persisted_settings(app: Flask) -> None:
                     break
     for key, value in config_payload.items():
         if key == "DATABASE_URI":
+            continue
+        # 優先順位は「環境変数 > DB > デフォルト」（CLAUDE.md）。設定解決は
+        # app.config を最初に参照するため、環境変数が定義されているキーは
+        # env 値（デフォルトの型に合わせて変換）を書き込み、DB/デフォルト値で
+        # 上書きしない。これが無いと .env の ENCRYPTION_KEY 等が
+        # デフォルト（None）に潰されて無視される。
+        env_raw = os.environ.get(key)
+        if env_raw is not None:
+            app.config[key] = _coerce_env_value(
+                env_raw, DEFAULT_APPLICATION_SETTINGS.get(key)
+            )
             continue
         if isinstance(value, dict):
             app.config[key] = dict(value)

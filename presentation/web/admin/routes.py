@@ -405,6 +405,15 @@ def _build_setting_row(
     stored_value = stored_payload.get(key)
     default_value = defaults.get(key)
 
+    # 実効値の取得元（優先順位: 環境変数 > DB > デフォルト）。
+    # 「.env に設定したのに反映されない」を画面上で診断できるようにする。
+    if os.environ.get(key) is not None:
+        value_source = "environment"
+    elif stored_has_value:
+        value_source = "database"
+    else:
+        value_source = "default"
+
     if key in override_values:
         form_value = override_values[key]
     elif stored_has_value:
@@ -449,6 +458,7 @@ def _build_setting_row(
         "editable": definition.editable,
         "default_hint": definition.default_hint,
         "input_suffix": definition.input_suffix,
+        "value_source": value_source,
         "search_text": search_text,
     }
 

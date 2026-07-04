@@ -94,22 +94,32 @@ class ApiClient {
                 // 元のリクエストを再実行
                 return this.client.request(error.config);
               }
+              // リフレッシュ失敗（refreshAccessToken は例外を投げず
+              // success:false を返す。サーバー再起動でトークンが失効した
+              // 場合など）。放置すると画面が止まったままになるため、
+              // トークンを破棄してログイン画面へ遷移する。
+              this.forceLogout();
             } catch (refreshError) {
               // リフレッシュ失敗時はログアウト
-              localStorage.removeItem('access_token');
-              localStorage.removeItem('refresh_token');
-              window.location.href = '/login';
+              this.forceLogout();
             }
           } else {
             // リフレッシュトークンがない場合はログアウト
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('refresh_token');
-            window.location.href = '/login';
+            this.forceLogout();
           }
         }
         return Promise.reject(error);
       }
     );
+  }
+
+  // 認証情報を破棄してログイン画面へ遷移する（多重リダイレクト防止付き）
+  private forceLogout(): void {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    if (window.location.pathname !== '/login') {
+      window.location.href = '/login';
+    }
   }
 
   // 基本的なHTTPメソッド

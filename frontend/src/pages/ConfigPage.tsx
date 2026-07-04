@@ -207,7 +207,23 @@ const FieldEditor: React.FC<FieldEditorProps> = ({ field, draft, modified, onCha
             {field.editable && !field.using_default && !modified && (
               <Badge bg="info-subtle" text="dark" className="border">{t('Overridden')}</Badge>
             )}
+            {/* 実効値の取得元（環境変数 > DB > デフォルト） */}
+            {field.value_source === 'environment' && (
+              <Badge bg="danger" data-testid={`config-source-${field.key}`}>ENV</Badge>
+            )}
+            {field.value_source === 'database' && (
+              <Badge bg="primary" data-testid={`config-source-${field.key}`}>DB</Badge>
+            )}
+            {field.value_source === 'default' && (
+              <Badge bg="secondary" data-testid={`config-source-${field.key}`}>{t('Default')}</Badge>
+            )}
           </div>
+          {field.value_source === 'environment' && (
+            <div className="text-danger small mt-1">
+              <i className="fa-solid fa-triangle-exclamation me-1" />
+              {t('This value is set by an environment variable. Changes saved here will not take effect until the environment variable is removed.')}
+            </div>
+          )}
           <code className="d-block text-muted small mt-1">{field.key}</code>
           {field.description && <div className="text-muted small mt-1">{field.description}</div>}
           {field.default_hint && (

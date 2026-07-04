@@ -268,7 +268,11 @@ def test_update_application_config_triggers_relogin_warning(client):
     assert payload["status"] == "success"
     assert "Application configuration updated." in payload["message"]
     assert "Changes to Flask secret key require all users to sign in again." in payload["warnings"][0]
-    assert client.application.config["SECRET_KEY"] == "new-secret-key"
+
+    # DB には保存されるが、実効値は「環境変数 > DB > デフォルト」の優先順位に
+    # 従う。conftest が環境変数 SECRET_KEY=test-secret-key を設定しているため、
+    # app.config は環境変数の値のまま（画面には ENV バッジで明示される）。
+    assert client.application.config["SECRET_KEY"] == "test-secret-key"
 
     config = SystemSettingService.load_application_config()
     assert config["SECRET_KEY"] == "new-secret-key"

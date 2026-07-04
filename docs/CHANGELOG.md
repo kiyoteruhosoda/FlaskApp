@@ -16,10 +16,15 @@
   連携済みアカウントを選択して `POST /api/picker/session` で Picker セッションを
   作成し、`pickerUri` を新規タブで開く。作成後はセッション詳細への導線を表示。
 - **Google 連携用のシステム設定項目を追加**: `GOOGLE_OAUTH_REDIRECT_URI`
-  （OAuth コールバック URL の明示指定。空ならリクエストホストから自動生成）と
+  （OAuth コールバック URL のスキーム・ホスト上書き。パスは
+  `/auth/google/callback`（Flask ルート）で固定・変更不可で、パスが異なる値は
+  保存時に拒否、環境変数等から不正な値が入った場合も警告ログを出して自動生成へ
+  フォールバックする。空ならリクエストから自動生成）と
   `GOOGLE_PHOTO_PICKER_SCOPES`（Photo Picker 連携で要求するスコープの一覧）。
-  defaults / settings.py / system_settings_definitions.py の3点セットで追加し、
-  `/api/google/oauth/start` と `/auth/google/callback` が参照する。
+  defaults / settings.py / system_settings_definitions.py の3点セットで追加。
+  redirect_uri は認可開始とトークン交換で完全一致が必要なため、両方が共通の
+  `google_oauth_callback_url()`（`presentation/web/utils/url_helpers.py`）で
+  生成する。
 - **メディア検索を追加**（Media Gallery）。タグ（複数選択）・撮影日時範囲・
   メディア種別（写真/動画）で絞り込める `MediaSearchBar.tsx` を新設。
   バックエンド `GET /api/media` の既存 `tags`/`after`/`before`/`type`

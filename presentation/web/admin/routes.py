@@ -778,6 +778,26 @@ def _parse_setting_value(key: str, definition: SettingFieldDefinition, raw_value
         if definition.allow_null:
             return None
         raise ValueError(_(u"Value for %(key)s is required.", key=label))
+
+    # OAuth コールバックのパスは Flask ルートで固定されているため、
+    # スキーム・ホスト以外を変更した値は保存させない（保存後に 404 や
+    # redirect_uri_mismatch で気付くのを防ぐ）。
+    if key == "GOOGLE_OAUTH_REDIRECT_URI":
+        from presentation.web.utils import (
+            google_oauth_callback_path,
+            validate_google_oauth_redirect_uri,
+        )
+
+        if validate_google_oauth_redirect_uri(value) is not None:
+            raise ValueError(
+                _(
+                    u"%(key)s must be an absolute URL whose path is exactly "
+                    u"%(path)s. Only the scheme and host can be customised; "
+                    u"leave empty to derive them from the request.",
+                    key=label,
+                    path=google_oauth_callback_path(),
+                )
+            )
     return value
 
 

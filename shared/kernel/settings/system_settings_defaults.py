@@ -19,7 +19,8 @@ DEFAULT_APPLICATION_SETTINGS: dict[str, object] = {
     "BABEL_DEFAULT_TIMEZONE": "Asia/Tokyo",
     "GOOGLE_CLIENT_ID": "",
     "GOOGLE_CLIENT_SECRET": "",
-    # Google アカウント連携: OAuth コールバック URL の明示指定（空なら url_for で自動生成）
+    # Google アカウント連携: OAuth コールバック URL のスキーム・ホスト上書き。
+    # パスは /auth/google/callback（Flask ルート）で固定。空ならリクエストから自動生成。
     "GOOGLE_OAUTH_REDIRECT_URI": "",
     # Google アカウント連携: Photo Picker 連携で要求する OAuth スコープ
     "GOOGLE_PHOTO_PICKER_SCOPES": [

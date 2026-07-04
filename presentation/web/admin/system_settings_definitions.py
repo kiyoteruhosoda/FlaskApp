@@ -256,10 +256,18 @@ _OAUTH_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         data_type="string",
         required=False,
         description=_(
-            u"Explicit OAuth callback URL registered in the Google Cloud console. "
-            "Leave empty to derive it automatically from the request host."
+            u"Overrides the scheme and host of the OAuth callback URL sent to "
+            "Google, for reverse-proxy setups where they cannot be detected "
+            "from the request. The URL path is fixed to this application's "
+            "callback route /auth/google/callback and cannot be changed - "
+            "values with any other path are rejected. Register the same URL "
+            "in the Google Cloud console."
         ),
         allow_empty=True,
+        default_hint=_(
+            u"Default: empty - the URL is derived from the request as "
+            "https://<request-host>/auth/google/callback."
+        ),
     ),
     SettingFieldDefinition(
         key="GOOGLE_PHOTO_PICKER_SCOPES",

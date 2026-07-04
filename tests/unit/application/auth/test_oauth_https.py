@@ -205,5 +205,92 @@ class TestOAuthURLGeneration:
             assert callback_url.startswith('http://')
 
 
+class TestGoogleOAuthRedirectUriSetting:
+    """GOOGLE_OAUTH_REDIRECT_URI 設定の検証。
+
+    コールバックのパスは Flask ルート ``/auth/google/callback`` で固定であり、
+    設定で上書きできるのはスキーム・ホストのみ。
+    """
+
+    def setup_method(self):
+        self.app = create_app()
+        self.app.config['TESTING'] = True
+        self.app.config['GOOGLE_CLIENT_ID'] = 'test-client-id'
+
+    def _start_oauth_redirect_uri(self) -> str:
+        """OAuth 開始 API を呼び、auth_url 中の redirect_uri を返す。"""
+        from presentation.web.api.routes import google_oauth_start
+        from urllib.parse import urlparse, parse_qs
+
+        with self.app.test_request_context(
+            '/api/google/oauth/start',
+            json={},
+            headers={'X-Forwarded-Proto': 'https'},
+        ):
+            response = self.app.make_response(google_oauth_start.__wrapped__())
+            assert response.status_code == 200
+            auth_url = response.get_json()['auth_url']
+        return parse_qs(urlparse(auth_url).query)['redirect_uri'][0]
+
+    def test_valid_override_is_used(self):
+        """パスが一致する値は redirect_uri としてそのまま使われる"""
+        self.app.config['GOOGLE_OAUTH_REDIRECT_URI'] = (
+            'https://stg.example.com/auth/google/callback'
+        )
+        assert self._start_oauth_redirect_uri() == (
+            'https://stg.example.com/auth/google/callback'
+        )
+
+    def test_wrong_path_falls_back_to_derived_url(self):
+        """パスが異なる値は無視され、自動生成 URL にフォールバックする（404 を防ぐ）"""
+        self.app.config['GOOGLE_OAUTH_REDIRECT_URI'] = (
+            'https://stg.example.com/oauth2callback'
+        )
+        redirect_uri = self._start_oauth_redirect_uri()
+        assert redirect_uri.endswith('/auth/google/callback')
+        assert 'oauth2callback' not in redirect_uri
+
+    def test_validator_accepts_only_fixed_path(self):
+        from presentation.web.utils import validate_google_oauth_redirect_uri
+
+        with self.app.test_request_context('/'):
+            assert validate_google_oauth_redirect_uri(
+                'https://stg.example.com/auth/google/callback'
+            ) is None
+            # パス違い・相対 URL・クエリ付きはすべて不正
+            assert validate_google_oauth_redirect_uri(
+                'https://stg.example.com/oauth2callback'
+            ) is not None
+            assert validate_google_oauth_redirect_uri('not-a-url') is not None
+            assert validate_google_oauth_redirect_uri(
+                'https://stg.example.com/auth/google/callback?x=1'
+            ) is not None
+
+    def test_admin_save_rejects_wrong_path(self):
+        """管理画面からの保存時、パスが異なる値はバリデーションエラーになる"""
+        from presentation.web.admin.routes import _parse_setting_value
+        from presentation.web.admin.system_settings_definitions import (
+            APPLICATION_SETTING_DEFINITIONS,
+        )
+
+        definition = APPLICATION_SETTING_DEFINITIONS['GOOGLE_OAUTH_REDIRECT_URI']
+        with self.app.test_request_context('/'):
+            with pytest.raises(ValueError):
+                _parse_setting_value(
+                    'GOOGLE_OAUTH_REDIRECT_URI',
+                    definition,
+                    'https://stg.example.com/oauth2callback',
+                )
+            # 正しいパスなら受理、空欄は「自動生成に戻す」として受理
+            assert _parse_setting_value(
+                'GOOGLE_OAUTH_REDIRECT_URI',
+                definition,
+                'https://stg.example.com/auth/google/callback',
+            ) == 'https://stg.example.com/auth/google/callback'
+            assert _parse_setting_value(
+                'GOOGLE_OAUTH_REDIRECT_URI', definition, ''
+            ) == ''
+
+
 if __name__ == '__main__':
     pytest.main([__file__])

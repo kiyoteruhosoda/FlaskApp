@@ -2,9 +2,15 @@ from __future__ import annotations
 
 """Helpers for building externally visible URLs."""
 
-from flask import Request, request
+from urllib.parse import urlsplit
+
+from flask import Request, current_app, request, url_for
 
 from shared.kernel.settings.settings import settings
+
+# Google OAuth コールバックの Flask エンドポイント。
+# コールバックのパスはこのルートで固定されており、設定では変更できない。
+GOOGLE_OAUTH_CALLBACK_ENDPOINT = "auth.google_oauth_callback"
 
 
 def _extract_forwarded_proto(forwarded_header: str | None) -> str | None:
@@ -70,4 +76,63 @@ def determine_external_scheme(req: Request | None = None) -> str:
     return "https"
 
 
-__all__ = ["determine_external_scheme"]
+def google_oauth_callback_path() -> str:
+    """Return the fixed URL path of the Google OAuth callback route."""
+
+    # url_for は PREFERRED_URL_SCHEME が空文字のときフル URL を返すことが
+    # あるため、URL マップからルート定義（変数なしの静的パス）を直接引く。
+    rule = next(current_app.url_map.iter_rules(GOOGLE_OAUTH_CALLBACK_ENDPOINT))
+    return rule.rule
+
+
+def validate_google_oauth_redirect_uri(value: str) -> str | None:
+    """Validate a GOOGLE_OAUTH_REDIRECT_URI value.
+
+    コールバックのパスは Flask ルートで固定されているため、設定で上書きできるのは
+    スキームとホストのみ。妥当なら ``None``、不正なら理由（英語）を返す。
+    """
+
+    parts = urlsplit(value)
+    if parts.scheme not in ("http", "https") or not parts.netloc:
+        return "must be an absolute http(s) URL"
+    expected_path = google_oauth_callback_path()
+    if parts.path != expected_path or parts.query or parts.fragment:
+        return f"URL path is fixed to {expected_path}"
+    return None
+
+
+def google_oauth_callback_url() -> str:
+    """Return the external Google OAuth callback URL (redirect_uri).
+
+    設定 ``GOOGLE_OAUTH_REDIRECT_URI`` が妥当（パスがコールバックルートと一致）
+    ならそれを使い、不正な値は警告ログを出して無視する。未設定・無効時は
+    リクエストのホストと ``determine_external_scheme()`` から自動生成する。
+    認可リクエストとトークン交換の両方で必ずこの関数を使うこと（redirect_uri は
+    両者で完全一致が必要）。
+    """
+
+    configured = settings.google_oauth_redirect_uri
+    if configured:
+        reason = validate_google_oauth_redirect_uri(configured)
+        if reason is None:
+            return configured
+        current_app.logger.warning(
+            "Ignoring GOOGLE_OAUTH_REDIRECT_URI %r: %s. "
+            "Falling back to the auto-derived callback URL.",
+            configured,
+            reason,
+        )
+
+    return url_for(
+        GOOGLE_OAUTH_CALLBACK_ENDPOINT,
+        _external=True,
+        _scheme=determine_external_scheme(),
+    )
+
+
+__all__ = [
+    "determine_external_scheme",
+    "google_oauth_callback_path",
+    "google_oauth_callback_url",
+    "validate_google_oauth_redirect_uri",
+]

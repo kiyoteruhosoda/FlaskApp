@@ -241,11 +241,17 @@ GOOGLE_CLIENT_SECRET=<google-client-secret>
 MEDIA_DOWNLOAD_SIGNING_KEY=<signing-key>
 ```
 
-Google アカウント連携の詳細設定（`GOOGLE_OAUTH_REDIRECT_URI` =
-コールバック URL の明示指定、`GOOGLE_PHOTO_PICKER_SCOPES` = Photo Picker で
-要求する OAuth スコープ）は管理画面の System Settings（Identity Providers
-セクション）から変更できる。未設定時はリクエストホストから自動生成／既定
-スコープが使われる。
+Google アカウント連携の詳細設定は管理画面の System Settings（Identity
+Providers セクション）から変更できる。
+
+- `GOOGLE_OAUTH_REDIRECT_URI` — OAuth コールバック URL のスキーム・ホストを
+  上書きする（リバースプロキシ配下で自動判定が効かない場合のみ設定）。
+  **パスは `/auth/google/callback`（Flask ルート）で固定・変更不可**。
+  パスが異なる値は保存時に拒否される。空欄（既定）ならリクエストから
+  `https://<request-host>/auth/google/callback` を自動生成する。
+  Google Cloud Console の「承認済みのリダイレクト URI」には同じ URL を登録する。
+- `GOOGLE_PHOTO_PICKER_SCOPES` — Photo Picker 連携で要求する OAuth スコープ。
+  未設定時は既定スコープが使われる。
 
 > DB・メディアのディレクトリは compose の `init-paths` サービスが起動時に自動作成する。File Station での手動作成は不要。
 

@@ -88,7 +88,7 @@ from ..auth.service_account_auth import (
     ServiceAccountTokenValidator,
 )
 from shared.kernel.settings.settings import settings
-from presentation.web.utils import determine_external_scheme
+from presentation.web.utils import google_oauth_callback_url
 import jwt
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func, select, case
@@ -2039,15 +2039,9 @@ def google_oauth_start():
         f"OAuth start - PREFERRED_URL_SCHEME: {settings.preferred_url_scheme}"
     )
     
-    # システム設定でコールバック URL が明示されていればそれを優先する
-    callback_url = settings.google_oauth_redirect_uri
-    if not callback_url:
-        callback_scheme = determine_external_scheme()
-        callback_url = url_for(
-            "auth.google_oauth_callback",
-            _external=True,
-            _scheme=callback_scheme,
-        )
+    # パスは /auth/google/callback 固定。GOOGLE_OAUTH_REDIRECT_URI は
+    # スキーム・ホストの上書きのみ（詳細は google_oauth_callback_url 参照）。
+    callback_url = google_oauth_callback_url()
     current_app.logger.info(f"OAuth start - Generated callback URL: {callback_url}")
     
     params = {

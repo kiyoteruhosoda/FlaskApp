@@ -171,14 +171,14 @@ class TestAdminPermissionsApi:
         assert res.status_code == 403
 
     def test_list_permissions_success(self, client, app_context):
-        user = _create_admin(app_context, "admin:system-settings")
+        user = _create_admin(app_context, "permission:manage")
         _login(client, user)
         res = client.get("/api/admin/permissions")
         assert res.status_code == 200
         assert "permissions" in res.get_json()
 
     def test_create_permission(self, client, app_context):
-        user = _create_admin(app_context, "admin:system-settings")
+        user = _create_admin(app_context, "permission:manage")
         _login(client, user)
         res = client.post("/api/admin/permissions", json={"code": "test:action", "detail": "Test action"})
         assert res.status_code == 201
@@ -187,7 +187,7 @@ class TestAdminPermissionsApi:
         assert data["permission"]["detail"] == "Test action"
 
     def test_create_permission_duplicate_code(self, client, app_context):
-        user = _create_admin(app_context, "admin:system-settings")
+        user = _create_admin(app_context, "permission:manage")
         _login(client, user)
         client.post("/api/admin/permissions", json={"code": "dup:perm"})
         res = client.post("/api/admin/permissions", json={"code": "dup:perm"})
@@ -195,7 +195,7 @@ class TestAdminPermissionsApi:
         assert res.get_json()["error"] == "code_exists"
 
     def test_update_permission(self, client, app_context):
-        user = _create_admin(app_context, "admin:system-settings")
+        user = _create_admin(app_context, "permission:manage")
         _login(client, user)
         create_res = client.post("/api/admin/permissions", json={"code": "upd:perm"})
         perm_id = create_res.get_json()["permission"]["id"]
@@ -205,7 +205,7 @@ class TestAdminPermissionsApi:
         assert res.get_json()["permission"]["detail"] == "Updated detail"
 
     def test_delete_permission(self, client, app_context):
-        user = _create_admin(app_context, "admin:system-settings")
+        user = _create_admin(app_context, "permission:manage")
         _login(client, user)
         create_res = client.post("/api/admin/permissions", json={"code": "del:perm"})
         perm_id = create_res.get_json()["permission"]["id"]
@@ -215,7 +215,7 @@ class TestAdminPermissionsApi:
         assert res.get_json()["result"] == "deleted"
 
     def test_search_permissions(self, client, app_context):
-        user = _create_admin(app_context, "admin:system-settings")
+        user = _create_admin(app_context, "permission:manage")
         _login(client, user)
         client.post("/api/admin/permissions", json={"code": "search:alpha"})
         client.post("/api/admin/permissions", json={"code": "search:beta"})
@@ -323,7 +323,7 @@ class TestAdminServiceAccountsApi:
         assert res.status_code == 403
 
     def test_create_and_list(self, client, app_context):
-        user = _create_admin(app_context, "admin:system-settings")
+        user = _create_admin(app_context, "service_account:manage")
         _login(client, user)
 
         create_res = client.post(
@@ -341,7 +341,7 @@ class TestAdminServiceAccountsApi:
         assert "backup-bot" in names
 
     def test_update_service_account(self, client, app_context):
-        user = _create_admin(app_context, "admin:system-settings")
+        user = _create_admin(app_context, "service_account:manage")
         _login(client, user)
 
         create_res = client.post("/api/admin/service-accounts", json={"name": "old-bot"})
@@ -357,7 +357,7 @@ class TestAdminServiceAccountsApi:
         assert updated["isActive"] is False
 
     def test_delete_service_account(self, client, app_context):
-        user = _create_admin(app_context, "admin:system-settings")
+        user = _create_admin(app_context, "service_account:manage")
         _login(client, user)
 
         create_res = client.post("/api/admin/service-accounts", json={"name": "to-del-bot"})

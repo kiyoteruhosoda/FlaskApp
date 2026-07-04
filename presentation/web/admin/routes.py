@@ -117,10 +117,10 @@ def _can_read_api_keys() -> bool:
 def _can_manage_groups() -> bool:
     if not hasattr(current_user, "can"):
         return False
-    # "group:manage" は shared/domain/auth/master_data.py の PERMISSION_CODES に
-    # 存在しないため、どのロールにも付与され得ない（常に False になる）。
-    # React SPA (GroupsPage) が使う `/api/admin/groups` は user:manage を要求して
-    # おり、Sidebar のリンク表示も同じ権限で判定しているため、それに合わせる。
+    # グループ管理は現状 user:manage で認可する（React SPA の `/api/admin/groups`
+    # と Sidebar の表示判定も同じ）。"group:manage" は PERMISSION_CODES に定義済み
+    # だが、ユーザー⇔グループ／グループ⇔ロール紐づけ機能（docs/Progress.md の
+    # T7/T8）実装時にそちらへ切り替える予定。
     return current_user.can("user:manage")
 
 
@@ -405,6 +405,15 @@ def _build_setting_row(
     stored_value = stored_payload.get(key)
     default_value = defaults.get(key)
 
+    # 実効値の取得元（優先順位: 環境変数 > DB > デフォルト）。
+    # 「.env に設定したのに反映されない」を画面上で診断できるようにする。
+    if os.environ.get(key) is not None:
+        value_source = "environment"
+    elif stored_has_value:
+        value_source = "database"
+    else:
+        value_source = "default"
+
     if key in override_values:
         form_value = override_values[key]
     elif stored_has_value:
@@ -448,6 +457,8 @@ def _build_setting_row(
         "allow_null": definition.allow_null,
         "editable": definition.editable,
         "default_hint": definition.default_hint,
+        "input_suffix": definition.input_suffix,
+        "value_source": value_source,
         "search_text": search_text,
     }
 
@@ -778,6 +789,27 @@ def _parse_setting_value(key: str, definition: SettingFieldDefinition, raw_value
         if definition.allow_null:
             return None
         raise ValueError(_(u"Value for %(key)s is required.", key=label))
+
+    # OAuth コールバックのパスは Flask ルートで固定されているため、
+    # この設定はスキーム・ホストのみを受け付ける（保存後に 404 や
+    # redirect_uri_mismatch で気付くのを防ぐ）。
+    if key == "GOOGLE_OAUTH_REDIRECT_ORIGIN":
+        from presentation.web.utils import (
+            google_oauth_callback_path,
+            validate_google_oauth_redirect_origin,
+        )
+
+        if validate_google_oauth_redirect_origin(value) is not None:
+            raise ValueError(
+                _(
+                    u"%(key)s must contain only the scheme and host "
+                    u"(e.g. https://example.com). The callback path %(path)s "
+                    u"is appended automatically and cannot be changed; "
+                    u"leave empty to derive scheme and host from the request.",
+                    key=label,
+                    path=google_oauth_callback_path(),
+                )
+            )
     return value
 
 

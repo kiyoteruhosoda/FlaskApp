@@ -64,6 +64,10 @@ class TestCeleryAppConfiguration:
         monkeypatch.setenv('SECRET_KEY', 'test-secret')
         db_path = tmp_path / 'celery_app.db'
         monkeypatch.setenv('DATABASE_URI', f'sqlite:///{db_path}')
+        # 優先順位は「環境変数 > DB > デフォルト」。本テストは DB（persisted）値の
+        # 適用を検証するため、他テストから漏れた環境変数があれば取り除く。
+        for env_key in ('ENCRYPTION_KEY', 'CELERY_BROKER_URL', 'CELERY_RESULT_BACKEND'):
+            monkeypatch.delenv(env_key, raising=False)
 
         monkeypatch.setattr(
             SystemSettingService,
@@ -124,12 +128,15 @@ class TestFlaskAppCreation:
         app = create_app()
 
         assert app is not None
+        # 設定の優先順位は「環境変数 > DB > デフォルト」。@patch.dict で
+        # SECRET_KEY=test-secret を環境変数へ設定しているため、
+        # BaseApplicationSettings のデフォルト値ではなく env 値が実効値になる。
+        assert app.config['SECRET_KEY'] == 'test-secret'
         # 他テストが presentation.web.bootstrap.config を importlib.reload すると
         # BaseApplicationSettings のクラス同一性が変わり、新規 import したクラスは
         # create_app が参照する（reload 前の）クラスと属性値が乖離しうる。
         # create_app が実際に保持する参照を用いて決定的に検証する。
         base_settings = celery_app_module.BaseApplicationSettings
-        assert app.config['SECRET_KEY'] == base_settings.SECRET_KEY
         assert app.config['SQLALCHEMY_DATABASE_URI'] == base_settings.SQLALCHEMY_DATABASE_URI
     
     @patch.dict(os.environ, {

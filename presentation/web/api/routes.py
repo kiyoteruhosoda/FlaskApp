@@ -88,7 +88,7 @@ from ..auth.service_account_auth import (
     ServiceAccountTokenValidator,
 )
 from shared.kernel.settings.settings import settings
-from presentation.web.utils import determine_external_scheme
+from presentation.web.utils import google_oauth_callback_url
 import jwt
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func, select, case
@@ -1963,13 +1963,15 @@ REQUIRED_GOOGLE_OAUTH_SCOPES = {
     "https://www.googleapis.com/auth/userinfo.email",
 }
 
-GOOGLE_OAUTH_SCOPE_SETS = {
-    "photo_picker": {
-        "https://www.googleapis.com/auth/photospicker.mediaitems.readonly",
-        "https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata",
-        "https://www.googleapis.com/auth/photoslibrary.appendonly",
-    },
-}
+
+def _google_oauth_profile_scopes(scope_profile: str) -> set[str] | None:
+    """名前付きスコーププロファイルを解決する。未知のプロファイルは None。
+
+    photo_picker のスコープはシステム設定 GOOGLE_PHOTO_PICKER_SCOPES から取得する。
+    """
+    if scope_profile == "photo_picker":
+        return set(settings.google_photo_picker_scopes)
+    return None
 
 
 @bp.post("/google/oauth/start")
@@ -2008,12 +2010,30 @@ GOOGLE_OAUTH_SCOPE_SETS = {
 )
 def google_oauth_start():
     """Start Google OAuth flow by returning an authorization URL."""
+    # 取得したトークンは ENCRYPTION_KEY で暗号化して保存する。未設定のまま
+    # Google の同意画面まで進ませてもコールバックで必ず失敗するため、
+    # ここで分かりやすく中断する。
+    if not settings.token_encryption_key:
+        return (
+            jsonify(
+                {
+                    "error": "encryption_key_not_configured",
+                    "message": (
+                        "Token encryption key (ENCRYPTION_KEY) is not configured. "
+                        "Set it in System Settings > Security & Signing before "
+                        "linking a Google account."
+                    ),
+                }
+            ),
+            400,
+        )
+
     data = request.get_json(silent=True) or {}
     scopes = set(data.get("scopes") or [])
     scope_profile = data.get("scope_profile")
 
     if scope_profile:
-        profile_scopes = GOOGLE_OAUTH_SCOPE_SETS.get(scope_profile)
+        profile_scopes = _google_oauth_profile_scopes(scope_profile)
         if profile_scopes is None:
             return (
                 jsonify({"error": "invalid_scope_profile", "scope_profile": scope_profile}),
@@ -2025,10 +2045,14 @@ def google_oauth_start():
     sorted_scopes = sorted(scopes)
     redirect_target = data.get("redirect")
     state = secrets.token_urlsafe(16)
+    current_principal = get_current_user()
     session["google_oauth_state"] = {
         "state": state,
         "scopes": sorted_scopes,
         "redirect": redirect_target,
+        # コールバック時に JWT クッキーが失効していてもアカウントを
+        # 正しいユーザーに紐づけられるよう、開始時点のユーザー ID を保持する
+        "user_id": getattr(current_principal, "id", None),
     }
     
     # デバッグ情報を追加
@@ -2037,12 +2061,9 @@ def google_oauth_start():
         f"OAuth start - PREFERRED_URL_SCHEME: {settings.preferred_url_scheme}"
     )
     
-    callback_scheme = determine_external_scheme()
-    callback_url = url_for(
-        "auth.google_oauth_callback",
-        _external=True,
-        _scheme=callback_scheme,
-    )
+    # パスは /auth/google/callback 固定。GOOGLE_OAUTH_REDIRECT_ORIGIN は
+    # スキーム・ホストの上書きのみ（詳細は google_oauth_callback_url 参照）。
+    callback_url = google_oauth_callback_url()
     current_app.logger.info(f"OAuth start - Generated callback URL: {callback_url}")
     
     params = {
@@ -2089,13 +2110,21 @@ def debug_request_info():
 @bp.get("/google/accounts")
 @login_or_jwt_required
 def api_google_accounts():
-    """Return paginated list of linked Google accounts."""
-    
+    """Return paginated list of linked Google accounts.
+
+    ``?mine=1`` を指定すると現在のユーザーに紐づくアカウントのみ返す
+    （プロフィール画面などユーザー自身の連携管理用）。
+    """
+
     # ページングパラメータの取得
     params = PaginationParams.from_request(default_page_size=200)
-    
+
     # ベースクエリ
     query = GoogleAccount.query
+    if request.args.get("mine", type=int):
+        user = get_current_user()
+        user_id = getattr(user, "id", None)
+        query = query.filter(GoogleAccount.user_id == user_id)
     
     # Googleアカウントのシリアライザ関数
     def serialize_google_account(account):

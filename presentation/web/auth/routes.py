@@ -12,7 +12,7 @@ import requests
 import json
 from datetime import datetime, timezone, timedelta
 from typing import Any, Iterable
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_babel import gettext as _, force_locale
 from sqlalchemy import select
@@ -46,7 +46,7 @@ from ..services.gui_access_cookie import (
     normalize_scope_items,
 )
 from shared.kernel.settings.settings import settings
-from ..utils import determine_external_scheme
+from ..utils import determine_external_scheme, google_oauth_callback_url
 from webauthn.helpers import base64url_to_bytes
 
 
@@ -1534,24 +1534,46 @@ def logout():
 
 
 
+def _google_link_result_redirect(saved: dict, result: str, **params):
+    """OAuth リンク結果を SPA に伝えるリダイレクトを生成する。
+
+    React SPA は Flask の flash メッセージを表示できないため、結果を
+    クエリパラメータ（google_link=ok|error 等）で戻し先ページへ引き渡す。
+    """
+    target = (saved or {}).get("redirect") or url_for("admin.google_accounts")
+    query = urlencode({"google_link": result, **{k: v for k, v in params.items() if v}})
+    separator = "&" if "?" in target else "?"
+    return redirect(f"{target}{separator}{query}")
+
+
 @bp.get("/google/callback")
 def google_oauth_callback():
     """Google OAuth callback handler."""
+    saved = session.get("google_oauth_state") or {}
+
     if request.args.get("error"):
         flash(_("Google OAuth error: %(msg)s", msg=request.args["error"]), "error")
-        return _redirect_to("admin.google_accounts")
+        return _google_link_result_redirect(saved, "error", reason=request.args["error"])
 
     code = request.args.get("code")
     state = request.args.get("state")
-    saved = session.get("google_oauth_state") or {}
     if not code or state != saved.get("state"):
         flash(_("Invalid OAuth state."), "error")
-        return _redirect_to("admin.google_accounts")
+        return _google_link_result_redirect(saved, "error", reason="invalid_state")
 
-    callback_scheme = determine_external_scheme()
-    callback_url = url_for(
-        "auth.google_oauth_callback", _external=True, _scheme=callback_scheme
-    )
+    # アカウントの紐づけ先。OAuth 開始時に保存したユーザー ID を優先し、
+    # （後方互換で）無ければ現在の認証情報から取る。どちらも無ければ
+    # 紐づけ先が特定できないため中断する。
+    link_user_id = saved.get("user_id")
+    if link_user_id is None and getattr(current_user, "is_authenticated", False):
+        link_user_id = current_user.id
+    if link_user_id is None:
+        flash(_("Please sign in before linking a Google account."), "error")
+        return _google_link_result_redirect(saved, "error", reason="login_required")
+
+    # トークン交換の redirect_uri は認可要求時と完全一致が必要なため、
+    # 認可開始側と同じヘルパーで生成する
+    callback_url = google_oauth_callback_url()
 
     token_data = {
         "code": code,
@@ -1576,14 +1598,23 @@ def google_oauth_callback():
             timeout=10
         )
         tokens = token_res.json()
-        current_app.logger.info(f"OAuth token response: {tokens}")
+        # トークン本体（access_token / refresh_token）はログに残さない
         if "error" in tokens:
+            current_app.logger.error(
+                "OAuth token exchange failed: %s (%s)",
+                tokens["error"],
+                tokens.get("error_description", ""),
+            )
             flash(_("Google token error: %(msg)s", msg=tokens.get("error_description", tokens["error"])), "error")
-            return _redirect_to("admin.google_accounts")
+            return _google_link_result_redirect(saved, "error", reason="token_error")
+        current_app.logger.info(
+            "OAuth token exchange succeeded (response keys: %s)",
+            sorted(tokens.keys()),
+        )
     except Exception as e:
         current_app.logger.error(f"Failed to obtain token from Google: {str(e)}")
         flash(_("Failed to obtain token from Google: %(msg)s", msg=str(e)), "error")
-        return _redirect_to("admin.google_accounts")
+        return _google_link_result_redirect(saved, "error", reason="token_error")
 
     access_token = tokens.get("access_token")
     email = None
@@ -1603,25 +1634,36 @@ def google_oauth_callback():
 
     if not email:
         flash(_("Failed to fetch email from Google."), "error")
-        return _redirect_to("admin.google_accounts")
+        return _google_link_result_redirect(saved, "error", reason="email_fetch_failed")
+
+    # トークンは ENCRYPTION_KEY で暗号化して保存する。鍵未設定などで失敗しても
+    # 500 にせず、結果をリダイレクトで画面に返す。
+    try:
+        encrypted_tokens = encrypt(json.dumps(tokens))
+    except Exception:
+        current_app.logger.exception(
+            "Failed to encrypt Google OAuth tokens. "
+            "Is the token encryption key (ENCRYPTION_KEY) configured?"
+        )
+        flash(_("Token encryption key is not configured."), "error")
+        return _google_link_result_redirect(saved, "error", reason="encryption_key_missing")
 
     account = GoogleAccount.query.filter_by(email=email).first()
     scopes = saved.get("scopes") or []
     if not account:
-        account = GoogleAccount(email=email, scopes=",".join(scopes), user_id=current_user.id)
+        account = GoogleAccount(email=email, scopes=",".join(scopes), user_id=link_user_id)
         db.session.add(account)
     else:
         account.scopes = ",".join(scopes)
         account.status = "active"
-        account.user_id = current_user.id
-    account.oauth_token_json = encrypt(json.dumps(tokens))
+        account.user_id = link_user_id
+    account.oauth_token_json = encrypted_tokens
     account.last_synced_at = datetime.now(timezone.utc)
     db.session.commit()
 
-    redirect_to = saved.get("redirect") or url_for("admin.google_accounts")
     session.pop("google_oauth_state", None)
     flash(_("Google account linked: %(email)s", email=email), "success")
-    return redirect(redirect_to)
+    return _google_link_result_redirect(saved, "ok", email=email)
 
 
 @bp.get("/picker")

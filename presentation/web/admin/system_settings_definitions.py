@@ -34,6 +34,9 @@ class SettingFieldDefinition:
     choices: Sequence[tuple[str, str]] | None = None
     default_hint: str | None = None
     editable: bool = True
+    # 入力欄の直後に表示する固定サフィックス（例: 固定 URL パス）。
+    # 「値の一部が固定で変更不可」であることを UI 上で明示するために使う。
+    input_suffix: str | None = None
 
     def __post_init__(self) -> None:
         if self.data_type not in _ALLOWED_FIELD_TYPES:
@@ -100,13 +103,14 @@ _SECURITY_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         required=False,
         description=_(
             u"32-byte base64 key used to encrypt Google account refresh tokens. "
-            "Changing this value prevents previously stored tokens from being decrypted."
+            "Required before linking a Google account. Changing this value "
+            "prevents previously stored tokens from being decrypted."
         ),
         allow_empty=True,
         allow_null=True,
         default_hint=_(
-            u"Default: base64:ZGVmYXVsdC1nb29nbGUtZW5jcnlwdGlvbi1rZXktISE= "
-            "(preconfigured for Google integration)."
+            u"No default - generate one with: python3 -c \"import base64, os; "
+            "print('base64:' + base64.urlsafe_b64encode(os.urandom(32)).decode())\""
         ),
     ),
     SettingFieldDefinition(
@@ -248,6 +252,38 @@ _OAUTH_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         data_type="string",
         required=False,
         description=_(u"Client secret for Google sign-in."),
+        allow_empty=True,
+    ),
+    SettingFieldDefinition(
+        key="GOOGLE_OAUTH_REDIRECT_ORIGIN",
+        label=_(u"Google OAuth redirect scheme and host"),
+        data_type="string",
+        required=False,
+        description=_(
+            u"Scheme and host used for the OAuth callback URL sent to Google "
+            "(e.g. https://photos.example.com), for reverse-proxy setups where "
+            "they cannot be detected from the request. The callback path "
+            "/auth/google/callback is fixed and appended automatically - it "
+            "cannot be changed. Register the resulting full URL in the Google "
+            "Cloud console."
+        ),
+        allow_empty=True,
+        default_hint=_(
+            u"Default: empty - the scheme and host are derived from the "
+            "request, producing https://<request-host>/auth/google/callback."
+        ),
+        input_suffix="/auth/google/callback",
+    ),
+    SettingFieldDefinition(
+        key="GOOGLE_PHOTO_PICKER_SCOPES",
+        label=_(u"Google Photo Picker scopes"),
+        data_type="list",
+        required=False,
+        description=_(
+            u"OAuth scopes requested when linking a Google account for the "
+            "Photo Picker import flow."
+        ),
+        multiline=True,
         allow_empty=True,
     ),
 )

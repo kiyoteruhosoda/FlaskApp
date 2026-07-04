@@ -5,7 +5,130 @@
 
 ## [Unreleased]
 
+### Fixed
+- **環境変数で設定した値が無視される問題を修正**（`.env` に `ENCRYPTION_KEY`
+  を設定しても「Encryption key not configured」が続く障害の根本原因）。
+  `apply_persisted_settings` が「デフォルト + DB」の全キーを `app.config` へ
+  書き込むため、環境変数の値がデフォルト（None 等）に潰されて設定解決が
+  環境変数まで到達しなかった。文書化された優先順位「環境変数 > DB > デフォルト」
+  どおり、環境変数が定義されたキーは env 値（デフォルトの型に合わせて
+  bool/int/float/list へ変換）を採用するよう修正
+  （`tests/webapp/test_settings_env_priority.py` で回帰検証）。
+- **セッション失効時にログイン画面へ遷移しない問題を修正**。401 応答時の
+  トークンリフレッシュが「例外ではなく失敗レスポンス」で返るパスに
+  後続処理が無く、画面が止まったままだった。リフレッシュ失敗時は
+  トークンを破棄して `/login` へ遷移する（多重リダイレクト防止付き）。
+
 ### Added
+- **System Settings の各項目に実効値の取得元バッジ（ENV / DB / デフォルト）を
+  表示**。環境変数で上書きされている項目には「ここで保存した変更は環境変数を
+  外すまで反映されない」旨の注意を表示し、「.env に設定したのに反映されない」
+  を画面上で診断できるようにした。
+- **ENCRYPTION_KEY 未設定時に Google アカウント連携が 500 になる問題を修正**。
+  トークン保存時の暗号化で `RuntimeError` が発生し、Google の同意画面を
+  通過した後にサーバー内部エラーになっていた。①OAuth 開始 API で事前チェックし
+  `encryption_key_not_configured`(400) と設定手順を返す（同意画面へ進む前に
+  分かる）、②コールバックでも暗号化失敗を捕捉し `reason=encryption_key_missing`
+  で画面へ戻す、③ENCRYPTION_KEY の default_hint が「preconfigured」と実態
+  （デフォルトなし）に反していたのを生成コマンド付きの正しい説明に修正、
+  ④OPERATIONS.md の .env 例に `ENCRYPTION_KEY` を追記。
+- **設定更新が一部のリクエストで反映されない問題（OAuth の client_id が空になる等）
+  を修正**。DB 保存設定（system_settings）は起動時と「更新リクエストを処理した
+  ワーカー」の `app.config` にしか反映されず、Gunicorn の他ワーカーは再起動まで
+  古い値を使い続けていた。リクエストごと（最大10秒間隔の軽量クエリ）に
+  `system_settings.updated_at` を確認し、更新されていれば再適用する
+  `refresh_persisted_settings_if_stale` を追加（`bootstrap/persisted_settings.py`）。
+- **admin で権限管理・サービスアカウント管理に到達できない問題を修正**。
+  権限 CRUD API のゲートを `admin:system-settings` → `permission:manage`、
+  サービスアカウント管理を → `service_account:manage` に変更（ユビキタス言語の
+  scope に統一）。これによりロール編集モーダルの権限チェックボックス
+  （ロール⇔権限の紐づけ）と Permissions 画面（権限の作成・編集・削除）が
+  admin で利用可能になった。
+- **DB ベースライン（`db/init/01_initialize.sql`）と権限マスタの乖離を解消**。
+  ベースラインに `admin:system-settings` が無く（`stamp head` 運用では同期
+  マイグレーションも実行されないため）付与されなかった。ベースラインに権限と
+  admin への付与を追加し、ベースライン側にのみ存在した `group:manage` を
+  `master_data.py` の `PERMISSION_CODES` にも追加して整合させた。
+- **OAuth トークン交換のログ改善**: トークンレスポンス全体（アクセストークン・
+  リフレッシュトークンを含む）を INFO で出力していたのをやめ、成功時はキー名
+  のみ、エラー時は ERROR レベルで記録。外向き HTTP ログ（http_logging）の
+  マスク対象に `code`（認可コード）・`client_secret`・`password` を追加。
+- **API リクエスト/レスポンスログに発生源を明記**。`{"method": "GET"}` のような
+  発生源不明のログにならないよう、入出力ログのメッセージ本体に
+  method / path / status / requestId を常に含めるようにした。
+
+### Changed
+- **`GOOGLE_OAUTH_REDIRECT_URI` 設定を `GOOGLE_OAUTH_REDIRECT_ORIGIN` に変更**
+  （ラベル: Google OAuth redirect scheme and host）。設定値はスキーム・ホストのみ
+  （例 `https://photos.example.com`）で、固定パス `/auth/google/callback` は
+  自動付与される。管理画面の入力欄にも固定パスをサフィックス表示
+  （`input_suffix`）。旧キー（フル URL）も後方互換で受け付ける。
+
+### Added
+- **プロフィールに「Google アカウント連携」セクションを追加**
+  （`GoogleAccountLinkSection.tsx`）。自分のアカウントの登録（OAuth リンク）・
+  一覧・連携解除ができる。バックエンド `GET /api/google/accounts` に
+  `?mine=1`（自分に紐づくアカウントのみ返す）を追加。
+- **Photo Imports に「Google フォトから取り込み」カードを追加**。共通モーダル
+  `GooglePhotosImportModal.tsx`（Sessions ページの実装を共通化）で連携アカウント
+  を選んで Picker セッションを作成する。アカウント未登録時はプロフィールの
+  連携セクションへ誘導する。
+- **サイドバーをカテゴリ折りたたみ式に変更**。「メディア」「取り込み・同期」
+  「管理」のカテゴリヘッダで開閉でき、状態は localStorage に保存。
+  アイコンのみの折りたたみ幅ではカテゴリを常時展開する。
+
+### Fixed
+- **admin でもロール管理画面が「権限がありません」になる問題を修正**。
+  `admin:system-settings` と `media:session` が API・画面で要求されているのに
+  権限マスタ（`shared/domain/auth/master_data.py` の `PERMISSION_CODES`）に
+  存在せず、どのロールにも付与できなかった。マスタへ追加（admin は全権限、
+  manager に `media:session` を付与）し、適用済み DB 向けに不足分を冪等同期する
+  マイグレーション `4c8d1e2f5a09_sync_permission_master_data.py` を追加。
+  これによりサイドバーの管理系リンク（System Overview / Permissions /
+  Service Accounts / Google Accounts）と Sessions / Sync Jobs も admin に
+  表示されるようになる。ロール⇔権限の紐づけ UI は Roles 画面の作成・編集
+  モーダル（権限チェックボックス）で、権限一覧の取得失敗時もロール一覧表示は
+  維持されるよう分離した。
+- **Google アカウントリンク後に画面へ結果が反映されない問題を修正**。
+  OAuth コールバックの成否が Flask flash のみで通知され React SPA では
+  何も表示されなかった。結果をクエリパラメータ（`google_link=ok|error`・
+  `email`・`reason`）で戻り先に引き渡し、Google Accounts 画面と
+  プロフィールの連携セクションが成功／失敗アラートを表示する。
+  併せてコールバックが `current_user.id` に依存していて JWT クッキー失効時に
+  失敗する問題を、OAuth 開始時にユーザー ID をセッション state へ保存して
+  解消（`tests/webapp/auth/test_google_oauth_callback.py` で検証）。
+
+- **Google アカウント連携ページを新設**（`/admin/google-accounts`、
+  `GoogleAccountsPage.tsx`）。Sidebar からリンクのみ存在しページ未実装だったものを
+  実装。Google アカウント登録（`POST /api/google/oauth/start` → 認可 URL へ遷移、
+  コールバック後に本ページへ復帰）、連携済みアカウント一覧・有効/無効切替
+  （PATCH）・接続テスト（POST `/test`）・連携解除（DELETE、リフレッシュトークン
+  失効込み）ができる。
+- **Google フォトからの Photo インポート UI を追加**（Sessions ページ）。
+  連携済みアカウントを選択して `POST /api/picker/session` で Picker セッションを
+  作成し、`pickerUri` を新規タブで開く。作成後はセッション詳細への導線を表示。
+- **Google 連携用のシステム設定項目を追加**: `GOOGLE_OAUTH_REDIRECT_URI`
+  （OAuth コールバック URL のスキーム・ホスト上書き。パスは
+  `/auth/google/callback`（Flask ルート）で固定・変更不可で、パスが異なる値は
+  保存時に拒否、環境変数等から不正な値が入った場合も警告ログを出して自動生成へ
+  フォールバックする。空ならリクエストから自動生成）と
+  `GOOGLE_PHOTO_PICKER_SCOPES`（Photo Picker 連携で要求するスコープの一覧）。
+  defaults / settings.py / system_settings_definitions.py の3点セットで追加。
+  redirect_uri は認可開始とトークン交換で完全一致が必要なため、両方が共通の
+  `google_oauth_callback_url()`（`presentation/web/utils/url_helpers.py`）で
+  生成する。
+- **メディア検索を追加**（Media Gallery）。タグ（複数選択）・撮影日時範囲・
+  メディア種別（写真/動画）で絞り込める `MediaSearchBar.tsx` を新設。
+  バックエンド `GET /api/media` の既存 `tags`/`after`/`before`/`type`
+  パラメータを利用（従来フロントは未対応の `is_video` を送っており種別フィルタが
+  効いていなかった不具合も修正）。
+- **アルバムへのメディア追加・表紙選択を実装**（アルバム詳細ページ）。
+  「メディアを追加」からメディア検索（タグ・撮影日時・種別）付きの複数選択
+  モーダル（`MediaPickerModal.tsx`）で画像・動画を選んで追加
+  （`PUT /api/albums/<id>` の `mediaIds`）。各メディアカードの
+  「表紙に設定」ボタンで表紙（`coverMediaId`）を選択でき、現表紙には
+  バッジを表示。
+
 - **`/healthz` を Web・API 双方に追加**（`presentation/web/routes/health.py` /
   `presentation/web/api/health.py`）。既存の `/health/live`・`/health/ready`
   （DB・NAS・Redis 疎通チェック）とは別に、デプロイ後「どのビルドが動作しているか」を
@@ -39,6 +162,16 @@
   `isDefault: true` 付きで表示。デフォルトロールは UI で編集・削除ボタンを出さず、
   API 側でも `PUT`/`DELETE /api/admin/roles/<id>` が `default_role_immutable`(403) を
   返すようガードした。
+
+### Changed
+- **favicon の配信場所を `/static/favicon.ico` に変更**。`frontend/index.html`
+  の参照先を変更し、実体は `frontend/public/static/favicon.ico`（Vite）と
+  `presentation/web/static/favicon.ico`（Flask）に配置。旧 `/favicon.ico` への
+  リクエストは 302 で `/static/favicon.ico` へリダイレクトする。
+- **ログイン画面のスタイル修正**: ヘッダ以外の背景を白に統一
+  （`bg-light` を除去、Footer も白背景化）。高さを `h-100` 固定から
+  flex-grow ベースに変更し、内容が画面に収まる場合は縦スクロールが
+  発生しないようにした。
 
 ### Fixed
 - `deploy-stg.sh reset` の `flask db stamp head` が `Can't connect to MySQL server

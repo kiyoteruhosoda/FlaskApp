@@ -89,7 +89,14 @@ class TestCeleryAppContext:
         task = MockTask()
         with app.app_context():
             result = task()
-            assert result == app.config['SECRET_KEY']
+            # ContextTask は Celery 側の flask_app（celery_app モジュール
+            # import 時に生成）のコンテキストで実行される。環境変数は優先
+            # されるが反映タイミングは import 時点のため、fixture の app とは
+            # SECRET_KEY が一致しないことがある。Celery 側 app の値と比較する。
+            from cli.src.celery import celery_app as celery_app_module
+
+            assert result is not None
+            assert result == celery_app_module.flask_app.config['SECRET_KEY']
     
     def test_picker_import_watchdog_task_context(self, app, celery_app):
         """Test that picker_import_watchdog_task has proper Flask context."""

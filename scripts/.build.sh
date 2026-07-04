@@ -82,6 +82,9 @@ cd "$PROJECT_ROOT"
 
 check_prereqs
 
+GIT_COMMIT="$(git rev-parse --short HEAD)"
+GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+
 echo ""
 echo "=== Photonest ローカルビルド (target: $TARGET) ==="
 echo ""
@@ -99,6 +102,7 @@ BUILD_ELAPSED=$((BUILD_END - BUILD_START))
 
 echo ""
 echo "=== ビルド完了 ==="
+echo "Git バージョン: $GIT_COMMIT ($GIT_BRANCH)"
 for f in $ARTIFACTS; do
   if [ -f "$PROJECT_ROOT/$f" ]; then
     size=$(du -sh "$PROJECT_ROOT/$f" | cut -f1)

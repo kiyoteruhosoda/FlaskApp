@@ -146,8 +146,10 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div data-testid="login-page" className="h-100">
-      <Container fluid className="h-100 py-4 d-flex align-items-center justify-content-center bg-light">
+    // flex-grow + my-auto で「収まるときはスクロールなしで縦中央」「収まらない
+    // ときだけ自然にスクロール」を実現する（固定高さ h-100 は使わない）。
+    <div data-testid="login-page" className="flex-grow-1 d-flex flex-column bg-white">
+      <Container fluid className="my-auto py-4 d-flex align-items-center justify-content-center">
 
       <Row className="w-100">
         <Col md={6} lg={4} className="mx-auto">

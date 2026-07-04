@@ -15,6 +15,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { AlbumDetail, AlbumMediaItem } from '../types/api';
+import MediaPickerModal from '../components/MediaPickerModal';
 
 const VISIBILITY_OPTIONS = ['private', 'unlisted', 'public'] as const;
 
@@ -44,6 +45,12 @@ const AlbumDetailPage: React.FC = () => {
   const [orderedMedia, setOrderedMedia] = useState<AlbumMediaItem[]>([]);
   const [savingOrder, setSavingOrder] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+
+  // add media modal
+  const [showAddMedia, setShowAddMedia] = useState(false);
+
+  // cover selection
+  const [settingCoverId, setSettingCoverId] = useState<number | null>(null);
 
   const loadAlbum = useCallback(async () => {
     setIsLoading(true);
@@ -151,6 +158,31 @@ const AlbumDetailPage: React.FC = () => {
     setDragIdx(null);
   };
 
+  // 検索モーダルで選択したメディアをアルバム末尾に追加する
+  const handleAddMedia = async (mediaIds: number[]) => {
+    if (!album) return;
+    const currentIds = orderedMedia.map((m) => m.id);
+    const merged = [...currentIds, ...mediaIds.filter((id) => !currentIds.includes(id))];
+    const res = await apiClient.updateAlbumItem(albumId, { mediaIds: merged });
+    setAlbum(res.album);
+    setOrderedMedia(res.album.media);
+  };
+
+  // 表紙（カバー画像）を選択する
+  const handleSetCover = async (mediaId: number) => {
+    setSettingCoverId(mediaId);
+    setError(null);
+    try {
+      const res = await apiClient.updateAlbumItem(albumId, { coverMediaId: mediaId });
+      setAlbum(res.album);
+      setOrderedMedia(res.album.media);
+    } catch (e: any) {
+      setError(e?.response?.data?.message || e?.message || t('Failed to set cover'));
+    } finally {
+      setSettingCoverId(null);
+    }
+  };
+
   const saveOrder = async () => {
     setSavingOrder(true);
     try {
@@ -224,6 +256,13 @@ const AlbumDetailPage: React.FC = () => {
                 </>
               ) : (
                 <>
+                  <Button
+                    variant="primary"
+                    onClick={() => setShowAddMedia(true)}
+                    data-testid="album-add-media"
+                  >
+                    <i className="fa-solid fa-plus me-1" />{t('Add Media')}
+                  </Button>
                   {album.mediaCount > 0 && (
                     <Link
                       to={`/albums/${album.id}/slideshow`}
@@ -259,7 +298,10 @@ const AlbumDetailPage: React.FC = () => {
           {/* Media Grid */}
           {orderedMedia.length === 0 ? (
             <div className="text-center text-muted py-5" data-testid="album-empty">
-              {t('No media in this album')}
+              <p>{t('No media in this album')}</p>
+              <Button variant="outline-primary" onClick={() => setShowAddMedia(true)}>
+                <i className="fa-solid fa-plus me-1" />{t('Add Media')}
+              </Button>
             </div>
           ) : (
             <Row xs={2} sm={3} md={4} lg={5} className="g-3">
@@ -279,7 +321,7 @@ const AlbumDetailPage: React.FC = () => {
                     data-testid="album-media-card"
                   >
                     <div
-                      className="ratio ratio-1x1 bg-light d-flex align-items-center justify-content-center"
+                      className="ratio ratio-1x1 bg-light d-flex align-items-center justify-content-center position-relative"
                       style={{ overflow: 'hidden' }}
                     >
                       {thumbs[m.id] ? (
@@ -291,6 +333,35 @@ const AlbumDetailPage: React.FC = () => {
                         />
                       ) : (
                         <i className="fa-solid fa-image text-muted fs-2" />
+                      )}
+                      {album.coverMediaId === m.id && (
+                        <div className="position-absolute top-0 start-0 m-1">
+                          <Badge bg="warning" text="dark" data-testid="album-cover-badge">
+                            <i className="fa-solid fa-star me-1" />{t('Cover')}
+                          </Badge>
+                        </div>
+                      )}
+                      {!isReordering && album.coverMediaId !== m.id && (
+                        <div className="position-absolute top-0 end-0 m-1">
+                          <Button
+                            variant="light"
+                            size="sm"
+                            className="py-0 px-1 border"
+                            title={t('Set as cover')}
+                            disabled={settingCoverId !== null}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSetCover(m.id);
+                            }}
+                            data-testid="album-set-cover"
+                          >
+                            {settingCoverId === m.id ? (
+                              <Spinner size="sm" animation="border" />
+                            ) : (
+                              <i className="fa-regular fa-star" />
+                            )}
+                          </Button>
+                        </div>
                       )}
                     </div>
                     <Card.Body className="p-2">
@@ -312,6 +383,16 @@ const AlbumDetailPage: React.FC = () => {
           )}
         </>
       )}
+
+      {/* Add Media Modal（メディア検索 + 複数選択） */}
+      <MediaPickerModal
+        show={showAddMedia}
+        onHide={() => setShowAddMedia(false)}
+        onSubmit={handleAddMedia}
+        excludeIds={orderedMedia.map((m) => m.id)}
+        title={t('Add media to "{{name}}"', { name: album?.title })}
+        submitLabel={t('Add to Album')}
+      />
 
       {/* Edit Modal */}
       <Modal show={showEdit} onHide={() => setShowEdit(false)} centered>

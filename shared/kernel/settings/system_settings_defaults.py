@@ -19,6 +19,16 @@ DEFAULT_APPLICATION_SETTINGS: dict[str, object] = {
     "BABEL_DEFAULT_TIMEZONE": "Asia/Tokyo",
     "GOOGLE_CLIENT_ID": "",
     "GOOGLE_CLIENT_SECRET": "",
+    # Google アカウント連携: OAuth コールバック URL のスキーム・ホスト上書き
+    # （例: https://photos.example.com）。パス /auth/google/callback は固定で
+    # 自動付与される。空ならリクエストから自動生成。
+    "GOOGLE_OAUTH_REDIRECT_ORIGIN": "",
+    # Google アカウント連携: Photo Picker 連携で要求する OAuth スコープ
+    "GOOGLE_PHOTO_PICKER_SCOPES": [
+        "https://www.googleapis.com/auth/photospicker.mediaitems.readonly",
+        "https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata",
+        "https://www.googleapis.com/auth/photoslibrary.appendonly",
+    ],
     "ENCRYPTION_KEY": None,
     "MEDIA_DOWNLOAD_SIGNING_KEY": "",
     "MEDIA_THUMBNAIL_URL_TTL_SECONDS": 600,

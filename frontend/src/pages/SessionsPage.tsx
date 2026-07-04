@@ -15,6 +15,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { PickerSessionRow } from '../types/api';
+import GooglePhotosImportModal from '../components/GooglePhotosImportModal';
 import {
   formatDateTime,
   formatCounts,
@@ -30,6 +31,10 @@ const SessionsPage: React.FC = () => {
   const [page, setPage] = useState(1);
   const [hasNext, setHasNext] = useState(false);
   const [totalCount, setTotalCount] = useState<number | null>(null);
+
+  // Google Photos インポート（Picker セッション作成）
+  const [showImport, setShowImport] = useState(false);
+  const [pickerNotice, setPickerNotice] = useState<{ sessionId: string; pickerUri: string | null } | null>(null);
 
   const loadSessions = useCallback(async () => {
     setIsLoading(true);
@@ -59,7 +64,7 @@ const SessionsPage: React.FC = () => {
             {t('Picker and local import sessions')}
           </p>
         </Col>
-        <Col xs="auto" className="d-flex align-items-center">
+        <Col xs="auto" className="d-flex align-items-center gap-2">
           <Button
             variant="outline-primary"
             onClick={loadSessions}
@@ -68,12 +73,39 @@ const SessionsPage: React.FC = () => {
             <i className="fa-solid fa-rotate-right me-1" />
             {t('Refresh')}
           </Button>
+          <Button
+            variant="primary"
+            onClick={() => setShowImport(true)}
+            data-testid="google-import-btn"
+          >
+            <i className="fa-brands fa-google me-1" />
+            {t('Import from Google Photos')}
+          </Button>
         </Col>
       </Row>
 
       {error && (
         <Alert variant="danger" dismissible onClose={() => setError(null)}>
           {error}
+        </Alert>
+      )}
+
+      {pickerNotice && (
+        <Alert
+          variant="success"
+          dismissible
+          onClose={() => setPickerNotice(null)}
+          data-testid="picker-created-alert"
+        >
+          {t('Picker session created. Select photos in the opened Google Photos tab.')}{' '}
+          {pickerNotice.pickerUri && (
+            <a href={pickerNotice.pickerUri} target="_blank" rel="noopener noreferrer">
+              {t('Open Google Photos Picker')}
+            </a>
+          )}{' '}
+          <Link to={`/sessions/${encodeURIComponent(pickerNotice.sessionId)}`}>
+            {t('View session progress')}
+          </Link>
         </Alert>
       )}
 
@@ -159,6 +191,19 @@ const SessionsPage: React.FC = () => {
           />
         </BsPagination>
       </div>
+
+      {/* Google Photos インポート: アカウント選択モーダル */}
+      <GooglePhotosImportModal
+        show={showImport}
+        onHide={() => setShowImport(false)}
+        onCreated={(res) => {
+          setPickerNotice({
+            sessionId: res.sessionId || String(res.pickerSessionId),
+            pickerUri: res.pickerUri,
+          });
+          loadSessions();
+        }}
+      />
     </Container>
   );
 };

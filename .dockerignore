@@ -15,7 +15,10 @@
 **/*.jfm
 **/bin
 **/charts
-**/docker-compose*
+# docker-compose.yml はイメージに焼き込む（/app/docker-compose.yml）。
+# デプロイスクリプトがロード済みイメージから取り出して使うため、
+# tar を転送するだけで compose 定義も一緒に配布される（手動コピー漏れ対策）。
+**/docker-compose.override*
 **/compose*
 **/Dockerfile*
 **/node_modules

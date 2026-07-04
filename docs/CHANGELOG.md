@@ -22,6 +22,22 @@
   返すようガードした。
 
 ### Fixed
+- `deploy-stg.sh reset` の `flask db stamp head` が `Can't connect to MySQL server
+  on 'db' (Connection refused)` で失敗する問題が、修正（compose の db healthcheck
+  への `--protocol=tcp` 追加と、stamp 前の DB 接続待機ループ）をリポジトリに
+  マージした後も NAS 上で再発し続けていた。原因は、NAS 上の
+  `/volume1/docker/scripts/deploy-stg.sh` と `/volume1/docker/docker-compose.yml`
+  が手動コピー運用のため更新されず、待機ループのない旧スクリプトと
+  ソケット越しに誤って healthy 判定する旧 healthcheck のまま実行されていたこと
+  （実行ログに `Waiting for DB to accept connections` が出ていないことで特定）。
+  恒久対策として、アプリイメージの tar を唯一の配布物にした:
+  `docker-compose.yml` をイメージに焼き込み（`.dockerignore` の除外を解除）、
+  デプロイスクリプトが `docker load` 直後にイメージから compose と自分自身を
+  取り出して自己更新・自動再実行するようにした（`deploy.sh` / `deploy-stg.sh` 共通）。
+  あわせて `flask db stamp/upgrade` に3回リトライを追加。前提条件は
+  `tests/integration/test_deploy_asset_sync_consistency.py` が検証する。
+  ※この仕組みが働き始めるには、NAS 上のスクリプトを今回の版へ**最後に一度だけ**
+  手動コピーする必要がある（以後は tar の転送のみでスクリプト・compose も更新される）。
 - **パスキー登録が常に「Failed to register passkey」で失敗する不具合を修正。**
   フロントは `GET /api/auth/passkey/options/register` / `POST /api/auth/passkey/verify/register`
   を呼んでいたが、バックエンドには auth ブループリント側の

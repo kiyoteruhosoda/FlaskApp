@@ -29,15 +29,18 @@ const LoginPage: React.FC = () => {
     i18n.changeLanguage(lng);
   };
 
-  // APIのエラーコードを利用者向けメッセージに変換する
-  const errorText = (code: string): string => {
+  // APIのエラーコードを利用者向けメッセージに変換する。
+  // invalid_token・authentication_required 等の内部コードは、ログイン直後の
+  // getCurrentUser() が一時的に失敗した際などに state.error へ流れてくることが
+  // あるが、利用者には意味が伝わらず不安を煽るだけなので表示しない（null を返す）。
+  const errorText = (code: string): string | null => {
     switch (code) {
       case 'invalid_totp':
         return t('Invalid authentication code');
       case 'invalid_credentials':
         return t('Invalid email or password');
       default:
-        return code;
+        return null;
     }
   };
 
@@ -143,8 +146,8 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div data-testid="login-page">
-      <Container fluid className="min-vh-100 d-flex align-items-center justify-content-center bg-light">
+    <div data-testid="login-page" className="h-100">
+      <Container fluid className="h-100 py-4 d-flex align-items-center justify-content-center bg-light">
 
       <Row className="w-100">
         <Col md={6} lg={4} className="mx-auto">
@@ -157,7 +160,7 @@ const LoginPage: React.FC = () => {
               </span>
             </Card.Header>
             <Card.Body className="p-4">
-              {error && (
+              {error && errorText(error) && (
                 <Alert variant="danger" dismissible onClose={() => dispatch(clearError())}>
                   {errorText(error)}
                 </Alert>

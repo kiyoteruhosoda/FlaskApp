@@ -82,3 +82,15 @@ def test_health_beat(client, app):
     assert resp.json["lastBeatAt"] == app.config["LAST_BEAT_AT"].isoformat()
     assert "T" in resp.json["server_time"] and "Z" in resp.json["server_time"]
 
+
+def test_healthz(client):
+    resp = client.get("/api/healthz")
+    assert resp.status_code == 200
+    data = resp.json
+    assert data["status"] == "ok"
+    assert "version" in data
+    assert "commit_hash" in data
+    assert "branch" in data
+    assert "build_date" in data
+    assert "T" in data["server_time"] and data["server_time"].endswith("Z")
+

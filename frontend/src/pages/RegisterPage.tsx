@@ -71,8 +71,8 @@ const RegisterPage: React.FC = () => {
   };
 
   return (
-    <div data-testid="register-page">
-      <Container fluid className="min-vh-100 d-flex align-items-center justify-content-center bg-light">
+    <div data-testid="register-page" className="h-100">
+      <Container fluid className="h-100 py-4 d-flex align-items-center justify-content-center bg-light">
 
       <Row className="w-100">
         <Col md={6} lg={4} className="mx-auto">

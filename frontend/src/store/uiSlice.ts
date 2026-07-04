@@ -12,6 +12,7 @@ interface UIState {
   isLoading: boolean;
   currentLanguage: string;
   sidebarCollapsed: boolean;
+  mobileSidebarOpen: boolean;
 }
 
 const initialState: UIState = {
@@ -19,6 +20,7 @@ const initialState: UIState = {
   isLoading: false,
   currentLanguage: 'ja',
   sidebarCollapsed: false,
+  mobileSidebarOpen: false,
 };
 
 const uiSlice = createSlice({
@@ -51,6 +53,12 @@ const uiSlice = createSlice({
     setSidebarCollapsed: (state, action: PayloadAction<boolean>) => {
       state.sidebarCollapsed = action.payload;
     },
+    toggleMobileSidebar: (state) => {
+      state.mobileSidebarOpen = !state.mobileSidebarOpen;
+    },
+    setMobileSidebarOpen: (state, action: PayloadAction<boolean>) => {
+      state.mobileSidebarOpen = action.payload;
+    },
   },
 });
 
@@ -62,6 +70,8 @@ export const {
   setLanguage,
   toggleSidebar,
   setSidebarCollapsed,
+  toggleMobileSidebar,
+  setMobileSidebarOpen,
 } = uiSlice.actions;
 
 export default uiSlice.reducer;

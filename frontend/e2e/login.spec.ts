@@ -64,8 +64,30 @@ test.describe('Login', () => {
     await page.fill('input[name="password"]', 'bad');
     await page.getByTestId('login-submit').click();
 
-    await expect(page.getByText('invalid_credentials')).toBeVisible();
+    // 生のエラーコードではなく、利用者向けに翻訳されたメッセージが表示される
+    await expect(page.getByText('Invalid email or password')).toBeVisible();
+    await expect(page.getByText('invalid_credentials', { exact: true })).not.toBeVisible();
     await expect(page).toHaveURL(/\/login$/);
+  });
+
+  test('does not show raw invalid_token error code', async ({ page }) => {
+    // ログイン成功直後の getCurrentUser() が一時的に失敗するケースを再現。
+    // 内部エラーコードがそのまま画面に表示されないことを確認する。
+    await page.route(
+      (url) => url.pathname === '/api/auth/login',
+      (route) => route.fulfill({ json: { ...TOKENS, requires_role_selection: false } })
+    );
+    await page.route(
+      (url) => url.pathname === '/api/auth/me',
+      (route) => route.fulfill({ status: 401, json: { error: 'invalid_token' } })
+    );
+
+    await page.goto('/login');
+    await page.fill('input[name="email"]', 'admin@example.com');
+    await page.fill('input[name="password"]', 'secret');
+    await page.getByTestId('login-submit').click();
+
+    await expect(page.getByText('invalid_token', { exact: true })).not.toBeVisible();
   });
 
   test('passkey login navigates to app', async ({ page }) => {

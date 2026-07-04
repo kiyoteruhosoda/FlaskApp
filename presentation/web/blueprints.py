@@ -68,8 +68,10 @@ def register_blueprints(app: Flask, *, testing_mode: bool) -> None:
     ensure_openapi_success_responses(smorest_api.spec)
 
     # 認証なしの健康チェック用Blueprint
-    from .routes.health import health_bp
+    from .routes.health import health_bp, healthz
     app.register_blueprint(health_bp, url_prefix="/health")
+    # /healthz はトップレベルパス（health_bp の url_prefix には乗らない）
+    app.add_url_rule("/healthz", endpoint="healthz", view_func=healthz, methods=["GET"])
 
     # デバッグ用Blueprint（開発環境のみ）
     if app.debug or testing_mode:

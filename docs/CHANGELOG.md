@@ -6,6 +6,25 @@
 ## [Unreleased]
 
 ### Added
+- **`/healthz` を Web・API 双方に追加**（`presentation/web/routes/health.py` /
+  `presentation/web/api/health.py`）。既存の `/health/live`・`/health/ready`
+  （DB・NAS・Redis 疎通チェック）とは別に、デプロイ後「どのビルドが動作しているか」を
+  即座に確認できる軽量エンドポイント。`version`・`commit_hash`・`commit_hash_full`・
+  `branch`・`build_date`・UTC の `server_time` を返す。認証不要。
+- フロントエンド `npm run build` 完了時にコミットハッシュ・ブランチ・ビルド日時を表示
+  （`frontend/scripts/print-build-info.js`）。バックエンドの `make build`（Docker
+  イメージビルド）は既に `version.json` を表示していたため未対応だったフロントエンド側を
+  補完した。
+- `scripts/deploy.sh` / `scripts/deploy-stg.sh` の完了時に、実際にデプロイされた
+  web コンテナの `version.json`（コミットハッシュ含む）を表示するようにした。
+- 非管理画面（Home/Dashboard/Media/Albums/Tags/Sessions/Jobs/Photo Imports/
+  Photo Settings/Profile/Wiki 等）のモバイル対応。Sidebar を
+  react-bootstrap の `Offcanvas`（`responsive="md"`）化し、768px 未満では
+  ハンバーガーボタンからオーバーレイ式のドロワーとして開閉できるようにした
+  （デスクトップでは従来どおりの折りたたみ幅サイドバーのまま）。Header の
+  ハンバーボタンをモバイル用（ドロワー開閉）とデスクトップ用（折りたたみ）に分離。
+  回帰検知用に `frontend/e2e/mobile_responsive.spec.ts`（375px viewportでの
+  横スクロール有無を機械的に検証）を追加。
 - **Photo Imports 機能を新設**（Photo Settings から Local Import Status を分離）。
   新ページ `/photo-imports`（`PhotoImportsPage.tsx`、Sidebar に `fa-file-import`
   アイコンで追加、権限 `admin:photo-settings`）でインポート状態の確認・取り込み実行
@@ -50,6 +69,18 @@
   通常の案内（info アラート「認証コードを入力してログインを完了してください」）に
   変更し、`invalid_totp` / `invalid_credentials` も利用者向け文言に変換して表示する
   ようにした。
+- ログイン画面で `invalid_token` 等の内部エラーコードがそのまま表示されることが
+  あった不具合を修正。ログイン成功直後の `getCurrentUser()` が一時的に失敗する
+  ケースなどで `state.error` に生のバックエンドコードが入ることがあったため、
+  `LoginPage` では既知の利用者向けコード（`invalid_totp`・`invalid_credentials`）
+  以外は表示しないようにした。
+- ログイン/登録画面の `Container` が `min-vh-100` でビューポート全体を占有していた
+  ため、共通レイアウトの `Footer`（バージョン表示）がスクロールしないと見えなかった
+  不具合を修正。`h-100`（親の `<main>` に対する相対高さ）に変更し、スクロールなしで
+  フッタが見えるようにした。
+- フッタのバージョン表示が `vv1a2b3c4` のように "v" が二重になっていた不具合を修正。
+  `version.json`（`scripts/generate_version.sh` 生成）の `version` フィールドは
+  既に `v` 接頭辞込みの文字列のため、`Footer.tsx` 側で追加していた `v` を削除。
 
 ### Changed
 - ログイン/登録画面のデザイン調整: カードの枠・影を外して背景と一体化し、

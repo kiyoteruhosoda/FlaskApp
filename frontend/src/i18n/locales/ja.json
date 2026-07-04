@@ -426,5 +426,6 @@
   "Invalid file name": "ファイル名が不正です",
   "Failed to save file": "ファイルの保存に失敗しました",
   "Failed to upload files": "ファイルのアップロードに失敗しました",
-  "Import Status": "インポート状態"
+  "Import Status": "インポート状態",
+  "Menu": "メニュー"
 }

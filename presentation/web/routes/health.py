@@ -8,11 +8,36 @@ from sqlalchemy import text
 from presentation.web.bootstrap.extensions import db
 from shared.kernel.time.clock import utc_now_isoformat
 from shared.kernel.settings.settings import settings
+from shared.kernel.version import get_version_info, get_version_string
 from bounded_contexts.storage import StorageDomain
 from bounded_contexts.storage.application.filesystem_factory import get_storage_service
 
 # 認証なしのhealth用Blueprint
 health_bp = Blueprint("health", __name__, url_prefix="/health")
+
+
+def healthz():
+    """バージョン・コミットハッシュ・サーバー時刻(UTC)を返す軽量ヘルスチェック。
+
+    ``/health/*`` 配下のチェック（DB・NAS・Redis 疎通）とは異なり、デプロイ後に
+    「どのビルドが動いているか」を即座に確認するためのエンドポイント。
+    URL は ``/healthz``（``health_bp`` の url_prefix には乗らない）。
+    """
+    info = get_version_info()
+    return (
+        jsonify(
+            {
+                "status": "ok",
+                "version": get_version_string(),
+                "commit_hash": info.get("commit_hash", "unknown"),
+                "commit_hash_full": info.get("commit_hash_full", "unknown"),
+                "branch": info.get("branch", "unknown"),
+                "build_date": info.get("build_date", "unknown"),
+                "server_time": utc_now_isoformat(),
+            }
+        ),
+        200,
+    )
 
 
 @health_bp.get("/live")

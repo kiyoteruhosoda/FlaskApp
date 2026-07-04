@@ -281,4 +281,8 @@ fi
 echo "[deploy-stg] Cleaning old unused Docker images"
 docker image prune -f > /dev/null 2>&1 || true
 
+# ===== Show deployed version =====
+echo "[deploy-stg] Deployed version:"
+$COMPOSE exec -T web cat /app/shared/kernel/version.json 2>/dev/null || echo "[deploy-stg][warn] Could not read version.json from web container"
+
 echo -e "\033[32m[deploy-stg] STG Deploy complete (mode: $MODE)\033[0m"

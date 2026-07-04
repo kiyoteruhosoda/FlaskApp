@@ -193,6 +193,20 @@ class TestHealthIntegration:
         # DBチェックは常に実行される
         assert data["db"] in ["ok", "error"]
 
+    def test_healthz_no_auth_required(self, app_context, client):
+        """Test /healthz endpoint doesn't require authentication and returns version info"""
+        response = client.get("/healthz")
+        assert response.status_code == 200
+
+        data = response.get_json()
+        assert data["status"] == "ok"
+        assert "version" in data
+        assert "commit_hash" in data
+        assert "branch" in data
+        assert "build_date" in data
+        # UTC ISO8601 ("...Z" 終端) のサーバー時刻を返す
+        assert data["server_time"].endswith("Z")
+
     def test_health_endpoints_performance(self, app_context, client):
         """Test that health endpoints respond quickly"""
         import time

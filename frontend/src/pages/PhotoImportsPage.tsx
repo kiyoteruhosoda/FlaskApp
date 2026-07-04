@@ -12,10 +12,16 @@ import {
   Spinner,
 } from 'react-bootstrap';
 import { useSelector } from 'react-redux';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { RootState } from '../store';
 import { apiClient } from '../services/api';
-import { LocalImportStatusResponse, LocalImportUploadResponse } from '../types/api';
+import {
+  LocalImportStatusResponse,
+  LocalImportUploadResponse,
+  PickerSessionCreateResponse,
+} from '../types/api';
+import GooglePhotosImportModal from '../components/GooglePhotosImportModal';
 
 const ACCEPTED_EXTENSIONS =
   '.jpg,.jpeg,.png,.tiff,.tif,.bmp,.gif,.webp,.heic,.heif,.mp4,.mov,.avi,.mkv,.m4v,.3gp,.webm';
@@ -37,6 +43,10 @@ const PhotoImportsPage: React.FC = () => {
   const [importTriggering, setImportTriggering] = useState(false);
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [importSucceeded, setImportSucceeded] = useState(false);
+
+  // Google フォトからの取り込み
+  const [showGoogleImport, setShowGoogleImport] = useState(false);
+  const [googleNotice, setGoogleNotice] = useState<{ sessionId: string; pickerUri: string | null } | null>(null);
 
   const canTriggerImport = user?.permissions?.includes('system:manage') || false;
 
@@ -141,6 +151,48 @@ const PhotoImportsPage: React.FC = () => {
           {importMessage}
         </Alert>
       )}
+
+      {/* Google フォトから取り込み */}
+      <Card className="mb-4" data-testid="google-import-card">
+        <Card.Header className="fw-semibold">
+          <i className="fa-brands fa-google me-2" />
+          {t('Import from Google Photos')}
+        </Card.Header>
+        <Card.Body>
+          <p className="text-muted small mb-3">
+            {t('Select photos and videos in Google Photos and import them into the library.')}{' '}
+            {t('A linked Google account is required.')}{' '}
+            <Link to="/profile#google-accounts">{t('Link a Google account in your profile')}</Link>
+          </p>
+          {googleNotice && (
+            <Alert
+              variant="success"
+              dismissible
+              onClose={() => setGoogleNotice(null)}
+              data-testid="google-import-notice"
+            >
+              {t('Picker session created. Select photos in the opened Google Photos tab.')}{' '}
+              {googleNotice.pickerUri && (
+                <a href={googleNotice.pickerUri} target="_blank" rel="noopener noreferrer">
+                  {t('Open Google Photos Picker')}
+                </a>
+              )}{' '}
+              <Link to={`/sessions/${encodeURIComponent(googleNotice.sessionId)}`}>
+                {t('View session progress')}
+              </Link>
+            </Alert>
+          )}
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setShowGoogleImport(true)}
+            data-testid="google-import-open"
+          >
+            <i className="fa-brands fa-google me-1" />
+            {t('Import from Google Photos')}
+          </Button>
+        </Card.Body>
+      </Card>
 
       {isLoading && !status ? (
         <div className="text-center py-5"><Spinner animation="border" /></div>
@@ -259,6 +311,18 @@ const PhotoImportsPage: React.FC = () => {
           </Card>
         </>
       ) : null}
+
+      {/* Google フォト取り込みモーダル */}
+      <GooglePhotosImportModal
+        show={showGoogleImport}
+        onHide={() => setShowGoogleImport(false)}
+        onCreated={(res: PickerSessionCreateResponse) => {
+          setGoogleNotice({
+            sessionId: res.sessionId || String(res.pickerSessionId),
+            pickerUri: res.pickerUri,
+          });
+        }}
+      />
     </Container>
   );
 };

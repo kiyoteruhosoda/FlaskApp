@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { LinkedGoogleAccount } from '../types/api';
 import { formatDateTime } from '../utils/format';
+import { googleLinkErrorText, useGoogleLinkResult } from '../utils/googleLinkResult';
 
 // Google アカウント連携ページ:
 // - アカウント登録（OAuth リンク開始）
@@ -33,6 +34,10 @@ const GoogleAccountsPage: React.FC = () => {
 
   const [deleteTarget, setDeleteTarget] = useState<LinkedGoogleAccount | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // OAuth コールバックからの結果（?google_link=...）を表示する
+  const linkResult = useGoogleLinkResult();
+  const [resultDismissed, setResultDismissed] = useState(false);
 
   const loadAccounts = useCallback(async () => {
     setIsLoading(true);
@@ -153,6 +158,18 @@ const GoogleAccountsPage: React.FC = () => {
         </Col>
       </Row>
 
+      {linkResult && !resultDismissed && (
+        <Alert
+          variant={linkResult.result === 'ok' ? 'success' : 'danger'}
+          dismissible
+          onClose={() => setResultDismissed(true)}
+          data-testid="google-link-result"
+        >
+          {linkResult.result === 'ok'
+            ? t('Google account linked: {{email}}', { email: linkResult.email || '' })
+            : googleLinkErrorText(linkResult.reason, t)}
+        </Alert>
+      )}
       {error && (
         <Alert variant="danger" dismissible onClose={() => setError(null)}>
           {error}

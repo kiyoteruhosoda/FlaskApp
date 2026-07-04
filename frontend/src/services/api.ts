@@ -379,8 +379,10 @@ class ApiClient {
 
   // ===== Google アカウント連携（/api/google/*） =====
 
-  async getLinkedGoogleAccounts(): Promise<CursorListResponse<LinkedGoogleAccount>> {
-    const response = await this.client.get<CursorListResponse<LinkedGoogleAccount>>('/google/accounts');
+  async getLinkedGoogleAccounts(params?: { mine?: boolean }): Promise<CursorListResponse<LinkedGoogleAccount>> {
+    const response = await this.client.get<CursorListResponse<LinkedGoogleAccount>>('/google/accounts', {
+      params: params?.mine ? { mine: 1 } : undefined,
+    });
     return response.data;
   }
 

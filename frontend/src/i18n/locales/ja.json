@@ -479,5 +479,21 @@
   "Failed to add media": "メディアの追加に失敗しました",
   "Cover": "表紙",
   "Set as cover": "表紙に設定",
-  "Failed to set cover": "表紙の設定に失敗しました"
+  "Failed to set cover": "表紙の設定に失敗しました",
+  "Media": "メディア",
+  "Administration": "管理",
+  "Import & Sync": "取り込み・同期",
+  "Google account linked: {{email}}": "Google アカウントを連携しました: {{email}}",
+  "Failed to link Google account.": "Google アカウントの連携に失敗しました。",
+  "The authorization session expired. Please try again.": "認可セッションの有効期限が切れました。もう一度お試しください。",
+  "Please sign in before linking a Google account.": "Google アカウントを連携する前にサインインしてください。",
+  "Failed to obtain token from Google.": "Google からのトークン取得に失敗しました。",
+  "Failed to fetch email from Google.": "Google からのメールアドレス取得に失敗しました。",
+  "Google Account Link": "Google アカウント連携",
+  "Link a Google account to import photos and videos from Google Photos.": "Google アカウントを連携すると、Google フォトから写真・動画を取り込めます。",
+  "Re-authorization required": "再認可が必要",
+  "Link a Google account in your profile": "プロフィールで Google アカウントを連携する",
+  "Select photos and videos in Google Photos and import them into the library.": "Google フォトで写真・動画を選択してライブラリに取り込みます。",
+  "A linked Google account is required.": "連携済みの Google アカウントが必要です。",
+  "Permission list is unavailable, so permission assignment cannot be edited here.": "権限一覧を取得できないため、ここでは権限の割り当てを編集できません。"
 }

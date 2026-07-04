@@ -25,18 +25,24 @@ const RolesPage: React.FC = () => {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    try {
-      const [rolesRes, permsRes] = await Promise.all([
-        apiClient.getAdminRoles(),
-        apiClient.getAdminPermissions(),
-      ]);
-      setRoles(rolesRes.roles);
-      setPermissions(permsRes.permissions);
-    } catch (e: any) {
+    // 権限一覧の取得失敗（403 等）でロール一覧まで巻き込まないよう分離する。
+    // 権限一覧が無い場合はロールの閲覧のみ可能で、紐づけ編集が制限される。
+    const [rolesRes, permsRes] = await Promise.allSettled([
+      apiClient.getAdminRoles(),
+      apiClient.getAdminPermissions(),
+    ]);
+    if (rolesRes.status === 'fulfilled') {
+      setRoles(rolesRes.value.roles);
+    } else {
+      const e: any = rolesRes.reason;
       setError(e?.response?.status === 403 ? t('You do not have permission to manage roles') : t('Failed to load roles'));
-    } finally {
-      setLoading(false);
     }
+    if (permsRes.status === 'fulfilled') {
+      setPermissions(permsRes.value.permissions);
+    } else {
+      setPermissions([]);
+    }
+    setLoading(false);
   }, [t]);
 
   useEffect(() => { load(); }, [load]);
@@ -200,10 +206,10 @@ const RolesPage: React.FC = () => {
                 data-testid="role-form-name"
               />
             </Form.Group>
-            {permissions.length > 0 && (
+            {permissions.length > 0 ? (
               <Form.Group>
                 <Form.Label>{t('Permissions')}</Form.Label>
-                <div style={{ maxHeight: 240, overflowY: 'auto' }} className="border rounded p-2">
+                <div style={{ maxHeight: 240, overflowY: 'auto' }} className="border rounded p-2" data-testid="role-permissions-list">
                   {permissions.map((p) => (
                     <Form.Check
                       key={p.id}
@@ -216,6 +222,10 @@ const RolesPage: React.FC = () => {
                   ))}
                 </div>
               </Form.Group>
+            ) : (
+              <Alert variant="warning" className="mb-0">
+                {t('Permission list is unavailable, so permission assignment cannot be edited here.')}
+              </Alert>
             )}
           </Modal.Body>
           <Modal.Footer>

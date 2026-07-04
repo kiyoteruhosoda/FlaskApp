@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { TOTPSetupResponse, PasskeyItem } from '../types/api';
 import apiClient from '../services/api';
 import { startPasskeyRegistration } from '../utils/webauthn';
+import GoogleAccountLinkSection from '../components/GoogleAccountLinkSection';
 
 const ProfilePage: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -512,6 +513,9 @@ const ProfilePage: React.FC = () => {
           )}
         </Card.Body>
       </Card>
+
+      {/* Google アカウント連携 Card */}
+      <GoogleAccountLinkSection />
     </Container>
   );
 };

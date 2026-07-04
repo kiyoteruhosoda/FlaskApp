@@ -12,7 +12,7 @@ import requests
 import json
 from datetime import datetime, timezone, timedelta
 from typing import Any, Iterable
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_babel import gettext as _, force_locale
 from sqlalchemy import select
@@ -1534,19 +1534,42 @@ def logout():
 
 
 
+def _google_link_result_redirect(saved: dict, result: str, **params):
+    """OAuth リンク結果を SPA に伝えるリダイレクトを生成する。
+
+    React SPA は Flask の flash メッセージを表示できないため、結果を
+    クエリパラメータ（google_link=ok|error 等）で戻し先ページへ引き渡す。
+    """
+    target = (saved or {}).get("redirect") or url_for("admin.google_accounts")
+    query = urlencode({"google_link": result, **{k: v for k, v in params.items() if v}})
+    separator = "&" if "?" in target else "?"
+    return redirect(f"{target}{separator}{query}")
+
+
 @bp.get("/google/callback")
 def google_oauth_callback():
     """Google OAuth callback handler."""
+    saved = session.get("google_oauth_state") or {}
+
     if request.args.get("error"):
         flash(_("Google OAuth error: %(msg)s", msg=request.args["error"]), "error")
-        return _redirect_to("admin.google_accounts")
+        return _google_link_result_redirect(saved, "error", reason=request.args["error"])
 
     code = request.args.get("code")
     state = request.args.get("state")
-    saved = session.get("google_oauth_state") or {}
     if not code or state != saved.get("state"):
         flash(_("Invalid OAuth state."), "error")
-        return _redirect_to("admin.google_accounts")
+        return _google_link_result_redirect(saved, "error", reason="invalid_state")
+
+    # アカウントの紐づけ先。OAuth 開始時に保存したユーザー ID を優先し、
+    # （後方互換で）無ければ現在の認証情報から取る。どちらも無ければ
+    # 紐づけ先が特定できないため中断する。
+    link_user_id = saved.get("user_id")
+    if link_user_id is None and getattr(current_user, "is_authenticated", False):
+        link_user_id = current_user.id
+    if link_user_id is None:
+        flash(_("Please sign in before linking a Google account."), "error")
+        return _google_link_result_redirect(saved, "error", reason="login_required")
 
     # トークン交換の redirect_uri は認可要求時と完全一致が必要なため、
     # 認可開始側と同じヘルパーで生成する
@@ -1578,11 +1601,11 @@ def google_oauth_callback():
         current_app.logger.info(f"OAuth token response: {tokens}")
         if "error" in tokens:
             flash(_("Google token error: %(msg)s", msg=tokens.get("error_description", tokens["error"])), "error")
-            return _redirect_to("admin.google_accounts")
+            return _google_link_result_redirect(saved, "error", reason="token_error")
     except Exception as e:
         current_app.logger.error(f"Failed to obtain token from Google: {str(e)}")
         flash(_("Failed to obtain token from Google: %(msg)s", msg=str(e)), "error")
-        return _redirect_to("admin.google_accounts")
+        return _google_link_result_redirect(saved, "error", reason="token_error")
 
     access_token = tokens.get("access_token")
     email = None
@@ -1602,25 +1625,24 @@ def google_oauth_callback():
 
     if not email:
         flash(_("Failed to fetch email from Google."), "error")
-        return _redirect_to("admin.google_accounts")
+        return _google_link_result_redirect(saved, "error", reason="email_fetch_failed")
 
     account = GoogleAccount.query.filter_by(email=email).first()
     scopes = saved.get("scopes") or []
     if not account:
-        account = GoogleAccount(email=email, scopes=",".join(scopes), user_id=current_user.id)
+        account = GoogleAccount(email=email, scopes=",".join(scopes), user_id=link_user_id)
         db.session.add(account)
     else:
         account.scopes = ",".join(scopes)
         account.status = "active"
-        account.user_id = current_user.id
+        account.user_id = link_user_id
     account.oauth_token_json = encrypt(json.dumps(tokens))
     account.last_synced_at = datetime.now(timezone.utc)
     db.session.commit()
 
-    redirect_to = saved.get("redirect") or url_for("admin.google_accounts")
     session.pop("google_oauth_state", None)
     flash(_("Google account linked: %(email)s", email=email), "success")
-    return redirect(redirect_to)
+    return _google_link_result_redirect(saved, "ok", email=email)
 
 
 @bp.get("/picker")

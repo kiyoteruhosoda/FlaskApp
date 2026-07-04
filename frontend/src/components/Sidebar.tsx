@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Nav, Offcanvas } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../store';
@@ -6,12 +6,30 @@ import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router-dom';
 import { setMobileSidebarOpen } from '../store/uiSlice';
 
+interface NavItem {
+  to: string;
+  icon: string;
+  label: string;
+  permission?: string;
+}
+
+// カテゴリ開閉状態を localStorage に永続化するキー
+const categoryStorageKey = (id: string) => `sidebar.category.${id}`;
+
 const Sidebar: React.FC = () => {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const location = useLocation();
   const { user } = useSelector((state: RootState) => state.auth);
   const { sidebarCollapsed, mobileSidebarOpen } = useSelector((state: RootState) => state.ui);
+
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    for (const id of ['media', 'import', 'admin']) {
+      initial[id] = localStorage.getItem(categoryStorageKey(id)) !== 'closed';
+    }
+    return initial;
+  });
 
   const hasPermission = (permission: string): boolean => {
     return user?.permissions?.includes(permission) || false;
@@ -24,230 +42,93 @@ const Sidebar: React.FC = () => {
   // モバイルではリンクをタップしたらオフキャンバスを閉じる
   const closeMobileSidebar = () => dispatch(setMobileSidebarOpen(false));
 
+  const toggleCategory = (id: string) => {
+    setOpenCategories((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      localStorage.setItem(categoryStorageKey(id), next[id] ? 'open' : 'closed');
+      return next;
+    });
+  };
+
   if (!user) return null;
 
-  const navContent = (
-    <Nav className="flex-column" onClick={closeMobileSidebar}>
-      <Nav.Link
-        as={Link}
-        to="/"
-        className={`d-flex align-items-center py-2 ${isActive('/') ? 'active' : ''}`}
-      >
-        <i className="fa-solid fa-house me-2"></i>
-        <span className="sidebar-label">{t('Home')}</span>
-      </Nav.Link>
+  const renderItem = (item: NavItem) => (
+    <Nav.Link
+      key={item.to}
+      as={Link}
+      to={item.to}
+      onClick={closeMobileSidebar}
+      className={`d-flex align-items-center py-2 ${isActive(item.to) ? 'active' : ''}`}
+    >
+      {/* fa-brands 指定（Google 等）はそのまま使い、それ以外は fa-solid を補う */}
+      <i className={`${item.icon.startsWith('fa-brands') ? item.icon : `fa-solid ${item.icon}`} me-2`}></i>
+      <span className="sidebar-label">{t(item.label)}</span>
+    </Nav.Link>
+  );
 
-      {hasPermission('dashboard:view') && (
-        <Nav.Link
-          as={Link}
-          to="/dashboard"
-          className={`d-flex align-items-center py-2 ${isActive('/dashboard') ? 'active' : ''}`}
+  // カテゴリ（開閉可能）。折りたたみ幅（アイコンのみ）のときはヘッダを隠し、
+  // 項目を常に表示する（閉じたカテゴリの項目に到達できなくなるのを防ぐ）。
+  const renderCategory = (id: string, label: string, items: NavItem[]) => {
+    const visible = items.filter((item) => !item.permission || hasPermission(item.permission));
+    if (visible.length === 0) return null;
+    const open = openCategories[id] !== false;
+    return (
+      <React.Fragment key={id}>
+        <button
+          type="button"
+          className="btn btn-link text-decoration-none text-muted text-uppercase fw-bold px-2 mt-3 mb-1 small d-flex align-items-center w-100 sidebar-category-header"
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleCategory(id);
+          }}
+          aria-expanded={open}
+          data-testid={`sidebar-category-${id}`}
         >
-          <i className="fa-solid fa-bars-progress me-2"></i>
-          <span className="sidebar-label">{t('Dashboard')}</span>
-        </Nav.Link>
-      )}
+          <span className="sidebar-label flex-grow-1 text-start">{t(label)}</span>
+          <i className={`fa-solid fa-chevron-${open ? 'down' : 'right'} sidebar-label small`}></i>
+        </button>
+        {(open || sidebarCollapsed) && visible.map(renderItem)}
+      </React.Fragment>
+    );
+  };
+
+  const navContent = (
+    <Nav className="flex-column">
+      {renderItem({ to: '/', icon: 'fa-house', label: 'Home' })}
+      {hasPermission('dashboard:view') &&
+        renderItem({ to: '/dashboard', icon: 'fa-bars-progress', label: 'Dashboard' })}
 
       {hasPermission('media:view') && (
         <>
-          <div className="mt-3 mb-2">
-            <small className="text-muted text-uppercase fw-bold px-2 sidebar-label">{t('Media')}</small>
-          </div>
-
           {/* 表示系: 閲覧用のページ */}
-          <Nav.Link
-            as={Link}
-            to="/media"
-            className={`d-flex align-items-center py-2 ${isActive('/media') ? 'active' : ''}`}
-          >
-            <i className="fa-solid fa-images me-2"></i>
-            <span className="sidebar-label">{t('Media Gallery')}</span>
-          </Nav.Link>
+          {renderCategory('media', 'Media', [
+            { to: '/media', icon: 'fa-images', label: 'Media Gallery' },
+            { to: '/albums', icon: 'fa-book', label: 'Albums', permission: 'album:view' },
+            { to: '/tags', icon: 'fa-tags', label: 'Tags' },
+            { to: '/media/duplicates', icon: 'fa-layer-group', label: 'Duplicates', permission: 'media:delete' },
+          ])}
 
-          {hasPermission('album:view') && (
-            <Nav.Link
-              as={Link}
-              to="/albums"
-              className={`d-flex align-items-center py-2 ${isActive('/albums') ? 'active' : ''}`}
-            >
-              <i className="fa-solid fa-book me-2"></i>
-              <span className="sidebar-label">{t('Albums')}</span>
-            </Nav.Link>
-          )}
-
-          <Nav.Link
-            as={Link}
-            to="/tags"
-            className={`d-flex align-items-center py-2 ${isActive('/tags') ? 'active' : ''}`}
-          >
-            <i className="fa-solid fa-tags me-2"></i>
-            <span className="sidebar-label">{t('Tags')}</span>
-          </Nav.Link>
-
-          {hasPermission('media:delete') && (
-            <Nav.Link
-              as={Link}
-              to="/media/duplicates"
-              className={`d-flex align-items-center py-2 ${isActive('/media/duplicates') ? 'active' : ''}`}
-            >
-              <i className="fa-solid fa-layer-group me-2"></i>
-              <span className="sidebar-label">{t('Duplicates')}</span>
-            </Nav.Link>
-          )}
-
-          {/* 管理系: 同期・設定用のページ */}
-          {hasPermission('media:session') && (
-            <Nav.Link
-              as={Link}
-              to="/sessions"
-              className={`d-flex align-items-center py-2 ${isActive('/sessions') ? 'active' : ''}`}
-            >
-              <i className="fa-solid fa-layer-group me-2"></i>
-              <span className="sidebar-label">{t('Sessions')}</span>
-            </Nav.Link>
-          )}
-
-          {hasPermission('media:session') && (
-            <Nav.Link
-              as={Link}
-              to="/jobs"
-              className={`d-flex align-items-center py-2 ${isActive('/jobs') ? 'active' : ''}`}
-            >
-              <i className="fa-solid fa-list-check me-2"></i>
-              <span className="sidebar-label">{t('Sync Jobs')}</span>
-            </Nav.Link>
-          )}
-
-          {hasPermission('admin:photo-settings') && (
-            <Nav.Link
-              as={Link}
-              to="/photo-imports"
-              className={`d-flex align-items-center py-2 ${isActive('/photo-imports') ? 'active' : ''}`}
-            >
-              <i className="fa-solid fa-file-import me-2"></i>
-              <span className="sidebar-label">{t('Photo Imports')}</span>
-            </Nav.Link>
-          )}
-
-          {hasPermission('admin:photo-settings') && (
-            <Nav.Link
-              as={Link}
-              to="/photo-settings"
-              className={`d-flex align-items-center py-2 ${isActive('/photo-settings') ? 'active' : ''}`}
-            >
-              <i className="fa-solid fa-sliders me-2"></i>
-              <span className="sidebar-label">{t('Photo Settings')}</span>
-            </Nav.Link>
-          )}
+          {/* 取り込み・同期系のページ */}
+          {renderCategory('import', 'Import & Sync', [
+            { to: '/sessions', icon: 'fa-layer-group', label: 'Sessions', permission: 'media:session' },
+            { to: '/jobs', icon: 'fa-list-check', label: 'Sync Jobs', permission: 'media:session' },
+            { to: '/photo-imports', icon: 'fa-file-import', label: 'Photo Imports', permission: 'admin:photo-settings' },
+            { to: '/photo-settings', icon: 'fa-sliders', label: 'Photo Settings', permission: 'admin:photo-settings' },
+          ])}
         </>
       )}
 
-      {(hasPermission('admin:system-settings') || hasPermission('user:manage')) && (
-        <>
-          <div className="mt-3 mb-2">
-            <small className="text-muted text-uppercase fw-bold px-2 sidebar-label">{t('Administration')}</small>
-          </div>
-
-          {hasPermission('admin:system-settings') && (
-            <Nav.Link
-              as={Link}
-              to="/admin/dashboard"
-              className={`d-flex align-items-center py-2 ${isActive('/admin/dashboard') ? 'active' : ''}`}
-            >
-              <i className="fa-solid fa-server me-2"></i>
-              <span className="sidebar-label">{t('System Overview')}</span>
-            </Nav.Link>
-          )}
-
-          {hasPermission('user:manage') && (
-            <Nav.Link
-              as={Link}
-              to="/admin/users"
-              className={`d-flex align-items-center py-2 ${isActive('/admin/users') ? 'active' : ''}`}
-            >
-              <i className="fa-solid fa-users me-2"></i>
-              <span className="sidebar-label">{t('Users')}</span>
-            </Nav.Link>
-          )}
-
-          {hasPermission('user:manage') && (
-            <Nav.Link
-              as={Link}
-              to="/admin/roles"
-              className={`d-flex align-items-center py-2 ${isActive('/admin/roles') ? 'active' : ''}`}
-            >
-              <i className="fa-solid fa-shield-halved me-2"></i>
-              <span className="sidebar-label">{t('Roles')}</span>
-            </Nav.Link>
-          )}
-
-          {hasPermission('user:manage') && (
-            <Nav.Link
-              as={Link}
-              to="/admin/groups"
-              className={`d-flex align-items-center py-2 ${isActive('/admin/groups') ? 'active' : ''}`}
-            >
-              <i className="fa-solid fa-sitemap me-2"></i>
-              <span className="sidebar-label">{t('Groups')}</span>
-            </Nav.Link>
-          )}
-
-          {hasPermission('admin:system-settings') && (
-            <Nav.Link
-              as={Link}
-              to="/admin/permissions"
-              className={`d-flex align-items-center py-2 ${isActive('/admin/permissions') ? 'active' : ''}`}
-            >
-              <i className="fa-solid fa-key me-2"></i>
-              <span className="sidebar-label">{t('Permissions')}</span>
-            </Nav.Link>
-          )}
-
-          {hasPermission('admin:system-settings') && (
-            <Nav.Link
-              as={Link}
-              to="/admin/service-accounts"
-              className={`d-flex align-items-center py-2 ${isActive('/admin/service-accounts') ? 'active' : ''}`}
-            >
-              <i className="fa-solid fa-robot me-2"></i>
-              <span className="sidebar-label">{t('Service Accounts')}</span>
-            </Nav.Link>
-          )}
-
-          {hasPermission('system:manage') && (
-            <Nav.Link
-              as={Link}
-              to="/admin/config"
-              className={`d-flex align-items-center py-2 ${isActive('/admin/config') ? 'active' : ''}`}
-            >
-              <i className="fa-solid fa-gear me-2"></i>
-              <span className="sidebar-label">{t('System Settings')}</span>
-            </Nav.Link>
-          )}
-
-          {hasPermission('admin:system-settings') && (
-            <Nav.Link
-              as={Link}
-              to="/admin/google-accounts"
-              className={`d-flex align-items-center py-2 ${isActive('/admin/google-accounts') ? 'active' : ''}`}
-            >
-              <i className="fa-brands fa-google me-2"></i>
-              <span className="sidebar-label">{t('Google Accounts')}</span>
-            </Nav.Link>
-          )}
-
-          {hasPermission('system:manage') && (
-            <Nav.Link
-              as={Link}
-              to="/admin/photo-exports"
-              className={`d-flex align-items-center py-2 ${isActive('/admin/photo-exports') ? 'active' : ''}`}
-            >
-              <i className="fa-solid fa-file-export me-2"></i>
-              <span className="sidebar-label">{t('Photo Exports')}</span>
-            </Nav.Link>
-          )}
-        </>
-      )}
+      {renderCategory('admin', 'Administration', [
+        { to: '/admin/dashboard', icon: 'fa-server', label: 'System Overview', permission: 'admin:system-settings' },
+        { to: '/admin/users', icon: 'fa-users', label: 'Users', permission: 'user:manage' },
+        { to: '/admin/roles', icon: 'fa-shield-halved', label: 'Roles', permission: 'user:manage' },
+        { to: '/admin/groups', icon: 'fa-sitemap', label: 'Groups', permission: 'user:manage' },
+        { to: '/admin/permissions', icon: 'fa-key', label: 'Permissions', permission: 'admin:system-settings' },
+        { to: '/admin/service-accounts', icon: 'fa-robot', label: 'Service Accounts', permission: 'admin:system-settings' },
+        { to: '/admin/config', icon: 'fa-gear', label: 'System Settings', permission: 'system:manage' },
+        { to: '/admin/google-accounts', icon: 'fa-brands fa-google', label: 'Google Accounts', permission: 'admin:system-settings' },
+        { to: '/admin/photo-exports', icon: 'fa-file-export', label: 'Photo Exports', permission: 'system:manage' },
+      ])}
     </Nav>
   );
 
@@ -263,10 +144,13 @@ const Sidebar: React.FC = () => {
       */}
       <style>{`
         .app-sidebar { --bs-offcanvas-width: 280px; }
+        .app-sidebar .sidebar-category-header { font-size: .75rem; }
+        .app-sidebar .sidebar-category-header:focus { box-shadow: none; }
         @media (min-width: 768px) {
           .app-sidebar.offcanvas-md { width: 250px; }
           .app-sidebar.offcanvas-md.app-sidebar-collapsed { width: 60px; }
           .app-sidebar.offcanvas-md.app-sidebar-collapsed .sidebar-label { display: none; }
+          .app-sidebar.offcanvas-md.app-sidebar-collapsed .sidebar-category-header { display: none; }
         }
       `}</style>
       <Offcanvas

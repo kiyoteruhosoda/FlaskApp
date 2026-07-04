@@ -6,6 +6,39 @@
 ## [Unreleased]
 
 ### Added
+- **プロフィールに「Google アカウント連携」セクションを追加**
+  （`GoogleAccountLinkSection.tsx`）。自分のアカウントの登録（OAuth リンク）・
+  一覧・連携解除ができる。バックエンド `GET /api/google/accounts` に
+  `?mine=1`（自分に紐づくアカウントのみ返す）を追加。
+- **Photo Imports に「Google フォトから取り込み」カードを追加**。共通モーダル
+  `GooglePhotosImportModal.tsx`（Sessions ページの実装を共通化）で連携アカウント
+  を選んで Picker セッションを作成する。アカウント未登録時はプロフィールの
+  連携セクションへ誘導する。
+- **サイドバーをカテゴリ折りたたみ式に変更**。「メディア」「取り込み・同期」
+  「管理」のカテゴリヘッダで開閉でき、状態は localStorage に保存。
+  アイコンのみの折りたたみ幅ではカテゴリを常時展開する。
+
+### Fixed
+- **admin でもロール管理画面が「権限がありません」になる問題を修正**。
+  `admin:system-settings` と `media:session` が API・画面で要求されているのに
+  権限マスタ（`shared/domain/auth/master_data.py` の `PERMISSION_CODES`）に
+  存在せず、どのロールにも付与できなかった。マスタへ追加（admin は全権限、
+  manager に `media:session` を付与）し、適用済み DB 向けに不足分を冪等同期する
+  マイグレーション `4c8d1e2f5a09_sync_permission_master_data.py` を追加。
+  これによりサイドバーの管理系リンク（System Overview / Permissions /
+  Service Accounts / Google Accounts）と Sessions / Sync Jobs も admin に
+  表示されるようになる。ロール⇔権限の紐づけ UI は Roles 画面の作成・編集
+  モーダル（権限チェックボックス）で、権限一覧の取得失敗時もロール一覧表示は
+  維持されるよう分離した。
+- **Google アカウントリンク後に画面へ結果が反映されない問題を修正**。
+  OAuth コールバックの成否が Flask flash のみで通知され React SPA では
+  何も表示されなかった。結果をクエリパラメータ（`google_link=ok|error`・
+  `email`・`reason`）で戻り先に引き渡し、Google Accounts 画面と
+  プロフィールの連携セクションが成功／失敗アラートを表示する。
+  併せてコールバックが `current_user.id` に依存していて JWT クッキー失効時に
+  失敗する問題を、OAuth 開始時にユーザー ID をセッション state へ保存して
+  解消（`tests/webapp/auth/test_google_oauth_callback.py` で検証）。
+
 - **Google アカウント連携ページを新設**（`/admin/google-accounts`、
   `GoogleAccountsPage.tsx`）。Sidebar からリンクのみ存在しページ未実装だったものを
   実装。Google アカウント登録（`POST /api/google/oauth/start` → 認可 URL へ遷移、

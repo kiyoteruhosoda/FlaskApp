@@ -2027,10 +2027,14 @@ def google_oauth_start():
     sorted_scopes = sorted(scopes)
     redirect_target = data.get("redirect")
     state = secrets.token_urlsafe(16)
+    current_principal = get_current_user()
     session["google_oauth_state"] = {
         "state": state,
         "scopes": sorted_scopes,
         "redirect": redirect_target,
+        # コールバック時に JWT クッキーが失効していてもアカウントを
+        # 正しいユーザーに紐づけられるよう、開始時点のユーザー ID を保持する
+        "user_id": getattr(current_principal, "id", None),
     }
     
     # デバッグ情報を追加
@@ -2088,13 +2092,21 @@ def debug_request_info():
 @bp.get("/google/accounts")
 @login_or_jwt_required
 def api_google_accounts():
-    """Return paginated list of linked Google accounts."""
-    
+    """Return paginated list of linked Google accounts.
+
+    ``?mine=1`` を指定すると現在のユーザーに紐づくアカウントのみ返す
+    （プロフィール画面などユーザー自身の連携管理用）。
+    """
+
     # ページングパラメータの取得
     params = PaginationParams.from_request(default_page_size=200)
-    
+
     # ベースクエリ
     query = GoogleAccount.query
+    if request.args.get("mine", type=int):
+        user = get_current_user()
+        user_id = getattr(user, "id", None)
+        query = query.filter(GoogleAccount.user_id == user_id)
     
     # Googleアカウントのシリアライザ関数
     def serialize_google_account(account):

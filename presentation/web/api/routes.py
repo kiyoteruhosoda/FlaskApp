@@ -2043,7 +2043,7 @@ def google_oauth_start():
         f"OAuth start - PREFERRED_URL_SCHEME: {settings.preferred_url_scheme}"
     )
     
-    # パスは /auth/google/callback 固定。GOOGLE_OAUTH_REDIRECT_URI は
+    # パスは /auth/google/callback 固定。GOOGLE_OAUTH_REDIRECT_ORIGIN は
     # スキーム・ホストの上書きのみ（詳細は google_oauth_callback_url 参照）。
     callback_url = google_oauth_callback_url()
     current_app.logger.info(f"OAuth start - Generated callback URL: {callback_url}")

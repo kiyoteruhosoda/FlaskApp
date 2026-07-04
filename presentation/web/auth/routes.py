@@ -1598,10 +1598,19 @@ def google_oauth_callback():
             timeout=10
         )
         tokens = token_res.json()
-        current_app.logger.info(f"OAuth token response: {tokens}")
+        # トークン本体（access_token / refresh_token）はログに残さない
         if "error" in tokens:
+            current_app.logger.error(
+                "OAuth token exchange failed: %s (%s)",
+                tokens["error"],
+                tokens.get("error_description", ""),
+            )
             flash(_("Google token error: %(msg)s", msg=tokens.get("error_description", tokens["error"])), "error")
             return _google_link_result_redirect(saved, "error", reason="token_error")
+        current_app.logger.info(
+            "OAuth token exchange succeeded (response keys: %s)",
+            sorted(tokens.keys()),
+        )
     except Exception as e:
         current_app.logger.error(f"Failed to obtain token from Google: {str(e)}")
         flash(_("Failed to obtain token from Google: %(msg)s", msg=str(e)), "error")

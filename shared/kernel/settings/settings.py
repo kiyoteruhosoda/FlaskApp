@@ -103,6 +103,9 @@ class ApplicationSettings:
     """
 
     _LEGACY_KEYS: ClassVar[dict[str, tuple[str, ...]]] = {
+        # 旧名はフル URL を保持していた。オリジンへの正規化は
+        # presentation/web/utils/url_helpers.py 側で行う。
+        "GOOGLE_OAUTH_REDIRECT_ORIGIN": ("GOOGLE_OAUTH_REDIRECT_URI",),
         "MEDIA_DOWNLOAD_SIGNING_KEY": ("FPV_DL_SIGN_KEY",),
         "MEDIA_THUMBNAIL_URL_TTL_SECONDS": ("FPV_URL_TTL_THUMB",),
         "MEDIA_PLAYBACK_URL_TTL_SECONDS": ("FPV_URL_TTL_PLAYBACK",),
@@ -365,10 +368,21 @@ class ApplicationSettings:
         return self._get("GOOGLE_CLIENT_SECRET", "") or ""
 
     @property
-    def google_oauth_redirect_uri(self) -> str:
-        """明示設定された Google OAuth コールバック URL。空なら url_for で自動生成する。"""
-        value = self._get("GOOGLE_OAUTH_REDIRECT_URI", "") or ""
-        return value.strip() if isinstance(value, str) else ""
+    def google_oauth_redirect_origin(self) -> str:
+        """Google OAuth コールバック URL のスキーム・ホスト上書き（例:
+        ``https://photos.example.com``）。パスは Flask ルートで固定のため含めない。
+        空ならリクエストから自動生成する。
+
+        旧キー ``GOOGLE_OAUTH_REDIRECT_URI``（フル URL）も後方互換で参照する。
+        既定値ロードにより canonical キーが空文字で常に存在するため、
+        ``_LEGACY_KEYS`` の汎用フォールバックでは到達できず、ここで明示する。
+        """
+        value = self._get("GOOGLE_OAUTH_REDIRECT_ORIGIN", "") or ""
+        value = value.strip() if isinstance(value, str) else ""
+        if not value:
+            legacy = self._get("GOOGLE_OAUTH_REDIRECT_URI", "") or ""
+            value = legacy.strip() if isinstance(legacy, str) else ""
+        return value
 
     _DEFAULT_GOOGLE_PHOTO_PICKER_SCOPES: tuple[str, ...] = (
         "https://www.googleapis.com/auth/photospicker.mediaitems.readonly",

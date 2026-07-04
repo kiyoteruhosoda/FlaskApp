@@ -718,7 +718,8 @@ INSERT INTO `permission` (`id`,`code`,`detail`) VALUES
 (24,'gui:view',NULL),
 (11,'wiki:admin',NULL),
 (12,'wiki:read',NULL),
-(13,'wiki:write',NULL);
+(13,'wiki:write',NULL),
+(29,'admin:system-settings',NULL);
 /*!40000 ALTER TABLE `permission` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -938,6 +939,7 @@ INSERT INTO `role_permissions` VALUES
 (1,26),
 (1,27),
 (1,28),
+(1,29),
 (2,4),
 (2,5),
 (2,6),

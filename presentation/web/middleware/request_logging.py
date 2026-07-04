@@ -48,8 +48,12 @@ def register_request_logging(app: Flask) -> None:
             except Exception:
                 input_json = None
 
+            # コンソール等 extra を表示しないハンドラでも発生源が分かるよう、
+            # method / path / requestId はメッセージ本体に含める
             log_dict = {
                 "method": request.method,
+                "path": request.path,
+                "requestId": req_id,
             }
             args_dict = request.args.to_dict()
             if args_dict:
@@ -94,8 +98,12 @@ def register_request_logging(app: Flask) -> None:
             masked_json = (
                 mask_sensitive_data(resp_json) if resp_json is not None else None
             )
+            # レスポンスログも単体で「どのリクエストへの応答か」が分かるようにする
             base_payload = {
+                "method": request.method,
+                "path": request.path,
                 "status": response.status_code,
+                "requestId": req_id,
                 "json": masked_json,
             }
             _, log_payload = prepare_log_payload(
@@ -123,6 +131,8 @@ def register_request_logging(app: Flask) -> None:
             log_dict = {
                 "status": response.status_code,
                 "method": request.method,
+                "path": request.path,
+                "requestId": getattr(g, "request_id", None),
                 "user_agent": request.user_agent.string,
             }
             qs = request.query_string.decode()

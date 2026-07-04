@@ -35,6 +35,7 @@ PERMISSION_CODES: Sequence[str] = (
     "album:view",
     "media:view",
     "media:session",
+    "group:manage",
     "permission:manage",
     "role:manage",
     "system:manage",

@@ -11,8 +11,8 @@ from .routes import login_or_jwt_required, get_current_user
 
 def _require_system_settings():
     user = get_current_user()
-    if user is None or not user.can("admin:system-settings"):
-        return jsonify({"error": "forbidden", "message": "admin:system-settings permission required"}), 403
+    if user is None or not user.can("service_account:manage"):
+        return jsonify({"error": "forbidden", "message": "service_account:manage permission required"}), 403
     return None
 
 

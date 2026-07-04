@@ -9,10 +9,12 @@ from . import bp
 from .routes import login_or_jwt_required, get_current_user
 
 
-def _require_system_settings():
+def _require_permission_manage():
+    # 権限マスタの閲覧・編集はユビキタス言語どおり permission:manage で認可する。
+    # （ロール編集画面での権限一覧取得にも使われる）
     user = get_current_user()
-    if user is None or not user.can("admin:system-settings"):
-        return jsonify({"error": "forbidden", "message": "admin:system-settings permission required"}), 403
+    if user is None or not user.can("permission:manage"):
+        return jsonify({"error": "forbidden", "message": "permission:manage permission required"}), 403
     return None
 
 
@@ -29,7 +31,7 @@ def _serialize_permission(perm: Permission) -> dict:
 @login_or_jwt_required
 def api_admin_permissions_list():
     """権限一覧を返す。"""
-    err = _require_system_settings()
+    err = _require_permission_manage()
     if err:
         return err
 
@@ -48,7 +50,7 @@ def api_admin_permissions_list():
 @login_or_jwt_required
 def api_admin_permissions_create():
     """権限を作成する。"""
-    err = _require_system_settings()
+    err = _require_permission_manage()
     if err:
         return err
 
@@ -69,7 +71,7 @@ def api_admin_permissions_create():
 @login_or_jwt_required
 def api_admin_permission_detail(perm_id: int):
     """権限詳細を返す。"""
-    err = _require_system_settings()
+    err = _require_permission_manage()
     if err:
         return err
 
@@ -83,7 +85,7 @@ def api_admin_permission_detail(perm_id: int):
 @login_or_jwt_required
 def api_admin_permission_update(perm_id: int):
     """権限を更新する。"""
-    err = _require_system_settings()
+    err = _require_permission_manage()
     if err:
         return err
 
@@ -116,7 +118,7 @@ def api_admin_permission_update(perm_id: int):
 @login_or_jwt_required
 def api_admin_permission_delete(perm_id: int):
     """権限を削除する。"""
-    err = _require_system_settings()
+    err = _require_permission_manage()
     if err:
         return err
 

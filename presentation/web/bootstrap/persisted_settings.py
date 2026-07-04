@@ -4,10 +4,17 @@
 CORS 設定・メール設定を取得し、既定値とレガシーキーを考慮して ``app.config`` を
 組み立てる。管理画面での設定更新後にも再適用される（公開関数
 ``apply_persisted_settings``）。
+
+また、Gunicorn の複数ワーカー構成では「設定更新リクエストを処理したワーカー」
+以外は再起動まで古い ``app.config`` を持ち続けてしまうため、リクエストごとに
+（最大 ``_STALENESS_CHECK_INTERVAL_SECONDS`` 間隔で）``system_settings`` の
+``updated_at`` を確認し、更新されていれば再適用する
+``refresh_persisted_settings_if_stale`` を提供する。
 """
 
 from __future__ import annotations
 
+import time
 from collections.abc import MutableMapping
 
 from flask import Flask
@@ -20,9 +27,64 @@ from shared.kernel.settings.system_settings_defaults import (
 
 from presentation.web.services.system_setting_service import SystemSettingService
 
+# 鮮度チェックの最小間隔（秒）。この間隔内の連続リクエストでは DB を見ない。
+_STALENESS_CHECK_INTERVAL_SECONDS = 10.0
+_LAST_CHECK_MONOTONIC_KEY = "_PERSISTED_SETTINGS_LAST_CHECK_MONOTONIC"
+_APPLIED_UPDATED_AT_KEY = "_PERSISTED_SETTINGS_APPLIED_UPDATED_AT"
+
+
+def _latest_settings_updated_at():
+    """system_settings 全体の最終更新時刻を返す（テーブル未作成時は例外）。"""
+
+    from shared.infrastructure.models.system_setting import SystemSetting
+    from shared.kernel.database.db import db
+
+    return db.session.query(db.func.max(SystemSetting.updated_at)).scalar()
+
+
+def refresh_persisted_settings_if_stale(app: Flask) -> None:
+    """DB の設定が更新されていれば ``app.config`` へ再適用する。
+
+    設定更新を処理していないワーカーにも変更を波及させるための仕組み。
+    チェックは ``_STALENESS_CHECK_INTERVAL_SECONDS`` ごとに 1 クエリで、
+    DB 不通時・テーブル未作成時は何もしない（現在の設定のまま動き続ける）。
+    """
+
+    if app.config.get("TESTING"):
+        return
+
+    now = time.monotonic()
+    last_check = app.config.get(_LAST_CHECK_MONOTONIC_KEY)
+    if last_check is not None and (now - last_check) < _STALENESS_CHECK_INTERVAL_SECONDS:
+        return
+    app.config[_LAST_CHECK_MONOTONIC_KEY] = now
+
+    try:
+        latest = _latest_settings_updated_at()
+    except Exception:  # pragma: no cover - DB 不通時は既存設定のまま
+        return
+    if latest is None:
+        return
+
+    applied = app.config.get(_APPLIED_UPDATED_AT_KEY)
+    if applied is not None and latest <= applied:
+        return
+
+    app.logger.info(
+        "Persisted settings changed in DB (updated_at=%s); reloading into app.config",
+        latest,
+    )
+    apply_persisted_settings(app)
+
 
 def apply_persisted_settings(app: Flask) -> None:
     """Load persisted configuration values into ``app.config``."""
+
+    # 再適用の判定基準として、読み込み開始時点の最終更新時刻を控える
+    try:
+        app.config[_APPLIED_UPDATED_AT_KEY] = _latest_settings_updated_at()
+    except Exception:  # pragma: no cover - 起動直後などテーブル未作成時
+        app.config[_APPLIED_UPDATED_AT_KEY] = None
 
     try:
         stored_payload = SystemSettingService.load_application_config_payload()

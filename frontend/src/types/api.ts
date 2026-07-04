@@ -601,6 +601,8 @@ export interface ConfigField {
   allow_null: boolean;
   editable: boolean;
   default_hint: string | null;
+  // 入力欄の直後に表示する固定サフィックス（値の一部が固定であることを明示）
+  input_suffix?: string | null;
   search_text: string;
   section: string;
   section_label: string;

@@ -31,6 +31,10 @@ SENSITIVE_BODY_KEYS = {
     "refresh_token",
     "id_token",
     "token",
+    # OAuth 認可コード・クライアントシークレット・資格情報も出力しない
+    "code",
+    "client_secret",
+    "password",
 }
 
 

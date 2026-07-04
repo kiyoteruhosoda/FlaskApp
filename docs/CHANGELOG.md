@@ -5,6 +5,39 @@
 
 ## [Unreleased]
 
+### Fixed
+- **設定更新が一部のリクエストで反映されない問題（OAuth の client_id が空になる等）
+  を修正**。DB 保存設定（system_settings）は起動時と「更新リクエストを処理した
+  ワーカー」の `app.config` にしか反映されず、Gunicorn の他ワーカーは再起動まで
+  古い値を使い続けていた。リクエストごと（最大10秒間隔の軽量クエリ）に
+  `system_settings.updated_at` を確認し、更新されていれば再適用する
+  `refresh_persisted_settings_if_stale` を追加（`bootstrap/persisted_settings.py`）。
+- **admin で権限管理・サービスアカウント管理に到達できない問題を修正**。
+  権限 CRUD API のゲートを `admin:system-settings` → `permission:manage`、
+  サービスアカウント管理を → `service_account:manage` に変更（ユビキタス言語の
+  scope に統一）。これによりロール編集モーダルの権限チェックボックス
+  （ロール⇔権限の紐づけ）と Permissions 画面（権限の作成・編集・削除）が
+  admin で利用可能になった。
+- **DB ベースライン（`db/init/01_initialize.sql`）と権限マスタの乖離を解消**。
+  ベースラインに `admin:system-settings` が無く（`stamp head` 運用では同期
+  マイグレーションも実行されないため）付与されなかった。ベースラインに権限と
+  admin への付与を追加し、ベースライン側にのみ存在した `group:manage` を
+  `master_data.py` の `PERMISSION_CODES` にも追加して整合させた。
+- **OAuth トークン交換のログ改善**: トークンレスポンス全体（アクセストークン・
+  リフレッシュトークンを含む）を INFO で出力していたのをやめ、成功時はキー名
+  のみ、エラー時は ERROR レベルで記録。外向き HTTP ログ（http_logging）の
+  マスク対象に `code`（認可コード）・`client_secret`・`password` を追加。
+- **API リクエスト/レスポンスログに発生源を明記**。`{"method": "GET"}` のような
+  発生源不明のログにならないよう、入出力ログのメッセージ本体に
+  method / path / status / requestId を常に含めるようにした。
+
+### Changed
+- **`GOOGLE_OAUTH_REDIRECT_URI` 設定を `GOOGLE_OAUTH_REDIRECT_ORIGIN` に変更**
+  （ラベル: Google OAuth redirect scheme and host）。設定値はスキーム・ホストのみ
+  （例 `https://photos.example.com`）で、固定パス `/auth/google/callback` は
+  自動付与される。管理画面の入力欄にも固定パスをサフィックス表示
+  （`input_suffix`）。旧キー（フル URL）も後方互換で受け付ける。
+
 ### Added
 - **プロフィールに「Google アカウント連携」セクションを追加**
   （`GoogleAccountLinkSection.tsx`）。自分のアカウントの登録（OAuth リンク）・

@@ -117,10 +117,10 @@ def _can_read_api_keys() -> bool:
 def _can_manage_groups() -> bool:
     if not hasattr(current_user, "can"):
         return False
-    # "group:manage" は shared/domain/auth/master_data.py の PERMISSION_CODES に
-    # 存在しないため、どのロールにも付与され得ない（常に False になる）。
-    # React SPA (GroupsPage) が使う `/api/admin/groups` は user:manage を要求して
-    # おり、Sidebar のリンク表示も同じ権限で判定しているため、それに合わせる。
+    # グループ管理は現状 user:manage で認可する（React SPA の `/api/admin/groups`
+    # と Sidebar の表示判定も同じ）。"group:manage" は PERMISSION_CODES に定義済み
+    # だが、ユーザー⇔グループ／グループ⇔ロール紐づけ機能（docs/Progress.md の
+    # T7/T8）実装時にそちらへ切り替える予定。
     return current_user.can("user:manage")
 
 
@@ -448,6 +448,7 @@ def _build_setting_row(
         "allow_null": definition.allow_null,
         "editable": definition.editable,
         "default_hint": definition.default_hint,
+        "input_suffix": definition.input_suffix,
         "search_text": search_text,
     }
 
@@ -780,20 +781,21 @@ def _parse_setting_value(key: str, definition: SettingFieldDefinition, raw_value
         raise ValueError(_(u"Value for %(key)s is required.", key=label))
 
     # OAuth コールバックのパスは Flask ルートで固定されているため、
-    # スキーム・ホスト以外を変更した値は保存させない（保存後に 404 や
+    # この設定はスキーム・ホストのみを受け付ける（保存後に 404 や
     # redirect_uri_mismatch で気付くのを防ぐ）。
-    if key == "GOOGLE_OAUTH_REDIRECT_URI":
+    if key == "GOOGLE_OAUTH_REDIRECT_ORIGIN":
         from presentation.web.utils import (
             google_oauth_callback_path,
-            validate_google_oauth_redirect_uri,
+            validate_google_oauth_redirect_origin,
         )
 
-        if validate_google_oauth_redirect_uri(value) is not None:
+        if validate_google_oauth_redirect_origin(value) is not None:
             raise ValueError(
                 _(
-                    u"%(key)s must be an absolute URL whose path is exactly "
-                    u"%(path)s. Only the scheme and host can be customised; "
-                    u"leave empty to derive them from the request.",
+                    u"%(key)s must contain only the scheme and host "
+                    u"(e.g. https://example.com). The callback path %(path)s "
+                    u"is appended automatically and cannot be changed; "
+                    u"leave empty to derive scheme and host from the request.",
                     key=label,
                     path=google_oauth_callback_path(),
                 )

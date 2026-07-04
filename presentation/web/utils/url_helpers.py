@@ -85,42 +85,60 @@ def google_oauth_callback_path() -> str:
     return rule.rule
 
 
-def validate_google_oauth_redirect_uri(value: str) -> str | None:
-    """Validate a GOOGLE_OAUTH_REDIRECT_URI value.
+def validate_google_oauth_redirect_origin(value: str) -> str | None:
+    """Validate a GOOGLE_OAUTH_REDIRECT_ORIGIN value.
 
-    コールバックのパスは Flask ルートで固定されているため、設定で上書きできるのは
-    スキームとホストのみ。妥当なら ``None``、不正なら理由（英語）を返す。
+    設定値はスキームとホストのみ（例 ``https://photos.example.com``）。
+    コールバックのパスは Flask ルートで固定のため含めない。
+    妥当なら ``None``、不正なら理由（英語）を返す。
     """
 
     parts = urlsplit(value)
     if parts.scheme not in ("http", "https") or not parts.netloc:
-        return "must be an absolute http(s) URL"
-    expected_path = google_oauth_callback_path()
-    if parts.path != expected_path or parts.query or parts.fragment:
-        return f"URL path is fixed to {expected_path}"
+        return "must be an absolute http(s) origin (scheme and host)"
+    if parts.path not in ("", "/") or parts.query or parts.fragment:
+        return "must contain only the scheme and host (no path, query or fragment)"
+    return None
+
+
+def _redirect_origin_or_none(raw: str) -> str | None:
+    """設定値からオリジン（scheme://host）を取り出す。不正なら ``None``。
+
+    旧設定 ``GOOGLE_OAUTH_REDIRECT_URI``（固定パス込みのフル URL）も
+    後方互換としてオリジン部分を取り出して受け付ける。
+    """
+
+    parts = urlsplit(raw)
+    if parts.scheme not in ("http", "https") or not parts.netloc:
+        return None
+    if parts.query or parts.fragment:
+        return None
+    if parts.path in ("", "/") or parts.path == google_oauth_callback_path():
+        return f"{parts.scheme}://{parts.netloc}"
     return None
 
 
 def google_oauth_callback_url() -> str:
     """Return the external Google OAuth callback URL (redirect_uri).
 
-    設定 ``GOOGLE_OAUTH_REDIRECT_URI`` が妥当（パスがコールバックルートと一致）
-    ならそれを使い、不正な値は警告ログを出して無視する。未設定・無効時は
+    パスは Flask ルート（``/auth/google/callback``）で固定。設定
+    ``GOOGLE_OAUTH_REDIRECT_ORIGIN`` があればそのスキーム・ホストに固定パスを
+    連結し、不正な値は警告ログを出して無視する。未設定・無効時は
     リクエストのホストと ``determine_external_scheme()`` から自動生成する。
     認可リクエストとトークン交換の両方で必ずこの関数を使うこと（redirect_uri は
     両者で完全一致が必要）。
     """
 
-    configured = settings.google_oauth_redirect_uri
+    configured = settings.google_oauth_redirect_origin
     if configured:
-        reason = validate_google_oauth_redirect_uri(configured)
-        if reason is None:
-            return configured
+        origin = _redirect_origin_or_none(configured)
+        if origin:
+            return origin + google_oauth_callback_path()
         current_app.logger.warning(
-            "Ignoring GOOGLE_OAUTH_REDIRECT_URI %r: %s. "
+            "Ignoring GOOGLE_OAUTH_REDIRECT_ORIGIN %r: must contain only the "
+            "scheme and host (e.g. https://example.com). "
             "Falling back to the auto-derived callback URL.",
             configured,
-            reason,
         )
 
     return url_for(
@@ -134,5 +152,5 @@ __all__ = [
     "determine_external_scheme",
     "google_oauth_callback_path",
     "google_oauth_callback_url",
-    "validate_google_oauth_redirect_uri",
+    "validate_google_oauth_redirect_origin",
 ]

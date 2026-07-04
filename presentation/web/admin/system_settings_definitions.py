@@ -34,6 +34,9 @@ class SettingFieldDefinition:
     choices: Sequence[tuple[str, str]] | None = None
     default_hint: str | None = None
     editable: bool = True
+    # 入力欄の直後に表示する固定サフィックス（例: 固定 URL パス）。
+    # 「値の一部が固定で変更不可」であることを UI 上で明示するために使う。
+    input_suffix: str | None = None
 
     def __post_init__(self) -> None:
         if self.data_type not in _ALLOWED_FIELD_TYPES:
@@ -251,23 +254,24 @@ _OAUTH_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         allow_empty=True,
     ),
     SettingFieldDefinition(
-        key="GOOGLE_OAUTH_REDIRECT_URI",
-        label=_(u"Google OAuth redirect URI"),
+        key="GOOGLE_OAUTH_REDIRECT_ORIGIN",
+        label=_(u"Google OAuth redirect scheme and host"),
         data_type="string",
         required=False,
         description=_(
-            u"Overrides the scheme and host of the OAuth callback URL sent to "
-            "Google, for reverse-proxy setups where they cannot be detected "
-            "from the request. The URL path is fixed to this application's "
-            "callback route /auth/google/callback and cannot be changed - "
-            "values with any other path are rejected. Register the same URL "
-            "in the Google Cloud console."
+            u"Scheme and host used for the OAuth callback URL sent to Google "
+            "(e.g. https://photos.example.com), for reverse-proxy setups where "
+            "they cannot be detected from the request. The callback path "
+            "/auth/google/callback is fixed and appended automatically - it "
+            "cannot be changed. Register the resulting full URL in the Google "
+            "Cloud console."
         ),
         allow_empty=True,
         default_hint=_(
-            u"Default: empty - the URL is derived from the request as "
-            "https://<request-host>/auth/google/callback."
+            u"Default: empty - the scheme and host are derived from the "
+            "request, producing https://<request-host>/auth/google/callback."
         ),
+        input_suffix="/auth/google/callback",
     ),
     SettingFieldDefinition(
         key="GOOGLE_PHOTO_PICKER_SCOPES",

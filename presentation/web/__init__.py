@@ -9,7 +9,10 @@ from shared.kernel.settings.settings import settings
 from .bootstrap.extensions import db, migrate, login_manager, babel, api as smorest_api
 from .middleware.error_handlers import register_error_handlers, register_debug_error_handlers
 from .bootstrap.cors import configure_cors
-from .bootstrap.persisted_settings import apply_persisted_settings
+from .bootstrap.persisted_settings import (
+    apply_persisted_settings,
+    refresh_persisted_settings_if_stale,
+)
 from .bootstrap.cli_commands import register_cli_commands
 from .middleware.request_logging import register_request_logging
 from .middleware.unauthorized_handler import register_unauthorized_handler
@@ -145,6 +148,13 @@ def create_app():
     def _apply_login_disabled_for_testing():
         if settings.testing:
             app.config['LOGIN_DISABLED'] = True
+
+    # 複数ワーカー構成での設定ドリフト対策:
+    # DB の system_settings が更新されていたら app.config へ再適用する
+    # （チェックは最大10秒に1回の軽量クエリ）。
+    @app.before_request
+    def _refresh_persisted_settings():
+        refresh_persisted_settings_if_stale(app)
 
     register_request_logging(app)
 

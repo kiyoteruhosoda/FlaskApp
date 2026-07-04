@@ -169,7 +169,7 @@ const FieldEditor: React.FC<FieldEditorProps> = ({ field, draft, modified, onCha
       );
     }
 
-    return (
+    const control = (
       <Form.Control
         type={field.data_type === 'integer' || field.data_type === 'float' ? 'number' : 'text'}
         step={field.data_type === 'float' ? 'any' : undefined}
@@ -178,6 +178,21 @@ const FieldEditor: React.FC<FieldEditorProps> = ({ field, draft, modified, onCha
         data-testid={`config-field-${field.key}`}
       />
     );
+
+    // 値の一部が固定（変更不可）の設定は、入力欄の直後に固定部分を表示する
+    // 例: Google OAuth redirect scheme and host → <入力>/auth/google/callback
+    if (field.input_suffix) {
+      return (
+        <InputGroup>
+          {control}
+          <InputGroup.Text className="font-monospace small" data-testid={`config-suffix-${field.key}`}>
+            {field.input_suffix}
+          </InputGroup.Text>
+        </InputGroup>
+      );
+    }
+
+    return control;
   };
 
   return (

@@ -1636,6 +1636,18 @@ def google_oauth_callback():
         flash(_("Failed to fetch email from Google."), "error")
         return _google_link_result_redirect(saved, "error", reason="email_fetch_failed")
 
+    # トークンは ENCRYPTION_KEY で暗号化して保存する。鍵未設定などで失敗しても
+    # 500 にせず、結果をリダイレクトで画面に返す。
+    try:
+        encrypted_tokens = encrypt(json.dumps(tokens))
+    except Exception:
+        current_app.logger.exception(
+            "Failed to encrypt Google OAuth tokens. "
+            "Is the token encryption key (ENCRYPTION_KEY) configured?"
+        )
+        flash(_("Token encryption key is not configured."), "error")
+        return _google_link_result_redirect(saved, "error", reason="encryption_key_missing")
+
     account = GoogleAccount.query.filter_by(email=email).first()
     scopes = saved.get("scopes") or []
     if not account:
@@ -1645,7 +1657,7 @@ def google_oauth_callback():
         account.scopes = ",".join(scopes)
         account.status = "active"
         account.user_id = link_user_id
-    account.oauth_token_json = encrypt(json.dumps(tokens))
+    account.oauth_token_json = encrypted_tokens
     account.last_synced_at = datetime.now(timezone.utc)
     db.session.commit()
 

@@ -495,5 +495,6 @@
   "Link a Google account in your profile": "Link a Google account in your profile",
   "Select photos and videos in Google Photos and import them into the library.": "Select photos and videos in Google Photos and import them into the library.",
   "A linked Google account is required.": "A linked Google account is required.",
-  "Permission list is unavailable, so permission assignment cannot be edited here.": "Permission list is unavailable, so permission assignment cannot be edited here."
+  "Permission list is unavailable, so permission assignment cannot be edited here.": "Permission list is unavailable, so permission assignment cannot be edited here.",
+  "Token encryption key is not configured. Set it in System Settings > Security & Signing.": "Token encryption key is not configured. Set it in System Settings > Security & Signing."
 }

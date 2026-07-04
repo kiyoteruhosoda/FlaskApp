@@ -238,8 +238,19 @@ MARIADB_PASSWORD=<strong-password>
 REDIS_PASSWORD=<strong-redis-password>
 GOOGLE_CLIENT_ID=<google-client-id>       # OAuth使用時のみ
 GOOGLE_CLIENT_SECRET=<google-client-secret>
+ENCRYPTION_KEY=<32-byte-base64-key>       # Google連携（トークン暗号化）に必須
 MEDIA_DOWNLOAD_SIGNING_KEY=<signing-key>
 ```
+
+`ENCRYPTION_KEY` の生成例（`base64:` 接頭辞付き・32バイト）:
+
+```bash
+python3 -c "import base64, os; print('base64:' + base64.urlsafe_b64encode(os.urandom(32)).decode())"
+```
+
+.env の代わりに管理画面の System Settings（Security & Signing >
+Token encryption key）でも設定できる。未設定のまま Google アカウント連携を
+開始しようとするとエラーメッセージで案内される。
 
 Google アカウント連携の詳細設定は管理画面の System Settings（Identity
 Providers セクション）から変更できる。

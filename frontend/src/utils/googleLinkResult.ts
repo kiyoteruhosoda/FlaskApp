@@ -50,6 +50,8 @@ export function googleLinkErrorText(reason: string | undefined, t: (key: string)
       return t('Failed to obtain token from Google.');
     case 'email_fetch_failed':
       return t('Failed to fetch email from Google.');
+    case 'encryption_key_missing':
+      return t('Token encryption key is not configured. Set it in System Settings > Security & Signing.');
     default:
       return t('Failed to link Google account.');
   }

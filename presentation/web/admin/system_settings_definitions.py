@@ -103,13 +103,14 @@ _SECURITY_DEFINITIONS: tuple[SettingFieldDefinition, ...] = (
         required=False,
         description=_(
             u"32-byte base64 key used to encrypt Google account refresh tokens. "
-            "Changing this value prevents previously stored tokens from being decrypted."
+            "Required before linking a Google account. Changing this value "
+            "prevents previously stored tokens from being decrypted."
         ),
         allow_empty=True,
         allow_null=True,
         default_hint=_(
-            u"Default: base64:ZGVmYXVsdC1nb29nbGUtZW5jcnlwdGlvbi1rZXktISE= "
-            "(preconfigured for Google integration)."
+            u"No default - generate one with: python3 -c \"import base64, os; "
+            "print('base64:' + base64.urlsafe_b64encode(os.urandom(32)).decode())\""
         ),
     ),
     SettingFieldDefinition(

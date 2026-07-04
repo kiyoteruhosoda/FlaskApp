@@ -49,7 +49,12 @@ const GoogleAccountLinkSection: React.FC = () => {
         setError(t('Failed to start Google authorization'));
       }
     } catch (e: any) {
-      setError(e?.response?.data?.error || e?.message || t('Failed to start Google authorization'));
+      const code = e?.response?.data?.error;
+      setError(
+        code === 'encryption_key_not_configured'
+          ? t('Token encryption key is not configured. Set it in System Settings > Security & Signing.')
+          : e?.response?.data?.message || code || e?.message || t('Failed to start Google authorization')
+      );
     } finally {
       setLinking(false);
     }

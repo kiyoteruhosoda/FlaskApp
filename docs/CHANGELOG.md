@@ -6,6 +6,14 @@
 ## [Unreleased]
 
 ### Fixed
+- **ENCRYPTION_KEY 未設定時に Google アカウント連携が 500 になる問題を修正**。
+  トークン保存時の暗号化で `RuntimeError` が発生し、Google の同意画面を
+  通過した後にサーバー内部エラーになっていた。①OAuth 開始 API で事前チェックし
+  `encryption_key_not_configured`(400) と設定手順を返す（同意画面へ進む前に
+  分かる）、②コールバックでも暗号化失敗を捕捉し `reason=encryption_key_missing`
+  で画面へ戻す、③ENCRYPTION_KEY の default_hint が「preconfigured」と実態
+  （デフォルトなし）に反していたのを生成コマンド付きの正しい説明に修正、
+  ④OPERATIONS.md の .env 例に `ENCRYPTION_KEY` を追記。
 - **設定更新が一部のリクエストで反映されない問題（OAuth の client_id が空になる等）
   を修正**。DB 保存設定（system_settings）は起動時と「更新リクエストを処理した
   ワーカー」の `app.config` にしか反映されず、Gunicorn の他ワーカーは再起動まで

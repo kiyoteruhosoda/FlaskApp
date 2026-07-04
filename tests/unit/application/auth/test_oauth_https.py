@@ -62,6 +62,7 @@ def test_oauth_start_api_with_https():
     app.config['PREFERRED_URL_SCHEME'] = 'https'
     app.config['TESTING'] = True
     app.config['GOOGLE_CLIENT_ID'] = 'test-client-id'
+    app.config['ENCRYPTION_KEY'] = 'base64:' + __import__('base64').urlsafe_b64encode(b'0' * 32).decode()
     
     with app.test_client() as client:
         # ログイン状態を模擬
@@ -93,6 +94,7 @@ def test_oauth_start_api_with_scope_profile_photo_picker():
     app.config['PREFERRED_URL_SCHEME'] = 'https'
     app.config['TESTING'] = True
     app.config['GOOGLE_CLIENT_ID'] = 'test-client-id'
+    app.config['ENCRYPTION_KEY'] = 'base64:' + __import__('base64').urlsafe_b64encode(b'0' * 32).decode()
 
     from presentation.web.api.routes import google_oauth_start
 
@@ -124,6 +126,7 @@ def test_oauth_start_api_with_invalid_scope_profile():
     app.config['PREFERRED_URL_SCHEME'] = 'https'
     app.config['TESTING'] = True
     app.config['GOOGLE_CLIENT_ID'] = 'test-client-id'
+    app.config['ENCRYPTION_KEY'] = 'base64:' + __import__('base64').urlsafe_b64encode(b'0' * 32).decode()
 
     from presentation.web.api.routes import google_oauth_start
 
@@ -168,6 +171,7 @@ class TestOAuthURLGeneration:
         self.app = create_app()
         self.app.config['TESTING'] = True
         self.app.config['GOOGLE_CLIENT_ID'] = 'test-client-id'
+        self.app.config['ENCRYPTION_KEY'] = 'base64:' + __import__('base64').urlsafe_b64encode(b'0' * 32).decode()
         self.app.config['GOOGLE_CLIENT_SECRET'] = 'test-secret'
         
     def test_oauth_flow_with_https_scheme(self):
@@ -205,6 +209,24 @@ class TestOAuthURLGeneration:
             assert callback_url.startswith('http://')
 
 
+def test_oauth_start_requires_encryption_key():
+    """暗号鍵未設定時は Google へ遷移させず 400 で分かりやすく中断する"""
+    app = create_app()
+    app.config['TESTING'] = True
+    app.config['GOOGLE_CLIENT_ID'] = 'test-client-id'
+    app.config['ENCRYPTION_KEY'] = None
+
+    from presentation.web.api.routes import google_oauth_start
+
+    with app.test_request_context('/api/google/oauth/start', json={}):
+        response = app.make_response(google_oauth_start.__wrapped__())
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data.get('error') == 'encryption_key_not_configured'
+        assert 'ENCRYPTION_KEY' in data.get('message', '')
+
+
 class TestGoogleOAuthRedirectOriginSetting:
     """GOOGLE_OAUTH_REDIRECT_ORIGIN 設定の検証。
 
@@ -216,6 +238,7 @@ class TestGoogleOAuthRedirectOriginSetting:
         self.app = create_app()
         self.app.config['TESTING'] = True
         self.app.config['GOOGLE_CLIENT_ID'] = 'test-client-id'
+        self.app.config['ENCRYPTION_KEY'] = 'base64:' + __import__('base64').urlsafe_b64encode(b'0' * 32).decode()
 
     def _start_oauth_redirect_uri(self) -> str:
         """OAuth 開始 API を呼び、auth_url 中の redirect_uri を返す。"""

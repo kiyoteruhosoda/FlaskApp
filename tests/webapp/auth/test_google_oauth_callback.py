@@ -125,6 +125,35 @@ def test_callback_without_user_redirects_with_login_required(client):
     assert GoogleAccount.query.count() == 0
 
 
+def test_callback_without_encryption_key_redirects_with_error(client):
+    """暗号鍵未設定時: 500 にせず reason=encryption_key_missing で戻す。"""
+    user = _create_user("nokey@example.com")
+    client.application.config["ENCRYPTION_KEY"] = None
+
+    with client.session_transaction() as sess:
+        sess["google_oauth_state"] = {
+            "state": "state-123",
+            "scopes": ["scope-a"],
+            "redirect": "/profile",
+            "user_id": user.id,
+        }
+
+    with patch(
+        "presentation.web.auth.routes.log_requests_and_send",
+        side_effect=_mock_google_responses(),
+    ):
+        response = client.get(
+            "/auth/google/callback?code=abc&state=state-123",
+            follow_redirects=False,
+        )
+
+    assert response.status_code in (302, 303)
+    query = parse_qs(urlsplit(response.headers["Location"]).query)
+    assert query.get("google_link") == ["error"]
+    assert query.get("reason") == ["encryption_key_missing"]
+    assert GoogleAccount.query.count() == 0
+
+
 def test_google_accounts_mine_filter_returns_only_own_accounts(client):
     """GET /api/google/accounts?mine=1 は自分に紐づくアカウントのみ返す。"""
     me = _create_user("me@example.com")

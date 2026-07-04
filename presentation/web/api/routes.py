@@ -2010,6 +2010,24 @@ def _google_oauth_profile_scopes(scope_profile: str) -> set[str] | None:
 )
 def google_oauth_start():
     """Start Google OAuth flow by returning an authorization URL."""
+    # 取得したトークンは ENCRYPTION_KEY で暗号化して保存する。未設定のまま
+    # Google の同意画面まで進ませてもコールバックで必ず失敗するため、
+    # ここで分かりやすく中断する。
+    if not settings.token_encryption_key:
+        return (
+            jsonify(
+                {
+                    "error": "encryption_key_not_configured",
+                    "message": (
+                        "Token encryption key (ENCRYPTION_KEY) is not configured. "
+                        "Set it in System Settings > Security & Signing before "
+                        "linking a Google account."
+                    ),
+                }
+            ),
+            400,
+        )
+
     data = request.get_json(silent=True) or {}
     scopes = set(data.get("scopes") or [])
     scope_profile = data.get("scope_profile")

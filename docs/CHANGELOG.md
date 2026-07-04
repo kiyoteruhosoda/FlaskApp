@@ -5,7 +5,89 @@
 
 ## [Unreleased]
 
+### Added
+- **`/healthz` を Web・API 双方に追加**（`presentation/web/routes/health.py` /
+  `presentation/web/api/health.py`）。既存の `/health/live`・`/health/ready`
+  （DB・NAS・Redis 疎通チェック）とは別に、デプロイ後「どのビルドが動作しているか」を
+  即座に確認できる軽量エンドポイント。`version`・`commit_hash`・`commit_hash_full`・
+  `branch`・`build_date`・UTC の `server_time` を返す。認証不要。
+- フロントエンド `npm run build` 完了時にコミットハッシュ・ブランチ・ビルド日時を表示
+  （`frontend/scripts/print-build-info.js`）。バックエンドの `make build`（Docker
+  イメージビルド）は既に `version.json` を表示していたため未対応だったフロントエンド側を
+  補完した。
+- `scripts/deploy.sh` / `scripts/deploy-stg.sh` の完了時に、実際にデプロイされた
+  web コンテナの `version.json`（コミットハッシュ含む）を表示するようにした。
+- 非管理画面（Home/Dashboard/Media/Albums/Tags/Sessions/Jobs/Photo Imports/
+  Photo Settings/Profile/Wiki 等）のモバイル対応。Sidebar を
+  react-bootstrap の `Offcanvas`（`responsive="md"`）化し、768px 未満では
+  ハンバーガーボタンからオーバーレイ式のドロワーとして開閉できるようにした
+  （デスクトップでは従来どおりの折りたたみ幅サイドバーのまま）。Header の
+  ハンバーボタンをモバイル用（ドロワー開閉）とデスクトップ用（折りたたみ）に分離。
+  回帰検知用に `frontend/e2e/mobile_responsive.spec.ts`（375px viewportでの
+  横スクロール有無を機械的に検証）を追加。
+- **Photo Imports 機能を新設**（Photo Settings から Local Import Status を分離）。
+  新ページ `/photo-imports`（`PhotoImportsPage.tsx`、Sidebar に `fa-file-import`
+  アイコンで追加、権限 `admin:photo-settings`）でインポート状態の確認・取り込み実行
+  （`system:manage` 保有時のみ表示）に加え、**Import Directory へのファイル手動
+  アップロード**ができるようになった。バックエンドに
+  `POST /api/sync/local-import/upload`（multipart、`admin:photo-settings` 必須）を追加。
+  拡張子は `SUPPORTED_EXTENSIONS`（domain/local_import/policies.py）で検証し、
+  同名ファイルは上書きせず連番を付与する。Photo Settings はディレクトリ状態の
+  確認のみに整理。
+- 画面フッタにアプリバージョンを常時表示（`Footer.tsx`、`GET /api/version` を参照）。
+- Role Management にデフォルトロール（master_data.py の admin/manager/member/guest）を
+  `isDefault: true` 付きで表示。デフォルトロールは UI で編集・削除ボタンを出さず、
+  API 側でも `PUT`/`DELETE /api/admin/roles/<id>` が `default_role_immutable`(403) を
+  返すようガードした。
+
 ### Fixed
+- `deploy-stg.sh reset` の `flask db stamp head` が `Can't connect to MySQL server
+  on 'db' (Connection refused)` で失敗する問題が、修正（compose の db healthcheck
+  への `--protocol=tcp` 追加と、stamp 前の DB 接続待機ループ）をリポジトリに
+  マージした後も NAS 上で再発し続けていた。原因は、NAS 上の
+  `/volume1/docker/scripts/deploy-stg.sh` と `/volume1/docker/docker-compose.yml`
+  が手動コピー運用のため更新されず、待機ループのない旧スクリプトと
+  ソケット越しに誤って healthy 判定する旧 healthcheck のまま実行されていたこと
+  （実行ログに `Waiting for DB to accept connections` が出ていないことで特定）。
+  恒久対策として、アプリイメージの tar を唯一の配布物にした:
+  `docker-compose.yml` をイメージに焼き込み（`.dockerignore` の除外を解除）、
+  デプロイスクリプトが `docker load` 直後にイメージから compose と自分自身を
+  取り出して自己更新・自動再実行するようにした（`deploy.sh` / `deploy-stg.sh` 共通）。
+  あわせて `flask db stamp/upgrade` に3回リトライを追加。前提条件は
+  `tests/integration/test_deploy_asset_sync_consistency.py` が検証する。
+  ※この仕組みが働き始めるには、NAS 上のスクリプトを今回の版へ**最後に一度だけ**
+  手動コピーする必要がある（以後は tar の転送のみでスクリプト・compose も更新される）。
+- **パスキー登録が常に「Failed to register passkey」で失敗する不具合を修正。**
+  フロントは `GET /api/auth/passkey/options/register` / `POST /api/auth/passkey/verify/register`
+  を呼んでいたが、バックエンドには auth ブループリント側の
+  `POST /auth/passkey/options/register`（Flask-Login セッション必須）しか存在せず
+  404 になっていた。JWT 認証（`login_or_jwt_required`）対応の登録エンドポイントを
+  `/api` 側（`api/auth_passkeys.py`）に追加して解消。チャレンジは従来同様
+  Flask セッションに保持する。
+- ログインの二段階認証（TOTP）要求時に、内部エラーコード `totp_required` が
+  赤い dismissible アラートでそのまま表示されていた問題を修正。エラーではなく
+  通常の案内（info アラート「認証コードを入力してログインを完了してください」）に
+  変更し、`invalid_totp` / `invalid_credentials` も利用者向け文言に変換して表示する
+  ようにした。
+- ログイン画面で `invalid_token` 等の内部エラーコードがそのまま表示されることが
+  あった不具合を修正。ログイン成功直後の `getCurrentUser()` が一時的に失敗する
+  ケースなどで `state.error` に生のバックエンドコードが入ることがあったため、
+  `LoginPage` では既知の利用者向けコード（`invalid_totp`・`invalid_credentials`）
+  以外は表示しないようにした。
+- ログイン/登録画面の `Container` が `min-vh-100` でビューポート全体を占有していた
+  ため、共通レイアウトの `Footer`（バージョン表示）がスクロールしないと見えなかった
+  不具合を修正。`h-100`（親の `<main>` に対する相対高さ）に変更し、スクロールなしで
+  フッタが見えるようにした。
+- フッタのバージョン表示が `vv1a2b3c4` のように "v" が二重になっていた不具合を修正。
+  `version.json`（`scripts/generate_version.sh` 生成）の `version` フィールドは
+  既に `v` 接頭辞込みの文字列のため、`Footer.tsx` 側で追加していた `v` を削除。
+
+### Changed
+- ログイン/登録画面のデザイン調整: カードの枠・影を外して背景と一体化し、
+  Navbar ブランドと重複する「PhotoNest」タイトルを削除。英日切替を
+  カードヘッダ右上（視認性の悪い outline ボタン）から card-footer の
+  リンク型ドロップダウンへ移動。
+- Sidebar の Dashboard アイコンを `fa-gauge-high` から `fa-bars-progress` に変更。
 - Celery worker 起動直後、最初に実行されたタスク（`picker_import.watchdog` の
   `list_importing()` クエリなど）が SQLAlchemy 内部の `NotImplementedError`
   で失敗することがある不具合を修正。原因は `cli/src/celery/celery_app.py` の

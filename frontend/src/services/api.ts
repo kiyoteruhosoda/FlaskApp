@@ -41,6 +41,8 @@ import {
   PickerSessionSelectionsResponse,
   SelectionErrorPayload,
   LocalImportStatusResponse,
+  LocalImportUploadResponse,
+  VersionResponse,
   ConfigResponse,
   DuplicateGroupsResponse,
 } from '../types/api';
@@ -453,6 +455,24 @@ class ApiClient {
 
   async triggerLocalImport(opts?: { duplicateRegeneration?: string }): Promise<{ success: boolean; session_id?: string }> {
     const response = await this.client.post<{ success: boolean; session_id?: string }>('/sync/local-import', opts ?? {});
+    return response.data;
+  }
+
+  async uploadLocalImportFiles(files: File[]): Promise<LocalImportUploadResponse> {
+    const formData = new FormData();
+    files.forEach((file) => formData.append('files', file));
+    const response = await this.client.post<LocalImportUploadResponse>(
+      '/sync/local-import/upload',
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+    return response.data;
+  }
+
+  // ===== バージョン情報 =====
+
+  async getVersion(): Promise<VersionResponse> {
+    const response = await this.client.get<VersionResponse>('/version');
     return response.data;
   }
 

@@ -3,7 +3,7 @@ import { Navbar, Nav, Container, NavDropdown, Button } from 'react-bootstrap';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
 import { logout } from '../store/authSlice';
-import { toggleSidebar } from '../store/uiSlice';
+import { toggleSidebar, toggleMobileSidebar } from '../store/uiSlice';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -27,14 +27,28 @@ const Header: React.FC = () => {
       <Container fluid>
         <div className="d-flex align-items-center">
           {isAuthenticated && (
-            <Button
-              variant="outline-secondary"
-              size="sm"
-              className="me-2"
-              onClick={() => dispatch(toggleSidebar())}
-            >
-              <i className="fa-solid fa-bars"></i>
-            </Button>
+            <>
+              {/* モバイル: オフキャンバスサイドバーの開閉 */}
+              <Button
+                variant="outline-secondary"
+                size="sm"
+                className="me-2 d-md-none"
+                onClick={() => dispatch(toggleMobileSidebar())}
+                aria-label="Toggle navigation"
+              >
+                <i className="fa-solid fa-bars"></i>
+              </Button>
+              {/* デスクトップ: サイドバーの折りたたみ */}
+              <Button
+                variant="outline-secondary"
+                size="sm"
+                className="me-2 d-none d-md-inline-block"
+                onClick={() => dispatch(toggleSidebar())}
+                aria-label="Toggle navigation"
+              >
+                <i className="fa-solid fa-bars"></i>
+              </Button>
+            </>
           )}
           <Navbar.Brand as={Link} to="/">PhotoNest</Navbar.Brand>
         </div>

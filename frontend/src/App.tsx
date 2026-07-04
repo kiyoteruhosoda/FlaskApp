@@ -9,6 +9,7 @@ import { getCurrentUser } from './store/authSlice';
 // Components
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
+import Footer from './components/Footer';
 import ToastNotification from './components/ToastNotification';
 
 // Pages
@@ -35,6 +36,7 @@ import SessionDetailPage from './pages/SessionDetailPage';
 import SelectionErrorPage from './pages/SelectionErrorPage';
 import SlideshowPage from './pages/SlideshowPage';
 import PhotoSettingsPage from './pages/PhotoSettingsPage';
+import PhotoImportsPage from './pages/PhotoImportsPage';
 import PhotoExportsPage from './pages/PhotoExportsPage';
 import ConfigPage from './pages/ConfigPage';
 
@@ -97,6 +99,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           {children}
         </main>
       )}
+      <Footer />
       <ToastNotification />
     </div>
   );
@@ -280,6 +283,15 @@ const AppContent: React.FC = () => {
             element={
               <ProtectedRoute>
                 <PhotoSettingsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/photo-imports"
+            element={
+              <ProtectedRoute>
+                <PhotoImportsPage />
               </ProtectedRoute>
             }
           />

@@ -46,10 +46,13 @@ def _serialize_user(user: User) -> dict:
 
 
 def _serialize_role(role: Role) -> dict:
+    from .admin_roles import DEFAULT_ROLE_NAMES
+
     return {
         "id": role.id,
         "name": role.name,
         "permissions": [p.code for p in (role.permissions or [])],
+        "isDefault": role.name in DEFAULT_ROLE_NAMES,
     }
 
 

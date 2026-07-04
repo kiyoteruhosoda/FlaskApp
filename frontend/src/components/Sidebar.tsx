@@ -49,7 +49,7 @@ const Sidebar: React.FC = () => {
               to="/dashboard"
               className={`d-flex align-items-center py-2 ${isActive('/dashboard') ? 'active' : ''}`}
             >
-              <i className="fa-solid fa-gauge-high me-2"></i>
+              <i className="fa-solid fa-bars-progress me-2"></i>
               {!sidebarCollapsed && <span>{t('Dashboard')}</span>}
             </Nav.Link>
           )}
@@ -125,6 +125,17 @@ const Sidebar: React.FC = () => {
                 >
                   <i className="fa-solid fa-list-check me-2"></i>
                   {!sidebarCollapsed && <span>{t('Sync Jobs')}</span>}
+                </Nav.Link>
+              )}
+
+              {hasPermission('admin:photo-settings') && (
+                <Nav.Link
+                  as={Link}
+                  to="/photo-imports"
+                  className={`d-flex align-items-center py-2 ${isActive('/photo-imports') ? 'active' : ''}`}
+                >
+                  <i className="fa-solid fa-file-import me-2"></i>
+                  {!sidebarCollapsed && <span>{t('Photo Imports')}</span>}
                 </Nav.Link>
               )}
 

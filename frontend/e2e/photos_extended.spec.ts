@@ -258,6 +258,11 @@ test.describe('Photo Settings Page', () => {
     await expect(page.getByText('Import directory')).toBeVisible();
   });
 
+});
+
+// ===== Photo Imports =====
+
+test.describe('Photo Imports Page', () => {
   test('shows ready state and trigger button', async ({ page }) => {
     await setupAuth(page);
     await page.route(
@@ -265,9 +270,11 @@ test.describe('Photo Settings Page', () => {
       (route) => route.fulfill({ json: MOCK_LOCAL_IMPORT_STATUS })
     );
 
-    await page.goto('/photo-settings');
+    await page.goto('/photo-imports');
+    await expect(page.getByTestId('photo-imports-page')).toBeVisible();
     await expect(page.getByTestId('import-ready-badge')).toBeVisible();
     await expect(page.getByTestId('trigger-import-btn')).toBeVisible();
+    await expect(page.getByTestId('upload-file-input')).toBeVisible();
   });
 
   test('shows not ready state', async ({ page }) => {
@@ -281,8 +288,37 @@ test.describe('Photo Settings Page', () => {
       (route) => route.fulfill({ json: notReady })
     );
 
-    await page.goto('/photo-settings');
+    await page.goto('/photo-imports');
     await expect(page.getByTestId('import-ready-badge')).toHaveText('未準備');
+  });
+
+  test('uploads files to the import directory', async ({ page }) => {
+    await setupAuth(page);
+    await page.route(
+      (url) => url.pathname === '/api/sync/local-import/status',
+      (route) => route.fulfill({ json: MOCK_LOCAL_IMPORT_STATUS })
+    );
+    await page.route(
+      (url) => url.pathname === '/api/sync/local-import/upload',
+      (route) =>
+        route.fulfill({
+          json: {
+            success: true,
+            saved: [{ filename: 'photo.jpg', size: 10 }],
+            skipped: [],
+            server_time: '2024-06-01T10:00:00Z',
+          },
+        })
+    );
+
+    await page.goto('/photo-imports');
+    await page.getByTestId('upload-file-input').setInputFiles({
+      name: 'photo.jpg',
+      mimeType: 'image/jpeg',
+      buffer: Buffer.from('fake image'),
+    });
+    await page.getByTestId('upload-btn').click();
+    await expect(page.getByTestId('upload-result')).toBeVisible();
   });
 });
 

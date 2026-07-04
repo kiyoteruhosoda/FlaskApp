@@ -29,6 +29,18 @@ const LoginPage: React.FC = () => {
     i18n.changeLanguage(lng);
   };
 
+  // APIのエラーコードを利用者向けメッセージに変換する
+  const errorText = (code: string): string => {
+    switch (code) {
+      case 'invalid_totp':
+        return t('Invalid authentication code');
+      case 'invalid_credentials':
+        return t('Invalid email or password');
+      default:
+        return code;
+    }
+  };
+
   useEffect(() => {
     return () => {
       dispatch(clearError());
@@ -68,9 +80,10 @@ const LoginPage: React.FC = () => {
           navigate(redirectUrl);
         }
       } else if (login.rejected.match(result)) {
-        // TOTPが必要な場合は専用画面に切り替える
+        // TOTPが必要な場合はエラーではなく通常の案内として専用画面に切り替える
         const errorMessage = result.payload as string;
         if (errorMessage === 'totp_required') {
+          dispatch(clearError());
           setFormData(prev => ({ ...prev, totp_code: '' }));
           setLoginStep('totp');
         } else if (errorMessage === 'invalid_totp') {
@@ -135,31 +148,18 @@ const LoginPage: React.FC = () => {
 
       <Row className="w-100">
         <Col md={6} lg={4} className="mx-auto">
-          <Card className="shadow">
-            <Card.Header className="text-center py-3 position-relative">
-              {/* 言語切替 - カード内右上 */}
-              <div className="position-absolute top-0 end-0 m-2">
-                <Dropdown align="end">
-                  <Dropdown.Toggle variant="outline-secondary" size="sm" className="border-0">
-                    {i18n.language === 'ja' ? '🇯🇵 日本語' : '🇺🇸 English'}
-                  </Dropdown.Toggle>
-                  <Dropdown.Menu>
-                    <Dropdown.Item onClick={() => changeLanguage('ja')}>🇯🇵 日本語</Dropdown.Item>
-                    <Dropdown.Item onClick={() => changeLanguage('en')}>🇺🇸 English</Dropdown.Item>
-                  </Dropdown.Menu>
-                </Dropdown>
-              </div>
-              <h4 className="mb-0">PhotoNest</h4>
-              <small className="text-muted">
+          <Card className="border-0 bg-transparent">
+            <Card.Header className="text-center py-3 border-0 bg-transparent">
+              <span className="text-muted">
                 {loginStep === 'totp'
                   ? t('Two-factor authentication')
                   : t('Please sign in to your account')}
-              </small>
+              </span>
             </Card.Header>
             <Card.Body className="p-4">
               {error && (
                 <Alert variant="danger" dismissible onClose={() => dispatch(clearError())}>
-                  {error}
+                  {errorText(error)}
                 </Alert>
               )}
 
@@ -242,6 +242,10 @@ const LoginPage: React.FC = () => {
                 </Form>
               ) : (
                 <Form onSubmit={handleSubmit} data-testid="totp-step-form">
+                  {/* TOTP要求はエラーではないため通常の案内として表示する */}
+                  <Alert variant="info" data-testid="totp-info-message">
+                    {t('Enter the authentication code to complete sign-in')}
+                  </Alert>
                   <Form.Group className="mb-3">
                     <Form.Label>{t('Authentication Code')}</Form.Label>
                     <Form.Control
@@ -292,16 +296,32 @@ const LoginPage: React.FC = () => {
                 </Form>
               )}
             </Card.Body>
-            {loginStep === 'credentials' && (
-              <Card.Footer className="text-center py-3">
-                <small className="text-muted">
-                  {t("Don't have an account?")}{' '}
-                  <Link to="/register" className="text-decoration-none">
-                    {t('Sign up here')}
-                  </Link>
-                </small>
-              </Card.Footer>
-            )}
+            <Card.Footer className="text-center py-3 border-0 bg-transparent">
+              {loginStep === 'credentials' && (
+                <div className="mb-2">
+                  <small className="text-muted">
+                    {t("Don't have an account?")}{' '}
+                    <Link to="/register" className="text-decoration-none">
+                      {t('Sign up here')}
+                    </Link>
+                  </small>
+                </div>
+              )}
+              {/* 言語切替 */}
+              <Dropdown align="end" className="d-inline-block">
+                <Dropdown.Toggle
+                  variant="link"
+                  size="sm"
+                  className="text-decoration-none text-muted p-0"
+                >
+                  {i18n.language === 'ja' ? '🇯🇵 日本語' : '🇺🇸 English'}
+                </Dropdown.Toggle>
+                <Dropdown.Menu>
+                  <Dropdown.Item onClick={() => changeLanguage('ja')}>🇯🇵 日本語</Dropdown.Item>
+                  <Dropdown.Item onClick={() => changeLanguage('en')}>🇺🇸 English</Dropdown.Item>
+                </Dropdown.Menu>
+              </Dropdown>
+            </Card.Footer>
           </Card>
         </Col>
       </Row>

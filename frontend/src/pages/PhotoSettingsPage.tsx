@@ -20,8 +20,6 @@ const PhotoSettingsPage: React.FC = () => {
   const [status, setStatus] = useState<LocalImportStatusResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [importTriggering, setImportTriggering] = useState(false);
-  const [importMessage, setImportMessage] = useState<string | null>(null);
 
   const loadStatus = async () => {
     setIsLoading(true);
@@ -40,20 +38,6 @@ const PhotoSettingsPage: React.FC = () => {
     loadStatus();
   }, []);
 
-  const handleTriggerImport = async () => {
-    setImportTriggering(true);
-    setImportMessage(null);
-    try {
-      await apiClient.triggerLocalImport();
-      setImportMessage(t('Import triggered successfully'));
-      loadStatus();
-    } catch (e: any) {
-      setImportMessage(e?.response?.data?.error || e?.message || t('Failed to trigger import'));
-    } finally {
-      setImportTriggering(false);
-    }
-  };
-
   return (
     <Container fluid className="py-4" data-testid="photo-settings-page">
       <Row className="mb-4 align-items-center">
@@ -70,16 +54,6 @@ const PhotoSettingsPage: React.FC = () => {
       </Row>
 
       {error && <Alert variant="danger" dismissible onClose={() => setError(null)}>{error}</Alert>}
-      {importMessage && (
-        <Alert
-          variant={importMessage.includes('success') || importMessage.includes('triggered') ? 'success' : 'danger'}
-          dismissible
-          onClose={() => setImportMessage(null)}
-          data-testid="import-message"
-        >
-          {importMessage}
-        </Alert>
-      )}
 
       {isLoading && !status ? (
         <div className="text-center py-5"><Spinner animation="border" /></div>
@@ -120,48 +94,6 @@ const PhotoSettingsPage: React.FC = () => {
             </Card.Body>
           </Card>
 
-          {/* Local Import Status */}
-          <Card className="mb-4">
-            <Card.Header className="fw-semibold">{t('Local Import Status')}</Card.Header>
-            <Card.Body>
-              <Row className="g-3">
-                <Col md={4}>
-                  <div className="text-muted small">{t('Ready')}</div>
-                  <Badge bg={status.status.ready ? 'success' : 'warning'} data-testid="import-ready-badge">
-                    {status.status.ready ? t('Ready') : t('Not Ready')}
-                  </Badge>
-                </Col>
-                <Col md={4}>
-                  <div className="text-muted small">{t('Pending Files')}</div>
-                  <div className="fw-semibold">{status.status.pending_files}</div>
-                </Col>
-                <Col md={4}>
-                  <div className="text-muted small">{t('Import Directory')}</div>
-                  <div className="font-monospace small text-break">
-                    {status.config.import_dir || '—'}
-                  </div>
-                </Col>
-              </Row>
-            </Card.Body>
-            <Card.Footer>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleTriggerImport}
-                disabled={importTriggering || !status.status.ready}
-                data-testid="trigger-import-btn"
-              >
-                {importTriggering ? (
-                  <><Spinner size="sm" animation="border" className="me-1" />{t('Triggering...')}</>
-                ) : (
-                  <><i className="fa-solid fa-play me-1" />{t('Trigger Import')}</>
-                )}
-              </Button>
-              {!status.status.ready && (
-                <span className="text-muted small ms-3">{t('Directories not ready')}</span>
-              )}
-            </Card.Footer>
-          </Card>
         </>
       ) : null}
     </Container>

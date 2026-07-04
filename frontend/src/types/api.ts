@@ -332,6 +332,7 @@ export interface AdminRole {
   id: number;
   name: string;
   permissions: string[];
+  isDefault?: boolean;
 }
 
 // ===== 管理 API — ロール CRUD =====
@@ -341,6 +342,7 @@ export interface AdminRoleDetail {
   name: string;
   permissions: Array<{ id: number; code: string }>;
   userCount: number;
+  isDefault?: boolean;
 }
 
 // ===== 管理 API — グループ =====
@@ -536,6 +538,21 @@ export interface LocalImportStatusResponse {
   directories: DirectoryInfo[];
   defaults: { duplicateRegeneration: string };
   server_time: string;
+}
+
+export interface LocalImportUploadResponse {
+  success: boolean;
+  saved: Array<{ filename: string; size: number }>;
+  skipped: Array<{ filename: string; reason: string }>;
+  server_time: string;
+}
+
+// ===== バージョン情報 =====
+
+export interface VersionResponse {
+  ok: boolean;
+  version: string;
+  details?: Record<string, unknown>;
 }
 
 // ===== アプリケーション設定 (/admin/config) =====

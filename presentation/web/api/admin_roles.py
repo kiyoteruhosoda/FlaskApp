@@ -4,9 +4,13 @@ from __future__ import annotations
 from flask import jsonify, request
 
 from ..bootstrap.extensions import db
+from shared.domain.auth.master_data import ROLES
 from shared.infrastructure.models.user import Role, Permission
 from . import bp
 from .routes import login_or_jwt_required, get_current_user
+
+# マスタデータ由来のデフォルトロールは編集・削除不可（唯一の出所: master_data.py）
+DEFAULT_ROLE_NAMES = frozenset(name for _, name in ROLES)
 
 
 def _require_user_manage():
@@ -16,12 +20,25 @@ def _require_user_manage():
     return None
 
 
+def _reject_default_role_mutation(role: Role):
+    if role.name in DEFAULT_ROLE_NAMES:
+        return (
+            jsonify({
+                "error": "default_role_immutable",
+                "message": "Default roles cannot be modified or deleted.",
+            }),
+            403,
+        )
+    return None
+
+
 def _serialize_role(role: Role) -> dict:
     return {
         "id": role.id,
         "name": role.name,
         "permissions": [{"id": p.id, "code": p.code} for p in (role.permissions or [])],
         "userCount": len(role.users) if role.users is not None else 0,
+        "isDefault": role.name in DEFAULT_ROLE_NAMES,
     }
 
 
@@ -78,6 +95,10 @@ def api_admin_role_update(role_id: int):
     if not role:
         return jsonify({"error": "not_found"}), 404
 
+    guard = _reject_default_role_mutation(role)
+    if guard:
+        return guard
+
     payload = request.get_json(silent=True) or {}
     changed = False
 
@@ -112,6 +133,10 @@ def api_admin_role_delete(role_id: int):
     role = db.session.get(Role, role_id)
     if not role:
         return jsonify({"error": "not_found"}), 404
+
+    guard = _reject_default_role_mutation(role)
+    if guard:
+        return guard
 
     db.session.delete(role)
     db.session.commit()

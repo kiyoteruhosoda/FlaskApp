@@ -265,6 +265,7 @@ class LocalImportUseCasePhase3:
             session = PickerSession(
                 session_id=f"local_import_{uuid.uuid4().hex[:8]}",
                 status="pending",
+                trigger="worker",
             )
             db.session.add(session)
             db.session.commit()

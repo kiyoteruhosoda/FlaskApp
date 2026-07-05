@@ -5,6 +5,27 @@
 
 ## [Unreleased]
 
+### Added
+- **セッション作成のきっかけ（誰の操作か／自動か）をセッション自体に記録**。
+  `picker_session` に `trigger`（`user`=人の操作 / `worker`=自動処理、既存行は
+  `unknown`。語彙は `job_sync.trigger` と統一）と `triggered_by_user_id`
+  （`user.id` への FK、自動起動時は NULL）を追加
+  （マイグレーション `5f2b8d4c7e10`、ベースライン `db/init/01_initialize.sql` も更新）。
+  記録箇所: ローカルインポート手動実行 API・Google Photos Picker セッション作成
+  （API/Web）が `user`、セッションID無しで走った取り込みのワーカー自動作成が
+  `worker`。セッション一覧 API と状態 API のレスポンスに `trigger` /
+  `triggeredByUserId` を追加
+  （`tests/unit/application/picker_import/test_picker_session_trigger.py` で検証）。
+
+### Fixed
+- **STG デプロイ `reset` で `container mariadb-stg is unhealthy` になり DB が
+  起動しない問題を修正**。初回起動（空 `db_data`）はシステムテーブル初期化→
+  一時サーバー→ベースライン SQL 投入を経るが、Synology NAS の遅いディスクでは
+  初期化だけで healthcheck の `start_period: 180s` を超え、TCP ping が通る前に
+  unhealthy 判定されていた（一時サーバーはソケットのみのため ping 失敗は正常）。
+  `start_period` を 600s、`retries` を 30 に拡大（probe は成功すれば即 healthy に
+  なるため、2回目以降の通常起動は遅くならない）。
+
 ### Changed
 - **Photo Imports 画面を Local / Google Photos で視覚的に区分**。
   「Upload Files」「Import Status」「Trigger Import」はローカル取り込みの

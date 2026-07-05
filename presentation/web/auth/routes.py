@@ -1730,6 +1730,8 @@ def picker(account_id: int):
         session_id=picker_data.get("id"),
         picker_uri=picker_uri,
         status="pending",
+        trigger="user",
+        triggered_by_user_id=getattr(current_user, "id", None),
     )
     expire = picker_data.get("expireTime")
     if expire:

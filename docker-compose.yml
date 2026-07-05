@@ -51,8 +51,16 @@ services:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 --protocol=tcp -u root -p\"$$MARIADB_ROOT_PASSWORD\" --silent"]
       interval: 10s
       timeout: 10s
-      retries: 15
-      start_period: 180s
+      # 初回起動（reset 直後の空 db_data）は「システムテーブル初期化 → 一時サーバー →
+      # /docker-entrypoint-initdb.d/01_initialize.sql 投入 → 本サーバー起動」を経る。
+      # Synology NAS の遅いディスクではシステムテーブル初期化だけで2〜3分かかる実績があり、
+      # 一時サーバー（ソケットのみ・port 0）の間は上の TCP ping は意図的に失敗し続けるため、
+      # start_period が短いと初期化が終わる前に unhealthy 判定されて
+      # 「dependency failed to start: container mariadb is unhealthy」で落ちる。
+      # start_period 中も probe は interval ごとに走り、成功すれば即 healthy になるので、
+      # 長めに取っても通常起動（2回目以降）が遅くなることはない。
+      retries: 30
+      start_period: 600s
 
   web:
     image: ${WEB_IMAGE:-photonest:latest}

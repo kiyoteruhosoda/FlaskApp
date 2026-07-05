@@ -262,6 +262,79 @@ def test_picker_import_item_reimports_deleted_media(monkeypatch, app, tmp_path):
         assert post_imported == [new_media.id]
 
 
+def test_picker_import_item_reimport_removes_stale_original(monkeypatch, app, tmp_path):
+    """再取り込みで配信バイトが変わり local_rel_path が変わった場合、旧オリジナル
+    ファイルをディスクから削除して孤児を残さない（冪等性＋ストレージ整合）。"""
+    ps_id, pmi_id = _setup_item(app)
+
+    import importlib
+    mod = importlib.import_module("bounded_contexts.picker_import.tasks.picker_import")
+
+    new_content = b"brand-new-bytes"
+    new_sha = hashlib.sha256(new_content).hexdigest()
+
+    def fake_download(url, dest_dir, headers=None):
+        path = dest_dir / "dl"
+        with open(path, "wb") as fh:
+            fh.write(new_content)
+        return mod.Downloaded(path, len(new_content), new_sha)
+
+    monkeypatch.setattr(mod, "_download", fake_download)
+    monkeypatch.setattr(mod, "_exchange_refresh_token", lambda g, p: ("tok", None))
+
+    class FakeResp:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"baseUrl": "http://example/file", "mediaMetadata": {"width": "1", "height": "1"}}
+
+    monkeypatch.setattr(mod.requests, "get", lambda url, headers=None, **kwargs: FakeResp())
+    monkeypatch.setattr(mod, "process_media_post_import", lambda media, **kwargs: None)
+
+    from bounded_contexts.photonest.infrastructure.photo_models import Media, PickerSelection
+    from datetime import datetime, timezone
+
+    orig_dir = tmp_path / "orig"
+    old_rel = "2020/01/01/old_file.jpg"
+    old_abs = orig_dir / old_rel
+    old_abs.parent.mkdir(parents=True, exist_ok=True)
+    old_abs.write_bytes(b"old-bytes")
+
+    with app.app_context():
+        Media.query.delete()
+        db.session.commit()
+
+        existing = Media(
+            source_type="google_photos",
+            google_media_id="m1",
+            account_id=1,
+            local_rel_path=old_rel,
+            hash_sha256=hashlib.sha256(b"old-bytes").hexdigest(),
+            bytes=len(b"old-bytes"),
+            mime_type="image/jpeg",
+            shot_at=datetime.now(timezone.utc),
+            imported_at=datetime.now(timezone.utc),
+            is_video=False,
+        )
+        db.session.add(existing)
+        db.session.commit()
+
+        res = picker_import_item(selection_id=pmi_id, session_id=ps_id)
+
+        pmi = db.session.get(PickerSelection, pmi_id)
+        media = Media.query.filter_by(google_media_id="m1").one()
+        assert res["ok"] is True
+        assert pmi.status == "imported"
+        # 冪等: 行は増えず、既存行が新パス/新ハッシュで更新される
+        assert Media.query.count() == 1
+        assert media.hash_sha256 == new_sha
+        assert media.local_rel_path != old_rel
+        # 新ファイルは存在し、旧ファイルは削除されている
+        assert (orig_dir / media.local_rel_path).exists()
+        assert not old_abs.exists()
+
+
 def test_picker_import_item_video_queues_playback(monkeypatch, app, tmp_path):
     ps_id, pmi_id = _setup_item(app, mime="video/mp4", filename="v.mp4", mtype="VIDEO")
 

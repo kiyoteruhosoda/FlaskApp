@@ -101,7 +101,7 @@ CREATE TABLE `alembic_version` (
 LOCK TABLES `alembic_version` WRITE;
 /*!40000 ALTER TABLE `alembic_version` DISABLE KEYS */;
 INSERT INTO `alembic_version` VALUES
-('3b7c2e9a1f08');
+('5f2b8d4c7e10');
 /*!40000 ALTER TABLE `alembic_version` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -834,6 +834,8 @@ CREATE TABLE `picker_session` (
   `polling_config_json` text DEFAULT NULL,
   `picking_config_json` text DEFAULT NULL,
   `media_items_set` tinyint(1) DEFAULT NULL,
+  `trigger` varchar(32) NOT NULL DEFAULT 'unknown',
+  `triggered_by_user_id` bigint(20) DEFAULT NULL,
   `status` enum('pending','ready','processing','enqueued','importing','imported','canceled','expired','error','failed','expanding') NOT NULL DEFAULT 'pending',
   `selected_count` int(11) DEFAULT NULL,
   `stats_json` text DEFAULT NULL,
@@ -844,6 +846,8 @@ CREATE TABLE `picker_session` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `session_id` (`session_id`),
   KEY `account_id` (`account_id`),
+  KEY `fk_picker_session_triggered_by_user_id_user` (`triggered_by_user_id`),
+  CONSTRAINT `fk_picker_session_triggered_by_user_id_user` FOREIGN KEY (`triggered_by_user_id`) REFERENCES `user` (`id`),
   CONSTRAINT `picker_session_ibfk_1` FOREIGN KEY (`account_id`) REFERENCES `google_account` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

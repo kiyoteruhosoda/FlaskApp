@@ -260,7 +260,10 @@ class PickerSessionService:
 
     # --- Create -----------------------------------------------------------
     @staticmethod
-    def create(account: GoogleAccount) -> Tuple[dict, int]:
+    def create(
+        account: GoogleAccount,
+        triggered_by_user_id: int | None = None,
+    ) -> Tuple[dict, int]:
         try:
             tokens = refresh_google_token(account)
         except RefreshTokenError as e:
@@ -349,6 +352,8 @@ class PickerSessionService:
             account_id=account.id,
             status="pending",
             last_progress_at=datetime.now(timezone.utc),
+            trigger="user",
+            triggered_by_user_id=triggered_by_user_id,
         )
         db.session.add(ps)
         _update_picker_session_from_data(ps, picker_data)
@@ -692,6 +697,8 @@ class PickerSessionService:
             "isLocalImport": is_local_import,
             "lastProgressAt": ps.last_progress_at.isoformat().replace("+00:00", "Z") if ps.last_progress_at else None,
             "createdAt": ps.created_at.isoformat().replace("+00:00", "Z") if ps.created_at else None,
+            "trigger": ps.trigger,
+            "triggeredByUserId": ps.triggered_by_user_id,
             "stats": stats,
         }
 

@@ -13,6 +13,16 @@
   （Google フォト・ローカル）の一覧と詳細へのリンク、実行中件数バッジを表示。
   ③セッションのステータスを「写真の選択待ち」「取り込み中」「完了」等の
   分かりやすいラベルで表示（Sessions 一覧・詳細も統一）。
+- **セッション作成のきっかけ（誰の操作か／自動か）をセッション自体に記録**。
+  `picker_session` に `trigger`（`user`=人の操作 / `worker`=自動処理、既存行は
+  `unknown`。語彙は `job_sync.trigger` と統一）と `triggered_by_user_id`
+  （`user.id` への FK、自動起動時は NULL）を追加
+  （マイグレーション `5f2b8d4c7e10`、ベースライン `db/init/01_initialize.sql` も更新）。
+  記録箇所: ローカルインポート手動実行 API・Google Photos Picker セッション作成
+  （API/Web）が `user`、セッションID無しで走った取り込みのワーカー自動作成が
+  `worker`。セッション一覧 API と状態 API のレスポンスに `trigger` /
+  `triggeredByUserId` を追加
+  （`tests/unit/application/picker_import/test_picker_session_trigger.py` で検証）。
 
 ### Fixed
 - **Google フォトで選択した写真が取り込まれない問題を修正**。Picker で選択を
@@ -23,6 +33,13 @@
   行うようにした（ブラウザを閉じても取り込みが完了する）。フロントエンドも
   進行中セッションをポーリングし、選択完了を検知したら即時取り込みを開始する。
   期限切れ（未選択のまま放置）のセッションは expired へ自動遷移する。
+- **STG デプロイ `reset` で `container mariadb-stg is unhealthy` になり DB が
+  起動しない問題を修正**。初回起動（空 `db_data`）はシステムテーブル初期化→
+  一時サーバー→ベースライン SQL 投入を経るが、Synology NAS の遅いディスクでは
+  初期化だけで healthcheck の `start_period: 180s` を超え、TCP ping が通る前に
+  unhealthy 判定されていた（一時サーバーはソケットのみのため ping 失敗は正常）。
+  `start_period` を 600s、`retries` を 30 に拡大（probe は成功すれば即 healthy に
+  なるため、2回目以降の通常起動は遅くならない）。
 
 ### Changed
 - **ヘッダーの右側トグルをケバブ（縦三点）アイコンに変更**。左のサイドバー開閉

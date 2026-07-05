@@ -314,6 +314,7 @@ class LocalImportUseCase:
             session_id=generated_session_id,
             status="expanding",
             selected_count=0,
+            trigger="worker",
         )
         self._db.session.add(session)
         try:

@@ -31,6 +31,20 @@ class PickerSession(db.Model):
     polling_config_json: Mapped[str | None] = mapped_column(db.Text, nullable=True)
     picking_config_json: Mapped[str | None] = mapped_column(db.Text, nullable=True)
     media_items_set: Mapped[bool | None] = mapped_column(db.Boolean, nullable=True)
+    # セッションが何をきっかけに作られたか（"user"=人の操作 / "worker"=自動処理）。
+    # 過去データはきっかけ不明のため "unknown"。job_sync.trigger と同じ語彙を使う。
+    trigger: Mapped[str] = mapped_column(
+        db.String(32),
+        nullable=False,
+        default="unknown",
+        server_default="unknown",
+    )
+    # trigger が "user" のとき、操作したユーザー。自動起動時は NULL。
+    triggered_by_user_id: Mapped[int | None] = mapped_column(
+        BigInt,
+        db.ForeignKey("user.id"),
+        nullable=True,
+    )
     status: Mapped[str] = mapped_column(
         db.Enum(
             "pending",

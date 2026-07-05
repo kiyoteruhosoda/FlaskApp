@@ -266,21 +266,16 @@ def api_picker_sessions_list():
                     "type": "integer",
                     "description": "Specific Google account id to use for the picker.",
                 },
-                "title": {
-                    "type": "string",
-                    "description": "Optional dialog title shown to the user.",
-                },
             },
             "additionalProperties": False,
         },
-        example={"account_id": 1, "title": "Select media"},
+        example={"account_id": 1},
     ),
 )
 def api_picker_session_create():
     """Create a Google Photos Picker session."""
     data = request.get_json(silent=True) or {}
     account_id = data.get("account_id")
-    title = data.get("title") or "Select from Google Photos"
 
     if account_id is None:
         account = GoogleAccount.query.filter_by(status="active").first()
@@ -308,7 +303,6 @@ def api_picker_session_create():
     current_user_model = get_current_user()
     payload, status = PickerSessionService.create(
         account,
-        title,
         triggered_by_user_id=getattr(current_user_model, "id", None),
     )
     if status != 200:

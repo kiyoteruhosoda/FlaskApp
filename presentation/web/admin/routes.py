@@ -407,7 +407,8 @@ def _build_setting_row(
 
     # 実効値の取得元（優先順位: 環境変数 > DB > デフォルト）。
     # 「.env に設定したのに反映されない」を画面上で診断できるようにする。
-    if os.environ.get(key) is not None:
+    env_value = os.environ.get(key)
+    if env_value is not None:
         value_source = "environment"
     elif stored_has_value:
         value_source = "database"
@@ -459,6 +460,8 @@ def _build_setting_row(
         "default_hint": definition.default_hint,
         "input_suffix": definition.input_suffix,
         "value_source": value_source,
+        # 環境変数で上書きされている場合の実際の値。管理画面で読み取り専用表示する。
+        "env_value": env_value,
         "search_text": search_text,
     }
 

@@ -6,6 +6,13 @@
 ## [Unreleased]
 
 ### Added
+- **Google フォト取り込みのステータス表示と自動取り込みを追加**。
+  ①Photo Imports 画面の Google Photos セクションに Local Import と同様の
+  「Import Status」カードを追加（直近セッションの進行状況・件数・詳細リンク、
+  進行中は自動更新）。②ヘッダーに通知ベルを追加し、実行中/直近の取り込み作業
+  （Google フォト・ローカル）の一覧と詳細へのリンク、実行中件数バッジを表示。
+  ③セッションのステータスを「写真の選択待ち」「取り込み中」「完了」等の
+  分かりやすいラベルで表示（Sessions 一覧・詳細も統一）。
 - **セッション作成のきっかけ（誰の操作か／自動か）をセッション自体に記録**。
   `picker_session` に `trigger`（`user`=人の操作 / `worker`=自動処理、既存行は
   `unknown`。語彙は `job_sync.trigger` と統一）と `triggered_by_user_id`
@@ -18,6 +25,14 @@
   （`tests/unit/application/picker_import/test_picker_session_trigger.py` で検証）。
 
 ### Fixed
+- **Google フォトで選択した写真が取り込まれない問題を修正**。Picker で選択を
+  終えても取り込みを開始する処理がどこからも呼ばれておらず、セッションが
+  永遠に pending のままだった。Celery beat の定期タスク
+  `picker_session.advance`（1分間隔）を追加し、サーバー側で Google を
+  ポーリングして選択完了を検知→mediaItems 取得→取り込みキュー投入まで自動で
+  行うようにした（ブラウザを閉じても取り込みが完了する）。フロントエンドも
+  進行中セッションをポーリングし、選択完了を検知したら即時取り込みを開始する。
+  期限切れ（未選択のまま放置）のセッションは expired へ自動遷移する。
 - **STG デプロイ `reset` で `container mariadb-stg is unhealthy` になり DB が
   起動しない問題を修正**。初回起動（空 `db_data`）はシステムテーブル初期化→
   一時サーバー→ベースライン SQL 投入を経るが、Synology NAS の遅いディスクでは
@@ -27,6 +42,14 @@
   なるため、2回目以降の通常起動は遅くならない）。
 
 ### Changed
+- **ヘッダーの右側トグルをケバブ（縦三点）アイコンに変更**。左のサイドバー開閉
+  （ハンバーガー）と右のメニュー開閉が同じアイコンで紛らわしかったため、
+  折りたたみメニュー側を `fa-ellipsis-vertical` に変更して役割を区別した。
+- **System Settings に「デフォルト値と異なる設定のみ表示」フィルタを追加**。
+  初期構築時に何を設定済みか（ENV / DB で上書きされているか）を一覧確認できる。
+  また、環境変数で上書きされている設定は実際に効いている ENV の値を読み取り専用
+  で表示するようにした（シークレットは目アイコンで表示切替）。
+- **未ログイン画面（Create an account / ロール選択）の背景を白に統一**。
 - **Photo Imports 画面を Local / Google Photos で視覚的に区分**。
   「Upload Files」「Import Status」「Trigger Import」はローカル取り込みの
   機能であることが分かるよう、Google フォト取り込みカードと別に
@@ -37,6 +60,11 @@
   フローを「準備 → アップロード実行」の2段階に分離した。
 
 ### Fixed
+- **Google フォト取り込みが 502 で失敗する問題を修正**。Picker セッション作成時に
+  Google Picker API（`POST /v1/sessions`）へ `title` フィールドを送信していたが、
+  Session リソースに存在しないフィールドのため Google が
+  400 INVALID_ARGUMENT（Cannot find field）を返し、アプリは 502 を返していた。
+  リクエストボディを空にし、API・フロントエンドからも `title` パラメータを撤去。
 - **Google 連携で他ユーザーのアカウントを奪う問題を修正**。OAuth コールバックの
   アカウント検索が `email` だけで引いていたため、同じ Google メールを別ユーザーが
   連携すると既存ユーザーの行の `user_id` が上書きされていた（`GoogleAccount` の

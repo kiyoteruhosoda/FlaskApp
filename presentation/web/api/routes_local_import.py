@@ -91,7 +91,9 @@ def trigger_local_import():
             selected_count=0,
             created_at=now,
             updated_at=now,
-            last_progress_at=now
+            last_progress_at=now,
+            trigger="user",
+            triggered_by_user_id=getattr(user, "id", None),
         )
         stats = session.stats() if hasattr(session, "stats") else {}
         if not isinstance(stats, dict):

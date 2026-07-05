@@ -29,7 +29,7 @@ from bounded_contexts.picker_import.application.picker_session_service import (
 )
 from bounded_contexts.picker_import.tasks.picker_import import enqueue_picker_import_item  # re-export for tests
 from shared.application.pagination import PaginationParams, paginate_and_respond
-from .routes import login_or_jwt_required  # JWT認証対応のデコレータをインポート
+from .routes import get_current_user, login_or_jwt_required  # JWT認証対応のデコレータをインポート
 from shared.application.concurrency import create_limiter, limit_concurrency
 from .openapi import json_request_body
 from .blueprint import AuthEnforcedBlueprint
@@ -220,7 +220,9 @@ def api_picker_sessions_list():
             "lastProgressAt": ps.last_progress_at.isoformat().replace("+00:00", "Z") if ps.last_progress_at else None,
             "counts": counts,
             "accountEmail": getattr(account, "email", None),
-            "isLocalImport": is_local_import
+            "isLocalImport": is_local_import,
+            "trigger": ps.trigger,
+            "triggeredByUserId": ps.triggered_by_user_id,
         }
     
     # ページング処理
@@ -298,7 +300,11 @@ def api_picker_session_create():
     )
 
     # Delegate to service
-    payload, status = PickerSessionService.create(account)
+    current_user_model = get_current_user()
+    payload, status = PickerSessionService.create(
+        account,
+        triggered_by_user_id=getattr(current_user_model, "id", None),
+    )
     if status != 200:
         current_app.logger.exception(
             json.dumps(

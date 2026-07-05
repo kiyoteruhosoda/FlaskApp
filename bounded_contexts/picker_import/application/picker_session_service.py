@@ -260,7 +260,7 @@ class PickerSessionService:
 
     # --- Create -----------------------------------------------------------
     @staticmethod
-    def create(account: GoogleAccount, title: str) -> Tuple[dict, int]:
+    def create(account: GoogleAccount) -> Tuple[dict, int]:
         try:
             tokens = refresh_google_token(account)
         except RefreshTokenError as e:
@@ -282,14 +282,15 @@ class PickerSessionService:
 
         access_token = tokens.get("access_token")
         headers = {"Authorization": f"Bearer {access_token}"}
-        body = {"title": title}
+        # Picker API の Session リソースに title 等の書き込み可能フィールドはない。
+        # 余計なフィールドを送ると 400 INVALID_ARGUMENT（Cannot find field）になる。
+        body: dict = {}
         request_started_at = datetime.now(timezone.utc)
         current_app.logger.info(
             json.dumps(
                 {
                     "ts": request_started_at.isoformat(),
                     "account_id": account.id,
-                    "payload": {"title": title},
                 },
                 default=_normalize_log_value,
             ),
@@ -1027,7 +1028,8 @@ class PickerSessionService:
     @staticmethod
     def _media_items_locked(session_id: str, cursor: Optional[str]) -> Tuple[dict, int]:
         ps = PickerSession.query.filter_by(session_id=session_id).first()
-        if not ps or ps.status not in ("pending", "processing"):
+        # "ready" はコールバックで選択完了通知を受けた状態。取り込み開始を許可する。
+        if not ps or ps.status not in ("pending", "ready", "processing"):
             return {"error": "not_found"}, 404
         current_app.logger.info(
             json.dumps(
@@ -1614,6 +1616,105 @@ class PickerSessionService:
                 )
                 return
             raise
+
+    # --- Background advancement --------------------------------------------
+    #
+    # Google Photos Picker はユーザーが Google 側の UI で選択を終えても
+    # こちらへ通知してこない。ブラウザのタブを閉じても取り込みが完了するよう、
+    # Celery beat からこのメソッドを定期実行してセッションを前進させる:
+    #   pending/ready → Google をポーリング → 選択済みなら mediaItems 取得
+    #   （選択の保存とアイテム取り込みタスクの enqueue）→ processing
+    #   processing   → 完了判定（counts ベース）を進めて imported/error へ
+    #   期限切れ      → expired
+    @staticmethod
+    def advance_active_sessions() -> Dict[str, int]:
+        now = datetime.now(timezone.utc)
+        metrics = {"checked": 0, "started": 0, "expired": 0, "errors": 0}
+
+        sessions = PickerSession.query.filter(
+            PickerSession.account_id.isnot(None),
+            PickerSession.session_id.isnot(None),
+            PickerSession.status.in_(("pending", "ready", "processing")),
+        ).all()
+
+        for ps in sessions:
+            metrics["checked"] += 1
+            try:
+                if ps.status == "processing":
+                    # 取り込み中: Google へは行かず、選択アイテムの counts から
+                    # 完了/エラーへの遷移だけを進める。
+                    PickerSessionService.status(ps)
+                    continue
+
+                expire_at = ps.expire_time
+                if expire_at is not None and expire_at.tzinfo is None:
+                    expire_at = expire_at.replace(tzinfo=timezone.utc)
+                if expire_at is None and ps.created_at is not None:
+                    created_at = ps.created_at
+                    if created_at.tzinfo is None:
+                        created_at = created_at.replace(tzinfo=timezone.utc)
+                    expire_at = created_at + timedelta(days=1)
+                if expire_at is not None and expire_at < now and not ps.media_items_set:
+                    ps.status = "expired"
+                    ps.updated_at = now
+                    ps.last_progress_at = now
+                    db.session.commit()
+                    metrics["expired"] += 1
+                    current_app.logger.info(
+                        json.dumps(
+                            {
+                                "ts": now.isoformat(),
+                                "picker_session_id": ps.id,
+                                "session_id": ps.session_id,
+                            }
+                        ),
+                        extra={"event": "pickerSession.advance.expired"},
+                    )
+                    continue
+
+                if not ps.media_items_set:
+                    headers = PickerSessionService._auth_headers(ps.account_id)
+                    if headers is None:
+                        continue
+                    PickerSessionService._refresh_session_snapshot(
+                        ps, headers, ps.session_id
+                    )
+
+                if not ps.media_items_set:
+                    continue
+
+                payload, status_code = PickerSessionService.media_items(ps.session_id)
+                if status_code == 200:
+                    metrics["started"] += 1
+                current_app.logger.info(
+                    json.dumps(
+                        {
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                            "picker_session_id": ps.id,
+                            "session_id": ps.session_id,
+                            "status_code": status_code,
+                            "saved": payload.get("saved") if isinstance(payload, dict) else None,
+                            "duplicates": payload.get("duplicates") if isinstance(payload, dict) else None,
+                        }
+                    ),
+                    extra={"event": "pickerSession.advance.importStarted"},
+                )
+            except Exception as exc:
+                db.session.rollback()
+                metrics["errors"] += 1
+                current_app.logger.error(
+                    json.dumps(
+                        {
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                            "picker_session_id": ps.id,
+                            "session_id": ps.session_id,
+                            "error": str(exc),
+                        }
+                    ),
+                    extra={"event": "pickerSession.advance.error"},
+                )
+
+        return metrics
 
     # --- Finish -----------------------------------------------------------
     @staticmethod

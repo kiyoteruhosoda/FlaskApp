@@ -6,6 +6,7 @@ import { logout } from '../store/authSlice';
 import { toggleSidebar, toggleMobileSidebar } from '../store/uiSlice';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import ImportActivityBell from './ImportActivityBell';
 
 const Header: React.FC = () => {
   const { t } = useTranslation();
@@ -53,7 +54,15 @@ const Header: React.FC = () => {
           <Navbar.Brand as={Link} to="/">PhotoNest</Navbar.Brand>
         </div>
 
-        <Navbar.Toggle aria-controls="basic-navbar-nav" />
+        <div className="d-flex align-items-center order-lg-last">
+          {/* 実行中の取り込み作業の通知ベル（モバイルでも常時表示） */}
+          {isAuthenticated && <ImportActivityBell />}
+          {/* 折りたたみメニューのトグル。左のサイドバー開閉（ハンバーガー）と
+              区別できるよう、縦三点（ケバブ）アイコンにする。 */}
+          <Navbar.Toggle aria-controls="basic-navbar-nav" aria-label="Toggle menu" className="border-0">
+            <i className="fa-solid fa-ellipsis-vertical fs-4 px-2"></i>
+          </Navbar.Toggle>
+        </div>
         <Navbar.Collapse id="basic-navbar-nav">
           {isAuthenticated ? (
             <>

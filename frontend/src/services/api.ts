@@ -427,10 +427,9 @@ class ApiClient {
   }
 
   // Google Photos Picker セッションを作成する（Photo インポートの入口）
-  async createPickerSession(accountId?: number, title?: string): Promise<PickerSessionCreateResponse> {
+  async createPickerSession(accountId?: number): Promise<PickerSessionCreateResponse> {
     const response = await this.client.post<PickerSessionCreateResponse>('/picker/session', {
       ...(accountId != null ? { account_id: accountId } : {}),
-      ...(title ? { title } : {}),
     });
     return response.data;
   }
@@ -474,6 +473,16 @@ class ApiClient {
 
   async getPickerSessionStatus(sessionId: string): Promise<PickerSessionStatus> {
     const response = await this.client.get<PickerSessionStatus>(`/picker/session/${encodeURIComponent(sessionId)}`);
+    return response.data;
+  }
+
+  // Google フォト側で選択が確定したセッションの取り込みを開始する
+  // （選択されたメディア一覧を取得して取り込みキューへ投入）
+  async startPickerSessionImport(sessionId: string): Promise<{ saved?: number; duplicates?: number }> {
+    const response = await this.client.post<{ saved?: number; duplicates?: number }>(
+      '/picker/session/mediaItems',
+      { sessionId }
+    );
     return response.data;
   }
 

@@ -97,6 +97,36 @@ const FieldEditor: React.FC<FieldEditorProps> = ({ field, draft, modified, onCha
   const secret = isSecretField(field.key);
 
   const renderControl = () => {
+    // 環境変数で上書きされている設定は、実際に効いている ENV の値を
+    // 読み取り専用で表示する（DB 値を編集しても反映されないため）。
+    if (field.value_source === 'environment') {
+      const envValue = field.env_value ?? '';
+      if (secret) {
+        return (
+          <InputGroup>
+            <Form.Control
+              readOnly
+              type={showSecret ? 'text' : 'password'}
+              value={envValue}
+              className="font-monospace small bg-light"
+              data-testid={`config-env-${field.key}`}
+            />
+            <Button variant="outline-secondary" onClick={() => setShowSecret((v) => !v)} tabIndex={-1}>
+              <i className={`fa-solid ${showSecret ? 'fa-eye-slash' : 'fa-eye'}`} />
+            </Button>
+          </InputGroup>
+        );
+      }
+      return (
+        <Form.Control
+          readOnly
+          value={envValue}
+          className="font-monospace small bg-light"
+          data-testid={`config-env-${field.key}`}
+        />
+      );
+    }
+
     if (!field.editable) {
       return (
         <Form.Control
@@ -221,7 +251,7 @@ const FieldEditor: React.FC<FieldEditorProps> = ({ field, draft, modified, onCha
           {field.value_source === 'environment' && (
             <div className="text-danger small mt-1">
               <i className="fa-solid fa-triangle-exclamation me-1" />
-              {t('This value is set by an environment variable. Changes saved here will not take effect until the environment variable is removed.')}
+              {t('This value is set by an environment variable and cannot be edited here. Remove the environment variable to manage it from this screen.')}
             </div>
           )}
           <code className="d-block text-muted small mt-1">{field.key}</code>
@@ -270,6 +300,8 @@ const ConfigPage: React.FC = () => {
   const [drafts, setDrafts] = useState<Record<string, DraftValue>>({});
   const [resetKeys, setResetKeys] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
+  // デフォルト値と異なる（ENV / DB で上書きされている）設定のみ表示する
+  const [onlyNonDefault, setOnlyNonDefault] = useState(false);
   const [activeSection, setActiveSection] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -425,18 +457,25 @@ const ConfigPage: React.FC = () => {
     }
   };
 
-  // ----- search filtering -----
+  // ----- search / non-default filtering -----
+  const isFiltering = Boolean(search.trim()) || onlyNonDefault;
   const filteredSections = useMemo<ConfigSection[]>(() => {
     if (!config) return [];
     const q = search.trim().toLowerCase();
-    if (!q) return config.application_sections;
+    if (!q && !onlyNonDefault) return config.application_sections;
+    const matches = (f: ConfigField) => {
+      if (q && !f.search_text.includes(q)) return false;
+      // 「デフォルト値と異なるもののみ」: ENV または DB で上書きされている設定
+      if (onlyNonDefault && (f.value_source ?? 'default') === 'default') return false;
+      return true;
+    };
     return config.application_sections
       .map((section) => ({
         ...section,
-        fields: section.fields.filter((f) => f.search_text.includes(q)),
+        fields: section.fields.filter(matches),
       }))
       .filter((section) => section.fields.length > 0);
-  }, [config, search]);
+  }, [config, search, onlyNonDefault]);
 
   const scrollToSection = (anchorId: string, identifier: string) => {
     setActiveSection(identifier);
@@ -502,8 +541,17 @@ const ConfigPage: React.FC = () => {
                 data-testid="config-search"
               />
             </InputGroup>
+            <Form.Check
+              type="switch"
+              id="config-only-non-default"
+              className="mb-3"
+              label={t('Show only non-default settings')}
+              checked={onlyNonDefault}
+              onChange={(e) => setOnlyNonDefault(e.target.checked)}
+              data-testid="config-only-non-default"
+            />
             <Nav className="flex-column config-section-nav" variant="pills">
-              {(search ? filteredSections : config?.application_sections ?? []).map((section) => (
+              {(isFiltering ? filteredSections : config?.application_sections ?? []).map((section) => (
                 <Nav.Link
                   key={section.identifier}
                   active={activeSection === section.identifier}
@@ -531,7 +579,7 @@ const ConfigPage: React.FC = () => {
 
         {/* Content */}
         <Col lg={9}>
-          {filteredSections.length === 0 && search && (
+          {filteredSections.length === 0 && isFiltering && (
             <Alert variant="light" className="text-center text-muted" data-testid="config-no-results">
               {t('No settings match your search.')}
             </Alert>
@@ -565,7 +613,7 @@ const ConfigPage: React.FC = () => {
           ))}
 
           {/* CORS card */}
-          {!search && (
+          {!isFiltering && (
             <Card className="mb-4 shadow-sm" id="section-cors" data-testid="config-section-cors">
               <Card.Header className="bg-white">
                 <div className="d-flex align-items-center">
@@ -613,7 +661,7 @@ const ConfigPage: React.FC = () => {
           )}
 
           {/* Signing card */}
-          {!search && config && (
+          {!isFiltering && config && (
             <Card className="mb-4 shadow-sm" id="section-signing" data-testid="config-section-signing">
               <Card.Header className="bg-white">
                 <div className="d-flex align-items-center">

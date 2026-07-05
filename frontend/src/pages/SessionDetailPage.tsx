@@ -18,6 +18,10 @@ import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { PickerSessionStatus, PickerSelectionItem, SessionLogEntry } from '../types/api';
 import { formatDateTime, sessionStatusVariant } from '../utils/format';
+import {
+  describeImportSessionStatus,
+  isActiveImportSessionStatus,
+} from '../utils/importSessionStatus';
 
 const LOG_LEVEL_VARIANT: Record<string, string> = {
   ERROR: 'danger',
@@ -102,6 +106,16 @@ const SessionDetailPage: React.FC = () => {
     loadSelections();
   }, [loadSelections]);
 
+  // 進行中（選択待ち・取り込み中）の間は自動で最新状態に更新する
+  useEffect(() => {
+    if (!session || !isActiveImportSessionStatus(session.status)) return;
+    const timer = setTimeout(() => {
+      loadSession();
+      loadSelections();
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [session, loadSession, loadSelections]);
+
   if (isLoadingSession && !session) {
     return (
       <Container fluid className="py-5 text-center">
@@ -142,8 +156,12 @@ const SessionDetailPage: React.FC = () => {
             <Row>
               <Col md={3}>
                 <div className="text-muted small">{t('Status')}</div>
-                <Badge bg={sessionStatusVariant(session.status)} data-testid="session-status-badge">
-                  {session.status}
+                <Badge
+                  bg={describeImportSessionStatus(session.status).variant}
+                  data-testid="session-status-badge"
+                  title={session.status}
+                >
+                  {t(describeImportSessionStatus(session.status).labelKey)}
                 </Badge>
               </Col>
               <Col md={3}>

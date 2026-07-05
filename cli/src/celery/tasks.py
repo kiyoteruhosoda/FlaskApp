@@ -167,6 +167,28 @@ def picker_import_watchdog_task():
         return {"ok": False, "error": str(e)}
 
 
+@celery.task(name="picker_session.advance")
+def picker_session_advance_task():
+    """Google Picker セッションをサーバー側で前進させる定期タスク。
+
+    ユーザーが Google フォト側で選択を終えてもブラウザからの操作なしでは
+    取り込みが始まらないため、beat から定期実行して自動で取り込みを開始する。
+    """
+    from bounded_contexts.picker_import.application.picker_session_service import (
+        PickerSessionService,
+    )
+
+    try:
+        return PickerSessionService.advance_active_sessions()
+    except Exception as e:
+        logger.error(
+            f"Picker session advance failed: {str(e)}",
+            extra={'event': 'pickerSession.advance'},
+            exc_info=True,
+        )
+        return {"ok": False, "error": str(e)}
+
+
 @celery.task(bind=True, name="local_import.run")
 def local_import_task_celery(self, session_id=None):
     """ローカルファイル取り込みタスク"""

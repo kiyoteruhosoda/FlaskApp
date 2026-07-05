@@ -79,7 +79,7 @@ const RoleSelectionPage: React.FC = () => {
   };
 
   return (
-    <Container fluid className="min-vh-100 d-flex align-items-center justify-content-center bg-light">
+    <Container fluid className="min-vh-100 d-flex align-items-center justify-content-center bg-white">
       <Row className="w-100">
         <Col md={6} lg={4} className="mx-auto">
           <Card className="shadow">

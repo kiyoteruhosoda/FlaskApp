@@ -476,6 +476,16 @@ class ApiClient {
     return response.data;
   }
 
+  // Google フォト側で選択が確定したセッションの取り込みを開始する
+  // （選択されたメディア一覧を取得して取り込みキューへ投入）
+  async startPickerSessionImport(sessionId: string): Promise<{ saved?: number; duplicates?: number }> {
+    const response = await this.client.post<{ saved?: number; duplicates?: number }>(
+      '/picker/session/mediaItems',
+      { sessionId }
+    );
+    return response.data;
+  }
+
   async getPickerSessionSelections(sessionId: string, params?: {
     page?: number;
     pageSize?: number;

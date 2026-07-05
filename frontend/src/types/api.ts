@@ -489,6 +489,8 @@ export interface PickerSessionStatus {
   lastProgressAt: string | null;
   isLocalImport: boolean;
   stats: Record<string, any> | null;
+  // Google フォト側で選択が確定したかどうか（Picker API の mediaItemsSet）
+  mediaItemsSet?: boolean | null;
 }
 
 export interface PickerSelectionItem {

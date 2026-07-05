@@ -19,8 +19,8 @@ import GooglePhotosImportModal from '../components/GooglePhotosImportModal';
 import {
   formatDateTime,
   formatCounts,
-  sessionStatusVariant,
 } from '../utils/format';
+import { describeImportSessionStatus } from '../utils/importSessionStatus';
 
 const SessionsPage: React.FC = () => {
   const { t } = useTranslation();
@@ -146,10 +146,11 @@ const SessionsPage: React.FC = () => {
                     <td className="small">{s.accountEmail || '—'}</td>
                     <td>
                       <Badge
-                        bg={sessionStatusVariant(s.status)}
+                        bg={describeImportSessionStatus(s.status).variant}
                         data-testid="session-status"
+                        title={s.status}
                       >
-                        {s.status}
+                        {t(describeImportSessionStatus(s.status).labelKey)}
                       </Badge>
                     </td>
                     <td>{s.selectedCount}</td>

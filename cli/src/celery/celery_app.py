@@ -604,6 +604,10 @@ celery.conf.beat_schedule = {
         "task": "picker_import.watchdog",
         "schedule": timedelta(minutes=1),
     },
+    "picker-session-advance": {
+        "task": "picker_session.advance",
+        "schedule": timedelta(minutes=1),
+    },
     "session-recovery": {
         "task": "session_recovery.cleanup_stale_sessions",
         "schedule": timedelta(minutes=5),  # 5分毎に実行

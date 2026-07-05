@@ -22,6 +22,7 @@ import {
   PickerSessionCreateResponse,
 } from '../types/api';
 import GooglePhotosImportModal from '../components/GooglePhotosImportModal';
+import GooglePhotosImportStatusCard from '../components/GooglePhotosImportStatusCard';
 
 const ACCEPTED_EXTENSIONS =
   '.jpg,.jpeg,.png,.tiff,.tif,.bmp,.gif,.webp,.heic,.heif,.mp4,.mov,.avi,.mkv,.m4v,.3gp,.webm';
@@ -62,6 +63,8 @@ const PhotoImportsPage: React.FC = () => {
   // Google フォトからの取り込み
   const [showGoogleImport, setShowGoogleImport] = useState(false);
   const [googleNotice, setGoogleNotice] = useState<{ sessionId: string; pickerUri: string | null } | null>(null);
+  // セッション作成のたびにステータスカードへ再読込を伝えるトークン
+  const [googleStatusReloadToken, setGoogleStatusReloadToken] = useState(0);
 
   const canTriggerImport = user?.permissions?.includes('system:manage') || false;
 
@@ -257,6 +260,9 @@ const PhotoImportsPage: React.FC = () => {
         </Card.Body>
       </Card>
 
+      {/* Google フォト取り込みのステータス（Local Import の Import Status と対） */}
+      <GooglePhotosImportStatusCard reloadToken={googleStatusReloadToken} />
+
       {/* ===== ローカル取り込み ===== */}
       <h2 className="h6 text-uppercase text-muted fw-bold mb-2" data-testid="local-import-section-title">
         <i className="fa-solid fa-desktop me-2" />
@@ -445,6 +451,7 @@ const PhotoImportsPage: React.FC = () => {
             sessionId: res.sessionId || String(res.pickerSessionId),
             pickerUri: res.pickerUri,
           });
+          setGoogleStatusReloadToken((token) => token + 1);
         }}
       />
     </Container>

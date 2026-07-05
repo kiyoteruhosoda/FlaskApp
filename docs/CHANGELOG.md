@@ -16,6 +16,20 @@
   フローを「準備 → アップロード実行」の2段階に分離した。
 
 ### Fixed
+- **Google 連携で他ユーザーのアカウントを奪う問題を修正**。OAuth コールバックの
+  アカウント検索が `email` だけで引いていたため、同じ Google メールを別ユーザーが
+  連携すると既存ユーザーの行の `user_id` が上書きされていた（`GoogleAccount` の
+  一意制約は `(user_id, email)`）。連携先ユーザーの行を優先し、無ければ未紐付け
+  （`user_id=None`）の行のみを引き取るよう修正
+  （`tests/webapp/auth/test_google_oauth_callback.py` で回帰検証）。
+- **Google フォト取り込みのクロスデバイス保存とストレージ孤児を修正**。
+  ①セッション再生側の取り込み（`picker_import`）が `os.replace` 直呼びで、tmp と
+  originals が別ファイルシステムだと `EXDEV` で失敗していた。per-item 側と同じ
+  コピー→fsync→replace 退避を共通ヘルパー `_atomic_move_into_place` に集約して
+  両経路で使用。②配信バイト変化（sha256 変化）による再取り込みで `local_rel_path`
+  が変わると旧オリジナルファイルがディスクに取り残されていたため、DB コミット
+  成功後に旧ファイルを削除するよう修正
+  （`tests/unit/application/picker_import/test_picker_import_item.py` で回帰検証）。
 - **環境変数で設定した値が無視される問題を修正**（`.env` に `ENCRYPTION_KEY`
   を設定しても「Encryption key not configured」が続く障害の根本原因）。
   `apply_persisted_settings` が「デフォルト + DB」の全キーを `app.config` へ

@@ -81,6 +81,98 @@ def test_callback_links_account_and_redirects_with_ok(client):
     assert account.status == "active"
 
 
+def test_callback_does_not_steal_other_users_account(client):
+    """同じ Google メールを別ユーザーが連携しても、既存ユーザーの行を奪わない。
+
+    アカウントは (user_id, email) で一意。email だけで引くと他ユーザーの行の
+    user_id を上書きしてしまう。別ユーザーには新規行を作成し、既存行は不変。
+    """
+    owner = _create_user("owner@example.com")
+    other = _create_user("other@example.com")
+
+    existing = GoogleAccount(
+        user_id=owner.id,
+        email="shared@gmail.com",
+        scopes="old-scope",
+        status="active",
+    )
+    db.session.add(existing)
+    db.session.commit()
+    owner_account_id = existing.id
+
+    with client.session_transaction() as sess:
+        sess["google_oauth_state"] = {
+            "state": "state-123",
+            "scopes": ["scope-a"],
+            "redirect": "/profile",
+            "user_id": other.id,
+        }
+
+    with patch(
+        "presentation.web.auth.routes.log_requests_and_send",
+        side_effect=_mock_google_responses("shared@gmail.com"),
+    ):
+        response = client.get(
+            "/auth/google/callback?code=abc&state=state-123",
+            follow_redirects=False,
+        )
+
+    assert response.status_code in (302, 303)
+    query = parse_qs(urlsplit(response.headers["Location"]).query)
+    assert query.get("google_link") == ["ok"]
+
+    # 既存オーナーの行は user_id もスコープも不変
+    owner_account = db.session.get(GoogleAccount, owner_account_id)
+    assert owner_account.user_id == owner.id
+    assert owner_account.scopes == "old-scope"
+
+    # other には別行が新規作成される
+    other_account = GoogleAccount.query.filter_by(
+        email="shared@gmail.com", user_id=other.id
+    ).first()
+    assert other_account is not None
+    assert other_account.id != owner_account_id
+    assert GoogleAccount.query.filter_by(email="shared@gmail.com").count() == 2
+
+
+def test_callback_claims_orphan_account(client):
+    """未紐付け（user_id=None）の行は、連携時に当該ユーザーへ引き取る。"""
+    user = _create_user("claimer@example.com")
+
+    orphan = GoogleAccount(
+        user_id=None,
+        email="orphan@gmail.com",
+        scopes="",
+        status="active",
+    )
+    db.session.add(orphan)
+    db.session.commit()
+    orphan_id = orphan.id
+
+    with client.session_transaction() as sess:
+        sess["google_oauth_state"] = {
+            "state": "state-123",
+            "scopes": ["scope-a"],
+            "redirect": "/profile",
+            "user_id": user.id,
+        }
+
+    with patch(
+        "presentation.web.auth.routes.log_requests_and_send",
+        side_effect=_mock_google_responses("orphan@gmail.com"),
+    ):
+        response = client.get(
+            "/auth/google/callback?code=abc&state=state-123",
+            follow_redirects=False,
+        )
+
+    assert response.status_code in (302, 303)
+    # 既存の orphan 行が引き取られ、新規行は増えない
+    assert GoogleAccount.query.filter_by(email="orphan@gmail.com").count() == 1
+    claimed = db.session.get(GoogleAccount, orphan_id)
+    assert claimed.user_id == user.id
+
+
 def test_callback_invalid_state_redirects_with_error(client):
     """state 不一致: 戻り先に google_link=error / reason=invalid_state を付与する。"""
     with client.session_transaction() as sess:

@@ -209,6 +209,43 @@ def _fsync_dir(path: Path) -> None:
         os.close(dir_fd)
 
 
+def _atomic_move_into_place(src: Path, dest: Path) -> str:
+    """Move *src* to *dest*, falling back to copy+replace across filesystems.
+
+    ``os.replace`` は同一ファイルシステム内でのみアトミックに動作し、tmp と
+    originals が別デバイス（Synology の共有フォルダ等）にある場合は ``EXDEV``
+    で失敗する。その場合はコピー → fsync → replace で退避する。返り値は採用した
+    方式（``"replace"`` / ``"copy+replace"``）。
+    """
+
+    try:
+        os.replace(src, dest)
+        return "replace"
+    except OSError as e:
+        if e.errno != errno.EXDEV:
+            raise
+
+    fd, tmp_name = tempfile.mkstemp(dir=str(dest.parent), prefix=".tmp_picker_import_")
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "wb", closefd=True) as wf, src.open("rb") as rf:
+            shutil.copyfileobj(rf, wf, length=16 * 1024 * 1024)
+            wf.flush()
+            os.fsync(wf.fileno())
+        with contextlib.suppress(OSError):
+            shutil.copystat(src, tmp_path, follow_symlinks=True)
+        _fsync_dir(dest.parent)
+        os.replace(tmp_path, dest)
+        _fsync_dir(dest.parent)
+    except Exception:
+        with contextlib.suppress(FileNotFoundError):
+            tmp_path.unlink()
+        raise
+    with contextlib.suppress(FileNotFoundError):
+        src.unlink()
+    return "copy+replace"
+
+
 class AuthError(Exception):
     """Authorization failure that should not be retried."""
 
@@ -671,13 +708,17 @@ def _fetch_selected_ids(ps: PickerSession, headers: Dict[str, str]) -> tuple[Lis
 # ---------------------------------------------------------------------------
 
 
-def _upsert_google_media(media_kwargs: Dict[str, Any]) -> Media:
+def _upsert_google_media(media_kwargs: Dict[str, Any]) -> Tuple[Media, Optional[str]]:
     """google_media_id をキーに Media を新規作成、または既存行を復活・更新する。
 
     Google Photos は ``google_media_id`` を安定キーとして DB 一意制約を持つ。
     再取り込み時（ソフト削除済み・配信バイト変化で sha256 が変わった場合を含む）に
     既存行があれば INSERT せず、``is_deleted=False`` に戻してメタデータを上書きする
     （= 復活）。これにより一意制約違反を避けつつ冪等性を担保する。
+
+    返り値は ``(media, stale_rel_path)``。配信バイト変化で ``local_rel_path`` が
+    変わった場合、上書き前の旧パスを ``stale_rel_path`` として返す。呼び出し側は
+    DB コミット成功後に旧オリジナルファイルを削除し、ディスク上の孤児を防ぐ。
     """
 
     google_media_id = media_kwargs.get("google_media_id")
@@ -687,12 +728,15 @@ def _upsert_google_media(media_kwargs: Dict[str, Any]) -> Media:
         else None
     )
     if existing is None:
-        return Media(**media_kwargs)
+        return Media(**media_kwargs), None
 
+    old_rel_path = existing.local_rel_path
+    new_rel_path = media_kwargs.get("local_rel_path")
     for key, value in media_kwargs.items():
         setattr(existing, key, value)
     existing.is_deleted = False
-    return existing
+    stale_rel_path = old_rel_path if old_rel_path and old_rel_path != new_rel_path else None
+    return existing, stale_rel_path
 
 
 def picker_import_item(
@@ -742,6 +786,7 @@ def picker_import_item(
 
     session_identifier: Optional[str] = None
     session_db_id: Optional[int] = None
+    stale_rel_path: Optional[str] = None
 
     try:
         # Retrieve account and access token
@@ -969,44 +1014,16 @@ def picker_import_item(
             final_path = orig_dir / out_rel
             final_path.parent.mkdir(parents=True, exist_ok=True)
             try:
-                move_method = "replace"
-                try:
-                    os.replace(dl.path, final_path)
-                except OSError as e:
-                    if e.errno == errno.EXDEV:
-                        move_method = "copy+replace"
-                        fd, tmp_name = tempfile.mkstemp(
-                            dir=str(final_path.parent), prefix=".tmp_picker_import_"
-                        )
-                        tmp_path = Path(tmp_name)
-                        try:
-                            with os.fdopen(fd, "wb", closefd=True) as wf, dl.path.open(
-                                "rb"
-                            ) as rf:
-                                shutil.copyfileobj(rf, wf, length=16 * 1024 * 1024)
-                                wf.flush()
-                                os.fsync(wf.fileno())
-                            with contextlib.suppress(OSError):
-                                shutil.copystat(dl.path, tmp_path, follow_symlinks=True)
-                            _fsync_dir(final_path.parent)
-                            os.replace(tmp_path, final_path)
-                            _fsync_dir(final_path.parent)
-                        except Exception:
-                            with contextlib.suppress(FileNotFoundError):
-                                tmp_path.unlink()
-                            raise
-                        with contextlib.suppress(FileNotFoundError):
-                            dl.path.unlink()
-                        _log_warning(
-                            "picker.file.move.cross_device",
-                            f"クロスデバイス移動を検知しコピーで保存: {dl.path} -> {final_path}",
-                            session_identifier=session_identifier,
-                            session_db_id=ps.id,
-                            selection_id=sel.id,
-                            sha256=dl.sha256,
-                        )
-                    else:
-                        raise
+                move_method = _atomic_move_into_place(dl.path, final_path)
+                if move_method == "copy+replace":
+                    _log_warning(
+                        "picker.file.move.cross_device",
+                        f"クロスデバイス移動を検知しコピーで保存: {dl.path} -> {final_path}",
+                        session_identifier=session_identifier,
+                        session_db_id=ps.id,
+                        selection_id=sel.id,
+                        sha256=dl.sha256,
+                    )
 
                 # ファイル保存ログ
                 _log_info(
@@ -1121,7 +1138,7 @@ def picker_import_item(
                 )
                 if phash:
                     media_kwargs["phash"] = phash
-                media = _upsert_google_media(media_kwargs)
+                media, stale_rel_path = _upsert_google_media(media_kwargs)
                 db.session.add(media)
                 db.session.flush()
 
@@ -1253,6 +1270,12 @@ def picker_import_item(
         sel.locked_by = None
         sel.lock_heartbeat_at = None
         db.session.commit()
+        # 配信バイト変化で local_rel_path が変わった再取り込みでは、旧オリジナル
+        # ファイルがディスク上に取り残される。DB コミット成功後（=新パスが確定
+        # 後）に旧ファイルを削除して孤児を防ぐ。
+        if sel.status == "imported" and stale_rel_path:
+            with contextlib.suppress(OSError):
+                (orig_dir / stale_rel_path).unlink(missing_ok=True)
         _log_info(
             "picker.item.end",
             json.dumps(
@@ -1404,6 +1427,7 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
 
     for chunk_index, chunk_ids in enumerate(_chunk(selected_ids, 50), start=1):
         chunk_start = datetime.now(timezone.utc)
+        chunk_stale_paths: List[str] = []
         _log_info(
             "picker.batch.fetch.start",
             json.dumps(
@@ -1692,7 +1716,7 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
             )
             final_path = orig_dir / out_rel
             final_path.parent.mkdir(parents=True, exist_ok=True)
-            os.replace(dl.path, final_path)
+            _atomic_move_into_place(dl.path, final_path)
 
             _log_info(
                 "picker.item.file.saved",
@@ -1754,9 +1778,11 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
             )
             if phash:
                 media_kwargs["phash"] = phash
-            media = _upsert_google_media(media_kwargs)
+            media, stale_rel_path = _upsert_google_media(media_kwargs)
             db.session.add(media)
             db.session.flush()  # obtain media.id
+            if stale_rel_path:
+                chunk_stale_paths.append(stale_rel_path)
 
             _log_info(
                 "picker.item.media.created",
@@ -1821,6 +1847,12 @@ def picker_import(*, picker_session_id: int, account_id: int) -> Dict[str, objec
             )
 
         db.session.commit()
+
+        # 再取り込みで local_rel_path が変わった場合の旧オリジナルを、チャンクの
+        # コミット成功後にまとめて削除してディスク上の孤児を防ぐ。
+        for stale_rel in chunk_stale_paths:
+            with contextlib.suppress(OSError):
+                (orig_dir / stale_rel).unlink(missing_ok=True)
 
         _log_info(
             "picker.batch.complete",

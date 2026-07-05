@@ -1648,7 +1648,13 @@ def google_oauth_callback():
         flash(_("Token encryption key is not configured."), "error")
         return _google_link_result_redirect(saved, "error", reason="encryption_key_missing")
 
-    account = GoogleAccount.query.filter_by(email=email).first()
+    # アカウントは (user_id, email) で一意。email だけで引くと、同じ Google
+    # メールを別ユーザーが連携した際に他ユーザーの行を奪ってしまう。連携先
+    # ユーザーの行を優先し、無ければ未紐付け（orphan）の行だけを引き取る。
+    account = (
+        GoogleAccount.query.filter_by(email=email, user_id=link_user_id).first()
+        or GoogleAccount.query.filter_by(email=email, user_id=None).first()
+    )
     scopes = saved.get("scopes") or []
     if not account:
         account = GoogleAccount(email=email, scopes=",".join(scopes), user_id=link_user_id)

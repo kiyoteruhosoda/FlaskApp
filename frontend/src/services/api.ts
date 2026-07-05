@@ -427,10 +427,9 @@ class ApiClient {
   }
 
   // Google Photos Picker セッションを作成する（Photo インポートの入口）
-  async createPickerSession(accountId?: number, title?: string): Promise<PickerSessionCreateResponse> {
+  async createPickerSession(accountId?: number): Promise<PickerSessionCreateResponse> {
     const response = await this.client.post<PickerSessionCreateResponse>('/picker/session', {
       ...(accountId != null ? { account_id: accountId } : {}),
-      ...(title ? { title } : {}),
     });
     return response.data;
   }

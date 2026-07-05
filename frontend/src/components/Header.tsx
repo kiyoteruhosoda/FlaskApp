@@ -53,7 +53,11 @@ const Header: React.FC = () => {
           <Navbar.Brand as={Link} to="/">PhotoNest</Navbar.Brand>
         </div>
 
-        <Navbar.Toggle aria-controls="basic-navbar-nav" />
+        {/* 折りたたみメニューのトグル。左のサイドバー開閉（ハンバーガー）と
+            区別できるよう、縦三点（ケバブ）アイコンにする。 */}
+        <Navbar.Toggle aria-controls="basic-navbar-nav" aria-label="Toggle menu" className="border-0">
+          <i className="fa-solid fa-ellipsis-vertical fs-4 px-2"></i>
+        </Navbar.Toggle>
         <Navbar.Collapse id="basic-navbar-nav">
           {isAuthenticated ? (
             <>

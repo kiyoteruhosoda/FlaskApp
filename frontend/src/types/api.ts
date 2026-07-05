@@ -605,6 +605,8 @@ export interface ConfigField {
   input_suffix?: string | null;
   // 実効値の取得元（優先順位: environment > database > default）
   value_source?: 'environment' | 'database' | 'default';
+  // 環境変数で上書きされている場合の実際の値（読み取り専用表示用）
+  env_value?: string | null;
   search_text: string;
   section: string;
   section_label: string;

@@ -6,6 +6,14 @@
 ## [Unreleased]
 
 ### Changed
+- **ヘッダーの右側トグルをケバブ（縦三点）アイコンに変更**。左のサイドバー開閉
+  （ハンバーガー）と右のメニュー開閉が同じアイコンで紛らわしかったため、
+  折りたたみメニュー側を `fa-ellipsis-vertical` に変更して役割を区別した。
+- **System Settings に「デフォルト値と異なる設定のみ表示」フィルタを追加**。
+  初期構築時に何を設定済みか（ENV / DB で上書きされているか）を一覧確認できる。
+  また、環境変数で上書きされている設定は実際に効いている ENV の値を読み取り専用
+  で表示するようにした（シークレットは目アイコンで表示切替）。
+- **未ログイン画面（Create an account / ロール選択）の背景を白に統一**。
 - **Photo Imports 画面を Local / Google Photos で視覚的に区分**。
   「Upload Files」「Import Status」「Trigger Import」はローカル取り込みの
   機能であることが分かるよう、Google フォト取り込みカードと別に
@@ -16,6 +24,11 @@
   フローを「準備 → アップロード実行」の2段階に分離した。
 
 ### Fixed
+- **Google フォト取り込みが 502 で失敗する問題を修正**。Picker セッション作成時に
+  Google Picker API（`POST /v1/sessions`）へ `title` フィールドを送信していたが、
+  Session リソースに存在しないフィールドのため Google が
+  400 INVALID_ARGUMENT（Cannot find field）を返し、アプリは 502 を返していた。
+  リクエストボディを空にし、API・フロントエンドからも `title` パラメータを撤去。
 - **Google 連携で他ユーザーのアカウントを奪う問題を修正**。OAuth コールバックの
   アカウント検索が `email` だけで引いていたため、同じ Google メールを別ユーザーが
   連携すると既存ユーザーの行の `user_id` が上書きされていた（`GoogleAccount` の

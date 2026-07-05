@@ -260,7 +260,7 @@ class PickerSessionService:
 
     # --- Create -----------------------------------------------------------
     @staticmethod
-    def create(account: GoogleAccount, title: str) -> Tuple[dict, int]:
+    def create(account: GoogleAccount) -> Tuple[dict, int]:
         try:
             tokens = refresh_google_token(account)
         except RefreshTokenError as e:
@@ -282,14 +282,15 @@ class PickerSessionService:
 
         access_token = tokens.get("access_token")
         headers = {"Authorization": f"Bearer {access_token}"}
-        body = {"title": title}
+        # Picker API の Session リソースに title 等の書き込み可能フィールドはない。
+        # 余計なフィールドを送ると 400 INVALID_ARGUMENT（Cannot find field）になる。
+        body: dict = {}
         request_started_at = datetime.now(timezone.utc)
         current_app.logger.info(
             json.dumps(
                 {
                     "ts": request_started_at.isoformat(),
                     "account_id": account.id,
-                    "payload": {"title": title},
                 },
                 default=_normalize_log_value,
             ),

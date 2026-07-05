@@ -503,5 +503,6 @@
   "A linked Google account is required.": "連携済みの Google アカウントが必要です。",
   "Permission list is unavailable, so permission assignment cannot be edited here.": "権限一覧を取得できないため、ここでは権限の割り当てを編集できません。",
   "Token encryption key is not configured. Set it in System Settings > Security & Signing.": "トークン暗号鍵（ENCRYPTION_KEY）が未設定です。System Settings の Security & Signing で設定してください。",
-  "This value is set by an environment variable. Changes saved here will not take effect until the environment variable is removed.": "この値は環境変数で設定されています。環境変数を外すまで、ここで保存した変更は反映されません。"
+  "This value is set by an environment variable and cannot be edited here. Remove the environment variable to manage it from this screen.": "この値は環境変数で設定されているため、ここでは編集できません。この画面から管理するには環境変数を外してください。",
+  "Show only non-default settings": "デフォルト値と異なる設定のみ表示"
 }

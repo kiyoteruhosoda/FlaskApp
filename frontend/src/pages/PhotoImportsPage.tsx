@@ -26,6 +26,20 @@ import GooglePhotosImportModal from '../components/GooglePhotosImportModal';
 const ACCEPTED_EXTENSIONS =
   '.jpg,.jpeg,.png,.tiff,.tif,.bmp,.gif,.webp,.heic,.heif,.mp4,.mov,.avi,.mkv,.m4v,.3gp,.webm';
 
+const fileKey = (file: File): string => `${file.name}-${file.size}-${file.lastModified}`;
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ['KB', 'MB', 'GB'];
+  let value = bytes / 1024;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  return `${value.toFixed(1)} ${units[unitIndex]}`;
+};
+
 const PhotoImportsPage: React.FC = () => {
   const { t } = useTranslation();
   const { user } = useSelector((state: RootState) => state.auth);
@@ -34,7 +48,8 @@ const PhotoImportsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [stagedFiles, setStagedFiles] = useState<File[]>([]);
+  const [isDragActive, setIsDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<LocalImportUploadResponse | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -67,21 +82,65 @@ const PhotoImportsPage: React.FC = () => {
     loadStatus();
   }, []);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSelectedFiles(Array.from(e.target.files || []));
+  const addStagedFiles = (files: File[]) => {
+    if (files.length === 0) return;
+    setStagedFiles((prev) => {
+      const keys = new Set(prev.map(fileKey));
+      const additions = files.filter((f) => {
+        const k = fileKey(f);
+        if (keys.has(k)) return false;
+        keys.add(k);
+        return true;
+      });
+      return [...prev, ...additions];
+    });
     setUploadResult(null);
     setUploadError(null);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    addStagedFiles(Array.from(e.target.files || []));
+    e.target.value = '';
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+    if (uploading) return;
+    addStagedFiles(Array.from(e.dataTransfer.files || []));
+  };
+
+  const removeStagedFile = (key: string) => {
+    setStagedFiles((prev) => prev.filter((f) => fileKey(f) !== key));
+  };
+
+  const clearStagedFiles = () => {
+    setStagedFiles([]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const handleUpload = async () => {
-    if (selectedFiles.length === 0) return;
+    if (stagedFiles.length === 0) return;
     setUploading(true);
     setUploadResult(null);
     setUploadError(null);
     try {
-      const result = await apiClient.uploadLocalImportFiles(selectedFiles);
+      const result = await apiClient.uploadLocalImportFiles(stagedFiles);
       setUploadResult(result);
-      setSelectedFiles([]);
+      setStagedFiles([]);
       if (fileInputRef.current) fileInputRef.current.value = '';
       loadStatus();
     } catch (e: any) {
@@ -152,7 +211,11 @@ const PhotoImportsPage: React.FC = () => {
         </Alert>
       )}
 
-      {/* Google フォトから取り込み */}
+      {/* ===== Google フォト ===== */}
+      <h2 className="h6 text-uppercase text-muted fw-bold mb-2" data-testid="google-import-section-title">
+        <i className="fa-brands fa-google me-2" />
+        {t('Google Photos')}
+      </h2>
       <Card className="mb-4" data-testid="google-import-card">
         <Card.Header className="fw-semibold">
           <i className="fa-brands fa-google me-2" />
@@ -194,6 +257,12 @@ const PhotoImportsPage: React.FC = () => {
         </Card.Body>
       </Card>
 
+      {/* ===== ローカル取り込み ===== */}
+      <h2 className="h6 text-uppercase text-muted fw-bold mb-2" data-testid="local-import-section-title">
+        <i className="fa-solid fa-desktop me-2" />
+        {t('Local Import')}
+      </h2>
+
       {isLoading && !status ? (
         <div className="text-center py-5"><Spinner animation="border" /></div>
       ) : status ? (
@@ -202,25 +271,85 @@ const PhotoImportsPage: React.FC = () => {
           <Card className="mb-4" data-testid="upload-card">
             <Card.Header className="fw-semibold">{t('Upload Files')}</Card.Header>
             <Card.Body>
-              <p className="text-muted small mb-3">
-                {t('Uploaded files are stored in the import directory and imported on the next run')}
-              </p>
-              <Form.Group className="mb-3">
-                <Form.Control
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept={ACCEPTED_EXTENSIONS}
-                  onChange={handleFileChange}
-                  disabled={uploading}
-                  data-testid="upload-file-input"
-                />
-              </Form.Group>
+              <div className="text-muted small fw-semibold mb-2">{t('Step 1: Prepare files')}</div>
+              <div
+                className={`border rounded p-4 text-center mb-3 ${isDragActive ? 'border-primary bg-primary bg-opacity-10' : 'border-secondary-subtle'}`}
+                style={{ borderStyle: 'dashed', borderWidth: 2, cursor: uploading ? 'default' : 'pointer' }}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={() => !uploading && fileInputRef.current?.click()}
+                data-testid="upload-dropzone"
+              >
+                <i className="fa-solid fa-cloud-arrow-up mb-2 d-block" style={{ fontSize: '1.75rem' }} />
+                <div className="mb-2">{t('Drag and drop files here, or click to select')}</div>
+                <Form.Group onClick={(e) => e.stopPropagation()}>
+                  <Form.Control
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept={ACCEPTED_EXTENSIONS}
+                    onChange={handleFileChange}
+                    disabled={uploading}
+                    data-testid="upload-file-input"
+                  />
+                </Form.Group>
+              </div>
+
+              {stagedFiles.length > 0 && (
+                <div className="mb-3" data-testid="staged-files">
+                  <div className="d-flex justify-content-between align-items-center mb-1">
+                    <span className="text-muted small">
+                      {t('{{count}} file(s) selected', { count: stagedFiles.length })}
+                    </span>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="p-0 text-decoration-none"
+                      onClick={clearStagedFiles}
+                      disabled={uploading}
+                      data-testid="staged-files-clear"
+                    >
+                      {t('Clear all')}
+                    </Button>
+                  </div>
+                  <ListGroup variant="flush" className="border rounded">
+                    {stagedFiles.map((file) => {
+                      const key = fileKey(file);
+                      return (
+                        <ListGroup.Item
+                          key={key}
+                          className="d-flex justify-content-between align-items-center py-1 px-2 small"
+                          data-testid="staged-file-item"
+                        >
+                          <span className="text-truncate me-2">
+                            <span className="font-monospace">{file.name}</span>{' '}
+                            <span className="text-muted">({formatFileSize(file.size)})</span>
+                          </span>
+                          <Button
+                            variant="outline-secondary"
+                            size="sm"
+                            className="py-0 px-1"
+                            onClick={() => removeStagedFile(key)}
+                            disabled={uploading}
+                            aria-label={t('Remove')}
+                            data-testid="staged-file-remove"
+                          >
+                            <i className="fa-solid fa-xmark" />
+                          </Button>
+                        </ListGroup.Item>
+                      );
+                    })}
+                  </ListGroup>
+                </div>
+              )}
+
+              <div className="text-muted small fw-semibold mb-2">{t('Step 2: Execute upload')}</div>
               <Button
                 variant="primary"
                 size="sm"
                 onClick={handleUpload}
-                disabled={uploading || selectedFiles.length === 0}
+                disabled={uploading || stagedFiles.length === 0}
                 data-testid="upload-btn"
               >
                 {uploading ? (
@@ -229,11 +358,6 @@ const PhotoImportsPage: React.FC = () => {
                   <><i className="fa-solid fa-upload me-1" />{t('Upload')}</>
                 )}
               </Button>
-              {selectedFiles.length > 0 && (
-                <span className="text-muted small ms-3">
-                  {t('{{count}} file(s) selected', { count: selectedFiles.length })}
-                </span>
-              )}
 
               {uploadError && (
                 <Alert variant="danger" dismissible onClose={() => setUploadError(null)} className="mt-3 mb-0" data-testid="upload-error">

@@ -5,6 +5,16 @@
 
 ## [Unreleased]
 
+### Changed
+- **Photo Imports 画面を Local / Google Photos で視覚的に区分**。
+  「Upload Files」「Import Status」「Trigger Import」はローカル取り込みの
+  機能であることが分かるよう、Google フォト取り込みカードと別に
+  「GOOGLE PHOTOS」「LOCAL IMPORT」のセクション見出しを追加。
+  Upload Files はドラッグ＆ドロップに対応し、選択したファイルは即アップロード
+  せず「準備中ファイル」として一覧表示（ファイル名・サイズ）。アップロード実行
+  （Step 2）前に複数回に分けて追加選択・個別取り消し・全解除ができるように
+  フローを「準備 → アップロード実行」の2段階に分離した。
+
 ### Fixed
 - **環境変数で設定した値が無視される問題を修正**（`.env` に `ENCRYPTION_KEY`
   を設定しても「Encryption key not configured」が続く障害の根本原因）。

@@ -70,25 +70,35 @@ const AlbumDetailPage: React.FC = () => {
     loadAlbum();
   }, [loadAlbum]);
 
-  // fetch signed thumbnail URLs lazily
+  // fetch signed thumbnail URLs concurrently
   useEffect(() => {
     let cancelled = false;
     const missing = orderedMedia.filter((m) => !thumbs[m.id]);
     if (missing.length === 0) return;
     (async () => {
-      for (const m of missing) {
-        try {
-          const url = await apiClient.getPhotoThumbUrl(m.id, 256);
-          if (!cancelled && url) {
-            setThumbs((prev) => ({ ...prev, [m.id]: url }));
+      const results = await Promise.all(
+        missing.map(async (m) => {
+          try {
+            const url = await apiClient.getPhotoThumbUrl(m.id, 256);
+            return url ? { id: m.id, url } : null;
+          } catch {
+            return null;
           }
-        } catch {
-          /* ignore */
-        }
+        })
+      );
+      if (cancelled) return;
+      const updates: Record<number, string> = {};
+      for (const result of results) {
+        if (result) updates[result.id] = result.url;
+      }
+      if (Object.keys(updates).length > 0) {
+        setThumbs((prev) => ({ ...prev, ...updates }));
       }
     })();
     return () => { cancelled = true; };
-  }, [orderedMedia, thumbs]);
+    // thumbs is intentionally excluded to avoid re-running as each URL resolves
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderedMedia]);
 
   const openEdit = () => {
     if (!album) return;

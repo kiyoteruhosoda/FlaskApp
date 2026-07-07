@@ -83,19 +83,29 @@ const AlbumsPage: React.FC = () => {
     const missing = albums.filter((a) => a.coverMediaId && !covers[a.id]);
     if (missing.length === 0) return;
     (async () => {
-      for (const a of missing) {
-        try {
-          const url = await apiClient.getPhotoThumbUrl(a.coverMediaId as number, 256);
-          if (!cancelled && url) {
-            setCovers((prev) => ({ ...prev, [a.id]: url }));
+      const results = await Promise.all(
+        missing.map(async (a) => {
+          try {
+            const url = await apiClient.getPhotoThumbUrl(a.coverMediaId as number, 256);
+            return url ? { id: a.id, url } : null;
+          } catch {
+            return null;
           }
-        } catch {
-          /* ignore */
-        }
+        })
+      );
+      if (cancelled) return;
+      const updates: Record<number, string> = {};
+      for (const result of results) {
+        if (result) updates[result.id] = result.url;
+      }
+      if (Object.keys(updates).length > 0) {
+        setCovers((prev) => ({ ...prev, ...updates }));
       }
     })();
     return () => { cancelled = true; };
-  }, [albums, covers]);
+    // covers is intentionally excluded to avoid re-running as each URL resolves
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [albums]);
 
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault();

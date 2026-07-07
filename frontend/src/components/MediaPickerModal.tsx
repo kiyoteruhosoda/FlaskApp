@@ -90,19 +90,30 @@ const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
     const missing = items.filter((m) => !thumbs[m.id]);
     if (missing.length === 0) return;
     (async () => {
-      for (const m of missing) {
-        try {
-          const url = await apiClient.getPhotoThumbUrl(m.id, 256);
-          if (!cancelled && url) {
-            setThumbs((prev) => ({ ...prev, [m.id]: url }));
+      const results = await Promise.all(
+        missing.map(async (m) => {
+          try {
+            const url = await apiClient.getPhotoThumbUrl(m.id, 256);
+            return url ? { id: m.id, url } : null;
+          } catch {
+            /* サムネ取得失敗は無視 */
+            return null;
           }
-        } catch {
-          /* サムネ取得失敗は無視 */
-        }
+        })
+      );
+      if (cancelled) return;
+      const updates: Record<number, string> = {};
+      for (const result of results) {
+        if (result) updates[result.id] = result.url;
+      }
+      if (Object.keys(updates).length > 0) {
+        setThumbs((prev) => ({ ...prev, ...updates }));
       }
     })();
     return () => { cancelled = true; };
-  }, [show, items, thumbs]);
+    // thumbs は依存に含めない（URL が 1 件解決するたびの再実行を防ぐ）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [show, items]);
 
   const toggleSelect = (media: PhotoItem) => {
     if (excluded.has(media.id)) return;

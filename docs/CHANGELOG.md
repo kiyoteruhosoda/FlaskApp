@@ -6,6 +6,12 @@
 ## [Unreleased]
 
 ### Changed
+- **アルバムのサムネイル取得を直列から並列に変更**（`frontend/src/pages/AlbumDetailPage.tsx`
+  / `frontend/src/pages/AlbumsPage.tsx`）。署名付きサムネイル URL を取得する `useEffect` は
+  `for...await` で 1 件ずつ順番に `getPhotoThumbUrl()` を呼んでいたため、ディスクキャッシュに
+  ヒットしていても枚数分の HTTP 往復が直列に積み上がり表示が遅れていた。`Promise.all` による
+  並列取得に変更し、全件解決後に 1 回だけ state を更新するようにした。あわせて依存配列から
+  `thumbs`／`covers` を外し、URL が 1 件解決するたびに `useEffect` が再実行される問題を解消した。
 - **メディア署名 URL をキャッシュ可能に変更**（`presentation/web/api/routes.py`）。
   サムネイル・オリジナル・再生用（`api_media_thumb_url` / `api_media_original_url` /
   `api_media_playback_url`）の署名 URL は従来、毎回 `nonce`（UUID）と秒単位の `exp` を

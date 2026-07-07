@@ -6,6 +6,15 @@
 ## [Unreleased]
 
 ### Changed
+- **メディア署名 URL をキャッシュ可能に変更**（`presentation/web/api/routes.py`）。
+  サムネイル・オリジナル・再生用（`api_media_thumb_url` / `api_media_original_url` /
+  `api_media_playback_url`）の署名 URL は従来、毎回 `nonce`（UUID）と秒単位の `exp` を
+  含めていたため、同一メディアでもリクエストごとに `/api/dl/<token>` が変わり（アルバム
+  表紙とメディア一覧で別 URL になる等）ブラウザ／CDN のキャッシュが効かなかった。共通
+  ヘルパー `_cacheable_signed_exp()` を追加し、`exp` を TTL 幅のウィンドウ境界に丸めて
+  `nonce` を除くことで署名を決定的にし、同一ウィンドウ内の繰り返し要求が同一 URL を返して
+  キャッシュヒットするようにした（3 エンドポイント一律）。`cacheControl` の `max-age` は
+  残存有効時間に合わせて返す。
 - **新規生成サムネイルの画像フォーマットを AVIF に変更**（既存サムネイルは据え置き）。
   サムネイル生成（`bounded_contexts/photonest/tasks/thumbs_generate.py`）の出力拡張子を
   `.avif` に変更し、`shared/kernel/utils.register_avif_support()`（`pillow-heif` の
@@ -14,7 +23,47 @@
   記録されるため、既存の `.jpg`/`.png` サムネイルはそのまま配信され、再生成された分のみ
   AVIF になる。配信側（`presentation/web/api/routes.py`）は候補パスに `.avif` を追加。
 
+### Added
+- **nginx を docker-compose に追加し、X-Accel-Redirect を既定で有効化**
+  （`docker-compose.yml` / `docker/nginx/default.conf`）。`nginx` コンテナが公開ポート
+  （`WEB_HOST_PORT`）を受け持ち、`web`(gunicorn) は内部専用にした。メディア（サムネイル・
+  オリジナル・動画）は nginx が `X-Accel-Redirect` でディスクから直接配信する
+  （`MEDIA_ACCEL_REDIRECT_ENABLED=true` を compose 既定に）。`internal` ロケーションのため
+  外部から `/media/*` へ直アクセスは 404 で、署名を通った内部リダイレクト時のみ配信される。
+  alias 先・accel ロケーションは settings 既定（`/media/*` → `/app/data/media/*`）と一致。
+  CDN 利用時のオリジンはこの nginx を指す。
+- **CloudFlare CDN バックエンドを実 API 実装に置き換え**
+  （`bounded_contexts/storage/infrastructure/cloudflare_cdn.py`）。従来 `purge_cache` 等は
+  HTTP 呼び出しを省略した擬似実装（固定 UUID・固定アナリティクス）だった。CloudFlare API
+  v4 を `requests` で実際に呼ぶよう実装: キャッシュパージ（`/zones/{zone}/purge_cache`、
+  url/prefix/tag/all）、ゾーン設定更新（`browser_cache_ttl` / `brotli` の PATCH）、
+  キャッシュ状態取得（対象 URL への HEAD で `CF-Cache-Status` ヘッダーを読む）、
+  アナリティクス（GraphQL の `httpRequestsAdaptiveGroups`）、プリフェッチ（対象 URL への
+  実 GET でエッジを温める）。認証は API トークン（Bearer）、失敗は `StorageException` に変換。
+- **画像・メディア配信方式のドキュメントを整備**（`docs/OPERATIONS.md`「4. 機能設定ガイド」）。
+  Flask 直返し（既定）／Nginx 直接（`X-Accel-Redirect`）／CDN の 3 方式と、それぞれに必要な
+  設定・データ整備を一覧化。既存の CDN 節・nginx 節と統合し重複を避けた。
+- **取り込みのベル通知を「開始／終了の 2 段階」通知に変更**
+  （`frontend/src/components/ImportActivityBell.tsx`）。従来はバッジが「進行中セッション数」
+  だったため取り込み完了と同時に消え、終わったことを見逃していた。セッションごとの
+  フェーズ（`active`/`done`）を `localStorage` に保存し、フェーズが変化＝未読としてバッジを
+  立て、ベルを開いて中身を見るまで消えないようにした。
+
 ### Fixed
+- **Google フォト取り込みのサーバーエラーがセッションログに残らない問題を修正**
+  （`presentation/web/api/picker_session.py`）。取り込み開始／メディアアイテム取得の
+  リクエストで発生した 500 系エラーは Flask 既定の 500 ハンドラが `Log` テーブルへ
+  `api.server_error` として記録するが、`session_id` を持たずセッション詳細画面のログ
+  （`WorkerLog` の `import.%` を `session_id` で照合）には現れず「ログに出ない」状態だった。
+  これらのエンドポイントで例外・enqueue 失敗を捕捉し、`session_id` を含む
+  `import.picker.*` イベントとして `WorkerLog` に記録するようにした。
+- **アルバム詳細でサムネイル読込前に「表紙に設定」ボタンの表示が崩れる問題を修正**
+  （`frontend/src/pages/AlbumDetailPage.tsx`）。`.ratio` 直下の要素として配置されたボタンが
+  画像未読込時に崩れて見えるため、サムネイル読込完了までボタンを表示しないようにした。
+- **スライドショーに全画面表示を追加**（`frontend/src/pages/SlideshowPage.tsx`）。
+  ダブルクリック／右下の最大化アイコン／`F` キーで全画面を切り替え、全画面中は左上の
+  アルバム名などのオーバーレイを非表示にした。
+
 - **デプロイ後にセッション失効しても強制ログアウトされない問題を改善**。SPA を開いたまま
   サーバー再起動されると、画面に残った署名付き URL の画像（`<img>`）読み込みは axios を
   経由せず 401 を検知できないため、`forceLogout` が働かず画像だけが壊れて表示され続けていた。

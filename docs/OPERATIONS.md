@@ -379,12 +379,110 @@ MAIL_DEFAULT_SENDER=your-email@example.com
 
 管理画面から利用する（`totp:view`/`totp:write` 権限が必要）。追加の `.env` 設定は不要。
 
-### CDN 配信（Azure CDN / CloudFlare CDN）を有効化したいとき
+### 画像・メディアの配信方式を選びたいとき（表示が遅いとき）
 
-**.env**:
+画像（サムネイル・オリジナル・動画）の配信は次の流れで行う。まず全体像を押さえ、
+どこを速くしたいかで設定を選ぶ。
+
+**配信パイプライン**:
+
+1. フロントが署名付き URL を要求する
+   （`POST /api/media/<id>/thumb-url` 等 → `/api/dl/<token>` を受け取る）。
+2. ブラウザが `/api/dl/<token>` を GET する。トークンは署名・有効期限を検証される。
+3. 実バイトの返し方が **3 通り**あり、以下の設定で切り替わる。
+
+| 方式 | 誰がバイトを返すか | 速度 | 必要なもの |
+|---|---|---|---|
+| ① Flask 直返し | Gunicorn（Python）がファイルを読んで流す | 遅い | 設定不要（`MEDIA_ACCEL_REDIRECT_ENABLED=false`） |
+| ② Nginx 直接（X-Accel-Redirect） | Nginx がディスクから直接返す | 速い | **docker-compose 既定** |
+| ③ CDN | エッジがキャッシュから返す | 最速（2回目以降） | 設定 + オリジン（②の nginx）+ データ配信 |
+
+**docker-compose では方式②が既定で有効**。`nginx` コンテナが公開ポート
+（`WEB_HOST_PORT`）を受け持ち、`web`（gunicorn）は内部専用。メディアは nginx が
+`X-Accel-Redirect` でディスクから直接配信する（`MEDIA_ACCEL_REDIRECT_ENABLED=true`）。
+「以前は Nginx から直接取得していた」挙動はこれで既定に戻っている。
+
+> **注意**: 方式②有効時に `web` へ直接アクセスすると、内部配信ヘッダーが解釈されず
+> 壊れる。必ず nginx（公開ポート）経由で使う。純粋なローカル開発（`flask run` 等で
+> nginx を挟まない）では `.env` で `MEDIA_ACCEL_REDIRECT_ENABLED=false` にして方式①に
+> フォールバックする（コード既定は false）。
+
+> メディア URL（サムネイル・オリジナル・動画）は
+> `MEDIA_THUMBNAIL_URL_TTL_SECONDS` 等（既定 600 秒）のウィンドウ単位で決定的に
+> 発行され、同一メディアは同一 URL を返す。ブラウザ／CDN のキャッシュを効かせるため、
+> この TTL より短い間隔で同じ画像を何度開いても URL は変わらない。
+
+#### 方式② Nginx から直接配信（X-Accel-Redirect）— docker-compose 標準構成
+
+`docker-compose.yml` の `nginx` サービスがフロントに立ち、以下を行う（設定は
+`docker/nginx/default.conf`）:
+
+- 通常リクエストを `web:5000` へプロキシ。
+- `web` が返す `X-Accel-Redirect: /media/{thumbs,playback,originals}/<rel>` を受けて
+  `internal` ロケーションからファイルを直接配信。外部から `/media/*` へ直アクセスは
+  404（署名を通った内部リダイレクト時のみ配信 = 署名バイパス防止）。
+
+alias 先・accel ロケーションは settings 既定（`system_settings_defaults.py`）と一致:
+
+```
+MEDIA_ACCEL_THUMBNAILS_LOCATION=/media/thumbs → /app/data/media/thumbs
+MEDIA_ACCEL_PLAYBACK_LOCATION=/media/playback → /app/data/media/playback
+MEDIA_ACCEL_ORIGINALS_LOCATION=/media/originals → /app/data/media/originals
+```
+
+`nginx` コンテナはデータを読み取り専用（`:ro`）でマウントするため、通常は追加設定
+不要。別ホストで nginx を立てる／パスを変える場合は accel ロケーションと alias を
+揃える。`Content-Type`/`Cache-Control` は `web` のレスポンスヘッダーがそのまま使われる。
+
+**データ（必須）**: サムネイル等の派生ファイルは取り込み後に生成される。未生成の
+メディアは方式に関わらず表示できない（「2. データベース操作 → originals からの
+メディア再構築」で再生成）。つまり**設定だけでなくデータ整備も必要**。
+
+#### ストレージバックエンド（ローカル / Blob）
+
+ファイルの実体をどこに置くか。`STORAGE_BACKEND` で切り替える。
+
+```env
+STORAGE_BACKEND=local     # 既定。ローカル/NAS のファイルシステム
+# STORAGE_BACKEND=blob    # オブジェクトストレージ（Blob）
+```
+
+**Blob を使う場合のデータ整備（必須）**: 既存の originals / thumbs / playback を
+Blob へアップロードしておく必要がある（設定を変えるだけでは既存ファイルは移らない）。
+Blob 上にファイルが無ければ方式①でも②でも 404 になる。方式②（Nginx 直接）は
+ローカルファイルシステム前提のため、Blob と併用する場合は方式①か③（CDN）を使う。
+
+#### まとめ（何が必要か）
+
+- **とにかく速くしたい／以前の挙動に戻したい** → 方式②（docker-compose 既定）。追加設定不要。
+- **地理的に分散・大量アクセス** → 方式③ CDN（下記）。オリジンは方式②の nginx。
+- **どの方式でも** サムネイル等の派生ファイルが生成済みであること（データ整備）が前提。
+
+### CDN 配信（CloudFlare CDN / Azure CDN）を有効化したいとき
+
+上記「配信方式」の方式③。**オリジンは方式②の nginx コンテナ**（`WEB_HOST_PORT` を
+公開するドメイン）に向ける。CDN は設定に加え、初回アクセスでのプル（またはプリフェッチ）
+によるデータ配信が必要。管理画面（設定 → CDN）でも `CDN_PROVIDER` を選択リストで
+切り替えられる（none / azure / cloudflare / generic）。
+
+**対応プロバイダー**: 実装があるのは `cloudflare` / `azure` / `generic`。CloudFlare は
+キャッシュパージ（API v4）・ゾーン設定更新・キャッシュ状態取得（`CF-Cache-Status`）・
+アナリティクス（GraphQL）・プリフェッチを実際の API 呼び出しで行う。
+
+**.env（CloudFlare の例）**:
 ```env
 CDN_ENABLED=true
-CDN_PROVIDER=azure                     # azure / cloudflare / generic
+CDN_PROVIDER=cloudflare
+CDN_CLOUDFLARE_API_TOKEN=<api-token>
+CDN_CLOUDFLARE_ZONE_ID=<zone-id>
+CDN_CLOUDFLARE_ORIGIN_HOSTNAME=photonest.example.com   # nginx を公開するドメイン
+CDN_CACHE_TTL=3600
+```
+
+**.env（Azure の例）**:
+```env
+CDN_ENABLED=true
+CDN_PROVIDER=azure
 CDN_AZURE_ACCOUNT_NAME=<account>
 CDN_AZURE_ACCESS_KEY=<access-key>
 CDN_AZURE_PROFILE=<profile-name>

@@ -3333,6 +3333,24 @@ def _sign_payload(payload: dict) -> str:
     return f"{_b64url_encode(canonical)}.{_b64url_encode(sig)}"
 
 
+def _cacheable_signed_exp(ttl: int) -> tuple[int, int]:
+    """Return ``(exp, max_age)`` for a cache-friendly deterministic signed URL.
+
+    署名付きメディア URL（サムネイル・オリジナル・再生用）をブラウザ／CDN に
+    キャッシュさせるための共通ロジック。``exp`` を秒単位ではなく TTL 幅のウィンドウ
+    境界に丸め、かつ ``nonce`` を含めないことで、同一 ``(media, size)`` への繰り返し
+    要求が同じトークン＝同じ ``/api/dl/<token>`` URL を返す。これにより同一ウィンドウ内
+    ではキャッシュヒットし、毎回 URL が変わってキャッシュが無効化される問題を防ぐ。
+
+    ``max_age`` は残存有効時間（`Cache-Control: max-age`）。
+    """
+
+    now = int(time.time())
+    window = max(ttl, 1)
+    exp = ((now // window) + 2) * window
+    return exp, max(exp - now, 0)
+
+
 def _verify_token(token: str):
     try:
         payload_b64, sig_b64 = token.split(".", 1)
@@ -3744,7 +3762,9 @@ def api_media_thumb_url(media_id):
         or "application/octet-stream"
     )
     ttl = settings.media_thumbnail_url_ttl_seconds
-    exp = int(time.time()) + ttl
+    # URL をブラウザ／CDN にキャッシュさせるため、exp を TTL 幅のウィンドウ境界に
+    # 丸め、nonce を含めない決定的な署名にする（詳細は _cacheable_signed_exp）。
+    exp, max_age = _cacheable_signed_exp(ttl)
     payload = {
         "v": 1,
         "typ": "thumb",
@@ -3753,7 +3773,6 @@ def api_media_thumb_url(media_id):
         "path": token_path,
         "ct": ct,
         "exp": exp,
-        "nonce": uuid4().hex,
     }
     token = _sign_payload(payload)
     expires_at = (
@@ -3766,7 +3785,6 @@ def api_media_thumb_url(media_id):
                 "mid": media_id,
                 "size": size,
                 "ttl": ttl,
-                "nonce": payload["nonce"],
             }
         ),
         extra={"event": "url.thumb.issue"},
@@ -3776,7 +3794,7 @@ def api_media_thumb_url(media_id):
             {
                 "url": f"/api/dl/{token}",
                 "expiresAt": expires_at,
-                "cacheControl": f"private, max-age={ttl}",
+                "cacheControl": f"private, max-age={max_age}",
             }
         ),
         200,
@@ -3926,7 +3944,8 @@ def api_media_original_url(media_id):
         or "application/octet-stream"
     )
     ttl = settings.media_original_url_ttl_seconds
-    exp = int(time.time()) + ttl
+    # 他のメディア URL と同様、決定的な署名でキャッシュ可能にする。
+    exp, max_age = _cacheable_signed_exp(ttl)
     payload = {
         "v": 1,
         "typ": "original",
@@ -3935,7 +3954,6 @@ def api_media_original_url(media_id):
         "path": token_path,
         "ct": ct,
         "exp": exp,
-        "nonce": uuid4().hex,
     }
     token = _sign_payload(payload)
     expires_at = (
@@ -3947,7 +3965,6 @@ def api_media_original_url(media_id):
                 "ts": datetime.now(timezone.utc).isoformat(),
                 "mid": media_id,
                 "ttl": ttl,
-                "nonce": payload["nonce"],
             }
         ),
         extra={"event": "url.original.issue"},
@@ -3957,7 +3974,7 @@ def api_media_original_url(media_id):
             {
                 "url": f"/api/dl/{token}",
                 "expiresAt": expires_at,
-                "cacheControl": f"private, max-age={ttl}",
+                "cacheControl": f"private, max-age={max_age}",
             }
         ),
         200,
@@ -3990,7 +4007,8 @@ def api_media_playback_url(media_id):
         return jsonify({"error": "not_found"}), 404
     ct = mimetypes.guess_type(resolved.absolute_path)[0] or "video/mp4"
     ttl = settings.media_playback_url_ttl_seconds
-    exp = int(time.time()) + ttl
+    # 他のメディア URL と同様、決定的な署名でキャッシュ可能にする。
+    exp, max_age = _cacheable_signed_exp(ttl)
     payload = {
         "v": 1,
         "typ": "playback",
@@ -3999,7 +4017,6 @@ def api_media_playback_url(media_id):
         "path": token_path,
         "ct": ct,
         "exp": exp,
-        "nonce": uuid4().hex,
     }
     token = _sign_payload(payload)
     expires_at = (
@@ -4011,7 +4028,6 @@ def api_media_playback_url(media_id):
                 "ts": datetime.now(timezone.utc).isoformat(),
                 "mid": media_id,
                 "ttl": ttl,
-                "nonce": payload["nonce"],
             }
         ),
         extra={"event": "url.playback.issue"},
@@ -4021,7 +4037,7 @@ def api_media_playback_url(media_id):
             {
                 "url": f"/api/dl/{token}",
                 "expiresAt": expires_at,
-                "cacheControl": f"private, max-age={ttl}",
+                "cacheControl": f"private, max-age={max_age}",
             }
         ),
         200,

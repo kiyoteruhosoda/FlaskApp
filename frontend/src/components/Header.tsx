@@ -14,9 +14,12 @@ const Header: React.FC = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useSelector((state: RootState) => state.auth);
 
-  const handleLogout = () => {
-    dispatch(logout());
-    navigate('/login');
+  const handleLogout = async () => {
+    // ログアウト完了(isAuthenticated=false)を待ってから遷移する。先に navigate すると
+    // 認証状態が true のまま /login に入り、"/"(Welcome) へ弾かれてからログイン画面に
+    // 変わる「Welcome 画面のちらつき」が発生するため。
+    await dispatch(logout());
+    navigate('/login', { replace: true });
   };
 
   const hasPermission = (permission: string): boolean => {
@@ -90,7 +93,11 @@ const Header: React.FC = () => {
                 )}
               </Nav>
               <Nav>
-                <NavDropdown title={user?.username || 'User'} id="user-nav-dropdown" align="end">
+                <NavDropdown
+                  title={user?.username ?? <i className="fa-solid fa-user" />}
+                  id="user-nav-dropdown"
+                  align="end"
+                >
                   <NavDropdown.Item as={Link} to="/profile">{t('Profile')}</NavDropdown.Item>
                   {hasPermission('admin:system-settings') && (
                     <>

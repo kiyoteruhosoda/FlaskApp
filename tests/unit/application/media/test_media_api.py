@@ -1860,7 +1860,11 @@ def test_media_recover_success(client, app):
         assert refreshed.bytes == os.path.getsize(image_path)
         assert refreshed.width == 48
         assert refreshed.height == 32
-        assert refreshed.thumbnail_rel_path == refreshed.local_rel_path
+        # 新規生成サムネイルは AVIF 出力のため、原本(.jpg)と同じ相対パスの拡張子違いになる。
+        assert (
+            refreshed.thumbnail_rel_path
+            == str(Path(refreshed.local_rel_path).with_suffix(".avif"))
+        )
 
 
 def test_thumbnail_missing_triggers_regeneration(client, app):

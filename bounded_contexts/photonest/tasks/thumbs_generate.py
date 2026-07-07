@@ -16,9 +16,14 @@ import contextlib
 import shutil
 
 from shared.kernel.database.db import db
-from shared.kernel.utils import open_image_compat, register_heif_support
+from shared.kernel.utils import (
+    open_image_compat,
+    register_avif_support,
+    register_heif_support,
+)
 
 register_heif_support()
+register_avif_support()
 
 from PIL import Image, ImageOps
 
@@ -43,6 +48,11 @@ class PlaybackNotReadyError(RuntimeError):
 # Target thumbnail sizes (long side)
 SIZES = [256, 512, 1024, 2048]
 MIN_VIDEO_POSTER_LONG_SIDE = 720
+
+# システムで扱う画像フォーマットは AVIF。新規に生成するサムネイルはこの拡張子で出力する
+# （既存の .jpg/.png サムネイルはそのまま。再生成されたものだけ AVIF に切り替わる）。
+THUMBNAIL_OUTPUT_SUFFIX = ".avif"
+AVIF_QUALITY = 60
 
 
 @dataclass
@@ -127,7 +137,11 @@ def _write_image(image: Image.Image, dest: Path) -> None:
     """Write *image* to *dest* using the destination suffix to select format."""
 
     tmp = dest.with_suffix(dest.suffix + ".tmp")
-    if dest.suffix.lower() == ".jpg":
+    suffix = dest.suffix.lower()
+    if suffix == ".avif":
+        # AVIF は RGB / RGBA いずれもそのまま保存できる（透過も保持）。
+        image.save(tmp, "AVIF", quality=AVIF_QUALITY)
+    elif suffix == ".jpg":
         image.save(tmp, "JPEG", quality=85, progressive=True)
     else:
         image.save(tmp, "PNG")
@@ -321,7 +335,7 @@ def _resolve_video_source(
             )
         return _SourceResolution(
             image=poster_img,
-            rel_name=_replace_suffix(rel_name, ".jpg"),
+            rel_name=_replace_suffix(rel_name, THUMBNAIL_OUTPUT_SUFFIX),
             notes=None,
         ), None
 
@@ -341,7 +355,7 @@ def _resolve_video_source(
                 )
             return _SourceResolution(
                 image=frame_img,
-                rel_name=_replace_suffix(rel_name, ".jpg"),
+                rel_name=_replace_suffix(rel_name, THUMBNAIL_OUTPUT_SUFFIX),
                 notes=note,
             ), None
 
@@ -361,7 +375,7 @@ def _resolve_video_source(
             )
         return _SourceResolution(
             image=poster_img,
-            rel_name=_replace_suffix(rel_name, ".jpg"),
+            rel_name=_replace_suffix(rel_name, THUMBNAIL_OUTPUT_SUFFIX),
             notes=note,
         ), None
 
@@ -425,7 +439,8 @@ def _resolve_photo_source(
         )
         img = opened.convert("RGBA" if has_alpha else "RGB")
 
-    out_ext = ".png" if has_alpha else ".jpg"
+    # 透過の有無に関わらず AVIF で出力する（AVIF は RGBA を保持できる）。
+    out_ext = THUMBNAIL_OUTPUT_SUFFIX
     if log:
         log.info(
             "thumbnail_generation.source_ready",

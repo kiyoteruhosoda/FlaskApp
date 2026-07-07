@@ -135,9 +135,9 @@ def test_enqueue_media_playback_generates_thumbnails_for_completed_playback(app,
         assert result["thumbnails"].get("ok") is True
 
         db.session.refresh(media)
-        assert media.thumbnail_rel_path == "2025/09/27/video.jpg"
+        assert media.thumbnail_rel_path == "2025/09/27/video.avif"
 
-    thumb_path = thumbs_dir / "256" / "2025/09/27/video.jpg"
+    thumb_path = thumbs_dir / "256" / "2025/09/27/video.avif"
     assert thumb_path.exists()
 
 

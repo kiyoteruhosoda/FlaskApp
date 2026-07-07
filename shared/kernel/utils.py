@@ -4,6 +4,7 @@ import json
 import logging
 import importlib
 import importlib.util
+import mimetypes
 import os
 from contextlib import contextmanager
 from datetime import datetime, timezone, tzinfo
@@ -18,6 +19,7 @@ from PIL import Image, UnidentifiedImageError
 
 _HEIF_PLUGIN_NAME: Final[str] = "pillow_heif"
 _HEIF_REGISTERED: bool = False
+_AVIF_REGISTERED: bool = False
 
 _EXIF_OFFSET_TAGS: dict[str, tuple[str, ...]] = {
     "DateTimeOriginal": ("OffsetTimeOriginal", "OffsetTime"),
@@ -47,6 +49,39 @@ def register_heif_support() -> bool:
     if callable(register):
         register()
         _HEIF_REGISTERED = True
+        return True
+
+    return False
+
+
+def register_avif_support() -> bool:
+    """Enable AVIF read/write support and register its MIME type.
+
+    Pillow >= 11.3 (12.x) ships a native AVIF plugin (it registers the
+    ``.avif`` extension on import when built with libavif). Older Pillow relies
+    on :mod:`pillow_heif`'s ``register_avif_opener``. Either way we register the
+    ``image/avif`` MIME type so :func:`mimetypes.guess_type` returns the correct
+    Content-Type when serving thumbnails.
+    """
+
+    global _AVIF_REGISTERED
+    if _AVIF_REGISTERED:
+        return True
+
+    available = ".avif" in Image.registered_extensions()
+
+    if not available:
+        spec = importlib.util.find_spec(_HEIF_PLUGIN_NAME)
+        if spec is not None:
+            module = importlib.import_module(_HEIF_PLUGIN_NAME)
+            register = getattr(module, "register_avif_opener", None)
+            if callable(register):
+                register()
+                available = True
+
+    if available:
+        mimetypes.add_type("image/avif", ".avif")
+        _AVIF_REGISTERED = True
         return True
 
     return False

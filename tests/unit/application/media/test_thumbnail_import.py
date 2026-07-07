@@ -71,6 +71,6 @@ def test_thumbnail_generation(app):
 
         enqueue_thumbs_generate(media.id)
 
-        # サムネイルファイルが少なくとも1つ作成されること
-        generated = list(thumbs_dir.rglob("*.jpg"))
+        # サムネイルファイルが少なくとも1つ作成されること（新規生成は AVIF 出力）
+        generated = list(thumbs_dir.rglob("*.avif"))
         assert generated, "サムネイルが1つも生成されていない"

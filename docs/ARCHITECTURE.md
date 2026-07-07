@@ -28,6 +28,123 @@
 
 ---
 
+## 1.5 システム構成図（コンテナ / ネットワーク / ドメイン境界）
+
+### コンテナ・ネットワーク構成（デプロイ）
+
+`docker-compose.yml` の構成。公開フロントは `nginx` が担い、`web`(Gunicorn) は
+ネットワーク内部専用。メディアは nginx が `X-Accel-Redirect` でディスクから直接配信する
+（詳細は `docs/OPERATIONS.md`「画像・メディアの配信方式」）。
+
+```mermaid
+flowchart TB
+    user["ブラウザ / React SPA"]
+    cdn["CDN エッジ（CloudFlare / Azure・任意）"]
+    rp["外部リバースプロキシ / LB（任意・Synology 等）"]
+
+    user --> cdn
+    user -.->|"CDN 未使用時"| rp
+    cdn -.->|"オリジン取得"| rp
+    rp -->|"WEB_HOST_PORT (既定 8050) to :80"| nginx
+
+    subgraph net["Docker network: photonest-dev（bridge / 172.22.0.0/16）"]
+      direction TB
+      nginx["nginx コンテナ<br/>:80 公開フロント<br/>proxy + X-Accel 直配信"]
+      web["web コンテナ<br/>Flask + Gunicorn :5000<br/>（expose のみ・内部専用）"]
+      worker["worker コンテナ<br/>Celery worker"]
+      beat["beat コンテナ<br/>Celery beat（定期タスク）"]
+      redis[("redis :6379<br/>Broker / Result backend")]
+      db[("db :3306<br/>MariaDB 10.11")]
+      init["init-paths<br/>（one-shot: dir/権限初期化）"]
+    end
+
+    nginx -->|"proxy_pass /"| web
+    nginx -->|"X-Accel: /media/* を ro で直読み"| data
+    web --> db
+    web --> redis
+    worker --> db
+    worker --> redis
+    beat --> redis
+    web -->|rw| data
+    worker -->|rw| data
+
+    subgraph vols["永続ボリューム（HOST_DATA_ROOT 配下）"]
+      data[/"/app/data<br/>media/originals・thumbs・playback"/]
+      dbvol[("db_data")]
+      redisvol[("redis_data")]
+    end
+    db --- dbvol
+    redis --- redisvol
+    init -.->|"起動前に dir 作成"| data
+```
+
+要点:
+- **公開ポート**は `nginx` のみ（`WEB_HOST_PORT`、既定 8050。`.env` で設定）。`web` は
+  `expose` のみで外部非公開。X-Accel 有効時に `web` へ直アクセスすると壊れるため必ず nginx 経由。
+- `/app/data` は `web`/`worker` が読み書き、`nginx` は読み取り専用（`:ro`）で共有。
+- `worker`/`beat` は HTTP を持たず、Redis(Broker) と DB にのみ接続する。
+
+### ドメイン境界（Bounded Contexts）
+
+各 Bounded Context は独立した DDD 4 層（Presentation → Application → Domain、
+Infrastructure は Domain のインターフェースを実装。詳細は「2. DDDレイヤードアーキテクチャ」）
+を持つ。下図はコンテキスト境界と依存の向き。
+
+```mermaid
+flowchart TB
+    subgraph presentation["Presentation（presentation/web/ ・ frontend/）"]
+      spa["React SPA（frontend/）"]
+      api["api / admin Blueprints<br/>+ 共通 Marshmallow スキーマ"]
+    end
+
+    subgraph contexts["Bounded Contexts（bounded_contexts/）"]
+      direction TB
+      photonest["photonest<br/>写真・アルバム・タグ<br/>ローカルインポート・メディア処理"]
+      picker["picker_import<br/>Google Photos 取り込み<br/>セッション / セレクション"]
+      storage["storage<br/>ストレージ抽象・CDN<br/>（local / blob / cloudflare / azure）"]
+      email["email / email_sender<br/>メール送信（Strategy+DI）"]
+      totp["totp<br/>二要素認証"]
+      wiki["wiki"]
+      certs["certs"]
+    end
+
+    subgraph shared["Shared Kernel（shared/）"]
+      kernel["kernel: settings / logging<br/>database / crypto"]
+      sdomain["domain: auth master data（ロール・権限）"]
+      sinfra["infrastructure: SQLAlchemy models<br/>（Media, PickerSession, Log, ...）"]
+    end
+
+    spa --> api
+    api --> photonest
+    api --> picker
+    api --> totp
+    api --> wiki
+    api --> certs
+    api --> email
+
+    picker --> photonest
+    photonest --> storage
+    picker --> storage
+
+    photonest --> shared
+    picker --> shared
+    storage --> shared
+    email --> shared
+    totp --> shared
+    wiki --> shared
+    certs --> shared
+```
+
+境界のルール:
+- コンテキスト間の依存は一方向に保つ（例: `picker_import → photonest → storage`）。
+  逆流や循環を作らない。
+- 共有は `shared/kernel`（設定・ログ・DB・暗号）と `shared/infrastructure`（モデル）に集約。
+  コンテキスト固有のロジックを共有層に置かない。
+- Presentation（`presentation/web`）は各コンテキストの Application を呼び出し、Domain へは
+  直接触れない。
+
+---
+
 ## 2. DDDレイヤードアーキテクチャ
 
 すべてのドメイン機能はこの4層構造に従う。依存方向は上から下の一方向のみ。

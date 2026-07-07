@@ -17,7 +17,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { PickerSessionStatus, PickerSelectionItem, SessionLogEntry } from '../types/api';
-import { formatDateTime, sessionStatusVariant } from '../utils/format';
+import { badgeTextColor, formatDateTime, sessionStatusVariant } from '../utils/format';
 import {
   describeImportSessionStatus,
   isActiveImportSessionStatus,
@@ -193,7 +193,7 @@ const SessionDetailPage: React.FC = () => {
                   <div className="text-muted small">{t('Counts')}</div>
                   <div className="d-flex flex-wrap gap-1 mt-1">
                     {Object.entries(session.counts).map(([status, count]) => (
-                      <Badge key={status} bg={sessionStatusVariant(status)}>
+                      <Badge key={status} bg={sessionStatusVariant(status)} text={badgeTextColor(sessionStatusVariant(status))}>
                         {status}: {count}
                       </Badge>
                     ))}
@@ -244,7 +244,7 @@ const SessionDetailPage: React.FC = () => {
                         <td>{sel.id}</td>
                         <td className="text-break">{sel.filename || sel.googleMediaId || '—'}</td>
                         <td>
-                          <Badge bg={sessionStatusVariant(sel.status)}>{sel.status}</Badge>
+                          <Badge bg={sessionStatusVariant(sel.status)} text={badgeTextColor(sessionStatusVariant(sel.status))}>{sel.status}</Badge>
                         </td>
                         <td>{sel.attempts}</td>
                         <td className="text-danger text-break">{sel.error ? sel.error.slice(0, 80) : '—'}</td>

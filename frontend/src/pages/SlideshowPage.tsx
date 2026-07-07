@@ -41,7 +41,7 @@ const SlideshowPage: React.FC = () => {
   useEffect(() => {
     if (!currentItem) return;
     setThumbUrl(null);
-    apiClient.getPhotoThumbUrl(currentItem.id, 1920).then((url) => {
+    apiClient.getPhotoThumbUrl(currentItem.id, 2048).then((url) => {
       if (url) setThumbUrl(url);
       else if (currentItem.thumbnailUrl) setThumbUrl(currentItem.thumbnailUrl);
     });

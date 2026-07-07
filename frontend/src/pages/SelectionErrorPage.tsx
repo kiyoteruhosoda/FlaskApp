@@ -13,7 +13,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { SelectionErrorPayload } from '../types/api';
-import { formatDateTime, sessionStatusVariant } from '../utils/format';
+import { badgeTextColor, formatDateTime, sessionStatusVariant } from '../utils/format';
 
 const LOG_LEVEL_VARIANT: Record<string, string> = {
   ERROR: 'danger',
@@ -80,7 +80,7 @@ const SelectionErrorPage: React.FC = () => {
                 </Col>
                 <Col md={2}>
                   <div className="text-muted small">{t('Status')}</div>
-                  <Badge bg={sessionStatusVariant(payload.selection.status)}>{payload.selection.status}</Badge>
+                  <Badge bg={sessionStatusVariant(payload.selection.status)} text={badgeTextColor(sessionStatusVariant(payload.selection.status))}>{payload.selection.status}</Badge>
                 </Col>
                 <Col md={2}>
                   <div className="text-muted small">{t('Attempts')}</div>

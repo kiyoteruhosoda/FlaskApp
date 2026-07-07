@@ -24,6 +24,7 @@ import {
   JobTargetCategory,
 } from '../types/api';
 import {
+  badgeTextColor,
   formatDateTime,
   formatDuration,
   formatCounts,
@@ -252,7 +253,7 @@ const JobsPage: React.FC = () => {
                       <span className="text-muted small">{job.target}</span>
                     </td>
                     <td>
-                      <Badge bg={jobStatusVariant(job.status)} data-testid="job-status">
+                      <Badge bg={jobStatusVariant(job.status)} text={badgeTextColor(jobStatusVariant(job.status))} data-testid="job-status">
                         {job.status}
                       </Badge>
                     </td>
@@ -331,7 +332,7 @@ const JobsPage: React.FC = () => {
                 </dd>
                 <dt className="col-sm-3">{t('Status')}</dt>
                 <dd className="col-sm-9">
-                  <Badge bg={jobStatusVariant(detail.status)}>{detail.status}</Badge>
+                  <Badge bg={jobStatusVariant(detail.status)} text={badgeTextColor(jobStatusVariant(detail.status))}>{detail.status}</Badge>
                 </dd>
                 <dt className="col-sm-3">{t('Started')}</dt>
                 <dd className="col-sm-9">{formatDateTime(detail.startedAt)}</dd>

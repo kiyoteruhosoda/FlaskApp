@@ -67,14 +67,21 @@ services:
     init: true
     stop_grace_period: 60s
     command: web
-    ports:
-      - "${WEB_BIND_ADDR:-127.0.0.1}:${WEB_HOST_PORT:-8050}:5000"
+    # 公開ポートは nginx が受け持つ（下記 nginx サービス）。web はネットワーク内部
+    # からのみ到達可能にする。X-Accel-Redirect を既定で有効にしているため、web へ
+    # 直接アクセスすると内部配信ヘッダーが解釈されず壊れる。必ず nginx 経由にする。
+    expose:
+      - "5000"
     environment:
       - TZ=UTC
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - API_BASE_URL=${API_BASE_URL:-http://localhost:5000}
       - DATABASE_URI=mysql+pymysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}?charset=utf8mb4
+      # メディアは nginx が X-Accel-Redirect で直接配信する（既定で有効）。
+      # accel location / メディアディレクトリは settings 既定（/media/*,
+      # /app/data/media/*）を使うため個別指定は不要。無効化したい場合は .env で上書き。
+      - MEDIA_ACCEL_REDIRECT_ENABLED=${MEDIA_ACCEL_REDIRECT_ENABLED:-true}
     env_file:
       - .env
     depends_on:
@@ -91,6 +98,29 @@ services:
       # 外部ドメインを名前解決できない環境（NAS 側 DNS 未設定等）だと
       # socket.gaierror: Name or service not known で毎回失敗する。
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health/live')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  nginx:
+    image: nginx:1.27-alpine
+    # 公開フロント。外部リバースプロキシ／CDN からはこのポートへ接続する。
+    ports:
+      - "${WEB_BIND_ADDR:-127.0.0.1}:${WEB_HOST_PORT:-8050}:80"
+    environment:
+      - TZ=UTC
+    volumes:
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      # X-Accel-Redirect でメディアを直接配信するため、データを読み取り専用で共有。
+      - ${HOST_DATA_ROOT:-/volume1/docker/photonest}/data:/app/data:ro
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      # web へプロキシした /health/live で疎通確認（busybox wget）。
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/health/live || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

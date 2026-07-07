@@ -24,6 +24,22 @@
   AVIF になる。配信側（`presentation/web/api/routes.py`）は候補パスに `.avif` を追加。
 
 ### Added
+- **nginx を docker-compose に追加し、X-Accel-Redirect を既定で有効化**
+  （`docker-compose.yml` / `docker/nginx/default.conf`）。`nginx` コンテナが公開ポート
+  （`WEB_HOST_PORT`）を受け持ち、`web`(gunicorn) は内部専用にした。メディア（サムネイル・
+  オリジナル・動画）は nginx が `X-Accel-Redirect` でディスクから直接配信する
+  （`MEDIA_ACCEL_REDIRECT_ENABLED=true` を compose 既定に）。`internal` ロケーションのため
+  外部から `/media/*` へ直アクセスは 404 で、署名を通った内部リダイレクト時のみ配信される。
+  alias 先・accel ロケーションは settings 既定（`/media/*` → `/app/data/media/*`）と一致。
+  CDN 利用時のオリジンはこの nginx を指す。
+- **CloudFlare CDN バックエンドを実 API 実装に置き換え**
+  （`bounded_contexts/storage/infrastructure/cloudflare_cdn.py`）。従来 `purge_cache` 等は
+  HTTP 呼び出しを省略した擬似実装（固定 UUID・固定アナリティクス）だった。CloudFlare API
+  v4 を `requests` で実際に呼ぶよう実装: キャッシュパージ（`/zones/{zone}/purge_cache`、
+  url/prefix/tag/all）、ゾーン設定更新（`browser_cache_ttl` / `brotli` の PATCH）、
+  キャッシュ状態取得（対象 URL への HEAD で `CF-Cache-Status` ヘッダーを読む）、
+  アナリティクス（GraphQL の `httpRequestsAdaptiveGroups`）、プリフェッチ（対象 URL への
+  実 GET でエッジを温める）。認証は API トークン（Bearer）、失敗は `StorageException` に変換。
 - **画像・メディア配信方式のドキュメントを整備**（`docs/OPERATIONS.md`「4. 機能設定ガイド」）。
   Flask 直返し（既定）／Nginx 直接（`X-Accel-Redirect`）／CDN の 3 方式と、それぞれに必要な
   設定・データ整備を一覧化。既存の CDN 節・nginx 節と統合し重複を避けた。

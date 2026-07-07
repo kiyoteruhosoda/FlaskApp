@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import json
 import logging
 from datetime import datetime, timedelta
-from typing import Iterator
+from typing import Any, Iterator
 from urllib.parse import quote, urlencode
+
+import requests
 
 from ..domain import (
     CDNAnalytics,
@@ -26,6 +27,11 @@ from .local import LocalStorage
 __all__ = ["CloudFlareCDN"]
 
 logger = logging.getLogger(__name__)
+
+# CloudFlare API v4 のベース URL。
+_CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4"
+# API 呼び出しのタイムアウト（秒）。パージ等は同期で待つため短めに設定。
+_CLOUDFLARE_API_TIMEOUT = 30
 
 
 class CloudFlareCDN:
@@ -130,97 +136,139 @@ class CloudFlareCDN:
         query_string = urlencode(params)
         return f"{base_url}?{query_string}"
     
+    def _api_request(
+        self,
+        method: str,
+        path: str,
+        *,
+        json_body: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """CloudFlare API v4 へ認証付きリクエストを送り、result を返す。
+
+        認証は API トークン（Bearer）。CloudFlare は ``{"success": bool,
+        "errors": [...], "result": ...}`` 形式で応答する。``success`` が false の
+        場合や HTTP エラーは :class:`StorageException` に変換する。
+        """
+
+        if not self._api_token:
+            raise StorageException("CDNが初期化されていません")
+
+        url = f"{_CLOUDFLARE_API_BASE}{path}"
+        headers = {
+            "Authorization": f"Bearer {self._api_token}",
+            "Content-Type": "application/json",
+        }
+        try:
+            resp = requests.request(
+                method,
+                url,
+                headers=headers,
+                json=json_body,
+                timeout=_CLOUDFLARE_API_TIMEOUT,
+            )
+        except requests.RequestException as exc:
+            raise StorageException(f"CloudFlare API リクエスト失敗: {exc}") from exc
+
+        try:
+            data = resp.json()
+        except ValueError:
+            data = {}
+
+        if not resp.ok or not data.get("success", False):
+            errors = data.get("errors") if isinstance(data, dict) else None
+            raise StorageException(
+                f"CloudFlare API エラー ({resp.status_code}): {errors or resp.text[:200]}"
+            )
+
+        return data
+
+    def _absolute_purge_url(self, path: str) -> str:
+        """パージ対象のパスを完全 URL に正規化する。"""
+
+        if path.startswith("http"):
+            return path
+        return f"https://{self._origin_hostname}/{path.lstrip('/')}"
+
     def purge_cache(self, purge_request: CDNPurgeRequest) -> str:
-        """CDNキャッシュをパージ（無効化）."""
+        """CDNキャッシュをパージ（無効化）。CloudFlare API v4 を実際に呼び出す。"""
         if not self._zone_id or not self._api_token:
             raise StorageException("CDNが初期化されていません")
-        
-        try:
-            # CloudFlare API v4を使用してパージ
-            logger.info(f"CloudFlare CDNキャッシュパージ開始: {len(purge_request.paths)} paths")
-            
-            # パージリクエストを構築
-            if purge_request.purge_type == "url":
-                # 完全URLでパージ
-                purge_urls = []
-                for path in purge_request.paths:
-                    if path.startswith('http'):
-                        purge_urls.append(path)
-                    else:
-                        purge_urls.append(f"https://{self._origin_hostname}/{path}")
-                
-                # CloudFlare Purge APIペイロード
-                payload = {
-                    "files": purge_urls
-                }
-            elif purge_request.purge_type == "prefix":
-                # プレフィックスでパージ
-                payload = {
-                    "prefixes": purge_request.paths
-                }
-            elif purge_request.purge_type == "tag":
-                # キャッシュタグでパージ
-                payload = {
-                    "tags": purge_request.paths
-                }
-            else:
-                raise StorageException(f"未対応のパージタイプ: {purge_request.purge_type}")
-            
-            # 実際のHTTPリクエストは省略（requests等を使用）
-            # POST https://api.cloudflare.com/client/v4/zones/{zone_id}/purge_cache
-            
-            # パージジョブIDを生成（模擬）
-            import uuid
-            purge_job_id = str(uuid.uuid4())
-            
-            logger.info(f"CloudFlare CDNパージ完了: job_id={purge_job_id}")
-            return purge_job_id
-            
-        except Exception as e:
-            raise StorageException(f"CDNキャッシュパージエラー: {e}")
+
+        logger.info(
+            f"CloudFlare CDNキャッシュパージ開始: {len(purge_request.paths)} paths "
+            f"(type={purge_request.purge_type})"
+        )
+
+        # パージリクエストを構築（CloudFlare Purge API の仕様に対応）。
+        if purge_request.purge_type == "url":
+            payload: dict[str, Any] = {
+                "files": [self._absolute_purge_url(p) for p in purge_request.paths]
+            }
+        elif purge_request.purge_type == "prefix":
+            payload = {"prefixes": list(purge_request.paths)}
+        elif purge_request.purge_type == "tag":
+            payload = {"tags": list(purge_request.paths)}
+        elif purge_request.purge_type == "all":
+            payload = {"purge_everything": True}
+        else:
+            raise StorageException(f"未対応のパージタイプ: {purge_request.purge_type}")
+
+        # POST https://api.cloudflare.com/client/v4/zones/{zone_id}/purge_cache
+        data = self._api_request(
+            "POST",
+            f"/zones/{self._zone_id}/purge_cache",
+            json_body=payload,
+        )
+
+        result = data.get("result") or {}
+        # CloudFlare はパージのジョブ ID を result.id で返す。取得できない場合は
+        # zone_id ベースの識別子で代替する（成功は success で担保済み）。
+        purge_job_id = str(result.get("id") or f"{self._zone_id}:purged")
+        logger.info(f"CloudFlare CDNパージ完了: job_id={purge_job_id}")
+        return purge_job_id
     
     def get_cache_status(self, path: StoragePath) -> str:
-        """""キャッシュステータスを取得（HIT/MISS/BYPASS）."""""
+        """キャッシュステータスを取得（HIT/MISS/BYPASS 等）。
+
+        CloudFlare はレスポンスヘッダー ``CF-Cache-Status`` にエッジのキャッシュ
+        判定を返す。対象 URL へ HEAD リクエストを送りそのヘッダーを読む。
+        """
         try:
-            # CloudFlare Analytics APIを使用してキャッシュステータスを取得
-            logger.info(f"CloudFlare CDNキャッシュステータス取得: {path.relative_path}")
-            
-            # 模擬的なキャッシュステータス
-            # 実際の実装では Analytics API レスポンスから取得
-            return "HIT"  # HIT, MISS, BYPASS, EXPIRED, STALE
-            
+            cdn_url = self.get_cdn_url(path)
+            resp = requests.head(
+                cdn_url, timeout=_CLOUDFLARE_API_TIMEOUT, allow_redirects=True
+            )
+            status = resp.headers.get("CF-Cache-Status")
+            return status or "UNKNOWN"
         except Exception as e:
             logger.warning(f"CDNキャッシュステータス取得エラー: {e}")
             return "UNKNOWN"
     
     def update_cdn_configuration(self, config: CDNConfiguration) -> None:
-        """""CDN設定を更新."""""
+        """CloudFlare Zone Settings API で設定を更新する。
+
+        設定はキーごとに ``PATCH /zones/{zone}/settings/{key}`` で更新する。
+        ``browser_cache_ttl`` とブラウザキャッシュ、``brotli`` 圧縮を反映する。
+        （``edge_cache_ttl`` は Page Rules / Cache Rules 側のため個別設定には含めない。）
+        """
         if not self._zone_id or not self._api_token:
             raise StorageException("CDNが初期化されていません")
-        
-        try:
-            # CloudFlare Zone Settings APIで設定を更新
-            logger.info(f"CloudFlare CDN設定更新: cache_ttl={config.cache_ttl}")
-            
-            # キャッシュ設定の更新
-            cache_settings = {
-                "browser_cache_ttl": config.cache_ttl,
-                "edge_cache_ttl": config.cache_ttl,
-            }
-            
-            # 圧縮設定
-            if config.enable_gzip:
-                compression_settings = {
-                    "gzip": "on",
-                }
-            if config.enable_brotli:
-                compression_settings["brotli"] = "on"
-            
-            # 実際のAPIコールは省略（requests等を使用）
-            # PATCH https://api.cloudflare.com/client/v4/zones/{zone_id}/settings/
-            
-        except Exception as e:
-            raise StorageException(f"CDN設定更新エラー: {e}")
+
+        logger.info(f"CloudFlare CDN設定更新: cache_ttl={config.cache_ttl}")
+
+        settings_to_apply: list[tuple[str, Any]] = [
+            ("browser_cache_ttl", int(config.cache_ttl)),
+        ]
+        if config.enable_brotli:
+            settings_to_apply.append(("brotli", "on"))
+
+        for setting_key, value in settings_to_apply:
+            # PATCH https://api.cloudflare.com/client/v4/zones/{zone_id}/settings/{key}
+            self._api_request(
+                "PATCH",
+                f"/zones/{self._zone_id}/settings/{setting_key}",
+                json_body={"value": value},
+            )
     
     def get_analytics(
         self, 
@@ -231,50 +279,75 @@ class CloudFlareCDN:
         """""CDNアナリティクスデータを取得."""""
         if not self._zone_id or not self._api_token:
             raise StorageException("CDNが初期化されていません")
-        
+
+        logger.info(
+            f"CloudFlare CDNアナリティクス取得: {path_prefix.relative_path} "
+            f"({start_time} - {end_time})"
+        )
+
+        # CloudFlare GraphQL Analytics API から集計を取得する。
+        query = (
+            "query($zoneTag: String!, $start: Time!, $end: Time!) {"
+            "  viewer { zones(filter: {zoneTag: $zoneTag}) {"
+            "    httpRequestsAdaptiveGroups(limit: 1, filter: {datetime_geq: $start, datetime_leq: $end}) {"
+            "      count sum { edgeResponseBytes } "
+            "    } } } }"
+        )
+        data = self._api_request(
+            "POST",
+            "/graphql",
+            json_body={
+                "query": query,
+                "variables": {
+                    "zoneTag": self._zone_id,
+                    "start": start_time,
+                    "end": end_time,
+                },
+            },
+        )
+
         try:
-            # CloudFlare Analytics APIからデータを取得
-            logger.info(f"CloudFlare CDNアナリティクス取得: {path_prefix.relative_path} ({start_time} - {end_time})")
-            
-            # 模擬的なアナリティクスデータ
-            # 実際の実装では CloudFlare Analytics API を使用
+            zones = data["result"]["data"]["viewer"]["zones"]
+            groups = zones[0]["httpRequestsAdaptiveGroups"] if zones else []
+        except (KeyError, IndexError, TypeError):
+            groups = []
+
+        for group in groups:
+            count = int(group.get("count", 0) or 0)
+            bytes_sum = int((group.get("sum") or {}).get("edgeResponseBytes", 0) or 0)
             yield CDNAnalytics(
                 path=path_prefix,
-                requests_count=2500,
-                cache_hit_ratio=0.92,
-                bandwidth_bytes=1024 * 1024 * 80,  # 80MB
-                response_time_ms=18.2,
-                status_codes={200: 2350, 404: 100, 500: 50},
-                edge_locations={"Tokyo": 1200, "Seoul": 800, "Singapore": 500},
+                requests_count=count,
+                cache_hit_ratio=0.0,
+                bandwidth_bytes=bytes_sum,
+                response_time_ms=0.0,
+                status_codes={},
+                edge_locations={},
                 period_start=start_time,
                 period_end=end_time,
             )
-            
-        except Exception as e:
-            raise StorageException(f"CDNアナリティクス取得エラー: {e}")
     
     def prefetch_content(self, paths: list[StoragePath]) -> None:
         """""コンテンツをCDNエッジに事前フェッチ."""""
         if not self._zone_id or not self._api_token:
             raise StorageException("CDNが初期化されていません")
-        
-        try:
-            # CloudFlareのPrefetch APIを使用
-            logger.info(f"CloudFlare CDNプリフェッチ開始: {len(paths)} files")
-            
-            prefetch_urls = []
-            for path in paths:
-                cdn_url = self.get_cdn_url(path)
-                prefetch_urls.append(cdn_url)
-            
-            # プリフェッチリクエストを送信（実装省略）
-            # 実際の実装では HTTP リクエストでエッジキャッシュを温める
-            
-            for url in prefetch_urls:
-                logger.info(f"CDNプリフェッチ: {url}")
-            
-        except Exception as e:
-            raise StorageException(f"CDNプリフェッチエラー: {e}")
+
+        # CloudFlare には専用の Prefetch API がないため、対象 URL へ実際に GET して
+        # エッジキャッシュを温める。個々の失敗はスキップしログに残す。
+        logger.info(f"CloudFlare CDNプリフェッチ開始: {len(paths)} files")
+
+        for path in paths:
+            cdn_url = self.get_cdn_url(path)
+            try:
+                resp = requests.get(cdn_url, timeout=_CLOUDFLARE_API_TIMEOUT, stream=True)
+                # 本文は読み込まず接続を閉じる（エッジに載せるのが目的）。
+                resp.close()
+                logger.info(
+                    f"CDNプリフェッチ: {cdn_url} "
+                    f"(status={resp.status_code}, cache={resp.headers.get('CF-Cache-Status')})"
+                )
+            except requests.RequestException as exc:
+                logger.warning(f"CDNプリフェッチ失敗: {cdn_url} - {exc}")
     
     def upload_to_origin_and_invalidate(
         self, 

@@ -108,10 +108,10 @@ def test_image_generation(app):
         res = thumbs_generate(media_id=media_id)
     thumbs_dir = Path(os.environ["MEDIA_THUMBNAILS_DIRECTORY"])
     expected_paths = {
-        256: str(thumbs_dir / "256/2025/08/18/img.jpg"),
-        512: str(thumbs_dir / "512/2025/08/18/img.jpg"),
-        1024: str(thumbs_dir / "1024/2025/08/18/img.jpg"),
-        2048: str(thumbs_dir / "2048/2025/08/18/img.jpg"),
+        256: str(thumbs_dir / "256/2025/08/18/img.avif"),
+        512: str(thumbs_dir / "512/2025/08/18/img.avif"),
+        1024: str(thumbs_dir / "1024/2025/08/18/img.avif"),
+        2048: str(thumbs_dir / "2048/2025/08/18/img.avif"),
     }
     assert res == {
         "ok": True,
@@ -122,7 +122,7 @@ def test_image_generation(app):
     }
 
     out = Path(os.environ["MEDIA_THUMBNAILS_DIRECTORY"])
-    im256 = Image.open(out / "256/2025/08/18/img.jpg")
+    im256 = Image.open(out / "256/2025/08/18/img.avif")
     assert im256.size == (192, 256)  # orientation applied
 
 
@@ -147,13 +147,13 @@ def test_small_image_uses_original_when_smaller_than_minimum(app):
     assert res["skipped"] == []
 
     thumbs_dir = Path(os.environ["MEDIA_THUMBNAILS_DIRECTORY"])
-    base = thumbs_dir / "256/2025/08/18/small.jpg"
+    base = thumbs_dir / "256/2025/08/18/small.avif"
     assert base.exists()
     with Image.open(base) as thumb:
         assert thumb.size == (120, 80)
 
     for size in [512, 1024, 2048]:
-        copy_path = thumbs_dir / f"{size}/2025/08/18/small.jpg"
+        copy_path = thumbs_dir / f"{size}/2025/08/18/small.avif"
         assert copy_path.exists()
 
 
@@ -166,7 +166,7 @@ def test_image_skip_existing(app):
 
     # pre-create 1024 thumb
     out = Path(os.environ["MEDIA_THUMBNAILS_DIRECTORY"])
-    pre = out / "1024/2025/08/18/img2.jpg"
+    pre = out / "1024/2025/08/18/img2.avif"
     pre.parent.mkdir(parents=True, exist_ok=True)
     Image.new("RGB", (1, 1)).save(pre)
 
@@ -174,8 +174,8 @@ def test_image_skip_existing(app):
         res = thumbs_generate(media_id=media_id)
     assert res["generated"] == [256, 512, 2048]
     assert res["skipped"] == [1024]
-    assert res["paths"][256].endswith("256/2025/08/18/img2.jpg")
-    assert res["paths"][1024].endswith("1024/2025/08/18/img2.jpg")
+    assert res["paths"][256].endswith("256/2025/08/18/img2.avif")
+    assert res["paths"][1024].endswith("1024/2025/08/18/img2.avif")
 
 
 def test_video_with_playback(app):
@@ -205,7 +205,7 @@ def test_video_with_playback(app):
     assert res["generated"] == [256, 512, 1024, 2048]
     assert set(res["paths"]) == {256, 512, 1024, 2048}
     out = Path(os.environ["MEDIA_THUMBNAILS_DIRECTORY"])
-    assert (out / "256/2025/08/18/video.jpg").exists()
+    assert (out / "256/2025/08/18/video.avif").exists()
 
 
 def test_video_playback_not_ready(app):
@@ -270,7 +270,7 @@ def test_video_poster_low_quality_uses_frame(app, monkeypatch):
     assert res["skipped"] == []
     assert res["notes"].startswith("frame extracted from playback")
     thumbs_dir = Path(os.environ["MEDIA_THUMBNAILS_DIRECTORY"])
-    copied = thumbs_dir / "2048/2025/08/18/video-low.jpg"
-    original = thumbs_dir / "1024/2025/08/18/video-low.jpg"
+    copied = thumbs_dir / "2048/2025/08/18/video-low.avif"
+    original = thumbs_dir / "1024/2025/08/18/video-low.avif"
     assert copied.exists()
     assert copied.read_bytes() == original.read_bytes()

@@ -182,9 +182,9 @@ const MediaPage: React.FC = () => {
           {t('No media found')}
         </div>
       ) : (
-        <Row xs={3} sm={4} md={6} lg={8} xl={10} className="g-2">
+        <div className="d-flex flex-wrap gap-2">
           {items.map((m) => (
-            <Col key={m.id}>
+            <div key={m.id} style={{ width: 200 }}>
               <Card
                 className="h-100 media-card"
                 role="button"
@@ -219,9 +219,9 @@ const MediaPage: React.FC = () => {
                   )}
                 </Card.Body>
               </Card>
-            </Col>
+            </div>
           ))}
-        </Row>
+        </div>
       )}
 
       <div className="text-center mt-4">

@@ -5,6 +5,34 @@
 
 ## [Unreleased]
 
+### Changed
+- **新規生成サムネイルの画像フォーマットを AVIF に変更**（既存サムネイルは据え置き）。
+  サムネイル生成（`bounded_contexts/photonest/tasks/thumbs_generate.py`）の出力拡張子を
+  `.avif` に変更し、`shared/kernel/utils.register_avif_support()`（`pillow-heif` の
+  `register_avif_opener`＋`image/avif` の MIME 登録）で読み書きを有効化。透過は AVIF が
+  そのまま保持するため PNG 分岐は廃止。拡張子はメディアごとに `thumbnail_rel_path` に
+  記録されるため、既存の `.jpg`/`.png` サムネイルはそのまま配信され、再生成された分のみ
+  AVIF になる。配信側（`presentation/web/api/routes.py`）は候補パスに `.avif` を追加。
+
+### Fixed
+- **デプロイ後にセッション失効しても強制ログアウトされない問題を改善**。SPA を開いたまま
+  サーバー再起動されると、画面に残った署名付き URL の画像（`<img>`）読み込みは axios を
+  経由せず 401 を検知できないため、`forceLogout` が働かず画像だけが壊れて表示され続けていた。
+  タブが前面に戻った時（`visibilitychange`/`focus`）に認証付きリクエストを1回投げて失効を
+  検知し、既存のレスポンスインターセプター（リフレッシュ失敗→`forceLogout`）でログイン画面へ
+  誘導するようにした（`frontend/src/App.tsx`）。
+- **メディア一覧サムネイルを 200px 固定サイズに変更**。`/media`
+  （`frontend/src/pages/MediaPage.tsx`）のレスポンシブ列（`Row xs=3 … xl=10`）を
+  200px 固定幅タイルの flex-wrap レイアウトに変更し、広い画面でタイルが拡大しすぎる問題を解消。
+- **ログアウト時の Welcome 画面ちらつきを解消**。ヘッダーの
+  `handleLogout`（`frontend/src/components/Header.tsx`）が `logout()` 完了を待たずに
+  `/login` へ遷移していたため、認証状態が true のまま `"/"`（Welcome）へ弾かれてから
+  ログイン画面に変わっていた。`await dispatch(logout())` 後に `navigate('/login', {replace:true})`
+  するよう修正。
+- **右上ユーザー表示のちらつきを解消**。ヘッダーが `user?.username || 'User'` を表示するため
+  `getCurrentUser` 解決前に固定文字列 "User" が出ていた。ロード中はフォールバック文言を出さず
+  ユーザーアイコンを表示するよう変更（`frontend/src/components/Header.tsx`）。
+
 ### Added
 - **Google フォト取り込みのステータス表示と自動取り込みを追加**。
   ①Photo Imports 画面の Google Photos セクションに Local Import と同様の

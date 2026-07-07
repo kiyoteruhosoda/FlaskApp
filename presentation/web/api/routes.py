@@ -745,7 +745,7 @@ def _thumbnail_rel_path_candidates(media: Media) -> list[Path]:
     _append(local_rel)
 
     if local_rel:
-        for suffix in (".jpg", ".png"):
+        for suffix in (".avif", ".jpg", ".png"):
             alt = _replace_suffix(local_rel, suffix)
             _append(alt)
 

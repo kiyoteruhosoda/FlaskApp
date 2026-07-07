@@ -5,6 +5,7 @@ import { store } from './store';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from './store';
 import { getCurrentUser } from './store/authSlice';
+import { apiClient } from './services/api';
 
 // Components
 import Header from './components/Header';
@@ -119,12 +120,33 @@ const AppContent: React.FC = () => {
     // アクセストークンがある場合、かつユーザー情報がまだない場合のみ取得
     const token = localStorage.getItem('access_token');
     console.log('[AppContent useEffect] token:', token ? 'exists' : 'none', 'user:', user);
-    
+
     if (token && !user) {
       console.log('[AppContent useEffect] Fetching current user...');
       dispatch(getCurrentUser());
     }
   }, [dispatch, user]);
+
+  // タブが再び前面に戻ったときにセッションを検証する。
+  // SPA を開いたままデプロイ(サーバー再起動)されるとセッション/トークンが失効するが、
+  // 画面に残った署名付き URL の画像(<img>)読み込みは axios を経由しないため 401 を
+  // 検知できず、強制ログアウトが働かずに画像だけが壊れて表示され続けてしまう。
+  // 復帰時に認証付きリクエストを1回投げることで、失効していれば api.ts の
+  // レスポンスインターセプター(リフレッシュ失敗→forceLogout)がログイン画面へ誘導する。
+  useEffect(() => {
+    const revalidate = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!localStorage.getItem('access_token')) return;
+      // 成否は問わない。失効時はインターセプターがログイン画面へ遷移させる。
+      apiClient.getCurrentUser().catch(() => {});
+    };
+    document.addEventListener('visibilitychange', revalidate);
+    window.addEventListener('focus', revalidate);
+    return () => {
+      document.removeEventListener('visibilitychange', revalidate);
+      window.removeEventListener('focus', revalidate);
+    };
+  }, []);
 
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>

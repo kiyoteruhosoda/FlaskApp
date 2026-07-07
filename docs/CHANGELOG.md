@@ -6,13 +6,15 @@
 ## [Unreleased]
 
 ### Changed
-- **サムネイル署名 URL をキャッシュ可能に変更**（`presentation/web/api/routes.py`
-  `api_media_thumb_url`）。従来は毎回 `nonce`（UUID）と秒単位の `exp` を含めて署名して
-  いたため、同一 `(media, size)` でもリクエストごとに `/api/dl/<token>` が変わり、アルバム
-  表紙とメディア一覧で別 URL になってブラウザ／CDN のキャッシュが効かなかった。`exp` を
-  `MEDIA_THUMBNAIL_URL_TTL_SECONDS` 幅のウィンドウ境界に丸め、`nonce` を除いて署名を
-  決定的にすることで、同一ウィンドウ内の繰り返し要求が同一 URL を返しキャッシュヒットする
-  ようにした。`cacheControl` の `max-age` は残存有効時間に合わせて返す。
+- **メディア署名 URL をキャッシュ可能に変更**（`presentation/web/api/routes.py`）。
+  サムネイル・オリジナル・再生用（`api_media_thumb_url` / `api_media_original_url` /
+  `api_media_playback_url`）の署名 URL は従来、毎回 `nonce`（UUID）と秒単位の `exp` を
+  含めていたため、同一メディアでもリクエストごとに `/api/dl/<token>` が変わり（アルバム
+  表紙とメディア一覧で別 URL になる等）ブラウザ／CDN のキャッシュが効かなかった。共通
+  ヘルパー `_cacheable_signed_exp()` を追加し、`exp` を TTL 幅のウィンドウ境界に丸めて
+  `nonce` を除くことで署名を決定的にし、同一ウィンドウ内の繰り返し要求が同一 URL を返して
+  キャッシュヒットするようにした（3 エンドポイント一律）。`cacheControl` の `max-age` は
+  残存有効時間に合わせて返す。
 - **新規生成サムネイルの画像フォーマットを AVIF に変更**（既存サムネイルは据え置き）。
   サムネイル生成（`bounded_contexts/photonest/tasks/thumbs_generate.py`）の出力拡張子を
   `.avif` に変更し、`shared/kernel/utils.register_avif_support()`（`pillow-heif` の

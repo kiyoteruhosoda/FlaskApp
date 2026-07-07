@@ -50,6 +50,17 @@
   立て、ベルを開いて中身を見るまで消えないようにした。
 
 ### Fixed
+- **nginx 設定がデプロイ時に host へ配布されず nginx が起動しない問題を修正**
+  （`scripts/deploy.sh` / `scripts/deploy-stg.sh`）。compose の nginx サービスは設定を
+  `./docker/nginx/default.conf` という相対パスでバインドマウントするが、この相対パスは
+  compose ファイルと同じディレクトリ（NAS 上の `photonest-stg/` 等）を基準に解決される。
+  デプロイスクリプトの `sync_assets_from_image` はイメージから `docker-compose.yml` と
+  スクリプト自身だけを取り出しており、nginx 設定は host に配置されないため、起動時に
+  `Bind mount failed: '.../docker/nginx/default.conf' does not exist` で nginx コンテナが
+  落ちていた。compose と同じ「イメージを唯一の出所とする」方針に合わせ、両デプロイ
+  スクリプトがイメージ内 `/app/docker/nginx/default.conf` を `$BASE_DIR/docker/nginx/`
+  へ同期するようにした。回帰は `tests/integration/test_deploy_asset_sync_consistency.py`
+  が検出する。
 - **Google フォト取り込みのサーバーエラーがセッションログに残らない問題を修正**
   （`presentation/web/api/picker_session.py`）。取り込み開始／メディアアイテム取得の
   リクエストで発生した 500 系エラーは Flask 既定の 500 ハンドラが `Log` テーブルへ

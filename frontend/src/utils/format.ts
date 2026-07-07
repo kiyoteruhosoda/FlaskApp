@@ -63,6 +63,13 @@ export function sessionStatusVariant(status: string): string {
   }
 }
 
+// 明るい背景色のバッジは既定の白文字だと読めない（白地に白）ため、
+// 濃い文字色を指定すべき variant を返す。react-bootstrap の
+// <Badge bg={variant} text={badgeTextColor(variant)}> で使う。
+export function badgeTextColor(variant: string): 'dark' | undefined {
+  return ['light', 'warning', 'info'].includes(variant) ? 'dark' : undefined;
+}
+
 // counts オブジェクトを "imported:3 failed:1" のような文字列に
 export function formatCounts(counts: Record<string, number> | undefined): string {
   if (!counts) return '';

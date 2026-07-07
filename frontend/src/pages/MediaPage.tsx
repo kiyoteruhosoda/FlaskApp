@@ -182,7 +182,7 @@ const MediaPage: React.FC = () => {
           {t('No media found')}
         </div>
       ) : (
-        <Row xs={2} sm={3} md={4} lg={6} className="g-3">
+        <Row xs={3} sm={4} md={6} lg={8} xl={10} className="g-2">
           {items.map((m) => (
             <Col key={m.id}>
               <Card

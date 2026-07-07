@@ -60,23 +60,25 @@ const ImportActivityBell: React.FC = () => {
     <Dropdown align="end" onToggle={(nextShow) => { if (nextShow) load(); }}>
       <Dropdown.Toggle
         variant="link"
-        className="text-secondary text-decoration-none position-relative px-2 no-caret"
+        className="text-secondary text-decoration-none px-2 no-caret"
         bsPrefix="btn"
         aria-label={t('Import activity')}
         data-testid="import-activity-bell"
       >
-        <i className="fa-solid fa-bell fs-5" />
-        {activeCount > 0 && (
-          <Badge
-            pill
-            bg="danger"
-            className="position-absolute top-0 start-100 translate-middle"
-            style={{ fontSize: '0.65rem' }}
-            data-testid="import-activity-count"
-          >
-            {activeCount}
-          </Badge>
-        )}
+        <span className="position-relative d-inline-flex">
+          <i className="fa-solid fa-bell fs-5" />
+          {activeCount > 0 && (
+            <Badge
+              pill
+              bg="danger"
+              className="position-absolute top-0 start-100 translate-middle"
+              style={{ fontSize: '0.65rem' }}
+              data-testid="import-activity-count"
+            >
+              {activeCount}
+            </Badge>
+          )}
+        </span>
       </Dropdown.Toggle>
       <Dropdown.Menu style={{ minWidth: 320, maxWidth: 380 }} data-testid="import-activity-menu">
         <Dropdown.Header>

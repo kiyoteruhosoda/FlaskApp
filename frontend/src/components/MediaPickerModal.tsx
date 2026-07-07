@@ -183,7 +183,12 @@ const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
                       )}
                       {isSelected && (
                         <div className="position-absolute top-0 end-0 m-1">
-                          <i className="fa-solid fa-circle-check text-primary fs-5 bg-white rounded-circle" />
+                          <span
+                            className="d-inline-flex align-items-center justify-content-center bg-white rounded-circle"
+                            style={{ width: '1rem', height: '1rem' }}
+                          >
+                            <i className="fa-solid fa-circle-check text-primary" style={{ fontSize: '1.25rem' }} />
+                          </span>
                         </div>
                       )}
                       {isExcluded && (

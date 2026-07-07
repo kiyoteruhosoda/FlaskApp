@@ -304,7 +304,7 @@ const AlbumDetailPage: React.FC = () => {
               </Button>
             </div>
           ) : (
-            <Row xs={2} sm={3} md={4} lg={5} className="g-3">
+            <Row xs={3} sm={4} md={6} lg={8} className="g-2">
               {orderedMedia.map((m, idx) => (
                 <Col key={m.id}>
                   <Card

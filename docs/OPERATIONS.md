@@ -379,7 +379,80 @@ MAIL_DEFAULT_SENDER=your-email@example.com
 
 管理画面から利用する（`totp:view`/`totp:write` 権限が必要）。追加の `.env` 設定は不要。
 
+### 画像・メディアの配信方式を選びたいとき（表示が遅いとき）
+
+画像（サムネイル・オリジナル・動画）の配信は次の流れで行う。まず全体像を押さえ、
+どこを速くしたいかで設定を選ぶ。
+
+**配信パイプライン**:
+
+1. フロントが署名付き URL を要求する
+   （`POST /api/media/<id>/thumb-url` 等 → `/api/dl/<token>` を受け取る）。
+2. ブラウザが `/api/dl/<token>` を GET する。トークンは署名・有効期限を検証される。
+3. 実バイトの返し方が **3 通り**あり、以下の設定で切り替わる。
+
+| 方式 | 誰がバイトを返すか | 速度 | 必要なもの |
+|---|---|---|---|
+| ① Flask 直返し（既定） | Gunicorn（Python）がファイルを読んで流す | 遅い | 設定不要 |
+| ② Nginx 直接（X-Accel-Redirect） | Nginx がディスクから直接返す | 速い | 設定 + Nginx の internal location + データ（ファイル）配置 |
+| ③ CDN | エッジがキャッシュから返す | 最速（2回目以降） | 設定 + オリジン（①/②）+ データ配信 |
+
+**「以前は Nginx から直接取得していた」** = 方式②。既定では
+`MEDIA_ACCEL_REDIRECT_ENABLED=false` なので①（Python 経由）にフォールバックし、
+リクエストごとに Python がバイトを読むため遅くなる。②を復活させれば速くなる。
+
+> サムネイル URL 自体は `MEDIA_THUMBNAIL_URL_TTL_SECONDS`（既定 600 秒）の
+> ウィンドウ単位で決定的に発行され、同一 `(media, size)` は同一 URL を返す。
+> ブラウザ／CDN のキャッシュを効かせるため、この TTL より短い間隔で同じ画像を
+> 何度も開いても URL は変わらない。
+
+#### 方式② Nginx から直接配信（X-Accel-Redirect）— 設定 + データ配置
+
+**.env**（設定）:
+```env
+MEDIA_ACCEL_REDIRECT_ENABLED=true
+MEDIA_ACCEL_THUMBNAILS_LOCATION=/_media_thumbs   # Nginx の internal location 名
+MEDIA_ACCEL_PLAYBACK_LOCATION=/_media_play
+MEDIA_ACCEL_ORIGINALS_LOCATION=/_media_orig
+```
+
+**Nginx 設定**（internal location。App が返す `X-Accel-Redirect` を受けて配信する）:
+```nginx
+location /_media_thumbs/ { internal; alias /app/data/thumbs/; }
+location /_media_play/   { internal; alias /app/data/playback/; }
+location /_media_orig/   { internal; alias /app/data/media/; }
+```
+
+**データ（必須）**: `alias` 先に実ファイルがあること。Nginx コンテナ／プロセスから
+`MEDIA_THUMBNAILS_DIRECTORY` / `MEDIA_PLAYBACK_DIRECTORY` / `MEDIA_ORIGINALS_DIRECTORY`
+と同じ実体が読める形でマウントする。サムネイルは取り込み後の派生生成で作られるため、
+未生成のメディアは方式に関わらず表示できない（「2. データベース操作 → originals からの
+メディア再構築」で再生成する）。つまり**設定だけでなくデータ整備も必要**。
+
+#### ストレージバックエンド（ローカル / Blob）
+
+ファイルの実体をどこに置くか。`STORAGE_BACKEND` で切り替える。
+
+```env
+STORAGE_BACKEND=local     # 既定。ローカル/NAS のファイルシステム
+# STORAGE_BACKEND=blob    # オブジェクトストレージ（Blob）
+```
+
+**Blob を使う場合のデータ整備（必須）**: 既存の originals / thumbs / playback を
+Blob へアップロードしておく必要がある（設定を変えるだけでは既存ファイルは移らない）。
+Blob 上にファイルが無ければ方式①でも②でも 404 になる。方式②（Nginx 直接）は
+ローカルファイルシステム前提のため、Blob と併用する場合は方式①か③（CDN）を使う。
+
+#### まとめ（何が必要か）
+
+- **とにかく速くしたい／以前の挙動に戻したい** → 方式② を有効化（設定 + Nginx location + マウント）。
+- **地理的に分散・大量アクセス** → 方式③ CDN（下記）。オリジンとして①/②が要る。
+- **どの方式でも** サムネイル等の派生ファイルが生成済みであること（データ整備）が前提。
+
 ### CDN 配信（Azure CDN / CloudFlare CDN）を有効化したいとき
+
+上記「配信方式」の方式③。CDN は設定に加え、オリジン（方式①/②）と、初回アクセスでの
+プル（またはプリフェッチ）によるデータ配信が必要。
 
 **.env**:
 ```env

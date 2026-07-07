@@ -3744,7 +3744,14 @@ def api_media_thumb_url(media_id):
         or "application/octet-stream"
     )
     ttl = settings.media_thumbnail_url_ttl_seconds
-    exp = int(time.time()) + ttl
+    # サムネイル URL はブラウザ／CDN にキャッシュさせたい。nonce や秒単位の exp を
+    # 含めると同じ (media, size) でも毎回 URL が変わり（アルバム表紙とメディア
+    # 一覧で別 URL になり）キャッシュが効かない。そこで exp を TTL 幅のウィンドウ
+    # 境界に丸め、nonce を除いて署名を決定的にする。これにより同一ウィンドウ内の
+    # 繰り返し要求は同一 URL を返し、キャッシュヒットする。
+    now = int(time.time())
+    window = max(ttl, 1)
+    exp = ((now // window) + 2) * window
     payload = {
         "v": 1,
         "typ": "thumb",
@@ -3753,9 +3760,9 @@ def api_media_thumb_url(media_id):
         "path": token_path,
         "ct": ct,
         "exp": exp,
-        "nonce": uuid4().hex,
     }
     token = _sign_payload(payload)
+    max_age = max(exp - now, 0)
     expires_at = (
         datetime.fromtimestamp(exp, tz=timezone.utc).isoformat().replace("+00:00", "Z")
     )
@@ -3766,7 +3773,6 @@ def api_media_thumb_url(media_id):
                 "mid": media_id,
                 "size": size,
                 "ttl": ttl,
-                "nonce": payload["nonce"],
             }
         ),
         extra={"event": "url.thumb.issue"},
@@ -3776,7 +3782,7 @@ def api_media_thumb_url(media_id):
             {
                 "url": f"/api/dl/{token}",
                 "expiresAt": expires_at,
-                "cacheControl": f"private, max-age={ttl}",
+                "cacheControl": f"private, max-age={max_age}",
             }
         ),
         200,

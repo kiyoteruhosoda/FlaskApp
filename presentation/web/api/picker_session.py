@@ -29,6 +29,7 @@ from bounded_contexts.picker_import.application.picker_session_service import (
 )
 from bounded_contexts.picker_import.tasks.picker_import import enqueue_picker_import_item  # re-export for tests
 from shared.application.pagination import PaginationParams, paginate_and_respond
+from shared.kernel.logging.logging_config import setup_task_logging
 from .routes import get_current_user, login_or_jwt_required  # JWT認証対応のデコレータをインポート
 from shared.application.concurrency import create_limiter, limit_concurrency
 from .openapi import json_request_body
@@ -36,6 +37,49 @@ from .blueprint import AuthEnforcedBlueprint
 
 
 bp = AuthEnforcedBlueprint('picker_session_api', __name__)
+
+# 取り込みリクエスト処理中に発生したサーバーエラーを、セッション詳細画面の
+# ログ（WorkerLog / event=import.*）に session_id 付きで記録するためのロガー。
+# Flask 既定の 500 ハンドラは Log テーブルに api.server_error として記録するが、
+# それは session_id を持たずセッションのログ一覧には現れないため、取り込み中の
+# 500 が「ログに出ない」状態になっていた。ここで import.picker.* として残す。
+_import_request_logger = setup_task_logging('picker_import')
+
+
+def _log_import_request_error(
+    *,
+    session_identifier: Optional[str],
+    session_db_id: Optional[int],
+    event: str,
+    message: str,
+    exc: Optional[BaseException] = None,
+    **details: Any,
+) -> None:
+    """Persist an import-request server error to the session's worker log.
+
+    セッション詳細画面のログは ``WorkerLog`` の ``import.%`` イベントを
+    ``session_id`` で照合して表示する。エラーがそこに現れるよう、message JSON に
+    ``session_id`` を含めて記録する。
+    """
+
+    payload: Dict[str, Any] = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "message": message,
+    }
+    if session_identifier is not None:
+        payload["session_id"] = session_identifier
+    if session_db_id is not None:
+        payload["session_db_id"] = session_db_id
+    if exc is not None:
+        payload["error_type"] = type(exc).__name__
+        payload["error_message"] = str(exc)
+    payload.update(details)
+
+    _import_request_logger.error(
+        json.dumps(payload, ensure_ascii=False, default=str),
+        exc_info=exc if exc is not None else False,
+        extra={"event": event},
+    )
 
 
 def _json_response(payload, status: int = 200):
@@ -1344,6 +1388,24 @@ def api_picker_session_media_items():
             ),
             extra={"event": "picker.mediaItems.fail"}
         )
+        # セッション詳細画面のログにも残す（session_id 紐付け）。
+        # 例外後の DB 状態でセッション解決が失敗しても、ここでのログ失敗が
+        # レスポンス（502）を 500 に変えないよう防御的に扱う。
+        try:
+            db.session.rollback()
+            resolved_ps = PickerSessionService.resolve_session_identifier(session_id)
+            _log_import_request_error(
+                session_identifier=getattr(resolved_ps, "session_id", session_id),
+                session_db_id=getattr(resolved_ps, "id", None),
+                event="import.picker.media_items_error",
+                message="メディアアイテムの取得に失敗しました",
+                exc=e,
+            )
+        except Exception:  # pragma: no cover - ログ失敗はレスポンスに影響させない
+            current_app.logger.exception(
+                "Failed to persist media_items error to session log",
+                extra={"event": "picker.mediaItems.fail.log_error"},
+            )
         return _json_response({"error": "picker_error", "message": str(e)}, 502)
 
 
@@ -1395,9 +1457,38 @@ def api_picker_session_import_by_session_id(session_id: str):
     # 直接インポート処理を実行
     data = request.get_json(silent=True) or {}
     account_id_in = data.get("account_id")
-    payload, status = PickerSessionService.enqueue_import(ps, account_id_in)
-    
-    if status in (409, 500):
+    try:
+        payload, status = PickerSessionService.enqueue_import(ps, account_id_in)
+    except Exception as exc:
+        # 想定外の例外は Flask の 500 ハンドラに委ねると Log テーブルへ
+        # api.server_error として記録されるが session_id を持たず、セッション
+        # 詳細画面のログには現れない。ここでセッション紐付きのエラーログを
+        # 残してから 500 を返すことで、取り込み中のサーバーエラーを追跡できる。
+        db.session.rollback()
+        _log_import_request_error(
+            session_identifier=ps.session_id,
+            session_db_id=ps.id,
+            event="import.picker.request_error",
+            message="取り込み開始リクエストでサーバーエラーが発生しました",
+            exc=exc,
+            account_id=account_id_in,
+            session_status=ps.status,
+        )
+        return _json_response(
+            {"error": "internal_server_error", "message": str(exc)}, 500
+        )
+
+    if status == 500:
+        # enqueue 失敗（Celery 発行失敗など）はエラーとしてセッションログに残す。
+        _log_import_request_error(
+            session_identifier=ps.session_id,
+            session_db_id=ps.id,
+            event="import.picker.enqueue_failed",
+            message="取り込みのキュー投入に失敗しました",
+            session_status=ps.status,
+            error=payload.get("error") if isinstance(payload, dict) else None,
+        )
+    elif status == 409:
         current_app.logger.info(
             json.dumps({
                 "ts": datetime.now(timezone.utc).isoformat(),

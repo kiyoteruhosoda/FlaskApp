@@ -23,8 +23,10 @@ const SlideshowPage: React.FC = () => {
     return autoplay !== '0' && autoplay !== 'false' && autoplay !== 'no';
   });
   const [showControls, setShowControls] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const controlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoplayTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const media = album?.media ?? [];
   const currentItem: AlbumMediaItem | undefined = media[currentIndex];
@@ -63,15 +65,38 @@ const SlideshowPage: React.FC = () => {
     };
   }, [isAutoplay, goNext, media.length]);
 
+  // 全画面表示の切り替え（ダブルクリック／右下のアイコン）。
+  const toggleFullscreen = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      el.requestFullscreen().catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight' || e.key === ' ') goNext();
       if (e.key === 'ArrowLeft') goPrev();
-      if (e.key === 'Escape') navigate(`/albums/${albumId}`);
+      if (e.key === 'Escape') {
+        // 全画面中の Escape はブラウザが全画面解除するだけに留め、
+        // アルバムへは戻らない。
+        if (document.fullscreenElement) return;
+        navigate(`/albums/${albumId}`);
+      }
+      if (e.key === 'f' || e.key === 'F') toggleFullscreen();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [goNext, goPrev, navigate, albumId]);
+  }, [goNext, goPrev, navigate, albumId, toggleFullscreen]);
 
   const handleMouseMove = () => {
     setShowControls(true);
@@ -100,8 +125,10 @@ const SlideshowPage: React.FC = () => {
 
   return (
     <div
+      ref={containerRef}
       className="d-flex flex-column vh-100 bg-black position-relative"
       onMouseMove={handleMouseMove}
+      onDoubleClick={toggleFullscreen}
       data-testid="slideshow-page"
       style={{ cursor: showControls ? 'default' : 'none' }}
     >
@@ -119,7 +146,8 @@ const SlideshowPage: React.FC = () => {
         )}
       </div>
 
-      {/* Controls overlay */}
+      {/* Controls overlay（全画面表示中はアルバム名などを隠す） */}
+      {!isFullscreen && (
       <div
         className="position-absolute w-100"
         style={{
@@ -153,6 +181,7 @@ const SlideshowPage: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Prev / Next buttons */}
       <Button
@@ -185,6 +214,26 @@ const SlideshowPage: React.FC = () => {
       >
         {currentItem?.filename}
       </div>
+
+      {/* Fullscreen toggle（右下） */}
+      <Button
+        variant="link"
+        className="position-absolute text-white p-2"
+        style={{
+          bottom: '0.5rem',
+          right: '0.75rem',
+          opacity: showControls ? 0.8 : 0,
+          transition: 'opacity 0.3s',
+          pointerEvents: showControls ? 'auto' : 'none',
+          fontSize: '1.25rem',
+        }}
+        onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
+        title={isFullscreen ? t('Exit full screen') : t('Full screen')}
+        aria-label={isFullscreen ? t('Exit full screen') : t('Full screen')}
+        data-testid="slideshow-fullscreen"
+      >
+        <i className={`fa-solid ${isFullscreen ? 'fa-compress' : 'fa-expand'}`} />
+      </Button>
     </div>
   );
 };

@@ -341,7 +341,7 @@ const AlbumDetailPage: React.FC = () => {
                           </Badge>
                         </div>
                       )}
-                      {!isReordering && album.coverMediaId !== m.id && (
+                      {!isReordering && album.coverMediaId !== m.id && thumbs[m.id] && (
                         <div className="position-absolute top-0 end-0 m-1">
                           <Button
                             variant="light"

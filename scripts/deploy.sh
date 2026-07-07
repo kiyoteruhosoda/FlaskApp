@@ -118,6 +118,25 @@ sync_assets_from_image() {
     echo "[deploy][warn] $APP_IMAGE has no /app/docker-compose.yml (old image); falling back to file copy" >&2
   fi
 
+  # --- nginx 設定（compose の ./docker/nginx/default.conf バインドマウント用） ---
+  # compose の nginx サービスは設定ファイルを ./docker/nginx/default.conf という
+  # 相対パスでバインドマウントする。相対パスは compose ファイルと同じディレクトリ
+  # （$BASE_DIR）を基準に解決されるため、イメージ内の /app/docker/nginx/default.conf を
+  # 同じ相対位置へ取り出しておかないと、起動時に
+  #   Bind mount failed: '.../docker/nginx/default.conf' does not exist
+  # で nginx コンテナが起動しない。compose と同様にイメージを唯一の出所とする。
+  local nginx_conf_dst nginx_conf_dir
+  nginx_conf_dst="$BASE_DIR/docker/nginx/default.conf"
+  nginx_conf_dir="$(dirname "$nginx_conf_dst")"
+  mkdir -p "$nginx_conf_dir"
+  if docker cp "$cid:/app/docker/nginx/default.conf" "$nginx_conf_dst.new" >/dev/null 2>&1; then
+    mv -f "$nginx_conf_dst.new" "$nginx_conf_dst"
+    echo "[deploy] nginx config synced from image: $APP_IMAGE -> $nginx_conf_dst"
+  else
+    rm -f "$nginx_conf_dst.new"
+    echo "[deploy][warn] $APP_IMAGE has no /app/docker/nginx/default.conf (old image); keeping existing file if any" >&2
+  fi
+
   # --- deploy スクリプト自身（差分があれば置き換えて再実行） ---
   local script_name self_new
   script_name="$(basename "$SCRIPT_PATH")"

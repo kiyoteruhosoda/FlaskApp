@@ -45,8 +45,17 @@
   - `routers/admin/users.py`, `roles.py`, `groups.py`, `permissions.py`
   - `routers/admin/service_accounts.py`, `misc.py`, `config.py`, `photo_exports.py`
 
-  **残作業（Phase 3）**:
+  **完了済み（Phase 3）**:
   - `routes.py`（4238 行）のメディア/Google OAuth エンドポイント移植
-  - Flask 側ルーターの段階的削除
+    - `routers/google_oauth.py` — Google OAuth 開始・アカウント CRUD
+    - `routers/media.py` — メディア CRUD・サムネイル・署名付き URL・ダウンロード
+    - `routers/albums.py` — アルバム CRUD
+    - `routers/tags.py` — タグ CRUD・メディアタグ一括置換
+    - `shared/kernel/oauth_state_store.py` — Flask/FastAPI 間 OAuth state 共有
+    - Flask コールバック（`/auth/google/callback`）が FastAPI 側で開始した
+      OAuth フローの state を共有ストア経由で参照できるよう更新
+
+  **残作業（Phase 3 後続）**:
+  - Flask 側ルーターの段階的削除（Flask API Blueprint の routes.py 整理）
   - 本番環境での uvicorn 起動への切り替え
   - 統合テストの追加

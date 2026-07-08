@@ -1551,6 +1551,17 @@ def google_oauth_callback():
     """Google OAuth callback handler."""
     saved = session.get("google_oauth_state") or {}
 
+    # FastAPI 側の POST /api/google/oauth/start で開始した OAuth フローでは
+    # Flask セッションに state が無いため、共有ストアから取得する。
+    if not saved:
+        state_param = request.args.get("state")
+        if state_param:
+            try:
+                from shared.kernel.oauth_state_store import pop_state
+                saved = pop_state(state_param) or {}
+            except Exception:
+                saved = {}
+
     if request.args.get("error"):
         flash(_("Google OAuth error: %(msg)s", msg=request.args["error"]), "error")
         return _google_link_result_redirect(saved, "error", reason=request.args["error"])

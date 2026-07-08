@@ -5,6 +5,18 @@
 
 ## [Unreleased]
 
+### Added
+- **T8: グループとロールの紐づけ実装**。
+  `group_roles` 中間テーブルを追加し、グループにロールを付与できるようにした。
+  所属ユーザーの `permissions` / `all_permissions` へグループ経由のロール権限が波及する。
+  API: `GET /api/admin/groups/<id>/roles`・`PUT /api/admin/groups/<id>/roles`。
+  マイグレーション: `7b4e3f1a9c2d_add_group_roles.py`。
+- **アルバムスライドショー: 次の画像が用意できるまで現在画像を保持**（`SlideshowPage.tsx`）。
+  署名済み URL のキャッシュ（`urlCacheRef`）と `new Image()` によるプリロードを実装。
+  画像切替時は次の画像がブラウザにロードされてから `thumbUrl` を更新するため、
+  切替中も前の画像を表示し続ける。ロード中はオーバーレイスピナーで待機を示す。
+  次（+1）の画像はバックグラウンドで先読みする。
+
 ### Changed
 - **T4: `bounded_contexts/email` を `email_sender` に統合**。
   `bounded_contexts/email` を削除し、すべての機能（`send_email`・`send_password_reset_email`・

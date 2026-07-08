@@ -17,7 +17,10 @@ const SlideshowPage: React.FC = () => {
     return start ? parseInt(start, 10) : 0;
   });
   const [isLoading, setIsLoading] = useState(true);
+  // 現在表示中のサムネイル URL（次の画像が用意できるまでクリアしない）
   const [thumbUrl, setThumbUrl] = useState<string | null>(null);
+  // 次の画像を読み込み中かどうか（オーバーレイスピナー用）
+  const [isImageLoading, setIsImageLoading] = useState(false);
   const [isAutoplay, setIsAutoplay] = useState(() => {
     const autoplay = searchParams.get('autoplay');
     return autoplay !== '0' && autoplay !== 'false' && autoplay !== 'no';
@@ -27,6 +30,9 @@ const SlideshowPage: React.FC = () => {
   const controlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoplayTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // 署名済み URL のキャッシュ（media.id → URL）
+  const urlCacheRef = useRef<Map<number, string>>(new Map());
 
   const media = album?.media ?? [];
   const currentItem: AlbumMediaItem | undefined = media[currentIndex];
@@ -40,14 +46,69 @@ const SlideshowPage: React.FC = () => {
       .finally(() => setIsLoading(false));
   }, [albumId]);
 
+  /** 署名済み URL を取得する（キャッシュ優先）。 */
+  const getThumbUrl = useCallback(async (item: AlbumMediaItem): Promise<string | null> => {
+    if (urlCacheRef.current.has(item.id)) {
+      return urlCacheRef.current.get(item.id)!;
+    }
+    const url = await apiClient.getPhotoThumbUrl(item.id, 2048);
+    const finalUrl = url || item.thumbnailUrl || null;
+    if (finalUrl) {
+      urlCacheRef.current.set(item.id, finalUrl);
+    }
+    return finalUrl;
+  }, []);
+
+  /**
+   * 現在のアイテムが変わったとき、次の画像が用意できてから表示を切り替える。
+   * 準備が整うまで前の画像を表示し続け、オーバーレイスピナーで待機を示す。
+   */
   useEffect(() => {
     if (!currentItem) return;
-    setThumbUrl(null);
-    apiClient.getPhotoThumbUrl(currentItem.id, 2048).then((url) => {
-      if (url) setThumbUrl(url);
-      else if (currentItem.thumbnailUrl) setThumbUrl(currentItem.thumbnailUrl);
+    let cancelled = false;
+    setIsImageLoading(true);
+
+    getThumbUrl(currentItem).then((url) => {
+      if (cancelled || !url) {
+        if (!cancelled) setIsImageLoading(false);
+        return;
+      }
+      // 画像データを実際にブラウザにロードしてから切り替える
+      const img = new window.Image();
+      img.onload = () => {
+        if (cancelled) return;
+        setThumbUrl(url);
+        setIsImageLoading(false);
+      };
+      img.onerror = () => {
+        if (cancelled) return;
+        // エラーでも URL は表示する（ブラウザのデフォルト broken 表示）
+        setThumbUrl(url);
+        setIsImageLoading(false);
+      };
+      img.src = url;
     });
-  }, [currentItem]);
+
+    return () => { cancelled = true; };
+  }, [currentItem, getThumbUrl]);
+
+  /** 次の画像（+1）をバックグラウンドでプリロードする。 */
+  useEffect(() => {
+    if (!currentItem || media.length <= 1) return;
+    const nextIndex = (currentIndex + 1) % media.length;
+    const nextItem = media[nextIndex];
+    if (!nextItem || urlCacheRef.current.has(nextItem.id)) return;
+
+    let cancelled = false;
+    getThumbUrl(nextItem).then((url) => {
+      if (cancelled || !url) return;
+      // キャッシュ登録済みなので画像オブジェクトのプリロードのみ
+      const img = new window.Image();
+      img.src = url;
+    });
+
+    return () => { cancelled = true; };
+  }, [currentIndex, media, currentItem, getThumbUrl]);
 
   const goNext = useCallback(() => {
     setCurrentIndex((i) => (i + 1) % media.length);
@@ -133,7 +194,7 @@ const SlideshowPage: React.FC = () => {
       style={{ cursor: showControls ? 'default' : 'none' }}
     >
       {/* Main image */}
-      <div className="flex-grow-1 d-flex justify-content-center align-items-center overflow-hidden">
+      <div className="flex-grow-1 d-flex justify-content-center align-items-center overflow-hidden position-relative">
         {thumbUrl ? (
           <img
             src={thumbUrl}
@@ -143,6 +204,20 @@ const SlideshowPage: React.FC = () => {
           />
         ) : (
           <Spinner animation="border" variant="light" />
+        )}
+        {/* 次の画像を待機中のオーバーレイスピナー（現在画像を隠さない） */}
+        {isImageLoading && thumbUrl && (
+          <div
+            className="position-absolute d-flex align-items-center justify-content-center"
+            style={{
+              inset: 0,
+              background: 'rgba(0,0,0,0.35)',
+              pointerEvents: 'none',
+            }}
+            data-testid="slideshow-loading-overlay"
+          >
+            <Spinner animation="border" variant="light" size="sm" />
+          </div>
         )}
       </div>
 

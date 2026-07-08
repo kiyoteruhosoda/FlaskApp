@@ -24,7 +24,7 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # 翻訳ファイルのディレクトリ
-_TRANSLATIONS_DIR = Path(__file__).resolve().parents[4] / "presentation" / "web" / "translations"
+_TRANSLATIONS_DIR = Path(__file__).resolve().parent / "translations"
 
 # スレッドローカルなロケール
 _thread_local = threading.local()

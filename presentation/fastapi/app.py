@@ -170,6 +170,18 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(albums_router, prefix=api_prefix)
     app.include_router(tags_router, prefix=api_prefix)
 
+    # Wiki（router が /wiki/api プレフィックスを持つためプレフィックスなしで登録）
+    from presentation.fastapi.routers.wiki import router as wiki_router
+    app.include_router(wiki_router)
+
+    # Certs（/api プレフィックスで登録）
+    from presentation.fastapi.routers.certs import router as certs_router
+    app.include_router(certs_router, prefix=api_prefix)
+
+    # Local Import Status（/api プレフィックスで登録）
+    from presentation.fastapi.routers.local_import_status import router as local_import_status_router
+    app.include_router(local_import_status_router, prefix=api_prefix)
+
     # 管理者 API
     app.include_router(admin_users_router, prefix=api_prefix)
     app.include_router(admin_roles_router, prefix=api_prefix)

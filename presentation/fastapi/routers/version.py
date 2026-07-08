@@ -24,5 +24,5 @@ async def version():
         from fastapi.responses import JSONResponse
         return JSONResponse(
             status_code=500,
-            content={"ok": False, "error": str(e), "version": "unknown"},
+            content={"ok": False, "error": "version_unavailable", "version": "unknown"},
         )

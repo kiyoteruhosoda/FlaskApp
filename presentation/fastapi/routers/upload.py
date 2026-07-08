@@ -35,7 +35,13 @@ def _get_or_create_upload_session_id(
     )
     if not session_id:
         session_id = uuid4().hex
-        response.set_cookie("upload_session_id", session_id, httponly=True, samesite="lax")
+        response.set_cookie(
+            "upload_session_id",
+            session_id,
+            httponly=True,
+            samesite="lax",
+            secure=True,
+        )
     return session_id
 
 

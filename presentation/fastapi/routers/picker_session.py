@@ -136,7 +136,17 @@ async def api_picker_session_create(
         triggered_by_user_id=int(principal.user_id),
     )
     if status_code != 200:
-        raise HTTPException(status_code=status_code, detail=payload)
+        # サービスからの詳細エラーは内部ログのみ、クライアントには汎用メッセージを返す
+        logger.warning("Picker session create failed: status=%s payload=%s", status_code, payload)
+        raise HTTPException(
+            status_code=status_code,
+            detail={"error": payload.get("error") if isinstance(payload, dict) and "error" in payload else "picker_session_create_failed"},
+        )
+    # 成功ペイロードにはサービスから返されたデータを直接使用（picker URL 等を含む）
+    # ただし内部エラーフィールドは除外する
+    if isinstance(payload, dict):
+        payload.pop("traceback", None)
+        payload.pop("exception", None)
     return payload
 
 
@@ -285,7 +295,7 @@ async def api_picker_session_import(
         logger.exception("Import request error for session %s", session_id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": "internal_server_error", "message": str(exc)},
+            detail={"error": "internal_server_error", "message": "インポートの開始に失敗しました"},
         )
 
     if status_code not in (200, 201):

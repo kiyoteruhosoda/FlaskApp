@@ -112,6 +112,12 @@ def _register_routers(app: FastAPI) -> None:
     from presentation.fastapi.routers.admin.config import router as admin_config_router
     from presentation.fastapi.routers.admin.photo_exports import router as admin_photo_exports_router
 
+    # Phase 3 ルーター
+    from presentation.fastapi.routers.google_oauth import router as google_oauth_router
+    from presentation.fastapi.routers.media import router as media_router
+    from presentation.fastapi.routers.albums import router as albums_router
+    from presentation.fastapi.routers.tags import router as tags_router
+
     # ヘルスチェック（/api プレフィックスなし）
     app.include_router(health_router)
 
@@ -132,6 +138,12 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(sa_signing_router, prefix=api_prefix)
     app.include_router(maintenance_router, prefix=api_prefix)
     app.include_router(picker_session_router, prefix=api_prefix)
+
+    # Phase 3: メディア / Google OAuth / アルバム / タグ
+    app.include_router(google_oauth_router, prefix=api_prefix)
+    app.include_router(media_router, prefix=api_prefix)
+    app.include_router(albums_router, prefix=api_prefix)
+    app.include_router(tags_router, prefix=api_prefix)
 
     # 管理者 API
     app.include_router(admin_users_router, prefix=api_prefix)

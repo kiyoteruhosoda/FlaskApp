@@ -71,6 +71,7 @@ def create_app():
     import shared.infrastructure.models.worker_log as _worker_log  # noqa: F401
     import shared.infrastructure.models.celery_task as _celery_task  # noqa: F401
     import shared.infrastructure.models.system_setting as _system_setting  # noqa: F401
+    import shared.infrastructure.models.impersonation_audit_log as _impersonation_audit_log  # noqa: F401
     import bounded_contexts.wiki.infrastructure.wiki_models as _wiki_models  # noqa: F401
     import bounded_contexts.totp.infrastructure.totp_models as _totp_models  # noqa: F401
     from bounded_contexts.certs.infrastructure import models as _cert_models  # noqa: F401

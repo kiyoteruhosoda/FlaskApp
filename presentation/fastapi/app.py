@@ -111,6 +111,9 @@ def _register_routers(app: FastAPI) -> None:
     from presentation.fastapi.routers.admin.misc import router as admin_misc_router
     from presentation.fastapi.routers.admin.config import router as admin_config_router
     from presentation.fastapi.routers.admin.photo_exports import router as admin_photo_exports_router
+    from presentation.fastapi.routers.admin.cdn import router as admin_cdn_router
+    from presentation.fastapi.routers.admin.blob import router as admin_blob_router
+    from presentation.fastapi.routers.admin.impersonation import router as admin_impersonation_router
 
     # Phase 3 ルーター
     from presentation.fastapi.routers.google_oauth import router as google_oauth_router
@@ -154,3 +157,6 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(admin_misc_router, prefix=api_prefix)
     app.include_router(admin_config_router, prefix=api_prefix)
     app.include_router(admin_photo_exports_router, prefix=api_prefix)
+    app.include_router(admin_cdn_router, prefix=api_prefix)
+    app.include_router(admin_blob_router, prefix=api_prefix)
+    app.include_router(admin_impersonation_router, prefix=api_prefix)

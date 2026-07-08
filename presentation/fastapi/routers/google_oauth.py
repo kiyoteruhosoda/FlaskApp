@@ -131,9 +131,7 @@ async def google_oauth_start(
     save_state(state_token, state_data)
 
     callback_url = _build_callback_url(request)
-    logger.info(
-        "OAuth start: user_id=%s callback_url=%s", principal.id, callback_url
-    )
+    logger.info("OAuth start: user_id=%s", principal.id)
 
     params = {
         "client_id": settings.google_client_id,

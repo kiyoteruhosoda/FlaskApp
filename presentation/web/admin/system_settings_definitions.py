@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Literal, Mapping, Sequence
 
-from flask_babel import gettext as _
+from shared.kernel.i18n.translation import gettext as _
 
 
 SettingFieldType = Literal["string", "integer", "float", "boolean", "list"]

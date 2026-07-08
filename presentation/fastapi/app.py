@@ -6,11 +6,14 @@
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from shared.kernel.settings.settings import settings
 from shared.kernel.version import get_version_string
@@ -57,7 +60,26 @@ def create_app() -> FastAPI:
     # ------------------------------------------------------------------
     _register_routers(app)
 
+    # ------------------------------------------------------------------
+    # 静的ファイル（React SPA assets）
+    # ------------------------------------------------------------------
+    _mount_static_files(app)
+
     return app
+
+
+def _mount_static_files(app: FastAPI) -> None:
+    """フロントエンドビルドの静的ファイルをマウントする。"""
+    _project_root = Path(__file__).resolve().parents[3]
+    assets_dir = _project_root / "frontend" / "build" / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="react_assets")
+    else:
+        logger.warning(
+            "React build assets directory not found: %s — "
+            "フロントエンドのビルドが完了していません。`cd frontend && npm run build` を実行してください。",
+            assets_dir,
+        )
 
 
 def _configure_cors(app: FastAPI) -> None:
@@ -160,3 +182,7 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(admin_cdn_router, prefix=api_prefix)
     app.include_router(admin_blob_router, prefix=api_prefix)
     app.include_router(admin_impersonation_router, prefix=api_prefix)
+
+    # React SPA サーブ（catch-all — 必ず最後に登録する）
+    from presentation.fastapi.routers.spa import router as spa_router
+    app.include_router(spa_router)

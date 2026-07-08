@@ -12,8 +12,6 @@ from pathlib import Path
 from typing import Any, Final, Iterator, cast
 from zoneinfo import ZoneInfo
 
-from flask import current_app
-
 from shared.kernel.settings.settings import settings
 from PIL import Image, UnidentifiedImageError
 
@@ -143,7 +141,7 @@ def log_status_change(obj: Any, old: str | None, new: str) -> None:
         New status value.
     """
 
-    logger = getattr(current_app, "logger", logging.getLogger(__name__))
+    logger = logging.getLogger(__name__)
     logger.info(
         json.dumps(
             {

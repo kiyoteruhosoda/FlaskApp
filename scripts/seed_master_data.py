@@ -26,7 +26,7 @@ from shared.domain.auth.master_data import (
     ROLE_PERMISSIONS,
     ROLES,
 )
-from flask_babel import gettext as _
+from shared.kernel.i18n.translation import gettext as _
 from presentation.web import create_app
 from presentation.web.services.system_setting_service import SystemSettingService
 

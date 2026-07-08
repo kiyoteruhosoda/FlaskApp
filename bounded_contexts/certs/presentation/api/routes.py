@@ -12,7 +12,7 @@ from cryptography import x509
 from cryptography.x509.oid import ExtendedKeyUsageOID
 from cryptography.hazmat.primitives import serialization
 from flask import jsonify, request
-from flask_babel import gettext as _
+from shared.kernel.i18n.translation import gettext as _
 
 from flask_login import current_user
 

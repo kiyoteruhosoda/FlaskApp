@@ -14,7 +14,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Any, Iterable
 from urllib.parse import urlencode, urlsplit
 from flask_login import login_user, logout_user, login_required, current_user
-from flask_babel import gettext as _, force_locale
+from shared.kernel.i18n.translation import gettext as _, force_locale
 from sqlalchemy import select
 from . import (
     SERVICE_LOGIN_SESSION_KEY,

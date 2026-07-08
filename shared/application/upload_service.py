@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Iterable, Optional
 from uuid import uuid4
 
-from flask import current_app
+import logging
 from werkzeug.datastructures import FileStorage
 
 from shared.kernel.settings.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
@@ -98,7 +98,7 @@ def _resolve_local_import_directory() -> Optional[Path]:
     try:
         storage_service.ensure_directory(directory)
     except OSError as exc:
-        current_app.logger.exception(
+        logging.getLogger(__name__).exception(
             "upload.commit.local_import.ensure_failed",
             extra={
                 "directory": str(directory),
@@ -335,7 +335,7 @@ def commit_uploads(session_id: str, user_id: Optional[int], temp_file_ids: Itera
         try:
             _ensure_directory(user_import_dir)
         except OSError as exc:
-            current_app.logger.exception(
+            logging.getLogger(__name__).exception(
                 "upload.commit.local_import.user_dir_failed",
                 extra={
                     "user_id": user_id,
@@ -354,7 +354,7 @@ def commit_uploads(session_id: str, user_id: Optional[int], temp_file_ids: Itera
 
     if user_import_dir is None:
         for temp_file_id in temp_file_ids:
-            current_app.logger.error(
+            logging.getLogger(__name__).error(
                 "upload.commit.local_import.unavailable",
                 extra={
                     "temp_file_id": temp_file_id,
@@ -393,7 +393,7 @@ def commit_uploads_to_directory(
     try:
         _ensure_directory(destination)
     except OSError as exc:
-        current_app.logger.exception(
+        logging.getLogger(__name__).exception(
             "upload.commit.ensure_destination_failed",
             extra={"destination": str(destination), "error": str(exc)},
         )
@@ -473,7 +473,7 @@ def _commit_prepared_files(
                 extra = {"temp_file_id": temp_file_id, "destination": str(destination_path), "error": str(exc)}
                 if error_extra:
                     extra.update(error_extra)
-                current_app.logger.exception(
+                logging.getLogger(__name__).exception(
                     "upload.commit.move_failed",
                     extra=extra,
                 )
@@ -507,7 +507,7 @@ def _commit_prepared_files(
                 }
                 if error_extra:
                     extra.update(error_extra)
-                current_app.logger.error(
+                logging.getLogger(__name__).error(
                     "upload.commit.destination_missing",
                     extra=extra,
                 )
@@ -532,7 +532,7 @@ def _commit_prepared_files(
                 }
                 if error_extra:
                     extra.update(error_extra)
-                current_app.logger.error(
+                logging.getLogger(__name__).error(
                     "upload.commit.unexpected_destination",
                     extra=extra,
                 )

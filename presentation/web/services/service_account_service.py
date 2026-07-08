@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Iterable, List, Sequence
 
 from flask import current_app
-from flask_babel import gettext as _
+from shared.kernel.i18n.translation import gettext as _
 from sqlalchemy.exc import IntegrityError
 
 from shared.kernel.database.db import db

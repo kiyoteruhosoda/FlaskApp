@@ -1,8 +1,6 @@
 from shared.kernel.database.db import db
 from flask_migrate import Migrate
 from flask_login import LoginManager, AnonymousUserMixin
-from flask_babel import Babel
-from flask_babel import lazy_gettext as _l
 from flask import current_app, g, session
 
 # 共有の Mail インスタンス（shared/infrastructure へ集約済み）を再公開する。
@@ -14,7 +12,6 @@ from presentation.web.openapi.smorest_ext import Api
 migrate = Migrate()
 login_manager = LoginManager()
 login_manager.login_view = None
-babel = Babel()
 api = Api()
 
 login_manager.login_message = None

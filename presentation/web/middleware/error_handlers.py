@@ -2,7 +2,7 @@
 import json
 
 from flask import current_app, flash, g, jsonify, redirect, request, url_for
-from flask_babel import gettext as _, get_locale
+from shared.kernel.i18n.translation import gettext as _, get_locale
 from werkzeug.exceptions import InternalServerError, default_exceptions
 
 from presentation.web.templating.translation import translate_message

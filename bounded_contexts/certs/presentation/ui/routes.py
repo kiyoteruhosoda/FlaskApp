@@ -15,7 +15,7 @@ from flask import (
     session,
     url_for,
 )
-from flask_babel import gettext as _
+from shared.kernel.i18n.translation import gettext as _
 from flask_login import current_user, login_required
 
 from bounded_contexts.certs.domain.usage import UsageType

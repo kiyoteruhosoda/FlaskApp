@@ -4,7 +4,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from flask import current_app, url_for
-from flask_babel import gettext as _
+from shared.kernel.i18n.translation import gettext as _
 
 from shared.kernel.database.db import db
 from shared.infrastructure.models.password_reset_token import PasswordResetToken

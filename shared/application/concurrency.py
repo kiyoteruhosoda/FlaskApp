@@ -11,8 +11,6 @@ from functools import wraps
 from threading import Lock
 from typing import Callable, Optional, TypeVar, Any, cast
 
-from flask import jsonify
-
 from shared.kernel.settings.settings import settings
 
 
@@ -110,11 +108,12 @@ def limit_concurrency(limiter: ConcurrencyLimiter) -> Callable[[F], F]:
                     return func(*args, **kwargs)
             except ConcurrencyLimitExceeded as exc:
                 payload = {"error": "rate_limited", "retryAfter": exc.retry_after}
-                response = jsonify(payload)
+                from fastapi.responses import JSONResponse
+                headers = {}
                 header_value = limiter.retry_after_header(exc.retry_after)
                 if header_value is not None:
-                    response.headers["Retry-After"] = header_value
-                return response, 429
+                    headers["Retry-After"] = header_value
+                return JSONResponse(content=payload, status_code=429, headers=headers)
 
         return cast(F, wrapper)
 

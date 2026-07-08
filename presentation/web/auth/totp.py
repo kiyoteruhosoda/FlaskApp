@@ -4,7 +4,7 @@ from typing import Optional
 
 import pyotp
 import qrcode
-from flask_babel import gettext as _
+from shared.kernel.i18n.translation import gettext as _
 
 def new_totp_secret():
     return pyotp.random_base32()

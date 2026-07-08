@@ -3,8 +3,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Iterable, Optional, TYPE_CHECKING
 
-from flask import has_request_context, session, g
-from flask_login import UserMixin
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from shared.kernel.database.db import db
@@ -66,7 +64,7 @@ class Permission(db.Model):
     )
 
 
-class User(db.Model, UserMixin):
+class User(db.Model):
     __tablename__ = "user"
 
     id: Mapped[int] = mapped_column(BigInt, primary_key=True, autoincrement=True)
@@ -133,13 +131,6 @@ class User(db.Model, UserMixin):
         roles: list[Role] = list(self.roles or [])
         if not roles:
             return []
-        if has_request_context():
-            active_role_id = session.get("active_role_id")
-            if active_role_id:
-                selected = [role for role in roles if role.id == active_role_id]
-                if selected:
-                    return selected
-            return [roles[0]]
         return roles
 
     def _iter_group_roles(self) -> Iterable["Role"]:
@@ -153,23 +144,10 @@ class User(db.Model, UserMixin):
 
     @property
     def active_role(self) -> Optional["Role"]:
-        if not has_request_context():
-            return None
-        active_role_id = session.get("active_role_id")
-        if not active_role_id:
-            return None
-        for role in self.roles:
-            if role.id == active_role_id:
-                return role
         return None
 
     @property
     def permissions(self) -> set[str]:
-        if has_request_context():
-            token_scope = getattr(g, "current_token_scope", None)
-            if token_scope is not None:
-                return set(token_scope)
-
         codes = set()
         for r in self._iter_effective_roles():
             for p in r.permissions:

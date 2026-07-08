@@ -28,7 +28,6 @@ from typing import (
     cast,
 )
 
-from flask import current_app, has_app_context
 
 from shared.kernel.storage_types import StorageBackendType
 
@@ -90,7 +89,6 @@ class _StorageAccessor:
 
 
 if TYPE_CHECKING:  # pragma: no cover
-    from flask import Flask
 
 
 class ApplicationSettings:
@@ -135,20 +133,11 @@ class ApplicationSettings:
     # Generic helpers
     # ------------------------------------------------------------------
     def _get(self, key: str, default: Optional[str] = None):
-        app_config = None
-        if has_app_context():
-            app = cast("Flask", current_app)
-            app_config = app.config
-            if key in app_config:
-                return app_config.get(key)
-
         value = self._env.get(key)
         if value is not None:
             return value
 
         for legacy in self._LEGACY_KEYS.get(key, ()):  # pragma: no cover - legacy path
-            if app_config and legacy in app_config:
-                return app_config.get(legacy)
             legacy_value = self._env.get(legacy)
             if legacy_value is not None:
                 return legacy_value

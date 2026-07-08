@@ -14,7 +14,9 @@ from collections.abc import Mapping, Sequence
 from typing import Any, Callable
 
 import requests
-from flask import current_app
+import logging
+
+_logger = logging.getLogger(__name__)
 
 MASKED_VALUE = "***"
 SENSITIVE_HEADER_KEYS = {
@@ -82,7 +84,7 @@ def log_requests_and_send(
         "data": _mask_sensitive_values(data),
         "json": _mask_sensitive_values(json_data),
     }
-    current_app.logger.info(
+    _logger.info(
         _json.dumps(request_payload, ensure_ascii=False, default=str),
         extra={"event": "requests.send", "path": url},
     )
@@ -124,7 +126,7 @@ def log_requests_and_send(
             "data": _mask_sensitive_values(data),
             "json": _mask_sensitive_values(json_data),
         }
-        current_app.logger.error(
+        _logger.error(
             _json.dumps(error_payload, ensure_ascii=False, default=str),
             extra={"event": "requests.error", "path": url},
             exc_info=True,
@@ -146,11 +148,11 @@ def log_requests_and_send(
         "headers": _mask_sensitive_values(response_headers) if response_headers is not None else None,
         "body": _mask_sensitive_values(res_body),
     }
-    log_callable = current_app.logger.info
+    log_callable = _logger.info
     if res.status_code >= 500:
-        log_callable = current_app.logger.error
+        log_callable = _logger.error
     elif res.status_code >= 400:
-        log_callable = current_app.logger.warning
+        log_callable = _logger.warning
     log_callable(
         _json.dumps(response_payload, ensure_ascii=False, default=str),
         extra={"event": "requests.recv", "path": url},

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable
 
-from flask_babel import gettext as _
+from shared.kernel.i18n.translation import gettext as _
 
 from shared.kernel.database.db import db
 from shared.infrastructure.models.system_setting import SystemSetting

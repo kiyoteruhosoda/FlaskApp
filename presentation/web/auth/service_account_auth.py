@@ -10,7 +10,7 @@ import json
 import jwt
 from flask import current_app, g, request
 from shared.kernel.settings.settings import settings
-from flask_babel import gettext as _
+from shared.kernel.i18n.translation import gettext as _
 from jwt import algorithms as jwt_algorithms
 import redis
 from redis import RedisError

@@ -48,6 +48,8 @@ import {
   LinkedGoogleAccount,
   GoogleOAuthStartResponse,
   PickerSessionCreateResponse,
+  UserPreferencesResponse,
+  UserPreferencesUpdateResponse,
 } from '../types/api';
 
 class ApiClient {
@@ -917,6 +919,17 @@ class ApiClient {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  }
+  // ===== ユーザー設定 =====
+
+  async getUserPreferences(): Promise<UserPreferencesResponse> {
+    const response = await this.client.get<UserPreferencesResponse>('/user/preferences');
+    return response.data;
+  }
+
+  async updateUserPreferences(prefs: Partial<{ slideshow_interval: number }>): Promise<UserPreferencesUpdateResponse> {
+    const response = await this.client.put<UserPreferencesUpdateResponse>('/user/preferences', prefs);
+    return response.data;
   }
 }
 

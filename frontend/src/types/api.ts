@@ -694,3 +694,17 @@ export interface DuplicateGroupsResponse {
   groups: DuplicateGroup[];
   group_count: number;
 }
+
+export interface UserPreferences {
+  slideshow_interval: number;
+  [key: string]: unknown;
+}
+
+export interface UserPreferencesResponse {
+  preferences: UserPreferences;
+}
+
+export interface UserPreferencesUpdateResponse {
+  preferences: UserPreferences;
+  updated: string[];
+}

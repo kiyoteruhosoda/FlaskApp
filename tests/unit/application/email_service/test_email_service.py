@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import Mock, patch
 from bounded_contexts.email_sender import IEmailSender, EmailMessage
-from bounded_contexts.email import EmailService
+from bounded_contexts.email_sender import EmailService
 
 
 class MockEmailSender(IEmailSender):

@@ -6,6 +6,25 @@
 ## [Unreleased]
 
 ### Added
+- **T8: グループとロールの紐づけ実装**。
+  `group_roles` 中間テーブルを追加し、グループにロールを付与できるようにした。
+  所属ユーザーの `permissions` / `all_permissions` へグループ経由のロール権限が波及する。
+  API: `GET /api/admin/groups/<id>/roles`・`PUT /api/admin/groups/<id>/roles`。
+  マイグレーション: `7b4e3f1a9c2d_add_group_roles.py`。
+- **アルバムスライドショー: 次の画像が用意できるまで現在画像を保持**（`SlideshowPage.tsx`）。
+  署名済み URL のキャッシュ（`urlCacheRef`）と `new Image()` によるプリロードを実装。
+  画像切替時は次の画像がブラウザにロードされてから `thumbUrl` を更新するため、
+  切替中も前の画像を表示し続ける。ロード中はオーバーレイスピナーで待機を示す。
+  次（+1）の画像はバックグラウンドで先読みする。
+
+### Changed
+- **T4: `bounded_contexts/email` を `email_sender` に統合**。
+  `bounded_contexts/email` を削除し、すべての機能（`send_email`・`send_password_reset_email`・
+  `validate_sender_config` 等）を `bounded_contexts/email_sender/application/email_service.py`
+  に一本化。`presentation/web/services/password_reset_service.py` および各テストファイルの
+  import パスを `bounded_contexts.email_sender` に変更。
+
+### Added
 - **T3: 初回ログイン時パスワード強制変更フロー実装**。
   `user.must_change_password` カラム（`migrations/versions/6a3f7d2e1b4c_add_user_must_change_password.py`）、
   ログイン API の `requires_password_change` レスポンスフラグ、

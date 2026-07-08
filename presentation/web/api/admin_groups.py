@@ -5,7 +5,7 @@ from flask import jsonify, request
 
 from ..bootstrap.extensions import db
 from shared.infrastructure.models.group import Group, GroupHierarchyError
-from shared.infrastructure.models.user import User
+from shared.infrastructure.models.user import User, Role
 from . import bp
 from .routes import login_or_jwt_required, get_current_user
 
@@ -26,6 +26,7 @@ def _serialize_group(group: Group) -> dict:
         "parentName": group.parent.name if group.parent else None,
         "memberCount": len(group.users) if group.users is not None else 0,
         "childCount": len(group.children) if group.children is not None else 0,
+        "roles": [{"id": r.id, "name": r.name} for r in (group.roles or [])],
     }
 
 
@@ -162,3 +163,54 @@ def api_admin_group_delete(group_id: int):
     db.session.delete(group)
     db.session.commit()
     return jsonify({"result": "deleted", "id": group_id})
+
+
+@bp.get("/admin/groups/<int:group_id>/roles")
+@login_or_jwt_required
+def api_admin_group_roles_get(group_id: int):
+    """グループに付与されたロール一覧を返す。"""
+    err = _require_user_manage()
+    if err:
+        return err
+
+    group = db.session.get(Group, group_id)
+    if not group:
+        return jsonify({"error": "not_found"}), 404
+
+    return jsonify({
+        "groupId": group.id,
+        "roles": [{"id": r.id, "name": r.name} for r in (group.roles or [])],
+    })
+
+
+@bp.put("/admin/groups/<int:group_id>/roles")
+@login_or_jwt_required
+def api_admin_group_roles_update(group_id: int):
+    """グループに付与するロールを一括更新する。
+
+    Request body: ``{"roleIds": [1, 2, ...]}``
+    """
+    err = _require_user_manage()
+    if err:
+        return err
+
+    group = db.session.get(Group, group_id)
+    if not group:
+        return jsonify({"error": "not_found"}), 404
+
+    payload = request.get_json(silent=True) or {}
+    role_ids = payload.get("roleIds") or []
+    if role_ids:
+        roles = Role.query.filter(Role.id.in_(role_ids)).all()
+        if len(roles) != len(set(role_ids)):
+            return jsonify({"error": "role_not_found", "message": "One or more roles not found."}), 404
+    else:
+        roles = []
+
+    group.roles = roles
+    db.session.commit()
+    return jsonify({
+        "groupId": group.id,
+        "roles": [{"id": r.id, "name": r.name} for r in group.roles],
+        "updated": True,
+    })

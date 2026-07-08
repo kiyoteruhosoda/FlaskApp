@@ -37,6 +37,7 @@ export interface LoginResponse {
   refresh_token: string;
   token_type?: string;
   requires_role_selection?: boolean;
+  requires_password_change?: boolean;
   redirect_url?: string;
   scope?: string;
   available_scopes?: string[];
@@ -350,6 +351,7 @@ export interface AdminUser {
   username: string | null;
   isActive: boolean;
   hasTOTP: boolean;
+  mustChangePassword: boolean;
   createdAt: string | null;
   roles: AdminRoleRef[];
 }

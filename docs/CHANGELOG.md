@@ -5,6 +5,22 @@
 
 ## [Unreleased]
 
+### Added
+- **T3: 初回ログイン時パスワード強制変更フロー実装**。
+  `user.must_change_password` カラム（`migrations/versions/6a3f7d2e1b4c_add_user_must_change_password.py`）、
+  ログイン API の `requires_password_change` レスポンスフラグ、
+  `/api/auth/password/force-change` エンドポイント、
+  フロントエンドの `/change-password` ページを追加。
+  `REQUIRE_PASSWORD_CHANGE_ON_FIRST_LOGIN` 設定フラグが OFF（既定）のときは動作しない。
+- **T5: Photo Exports ページ実装**（`/admin/photo-exports`）。
+  インポート日でフィルタして元ファイルを ZIP でダウンロードする機能を実装。
+  バックエンド: `/api/admin/photo-exports/preview`（件数・サイズプレビュー）と
+  `/api/admin/photo-exports/download`（ZIP ストリーミング配信）を追加。
+- **T7: グループへのユーザー紐づけ UI 実装**（`/admin/groups`）。
+  グループ一覧の「メンバー管理」ボタンからモーダルを開き、
+  ユーザーを検索・選択してグループへ所属させられるようにした。
+  バックエンドの `PUT /api/admin/groups/<id>` (`memberIds`) は既存。
+
 ### Changed
 - **サムネイル一覧の取得を直列から並列に変更**（`frontend/src/pages/MediaPage.tsx` /
   `frontend/src/pages/AlbumDetailPage.tsx` / `frontend/src/pages/AlbumsPage.tsx` /

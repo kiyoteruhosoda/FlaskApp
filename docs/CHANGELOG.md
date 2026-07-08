@@ -6,20 +6,21 @@
 ## [Unreleased]
 
 ### Added
-- **T11: FastAPI 全面移行 Phase 3 完了（Strangler Fig）**。
-  Flask-Smorest から FastAPI への API 移行（Phase 1〜3）が完了。全 API エンドポイントを
-  `presentation/fastapi/routers/` に移植済み。
-  - Phase 3: `routers/google_oauth.py`（Google OAuth・アカウント CRUD）、
-    `routers/media.py`（メディア CRUD・サムネイル・署名付き URL・ダウンロード）、
-    `routers/albums.py`（アルバム CRUD）、`routers/tags.py`（タグ・メディアタグ一括置換）、
-    `shared/kernel/oauth_state_store.py`（Flask/FastAPI 間 OAuth state 共有）。
-  - 本番起動を `gunicorn wsgi:app` から `gunicorn asgi:app -k uvicorn.workers.UvicornWorker` へ変更。
-    FastAPI が `/api/*` を処理し、Flask が UI ルート（`/auth/*`, `/dashboard/*` 等）を処理する
-    Strangler Fig 構成（`asgi.py`）。
-  - `presentation/web/api/__init__.py` から移植済みモジュールのインポートを除外し、
-    Flask 側の重複 API ルートを無効化。
-  - FastAPI 統合テスト追加（`tests/integration/fastapi/`）:
-    ヘルスチェック・バージョン・エコー・認証保護エンドポイント・OpenAPI スキーマ生成を検証。
+- **T11: FastAPI 全面移行 Phase 3 後続作業完了（Flask 完全撤廃）**。
+  `presentation/fastapi/` に全サービス・認証・管理機能を移植し、Flask への依存を完全に除去。
+  - `presentation/fastapi/config.py`（Flask-free `BaseApplicationSettings`）
+  - `presentation/fastapi/services/`（`token_service`, `access_token_signing`,
+    `system_setting_service`, `service_account_api_key_service`, `service_account_service`,
+    `password_reset_service`, `upload_service`, `storage_helpers`, `admin_config_service`）
+  - `presentation/fastapi/auth/`（`totp`, `utils`, `api_key_auth`, `service_account_auth`, `passkeys`）
+  - `presentation/fastapi/admin/system_settings_definitions.py`
+  - `cli/src/celery/celery_app.py` から Flask アプリコンテキストを削除（純粋な Celery + SQLAlchemy）
+  - `scripts/`, `tests/conftest.py`, `tests/config.py` の Flask 依存を除去
+  - テスト更新: Flask TestClient → FastAPI TestClient（`test_health_api.py`, `test_version_api.py`）
+  - テスト更新: Flask アプリコンテキスト → SQLAlchemy 直接使用（`test_migration_model_consistency.py`,
+    `tests/wiki/conftest.py`, `test_celery_app.py`, `test_celery_context.py`, `test_logging.py`）
+  - CI ワークフロー更新: `pip install Flask-Migrate` を削除（不要になった）
+  - `pyproject.toml` に `norecursedirs = ["tests/manual"]` を追加
 
 
   `group_roles` 中間テーブルを追加し、グループにロールを付与できるようにした。

@@ -38,6 +38,8 @@ markers = [
     "filesystem: 実ファイルシステムアクセスが必要なテスト（デフォルトでスキップ）",
     "smtp: SMTPサーバーが必要なテスト（デフォルトでスキップ）",
 ]
+# tests/manual/ は環境固有のデバッグスクリプトであり、CI では収集しない
+norecursedirs = ["tests/manual"]
 addopts = [
     "-v",
     "--strict-markers",

@@ -75,13 +75,6 @@ def _restore_os_environ():
                 importlib.reload(config_module)
             except Exception:
                 pass
-        # Also reload old web config if still loaded
-        old_config_module = sys.modules.get("presentation.web.bootstrap.config")
-        if old_config_module is not None:
-            try:
-                importlib.reload(old_config_module)
-            except Exception:
-                pass
 
         # Flask の app.logger は import 名で共有されるため、DB ログ検証テストが
         # 残した DBLogHandler が累積してログ件数検証を壊す。漏れた分を除去する。

@@ -6,7 +6,22 @@
 ## [Unreleased]
 
 ### Added
-- **T8: グループとロールの紐づけ実装**。
+- **T11: FastAPI 全面移行 Phase 3 完了（Strangler Fig）**。
+  Flask-Smorest から FastAPI への API 移行（Phase 1〜3）が完了。全 API エンドポイントを
+  `presentation/fastapi/routers/` に移植済み。
+  - Phase 3: `routers/google_oauth.py`（Google OAuth・アカウント CRUD）、
+    `routers/media.py`（メディア CRUD・サムネイル・署名付き URL・ダウンロード）、
+    `routers/albums.py`（アルバム CRUD）、`routers/tags.py`（タグ・メディアタグ一括置換）、
+    `shared/kernel/oauth_state_store.py`（Flask/FastAPI 間 OAuth state 共有）。
+  - 本番起動を `gunicorn wsgi:app` から `gunicorn asgi:app -k uvicorn.workers.UvicornWorker` へ変更。
+    FastAPI が `/api/*` を処理し、Flask が UI ルート（`/auth/*`, `/dashboard/*` 等）を処理する
+    Strangler Fig 構成（`asgi.py`）。
+  - `presentation/web/api/__init__.py` から移植済みモジュールのインポートを除外し、
+    Flask 側の重複 API ルートを無効化。
+  - FastAPI 統合テスト追加（`tests/integration/fastapi/`）:
+    ヘルスチェック・バージョン・エコー・認証保護エンドポイント・OpenAPI スキーマ生成を検証。
+
+
   `group_roles` 中間テーブルを追加し、グループにロールを付与できるようにした。
   所属ユーザーの `permissions` / `all_permissions` へグループ経由のロール権限が波及する。
   API: `GET /api/admin/groups/<id>/roles`・`PUT /api/admin/groups/<id>/roles`。

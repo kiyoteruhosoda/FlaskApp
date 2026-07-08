@@ -38,26 +38,28 @@ flask seed-master
 
 ### 開発サーバー起動
 
-Flask が全リクエストを受け付け、API以外はViteにプロキシする構成。
+FastAPI（ASGI）が `/api/*` を処理し、Flask が UI ルートを処理する Strangler Fig 構成。
 
 ```bash
 # ターミナル1: Vite（フロントエンド）
 cd frontend
 npm run dev
 
-# ターミナル2: Flask（バックエンド）
-python main.py
+# ターミナル2: ASGI サーバー（FastAPI + Flask Strangler Fig）
+uvicorn asgi:app --host 0.0.0.0 --port 5000 --reload
 
 # ブラウザで http://localhost:5000 にアクセス
 ```
 
-Viteを起動せず Flask のみ起動した場合は、`/` アクセス時に起動方法が案内される。
-
-本番モード（ビルド済みファイルを配信）:
+開発用に Flask 単体で起動する場合（API は Flask 側のみ）:
 ```bash
-cd frontend && npm run build
-FLASK_ENV=production python main.py
+python main.py
 ```
+
+> **注意**: 本番（Docker）は `gunicorn asgi:app -k uvicorn.workers.UvicornWorker`
+> で ASGI 起動する。`wsgi:app`（Flask 単体）は開発デバッグ用途のみ。
+
+Viteを起動せず Flask のみ起動した場合は、`/` アクセス時に起動方法が案内される。
 
 ### Celeryワーカー（必須）
 
@@ -211,7 +213,7 @@ docker compose logs web --tail 100
 > 別ディレクトリから実行する場合は `docker compose -p photonest -f /volume1/docker/photonest/docker-compose.yml --env-file /volume1/docker/photonest/.env logs web` のように `-p`/`-f`/`--env-file` を明示する。
 
 サービス構成（`docker compose logs <サービス名>` の引数）:
-- `web` — Flask アプリ（ポート 5000）
+- `web` — FastAPI + Flask（Gunicorn + UvicornWorker、ASGI、ポート 5000）
 - `worker` — Celery ワーカー
 - `beat` — Celery Beat（定期タスク）
 - `redis` — Redis（Broker / Backend）

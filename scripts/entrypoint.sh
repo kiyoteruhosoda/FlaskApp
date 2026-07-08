@@ -134,14 +134,16 @@ shift || true
 
 case "$MODE" in
   web)
-    log "Starting Gunicorn (web mode)"
+    log "Starting Gunicorn + UvicornWorker (ASGI web mode)"
     # gunicorn 25+ はデフォルトで制御ソケット（/run/gunicorn.ctl 等）を作成しようとするが、
     # 非rootユーザー実行のこのコンテナでは書き込み権限がなく
     # "[ERROR] Control server error: [Errno 13] Permission denied" が出続ける。未使用機能のため無効化する。
-    exec gunicorn wsgi:app \
+    # UvicornWorker を使うことで ASGI アプリ（asgi.py）を Gunicorn のマルチプロセスで実行する。
+    # FastAPI が /api/* を処理し、Flask（WSGI）が UI ルートを処理する Strangler Fig 構成。
+    exec gunicorn asgi:app \
+      -k uvicorn.workers.UvicornWorker \
       --bind 0.0.0.0:5000 \
       --workers 2 \
-      --threads 4 \
       --timeout 120 \
       --graceful-timeout 90 \
       --keep-alive 5 \

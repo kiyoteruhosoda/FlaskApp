@@ -16,6 +16,7 @@ import ToastNotification from './components/ToastNotification';
 // Pages
 import LoginPage from './pages/LoginPage';
 import RoleSelectionPage from './pages/RoleSelectionPage';
+import ChangePasswordPage from './pages/ChangePasswordPage';
 import MediaPage from './pages/MediaPage';
 import MediaDuplicatesPage from './pages/MediaDuplicatesPage';
 import AlbumsPage from './pages/AlbumsPage';
@@ -170,6 +171,7 @@ const AppContent: React.FC = () => {
             } 
           />
           <Route path="/select-role" element={<RoleSelectionPage />} />
+          <Route path="/change-password" element={<ChangePasswordPage />} />
           <Route
             path="/register"
             element={

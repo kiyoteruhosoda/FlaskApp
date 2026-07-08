@@ -1883,6 +1883,11 @@ def api_login(data):
     else:
         redirect_target = url_for("dashboard.dashboard")
 
+    requires_password_change = (
+        settings.require_password_change_on_first_login
+        and getattr(user_model, "must_change_password", False)
+    )
+
     if len(roles) > 1:
         session["role_selection_next"] = redirect_target
         response_payload = {
@@ -1890,6 +1895,7 @@ def api_login(data):
             "refresh_token": refresh_token,
             "token_type": "Bearer",
             "requires_role_selection": True,
+            "requires_password_change": requires_password_change,
             "redirect_url": url_for("auth.select_role", next=redirect_target),
             "scope": scope_str,
             "available_scopes": sorted(available_scope_set),
@@ -1901,6 +1907,7 @@ def api_login(data):
             "refresh_token": refresh_token,
             "token_type": "Bearer",
             "requires_role_selection": False,
+            "requires_password_change": requires_password_change,
             "redirect_url": redirect_target,
             "scope": scope_str,
             "available_scopes": sorted(available_scope_set),

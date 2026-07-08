@@ -38,6 +38,7 @@ def _serialize_user(user: User) -> dict:
         "username": user.username,
         "isActive": user.is_active,
         "hasTOTP": bool(user.totp_secret),
+        "mustChangePassword": bool(getattr(user, "must_change_password", False)),
         "createdAt": (
             user.created_at.isoformat().replace("+00:00", "Z") if user.created_at else None
         ),
@@ -120,6 +121,8 @@ def api_admin_users_create():
     user = User(email=email, username=payload.get("username") or None)
     user.set_password(password)
     user.roles = roles
+    if payload.get("mustChangePassword"):
+        user.must_change_password = True
     db.session.add(user)
     db.session.commit()
     return jsonify({"user": _serialize_user(user), "created": True}), 201
@@ -159,6 +162,10 @@ def api_admin_user_update(user_id: int):
         if user.id == current_user.id and not payload["isActive"]:
             return jsonify({"error": "cannot_deactivate_self"}), 400
         user.is_active = bool(payload["isActive"])
+        changed = True
+
+    if "mustChangePassword" in payload:
+        user.must_change_password = bool(payload["mustChangePassword"])
         changed = True
 
     if changed:

@@ -74,8 +74,11 @@ const LoginPage: React.FC = () => {
         // ログイン成功後、ユーザー情報を取得
         await dispatch(getCurrentUser());
 
+        // パスワード変更が必要かチェック
+        if (result.payload.requires_password_change) {
+          navigate('/change-password', { replace: true });
         // ロール選択が必要かチェック
-        if (result.payload.requires_role_selection) {
+        } else if (result.payload.requires_role_selection) {
           navigate('/select-role');
         } else {
           // redirect_urlまたはデフォルトのダッシュボードへ

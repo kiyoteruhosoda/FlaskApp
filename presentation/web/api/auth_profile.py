@@ -212,3 +212,30 @@ def api_auth_password_reset():
     if not ok:
         return jsonify({"error": "invalid_token"}), 400
     return jsonify({"reset": True})
+
+
+@bp.post("/auth/password/force-change")
+@login_or_jwt_required
+def api_auth_password_force_change():
+    """初回ログイン時の強制パスワード変更。must_change_password フラグをリセットする。"""
+    user = _orm_user(get_current_user())
+    if user is None:
+        return jsonify({"error": "authentication_required"}), 401
+
+    payload = request.get_json(silent=True) or {}
+    new_password = (payload.get("password") or "").strip()
+    if not new_password:
+        return jsonify({"error": "password_required"}), 400
+    if len(new_password) < 8:
+        return jsonify({"error": "password_too_short", "message": "Password must be at least 8 characters."}), 400
+
+    current_password = (payload.get("current_password") or "").strip()
+    if current_password and not user.check_password(current_password):
+        return jsonify({"error": "invalid_current_password"}), 400
+
+    user.set_password(new_password)
+    user.must_change_password = False
+
+    db.session.commit()
+
+    return jsonify({"changed": True})

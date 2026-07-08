@@ -23,6 +23,7 @@ from . import admin_misc  # noqa: E402,F401
 from . import admin_config  # noqa: E402,F401
 from . import auth_profile  # noqa: E402,F401
 from . import auth_passkeys  # noqa: E402,F401
+from . import admin_photo_exports  # noqa: E402,F401
 
 from .picker_session import bp as picker_session_bp
 

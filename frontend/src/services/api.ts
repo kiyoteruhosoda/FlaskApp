@@ -860,6 +860,64 @@ class ApiClient {
     const response = await this.client.post<{ reset: boolean }>('/auth/password/reset', { token, password });
     return response.data;
   }
+
+  async forceChangePassword(password: string, currentPassword?: string): Promise<{ changed: boolean }> {
+    const body: Record<string, string> = { password };
+    if (currentPassword) body.current_password = currentPassword;
+    const response = await this.client.post<{ changed: boolean }>('/auth/password/force-change', body);
+    return response.data;
+  }
+
+  // ===== Photo Exports =====
+
+  async previewPhotoExports(params: { dateFrom?: string; dateTo?: string; limit?: number }): Promise<{
+    matchedCount: number;
+    exportCount: number;
+    totalBytes: number;
+    limit: number;
+  }> {
+    const query = new URLSearchParams();
+    if (params.dateFrom) query.set('dateFrom', params.dateFrom);
+    if (params.dateTo) query.set('dateTo', params.dateTo);
+    if (params.limit !== undefined) query.set('limit', String(params.limit));
+    const response = await this.client.get<{
+      matchedCount: number;
+      exportCount: number;
+      totalBytes: number;
+      limit: number;
+    }>(`/admin/photo-exports/preview?${query.toString()}`);
+    return response.data;
+  }
+
+  async downloadPhotoExports(
+    params: { dateFrom?: string; dateTo?: string; limit?: number },
+  ): Promise<void> {
+    const query = new URLSearchParams();
+    if (params.dateFrom) query.set('dateFrom', params.dateFrom);
+    if (params.dateTo) query.set('dateTo', params.dateTo);
+    if (params.limit !== undefined) query.set('limit', String(params.limit));
+
+    const token = localStorage.getItem('access_token');
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+
+    const response = await fetch(`/api/admin/photo-exports/download?${query.toString()}`, { headers });
+    if (!response.ok) {
+      throw new Error(`Export failed: ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const match = disposition.match(/filename="([^"]+)"/);
+    a.download = match ? match[1] : 'photo_exports.zip';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 }
 
 export const apiClient = new ApiClient();

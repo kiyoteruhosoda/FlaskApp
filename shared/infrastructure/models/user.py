@@ -78,6 +78,8 @@ class User(db.Model, UserMixin):
     is_active: Mapped[bool] = mapped_column(db.Boolean, default=True, nullable=False)
     # API リフレッシュトークンを検証するためのハッシュ
     refresh_token_hash: Mapped[str | None] = mapped_column(db.String(255), nullable=True)
+    # 初回ログイン時パスワード強制変更フラグ
+    must_change_password: Mapped[bool] = mapped_column(db.Boolean, default=False, nullable=False, server_default="0")
 
     # 追加：ロール関連
     roles: Mapped[list[Role]] = relationship(

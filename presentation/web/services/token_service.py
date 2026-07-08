@@ -4,26 +4,40 @@ from __future__ import annotations
 
 import base64
 import binascii
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Iterable, Optional, Tuple, Any
 
 from sqlalchemy import inspect
+from sqlalchemy.orm import Session
 
 import jwt
-from flask import current_app
 
 from shared.infrastructure.models.user import User
 from shared.infrastructure.models.service_account import ServiceAccount
 from shared.kernel.settings.settings import settings
 from shared.application.authenticated_principal import AuthenticatedPrincipal
-from presentation.web.bootstrap.extensions import db
 from presentation.web.services.access_token_signing import (
     AccessTokenSigningError,
     AccessTokenVerificationError,
     resolve_signing_material,
     resolve_verification_key,
 )
+
+logger = logging.getLogger(__name__)
+
+
+def _get_db_session(session: Optional[Session] = None):
+    """Flask-SQLAlchemy または明示的に渡された SQLAlchemy セッションを返す。
+
+    FastAPI コンテキストでは ``session`` を渡す。Flask コンテキストでは
+    ``session=None`` として ``db.session`` にフォールバックする。
+    """
+    if session is not None:
+        return session
+    from presentation.web.bootstrap.extensions import db
+    return db.session
 
 
 class TokenService:
@@ -95,7 +109,7 @@ class TokenService:
         try:
             material = resolve_signing_material()
         except AccessTokenSigningError as exc:
-            current_app.logger.error(
+            logger.error(
                 "Failed to resolve signing material for access token: %s",
                 exc,
             )
@@ -150,6 +164,8 @@ class TokenService:
         cls,
         user: User,
         scope: Iterable[str] | None = None,
+        *,
+        session: Optional[Session] = None,
     ) -> str:
         """リフレッシュトークンを生成し、DBに保存する"""
 
@@ -159,8 +175,9 @@ class TokenService:
         refresh_token = f"{user.id}:{scope_fragment}:{refresh_raw}"
 
         # DBに保存
+        db_session = _get_db_session(session)
         user.set_refresh_token(refresh_token)
-        db.session.commit()
+        db_session.commit()
 
         return refresh_token
 
@@ -169,11 +186,13 @@ class TokenService:
         cls,
         user: User,
         scope: Iterable[str] | None = None,
+        *,
+        session: Optional[Session] = None,
     ) -> Tuple[str, str]:
         """アクセストークンとリフレッシュトークンのペアを生成する"""
 
         access_token = cls.generate_access_token(user, scope)
-        refresh_token = cls.generate_refresh_token(user, scope)
+        refresh_token = cls.generate_refresh_token(user, scope, session=session)
 
         return access_token, refresh_token
 
@@ -201,19 +220,19 @@ class TokenService:
         try:
             header = jwt.get_unverified_header(token)
         except jwt.InvalidTokenError:
-            current_app.logger.debug("JWT token header invalid")
+            logger.debug("JWT token header invalid")
             return None, "invalid_header"
 
         algorithm = header.get("alg") if isinstance(header, dict) else None
         kid = header.get("kid") if isinstance(header, dict) else None
         if not isinstance(algorithm, str) or not algorithm:
-            current_app.logger.debug("JWT token missing algorithm header")
+            logger.debug("JWT token missing algorithm header")
             return None, "missing_algorithm"
 
         try:
             key = resolve_verification_key(algorithm, kid if isinstance(kid, str) else None)
         except (AccessTokenVerificationError, AccessTokenSigningError) as exc:
-            current_app.logger.debug("JWT token verification key resolution failed: %s", exc)
+            logger.debug("JWT token verification key resolution failed: %s", exc)
             return None, "key_resolution_failed"
 
         expected_audience = settings.access_token_audience
@@ -232,42 +251,43 @@ class TokenService:
                 options={"require": required_claims},
             )
         except jwt.ExpiredSignatureError:
-            current_app.logger.debug("JWT token expired")
+            logger.debug("JWT token expired")
             return None, "expired"
         except jwt.InvalidAudienceError:
-            current_app.logger.debug("JWT token audience mismatch")
+            logger.debug("JWT token audience mismatch")
             return None, "audience_mismatch"
         except jwt.InvalidIssuerError:
-            current_app.logger.debug("JWT token issuer mismatch")
+            logger.debug("JWT token issuer mismatch")
             return None, "issuer_mismatch"
         except jwt.MissingRequiredClaimError as exc:
-            current_app.logger.debug("JWT token missing required claim: %s", exc.claim)
+            logger.debug("JWT token missing required claim: %s", exc.claim)
             return None, f"missing_claim:{exc.claim}"
         except jwt.InvalidTokenError as exc:
-            current_app.logger.debug(f"JWT token invalid: {exc}")
+            logger.debug("JWT token invalid: %s", exc)
             return None, "invalid_token"
         except (ValueError, TypeError):
-            current_app.logger.debug("JWT token format error")
+            logger.debug("JWT token format error")
             return None, "format_error"
 
         return payload, None
 
     @classmethod
     def _build_principal_from_payload(
-        cls, payload: dict[str, Any]
+        cls, payload: dict[str, Any], *, session: Optional[Session] = None
     ) -> tuple[Optional[AuthenticatedPrincipal], Optional[str]]:
         try:
             subject_type, subject_id, identifier = cls._extract_subject(payload)
         except ValueError:
-            current_app.logger.debug("JWT token subject claim invalid")
+            logger.debug("JWT token subject claim invalid")
             return None, "invalid_subject"
 
         scope_items = cls._extract_scope_items(payload)
+        db_session = _get_db_session(session)
 
         if subject_type == "system":
-            account = db.session.get(ServiceAccount, subject_id)
+            account = db_session.get(ServiceAccount, subject_id)
             if not account or not account.is_active():
-                current_app.logger.debug("JWT token service account inactive or missing")
+                logger.debug("JWT token service account inactive or missing")
                 return None, "service_account_inactive"
 
             return AuthenticatedPrincipal(
@@ -278,7 +298,7 @@ class TokenService:
                 display_name=account.name,
             ), None
 
-        user = db.session.get(User, subject_id)
+        user = db_session.get(User, subject_id)
         if not user or not user.is_active:
             return None, "user_inactive_or_missing"
 
@@ -299,7 +319,7 @@ class TokenService:
 
     @classmethod
     def create_principal_from_token(
-        cls, token: str
+        cls, token: str, *, session: Optional[Session] = None
     ) -> Optional[AuthenticatedPrincipal]:
         """
         Validates the access token and reconstructs an AuthenticatedPrincipal from it.
@@ -308,18 +328,20 @@ class TokenService:
             AuthenticatedPrincipal: If the token is valid and not expired.
             None: If the token is invalid or expired.
         """
-        principal, _ = cls.create_principal_with_reason(token)
+        principal, _ = cls.create_principal_with_reason(token, session=session)
         return principal
 
     @classmethod
     def create_principal_with_reason(
-        cls, token: str
+        cls, token: str, *, session: Optional[Session] = None
     ) -> tuple[Optional[AuthenticatedPrincipal], Optional[str]]:
         payload, payload_failure = cls._decode_access_token_payload(token)
         if payload is None:
             return None, payload_failure
 
-        principal, principal_failure = cls._build_principal_from_payload(payload)
+        principal, principal_failure = cls._build_principal_from_payload(
+            payload, session=session
+        )
         if principal is None:
             return None, principal_failure
 
@@ -331,6 +353,8 @@ class TokenService:
         user: User,
         scope: Iterable[str] | None = None,
         active_role_id: int | None = None,
+        *,
+        session: Optional[Session] = None,
     ) -> AuthenticatedPrincipal:
         """Build an AuthenticatedPrincipal for an ORM user model."""
 
@@ -344,20 +368,20 @@ class TokenService:
         if user_id is None:
             raise ValueError("user_id_missing")
 
+        db_session = _get_db_session(session)
         state = inspect(user)
         if state.session is None:
-            user = db.session.merge(user, load=True)
-            state = inspect(user)
+            user = db_session.merge(user, load=True)
 
         if scope is None:
             scope_items: set[str] = set()
             all_roles = list(getattr(user, "roles", []) or [])
-            
+
             # Security: Only grant permissions when active_role_id is explicitly specified
             # If active_role_id is None, grant NO permissions (secure by default)
             if active_role_id is not None:
                 roles_to_use = [role for role in all_roles if role.id == active_role_id]
-                
+
                 for role in roles_to_use:
                     for permission in getattr(role, "permissions", []) or []:
                         code = getattr(permission, "code", None)
@@ -414,8 +438,11 @@ class TokenService:
             return {str(item).strip() for item in scope_claim if str(item).strip()}
         return set()
 
+
     @classmethod
-    def verify_refresh_token(cls, refresh_token: str) -> Optional[tuple[User, str]]:
+    def verify_refresh_token(
+        cls, refresh_token: str, *, session: Optional[Session] = None
+    ) -> Optional[tuple[User, str]]:
         """リフレッシュトークンを検証してユーザーとスコープを取得する"""
 
         if not refresh_token:
@@ -427,25 +454,26 @@ class TokenService:
                 raise ValueError("invalid_refresh_token_format")
             user_id = int(parts[0])
         except (ValueError, TypeError):
-            current_app.logger.debug("Invalid refresh token format")
+            logger.debug("Invalid refresh token format")
             return None
 
-        user = db.session.get(User, user_id)
+        db_session = _get_db_session(session)
+        user = db_session.get(User, user_id)
         if not user:
-            current_app.logger.debug("Refresh token verification failed: user not found")
+            logger.debug("Refresh token verification failed: user not found")
             return None
 
         # セキュリティ上重要な判定のため、リクエスト中に他経路（flask-login の
         # user_loader 等）で identity-map にキャッシュされた古い状態ではなく、
         # 現在の DB の値を読み直す。
-        db.session.refresh(user)
+        db_session.refresh(user)
 
         if not user.is_active:
-            current_app.logger.debug("Refresh token verification failed: user inactive")
+            logger.debug("Refresh token verification failed: user inactive")
             return None
 
         if not user.check_refresh_token(refresh_token):
-            current_app.logger.debug("Refresh token verification failed")
+            logger.debug("Refresh token verification failed")
             return None
 
         scope_fragment = parts[1] if len(parts) > 1 else ""
@@ -454,10 +482,12 @@ class TokenService:
         return user, scope_str
 
     @classmethod
-    def refresh_tokens(cls, refresh_token: str) -> Optional[Tuple[str, str, str]]:
+    def refresh_tokens(
+        cls, refresh_token: str, *, session: Optional[Session] = None
+    ) -> Optional[Tuple[str, str, str]]:
         """リフレッシュトークンから新しいトークンペアを生成する"""
 
-        verification = cls.verify_refresh_token(refresh_token)
+        verification = cls.verify_refresh_token(refresh_token, session=session)
         if not verification:
             return None
 
@@ -465,23 +495,32 @@ class TokenService:
         scope_items = scope_str.split()
 
         # 新しいトークンペアを生成（リフレッシュトークンローテーション）
-        access_token, new_refresh_token = cls.generate_token_pair(user, scope_items)
+        access_token, new_refresh_token = cls.generate_token_pair(
+            user, scope_items, session=session
+        )
         return access_token, new_refresh_token, scope_str
 
     @classmethod
-    def revoke_refresh_token(cls, subject: User | AuthenticatedPrincipal) -> None:
+    def revoke_refresh_token(
+        cls,
+        subject: User | AuthenticatedPrincipal,
+        *,
+        session: Optional[Session] = None,
+    ) -> None:
         """ユーザーのリフレッシュトークンを無効化する"""
+
+        db_session = _get_db_session(session)
 
         if isinstance(subject, AuthenticatedPrincipal):
             if not subject.is_individual:
-                current_app.logger.debug(
+                logger.debug(
                     "Refresh token revoke skipped: subject is not an individual",
                 )
                 return
 
-            target_user = db.session.get(User, subject.id)
+            target_user = db_session.get(User, subject.id)
             if target_user is None:
-                current_app.logger.debug(
+                logger.debug(
                     "Refresh token revoke skipped: user not found (id=%s)",
                     subject.id,
                 )
@@ -489,12 +528,12 @@ class TokenService:
         elif isinstance(subject, User):
             target_user = subject
         else:  # pragma: no cover - defensive branch
-            current_app.logger.debug(
+            logger.debug(
                 "Refresh token revoke skipped: unsupported type %s",
                 type(subject).__name__,
             )
             return
 
         target_user.set_refresh_token(None)
-        db.session.commit()
+        db_session.commit()
 

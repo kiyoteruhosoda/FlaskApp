@@ -603,3 +603,31 @@
 - DB ネイティブ ENUM を廃止し全モデルの `Enum(...)` を `native_enum=False` 化。詳細は ADR-0002。
 - `scripts/seed_master_data.py` をカタログ参照に統一（値の二重管理を排除）。
 - 初期管理者パスワードを `ADMIN_INITIAL_PASSWORD` で上書き可能化。
+
+## T11 — FastAPI 全面移行・Flask 完全撤廃（2026-07-08）
+
+### Added
+- `presentation/fastapi/routers/wiki.py` — `/wiki/api/*` 16エンドポイント（Wiki JSON API）
+- `presentation/fastapi/routers/certs.py` — `/api/certs/*`, `/api/keys/*`, `/api/.well-known/*` 17エンドポイント
+- `presentation/fastapi/routers/local_import_status.py` — `/api/local-import/*` 9エンドポイント
+- `migrations/versions/9d6e4a2b0f5c_add_impersonation.py` — `impersonation_audit_log` テーブルと `admin:impersonate` 権限コードを追加（T9 準備）
+- `shared/kernel/database/db.py` に Flask-SQLAlchemy 互換レイヤー追加：
+  - `Model.query` 互換ディスクリプタ（`db.session.query(cls)` に委譲）
+  - `Table` staticmethod（MetaData 自動注入）
+  - `func`, `JSON`, `Index`, `Enum`, `CHAR`, `Numeric`, `SmallInteger`, `CheckConstraint`, `init_app_engine()` 追加
+
+### Removed
+- `presentation/web/` — Flask アプリケーション全体を削除（Blueprint, Jinja2 テンプレート等）
+- `bounded_contexts/wiki/presentation/wiki/` — Flask Blueprint 削除（FastAPI 版は `routers/wiki.py`）
+- `bounded_contexts/certs/presentation/` — Flask Blueprint 削除（FastAPI 版は `routers/certs.py`）
+- `bounded_contexts/photonest/presentation/photo_view/` — Flask Blueprint 削除
+- `bounded_contexts/photonest/presentation/local_import_status_api.py` — Flask Blueprint 削除（FastAPI 版は `routers/local_import_status.py`）
+- `bounded_contexts/totp/presentation/` — Flask Blueprint 削除
+- `Flask-Mailman` を `requirements.txt` から削除（Flask 完全撤廃）
+- Flask 依存テストを約50件削除（`presentation.web` 等インポート不可のため）
+
+### Fixed
+- `shared/infrastructure/models/impersonation_audit_log.py` — FK を `users.id` → `user.id` に修正（テーブル名が `user` のため）
+- `migrations/versions/9d6e4a2b0f5c_add_impersonation.py` — テーブル名修正（`users`→`user`, `roles`→`role`, `permission_id`→`perm_id`）
+- `db/init/01_initialize.sql` — `alembic_version` を最新ヘッド `9d6e4a2b0f5c` に更新
+- `bounded_contexts/email_sender/application/email_service.py` — `gettext()` へのキーワード引数渡しを修正（`%` 演算子でフォーマット）

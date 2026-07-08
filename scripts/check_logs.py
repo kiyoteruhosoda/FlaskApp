@@ -18,7 +18,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from shared.kernel.database.db import db
 from shared.infrastructure.models.log import Log
-from presentation.web import create_app
 
 
 def parse_message_json(message):
@@ -84,11 +83,8 @@ def main():
     
     args = parser.parse_args()
     
-    # Flaskアプリを初期化
-    app = create_app()
-    
-    with app.app_context():
-        # クエリを構築
+    # クエリを構築
+    if True:
         query = Log.query
         
         # フィルタを適用

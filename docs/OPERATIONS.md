@@ -30,34 +30,31 @@ cp .env.example .env
 # .env を編集してDB接続情報・各種キーを設定
 
 # データベースマイグレーション
-flask db upgrade
+alembic upgrade head
 
 # マスタデータ投入（ロール・権限・初期設定）
-flask seed-master
+python scripts/seed_master_data.py
 ```
 
 ### 開発サーバー起動
 
-Flask が全リクエストを受け付け、API以外はViteにプロキシする構成。
+FastAPI（ASGI）が全リクエストを処理する。React SPA は FastAPI の StaticFiles で配信する。
 
 ```bash
 # ターミナル1: Vite（フロントエンド）
 cd frontend
 npm run dev
 
-# ターミナル2: Flask（バックエンド）
-python main.py
+# ターミナル2: ASGI サーバー（FastAPI）
+uvicorn asgi:app --host 0.0.0.0 --port 5000 --reload
 
 # ブラウザで http://localhost:5000 にアクセス
 ```
 
-Viteを起動せず Flask のみ起動した場合は、`/` アクセス時に起動方法が案内される。
+> **注意**: 本番（Docker）は `gunicorn asgi:app -k uvicorn.workers.UvicornWorker`
+> で ASGI 起動する。
 
-本番モード（ビルド済みファイルを配信）:
-```bash
-cd frontend && npm run build
-FLASK_ENV=production python main.py
-```
+Viteを起動せず Flask のみ起動した場合は、`/` アクセス時に起動方法が案内される。
 
 ### Celeryワーカー（必須）
 
@@ -90,24 +87,24 @@ Synology / Docker 環境では通常 `scripts/deploy.sh migrate`（本番）/
 
 ```bash
 # 現在の状態確認
-flask db current
-flask db history
+alembic current
+alembic history
 
 # マイグレーション適用
-flask db upgrade
+alembic upgrade head
 
 # 一つ戻す
-flask db downgrade
+alembic downgrade -1
 
 # Docker の場合
-docker compose exec web flask db upgrade
-docker compose exec web flask db current
+docker compose exec web alembic upgrade head
+docker compose exec web alembic current
 ```
 
 トラブルシューティング:
 ```bash
 # マイグレーション履歴の不整合を強制リセット（慎重に）
-flask db stamp <revision-id>
+alembic stamp <revision-id>
 
 # DB接続確認
 docker compose ps db
@@ -117,10 +114,10 @@ docker compose ps db
 
 ```bash
 # 推奨方法
-flask seed-master
+python scripts/seed_master_data.py
 
 # 既存データがあっても強制投入
-flask seed-master --force
+python scripts/seed_master_data.py --force
 
 # YAML から投入
 python scripts/seed_from_yaml.py
@@ -211,7 +208,7 @@ docker compose logs web --tail 100
 > 別ディレクトリから実行する場合は `docker compose -p photonest -f /volume1/docker/photonest/docker-compose.yml --env-file /volume1/docker/photonest/.env logs web` のように `-p`/`-f`/`--env-file` を明示する。
 
 サービス構成（`docker compose logs <サービス名>` の引数）:
-- `web` — Flask アプリ（ポート 5000）
+- `web` — FastAPI + Flask（Gunicorn + UvicornWorker、ASGI、ポート 5000）
 - `worker` — Celery ワーカー
 - `beat` — Celery Beat（定期タスク）
 - `redis` — Redis（Broker / Backend）

@@ -1,15 +1,13 @@
 """Email sender factory - Infrastructure layer.
 
-このモジュールは設定に基づいて適切なメール送信実装を生成するファクトリを提供します。
-Dependency Injection (DI) パターンを実装しています。
+設定に基づいて適切なメール送信実装を生成するファクトリ。
+Flask-Mailman 非依存版（T11 Flask 完全撤廃）。
 """
 
 from __future__ import annotations
 
 import logging
 from typing import Final
-
-from flask_mailman import Mail
 
 from bounded_contexts.email_sender.domain.sender_interface import EmailSender
 from .smtp_sender import SMTPEmailSender
@@ -18,15 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class EmailSenderFactory:
-    """メール送信実装のファクトリクラス.
-
-    設定に基づいて適切なEmailSender実装を生成します。
-    Strategy パターンの具体的な戦略選択を担当します。
-
-    Note:
-        本番環境ではSMTPのみをサポートします。
-        テスト用のConsoleEmailSenderは tests/infrastructure/email_sender/ にあります。
-    """
+    """メール送信実装のファクトリクラス。"""
 
     PROVIDER_SMTP: Final[str] = "smtp"
     DEFAULT_PROVIDER: Final[str] = PROVIDER_SMTP
@@ -35,31 +25,19 @@ class EmailSenderFactory:
     def create(
         cls,
         provider: str | None = None,
-        mail: Mail | None = None,
         default_sender: str | None = None,
     ) -> EmailSender:
-        """設定に基づいてメール送信実装を生成する.
-
-        Args:
-            provider: メールプロバイダー名（smtp のみサポート）
-            mail: Flask-Mailmanインスタンス（SMTPプロバイダーで必要）
-            default_sender: デフォルトの送信者アドレス
-
-        Returns:
-            EmailSender: メール送信実装
-
-        Raises:
-            ValueError: 未対応のプロバイダーが指定された場合
-        """
+        """設定に基づいてメール送信実装を生成する。"""
         resolved_provider = (provider or cls._get_provider_from_config()).lower().strip()
 
         logger.info(
-            f"Creating email sender with provider: {resolved_provider}",
+            "Creating email sender with provider: %s",
+            resolved_provider,
             extra={"event": "email.factory.create", "provider": resolved_provider},
         )
 
         if resolved_provider == cls.PROVIDER_SMTP:
-            return cls._create_smtp_sender(mail, default_sender)
+            return cls._create_smtp_sender(default_sender)
 
         raise ValueError(
             f"Unsupported email provider: {resolved_provider}. "
@@ -69,53 +47,32 @@ class EmailSenderFactory:
 
     @classmethod
     def _get_provider_from_config(cls) -> str:
-        """設定からメールプロバイダーを取得."""
+        """設定からメールプロバイダーを取得。"""
         try:
             from shared.kernel.settings.settings import settings
-
             return str(settings.mail_provider).lower().strip()
-        except Exception as e:
+        except Exception as exc:
             logger.warning(
-                f"Failed to get mail provider from config, using default: {e}",
+                "Failed to get mail provider from config, using default: %s", exc,
                 extra={"event": "email.factory.config_error"},
             )
             return cls.DEFAULT_PROVIDER
 
     @classmethod
-    def _create_smtp_sender(
-        cls,
-        mail: Mail | None,
-        default_sender: str | None,
-    ) -> SMTPEmailSender:
-        """SMTPメール送信実装を生成."""
-        resolved_mail = mail or cls._resolve_mail_instance()
+    def _create_smtp_sender(cls, default_sender: str | None) -> SMTPEmailSender:
+        """SMTP メール送信実装を生成。"""
         resolved_sender = default_sender or cls._resolve_default_sender()
-
-        return SMTPEmailSender(mail=resolved_mail, default_sender=resolved_sender)
-
-    @staticmethod
-    def _resolve_mail_instance() -> Mail:
-        """Flask-Mailmanインスタンスを取得."""
-        try:
-            from shared.infrastructure.mail import mail as app_mail
-
-            logger.info("Using shared mail instance from shared.infrastructure.mail")
-            return app_mail
-        except Exception as e:
-            raise ValueError(
-                "Flask-Mailman instance is required for SMTP provider. "
-                "Please provide 'mail' parameter or ensure shared.infrastructure.mail is initialized."
-            ) from e
+        return SMTPEmailSender(default_sender=resolved_sender)
 
     @staticmethod
     def _resolve_default_sender() -> str | None:
-        """デフォルト送信者を設定から取得."""
+        """デフォルト送信者を設定から取得。"""
         try:
             from shared.kernel.settings.settings import settings
-
             return settings.mail_default_sender or settings.mail_username
         except Exception:
             return None
 
 
 __all__ = ["EmailSenderFactory"]
+

@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Dict, List
 
 from babel.messages.pofile import read_po
-from flask_babel import get_locale
-from flask_babel import gettext as _
+from shared.kernel.i18n.translation import get_locale
+from shared.kernel.i18n.translation import gettext as _
 
 from shared.kernel.settings.settings import settings
 

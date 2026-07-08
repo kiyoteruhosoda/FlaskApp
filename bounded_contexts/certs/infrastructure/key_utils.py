@@ -11,7 +11,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from cryptography.x509.oid import NameOID
 
-from flask_babel import gettext as _
+from shared.kernel.i18n.translation import gettext as _
 
 from bounded_contexts.certs.domain.exceptions import CertificateValidationError, KeyGenerationError
 from bounded_contexts.certs.domain.usage import UsageType

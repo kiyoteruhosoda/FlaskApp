@@ -55,7 +55,7 @@ async def api_upload_prepare(
     upload_session: str | None = Cookie(None, alias="upload_session_id"),
 ):
     """ファイルをアップロード準備（一時保存）する。"""
-    from presentation.web.services.upload_service import (
+    from presentation.fastapi.services.upload_service import (
         UploadError,
         UploadTooLargeError,
         UnsupportedFormatError,
@@ -92,7 +92,7 @@ async def api_upload_commit(
     upload_session: str | None = Cookie(None, alias="upload_session_id"),
 ):
     """準備済みファイルを確定（永続化）する。"""
-    from presentation.web.services.upload_service import (
+    from presentation.fastapi.services.upload_service import (
         UploadError,
         commit_uploads,
         has_pending_uploads,

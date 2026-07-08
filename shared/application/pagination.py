@@ -8,9 +8,9 @@
 
 import base64
 import json
+import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
-from flask import request, current_app
 
 from shared.kernel.time.clock import utc_now_isoformat
 from sqlalchemy import asc, desc
@@ -116,12 +116,7 @@ class CursorInfo:
                    if k not in ['id', 'shot_at', 'created_at']}
             )
         except Exception as e:
-            # アプリケーションコンテキスト外ではログ出力をスキップ
-            try:
-                current_app.logger.warning(f"Invalid cursor format: {e}")
-            except RuntimeError:
-                # テスト環境など、アプリケーションコンテキスト外
-                pass
+            logging.getLogger(__name__).warning(f"Invalid cursor format: {e}")
             return None
     
     def to_cursor_string(self) -> str:

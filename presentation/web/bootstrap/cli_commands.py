@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 from flask import Flask
-from flask_babel import gettext as _
+from shared.kernel.i18n.translation import gettext as _
 
 from .extensions import db
 

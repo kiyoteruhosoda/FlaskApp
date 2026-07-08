@@ -195,12 +195,12 @@ def _serialize_media_detail(media) -> dict:
 
 
 def _storage_service():
-    from presentation.web.api.routes import _storage_service as _svc
+    from presentation.fastapi.services.storage_helpers import _storage_service as _svc
     return _svc()
 
 
 def _resolve_storage_file(domain, *parts, intent=None):
-    from presentation.web.api.routes import _resolve_storage_file as _rsf
+    from presentation.fastapi.services.storage_helpers import _resolve_storage_file as _rsf
     if intent is not None:
         return _rsf(domain, *parts, intent=intent)
     return _rsf(domain, *parts)

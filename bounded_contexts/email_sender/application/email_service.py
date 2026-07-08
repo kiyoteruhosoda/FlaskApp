@@ -6,8 +6,9 @@ import logging
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
-from flask import render_template
-from flask_babel import gettext as _
+from jinja2 import Environment, FileSystemLoader as _JinjaLoader
+from pathlib import Path as _Path
+from shared.kernel.i18n.translation import gettext as _
 
 from bounded_contexts.email_sender.domain.email_message import EmailMessage
 from bounded_contexts.email_sender.domain.sender_interface import EmailSender
@@ -185,10 +186,18 @@ class EmailService:
         reset_url: str,
         validity_minutes: int,
     ) -> str | None:
-        """パスワードリセットHTMLテンプレートをレンダリング."""
+        """パスワードリセットHTMLテンプレートをレンダリング（Jinja2 直接使用）。"""
         try:
-            return render_template(
-                "auth/email/password_reset.html",
+            templates_dir = (
+                _Path(__file__).resolve().parents[4]
+                / "presentation" / "web" / "auth" / "templates"
+            )
+            env = Environment(
+                loader=_JinjaLoader(str(templates_dir)),
+                autoescape=True,
+            )
+            template = env.get_template("auth/email/password_reset.html")
+            return template.render(
                 reset_url=reset_url,
                 validity_minutes=validity_minutes,
             )

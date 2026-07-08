@@ -23,7 +23,7 @@ from flask import (
     session,
     url_for,
 )
-from flask_babel import gettext as _
+from shared.kernel.i18n.translation import gettext as _
 
 
 def classify_login_state(session_info: Dict[str, Any]) -> str:

@@ -5,7 +5,7 @@ import pytest
 from unittest.mock import patch
 from click.testing import CliRunner
 
-from flask_babel import gettext as _
+from shared.kernel.i18n.translation import gettext as _
 from presentation.web import create_app
 
 

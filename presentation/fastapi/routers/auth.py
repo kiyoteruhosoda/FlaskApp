@@ -54,8 +54,8 @@ async def api_login(
     from shared.application.auth_service import AuthService
     from shared.domain.user import UserRegistrationService
     from shared.infrastructure.user_repository import SqlAlchemyUserRepository
-    from presentation.web.auth.totp import verify_totp
-    from presentation.web.services.token_service import TokenService
+    from presentation.fastapi.auth.totp import verify_totp
+    from presentation.fastapi.services.token_service import TokenService
 
     user_repo = SqlAlchemyUserRepository(db)
     auth_service = AuthService(user_repo, UserRegistrationService(user_repo))
@@ -135,7 +135,7 @@ async def api_logout(
     db: Session = Depends(get_db),
 ):
     """リフレッシュトークンを無効化し、Cookie を削除する。"""
-    from presentation.web.services.token_service import TokenService
+    from presentation.fastapi.services.token_service import TokenService
 
     # トークンを Authorization ヘッダーまたは Cookie から取得
     token = None
@@ -167,7 +167,7 @@ async def api_refresh(
     db: Session = Depends(get_db),
 ):
     """リフレッシュトークンから新しいアクセス・リフレッシュトークンを発行する。"""
-    from presentation.web.services.token_service import TokenService
+    from presentation.fastapi.services.token_service import TokenService
 
     token_bundle = TokenService.refresh_tokens(data.refresh_token, session=db)
     if not token_bundle:
@@ -279,7 +279,7 @@ async def api_select_role(
 ):
     """アクティブロールを選択してトークンを再発行する。"""
     from shared.infrastructure.models.user import User
-    from presentation.web.services.token_service import TokenService
+    from presentation.fastapi.services.token_service import TokenService
 
     if not principal.is_individual:
         raise HTTPException(
@@ -332,11 +332,11 @@ async def api_service_account_token_exchange(
     db: Session = Depends(get_db),
 ):
     """サービスアカウントの JWT ******"""
-    from presentation.web.auth.service_account_auth import (
+    from presentation.fastapi.auth.service_account_auth import (
         ServiceAccountJWTError,
         ServiceAccountTokenValidator,
     )
-    from presentation.web.services.token_service import TokenService
+    from presentation.fastapi.services.token_service import TokenService
 
     if data.grant_type != JWT_BEARER_GRANT_TYPE:
         raise HTTPException(

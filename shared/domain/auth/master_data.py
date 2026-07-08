@@ -55,6 +55,7 @@ PERMISSION_CODES: Sequence[str] = (
     "api_key:read",
     "dashboard:view",
     "gui:view",
+    "admin:impersonate",
 )
 
 # --- ロールへの権限付与 ------------------------------------------------------

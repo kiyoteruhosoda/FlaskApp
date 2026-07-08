@@ -1,286 +1,80 @@
+"""ログ関連のユニットテスト（FastAPI 移行後）。
+
+Flask ミドルウェアに依存していたリクエストログテストは T11 移行後に FastAPI
+ミドルウェアへの移行が完了次第、再実装する（ADR-0005 参照）。
+現在はモデル・ユーティリティレベルのテストのみを維持する。
+"""
+
 import base64
-import hashlib
-import importlib
 import json
 import os
-import sys
 
 import pytest
-from flask import request, session as flask_session
 
 
 @pytest.fixture
-def app(tmp_path):
-    # テスト専用の環境変数を設定
-    thumbs = tmp_path / "thumbs"
-    play = tmp_path / "play"
-    thumbs.mkdir()
-    play.mkdir()
-    
-    # 環境変数をクリア（.envファイルの設定を無効化）
-    test_env_vars = {
-        "SECRET_KEY": "test-secret-key",
-        "JWT_SECRET_KEY": "test-jwt-secret",
-        # DBLogHandler は別エンジン接続で書き込むため :memory: では DB が共有されない。
-        # ハンドラの書き込みをテストから参照できるようファイル DB を使う。
-        "DATABASE_URI": f"sqlite:///{tmp_path / 'test.db'}",
-        "GOOGLE_CLIENT_ID": "",
-        "GOOGLE_CLIENT_SECRET": "",
-        "ENCRYPTION_KEY": base64.urlsafe_b64encode(b"0" * 32).decode(),
-        "MEDIA_DOWNLOAD_SIGNING_KEY": base64.urlsafe_b64encode(b"1" * 32).decode(),
-        "MEDIA_THUMBNAIL_URL_TTL_SECONDS": "600",
-        "MEDIA_PLAYBACK_URL_TTL_SECONDS": "600",
-        "MEDIA_THUMBNAILS_DIRECTORY": str(thumbs),
-        "MEDIA_PLAYBACK_DIRECTORY": str(play),
-    }
-    
-    # 既存の環境変数を保存
-    original_env = {}
-    for key, value in test_env_vars.items():
-        original_env[key] = os.environ.get(key)
-        os.environ[key] = value
+def db_session(tmp_path):
+    """テスト用 SQLite DB セッションを返す。"""
+    os.environ.setdefault("SECRET_KEY", "test-secret-key")
+    os.environ.setdefault("JWT_SECRET_KEY", "test-jwt-secret")
+    os.environ.setdefault("DATABASE_URI", f"sqlite:///{tmp_path / 'test.db'}")
+    os.environ.setdefault("GOOGLE_CLIENT_ID", "")
+    os.environ.setdefault("GOOGLE_CLIENT_SECRET", "")
+    os.environ.setdefault("ENCRYPTION_KEY", base64.urlsafe_b64encode(b"0" * 32).decode())
+    os.environ.setdefault("MEDIA_DOWNLOAD_SIGNING_KEY", base64.urlsafe_b64encode(b"1" * 32).decode())
+    os.environ.setdefault("ACCESS_TOKEN_ISSUER", "test")
+    os.environ.setdefault("ACCESS_TOKEN_AUDIENCE", "test")
 
-    try:
-        # reload しない: create_app は DATABASE_URI を runtime 再解決し、settings は
-        # env を遅延参照するため reload は不要。reload(webapp) はシム submodule の
-        # identity を分岐させ後続テストの monkeypatch を壊す。
-        from presentation.web import create_app
-        from tests.config import TestConfig
-
-        app = create_app()
-        app.config.from_object(TestConfig)
-        # 例外を伝播させず 500 エラーハンドラを実行させる（エラーログ記録を検証するため）。
-        app.config["PROPAGATE_EXCEPTIONS"] = False
-
-        from presentation.web.bootstrap.extensions import db
-
-        with app.app_context():
-            db.create_all()
-
-            # アプリは testing モードで DB ログを無効化するため、ログの DB 記録を
-            # 検証する本テストでは DBLogHandler を明示的に取り付ける。
-            import logging as _logging
-            from shared.kernel.logging.db_log_handler import DBLogHandler
-
-            for _h in list(app.logger.handlers):
-                if isinstance(_h, DBLogHandler):
-                    app.logger.removeHandler(_h)
-            _db_handler = DBLogHandler(app=app)
-            _db_handler.setLevel(_logging.INFO)
-            app.logger.addHandler(_db_handler)
-
-            @app.route("/boom")
-            def boom():
-                raise Exception("boom")
-
-            @app.route("/bad")
-            def bad():
-                return "bad", 502
-
-            @app.post("/api/ping")
-            def api_ping():
-                body = request.get_json(silent=True) or {}
-                return {"ok": True, "access_token": "real-token", "echo": body}
-
-            @app.post("/api/form")
-            def api_form():
-                return {"ok": True, "refresh_token": "form-token"}
-
-        yield app
-
-    finally:
-        # 環境変数を元に戻す
-        for key, original_value in original_env.items():
-            if original_value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = original_value
-
-
-@pytest.fixture
-def client(app):
-    return app.test_client()
-
-
-def test_log_written(client):
-    from shared.infrastructure.models.log import Log
-
-    resp = client.get("/boom")
-    assert resp.status_code == 500
-    with client.application.app_context():
-        logs = Log.query.all()
-        assert len(logs) == 1
-        log = logs[0]
-        data = json.loads(log.message)
-        assert data["message"] == "boom"
-        assert log.path.endswith("/boom")
-
-
-def test_502_logged(client):
-    from shared.infrastructure.models.log import Log
-
-    resp = client.get("/bad")
-    assert resp.status_code == 502
-    with client.application.app_context():
-        logs = Log.query.all()
-        assert len(logs) == 1
-        log = logs[0]
-        data = json.loads(log.message)
-        assert data["status"] == 502
-        assert log.path.endswith("/bad")
-
-
-def test_api_request_response_logged(client):
-    from shared.infrastructure.models.log import Log
-
-    payload = {
-        "hello": "world",
-        "password": "super-secret",
-        "credentials": {
-            "access_token": "abc",
-            "refresh_token": "xyz",
-            "note": "keep",
-        },
-        "items": [
-            {"name": "public"},
-            {"refresh_token": "nested"},
-        ],
-    }
-    resp = client.post("/api/ping", json=payload)
-    assert resp.status_code == 200
-    with client.application.app_context():
-        logs = Log.query.order_by(Log.id).all()
-        assert len(logs) == 2
-        req_log, resp_log = logs
-        req_data = json.loads(req_log.message)
-        resp_data = json.loads(resp_log.message)
-        assert req_log.event == "api.input"
-        assert resp_log.event == "api.output"
-        assert req_data["method"] == "POST"
-        assert req_data["json"]["hello"] == "world"
-        assert req_data["json"]["password"] == "***"
-        assert req_data["json"]["credentials"]["access_token"] == "***"
-        assert req_data["json"]["credentials"]["refresh_token"] == "***"
-        assert req_data["json"]["credentials"]["note"] == "keep"
-        assert req_data["json"]["items"][0]["name"] == "public"
-        assert req_data["json"]["items"][1]["refresh_token"] == "***"
-        assert resp_data["status"] == 200
-        assert resp_data["json"]["ok"] is True
-        assert resp_data["json"]["access_token"] == "***"
-        assert resp_data["json"]["echo"]["hello"] == "world"
-        assert resp_data["json"]["echo"]["password"] == "***"
-        assert resp_data["json"]["echo"]["credentials"]["access_token"] == "***"
-        assert resp_data["json"]["echo"]["credentials"]["note"] == "keep"
-        assert resp_data["json"]["echo"]["items"][0]["name"] == "public"
-        assert resp_data["json"]["echo"]["items"][1]["refresh_token"] == "***"
-        assert req_log.request_id == resp_log.request_id
-        assert req_log.path.endswith("/api/ping")
-        assert resp_log.path.endswith("/api/ping")
-
-
-def test_api_form_logging_masks_sensitive_data(client):
-    from shared.infrastructure.models.log import Log
-
-    resp = client.post(
-        "/api/form",
-        data={
-            "username": "alice",
-            "password": "top-secret",
-            "access_token": "form-access",
-        },
-    )
-    assert resp.status_code == 200
-
-    with client.application.app_context():
-        logs = Log.query.order_by(Log.id).all()
-        assert len(logs) == 2
-        req_log, resp_log = logs
-        req_data = json.loads(req_log.message)
-        resp_data = json.loads(resp_log.message)
-
-        assert req_log.event == "api.input"
-        assert resp_log.event == "api.output"
-        assert req_data["form"]["username"] == "alice"
-        assert req_data["form"]["password"] == "***"
-        assert req_data["form"]["access_token"] == "***"
-        assert resp_data["json"]["ok"] is True
-        assert resp_data["json"]["refresh_token"] == "***"
-
-
-def test_unauthorized_logging_records_context(app):
-    from shared.infrastructure.models.log import Log
-
-    headers = {
-        "User-Agent": "pytest-agent",
-        "X-Forwarded-For": "203.0.113.5",
-    }
-
-    with app.test_request_context(
-        "/admin/dashboard?foo=bar",
-        headers=headers,
-        environ_overrides={"REMOTE_ADDR": "192.0.2.10"},
-    ):
-        flask_session["_user_id"] = "individual:123"
-        response = app.login_manager.unauthorized()
-        assert response.status_code == 302
-
-    with app.app_context():
-        logs = Log.query.order_by(Log.id).all()
-        assert len(logs) == 1
-        log_entry = logs[0]
-        payload = json.loads(log_entry.message)
-
-        assert log_entry.event == "auth.unauthorized"
-        assert payload["event"] == "auth.unauthorized"
-        assert payload["id"] == log_entry.request_id
-        assert payload["timestamp"].endswith("Z")
-
-        expected_hash = hashlib.sha256("individual:123".encode("utf-8")).hexdigest()
-        assert payload["user"]["id_hash"] == expected_hash
-        assert payload["user"]["is_authenticated"] is True
-
-        assert payload["request"]["method"] == "GET"
-        assert payload["request"]["path"] == "/admin/dashboard"
-        assert payload["request"]["full_path"].startswith("/admin/dashboard?foo=bar")
-        assert payload["request"]["ip"] == "203.0.113.5"
-        assert payload["request"]["forwarded_for"] == "203.0.113.5"
-        assert payload["request"]["user_agent"] == "pytest-agent"
-        assert payload["message"] == "Redirected to login due to unauthorized access."
-
-        session_payload = payload["session"]
-        assert session_payload["cookie_name"] == app.config.get("SESSION_COOKIE_NAME", "session")
-        assert session_payload["cookie_present"] is False
-        assert session_payload["session_new"] is False
-        assert session_payload["session_permanent"] is False
-        assert session_payload["fresh_login"] is None
-        assert session_payload["remember_token_present"] is False
-        assert session_payload["user_id_present"] is True
-
-
-def test_status_change_logged(client):
-    """Statusフィールドの変更がログに記録されることを確認する。"""
-    import json
+    import sqlalchemy as sa
+    from sqlalchemy.orm import sessionmaker
     from shared.kernel.database.db import db
+
+    # モデルをメタデータに登録
+    import shared.infrastructure.models.log  # noqa: F401
+    import shared.infrastructure.models.google_account  # noqa: F401
+    import bounded_contexts.picker_import.infrastructure.picker_session  # noqa: F401
+    import bounded_contexts.photonest.infrastructure.photo_models  # noqa: F401
+    import bounded_contexts.totp.infrastructure.totp_models  # noqa: F401
+    import bounded_contexts.wiki.infrastructure.wiki_models  # noqa: F401
+
+    engine = sa.create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+    db.metadata.create_all(engine)
+
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    try:
+        yield session
+    finally:
+        session.close()
+
+
+def test_status_change_logged(db_session):
+    """Statusフィールドの変更がログに記録されることを確認する。"""
     from shared.kernel.utils import log_status_change
     from shared.infrastructure.models.log import Log
     from shared.infrastructure.models.google_account import GoogleAccount
     from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
 
-    with client.application.app_context():
-        gacc = GoogleAccount(email="a@example.com", scopes="scope")
-        db.session.add(gacc)
-        db.session.commit()
+    gacc = GoogleAccount(email="a@example.com", scopes="scope")
+    db_session.add(gacc)
+    db_session.commit()
 
-        ps = PickerSession(account_id=gacc.id)
-        db.session.add(ps)
-        db.session.commit()
+    ps = PickerSession(account_id=gacc.id)
+    db_session.add(ps)
+    db_session.commit()
 
-        old = ps.status
-        ps.status = "ready"
-        log_status_change(ps, old, ps.status)
-        db.session.commit()
+    old = ps.status
+    ps.status = "ready"
+    log_status_change(ps, old, ps.status)
+    db_session.commit()
 
-        log = Log.query.filter_by(event="status.change").order_by(Log.id.desc()).first()
-        data = json.loads(log.message)
-        assert data["model"] == "PickerSession"
-        assert data["to"] == "ready"
+    log = (
+        db_session.query(Log)
+        .filter_by(event="status.change")
+        .order_by(Log.id.desc())
+        .first()
+    )
+    assert log is not None
+    data = json.loads(log.message)
+    assert data["model"] == "PickerSession"
+    assert data["to"] == "ready"

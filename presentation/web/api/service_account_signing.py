@@ -7,7 +7,7 @@ from http import HTTPStatus
 
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 from flask import g, jsonify, request
-from flask_babel import gettext as _
+from shared.kernel.i18n.translation import gettext as _
 
 from bounded_contexts.certs.application.dto import SignGroupPayloadInput
 from bounded_contexts.certs.application.services import default_certificate_services

@@ -64,7 +64,7 @@ from bounded_contexts.photonest.application.local_import.logger import (
 from shared.kernel.settings.settings import ApplicationSettings, settings
 from bounded_contexts.photonest.tasks import media_post_processing
 from bounded_contexts.photonest.tasks.media_post_processing import process_media_post_import
-from flask import Flask, current_app
+import logging as _logging_module
 from bounded_contexts.picker_import.infrastructure import LocalPerceptualHashCalculator
 from bounded_contexts.picker_import.infrastructure.repositories import (
     PickerSelectionRepository,
@@ -75,7 +75,6 @@ from bounded_contexts.picker_import.domain.services import (
     ImportResultAggregator,
     MediaHashingService,
 )
-from werkzeug.local import LocalProxy
 from shared.kernel.utils import open_image_compat
 
 
@@ -277,10 +276,10 @@ def enqueue_picker_import_item(selection_id: int, session_id: int) -> None:
         picker_import_item_task.delay(selection_id, session_id)
     except Exception as exc:  # pragma: no cover - network failure path
         try:
-            from flask import current_app
+            _logger_for_celery = _logging_module.getLogger(__name__)
 
             if settings.testing:
-                current_app.logger.warning(
+                _logger_for_celery.warning(
                     "Celery worker unavailable for picker import item; skipping in test mode.",
                     extra={
                         "event": "import.picker.enqueue.skip",
@@ -510,9 +509,6 @@ def _start_lock_heartbeat(selection_id: int, locked_by: str, interval: float) ->
     """Start background thread sending lock heartbeats."""
 
     stop = threading.Event()
-    app_proxy = cast(LocalProxy[Flask], current_app)
-    app = cast(Flask, app_proxy._get_current_object())
-
     if settings.testing:
         class _NoopThread:
             def join(self, timeout: float | None = None) -> None:  # noqa: D401, ANN001
@@ -521,8 +517,7 @@ def _start_lock_heartbeat(selection_id: int, locked_by: str, interval: float) ->
         return stop, _NoopThread()  # type: ignore[return-value]
 
     def _beat() -> None:
-        with app.app_context():
-            while not stop.is_set():
+        while not stop.is_set():
                 ts = datetime.now(timezone.utc)
                 with db.engine.begin() as conn:
                     conn.execute(

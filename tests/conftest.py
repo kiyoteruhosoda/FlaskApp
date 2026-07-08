@@ -68,11 +68,8 @@ def _restore_os_environ():
             if os.environ.get(key) != value:
                 os.environ[key] = value
 
-        # 環境変数を復元した「後」で webapp.config を正規化する。
-        # 一部フィクスチャは test 用環境変数の下で webapp.config を reload するが
-        # 元に戻さないため、BaseApplicationSettings の値（SECRET_KEY/DATABASE_URI 等）
-        # が後続テストへ漏れて連鎖失敗していた。
-        config_module = sys.modules.get("presentation.web.bootstrap.config")
+        # 環境変数を復元した「後」で fastapi config を正規化する。
+        config_module = sys.modules.get("presentation.fastapi.config")
         if config_module is not None:
             try:
                 importlib.reload(config_module)
@@ -100,53 +97,7 @@ def _restore_os_environ():
 
 @pytest.fixture(autouse=True)
 def _reset_login_cache_per_request(request):
-    """pytest-flask の app context リークによる認証キャッシュの持ち越しを中和する.
-
-    ``pytest-flask`` の autouse fixture ``_push_request_context`` はテスト実行中
-    ずっと ``app.test_request_context()`` を push し続ける。Flask は同一アプリの
-    app context が既に存在するとそれを再利用するため、テストクライアントの各
-    リクエスト間で ``g`` と SQLAlchemy の identity map が共有されてしまう。
-
-    その結果、``flask_login`` が ``g._login_user`` にキャッシュした principal や、
-    別 app context でコミットされた DB 変更が後続リクエストへ反映されず、本番では
-    起きない（本番はリクエストごとに fresh な app context）テスト固有の不整合が
-    生じる。各リクエスト開始時にこれらのキャッシュをクリアし、本番と同様に毎回
-    ユーザーを読み直すようにする。
-    """
-
-    app = None
-    if "app" in request.fixturenames:
-        try:
-            app = request.getfixturevalue("app")
-        except Exception:  # pragma: no cover - app fixture の取得失敗時は何もしない
-            app = None
-
-    if app is not None and not getattr(app, "_login_cache_reset_hook", False):
-        from flask import g
-        from shared.kernel.database.db import db as _db
-
-        def _clear_leaked_request_caches():  # pragma: no cover - テスト環境専用フック
-            # flask_login が前リクエストでキャッシュした principal を破棄して再読込させる。
-            g.pop("_login_user", None)
-            # アプリ独自の per-request キャッシュも破棄する。
-            g.pop("current_user", None)
-            g.pop("current_user_model", None)
-            g.pop("current_principal", None)
-            # 別 app context でコミットされた変更を見えるよう identity map を失効させる。
-            try:
-                _db.session.expire_all()
-            except Exception:
-                pass
-
-        # ``app.before_request`` は最初のリクエスト後に登録不可となる
-        # （module/session スコープで共有される app fixture では既に処理済みの
-        # ことがある）。``before_request_funcs`` へ直接追加してロックを回避し、
-        # 同一 app へ二重登録しないようフラグで防ぐ。
-        app.before_request_funcs.setdefault(None, []).append(
-            _clear_leaked_request_caches
-        )
-        app._login_cache_reset_hook = True
-
+    """Flask-specific cache reset hook (now a no-op in FastAPI)."""
     yield
 
 
@@ -166,47 +117,40 @@ def app_context():
         "ACCESS_TOKEN_ISSUER": "test-issuer",
         "ACCESS_TOKEN_AUDIENCE": "test-audience",
     }
-    
+
     for key, value in test_env.items():
         original_env[key] = os.environ.get(key)
         os.environ[key] = value
-    
+
     try:
-        # configモジュールをリロード
-        import presentation.web.bootstrap.config as config_module
-        importlib.reload(config_module)
+        from sqlalchemy import create_engine
+        from sqlalchemy.pool import StaticPool
+        from shared.kernel.database.db import db
+        from presentation.fastapi.services.system_setting_service import SystemSettingService
 
-        from presentation.web import create_app
-        from .config import TestConfig
-        from presentation.web.bootstrap.extensions import db
-        from presentation.web.services.system_setting_service import SystemSettingService
-        from presentation.web import _apply_persisted_settings
+        engine = create_engine(
+            "sqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        db.init_app_engine(engine)
 
-        app = create_app()
-        app.config.from_object(TestConfig)
+        db.create_all(bind=engine)
+        payload = dict(DEFAULT_APPLICATION_SETTINGS)
+        for key in payload.keys():
+            payload[key] = _coerce_env_value(key, payload[key])
+        SystemSettingService.upsert_application_config(payload)
 
-        with app.app_context():
-            db.create_all()
-            payload = dict(DEFAULT_APPLICATION_SETTINGS)
-            for key in payload.keys():
-                if key in app.config:
-                    payload[key] = app.config[key]
-                payload[key] = _coerce_env_value(key, payload[key])
-            SystemSettingService.upsert_application_config(payload)
+        cors_raw = os.environ.get("CORS_ALLOWED_ORIGINS")
+        if cors_raw:
+            allowed_origins = [segment.strip() for segment in cors_raw.split(",") if segment.strip()]
+        else:
+            allowed_origins = list(DEFAULT_CORS_SETTINGS.get("allowedOrigins", []))
+        SystemSettingService.upsert_cors_config(allowed_origins)
 
-            cors_raw = os.environ.get("CORS_ALLOWED_ORIGINS")
-            if cors_raw:
-                allowed_origins = [segment.strip() for segment in cors_raw.split(",") if segment.strip()]
-            else:
-                allowed_origins = list(
-                    app.config.get("CORS_ALLOWED_ORIGINS", DEFAULT_CORS_SETTINGS.get("allowedOrigins", []))
-                )
-            SystemSettingService.upsert_cors_config(allowed_origins)
-
-            _apply_persisted_settings(app)
-            yield app
-            db.session.remove()
-            db.drop_all()
+        yield engine
+        db.session.remove()
+        db.drop_all(bind=engine)
     finally:
         # 環境変数を元に戻す
         for key, original_value in original_env.items():

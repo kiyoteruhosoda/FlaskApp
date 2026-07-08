@@ -45,26 +45,10 @@ def register_blueprints(app: Flask, *, testing_mode: bool) -> None:
 
     strip_openapi_path_prefix(smorest_api.spec, api_url_prefix)
 
-    from presentation.web.api import routes as api_routes
+    # NOTE: /media/thumbs, /media/playback, /media/originals のフォールバック URL ルールは
+    #       FastAPI（presentation/fastapi/routers/media.py）に移植済みのため削除（T11 Phase3）。
+    #       FastAPI が先にリクエストを処理する Strangler Fig 構成のため Flask 側は不要。
 
-    app.add_url_rule(
-        "/media/thumbs/<path:rel>",
-        endpoint="media_thumb_fallback",
-        view_func=api_routes.api_download_thumb_fallback,
-        methods=["GET", "HEAD"],
-    )
-    app.add_url_rule(
-        "/media/playback/<path:rel>",
-        endpoint="media_playback_fallback",
-        view_func=api_routes.api_download_playback_fallback,
-        methods=["GET", "HEAD"],
-    )
-    app.add_url_rule(
-        "/media/originals/<path:rel>",
-        endpoint="media_original_fallback",
-        view_func=api_routes.api_download_original_fallback,
-        methods=["GET", "HEAD"],
-    )
     ensure_openapi_success_responses(smorest_api.spec)
 
     # 認証なしの健康チェック用Blueprint

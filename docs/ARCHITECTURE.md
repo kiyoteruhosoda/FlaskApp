@@ -10,7 +10,8 @@
 
 | コンポーネント | 技術 |
 |---|---|
-| バックエンド | Python / Flask |
+| バックエンド API | Python / FastAPI（ASGI）＋ Pydantic v2 |
+| バックエンド UI | Python / Flask（WSGI、Strangler Fig で共存中） |
 | フロントエンド | React SPA（Vite + Redux + react-router） |
 | データベース | MariaDB 10.11 |
 | タスクキュー | Celery（Broker: Redis） |
@@ -32,8 +33,9 @@
 
 ### コンテナ・ネットワーク構成（デプロイ）
 
-`docker-compose.yml` の構成。公開フロントは `nginx` が担い、`web`(Gunicorn) は
-ネットワーク内部専用。メディアは nginx が `X-Accel-Redirect` でディスクから直接配信する
+`docker-compose.yml` の構成。公開フロントは `nginx` が担い、`web`（Gunicorn + UvicornWorker）は
+ネットワーク内部専用。FastAPI が `/api/*` を処理し、Flask が UI ルートを処理する Strangler Fig 構成。
+メディアは nginx が `X-Accel-Redirect` でディスクから直接配信する
 （詳細は `docs/OPERATIONS.md`「画像・メディアの配信方式」）。
 
 ```mermaid
@@ -50,7 +52,7 @@ flowchart TB
     subgraph net["Docker network: photonest-dev（bridge / 172.22.0.0/16）"]
       direction TB
       nginx["nginx コンテナ<br/>:80 公開フロント<br/>proxy + X-Accel 直配信"]
-      web["web コンテナ<br/>Flask + Gunicorn :5000<br/>（expose のみ・内部専用）"]
+      web["web コンテナ<br/>FastAPI + Flask + Gunicorn(UvicornWorker) :5000<br/>（expose のみ・内部専用）"]
       worker["worker コンテナ<br/>Celery worker"]
       beat["beat コンテナ<br/>Celery beat（定期タスク）"]
       redis[("redis :6379<br/>Broker / Result backend")]
@@ -92,9 +94,10 @@ Infrastructure は Domain のインターフェースを実装。詳細は「2. 
 
 ```mermaid
 flowchart TB
-    subgraph presentation["Presentation（presentation/web/ ・ frontend/）"]
+    subgraph presentation["Presentation（presentation/fastapi/ ・ presentation/web/ ・ frontend/）"]
       spa["React SPA（frontend/）"]
-      api["api / admin Blueprints<br/>+ 共通 Marshmallow スキーマ"]
+      fastapi_api["FastAPI Routers（presentation/fastapi/）<br/>/api/* を処理"]
+      flask_ui["Flask Blueprints（presentation/web/）<br/>UI ルート・CDN/Blob admin API"]
     end
 
     subgraph contexts["Bounded Contexts（bounded_contexts/）"]
@@ -114,13 +117,14 @@ flowchart TB
       sinfra["infrastructure: SQLAlchemy models<br/>（Media, PickerSession, Log, ...）"]
     end
 
-    spa --> api
-    api --> photonest
-    api --> picker
-    api --> totp
-    api --> wiki
-    api --> certs
-    api --> email
+    spa --> fastapi_api
+    spa --> flask_ui
+    fastapi_api --> photonest
+    fastapi_api --> picker
+    fastapi_api --> totp
+    flask_ui --> wiki
+    flask_ui --> certs
+    fastapi_api --> email
 
     picker --> photonest
     photonest --> storage
@@ -151,7 +155,7 @@ flowchart TB
 
 ```
 ┌─────────────────────────────────────┐
-│  Presentation Layer                  │  Flask Blueprint / API / Celery Tasks
+│  Presentation Layer                  │  FastAPI Router / Flask Blueprint / Celery Tasks
 └──────────────┬──────────────────────┘
                │
 ┌──────────────▼──────────────────────┐
@@ -182,6 +186,35 @@ flowchart TB
 `shared/kernel/`）は `CLAUDE.md`「ディレクトリ構成」参照。現在の bounded contexts:
 `certs`, `email`, `email_sender`, `photonest`, `picker_import`, `storage`, `totp`, `wiki`
 （`presentation/`・`tasks/` はコンテキストごとに必要なものだけ持つ）。
+
+FastAPI 層（`presentation/fastapi/`）の構成:
+
+```
+presentation/fastapi/
+  app.py             # FastAPI アプリファクトリ（create_app）
+  dependencies/
+    auth.py          # get_current_principal（JWT 認証 Depends）
+    database.py      # DB セッション依存
+  middleware/        # カスタムミドルウェア
+  routers/
+    health.py        # /healthz, /health/live, /health/ready, /health/beat
+    auth.py          # /api/auth/{login,logout,refresh,me,check,select-role}
+    auth_profile.py  # /api/{profile,2fa,register,password/*}
+    auth_passkeys.py # /api/passkeys
+    media.py         # /api/media, /api/dl/<token>（署名付き配信含む）
+    albums.py        # /api/albums
+    tags.py          # /api/tags
+    google_oauth.py  # /api/google/{oauth,accounts}
+    totp.py          # /api/totp
+    upload.py        # /api/upload/{prepare,commit}
+    local_import.py  # /api/local-import
+    sync_jobs.py     # /api/jobs
+    picker_session.py# /api/picker/*
+    maintenance.py   # /api/ping
+    ...              # service_account_keys, signing, version, echo, user_preferences
+    admin/           # /api/admin/{users,roles,groups,permissions,service_accounts,misc,config,...}
+  schemas/           # Pydantic v2 スキーマ（RequestSchema / ResponseSchema）
+```
 
 ローカルインポート機能（4章参照）は `bounded_contexts/photonest/` 配下:
 

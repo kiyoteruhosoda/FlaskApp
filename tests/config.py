@@ -2,7 +2,7 @@
 
 from sqlalchemy.pool import StaticPool
 
-from presentation.web.bootstrap.config import BaseApplicationSettings
+from presentation.fastapi.config import BaseApplicationSettings  # noqa: keep config for tests
 
 
 class TestConfig(BaseApplicationSettings):

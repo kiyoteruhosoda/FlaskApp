@@ -1,7 +1,7 @@
 """マイグレーションとモデル定義の乖離(drift)を検出する回帰テスト。
 
 過去、SQLAlchemy モデルには存在するテーブル/カラムが Alembic マイグレーションに
-反映されておらず、``flask db upgrade`` で構築した DB と実際のモデルが食い違って
+反映されておらず、``alembic upgrade head`` で構築した DB と実際のモデルが食い違って
 いた。これを再発させないため、
 
   1. 空 DB に全マイグレーションを順次適用し、
@@ -9,7 +9,7 @@
   3. 差分が無いこと
 
 を検証する。新しいモデル変更を入れたのにマイグレーションを書き忘れると、この
-テストが失敗する（= ``flask db migrate`` 相当のガード）。
+テストが失敗する（= ``alembic revision --autogenerate`` 相当のガード）。
 
 注: SQLite 上での比較のため MariaDB 固有の型差異までは検出しないが、テーブル・
 カラム・インデックス・制約レベルの乖離は確実に検出できる。
@@ -31,9 +31,10 @@ from alembic.script import ScriptDirectory
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def _build_app():
-    os.environ.setdefault("TESTING", "true")
+def _setup_test_env() -> None:
+    """テスト用の最低限の環境変数をセットする。"""
     for key, value in {
+        "TESTING": "true",
         "DATABASE_URI": "sqlite:///:memory:",
         "SECRET_KEY": "test-secret",
         "JWT_SECRET_KEY": "test-jwt",
@@ -44,12 +45,37 @@ def _build_app():
     }.items():
         os.environ.setdefault(key, value)
 
-    from presentation.web import create_app
-    from tests.config import TestConfig
 
-    app = create_app()
-    app.config.from_object(TestConfig)
-    return app
+def _load_metadata() -> sa.MetaData:
+    """全モデルをインポートして SQLAlchemy MetaData を返す。
+
+    Flask アプリコンテキスト不要。migrations/env.py の _load_metadata() と同様の
+    手順でモデルを登録する。
+    """
+    from shared.kernel.database.db import db  # noqa: F401
+
+    import shared.infrastructure.models.user  # noqa: F401
+    import shared.infrastructure.models.passkey  # noqa: F401
+    import shared.infrastructure.models.google_account  # noqa: F401
+    import shared.infrastructure.models.service_account  # noqa: F401
+    import shared.infrastructure.models.service_account_api_key  # noqa: F401
+    import shared.infrastructure.models.password_reset_token  # noqa: F401
+    import shared.infrastructure.models.job_sync  # noqa: F401
+    import shared.infrastructure.models.log  # noqa: F401
+    import shared.infrastructure.models.worker_log  # noqa: F401
+    import shared.infrastructure.models.celery_task  # noqa: F401
+    import shared.infrastructure.models.system_setting  # noqa: F401
+    import shared.infrastructure.models.group  # noqa: F401
+    import shared.infrastructure.models.user_preference  # noqa: F401
+    import shared.infrastructure.models.impersonation_audit_log  # noqa: F401
+    import bounded_contexts.photonest.infrastructure.photo_models  # noqa: F401
+    import bounded_contexts.picker_import.infrastructure.picker_session  # noqa: F401
+    import bounded_contexts.picker_import.infrastructure.picker_import_task  # noqa: F401
+    import bounded_contexts.wiki.infrastructure.wiki_models  # noqa: F401
+    import bounded_contexts.totp.infrastructure.totp_models  # noqa: F401
+    import bounded_contexts.certs.infrastructure.models  # noqa: F401
+
+    return db.metadata
 
 
 def _apply_all_migrations(connection) -> list[str]:
@@ -94,7 +120,8 @@ def test_single_head_and_base():
 def test_migrations_match_models():
     """全マイグレーション適用後のスキーマがモデル定義と一致すること。"""
 
-    app = _build_app()
+    _setup_test_env()
+    metadata = _load_metadata()
 
     engine = sa.create_engine("sqlite://")
     connection = engine.connect()
@@ -103,18 +130,15 @@ def test_migrations_match_models():
         connection.commit()
         assert applied, "適用可能なマイグレーションがありません"
 
-        from presentation.web.bootstrap.extensions import db
-
-        with app.app_context():
-            ctx = MigrationContext.configure(
-                connection=connection, opts={"compare_type": True}
-            )
-            diff = produce_migrations(ctx, db.metadata)
-            ops = diff.upgrade_ops.ops
+        ctx = MigrationContext.configure(
+            connection=connection, opts={"compare_type": True}
+        )
+        diff = produce_migrations(ctx, metadata)
+        ops = diff.upgrade_ops.ops
 
         assert not ops, (
             "マイグレーションとモデルに乖離があります。"
-            "`flask db migrate` で差分マイグレーションを追加してください:\n"
+            "`alembic revision --autogenerate` で差分マイグレーションを追加してください:\n"
             + render_python_code(diff.upgrade_ops)
         )
     finally:

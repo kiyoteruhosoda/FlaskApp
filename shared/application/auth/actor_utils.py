@@ -1,8 +1,6 @@
 """Utility helpers for resolving the current actor identifier."""
 from __future__ import annotations
 
-from flask_login import current_user
-
 
 def _normalize_identifier(value: object) -> str | None:
     if isinstance(value, str):
@@ -12,13 +10,16 @@ def _normalize_identifier(value: object) -> str | None:
     return None
 
 
-def resolve_actor_identifier() -> str:
+def resolve_actor_identifier(current_user: object | None = None) -> str:
     """Return a stable identifier for the current actor.
 
     The resolution order is::
 
         subject_id > get_id() > display_name > "unknown"
     """
+
+    if current_user is None:
+        return "unknown"
 
     user = current_user
 

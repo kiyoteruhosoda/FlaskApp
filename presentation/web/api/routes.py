@@ -32,7 +32,7 @@ from flask import (
     url_for,
 )
 from flask_login import login_required, logout_user, login_user
-from flask_babel import gettext as _
+from shared.kernel.i18n.translation import gettext as _
 from functools import wraps
 
 from . import bp

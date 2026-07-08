@@ -3,8 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable, Mapping, MutableMapping, Sequence
 
-from flask_login import UserMixin
-
 
 @dataclass(frozen=True, slots=True)
 class RoleSnapshot:
@@ -47,7 +45,7 @@ class RoleSnapshot:
         return cls(id=role_id, name=role_name, permissions=ordered)
 
 
-class AuthenticatedPrincipal(UserMixin):
+class AuthenticatedPrincipal:
     """Flaskアプリ内で扱う認証済み主体の情報を保持する値オブジェクト。"""
 
     __slots__ = (

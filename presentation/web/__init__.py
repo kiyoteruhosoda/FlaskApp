@@ -6,7 +6,7 @@ from flask import Flask
 
 from shared.kernel.settings.settings import settings
 
-from .bootstrap.extensions import db, migrate, login_manager, babel, api as smorest_api
+from .bootstrap.extensions import db, migrate, login_manager, api as smorest_api
 from .middleware.error_handlers import register_error_handlers, register_debug_error_handlers
 from .bootstrap.cors import configure_cors
 from .bootstrap.persisted_settings import (
@@ -16,7 +16,6 @@ from .bootstrap.persisted_settings import (
 from .bootstrap.cli_commands import register_cli_commands
 from .middleware.request_logging import register_request_logging
 from .middleware.unauthorized_handler import register_unauthorized_handler
-from .templating.locale import select_locale
 from .routes.system_routes import register_system_routes
 from .blueprints import register_blueprints
 from .openapi.setup import apply_openapi_config_defaults, register_openapi_runtime
@@ -71,6 +70,7 @@ def create_app():
     import shared.infrastructure.models.worker_log as _worker_log  # noqa: F401
     import shared.infrastructure.models.celery_task as _celery_task  # noqa: F401
     import shared.infrastructure.models.system_setting as _system_setting  # noqa: F401
+    import shared.infrastructure.models.impersonation_audit_log as _impersonation_audit_log  # noqa: F401
     import bounded_contexts.wiki.infrastructure.wiki_models as _wiki_models  # noqa: F401
     import bounded_contexts.totp.infrastructure.totp_models as _totp_models  # noqa: F401
     from bounded_contexts.certs.infrastructure import models as _cert_models  # noqa: F401
@@ -105,7 +105,6 @@ def create_app():
         if value:
             app.config[key] = value
 
-    babel.init_app(app, locale_selector=select_locale)
     smorest_api.init_app(app)
 
     configure_mail(app)

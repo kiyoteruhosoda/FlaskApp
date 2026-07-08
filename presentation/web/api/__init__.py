@@ -2,29 +2,13 @@ from .blueprint import AuthEnforcedBlueprint
 
 bp = AuthEnforcedBlueprint("api", __name__, description="nolumia API")
 
-from . import routes  # noqa: E402,F401
-from . import routes_local_import  # noqa: E402,F401
-from . import routes_sync_jobs  # noqa: E402,F401
-from . import routes_totp  # noqa: E402,F401
-from . import health  # noqa: E402,F401
-from . import picker_session  # noqa: E402,F401
-from . import version  # noqa: E402,F401
-from . import upload  # noqa: E402,F401
-from . import maintenance  # noqa: E402,F401
-from . import echo  # noqa: E402,F401
-from . import service_account_keys  # noqa: E402,F401
-from . import service_account_signing  # noqa: E402,F401
-from . import admin_users  # noqa: E402,F401
-from . import admin_roles  # noqa: E402,F401
-from . import admin_groups  # noqa: E402,F401
-from . import admin_permissions  # noqa: E402,F401
-from . import admin_service_accounts  # noqa: E402,F401
-from . import admin_misc  # noqa: E402,F401
-from . import admin_config  # noqa: E402,F401
-from . import auth_profile  # noqa: E402,F401
-from . import auth_passkeys  # noqa: E402,F401
-from . import admin_photo_exports  # noqa: E402,F401
-from . import user_preferences  # noqa: E402,F401
+# NOTE: 以下のモジュールは FastAPI（presentation/fastapi/routers/）に移植済みのため
+#       Flask Blueprint からの登録を除外した（T11 Phase3 後続）。
+#       FastAPI が /api/* を先に処理する Strangler Fig 構成のため、
+#       Flask 側に重複登録しても到達しない。cdn/blob admin API のみ Flask 側に残す。
+
+# CDN・Blob admin API（FastAPI 未移植のため Flask 側で引き続き処理）
+# これらは blueprints.py で smorest_api に直接登録される。
 
 from .picker_session import bp as picker_session_bp
 

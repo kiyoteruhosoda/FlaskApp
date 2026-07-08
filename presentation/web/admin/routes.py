@@ -21,7 +21,7 @@ from flask import (
     Response,
 )
 from flask_login import login_required, current_user
-from flask_babel import gettext as _
+from shared.kernel.i18n.translation import gettext as _
 from sqlalchemy.orm import selectinload
 from marshmallow import ValidationError as MarshmallowValidationError
 from marshmallow.validate import Email as EmailValidator

@@ -92,7 +92,7 @@ async def api_auth_passkey_register_options(
     db: Session = Depends(get_db),
 ):
     """パスキー登録オプションを発行する（チャレンジはインメモリキャッシュに保持）。"""
-    from presentation.web.auth.routes import (
+    from presentation.fastapi.auth.passkeys import (
         _resolve_passkey_rp_id,
         passkey_service,
     )
@@ -121,7 +121,7 @@ async def api_auth_passkey_verify_register(
 ):
     """パスキー登録レスポンスを検証して保存する。"""
     from shared.application.passkey_service import PasskeyRegistrationError
-    from presentation.web.auth.routes import (
+    from presentation.fastapi.auth.passkeys import (
         _extract_passkey_credential_payload,
         _resolve_passkey_origin,
         _resolve_passkey_rp_id,

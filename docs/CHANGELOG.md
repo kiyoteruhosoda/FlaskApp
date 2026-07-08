@@ -6,7 +6,23 @@
 ## [Unreleased]
 
 ### Added
-- **T8: グループとロールの紐づけ実装**。
+- **T11: FastAPI 全面移行 Phase 3 後続作業完了（Flask 完全撤廃）**。
+  `presentation/fastapi/` に全サービス・認証・管理機能を移植し、Flask への依存を完全に除去。
+  - `presentation/fastapi/config.py`（Flask-free `BaseApplicationSettings`）
+  - `presentation/fastapi/services/`（`token_service`, `access_token_signing`,
+    `system_setting_service`, `service_account_api_key_service`, `service_account_service`,
+    `password_reset_service`, `upload_service`, `storage_helpers`, `admin_config_service`）
+  - `presentation/fastapi/auth/`（`totp`, `utils`, `api_key_auth`, `service_account_auth`, `passkeys`）
+  - `presentation/fastapi/admin/system_settings_definitions.py`
+  - `cli/src/celery/celery_app.py` から Flask アプリコンテキストを削除（純粋な Celery + SQLAlchemy）
+  - `scripts/`, `tests/conftest.py`, `tests/config.py` の Flask 依存を除去
+  - テスト更新: Flask TestClient → FastAPI TestClient（`test_health_api.py`, `test_version_api.py`）
+  - テスト更新: Flask アプリコンテキスト → SQLAlchemy 直接使用（`test_migration_model_consistency.py`,
+    `tests/wiki/conftest.py`, `test_celery_app.py`, `test_celery_context.py`, `test_logging.py`）
+  - CI ワークフロー更新: `pip install Flask-Migrate` を削除（不要になった）
+  - `pyproject.toml` に `norecursedirs = ["tests/manual"]` を追加
+
+
   `group_roles` 中間テーブルを追加し、グループにロールを付与できるようにした。
   所属ユーザーの `permissions` / `all_permissions` へグループ経由のロール権限が波及する。
   API: `GET /api/admin/groups/<id>/roles`・`PUT /api/admin/groups/<id>/roles`。

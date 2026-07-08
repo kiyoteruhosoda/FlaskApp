@@ -4,16 +4,12 @@ import sys
 import traceback
 from typing import TYPE_CHECKING, Any, Dict, Optional, Set
 
-from flask import current_app, has_app_context
 from sqlalchemy import insert, create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import DataError, OperationalError
 
 from shared.kernel.database.db import db
 from shared.kernel.settings.settings import settings
-
-if TYPE_CHECKING:  # pragma: no cover
-    from flask import Flask
 
 
 _RESERVED_ATTRS = {
@@ -58,14 +54,14 @@ def _extract_extras(record: logging.LogRecord) -> Dict[str, Any]:
 class DBLogHandler(logging.Handler):
     """Logging handler that persists logs to the database."""
 
-    def __init__(self, app: Optional["Flask"] = None, *, engine: Optional[Engine] = None) -> None:
+    def __init__(self, app: object | None = None, *, engine: Optional[Engine] = None) -> None:
         super().__init__()
         self._app = app
         self._engine: Optional[Engine] = engine
         self._fallback_engine: Optional[Engine] = None
         self._ensured_engines: Set[int] = set()
 
-    def bind_to_app(self, app: "Flask") -> None:
+    def bind_to_app(self, app: object) -> None:
         """Rebind this handler to *app* and reset cached engines."""
 
         self._app = app
@@ -76,25 +72,6 @@ class DBLogHandler(logging.Handler):
     def _resolve_engine(self) -> Engine:
         if self._engine is not None:
             return self._engine
-
-        app = None
-        if has_app_context():
-            app = current_app._get_current_object()
-        elif self._app is not None:
-            app = self._app
-
-        if app is not None:
-            try:
-                if has_app_context():
-                    engine = db.engine
-                else:
-                    with app.app_context():
-                        engine = db.engine
-            except Exception as exc:  # pragma: no cover - unexpected misconfiguration
-                raise RuntimeError("Failed to acquire database engine from Flask app") from exc
-            engine = self._maybe_use_fallback(engine)
-            self._engine = engine
-            return engine
 
         try:
             engine_attr = getattr(db, "engine")

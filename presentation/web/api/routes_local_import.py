@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from flask import jsonify, request
-from flask_babel import gettext as _
+from shared.kernel.i18n.translation import gettext as _
 from datetime import datetime, timezone
 from typing import Any
 import os

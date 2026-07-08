@@ -7,242 +7,148 @@ from pathlib import Path
 
 
 @pytest.fixture
-def app(tmp_path, monkeypatch):
-    """Create test Flask app with Celery configuration."""
-    # Set up environment variables
-    monkeypatch.setenv("SECRET_KEY", "test-secret-key")
-    monkeypatch.setenv("DATABASE_URI", f"sqlite:///{tmp_path}/test.db")
-    monkeypatch.setenv("MEDIA_DOWNLOAD_SIGNING_KEY", "test-sign-key")
-    monkeypatch.setenv("ENCRYPTION_KEY", "a" * 32)
-    monkeypatch.setenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
-    monkeypatch.setenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
-    
-    # Ensure the test database directory exists
-    db_path = tmp_path / "test.db"
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    # Import and create app
-    from presentation.web import create_app
-    app = create_app()
-    
-    # Create tables
-    with app.app_context():
-        from shared.kernel.database.db import db
-        db.create_all()
-    
-    return app
+def celery_inst():
+    """Celery インスタンスを返す。"""
+    from cli.src.celery.celery_app import celery
 
-
-@pytest.fixture
-def celery_app(app):
-    """Create test Celery app with Flask app context."""
-    from cli.src.celery.celery_app import celery, flask_app
-    
-    # Ensure Celery uses the test Flask app context
-    class TestContextTask(celery.Task):
-        def __call__(self, *args, **kwargs):
-            with app.app_context():
-                return self.run(*args, **kwargs)
-    
-    # Temporarily replace the context task
-    original_task = celery.Task
-    celery.Task = TestContextTask
-    
-    yield celery
-    
-    # Restore original task
-    celery.Task = original_task
+    return celery
 
 
 class TestCeleryAppContext:
-    """Test Celery tasks with Flask application context."""
-    
+    """Test Celery tasks with application context."""
+
     def test_celery_app_creation(self):
         """Test that Celery app is created correctly."""
-        from cli.src.celery.celery_app import celery, flask_app
-        
-        assert celery is not None
-        assert flask_app is not None
-        assert hasattr(celery, 'Task')
-    
-    def test_flask_app_context_in_celery(self, app):
-        """Test that Flask app context is available in Celery tasks."""
-        from cli.src.celery.celery_app import celery, flask_app
-        
-        # Test that flask_app has the required configuration
-        assert flask_app.config['SECRET_KEY'] is not None
-        assert flask_app.config['SQLALCHEMY_DATABASE_URI'] is not None
-    
-    def test_context_task_wrapper(self, app, celery_app):
-        """Test that ContextTask wrapper provides Flask app context."""
-        from cli.src.celery.celery_app import ContextTask
-        
-        # Create a mock task that requires app context
-        class MockTask(ContextTask):
-            def run(self):
-                from flask import current_app
-                from shared.kernel.database.db import db
-                # This should not raise RuntimeError
-                return current_app.config['SECRET_KEY']
-        
-        # Manually create and call the task
-        task = MockTask()
-        with app.app_context():
-            result = task()
-            # ContextTask は Celery 側の flask_app（celery_app モジュール
-            # import 時に生成）のコンテキストで実行される。環境変数は優先
-            # されるが反映タイミングは import 時点のため、fixture の app とは
-            # SECRET_KEY が一致しないことがある。Celery 側 app の値と比較する。
-            from cli.src.celery import celery_app as celery_app_module
+        from cli.src.celery.celery_app import celery
 
-            assert result is not None
-            assert result == celery_app_module.flask_app.config['SECRET_KEY']
-    
-    def test_picker_import_watchdog_task_context(self, app, celery_app):
-        """Test that picker_import_watchdog_task has proper Flask context."""
+        assert celery is not None
+        assert hasattr(celery, "Task")
+
+    def test_context_task_class_exists(self):
+        """Test that ContextTask class is properly defined."""
+        from cli.src.celery.celery_app import ContextTask, celery
+
+        assert celery.Task == ContextTask
+
+    def test_picker_import_watchdog_task_callable(self):
+        """Test that picker_import_watchdog_task is callable."""
         from cli.src.celery.tasks import picker_import_watchdog_task
-        
-        # Mock the picker_import_watchdog function to avoid actual DB operations
-        with patch('cli.src.celery.tasks.picker_import_watchdog') as mock_watchdog:
-            mock_watchdog.return_value = {"requeued": 0, "failed": 0, "recovered": 0, "republished": 0}
-            
-            # Test that the task can be called without RuntimeError
-            with app.app_context():
-                result = picker_import_watchdog_task()
-                assert result is not None
-                assert 'requeued' in result
-                mock_watchdog.assert_called_once()
-    
-    def test_picker_import_item_task_context(self, app, celery_app):
-        """Test that picker_import_item_task has proper Flask context."""
+
+        with patch("cli.src.celery.tasks.picker_import_watchdog") as mock_watchdog:
+            mock_watchdog.return_value = {
+                "requeued": 0,
+                "failed": 0,
+                "recovered": 0,
+                "republished": 0,
+            }
+
+            result = picker_import_watchdog_task()
+            assert result is not None
+            assert "requeued" in result
+            mock_watchdog.assert_called_once()
+
+    def test_picker_import_item_task_callable(self):
+        """Test that picker_import_item_task is callable."""
         from cli.src.celery.tasks import picker_import_item_task
-        
-        # Mock the picker_import_item function
-        with patch('cli.src.celery.tasks.picker_import_item') as mock_import:
+
+        with patch("cli.src.celery.tasks.picker_import_item") as mock_import:
             mock_import.return_value = {"ok": True, "status": "completed"}
-            
-            # Test that the task can be called without RuntimeError
-            with app.app_context():
-                result = picker_import_item_task(selection_id=1, session_id=1)
-                assert result is not None
-                assert 'ok' in result
-                mock_import.assert_called_once_with(selection_id=1, session_id=1)
-    
-    def test_dummy_long_task_context(self, app, celery_app):
-        """Test that dummy_long_task has proper Flask context."""
+
+            result = picker_import_item_task(selection_id=1, session_id=1)
+            assert result is not None
+            assert "ok" in result
+            mock_import.assert_called_once_with(selection_id=1, session_id=1)
+
+    def test_dummy_long_task_runs(self):
+        """Test that dummy_long_task executes correctly."""
         from cli.src.celery.tasks import dummy_long_task
-        
-        # Mock time.sleep to avoid actual delay
-        with patch('cli.src.celery.tasks.time.sleep'):
-            with app.app_context():
-                result = dummy_long_task(x=2, y=3)
-                assert result == {"ok": True, "result": 5}
-    
-    def test_download_file_task_context(self, app, celery_app, tmp_path):
-        """Test that download_file task has proper Flask context."""
+
+        with patch("cli.src.celery.tasks.time.sleep"):
+            result = dummy_long_task(x=2, y=3)
+            assert result == {"ok": True, "result": 5}
+
+    def test_download_file_task_callable(self, tmp_path):
+        """Test that download_file task is callable."""
         from cli.src.celery.tasks import download_file, DEFAULT_DOWNLOAD_TIMEOUT
-        
-        # Mock the helper functions
+
         mock_content = b"test content"
         mock_sha = "test_sha256"
-        
-        with patch('cli.src.celery.tasks._download_content') as mock_download:
-            with patch('cli.src.celery.tasks._save_content') as mock_save:
+
+        with patch("cli.src.celery.tasks._download_content") as mock_download:
+            with patch("cli.src.celery.tasks._save_content") as mock_save:
                 mock_download.return_value = (mock_content, mock_sha)
-                
-                with app.app_context():
-                    result = download_file(url="http://example.com/file", dest_dir=str(tmp_path))
-                    
-                    assert result is not None
-                    assert 'path' in result
-                    assert 'bytes' in result
-                    assert 'sha256' in result
-                    assert result['bytes'] == len(mock_content)
-                    assert result['sha256'] == mock_sha
-                    
-                    mock_download.assert_called_once_with("http://example.com/file", timeout=DEFAULT_DOWNLOAD_TIMEOUT)
-                    mock_save.assert_called_once()
+
+                result = download_file(url="http://example.com/file", dest_dir=str(tmp_path))
+
+                assert result is not None
+                assert "path" in result
+                assert "bytes" in result
+                assert "sha256" in result
+                assert result["bytes"] == len(mock_content)
+                assert result["sha256"] == mock_sha
+
+                mock_download.assert_called_once_with(
+                    "http://example.com/file", timeout=DEFAULT_DOWNLOAD_TIMEOUT
+                )
+                mock_save.assert_called_once()
 
 
 class TestCeleryIntegration:
-    """Test Celery integration with database operations."""
-    
-    def test_database_access_in_task(self, app, celery_app):
-        """Test that database can be accessed within Celery tasks."""
-        from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
-        from shared.kernel.database.db import db
-        
-        # Create a test function that mimics what picker_import_watchdog does
-        def test_db_query():
-            from flask import current_app
-            with current_app.app_context():
-                # This should not raise RuntimeError
-                selections = PickerSelection.query.filter_by(status="running").all()
-                return len(selections)
-        
-        # This should work without errors
-        with app.app_context():
-            db.create_all()  # Ensure tables exist
-            count = test_db_query()
-            assert isinstance(count, int)
-    
+    """Test Celery integration."""
+
     def test_celery_beat_schedule_configuration(self):
         """Test that Celery beat schedule is properly configured."""
         from cli.src.celery.celery_app import celery
-        
-        assert hasattr(celery.conf, 'beat_schedule')
-        assert 'picker-import-watchdog' in celery.conf.beat_schedule
-        assert 'logs-cleanup' in celery.conf.beat_schedule
 
-        watchdog_schedule = celery.conf.beat_schedule['picker-import-watchdog']
-        assert watchdog_schedule['task'] == 'picker_import.watchdog'
-        assert 'schedule' in watchdog_schedule
+        assert hasattr(celery.conf, "beat_schedule")
+        assert "picker-import-watchdog" in celery.conf.beat_schedule
+        assert "logs-cleanup" in celery.conf.beat_schedule
 
-        logs_schedule = celery.conf.beat_schedule['logs-cleanup']
-        assert logs_schedule['task'] == 'logs.cleanup'
-        assert 'schedule' in logs_schedule
-    
+        watchdog_schedule = celery.conf.beat_schedule["picker-import-watchdog"]
+        assert watchdog_schedule["task"] == "picker_import.watchdog"
+        assert "schedule" in watchdog_schedule
+
+        logs_schedule = celery.conf.beat_schedule["logs-cleanup"]
+        assert logs_schedule["task"] == "logs.cleanup"
+        assert "schedule" in logs_schedule
+
     def test_celery_task_registration(self):
         """Test that all expected tasks are registered with Celery."""
         from cli.src.celery.celery_app import celery
-        
+
         expected_tasks = [
-            'cli.src.celery.tasks.dummy_long_task',
-            'cli.src.celery.tasks.download_file',
-            'picker_import.item',
-            'picker_import.watchdog',
-            'logs.cleanup'
+            "cli.src.celery.tasks.dummy_long_task",
+            "cli.src.celery.tasks.download_file",
+            "picker_import.item",
+            "picker_import.watchdog",
+            "logs.cleanup",
         ]
-        
+
         registered_tasks = list(celery.tasks.keys())
-        
+
         for task_name in expected_tasks:
             assert task_name in registered_tasks, f"Task {task_name} not registered"
 
 
 class TestCeleryErrorHandling:
     """Test error handling in Celery tasks."""
-    
-    def test_task_without_app_context_still_works(self, app, celery_app):
-        """Test that tasks work even when called outside app context."""
+
+    def test_task_dummy_long_task_works(self):
+        """Test that dummy_long_task works correctly."""
         from cli.src.celery.tasks import dummy_long_task
-        
-        # Mock time.sleep to avoid actual delay
-        with patch('cli.src.celery.tasks.time.sleep'):
-            # This should work because ContextTask provides app context
+
+        with patch("cli.src.celery.tasks.time.sleep"):
             result = dummy_long_task(x=5, y=7)
             assert result == {"ok": True, "result": 12}
-    
-    def test_database_error_handling(self, app, celery_app):
+
+    def test_database_error_handling(self):
         """Test error handling when database operations fail."""
         from cli.src.celery.tasks import picker_import_watchdog_task
-        
-        # Mock the underlying function to raise an exception
-        with patch('cli.src.celery.tasks.picker_import_watchdog') as mock_watchdog:
+
+        with patch("cli.src.celery.tasks.picker_import_watchdog") as mock_watchdog:
             mock_watchdog.side_effect = Exception("Database error")
 
-            with app.app_context():
-                result = picker_import_watchdog_task()
+            result = picker_import_watchdog_task()
 
         assert result["ok"] is False
         assert result["error"] == "Database error"

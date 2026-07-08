@@ -5,20 +5,14 @@
 
 | 優先 | # | 概要 | 状態 | 影響度 | 工数 |
 |---|---|---|---|---|---|
-| 1 | T4 | `bounded_contexts/email` を `email_sender` に統合・`email` を削除 | ⬜未着手 | 中 | 中 |
-| 2 | T8 | グループとロールの紐づけ | ⬜未着手 | 中 | 中 |
-| 3 | T9 | ユーザースイッチ（運用管理者ロールによる成り代わり） | ⬜未着手 | 中 | 大 |
-| 4 | T11 | FastAPI 全面移行（Flask-Smorest → FastAPI、既存 Blueprint 含む） | ⬜未着手 | 大 | 大 |
+| 1 | T8 | グループとロールの紐づけ | ⬜未着手 | 中 | 中 |
+| 2 | T9 | ユーザースイッチ（運用管理者ロールによる成り代わり） | ⬜未着手 | 中 | 大 |
+| 3 | T11 | FastAPI 全面移行（Flask-Smorest → FastAPI、既存 Blueprint 含む） | ⬜未着手 | 大 | 大 |
 
 ---
 
 ## 詳細
 
-- **T4 email_sender 統合** — `bounded_contexts/email` を削除し、すべてを
-  `bounded_contexts/email_sender` に一本化する。本番コード
-  （`presentation/web/services/password_reset_service.py` 等）の import パスを
-  `bounded_contexts.email_sender` に変更する。テストはすでに大半が `email_sender` 側を
-  対象にしているため変更は最小限。
 - **T8 グループとロールの紐づけ** — 現状ロールはユーザーに直接付与する設計。グループに
   ロールを付与し、所属ユーザーへ波及させる仕組み（モデル・マイグレーション・UI）が必要。
 - **T9 ユーザースイッチ** — 運用管理者ロールが他ユーザーに成り代わって画面を確認できる

@@ -10,7 +10,7 @@ from shared.kernel.database.db import db
 from shared.infrastructure.models.password_reset_token import PasswordResetToken
 from shared.infrastructure.models.user import User
 from presentation.web.utils import determine_external_scheme
-from bounded_contexts.email import EmailService
+from bounded_contexts.email_sender import EmailService
 
 
 class PasswordResetService:

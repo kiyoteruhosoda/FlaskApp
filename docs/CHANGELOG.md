@@ -5,6 +5,13 @@
 
 ## [Unreleased]
 
+### Changed
+- **T4: `bounded_contexts/email` を `email_sender` に統合**。
+  `bounded_contexts/email` を削除し、すべての機能（`send_email`・`send_password_reset_email`・
+  `validate_sender_config` 等）を `bounded_contexts/email_sender/application/email_service.py`
+  に一本化。`presentation/web/services/password_reset_service.py` および各テストファイルの
+  import パスを `bounded_contexts.email_sender` に変更。
+
 ### Added
 - **T3: 初回ログイン時パスワード強制変更フロー実装**。
   `user.must_change_password` カラム（`migrations/versions/6a3f7d2e1b4c_add_user_must_change_password.py`）、

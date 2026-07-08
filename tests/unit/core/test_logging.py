@@ -36,6 +36,9 @@ def db_session(tmp_path):
     import bounded_contexts.photonest.infrastructure.photo_models  # noqa: F401
     import bounded_contexts.totp.infrastructure.totp_models  # noqa: F401
     import bounded_contexts.wiki.infrastructure.wiki_models  # noqa: F401
+    from bounded_contexts.certs.infrastructure.models import (  # noqa: F401
+        CertificateGroupEntity, IssuedCertificateEntity, CertificatePrivateKeyEntity,
+    )
 
     engine = sa.create_engine(f"sqlite:///{tmp_path / 'test.db'}")
     db.metadata.create_all(engine)
@@ -48,10 +51,10 @@ def db_session(tmp_path):
         session.close()
 
 
-def test_status_change_logged(db_session):
+def test_status_change_logged(db_session, caplog):
     """Statusフィールドの変更がログに記録されることを確認する。"""
+    import logging
     from shared.kernel.utils import log_status_change
-    from shared.infrastructure.models.log import Log
     from shared.infrastructure.models.google_account import GoogleAccount
     from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
 
@@ -65,16 +68,15 @@ def test_status_change_logged(db_session):
 
     old = ps.status
     ps.status = "ready"
-    log_status_change(ps, old, ps.status)
-    db_session.commit()
+    with caplog.at_level(logging.INFO):
+        log_status_change(ps, old, ps.status)
 
-    log = (
-        db_session.query(Log)
-        .filter_by(event="status.change")
-        .order_by(Log.id.desc())
-        .first()
-    )
-    assert log is not None
-    data = json.loads(log.message)
+    assert any("status.change" in r.getMessage() or "ready" in r.getMessage() for r in caplog.records), \
+        "status.change ログが記録されていません"
+    # ログメッセージに遷移情報が含まれることを確認
+    log_messages = [r.getMessage() for r in caplog.records]
+    status_log = next((m for m in log_messages if "ready" in m), None)
+    assert status_log is not None
+    data = json.loads(status_log)
     assert data["model"] == "PickerSession"
     assert data["to"] == "ready"

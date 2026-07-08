@@ -34,13 +34,13 @@ def upgrade() -> None:
         sa.Column(
             "impersonator_id",
             sa.BigInteger().with_variant(sa.Integer(), "sqlite"),
-            sa.ForeignKey("users.id", ondelete="SET NULL"),
+            sa.ForeignKey("user.id", ondelete="SET NULL"),
             nullable=True,
         ),
         sa.Column(
             "impersonated_id",
             sa.BigInteger().with_variant(sa.Integer(), "sqlite"),
-            sa.ForeignKey("users.id", ondelete="SET NULL"),
+            sa.ForeignKey("user.id", ondelete="SET NULL"),
             nullable=True,
         ),
         sa.Column("event", sa.String(16), nullable=False),
@@ -74,33 +74,33 @@ def upgrade() -> None:
 
     # 権限コードを追加（既存の場合はスキップ）
     existing = bind.execute(
-        sa.text("SELECT code FROM permissions WHERE code = 'admin:impersonate'")
+        sa.text("SELECT code FROM permission WHERE code = 'admin:impersonate'")
     ).fetchone()
     if not existing:
         bind.execute(
-            sa.text("INSERT INTO permissions (code) VALUES ('admin:impersonate')")
+            sa.text("INSERT INTO permission (code) VALUES ('admin:impersonate')")
         )
 
     # admin ロールに付与
     permission_row = bind.execute(
-        sa.text("SELECT id FROM permissions WHERE code = 'admin:impersonate'")
+        sa.text("SELECT id FROM permission WHERE code = 'admin:impersonate'")
     ).fetchone()
     admin_role_row = bind.execute(
-        sa.text("SELECT id FROM roles WHERE name = 'admin'")
+        sa.text("SELECT id FROM role WHERE name = 'admin'")
     ).fetchone()
 
     if permission_row and admin_role_row:
         already_granted = bind.execute(
             sa.text(
                 "SELECT 1 FROM role_permissions "
-                "WHERE role_id = :rid AND permission_id = :pid"
+                "WHERE role_id = :rid AND perm_id = :pid"
             ),
             {"rid": admin_role_row[0], "pid": permission_row[0]},
         ).fetchone()
         if not already_granted:
             bind.execute(
                 sa.text(
-                    "INSERT INTO role_permissions (role_id, permission_id) "
+                    "INSERT INTO role_permissions (role_id, perm_id) "
                     "VALUES (:rid, :pid)"
                 ),
                 {"rid": admin_role_row[0], "pid": permission_row[0]},
@@ -112,15 +112,15 @@ def downgrade() -> None:
     bind = op.get_bind()
 
     permission_row = bind.execute(
-        sa.text("SELECT id FROM permissions WHERE code = 'admin:impersonate'")
+        sa.text("SELECT id FROM permission WHERE code = 'admin:impersonate'")
     ).fetchone()
     if permission_row:
         bind.execute(
-            sa.text("DELETE FROM role_permissions WHERE permission_id = :pid"),
+            sa.text("DELETE FROM role_permissions WHERE perm_id = :pid"),
             {"pid": permission_row[0]},
         )
         bind.execute(
-            sa.text("DELETE FROM permissions WHERE code = 'admin:impersonate'")
+            sa.text("DELETE FROM permission WHERE code = 'admin:impersonate'")
         )
 
     # --- impersonation_audit_log テーブル削除 ---

@@ -17,12 +17,19 @@ import sqlalchemy as sa
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CHAR,
+    CheckConstraint,
     Column,
     DateTime,
+    Enum,
     Float,
     ForeignKey,
+    Index,
     Integer,
+    JSON,
     LargeBinary,
+    Numeric,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -41,12 +48,32 @@ from sqlalchemy.orm import (
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
+# Flask-SQLAlchemy 互換の Model.query プロパティ（クラスレベルのディスクリプタ）
+# ---------------------------------------------------------------------------
+
+
+class _QueryProperty:
+    """Flask-SQLAlchemy の ``Model.query`` 互換ディスクリプタ。
+
+    ``Model.query.filter_by(...)`` などの既存コードをそのまま動かすための
+    後方互換レイヤー。``db.session.query(cls)`` に委譲する。
+    """
+
+    def __get__(self, obj: Any, cls: type | None = None):
+        if cls is None:
+            raise AttributeError("query")
+        return _get_scoped_session().query(cls)
+
+
+# ---------------------------------------------------------------------------
 # DeclarativeBase（全モデルの基底クラス）
 # ---------------------------------------------------------------------------
 
 
 class _Base(DeclarativeBase):
     """SQLAlchemy の宣言的基底クラス。"""
+
+    query: Any = _QueryProperty()
 
 
 # ---------------------------------------------------------------------------
@@ -108,11 +135,30 @@ class _DB:
     LargeBinary = LargeBinary
     ForeignKey = ForeignKey
     UniqueConstraint = UniqueConstraint
+    CheckConstraint = CheckConstraint
+    JSON = JSON
+    Numeric = Numeric
+    Enum = Enum
+    Index = Index
+    CHAR = CHAR
+    SmallInteger = SmallInteger
     relationship = relationship
     backref = backref
     event = event
     inspect = inspect
-    Table = sa.Table
+    func = sa.func
+
+    @staticmethod
+    def Table(name: str, *args: Any, **kwargs: Any) -> sa.Table:
+        """MetaData を自動注入する ``sa.Table`` ファクトリ。
+
+        Flask-SQLAlchemy スタイルの ``db.Table("name", Column(...), ...)`` 呼び出しで
+        MetaData を省略できるようにする互換レイヤー。
+        """
+        # 第2引数が MetaData でなければ DeclarativeBase の metadata を先頭に挿入する
+        if args and not isinstance(args[0], sa.MetaData):
+            args = (_Base.metadata,) + args
+        return sa.Table(name, *args, **kwargs)
 
     def __init__(self) -> None:
         self._app: Any = None
@@ -168,6 +214,21 @@ class _DB:
         """全テーブルを削除する（テスト用）。"""
         engine = bind or self.engine
         _Base.metadata.drop_all(engine)
+
+    def init_app_engine(self, engine: sa.Engine) -> None:
+        """テスト用エンジンを直接セットする。
+
+        ``tests/conftest.py`` の ``app_context`` フィクスチャから呼び出される。
+        スコープセッションをリセットしてテスト用エンジンで再作成する。
+        """
+        global _scoped_session
+        factory = sessionmaker(
+            bind=engine,
+            autocommit=False,
+            autoflush=False,
+            expire_on_commit=False,
+        )
+        _scoped_session = scoped_session(factory)
 
 
 db = _DB()

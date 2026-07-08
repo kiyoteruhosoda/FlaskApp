@@ -128,6 +128,17 @@ def app_context():
         from shared.kernel.database.db import db
         from presentation.fastapi.services.system_setting_service import SystemSettingService
 
+        # すべての ORM モデルをメタデータに登録してから create_all() を呼ぶ
+        import shared.infrastructure.models  # noqa: F401
+        from shared.infrastructure.models.impersonation_audit_log import ImpersonationAuditLog  # noqa: F401
+        from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession  # noqa: F401
+        from bounded_contexts.photonest.infrastructure import photo_models as _pm  # noqa: F401
+        from bounded_contexts.wiki.infrastructure import wiki_models as _wm  # noqa: F401
+        from bounded_contexts.certs.infrastructure.models import (  # noqa: F401
+            CertificateGroupEntity, IssuedCertificateEntity, CertificatePrivateKeyEntity,
+        )
+        from bounded_contexts.totp.infrastructure.totp_models import TOTPCredential  # noqa: F401
+
         engine = create_engine(
             "sqlite:///:memory:",
             connect_args={"check_same_thread": False},

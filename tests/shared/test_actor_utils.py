@@ -16,37 +16,21 @@ class _StubUser:
         return self._identifier
 
 
-@pytest.fixture
-def set_current_user(monkeypatch):
-    def _apply(user):
-        monkeypatch.setattr(actor_utils, "current_user", user, raising=False)
-
-    return _apply
-
-
-def test_subject_id_is_prioritized(set_current_user):
+def test_subject_id_is_prioritized():
     user = _StubUser(subject_id="  user-subject  ", identifier="ignored", display_name="ignored")
-    set_current_user(user)
-
-    assert actor_utils.resolve_actor_identifier() == "user-subject"
+    assert actor_utils.resolve_actor_identifier(user) == "user-subject"
 
 
-def test_get_id_used_when_subject_missing(set_current_user):
+def test_get_id_used_when_subject_missing():
     user = _StubUser(subject_id="  ", identifier="  login-id  ")
-    set_current_user(user)
-
-    assert actor_utils.resolve_actor_identifier() == "login-id"
+    assert actor_utils.resolve_actor_identifier(user) == "login-id"
 
 
-def test_display_name_used_as_fallback(set_current_user):
+def test_display_name_used_as_fallback():
     user = _StubUser(subject_id=None, identifier="", display_name="  Display Name  ")
-    set_current_user(user)
-
-    assert actor_utils.resolve_actor_identifier() == "Display Name"
+    assert actor_utils.resolve_actor_identifier(user) == "Display Name"
 
 
-def test_unknown_returned_when_no_identifier_available(set_current_user):
+def test_unknown_returned_when_no_identifier_available():
     user = _StubUser(subject_id="  ", identifier=None, display_name="  ")
-    set_current_user(user)
-
-    assert actor_utils.resolve_actor_identifier() == "unknown"
+    assert actor_utils.resolve_actor_identifier(user) == "unknown"

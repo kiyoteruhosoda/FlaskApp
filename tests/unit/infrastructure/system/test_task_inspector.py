@@ -62,55 +62,54 @@ class TestTaskOverview:
 
     def test_get_task_overview_filters_and_serializes(self, app_context):
         now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-        with app_context.app_context():
-            queued = self._create_task(
-                name="task.alpha",
-                status=CeleryTaskStatus.QUEUED,
-                created_at=now,
-                object_type="media",
-                object_id="42",
-                celery_id="celery-1",
-                scheduled_for=now + timedelta(minutes=5),
-                started_at=now + timedelta(minutes=1),
-            )
-            queued.set_payload({"foo": "bar"})
+        queued = self._create_task(
+            name="task.alpha",
+            status=CeleryTaskStatus.QUEUED,
+            created_at=now,
+            object_type="media",
+            object_id="42",
+            celery_id="celery-1",
+            scheduled_for=now + timedelta(minutes=5),
+            started_at=now + timedelta(minutes=1),
+        )
+        queued.set_payload({"foo": "bar"})
 
-            success = self._create_task(
-                name="task.beta",
-                status=CeleryTaskStatus.SUCCESS,
-                created_at=now - timedelta(minutes=1),
-                celery_id="celery-2",
-            )
-            success.set_result({"ok": True})
+        success = self._create_task(
+            name="task.beta",
+            status=CeleryTaskStatus.SUCCESS,
+            created_at=now - timedelta(minutes=1),
+            celery_id="celery-2",
+        )
+        success.set_result({"ok": True})
 
-            failed = self._create_task(
-                name="task.gamma",
-                status=CeleryTaskStatus.FAILED,
-                created_at=now - timedelta(minutes=2),
-                error_message="boom",
-            )
+        failed = self._create_task(
+            name="task.gamma",
+            status=CeleryTaskStatus.FAILED,
+            created_at=now - timedelta(minutes=2),
+            error_message="boom",
+        )
 
-            db.session.add_all([queued, success, failed])
-            db.session.commit()
+        db.session.add_all([queued, success, failed])
+        db.session.commit()
 
-            summary, tasks = get_task_overview(
-                [CeleryTaskStatus.QUEUED, CeleryTaskStatus.SUCCESS],
-                include_payload=True,
-                include_result=True,
-            )
+        summary, tasks = get_task_overview(
+            [CeleryTaskStatus.QUEUED, CeleryTaskStatus.SUCCESS],
+            include_payload=True,
+            include_result=True,
+        )
 
-            assert [task["task_name"] for task in tasks] == ["task.alpha", "task.beta"]
-            assert tasks[0]["payload"] == {"foo": "bar"}
-            assert tasks[1]["result"] == {"ok": True}
-            assert summary["queued"] == 1
-            assert summary["failed"] == 1
-            assert summary["total"] == 3
+        assert [task["task_name"] for task in tasks] == ["task.alpha", "task.beta"]
+        assert tasks[0]["payload"] == {"foo": "bar"}
+        assert tasks[1]["result"] == {"ok": True}
+        assert summary["queued"] == 1
+        assert summary["failed"] == 1
+        assert summary["total"] == 3
 
-            limited_summary, limited_tasks = get_task_overview(limit=1)
-            assert len(limited_tasks) == 1
-            assert limited_tasks[0]["task_name"] == "task.alpha"
-            assert "payload" not in limited_tasks[0]
-            assert limited_summary["total"] == 3
+        limited_summary, limited_tasks = get_task_overview(limit=1)
+        assert len(limited_tasks) == 1
+        assert limited_tasks[0]["task_name"] == "task.alpha"
+        assert "payload" not in limited_tasks[0]
+        assert limited_summary["total"] == 3
 
     def test_format_tasks_table_output(self):
         task = {

@@ -1,14 +1,13 @@
 import pytest
 
-from presentation.web.bootstrap.extensions import db
+from shared.kernel.database.db import db
 from shared.infrastructure.models.group import Group, GroupHierarchyError
 
 
 @pytest.fixture
 def session(app_context):
-    with app_context.app_context():
-        yield db.session
-        db.session.rollback()
+    yield db.session
+    db.session.rollback()
 
 
 def test_assign_parent_prevents_cycle(session):

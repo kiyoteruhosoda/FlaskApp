@@ -70,7 +70,7 @@ def _extract_jwt_payload(signing_input: bytes) -> dict:
 
 async def _resolve_service_account(request: Request, db: Session = Depends(get_db)):
     """API キー認証でサービスアカウントを解決する。"""
-    from presentation.web.auth.api_key_auth import _resolve_api_key_account
+    from presentation.fastapi.auth.api_key_auth import _resolve_api_key_account
 
     auth_header = request.headers.get("Authorization", "")
     api_key = None

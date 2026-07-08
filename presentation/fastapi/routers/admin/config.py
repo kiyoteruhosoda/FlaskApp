@@ -61,7 +61,7 @@ def _serialize_signing_groups(groups: list[dict]) -> list[dict]:
 
 
 def _json_value_to_form_string(definition, value: Any) -> str:
-    from presentation.web.admin.system_settings_definitions import SettingFieldDefinition
+    from presentation.fastapi.admin.system_settings_definitions import SettingFieldDefinition
 
     if definition.data_type == "boolean":
         if isinstance(value, bool):
@@ -83,7 +83,7 @@ def _json_value_to_form_string(definition, value: Any) -> str:
 
 
 def _build_full_payload() -> dict:
-    from presentation.web.admin.routes import (
+    from presentation.fastapi.services.admin_config_service import (
         _build_config_context,
         _serialize_config_context,
         _list_server_signing_certificate_groups,
@@ -122,15 +122,15 @@ async def api_admin_config_update(
     db: Session = Depends(get_db),
 ):
     """アプリケーション設定を更新する。"""
-    from presentation.web.admin.routes import (
+    from presentation.fastapi.services.admin_config_service import (
         _build_config_context,
         _serialize_config_context,
         _parse_setting_value,
         _detect_relogin_changes,
         _HIDDEN_APPLICATION_SETTING_KEYS,
     )
-    from presentation.web.admin.system_settings_definitions import APPLICATION_SETTING_DEFINITIONS
-    from presentation.web.services.system_setting_service import SystemSettingService
+    from presentation.fastapi.admin.system_settings_definitions import APPLICATION_SETTING_DEFINITIONS
+    from presentation.fastapi.services.system_setting_service import SystemSettingService
 
     _require_system_manage(principal)
 
@@ -220,9 +220,9 @@ async def api_admin_config_cors_update(
     db: Session = Depends(get_db),
 ):
     """CORS 許可オリジンを更新する。"""
-    from presentation.web.admin.routes import _parse_setting_value
-    from presentation.web.admin.system_settings_definitions import CORS_SETTING_DEFINITIONS
-    from presentation.web.services.system_setting_service import SystemSettingService
+    from presentation.fastapi.services.admin_config_service import _parse_setting_value
+    from presentation.fastapi.admin.system_settings_definitions import CORS_SETTING_DEFINITIONS
+    from presentation.fastapi.services.system_setting_service import SystemSettingService
 
     _require_system_manage(principal)
 
@@ -281,7 +281,7 @@ async def api_admin_config_signing_update(
     db: Session = Depends(get_db),
 ):
     """アクセストークンの署名方式を更新する。"""
-    from presentation.web.services.system_setting_service import (
+    from presentation.fastapi.services.system_setting_service import (
         SystemSettingService,
         AccessTokenSigningValidationError,
     )

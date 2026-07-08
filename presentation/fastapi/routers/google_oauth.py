@@ -235,7 +235,7 @@ async def api_google_account_delete(
     refresh_token = token_json.get("refresh_token")
     if refresh_token:
         try:
-            from presentation.web.auth.utils import log_requests_and_send
+            from shared.infrastructure.http_logging import log_requests_and_send
             log_requests_and_send(
                 "POST",
                 "https://oauth2.googleapis.com/revoke",
@@ -260,7 +260,7 @@ async def api_google_account_test(
 ):
     """Google アカウントのトークンをテストする（アクセストークン再取得を試みる）。"""
     from shared.infrastructure.models.google_account import GoogleAccount
-    from presentation.web.auth.utils import RefreshTokenError, refresh_google_token
+    from shared.infrastructure.google_oauth import RefreshTokenError, refresh_google_token
 
     account = db.get(GoogleAccount, account_id)
     if account is None:

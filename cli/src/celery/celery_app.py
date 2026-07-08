@@ -6,15 +6,12 @@ from typing import Any, Dict, Optional, Tuple
 from celery import Celery, signals
 from celery.exceptions import Retry as CeleryRetry
 from dotenv import load_dotenv
-from flask import Flask
 
 from shared.kernel.celery_settings import CelerySettings
 from shared.kernel.database.db import db
 from shared.infrastructure.models.celery_task import CeleryTaskRecord, CeleryTaskStatus
 from shared.infrastructure.models.job_sync import JobSync
 from shared.kernel.logging.logging_config import log_task_info
-from presentation.web import _apply_persisted_settings
-from presentation.web.bootstrap.config import BaseApplicationSettings
 
 # shared.infrastructure.models.__init__ は shared モデル（User・GoogleAccount 等）を
 # import する。これらは bounded_context のモデルを文字列 relationship で参照しているため、
@@ -30,42 +27,14 @@ import bounded_contexts.photonest.infrastructure.photo_models as _photo_models  
 # .envファイルを読み込み
 load_dotenv()
 
-# Flask app factory
-def create_app():
-    """Create and configure Flask app for Celery."""
-    app = Flask(__name__)
-    app.config.from_object(BaseApplicationSettings)
+# Initialize Celery settings directly (no Flask app needed)
+celery_runtime_settings = CelerySettings.from_application_settings()
 
-    # Initialize database
-    db.init_app(app)
-
-    # Initialize other extensions
-    from presentation.web.bootstrap.extensions import migrate, login_manager, babel
-    migrate.init_app(app, db)
-    login_manager.init_app(app)
-    babel.init_app(app)
-
-    # Load persisted configuration so Celery shares runtime settings with the web app
-    with app.app_context():
-        _apply_persisted_settings(app)
-
-    return app
-
-# Create Flask app context for Celery tasks
-flask_app = create_app()
-
-with flask_app.app_context():
-    celery_runtime_settings = CelerySettings.from_application_settings()
-
-# create_app()/CelerySettings の読み込みはこのモジュール import 時点（＝Celery
-# マスタープロセス内、--pool=prefork が子プロセスを fork するより前）に実行され、
-# その際 DB へ実接続している。ここで即座に破棄しておかないと、マスタープロセスが
-# 開いたコネクションが fork 後も子プロセスへ生きたまま引き継がれ、複数プロセスが
-# 同じソケットを使い回すことで MySQL プロトコルが混線する
-# （worker_process_init 側の dispose だけでは、fork 直前に Python レベルでは同じ
-#  Engine オブジェクト・プールの内部ロック状態までコピーされてしまうため不十分）。
-with flask_app.app_context():
+# Dispose DB connections to avoid sharing across forked processes
+try:
     db.engine.dispose()
+except Exception:
+    pass
 
 # Create Celery instance
 celery = Celery(
@@ -102,7 +71,7 @@ def setup_celery_logging():
                 handler.setLevel(level)
                 break
         else:
-            worker_handler = WorkerDBLogHandler(app=flask_app)
+            worker_handler = WorkerDBLogHandler(app=None)
             worker_handler.setLevel(level)
             logger.addHandler(worker_handler)
 
@@ -155,15 +124,12 @@ def setup_celery_logging():
     _ensure_worker_db_handler(root_logger, logging.ERROR)
 
 # Setup logging when app is created
-with flask_app.app_context():
-    setup_celery_logging()
+setup_celery_logging()
 
 
 def _ensure_worker_logging() -> None:
     """Attach logging handlers within an application context."""
-
-    with flask_app.app_context():
-        setup_celery_logging()
+    setup_celery_logging()
 
 
 @signals.worker_process_init.connect
@@ -184,8 +150,7 @@ def _dispose_db_engine_after_fork(**_: Any) -> None:
     the parent's.
     """
 
-    with flask_app.app_context():
-        db.engine.dispose()
+    db.engine.dispose()
 
 
 @signals.worker_process_init.connect
@@ -377,10 +342,10 @@ def _safe_db_rollback() -> None:
         pass
 
 class ContextTask(celery.Task):
-    """Make celery tasks work with Flask app context."""
+    """Make celery tasks run without Flask app context."""
 
     def __call__(self, *args, **kwargs):
-        with flask_app.app_context():
+        if True:
             record: Optional[CeleryTaskRecord] = None
             job: Optional[JobSync] = None
             job_created = False

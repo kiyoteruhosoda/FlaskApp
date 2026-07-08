@@ -81,7 +81,7 @@ def _serialize_album_summary(
 def _resolve_best_thumbnail_url(media, db: Session) -> Optional[str]:
     """利用可能な最大サイズのサムネイル URL を返す（無ければ None）。"""
     try:
-        from presentation.web.api.routes import (
+        from presentation.fastapi.services.storage_helpers import (
             _resolve_storage_file,
             _thumbnail_rel_path_candidates,
         )

@@ -38,7 +38,7 @@ async def get_current_principal(
 
     認証失敗時は ``HTTP 401`` を送出する。
     """
-    from presentation.web.services.token_service import TokenService
+    from presentation.fastapi.services.token_service import TokenService
 
     token = _extract_token(credentials)
 
@@ -69,7 +69,7 @@ async def get_optional_principal(
 
     認証失敗時は ``None`` を返す（例外は送出しない）。
     """
-    from presentation.web.services.token_service import TokenService
+    from presentation.fastapi.services.token_service import TokenService
 
     token = _extract_token(credentials)
     if not token:

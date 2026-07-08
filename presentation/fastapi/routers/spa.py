@@ -57,7 +57,7 @@ def _serve_index() -> FileResponse | HTMLResponse:
     )
 
 
-@router.get("/")
+@router.get("/", response_model=None)
 async def spa_root() -> FileResponse | HTMLResponse:
     """React SPA のルートパスを配信する。"""
     return _serve_index()
@@ -69,7 +69,7 @@ async def chrome_devtools() -> JSONResponse:
     return JSONResponse(content={}, status_code=204)
 
 
-@router.get("/{path:path}", include_in_schema=False)
+@router.get("/{path:path}", include_in_schema=False, response_model=None)
 async def spa_catch_all(path: str) -> FileResponse | HTMLResponse | JSONResponse:
     """全クライアントサイドルートを React SPA の index.html にフォールバックする。
 

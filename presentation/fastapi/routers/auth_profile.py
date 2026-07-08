@@ -95,7 +95,7 @@ async def api_auth_2fa_setup(
     db: Session = Depends(get_db),
 ):
     """新しい TOTP シークレットを生成して返す。"""
-    from presentation.web.auth.totp import new_totp_secret, provisioning_uri, qr_code_data_uri
+    from presentation.fastapi.auth.totp import new_totp_secret, provisioning_uri, qr_code_data_uri
 
     user = _get_orm_user(principal, db)
     if user.totp_secret:
@@ -114,7 +114,7 @@ async def api_auth_2fa_confirm(
     db: Session = Depends(get_db),
 ):
     """TOTP コードを検証してシークレットを保存する（2FA を有効化）。"""
-    from presentation.web.auth.totp import verify_totp
+    from presentation.fastapi.auth.totp import verify_totp
 
     user = _get_orm_user(principal, db)
     if user.totp_secret:
@@ -153,7 +153,7 @@ async def api_auth_register(
 ):
     """新しいユーザーを登録して JWT トークンを発行する。"""
     from shared.infrastructure.models.user import User, Role
-    from presentation.web.services.token_service import TokenService
+    from presentation.fastapi.services.token_service import TokenService
 
     email = (body.get("email") or "").strip()
     password = (body.get("password") or "").strip()
@@ -198,7 +198,7 @@ async def api_auth_register(
 @router.post("/password/forgot")
 async def api_auth_password_forgot(body: dict, db: Session = Depends(get_db)):
     """パスワードリセットメールを送信する。"""
-    from presentation.web.services.password_reset_service import PasswordResetService
+    from presentation.fastapi.services.password_reset_service import PasswordResetService
 
     email = (body.get("email") or "").strip()
     if not email:
@@ -215,7 +215,7 @@ async def api_auth_password_forgot(body: dict, db: Session = Depends(get_db)):
 @router.post("/password/reset")
 async def api_auth_password_reset(body: dict, db: Session = Depends(get_db)):
     """トークンを検証して新しいパスワードを設定する。"""
-    from presentation.web.services.password_reset_service import PasswordResetService
+    from presentation.fastapi.services.password_reset_service import PasswordResetService
 
     token = (body.get("token") or "").strip()
     password = body.get("password") or ""

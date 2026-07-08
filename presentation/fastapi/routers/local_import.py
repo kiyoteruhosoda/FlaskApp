@@ -29,17 +29,17 @@ def _local_import_log(msg: str, level: str = "info", **kwargs) -> None:
 
 
 def _storage_service():
-    from presentation.web.api.routes import _storage_service as _svc
+    from presentation.fastapi.services.storage_helpers import _storage_service as _svc
     return _svc()
 
 
 def _storage_path(config_key: str):
-    from presentation.web.api.routes import _storage_path as _sp
+    from presentation.fastapi.services.storage_helpers import _storage_path as _sp
     return _sp(config_key)
 
 
 def _storage_path_candidates(config_key: str):
-    from presentation.web.api.routes import _storage_path_candidates as _spc
+    from presentation.fastapi.services.storage_helpers import _storage_path_candidates as _spc
     return _spc(config_key)
 
 
@@ -62,7 +62,7 @@ def _prepare_local_import_path(path_value) -> dict:
 
 
 def _resolve_local_import_config() -> dict:
-    from presentation.web.bootstrap.config import BaseApplicationSettings
+    from presentation.fastapi.config import BaseApplicationSettings
 
     directory_specs = [
         ("MEDIA_LOCAL_IMPORT_DIRECTORY", "import", settings.local_import_directory_configured),

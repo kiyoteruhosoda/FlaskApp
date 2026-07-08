@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 from typing import Any, Iterable
 
-from presentation.web import create_app
-from presentation.web.bootstrap.extensions import db
-from presentation.web.services.system_setting_service import SystemSettingService
+from dotenv import load_dotenv; load_dotenv()
+from shared.kernel.database.db import db
+from presentation.fastapi.services.system_setting_service import SystemSettingService
 from shared.kernel.settings.system_settings_defaults import DEFAULT_APPLICATION_SETTINGS
 from shared.kernel.settings.settings import ApplicationSettings
 
@@ -64,13 +64,11 @@ def _load_cors_origins() -> Iterable[str]:
 
 
 def main() -> None:
-    app = create_app()
-    with app.app_context():
-        payload = _load_application_settings_from_env()
-        SystemSettingService.upsert_application_config(payload)
-        cors_origins = list(_load_cors_origins())
-        SystemSettingService.upsert_cors_config(cors_origins)
-        db.session.commit()
+    payload = _load_application_settings_from_env()
+    SystemSettingService.upsert_application_config(payload)
+    cors_origins = list(_load_cors_origins())
+    SystemSettingService.upsert_cors_config(cors_origins)
+    db.session.commit()
 
 
 if __name__ == "__main__":  # pragma: no cover

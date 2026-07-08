@@ -18,7 +18,7 @@ router = APIRouter(prefix="/maintenance", tags=["maintenance"])
 
 async def _require_maintenance_account(request: Request, db: Session = Depends(get_db)):
     """サービスアカウント JWT 認証で maintenance:read スコープを検証する。"""
-    from presentation.web.auth.service_account_auth import _verify_service_account_jwt
+    from presentation.fastapi.auth.service_account_auth import _verify_service_account_jwt
 
     auth_header = request.headers.get("Authorization", "")
     token = None

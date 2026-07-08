@@ -8,7 +8,7 @@ from threading import Lock
 from typing import Dict, Optional, Tuple, Iterable, List, Any, Sequence
 from uuid import uuid4
 
-from flask import current_app
+import logging
 
 from shared.kernel.settings.settings import settings
 
@@ -159,7 +159,7 @@ def _update_picker_session_from_data(ps: PickerSession, data: dict) -> None:
                 "account_id": ps.account_id,
                 "payload_keys": sorted(data.keys()),
             }
-            current_app.logger.warning(
+            logging.getLogger(__name__).warning(
                 json.dumps(log_payload, default=_normalize_log_value),
                 extra={"event": "pickerSession.sessionId.missing"},
             )
@@ -267,7 +267,7 @@ class PickerSessionService:
         try:
             tokens = refresh_google_token(account)
         except RefreshTokenError as e:
-            current_app.logger.warning(
+            logging.getLogger(__name__).warning(
                 json.dumps(
                     {
                         "ts": datetime.now(timezone.utc).isoformat(),
@@ -289,7 +289,7 @@ class PickerSessionService:
         # 余計なフィールドを送ると 400 INVALID_ARGUMENT（Cannot find field）になる。
         body: dict = {}
         request_started_at = datetime.now(timezone.utc)
-        current_app.logger.info(
+        logging.getLogger(__name__).info(
             json.dumps(
                 {
                     "ts": request_started_at.isoformat(),
@@ -310,7 +310,7 @@ class PickerSessionService:
             picker_res.raise_for_status()
             picker_data = picker_res.json()
         except Exception as e:
-            current_app.logger.error(
+            logging.getLogger(__name__).error(
                 json.dumps(
                     {
                         "ts": datetime.now(timezone.utc).isoformat(),
@@ -332,12 +332,12 @@ class PickerSessionService:
             "session_id": picker_data.get("id"),
             "payload_keys": sorted(picker_data.keys()),
         }
-        current_app.logger.info(
+        logging.getLogger(__name__).info(
             json.dumps(response_log_context, default=_normalize_log_value),
             extra={"event": "pickerSession.create.response"},
         )
         if not picker_data.get("id"):
-            current_app.logger.warning(
+            logging.getLogger(__name__).warning(
                 json.dumps(
                     {
                         **response_log_context,
@@ -358,7 +358,7 @@ class PickerSessionService:
         db.session.add(ps)
         _update_picker_session_from_data(ps, picker_data)
         db.session.commit()
-        current_app.logger.info(
+        logging.getLogger(__name__).info(
             json.dumps(
                 {
                     "ts": datetime.now(timezone.utc).isoformat(),
@@ -387,7 +387,7 @@ class PickerSessionService:
         selected = ps.selected_count
 
         if account and account.status == "active" and not ps.session_id:
-            current_app.logger.info(
+            logging.getLogger(__name__).info(
                 json.dumps(
                     {
                         "ts": datetime.now(timezone.utc).isoformat(),
@@ -449,7 +449,7 @@ class PickerSessionService:
             "selected_count": ps.selected_count,
             "counts": counts,
         }
-        current_app.logger.info(
+        logging.getLogger(__name__).info(
             json.dumps(status_log_context, default=str),
             extra={"event": "pickerSession.status.summary"},
         )
@@ -483,7 +483,7 @@ class PickerSessionService:
         status_changed = False
         if ps.status not in {"canceled", "failed"}:
             if import_failed > 0 and not has_pending and ps.status != "error":
-                current_app.logger.info(
+                logging.getLogger(__name__).info(
                     json.dumps(
                         {
                             **status_log_context,
@@ -499,7 +499,7 @@ class PickerSessionService:
                 ps.updated_at = now
                 status_changed = True
             elif thumbnails_failed and ps.status != "error":
-                current_app.logger.info(
+                logging.getLogger(__name__).info(
                     json.dumps(
                         {
                             **status_log_context,
@@ -516,7 +516,7 @@ class PickerSessionService:
                 status_changed = True
             elif has_pending or thumbnails_pending:
                 if ps.status != "processing":
-                    current_app.logger.info(
+                    logging.getLogger(__name__).info(
                         json.dumps(
                             {
                                 **status_log_context,
@@ -534,7 +534,7 @@ class PickerSessionService:
             elif ps.status in ("processing", "importing", "error", "failed", "pending", "imported"):
                 new_status = PickerSessionService._determine_completion_status(counts)
                 if new_status and ps.status != new_status:
-                    current_app.logger.info(
+                    logging.getLogger(__name__).info(
                         json.dumps(
                             {
                                 **status_log_context,
@@ -987,7 +987,7 @@ class PickerSessionService:
         try:
             with _media_items_concurrency:
                 lock = _get_lock(session_id)
-                current_app.logger.info(
+                logging.getLogger(__name__).info(
                     json.dumps(
                         {
                             "event": "picker.mediaItems.lock_attempt",
@@ -998,7 +998,7 @@ class PickerSessionService:
                     )
                 )
                 if not lock.acquire(blocking=False):
-                    current_app.logger.warning(
+                    logging.getLogger(__name__).warning(
                         json.dumps(
                             {
                                 "event": "picker.mediaItems.lock_busy",
@@ -1016,7 +1016,7 @@ class PickerSessionService:
                     _release_lock(session_id, lock)
         except ConcurrencyLimitExceeded as exc:
             retry_after = exc.retry_after
-            current_app.logger.warning(
+            logging.getLogger(__name__).warning(
                 json.dumps(
                     {
                         "event": "picker.mediaItems.rate_limited",
@@ -1038,7 +1038,7 @@ class PickerSessionService:
         # "ready" はコールバックで選択完了通知を受けた状態。取り込み開始を許可する。
         if not ps or ps.status not in ("pending", "ready", "processing"):
             return {"error": "not_found"}, 404
-        current_app.logger.info(
+        logging.getLogger(__name__).info(
             json.dumps(
                 {
                     "event": "picker.mediaItems.lock_acquired",
@@ -1067,7 +1067,7 @@ class PickerSessionService:
                 PickerSessionService._enqueue_new_items(ps, new_pmis)
             elif saved or dup:
                 db.session.commit()
-            current_app.logger.info(
+            logging.getLogger(__name__).info(
                 json.dumps(
                     {
                         "event": "picker.mediaItems.lock_complete",
@@ -1119,7 +1119,7 @@ class PickerSessionService:
         )
         sess_res.raise_for_status()
         sess_data = sess_res.json()
-        current_app.logger.info(
+        logging.getLogger(__name__).info(
             json.dumps(
                 {
                     "event": "picker.mediaItems.session_snapshot",
@@ -1151,7 +1151,7 @@ class PickerSessionService:
             dup += page_dup
             new_pmis.extend(page_new)
             cursor = picker_data.get("nextPageToken")
-            current_app.logger.info(
+            logging.getLogger(__name__).info(
                 json.dumps(
                     {
                         "event": "picker.mediaItems.page",
@@ -1188,7 +1188,7 @@ class PickerSessionService:
                 raise RuntimeError(f"mediaItems fetch failed: {fetch_exc}")
 
             if getattr(res, "status_code", 200) == 429:
-                current_app.logger.warning(
+                logging.getLogger(__name__).warning(
                     json.dumps(
                         {
                             "event": "picker.mediaItems.throttle",
@@ -1228,7 +1228,7 @@ class PickerSessionService:
 
             if result.should_enqueue:
                 enqueued_keys.add(pmi.google_media_id)
-                current_app.logger.info(
+                logging.getLogger(__name__).info(
                     json.dumps({
                         "event": "picker.enqueue",
                         "google_media_id": pmi.google_media_id,
@@ -1239,7 +1239,7 @@ class PickerSessionService:
                 )
                 new_pmis.append(pmi)
             else:
-                current_app.logger.debug(
+                logging.getLogger(__name__).debug(
                     json.dumps({
                         "event": "picker.skip_enqueue",
                         "google_media_id": pmi.google_media_id,
@@ -1281,7 +1281,7 @@ class PickerSessionService:
             target_status = "pending"
 
         if is_duplicate:
-            current_app.logger.info(
+            logging.getLogger(__name__).info(
                 json.dumps(
                     {
                         "ts": datetime.now(timezone.utc).isoformat(),
@@ -1485,7 +1485,7 @@ class PickerSessionService:
         if selection_ids:
             PickerSessionService._ensure_import_tasks(selection_ids)
         db.session.commit()
-        current_app.logger.info(
+        logging.getLogger(__name__).info(
             json.dumps(
                 {
                     "event": "picker.mediaItems.enqueued",
@@ -1616,9 +1616,9 @@ class PickerSessionService:
             # Fall back to dummy for tests or when Celery is not available
             print(f"Celery not available, would start watchdog for session {ps.id}")
         except Exception as e:
-            current_app.logger.error(f"Failed to publish Celery task: {e}")
+            logging.getLogger(__name__).error(f"Failed to publish Celery task: {e}")
             if settings.testing:
-                current_app.logger.warning(
+                logging.getLogger(__name__).warning(
                     "Celery publish failed in test mode; continuing without enqueue."
                 )
                 return
@@ -1667,7 +1667,7 @@ class PickerSessionService:
                     ps.last_progress_at = now
                     db.session.commit()
                     metrics["expired"] += 1
-                    current_app.logger.info(
+                    logging.getLogger(__name__).info(
                         json.dumps(
                             {
                                 "ts": now.isoformat(),
@@ -1693,7 +1693,7 @@ class PickerSessionService:
                 payload, status_code = PickerSessionService.media_items(ps.session_id)
                 if status_code == 200:
                     metrics["started"] += 1
-                current_app.logger.info(
+                logging.getLogger(__name__).info(
                     json.dumps(
                         {
                             "ts": datetime.now(timezone.utc).isoformat(),
@@ -1709,7 +1709,7 @@ class PickerSessionService:
             except Exception as exc:
                 db.session.rollback()
                 metrics["errors"] += 1
-                current_app.logger.error(
+                logging.getLogger(__name__).error(
                     json.dumps(
                         {
                             "ts": datetime.now(timezone.utc).isoformat(),

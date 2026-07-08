@@ -27,8 +27,9 @@ from shared.domain.auth.master_data import (
     ROLES,
 )
 from shared.kernel.i18n.translation import gettext as _
-from presentation.web import create_app
-from presentation.web.services.system_setting_service import SystemSettingService
+from dotenv import load_dotenv
+load_dotenv()
+from presentation.fastapi.services.system_setting_service import SystemSettingService
 
 
 def seed_system_settings():
@@ -159,9 +160,7 @@ def seed_admin_user():
 
 def main():
     """メインのシード実行"""
-    app = create_app()
-    
-    with app.app_context():
+    if True:
         print(_("=== %(app_name)s Master Data Seeding ===", app_name=_("AppName")))
         
         try:

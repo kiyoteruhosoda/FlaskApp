@@ -51,7 +51,7 @@ async def list_service_account_keys(
     db: Session = Depends(get_db),
 ):
     """サービスアカウントの API キー一覧を返す。"""
-    from presentation.web.services.service_account_api_key_service import (
+    from presentation.fastapi.services.service_account_api_key_service import (
         ServiceAccountApiKeyNotFoundError,
         ServiceAccountApiKeyService,
         ServiceAccountApiKeyValidationError,
@@ -78,7 +78,7 @@ async def create_service_account_key(
     db: Session = Depends(get_db),
 ):
     """サービスアカウントの API キーを作成する。"""
-    from presentation.web.services.service_account_api_key_service import (
+    from presentation.fastapi.services.service_account_api_key_service import (
         ServiceAccountApiKeyNotFoundError,
         ServiceAccountApiKeyService,
         ServiceAccountApiKeyValidationError,
@@ -121,7 +121,7 @@ async def revoke_service_account_key(
     db: Session = Depends(get_db),
 ):
     """API キーを無効化する。"""
-    from presentation.web.services.service_account_api_key_service import (
+    from presentation.fastapi.services.service_account_api_key_service import (
         ServiceAccountApiKeyNotFoundError,
         ServiceAccountApiKeyService,
         ServiceAccountApiKeyValidationError,
@@ -151,7 +151,7 @@ async def list_service_account_key_logs(
     db: Session = Depends(get_db),
 ):
     """API キーのアクセスログを返す。"""
-    from presentation.web.services.service_account_api_key_service import (
+    from presentation.fastapi.services.service_account_api_key_service import (
         ServiceAccountApiKeyNotFoundError,
         ServiceAccountApiKeyService,
         ServiceAccountApiKeyValidationError,

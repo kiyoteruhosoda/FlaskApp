@@ -89,6 +89,7 @@ class _StorageAccessor:
 
 
 if TYPE_CHECKING:  # pragma: no cover
+    pass
 
 
 class ApplicationSettings:

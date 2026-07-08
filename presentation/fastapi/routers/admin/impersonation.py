@@ -96,7 +96,7 @@ async def start_impersonation(
     - 返却トークンの TTL は 1時間（リフレッシュ不可）。
     """
     from shared.infrastructure.models.user import User
-    from presentation.web.services.token_service import TokenService
+    from presentation.fastapi.services.token_service import TokenService
 
     if not principal.can("admin:impersonate"):
         raise HTTPException(
@@ -144,7 +144,7 @@ async def start_impersonation(
     # impersonator_id を埋め込むためトークンを再生成
     from datetime import datetime, timezone, timedelta
     import secrets
-    from presentation.web.services.token_service import TokenService as TS
+    from presentation.fastapi.services.token_service import TokenService as TS
     import jwt as pyjwt
     from shared.kernel.settings.settings import settings
 
@@ -192,7 +192,7 @@ async def end_impersonation(
     成り代わりトークン（impersonator_id クレームあり）を提示すること。
     """
     from shared.infrastructure.models.user import User
-    from presentation.web.services.token_service import TokenService
+    from presentation.fastapi.services.token_service import TokenService
     from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
     from typing import Optional
     from fastapi import Request as FRequest

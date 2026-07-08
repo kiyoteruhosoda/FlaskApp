@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from shared.kernel.database.db import db
 
 if TYPE_CHECKING:  # pragma: no cover
-    from shared.infrastructure.models.user import User
+    from shared.infrastructure.models.user import User, Role
 
 
 BigInt = db.BigInteger().with_variant(db.Integer, "sqlite")
@@ -19,6 +19,13 @@ group_user_membership = db.Table(
     db.Column("group_id", BigInt, db.ForeignKey("user_group.id"), primary_key=True),
     db.Column("user_id", BigInt, db.ForeignKey("user.id"), primary_key=True),
     db.UniqueConstraint("group_id", "user_id", name="uq_group_user_membership"),
+)
+
+group_roles = db.Table(
+    "group_roles",
+    db.Column("group_id", BigInt, db.ForeignKey("user_group.id"), primary_key=True),
+    db.Column("role_id", BigInt, db.ForeignKey("role.id"), primary_key=True),
+    db.UniqueConstraint("group_id", "role_id", name="uq_group_roles"),
 )
 
 
@@ -50,6 +57,10 @@ class Group(db.Model):
         "User",
         secondary=group_user_membership,
         back_populates="groups",
+    )
+    roles: Mapped[list["Role"]] = relationship(
+        "Role",
+        secondary=group_roles,
     )
 
     def ensure_assignable_parent(self, candidate: Group | None) -> None:

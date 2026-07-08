@@ -142,6 +142,15 @@ class User(db.Model, UserMixin):
             return [roles[0]]
         return roles
 
+    def _iter_group_roles(self) -> Iterable["Role"]:
+        """所属グループに付与されたロールを返す（重複除去済み）."""
+        seen_ids: set[int] = set()
+        for group in (self.groups or []):
+            for role in (group.roles or []):
+                if role.id not in seen_ids:
+                    seen_ids.add(role.id)
+                    yield role
+
     @property
     def active_role(self) -> Optional["Role"]:
         if not has_request_context():
@@ -165,12 +174,18 @@ class User(db.Model, UserMixin):
         for r in self._iter_effective_roles():
             for p in r.permissions:
                 codes.add(p.code)
+        for r in self._iter_group_roles():
+            for p in r.permissions:
+                codes.add(p.code)
         return codes
 
     @property
     def all_permissions(self) -> set[str]:
         codes = set()
         for role in self.roles or []:
+            for permission in role.permissions:
+                codes.add(permission.code)
+        for role in self._iter_group_roles():
             for permission in role.permissions:
                 codes.add(permission.code)
         return codes

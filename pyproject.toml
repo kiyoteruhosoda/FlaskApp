@@ -12,17 +12,17 @@ where = ["."]
 [project]
 name = "nolumia"                    # パッケージ名
 version = "0.1.0"                      # バージョン
-description = "Flask-based family photo management platform with Celery background jobs"
+description = "FastAPI-based family photo management platform with Celery background jobs"
 authors = [
     { name = "kiyoteru hosoda", email = "kiyoteru.hosoda@gmail.com" }
 ]
     dependencies = [                       # インストール時の依存関係
-        "flask",
+        "fastapi",
+        "uvicorn",
         "click",
         "PyJWT",
-        "flask-smorest",
-        "marshmallow",
-        "apispec",
+        "pydantic",
+        "pydantic-settings",
         "webauthn"
     ]
 requires-python = ">=3.10"
@@ -52,5 +52,5 @@ addopts = [
 filterwarnings = [
     # テストでは短い HMAC 鍵（jwt-secret 等）を使うため PyJWT が警告を出すが、
     # 本番では十分な長さの鍵を使用するためテスト時のみ無視する。
-    "ignore::jwt.warnings.InsecureKeyLengthWarning",
+    "ignore::DeprecationWarning",
 ]

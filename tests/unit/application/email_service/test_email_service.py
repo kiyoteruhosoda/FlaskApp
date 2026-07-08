@@ -126,11 +126,13 @@ class TestEmailService:
         mock_sender = MockEmailSender()
         service = EmailService(sender=mock_sender)
         
-        result = service.send_password_reset_email(
-            email="test@example.com",
-            reset_url="https://example.com/reset?token=abc123",
-            validity_minutes=30
-        )
+        from shared.kernel.i18n.translation import ForceLocale
+        with ForceLocale('en'):
+            result = service.send_password_reset_email(
+                email="test@example.com",
+                reset_url="https://example.com/reset?token=abc123",
+                validity_minutes=30
+            )
         
         assert result is True
         assert len(mock_sender.sent_messages) == 1

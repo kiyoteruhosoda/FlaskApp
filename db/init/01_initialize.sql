@@ -101,7 +101,7 @@ CREATE TABLE `alembic_version` (
 LOCK TABLES `alembic_version` WRITE;
 /*!40000 ALTER TABLE `alembic_version` DISABLE KEYS */;
 INSERT INTO `alembic_version` VALUES
-('5f2b8d4c7e10');
+('9d6e4a2b0f5c');
 /*!40000 ALTER TABLE `alembic_version` ENABLE KEYS */;
 UNLOCK TABLES;
 

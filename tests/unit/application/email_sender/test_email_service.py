@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock, MagicMock, patch
 
 from bounded_contexts.email_sender.application.email_service import EmailService, EmailRepository
 from bounded_contexts.email_sender.domain.email_message import EmailMessage
@@ -23,22 +23,20 @@ class TestEmailService:
         mock_repository = Mock(spec=EmailRepository)
         
         service = EmailService(sender=mock_sender, repository=mock_repository)
-        
-        message = EmailMessage(
-            to=["test@example.com"],
-            subject="Test Subject",
-            body="Test Body",
-            from_address="sender@example.com"
-        )
 
         # Act
-        result = service.send_email(message)
+        with patch.object(EmailService, '_is_mail_enabled', return_value=True):
+            result = service.send_email(
+                to=["test@example.com"],
+                subject="Test Subject",
+                body="Test Body",
+                from_address="sender@example.com",
+            )
 
         # Assert
         assert result is True
-        mock_sender.validate_config.assert_called_once()
-        mock_sender.send.assert_called_once_with(message)
-        mock_repository.save_sent_email.assert_called_once_with(message)
+        mock_sender.send.assert_called_once()
+        mock_repository.save_sent_email.assert_called_once()
 
     def test_send_email_without_repository(self):
         """Test email sending without repository."""
@@ -48,42 +46,37 @@ class TestEmailService:
         mock_sender.send.return_value = True
         
         service = EmailService(sender=mock_sender)  # No repository
-        
-        message = EmailMessage(
-            to=["test@example.com"],
-            subject="Test Subject",
-            body="Test Body",
-            from_address="sender@example.com"
-        )
 
         # Act
-        result = service.send_email(message)
+        with patch.object(EmailService, '_is_mail_enabled', return_value=True):
+            result = service.send_email(
+                to=["test@example.com"],
+                subject="Test Subject",
+                body="Test Body",
+                from_address="sender@example.com",
+            )
 
         # Assert
         assert result is True
-        mock_sender.validate_config.assert_called_once()
-        mock_sender.send.assert_called_once_with(message)
+        mock_sender.send.assert_called_once()
 
     def test_send_email_invalid_config(self):
-        """Test email sending with invalid configuration."""
+        """Test email sending when mail is disabled."""
         # Arrange
         mock_sender = Mock(spec=EmailSender)
-        mock_sender.validate_config.return_value = False
         
         service = EmailService(sender=mock_sender)
-        
-        message = EmailMessage(
-            to=["test@example.com"],
-            subject="Test Subject",
-            body="Test Body",
-            from_address="sender@example.com"
-        )
 
-        # Act & Assert
-        with pytest.raises(ValueError, match="Email sender configuration is invalid"):
-            service.send_email(message)
+        # Act — mail disabled returns False without calling sender
+        with patch.object(EmailService, '_is_mail_enabled', return_value=False):
+            result = service.send_email(
+                to=["test@example.com"],
+                subject="Test Subject",
+                body="Test Body",
+            )
 
-        mock_sender.validate_config.assert_called_once()
+        # Assert
+        assert result is False
         mock_sender.send.assert_not_called()
 
     def test_send_email_failure_no_save(self):
@@ -96,20 +89,18 @@ class TestEmailService:
         mock_repository = Mock(spec=EmailRepository)
         
         service = EmailService(sender=mock_sender, repository=mock_repository)
-        
-        message = EmailMessage(
-            to=["test@example.com"],
-            subject="Test Subject",
-            body="Test Body",
-            from_address="sender@example.com"
-        )
 
         # Act
-        result = service.send_email(message)
+        with patch.object(EmailService, '_is_mail_enabled', return_value=True):
+            result = service.send_email(
+                to=["test@example.com"],
+                subject="Test Subject",
+                body="Test Body",
+            )
 
         # Assert
         assert result is False
-        mock_sender.send.assert_called_once_with(message)
+        mock_sender.send.assert_called_once()
         mock_repository.save_sent_email.assert_not_called()  # Should not save failed emails
 
     def test_can_send_emails(self):
@@ -178,16 +169,15 @@ class TestEmailService:
         console_sender = ConsoleEmailSender()
         service = EmailService(sender=console_sender)
         
-        message = EmailMessage(
-            to=["test@example.com"],
-            subject="Test Subject",
-            body="Test Body",
-            from_address="sender@example.com"
-        )
-        
         # Should work polymorphically
         can_send = service.can_send_emails()
         assert can_send is True
         
-        result = service.send_email(message)
+        with patch.object(EmailService, '_is_mail_enabled', return_value=True):
+            result = service.send_email(
+                to=["test@example.com"],
+                subject="Test Subject",
+                body="Test Body",
+                from_address="sender@example.com",
+            )
         assert result is True

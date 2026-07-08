@@ -21,13 +21,13 @@ class ImpersonationAuditLog(db.Model):
     )
     impersonator_id: Mapped[int | None] = mapped_column(
         BigInteger().with_variant(Integer(), "sqlite"),
-        ForeignKey("users.id", ondelete="SET NULL"),
+        ForeignKey("user.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
     impersonated_id: Mapped[int | None] = mapped_column(
         BigInteger().with_variant(Integer(), "sqlite"),
-        ForeignKey("users.id", ondelete="SET NULL"),
+        ForeignKey("user.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )

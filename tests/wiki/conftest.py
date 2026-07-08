@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import os
+from contextlib import contextmanager
 
 import pytest
 import sqlalchemy as sa
@@ -33,29 +34,46 @@ def _setup_test_env() -> None:
         os.environ.setdefault(key, value)
 
 
+class _FakeApp:
+    """Flask の app.app_context() を模倣する軽量スタブ。"""
+
+    @contextmanager
+    def app_context(self):
+        yield
+
+
 @pytest.fixture
 def app(tmp_path):
     """テーブル作成済みのテスト用エンジンを提供する（Flask 不要）。"""
     _setup_test_env()
 
-    # Wiki モデルをメタデータに登録
-    import shared.infrastructure.models.user  # noqa: F401
-    import shared.infrastructure.models.group  # noqa: F401
+    # Wiki モデルをメタデータに登録（FKが参照するすべてのモデルを先にインポート）
+    import shared.infrastructure.models  # noqa: F401
+    from shared.infrastructure.models.impersonation_audit_log import ImpersonationAuditLog  # noqa: F401
+    from bounded_contexts.certs.infrastructure.models import (  # noqa: F401
+        CertificateGroupEntity, IssuedCertificateEntity, CertificatePrivateKeyEntity,
+    )
+    from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession  # noqa: F401
+    from bounded_contexts.photonest.infrastructure import photo_models as _pm  # noqa: F401
+    from bounded_contexts.totp.infrastructure.totp_models import TOTPCredential  # noqa: F401
     import bounded_contexts.wiki.infrastructure.wiki_models  # noqa: F401
 
     engine = sa.create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    _db.init_app_engine(engine)
     _db.metadata.create_all(engine)
-    return engine
+    try:
+        yield _FakeApp()
+    finally:
+        _db.session.remove()
+        _db.metadata.drop_all(engine)
 
 
 @pytest.fixture
 def db_session(app):
     """アクティブな DB セッションを返す。テスト後にロールバックする。"""
-    engine = app
-    factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
-    session = scoped_session(factory)
+    session = _db.session
     try:
-        yield session()
+        yield session
     finally:
         session.remove()
 

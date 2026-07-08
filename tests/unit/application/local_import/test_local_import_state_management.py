@@ -158,34 +158,6 @@ class TestRepositories:
 
 
 # ============================================================
-# API Endpoint Tests
-# ============================================================
-
-class TestLocalImportStatusAPI:
-    """ステータスAPI のテスト"""
-    
-    def test_blueprint_definition(self):
-        """Blueprintが正しく定義されている"""
-        from bounded_contexts.photonest.presentation.local_import_status_api import bp
-        
-        assert bp is not None
-        assert bp.name == "local_import_status"
-    
-    def test_schema_definitions(self):
-        """Marshmallow スキーマが定義されている"""
-        from bounded_contexts.photonest.presentation.local_import_status_api import (
-            SessionStatusSchema,
-            ErrorLogSchema,
-            StateTransitionSchema,
-        )
-        
-        # スキーマがインスタンス化できることを確認
-        assert SessionStatusSchema() is not None
-        assert ErrorLogSchema() is not None
-        assert StateTransitionSchema() is not None
-
-
-# ============================================================
 # Integration Example Tests
 # ============================================================
 

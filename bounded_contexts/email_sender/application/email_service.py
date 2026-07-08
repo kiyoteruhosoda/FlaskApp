@@ -126,16 +126,15 @@ class EmailService:
         """
         try:
             subject = _("Password Reset Request")
-            body = _(
+            body_template = _(
                 "Please reset your password by clicking the link below.\n"
                 "This link will expire in %(minutes)d minutes.\n"
                 "\n"
                 "%(url)s\n"
                 "\n"
                 "If you did not request this password reset, please ignore this email.",
-                minutes=validity_minutes,
-                url=reset_url,
             )
+            body = body_template % {"minutes": validity_minutes, "url": reset_url}
 
             html_body = self._render_password_reset_template(reset_url, validity_minutes)
 

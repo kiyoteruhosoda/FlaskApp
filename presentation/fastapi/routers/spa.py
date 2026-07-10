@@ -20,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 logger = logging.getLogger(__name__)
 
 # フロントエンドのビルドパス（プロジェクトルートからの相対位置）
-_PROJECT_ROOT = Path(__file__).resolve().parents[4]
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _BUILD_DIR = _PROJECT_ROOT / "frontend" / "build"
 _ASSETS_DIR = _BUILD_DIR / "assets"
 _INDEX_HTML = _BUILD_DIR / "index.html"

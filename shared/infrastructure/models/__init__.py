@@ -18,6 +18,7 @@ from .log import Log
 from .worker_log import WorkerLog
 from .celery_task import CeleryTaskRecord, CeleryTaskStatus
 from .job_sync import JobSync
+from bounded_contexts.totp.infrastructure.totp_models import TOTPCredential
 
 __all__ = [
     "User",
@@ -38,4 +39,5 @@ __all__ = [
     "CeleryTaskRecord",
     "CeleryTaskStatus",
     "JobSync",
+    "TOTPCredential",
 ]

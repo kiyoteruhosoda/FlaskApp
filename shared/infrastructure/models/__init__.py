@@ -19,6 +19,19 @@ from .worker_log import WorkerLog
 from .celery_task import CeleryTaskRecord, CeleryTaskStatus
 from .job_sync import JobSync
 from bounded_contexts.totp.infrastructure.totp_models import TOTPCredential
+from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
+from bounded_contexts.photonest.infrastructure.photo_models import (
+    Media,
+    MediaSidecar,
+    Exif,
+    Album,
+    Tag,
+    MediaPlayback,
+    MediaItem,
+    PickerSelection,
+    PhotoMetadata,
+    VideoMetadata,
+)
 
 __all__ = [
     "User",
@@ -40,4 +53,15 @@ __all__ = [
     "CeleryTaskStatus",
     "JobSync",
     "TOTPCredential",
+    "PickerSession",
+    "Media",
+    "MediaSidecar",
+    "Exif",
+    "Album",
+    "Tag",
+    "MediaPlayback",
+    "MediaItem",
+    "PickerSelection",
+    "PhotoMetadata",
+    "VideoMetadata",
 ]

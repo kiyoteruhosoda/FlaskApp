@@ -109,6 +109,13 @@
   立て、ベルを開いて中身を見るまで消えないようにした。
 
 ### Fixed
+- **ログインが `Unknown column 'user.must_change_password'` で 500 になる問題を修正**
+  （`migrations/versions/a1b2c3d4e5f6_ensure_user_must_change_password.py`）。
+  `must_change_password` カラムは `6a3f7d2e1b4c` で追加していたが、`alembic_version` が
+  既にその先のリビジョンまで進んでいた環境では当該マイグレーションが再実行されず、
+  カラムが物理的に欠落したまま `alembic upgrade head` が no-op になっていた。
+  ヘッドの後ろに冪等な補正マイグレーションを追加し、カラムが存在しない場合のみ
+  追加するようにした（既存・新規構築環境では何もしないためスキーマ乖離は生じない）。
 - **nginx 設定がデプロイ時に host へ配布されず nginx が起動しない問題を修正**
   （`scripts/deploy.sh` / `scripts/deploy-stg.sh`）。compose の nginx サービスは設定を
   `./docker/nginx/default.conf` という相対パスでバインドマウントするが、この相対パスは

@@ -70,7 +70,7 @@ def create_app() -> FastAPI:
 
 def _mount_static_files(app: FastAPI) -> None:
     """フロントエンドビルドの静的ファイルをマウントする。"""
-    _project_root = Path(__file__).resolve().parents[3]
+    _project_root = Path(__file__).resolve().parents[2]
     assets_dir = _project_root / "frontend" / "build" / "assets"
     if assets_dir.exists():
         app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="react_assets")

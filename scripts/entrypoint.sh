@@ -135,7 +135,7 @@ shift || true
 case "$MODE" in
   web)
     log "Running DB migrations (alembic upgrade head)"
-    alembic upgrade head
+    alembic -c migrations/alembic.ini upgrade head
     log "Starting Gunicorn + UvicornWorker (ASGI web mode)"
     # gunicorn 25+ はデフォルトで制御ソケット（/run/gunicorn.ctl 等）を作成しようとするが、
     # 非rootユーザー実行のこのコンテナでは書き込み権限がなく

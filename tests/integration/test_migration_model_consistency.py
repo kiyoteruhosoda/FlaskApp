@@ -69,6 +69,7 @@ def _load_metadata() -> sa.MetaData:
     import shared.infrastructure.models.user_preference  # noqa: F401
     import shared.infrastructure.models.impersonation_audit_log  # noqa: F401
     import bounded_contexts.photonest.infrastructure.photo_models  # noqa: F401
+    import bounded_contexts.photonest.infrastructure.local_import.audit_log_repository  # noqa: F401
     import bounded_contexts.picker_import.infrastructure.picker_session  # noqa: F401
     import bounded_contexts.picker_import.infrastructure.picker_import_task  # noqa: F401
     import bounded_contexts.wiki.infrastructure.wiki_models  # noqa: F401

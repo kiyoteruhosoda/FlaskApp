@@ -14,11 +14,13 @@ PyJWT
 Markdown
 python-dateutil
 MarkupSafe
+werkzeug>=3.0.0
 
 # FastAPI（メインフレームワーク）
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
-pydantic>=2.7.0
+gunicorn>=22.0.0
+pydantic[email]>=2.7.0
 pydantic-settings>=2.3.0
 python-multipart>=0.0.9
 httpx>=0.27.0

@@ -156,3 +156,84 @@ class TestLoginWithTOTP:
                 json={"email": "user@example.com", "password": "password", "token": None},
             )
         assert resp.status_code == 200
+
+
+_SETTINGS_REQUIRE_PW_CHANGE = (
+    "shared.kernel.settings.settings.ApplicationSettings.require_password_change_on_first_login"
+)
+
+
+class TestLoginMustChangePassword:
+    """must_change_password フラグと requires_password_change レスポンスのテスト。"""
+
+    def test_requires_password_change_false_when_flag_and_setting_both_false(
+        self, client: TestClient
+    ) -> None:
+        """must_change_password=False かつ設定 OFF → requires_password_change=False。"""
+        user = _make_user_model(totp_secret=None)
+        user.must_change_password = False
+        with (
+            patch(_AUTH_SERVICE_AUTHENTICATE, return_value=user),
+            patch(_TOKEN_SERVICE_GENERATE, return_value=("tok_a", "tok_b")),
+            patch(_SETTINGS_REQUIRE_PW_CHANGE, new_callable=lambda: property(lambda self: False)),
+        ):
+            resp = client.post(
+                "/api/auth/login",
+                json={"email": "user@example.com", "password": "password"},
+            )
+        assert resp.status_code == 200
+        assert resp.json()["requires_password_change"] is False
+
+    def test_requires_password_change_true_when_flag_true_and_setting_enabled(
+        self, client: TestClient
+    ) -> None:
+        """must_change_password=True かつ設定 ON → requires_password_change=True。"""
+        user = _make_user_model(totp_secret=None)
+        user.must_change_password = True
+        with (
+            patch(_AUTH_SERVICE_AUTHENTICATE, return_value=user),
+            patch(_TOKEN_SERVICE_GENERATE, return_value=("tok_a", "tok_b")),
+            patch(_SETTINGS_REQUIRE_PW_CHANGE, new_callable=lambda: property(lambda self: True)),
+        ):
+            resp = client.post(
+                "/api/auth/login",
+                json={"email": "user@example.com", "password": "password"},
+            )
+        assert resp.status_code == 200
+        assert resp.json()["requires_password_change"] is True
+
+    def test_requires_password_change_false_when_flag_true_but_setting_disabled(
+        self, client: TestClient
+    ) -> None:
+        """must_change_password=True でも設定 OFF なら requires_password_change=False。"""
+        user = _make_user_model(totp_secret=None)
+        user.must_change_password = True
+        with (
+            patch(_AUTH_SERVICE_AUTHENTICATE, return_value=user),
+            patch(_TOKEN_SERVICE_GENERATE, return_value=("tok_a", "tok_b")),
+            patch(_SETTINGS_REQUIRE_PW_CHANGE, new_callable=lambda: property(lambda self: False)),
+        ):
+            resp = client.post(
+                "/api/auth/login",
+                json={"email": "user@example.com", "password": "password"},
+            )
+        assert resp.status_code == 200
+        assert resp.json()["requires_password_change"] is False
+
+    def test_requires_password_change_false_when_flag_false_and_setting_enabled(
+        self, client: TestClient
+    ) -> None:
+        """must_change_password=False なら設定 ON でも requires_password_change=False。"""
+        user = _make_user_model(totp_secret=None)
+        user.must_change_password = False
+        with (
+            patch(_AUTH_SERVICE_AUTHENTICATE, return_value=user),
+            patch(_TOKEN_SERVICE_GENERATE, return_value=("tok_a", "tok_b")),
+            patch(_SETTINGS_REQUIRE_PW_CHANGE, new_callable=lambda: property(lambda self: True)),
+        ):
+            resp = client.post(
+                "/api/auth/login",
+                json={"email": "user@example.com", "password": "password"},
+            )
+        assert resp.status_code == 200
+        assert resp.json()["requires_password_change"] is False

@@ -28,6 +28,15 @@ from alembic.config import Config
 ROOT = Path(__file__).resolve().parents[1]
 ALEMBIC_INI = ROOT / "migrations" / "alembic.ini"
 
+# `python scripts/run_db_migrations.py` として直接実行すると、Python は
+# スクリプト自身のディレクトリ（scripts/）を sys.path[0] に追加するだけで
+# プロジェクトルートは追加しない。そのため `import shared...` が
+# `ModuleNotFoundError: No module named 'shared'` になる（entrypoint.sh から
+# 実行した際に STG で再現した障害）。cwd や起動方法に依存せず動くよう、
+# ここでプロジェクトルートを明示的に sys.path へ追加する。
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 BASELINE_REVISION = "init_master"
 
 FRESH = "fresh"

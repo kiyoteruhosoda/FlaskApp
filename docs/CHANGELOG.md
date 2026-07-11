@@ -5,6 +5,17 @@
 
 ## [Unreleased]
 
+### Fixed
+- **ドキュメント内の陳腐化した `flask db` / `flask seed-master` / `flask run` 表記を
+  現行の `alembic` コマンドへ統一**。Flask 完全撤廃（下記 T11）以降も
+  `migrations/README.md`, `README.md`, `.github/copilot-instructions.md`,
+  `tests/IMPLEMENTATION_CHECKLIST.md`, `docs/OPERATIONS.md`, `scripts/README.md` に
+  存在しないコマンドの案内が残っており、そのままではコピペしても動かなかった。
+  すべて `alembic -c migrations/alembic.ini <サブコマンド>`（`scripts/entrypoint.sh` と
+  同じ呼び出し方）に置換。過去の障害経緯を記録した箇所（ADR、CHANGELOG過去分、
+  デプロイ資材同期テストの docstring）は当時実際に使われていたコマンドの記録のため
+  据え置き。
+
 ### Added
 - **T11: FastAPI 全面移行 Phase 3 後続作業完了（Flask 完全撤廃）**。
   `presentation/fastapi/` に全サービス・認証・管理機能を移植し、Flask への依存を完全に除去。

@@ -228,7 +228,7 @@
   優先度: 高（デプロイ前に必須）
 
 ⚠ 問題5: データベースマイグレーション未実行
-  対策: flask db upgrade実行必要
+  対策: alembic -c migrations/alembic.ini upgrade head 実行必要
   影響: テーブル不存在でエラー
   優先度: 高（デプロイ前に必須）
 
@@ -238,7 +238,7 @@
 # ============================================================
 
 必須作業:
-☐ flask db upgrade（マイグレーション実行）
+☐ alembic -c migrations/alembic.ini upgrade head（マイグレーション実行）
 ☐ app.register_blueprint(bp)（API登録）
 ☐ init_audit_logger()（ロガー初期化）
 ☐ Vue componentのルーター登録

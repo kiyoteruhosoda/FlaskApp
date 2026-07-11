@@ -403,7 +403,7 @@ MAIL_DEFAULT_SENDER=your-email@example.com
 「以前は Nginx から直接取得していた」挙動はこれで既定に戻っている。
 
 > **注意**: 方式②有効時に `web` へ直接アクセスすると、内部配信ヘッダーが解釈されず
-> 壊れる。必ず nginx（公開ポート）経由で使う。純粋なローカル開発（`flask run` 等で
+> 壊れる。必ず nginx（公開ポート）経由で使う。純粋なローカル開発（`python main.py` 等で
 > nginx を挟まない）では `.env` で `MEDIA_ACCEL_REDIRECT_ENABLED=false` にして方式①に
 > フォールバックする（コード既定は false）。
 

@@ -163,8 +163,6 @@ python scripts/seed_master_data.py
 python scripts/bootstrap_system_settings.py
 ```
 
-> `flask seed-master` コマンドは `seed_master_data.py` と同等の処理を行います。
-
 ---
 
 ## デバッグ・確認

@@ -231,32 +231,32 @@ fi
 # ===== Schema sync =====
 # DB 待機直後でも MariaDB 側の受け入れ準備が一瞬遅れることがあるため、
 # 失敗しても少し待って再試行する（接続確立とサーバー完全起動の間の隙間対策）。
-run_alembic_with_retry() {
+run_migrations_with_retry() {
   local attempt
   for attempt in 1 2 3; do
-    if $COMPOSE exec -T web alembic "$@"; then
+    if $COMPOSE exec -T web python scripts/run_db_migrations.py; then
       return 0
     fi
-    echo "[deploy-stg][warn] alembic $* failed (attempt $attempt/3); retrying in 5s" >&2
+    echo "[deploy-stg][warn] DB migration failed (attempt $attempt/3); retrying in 5s" >&2
     sleep 5
   done
-  echo "[deploy-stg][error] alembic $* failed after 3 attempts" >&2
+  echo "[deploy-stg][error] DB migration failed after 3 attempts" >&2
   return 1
 }
 
 case "$MODE" in
   migrate)
     # DDL更新時：既存データを保持したまま新しい migration だけを適用する。
-    echo "[deploy-stg] Applying pending DB migrations (alembic upgrade head)"
-    run_alembic_with_retry upgrade head
+    echo "[deploy-stg] Applying pending DB migrations"
+    run_migrations_with_retry
     ;;
   reset)
     # db_data を削除した直後で DB は空。スキーマ・マスタデータは
     # `alembic upgrade head`（init_master + seed_master_data）で構築する。
-    # web コンテナの entrypoint も起動時に upgrade head を実行するが、
+    # web コンテナの entrypoint も起動時にマイグレーションを実行するが、
     # ここでも冪等に流して確実に head まで揃える。
-    echo "[deploy-stg] Building schema + master data on fresh DB (alembic upgrade head)"
-    run_alembic_with_retry upgrade head
+    echo "[deploy-stg] Building schema + master data on fresh DB"
+    run_migrations_with_retry
     ;;
 esac
 

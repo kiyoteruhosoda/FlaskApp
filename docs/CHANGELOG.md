@@ -6,6 +6,32 @@
 ## [Unreleased]
 
 ### Fixed
+- **STG で `alembic upgrade head` が `Table 'worker_log' already exists` で失敗し
+  Web コンテナが起動できない障害を修正**。原因は、Alembic 管理外（旧・焼き込み
+  ベースライン運用の名残等）で既にテーブルが存在する DB に対し、
+  `alembic_version` が無い状態から `init_master` が全テーブルを
+  `CREATE TABLE` しようとして衝突していたこと。`docs/decisions/ADR-0001` は
+  「既存DBは `alembic stamp init_master` で付け替える」という手動運用を定義して
+  いたが、デプロイ時に確実に実行される仕組みが無く、再発を繰り返していた。
+  `scripts/run_db_migrations.py` を新設し、`scripts/entrypoint.sh` の起動時
+  マイグレーションをこれ経由に変更。適用前に実テーブルの有無を調べ、
+  (1) 空DB → 通常どおり `upgrade head`、(2) `init_master` 相当のテーブルが
+  Alembic 管理外で揃っている → 自動で `stamp init_master` してから
+  `upgrade head`、(3) 一部だけ存在する中途半端な状態 → 自動判断せずエラー終了、
+  の3パターンに自動分岐する。回帰テスト:
+  `tests/unit/core/test_run_db_migrations.py`,
+  `tests/integration/test_db_migrate_self_heal.py`。
+- **初期管理者アカウントが案内どおりの認証情報（`admin@example.com` / `admin`）で
+  ログインできなかった問題を修正**。`shared/domain/auth/master_data.py` の
+  `DEFAULT_ADMIN_PASSWORD_HASH`（`ADMIN_INITIAL_PASSWORD` 未指定時に
+  `2a1f9c0b3d4e_seed_master_data` が投入するフォールバックハッシュ）は、
+  コメント上は平文 `"admin"` のハッシュと説明されていたが、実際には
+  管理者メールアドレス `"admin@example.com"` のハッシュだったため、
+  ドキュメントどおりの資格情報ではログインできず 401 になっていた。正しい
+  `"admin"` のハッシュに置き換え、既にこの誤ハッシュが投入済みの既存DBを
+  補正するデータマイグレーション `5a6b39ff7ecc_fix_default_admin_password_hash`
+  を追加（本人が既にパスワードを変更済みの行には触れない）。回帰テスト:
+  `tests/integration/test_default_admin_login.py`。
 - **ドキュメント内の陳腐化した `flask db` / `flask seed-master` / `flask run` 表記を
   現行の `alembic` コマンドへ統一**。Flask 完全撤廃（下記 T11）以降も
   `migrations/README.md`, `README.md`, `.github/copilot-instructions.md`,

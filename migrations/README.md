@@ -43,11 +43,26 @@ python scripts/seed_master_data.py
 
 ### 既存（本番）DB への適用
 
-既存 DB は旧リビジョンで `alembic_version` が記録されているため、スキーマを
-作り直さずにベースラインの印だけ付け替える:
+既存 DB が旧リビジョンで `alembic_version` を記録している場合は、通常どおり
+`alembic upgrade head` を実行すれば良い（Alembic が差分だけ適用する）。
+
+一方、`alembic_version` テーブル自体が存在しない（旧・焼き込みベースライン運用の
+名残等でテーブルだけが Alembic 管理外に存在する）場合、素朴に
+`alembic upgrade head` を実行すると `init_master` が全テーブルを
+`CREATE TABLE` しようとして `Table '...' already exists` で失敗する
+（STG 環境で実際に発生した障害）。`scripts/entrypoint.sh` は
+`scripts/run_db_migrations.py` 経由でこれを自動検出し、
+
+- 空DB → 通常どおり `upgrade head`
+- `init_master` 相当のテーブルが揃っている → 自動で `stamp init_master` して
+  から `upgrade head`
+- 一部だけ存在する中途半端な状態 → 自動判断せずエラー終了（手動調査が必要）
+
+に自動分岐する。手動で同じ操作をしたい場合:
 
 ```bash
 alembic -c migrations/alembic.ini stamp init_master
+alembic -c migrations/alembic.ini upgrade head
 ```
 
 > スキーマ自体が旧 DB とモデルで食い違う場合は、別途差分マイグレーションを

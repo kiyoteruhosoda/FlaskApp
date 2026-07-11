@@ -6,6 +6,25 @@
 ## [Unreleased]
 
 ### Fixed
+- **初期管理者でログインしても管理画面で「You do not have permission to view
+  this page」と表示される問題を修正**。`shared/domain/auth/master_data.py`
+  の `PERMISSION_CODES` は開発の過程で追加されてきたが、投入は
+  `2a1f9c0b3d4e_seed_master_data` が一度だけ実行するデータマイグレーション
+  のため、それより後に追加された権限コードは既存DBの `role_permissions`
+  へ自動反映されず、admin ロール（マスタデータ上は「全権限」のはず）が
+  実際には一部の権限を持っていなかった。現在の `PERMISSION_CODES` /
+  `ROLE_PERMISSIONS` を唯一の出所として不足分だけを差分投入する
+  `0900277b3348_sync_role_permissions_with_master_data` を追加（既存の
+  付与は削除しない・冪等）。回帰テスト:
+  `tests/integration/test_admin_role_permissions.py`。
+- **`GET /api/media`（メディア一覧）が MariaDB で
+  `You have an error in your SQL syntax ... NULLS LAST` により 500 に
+  なる問題を修正**。`Media.shot_at.desc().nullslast()` は MariaDB が
+  対応していない `NULLS LAST` 構文をそのまま生成していた。CASE式で
+  NULLを末尾へ回す方式（`presentation/fastapi/routers/media.py` の
+  `media_shot_at_order_by_criteria()`）に置き換え、MariaDB/PostgreSQL/
+  SQLiteいずれでも動作するようにした。回帰テスト:
+  `tests/unit/presentation/test_media_order_by.py`。
 - **ログイン失敗時（およびアプリ全体のAPIエラー全般）にエラーメッセージが
   一切表示されない不具合を修正**。T11 の FastAPI 移行で
   `HTTPException(detail={"error": "code"})` はレスポンスボディを

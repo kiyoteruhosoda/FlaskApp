@@ -77,3 +77,32 @@ def test_resolver_is_single_source_of_truth(app_context):
     assert resolved == "shared-secret"
     assert resolve_signing_material().key == resolved
     assert resolve_verification_key("HS256", None) == resolved
+
+
+def test_login_token_pair_generation_and_verification_without_env(app_context):
+    """環境変数 JWT_SECRET_KEY 無しでも、実ユーザーのトークン発行→検証が通る。
+
+    ステージング障害（``POST /api/auth/login`` が 500）と同じ条件を再現する
+    エンドツーエンド検証。``TokenService.generate_token_pair`` から
+    ``verify_access_token`` までモックせずに実行する。
+    """
+    from shared.kernel.database.db import db
+    from shared.infrastructure.models.user import User
+    from presentation.fastapi.services.token_service import TokenService
+
+    os.environ.pop("JWT_SECRET_KEY", None)  # 環境変数は未設定（DB既定値のみ）
+
+    user = User(email="login-e2e@example.com", is_active=True)
+    user.set_password("pw")
+    db.session.add(user)
+    db.session.commit()
+
+    access_token, refresh_token = TokenService.generate_token_pair(
+        user, ["gui:view"], session=db.session
+    )
+
+    assert access_token and refresh_token
+
+    principal = TokenService.verify_access_token(access_token)
+    assert principal is not None
+    assert principal.subject_id == user.id

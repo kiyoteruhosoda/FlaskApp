@@ -37,7 +37,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session, joinedload
 from werkzeug.utils import secure_filename
 
@@ -54,6 +54,20 @@ router = APIRouter(tags=["media"])
 # ---------------------------------------------------------------------------
 # シリアライザ・ヘルパー
 # ---------------------------------------------------------------------------
+
+
+def media_shot_at_order_by_criteria(Media, order: str) -> list:
+    """メディア一覧の並び順（``shot_at`` が NULL の行を常に末尾へ回す）を返す。
+
+    MariaDB は `NULLS LAST` 構文を持たず、SQLAlchemy の `nullslast()` を
+    そのまま使うと "You have an error in your SQL syntax" になる
+    （実運用で発生した障害）。CASE式でNULLをソートキーに含める方式は
+    MariaDB/PostgreSQL/SQLite いずれでも動作する。
+    """
+    shot_at_is_null = case((Media.shot_at.is_(None), 1), else_=0)
+    if order.lower() == "asc":
+        return [shot_at_is_null, Media.shot_at.asc(), Media.id.asc()]
+    return [shot_at_is_null, Media.shot_at.desc(), Media.id.desc()]
 
 
 def _serialize_tag(tag) -> dict:
@@ -617,10 +631,7 @@ async def api_media_list(
         except Exception:
             pass
 
-    if order.lower() == "asc":
-        query = query.order_by(Media.shot_at.asc().nullslast(), Media.id.asc())
-    else:
-        query = query.order_by(Media.shot_at.desc().nullslast(), Media.id.desc())
+    query = query.order_by(*media_shot_at_order_by_criteria(Media, order))
 
     items_raw = query.offset((page - 1) * pageSize).limit(pageSize).all()
 

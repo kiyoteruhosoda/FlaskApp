@@ -6,6 +6,26 @@
 ## [Unreleased]
 
 ### Fixed
+- **STG の `reset` 実行時、web コンテナが実際には正常起動しているのに
+  `docker compose up -d` に unhealthy と誤判定され
+  `dependency failed to start: container web is unhealthy` でデプロイが
+  失敗する障害を修正**。`web` は `db: condition: service_healthy` に依存して
+  おり、`db` の healthcheck 自体は Synology NAS の遅いディスク向けに
+  `start_period: 600s` の余裕を持たせてあったが、`web` 側のヘルスチェック猶予
+  （`start_period 40s + retries 3 * interval 30s = 130s`）が、db healthy 後に
+  必要な「DB接続待ち + `alembic upgrade head` フル適用（reset直後は
+  init_master全テーブル + seed_master_data） + gunicorn/uvicorn起動」の
+  合計時間にわずかに届かなかった（実測で `db` healthy まで153s、その約130s後に
+  誤判定）。`web` の healthcheck を `start_period: 300s` / `retries: 5` に拡張。
+  回帰テスト: `tests/unit/core/test_docker_compose_healthcheck_timing.py`。
+- **`scripts/run_db_migrations.py` を `python scripts/run_db_migrations.py`
+  として実行すると `ModuleNotFoundError: No module named 'shared'` になり
+  reset後の初回起動でクラッシュループしていた問題を修正**。Pythonはスクリプト
+  自身のディレクトリ（`scripts/`）だけを `sys.path[0]` に追加しプロジェクト
+  ルートを追加しないため。プロジェクトルートを明示的に `sys.path` へ追加。
+  既存テストは pytest 経由の import（`pythonpath=["."]`）で問題が隠れており
+  検出できなかったため、`entrypoint.sh` と同じ起動方法をサブプロセスとして
+  再現する回帰テストを追加（`tests/integration/test_db_migrate_self_heal.py`）。
 - **STG で `alembic upgrade head` が `Table 'worker_log' already exists` で失敗し
   Web コンテナが起動できない障害を修正**。原因は、Alembic 管理外（旧・焼き込み
   ベースライン運用の名残等）で既にテーブルが存在する DB に対し、

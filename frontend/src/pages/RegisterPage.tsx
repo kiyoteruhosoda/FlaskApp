@@ -7,6 +7,7 @@ import { getCurrentUser } from '../store/authSlice';
 import { useTranslation } from 'react-i18next';
 import i18n from 'i18next';
 import apiClient from '../services/api';
+import { getApiErrorCode } from '../services/apiErrors';
 
 const RegisterPage: React.FC = () => {
   const { t } = useTranslation();
@@ -57,7 +58,7 @@ const RegisterPage: React.FC = () => {
       await dispatch(getCurrentUser());
       navigate('/');
     } catch (err: any) {
-      const code = err.response?.data?.error;
+      const code = getApiErrorCode(err);
       if (code === 'email_exists') {
         setError(t('Email already in use'));
       } else if (code === 'password_too_short') {

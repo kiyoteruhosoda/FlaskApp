@@ -23,7 +23,7 @@ test.describe('Forgot Password', () => {
   test('shows error on failure', async ({ page }) => {
     await page.route(
       (url) => url.pathname === '/api/auth/password/forgot',
-      (route) => route.fulfill({ status: 500, json: { error: 'server_error' } })
+      (route) => route.fulfill({ status: 500, json: { detail: { error: 'server_error' } } })
     );
 
     await page.goto('/forgot-password');
@@ -36,7 +36,7 @@ test.describe('Forgot Password', () => {
   test('shows error when email service is not configured', async ({ page }) => {
     await page.route(
       (url) => url.pathname === '/api/auth/password/forgot',
-      (route) => route.fulfill({ status: 503, json: { error: 'mail_disabled' } })
+      (route) => route.fulfill({ status: 503, json: { detail: { error: 'mail_disabled' } } })
     );
 
     await page.goto('/forgot-password');
@@ -99,7 +99,7 @@ test.describe('Reset Password', () => {
   test('shows error for invalid token from API', async ({ page }) => {
     await page.route(
       (url) => url.pathname === '/api/auth/password/reset',
-      (route) => route.fulfill({ status: 400, json: { error: 'invalid_token' } })
+      (route) => route.fulfill({ status: 400, json: { detail: { error: 'invalid_token' } } })
     );
 
     await page.goto('/reset-password?token=bad-token');

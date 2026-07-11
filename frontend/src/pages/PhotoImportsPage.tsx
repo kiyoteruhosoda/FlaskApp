@@ -23,6 +23,7 @@ import {
 } from '../types/api';
 import GooglePhotosImportModal from '../components/GooglePhotosImportModal';
 import GooglePhotosImportStatusCard from '../components/GooglePhotosImportStatusCard';
+import { getApiErrorCode } from '../services/apiErrors';
 
 const ACCEPTED_EXTENSIONS =
   '.jpg,.jpeg,.png,.tiff,.tif,.bmp,.gif,.webp,.heic,.heif,.mp4,.mov,.avi,.mkv,.m4v,.3gp,.webm';
@@ -75,7 +76,7 @@ const PhotoImportsPage: React.FC = () => {
       const data = await apiClient.getLocalImportStatus();
       setStatus(data);
     } catch (e: any) {
-      setError(e?.response?.data?.error || e?.message || t('Failed to load import status'));
+      setError(getApiErrorCode(e) || e?.message || t('Failed to load import status'));
     } finally {
       setIsLoading(false);
     }
@@ -168,7 +169,7 @@ const PhotoImportsPage: React.FC = () => {
       loadStatus();
     } catch (e: any) {
       setImportSucceeded(false);
-      setImportMessage(e?.response?.data?.error || e?.message || t('Failed to trigger import'));
+      setImportMessage(getApiErrorCode(e) || e?.message || t('Failed to trigger import'));
     } finally {
       setImportTriggering(false);
     }

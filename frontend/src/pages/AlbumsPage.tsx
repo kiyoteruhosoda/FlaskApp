@@ -15,6 +15,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { AlbumSummary } from '../types/api';
+import { getApiErrorCode } from '../services/apiErrors';
 
 const VISIBILITY_OPTIONS = ['private', 'unlisted', 'public'] as const;
 
@@ -63,7 +64,7 @@ const AlbumsPage: React.FC = () => {
         setHasNext(Boolean(data.hasNext));
         setCursor(data.nextCursor ?? null);
       } catch (e: any) {
-        setError(e?.response?.data?.error || e?.message || t('Failed to load albums'));
+        setError(getApiErrorCode(e) || e?.message || t('Failed to load albums'));
       } finally {
         setIsLoading(false);
       }
@@ -162,7 +163,7 @@ const AlbumsPage: React.FC = () => {
       }
       setShowForm(false);
     } catch (e: any) {
-      setFormError(e?.response?.data?.message || e?.response?.data?.error || e?.message || t('Failed to save album'));
+      setFormError(e?.response?.data?.message || getApiErrorCode(e) || e?.message || t('Failed to save album'));
     } finally {
       setSubmitting(false);
     }

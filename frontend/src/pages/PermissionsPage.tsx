@@ -5,6 +5,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { AdminPermission } from '../types/api';
+import { getApiErrorCode } from '../services/apiErrors';
 
 const PermissionsPage: React.FC = () => {
   const { t } = useTranslation();
@@ -71,7 +72,7 @@ const PermissionsPage: React.FC = () => {
       }
       setShowForm(false);
     } catch (e: any) {
-      const code = e?.response?.data?.error;
+      const code = getApiErrorCode(e);
       setFormError(code === 'code_exists' ? t('Permission code already in use') : t('Failed to save permission'));
     } finally {
       setSubmitting(false);

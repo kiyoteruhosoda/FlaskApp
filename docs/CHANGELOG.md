@@ -5,6 +5,22 @@
 
 ## [Unreleased]
 
+### Fixed
+- **ログイン失敗時（およびアプリ全体のAPIエラー全般）にエラーメッセージが
+  一切表示されない不具合を修正**。T11 の FastAPI 移行で
+  `HTTPException(detail={"error": "code"})` はレスポンスボディを
+  `{"detail": {"error": "code"}}` という形にラップするようになったが、
+  フロントエンドの `err.response?.data?.error` という参照はこのラップを
+  考慮しておらず（旧 Flask 実装はトップレベルに `{"error": "code"}` を
+  直接返していた名残）、常に `undefined` になり汎用の axios エラー
+  メッセージへフォールバックしていた。ログインページの `errorText()` は
+  既知のエラーコードしか案内文を出さない設計のため、結果的に
+  エラーメッセージが一切表示されなかった。共通関数
+  `frontend/src/services/apiErrors.ts` の `getApiErrorCode()` に集約し、
+  同じ不具合が存在した38ファイル・59箇所（登録・パスワード変更・パスキー・
+  Wiki・各種管理画面等）を一括修正。E2Eテストのモック（`page.route` の
+  レスポンス）も実際のバックエンド形状に合わせて修正。
+
 ### Added
 - **ログイン関連の障害を `docker exec` で都度DBを覗かなくても判断できるよう
   診断ログを強化**。

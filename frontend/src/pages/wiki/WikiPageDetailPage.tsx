@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Container, Row, Col, Card, Badge, Spinner, Alert, Button, Modal } from 'react-bootstrap';
 import { wikiApi } from '../../services/wikiApi';
 import { WikiPageDetailData } from '../../types/wiki';
+import { getApiErrorCode } from '../../services/apiErrors';
 
 const WikiPageDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -30,7 +31,7 @@ const WikiPageDetailPage: React.FC = () => {
         if (e?.response?.status === 404) {
           setError('Page not found.');
         } else {
-          setError(e?.response?.data?.error || e?.message || 'Failed to load page');
+          setError(getApiErrorCode(e) || e?.message || 'Failed to load page');
         }
       })
       .finally(() => setLoading(false));
@@ -45,7 +46,7 @@ const WikiPageDetailPage: React.FC = () => {
       setShowDeleteModal(false);
       navigate('/wiki');
     } catch (e: any) {
-      setDeleteError(e?.response?.data?.error || e?.message || 'Failed to delete page');
+      setDeleteError(getApiErrorCode(e) || e?.message || 'Failed to delete page');
     } finally {
       setDeleting(false);
     }

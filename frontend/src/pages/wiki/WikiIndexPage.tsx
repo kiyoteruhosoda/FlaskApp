@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Container, Row, Col, Card, Badge, Spinner, Alert } from 'react-bootstrap';
 import { wikiApi } from '../../services/wikiApi';
 import { WikiIndexData, WikiPageHierarchyItem } from '../../types/wiki';
+import { getApiErrorCode } from '../../services/apiErrors';
 
 function HierarchyTree({ items }: { items: WikiPageHierarchyItem[] }) {
   return (
@@ -31,7 +32,7 @@ const WikiIndexPage: React.FC = () => {
   useEffect(() => {
     wikiApi.getIndex()
       .then(setData)
-      .catch((e) => setError(e?.response?.data?.error || e?.message || 'Failed to load wiki'))
+      .catch((e) => setError(getApiErrorCode(e) || e?.message || 'Failed to load wiki'))
       .finally(() => setLoading(false));
   }, []);
 

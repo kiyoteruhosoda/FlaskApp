@@ -51,6 +51,11 @@ import {
   UserPreferencesResponse,
   UserPreferencesUpdateResponse,
 } from '../types/api';
+import { getApiErrorCode } from './apiErrors';
+
+function extractApiErrorCode(error: any, fallback: string): string {
+  return getApiErrorCode(error) || error.message || fallback;
+}
 
 class ApiClient {
   private client: AxiosInstance;
@@ -157,7 +162,7 @@ class ApiClient {
     } catch (error: any) {
       return {
         success: false,
-        message: error.response?.data?.error || error.message || 'ログインに失敗しました'
+        message: extractApiErrorCode(error, 'ログインに失敗しました')
       };
     }
   }
@@ -176,7 +181,7 @@ class ApiClient {
     } catch (error: any) {
       return {
         success: false,
-        message: error.response?.data?.error || 'トークン更新に失敗しました'
+        message: extractApiErrorCode(error, 'トークン更新に失敗しました')
       };
     }
   }
@@ -196,7 +201,7 @@ class ApiClient {
     } catch (error: any) {
       return {
         success: false,
-        message: error.response?.data?.error || 'ユーザー情報の取得に失敗しました'
+        message: extractApiErrorCode(error, 'ユーザー情報の取得に失敗しました')
       };
     }
   }
@@ -211,7 +216,7 @@ class ApiClient {
     } catch (error: any) {
       return {
         success: false,
-        message: error.response?.data?.error || 'ロール情報の取得に失敗しました'
+        message: extractApiErrorCode(error, 'ロール情報の取得に失敗しました')
       };
     }
   }
@@ -226,7 +231,7 @@ class ApiClient {
     } catch (error: any) {
       return {
         success: false,
-        message: error.response?.data?.error || 'ロール選択に失敗しました'
+        message: extractApiErrorCode(error, 'ロール選択に失敗しました')
       };
     }
   }

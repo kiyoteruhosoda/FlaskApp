@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Container, Card, Form, Button, Spinner, Alert, InputGroup } from 'react-bootstrap';
 import { wikiApi } from '../../services/wikiApi';
 import { WikiPage } from '../../types/wiki';
+import { getApiErrorCode } from '../../services/apiErrors';
 
 const WikiSearchPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -24,7 +25,7 @@ const WikiSearchPage: React.FC = () => {
         setResults(data.pages);
         setSearched(true);
       })
-      .catch((e) => setError(e?.response?.data?.error || e?.message || 'Search failed'))
+      .catch((e) => setError(getApiErrorCode(e) || e?.message || 'Search failed'))
       .finally(() => setLoading(false));
   }, [submittedQuery]);
 

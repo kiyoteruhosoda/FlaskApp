@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import i18n from 'i18next';
 import axios from 'axios';
 import { startPasskeyAuthentication, isPasskeySupported } from '../utils/webauthn';
+import { getApiErrorCode } from '../services/apiErrors';
 
 const LoginPage: React.FC = () => {
   const { t } = useTranslation();
@@ -140,7 +141,7 @@ const LoginPage: React.FC = () => {
         setPasskeyError(t('Passkey sign-in was canceled'));
       } else {
         setPasskeyError(
-          err?.response?.data?.error || t('Passkey sign-in failed')
+          getApiErrorCode(err) || t('Passkey sign-in failed')
         );
       }
     } finally {

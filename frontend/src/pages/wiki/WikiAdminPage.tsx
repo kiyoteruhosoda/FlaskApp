@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Container, Row, Col, Card, Spinner, Alert } from 'react-bootstrap';
 import { wikiApi } from '../../services/wikiApi';
 import { WikiAdminData } from '../../types/wiki';
+import { getApiErrorCode } from '../../services/apiErrors';
 
 const WikiAdminPage: React.FC = () => {
   const [data, setData] = useState<WikiAdminData | null>(null);
@@ -16,7 +17,7 @@ const WikiAdminPage: React.FC = () => {
         if (e?.response?.status === 403) {
           setError('You do not have permission to access the admin dashboard.');
         } else {
-          setError(e?.response?.data?.error || e?.message || 'Failed to load admin data');
+          setError(getApiErrorCode(e) || e?.message || 'Failed to load admin data');
         }
       })
       .finally(() => setLoading(false));

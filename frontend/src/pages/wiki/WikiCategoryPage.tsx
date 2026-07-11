@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { Container, Card, Spinner, Alert } from 'react-bootstrap';
 import { wikiApi } from '../../services/wikiApi';
 import { WikiCategoryDetailData } from '../../types/wiki';
+import { getApiErrorCode } from '../../services/apiErrors';
 
 const WikiCategoryPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -18,7 +19,7 @@ const WikiCategoryPage: React.FC = () => {
         if (e?.response?.status === 404) {
           setError('Category not found.');
         } else {
-          setError(e?.response?.data?.error || e?.message || 'Failed to load category');
+          setError(getApiErrorCode(e) || e?.message || 'Failed to load category');
         }
       })
       .finally(() => setLoading(false));

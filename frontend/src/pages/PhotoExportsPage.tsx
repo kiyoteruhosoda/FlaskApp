@@ -4,6 +4,7 @@ import {
 } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
+import { getApiErrorCode } from '../services/apiErrors';
 
 interface ExportPreview {
   matchedCount: number;
@@ -50,7 +51,7 @@ const PhotoExportsPage: React.FC = () => {
       });
       setPreview(res);
     } catch (err: any) {
-      const code = err?.response?.data?.error;
+      const code = getApiErrorCode(err);
       if (code === 'invalid_date_from' || code === 'invalid_date_to') {
         setPreviewError(t('Invalid date format'));
       } else if (code === 'invalid_limit') {

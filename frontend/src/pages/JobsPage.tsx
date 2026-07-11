@@ -30,6 +30,7 @@ import {
   formatCounts,
   jobStatusVariant,
 } from '../utils/format';
+import { getApiErrorCode } from '../services/apiErrors';
 
 const STATUS_OPTIONS: JobStatus[] = [
   'queued',
@@ -76,7 +77,7 @@ const JobsPage: React.FC = () => {
       setJobs(data.jobs);
       setPagination(data.pagination);
     } catch (e: any) {
-      setError(e?.response?.data?.error || e?.message || t('Failed to load jobs'));
+      setError(getApiErrorCode(e) || e?.message || t('Failed to load jobs'));
     } finally {
       setIsLoading(false);
     }
@@ -115,7 +116,7 @@ const JobsPage: React.FC = () => {
       await loadJobs();
     } catch (e: any) {
       setError(
-        e?.response?.data?.error || e?.message || t('Failed to retry job')
+        getApiErrorCode(e) || e?.message || t('Failed to retry job')
       );
     } finally {
       setRetryingId(null);

@@ -13,6 +13,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { LocalImportStatusResponse } from '../types/api';
+import { getApiErrorCode } from '../services/apiErrors';
 
 const PhotoSettingsPage: React.FC = () => {
   const { t } = useTranslation();
@@ -28,7 +29,7 @@ const PhotoSettingsPage: React.FC = () => {
       const data = await apiClient.getLocalImportStatus();
       setStatus(data);
     } catch (e: any) {
-      setError(e?.response?.data?.error || e?.message || t('Failed to load settings'));
+      setError(getApiErrorCode(e) || e?.message || t('Failed to load settings'));
     } finally {
       setIsLoading(false);
     }

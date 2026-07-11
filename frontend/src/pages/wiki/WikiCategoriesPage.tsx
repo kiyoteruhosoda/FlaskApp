@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Container, Row, Col, Card, Badge, Spinner, Alert } from 'react-bootstrap';
 import { wikiApi } from '../../services/wikiApi';
 import { WikiCategory } from '../../types/wiki';
+import { getApiErrorCode } from '../../services/apiErrors';
 
 const WikiCategoriesPage: React.FC = () => {
   const [categories, setCategories] = useState<WikiCategory[]>([]);
@@ -12,7 +13,7 @@ const WikiCategoriesPage: React.FC = () => {
   useEffect(() => {
     wikiApi.getCategories()
       .then(setCategories)
-      .catch((e) => setError(e?.response?.data?.error || e?.message || 'Failed to load categories'))
+      .catch((e) => setError(getApiErrorCode(e) || e?.message || 'Failed to load categories'))
       .finally(() => setLoading(false));
   }, []);
 

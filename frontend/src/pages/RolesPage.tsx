@@ -5,6 +5,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { AdminRole, AdminRoleDetail, AdminPermission } from '../types/api';
+import { getApiErrorCode } from '../services/apiErrors';
 
 const RolesPage: React.FC = () => {
   const { t } = useTranslation();
@@ -95,7 +96,7 @@ const RolesPage: React.FC = () => {
       }
       setShowForm(false);
     } catch (e: any) {
-      const code = e?.response?.data?.error;
+      const code = getApiErrorCode(e);
       setFormError(code === 'name_exists' ? t('Role name already in use') : t('Failed to save role'));
     } finally {
       setSubmitting(false);

@@ -22,6 +22,7 @@ import {
   describeImportSessionStatus,
   isActiveImportSessionStatus,
 } from '../utils/importSessionStatus';
+import { getApiErrorCode } from '../services/apiErrors';
 
 const LOG_LEVEL_VARIANT: Record<string, string> = {
   ERROR: 'danger',
@@ -52,7 +53,7 @@ const SessionDetailPage: React.FC = () => {
       const data = await apiClient.getPickerSessionStatus(sessionId);
       setSession(data);
     } catch (e: any) {
-      setError(e?.response?.data?.error || e?.message || t('Failed to load session'));
+      setError(getApiErrorCode(e) || e?.message || t('Failed to load session'));
     } finally {
       setIsLoadingSession(false);
     }
@@ -67,7 +68,7 @@ const SessionDetailPage: React.FC = () => {
       const data = await apiClient.getPickerSessionSelections(sessionId, params);
       setSelections(data.selections ?? []);
     } catch (e: any) {
-      setError(e?.response?.data?.error || e?.message || t('Failed to load selections'));
+      setError(getApiErrorCode(e) || e?.message || t('Failed to load selections'));
     } finally {
       setIsLoadingSelections(false);
     }
@@ -86,7 +87,7 @@ const SessionDetailPage: React.FC = () => {
       setLogsHasNext(data.hasNext);
       setLogsCursor(data.nextCursor ?? undefined);
     } catch (e: any) {
-      setError(e?.response?.data?.error || e?.message || t('Failed to load logs'));
+      setError(getApiErrorCode(e) || e?.message || t('Failed to load logs'));
     } finally {
       setIsLoadingLogs(false);
     }

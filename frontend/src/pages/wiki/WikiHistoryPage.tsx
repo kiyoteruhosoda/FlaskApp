@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { Container, Card, Badge, Spinner, Alert, Table } from 'react-bootstrap';
 import { wikiApi } from '../../services/wikiApi';
 import { WikiPageHistoryData } from '../../types/wiki';
+import { getApiErrorCode } from '../../services/apiErrors';
 
 const WikiHistoryPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -18,7 +19,7 @@ const WikiHistoryPage: React.FC = () => {
         if (e?.response?.status === 404) {
           setError('Page not found.');
         } else {
-          setError(e?.response?.data?.error || e?.message || 'Failed to load history');
+          setError(getApiErrorCode(e) || e?.message || 'Failed to load history');
         }
       })
       .finally(() => setLoading(false));

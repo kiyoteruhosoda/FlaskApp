@@ -30,7 +30,7 @@ test.describe('Login', () => {
       (route) => {
         attempt += 1;
         if (attempt === 1) {
-          route.fulfill({ status: 401, json: { error: 'totp_required' } });
+          route.fulfill({ status: 401, json: { detail: { error: 'totp_required' } } });
         } else {
           route.fulfill({ json: { ...TOKENS, requires_role_selection: false } });
         }
@@ -56,7 +56,7 @@ test.describe('Login', () => {
   test('shows error on invalid credentials', async ({ page }) => {
     await page.route(
       (url) => url.pathname === '/api/auth/login',
-      (route) => route.fulfill({ status: 401, json: { error: 'invalid_credentials' } })
+      (route) => route.fulfill({ status: 401, json: { detail: { error: 'invalid_credentials' } } })
     );
 
     await page.goto('/login');
@@ -79,7 +79,7 @@ test.describe('Login', () => {
     );
     await page.route(
       (url) => url.pathname === '/api/auth/me',
-      (route) => route.fulfill({ status: 401, json: { error: 'invalid_token' } })
+      (route) => route.fulfill({ status: 401, json: { detail: { error: 'invalid_token' } } })
     );
 
     await page.goto('/login');

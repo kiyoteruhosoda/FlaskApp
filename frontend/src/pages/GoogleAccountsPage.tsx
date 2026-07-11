@@ -16,6 +16,7 @@ import { apiClient } from '../services/api';
 import { LinkedGoogleAccount } from '../types/api';
 import { formatDateTime } from '../utils/format';
 import { googleLinkErrorText, useGoogleLinkResult } from '../utils/googleLinkResult';
+import { getApiErrorCode } from '../services/apiErrors';
 
 // Google アカウント連携ページ:
 // - アカウント登録（OAuth リンク開始）
@@ -46,7 +47,7 @@ const GoogleAccountsPage: React.FC = () => {
       const data = await apiClient.getLinkedGoogleAccounts();
       setAccounts(data.items || []);
     } catch (e: any) {
-      setError(e?.response?.data?.error || e?.message || t('Failed to load Google accounts'));
+      setError(getApiErrorCode(e) || e?.message || t('Failed to load Google accounts'));
     } finally {
       setIsLoading(false);
     }
@@ -69,7 +70,7 @@ const GoogleAccountsPage: React.FC = () => {
         setError(t('Failed to start Google authorization'));
       }
     } catch (e: any) {
-      const code = e?.response?.data?.error;
+      const code = getApiErrorCode(e);
       setError(
         code === 'encryption_key_not_configured'
           ? t('Token encryption key is not configured. Set it in System Settings > Security & Signing.')
@@ -88,7 +89,7 @@ const GoogleAccountsPage: React.FC = () => {
       await apiClient.updateGoogleAccountStatus(account.id, next);
       setAccounts((prev) => prev.map((a) => (a.id === account.id ? { ...a, status: next } : a)));
     } catch (e: any) {
-      setError(e?.response?.data?.error || e?.message || t('Failed to update account status'));
+      setError(getApiErrorCode(e) || e?.message || t('Failed to update account status'));
     } finally {
       setBusyAccountId(null);
     }
@@ -105,7 +106,7 @@ const GoogleAccountsPage: React.FC = () => {
       setTestResult({
         id: account.id,
         ok: false,
-        message: e?.response?.data?.error || e?.message,
+        message: getApiErrorCode(e) || e?.message,
       });
     } finally {
       setBusyAccountId(null);
@@ -122,7 +123,7 @@ const GoogleAccountsPage: React.FC = () => {
       setNotice(t('Google account unlinked: {{email}}', { email: deleteTarget.email }));
       setDeleteTarget(null);
     } catch (e: any) {
-      setError(e?.response?.data?.error || e?.message || t('Failed to unlink Google account'));
+      setError(getApiErrorCode(e) || e?.message || t('Failed to unlink Google account'));
     } finally {
       setDeleting(false);
     }

@@ -8,6 +8,7 @@ import { TOTPSetupResponse, PasskeyItem } from '../types/api';
 import apiClient from '../services/api';
 import { startPasskeyRegistration } from '../utils/webauthn';
 import GoogleAccountLinkSection from '../components/GoogleAccountLinkSection';
+import { getApiErrorCode } from '../services/apiErrors';
 
 const ProfilePage: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -150,7 +151,7 @@ const ProfilePage: React.FC = () => {
       setEditPassword('');
       setEditConfirmPassword('');
     } catch (err: any) {
-      const code = err.response?.data?.error;
+      const code = getApiErrorCode(err);
       if (code === 'email_exists') {
         setEditError(t('Email already in use'));
       } else {
@@ -187,7 +188,7 @@ const ProfilePage: React.FC = () => {
       setTotpCode('');
       setTotpSuccess(t('2FA enabled successfully'));
     } catch (err: any) {
-      const code = err.response?.data?.error;
+      const code = getApiErrorCode(err);
       if (code === 'invalid_code') {
         setTotpError(t('Invalid verification code'));
       } else {

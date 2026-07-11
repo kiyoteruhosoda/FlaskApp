@@ -5,6 +5,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { AdminServiceAccount } from '../types/api';
+import { getApiErrorCode } from '../services/apiErrors';
 
 const COMMON_SCOPES = ['media:view', 'media:write', 'album:view', 'album:write', 'sync:run', 'user:manage', 'admin:system-settings'];
 
@@ -88,7 +89,7 @@ const ServiceAccountsPage: React.FC = () => {
       }
       setShowForm(false);
     } catch (e: any) {
-      const code = e?.response?.data?.error;
+      const code = getApiErrorCode(e);
       setFormError(code === 'name_exists' ? t('Service account name already in use') : t('Failed to save service account'));
     } finally {
       setSubmitting(false);

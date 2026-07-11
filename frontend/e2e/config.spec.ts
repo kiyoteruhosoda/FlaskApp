@@ -148,7 +148,7 @@ test.describe('Config Page', () => {
     await setupAuth(page);
     await page.route(
       (url) => url.pathname === '/api/admin/config',
-      (route) => route.fulfill({ status: 403, json: { error: 'forbidden' } })
+      (route) => route.fulfill({ status: 403, json: { detail: { error: 'forbidden' } } })
     );
 
     await page.goto('/admin/config');

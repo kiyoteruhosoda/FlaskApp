@@ -20,6 +20,7 @@ import MediaSearchBar, {
   MediaSearchFilters,
   toMediaQueryParams,
 } from '../components/MediaSearchBar';
+import { getApiErrorCode } from '../services/apiErrors';
 
 const MediaPage: React.FC = () => {
   const { t } = useTranslation();
@@ -59,7 +60,7 @@ const MediaPage: React.FC = () => {
         setHasNext(Boolean(data.hasNext));
         setCursor(data.nextCursor ?? null);
       } catch (e: any) {
-        setError(e?.response?.data?.error || e?.message || t('Failed to load media'));
+        setError(getApiErrorCode(e) || e?.message || t('Failed to load media'));
       } finally {
         setIsLoading(false);
       }

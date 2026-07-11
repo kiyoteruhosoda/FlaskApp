@@ -21,6 +21,7 @@ import {
   formatCounts,
 } from '../utils/format';
 import { describeImportSessionStatus } from '../utils/importSessionStatus';
+import { getApiErrorCode } from '../services/apiErrors';
 
 const SessionsPage: React.FC = () => {
   const { t } = useTranslation();
@@ -45,7 +46,7 @@ const SessionsPage: React.FC = () => {
       setHasNext(data.pagination?.hasNext ?? false);
       setTotalCount(data.pagination?.totalCount ?? null);
     } catch (e: any) {
-      setError(e?.response?.data?.error || e?.message || t('Failed to load sessions'));
+      setError(getApiErrorCode(e) || e?.message || t('Failed to load sessions'));
     } finally {
       setIsLoading(false);
     }

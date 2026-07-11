@@ -108,14 +108,20 @@
   フェーズ（`active`/`done`）を `localStorage` に保存し、フェーズが変化＝未読としてバッジを
   立て、ベルを開いて中身を見るまで消えないようにした。
 
+### Changed
+- **マイグレーションを単一ベースライン（`init_master`）へ統合（全データリセット前提）**。
+  断片化した増分マイグレーション8本（`3b7c2e9a1f08` 〜 `9d6e4a2b0f5c`、および
+  ブランチ上の補正 `a1b2c3d4e5f6`）を削除し、`init_master` を現行モデルから再生成して
+  全テーブル（`must_change_password` を含む）を一括作成するようにした。マスタデータ投入
+  `2a1f9c0b3d4e_seed_master_data` は据え置きで新ヘッド。焼き込みベースライン
+  `db/init/01_initialize.sql` もモデルから再生成し、`alembic_version` を新ヘッド
+  `2a1f9c0b3d4e` に更新（旧来はヘッドの手書きSQLがモデルと乖離し、`user.must_change_password`
+  欠落のまま stamp していたためログインが `Unknown column` で 500 になっていた）。
+  - リセット手順: 旧DBボリュームを破棄し、再ビルドしたDBイメージ（`make build-db`）で
+    起動する。`db/init/01_initialize.sql` がスキーマ + マスタデータ（ロール/権限/初期管理者）
+    を投入し、web の `alembic upgrade head` は no-op になる。
+
 ### Fixed
-- **ログインが `Unknown column 'user.must_change_password'` で 500 になる問題を修正**
-  （`migrations/versions/a1b2c3d4e5f6_ensure_user_must_change_password.py`）。
-  `must_change_password` カラムは `6a3f7d2e1b4c` で追加していたが、`alembic_version` が
-  既にその先のリビジョンまで進んでいた環境では当該マイグレーションが再実行されず、
-  カラムが物理的に欠落したまま `alembic upgrade head` が no-op になっていた。
-  ヘッドの後ろに冪等な補正マイグレーションを追加し、カラムが存在しない場合のみ
-  追加するようにした（既存・新規構築環境では何もしないためスキーマ乖離は生じない）。
 - **nginx 設定がデプロイ時に host へ配布されず nginx が起動しない問題を修正**
   （`scripts/deploy.sh` / `scripts/deploy-stg.sh`）。compose の nginx サービスは設定を
   `./docker/nginx/default.conf` という相対パスでバインドマウントするが、この相対パスは

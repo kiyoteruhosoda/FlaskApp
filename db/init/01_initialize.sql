@@ -1,1538 +1,811 @@
--- MariaDB dump 10.19  Distrib 10.11.6-MariaDB, for Linux (x86_64)
---
--- Host: localhost    Database: 
--- ------------------------------------------------------
--- Server version	10.11.6-MariaDB
+-- PhotoNest DB baseline (schema + master data)
+-- 現行 SQLAlchemy モデルから機械生成。ロール/権限/初期管理者を含む。
+-- 再生成: ./scripts/regenerate_db_baseline.sh  (Docker 環境)
+-- alembic head: 2a1f9c0b3d4e
 
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8mb4 */;
-/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
-/*!40103 SET TIME_ZONE='+00:00' */;
-/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
-/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
-/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
-/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
-
---
--- Current Database: `appdb`
---
-
-CREATE DATABASE /*!32312 IF NOT EXISTS*/ `appdb` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci */;
-
-USE `appdb`;
-
---
--- Table structure for table `album`
---
-
-DROP TABLE IF EXISTS `album`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `album` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `name` varchar(255) NOT NULL,
-  `description` text DEFAULT NULL,
-  `cover_media_id` bigint(20) DEFAULT NULL,
-  `visibility` enum('public','private','unlisted') NOT NULL,
-  `display_order` int(11) DEFAULT NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  KEY `cover_media_id` (`cover_media_id`),
-  CONSTRAINT `album_ibfk_1` FOREIGN KEY (`cover_media_id`) REFERENCES `media` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `album`
---
-
-LOCK TABLES `album` WRITE;
-/*!40000 ALTER TABLE `album` DISABLE KEYS */;
-/*!40000 ALTER TABLE `album` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `album_item`
---
-
-DROP TABLE IF EXISTS `album_item`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `album_item` (
-  `album_id` bigint(20) NOT NULL,
-  `media_id` bigint(20) NOT NULL,
-  `sort_index` bigint(20) DEFAULT NULL,
-  PRIMARY KEY (`album_id`,`media_id`),
-  KEY `media_id` (`media_id`),
-  CONSTRAINT `album_item_ibfk_1` FOREIGN KEY (`album_id`) REFERENCES `album` (`id`),
-  CONSTRAINT `album_item_ibfk_2` FOREIGN KEY (`media_id`) REFERENCES `media` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `album_item`
---
-
-LOCK TABLES `album_item` WRITE;
-/*!40000 ALTER TABLE `album_item` DISABLE KEYS */;
-/*!40000 ALTER TABLE `album_item` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `alembic_version`
---
+SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS=0;
 
 DROP TABLE IF EXISTS `alembic_version`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `alembic_version` (
   `version_num` varchar(32) NOT NULL,
   PRIMARY KEY (`version_num`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `alembic_version`
---
-
-LOCK TABLES `alembic_version` WRITE;
-/*!40000 ALTER TABLE `alembic_version` DISABLE KEYS */;
-INSERT INTO `alembic_version` VALUES
-('9d6e4a2b0f5c');
-/*!40000 ALTER TABLE `alembic_version` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `celery_task`
---
+INSERT INTO `alembic_version` (`version_num`) VALUES ('2a1f9c0b3d4e');
 
 DROP TABLE IF EXISTS `celery_task`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `celery_task` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `task_name` varchar(255) NOT NULL,
-  `object_type` varchar(64) DEFAULT NULL,
-  `object_id` varchar(255) DEFAULT NULL,
-  `celery_task_id` varchar(255) DEFAULT NULL,
-  `status` enum('scheduled','queued','running','success','failed','canceled') NOT NULL DEFAULT 'queued',
-  `scheduled_for` datetime DEFAULT NULL,
-  `started_at` datetime DEFAULT NULL,
-  `finished_at` datetime DEFAULT NULL,
-  `payload_json` text NOT NULL DEFAULT '{}',
-  `result_json` text DEFAULT NULL,
-  `error_message` text DEFAULT NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `celery_task_id` (`celery_task_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `celery_task`
---
-
-LOCK TABLES `celery_task` WRITE;
-/*!40000 ALTER TABLE `celery_task` DISABLE KEYS */;
-/*!40000 ALTER TABLE `celery_task` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `certificate_events`
---
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`task_name` VARCHAR(255) NOT NULL, 
+	`object_type` VARCHAR(64), 
+	`object_id` VARCHAR(255), 
+	`celery_task_id` VARCHAR(255), 
+	`status` VARCHAR(9) NOT NULL DEFAULT 'queued', 
+	`scheduled_for` DATETIME, 
+	`started_at` DATETIME, 
+	`finished_at` DATETIME, 
+	`payload_json` TEXT NOT NULL DEFAULT '{}', 
+	`result_json` TEXT, 
+	`error_message` TEXT, 
+	`created_at` DATETIME NOT NULL, 
+	`updated_at` DATETIME NOT NULL, 
+	PRIMARY KEY (`id`), 
+	UNIQUE (`celery_task_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE INDEX `ix_celery_task_object` ON `celery_task` (`object_type`, `object_id`);
+CREATE INDEX `ix_celery_task_task_name_status` ON `celery_task` (`task_name`, `status`);
 
 DROP TABLE IF EXISTS `certificate_events`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `certificate_events` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `actor` varchar(255) NOT NULL,
-  `action` varchar(64) NOT NULL,
-  `target_kid` varchar(64) DEFAULT NULL,
-  `target_group_code` varchar(64) DEFAULT NULL,
-  `reason` text DEFAULT NULL,
-  `details` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`details`)),
-  `occurred_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),
-  PRIMARY KEY (`id`),
-  KEY `ix_certificate_events_target_kid` (`target_kid`),
-  KEY `ix_certificate_events_target_group_code` (`target_group_code`),
-  KEY `ix_certificate_events_occurred_at` (`occurred_at`),
-  CONSTRAINT `ck_certificate_events_details_json` CHECK (json_valid(`details`))
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `certificate_events`
---
-
-LOCK TABLES `certificate_events` WRITE;
-/*!40000 ALTER TABLE `certificate_events` DISABLE KEYS */;
-/*!40000 ALTER TABLE `certificate_events` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `certificate_groups`
---
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`actor` VARCHAR(255) NOT NULL, 
+	`action` VARCHAR(64) NOT NULL, 
+	`target_kid` VARCHAR(64), 
+	`target_group_code` VARCHAR(64), 
+	`reason` TEXT, 
+	`details` JSON, 
+	`occurred_at` DATETIME NOT NULL, 
+	PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE INDEX `ix_certificate_events_occurred_at` ON `certificate_events` (`occurred_at`);
+CREATE INDEX `ix_certificate_events_target_group_code` ON `certificate_events` (`target_group_code`);
+CREATE INDEX `ix_certificate_events_target_kid` ON `certificate_events` (`target_kid`);
 
 DROP TABLE IF EXISTS `certificate_groups`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `certificate_groups` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `group_code` varchar(64) NOT NULL,
-  `display_name` varchar(128) DEFAULT NULL,
-  `auto_rotate` tinyint(1) NOT NULL DEFAULT 1,
-  `rotation_threshold_days` int(11) NOT NULL,
-  `key_type` varchar(16) NOT NULL,
-  `key_curve` varchar(32) DEFAULT NULL,
-  `key_size` int(11) DEFAULT NULL,
-  `subject` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`subject`)),
-  `usage_type` varchar(32) NOT NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_certificate_groups_group_code` (`group_code`),
-  KEY `ix_certificate_groups_usage_type` (`usage_type`),
-  CONSTRAINT `ck_certificate_groups_subject_json` CHECK (json_valid(`subject`))
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `certificate_groups`
---
-
-LOCK TABLES `certificate_groups` WRITE;
-/*!40000 ALTER TABLE `certificate_groups` DISABLE KEYS */;
-/*!40000 ALTER TABLE `certificate_groups` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `certificate_private_keys`
---
-
-DROP TABLE IF EXISTS `certificate_private_keys`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `certificate_private_keys` (
-  `kid` varchar(64) NOT NULL,
-  `group_id` bigint(20) DEFAULT NULL,
-  `private_key_pem` text NOT NULL,
-  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),
-  `expires_at` datetime(6) DEFAULT NULL,
-  PRIMARY KEY (`kid`),
-  KEY `fk_certificate_private_keys_group_id_certificate_groups` (`group_id`),
-  KEY `ix_certificate_private_keys_created_at` (`created_at`),
-  KEY `ix_certificate_private_keys_expires_at` (`expires_at`),
-  CONSTRAINT `fk_certificate_private_keys_group_id_certificate_groups` FOREIGN KEY (`group_id`) REFERENCES `certificate_groups` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `fk_certificate_private_keys_kid_issued_certificates` FOREIGN KEY (`kid`) REFERENCES `issued_certificates` (`kid`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `certificate_private_keys`
---
-
-LOCK TABLES `certificate_private_keys` WRITE;
-/*!40000 ALTER TABLE `certificate_private_keys` DISABLE KEYS */;
-/*!40000 ALTER TABLE `certificate_private_keys` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `exif`
---
-
-DROP TABLE IF EXISTS `exif`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `exif` (
-  `media_id` bigint(20) NOT NULL,
-  `camera_make` varchar(255) DEFAULT NULL,
-  `camera_model` varchar(255) DEFAULT NULL,
-  `lens` varchar(255) DEFAULT NULL,
-  `iso` int(11) DEFAULT NULL,
-  `shutter` varchar(32) DEFAULT NULL,
-  `f_number` decimal(5,2) DEFAULT NULL,
-  `focal_len` decimal(5,2) DEFAULT NULL,
-  `gps_lat` decimal(10,7) DEFAULT NULL,
-  `gps_lng` decimal(10,7) DEFAULT NULL,
-  `raw_json` text DEFAULT NULL,
-  PRIMARY KEY (`media_id`),
-  CONSTRAINT `exif_ibfk_1` FOREIGN KEY (`media_id`) REFERENCES `media` (`id`)
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`group_code` VARCHAR(64) NOT NULL, 
+	`display_name` VARCHAR(128), 
+	`auto_rotate` BOOL NOT NULL, 
+	`rotation_threshold_days` INTEGER NOT NULL, 
+	`key_type` VARCHAR(16) NOT NULL, 
+	`key_curve` VARCHAR(32), 
+	`key_size` INTEGER, 
+	`subject` JSON NOT NULL, 
+	`usage_type` VARCHAR(32) NOT NULL, 
+	`created_at` DATETIME NOT NULL, 
+	`updated_at` DATETIME NOT NULL, 
+	PRIMARY KEY (`id`), 
+	UNIQUE (`group_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `exif`
---
-
-LOCK TABLES `exif` WRITE;
-/*!40000 ALTER TABLE `exif` DISABLE KEYS */;
-/*!40000 ALTER TABLE `exif` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `google_account`
---
-
-DROP TABLE IF EXISTS `google_account`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `google_account` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `user_id` bigint(20) DEFAULT NULL,
-  `email` varchar(255) NOT NULL,
-  `status` varchar(20) NOT NULL,
-  `scopes` text NOT NULL,
-  `last_synced_at` datetime DEFAULT NULL,
-  `oauth_token_json` text DEFAULT NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_user_google_email` (`user_id`,`email`),
-  CONSTRAINT `google_account_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `google_account`
---
-
-LOCK TABLES `google_account` WRITE;
-/*!40000 ALTER TABLE `google_account` DISABLE KEYS */;
-/*!40000 ALTER TABLE `google_account` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `issued_certificates`
---
-
-DROP TABLE IF EXISTS `issued_certificates`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `issued_certificates` (
-  `kid` varchar(64) NOT NULL,
-  `usage_type` varchar(32) NOT NULL,
-  `certificate_pem` text NOT NULL,
-  `jwk` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`jwk`)),
-  `issued_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),
-  `revoked_at` datetime(6) DEFAULT NULL,
-  `revocation_reason` text DEFAULT NULL,
-  `group_id` bigint(20) DEFAULT NULL,
-  `expires_at` datetime(6) DEFAULT NULL,
-  `auto_rotated_from_kid` varchar(64) DEFAULT NULL,
-  PRIMARY KEY (`kid`),
-  KEY `ix_issued_certificates_usage_type` (`usage_type`),
-  KEY `ix_issued_certificates_issued_at` (`issued_at`),
-  KEY `ix_issued_certificates_expires_at` (`expires_at`),
-  KEY `fk_issued_certificates_group_id_certificate_groups` (`group_id`),
-  CONSTRAINT `fk_issued_certificates_group_id_certificate_groups` FOREIGN KEY (`group_id`) REFERENCES `certificate_groups` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `issued_certificates`
---
-
-LOCK TABLES `issued_certificates` WRITE;
-/*!40000 ALTER TABLE `issued_certificates` DISABLE KEYS */;
-/*!40000 ALTER TABLE `issued_certificates` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `job_sync`
---
-
-DROP TABLE IF EXISTS `job_sync`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `job_sync` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `target` varchar(50) NOT NULL,
-  `account_id` bigint(20) DEFAULT NULL,
-  `session_id` bigint(20) DEFAULT NULL,
-  `started_at` datetime NOT NULL,
-  `finished_at` datetime DEFAULT NULL,
-  `status` enum('queued','running','success','partial','failed','canceled') NOT NULL DEFAULT 'queued',
-  `stats_json` text NOT NULL DEFAULT '{}',
-  `celery_task_id` bigint(20) DEFAULT NULL,
-  `task_name` varchar(255) NOT NULL DEFAULT '',
-  `queue_name` varchar(120) DEFAULT NULL,
-  `trigger` varchar(32) NOT NULL DEFAULT 'worker',
-  `args_json` text NOT NULL DEFAULT '{}',
-  PRIMARY KEY (`id`),
-  KEY `session_id` (`session_id`),
-  KEY `job_sync_celery_task_id_fkey` (`celery_task_id`),
-  CONSTRAINT `job_sync_celery_task_id_fkey` FOREIGN KEY (`celery_task_id`) REFERENCES `celery_task` (`id`),
-  CONSTRAINT `job_sync_ibfk_1` FOREIGN KEY (`session_id`) REFERENCES `picker_session` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `job_sync`
---
-
-LOCK TABLES `job_sync` WRITE;
-/*!40000 ALTER TABLE `job_sync` DISABLE KEYS */;
-/*!40000 ALTER TABLE `job_sync` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `log`
---
+CREATE INDEX `ix_certificate_groups_usage_type` ON `certificate_groups` (`usage_type`);
 
 DROP TABLE IF EXISTS `log`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `log` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `level` varchar(50) NOT NULL,
-  `event` varchar(50) NOT NULL,
-  `message` text NOT NULL,
-  `trace` text DEFAULT NULL,
-  `path` varchar(255) DEFAULT NULL,
-  `request_id` varchar(36) DEFAULT NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `log`
---
-
-LOCK TABLES `log` WRITE;
-/*!40000 ALTER TABLE `log` DISABLE KEYS */;
-/*!40000 ALTER TABLE `log` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `local_import_audit_log`
---
-
-DROP TABLE IF EXISTS `local_import_audit_log`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `local_import_audit_log` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `timestamp` DATETIME(6) NOT NULL DEFAULT UTC_TIMESTAMP(6),
-  `level` varchar(20) NOT NULL,
-  `category` varchar(50) NOT NULL,
-  `message` text NOT NULL,
-  `session_id` bigint(20) DEFAULT NULL,
-  `item_id` varchar(255) DEFAULT NULL,
-  `request_id` varchar(255) DEFAULT NULL,
-  `task_id` varchar(255) DEFAULT NULL,
-  `correlation_id` varchar(255) DEFAULT NULL,
-  `details` json DEFAULT NULL,
-  `error_type` varchar(255) DEFAULT NULL,
-  `error_message` text DEFAULT NULL,
-  `stack_trace` text DEFAULT NULL,
-  `recommended_actions` json DEFAULT NULL,
-  `duration_ms` float DEFAULT NULL,
-  `from_state` varchar(50) DEFAULT NULL,
-  `to_state` varchar(50) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_timestamp` (`timestamp`),
-  KEY `idx_level` (`level`),
-  KEY `idx_category` (`category`),
-  KEY `idx_session_id` (`session_id`),
-  KEY `idx_item_id` (`item_id`),
-  KEY `idx_request_id` (`request_id`),
-  KEY `idx_task_id` (`task_id`),
-  KEY `idx_session_timestamp` (`session_id`,`timestamp`),
-  KEY `idx_item_timestamp` (`item_id`,`timestamp`),
-  KEY `idx_level_category` (`level`,`category`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `local_import_audit_log`
---
-
-LOCK TABLES `local_import_audit_log` WRITE;
-/*!40000 ALTER TABLE `local_import_audit_log` DISABLE KEYS */;
-/*!40000 ALTER TABLE `local_import_audit_log` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `media`
---
-
-DROP TABLE IF EXISTS `media`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `media` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `source_type` enum('local','google_photos','wiki-media') NOT NULL,
-  `google_media_id` varchar(255) DEFAULT NULL,
-  `account_id` bigint(20) DEFAULT NULL,
-  `local_rel_path` varchar(255) DEFAULT NULL,
-  `filename` varchar(255) DEFAULT NULL,
-  `hash_sha256` char(64) DEFAULT NULL,
-  `phash` varchar(64) DEFAULT NULL,
-  `bytes` bigint(20) DEFAULT NULL,
-  `mime_type` varchar(255) DEFAULT NULL,
-  `width` int(11) DEFAULT NULL,
-  `height` int(11) DEFAULT NULL,
-  `duration_ms` int(11) DEFAULT NULL,
-  `orientation` int(11) DEFAULT NULL,
-  `is_video` tinyint(1) NOT NULL,
-  `shot_at` datetime DEFAULT NULL,
-  `camera_make` varchar(255) DEFAULT NULL,
-  `camera_model` varchar(255) DEFAULT NULL,
-  `imported_at` datetime NOT NULL,
-  `is_deleted` tinyint(1) NOT NULL,
-  `has_playback` tinyint(1) NOT NULL,
-  `live_group_id` bigint(20) DEFAULT NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  `thumbnail_rel_path` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_media_google_media_id` (`google_media_id`),
-  KEY `account_id` (`account_id`),
-  KEY `ix_media_phash_dimensions` (`phash`,`shot_at`,`width`,`height`,`duration_ms`,`is_video`),
-  CONSTRAINT `media_ibfk_1` FOREIGN KEY (`account_id`) REFERENCES `google_account` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `media`
---
-
-LOCK TABLES `media` WRITE;
-/*!40000 ALTER TABLE `media` DISABLE KEYS */;
-/*!40000 ALTER TABLE `media` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `media_item`
---
-
-DROP TABLE IF EXISTS `media_item`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `media_item` (
-  `id` varchar(255) NOT NULL,
-  `type` enum('TYPE_UNSPECIFIED','PHOTO','VIDEO') NOT NULL,
-  `mime_type` varchar(255) DEFAULT NULL,
-  `filename` varchar(255) DEFAULT NULL,
-  `width` int(11) DEFAULT NULL,
-  `height` int(11) DEFAULT NULL,
-  `camera_make` varchar(255) DEFAULT NULL,
-  `camera_model` varchar(255) DEFAULT NULL,
-  `photo_metadata_id` bigint(20) DEFAULT NULL,
-  `video_metadata_id` bigint(20) DEFAULT NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  KEY `photo_metadata_id` (`photo_metadata_id`),
-  KEY `video_metadata_id` (`video_metadata_id`),
-  CONSTRAINT `media_item_ibfk_1` FOREIGN KEY (`photo_metadata_id`) REFERENCES `photo_metadata` (`id`),
-  CONSTRAINT `media_item_ibfk_2` FOREIGN KEY (`video_metadata_id`) REFERENCES `video_metadata` (`id`)
+	`id` INTEGER NOT NULL AUTO_INCREMENT, 
+	`level` VARCHAR(50) NOT NULL, 
+	`event` VARCHAR(50) NOT NULL, 
+	`message` TEXT NOT NULL, 
+	`trace` TEXT, 
+	`path` VARCHAR(255), 
+	`request_id` VARCHAR(36), 
+	`created_at` DATETIME NOT NULL, 
+	PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `media_item`
---
-
-LOCK TABLES `media_item` WRITE;
-/*!40000 ALTER TABLE `media_item` DISABLE KEYS */;
-/*!40000 ALTER TABLE `media_item` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `media_playback`
---
-
-DROP TABLE IF EXISTS `media_playback`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `media_playback` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `media_id` bigint(20) NOT NULL,
-  `preset` enum('original','preview','mobile','std1080p') NOT NULL,
-  `rel_path` varchar(255) DEFAULT NULL,
-  `width` int(11) DEFAULT NULL,
-  `height` int(11) DEFAULT NULL,
-  `v_codec` varchar(32) DEFAULT NULL,
-  `a_codec` varchar(32) DEFAULT NULL,
-  `v_bitrate_kbps` int(11) DEFAULT NULL,
-  `duration_ms` int(11) DEFAULT NULL,
-  `poster_rel_path` varchar(255) DEFAULT NULL,
-  `hash_sha256` char(64) DEFAULT NULL,
-  `status` enum('pending','processing','done','error') NOT NULL,
-  `error_msg` text DEFAULT NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  KEY `media_id` (`media_id`),
-  CONSTRAINT `media_playback_ibfk_1` FOREIGN KEY (`media_id`) REFERENCES `media` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1   DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `media_playback`
---
-
-LOCK TABLES `media_playback` WRITE;
-/*!40000 ALTER TABLE `media_playback` DISABLE KEYS */;
-/*!40000 ALTER TABLE `media_playback` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `media_sidecar`
---
-
-DROP TABLE IF EXISTS `media_sidecar`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `media_sidecar` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `media_id` bigint(20) NOT NULL,
-  `type` enum('video','audio','subtitle') NOT NULL,
-  `rel_path` varchar(255) DEFAULT NULL,
-  `bytes` bigint(20) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `media_id` (`media_id`),
-  CONSTRAINT `media_sidecar_ibfk_1` FOREIGN KEY (`media_id`) REFERENCES `media` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `media_sidecar`
---
-
-LOCK TABLES `media_sidecar` WRITE;
-/*!40000 ALTER TABLE `media_sidecar` DISABLE KEYS */;
-/*!40000 ALTER TABLE `media_sidecar` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `media_tag`
---
-
-DROP TABLE IF EXISTS `media_tag`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `media_tag` (
-  `media_id` bigint(20) NOT NULL,
-  `tag_id` bigint(20) NOT NULL,
-  PRIMARY KEY (`media_id`,`tag_id`),
-  KEY `tag_id` (`tag_id`),
-  CONSTRAINT `media_tag_ibfk_1` FOREIGN KEY (`media_id`) REFERENCES `media` (`id`),
-  CONSTRAINT `media_tag_ibfk_2` FOREIGN KEY (`tag_id`) REFERENCES `tag` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `media_tag`
---
-
-LOCK TABLES `media_tag` WRITE;
-/*!40000 ALTER TABLE `media_tag` DISABLE KEYS */;
-/*!40000 ALTER TABLE `media_tag` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `media_thumbnail_retry`
---
-
-DROP TABLE IF EXISTS `media_thumbnail_retry`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `media_thumbnail_retry` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `media_id` bigint(20) NOT NULL,
-  `retry_after` datetime NOT NULL,
-  `force` tinyint(1) NOT NULL DEFAULT 0,
-  `celery_task_id` varchar(255) DEFAULT NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_media_thumbnail_retry_media_id` (`media_id`),
-  CONSTRAINT `fk_media_thumbnail_retry_media_id` FOREIGN KEY (`media_id`) REFERENCES `media` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `media_thumbnail_retry`
---
-
-LOCK TABLES `media_thumbnail_retry` WRITE;
-/*!40000 ALTER TABLE `media_thumbnail_retry` DISABLE KEYS */;
-/*!40000 ALTER TABLE `media_thumbnail_retry` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `permission`
---
-
-DROP TABLE IF EXISTS `permission`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `permission` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `code` varchar(120) NOT NULL,
-  `detail` text DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `code` (`code`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `permission`
---
-
-LOCK TABLES `permission` WRITE;
-/*!40000 ALTER TABLE `permission` DISABLE KEYS */;
-INSERT INTO `permission` (`id`,`code`,`detail`) VALUES
-(2,'admin:job-settings',NULL),
-(1,'admin:photo-settings',NULL),
-(4,'album:create',NULL),
-(5,'album:edit',NULL),
-(6,'album:view',NULL),
-(21,'api_key:manage',NULL),
-(23,'api_key:read',NULL),
-(20,'certificate:manage',NULL),
-(22,'certificate:sign',NULL),
-(15,'media:delete',NULL),
-(16,'media:recover',NULL),
-(28,'media:session',NULL),
-(14,'media:tag-manage',NULL),
-(25,'media:metadata-manage',NULL),
-(7,'media:view',NULL),
-(8,'permission:manage',NULL),
-(9,'role:manage',NULL),
-(19,'service_account:manage',NULL),
-(10,'system:manage',NULL),
-(17,'totp:view',NULL),
-(18,'totp:write',NULL),
-(3,'user:manage',NULL),
-(27,'group:manage',NULL),
-(26,'dashboard:view',NULL),
-(24,'gui:view',NULL),
-(11,'wiki:admin',NULL),
-(12,'wiki:read',NULL),
-(13,'wiki:write',NULL),
-(29,'admin:system-settings',NULL);
-/*!40000 ALTER TABLE `permission` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `photo_metadata`
---
-
-DROP TABLE IF EXISTS `photo_metadata`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `photo_metadata` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `focal_length` float DEFAULT NULL,
-  `aperture_f_number` float DEFAULT NULL,
-  `iso_equivalent` int(11) DEFAULT NULL,
-  `exposure_time` varchar(32) DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `photo_metadata`
---
-
-LOCK TABLES `photo_metadata` WRITE;
-/*!40000 ALTER TABLE `photo_metadata` DISABLE KEYS */;
-/*!40000 ALTER TABLE `photo_metadata` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `picker_import_task`
---
-
-DROP TABLE IF EXISTS `picker_import_task`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `picker_import_task` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `picker_import_task`
---
-
-LOCK TABLES `picker_import_task` WRITE;
-/*!40000 ALTER TABLE `picker_import_task` DISABLE KEYS */;
-/*!40000 ALTER TABLE `picker_import_task` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `picker_selection`
---
-
-DROP TABLE IF EXISTS `picker_selection`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `picker_selection` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `session_id` bigint(20) NOT NULL,
-  `google_media_id` varchar(255) DEFAULT NULL,
-  `local_file_path` text DEFAULT NULL,
-  `local_filename` varchar(500) DEFAULT NULL,
-  `status` enum('pending','enqueued','running','imported','dup','failed','expired','skipped') NOT NULL DEFAULT 'pending',
-  `create_time` datetime DEFAULT NULL,
-  `enqueued_at` datetime DEFAULT NULL,
-  `started_at` datetime DEFAULT NULL,
-  `finished_at` datetime DEFAULT NULL,
-  `attempts` int(11) NOT NULL DEFAULT 0,
-  `error_msg` text DEFAULT NULL,
-  `base_url` text DEFAULT NULL,
-  `base_url_fetched_at` datetime DEFAULT NULL,
-  `base_url_valid_until` datetime DEFAULT NULL,
-  `locked_by` varchar(255) DEFAULT NULL,
-  `lock_heartbeat_at` datetime DEFAULT NULL,
-  `last_transition_at` datetime DEFAULT NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_picker_selection_session_media` (`session_id`,`google_media_id`),
-  KEY `google_media_id` (`google_media_id`),
-  KEY `idx_picker_selection_session_status` (`session_id`,`status`),
-  KEY `idx_picker_selection_status_lock` (`status`,`lock_heartbeat_at`),
-  CONSTRAINT `picker_selection_ibfk_1` FOREIGN KEY (`google_media_id`) REFERENCES `media_item` (`id`),
-  CONSTRAINT `picker_selection_ibfk_2` FOREIGN KEY (`session_id`) REFERENCES `picker_session` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `picker_selection`
---
-
-LOCK TABLES `picker_selection` WRITE;
-/*!40000 ALTER TABLE `picker_selection` DISABLE KEYS */;
-/*!40000 ALTER TABLE `picker_selection` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `picker_session`
---
-
-DROP TABLE IF EXISTS `picker_session`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `picker_session` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `account_id` bigint(20) DEFAULT NULL,
-  `session_id` varchar(255) DEFAULT NULL,
-  `picker_uri` text DEFAULT NULL,
-  `expire_time` datetime DEFAULT NULL,
-  `polling_config_json` text DEFAULT NULL,
-  `picking_config_json` text DEFAULT NULL,
-  `media_items_set` tinyint(1) DEFAULT NULL,
-  `trigger` varchar(32) NOT NULL DEFAULT 'unknown',
-  `triggered_by_user_id` bigint(20) DEFAULT NULL,
-  `status` enum('pending','ready','processing','enqueued','importing','imported','canceled','expired','error','failed','expanding') NOT NULL DEFAULT 'pending',
-  `selected_count` int(11) DEFAULT NULL,
-  `stats_json` text DEFAULT NULL,
-  `last_polled_at` datetime DEFAULT NULL,
-  `last_progress_at` datetime DEFAULT NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `session_id` (`session_id`),
-  KEY `account_id` (`account_id`),
-  KEY `fk_picker_session_triggered_by_user_id_user` (`triggered_by_user_id`),
-  CONSTRAINT `fk_picker_session_triggered_by_user_id_user` FOREIGN KEY (`triggered_by_user_id`) REFERENCES `user` (`id`),
-  CONSTRAINT `picker_session_ibfk_1` FOREIGN KEY (`account_id`) REFERENCES `google_account` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `picker_session`
---
-
-LOCK TABLES `picker_session` WRITE;
-/*!40000 ALTER TABLE `picker_session` DISABLE KEYS */;
-/*!40000 ALTER TABLE `picker_session` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `role`
---
-
-DROP TABLE IF EXISTS `role`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `role` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `name` varchar(80) NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `name` (`name`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `role`
---
-
-LOCK TABLES `role` WRITE;
-/*!40000 ALTER TABLE `role` DISABLE KEYS */;
-INSERT INTO `role` VALUES
-(1,'admin'),
-(2,'director'),
-(3,'member'),
-(4,'guest'),
-(5,'sign admin');
-/*!40000 ALTER TABLE `role` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `role_permissions`
---
-
-DROP TABLE IF EXISTS `role_permissions`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `role_permissions` (
-  `role_id` bigint(20) NOT NULL,
-  `perm_id` bigint(20) NOT NULL,
-  PRIMARY KEY (`role_id`,`perm_id`),
-  KEY `perm_id` (`perm_id`),
-  CONSTRAINT `role_permissions_ibfk_1` FOREIGN KEY (`perm_id`) REFERENCES `permission` (`id`),
-  CONSTRAINT `role_permissions_ibfk_2` FOREIGN KEY (`role_id`) REFERENCES `role` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `role_permissions`
---
-
-LOCK TABLES `role_permissions` WRITE;
-/*!40000 ALTER TABLE `role_permissions` DISABLE KEYS */;
-INSERT INTO `role_permissions` VALUES
-(1,1),
-(1,2),
-(1,3),
-(1,4),
-(1,5),
-(1,6),
-(1,7),
-(1,8),
-(1,9),
-(1,10),
-(1,11),
-(1,12),
-(1,13),
-(1,14),
-(1,15),
-(1,16),
-(1,17),
-(1,18),
-(1,19),
-(1,20),
-(1,21),
-(1,22),
-(1,23),
-(1,24),
-(1,25),
-(1,26),
-(1,27),
-(1,28),
-(1,29),
-(2,4),
-(2,5),
-(2,6),
-(2,7),
-(3,6),
-(3,7),
-(3,26),
-(4,26),
-(5,20);
-/*!40000 ALTER TABLE `role_permissions` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `service_account`
---
-
-DROP TABLE IF EXISTS `service_account`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `service_account` (
-  `service_account_id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) NOT NULL,
-  `description` varchar(255) DEFAULT NULL,
-  `certificate_group_code` varchar(64) DEFAULT NULL,
-  `jtk_endpoint` varchar(500) DEFAULT NULL,
-  `scope_names` varchar(1000) NOT NULL DEFAULT '',
-  `active_flg` tinyint(1) NOT NULL DEFAULT 1,
-  `reg_dttm` datetime(6) NOT NULL DEFAULT current_timestamp(6),
-  `mod_dttm` datetime(6) NOT NULL DEFAULT current_timestamp(6) ON UPDATE current_timestamp(6),
-  `jwt_endpoint` varchar(500) DEFAULT NULL,
-  PRIMARY KEY (`service_account_id`),
-  UNIQUE KEY `name` (`name`),
-  KEY `fk_service_account_certificate_group_code` (`certificate_group_code`),
-  CONSTRAINT `fk_service_account_certificate_group_code` FOREIGN KEY (`certificate_group_code`) REFERENCES `certificate_groups` (`group_code`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `service_account`
---
-
-LOCK TABLES `service_account` WRITE;
-/*!40000 ALTER TABLE `service_account` DISABLE KEYS */;
-/*!40000 ALTER TABLE `service_account` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `service_account_api_key`
---
-
-DROP TABLE IF EXISTS `service_account_api_key`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `service_account_api_key` (
-  `api_key_id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `service_account_id` bigint(20) NOT NULL,
-  `public_id` varchar(32) NOT NULL,
-  `secret_hash` varchar(255) NOT NULL,
-  `scope_names` varchar(2000) NOT NULL,
-  `expires_at` datetime(6) DEFAULT NULL,
-  `revoked_at` datetime(6) DEFAULT NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `created_by` varchar(255) NOT NULL,
-  PRIMARY KEY (`api_key_id`),
-  UNIQUE KEY `uq_service_account_api_key_public_id` (`public_id`),
-  KEY `ix_service_account_api_key_service_account_id` (`service_account_id`),
-  CONSTRAINT `fk_service_account_api_key_service_account` FOREIGN KEY (`service_account_id`) REFERENCES `service_account` (`service_account_id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `service_account_api_key`
---
-
-LOCK TABLES `service_account_api_key` WRITE;
-/*!40000 ALTER TABLE `service_account_api_key` DISABLE KEYS */;
-/*!40000 ALTER TABLE `service_account_api_key` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `service_account_api_key_log`
---
-
-DROP TABLE IF EXISTS `service_account_api_key_log`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `service_account_api_key_log` (
-  `log_id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `api_key_id` bigint(20) NOT NULL,
-  `accessed_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),
-  `ip_address` varchar(64) DEFAULT NULL,
-  `endpoint` varchar(255) DEFAULT NULL,
-  `user_agent` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`log_id`),
-  KEY `ix_service_account_api_key_log_api_key_id` (`api_key_id`),
-  CONSTRAINT `fk_service_account_api_key_log_api_key` FOREIGN KEY (`api_key_id`) REFERENCES `service_account_api_key` (`api_key_id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `service_account_api_key_log`
---
-
-LOCK TABLES `service_account_api_key_log` WRITE;
-/*!40000 ALTER TABLE `service_account_api_key_log` DISABLE KEYS */;
-/*!40000 ALTER TABLE `service_account_api_key_log` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `system_settings`
---
-
-DROP TABLE IF EXISTS `system_settings`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `system_settings` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `setting_key` varchar(100) NOT NULL,
-  `setting_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`setting_json`)),
-  `description` text DEFAULT NULL,
-  `updated_at` datetime(6) NOT NULL DEFAULT current_timestamp(6) ON UPDATE current_timestamp(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `setting_key` (`setting_key`),
-  CONSTRAINT `ck_system_settings_json_valid` CHECK (json_valid(`setting_json`))
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `system_settings`
---
-
-LOCK TABLES `system_settings` WRITE;
-/*!40000 ALTER TABLE `system_settings` DISABLE KEYS */;
-/*!40000 ALTER TABLE `system_settings` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `tag`
---
-
-DROP TABLE IF EXISTS `tag`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `tag` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `name` varchar(255) NOT NULL,
-  `attr` enum("thing", 'person', 'place', 'event', 'scene', 'activity', 'source', 'others') NOT NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `created_by` bigint(20) DEFAULT NULL,
-  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  KEY `created_by` (`created_by`),
-  CONSTRAINT `tag_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `user` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tag`
---
-
-LOCK TABLES `tag` WRITE;
-/*!40000 ALTER TABLE `tag` DISABLE KEYS */;
-/*!40000 ALTER TABLE `tag` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `user_group`
---
-
-DROP TABLE IF EXISTS `user_group`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `user_group` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `name` varchar(120) NOT NULL,
-  `description` text DEFAULT NULL,
-  `parent_id` bigint(20) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_user_group_name` (`name`),
-  KEY `ix_user_group_parent_id` (`parent_id`),
-  CONSTRAINT `fk_user_group_parent` FOREIGN KEY (`parent_id`) REFERENCES `user_group` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `user_group`
---
-
-LOCK TABLES `user_group` WRITE;
-/*!40000 ALTER TABLE `user_group` DISABLE KEYS */;
-/*!40000 ALTER TABLE `user_group` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `totp_credential`
---
-
-DROP TABLE IF EXISTS `totp_credential`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `totp_credential` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `user_id` bigint(20) DEFAULT NULL,
-  `account` varchar(255) NOT NULL,
-  `issuer` varchar(255) NOT NULL,
-  `secret` varchar(160) NOT NULL,
-  `description` text DEFAULT NULL,
-  `algorithm` varchar(16) NOT NULL DEFAULT 'SHA1',
-  `digits` smallint(6) NOT NULL DEFAULT 6,
-  `period` smallint(6) NOT NULL DEFAULT 30,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_totp_user_account_issuer` (`user_id`,`account`,`issuer`),
-  KEY `ix_totp_credential_user_id` (`user_id`),
-  CONSTRAINT `fk_totp_credential_user_id_user` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `totp_credential`
---
-
-LOCK TABLES `totp_credential` WRITE;
-/*!40000 ALTER TABLE `totp_credential` DISABLE KEYS */;
-/*!40000 ALTER TABLE `totp_credential` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `user`
---
-
-DROP TABLE IF EXISTS `user`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `user` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `email` varchar(255) NOT NULL,
-  `username` varchar(80) DEFAULT NULL,
-  `password_hash` varchar(255) NOT NULL,
-  `totp_secret` varchar(32) DEFAULT NULL,
-  `is_active` tinyint(1) NOT NULL,
-  `refresh_token_hash` varchar(255) DEFAULT NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `ix_user_email` (`email`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `user`
---
-
-LOCK TABLES `user` WRITE;
-/*!40000 ALTER TABLE `user` DISABLE KEYS */;
-INSERT INTO `user` (
-  id, email, username, password_hash, totp_secret, is_active, refresh_token_hash
-) VALUES (
-  -1,
-  'admin@example.com',
-  'admin',
-  'scrypt:32768:8:1$7oTcIUdekNLXGSXC$fd0f3320bde4570c7e1ea9d9d289aeb916db7a50fb62489a7e89d99c6cc576813506fd99f50904101c1eb85ff925f8dc879df5ded781ef2613224d702938c9c8',
-  NULL,
-  1,
-  NULL
-);
-/*!40000 ALTER TABLE `user` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `group_user_membership`
---
-
-DROP TABLE IF EXISTS `group_user_membership`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `group_user_membership` (
-  `group_id` bigint(20) NOT NULL,
-  `user_id` bigint(20) NOT NULL,
-  PRIMARY KEY (`group_id`,`user_id`),
-  UNIQUE KEY `uq_group_user_membership` (`group_id`,`user_id`),
-  KEY `fk_group_membership_user` (`user_id`),
-  CONSTRAINT `fk_group_membership_group` FOREIGN KEY (`group_id`) REFERENCES `user_group` (`id`),
-  CONSTRAINT `fk_group_membership_user` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `group_user_membership`
---
-
-LOCK TABLES `group_user_membership` WRITE;
-/*!40000 ALTER TABLE `group_user_membership` DISABLE KEYS */;
-/*!40000 ALTER TABLE `group_user_membership` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `user_roles`
---
-
-DROP TABLE IF EXISTS `user_roles`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `user_roles` (
-  `user_id` bigint(20) NOT NULL,
-  `role_id` bigint(20) NOT NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`user_id`,`role_id`),
-  KEY `role_id` (`role_id`),
-  CONSTRAINT `user_roles_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `role` (`id`),
-  CONSTRAINT `user_roles_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `user_roles`
---
-
-LOCK TABLES `user_roles` WRITE;
-/*!40000 ALTER TABLE `user_roles` DISABLE KEYS */;
-INSERT INTO `user_roles` (
-  user_id, role_id
-) VALUES (
-  -1, 1
-);
-/*!40000 ALTER TABLE `user_roles` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `video_metadata`
---
-
-DROP TABLE IF EXISTS `video_metadata`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `video_metadata` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `fps` float DEFAULT NULL,
-  `processing_status` enum('UNSPECIFIED','PROCESSING','READY','FAILED') DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `video_metadata`
---
-
-LOCK TABLES `video_metadata` WRITE;
-/*!40000 ALTER TABLE `video_metadata` DISABLE KEYS */;
-/*!40000 ALTER TABLE `video_metadata` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `wiki_category`
---
-
-DROP TABLE IF EXISTS `wiki_category`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `wiki_category` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) NOT NULL,
-  `description` text DEFAULT NULL,
-  `slug` varchar(100) NOT NULL,
-  `sort_order` int(11) NOT NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `ix_wiki_category_slug` (`slug`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `wiki_category`
---
-
-LOCK TABLES `wiki_category` WRITE;
-/*!40000 ALTER TABLE `wiki_category` DISABLE KEYS */;
-/*!40000 ALTER TABLE `wiki_category` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `wiki_page`
---
-
-DROP TABLE IF EXISTS `wiki_page`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `wiki_page` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `title` varchar(255) NOT NULL,
-  `content` text NOT NULL,
-  `slug` varchar(255) NOT NULL,
-  `is_published` tinyint(1) NOT NULL,
-  `parent_id` bigint(20) DEFAULT NULL,
-  `sort_order` int(11) NOT NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  `created_by_id` bigint(20) NOT NULL,
-  `updated_by_id` bigint(20) NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `ix_wiki_page_slug` (`slug`),
-  KEY `created_by_id` (`created_by_id`),
-  KEY `parent_id` (`parent_id`),
-  KEY `updated_by_id` (`updated_by_id`),
-  CONSTRAINT `wiki_page_ibfk_1` FOREIGN KEY (`created_by_id`) REFERENCES `user` (`id`),
-  CONSTRAINT `wiki_page_ibfk_2` FOREIGN KEY (`parent_id`) REFERENCES `wiki_page` (`id`),
-  CONSTRAINT `wiki_page_ibfk_3` FOREIGN KEY (`updated_by_id`) REFERENCES `user` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `wiki_page`
---
-
-LOCK TABLES `wiki_page` WRITE;
-/*!40000 ALTER TABLE `wiki_page` DISABLE KEYS */;
-/*!40000 ALTER TABLE `wiki_page` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `wiki_page_category`
---
-
-DROP TABLE IF EXISTS `wiki_page_category`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `wiki_page_category` (
-  `page_id` bigint(20) NOT NULL,
-  `category_id` bigint(20) NOT NULL,
-  PRIMARY KEY (`page_id`,`category_id`),
-  KEY `category_id` (`category_id`),
-  CONSTRAINT `wiki_page_category_ibfk_1` FOREIGN KEY (`category_id`) REFERENCES `wiki_category` (`id`),
-  CONSTRAINT `wiki_page_category_ibfk_2` FOREIGN KEY (`page_id`) REFERENCES `wiki_page` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `wiki_page_category`
---
-
-LOCK TABLES `wiki_page_category` WRITE;
-/*!40000 ALTER TABLE `wiki_page_category` DISABLE KEYS */;
-/*!40000 ALTER TABLE `wiki_page_category` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `wiki_revision`
---
-
-DROP TABLE IF EXISTS `wiki_revision`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `wiki_revision` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `page_id` bigint(20) NOT NULL,
-  `title` varchar(255) NOT NULL,
-  `content` text NOT NULL,
-  `revision_number` int(11) NOT NULL,
-  `change_summary` varchar(500) DEFAULT NULL,
-  `created_at` datetime NOT NULL,
-  `created_by_id` bigint(20) NOT NULL,
-  PRIMARY KEY (`id`),
-  KEY `created_by_id` (`created_by_id`),
-  KEY `page_id` (`page_id`),
-  CONSTRAINT `wiki_revision_ibfk_1` FOREIGN KEY (`created_by_id`) REFERENCES `user` (`id`),
-  CONSTRAINT `wiki_revision_ibfk_2` FOREIGN KEY (`page_id`) REFERENCES `wiki_page` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `wiki_revision`
---
-
-LOCK TABLES `wiki_revision` WRITE;
-/*!40000 ALTER TABLE `wiki_revision` DISABLE KEYS */;
-/*!40000 ALTER TABLE `wiki_revision` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `worker_log`
---
-
-DROP TABLE IF EXISTS `worker_log`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `worker_log` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `level` varchar(20) NOT NULL,
-  `event` varchar(50) NOT NULL,
-  `logger_name` varchar(120) DEFAULT NULL,
-  `task_name` varchar(255) DEFAULT NULL,
-  `task_uuid` char(36) DEFAULT NULL,
-  `file_task_id` varchar(64) DEFAULT NULL,
-  `progress_step` int DEFAULT NULL,
-  `worker_hostname` varchar(255) DEFAULT NULL,
-  `queue_name` varchar(120) DEFAULT NULL,
-  `status` varchar(40) DEFAULT NULL,
-  `message` text NOT NULL,
-  `trace` text DEFAULT NULL,
-  `meta_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`meta_json`)),
-  `extra_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`extra_json`)),
-  PRIMARY KEY (`id`),
-  KEY `ix_worker_log_event` (`event`),
-  KEY `ix_worker_log_file_task_id` (`file_task_id`),
-  KEY `ix_worker_log_file_task_id_progress_step` (`file_task_id`,`progress_step`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `worker_log`
---
-
-LOCK TABLES `worker_log` WRITE;
-/*!40000 ALTER TABLE `worker_log` DISABLE KEYS */;
-/*!40000 ALTER TABLE `worker_log` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `passkey_credential`
---
-
-DROP TABLE IF EXISTS `passkey_credential`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `passkey_credential` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `user_id` bigint(20) NOT NULL,
-  `credential_id` VARCHAR(255) NOT NULL,
-  `public_key` TEXT NOT NULL,
-  `sign_count` BIGINT NOT NULL DEFAULT 0,
-  `transports` JSON DEFAULT NULL,
-  `name` VARCHAR(255) DEFAULT NULL,
-  `attestation_format` VARCHAR(64) DEFAULT NULL,
-  `aaguid` VARCHAR(64) DEFAULT NULL,
-  `backup_eligible` BOOLEAN NOT NULL DEFAULT FALSE,
-  `backup_state` BOOLEAN NOT NULL DEFAULT FALSE,
-  `last_used_at` DATETIME(6) DEFAULT NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_passkey_credential_id` (`credential_id`),
-  KEY `ix_passkey_credential_user_id` (`user_id`),
-  CONSTRAINT `fk_passkey_credential_user_id_user`
-    FOREIGN KEY (`user_id`) REFERENCES `user` (`id`)
-    ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `passkey_credential`
---
-
-LOCK TABLES `passkey_credential` WRITE;
-/*!40000 ALTER TABLE `passkey_credential` DISABLE KEYS */;
-/*!40000 ALTER TABLE `passkey_credential` ENABLE KEYS */;
-UNLOCK TABLES;
-
-
---
--- Table structure for table `password_reset_token`
---
 
 DROP TABLE IF EXISTS `password_reset_token`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-
 CREATE TABLE `password_reset_token` (
-  `id` BIGINT NOT NULL AUTO_INCREMENT,
-  `email` VARCHAR(255) NOT NULL,
-  `token_hash` VARCHAR(255) NOT NULL,
-  `expires_at` DATETIME NOT NULL,
-  `used` BOOLEAN NOT NULL DEFAULT 0,
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_password_reset_token_hash` (`token_hash`),
-  KEY `ix_password_reset_token_email` (`email`),
-  KEY `ix_password_reset_token_expires_at` (`expires_at`),
-  KEY `ix_password_reset_token_used` (`used`)
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`email` VARCHAR(255) NOT NULL, 
+	`token_hash` VARCHAR(255) NOT NULL, 
+	`expires_at` DATETIME NOT NULL, 
+	`used` BOOL NOT NULL, 
+	`created_at` DATETIME NOT NULL, 
+	PRIMARY KEY (`id`), 
+	UNIQUE (`token_hash`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE INDEX `ix_password_reset_token_email` ON `password_reset_token` (`email`);
+
+DROP TABLE IF EXISTS `permission`;
+CREATE TABLE `permission` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`code` VARCHAR(120) NOT NULL, 
+	`detail` TEXT, 
+	PRIMARY KEY (`id`), 
+	UNIQUE (`code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Dumping data for table `password_reset_token`
---
+DROP TABLE IF EXISTS `photo_metadata`;
+CREATE TABLE `photo_metadata` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`focal_length` FLOAT, 
+	`aperture_f_number` FLOAT, 
+	`iso_equivalent` INTEGER, 
+	`exposure_time` VARCHAR(32), 
+	PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-LOCK TABLES `password_reset_token` WRITE;
-/*!40000 ALTER TABLE `password_reset_token` DISABLE KEYS */;
-/*!40000 ALTER TABLE `password_reset_token` ENABLE KEYS */;
-UNLOCK TABLES;
+DROP TABLE IF EXISTS `picker_import_task`;
+CREATE TABLE `picker_import_task` (
+	`id` INTEGER NOT NULL AUTO_INCREMENT, 
+	PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `role`;
+CREATE TABLE `role` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`name` VARCHAR(80) NOT NULL, 
+	PRIMARY KEY (`id`), 
+	UNIQUE (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `system_settings`;
+CREATE TABLE `system_settings` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`setting_key` VARCHAR(100) NOT NULL, 
+	`setting_json` JSON NOT NULL, 
+	`description` TEXT, 
+	`updated_at` DATETIME NOT NULL, 
+	PRIMARY KEY (`id`), 
+	UNIQUE (`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `user`;
+CREATE TABLE `user` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`email` VARCHAR(255) NOT NULL, 
+	`username` VARCHAR(80), 
+	`password_hash` VARCHAR(255) NOT NULL, 
+	`created_at` DATETIME NOT NULL, 
+	`totp_secret` VARCHAR(32), 
+	`is_active` BOOL NOT NULL, 
+	`refresh_token_hash` VARCHAR(255), 
+	`must_change_password` BOOL NOT NULL DEFAULT '0', 
+	PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE UNIQUE INDEX `ix_user_email` ON `user` (`email`);
+
+DROP TABLE IF EXISTS `user_group`;
+CREATE TABLE `user_group` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`name` VARCHAR(120) NOT NULL, 
+	`description` TEXT, 
+	`parent_id` BIGINT, 
+	PRIMARY KEY (`id`), 
+	CONSTRAINT `uq_user_group_name` UNIQUE (`name`), 
+	FOREIGN KEY(`parent_id`) REFERENCES `user_group` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `video_metadata`;
+CREATE TABLE `video_metadata` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`fps` FLOAT, 
+	`processing_status` VARCHAR(11), 
+	PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `wiki_category`;
+CREATE TABLE `wiki_category` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`name` VARCHAR(100) NOT NULL, 
+	`description` TEXT, 
+	`slug` VARCHAR(100) NOT NULL, 
+	`sort_order` INTEGER NOT NULL, 
+	`created_at` DATETIME NOT NULL, 
+	PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE UNIQUE INDEX `ix_wiki_category_slug` ON `wiki_category` (`slug`);
+
+DROP TABLE IF EXISTS `worker_log`;
+CREATE TABLE `worker_log` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`created_at` DATETIME NOT NULL, 
+	`level` VARCHAR(20) NOT NULL, 
+	`event` VARCHAR(50) NOT NULL, 
+	`logger_name` VARCHAR(120), 
+	`task_name` VARCHAR(255), 
+	`task_uuid` VARCHAR(36), 
+	`file_task_id` VARCHAR(64), 
+	`progress_step` INTEGER, 
+	`worker_hostname` VARCHAR(255), 
+	`queue_name` VARCHAR(120), 
+	`status` VARCHAR(40), 
+	`message` TEXT NOT NULL, 
+	`trace` TEXT, 
+	`meta_json` JSON, 
+	`extra_json` JSON, 
+	PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE INDEX `ix_worker_log_event` ON `worker_log` (`event`);
+CREATE INDEX `ix_worker_log_file_task_id` ON `worker_log` (`file_task_id`);
+CREATE INDEX `ix_worker_log_file_task_id_progress_step` ON `worker_log` (`file_task_id`, `progress_step`);
+
+DROP TABLE IF EXISTS `google_account`;
+CREATE TABLE `google_account` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`user_id` BIGINT, 
+	`email` VARCHAR(255) NOT NULL, 
+	`status` VARCHAR(20) NOT NULL, 
+	`scopes` TEXT NOT NULL, 
+	`last_synced_at` DATETIME, 
+	`oauth_token_json` TEXT, 
+	`created_at` DATETIME NOT NULL, 
+	`updated_at` DATETIME NOT NULL, 
+	PRIMARY KEY (`id`), 
+	CONSTRAINT `uq_user_google_email` UNIQUE (`user_id`, `email`), 
+	FOREIGN KEY(`user_id`) REFERENCES `user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `group_roles`;
+CREATE TABLE `group_roles` (
+	`group_id` BIGINT NOT NULL, 
+	`role_id` BIGINT NOT NULL, 
+	PRIMARY KEY (`group_id`, `role_id`), 
+	CONSTRAINT `uq_group_roles` UNIQUE (`group_id`, `role_id`), 
+	FOREIGN KEY(`group_id`) REFERENCES `user_group` (`id`), 
+	FOREIGN KEY(`role_id`) REFERENCES `role` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `group_user_membership`;
+CREATE TABLE `group_user_membership` (
+	`group_id` BIGINT NOT NULL, 
+	`user_id` BIGINT NOT NULL, 
+	PRIMARY KEY (`group_id`, `user_id`), 
+	CONSTRAINT `uq_group_user_membership` UNIQUE (`group_id`, `user_id`), 
+	FOREIGN KEY(`group_id`) REFERENCES `user_group` (`id`), 
+	FOREIGN KEY(`user_id`) REFERENCES `user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `impersonation_audit_log`;
+CREATE TABLE `impersonation_audit_log` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`impersonator_id` BIGINT, 
+	`impersonated_id` BIGINT, 
+	`event` VARCHAR(16) NOT NULL, 
+	`ip_address` VARCHAR(45), 
+	`user_agent` TEXT, 
+	`created_at` DATETIME NOT NULL, 
+	PRIMARY KEY (`id`), 
+	FOREIGN KEY(`impersonator_id`) REFERENCES `user` (`id`) ON DELETE SET NULL, 
+	FOREIGN KEY(`impersonated_id`) REFERENCES `user` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE INDEX `ix_impersonation_audit_log_created_at` ON `impersonation_audit_log` (`created_at`);
+CREATE INDEX `ix_impersonation_audit_log_impersonated_id` ON `impersonation_audit_log` (`impersonated_id`);
+CREATE INDEX `ix_impersonation_audit_log_impersonator_id` ON `impersonation_audit_log` (`impersonator_id`);
+
+DROP TABLE IF EXISTS `issued_certificates`;
+CREATE TABLE `issued_certificates` (
+	`kid` VARCHAR(64) NOT NULL, 
+	`usage_type` VARCHAR(32) NOT NULL, 
+	`group_id` BIGINT, 
+	`certificate_pem` TEXT NOT NULL, 
+	`jwk` JSON NOT NULL, 
+	`issued_at` DATETIME NOT NULL, 
+	`expires_at` DATETIME, 
+	`revoked_at` DATETIME, 
+	`revocation_reason` TEXT, 
+	`auto_rotated_from_kid` VARCHAR(64), 
+	PRIMARY KEY (`kid`), 
+	FOREIGN KEY(`group_id`) REFERENCES `certificate_groups` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE INDEX `ix_issued_certificates_expires_at` ON `issued_certificates` (`expires_at`);
+CREATE INDEX `ix_issued_certificates_issued_at` ON `issued_certificates` (`issued_at`);
+CREATE INDEX `ix_issued_certificates_usage_type` ON `issued_certificates` (`usage_type`);
+
+DROP TABLE IF EXISTS `media_item`;
+CREATE TABLE `media_item` (
+	`id` VARCHAR(255) NOT NULL, 
+	`type` VARCHAR(16) NOT NULL, 
+	`mime_type` VARCHAR(255), 
+	`filename` VARCHAR(255), 
+	`width` INTEGER, 
+	`height` INTEGER, 
+	`camera_make` VARCHAR(255), 
+	`camera_model` VARCHAR(255), 
+	`photo_metadata_id` BIGINT, 
+	`video_metadata_id` BIGINT, 
+	`created_at` DATETIME NOT NULL, 
+	`updated_at` DATETIME NOT NULL, 
+	PRIMARY KEY (`id`), 
+	FOREIGN KEY(`photo_metadata_id`) REFERENCES `photo_metadata` (`id`), 
+	FOREIGN KEY(`video_metadata_id`) REFERENCES `video_metadata` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `passkey_credential`;
+CREATE TABLE `passkey_credential` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`user_id` BIGINT NOT NULL, 
+	`credential_id` VARCHAR(255) NOT NULL, 
+	`public_key` TEXT NOT NULL, 
+	`sign_count` BIGINT NOT NULL, 
+	`transports` JSON, 
+	`name` VARCHAR(255), 
+	`attestation_format` VARCHAR(64), 
+	`aaguid` VARCHAR(64), 
+	`backup_eligible` BOOL NOT NULL, 
+	`backup_state` BOOL NOT NULL, 
+	`last_used_at` DATETIME, 
+	`created_at` DATETIME NOT NULL, 
+	`updated_at` DATETIME NOT NULL, 
+	PRIMARY KEY (`id`), 
+	CONSTRAINT `uq_passkey_credential_id` UNIQUE (`credential_id`), 
+	FOREIGN KEY(`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE INDEX `ix_passkey_credential_user_id` ON `passkey_credential` (`user_id`);
+
+DROP TABLE IF EXISTS `role_permissions`;
+CREATE TABLE `role_permissions` (
+	`role_id` BIGINT NOT NULL, 
+	`perm_id` BIGINT NOT NULL, 
+	PRIMARY KEY (`role_id`, `perm_id`), 
+	FOREIGN KEY(`role_id`) REFERENCES `role` (`id`), 
+	FOREIGN KEY(`perm_id`) REFERENCES `permission` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `service_account`;
+CREATE TABLE `service_account` (
+	`service_account_id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`name` VARCHAR(100) NOT NULL, 
+	`description` VARCHAR(255), 
+	`certificate_group_code` VARCHAR(64), 
+	`scope_names` VARCHAR(1000) NOT NULL, 
+	`active_flg` BOOL NOT NULL, 
+	`reg_dttm` DATETIME NOT NULL DEFAULT now(), 
+	`mod_dttm` DATETIME NOT NULL DEFAULT now(), 
+	PRIMARY KEY (`service_account_id`), 
+	UNIQUE (`name`), 
+	FOREIGN KEY(`certificate_group_code`) REFERENCES `certificate_groups` (`group_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `tag`;
+CREATE TABLE `tag` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`name` VARCHAR(255) NOT NULL, 
+	`attr` VARCHAR(8) NOT NULL, 
+	`created_at` DATETIME NOT NULL, 
+	`created_by` BIGINT, 
+	`updated_at` DATETIME NOT NULL, 
+	PRIMARY KEY (`id`), 
+	FOREIGN KEY(`created_by`) REFERENCES `user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `totp_credential`;
+CREATE TABLE `totp_credential` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`user_id` BIGINT NOT NULL, 
+	`account` VARCHAR(255) NOT NULL, 
+	`issuer` VARCHAR(255) NOT NULL, 
+	`secret` VARCHAR(160) NOT NULL, 
+	`description` TEXT, 
+	`algorithm` VARCHAR(16) NOT NULL, 
+	`digits` SMALLINT NOT NULL, 
+	`period` SMALLINT NOT NULL, 
+	`created_at` DATETIME NOT NULL, 
+	`updated_at` DATETIME NOT NULL, 
+	PRIMARY KEY (`id`), 
+	CONSTRAINT `uq_totp_user_account_issuer` UNIQUE (`user_id`, `account`, `issuer`), 
+	FOREIGN KEY(`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE INDEX `ix_totp_credential_user_id` ON `totp_credential` (`user_id`);
+
+DROP TABLE IF EXISTS `user_preference`;
+CREATE TABLE `user_preference` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`user_id` BIGINT NOT NULL, 
+	`key` VARCHAR(120) NOT NULL, 
+	`value_json` TEXT NOT NULL, 
+	PRIMARY KEY (`id`), 
+	CONSTRAINT `uq_user_preference_user_key` UNIQUE (`user_id`, `key`), 
+	FOREIGN KEY(`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE INDEX `ix_user_preference_user_id` ON `user_preference` (`user_id`);
+
+DROP TABLE IF EXISTS `user_roles`;
+CREATE TABLE `user_roles` (
+	`user_id` BIGINT NOT NULL, 
+	`role_id` BIGINT NOT NULL, 
+	PRIMARY KEY (`user_id`, `role_id`), 
+	FOREIGN KEY(`user_id`) REFERENCES `user` (`id`), 
+	FOREIGN KEY(`role_id`) REFERENCES `role` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `wiki_page`;
+CREATE TABLE `wiki_page` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`title` VARCHAR(255) NOT NULL, 
+	`content` TEXT NOT NULL, 
+	`slug` VARCHAR(255) NOT NULL, 
+	`is_published` BOOL NOT NULL, 
+	`parent_id` BIGINT, 
+	`sort_order` INTEGER NOT NULL, 
+	`created_at` DATETIME NOT NULL, 
+	`updated_at` DATETIME NOT NULL, 
+	`created_by_id` BIGINT NOT NULL, 
+	`updated_by_id` BIGINT NOT NULL, 
+	PRIMARY KEY (`id`), 
+	FOREIGN KEY(`parent_id`) REFERENCES `wiki_page` (`id`), 
+	FOREIGN KEY(`created_by_id`) REFERENCES `user` (`id`), 
+	FOREIGN KEY(`updated_by_id`) REFERENCES `user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE UNIQUE INDEX `ix_wiki_page_slug` ON `wiki_page` (`slug`);
+
+DROP TABLE IF EXISTS `certificate_private_keys`;
+CREATE TABLE `certificate_private_keys` (
+	`kid` VARCHAR(64) NOT NULL, 
+	`group_id` BIGINT, 
+	`private_key_pem` TEXT NOT NULL, 
+	`created_at` DATETIME NOT NULL, 
+	`expires_at` DATETIME, 
+	PRIMARY KEY (`kid`), 
+	FOREIGN KEY(`kid`) REFERENCES `issued_certificates` (`kid`) ON DELETE CASCADE, 
+	FOREIGN KEY(`group_id`) REFERENCES `certificate_groups` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE INDEX `ix_certificate_private_keys_created_at` ON `certificate_private_keys` (`created_at`);
+CREATE INDEX `ix_certificate_private_keys_expires_at` ON `certificate_private_keys` (`expires_at`);
+
+DROP TABLE IF EXISTS `media`;
+CREATE TABLE `media` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`source_type` VARCHAR(13) NOT NULL, 
+	`google_media_id` VARCHAR(255), 
+	`account_id` BIGINT, 
+	`local_rel_path` VARCHAR(255), 
+	`thumbnail_rel_path` VARCHAR(255), 
+	`filename` VARCHAR(255), 
+	`hash_sha256` CHAR(64), 
+	`phash` VARCHAR(64), 
+	`bytes` BIGINT, 
+	`mime_type` VARCHAR(255), 
+	`width` INTEGER, 
+	`height` INTEGER, 
+	`duration_ms` INTEGER, 
+	`orientation` INTEGER, 
+	`is_video` BOOL NOT NULL, 
+	`shot_at` DATETIME, 
+	`camera_make` VARCHAR(255), 
+	`camera_model` VARCHAR(255), 
+	`imported_at` DATETIME NOT NULL, 
+	`is_deleted` BOOL NOT NULL, 
+	`has_playback` BOOL NOT NULL, 
+	`live_group_id` BIGINT, 
+	`created_at` DATETIME NOT NULL, 
+	`updated_at` DATETIME NOT NULL, 
+	PRIMARY KEY (`id`), 
+	CONSTRAINT `uq_media_google_media_id` UNIQUE (`google_media_id`), 
+	FOREIGN KEY(`account_id`) REFERENCES `google_account` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `picker_session`;
+CREATE TABLE `picker_session` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`account_id` BIGINT, 
+	`session_id` VARCHAR(255), 
+	`picker_uri` TEXT, 
+	`expire_time` DATETIME, 
+	`polling_config_json` TEXT, 
+	`picking_config_json` TEXT, 
+	`media_items_set` BOOL, 
+	`trigger` VARCHAR(32) NOT NULL DEFAULT 'unknown', 
+	`triggered_by_user_id` BIGINT, 
+	`status` VARCHAR(10) NOT NULL DEFAULT 'pending', 
+	`selected_count` INTEGER, 
+	`stats_json` TEXT, 
+	`last_polled_at` DATETIME, 
+	`last_progress_at` DATETIME, 
+	`created_at` DATETIME NOT NULL, 
+	`updated_at` DATETIME NOT NULL, 
+	PRIMARY KEY (`id`), 
+	FOREIGN KEY(`account_id`) REFERENCES `google_account` (`id`), 
+	UNIQUE (`session_id`), 
+	FOREIGN KEY(`triggered_by_user_id`) REFERENCES `user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `service_account_api_key`;
+CREATE TABLE `service_account_api_key` (
+	`api_key_id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`service_account_id` BIGINT NOT NULL, 
+	`public_id` VARCHAR(32) NOT NULL, 
+	`secret_hash` VARCHAR(255) NOT NULL, 
+	`scope_names` VARCHAR(2000) NOT NULL, 
+	`expires_at` DATETIME, 
+	`revoked_at` DATETIME, 
+	`created_at` DATETIME NOT NULL DEFAULT now(), 
+	`created_by` VARCHAR(255) NOT NULL, 
+	PRIMARY KEY (`api_key_id`), 
+	FOREIGN KEY(`service_account_id`) REFERENCES `service_account` (`service_account_id`), 
+	UNIQUE (`public_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE INDEX `ix_service_account_api_key_service_account_id` ON `service_account_api_key` (`service_account_id`);
+
+DROP TABLE IF EXISTS `wiki_page_category`;
+CREATE TABLE `wiki_page_category` (
+	`page_id` BIGINT NOT NULL, 
+	`category_id` BIGINT NOT NULL, 
+	PRIMARY KEY (`page_id`, `category_id`), 
+	FOREIGN KEY(`page_id`) REFERENCES `wiki_page` (`id`), 
+	FOREIGN KEY(`category_id`) REFERENCES `wiki_category` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `wiki_revision`;
+CREATE TABLE `wiki_revision` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`page_id` BIGINT NOT NULL, 
+	`title` VARCHAR(255) NOT NULL, 
+	`content` TEXT NOT NULL, 
+	`revision_number` INTEGER NOT NULL, 
+	`change_summary` VARCHAR(500), 
+	`created_at` DATETIME NOT NULL, 
+	`created_by_id` BIGINT NOT NULL, 
+	PRIMARY KEY (`id`), 
+	FOREIGN KEY(`page_id`) REFERENCES `wiki_page` (`id`), 
+	FOREIGN KEY(`created_by_id`) REFERENCES `user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `album`;
+CREATE TABLE `album` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`name` VARCHAR(255) NOT NULL, 
+	`description` TEXT, 
+	`cover_media_id` BIGINT, 
+	`visibility` VARCHAR(8) NOT NULL, 
+	`display_order` INTEGER, 
+	`created_at` DATETIME NOT NULL, 
+	`updated_at` DATETIME NOT NULL, 
+	PRIMARY KEY (`id`), 
+	FOREIGN KEY(`cover_media_id`) REFERENCES `media` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `exif`;
+CREATE TABLE `exif` (
+	`media_id` BIGINT NOT NULL, 
+	`camera_make` VARCHAR(255), 
+	`camera_model` VARCHAR(255), 
+	`lens` VARCHAR(255), 
+	`iso` INTEGER, 
+	`shutter` VARCHAR(32), 
+	`f_number` NUMERIC(5, 2), 
+	`focal_len` NUMERIC(5, 2), 
+	`gps_lat` NUMERIC(10, 7), 
+	`gps_lng` NUMERIC(10, 7), 
+	`raw_json` TEXT, 
+	PRIMARY KEY (`media_id`), 
+	FOREIGN KEY(`media_id`) REFERENCES `media` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `job_sync`;
+CREATE TABLE `job_sync` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`target` VARCHAR(50) NOT NULL, 
+	`task_name` VARCHAR(255) NOT NULL DEFAULT '', 
+	`queue_name` VARCHAR(120), 
+	`trigger` VARCHAR(32) NOT NULL DEFAULT 'worker', 
+	`account_id` BIGINT, 
+	`session_id` BIGINT, 
+	`celery_task_id` BIGINT, 
+	`started_at` DATETIME NOT NULL, 
+	`finished_at` DATETIME, 
+	`status` VARCHAR(8) NOT NULL DEFAULT 'queued', 
+	`args_json` TEXT NOT NULL DEFAULT '{}', 
+	`stats_json` TEXT NOT NULL DEFAULT '{}', 
+	PRIMARY KEY (`id`), 
+	FOREIGN KEY(`session_id`) REFERENCES `picker_session` (`id`), 
+	FOREIGN KEY(`celery_task_id`) REFERENCES `celery_task` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `local_import_audit_log`;
+CREATE TABLE `local_import_audit_log` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`timestamp` DATETIME NOT NULL, 
+	`level` VARCHAR(8) NOT NULL, 
+	`category` VARCHAR(16) NOT NULL, 
+	`message` TEXT NOT NULL, 
+	`session_id` BIGINT, 
+	`item_id` VARCHAR(255), 
+	`request_id` VARCHAR(255), 
+	`task_id` VARCHAR(255), 
+	`user_id` VARCHAR(255), 
+	`details` JSON, 
+	`error_type` VARCHAR(255), 
+	`error_message` TEXT, 
+	`stack_trace` TEXT, 
+	`recommended_actions` JSON, 
+	`duration_ms` FLOAT, 
+	`from_state` VARCHAR(50), 
+	`to_state` VARCHAR(50), 
+	PRIMARY KEY (`id`), 
+	FOREIGN KEY(`session_id`) REFERENCES `picker_session` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE INDEX `idx_item_timestamp` ON `local_import_audit_log` (`item_id`, `timestamp`);
+CREATE INDEX `idx_level_category` ON `local_import_audit_log` (`level`, `category`);
+CREATE INDEX `idx_session_timestamp` ON `local_import_audit_log` (`session_id`, `timestamp`);
+CREATE INDEX `ix_local_import_audit_log_category` ON `local_import_audit_log` (`category`);
+CREATE INDEX `ix_local_import_audit_log_item_id` ON `local_import_audit_log` (`item_id`);
+CREATE INDEX `ix_local_import_audit_log_level` ON `local_import_audit_log` (`level`);
+CREATE INDEX `ix_local_import_audit_log_request_id` ON `local_import_audit_log` (`request_id`);
+CREATE INDEX `ix_local_import_audit_log_session_id` ON `local_import_audit_log` (`session_id`);
+CREATE INDEX `ix_local_import_audit_log_task_id` ON `local_import_audit_log` (`task_id`);
+CREATE INDEX `ix_local_import_audit_log_timestamp` ON `local_import_audit_log` (`timestamp`);
+
+DROP TABLE IF EXISTS `media_playback`;
+CREATE TABLE `media_playback` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`media_id` BIGINT NOT NULL, 
+	`preset` VARCHAR(8) NOT NULL, 
+	`rel_path` VARCHAR(255), 
+	`width` INTEGER, 
+	`height` INTEGER, 
+	`v_codec` VARCHAR(32), 
+	`a_codec` VARCHAR(32), 
+	`v_bitrate_kbps` INTEGER, 
+	`duration_ms` INTEGER, 
+	`poster_rel_path` VARCHAR(255), 
+	`hash_sha256` CHAR(64), 
+	`status` VARCHAR(10) NOT NULL, 
+	`error_msg` TEXT, 
+	`created_at` DATETIME NOT NULL, 
+	`updated_at` DATETIME NOT NULL, 
+	PRIMARY KEY (`id`), 
+	FOREIGN KEY(`media_id`) REFERENCES `media` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `media_sidecar`;
+CREATE TABLE `media_sidecar` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`media_id` BIGINT NOT NULL, 
+	`type` VARCHAR(8) NOT NULL, 
+	`rel_path` VARCHAR(255), 
+	`bytes` BIGINT, 
+	PRIMARY KEY (`id`), 
+	FOREIGN KEY(`media_id`) REFERENCES `media` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `media_tag`;
+CREATE TABLE `media_tag` (
+	`media_id` BIGINT NOT NULL, 
+	`tag_id` BIGINT NOT NULL, 
+	PRIMARY KEY (`media_id`, `tag_id`), 
+	FOREIGN KEY(`media_id`) REFERENCES `media` (`id`), 
+	FOREIGN KEY(`tag_id`) REFERENCES `tag` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `picker_selection`;
+CREATE TABLE `picker_selection` (
+	`id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`session_id` BIGINT NOT NULL, 
+	`google_media_id` VARCHAR(255), 
+	`local_file_path` TEXT, 
+	`local_filename` VARCHAR(500), 
+	`status` VARCHAR(8) NOT NULL DEFAULT 'pending', 
+	`create_time` DATETIME, 
+	`enqueued_at` DATETIME, 
+	`started_at` DATETIME, 
+	`finished_at` DATETIME, 
+	`attempts` INTEGER NOT NULL DEFAULT '0', 
+	`error_msg` TEXT, 
+	`base_url` TEXT, 
+	`base_url_fetched_at` DATETIME, 
+	`base_url_valid_until` DATETIME, 
+	`locked_by` VARCHAR(255), 
+	`lock_heartbeat_at` DATETIME, 
+	`last_transition_at` DATETIME, 
+	`created_at` DATETIME NOT NULL, 
+	`updated_at` DATETIME NOT NULL, 
+	PRIMARY KEY (`id`), 
+	CONSTRAINT `uq_picker_selection_session_media` UNIQUE (`session_id`, `google_media_id`), 
+	FOREIGN KEY(`session_id`) REFERENCES `picker_session` (`id`), 
+	FOREIGN KEY(`google_media_id`) REFERENCES `media_item` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE INDEX `idx_picker_selection_session_status` ON `picker_selection` (`session_id`, `status`);
+CREATE INDEX `idx_picker_selection_status_lock` ON `picker_selection` (`status`, `lock_heartbeat_at`);
+
+DROP TABLE IF EXISTS `service_account_api_key_log`;
+CREATE TABLE `service_account_api_key_log` (
+	`log_id` BIGINT NOT NULL AUTO_INCREMENT, 
+	`api_key_id` BIGINT NOT NULL, 
+	`accessed_at` DATETIME NOT NULL DEFAULT now(), 
+	`ip_address` VARCHAR(64), 
+	`endpoint` VARCHAR(255), 
+	`user_agent` VARCHAR(255), 
+	PRIMARY KEY (`log_id`), 
+	FOREIGN KEY(`api_key_id`) REFERENCES `service_account_api_key` (`api_key_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE INDEX `ix_service_account_api_key_log_api_key_id` ON `service_account_api_key_log` (`api_key_id`);
+
+DROP TABLE IF EXISTS `album_item`;
+CREATE TABLE `album_item` (
+	`album_id` BIGINT NOT NULL, 
+	`media_id` BIGINT NOT NULL, 
+	`sort_index` BIGINT, 
+	PRIMARY KEY (`album_id`, `media_id`), 
+	FOREIGN KEY(`album_id`) REFERENCES `album` (`id`), 
+	FOREIGN KEY(`media_id`) REFERENCES `media` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------------
+-- master data (roles / permissions / admin)
+-- ------------------------------------------------------------------
+-- permission
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (1, 'admin:photo-settings', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (2, 'admin:job-settings', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (3, 'admin:system-settings', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (4, 'user:manage', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (5, 'album:create', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (6, 'album:edit', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (7, 'album:view', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (8, 'media:view', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (9, 'media:session', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (10, 'group:manage', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (11, 'permission:manage', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (12, 'role:manage', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (13, 'system:manage', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (14, 'wiki:admin', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (15, 'wiki:read', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (16, 'wiki:write', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (17, 'media:tag-manage', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (18, 'media:metadata-manage', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (19, 'media:delete', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (20, 'media:recover', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (21, 'totp:view', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (22, 'totp:write', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (23, 'service_account:manage', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (24, 'certificate:manage', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (25, 'api_key:manage', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (26, 'certificate:sign', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (27, 'api_key:read', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (28, 'dashboard:view', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (29, 'gui:view', NULL);
+INSERT INTO `permission` (`id`, `code`, `detail`) VALUES (30, 'admin:impersonate', NULL);
+
+-- role
+INSERT INTO `role` (`id`, `name`) VALUES (1, 'admin');
+INSERT INTO `role` (`id`, `name`) VALUES (2, 'manager');
+INSERT INTO `role` (`id`, `name`) VALUES (3, 'member');
+INSERT INTO `role` (`id`, `name`) VALUES (4, 'guest');
+
+-- user
+INSERT INTO `user` (`id`, `email`, `username`, `password_hash`, `created_at`, `totp_secret`, `is_active`, `refresh_token_hash`, `must_change_password`) VALUES (1, 'admin@example.com', 'admin', 'scrypt:32768:8:1$7oTcIUdekNLXGSXC$fd0f3320bde4570c7e1ea9d9d289aeb916db7a50fb62489a7e89d99c6cc576813506fd99f50904101c1eb85ff925f8dc879df5ded781ef2613224d702938c9c8', '2026-07-10 23:09:15', NULL, 1, NULL, 0);
+
+-- role_permissions
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 1);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 2);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 3);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 4);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 5);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 6);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 7);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 8);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 9);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 10);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 11);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 12);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 13);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 14);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 15);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 16);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 17);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 18);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 19);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 20);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 21);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 22);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 23);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 24);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 25);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 26);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 27);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 28);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 29);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (1, 30);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (2, 1);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (2, 5);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (2, 6);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (2, 7);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (2, 8);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (2, 9);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (2, 17);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (2, 18);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (2, 19);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (2, 20);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (2, 28);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (2, 29);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (3, 7);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (3, 8);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (3, 28);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (3, 29);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (4, 28);
+INSERT INTO `role_permissions` (`role_id`, `perm_id`) VALUES (4, 29);
+
+-- user_roles
+INSERT INTO `user_roles` (`user_id`, `role_id`) VALUES (1, 1);
+
+SET FOREIGN_KEY_CHECKS=1;

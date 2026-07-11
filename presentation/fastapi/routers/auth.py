@@ -89,17 +89,9 @@ async def api_login(
             )
 
     roles = list(getattr(user_model, "roles", []) or [])
-    user_permissions = set(getattr(user_model, "all_permissions", set()))
-    available_scope_set = set(user_permissions)
-    user_has_gui_view = "gui:view" in user_permissions
-    if user_has_gui_view:
-        available_scope_set.add("gui:view")
+    available_scope_set = set(getattr(user_model, "all_permissions", set()))
 
-    requested_scope = set(data.scope)
-    if "gui:view" in requested_scope and user_has_gui_view:
-        granted_scope = sorted(available_scope_set)
-    else:
-        granted_scope = sorted(requested_scope & available_scope_set)
+    granted_scope = TokenService.resolve_granted_scope(data.scope, available_scope_set)
     scope_str = " ".join(granted_scope)
 
     access_token, refresh_token = TokenService.generate_token_pair(

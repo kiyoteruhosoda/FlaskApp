@@ -5,7 +5,37 @@
 
 ## [Unreleased]
 
+### Added
+- **初期設定のみ（.env 未作成・環境変数なし）でのデプロイに対応**。従来は
+  docker compose が `--env-file` / `env_file: .env` で実ファイルを要求して
+  即失敗し、仮に回避しても `${MARIADB_USER}` 等にデフォルト値がなく
+  `DATABASE_URI` が `mysql+pymysql://:@db:3306/?...` に壊れ、さらに
+  web/worker/beat へ Redis 接続情報が渡らずアプリ既定の
+  `redis://localhost:6379/0`（コンテナ内では到達不能）に落ちて Celery が
+  動かなかった。対応: (1) `docker-compose.yml` の全変数展開に
+  `${VAR:-default}` を付与（MariaDB 資格情報・Redis/Celery URL を含む）、
+  (2) `deploy.sh` / `deploy-stg.sh` が `.env` 不在時にコメント付き
+  テンプレートを自動生成（STG はヘルスチェック先ポート 8051 等の固有値を
+  固定）。JWT_SECRET_KEY / SECRET_KEY は既存のデフォルト値
+  （`system_settings_defaults.py`）で動作する。既定の資格情報は開発向けで
+  あり、外部公開時は `.env` で上書きする運用とする。回帰テスト:
+  `tests/unit/core/test_zero_config_deploy_defaults.py`。
+
 ### Fixed
+- **トークンリフレッシュが発行時 scope を無検証で引き継ぎ、権限変更が最長
+  30日間反映されなかった問題を修正**。リフレッシュトークンには発行時の
+  scope が埋め込まれており（改ざんはトークン全体のハッシュ検証で防止済み）、
+  旧実装の `TokenService.refresh_tokens()` はそれをそのまま新しいトークン
+  ペアへ再発行していた。SPA は 401 時に自動リフレッシュするため、(a) 剥奪
+  した権限を持つ JWT がローテーションの度に再発行され続け、(b) 新たに付与
+  した権限は再ログインまで反映されなかった。scope 交付ルールを
+  `TokenService.resolve_granted_scope()` に一本化（ログイン・リフレッシュ
+  共通の唯一の出所）し、リフレッシュ時は埋め込み scope を「要求」として
+  **現在のDB保有権限**と突き合わせて再計算するようにした。発行時 scope が
+  空のレガシートークン（scope送信バグ時代のセッション）は空のまま昇格しない
+  （該当ユーザーは一度再ログインすれば復旧する）。回帰テスト:
+  `tests/unit/presentation/test_resolve_granted_scope.py` /
+  `tests/integration/fastapi/test_login_grants_working_admin_access.py`。
 - **`0900277b3348_sync_role_permissions_with_master_data` をデプロイしても
   初期管理者で管理画面（System Overview 等）が「You do not have permission
   to view this page」のままだった問題を修正**。上記マイグレーションは

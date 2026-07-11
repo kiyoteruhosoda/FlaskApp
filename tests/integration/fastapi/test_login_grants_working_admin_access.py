@@ -137,3 +137,85 @@ def test_admin_login_without_scope_field_grants_no_permissions(admin_client: Tes
     )
     assert login_resp.status_code == 200, login_resp.text
     assert login_resp.json()["scope"] == ""
+
+
+def _revoke_admin_permission(admin_client: TestClient, code: str) -> None:
+    """テスト用: admin ロールから権限コードのリンクを直接剥奪する。"""
+    from shared.kernel.database.session import get_db
+
+    override = admin_client.app.dependency_overrides[get_db]
+    gen = override()
+    db = next(gen)
+    try:
+        db.execute(
+            sa.text(
+                "DELETE FROM role_permissions WHERE perm_id IN "
+                "(SELECT id FROM permission WHERE code = :code) "
+                "AND role_id IN (SELECT id FROM role WHERE name = 'admin')"
+            ),
+            {"code": code},
+        )
+        db.commit()
+    finally:
+        gen.close()
+
+
+@pytest.mark.integration
+def test_refresh_recomputes_scope_from_current_db_permissions(admin_client: TestClient) -> None:
+    """権限剥奪がトークンリフレッシュで即時反映されること。
+
+    旧実装はリフレッシュトークンに埋め込まれた発行時 scope を無検証で
+    引き継いでいたため、剥奪した権限を持つ JWT がローテーションの度に
+    再発行され、最長30日間（リフレッシュトークン寿命）権限が生き続けた。
+    """
+    from shared.domain.auth.master_data import DEFAULT_ADMIN_EMAIL
+
+    login_resp = admin_client.post(
+        "/api/auth/login",
+        json={"email": DEFAULT_ADMIN_EMAIL, "password": "admin", "scope": ["gui:view"]},
+    )
+    assert login_resp.status_code == 200, login_resp.text
+    body = login_resp.json()
+    assert "wiki:admin" in body["scope"].split()
+
+    # ログイン後に管理者から wiki:admin を剥奪
+    _revoke_admin_permission(admin_client, "wiki:admin")
+
+    refresh_resp = admin_client.post(
+        "/api/auth/refresh",
+        json={"refresh_token": body["refresh_token"]},
+    )
+    assert refresh_resp.status_code == 200, refresh_resp.text
+    refreshed_scope = set(refresh_resp.json()["scope"].split())
+
+    assert "wiki:admin" not in refreshed_scope, (
+        "剥奪済みの権限がリフレッシュ後の scope に残っています"
+    )
+    # 剥奪していない権限は維持される（gui:view セッションは全保有権限を再交付）
+    assert "admin:system-settings" in refreshed_scope
+
+
+@pytest.mark.integration
+def test_refresh_does_not_escalate_legacy_empty_scope_token(admin_client: TestClient) -> None:
+    """発行時 scope が空のリフレッシュトークン（scope送信バグ時代のセッション）は、
+    リフレッシュしても空のまま（勝手に昇格しない）。該当ユーザーは一度
+    再ログインが必要（ログインは常に現在の権限から再計算するため復旧する）。
+    """
+    from shared.domain.auth.master_data import DEFAULT_ADMIN_EMAIL
+
+    login_resp = admin_client.post(
+        "/api/auth/login",
+        json={"email": DEFAULT_ADMIN_EMAIL, "password": "admin"},  # scope なし
+    )
+    assert login_resp.status_code == 200, login_resp.text
+    body = login_resp.json()
+    assert body["scope"] == ""
+
+    refresh_resp = admin_client.post(
+        "/api/auth/refresh",
+        json={"refresh_token": body["refresh_token"]},
+    )
+    assert refresh_resp.status_code == 200, refresh_resp.text
+    assert refresh_resp.json()["scope"] == "", (
+        "空 scope のリフレッシュトークンが権限を獲得しています（権限昇格）"
+    )

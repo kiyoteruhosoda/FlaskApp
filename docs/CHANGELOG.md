@@ -6,6 +6,25 @@
 ## [Unreleased]
 
 ### Fixed
+- **`0900277b3348_sync_role_permissions_with_master_data` をデプロイしても
+  初期管理者で管理画面（System Overview 等）が「You do not have permission
+  to view this page」のままだった問題を修正**。上記マイグレーションは
+  DB 側の `role_permissions` の欠落を正しく修正していたが、実際の症状は
+  それとは別の原因で残っていた: `POST /api/auth/login`
+  (`presentation/fastapi/routers/auth.py`) はリクエストの `scope` と
+  保有権限の積を JWT に発行し、`"gui:view" in requested_scope` の場合の
+  み全権限を発行する仕様だったが、ブラウザSPA
+  (`frontend/src/pages/LoginPage.tsx` → `apiClient.login()`) は `scope`
+  を一切送っていなかったため、常に空 scope（無権限）の JWT が発行され
+  続けていた。DB 側の役割・権限がどれだけ正しくても、この空 scope が
+  全ての `principal.can()` / `@require_perms` ガードを常に拒否していた。
+  `frontend/src/services/api.ts` の `login()` で `scope` 未指定時は
+  `['gui:view']` を既定送信するように修正。回帰テスト:
+  `tests/integration/fastapi/test_login_grants_working_admin_access.py`
+  （実DB＋実FastAPIアプリで `/api/auth/login` → `/api/admin/dashboard`
+  を一気通貫で検証。既存の `test_login_totp.py` はトークン発行をモックして
+  おり、`test_admin_role_permissions.py` はログインAPIを経由しないため、
+  いずれもこの scope 計算バグを検出できていなかった）。
 - **初期管理者でログインしても管理画面で「You do not have permission to view
   this page」と表示される問題を修正**。`shared/domain/auth/master_data.py`
   の `PERMISSION_CODES` は開発の過程で追加されてきたが、投入は

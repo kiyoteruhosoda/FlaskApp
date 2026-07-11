@@ -122,6 +122,16 @@
     を投入し、web の `alembic upgrade head` は no-op になる。
 
 ### Fixed
+- **`JWT_SECRET_KEY` 環境変数が未設定の環境でログインが 500 になる問題を修正**
+  （`presentation/fastapi/services/access_token_signing.py`）。組み込み(HS256)署名の
+  秘密鍵は `settings.jwt_secret_key` で解決していたが、この `@property` は環境変数のみを
+  参照するため、管理画面から `system_settings` の `app.config` に保存された値
+  （および `DEFAULT_APPLICATION_SETTINGS` の既定値 `default-jwt-secret`）を拾えなかった。
+  環境変数を持たないステージングでは `resolve_signing_material()` が
+  `AccessTokenSigningError("JWT secret key is not configured.")` を送出し、
+  `POST /api/auth/login` が 500 になっていた。`_resolve_builtin_secret()` を追加し、
+  「環境変数 > DB(`app.config`) > デフォルト値」の優先順位で鍵を解決するようにした。
+  署名(`resolve_signing_material`)・検証(`resolve_verification_key`)の双方を更新。
 - **nginx 設定がデプロイ時に host へ配布されず nginx が起動しない問題を修正**
   （`scripts/deploy.sh` / `scripts/deploy-stg.sh`）。compose の nginx サービスは設定を
   `./docker/nginx/default.conf` という相対パスでバインドマウントするが、この相対パスは

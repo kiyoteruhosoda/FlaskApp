@@ -208,7 +208,7 @@ $COMPOSE up -d --remove-orphans
 # MariaDB 公式イメージは初回初期化時に一時ブートストラップサーバー（ソケットのみ）を
 # 経由するため、healthcheck 実装によっては本来のネットワーク公開サーバーが起動する
 # 前に healthy 判定されることがある。ここで web コンテナから実際に db:3306 へ接続
-# できることを確認してから、以降の flask db stamp/upgrade を実行する。
+# できることを確認してから、以降の alembic upgrade を実行する。
 echo "[deploy-stg] Waiting for DB to accept connections from web container"
 DB_WAIT_OK=false
 for i in $(seq 1 30); do
@@ -251,16 +251,12 @@ case "$MODE" in
     run_alembic_with_retry upgrade head
     ;;
   reset)
-    # db/init/01_initialize.sql はスキーマ・マスタデータ込みで焼き込み済み。
-    # scripts/regenerate_db_baseline.sh で再生成したものは alembic_version も
-    # head に揃った状態で含まれるはずだが、念のためここでも stamp head しておき、
-    # 万一 alembic_version がずれた状態で焼き込まれていても次回 `migrate` が
-    # init_master から再実行され CREATE TABLE の重複エラーになるのを防ぐ。
-    # 前提: db/init/01_initialize.sql は DBイメージ再ビルド（make build-db）前に
-    #       ./scripts/regenerate_db_baseline.sh で現在の migration head から
-    #       再生成しておくこと。DDL変更時は忘れずに再生成すること。
-    echo "[deploy-stg] Stamping alembic_version to head (fresh DB from baked snapshot)"
-    run_alembic_with_retry stamp head
+    # db_data を削除した直後で DB は空。スキーマ・マスタデータは
+    # `alembic upgrade head`（init_master + seed_master_data）で構築する。
+    # web コンテナの entrypoint も起動時に upgrade head を実行するが、
+    # ここでも冪等に流して確実に head まで揃える。
+    echo "[deploy-stg] Building schema + master data on fresh DB (alembic upgrade head)"
+    run_alembic_with_retry upgrade head
     ;;
 esac
 

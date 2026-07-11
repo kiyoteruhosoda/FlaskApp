@@ -5,7 +5,7 @@
 # フロントエンドタスクをインクルード
 include frontend.mk
 
-.PHONY: build load run clean show-tar-version regen-db-baseline
+.PHONY: build load run clean show-tar-version
 
 IMAGE_NAME = photonest:latest
 OUTPUT_TAR = photonest-latest.tar
@@ -15,13 +15,8 @@ DB_OUTPUT_TAR = photonest-db-latest.tar
 DOCKER_API_VERSION ?= 1.43
 DOCKER = DOCKER_API_VERSION=$(DOCKER_API_VERSION) docker
 
-# DDL（migrations/versions/ 追加）があった場合、build-db の前に実行して
-# db/init/01_initialize.sql を現在の migration head から再生成する。
-regen-db-baseline:
-	./scripts/regenerate_db_baseline.sh
-
 build-db:
-	@echo "=== Build MariaDB with initial SQL ==="
+	@echo "=== Build MariaDB image (UTC, schema built at runtime via alembic) ==="
 	$(DOCKER) buildx build \
 	  --platform linux/amd64 \
 	  -t $(DB_IMAGE_NAME) ./db \

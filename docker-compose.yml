@@ -47,12 +47,12 @@ services:
       # Unix ソケット経由に倒れることがあり、MariaDB 公式イメージが初回初期化時に
       # 立てる一時ブートストラップサーバー（ネットワーク非公開・ソケットのみ）にも
       # ping が通ってしまう。他コンテナから db:3306 へ実際に接続できるようになる前に
-      # healthy と誤判定され、reset 直後の flask db stamp が接続失敗するのを防ぐ。
+      # healthy と誤判定され、reset 直後の alembic upgrade が接続失敗するのを防ぐ。
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 --protocol=tcp -u root -p\"$$MARIADB_ROOT_PASSWORD\" --silent"]
       interval: 10s
       timeout: 10s
       # 初回起動（reset 直後の空 db_data）は「システムテーブル初期化 → 一時サーバー →
-      # /docker-entrypoint-initdb.d/01_initialize.sql 投入 → 本サーバー起動」を経る。
+      # 本サーバー起動」を経る（スキーマは web コンテナの alembic upgrade head で構築）。
       # Synology NAS の遅いディスクではシステムテーブル初期化だけで2〜3分かかる実績があり、
       # 一時サーバー（ソケットのみ・port 0）の間は上の TCP ping は意図的に失敗し続けるため、
       # start_period が短いと初期化が終わる前に unhealthy 判定されて

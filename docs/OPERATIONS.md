@@ -129,19 +129,22 @@ python scripts/seed_from_yaml.py
 
 ### DB再初期化（Synology / Docker）
 
-DDLを変更したとき:
+DDLを変更したとき（migration を追加したら、通常は `migrate` モードで既存データを保持した
+まま適用する。DB を作り直したい場合のみ `reset`）:
 
 ```bash
-# 1. db/init/01_initialize.sql を現在の migration head から再生成
-./scripts/regenerate_db_baseline.sh
+# 通常: 既存データを保持して新しい migration だけ適用
+./scripts/deploy.sh migrate       # 本番
+./scripts/deploy-stg.sh migrate   # STG
 
-# 2. DBイメージをリビルド
-make build-db
-
-# 3. デプロイ（DB・メディアデータを削除して作り直す）
+# 破壊的: DB・メディアデータを削除して空のDBから作り直す
+#   （スキーマ・マスタデータは alembic upgrade head で自動構築される）
 ./scripts/deploy.sh reset       # 本番
 ./scripts/deploy-stg.sh reset   # STG
 ```
+
+DB イメージを更新した場合のみ `make build-db` でリビルドする（スキーマは焼き込まれず、
+web コンテナ起動時の `alembic upgrade head` が構築するため、DDL 変更だけならリビルド不要）。
 
 初期化確認:
 ```bash

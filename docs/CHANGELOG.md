@@ -33,6 +33,21 @@
   切替中も前の画像を表示し続ける。ロード中はオーバーレイスピナーで待機を示す。
   次（+1）の画像はバックグラウンドで先読みする。
 
+### Removed
+- **DB焼き込みベースライン（`db/init/01_initialize.sql`）と再生成スクリプトを廃止**。
+  マイグレーションが `init_master` + `seed_master_data` の2本に集約され、web コンテナの
+  entrypoint が起動時に必ず `alembic upgrade head` を実行する現構成では、DBイメージへの
+  スキーマ焼き込みは起動時マイグレーションと内容が二重で、モデルとの乖離リスクと保守コスト
+  だけが残っていた。加えて `regenerate_db_baseline.sh` は Flask 撤廃で `flask db upgrade` が
+  使えず既に壊れていた（`.venv` 有効化時に「flask コマンドが見つかりません」エラー）。
+  - 削除: `db/init/01_initialize.sql`, `scripts/regenerate_db_baseline.sh`,
+    `tests/integration/test_db_baseline_consistency.py`, Makefile の `regen-db-baseline` ターゲット
+  - `db/Dockerfile`: 初期SQLの `COPY` を廃し、TZ を UTC に固定しただけの素の MariaDB イメージに
+  - `deploy.sh` / `deploy-stg.sh`: `reset` モードを `alembic stamp head`（焼き込み前提）から
+    `alembic upgrade head`（空DBにスキーマ+マスタデータを構築）へ変更
+  - DDL変更時は migration を追加するだけでよく、ベースライン再生成・DBイメージ再ビルドは不要。
+    ドキュメント（`docs/OPERATIONS.md`, `scripts/README.md`）も更新。
+
 ### Changed
 - **T4: `bounded_contexts/email` を `email_sender` に統合**。
   `bounded_contexts/email` を削除し、すべての機能（`send_email`・`send_password_reset_email`・

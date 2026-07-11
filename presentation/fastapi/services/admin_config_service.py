@@ -486,7 +486,7 @@ def _build_config_context(
     builtin_secret_value = (
         builtin_signing_secret
         if builtin_signing_secret is not None
-        else application_config.get("JWT_SECRET_KEY")
+        else SystemSettingService.resolve_builtin_jwt_secret()
     )
 
     return {

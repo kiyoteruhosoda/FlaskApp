@@ -25,7 +25,7 @@ Python実行時は `source /home/kyon/myproject/.venv/bin/activate && python mai
 - **Web server**: `python main.py` (uses `.env` for config, run in `.venv` environment)
 - **Celery workers**: `celery -A cli.src.celery.tasks worker --loglevel=info` (run in `.venv`)
 - **Celery scheduler**: `celery -A cli.src.celery.tasks beat --loglevel=info` (run in `.venv`)
-- **DB migration**: `flask db migrate` / `flask db upgrade` (see `README.md`)
+- **DB migration**: `alembic -c migrations/alembic.ini revision --autogenerate` / `alembic -c migrations/alembic.ini upgrade head` (see `README.md`, `migrations/README.md`)
 - **Environment setup**: Copy `.env.example` to `.env`, install `python-dotenv`, activate `.venv`
 - **Google OAuth**: Tokens are AES-256-GCM encrypted; see `README.md` and `core/crypto.py`
 
@@ -63,7 +63,7 @@ Python実行時は `source /home/kyon/myproject/.venv/bin/activate && python mai
 
 ## Examples
 - To add a Google account for sync, insert into `google_account` and set up `.env` as described in `README.md`.
-- To migrate DB after model changes: `flask db migrate -m "desc" && flask db upgrade`
+- To migrate DB after model changes: `alembic -c migrations/alembic.ini revision --autogenerate -m "desc" && alembic -c migrations/alembic.ini upgrade head`
 - Media API endpoints: `/api/media/<id>/thumb-url` (POST with size), `/api/media/<id>/playback-url` (POST)
 - Background task functions return `{"ok": bool, ...}` dicts for test/monitoring compatibility
 

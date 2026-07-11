@@ -5,6 +5,17 @@
 
 ## [Unreleased]
 
+### Fixed
+- **ドキュメント内の陳腐化した `flask db` / `flask seed-master` / `flask run` 表記を
+  現行の `alembic` コマンドへ統一**。Flask 完全撤廃（下記 T11）以降も
+  `migrations/README.md`, `README.md`, `.github/copilot-instructions.md`,
+  `tests/IMPLEMENTATION_CHECKLIST.md`, `docs/OPERATIONS.md`, `scripts/README.md` に
+  存在しないコマンドの案内が残っており、そのままではコピペしても動かなかった。
+  すべて `alembic -c migrations/alembic.ini <サブコマンド>`（`scripts/entrypoint.sh` と
+  同じ呼び出し方）に置換。過去の障害経緯を記録した箇所（ADR、CHANGELOG過去分、
+  デプロイ資材同期テストの docstring）は当時実際に使われていたコマンドの記録のため
+  据え置き。
+
 ### Added
 - **T11: FastAPI 全面移行 Phase 3 後続作業完了（Flask 完全撤廃）**。
   `presentation/fastapi/` に全サービス・認証・管理機能を移植し、Flask への依存を完全に除去。
@@ -32,6 +43,21 @@
   画像切替時は次の画像がブラウザにロードされてから `thumbUrl` を更新するため、
   切替中も前の画像を表示し続ける。ロード中はオーバーレイスピナーで待機を示す。
   次（+1）の画像はバックグラウンドで先読みする。
+
+### Removed
+- **DB焼き込みベースライン（`db/init/01_initialize.sql`）と再生成スクリプトを廃止**。
+  マイグレーションが `init_master` + `seed_master_data` の2本に集約され、web コンテナの
+  entrypoint が起動時に必ず `alembic upgrade head` を実行する現構成では、DBイメージへの
+  スキーマ焼き込みは起動時マイグレーションと内容が二重で、モデルとの乖離リスクと保守コスト
+  だけが残っていた。加えて `regenerate_db_baseline.sh` は Flask 撤廃で `flask db upgrade` が
+  使えず既に壊れていた（`.venv` 有効化時に「flask コマンドが見つかりません」エラー）。
+  - 削除: `db/init/01_initialize.sql`, `scripts/regenerate_db_baseline.sh`,
+    `tests/integration/test_db_baseline_consistency.py`, Makefile の `regen-db-baseline` ターゲット
+  - `db/Dockerfile`: 初期SQLの `COPY` を廃し、TZ を UTC に固定しただけの素の MariaDB イメージに
+  - `deploy.sh` / `deploy-stg.sh`: `reset` モードを `alembic stamp head`（焼き込み前提）から
+    `alembic upgrade head`（空DBにスキーマ+マスタデータを構築）へ変更
+  - DDL変更時は migration を追加するだけでよく、ベースライン再生成・DBイメージ再ビルドは不要。
+    ドキュメント（`docs/OPERATIONS.md`, `scripts/README.md`）も更新。
 
 ### Changed
 - **T4: `bounded_contexts/email` を `email_sender` に統合**。
@@ -122,6 +148,18 @@
     を投入し、web の `alembic upgrade head` は no-op になる。
 
 ### Fixed
+- **`JWT_SECRET_KEY` 環境変数が未設定の環境でログインが 500 になる問題を修正**。
+  組み込み(HS256)署名の秘密鍵は `settings.jwt_secret_key` で解決していたが、この
+  `@property` は環境変数のみを参照するため、管理画面から `system_settings` の
+  `app.config` に保存された値（および `DEFAULT_APPLICATION_SETTINGS` の既定値
+  `default-jwt-secret`）を拾えなかった。環境変数を持たないステージングでは
+  `resolve_signing_material()` が `AccessTokenSigningError("JWT secret key is not
+  configured.")` を送出し、`POST /api/auth/login` が 500 になっていた。
+  併せて、秘密鍵の解決ロジックが署名(`access_token_signing`)・検証・管理画面表示
+  (`admin_config_service`, env を無視して DB のみ参照していた)の 3 箇所に分裂していた
+  ため、`SystemSettingService.resolve_builtin_jwt_secret()` に一本化した。優先順位は
+  設計方針どおり「環境変数 > DB(`app.config`) > デフォルト値」で、全経路がこのメソッドを
+  唯一の出所とする。
 - **nginx 設定がデプロイ時に host へ配布されず nginx が起動しない問題を修正**
   （`scripts/deploy.sh` / `scripts/deploy-stg.sh`）。compose の nginx サービスは設定を
   `./docker/nginx/default.conf` という相対パスでバインドマウントするが、この相対パスは

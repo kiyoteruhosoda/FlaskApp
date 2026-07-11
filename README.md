@@ -43,9 +43,11 @@ pip install -r requirements.txt
 # 環境設定（.env を編集してDB接続情報等を設定）
 cp .env.example .env
 
-# データベースセットアップ
-flask db upgrade
-flask seed-master
+# データベースセットアップ（スキーマ + 認可マスタデータ）
+alembic -c migrations/alembic.ini upgrade head
+
+# システム設定（app.config / app.cors）も含めて投入する場合
+python scripts/seed_master_data.py
 
 # Flask 開発サーバー起動
 python main.py
@@ -155,11 +157,11 @@ deploy スクリプトの処理内容:
 ### 初回起動後の初期化
 
 ```bash
-# マイグレーション適用
-docker compose exec web flask db upgrade
+# マイグレーション適用（スキーマ + 認可マスタデータ）
+docker compose exec web alembic -c migrations/alembic.ini upgrade head
 
-# 初期ユーザー・ロール・設定を投入
-docker compose exec web flask seed-master
+# システム設定（app.config / app.cors）も含めて投入する場合
+docker compose exec web python scripts/seed_master_data.py
 
 # 初期ログイン情報（必ずパスワードを変更してください）
 # Email:    admin@example.com

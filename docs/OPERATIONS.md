@@ -129,19 +129,22 @@ python scripts/seed_from_yaml.py
 
 ### DB再初期化（Synology / Docker）
 
-DDLを変更したとき:
+DDLを変更したとき（migration を追加したら、通常は `migrate` モードで既存データを保持した
+まま適用する。DB を作り直したい場合のみ `reset`）:
 
 ```bash
-# 1. db/init/01_initialize.sql を現在の migration head から再生成
-./scripts/regenerate_db_baseline.sh
+# 通常: 既存データを保持して新しい migration だけ適用
+./scripts/deploy.sh migrate       # 本番
+./scripts/deploy-stg.sh migrate   # STG
 
-# 2. DBイメージをリビルド
-make build-db
-
-# 3. デプロイ（DB・メディアデータを削除して作り直す）
+# 破壊的: DB・メディアデータを削除して空のDBから作り直す
+#   （スキーマ・マスタデータは alembic upgrade head で自動構築される）
 ./scripts/deploy.sh reset       # 本番
 ./scripts/deploy-stg.sh reset   # STG
 ```
+
+DB イメージを更新した場合のみ `make build-db` でリビルドする（スキーマは焼き込まれず、
+web コンテナ起動時の `alembic upgrade head` が構築するため、DDL 変更だけならリビルド不要）。
 
 初期化確認:
 ```bash
@@ -400,7 +403,7 @@ MAIL_DEFAULT_SENDER=your-email@example.com
 「以前は Nginx から直接取得していた」挙動はこれで既定に戻っている。
 
 > **注意**: 方式②有効時に `web` へ直接アクセスすると、内部配信ヘッダーが解釈されず
-> 壊れる。必ず nginx（公開ポート）経由で使う。純粋なローカル開発（`flask run` 等で
+> 壊れる。必ず nginx（公開ポート）経由で使う。純粋なローカル開発（`python main.py` 等で
 > nginx を挟まない）では `.env` で `MEDIA_ACCEL_REDIRECT_ENABLED=false` にして方式①に
 > フォールバックする（コード既定は false）。
 

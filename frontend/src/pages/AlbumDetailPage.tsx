@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { AlbumDetail, AlbumMediaItem } from '../types/api';
 import MediaPickerModal from '../components/MediaPickerModal';
+import { getApiErrorCode } from '../services/apiErrors';
 
 const VISIBILITY_OPTIONS = ['private', 'unlisted', 'public'] as const;
 
@@ -125,7 +126,7 @@ const AlbumDetailPage: React.FC = () => {
       setOrderedMedia(res.album.media);
       setShowEdit(false);
     } catch (e: any) {
-      setEditError(e?.response?.data?.message || e?.response?.data?.error || e?.message || t('Failed to save album'));
+      setEditError(e?.response?.data?.message || getApiErrorCode(e) || e?.message || t('Failed to save album'));
     } finally {
       setSaving(false);
     }

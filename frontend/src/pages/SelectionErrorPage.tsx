@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { SelectionErrorPayload } from '../types/api';
 import { badgeTextColor, formatDateTime, sessionStatusVariant } from '../utils/format';
+import { getApiErrorCode } from '../services/apiErrors';
 
 const LOG_LEVEL_VARIANT: Record<string, string> = {
   ERROR: 'danger',
@@ -36,7 +37,7 @@ const SelectionErrorPage: React.FC = () => {
     apiClient
       .getPickerSelectionError(sessionId, parseInt(selectionId, 10))
       .then((data) => setPayload(data))
-      .catch((e: any) => setError(e?.response?.data?.error || e?.message || t('Failed to load error detail')))
+      .catch((e: any) => setError(getApiErrorCode(e) || e?.message || t('Failed to load error detail')))
       .finally(() => setIsLoading(false));
   }, [sessionId, selectionId, t]);
 

@@ -5,6 +5,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { AdminGroup, AdminUser } from '../types/api';
+import { getApiErrorCode } from '../services/apiErrors';
 
 const GroupsPage: React.FC = () => {
   const { t } = useTranslation();
@@ -88,7 +89,7 @@ const GroupsPage: React.FC = () => {
       }
       setShowForm(false);
     } catch (e: any) {
-      const code = e?.response?.data?.error;
+      const code = getApiErrorCode(e);
       if (code === 'name_exists') setFormError(t('Group name already in use'));
       else if (code === 'hierarchy_error') setFormError(e?.response?.data?.message || t('Invalid group hierarchy'));
       else setFormError(t('Failed to save group'));
@@ -105,7 +106,7 @@ const GroupsPage: React.FC = () => {
       setGroups((prev) => prev.filter((g) => g.id !== deleteTarget.id));
       setDeleteTarget(null);
     } catch (e: any) {
-      const code = e?.response?.data?.error;
+      const code = getApiErrorCode(e);
       setError(code === 'has_children' ? t('Remove child groups first') : t('Failed to delete group'));
       setDeleteTarget(null);
     } finally {

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { LinkedGoogleAccount } from '../types/api';
 import { googleLinkErrorText, useGoogleLinkResult } from '../utils/googleLinkResult';
+import { getApiErrorCode } from '../services/apiErrors';
 
 // プロフィール画面向けの「自分の Google アカウント連携」セクション。
 // アカウント登録（OAuth リンク開始）・一覧・連携解除ができる。
@@ -28,7 +29,7 @@ const GoogleAccountLinkSection: React.FC = () => {
       const data = await apiClient.getLinkedGoogleAccounts({ mine: true });
       setAccounts(data.items || []);
     } catch (e: any) {
-      setError(e?.response?.data?.error || e?.message || t('Failed to load Google accounts'));
+      setError(getApiErrorCode(e) || e?.message || t('Failed to load Google accounts'));
     } finally {
       setIsLoading(false);
     }
@@ -49,7 +50,7 @@ const GoogleAccountLinkSection: React.FC = () => {
         setError(t('Failed to start Google authorization'));
       }
     } catch (e: any) {
-      const code = e?.response?.data?.error;
+      const code = getApiErrorCode(e);
       setError(
         code === 'encryption_key_not_configured'
           ? t('Token encryption key is not configured. Set it in System Settings > Security & Signing.')
@@ -69,7 +70,7 @@ const GoogleAccountLinkSection: React.FC = () => {
       setAccounts((prev) => prev.filter((a) => a.id !== deleteTarget.id));
       setDeleteTarget(null);
     } catch (e: any) {
-      setError(e?.response?.data?.error || e?.message || t('Failed to unlink Google account'));
+      setError(getApiErrorCode(e) || e?.message || t('Failed to unlink Google account'));
     } finally {
       setDeleting(false);
     }

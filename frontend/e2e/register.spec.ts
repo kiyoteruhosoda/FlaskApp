@@ -63,7 +63,7 @@ test.describe('Register', () => {
   test('shows error when email already in use', async ({ page }) => {
     await page.route(
       (url) => url.pathname === '/api/auth/register',
-      (route) => route.fulfill({ status: 409, json: { error: 'email_exists' } })
+      (route) => route.fulfill({ status: 409, json: { detail: { error: 'email_exists' } } })
     );
 
     await page.goto('/register');

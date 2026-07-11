@@ -3,6 +3,7 @@ import { Container, Card, Form, Button, Alert, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../services/api';
+import { getApiErrorCode } from '../services/apiErrors';
 
 const ChangePasswordPage: React.FC = () => {
   const { t } = useTranslation();
@@ -35,7 +36,7 @@ const ChangePasswordPage: React.FC = () => {
       await apiClient.forceChangePassword(password);
       navigate('/dashboard', { replace: true });
     } catch (err: any) {
-      const code = err.response?.data?.error;
+      const code = getApiErrorCode(err);
       if (code === 'password_too_short') {
         setError(t('Password must be at least 8 characters'));
       } else if (code === 'invalid_current_password') {

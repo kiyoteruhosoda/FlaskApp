@@ -5,6 +5,7 @@ import {
 } from 'react-bootstrap';
 import { wikiApi } from '../../services/wikiApi';
 import { WikiCreateFormData } from '../../types/wiki';
+import { getApiErrorCode } from '../../services/apiErrors';
 
 const WikiCreatePage: React.FC = () => {
   const navigate = useNavigate();
@@ -26,7 +27,7 @@ const WikiCreatePage: React.FC = () => {
   useEffect(() => {
     wikiApi.getCreateForm()
       .then(setFormData)
-      .catch((e) => setLoadError(e?.response?.data?.error || e?.message || 'Failed to load form'));
+      .catch((e) => setLoadError(getApiErrorCode(e) || e?.message || 'Failed to load form'));
   }, []);
 
   const autoSlug = (t: string) =>
@@ -69,7 +70,7 @@ const WikiCreatePage: React.FC = () => {
       });
       navigate(`/wiki/page/${page.slug}`);
     } catch (err: any) {
-      setSubmitError(err?.response?.data?.error || err?.message || 'Failed to create page');
+      setSubmitError(getApiErrorCode(err) || err?.message || 'Failed to create page');
     } finally {
       setSubmitting(false);
     }

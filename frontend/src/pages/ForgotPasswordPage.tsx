@@ -3,6 +3,7 @@ import { Container, Card, Form, Button, Alert, Spinner } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../services/api';
+import { getApiErrorCode } from '../services/apiErrors';
 
 const ForgotPasswordPage: React.FC = () => {
   const { t } = useTranslation();
@@ -23,7 +24,7 @@ const ForgotPasswordPage: React.FC = () => {
       await apiClient.forgotPassword(email.trim());
       setSent(true);
     } catch (err: any) {
-      const code = err.response?.data?.error;
+      const code = getApiErrorCode(err);
       if (code === 'mail_disabled') {
         setError(err.response?.data?.message || t('Mail service not configured'));
       } else {

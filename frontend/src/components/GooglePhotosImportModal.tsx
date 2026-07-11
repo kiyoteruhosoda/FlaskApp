@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { LinkedGoogleAccount, PickerSessionCreateResponse } from '../types/api';
+import { getApiErrorCode } from '../services/apiErrors';
 
 interface GooglePhotosImportModalProps {
   show: boolean;
@@ -44,7 +45,7 @@ const GooglePhotosImportModal: React.FC<GooglePhotosImportModalProps> = ({
         }
       } catch (e: any) {
         if (!cancelled) {
-          setError(e?.response?.data?.error || e?.message || t('Failed to load Google accounts'));
+          setError(getApiErrorCode(e) || e?.message || t('Failed to load Google accounts'));
         }
       } finally {
         if (!cancelled) setAccountsLoading(false);
@@ -67,7 +68,7 @@ const GooglePhotosImportModal: React.FC<GooglePhotosImportModalProps> = ({
       onHide();
     } catch (e: any) {
       setError(
-        e?.response?.data?.message || e?.response?.data?.error || e?.message || t('Failed to create picker session')
+        e?.response?.data?.message || getApiErrorCode(e) || e?.message || t('Failed to create picker session')
       );
     } finally {
       setCreating(false);

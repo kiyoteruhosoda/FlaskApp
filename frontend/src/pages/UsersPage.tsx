@@ -14,6 +14,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { AdminUser, AdminRole } from '../types/api';
+import { getApiErrorCode } from '../services/apiErrors';
 
 const UsersPage: React.FC = () => {
   const { t } = useTranslation();
@@ -146,7 +147,7 @@ const UsersPage: React.FC = () => {
       }
       setShowForm(false);
     } catch (e: any) {
-      const code = e?.response?.data?.error;
+      const code = getApiErrorCode(e);
       if (code === 'email_exists') {
         setFormError(t('Email already in use'));
       } else {
@@ -209,7 +210,7 @@ const UsersPage: React.FC = () => {
       setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
       setDeleteTarget(null);
     } catch (e: any) {
-      const code = e?.response?.data?.error;
+      const code = getApiErrorCode(e);
       if (code === 'cannot_delete_self') {
         setError(t('Cannot delete yourself'));
       } else {

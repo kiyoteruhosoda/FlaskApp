@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Container, Card, Form, Button, Spinner, Alert } from 'react-bootstrap';
 import { wikiApi } from '../../services/wikiApi';
+import { getApiErrorCode } from '../../services/apiErrors';
 
 const WikiCreateCategoryPage: React.FC = () => {
   const navigate = useNavigate();
@@ -32,7 +33,7 @@ const WikiCreateCategoryPage: React.FC = () => {
       });
       navigate(`/wiki/category/${cat.slug}`);
     } catch (err: any) {
-      setError(err?.response?.data?.error || err?.message || 'Failed to create category');
+      setError(getApiErrorCode(err) || err?.message || 'Failed to create category');
     } finally {
       setSubmitting(false);
     }

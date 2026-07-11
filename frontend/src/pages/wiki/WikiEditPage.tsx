@@ -5,6 +5,7 @@ import {
 } from 'react-bootstrap';
 import { wikiApi } from '../../services/wikiApi';
 import { WikiEditFormData } from '../../types/wiki';
+import { getApiErrorCode } from '../../services/apiErrors';
 
 const WikiEditPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -42,7 +43,7 @@ const WikiEditPage: React.FC = () => {
         } else if (e?.response?.status === 404) {
           setLoadError('Page not found.');
         } else {
-          setLoadError(e?.response?.data?.error || e?.message || 'Failed to load page');
+          setLoadError(getApiErrorCode(e) || e?.message || 'Failed to load page');
         }
       });
   }, [slug]);
@@ -82,7 +83,7 @@ const WikiEditPage: React.FC = () => {
       if (err?.response?.status === 403) {
         setSubmitError('You do not have permission to edit this page.');
       } else {
-        setSubmitError(err?.response?.data?.error || err?.message || 'Failed to update page');
+        setSubmitError(getApiErrorCode(err) || err?.message || 'Failed to update page');
       }
     } finally {
       setSubmitting(false);

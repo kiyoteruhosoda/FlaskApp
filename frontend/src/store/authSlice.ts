@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { User, LoginRequest, RegisterRequest } from '../types/api';
 import { apiClient } from '../services/api';
+import { getApiErrorCode } from '../services/apiErrors';
 
 interface AuthState {
   user: User | null;
@@ -35,7 +36,7 @@ export const login = createAsyncThunk(
       }
       return rejectWithValue(response.message || 'ログインに失敗しました');
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error || 'ネットワークエラーが発生しました');
+      return rejectWithValue(getApiErrorCode(error) || 'ネットワークエラーが発生しました');
     }
   }
 );

@@ -14,6 +14,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { MediaTag } from '../types/api';
+import { getApiErrorCode } from '../services/apiErrors';
 
 const TAG_ATTRS = ['person', 'place', 'event', 'scene', 'activity', 'thing', 'source', 'others'] as const;
 
@@ -40,7 +41,7 @@ const TagsPage: React.FC = () => {
       const data = await apiClient.getTags({ q: query || undefined, limit: 100 });
       setTags(data.items || []);
     } catch (e: any) {
-      setError(e?.response?.data?.error || e?.message || t('Failed to load tags'));
+      setError(getApiErrorCode(e) || e?.message || t('Failed to load tags'));
     } finally {
       setIsLoading(false);
     }
@@ -82,7 +83,7 @@ const TagsPage: React.FC = () => {
       if (status === 403) {
         setCreateError(t('You do not have permission to create tags'));
       } else {
-        setCreateError(e?.response?.data?.message || e?.response?.data?.error || e?.message || t('Failed to create tag'));
+        setCreateError(e?.response?.data?.message || getApiErrorCode(e) || e?.message || t('Failed to create tag'));
       }
     } finally {
       setCreating(false);

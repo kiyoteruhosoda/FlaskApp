@@ -8,6 +8,7 @@ import MediaSearchBar, {
   MediaSearchFilters,
   toMediaQueryParams,
 } from './MediaSearchBar';
+import { getApiErrorCode } from '../services/apiErrors';
 
 interface MediaPickerModalProps {
   show: boolean;
@@ -58,7 +59,7 @@ const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
         setHasNext(Boolean(data.hasNext));
         setCursor(data.nextCursor ?? null);
       } catch (e: any) {
-        setError(e?.response?.data?.error || e?.message || t('Failed to load media'));
+        setError(getApiErrorCode(e) || e?.message || t('Failed to load media'));
       } finally {
         setIsLoading(false);
       }
@@ -131,7 +132,7 @@ const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
       onHide();
     } catch (e: any) {
       setError(
-        e?.response?.data?.message || e?.response?.data?.error || e?.message || t('Failed to add media')
+        e?.response?.data?.message || getApiErrorCode(e) || e?.message || t('Failed to add media')
       );
     } finally {
       setSubmitting(false);

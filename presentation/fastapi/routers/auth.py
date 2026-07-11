@@ -60,8 +60,17 @@ async def api_login(
     user_repo = SqlAlchemyUserRepository(db)
     auth_service = AuthService(user_repo, UserRegistrationService(user_repo))
 
-    user_model = auth_service.authenticate(data.email, data.password)
+    user_model, failure_reason = auth_service.authenticate_with_reason(
+        data.email, data.password
+    )
     if not user_model:
+        # レスポンスには理由を返さない（アカウント列挙対策）が、運用診断のため
+        # サーバーログには理由コードを残す。メールアドレス等のPIIは出さない。
+        logger.warning(
+            "Login failed: %s",
+            failure_reason,
+            extra={"event": "auth.login.failed", "reason": failure_reason},
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"error": "invalid_credentials"},

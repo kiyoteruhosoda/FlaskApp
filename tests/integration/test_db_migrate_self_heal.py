@@ -20,7 +20,7 @@ from tests.integration.test_migration_model_consistency import (
     _setup_test_env,
 )
 
-from scripts.run_db_migrations import run
+from scripts.run_db_migrations import log_admin_login_self_check, run
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -105,6 +105,55 @@ def test_partial_legacy_database_is_not_auto_healed(tmp_path):
         assert "alembic_version" not in _table_names(engine)
     finally:
         engine.dispose()
+
+
+@pytest.mark.integration
+def test_run_logs_admin_login_self_check_ok_on_fresh_database(tmp_path, capsys):
+    """「ログインできない」障害を毎回 docker exec で調査せずに済むよう、
+    起動ログに管理者ログイン可否を明示する自己診断が出ること。
+    """
+    _setup_test_env()
+    os.environ.pop("ADMIN_INITIAL_PASSWORD", None)
+    db_path = tmp_path / "selfcheck-ok.db"
+    url = f"sqlite:///{db_path}"
+
+    assert run(url) == 0
+
+    captured = capsys.readouterr()
+    assert "admin login self-check: OK" in captured.out
+    assert "admin@example.com" in captured.out
+
+
+@pytest.mark.integration
+def test_log_admin_login_self_check_warns_on_hash_mismatch(tmp_path, capsys):
+    """パスワードハッシュが期待値と一致しない場合、起動を止めずに明確な
+    WARNログを出すこと（読み取り専用チェックなので実データは書き換えない）。
+    """
+    _setup_test_env()
+    os.environ.pop("ADMIN_INITIAL_PASSWORD", None)
+    db_path = tmp_path / "selfcheck-ng.db"
+    url = f"sqlite:///{db_path}"
+
+    assert run(url) == 0
+    capsys.readouterr()  # run() 中の出力を捨てる
+
+    engine = sa.create_engine(url)
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                sa.text(
+                    "UPDATE user SET password_hash = :bogus WHERE email = :email"
+                ),
+                {"bogus": "scrypt:not-a-real-hash", "email": "admin@example.com"},
+            )
+    finally:
+        engine.dispose()
+
+    log_admin_login_self_check(url)
+
+    captured = capsys.readouterr()
+    assert "admin login self-check: NG" in captured.err
+    assert "admin@example.com" in captured.err
 
 
 @pytest.mark.integration

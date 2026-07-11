@@ -34,11 +34,26 @@ class AuthService:
         return model
 
     def authenticate(self, email: str, password: str) -> Optional["UserModel"]:
-        user = self.repo.get_by_email(email)
-        if not user or not user.is_active or not user.check_password(password):
-            return None
+        user_model, _reason = self.authenticate_with_reason(email, password)
+        return user_model
 
-        return self._resolve_domain_model(user)
+    def authenticate_with_reason(
+        self, email: str, password: str
+    ) -> tuple[Optional["UserModel"], Optional[str]]:
+        """認証に失敗した理由をあわせて返す。
+
+        返す理由コード（クライアントには漏らさず、サーバーログの診断専用）:
+        ``user_not_found`` / ``user_inactive`` / ``invalid_password``。
+        """
+        user = self.repo.get_by_email(email)
+        if not user:
+            return None, "user_not_found"
+        if not user.is_active:
+            return None, "user_inactive"
+        if not user.check_password(password):
+            return None, "invalid_password"
+
+        return self._resolve_domain_model(user), None
 
     def register(self, email: str, password: str, totp_secret: str | None = None, roles: List[str] | None = None) -> User:
         intent = RegistrationIntent.create(

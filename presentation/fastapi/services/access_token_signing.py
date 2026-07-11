@@ -19,7 +19,6 @@ from presentation.fastapi.services.system_setting_service import (
     AccessTokenSigningValidationError,
     SystemSettingService,
 )
-from shared.kernel.settings.settings import settings
 
 
 _ALLOWED_RSA_ALGORITHMS = {"RS256", "RS384", "RS512"}
@@ -46,28 +45,6 @@ class SigningMaterial:
     setting: AccessTokenSigningSetting
 
 
-def _resolve_builtin_secret() -> str | None:
-    """Resolve the built-in HS256 secret following the project priority order.
-
-    優先順位: 環境変数 > DB（system_settings の ``app.config``）> デフォルト値。
-
-    ``settings.jwt_secret_key`` は環境変数しか参照しないため、管理画面から
-    ``app.config`` に保存された値（および ``DEFAULT_APPLICATION_SETTINGS`` の
-    既定値）を拾えない。組み込み署名の鍵は本ヘルパーで解決する。
-    """
-
-    env_secret = settings.jwt_secret_key
-    if env_secret:
-        return env_secret
-
-    config = SystemSettingService.load_application_config()
-    value = config.get("JWT_SECRET_KEY")
-    if value is None:
-        return None
-    secret = str(value).strip()
-    return secret or None
-
-
 def resolve_signing_material() -> SigningMaterial:
     """Return the key, algorithm, and headers for issuing an access token."""
 
@@ -76,7 +53,7 @@ def resolve_signing_material() -> SigningMaterial:
     except AccessTokenSigningValidationError as exc:
         raise AccessTokenSigningError(str(exc)) from exc
     if setting.is_builtin:
-        secret = _resolve_builtin_secret()
+        secret = SystemSettingService.resolve_builtin_jwt_secret()
         if not secret:
             raise AccessTokenSigningError("JWT secret key is not configured.")
         return SigningMaterial(
@@ -114,7 +91,7 @@ def resolve_verification_key(algorithm: str, kid: str | None):
     """Resolve the key required to verify an access token."""
 
     if algorithm == "HS256":
-        secret = _resolve_builtin_secret()
+        secret = SystemSettingService.resolve_builtin_jwt_secret()
         if not secret:
             raise AccessTokenVerificationError("JWT secret key is not configured.")
         return secret

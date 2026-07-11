@@ -9,6 +9,7 @@ from shared.kernel.i18n.translation import gettext as _
 
 from shared.kernel.database.db import db
 from shared.infrastructure.models.system_setting import SystemSetting
+from shared.kernel.settings.settings import settings
 from shared.kernel.settings.system_settings_defaults import (
     DEFAULT_APPLICATION_SETTINGS,
     DEFAULT_CORS_SETTINGS,
@@ -239,6 +240,27 @@ class SystemSettingService:
     def load_application_config(cls) -> Dict[str, Any]:
         record_values = cls.load_application_config_payload()
         return {**DEFAULT_APPLICATION_SETTINGS, **record_values}
+
+    @classmethod
+    def resolve_builtin_jwt_secret(cls) -> str | None:
+        """組み込み(HS256)署名の秘密鍵を解決する。
+
+        優先順位は設計方針どおり「環境変数 > DB(``app.config``) > デフォルト値」。
+        ``settings.jwt_secret_key`` は環境変数しか参照しないため、管理画面から
+        ``app.config`` に保存された値や ``DEFAULT_APPLICATION_SETTINGS`` の既定値を
+        単独では拾えない。署名・検証・管理画面表示の全経路がこのメソッドを唯一の
+        出所とすることで、取得ロジックを一本化する。
+        """
+
+        env_secret = settings.jwt_secret_key
+        if env_secret:
+            return env_secret
+
+        value = cls.load_application_config().get("JWT_SECRET_KEY")
+        if value is None:
+            return None
+        secret = str(value).strip()
+        return secret or None
 
     @classmethod
     def load_application_config_payload(cls) -> Dict[str, Any]:

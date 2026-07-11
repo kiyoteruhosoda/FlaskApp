@@ -65,3 +65,15 @@ def test_encode_verify_round_trip_without_env(app_context):
     decoded = jwt.decode(token, verification_key, algorithms=["HS256"])
 
     assert decoded["sub"] == "u+1"
+
+
+def test_resolver_is_single_source_of_truth(app_context):
+    """署名・検証・管理画面表示が同一の解決結果を共有する。"""
+    os.environ.pop("JWT_SECRET_KEY", None)
+    SystemSettingService.update_application_settings({"JWT_SECRET_KEY": "shared-secret"})
+
+    resolved = SystemSettingService.resolve_builtin_jwt_secret()
+
+    assert resolved == "shared-secret"
+    assert resolve_signing_material().key == resolved
+    assert resolve_verification_key("HS256", None) == resolved

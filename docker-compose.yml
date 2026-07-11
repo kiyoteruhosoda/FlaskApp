@@ -100,8 +100,19 @@ services:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health/live')\""]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 40s
+      # web コンテナは db が healthy になってから起動する（depends_on condition:
+      # service_healthy）。db 自身の start_period は 600s まで許容しているため
+      # （Synology NAS の遅いディスクでは db 単体の初期化だけで2〜3分かかる）、
+      # web はさらにその後に DB 接続待ち + `alembic upgrade head`（reset 直後は
+      # init_master 全テーブル + seed_master_data + gunicorn/uvicorn 起動）を
+      # こなす必要がある。旧 start_period 40s + retries 3 × interval 30s = 130s では
+      # この合計時間にわずかに届かず、実際にアプリは数秒後に正常起動していたにも
+      # かかわらず docker compose に unhealthy と誤判定され
+      # 「dependency failed to start」でデプロイが失敗した実績があるため延長する。
+      # start_period 中も probe は interval ごとに走り、成功すれば即 healthy になる
+      # ので、長めに取っても通常起動（2回目以降・db 初期化不要時）が遅くなることはない。
+      retries: 5
+      start_period: 300s
 
   nginx:
     image: nginx:1.27-alpine

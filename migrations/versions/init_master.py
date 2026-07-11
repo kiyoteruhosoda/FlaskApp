@@ -1,11 +1,12 @@
 """init master schema (consolidated baseline)
 
-現状の SQLAlchemy モデル定義（target_metadata）から機械生成した、
+現行の SQLAlchemy モデル定義（target_metadata）から機械生成した、
 全テーブルを一括作成する単一のベースライン・マイグレーション。
 
 このリビジョンはアプリケーションの「正しい現行スキーマ」を表す。
 ロール・権限・管理者ユーザー等のマスタデータは本マイグレーションには
-含めず、``python scripts/seed_master_data.py`` で投入する（冪等）。
+含めず、直後の ``2a1f9c0b3d4e_seed_master_data`` （および
+``python scripts/seed_master_data.py``）で投入する（冪等）。
 
 Revision ID: init_master
 Revises:
@@ -143,6 +144,7 @@ def upgrade() -> None:
     sa.Column('totp_secret', sa.String(length=32), nullable=True),
     sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.Column('refresh_token_hash', sa.String(length=255), nullable=True),
+    sa.Column('must_change_password', sa.Boolean(), server_default='0', nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_user_email'), 'user', ['email'], unique=True)
@@ -207,6 +209,14 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('user_id', 'email', name='uq_user_google_email')
     )
+    op.create_table('group_roles',
+    sa.Column('group_id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), nullable=False),
+    sa.Column('role_id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), nullable=False),
+    sa.ForeignKeyConstraint(['group_id'], ['user_group.id'], ),
+    sa.ForeignKeyConstraint(['role_id'], ['role.id'], ),
+    sa.PrimaryKeyConstraint('group_id', 'role_id'),
+    sa.UniqueConstraint('group_id', 'role_id', name='uq_group_roles')
+    )
     op.create_table('group_user_membership',
     sa.Column('group_id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), nullable=False),
     sa.Column('user_id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), nullable=False),
@@ -215,6 +225,21 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('group_id', 'user_id'),
     sa.UniqueConstraint('group_id', 'user_id', name='uq_group_user_membership')
     )
+    op.create_table('impersonation_audit_log',
+    sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
+    sa.Column('impersonator_id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), nullable=True),
+    sa.Column('impersonated_id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), nullable=True),
+    sa.Column('event', sa.String(length=16), nullable=False),
+    sa.Column('ip_address', sa.String(length=45), nullable=True),
+    sa.Column('user_agent', sa.Text(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['impersonated_id'], ['user.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['impersonator_id'], ['user.id'], ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_impersonation_audit_log_created_at'), 'impersonation_audit_log', ['created_at'], unique=False)
+    op.create_index(op.f('ix_impersonation_audit_log_impersonated_id'), 'impersonation_audit_log', ['impersonated_id'], unique=False)
+    op.create_index(op.f('ix_impersonation_audit_log_impersonator_id'), 'impersonation_audit_log', ['impersonator_id'], unique=False)
     op.create_table('issued_certificates',
     sa.Column('kid', sa.String(length=64), nullable=False),
     sa.Column('usage_type', sa.String(length=32), nullable=False),
@@ -316,6 +341,16 @@ def upgrade() -> None:
     sa.UniqueConstraint('user_id', 'account', 'issuer', name='uq_totp_user_account_issuer')
     )
     op.create_index(op.f('ix_totp_credential_user_id'), 'totp_credential', ['user_id'], unique=False)
+    op.create_table('user_preference',
+    sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
+    sa.Column('user_id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), nullable=False),
+    sa.Column('key', sa.String(length=120), nullable=False),
+    sa.Column('value_json', sa.Text(), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('user_id', 'key', name='uq_user_preference_user_key')
+    )
+    op.create_index(op.f('ix_user_preference_user_id'), 'user_preference', ['user_id'], unique=False)
     op.create_table('user_roles',
     sa.Column('user_id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), nullable=False),
     sa.Column('role_id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), nullable=False),
@@ -380,7 +415,8 @@ def upgrade() -> None:
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['account_id'], ['google_account.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('google_media_id', name='uq_media_google_media_id')
     )
     op.create_table('picker_session',
     sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
@@ -391,6 +427,8 @@ def upgrade() -> None:
     sa.Column('polling_config_json', sa.Text(), nullable=True),
     sa.Column('picking_config_json', sa.Text(), nullable=True),
     sa.Column('media_items_set', sa.Boolean(), nullable=True),
+    sa.Column('trigger', sa.String(length=32), server_default='unknown', nullable=False),
+    sa.Column('triggered_by_user_id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), nullable=True),
     sa.Column('status', sa.Enum('pending', 'ready', 'expanding', 'processing', 'enqueued', 'importing', 'imported', 'canceled', 'expired', 'error', 'failed', name='picker_session_status', native_enum=False), server_default='pending', nullable=False),
     sa.Column('selected_count', sa.Integer(), nullable=True),
     sa.Column('stats_json', sa.Text(), nullable=True),
@@ -399,6 +437,7 @@ def upgrade() -> None:
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['account_id'], ['google_account.id'], ),
+    sa.ForeignKeyConstraint(['triggered_by_user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('session_id')
     )
@@ -635,6 +674,8 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_wiki_page_slug'), table_name='wiki_page')
     op.drop_table('wiki_page')
     op.drop_table('user_roles')
+    op.drop_index(op.f('ix_user_preference_user_id'), table_name='user_preference')
+    op.drop_table('user_preference')
     op.drop_index(op.f('ix_totp_credential_user_id'), table_name='totp_credential')
     op.drop_table('totp_credential')
     op.drop_table('tag')
@@ -647,7 +688,12 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_issued_certificates_issued_at'), table_name='issued_certificates')
     op.drop_index(op.f('ix_issued_certificates_expires_at'), table_name='issued_certificates')
     op.drop_table('issued_certificates')
+    op.drop_index(op.f('ix_impersonation_audit_log_impersonator_id'), table_name='impersonation_audit_log')
+    op.drop_index(op.f('ix_impersonation_audit_log_impersonated_id'), table_name='impersonation_audit_log')
+    op.drop_index(op.f('ix_impersonation_audit_log_created_at'), table_name='impersonation_audit_log')
+    op.drop_table('impersonation_audit_log')
     op.drop_table('group_user_membership')
+    op.drop_table('group_roles')
     op.drop_table('google_account')
     op.drop_index('ix_worker_log_file_task_id_progress_step', table_name='worker_log')
     op.drop_index('ix_worker_log_file_task_id', table_name='worker_log')

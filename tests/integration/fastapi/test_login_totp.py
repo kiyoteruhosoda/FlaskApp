@@ -37,7 +37,9 @@ def client() -> TestClient:
     return TestClient(app, raise_server_exceptions=False)
 
 
-_AUTH_SERVICE_AUTHENTICATE = "shared.application.auth_service.AuthService.authenticate"
+_AUTH_SERVICE_AUTHENTICATE = (
+    "shared.application.auth_service.AuthService.authenticate_with_reason"
+)
 _TOKEN_SERVICE_GENERATE = (
     "presentation.fastapi.services.token_service.TokenService.generate_token_pair"
 )
@@ -49,7 +51,7 @@ class TestLoginWithoutTOTP:
     def test_login_without_totp_returns_200(self, client: TestClient) -> None:
         user = _make_user_model(totp_secret=None)
         with (
-            patch(_AUTH_SERVICE_AUTHENTICATE, return_value=user),
+            patch(_AUTH_SERVICE_AUTHENTICATE, return_value=(user, None)),
             patch(_TOKEN_SERVICE_GENERATE, return_value=("access_tok", "refresh_tok")),
         ):
             resp = client.post(
@@ -61,7 +63,7 @@ class TestLoginWithoutTOTP:
     def test_login_without_totp_response_has_access_token(self, client: TestClient) -> None:
         user = _make_user_model(totp_secret=None)
         with (
-            patch(_AUTH_SERVICE_AUTHENTICATE, return_value=user),
+            patch(_AUTH_SERVICE_AUTHENTICATE, return_value=(user, None)),
             patch(_TOKEN_SERVICE_GENERATE, return_value=("access_tok", "refresh_tok")),
         ):
             resp = client.post(
@@ -73,7 +75,7 @@ class TestLoginWithoutTOTP:
         assert data["refresh_token"] == "refresh_tok"
 
     def test_login_with_invalid_credentials_returns_401(self, client: TestClient) -> None:
-        with patch(_AUTH_SERVICE_AUTHENTICATE, return_value=None):
+        with patch(_AUTH_SERVICE_AUTHENTICATE, return_value=(None, "invalid_password")):
             resp = client.post(
                 "/api/auth/login",
                 json={"email": "user@example.com", "password": "wrong"},
@@ -88,7 +90,7 @@ class TestLoginWithTOTP:
     def test_login_without_totp_token_returns_401_totp_required(self, client: TestClient) -> None:
         secret = pyotp.random_base32()
         user = _make_user_model(totp_secret=secret)
-        with patch(_AUTH_SERVICE_AUTHENTICATE, return_value=user):
+        with patch(_AUTH_SERVICE_AUTHENTICATE, return_value=(user, None)):
             resp = client.post(
                 "/api/auth/login",
                 json={"email": "user@example.com", "password": "password"},
@@ -99,7 +101,7 @@ class TestLoginWithTOTP:
     def test_login_with_invalid_totp_token_returns_401_invalid_totp(self, client: TestClient) -> None:
         secret = pyotp.random_base32()
         user = _make_user_model(totp_secret=secret)
-        with patch(_AUTH_SERVICE_AUTHENTICATE, return_value=user):
+        with patch(_AUTH_SERVICE_AUTHENTICATE, return_value=(user, None)):
             resp = client.post(
                 "/api/auth/login",
                 json={"email": "user@example.com", "password": "password", "token": "000000"},
@@ -112,7 +114,7 @@ class TestLoginWithTOTP:
         valid_token = pyotp.TOTP(secret).now()
         user = _make_user_model(totp_secret=secret)
         with (
-            patch(_AUTH_SERVICE_AUTHENTICATE, return_value=user),
+            patch(_AUTH_SERVICE_AUTHENTICATE, return_value=(user, None)),
             patch(_TOKEN_SERVICE_GENERATE, return_value=("access_tok", "refresh_tok")),
         ):
             resp = client.post(
@@ -130,7 +132,7 @@ class TestLoginWithTOTP:
         valid_token = pyotp.TOTP(secret).now()
         user = _make_user_model(totp_secret=secret)
         with (
-            patch(_AUTH_SERVICE_AUTHENTICATE, return_value=user),
+            patch(_AUTH_SERVICE_AUTHENTICATE, return_value=(user, None)),
             patch(_TOKEN_SERVICE_GENERATE, return_value=("access_tok_totp", "refresh_tok_totp")),
         ):
             resp = client.post(
@@ -148,7 +150,7 @@ class TestLoginWithTOTP:
         """token フィールドが None のとき TOTP 未設定なら成功することを確認する。"""
         user = _make_user_model(totp_secret=None)
         with (
-            patch(_AUTH_SERVICE_AUTHENTICATE, return_value=user),
+            patch(_AUTH_SERVICE_AUTHENTICATE, return_value=(user, None)),
             patch(_TOKEN_SERVICE_GENERATE, return_value=("tok_a", "tok_b")),
         ):
             resp = client.post(
@@ -173,7 +175,7 @@ class TestLoginMustChangePassword:
         user = _make_user_model(totp_secret=None)
         user.must_change_password = False
         with (
-            patch(_AUTH_SERVICE_AUTHENTICATE, return_value=user),
+            patch(_AUTH_SERVICE_AUTHENTICATE, return_value=(user, None)),
             patch(_TOKEN_SERVICE_GENERATE, return_value=("tok_a", "tok_b")),
             patch(_SETTINGS_REQUIRE_PW_CHANGE, new_callable=lambda: property(lambda self: False)),
         ):
@@ -191,7 +193,7 @@ class TestLoginMustChangePassword:
         user = _make_user_model(totp_secret=None)
         user.must_change_password = True
         with (
-            patch(_AUTH_SERVICE_AUTHENTICATE, return_value=user),
+            patch(_AUTH_SERVICE_AUTHENTICATE, return_value=(user, None)),
             patch(_TOKEN_SERVICE_GENERATE, return_value=("tok_a", "tok_b")),
             patch(_SETTINGS_REQUIRE_PW_CHANGE, new_callable=lambda: property(lambda self: True)),
         ):
@@ -209,7 +211,7 @@ class TestLoginMustChangePassword:
         user = _make_user_model(totp_secret=None)
         user.must_change_password = True
         with (
-            patch(_AUTH_SERVICE_AUTHENTICATE, return_value=user),
+            patch(_AUTH_SERVICE_AUTHENTICATE, return_value=(user, None)),
             patch(_TOKEN_SERVICE_GENERATE, return_value=("tok_a", "tok_b")),
             patch(_SETTINGS_REQUIRE_PW_CHANGE, new_callable=lambda: property(lambda self: False)),
         ):
@@ -227,7 +229,7 @@ class TestLoginMustChangePassword:
         user = _make_user_model(totp_secret=None)
         user.must_change_password = False
         with (
-            patch(_AUTH_SERVICE_AUTHENTICATE, return_value=user),
+            patch(_AUTH_SERVICE_AUTHENTICATE, return_value=(user, None)),
             patch(_TOKEN_SERVICE_GENERATE, return_value=("tok_a", "tok_b")),
             patch(_SETTINGS_REQUIRE_PW_CHANGE, new_callable=lambda: property(lambda self: True)),
         ):

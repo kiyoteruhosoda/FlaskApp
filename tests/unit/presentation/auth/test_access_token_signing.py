@@ -106,3 +106,33 @@ def test_login_token_pair_generation_and_verification_without_env(app_context):
     principal = TokenService.verify_access_token(access_token)
     assert principal is not None
     assert principal.subject_id == user.id
+
+
+def test_verify_access_token_with_reason_accepts_session_kwarg(app_context):
+    """`presentation/fastapi/dependencies/auth.py` の ``get_current_principal`` は
+    ``TokenService.verify_access_token_with_reason(token, session=db)`` を
+    ``session`` キーワード引数付きで呼ぶ。この引数を受け付けないと
+    ``TypeError: ... got an unexpected keyword argument 'session'`` になり、
+    ログイン後の ``GET /api/auth/me`` 等、認証必須の全エンドポイントが
+    500 になっていた（STG で実際に発生した障害）。
+    """
+    from shared.kernel.database.db import db
+    from shared.infrastructure.models.user import User
+    from presentation.fastapi.services.token_service import TokenService
+
+    user = User(email="verify-with-reason@example.com", is_active=True)
+    user.set_password("pw")
+    db.session.add(user)
+    db.session.commit()
+
+    access_token, _ = TokenService.generate_token_pair(
+        user, ["gui:view"], session=db.session
+    )
+
+    principal, reason = TokenService.verify_access_token_with_reason(
+        access_token, session=db.session
+    )
+
+    assert reason is None
+    assert principal is not None
+    assert principal.subject_id == user.id

@@ -5,7 +5,27 @@
 
 ## [Unreleased]
 
+### Added
+- **ログイン関連の障害を `docker exec` で都度DBを覗かなくても判断できるよう
+  診断ログを強化**。
+  - `scripts/run_db_migrations.py`: マイグレーション適用後、初期管理者
+    アカウントが実際にログイン可能かを毎回自動検証し、
+    `[db-migrate] admin login self-check: OK` /
+    `[db-migrate][WARN] admin login self-check: NG` を起動ログ
+    （`docker logs <web>`）へ明示する（読み取り専用・パスワードは書き換えない）。
+  - `POST /api/auth/login`: 認証失敗時、レスポンスには理由を返さない
+    （アカウント列挙対策は維持）が、サーバーログに
+    `user_not_found` / `user_inactive` / `invalid_password` の理由コードを
+    残すようにした（PIIは出力しない）。`AuthService` に
+    `authenticate_with_reason()` を追加（`authenticate()` は後方互換の
+    ラッパーとして維持）。
+
 ### Fixed
+- **`TokenService.verify_access_token_with_reason()` が `session` キーワード
+  引数を受け付けず、ログイン後の `GET /api/auth/me` 等の認証必須リクエスト
+  全般が 500 になっていた問題を修正**（`presentation/fastapi/dependencies/auth.py`
+  の `get_current_principal` が `session=db` を渡して呼んでいた）。
+  回帰テスト: `tests/unit/presentation/auth/test_access_token_signing.py`。
 - **STG の `reset` 実行時、web コンテナが実際には正常起動しているのに
   `docker compose up -d` に unhealthy と誤判定され
   `dependency failed to start: container web is unhealthy` でデプロイが

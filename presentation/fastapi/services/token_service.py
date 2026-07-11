@@ -207,11 +207,11 @@ class TokenService:
 
     @classmethod
     def verify_access_token_with_reason(
-        cls, token: str
+        cls, token: str, *, session: Optional[Session] = None
     ) -> tuple[Optional[AuthenticatedPrincipal], Optional[str]]:
         """アクセストークン検証時の失敗理由を含めて主体情報を取得する"""
 
-        return cls.create_principal_with_reason(token)
+        return cls.create_principal_with_reason(token, session=session)
 
     @classmethod
     def _decode_access_token_payload(

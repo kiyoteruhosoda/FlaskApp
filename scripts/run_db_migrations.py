@@ -163,7 +163,78 @@ def run(database_url: str) -> int:
         else:
             os.environ["DATABASE_URI"] = previous_database_uri
 
+    log_admin_login_self_check(database_url)
     return 0
+
+
+def log_admin_login_self_check(database_url: str) -> None:
+    """初期管理者アカウントが実際にログイン可能かを起動ログへ出す（診断専用）。
+
+    「ログインできない」障害は毎回 docker exec でDBを直接見に行かないと原因が
+    分からず判断に時間がかかっていたため、起動のたびに自動で検証しログへ残す。
+    失敗しても起動は止めない（読み取り専用チェックであり、パスワードを勝手に
+    上書きすることはしない — 運用者が意図的に変更した本物のパスワードを
+    誤って初期値へ巻き戻すことになるため）。
+    """
+    from werkzeug.security import check_password_hash
+
+    from shared.domain.auth.master_data import DEFAULT_ADMIN_EMAIL
+
+    admin_initial_password = os.environ.get("ADMIN_INITIAL_PASSWORD")
+    expected_password = admin_initial_password or "admin"
+    expected_source = (
+        "ADMIN_INITIAL_PASSWORD" if admin_initial_password else "デフォルト値 'admin'"
+    )
+
+    engine = sa.create_engine(database_url)
+    try:
+        with engine.connect() as conn:
+            row = conn.execute(
+                sa.text(
+                    "SELECT password_hash, is_active FROM user WHERE email = :email"
+                ),
+                {"email": DEFAULT_ADMIN_EMAIL},
+            ).first()
+    except Exception as exc:  # noqa: BLE001 — 診断専用。失敗しても起動は継続する。
+        print(
+            f"[db-migrate][WARN] admin login self-check をスキップしました: {exc}",
+            file=sys.stderr,
+        )
+        return
+    finally:
+        engine.dispose()
+
+    if row is None:
+        print(
+            f"[db-migrate][WARN] admin login self-check: ユーザー "
+            f"'{DEFAULT_ADMIN_EMAIL}' が見つかりません。",
+            file=sys.stderr,
+        )
+        return
+
+    password_hash, is_active = row
+    if not is_active:
+        print(
+            f"[db-migrate][WARN] admin login self-check: NG — "
+            f"'{DEFAULT_ADMIN_EMAIL}' は is_active=False のためログインできません。",
+            file=sys.stderr,
+        )
+        return
+
+    if check_password_hash(password_hash, expected_password):
+        print(
+            f"[db-migrate] admin login self-check: OK "
+            f"（{DEFAULT_ADMIN_EMAIL} / {expected_source} でログイン可能）"
+        )
+    else:
+        print(
+            f"[db-migrate][WARN] admin login self-check: NG — "
+            f"'{DEFAULT_ADMIN_EMAIL}' は {expected_source} の資格情報では認証できません。"
+            " 既に手動でパスワードを変更済みなら問題ありません。意図しない場合は"
+            " ADMIN_INITIAL_PASSWORD を設定して再デプロイするか、"
+            " docs/OPERATIONS.md のトラブルシューティングを参照してください。",
+            file=sys.stderr,
+        )
 
 
 def main() -> int:

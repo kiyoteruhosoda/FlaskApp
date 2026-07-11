@@ -71,3 +71,33 @@ def test_register_with_pending_totp_creates_inactive_user(service: AuthService, 
     activated = service.activate_user_with_totp(user, "totp-secret")
     assert activated.is_active is True
     assert activated.totp_secret == "totp-secret"
+
+
+def test_authenticate_with_reason_reports_user_not_found(service: AuthService) -> None:
+    result, reason = service.authenticate_with_reason("missing@example.com", "pw")
+
+    assert result is None
+    assert reason == "user_not_found"
+
+
+def test_authenticate_with_reason_reports_invalid_password(service: AuthService) -> None:
+    service.register("user2@example.com", "correct-password")
+
+    result, reason = service.authenticate_with_reason("user2@example.com", "wrong-password")
+
+    assert result is None
+    assert reason == "invalid_password"
+
+
+def test_authenticate_with_reason_reports_user_inactive(service: AuthService) -> None:
+    service.register_with_pending_totp("inactive@example.com", "pw")
+
+    result, reason = service.authenticate_with_reason("inactive@example.com", "pw")
+
+    assert result is None
+    assert reason == "user_inactive"
+
+
+def test_authenticate_delegates_to_authenticate_with_reason(service: AuthService) -> None:
+    """後方互換: authenticate() は失敗時に理由を捨てて None だけ返す。"""
+    assert service.authenticate("missing@example.com", "pw") is None

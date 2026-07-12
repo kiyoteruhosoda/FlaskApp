@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Form, Button, Alert, Spinner, Dropdown } from 'react-bootstrap';
+import { Container, Row, Col, Card, Form, Button, Alert, Spinner, Dropdown, InputGroup } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
 import { login, clearError, getCurrentUser } from '../store/authSlice';
@@ -8,7 +8,6 @@ import { useTranslation } from 'react-i18next';
 import i18n from 'i18next';
 import axios from 'axios';
 import { startPasskeyAuthentication, isPasskeySupported } from '../utils/webauthn';
-import { getApiErrorCode } from '../services/apiErrors';
 
 const LoginPage: React.FC = () => {
   const { t } = useTranslation();
@@ -25,6 +24,7 @@ const LoginPage: React.FC = () => {
   const [loginStep, setLoginStep] = useState<'credentials' | 'totp'>('credentials');
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [passkeyError, setPasskeyError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const changeLanguage = (lng: string) => {
     i18n.changeLanguage(lng);
@@ -136,13 +136,13 @@ const LoginPage: React.FC = () => {
       } else {
         navigate(data.redirect_url || '/dashboard');
       }
-    } catch (err: any) {
-      if (err?.name === 'NotAllowedError' || err?.message === 'passkey_canceled') {
-        setPasskeyError(t('Passkey sign-in was canceled'));
+    } catch {
+      if (!isPasskeySupported()) {
+        setPasskeyError(t('Passkey is not supported on this device'));
       } else {
-        setPasskeyError(
-          getApiErrorCode(err) || t('Passkey sign-in failed')
-        );
+        // キャンセル・未登録・認証失敗など、深刻ではない失敗はすべて
+        // 「パスキーが登録されていません」という簡潔な案内に統一する
+        setPasskeyError(t('No passkeys registered'));
       }
     } finally {
       setPasskeyLoading(false);
@@ -167,7 +167,7 @@ const LoginPage: React.FC = () => {
             </Card.Header>
             <Card.Body className="p-4">
               {error && errorText(error) && (
-                <Alert variant="danger" dismissible onClose={() => dispatch(clearError())}>
+                <Alert variant="warning" dismissible onClose={() => dispatch(clearError())}>
                   {errorText(error)}
                 </Alert>
               )}
@@ -189,14 +189,25 @@ const LoginPage: React.FC = () => {
 
                   <Form.Group className="mb-3">
                     <Form.Label>{t('Password')}</Form.Label>
-                    <Form.Control
-                      type="password"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      placeholder={t('Enter your password')}
-                      required
-                    />
+                    <InputGroup>
+                      <Form.Control
+                        type={showPassword ? 'text' : 'password'}
+                        name="password"
+                        value={formData.password}
+                        onChange={handleInputChange}
+                        placeholder={t('Enter your password')}
+                        required
+                      />
+                      <Button
+                        variant="outline-secondary"
+                        type="button"
+                        onClick={() => setShowPassword((prev) => !prev)}
+                        aria-label={showPassword ? t('Hide password') : t('Show password')}
+                        data-testid="toggle-password-visibility"
+                      >
+                        <i className={`fa-solid ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`} />
+                      </Button>
+                    </InputGroup>
                   </Form.Group>
 
                   <Button
@@ -217,9 +228,9 @@ const LoginPage: React.FC = () => {
                   </Button>
 
                   {passkeyError && (
-                    <Alert variant="warning" dismissible onClose={() => setPasskeyError(null)}>
+                    <p className="text-muted small text-center mb-3" data-testid="passkey-error">
                       {passkeyError}
-                    </Alert>
+                    </p>
                   )}
 
                   {/* パスキーログイン */}

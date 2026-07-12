@@ -102,7 +102,7 @@ const Header: React.FC = () => {
                   {hasPermission('admin:system-settings') && (
                     <>
                       <NavDropdown.Divider />
-                      <NavDropdown.Item as={Link} to="/admin/dashboard">{t('Admin')}</NavDropdown.Item>
+                      <NavDropdown.Item as={Link} to="/admin/dashboard">{t('System Overview')}</NavDropdown.Item>
                     </>
                   )}
                   <NavDropdown.Divider />

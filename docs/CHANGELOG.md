@@ -5,6 +5,17 @@
 
 ## [Unreleased]
 
+### Changed
+- **ログイン画面のUXを改善**。(1) パスワード入力欄に表示/非表示切替ボタンを追加。
+  (2) メール/パスワード誤りや認証コード誤りは利用者の入力ミスであり深刻な
+  エラーではないため、赤（danger）ではなく warning のアラートに変更。
+  赤いアラートはシステム側の深刻な障害用に予約する。(3) パスキーサインイン
+  失敗時のアラートボックスを廃止し、「パスキーが登録されていません」という
+  簡潔なテキスト表示に統一（`ProfilePage` の未登録時表示と同じ体裁）。
+  (4) ヘッダーのユーザーメニューの「Admin」リンクをサイドバーの表記と揃えて
+  「System Overview」に変更。対象: `frontend/src/pages/LoginPage.tsx`,
+  `frontend/src/components/Header.tsx`。
+
 ### Fixed
 - **初期管理者でログインしても管理画面で「You do not have permission to view
   this page」と表示される問題を修正**。`shared/domain/auth/master_data.py`

@@ -266,6 +266,7 @@ async def api_get_current_user(
         roles=role_data,
         active_role=None,
         permissions=permissions,
+        scope=sorted(principal.scope),
         created_at=user.created_at.isoformat() if getattr(user, "created_at", None) else None,
         updated_at=user.updated_at.isoformat() if getattr(user, "updated_at", None) else None,
     )

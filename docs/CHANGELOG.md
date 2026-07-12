@@ -5,7 +5,29 @@
 
 ## [Unreleased]
 
+### Fixed
+- **管理画面で保存した設定値（DB）がアプリの動作に反映されない問題を修正**。
+  `ApplicationSettings._get`（`shared/kernel/settings/settings.py`）が環境変数
+  しか参照しておらず、設計方針「環境変数 > DB（system_settings）> デフォルト値」
+  の DB 層が存在しなかった。`_DatabaseOverrides`（TTL キャッシュ付き・専用
+  短命コネクション・DB 未接続時は静かにスキップ）を追加し、
+  `SystemSettingService` の保存時にキャッシュを即時無効化するようにした。
+  テストが明示的に env マッピングを渡したインスタンスは従来どおり DB を
+  参照しない。回帰テスト:
+  `tests/unit/core/test_settings_db_overrides_and_directory_defaults.py`。
+- **Photo Settings の Directory Status が設定定義と異なるパスを表示・使用する
+  問題を修正**。`settings.py` の各プロパティと storage の `_KNOWN_SPECS` に
+  直書きされた既定パス（`/tmp/local_import`・`/app/data/media`・
+  `/app/data/thumbs`・`/app/data/playback`）が正本
+  `DEFAULT_APPLICATION_SETTINGS`（`/app/data/media/local_import` 等）と
+  食い違っていた。既定値の出所を `DEFAULT_APPLICATION_SETTINGS` に一元化した。
+
 ### Added
+- **Profile 画面に「現在の権限」カードを追加**。`GET /api/auth/me` が保有権限
+  （DB・ロールの和集合）に加えて実効権限（現在のアクセストークンの scope）を
+  返すようになり、Profile 画面でロール・実効権限・「保有しているが本セッション
+  では無効な権限」（scope で狭められている／発行後に付与された）を区別して
+  表示する。実効権限が空のセッションには再ログインを促す警告を出す。
 - **初期設定のみ（.env 未作成・環境変数なし）でのデプロイに対応**。従来は
   docker compose が `--env-file` / `env_file: .env` で実ファイルを要求して
   即失敗し、仮に回避しても `${MARIADB_USER}` 等にデフォルト値がなく

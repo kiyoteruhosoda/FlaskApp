@@ -196,6 +196,39 @@ def test_refresh_recomputes_scope_from_current_db_permissions(admin_client: Test
 
 
 @pytest.mark.integration
+def test_me_returns_both_held_permissions_and_effective_scope(admin_client: TestClient) -> None:
+    """GET /api/auth/me が保有権限（DB）と実効権限（現在のトークンの scope）を
+    両方返すこと。scope を絞って発行したトークンでは scope < permissions になる
+    （Profile 画面はこの差分を「再ログインで反映」として表示する）。
+    """
+    from shared.domain.auth.master_data import DEFAULT_ADMIN_EMAIL
+
+    login_resp = admin_client.post(
+        "/api/auth/login",
+        json={
+            "email": DEFAULT_ADMIN_EMAIL,
+            "password": "admin",
+            "scope": ["media:view", "album:view"],  # 意図的に狭める
+        },
+    )
+    assert login_resp.status_code == 200, login_resp.text
+    token = login_resp.json()["access_token"]
+
+    me_resp = admin_client.get(
+        "/api/auth/me", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert me_resp.status_code == 200, me_resp.text
+    body = me_resp.json()
+
+    assert body["scope"] == ["album:view", "media:view"], (
+        "実効 scope が発行時に絞った範囲と一致していません"
+    )
+    # 保有権限は admin の全権限（scope より広い）
+    assert "admin:system-settings" in body["permissions"]
+    assert set(body["scope"]) < set(body["permissions"])
+
+
+@pytest.mark.integration
 def test_refresh_does_not_escalate_legacy_empty_scope_token(admin_client: TestClient) -> None:
     """発行時 scope が空のリフレッシュトークン（scope送信バグ時代のセッション）は、
     リフレッシュしても空のまま（勝手に昇格しない）。該当ユーザーは一度

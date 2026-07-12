@@ -528,5 +528,9 @@
   "Import activity": "Import activity",
   "{{count}} task(s) in progress": "{{count}} task(s) in progress",
   "No tasks in progress": "No tasks in progress",
-  "No recent import activity.": "No recent import activity."
+  "No recent import activity.": "No recent import activity.",
+  "Current Permissions": "Current Permissions",
+  "Permissions active in this session (granted to your current access token)": "Permissions active in this session (granted to your current access token)",
+  "This session has no permissions. Log out and log in again to restore them.": "This session has no permissions. Log out and log in again to restore them.",
+  "Held but not active in this session (log in again to apply)": "Held but not active in this session (log in again to apply)"
 }

@@ -17,6 +17,77 @@
   `frontend/src/components/Header.tsx`。
 
 ### Fixed
+- **管理画面で保存した設定値（DB）がアプリの動作に反映されない問題を修正**。
+  `ApplicationSettings._get`（`shared/kernel/settings/settings.py`）が環境変数
+  しか参照しておらず、設計方針「環境変数 > DB（system_settings）> デフォルト値」
+  の DB 層が存在しなかった。`_DatabaseOverrides`（TTL キャッシュ付き・専用
+  短命コネクション・DB 未接続時は静かにスキップ）を追加し、
+  `SystemSettingService` の保存時にキャッシュを即時無効化するようにした。
+  テストが明示的に env マッピングを渡したインスタンスは従来どおり DB を
+  参照しない。回帰テスト:
+  `tests/unit/core/test_settings_db_overrides_and_directory_defaults.py`。
+- **Photo Settings の Directory Status が設定定義と異なるパスを表示・使用する
+  問題を修正**。`settings.py` の各プロパティと storage の `_KNOWN_SPECS` に
+  直書きされた既定パス（`/tmp/local_import`・`/app/data/media`・
+  `/app/data/thumbs`・`/app/data/playback`）が正本
+  `DEFAULT_APPLICATION_SETTINGS`（`/app/data/media/local_import` 等）と
+  食い違っていた。既定値の出所を `DEFAULT_APPLICATION_SETTINGS` に一元化した。
+
+### Added
+- **Profile 画面に「現在の権限」カードを追加**。`GET /api/auth/me` が保有権限
+  （DB・ロールの和集合）に加えて実効権限（現在のアクセストークンの scope）を
+  返すようになり、Profile 画面でロール・実効権限・「保有しているが本セッション
+  では無効な権限」（scope で狭められている／発行後に付与された）を区別して
+  表示する。実効権限が空のセッションには再ログインを促す警告を出す。
+- **初期設定のみ（.env 未作成・環境変数なし）でのデプロイに対応**。従来は
+  docker compose が `--env-file` / `env_file: .env` で実ファイルを要求して
+  即失敗し、仮に回避しても `${MARIADB_USER}` 等にデフォルト値がなく
+  `DATABASE_URI` が `mysql+pymysql://:@db:3306/?...` に壊れ、さらに
+  web/worker/beat へ Redis 接続情報が渡らずアプリ既定の
+  `redis://localhost:6379/0`（コンテナ内では到達不能）に落ちて Celery が
+  動かなかった。対応: (1) `docker-compose.yml` の全変数展開に
+  `${VAR:-default}` を付与（MariaDB 資格情報・Redis/Celery URL を含む）、
+  (2) `deploy.sh` / `deploy-stg.sh` が `.env` 不在時にコメント付き
+  テンプレートを自動生成（STG はヘルスチェック先ポート 8051 等の固有値を
+  固定）。JWT_SECRET_KEY / SECRET_KEY は既存のデフォルト値
+  （`system_settings_defaults.py`）で動作する。既定の資格情報は開発向けで
+  あり、外部公開時は `.env` で上書きする運用とする。回帰テスト:
+  `tests/unit/core/test_zero_config_deploy_defaults.py`。
+
+### Fixed
+- **トークンリフレッシュが発行時 scope を無検証で引き継ぎ、権限変更が最長
+  30日間反映されなかった問題を修正**。リフレッシュトークンには発行時の
+  scope が埋め込まれており（改ざんはトークン全体のハッシュ検証で防止済み）、
+  旧実装の `TokenService.refresh_tokens()` はそれをそのまま新しいトークン
+  ペアへ再発行していた。SPA は 401 時に自動リフレッシュするため、(a) 剥奪
+  した権限を持つ JWT がローテーションの度に再発行され続け、(b) 新たに付与
+  した権限は再ログインまで反映されなかった。scope 交付ルールを
+  `TokenService.resolve_granted_scope()` に一本化（ログイン・リフレッシュ
+  共通の唯一の出所）し、リフレッシュ時は埋め込み scope を「要求」として
+  **現在のDB保有権限**と突き合わせて再計算するようにした。発行時 scope が
+  空のレガシートークン（scope送信バグ時代のセッション）は空のまま昇格しない
+  （該当ユーザーは一度再ログインすれば復旧する）。回帰テスト:
+  `tests/unit/presentation/test_resolve_granted_scope.py` /
+  `tests/integration/fastapi/test_login_grants_working_admin_access.py`。
+- **`0900277b3348_sync_role_permissions_with_master_data` をデプロイしても
+  初期管理者で管理画面（System Overview 等）が「You do not have permission
+  to view this page」のままだった問題を修正**。上記マイグレーションは
+  DB 側の `role_permissions` の欠落を正しく修正していたが、実際の症状は
+  それとは別の原因で残っていた: `POST /api/auth/login`
+  (`presentation/fastapi/routers/auth.py`) はリクエストの `scope` と
+  保有権限の積を JWT に発行し、`"gui:view" in requested_scope` の場合の
+  み全権限を発行する仕様だったが、ブラウザSPA
+  (`frontend/src/pages/LoginPage.tsx` → `apiClient.login()`) は `scope`
+  を一切送っていなかったため、常に空 scope（無権限）の JWT が発行され
+  続けていた。DB 側の役割・権限がどれだけ正しくても、この空 scope が
+  全ての `principal.can()` / `@require_perms` ガードを常に拒否していた。
+  `frontend/src/services/api.ts` の `login()` で `scope` 未指定時は
+  `['gui:view']` を既定送信するように修正。回帰テスト:
+  `tests/integration/fastapi/test_login_grants_working_admin_access.py`
+  （実DB＋実FastAPIアプリで `/api/auth/login` → `/api/admin/dashboard`
+  を一気通貫で検証。既存の `test_login_totp.py` はトークン発行をモックして
+  おり、`test_admin_role_permissions.py` はログインAPIを経由しないため、
+  いずれもこの scope 計算バグを検出できていなかった）。
 - **初期管理者でログインしても管理画面で「You do not have permission to view
   this page」と表示される問題を修正**。`shared/domain/auth/master_data.py`
   の `PERMISSION_CODES` は開発の過程で追加されてきたが、投入は

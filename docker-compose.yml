@@ -29,6 +29,13 @@ services:
     container_name: ${DB_CONTAINER_NAME:-mariadb}
     environment:
       - TZ=UTC
+      # 初期設定のみ（.env 未作成／項目未記入）でも DB が初期化されるよう
+      # デフォルト値を持つ。既定の資格情報は「まず動作すること」を優先した
+      # 開発向けの値であり、外部公開する環境では .env で必ず上書きすること。
+      - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD:-photonest123}
+      - MARIADB_USER=${MARIADB_USER:-web_user}
+      - MARIADB_PASSWORD=${MARIADB_PASSWORD:-photonest123}
+      - MARIADB_DATABASE=${MARIADB_DATABASE:-appdb}
     ports:
       - "${DB_HOST_PORT:-3307}:3306"
     env_file:
@@ -77,7 +84,13 @@ services:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - API_BASE_URL=${API_BASE_URL:-http://localhost:5000}
-      - DATABASE_URI=mysql+pymysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}?charset=utf8mb4
+      - DATABASE_URI=mysql+pymysql://${MARIADB_USER:-web_user}:${MARIADB_PASSWORD:-photonest123}@db:3306/${MARIADB_DATABASE:-appdb}?charset=utf8mb4
+      # Redis / Celery は compose 内の redis サービスを既定の接続先とする。
+      # アプリ側デフォルト（redis://localhost:6379/0）はコンテナ内では届かないため、
+      # ここで必ず redis ホスト＋既定パスワードを注入する。
+      - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:-photonest123}@redis:6379/0}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:-photonest123}@redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:-photonest123}@redis:6379/0}
       # メディアは nginx が X-Accel-Redirect で直接配信する（既定で有効）。
       # accel location / メディアディレクトリは settings 既定（/media/*,
       # /app/data/media/*）を使うため個別指定は不要。無効化したい場合は .env で上書き。
@@ -147,7 +160,10 @@ services:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - API_BASE_URL=${API_BASE_URL:-http://localhost:5000}
-      - DATABASE_URI=mysql+pymysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}?charset=utf8mb4
+      - DATABASE_URI=mysql+pymysql://${MARIADB_USER:-web_user}:${MARIADB_PASSWORD:-photonest123}@db:3306/${MARIADB_DATABASE:-appdb}?charset=utf8mb4
+      - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:-photonest123}@redis:6379/0}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:-photonest123}@redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:-photonest123}@redis:6379/0}
     env_file:
       - .env
     depends_on:
@@ -178,14 +194,17 @@ services:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - API_BASE_URL=${API_BASE_URL:-http://localhost:5000}
-      - DATABASE_URI=mysql+pymysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}?charset=utf8mb4
+      - DATABASE_URI=mysql+pymysql://${MARIADB_USER:-web_user}:${MARIADB_PASSWORD:-photonest123}@db:3306/${MARIADB_DATABASE:-appdb}?charset=utf8mb4
+      - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:-photonest123}@redis:6379/0}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:-photonest123}@redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:-photonest123}@redis:6379/0}
     env_file:
       - .env
     depends_on:
       db:
         condition: service_healthy
       redis:
-        condition: service_healthy        
+        condition: service_healthy
     user: "${PUID:-1000}:${PGID:-1000}"
     restart: unless-stopped
     healthcheck:

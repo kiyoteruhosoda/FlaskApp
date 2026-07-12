@@ -123,6 +123,31 @@ class TokenService:
             headers=headers,
         )
 
+    @staticmethod
+    def resolve_granted_scope(
+        requested_scope: Iterable[str],
+        user_permissions: Iterable[str],
+    ) -> list[str]:
+        """要求 scope とユーザーの現在の保有権限から、交付する scope を決定する。
+
+        ルール（ログイン・リフレッシュ共通の唯一の出所）:
+
+        - ``gui:view`` を要求し、かつ保有している場合 → 全保有権限を交付
+          （ブラウザSPA向け: 画面側は保有権限すべてを使う）
+        - それ以外 → 要求と保有の積集合を交付
+        - 未指定・空 = 権限なし（CLAUDE.md の契約どおり）
+
+        リフレッシュ時もこの関数で **現在のDB保有権限** と突き合わせて再計算する
+        ことで、権限の剥奪・追加がトークンローテーションの度に反映される
+        （旧実装はリフレッシュトークンに埋め込まれた発行時 scope を無検証で
+        引き継いでいたため、権限変更が最長30日間反映されなかった）。
+        """
+        requested = {s.strip() for s in requested_scope if s and s.strip()}
+        available = set(user_permissions)
+        if "gui:view" in requested and "gui:view" in available:
+            return sorted(available)
+        return sorted(requested & available)
+
     @classmethod
     def generate_access_token(
         cls,
@@ -492,13 +517,19 @@ class TokenService:
             return None
 
         user, scope_str = verification
-        scope_items = scope_str.split()
+
+        # 埋め込まれた発行時 scope を「要求」として、現在のDB保有権限と
+        # 突き合わせて再計算する。剥奪された権限はここで落ち、gui:view
+        # セッション（ブラウザSPA）は新たに付与された権限を取り込む。
+        granted_scope = cls.resolve_granted_scope(
+            scope_str.split(), user.all_permissions
+        )
 
         # 新しいトークンペアを生成（リフレッシュトークンローテーション）
         access_token, new_refresh_token = cls.generate_token_pair(
-            user, scope_items, session=session
+            user, granted_scope, session=session
         )
-        return access_token, new_refresh_token, scope_str
+        return access_token, new_refresh_token, " ".join(granted_scope)
 
     @classmethod
     def revoke_refresh_token(

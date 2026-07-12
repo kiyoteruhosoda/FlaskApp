@@ -29,6 +29,20 @@ from .contract import (
 )
 
 
+def _canonical_default(config_key: str) -> tuple[str, ...]:
+    """既定パスは ``DEFAULT_APPLICATION_SETTINGS`` を唯一の出所とする。
+
+    過去、ここに直書きされた既定値（例: ``/tmp/local_import``）が正式な既定値
+    （``/app/data/media/local_import``）と食い違い、管理画面の設定定義と実際に
+    使われるパスがズレる実害があった。
+    """
+    from shared.kernel.settings.system_settings_defaults import (
+        DEFAULT_APPLICATION_SETTINGS,
+    )
+
+    return (str(DEFAULT_APPLICATION_SETTINGS[config_key]),)
+
+
 _KNOWN_SPECS: tuple[_StorageSpec, ...] = (
     _StorageSpec(
         domain=StorageDomain.MEDIA_ORIGINALS,
@@ -36,7 +50,7 @@ _KNOWN_SPECS: tuple[_StorageSpec, ...] = (
         env_fallbacks=(
             "MEDIA_ORIGINALS_DIRECTORY",
         ),
-        defaults=("/app/data/media",),
+        defaults=_canonical_default("MEDIA_ORIGINALS_DIRECTORY"),
     ),
     _StorageSpec(
         domain=StorageDomain.MEDIA_PLAYBACK,
@@ -44,7 +58,7 @@ _KNOWN_SPECS: tuple[_StorageSpec, ...] = (
         env_fallbacks=(
             "MEDIA_PLAYBACK_DIRECTORY",
         ),
-        defaults=("/app/data/playback",),
+        defaults=_canonical_default("MEDIA_PLAYBACK_DIRECTORY"),
     ),
     _StorageSpec(
         domain=StorageDomain.MEDIA_THUMBNAILS,
@@ -52,7 +66,7 @@ _KNOWN_SPECS: tuple[_StorageSpec, ...] = (
         env_fallbacks=(
             "MEDIA_THUMBNAILS_DIRECTORY",
         ),
-        defaults=("/app/data/thumbs",),
+        defaults=_canonical_default("MEDIA_THUMBNAILS_DIRECTORY"),
     ),
     _StorageSpec(
         domain=StorageDomain.MEDIA_IMPORT,
@@ -60,7 +74,7 @@ _KNOWN_SPECS: tuple[_StorageSpec, ...] = (
         env_fallbacks=(
             "MEDIA_LOCAL_IMPORT_DIRECTORY",
         ),
-        defaults=("/tmp/local_import",),
+        defaults=_canonical_default("MEDIA_LOCAL_IMPORT_DIRECTORY"),
     ),
 )
 

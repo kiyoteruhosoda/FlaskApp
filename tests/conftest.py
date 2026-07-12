@@ -169,6 +169,10 @@ def app_context():
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = original_value
+        # settings の DB 上書きキャッシュ（TTL）を破棄し、このテストの
+        # インメモリ DB の値が後続テストへ漏れないようにする
+        from shared.kernel.settings.settings import settings as _settings
+        _settings.reload_db_overrides()
 
 
 # NOTE: かつて存在した ``pytest_collection_modifyitems`` によるパスベースの

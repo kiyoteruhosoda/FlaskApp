@@ -153,7 +153,13 @@ class ApiClient {
   // 認証API（Flask直接レスポンス用）
   async login(credentials: LoginRequest): Promise<ApiResponse<LoginResponse>> {
     try {
-      const response = await this.client.post<LoginResponse>('/auth/login', credentials);
+      // バックエンドは scope が空リクエストなら権限なしを発行する仕様のため、
+      // ブラウザSPAは保有する全権限を要求する 'gui:view' を明示的に送る。
+      const requestBody: LoginRequest = {
+        ...credentials,
+        scope: credentials.scope && credentials.scope.length > 0 ? credentials.scope : ['gui:view'],
+      };
+      const response = await this.client.post<LoginResponse>('/auth/login', requestBody);
       // Flask APIは直接データを返すので、ApiResponse形式に変換
       return {
         success: true,

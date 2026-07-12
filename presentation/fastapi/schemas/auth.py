@@ -133,7 +133,12 @@ class RoleInfo(BaseModel):
 
 
 class MeResponse(BaseModel):
-    """``GET /api/auth/me`` レスポンス。"""
+    """``GET /api/auth/me`` レスポンス。
+
+    ``permissions`` はDB上の保有権限（ロールの和集合）、``scope`` は現在の
+    アクセストークンに実際に交付されている実効権限。JWT 発行時に scope を
+    絞った場合や、発行後に権限が付与された場合は ``scope`` の方が狭くなる。
+    """
 
     id: int
     username: str
@@ -141,6 +146,7 @@ class MeResponse(BaseModel):
     roles: list[RoleInfo]
     active_role: RoleInfo | None = None
     permissions: list[str]
+    scope: list[str] = []
     created_at: str | None = None
     updated_at: str | None = None
 

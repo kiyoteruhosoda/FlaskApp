@@ -223,6 +223,13 @@ const ProfilePage: React.FC = () => {
 
   if (!user) return null;
 
+  // 実効権限（現在のトークンの scope）と保有権限（DB上のロール由来）の差分。
+  // scope はトークン発行時に固定されるため、発行後に権限が変わった場合や
+  // 発行時に scope を絞った場合は保有権限より狭くなる（再ログインで揃う）。
+  const effectiveScope = user.scope ?? [];
+  const heldPermissions = user.permissions ?? [];
+  const inactivePermissions = heldPermissions.filter((p) => !effectiveScope.includes(p));
+
   return (
     <Container className="py-4" style={{ maxWidth: 700 }} data-testid="profile-page">
       <h2 className="mb-4">{t('Profile')}</h2>
@@ -313,6 +320,54 @@ const ProfilePage: React.FC = () => {
                 </Button>
               </div>
             </Form>
+          )}
+        </Card.Body>
+      </Card>
+
+      {/* Permissions Card */}
+      <Card className="mb-4" data-testid="permissions-section">
+        <Card.Body>
+          <Card.Title className="mb-1">{t('Current Permissions')}</Card.Title>
+          <p className="text-muted small mb-3">
+            {t('Permissions active in this session (granted to your current access token)')}
+          </p>
+
+          {user.roles && user.roles.length > 0 && (
+            <div className="mb-3">
+              <span className="text-muted fw-semibold me-2">{t('Roles')}:</span>
+              {user.roles.map((role) => (
+                <Badge bg="info" className="me-1" key={role.id} data-testid="profile-role-badge">
+                  {role.name}
+                </Badge>
+              ))}
+            </div>
+          )}
+
+          {effectiveScope.length === 0 ? (
+            <Alert variant="warning" className="mb-0" data-testid="profile-scope-empty">
+              {t('This session has no permissions. Log out and log in again to restore them.')}
+            </Alert>
+          ) : (
+            <div data-testid="profile-scope-list">
+              {effectiveScope.map((code) => (
+                <Badge bg="success" className="me-1 mb-1" key={code} data-testid="profile-scope-badge">
+                  {code}
+                </Badge>
+              ))}
+            </div>
+          )}
+
+          {inactivePermissions.length > 0 && (
+            <div className="mt-3" data-testid="profile-inactive-permissions">
+              <div className="text-muted small mb-1">
+                {t('Held but not active in this session (log in again to apply)')}
+              </div>
+              {inactivePermissions.map((code) => (
+                <Badge bg="light" text="dark" className="me-1 mb-1 border" key={code} data-testid="profile-inactive-badge">
+                  {code}
+                </Badge>
+              ))}
+            </div>
           )}
         </Card.Body>
       </Card>

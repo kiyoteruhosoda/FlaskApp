@@ -4,7 +4,10 @@ export interface User {
   username: string;
   email: string;
   roles: Role[];
+  /** DB上の保有権限（全ロールの和集合） */
   permissions: string[];
+  /** 現在のアクセストークンの実効権限（scopeで狭められている場合は permissions より少ない） */
+  scope?: string[];
   created_at: string;
   updated_at: string;
 }

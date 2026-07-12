@@ -530,5 +530,9 @@
   "Import activity": "取り込み作業の通知",
   "{{count}} task(s) in progress": "{{count}} 件の作業が実行中",
   "No tasks in progress": "実行中の作業はありません",
-  "No recent import activity.": "最近の取り込み作業はありません。"
+  "No recent import activity.": "最近の取り込み作業はありません。",
+  "Current Permissions": "現在の権限",
+  "Permissions active in this session (granted to your current access token)": "このセッションで有効な権限（現在のアクセストークンに交付されている範囲）",
+  "This session has no permissions. Log out and log in again to restore them.": "このセッションには権限がありません。ログアウトして再ログインすると復旧します。",
+  "Held but not active in this session (log in again to apply)": "保有しているがこのセッションでは無効（再ログインで反映されます）"
 }

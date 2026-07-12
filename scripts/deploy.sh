@@ -181,6 +181,38 @@ elif [ ! -f "$COMPOSE_FILE" ]; then
   exit 1
 fi
 
+# ===== Ensure .env exists (zero-config deploy) =====
+# .env が無くてもデプロイできるようにする（docker compose は --env-file と
+# 各サービスの env_file: .env の両方で実ファイルを要求するため、無いと即失敗する）。
+# 値はすべて docker-compose.yml 側の ${VAR:-default} が供給するので、生成する
+# .env は上書き用のコメント付きテンプレートで足りる。既存の .env には触れない。
+if [ ! -f "$ENV_FILE" ]; then
+  echo -e "\033[33m[deploy][warn] $ENV_FILE not found; generating a default template.\033[0m"
+  echo "  All settings fall back to built-in defaults (development-grade credentials)."
+  echo "  For any externally reachable environment, edit $ENV_FILE and redeploy."
+  mkdir -p "$BASE_DIR"
+  cat > "$ENV_FILE" <<ENVEOF
+# 自動生成された .env（deploy スクリプトが作成）。
+# 資格情報などは docker-compose.yml の既定値で起動する（初期設定のみで動作）。
+# 既定の資格情報は開発向け。外部公開する場合は必ず上書きして再デプロイする。
+# すべての項目は .env.example を参照。
+
+# HOST_DATA_ROOT はこのスクリプトの DATA_PATH/DB_PATH（reset 時の削除対象）と
+# compose のバインドマウント先を一致させるため、必ず BASE_DIR と同じにする。
+HOST_DATA_ROOT=$BASE_DIR
+
+# --- 上書き推奨（未設定なら開発向け既定値で動作する）---
+# MARIADB_ROOT_PASSWORD=strong-mariadb-root-password-here
+# MARIADB_USER=web_user
+# MARIADB_PASSWORD=strong-mariadb-web_user-password-here
+# MARIADB_DATABASE=appdb
+# REDIS_PASSWORD=strong-redis-password-here
+# API_BASE_URL=https://photonest.example.com
+# CORS_ALLOWED_ORIGINS=https://photonest.example.com
+# ADMIN_INITIAL_PASSWORD=change-me-strong
+ENVEOF
+fi
+
 # ===== Stop running containers =====
 echo "[deploy] docker compose down"
 $COMPOSE down || true

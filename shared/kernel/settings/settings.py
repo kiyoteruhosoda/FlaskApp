@@ -13,7 +13,10 @@ mapping to validate behaviour in isolation.
 
 from __future__ import annotations
 
+import json
 import os
+import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import (
@@ -67,6 +70,87 @@ class _ConcurrencyAccessor:
             return float(value) if value is not None else default
         except (TypeError, ValueError):
             return default
+
+
+class _DatabaseOverrides:
+    """優先順位「環境変数 > DB > デフォルト値」の DB 層。
+
+    ``system_settings`` テーブルの ``app.config`` レコード（管理画面から保存
+    される設定値）を供給する。過去、``ApplicationSettings._get`` は環境変数
+    しか参照しておらず、管理画面で保存した値がアプリの動作に一切反映されない
+    実害があった（Photo Settings のディレクトリ設定等）。
+
+    - DB 未接続・テーブル未作成（マイグレーション前）・DATABASE_URI 未設定の
+      場面では黙って値なしを返し、環境変数とデフォルト値のみで動作を続ける。
+    - リクエスト毎の DB アクセスを避けるため TTL キャッシュを持つ。管理画面の
+      保存時は ``SystemSettingService`` が ``invalidate()`` を呼び即時反映する。
+    - 読み取りは専用の短命コネクションで行う（共有 scoped session の
+      トランザクション状態を汚さない）。
+    """
+
+    _SETTING_KEY = "app.config"
+    _TTL_SECONDS = 10.0
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._loading = threading.local()
+        self._payload: dict[str, Any] = {}
+        self._expires_at = 0.0
+
+    def invalidate(self) -> None:
+        """キャッシュを明示破棄する（設定保存直後・テスト後始末用）。
+
+        TTL 失効と違い保持中のペイロードも消す。「値が変わった」と分かって
+        呼ばれるため、直近値の温存（DB 一時障害向けの ``_refresh`` の挙動）は
+        ここでは行わない。
+        """
+        self._payload = {}
+        self._expires_at = 0.0
+
+    def get(self, key: str) -> Any:
+        if key not in DEFAULT_APPLICATION_SETTINGS:
+            # DB 上書き対象は管理画面で編集可能なキーのみ。DATABASE_URI 等の
+            # ブートストラップ用キーをここで解決すると再帰する。
+            return None
+        if getattr(self._loading, "active", False):
+            return None
+        if time.monotonic() >= self._expires_at:
+            with self._lock:
+                if time.monotonic() >= self._expires_at:
+                    self._refresh()
+        return self._payload.get(key)
+
+    def _refresh(self) -> None:
+        self._loading.active = True
+        try:
+            payload = self._load_payload()
+            if payload is not None:
+                self._payload = payload
+        except Exception:
+            # 直近の正常値を保持したまま、次の TTL まで再試行しない
+            pass
+        finally:
+            self._loading.active = False
+            self._expires_at = time.monotonic() + self._TTL_SECONDS
+
+    def _load_payload(self) -> Optional[dict[str, Any]]:
+        from sqlalchemy import text as _sql_text
+        from shared.kernel.database.db import db
+
+        with db.engine.connect() as connection:
+            row = connection.execute(
+                _sql_text(
+                    "SELECT setting_json FROM system_settings "
+                    "WHERE setting_key = :key"
+                ),
+                {"key": self._SETTING_KEY},
+            ).first()
+        if row is None:
+            return {}
+        value = row[0]
+        if isinstance(value, str):
+            value = json.loads(value)
+        return value if isinstance(value, dict) else {}
 
 
 class _StorageAccessor:
@@ -129,6 +213,10 @@ class ApplicationSettings:
         self._env = _EnvironmentFacade.from_environ(env)
         self._concurrency = _ConcurrencyAccessor(self)
         self._storage = _StorageAccessor(self)
+        # DB(system_settings) 上書きは実プロセスの環境（os.environ 由来）でのみ
+        # 有効。テストが明示的に env マッピングを渡した場合は純粋に
+        # 「環境変数 > デフォルト値」で解決し、プロセス外状態に依存させない。
+        self._db_overrides = _DatabaseOverrides() if env is None else None
 
     # ------------------------------------------------------------------
     # Generic helpers
@@ -143,7 +231,21 @@ class ApplicationSettings:
             if legacy_value is not None:
                 return legacy_value
 
+        if self._db_overrides is not None:
+            db_value = self._db_overrides.get(key)
+            if db_value is not None:
+                return db_value
+
         return default
+
+    def reload_db_overrides(self) -> None:
+        """DB(system_settings) 上書き値のキャッシュを破棄する。
+
+        管理画面で設定を保存した直後（``SystemSettingService`` の upsert）に
+        呼び出され、次回参照時に最新値を読み直す。
+        """
+        if self._db_overrides is not None:
+            self._db_overrides.invalidate()
 
     def get(self, key: str, default=None):
         """Return the configured value for *key* or *default* if missing."""
@@ -193,7 +295,15 @@ class ApplicationSettings:
             return None
         return Path(str(default))
 
-    def _path_or_default(self, key: str, fallback: str) -> Path:
+    def _path_or_default(self, key: str) -> Path:
+        """パス設定を解決する。既定値は ``DEFAULT_APPLICATION_SETTINGS`` を唯一の出所とする。
+
+        過去、各プロパティに直書きされたフォールバック値が正式な既定値と
+        食い違い（例: ``MEDIA_LOCAL_IMPORT_DIRECTORY`` が ``/tmp/local_import``
+        vs 正式 ``/app/data/media/local_import``）、管理画面の表示と実際に
+        使われるパスがズレる実害があった。
+        """
+        fallback = str(DEFAULT_APPLICATION_SETTINGS[key])
         value = self._get(key)
         if value is None:
             return Path(fallback)
@@ -254,7 +364,7 @@ class ApplicationSettings:
 
     @property
     def tmp_directory(self) -> Path:
-        return self._path_or_default("MEDIA_TEMP_DIRECTORY", "/tmp/fpv_tmp")
+        return self._path_or_default("MEDIA_TEMP_DIRECTORY")
 
     @property
     def tmp_directory_configured(self) -> Optional[str]:
@@ -263,23 +373,23 @@ class ApplicationSettings:
 
     @property
     def backup_directory(self) -> Path:
-        return self._path_or_default("SYSTEM_BACKUP_DIRECTORY", "/app/data/backups")
+        return self._path_or_default("SYSTEM_BACKUP_DIRECTORY")
 
     @property
     def storage_originals_directory(self) -> Path:
-        return self._path_or_default("MEDIA_ORIGINALS_DIRECTORY", "/app/data/media")
+        return self._path_or_default("MEDIA_ORIGINALS_DIRECTORY")
 
     @property
     def storage_play_directory(self) -> Path:
-        return self._path_or_default("MEDIA_PLAYBACK_DIRECTORY", "/app/data/playback")
+        return self._path_or_default("MEDIA_PLAYBACK_DIRECTORY")
 
     @property
     def storage_thumbs_directory(self) -> Path:
-        return self._path_or_default("MEDIA_THUMBNAILS_DIRECTORY", "/app/data/thumbs")
+        return self._path_or_default("MEDIA_THUMBNAILS_DIRECTORY")
 
     @property
     def storage_local_import_directory(self) -> Path:
-        return self._path_or_default("MEDIA_LOCAL_IMPORT_DIRECTORY", "/tmp/local_import")
+        return self._path_or_default("MEDIA_LOCAL_IMPORT_DIRECTORY")
 
     @property
     def local_import_directory(self) -> Path:
@@ -307,7 +417,7 @@ class ApplicationSettings:
 
     @property
     def upload_tmp_directory(self) -> Path:
-        return self._path_or_default("MEDIA_UPLOAD_TEMP_DIRECTORY", "/app/data/tmp/upload")
+        return self._path_or_default("MEDIA_UPLOAD_TEMP_DIRECTORY")
 
     # ------------------------------------------------------------------
     # Concurrency settings

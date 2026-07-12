@@ -246,10 +246,9 @@ class SystemSettingService:
         """組み込み(HS256)署名の秘密鍵を解決する。
 
         優先順位は設計方針どおり「環境変数 > DB(``app.config``) > デフォルト値」。
-        ``settings.jwt_secret_key`` は環境変数しか参照しないため、管理画面から
-        ``app.config`` に保存された値や ``DEFAULT_APPLICATION_SETTINGS`` の既定値を
-        単独では拾えない。署名・検証・管理画面表示の全経路がこのメソッドを唯一の
-        出所とすることで、取得ロジックを一本化する。
+        ``settings.jwt_secret_key`` は現在 DB 上書き層も参照するが、DB 未接続時の
+        デフォルト値フォールバックまで含めた全経路をこのメソッドが唯一の出所と
+        して束ねる（署名・検証・管理画面表示すべてがここを通る）。
         """
 
         env_secret = settings.jwt_secret_key
@@ -379,6 +378,9 @@ class SystemSettingService:
                 record.description = description
         db.session.add(record)
         db.session.commit()
+        # settings オブジェクトの DB 上書きキャッシュを破棄し、保存した値を
+        # 次回参照から即時反映する（TTL 失効を待たない）
+        settings.reload_db_overrides()
         return payload
 
     @staticmethod

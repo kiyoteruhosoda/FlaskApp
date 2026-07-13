@@ -17,6 +17,27 @@
   `frontend/src/components/Header.tsx`。
 
 ### Fixed
+- **Google アカウント連携が完了せず TOP 画面に戻る問題を修正**。Flask から
+  FastAPI への移行時に OAuth コールバック（`/auth/google/callback`）が実装され
+  ておらず、Google からのリダイレクトが React SPA の catch-all に吸われて
+  index.html が返り、認可コードがトークンに交換されないまま「TOP 画面に戻る
+  だけで連携されない」状態になっていた。FastAPI にコールバックルートを実装し
+  （`presentation/fastapi/routers/google_oauth.py` の `callback_router`、`app.py`
+  で SPA catch-all より前に登録）、認可コードのトークン交換・email 取得・
+  トークン暗号化保存・`GoogleAccount` の紐づけ（連携開始時に保存した `user_id`
+  を使用）・結果クエリ（`google_link=ok|error`）付きリダイレクトを行う。
+  回帰テスト: `tests/integration/fastapi/test_google_oauth_callback.py`。
+- **空文字の環境変数が管理画面で保存した設定値（DB）・デフォルト値を握りつぶす
+  問題を修正**。Docker の `env_file` 等で `GOOGLE_OAUTH_REDIRECT_ORIGIN=` の
+  ように空定義された環境変数まで「設定済み」として扱っていたため、優先順位
+  「環境変数 > DB > デフォルト値」の DB 層・デフォルト層に到達できず、管理画面で
+  保存した値が消えたように見え（環境変数由来として読み取り専用の空欄表示になり）、
+  実行時にもリクエスト由来のホストへフォールバックしていた。管理画面で編集可能な
+  設定キー（`DEFAULT_APPLICATION_SETTINGS` に定義があるもの）に限り、空文字
+  （空白のみ）の環境変数を「未設定」とみなし DB 値・デフォルト値へフォールバック
+  させる（`ApplicationSettings._get` と管理画面の `value_source` 判定の両方）。
+  空でない環境変数は従来どおり最優先。回帰テスト:
+  `tests/unit/core/test_blank_env_does_not_shadow_db.py`。
 - **管理画面で保存した設定値（DB）がアプリの動作に反映されない問題を修正**。
   `ApplicationSettings._get`（`shared/kernel/settings/settings.py`）が環境変数
   しか参照しておらず、設計方針「環境変数 > DB（system_settings）> デフォルト値」

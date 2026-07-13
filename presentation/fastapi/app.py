@@ -140,7 +140,10 @@ def _register_routers(app: FastAPI) -> None:
     from presentation.fastapi.routers.admin.impersonation import router as admin_impersonation_router
 
     # Phase 3 ルーター
-    from presentation.fastapi.routers.google_oauth import router as google_oauth_router
+    from presentation.fastapi.routers.google_oauth import (
+        router as google_oauth_router,
+        callback_router as google_oauth_callback_router,
+    )
     from presentation.fastapi.routers.media import router as media_router
     from presentation.fastapi.routers.albums import router as albums_router
     from presentation.fastapi.routers.tags import router as tags_router
@@ -168,6 +171,9 @@ def _register_routers(app: FastAPI) -> None:
 
     # Phase 3: メディア / Google OAuth / アルバム / タグ
     app.include_router(google_oauth_router, prefix=api_prefix)
+    # Google OAuth コールバックは Google が固定 URL /auth/google/callback へ
+    # リダイレクトするため、/api プレフィックスなしで（SPA catch-all より前に）登録する。
+    app.include_router(google_oauth_callback_router)
     app.include_router(media_router, prefix=api_prefix)
     app.include_router(albums_router, prefix=api_prefix)
     app.include_router(tags_router, prefix=api_prefix)

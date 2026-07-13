@@ -18,7 +18,7 @@ DOCKER_ROOT="$(dirname "$SCRIPT_DIR")"
 
 PROJECT="photonest-stg"
 APP_IMAGE="photonest:latest"
-BASE_DIR="$DOCKER_ROOT/photonest-stg"
+BASE_DIR="$DOCKER_ROOT/photonest/stg"
 COMPOSE_FILE="$BASE_DIR/docker-compose.yml"
 ENV_FILE="$BASE_DIR/.env"
 IMAGE_TAR="$DOCKER_ROOT/photonest-latest.tar"

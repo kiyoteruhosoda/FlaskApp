@@ -223,7 +223,7 @@ class ApplicationSettings:
     # ------------------------------------------------------------------
     def _get(self, key: str, default: Optional[str] = None):
         value = self._env.get(key)
-        if value is not None:
+        if value is not None and not self._is_blank_env_override(key, value):
             return value
 
         for legacy in self._LEGACY_KEYS.get(key, ()):  # pragma: no cover - legacy path
@@ -237,6 +237,21 @@ class ApplicationSettings:
                 return db_value
 
         return default
+
+    @staticmethod
+    def _is_blank_env_override(key: str, value: object) -> bool:
+        """空文字（空白のみ）の環境変数を「未設定」とみなすか判定する。
+
+        設計方針の優先順位は「環境変数 > DB(system_settings) > デフォルト値」だが、
+        Docker の ``env_file`` などで ``KEY=`` と空定義された環境変数まで「設定済み」
+        として扱うと、管理画面で保存した DB 値やデフォルト値を握りつぶしてしまう
+        （管理画面上でも値が消えたように見える）。管理画面で編集可能な設定キー
+        （``DEFAULT_APPLICATION_SETTINGS`` に定義があるもの）に限り、空の環境変数は
+        未設定として DB 値・デフォルト値にフォールバックさせる。
+        """
+        if key not in DEFAULT_APPLICATION_SETTINGS:
+            return False
+        return isinstance(value, str) and not value.strip()
 
     def reload_db_overrides(self) -> None:
         """DB(system_settings) 上書き値のキャッシュを破棄する。

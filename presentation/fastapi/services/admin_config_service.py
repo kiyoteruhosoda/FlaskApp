@@ -183,7 +183,12 @@ def _build_setting_row(
     stored_value = stored_payload.get(key)
     default_value = defaults.get(key)
 
+    # 空文字（空白のみ）の環境変数は「未設定」とみなす。Docker の env_file 等で
+    # ``KEY=`` と空定義された環境変数を「環境変数で上書き済み（読み取り専用）」
+    # として扱うと、管理画面で保存した DB 値が空欄表示で消えたように見えるため。
     env_value = os.environ.get(key)
+    if env_value is not None and env_value.strip() == "":
+        env_value = None
     if env_value is not None:
         value_source = "environment"
     elif stored_has_value:

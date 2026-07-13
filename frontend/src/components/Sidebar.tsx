@@ -120,6 +120,7 @@ const Sidebar: React.FC = () => {
 
       {renderCategory('admin', 'Administration', [
         { to: '/admin/dashboard', icon: 'fa-server', label: 'System Overview', permission: 'admin:system-settings' },
+        { to: '/admin/logs', icon: 'fa-file-lines', label: 'System Logs', permission: 'admin:system-settings' },
         { to: '/admin/users', icon: 'fa-users', label: 'Users', permission: 'user:manage' },
         { to: '/admin/roles', icon: 'fa-shield-halved', label: 'Roles', permission: 'user:manage' },
         { to: '/admin/groups', icon: 'fa-sitemap', label: 'Groups', permission: 'user:manage' },

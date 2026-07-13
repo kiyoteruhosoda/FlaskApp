@@ -138,6 +138,7 @@ def _register_routers(app: FastAPI) -> None:
     from presentation.fastapi.routers.admin.cdn import router as admin_cdn_router
     from presentation.fastapi.routers.admin.blob import router as admin_blob_router
     from presentation.fastapi.routers.admin.impersonation import router as admin_impersonation_router
+    from presentation.fastapi.routers.admin.logs import router as admin_logs_router
 
     # Phase 3 ルーター
     from presentation.fastapi.routers.google_oauth import (
@@ -202,6 +203,7 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(admin_cdn_router, prefix=api_prefix)
     app.include_router(admin_blob_router, prefix=api_prefix)
     app.include_router(admin_impersonation_router, prefix=api_prefix)
+    app.include_router(admin_logs_router, prefix=api_prefix)
 
     # React SPA サーブ（catch-all — 必ず最後に登録する）
     from presentation.fastapi.routers.spa import router as spa_router

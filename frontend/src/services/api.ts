@@ -50,6 +50,10 @@ import {
   PickerSessionCreateResponse,
   UserPreferencesResponse,
   UserPreferencesUpdateResponse,
+  AdminLogsQuery,
+  AdminLogsResponse,
+  AdminLogDetailResponse,
+  AdminLogSource,
 } from '../types/api';
 import { getApiErrorCode } from './apiErrors';
 
@@ -462,6 +466,16 @@ class ApiClient {
 
   async getSyncJob(id: number): Promise<SyncJobDetailResponse> {
     const response = await this.client.get<SyncJobDetailResponse>(`/sync/jobs/${id}`);
+    return response.data;
+  }
+
+  async getAdminLogs(params?: AdminLogsQuery): Promise<AdminLogsResponse> {
+    const response = await this.client.get<AdminLogsResponse>('/admin/logs', { params });
+    return response.data;
+  }
+
+  async getAdminLogDetail(source: AdminLogSource, id: number): Promise<AdminLogDetailResponse> {
+    const response = await this.client.get<AdminLogDetailResponse>(`/admin/logs/${source}/${id}`);
     return response.data;
   }
 

@@ -249,6 +249,69 @@ export interface SyncJobsQuery {
   until?: string;
 }
 
+// ===== DBログ閲覧 (/api/admin/logs) =====
+export type AdminLogSource = 'app' | 'worker';
+
+export interface AdminLogEntry {
+  id: number;
+  source: AdminLogSource;
+  createdAt: string | null;
+  level: string;
+  event: string;
+  message: string;
+  messageTruncated: boolean;
+  hasTrace: boolean;
+  // app のみ
+  path?: string | null;
+  requestId?: string | null;
+  // worker のみ
+  taskName?: string | null;
+  taskUuid?: string | null;
+  fileTaskId?: string | null;
+  status?: string | null;
+  workerHostname?: string | null;
+  queueName?: string | null;
+  loggerName?: string | null;
+}
+
+export interface AdminLogDetail extends AdminLogEntry {
+  trace?: string | null;
+  meta?: Record<string, unknown> | null;
+  extra?: Record<string, unknown> | null;
+}
+
+export interface AdminLogsQuery {
+  source?: AdminLogSource;
+  page?: number;
+  pageSize?: number;
+  level?: string;
+  event?: string;
+  q?: string;
+  traceId?: string;
+  since?: string;
+  until?: string;
+}
+
+export interface AdminLogsResponse {
+  logs: AdminLogEntry[];
+  pagination: Pagination;
+  availableLevels: string[];
+  filter: {
+    source: string;
+    level: string[] | null;
+    event: string | null;
+    q: string | null;
+    traceId: string | null;
+    since: string | null;
+    until: string | null;
+  };
+  server_time: string;
+}
+
+export interface AdminLogDetailResponse {
+  log: AdminLogDetail;
+}
+
 // ===== Picker セッション一覧 (/api/picker/sessions) =====
 export interface PickerSessionRow {
   id: number;

@@ -84,6 +84,16 @@
   食い違っていた。既定値の出所を `DEFAULT_APPLICATION_SETTINGS` に一元化した。
 
 ### Added
+- **DBログの一覧画面（System Logs）を追加**。`log`（APIリクエスト単位）と
+  `worker_log`（Celery ジョブ単位）の内容を管理画面から閲覧できるようにした。
+  時間範囲・ログレベル（複数指定可）・イベント名・メッセージ本文・追跡キー
+  （requestId / taskId）でフィルタでき、詳細モーダルでメッセージ全文と
+  traceback を確認できる。バックエンドは
+  `GET /api/admin/logs`・`GET /api/admin/logs/{source}/{id}`
+  （`presentation/fastapi/routers/admin/logs.py`、`admin:system-settings`
+  権限が必要・閲覧専用）、フロントエンドは `/admin/logs`
+  （`frontend/src/pages/SystemLogsPage.tsx`、サイドバー Administration >
+  System Logs）。回帰テスト: `tests/integration/fastapi/test_admin_logs.py`。
 - **Profile 画面に「現在の権限」カードを追加**。`GET /api/auth/me` が保有権限
   （DB・ロールの和集合）に加えて実効権限（現在のアクセストークンの scope）を
   返すようになり、Profile 画面でロール・実効権限・「保有しているが本セッション

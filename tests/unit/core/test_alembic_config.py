@@ -18,7 +18,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 ALEMBIC_INI = ROOT / "migrations" / "alembic.ini"
 ENTRYPOINT = ROOT / "scripts" / "entrypoint.sh"
-DEPLOY_SCRIPTS = [ROOT / "scripts" / "deploy.sh", ROOT / "scripts" / "deploy-stg.sh"]
+DEPLOY_SCRIPTS = [ROOT / "scripts" / "deploy.sh"]
 
 
 @pytest.mark.unit
@@ -91,7 +91,7 @@ def test_migration_script_resolves_alembic_ini_by_absolute_path():
 @pytest.mark.unit
 @pytest.mark.parametrize("deploy_script", DEPLOY_SCRIPTS, ids=lambda p: p.name)
 def test_deploy_scripts_use_migration_script_not_bare_alembic(deploy_script: Path):
-    """deploy.sh / deploy-stg.sh が `docker compose exec web alembic ...` を
+    """deploy.sh が `docker compose exec web alembic ...` を
     `-c` フラグ無しで直接呼んでいないこと。
 
     WORKDIR=/app にはプロジェクトルート用の alembic.ini が無いため、

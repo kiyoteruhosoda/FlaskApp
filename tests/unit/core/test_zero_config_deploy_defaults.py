@@ -1,7 +1,8 @@
 """初期設定のみ（.env 未作成・環境変数なし）でデプロイ・起動できることの回帰テスト。
 
-要件: tar とデプロイスクリプトだけを置いた新しいホストで
-``./deploy(-stg).sh <mode>`` を実行すれば、資格情報等を一切設定しなくても
+要件: image.tar とデプロイスクリプトだけを置いた新しいホスト
+（``photonest/<stg|prod>/`` ディレクトリ）で ``./scripts/deploy.sh <mode>`` を
+実行すれば、資格情報等を一切設定しなくても
 起動し、初期管理者（admin@example.com / admin）で管理画面まで到達できること。
 自動生成できる値はすべてデフォルト値を持つ（JWT_SECRET_KEY 等もリスクを
 許容して動作優先）。既定の資格情報は開発向けであり、外部公開時は .env で
@@ -29,7 +30,6 @@ ROOT = Path(__file__).resolve().parents[3]
 COMPOSE_FILE = ROOT / "docker-compose.yml"
 DEPLOY_SCRIPTS = (
     ROOT / "scripts" / "deploy.sh",
-    ROOT / "scripts" / "deploy-stg.sh",
 )
 
 # ${VAR} / ${VAR:-default} を抽出する（$$ エスケープはコンテナ内シェル変数なので除外）
@@ -116,26 +116,35 @@ def test_deploy_scripts_generate_env_file_when_missing(script: Path):
     assert re.search(r"cat > \"\$ENV_FILE\"", text), (
         f"{script.name} が .env を生成していません"
     )
-    # reset 時の削除パス（$BASE_DIR/db_data 等）と compose のバインドマウント先を
-    # 一致させるため、生成する .env は HOST_DATA_ROOT を BASE_DIR に固定する。
-    assert "HOST_DATA_ROOT=$BASE_DIR" in text, (
-        f"{script.name} の生成 .env が HOST_DATA_ROOT を BASE_DIR に揃えていません"
+    # reset 時の削除パス（<環境dir>/mnt/db_data 等）と compose のバインドマウント先を
+    # 一致させるため、生成する .env は HOST_DATA_ROOT を <環境dir>/mnt に固定する。
+    assert "HOST_DATA_ROOT=$BASE_DIR/mnt" in text, (
+        f"{script.name} の生成 .env が HOST_DATA_ROOT を <環境dir>/mnt に揃えていません"
         "（reset モードが実データと別のパスを削除する事故につながります）"
     )
 
 
 @pytest.mark.unit
-def test_stg_generated_env_pins_stg_specific_ports():
-    """deploy-stg.sh が生成する .env は STG 固有の実値（ヘルスチェック先 8051 等）を
-    固定すること。compose 既定値（8050/3307）のままだとスクリプト自身の
-    HEALTH_URL（127.0.0.1:8051）と食い違い、デプロイが必ず失敗する。
+def test_deploy_script_health_url_follows_env_web_host_port():
+    """HEALTH_URL は .env の WEB_HOST_PORT（未設定時は環境別デフォルト）に追従し、
+    生成する .env も同じ値を固定すること。ヘルスチェック先と compose の公開
+    ポートが食い違うと、正常起動していてもデプロイが必ず失敗する。
     """
-    text = (ROOT / "scripts" / "deploy-stg.sh").read_text(encoding="utf-8")
+    text = (ROOT / "scripts" / "deploy.sh").read_text(encoding="utf-8")
 
-    health_port = re.search(r"HEALTH_URL=\"http://127\.0\.0\.1:(\d+)", text)
-    assert health_port, "deploy-stg.sh に HEALTH_URL がありません"
-    assert f"WEB_HOST_PORT={health_port.group(1)}" in text, (
-        "deploy-stg.sh が生成する .env の WEB_HOST_PORT が HEALTH_URL の"
+    assert 'HEALTH_URL="http://127.0.0.1:${WEB_HOST_PORT}/health/live"' in text, (
+        "deploy.sh の HEALTH_URL が WEB_HOST_PORT に追従していません"
+    )
+    # stg=8051 / prod=8050 の環境別デフォルト
+    assert re.search(r"stg\)\n\s*PROJECT=\"photonest-stg\"\n\s*DEFAULT_WEB_HOST_PORT=8051", text), (
+        "deploy.sh の stg 用デフォルトポート（8051）がありません"
+    )
+    assert "DEFAULT_WEB_HOST_PORT=8050" in text, (
+        "deploy.sh の prod 用デフォルトポート（8050）がありません"
+    )
+    # 生成 .env はスクリプトが解決した WEB_HOST_PORT と同じ値を書き込む
+    assert "WEB_HOST_PORT=$WEB_HOST_PORT" in text, (
+        "deploy.sh が生成する .env の WEB_HOST_PORT がヘルスチェック先の"
         "ポートと一致していません"
     )
 

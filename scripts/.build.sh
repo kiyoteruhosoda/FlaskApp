@@ -16,8 +16,8 @@ Usage: $(basename "$0") [TARGET]
 
   TARGET:
     all   アプリ + DB イメージを両方ビルド（デフォルト）
-    app   アプリイメージのみ  → photonest-latest.tar
-    db    DB イメージのみ     → photonest-db-latest.tar
+    app   アプリイメージのみ  → dist/image.tar
+    db    DB イメージのみ     → dist/image-db.tar
 
   -h, --help  このヘルプを表示
 
@@ -92,9 +92,9 @@ echo ""
 BUILD_START=$(date +%s)
 
 case "$TARGET" in
-  all) make all;     ARTIFACTS="photonest-latest.tar photonest-db-latest.tar" ;;
-  app) make build;   ARTIFACTS="photonest-latest.tar" ;;
-  db)  make build-db; ARTIFACTS="photonest-db-latest.tar" ;;
+  all) make all;     ARTIFACTS="dist/image.tar dist/image-db.tar dist/scripts/deploy.sh" ;;
+  app) make build;   ARTIFACTS="dist/image.tar dist/scripts/deploy.sh" ;;
+  db)  make build-db; ARTIFACTS="dist/image-db.tar dist/scripts/deploy.sh" ;;
 esac
 
 BUILD_END=$(date +%s)
@@ -112,8 +112,12 @@ done
 echo ""
 echo "所要時間: $((BUILD_ELAPSED / 60))分$((BUILD_ELAPSED % 60))秒"
 echo "次のステップ:"
-echo "  scp $ARTIFACTS <user>@<synology-host>:/volume1/docker/"
-echo "  # docker-compose.yml とデプロイスクリプトはアプリイメージに焼き込まれており、"
-echo "  # デプロイ時にイメージから自動で取り出される（手動コピー不要）。"
-echo "  # Synology 上で: ./scripts/deploy.sh app   (migrate/reset は状況に応じて)"
+echo "  dist/ の中身を NAS の photonest/<stg|prod>/ へ配置する（NAS 側の pick.sh 等）:"
+echo "    dist/image.tar          -> photonest/<env>/image.tar"
+echo "    dist/image-db.tar       -> photonest/<env>/image-db.tar   (あれば)"
+echo "    dist/scripts/deploy.sh  -> photonest/<env>/scripts/deploy.sh"
+echo "  # docker-compose.yml はアプリイメージに焼き込まれており、デプロイ時に"
+echo "  # イメージから自動で取り出される（手動コピー不要）。"
+echo "  # NAS 上で: cd photonest/<env> && ./scripts/deploy.sh app  (migrate/reset は状況に応じて)"
 echo ""
+

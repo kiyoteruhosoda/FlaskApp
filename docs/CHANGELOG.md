@@ -6,6 +6,20 @@
 ## [Unreleased]
 
 ### Changed
+- **デプロイ構成を環境ごとの自己完結ディレクトリ（`photonest/{stg,prod}/`）に再編**。
+  各環境ディレクトリに `image.tar`・`scripts/deploy.sh`・`.env`・
+  `docker-compose.yml`・`mnt/`（マウントデータ）・`pick.sh`（git 管理外の
+  イメージ取得用）を置く構成とし、`deploy.sh` と `deploy-stg.sh` を
+  配置ディレクトリ名（stg / prod）から環境を自動判定する単一スクリプトに統合。
+  ロードしたイメージは環境別タグ（`photonest:stg` / `photonest:prod`）を付け
+  直して使い、同一ホストの stg / prod が `photonest:latest` を取り合わない
+  ようにした。ビルド成果物は `dist/`（`image.tar`・`image-db.tar`・
+  `scripts/deploy.sh`）へ出力する（`Makefile` / `scripts/.build.sh`）。
+  デプロイエラー時は失敗したモジュール（コンテナ）のログを自動出力して終了する
+  （DB 接続待ち→db、マイグレーション失敗→web+db、ヘルスチェック失敗→web+nginx、
+  想定外エラー→全サービス）。デプロイスクリプト自身のイメージからの自己更新は
+  廃止（`dist/scripts/deploy.sh` の配布に一本化）。compose・nginx 設定の
+  イメージからの自己同期は従来どおり。
 - **ログイン画面のUXを改善**。(1) パスワード入力欄に表示/非表示切替ボタンを追加。
   (2) メール/パスワード誤りや認証コード誤りは利用者の入力ミスであり深刻な
   エラーではないため、赤（danger）ではなく warning のアラートに変更。

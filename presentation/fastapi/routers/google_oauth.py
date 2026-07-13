@@ -17,18 +17,24 @@ from typing import Optional
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from shared.application.authenticated_principal import AuthenticatedPrincipal
-from shared.kernel.crypto.crypto import decrypt
+from shared.kernel.crypto.crypto import decrypt, encrypt
 from shared.kernel.database.session import get_db
-from shared.kernel.oauth_state_store import save_state
+from shared.kernel.oauth_state_store import pop_state, save_state
 from shared.kernel.settings.settings import settings
 from presentation.fastapi.dependencies.auth import get_current_principal
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["google"])
+
+# OAuth コールバックは Google から直接リダイレクトされるため ``/api`` プレフィックス
+# を付けず、固定パス ``/auth/google/callback`` で受ける。app.py で SPA catch-all
+# より前に、プレフィックスなしで登録する。
+callback_router = APIRouter(tags=["google"])
 
 REQUIRED_GOOGLE_OAUTH_SCOPES = {
     "https://www.googleapis.com/auth/userinfo.email",
@@ -148,6 +154,146 @@ async def google_oauth_start(
         "auth_url": auth_url,
         "server_time": datetime.now(timezone.utc).isoformat(),
     }
+
+
+def _google_link_result_redirect(saved: dict, result: str, **params) -> RedirectResponse:
+    """OAuth リンク結果を SPA に伝えるリダイレクトを生成する。
+
+    React SPA はサーバー側の flash を表示できないため、結果をクエリパラメータ
+    （``google_link=ok|error`` / ``email`` / ``reason``）で戻し先ページへ引き渡す。
+    """
+    target = (saved or {}).get("redirect") or "/admin/google-accounts"
+    query = urlencode(
+        {"google_link": result, **{k: v for k, v in params.items() if v}}
+    )
+    separator = "&" if "?" in target else "?"
+    # 303 See Other: 認可後のブラウザ遷移を GET に統一する。
+    return RedirectResponse(url=f"{target}{separator}{query}", status_code=303)
+
+
+@callback_router.get("/auth/google/callback")
+async def google_oauth_callback(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Google OAuth コールバック。認可コードをトークンに交換しアカウントを連携する。
+
+    ``POST /api/google/oauth/start`` で保存した OAuth state を共有ストアから引き、
+    そのとき記録した ``user_id`` にアカウントを紐づける（コールバック到達時に
+    認証クッキーが失効していても正しいユーザーへ連携できる）。結果は戻し先
+    ページへのリダイレクトのクエリパラメータで通知する。
+    """
+    from shared.infrastructure.http_logging import log_requests_and_send
+    from shared.infrastructure.models.google_account import GoogleAccount
+
+    error = request.query_params.get("error")
+    code = request.query_params.get("code")
+    state = request.query_params.get("state")
+
+    # FastAPI の start で発行した state を共有ストアから取得（取得と同時に消費）。
+    saved = (pop_state(state) if state else None) or {}
+
+    if error:
+        return _google_link_result_redirect(saved, "error", reason=error)
+
+    if not code or not state or state != saved.get("state"):
+        return _google_link_result_redirect(saved, "error", reason="invalid_state")
+
+    # 紐づけ先ユーザー。start 時に保存した user_id を使う。特定できなければ中断。
+    link_user_id = saved.get("user_id")
+    if link_user_id is None:
+        return _google_link_result_redirect(saved, "error", reason="login_required")
+
+    # トークン交換の redirect_uri は認可要求時と完全一致が必要なため、start と
+    # 同じヘルパーで生成する。
+    callback_url = _build_callback_url(request)
+    token_data = {
+        "code": code,
+        "client_id": settings.google_client_id,
+        "client_secret": settings.google_client_secret,
+        "redirect_uri": callback_url,
+        "grant_type": "authorization_code",
+    }
+
+    try:
+        token_res = log_requests_and_send(
+            "post",
+            "https://oauth2.googleapis.com/token",
+            data=token_data,
+            timeout=10,
+        )
+        tokens = token_res.json()
+        # トークン本体（access_token / refresh_token）はログに残さない。
+        if "error" in tokens:
+            logger.error(
+                "OAuth token exchange failed: %s (%s)",
+                tokens.get("error"),
+                tokens.get("error_description", ""),
+            )
+            return _google_link_result_redirect(saved, "error", reason="token_error")
+    except Exception as exc:  # pragma: no cover - network failure
+        logger.error("Failed to obtain token from Google: %s", exc)
+        return _google_link_result_redirect(saved, "error", reason="token_error")
+
+    access_token = tokens.get("access_token")
+    email = None
+    if access_token:
+        try:
+            ui_res = log_requests_and_send(
+                "get",
+                "https://www.googleapis.com/oauth2/v2/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=10,
+            )
+            if ui_res.ok:
+                email = ui_res.json().get("email")
+        except Exception:
+            email = None
+
+    if not email:
+        return _google_link_result_redirect(saved, "error", reason="email_fetch_failed")
+
+    # トークンは ENCRYPTION_KEY で暗号化して保存する。鍵未設定などで失敗しても
+    # 500 にせず、結果をリダイレクトで画面に返す。
+    try:
+        encrypted_tokens = encrypt(json.dumps(tokens))
+    except Exception:
+        logger.exception(
+            "Failed to encrypt Google OAuth tokens. "
+            "Is the token encryption key (ENCRYPTION_KEY) configured?"
+        )
+        return _google_link_result_redirect(
+            saved, "error", reason="encryption_key_missing"
+        )
+
+    # アカウントは (user_id, email) で一意。email だけで引くと、同じ Google
+    # メールを別ユーザーが連携した際に他ユーザーの行を奪ってしまう。連携先
+    # ユーザーの行を優先し、無ければ未紐付け（orphan）の行だけを引き取る。
+    account = (
+        db.query(GoogleAccount)
+        .filter_by(email=email, user_id=link_user_id)
+        .first()
+        or db.query(GoogleAccount).filter_by(email=email, user_id=None).first()
+    )
+    scopes = saved.get("scopes") or []
+    if account is None:
+        account = GoogleAccount(
+            email=email,
+            scopes=",".join(scopes),
+            user_id=link_user_id,
+            status="active",
+        )
+        db.add(account)
+    else:
+        account.scopes = ",".join(scopes)
+        account.status = "active"
+        account.user_id = link_user_id
+    account.oauth_token_json = encrypted_tokens
+    account.last_synced_at = datetime.now(timezone.utc)
+    db.commit()
+
+    logger.info("Google account linked: user_id=%s", link_user_id)
+    return _google_link_result_redirect(saved, "ok", email=email)
 
 
 @router.get("/google/accounts")
@@ -277,4 +423,4 @@ async def api_google_account_test(
     return {"result": "ok"}
 
 
-__all__ = ["router"]
+__all__ = ["router", "callback_router"]

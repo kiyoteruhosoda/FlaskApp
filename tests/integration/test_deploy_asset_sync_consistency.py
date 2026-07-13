@@ -1,17 +1,17 @@
 """デプロイ資材の自己同期（self-sync）機構が壊れていないことを検証する回帰テスト。
 
 過去、リポジトリではデプロイ不具合を修正済みなのに、NAS 上の
-``deploy-stg.sh`` / ``docker-compose.yml`` の手動コピーが漏れて古いまま実行され、
+``docker-compose.yml`` の手動コピーが漏れて古いまま実行され、
 同じ起動失敗（``flask db stamp head`` の Connection refused）が再発し続けた。
 
-対策として、アプリイメージの tar を唯一の配布物とし、デプロイスクリプトが
-ロード済みイメージから ``/app/docker-compose.yml`` と自分自身を取り出して
-自己更新する方式にした。この機構は次の 2 点が成立していないと機能しない:
+対策として、デプロイスクリプトがロード済みアプリイメージから
+``/app/docker-compose.yml`` を取り出して常にイメージと同じ版を使う方式にした
+（デプロイスクリプト自身はビルド成果物 ``dist/scripts/deploy.sh`` として
+イメージと一緒に配布される）。この機構は次の 2 点が成立していないと機能しない:
 
 1. ``.dockerignore`` が ``docker-compose.yml`` をビルドコンテキストから
    除外していないこと（除外するとイメージに焼き込まれない）。
-2. 両デプロイスクリプトに自己同期処理（``sync_assets_from_image``）と
-   再実行ガード（``PHOTONEST_DEPLOY_SELF_UPDATED``）が存在すること。
+2. デプロイスクリプトに同期処理（``sync_assets_from_image``）が存在すること。
 
 同様に、compose の nginx サービスは設定ファイルを ``./docker/nginx/default.conf``
 という相対パスでバインドマウントする。この相対パスは compose ファイルと同じ
@@ -21,7 +21,7 @@
 nginx コンテナが起動しない。そのため次も検証する:
 
 3. ``.dockerignore`` が nginx 設定をビルドコンテキストから除外していないこと。
-4. 両デプロイスクリプトが ``/app/docker/nginx/default.conf`` を同期すること。
+4. デプロイスクリプトが ``/app/docker/nginx/default.conf`` を同期すること。
 
 このテストはファイル内容を検査するだけで、Docker は使用しない。
 """
@@ -33,7 +33,6 @@ ROOT = Path(__file__).resolve().parents[2]
 DOCKERIGNORE = ROOT / ".dockerignore"
 DEPLOY_SCRIPTS = [
     ROOT / "scripts" / "deploy.sh",
-    ROOT / "scripts" / "deploy-stg.sh",
 ]
 NGINX_CONF = ROOT / "docker" / "nginx" / "default.conf"
 
@@ -58,7 +57,7 @@ def test_dockerignore_keeps_compose_in_build_context() -> None:
 
 
 def test_deploy_scripts_sync_assets_from_image() -> None:
-    """両デプロイスクリプトに自己同期処理と再実行ガードが存在すること。"""
+    """デプロイスクリプトにイメージからの資材同期処理が存在すること。"""
     for script in DEPLOY_SCRIPTS:
         content = script.read_text(encoding="utf-8")
         assert "sync_assets_from_image" in content, (
@@ -66,9 +65,6 @@ def test_deploy_scripts_sync_assets_from_image() -> None:
         )
         assert "/app/docker-compose.yml" in content, (
             f"{script.name} がイメージ内の docker-compose.yml を参照していません。"
-        )
-        assert "PHOTONEST_DEPLOY_SELF_UPDATED" in content, (
-            f"{script.name} に自己更新の再実行ガードがありません（無限ループ防止）。"
         )
 
 
@@ -94,7 +90,7 @@ def test_dockerignore_keeps_nginx_conf_in_build_context() -> None:
 
 
 def test_deploy_scripts_sync_nginx_conf_from_image() -> None:
-    """両デプロイスクリプトがイメージ内の nginx 設定を同期すること。
+    """デプロイスクリプトがイメージ内の nginx 設定を同期すること。
 
     compose の nginx サービスは ``./docker/nginx/default.conf`` を相対パスで
     バインドマウントするため、compose ファイルと同じディレクトリにこのファイルを

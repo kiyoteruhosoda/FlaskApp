@@ -5,24 +5,34 @@
 # フロントエンドタスクをインクルード
 include frontend.mk
 
-.PHONY: build load run clean show-tar-version
+.PHONY: build build-db load run clean show-tar-version dist-assets
 
 IMAGE_NAME = photonest:latest
-OUTPUT_TAR = photonest-latest.tar
+DIST_DIR   = dist
+OUTPUT_TAR = $(DIST_DIR)/image.tar
 PLATFORM   = linux/amd64
 DB_IMAGE_NAME = photonest-db:latest
-DB_OUTPUT_TAR = photonest-db-latest.tar
+DB_OUTPUT_TAR = $(DIST_DIR)/image-db.tar
 DOCKER_API_VERSION ?= 1.43
 DOCKER = DOCKER_API_VERSION=$(DOCKER_API_VERSION) docker
 
+# デプロイ用スクリプトを dist/ へ配置する（NAS 側の photonest/<stg|prod>/ へは
+# pick.sh（git 管理外）等で dist/ の中身をそのまま持っていく）。
+dist-assets:
+	@mkdir -p $(DIST_DIR)/scripts
+	install -m 755 scripts/deploy.sh $(DIST_DIR)/scripts/deploy.sh
+	@echo "Deploy assets placed under $(DIST_DIR)/"
+
 build-db:
 	@echo "=== Build MariaDB image (UTC, schema built at runtime via alembic) ==="
+	@mkdir -p $(DIST_DIR)
 	$(DOCKER) buildx build \
 	  --platform linux/amd64 \
 	  -t $(DB_IMAGE_NAME) ./db \
 	  --load
 	$(DOCKER) save $(DB_IMAGE_NAME) -o $(DB_OUTPUT_TAR)
 	chmod 644 $(DB_OUTPUT_TAR)
+	$(MAKE) dist-assets
 	@echo "Build complete: $(DB_OUTPUT_TAR)"
 
 # Git情報（make 実行時に取得）
@@ -53,13 +63,15 @@ build:
 	JSON=$$($(DOCKER) run --rm $(IMAGE_NAME) cat /app/shared/kernel/version.json); \
 	echo "$$JSON"; \
 	echo "=== [3/4] Export TAR artifact (docker save) ==="; \
+	mkdir -p $(DIST_DIR); \
 	$(DOCKER) save $(IMAGE_NAME) -o $(OUTPUT_TAR); \
 	chmod 644 $(OUTPUT_TAR); \
+	$(MAKE) dist-assets; \
 	echo "=== [4/4] FINAL: Same version.json (from step 2) ==="; \
 	echo "$$JSON"; \
 	echo "======================================"; \
-	echo " Build finished!"; \
-	echo " -> $(OUTPUT_TAR)"; \
+	echo " Build finished! (deploy artifacts in $(DIST_DIR)/)"; \
+	ls -lh $(DIST_DIR) $(DIST_DIR)/scripts; \
 	echo "======================================"
 
 # TAR をロードしたイメージで version.json を表示（TAR 側の中身検証用）

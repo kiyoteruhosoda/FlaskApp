@@ -30,6 +30,7 @@ import RegisterPage from './pages/RegisterPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import SystemLogsPage from './pages/SystemLogsPage';
 import RolesPage from './pages/RolesPage';
 import GroupsPage from './pages/GroupsPage';
 import PermissionsPage from './pages/PermissionsPage';
@@ -346,6 +347,15 @@ const AppContent: React.FC = () => {
             element={
               <ProtectedRoute>
                 <AdminDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/logs"
+            element={
+              <ProtectedRoute>
+                <SystemLogsPage />
               </ProtectedRoute>
             }
           />

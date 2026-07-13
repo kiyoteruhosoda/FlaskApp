@@ -6,6 +6,20 @@
 ## [Unreleased]
 
 ### Changed
+- **デプロイ構成を環境ごとの自己完結ディレクトリ（`photonest/{stg,prod}/`）に再編**。
+  各環境ディレクトリに `image.tar`・`scripts/deploy.sh`・`.env`・
+  `docker-compose.yml`・`mnt/`（マウントデータ）・`pick.sh`（git 管理外の
+  イメージ取得用）を置く構成とし、`deploy.sh` と `deploy-stg.sh` を
+  配置ディレクトリ名（stg / prod）から環境を自動判定する単一スクリプトに統合。
+  ロードしたイメージは環境別タグ（`photonest:stg` / `photonest:prod`）を付け
+  直して使い、同一ホストの stg / prod が `photonest:latest` を取り合わない
+  ようにした。ビルド成果物は `dist/`（`image.tar`・`image-db.tar`・
+  `scripts/deploy.sh`）へ出力する（`Makefile` / `scripts/.build.sh`）。
+  デプロイエラー時は失敗したモジュール（コンテナ）のログを自動出力して終了する
+  （DB 接続待ち→db、マイグレーション失敗→web+db、ヘルスチェック失敗→web+nginx、
+  想定外エラー→全サービス）。デプロイスクリプト自身のイメージからの自己更新は
+  廃止（`dist/scripts/deploy.sh` の配布に一本化）。compose・nginx 設定の
+  イメージからの自己同期は従来どおり。
 - **ログイン画面のUXを改善**。(1) パスワード入力欄に表示/非表示切替ボタンを追加。
   (2) メール/パスワード誤りや認証コード誤りは利用者の入力ミスであり深刻な
   エラーではないため、赤（danger）ではなく warning のアラートに変更。
@@ -17,6 +31,21 @@
   `frontend/src/components/Header.tsx`。
 
 ### Fixed
+- **起動時マイグレーションが空の `alembic_version` テーブルで
+  `Table 'celery_task' already exists` を繰り返す問題を修正**。
+  `scripts/run_db_migrations.py` の戦略判定が `alembic_version` テーブルの
+  「存在」だけで Alembic 管理下と判断していた。Alembic はマイグレーション
+  実行前にこのテーブルを作成するため、レガシーDB（テーブルは在るが Alembic
+  未追跡）への素朴な `upgrade head` が `CREATE TABLE` で失敗すると、空の
+  `alembic_version` テーブルだけが残る（MySQL/MariaDB の DDL は
+  非トランザクショナル）。以降の起動はこの残骸を「管理下」と誤認して
+  stamp による自己修復をスキップし、毎回同じ `Table '...' already exists`
+  で起動失敗していた（本番環境で再現）。判定を「実際に記録されている
+  リビジョンの有無」（`SELECT version_num FROM alembic_version`）に変更し、
+  空テーブルはレガシーDBと同様に `stamp init_master` → `upgrade head` で
+  自己修復するようにした。回帰テスト:
+  `tests/unit/core/test_run_db_migrations.py`、
+  `tests/integration/test_db_migrate_self_heal.py::test_legacy_database_with_empty_alembic_version_self_heals`。
 - **Google アカウント連携が完了せず TOP 画面に戻る問題を修正**。Flask から
   FastAPI への移行時に OAuth コールバック（`/auth/google/callback`）が実装され
   ておらず、Google からのリダイレクトが React SPA の catch-all に吸われて
@@ -55,6 +84,16 @@
   食い違っていた。既定値の出所を `DEFAULT_APPLICATION_SETTINGS` に一元化した。
 
 ### Added
+- **DBログの一覧画面（System Logs）を追加**。`log`（APIリクエスト単位）と
+  `worker_log`（Celery ジョブ単位）の内容を管理画面から閲覧できるようにした。
+  時間範囲・ログレベル（複数指定可）・イベント名・メッセージ本文・追跡キー
+  （requestId / taskId）でフィルタでき、詳細モーダルでメッセージ全文と
+  traceback を確認できる。バックエンドは
+  `GET /api/admin/logs`・`GET /api/admin/logs/{source}/{id}`
+  （`presentation/fastapi/routers/admin/logs.py`、`admin:system-settings`
+  権限が必要・閲覧専用）、フロントエンドは `/admin/logs`
+  （`frontend/src/pages/SystemLogsPage.tsx`、サイドバー Administration >
+  System Logs）。回帰テスト: `tests/integration/fastapi/test_admin_logs.py`。
 - **Profile 画面に「現在の権限」カードを追加**。`GET /api/auth/me` が保有権限
   （DB・ロールの和集合）に加えて実効権限（現在のアクセストークンの scope）を
   返すようになり、Profile 画面でロール・実効権限・「保有しているが本セッション

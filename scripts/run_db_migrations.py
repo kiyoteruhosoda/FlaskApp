@@ -6,14 +6,25 @@
 ``init_master`` が全テーブルを ``CREATE TABLE`` しようとして
 ``Table '...' already exists`` で失敗する（STG 環境で再現した障害）。
 
-このスクリプトは適用前に実テーブルの有無を調べ、以下の3パターンに分岐する。
+このスクリプトは適用前に実テーブルの有無と ``alembic_version`` の記録内容を調べ、
+以下のパターンに分岐する。
 
+- ``alembic_version`` にリビジョンが記録されている → 既に Alembic 管理下。
+  通常どおり upgrade head（差分だけ適用される）
 - テーブルが1つも無い（真の新規DB）           → 通常どおり upgrade head
 - ``init_master`` が作る全テーブルが揃っている  → 既存スキーマは Alembic 管理外の
   レガシー状態とみなし、``init_master`` へ stamp してから upgrade head
   （``docs/decisions/ADR-0001`` が手動運用として定義していた手順の自動化）
 - 一部のテーブルだけ存在する（中途半端な状態）  → 自動判断せずエラー終了し、
   手動調査を促す（誤って中途半端なスキーマを "完了" 扱いしないため）
+
+``alembic_version`` テーブルは「存在する」だけでは Alembic 管理下と判断しない。
+Alembic はマイグレーション実行前にこのテーブルを作成するため、レガシーDBに対する
+素朴な ``alembic upgrade head`` が ``Table '...' already exists`` で失敗すると、
+**空の** ``alembic_version`` テーブルだけが残る（MySQL/MariaDB の DDL は
+非トランザクショナルでロールバックされない）。この状態を「管理下」と誤認すると
+再起動のたびに同じ CREATE TABLE 失敗を繰り返すため、実際に記録されている
+リビジョンの有無で判定する（本番環境で再現した障害）。
 """
 from __future__ import annotations
 
@@ -100,12 +111,36 @@ def existing_table_names(engine: sa.engine.Engine) -> set[str]:
     return set(inspector.get_table_names())
 
 
-def decide_strategy(existing_tables: set[str], target_tables: set[str]) -> str:
-    """既存テーブルの状況から適用戦略を決定する（DB非依存の純粋関数、テスト用に分離）。"""
-    if "alembic_version" in existing_tables:
+def recorded_alembic_revision(
+    engine: sa.engine.Engine, existing_tables: set[str]
+) -> str | None:
+    """``alembic_version`` に実際に記録されているリビジョンを返す（無ければ None）。
+
+    テーブルが存在しても行が無ければ None。Alembic はマイグレーション実行前に
+    このテーブルを作るため、レガシーDBへの素朴な upgrade が CREATE TABLE で
+    失敗した後は「空の alembic_version テーブル」だけが残る。
+    """
+    if "alembic_version" not in existing_tables:
+        return None
+    with engine.connect() as conn:
+        row = conn.execute(
+            sa.text("SELECT version_num FROM alembic_version")
+        ).first()
+    return row[0] if row else None
+
+
+def decide_strategy(
+    existing_tables: set[str],
+    target_tables: set[str],
+    recorded_revision: str | None,
+) -> str:
+    """既存テーブルと記録済みリビジョンから適用戦略を決定する（DB非依存の純粋関数、テスト用に分離）。"""
+    if recorded_revision is not None:
         return FRESH  # 既に Alembic が管理している通常経路
 
-    relevant_existing = existing_tables & target_tables
+    # alembic_version テーブルは「存在するが空」のことがある（過去の upgrade 失敗の残骸）
+    # ため、リビジョン記録が無い時点で管理外とみなし、実テーブルの状況で判断する。
+    relevant_existing = (existing_tables - {"alembic_version"}) & target_tables
     if not relevant_existing:
         return FRESH  # 真の新規DB
 
@@ -119,11 +154,12 @@ def run(database_url: str) -> int:
     engine = sa.create_engine(database_url, pool_pre_ping=True)
     try:
         existing_tables = existing_table_names(engine)
+        recorded_revision = recorded_alembic_revision(engine, existing_tables)
     finally:
         engine.dispose()
 
     target_tables = load_target_table_names()
-    strategy = decide_strategy(existing_tables, target_tables)
+    strategy = decide_strategy(existing_tables, target_tables, recorded_revision)
 
     cfg = Config(str(ALEMBIC_INI))
     cfg.set_main_option("script_location", str(ROOT / "migrations"))

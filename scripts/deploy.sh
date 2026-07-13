@@ -1,31 +1,87 @@
 #!/bin/bash
-# 本番デプロイスクリプト
-# 使い方（モード引数は必須）:
+# デプロイスクリプト（stg / prod 共通・配置ディレクトリから環境を自動判定）
+#
+# 配置想定（環境ごとに自己完結したディレクトリ。photonest/ 配下に stg/ と prod/ を置く）:
+#   photonest/
+#     stg/
+#       image.tar          # ビルド済みアプリイメージ（dist/image.tar を配置）
+#       image-db.tar       # (任意) DB イメージ（reset 時のみ使用。dist/image-db.tar を配置）
+#       scripts/deploy.sh  # このスクリプト（git 管理。dist/scripts/deploy.sh を配置）
+#       .env               # stg 用設定（無ければ初回デプロイ時にテンプレートを自動生成）
+#       docker-compose.yml # stg 用（デプロイ時にイメージ内のコピーで自動更新される）
+#       mnt/               # コンテナマウント用データ（data/ と db_data/ が作られる）
+#       pick.sh            # イメージ取得用（git 管理外・任意。dist/ からここへ配置する）
+#     prod/                # 上記と同じ構成
+#
+# 使い方（モード引数は必須。photonest/<stg|prod>/ で実行する）:
 #   ./scripts/deploy.sh app      # 通常デプロイ（アプリのみ更新。DBスキーマ変更なし）
 #   ./scripts/deploy.sh migrate  # DDL更新時（新しい Alembic migration を追加した場合）
-#   ./scripts/deploy.sh reset    # 完全初期化（DB・メディアデータ消去。マスタデータ投入済みで起動）
+#   ./scripts/deploy.sh reset    # 完全初期化（DB・メディアデータ消去。破壊的）
 #
-# どれを使うか:
-#   - アプリのみ更新（DDL変更なし）        → app
-#   - DDL更新（migrations/versions/ 追加）  → migrate
-#   - 完全に作り直したいとき（破壊的）      → reset
+# デプロイ中にエラーが発生した場合は、失敗したモジュール（コンテナ）のログを
+# 出力して終了する。
 
-set -euo pipefail
+set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT_PATH="$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")"
-DOCKER_ROOT="$(dirname "$SCRIPT_DIR")"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+ENV_NAME="$(basename "$BASE_DIR")"
 
-PROJECT="photonest"
-APP_IMAGE="photonest:latest"
-BASE_DIR="$DOCKER_ROOT/photonest"
+# ===== 環境判定（配置ディレクトリ名で stg / prod を切り替える） =====
+case "$ENV_NAME" in
+  stg)
+    PROJECT="photonest-stg"
+    DEFAULT_WEB_HOST_PORT=8051
+    ;;
+  prod)
+    # 既存の本番デプロイ（compose project 名 "photonest"）を引き継ぐ
+    PROJECT="photonest"
+    DEFAULT_WEB_HOST_PORT=8050
+    ;;
+  *)
+    echo "[deploy][error] このスクリプトは photonest/stg/scripts/ または photonest/prod/scripts/ に配置して実行してください。" >&2
+    echo "  現在の配置: $SCRIPT_DIR（親ディレクトリ名 '$ENV_NAME' が stg / prod ではありません）" >&2
+    exit 1
+    ;;
+esac
+
+TAG="[deploy:$ENV_NAME]"
+log()  { echo -e "\033[36m${TAG}\033[0m $*"; }
+warn() { echo -e "\033[33m${TAG}[warn]\033[0m $*" >&2; }
+err()  { echo -e "\033[31m${TAG}[error]\033[0m $*" >&2; }
+
+APP_IMAGE="photonest:$ENV_NAME"
+DB_IMAGE="photonest-db:$ENV_NAME"
+IMAGE_TAR="$BASE_DIR/image.tar"
+IMAGE_DB_TAR="$BASE_DIR/image-db.tar"
 COMPOSE_FILE="$BASE_DIR/docker-compose.yml"
 ENV_FILE="$BASE_DIR/.env"
-IMAGE_TAR="$DOCKER_ROOT/photonest-latest.tar"
-IMAGE_DB_TAR="$DOCKER_ROOT/photonest-db-latest.tar"
-HEALTH_URL="http://127.0.0.1:8050/health/live"
-DATA_PATH="$BASE_DIR/data"
-DB_PATH="$BASE_DIR/db_data"
+
+# ===== .env の値を読む（compose interpolation と同じく「最後の定義」を採用） =====
+env_file_value() {
+  local key="$1"
+  [ -f "$ENV_FILE" ] || return 0
+  grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | tail -n1 | cut -d'=' -f2- || true
+}
+
+# マウントルート。既定は環境ディレクトリ配下の mnt/（.env の HOST_DATA_ROOT で上書き可）。
+HOST_DATA_ROOT="$(env_file_value HOST_DATA_ROOT)"
+HOST_DATA_ROOT="${HOST_DATA_ROOT:-$BASE_DIR/mnt}"
+DATA_PATH="$HOST_DATA_ROOT/data"
+DB_PATH="$HOST_DATA_ROOT/db_data"
+
+WEB_HOST_PORT="$(env_file_value WEB_HOST_PORT)"
+WEB_HOST_PORT="${WEB_HOST_PORT:-$DEFAULT_WEB_HOST_PORT}"
+HEALTH_URL="http://127.0.0.1:${WEB_HOST_PORT}/health/live"
+
+# compose interpolation はシェル環境変数 > --env-file の優先順位のため、
+# ここで export した値が .env の記載や compose 既定値より優先される。
+# イメージタグと HOST_DATA_ROOT は必ずこのスクリプトの判定値で統一する
+# （stg と prod が同一ホストで photonest:latest を取り合わないようにするため）。
+export HOST_DATA_ROOT
+export WEB_IMAGE="$APP_IMAGE"
+export DB_IMAGE
+
 COMPOSE="docker compose -p $PROJECT -f $COMPOSE_FILE --env-file $ENV_FILE"
 
 MODE="${1:-}"
@@ -33,18 +89,56 @@ MODE="${1:-}"
 case "$MODE" in
   app|migrate|reset) ;;
   *)
-    echo "[deploy][error] Mode required. Usage: $0 <app|migrate|reset>" >&2
+    err "Mode required. Usage: $0 <app|migrate|reset>"
     exit 1
     ;;
 esac
 
-echo -e "\033[36m[deploy] Photonest deploy start (mode: $MODE)\033[0m"
+# ===== エラー時診断: 失敗したモジュールのログを出して終了する =====
+ALL_SERVICES=(web db nginx worker beat redis)
+
+dump_module_logs() { # 引数: サービス名...
+  echo "" >&2
+  echo "----- diagnostics ($TAG) -----" >&2
+  echo "$TAG container status:" >&2
+  $COMPOSE ps >&2 || true
+  local svc
+  for svc in "$@"; do
+    echo "" >&2
+    echo "$TAG ---- module logs: $svc (last 100 lines) ----" >&2
+    $COMPOSE logs --tail 100 --timestamps "$svc" >&2 || true
+  done
+  echo "------------------------------" >&2
+}
+
+fail() { # 引数: メッセージ [ログを出すサービス名...]
+  local msg="$1"
+  shift || true
+  err "$msg"
+  if [ $# -gt 0 ]; then
+    dump_module_logs "$@"
+  fi
+  err "Deploy failed (mode: $MODE, env: $ENV_NAME)"
+  exit 1
+}
+
+# set -e で中断される想定外のエラーでも、必ず全モジュールのログを出して終了する。
+on_unexpected_error() {
+  local line="$1"
+  err "Unexpected error at line $line (mode: $MODE)"
+  dump_module_logs "${ALL_SERVICES[@]}"
+  err "Deploy failed (mode: $MODE, env: $ENV_NAME)"
+  exit 1
+}
+trap 'on_unexpected_error $LINENO' ERR
+
+log "Photonest deploy start (env: $ENV_NAME, mode: $MODE, base: $BASE_DIR)"
 
 # ===== Preflight: docker daemon must be reachable =====
 if ! docker info >/dev/null 2>&1; then
-  echo "[deploy][error] Cannot reach the Docker daemon (permission denied or daemon down)." >&2
+  err "Cannot reach the Docker daemon (permission denied or daemon down)."
   echo "  Run this script with sudo, or add your user to the 'docker' group and re-login:" >&2
-  echo "    sudo ./scripts/deploy.sh $MODE" >&2
+  echo "    sudo $0 $MODE" >&2
   exit 1
 fi
 
@@ -56,14 +150,14 @@ load_image_with_progress() {
   local tar="$1"
   local size_human
   size_human="$(du -h "$tar" 2>/dev/null | cut -f1)"
-  echo "[deploy] Loading image: $tar (${size_human:-unknown size})"
+  log "Loading image: $tar (${size_human:-unknown size})"
 
   if command -v pv >/dev/null 2>&1; then
     pv "$tar" | docker load
     return
   fi
 
-  echo "[deploy] (tip: 'sudo apt-get install -y pv' or synocommunity ipkg で pv を入れると進捗バーが出ます)"
+  log "(tip: 'sudo apt-get install -y pv' or synocommunity ipkg で pv を入れると進捗バーが出ます)"
   docker load -i "$tar" &
   local pid=$!
   local waited=0
@@ -73,37 +167,46 @@ load_image_with_progress() {
     # sleep 中に終了している場合があるので、表示直前にも生死を再確認する
     # （そうしないと失敗直後でも1周分「まだ読み込み中」と誤表示してしまう）
     if kill -0 "$pid" 2>/dev/null; then
-      echo "[deploy] ...still loading, ${waited}s elapsed (pid $pid) - this is normal for large images"
+      log "...still loading, ${waited}s elapsed (pid $pid) - this is normal for large images"
     fi
   done
   if ! wait "$pid"; then
-    echo "[deploy][error] docker load failed for $tar" >&2
-    exit 1
+    fail "docker load failed for $tar"
   fi
 }
 
+# tar には photonest:latest / photonest-db:latest として保存されているため、
+# ロード後に環境別タグ（photonest:stg 等）を付け直す。stg と prod を同一ホストで
+# 運用しても、片方のロードがもう片方の実行イメージを差し替えないようにするため。
+retag_for_env() { # 引数: <ロード時タグ> <環境別タグ>
+  local loaded="$1" target="$2"
+  if ! docker tag "$loaded" "$target"; then
+    fail "Failed to tag $loaded as $target"
+  fi
+  log "Tagged $loaded -> $target"
+}
+
 # ===== Load app image =====
-# 自己更新後の再実行時（PHOTONEST_DEPLOY_SELF_UPDATED=1）はロード済みなのでスキップする。
-if [ "${PHOTONEST_DEPLOY_SELF_UPDATED:-}" = "1" ]; then
-  echo "[deploy] (self-update re-run) app image already loaded; skipping load"
-elif [ -f "$IMAGE_TAR" ]; then
+if [ -f "$IMAGE_TAR" ]; then
   load_image_with_progress "$IMAGE_TAR"
+  retag_for_env "photonest:latest" "$APP_IMAGE"
+elif docker image inspect "$APP_IMAGE" >/dev/null 2>&1; then
+  warn "Image tar not found: $IMAGE_TAR — reusing already-loaded $APP_IMAGE"
 else
-  echo "[deploy][error] Image tar not found: $IMAGE_TAR" >&2
+  err "Image tar not found: $IMAGE_TAR"
+  echo "  ビルドマシンで 'make build' を実行し、dist/image.tar を $IMAGE_TAR へ配置してください（pick.sh 等）。" >&2
   exit 1
 fi
 
 # ===== Sync deploy assets from the loaded image =====
-# 過去に「リポジトリでは修正済みなのに NAS 上の deploy スクリプト・docker-compose.yml が
-# 古いままで、同じ起動失敗が再発し続ける」事故が繰り返された。
-# tar（アプリイメージ）を唯一の配布物とし、イメージに焼き込まれた
-# /app/docker-compose.yml と /app/scripts/deploy.sh をロード直後に取り出して使う。
-# スクリプト自身が更新された場合は置き換えて再実行する（tar の転送だけで修正が届く）。
-COMPOSE_SYNCED_FROM_IMAGE=false
+# 過去に「リポジトリでは修正済みなのに NAS 上の docker-compose.yml が古いままで、
+# 同じ起動失敗が再発し続ける」事故が繰り返された。アプリイメージに焼き込まれた
+# /app/docker-compose.yml をロード直後に取り出し、常にイメージと同じ版を使う。
+# 環境ごとの違い（ポート・資格情報等）はすべて .env 側で表現する。
 sync_assets_from_image() {
   local cid
   if ! cid=$(docker create "$APP_IMAGE" 2>/dev/null); then
-    echo "[deploy][warn] Could not inspect $APP_IMAGE; skipping asset sync" >&2
+    warn "Could not inspect $APP_IMAGE; skipping asset sync"
     return 0
   fi
 
@@ -111,11 +214,10 @@ sync_assets_from_image() {
   mkdir -p "$BASE_DIR"
   if docker cp "$cid:/app/docker-compose.yml" "$COMPOSE_FILE.new" >/dev/null 2>&1; then
     mv -f "$COMPOSE_FILE.new" "$COMPOSE_FILE"
-    COMPOSE_SYNCED_FROM_IMAGE=true
-    echo "[deploy] compose file synced from image: $APP_IMAGE -> $COMPOSE_FILE"
+    log "compose file synced from image: $APP_IMAGE -> $COMPOSE_FILE"
   else
     rm -f "$COMPOSE_FILE.new"
-    echo "[deploy][warn] $APP_IMAGE has no /app/docker-compose.yml (old image); falling back to file copy" >&2
+    warn "$APP_IMAGE has no /app/docker-compose.yml (old image); keeping existing file if any"
   fi
 
   # --- nginx 設定（compose の ./docker/nginx/default.conf バインドマウント用） ---
@@ -131,54 +233,18 @@ sync_assets_from_image() {
   mkdir -p "$nginx_conf_dir"
   if docker cp "$cid:/app/docker/nginx/default.conf" "$nginx_conf_dst.new" >/dev/null 2>&1; then
     mv -f "$nginx_conf_dst.new" "$nginx_conf_dst"
-    echo "[deploy] nginx config synced from image: $APP_IMAGE -> $nginx_conf_dst"
+    log "nginx config synced from image: $APP_IMAGE -> $nginx_conf_dst"
   else
     rm -f "$nginx_conf_dst.new"
-    echo "[deploy][warn] $APP_IMAGE has no /app/docker/nginx/default.conf (old image); keeping existing file if any" >&2
-  fi
-
-  # --- deploy スクリプト自身（差分があれば置き換えて再実行） ---
-  local script_name self_new
-  script_name="$(basename "$SCRIPT_PATH")"
-  self_new="$SCRIPT_DIR/.$script_name.new"
-  if docker cp "$cid:/app/scripts/$script_name" "$self_new" >/dev/null 2>&1; then
-    if cmp -s "$self_new" "$SCRIPT_PATH"; then
-      rm -f "$self_new"
-    elif [ "${PHOTONEST_DEPLOY_SELF_UPDATED:-}" = "1" ]; then
-      # 再実行後も差分が残るのは異常（置き換え失敗等）。無限ループを避けて続行する。
-      echo "[deploy][warn] Script still differs from image copy after self-update; continuing as-is" >&2
-      rm -f "$self_new"
-    else
-      chmod +x "$self_new"
-      mv -f "$self_new" "$SCRIPT_PATH"
-      docker rm -f "$cid" >/dev/null 2>&1 || true
-      echo -e "\033[36m[deploy] Deploy script updated from image; re-executing\033[0m"
-      PHOTONEST_DEPLOY_SELF_UPDATED=1 exec "$SCRIPT_PATH" "$MODE"
-    fi
-  else
-    rm -f "$self_new"
-    echo "[deploy][warn] $APP_IMAGE has no /app/scripts/$script_name (old image); keeping current script" >&2
+    warn "$APP_IMAGE has no /app/docker/nginx/default.conf (old image); keeping existing file if any"
   fi
 
   docker rm -f "$cid" >/dev/null 2>&1 || true
 }
 sync_assets_from_image
 
-# ===== Fallback: update docker-compose.yml from a file supplied alongside the tar =====
-# 新しいイメージなら上の sync で compose は取得済み。ここは古いイメージ
-# （/app/docker-compose.yml を含まない）向けの従来動作。
-COMPOSE_SRC="$DOCKER_ROOT/docker-compose.yml"
-if [ "$COMPOSE_SYNCED_FROM_IMAGE" = true ]; then
-  if [ -f "$COMPOSE_SRC" ]; then
-    echo "[deploy] note: $COMPOSE_SRC is ignored (image copy is authoritative)"
-  fi
-elif [ -f "$COMPOSE_SRC" ]; then
-  echo "[deploy] Updating compose file from $COMPOSE_SRC"
-  mkdir -p "$BASE_DIR"
-  cp "$COMPOSE_SRC" "$COMPOSE_FILE"
-elif [ ! -f "$COMPOSE_FILE" ]; then
-  echo "[deploy][error] No docker-compose.yml found at $COMPOSE_FILE or $COMPOSE_SRC" >&2
-  exit 1
+if [ ! -f "$COMPOSE_FILE" ]; then
+  fail "No docker-compose.yml found at $COMPOSE_FILE (image sync also failed)"
 fi
 
 # ===== Ensure .env exists (zero-config deploy) =====
@@ -187,19 +253,36 @@ fi
 # 値はすべて docker-compose.yml 側の ${VAR:-default} が供給するので、生成する
 # .env は上書き用のコメント付きテンプレートで足りる。既存の .env には触れない。
 if [ ! -f "$ENV_FILE" ]; then
-  echo -e "\033[33m[deploy][warn] $ENV_FILE not found; generating a default template.\033[0m"
+  warn "$ENV_FILE not found; generating a default template."
   echo "  All settings fall back to built-in defaults (development-grade credentials)."
   echo "  For any externally reachable environment, edit $ENV_FILE and redeploy."
   mkdir -p "$BASE_DIR"
+  if [ "$ENV_NAME" = "stg" ]; then
+    DEFAULT_DB_HOST_PORT=3308
+    DEFAULT_DB_CONTAINER=mariadb-stg
+    DEFAULT_NETWORK=photonest-stg
+    DEFAULT_SUBNET=172.23.0.0/16
+  else
+    DEFAULT_DB_HOST_PORT=3307
+    DEFAULT_DB_CONTAINER=mariadb
+    DEFAULT_NETWORK=photonest-prod
+    DEFAULT_SUBNET=172.22.0.0/16
+  fi
   cat > "$ENV_FILE" <<ENVEOF
-# 自動生成された .env（deploy スクリプトが作成）。
+# 自動生成された .env（deploy スクリプトが作成。環境: $ENV_NAME）。
 # 資格情報などは docker-compose.yml の既定値で起動する（初期設定のみで動作）。
 # 既定の資格情報は開発向け。外部公開する場合は必ず上書きして再デプロイする。
-# すべての項目は .env.example を参照。
+# すべての項目は .env.example（stg は .env.staging.example）を参照。
 
+# --- 環境固有の実値（この環境ディレクトリに閉じた値に固定する）---
 # HOST_DATA_ROOT はこのスクリプトの DATA_PATH/DB_PATH（reset 時の削除対象）と
-# compose のバインドマウント先を一致させるため、必ず BASE_DIR と同じにする。
-HOST_DATA_ROOT=$BASE_DIR
+# compose のバインドマウント先を一致させるため、必ず <環境dir>/mnt にする。
+HOST_DATA_ROOT=$BASE_DIR/mnt
+WEB_HOST_PORT=$WEB_HOST_PORT
+DB_HOST_PORT=$DEFAULT_DB_HOST_PORT
+DB_CONTAINER_NAME=$DEFAULT_DB_CONTAINER
+DOCKER_NETWORK_NAME=$DEFAULT_NETWORK
+DOCKER_NETWORK_SUBNET=$DEFAULT_SUBNET
 
 # --- 上書き推奨（未設定なら開発向け既定値で動作する）---
 # MARIADB_ROOT_PASSWORD=strong-mariadb-root-password-here
@@ -213,27 +296,51 @@ HOST_DATA_ROOT=$BASE_DIR
 ENVEOF
 fi
 
+# ===== Ensure DB image is available under the env-specific tag =====
+# reset 時は tar からロードするが、通常デプロイでは既存タグを使い回す。
+# 環境別タグがまだ無い場合は、従来運用の photonest-db:latest から引き継ぐ。
+ensure_db_image() {
+  if docker image inspect "$DB_IMAGE" >/dev/null 2>&1; then
+    return 0
+  fi
+  if [ -f "$IMAGE_DB_TAR" ]; then
+    load_image_with_progress "$IMAGE_DB_TAR"
+    retag_for_env "photonest-db:latest" "$DB_IMAGE"
+    return 0
+  fi
+  if docker image inspect "photonest-db:latest" >/dev/null 2>&1; then
+    retag_for_env "photonest-db:latest" "$DB_IMAGE"
+    return 0
+  fi
+  fail "DB image not found: $DB_IMAGE（$IMAGE_DB_TAR も photonest-db:latest も存在しません。'make build-db' で dist/image-db.tar を作成し配置してください）"
+}
+
 # ===== Stop running containers =====
-echo "[deploy] docker compose down"
+log "docker compose down"
 $COMPOSE down || true
 
 # ===== Reset mode: clear data =====
 if [ "$MODE" = "reset" ]; then
-  echo -e "\033[33m[reset] WARNING: This will delete all DB & media data.\033[0m"
+  echo -e "\033[33m[reset] WARNING: This will delete all $ENV_NAME DB & media data.\033[0m"
 
   if [ -f "$IMAGE_DB_TAR" ]; then
     load_image_with_progress "$IMAGE_DB_TAR"
+    retag_for_env "photonest-db:latest" "$DB_IMAGE"
   else
-    echo "[reset][warn] DB image tar not found: $IMAGE_DB_TAR"
+    warn "[reset] DB image tar not found: $IMAGE_DB_TAR"
   fi
 
   echo "[reset] Deleting $DB_PATH and $DATA_PATH"
   rm -rf "$DB_PATH" "$DATA_PATH"
 fi
 
+ensure_db_image
+
 # ===== Start containers =====
-echo "[deploy] docker compose up -d"
-$COMPOSE up -d --remove-orphans
+log "docker compose up -d"
+if ! $COMPOSE up -d --remove-orphans; then
+  fail "docker compose up failed" "${ALL_SERVICES[@]}"
+fi
 
 # ===== Wait for DB to actually accept TCP connections =====
 # docker compose の depends_on/healthcheck は「healthy」と報告された時点で次に進むが、
@@ -241,7 +348,7 @@ $COMPOSE up -d --remove-orphans
 # 経由するため、healthcheck 実装によっては本来のネットワーク公開サーバーが起動する
 # 前に healthy 判定されることがある。ここで web コンテナから実際に db:3306 へ接続
 # できることを確認してから、以降の alembic upgrade を実行する。
-echo "[deploy] Waiting for DB to accept connections from web container"
+log "Waiting for DB to accept connections from web container"
 DB_WAIT_OK=false
 for i in $(seq 1 30); do
   if $COMPOSE exec -T web python -c "
@@ -252,12 +359,11 @@ s.close()
     DB_WAIT_OK=true
     break
   fi
-  echo "[deploy] ...db not reachable yet ($i/30)"
+  log "...db not reachable yet ($i/30)"
   sleep 2
 done
 if [ "$DB_WAIT_OK" != true ]; then
-  echo "[deploy][error] db:3306 not reachable from web container after waiting" >&2
-  exit 1
+  fail "db:3306 not reachable from web container after waiting" db web
 fi
 
 # ===== Schema sync =====
@@ -269,17 +375,16 @@ run_migrations_with_retry() {
     if $COMPOSE exec -T web python scripts/run_db_migrations.py; then
       return 0
     fi
-    echo "[deploy][warn] DB migration failed (attempt $attempt/3); retrying in 5s" >&2
+    warn "DB migration failed (attempt $attempt/3); retrying in 5s"
     sleep 5
   done
-  echo "[deploy][error] DB migration failed after 3 attempts" >&2
-  return 1
+  fail "DB migration failed after 3 attempts" web db
 }
 
 case "$MODE" in
   migrate)
     # DDL更新時：既存データを保持したまま新しい migration だけを適用する。
-    echo "[deploy] Applying pending DB migrations"
+    log "Applying pending DB migrations"
     run_migrations_with_retry
     ;;
   reset)
@@ -287,49 +392,43 @@ case "$MODE" in
     # `alembic upgrade head`（init_master + seed_master_data）で構築する。
     # web コンテナの entrypoint も起動時にマイグレーションを実行するが、
     # ここでも冪等に流して確実に head まで揃える。
-    echo "[deploy] Building schema + master data on fresh DB"
+    log "Building schema + master data on fresh DB"
     run_migrations_with_retry
     ;;
 esac
 
 # ===== Wait for health check =====
-echo "[deploy] Waiting for service health"
+log "Waiting for service health: $HEALTH_URL"
 
 for i in $(seq 1 60); do
   if curl -fs "$HEALTH_URL" >/dev/null 2>&1; then
-    echo "[deploy] Service healthy"
+    log "Service healthy"
     break
   fi
-  echo "[deploy] ...waiting ($i/60)"
+  log "...waiting ($i/60)"
   sleep 2
 done
 
 if ! curl -fs "$HEALTH_URL" >/dev/null 2>&1; then
-  echo "[deploy][error] Health check failed: $HEALTH_URL" >&2
+  err "Health check failed: $HEALTH_URL"
+  dump_module_logs web nginx
   echo "" >&2
-  echo "----- diagnostics -----" >&2
-  echo "[deploy] container status:" >&2
-  $COMPOSE ps >&2 || true
-  echo "" >&2
-  echo "[deploy] recent web logs (docker logs = 標準出力のみ。ヘルスチェック失敗の詳細は下の Health.Log を見る):" >&2
-  $COMPOSE logs --tail 50 web >&2 || true
-  echo "" >&2
-  echo "[deploy] web healthcheck history (Container Manager の詳細ログに出るのはこれと同じ内容):" >&2
+  echo "$TAG web healthcheck history (Container Manager の詳細ログに出るのはこれと同じ内容):" >&2
   docker inspect --format '{{json .State.Health}}' "${PROJECT}-web-1" 2>/dev/null | python3 -m json.tool >&2 || true
-  echo "------------------------" >&2
   echo "" >&2
-  echo "[deploy] 次に見るコマンド:" >&2
+  echo "$TAG 次に見るコマンド:" >&2
   echo "  docker compose -p $PROJECT logs -f web" >&2
   echo "  docker inspect --format '{{json .State.Health}}' ${PROJECT}-web-1 | python3 -m json.tool" >&2
+  err "Deploy failed (mode: $MODE, env: $ENV_NAME)"
   exit 1
 fi
 
 # ===== Cleanup old images =====
-echo "[deploy] Cleaning old unused Docker images"
+log "Cleaning old unused Docker images"
 docker image prune -f > /dev/null 2>&1 || true
 
 # ===== Show deployed version =====
-echo "[deploy] Deployed version:"
-$COMPOSE exec -T web cat /app/shared/kernel/version.json 2>/dev/null || echo "[deploy][warn] Could not read version.json from web container"
+log "Deployed version:"
+$COMPOSE exec -T web cat /app/shared/kernel/version.json 2>/dev/null || warn "Could not read version.json from web container"
 
-echo -e "\033[32m[deploy] Deploy complete (mode: $MODE)\033[0m"
+echo -e "\033[32m${TAG} Deploy complete (mode: $MODE)\033[0m"

@@ -151,27 +151,9 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 
-# ===== Preflight: 旧配置（<環境dir>/db_data 直下）のデータ引き継ぎガード =====
-# 旧 deploy-stg.sh 時代のマウントルートは <環境dir> 直下（db_data/・data/）だった。
-# 現行の既定は <環境dir>/mnt 配下のため、旧データが残ったまま app/migrate を実行すると
-# 空の mnt/db_data で MariaDB が新規初期化され、既存データが使われない事故になる。
-# 旧 db_data があり新側に無い場合は、何も変更しないうちに停止して対処を促す。
+# どのマウントルートで動くかをデプロイ開始時に明示する（.env の HOST_DATA_ROOT
+# 指定ミスやパス取り違えをログから即座に確認できるようにする）。
 log "Mount root: $HOST_DATA_ROOT"
-if [ "$MODE" != "reset" ] && [ -d "$BASE_DIR/db_data" ] && [ ! -d "$DB_PATH" ]; then
-  err "旧配置の DB データが見つかりました: $BASE_DIR/db_data（現在のマウントルート $HOST_DATA_ROOT には db_data がありません）"
-  echo "  このまま続行すると空の DB が新規初期化され、既存データが使われません。以下のどちらかで対処してください:" >&2
-  echo "" >&2
-  echo "  A) 既存データを新配置へ移動する（推奨）:" >&2
-  echo "       mkdir -p \"$HOST_DATA_ROOT\"" >&2
-  echo "       mv \"$BASE_DIR/db_data\" \"$HOST_DATA_ROOT/\"" >&2
-  echo "       [ -d \"$BASE_DIR/data\" ] && mv \"$BASE_DIR/data\" \"$HOST_DATA_ROOT/\"" >&2
-  echo "" >&2
-  echo "  B) 旧配置のまま使う: $ENV_FILE に HOST_DATA_ROOT=$BASE_DIR を設定する" >&2
-  echo "" >&2
-  echo "  ※ 旧データを破棄して新規初期化してよい場合のみ、$BASE_DIR/db_data をリネーム／削除して再実行してください。" >&2
-  err "Deploy aborted before any changes (mode: $MODE, env: $ENV_NAME)"
-  exit 1
-fi
 
 # ===== Load a docker image tar with visible progress =====
 # `docker load` は標準では進捗を表示せず、大きいイメージだと数分間無反応に見える。

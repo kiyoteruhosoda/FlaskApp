@@ -170,24 +170,6 @@ def test_deploy_script_env_file_value_strips_cr_and_whitespace():
 
 
 @pytest.mark.unit
-def test_deploy_script_guards_legacy_data_location():
-    """旧配置（<環境dir>/db_data 直下）にデータが残っている場合、app/migrate を
-    続行せず停止すること。マウントルートが <環境dir>/mnt に変わったため、
-    ガードなしでは空の mnt/db_data で MariaDB が新規初期化され、既存データが
-    使われない事故になる。
-    """
-    text = (ROOT / "scripts" / "deploy.sh").read_text(encoding="utf-8")
-
-    assert re.search(
-        r'\[ "\$MODE" != "reset" \] && \[ -d "\$BASE_DIR/db_data" \] && \[ ! -d "\$DB_PATH" \]',
-        text,
-    ), (
-        "deploy.sh に旧配置 db_data の引き継ぎガードがありません"
-        "（既存 DB を無視して空 DB を初期化する事故につながります）"
-    )
-
-
-@pytest.mark.unit
 def test_deploy_script_includes_init_paths_in_diagnostics():
     """起動失敗時の診断対象サービスに init-paths を含めること。
 

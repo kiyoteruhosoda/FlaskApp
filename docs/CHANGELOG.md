@@ -17,6 +17,21 @@
   `frontend/src/components/Header.tsx`。
 
 ### Fixed
+- **起動時マイグレーションが空の `alembic_version` テーブルで
+  `Table 'celery_task' already exists` を繰り返す問題を修正**。
+  `scripts/run_db_migrations.py` の戦略判定が `alembic_version` テーブルの
+  「存在」だけで Alembic 管理下と判断していた。Alembic はマイグレーション
+  実行前にこのテーブルを作成するため、レガシーDB（テーブルは在るが Alembic
+  未追跡）への素朴な `upgrade head` が `CREATE TABLE` で失敗すると、空の
+  `alembic_version` テーブルだけが残る（MySQL/MariaDB の DDL は
+  非トランザクショナル）。以降の起動はこの残骸を「管理下」と誤認して
+  stamp による自己修復をスキップし、毎回同じ `Table '...' already exists`
+  で起動失敗していた（本番環境で再現）。判定を「実際に記録されている
+  リビジョンの有無」（`SELECT version_num FROM alembic_version`）に変更し、
+  空テーブルはレガシーDBと同様に `stamp init_master` → `upgrade head` で
+  自己修復するようにした。回帰テスト:
+  `tests/unit/core/test_run_db_migrations.py`、
+  `tests/integration/test_db_migrate_self_heal.py::test_legacy_database_with_empty_alembic_version_self_heals`。
 - **Google アカウント連携が完了せず TOP 画面に戻る問題を修正**。Flask から
   FastAPI への移行時に OAuth コールバック（`/auth/google/callback`）が実装され
   ておらず、Google からのリダイレクトが React SPA の catch-all に吸われて

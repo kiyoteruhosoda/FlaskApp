@@ -46,19 +46,23 @@ python scripts/seed_master_data.py
 既存 DB が旧リビジョンで `alembic_version` を記録している場合は、通常どおり
 `alembic upgrade head` を実行すれば良い（Alembic が差分だけ適用する）。
 
-一方、`alembic_version` テーブル自体が存在しない（旧・焼き込みベースライン運用の
-名残等でテーブルだけが Alembic 管理外に存在する）場合、素朴に
+一方、`alembic_version` にリビジョンが記録されていない（旧・焼き込みベースライン
+運用の名残等でテーブルだけが Alembic 管理外に存在する）場合、素朴に
 `alembic upgrade head` を実行すると `init_master` が全テーブルを
-`CREATE TABLE` しようとして `Table '...' already exists` で失敗する
-（STG 環境で実際に発生した障害）。`scripts/entrypoint.sh` は
-`scripts/run_db_migrations.py` 経由でこれを自動検出し、
+`CREATE TABLE` しようとして `Table '...' already exists` で失敗する。
+`scripts/entrypoint.sh` は `scripts/run_db_migrations.py` 経由でこれを自動検出し、
 
+- `alembic_version` にリビジョン記録あり → 通常どおり `upgrade head`（差分のみ適用）
 - 空DB → 通常どおり `upgrade head`
-- `init_master` 相当のテーブルが揃っている → 自動で `stamp init_master` して
-  から `upgrade head`
+- `init_master` 相当のテーブルが揃っているがリビジョン記録なし → 自動で
+  `stamp init_master` してから `upgrade head`
 - 一部だけ存在する中途半端な状態 → 自動判断せずエラー終了（手動調査が必要）
 
-に自動分岐する。手動で同じ操作をしたい場合:
+に自動分岐する。判定は `alembic_version` テーブルの有無ではなく、**実際に記録
+されているリビジョンの有無**で行う。Alembic はマイグレーション実行前に
+`alembic_version` テーブルを作成するため、過去の `upgrade head` 失敗の残骸として
+「空の `alembic_version` テーブル」が残っていることがあり、この状態もレガシーDB
+として自己修復の対象になる。手動で同じ操作をしたい場合:
 
 ```bash
 alembic -c migrations/alembic.ini stamp init_master

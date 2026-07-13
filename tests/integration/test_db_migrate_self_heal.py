@@ -84,6 +84,51 @@ def test_legacy_database_without_alembic_version_self_heals(tmp_path):
 
 
 @pytest.mark.integration
+def test_legacy_database_with_empty_alembic_version_self_heals(tmp_path):
+    """本番障害の再現: テーブルは全部あり、さらに過去の ``upgrade head`` 失敗の
+    残骸として**空の** ``alembic_version`` テーブルが存在する状態から復旧できること。
+
+    Alembic はマイグレーション実行前に ``alembic_version`` テーブルを作成するため、
+    レガシーDBへの素朴な ``upgrade head`` が ``Table '...' already exists`` で
+    失敗すると空の ``alembic_version`` だけが残る。テーブル存在だけで
+    「Alembic 管理下」と誤認すると、再起動のたびに同じ CREATE TABLE 失敗を繰り返す。
+    """
+    _setup_test_env()
+    db_path = tmp_path / "legacy-empty-version.db"
+    url = f"sqlite:///{db_path}"
+
+    metadata = _load_metadata()
+    legacy_engine = sa.create_engine(url)
+    try:
+        metadata.create_all(legacy_engine)
+        with legacy_engine.begin() as conn:
+            conn.execute(
+                sa.text(
+                    "CREATE TABLE alembic_version ("
+                    "version_num VARCHAR(32) NOT NULL, "
+                    "CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num))"
+                )
+            )
+        assert "alembic_version" in _table_names(legacy_engine)
+    finally:
+        legacy_engine.dispose()
+
+    assert run(url) == 0
+
+    engine = sa.create_engine(url)
+    try:
+        with engine.connect() as conn:
+            version_rows = conn.execute(
+                sa.text("SELECT version_num FROM alembic_version")
+            ).fetchall()
+        assert version_rows, "alembic_version にリビジョンが記録されていること"
+        # 追いつき適用(upgrade head)でシードデータ投入まで完了していること
+        assert _admin_password_hash(engine) is not None
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.integration
 def test_partial_legacy_database_is_not_auto_healed(tmp_path):
     """一部テーブルしか無い中途半端な状態は自動判断せずエラー終了すること。"""
     _setup_test_env()

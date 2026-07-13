@@ -19,6 +19,17 @@
   コンテナが生成されない起動前エラーは `docker compose logs` に残らないため）、
   (2) 診断対象サービスに `init-paths` を追加し、`docker compose ps -a` で終了済み
   コンテナも一覧するようにした。
+- **CRLF 改行の `.env` で `HOST_DATA_ROOT` 等のパスが壊れる問題を修正**
+  （`scripts/deploy.sh`）。Windows で編集された `.env` は CRLF になりうる。
+  docker compose 自身の `.env` パーサーは CRLF を許容するが、deploy.sh が
+  `grep`/`cut` で読んで export した値は compose の値より優先されるため、CR が
+  残ると実在するディレクトリでも `Bind mount failed: '<path>\r' does not exist`
+  になる（エラー表示自体も CR で行頭上書きされ判読不能になる）。`env_file_value`
+  で CR と前後空白を除去するようにした。あわせて、解決したマウントルートを
+  デプロイ開始時にログ出力するようにした（旧配置 `<環境dir>/db_data` 直下から
+  現行の `<環境dir>/mnt` 配下への移行はスクリプトでは扱わない。旧データは
+  作り直す運用とし、引き継ぐ場合は手動で移動するか `.env` の `HOST_DATA_ROOT`
+  で旧配置を指す）。
 
 ### Changed
 - **デプロイ構成を環境ごとの自己完結ディレクトリ（`photonest/{stg,prod}/`）に再編**。

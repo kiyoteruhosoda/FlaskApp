@@ -58,10 +58,16 @@ COMPOSE_FILE="$BASE_DIR/docker-compose.yml"
 ENV_FILE="$BASE_DIR/.env"
 
 # ===== .env の値を読む（compose interpolation と同じく「最後の定義」を採用） =====
+# CR（Windows 改行の混入）と前後の空白は必ず除去する。docker compose 自身の
+# .env パーサーは CRLF を許容するが、ここで読んだ値は export されて compose の
+# 値より優先されるため、CR が残ると実在するパスでも
+#   Bind mount failed: '<path>\r' does not exist
+# という一見矛盾したエラーになる（エラー表示も CR で行頭上書きされ判読不能になる）。
 env_file_value() {
   local key="$1"
   [ -f "$ENV_FILE" ] || return 0
-  grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | tail -n1 | cut -d'=' -f2- || true
+  grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | tail -n1 | cut -d'=' -f2- \
+    | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' || true
 }
 
 # マウントルート。既定は環境ディレクトリ配下の mnt/（.env の HOST_DATA_ROOT で上書き可）。
@@ -144,6 +150,10 @@ if ! docker info >/dev/null 2>&1; then
   echo "    sudo $0 $MODE" >&2
   exit 1
 fi
+
+# どのマウントルートで動くかをデプロイ開始時に明示する（.env の HOST_DATA_ROOT
+# 指定ミスやパス取り違えをログから即座に確認できるようにする）。
+log "Mount root: $HOST_DATA_ROOT"
 
 # ===== Load a docker image tar with visible progress =====
 # `docker load` は標準では進捗を表示せず、大きいイメージだと数分間無反応に見える。

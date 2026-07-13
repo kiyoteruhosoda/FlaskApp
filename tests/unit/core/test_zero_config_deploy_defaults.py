@@ -149,6 +149,27 @@ def test_deploy_script_creates_host_mount_root_before_up():
 
 
 @pytest.mark.unit
+def test_deploy_script_env_file_value_strips_cr_and_whitespace():
+    """.env から読む値の CR（CRLF 改行）と前後空白を除去すること。
+
+    Windows で編集された .env は CRLF になりうる。docker compose 自身の .env
+    パーサーは CRLF を許容するが、deploy.sh が grep/cut で読んで export した値は
+    compose の値より優先されるため、CR が残ると HOST_DATA_ROOT 等のパスが
+    ``Bind mount failed: '<path>\\r' does not exist`` という一見矛盾したエラーに
+    なる（エラー表示自体も CR で行頭上書きされ判読不能になる）。
+    """
+    text = (ROOT / "scripts" / "deploy.sh").read_text(encoding="utf-8")
+
+    func_match = re.search(r"env_file_value\(\)\s*\{(.*?)\n\}", text, re.DOTALL)
+    assert func_match is not None, "deploy.sh に env_file_value 関数がありません"
+    body = func_match.group(1)
+    assert r"tr -d '\r'" in body, (
+        "env_file_value が CR を除去していません（CRLF の .env で"
+        "パスが壊れ、バインドマウントが失敗します）"
+    )
+
+
+@pytest.mark.unit
 def test_deploy_script_includes_init_paths_in_diagnostics():
     """起動失敗時の診断対象サービスに init-paths を含めること。
 

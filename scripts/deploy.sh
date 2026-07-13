@@ -58,10 +58,16 @@ COMPOSE_FILE="$BASE_DIR/docker-compose.yml"
 ENV_FILE="$BASE_DIR/.env"
 
 # ===== .env の値を読む（compose interpolation と同じく「最後の定義」を採用） =====
+# CR（Windows 改行の混入）と前後の空白は必ず除去する。docker compose 自身の
+# .env パーサーは CRLF を許容するが、ここで読んだ値は export されて compose の
+# 値より優先されるため、CR が残ると実在するパスでも
+#   Bind mount failed: '<path>\r' does not exist
+# という一見矛盾したエラーになる（エラー表示も CR で行頭上書きされ判読不能になる）。
 env_file_value() {
   local key="$1"
   [ -f "$ENV_FILE" ] || return 0
-  grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | tail -n1 | cut -d'=' -f2- || true
+  grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | tail -n1 | cut -d'=' -f2- \
+    | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' || true
 }
 
 # マウントルート。既定は環境ディレクトリ配下の mnt/（.env の HOST_DATA_ROOT で上書き可）。
@@ -142,6 +148,28 @@ if ! docker info >/dev/null 2>&1; then
   err "Cannot reach the Docker daemon (permission denied or daemon down)."
   echo "  Run this script with sudo, or add your user to the 'docker' group and re-login:" >&2
   echo "    sudo $0 $MODE" >&2
+  exit 1
+fi
+
+# ===== Preflight: 旧配置（<環境dir>/db_data 直下）のデータ引き継ぎガード =====
+# 旧 deploy-stg.sh 時代のマウントルートは <環境dir> 直下（db_data/・data/）だった。
+# 現行の既定は <環境dir>/mnt 配下のため、旧データが残ったまま app/migrate を実行すると
+# 空の mnt/db_data で MariaDB が新規初期化され、既存データが使われない事故になる。
+# 旧 db_data があり新側に無い場合は、何も変更しないうちに停止して対処を促す。
+log "Mount root: $HOST_DATA_ROOT"
+if [ "$MODE" != "reset" ] && [ -d "$BASE_DIR/db_data" ] && [ ! -d "$DB_PATH" ]; then
+  err "旧配置の DB データが見つかりました: $BASE_DIR/db_data（現在のマウントルート $HOST_DATA_ROOT には db_data がありません）"
+  echo "  このまま続行すると空の DB が新規初期化され、既存データが使われません。以下のどちらかで対処してください:" >&2
+  echo "" >&2
+  echo "  A) 既存データを新配置へ移動する（推奨）:" >&2
+  echo "       mkdir -p \"$HOST_DATA_ROOT\"" >&2
+  echo "       mv \"$BASE_DIR/db_data\" \"$HOST_DATA_ROOT/\"" >&2
+  echo "       [ -d \"$BASE_DIR/data\" ] && mv \"$BASE_DIR/data\" \"$HOST_DATA_ROOT/\"" >&2
+  echo "" >&2
+  echo "  B) 旧配置のまま使う: $ENV_FILE に HOST_DATA_ROOT=$BASE_DIR を設定する" >&2
+  echo "" >&2
+  echo "  ※ 旧データを破棄して新規初期化してよい場合のみ、$BASE_DIR/db_data をリネーム／削除して再実行してください。" >&2
+  err "Deploy aborted before any changes (mode: $MODE, env: $ENV_NAME)"
   exit 1
 fi
 

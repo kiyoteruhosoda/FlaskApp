@@ -95,13 +95,16 @@ case "$MODE" in
 esac
 
 # ===== エラー時診断: 失敗したモジュールのログを出して終了する =====
-ALL_SERVICES=(web db nginx worker beat redis)
+# init-paths を含める（マウントルート作成の run-once コンテナ。ここで失敗すると
+# db 等がそもそも起動しないため、真っ先にログを確認したい）。
+ALL_SERVICES=(init-paths db redis web worker beat nginx)
 
 dump_module_logs() { # 引数: サービス名...
   echo "" >&2
   echo "----- diagnostics ($TAG) -----" >&2
   echo "$TAG container status:" >&2
-  $COMPOSE ps >&2 || true
+  # -a: 起動に失敗して即終了したコンテナ（init-paths 等）も一覧に出す。
+  $COMPOSE ps -a >&2 || true
   local svc
   for svc in "$@"; do
     echo "" >&2
@@ -336,11 +339,37 @@ fi
 
 ensure_db_image
 
+# ===== Ensure the host mount root exists =====
+# init-paths コンテナが data/・db_data/ 等のサブディレクトリ作成と所有権設定を
+# 担うが、その init-paths 自身が HOST_DATA_ROOT（既定 <環境dir>/mnt）を
+# バインドマウントする。Docker はバインドマウント元が存在しなくても自動作成
+# しないため、mnt/ が無い新規デプロイでは最初のコンテナ起動時点で
+#   Error response from daemon: Bind mount failed: '<HOST_DATA_ROOT>' does not exist
+# となり、以降のコンテナが一切起動しない（ログも残らない）。マウントルートだけは
+# ここで確実に作り、サブディレクトリ作成・所有権付与は従来どおり init-paths に任せる。
+log "Ensuring host mount root exists: $HOST_DATA_ROOT"
+if ! mkdir -p "$HOST_DATA_ROOT"; then
+  fail "Could not create host mount root: $HOST_DATA_ROOT（親ディレクトリの権限を確認してください）"
+fi
+
 # ===== Start containers =====
 log "docker compose up -d"
-if ! $COMPOSE up -d --remove-orphans; then
-  fail "docker compose up failed" "${ALL_SERVICES[@]}"
+# 出力を tee で捕捉する。バインドマウント失敗などの起動前エラーはコンテナが
+# 生成されないため `docker compose logs` には一切残らず、失敗時の診断で唯一の
+# 手がかりになる。またパイプ経由だと compose は非TTYと判断してプレーンな
+# 行単位出力に切り替わるため、進捗バーの \r による表示崩れも避けられる。
+UP_OUTPUT="$(mktemp)"
+if ! $COMPOSE up -d --remove-orphans 2>&1 | tee "$UP_OUTPUT"; then
+  err "docker compose up failed"
+  echo "" >&2
+  echo "$TAG ---- 'docker compose up' の出力（バインドマウント失敗等はコンテナログに残らないため再掲）----" >&2
+  cat "$UP_OUTPUT" >&2
+  rm -f "$UP_OUTPUT"
+  dump_module_logs "${ALL_SERVICES[@]}"
+  err "Deploy failed (mode: $MODE, env: $ENV_NAME)"
+  exit 1
 fi
+rm -f "$UP_OUTPUT"
 
 # ===== Wait for DB to actually accept TCP connections =====
 # docker compose の depends_on/healthcheck は「healthy」と報告された時点で次に進むが、

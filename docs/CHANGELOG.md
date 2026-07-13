@@ -5,6 +5,21 @@
 
 ## [Unreleased]
 
+### Fixed
+- **新規デプロイが `Bind mount failed: '<HOST_DATA_ROOT>' does not exist` で失敗する
+  問題を修正**（`scripts/deploy.sh`）。環境ごとの自己完結ディレクトリ化で
+  `HOST_DATA_ROOT` の既定が `<環境dir>` から `<環境dir>/mnt` に変わったが、
+  マウントルート `mnt/` を作成する処理が無かった。`init-paths` コンテナが
+  `data/`・`db_data/` のサブディレクトリを作る設計だが、その `init-paths` 自身が
+  `HOST_DATA_ROOT` をバインドマウントするため、`mnt/` が存在しない新規環境では
+  最初のコンテナ起動時点で失敗し、以降のコンテナが一切起動しなかった
+  （Docker はバインドマウント元を自動作成しない）。`docker compose up` の前に
+  マウントルートを `mkdir -p` するようにした。あわせて起動失敗時の診断を強化:
+  (1) `docker compose up` の出力を捕捉して失敗時に再掲する（バインドマウント失敗など
+  コンテナが生成されない起動前エラーは `docker compose logs` に残らないため）、
+  (2) 診断対象サービスに `init-paths` を追加し、`docker compose ps -a` で終了済み
+  コンテナも一覧するようにした。
+
 ### Changed
 - **デプロイ構成を環境ごとの自己完結ディレクトリ（`photonest/{stg,prod}/`）に再編**。
   各環境ディレクトリに `image.tar`・`scripts/deploy.sh`・`.env`・

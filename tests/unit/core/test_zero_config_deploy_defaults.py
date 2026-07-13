@@ -125,6 +125,47 @@ def test_deploy_scripts_generate_env_file_when_missing(script: Path):
 
 
 @pytest.mark.unit
+def test_deploy_script_creates_host_mount_root_before_up():
+    """`docker compose up` の前に HOST_DATA_ROOT（マウントルート）を作成すること。
+
+    init-paths コンテナが data/・db_data/ のサブディレクトリを作るが、その
+    init-paths 自身が HOST_DATA_ROOT をバインドマウントする。Docker はバインド
+    マウント元を自動作成しないため、mnt/ が存在しない新規デプロイでは最初の
+    コンテナ起動時点で ``Bind mount failed: '<HOST_DATA_ROOT>' does not exist``
+    となり、以降のコンテナが一切起動しない（ログも残らない）。
+    """
+    text = (ROOT / "scripts" / "deploy.sh").read_text(encoding="utf-8")
+
+    up_index = text.index("$COMPOSE up -d")
+    mkdir_pattern = re.compile(r'mkdir -p "\$HOST_DATA_ROOT"')
+    match = mkdir_pattern.search(text)
+    assert match is not None, (
+        "deploy.sh が HOST_DATA_ROOT（マウントルート）を mkdir していません"
+        "（init-paths のバインドマウントが 'does not exist' で失敗します）"
+    )
+    assert match.start() < up_index, (
+        "HOST_DATA_ROOT の作成が 'docker compose up' より後になっています"
+    )
+
+
+@pytest.mark.unit
+def test_deploy_script_includes_init_paths_in_diagnostics():
+    """起動失敗時の診断対象サービスに init-paths を含めること。
+
+    init-paths はマウントルート作成の run-once コンテナで、ここでの失敗が
+    「db が起動しない」原因になる。診断ログの対象から漏れると原因追跡が困難。
+    """
+    text = (ROOT / "scripts" / "deploy.sh").read_text(encoding="utf-8")
+
+    all_services_match = re.search(r"ALL_SERVICES=\(([^)]*)\)", text)
+    assert all_services_match is not None, "deploy.sh に ALL_SERVICES がありません"
+    assert "init-paths" in all_services_match.group(1), (
+        "ALL_SERVICES に init-paths が含まれていません"
+        "（バインドマウント失敗時に init-paths のログが診断に出ません）"
+    )
+
+
+@pytest.mark.unit
 def test_deploy_script_health_url_follows_env_web_host_port():
     """HEALTH_URL は .env の WEB_HOST_PORT（未設定時は環境別デフォルト）に追従し、
     生成する .env も同じ値を固定すること。ヘルスチェック先と compose の公開

@@ -14,11 +14,18 @@ Alembic管理外で既にテーブルが存在する DB に対して素朴に ``
 """
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
+import pytest
+import sqlalchemy as sa
+
 from scripts.run_db_migrations import (
     AMBIGUOUS,
     FRESH,
+    MIGRATION_LOCK_NAME,
     STAMP_THEN_UPGRADE,
     decide_strategy,
+    serialized_migration,
 )
 
 TARGET_TABLES = {"user", "role", "permission", "worker_log", "log"}
@@ -70,3 +77,92 @@ def test_single_unrelated_table_is_treated_as_fresh():
     """ターゲット外のテーブルしか無ければ新規DB扱い（例: 別用途DBの誤接続ではない前提）。"""
     existing = {"some_other_app_table"}
     assert decide_strategy(existing, TARGET_TABLES, None) == FRESH
+
+
+# ---------------------------------------------------------------------------
+# serialized_migration: 同時マイグレーションの直列化ロック
+#
+# STG の `deploy.sh reset` で、web コンテナ entrypoint と deploy.sh の docker exec が
+# 空DBへ同時にマイグレーションを走らせ、両者とも FRESH と判定して init_master の
+# CREATE TABLE を並行実行し "Table 'worker_log' already exists" (1050) で衝突・
+# クラッシュループした障害の回帰テスト。
+# ---------------------------------------------------------------------------
+
+
+def _mock_mysql_engine(get_lock_result):
+    """dialect が mysql の疑似 Engine を作る。GET_LOCK の戻り値を差し替えられる。"""
+    conn = MagicMock()
+
+    def exec_driver_sql(sql, *args, **kwargs):
+        result = MagicMock()
+        result.scalar.return_value = (
+            get_lock_result if "GET_LOCK" in sql else None
+        )
+        return result
+
+    conn.exec_driver_sql.side_effect = exec_driver_sql
+
+    engine = MagicMock()
+    engine.dialect.name = "mysql"
+    engine.connect.return_value = conn
+    return engine, conn
+
+
+def _executed_sql(conn) -> list[str]:
+    return [call.args[0] for call in conn.exec_driver_sql.call_args_list]
+
+
+def test_serialized_migration_is_noop_on_sqlite():
+    """SQLite（ネームドロック非対応）ではロックを一切発行しない。"""
+    engine = sa.create_engine("sqlite://")
+    try:
+        with serialized_migration(engine):
+            pass
+    finally:
+        engine.dispose()
+    # 何も起きなければ成功（例外が出ないこと）。
+
+
+def test_serialized_migration_acquires_and_releases_lock_on_mysql():
+    engine, conn = _mock_mysql_engine(get_lock_result=1)
+
+    with serialized_migration(engine):
+        pass
+
+    sqls = _executed_sql(conn)
+    assert any("GET_LOCK" in s for s in sqls)
+    assert any("RELEASE_LOCK" in s for s in sqls)
+    # GET_LOCK にロック名が渡っていること
+    get_lock_call = next(
+        c for c in conn.exec_driver_sql.call_args_list if "GET_LOCK" in c.args[0]
+    )
+    assert get_lock_call.args[1][0] == MIGRATION_LOCK_NAME
+    conn.close.assert_called_once()
+
+
+def test_serialized_migration_releases_lock_even_on_exception():
+    """ブロック内で例外が起きてもロックは必ず解放する。"""
+    engine, conn = _mock_mysql_engine(get_lock_result=1)
+
+    with pytest.raises(ValueError):
+        with serialized_migration(engine):
+            raise ValueError("boom")
+
+    sqls = _executed_sql(conn)
+    assert any("RELEASE_LOCK" in s for s in sqls)
+    conn.close.assert_called_once()
+
+
+def test_serialized_migration_raises_when_lock_not_acquired():
+    """GET_LOCK がタイムアウト(0)を返したら明確なエラーで停止し、ブロックへ入らない。"""
+    engine, conn = _mock_mysql_engine(get_lock_result=0)
+    entered = False
+
+    with pytest.raises(RuntimeError, match="ロック"):
+        with serialized_migration(engine):
+            entered = True  # ここへは到達しないはず
+
+    assert entered is False
+    # ロックを取得できていないので RELEASE_LOCK は発行しない
+    assert not any("RELEASE_LOCK" in s for s in _executed_sql(conn))
+    conn.close.assert_called_once()

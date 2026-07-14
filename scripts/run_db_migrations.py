@@ -25,9 +25,19 @@ Alembic はマイグレーション実行前にこのテーブルを作成する
 非トランザクショナルでロールバックされない）。この状態を「管理下」と誤認すると
 再起動のたびに同じ CREATE TABLE 失敗を繰り返すため、実際に記録されている
 リビジョンの有無で判定する（本番環境で再現した障害）。
+
+さらに、マイグレーションはネームドロックで**直列化**する。web コンテナの
+entrypoint（起動時に本スクリプトを実行）と ``deploy.sh``（reset/migrate 時に
+``docker exec`` で同じスクリプトを実行）は、reset 直後の空DBに対してほぼ同時に
+起動する。両者とも「新規DB(FRESH)」と判定して ``init_master`` の CREATE TABLE を
+並行実行すると、``Table 'worker_log' already exists`` (1050) で一方が失敗し
+web がクラッシュループする（STG の ``deploy.sh reset`` で再現した障害）。
+``decide_strategy`` の冪等判定は同時実行までは守れない（両者が同じ空DBを見て
+FRESH を選ぶ）ため、DBレベルのロックで一度に1プロセスだけが適用するようにする。
 """
 from __future__ import annotations
 
+import contextlib
 import os
 import sys
 from pathlib import Path
@@ -53,6 +63,13 @@ BASELINE_REVISION = "init_master"
 FRESH = "fresh"
 STAMP_THEN_UPGRADE = "stamp_then_upgrade"
 AMBIGUOUS = "ambiguous"
+
+# 同時マイグレーションを直列化するためのネームドロック。
+# init_master + seed のフル適用は数十秒〜数分かかりうるため、待ち側は余裕を
+# もってブロックする（先発プロセスの完了後に FRESH の upgrade head が no-op に
+# なることを見込む）。
+MIGRATION_LOCK_NAME = "photonest_schema_migration"
+MIGRATION_LOCK_TIMEOUT_SECONDS = 900
 
 
 def get_database_url() -> str:
@@ -150,17 +167,54 @@ def decide_strategy(
     return AMBIGUOUS  # 一部だけ存在する中途半端な状態は自動判断しない
 
 
-def run(database_url: str) -> int:
-    engine = sa.create_engine(database_url, pool_pre_ping=True)
+@contextlib.contextmanager
+def serialized_migration(engine: sa.engine.Engine):
+    """MySQL/MariaDB のネームドロックで同時マイグレーションを直列化する。
+
+    web コンテナの entrypoint と ``deploy.sh`` の ``docker exec`` が、reset 直後の
+    空DBに対してほぼ同時に本スクリプトを起動する。両者とも FRESH と判定して
+    ``init_master`` の CREATE TABLE を並行実行し ``Table '...' already exists`` で
+    衝突する（STG の ``deploy.sh reset`` で再現した障害）。``GET_LOCK`` で直列化
+    すると、後発プロセスは先発プロセスの完了を待ってからテーブルと
+    ``alembic_version`` を検査する。その時点では既に head まで適用済みのため
+    FRESH 経路の ``upgrade head`` が no-op となり衝突しない。
+
+    ロックはコネクション単位で保持されるため、専用コネクションを丸ごと
+    マイグレーション完了まで開いたままにする。SQLite などネームドロック
+    非対応バックエンドでは何もしない（テスト用）。
+    """
+    if engine.dialect.name not in ("mysql", "mariadb"):
+        yield
+        return
+
+    conn = engine.connect()
     try:
-        existing_tables = existing_table_names(engine)
-        recorded_revision = recorded_alembic_revision(engine, existing_tables)
+        acquired = conn.exec_driver_sql(
+            "SELECT GET_LOCK(%s, %s)",
+            (MIGRATION_LOCK_NAME, MIGRATION_LOCK_TIMEOUT_SECONDS),
+        ).scalar()
+        if acquired != 1:
+            raise RuntimeError(
+                f"DBマイグレーションロック '{MIGRATION_LOCK_NAME}' を "
+                f"{MIGRATION_LOCK_TIMEOUT_SECONDS}s 以内に取得できませんでした"
+                f"（GET_LOCK の戻り値: {acquired!r}）。別プロセスのマイグレーションが"
+                "長時間ロックを保持している可能性があります。"
+            )
+        try:
+            yield
+        finally:
+            conn.exec_driver_sql("SELECT RELEASE_LOCK(%s)", (MIGRATION_LOCK_NAME,))
     finally:
-        engine.dispose()
+        conn.close()
 
-    target_tables = load_target_table_names()
-    strategy = decide_strategy(existing_tables, target_tables, recorded_revision)
 
+def apply_strategy(
+    strategy: str,
+    existing_tables: set[str],
+    target_tables: set[str],
+    database_url: str,
+) -> int:
+    """決定済みの戦略に従って stamp/upgrade を実行する（ロック保持中に呼ぶ前提）。"""
     cfg = Config(str(ALEMBIC_INI))
     cfg.set_main_option("script_location", str(ROOT / "migrations"))
     cfg.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
@@ -198,6 +252,29 @@ def run(database_url: str) -> int:
             os.environ.pop("DATABASE_URI", None)
         else:
             os.environ["DATABASE_URI"] = previous_database_uri
+
+    return 0
+
+
+def run(database_url: str) -> int:
+    target_tables = load_target_table_names()
+
+    engine = sa.create_engine(database_url, pool_pre_ping=True)
+    try:
+        # 戦略判定と適用はロック内で一括して行う。判定だけ先に行うと、後発プロセスが
+        # 先発プロセスの CREATE TABLE 途中の空DBを見て FRESH を選んでしまう。
+        with serialized_migration(engine):
+            existing_tables = existing_table_names(engine)
+            recorded_revision = recorded_alembic_revision(engine, existing_tables)
+            strategy = decide_strategy(existing_tables, target_tables, recorded_revision)
+            exit_code = apply_strategy(
+                strategy, existing_tables, target_tables, database_url
+            )
+    finally:
+        engine.dispose()
+
+    if exit_code != 0:
+        return exit_code
 
     log_admin_login_self_check(database_url)
     return 0

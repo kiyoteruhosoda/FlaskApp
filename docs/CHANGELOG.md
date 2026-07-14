@@ -28,6 +28,19 @@
   する。
 
 ### Fixed
+- **取り込み中のステータスポーリングが InnoDB デッドロック（1213）で 500 になる問題を修正**
+  （`shared/kernel/database/deadlock_retry.py` を新設、
+  `bounded_contexts/picker_import/application/picker_session_service.py`）。
+  フロントエンドがセッションの status / logs / selections を並行ポーリングし、
+  同時に Celery の取り込みタスクも同じ `picker_session` 行を更新するため、
+  `status()` の `last_polled_at` / `expire_time` UPDATE がデッドロックの犠牲
+  トランザクションに選ばれると `OperationalError (1213)` で 500 を返していた。
+  さらに失敗した flush が共有 `db.session` を pending-rollback のまま残すため、
+  並行中の logs / selections リクエストも `PendingRollbackError` で連鎖的に
+  失敗していた。`run_with_deadlock_retry`（rollback → 指数バックオフ →
+  トランザクション全体を再実行、最大3回）で `status()` をラップし、
+  デッドロック時に自動回復するようにした。rollback を即座に行うため
+  pending-rollback の連鎖も解消される。
 - **取り込んだ画像（サムネイル等）が `/api/dl/{token}` で 401 になり表示できない問題を修正**
   （`presentation/fastapi/dependencies/auth.py`）。署名付きダウンロード URL は
   `<img src="/api/dl/...">` で直接読み込まれるが、ブラウザの画像リクエストは

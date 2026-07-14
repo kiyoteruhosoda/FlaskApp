@@ -38,6 +38,7 @@ from shared.application.concurrency import (
     ConcurrencyLimitExceeded,
     create_limiter,
 )
+from shared.kernel.database.deadlock_retry import run_with_deadlock_retry
 from shared.kernel.time.clock import utc_now_isoformat
 
 # ピッカーセッションのログ取得上限（presentation 層の routes と共有する単一の真実の源）
@@ -428,6 +429,20 @@ class PickerSessionService:
     # --- Status -----------------------------------------------------------
     @staticmethod
     def status(ps: PickerSession) -> dict:
+        """ピッカーセッションの状態を集計・更新して返す。
+
+        フロントエンドが status / logs / selections を並行ポーリングする一方、
+        Celery の取り込みタスクも同じ ``picker_session`` 行を更新するため、
+        ``last_polled_at`` 等の UPDATE が InnoDB デッドロック（1213）で
+        失敗することがある。デッドロック時はロールバックして全体を再実行する。
+        """
+        return run_with_deadlock_retry(
+            lambda: PickerSessionService._status_impl(ps),
+            session=db.session,
+        )
+
+    @staticmethod
+    def _status_impl(ps: PickerSession) -> dict:
         account = db.session.get(GoogleAccount, ps.account_id) if ps.account_id else None
         selected = ps.selected_count
 

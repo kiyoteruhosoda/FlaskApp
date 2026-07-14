@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Cookie, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
@@ -17,6 +17,9 @@ from shared.kernel.database.session import get_db
 
 logger = logging.getLogger(__name__)
 
+# アクセストークンを格納する Cookie 名（ログイン時に auth ルーターが設定する）
+ACCESS_TOKEN_COOKIE = "access_token"
+
 # Cookie または Authorization ヘッダーからトークンを取得する
 # auto_error=False にして手動でクッキーフォールバックを行う
 _bearer_scheme = HTTPBearer(auto_error=False)
@@ -24,14 +27,26 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 
 def _extract_token(
     credentials: Optional[HTTPAuthorizationCredentials],
+    access_token_cookie: Optional[str] = None,
 ) -> Optional[str]:
+    """Authorization ヘッダー優先、無ければ Cookie からアクセストークンを取得する。
+
+    ``<img src="/api/dl/...">`` のようにブラウザが Authorization ヘッダーを
+    付与できないリクエストでは、ログイン時に設定される ``access_token`` Cookie を
+    フォールバックとして利用する（Flask 版の ``login_or_jwt_required`` 相当）。
+    """
     if credentials and credentials.scheme.lower() == "bearer":
         return credentials.credentials
+    if access_token_cookie:
+        return access_token_cookie
     return None
 
 
 async def get_current_principal(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_scheme),
+    access_token_cookie: Optional[str] = Cookie(
+        default=None, alias=ACCESS_TOKEN_COOKIE
+    ),
     db: Session = Depends(get_db),
 ) -> AuthenticatedPrincipal:
     """JWT を検証して ``AuthenticatedPrincipal`` を返す依存関数。
@@ -40,7 +55,7 @@ async def get_current_principal(
     """
     from presentation.fastapi.services.token_service import TokenService
 
-    token = _extract_token(credentials)
+    token = _extract_token(credentials, access_token_cookie)
 
     if not token:
         raise HTTPException(
@@ -63,15 +78,18 @@ async def get_current_principal(
 
 async def get_optional_principal(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_scheme),
+    access_token_cookie: Optional[str] = Cookie(
+        default=None, alias=ACCESS_TOKEN_COOKIE
+    ),
     db: Session = Depends(get_db),
 ) -> Optional[AuthenticatedPrincipal]:
-    """Authorization ヘッダーから JWT を検証する。
+    """Authorization ヘッダーまたは Cookie から JWT を検証する。
 
     認証失敗時は ``None`` を返す（例外は送出しない）。
     """
     from presentation.fastapi.services.token_service import TokenService
 
-    token = _extract_token(credentials)
+    token = _extract_token(credentials, access_token_cookie)
     if not token:
         return None
 

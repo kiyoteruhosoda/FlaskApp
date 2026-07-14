@@ -28,6 +28,17 @@
   する。
 
 ### Fixed
+- **取り込んだ画像（サムネイル等）が `/api/dl/{token}` で 401 になり表示できない問題を修正**
+  （`presentation/fastapi/dependencies/auth.py`）。署名付きダウンロード URL は
+  `<img src="/api/dl/...">` で直接読み込まれるが、ブラウザの画像リクエストは
+  `Authorization` ヘッダーを付与できず Cookie のみを送る。FastAPI 移行後の
+  `get_current_principal` は Bearer ヘッダーしか参照しておらず（docstring では
+  「Cookie フォールバック」を謳っていたが未実装）、ログイン時に設定される
+  `access_token` Cookie を無視していたため、常に `401 authentication_required`
+  を返していた。Flask 版の `@login_or_jwt_required`（セッション Cookie または JWT）
+  相当の挙動へ戻し、`get_current_principal` / `get_optional_principal` が
+  Authorization ヘッダーを優先しつつ `access_token` Cookie もフォールバックとして
+  受理するよう修正した。
 - **FastAPI の共有スコープセッション未破棄で「一覧には出るが詳細は not_found」になる問題を修正**
   （`presentation/fastapi/middleware/db_session.py` を新設し `app.py` に登録）。
   `async def` エンドポイントはすべて単一のイベントループスレッド上で動くため、

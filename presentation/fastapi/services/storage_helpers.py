@@ -3,8 +3,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from bounded_contexts.storage.infrastructure.filesystem import StorageArea, StorageSelector, StorageService
-from bounded_contexts.storage import StorageDomain, StorageIntent, StorageResolution
+from bounded_contexts.storage.infrastructure.filesystem import (
+    ResolvedPath,
+    StorageArea,
+    StorageSelector,
+    StorageService,
+)
+from bounded_contexts.storage import StorageDomain, StorageIntent
 from shared.kernel.settings.settings import settings
 
 
@@ -15,7 +20,19 @@ _STORAGE_DEFAULTS: dict[str, tuple[str, ...]] = {}
 class ResolvedStorageFile:
     selector: StorageSelector
     area: StorageArea
-    resolution: StorageResolution
+    resolution: ResolvedPath
+
+    @property
+    def absolute_path(self) -> str | None:
+        return self.resolution.absolute_path
+
+    @property
+    def base_path(self) -> str | None:
+        return self.resolution.base_path
+
+    @property
+    def exists(self) -> bool:
+        return self.resolution.exists
 
 
 def _storage_service() -> StorageService:

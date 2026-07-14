@@ -28,6 +28,33 @@
   する。
 
 ### Fixed
+- **FastAPI の共有スコープセッション未破棄で「一覧には出るが詳細は not_found」になる問題を修正**
+  （`presentation/fastapi/middleware/db_session.py` を新設し `app.py` に登録）。
+  `async def` エンドポイントはすべて単一のイベントループスレッド上で動くため、
+  Flask 互換の `db.session`（スレッドローカルな `scoped_session`）はプロセス内で
+  1 つの Session を共有し続ける。読み取り専用リクエストは commit しないため、
+  MariaDB/InnoDB の REPEATABLE READ で最初の SELECT のスナップショットが固定され、
+  以降に別コネクション（`get_db`）でコミットされた行が見えなくなっていた。結果、
+  ピッカーセッション一覧（`get_db` 使用）には表示されるのに詳細・選択取得
+  （`db.session` 使用の `resolve_session_identifier`）が `not_found` を返していた。
+  各リクエスト終了時に `db.session.remove()` してスナップショットをリセットする。
+- **サムネイル URL 等の配信 API が `AttributeError` で 500 を返す問題を修正**
+  （`presentation/fastapi/services/storage_helpers.py`）。`ResolvedStorageFile` が
+  解決結果（`ResolvedPath`）を `resolution` フィールドに保持するだけで `exists` /
+  `absolute_path` / `base_path` を公開しておらず、`media.py` の各配信エンドポイント
+  （`POST /api/media/{id}/thumb-url` ほか）が `'ResolvedStorageFile' object has no
+  attribute 'exists'` で落ちてメディアギャラリーが表示されなかった。`ResolvedPath`
+  へ委譲するプロパティを追加。
+- **タグ一覧 API が `limit=200` で 422 を返す問題を修正**
+  （`presentation/fastapi/routers/tags.py`）。フロントエンド（`MediaSearchBar`）が
+  `GET /api/tags?limit=200` を要求するのに上限が `le=100` だったため検証エラーに
+  なっていた。上限を 1000 に引き上げた。
+- **通知ベルの相対時刻がタイムゾーン分ずれる問題を修正**
+  （`presentation/fastapi/routers/picker_session.py` の `_iso`）。DB の DateTime
+  カラムは naive（UTC のウォールクロック）で返るのに `_iso` が tzinfo を付与せず、
+  `'Z'` の無い ISO8601 を返していた。フロントエンドがローカル時刻として解釈し、
+  「数分前」が JST で「9 時間前」と表示されていた。naive の場合は UTC とみなして
+  付与するよう修正。
 - **ピッカーセッション詳細 API 群が FastAPI 移行後に 500 を返す問題を修正**
   （`presentation/fastapi/routers/picker_session.py`）。T11 の移植時に
   `PickerSessionService` に存在しないメソッド（`serialize_session_detail` /

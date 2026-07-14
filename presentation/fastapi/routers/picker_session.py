@@ -26,6 +26,11 @@ router = APIRouter(prefix="/picker", tags=["picker-session"])
 def _iso(value) -> Optional[str]:
     if not value:
         return None
+    # DB の DateTime カラムは naive（UTC のウォールクロック）で返るため、
+    # tzinfo が無い場合は UTC とみなして付与する。これを怠ると 'Z' が付かず、
+    # フロントエンドがローカル時刻として解釈して時差分ずれる（例: JST で 9 時間）。
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
     return value.isoformat().replace("+00:00", "Z")
 
 

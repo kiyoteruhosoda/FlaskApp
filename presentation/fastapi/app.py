@@ -18,6 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from shared.kernel.settings.settings import settings
 from shared.kernel.version import get_version_string
 from presentation.fastapi.logging_setup import configure_db_logging
+from presentation.fastapi.middleware.db_session import ScopedSessionLifecycleMiddleware
 from presentation.fastapi.middleware.request_logging import RequestLoggingMiddleware
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,14 @@ def create_app() -> FastAPI:
     # preflight（OPTIONS）はログ対象外にする。
     # ------------------------------------------------------------------
     app.add_middleware(RequestLoggingMiddleware)
+
+    # ------------------------------------------------------------------
+    # DB セッションのライフサイクル管理
+    # ``async def`` エンドポイントが共有する Flask 互換スコープセッションを
+    # リクエストごとに破棄し、REPEATABLE READ のスナップショット固定による
+    # 「一覧には出るが詳細は not_found」不整合を防ぐ。
+    # ------------------------------------------------------------------
+    app.add_middleware(ScopedSessionLifecycleMiddleware)
 
     # ------------------------------------------------------------------
     # CORS

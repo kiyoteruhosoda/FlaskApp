@@ -43,7 +43,7 @@ def _serialize_tag(tag) -> dict:
 @router.get("/tags")
 async def api_tags_list(
     q: str = Query("", description="タグ名の部分一致フィルタ"),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=1000),
     principal: AuthenticatedPrincipal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):

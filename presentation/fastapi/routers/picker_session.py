@@ -151,12 +151,12 @@ async def api_picker_session_create(
 
 
 @router.get("/session/{picker_session_id:int}")
-async def api_picker_session_get_by_id(
+async def api_picker_session_summary(
     picker_session_id: int,
     principal: AuthenticatedPrincipal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
-    """数値 ID でピッカーセッション詳細を返す。"""
+    """数値 ID でピッカーセッションの選択件数・ジョブ概要を返す。"""
     from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
     from bounded_contexts.picker_import.application.picker_session_service import PickerSessionService
 
@@ -164,35 +164,17 @@ async def api_picker_session_get_by_id(
     if not ps:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": "not_found"})
 
-    payload = PickerSessionService.serialize_session_detail(ps, db)
-    return {"session": payload}
-
-
-@router.get("/session/{session_id:path}")
-async def api_picker_session_get(
-    session_id: str,
-    principal: AuthenticatedPrincipal = Depends(get_current_principal),
-    db: Session = Depends(get_db),
-):
-    """セッション ID 文字列でピッカーセッション詳細を返す。"""
-    from bounded_contexts.picker_import.application.picker_session_service import PickerSessionService
-
-    ps = PickerSessionService.resolve_session_identifier(session_id)
-    if not ps:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": "not_found"})
-
-    payload = PickerSessionService.serialize_session_detail(ps, db)
-    return {"session": payload}
+    return PickerSessionService.session_summary(ps)
 
 
 @router.post("/session/{session_id:path}/callback")
 async def api_picker_session_callback(
     session_id: str,
-    body: dict,
+    body: dict = {},
     principal: AuthenticatedPrincipal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
-    """Google Photos Picker のコールバックを処理する。"""
+    """Google Photos Picker のコールバック（選択されたメディア ID）を処理する。"""
     from bounded_contexts.picker_import.application.picker_session_service import PickerSessionService
 
     ps = PickerSessionService.resolve_session_identifier(session_id)
@@ -208,15 +190,18 @@ async def api_picker_session_callback(
 @router.get("/session/{session_id}/selections")
 async def api_picker_session_selections(
     session_id: str,
-    page: int = Query(1, ge=1),
-    pageSize: int = Query(50, ge=1, le=500),
+    page: Optional[int] = Query(None, ge=1),
+    pageSize: int = Query(200, ge=1, le=500),
+    cursor: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    status_filters: Optional[list[str]] = Query(None, alias="status"),
     principal: AuthenticatedPrincipal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
     """ピッカーセッションの選択アイテム一覧を返す。"""
+    from shared.application.pagination import PaginationParams
     from bounded_contexts.picker_import.application.picker_session_service import PickerSessionService
     from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
-    from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
 
     if session_id.isdigit():
         ps = db.get(PickerSession, int(session_id))
@@ -225,23 +210,49 @@ async def api_picker_session_selections(
     if not ps:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": "not_found"})
 
-    selections_query = db.query(PickerSelection).filter(PickerSelection.session_id == ps.id)
-    total = selections_query.count()
-    rows = selections_query.order_by(PickerSelection.id.asc()).offset((page - 1) * pageSize).limit(pageSize).all()
+    params = PaginationParams(
+        page=page,
+        page_size=pageSize,
+        cursor=cursor,
+        use_cursor=cursor is not None or page is None,
+    )
 
-    items = [PickerSessionService.serialize_selection(sel) for sel in rows]
-    total_pages = (total + pageSize - 1) // pageSize if pageSize else 0
-    return {
-        "items": items,
-        "pagination": {
-            "currentPage": page,
-            "pageSize": pageSize,
-            "totalCount": total,
-            "totalPages": total_pages,
-            "hasNext": page < total_pages,
-            "hasPrev": page > 1,
-        },
-    }
+    normalized_status_filters: list[str] = []
+    for raw_value in status_filters or []:
+        if not raw_value:
+            continue
+        parts = [part.strip().lower() for part in raw_value.split(",") if part.strip()]
+        normalized_status_filters.extend(parts)
+
+    search_term = search.strip() if isinstance(search, str) else None
+
+    return PickerSessionService.selection_details(
+        ps,
+        params,
+        status_filters=normalized_status_filters or None,
+        search_term=search_term or None,
+    )
+
+
+@router.get("/session/{session_id}/selections/{selection_id:int}/error")
+async def api_picker_session_selection_error(
+    session_id: str,
+    selection_id: int,
+    principal: AuthenticatedPrincipal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    """選択アイテム単体のエラー詳細を返す。"""
+    from bounded_contexts.picker_import.application.picker_session_service import PickerSessionService
+
+    ps = PickerSessionService.resolve_session_identifier(session_id)
+    if not ps:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": "not_found"})
+
+    payload = PickerSessionService.selection_error_payload(ps, selection_id)
+    if not payload:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": "not_found"})
+
+    return payload
 
 
 @router.post("/session/mediaItems")
@@ -250,21 +261,50 @@ async def api_picker_session_media_items(
     principal: AuthenticatedPrincipal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
-    """Google Photos からメディアアイテムを取得する。"""
+    """Google Photos Picker から選択済みメディアを取得・保存して取り込みを開始する。"""
     from bounded_contexts.picker_import.application.picker_session_service import PickerSessionService
+    from bounded_contexts.picker_import.application.session_import_logs import log_import_request_error
+    from shared.kernel.database.db import db as scoped_db
 
-    session_id = body.get("session_id") or body.get("pickerSessionId")
-    if not session_id:
-        raise HTTPException(status_code=400, detail={"error": "session_id_required"})
+    session_id = body.get("sessionId") or body.get("session_id") or body.get("pickerSessionId")
+    if not session_id or not isinstance(session_id, str):
+        raise HTTPException(status_code=400, detail={"error": "invalid_session"})
 
     ps = PickerSessionService.resolve_session_identifier(session_id)
     if not ps:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": "not_found"})
 
-    page_token = body.get("pageToken")
-    payload, status_code = PickerSessionService.get_media_items(ps, page_token=page_token)
+    cursor = body.get("cursor") or body.get("pageToken")
+    try:
+        payload, status_code = PickerSessionService.media_items(ps.session_id, cursor)
+    except Exception as exc:
+        logger.exception("Picker mediaItems fetch failed for session %s", session_id)
+        # セッション詳細画面のログにも残す（session_id 紐付け）。ログ失敗が
+        # レスポンス（502）を 500 に変えないよう防御的に扱う。
+        try:
+            scoped_db.session.rollback()
+            resolved_ps = PickerSessionService.resolve_session_identifier(session_id)
+            log_import_request_error(
+                session_identifier=getattr(resolved_ps, "session_id", session_id),
+                session_db_id=getattr(resolved_ps, "id", None),
+                event="import.picker.media_items_error",
+                message="メディアアイテムの取得に失敗しました",
+                exc=exc,
+            )
+        except Exception:  # pragma: no cover - ログ失敗はレスポンスに影響させない
+            logger.exception("Failed to persist media_items error to session log")
+        raise HTTPException(
+            status_code=502,
+            detail={"error": "picker_error", "message": str(exc)},
+        )
+
     if status_code not in (200, 201):
-        raise HTTPException(status_code=status_code, detail=payload)
+        headers = None
+        if status_code == 429 and isinstance(payload, dict):
+            retry_after = payload.get("retryAfter")
+            if isinstance(retry_after, (int, float)):
+                headers = {"Retry-After": str(max(0, int(round(retry_after))))}
+        raise HTTPException(status_code=status_code, detail=payload, headers=headers)
     return payload
 
 
@@ -331,16 +371,89 @@ async def api_picker_session_finish(
 @router.get("/session/{session_id}/logs")
 async def api_picker_session_logs(
     session_id: str,
-    limit: int = Query(100, ge=1, le=1000),
+    limit: Optional[str] = Query(None),
+    pageSize: Optional[str] = Query(None),
+    cursor: Optional[int] = Query(None),
+    after: Optional[int] = Query(None),
+    since: Optional[int] = Query(None),
+    file_task_id: Optional[str] = Query(None),
+    fileTaskId: Optional[str] = Query(None),
     principal: AuthenticatedPrincipal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
-    """ピッカーセッションのログを返す。"""
+    """ピッカーセッションの取り込みログ（WorkerLog）を返す。"""
+    from bounded_contexts.picker_import.application.picker_session_service import (
+        PickerSessionService,
+        SESSION_LOG_DEFAULT_LIMIT,
+        SESSION_LOG_MAX_LIMIT,
+    )
+    from bounded_contexts.picker_import.application.session_import_logs import (
+        collect_local_import_logs,
+    )
+
+    ps = PickerSessionService.resolve_session_identifier(session_id)
+    if not ps:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": "not_found"})
+
+    limit_param = limit if limit is not None else pageSize
+    limit_value: Optional[int]
+    if limit_param is None or not limit_param.strip():
+        limit_value = SESSION_LOG_DEFAULT_LIMIT
+    elif limit_param.strip().lower() in {"all", "full"}:
+        limit_value = None
+    else:
+        try:
+            limit_candidate = int(limit_param)
+        except (TypeError, ValueError):
+            limit_candidate = None
+        if limit_candidate is None:
+            limit_value = SESSION_LOG_DEFAULT_LIMIT
+        else:
+            limit_value = max(1, min(limit_candidate, SESSION_LOG_MAX_LIMIT))
+
+    requested_file_task_id = (file_task_id or fileTaskId or "").strip() or None
+    after_value = after if after is not None else since
+
+    file_task_id_index: dict[str, int] = {}
+    logs, meta = collect_local_import_logs(
+        ps,
+        limit=limit_value,
+        file_task_id=requested_file_task_id,
+        file_task_id_index=file_task_id_index,
+        before_log_id=cursor,
+        after_log_id=after_value,
+        return_meta=True,
+    )
+
+    ordered_file_task_ids = sorted(file_task_id_index.items(), key=lambda item: item[1])
+    payload = {
+        "logs": logs,
+        "fileTaskIds": [item[0] for item in ordered_file_task_ids],
+        "hasNext": bool(meta.get("has_more")),
+        "nextCursor": meta.get("next_cursor"),
+        "oldestLogId": meta.get("oldest_log_id"),
+        "newestLogId": meta.get("newest_log_id"),
+    }
+    if requested_file_task_id:
+        payload["selectedFileTaskId"] = requested_file_task_id
+    return payload
+
+
+@router.get("/session/{session_id:path}")
+async def api_picker_session_status(
+    session_id: str,
+    principal: AuthenticatedPrincipal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    """セッション ID 文字列でピッカーセッションの状態を返す。
+
+    ``{session_id:path}`` は ``/session/`` 以下をすべて受けるため、
+    より具体的なルート（selections / logs 等）より必ず後に登録する。
+    """
     from bounded_contexts.picker_import.application.picker_session_service import PickerSessionService
 
     ps = PickerSessionService.resolve_session_identifier(session_id)
     if not ps:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": "not_found"})
 
-    logs = PickerSessionService.get_session_logs(ps, limit=limit)
-    return {"logs": logs, "session_id": session_id}
+    return PickerSessionService.status(ps)

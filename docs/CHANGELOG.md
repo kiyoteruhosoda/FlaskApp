@@ -28,6 +28,29 @@
   する。
 
 ### Fixed
+- **ピッカーセッション詳細 API 群が FastAPI 移行後に 500 を返す問題を修正**
+  （`presentation/fastapi/routers/picker_session.py`）。T11 の移植時に
+  `PickerSessionService` に存在しないメソッド（`serialize_session_detail` /
+  `handle_callback` / `serialize_selection` / `get_media_items` /
+  `get_session_logs`）を呼んでおり、`GET /api/picker/session/{session_id}` などが
+  `AttributeError` で落ちていた。Flask 版と同じ契約に合わせて再実装:
+  - セッション詳細（文字列 ID）は `PickerSessionService.status()` の
+    ペイロードを直接返す（`{"session": ...}` ラップを廃止）。
+  - 数値 ID は件数＋ジョブ概要（`countsByStatus` / `jobSync`）を返す
+    （`PickerSessionService.session_summary` を新設）。
+  - 選択一覧は `selection_details()` に委譲し `selections` キーで返す
+    （旧実装は `items` キーでフロントエンドと不一致だった）。ステータス
+    絞り込み・検索・カーソルページングも復元。
+  - コールバックは `PickerSessionService.handle_callback` を新設して処理。
+  - `POST /session/mediaItems` はフロントエンドが送る `sessionId` キーを受け、
+    既存の `media_items()` に委譲（429 時は `Retry-After` ヘッダ付き）。
+  - 取り込みログ収集（旧 Flask 版 `_collect_local_import_logs`）を
+    `bounded_contexts/picker_import/application/session_import_logs.py` へ移設し、
+    `GET /session/{id}/logs` を復元。選択アイテムのエラー詳細
+    `GET /session/{id}/selections/{selection_id}/error` も追加。
+  - あわせて `GET /session/{session_id:path}`（キャッチオール）がより具体的な
+    ルート（selections / logs 等）を先取りしないよう登録順を末尾へ変更。
+  再発防止として `tests/integration/fastapi/test_picker_session_api.py` を追加。
 - **Google アカウント連携のコールバック失敗が System Logs に記録されない問題を修正**
   （`presentation/fastapi/routers/google_oauth.py`）。コールバック
   `/auth/google/callback` は `/api` 配下ではなくリクエストログ

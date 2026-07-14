@@ -22,7 +22,7 @@ def _get_orm_user(principal: AuthenticatedPrincipal, db: Session):
     """principal の user_id から SQLAlchemy User を取得する。"""
     from shared.infrastructure.models.user import User
 
-    user = db.get(User, int(principal.user_id))
+    user = db.get(User, int(principal.id))
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

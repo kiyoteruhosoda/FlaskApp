@@ -159,7 +159,7 @@ async def trigger_local_import(
             updated_at=now,
             last_progress_at=now,
             trigger="user",
-            triggered_by_user_id=int(principal.user_id),
+            triggered_by_user_id=int(principal.id),
         )
         stats = picker_session.stats() if hasattr(picker_session, "stats") else {}
         if not isinstance(stats, dict):

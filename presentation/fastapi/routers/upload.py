@@ -157,7 +157,7 @@ async def api_upload_commit(
                 for media in wiki_result.media
             ]
         else:
-            results = commit_uploads(upload_session_id, int(principal.user_id), temp_ids)
+            results = commit_uploads(upload_session_id, int(principal.id), temp_ids)
     except UploadError as exc:
         raise HTTPException(status_code=400, detail={"error": "upload_failed", "message": str(exc)})
     except WikiOperationError as exc:

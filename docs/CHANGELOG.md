@@ -51,6 +51,15 @@
   - あわせて `GET /session/{session_id:path}`（キャッチオール）がより具体的な
     ルート（selections / logs 等）を先取りしないよう登録順を末尾へ変更。
   再発防止として `tests/integration/fastapi/test_picker_session_api.py` を追加。
+- **認証済みエンドポイントが `principal.user_id` を参照して 500 になる問題を修正**
+  （`presentation/fastapi/routers/` 配下: `auth_profile.py` / `auth_passkeys.py` /
+  `totp.py` / `picker_session.py` / `upload.py` / `local_import.py` /
+  `service_account_keys.py`）。`AuthenticatedPrincipal` が公開する属性は
+  `id`（= `subject_id`）であり `user_id` は存在しないため、`GET /api/auth/2fa/status`
+  や `GET /api/auth/passkeys` などが
+  `AttributeError: 'AuthenticatedPrincipal' object has no attribute 'user_id'`
+  で失敗していた。全参照を `principal.id` に統一。回帰テスト
+  `tests/integration/fastapi/test_auth_principal_user_id_regression.py` を追加。
 - **Google アカウント連携のコールバック失敗が System Logs に記録されない問題を修正**
   （`presentation/fastapi/routers/google_oauth.py`）。コールバック
   `/auth/google/callback` は `/api` 配下ではなくリクエストログ

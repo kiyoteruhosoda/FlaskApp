@@ -182,6 +182,21 @@ def test_session_selections(picker_client: TestClient) -> None:
 
 
 @pytest.mark.integration
+def test_sessions_list_serializes_created_at_as_utc(picker_client: TestClient) -> None:
+    """一覧の ``createdAt`` は naive(UTC) を 'Z' 付き ISO8601 で返す。
+
+    'Z' が欠けるとフロントエンドがローカル時刻として解釈し、通知ベルの相対時刻が
+    タイムゾーン分（JST なら 9 時間）ずれる退行の再発防止。
+    """
+    headers = _auth_headers(picker_client)
+    resp = picker_client.get("/api/picker/sessions", headers=headers)
+    assert resp.status_code == 200, resp.text
+    sessions = resp.json()["sessions"]
+    target = next(s for s in sessions if s["sessionId"] == SESSION_ID)
+    assert target["createdAt"] == "2026-07-14T10:00:00Z"
+
+
+@pytest.mark.integration
 def test_session_logs(picker_client: TestClient) -> None:
     """取り込みログが session_id で照合されて返る。"""
     headers = _auth_headers(picker_client)

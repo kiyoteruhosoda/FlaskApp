@@ -258,6 +258,51 @@ class PickerSessionService:
             ).first()
         return ps
 
+    # --- Summary ----------------------------------------------------------
+    @staticmethod
+    def session_summary(ps: PickerSession) -> dict:
+        """Return selection counts and job summary for a picker session."""
+        counts = dict(
+            db.session.query(
+                PickerSelection.status, db.func.count(PickerSelection.id)
+            )
+            .filter(PickerSelection.session_id == ps.id)
+            .group_by(PickerSelection.status)
+            .all()
+        )
+
+        job = (
+            JobSync.query.filter_by(target="picker_import", session_id=ps.id)
+            .order_by(JobSync.started_at.is_(None), JobSync.started_at.desc())
+            .first()
+        )
+        job_summary = None
+        if job:
+            job_summary = {
+                "id": job.id,
+                "status": job.status,
+                "startedAt": _isoformat(job.started_at),
+                "finishedAt": _isoformat(job.finished_at),
+            }
+
+        return {"countsByStatus": counts, "jobSync": job_summary}
+
+    # --- Callback -----------------------------------------------------------
+    @staticmethod
+    def handle_callback(ps: PickerSession, data: dict) -> Tuple[dict, int]:
+        """Receive selected media item IDs from Google Photos Picker."""
+        ids = (data or {}).get("mediaItemIds") or []
+        if isinstance(ids, str):
+            ids = [ids]
+        count = sum(1 for mid in ids if isinstance(mid, str))
+        ps.selected_count = (ps.selected_count or 0) + count
+        ps.status = "ready"
+        ps.last_progress_at = datetime.now(timezone.utc)
+        if count > 0:
+            ps.media_items_set = True
+        db.session.commit()
+        return {"result": "ok", "count": count}, 200
+
     # --- Create -----------------------------------------------------------
     @staticmethod
     def create(

@@ -559,5 +559,17 @@
   "Traceback": "トレースバック",
   "Copy": "コピー",
   "Copied": "コピーしました",
-  "Failed to copy log detail to clipboard": "ログ詳細のクリップボードへのコピーに失敗しました"
+  "Failed to copy log detail to clipboard": "ログ詳細のクリップボードへのコピーに失敗しました",
+  "Time": "時刻",
+  "Group by Request ID": "Request ID でグループ化",
+  "Group by Task ID": "Task ID でグループ化",
+  "Select all on this page": "このページを全選択",
+  "Select log for export": "エクスポート対象として選択",
+  "Export selected": "選択をエクスポート",
+  "Export all (filtered)": "全件エクスポート（絞り込み結果）",
+  "Exporting...": "エクスポート中...",
+  "{{count}} selected": "{{count}} 件選択中",
+  "{{count}} entries": "{{count}} 件",
+  "No logs to export": "エクスポート対象のログがありません",
+  "Failed to export logs": "ログのエクスポートに失敗しました"
 }

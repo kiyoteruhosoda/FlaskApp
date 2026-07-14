@@ -7,6 +7,27 @@ export function formatDateTime(value: string | null | undefined): string {
   return d.toLocaleString();
 }
 
+// ミリ秒まで表示する日時フォーマット（ログ解析用。同一秒内の順序を判別できる）。
+export function formatDateTimeWithMs(value: string | null | undefined): string {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  // fractionalSecondDigits は実行環境（モダンブラウザ）では有効だが、TS の
+  // lib バージョンによっては型定義に無いため交差型で明示的に許可する。
+  const options: Intl.DateTimeFormatOptions & {
+    fractionalSecondDigits?: 1 | 2 | 3;
+  } = {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    fractionalSecondDigits: 3,
+  };
+  return d.toLocaleString(undefined, options);
+}
+
 export function formatDuration(ms: number | null | undefined): string {
   if (ms === null || ms === undefined) return '—';
   if (ms < 1000) return `${ms} ms`;

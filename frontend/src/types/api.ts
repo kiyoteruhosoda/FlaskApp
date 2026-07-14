@@ -312,6 +312,25 @@ export interface AdminLogDetailResponse {
   log: AdminLogDetail;
 }
 
+export interface AdminLogsExportQuery {
+  source?: AdminLogSource;
+  // 指定時はフィルタより優先してこの ID 群のみをエクスポートする
+  ids?: string;
+  level?: string;
+  event?: string;
+  q?: string;
+  traceId?: string;
+  since?: string;
+  until?: string;
+}
+
+export interface AdminLogsExportResponse {
+  source: AdminLogSource;
+  count: number;
+  logs: AdminLogDetail[];
+  exportedAt: string | null;
+}
+
 // ===== Picker セッション一覧 (/api/picker/sessions) =====
 export interface PickerSessionRow {
   id: number;

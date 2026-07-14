@@ -227,3 +227,83 @@ def test_logs_invalid_source_rejected(logs_client: TestClient) -> None:
         "/api/admin/logs", headers=headers, params={"source": "nope"}
     )
     assert resp.status_code == 400
+
+
+@pytest.mark.integration
+def test_export_requires_authentication(logs_client: TestClient) -> None:
+    assert logs_client.get("/api/admin/logs/export").status_code == 401
+
+
+@pytest.mark.integration
+def test_export_all_filtered_returns_full_messages(logs_client: TestClient) -> None:
+    """フィルタ指定でのエクスポートは全文メッセージ・traceback を含めて返す。"""
+    headers = _admin_headers(logs_client)
+    resp = logs_client.get(
+        "/api/admin/logs/export",
+        headers=headers,
+        params={"level": "error"},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["source"] == "app"
+    assert body["count"] == 1
+    assert body["logs"][0]["event"] == "request.failed"
+    # 一覧では truncated だが、エクスポートは全文＋traceback を返す
+    assert body["logs"][0]["message"] == "boom: unexpected failure"
+    assert body["logs"][0]["trace"].startswith("Traceback")
+
+
+@pytest.mark.integration
+def test_export_by_ids_selects_only_given_rows(logs_client: TestClient) -> None:
+    """ids 指定時は、その ID 群のみをエクスポートする（フィルタより優先）。"""
+    headers = _admin_headers(logs_client)
+    listed = logs_client.get("/api/admin/logs", headers=headers).json()["logs"]
+    by_event = {log["event"]: log["id"] for log in listed}
+    ids = f"{by_event['auth.denied']},{by_event['request.completed']}"
+
+    resp = logs_client.get(
+        "/api/admin/logs/export",
+        headers=headers,
+        # level フィルタを付けても ids が優先される
+        params={"ids": ids, "level": "error"},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["count"] == 2
+    assert {log["event"] for log in body["logs"]} == {
+        "auth.denied",
+        "request.completed",
+    }
+
+
+@pytest.mark.integration
+def test_export_with_invalid_ids_returns_empty(logs_client: TestClient) -> None:
+    """ids が渡されたが有効な数値が無い場合は空で返す（全件にフォールバックしない）。"""
+    headers = _admin_headers(logs_client)
+    resp = logs_client.get(
+        "/api/admin/logs/export", headers=headers, params={"ids": "abc,"}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["count"] == 0
+
+
+@pytest.mark.integration
+def test_export_worker_source(logs_client: TestClient) -> None:
+    headers = _admin_headers(logs_client)
+    resp = logs_client.get(
+        "/api/admin/logs/export", headers=headers, params={"source": "worker"}
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["source"] == "worker"
+    assert body["count"] == 1
+    assert body["logs"][0]["taskName"] == "transcode.video"
+
+
+@pytest.mark.integration
+def test_export_invalid_source_rejected(logs_client: TestClient) -> None:
+    headers = _admin_headers(logs_client)
+    resp = logs_client.get(
+        "/api/admin/logs/export", headers=headers, params={"source": "nope"}
+    )
+    assert resp.status_code == 400

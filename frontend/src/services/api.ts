@@ -53,6 +53,8 @@ import {
   AdminLogsQuery,
   AdminLogsResponse,
   AdminLogDetailResponse,
+  AdminLogsExportQuery,
+  AdminLogsExportResponse,
   AdminLogSource,
 } from '../types/api';
 import { getApiErrorCode } from './apiErrors';
@@ -476,6 +478,11 @@ class ApiClient {
 
   async getAdminLogDetail(source: AdminLogSource, id: number): Promise<AdminLogDetailResponse> {
     const response = await this.client.get<AdminLogDetailResponse>(`/admin/logs/${source}/${id}`);
+    return response.data;
+  }
+
+  async exportAdminLogs(params: AdminLogsExportQuery): Promise<AdminLogsExportResponse> {
+    const response = await this.client.get<AdminLogsExportResponse>('/admin/logs/export', { params });
     return response.data;
   }
 

@@ -23,7 +23,7 @@ import {
   AdminLogsQuery,
   Pagination as PaginationMeta,
 } from '../types/api';
-import { badgeTextColor, formatDateTime } from '../utils/format';
+import { badgeTextColor, formatDateTimeWithMs } from '../utils/format';
 import { getApiErrorCode } from '../services/apiErrors';
 
 const PAGE_SIZE = 50;
@@ -59,7 +59,7 @@ const buildLogDetailText = (
 ): string => {
   const lines: string[] = [];
   lines.push(`${t('Log Detail')} #${detail.id}`);
-  lines.push(`${t('Time (UTC)')}: ${formatDateTime(detail.createdAt)}`);
+  lines.push(`${t('Time')}: ${formatDateTimeWithMs(detail.createdAt)}`);
   lines.push(`${t('Level')}: ${detail.level}`);
   lines.push(`${t('Event')}: ${detail.event || '—'}`);
   if (detail.source === 'app') {
@@ -108,6 +108,61 @@ const copyToClipboard = async (text: string): Promise<boolean> => {
   }
 };
 
+/** ログの追跡キー（app: requestId / worker: taskUuid || fileTaskId）を返す。 */
+const traceKey = (log: AdminLogEntry): string | null => {
+  if (log.source === 'app') return log.requestId || null;
+  return log.taskUuid || log.fileTaskId || null;
+};
+
+interface LogGroup {
+  key: string | null;
+  logs: AdminLogEntry[];
+}
+
+/** ログ配列を追跡キーでグループ化する（表示順＝先頭出現順を維持）。 */
+const groupLogsByTrace = (logs: AdminLogEntry[]): LogGroup[] => {
+  const groups: LogGroup[] = [];
+  const index = new Map<string, LogGroup>();
+  for (const log of logs) {
+    const key = traceKey(log);
+    // 追跡キーが無いログは 1 件ずつ独立したグループにする。
+    if (key === null) {
+      groups.push({ key: null, logs: [log] });
+      continue;
+    }
+    const existing = index.get(key);
+    if (existing) {
+      existing.logs.push(log);
+    } else {
+      const group: LogGroup = { key, logs: [log] };
+      index.set(key, group);
+      groups.push(group);
+    }
+  }
+  return groups;
+};
+
+/** JSON データをファイルとしてダウンロードさせる。 */
+const downloadJson = (data: unknown, filename: string): void => {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: 'application/json',
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
+};
+
+/** エクスポートファイル名（例: system-logs-app-2026-07-14T12-29-13.json）。 */
+const exportFileName = (source: AdminLogSource): string => {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-').replace('Z', '');
+  return `system-logs-${source}-${stamp}.json`;
+};
+
 const SystemLogsPage: React.FC = () => {
   const { t } = useTranslation();
 
@@ -131,6 +186,12 @@ const SystemLogsPage: React.FC = () => {
   const [detail, setDetail] = useState<AdminLogDetail | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // 解析用: 同一 Request ID / Task ID でまとめて表示するか
+  const [groupByTrace, setGroupByTrace] = useState(false);
+  // エクスポート対象として選択したログ ID（現在の source に対して）
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [exporting, setExporting] = useState(false);
 
   const loadLogs = useCallback(async () => {
     setIsLoading(true);
@@ -176,6 +237,116 @@ const SystemLogsPage: React.FC = () => {
     setAppliedText({ event: '', message: '', traceId: '' });
     setPage(1);
   };
+
+  const toggleSelected = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // 現在表示中（このページ）の全ログを選択 / 選択解除する。
+  const allDisplayedSelected =
+    logs.length > 0 && logs.every((log) => selectedIds.has(log.id));
+  const someDisplayedSelected =
+    logs.some((log) => selectedIds.has(log.id)) && !allDisplayedSelected;
+
+  const toggleSelectAllDisplayed = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allDisplayedSelected) {
+        logs.forEach((log) => next.delete(log.id));
+      } else {
+        logs.forEach((log) => next.add(log.id));
+      }
+      return next;
+    });
+  };
+
+  const runExport = async (params: { ids?: number[] }) => {
+    setExporting(true);
+    setError(null);
+    try {
+      const data = await apiClient.exportAdminLogs({
+        source,
+        ids: params.ids && params.ids.length ? params.ids.join(',') : undefined,
+        level: level || undefined,
+        event: appliedText.event || undefined,
+        q: appliedText.message || undefined,
+        traceId: appliedText.traceId || undefined,
+        since: toIsoUtc(since),
+        until: toIsoUtc(until),
+      });
+      if (!data.count) {
+        setError(t('No logs to export'));
+        return;
+      }
+      downloadJson(data, exportFileName(source));
+    } catch (e: any) {
+      setError(getApiErrorCode(e) || e?.message || t('Failed to export logs'));
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const exportSelected = () => runExport({ ids: Array.from(selectedIds) });
+  const exportAllFiltered = () => runExport({});
+
+  const renderLogRow = (log: AdminLogEntry) => (
+    <tr key={`${log.source}-${log.id}`} data-testid="log-row">
+      <td>
+        <Form.Check
+          type="checkbox"
+          aria-label={t('Select log for export')}
+          checked={selectedIds.has(log.id)}
+          onChange={() => toggleSelected(log.id)}
+          data-testid="log-select"
+        />
+      </td>
+      <td className="small" style={{ whiteSpace: 'nowrap' }}>
+        {formatDateTimeWithMs(log.createdAt)}
+      </td>
+      <td>
+        <Badge
+          bg={levelVariant(log.level)}
+          text={badgeTextColor(levelVariant(log.level))}
+          data-testid="log-level"
+        >
+          {log.level}
+        </Badge>
+      </td>
+      <td className="small">{log.event}</td>
+      <td className="small" style={{ maxWidth: '28rem', wordBreak: 'break-word' }}>
+        {log.message}
+        {log.messageTruncated && <span className="text-muted">…</span>}
+      </td>
+      <td className="small">
+        {log.source === 'app' ? log.path || '—' : log.taskName || '—'}
+      </td>
+      <td className="small font-monospace">
+        {log.source === 'app'
+          ? log.requestId || '—'
+          : log.taskUuid || log.fileTaskId || '—'}
+      </td>
+      <td className="text-end">
+        <Button
+          size="sm"
+          variant="outline-secondary"
+          onClick={() => openDetail(log)}
+          data-testid="log-detail-btn"
+        >
+          {t('Details')}
+          {log.hasTrace && (
+            <i className="fa-solid fa-triangle-exclamation text-danger ms-1" />
+          )}
+        </Button>
+      </td>
+    </tr>
+  );
+
+  const groups = groupByTrace ? groupLogsByTrace(logs) : [];
 
   const openDetail = async (log: AdminLogEntry) => {
     setShowDetail(true);
@@ -236,6 +407,8 @@ const SystemLogsPage: React.FC = () => {
                   setSource(e.target.value as AdminLogSource);
                   setLevel('');
                   setPage(1);
+                  // source が変わると ID 空間が変わるため選択をクリアする
+                  setSelectedIds(new Set());
                 }}
               >
                 <option value="app">{t('App (API requests)')}</option>
@@ -329,6 +502,46 @@ const SystemLogsPage: React.FC = () => {
         </Card.Body>
       </Card>
 
+      <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <Form.Check
+          type="switch"
+          id="logs-group-by-trace"
+          data-testid="logs-group-toggle"
+          label={source === 'app' ? t('Group by Request ID') : t('Group by Task ID')}
+          checked={groupByTrace}
+          onChange={(e) => setGroupByTrace(e.target.checked)}
+        />
+        <div className="ms-auto d-flex flex-wrap align-items-center gap-2">
+          {selectedIds.size > 0 && (
+            <span className="text-muted small" data-testid="logs-selected-count">
+              {t('{{count}} selected', { count: selectedIds.size })}
+            </span>
+          )}
+          <Button
+            variant="outline-primary"
+            size="sm"
+            onClick={exportSelected}
+            disabled={exporting || selectedIds.size === 0}
+            data-testid="logs-export-selected"
+          >
+            {exporting ? (
+              <><Spinner size="sm" animation="border" className="me-1" />{t('Exporting...')}</>
+            ) : (
+              <><i className="fa-solid fa-file-export me-1" />{t('Export selected')}</>
+            )}
+          </Button>
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            onClick={exportAllFiltered}
+            disabled={exporting || logs.length === 0}
+            data-testid="logs-export-all"
+          >
+            <i className="fa-solid fa-download me-1" />{t('Export all (filtered)')}
+          </Button>
+        </div>
+      </div>
+
       <Card>
         <Card.Body className="p-0">
           {isLoading ? (
@@ -343,6 +556,18 @@ const SystemLogsPage: React.FC = () => {
             <Table hover responsive className="mb-0 align-middle">
               <thead>
                 <tr>
+                  <th style={{ width: '2.5rem' }}>
+                    <Form.Check
+                      type="checkbox"
+                      aria-label={t('Select all on this page')}
+                      checked={allDisplayedSelected}
+                      ref={(el: HTMLInputElement | null) => {
+                        if (el) el.indeterminate = someDisplayedSelected;
+                      }}
+                      onChange={toggleSelectAllDisplayed}
+                      data-testid="logs-select-all"
+                    />
+                  </th>
                   <th style={{ whiteSpace: 'nowrap' }}>{t('Time (UTC)')}</th>
                   <th>{t('Level')}</th>
                   <th>{t('Event')}</th>
@@ -352,50 +577,26 @@ const SystemLogsPage: React.FC = () => {
                   <th className="text-end">{t('Actions')}</th>
                 </tr>
               </thead>
-              <tbody>
-                {logs.map((log) => (
-                  <tr key={`${log.source}-${log.id}`} data-testid="log-row">
-                    <td className="small" style={{ whiteSpace: 'nowrap' }}>
-                      {formatDateTime(log.createdAt)}
-                    </td>
-                    <td>
-                      <Badge
-                        bg={levelVariant(log.level)}
-                        text={badgeTextColor(levelVariant(log.level))}
-                        data-testid="log-level"
-                      >
-                        {log.level}
-                      </Badge>
-                    </td>
-                    <td className="small">{log.event}</td>
-                    <td className="small" style={{ maxWidth: '28rem', wordBreak: 'break-word' }}>
-                      {log.message}
-                      {log.messageTruncated && <span className="text-muted">…</span>}
-                    </td>
-                    <td className="small">
-                      {log.source === 'app' ? log.path || '—' : log.taskName || '—'}
-                    </td>
-                    <td className="small font-monospace">
-                      {log.source === 'app'
-                        ? log.requestId || '—'
-                        : log.taskUuid || log.fileTaskId || '—'}
-                    </td>
-                    <td className="text-end">
-                      <Button
-                        size="sm"
-                        variant="outline-secondary"
-                        onClick={() => openDetail(log)}
-                        data-testid="log-detail-btn"
-                      >
-                        {t('Details')}
-                        {log.hasTrace && (
-                          <i className="fa-solid fa-triangle-exclamation text-danger ms-1" />
-                        )}
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+              {groupByTrace ? (
+                groups.map((group, idx) => (
+                  <tbody key={group.key ?? `nogroup-${idx}`} data-testid="log-group">
+                    {group.key && group.logs.length > 0 && (
+                      <tr className="table-light">
+                        <td colSpan={8} className="small py-1">
+                          <i className="fa-solid fa-layer-group text-muted me-2" />
+                          <span className="font-monospace">{group.key}</span>
+                          <Badge bg="secondary" className="ms-2">
+                            {t('{{count}} entries', { count: group.logs.length })}
+                          </Badge>
+                        </td>
+                      </tr>
+                    )}
+                    {group.logs.map((log) => renderLogRow(log))}
+                  </tbody>
+                ))
+              ) : (
+                <tbody>{logs.map((log) => renderLogRow(log))}</tbody>
+              )}
             </Table>
           )}
         </Card.Body>
@@ -437,7 +638,7 @@ const SystemLogsPage: React.FC = () => {
             <>
               <dl className="row mb-3">
                 <dt className="col-sm-3">{t('Time (UTC)')}</dt>
-                <dd className="col-sm-9">{formatDateTime(detail.createdAt)}</dd>
+                <dd className="col-sm-9">{formatDateTimeWithMs(detail.createdAt)}</dd>
                 <dt className="col-sm-3">{t('Level')}</dt>
                 <dd className="col-sm-9">
                   <Badge bg={levelVariant(detail.level)} text={badgeTextColor(levelVariant(detail.level))}>

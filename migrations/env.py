@@ -29,8 +29,10 @@ from sqlalchemy import create_engine
 config = context.config
 
 # ロギング設定を適用
+# disable_existing_loggers=False: 同一プロセスで既に生成済みのアプリロガー
+# （DB ログハンドラ装着済みのものを含む）を無効化しない
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 logger = logging.getLogger("alembic.env")
 

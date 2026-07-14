@@ -556,5 +556,8 @@
   "Worker": "ワーカー",
   "{{count}} logs total": "全 {{count}} 件のログ",
   "Log Detail": "ログ詳細",
-  "Traceback": "トレースバック"
+  "Traceback": "トレースバック",
+  "Copy": "コピー",
+  "Copied": "コピーしました",
+  "Failed to copy log detail to clipboard": "ログ詳細のクリップボードへのコピーに失敗しました"
 }

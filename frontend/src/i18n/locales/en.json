@@ -556,5 +556,8 @@
   "Worker": "Worker",
   "{{count}} logs total": "{{count}} logs total",
   "Log Detail": "Log Detail",
-  "Traceback": "Traceback"
+  "Traceback": "Traceback",
+  "Copy": "Copy",
+  "Copied": "Copied",
+  "Failed to copy log detail to clipboard": "Failed to copy log detail to clipboard"
 }

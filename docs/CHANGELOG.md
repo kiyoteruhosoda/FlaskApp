@@ -5,7 +5,25 @@
 
 ## [Unreleased]
 
+### Added
+- **System Logs のログ詳細（Log Detail）モーダルに「コピー」ボタンを追加**
+  （`frontend/src/pages/SystemLogsPage.tsx`）。時刻・レベル・イベント・パス /
+  タスク・Request ID / Task ID・メッセージ・トレースバックをプレーンテキストへ
+  整形してクリップボードへコピーできる。`navigator.clipboard` が使えない
+  非セキュアコンテキストでは `textarea` + `execCommand('copy')` にフォールバック
+  する。
+
 ### Fixed
+- **Google アカウント連携のコールバック失敗が System Logs に記録されない問題を修正**
+  （`presentation/fastapi/routers/google_oauth.py`）。コールバック
+  `/auth/google/callback` は `/api` 配下ではなくリクエストログ
+  （`api.input`/`api.output`）の対象外で、`invalid_state` などの失敗分岐は
+  リダイレクトを返すだけでログを一切出していなかった。そのため「連携でエラーが
+  出るのにログに何も残らない」状態だった。`invalid_state` / `callback_error` /
+  `login_required` / `email_fetch_failed` の各分岐に診断ログ（`warning`）を追加。
+  特に `invalid_state` では `has_code` / `has_state` / `state_found_in_store` を
+  記録し、共有ストア（インメモリ）のワーカー跨ぎや TTL（10分）超過による
+  照合失敗を切り分けられるようにした。
 - **API のエラーが System Logs（`log` テーブル）へ一切記録されない問題を修正**。
   T11 の Flask→FastAPI 移行時に、Flask 版 `presentation/web/bootstrap/logging_setup.py`
   が担っていた DB ログハンドラ（`DBLogHandler`）の装着と、リクエスト単位の

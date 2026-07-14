@@ -14,6 +14,7 @@ import {
   Pagination as BsPagination,
 } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { apiClient } from '../services/api';
 import {
   AdminLogEntry,
@@ -51,6 +52,62 @@ const toIsoUtc = (localValue: string): string | undefined => {
   return parsed.toISOString();
 };
 
+/** ログ詳細を、そのままクリップボードへ貼り付けられるプレーンテキストへ整形する。 */
+const buildLogDetailText = (
+  detail: AdminLogDetail,
+  t: TFunction,
+): string => {
+  const lines: string[] = [];
+  lines.push(`${t('Log Detail')} #${detail.id}`);
+  lines.push(`${t('Time (UTC)')}: ${formatDateTime(detail.createdAt)}`);
+  lines.push(`${t('Level')}: ${detail.level}`);
+  lines.push(`${t('Event')}: ${detail.event || '—'}`);
+  if (detail.source === 'app') {
+    lines.push(`${t('Path')}: ${detail.path || '—'}`);
+    lines.push(`${t('Request ID')}: ${detail.requestId || '—'}`);
+  } else {
+    lines.push(`${t('Task')}: ${detail.taskName || '—'}`);
+    lines.push(`${t('Task ID')}: ${detail.taskUuid || detail.fileTaskId || '—'}`);
+    const worker = `${detail.workerHostname || '—'}${detail.queueName ? ` (${detail.queueName})` : ''}`;
+    lines.push(`${t('Worker')}: ${worker}`);
+  }
+  lines.push('');
+  lines.push(`${t('Message')}:`);
+  lines.push(detail.message || '');
+  if (detail.trace) {
+    lines.push('');
+    lines.push(`${t('Traceback')}:`);
+    lines.push(detail.trace);
+  }
+  return lines.join('\n');
+};
+
+/** クリップボードへ書き込む。Clipboard API 不可の環境ではフォールバックする。 */
+const copyToClipboard = async (text: string): Promise<boolean> => {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // セキュアコンテキスト外などで失敗した場合は下のフォールバックへ。
+  }
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    return ok;
+  } catch {
+    return false;
+  }
+};
+
 const SystemLogsPage: React.FC = () => {
   const { t } = useTranslation();
 
@@ -73,6 +130,7 @@ const SystemLogsPage: React.FC = () => {
 
   const [detail, setDetail] = useState<AdminLogDetail | null>(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const loadLogs = useCallback(async () => {
     setIsLoading(true);
@@ -122,12 +180,24 @@ const SystemLogsPage: React.FC = () => {
   const openDetail = async (log: AdminLogEntry) => {
     setShowDetail(true);
     setDetail(null);
+    setCopied(false);
     try {
       const data = await apiClient.getAdminLogDetail(log.source, log.id);
       setDetail(data.log);
     } catch (e: any) {
       setError(getApiErrorCode(e) || e?.message || t('Failed to load log detail'));
       setShowDetail(false);
+    }
+  };
+
+  const handleCopyDetail = async () => {
+    if (!detail) return;
+    const ok = await copyToClipboard(buildLogDetailText(detail, t));
+    if (ok) {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } else {
+      setError(t('Failed to copy log detail to clipboard'));
     }
   };
 
@@ -415,6 +485,18 @@ const SystemLogsPage: React.FC = () => {
           )}
         </Modal.Body>
         <Modal.Footer>
+          <Button
+            variant={copied ? 'success' : 'outline-primary'}
+            onClick={handleCopyDetail}
+            disabled={!detail}
+            data-testid="log-detail-copy"
+          >
+            {copied ? (
+              <><i className="fa-solid fa-check me-1" />{t('Copied')}</>
+            ) : (
+              <><i className="fa-regular fa-copy me-1" />{t('Copy')}</>
+            )}
+          </Button>
           <Button variant="secondary" onClick={() => setShowDetail(false)}>
             {t('Close')}
           </Button>

@@ -98,7 +98,7 @@ async def create_service_account_key(
             account_id,
             scopes=body.get("scopes", ""),
             expires_at=expires_at,
-            created_by=str(principal.user_id),
+            created_by=str(principal.id),
         )
     except ServiceAccountApiKeyValidationError as exc:
         response = {"error": exc.message}
@@ -132,7 +132,7 @@ async def revoke_service_account_key(
 
     try:
         key = ServiceAccountApiKeyService.revoke_key(
-            account_id, key_id, actor=str(principal.user_id)
+            account_id, key_id, actor=str(principal.id)
         )
     except ServiceAccountApiKeyNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": "not_found"})

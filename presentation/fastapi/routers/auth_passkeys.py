@@ -41,7 +41,7 @@ def _serialize_passkey(pk) -> dict:
 def _get_orm_user(principal: AuthenticatedPrincipal, db: Session):
     from shared.infrastructure.models.user import User
 
-    user = db.get(User, int(principal.user_id))
+    user = db.get(User, int(principal.id))
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

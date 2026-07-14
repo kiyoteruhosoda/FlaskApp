@@ -133,7 +133,7 @@ async def api_picker_session_create(
     logger.info("picker session create begin: account_id=%s", account_id)
     payload, status_code = PickerSessionService.create(
         account,
-        triggered_by_user_id=int(principal.user_id),
+        triggered_by_user_id=int(principal.id),
     )
     if status_code != 200:
         # サービスからの詳細エラーは内部ログのみ、クライアントには汎用メッセージを返す

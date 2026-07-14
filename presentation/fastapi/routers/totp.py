@@ -134,7 +134,7 @@ async def api_totp_list(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"error": "forbidden"})
 
     use_case = TOTPListUseCase()
-    pairs = use_case.execute(user_id=int(principal.user_id))
+    pairs = use_case.execute(user_id=int(principal.id))
     items = [
         _serialize_totp_entity(entity, (preview.otp, preview.remaining_seconds))
         for entity, preview in pairs
@@ -166,7 +166,7 @@ async def api_totp_create(
             digits=resolved.get("digits") or 6,
             period=resolved.get("period") or 30,
             algorithm=resolved.get("algorithm", "SHA1"),
-            user_id=int(principal.user_id),
+            user_id=int(principal.id),
         )
         entity = TOTPCreateUseCase().execute(dto)
     except TOTPValidationError as exc:
@@ -192,7 +192,7 @@ async def api_totp_get(
 
     try:
         repo = TOTPCredentialRepository()
-        entity = repo.get(totp_id, user_id=int(principal.user_id))
+        entity = repo.get(totp_id, user_id=int(principal.id))
     except TOTPNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": "not_found"})
 
@@ -218,7 +218,7 @@ async def api_totp_update(
     try:
         dto = TOTPUpdateInput(
             id=totp_id,
-            user_id=int(principal.user_id),
+            user_id=int(principal.id),
             account=resolved.get("account"),
             issuer=resolved.get("issuer"),
             secret=resolved.get("secret"),
@@ -250,7 +250,7 @@ async def api_totp_delete(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"error": "forbidden"})
 
     try:
-        TOTPDeleteUseCase().execute(totp_id=totp_id, user_id=int(principal.user_id))
+        TOTPDeleteUseCase().execute(totp_id=totp_id, user_id=int(principal.id))
     except TOTPNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": "not_found"})
 
@@ -268,7 +268,7 @@ async def api_totp_export(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"error": "forbidden"})
 
     ids = body.get("ids") or []
-    result = TOTPExportUseCase().execute(user_id=int(principal.user_id), ids=ids)
+    result = TOTPExportUseCase().execute(user_id=int(principal.id), ids=ids)
     return {"export": result}
 
 
@@ -288,7 +288,7 @@ async def api_totp_import(
 
     items_raw = body.get("items") or []
     items = [TOTPImportItem(**item) for item in items_raw]
-    payload = TOTPImportPayload(items=items, user_id=int(principal.user_id))
+    payload = TOTPImportPayload(items=items, user_id=int(principal.id))
 
     try:
         result = TOTPImportUseCase().execute(payload)

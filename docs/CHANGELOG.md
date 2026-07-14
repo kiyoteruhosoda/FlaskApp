@@ -47,6 +47,19 @@
   する。
 
 ### Fixed
+- **`deploy.sh reset` が同時マイグレーションの競合で失敗していた不具合を修正**
+  （STG の `./scripts/deploy.sh reset` で `Table 'worker_log' already exists` (1050) →
+  web コンテナのクラッシュループとして再現）。reset 直後の空DBに対し、web コンテナの
+  entrypoint（`command: web` 起動時の `run_db_migrations.py`）と `deploy.sh` の
+  `docker exec` が**ほぼ同時に**マイグレーションを実行し、両者とも新規DB(FRESH)と判定して
+  `init_master` の `CREATE TABLE` を並行実行していた。MariaDB の DDL は非トランザクショナル
+  なため、先発プロセスが `worker_log`（早い段階で作成）を作った直後に後発プロセスが同じ
+  `CREATE TABLE` で 1050 エラーとなり、`picker_session`（終盤で作成）まで到達せず片方が
+  クラッシュしていた。`scripts/run_db_migrations.py` に MySQL/MariaDB のネームドロック
+  （`GET_LOCK`/`RELEASE_LOCK`、`serialized_migration`）を追加し、戦略判定〜適用を一度に
+  1プロセスへ直列化。後発プロセスは先発の完了後に head 適用済みのDBを見て `upgrade head`
+  が no-op になる。`decide_strategy` の冪等判定は同時実行までは守れない（両者が同じ空DBを
+  見て FRESH を選ぶ）ことが根本原因だった。SQLite（ロック非対応）では no-op。
 - **ロール一覧画面（`/admin/roles`）が実 API 応答でクラッシュしていた不具合を修正**
   （T12 のフルスタック E2E で検出）。`GET /api/admin/roles` は `permissions` を
   `{id, code}` オブジェクト配列で返すが、一覧表示側は権限コード（文字列）配列を前提と

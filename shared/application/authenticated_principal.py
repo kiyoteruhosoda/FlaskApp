@@ -53,6 +53,13 @@ class AuthenticatedPrincipal:
         return self.subject_id
 
     @property
+    def user_id(self) -> int:
+        """Underlying subject id (user id for individuals, service account id for
+        system principals). Alias of :attr:`subject_id` / :attr:`id` kept for the
+        call sites that identify the actor as ``user_id``."""
+        return self.subject_id
+
+    @property
     def is_authenticated(self) -> bool:  # pragma: no cover - Flask-Login interface
         return True
 

@@ -6,6 +6,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from './store';
 import { getCurrentUser } from './store/authSlice';
 import { apiClient } from './services/api';
+import { setActiveTimeZone } from './utils/format';
 
 // Components
 import Header from './components/Header';
@@ -129,6 +130,23 @@ const AppContent: React.FC = () => {
     }
   }, [dispatch, user]);
 
+  // ログイン済みユーザーの表示タイムゾーン設定を読み込み、整形関数へ反映する。
+  // 全画面の日時表示を現地時刻へ統一するため、Profile を開かずとも起動時に適用する。
+  // System Logs は formatDateTimeWithMs 側で UTC 固定のため影響を受けない。
+  useEffect(() => {
+    if (!user) return;
+    apiClient
+      .getUserPreferences()
+      .then(({ preferences }) => {
+        if (typeof preferences.timezone === 'string') {
+          setActiveTimeZone(preferences.timezone || undefined);
+        }
+      })
+      .catch(() => {
+        /* 取得失敗時は localStorage/ブラウザ検出のフォールバックを使う */
+      });
+  }, [user]);
+
   // タブが再び前面に戻ったときにセッションを検証する。
   // SPA を開いたままデプロイ(サーバー再起動)されるとセッション/トークンが失効するが、
   // 画面に残った署名付き URL の画像(<img>)読み込みは axios を経由しないため 401 を
@@ -187,7 +205,7 @@ const AppContent: React.FC = () => {
             path="/" 
             element={
               <ProtectedRoute>
-                <div className="container py-4">
+                <div className="container py-4" data-testid="home-page">
                   <h1>Welcome to PhotoNest</h1>
                   <p>Your family photo management platform</p>
                 </div>
@@ -199,7 +217,7 @@ const AppContent: React.FC = () => {
             path="/dashboard" 
             element={
               <ProtectedRoute>
-                <div className="container py-4">
+                <div className="container py-4" data-testid="dashboard-page">
                   <h1>Dashboard</h1>
                   <p>Your dashboard content will be displayed here</p>
                 </div>

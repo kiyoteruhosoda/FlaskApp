@@ -17,7 +17,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { PickerSessionStatus, PickerSelectionItem, SessionLogEntry } from '../types/api';
-import { badgeTextColor, formatDateTime, sessionStatusVariant } from '../utils/format';
+import { badgeTextColor, formatDateTime, formatTime, sessionStatusVariant } from '../utils/format';
 import {
   describeImportSessionStatus,
   isActiveImportSessionStatus,
@@ -291,7 +291,7 @@ const SessionDetailPage: React.FC = () => {
                       <tbody>
                         {logs.map((log) => (
                           <tr key={log.id}>
-                            <td className="text-nowrap">{log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : '—'}</td>
+                            <td className="text-nowrap">{formatTime(log.timestamp)}</td>
                             <td>
                               <Badge bg={LOG_LEVEL_VARIANT[log.level] ?? 'secondary'}>{log.level}</Badge>
                             </td>

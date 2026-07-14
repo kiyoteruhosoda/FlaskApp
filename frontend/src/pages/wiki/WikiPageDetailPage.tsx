@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Container, Row, Col, Card, Badge, Spinner, Alert, Button, Modal } from 'react-bootstrap';
 import { wikiApi } from '../../services/wikiApi';
+import { formatDate, formatDateTime } from '../../utils/format';
 import { WikiPageDetailData } from '../../types/wiki';
 import { getApiErrorCode } from '../../services/apiErrors';
 
@@ -72,7 +73,7 @@ const WikiPageDetailPage: React.FC = () => {
   const page = data!.page;
 
   return (
-    <Container fluid className="py-4">
+    <Container fluid className="py-4" data-testid="wiki-page-detail-page">
       <Row>
         <Col md={9}>
           {/* Breadcrumb */}
@@ -131,7 +132,7 @@ const WikiPageDetailPage: React.FC = () => {
           </Card>
 
           <div className="mt-2 text-muted small">
-            Last updated: {page.updated_at ? new Date(page.updated_at).toLocaleString() : 'Unknown'}
+            Last updated: {page.updated_at ? formatDateTime(page.updated_at) : 'Unknown'}
           </div>
 
           {data!.children.length > 0 && (
@@ -164,11 +165,11 @@ const WikiPageDetailPage: React.FC = () => {
               </div>
               <div className="mb-2">
                 <strong>Created:</strong>{' '}
-                {page.created_at ? new Date(page.created_at).toLocaleDateString() : 'Unknown'}
+                {page.created_at ? formatDate(page.created_at) : 'Unknown'}
               </div>
               <div>
                 <strong>Updated:</strong>{' '}
-                {page.updated_at ? new Date(page.updated_at).toLocaleDateString() : 'Unknown'}
+                {page.updated_at ? formatDate(page.updated_at) : 'Unknown'}
               </div>
             </Card.Body>
           </Card>

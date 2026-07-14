@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Container, Row, Col, Card, Badge, Spinner, Alert } from 'react-bootstrap';
 import { wikiApi } from '../../services/wikiApi';
+import { formatDate } from '../../utils/format';
 import { WikiIndexData, WikiPageHierarchyItem } from '../../types/wiki';
 import { getApiErrorCode } from '../../services/apiErrors';
 
@@ -53,7 +54,7 @@ const WikiIndexPage: React.FC = () => {
   }
 
   return (
-    <Container fluid className="py-4">
+    <Container fluid className="py-4" data-testid="wiki-index-page">
       <Row className="mb-3 align-items-center">
         <Col>
           <h1 className="h3 mb-0">Wiki</h1>
@@ -91,7 +92,7 @@ const WikiIndexPage: React.FC = () => {
                         {page.title}
                       </Link>
                       <small className="text-muted ms-2">
-                        {page.updated_at ? new Date(page.updated_at).toLocaleDateString() : ''}
+                        {page.updated_at ? formatDate(page.updated_at) : ''}
                       </small>
                     </li>
                   ))}

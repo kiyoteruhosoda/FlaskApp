@@ -3,6 +3,7 @@ import { Container, Row, Col, Card, Spinner, Alert, Badge } from 'react-bootstra
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { DashboardStats } from '../types/api';
+import { formatDateTime } from '../utils/format';
 
 const StatCard: React.FC<{ title: string; value: number | string; icon: string; variant?: string }> = ({
   title, value, icon, variant = 'primary',
@@ -108,7 +109,7 @@ const AdminDashboardPage: React.FC = () => {
                         <td>{j.id}</td>
                         <td>{j.target}</td>
                         <td><Badge bg={jobStatusVariant(j.status)}>{j.status}</Badge></td>
-                        <td className="text-muted small">{j.startedAt ? new Date(j.startedAt).toLocaleString() : '—'}</td>
+                        <td className="text-muted small">{formatDateTime(j.startedAt)}</td>
                       </tr>
                     ))}
                   </tbody>

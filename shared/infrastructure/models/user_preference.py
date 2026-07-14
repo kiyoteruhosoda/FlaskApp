@@ -36,8 +36,12 @@ class UserPreference(db.Model):
     # キー定数（アプリで使用する既知キー）
     # -----------------------------------------------------------------
     KEY_SLIDESHOW_INTERVAL = "slideshow_interval"
+    # 画面表示に用いるタイムゾーン（IANA 名、例 "Asia/Tokyo"）。
+    # 空文字/未設定はブラウザのタイムゾーンにフォールバックする（表示層で判定）。
+    KEY_TIMEZONE = "timezone"
 
-    # デフォルト値マップ（未設定時に使用）
+    # デフォルト値マップ（未設定時に使用）。
+    # timezone は既定値を持たせない（未設定＝ブラウザ検出に委ねる）ため含めない。
     DEFAULTS: dict[str, Any] = {
         KEY_SLIDESHOW_INTERVAL: 5,  # 秒
     }

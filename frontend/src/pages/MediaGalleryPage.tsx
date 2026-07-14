@@ -5,6 +5,7 @@ import { RootState, AppDispatch } from '../store';
 import { fetchMediaList } from '../store/mediaSlice';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
+import { formatDate, formatDateTime } from '../utils/format';
 
 const MediaGalleryPage: React.FC = () => {
   const { t } = useTranslation();
@@ -119,7 +120,7 @@ const MediaGalleryPage: React.FC = () => {
         <Card.Body>
           <Card.Title className="fs-6 text-truncate">{media.filename}</Card.Title>
           <Card.Text className="small text-muted">
-            <div>{new Date(media.created_at).toLocaleDateString()}</div>
+            <div>{formatDate(media.created_at)}</div>
             <div>{(media.file_size / 1024 / 1024).toFixed(2)} MB</div>
           </Card.Text>
         </Card.Body>
@@ -173,8 +174,8 @@ const MediaGalleryPage: React.FC = () => {
             <Col md={6}>
               <h6>{t('Dates')}</h6>
               <ul className="list-unstyled small">
-                <li><strong>{t('Created')}:</strong> {new Date(selectedMedia.created_at).toLocaleString()}</li>
-                <li><strong>{t('Updated')}:</strong> {new Date(selectedMedia.updated_at).toLocaleString()}</li>
+                <li><strong>{t('Created')}:</strong> {formatDateTime(selectedMedia.created_at)}</li>
+                <li><strong>{t('Updated')}:</strong> {formatDateTime(selectedMedia.updated_at)}</li>
               </ul>
             </Col>
           </Row>

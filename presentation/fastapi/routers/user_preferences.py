@@ -17,12 +17,30 @@ router = APIRouter(prefix="/user/preferences", tags=["user"])
 _ALLOWED_KEYS: dict[str, tuple[type, object]] = {}
 
 
+def _is_valid_timezone(value: str) -> bool:
+    """IANA タイムゾーン名として妥当か検証する。
+
+    空文字は「未設定（ブラウザのタイムゾーンにフォールバック）」を意味するため
+    許可する。それ以外は ``zoneinfo`` で実在するゾーンかを確認する。
+    """
+    if value == "":
+        return True
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+    try:
+        ZoneInfo(value)
+    except (ZoneInfoNotFoundError, ValueError):
+        return False
+    return True
+
+
 def _load_allowed_keys() -> dict:
     """遅延インポートで許可キーを取得する。"""
     from shared.infrastructure.models.user_preference import UserPreference
 
     return {
         UserPreference.KEY_SLIDESHOW_INTERVAL: (int, lambda v: 1 <= v <= 300),
+        UserPreference.KEY_TIMEZONE: (str, _is_valid_timezone),
     }
 
 
@@ -52,6 +70,7 @@ async def api_user_preferences_update(
 ):
     """現在のユーザーの設定を更新する。"""
     from shared.infrastructure.models.user_preference import UserPreference
+    from shared.kernel.database.db import db as orm_db
 
     if not principal.is_individual:
         raise HTTPException(
@@ -93,7 +112,10 @@ async def api_user_preferences_update(
         updated_keys.append(key)
 
     if updated_keys:
-        db.commit()
+        # UserPreference の読み書きは互換レイヤーの scoped session（``orm_db.session``）
+        # を用いるため、その session を commit しないと永続化されない。注入された
+        # ``get_db`` の session（``db``）は別コネクションで、ここでは使用しない。
+        orm_db.session.commit()
 
     prefs = UserPreference.get_all_for_user(principal.id)
     return {"preferences": prefs, "updated": updated_keys}

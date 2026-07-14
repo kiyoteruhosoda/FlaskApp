@@ -194,14 +194,37 @@ async def google_oauth_callback(
     saved = (pop_state(state) if state else None) or {}
 
     if error:
+        # Google 側が同意拒否・パラメータ不正などで error を返したケース。
+        logger.warning(
+            "Google OAuth callback returned error: %s",
+            error,
+            extra={"event": "google.oauth.callback_error"},
+        )
         return _google_link_result_redirect(saved, "error", reason=error)
 
     if not code or not state or state != saved.get("state"):
+        # state を照合できないケース。/auth/google/callback は /api 配下ではない
+        # ため request ログ（api.input/api.output）が出ず、ここで明示的に記録しないと
+        # 「エラーが起きたのにログが残らない」状態になる。state は共有ストア
+        # （インメモリ）で管理しているため、マルチワーカー構成でのワーカー跨ぎや
+        # TTL（10分）超過で照合に失敗しうる。原因切り分け用に診断情報を残す。
+        logger.warning(
+            "Google OAuth callback invalid_state: "
+            "has_code=%s has_state=%s state_found_in_store=%s",
+            bool(code),
+            bool(state),
+            bool(saved),
+            extra={"event": "google.oauth.invalid_state"},
+        )
         return _google_link_result_redirect(saved, "error", reason="invalid_state")
 
     # 紐づけ先ユーザー。start 時に保存した user_id を使う。特定できなければ中断。
     link_user_id = saved.get("user_id")
     if link_user_id is None:
+        logger.warning(
+            "Google OAuth callback missing user_id in saved state",
+            extra={"event": "google.oauth.login_required"},
+        )
         return _google_link_result_redirect(saved, "error", reason="login_required")
 
     # トークン交換の redirect_uri は認可要求時と完全一致が必要なため、start と
@@ -251,6 +274,10 @@ async def google_oauth_callback(
             email = None
 
     if not email:
+        logger.warning(
+            "Google OAuth callback could not fetch email from userinfo endpoint",
+            extra={"event": "google.oauth.email_fetch_failed"},
+        )
         return _google_link_result_redirect(saved, "error", reason="email_fetch_failed")
 
     # トークンは ENCRYPTION_KEY で暗号化して保存する。鍵未設定などで失敗しても

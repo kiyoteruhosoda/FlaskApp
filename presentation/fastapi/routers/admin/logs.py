@@ -25,6 +25,9 @@ _SOURCES = ("app", "worker")
 # 一覧表示でのメッセージ最大長（全文・traceback は詳細APIで返す）
 _LIST_MESSAGE_MAX = 500
 
+# 1回のエクスポートで返す最大件数（メモリ・応答サイズの上限）
+_EXPORT_MAX = 1000
+
 
 def _require_log_view_permission(principal: AuthenticatedPrincipal) -> None:
     if not principal.can("admin:system-settings"):
@@ -126,6 +129,39 @@ def _log_model(source: str):
     return WorkerLog
 
 
+def _apply_log_filters(
+    query,
+    model,
+    source: str,
+    *,
+    levels: list[str],
+    event: str | None,
+    q: str | None,
+    trace_id: str | None,
+    since_dt: Optional[datetime],
+    until_dt: Optional[datetime],
+):
+    """一覧・エクスポートで共通のフィルタ条件を適用する。"""
+    if levels:
+        query = query.filter(func.upper(model.level).in_(levels))
+    if event:
+        query = query.filter(model.event.ilike(f"%{event}%"))
+    if q:
+        query = query.filter(model.message.ilike(f"%{q}%"))
+    if trace_id:
+        if source == "app":
+            query = query.filter(model.request_id == trace_id)
+        else:
+            query = query.filter(
+                (model.task_uuid == trace_id) | (model.file_task_id == trace_id)
+            )
+    if since_dt is not None:
+        query = query.filter(model.created_at >= since_dt)
+    if until_dt is not None:
+        query = query.filter(model.created_at <= until_dt)
+    return query
+
+
 @router.get("")
 async def list_logs(
     source: str = Query("app", description="ログの出所（app=APIリクエスト / worker=Celery ジョブ）"),
@@ -153,32 +189,22 @@ async def list_logs(
         )
 
     model = _log_model(source)
-    query = db.query(model)
 
     levels = [part.strip().upper() for part in (level or "").split(",") if part.strip()]
-    if levels:
-        query = query.filter(func.upper(model.level).in_(levels))
-
-    if event:
-        query = query.filter(model.event.ilike(f"%{event}%"))
-
-    if q:
-        query = query.filter(model.message.ilike(f"%{q}%"))
-
-    if traceId:
-        if source == "app":
-            query = query.filter(model.request_id == traceId)
-        else:
-            query = query.filter(
-                (model.task_uuid == traceId) | (model.file_task_id == traceId)
-            )
-
     since_dt = _parse_dt_utc_naive(since)
-    if since_dt is not None:
-        query = query.filter(model.created_at >= since_dt)
     until_dt = _parse_dt_utc_naive(until)
-    if until_dt is not None:
-        query = query.filter(model.created_at <= until_dt)
+
+    query = _apply_log_filters(
+        db.query(model),
+        model,
+        source,
+        levels=levels,
+        event=event,
+        q=q,
+        trace_id=traceId,
+        since_dt=since_dt,
+        until_dt=until_dt,
+    )
 
     total = query.count()
     rows = (
@@ -218,6 +244,78 @@ async def list_logs(
             "until": _iso(until_dt),
         },
         "server_time": _iso(datetime.now(timezone.utc)),
+    }
+
+
+@router.get("/export")
+async def export_logs(
+    source: str = Query("app", description="ログの出所（app / worker）"),
+    ids: str | None = Query(
+        None,
+        description="エクスポート対象の ID（カンマ区切り）。指定時はフィルタより優先。",
+    ),
+    level: str | None = Query(None, description="ログレベル（カンマ区切りで複数指定可）"),
+    event: str | None = Query(None, description="イベント名（部分一致）"),
+    q: str | None = Query(None, description="メッセージ本文（部分一致）"),
+    traceId: str | None = Query(None, description="追跡キー（完全一致）"),
+    since: str | None = Query(None, description="この日時以降（ISO 8601）"),
+    until: str | None = Query(None, description="この日時以前（ISO 8601）"),
+    principal: AuthenticatedPrincipal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    """複数ログをまとめて（メッセージ全文・traceback 付きで）エクスポートする。
+
+    ``ids`` を指定した場合はその ID 群を、指定しない場合は一覧と同じフィルタ条件に
+    合致するログを新しい順に返す。上限は ``_EXPORT_MAX`` 件。
+    """
+    _require_log_view_permission(principal)
+
+    if source not in _SOURCES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "invalid_source", "message": f"source must be one of {_SOURCES}"},
+        )
+
+    model = _log_model(source)
+    query = db.query(model)
+
+    id_list = [
+        int(part) for part in (ids or "").split(",") if part.strip().isdigit()
+    ]
+    if ids is not None and not id_list:
+        # ids は渡されたが有効な数値が無い → 対象なしとして空で返す。
+        return {"source": source, "count": 0, "logs": [], "exportedAt": _iso(datetime.now(timezone.utc))}
+
+    if id_list:
+        query = query.filter(model.id.in_(id_list[:_EXPORT_MAX]))
+    else:
+        levels = [part.strip().upper() for part in (level or "").split(",") if part.strip()]
+        query = _apply_log_filters(
+            query,
+            model,
+            source,
+            levels=levels,
+            event=event,
+            q=q,
+            trace_id=traceId,
+            since_dt=_parse_dt_utc_naive(since),
+            until_dt=_parse_dt_utc_naive(until),
+        )
+
+    rows = (
+        query.order_by(model.created_at.desc(), model.id.desc())
+        .limit(_EXPORT_MAX)
+        .all()
+    )
+
+    serialize = _serialize_app_log if source == "app" else _serialize_worker_log
+    logs = [serialize(row, detailed=True) for row in rows]
+
+    return {
+        "source": source,
+        "count": len(logs),
+        "logs": logs,
+        "exportedAt": _iso(datetime.now(timezone.utc)),
     }
 
 

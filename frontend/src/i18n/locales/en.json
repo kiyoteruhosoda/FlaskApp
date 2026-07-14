@@ -556,5 +556,20 @@
   "Worker": "Worker",
   "{{count}} logs total": "{{count}} logs total",
   "Log Detail": "Log Detail",
-  "Traceback": "Traceback"
+  "Traceback": "Traceback",
+  "Copy": "Copy",
+  "Copied": "Copied",
+  "Failed to copy log detail to clipboard": "Failed to copy log detail to clipboard",
+  "Time": "Time",
+  "Group by Request ID": "Group by Request ID",
+  "Group by Task ID": "Group by Task ID",
+  "Select all on this page": "Select all on this page",
+  "Select log for export": "Select log for export",
+  "Export selected": "Export selected",
+  "Export all (filtered)": "Export all (filtered)",
+  "Exporting...": "Exporting...",
+  "{{count}} selected": "{{count}} selected",
+  "{{count}} entries": "{{count}} entries",
+  "No logs to export": "No logs to export",
+  "Failed to export logs": "Failed to export logs"
 }

@@ -216,6 +216,34 @@ def test_callback_invalid_state_redirects_with_error(client):
 
 
 @pytest.mark.integration
+def test_callback_invalid_state_is_logged(client, caplog):
+    """state 不一致は診断ログ（warning）を残す。
+
+    ``/auth/google/callback`` は ``/api`` 配下ではなくリクエストログの対象外の
+    ため、明示的に記録しないと「エラーが起きたのにログに何も出ない」状態になる
+    （回帰防止）。
+    """
+    user = _create_user()
+    _save_state("expected-state", user.id, redirect="/profile")
+
+    with caplog.at_level(
+        "WARNING", logger="presentation.fastapi.routers.google_oauth"
+    ):
+        client.get(
+            "/auth/google/callback?code=abc&state=wrong-state",
+            follow_redirects=False,
+        )
+
+    records = [
+        r
+        for r in caplog.records
+        if getattr(r, "event", None) == "google.oauth.invalid_state"
+    ]
+    assert records, "invalid_state のときに診断ログが出力されていない"
+    assert records[0].levelname == "WARNING"
+
+
+@pytest.mark.integration
 def test_callback_without_user_redirects_with_login_required(client):
     """紐づけ先ユーザーが特定できない state はエラーとして中断する。"""
     from shared.infrastructure.models.google_account import GoogleAccount

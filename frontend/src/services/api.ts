@@ -757,8 +757,19 @@ class ApiClient {
   }
 
   async getAdminRoles(): Promise<{ roles: AdminRole[] }> {
-    const response = await this.client.get<{ roles: AdminRole[] }>('/admin/roles');
-    return response.data;
+    // 一覧APIは permissions を {id, code} オブジェクトで返すが、一覧表示側
+    // （RolesPage / UsersPage）は権限コード（文字列）の配列として扱う。
+    // ここで境界正規化し、AdminRole 型（string[]）と実データを一致させる。
+    const response = await this.client.get<{
+      roles: Array<Omit<AdminRole, 'permissions'> & {
+        permissions: Array<string | { id: number; code: string }>;
+      }>;
+    }>('/admin/roles');
+    const roles: AdminRole[] = response.data.roles.map((r) => ({
+      ...r,
+      permissions: r.permissions.map((p) => (typeof p === 'string' ? p : p.code)),
+    }));
+    return { roles };
   }
 
   // ===== 管理 API — ロール CRUD =====
@@ -959,7 +970,7 @@ class ApiClient {
     return response.data;
   }
 
-  async updateUserPreferences(prefs: Partial<{ slideshow_interval: number }>): Promise<UserPreferencesUpdateResponse> {
+  async updateUserPreferences(prefs: Partial<{ slideshow_interval: number; timezone: string }>): Promise<UserPreferencesUpdateResponse> {
     const response = await this.client.put<UserPreferencesUpdateResponse>('/user/preferences', prefs);
     return response.data;
   }

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { PickerSessionRow } from '../types/api';
+import { formatDate } from '../utils/format';
 import {
   describeImportSessionStatus,
   isActiveImportSessionStatus,
@@ -120,7 +121,7 @@ const ImportActivityBell: React.FC = () => {
     if (minutes < 60) return t('{{count}} min ago', { count: minutes });
     const hours = Math.floor(minutes / 60);
     if (hours < 24) return t('{{count}} hr ago', { count: hours });
-    return new Date(iso).toLocaleDateString();
+    return formatDate(iso);
   };
 
   return (

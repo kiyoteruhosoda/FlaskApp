@@ -15,6 +15,9 @@ playwright-report/
 playwright/.cache/
 blob-report/
 
+# フルスタック E2E が生成する使い捨て SQLite DB
+e2e-fullstack/.e2e-fullstack.db
+
 # logs
 *.log
 npm-debug.log*

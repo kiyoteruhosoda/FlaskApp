@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Container, Card, Badge, Spinner, Alert, Table } from 'react-bootstrap';
 import { wikiApi } from '../../services/wikiApi';
+import { formatDateTime } from '../../utils/format';
 import { WikiPageHistoryData } from '../../types/wiki';
 import { getApiErrorCode } from '../../services/apiErrors';
 
@@ -45,7 +46,7 @@ const WikiHistoryPage: React.FC = () => {
   const { page, revisions } = data!;
 
   return (
-    <Container fluid className="py-4">
+    <Container fluid className="py-4" data-testid="wiki-history-page">
       <div className="d-flex align-items-center mb-3">
         <Link to={`/wiki/page/${page.slug}`} className="btn btn-outline-secondary btn-sm me-3">
           <i className="fa-solid fa-arrow-left me-1" />Back to Page
@@ -84,7 +85,7 @@ const WikiHistoryPage: React.FC = () => {
                       {rev.change_summary || <em className="text-muted">No summary</em>}
                     </td>
                     <td className="text-nowrap">
-                      {rev.created_at ? new Date(rev.created_at).toLocaleString() : '—'}
+                      {rev.created_at ? formatDateTime(rev.created_at) : '—'}
                     </td>
                   </tr>
                 ))}

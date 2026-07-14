@@ -34,7 +34,7 @@ const WikiCategoriesPage: React.FC = () => {
   }
 
   return (
-    <Container fluid className="py-4">
+    <Container fluid className="py-4" data-testid="wiki-categories-page">
       <Row className="mb-3 align-items-center">
         <Col>
           <div className="d-flex align-items-center gap-3">

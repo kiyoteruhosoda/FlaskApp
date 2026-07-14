@@ -383,7 +383,7 @@ class WikiMarkdownPreviewUseCase:
     """Markdownプレビュー生成ユースケース"""
 
     def execute(self, content: str) -> WikiMarkdownPreview:
-        from bounded_contexts.wiki.presentation.wiki.utils import markdown_to_html
+        from bounded_contexts.wiki.presentation.wiki.utils_new import markdown_to_html
 
         html = markdown_to_html(content)
         return WikiMarkdownPreview(html=str(html))

@@ -43,7 +43,7 @@ const WikiAdminPage: React.FC = () => {
   const { total_pages, total_categories, recent_pages } = data!;
 
   return (
-    <Container fluid className="py-4">
+    <Container fluid className="py-4" data-testid="wiki-admin-page">
       <div className="d-flex align-items-center mb-4">
         <Link to="/wiki" className="btn btn-outline-secondary btn-sm me-3">
           <i className="fa-solid fa-arrow-left me-1" />Wiki

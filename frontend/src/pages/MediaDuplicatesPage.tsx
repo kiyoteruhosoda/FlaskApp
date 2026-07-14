@@ -84,7 +84,7 @@ const MediaDuplicatesPage: React.FC = () => {
   };
 
   return (
-    <Container className="py-4">
+    <Container className="py-4" data-testid="media-duplicates-page">
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div>
           <h3 className="mb-1">{t('Duplicate media')}</h3>

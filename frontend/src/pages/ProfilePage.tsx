@@ -9,6 +9,8 @@ import apiClient from '../services/api';
 import { startPasskeyRegistration } from '../utils/webauthn';
 import GoogleAccountLinkSection from '../components/GoogleAccountLinkSection';
 import { getApiErrorCode } from '../services/apiErrors';
+import { formatDate, formatDateTime, setActiveTimeZone, getActiveTimeZone } from '../utils/format';
+import { COMMON_TIMEZONES } from '../utils/timezones';
 
 const ProfilePage: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -35,6 +37,13 @@ const ProfilePage: React.FC = () => {
   const [totpSuccess, setTotpSuccess] = useState('');
   const [showDisableConfirm, setShowDisableConfirm] = useState(false);
 
+  // Timezone (display) preference state
+  const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // 空文字 = 「ブラウザのタイムゾーンに従う（自動）」を表す
+  const [timezone, setTimezone] = useState<string>('');
+  const [timezoneSaving, setTimezoneSaving] = useState(false);
+  const [timezoneSaved, setTimezoneSaved] = useState(false);
+
   // Passkey state
   const [passkeys, setPasskeys] = useState<PasskeyItem[]>([]);
   const [passkeysLoading, setPasskeysLoading] = useState(true);
@@ -46,7 +55,36 @@ const ProfilePage: React.FC = () => {
   useEffect(() => {
     loadTOTPStatus();
     loadPasskeys();
+    loadTimezone();
   }, []);
+
+  const loadTimezone = async () => {
+    try {
+      const { preferences } = await apiClient.getUserPreferences();
+      const tz = typeof preferences.timezone === 'string' ? preferences.timezone : '';
+      setTimezone(tz);
+      // 整形関数が参照するグローバル設定にも反映する。
+      setActiveTimeZone(tz || undefined);
+    } catch {
+      /* 取得失敗時は既存（ブラウザ or localStorage）設定のまま */
+    }
+  };
+
+  const handleSaveTimezone = async (value: string) => {
+    setTimezone(value);
+    setTimezoneSaved(false);
+    setTimezoneSaving(true);
+    // 即時に表示へ反映（保存の成否に関わらずユーザー選択を優先）。
+    setActiveTimeZone(value || undefined);
+    try {
+      await apiClient.updateUserPreferences({ timezone: value });
+      setTimezoneSaved(true);
+    } catch {
+      /* 保存失敗時も表示は選択値のまま。次回ロードで整合する。 */
+    } finally {
+      setTimezoneSaving(false);
+    }
+  };
 
   const loadPasskeys = async () => {
     setPasskeysLoading(true);
@@ -262,7 +300,7 @@ const ProfilePage: React.FC = () => {
                 <>
                   <Col sm={3} className="text-muted fw-semibold mb-2">{t('Member since')}</Col>
                   <Col sm={9} className="mb-2">
-                    {new Date(user.created_at).toLocaleDateString()}
+                    {formatDate(user.created_at)}
                   </Col>
                 </>
               )}
@@ -385,6 +423,43 @@ const ProfilePage: React.FC = () => {
             <option value="en">English</option>
             <option value="ja">日本語</option>
           </Form.Select>
+        </Card.Body>
+      </Card>
+
+      {/* Timezone (display) Card */}
+      <Card className="mb-4" data-testid="timezone-settings">
+        <Card.Body>
+          <Card.Title className="mb-1">{t('Time zone')}</Card.Title>
+          <p className="text-muted small mb-3">
+            {t('Dates and times across the app use this time zone (system logs stay in UTC)')}
+          </p>
+          <Form.Select
+            value={timezone}
+            onChange={(e) => handleSaveTimezone(e.target.value)}
+            disabled={timezoneSaving}
+            style={{ maxWidth: 360 }}
+            data-testid="timezone-select"
+          >
+            <option value="">
+              {t('Automatic (browser): {{tz}}', { tz: browserTimeZone })}
+            </option>
+            {/* 保存済みの値が既定リストに無い場合でも選択状態を保てるよう先頭に補う */}
+            {timezone && !COMMON_TIMEZONES.includes(timezone) && (
+              <option value={timezone}>{timezone}</option>
+            )}
+            {COMMON_TIMEZONES.map((tz) => (
+              <option key={tz} value={tz}>{tz}</option>
+            ))}
+          </Form.Select>
+          <div className="text-muted small mt-2" data-testid="timezone-preview">
+            {t('Current time')}: {formatDateTime(new Date().toISOString())}
+            {' '}({getActiveTimeZone()})
+          </div>
+          {timezoneSaved && (
+            <div className="text-success small mt-1" data-testid="timezone-saved">
+              <i className="fa-solid fa-check me-1"></i>{t('Saved')}
+            </div>
+          )}
         </Card.Body>
       </Card>
 
@@ -550,8 +625,8 @@ const ProfilePage: React.FC = () => {
                   <div>
                     <div className="fw-semibold">{pk.name || t('Passkey')}</div>
                     <small className="text-muted">
-                      {pk.createdAt && <>{t('Added')} {new Date(pk.createdAt).toLocaleDateString()}</>}
-                      {pk.lastUsedAt && <> · {t('Last used')} {new Date(pk.lastUsedAt).toLocaleDateString()}</>}
+                      {pk.createdAt && <>{t('Added')} {formatDate(pk.createdAt)}</>}
+                      {pk.lastUsedAt && <> · {t('Last used')} {formatDate(pk.lastUsedAt)}</>}
                     </small>
                   </div>
                   <Button

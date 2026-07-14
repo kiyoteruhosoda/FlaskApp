@@ -6,6 +6,25 @@
 ## [Unreleased]
 
 ### Added
+- **Profile に表示タイムゾーン設定を追加し、UI 全体の日時を現地時刻表示へ統一**（T14）。
+  ユーザー設定（`user_preference` の `timezone` キー、IANA 名）を追加し、`/user/preferences`
+  で取得・更新する（`shared/infrastructure/models/user_preference.py` /
+  `presentation/fastapi/routers/user_preferences.py`、`zoneinfo` で妥当性検証、空文字＝自動）。
+  フロントは `frontend/src/utils/format.ts` に表示タイムゾーンを集約し、`formatDateTime` /
+  `formatDate` / `formatTime` が現地時刻へ変換する。各画面の直書き `toLocale*` を整形関数へ
+  統一。未設定時はブラウザのタイムゾーンにフォールバック。設定は起動時（`App.tsx`）と
+  Profile 画面で読み込み、`localStorage` にも保持する。バックエンド/DB は従来どおり UTC で
+  保持・送出し、変換は表示層のみで行う。
+  - **除外**: System Logs は監査・時系列突合のため UTC 固定表示のまま（`formatDateTimeWithMs`
+    は `timeZone: 'UTC'`）。列見出しの "Time (UTC)" と挙動を一致させた。
+- **初期管理者フルスタック E2E を追加**（T12、`frontend/e2e-fullstack/`、
+  `frontend/playwright.fullstack.config.ts`、`.github/workflows/e2e-fullstack.yml`）。
+  実 FastAPI ＋ 実DB（SQLite、`scripts/run_db_migrations.py` でスキーマ・マスタデータ投入）＋
+  ビルド済み SPA を起動し、`admin@example.com` / `admin` で UI ログインして App.tsx の全ルート
+  （約32画面）を巡回。判定は「ルート `data-testid` 要素の表示・ログイン画面へ差し戻されない・
+  API 応答に 5xx/401/403 が無い・JS 例外が無い」。パラメータ付きルート（アルバム／Wiki
+  ページ・カテゴリ）は管理者トークンで最小フィクスチャを API 作成してから遷移する。
+  既存の API モックスイートとは別設定・別ジョブ（手動／nightly／関連ファイル変更時）で実行。
 - **System Logs に複数ログのエクスポート機能を追加**（`GET /api/admin/logs/export`、
   `presentation/fastapi/routers/admin/logs.py` / `frontend/src/pages/SystemLogsPage.tsx`）。
   各行のチェックボックスで対象を選択し「選択をエクスポート」、または現在の絞り込み
@@ -28,6 +47,25 @@
   する。
 
 ### Fixed
+- **ロール一覧画面（`/admin/roles`）が実 API 応答でクラッシュしていた不具合を修正**
+  （T12 のフルスタック E2E で検出）。`GET /api/admin/roles` は `permissions` を
+  `{id, code}` オブジェクト配列で返すが、一覧表示側は権限コード（文字列）配列を前提と
+  していたため、React が「オブジェクトを子要素として描画できない（error #31）」で
+  画面が壊れていた（API をモックしていた既存テストでは表面化しなかった）。
+  `frontend/src/services/api.ts` の `getAdminRoles` で `permissions` をコード文字列へ
+  境界正規化し、`AdminRole` 型（`string[]`）と実データを一致させた。`/admin/users` の
+  権限表示（`[object Object]` 化）も同時に解消。
+- **Wiki ページ詳細のプレビューが 500 になっていた不具合を修正**（同上、E2E で検出）。
+  `bounded_contexts/wiki/application/use_cases.py` の `WikiMarkdownPreviewUseCase` が
+  存在しないモジュール `...presentation.wiki.utils` を import しており（正しくは
+  `utils_new`）、`POST /wiki/api/preview` が `ModuleNotFoundError` で 500 を返していた。
+  import 先を修正しプレビューを復旧。
+- **ユーザー個人設定（`PUT /user/preferences`）が永続化されていなかった不具合を修正**
+  （T14 の実装中に検出）。`UserPreference` は互換レイヤーの scoped session を用いるのに、
+  ルーターは注入された `get_db` セッション（別コネクション）を commit していたため、
+  書き込みがリクエスト終了時の `db.session.remove()` で破棄されていた。
+  `presentation/fastapi/routers/user_preferences.py` で正しいセッションを commit する
+  よう修正（slideshow_interval / timezone の保存が実際に反映されるようになった）。
 - **取り込み中のステータスポーリングが InnoDB デッドロック（1213）で 500 になる問題を修正**
   （`shared/kernel/database/deadlock_retry.py` を新設、
   `bounded_contexts/picker_import/application/picker_session_service.py`）。

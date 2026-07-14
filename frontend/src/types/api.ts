@@ -782,6 +782,8 @@ export interface DuplicateGroupsResponse {
 
 export interface UserPreferences {
   slideshow_interval: number;
+  // 画面表示に用いるタイムゾーン（IANA 名）。空文字/未設定はブラウザ検出にフォールバック。
+  timezone?: string;
   [key: string]: unknown;
 }
 

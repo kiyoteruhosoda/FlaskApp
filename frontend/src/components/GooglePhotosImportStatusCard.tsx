@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../services/api';
 import { PickerSessionRow } from '../types/api';
+import { formatDateTime } from '../utils/format';
 import {
   describeImportSessionStatus,
   isActiveImportSessionStatus,
@@ -143,7 +144,7 @@ const GooglePhotosImportStatusCard: React.FC<GooglePhotosImportStatusCardProps> 
                     {row.accountEmail || t('Google account')}
                   </div>
                   <div className="text-muted small">
-                    {row.createdAt ? new Date(row.createdAt).toLocaleString() : '—'}
+                    {formatDateTime(row.createdAt)}
                     {summary && <span className="ms-2">{summary}</span>}
                   </div>
                 </div>

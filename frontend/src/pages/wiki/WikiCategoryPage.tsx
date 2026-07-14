@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Container, Card, Spinner, Alert } from 'react-bootstrap';
 import { wikiApi } from '../../services/wikiApi';
+import { formatDate } from '../../utils/format';
 import { WikiCategoryDetailData } from '../../types/wiki';
 import { getApiErrorCode } from '../../services/apiErrors';
 
@@ -45,7 +46,7 @@ const WikiCategoryPage: React.FC = () => {
   const { category, pages } = data!;
 
   return (
-    <Container fluid className="py-4">
+    <Container fluid className="py-4" data-testid="wiki-category-page">
       <div className="d-flex align-items-center mb-3">
         <Link to="/wiki/categories" className="btn btn-outline-secondary btn-sm me-3">
           <i className="fa-solid fa-arrow-left me-1" />Categories
@@ -73,7 +74,7 @@ const WikiCategoryPage: React.FC = () => {
                     {page.title}
                   </Link>
                   <small className="text-muted">
-                    {page.updated_at ? new Date(page.updated_at).toLocaleDateString() : ''}
+                    {page.updated_at ? formatDate(page.updated_at) : ''}
                   </small>
                 </li>
               ))}

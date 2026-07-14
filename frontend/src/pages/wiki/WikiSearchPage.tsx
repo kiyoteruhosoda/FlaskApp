@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Container, Card, Form, Button, Spinner, Alert, InputGroup } from 'react-bootstrap';
 import { wikiApi } from '../../services/wikiApi';
+import { formatDate } from '../../utils/format';
 import { WikiPage } from '../../types/wiki';
 import { getApiErrorCode } from '../../services/apiErrors';
 
@@ -37,7 +38,7 @@ const WikiSearchPage: React.FC = () => {
   };
 
   return (
-    <Container fluid className="py-4">
+    <Container fluid className="py-4" data-testid="wiki-search-page">
       <div className="d-flex align-items-center mb-3">
         <Link to="/wiki" className="btn btn-outline-secondary btn-sm me-3">
           <i className="fa-solid fa-arrow-left me-1" />Wiki
@@ -89,7 +90,7 @@ const WikiSearchPage: React.FC = () => {
                     </Link>
                     <small className="text-muted">
                       /wiki/page/{page.slug} &nbsp;·&nbsp;
-                      Updated: {page.updated_at ? new Date(page.updated_at).toLocaleDateString() : '—'}
+                      Updated: {page.updated_at ? formatDate(page.updated_at) : '—'}
                     </small>
                   </Card.Body>
                 </Card>

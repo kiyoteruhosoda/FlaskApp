@@ -26,7 +26,12 @@ class RefreshTokenError(Exception):
 
 def refresh_google_token(account):
     """Refresh Google OAuth token and update the account."""
-    tokens = json.loads(decrypt(account.oauth_token_json) or "{}")
+    try:
+        tokens = json.loads(decrypt(account.oauth_token_json) or "{}")
+    except Exception as exc:
+        # 暗号鍵の不一致・未設定や壊れたトークン JSON をここで握らないと、
+        # 呼び出し元の RefreshTokenError ハンドリングを素通りして汎用 500 になる
+        raise RefreshTokenError(f"token_decrypt_failed: {exc}", 500) from exc
     refresh_token = tokens.get("refresh_token")
     if not refresh_token:
         raise RefreshTokenError("no_refresh_token", 400)

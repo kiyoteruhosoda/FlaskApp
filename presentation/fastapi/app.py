@@ -17,6 +17,8 @@ from fastapi.staticfiles import StaticFiles
 
 from shared.kernel.settings.settings import settings
 from shared.kernel.version import get_version_string
+from presentation.fastapi.logging_setup import configure_db_logging
+from presentation.fastapi.middleware.request_logging import RequestLoggingMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +46,18 @@ def create_app() -> FastAPI:
         openapi_url="/api/openapi.json",
         lifespan=_lifespan,
     )
+
+    # ------------------------------------------------------------------
+    # ロギング（DB ログハンドラ：System Logs への永続化）
+    # ------------------------------------------------------------------
+    configure_db_logging()
+
+    # ------------------------------------------------------------------
+    # リクエストロギング（requestId 発行 + api.input/api.output/api.error）
+    # CORS より先に add_middleware することで CORS の内側に配置し、
+    # preflight（OPTIONS）はログ対象外にする。
+    # ------------------------------------------------------------------
+    app.add_middleware(RequestLoggingMiddleware)
 
     # ------------------------------------------------------------------
     # CORS
@@ -101,7 +115,17 @@ def _register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(Exception)
     async def _unhandled_exception_handler(request: Request, exc: Exception):
-        logger.exception("Unhandled exception: %s %s", request.method, request.url)
+        # RequestLoggingMiddleware を通過したリクエストは、そこで traceback 付きの
+        # DB ログ（api.error / request.error）が記録済み。ミドルウェアを経由しない
+        # 経路のみ、ここを安全網として記録する。
+        if getattr(request.state, "request_id", None) is None:
+            logger.error(
+                "Unhandled exception: %s %s",
+                request.method,
+                request.url,
+                exc_info=exc,
+                extra={"event": "app.unhandled_exception", "path": request.url.path},
+            )
         return JSONResponse(
             status_code=500,
             content={"error": "internal_server_error", "message": "An unexpected error occurred."},

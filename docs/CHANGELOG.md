@@ -6,6 +6,31 @@
 ## [Unreleased]
 
 ### Fixed
+- **API のエラーが System Logs（`log` テーブル）へ一切記録されない問題を修正**。
+  T11 の Flask→FastAPI 移行時に、Flask 版 `presentation/web/bootstrap/logging_setup.py`
+  が担っていた DB ログハンドラ（`DBLogHandler`）の装着と、リクエスト単位の
+  requestId 発行・`api.input`/`api.output` ログの配線がすべて失われていた。
+  そのため Google Photos インポート開始などで発生した未処理例外は画面に
+  「An unexpected error occurred.」と出るだけで、原因を追跡する手段がなかった。
+  対応:
+  (1) `presentation/fastapi/logging_setup.py` を新設し、`create_app()` で
+  **ルートロガー**へ `DBLogHandler` を装着（ルーターだけでなく Application 層・
+  Infrastructure 層・shared を含む API プロセス内の全ログを永続化。
+  テスト時・インメモリ SQLite 時はスキップ）、
+  (2) `presentation/fastapi/middleware/request_logging.py` を新設し、全リクエストに
+  requestId を発行して `api.input`/`api.output` を構造化ログとして記録、
+  未処理例外は API 以外の経路（SPA 配信等）も含め必ず traceback 付きで
+  `api.error`/`request.error` として記録、
+  (3) `shared/kernel/logging/request_context.py` の contextvar + ログフィルタで、
+  リクエスト処理中に出力される全ログレコードへ requestId を自動付与、
+  (4) `migrations/env.py` の `fileConfig` に `disable_existing_loggers=False` を
+  指定（同一プロセスで生成済みのアプリロガーが Alembic 実行で無効化されるのを防止）。
+- **Google トークンの復号失敗が原因不明の汎用 500 になる問題を修正**
+  （`shared/infrastructure/google_oauth.py`）。暗号鍵（`TOKEN_ENCRYPTION_KEY`）の
+  不一致・未設定や壊れたトークン JSON による復号エラーが `RefreshTokenError`
+  ハンドリングを素通りしていた。`token_decrypt_failed: <原因>` を持つ
+  `RefreshTokenError(500)` に変換し、Picker セッション作成 API が理由付きの
+  エラー応答とログを返すようにした。
 - **新規デプロイが `Bind mount failed: '<HOST_DATA_ROOT>' does not exist` で失敗する
   問題を修正**（`scripts/deploy.sh`）。環境ごとの自己完結ディレクトリ化で
   `HOST_DATA_ROOT` の既定が `<環境dir>` から `<環境dir>/mnt` に変わったが、

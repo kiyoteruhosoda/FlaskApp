@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { store } from './store';
 import { useDispatch, useSelector } from 'react-redux';
@@ -7,7 +7,7 @@ import { RootState, AppDispatch } from './store';
 import { getCurrentUser } from './store/authSlice';
 import { apiClient } from './services/api';
 import { setActiveTimeZone } from './utils/format';
-import { getLocalizedLoginPath, isSupportedLocale, syncLocaleFromPathname } from './i18n/localePath';
+import { getLocalizedLoginPath, syncLocaleFromPathname } from './i18n/localePath';
 
 // Components
 import Header from './components/Header';
@@ -84,16 +84,6 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }
 
   return isAuthenticated ? <>{children}</> : <Navigate to={getLocalizedLoginPath()} />;
-};
-
-const LocalizedLoginRoute: React.FC<{ isAuthenticated: boolean }> = ({ isAuthenticated }) => {
-  const { locale } = useParams();
-
-  if (!isSupportedLocale(locale)) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return isAuthenticated ? <Navigate to="/" /> : <LoginPage />;
 };
 
 const LocalePathSynchronizer: React.FC = () => {
@@ -197,6 +187,7 @@ const AppContent: React.FC = () => {
         <LocalePathSynchronizer />
         <Routes>
           {/* Public Routes */}
+          {/* /ja is an invitation shortcut for the Japanese login page only; it is not a global route prefix. */}
           <Route path="/ja" element={<Navigate to="/ja/login" replace />} />
           <Route path="/en" element={<Navigate to="/en/login" replace />} />
           <Route 
@@ -216,8 +207,12 @@ const AppContent: React.FC = () => {
             } 
           />
           <Route
-            path="/:locale/login"
-            element={<LocalizedLoginRoute isAuthenticated={isAuthenticated} />}
+            path="/ja/login"
+            element={isAuthenticated ? <Navigate to="/" /> : <LoginPage />}
+          />
+          <Route
+            path="/en/login"
+            element={isAuthenticated ? <Navigate to="/" /> : <LoginPage />}
           />
           <Route path="/select-role" element={<RoleSelectionPage />} />
           <Route path="/change-password" element={<ChangePasswordPage />} />

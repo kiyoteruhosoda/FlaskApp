@@ -10,19 +10,16 @@ export const isSupportedLocale = (value: string | undefined): value is Supported
 export interface LocaleRoutePolicy {
   readonly locale: SupportedLocale;
   readonly loginPath: string;
-  readonly rootPath: string;
 }
 
 class EnglishLocaleRoutePolicy implements LocaleRoutePolicy {
   readonly locale = 'en';
   readonly loginPath = '/en/login';
-  readonly rootPath = '/en';
 }
 
 class JapaneseLocaleRoutePolicy implements LocaleRoutePolicy {
   readonly locale = 'ja';
   readonly loginPath = '/ja/login';
-  readonly rootPath = '/ja';
 }
 
 const policies: Record<SupportedLocale, LocaleRoutePolicy> = {
@@ -38,6 +35,8 @@ export const extractLocaleFromPathname = (pathname: string): SupportedLocale | u
 };
 
 export const getLocalizedLoginPath = (pathname: string = window.location.pathname): string => {
+  // Keep legacy URLs such as /login valid. Locale-prefixed URLs are invitation links,
+  // not a requirement that every SPA route must carry /ja or /en.
   const locale = extractLocaleFromPathname(pathname);
   return locale ? localeRoutePolicyOf(locale).loginPath : '/login';
 };

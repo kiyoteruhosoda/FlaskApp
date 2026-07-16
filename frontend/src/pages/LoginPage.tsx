@@ -3,16 +3,18 @@ import { Container, Row, Col, Card, Form, Button, Alert, Spinner, Dropdown, Inpu
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
 import { login, clearError, getCurrentUser } from '../store/authSlice';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import i18n from 'i18next';
 import axios from 'axios';
 import { startPasskeyAuthentication, isPasskeySupported } from '../utils/webauthn';
+import { localeRoutePolicyOf, type SupportedLocale } from '../i18n/localePath';
 
 const LoginPage: React.FC = () => {
   const { t } = useTranslation();
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isLoading, error } = useSelector((state: RootState) => state.auth);
 
   const [formData, setFormData] = useState({
@@ -26,8 +28,12 @@ const LoginPage: React.FC = () => {
   const [passkeyError, setPasskeyError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  const changeLanguage = (lng: string) => {
+  const changeLanguage = (lng: SupportedLocale) => {
     i18n.changeLanguage(lng);
+    const target = localeRoutePolicyOf(lng).loginPath;
+    if (location.pathname !== target) {
+      navigate(target, { replace: true });
+    }
   };
 
   // APIのエラーコードを利用者向けメッセージに変換する。

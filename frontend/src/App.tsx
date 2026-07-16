@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { store } from './store';
 import { useDispatch, useSelector } from 'react-redux';
@@ -7,6 +7,7 @@ import { RootState, AppDispatch } from './store';
 import { getCurrentUser } from './store/authSlice';
 import { apiClient } from './services/api';
 import { setActiveTimeZone } from './utils/format';
+import { getLocalizedLoginPath, syncLocaleFromPathname } from './i18n/localePath';
 
 // Components
 import Header from './components/Header';
@@ -79,10 +80,22 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }
 
   if (!isAuthenticated) {
-    console.log('[ProtectedRoute] Not authenticated, redirecting to /login');
+    console.log('[ProtectedRoute] Not authenticated, redirecting to localized login path');
   }
 
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
+  return isAuthenticated ? <>{children}</> : <Navigate to={getLocalizedLoginPath()} />;
+};
+
+const LocalePathSynchronizer: React.FC = () => {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    syncLocaleFromPathname(pathname).catch(() => {
+      /* i18next の初期化状態に依存するため、失敗時は既存の検出結果を使う */
+    });
+  }, [pathname]);
+
+  return null;
 };
 
 // Layout Component
@@ -171,8 +184,12 @@ const AppContent: React.FC = () => {
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Layout>
+        <LocalePathSynchronizer />
         <Routes>
           {/* Public Routes */}
+          {/* /ja is an invitation shortcut for the Japanese login page only; it is not a global route prefix. */}
+          <Route path="/ja" element={<Navigate to="/ja/login" replace />} />
+          <Route path="/en" element={<Navigate to="/en/login" replace />} />
           <Route 
             path="/login" 
             element={
@@ -188,6 +205,14 @@ const AppContent: React.FC = () => {
                 </>
               )
             } 
+          />
+          <Route
+            path="/ja/login"
+            element={isAuthenticated ? <Navigate to="/" /> : <LoginPage />}
+          />
+          <Route
+            path="/en/login"
+            element={isAuthenticated ? <Navigate to="/" /> : <LoginPage />}
           />
           <Route path="/select-role" element={<RoleSelectionPage />} />
           <Route path="/change-password" element={<ChangePasswordPage />} />

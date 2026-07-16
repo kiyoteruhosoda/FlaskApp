@@ -11,9 +11,10 @@ const resources = {
   ja: { translation: ja },
 };
 
-// ログイン前のページでも ?lang= クエリパラメータ / lang Cookie で言語を切り替え
-// られるようにする。バックエンド (Flask-Babel) と同じ Cookie 名 "lang" を使い、
-// クエリで指定された場合は Cookie にも保存して次回以降に引き継ぐ。既定は英語。
+// ログイン前のページでも /ja/login のようなロケール付きパス、?lang= クエリパラメータ、
+// lang Cookie で言語を切り替えられるようにする。バックエンド (Flask-Babel) と
+// 同じ Cookie 名 "lang" を使い、パス/クエリで指定された場合は Cookie にも保存して
+// 次回以降に引き継ぐ。既定は英語。
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
@@ -23,7 +24,8 @@ i18n
     supportedLngs: ['en', 'ja'],
 
     detection: {
-      order: ['querystring', 'cookie'],
+      order: ['path', 'querystring', 'cookie'],
+      lookupFromPathIndex: 0,
       lookupQuerystring: 'lang',
       lookupCookie: 'lang',
       caches: ['cookie'],

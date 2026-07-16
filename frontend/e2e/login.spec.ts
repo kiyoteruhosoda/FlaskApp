@@ -4,6 +4,30 @@ import { TEST_USER } from './helpers';
 const TOKENS = { access_token: 'acc', refresh_token: 'ref' };
 
 test.describe('Login', () => {
+
+  test('shows Japanese login page from locale path without a language cookie', async ({ page, context }) => {
+    await context.clearCookies();
+
+    await page.goto('/ja/login');
+
+    await expect(page.getByTestId('login-page')).toBeVisible();
+    await expect(page.getByText('アカウントにログインしてください')).toBeVisible();
+    await expect(page).toHaveURL(/\/ja\/login$/);
+  });
+
+  test('language selector persists Japanese in both cookie and URL path', async ({ page, context }) => {
+    await context.clearCookies();
+
+    await page.goto('/login');
+    await page.getByRole('button', { name: /English/ }).click();
+    await page.getByRole('button', { name: /日本語/ }).click();
+
+    await expect(page).toHaveURL(/\/ja\/login$/);
+    await expect(page.getByText('アカウントにログインしてください')).toBeVisible();
+    const cookies = await context.cookies();
+    expect(cookies.some((cookie) => cookie.name === 'lang' && cookie.value === 'ja')).toBe(true);
+  });
+
   test('password login navigates to app', async ({ page }) => {
     await page.route(
       (url) => url.pathname === '/api/auth/login',

@@ -58,6 +58,7 @@ import {
   AdminLogSource,
 } from '../types/api';
 import { getApiErrorCode } from './apiErrors';
+import { getLocalizedLoginPath } from '../i18n/localePath';
 
 function extractApiErrorCode(error: any, fallback: string): string {
   return getApiErrorCode(error) || error.message || fallback;
@@ -130,8 +131,9 @@ class ApiClient {
   private forceLogout(): void {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
-    if (window.location.pathname !== '/login') {
-      window.location.href = '/login';
+    const loginPath = getLocalizedLoginPath();
+    if (window.location.pathname !== loginPath) {
+      window.location.href = loginPath;
     }
   }
 

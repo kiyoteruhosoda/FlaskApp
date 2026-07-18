@@ -25,6 +25,7 @@ from presentation.fastapi.schemas.auth import (
     RefreshRequest,
     RefreshResponse,
     RoleInfo,
+    RolesResponse,
     SelectRoleRequest,
     ServiceAccountTokenRequest,
     ServiceAccountTokenResponse,
@@ -269,6 +270,62 @@ async def api_get_current_user(
         scope=sorted(principal.scope),
         created_at=user.created_at.isoformat() if getattr(user, "created_at", None) else None,
         updated_at=user.updated_at.isoformat() if getattr(user, "updated_at", None) else None,
+    )
+
+
+@router.get("/roles", response_model=RolesResponse)
+async def api_get_user_roles(
+    principal: AuthenticatedPrincipal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    """ログイン中ユーザーが選択できるロール一覧を返す（ロール選択画面用）。"""
+    from shared.infrastructure.models.user import User
+
+    if not principal.is_individual:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": "authentication_required"},
+        )
+
+    user = db.get(User, principal.id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": "authentication_required"},
+        )
+
+    roles = list(getattr(user, "roles", []) or [])
+    role_data = [
+        RoleInfo(
+            id=role.id,
+            name=role.name,
+            permissions=[p.code for p in getattr(role, "permissions", [])],
+        )
+        for role in roles
+    ]
+
+    # select-role は選択ロールの権限のみを scope に持つトークンを再発行する。
+    # そのため scope がロールの権限セットと一致していれば選択済みとみなせる。
+    current_scope = set(principal.scope)
+    active_role_id = next(
+        (
+            role.id
+            for role in roles
+            if current_scope
+            and {
+                p.code
+                for p in getattr(role, "permissions", [])
+                if p.code
+            }
+            == current_scope
+        ),
+        None,
+    )
+
+    return RolesResponse(
+        roles=role_data,
+        active_role_id=active_role_id,
+        requires_selection=len(roles) > 1,
     )
 
 

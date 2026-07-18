@@ -47,6 +47,16 @@
   する。
 
 ### Fixed
+- **ロール選択画面（Select Role）にロール候補が1件も表示されない不具合を修正**。
+  複数ロール保有者のログイン後、フロントエンドのロール選択画面
+  （`frontend/src/pages/RoleSelectionPage.tsx`）は `GET /api/auth/roles` から
+  候補を取得するが、FastAPI 移行後のバックエンドにこのエンドポイントが存在せず
+  404 となり、候補リストが常に空だった。`presentation/fastapi/routers/auth.py` に
+  `GET /api/auth/roles` を追加（レスポンスは `roles`（各ロールの id / name /
+  permissions）・`active_role_id`（現在のトークンの scope がロールの権限セットと
+  一致する場合のみ設定＝ select-role 実行後）・`requires_selection`（複数ロール
+  保有時に true））。ロール選択〜トークン再発行までの一気通貫回帰テストを
+  `tests/integration/fastapi/test_role_selection.py` に追加。
 - **`deploy.sh reset` が同時マイグレーションの競合で失敗していた不具合を修正**
   （STG の `./scripts/deploy.sh reset` で `Table 'worker_log' already exists` (1050) →
   web コンテナのクラッシュループとして再現）。reset 直後の空DBに対し、web コンテナの

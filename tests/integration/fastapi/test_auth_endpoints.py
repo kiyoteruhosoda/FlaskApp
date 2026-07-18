@@ -31,6 +31,10 @@ class TestAuthEndpointsUnauthenticated:
         resp = client.get("/api/auth/check")
         assert resp.status_code == 401
 
+    def test_roles_without_token_returns_401(self, client: TestClient) -> None:
+        resp = client.get("/api/auth/roles")
+        assert resp.status_code == 401
+
     def test_media_list_without_token_returns_401(self, client: TestClient) -> None:
         resp = client.get("/api/media")
         assert resp.status_code == 401

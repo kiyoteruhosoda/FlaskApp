@@ -5,6 +5,17 @@
 
 ## [Unreleased]
 
+### Fixed
+- **stg / prod 同居ホストで本番デプロイがネットワーク作成に失敗する問題を修正**
+  （`docker-compose.yml` / `scripts/deploy.sh` / `.env.example` / `.env.staging.example`）。
+  compose の `networks.default.ipam.config.subnet` で固定していたサブネットは
+  同一ホストの全 Docker ネットワークで重複禁止のため、prod の `.env` に stg と同じ
+  `DOCKER_NETWORK_SUBNET=172.23.0.0/16` が残っていると
+  `failed to create network ...: Pool overlaps with other one on this address space`
+  でデプロイが失敗していた。サービス間通信はサービス名 DNS で解決しており固定
+  IP レンジへの依存は無いため、`ipam` 指定を削除して Docker の自動割当に変更。
+  `DOCKER_NETWORK_SUBNET` 変数は廃止（既存 `.env` に残っていても無視されるだけで無害）。
+
 ### Added
 - **Profile に表示タイムゾーン設定を追加し、UI 全体の日時を現地時刻表示へ統一**（T14）。
   ユーザー設定（`user_preference` の `timezone` キー、IANA 名）を追加し、`/user/preferences`

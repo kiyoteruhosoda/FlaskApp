@@ -132,6 +132,19 @@ class RoleInfo(BaseModel):
     permissions: list[str] = []
 
 
+class RolesResponse(BaseModel):
+    """``GET /api/auth/roles`` レスポンス。
+
+    ``active_role_id`` は select-role で明示的にロールを選択した後の
+    トークン（``active_role_id`` クレーム付き）でのみ設定される。
+    ``requires_selection`` は複数ロール保有時に true。
+    """
+
+    roles: list[RoleInfo]
+    active_role_id: int | None = None
+    requires_selection: bool
+
+
 class MeResponse(BaseModel):
     """``GET /api/auth/me`` レスポンス。
 
@@ -163,4 +176,5 @@ __all__ = [
     "AuthCheckResponse",
     "MeResponse",
     "RoleInfo",
+    "RolesResponse",
 ]

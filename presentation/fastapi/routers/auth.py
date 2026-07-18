@@ -25,6 +25,7 @@ from presentation.fastapi.schemas.auth import (
     RefreshRequest,
     RefreshResponse,
     RoleInfo,
+    RolesResponse,
     SelectRoleRequest,
     ServiceAccountTokenRequest,
     ServiceAccountTokenResponse,
@@ -259,16 +260,78 @@ async def api_get_current_user(
     ]
     permissions = list(getattr(user, "all_permissions", set()) or set())
 
+    active_role_model = next(
+        (role for role in roles if role.id == principal.active_role_id), None
+    )
+    active_role = (
+        RoleInfo(
+            id=active_role_model.id,
+            name=active_role_model.name,
+            permissions=[
+                p.code for p in getattr(active_role_model, "permissions", [])
+            ],
+        )
+        if active_role_model
+        else None
+    )
+
     return MeResponse(
         id=user.id,
         username=getattr(user, "username", None) or user.email,
         email=user.email,
         roles=role_data,
-        active_role=None,
+        active_role=active_role,
         permissions=permissions,
         scope=sorted(principal.scope),
         created_at=user.created_at.isoformat() if getattr(user, "created_at", None) else None,
         updated_at=user.updated_at.isoformat() if getattr(user, "updated_at", None) else None,
+    )
+
+
+@router.get("/roles", response_model=RolesResponse)
+async def api_get_user_roles(
+    principal: AuthenticatedPrincipal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    """ログイン中ユーザーが選択できるロール一覧を返す（ロール選択画面用）。"""
+    from shared.infrastructure.models.user import User
+
+    if not principal.is_individual:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": "authentication_required"},
+        )
+
+    user = db.get(User, principal.id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": "authentication_required"},
+        )
+
+    roles = list(getattr(user, "roles", []) or [])
+    role_data = [
+        RoleInfo(
+            id=role.id,
+            name=role.name,
+            permissions=[p.code for p in getattr(role, "permissions", [])],
+        )
+        for role in roles
+    ]
+
+    # アクティブロールは select-role が発行したトークンの active_role_id
+    # クレーム（明示的な選択）のみを信頼する。scope からの推測はしない
+    # （和集合 scope が admin 等の権限セットと偶然一致し得るため）。
+    active_role_id = (
+        principal.active_role_id
+        if any(role.id == principal.active_role_id for role in roles)
+        else None
+    )
+
+    return RolesResponse(
+        roles=role_data,
+        active_role_id=active_role_id,
+        requires_selection=len(roles) > 1,
     )
 
 
@@ -307,7 +370,9 @@ async def api_select_role(
     role_permissions = [
         p.code for p in getattr(selected_role, "permissions", []) if p.code
     ]
-    access_token = TokenService.generate_access_token(user, role_permissions)
+    access_token = TokenService.generate_access_token(
+        user, role_permissions, active_role_id=selected_role.id
+    )
 
     response.set_cookie(
         key="access_token",

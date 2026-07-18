@@ -153,16 +153,25 @@ class TokenService:
         cls,
         user: User,
         scope: Iterable[str] | None = None,
+        active_role_id: int | None = None,
     ) -> str:
-        """アクセストークンを生成する"""
+        """アクセストークンを生成する
+
+        ``active_role_id`` はロール選択（select-role）で明示的に選ばれた
+        ロールのみ指定する。scope からの推測はしない（複数ロールの和集合
+        scope がロールの権限セットと偶然一致し得るため）。
+        """
 
         _, scope_str = cls._normalize_scope(scope)
+        extra_claims: dict[str, Any] = {
+            "subject_type": "individual",
+        }
+        if active_role_id is not None:
+            extra_claims["active_role_id"] = active_role_id
         payload = cls._build_access_token_payload(
             subject=f"i+{user.id}",
             scope_str=scope_str,
-            extra_claims={
-                "subject_type": "individual",
-            },
+            extra_claims=extra_claims,
         )
         return cls._encode_access_token(payload)
 
@@ -330,6 +339,11 @@ class TokenService:
         display_name = getattr(user, "username", None) or getattr(user, "email", None)
         role_objects = tuple(user.roles or [])
 
+        active_role_claim = payload.get("active_role_id")
+        active_role_id = (
+            active_role_claim if isinstance(active_role_claim, int) else None
+        )
+
         return AuthenticatedPrincipal(
             subject_type="individual",
             subject_id=user.id,
@@ -337,6 +351,7 @@ class TokenService:
             scope=frozenset(scope_items),
             display_name=display_name,
             roles=role_objects,
+            active_role_id=active_role_id,
             email=getattr(user, "email", None),
             _totp_secret=getattr(user, "totp_secret", None),
             _permissions=frozenset(scope_items),

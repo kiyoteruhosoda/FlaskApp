@@ -260,12 +260,27 @@ async def api_get_current_user(
     ]
     permissions = list(getattr(user, "all_permissions", set()) or set())
 
+    active_role_model = next(
+        (role for role in roles if role.id == principal.active_role_id), None
+    )
+    active_role = (
+        RoleInfo(
+            id=active_role_model.id,
+            name=active_role_model.name,
+            permissions=[
+                p.code for p in getattr(active_role_model, "permissions", [])
+            ],
+        )
+        if active_role_model
+        else None
+    )
+
     return MeResponse(
         id=user.id,
         username=getattr(user, "username", None) or user.email,
         email=user.email,
         roles=role_data,
-        active_role=None,
+        active_role=active_role,
         permissions=permissions,
         scope=sorted(principal.scope),
         created_at=user.created_at.isoformat() if getattr(user, "created_at", None) else None,
@@ -304,22 +319,13 @@ async def api_get_user_roles(
         for role in roles
     ]
 
-    # select-role は選択ロールの権限のみを scope に持つトークンを再発行する。
-    # そのため scope がロールの権限セットと一致していれば選択済みとみなせる。
-    current_scope = set(principal.scope)
-    active_role_id = next(
-        (
-            role.id
-            for role in roles
-            if current_scope
-            and {
-                p.code
-                for p in getattr(role, "permissions", [])
-                if p.code
-            }
-            == current_scope
-        ),
-        None,
+    # アクティブロールは select-role が発行したトークンの active_role_id
+    # クレーム（明示的な選択）のみを信頼する。scope からの推測はしない
+    # （和集合 scope が admin 等の権限セットと偶然一致し得るため）。
+    active_role_id = (
+        principal.active_role_id
+        if any(role.id == principal.active_role_id for role in roles)
+        else None
     )
 
     return RolesResponse(
@@ -364,7 +370,9 @@ async def api_select_role(
     role_permissions = [
         p.code for p in getattr(selected_role, "permissions", []) if p.code
     ]
-    access_token = TokenService.generate_access_token(user, role_permissions)
+    access_token = TokenService.generate_access_token(
+        user, role_permissions, active_role_id=selected_role.id
+    )
 
     response.set_cookie(
         key="access_token",

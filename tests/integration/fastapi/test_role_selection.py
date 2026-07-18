@@ -98,6 +98,11 @@ def test_multi_role_user_gets_role_candidates_and_can_select(
     assert role_names == {"admin", "member"}
     assert data["requires_selection"] is True
 
+    # 選択前のログイントークンではアクティブロールを報告しない。
+    # 和集合 scope は admin の権限セットと一致するが、scope からの推測で
+    # admin をプリセレクトしてはならない（明示的な select-role のみが正）。
+    assert data["active_role_id"] is None
+
     # 各候補には権限リストが含まれる（画面の説明表示に使用）
     member_role = next(r for r in data["roles"] if r["name"] == "member")
     assert set(member_role["permissions"]) == set(ROLE_PERMISSIONS["member"])

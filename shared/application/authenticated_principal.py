@@ -20,6 +20,7 @@ class AuthenticatedPrincipal:
     scope: FrozenSet[str] = field(default_factory=frozenset)
     display_name: Optional[str] = None
     roles: Tuple[Any, ...] = ()
+    active_role_id: Optional[int] = None
     email: Optional[str] = field(default=None, repr=False)
     _totp_secret: Optional[str] = field(default=None, repr=False)
     _permissions: FrozenSet[str] = field(default_factory=frozenset, repr=False)
@@ -95,6 +96,7 @@ class AuthenticatedPrincipal:
             scope=frozenset(scope),
             display_name=self.display_name,
             roles=self.roles,
+            active_role_id=self.active_role_id,
             _permissions=frozenset(scope),
         )
 
@@ -104,29 +106,19 @@ class AuthenticatedPrincipal:
 
     @property
     def active_role(self) -> Optional[Any]:
+        """明示的に選択されたアクティブロール（select-role 実行後のみ）。
+
+        scope（権限の集合）からの推測はしない。複数ロールの和集合 scope が
+        特定ロールの権限セットと偶然一致し得るため（例: admin は全権限を
+        持つので admin+member の和集合は admin と一致する）、選択状態は
+        トークンの ``active_role_id`` クレーム由来の明示的な値のみを使う。
         """
-        Determine the active role based on current permissions.
-        Returns the role whose permissions match the current scope.
-        """
-        if not self.roles:
+        if self.active_role_id is None:
             return None
-        
-        current_perms = set(self.permissions)
-        
-        # Check if any role's permissions exactly match current permissions
         for role in self.roles:
-            role_perms = set(getattr(perm, "code", "") for perm in getattr(role, "permissions", []))
-            if role_perms == current_perms:
+            if getattr(role, "id", None) == self.active_role_id:
                 return role
-        
-        # If no exact match, return the first role that's a subset
-        for role in self.roles:
-            role_perms = set(getattr(perm, "code", "") for perm in getattr(role, "permissions", []))
-            if role_perms and role_perms <= current_perms:
-                return role
-        
-        # Default to first role if available
-        return self.roles[0] if self.roles else None
+        return None
 
 
 __all__ = ["AuthenticatedPrincipal", "SubjectType"]

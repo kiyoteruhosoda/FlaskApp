@@ -49,7 +49,7 @@ flowchart TB
     cdn -.->|"オリジン取得"| rp
     rp -->|"WEB_HOST_PORT (既定 8050) to :80"| nginx
 
-    subgraph net["Docker network: photonest-dev（bridge / 172.22.0.0/16）"]
+    subgraph net["Docker network: photonest-dev（bridge / サブネット自動割当）"]
       direction TB
       nginx["nginx コンテナ<br/>:80 公開フロント<br/>proxy + X-Accel 直配信"]
       web["web コンテナ<br/>FastAPI + Flask + Gunicorn(UvicornWorker) :5000<br/>（expose のみ・内部専用）"]

@@ -253,6 +253,8 @@ networks:
   default:
     name: ${DOCKER_NETWORK_NAME:-photonest-dev}
     driver: bridge
-    ipam:
-      config:
-        - subnet: ${DOCKER_NETWORK_SUBNET:-172.22.0.0/16}
+    # サブネットは指定しない。指定すると同一ホストの全 Docker ネットワークで
+    # 重複禁止のため、stg / prod 共存時に "Pool overlaps with other one on this
+    # address space" でネットワーク作成に失敗する。無指定なら Docker が空いている
+    # サブネットを自動割当する。サービス間通信はサービス名 DNS（db / redis 等）で
+    # 解決しており、固定 IP レンジに依存する箇所はない。

@@ -324,7 +324,7 @@ curl -s http://localhost:5000/api/health
 | `HOST_DATA_ROOT` | 永続データのホスト側ルート | `/volume1/docker/photonest` |
 | `WEB_BIND_ADDR` / `WEB_HOST_PORT` | Web 公開（既定 127.0.0.1:8050） | `127.0.0.1` / `8050` |
 | `DB_HOST_PORT` / `DB_CONTAINER_NAME` | DB 公開ポート / コンテナ名 | `3307` / `mariadb` |
-| `DOCKER_NETWORK_NAME` / `DOCKER_NETWORK_SUBNET` | 外部ネットワーク | `photonest-dev` / `172.22.0.0/16` |
+| `DOCKER_NETWORK_NAME` | Docker ネットワーク名（サブネットは自動割当） | `photonest-dev` |
 | `WEB_IMAGE` / `DB_IMAGE` | 使用イメージタグ | `photonest:latest` / `photonest-db:latest` |
 | `API_BASE_URL` / `CORS_ALLOWED_ORIGINS` | 自己参照 URL / 許可オリジン（ドメイン） | 環境ごとに設定 |
 

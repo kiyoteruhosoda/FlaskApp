@@ -28,7 +28,14 @@ def calculate_file_hash(file_path: str) -> str:
     """ファイルのSHA-256ハッシュを計算"""
 
     with open(file_path, "rb") as f:
-        return hashlib.file_digest(f, "sha256").hexdigest()
+        # Python 3.11+ は C レベルループの file_digest を使う。
+        # pyproject.toml は >=3.10 を許容するため 3.10 では 1MiB チャンクで代替。
+        if hasattr(hashlib, "file_digest"):
+            return hashlib.file_digest(f, "sha256").hexdigest()
+        sha256_hash = hashlib.sha256()
+        while chunk := f.read(1024 * 1024):
+            sha256_hash.update(chunk)
+        return sha256_hash.hexdigest()
 
 
 def get_image_dimensions(file_path: str) -> Tuple[Optional[int], Optional[int], Optional[int]]:

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
 
-from sqlalchemy import update
+from sqlalchemy import func, update
 
 from shared.kernel.database.db import db
 from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
@@ -71,6 +71,31 @@ class PickerSelectionRepository(BaseRepository[PickerSelection]):
 
     def list_by_session(self, session_id: int) -> list[PickerSelection]:
         return PickerSelection.query.filter_by(session_id=session_id).all()
+
+    def count_by_session_and_status(
+        self, session_ids: list[int]
+    ) -> dict[int, dict[str, int]]:
+        """セッションIDごとのステータス別件数をGROUP BY 1クエリで取得.
+
+        全 Selection 行を取得して Python 側で数えると、セッション件数×
+        Selection 件数ぶんの行転送が発生するため、集計は DB 側で行う。
+        """
+        counts: dict[int, dict[str, int]] = {}
+        if not session_ids:
+            return counts
+        rows = (
+            db.session.query(
+                PickerSelection.session_id,
+                PickerSelection.status,
+                func.count(PickerSelection.id),
+            )
+            .filter(PickerSelection.session_id.in_(session_ids))
+            .group_by(PickerSelection.session_id, PickerSelection.status)
+            .all()
+        )
+        for session_id, status, count in rows:
+            counts.setdefault(session_id, {})[status] = count
+        return counts
 
     def get(self, selection_id: int) -> PickerSelection | None:
         return db.session.get(PickerSelection, selection_id)

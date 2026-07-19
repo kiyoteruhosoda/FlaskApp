@@ -437,6 +437,21 @@ def transcode_queue_scan() -> Dict[str, object]:
         .all()
     )
 
+    # メディア1件ごとの個別SELECT（N+1）を避けるため、対象メディアの
+    # std1080p プレイバックを一括取得する（id昇順で上書きし最新を残す）
+    playbacks_by_media: Dict[int, MediaPlayback] = {}
+    if medias:
+        playback_rows = (
+            MediaPlayback.query.filter(
+                MediaPlayback.media_id.in_([m.id for m in medias]),
+                MediaPlayback.preset == "std1080p",
+            )
+            .order_by(MediaPlayback.id.asc())
+            .all()
+        )
+        for row in playback_rows:
+            playbacks_by_media[row.media_id] = row
+
     for m in medias:
         if not m.local_rel_path:
             skipped += 1
@@ -447,11 +462,7 @@ def transcode_queue_scan() -> Dict[str, object]:
             skipped += 1
             continue
 
-        pb = (
-            MediaPlayback.query.filter_by(media_id=m.id, preset="std1080p")
-            .order_by(MediaPlayback.id.desc())
-            .first()
-        )
+        pb = playbacks_by_media.get(m.id)
         if pb and pb.status in {"pending", "processing", "done"}:
             skipped += 1
             continue

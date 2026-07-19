@@ -133,9 +133,15 @@ class PickerImportWatchdog:
         importing_sessions: list[PickerSession] = self.session_repository.list_importing()
         metrics["completed_sessions"] = 0
 
+        # セッション1件ごとに全 Selection 行を取得すると N+1 かつ全行転送に
+        # なるため、ステータス別件数を GROUP BY 1クエリでまとめて取得する
+        counts_by_session = self.selection_repository.count_by_session_and_status(
+            [ps.id for ps in importing_sessions]
+        )
+
         for ps in importing_sessions:
-            selections = self.selection_repository.list_by_session(ps.id)
-            if not selections:
+            status_counts = counts_by_session.get(ps.id, {})
+            if not status_counts:
                 ps.status = "imported"
                 ps.last_progress_at = now
                 ps.updated_at = now
@@ -152,13 +158,9 @@ class PickerImportWatchdog:
                 continue
 
             terminal_states = {"imported", "dup", "failed", "expired"}
-            all_terminal = all(sel.status in terminal_states for sel in selections)
+            all_terminal = all(status in terminal_states for status in status_counts)
             if not all_terminal:
                 continue
-
-            status_counts: Dict[str, int] = {}
-            for sel in selections:
-                status_counts[sel.status] = status_counts.get(sel.status, 0) + 1
 
             has_imported = status_counts.get("imported", 0) > 0 or status_counts.get("dup", 0) > 0
             has_failed = status_counts.get("failed", 0) > 0 or status_counts.get("expired", 0) > 0

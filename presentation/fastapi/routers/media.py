@@ -749,13 +749,21 @@ async def api_media_duplicates(
 
     groups: list[dict] = []
 
-    for digest in exact_hashes:
-        members = (
+    # ハッシュ1件ごとの個別SELECT（最大 limit×2 クエリ）を避けるため、
+    # グループメンバーは IN で一括取得してメモリ上でグループ化する
+    members_by_sha256: dict[str, list] = {digest: [] for digest in exact_hashes}
+    if exact_hashes:
+        exact_members = (
             db.query(Media)
-            .filter(not_deleted, Media.hash_sha256 == digest)
+            .filter(not_deleted, Media.hash_sha256.in_(exact_hashes))
             .order_by(Media.imported_at.asc(), Media.id.asc())
             .all()
         )
+        for m in exact_members:
+            members_by_sha256[m.hash_sha256].append(m)
+
+    for digest in exact_hashes:
+        members = members_by_sha256.get(digest, [])
         if len(members) < 2:
             continue
         groups.append({
@@ -765,14 +773,18 @@ async def api_media_duplicates(
             "items": [_dup_member(m) for m in members],
         })
 
-    for digest in similar_hashes:
-        q2 = db.query(Media).filter(not_deleted, Media.phash == digest)
+    members_by_phash: dict[str, list] = {digest: [] for digest in similar_hashes}
+    if similar_hashes:
+        q2 = db.query(Media).filter(not_deleted, Media.phash.in_(similar_hashes))
         if exact_hashes:
-            from sqlalchemy import or_
             q2 = q2.filter(
                 or_(Media.hash_sha256.is_(None), Media.hash_sha256.notin_(exact_hashes))
             )
-        members = q2.order_by(Media.imported_at.asc(), Media.id.asc()).all()
+        for m in q2.order_by(Media.imported_at.asc(), Media.id.asc()).all():
+            members_by_phash[m.phash].append(m)
+
+    for digest in similar_hashes:
+        members = members_by_phash.get(digest, [])
         if len(members) < 2:
             continue
         groups.append({

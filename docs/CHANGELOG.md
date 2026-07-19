@@ -5,6 +5,29 @@
 
 ## [Unreleased]
 
+### Changed
+- **コードレビューで検出したDB・I/Oの非効率を一括最適化**（クエリ数・メモリ・CPU削減、
+  外部挙動は不変）。
+  - `media` テーブルに重複判定用インデックスを追加
+    （`ix_media_hash_sha256_bytes` / `ix_media_phash` / `ix_media_local_rel_path`、
+    `migrations/versions/b7d41c2f9a10_*`）。ローカルインポートの `find_by_signature` /
+    `exists_by_hash` と `rebuild_media_from_originals` が取り込み1件ごとに `media` を
+    フルスキャンしていた。マイグレーションは自己修復再生（stamp → upgrade head）でも
+    失敗しないよう `if_not_exists` 付き。
+  - pHash の 2D DCT を必要な左上 8×8 のみ計算するよう変更
+    （`media_metadata.py`、総和順序は同一でハッシュ値はビット互換、約19倍高速）。
+    SHA-256 計算は `hashlib.file_digest`（Cレベルループ・1MiB チャンク）へ変更。
+  - Picker インポートのダウンロードをストリーミング化
+    （`picker_import.py::_download`、GB級動画を全量メモリに載せず 1MiB チャンクで
+    書き込み・ハッシュ計算）。
+  - N+1 クエリ解消: transcode キュースキャンのプレイバック照会、
+    `rebuild_media_from_originals` の存在確認、Wiki ページ階層ツリー・カテゴリ別
+    ページ数、Picker セッション一覧のステータス集計（+ `account` の eager load）、
+    重複メディア一覧のグループメンバー取得、Watchdog のセッション完了判定
+    （全行取得→Python集計を GROUP BY 1クエリへ）、TOTP インポートの存在確認。
+  - アルバム並び替えの `sort_index` 更新を executemany 化、アルバム内メディアの
+    タグ eager load を `joinedload`（行増殖）から `selectinload` へ変更。
+
 ### Fixed
 - **stg / prod 同居ホストで本番デプロイがネットワーク作成に失敗する問題を修正**
   （`docker-compose.yml` / `scripts/deploy.sh` / `.env.example` / `.env.staging.example`）。

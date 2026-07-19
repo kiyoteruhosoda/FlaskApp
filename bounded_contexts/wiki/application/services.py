@@ -127,16 +127,25 @@ class WikiPageService:
         return self.page_repo.find_by_slug(slug)
     
     def get_page_hierarchy(self, parent_id: Optional[int] = None) -> List[Dict[str, Any]]:
-        """ページの階層構造を取得"""
-        pages = self.page_repo.find_by_parent_id(parent_id)
-        result = []
-        
+        """ページの階層構造を取得
+
+        ノードごとに子ページを再帰SELECTすると N+1 になるため、公開ページを
+        1クエリで取得してからメモリ上でツリーを組み立てる。
+        """
+        pages = self.page_repo.find_all_published()
+        children_by_parent: Dict[Optional[int], List[WikiPage]] = {}
         for page in pages:
-            page_data = page.to_dict()
-            page_data['children'] = self.get_page_hierarchy(page.id)
-            result.append(page_data)
-        
-        return result
+            children_by_parent.setdefault(page.parent_id, []).append(page)
+
+        def build_subtree(current_parent_id: Optional[int]) -> List[Dict[str, Any]]:
+            result = []
+            for page in children_by_parent.get(current_parent_id, []):
+                page_data = page.to_dict()
+                page_data['children'] = build_subtree(page.id)
+                result.append(page_data)
+            return result
+
+        return build_subtree(parent_id)
     
     def search_pages(self, query: str, limit: int = 20) -> List[WikiPage]:
         """ページを検索"""
@@ -149,6 +158,10 @@ class WikiPageService:
     def get_pages_by_category(self, category_id: int) -> List[WikiPage]:
         """カテゴリに紐づく公開済みページを取得"""
         return self.page_repo.find_by_category_id(category_id)
+
+    def count_pages_by_category(self) -> Dict[int, int]:
+        """カテゴリごとの公開済みページ数を取得"""
+        return self.page_repo.count_published_by_category()
 
     def count_published_pages(self) -> int:
         """公開中のページ数を取得"""

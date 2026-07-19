@@ -220,10 +220,13 @@ class TOTPImportUseCase:
         normalized = self._normalize_items(items)
 
         conflicts: List[dict] = []
+        # 1件ごとの存在確認SELECT（N+1）を避け、既存クレデンシャルを一括取得する
+        existing_by_key = self.repository.find_existing_by_account_and_issuer(
+            [(item["account"], item["issuer"]) for item in normalized],
+            user_id=payload.user_id,
+        )
         for item in normalized:
-            existing = self.repository.find_by_account_and_issuer(
-                item["account"], item["issuer"], user_id=payload.user_id
-            )
+            existing = existing_by_key.get((item["account"], item["issuer"]))
             if existing:
                 conflicts.append(
                     {

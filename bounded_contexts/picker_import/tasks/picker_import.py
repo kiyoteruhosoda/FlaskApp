@@ -383,24 +383,34 @@ def _download(url: str, dest_dir: Path, headers: Dict[str, str] | None = None) -
     The optional *headers* parameter allows authenticated downloads.
     """
     try:
-        resp = requests.get(url, headers=headers, timeout=30)
-        resp.raise_for_status()
-        
-        # ダウンロード成功ログ
+        # 動画原本はGB級になり得るため、全体をメモリへ読み込まず
+        # チャンク単位で書き込み・ハッシュ計算する
+        with requests.get(url, headers=headers, timeout=30, stream=True) as resp:
+            resp.raise_for_status()
+
+            tmp_name = hashlib.sha1(url.encode("utf-8")).hexdigest()
+            tmp_path = dest_dir / tmp_name
+            hasher = hashlib.sha256()
+            total_bytes = 0
+            with open(tmp_path, "wb") as fh:
+                for chunk in resp.iter_content(chunk_size=1024 * 1024):
+                    if not chunk:
+                        continue
+                    fh.write(chunk)
+                    hasher.update(chunk)
+                    total_bytes += len(chunk)
+
+            status_code = resp.status_code
+
         _log_info(
             "picker.download.success",
-            f"ファイルダウンロード成功: {url} ({len(resp.content)} bytes)",
+            f"ファイルダウンロード成功: {url} ({total_bytes} bytes)",
             url=url,
-            content_length=len(resp.content),
-            status_code=resp.status_code,
+            content_length=total_bytes,
+            status_code=status_code,
         )
-        
-        tmp_name = hashlib.sha1(url.encode("utf-8")).hexdigest()
-        tmp_path = dest_dir / tmp_name
-        with open(tmp_path, "wb") as fh:
-            fh.write(resp.content)
-        sha = hashlib.sha256(resp.content).hexdigest()
-        return Downloaded(tmp_path, len(resp.content), sha)
+
+        return Downloaded(tmp_path, total_bytes, hasher.hexdigest())
     except requests.Timeout as e:
         _log_error(
             "picker.download.timeout",

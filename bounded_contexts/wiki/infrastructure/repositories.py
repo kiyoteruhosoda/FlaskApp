@@ -3,9 +3,14 @@ Wiki機能のリポジトリ実装 - データアクセス層
 """
 
 from typing import List, Optional
-from sqlalchemy import desc, asc
+from sqlalchemy import desc, asc, func
 from shared.kernel.database.db import db
-from bounded_contexts.wiki.infrastructure.wiki_models import WikiPage, WikiCategory, WikiRevision
+from bounded_contexts.wiki.infrastructure.wiki_models import (
+    WikiPage,
+    WikiCategory,
+    WikiRevision,
+    wiki_page_category,
+)
 from bounded_contexts.wiki.domain.entities import (
     WikiPage as WikiPageEntity,
     WikiCategory as WikiCategoryEntity,
@@ -38,6 +43,13 @@ class WikiPageRepository:
                 .filter_by(parent_id=parent_id, is_published=True)
                 .order_by(asc(WikiPage.sort_order))
                 .all())
+
+    def find_all_published(self) -> List[WikiPage]:
+        """公開中の全ページを取得（階層ツリー構築用・1クエリ）"""
+        return (WikiPage.query
+                .filter_by(is_published=True)
+                .order_by(asc(WikiPage.sort_order), asc(WikiPage.id))
+                .all())
     
     def find_by_category_id(self, category_id: int) -> List[WikiPage]:
         """カテゴリIDでページを検索"""
@@ -58,6 +70,17 @@ class WikiPageRepository:
     def count_published_pages(self) -> int:
         """公開中のページ数をカウント"""
         return WikiPage.query.filter_by(is_published=True).count()
+
+    def count_published_by_category(self) -> dict[int, int]:
+        """カテゴリごとの公開済みページ数を1クエリで取得"""
+        rows = (db.session.query(
+                    wiki_page_category.c.category_id,
+                    func.count(WikiPage.id))
+                .join(WikiPage, WikiPage.id == wiki_page_category.c.page_id)
+                .filter(WikiPage.is_published == True)
+                .group_by(wiki_page_category.c.category_id)
+                .all())
+        return {category_id: count for category_id, count in rows}
     
     def save(self, page: WikiPage) -> WikiPage:
         """ページを保存"""

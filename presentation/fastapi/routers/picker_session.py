@@ -12,7 +12,7 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from shared.application.authenticated_principal import AuthenticatedPrincipal
 from shared.kernel.database.session import get_db
@@ -34,18 +34,46 @@ def _iso(value) -> Optional[str]:
     return value.isoformat().replace("+00:00", "Z")
 
 
-def _serialize_picker_session(ps, db: Session) -> dict[str, Any]:
+def _selection_counts_by_session(
+    db: Session, session_ids: list[int]
+) -> dict[int, dict[str, int]]:
+    """セッションIDごとの選択ステータス集計を1クエリで取得する。"""
+    from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
+
+    counts_by_session: dict[int, dict[str, int]] = {}
+    if not session_ids:
+        return counts_by_session
+
+    rows = (
+        db.query(
+            PickerSelection.session_id,
+            PickerSelection.status,
+            func.count(PickerSelection.id).label("count"),
+        )
+        .filter(PickerSelection.session_id.in_(session_ids))
+        .group_by(PickerSelection.session_id, PickerSelection.status)
+        .all()
+    )
+    for session_id, status, count in rows:
+        counts_by_session.setdefault(session_id, {})[status] = count
+    return counts_by_session
+
+
+def _serialize_picker_session(
+    ps, db: Session, raw_counts: dict[str, int] | None = None
+) -> dict[str, Any]:
     from bounded_contexts.picker_import.infrastructure.picker_session import PickerSession
     from bounded_contexts.photonest.infrastructure.photo_models import PickerSelection
     from bounded_contexts.picker_import.application.picker_session_service import PickerSessionService
 
-    selection_counts = (
-        db.query(PickerSelection.status, func.count(PickerSelection.id).label("count"))
-        .filter(PickerSelection.session_id == ps.id)
-        .group_by(PickerSelection.status)
-        .all()
-    )
-    raw_counts = {row[0]: row[1] for row in selection_counts}
+    if raw_counts is None:
+        selection_counts = (
+            db.query(PickerSelection.status, func.count(PickerSelection.id).label("count"))
+            .filter(PickerSelection.session_id == ps.id)
+            .group_by(PickerSelection.status)
+            .all()
+        )
+        raw_counts = {row[0]: row[1] for row in selection_counts}
     counts = PickerSessionService._normalize_selection_counts(raw_counts)
 
     if ps.selected_count not in (None, 0) or not counts:
@@ -90,12 +118,20 @@ async def api_picker_sessions_list(
     query = db.query(PickerSession)
     total = query.count()
     sessions_rows = (
-        query.order_by(PickerSession.created_at.desc())
+        query.options(joinedload(PickerSession.account))
+        .order_by(PickerSession.created_at.desc())
         .offset((page - 1) * pageSize)
         .limit(pageSize)
         .all()
     )
-    items = [_serialize_picker_session(ps, db) for ps in sessions_rows]
+    # セッション1件ごとの集計SELECT（N+1）を避けるため一括で集計する
+    counts_by_session = _selection_counts_by_session(
+        db, [ps.id for ps in sessions_rows]
+    )
+    items = [
+        _serialize_picker_session(ps, db, counts_by_session.get(ps.id, {}))
+        for ps in sessions_rows
+    ]
     total_pages = (total + pageSize - 1) // pageSize if pageSize else 0
 
     return {

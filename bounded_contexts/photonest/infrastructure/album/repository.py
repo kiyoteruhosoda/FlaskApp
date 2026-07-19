@@ -6,7 +6,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy.orm import joinedload
+from sqlalchemy import bindparam
+from sqlalchemy.orm import selectinload
 
 from bounded_contexts.photonest.application.album.repository import AlbumRepository
 from bounded_contexts.photonest.infrastructure.photo_models import Album, Media, album_item
@@ -56,22 +57,33 @@ class SqlAlchemyAlbumRepository(AlbumRepository):
     def update_sort_indexes(self, album_id: int, media_ids: list[int]) -> None:
         if not media_ids:
             return
-        for position, media_id in enumerate(media_ids):
-            self._session.execute(
-                album_item.update()
-                .where(
-                    album_item.c.album_id == album_id,
-                    album_item.c.media_id == media_id,
-                )
-                .values(sort_index=position)
+        # メディア1件ごとのUPDATE往復を避け、executemany で一括更新する
+        statement = (
+            album_item.update()
+            .where(
+                album_item.c.album_id == bindparam("b_album_id"),
+                album_item.c.media_id == bindparam("b_media_id"),
             )
+            .values(sort_index=bindparam("b_sort_index"))
+        )
+        self._session.execute(
+            statement,
+            [
+                {
+                    "b_album_id": album_id,
+                    "b_media_id": media_id,
+                    "b_sort_index": position,
+                }
+                for position, media_id in enumerate(media_ids)
+            ],
+        )
 
     def media_rows(self, album_id: int) -> list[tuple[Media, int]]:
         return (
             self._session.query(Media, album_item.c.sort_index)
             .join(album_item, album_item.c.media_id == Media.id)
             .filter(album_item.c.album_id == album_id)
-            .options(joinedload(Media.tags))
+            .options(selectinload(Media.tags))
             .order_by(album_item.c.sort_index.asc(), Media.id.asc())
             .all()
         )

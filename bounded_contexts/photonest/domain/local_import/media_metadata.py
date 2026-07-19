@@ -27,11 +27,8 @@ except AttributeError:  # pragma: no cover - fallback for older Pillow
 def calculate_file_hash(file_path: str) -> str:
     """ファイルのSHA-256ハッシュを計算"""
 
-    sha256_hash = hashlib.sha256()
     with open(file_path, "rb") as f:
-        for byte_block in iter(lambda: f.read(4096), b""):
-            sha256_hash.update(byte_block)
-    return sha256_hash.hexdigest()
+        return hashlib.file_digest(f, "sha256").hexdigest()
 
 
 def get_image_dimensions(file_path: str) -> Tuple[Optional[int], Optional[int], Optional[int]]:
@@ -258,31 +255,47 @@ def extract_video_metadata(file_path: str) -> Dict:
     return metadata
 
 
-def _dct_2d(values: list[list[float]]) -> list[list[float]]:
+def _dct_2d(
+    values: list[list[float]],
+    *,
+    out_rows: Optional[int] = None,
+    out_cols: Optional[int] = None,
+) -> list[list[float]]:
+    """2次元DCT-IIを計算する。
+
+    pHash では左上 8x8 の係数しか使わないため、out_rows / out_cols で
+    出力範囲を制限できる（総和の順序は全計算時と同一でビット互換）。
+    """
+
     rows = len(values)
     cols = len(values[0]) if values else 0
     if rows == 0 or cols == 0:
         return []
 
+    out_rows = rows if out_rows is None else min(out_rows, rows)
+    out_cols = cols if out_cols is None else min(out_cols, cols)
+
     cos_rows = [
         [math.cos(math.pi * (2 * i + 1) * u / (2 * rows)) for i in range(rows)]
-        for u in range(rows)
+        for u in range(out_rows)
     ]
     cos_cols = [
         [math.cos(math.pi * (2 * j + 1) * v / (2 * cols)) for j in range(cols)]
-        for v in range(cols)
+        for v in range(out_cols)
     ]
 
-    result: list[list[float]] = [[0.0 for _ in range(cols)] for _ in range(rows)]
-    for u in range(rows):
+    result: list[list[float]] = [[0.0 for _ in range(out_cols)] for _ in range(out_rows)]
+    for u in range(out_rows):
         alpha_u = math.sqrt(1.0 / rows) if u == 0 else math.sqrt(2.0 / rows)
-        for v in range(cols):
+        for v in range(out_cols):
             alpha_v = math.sqrt(1.0 / cols) if v == 0 else math.sqrt(2.0 / cols)
             total = 0.0
+            cos_col_v = cos_cols[v]
             for i in range(rows):
                 row_cos = cos_rows[u][i]
+                row_values = values[i]
                 for j in range(cols):
-                    total += values[i][j] * row_cos * cos_cols[v][j]
+                    total += row_values[j] * row_cos * cos_col_v[j]
             result[u][v] = alpha_u * alpha_v * total
     return result
 
@@ -301,7 +314,7 @@ def _phash_from_image(image: Image.Image) -> Optional[str]:
     matrix = [
         [float(pixels[row * 32 + col]) for col in range(32)] for row in range(32)
     ]
-    dct_matrix = _dct_2d(matrix)
+    dct_matrix = _dct_2d(matrix, out_rows=8, out_cols=8)
     if len(dct_matrix) < 8:
         return None
 

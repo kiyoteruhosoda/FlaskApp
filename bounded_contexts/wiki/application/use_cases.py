@@ -309,10 +309,16 @@ class WikiCategoryListUseCase:
 
     def execute(self) -> WikiCategoryListView:
         categories = self.category_service.get_all_categories()
-        items: list[WikiCategoryListItem] = []
-        for category in categories:
-            pages = self.page_service.get_pages_by_category(category.id)
-            items.append(WikiCategoryListItem(category=category, page_count=len(pages)))
+        # カテゴリごとに全ページ行を取得して len() すると N+1 になるため
+        # ページ数はグループ集計1クエリで取得する
+        page_counts = self.page_service.count_pages_by_category()
+        items: list[WikiCategoryListItem] = [
+            WikiCategoryListItem(
+                category=category,
+                page_count=page_counts.get(category.id, 0),
+            )
+            for category in categories
+        ]
         return WikiCategoryListView(categories=items)
 
 

@@ -35,8 +35,14 @@ class Media(db.Model):
     # google_media_id は Google Photos 取り込みの安定キー。再エンコードで
     # sha256 は変わりうるため、GP の冪等性は google_media_id の一意制約で担保する。
     # ローカル取り込みは google_media_id=NULL（MariaDB/SQLite とも複数 NULL を許容）。
+    # 重複判定（local_import の find_by_signature / exists_by_hash）と
+    # 原本再構築（rebuild_media_from_originals）はこれらの列で検索するため、
+    # フルスキャン回避のインデックスを張る。
     __table_args__ = (
         db.UniqueConstraint("google_media_id", name="uq_media_google_media_id"),
+        db.Index("ix_media_hash_sha256_bytes", "hash_sha256", "bytes"),
+        db.Index("ix_media_phash", "phash"),
+        db.Index("ix_media_local_rel_path", "local_rel_path"),
     )
 
     id: Mapped[int] = mapped_column(BigInt, primary_key=True, autoincrement=True)

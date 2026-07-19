@@ -1313,6 +1313,14 @@ def rebuild_media_from_originals(
         )
         return stats
 
+    # ファイル1件ごとの個別SELECT（N+1）を避けるため、既存の相対パスを
+    # 一括で取得しておく（rel_path → media.id）
+    existing_ids_by_rel_path: dict[str, int] = dict(
+        db.session.query(Media.local_rel_path, Media.id).filter(
+            Media.local_rel_path.isnot(None)
+        )
+    )
+
     for path in sorted(p for p in root.rglob("*") if p.is_file()):
         if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
             continue
@@ -1321,10 +1329,11 @@ def rebuild_media_from_originals(
         stats["scanned"] += 1
 
         try:
-            existing = Media.query.filter_by(local_rel_path=rel_path).first()
-            if existing is not None:
+            existing_id = existing_ids_by_rel_path.get(rel_path)
+            if existing_id is not None:
                 if refresh_existing:
                     if not dry_run:
+                        existing = db.session.get(Media, existing_id)
                         refresh_media_metadata_from_original(
                             existing,
                             originals_dir=originals_dir,
@@ -1334,7 +1343,7 @@ def rebuild_media_from_originals(
                         )
                     stats["refreshed"] += 1
                     if progress:
-                        progress(f"refreshed media_id={existing.id} {rel_path}")
+                        progress(f"refreshed media_id={existing_id} {rel_path}")
                 else:
                     stats["skipped"] += 1
                 continue

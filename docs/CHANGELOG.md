@@ -39,7 +39,15 @@
      実行中の deploy.sh がイメージ内の `/app/scripts/deploy.sh` と異なる場合は
      自己更新して同じモードで再実行する（`PHOTONEST_DEPLOY_REEXEC` で無限再実行を
      防止。一致時は「最新版で実行中」とログに明示）。
-  2. **compose に subnet 指定が無くても "Pool overlaps" は発生する**（前項の
+  2. **ランチャー（NAS 側 build-remote.sh）を git 管理下に追加**
+     （`scripts/build-remote.sh`）。deploy.sh の自己同期は「新しい版が一度実行される」
+     ことが前提のため、古い deploy.sh を実行し続けるランチャー側の経路自体も正す
+     必要がある。deploybridge の build-remote.sh の自己更新パターン
+     （バージョン刻印照合 → 自己置換 → RESTART REQUIRED）を photonest 版として
+     実装し、PICK で必ず今回ビルドの deploy.sh を上書きしてから絶対パスで実行する。
+     初回のみホストの `photonest/<stg|prod>/build-remote.sh` へ手動配置が必要
+     （以後は自己更新）。
+  3. **compose に subnet 指定が無くても "Pool overlaps" は発生する**（前項の
      「明示指定時のみ」という分析は誤り）。Docker 20.10（Synology Container
      Manager）の IPAM は、削除済みネットワークのプール登録がデーモンの KV ストアに
      残骸として残っていると、自動割当が選んだプールの登録時に重複と判定し得る。

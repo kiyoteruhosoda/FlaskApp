@@ -17,6 +17,7 @@ source .venv/bin/activate
 | スクリプト | 用途 |
 |---|---|
 | `.build.sh` | ローカルで Docker イメージをビルドし `dist/` に成果物を生成。前提チェック付き |
+| `build-remote.sh` | デプロイ先ホスト（NAS）から BUILD → PICK → DEPLOY を一括実行するランチャー（自己更新付き） |
 | `entrypoint.sh` | Docker コンテナ起動スクリプト。`docker-compose.yml` から使用（web / worker / beat モード切替） |
 | `deploy.sh` | stg / prod 共通デプロイスクリプト（配置ディレクトリ名で環境を自動判定） |
 | `generate_version.sh` | `shared/kernel/version.json` を生成。`Makefile` の `make build` から自動呼び出し |
@@ -58,6 +59,37 @@ dist/
 └── scripts/
     └── deploy.sh      # デプロイスクリプト（git 管理コピー）
 ```
+
+### build-remote.sh（ホスト側ランチャー・stg / prod 共通）
+
+デプロイ先ホスト（NAS）に置き、deploybridge の Agent 等から実行するランチャー。
+開発コンテナ内で `git pull` + `scripts/build.sh` を実行（BUILD）し、`dist/` の
+成果物（`image.tar` / `image-db.tar` / `scripts/deploy.sh`）を `docker cp` で
+環境ディレクトリへ取り出し（PICK）、取り出したばかりの `deploy.sh` を絶対パスで
+実行する（DEPLOY）。
+
+```bash
+# 配置場所（環境ごとに 1 コピー）
+/volume1/docker/photonest/stg/build-remote.sh
+/volume1/docker/photonest/prod/build-remote.sh
+
+# 実行（第1引数は Agent の登録スロット。MODE は deploy.sh と同じ app/migrate/reset）
+./build-remote.sh run migrate
+```
+
+- **自己更新**: ホストのコピーは `git pull` では更新されないため、pull 後の
+  リポジトリ HEAD と自身のバージョン刻印（`BUILD_REMOTE_VERSION`）を照合し、
+  script 本体に差分があれば自分を置き換えて `RESTART REQUIRED`（exit 2）で
+  終了する。もう一度実行すれば最新版で動く。刻印だけの差分（他ファイルのみの
+  コミット）は刻印を更新して続行する。
+- **deploy.sh の確実な差し替え**: PICK で必ず今回ビルドの `deploy.sh` を
+  上書きしてから実行するため、古いコピーが実行され続けることはない
+  （deploy.sh 自身のイメージ照合と合わせて二重防御）。
+- **初回のみ**リポジトリの `scripts/build-remote.sh` を上記の配置場所へ手動で
+  コピーする（以後は自己更新される）。
+- 開発コンテナ名等は環境変数で上書き可: `DEV_CONTAINER`（既定 `ubuntu-dev`）、
+  `DEV_CONTAINER_USER`（既定 `sshuser`）、`PROJECT_DIR`
+  （既定 `/work/project/photonest`）、`BUILD_TARGET`（既定 `all`）。
 
 ### deploy.sh（stg / prod 共通）
 

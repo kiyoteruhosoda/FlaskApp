@@ -226,3 +226,30 @@ def test_env_examples_manage_redis_password_in_one_place() -> None:
         assert any(ln.strip().startswith("REDIS_PASSWORD=") for ln in lines), (
             f"{name} に REDIS_PASSWORD がありません。"
         )
+
+
+def test_entrypoint_worker_and_beat_wait_for_schema() -> None:
+    """worker / beat の entrypoint がスキーマ構築完了を待ってから Celery を起動すること。
+
+    worker / beat は db が healthy になった時点で起動する（web の完了を待たない）。
+    reset 直後に web がスキーマ構築中のまま Celery が動き出すと、タスク実行・ログの
+    DB 書き込みが部分スキーマへ行を挿入し、構築中断時の自動復旧（「対象テーブルが
+    すべて空なら削除して再構築」）の条件を永遠に満たせなくする（2026-07-20 の
+    prod reset 障害）。alembic_version のリビジョン記録を待つガードを検証する。
+    """
+    entrypoint = (ROOT / "scripts" / "entrypoint.sh").read_text(encoding="utf-8")
+    assert "wait_for_schema()" in entrypoint, (
+        "entrypoint.sh に wait_for_schema 関数がありません。"
+    )
+    assert "get_heads" in entrypoint, (
+        "wait_for_schema が head リビジョン到達を確認していません。"
+        "「何かリビジョンが記録されている」だけでは migrate 適用中や reset の"
+        "シード適用前に素通りしてしまいます。"
+    )
+    for mode in ("worker)", "beat)"):
+        start = entrypoint.index(mode)
+        section = entrypoint[start : start + 300]
+        assert "wait_for_schema" in section, (
+            f"entrypoint.sh の {mode} モードが wait_for_schema を呼んでいません。"
+            "スキーマ構築中の DB へ Celery が書き込み、自動復旧を妨害します。"
+        )

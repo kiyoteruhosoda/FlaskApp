@@ -110,6 +110,71 @@ except Exception as e:
   log "DB is ready"
 fi
 
+# ===== Schema readiness wait（worker / beat 用） =====
+# worker / beat は db が healthy になった時点で起動するが、reset 直後は web が
+# スキーマ構築（alembic upgrade head）を実行している最中である。構築完了前に
+# Celery を動かすと、タスク実行・ログの DB 書き込みが構築途中の部分スキーマへ
+# 行を挿入してしまい、構築が中断された際の自動復旧（run_db_migrations.py の
+# 「対象テーブルがすべて空なら削除して再構築」）の条件を永遠に満たせなくして
+# web をクラッシュループに閉じ込める（2026-07-20 の prod reset 障害）。
+# alembic_version の記録がイメージ内マイグレーションの head リビジョンへ到達する
+# （＝このイメージが要求するスキーマの構築完了）までここで待つ。「何かリビジョンが
+# 記録されている」だけでは不十分: migrate デプロイでは旧リビジョンが既に記録されて
+# おり適用中に素通りしてしまい、reset でも init_master 記録直後（シード・後続
+# マイグレーション適用前）に通過してしまう。
+# 上限超過時は警告して起動を続行する（Alembic 管理へ移行していない既存環境を
+# 締め出さないため。その場合でも従来と同じ挙動になるだけで悪化はしない）。
+wait_for_schema() {
+  [ -n "${DATABASE_URI:-}" ] || return 0
+  _schema_waited=0
+  _schema_limit="${SCHEMA_WAIT_TIMEOUT_SECONDS:-900}"
+  log "Waiting for DB schema (alembic head revision) ..."
+  export _DB_WAIT_HOST="$DB_HOST" _DB_WAIT_USER="$DB_USER" \
+         _DB_WAIT_PASS="$DB_PASS" _DB_WAIT_PORT="${DB_PORT:-3306}" \
+         _DB_WAIT_NAME="$DB_NAME"
+  until python -c "
+import os, sys
+import pymysql
+from alembic.config import Config
+from alembic.script import ScriptDirectory
+
+cfg = Config('/app/migrations/alembic.ini')
+cfg.set_main_option('script_location', '/app/migrations')
+heads = set(ScriptDirectory.from_config(cfg).get_heads())
+if not heads:
+    sys.exit(1)
+try:
+    c = pymysql.connect(
+        host=os.environ['_DB_WAIT_HOST'],
+        port=int(os.environ['_DB_WAIT_PORT']),
+        user=os.environ['_DB_WAIT_USER'],
+        password=os.environ['_DB_WAIT_PASS'],
+        database=os.environ['_DB_WAIT_NAME'],
+        connect_timeout=3,
+    )
+    try:
+        with c.cursor() as cur:
+            cur.execute('SELECT version_num FROM alembic_version')
+            recorded = {row[0] for row in cur.fetchall()}
+    finally:
+        c.close()
+except Exception:
+    sys.exit(1)
+sys.exit(0 if heads <= recorded else 1)
+" >/dev/null 2>&1; do
+    if [ "$_schema_waited" -ge "$_schema_limit" ]; then
+      warn "DB schema not ready after ${_schema_limit}s; starting anyway (Alembic 管理外のDBか、web のスキーマ構築が失敗している可能性。web のログを確認してください)"
+      break
+    fi
+    sleep 5
+    _schema_waited=$((_schema_waited + 5))
+  done
+  unset _DB_WAIT_HOST _DB_WAIT_USER _DB_WAIT_PASS _DB_WAIT_PORT _DB_WAIT_NAME
+  if [ "$_schema_waited" -lt "$_schema_limit" ]; then
+    log "DB schema is ready"
+  fi
+}
+
 # ===== Trap =====
 term_handler() {
   warn "Signal received, stopping..."
@@ -156,11 +221,13 @@ case "$MODE" in
     ;;
 
   worker)
+    wait_for_schema
     log "Starting Celery worker"
     exec celery -A cli.src.celery.tasks worker --loglevel=info --concurrency=2 -Q celery,picker_import
     ;;
 
   beat)
+    wait_for_schema
     log "Starting Celery beat"
     exec celery -A cli.src.celery.tasks beat --loglevel=info --schedule=/app/data/celerybeat-schedule
     ;;

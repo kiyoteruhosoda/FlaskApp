@@ -29,6 +29,18 @@
     タグ eager load を `joinedload`（行増殖）から `selectinload` へ変更。
 
 ### Fixed
+- **worker / beat がスキーマ構築完了を待ってから起動するように**
+  （`scripts/entrypoint.sh` / テスト追加）。worker / beat は db が healthy に
+  なった時点で起動する（web の完了を待たない）ため、reset 直後に web がスキーマ
+  構築中のまま Celery が動き出し、タスク実行・ログの DB 書き込みが部分スキーマへ
+  行を挿入していた。このため構築が中断された際の自動復旧（下記）の「対象テーブルが
+  すべて空」という条件が永遠に満たせず、web がクラッシュループから抜け出せなかった
+  （prod reset 障害の2回目で判明）。worker / beat の entrypoint に
+  「`alembic_version` の記録がイメージ内マイグレーションの head リビジョンへ
+  到達するまで待つ」ガードを追加（「何かリビジョンがある」だけでは migrate
+  適用中や reset のシード適用前に素通りするため head 到達で判定。上限
+  `SCHEMA_WAIT_TIMEOUT_SECONDS`、既定 900 秒。超過時は警告して従来どおり
+  起動する — Alembic 管理外の既存環境を締め出さないため）。
 - **reset 中に中断された初期スキーマ構築から自動復旧できるように**
   （`scripts/run_db_migrations.py` / テスト追加 / `docs/OPERATIONS.md` 更新）。
   prod の `deploy.sh reset` で、空DBへの `init_master` 適用が途中で落ち

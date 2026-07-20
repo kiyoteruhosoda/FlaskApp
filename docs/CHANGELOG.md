@@ -29,6 +29,29 @@
     タグ eager load を `joinedload`（行増殖）から `selectinload` へ変更。
 
 ### Fixed
+- **subnet 固定廃止後も prod デプロイが "Pool overlaps" で失敗し続ける問題への対策**
+  （`scripts/build.sh` / `scripts/deploy.sh` / 回帰テスト追加）。
+  このエラーは Docker に**subnet を明示指定した場合にのみ**発生する（自動割当の
+  失敗は "could not find an available, non-overlapping IPv4 address pool among
+  the defaults" という別メッセージ）。リポジトリの compose は subnet 指定なしに
+  修正済みだったため、実際に使われた compose＝イメージに焼き込まれた compose が
+  古い（ビルドマシンの作業ツリーに subnet 指定時代のローカル変更が残ったまま
+  `git pull` が fast-forward で成功し、そのままイメージ化された）可能性が高いと
+  判断。以下の多層防御を追加:
+  - ビルド前の作業ツリー検証を追加（`scripts/check_worktree_clean.sh`、
+    `Makefile` の `build` / `build-db` ターゲットの前提として実行）。追跡ファイルの
+    変更・未追跡ファイル（どちらも `COPY . /app` でイメージへ入る）を検出したら
+    エラー終了し、version.json のコミットと中身が一致しない成果物を作らない
+    （`ALLOW_DIRTY=1` で明示的に回避可）。`make build` 直接実行を含む全ビルド入口を
+    カバーする。
+  - `deploy.sh`: イメージから同期した compose に固定 subnet 指定
+    （`- subnet:` 形式含む）が残っていたら警告。`docker compose up` が
+    "Pool overlaps" で失敗したら全 Docker ネットワークの subnet ・compose
+    プロジェクトラベル一覧を診断出力し、重複相手を特定できるようにした。
+    また `down` 後に同名の残留ネットワーク（別プロジェクト名時代の残骸等）を削除。
+  - 回帰テスト: `docker-compose.yml` への `subnet:` / `ipam:` 再導入、および
+    `Makefile` の build ターゲットから作業ツリー検証が外れた場合に
+    `test_deploy_asset_sync_consistency.py` が失敗する。
 - **stg / prod 同居ホストで本番デプロイがネットワーク作成に失敗する問題を修正**
   （`docker-compose.yml` / `scripts/deploy.sh` / `.env.example` / `.env.staging.example`）。
   compose の `networks.default.ipam.config.subnet` で固定していたサブネットは

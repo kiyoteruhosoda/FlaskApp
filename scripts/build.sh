@@ -82,6 +82,10 @@ cd "$PROJECT_ROOT"
 
 check_prereqs
 
+# 作業ツリーの検証は Makefile の build / build-db ターゲットの前提
+# （check-worktree → scripts/check_worktree_clean.sh）として実行される。
+# どのビルド入口（make 直接実行を含む）でも同じチェックを通る。
+
 GIT_COMMIT="$(git rev-parse --short HEAD)"
 GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 

@@ -29,6 +29,21 @@
     タグ eager load を `joinedload`（行増殖）から `selectinload` へ変更。
 
 ### Fixed
+- **Redis 資格情報の二重管理を解消し、不一致をデプロイ前に検出**
+  （`.env.example` / `.env.staging.example` / `scripts/deploy.sh` / テスト追加）。
+  ネットワーク問題解消後の prod デプロイで、web / worker / beat が Redis に
+  `invalid username-password pair` で接続できず health check タイムアウトまで
+  待った末に失敗した。`.env` テンプレートが `REDIS_PASSWORD` に加えて同じ
+  パスワードを埋め込んだ接続 URL 3行（`REDIS_URL` / `CELERY_BROKER_URL` /
+  `CELERY_RESULT_BACKEND`）を書かせる構成だったため、パスワード変更時に
+  4行すべてを直さないと redis サーバー（`REDIS_PASSWORD` で起動）と
+  クライアント（URL の旧パスワードで接続）が食い違う罠があった。対応:
+  - テンプレートから URL 3行を削除し `REDIS_PASSWORD` の1箇所管理に統一
+    （compose が自動導出する。外部 Redis を使う場合のみ URL を明示）。
+  - `deploy.sh` に整合チェックを追加: `.env` の URL（compose 内 redis 宛て）に
+    埋め込まれたパスワードが `REDIS_PASSWORD` と食い違う場合、起動前に対処法
+    つきで即エラー終了する。URL 予約文字を含む `REDIS_PASSWORD` にも警告。
+  - 回帰テスト: テンプレートに URL 明示が再導入されたら失敗する。
 - **prod デプロイ失敗の真因確定: ランチャーは `<env>/deploy.sh`（トップレベル）を
   実行していた**（`scripts/deploy.sh` / `scripts/build-remote.sh` / テスト追加）。
   最新 deploy.sh のトップレベル配置実行が「親ディレクトリ名 'photonest' が

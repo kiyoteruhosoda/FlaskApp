@@ -143,6 +143,11 @@ photonest/
 - マウントデータは `<環境dir>/mnt/` 配下（`.env` の `HOST_DATA_ROOT` で上書き可）。
   `reset` モードが削除するのはこの `mnt/data` と `mnt/db_data`。
 - ヘルスチェック先ポートは `.env` の `WEB_HOST_PORT`（未設定時は環境別既定値）に追従する。
+- Redis のパスワードは `.env` の `REDIS_PASSWORD` の1箇所で管理する（接続 URL は
+  compose が自動導出）。`.env` に `REDIS_URL` / `CELERY_BROKER_URL` /
+  `CELERY_RESULT_BACKEND` を明示していて、そのパスワードが `REDIS_PASSWORD` と
+  食い違う場合は起動前に検出して対処法つきでエラー終了する（compose 内の
+  redis サービス宛て URL のみ検証。外部 Redis 宛ては対象外）。
 - **デプロイエラー時は失敗したモジュール（コンテナ）のログを出力して終了する**
   （DB 接続待ちタイムアウト → db、マイグレーション失敗 → web + db、
   ヘルスチェック失敗 → web + nginx。想定外のエラーは全サービスのログを出す）。

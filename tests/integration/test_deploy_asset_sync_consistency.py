@@ -201,3 +201,28 @@ def test_build_remote_launcher_self_updates_and_uses_picked_deploy_script() -> N
         "build-remote.sh が PICK でビルド成果物の deploy.sh を配置していません。"
         "古い deploy.sh が実行され続ける経路が残ります。"
     )
+
+
+def test_env_examples_manage_redis_password_in_one_place() -> None:
+    """.env テンプレートが Redis パスワードを REDIS_PASSWORD の1箇所で管理していること。
+
+    REDIS_URL / CELERY_BROKER_URL / CELERY_RESULT_BACKEND は docker-compose.yml が
+    REDIS_PASSWORD から自動導出する。テンプレートが URL を明示させると、パスワード
+    変更時に複数行の更新漏れで redis サーバーとクライアントの資格情報が食い違い、
+    "invalid username-password pair" で web / worker / beat が全滅する（2026-07-20 の
+    prod デプロイ失敗）。コメントアウト（外部 Redis 用の例示）は許可する。
+    """
+    url_keys = ("REDIS_URL=", "CELERY_BROKER_URL=", "CELERY_RESULT_BACKEND=")
+    for name in (".env.example", ".env.staging.example"):
+        lines = (ROOT / name).read_text(encoding="utf-8").splitlines()
+        offending = [
+            ln for ln in lines
+            if ln.strip().startswith(url_keys)
+        ]
+        assert not offending, (
+            f"{name} が Redis 接続 URL を明示させています: {offending}. "
+            "パスワードは REDIS_PASSWORD の1箇所で管理し、URL は compose の自動導出に任せてください。"
+        )
+        assert any(ln.strip().startswith("REDIS_PASSWORD=") for ln in lines), (
+            f"{name} に REDIS_PASSWORD がありません。"
+        )

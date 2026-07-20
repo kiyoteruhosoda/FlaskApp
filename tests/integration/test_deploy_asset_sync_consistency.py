@@ -136,3 +136,26 @@ def test_compose_uses_auto_assigned_network_subnet() -> None:
         "同一ホストで stg / prod を同居させるとネットワーク作成が重複エラーで失敗するため、"
         "subnet は指定せず自動割当にしてください（docs/CHANGELOG.md 参照）。"
     )
+
+
+def test_makefile_build_targets_enforce_clean_worktree() -> None:
+    """Makefile の build / build-db が作業ツリー検証を前提に持つこと。
+
+    イメージには作業ツリーがそのまま焼き込まれる（COPY . /app）ため、コミットされて
+    いない変更が残ったままビルドすると、version.json のコミットと中身が一致しない
+    成果物ができる。どのビルド入口（make 直接実行・scripts/.build.sh）からでも
+    同じチェックを通るよう、Makefile のターゲット側で強制する。
+    """
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    for target in ("build:", "build-db:"):
+        line = next(
+            (ln for ln in makefile.splitlines() if ln.startswith(target)), None
+        )
+        assert line is not None, f"Makefile に {target} ターゲットがありません。"
+        assert "check-worktree" in line, (
+            f"Makefile の {target} ターゲットが check-worktree に依存していません。"
+            "作業ツリー検証を通らないビルド入口ができ、コミットと一致しない"
+            "イメージが作られる恐れがあります。"
+        )
+    guard = ROOT / "scripts" / "check_worktree_clean.sh"
+    assert guard.is_file(), f"{guard} が存在しません（check-worktree ターゲットの実体）。"

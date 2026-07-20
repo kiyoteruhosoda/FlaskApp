@@ -5,7 +5,7 @@
 # フロントエンドタスクをインクルード
 include frontend.mk
 
-.PHONY: build build-db load run clean show-tar-version dist-assets
+.PHONY: build build-db load run clean show-tar-version dist-assets check-worktree
 
 IMAGE_NAME = photonest:latest
 DIST_DIR   = dist
@@ -23,7 +23,13 @@ dist-assets:
 	install -m 755 scripts/deploy.sh $(DIST_DIR)/scripts/deploy.sh
 	@echo "Deploy assets placed under $(DIST_DIR)/"
 
-build-db:
+# イメージには作業ツリーがそのまま焼き込まれる（COPY . /app）ため、どのビルド
+# 入口（make build / make build-db / scripts/.build.sh）から入ってもコミット済みの
+# 状態だけをビルド対象にする。ALLOW_DIRTY=1 で明示的に回避可。
+check-worktree:
+	@bash scripts/check_worktree_clean.sh
+
+build-db: check-worktree
 	@echo "=== Build MariaDB image (UTC, schema built at runtime via alembic) ==="
 	@mkdir -p $(DIST_DIR)
 	$(DOCKER) buildx build \
@@ -46,7 +52,7 @@ BUILD_DATE       := $(shell date -Iseconds)
 # 2) version.json を表示（ローカルイメージ）
 # 3) docker save で互換性の高い tar を作成
 # 4) 最後に同じ version.json を再表示
-build:
+build: check-worktree
 	@set -e; \
 	echo "=== [1/4] Build & LOAD locally (for version check) ==="; \
 	$(DOCKER) buildx build \

@@ -159,3 +159,45 @@ def test_makefile_build_targets_enforce_clean_worktree() -> None:
         )
     guard = ROOT / "scripts" / "check_worktree_clean.sh"
     assert guard.is_file(), f"{guard} が存在しません（check-worktree ターゲットの実体）。"
+
+
+def test_deploy_scripts_self_sync_from_image() -> None:
+    """デプロイスクリプトが自分自身もイメージから同期（自己更新→再実行）すること。
+
+    2026-07-20 の prod デプロイで、配置済みのはずの最新 deploy.sh ではなく古い版が
+    実行され、修正済みの診断出力が出ない事象が起きた（NAS 側の配置・起動経路は
+    git 管理外）。compose / nginx 設定と同様に「イメージ内が唯一の出所」を
+    スクリプト自身にも適用し、実行中のコピーが古い場合は置き換えて再実行する。
+    """
+    for script in DEPLOY_SCRIPTS:
+        content = script.read_text(encoding="utf-8")
+        assert "/app/scripts/deploy.sh" in content, (
+            f"{script.name} が自分自身のイメージ内コピーを参照していません。"
+            "古い deploy.sh が実行され続けても検出・自己修復できなくなります。"
+        )
+        assert "PHOTONEST_DEPLOY_REEXEC" in content, (
+            f"{script.name} に自己更新後の再実行ガードがありません（無限再実行の防止）。"
+        )
+
+
+def test_build_remote_launcher_self_updates_and_uses_picked_deploy_script() -> None:
+    """ホスト側ランチャー（build-remote.sh）が自己更新と deploy.sh の確実な差し替えを行うこと。
+
+    deploy.sh の自己同期はランチャーが古い deploy.sh を実行し続ける経路そのものは
+    直せない（新しい版が一度は実行される必要がある）。そのためランチャー自身が
+    git pull 後のリポジトリ HEAD と自分の刻印バージョンを照合して自己更新し、
+    PICK で必ず今回ビルドの deploy.sh を上書きしてから実行する。
+    """
+    launcher = ROOT / "scripts" / "build-remote.sh"
+    assert launcher.is_file(), "scripts/build-remote.sh が存在しません。"
+    content = launcher.read_text(encoding="utf-8")
+    assert "BUILD_REMOTE_VERSION" in content, (
+        "build-remote.sh にバージョン刻印（自己更新の判定基準）がありません。"
+    )
+    assert "RESTART REQUIRED" in content, (
+        "build-remote.sh に自己更新後の再実行要求（RESTART REQUIRED / exit 2）がありません。"
+    )
+    assert "dist/scripts/deploy.sh" in content, (
+        "build-remote.sh が PICK でビルド成果物の deploy.sh を配置していません。"
+        "古い deploy.sh が実行され続ける経路が残ります。"
+    )

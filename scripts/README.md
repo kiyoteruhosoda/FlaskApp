@@ -17,6 +17,7 @@ source .venv/bin/activate
 | スクリプト | 用途 |
 |---|---|
 | `.build.sh` | ローカルで Docker イメージをビルドし `dist/` に成果物を生成。前提チェック付き |
+| `build-remote.sh` | デプロイ先ホスト（NAS）から BUILD → PICK → DEPLOY を一括実行するランチャー（自己更新付き） |
 | `entrypoint.sh` | Docker コンテナ起動スクリプト。`docker-compose.yml` から使用（web / worker / beat モード切替） |
 | `deploy.sh` | stg / prod 共通デプロイスクリプト（配置ディレクトリ名で環境を自動判定） |
 | `generate_version.sh` | `shared/kernel/version.json` を生成。`Makefile` の `make build` から自動呼び出し |
@@ -59,6 +60,37 @@ dist/
     └── deploy.sh      # デプロイスクリプト（git 管理コピー）
 ```
 
+### build-remote.sh（ホスト側ランチャー・stg / prod 共通）
+
+デプロイ先ホスト（NAS）に置き、deploybridge の Agent 等から実行するランチャー。
+開発コンテナ内で `git pull` + `scripts/build.sh` を実行（BUILD）し、`dist/` の
+成果物（`image.tar` / `image-db.tar` / `scripts/deploy.sh`）を `docker cp` で
+環境ディレクトリへ取り出し（PICK）、取り出したばかりの `deploy.sh` を絶対パスで
+実行する（DEPLOY）。
+
+```bash
+# 配置場所（環境ごとに 1 コピー）
+/volume1/docker/photonest/stg/build-remote.sh
+/volume1/docker/photonest/prod/build-remote.sh
+
+# 実行（第1引数は Agent の登録スロット。MODE は deploy.sh と同じ app/migrate/reset）
+./build-remote.sh run migrate
+```
+
+- **自己更新**: ホストのコピーは `git pull` では更新されないため、pull 後の
+  リポジトリ HEAD と自身のバージョン刻印（`BUILD_REMOTE_VERSION`）を照合し、
+  script 本体に差分があれば自分を置き換えて `RESTART REQUIRED`（exit 2）で
+  終了する。もう一度実行すれば最新版で動く。刻印だけの差分（他ファイルのみの
+  コミット）は刻印を更新して続行する。
+- **deploy.sh の確実な差し替え**: PICK で必ず今回ビルドの `deploy.sh` を
+  上書きしてから実行するため、古いコピーが実行され続けることはない
+  （deploy.sh 自身のイメージ照合と合わせて二重防御）。
+- **初回のみ**リポジトリの `scripts/build-remote.sh` を上記の配置場所へ手動で
+  コピーする（以後は自己更新される）。
+- 開発コンテナ名等は環境変数で上書き可: `DEV_CONTAINER`（既定 `ubuntu-dev`）、
+  `DEV_CONTAINER_USER`（既定 `sshuser`）、`PROJECT_DIR`
+  （既定 `/work/project/photonest`）、`BUILD_TARGET`（既定 `all`）。
+
 ### deploy.sh（stg / prod 共通）
 
 NAS 側は環境ごとに自己完結したディレクトリ構成とし、`deploy.sh` は自分の
@@ -92,14 +124,21 @@ photonest/
   固定 subnet 指定が残っている場合は警告を出す（古い作業ツリーからビルドされた
   イメージの検出）。`docker compose up` が "Pool overlaps" で失敗した場合は、
   ホスト上の全 Docker ネットワークの subnet・compose プロジェクトラベル一覧を
-  診断出力する。また `down` 後、`.env` の `DOCKER_NETWORK_NAME` と同名の残留
+  診断出力したうえで **5秒後に1回だけ再試行する**（subnet 指定なしでもデーモンの
+  IPAM に削除済みネットワークの残骸があると発生し得るため。再試行では別プールが
+  選ばれ成功し得る）。再試行でも失敗し、かつ一覧に重複相手が見当たらない場合は
+  IPAM 残骸が原因なので、Docker（Container Manager）を再起動して再デプロイする:
+  `sudo synopkg restart ContainerManager`（DSM 7.x）。
+  また `down` 後、`.env` の `DOCKER_NETWORK_NAME` と同名の残留
   ネットワークが存在すれば削除する（コンテナ接続中なら警告のみ）。
 
-> **docker-compose.yml はアプリイメージから自己同期される。** アプリイメージには
-> `docker-compose.yml`（→ `/app/docker-compose.yml`）と nginx 設定
-> （→ `/app/docker/nginx/default.conf`）が焼き込まれており、`docker load` 直後に
-> 取り出して環境ディレクトリへ展開する（イメージ内が唯一の出所）。環境ごとの違い
-> （ポート・資格情報等）はすべて `.env` 側で表現する。
+> **docker-compose.yml・nginx 設定・deploy.sh 自身はアプリイメージから自己同期される。**
+> アプリイメージには `docker-compose.yml`（→ `/app/docker-compose.yml`）・nginx 設定
+> （→ `/app/docker/nginx/default.conf`）・`deploy.sh`（→ `/app/scripts/deploy.sh`）が
+> 焼き込まれており、`docker load` 直後に取り出して環境ディレクトリへ展開する
+> （イメージ内が唯一の出所）。実行中の `deploy.sh` がイメージ内の版と異なる場合は
+> 自己更新して同じモード引数で自動的に再実行する（一致時は「最新版で実行中」と
+> ログに出る）。環境ごとの違い（ポート・資格情報等）はすべて `.env` 側で表現する。
 > なお起動方法（entrypoint）もイメージに焼き込み済みで、compose は `command`（web / worker /
 > beat）でモードのみ指定する。
 > この自己同期の前提（`.dockerignore` が compose を除外しない等）は

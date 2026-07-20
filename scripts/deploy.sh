@@ -384,9 +384,43 @@ fi
 # "invalid username-password pair" で web / worker / beat が全滅する（しかも
 # health check のタイムアウトまで待った末に失敗する）。compose 内の redis
 # サービス宛て URL に限り、ここで不一致を検出して即座に失敗させる。
+# 個別 URL の検証。compose の interpolation 相当の解決を行ってから比較する:
+#   - .env の値は外側の引用符を外して使われる
+#   - .env 内の ${REDIS_PASSWORD} / $REDIS_PASSWORD 参照は実効値に解決される
+#   - 上記以外の $ 参照が残る場合は compose の解決結果を再現できないため
+#     検証しない（誤検出で正常なデプロイを止めない側に倒す）
+check_one_redis_url() { # 引数: キー名 実効値（呼び出し元の effective_password を参照）
+  local url_key="$1" url="$2" url_password
+  url="${url#\"}"; url="${url%\"}"
+  url="${url#\'}"; url="${url%\'}"
+  [ -n "$url" ] || return 0
+  url="${url//\$\{REDIS_PASSWORD\}/$effective_password}"
+  url="${url//\$REDIS_PASSWORD/$effective_password}"
+  case "$url" in
+    *'$'*) return 0 ;;  # 未解決の interpolation が残る場合は検証対象外
+  esac
+  case "$url" in
+    redis://*@redis:*|redis://*@redis/*|rediss://*@redis:*|rediss://*@redis/*) ;;
+    *) return 0 ;;  # 外部 Redis 宛て等はここでは検証しない
+  esac
+  url_password="${url#*://}"
+  url_password="${url_password%%@*}"
+  url_password="${url_password#*:}"
+  if [ "$url_password" != "$effective_password" ]; then
+    err "$url_key に埋め込まれたパスワードが REDIS_PASSWORD の実効値（シェル環境変数 > .env > 既定値）と一致しません。"
+    err "redis サーバーは REDIS_PASSWORD で起動するため、このままでは web / worker / beat が"
+    err "'invalid username-password pair' で Redis に接続できず、デプロイは必ず失敗します。"
+    err "対処（推奨）: .env から $url_key の行を削除する（compose が REDIS_PASSWORD から自動導出する）。"
+    err "        または: $url_key のパスワード部分を REDIS_PASSWORD と同じ値に修正する。"
+    exit 1
+  fi
+}
+
 check_redis_credentials() {
-  local effective_password url_key url url_password
-  effective_password="$(env_file_value REDIS_PASSWORD)"
+  local effective_password
+  # compose の interpolation はシェル環境変数 > --env-file の優先順のため、
+  # export された値があればそれを優先して「実際に使われる値」を再現する。
+  effective_password="${REDIS_PASSWORD:-$(env_file_value REDIS_PASSWORD)}"
   effective_password="${effective_password:-photonest123}"
   case "$effective_password" in
     *[@:/?#%]*)
@@ -395,25 +429,10 @@ check_redis_credentials() {
       warn "予約文字を含まないパスワードへ変更してください。"
       ;;
   esac
-  for url_key in REDIS_URL CELERY_BROKER_URL CELERY_RESULT_BACKEND; do
-    url="$(env_file_value "$url_key")"
-    [ -n "$url" ] || continue
-    case "$url" in
-      redis://*@redis:*|redis://*@redis/*|rediss://*@redis:*|rediss://*@redis/*) ;;
-      *) continue ;;  # 外部 Redis 宛て等はここでは検証しない
-    esac
-    url_password="${url#*://}"
-    url_password="${url_password%%@*}"
-    url_password="${url_password#*:}"
-    if [ "$url_password" != "$effective_password" ]; then
-      err ".env の $url_key に埋め込まれたパスワードが REDIS_PASSWORD（未設定時は既定値）と一致しません。"
-      err "redis サーバーは REDIS_PASSWORD で起動するため、このままでは web / worker / beat が"
-      err "'invalid username-password pair' で Redis に接続できず、デプロイは必ず失敗します。"
-      err "対処（推奨）: .env から $url_key の行を削除する（compose が REDIS_PASSWORD から自動導出する）。"
-      err "        または: $url_key のパスワード部分を REDIS_PASSWORD と同じ値に修正する。"
-      exit 1
-    fi
-  done
+  # URL 側もシェル環境変数 > .env の優先順で実効値を求める
+  check_one_redis_url "REDIS_URL"             "${REDIS_URL:-$(env_file_value REDIS_URL)}"
+  check_one_redis_url "CELERY_BROKER_URL"     "${CELERY_BROKER_URL:-$(env_file_value CELERY_BROKER_URL)}"
+  check_one_redis_url "CELERY_RESULT_BACKEND" "${CELERY_RESULT_BACKEND:-$(env_file_value CELERY_RESULT_BACKEND)}"
 }
 check_redis_credentials
 

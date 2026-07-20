@@ -129,16 +129,51 @@ def test_legacy_database_with_empty_alembic_version_self_heals(tmp_path):
 
 
 @pytest.mark.integration
-def test_partial_legacy_database_is_not_auto_healed(tmp_path):
-    """一部テーブルしか無い中途半端な状態は自動判断せずエラー終了すること。"""
+def test_partial_empty_schema_is_auto_healed(tmp_path):
+    """一部テーブルのみ存在し**すべて空**なら「中断された初期構築」として自動復旧すること。
+
+    2026-07-20 の prod ``deploy.sh reset`` の再現: 空DBへの ``init_master`` 適用が
+    途中で落ち、作成済みテーブルだけが残った状態からコンテナ再起動でやり直せる。
+    """
     _setup_test_env()
-    db_path = tmp_path / "partial.db"
+    db_path = tmp_path / "partial-empty.db"
     url = f"sqlite:///{db_path}"
 
-    metadata = _load_metadata()
     legacy_engine = sa.create_engine(url)
     try:
-        metadata.create_all(legacy_engine, tables=[metadata.tables["user"]])
+        with legacy_engine.begin() as conn:
+            conn.execute(sa.text('CREATE TABLE "user" (id INTEGER PRIMARY KEY)'))
+    finally:
+        legacy_engine.dispose()
+
+    assert run(url) == 0
+
+    engine = sa.create_engine(url)
+    try:
+        tables = _table_names(engine)
+        assert "alembic_version" in tables
+        # 残骸の user テーブルは削除され、本来のスキーマ＋シードで作り直されている
+        assert _admin_password_hash(engine) is not None
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_partial_schema_with_data_is_not_auto_healed(tmp_path):
+    """一部テーブルのみ存在し**データを持つ**場合は自動判断せずエラー終了すること。
+
+    自動復旧（部分スキーマの削除）は空テーブルに限る。1行でもデータがあれば
+    守るべき実データの可能性があるため、何も書き換えずに手動対応へ委ねる。
+    """
+    _setup_test_env()
+    db_path = tmp_path / "partial-with-data.db"
+    url = f"sqlite:///{db_path}"
+
+    legacy_engine = sa.create_engine(url)
+    try:
+        with legacy_engine.begin() as conn:
+            conn.execute(sa.text('CREATE TABLE "user" (id INTEGER PRIMARY KEY)'))
+            conn.execute(sa.text('INSERT INTO "user" (id) VALUES (1)'))
     finally:
         legacy_engine.dispose()
 
@@ -146,8 +181,11 @@ def test_partial_legacy_database_is_not_auto_healed(tmp_path):
 
     engine = sa.create_engine(url)
     try:
-        # 自動復旧を試みて中途半端に書き換えていないこと(alembic_versionは作られない)
+        # 自動復旧を試みて中途半端に書き換えていないこと(alembic_versionは作られず、データも残る)
         assert "alembic_version" not in _table_names(engine)
+        with engine.connect() as conn:
+            row = conn.execute(sa.text('SELECT id FROM "user"')).first()
+        assert row is not None and row[0] == 1
     finally:
         engine.dispose()
 

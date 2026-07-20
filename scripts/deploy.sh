@@ -376,6 +376,47 @@ DOCKER_NETWORK_NAME=$DEFAULT_NETWORK
 ENVEOF
 fi
 
+# ===== Preflight: Redis 資格情報の整合チェック =====
+# compose は REDIS_PASSWORD から各サービスの接続 URL を自動導出する。.env に
+# REDIS_URL / CELERY_BROKER_URL / CELERY_RESULT_BACKEND を明示している場合、
+# そこに埋め込まれたパスワードが REDIS_PASSWORD と食い違うと、redis サーバーは
+# REDIS_PASSWORD で起動し、クライアント側は URL の古いパスワードで接続して
+# "invalid username-password pair" で web / worker / beat が全滅する（しかも
+# health check のタイムアウトまで待った末に失敗する）。compose 内の redis
+# サービス宛て URL に限り、ここで不一致を検出して即座に失敗させる。
+check_redis_credentials() {
+  local effective_password url_key url url_password
+  effective_password="$(env_file_value REDIS_PASSWORD)"
+  effective_password="${effective_password:-photonest123}"
+  case "$effective_password" in
+    *[@:/?#%]*)
+      warn "REDIS_PASSWORD に URL 予約文字（@ : / ? # % など）が含まれています。compose は"
+      warn "この値をそのまま接続 URL に埋め込むため、認証に失敗する可能性が高いです。"
+      warn "予約文字を含まないパスワードへ変更してください。"
+      ;;
+  esac
+  for url_key in REDIS_URL CELERY_BROKER_URL CELERY_RESULT_BACKEND; do
+    url="$(env_file_value "$url_key")"
+    [ -n "$url" ] || continue
+    case "$url" in
+      redis://*@redis:*|redis://*@redis/*|rediss://*@redis:*|rediss://*@redis/*) ;;
+      *) continue ;;  # 外部 Redis 宛て等はここでは検証しない
+    esac
+    url_password="${url#*://}"
+    url_password="${url_password%%@*}"
+    url_password="${url_password#*:}"
+    if [ "$url_password" != "$effective_password" ]; then
+      err ".env の $url_key に埋め込まれたパスワードが REDIS_PASSWORD（未設定時は既定値）と一致しません。"
+      err "redis サーバーは REDIS_PASSWORD で起動するため、このままでは web / worker / beat が"
+      err "'invalid username-password pair' で Redis に接続できず、デプロイは必ず失敗します。"
+      err "対処（推奨）: .env から $url_key の行を削除する（compose が REDIS_PASSWORD から自動導出する）。"
+      err "        または: $url_key のパスワード部分を REDIS_PASSWORD と同じ値に修正する。"
+      exit 1
+    fi
+  done
+}
+check_redis_credentials
+
 # ===== Ensure DB image is available under the env-specific tag =====
 # reset 時は tar からロードするが、通常デプロイでは既存タグを使い回す。
 # 環境別タグがまだ無い場合は、従来運用の photonest-db:latest から引き継ぐ。

@@ -120,6 +120,19 @@ dump_module_logs() { # 引数: サービス名...
   echo "------------------------------" >&2
 }
 
+# ネットワーク作成失敗（サブネット重複等）の切り分け用。どのネットワークが
+# どのサブネットを占有しているか・どの compose プロジェクトが作ったかを一覧する。
+dump_network_diagnostics() {
+  echo "" >&2
+  echo "$TAG ---- docker networks (サブネット重複の特定用) ----" >&2
+  docker network ls --format '{{.Name}}' 2>/dev/null | while read -r net; do
+    docker network inspect --format \
+      '{{.Name}}: driver={{.Driver}} subnets=[{{range .IPAM.Config}}{{.Subnet}} {{end}}] compose_project={{index .Labels "com.docker.compose.project"}}' \
+      "$net" 2>/dev/null || true
+  done >&2 || true
+  echo "------------------------------" >&2
+}
+
 fail() { # 引数: メッセージ [ログを出すサービス名...]
   local msg="$1"
   shift || true
@@ -260,6 +273,21 @@ if [ ! -f "$COMPOSE_FILE" ]; then
   fail "No docker-compose.yml found at $COMPOSE_FILE (image sync also failed)"
 fi
 
+# ===== Guard: 固定サブネット指定の検出 =====
+# 固定サブネットは同一ホストの全 Docker ネットワークで重複禁止のため、stg / prod
+# 同居時に "Pool overlaps with other one on this address space" でネットワーク
+# 作成に失敗する（このエラーは subnet を明示指定した場合にのみ発生する。
+# 自動割当の失敗は "could not find an available, non-overlapping IPv4 address
+# pool among the defaults" という別メッセージになる）。リポジトリの compose は
+# subnet 指定なし（自動割当）へ移行済みなので、イメージから取り出した compose に
+# subnet 指定が残っている場合は、ビルドマシンの作業ツリーに古いローカル変更が
+# 残ったままイメージ化された可能性が高い。
+if grep -Eq '^[[:space:]]*(-[[:space:]]*)?subnet:' "$COMPOSE_FILE"; then
+  warn "docker-compose.yml に固定 subnet 指定が残っています（リポジトリでは廃止済み・Docker の自動割当を使う）。"
+  warn "compose はイメージから同期されるため、ビルドマシンで 'git status' / 'git diff docker-compose.yml' を確認し、"
+  warn "古いローカル変更を解消してから再ビルドしてください。この状態のままでは同居環境とサブネットが重複し得ます。"
+fi
+
 # ===== Ensure .env exists (zero-config deploy) =====
 # .env が無くてもデプロイできるようにする（docker compose は --env-file と
 # 各サービスの env_file: .env の両方で実ファイルを要求するため、無いと即失敗する）。
@@ -329,6 +357,22 @@ ensure_db_image() {
 log "docker compose down"
 $COMPOSE down || true
 
+# ===== 同名の残留ネットワークを掃除 =====
+# compose down が削除するのは自プロジェクトのラベルが付いたネットワークだけ
+# （上の down で "No resource found to remove" と出るのは他所有 or 不在のとき）。
+# 過去の運用（プロジェクト名違いでの compose 実行・手動作成）で同名ネットワークが
+# 残っていると、up 時のネットワーク作成がラベル不一致やサブネット重複で失敗する
+# ため、存在すれば明示的に削除しておく（コンテナ接続中で消せない場合は警告のみ）。
+NETWORK_NAME="$(env_file_value DOCKER_NETWORK_NAME)"
+NETWORK_NAME="${NETWORK_NAME:-photonest-dev}"
+if docker network inspect "$NETWORK_NAME" >/dev/null 2>&1; then
+  if docker network rm "$NETWORK_NAME" >/dev/null 2>&1; then
+    log "Removed leftover network: $NETWORK_NAME"
+  else
+    warn "既存ネットワーク $NETWORK_NAME を削除できませんでした（他のコンテナが接続中の可能性）。"
+  fi
+fi
+
 # ===== Reset mode: clear data =====
 if [ "$MODE" = "reset" ]; then
   echo -e "\033[33m[reset] WARNING: This will delete all $ENV_NAME DB & media data.\033[0m"
@@ -371,6 +415,11 @@ if ! $COMPOSE up -d --remove-orphans 2>&1 | tee "$UP_OUTPUT"; then
   echo "" >&2
   echo "$TAG ---- 'docker compose up' の出力（バインドマウント失敗等はコンテナログに残らないため再掲）----" >&2
   cat "$UP_OUTPUT" >&2
+  if grep -q "Pool overlaps" "$UP_OUTPUT"; then
+    err "ネットワーク作成がサブネット重複で失敗しました。このエラーは固定 subnet を要求した場合にのみ発生します。"
+    err "使用中の compose の subnet 指定（上の Guard 警告参照）と、下記一覧の重複相手のネットワークを確認してください。"
+    dump_network_diagnostics
+  fi
   rm -f "$UP_OUTPUT"
   dump_module_logs "${ALL_SERVICES[@]}"
   err "Deploy failed (mode: $MODE, env: $ENV_NAME)"

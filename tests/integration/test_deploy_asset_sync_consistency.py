@@ -115,3 +115,24 @@ def test_compose_nginx_bind_mount_matches_synced_path() -> None:
         f"{NGINX_CONF} が存在しません。compose がバインドマウントする nginx 設定は "
         "リポジトリに実在しイメージへ焼き込まれる必要があります。"
     )
+
+
+def test_compose_uses_auto_assigned_network_subnet() -> None:
+    """compose のネットワーク定義に固定 subnet / ipam 指定が無いこと。
+
+    固定サブネットは同一ホストの全 Docker ネットワークで重複禁止のため、
+    stg / prod 同居時に "Pool overlaps with other one on this address space" で
+    ネットワーク作成に失敗する。サービス間通信はサービス名 DNS で解決しており
+    固定 IP レンジへの依存は無いので、subnet は指定せず Docker の自動割当を使う。
+    """
+    compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    offending = [
+        line.strip()
+        for line in compose.splitlines()
+        if line.strip().lstrip("- ").startswith(("subnet:", "ipam:"))
+    ]
+    assert not offending, (
+        f"docker-compose.yml に固定サブネット指定があります: {offending}. "
+        "同一ホストで stg / prod を同居させるとネットワーク作成が重複エラーで失敗するため、"
+        "subnet は指定せず自動割当にしてください（docs/CHANGELOG.md 参照）。"
+    )

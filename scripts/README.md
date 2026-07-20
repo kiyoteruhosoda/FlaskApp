@@ -40,6 +40,12 @@ source .venv/bin/activate
 ./scripts/.build.sh --help
 ```
 
+ビルド前に作業ツリーを検証する: 追跡ファイルにコミットされていないローカル変更が
+あるとエラー終了する（イメージには作業ツリーがそのまま焼き込まれるため、
+リポジトリと一致しない成果物を作らない）。意図的にローカル変更込みでビルドする
+場合のみ `ALLOW_DIRTY=1 ./scripts/.build.sh` で回避できる。未追跡ファイルは
+チェック対象外。
+
 ビルド成果物はすべて `dist/`（git 管理外）に置かれる:
 
 ```
@@ -79,6 +85,12 @@ photonest/
 - **デプロイエラー時は失敗したモジュール（コンテナ）のログを出力して終了する**
   （DB 接続待ちタイムアウト → db、マイグレーション失敗 → web + db、
   ヘルスチェック失敗 → web + nginx。想定外のエラーは全サービスのログを出す）。
+- ネットワークは Docker の自動割当（compose に subnet 指定なし）。同期した compose に
+  固定 subnet 指定が残っている場合は警告を出す（古い作業ツリーからビルドされた
+  イメージの検出）。`docker compose up` が "Pool overlaps" で失敗した場合は、
+  ホスト上の全 Docker ネットワークの subnet・compose プロジェクトラベル一覧を
+  診断出力する。また `down` 後、`.env` の `DOCKER_NETWORK_NAME` と同名の残留
+  ネットワークが存在すれば削除する（コンテナ接続中なら警告のみ）。
 
 > **docker-compose.yml はアプリイメージから自己同期される。** アプリイメージには
 > `docker-compose.yml`（→ `/app/docker-compose.yml`）と nginx 設定

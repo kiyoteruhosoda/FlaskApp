@@ -241,6 +241,11 @@ def test_entrypoint_worker_and_beat_wait_for_schema() -> None:
     assert "wait_for_schema()" in entrypoint, (
         "entrypoint.sh に wait_for_schema 関数がありません。"
     )
+    assert "get_heads" in entrypoint, (
+        "wait_for_schema が head リビジョン到達を確認していません。"
+        "「何かリビジョンが記録されている」だけでは migrate 適用中や reset の"
+        "シード適用前に素通りしてしまいます。"
+    )
     for mode in ("worker)", "beat)"):
         start = entrypoint.index(mode)
         section = entrypoint[start : start + 300]

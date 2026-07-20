@@ -265,6 +265,36 @@ sync_assets_from_image() {
     warn "$APP_IMAGE has no /app/docker/nginx/default.conf (old image); keeping existing file if any"
   fi
 
+  # --- deploy.sh 自身（実行中のコピーが古ければ自己更新して再実行） ---
+  # 2026-07-20 の prod デプロイで、pick はリポジトリ最新の deploy.sh を配置したと
+  # 報告しているのに、実際には古い版の deploy.sh が実行されて修正済みの診断出力が
+  # 出ない事象が起きた（NAS 側の pick / 起動経路は git 管理外のため直接は正せない）。
+  # compose / nginx 設定と同じく「イメージ内が唯一の出所」をスクリプト自身にも適用し、
+  # 実行中のコピーがイメージ内の版と異なる場合は置き換えて同じモード引数で再実行する。
+  local self_src self_dst
+  self_src="${BASH_SOURCE[0]}"
+  self_dst="$SCRIPT_DIR/deploy.sh"
+  if docker cp "$cid:/app/scripts/deploy.sh" "$self_dst.new" >/dev/null 2>&1; then
+    if cmp -s "$self_dst.new" "$self_src"; then
+      rm -f "$self_dst.new"
+      log "deploy.sh はイメージ内の版と一致（最新版で実行中）"
+    elif [ "${PHOTONEST_DEPLOY_REEXEC:-0}" = "1" ]; then
+      # 再実行後も一致しない場合は無限ループを避けて続行する（差分の原因は
+      # ファイルシステム側にあるため、警告して人間の確認に委ねる）。
+      rm -f "$self_dst.new"
+      warn "deploy.sh が自己更新後もイメージ内の版と一致しません。このまま続行しますが、$self_dst の配置経路を確認してください。"
+    else
+      chmod 755 "$self_dst.new"
+      mv -f "$self_dst.new" "$self_dst"
+      docker rm -f "$cid" >/dev/null 2>&1 || true
+      log "deploy.sh が古かったためイメージ内の版へ自己更新しました。新しい版で再実行します。"
+      PHOTONEST_DEPLOY_REEXEC=1 exec bash "$self_dst" "$MODE"
+    fi
+  else
+    rm -f "$self_dst.new"
+    warn "$APP_IMAGE has no /app/scripts/deploy.sh (old image); skipping deploy.sh self-sync"
+  fi
+
   docker rm -f "$cid" >/dev/null 2>&1 || true
 }
 sync_assets_from_image
@@ -276,12 +306,11 @@ fi
 # ===== Guard: 固定サブネット指定の検出 =====
 # 固定サブネットは同一ホストの全 Docker ネットワークで重複禁止のため、stg / prod
 # 同居時に "Pool overlaps with other one on this address space" でネットワーク
-# 作成に失敗する（このエラーは subnet を明示指定した場合にのみ発生する。
-# 自動割当の失敗は "could not find an available, non-overlapping IPv4 address
-# pool among the defaults" という別メッセージになる）。リポジトリの compose は
-# subnet 指定なし（自動割当）へ移行済みなので、イメージから取り出した compose に
-# subnet 指定が残っている場合は、ビルドマシンの作業ツリーに古いローカル変更が
-# 残ったままイメージ化された可能性が高い。
+# 作成に失敗する。リポジトリの compose は subnet 指定なし（自動割当）へ移行済み
+# なので、イメージから取り出した compose に subnet 指定が残っている場合は、
+# ビルドマシンの作業ツリーに古いローカル変更が残ったままイメージ化された可能性が
+# 高い。なお同エラーは subnet 指定が無くても Docker デーモンの IPAM 残骸で発生
+# し得る（up 失敗時の再試行・診断を参照）。
 if grep -Eq '^[[:space:]]*(-[[:space:]]*)?subnet:' "$COMPOSE_FILE"; then
   warn "docker-compose.yml に固定 subnet 指定が残っています（リポジトリでは廃止済み・Docker の自動割当を使う）。"
   warn "compose はイメージから同期されるため、ビルドマシンで 'git status' / 'git diff docker-compose.yml' を確認し、"
@@ -410,14 +439,35 @@ log "docker compose up -d"
 # 手がかりになる。またパイプ経由だと compose は非TTYと判断してプレーンな
 # 行単位出力に切り替わるため、進捗バーの \r による表示崩れも避けられる。
 UP_OUTPUT="$(mktemp)"
-if ! $COMPOSE up -d --remove-orphans 2>&1 | tee "$UP_OUTPUT"; then
+UP_OK=false
+for up_attempt in 1 2; do
+  if $COMPOSE up -d --remove-orphans 2>&1 | tee "$UP_OUTPUT"; then
+    UP_OK=true
+    break
+  fi
+  # "Pool overlaps" は compose に subnet 指定が無くても発生することがある。
+  # Docker 20.10（Synology Container Manager）の IPAM は、削除済みネットワークの
+  # プール登録がデーモンの KV ストアに残骸として残っていると、自動割当が選んだ
+  # プールの登録時に重複と判定してこのエラーを返す。この場合、再試行すると残骸を
+  # 避けて次の空きプールが選ばれ成功し得るため、1回だけ再試行する。
+  if [ "$up_attempt" = 1 ] && grep -q "Pool overlaps" "$UP_OUTPUT"; then
+    warn "ネットワーク作成がサブネット重複で失敗しました。5秒後に1回だけ再試行します（IPAM の残骸なら別プールが選ばれ成功し得ます）。"
+    dump_network_diagnostics
+    sleep 5
+    continue
+  fi
+  break
+done
+if [ "$UP_OK" != true ]; then
   err "docker compose up failed"
   echo "" >&2
   echo "$TAG ---- 'docker compose up' の出力（バインドマウント失敗等はコンテナログに残らないため再掲）----" >&2
   cat "$UP_OUTPUT" >&2
   if grep -q "Pool overlaps" "$UP_OUTPUT"; then
-    err "ネットワーク作成がサブネット重複で失敗しました。このエラーは固定 subnet を要求した場合にのみ発生します。"
-    err "使用中の compose の subnet 指定（上の Guard 警告参照）と、下記一覧の重複相手のネットワークを確認してください。"
+    err "再試行してもネットワーク作成がサブネット重複で失敗しました。"
+    err "上のネットワーク一覧に重複相手が見当たらない場合は、Docker デーモンの IPAM に削除済み"
+    err "ネットワークの残骸が残っています。Container Manager（Docker）を再起動してから再デプロイしてください:"
+    err "  DSM 7.x: sudo synopkg restart ContainerManager"
     dump_network_diagnostics
   fi
   rm -f "$UP_OUTPUT"

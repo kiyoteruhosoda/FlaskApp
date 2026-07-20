@@ -159,3 +159,22 @@ def test_makefile_build_targets_enforce_clean_worktree() -> None:
         )
     guard = ROOT / "scripts" / "check_worktree_clean.sh"
     assert guard.is_file(), f"{guard} が存在しません（check-worktree ターゲットの実体）。"
+
+
+def test_deploy_scripts_self_sync_from_image() -> None:
+    """デプロイスクリプトが自分自身もイメージから同期（自己更新→再実行）すること。
+
+    2026-07-20 の prod デプロイで、配置済みのはずの最新 deploy.sh ではなく古い版が
+    実行され、修正済みの診断出力が出ない事象が起きた（NAS 側の配置・起動経路は
+    git 管理外）。compose / nginx 設定と同様に「イメージ内が唯一の出所」を
+    スクリプト自身にも適用し、実行中のコピーが古い場合は置き換えて再実行する。
+    """
+    for script in DEPLOY_SCRIPTS:
+        content = script.read_text(encoding="utf-8")
+        assert "/app/scripts/deploy.sh" in content, (
+            f"{script.name} が自分自身のイメージ内コピーを参照していません。"
+            "古い deploy.sh が実行され続けても検出・自己修復できなくなります。"
+        )
+        assert "PHOTONEST_DEPLOY_REEXEC" in content, (
+            f"{script.name} に自己更新後の再実行ガードがありません（無限再実行の防止）。"
+        )

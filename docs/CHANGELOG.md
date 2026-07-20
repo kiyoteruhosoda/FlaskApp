@@ -29,6 +29,24 @@
     タグ eager load を `joinedload`（行増殖）から `selectinload` へ変更。
 
 ### Fixed
+- **prod デプロイの "Pool overlaps" 続報: 古い deploy.sh の実行検出と IPAM 残骸への対処**
+  （`scripts/deploy.sh` / 回帰テスト追加）。前項の対策を含むイメージ（bbefd080）での
+  再デプロイでも同エラーが再発し、ログから2つの新事実が判明した。
+  1. **配置済みのはずの最新 deploy.sh ではなく古い版が実行されていた**（追加した
+     Pool overlaps 時の診断出力が一切出ていない。pick は最新版のコピー成功を報告して
+     いるため、NAS 側の配置・起動経路（git 管理外）に実行コピーの取り違えがある）。
+     → compose / nginx 設定と同じ「イメージ内が唯一の出所」をスクリプト自身にも適用。
+     実行中の deploy.sh がイメージ内の `/app/scripts/deploy.sh` と異なる場合は
+     自己更新して同じモードで再実行する（`PHOTONEST_DEPLOY_REEXEC` で無限再実行を
+     防止。一致時は「最新版で実行中」とログに明示）。
+  2. **compose に subnet 指定が無くても "Pool overlaps" は発生する**（前項の
+     「明示指定時のみ」という分析は誤り）。Docker 20.10（Synology Container
+     Manager）の IPAM は、削除済みネットワークのプール登録がデーモンの KV ストアに
+     残骸として残っていると、自動割当が選んだプールの登録時に重複と判定し得る。
+     → up が Pool overlaps で失敗したらネットワーク一覧を出力して5秒後に1回だけ
+     再試行（残骸なら別プールが選ばれ成功し得る）。それでも失敗した場合は
+     「一覧に重複相手が無ければ IPAM 残骸 → `sudo synopkg restart ContainerManager`
+     で Docker を再起動して再デプロイ」という復旧手順をログに明示する。
 - **subnet 固定廃止後も prod デプロイが "Pool overlaps" で失敗し続ける問題への対策**
   （`scripts/build.sh` / `scripts/deploy.sh` / 回帰テスト追加）。
   このエラーは Docker に**subnet を明示指定した場合にのみ**発生する（自動割当の

@@ -29,6 +29,17 @@
     タグ eager load を `joinedload`（行増殖）から `selectinload` へ変更。
 
 ### Fixed
+- **reset 中に中断された初期スキーマ構築から自動復旧できるように**
+  （`scripts/run_db_migrations.py` / テスト追加 / `docs/OPERATIONS.md` 更新）。
+  prod の `deploy.sh reset` で、空DBへの `init_master` 適用が途中で落ち
+  （MySQL/MariaDB の DDL は非トランザクショナルで作成済みテーブルが残る）、
+  コンテナ再起動後の判定が「一部テーブルのみ存在・リビジョン記録なし」を検出して
+  AMBIGUOUS で停止 → web がクラッシュループする障害が発生した。中断された
+  初期構築なら既存の対象テーブルは**すべて0行**のはずで、守るべきデータがある
+  レガシーDBと区別できるため、その場合に限り部分スキーマ（+ 空の
+  `alembic_version`）を削除して FRESH から適用し直す自動復旧を追加した
+  （マイグレーションロック保持中に実行。1行でもデータがあれば従来どおり停止し
+  手動対応へ）。
 - **Redis 資格情報の二重管理を解消し、不一致をデプロイ前に検出**
   （`.env.example` / `.env.staging.example` / `scripts/deploy.sh` / テスト追加）。
   ネットワーク問題解消後の prod デプロイで、web / worker / beat が Redis に

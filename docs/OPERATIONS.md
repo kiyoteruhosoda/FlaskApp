@@ -573,7 +573,8 @@ curl http://localhost:5000/api/health
 | `docker events` にパスワードが平文で出る | `docker-compose.yml` の healthcheck が `${VAR}` を直接展開していないか確認する（`$$VAR` にする） |
 | `dist/image.tar` が異常に大きい | `docker images photonest:latest` / `docker history photonest:latest --no-trunc` でレイヤーを確認する |
 | `docker build` の "transferring context" が大きい | `du -sh dist/*.tar` で古い tar が残っていないか、`.dockerignore` に `dist/` があるか確認する |
-| Web起動時のマイグレーションが `Table '...' already exists` で失敗する | `scripts/run_db_migrations.py`（`entrypoint.sh` が呼び出す）が自動検出して `stamp init_master` → `upgrade head` に切り替えるはずだが、一部テーブルだけ存在する中途半端な状態だと自動判断せずエラー終了する。その場合は `docker compose exec db mysql ...` 等でテーブル構成を確認し、不足分を手動で補うか、`alembic -c migrations/alembic.ini stamp <revision>` で妥当なリビジョンへ付け替えてから再起動する |
+| Web起動時のマイグレーションが `Table '...' already exists` で失敗する | `scripts/run_db_migrations.py`（`entrypoint.sh` が呼び出す）が自動検出して `stamp init_master` → `upgrade head` に切り替える |
+| Web起動時のマイグレーションが「一部テーブルのみ存在する中途半端な状態」で停止する | 既存の対象テーブルが**すべて空**なら「中断された初期構築の残骸」として自動復旧する（部分スキーマを削除して最初から適用し直す。ログに `[db-migrate] ... 部分スキーマ ... を削除して最初から適用し直します` と出る）。**データが存在するテーブルがある場合のみ**手動対応: `docker compose exec db mysql ...` 等でテーブル構成とデータを確認し、不足分を手動で補うか、`alembic -c migrations/alembic.ini stamp <revision>` で妥当なリビジョンへ付け替えてから再起動する |
 | デフォルト管理者 `admin@example.com` でログインできない | まず `docker logs <web>` の `[db-migrate] admin login self-check: OK/NG` を見る（起動のたびに自動検証・出力される）。NG なら `ADMIN_INITIAL_PASSWORD` が設定されているか確認する（設定時はデフォルトの `admin` ではなくその値がパスワードになる）。未指定なのに NG の場合は `docker logs <web>` の `POST /api/auth/login` 失敗時のログ（`reason: user_not_found / user_inactive / invalid_password`）で原因を切り分ける |
 
 各症状の原因・仕組みは `scripts/README.md` を参照。

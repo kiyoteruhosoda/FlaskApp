@@ -166,3 +166,76 @@ def test_serialized_migration_raises_when_lock_not_acquired():
     # ロックを取得できていないので RELEASE_LOCK は発行しない
     assert not any("RELEASE_LOCK" in s for s in _executed_sql(conn))
     conn.close.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# 中断された初期構築の自動復旧（heal_interrupted_initial_build）
+# ---------------------------------------------------------------------------
+# 2026-07-20 の prod `deploy.sh reset` で、空DBへの init_master 適用が途中で落ち、
+# 再起動後の判定が AMBIGUOUS で停止して web がクラッシュループした。既存の対象
+# テーブルがすべて0行なら「中断された初期構築の残骸」と断定できるため、部分
+# スキーマを削除して FRESH からやり直す。1行でもデータがあれば何もしない。
+
+from scripts.run_db_migrations import (  # noqa: E402
+    heal_interrupted_initial_build,
+    partial_tables_are_all_empty,
+)
+
+
+def _sqlite_engine_with_tables(tables: dict[str, list[dict]]) -> sa.engine.Engine:
+    """指定テーブル（と行データ）を持つ SQLite エンジンを作る。"""
+    engine = sa.create_engine("sqlite://")
+    meta = sa.MetaData()
+    created = {
+        name: sa.Table(name, meta, sa.Column("id", sa.Integer, primary_key=True))
+        for name in tables
+    }
+    meta.create_all(engine)
+    with engine.begin() as conn:
+        for name, rows in tables.items():
+            for row in rows:
+                conn.execute(created[name].insert().values(**row))
+    return engine
+
+
+def test_partial_tables_are_all_empty_true_when_no_rows():
+    engine = _sqlite_engine_with_tables({"user": [], "log": []})
+    assert partial_tables_are_all_empty(engine, {"user", "log"}) is True
+
+
+def test_partial_tables_are_all_empty_false_when_any_row():
+    engine = _sqlite_engine_with_tables({"user": [], "log": [{"id": 1}]})
+    assert partial_tables_are_all_empty(engine, {"user", "log"}) is False
+
+
+def test_partial_tables_are_all_empty_false_when_no_tables():
+    """対象が空集合なら「復旧すべき残骸」は無いので False（何もしない）。"""
+    engine = _sqlite_engine_with_tables({})
+    assert partial_tables_are_all_empty(engine, set()) is False
+
+
+def test_heal_drops_empty_partial_schema_and_returns_true():
+    engine = _sqlite_engine_with_tables({"user": [], "role": [], "alembic_version": []})
+    healed = heal_interrupted_initial_build(
+        engine, {"user", "role", "alembic_version"}, TARGET_TABLES
+    )
+    assert healed is True
+    remaining = set(sa.inspect(engine).get_table_names())
+    assert remaining == set()  # 部分スキーマと alembic_version が削除され FRESH 相当
+
+
+def test_heal_refuses_when_partial_schema_has_data():
+    engine = _sqlite_engine_with_tables({"user": [{"id": 1}], "role": []})
+    healed = heal_interrupted_initial_build(engine, {"user", "role"}, TARGET_TABLES)
+    assert healed is False
+    remaining = set(sa.inspect(engine).get_table_names())
+    assert remaining == {"user", "role"}  # 何も削除しない
+
+
+def test_heal_ignores_non_target_tables():
+    """ターゲット外のテーブルは判定にも削除にも含めない。"""
+    engine = _sqlite_engine_with_tables({"user": [], "someone_elses_table": [{"id": 1}]})
+    healed = heal_interrupted_initial_build(engine, {"user", "someone_elses_table"}, TARGET_TABLES)
+    assert healed is True
+    remaining = set(sa.inspect(engine).get_table_names())
+    assert remaining == {"someone_elses_table"}  # ターゲット外はそのまま残す

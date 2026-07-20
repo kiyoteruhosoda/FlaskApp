@@ -167,6 +167,55 @@ def decide_strategy(
     return AMBIGUOUS  # 一部だけ存在する中途半端な状態は自動判断しない
 
 
+def partial_tables_are_all_empty(engine: sa.engine.Engine, tables: set[str]) -> bool:
+    """既存の対象テーブルがすべて0行かどうかを返す（中断された初期構築の判定用）。"""
+    if not tables:
+        return False
+    preparer = engine.dialect.identifier_preparer
+    with engine.connect() as conn:
+        for table in sorted(tables):
+            row = conn.execute(
+                sa.text(f"SELECT 1 FROM {preparer.quote(table)} LIMIT 1")
+            ).first()
+            if row is not None:
+                return False
+    return True
+
+
+def heal_interrupted_initial_build(
+    engine: sa.engine.Engine,
+    existing_tables: set[str],
+    target_tables: set[str],
+) -> bool:
+    """AMBIGUOUS 状態が「中断された初期構築」なら部分スキーマを削除して True を返す。
+
+    2026-07-20 の prod ``deploy.sh reset`` で、空DBへの ``init_master`` 適用が途中で
+    落ち（MySQL/MariaDB の DDL は非トランザクショナルなので作成済みテーブルは残る）、
+    再起動後の本スクリプトが「一部テーブルのみ存在・リビジョン記録なし」を検出して
+    AMBIGUOUS で停止 → web がクラッシュループする障害が起きた。
+
+    この状態は「守るべきデータがあるレガシーDB」とは区別できる: 中断された初期構築
+    なら**既存の対象テーブルはすべて0行**のはずである（seed 前に中断している）。
+    その場合に限り、部分スキーマ（+ 空の ``alembic_version``）を削除して FRESH
+    からやり直す。1行でもデータがあるテーブルが見つかれば何もせず False を返し、
+    従来どおり手動対応に委ねる（呼び出し元はロック保持中である前提）。
+    """
+    relevant = (existing_tables - {"alembic_version"}) & target_tables
+    if not partial_tables_are_all_empty(engine, relevant):
+        return False
+
+    drop_targets = relevant | ({"alembic_version"} & existing_tables)
+    print(
+        "[db-migrate] 一部テーブルのみ存在しますが、対象テーブルはすべて空です。"
+        "中断された初期構築（init_master 適用中のクラッシュ等）の残骸とみなし、"
+        f"部分スキーマ {sorted(drop_targets)} を削除して最初から適用し直します。"
+    )
+    meta = sa.MetaData()
+    meta.reflect(bind=engine, only=sorted(drop_targets))
+    meta.drop_all(bind=engine)
+    return True
+
+
 @contextlib.contextmanager
 def serialized_migration(engine: sa.engine.Engine):
     """MySQL/MariaDB のネームドロックで同時マイグレーションを直列化する。
@@ -224,7 +273,8 @@ def apply_strategy(
         print(
             "[db-migrate] 既存DBのテーブル構成が想定と一致しません"
             f"（不足テーブル: {missing}）。alembic_version が無いまま一部テーブルのみ"
-            "存在する中途半端な状態のため、自動復旧を中止します。"
+            "存在する中途半端な状態で、かつ既存テーブルにデータが存在するため"
+            "自動復旧（空の部分スキーマの削除・再構築）は行いません。"
             " docs/OPERATIONS.md のトラブルシューティングを参照し、手動で調査・"
             "対応してください。",
             file=sys.stderr,
@@ -267,6 +317,11 @@ def run(database_url: str) -> int:
             existing_tables = existing_table_names(engine)
             recorded_revision = recorded_alembic_revision(engine, existing_tables)
             strategy = decide_strategy(existing_tables, target_tables, recorded_revision)
+            if strategy == AMBIGUOUS and heal_interrupted_initial_build(
+                engine, existing_tables, target_tables
+            ):
+                existing_tables = existing_table_names(engine)
+                strategy = FRESH
             exit_code = apply_strategy(
                 strategy, existing_tables, target_tables, database_url
             )

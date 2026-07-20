@@ -29,6 +29,21 @@
     タグ eager load を `joinedload`（行増殖）から `selectinload` へ変更。
 
 ### Fixed
+- **prod デプロイ失敗の真因確定: ランチャーは `<env>/deploy.sh`（トップレベル）を
+  実行していた**（`scripts/deploy.sh` / `scripts/build-remote.sh` / テスト追加）。
+  最新 deploy.sh のトップレベル配置実行が「親ディレクトリ名 'photonest' が
+  stg / prod ではありません」で失敗したことにより、NAS 側ランチャー（git 管理外）が
+  pick の更新先 `<env>/scripts/deploy.sh` ではなく `<env>/deploy.sh` を実行して
+  いたことが確定した（古い版が動き続けた事故の正体。pick はずっと別パスを更新
+  していた）。対応:
+  - `deploy.sh`: トップレベル配置（`<env>/deploy.sh`）も正規に受け付ける
+    （自身の配置ディレクトリ名が stg / prod ならそこを環境ディレクトリとする）。
+    どちらの実行経路でも最新版がフル機能で動作し、自己同期が実行中のコピー自身を
+    更新できる。
+  - `build-remote.sh`: PICK でトップレベルのコピーが存在すれば同じ版で上書きし、
+    化石化を防ぐ。
+  - 回帰テスト: 両配置からの実行が環境判定を通過することを実プロセスで検証
+    （`test_deploy_script_env_detection.py`、Docker 不要）。
 - **prod デプロイの "Pool overlaps" 続報: 古い deploy.sh の実行検出と IPAM 残骸への対処**
   （`scripts/deploy.sh` / 回帰テスト追加）。前項の対策を含むイメージ（bbefd080）での
   再デプロイでも同エラーが再発し、ログから2つの新事実が判明した。

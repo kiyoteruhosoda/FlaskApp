@@ -7,6 +7,7 @@
 #       image.tar          # ビルド済みアプリイメージ（dist/image.tar を配置）
 #       image-db.tar       # (任意) DB イメージ（reset 時のみ使用。dist/image-db.tar を配置）
 #       scripts/deploy.sh  # このスクリプト（git 管理。dist/scripts/deploy.sh を配置）
+#                          # <env>/deploy.sh 直下配置でも動作する（旧ランチャー互換）
 #       .env               # stg 用設定（無ければ初回デプロイ時にテンプレートを自動生成）
 #       docker-compose.yml # stg 用（デプロイ時にイメージ内のコピーで自動更新される）
 #       mnt/               # コンテナマウント用データ（data/ と db_data/ が作られる）
@@ -24,10 +25,22 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BASE_DIR="$(dirname "$SCRIPT_DIR")"
-ENV_NAME="$(basename "$BASE_DIR")"
 
 # ===== 環境判定（配置ディレクトリ名で stg / prod を切り替える） =====
+# 配置は2通りを受け付ける:
+#   <env>/scripts/deploy.sh … 正規配置（dist/scripts/deploy.sh を pick したもの）
+#   <env>/deploy.sh         … トップレベル配置（旧来のランチャーが実行するパス）
+# 2026-07-20 の prod デプロイ失敗調査で、NAS 側ランチャー（git 管理外）が
+# <env>/deploy.sh を実行し続けており、pick が更新する <env>/scripts/deploy.sh と
+# 食い違って古い版が動き続ける事故が判明した。トップレベル配置も正規に受け付ける
+# ことで、どちらの実行経路でも最新版がフル機能で動作し、自己同期
+# （sync_assets_from_image）が実行中のコピー自身を更新できるようにする。
+case "$(basename "$SCRIPT_DIR")" in
+  stg|prod) BASE_DIR="$SCRIPT_DIR" ;;
+  *)        BASE_DIR="$(dirname "$SCRIPT_DIR")" ;;
+esac
+ENV_NAME="$(basename "$BASE_DIR")"
+
 case "$ENV_NAME" in
   stg)
     PROJECT="photonest-stg"
@@ -39,8 +52,8 @@ case "$ENV_NAME" in
     DEFAULT_WEB_HOST_PORT=8050
     ;;
   *)
-    echo "[deploy][error] このスクリプトは photonest/stg/scripts/ または photonest/prod/scripts/ に配置して実行してください。" >&2
-    echo "  現在の配置: $SCRIPT_DIR（親ディレクトリ名 '$ENV_NAME' が stg / prod ではありません）" >&2
+    echo "[deploy][error] このスクリプトは photonest/<stg|prod>/scripts/ または photonest/<stg|prod>/ 直下に配置して実行してください。" >&2
+    echo "  現在の配置: $SCRIPT_DIR（stg / prod のどちらの環境ディレクトリにも該当しません）" >&2
     exit 1
     ;;
 esac

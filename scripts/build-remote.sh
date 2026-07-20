@@ -125,6 +125,14 @@ docker cp "$DEV_CONTAINER:$PROJECT_DIR/dist/scripts/deploy.sh" "$SCRIPT_DIR/scri
 chmod +x "$SCRIPT_DIR/scripts/deploy.sh"
 echo "picked: image.tar, scripts/deploy.sh"
 
+# 旧来のランチャーが実行していたトップレベル配置（<env>/deploy.sh）のコピーが
+# 残っている場合は、化石化して古い版が実行される事故を防ぐため同じ版で上書きする。
+if [ -f "$SCRIPT_DIR/deploy.sh" ]; then
+    cp -f "$SCRIPT_DIR/scripts/deploy.sh" "$SCRIPT_DIR/deploy.sh"
+    chmod +x "$SCRIPT_DIR/deploy.sh"
+    echo "refreshed legacy copy: deploy.sh"
+fi
+
 echo "===== DEPLOY ====="
 
 # 直前の PICK で置いた deploy.sh を絶対パスで実行する（deploy.sh は自身も

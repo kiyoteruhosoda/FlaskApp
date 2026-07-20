@@ -109,9 +109,11 @@ photonest/
 └── prod/                   ← 上記と同じ構成
 ```
 
-- 環境判定: 親ディレクトリ名が `stg` → compose project `photonest-stg`・ポート既定 8051、
+- 環境判定: 配置ディレクトリ名から自動判定する。`<env>/scripts/deploy.sh`（正規）と
+  `<env>/deploy.sh`（トップレベル・旧ランチャー互換）の両配置を受け付け、
+  `stg` → compose project `photonest-stg`・ポート既定 8051、
   `prod` → project `photonest`（既存本番を引き継ぐ）・ポート既定 8050。
-  それ以外のディレクトリ名で実行するとエラー終了する。
+  どちらにも該当しない配置で実行するとエラー終了する。
 - ロードしたイメージは `photonest:stg` / `photonest:prod` のように環境別タグを
   付け直して使う（同一ホストで stg と prod が `photonest:latest` を取り合わない）。
 - マウントデータは `<環境dir>/mnt/` 配下（`.env` の `HOST_DATA_ROOT` で上書き可）。

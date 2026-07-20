@@ -91,6 +91,30 @@ dist/
   `DEV_CONTAINER_USER`（既定 `sshuser`）、`PROJECT_DIR`
   （既定 `/work/project/photonest`）、`BUILD_TARGET`（既定 `all`）。
 
+#### 最小ブートストラップ（環境ディレクトリに build-remote.sh 1ファイルだけで動く）
+
+環境ディレクトリに必要なのは `build-remote.sh` だけ。それ以外のデプロイ資材は
+すべて実行時に取得・生成される（image tar / `scripts/deploy.sh` は BUILD → PICK で、
+`docker-compose.yml` / nginx 設定はイメージから、`.env` は無ければテンプレートを
+自動生成）。
+
+```bash
+# 1. 環境ディレクトリを整理する。ただし既存環境では次の2つは必ず残す:
+#      .env   … DB・Redis の実資格情報（消すと既存 DB に接続できなくなる）
+#      mnt/   … DB・メディアの実データ
+#    それ以外（image*.tar / scripts/ / docker-compose.yml / docker/ / pick.sh 等）は
+#    削除してよい（すべて再取得・再生成される）。
+# 2. リポジトリの scripts/build-remote.sh を配置する
+cp <repo>/scripts/build-remote.sh /volume1/docker/photonest/prod/build-remote.sh
+chmod +x /volume1/docker/photonest/prod/build-remote.sh
+# 3. 実行（deploy-agent からでも同じ）
+cd /volume1/docker/photonest/prod && ./build-remote.sh run migrate
+```
+
+完全に空のディレクトリ（`.env` / `mnt/` も無し）から実行した場合は新規環境として
+起動する（`.env` は開発向け既定値で自動生成されるため、外部公開する環境では
+生成後に編集して再デプロイする）。
+
 ### deploy.sh（stg / prod 共通）
 
 NAS 側は環境ごとに自己完結したディレクトリ構成とし、`deploy.sh` は自分の

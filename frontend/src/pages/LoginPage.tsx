@@ -158,7 +158,13 @@ const LoginPage: React.FC = () => {
   return (
     // flex-grow + my-auto で「収まるときはスクロールなしで縦中央」「収まらない
     // ときだけ自然にスクロール」を実現する（固定高さ h-100 は使わない）。
-    <div data-testid="login-page" className="flex-grow-1 d-flex flex-column bg-white">
+    <div
+      data-testid="login-page"
+      className="flex-grow-1 d-flex flex-column bg-white"
+      // 既定の --bs-border-color (#dee2e6) は薄いため、ログイン画面のフォーム枠線を
+      // #6c757d に濃くする。パスワード表示ボタン(outline-secondary)の枠線色と揃う。
+      style={{ '--bs-border-color': '#6c757d' } as React.CSSProperties}
+    >
       <Container fluid className="my-auto py-4 d-flex align-items-center justify-content-center">
 
       <Row className="w-100">

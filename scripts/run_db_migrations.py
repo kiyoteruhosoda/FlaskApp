@@ -346,14 +346,17 @@ def log_admin_login_self_check(database_url: str) -> None:
     """
     from werkzeug.security import check_password_hash
 
-    from shared.domain.auth.master_data import DEFAULT_ADMIN_EMAIL
+    from shared.domain.auth.master_data import (
+        DEFAULT_ADMIN_EMAIL,
+        DEFAULT_ADMIN_PASSWORD,
+    )
 
     admin_initial_password = os.environ.get("ADMIN_INITIAL_PASSWORD")
-    expected_password = admin_initial_password or "admin@example.com"
+    expected_password = admin_initial_password or DEFAULT_ADMIN_PASSWORD
     expected_source = (
         "ADMIN_INITIAL_PASSWORD"
         if admin_initial_password
-        else "デフォルト値 'admin@example.com'"
+        else f"デフォルト値 '{DEFAULT_ADMIN_PASSWORD}'"
     )
 
     engine = sa.create_engine(database_url)

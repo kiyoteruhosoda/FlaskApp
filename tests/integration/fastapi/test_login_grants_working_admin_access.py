@@ -102,11 +102,14 @@ def test_admin_login_scope_grants_access_to_admin_dashboard(admin_client: TestCl
     """SPAが送るリクエスト形（scope=["gui:view"]）でログインすると、
     管理画面API（admin:system-settings 必須）へ実際にアクセスできること。
     """
-    from shared.domain.auth.master_data import DEFAULT_ADMIN_EMAIL
+    from shared.domain.auth.master_data import (
+        DEFAULT_ADMIN_EMAIL,
+        DEFAULT_ADMIN_PASSWORD,
+    )
 
     login_resp = admin_client.post(
         "/api/auth/login",
-        json={"email": DEFAULT_ADMIN_EMAIL, "password": "admin", "scope": ["gui:view"]},
+        json={"email": DEFAULT_ADMIN_EMAIL, "password": DEFAULT_ADMIN_PASSWORD, "scope": ["gui:view"]},
     )
     assert login_resp.status_code == 200, login_resp.text
 
@@ -129,11 +132,14 @@ def test_admin_login_without_scope_field_grants_no_permissions(admin_client: Tes
     （バックエンドの意図した挙動）。フロントエンドが scope を送り忘れると
     この空トークンになり、あらゆる管理画面が「権限がありません」になる。
     """
-    from shared.domain.auth.master_data import DEFAULT_ADMIN_EMAIL
+    from shared.domain.auth.master_data import (
+        DEFAULT_ADMIN_EMAIL,
+        DEFAULT_ADMIN_PASSWORD,
+    )
 
     login_resp = admin_client.post(
         "/api/auth/login",
-        json={"email": DEFAULT_ADMIN_EMAIL, "password": "admin"},
+        json={"email": DEFAULT_ADMIN_EMAIL, "password": DEFAULT_ADMIN_PASSWORD},
     )
     assert login_resp.status_code == 200, login_resp.text
     assert login_resp.json()["scope"] == ""
@@ -168,11 +174,14 @@ def test_refresh_recomputes_scope_from_current_db_permissions(admin_client: Test
     引き継いでいたため、剥奪した権限を持つ JWT がローテーションの度に
     再発行され、最長30日間（リフレッシュトークン寿命）権限が生き続けた。
     """
-    from shared.domain.auth.master_data import DEFAULT_ADMIN_EMAIL
+    from shared.domain.auth.master_data import (
+        DEFAULT_ADMIN_EMAIL,
+        DEFAULT_ADMIN_PASSWORD,
+    )
 
     login_resp = admin_client.post(
         "/api/auth/login",
-        json={"email": DEFAULT_ADMIN_EMAIL, "password": "admin", "scope": ["gui:view"]},
+        json={"email": DEFAULT_ADMIN_EMAIL, "password": DEFAULT_ADMIN_PASSWORD, "scope": ["gui:view"]},
     )
     assert login_resp.status_code == 200, login_resp.text
     body = login_resp.json()
@@ -201,13 +210,16 @@ def test_me_returns_both_held_permissions_and_effective_scope(admin_client: Test
     両方返すこと。scope を絞って発行したトークンでは scope < permissions になる
     （Profile 画面はこの差分を「再ログインで反映」として表示する）。
     """
-    from shared.domain.auth.master_data import DEFAULT_ADMIN_EMAIL
+    from shared.domain.auth.master_data import (
+        DEFAULT_ADMIN_EMAIL,
+        DEFAULT_ADMIN_PASSWORD,
+    )
 
     login_resp = admin_client.post(
         "/api/auth/login",
         json={
             "email": DEFAULT_ADMIN_EMAIL,
-            "password": "admin",
+            "password": DEFAULT_ADMIN_PASSWORD,
             "scope": ["media:view", "album:view"],  # 意図的に狭める
         },
     )
@@ -234,11 +246,14 @@ def test_refresh_does_not_escalate_legacy_empty_scope_token(admin_client: TestCl
     リフレッシュしても空のまま（勝手に昇格しない）。該当ユーザーは一度
     再ログインが必要（ログインは常に現在の権限から再計算するため復旧する）。
     """
-    from shared.domain.auth.master_data import DEFAULT_ADMIN_EMAIL
+    from shared.domain.auth.master_data import (
+        DEFAULT_ADMIN_EMAIL,
+        DEFAULT_ADMIN_PASSWORD,
+    )
 
     login_resp = admin_client.post(
         "/api/auth/login",
-        json={"email": DEFAULT_ADMIN_EMAIL, "password": "admin"},  # scope なし
+        json={"email": DEFAULT_ADMIN_EMAIL, "password": DEFAULT_ADMIN_PASSWORD},  # scope なし
     )
     assert login_resp.status_code == 200, login_resp.text
     body = login_resp.json()

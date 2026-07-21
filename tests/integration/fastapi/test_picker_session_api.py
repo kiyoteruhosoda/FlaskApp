@@ -109,11 +109,14 @@ def picker_client(tmp_path, monkeypatch) -> TestClient:
 
 
 def _auth_headers(client: TestClient) -> dict[str, str]:
-    from shared.domain.auth.master_data import DEFAULT_ADMIN_EMAIL
+    from shared.domain.auth.master_data import (
+        DEFAULT_ADMIN_EMAIL,
+        DEFAULT_ADMIN_PASSWORD,
+    )
 
     resp = client.post(
         "/api/auth/login",
-        json={"email": DEFAULT_ADMIN_EMAIL, "password": "admin", "scope": ["gui:view"]},
+        json={"email": DEFAULT_ADMIN_EMAIL, "password": DEFAULT_ADMIN_PASSWORD, "scope": ["gui:view"]},
     )
     assert resp.status_code == 200, resp.text
     return {"Authorization": f"Bearer {resp.json()['access_token']}"}

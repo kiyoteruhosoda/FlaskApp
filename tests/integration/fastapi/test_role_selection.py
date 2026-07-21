@@ -46,11 +46,14 @@ def _grant_role_to_admin(client: TestClient, role_name: str) -> None:
 
 
 def _login(client: TestClient) -> dict:
-    from shared.domain.auth.master_data import DEFAULT_ADMIN_EMAIL
+    from shared.domain.auth.master_data import (
+        DEFAULT_ADMIN_EMAIL,
+        DEFAULT_ADMIN_PASSWORD,
+    )
 
     resp = client.post(
         "/api/auth/login",
-        json={"email": DEFAULT_ADMIN_EMAIL, "password": "admin", "scope": ["gui:view"]},
+        json={"email": DEFAULT_ADMIN_EMAIL, "password": DEFAULT_ADMIN_PASSWORD, "scope": ["gui:view"]},
     )
     assert resp.status_code == 200, resp.text
     return resp.json()

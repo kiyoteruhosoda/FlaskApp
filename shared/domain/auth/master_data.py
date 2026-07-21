@@ -90,12 +90,15 @@ ROLE_PERMISSIONS: Mapping[str, Sequence[str]] = {
 
 # --- 初期管理者 --------------------------------------------------------------
 # パスワードは環境変数 ``ADMIN_INITIAL_PASSWORD`` で上書きできる（推奨）。
-# 未指定時はこのフォールバックハッシュ（平文 "admin@example.com"＝初期管理者の
-# メールアドレスと同じ）が使われるため、本番では初回ログイン後に必ず変更すること。
+# 未指定時は ``DEFAULT_ADMIN_PASSWORD``（＝メールアドレスと同じ）のフォールバック
+# ハッシュが使われるため、本番では初回ログイン後に必ず変更すること。
 DEFAULT_ADMIN_ID: int = 1
 DEFAULT_ADMIN_EMAIL: str = "admin@example.com"
 DEFAULT_ADMIN_USERNAME: str = "admin"
 DEFAULT_ADMIN_ROLE: str = "admin"
+# 既定パスワードの平文（正本）。起動時の self-check・テスト・シードの各所が
+# この定数を参照する。``DEFAULT_ADMIN_PASSWORD_HASH`` はこの平文の scrypt ハッシュ。
+DEFAULT_ADMIN_PASSWORD: str = "admin@example.com"
 DEFAULT_ADMIN_PASSWORD_HASH: str = (
     "scrypt:32768:8:1$jbKRGOz8X2OszFVO$"
     "211f7e143da57c6d4ca0ba46aab82fc027b7ec976c48bfdbd0cc924c372917139d1b6f73"
@@ -110,5 +113,6 @@ __all__ = [
     "DEFAULT_ADMIN_EMAIL",
     "DEFAULT_ADMIN_USERNAME",
     "DEFAULT_ADMIN_ROLE",
+    "DEFAULT_ADMIN_PASSWORD",
     "DEFAULT_ADMIN_PASSWORD_HASH",
 ]

@@ -26,7 +26,10 @@ from tests.integration.test_migration_model_consistency import (
 def test_default_admin_can_login_with_documented_credentials():
     _setup_test_env()
 
-    from shared.domain.auth.master_data import DEFAULT_ADMIN_EMAIL
+    from shared.domain.auth.master_data import (
+        DEFAULT_ADMIN_EMAIL,
+        DEFAULT_ADMIN_PASSWORD,
+    )
 
     engine = sa.create_engine("sqlite://")
     connection = engine.connect()
@@ -45,12 +48,12 @@ def test_default_admin_can_login_with_documented_credentials():
             auth_service = AuthService(user_repo, UserRegistrationService(user_repo))
 
             authenticated = auth_service.authenticate(
-                DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_EMAIL
+                DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD
             )
             assert authenticated is not None, (
-                f"案内どおりの認証情報（{DEFAULT_ADMIN_EMAIL} / {DEFAULT_ADMIN_EMAIL}）で"
+                f"案内どおりの認証情報（{DEFAULT_ADMIN_EMAIL} / {DEFAULT_ADMIN_PASSWORD}）で"
                 "ログインできません。"
-                " DEFAULT_ADMIN_PASSWORD_HASH がドキュメントの平文と一致していません。"
+                " DEFAULT_ADMIN_PASSWORD_HASH が DEFAULT_ADMIN_PASSWORD と一致していません。"
             )
             assert authenticated.email == DEFAULT_ADMIN_EMAIL
 

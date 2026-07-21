@@ -1,14 +1,14 @@
 """初期管理者アカウントが案内どおりの認証情報でログインできることを検証する回帰テスト。
 
-過去、``shared/domain/auth/master_data.py`` の ``DEFAULT_ADMIN_PASSWORD_HASH``
-（``ADMIN_INITIAL_PASSWORD`` 未指定時に ``2a1f9c0b3d4e_seed_master_data`` が
-投入するフォールバックハッシュ）が、ドキュメント上の平文 "admin" ではなく
-"admin@example.com"（メールアドレス）のハッシュになっていたため、案内どおりの
-``admin@example.com`` / ``admin`` ではログインできなかった（401 invalid_credentials）。
+``shared/domain/auth/master_data.py`` の ``DEFAULT_ADMIN_PASSWORD_HASH``
+（``ADMIN_INITIAL_PASSWORD`` 未指定時にマイグレーションが投入する
+フォールバックハッシュ）は、案内どおりの ``admin@example.com`` /
+``admin@example.com`` でログインできる必要がある。ハッシュとドキュメントの
+平文が乖離するとログインできなくなる（401 invalid_credentials）ため、その
+再発を防止する。
 
 本テストは全マイグレーションを空DBへ適用したあと、実際に
-``AuthService.authenticate()`` を通してログインできることを確認する
-（``5a6b39ff7ecc_fix_default_admin_password_hash`` の再発防止）。
+``AuthService.authenticate()`` を通してログインできることを確認する。
 """
 from __future__ import annotations
 
@@ -26,7 +26,10 @@ from tests.integration.test_migration_model_consistency import (
 def test_default_admin_can_login_with_documented_credentials():
     _setup_test_env()
 
-    from shared.domain.auth.master_data import DEFAULT_ADMIN_EMAIL
+    from shared.domain.auth.master_data import (
+        DEFAULT_ADMIN_EMAIL,
+        DEFAULT_ADMIN_PASSWORD,
+    )
 
     engine = sa.create_engine("sqlite://")
     connection = engine.connect()
@@ -44,10 +47,13 @@ def test_default_admin_can_login_with_documented_credentials():
             user_repo = SqlAlchemyUserRepository(session)
             auth_service = AuthService(user_repo, UserRegistrationService(user_repo))
 
-            authenticated = auth_service.authenticate(DEFAULT_ADMIN_EMAIL, "admin")
+            authenticated = auth_service.authenticate(
+                DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD
+            )
             assert authenticated is not None, (
-                f"案内どおりの認証情報（{DEFAULT_ADMIN_EMAIL} / admin）でログインできません。"
-                " DEFAULT_ADMIN_PASSWORD_HASH がドキュメントの平文と一致していません。"
+                f"案内どおりの認証情報（{DEFAULT_ADMIN_EMAIL} / {DEFAULT_ADMIN_PASSWORD}）で"
+                "ログインできません。"
+                " DEFAULT_ADMIN_PASSWORD_HASH が DEFAULT_ADMIN_PASSWORD と一致していません。"
             )
             assert authenticated.email == DEFAULT_ADMIN_EMAIL
 

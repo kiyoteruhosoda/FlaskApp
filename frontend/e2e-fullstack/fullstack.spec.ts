@@ -3,8 +3,8 @@ import { test, expect, Page, APIRequestContext } from '@playwright/test';
 /**
  * 初期管理者フルスタック E2E。
  *
- * 実 FastAPI ＋ 実DB ＋ ビルド済み SPA に対し、admin@example.com / admin で
- * UI ログインし、App.tsx の全ルート（約30画面）を巡回する。
+ * 実 FastAPI ＋ 実DB ＋ ビルド済み SPA に対し、admin@example.com /
+ * admin@example.com で UI ログインし、App.tsx の全ルート（約30画面）を巡回する。
  *
  * 判定基準:
  *  - 各画面のルート要素（data-testid="*-page"）が表示されること
@@ -18,7 +18,7 @@ import { test, expect, Page, APIRequestContext } from '@playwright/test';
  * 決定論的フィクスチャを用意できず本スイートの対象外とする。
  */
 
-const ADMIN = { email: 'admin@example.com', password: 'admin' };
+const ADMIN = { email: 'admin@example.com', password: 'admin@example.com' };
 
 // ログイン後に到達可能な、パラメータを持たない静的ルート。
 const STATIC_ROUTES: [path: string, testId: string][] = [

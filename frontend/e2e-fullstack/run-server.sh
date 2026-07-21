@@ -4,7 +4,7 @@
 # 実 FastAPI サーバー ＋ 実DB（ファイルベース SQLite）＋ ビルド済み SPA
 # （FastAPI が frontend/build を静的配信）を起動する。DB は毎回まっさらに作り直し、
 # scripts/run_db_migrations.py でスキーマ・マスタデータ（初期管理者
-# admin@example.com / admin）を投入する。
+# admin@example.com / admin@example.com）を投入する。
 #
 # Python は `${E2E_PYTHON:-python}` を使う（CI では venv の python を指す想定。
 # ローカル検証では `E2E_PYTHON="uv run python"` などを渡す）。

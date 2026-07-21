@@ -6,6 +6,16 @@
 ## [Unreleased]
 
 ### Changed
+- **初期管理者のデフォルトパスワードを `admin@example.com` に変更**（メールアドレスと
+  同じ値）。`ADMIN_INITIAL_PASSWORD` 未指定時のフォールバック
+  （`shared/domain/auth/master_data.py` の `DEFAULT_ADMIN_PASSWORD_HASH`）を、平文
+  "admin" のハッシュから平文 "admin@example.com" のハッシュへ差し替えた。既存DBの
+  初期管理者行が旧フォールバック（平文 "admin"）のままの場合のみ補正するマイグレーション
+  （`migrations/versions/e2f4a7c9d305_*`）を追加。手動でパスワード変更済みの行や
+  `ADMIN_INITIAL_PASSWORD` で別値を設定した行は変更しない。起動時の admin login
+  self-check・回帰テスト・ドキュメント（README / OPERATIONS）・フルスタックE2Eの
+  期待パスワードも合わせて更新。
+
 - **コードレビューで検出したDB・I/Oの非効率を一括最適化**（クエリ数・メモリ・CPU削減、
   外部挙動は不変）。
   - `media` テーブルに重複判定用インデックスを追加

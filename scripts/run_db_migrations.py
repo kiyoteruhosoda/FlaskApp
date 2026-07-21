@@ -349,9 +349,11 @@ def log_admin_login_self_check(database_url: str) -> None:
     from shared.domain.auth.master_data import DEFAULT_ADMIN_EMAIL
 
     admin_initial_password = os.environ.get("ADMIN_INITIAL_PASSWORD")
-    expected_password = admin_initial_password or "admin"
+    expected_password = admin_initial_password or "admin@example.com"
     expected_source = (
-        "ADMIN_INITIAL_PASSWORD" if admin_initial_password else "デフォルト値 'admin'"
+        "ADMIN_INITIAL_PASSWORD"
+        if admin_initial_password
+        else "デフォルト値 'admin@example.com'"
     )
 
     engine = sa.create_engine(database_url)

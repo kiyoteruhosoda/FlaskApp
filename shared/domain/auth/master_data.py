@@ -90,16 +90,16 @@ ROLE_PERMISSIONS: Mapping[str, Sequence[str]] = {
 
 # --- 初期管理者 --------------------------------------------------------------
 # パスワードは環境変数 ``ADMIN_INITIAL_PASSWORD`` で上書きできる（推奨）。
-# 未指定時はこのフォールバックハッシュ（平文 "admin"）が使われるため、
-# 本番では初回ログイン後に必ず変更すること。
+# 未指定時はこのフォールバックハッシュ（平文 "admin@example.com"＝初期管理者の
+# メールアドレスと同じ）が使われるため、本番では初回ログイン後に必ず変更すること。
 DEFAULT_ADMIN_ID: int = 1
 DEFAULT_ADMIN_EMAIL: str = "admin@example.com"
 DEFAULT_ADMIN_USERNAME: str = "admin"
 DEFAULT_ADMIN_ROLE: str = "admin"
 DEFAULT_ADMIN_PASSWORD_HASH: str = (
-    "scrypt:32768:8:1$kp58BgWIX2eGuqc6$"
-    "879463f4b7684251a26d3ce6d863de80b756a47c42244709a752e0b935ad5f0b7392f598"
-    "b9a43436d8af47aba78d78c726eb8fab983fe03e823c19f92108ff27"
+    "scrypt:32768:8:1$jbKRGOz8X2OszFVO$"
+    "211f7e143da57c6d4ca0ba46aab82fc027b7ec976c48bfdbd0cc924c372917139d1b6f73"
+    "eb4702ace4e7d043236470ba797eff9a95ca4a0ff0afb83f29944a56"
 )
 
 __all__ = [

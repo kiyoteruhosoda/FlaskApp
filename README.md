@@ -170,7 +170,7 @@ docker compose exec web python scripts/seed_master_data.py
 
 # 初期ログイン情報（必ずパスワードを変更してください）
 # Email:    admin@example.com
-# Password: admin123
+# Password: admin@example.com
 ```
 
 ## アーキテクチャ
